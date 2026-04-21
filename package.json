@@ -1,0 +1,13 @@
+{
+  "name": "froid",
+  "version": "1.0.0",
+  "private": true,
+  "description": "FROID v3.0 - Sistema de Apoio Clinico com Compliance LGPD",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "dependencies": {
+    "axios": "^1.15.0"
+  }
+}

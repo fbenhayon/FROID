@@ -1,0 +1,23 @@
+{
+  "froid": {
+    "modules": {
+      "scope_to_module": {
+        "audio_recording":  "froid-voice",
+        "video_recording":  "froid-face",
+        "voice_analysis":   "froid-voice",
+        "facial_analysis":  "froid-face",
+        "transcription":    "froid-transcribe",
+        "ai_report":        "froid-nlp",
+        "benchmark":        "feature-extractor"
+      },
+      "all_modules": [
+        "froid-voice",
+        "froid-face",
+        "froid-transcribe",
+        "froid-nlp",
+        "froid-fusion",
+        "feature-extractor"
+      ]
+    }
+  }
+}

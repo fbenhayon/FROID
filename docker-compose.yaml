@@ -1,0 +1,153 @@
+# FROID v3.1 - Docker Compose Unificado
+# Redes e volumes definidos corretamente no nível raiz
+
+services:
+  # ============================================================
+  # INFRAESTRUTURA
+  # ============================================================
+  
+  postgres:
+    image: postgres:16-alpine
+    container_name: froid-postgres
+    environment:
+      POSTGRES_USER: froid_id
+      POSTGRES_PASSWORD: froid123
+      POSTGRES_DB: froid_identity
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U froid_id -d froid_identity"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - froid-network
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+
+  redis:
+    image: redis:7-alpine
+    container_name: froid-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - froid-network
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+
+  # ============================================================
+  # IDENTITY VAULT (NestJS - porta 3001)
+  # ============================================================
+  identity-vault:
+    build:
+      context: .
+      dockerfile: packages/identity-vault/Dockerfile
+    container_name: froid-identity-vault
+    ports:
+      - "3001:3001"
+    environment:
+      DATABASE_URL: postgresql://froid_id:froid123@postgres:5432/froid_identity
+      REDIS_URL: redis://redis:6379
+      PORT: 3001
+      NODE_ENV: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - froid-network
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    volumes:
+      - /app/node_modules
+
+  # ============================================================
+  # FROID VOICE (Python/FastAPI - porta 3002)
+  # ============================================================
+  froid-voice:
+    build:
+      context: ./packages/froid-voice
+      dockerfile: Dockerfile
+    container_name: froid-voice
+    ports:
+      - "3002:3002"
+    environment:
+      IDENTITY_VAULT_URL: http://identity-vault:3001/api
+      REDIS_URL: redis://redis:6379
+      PYTHONUNBUFFERED: 1
+    depends_on:
+      - identity-vault
+      - redis
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+    restart: unless-stopped
+    networks:
+      - froid-network
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    volumes:
+      # Monta libs do host se o container reclamar de .so faltando em runtime
+      - /usr/lib/x86_64-linux-gnu/libsndfile.so.1:/usr/lib/x86_64-linux-gnu/libsndfile.so.1:ro
+      - /usr/bin/ffmpeg:/usr/bin/ffmpeg:ro
+      - /usr/lib/x86_64-linux-gnu/libGL.so.1:/usr/lib/x86_64-linux-gnu/libGL.so.1:ro
+
+  # ============================================================
+  # FROID FACE (Python/FastAPI - porta 3003)
+  # ============================================================
+  froid-face:
+    build:
+      context: ./packages/froid-face
+      dockerfile: Dockerfile
+    container_name: froid-face
+    ports:
+      - "3003:3003"
+    environment:
+      IDENTITY_VAULT_URL: http://identity-vault:3001/api
+      REDIS_URL: redis://redis:6379
+      FROID_VOICE_URL: http://froid-voice:3002
+      PYTHONUNBUFFERED: 1
+    depends_on:
+      - identity-vault
+      - redis
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+    restart: unless-stopped
+    networks:
+      - froid-network
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    volumes:
+      # Monta libs do host se o container reclamar de .so faltando em runtime
+      - /usr/lib/x86_64-linux-gnu/libsndfile.so.1:/usr/lib/x86_64-linux-gnu/libsndfile.so.1:ro
+      - /usr/bin/ffmpeg:/usr/bin/ffmpeg:ro
+      - /usr/lib/x86_64-linux-gnu/libGL.so.1:/usr/lib/x86_64-linux-gnu/libGL.so.1:ro
+
+# ⚠️ IMPORTANTE: "networks" e "volumes" DEVEM estar no nível RAIZ (sem indentação)
+networks:
+  froid-network:
+    driver: bridge
+
+volumes:
+  pg:

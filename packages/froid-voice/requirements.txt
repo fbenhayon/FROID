@@ -1,0 +1,14 @@
+fastapi==0.110.3
+uvicorn==0.44.0
+websockets==12.0
+pydantic==2.6.0
+opensmile==2.4.2
+librosa==0.10.1
+parselmouth==0.4.3
+webrtcvad==2.0.10
+numpy==1.26.4
+scipy==1.12.0
+redis==5.0.1
+httpx==0.27.0
+protobuf>=3.11,<4
+python-dotenv==1.0.1

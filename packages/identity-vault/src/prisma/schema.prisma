@@ -1,0 +1,589 @@
+// FROID v3.0 - Entrega 1 de 15
+// 9 Modelos de Dados - Identity Vault
+// packages/identity-vault/src/prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// MODEL 1: Patient
+// PII sensivel â€” dataClassification = "sensitive"
+// ============================================================
+model Patient {
+  id                 String            @id @default(uuid())
+  fullName           String
+  cpf                String            @unique
+  email              String            @unique
+  phone              String?
+  dateOfBirth        DateTime
+  gender             String            // M, F, NB, O
+  region             String            // Regiao do pais (para anonimizacao)
+  guardianId         String?           // FK para responsavel legal (menores)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  tenantId           String?
+  dataClassification String            @default("sensitive")
+
+  // Relations
+  consents           ConsentRecord[]
+  sessions           Session[]
+  deletionRequests   DeletionRequest[]
+  legalEvents        LegalEvent[]
+}
+
+// ============================================================
+// MODEL 2: Professional
+// CRP ou CRM obrigatorio
+// ============================================================
+model Professional {
+  id                 String          @id @default(uuid())
+  fullName           String
+  cpf                String          @unique
+  email              String          @unique
+  registrationNumber String          // CRP ou CRM
+  registrationType   String          // CRP, CRM
+  specialty          String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  tenantId           String?
+
+  // Relations
+  sessions           Session[]
+  consentsReceived   ConsentRecord[]
+}
+
+// ============================================================
+// MODEL 3: LegalText
+// Versionamento imutavel â€” effectiveTo marca superseded
+// ============================================================
+model LegalText {
+  legalTextId         String          @id           // ex: "tcle_audio"
+  title               String
+  type                String          // notice, consent, warning, policy, term
+  audience            String          // patient, professional, guardian
+  context             String          // signup, first_access, pre_session, report, sharing, privacy_center
+  shortText           String          // texto curto para UI
+  expandedText        String          // texto completo
+  version             String          // semver: "1.0.0"
+  isBlocking          Boolean         @default(true)
+  requiresAction      Boolean         @default(true)
+  requiresSignature   Boolean         @default(false)
+  showCitationInline  Boolean         @default(false) // SEMPRE false na UI principal
+  showCitationDetails Boolean         @default(true)  // visivel em central de privacidade
+  effectiveFrom       DateTime        @default(now())
+  effectiveTo         DateTime?
+  supersedes          String?         // legalTextId da versao anterior
+  legalBasis          Json            // [{chapter, article, paragraph, tag}]
+  uiComponent         String          // componente React a renderizar
+  enforcementRuleId   String          // regra Rego no Policy Engine
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  // Relations
+  consents            ConsentRecord[]
+}
+
+// ============================================================
+// MODEL 4: ConsentRecord
+// Auditoria LGPD completa
+// ============================================================
+model ConsentRecord {
+  consentId          String        @id @default(uuid())
+  patientId          String
+  professionalId     String?
+  sessionId          String?
+  scope              String        // audio_recording, video_recording, voice_analysis,
+                                   // facial_analysis, transcription, ai_report, benchmark
+  purpose            String        // finalidade especifica em linguagem clara
+  status             String        // granted, revoked, denied
+  legalTextId        String
+  legalTextVersion   String
+  grantedAt          DateTime      @default(now())
+  revokedAt          DateTime?
+  expiresAt          DateTime?
+  collectionContext   String        // signup, session, settings
+  ipAddress          String
+  userAgent          String
+  geoLocation        String?
+  hash               String        // SHA-256 do payload
+  blockchainTxId     String?
+  proofUri           String?
+
+  // Governanca
+  createdBy          String
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  tenantId           String?
+  dataClassification String        @default("sensitive")
+
+  // Seguranca
+  encryptionKeyId    String?
+  accessLevel        String        @default("restricted")
+  retentionPolicyId  String?
+
+  // Auditoria LGPD
+  legalBasisSnapshot Json?
+  processingPurpose  String?
+  dataOrigin         String        @default("user_input")   // user_input, system_generated
+  processingType     String        @default("collection")   // collection, analysis, storage, sharing, deletion
+
+  // Relations
+  patient            Patient       @relation(fields: [patientId], references: [id])
+  professional       Professional? @relation(fields: [professionalId], references: [id])
+  legalText          LegalText     @relation(fields: [legalTextId], references: [legalTextId])
+  events             LegalEvent[]
+
+  @@index([patientId])
+  @@index([scope, status])
+  @@index([legalTextId])
+  @@index([sessionId])
+}
+
+// ============================================================
+// MODEL 5: LegalEvent
+// Trilha de auditoria de eventos juridicos
+// ============================================================
+model LegalEvent {
+  eventId          String         @id @default(uuid())
+  eventType        String         // CONSENT_GRANTED, CONSENT_REVOKED, SESSION_STARTED,
+                                  // SESSION_BLOCKED, DATA_SHARED, DATA_DELETED, REPORT_SIGNED
+  actorType        String         // patient, professional, system, admin
+  actorId          String
+  patientId        String
+  professionalId   String?
+  sessionId        String?
+  relatedConsentId String?
+  legalTextId      String
+  legalTextVersion String
+  scope            String?
+  purpose          String?
+  eventContext     String         // descricao do contexto
+  timestamp        DateTime       @default(now())
+  hash             String         // SHA-256
+  blockchainTxId   String?
+  integrityStatus  String         @default("valid") // valid, tampered, unknown
+  metadata         Json?          // dados adicionais do evento (ex: sessionId, snapshot hash)
+
+  // Relations
+  patient          Patient        @relation(fields: [patientId], references: [id])
+  consent          ConsentRecord? @relation(fields: [relatedConsentId], references: [consentId])
+
+  @@index([patientId])
+  @@index([eventType])
+  @@index([sessionId])
+}
+
+// ============================================================
+// MODEL 6: Session
+// requestedScopes e effectiveScopes como Json (array de strings)
+// Expandido na Entrega 4A com Session Orchestrator
+// ============================================================
+model Session {
+  sessionId          String       @id @default(uuid())
+  patientId          String
+  professionalId     String
+  startedAt          DateTime     @default(now())
+  endedAt            DateTime?
+  requestedScopes    Json         // string[] - o que o profissional pediu
+  effectiveScopes    Json         // string[] - intersection calculada pelo Policy Engine
+  legalState         String       @default("valid") // valid, blocked
+  blockReason        String?
+  consentSnapshot    Json         // foto dos consentimentos no inicio
+  hash               String
+  blockchainTxId     String?
+
+  // Entrega 4A - Session Orchestrator
+  status             String       @default("active") // active, completed, blocked, cancelled
+  protocol           String       @default("standard") // standard, multi_topic, crisis, assessment
+  enabledModules     Json?        // string[] - modulos FROID habilitados
+  blockedModules     Json?        // string[] - modulos FROID bloqueados
+  topicsPlanned      Json?        // string[] - topicos planejados para a sessao
+  topicsCovered      Json?        // string[] - topicos efetivamente cobertos
+  notes              String?      // notas do profissional ao encerrar
+  metadata           Json?        // dados adicionais da sessao
+
+  // Governanca + Seguranca
+  createdBy          String
+  tenantId           String?
+  dataClassification String       @default("sensitive")
+  encryptionKeyId    String?
+  accessLevel        String       @default("restricted")
+  retentionPolicyId  String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  // Relations
+  patient            Patient      @relation(fields: [patientId], references: [id])
+  professional       Professional @relation(fields: [professionalId], references: [id])
+  consentSnapshots   SessionConsentSnapshot[]
+
+  @@index([patientId])
+  @@index([professionalId])
+  @@index([status])
+}
+
+// ============================================================
+// MODEL 6B: SessionConsentSnapshot
+// Foto imutavel dos consentimentos no inicio da sessao
+// Entrega 4A - Session Orchestrator
+// ============================================================
+model SessionConsentSnapshot {
+  id                 String       @id @default(uuid())
+  sessionId          String
+  patientId          String
+  snapshotData       Json         // Array completo de ConsentRecords ativos
+  snapshotHash       String       // SHA-256 do snapshotData
+  activeScopes       Json         // string[] - escopos ativos no momento
+  deniedScopes       Json         // string[] - escopos negados no momento
+  missingScopes      Json         // string[] - escopos sem decisao
+  capturedAt         DateTime     @default(now())
+
+  // Relations
+  session            Session      @relation(fields: [sessionId], references: [sessionId])
+
+  @@index([sessionId])
+  @@index([patientId])
+}
+
+// ============================================================
+// MODEL 7: ShareRecord
+// Registro de compartilhamento de dados
+// ============================================================
+model ShareRecord {
+  shareId        String   @id @default(uuid())
+  reportId       String
+  patientId      String
+  professionalId String
+  recipient      String
+  recipientType  String   // email, system, professional
+  purpose        String
+  scope          String
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+  hash           String
+  blockchainTxId String
+}
+
+// ============================================================
+// MODEL 8: DeletionRequest
+// LGPD Art. 18 - Direitos do Titular (implementado na Entrega 9)
+// ============================================================
+model DeletionRequest {
+  requestId      String    @id @default(uuid())
+  patientId      String
+  requestedBy    String    // patient, admin
+  status         String    @default("pending") // pending, processing, completed, failed
+  requestedAt    DateTime  @default(now())
+  completedAt    DateTime?
+  steps          Json      // [{step, status, timestamp}]
+  proofHash      String?
+  blockchainTxId String?
+
+  // Relations
+  patient        Patient   @relation(fields: [patientId], references: [id])
+}
+
+// ============================================================
+// MODEL 9: AnonymizationRecord
+// Controle de anonimizacao (Entrega 7B)
+// ============================================================
+model AnonymizationRecord {
+  recordId        String   @id @default(uuid())
+  sourceSessionId String
+  anonymized      Boolean  @default(true)
+  riskScore       Float
+  approved        Boolean
+  rejectionReason String?
+  quarantine      Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  datasetId       String?
+}
+
+// ============================================================
+// MODEL 10: HashChainBlock
+// Cadeia imutavel - Entrega 3
+// ============================================================
+model HashChainBlock {
+  id              String    @id @default(uuid())
+  sequenceNumber  Int       @unique    // numero sequencial (auto-increment logico)
+  previousHash    String               // hash do bloco anterior ("genesis" para o primeiro)
+  eventId         String    @unique    // FK para LegalEvent.eventId
+  eventType       String               // tipo do evento (CONSENT_GRANTED, etc.)
+  payload         String               // JSON stringificado do evento completo
+  payloadHash     String               // SHA256 do payload
+  blockHash       String    @unique    // SHA256(sequenceNumber + previousHash + payloadHash + timestamp)
+  timestamp       DateTime  @default(now())
+  verified        Boolean   @default(true)  // resultado da ultima verificacao
+
+  @@index([eventId])
+  @@index([sequenceNumber])
+  @@index([blockHash])
+}
+
+// ============================================================
+// MODELOS ENTREGA 4B - Pipelines de Análise
+// Adicionar ao final do schema.prisma existente
+// ============================================================
+
+// MODEL 11: VoiceAnalysis
+// Dados de análise vocal por fatia de 10 segundos
+// Entrega 4B - froid-voice
+// ============================================================
+model VoiceAnalysis {
+  id              String   @id @default(uuid())
+  sessionId       String
+  sliceIndex      Int
+  timestamp       DateTime @default(now())
+  
+  // 12 Zonas FROID
+  zonalData       Json     // ZonalEnergyPacket completo
+  dominantZone    Int
+  dominantNote    String
+  
+  // 7 Bandas Espectrais
+  spectralData    Json     // 7 bandas com energia normalizada
+  dominantBand    Int
+  
+  // Prosódia
+  prosodyData     Json     // F0, Jitter, Shimmer, HNR, speech_rate
+  
+  // Scoring Clínico
+  clinicalScores  Json     // depression_risk, mania_activation, stress_cognitive
+  clinicalFlags   Json     // Flags ativos
+  
+  // Colorimetria
+  colorMap        Json     // 12 cores hex
+  overallColor    String
+  
+  // Sub-harmônicos
+  subharmonicData Json     // Energia, tremor, frequência
+  
+  // eGeMAPS brutas
+  egemapsRaw      Json?    // 88 features
+
+  createdAt       DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([sessionId, sliceIndex])
+}
+
+// ============================================================
+// MODEL 12: FacialAnalysis
+// Dados de análise facial por frame significativo
+// Entrega 4B - froid-face
+// ============================================================
+model FacialAnalysis {
+  id                 String   @id @default(uuid())
+  sessionId          String
+  frameIndex         Int
+  timestamp          DateTime @default(now())
+  
+  // Emoção
+  dominantEmotion    String
+  emotionConfidence  Float
+  valence            Float
+  arousal            Float
+  
+  // Genuineness
+  genuinenessScore   Float
+  isMicroexpression  Boolean  @default(false)
+  durationMs         Int      @default(0)
+  
+  // Fase temporal (HMM)
+  temporalPhase      String   // neutral, onset, apex, offset
+  
+  // Action Units
+  activeAUs          Json     // Array de AUs ativas com intensidade
+  
+  // Assimetria
+  asymmetryData      Json     // D-face, S-face, scores regionais
+  
+  // Qualidade
+  qualityData        Json     // Visibilidade, iluminação, pose
+  
+  // Flags clínicos
+  clinicalFlags      Json     // Flags de assimetria, microexpressão, etc.
+  
+  // Dados brutos (compactados)
+  rawData            Json?    // FacialEmotionPacket completo
+
+  createdAt          DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([sessionId, frameIndex])
+  @@index([dominantEmotion])
+}
+
+// ============================================================
+// MODEL 13: FusionAnalysis
+// Dados de fusão multimodal face-voz
+// Entrega 4B - fusão
+// ============================================================
+model FusionAnalysis {
+  id                   String   @id @default(uuid())
+  sessionId            String
+  timestamp            DateTime @default(now())
+  
+  // Scores de fusão
+  congruenceScore      Float    // 0-1 (similaridade cosseno)
+  ipm                  Float    // Índice de Percepção Móvel (proprietário)
+  
+  // Incongruência
+  incongruenceDetected Boolean  @default(false)
+  incongruenceSeverity String?  // low, medium, high, critical
+  
+  // Contexto
+  clinicalContext      String   // follow_up_depression, anxiety, etc.
+  weightsApplied       Json     // {face: 0.6, voice: 0.4}
+  
+  // Valence/Arousal combinados
+  faceValence          Float
+  faceArousal          Float
+  voiceValence         Float
+  voiceArousal         Float
+  
+  // Flags
+  clinicalFlags        Json     // Flags de incongruência
+
+  createdAt            DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([incongruenceDetected])
+}
+
+// ============================================================
+// MODELOS ENTREGA 4B - Pipelines de Análise
+// Adicionar ao final do schema.prisma existente
+// ============================================================
+
+// MODEL 11: VoiceAnalysis
+// Dados de análise vocal por fatia de 10 segundos
+// Entrega 4B - froid-voice
+// ============================================================
+model VoiceAnalysis {
+  id              String   @id @default(uuid())
+  sessionId       String
+  sliceIndex      Int
+  timestamp       DateTime @default(now())
+  
+  // 12 Zonas FROID
+  zonalData       Json     // ZonalEnergyPacket completo
+  dominantZone    Int
+  dominantNote    String
+  
+  // 7 Bandas Espectrais
+  spectralData    Json     // 7 bandas com energia normalizada
+  dominantBand    Int
+  
+  // Prosódia
+  prosodyData     Json     // F0, Jitter, Shimmer, HNR, speech_rate
+  
+  // Scoring Clínico
+  clinicalScores  Json     // depression_risk, mania_activation, stress_cognitive
+  clinicalFlags   Json     // Flags ativos
+  
+  // Colorimetria
+  colorMap        Json     // 12 cores hex
+  overallColor    String
+  
+  // Sub-harmônicos
+  subharmonicData Json     // Energia, tremor, frequência
+  
+  // eGeMAPS brutas
+  egemapsRaw      Json?    // 88 features
+
+  createdAt       DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([sessionId, sliceIndex])
+}
+
+// ============================================================
+// MODEL 12: FacialAnalysis
+// Dados de análise facial por frame significativo
+// Entrega 4B - froid-face
+// ============================================================
+model FacialAnalysis {
+  id                 String   @id @default(uuid())
+  sessionId          String
+  frameIndex         Int
+  timestamp          DateTime @default(now())
+  
+  // Emoção
+  dominantEmotion    String
+  emotionConfidence  Float
+  valence            Float
+  arousal            Float
+  
+  // Genuineness
+  genuinenessScore   Float
+  isMicroexpression  Boolean  @default(false)
+  durationMs         Int      @default(0)
+  
+  // Fase temporal (HMM)
+  temporalPhase      String   // neutral, onset, apex, offset
+  
+  // Action Units
+  activeAUs          Json     // Array de AUs ativas com intensidade
+  
+  // Assimetria
+  asymmetryData      Json     // D-face, S-face, scores regionais
+  
+  // Qualidade
+  qualityData        Json     // Visibilidade, iluminação, pose
+  
+  // Flags clínicos
+  clinicalFlags      Json     // Flags de assimetria, microexpressão, etc.
+  
+  // Dados brutos (compactados)
+  rawData            Json?    // FacialEmotionPacket completo
+
+  createdAt          DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([sessionId, frameIndex])
+  @@index([dominantEmotion])
+}
+
+// ============================================================
+// MODEL 13: FusionAnalysis
+// Dados de fusão multimodal face-voz
+// Entrega 4B - fusão
+// ============================================================
+model FusionAnalysis {
+  id                   String   @id @default(uuid())
+  sessionId            String
+  timestamp            DateTime @default(now())
+  
+  // Scores de fusão
+  congruenceScore      Float    // 0-1 (similaridade cosseno)
+  ipm                  Float    // Índice de Percepção Móvel (proprietário)
+  
+  // Incongruência
+  incongruenceDetected Boolean  @default(false)
+  incongruenceSeverity String?  // low, medium, high, critical
+  
+  // Contexto
+  clinicalContext      String   // follow_up_depression, anxiety, etc.
+  weightsApplied       Json     // {face: 0.6, voice: 0.4}
+  
+  // Valence/Arousal combinados
+  faceValence          Float
+  faceArousal          Float
+  voiceValence         Float
+  voiceArousal         Float
+  
+  // Flags
+  clinicalFlags        Json     // Flags de incongruência
+
+  createdAt            DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([incongruenceDetected])
+}

@@ -1,0 +1,54 @@
+/**
+ * FROID v3.0 - Shared Types
+ * ConsentRecord interfaces e enums
+ * 7 escopos de consentimento (Entrega 2A expande)
+ */
+
+export type ConsentScope =
+  | 'audio_recording'
+  | 'video_recording'
+  | 'voice_analysis'
+  | 'facial_analysis'
+  | 'transcription'
+  | 'ai_report'
+  | 'benchmark';
+
+export type ConsentStatus = 'granted' | 'revoked' | 'denied';
+
+export type ProcessingType = 'collection' | 'analysis' | 'storage' | 'sharing' | 'deletion';
+
+export type DataOrigin = 'user_input' | 'system_generated';
+
+export interface ConsentRecord {
+  consentId: string;
+  patientId: string;
+  professionalId?: string;
+  sessionId?: string;
+  scope: ConsentScope;
+  purpose: string;
+  status: ConsentStatus;
+  legalTextId: string;
+  legalTextVersion: string;
+  grantedAt: Date;
+  revokedAt?: Date;
+  expiresAt?: Date;
+  collectionContext: string;
+  ipAddress: string;
+  userAgent: string;
+  geoLocation?: string;
+  hash: string;
+  blockchainTxId?: string;
+  proofUri?: string;
+  createdBy: string;
+  createdAt: Date;
+  updatedAt: Date;
+  tenantId?: string;
+  dataClassification: string;
+  encryptionKeyId?: string;
+  accessLevel: string;
+  retentionPolicyId?: string;
+  legalBasisSnapshot?: object;
+  processingPurpose?: string;
+  dataOrigin: DataOrigin;
+  processingType: ProcessingType;
+}
