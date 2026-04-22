@@ -43,7 +43,8 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: .
+          # Contexto correto: pasta do serviço, não a raiz
+          context: packages/${{ matrix.service }}
           file: packages/${{ matrix.service }}/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
