@@ -1,29 +1,13 @@
+import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
+import { ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-
-  // Global prefix for all routes
-  app.setGlobalPrefix('api');
-
-  // Global validation pipe
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  );
-
-  // CORS
   app.enableCors();
-
-  const port = process.env.PORT || 3001;
-  await app.listen(port);
-  console.log('FROID Identity Vault running on port ' + port);
-  console.log('API available at http://localhost:' + port + '/api');
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+  await app.listen(3001, '0.0.0.0');
+  console.log('🚀 Identity Vault running on http://0.0.0.0:3001');
 }
-
 bootstrap();

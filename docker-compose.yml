@@ -1,0 +1,65 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: froid
+      POSTGRES_PASSWORD: froid123
+      POSTGRES_DB: froid_db
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U froid"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  identity-vault:
+    env_file: .env
+    build:
+      context: .
+      dockerfile: packages/identity-vault/Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - DATABASE_URL=postgresql://froid:froid123@postgres:5432/froid_db
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  froid-voice:
+    build:
+      context: .
+      dockerfile: packages/froid-voice/Dockerfile
+    ports:
+      - "3002:3002"
+    environment:
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  froid-face:
+    build:
+      context: .
+      dockerfile: packages/froid-face/Dockerfile
+    ports:
+      - "3003:3003"
+    environment:
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+volumes:
+  pgdata:

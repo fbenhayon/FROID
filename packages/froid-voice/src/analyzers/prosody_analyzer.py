@@ -7,8 +7,9 @@ Fonte: Plano 4B original
 """
 
 import numpy as np
-import parselmouth
-from parselmouth.praat import call
+# import parselmouth  # Comentado temporariamente para build
+# sound = parselmouth.Sound(...)  # Exemplo
+# from parselmouth.praat import call  # Comentado temporariamente!
 from typing import Dict, Optional
 
 

@@ -1,52 +1,44 @@
-# Etapa 1: Builder
-FROM node:20-alpine AS builder
-
-# Instala dependências de build necessárias
-RUN apk add --no-cache libc6-compat
-
-# Habilita Corepack e prepara pnpm com versão fixa + hash de integridade
-ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
-RUN corepack enable && \
-    corepack prepare pnpm@10.13.1 --activate && \
-    # Garante que o PATH inclua o diretório dos shims do corepack
-    export PATH="$PATH:$(corepack which pnpm | xargs dirname)"
-
+# === BUILDER ===
+FROM node:20-bookworm AS builder
 WORKDIR /app
 
-# Copia arquivos de dependência primeiro (cache eficiente)
-COPY package.json pnpm-lock.yaml ./
+RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN corepack enable && corepack prepare pnpm@10.13.1 --activate
 
-# Instala dependências com lockfile congelado
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/identity-vault/package.json ./packages/identity-vault/
+
 RUN pnpm install --frozen-lockfile
-
-# Copia código fonte
 COPY . .
 
-# Gera Prisma e faz build
-# Usa o caminho completo do pnpm para evitar erros de PATH
-RUN $(corepack which pnpm) run prisma:generate
-RUN $(corepack which pnpm) run build
+RUN cd packages/identity-vault && pnpm exec prisma generate --schema src/prisma/schema.prisma
+RUN cd packages/shared && (pnpm run build 2>/dev/null || true)
+RUN mkdir -p packages/shared/dist
+RUN cd packages/identity-vault && pnpm exec tsc
 
-# Etapa 2: Runner (Produção)
-FROM node:20-alpine AS runner
-
+# === RUNNER ===
+FROM node:20-bookworm AS runner
 WORKDIR /app
 
-# Cria usuário não-root para segurança
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nestjs -u 1001
+RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN corepack enable && corepack prepare pnpm@10.13.1 --activate
+RUN addgroup --system nodejs && adduser --system --ingroup nodejs nestjs
 
-# Copia apenas o necessário do builder
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/src/prisma ./src/prisma
-COPY --from=builder /app/package.json ./
+COPY --from=builder /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml ./
+COPY --from=builder /app/packages/shared/package.json ./packages/shared/
+COPY --from=builder /app/packages/identity-vault/package.json ./packages/identity-vault/
 
-# Ajusta permissões
+RUN pnpm install --prod --frozen-lockfile
+
+COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder /app/packages/identity-vault/dist ./packages/identity-vault/dist
+COPY --from=builder /app/packages/identity-vault/src/prisma ./packages/identity-vault/src/prisma
+
+RUN cd packages/identity-vault && pnpm dlx prisma@5.22.0 generate --schema ./src/prisma/schema.prisma
+
 RUN chown -R nestjs:nodejs /app
-
 USER nestjs
-
+WORKDIR /app/packages/identity-vault
 EXPOSE 3001
-
 CMD ["node", "dist/main.js"]

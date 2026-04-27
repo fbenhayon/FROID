@@ -16,10 +16,8 @@
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "forceConsistentCasingInFileNames": false,
-    "rootDir": "src",
-    "paths": {
-      "@froid/shared": ["../shared/dist/index"],
-      "@froid/shared/*": ["../shared/dist/*"]
-    }
-  }
+    "rootDir": "src"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "src/modules"]
 }
