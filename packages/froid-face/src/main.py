@@ -20,12 +20,12 @@ import time
 import json
 from typing import Dict, Optional
 
-from src.config import IDENTITY_VAULT_URL, DEFAULT_THRESHOLDS
+from src.config import IDENTITY_VAULT_URL, ClinicalThresholds
 from src.analyzers.landmark_extractor import LandmarkExtractor
 from src.analyzers.action_unit_classifier import ActionUnitClassifier
 from src.analyzers.temporal_hmm import ExpressionHMM
 from src.analyzers.emotion_classifier import EmotionClassifier
-from src.analyzers.asymmetry_analyzer import AsymmetryAnalyzer
+from src.analyzers.asymmetry_analyzer import FacialAsymmetryAnalyzer
 from src.analyzers.capture_quality import CaptureQualityAnalyzer
 from src.models.facial_packet import (
     FacialEmotionPacket,
@@ -104,14 +104,14 @@ async def face_stream(ws: WebSocket, session_id: str):
 
     # 2. Extrair configuração
     condition = ws.query_params.get("condition", "none")
-    thresholds = DEFAULT_THRESHOLDS.copy()
+    thresholds = CLINICALTHRESHOLDS.copy()
 
     # 3. Inicializar pipeline
     extractor = LandmarkExtractor()
     au_classifier = ActionUnitClassifier()
     hmm = ExpressionHMM()
     emotion_classifier = EmotionClassifier()
-    asymmetry = AsymmetryAnalyzer()
+    asymmetry = FACIALAsymmetryAnalyzer()
     quality_analyzer = CaptureQualityAnalyzer()
 
     frame_count = 0

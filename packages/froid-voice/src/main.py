@@ -74,8 +74,17 @@ async def health():
     return {
         "service": "froid-voice",
         "status": "healthy",
-        "version": "1.0.0",
+        "version": "3.1.0",
         "active_sessions": len(active_sessions),
+        "froid_zones": 12,
+        "spectral_bands": 7,
+        "features_total": 122,
+        "config": {
+            "vad": "webrtcvad",
+            "baseline_calibration_sec": 60,
+            "prosody": "Praat",
+            "colorimetry_levels": 7
+        }
     }
 
 

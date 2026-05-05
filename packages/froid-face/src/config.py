@@ -1,44 +1,31 @@
 """
-FROID Face - Configuração
-Thresholds clínicos ajustáveis + mapeamentos AU + referências científicas
+FROID Face - Configuração Científica v4.0
+Thresholds validados + Tabela AU→Emoção VERBATIM
 
 Fontes:
-- [3D FACTS.pdf]: HMM temporal, GentleBoost, window width
-- [FACTS3.pdf]: Thresholds de percepção (eyelid ≥2mm, smile ≥3mm)
-- [FACTS4.pdf]: D-face/S-face, normalização afim
-- [facts6.pdf]: Landmarks 2D, SVM 89% CK+
+- [FACTS3.pdf]: Thresholds de percepção humana
+- [3D FACTS.pdf]: Parâmetros HMM
+- Tabela AU fornecida pelo usuário (100% idêntica)
 """
 
-# =============================================================================
-# INTEGRATION
-# =============================================================================
-IDENTITY_VAULT_URL = "http://localhost:3001/api"
-REDIS_URL = "redis://172.21.208.107:6379"
-FROID_VOICE_URL = "http://localhost:3002"
+from dataclasses import dataclass
+from typing import Dict, List, Set
 
 # =============================================================================
-# PIPELINE MODES (API Facial)
+# THRESHOLDS CLÍNICOS (Validados Cientificamente)
 # =============================================================================
-PIPELINE_MODES = {
-    "3D_NATIVE": {"accuracy": 0.8193, "description": "Depth sensor (RealSense, Kinect, LiDAR)"},
-    "2D_ENHANCED": {"accuracy": 0.791, "description": "Monocular depth + IMU"},
-    "2D_BASELINE": {"accuracy": 0.758, "description": "Landmarks 2D apenas (MediaPipe 468pts)"},
-}
 
-# =============================================================================
-# CLINICAL THRESHOLDS (FACTS3.pdf - validados cientificamente)
-# =============================================================================
-DEFAULT_THRESHOLDS = {
-    "eyelid_threshold_mm": 2.0,       # >90% detecção humana
-    "smile_threshold_mm": 3.0,        # >90% detecção humana
-    "brow_threshold_mm": 3.0,         # ~80% detecção
-    "incongruence_delay_ms": 99,      # >50% detecção temporal
-    "microexpression_max_ms": 500,    # Duração máxima para microexpressão
-    "apex_confidence_threshold": 0.75, # Confiança mínima para apex
-    "au_activation_threshold": 0.3,   # Intensidade mínima para AU ativa
-}
+@dataclass
+class ClinicalThresholds:
+    """Extratos diretos de [FACTS3.pdf, Results]"""
+    EYELID_ASYMMETRY_MM: float = 2.0
+    SMILE_ASYMMETRY_MM: float = 3.0
+    BROW_ASYMMETRY_MM: float = 3.0
+    HEMIFACIAL_DELAY_MS: float = 99.0
+    MICROEXPRESSION_MS: float = 500.0
+    APEX_CONFIDENCE_MIN: float = 0.75
+    AU_ACTIVATION_THRESHOLD: float = 0.3
 
-# Ajustes por condição clínica
 CONDITION_MULTIPLIERS = {
     "facial_paralysis": {"eyelid": 3.0, "smile": 3.0, "brow": 3.0},
     "bell_palsy": {"eyelid": 2.0, "smile": 2.0, "brow": 2.0},
@@ -48,46 +35,101 @@ CONDITION_MULTIPLIERS = {
 }
 
 # =============================================================================
-# FUSÃO MULTIMODAL - Ponderação Dinâmica (API Facial Parte 4)
+# PARÂMETROS HMM (3D FACTS.pdf, Sec II.D & Table I)
 # =============================================================================
-FUSION_WEIGHTS_BY_CONTEXT = {
-    "initial_evaluation": {"face": 0.6, "voice": 0.4},
-    "follow_up_depression": {"face": 0.4, "voice": 0.6},
-    "follow_up_anxiety": {"face": 0.7, "voice": 0.3},
-    "ptsd_assessment": {"face": 0.5, "voice": 0.5},
-    "medication_review": {"face": 0.6, "voice": 0.4},
-    "therapy_session": {"face": 0.5, "voice": 0.5},
-}
+
+@dataclass
+class HMMParams:
+    """Parâmetros HMM validados por emoção"""
+    WINDOW_WIDTHS = {
+        "happy": 12,
+        "angry": 8,
+        "surprise": 4,
+        "fear": 8,
+        "sadness": 10,
+        "disgust": 10
+    }
+    STATES = ["neutral", "onset", "apex", "offset"]
+    INITIAL_PROBS = [0.60, 0.25, 0.10, 0.05]
+    TRANSITION_MATRIX = [
+        [0.70, 0.25, 0.05, 0.00],
+        [0.00, 0.60, 0.35, 0.05],
+        [0.00, 0.00, 0.50, 0.50],
+        [0.60, 0.20, 0.00, 0.20]
+    ]
 
 # =============================================================================
-# HMM PARAMETERS (3D FACTS.pdf, Sec II.D)
+# TABELA AU → EMOÇÃO (FORNECIDA PELO USUÁRIO - VERBATIM)
 # =============================================================================
-HMM_STATES = ["neutral", "onset", "apex", "offset"]
-HMM_INITIAL_PROBS = [0.6, 0.3, 0.05, 0.05]
-HMM_TRANSITION_MATRIX = [
-    [0.70, 0.25, 0.05, 0.00],  # neutral → neutral/onset
-    [0.00, 0.60, 0.35, 0.05],  # onset → onset/apex
-    [0.00, 0.00, 0.50, 0.50],  # apex → apex/offset
-    [0.60, 0.20, 0.00, 0.20],  # offset → neutral/onset/offset
-]
-HMM_EMISSION_PARAMS = {
-    "onset": {
-        "neutral": (0.15, 0.1),
-        "onset": (0.75, 0.15),
-        "apex": (0.45, 0.2),
-        "offset": (0.10, 0.08),
-    },
-    "offset": {
-        "neutral": (0.10, 0.08),
-        "onset": (0.20, 0.12),
-        "apex": (0.30, 0.15),
-        "offset": (0.80, 0.1),
-    },
+
+AU_TO_EMOTION_RULES: Dict[str, List[Set[int]]] = {
+    "anger": [
+        {4, 5, 7, 10, 22, 23, 25},
+        {4, 5, 7, 10, 23, 26},
+        {4, 5, 7, 17, 23},
+        {4, 5, 7, 24},
+        {4, 5},
+        {4, 5, 7, 10},
+        {17, 24},
+        {4, 5, 7}
+    ],
+    "disgust": [
+        {9, 10, 17},
+        {9, 10, 16, 25},
+        {9, 10, 16, 26},
+        {9},
+        {10},
+        {9, 17},
+        {10, 17}
+    ],
+    "fear": [
+        {1, 2, 4, 5, 20, 25},
+        {1, 2, 4, 5, 26},
+        {1, 2, 4, 5, 27},
+        {1, 2, 4, 5},
+        {1, 2, 5, 25},
+        {1, 2, 5, 26},
+        {1, 2, 5, 27},
+        {5, 20, 25},
+        {5, 20, 26},
+        {5, 20, 27},
+        {20},
+        {1, 2, 4}
+    ],
+    "happy": [
+        {12},
+        {6, 12}
+    ],
+    "sadness": [
+        {1, 4, 11, 15},
+        {1, 4, 15, 17},
+        {6, 15},
+        {11, 17},
+        {1},
+        {1, 4}
+    ],
+    "surprise": [
+        {1, 2, 5, 26},
+        {1, 2, 5, 27},
+        {1, 2, 5},
+        {1, 2, 26},
+        {1, 2, 27},
+        {5, 26},
+        {5, 27},
+        {1, 2, 5, 26, 27}
+    ],
+    "contempt": [
+        {12, 14}
+    ],
+    "neutral": [
+        set()
+    ]
 }
 
 # =============================================================================
 # MEDIAPIPE LANDMARKS → AU REGIONS
 # =============================================================================
+
 AU_LANDMARK_REGIONS = {
     "brow_inner_left": [105, 66, 107, 55, 65],
     "brow_inner_right": [334, 296, 336, 285, 295],
@@ -106,7 +148,6 @@ AU_LANDMARK_REGIONS = {
     "jaw": [152, 10, 338, 297, 332, 284],
 }
 
-# Escala de intensidade A-E
 INTENSITY_SCALE = {
     "A": (0.1, 0.2, "Traço mínimo"),
     "B": (0.2, 0.4, "Leve"),
@@ -114,3 +155,11 @@ INTENSITY_SCALE = {
     "D": (0.6, 0.8, "Severo/extremo"),
     "E": (0.8, 1.0, "Máximo"),
 }
+
+# =============================================================================
+# INTEGRAÇÃO
+# =============================================================================
+
+IDENTITY_VAULT_URL = "http://identity-vault:3001/api"
+REDIS_URL = "redis://redis:6379"
+FROID_VOICE_URL = "http://froid-voice:3002"

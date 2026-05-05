@@ -9,7 +9,7 @@ D: 0.6-0.8 (severo), E: 0.8-1.0 (máximo)
 
 import numpy as np
 from typing import Dict, List, Optional
-from src.config import DEFAULT_THRESHOLDS, INTENSITY_SCALE
+from src.config import ClinicalThresholds, INTENSITY_SCALE
 from src.facs.au_definitions import AU_DEFINITIONS, RELIABLE_MUSCLES, VOLUNTARY_MUSCLES
 
 
@@ -20,7 +20,7 @@ class ActionUnitClassifier:
     """
 
     def __init__(self):
-        self.activation_threshold = DEFAULT_THRESHOLDS["au_activation_threshold"]
+        self.activation_threshold = ClinicalThresholds.AU_ACTIVATION_THRESHOLD ["au_activation_threshold"]
         # Calibração de repouso (atualizada por sessão)
         self.baseline_distances: Optional[Dict[str, float]] = None
 

@@ -1,15 +1,18 @@
-import { Controller, Post, Get, Patch, Delete, Body, Param, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Patch, Delete, Body, Param } from '@nestjs/common';
 import { PatientService } from './patient.service';
-import { CreatePatientDto, UpdatePatientDto } from './patient.dto';
 
 @Controller('patients')
 export class PatientController {
   constructor(private readonly patientService: PatientService) {}
 
   @Post()
-  @HttpCode(HttpStatus.CREATED)
-  create(@Body() dto: CreatePatientDto) {
-    return this.patientService.create(dto);
+  create(@Body() data: any) {
+    return this.patientService.create(data);
+  }
+
+  @Get('professional/:professionalId')
+  listByProfessional(@Param('professionalId') professionalId: string) {
+    return this.patientService.findByProfessional(professionalId);
   }
 
   @Get(':id')
@@ -18,8 +21,8 @@ export class PatientController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdatePatientDto) {
-    return this.patientService.update(id, dto);
+  update(@Param('id') id: string, @Body() data: any) {
+    return this.patientService.update(id, data);
   }
 
   @Delete(':id')

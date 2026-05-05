@@ -1,51 +1,73 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
-import { CreatePatientDto, UpdatePatientDto } from './patient.dto';
-import { Prisma } from '@prisma/client';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { prisma } from '../../prisma/client';
 
 @Injectable()
 export class PatientService {
-  constructor(private readonly prisma: PrismaService) {}
+  async create(data: any) {
+    const patient = await prisma.patient.create({
+      data: {
+        name: data.name,
+        cpf: data.cpf,
+        birthDate: new Date(data.birthDate),
+        phone: data.phone || null,
+        email: data.email || null,
+        professionalId: data.professionalId,
+      },
+    });
+    return patient;
+  }
 
-  async create(dto: CreatePatientDto) {
-    try {
-      return await this.prisma.patient.create({
-        data: {
-          ...dto,
-          dateOfBirth: new Date(dto.dateOfBirth),
-        },
-      });
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        throw new ConflictException('CPF ou e-mail ja cadastrado (conflito)');
-      }
-      throw error;
-    }
+  async findByProfessional(professionalId: string) {
+    return prisma.patient.findMany({
+      where: { 
+        professionalId,
+        deletedAt: null,
+        visibleToProfessionals: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
   async findOne(id: string) {
-    const patient = await this.prisma.patient.findUnique({ where: { id } });
+    const patient = await prisma.patient.findUnique({
+      where: { id },
+      include: {
+        sessions: true,
+        consentRecords: true,
+      },
+    });
+    
     if (!patient) {
-      throw new NotFoundException('Paciente nao encontrado');
+      throw new NotFoundException(`Patient ${id} not found`);
     }
-    return patient; // dataClassification = "sensitive" retornado por padrao
+    
+    return patient;
   }
 
-  async update(id: string, dto: UpdatePatientDto) {
-    await this.findOne(id);
-    return this.prisma.patient.update({ where: { id }, data: dto });
+  async update(id: string, data: any) {
+    const patient = await prisma.patient.update({
+      where: { id },
+      data: {
+        name: data.name,
+        phone: data.phone,
+        email: data.email,
+        updatedAt: new Date(),
+      },
+    });
+    
+    return patient;
   }
 
   async deactivate(id: string) {
-    // Entrega 1: apenas sinalizacao. Exclusao permanente = Entrega 9 (LGPD Art. 18)
-    await this.findOne(id);
-    return {
-      message: 'Paciente desativado. A exclusao permanente dos dados requer o processamento da Entrega 9 (LGPD Art. 18).',
-      patientId: id,
-      status: 'deactivation_flagged',
-    };
+    // Soft delete
+    const patient = await prisma.patient.update({
+      where: { id },
+      data: {
+        deletedAt: new Date(),
+        visibleToProfessionals: false,
+      },
+    });
+    
+    return { message: 'Patient deactivated', patient };
   }
 }

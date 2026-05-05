@@ -1,0 +1,158 @@
+import { useState } from 'react';
+
+interface ConsentModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onAccept: (scopes: any) => void;
+  patientName: string;
+}
+
+export function ConsentModal({ isOpen, onClose, onAccept, patientName }: ConsentModalProps) {
+  const [generalConsent, setGeneralConsent] = useState(false);
+  const [researchUse, setResearchUse] = useState(false);
+  const [thirdPartySharing, setThirdPartySharing] = useState(false);
+
+  const handleAccept = () => {
+    if (!generalConsent) {
+      alert('É necessário aceitar o termo geral');
+      return;
+    }
+    onAccept({
+      voiceRecording: true,
+      facialRecording: true,
+      biometricAnalysis: true,
+      clinicalScoring: true,
+      dataStorage: true,
+      researchUse,
+      thirdPartySharing,
+    });
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
+        <h2 className="text-2xl font-bold mb-4">Termo de Consentimento FROID</h2>
+<div className="bg-gray-50 border border-gray-300 rounded-lg p-4 mb-4 text-xs">
+          <p className="font-semibold mb-2">📋 INFORMAÇÕES LGPD (Lei 13.709/2018)</p>
+          
+          <p className="mb-2"><strong>Controlador de Dados:</strong> FROID Inc. | <strong>DPO:</strong> dpo@froid.com</p>
+          
+          <p className="mb-2"><strong>Finalidade:</strong> Análise clínica multimodal (voz + face) para apoio diagnóstico em psicoterapia.</p>
+          
+          <p className="mb-2"><strong>Seus Direitos (LGPD Art. 18):</strong></p>
+          <ul className="list-disc ml-5 mb-2 space-y-1">
+            <li>Acesso aos seus dados</li>
+            <li>Correção de dados incorretos</li>
+            <li>Anonimização, bloqueio ou eliminação</li>
+            <li>Portabilidade dos dados</li>
+            <li>Informações sobre compartilhamento</li>
+            <li>Revogação do consentimento (sem prejuízo ao tratamento já realizado)</li>
+          </ul>
+          
+          <p className="mb-2"><strong>Revogação:</strong> Você pode revogar este consentimento a qualquer momento através do seu profissional responsável.</p>
+          
+          <p className="mb-2"><strong>Consequências da Negativa:</strong> A recusa impede o uso da plataforma FROID, mas não afeta seu direito ao atendimento clínico convencional.</p>
+          
+          <p><strong>Segurança:</strong> Dados criptografados (AES-256), acesso restrito, logs de auditoria.</p>
+        </div>
+
+        <p className="text-gray-600 mb-4">Paciente: {patientName}</p>
+
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <h3 className="font-semibold mb-3">Aceite Geral (Obrigatório)</h3>
+          <div className="bg-white rounded p-4 mb-3 text-sm">
+            <p className="mb-2">Eu autorizo o uso da plataforma FROID para:</p>
+            <ul className="list-disc ml-5 space-y-1">
+              <li>Gravação e análise de voz (12 Zonas FROID)</li>
+              <li>Gravação e análise facial (FACS)</li>
+              <li>Processamento biométrico</li>
+              <li>Scoring clínico para apoio diagnóstico</li>
+              <li>Armazenamento seguro com criptografia</li>
+            </ul>
+          </div>
+          <label className="flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={generalConsent}
+              onChange={(e) => setGeneralConsent(e.target.checked)}
+              className="w-5 h-5 text-blue-600 rounded mr-3"
+            />
+            <span className="font-medium">Li e aceito o uso clínico do FROID</span>
+          </label>
+        </div>
+
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+
+
+----
+
+
+
+          <h3 className="font-semibold mb-3">Usos Adicionais (Opcionais)</h3>
+          
+          <label className="flex items-start cursor-pointer mb-3">
+            <input
+              type="checkbox"
+              checked={researchUse}
+              onChange={(e) => setResearchUse(e.target.checked)}
+              className="w-5 h-5 text-blue-600 rounded mr-3 mt-0.5"
+            />
+            <div>
+              <span className="font-medium">Uso em Pesquisa Científica</span>
+              <p className="text-sm text-gray-600">Dados agregados (k≥50, zero PII)</p>
+            </div>
+          </label>
+
+          <label className="flex items-start cursor-pointer">
+            <input
+              type="checkbox"
+              checked={thirdPartySharing}
+              onChange={(e) => setThirdPartySharing(e.target.checked)}
+              className="w-5 h-5 text-blue-600 rounded mr-3 mt-0.5"
+            />
+            <div>
+              <span className="font-medium">Compartilhamento com Parceiros</span>
+              <p className="text-sm text-gray-600">Para fins clínicos autorizados</p>
+            </div>
+          </label>
+        </div>
+
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg"
+
+
+--------
+
+
+
+
+
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleAccept}
+            disabled={!generalConsent}
+            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50"
+          >
+
+
+---------
+
+
+
+
+
+
+
+            Aceitar e Continuar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
