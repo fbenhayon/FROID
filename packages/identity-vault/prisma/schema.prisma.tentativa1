@@ -1,4 +1,4 @@
-// FROID v3.2.0 - Schema HÍBRIDO (mantém estrutura atual + adiciona financeiro)
+// FROID v3.2.0 - Schema Prisma com Módulo Financeiro
 // Data: 2026-05-06
 
 generator client {
@@ -10,19 +10,19 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ==================== MANTÉM ESTRUTURA ATUAL ====================
+// ==================== AUTENTICAÇÃO & USUÁRIOS ====================
 
 model User {
   id       String  @id @default(uuid())
   email    String  @unique
-  password String
+  password String  // Pode ser vazio para OAuth
+  name     String
   
-  // NOVO: OAuth Google
+  // OAuth Google
   googleId String? @unique
   picture  String?
-  name     String  @default("")
   
-  role     String  @default("professional")
+  role     String  @default("professional") // 'admin' | 'professional'
   
   professional    Professional?
   patients        Patient[]
@@ -46,7 +46,6 @@ model Professional {
   userId    String  @unique
   user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  name      String
   crp       String  @unique
   specialty String?
   bio       String?
@@ -56,6 +55,8 @@ model Professional {
   
   @@map("professionals")
 }
+
+// ==================== PACIENTES & SESSÕES ====================
 
 model Patient {
   id             String    @id @default(uuid())
@@ -68,12 +69,10 @@ model Patient {
   phone          String?
   email          String?
   
-  visibleToProfessionals Boolean @default(true)
-  
   // NOVO: Compartilhamento em clínicas
-  clinicId       String?
+  clinicId       String?   // Paciente pertence a qual clínica
   clinic         Clinic?   @relation(fields: [clinicId], references: [id])
-  sharedWith     String[]  @default([])
+  sharedWith     String[]  // IDs dos profissionais que têm acesso
   
   sessions       Session[]
   consents       Consent[]
@@ -91,7 +90,7 @@ model Session {
   professionalId String
   professional   User      @relation(fields: [professionalId], references: [id])
   
-  status         String    @default("active")
+  status         String    @default("active") // 'active' | 'completed' | 'cancelled'
   scheduledFor   DateTime
   startedAt      DateTime  @default(now())
   endedAt        DateTime?
@@ -99,9 +98,9 @@ model Session {
   clinicalNotes  String?
   
   // NOVO: Controle financeiro
-  clinicId       String?
+  clinicId       String?   // Sessão pertence a qual clínica (se aplicável)
   clinic         Clinic?   @relation(fields: [clinicId], references: [id])
-  creditCharged  Boolean   @default(false)
+  creditCharged  Boolean   @default(false) // Crédito já foi debitado?
   
   voiceAnalyses  VoiceAnalysis[]
   facialAnalyses FacialAnalysis[]
@@ -118,7 +117,7 @@ model VoiceAnalysis {
   sessionId String
   session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   
-  data      Json
+  data      Json     // Análise completa (12 Zonas, Bandas, IPM, etc)
   
   createdAt DateTime @default(now())
   
@@ -130,7 +129,7 @@ model FacialAnalysis {
   sessionId String
   session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   
-  data      Json
+  data      Json     // Análise FACS, emoções, assimetrias
   
   createdAt DateTime @default(now())
   
@@ -142,40 +141,28 @@ model FusionAnalysis {
   sessionId String
   session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   
-  ipmScore  Float
-  data      Json
+  ipmScore  Float    // Índice de Congruência Multimodal
+  data      Json     // Fusão voz + face
   
   createdAt DateTime @default(now())
   
   @@map("fusion_analyses")
 }
 
-// ==================== MANTÉM LEGAL/LGPD ATUAL ====================
+// ==================== LGPD & CONSENTIMENTO ====================
 
 model LegalText {
-  id                     String    @id @default(uuid())
-  type                   String
-  title                  String
-  content                String
-  version                String
-  active                 Boolean   @default(true)
-  
-  // MANTÉM campos existentes
-  shortText              String?
-  legalBasis             String?
-  audience               String?
-  context                String?
-  requiresSignature      Boolean   @default(false)
-  requiresAction         Boolean   @default(false)
-  isBlocking             Boolean   @default(false)
-  showCitationInline     Boolean   @default(false)
-  visibleToProfessionals Boolean   @default(true)
-  effectiveFrom          DateTime  @default(now())
+  id      String    @id @default(uuid())
+  type    String    @unique // 'terms' | 'privacy' | 'lgpd_consent'
+  title   String
+  content String
+  version String
+  active  Boolean   @default(true)
   
   consents Consent[]
   
   createdAt DateTime @default(now())
-  updatedAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   
   @@map("legal_texts")
 }
@@ -199,26 +186,30 @@ model Consent {
   @@map("consents")
 }
 
-// ==================== NOVO: MÓDULO FINANCEIRO ====================
+// ==================== MÓDULO FINANCEIRO ====================
 
 model Subscription {
   id               String    @id @default(uuid())
   userId           String
   user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  planType         String
-  status           String    @default("active")
+  planType         String    // 'pay_per_session' | 'package_10' | 'package_50' | 'unlimited_monthly' | 'clinic_starter' | 'clinic_pro' | 'enterprise'
+  status           String    @default("active") // 'active' | 'expired' | 'cancelled' | 'pending'
   
-  creditsTotal     Int
+  // Sistema de créditos
+  creditsTotal     Int       // Total de créditos comprados (999999 para ilimitado)
   creditsUsed      Int       @default(0)
-  creditsRemaining Int
+  creditsRemaining Int       // Calculado: creditsTotal - creditsUsed
   
+  // Datas
   startDate        DateTime  @default(now())
-  expiryDate       DateTime?
+  expiryDate       DateTime? // null para planos mensais recorrentes
   
-  amount           Decimal   @db.Decimal(10, 2)
-  paymentMethod    String
+  // Financeiro
+  amount           Decimal   @db.Decimal(10, 2) // Valor pago em R$
+  paymentMethod    String    // 'pix' | 'credit_card' | 'boleto'
   
+  // Relacionamento com transação
   transactionId    String?   @unique
   transaction      Transaction? @relation(fields: [transactionId], references: [id])
   
@@ -234,22 +225,26 @@ model Transaction {
   userId          String
   user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  type            String
-  status          String    @default("pending")
+  type            String    // 'subscription_purchase' | 'credit_topup' | 'refund'
+  status          String    @default("pending") // 'pending' | 'paid' | 'failed' | 'refunded'
   
   amount          Decimal   @db.Decimal(10, 2)
-  paymentMethod   String
+  paymentMethod   String    // 'pix' | 'credit_card' | 'boleto'
   
+  // Dados PIX
   pixQrCode       String?   @db.Text
   pixQrCodeBase64 String?   @db.Text
-  pixTxId         String?   @unique
+  pixTxId         String?   @unique // ID da transação PIX (end-to-end)
   
-  gateway         String?
-  gatewayOrderId  String?   @unique
-  gatewayPaymentId String?  @unique
+  // Gateway de pagamento
+  gateway         String?   // 'mercadopago' | 'stripe' | 'asaas'
+  gatewayOrderId  String?   @unique // ID do pedido no gateway
+  gatewayPaymentId String?  @unique // ID do pagamento no gateway
   
-  metadata        Json?
+  // Metadados
+  metadata        Json?     // Dados extras do gateway
   
+  // Relacionamento
   subscription    Subscription?
   
   paidAt          DateTime?
@@ -261,7 +256,7 @@ model Transaction {
   @@map("transactions")
 }
 
-// ==================== NOVO: GESTÃO DE CLÍNICAS ====================
+// ==================== GESTÃO DE CLÍNICAS ====================
 
 model Clinic {
   id               String   @id @default(uuid())
@@ -271,13 +266,16 @@ model Clinic {
   adminId          String
   admin            User     @relation("ClinicAdmin", fields: [adminId], references: [id])
   
-  planType         String
-  maxProfessionals Int      @default(3)
+  // Plano da clínica
+  planType         String   // 'clinic_starter' | 'clinic_pro' | 'enterprise'
+  maxProfessionals Int      @default(3) // Limite de profissionais no plano
   
+  // Dados de contato
   address          String?
   phone            String?
   email            String?
   
+  // Relacionamentos
   members          ClinicMember[]
   patients         Patient[]
   sessions         Session[]
@@ -296,8 +294,8 @@ model ClinicMember {
   professionalId String
   professional   User     @relation("ClinicMembership", fields: [professionalId], references: [id], onDelete: Cascade)
   
-  role           String   @default("professional")
-  canViewAll     Boolean  @default(false)
+  role           String   @default("professional") // 'admin' | 'professional' | 'viewer'
+  canViewAll     Boolean  @default(false) // Pode ver pacientes de outros profissionais
   
   joinedAt       DateTime @default(now())
   
@@ -305,17 +303,17 @@ model ClinicMember {
   @@map("clinic_members")
 }
 
-// ==================== NOVO: PROMPTS IA ====================
+// ==================== PROMPTS IA COMPARATIVOS ====================
 
 model Prompt {
   id             String   @id @default(uuid())
-  professionalId String?
+  professionalId String?  // null = prompt padrão do sistema
   
   text           String   @db.Text
-  category       String
-  customizable   Boolean  @default(false)
+  category       String   // 'populacional' | 'temporal' | 'diagnostico' | 'recomendacoes'
+  customizable   Boolean  @default(false) // Aceita parâmetros (ex: semanas)
   
-  isDefault      Boolean  @default(false)
+  isDefault      Boolean  @default(false) // Prompt padrão do FROID
   
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt

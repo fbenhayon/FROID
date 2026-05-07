@@ -7,7 +7,14 @@ import { SessionModule } from './modules/session/session.module';
 import { PromptModule } from './modules/prompt/prompt.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, PatientModule, QuarantineModule, SessionModule, PromptModule],
+  imports: [
+    PrismaModule,
+    AuthModule,
+    PatientModule,
+    QuarantineModule,
+    SessionModule,
+    PromptModule,
+  ],
   controllers: [],
   providers: [],
 })
