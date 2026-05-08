@@ -1,60 +1,71 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
-import { prisma } from '../prisma/client';
-import { RegisterDto, LoginDto } from './dto';
 
 @Injectable()
 export class AuthService {
-  constructor(private jwt: JwtService) {}
+  constructor(
+    private prisma: PrismaService,
+    private jwtService: JwtService,
+  ) {}
 
-  async register(dto: RegisterDto) {
-    const exists = await prisma.user.findUnique({ where: { email: dto.email } });
-    if (exists) throw new ConflictException('Email already registered');
-
-    const professional = await prisma.professional.findUnique({ where: { crp: dto.crp } });
-    if (professional) throw new ConflictException('CRP already registered');
-
-    const hash = await bcrypt.hash(dto.password, 10);
-    const user = await prisma.user.create({
-      data: {
-        email: dto.email,
-        password: hash,
-        role: 'professional',
-        professional: {
-          create: {
-            name: dto.name,
-            crp: dto.crp,
-            specialty: dto.specialty,
-          },
-        },
-      },
-      include: { professional: true },
+  async login(dto: { email: string; password: string }) {
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email },
     });
+    if (!user) throw new UnauthorizedException('Credenciais inválidas');
+    
+    const isPasswordValid = await bcrypt.compare(dto.password, user.password);
+    if (!isPasswordValid) throw new UnauthorizedException('Credenciais inválidas');
 
-    return { id: user.id, email: user.email, createdAt: user.createdAt };
+    const payload = { sub: user.id, email: user.email };
+    return {
+      access_token: this.jwtService.sign(payload),
+      user: { id: user.id, email: user.email, name: user.name, role: user.role },
+    };
   }
 
-  async login(dto: LoginDto) {
-    const user = await prisma.user.findUnique({
-      where: { email: dto.email },
-      include: { professional: true },
+  async googleLogin(profile: any) {
+    let user = await this.prisma.user.findUnique({
+      where: { email: profile.email },
     });
 
-    if (!user || !(await bcrypt.compare(dto.password, user.password))) {
-      throw new UnauthorizedException('Invalid credentials');
+    if (!user) {
+      user = await this.prisma.user.create({
+        data: {
+          email: profile.email,
+          name: profile.name,
+          googleId: profile.googleId,
+          picture: profile.picture,
+          password: '',
+          role: 'professional',
+        },
+      });
+    } else if (!user.googleId) {
+      user = await this.prisma.user.update({
+        where: { id: user.id },
+        data: { googleId: profile.googleId, picture: profile.picture },
+      });
     }
 
     const payload = { sub: user.id, email: user.email };
-
     return {
-      access_token: this.jwt.sign(payload),
-      user: {
-        id: user.professional?.id || user.id,
-        email: user.email,
-        name: user.professional?.name || 'Usuário',
-        role: user.role,
-      },
+      access_token: this.jwtService.sign(payload),
+      user: { id: user.id, email: user.email, name: user.name, role: user.role },
     };
+  }
+
+  async register(dto: any) {
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
+    const user = await this.prisma.user.create({
+      data: {
+        email: dto.email,
+        password: hashedPassword,
+        name: dto.name || 'Usuário',
+        role: 'professional',
+      },
+    });
+    return { id: user.id, email: user.email, createdAt: user.createdAt };
   }
 }

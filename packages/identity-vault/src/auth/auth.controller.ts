@@ -1,21 +1,37 @@
-import 'reflect-metadata';
-import { Controller, Post, Body, UsePipes, ValidationPipe } from '@nestjs/common';
+import { Controller, Post, Get, Body, UseGuards, Request, Res } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { RegisterDto, LoginDto } from './dto';
+import { GoogleAuthGuard } from './guards/google-auth.guard';
+import { Response } from 'express';
 
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Post('register')
-  @UsePipes(new ValidationPipe({ whitelist: true }))
-  register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
+  async register(@Body() body: any) {
+    return this.authService.register(body);
   }
 
   @Post('login')
-  @UsePipes(new ValidationPipe({ whitelist: true }))
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  async login(@Body() body: { email: string; password: string }) {
+    return this.authService.login(body);
+  }
+
+  // Rota Google OAuth - Redireciona para Google
+  @Get('google')
+  @UseGuards(GoogleAuthGuard)
+  async googleAuth() {
+    // Guard redireciona automaticamente
+  }
+
+  // Callback Google OAuth
+  @Get('google/callback')
+  @UseGuards(GoogleAuthGuard)
+  async googleAuthCallback(@Request() req, @Res() res: Response) {
+    const result = await this.authService.googleLogin(req.user);
+    
+    // Redirecionar para frontend com token
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    res.redirect(`${frontendUrl}/auth/callback?token=${result.access_token}`);
   }
 }
