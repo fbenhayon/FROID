@@ -5,6 +5,7 @@ import { PatientModule } from './modules/patient/patient.module';
 import { QuarantineModule } from './modules/quarantine/quarantine.module';
 import { SessionModule } from './modules/session/session.module';
 import { PromptModule } from './modules/prompt/prompt.module';
+import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
@@ -14,8 +15,7 @@ import { PromptModule } from './modules/prompt/prompt.module';
     QuarantineModule,
     SessionModule,
     PromptModule,
+    AdminModule,
   ],
-  controllers: [],
-  providers: [],
 })
 export class AppModule {}

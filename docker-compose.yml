@@ -1,65 +1,108 @@
+version: '3.8'
+
 services:
   postgres:
     image: postgres:15-alpine
+    container_name: froid-postgres-1
     environment:
       POSTGRES_USER: froid
-      POSTGRES_PASSWORD: froid123
+      POSTGRES_PASSWORD: froid_password
       POSTGRES_DB: froid_db
-    volumes:
-      - pgdata:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U froid"]
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - froid-network
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
+    container_name: froid-redis-1
     ports:
       - "6379:6379"
+    networks:
+      - froid-network
+    restart: unless-stopped
 
   identity-vault:
-    env_file: .env
     build:
       context: .
-      dockerfile: packages/identity-vault/Dockerfile
+      dockerfile: Dockerfile
+      target: identity-vault
+    container_name: froid-identity-vault-1
     ports:
       - "3001:3001"
     environment:
-      - DATABASE_URL=postgresql://froid:froid123@postgres:5432/froid_db
+      - DATABASE_URL=postgresql://froid:froid_password@postgres:5432/froid_db
       - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=froid_jwt_secret_2024
+      - PORT=3001
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_started
+    networks:
+      - froid-network
     restart: unless-stopped
 
   froid-voice:
     build:
-      context: .
-      dockerfile: packages/froid-voice/Dockerfile
+      context: ./packages/froid-voice
+      dockerfile: Dockerfile
+    container_name: froid-voice-1
     ports:
       - "3002:3002"
     environment:
-      - REDIS_URL=redis://redis:6379
-    depends_on:
-      - redis
+      - PORT=3002
+    networks:
+      - froid-network
     restart: unless-stopped
 
   froid-face:
     build:
-      context: .
-      dockerfile: packages/froid-face/Dockerfile
+      context: ./packages/froid-face
+      dockerfile: Dockerfile
+    container_name: froid-face-1
     ports:
       - "3003:3003"
     environment:
-      - REDIS_URL=redis://redis:6379
-    depends_on:
-      - redis
+      - PORT=3003
+    networks:
+      - froid-network
     restart: unless-stopped
+
+  froid-payment:
+    build:
+      context: ./packages/froid-payment
+      dockerfile: Dockerfile
+    container_name: froid-payment-1
+    ports:
+      - "3004:3004"
+    environment:
+      - PORT=3004
+      - DATABASE_URL=postgresql://froid:froid_password@postgres:5432/froid_db
+      - MERCADOPAGO_ACCESS_TOKEN=APP_USR-7693938924811195-050710-1f4e227c8d2cbc00c6da9f59f538093b-141039243
+      - MERCADOPAGO_PUBLIC_KEY=APP_USR-cc6b2981-7a66-42b9-b42b-5a1610ed0190
+      - STRIPE_SECRET_KEY=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
+      - STRIPE_PUBLISHABLE_KEY=pk_live_51TCUwiAYhukisMIHvlXOnc3ePqmDNUB4m77KzByzdDgSLaObHn87OpCVJw9PrjK095CxIu4QRt48FBHwWShdg22A00nkQMWNHd
+      - FRONTEND_URL=http://167.71.182.244
+      - BACKEND_WEBHOOK_URL=http://167.71.182.244:3004/webhook
+    depends_on:
+      - postgres
+    networks:
+      - froid-network
+    restart: unless-stopped
+
+networks:
+  froid-network:
+    driver: bridge
 
 volumes:
   pgdata:
