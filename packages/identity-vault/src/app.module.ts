@@ -4,7 +4,7 @@ import { AuthModule } from './auth/auth.module';
 import { PatientModule } from './modules/patient/patient.module';
 import { QuarantineModule } from './modules/quarantine/quarantine.module';
 import { SessionModule } from './modules/session/session.module';
-import { PromptModule } from './modules/prompt/prompt.module';
+// import { PromptModule } from './modules/prompt/prompt.module';
 import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
@@ -14,8 +14,8 @@ import { AdminModule } from './modules/admin/admin.module';
     PatientModule,
     QuarantineModule,
     SessionModule,
-    PromptModule,
-    AdminModule,
+    // PromptModule,
+        AdminModule,
   ],
 })
 export class AppModule {}

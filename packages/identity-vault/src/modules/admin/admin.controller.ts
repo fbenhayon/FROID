@@ -1,45 +1,44 @@
-import { Controller, Post, Get, Body, Param, UseGuards, Query } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards } from '@nestjs/common';
 import { AdminService } from './admin.service';
-import { SuperAdminGuard } from './admin.guard';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 
 @Controller('admin')
-@UseGuards(JwtAuthGuard, SuperAdminGuard)
+@UseGuards(JwtAuthGuard)
 export class AdminController {
   constructor(private adminService: AdminService) {}
 
-  @Post('grant-credits')
-  async grantCredits(@Body() body: { userId: string; credits: number; reason: string }) {
-    return this.adminService.grantCredits(body.userId, body.credits, body.reason);
+  @Post('prompts')
+  createPrompt(@Body() body: any) {
+    return this.adminService.createPrompt(body);
   }
 
-  @Post('cancel-subscription/:id')
-  async cancelSubscription(@Param('id') id: string, @Body() body: { reason: string }) {
-    return this.adminService.cancelSubscription(id, body.reason);
+  @Get('prompts')
+  getAllPrompts() {
+    return this.adminService.getAllPrompts();
   }
 
-  @Get('users')
-  async getAllUsers() {
-    return this.adminService.getAllUsers();
+  @Get('prompts/category/:category')
+  getPromptsByCategory(@Param('category') category: string) {
+    return this.adminService.getPromptsByCategory(category);
   }
 
-  @Get('transactions')
-  async getAllTransactions() {
-    return this.adminService.getAllTransactions();
+  @Get('prompts/:id')
+  getPromptById(@Param('id') id: string) {
+    return this.adminService.getPromptById(id);
   }
 
-  @Post('execute-sql')
-  async executeSQL(@Body() body: { query: string }) {
-    return this.adminService.executeSQL(body.query);
+  @Put('prompts/:id')
+  updatePrompt(@Param('id') id: string, @Body() body: any) {
+    return this.adminService.updatePrompt(id, body);
   }
 
-  @Get('sessions')
-  async getSessionLogs(@Query('sessionId') sessionId?: string) {
-    return this.adminService.getSessionLogs(sessionId);
+  @Delete('prompts/:id')
+  deletePrompt(@Param('id') id: string) {
+    return this.adminService.deletePrompt(id);
   }
 
-  @Get('stats')
-  async getSystemStats() {
-    return this.adminService.getSystemStats();
+  @Put('prompts/:id/toggle')
+  togglePromptStatus(@Param('id') id: string) {
+    return this.adminService.togglePromptStatus(id);
   }
 }
