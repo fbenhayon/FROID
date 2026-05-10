@@ -22,38 +22,47 @@ export class AuthService {
     const payload = { sub: user.id, email: user.email };
     return {
       access_token: this.jwtService.sign(payload),
-      user: { id: user.id, email: user.email, name: user.name, role: user.role },
+      user: { id: user.id, email: user.email, role: user.role },
     };
   }
 
-  async googleLogin(profile: any) {
+  async oauthLogin(profile: any, provider: 'google' | 'github') {
     let user = await this.prisma.user.findUnique({
       where: { email: profile.email },
     });
+
+    const providerIdField = provider === 'google' ? 'googleId' : 'githubId';
+    const providerId = provider === 'google' ? profile.googleId : profile.githubId;
 
     if (!user) {
       user = await this.prisma.user.create({
         data: {
           email: profile.email,
-          name: profile.name,
-          googleId: profile.googleId,
-          picture: profile.picture,
           password: '',
           role: 'professional',
+          [providerIdField]: providerId,
+          picture: profile.picture,
         },
       });
-    } else if (!user.googleId) {
+    } else if (!user[providerIdField]) {
       user = await this.prisma.user.update({
         where: { id: user.id },
-        data: { googleId: profile.googleId, picture: profile.picture },
+        data: { 
+          [providerIdField]: providerId,
+          picture: profile.picture || user.picture,
+        },
       });
     }
 
     const payload = { sub: user.id, email: user.email };
     return {
       access_token: this.jwtService.sign(payload),
-      user: { id: user.id, email: user.email, name: user.name, role: user.role },
+      user: { id: user.id, email: user.email, role: user.role },
     };
+  }
+
+  async googleLogin(profile: any) {
+    return this.oauthLogin(profile, 'google');
   }
 
   async register(dto: any) {
@@ -62,7 +71,6 @@ export class AuthService {
       data: {
         email: dto.email,
         password: hashedPassword,
-        name: dto.name || 'Usuário',
         role: 'professional',
       },
     });
