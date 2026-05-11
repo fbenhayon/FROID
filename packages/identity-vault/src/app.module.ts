@@ -1,21 +1,17 @@
 import { Module } from '@nestjs/common';
-import { PrismaModule } from './prisma/prisma.module';
+import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
-import { PatientModule } from './modules/patient/patient.module';
-import { QuarantineModule } from './modules/quarantine/quarantine.module';
-import { SessionModule } from './modules/session/session.module';
-// import { PromptModule } from './modules/prompt/prompt.module';
+import { PrismaService } from './prisma/prisma.service';
 import { AdminModule } from './modules/admin/admin.module';
+import { SessionModule } from './modules/session/session.module';
 
 @Module({
   imports: [
-    PrismaModule,
+    ConfigModule.forRoot({ isGlobal: true }),
     AuthModule,
-    PatientModule,
-    QuarantineModule,
+    AdminModule,
     SessionModule,
-    // PromptModule,
-        AdminModule,
   ],
+  providers: [PrismaService],
 })
 export class AppModule {}

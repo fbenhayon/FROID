@@ -1,59 +1,120 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { prisma } from '../../prisma/client';
+import { PrismaService } from '../../prisma/prisma.service';
+import { randomUUID } from 'crypto';
+import axios from 'axios';
 
 @Injectable()
 export class SessionService {
-  async create(data: any) {
-    const session = await prisma.session.create({
+  constructor(private prisma: PrismaService) {}
+
+  private readonly VOICE_SERVICE = process.env.VOICE_SERVICE_URL || 'http://froid-voice:3002';
+  private readonly FACE_SERVICE = process.env.FACE_SERVICE_URL || 'http://froid-face:3003';
+
+  async createSession(data: {
+    patientId: string;
+    professionalId: string;
+    scheduledFor: Date;
+  }) {
+    return this.prisma.sessions.create({
       data: {
         patientId: data.patientId,
         professionalId: data.professionalId,
-        scheduledFor: new Date(data.scheduledFor || new Date()),
+        scheduledFor: data.scheduledFor,
+        status: 'scheduled',
+      },
+    });
+  }
+
+  async startSession(sessionId: string) {
+    const session = await this.prisma.sessions.findUnique({
+      where: { id: sessionId },
+    });
+
+    if (!session) {
+      throw new NotFoundException('Session not found');
+    }
+
+    return this.prisma.sessions.update({
+      where: { id: sessionId },
+      data: {
         status: 'active',
         startedAt: new Date(),
       },
     });
-    return session;
   }
 
-  async findByPatient(patientId: string) {
-    return prisma.session.findMany({
-      where: { patientId },
-      orderBy: { startedAt: 'desc' },
-      include: {
-        voiceAnalyses: true,
-        facialAnalyses: true,
-      },
-    });
-  }
-
-  async findOne(id: string) {
-    const session = await prisma.session.findUnique({
-      where: { id },
-      include: {
-        patient: true,
-        professional: true,
-        voiceAnalyses: { orderBy: { timestamp: 'desc' }, take: 10 },
-        facialAnalyses: { orderBy: { timestamp: 'desc' }, take: 10 },
-      },
-    });
-    
-    if (!session) {
-      throw new NotFoundException(`Session ${id} not found`);
-    }
-    
-    return session;
-  }
-
-  async endSession(id: string) {
-    const session = await prisma.session.update({
-      where: { id },
+  async endSession(sessionId: string, notes?: string) {
+    return this.prisma.sessions.update({
+      where: { id: sessionId },
       data: {
         status: 'completed',
         endedAt: new Date(),
+        notes,
       },
     });
-    
+  }
+
+  async analyzeVoice(sessionId: string, audioData: any) {
+    try {
+      const response = await axios.post(`${this.VOICE_SERVICE}/analyze`, {
+        sessionId,
+        audio: audioData,
+      });
+
+      await this.prisma.voice_analyses.create({
+        data: {
+          id: randomUUID(),
+          sessionId,
+          zonalEnergies: response.data.zonalEnergies || {},
+          spectralBands: response.data.spectralBands || {},
+          rawFeatures: response.data,
+        },
+      });
+
+      return response.data;
+    } catch (error) {
+      console.error('Voice analysis error:', error.message);
+      throw error;
+    }
+  }
+
+  async analyzeFace(sessionId: string, imageData: any) {
+    try {
+      const response = await axios.post(`${this.FACE_SERVICE}/analyze`, {
+        sessionId,
+        image: imageData,
+      });
+
+      await this.prisma.facial_analyses.create({
+        data: {
+          id: randomUUID(),
+          sessionId,
+          actionUnits: response.data.actionUnits || {},
+          rawLandmarks: response.data,
+        },
+      });
+
+      return response.data;
+    } catch (error) {
+      console.error('Face analysis error:', error.message);
+      throw error;
+    }
+  }
+
+  async getSessionResults(sessionId: string) {
+    const session = await this.prisma.sessions.findUnique({
+      where: { id: sessionId },
+      include: {
+        voice_analyses: true,
+        facial_analyses: true,
+        fusion_analyses: true,
+      },
+    });
+
+    if (!session) {
+      throw new NotFoundException('Session not found');
+    }
+
     return session;
   }
 }
