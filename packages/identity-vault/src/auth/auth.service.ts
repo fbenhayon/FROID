@@ -11,7 +11,7 @@ export class AuthService {
   ) {}
 
   async login(dto: { email: string; password: string }) {
-    const user = await this.prisma.user.findUnique({
+    const user = await this.prisma.users.findUnique({
       where: { email: dto.email },
     });
     if (!user) throw new UnauthorizedException('Credenciais inválidas');
@@ -27,7 +27,7 @@ export class AuthService {
   }
 
   async oauthLogin(profile: any, provider: 'google' | 'github') {
-    let user = await this.prisma.user.findUnique({
+    let user = await this.prisma.users.findUnique({
       where: { email: profile.email },
     });
 
@@ -35,7 +35,7 @@ export class AuthService {
     const providerId = provider === 'google' ? profile.googleId : profile.githubId;
 
     if (!user) {
-      user = await this.prisma.user.create({
+      user = await this.prisma.users.create({
         data: {
           email: profile.email,
           password: '',
@@ -45,7 +45,7 @@ export class AuthService {
         },
       });
     } else if (!user[providerIdField]) {
-      user = await this.prisma.user.update({
+      user = await this.prisma.users.update({
         where: { id: user.id },
         data: { 
           [providerIdField]: providerId,
@@ -67,7 +67,7 @@ export class AuthService {
 
   async register(dto: any) {
     const hashedPassword = await bcrypt.hash(dto.password, 10);
-    const user = await this.prisma.user.create({
+    const user = await this.prisma.users.create({
       data: {
         email: dto.email,
         password: hashedPassword,

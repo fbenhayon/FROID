@@ -1,0 +1,402 @@
+// FROID v3.1 — Schema Prisma COMPLETO
+// Consentimento v2.0 + Quarentena + LegalText COMPLETO
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// AUTENTICAÇÃO E USUÁRIOS
+// ============================================================================
+
+model User {
+
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  role      String   @default("professional")
+  
+  // OAuth Providers
+  googleId  String?  @unique
+  githubId  String?  @unique
+  picture   String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  professional Professional?
+
+  @@map("users")
+}
+
+model Professional {
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  name          String
+  crp           String   @unique
+  specialty     String
+  phone         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  patients          Patient[]
+  sessions          Session[]
+  consentRecords    ConsentRecord[]
+  shareRecords      ShareRecord[]
+  deletionRequests  DeletionRequest[]
+
+  @@map("professionals")
+}
+
+model Patient {
+  id             String    @id @default(uuid())
+  professionalId String
+  name           String
+  cpf            String    @unique
+  birthDate      DateTime
+  phone          String?
+  email          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  deletedAt              DateTime?
+  visibleToProfessionals Boolean  @default(true)
+
+  professional         Professional          @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  sessions             Session[]
+  consentRecords       ConsentRecord[]
+  shareRecords         ShareRecord[]
+  deletionRequests     DeletionRequest[]
+  anonymizationRecords AnonymizationRecord[]
+  quarantineRecords    QuarantineRecord[]
+
+  @@index([professionalId])
+  @@index([deletedAt, visibleToProfessionals])
+  @@map("patients")
+}
+
+// ============================================================================
+// LGPD — TEXTOS LEGAIS (COMPLETO v3.0 + v2.0)
+// ============================================================================
+
+model LegalText {
+  id      String   @id @default(uuid())
+  type    String   // "consent" | "privacy_policy" | "terms"
+  version String
+  
+  // ✅ Campos v2.0 (já existiam)
+  content       String   @db.Text
+  effectiveFrom DateTime
+  expiresAt     DateTime?
+  createdAt     DateTime @default(now())
+  
+  // ✅ Campos v3.0 (ADICIONADOS AGORA - COMPLETO)
+  title              String
+  audience           String   // "professional" | "patient" | "both"
+  context            String   // "signup" | "session_start" | "data_export"
+  shortText          String   @db.Text
+  isBlocking         Boolean  @default(true)
+  requiresAction     Boolean  @default(true)
+  requiresSignature  Boolean  @default(false)
+  showCitationInline Boolean  @default(false)
+  legalBasis         Json?    // Array de {chapter, article, paragraph, tag}
+
+  consentRecords ConsentRecord[]
+
+  @@unique([type, version])
+  @@map("legal_texts")
+}
+
+// ============================================================================
+// LGPD — CONSENTIMENTO v2.0
+// ============================================================================
+
+model ConsentRecord {
+  id             String   @id @default(uuid())
+  patientId      String
+  professionalId String
+  legalTextId    String
+  version        String   @default("2.0")
+
+  acceptanceType String   @default("general")
+
+  voiceRecording      Boolean @default(true)
+  facialRecording     Boolean @default(true)
+  biometricAnalysis   Boolean @default(true)
+  clinicalScoring     Boolean @default(true)
+  dataStorage         Boolean @default(true)
+  researchUse         Boolean @default(false)
+  thirdPartySharing   Boolean @default(false)
+
+  grantedAt   DateTime @default(now())
+  appliesFrom DateTime @default(now())
+  expiresAt   DateTime?
+  revokedAt   DateTime?
+
+  ipAddress       String?
+  userAgent       String?
+  signatureMethod String @default("click")
+
+  patient      Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  professional Professional @relation(fields: [professionalId], references: [id])
+  legalText    LegalText    @relation(fields: [legalTextId], references: [id])
+  events       LegalEvent[]
+
+  @@index([patientId])
+  @@index([professionalId])
+  @@index([grantedAt])
+  @@index([patientId, version])
+  @@map("consent_records")
+}
+
+model LegalEvent {
+  id              String   @id @default(uuid())
+  consentId       String?
+  patientId       String?
+  professionalId  String?
+  eventType       String
+  description     String?
+  metadata        Json?
+  timestamp       DateTime @default(now())
+
+  consent ConsentRecord? @relation(fields: [consentId], references: [id])
+
+  @@index([eventType])
+  @@index([timestamp])
+  @@index([patientId])
+  @@map("legal_events")
+}
+
+// ============================================================================
+// LGPD — QUARENTENA
+// ============================================================================
+
+model QuarantineRecord {
+  id              String   @id @default(uuid())
+  patientId       String
+  professionalId  String
+
+  patientSnapshot  Json
+  sessionsSnapshot Json
+  consentsSnapshot Json
+
+  requestedAt DateTime @default(now())
+  requestedBy String
+  reason      String?  @db.Text
+
+  status      String   @default("pending_review")
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  reviewNotes String?  @db.Text
+
+  purgeAt DateTime @default(dbgenerated("now() + INTERVAL '90 days'"))
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([status, requestedAt])
+  @@index([purgeAt])
+  @@index([patientId])
+  @@map("quarantine_records")
+}
+
+model DeletionRequest {
+  id             String    @id @default(uuid())
+  patientId      String
+  professionalId String
+  requestedAt    DateTime  @default(now())
+  processedAt    DateTime?
+  status         String    @default("pending")
+  reason         String?
+
+  patient      Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  professional Professional @relation(fields: [professionalId], references: [id])
+
+  @@index([status])
+  @@map("deletion_requests")
+}
+
+// ============================================================================
+// SESSÕES E ANÁLISES
+// ============================================================================
+
+model Session {
+  id             String    @id @default(uuid())
+  patientId      String
+  professionalId String
+  status         String    @default("scheduled")
+  scheduledFor   DateTime
+  startedAt      DateTime?
+  endedAt        DateTime?
+  notes          String?   @db.Text
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  patient           Patient                   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  professional      Professional              @relation(fields: [professionalId], references: [id])
+  consentSnapshots  SessionConsentSnapshot[]
+  hashChainBlocks   HashChainBlock[]
+  voiceAnalyses     VoiceAnalysis[]
+  facialAnalyses    FacialAnalysis[]
+  fusionAnalyses    FusionAnalysis[]
+
+  @@index([patientId])
+  @@index([professionalId])
+  @@index([scheduledFor])
+  @@map("sessions")
+}
+
+model SessionConsentSnapshot {
+  id        String   @id @default(uuid())
+  sessionId String
+  scopes    Json
+  capturedAt DateTime @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("session_consent_snapshots")
+}
+
+// ============================================================================
+// COMPARTILHAMENTO E ANONIMIZAÇÃO
+// ============================================================================
+
+model ShareRecord {
+  id             String    @id @default(uuid())
+  patientId      String
+  professionalId String
+  recipientEmail String
+  sharedAt       DateTime  @default(now())
+  expiresAt      DateTime?
+  accessCount    Int       @default(0)
+  lastAccessedAt DateTime?
+
+  patient      Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  professional Professional @relation(fields: [professionalId], references: [id])
+
+  @@index([recipientEmail])
+  @@map("share_records")
+}
+
+model AnonymizationRecord {
+  id               String   @id @default(uuid())
+  originalPatientId String
+  anonymizedId     String   @unique
+  anonymizedAt     DateTime @default(now())
+  retentionUntil   DateTime
+
+  patient Patient @relation(fields: [originalPatientId], references: [id], onDelete: Cascade)
+
+  @@map("anonymization_records")
+}
+
+// ============================================================================
+// HASH CHAIN (IMUTABILIDADE)
+// ============================================================================
+
+model HashChainBlock {
+  id            String   @id @default(uuid())
+  sessionId     String
+  blockIndex    Int
+  previousHash  String?
+  dataHash      String
+  timestamp     DateTime @default(now())
+  metadata      Json?
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, blockIndex])
+  @@index([sessionId])
+  @@map("hash_chain_blocks")
+}
+
+// ============================================================================
+// ANÁLISES (E4B)
+// ============================================================================
+
+model VoiceAnalysis {
+  id        String   @id @default(uuid())
+  sessionId String
+  timestamp DateTime @default(now())
+  
+  zonalEnergies Json
+  dominantZone  String?
+  spectralBands Json
+  ipmScore          Float?
+  depressionRisk    Float?
+  maniaActivation   Float?
+  stressCognitive   Float?
+  colorCode         String?
+  f0Mean            Float?
+  f0Std             Float?
+  speechRate        Float?
+  rawFeatures       Json?
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@map("voice_analyses")
+}
+
+model FacialAnalysis {
+  id        String   @id @default(uuid())
+  sessionId String
+  timestamp DateTime @default(now())
+  
+  actionUnits Json
+  dominantEmotion String?
+  emotionScores   Json?
+  expressionPhase String?
+  apexConfidence  Float?
+  asymmetryScores Json?
+  asymmetryFlags  Json?
+  genuineness Float?
+  rawLandmarks Json?
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@map("facial_analyses")
+}
+
+model FusionAnalysis {
+  id        String   @id @default(uuid())
+  sessionId String
+  timestamp DateTime @default(now())
+  
+  congruenceScore Float?
+  voiceWeight  Float?
+  facialWeight Float?
+  clinicalContext String?
+  fusedEmotion    String?
+  fusedConfidence Float?
+  metadata Json?
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@map("fusion_analyses")
+}
+
+// ============================================================================
+// ADMIN - PROMPTS CLÍNICOS
+// ============================================================================
+
+model ClinicPrompt {
+  id          String   @id @default(uuid())
+  title       String
+  category    String   // "voice" | "face" | "fusion"
+  promptText  String   @db.Text
+  isActive    Boolean  @default(true)
+  version     String   @default("1.0")
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("clinic_prompts")
+}

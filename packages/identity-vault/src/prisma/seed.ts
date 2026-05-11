@@ -10,11 +10,11 @@ async function main() {
   // 1. LIMPAR DADOS EXISTENTES (apenas em dev)
   // ============================================================================
   console.log('🧹 Limpando dados antigos...');
-  await prisma.clinicPrompt.deleteMany();
-  await prisma.session.deleteMany();
-  await prisma.patient.deleteMany();
-  await prisma.professional.deleteMany();
-  await prisma.user.deleteMany();
+  await prisma.clinic_prompts.deleteMany();
+  await prisma.sessions.deleteMany();
+  await prisma.patients.deleteMany();
+  await prisma.professionals.deleteMany();
+  await prisma.users.deleteMany();
 
   // ============================================================================
   // 2. CRIAR USUÁRIOS
@@ -23,7 +23,7 @@ async function main() {
 
   const hashedPassword = await bcrypt.hash('froid123', 10);
 
-  const adminUser = await prisma.user.create({
+  const adminUser = await prisma.users.create({
     data: {
       email: 'admin@froid.com',
       password: hashedPassword,
@@ -31,7 +31,7 @@ async function main() {
     },
   });
 
-  const testUser = await prisma.user.create({
+  const testUser = await prisma.users.create({
     data: {
       email: 'test@froid.com',
       password: hashedPassword,
@@ -46,7 +46,7 @@ async function main() {
   // ============================================================================
   console.log('👨‍⚕️ Criando profissionais...');
 
-  const professional1 = await prisma.professional.create({
+  const professional1 = await prisma.professionals.create({
     data: {
       userId: adminUser.id,
       name: 'Dr. João Silva',
@@ -56,7 +56,7 @@ async function main() {
     },
   });
 
-  const professional2 = await prisma.professional.create({
+  const professional2 = await prisma.professionals.create({
     data: {
       userId: testUser.id,
       name: 'Dra. Maria Santos',
@@ -73,7 +73,7 @@ async function main() {
   // ============================================================================
   console.log('👥 Criando pacientes...');
 
-  const patient1 = await prisma.patient.create({
+  const patient1 = await prisma.patients.create({
     data: {
       professionalId: professional1.id,
       name: 'Pedro Oliveira',
@@ -84,7 +84,7 @@ async function main() {
     },
   });
 
-  const patient2 = await prisma.patient.create({
+  const patient2 = await prisma.patients.create({
     data: {
       professionalId: professional1.id,
       name: 'Ana Costa',
@@ -102,7 +102,7 @@ async function main() {
   // ============================================================================
   console.log('💬 Criando prompts clínicos...');
 
-  const voicePrompt1 = await prisma.clinicPrompt.create({
+  const voicePrompt1 = await prisma.clinic_prompts.create({
     data: {
       title: 'Análise de Tom Emocional',
       category: 'voice',
@@ -114,7 +114,7 @@ async function main() {
     },
   });
 
-  const facePrompt1 = await prisma.clinicPrompt.create({
+  const facePrompt1 = await prisma.clinic_prompts.create({
     data: {
       title: 'Análise de Expressões Faciais',
       category: 'face',
@@ -126,7 +126,7 @@ async function main() {
     },
   });
 
-  const fusionPrompt1 = await prisma.clinicPrompt.create({
+  const fusionPrompt1 = await prisma.clinic_prompts.create({
     data: {
       title: 'Análise Multimodal Integrada',
       category: 'fusion',
@@ -145,7 +145,7 @@ async function main() {
   // ============================================================================
   console.log('📅 Criando sessões...');
 
-  const session1 = await prisma.session.create({
+  const session1 = await prisma.sessions.create({
     data: {
       patientId: patient1.id,
       professionalId: professional1.id,

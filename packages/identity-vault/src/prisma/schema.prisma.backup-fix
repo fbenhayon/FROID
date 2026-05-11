@@ -1,0 +1,305 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model anonymization_records {
+  id                String   @id
+  originalPatientId String
+  anonymizedId      String   @unique
+  anonymizedAt      DateTime @default(now())
+  retentionUntil    DateTime
+  patients          patients @relation(fields: [originalPatientId], references: [id], onDelete: Cascade)
+}
+
+model clinic_prompts {
+  id         String   @id
+  title      String
+  category   String
+  promptText String
+  isActive   Boolean  @default(true)
+  version    String   @default("1.0")
+  createdBy  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime
+}
+
+model consent_records {
+  id                String         @id
+  patientId         String
+  professionalId    String
+  legalTextId       String
+  version           String         @default("2.0")
+  acceptanceType    String         @default("general")
+  voiceRecording    Boolean        @default(true)
+  facialRecording   Boolean        @default(true)
+  biometricAnalysis Boolean        @default(true)
+  clinicalScoring   Boolean        @default(true)
+  dataStorage       Boolean        @default(true)
+  researchUse       Boolean        @default(false)
+  thirdPartySharing Boolean        @default(false)
+  grantedAt         DateTime       @default(now())
+  appliesFrom       DateTime       @default(now())
+  expiresAt         DateTime?
+  revokedAt         DateTime?
+  ipAddress         String?
+  userAgent         String?
+  signatureMethod   String         @default("click")
+  legal_texts       legal_texts    @relation(fields: [legalTextId], references: [id])
+  patients          patients       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  professionals     professionals  @relation(fields: [professionalId], references: [id])
+  legal_events      legal_events[]
+
+  @@index([grantedAt])
+  @@index([patientId])
+  @@index([patientId, version])
+  @@index([professionalId])
+}
+
+model deletion_requests {
+  id             String        @id
+  patientId      String
+  professionalId String
+  requestedAt    DateTime      @default(now())
+  processedAt    DateTime?
+  status         String        @default("pending")
+  reason         String?
+  patients       patients      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  professionals  professionals @relation(fields: [professionalId], references: [id])
+
+  @@index([status])
+}
+
+model facial_analyses {
+  id              String   @id
+  sessionId       String
+  timestamp       DateTime @default(now())
+  actionUnits     Json
+  dominantEmotion String?
+  emotionScores   Json?
+  expressionPhase String?
+  apexConfidence  Float?
+  asymmetryScores Json?
+  asymmetryFlags  Json?
+  genuineness     Float?
+  rawLandmarks    Json?
+  sessions        sessions @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+}
+
+model fusion_analyses {
+  id              String   @id
+  sessionId       String
+  timestamp       DateTime @default(now())
+  congruenceScore Float?
+  voiceWeight     Float?
+  facialWeight    Float?
+  clinicalContext String?
+  fusedEmotion    String?
+  fusedConfidence Float?
+  metadata        Json?
+  sessions        sessions @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+}
+
+model hash_chain_blocks {
+  id           String   @id
+  sessionId    String
+  blockIndex   Int
+  previousHash String?
+  dataHash     String
+  timestamp    DateTime @default(now())
+  metadata     Json?
+  sessions     sessions @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, blockIndex])
+  @@index([sessionId])
+}
+
+model legal_events {
+  id              String           @id
+  consentId       String?
+  patientId       String?
+  professionalId  String?
+  eventType       String
+  description     String?
+  metadata        Json?
+  timestamp       DateTime         @default(now())
+  consent_records consent_records? @relation(fields: [consentId], references: [id])
+
+  @@index([eventType])
+  @@index([patientId])
+  @@index([timestamp])
+}
+
+model legal_texts {
+  id                 String            @id
+  type               String
+  version            String
+  content            String
+  effectiveFrom      DateTime
+  expiresAt          DateTime?
+  createdAt          DateTime          @default(now())
+  title              String
+  audience           String
+  context            String
+  shortText          String
+  isBlocking         Boolean           @default(true)
+  requiresAction     Boolean           @default(true)
+  requiresSignature  Boolean           @default(false)
+  showCitationInline Boolean           @default(false)
+  legalBasis         Json?
+  consent_records    consent_records[]
+
+  @@unique([type, version])
+}
+
+model patients {
+  id                     String                  @id
+  professionalId         String
+  name                   String
+  cpf                    String                  @unique
+  birthDate              DateTime
+  phone                  String?
+  email                  String?
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime
+  deletedAt              DateTime?
+  visibleToProfessionals Boolean                 @default(true)
+  anonymization_records  anonymization_records[]
+  consent_records        consent_records[]
+  deletion_requests      deletion_requests[]
+  professionals          professionals           @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  quarantine_records     quarantine_records[]
+  sessions               sessions[]
+  share_records          share_records[]
+
+  @@index([deletedAt, visibleToProfessionals])
+  @@index([professionalId])
+}
+
+model professionals {
+  id                String              @id
+  userId            String              @unique
+  name              String
+  crp               String              @unique
+  specialty         String
+  phone             String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime
+  consent_records   consent_records[]
+  deletion_requests deletion_requests[]
+  patients          patients[]
+  users             users               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessions          sessions[]
+  share_records     share_records[]
+}
+
+model quarantine_records {
+  id               String    @id
+  patientId        String
+  professionalId   String
+  patientSnapshot  Json
+  sessionsSnapshot Json
+  consentsSnapshot Json
+  requestedAt      DateTime  @default(now())
+  requestedBy      String
+  reason           String?
+  status           String    @default("pending_review")
+  reviewedBy       String?
+  reviewedAt       DateTime?
+  reviewNotes      String?
+  purgeAt          DateTime  @default(dbgenerated("(now() + '90 days'::interval)"))
+  patients         patients  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@index([purgeAt])
+  @@index([status, requestedAt])
+}
+
+model session_consent_snapshots {
+  id         String   @id
+  sessionId  String
+  scopes     Json
+  capturedAt DateTime @default(now())
+  sessions   sessions @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+model sessions {
+  id                        String                      @id
+  patientId                 String
+  professionalId            String
+  status                    String                      @default("scheduled")
+  scheduledFor              DateTime
+  startedAt                 DateTime?
+  endedAt                   DateTime?
+  notes                     String?
+  createdAt                 DateTime                    @default(now())
+  updatedAt                 DateTime
+  facial_analyses           facial_analyses[]
+  fusion_analyses           fusion_analyses[]
+  hash_chain_blocks         hash_chain_blocks[]
+  session_consent_snapshots session_consent_snapshots[]
+  patients                  patients                    @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  professionals             professionals               @relation(fields: [professionalId], references: [id])
+  voice_analyses            voice_analyses[]
+
+  @@index([patientId])
+  @@index([professionalId])
+  @@index([scheduledFor])
+}
+
+model share_records {
+  id             String        @id
+  patientId      String
+  professionalId String
+  recipientEmail String
+  sharedAt       DateTime      @default(now())
+  expiresAt      DateTime?
+  accessCount    Int           @default(0)
+  lastAccessedAt DateTime?
+  patients       patients      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  professionals  professionals @relation(fields: [professionalId], references: [id])
+
+  @@index([recipientEmail])
+}
+
+model users {
+  id            String         @id
+  email         String         @unique
+  password      String
+  role          String         @default("professional")
+  googleId      String?        @unique
+  githubId      String?        @unique
+  picture       String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime
+  professionals professionals?
+}
+
+model voice_analyses {
+  id              String   @id
+  sessionId       String
+  timestamp       DateTime @default(now())
+  zonalEnergies   Json
+  dominantZone    String?
+  spectralBands   Json
+  ipmScore        Float?
+  depressionRisk  Float?
+  maniaActivation Float?
+  stressCognitive Float?
+  colorCode       String?
+  f0Mean          Float?
+  f0Std           Float?
+  speechRate      Float?
+  rawFeatures     Json?
+  sessions        sessions @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+}

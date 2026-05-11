@@ -25,7 +25,7 @@ export async function seedLegalTexts() {
     await prisma.legal_texts.upsert({
       where: { type_version: { type: text.type, version: text.version } },
       update: {},
-      create: { id: require("crypto").randomUUID(), ...text },
+      create: text,
     });
   }
 
