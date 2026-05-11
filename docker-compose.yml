@@ -34,7 +34,7 @@ services:
       dockerfile: packages/identity-vault/Dockerfile
     container_name: froid-identity-vault-1
     ports:
-      - "3001:3001"
+      - "8001:3001"
     environment:
       - DATABASE_URL=postgresql://froid:froid_password@postgres:5432/froid_db
       - REDIS_URL=redis://redis:6379
