@@ -15,7 +15,7 @@ async function main() {
     create: {
       id: userId,
       email: 'pro@test.com',
-      passwordHash: '$2b$10$placeholder',
+      password: '$2b$10$placeholder',
       role: 'professional',
     }
   });
