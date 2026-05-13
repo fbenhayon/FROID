@@ -5,43 +5,51 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('Seeding test data for E2B...');
 
-  const patientId = '66367355-6677-4488-9999-568393847585';
   const professionalId = '98854322-8765-4321-bbbb-cccdddeeefff';
+  const userId = '11111111-1111-1111-1111-111111111111';
+  const patientId = '66367355-6677-4488-9999-568393847585';
 
-  await prisma.patients.upsert({
-    where: { id: patientId },
+  await prisma.users.upsert({
+    where: { id: userId },
     update: {},
     create: {
-      id: patientId,
-      fullName: 'Test Patient E2B',
-      cpf: '12345678901',
-      email: 'patient@test.com',
-      dateOfBirth: new Date('1990-01-01'),
-      gender: 'M',
-      region: 'SP'
+      id: userId,
+      email: 'pro@test.com',
+      passwordHash: '$2b$10$placeholder',
+      role: 'professional',
     }
   });
-
-  // Limpar consentimentos antigos para garantir um estado limpo para os testes
-  await prisma.consent_records.deleteMany({
-    where: { patientId }
-  });
-  console.log('Existing consents wiped for test patient.');
 
   await prisma.professionals.upsert({
     where: { id: professionalId },
     update: {},
     create: {
       id: professionalId,
-      fullName: 'Test Professional E2B',
-      cpf: '98765432101',
-      email: 'pro@test.com',
-      registrationNumber: 'CRM123',
-      registrationType: 'CRM'
+      userId,
+      name: 'Test Professional E2B',
+      crp: 'CRP-06/123456',
+      specialty: 'Clinical Psychology',
     }
   });
 
-  console.log('Test data seeded (Patient and Professional).');
+  await prisma.patients.upsert({
+    where: { id: patientId },
+    update: {},
+    create: {
+      id: patientId,
+      professionalId,
+      name: 'Test Patient E2B',
+      cpf: '12345678901',
+      birthDate: new Date('1990-01-01'),
+    }
+  });
+
+  await prisma.consent_records.deleteMany({
+    where: { patientId }
+  });
+  console.log('Existing consents wiped for test patient.');
+
+  console.log('Test data seeded (User, Professional, Patient).');
 }
 
 main()
