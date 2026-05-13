@@ -320,12 +320,6 @@ export function LiveSession() {
     return 'bg-red-500';
   };
 
-  const getRiskLabel = (score: number) => {
-    if (score < 30) return 'Baixo';
-    if (score < 60) return 'Moderado';
-    return 'Alto';
-  };
-
   const getIPMColor = (score: number) => {
     if (score >= 70) return 'text-green-400';
     if (score >= 40) return 'text-yellow-400';
