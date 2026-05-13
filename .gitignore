@@ -8,3 +8,4 @@ pgdata-*
 # local artifacts
 .pnpm-store/
 *.tar.gz
+__pycache__/
