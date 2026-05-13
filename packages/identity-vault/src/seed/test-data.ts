@@ -8,7 +8,7 @@ async function main() {
   const patientId = '66367355-6677-4488-9999-568393847585';
   const professionalId = '98854322-8765-4321-bbbb-cccdddeeefff';
 
-  await prisma.patient.upsert({
+  await prisma.patients.upsert({
     where: { id: patientId },
     update: {},
     create: {
@@ -23,12 +23,12 @@ async function main() {
   });
 
   // Limpar consentimentos antigos para garantir um estado limpo para os testes
-  await prisma.consentRecord.deleteMany({
+  await prisma.consent_records.deleteMany({
     where: { patientId }
   });
   console.log('Existing consents wiped for test patient.');
 
-  await prisma.professional.upsert({
+  await prisma.professionals.upsert({
     where: { id: professionalId },
     update: {},
     create: {
