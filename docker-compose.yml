@@ -75,6 +75,21 @@ services:
       - froid-network
     restart: unless-stopped
 
+  froid-dashboard:
+    build:
+      context: .
+      dockerfile: packages/froid-dashboard/Dockerfile
+      args:
+        - VITE_API_URL=http://204.168.229.32:8001
+    container_name: froid-dashboard-1
+    ports:
+      - "80:80"
+    depends_on:
+      - identity-vault
+    networks:
+      - froid-network
+    restart: unless-stopped
+
   froid-payment:
     build:
       context: .
