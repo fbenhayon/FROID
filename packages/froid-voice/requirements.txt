@@ -4,7 +4,7 @@ websockets==12.0
 pydantic==2.6.0
 opensmile==2.4.2
 librosa==0.10.1
-# parselmouth>=1.0.0
+praat-parselmouth>=0.4.3
 webrtcvad==2.0.10
 numpy==1.26.4
 scipy==1.12.0

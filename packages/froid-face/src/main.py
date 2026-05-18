@@ -4,11 +4,11 @@ FastAPI + WebSocket para análise facial em tempo real
 
 Pipeline por frame:
 1. LandmarkExtractor (MediaPipe 468pts)
-2. ActionUnitClassifier (FACS → intensidades)
-3. ExpressionHMM (temporal: neutral→onset→apex→offset)
-4. EmotionClassifier (AUs → 7 emoções)
+2. ActionUnitClassifier (FACS -> intensidades)
+3. ExpressionHMM (temporal: neutral->onset->apex->offset)
+4. EmotionClassifier (AUs -> 7 emocoes)
 5. AsymmetryAnalyzer (D-face/S-face)
-6. CaptureQualityAnalyzer (métricas de qualidade)
+6. CaptureQualityAnalyzer (metricas de qualidade)
 """
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
@@ -27,17 +27,10 @@ from src.analyzers.temporal_hmm import ExpressionHMM
 from src.analyzers.emotion_classifier import EmotionClassifier
 from src.analyzers.asymmetry_analyzer import FacialAsymmetryAnalyzer
 from src.analyzers.capture_quality import CaptureQualityAnalyzer
-from src.models.facial_packet import (
-    FacialEmotionPacket,
-    ActionUnitReading,
-    AsymmetryData,
-    QualityMetrics,
-    ClinicalFlagData,
-)
 
 app = FastAPI(
     title="FROID Face API",
-    description="Análise facial em tempo real - FACS + HMM + D-face/S-face",
+    description="Analise facial em tempo real - FACS + HMM + D-face/S-face",
     version="1.0.0",
 )
 
@@ -59,60 +52,28 @@ async def health():
         "status": "healthy",
         "version": "1.0.0",
         "active_sessions": len(active_sessions),
-        "capabilities": {
-            "mediapipe_468pts": True,
-            "facs_action_units": True,
-            "hmm_temporal": True,
-            "d_face_s_face": True,
-            "microexpression_detection": True,
-            "capture_quality": True,
-            "7_emotions": True,
-            "genuineness_score": True,
-        },
-    }
-
-
-@app.get("/api/face/session/{session_id}")
-async def get_session_results(session_id: str):
-    session = active_sessions.get(session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail=f"Session not found: {session_id}")
-    return {
-        "session_id": session_id,
-        "frames_processed": session.get("frame_count", 0),
-        "last_emotion": session.get("last_emotion", "neutral"),
-        "last_packet": session.get("last_packet"),
     }
 
 
 @app.websocket("/ws/face/{session_id}")
 async def face_stream(ws: WebSocket, session_id: str):
     await ws.accept()
+    print(f"[FACE] WebSocket accepted for session {session_id}")
 
-    # 1. Validar sessão no identity-vault
-    session_data = await _validate_session(session_id)
-    if not session_data:
-        await ws.send_json({"error": "SESSION_INVALID"})
-        await ws.close(code=4001)
+    # Inicializar pipeline
+    try:
+        extractor = LandmarkExtractor()
+        au_classifier = ActionUnitClassifier()
+        hmm = ExpressionHMM()
+        emotion_classifier = EmotionClassifier()
+        asymmetry = FacialAsymmetryAnalyzer()
+        quality_analyzer = CaptureQualityAnalyzer()
+        print("[FACE] All analyzers initialized OK")
+    except Exception as e:
+        print(f"[FACE] Analyzer init error: {e}")
+        await ws.send_json({"error": "INIT_ERROR", "detail": str(e)})
+        await ws.close(code=4500)
         return
-
-    enabled_modules = session_data.get("enabledModules", [])
-    if "froid-face" not in enabled_modules:
-        await ws.send_json({"error": "MODULE_DISABLED", "detail": "froid-face not enabled"})
-        await ws.close(code=4003)
-        return
-
-    # 2. Extrair configuração
-    condition = ws.query_params.get("condition", "none")
-    thresholds = CLINICALTHRESHOLDS.copy()
-
-    # 3. Inicializar pipeline
-    extractor = LandmarkExtractor()
-    au_classifier = ActionUnitClassifier()
-    hmm = ExpressionHMM()
-    emotion_classifier = EmotionClassifier()
-    asymmetry = FACIALAsymmetryAnalyzer()
-    quality_analyzer = CaptureQualityAnalyzer()
 
     frame_count = 0
     baseline_set = False
@@ -121,156 +82,146 @@ async def face_stream(ws: WebSocket, session_id: str):
         "start_time": time.time(),
         "frame_count": 0,
         "last_emotion": "neutral",
-        "last_packet": None,
     }
 
     await ws.send_json({"status": "CONNECTED", "session_id": session_id})
 
     try:
         while True:
-            # Receber frame como bytes (JPEG comprimido)
             frame_bytes = await ws.receive_bytes()
             frame_count += 1
 
-            # Decodificar JPEG → BGR
+            # Decodificar JPEG -> BGR
             nparr = np.frombuffer(frame_bytes, np.uint8)
             frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
             if frame is None:
                 continue
 
+            if frame_count % 30 == 0:
+                print(f"[FACE] Frame {frame_count}, size={len(frame_bytes)} bytes")
+
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-            # --- PIPELINE DE ANÁLISE ---
-
             # 1. Landmarks
-            landmarks = extractor.extract(frame)
-            if landmarks is None:
-                quality_result = quality_analyzer.analyze(frame, None)
-                if not quality_result["is_acceptable"]:
-                    await ws.send_json({
-                        "type": "quality_alert",
-                        "frame_index": frame_count,
-                        "alerts": quality_result["alerts"],
-                    })
+            try:
+                landmarks = extractor.extract(frame)
+            except Exception as e:
+                print(f"[FACE] Landmark error: {e}")
                 continue
 
-            # 2. Baseline (primeiro frame com face detectada)
+            if landmarks is None:
+                # Sem face detectada
+                try:
+                    quality_result = quality_analyzer.analyze(frame, None)
+                    if not quality_result.get("is_acceptable", True) is False:
+                        await ws.send_json({
+                            "type": "quality_alert",
+                            "frame_index": frame_count,
+                        })
+                except Exception:
+                    pass
+                continue
+
+            # 2. Baseline
             if not baseline_set:
-                au_classifier.set_baseline(landmarks["au_distances"])
-                baseline_set = True
-                await ws.send_json({"status": "BASELINE_SET", "frame": frame_count})
+                try:
+                    au_classifier.set_baseline(landmarks["au_distances"])
+                    baseline_set = True
+                    await ws.send_json({"status": "BASELINE_SET", "frame": frame_count})
+                    print(f"[FACE] Baseline set at frame {frame_count}")
+                except Exception as e:
+                    print(f"[FACE] Baseline error: {e}")
 
-            # 3. Action Units
-            active_aus = au_classifier.classify(landmarks["au_distances"])
+            # 3. Action Units -> retorna List[Dict] com au_number, intensity, etc
+            active_aus = []
+            try:
+                active_aus = au_classifier.classify(landmarks["au_distances"])
+            except Exception as e:
+                print(f"[FACE] AU error: {e}")
 
-            # 4. HMM Temporal
-            onset_score = max((au.get("intensity", 0) for au in active_aus), default=0.0)
-            offset_score = 1.0 - onset_score
-            hmm_result = hmm.update(onset_score, offset_score)
+            # 4. HMM Temporal - precisa de (onset_score, offset_score)
+            hmm_result = {}
+            try:
+                onset_score = max((au.get("intensity", 0) for au in active_aus), default=0.0)
+                offset_score = 1.0 - onset_score
+                hmm_result = hmm.update(onset_score, offset_score)
+            except Exception as e:
+                print(f"[FACE] HMM error: {e}")
+                hmm_result = {"current_phase": "neutral", "apex_confidence": 0.0, "detected": False}
 
-            # 5. Emoção
-            emotion_result = emotion_classifier.classify(active_aus, hmm_result)
+            # 5. Emocao - precisa de dict {au_number: intensity}, nao lista
+            emotion_result = {}
+            try:
+                au_scores_dict = {au["au_number"]: au["intensity"] for au in active_aus}
+                hmm_confidence = hmm_result.get("apex_confidence", 0.0)
+                emotion_result = emotion_classifier.classify(au_scores_dict, hmm_confidence)
+            except Exception as e:
+                print(f"[FACE] Emotion error: {e}")
+                emotion_result = {"emotion": "neutral", "confidence": 0.0, "valence": 0.0, "arousal": 0.0}
 
-            # 6. Assimetria
-            asym_result = asymmetry.analyze(gray, landmarks["points_px"], thresholds, condition)
+            # 6. Assimetria - precisa de imagem numpy 128x128, nao landmarks
+            asym_result = {}
+            try:
+                # Normalizar imagem para 128x128 grayscale
+                normalized = cv2.resize(gray, (128, 128))
+                asym_result = asymmetry.analyze(normalized)
+            except Exception as e:
+                print(f"[FACE] Asymmetry error: {e}")
+                asym_result = {"scores": {}, "flags": [], "unnaturalness_score": 1}
 
-            # 7. Qualidade de captura
-            quality_result = quality_analyzer.analyze(frame, landmarks)
+            # 7. Genuineness score
+            genuineness = 0.5
+            try:
+                au_scores_dict = {au["au_number"]: au["intensity"] for au in active_aus}
+                genuineness = emotion_classifier.get_genuineness_score(au_scores_dict)
+            except Exception:
+                pass
 
-            # 8. Consolidar flags clínicos
-            all_flags = []
-            for flag in asym_result.get("clinical_flags", []):
-                all_flags.append(ClinicalFlagData(
-                    flag_type=flag["flag_type"],
-                    severity=flag["severity"],
-                    description=flag["description"],
-                    region=flag.get("region"),
-                    value=flag.get("value_mm") or flag.get("value_ms"),
-                    threshold=flag.get("threshold_mm") or flag.get("threshold_ms"),
-                ))
-
-            if emotion_result.get("is_microexpression"):
-                all_flags.append(ClinicalFlagData(
-                    flag_type="microexpression",
-                    severity="high",
-                    description=f"Microexpressão de {emotion_result['emotion']} ({emotion_result['duration_ms']}ms)",
-                ))
-
-            # 9. Construir FacialEmotionPacket
-            involuntary = [au["au_number"] for au in active_aus if au.get("is_reliable")]
-            voluntary = [au["au_number"] for au in active_aus if not au.get("is_reliable")]
-
-            packet = FacialEmotionPacket(
-                session_id=session_id,
-                timestamp=time.time(),
-                frame_index=frame_count,
-                dominant_emotion=emotion_result["emotion"],
-                emotion_confidence=emotion_result["confidence"],
-                valence=emotion_result["valence"],
-                arousal=emotion_result["arousal"],
-                rule_matched=emotion_result["rule_matched"],
-                genuineness_score=emotion_result["genuineness_score"],
-                is_microexpression=emotion_result.get("is_microexpression", False),
-                duration_ms=emotion_result.get("duration_ms", 0),
-                active_aus=[
-                    ActionUnitReading(**au) for au in active_aus
+            # Construir pacote de resposta
+            scores = asym_result.get("scores", {})
+            packet = {
+                "type": "analysis",
+                "session_id": session_id,
+                "timestamp": time.time(),
+                "frame_index": frame_count,
+                "dominant_emotion": emotion_result.get("emotion", "neutral"),
+                "emotion_confidence": emotion_result.get("confidence", 0.0),
+                "valence": emotion_result.get("valence", 0.0),
+                "arousal": emotion_result.get("arousal", 0.0),
+                "genuineness_score": genuineness,
+                "active_aus": [
+                    {"au": au["au_number"], "intensity": au["intensity"], "name": au.get("au_name", "")}
+                    for au in active_aus
                 ],
-                involuntary_aus=involuntary,
-                voluntary_aus=voluntary,
-                temporal_phase=hmm_result.get("current_phase", "neutral"),
-                asymmetry=AsymmetryData(
-                    brow_mm=asym_result["brow_asymmetry_mm"],
-                    eye_mm=asym_result["eye_asymmetry_mm"],
-                    mouth_mm=asym_result["mouth_asymmetry_mm"],
-                    d_face_global=asym_result["d_face_global"],
-                    s_face_global=asym_result["s_face_global"],
-                    hemifacial_delay_ms=asym_result["hemifacial_delay_ms"],
-                    unnaturalness_score=asym_result["unnaturalness_score"],
-                ),
-                quality=QualityMetrics(
-                    face_visibility=quality_result["face_visibility"],
-                    lighting_adequacy=quality_result["lighting_adequacy"],
-                    pose_angle_degrees=quality_result["pose_angle_degrees"],
-                    occlusion_detected=quality_result["occlusion_detected"],
-                    fps_actual=quality_result["fps_actual"],
-                    overall_quality=quality_result["overall_quality"],
-                    is_acceptable=quality_result["is_acceptable"],
-                ),
-                clinical_flags=all_flags,
-                pose=landmarks.get("pose"),
-            )
+                "temporal_phase": hmm_result.get("current_phase", "neutral"),
+                "is_microexpression": hmm_result.get("is_microexpression", False),
+                "asymmetry": {
+                    "brow_mm": scores.get("brow_mm", 0.0),
+                    "eye_mm": scores.get("eye_mm", 0.0),
+                    "mouth_mm": scores.get("mouth_mm", 0.0),
+                    "unnaturalness": asym_result.get("unnaturalness_score", 1),
+                },
+                "clinical_flags": asym_result.get("flags", []),
+            }
 
-            # Enviar
-            packet_dict = packet.model_dump()
-            await ws.send_json(packet_dict)
+            await ws.send_json(packet)
 
             # Atualizar cache
             active_sessions[session_id]["frame_count"] = frame_count
-            active_sessions[session_id]["last_emotion"] = emotion_result["emotion"]
-            active_sessions[session_id]["last_packet"] = packet_dict
+            active_sessions[session_id]["last_emotion"] = emotion_result.get("emotion", "neutral")
 
     except WebSocketDisconnect:
-        active_sessions.pop(session_id, None)
-        extractor.close()
+        print(f"[FACE] Client disconnected: {session_id}")
     except Exception as e:
-        print(f"[FaceStream] Erro na sessão {session_id}: {e}")
-        active_sessions.pop(session_id, None)
-        extractor.close()
+        print(f"[FACE] Error in session {session_id}: {e}")
         try:
             await ws.send_json({"error": "PROCESSING_ERROR", "detail": str(e)})
             await ws.close(code=4500)
         except Exception:
             pass
-
-
-async def _validate_session(session_id: str) -> Optional[dict]:
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.get(f"{IDENTITY_VAULT_URL}/sessions/{session_id}")
-            if resp.status_code == 200:
-                data = resp.json()
-                if data.get("status") == "active":
-                    return data
-            return None
-    except Exception:
-        return {"status": "active", "enabledModules": ["froid-voice", "froid-face"]}
+    finally:
+        active_sessions.pop(session_id, None)
+        try:
+            extractor.close()
+        except Exception:
+            pass

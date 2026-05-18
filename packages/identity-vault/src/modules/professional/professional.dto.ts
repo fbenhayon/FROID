@@ -1,38 +1,27 @@
-import { IsString, IsEmail, IsOptional, IsEnum } from 'class-validator';
+import { IsString, IsOptional } from 'class-validator';
 
 export class CreateProfessionalDto {
   @IsString()
-  fullName: string;
+  userId: string;
 
   @IsString()
-  cpf: string;
-
-  @IsEmail()
-  email: string;
+  name: string;
 
   @IsString()
-  registrationNumber: string;
+  crp: string;
 
-  @IsEnum(['CRP', 'CRM'])
-  registrationType: string;
+  @IsString()
+  specialty: string;
 
   @IsOptional()
   @IsString()
-  specialty?: string;
-
-  @IsOptional()
-  @IsString()
-  tenantId?: string;
+  phone?: string;
 }
 
 export class UpdateProfessionalDto {
   @IsOptional()
   @IsString()
-  fullName?: string;
-
-  @IsOptional()
-  @IsEmail()
-  email?: string;
+  name?: string;
 
   @IsOptional()
   @IsString()
@@ -40,5 +29,5 @@ export class UpdateProfessionalDto {
 
   @IsOptional()
   @IsString()
-  registrationNumber?: string;
+  phone?: string;
 }

@@ -19,10 +19,19 @@ export class AuthService {
     const isPasswordValid = await bcrypt.compare(dto.password, user.password);
     if (!isPasswordValid) throw new UnauthorizedException('Credenciais inválidas');
 
+    const professional = await this.prisma.professionals.findUnique({
+      where: { userId: user.id },
+    });
+
     const payload = { sub: user.id, email: user.email };
     return {
       access_token: this.jwtService.sign(payload),
-      user: { id: user.id, email: user.email, role: user.role },
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        professionalId: professional?.id || null,
+      },
     };
   }
 

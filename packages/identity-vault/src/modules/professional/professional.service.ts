@@ -9,7 +9,7 @@ export class ProfessionalService {
 
   async create(dto: CreateProfessionalDto) {
     try {
-      return await this.prisma.professional.create({ data: dto });
+      return await this.prisma.professionals.create({ data: dto });
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -22,7 +22,7 @@ export class ProfessionalService {
   }
 
   async findOne(id: string) {
-    const professional = await this.prisma.professional.findUnique({
+    const professional = await this.prisma.professionals.findUnique({
       where: { id },
     });
     if (!professional) {
@@ -33,6 +33,6 @@ export class ProfessionalService {
 
   async update(id: string, dto: UpdateProfessionalDto) {
     await this.findOne(id);
-    return this.prisma.professional.update({ where: { id }, data: dto });
+    return this.prisma.professionals.update({ where: { id }, data: dto });
   }
 }

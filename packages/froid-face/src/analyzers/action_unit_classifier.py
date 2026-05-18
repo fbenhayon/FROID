@@ -20,7 +20,7 @@ class ActionUnitClassifier:
     """
 
     def __init__(self):
-        self.activation_threshold = ClinicalThresholds.AU_ACTIVATION_THRESHOLD ["au_activation_threshold"]
+        self.activation_threshold = ClinicalThresholds.AU_ACTIVATION_THRESHOLD
         # Calibração de repouso (atualizada por sessão)
         self.baseline_distances: Optional[Dict[str, float]] = None
 
