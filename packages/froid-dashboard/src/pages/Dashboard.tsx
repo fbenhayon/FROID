@@ -39,22 +39,33 @@ export function Dashboard() {
       const response = await patientsAPI.list(user.professionalId || user.id);
       const patientsData = response.data;
       
-      // Carregar últimas 3 sessões de cada paciente
       const patientsWithSessions = await Promise.all(
         patientsData.map(async (patient: Patient) => {
           try {
+            const token = localStorage.getItem('token');
             const sessionsRes = await fetch(
               `http://204.168.229.32:8001/sessions/patient/${patient.id}`,
               { headers: { Authorization: `Bearer ${token}` } }
             );
+            
+            if (!sessionsRes.ok) {
+              console.warn(`Falha ao buscar sessões do paciente ${patient.id}: ${sessionsRes.status}`);
+              return { ...patient, sessions: [] };
+            }
+            
             const sessions = await sessionsRes.json();
+            console.log(`Paciente ${patient.name}: ${sessions.length} sessões encontradas`, sessions);
+            
             return {
               ...patient,
-              sessions: sessions.slice(0, 3), // Últimas 3
+              sessions: Array.isArray(sessions) ? sessions.slice(0, 3) : [],
             };
-          } catch {
+          } catch (error) {
+            console.error(`Erro ao buscar sessões do paciente ${patient.id}:`, error);
             return { ...patient, sessions: [] };
           }
+        })
+      );
         })
       );
       
