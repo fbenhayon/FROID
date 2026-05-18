@@ -92,8 +92,9 @@ services:
 
   froid-payment:
     build:
-      context: ./packages/froid-payment
+context: ./packages/froid-payment
       dockerfile: Dockerfile      
+
     container_name: froid-payment-1
     ports:
       - "3004:3004"
