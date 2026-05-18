@@ -5,16 +5,12 @@ import {
   Patch,
   Body,
   Param,
-  UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { SessionService } from './session.service';
-import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 
 @ApiTags('Sessions')
-@ApiBearerAuth('JWT-auth')
 @Controller('sessions')
-@UseGuards(JwtAuthGuard)
 export class SessionController {
   constructor(private sessionService: SessionService) {}
 
@@ -25,7 +21,7 @@ export class SessionController {
   }
 
   @Patch(':id/start')
-  @ApiOperation({ summary: 'Iniciar sessão (ativa captura)' })
+  @ApiOperation({ summary: 'Iniciar sessão' })
   startSession(@Param('id') id: string) {
     return this.sessionService.startSession(id);
   }
