@@ -34,41 +34,39 @@ export function Dashboard() {
   const loadPatientsWithSessions = async () => {
     try {
       const token = localStorage.getItem('token');
-      
+
       // Carregar pacientes
       const response = await patientsAPI.list(user.professionalId || user.id);
       const patientsData = response.data;
-      
+
+      // Carregar últimas 3 sessões de cada paciente
       const patientsWithSessions = await Promise.all(
         patientsData.map(async (patient: Patient) => {
           try {
-            const token = localStorage.getItem('token');
             const sessionsRes = await fetch(
               `http://204.168.229.32:8001/sessions/patient/${patient.id}`,
               { headers: { Authorization: `Bearer ${token}` } }
             );
             
             if (!sessionsRes.ok) {
-              console.warn(`Falha ao buscar sessões do paciente ${patient.id}: ${sessionsRes.status}`);
+              console.warn(`Falha ao buscar sessões: ${sessionsRes.status}`);
               return { ...patient, sessions: [] };
             }
             
             const sessions = await sessionsRes.json();
-            console.log(`Paciente ${patient.name}: ${sessions.length} sessões encontradas`, sessions);
+            console.log(`${patient.name}: ${sessions.length} sessões`, sessions);
             
             return {
               ...patient,
               sessions: Array.isArray(sessions) ? sessions.slice(0, 3) : [],
             };
           } catch (error) {
-            console.error(`Erro ao buscar sessões do paciente ${patient.id}:`, error);
+            console.error(`Erro sessões ${patient.name}:`, error);
             return { ...patient, sessions: [] };
           }
         })
       );
-        })
-      );
-      
+
       setPatients(patientsWithSessions);
     } catch (error) {
       console.error('Erro ao carregar pacientes:', error);
@@ -133,13 +131,12 @@ export function Dashboard() {
             <div className="space-y-6">
               {patients.map((patient) => (
                 <div key={patient.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                  {/* Header do Paciente */}
                   <div className="flex justify-between items-start mb-4">
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900">{patient.name}</h3>
                       <p className="text-sm text-gray-500">CPF: {patient.cpf}</p>
                     </div>
-                    <button 
+                    <button
                       onClick={() => navigate(`/patients/${patient.id}`)}
                       className="px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg font-medium"
                     >
@@ -147,12 +144,11 @@ export function Dashboard() {
                     </button>
                   </div>
 
-                  {/* Últimas 3 Sessões */}
                   <div className="bg-gray-50 rounded-lg p-3">
                     <h4 className="text-sm font-semibold text-gray-700 mb-3">
                       📊 Últimas 3 Sessões
                     </h4>
-                    
+
                     {!patient.sessions || patient.sessions.length === 0 ? (
                       <p className="text-xs text-gray-500 text-center py-2">
                         Nenhuma sessão realizada ainda
@@ -160,14 +156,14 @@ export function Dashboard() {
                     ) : (
                       <div className="space-y-2">
                         {patient.sessions.map((session) => (
-                          <div 
-                            key={session.id} 
+                          <div
+                            key={session.id}
                             className="bg-white rounded p-2 flex justify-between items-center text-xs"
                           >
                             <div className="flex items-center space-x-3">
                               <span className={`px-2 py-1 rounded font-semibold ${
-                                session.status === 'completed' 
-                                  ? 'bg-green-100 text-green-800' 
+                                session.status === 'completed'
+                                  ? 'bg-green-100 text-green-800'
                                   : 'bg-yellow-100 text-yellow-800'
                               }`}>
                                 {session.status === 'completed' ? '✓ Concluída' : '⏳ Ativa'}
