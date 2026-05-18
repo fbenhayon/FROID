@@ -117,4 +117,15 @@ export class SessionService {
 
     return session;
   }
+
+  async getPatientSessions(patientId: string) {
+    return this.prisma.sessions.findMany({
+      where: { patientId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        voice_analyses: true,
+        facial_analyses: true,
+      },
+    });
+  }
 }

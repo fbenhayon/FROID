@@ -53,4 +53,10 @@ export class SessionController {
   getSessionResults(@Param('id') id: string) {
     return this.sessionService.getSessionResults(id);
   }
+
+  @Get('patient/:patientId')
+  @ApiOperation({ summary: 'Listar sessões de um paciente' })
+  getPatientSessions(@Param('patientId') patientId: string) {
+    return this.sessionService.getPatientSessions(patientId);
+  }
 }
