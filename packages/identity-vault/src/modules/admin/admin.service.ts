@@ -5,36 +5,54 @@ import { PrismaService } from '../../prisma/prisma.service';
 export class AdminService {
   constructor(private prisma: PrismaService) {}
 
-  async createPrompt(data: { title: string; category: string; promptText: string; createdBy?: string }) {
-    return this.prisma.clinic_prompts.create({ data });
+  async createPrompt(data: { title?: string; category: string; promptText?: string; text?: string; createdBy?: string; professionalId?: string }) {
+    return this.prisma.prompt.create({
+      data: {
+        text: data.promptText || data.text || '',
+        category: data.category,
+        professionalId: data.createdBy || data.professionalId || null,
+      },
+    });
   }
 
   async getAllPrompts() {
-    return this.prisma.clinic_prompts.findMany({ orderBy: { createdAt: 'desc' } });
+    return this.prisma.prompt.findMany({ orderBy: { createdAt: 'desc' } });
   }
 
   async getPromptsByCategory(category: string) {
-    return this.prisma.clinic_prompts.findMany({ where: { category, isActive: true }, orderBy: { createdAt: 'desc' } });
+    return this.prisma.prompt.findMany({
+      where: { category },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
   async getPromptById(id: string) {
-    const prompt = await this.prisma.clinic_prompts.findUnique({ where: { id } });
+    const prompt = await this.prisma.prompt.findUnique({ where: { id } });
     if (!prompt) throw new NotFoundException('Prompt not found');
     return prompt;
   }
 
   async updatePrompt(id: string, data: any) {
     await this.getPromptById(id);
-    return this.prisma.clinic_prompts.update({ where: { id }, data });
+    return this.prisma.prompt.update({
+      where: { id },
+      data: {
+        text: data.promptText || data.text,
+        category: data.category,
+      },
+    });
   }
 
   async deletePrompt(id: string) {
     await this.getPromptById(id);
-    return this.prisma.clinic_prompts.delete({ where: { id } });
+    return this.prisma.prompt.delete({ where: { id } });
   }
 
   async togglePromptStatus(id: string) {
     const prompt = await this.getPromptById(id);
-    return this.prisma.clinic_prompts.update({ where: { id }, data: { isActive: !prompt.isActive } });
+    return this.prisma.prompt.update({
+      where: { id },
+      data: { isDefault: !prompt.isDefault },
+    });
   }
 }

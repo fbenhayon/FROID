@@ -11,15 +11,15 @@ export class AuthService {
   ) {}
 
   async login(dto: { email: string; password: string }) {
-    const user = await this.prisma.users.findUnique({
+    const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
     if (!user) throw new UnauthorizedException('Credenciais inválidas');
-    
+
     const isPasswordValid = await bcrypt.compare(dto.password, user.password);
     if (!isPasswordValid) throw new UnauthorizedException('Credenciais inválidas');
 
-    const professional = await this.prisma.professionals.findUnique({
+    const professional = await this.prisma.professional.findUnique({
       where: { userId: user.id },
     });
 
@@ -29,6 +29,7 @@ export class AuthService {
       user: {
         id: user.id,
         email: user.email,
+        name: user.name,
         role: user.role,
         professionalId: professional?.id || null,
       },
@@ -36,7 +37,7 @@ export class AuthService {
   }
 
   async oauthLogin(profile: any, provider: 'google' | 'github') {
-    let user = await this.prisma.users.findUnique({
+    let user = await this.prisma.user.findUnique({
       where: { email: profile.email },
     });
 
@@ -44,29 +45,50 @@ export class AuthService {
     const providerId = provider === 'google' ? profile.googleId : profile.githubId;
 
     if (!user) {
-      user = await this.prisma.users.create({
+      user = await this.prisma.user.create({
         data: {
           email: profile.email,
+          name: profile.name || profile.email,
           password: '',
           role: 'professional',
           [providerIdField]: providerId,
           picture: profile.picture,
         },
       });
+
+      // Auto-criar registro de Professional para login OAuth
+      await this.prisma.professional.create({
+        data: {
+          userId: user.id,
+          name: user.name,
+          crp: `PENDENTE-${user.id.slice(0, 8)}`,
+          specialty: 'A definir',
+        },
+      });
     } else if (!user[providerIdField]) {
-      user = await this.prisma.users.update({
+      user = await this.prisma.user.update({
         where: { id: user.id },
-        data: { 
+        data: {
           [providerIdField]: providerId,
           picture: profile.picture || user.picture,
         },
       });
     }
 
+    const professional = await this.prisma.professional.findUnique({
+      where: { userId: user.id },
+    });
+
     const payload = { sub: user.id, email: user.email };
     return {
       access_token: this.jwtService.sign(payload),
-      user: { id: user.id, email: user.email, role: user.role },
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        professionalId: professional?.id || null,
+      },
     };
   }
 
@@ -76,13 +98,36 @@ export class AuthService {
 
   async register(dto: any) {
     const hashedPassword = await bcrypt.hash(dto.password, 10);
-    const user = await this.prisma.users.create({
+
+    const user = await this.prisma.user.create({
       data: {
         email: dto.email,
+        name: dto.name || dto.email,
         password: hashedPassword,
         role: 'professional',
       },
     });
-    return { id: user.id, email: user.email, createdAt: user.createdAt };
+
+    // Auto-criar registro de Professional vinculado ao usuário
+    const professional = await this.prisma.professional.create({
+      data: {
+        userId: user.id,
+        name: dto.name || dto.email,
+        crp: dto.crp || `PENDENTE-${user.id.slice(0, 8)}`,
+        specialty: dto.specialty || null,
+      },
+    });
+
+    const payload = { sub: user.id, email: user.email };
+    return {
+      access_token: this.jwtService.sign(payload),
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        professionalId: professional.id,
+      },
+    };
   }
 }

@@ -8,7 +8,7 @@ export class PatientService {
 
   async create(data: any) {
     try {
-      return await this.prisma.patients.create({
+      return await this.prisma.patient.create({
         data: {
           name: data.name,
           cpf: data.cpf,
@@ -27,10 +27,9 @@ export class PatientService {
   }
 
   async findByProfessional(professionalId: string) {
-    return this.prisma.patients.findMany({
+    return this.prisma.patient.findMany({
       where: {
         professionalId,
-        deletedAt: null,
         visibleToProfessionals: true,
       },
       orderBy: { createdAt: 'desc' },
@@ -38,11 +37,11 @@ export class PatientService {
   }
 
   async findOne(id: string) {
-    const patient = await this.prisma.patients.findUnique({
+    const patient = await this.prisma.patient.findUnique({
       where: { id },
       include: {
         sessions: true,
-        consent_records: true,
+        consents: true,
       },
     });
     if (!patient) {
@@ -52,7 +51,7 @@ export class PatientService {
   }
 
   async update(id: string, data: any) {
-    return this.prisma.patients.update({
+    return this.prisma.patient.update({
       where: { id },
       data: {
         name: data.name,
@@ -63,10 +62,9 @@ export class PatientService {
   }
 
   async deactivate(id: string) {
-    const patient = await this.prisma.patients.update({
+    const patient = await this.prisma.patient.update({
       where: { id },
       data: {
-        deletedAt: new Date(),
         visibleToProfessionals: false,
       },
     });
