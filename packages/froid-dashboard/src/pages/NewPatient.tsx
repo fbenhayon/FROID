@@ -23,7 +23,7 @@ export function NewPatient() {
   const handleConsentAccept = async (scopes: any) => {
     try {
       console.log('Consentimento aceito:', scopes);
-      const patientData = { ...formData, professionalId: user.professionalId || user.id };
+      const patientData = { ...formData, professionalId: user.id };
       await patientsAPI.create(patientData);
       alert('Paciente cadastrado!');
       navigate('/dashboard');

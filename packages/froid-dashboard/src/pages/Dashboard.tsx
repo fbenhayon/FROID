@@ -36,7 +36,7 @@ export function Dashboard() {
       const token = localStorage.getItem('token');
 
       // Carregar pacientes
-      const response = await patientsAPI.list(user.professionalId || user.id);
+      const response = await patientsAPI.list(user.id);
       const patientsData = response.data;
 
       // Carregar últimas 3 sessões de cada paciente
@@ -44,7 +44,7 @@ export function Dashboard() {
         patientsData.map(async (patient: Patient) => {
           try {
             const sessionsRes = await fetch(
-              `http://204.168.229.32:8001/sessions/patient/${patient.id}`,
+              `/api/sessions/patient/${patient.id}`,
               { headers: { Authorization: `Bearer ${token}` } }
             );
             

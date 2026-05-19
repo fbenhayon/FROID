@@ -33,14 +33,14 @@ export function PatientDetails() {
       const token = localStorage.getItem('token');
       
       // Carregar dados do paciente
-      const patientRes = await fetch(`http://204.168.229.32:8001/patients/${patientId}`, {
+      const patientRes = await fetch(`/api/patients/${patientId}`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       const patientData = await patientRes.json();
       setPatient(patientData);
 
       // Carregar sessões
-      const sessionsRes = await fetch(`http://204.168.229.32:8001/sessions/patient/${patientId}`, {
+      const sessionsRes = await fetch(`/api/sessions/patient/${patientId}`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       const sessionsData = await sessionsRes.json();
