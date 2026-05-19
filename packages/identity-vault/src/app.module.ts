@@ -7,6 +7,7 @@ import { SessionModule } from './modules/session/session.module';
 import { PatientModule } from './modules/patient/patient.module';
 import { ProfessionalModule } from './modules/professional/professional.module';
 import { PromptModule } from './modules/prompt/prompt.module';
+import { InvitationModule } from './modules/invitation/invitation.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { PromptModule } from './modules/prompt/prompt.module';
     PatientModule,
     ProfessionalModule,
     PromptModule,
+    InvitationModule,
   ],
   providers: [PrismaService],
 })

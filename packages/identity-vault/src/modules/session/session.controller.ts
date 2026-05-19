@@ -50,6 +50,12 @@ export class SessionController {
     return this.sessionService.getSessionResults(id);
   }
 
+  @Get(':id/timer-status')
+  @ApiOperation({ summary: 'Status do timer da sessão (minutos decorridos, aviso 50min, cobrança 55min)' })
+  getTimerStatus(@Param('id') id: string) {
+    return this.sessionService.getTimerStatus(id);
+  }
+
   @Get('patient/:patientId')
   @ApiOperation({ summary: 'Listar sessões de um paciente' })
   getPatientSessions(@Param('patientId') patientId: string) {
