@@ -110,6 +110,13 @@ export function LiveSession() {
         }),
       });
 
+      if (!response.ok) {
+        const errBody = await response.text();
+        console.error('Erro HTTP ao criar sessão:', response.status, errBody);
+        alert(`Erro ao iniciar sessão (${response.status})`);
+        return;
+      }
+
       const sessionData = await response.json();
       setSession(sessionData);
 

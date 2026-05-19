@@ -1,6 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { randomUUID } from 'crypto';
 import axios from 'axios';
 
 @Injectable()
@@ -15,7 +14,7 @@ export class SessionService {
     professionalId: string;
     scheduledFor: Date;
   }) {
-    return this.prisma.sessions.create({
+    return this.prisma.session.create({
       data: {
         patientId: data.patientId,
         professionalId: data.professionalId,
@@ -26,7 +25,7 @@ export class SessionService {
   }
 
   async startSession(sessionId: string) {
-    const session = await this.prisma.sessions.findUnique({
+    const session = await this.prisma.session.findUnique({
       where: { id: sessionId },
     });
 
@@ -34,7 +33,7 @@ export class SessionService {
       throw new NotFoundException('Session not found');
     }
 
-    return this.prisma.sessions.update({
+    return this.prisma.session.update({
       where: { id: sessionId },
       data: {
         status: 'active',
@@ -44,12 +43,12 @@ export class SessionService {
   }
 
   async endSession(sessionId: string, notes?: string) {
-    return this.prisma.sessions.update({
+    return this.prisma.session.update({
       where: { id: sessionId },
       data: {
         status: 'completed',
         endedAt: new Date(),
-        notes,
+        clinicalNotes: notes,
       },
     });
   }
@@ -61,13 +60,10 @@ export class SessionService {
         audio: audioData,
       });
 
-      await this.prisma.voice_analyses.create({
+      await this.prisma.voiceAnalysis.create({
         data: {
-          id: randomUUID(),
           sessionId,
-          zonalEnergies: response.data.zonalEnergies || {},
-          spectralBands: response.data.spectralBands || {},
-          rawFeatures: response.data,
+          data: response.data,
         },
       });
 
@@ -85,12 +81,10 @@ export class SessionService {
         image: imageData,
       });
 
-      await this.prisma.facial_analyses.create({
+      await this.prisma.facialAnalysis.create({
         data: {
-          id: randomUUID(),
           sessionId,
-          actionUnits: response.data.actionUnits || {},
-          rawLandmarks: response.data,
+          data: response.data,
         },
       });
 
@@ -102,12 +96,12 @@ export class SessionService {
   }
 
   async getSessionResults(sessionId: string) {
-    const session = await this.prisma.sessions.findUnique({
+    const session = await this.prisma.session.findUnique({
       where: { id: sessionId },
       include: {
-        voice_analyses: true,
-        facial_analyses: true,
-        fusion_analyses: true,
+        voiceAnalyses: true,
+        facialAnalyses: true,
+        fusionAnalyses: true,
       },
     });
 
@@ -119,12 +113,12 @@ export class SessionService {
   }
 
   async getPatientSessions(patientId: string) {
-    return this.prisma.sessions.findMany({
+    return this.prisma.session.findMany({
       where: { patientId },
       orderBy: { createdAt: 'desc' },
       include: {
-        voice_analyses: true,
-        facial_analyses: true,
+        voiceAnalyses: true,
+        facialAnalyses: true,
       },
     });
   }
