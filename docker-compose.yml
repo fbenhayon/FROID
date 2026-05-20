@@ -84,6 +84,7 @@ services:
     container_name: froid-dashboard-1
     ports:
       - "80:80"
+      - "443:443"
     depends_on:
       - identity-vault
     networks:
