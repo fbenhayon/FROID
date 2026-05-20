@@ -36,7 +36,7 @@ export function Dashboard() {
       const token = localStorage.getItem('token');
 
       // Carregar pacientes
-      const response = await patientsAPI.list(user.id);
+      const response = await patientsAPI.list(user.professionalId);
       const patientsData = response.data;
 
       // Carregar últimas 3 sessões de cada paciente

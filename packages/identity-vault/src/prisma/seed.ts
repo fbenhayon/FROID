@@ -10,11 +10,11 @@ async function main() {
   // 1. LIMPAR DADOS EXISTENTES (apenas em dev)
   // ============================================================================
   console.log('🧹 Limpando dados antigos...');
-  await prisma.prompt.deleteMany();
-  await prisma.session.deleteMany();
-  await prisma.patient.deleteMany();
-  await prisma.professional.deleteMany();
-  await prisma.user.deleteMany();
+  await prisma.clinic_prompts.deleteMany();
+  await prisma.sessions.deleteMany();
+  await prisma.patients.deleteMany();
+  await prisma.professionals.deleteMany();
+  await prisma.users.deleteMany();
 
   // ============================================================================
   // 2. CRIAR USUÁRIOS
@@ -25,28 +25,25 @@ async function main() {
   const hashedPassword = await bcrypt.hash('froid123', 10);
 
   // Administrador master — único com permissão de alterar o sistema
-  const masterUser = await prisma.user.create({
+  const masterUser = await prisma.users.create({
     data: {
       email: 'fbenhayon@froid.com.br',
-      name: 'F. Benhayon',
       password: hashedMaster,
       role: 'superadmin',
     },
   });
 
-  const adminUser = await prisma.user.create({
+  const adminUser = await prisma.users.create({
     data: {
       email: 'admin@froid.com',
-      name: 'Dr. João Silva',
       password: hashedPassword,
       role: 'professional',
     },
   });
 
-  const testUser = await prisma.user.create({
+  const testUser = await prisma.users.create({
     data: {
       email: 'test@froid.com',
-      name: 'Dra. Maria Santos',
       password: hashedPassword,
       role: 'professional',
     },
@@ -63,7 +60,7 @@ async function main() {
   // ============================================================================
   console.log('👨‍⚕️ Criando profissionais...');
 
-  const professional1 = await prisma.professional.create({
+  const professional1 = await prisma.professionals.create({
     data: {
       userId: adminUser.id,
       name: 'Dr. João Silva',
@@ -72,7 +69,7 @@ async function main() {
     },
   });
 
-  await prisma.professional.create({
+  await prisma.professionals.create({
     data: {
       userId: testUser.id,
       name: 'Dra. Maria Santos',
@@ -88,9 +85,9 @@ async function main() {
   // ============================================================================
   console.log('👥 Criando pacientes...');
 
-  const patient1 = await prisma.patient.create({
+  const patient1 = await prisma.patients.create({
     data: {
-      professionalId: adminUser.id,
+      professionalId: professional1.id,
       name: 'Pedro Oliveira',
       cpf: '123.456.789-00',
       birthDate: new Date('1990-05-15'),
@@ -99,9 +96,9 @@ async function main() {
     },
   });
 
-  await prisma.patient.create({
+  await prisma.patients.create({
     data: {
-      professionalId: adminUser.id,
+      professionalId: professional1.id,
       name: 'Ana Costa',
       cpf: '987.654.321-00',
       birthDate: new Date('1985-08-20'),
@@ -117,30 +114,33 @@ async function main() {
   // ============================================================================
   console.log('💬 Criando prompts clínicos...');
 
-  await prisma.prompt.create({
+  await prisma.clinic_prompts.create({
     data: {
-      professionalId: professional1.id,
+      title: 'Análise Vocal Emocional',
       category: 'voice',
-      text: 'Analise o tom emocional da voz considerando: frequência fundamental, prosódia, taxa de fala e energia espectral. Identifique sinais de depressão, ansiedade ou mania.',
-      isDefault: true,
+      promptText: 'Analise o tom emocional da voz considerando: frequência fundamental, prosódia, taxa de fala e energia espectral. Identifique sinais de depressão, ansiedade ou mania.',
+      isActive: true,
+      createdBy: professional1.id,
     },
   });
 
-  await prisma.prompt.create({
+  await prisma.clinic_prompts.create({
     data: {
-      professionalId: professional1.id,
+      title: 'Análise de Micro-expressões Faciais',
       category: 'face',
-      text: 'Analise as micro-expressões faciais usando FACS (Facial Action Coding System). Identifique Action Units relacionadas a emoções genuínas vs. mascaradas.',
-      isDefault: true,
+      promptText: 'Analise as micro-expressões faciais usando FACS (Facial Action Coding System). Identifique Action Units relacionadas a emoções genuínas vs. mascaradas.',
+      isActive: true,
+      createdBy: professional1.id,
     },
   });
 
-  await prisma.prompt.create({
+  await prisma.clinic_prompts.create({
     data: {
-      professionalId: professional1.id,
+      title: 'Análise de Fusão Multimodal',
       category: 'fusion',
-      text: 'Integre dados de voz e face para detectar incongruências emocionais. Calcule score de congruência e identifique possíveis dissociações afetivas.',
-      isDefault: true,
+      promptText: 'Integre dados de voz e face para detectar incongruências emocionais. Calcule score de congruência e identifique possíveis dissociações afetivas.',
+      isActive: true,
+      createdBy: professional1.id,
     },
   });
 
@@ -151,15 +151,15 @@ async function main() {
   // ============================================================================
   console.log('📅 Criando sessão de exemplo...');
 
-  await prisma.session.create({
+  await prisma.sessions.create({
     data: {
       patientId: patient1.id,
-      professionalId: adminUser.id,
+      professionalId: professional1.id,
       status: 'completed',
       scheduledFor: new Date('2026-05-10T14:00:00'),
       startedAt: new Date('2026-05-10T14:05:00'),
       endedAt: new Date('2026-05-10T14:55:00'),
-      clinicalNotes: 'Sessão inicial. Paciente apresentou sinais de ansiedade leve.',
+      notes: 'Sessão inicial. Paciente apresentou sinais de ansiedade leve.',
     },
   });
 

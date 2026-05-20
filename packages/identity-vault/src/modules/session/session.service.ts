@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { randomUUID } from 'crypto';
 import axios from 'axios';
 
 @Injectable()
@@ -14,7 +15,7 @@ export class SessionService {
     professionalId: string;
     scheduledFor: Date;
   }) {
-    return this.prisma.session.create({
+    return this.prisma.sessions.create({
       data: {
         patientId: data.patientId,
         professionalId: data.professionalId,
@@ -25,7 +26,7 @@ export class SessionService {
   }
 
   async startSession(sessionId: string) {
-    const session = await this.prisma.session.findUnique({
+    const session = await this.prisma.sessions.findUnique({
       where: { id: sessionId },
     });
 
@@ -33,7 +34,7 @@ export class SessionService {
       throw new NotFoundException('Session not found');
     }
 
-    return this.prisma.session.update({
+    return this.prisma.sessions.update({
       where: { id: sessionId },
       data: {
         status: 'active',
@@ -43,12 +44,12 @@ export class SessionService {
   }
 
   async endSession(sessionId: string, notes?: string) {
-    return this.prisma.session.update({
+    return this.prisma.sessions.update({
       where: { id: sessionId },
       data: {
         status: 'completed',
         endedAt: new Date(),
-        clinicalNotes: notes,
+        notes,
       },
     });
   }
@@ -60,16 +61,27 @@ export class SessionService {
         audio: audioData,
       });
 
-      await this.prisma.voiceAnalysis.create({
+      await this.prisma.voice_analyses.create({
         data: {
+          id: response.data.id || randomUUID(),
           sessionId,
-          data: response.data,
+          zonalEnergies: response.data.zonalEnergies ?? {},
+          spectralBands: response.data.spectralBands ?? {},
+          dominantZone: response.data.dominantZone ?? null,
+          ipmScore: response.data.ipmScore ?? null,
+          depressionRisk: response.data.depressionRisk ?? null,
+          maniaActivation: response.data.maniaActivation ?? null,
+          stressCognitive: response.data.stressCognitive ?? null,
+          colorCode: response.data.colorCode ?? null,
+          f0Mean: response.data.f0Mean ?? null,
+          f0Std: response.data.f0Std ?? null,
+          speechRate: response.data.speechRate ?? null,
+          rawFeatures: response.data.rawFeatures ?? null,
         },
       });
 
       return response.data;
     } catch (error) {
-      console.error('Voice analysis error:', error.message);
       throw error;
     }
   }
@@ -81,27 +93,35 @@ export class SessionService {
         image: imageData,
       });
 
-      await this.prisma.facialAnalysis.create({
+      await this.prisma.facial_analyses.create({
         data: {
+          id: response.data.id || randomUUID(),
           sessionId,
-          data: response.data,
+          actionUnits: response.data.actionUnits ?? {},
+          dominantEmotion: response.data.dominantEmotion ?? null,
+          emotionScores: response.data.emotionScores ?? null,
+          expressionPhase: response.data.expressionPhase ?? null,
+          apexConfidence: response.data.apexConfidence ?? null,
+          asymmetryScores: response.data.asymmetryScores ?? null,
+          asymmetryFlags: response.data.asymmetryFlags ?? null,
+          genuineness: response.data.genuineness ?? null,
+          rawLandmarks: response.data.rawLandmarks ?? null,
         },
       });
 
       return response.data;
     } catch (error) {
-      console.error('Face analysis error:', error.message);
       throw error;
     }
   }
 
   async getSessionResults(sessionId: string) {
-    const session = await this.prisma.session.findUnique({
+    const session = await this.prisma.sessions.findUnique({
       where: { id: sessionId },
       include: {
-        voiceAnalyses: true,
-        facialAnalyses: true,
-        fusionAnalyses: true,
+        voice_analyses: true,
+        facial_analyses: true,
+        fusion_analyses: true,
       },
     });
 
@@ -113,12 +133,12 @@ export class SessionService {
   }
 
   async getPatientSessions(patientId: string) {
-    return this.prisma.session.findMany({
+    return this.prisma.sessions.findMany({
       where: { patientId },
       orderBy: { createdAt: 'desc' },
       include: {
-        voiceAnalyses: true,
-        facialAnalyses: true,
+        voice_analyses: true,
+        facial_analyses: true,
       },
     });
   }

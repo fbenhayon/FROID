@@ -105,7 +105,7 @@ export function LiveSession() {
         },
         body: JSON.stringify({
           patientId,
-          professionalId: user.id,
+          professionalId: user.professionalId,
           scheduledFor: new Date().toISOString(),
         }),
       });
