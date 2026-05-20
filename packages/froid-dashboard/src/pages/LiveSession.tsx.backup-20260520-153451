@@ -45,7 +45,7 @@ export function LiveSession() {
   const [zoneData, setZoneData] = useState<number[]>(new Array(12).fill(0));
   const [bandData, setBandData] = useState<number[]>(new Array(7).fill(0));
   const [emotionHistory, setEmotionHistory] = useState<string[]>([]);
-  const [riskScores, setRiskScores] = useState({ depression: 0, mania: 0, stress: 0 });
+  const [riskScores, setRiskScores] = useState({ depression: 0, mania: 0, stress: 0, anxiety: 0, dissociation: 0, trauma: 0 });
   const [colorimetryLevel, setColorimetryLevel] = useState(0);
   const [ipmScore, setIpmScore] = useState(0);
   const [ipmHistory, setIpmHistory] = useState<number[]>([]);
@@ -56,10 +56,25 @@ export function LiveSession() {
   const [promptResult, setPromptResult] = useState<PromptResult | null>(null);
   const [showPromptModal, setShowPromptModal] = useState(false);
   const [loadingPrompt, setLoadingPrompt] = useState(false);
-  
+  const [tooltipEmotion, setTooltipEmotion] = useState<string | null>(null);
+
+  const emotionDescriptions: Record<string, { label: string; canonical_aus: string; description: string }> = {
+    happy: { label: 'Felicidade', canonical_aus: 'AU 6 + AU 12', description: 'O "Duchenne Marker" (AU 6) distingue alegria genuina de sorrisos sociais. Sem AU 6, o sorriso e classificado como voluntario.' },
+    sadness: { label: 'Tristeza', canonical_aus: 'AU 1 + AU 4 + AU 15', description: 'A elevacao obliqua das sobrancelhas internas (AU 1) + abaixamento dos cantos da boca (AU 15) e quase impossivel de falsificar.' },
+    surprise: { label: 'Surpresa', canonical_aus: 'AU 1 + AU 2 + AU 5 + AU 26/27', description: 'Movimento rapido e simetrico. Se durar mais de 1 segundo, e provavel que seja surpresa fingida.' },
+    fear: { label: 'Medo', canonical_aus: 'AU 1+2+4+5+7+20+25', description: 'Combina arregalar de olhos (AU 5) com esticamento horizontal dos labios (AU 20), criando tensao multidirecional.' },
+    anger: { label: 'Raiva', canonical_aus: 'AU 4 + AU 5 + AU 7 + AU 23/24', description: 'Foco no olhar fixo (AU 5/7) e estreitamento dos labios (AU 23), sinalizando preparacao para agressao ou supressao.' },
+    disgust: { label: 'Nojo', canonical_aus: 'AU 9 / AU 10 + AU 17', description: 'O enrugamento do nariz (AU 9) e o sinal mais confiavel. AU 10 e uma versao mais leve ou controlada do nojo.' },
+    contempt: { label: 'Desprezo', canonical_aus: 'R12A / R14A (Unilateral)', description: 'Unica emocao universal definida por assimetria. Puxao unilateral do canto da boca e o marcador tecnico do desdém.' },
+  };
+
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const voiceWsRef = useRef<WebSocket | null>(null);
   const faceWsRef = useRef<WebSocket | null>(null);
+  const frameIntervalRef = useRef<number | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioProcessorRef = useRef<ScriptProcessorNode | null>(null);
 
   const prompts = [
     { id: '1', text: 'Como este paciente se compara à média populacional em Zonas FROID?', category: 'populacional' },
@@ -82,7 +97,7 @@ export function LiveSession() {
   const initializeSession = async () => {
     try {
       const user = JSON.parse(localStorage.getItem('user') || '{}');
-      const response = await fetch('http://167.71.182.244:3001/sessions', {
+      const response = await fetch('/api/sessions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -90,10 +105,17 @@ export function LiveSession() {
         },
         body: JSON.stringify({
           patientId,
-          professionalId: user.id,
+          professionalId: user.professionalId,
           scheduledFor: new Date().toISOString(),
         }),
       });
+
+      if (!response.ok) {
+        const errBody = await response.text();
+        console.error('Erro HTTP ao criar sessão:', response.status, errBody);
+        alert(`Erro ao iniciar sessão (${response.status})`);
+        return;
+      }
 
       const sessionData = await response.json();
       setSession(sessionData);
@@ -108,7 +130,8 @@ export function LiveSession() {
   };
 
   const connectVoiceWebSocket = (sessionId: string) => {
-    const ws = new WebSocket(`ws://167.71.182.244:3002/ws/voice/${sessionId}`);
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(`${protocol}//${window.location.host}/ws/voice/${sessionId}`);
     
     ws.onopen = () => {
       console.log('WebSocket Voice conectado');
@@ -119,19 +142,23 @@ export function LiveSession() {
       const data = JSON.parse(event.data);
       
       if (data.dominant_zone) setCurrentZone(data.dominant_zone);
-      if (data.zones) setZoneData(data.zones.map((z: any) => z.energy_normalized * 100));
-      if (data.spectral_bands) setBandData(data.spectral_bands.map((b: any) => b.energy_normalized * 100));
+      if (data.zones) setZoneData(data.zones);
+      if (data.spectral_bands) setBandData(data.spectral_bands);
       if (data.clinical_scores) {
         setRiskScores({
-          depression: data.clinical_scores.depression_risk || 0,
-          mania: data.clinical_scores.mania_activation || 0,
-          stress: data.clinical_scores.stress_cognitive || 0,
+          depression: Math.round((data.clinical_scores.depression_risk || 0) * 100),
+          mania: Math.round((data.clinical_scores.mania_activation || 0) * 100),
+          stress: Math.round((data.clinical_scores.stress_cognitive || 0) * 100),
+          anxiety: Math.round((data.clinical_scores.anxiety_risk || 0) * 100),
+          dissociation: Math.round((data.clinical_scores.dissociation_risk || 0) * 100),
+          trauma: Math.round((data.clinical_scores.trauma_risk || 0) * 100),
         });
       }
       if (data.colorimetry_level !== undefined) setColorimetryLevel(data.colorimetry_level);
       if (data.ipm_score !== undefined) {
-        setIpmScore(data.ipm_score);
-        setIpmHistory(prev => [...prev.slice(-19), data.ipm_score]);
+        const ipmPct = Math.round(data.ipm_score * 100);
+        setIpmScore(ipmPct);
+        setIpmHistory(prev => [...prev.slice(-19), ipmPct]);
       }
     };
     
@@ -142,7 +169,8 @@ export function LiveSession() {
   };
 
   const connectFaceWebSocket = (sessionId: string) => {
-    const ws = new WebSocket(`ws://167.71.182.244:3003/ws/face/${sessionId}`);
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(`${protocol}//${window.location.host}/ws/face/${sessionId}`);
     
     ws.onopen = () => {
       console.log('WebSocket Face conectado');
@@ -167,12 +195,50 @@ export function LiveSession() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: 640, height: 480 },
-        audio: true,
+        audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true },
       });
-      
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
+
+      // --- Envio de frames de vídeo para froid-face (3 FPS) ---
+      const canvas = document.createElement('canvas');
+      canvas.width = 640;
+      canvas.height = 480;
+      canvasRef.current = canvas as any;
+
+      frameIntervalRef.current = window.setInterval(() => {
+        if (!videoRef.current || !faceWsRef.current || faceWsRef.current.readyState !== WebSocket.OPEN) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.drawImage(videoRef.current, 0, 0, 640, 480);
+        canvas.toBlob((blob) => {
+          if (blob && faceWsRef.current?.readyState === WebSocket.OPEN) {
+            blob.arrayBuffer().then(buf => faceWsRef.current?.send(buf));
+          }
+        }, 'image/jpeg', 0.7);
+      }, 333);
+
+      // --- Envio de áudio PCM 16-bit para froid-voice ---
+      const audioContext = new AudioContext({ sampleRate: 16000 });
+      audioContextRef.current = audioContext;
+      const source = audioContext.createMediaStreamSource(stream);
+      const processor = audioContext.createScriptProcessor(4096, 1, 1);
+      audioProcessorRef.current = processor;
+
+      processor.onaudioprocess = (e) => {
+        if (!voiceWsRef.current || voiceWsRef.current.readyState !== WebSocket.OPEN) return;
+        const float32 = e.inputBuffer.getChannelData(0);
+        const pcm16 = new Int16Array(float32.length);
+        for (let i = 0; i < float32.length; i++) {
+          pcm16[i] = Math.max(-32768, Math.min(32767, Math.round(float32[i] * 32767)));
+        }
+        voiceWsRef.current.send(pcm16.buffer);
+      };
+
+      source.connect(processor);
+      processor.connect(audioContext.destination);
     } catch (error) {
       console.error('Erro ao acessar câmera:', error);
       alert('Erro ao acessar câmera/microfone');
@@ -197,7 +263,7 @@ export function LiveSession() {
     setLoadingPrompt(true);
     
     try {
-      const response = await fetch('http://167.71.182.244:3001/prompts/execute', {
+      const response = await fetch('/api/prompts/execute', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -225,7 +291,7 @@ export function LiveSession() {
     if (!session) return;
     
     try {
-      await fetch(`http://167.71.182.244:3001/sessions/${session.id}/end`, {
+      await fetch(`/api/sessions/${session.id}/end`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -244,9 +310,12 @@ export function LiveSession() {
   };
 
   const cleanup = () => {
+    if (frameIntervalRef.current) clearInterval(frameIntervalRef.current);
+    if (audioProcessorRef.current) audioProcessorRef.current.disconnect();
+    if (audioContextRef.current) audioContextRef.current.close();
     if (voiceWsRef.current) voiceWsRef.current.close();
     if (faceWsRef.current) faceWsRef.current.close();
-    
+
     if (videoRef.current?.srcObject) {
       const stream = videoRef.current.srcObject as MediaStream;
       stream.getTracks().forEach(track => track.stop());
@@ -320,7 +389,6 @@ export function LiveSession() {
     return 'bg-red-500';
   };
 
-// 
   const getIPMColor = (score: number) => {
     if (score >= 70) return 'text-green-400';
     if (score >= 40) return 'text-yellow-400';
@@ -459,20 +527,27 @@ export function LiveSession() {
           {/* Colorimetria */}
           <div className="bg-gray-800 rounded-lg p-3">
             <h3 className="text-sm font-semibold mb-2">🎨 Colorimetria (7 Níveis)</h3>
-            <div className="flex items-center space-x-1">
+            <div className="flex items-center justify-center space-x-3">
               {colorimetryColors.map((color, i) => (
-                <div
-                  key={i}
-                  className={`flex-1 h-8 rounded transition-all duration-300 ${
-                    i === colorimetryLevel ? 'ring-2 ring-white scale-110' : 'opacity-50'
-                  }`}
-                  style={{ backgroundColor: color }}
-                />
+                <div key={i} className="flex flex-col items-center">
+                  <div
+                    className={`w-10 h-10 rounded-full transition-all duration-500 ${
+                      i === colorimetryLevel ? 'ring-4 ring-white scale-125 shadow-lg' : 'opacity-40 scale-90'
+                    }`}
+                    style={{
+                      backgroundColor: color,
+                      boxShadow: i === colorimetryLevel ? `0 0 20px ${color}` : 'none'
+                    }}
+                  />
+                  {i === colorimetryLevel && (
+                    <div className="mt-1 w-1.5 h-1.5 bg-white rounded-full" />
+                  )}
+                </div>
               ))}
             </div>
             <div className="mt-2 text-center">
               <p className="text-xs text-gray-400">Nível:</p>
-              <p className="text-sm font-bold">
+              <p className="text-sm font-bold" style={{ color: colorimetryColors[colorimetryLevel] }}>
                 {['Vermelho', 'Laranja', 'Amarelo', 'Verde', 'Azul', 'Índigo', 'Violeta'][colorimetryLevel]}
               </p>
             </div>
@@ -516,16 +591,23 @@ export function LiveSession() {
           <div className="bg-gray-800 rounded-lg p-3">
             <h3 className="text-sm font-semibold mb-2">⚠️ Riscos Clínicos</h3>
             <div className="space-y-2">
-              {['depression', 'mania', 'stress'].map((risk) => (
-                <div key={risk}>
+              {[
+                { key: 'depression', label: 'Depressão' },
+                { key: 'mania', label: 'Mania' },
+                { key: 'stress', label: 'Estresse' },
+                { key: 'anxiety', label: 'Ansiedade' },
+                { key: 'dissociation', label: 'Dissociação' },
+                { key: 'trauma', label: 'Trauma' },
+              ].map(({ key, label }) => (
+                <div key={key}>
                   <div className="flex justify-between text-xs mb-1">
-                    <span>{risk === 'depression' ? 'Depressão' : risk === 'mania' ? 'Mania' : 'Estresse'}</span>
-                    <span className="font-semibold">{riskScores[risk as keyof typeof riskScores]}%</span>
+                    <span>{label}</span>
+                    <span className="font-semibold">{riskScores[key as keyof typeof riskScores]}%</span>
                   </div>
                   <div className="w-full bg-gray-700 rounded-full h-1.5">
                     <div
-                      className={`h-1.5 rounded-full ${getRiskColor(riskScores[risk as keyof typeof riskScores])} transition-all duration-500`}
-                      style={{ width: `${riskScores[risk as keyof typeof riskScores]}%` }}
+                      className={`h-1.5 rounded-full ${getRiskColor(riskScores[key as keyof typeof riskScores])} transition-all duration-500`}
+                      style={{ width: `${Math.min(riskScores[key as keyof typeof riskScores], 100)}%` }}
                     />
                   </div>
                 </div>
@@ -535,16 +617,48 @@ export function LiveSession() {
 
           {/* Emoções FACS */}
           <div className="bg-gray-800 rounded-lg p-3">
-            <h3 className="text-sm font-semibold mb-2">😊 Emoções (FACS)</h3>
+            <h3 className="text-sm font-semibold mb-2">😊 Emoções (FACS - EMFACS)</h3>
             <div className="text-center mb-2">
               <p className="text-xs text-gray-400">Atual:</p>
-              <p className="text-lg font-bold text-green-400">{currentEmotion || 'Aguardando...'}</p>
+              <div className="flex items-center justify-center gap-2">
+                <p className="text-lg font-bold text-green-400">
+                  {currentEmotion ? (emotionDescriptions[currentEmotion]?.label || currentEmotion) : 'Aguardando...'}
+                </p>
+                {currentEmotion && emotionDescriptions[currentEmotion] && (
+                  <button
+                    onClick={() => setTooltipEmotion(tooltipEmotion === currentEmotion ? null : currentEmotion)}
+                    className="w-5 h-5 rounded-full bg-gray-600 hover:bg-blue-600 text-xs font-bold flex items-center justify-center"
+                    title="Info cientifica"
+                  >?</button>
+                )}
+              </div>
+              {tooltipEmotion && emotionDescriptions[tooltipEmotion] && (
+                <div className="mt-2 text-left bg-gray-900 border border-blue-500 rounded p-2 text-xs">
+                  <p className="font-bold text-blue-400 mb-1">{emotionDescriptions[tooltipEmotion].label} - {emotionDescriptions[tooltipEmotion].canonical_aus}</p>
+                  <p className="text-gray-300">{emotionDescriptions[tooltipEmotion].description}</p>
+                </div>
+              )}
             </div>
-            <div className="space-y-1 max-h-24 overflow-y-auto text-xs">
+            {/* 7 emoções com ícone de info */}
+            <div className="grid grid-cols-2 gap-1 mb-2">
+              {Object.entries(emotionDescriptions).map(([key, desc]) => (
+                <div key={key} className={`flex items-center justify-between px-1.5 py-0.5 rounded text-xs ${
+                  currentEmotion === key ? 'bg-green-900 ring-1 ring-green-500' : 'bg-gray-700'
+                }`}>
+                  <span className={currentEmotion === key ? 'text-green-400 font-semibold' : 'text-gray-400'}>{desc.label}</span>
+                  <button
+                    onClick={() => setTooltipEmotion(tooltipEmotion === key ? null : key)}
+                    className="w-4 h-4 rounded-full bg-gray-600 hover:bg-blue-600 text-xs flex items-center justify-center ml-1"
+                    title={desc.canonical_aus}
+                  >?</button>
+                </div>
+              ))}
+            </div>
+            <div className="space-y-1 max-h-20 overflow-y-auto text-xs">
               {emotionHistory.slice(-5).reverse().map((emotion, i) => (
                 <div key={i} className="flex justify-between bg-gray-700 rounded px-1 py-0.5">
                   <span className="text-gray-400">#{emotionHistory.length - i}</span>
-                  <span>{emotion}</span>
+                  <span>{emotionDescriptions[emotion]?.label || emotion}</span>
                 </div>
               ))}
             </div>

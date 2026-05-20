@@ -305,6 +305,8 @@ async def voice_stream(ws: WebSocket, session_id: str):
                 "overall_color": overall_color,
             }
 
+            print(f"[DEBUG] Sending zones={len(zones_for_frontend)}, bands={len(bands_for_frontend)}, zone_energies={[round(z.get("energy_normalized",0)*100) for z in zones_for_frontend]}")
+            print(f"[DEBUG] zones={len(zones_for_frontend)}, bands={len(bands_for_frontend)}, zone_vals={[round(z.get('energy_normalized',0)*100,1) for z in zones_for_frontend[:3]]}...")
             await ws.send_json(sanitize(packet))
 
     except WebSocketDisconnect:

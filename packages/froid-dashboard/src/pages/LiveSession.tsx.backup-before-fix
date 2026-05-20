@@ -119,8 +119,8 @@ export function LiveSession() {
       const data = JSON.parse(event.data);
       
       if (data.dominant_zone) setCurrentZone(data.dominant_zone);
-      if (data.zones) setZoneData(data.zones.map((z: any) => z.energy_normalized * 100));
-      if (data.spectral_bands) setBandData(data.spectral_bands.map((b: any) => b.energy_normalized * 100));
+      if (data.zones) setZoneData(data.zones);
+      if (data.spectral_bands) setBandData(data.spectral_bands);
       if (data.clinical_scores) {
         setRiskScores({
           depression: data.clinical_scores.depression_risk || 0,

@@ -25,7 +25,7 @@ class AudioPipeline:
         self.stride_samples = int(stride_sec * sample_rate)
 
         # VAD - agressividade 3 (máxima filtragem de silêncio)
-        self.vad = webrtcvad.Vad(3)
+        self.vad = webrtcvad.Vad(1)
 
         # openSMILE - eGeMAPS v02 (88 features)
         self.smile = opensmile.Smile(
@@ -76,7 +76,7 @@ class AudioPipeline:
                     if self.vad.is_speech(frame, self.sample_rate):
                         speech_frames += 1
 
-            # Considerar fala se >30% dos frames contêm voz
+            # Considerar fala se >10% dos frames contêm voz
             if total_frames == 0 or (speech_frames / total_frames) < 0.3:
                 return False, {}
         except Exception:
