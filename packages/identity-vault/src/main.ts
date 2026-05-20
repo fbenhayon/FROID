@@ -37,17 +37,18 @@ async function bootstrap() {
   // ============================================================================
   // CORS CONFIGURATION
   // ============================================================================
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'https://froid.com.br',
+    'https://www.froid.com.br',
+    'http://froid.com.br',
+    'http://www.froid.com.br',
+    ...(process.env.EXTRA_CORS_ORIGIN ? [process.env.EXTRA_CORS_ORIGIN] : []),
+  ];
+
   app.enableCors({
-    origin: [
-      'http://localhost:3000',
-      'http://localhost:3001',
-      'http://204.168.229.32',
-      'http://204.168.229.32:80',
-      'https://froid.com.br',
-      'https://www.froid.com.br',
-      'http://froid.com.br',
-      'http://www.froid.com.br',
-    ],
+    origin: allowedOrigins,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
     credentials: true,

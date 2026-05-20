@@ -49,27 +49,23 @@ export function Dashboard() {
             );
             
             if (!sessionsRes.ok) {
-              console.warn(`Falha ao buscar sessões: ${sessionsRes.status}`);
               return { ...patient, sessions: [] };
             }
-            
+
             const sessions = await sessionsRes.json();
-            console.log(`${patient.name}: ${sessions.length} sessões`, sessions);
-            
             return {
               ...patient,
               sessions: Array.isArray(sessions) ? sessions.slice(0, 3) : [],
             };
-          } catch (error) {
-            console.error(`Erro sessões ${patient.name}:`, error);
+          } catch {
             return { ...patient, sessions: [] };
           }
         })
       );
 
       setPatients(patientsWithSessions);
-    } catch (error) {
-      console.error('Erro ao carregar pacientes:', error);
+    } catch {
+      // falha silenciosa — UI mostra lista vazia
     } finally {
       setLoading(false);
     }
