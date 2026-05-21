@@ -24,8 +24,8 @@ PROSODY_UPDATE_MS = 500     # Atualização de F0/Jitter/Shimmer (Plano 4B)
 # =============================================================================
 # IDENTITY VAULT INTEGRATION
 # =============================================================================
-IDENTITY_VAULT_URL = "http://identity-vault:3001"
-REDIS_URL = "redis://redis:6379"
+IDENTITY_VAULT_URL = "http://localhost:3001/api"
+REDIS_URL = "redis://172.21.208.107:6379"
 
 # =============================================================================
 # CLINICAL SCORING WEIGHTS (API Voice - referências científicas)

@@ -82,7 +82,7 @@ export function LiveSession() {
   const initializeSession = async () => {
     try {
       const user = JSON.parse(localStorage.getItem('user') || '{}');
-      const response = await fetch('http://167.71.182.244:3001/sessions', {
+      const response = await fetch('https://froid.com.br/api/sessions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -90,7 +90,7 @@ export function LiveSession() {
         },
         body: JSON.stringify({
           patientId,
-          professionalId: user.id,
+          professionalId: user.professionalId,
           scheduledFor: new Date().toISOString(),
         }),
       });
@@ -108,7 +108,7 @@ export function LiveSession() {
   };
 
   const connectVoiceWebSocket = (sessionId: string) => {
-    const ws = new WebSocket(`ws://167.71.182.244:3002/ws/voice/${sessionId}`);
+    const ws = new WebSocket(`wss://froid.com.br/ws/voice/${sessionId}`);
     
     ws.onopen = () => {
       console.log('WebSocket Voice conectado');
@@ -117,7 +117,6 @@ export function LiveSession() {
     
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
-      
       if (data.dominant_zone) setCurrentZone(data.dominant_zone);
       if (data.zones) setZoneData(data.zones.map((z: any) => z.energy_normalized * 100));
       if (data.spectral_bands) setBandData(data.spectral_bands.map((b: any) => b.energy_normalized * 100));
@@ -134,15 +133,16 @@ export function LiveSession() {
         setIpmHistory(prev => [...prev.slice(-19), data.ipm_score]);
       }
     };
-    
     ws.onerror = () => setVoiceStatus('error');
+    ws.onclose = () => setVoiceStatus('disconnected');
+    voiceWsRef.current = ws;
     ws.onclose = () => setVoiceStatus('disconnected');
     
     voiceWsRef.current = ws;
   };
 
   const connectFaceWebSocket = (sessionId: string) => {
-    const ws = new WebSocket(`ws://167.71.182.244:3003/ws/face/${sessionId}`);
+    const ws = new WebSocket(`wss://froid.com.br/ws/face/${sessionId}`);
     
     ws.onopen = () => {
       console.log('WebSocket Face conectado');
@@ -197,7 +197,7 @@ export function LiveSession() {
     setLoadingPrompt(true);
     
     try {
-      const response = await fetch('http://167.71.182.244:3001/prompts/execute', {
+      const response = await fetch('https://froid.com.br/api/prompts/execute', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -225,7 +225,7 @@ export function LiveSession() {
     if (!session) return;
     
     try {
-      await fetch(`http://167.71.182.244:3001/sessions/${session.id}/end`, {
+      await fetch(`https://froid.com.br/api/sessions/${session.id}/end`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -320,7 +320,7 @@ export function LiveSession() {
     return 'bg-red-500';
   };
 
-// 
+
   const getIPMColor = (score: number) => {
     if (score >= 70) return 'text-green-400';
     if (score >= 40) return 'text-yellow-400';
