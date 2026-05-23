@@ -37,6 +37,7 @@ from src.analyzers.zonal_analyzer import ZonalAnalyzer
 from src.analyzers.subharmonic_analyzer import SubharmonicAnalyzer
 from src.analyzers.speech_rate_analyzer import SpeechRateAnalyzer
 from src.colorimetry.color_mapper import ColorMapper
+from src.analyzers.fusion_engine import MultimodalFusionEngine
 from src.models.voice_packet import (
     ZonalEnergyPacket,
     ZoneEnergy,
@@ -143,6 +144,7 @@ async def voice_stream(ws: WebSocket, session_id: str):
     subharmonic = SubharmonicAnalyzer()
     speech_rate = SpeechRateAnalyzer()
     color_mapper = ColorMapper()
+    fusion_engine = MultimodalFusionEngine()
 
     start_time = time.time()
     slice_count = 0
@@ -171,7 +173,9 @@ async def voice_stream(ws: WebSocket, session_id: str):
             elapsed = time.time() - start_time
 
             # Processar chunk no pipeline openSMILE
-            is_speech, raw_feats = pipeline.process_chunk(pcm_bytes)
+            _, raw_feats = pipeline.process_chunk(pcm_bytes)
+            is_speech = True  # TEMPORÁRIO: Forçado para debug
+            print(f"[DEBUG] is_speech={is_speech}, audio_length={len(pcm_bytes)} bytes")
 
             # Acumular áudio bruto para análises espectrais (fatias de 10s)
             audio_chunk = np.frombuffer(pcm_bytes, dtype=np.int16).astype(np.float32) / 32768.0
@@ -230,9 +234,10 @@ async def voice_stream(ws: WebSocket, session_id: str):
             # ---- Executar todos os analisadores ----
 
             # openSMILE + Normalização + Scoring Clínico
+            print(f"[NORM] norm_feats={len(norm_feats)} features, raw_feats={len(raw_feats) if raw_feats else 0}")
             norm_feats = normalizer.normalize_and_smooth(raw_feats) if is_speech else {}
-            clinical_scores_raw = clinical_mapper.compute_scores(norm_feats) if norm_feats else {}
-            clinical_flags = clinical_mapper.get_flags(clinical_scores_raw) if norm_feats else []
+            clinical_scores_raw = clinical_mapper.compute_scores(norm_feats if norm_feats else raw_feats)
+            clinical_flags = clinical_mapper.get_flags(clinical_scores_raw)
 
             # Prosódia (Parselmouth)
             prosody_data = prosody.analyze(audio_slice, sex)
@@ -252,6 +257,16 @@ async def voice_stream(ws: WebSocket, session_id: str):
             # Colorimetria
             colors = color_mapper.map_zones(zonal_data.get("zones", []))
             overall_color = color_mapper.get_overall_color(zonal_data.get("zones", []))
+            
+            # Calcular colorimetry_level da cor dominante
+            colorimetry_level = color_mapper._energy_to_level(
+                max([z.get("energy_normalized", 0) for z in zonal_data.get("zones", [])]),
+                sum([z.get("energy_normalized", 0) for z in zonal_data.get("zones", [])]) / 12
+            )
+            
+            # IPM Score (fusão multimodal) - Temporariamente 0.0 até integrar dados faciais
+            # TODO: Integrar com froid-face via Redis/WebSocket
+            ipm_score = 0.0
 
             # ---- Construir ZonalEnergyPacket ----
             packet = ZonalEnergyPacket(
@@ -320,6 +335,8 @@ async def voice_stream(ws: WebSocket, session_id: str):
                 # Colorimetria
                 color_map=colors,
                 overall_color=overall_color,
+                colorimetry_level=colorimetry_level,
+                ipm_score=ipm_score,
                 # eGeMAPS brutas
                 egemaps_raw=raw_feats if is_speech else None,
             )
@@ -327,6 +344,7 @@ async def voice_stream(ws: WebSocket, session_id: str):
             # Enviar via WebSocket
             packet_dict = packet.model_dump()
             packet_dict["timestamp"] = str(packet.timestamp)
+            print(f'[PACKET] clinical_scores={len(packet_dict.get("clinical_scores", []))}, colorimetry={packet_dict.get("colorimetry_level")}, ipm={packet_dict.get("ipm_score")}')
             await ws.send_json(packet_dict)
 
             # Atualizar cache

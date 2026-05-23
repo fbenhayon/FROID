@@ -30,12 +30,43 @@ REDIS_URL = "redis://172.21.208.107:6379"
 # =============================================================================
 # CLINICAL SCORING WEIGHTS (API Voice - referências científicas)
 # =============================================================================
-from src.analyzers.clinical_mapper import CLINICAL_WEIGHTS_EXPANDED, CLINICAL_THRESHOLDS_EXPANDED
+CLINICAL_WEIGHTS = {
+    "depression_risk": {
+        "ΔF0_iqr1-3": -0.40,       # Di et al. (2024)
+        "F0_upleveltime90": -0.30,  # Di et al. (2024)
+        "F0_mean": -0.20,
+        "Intensity_mean": -0.20,
+        "Spectral_flux": -0.15,     # Kaczmarek-Majer et al. (2024)
+        "MFCC4": 0.15,              # Zhao et al. (2022)
+        "MFCC7": 0.15,              # Zhao et al. (2022)
+        "Duration_VV_zscore": 0.20, # Aguiar et al. (2025)
+    },
+    "mania_activation": {
+        "Intensity_mean": 0.35,     # Kaczmarek-Majer (β=1.6 homens)
+        "F0_mean": 0.30,            # Kaczmarek-Majer (β=0.71 homens)
+        "Spectral_flux": 0.25,      # Kaczmarek-Majer (β=1.35 homens)
+        "Jitter_local": 0.20,
+        "Shimmer_local": 0.15,
+        "Speech_rate": 0.15,
+    },
+    "stress_cognitive": {
+        "F0_mean": 0.25,
+        "Intensity_mean": 0.25,
+        "Speech_rate": -0.15,       # Schewski et al. (2025)
+        "ZCR": 0.20,                # Zhao et al. (2022)
+    },
+}
 
-# Importados do clinical_mapper.py (9 riscos clínicos)
-CLINICAL_WEIGHTS = CLINICAL_WEIGHTS_EXPANDED
-CLINICAL_THRESHOLDS = CLINICAL_THRESHOLDS_EXPANDED
+# Inversão de sinal para mulheres (Kaczmarek-Majer et al., 2024)
+SEX_INVERT_PARAMS = ["Intensity_mean", "F0_mean", "Spectral_flux"]
+SEX_INVERT_FACTOR = -0.85
 
+# Thresholds de alerta clínico
+CLINICAL_THRESHOLDS = {
+    "depression_risk": 0.65,
+    "mania_activation": 0.60,
+    "stress_cognitive": 0.68,
+}
 
 # EMA smoothing alpha
 EMA_ALPHA = 0.3
@@ -96,7 +127,3 @@ COLOR_MAP = {
 # =============================================================================
 SUBHARMONIC_RANGE = (5, 20)  # Hz - infrassom vocal
 TREMOR_THRESHOLD = 0.3       # Energia normalizada para detecção de tremor
-
-# Inversão de sinal para mulheres (Kaczmarek-Majer et al., 2024)
-SEX_INVERT_PARAMS = ["Intensity_mean", "F0_mean", "Spectral_flux"]
-SEX_INVERT_FACTOR = -0.85

@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { NewPatient } from './pages/NewPatient';
-import { LiveSession } from './pages/LiveSession';
+import LiveSession from './pages/LiveSession';
 import { PatientDetails } from './pages/PatientDetails';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {

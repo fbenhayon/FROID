@@ -1,0 +1,8 @@
+NAME                     IMAGE                   COMMAND                  SERVICE           CREATED          STATUS                 PORTS
+froid-dashboard-1        froid-froid-dashboard   "/docker-entrypoint.…"   froid-dashboard   54 minutes ago   Up 54 minutes          0.0.0.0:80->80/tcp, :::80->80/tcp, 0.0.0.0:443->443/tcp, :::443->443/tcp
+froid-face-1             froid-froid-face        "python -m uvicorn s…"   froid-face        3 hours ago      Up 3 hours             0.0.0.0:3003->3003/tcp, :::3003->3003/tcp
+froid-identity-vault-1   froid-identity-vault    "docker-entrypoint.s…"   identity-vault    3 hours ago      Up 3 hours             0.0.0.0:8001->3001/tcp, [::]:8001->3001/tcp
+froid-payment-1          froid-froid-payment     "docker-entrypoint.s…"   froid-payment     3 hours ago      Up 3 hours             0.0.0.0:3004->3004/tcp, :::3004->3004/tcp
+froid-postgres-1         postgres:15-alpine      "docker-entrypoint.s…"   postgres          3 hours ago      Up 3 hours (healthy)   0.0.0.0:5432->5432/tcp, :::5432->5432/tcp
+froid-redis-1            redis:7-alpine          "docker-entrypoint.s…"   redis             3 hours ago      Up 3 hours             0.0.0.0:6379->6379/tcp, :::6379->6379/tcp
+froid-voice-1            froid-froid-voice       "python -m uvicorn s…"   froid-voice       3 hours ago      Up 3 hours             0.0.0.0:3002->3002/tcp, :::3002->3002/tcp

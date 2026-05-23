@@ -83,8 +83,6 @@ class ZonalEnergyPacket(BaseModel):
     # Colorimetria
     color_map: List[str]  # 12 cores hex
     overall_color: str    # Cor dominante da fatia
-    colorimetry_level: int = 0  # Nível 0-6 (Vermelho até Violeta)
-    ipm_score: float = 0.0  # Índice de Incongruência Psíquica Multimodal (%)
 
     # eGeMAPS brutas (para persistência)
     egemaps_raw: Optional[Dict] = None

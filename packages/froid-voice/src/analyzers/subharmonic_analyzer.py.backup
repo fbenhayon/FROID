@@ -51,10 +51,10 @@ class SubharmonicAnalyzer:
             filtered_envelope = filtfilt(b, a, envelope)
 
             # 3. Calcular energia na faixa sub-harmônica
-            subharmonic_energy = float(np.nan_to_num(np.sqrt(np.mean(filtered_envelope ** 2)), nan=0.0))
+            subharmonic_energy = float(np.sqrt(np.mean(filtered_envelope ** 2)))
 
             # 4. Energia total do envelope para normalização
-            total_envelope_energy = float(np.nan_to_num(np.sqrt(np.mean(envelope ** 2)), nan=0.0))
+            total_envelope_energy = float(np.sqrt(np.mean(envelope ** 2)))
 
             # 5. Razão normalizada
             if total_envelope_energy > 0.001:

@@ -1,607 +1,314 @@
- import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  LineElement,
-  PointElement,
-  Title,
-  Tooltip,
-  Legend,
-} from 'chart.js';
-import { Bar, Line } from 'react-chartjs-2';
+import { Bar } from 'react-chartjs-2';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, PointElement, Title, Tooltip, Legend } from 'chart.js';
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  LineElement,
-  PointElement,
-  Title,
-  Tooltip,
-  Legend
-);
+ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, Title, Tooltip, Legend);
 
-interface PromptResult {
-  summary: string;
-  insights: string[];
-  recommendations: string[];
+interface Session { id: string; patientId: string; professionalId: string; status: string; createdAt: string; }
+interface Note { text: string; timestamp: string; }
+interface RiskScores { 
+  depression: number; 
+  mania: number; 
+  stress: number; 
+  anxiety: number;
+  psychosis: number;
+  trauma: number;
+  suicide: number;
+  bipolar: number;
+  schizophrenia: number;
 }
 
-export function LiveSession() {
-  const { patientId } = useParams();
+export default function LiveSession() {
+  const { patientId } = useParams<{ patientId: string }>();
   const navigate = useNavigate();
-  const [session, setSession] = useState<any>(null);
-  const [voiceStatus, setVoiceStatus] = useState('connecting');
-  const [faceStatus, setFaceStatus] = useState('connecting');
-  const [currentZone, setCurrentZone] = useState<string>('');
-  const [currentEmotion, setCurrentEmotion] = useState<string>('');
-  const [notes, setNotes] = useState<Array<{text: string, timestamp: string}>>([]);
-  const [currentNote, setCurrentNote] = useState<string>('');
-  
-  // Dados dos gráficos em tempo real
-  const [zoneData, setZoneData] = useState<number[]>(new Array(12).fill(0));
-  const [bandData, setBandData] = useState<number[]>(new Array(7).fill(0));
-  const [emotionHistory, setEmotionHistory] = useState<string[]>([]);
-  const [riskScores, setRiskScores] = useState({ depression: 0, mania: 0, stress: 0 });
-  const [colorimetryLevel, setColorimetryLevel] = useState(0);
-  const [ipmScore, setIpmScore] = useState(0);
-  const [ipmHistory, setIpmHistory] = useState<number[]>([]);
-  
-  // Prompts IA Comparativos
-  const [selectedPrompt, setSelectedPrompt] = useState('');
-  const [promptParams, setPromptParams] = useState<{weeks?: number}>({});
-  const [promptResult, setPromptResult] = useState<PromptResult | null>(null);
-  const [showPromptModal, setShowPromptModal] = useState(false);
-  const [loadingPrompt, setLoadingPrompt] = useState(false);
-  
   const videoRef = useRef<HTMLVideoElement>(null);
   const voiceWsRef = useRef<WebSocket | null>(null);
   const faceWsRef = useRef<WebSocket | null>(null);
+  const cleanupFnRef = useRef<(() => void) | null>(null);
 
-  const prompts = [
-    { id: '1', text: 'Como este paciente se compara à média populacional em Zonas FROID?', category: 'populacional' },
-    { id: '2', text: 'Identificar padrões atípicos comparados à base de dados', category: 'populacional' },
-    { id: '3', text: 'Este paciente está acima ou abaixo da média em riscos clínicos?', category: 'populacional' },
-    { id: '4', text: 'Progresso nas últimas X semanas vs população', category: 'temporal', customizable: true },
-    { id: '5', text: 'Velocidade de melhora comparada a casos similares', category: 'temporal' },
-    { id: '6', text: 'Perfil vocal/facial similar a quais condições na base?', category: 'diagnostico' },
-    { id: '7', text: 'Casos mais parecidos com este paciente (top 5)', category: 'diagnostico' },
-    { id: '8', text: 'Intervenções mais eficazes para perfis similares', category: 'recomendacoes' },
-    { id: '9', text: 'Predição de resposta terapêutica baseada em casos análogos', category: 'recomendacoes' },
-    { id: '10', text: 'Alertas: padrões de risco identificados na base populacional', category: 'recomendacoes' },
-  ];
+  const [session, setSession] = useState<Session | null>(null);
+  const [voiceStatus, setVoiceStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('connecting');
+  const [faceStatus, setFaceStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('connecting');
+  const [currentZone, setCurrentZone] = useState('Aguardando...');
+  const [zoneData, setZoneData] = useState<number[]>(Array(12).fill(0));
+  const [bandData, setBandData] = useState<number[]>(Array(7).fill(0));
+  const [colorimetryLevel, setColorimetryLevel] = useState(0);
+  const [riskScores, setRiskScores] = useState<RiskScores>({ depression: 0, mania: 0, stress: 0, anxiety: 0, psychosis: 0, trauma: 0, suicide: 0, bipolar: 0, schizophrenia: 0 });
+  const [currentEmotion, setCurrentEmotion] = useState('Aguardando...');
+  const [ipmScore, setIpmScore] = useState(0);
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [currentNote, setCurrentNote] = useState('');
+  const [prompts, setPrompts] = useState<any[]>([]);
+  const [selectedPrompt, setSelectedPrompt] = useState('');
+  const [promptResult, setPromptResult] = useState('');
+  const [showPromptModal, setShowPromptModal] = useState(false);
+  const [loadingPrompt, setLoadingPrompt] = useState(false);
 
-  useEffect(() => {
-    initializeSession();
-    return () => cleanup();
+  useEffect(() => { 
+    console.log('🎬 LiveSession montado - iniciando sessão');
+    initializeSession(); 
+    loadPrompts(); 
+    return () => cleanup(); 
   }, []);
 
   const initializeSession = async () => {
+    console.log('📋 initializeSession iniciado');
     try {
       const user = JSON.parse(localStorage.getItem('user') || '{}');
-      const response = await fetch('https://froid.com.br/api/sessions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-        body: JSON.stringify({
-          patientId,
-          professionalId: user.professionalId,
-          scheduledFor: new Date().toISOString(),
-        }),
+      console.log('👤 User:', user);
+      const res = await fetch('https://froid.com.br/api/sessions', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` }, 
+        body: JSON.stringify({ patientId, professionalId: user.professionalId, scheduledFor: new Date().toISOString() }) 
       });
-
-      const sessionData = await response.json();
-      setSession(sessionData);
-
-      connectVoiceWebSocket(sessionData.id);
-      connectFaceWebSocket(sessionData.id);
+      const data = await res.json();
+      console.log('✅ Session criada:', data.id);
+      setSession(data);
+      connectVoiceWebSocket(data.id);
+      connectFaceWebSocket(data.id);
       startCamera();
-    } catch (error) {
-      console.error('Erro ao inicializar sessão:', error);
-      alert('Erro ao iniciar sessão');
+    } catch (e) { 
+      console.error('❌ Erro ao inicializar sessão:', e); 
+      alert('Erro ao iniciar sessão'); 
     }
   };
 
-  const connectVoiceWebSocket = (sessionId: string) => {
-    const ws = new WebSocket(`wss://froid.com.br/ws/voice/${sessionId}`);
-    
-    ws.onopen = () => {
-      console.log('WebSocket Voice conectado');
-      setVoiceStatus('connected');
-    };
-    
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.dominant_zone) setCurrentZone(data.dominant_zone);
-      if (data.zones) setZoneData(data.zones.map((z: any) => z.energy_normalized * 100));
-      if (data.spectral_bands) setBandData(data.spectral_bands.map((b: any) => b.energy_normalized * 100));
-      if (data.clinical_scores) {
-        setRiskScores({
-          depression: data.clinical_scores.depression_risk || 0,
-          mania: data.clinical_scores.mania_activation || 0,
-          stress: data.clinical_scores.stress_cognitive || 0,
-        });
+  const loadPrompts = async () => {
+    try {
+      const res = await fetch('https://froid.com.br/api/prompts', { 
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } 
+      });
+      if (res.ok) { 
+        const data = await res.json(); 
+        setPrompts(Array.isArray(data) ? data : []); 
+      } else { 
+        setPrompts([]); 
       }
-      if (data.colorimetry_level !== undefined) setColorimetryLevel(data.colorimetry_level);
-      if (data.ipm_score !== undefined) {
-        setIpmScore(data.ipm_score);
-        setIpmHistory(prev => [...prev.slice(-19), data.ipm_score]);
-      }
-    };
-    ws.onerror = () => setVoiceStatus('error');
-    ws.onclose = () => setVoiceStatus('disconnected');
-    voiceWsRef.current = ws;
-    ws.onclose = () => setVoiceStatus('disconnected');
-    
-    voiceWsRef.current = ws;
+    } catch (e) { 
+      console.error(e); 
+      setPrompts([]); 
+    }
   };
 
-  const connectFaceWebSocket = (sessionId: string) => {
-    const ws = new WebSocket(`wss://froid.com.br/ws/face/${sessionId}`);
-    
-    ws.onopen = () => {
-      console.log('WebSocket Face conectado');
-      setFaceStatus('connected');
+  const connectVoiceWebSocket = (sid: string) => {
+    console.log('🔊 Conectando Voice WebSocket para sessão:', sid);
+    const ws = new WebSocket(`wss://froid.com.br/ws/voice/${sid}`);
+    ws.onopen = () => { 
+      console.log('✅ Voice WebSocket CONECTADO'); 
+      setVoiceStatus('connected'); 
     };
-    
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.dominant_emotion) {
-        setCurrentEmotion(data.dominant_emotion);
-        setEmotionHistory(prev => [...prev.slice(-19), data.dominant_emotion]);
+    ws.onmessage = (e) => { 
+      const d = JSON.parse(e.data); 
+      console.log('📨 Voice dados recebidos:', d);
+      if (d.dominant_zone) setCurrentZone(d.dominant_zone); 
+      if (d.zones) setZoneData(d.zones.map((z: any) => z.energy_normalized * 100)); 
+      if (d.spectral_bands) setBandData(d.spectral_bands.map((b: any) => b.energy_normalized * 100)); 
+      if (d.clinical_scores) {
+        const scores = Array.isArray(d.clinical_scores) ? d.clinical_scores : [];
+        const scoreMap: any = {};
+        scores.forEach((s: any) => {
+          if (s.construct === 'depression_risk') scoreMap.depression = Math.round(s.score * 100);
+          if (s.construct === 'mania_activation') scoreMap.mania = Math.round(s.score * 100);
+          if (s.construct === 'stress_cognitive') scoreMap.stress = Math.round(s.score * 100);
+          if (s.construct === 'anxiety_generalized') scoreMap.anxiety = Math.round(s.score * 100);
+          if (s.construct === 'psychosis_risk') scoreMap.psychosis = Math.round(s.score * 100);
+          if (s.construct === 'trauma_ptsd') scoreMap.trauma = Math.round(s.score * 100);
+          if (s.construct === 'suicide_risk') scoreMap.suicide = Math.round(s.score * 100);
+          if (s.construct === 'bipolar_pattern') scoreMap.bipolar = Math.round(s.score * 100);
+          if (s.construct === 'schizophrenia_markers') scoreMap.schizophrenia = Math.round(s.score * 100);
+        });
+        setRiskScores({
+          depression: scoreMap.depression || 0,
+          mania: scoreMap.mania || 0,
+          stress: scoreMap.stress || 0,
+          anxiety: scoreMap.anxiety || 0,
+          psychosis: scoreMap.psychosis || 0,
+          trauma: scoreMap.trauma || 0,
+          suicide: scoreMap.suicide || 0,
+          bipolar: scoreMap.bipolar || 0,
+          schizophrenia: scoreMap.schizophrenia || 0,
+        });
       }
+      if (d.colorimetry_level !== undefined) setColorimetryLevel(d.colorimetry_level); 
+      if (d.ipm_score !== undefined) setIpmScore(d.ipm_score); 
     };
-    
-    ws.onerror = () => setFaceStatus('error');
-    ws.onclose = () => setFaceStatus('disconnected');
-    
+    ws.onerror = (err) => { 
+      console.error('❌ Voice WebSocket erro:', err); 
+      setVoiceStatus('error'); 
+    };
+    ws.onclose = () => { 
+      console.log('🔴 Voice WebSocket fechado'); 
+      setVoiceStatus('disconnected'); 
+    };
+    voiceWsRef.current = ws;
+    (window as any).voiceWs = ws;
+  };
+
+  const connectFaceWebSocket = (sid: string) => {
+    console.log('📹 Conectando Face WebSocket para sessão:', sid);
+    const ws = new WebSocket(`wss://froid.com.br/ws/face/${sid}`);
+    ws.onopen = () => { 
+      console.log('✅ Face WebSocket CONECTADO'); 
+      setFaceStatus('connected'); 
+    };
+    ws.onmessage = (e) => { 
+      const d = JSON.parse(e.data); 
+      console.log('📨 Face dados recebidos:', d);
+      if (d.dominant_emotion) setCurrentEmotion(d.dominant_emotion); 
+    };
+    ws.onerror = (err) => { 
+      console.error('❌ Face WebSocket erro:', err); 
+      setFaceStatus('error'); 
+    };
+    ws.onclose = () => { 
+      console.log('🔴 Face WebSocket fechado'); 
+      setFaceStatus('disconnected'); 
+    };
     faceWsRef.current = ws;
+    (window as any).faceWs = ws;
   };
 
   const startCamera = async () => {
+    console.log('🎬 startCamera INICIADO');
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 640, height: 480 },
-        audio: true,
-      });
+      console.log('🎤 Solicitando getUserMedia...');
+      const s = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: true });
+      console.log('✅ getUserMedia OK! Tracks:', s.getTracks().map(t => `${t.kind}:${t.readyState}`).join(', '));
       
       if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+        videoRef.current.srcObject = s;
+        console.log('✅ Video srcObject definido');
       }
-    } catch (error) {
-      console.error('Erro ao acessar câmera:', error);
-      alert('Erro ao acessar câmera/microfone');
-    }
-  };
-
-  const addNote = () => {
-    if (!currentNote.trim()) return;
-    
-    const newNote = {
-      text: currentNote,
-      timestamp: new Date().toLocaleTimeString('pt-BR'),
-    };
-    
-    setNotes([...notes, newNote]);
-    setCurrentNote('');
-  };
-
-  const executePrompt = async () => {
-    if (!selectedPrompt) return;
-    
-    setLoadingPrompt(true);
-    
-    try {
-      const response = await fetch('https://froid.com.br/api/prompts/execute', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-        body: JSON.stringify({
-          promptId: selectedPrompt,
-          patientId,
-          parameters: promptParams,
-        }),
-      });
-
-      const data = await response.json();
-      setPromptResult(data.result);
-      setShowPromptModal(true);
-    } catch (error) {
-      console.error('Erro ao executar prompt:', error);
-      alert('Erro ao executar análise comparativa');
-    } finally {
-      setLoadingPrompt(false);
-    }
-  };
-
-  const endSession = async () => {
-    if (!session) return;
-    
-    try {
-      await fetch(`https://froid.com.br/api/sessions/${session.id}/end`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-        body: JSON.stringify({
-          clinicalNotes: notes.map(n => `[${n.timestamp}] ${n.text}`).join('\n'),
-        }),
-      });
       
-      cleanup();
-      navigate('/dashboard');
-    } catch (error) {
-      console.error('Erro ao finalizar sessão:', error);
+      console.log('🔊 Criando AudioContext (16kHz)...');
+      const ac = new AudioContext({ sampleRate: 16000 });
+      const src = ac.createMediaStreamSource(s);
+      const proc = ac.createScriptProcessor(4096, 1, 1);
+      src.connect(proc); 
+      proc.connect(ac.destination);
+      console.log('✅ AudioContext criado e pipeline conectado');
+      
+      let audioChunksSent = 0;
+      proc.onaudioprocess = (e) => { 
+        if (voiceWsRef.current?.readyState === WebSocket.OPEN) { 
+          const inp = e.inputBuffer.getChannelData(0); 
+          const pcm = new Int16Array(inp.length); 
+          for (let i = 0; i < inp.length; i++) {
+            pcm[i] = Math.max(-32768, Math.min(32767, inp[i] * 32768)); 
+          }
+          voiceWsRef.current.send(pcm.buffer);
+          audioChunksSent++;
+          if (audioChunksSent % 50 === 0) {
+            console.log(`📤 Áudio: ${audioChunksSent} chunks enviados (${(audioChunksSent * 4096 / 16000).toFixed(1)}s)`);
+          }
+        } else {
+          if (audioChunksSent === 0) {
+            console.warn('⚠️ Voice WS não está OPEN:', voiceWsRef.current?.readyState);
+          }
+        }
+      };
+      console.log('✅ onaudioprocess configurado');
+      
+      console.log('📹 Criando canvas para captura de frames...');
+      const canvas = document.createElement('canvas'); 
+      canvas.width = 640; 
+      canvas.height = 480; 
+      const ctx = canvas.getContext('2d');
+      console.log('✅ Canvas criado (640x480)');
+      
+      let framesSent = 0;
+      const sendF = () => { 
+        if (faceWsRef.current?.readyState === WebSocket.OPEN && videoRef.current) { 
+          ctx?.drawImage(videoRef.current, 0, 0, 640, 480); 
+          canvas.toBlob((b) => { 
+            if (b) {
+              faceWsRef.current?.send(b);
+              framesSent++;
+              if (framesSent % 10 === 0) {
+                console.log(`📤 Frames: ${framesSent} enviados (${(framesSent / 10).toFixed(1)}s @ 10fps)`);
+              }
+            }
+          }, 'image/jpeg', 0.8); 
+        }
+      };
+      
+      const fi = setInterval(sendF, 100);
+      console.log('✅ Intervalo de frames iniciado (100ms = 10 FPS)');
+      
+      cleanupFnRef.current = () => { 
+        console.log('🧹 Cleanup: parando transmissão');
+        clearInterval(fi); 
+        proc.disconnect(); 
+        src.disconnect(); 
+        ac.close(); 
+        s.getTracks().forEach(t => t.stop()); 
+        console.log('✅ Cleanup concluído');
+      };
+      
+      console.log('✅✅✅ startCamera CONCLUÍDO COM SUCESSO! ✅✅✅');
+    } catch (e) { 
+      console.error('❌❌❌ ERRO em startCamera:', e); 
+      alert('Erro ao acessar câmera/microfone: ' + e); 
     }
   };
 
-  const cleanup = () => {
-    if (voiceWsRef.current) voiceWsRef.current.close();
-    if (faceWsRef.current) faceWsRef.current.close();
-    
-    if (videoRef.current?.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      stream.getTracks().forEach(track => track.stop());
-    }
+  const cleanup = () => { 
+    console.log('🧹 cleanup() chamado');
+    if (voiceWsRef.current) voiceWsRef.current.close(); 
+    if (faceWsRef.current) faceWsRef.current.close(); 
+    if (cleanupFnRef.current) cleanupFnRef.current(); 
+    if (videoRef.current?.srcObject) { 
+      const s = videoRef.current.srcObject as MediaStream; 
+      s.getTracks().forEach(t => t.stop()); 
+    } 
+  };
+  
+  const handleEndSession = async () => { 
+    if (!session) return; 
+    try { 
+      await fetch(`https://froid.com.br/api/sessions/${session.id}`, { 
+        method: 'PATCH', 
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` }, 
+        body: JSON.stringify({ status: 'completed' }) 
+      }); 
+      cleanup(); 
+      navigate('/dashboard'); 
+    } catch (e) { 
+      console.error(e); 
+    } 
+  };
+  
+  const addNote = () => { 
+    if (!currentNote.trim()) return; 
+    setNotes([...notes, { text: currentNote, timestamp: new Date().toLocaleTimeString('pt-BR') }]); 
+    setCurrentNote(''); 
+  };
+  
+  const executePrompt = async () => { 
+    if (!selectedPrompt) return; 
+    setLoadingPrompt(true); 
+    try { 
+      const res = await fetch('https://froid.com.br/api/prompts/execute', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` }, 
+        body: JSON.stringify({ promptId: selectedPrompt, patientId }) 
+      }); 
+      const d = await res.json(); 
+      setPromptResult(d.result); 
+      setShowPromptModal(true); 
+    } catch (e) { 
+      console.error(e); 
+      alert('Erro'); 
+    } finally { 
+      setLoadingPrompt(false); 
+    } 
   };
 
-  // Configurações dos gráficos
-  const zoneChartData = {
-    labels: ['C2', 'C#2', 'C3', 'C#3', 'C4', 'C#4', 'C5', 'C#5', 'C6', 'C#6', 'C7', 'C#7'],
-    datasets: [{
-      label: 'Intensidade',
-      data: zoneData,
-      backgroundColor: [
-        'rgba(255, 99, 132, 0.8)', 'rgba(255, 159, 64, 0.8)', 'rgba(255, 205, 86, 0.8)',
-        'rgba(75, 192, 192, 0.8)', 'rgba(54, 162, 235, 0.8)', 'rgba(153, 102, 255, 0.8)',
-        'rgba(231, 233, 237, 0.8)', 'rgba(255, 99, 132, 0.6)', 'rgba(255, 159, 64, 0.6)',
-        'rgba(255, 205, 86, 0.6)', 'rgba(75, 192, 192, 0.6)', 'rgba(54, 162, 235, 0.6)',
-      ],
-    }],
-  };
+  const zd = { labels: ['C2','C#2','C3','C#3','C4','C#4','C5','C#5','C6','C#6','C7','C#7'], datasets: [{ label: 'I', data: zoneData, backgroundColor: 'rgba(59,130,246,0.5)', borderColor: 'rgb(59,130,246)', borderWidth: 1 }] };
+  const bd = { labels: ['Sub','Delta','Theta','Alpha','Beta','Gamma','High-G'], datasets: [{ label: 'E', data: bandData, backgroundColor: 'rgba(16,185,129,0.5)', borderColor: 'rgb(16,185,129)', borderWidth: 1 }] };
+  const opts = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: 100 } } };
+  const cols = [{name:'Vermelho',color:'#dc2626'},{name:'Laranja',color:'#f97316'},{name:'Amarelo',color:'#facc15'},{name:'Verde',color:'#22c55e'},{name:'Azul',color:'#3b82f6'},{name:'Índigo',color:'#4f46e5'},{name:'Violeta',color:'#9333ea'}];
 
-  const zoneChartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    scales: { y: { beginAtZero: true, max: 100 } },
-    plugins: { legend: { display: false }, title: { display: true, text: '12 Zonas FROID', color: '#fff' } },
-  };
-
-  const bandChartData = {
-    labels: ['Subharmonics', 'Delta', 'Theta', 'Alpha', 'Beta', 'Gamma', 'High-Gamma'],
-    datasets: [{
-      label: 'Potência',
-      data: bandData,
-      borderColor: 'rgb(75, 192, 192)',
-      backgroundColor: 'rgba(75, 192, 192, 0.2)',
-      tension: 0.4,
-    }],
-  };
-
-  const bandChartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    scales: { y: { beginAtZero: true, max: 100 } },
-    plugins: { legend: { display: false }, title: { display: true, text: '7 Bandas Espectrais', color: '#fff' } },
-  };
-
-  const ipmChartData = {
-    labels: ipmHistory.map((_, i) => `${i + 1}`),
-    datasets: [{
-      label: 'IPM',
-      data: ipmHistory,
-      borderColor: 'rgb(147, 51, 234)',
-      backgroundColor: 'rgba(147, 51, 234, 0.1)',
-      tension: 0.4,
-      fill: true,
-    }],
-  };
-
-  const ipmChartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    scales: { y: { beginAtZero: true, max: 100 }, x: { display: false } },
-    plugins: { legend: { display: false } },
-  };
-
-  const colorimetryColors = ['#FF0000', '#FF7F00', '#FFFF00', '#00FF00', '#0000FF', '#4B0082', '#9400D3'];
-
-  const getRiskColor = (score: number) => {
-    if (score < 30) return 'bg-green-500';
-    if (score < 60) return 'bg-yellow-500';
-    return 'bg-red-500';
-  };
-
-
-  const getIPMColor = (score: number) => {
-    if (score >= 70) return 'text-green-400';
-    if (score >= 40) return 'text-yellow-400';
-    return 'text-red-400';
-  };
-
-  const getIPMLabel = (score: number) => {
-    if (score >= 70) return 'Alta Congruência';
-    if (score >= 40) return 'Congruência Moderada';
-    return 'Incongruência Detectada';
-  };
-
-  const getIPMRingColor = (score: number) => {
-    if (score >= 70) return 'ring-green-500';
-    if (score >= 40) return 'ring-yellow-500';
-    return 'ring-red-500';
-  };
-
-  return (
-    <div className="min-h-screen bg-gray-900 text-white">
-      {/* Header */}
-      <div className="bg-gray-800 p-4">
-        <div className="max-w-[1920px] mx-auto flex justify-between items-center">
-          <h1 className="text-2xl font-bold">🧠 Sessão ao Vivo - Análise Multimodal + IA Comparativa</h1>
-          <button
-            onClick={endSession}
-            className="px-6 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-semibold"
-          >
-            Finalizar Sessão
-          </button>
-        </div>
-      </div>
-
-      {/* Main Content - 3 colunas: 3+5+4 = 12 */}
-      <div className="max-w-[1920px] mx-auto p-4 grid grid-cols-12 gap-3">
-        
-        {/* ========== COLUNA 1: Vídeo + Anotações + Prompts IA (3 cols) ========== */}
-        <div className="col-span-3 space-y-3">
-          {/* Vídeo */}
-          <div className="bg-gray-800 rounded-lg p-3">
-            <h2 className="text-sm font-semibold mb-2">📹 Vídeo</h2>
-            <video ref={videoRef} autoPlay playsInline muted className="w-full rounded-lg bg-black" />
-          </div>
-
-          {/* Anotações Clínicas */}
-          <div className="bg-gray-800 rounded-lg p-3">
-            <h2 className="text-sm font-semibold mb-2">📝 Anotações Clínicas</h2>
-            <textarea
-              value={currentNote}
-              onChange={(e) => setCurrentNote(e.target.value)}
-              placeholder="Registre observações..."
-              className="w-full h-16 px-2 py-1 bg-gray-700 text-white rounded text-xs resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-              onKeyDown={(e) => { if (e.key === 'Enter' && e.ctrlKey) addNote(); }}
-            />
-            <div className="flex justify-between items-center mt-1">
-              <span className="text-xs text-gray-400">Ctrl+Enter</span>
-              <button onClick={addNote} disabled={!currentNote.trim()} className="px-2 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 rounded text-xs">
-                Adicionar
-              </button>
-            </div>
-            <div className="space-y-1 max-h-32 overflow-y-auto mt-2">
-              {notes.length === 0 ? (
-                <p className="text-center text-gray-500 py-2 text-xs">Sem anotações</p>
-              ) : (
-                notes.map((note, i) => (
-                  <div key={i} className="bg-gray-700 rounded p-1">
-                    <div className="flex justify-between text-xs text-gray-400">
-                      <span>{note.timestamp}</span>
-                      <span>#{i + 1}</span>
-                    </div>
-                    <p className="text-xs mt-1">{note.text}</p>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Prompts IA Comparativos */}
-          <div className="bg-gradient-to-br from-indigo-900 to-indigo-800 rounded-lg p-3 ring-2 ring-indigo-500">
-            <h3 className="text-sm font-semibold mb-3 flex items-center">
-              <span className="text-lg mr-1">🤖</span> Insights IA
-            </h3>
-            
-            <select
-              value={selectedPrompt}
-              onChange={(e) => setSelectedPrompt(e.target.value)}
-              className="w-full px-2 py-1 bg-gray-700 text-white rounded text-xs mb-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-            >
-              <option value="">Selecione um prompt...</option>
-              {prompts.map((p) => (
-                <option key={p.id} value={p.id}>{p.id}. {p.text}</option>
-              ))}
-            </select>
-
-            {selectedPrompt === '4' && (
-              <input
-                type="number"
-                placeholder="Nº de semanas"
-                value={promptParams.weeks || ''}
-                onChange={(e) => setPromptParams({ weeks: parseInt(e.target.value) })}
-                className="w-full px-2 py-1 bg-gray-700 text-white rounded text-xs mb-2"
-              />
-            )}
-
-            <button
-              onClick={executePrompt}
-              disabled={!selectedPrompt || loadingPrompt}
-              className="w-full px-3 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-600 rounded text-sm font-semibold"
-            >
-              {loadingPrompt ? 'Analisando...' : '🚀 Executar Análise'}
-            </button>
-
-            <div className="mt-3 text-xs text-gray-300 bg-gray-900 bg-opacity-50 rounded p-2">
-              <p className="font-semibold mb-1">💡 Prompts Comparativos:</p>
-              <p>Compara este paciente com base anonimizada de casos similares para insights clínicos.</p>
-            </div>
-          </div>
-        </div>
-
-        {/* ========== COLUNA 2: Gráficos FROID (5 cols) ========== */}
-        <div className="col-span-5 space-y-3">
-          {/* 12 Zonas FROID */}
-          <div className="bg-gray-800 rounded-lg p-3">
-            <div className="h-48"><Bar data={zoneChartData} options={zoneChartOptions} /></div>
-            <div className="mt-2 text-center">
-              <p className="text-xs text-gray-400">Zona Dominante:</p>
-              <p className="text-xl font-bold text-blue-400">{currentZone || 'Aguardando...'}</p>
-            </div>
-          </div>
-
-          {/* 7 Bandas Espectrais */}
-          <div className="bg-gray-800 rounded-lg p-3">
-            <div className="h-36"><Line data={bandChartData} options={bandChartOptions} /></div>
-          </div>
-
-          {/* Colorimetria */}
-          <div className="bg-gray-800 rounded-lg p-3">
-            <h3 className="text-sm font-semibold mb-2">🎨 Colorimetria (7 Níveis)</h3>
-            <div className="flex items-center space-x-1">
-              {colorimetryColors.map((color, i) => (
-                <div
-                  key={i}
-                  className={`flex-1 h-8 rounded transition-all duration-300 ${
-                    i === colorimetryLevel ? 'ring-2 ring-white scale-110' : 'opacity-50'
-                  }`}
-                  style={{ backgroundColor: color }}
-                />
-              ))}
-            </div>
-            <div className="mt-2 text-center">
-              <p className="text-xs text-gray-400">Nível:</p>
-              <p className="text-sm font-bold">
-                {['Vermelho', 'Laranja', 'Amarelo', 'Verde', 'Azul', 'Índigo', 'Violeta'][colorimetryLevel]}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* ========== COLUNA 3: IPM + Indicadores (4 cols) ========== */}
-        <div className="col-span-4 space-y-3">
-          {/* IPM - Congruência Multimodal */}
-          <div className="bg-gradient-to-br from-purple-900 to-purple-800 rounded-lg p-3 ring-2 ring-purple-500">
-            <h3 className="text-sm font-semibold mb-2 flex items-center">
-              <span className="text-lg mr-1">🎯</span> IPM - Congruência
-            </h3>
-            <div className="flex justify-center mb-2">
-              <div className={`relative w-24 h-24 rounded-full ring-4 ${getIPMRingColor(ipmScore)} flex items-center justify-center bg-gray-900`}>
-                <div className="text-center">
-                  <p className={`text-3xl font-bold ${getIPMColor(ipmScore)}`}>{ipmScore}%</p>
-                  <p className="text-xs text-gray-400">{getIPMLabel(ipmScore)}</p>
-                </div>
-              </div>
-            </div>
-            <div className="h-16">{ipmHistory.length > 0 && <Line data={ipmChartData} options={ipmChartOptions} />}</div>
-          </div>
-
-          {/* Status Conexões */}
-          <div className="bg-gray-800 rounded-lg p-3">
-            <h3 className="text-sm font-semibold mb-2">📡 Status</h3>
-            <div className="space-y-1 text-xs">
-              <div className="flex justify-between">
-                <span>Voice:</span>
-                <span className={`px-1 py-0.5 rounded text-xs ${voiceStatus === 'connected' ? 'bg-green-600' : 'bg-red-600'}`}>{voiceStatus}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Face:</span>
-                <span className={`px-1 py-0.5 rounded text-xs ${faceStatus === 'connected' ? 'bg-green-600' : 'bg-red-600'}`}>{faceStatus}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Riscos Clínicos */}
-          <div className="bg-gray-800 rounded-lg p-3">
-            <h3 className="text-sm font-semibold mb-2">⚠️ Riscos Clínicos</h3>
-            <div className="space-y-2">
-              {['depression', 'mania', 'stress'].map((risk) => (
-                <div key={risk}>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span>{risk === 'depression' ? 'Depressão' : risk === 'mania' ? 'Mania' : 'Estresse'}</span>
-                    <span className="font-semibold">{riskScores[risk as keyof typeof riskScores]}%</span>
-                  </div>
-                  <div className="w-full bg-gray-700 rounded-full h-1.5">
-                    <div
-                      className={`h-1.5 rounded-full ${getRiskColor(riskScores[risk as keyof typeof riskScores])} transition-all duration-500`}
-                      style={{ width: `${riskScores[risk as keyof typeof riskScores]}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Emoções FACS */}
-          <div className="bg-gray-800 rounded-lg p-3">
-            <h3 className="text-sm font-semibold mb-2">😊 Emoções (FACS)</h3>
-            <div className="text-center mb-2">
-              <p className="text-xs text-gray-400">Atual:</p>
-              <p className="text-lg font-bold text-green-400">{currentEmotion || 'Aguardando...'}</p>
-            </div>
-            <div className="space-y-1 max-h-24 overflow-y-auto text-xs">
-              {emotionHistory.slice(-5).reverse().map((emotion, i) => (
-                <div key={i} className="flex justify-between bg-gray-700 rounded px-1 py-0.5">
-                  <span className="text-gray-400">#{emotionHistory.length - i}</span>
-                  <span>{emotion}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ========== MODAL DE RESULTADO DO PROMPT ========== */}
-      {showPromptModal && promptResult && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
-          <div className="bg-gray-800 rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
-            <div className="flex justify-between items-start mb-4">
-              <h2 className="text-xl font-bold">🤖 Resultado da Análise Comparativa</h2>
-              <button onClick={() => setShowPromptModal(false)} className="text-gray-400 hover:text-white text-2xl">×</button>
-            </div>
-            
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-400 mb-2">Resumo:</h3>
-                <p className="text-sm">{promptResult.summary}</p>
-              </div>
-
-              <div>
-                <h3 className="text-sm font-semibold text-gray-400 mb-2">Insights:</h3>
-                <ul className="space-y-1">
-                  {promptResult.insights.map((insight, i) => (
-                    <li key={i} className="text-sm flex items-start">
-                      <span className="text-green-400 mr-2">✓</span>
-                      <span>{insight}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div>
-                <h3 className="text-sm font-semibold text-gray-400 mb-2">Recomendações:</h3>
-                <ul className="space-y-1">
-                  {promptResult.recommendations.map((rec, i) => (
-                    <li key={i} className="text-sm flex items-start">
-                      <span className="text-blue-400 mr-2">→</span>
-                      <span>{rec}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setShowPromptModal(false)}
-              className="mt-6 w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded font-semibold"
-            >
-              Fechar
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  return <div className="min-h-screen bg-gray-50 p-6"><div className="max-w-7xl mx-auto"><div className="bg-white rounded-lg shadow p-4 mb-6 flex justify-between"><h1 className="text-2xl font-bold flex items-center gap-2"><span className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>Sessão ao Vivo</h1><button onClick={handleEndSession} className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Finalizar</button></div><div className="grid grid-cols-3 gap-6"><div className="space-y-6"><div className="bg-white rounded-lg shadow p-4"><h2 className="text-lg font-semibold mb-3">📹 Vídeo</h2><video ref={videoRef} autoPlay muted playsInline className="w-full rounded-lg bg-black"/></div><div className="bg-white rounded-lg shadow p-4"><h2 className="text-lg font-semibold mb-3">📝 Anotações</h2><textarea value={currentNote} onChange={(e)=>setCurrentNote(e.target.value)} className="w-full p-3 border rounded-lg mb-2 min-h-[100px]" placeholder="Registre..."/><button onClick={addNote} className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Adicionar</button><div className="mt-4 space-y-2 max-h-64 overflow-y-auto">{notes.length===0?<p className="text-gray-400 text-center py-4">Sem anotações</p>:notes.map((n,i)=><div key={i} className="p-3 bg-gray-50 rounded-lg"><p className="text-sm">{n.text}</p><p className="text-xs text-gray-400 mt-1">{n.timestamp}</p></div>)}</div></div><div className="bg-white rounded-lg shadow p-4"><h2 className="text-lg font-semibold mb-3">🤖 IA</h2><select value={selectedPrompt} onChange={(e)=>setSelectedPrompt(e.target.value)} className="w-full p-2 border rounded-lg mb-3"><option value="">Selecione...</option>{prompts.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select><button onClick={executePrompt} disabled={!selectedPrompt||loadingPrompt} className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-300">{loadingPrompt?'⏳':'🔍'} Executar</button></div></div><div className="space-y-6"><div className="bg-white rounded-lg shadow p-4"><h2 className="text-lg font-semibold mb-3">🎵 12 Zonas</h2><div className="h-48"><Bar data={zd} options={opts}/></div><div className="mt-3 p-3 bg-gray-50 rounded-lg"><p className="text-sm text-gray-600">Zona:</p><p className="text-xl font-bold text-blue-600">{currentZone}</p></div></div><div className="bg-white rounded-lg shadow p-4"><h2 className="text-lg font-semibold mb-3">📊 7 Bandas</h2><div className="h-48"><Bar data={bd} options={opts}/></div></div><div className="bg-white rounded-lg shadow p-4"><h2 className="text-lg font-semibold mb-3">🎨 Colorimetria</h2><p className="text-2xl font-bold">{cols[colorimetryLevel].name}</p><div className="flex gap-1 mt-2">{cols.map((c,i)=><div key={i} style={{flex:1,height:'2rem',backgroundColor:c.color,borderRadius:'0.25rem',opacity:i===colorimetryLevel?1:0.3,border:i===colorimetryLevel?'3px solid #1f2937':'none'}}/>)}</div></div></div><div className="space-y-6"><div className="bg-white rounded-lg shadow p-4"><h2 className="text-lg font-semibold mb-3">🔗 IPM</h2><div className="text-center"><p className="text-4xl font-bold text-purple-600">{ipmScore}%</p><p className="text-sm text-gray-500">Incongruência</p></div></div><div className="bg-white rounded-lg shadow p-4"><h2 className="text-lg font-semibold mb-3">⚡ Status</h2><div className="space-y-2"><div className="flex justify-between"><span className="text-sm">Voice:</span><span style={{padding:'0.25rem 0.5rem',fontSize:'0.75rem',borderRadius:'9999px',backgroundColor:voiceStatus==='connected'?'#dcfce7':'#fef9c3',color:voiceStatus==='connected'?'#166534':'#854d0e'}}>{voiceStatus}</span></div><div className="flex justify-between"><span className="text-sm">Face:</span><span style={{padding:'0.25rem 0.5rem',fontSize:'0.75rem',borderRadius:'9999px',backgroundColor:faceStatus==='connected'?'#dcfce7':'#fef9c3',color:faceStatus==='connected'?'#166534':'#854d0e'}}>{faceStatus}</span></div></div></div><div className="bg-white rounded-lg shadow p-4"><h2 className="text-lg font-semibold mb-3">⚠️ Riscos</h2><div className="space-y-3"><div><div className="flex justify-between text-sm mb-1"><span>Depressão</span><span className="font-bold">{riskScores.depression}%</span></div><div className="w-full bg-gray-200 rounded-full h-2"><div className="bg-blue-600 h-2 rounded-full" style={{width:`${riskScores.depression}%`}}/></div></div><div><div className="flex justify-between text-sm mb-1"><span>Mania</span><span className="font-bold">{riskScores.mania}%</span></div><div className="w-full bg-gray-200 rounded-full h-2"><div className="bg-red-600 h-2 rounded-full" style={{width:`${riskScores.mania}%`}}/></div></div><div><div className="flex justify-between text-sm mb-1"><span>Estresse</span><span className="font-bold">{riskScores.stress}%</span></div><div className="w-full bg-gray-200 rounded-full h-2"><div className="bg-yellow-600 h-2 rounded-full" style={{width:`${riskScores.stress}%`}}/></div></div><div><div className="flex justify-between text-sm mb-1"><span>Ansiedade</span><span className="font-bold">{riskScores.anxiety}%</span></div><div className="w-full bg-gray-200 rounded-full h-2"><div className="bg-orange-600 h-2 rounded-full" style={{width:`${riskScores.anxiety}%`}}/></div></div><div><div className="flex justify-between text-sm mb-1"><span>Psicose</span><span className="font-bold">{riskScores.psychosis}%</span></div><div className="w-full bg-gray-200 rounded-full h-2"><div className="bg-purple-600 h-2 rounded-full" style={{width:`${riskScores.psychosis}%`}}/></div></div><div><div className="flex justify-between text-sm mb-1"><span>Trauma</span><span className="font-bold">{riskScores.trauma}%</span></div><div className="w-full bg-gray-200 rounded-full h-2"><div className="bg-indigo-600 h-2 rounded-full" style={{width:`${riskScores.trauma}%`}}/></div></div><div><div className="flex justify-between text-sm mb-1"><span>Suicídio</span><span className="font-bold text-red-700">{riskScores.suicide}%</span></div><div className="w-full bg-gray-200 rounded-full h-2"><div className="bg-red-800 h-2 rounded-full" style={{width:`${riskScores.suicide}%`}}/></div></div><div><div className="flex justify-between text-sm mb-1"><span>Bipolar</span><span className="font-bold">{riskScores.bipolar}%</span></div><div className="w-full bg-gray-200 rounded-full h-2"><div className="bg-pink-600 h-2 rounded-full" style={{width:`${riskScores.bipolar}%`}}/></div></div><div><div className="flex justify-between text-sm mb-1"><span>Esquizofrenia</span><span className="font-bold">{riskScores.schizophrenia}%</span></div><div className="w-full bg-gray-200 rounded-full h-2"><div className="bg-gray-700 h-2 rounded-full" style={{width:`${riskScores.schizophrenia}%`}}/></div></div></div></div><div className="bg-white rounded-lg shadow p-4"><h2 className="text-lg font-semibold mb-3">😊 Emoções</h2><p className="text-sm text-gray-600">Atual:</p><p className="text-xl font-bold text-green-600">{currentEmotion}</p></div></div></div></div>{showPromptModal&&<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"><div className="bg-white rounded-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6"><div className="flex justify-between items-center mb-4"><h2 className="text-xl font-bold">Resultado</h2><button onClick={()=>setShowPromptModal(false)} className="text-gray-500 hover:text-gray-700">✕</button></div><p className="whitespace-pre-wrap">{promptResult}</p></div></div>}</div>;
 }
-
