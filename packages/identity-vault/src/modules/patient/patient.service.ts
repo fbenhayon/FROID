@@ -8,6 +8,20 @@ export class PatientService {
 
   async create(data: any) {
     try {
+      let professionalId = data.professionalId;
+
+      // Se o ID não corresponder a um professional, tenta resolver pelo userId
+      const prof = await this.prisma.professionals.findFirst({
+        where: { OR: [{ id: professionalId }, { userId: professionalId }] },
+        select: { id: true },
+      });
+
+      if (!prof) {
+        throw new NotFoundException(`Profissional não encontrado para id: ${professionalId}`);
+      }
+
+      professionalId = prof.id;
+
       return await this.prisma.patients.create({
         data: {
           name: data.name,
@@ -15,7 +29,7 @@ export class PatientService {
           birthDate: new Date(data.birthDate),
           phone: data.phone || null,
           email: data.email || null,
-          professionalId: data.professionalId,
+          professionalId,
         },
       });
     } catch (error) {
@@ -27,9 +41,16 @@ export class PatientService {
   }
 
   async findByProfessional(professionalId: string) {
+    const prof = await this.prisma.professionals.findFirst({
+      where: { OR: [{ id: professionalId }, { userId: professionalId }] },
+      select: { id: true },
+    });
+
+    const resolvedId = prof?.id ?? professionalId;
+
     return this.prisma.patients.findMany({
       where: {
-        professionalId,
+        professionalId: resolvedId,
         deletedAt: null,
         visibleToProfessionals: true,
       },

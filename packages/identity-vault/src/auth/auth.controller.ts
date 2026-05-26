@@ -11,13 +11,18 @@ export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Post('register')
-  @ApiOperation({ summary: 'Registrar novo usuário' })
-  @ApiResponse({ status: 201, description: 'Usuário criado com sucesso' })
+  @ApiOperation({ summary: 'Registrar profissional (cria user + professional juntos)' })
+  @ApiResponse({ status: 201, description: 'Usuário e profissional criados com sucesso' })
   @ApiBody({
     schema: {
+      required: ['email', 'password', 'name', 'crp', 'specialty'],
       properties: {
-        email: { type: 'string', example: 'user@example.com' },
-        password: { type: 'string', example: 'senha123' },
+        email: { type: 'string', example: 'psicologo@froid.com.br' },
+        password: { type: 'string', example: 'Senha123@' },
+        name: { type: 'string', example: 'Dr. João Silva' },
+        crp: { type: 'string', example: 'CRP-06/12345' },
+        specialty: { type: 'string', example: 'Psicologia Clínica' },
+        phone: { type: 'string', example: '11999998888' },
       },
     },
   })

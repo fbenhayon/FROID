@@ -1,11 +1,15 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { SessionTimerService } from './session-timer.service';
 import { randomUUID } from 'crypto';
 import axios from 'axios';
 
 @Injectable()
 export class SessionService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private timerService: SessionTimerService,
+  ) {}
 
   private readonly VOICE_SERVICE = process.env.VOICE_SERVICE_URL || 'http://froid-voice:3002';
   private readonly FACE_SERVICE = process.env.FACE_SERVICE_URL || 'http://froid-face:3003';
@@ -34,16 +38,21 @@ export class SessionService {
       throw new NotFoundException('Session not found');
     }
 
-    return this.prisma.sessions.update({
+    const startedAt = new Date();
+    const updated = await this.prisma.sessions.update({
       where: { id: sessionId },
       data: {
         status: 'active',
-        startedAt: new Date(),
+        startedAt,
       },
     });
+
+    this.timerService.start(sessionId, startedAt);
+    return updated;
   }
 
   async endSession(sessionId: string, notes?: string) {
+    this.timerService.cancel(sessionId);
     return this.prisma.sessions.update({
       where: { id: sessionId },
       data: {
@@ -52,6 +61,23 @@ export class SessionService {
         notes,
       },
     });
+  }
+
+  async getTimerStatus(sessionId: string) {
+    const session = await this.prisma.sessions.findUnique({
+      where: { id: sessionId },
+      select: { id: true, status: true, startedAt: true, creditCharged: true },
+    });
+
+    if (!session) {
+      throw new NotFoundException('Session not found');
+    }
+
+    return {
+      ...this.timerService.getStatus(sessionId, session.startedAt),
+      creditCharged: session.creditCharged,
+      sessionStatus: session.status,
+    };
   }
 
   async analyzeVoice(sessionId: string, audioData: any) {
@@ -116,5 +142,16 @@ export class SessionService {
     }
 
     return session;
+  }
+
+  async getPatientSessions(patientId: string) {
+    return this.prisma.sessions.findMany({
+      where: { patientId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        voice_analyses: true,
+        facial_analyses: true,
+      },
+    });
   }
 }

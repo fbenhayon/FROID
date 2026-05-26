@@ -199,6 +199,7 @@ model professionals {
   users             users               @relation(fields: [userId], references: [id], onDelete: Cascade)
   sessions          sessions[]
   share_records     share_records[]
+  invitations       invitations[]
 }
 
 model quarantine_records {
@@ -240,6 +241,7 @@ model sessions {
   startedAt                 DateTime?
   endedAt                   DateTime?
   notes                     String?
+  creditCharged             Boolean                     @default(false)
   createdAt                 DateTime                    @default(now())
   updatedAt                 DateTime                    @updatedAt
   facial_analyses           facial_analyses[]
@@ -281,6 +283,23 @@ model users {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime @updatedAt
   professionals professionals?
+}
+
+model invitations {
+  id             String        @id @default(uuid())
+  professionalId String
+  patientEmail   String
+  token          String        @unique @default(uuid())
+  status         String        @default("pending")
+  message        String?
+  expiresAt      DateTime
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  professionals  professionals @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([professionalId])
+  @@index([patientEmail])
 }
 
 model voice_analyses {
