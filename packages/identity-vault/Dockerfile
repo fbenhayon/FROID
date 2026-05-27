@@ -34,6 +34,7 @@ RUN pnpm install --prod --frozen-lockfile
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 COPY --from=builder /app/packages/identity-vault/dist ./packages/identity-vault/dist
 COPY --from=builder /app/packages/identity-vault/src/prisma ./packages/identity-vault/src/prisma
+COPY --from=builder /app/node_modules ./node_modules
 
 RUN cd packages/identity-vault && pnpm dlx prisma@5.22.0 generate --schema ./src/prisma/schema.prisma
 
@@ -41,4 +42,5 @@ RUN chown -R nestjs:nodejs /app
 USER nestjs
 WORKDIR /app/packages/identity-vault
 EXPOSE 3001
-CMD ["node", "dist/main.js"]
+# CMD ["node", "dist/main.js"]
+
