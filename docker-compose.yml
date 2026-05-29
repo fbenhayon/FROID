@@ -75,37 +75,6 @@ services:
       - froid-network
     restart: unless-stopped
 
-  froid-dashboard:
-    build:
-      context: .
-      dockerfile: packages/froid-dashboard/Dockerfile
-      args:
-        - VITE_API_URL=http://204.168.229.32:8001
-    container_name: froid-dashboard-1
-    ports:
-      - "80:80"
-    depends_on:
-      - identity-vault
-    networks:
-      - froid-network
-    restart: unless-stopped
-
-  froid-payment:
-    build:
-      context: ./packages/froid-payment
-      dockerfile: Dockerfile      
-    container_name: froid-payment-1
-    ports:
-      - "3004:3004"
-    environment:
-      - PORT=3004
-      - DATABASE_URL=postgresql://froid:froid_password@postgres:5432/froid_db
-    depends_on:
-      - postgres
-    networks:
-      - froid-network
-    restart: unless-stopped
-
 networks:
   froid-network:
     driver: bridge

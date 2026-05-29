@@ -7,6 +7,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+
 model anonymization_records {
   id                String   @id
   originalPatientId String
