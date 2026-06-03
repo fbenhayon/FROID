@@ -1,0 +1,12 @@
+version: '3.8'
+services:
+  froid-backend:
+    build: ./froid-server
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+  froid-frontend:
+    build: ./froid-dashboard
+    ports:
+      - "5173:80"
+    restart: unless-stopped
