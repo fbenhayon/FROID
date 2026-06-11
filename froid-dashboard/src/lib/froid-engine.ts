@@ -39,6 +39,33 @@ export interface PerceptionZone {
   dissonance_details?: DissonanceDetails;
 }
 
+export interface AcousticBiomarkers {
+  subharmonic_energy_5_12hz?: number;
+  subharmonic_energy_12_20hz?: number;
+  energy_85_165hz?: number;
+  clinical_insight?: string | null;
+  mfcc7?: number;
+  mfcc9?: number;
+  baseline_mfcc7?: number;
+  baseline_mfcc9?: number;
+  desvio_mfcc7?: number;
+  desvio_mfcc9?: number;
+  f0_mean?: number;
+  f0_var?: number;
+  zcr?: number;
+  jitter?: number;
+  shimmer?: number;
+  speech_rate?: number;
+  loudness?: number;
+  spectral_flux?: number;
+  pause_duration?: number;
+  semantic_valence?: "NEGATIVO" | "NEUTRO" | "POSITIVO" | string;
+  substancia_semantica?: "NEGATIVO" | "NEUTRO" | "POSITIVO" | string;
+  transcricao_gpt4o?: string;
+  alerta_clinico?: string;
+  impacto_preditivo?: string;
+}
+
 export interface FroidPayload {
   session_id: string;
   timestamp_ms: number;
@@ -47,6 +74,7 @@ export interface FroidPayload {
   global_energy: { cor_plot: FroidColor; descricao: string };
   perception_zones: PerceptionZone[];
   realtime_alerts: string[];
+  audio_meta?: AcousticBiomarkers & Record<string, unknown>;
 }
 
 export function calculateIDM(vocalEnergy: number, baselineEnergy: number, facialDissonanceFlag: boolean): number {

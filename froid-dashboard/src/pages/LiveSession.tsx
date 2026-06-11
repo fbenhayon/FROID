@@ -2,7 +2,6 @@ import React, { useEffect, useReducer, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import MapaZonalFroid from "../components/charts/MapaZonalFroid";
 import { IPMLineChart } from "../components/indicators/IPMLineChart";
-import { CoherenceLine } from "../components/indicators/CoherenceLine";
 import { RiskChart } from "../components/indicators/RiskChart";
 import { SubharmonicChart } from "../components/indicators/SubharmonicChart";
 import { MediaStatus } from "../components/indicators/MediaStatus";
@@ -528,24 +527,33 @@ function LiveSessionInner() {
       </div>
 
       {/* COLUNA 3 — 35%: IPM grande, Risco, Subharm, Coherence, Dissonâncias */}
-      <div className="flex-1 flex flex-col gap-2 bg-slate-50 p-3 overflow-y-auto">
+      <div className="grid flex-1 grid-rows-4 gap-2 overflow-visible bg-slate-50 p-3">
         {raw ? (
           <>
-            <IPMLineChart
-              data={state.ipmHistory}
-              current={displayIpm}
-              baseline={state.baselineIPM || undefined}
-            />
-            <CoherenceLine status={displayCoherence} />
-            <RiskChart
-              zones={displayZones}
-              ipmScore={displayIpm}
-              coherenceStatus={displayCoherence}
-            />
-            <SubharmonicChart zones={displayZones} />
+            <div className="min-h-0 overflow-visible">
+              <IPMLineChart
+                data={state.ipmHistory}
+                current={displayIpm}
+                baseline={state.baselineIPM || undefined}
+              />
+            </div>
 
-            <div className="flex-1 overflow-y-auto rounded-xl border border-slate-100 bg-white p-4 shadow-sm min-h-[140px]">
-              <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+            <div className="min-h-0 overflow-visible">
+              <RiskChart
+                zones={displayZones}
+                ipmScore={displayIpm}
+                coherenceStatus={displayCoherence}
+                baseline={state.baselineIPM}
+                audioMeta={displayAudio}
+              />
+            </div>
+
+            <div className="min-h-0 overflow-hidden">
+              <SubharmonicChart zones={displayZones} audioMeta={displayAudio} />
+            </div>
+
+            <div className="min-h-0 overflow-y-auto rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
+              <h3 className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                 Dissonâncias Identificadas (Média 10s)
                 {displayZones.some((z) => !!z?.facial_dissonance_detected) && (
                   <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
@@ -574,20 +582,20 @@ function LiveSessionInner() {
                     return (
                       <div
                         key={zone.zone}
-                        className="mb-3 rounded-r-lg border-l-4 border-red-600 bg-red-50 p-4"
+                        className="mb-2 rounded-r-lg border-l-4 border-red-600 bg-red-50 p-3"
                       >
                         <div className="flex items-center justify-between">
-                          <p className="text-sm font-bold text-red-900">
+                          <p className="text-xs font-bold text-red-900">
                             Zona {zone.zone} — {zone.tema || ""}
                           </p>
                           <span className="text-[9px] font-bold text-white bg-red-600 px-1.5 py-0.5 rounded">
                             IDM {zone.deviation_score?.toFixed(2)}
                           </span>
                         </div>
-                        <p className="mt-1 text-xs leading-relaxed text-slate-700 font-medium">
+                        <p className="mt-1 text-[11px] font-medium leading-relaxed text-slate-700">
                           {ZONE_CLINICAL_DESCRIPTIONS[zone.zone] || ""}
                         </p>
-                        <p className="mt-2 text-xs leading-relaxed text-red-700 font-semibold">
+                        <p className="mt-2 text-[11px] font-semibold leading-relaxed text-red-700">
                           {zone.dissonance_details?.report || ""}
                         </p>
                         <div className="mt-2 space-y-1">
@@ -607,7 +615,7 @@ function LiveSessionInner() {
                     );
                   })}
 
-              <div className="mt-4 space-y-2">
+              <div className="mt-3 space-y-2">
                 {displayAlerts.slice(0, 4).map((alert, i) => (
                   <div
                     key={`alert-${i}`}
@@ -620,7 +628,7 @@ function LiveSessionInner() {
             </div>
           </>
         ) : (
-          <div className="flex flex-1 items-center justify-center text-sm text-slate-400">
+          <div className="row-span-4 flex items-center justify-center text-sm text-slate-400">
             <div className="text-center">
               <div className="mb-2 mx-auto h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
               Aguardando pacote multimodal FROID...

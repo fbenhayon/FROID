@@ -183,24 +183,24 @@ export default function MapaZonalFroid({
   return (
     <div
       className={[
-        "w-full h-full overflow-visible rounded-lg border border-slate-200 bg-white p-1 shadow-sm",
+        "flex h-full w-full flex-col overflow-visible rounded-lg border border-slate-200 bg-white p-1 shadow-sm",
         className,
       ].join(" ")}
     >
-      <div className="mb-1 grid grid-cols-[22px_minmax(68px,0.75fr)_minmax(150px,1.6fr)_minmax(68px,0.75fr)] items-center gap-x-1">
-        <div className="text-[9px] font-semibold uppercase tracking-tight text-slate-500">
+      <div className="mb-1 grid grid-cols-[24px_minmax(74px,0.75fr)_minmax(150px,1.6fr)_minmax(74px,0.75fr)] items-center gap-x-1">
+        <div className="text-[10px] font-semibold uppercase tracking-tight text-slate-500">
           Z
         </div>
-        <div className="text-right text-[9px] font-semibold uppercase tracking-tight text-red-700">
+        <div className="text-right text-[10px] font-semibold uppercase tracking-tight text-red-700">
           Negativo
         </div>
-        <div className="relative flex items-center justify-center gap-2 text-[10px] font-semibold uppercase tracking-tight text-slate-900">
+        <div className="relative flex items-center justify-center gap-2 text-[11px] font-semibold uppercase tracking-tight text-slate-900">
           <span>DR: {drLabel}</span>
           <span className="text-slate-300">|</span>
           <span>Base: {baselineLabel}</span>
           <button
             type="button"
-            className="rounded-full border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[9px] font-bold text-slate-700 hover:bg-slate-100"
+            className="rounded-full border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-bold text-slate-700 hover:bg-slate-100"
             title={IDM_HELP}
             onClick={() => setShowIdmHelp((current) => !current)}
             onMouseEnter={() => setShowIdmHelp(true)}
@@ -209,7 +209,7 @@ export default function MapaZonalFroid({
             IDM
           </button>
           {showIdmHelp && (
-            <div className="absolute left-1/2 top-full z-50 mt-1 w-80 -translate-x-1/2 rounded-lg border border-slate-200 bg-white p-2 text-[9px] normal-case tracking-normal text-slate-600 shadow-2xl">
+            <div className="absolute left-1/2 top-full z-50 mt-1 w-80 -translate-x-1/2 rounded-lg border border-slate-200 bg-white p-2 text-[10px] normal-case tracking-normal text-slate-600 shadow-2xl">
               <p className="font-bold uppercase tracking-tight text-slate-900">
                 IDM
               </p>
@@ -217,12 +217,12 @@ export default function MapaZonalFroid({
             </div>
           )}
         </div>
-        <div className="text-left text-[9px] font-semibold uppercase tracking-tight text-green-700">
+        <div className="text-left text-[10px] font-semibold uppercase tracking-tight text-green-700">
           Positivo
         </div>
       </div>
 
-      <div className="grid grid-cols-[22px_minmax(68px,0.75fr)_minmax(150px,1.6fr)_minmax(68px,0.75fr)] gap-x-1">
+      <div className="grid flex-1 auto-rows-fr grid-cols-[24px_minmax(74px,0.75fr)_minmax(150px,1.6fr)_minmax(74px,0.75fr)] gap-x-1">
         {normalizedZones.map((item, index) => {
           const zn = item.zone;
           const val = item.deviation_score;
@@ -248,7 +248,7 @@ export default function MapaZonalFroid({
           return (
             <React.Fragment key={zn}>
               <div
-                className="flex h-6 items-center justify-end pr-0.5 text-[9px] font-bold text-slate-700"
+                className="flex h-full min-h-0 items-center justify-end pr-0.5 text-[10px] font-bold text-slate-700"
                 onMouseEnter={() => setHoveredZone(zn)}
                 onMouseLeave={() => setHoveredZone(null)}
               >
@@ -256,7 +256,7 @@ export default function MapaZonalFroid({
               </div>
 
               <div
-                className="flex h-6 items-center justify-end truncate pr-0.5 text-right text-[9px] font-semibold leading-none text-slate-600"
+                className="flex h-full min-h-0 items-center justify-end truncate pr-0.5 text-right text-[10px] font-semibold leading-none text-slate-600"
                 title={NEGATIVES[index]}
                 onMouseEnter={() => setHoveredZone(zn)}
                 onMouseLeave={() => setHoveredZone(null)}
@@ -265,7 +265,7 @@ export default function MapaZonalFroid({
               </div>
 
               <div
-                className="relative flex h-6 items-center overflow-visible"
+                className="relative flex h-full min-h-0 items-center overflow-visible"
                 onMouseEnter={() => setHoveredZone(zn)}
                 onMouseLeave={() => setHoveredZone(null)}
               >
@@ -274,23 +274,23 @@ export default function MapaZonalFroid({
 
                 {isNeg && (
                   <div
-                    className="absolute right-1/2 top-1/2 h-1.5 -translate-y-1/2 rounded-l-full transition-all duration-700"
+                    className="absolute right-1/2 top-1/2 h-2.5 -translate-y-1/2 rounded-l-full transition-all duration-700"
                     style={{ width: `${barW}%`, backgroundColor: color }}
                   />
                 )}
                 {isPos && (
                   <div
-                    className="absolute left-1/2 top-1/2 h-1.5 -translate-y-1/2 rounded-r-full transition-all duration-700"
+                    className="absolute left-1/2 top-1/2 h-2.5 -translate-y-1/2 rounded-r-full transition-all duration-700"
                     style={{ width: `${barW}%`, backgroundColor: color }}
                   />
                 )}
                 {isNeu && (
-                  <div className="absolute left-1/2 top-1/2 h-1 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-slate-300" />
+                  <div className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-slate-300" />
                 )}
 
                 {!isNeu && (
                   <div
-                    className={`absolute top-1/2 -translate-y-1/2 text-[8px] font-bold text-slate-800 transition-all duration-700 ${
+                    className={`absolute top-1/2 -translate-y-1/2 text-[9px] font-bold text-slate-800 transition-all duration-700 ${
                       isNeg
                         ? "right-[calc(50%+var(--bw)+4px)]"
                         : "left-[calc(50%+var(--bw)+4px)]"
@@ -332,7 +332,7 @@ export default function MapaZonalFroid({
               </div>
 
               <div
-                className="flex h-6 items-center justify-start truncate pl-0.5 text-left text-[9px] font-semibold leading-none text-slate-600"
+                className="flex h-full min-h-0 items-center justify-start truncate pl-0.5 text-left text-[10px] font-semibold leading-none text-slate-600"
                 title={POSITIVES[index]}
                 onMouseEnter={() => setHoveredZone(zn)}
                 onMouseLeave={() => setHoveredZone(null)}
@@ -344,7 +344,7 @@ export default function MapaZonalFroid({
         })}
       </div>
 
-      <div className="mt-1 flex flex-wrap justify-center gap-2 border-t border-slate-100 pt-1 text-[7px] text-slate-500">
+      <div className="mt-1 flex flex-wrap justify-center gap-2 border-t border-slate-100 pt-1 text-[8px] text-slate-500">
         <div className="flex items-center gap-1">
           <span
             className="h-1.5 w-1.5 rounded-full"
