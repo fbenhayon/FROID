@@ -1,0 +1,19 @@
+froid.com.br, www.froid.com.br {
+    encode gzip
+
+    handle /api/* {
+        reverse_proxy froid-backend:8000
+    }
+
+    handle /ws/* {
+        reverse_proxy froid-backend:8000
+    }
+
+    handle /health {
+        reverse_proxy froid-backend:8000
+    }
+
+    handle {
+        reverse_proxy froid-frontend:80
+    }
+}
