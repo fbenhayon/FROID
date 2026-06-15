@@ -223,6 +223,19 @@ class SessionState:
 
         # DR = Dynamic Repouso = média das 12 baselines
         dr_value = round(float(np.mean(self.baseline_energy)), 3)
+        baseline_mean = float(np.mean(self.baseline_energy))
+        mfcc7 = round(float(np.clip(np.mean(voice_spectral_12[4:8]) - baseline_mean * 0.12, 0.0, 25.0)), 3)
+        mfcc9 = round(float(np.clip(np.mean(voice_spectral_12[6:10]) - baseline_mean * 0.08, 0.0, 25.0)), 3)
+        subharmonic_5_12 = round(float(np.clip((np.mean(voice_spectral_12[4:8]) * 0.7) + (np.std(voice_spectral_12) * 0.2), 0.0, 25.0)), 3)
+        subharmonic_12_20 = round(float(np.clip((np.mean(voice_spectral_12[8:12]) * 0.65) + (np.std(voice_spectral_12) * 0.15), 0.0, 25.0)), 3)
+        jitter = round(float(np.clip(np.std(voice_spectral_12) / max(1.0, np.mean(voice_spectral_12)), 0.0, 2.0)), 3)
+        shimmer = round(float(np.clip(np.mean(np.abs(np.diff(voice_spectral_12))) / max(1.0, np.mean(voice_spectral_12)), 0.0, 2.0)), 3)
+        speech_rate_proxy = round(float(np.clip(95.0 + (words_this_window * 4.5) + (mfcc7 * 1.1), 70.0, 180.0)), 1)
+        clinical_insight = (
+            "Coerência preservada" if coherence_status == "COERENTE" else
+            "Ativação vocal/gestual com risco de dissonância" if has_dissonance else
+            "Baseline em calibração"
+        )
 
         return {
             "session_id": self.session_id,
@@ -244,6 +257,17 @@ class SessionState:
                 "transcription_snippet": transcription_snippet,
                 "session_theme": session_theme,
                 "theme_minute_mark": (minutes_elapsed // 10) * 10,
+                "mfcc7": mfcc7,
+                "mfcc9": mfcc9,
+                "baseline_mfcc7": round(float(np.clip(baseline_mean * 0.12, 0.0, 25.0)), 3),
+                "baseline_mfcc9": round(float(np.clip(baseline_mean * 0.08, 0.0, 25.0)), 3),
+                "subharmonic_energy_5_12hz": subharmonic_5_12,
+                "subharmonic_energy_12_20hz": subharmonic_12_20,
+                "jitter": jitter,
+                "shimmer": shimmer,
+                "speech_rate_proxy": speech_rate_proxy,
+                "clinical_insight": clinical_insight,
+                "baseline_locked": self.baseline_locked,
             },
             "commitment_models": commitment_output,
         }

@@ -1,4 +1,8 @@
-import React, { useEffect, useReducer, useRef } from "react";
+import React, { useEffect, useReducer, useRef, useState } from "react";
+
+interface LiveSessionProps {
+  user?: any;
+}
 import { useParams, useNavigate } from "react-router-dom";
 import MapaZonalFroid from "../components/charts/MapaZonalFroid";
 import { IPMLineChart } from "../components/indicators/IPMLineChart";
@@ -309,13 +313,23 @@ function aggregatePayloads(payloads: FroidPayload[]): AggData {
   };
 }
 
-function LiveSessionInner() {
+function LiveSessionInner(_: LiveSessionProps) {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
   const [state, dispatch] = useReducer(reducer, initialState);
+  const [dissonanceLog, setDissonanceLog] = useState<
+    Array<{
+      id: string;
+      timestamp: string;
+      elapsedSeconds: number;
+      zone: number;
+      report: string;
+    }>
+  >([]);
   const bufferRef = useRef<{ ipm: number[] }>({ ipm: [] });
   const frameBuffer = useRef<FroidPayload[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
+  const lastDissonanceSig = useRef("");
 
   useEffect(() => {
     const id = setInterval(() => dispatch({ type: "TICK" }), 1000);
@@ -409,6 +423,40 @@ function LiveSessionInner() {
     };
   const displayCommitments =
     agg?.commitments || (raw as any)?.commitment_models || [];
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      (
+        window as Window &
+          typeof globalThis & { __froidAudioMeta?: Record<string, unknown> }
+      ).__froidAudioMeta = displayAudio;
+    }
+  }, [displayAudio]);
+
+  useEffect(() => {
+    const currentEntries = (displayZones || [])
+      .filter((z) => !!z?.facial_dissonance_detected && !!z?.dissonance_details)
+      .map((z) => `${z.zone}:${z.dissonance_details?.report || ""}`);
+    const signature = currentEntries.join("|");
+    if (!signature || signature === lastDissonanceSig.current) return;
+    lastDissonanceSig.current = signature;
+
+    const nextEntries = currentEntries
+      .map((entry) => {
+        const [zoneText, report] = entry.split(":", 2);
+        const zone = Number(zoneText);
+        return {
+          id: `${zone}-${Date.now()}`,
+          timestamp: new Date().toLocaleString("pt-BR"),
+          elapsedSeconds: state.elapsedSeconds,
+          zone,
+          report: report || "Dissonância facial-vocal detectada",
+        };
+      })
+      .filter((entry) => Number.isFinite(entry.zone));
+
+    setDissonanceLog((prev) => [...prev, ...nextEntries].slice(-18));
+  }, [displayZones, state.elapsedSeconds]);
 
   const connectionText = state.connected
     ? state.phase === "CALIBRATING"
@@ -615,6 +663,46 @@ function LiveSessionInner() {
                     );
                   })}
 
+              <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-2">
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    Registro de Dissonâncias
+                  </p>
+                  <span className="text-[9px] text-slate-500">
+                    {dissonanceLog.length} itens
+                  </span>
+                </div>
+                <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
+                  {dissonanceLog.length === 0 && (
+                    <p className="text-[10px] text-slate-400">
+                      Nenhuma dissonância registrada ainda.
+                    </p>
+                  )}
+                  {dissonanceLog
+                    .slice()
+                    .reverse()
+                    .map((entry) => (
+                      <div
+                        key={entry.id}
+                        className="rounded border border-red-100 bg-white p-2 text-[10px] text-slate-600"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-bold text-red-700">
+                            Zona {entry.zone}
+                          </span>
+                          <span className="text-[9px] text-slate-400">
+                            {entry.elapsedSeconds}s
+                          </span>
+                        </div>
+                        <p className="mt-0.5 text-[9px] text-slate-500">
+                          {entry.timestamp}
+                        </p>
+                        <p className="mt-0.5 leading-snug">{entry.report}</p>
+                      </div>
+                    ))}
+                </div>
+              </div>
+
               <div className="mt-3 space-y-2">
                 {displayAlerts.slice(0, 4).map((alert, i) => (
                   <div
@@ -640,10 +728,10 @@ function LiveSessionInner() {
   );
 }
 
-export function LiveSession() {
+export function LiveSession({ user }: LiveSessionProps) {
   return (
     <ErrorGuard>
-      <LiveSessionInner />
+      <LiveSessionInner user={user} />
     </ErrorGuard>
   );
 }

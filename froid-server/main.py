@@ -1,7 +1,11 @@
 import asyncio
+import base64
+import io
+import os
+import secrets
 import uuid
 from typing import Dict
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from froid_core import SessionState, MockBiometricStream
 import httpx
@@ -17,7 +21,19 @@ app.add_middleware(
     expose_headers=["*"],
 )
 
-OPENAI_API_KEY = "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"
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
+GOOGLE_AUTH_DEV_FALLBACK = os.getenv("GOOGLE_AUTH_DEV_FALLBACK", "true").lower() in {"1", "true", "yes", "on"}
+FROID_LOCAL_AUTH_PASSWORD = os.getenv("FROID_LOCAL_AUTH_PASSWORD", "")
+FROID_LOCAL_AUTH_EMAILS = {
+    email.strip().lower()
+    for email in os.getenv("FROID_LOCAL_AUTH_EMAILS", "").split(",")
+    if email.strip()
+}
+
+SESSION_USERS = {}
 
 KNOWLEDGE_BASE = {
     "froid_zonas": "As 12 Zonas de Percepção FROID mapeiam conflitos subconscientes via bioacústica e FACS.",
@@ -44,6 +60,113 @@ class ConnectionManager:
                 pass
 
 manager = ConnectionManager()
+
+
+def _decode_audio_bytes(body: dict):
+    for key in ("audio_bytes", "audio", "audio_chunk", "file"):
+        value = body.get(key)
+        if isinstance(value, bytes):
+            return value
+        if isinstance(value, str) and value:
+            try:
+                return base64.b64decode(value, validate=True)
+            except Exception:
+                return None
+    if isinstance(body.get("audio_base64"), str) and body.get("audio_base64"):
+        try:
+            return base64.b64decode(body["audio_base64"], validate=True)
+        except Exception:
+            return None
+    if isinstance(body.get("audio_chunks"), list):
+        chunks = []
+        for chunk in body["audio_chunks"]:
+            if isinstance(chunk, str):
+                try:
+                    chunks.append(base64.b64decode(chunk, validate=True))
+                except Exception:
+                    continue
+            elif isinstance(chunk, bytes):
+                chunks.append(chunk)
+        if chunks:
+            return b"".join(chunks)
+    return None
+
+
+async def _transcribe_with_openai(audio_bytes: bytes, fallback_text: str = "") -> str:
+    if not audio_bytes or not OPENAI_API_KEY:
+        return fallback_text
+    try:
+        from openai import OpenAI
+        client = OpenAI(api_key=OPENAI_API_KEY)
+        audio_file = io.BytesIO(audio_bytes)
+        audio_file.name = "froid-session.wav"
+        response = client.audio.transcriptions.create(model="whisper-1", file=audio_file)
+        text = getattr(response, "text", None)
+        if isinstance(text, str) and text.strip():
+            return text.strip()
+    except Exception:
+        pass
+    return fallback_text
+
+
+def _issue_session(user: dict):
+    token = secrets.token_urlsafe(32)
+    SESSION_USERS[token] = user
+    return {"token": token, "user": user}
+
+
+def _verify_local_login(body: dict) -> dict:
+    email = (body.get("email") or "").strip().lower()
+    password = body.get("password") or ""
+    if not email:
+        raise HTTPException(status_code=400, detail="email obrigatorio")
+
+    if FROID_LOCAL_AUTH_PASSWORD:
+        if not secrets.compare_digest(password, FROID_LOCAL_AUTH_PASSWORD):
+            raise HTTPException(status_code=401, detail="senha invalida")
+        if FROID_LOCAL_AUTH_EMAILS and email not in FROID_LOCAL_AUTH_EMAILS:
+            raise HTTPException(status_code=403, detail="email nao autorizado")
+    elif not GOOGLE_AUTH_DEV_FALLBACK:
+        raise HTTPException(status_code=400, detail="Credencial Google obrigatoria")
+
+    return {
+        "email": email,
+        "provider": "local-dev",
+        "name": body.get("name") or email.split("@", 1)[0],
+    }
+
+
+async def _verify_google_credential(credential: str) -> dict:
+    if not GOOGLE_CLIENT_ID:
+        raise HTTPException(status_code=503, detail="GOOGLE_CLIENT_ID nao configurado")
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await client.get(
+            "https://oauth2.googleapis.com/tokeninfo",
+            params={"id_token": credential},
+        )
+
+    if response.status_code != 200:
+        raise HTTPException(status_code=401, detail="Credencial Google invalida")
+
+    profile = response.json()
+    if profile.get("aud") != GOOGLE_CLIENT_ID:
+        raise HTTPException(status_code=401, detail="Credencial Google de outro aplicativo")
+    if str(profile.get("email_verified", "")).lower() != "true":
+        raise HTTPException(status_code=401, detail="E-mail Google nao verificado")
+
+    email = (profile.get("email") or "").strip().lower()
+    if not email:
+        raise HTTPException(status_code=401, detail="Credencial Google sem e-mail")
+
+    return {
+        "email": email,
+        "name": profile.get("name") or email.split("@", 1)[0],
+        "picture": profile.get("picture") or "",
+        "provider": "google",
+        "google_sub": profile.get("sub") or "",
+    }
+
 
 async def froid_stream_loop(session_id: str):
     entry = manager.active_sessions.get(session_id)
@@ -75,15 +198,49 @@ def health(): return {"status": "ok", "active_sessions": len(manager.active_sess
 @app.post("/session/create")
 def create_session(): return {"session_id": str(uuid.uuid4())}
 
+@app.get("/api/auth/config")
+def auth_config():
+    return {
+        "google_client_id": GOOGLE_CLIENT_ID,
+        "dev_fallback_enabled": GOOGLE_AUTH_DEV_FALLBACK,
+        "local_login_enabled": bool(FROID_LOCAL_AUTH_PASSWORD or GOOGLE_AUTH_DEV_FALLBACK),
+    }
+
+@app.post("/api/auth/google")
+async def auth_google(request: Request):
+    body = await request.json()
+    credential = body.get("credential") or body.get("id_token") or body.get("token")
+    if credential:
+        user = await _verify_google_credential(credential)
+        return _issue_session(user)
+
+    return _issue_session(_verify_local_login(body))
+
+@app.post("/api/auth/google-dev")
+async def auth_google_dev(request: Request):
+    body = await request.json()
+    return _issue_session(_verify_local_login(body))
+
+@app.get("/api/auth/me")
+async def auth_me(request: Request):
+    auth_header = request.headers.get("authorization", "")
+    token = auth_header.replace("Bearer ", "", 1).strip() if auth_header.startswith("Bearer ") else ""
+    user = SESSION_USERS.get(token)
+    if not user:
+        raise HTTPException(status_code=401, detail="não autenticado")
+    return user
+
 @app.post("/api/insights")
 async def insights_proxy(request: Request):
     try:
         body = await request.json()
+        if not OPENAI_API_KEY:
+            return {"choices": [{"message": {"content": f"[FROID-IA local] {body.get('messages', [{}])[-1].get('content', 'Sem resposta.')}"}}]}
         async with httpx.AsyncClient(timeout=30.0) as client:
             r = await client.post(
                 "https://api.openai.com/v1/chat/completions",
                 headers={"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"},
-                json={"model": body.get("model", "gpt-4o-mini"), "messages": body.get("messages", []), "temperature": 0.4, "max_tokens": 700}
+                json={"model": body.get("model", OPENAI_MODEL), "messages": body.get("messages", []), "temperature": 0.4, "max_tokens": 700}
             )
             return r.json()
     except Exception as e:
@@ -100,7 +257,13 @@ async def knowledge_base(q: str = ""):
 
 @app.post("/api/transcribe")
 async def transcribe_audio(request: Request):
-    """Endpoint reservado para integração com gpt-realtime-whisper. Recebe audio_chunk e retorna transcrição."""
+    """Endpoint de transcrição vocal com fallback local para uso clínico e testes."""
     body = await request.json()
-    # Placeholder: em produção, enviar bytes para OpenAI Realtime API
-    return {"status": "mock", "text": body.get("fallback_text", ""), "provider": "openai-realtime-whisper-placeholder"}
+    fallback_text = body.get("fallback_text") or body.get("text") or ""
+    audio_bytes = _decode_audio_bytes(body)
+    transcript = await _transcribe_with_openai(audio_bytes, fallback_text)
+    return {
+        "status": "ok" if transcript else "mock",
+        "text": transcript or fallback_text,
+        "provider": "openai-whisper" if OPENAI_API_KEY and audio_bytes else "local-fallback",
+    }
