@@ -51,6 +51,12 @@ type Action =
   | { type: "BASELINE_LOCK"; ipm: number }
   | { type: "PAYLOAD"; data: FroidPayload }
   | { type: "AGGREGATE"; agg: AggData }
+  | {
+      type: "MEDIA_STATUS";
+      cameraOn: boolean;
+      micOn: boolean;
+      camError?: string;
+    }
   | { type: "END_SESSION" };
 
 function reducer(state: SessionState, action: Action): SessionState {
@@ -83,6 +89,13 @@ function reducer(state: SessionState, action: Action): SessionState {
       }
       case "AGGREGATE":
         return { ...state, aggregated: action.agg };
+      case "MEDIA_STATUS":
+        return {
+          ...state,
+          cameraOn: action.cameraOn,
+          micOn: action.micOn,
+          camError: action.camError || "",
+        };
       case "END_SESSION":
         return { ...state, phase: "ENDED", connected: false };
       default:
@@ -330,12 +343,96 @@ function LiveSessionInner(_: LiveSessionProps) {
   const bufferRef = useRef<{ ipm: number[] }>({ ipm: [] });
   const frameBuffer = useRef<FroidPayload[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
   const lastDissonanceSig = useRef("");
 
   useEffect(() => {
     const id = setInterval(() => dispatch({ type: "TICK" }), 1000);
     return () => clearInterval(id);
   }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const stopStream = () => {
+      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+    };
+
+    const activateMedia = async () => {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        dispatch({
+          type: "MEDIA_STATUS",
+          cameraOn: false,
+          micOn: false,
+          camError: "Navegador sem suporte a camera e microfone.",
+        });
+        return;
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            facingMode: "user",
+          },
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        });
+
+        if (!mounted) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+
+        mediaStreamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play().catch(() => undefined);
+        }
+
+        const updateStatus = () => {
+          const cameraOn = stream
+            .getVideoTracks()
+            .some((track) => track.enabled && track.readyState === "live");
+          const micOn = stream
+            .getAudioTracks()
+            .some((track) => track.enabled && track.readyState === "live");
+          dispatch({ type: "MEDIA_STATUS", cameraOn, micOn });
+        };
+
+        stream.getTracks().forEach((track) => {
+          track.onended = updateStatus;
+          track.onmute = updateStatus;
+          track.onunmute = updateStatus;
+        });
+        updateStatus();
+      } catch (err: any) {
+        dispatch({
+          type: "MEDIA_STATUS",
+          cameraOn: false,
+          micOn: false,
+          camError:
+            err?.name === "NotAllowedError"
+              ? "Permissao de camera/microfone negada pelo navegador."
+              : "Nao foi possivel ativar camera e microfone.",
+        });
+      }
+    };
+
+    void activateMedia();
+
+    return () => {
+      mounted = false;
+      stopStream();
+    };
+  }, []);
+
   useEffect(() => {
     if (state.elapsedSeconds >= 60 && state.phase === "CALIBRATING") {
       const avg =
@@ -551,11 +648,25 @@ function LiveSessionInner(_: LiveSessionProps) {
         {/* Vídeo — 50% do espaço */}
         <div className="h-1/2 relative rounded-xl bg-slate-900 overflow-hidden flex items-center justify-center border-b border-slate-200">
           <MediaStatus
-            cameraOn={true}
-            micOn={state.connected}
-            simulated={true}
+            cameraOn={state.cameraOn}
+            micOn={state.micOn}
+            simulated={!state.cameraOn}
           />
-          <SimulatedCamera />
+          <video
+            ref={videoRef}
+            autoPlay
+            muted
+            playsInline
+            className={`absolute inset-0 h-full w-full scale-x-[-1] object-cover transition-opacity duration-500 ${
+              state.cameraOn ? "opacity-100" : "opacity-0"
+            }`}
+          />
+          {!state.cameraOn && <SimulatedCamera />}
+          {state.camError && (
+            <div className="absolute bottom-3 left-3 right-3 z-20 rounded-lg border border-amber-300/50 bg-slate-950/75 px-3 py-2 text-[10px] font-semibold text-amber-100 backdrop-blur-sm">
+              {state.camError}
+            </div>
+          )}
         </div>
 
         <div className="h-1/2 flex flex-col gap-0 p-2 overflow-hidden">
