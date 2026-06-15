@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { FroidTooltip } from "../ui/FroidTooltip";
+import { apiUrl } from "../../lib/api";
 
 const PRESETS = [
   {
@@ -94,13 +95,9 @@ export const AIInsights: React.FC<Props> = ({
 
   const fetchKnowledge = useCallback(async (query: string): Promise<string> => {
     try {
-      const apiUrl =
-        ((import.meta as any).env?.VITE_API_URL ||
-          "https://froid.com.br/api" ||
-          "http://localhost:8000") +
-        "/api/knowledge?q=" +
-        encodeURIComponent(query);
-      const res = await fetch(apiUrl);
+      const res = await fetch(
+        apiUrl(`/api/knowledge?q=${encodeURIComponent(query)}`),
+      );
       if (!res.ok) return "";
       const data = await res.json();
       return (data.results || [])
@@ -130,12 +127,8 @@ Base de conhecimento FROID/NotebookLM:
 ${knowledge || "Base de conhecimento local indisponível."}
 Responda em português de forma objetiva e clinicamente útil.`;
 
-      const apiUrl =
-        ((import.meta as any).env?.VITE_API_URL ||
-          "https://froid.com.br/api" ||
-          "http://localhost:8000") + "/api/insights";
       try {
-        const res = await fetch(apiUrl, {
+        const res = await fetch(apiUrl("/api/insights"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

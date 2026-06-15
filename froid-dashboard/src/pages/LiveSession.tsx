@@ -16,6 +16,7 @@ import { AudioTranscription } from "../components/panels/AudioTranscription";
 import { CommitmentPanel } from "../components/panels/CommitmentPanel";
 import { FroidPayload, PerceptionZone } from "../lib/froid-engine";
 import { getAUDetails, ZONE_CLINICAL_DESCRIPTIONS } from "../lib/froid-data";
+import { wsUrl } from "../lib/api";
 
 interface AggData {
   zones: PerceptionZone[];
@@ -349,13 +350,7 @@ function LiveSessionInner(_: LiveSessionProps) {
   useEffect(() => {
     let ws: WebSocket | null = null;
     try {
-      const wsUrl =
-        ((import.meta as any).env?.VITE_WS_URL ||
-          "ws://localhost:8000" ||
-          "ws://localhost:8000") +
-        "/ws/fusion/" +
-        (sessionId || "default");
-      ws = new WebSocket(wsUrl);
+      ws = new WebSocket(wsUrl(`/ws/fusion/${sessionId || "default"}`));
       wsRef.current = ws;
       ws.onopen = () => dispatch({ type: "WS_OPEN" });
       ws.onclose = () => dispatch({ type: "WS_CLOSE" });
