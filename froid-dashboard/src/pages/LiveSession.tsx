@@ -1,4 +1,4 @@
-import React, { useEffect, useReducer, useRef, useState } from "react";
+import React, { useCallback, useEffect, useReducer, useRef, useState } from "react";
 
 interface LiveSessionProps {
   user?: any;
@@ -352,86 +352,111 @@ function LiveSessionInner(_: LiveSessionProps) {
     return () => clearInterval(id);
   }, []);
 
-  useEffect(() => {
-    let mounted = true;
-
-    const stopStream = () => {
-      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
-      mediaStreamRef.current = null;
-    };
-
-    const activateMedia = async () => {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        dispatch({
-          type: "MEDIA_STATUS",
-          cameraOn: false,
-          micOn: false,
-          camError: "Navegador sem suporte a camera e microfone.",
-        });
-        return;
-      }
-
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            facingMode: "user",
-          },
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          },
-        });
-
-        if (!mounted) {
-          stream.getTracks().forEach((track) => track.stop());
-          return;
-        }
-
-        mediaStreamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play().catch(() => undefined);
-        }
-
-        const updateStatus = () => {
-          const cameraOn = stream
-            .getVideoTracks()
-            .some((track) => track.enabled && track.readyState === "live");
-          const micOn = stream
-            .getAudioTracks()
-            .some((track) => track.enabled && track.readyState === "live");
-          dispatch({ type: "MEDIA_STATUS", cameraOn, micOn });
-        };
-
-        stream.getTracks().forEach((track) => {
-          track.onended = updateStatus;
-          track.onmute = updateStatus;
-          track.onunmute = updateStatus;
-        });
-        updateStatus();
-      } catch (err: any) {
-        dispatch({
-          type: "MEDIA_STATUS",
-          cameraOn: false,
-          micOn: false,
-          camError:
-            err?.name === "NotAllowedError"
-              ? "Permissao de camera/microfone negada pelo navegador."
-              : "Nao foi possivel ativar camera e microfone.",
-        });
-      }
-    };
-
-    void activateMedia();
-
-    return () => {
-      mounted = false;
-      stopStream();
-    };
+  const refreshMediaStatus = useCallback((stream: MediaStream | null) => {
+    const cameraOn =
+      stream
+        ?.getVideoTracks()
+        .some((track) => track.enabled && track.readyState === "live") || false;
+    const micOn =
+      stream
+        ?.getAudioTracks()
+        .some((track) => track.enabled && track.readyState === "live") || false;
+    dispatch({ type: "MEDIA_STATUS", cameraOn, micOn });
   }, []);
+
+  const stopMedia = useCallback((reportStatus = true) => {
+    mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+    mediaStreamRef.current = null;
+    if (videoRef.current) videoRef.current.srcObject = null;
+    if (reportStatus) refreshMediaStatus(null);
+  }, [refreshMediaStatus]);
+
+  const activateMedia = useCallback(async () => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      dispatch({
+        type: "MEDIA_STATUS",
+        cameraOn: false,
+        micOn: false,
+        camError: "Navegador sem suporte a camera e microfone.",
+      });
+      return;
+    }
+
+    stopMedia();
+
+    const tracks: MediaStreamTrack[] = [];
+    let audioError = "";
+    let videoError = "";
+
+    try {
+      const audioStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+        video: false,
+      });
+      tracks.push(...audioStream.getAudioTracks());
+    } catch (err: any) {
+      audioError =
+        err?.name === "NotAllowedError"
+          ? "Permissao de microfone negada pelo navegador."
+          : "Nao foi possivel ativar o microfone.";
+    }
+
+    try {
+      const videoStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: "user",
+        },
+        audio: false,
+      });
+      tracks.push(...videoStream.getVideoTracks());
+    } catch (err: any) {
+      videoError =
+        err?.name === "NotAllowedError"
+          ? "Permissao de camera negada pelo navegador."
+          : "Nao foi possivel ativar a camera.";
+    }
+
+    const stream = new MediaStream(tracks);
+    mediaStreamRef.current = stream;
+
+    const updateStatus = () => refreshMediaStatus(mediaStreamRef.current);
+    stream.getTracks().forEach((track) => {
+      track.onended = updateStatus;
+      track.onmute = updateStatus;
+      track.onunmute = updateStatus;
+    });
+
+    const cameraTracks = stream.getVideoTracks();
+    if (videoRef.current && cameraTracks.length > 0) {
+      videoRef.current.srcObject = new MediaStream(cameraTracks);
+      await videoRef.current.play().catch(() => undefined);
+    }
+
+    const cameraOn = cameraTracks.some(
+      (track) => track.enabled && track.readyState === "live",
+    );
+    const micOn = stream
+      .getAudioTracks()
+      .some((track) => track.enabled && track.readyState === "live");
+
+    dispatch({
+      type: "MEDIA_STATUS",
+      cameraOn,
+      micOn,
+      camError: [audioError, videoError].filter(Boolean).join(" "),
+    });
+  }, [refreshMediaStatus, stopMedia]);
+
+  useEffect(() => {
+    void activateMedia();
+    return () => stopMedia(false);
+  }, [activateMedia, stopMedia]);
 
   useEffect(() => {
     if (state.elapsedSeconds >= 60 && state.phase === "CALIBRATING") {
@@ -662,9 +687,22 @@ function LiveSessionInner(_: LiveSessionProps) {
             }`}
           />
           {!state.cameraOn && <SimulatedCamera />}
-          {state.camError && (
+          {(state.camError || !state.micOn) && (
             <div className="absolute bottom-3 left-3 right-3 z-20 rounded-lg border border-amber-300/50 bg-slate-950/75 px-3 py-2 text-[10px] font-semibold text-amber-100 backdrop-blur-sm">
-              {state.camError}
+              <div className="flex items-center justify-between gap-3">
+                <span className="min-w-0 flex-1">
+                  {state.camError || "Audio aguardando permissao do navegador."}
+                </span>
+                {!state.micOn && (
+                  <button
+                    type="button"
+                    onClick={() => void activateMedia()}
+                    className="shrink-0 rounded bg-amber-400 px-2 py-1 text-[10px] font-black text-slate-950 hover:bg-amber-300"
+                  >
+                    Ativar audio
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>
