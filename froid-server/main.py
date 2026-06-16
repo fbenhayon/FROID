@@ -66,6 +66,8 @@ PATIENTS_BY_CONTACT: Dict[str, str] = {}
 SESSION_INVITES: Dict[str, dict] = {}
 CONSENT_LEDGER: list[dict] = []
 PATIENT_SESSION_ENTRIES: Dict[str, list[dict]] = {}
+SESSION_EVENTS: list[dict] = []
+SESSION_EVENT_COUNTER = 0
 
 KNOWLEDGE_BASE = {
     "froid_zonas": "As 12 Zonas de Percepção FROID mapeiam conflitos subconscientes via bioacústica e FACS.",
@@ -203,6 +205,26 @@ def _parse_json_object(text: str) -> dict:
 
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _record_session_event(event_type: str, invite: dict, extra: dict | None = None) -> dict:
+    global SESSION_EVENT_COUNTER
+    SESSION_EVENT_COUNTER += 1
+    event = {
+        "id": SESSION_EVENT_COUNTER,
+        "type": event_type,
+        "session_id": invite.get("session_id"),
+        "invite_id": invite.get("id"),
+        "patient_name": invite.get("patient_name"),
+        "patient_known": bool(invite.get("patient_known")),
+        "created_at": _utc_now_iso(),
+    }
+    if extra:
+        event.update(extra)
+    SESSION_EVENTS.append(event)
+    if len(SESSION_EVENTS) > 500:
+        del SESSION_EVENTS[: len(SESSION_EVENTS) - 500]
+    return event
 
 
 def _digits_only(value: str) -> str:
@@ -484,6 +506,7 @@ async def create_session_invite(request: Request):
         else ""
     )
     SESSION_INVITES[token] = invite
+    _record_session_event("invite_created", invite)
     return invite
 
 
@@ -492,6 +515,7 @@ async def get_session_invite(token: str):
     invite = SESSION_INVITES.get(token)
     if not invite:
         raise HTTPException(status_code=404, detail="Convite nao encontrado")
+    _record_session_event("invite_opened", invite)
     return invite
 
 
@@ -574,6 +598,7 @@ async def accept_session_invite(token: str, request: Request):
             or _public_patient_session_url("", str(invite.get("session_id") or ""), token),
         }
     )
+    _record_session_event("invite_accepted", invite)
     return {
         **invite,
         "patient": patient,
@@ -605,12 +630,29 @@ async def join_patient_session(session_id: str, request: Request):
         "user_agent": request.headers.get("user-agent", ""),
     }
     PATIENT_SESSION_ENTRIES.setdefault(session_id, []).append(entry)
+    event = _record_session_event("patient_joined", invite, {"joined_at": now})
     return {
         "status": "joined",
         "session_id": session_id,
         "patient_name": invite.get("patient_name"),
         "joined_at": now,
         "join_count": len(PATIENT_SESSION_ENTRIES.get(session_id, [])),
+        "event_id": event.get("id"),
+    }
+
+
+@app.get("/api/session-events/latest")
+async def get_latest_session_event():
+    latest_id = SESSION_EVENTS[-1]["id"] if SESSION_EVENTS else 0
+    return {"latest_id": latest_id}
+
+
+@app.get("/api/session-events")
+async def get_session_events(after: int = 0):
+    events = [event for event in SESSION_EVENTS if int(event.get("id") or 0) > after]
+    return {
+        "latest_id": SESSION_EVENTS[-1]["id"] if SESSION_EVENTS else after,
+        "events": events[-50:],
     }
 
 @app.get("/api/auth/config")

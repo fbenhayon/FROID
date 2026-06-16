@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiUrl } from "../lib/api";
 
@@ -27,6 +27,14 @@ interface InviteResult {
   };
 }
 
+interface SessionEvent {
+  id: number;
+  type: "invite_created" | "invite_opened" | "invite_accepted" | "patient_joined";
+  session_id: string;
+  patient_name?: string;
+  created_at: string;
+}
+
 function makeId() {
   return (
     "froid-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
@@ -49,6 +57,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   const [creatingInvite, setCreatingInvite] = useState(false);
   const [inviteError, setInviteError] = useState("");
   const [inviteResult, setInviteResult] = useState<InviteResult | null>(null);
+  const [patientActivity, setPatientActivity] = useState("");
+  const eventCursorRef = useRef<number | null>(null);
+  const redirectingRef = useRef(false);
   const professionalName = user?.name || user?.email || "Dr. Profissional";
 
   const currentOrigin = useMemo(
@@ -104,6 +115,82 @@ export const Dashboard: React.FC<DashboardProps> = ({ user }) => {
       window.prompt("Copie o conteudo abaixo:", text);
     }
   };
+
+  useEffect(() => {
+    let active = true;
+
+    const describeEvent = (event: SessionEvent) => {
+      const patient = event.patient_name || "Paciente";
+      if (event.type === "invite_opened") {
+        return `${patient} abriu o convite FROID.`;
+      }
+      if (event.type === "invite_accepted") {
+        return `${patient} confirmou cadastro e consentimentos LGPD.`;
+      }
+      if (event.type === "patient_joined") {
+        return `${patient} entrou na sessao. Abrindo sala profissional...`;
+      }
+      return "";
+    };
+
+    const pollSessionEvents = async () => {
+      try {
+        if (eventCursorRef.current === null) {
+          const response = await fetch(apiUrl("/api/session-events/latest"));
+          if (!response.ok) return;
+          const data = await response.json();
+          eventCursorRef.current = Number(data?.latest_id || 0);
+          return;
+        }
+
+        const response = await fetch(
+          apiUrl(`/api/session-events?after=${eventCursorRef.current}`),
+        );
+        if (!response.ok) return;
+        const data = await response.json();
+        const events: SessionEvent[] = Array.isArray(data?.events)
+          ? data.events
+          : [];
+
+        eventCursorRef.current = Math.max(
+          Number(eventCursorRef.current || 0),
+          Number(data?.latest_id || 0),
+          ...events.map((event) => Number(event.id || 0)),
+        );
+
+        const visibleEvents = events.filter((event) =>
+          ["invite_opened", "invite_accepted", "patient_joined"].includes(
+            event.type,
+          ),
+        );
+        const latest = visibleEvents[visibleEvents.length - 1];
+        if (!latest || !active) return;
+
+        const message = describeEvent(latest);
+        if (message) setPatientActivity(message);
+
+        if (
+          latest.type === "patient_joined" &&
+          latest.session_id &&
+          !redirectingRef.current
+        ) {
+          redirectingRef.current = true;
+          window.setTimeout(() => {
+            if (active) nav(`/session/${latest.session_id}`);
+          }, 900);
+        }
+      } catch {
+        // Event polling is best-effort and must not block the dashboard.
+      }
+    };
+
+    void pollSessionEvents();
+    const intervalId = window.setInterval(pollSessionEvents, 3000);
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
+  }, [nav]);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800">
@@ -166,6 +253,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ user }) => {
             </p>
           </button>
         </div>
+
+        {patientActivity && (
+          <div className="mb-5 rounded-lg border border-cyan-100 bg-cyan-50 px-4 py-3 text-sm font-semibold text-cyan-900">
+            {patientActivity}
+          </div>
+        )}
 
         <section className="mb-8 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-4 flex items-start justify-between gap-4">
