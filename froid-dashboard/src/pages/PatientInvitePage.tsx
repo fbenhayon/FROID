@@ -8,6 +8,8 @@ interface InviteData {
   token: string;
   session_id: string;
   status: string;
+  session_url?: string;
+  patient_session_url?: string;
   patient_known: boolean;
   patient_name: string;
   patient_email: string;
@@ -49,6 +51,12 @@ export const PatientInvitePage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [accepted, setAccepted] = useState(false);
+  const sessionEntryUrl =
+    invite?.session_url ||
+    invite?.patient_session_url ||
+    (invite?.session_id
+      ? `#/paciente/sessao/${invite.session_id}?invite=${token}`
+      : "");
 
   useEffect(() => {
     let active = true;
@@ -199,9 +207,17 @@ export const PatientInvitePage: React.FC = () => {
               Convite confirmado
             </p>
             <p className="mt-2 text-sm text-emerald-800">
-              Seu cadastro e consentimento foram registrados. Aguarde a
-              orientacao do profissional para iniciar a sessao.
+              Seu cadastro e consentimento foram registrados. A sessao esta
+              liberada para entrada do paciente.
             </p>
+            {sessionEntryUrl && (
+              <a
+                href={sessionEntryUrl}
+                className="mt-4 inline-flex rounded-lg bg-emerald-700 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-800"
+              >
+                Entrar na sessao
+              </a>
+            )}
           </div>
         ) : (
           <form onSubmit={submitAcceptance} className="space-y-5">

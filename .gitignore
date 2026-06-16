@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .vite/
+froid-server/venv/
 .venv-win/
 __pycache__/
 *.pyc

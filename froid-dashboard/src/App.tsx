@@ -6,6 +6,7 @@ import { History } from "./pages/History";
 import { Settings } from "./pages/Settings";
 import { LoginPage } from "./pages/LoginPage";
 import { PatientInvitePage } from "./pages/PatientInvitePage";
+import { PatientSessionPage } from "./pages/PatientSessionPage";
 import { apiUrl } from "./lib/api";
 
 export type FroidUser = {
@@ -56,6 +57,10 @@ function App() {
     <HashRouter>
       <Routes>
         <Route path="/convite/:token" element={<PatientInvitePage />} />
+        <Route
+          path="/paciente/sessao/:sessionId"
+          element={<PatientSessionPage />}
+        />
         <Route
           path="/"
           element={protectedElement(<Navigate to="/dashboard" replace />)}

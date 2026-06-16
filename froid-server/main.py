@@ -1,6 +1,5 @@
 import asyncio
 import base64
-import asyncio
 from datetime import datetime, timezone
 import hashlib
 import io
@@ -66,6 +65,7 @@ PATIENTS: Dict[str, dict] = {}
 PATIENTS_BY_CONTACT: Dict[str, str] = {}
 SESSION_INVITES: Dict[str, dict] = {}
 CONSENT_LEDGER: list[dict] = []
+PATIENT_SESSION_ENTRIES: Dict[str, list[dict]] = {}
 
 KNOWLEDGE_BASE = {
     "froid_zonas": "As 12 Zonas de Percepção FROID mapeiam conflitos subconscientes via bioacústica e FACS.",
@@ -228,6 +228,13 @@ def _public_invite_url(base_url: str, token: str) -> str:
     if not base:
         base = os.getenv("FROID_PUBLIC_URL", "http://localhost:5173").rstrip("/")
     return f"{base}/#/convite/{token}"
+
+
+def _public_patient_session_url(base_url: str, session_id: str, token: str) -> str:
+    base = str(base_url or "").strip().rstrip("/")
+    if not base:
+        base = os.getenv("FROID_PUBLIC_URL", "http://localhost:5173").rstrip("/")
+    return f"{base}/#/paciente/sessao/{session_id}?invite={token}"
 
 
 def _consent_hash(payload: dict) -> str:
@@ -437,7 +444,9 @@ async def create_session_invite(request: Request):
     contact_key = _patient_contact_key(patient_email, patient_phone)
     known_patient_id = PATIENTS_BY_CONTACT.get(contact_key)
     token = secrets.token_urlsafe(24)
-    invite_url = _public_invite_url(body.get("base_url") or "", token)
+    base_url = body.get("base_url") or ""
+    invite_url = _public_invite_url(base_url, token)
+    patient_session_url = _public_patient_session_url(base_url, session_id, token)
     now = _utc_now_iso()
     package_total_cents = (
         session_value_cents * package_sessions if payment_mode == "package" else session_value_cents
@@ -463,6 +472,7 @@ async def create_session_invite(request: Request):
             "payment_status": "prearranged" if payment_mode == "package" else "pending_pix",
         },
         "invite_url": invite_url,
+        "patient_session_url": patient_session_url,
         "created_at": now,
         "expires_at": body.get("expires_at") or "",
         "accepted_at": "",
@@ -560,13 +570,47 @@ async def accept_session_invite(token: str, request: Request):
             "patient_phone": patient_phone,
             "accepted_at": now,
             "consent_hash": ledger_entry["hash"],
-            "session_url": f"/session/{invite.get('session_id')}",
+            "session_url": invite.get("patient_session_url")
+            or _public_patient_session_url("", str(invite.get("session_id") or ""), token),
         }
     )
     return {
         **invite,
         "patient": patient,
         "consent": ledger_entry,
+    }
+
+
+@app.post("/api/patient-sessions/{session_id}/join")
+async def join_patient_session(session_id: str, request: Request):
+    body = await request.json()
+    invite_token = str(body.get("invite_token") or "").strip()
+    invite = SESSION_INVITES.get(invite_token)
+    if not invite or str(invite.get("session_id") or "") != session_id:
+        raise HTTPException(status_code=404, detail="Sessao do paciente nao encontrada")
+    if invite.get("status") != "accepted":
+        raise HTTPException(
+            status_code=403,
+            detail="Confirme o cadastro e os consentimentos antes de entrar na sessao",
+        )
+
+    now = _utc_now_iso()
+    entry = {
+        "session_id": session_id,
+        "invite_id": invite.get("id"),
+        "patient_id": invite.get("patient_id"),
+        "patient_name": invite.get("patient_name"),
+        "joined_at": now,
+        "remote_addr": request.client.host if request.client else "",
+        "user_agent": request.headers.get("user-agent", ""),
+    }
+    PATIENT_SESSION_ENTRIES.setdefault(session_id, []).append(entry)
+    return {
+        "status": "joined",
+        "session_id": session_id,
+        "patient_name": invite.get("patient_name"),
+        "joined_at": now,
+        "join_count": len(PATIENT_SESSION_ENTRIES.get(session_id, [])),
     }
 
 @app.get("/api/auth/config")
