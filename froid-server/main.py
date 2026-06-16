@@ -110,6 +110,69 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
+class RtcSignalManager:
+    def __init__(self):
+        self.rooms: Dict[str, Dict[str, WebSocket]] = {}
+
+    async def connect(self, websocket: WebSocket, session_id: str, role: str):
+        await websocket.accept()
+        room = self.rooms.setdefault(session_id, {})
+        old_socket = room.get(role)
+        if old_socket and old_socket is not websocket:
+            try:
+                await old_socket.close(code=4000)
+            except Exception:
+                pass
+        room[role] = websocket
+        peer_role = "patient" if role == "professional" else "professional"
+        peer_socket = room.get(peer_role)
+        await websocket.send_json(
+            {
+                "type": "signal-ready",
+                "role": role,
+                "peer_connected": bool(peer_socket),
+            }
+        )
+        if peer_socket:
+            await self._safe_send(
+                peer_socket,
+                {"type": "peer-joined", "role": role},
+            )
+
+    def disconnect(self, session_id: str, role: str, websocket: WebSocket):
+        room = self.rooms.get(session_id)
+        if not room or room.get(role) is not websocket:
+            return None
+        del room[role]
+        peer_role = "patient" if role == "professional" else "professional"
+        peer_socket = room.get(peer_role)
+        if not room:
+            self.rooms.pop(session_id, None)
+        return peer_socket
+
+    async def relay(self, session_id: str, role: str, message: dict):
+        room = self.rooms.get(session_id) or {}
+        peer_role = "patient" if role == "professional" else "professional"
+        peer_socket = room.get(peer_role)
+        if not peer_socket:
+            own_socket = room.get(role)
+            if own_socket:
+                await self._safe_send(own_socket, {"type": "peer-waiting"})
+            return
+        payload = dict(message or {})
+        payload["from"] = role
+        await self._safe_send(peer_socket, payload)
+
+    async def _safe_send(self, websocket: WebSocket, payload: dict):
+        try:
+            await websocket.send_json(payload)
+        except Exception:
+            pass
+
+
+rtc_signals = RtcSignalManager()
+
+
 def _decode_audio_bytes(body: dict):
     for key in ("audio_bytes", "audio", "audio_chunk", "file"):
         value = body.get(key)
@@ -427,6 +490,38 @@ async def websocket_fusion(websocket: WebSocket, session_id: str):
         manager.disconnect(session_id, connection_id); task.cancel()
     except Exception:
         manager.disconnect(session_id, connection_id); task.cancel()
+
+
+@app.websocket("/ws/rtc/{session_id}/{role}")
+async def websocket_rtc_signaling(websocket: WebSocket, session_id: str, role: str):
+    if role not in {"professional", "patient"}:
+        await websocket.accept()
+        await websocket.send_json({"type": "error", "detail": "role invalido"})
+        await websocket.close(code=1008)
+        return
+
+    await rtc_signals.connect(websocket, session_id, role)
+    try:
+        while True:
+            message = await websocket.receive_json()
+            if not isinstance(message, dict):
+                continue
+            await rtc_signals.relay(session_id, role, message)
+    except WebSocketDisconnect:
+        peer_socket = rtc_signals.disconnect(session_id, role, websocket)
+        if peer_socket:
+            await rtc_signals._safe_send(
+                peer_socket,
+                {"type": "peer-left", "role": role},
+            )
+    except Exception:
+        peer_socket = rtc_signals.disconnect(session_id, role, websocket)
+        if peer_socket:
+            await rtc_signals._safe_send(
+                peer_socket,
+                {"type": "peer-left", "role": role},
+            )
+
 
 @app.get("/health")
 def health(): return {"status": "ok", "active_sessions": len(manager.active_sessions)}

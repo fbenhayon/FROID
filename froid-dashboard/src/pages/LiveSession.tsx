@@ -17,6 +17,7 @@ import { COMMITMENT_TEXTS } from "../components/panels/CommitmentPanel";
 import { FroidPayload, PerceptionZone } from "../lib/froid-engine";
 import { getAUDetails, ZONE_CLINICAL_DESCRIPTIONS } from "../lib/froid-data";
 import { apiUrl, wsUrl } from "../lib/api";
+import { createConferenceStream, RTC_CONFIG } from "../lib/webrtc";
 import { FroidTooltip } from "../components/ui/FroidTooltip";
 
 interface AggData {
@@ -371,16 +372,6 @@ function getSemanticAudioConstraints(): MediaTrackConstraints {
   };
 }
 
-function getRawBioacousticConstraints(): MediaTrackConstraints {
-  return {
-    echoCancellation: false,
-    noiseSuppression: false,
-    autoGainControl: false,
-    channelCount: { ideal: 1 },
-    sampleRate: { ideal: 48000 },
-  };
-}
-
 function frequencyBandEnergy(
   data: Uint8Array,
   sampleRate: number,
@@ -601,12 +592,19 @@ function LiveSessionInner(_: LiveSessionProps) {
   const [conversationSummaries, setConversationSummaries] = useState<
     ConversationSummary[]
   >([]);
-  const [activeSpeaker, setActiveSpeaker] = useState<SpeakerRole>("PAC");
+  const [rtcStatus, setRtcStatus] = useState("Aguardando paciente");
+  const [remotePatientOn, setRemotePatientOn] = useState(false);
+  const [patientAudioVersion, setPatientAudioVersion] = useState(0);
   const bufferRef = useRef<{ ipm: number[] }>({ ipm: [] });
   const frameBuffer = useRef<FroidPayload[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
+  const rtcSignalRef = useRef<WebSocket | null>(null);
+  const rtcPeerRef = useRef<RTCPeerConnection | null>(null);
+  const rtcIceQueueRef = useRef<RTCIceCandidateInit[]>([]);
+  const rtcMakingOfferRef = useRef(false);
   const bioacousticStreamRef = useRef<MediaStream | null>(null);
   const bioacousticContextRef = useRef<AudioContext | null>(null);
   const bioacousticRafRef = useRef<number | null>(null);
@@ -614,6 +612,7 @@ function LiveSessionInner(_: LiveSessionProps) {
   const bioacousticFrameRef = useRef(0);
   const bioacousticClockRef = useRef({ lastTime: 0, frameRate: 60 });
   const recorderRef = useRef<MediaRecorder | null>(null);
+  const patientRecorderRef = useRef<MediaRecorder | null>(null);
   const browserRecognitionRef = useRef<any>(null);
   const browserSttRestartTimerRef = useRef<number | null>(null);
   const browserSttAvailableRef = useRef(false);
@@ -623,8 +622,13 @@ function LiveSessionInner(_: LiveSessionProps) {
   const pendingSummaryWindowsRef = useRef<Set<number>>(new Set());
   const sttRestartTimerRef = useRef<number | null>(null);
   const sttSegmentTimerRef = useRef<number | null>(null);
+  const patientSttRestartTimerRef = useRef<number | null>(null);
+  const patientSttSegmentTimerRef = useRef<number | null>(null);
   const intentionalRecorderStopRef = useRef(false);
   const segmentingRecorderStopRef = useRef(false);
+  const patientIntentionalRecorderStopRef = useRef(false);
+  const patientSegmentingRecorderStopRef = useRef(false);
+  const patientAudioStreamRef = useRef<MediaStream | null>(null);
   const transcribingRef = useRef(false);
   const transcriptionQueueRef = useRef<Promise<void>>(Promise.resolve());
   const transcriptionStatsRef = useRef<{
@@ -633,7 +637,7 @@ function LiveSessionInner(_: LiveSessionProps) {
   }>({ totalWords: 0, windows: [] });
   const lastDissonanceSig = useRef("");
   const phaseRef = useRef(state.phase);
-  const activeSpeakerRef = useRef<SpeakerRole>(activeSpeaker);
+  const activeSpeakerRef = useRef<SpeakerRole>("DR");
 
   useEffect(() => {
     const id = setInterval(() => dispatch({ type: "TICK" }), 1000);
@@ -643,10 +647,6 @@ function LiveSessionInner(_: LiveSessionProps) {
   useEffect(() => {
     phaseRef.current = state.phase;
   }, [state.phase]);
-
-  useEffect(() => {
-    activeSpeakerRef.current = activeSpeaker;
-  }, [activeSpeaker]);
 
   const refreshMediaStatus = useCallback((stream: MediaStream | null) => {
     const cameraOn =
@@ -659,6 +659,158 @@ function LiveSessionInner(_: LiveSessionProps) {
         .some((track) => track.enabled && track.readyState === "live") || false;
     dispatch({ type: "MEDIA_STATUS", cameraOn, micOn });
   }, []);
+
+  const cleanupRtcCall = useCallback(() => {
+    rtcSignalRef.current?.close();
+    rtcSignalRef.current = null;
+    rtcPeerRef.current?.close();
+    rtcPeerRef.current = null;
+    rtcIceQueueRef.current = [];
+    rtcMakingOfferRef.current = false;
+    if (patientSttRestartTimerRef.current) {
+      window.clearTimeout(patientSttRestartTimerRef.current);
+      patientSttRestartTimerRef.current = null;
+    }
+    if (patientSttSegmentTimerRef.current) {
+      window.clearTimeout(patientSttSegmentTimerRef.current);
+      patientSttSegmentTimerRef.current = null;
+    }
+    patientIntentionalRecorderStopRef.current = true;
+    patientSegmentingRecorderStopRef.current = false;
+    if (patientRecorderRef.current && patientRecorderRef.current.state !== "inactive") {
+      patientRecorderRef.current.stop();
+    }
+    patientRecorderRef.current = null;
+    patientAudioStreamRef.current?.getTracks().forEach((track) => track.stop());
+    patientAudioStreamRef.current = null;
+    setRemotePatientOn(false);
+    setRtcStatus("Aguardando paciente");
+    if (remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = null;
+    }
+  }, []);
+
+  const startProfessionalRtcCall = useCallback(
+    async (localSource: MediaStream) => {
+      if (!sessionId || typeof RTCPeerConnection === "undefined") {
+        setRtcStatus("WebRTC indisponivel neste navegador.");
+        return;
+      }
+
+      cleanupRtcCall();
+      const localConferenceStream = createConferenceStream(localSource);
+      if (!localConferenceStream.getTracks().length) {
+        setRtcStatus("Audio e video locais indisponiveis para chamada.");
+        return;
+      }
+
+      const peer = new RTCPeerConnection(RTC_CONFIG);
+      const remoteStream = new MediaStream();
+      rtcPeerRef.current = peer;
+
+      localConferenceStream.getTracks().forEach((track) => {
+        peer.addTrack(track, localConferenceStream);
+      });
+
+      const sendSignal = (payload: Record<string, unknown>) => {
+        const socket = rtcSignalRef.current;
+        if (socket?.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify(payload));
+        }
+      };
+
+      const flushIceQueue = async () => {
+        const queued = [...rtcIceQueueRef.current];
+        rtcIceQueueRef.current = [];
+        for (const candidate of queued) {
+          await peer.addIceCandidate(candidate).catch(() => undefined);
+        }
+      };
+
+      const makeOffer = async () => {
+        if (rtcMakingOfferRef.current || peer.signalingState !== "stable") return;
+        rtcMakingOfferRef.current = true;
+        try {
+          const offer = await peer.createOffer();
+          await peer.setLocalDescription(offer);
+          sendSignal({ type: "offer", offer: peer.localDescription });
+          setRtcStatus("Chamando paciente...");
+        } finally {
+          rtcMakingOfferRef.current = false;
+        }
+      };
+
+      peer.ontrack = (event) => {
+        event.streams[0]?.getTracks().forEach((track) => {
+          if (!remoteStream.getTracks().some((item) => item.id === track.id)) {
+            remoteStream.addTrack(track);
+          }
+        });
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.srcObject = remoteStream;
+          remoteVideoRef.current.play().catch(() => undefined);
+        }
+        const patientAudioTrack = remoteStream
+          .getAudioTracks()
+          .find((track) => track.readyState === "live");
+        if (patientAudioTrack && !patientAudioStreamRef.current) {
+          patientAudioStreamRef.current = new MediaStream([patientAudioTrack.clone()]);
+          setPatientAudioVersion((value) => value + 1);
+        }
+        setRemotePatientOn(true);
+        setRtcStatus("Paciente conectado por audio e video.");
+      };
+
+      peer.onicecandidate = (event) => {
+        if (event.candidate) {
+          sendSignal({
+            type: "ice",
+            candidate: event.candidate.toJSON(),
+          });
+        }
+      };
+
+      peer.onconnectionstatechange = () => {
+        if (peer.connectionState === "connected") {
+          setRtcStatus("Audio e video bidirecionais ativos.");
+        } else if (["failed", "disconnected"].includes(peer.connectionState)) {
+          setRemotePatientOn(false);
+          setRtcStatus("Conexao com paciente interrompida.");
+        } else if (peer.connectionState === "connecting") {
+          setRtcStatus("Conectando audio e video do paciente...");
+        }
+      };
+
+      const socket = new WebSocket(wsUrl(`/ws/rtc/${sessionId}/professional`));
+      rtcSignalRef.current = socket;
+
+      socket.onopen = () => setRtcStatus("Aguardando paciente...");
+      socket.onclose = () => setRtcStatus("Sinalizacao de video encerrada.");
+      socket.onerror = () => setRtcStatus("Falha na sinalizacao de video.");
+      socket.onmessage = async (event) => {
+        const data = JSON.parse(String(event.data || "{}"));
+        if (data.type === "signal-ready" && data.peer_connected) {
+          await makeOffer();
+        } else if (data.type === "peer-joined") {
+          await makeOffer();
+        } else if (data.type === "answer" && data.answer) {
+          await peer.setRemoteDescription(data.answer);
+          await flushIceQueue();
+        } else if (data.type === "ice" && data.candidate) {
+          if (peer.remoteDescription) {
+            await peer.addIceCandidate(data.candidate).catch(() => undefined);
+          } else {
+            rtcIceQueueRef.current.push(data.candidate);
+          }
+        } else if (data.type === "peer-left") {
+          setRemotePatientOn(false);
+          setRtcStatus("Paciente saiu da chamada.");
+          if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+        }
+      };
+    },
+    [cleanupRtcCall, sessionId],
+  );
 
   const stopRawBioacousticPipeline = useCallback(() => {
     if (bioacousticRafRef.current) {
@@ -680,7 +832,10 @@ function LiveSessionInner(_: LiveSessionProps) {
   }, []);
 
   const startRawBioacousticPipeline = useCallback(
-    (stream: MediaStream, sourceMode: "raw-independent" | "semantic-fallback") => {
+    (
+      stream: MediaStream,
+      sourceMode: "patient-webrtc" | "raw-independent" | "semantic-fallback",
+    ) => {
       const liveTracks = stream
         .getAudioTracks()
         .filter((track) => track.readyState === "live");
@@ -795,11 +950,11 @@ function LiveSessionInner(_: LiveSessionProps) {
     [stopRawBioacousticPipeline],
   );
 
-  const appendTranscriptText = useCallback((rawText: string) => {
+  const appendTranscriptText = useCallback((rawText: string, speakerOverride?: SpeakerRole) => {
     const text = rawText.replace(/\s+/g, " ").trim();
     if (!text) return;
 
-    const speaker = activeSpeakerRef.current;
+    const speaker = speakerOverride || activeSpeakerRef.current;
     const prefix = speakerPrefix(speaker);
     const line = `${prefix}${text}`;
     const normalized = normalizeTranscriptText(text);
@@ -872,12 +1027,22 @@ function LiveSessionInner(_: LiveSessionProps) {
       window.clearTimeout(sttSegmentTimerRef.current);
       sttSegmentTimerRef.current = null;
     }
+    if (patientSttRestartTimerRef.current) {
+      window.clearTimeout(patientSttRestartTimerRef.current);
+      patientSttRestartTimerRef.current = null;
+    }
+    if (patientSttSegmentTimerRef.current) {
+      window.clearTimeout(patientSttSegmentTimerRef.current);
+      patientSttSegmentTimerRef.current = null;
+    }
     if (browserSttRestartTimerRef.current) {
       window.clearTimeout(browserSttRestartTimerRef.current);
       browserSttRestartTimerRef.current = null;
     }
     intentionalRecorderStopRef.current = true;
     segmentingRecorderStopRef.current = false;
+    patientIntentionalRecorderStopRef.current = true;
+    patientSegmentingRecorderStopRef.current = false;
     if (browserRecognitionRef.current) {
       try {
         browserRecognitionRef.current.onend = null;
@@ -889,12 +1054,18 @@ function LiveSessionInner(_: LiveSessionProps) {
       recorderRef.current.stop();
     }
     recorderRef.current = null;
+    if (patientRecorderRef.current && patientRecorderRef.current.state !== "inactive") {
+      patientRecorderRef.current.stop();
+    }
+    patientRecorderRef.current = null;
+    patientAudioStreamRef.current = null;
+    cleanupRtcCall();
     stopRawBioacousticPipeline();
     mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
     mediaStreamRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
     if (reportStatus) refreshMediaStatus(null);
-  }, [refreshMediaStatus, stopRawBioacousticPipeline]);
+  }, [cleanupRtcCall, refreshMediaStatus, stopRawBioacousticPipeline]);
 
   const startBrowserSpeechToText = useCallback((stream: MediaStream) => {
     if (typeof window === "undefined") return false;
@@ -1075,7 +1246,7 @@ function LiveSessionInner(_: LiveSessionProps) {
   }, [state.elapsedSeconds, summarizeTranscriptWindow]);
 
   const transcribeAudioBlob = useCallback(
-    async (audioBlob: Blob, mimeType: string) => {
+    async (audioBlob: Blob, mimeType: string, speaker: SpeakerRole) => {
       if (!audioBlob || audioBlob.size < MIN_STT_AUDIO_BYTES) {
         setLiveTranscription((prev) => ({
           ...(prev || {}),
@@ -1163,7 +1334,7 @@ function LiveSessionInner(_: LiveSessionProps) {
           return;
         }
 
-        appendTranscriptText(text);
+        appendTranscriptText(text, speaker);
 
         setLiveTranscription((prev) => ({
           ...(prev || {}),
@@ -1190,8 +1361,8 @@ function LiveSessionInner(_: LiveSessionProps) {
   );
 
   const enqueueTranscriptionBlob = useCallback(
-    (audioBlob: Blob, mimeType: string) => {
-      const run = () => transcribeAudioBlob(audioBlob, mimeType);
+    (audioBlob: Blob, mimeType: string, speaker: SpeakerRole) => {
+      const run = () => transcribeAudioBlob(audioBlob, mimeType, speaker);
       transcriptionQueueRef.current = transcriptionQueueRef.current.then(
         run,
         run,
@@ -1201,7 +1372,25 @@ function LiveSessionInner(_: LiveSessionProps) {
   );
 
   const startSpeechToText = useCallback(
-    (stream: MediaStream, attempt = 0) => {
+    (
+      stream: MediaStream,
+      speaker: SpeakerRole,
+      source: "professional" | "patient",
+      attempt = 0,
+    ) => {
+      const recorderBox = source === "patient" ? patientRecorderRef : recorderRef;
+      const restartTimerBox =
+        source === "patient" ? patientSttRestartTimerRef : sttRestartTimerRef;
+      const segmentTimerBox =
+        source === "patient" ? patientSttSegmentTimerRef : sttSegmentTimerRef;
+      const intentionalStopBox =
+        source === "patient"
+          ? patientIntentionalRecorderStopRef
+          : intentionalRecorderStopRef;
+      const segmentingStopBox =
+        source === "patient"
+          ? patientSegmentingRecorderStopRef
+          : segmentingRecorderStopRef;
       const audioTracks = stream
         .getAudioTracks()
         .filter((track) => track.readyState === "live");
@@ -1217,9 +1406,9 @@ function LiveSessionInner(_: LiveSessionProps) {
         return;
       }
 
-      if (recorderRef.current && recorderRef.current.state !== "inactive") {
-        intentionalRecorderStopRef.current = true;
-        recorderRef.current.stop();
+      if (recorderBox.current && recorderBox.current.state !== "inactive") {
+        intentionalStopBox.current = true;
+        recorderBox.current.stop();
       }
 
       const mimeType = selectAudioMimeType();
@@ -1242,17 +1431,17 @@ function LiveSessionInner(_: LiveSessionProps) {
         return;
       }
 
-      intentionalRecorderStopRef.current = false;
-      segmentingRecorderStopRef.current = false;
+      intentionalStopBox.current = false;
+      segmentingStopBox.current = false;
       const recordedChunks: Blob[] = [];
 
       recorder.onstart = () => {
-        if (sttSegmentTimerRef.current) {
-          window.clearTimeout(sttSegmentTimerRef.current);
+        if (segmentTimerBox.current) {
+          window.clearTimeout(segmentTimerBox.current);
         }
-        sttSegmentTimerRef.current = window.setTimeout(() => {
-          if (recorderRef.current === recorder && recorder.state === "recording") {
-            segmentingRecorderStopRef.current = true;
+        segmentTimerBox.current = window.setTimeout(() => {
+          if (recorderBox.current === recorder && recorder.state === "recording") {
+            segmentingStopBox.current = true;
             recorder.stop();
           }
         }, STT_CHUNK_MS);
@@ -1283,12 +1472,12 @@ function LiveSessionInner(_: LiveSessionProps) {
       };
 
       recorder.onstop = () => {
-        if (sttSegmentTimerRef.current) {
-          window.clearTimeout(sttSegmentTimerRef.current);
-          sttSegmentTimerRef.current = null;
+        if (segmentTimerBox.current) {
+          window.clearTimeout(segmentTimerBox.current);
+          segmentTimerBox.current = null;
         }
-        const wasSegmentStop = segmentingRecorderStopRef.current;
-        segmentingRecorderStopRef.current = false;
+        const wasSegmentStop = segmentingStopBox.current;
+        segmentingStopBox.current = false;
         const micStillLive = stream
           .getAudioTracks()
           .some((track) => track.readyState === "live");
@@ -1299,19 +1488,20 @@ function LiveSessionInner(_: LiveSessionProps) {
               })
             : null;
 
-        if (wasSegmentStop && !intentionalRecorderStopRef.current && micStillLive) {
-          if (recorderRef.current === recorder) recorderRef.current = null;
-          window.setTimeout(() => startSpeechToText(stream, 0), 0);
+        if (wasSegmentStop && !intentionalStopBox.current && micStillLive) {
+          if (recorderBox.current === recorder) recorderBox.current = null;
+          window.setTimeout(() => startSpeechToText(stream, speaker, source, 0), 0);
           if (finishedBlob) {
             enqueueTranscriptionBlob(
               finishedBlob,
               finishedBlob.type || mimeType || "audio/webm",
+              speaker,
             );
           }
           return;
         }
 
-        if (!intentionalRecorderStopRef.current && micStillLive) {
+        if (!intentionalStopBox.current && micStillLive) {
           setLiveTranscription((prev) => ({
             ...(prev || {}),
             provider: prev?.provider || "browser-recorder",
@@ -1319,9 +1509,9 @@ function LiveSessionInner(_: LiveSessionProps) {
             transcription_error:
               "Gravador reiniciado automaticamente pelo FROID.",
           }));
-          sttRestartTimerRef.current = window.setTimeout(() => {
-            sttRestartTimerRef.current = null;
-            startSpeechToText(stream, attempt + 1);
+          restartTimerBox.current = window.setTimeout(() => {
+            restartTimerBox.current = null;
+            startSpeechToText(stream, speaker, source, attempt + 1);
           }, Math.min(1200, 250 + attempt * 250));
           return;
         }
@@ -1349,10 +1539,34 @@ function LiveSessionInner(_: LiveSessionProps) {
         return;
       }
 
-      recorderRef.current = recorder;
+      recorderBox.current = recorder;
     },
     [enqueueTranscriptionBlob],
   );
+
+  useEffect(() => {
+    const patientAudioStream = patientAudioStreamRef.current;
+    const patientAudioTrack = patientAudioStream
+      ?.getAudioTracks()
+      .find((track) => track.readyState === "live");
+
+    if (!patientAudioVersion || !patientAudioStream || !patientAudioTrack) {
+      return;
+    }
+
+    startRawBioacousticPipeline(patientAudioStream, "patient-webrtc");
+    startSpeechToText(patientAudioStream, "PAC", "patient");
+    setLiveTranscription((prev) => ({
+      ...(prev || {}),
+      bioacoustic_status: "monitoring",
+      bioacoustic_pipeline: "patient-webrtc",
+      bioacoustic_track: "patient-webrtc",
+      bioacoustic_warning:
+        "Avaliacao FROID usando exclusivamente a voz do paciente.",
+      transcription_sources: "DR-profissional/PAC-paciente",
+      bioacoustic_error: "",
+    }));
+  }, [patientAudioVersion, startRawBioacousticPipeline, startSpeechToText]);
 
   const activateMedia = useCallback(async () => {
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -1369,11 +1583,7 @@ function LiveSessionInner(_: LiveSessionProps) {
 
     const tracks: MediaStreamTrack[] = [];
     let semanticAudioStream: MediaStream | null = null;
-    let bioacousticAudioStream: MediaStream | null = null;
-    let bioacousticSourceMode: "raw-independent" | "semantic-fallback" =
-      "raw-independent";
     let audioError = "";
-    let bioacousticWarning = "";
     let videoError = "";
 
     try {
@@ -1387,35 +1597,6 @@ function LiveSessionInner(_: LiveSessionProps) {
         err?.name === "NotAllowedError"
           ? "Permissao de microfone negada pelo navegador."
           : "Nao foi possivel ativar o microfone.";
-    }
-
-    try {
-      bioacousticAudioStream = await navigator.mediaDevices.getUserMedia({
-        audio: getRawBioacousticConstraints(),
-        video: false,
-      });
-    } catch {
-      const fallbackTracks =
-        semanticAudioStream?.getAudioTracks().map((track) => track.clone()) ||
-        [];
-      if (fallbackTracks.length) {
-        bioacousticAudioStream = new MediaStream(fallbackTracks);
-        bioacousticSourceMode = "semantic-fallback";
-        bioacousticWarning =
-          "Bioacustica usando fallback do microfone semantico.";
-      }
-    }
-
-    if (
-      !tracks.some((track) => track.kind === "audio") &&
-      bioacousticAudioStream?.getAudioTracks().length
-    ) {
-      tracks.push(
-        ...bioacousticAudioStream.getAudioTracks().map((track) => track.clone()),
-      );
-      audioError = "";
-      bioacousticWarning =
-        "STT usando fallback da trilha bioacustica bruta.";
     }
 
     try {
@@ -1437,23 +1618,16 @@ function LiveSessionInner(_: LiveSessionProps) {
 
     const stream = new MediaStream(tracks);
     mediaStreamRef.current = stream;
-    startSpeechToText(stream);
-    if (bioacousticAudioStream) {
-      startRawBioacousticPipeline(bioacousticAudioStream, bioacousticSourceMode);
-      if (bioacousticWarning) {
-        setLiveTranscription((prev) => ({
-          ...(prev || {}),
-          bioacoustic_warning: bioacousticWarning,
-        }));
-      }
-    } else {
-      setLiveTranscription((prev) => ({
-        ...(prev || {}),
-        bioacoustic_status: "error",
-        bioacoustic_error:
-          "Nao foi possivel abrir trilha de bioacustica bruta.",
-      }));
-    }
+    startSpeechToText(stream, "DR", "professional");
+    setLiveTranscription((prev) => ({
+      ...(prev || {}),
+      bioacoustic_status: "waiting_patient",
+      bioacoustic_pipeline: "patient-webrtc",
+      bioacoustic_track: "patient-webrtc",
+      bioacoustic_warning:
+        "Biomarcadores e graficos aguardam exclusivamente o audio do paciente.",
+      bioacoustic_error: "",
+    }));
     if (ENABLE_BROWSER_LIVE_STT) {
       startBrowserSpeechToText(stream);
     }
@@ -1484,9 +1658,11 @@ function LiveSessionInner(_: LiveSessionProps) {
       micOn,
       camError: [audioError, videoError].filter(Boolean).join(" "),
     });
+    void startProfessionalRtcCall(stream);
   }, [
     refreshMediaStatus,
     startBrowserSpeechToText,
+    startProfessionalRtcCall,
     startRawBioacousticPipeline,
     startSpeechToText,
     stopMedia,
@@ -1713,8 +1889,6 @@ function LiveSessionInner(_: LiveSessionProps) {
           themeMinuteMark={displayAudio.theme_minute_mark}
           audioMeta={displayAudio}
           conversationSummaries={conversationSummaries}
-          activeSpeaker={activeSpeaker}
-          onSpeakerChange={setActiveSpeaker}
         />
 
         {state.phase === "CALIBRATING" && (
@@ -1753,14 +1927,33 @@ function LiveSessionInner(_: LiveSessionProps) {
             simulated={!state.cameraOn}
           />
           <video
+            ref={remoteVideoRef}
+            autoPlay
+            playsInline
+            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${
+              remotePatientOn ? "opacity-100" : "opacity-0"
+            }`}
+          />
+          <video
             ref={videoRef}
             autoPlay
             muted
             playsInline
-            className={`absolute inset-0 h-full w-full scale-x-[-1] object-cover transition-opacity duration-500 ${
-              state.cameraOn ? "opacity-100" : "opacity-0"
-            }`}
+            className={`absolute scale-x-[-1] object-cover transition-all duration-500 ${
+              remotePatientOn
+                ? "bottom-3 right-3 z-20 h-24 w-36 rounded-lg border border-white/40 shadow-lg"
+                : "inset-0 h-full w-full"
+            } ${state.cameraOn ? "opacity-100" : "opacity-0"}`}
           />
+          <div
+            className={`absolute left-3 top-3 z-20 rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wide backdrop-blur ${
+              remotePatientOn
+                ? "bg-emerald-500/90 text-white"
+                : "bg-slate-950/70 text-slate-200"
+            }`}
+          >
+            {rtcStatus}
+          </div>
           {!state.cameraOn && <SimulatedCamera />}
           {(state.camError || !state.micOn) && (
             <div className="absolute bottom-3 left-3 right-3 z-20 rounded-lg border border-amber-300/50 bg-slate-950/75 px-3 py-2 text-[10px] font-semibold text-amber-100 backdrop-blur-sm">

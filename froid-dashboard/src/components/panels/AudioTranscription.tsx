@@ -83,17 +83,25 @@ export const AudioTranscription: React.FC<Props> = ({
   );
   const bioacousticLabel =
     bioacousticStatus === "monitoring"
-      ? bioacousticTrack === "semantic-fallback"
+      ? bioacousticTrack === "patient-webrtc"
+        ? "Bio PAC"
+        : bioacousticTrack === "semantic-fallback"
         ? "Bio fallback"
         : "Bio bruta"
+      : bioacousticStatus === "waiting_patient"
+        ? "Bio aguardando PAC"
       : bioacousticStatus === "error"
         ? "Bio off"
         : "Bio prep";
   const bioacousticClass =
     bioacousticStatus === "monitoring"
-      ? bioacousticTrack === "semantic-fallback"
+      ? bioacousticTrack === "patient-webrtc"
+        ? "bg-emerald-50 text-emerald-700"
+        : bioacousticTrack === "semantic-fallback"
         ? "bg-amber-50 text-amber-700"
         : "bg-emerald-50 text-emerald-700"
+      : bioacousticStatus === "waiting_patient"
+        ? "bg-cyan-50 text-cyan-700"
       : bioacousticStatus === "error"
         ? "bg-red-50 text-red-700"
         : "bg-slate-100 text-slate-500";
@@ -168,22 +176,28 @@ export const AudioTranscription: React.FC<Props> = ({
           </FroidTooltip>
         </div>
         <div className="flex items-center gap-1">
-          <div className="flex overflow-hidden rounded border border-slate-200 bg-slate-50">
-            {(["PAC", "DR"] as const).map((speaker) => (
-              <button
-                key={speaker}
-                type="button"
-                onClick={() => onSpeakerChange?.(speaker)}
-                className={`px-1.5 py-0.5 text-[9px] font-black ${
-                  activeSpeaker === speaker
-                    ? "bg-slate-800 text-white"
-                    : "text-slate-500 hover:bg-white"
-                }`}
-              >
-                {speaker}
-              </button>
-            ))}
-          </div>
+          {onSpeakerChange ? (
+            <div className="flex overflow-hidden rounded border border-slate-200 bg-slate-50">
+              {(["PAC", "DR"] as const).map((speaker) => (
+                <button
+                  key={speaker}
+                  type="button"
+                  onClick={() => onSpeakerChange(speaker)}
+                  className={`px-1.5 py-0.5 text-[9px] font-black ${
+                    activeSpeaker === speaker
+                      ? "bg-slate-800 text-white"
+                      : "text-slate-500 hover:bg-white"
+                  }`}
+                >
+                  {speaker}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-600">
+              DR/PAC auto
+            </span>
+          )}
           <span
             title={transcriptionError || provider || transcriptionStatus || "STT local"}
             className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${sttClass}`}
