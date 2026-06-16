@@ -4,5 +4,8 @@ dist/
 .venv-win/
 __pycache__/
 *.pyc
+froid-server/.env
+froid-server/.env.local
+froid-dashboard/.env.local
 .vscode/
 *.log

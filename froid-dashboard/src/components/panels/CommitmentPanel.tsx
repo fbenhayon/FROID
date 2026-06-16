@@ -1,14 +1,14 @@
 import React from "react";
 import { FroidTooltip } from "../ui/FroidTooltip";
 
-interface Commitment {
+export interface Commitment {
   model_id: number;
   title: string;
   zones: number[];
   theme: string;
 }
 
-const COMMITMENT_TEXTS: Record<number, { title: string; lines: string[] }> = {
+export const COMMITMENT_TEXTS: Record<number, { title: string; lines: string[] }> = {
   1: {
     title: "1. COMPROMISSO GERAL",
     lines: [

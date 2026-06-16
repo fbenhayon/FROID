@@ -21,6 +21,9 @@ services:
       - GOOGLE_AUTH_DEV_FALLBACK=${GOOGLE_AUTH_DEV_FALLBACK:-true}
       - FROID_LOCAL_AUTH_EMAILS=${FROID_LOCAL_AUTH_EMAILS:-}
       - FROID_LOCAL_AUTH_PASSWORD=${FROID_LOCAL_AUTH_PASSWORD:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
+      - OPENAI_TRANSCRIBE_MODEL=${OPENAI_TRANSCRIBE_MODEL:-gpt-4o-transcribe}
     restart: unless-stopped
   froid-frontend:
     build: ./froid-dashboard

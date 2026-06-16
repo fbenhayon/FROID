@@ -1,10 +1,11 @@
 import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Dashboard } from "./pages/Dashboard";
 import { LiveSession } from "./pages/LiveSession";
 import { History } from "./pages/History";
 import { Settings } from "./pages/Settings";
 import { LoginPage } from "./pages/LoginPage";
+import { PatientInvitePage } from "./pages/PatientInvitePage";
 import { apiUrl } from "./lib/api";
 
 export type FroidUser = {
@@ -39,29 +40,42 @@ function App() {
 
   const isAuthenticated = useMemo(() => !!user, [user]);
 
-  if (checkingSession) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950 text-sm font-semibold text-slate-300">
-        Carregando acesso FROID...
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return <LoginPage onLogin={setUser} />;
-  }
+  const protectedElement = (element: ReactNode) => {
+    if (checkingSession) {
+      return (
+        <div className="flex min-h-screen items-center justify-center bg-slate-950 text-sm font-semibold text-slate-300">
+          Carregando acesso FROID...
+        </div>
+      );
+    }
+    if (!isAuthenticated) return <LoginPage onLogin={setUser} />;
+    return element;
+  };
 
   return (
     <HashRouter>
       <Routes>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/dashboard" element={<Dashboard user={user} />} />
+        <Route path="/convite/:token" element={<PatientInvitePage />} />
+        <Route
+          path="/"
+          element={protectedElement(<Navigate to="/dashboard" replace />)}
+        />
+        <Route
+          path="/dashboard"
+          element={protectedElement(<Dashboard user={user} />)}
+        />
         <Route
           path="/session/:sessionId"
-          element={<LiveSession user={user} />}
+          element={protectedElement(<LiveSession user={user} />)}
         />
-        <Route path="/history" element={<History user={user} />} />
-        <Route path="/settings" element={<Settings user={user} />} />
+        <Route
+          path="/history"
+          element={protectedElement(<History user={user} />)}
+        />
+        <Route
+          path="/settings"
+          element={protectedElement(<Settings user={user} />)}
+        />
       </Routes>
     </HashRouter>
   );
