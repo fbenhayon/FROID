@@ -628,7 +628,8 @@ function LiveSessionInner(_: LiveSessionProps) {
   const segmentingRecorderStopRef = useRef(false);
   const patientIntentionalRecorderStopRef = useRef(false);
   const patientSegmentingRecorderStopRef = useRef(false);
-  const patientAudioStreamRef = useRef<MediaStream | null>(null);
+  const patientBioacousticStreamRef = useRef<MediaStream | null>(null);
+  const patientTranscriptStreamRef = useRef<MediaStream | null>(null);
   const transcribingRef = useRef(false);
   const transcriptionQueueRef = useRef<Promise<void>>(Promise.resolve());
   const transcriptionStatsRef = useRef<{
@@ -681,8 +682,14 @@ function LiveSessionInner(_: LiveSessionProps) {
       patientRecorderRef.current.stop();
     }
     patientRecorderRef.current = null;
-    patientAudioStreamRef.current?.getTracks().forEach((track) => track.stop());
-    patientAudioStreamRef.current = null;
+    patientBioacousticStreamRef.current
+      ?.getTracks()
+      .forEach((track) => track.stop());
+    patientBioacousticStreamRef.current = null;
+    patientTranscriptStreamRef.current
+      ?.getTracks()
+      .forEach((track) => track.stop());
+    patientTranscriptStreamRef.current = null;
     setRemotePatientOn(false);
     setRtcStatus("Aguardando paciente");
     if (remoteVideoRef.current) {
@@ -753,8 +760,13 @@ function LiveSessionInner(_: LiveSessionProps) {
         const patientAudioTrack = remoteStream
           .getAudioTracks()
           .find((track) => track.readyState === "live");
-        if (patientAudioTrack && !patientAudioStreamRef.current) {
-          patientAudioStreamRef.current = new MediaStream([patientAudioTrack.clone()]);
+        if (patientAudioTrack && !patientTranscriptStreamRef.current) {
+          patientBioacousticStreamRef.current = new MediaStream([
+            patientAudioTrack.clone(),
+          ]);
+          patientTranscriptStreamRef.current = new MediaStream([
+            patientAudioTrack.clone(),
+          ]);
           setPatientAudioVersion((value) => value + 1);
         }
         setRemotePatientOn(true);
@@ -1058,7 +1070,6 @@ function LiveSessionInner(_: LiveSessionProps) {
       patientRecorderRef.current.stop();
     }
     patientRecorderRef.current = null;
-    patientAudioStreamRef.current = null;
     cleanupRtcCall();
     stopRawBioacousticPipeline();
     mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
@@ -1401,7 +1412,11 @@ function LiveSessionInner(_: LiveSessionProps) {
           provider: "browser-recorder",
           transcription_status: "error",
           transcription_error:
-            "Microfone indisponivel para iniciar a gravacao.",
+            typeof MediaRecorder === "undefined"
+              ? "MediaRecorder indisponivel neste navegador."
+              : source === "patient"
+                ? "Audio do paciente ainda nao chegou ao gravador."
+                : "Microfone do profissional indisponivel para gravacao.",
         }));
         return;
       }
@@ -1450,6 +1465,8 @@ function LiveSessionInner(_: LiveSessionProps) {
           ...(prev || {}),
           provider: prev?.provider || "browser-recorder",
           transcription_status: "listening",
+          transcription_sources: "DR-profissional/PAC-paciente",
+          active_stt_source: source,
           transcription_error: "",
         }));
       };
@@ -1545,17 +1562,27 @@ function LiveSessionInner(_: LiveSessionProps) {
   );
 
   useEffect(() => {
-    const patientAudioStream = patientAudioStreamRef.current;
-    const patientAudioTrack = patientAudioStream
+    const patientBioacousticStream = patientBioacousticStreamRef.current;
+    const patientTranscriptStream = patientTranscriptStreamRef.current;
+    const patientBioacousticTrack = patientBioacousticStream
+      ?.getAudioTracks()
+      .find((track) => track.readyState === "live");
+    const patientTranscriptTrack = patientTranscriptStream
       ?.getAudioTracks()
       .find((track) => track.readyState === "live");
 
-    if (!patientAudioVersion || !patientAudioStream || !patientAudioTrack) {
+    if (
+      !patientAudioVersion ||
+      !patientBioacousticStream ||
+      !patientBioacousticTrack ||
+      !patientTranscriptStream ||
+      !patientTranscriptTrack
+    ) {
       return;
     }
 
-    startRawBioacousticPipeline(patientAudioStream, "patient-webrtc");
-    startSpeechToText(patientAudioStream, "PAC", "patient");
+    startRawBioacousticPipeline(patientBioacousticStream, "patient-webrtc");
+    startSpeechToText(patientTranscriptStream, "PAC", "patient");
     setLiveTranscription((prev) => ({
       ...(prev || {}),
       bioacoustic_status: "monitoring",
