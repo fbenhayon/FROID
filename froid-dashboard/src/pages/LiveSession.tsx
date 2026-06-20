@@ -1939,6 +1939,7 @@ function LiveSessionInner(_: LiveSessionProps) {
               ipmScore={displayIpm}
               coherenceStatus={displayCoherence}
               baselineEstablished={state.phase === "LIVE"}
+              sessionId={sessionId || ""}
             />
           </div>
         </div>

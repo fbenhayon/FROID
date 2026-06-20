@@ -5,12 +5,14 @@ import hashlib
 import io
 import json
 import os
+import re
 import secrets
 import uuid
-from typing import Dict
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import quote
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
 from froid_core import SessionState, MockBiometricStream
 import httpx
 
@@ -50,6 +52,18 @@ _load_local_env()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
 OPENAI_TRANSCRIBE_MODEL = os.getenv("OPENAI_TRANSCRIBE_MODEL", "gpt-4o-transcribe")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+FROID_EXPLICA_MODEL = os.getenv("FROID_EXPLICA_MODEL", "gemini-1.5-pro")
+FROID_CHROMA_PATH = os.getenv("FROID_CHROMA_PATH", "/data/chroma_db")
+FROID_CHROMA_COLLECTION = os.getenv(
+    "FROID_CHROMA_COLLECTION",
+    "froid_clinical_knowledge",
+)
+FROID_DUCKDB_PATH = os.getenv(
+    "FROID_DUCKDB_PATH",
+    "/data/datamart_anonymous.duckdb",
+)
+FROID_ANALYTICS_MIN_K = int(os.getenv("FROID_ANALYTICS_MIN_K", "50") or "50")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
 GOOGLE_AUTH_DEV_FALLBACK = os.getenv("GOOGLE_AUTH_DEV_FALLBACK", "true").lower() in {"1", "true", "yes", "on"}
@@ -70,12 +84,443 @@ SESSION_EVENTS: list[dict] = []
 SESSION_EVENT_COUNTER = 0
 
 KNOWLEDGE_BASE = {
-    "froid_zonas": "As 12 Zonas de Percepção FROID mapeiam conflitos subconscientes via bioacústica e FACS.",
-    "intervencoes": "TCC de terceira onda, DBT, EMDR e análise focalizada são eficazes para perfis com Zonas 7 e 12 ativas.",
-    "populacao": "Base anônima: 12.000+ perfis clínicos. Média de IPM: 48.5. Desvio padrão: 14.2.",
-    "riscos": "Dissonância facial-vocal >2.5x com Zona 12 >4.0 indica risco de decompensação emocional.",
-    "notebooklm": "Contexto integrado do NotebookLM FROID: pacientes com supressão crônica (Zona 9) respondem melhor à intervenção somática.",
+    "froid_zonas": "As 12 Zonas de Percepcao FROID organizam padroes de desequilibrio facial-vocal e orientam a leitura clinica por temas, tensoes e dissonancias.",
+    "ipm_velocimetro": "O IPM indica a intensidade ou energia global da sessao. Ele funciona como velocimetro emocional e nao define sozinho a direcao do desequilibrio.",
+    "idm_direcao": "O IDM aponta a direcao do desequilibrio entre marcadores negativos e positivos, enquanto o IPM mede a energia global empregada.",
+    "mfcc7_depressao": "MFCC7 elevado durante conteudos semanticamente negativos, associado a pausas, menor variacao de F0 e retardo psicomotor, contribui para risco depressivo.",
+    "mfcc9_ansiedade": "MFCC9 em discurso neutro pode ter relacao inversa com ansiedade somatica; quedas acusticas podem indicar tensao autonoma latente.",
+    "mania_ativacao": "A ativacao de mania acompanha pitch/F0 elevado, loudness, taxa acelerada de fala e fluxo espectral mais incisivo.",
+    "sub_harmonicos": "Sub-harmonicos vocais entre 5 e 12 Hz podem refletir tremores do sistema nervoso autonomo quando cruzados com FACS e tensao vocal basal.",
+    "facs_trauma": "A combinacao AU15, AU20, dor facial, angustia e tensao vocal pode sinalizar flooding, sobrecarga autonomica ou retraumatizacao.",
+    "governanca_lgpd": "Benchmarks populacionais devem usar dados anonimizados e agregados. O FROID aplica k-anonimato minimo para reduzir risco de reidentificacao.",
 }
+
+
+class FroidExplicaQuery(BaseModel):
+    query_text: str = Field(..., min_length=1)
+    patient_id: Optional[str] = None
+    session_id: Optional[str] = None
+    context: Dict[str, Any] = Field(default_factory=dict)
+
+
+class FroidExplicaResponse(BaseModel):
+    result_text: str
+    engine_used: str
+    citations: List[str] = Field(default_factory=list)
+    safety_check_passed: bool
+    intent: str = "knowledge"
+
+
+def _clean_llm_text(text: str) -> str:
+    cleaned = str(text or "").strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.strip("`").strip()
+        if "\n" in cleaned:
+            first, rest = cleaned.split("\n", 1)
+            cleaned = rest if first.strip().lower() in {"json", "sql"} else cleaned
+    return cleaned.strip()
+
+
+def _normalize_search_text(text: str) -> str:
+    return re.sub(r"\s+", " ", str(text or "").lower()).strip()
+
+
+async def _generate_froid_explain_text(
+    system_instruction: str,
+    prompt: str,
+    *,
+    temperature: float = 0.1,
+    max_tokens: int = 900,
+    json_mode: bool = False,
+) -> Tuple[str, str]:
+    if GEMINI_API_KEY:
+        try:
+            from google import genai
+            from google.genai import types
+
+            def _run_gemini() -> str:
+                client = genai.Client(api_key=GEMINI_API_KEY)
+                response = client.models.generate_content(
+                    model=FROID_EXPLICA_MODEL,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_instruction,
+                        temperature=temperature,
+                        max_output_tokens=max_tokens,
+                    ),
+                )
+                return str(getattr(response, "text", "") or "").strip()
+
+            text = await asyncio.to_thread(_run_gemini)
+            if text:
+                return _clean_llm_text(text), f"Gemini ({FROID_EXPLICA_MODEL})"
+        except Exception:
+            pass
+
+    if OPENAI_API_KEY:
+        try:
+            payload: Dict[str, Any] = {
+                "model": OPENAI_MODEL,
+                "messages": [
+                    {"role": "system", "content": system_instruction},
+                    {"role": "user", "content": prompt},
+                ],
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+            }
+            if json_mode:
+                payload["response_format"] = {"type": "json_object"}
+            async with httpx.AsyncClient(timeout=45.0) as client:
+                response = await client.post(
+                    "https://api.openai.com/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {OPENAI_API_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    json=payload,
+                )
+            response.raise_for_status()
+            data = response.json()
+            text = (
+                data.get("choices", [{}])[0]
+                .get("message", {})
+                .get("content", "")
+                .strip()
+            )
+            if text:
+                return _clean_llm_text(text), f"OpenAI ({OPENAI_MODEL})"
+        except Exception:
+            pass
+
+    return "", "local-fallback"
+
+
+def _query_local_froid_knowledge(query_text: str, limit: int = 4) -> Tuple[List[str], List[str]]:
+    query = _normalize_search_text(query_text)
+    tokens = {token for token in re.split(r"\W+", query) if len(token) >= 4}
+    ranked: List[Tuple[int, str, str]] = []
+    for source, content in KNOWLEDGE_BASE.items():
+        haystack = _normalize_search_text(f"{source} {content}")
+        score = sum(1 for token in tokens if token in haystack)
+        if not tokens or score > 0:
+            ranked.append((score, source, content))
+    ranked.sort(key=lambda item: item[0], reverse=True)
+    selected = ranked[:limit] or [
+        (0, key, value) for key, value in list(KNOWLEDGE_BASE.items())[:limit]
+    ]
+    return [item[2] for item in selected], [item[1] for item in selected]
+
+
+def _query_chroma_froid_knowledge(query_text: str, limit: int = 4) -> Tuple[List[str], List[str]]:
+    if not os.path.exists(FROID_CHROMA_PATH):
+        return [], []
+    try:
+        from chromadb import PersistentClient
+
+        chroma_client = PersistentClient(path=FROID_CHROMA_PATH)
+        collection = chroma_client.get_or_create_collection(
+            name=FROID_CHROMA_COLLECTION
+        )
+        results = collection.query(query_texts=[query_text], n_results=limit)
+        documents = (results.get("documents") or [[]])[0] or []
+        metadatas = (results.get("metadatas") or [[]])[0] or []
+        citations = [
+            str((metadata or {}).get("title") or (metadata or {}).get("source") or "Manual FROID")
+            for metadata in metadatas
+        ]
+        return [str(document) for document in documents if document], citations
+    except Exception:
+        return [], []
+
+
+def _format_session_context(context: Dict[str, Any]) -> str:
+    if not context:
+        return "Sem contexto de sessao enviado pelo painel."
+    safe_context = {
+        key: value
+        for key, value in context.items()
+        if key not in {"patient_name", "email", "phone", "document"}
+    }
+    return json.dumps(safe_context, ensure_ascii=False, indent=2)[:5000]
+
+
+def _classify_froid_explica_intent(query_text: str) -> str:
+    query = _normalize_search_text(query_text)
+    analytics_markers = {
+        "estatistica",
+        "estatisticas",
+        "comparar",
+        "comparacao",
+        "benchmark",
+        "populacional",
+        "populacao",
+        "coorte",
+        "media",
+        "percentil",
+        "demografico",
+        "similar",
+        "similares",
+        "base",
+        "casos",
+    }
+    if any(marker in query for marker in analytics_markers):
+        return "analytics"
+    return "knowledge"
+
+
+def _fallback_froid_explica_result(query_text: str, context: Dict[str, Any]) -> str:
+    ipm = context.get("ipm_score", "--")
+    coherence = context.get("coherence_status", "--")
+    dominant = context.get("dominant_zone") or {}
+    zone_label = (
+        f"Zona {dominant.get('zone')} ({dominant.get('theme')})"
+        if isinstance(dominant, dict) and dominant.get("zone")
+        else "zona dominante ainda indefinida"
+    )
+    return (
+        "FROID Explica em modo local. "
+        f"Pergunta recebida: {query_text}. "
+        f"Contexto atual: IPM {ipm}, coerencia {coherence}, {zone_label}. "
+        "Para resposta cientifica ancorada em RAG, configure GEMINI_API_KEY e/ou OPENAI_API_KEY "
+        "e carregue a base ChromaDB dos manuais FROID."
+    )
+
+
+async def _query_froid_knowledge(payload: FroidExplicaQuery) -> FroidExplicaResponse:
+    chroma_docs, chroma_citations = _query_chroma_froid_knowledge(payload.query_text)
+    local_docs, local_citations = _query_local_froid_knowledge(payload.query_text)
+    context_chunks = chroma_docs or local_docs
+    citations = chroma_citations or local_citations
+    context_str = "\n\n".join(
+        f"[Fonte: {source}]\n{doc}"
+        for source, doc in zip(citations, context_chunks)
+    )
+    session_context = _format_session_context(payload.context)
+    system_instruction = (
+        "Voce e o FROID Explica, uma inteligencia clinica de apoio ao profissional. "
+        "Responda em portugues do Brasil, de modo objetivo, sem diagnosticar e sem inventar. "
+        "Use estritamente o contexto cientifico e o contexto da sessao. "
+        "Se os dados forem insuficientes, diga claramente o que falta."
+    )
+    prompt = (
+        f"CONTEXTO CIENTIFICO FROID:\n{context_str or 'Base cientifica nao carregada.'}\n\n"
+        f"CONTEXTO DA SESSAO ATUAL:\n{session_context}\n\n"
+        f"PERGUNTA DO PROFISSIONAL:\n{payload.query_text}"
+    )
+    text, engine = await _generate_froid_explain_text(
+        system_instruction,
+        prompt,
+        temperature=0.1,
+        max_tokens=900,
+    )
+    if not text:
+        text = _fallback_froid_explica_result(payload.query_text, payload.context)
+    return FroidExplicaResponse(
+        result_text=text,
+        engine_used=f"FROID Explica RAG - {engine}",
+        citations=sorted(set(citations)),
+        safety_check_passed=True,
+        intent="knowledge",
+    )
+
+
+SQL_FORBIDDEN_RE = re.compile(
+    r"\b(insert|update|delete|drop|alter|create|attach|copy|pragma|export|import|read_csv|read_parquet|load|install)\b",
+    re.IGNORECASE,
+)
+
+
+def _strip_sql(sql_text: str) -> str:
+    sql = _clean_llm_text(sql_text)
+    sql = sql.replace("```sql", "").replace("```", "").strip()
+    if sql.endswith(";"):
+        sql = sql[:-1].strip()
+    return sql
+
+
+def _validate_duckdb_select(sql_text: str) -> str:
+    sql = _strip_sql(sql_text)
+    lowered = sql.lower()
+    if not re.match(r"^\s*(select|with)\b", lowered):
+        raise HTTPException(status_code=400, detail="SQL bloqueado: apenas SELECT e WITH sao permitidos")
+    if ";" in sql:
+        raise HTTPException(status_code=400, detail="SQL bloqueado: multiplas instrucoes nao sao permitidas")
+    if SQL_FORBIDDEN_RE.search(sql):
+        raise HTTPException(status_code=400, detail="SQL bloqueado por conter comando nao permitido")
+    if "anonymous_sessions" not in lowered:
+        raise HTTPException(status_code=400, detail="SQL deve consultar apenas anonymous_sessions")
+    return sql
+
+
+def _duckdb_connection():
+    if not os.path.exists(FROID_DUCKDB_PATH):
+        return None
+    try:
+        import duckdb
+
+        return duckdb.connect(database=FROID_DUCKDB_PATH, read_only=True)
+    except Exception:
+        return None
+
+
+def _fallback_analytics_sql(query_text: str) -> Dict[str, str]:
+    query = _normalize_search_text(query_text)
+    if "zona" in query:
+        result_sql = (
+            "SELECT dominant_zone, COUNT(*) AS sessoes, AVG(ipm_score) AS ipm_medio, "
+            "AVG(vocal_tension) AS tensao_vocal_media "
+            "FROM anonymous_sessions GROUP BY dominant_zone ORDER BY sessoes DESC LIMIT 12"
+        )
+    elif "medic" in query or "ssri" in query:
+        result_sql = (
+            "SELECT ssri_medication, COUNT(*) AS sessoes, AVG(ipm_score) AS ipm_medio, "
+            "AVG(vocal_tension) AS tensao_vocal_media "
+            "FROM anonymous_sessions GROUP BY ssri_medication ORDER BY sessoes DESC"
+        )
+    else:
+        result_sql = (
+            "SELECT age_bucket, gender, COUNT(*) AS sessoes, AVG(ipm_score) AS ipm_medio, "
+            "AVG(vocal_tension) AS tensao_vocal_media, AVG(session_duration) AS duracao_media "
+            "FROM anonymous_sessions GROUP BY age_bucket, gender ORDER BY sessoes DESC LIMIT 20"
+        )
+    return {
+        "result_sql": result_sql,
+        "cohort_sql": "SELECT COUNT(*) AS cohort_size FROM anonymous_sessions",
+    }
+
+
+def _parse_analytics_sql_payload(text: str, query_text: str) -> Dict[str, str]:
+    if not text:
+        return _fallback_analytics_sql(query_text)
+    try:
+        parsed = _parse_json_object(text)
+        result_sql = str(parsed.get("result_sql") or parsed.get("sql") or "").strip()
+        cohort_sql = str(parsed.get("cohort_sql") or "").strip()
+        if result_sql and cohort_sql:
+            return {"result_sql": result_sql, "cohort_sql": cohort_sql}
+    except Exception:
+        pass
+    result_sql = _strip_sql(text)
+    return {
+        "result_sql": result_sql,
+        "cohort_sql": f"SELECT COUNT(*) AS cohort_size FROM ({result_sql}) AS target_cohort",
+    }
+
+
+def _format_query_table(columns: List[str], rows: List[tuple], limit: int = 50) -> str:
+    if not rows:
+        return "Sem linhas retornadas."
+    selected_rows = rows[:limit]
+    lines = [" | ".join(columns)]
+    for row in selected_rows:
+        lines.append(" | ".join(str(value) for value in row))
+    return "\n".join(lines)
+
+
+async def _query_froid_analytics(payload: FroidExplicaQuery) -> FroidExplicaResponse:
+    conn = _duckdb_connection()
+    if conn is None:
+        return FroidExplicaResponse(
+            result_text=(
+                "Data mart anonimo ainda nao esta disponivel no servidor. "
+                f"Configure FROID_DUCKDB_PATH apontando para {FROID_DUCKDB_PATH} "
+                "com a tabela anonymous_sessions para habilitar benchmarks populacionais."
+            ),
+            engine_used="FROID Explica Analytics - offline",
+            citations=["Data Mart Populacional Anonimizado"],
+            safety_check_passed=False,
+            intent="analytics",
+        )
+
+    sql_instruction = (
+        "Voce traduz perguntas clinicas agregadas para DuckDB com seguranca LGPD. "
+        "Existe apenas a tabela anonymous_sessions com colunas: age_bucket VARCHAR, "
+        "gender VARCHAR, ipm_score DOUBLE, dominant_zone INTEGER, vocal_tension DOUBLE, "
+        "ssri_medication BOOLEAN, session_duration INTEGER. "
+        "Retorne somente JSON valido com result_sql e cohort_sql. "
+        "result_sql deve ser SELECT agregado, sem dados individuais. "
+        "cohort_sql deve retornar SELECT COUNT(*) AS cohort_size FROM anonymous_sessions "
+        "com os mesmos filtros de coorte usados no result_sql. Nao use markdown."
+    )
+    sql_text, sql_engine = await _generate_froid_explain_text(
+        sql_instruction,
+        payload.query_text,
+        temperature=0.0,
+        max_tokens=500,
+        json_mode=True,
+    )
+    sql_payload = _parse_analytics_sql_payload(sql_text, payload.query_text)
+    result_sql = _validate_duckdb_select(sql_payload["result_sql"])
+    cohort_sql = _validate_duckdb_select(sql_payload["cohort_sql"])
+
+    try:
+        cohort_row = conn.execute(cohort_sql).fetchone()
+        cohort_size = int(cohort_row[0] if cohort_row else 0)
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        raise HTTPException(status_code=400, detail=f"Erro de validacao SQL: {exc}")
+
+    if cohort_size < FROID_ANALYTICS_MIN_K:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return FroidExplicaResponse(
+            result_text=(
+                "Acesso bloqueado por governanca de dados e LGPD. "
+                f"A coorte resultante contem {cohort_size} registros, abaixo do minimo "
+                f"k >= {FROID_ANALYTICS_MIN_K}. Refine para uma coorte maior ou use apenas leitura qualitativa da sessao atual."
+            ),
+            engine_used=f"FROID Explica Analytics - {sql_engine}",
+            citations=["Data Mart Populacional Anonimizado"],
+            safety_check_passed=False,
+            intent="analytics",
+        )
+
+    try:
+        result = conn.execute(result_sql)
+        columns = [description[0] for description in result.description]
+        rows = result.fetchmany(50)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Erro ao executar SQL analitico: {exc}")
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+    table_text = _format_query_table(columns, rows)
+    report_instruction = (
+        "Voce e o estatistico medico do FROID. Analise somente dados agregados anonimizados. "
+        "Explique padroes, limites e implicacoes clinicas sem diagnosticar individuos."
+    )
+    report_prompt = (
+        f"Pergunta original: {payload.query_text}\n"
+        f"Coorte aprovada: n={cohort_size}\n"
+        f"Resultado agregado:\n{table_text}"
+    )
+    report_text, report_engine = await _generate_froid_explain_text(
+        report_instruction,
+        report_prompt,
+        temperature=0.25,
+        max_tokens=900,
+    )
+    if not report_text:
+        report_text = (
+            f"Coorte aprovada com n={cohort_size}. Resultado agregado:\n{table_text}"
+        )
+
+    return FroidExplicaResponse(
+        result_text=report_text,
+        engine_used=f"FROID Explica Analytics - {report_engine}",
+        citations=["Data Mart Populacional Anonimizado"],
+        safety_check_passed=True,
+        intent="analytics",
+    )
+
 
 class ConnectionManager:
     def __init__(self):
@@ -781,6 +1226,19 @@ async def auth_me(request: Request):
     if not user:
         raise HTTPException(status_code=401, detail="não autenticado")
     return user
+
+@app.post("/api/froid-explica/query", response_model=FroidExplicaResponse)
+async def froid_explica_query(payload: FroidExplicaQuery):
+    intent = _classify_froid_explica_intent(payload.query_text)
+    if intent == "analytics":
+        return await _query_froid_analytics(payload)
+    return await _query_froid_knowledge(payload)
+
+
+@app.post("/api/copilot/query", response_model=FroidExplicaResponse)
+async def copilot_query_alias(payload: FroidExplicaQuery):
+    return await froid_explica_query(payload)
+
 
 @app.post("/api/insights")
 async def insights_proxy(request: Request):

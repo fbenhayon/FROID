@@ -1,80 +1,77 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
-import { FroidTooltip } from "../ui/FroidTooltip";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { PerceptionZone } from "../../lib/froid-engine";
 import { apiUrl } from "../../lib/api";
+import { FroidTooltip } from "../ui/FroidTooltip";
 
 const PRESETS = [
   {
-    text: "Como este paciente se compara à média populacional em Zonas FROID?",
-    desc: "Análise estatística cruzada: percentil de ativação subconsciente vs base anônima de 12.000+ perfis.",
+    text: "Explique a leitura clinica das zonas dominantes desta sessao",
+    desc: "Usa o IPM, coerencia, zonas e dissonancias atuais para gerar uma leitura contextualizada.",
   },
   {
-    text: "Identificar padrões atípicos comparados à base de dados",
-    desc: "Detecção de outliers multimodais: dissonâncias faciais-vocais não presentes em 92% da população clínica.",
+    text: "O que o IPM atual sugere sobre a energia emocional do paciente?",
+    desc: "Diferencia intensidade global de direcao do desequilibrio e evita conclusoes diagnosticas.",
   },
   {
-    text: "Este paciente está acima ou abaixo da média em riscos clínicos?",
-    desc: "Cálculo de risco psicossomático baseado em IPM, coerência e picos de zonas críticas (7, 8, 12).",
+    text: "Como interpretar as dissonancias faciais-vocais observadas?",
+    desc: "Relaciona dissonancia, FACS, voz e possiveis limites de interpretacao.",
   },
   {
-    text: "Progresso nas últimas X semanas vs população",
-    desc: "Comparativo longitudinal: velocidade de reestruturação do baseline entre sessões consecutivas.",
+    text: "Quais marcadores bioacusticos merecem atencao neste momento?",
+    desc: "Foca em MFCC7, MFCC9, F0, jitter, shimmer, pausas e sub-harmonicos quando disponiveis.",
   },
   {
-    text: "Velocidade de melhora comparada a casos similares",
-    desc: "Benchmarking terapêutico: taxa de variação do IPM em janelas de 60s vs casos com perfil congruente.",
+    text: "Este paciente se compara como a base populacional anonima?",
+    desc: "Consulta o Data Mart anonimo se estiver disponivel e aplica k-anonimato antes do benchmark.",
   },
   {
-    text: "Perfil vocal/facial similar a quais condições na base?",
-    desc: "Correlação diagnóstica probabilística com padrões de supressão, evitação, trauma ou burnout.",
+    text: "Quais padroes aparecem em casos similares na base anonima?",
+    desc: "Executa consulta populacional agregada, bloqueando coortes pequenas por governanca LGPD.",
   },
   {
-    text: "Casos mais parecidos com este paciente (top 5)",
-    desc: "Matching por similaridade de vetor de 12 zonas: recupera IDs anônimos com ≥75% de correspondência.",
+    text: "Explique a diferenca entre IPM e IDM para esta sessao",
+    desc: "Clarifica intensidade global, direcao do desequilibrio e limites de inferencia.",
   },
   {
-    text: "Intervenções mais eficazes para perfis similares",
-    desc: "Recomendação baseada em evidência: protocolos TCC, DBT, EMDR ou análise focalizada com maior taxa de resposta.",
-  },
-  {
-    text: "Predição de resposta terapêutica baseada em casos análogos",
-    desc: "Modelagem preditiva: probabilidade de resposta positiva em 8 semanas com intervalo de confiança.",
-  },
-  {
-    text: "Alertas: padrões de risco identificados na base populacional",
-    desc: "Flagging automático: múltiplas dissonâncias simultâneas, embotamento agudo ou picos de Zona 12 >4.0.",
-  },
-  {
-    text: "Arquitetura FROID: Motor Bioacústico e Análise Espectral",
-    desc: "Explique como voz, MFCC7/MFCC9 e sub-harmônicos compõem a análise multimodal do sistema.",
-  },
-  {
-    text: "Arquitetura Analítica do Coeficiente MFCC9",
-    desc: "Descreva o papel clínico do MFCC9 na diferenciação entre ansiedade somática e depressão.",
-  },
-  {
-    text: "Mapeamento Anatômico das Unidades de Ação Faciais",
-    desc: "Relacione AUs faciais, dissonância e zonas FROID para a interpretação clínica.",
-  },
-  {
-    text: "Qual é a diferença técnica entre Jitter e Shimmer?",
-    desc: "Explique em linguagem clínica e técnica a relação desses marcadores com a voz.",
-  },
-  {
-    text: "Como o FROID mede retardo psicomotor via áudio?",
-    desc: "Associe taxa de elocução, energia acústica e sinais de depressão na sessão.",
+    text: "Que perguntas clinicas podem aprofundar esta leitura?",
+    desc: "Sugere caminhos de exploracao ao profissional sem substituir julgamento clinico.",
   },
 ];
+
+interface FroidExplicaResponse {
+  result_text: string;
+  engine_used: string;
+  citations?: string[];
+  safety_check_passed: boolean;
+  intent: "knowledge" | "analytics" | string;
+}
 
 interface Message {
   role: "user" | "assistant";
   content: string;
+  engine?: string;
+  citations?: string[];
+  safety?: boolean;
+  intent?: string;
 }
 
 interface Props {
-  zones: import("../../lib/froid-engine").PerceptionZone[];
+  zones: PerceptionZone[];
   ipmScore: number;
   coherenceStatus: string;
   baselineEstablished: boolean;
+  sessionId?: string;
+}
+
+function compactZone(zone: PerceptionZone) {
+  return {
+    zone: zone.zone,
+    theme: zone.tema,
+    deviation_score: Number(zone.deviation_score || 0),
+    color: zone.cor_plot,
+    facial_dissonance_detected: Boolean(zone.facial_dissonance_detected),
+    active_aus: zone.dissonance_details?.active_aus || [],
+  };
 }
 
 export const AIInsights: React.FC<Props> = ({
@@ -82,6 +79,7 @@ export const AIInsights: React.FC<Props> = ({
   ipmScore,
   coherenceStatus,
   baselineEstablished,
+  sessionId = "",
 }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -93,167 +91,203 @@ export const AIInsights: React.FC<Props> = ({
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  const fetchKnowledge = useCallback(async (query: string): Promise<string> => {
-    try {
-      const res = await fetch(
-        apiUrl(`/api/knowledge?q=${encodeURIComponent(query)}`),
-      );
-      if (!res.ok) return "";
-      const data = await res.json();
-      return (data.results || [])
-        .map((r: any) => `[${r.source}] ${r.content}`)
-        .join("\n");
-    } catch {
-      return "";
-    }
-  }, []);
+  const buildClinicalContext = useCallback(() => {
+    const safeZones = Array.isArray(zones) ? zones : [];
+    const sorted = [...safeZones].sort(
+      (a, b) =>
+        Math.abs(b?.deviation_score || 0) - Math.abs(a?.deviation_score || 0),
+    );
+    const dominant = sorted[0] ? compactZone(sorted[0]) : null;
+    const dissonanceCount = safeZones.filter(
+      (zone) => zone?.facial_dissonance_detected,
+    ).length;
 
-  const callAI = useCallback(
-    async (promptText: string): Promise<string> => {
-      const safeZones = Array.isArray(zones) ? zones : [];
-      const sorted = [...safeZones].sort(
-        (a, b) =>
-          Math.abs(b?.deviation_score || 0) - Math.abs(a?.deviation_score || 0),
-      );
-      const top = sorted[0];
-      const dissonant = safeZones.filter(
-        (z) => !!z?.facial_dissonance_detected,
-      ).length;
-
-      const knowledge = await fetchKnowledge(promptText);
-      const systemMsg = `Você é FROID-IA, assistente clínico especializado em bioacústica facial-vocal.
-Dados atuais: IPM=${ipmScore.toFixed(1)}, Coerência=${coherenceStatus}, Baseline=${baselineEstablished ? "OK" : "Calibrando"}, Zona dominante=${top ? `${top.zone} (${top.tema})` : "--"}, Dissonâncias=${dissonant}.
-Base de conhecimento FROID/NotebookLM:
-${knowledge || "Base de conhecimento local indisponível."}
-Responda em português de forma objetiva e clinicamente útil.`;
-
-      try {
-        const res = await fetch(apiUrl("/api/insights"), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            messages: [
-              { role: "system", content: systemMsg },
-              { role: "user", content: promptText },
-            ],
-            model: "gpt-4o-mini",
-          }),
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        if (data.error)
-          throw new Error(
-            typeof data.error === "string"
-              ? data.error
-              : JSON.stringify(data.error),
-          );
-        return data.choices?.[0]?.message?.content || "Sem resposta.";
-      } catch (e: any) {
-        setLastError(`Falha: ${e.message}`);
-        return `[FROID-IA Local] "${promptText.slice(0, 30)}..." → Zona ${top?.zone || "--"}, IPM ${ipmScore.toFixed(1)}, Coerência: ${coherenceStatus}. ${dissonant > 0 ? `${dissonant} dissonância(s).` : "Sinais congruentes."}`;
-      }
-    },
-    [zones, ipmScore, coherenceStatus, baselineEstablished, fetchKnowledge],
-  );
+    return {
+      session_id: sessionId,
+      ipm_score: Number(ipmScore || 0),
+      coherence_status: coherenceStatus || "NEUTRO",
+      baseline_established: Boolean(baselineEstablished),
+      dominant_zone: dominant,
+      dissonance_count: dissonanceCount,
+      zones: sorted.slice(0, 12).map(compactZone),
+    };
+  }, [zones, ipmScore, coherenceStatus, baselineEstablished, sessionId]);
 
   const ask = useCallback(
     async (text: string) => {
-      if (!text.trim() || loading) return;
+      const prompt = text.trim();
+      if (!prompt || loading) return;
+
       setLastError("");
-      setMessages((prev) => [...prev, { role: "user", content: text.trim() }]);
+      setMessages((prev) => [...prev, { role: "user", content: prompt }]);
       setInput("");
       setLoading(true);
-      const resp = await callAI(text.trim());
-      setMessages((prev) => [...prev, { role: "assistant", content: resp }]);
-      setLoading(false);
+
+      try {
+        const response = await fetch(apiUrl("/api/froid-explica/query"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query_text: prompt,
+            session_id: sessionId,
+            context: buildClinicalContext(),
+          }),
+        });
+
+        const data: FroidExplicaResponse = await response.json();
+        if (!response.ok) {
+          const detail =
+            typeof (data as any)?.detail === "string"
+              ? (data as any).detail
+              : `HTTP ${response.status}`;
+          throw new Error(detail);
+        }
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: data.result_text || "Sem resposta disponivel.",
+            engine: data.engine_used,
+            citations: data.citations || [],
+            safety: data.safety_check_passed,
+            intent: data.intent,
+          },
+        ]);
+      } catch (error: any) {
+        const message = error?.message || "Falha ao consultar FROID Explica.";
+        setLastError(message);
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content:
+              "FROID Explica nao conseguiu completar a consulta agora. Verifique o backend e tente novamente.",
+            engine: "offline",
+            safety: false,
+          },
+        ]);
+      } finally {
+        setLoading(false);
+      }
     },
-    [loading, callAI],
+    [buildClinicalContext, loading, sessionId],
   );
 
   return (
-    <div className="flex flex-col h-full border-t border-slate-200 pt-3 mt-2 min-h-[200px]">
-      <div className="flex items-center justify-between mb-2">
+    <div className="flex h-full min-h-[200px] flex-col border-t border-slate-200 pt-3 mt-2">
+      <div className="mb-2 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="text-lg">🛡️</span>
+          <span className="rounded bg-slate-900 px-1.5 py-0.5 text-[9px] font-bold text-white">
+            FROID
+          </span>
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-            Insights IA
+            FROID Explica
           </h3>
         </div>
         {lastError && (
-          <span className="text-[9px] text-red-600 bg-red-50 px-2 py-0.5 rounded font-bold">
+          <span className="rounded bg-red-50 px-2 py-0.5 text-[9px] font-bold text-red-600">
             {lastError}
           </span>
         )}
       </div>
-      <div className="flex-1 overflow-y-auto space-y-3 bg-slate-50/50 rounded-lg border border-slate-100 p-2 mb-2 min-h-[120px]">
+
+      <div className="mb-2 min-h-[120px] flex-1 overflow-y-auto rounded-lg border border-slate-100 bg-slate-50/50 p-2 space-y-3">
         {messages.length === 0 && (
-          <div className="text-center py-4">
-            <p className="text-[11px] text-slate-400">
-              Selecione um prompt nativo ou pergunte à IA.
-            </p>
+          <div className="py-4 text-center">
+            <p className="text-[11px] text-slate-400">FROID Explica pronto.</p>
           </div>
         )}
-        {messages.map((m, i) => (
+
+        {messages.map((message, index) => (
           <div
-            key={i}
-            className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
+            key={`${message.role}-${index}`}
+            className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
           >
             <div
-              className={`max-w-[92%] rounded-xl px-3 py-2 text-[11px] leading-snug whitespace-pre-wrap ${m.role === "user" ? "bg-blue-600 text-white rounded-br-none" : "bg-white border border-slate-200 text-slate-700 rounded-bl-none shadow-sm"}`}
+              className={`max-w-[92%] rounded-xl px-3 py-2 text-[11px] leading-snug whitespace-pre-wrap ${
+                message.role === "user"
+                  ? "rounded-br-none bg-blue-600 text-white"
+                  : "rounded-bl-none border border-slate-200 bg-white text-slate-700 shadow-sm"
+              }`}
             >
-              <p className="font-semibold text-[9px] opacity-80 mb-0.5">
-                {m.role === "user" ? "Você" : "FROID-IA"}
+              <p className="mb-0.5 text-[9px] font-semibold opacity-80">
+                {message.role === "user" ? "Voce" : "FROID Explica"}
               </p>
-              {m.content}
+              {message.content}
+              {message.role === "assistant" && (
+                <div className="mt-2 flex flex-wrap gap-1 text-[9px] text-slate-400">
+                  {message.engine && <span>{message.engine}</span>}
+                  {message.intent && <span>{message.intent}</span>}
+                  {message.safety === false && (
+                    <span className="font-bold text-red-500">bloqueado</span>
+                  )}
+                  {message.citations && message.citations.length > 0 && (
+                    <span>fontes: {message.citations.join(", ")}</span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         ))}
+
         {loading && (
           <div className="flex justify-start">
-            <div className="bg-white border border-slate-200 rounded-xl rounded-bl-none px-3 py-2 shadow-sm">
+            <div className="rounded-xl rounded-bl-none border border-slate-200 bg-white px-3 py-2 shadow-sm">
               <div className="flex gap-1">
-                <span className="h-1.5 w-1.5 bg-slate-400 rounded-full animate-bounce" />
-                <span className="h-1.5 w-1.5 bg-slate-400 rounded-full animate-bounce delay-75" />
-                <span className="h-1.5 w-1.5 bg-slate-400 rounded-full animate-bounce delay-150" />
+                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400" />
+                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400 delay-75" />
+                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400 delay-150" />
               </div>
             </div>
           </div>
         )}
         <div ref={bottomRef} />
       </div>
+
       <div className="flex gap-2">
         <input
           value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && ask(input)}
-          placeholder="Pergunte à IA..."
+          onChange={(event) => setInput(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") void ask(input);
+          }}
+          placeholder="Pergunte ao FROID Explica..."
           className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
         <button
-          onClick={() => ask(input)}
+          onClick={() => void ask(input)}
           disabled={!input.trim() || loading}
           className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-40"
         >
-          ➤
+          Enviar
         </button>
       </div>
+
       <div className="mt-2 flex flex-wrap gap-1">
-        {PRESETS.map((p, i) => (
+        {PRESETS.map((preset, index) => (
           <FroidTooltip
-            key={i}
+            key={preset.text}
+            width={300}
             content={
               <div className="max-w-[280px]">
-                <p className="font-bold text-slate-900 text-[11px]">{p.text}</p>
-                <p className="text-slate-600 text-[10px] mt-1">{p.desc}</p>
+                <p className="text-[11px] font-bold text-slate-900">
+                  {preset.text}
+                </p>
+                <p className="mt-1 text-[10px] text-slate-600">
+                  {preset.desc}
+                </p>
               </div>
             }
-            width={300}
           >
             <button
-              onClick={() => ask(p.text)}
-              className="text-[9px] bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-700 rounded px-2 py-1 border border-transparent hover:border-blue-200 transition-colors max-w-[150px] truncate text-left"
+              onClick={() => void ask(preset.text)}
+              className="max-w-[150px] truncate rounded border border-transparent bg-slate-100 px-2 py-1 text-left text-[9px] text-slate-600 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
             >
-              {i + 1}. {p.text.length > 26 ? p.text.slice(0, 26) + "…" : p.text}
+              {index + 1}.{" "}
+              {preset.text.length > 26
+                ? `${preset.text.slice(0, 26)}...`
+                : preset.text}
             </button>
           </FroidTooltip>
         ))}
