@@ -46,7 +46,7 @@ interface ConversationSummary {
   summary: string;
 }
 
-type SpeakerRole = "PAC" | "DR";
+type SpeakerRole = "PC" | "DR";
 
 interface SessionState {
   connected: boolean;
@@ -526,7 +526,7 @@ const TRANSCRIPT_SUMMARY_WINDOW_MS = 10 * 60 * 1000;
 const ENABLE_BROWSER_LIVE_STT = false;
 
 function speakerPrefix(speaker: SpeakerRole) {
-  return speaker === "DR" ? "DR. - " : "PAC - ";
+  return speaker === "DR" ? "DR. - " : "PC - ";
 }
 
 function normalizeTranscriptText(text: string) {
@@ -628,6 +628,7 @@ const THEME_STOPWORDS = new Set([
   "mais",
   "muito",
   "sobre",
+  "pc",
   "pac",
   "dr",
   "voce",
@@ -652,7 +653,7 @@ function rounded(value: number | null, digits = 2) {
 
 function inferThemeFromTranscript(text: string) {
   const clean = text
-    .replace(/^DR\.\s*-\s*|^PAC\s*-\s*/gim, " ")
+    .replace(/^DR\.\s*-\s*|^PC\s*-\s*|^PAC\s*-\s*/gim, " ")
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -706,7 +707,7 @@ function buildMetricSnapshot(
   const transcript = collectTranscript(transcriptSegments, startSecond, endSecond);
   const minutes = Math.max(1 / 60, (endSecond - startSecond) / 60);
   const wordCount = transcript
-    .replace(/^DR\.\s*-\s*|^PAC\s*-\s*/gim, " ")
+    .replace(/^DR\.\s*-\s*|^PC\s*-\s*|^PAC\s*-\s*/gim, " ")
     .split(/\s+/)
     .filter(Boolean).length;
   const audioMetas = payloads.map((payload) => (payload as any).audio_meta || {});
@@ -1210,7 +1211,7 @@ function LiveSessionInner(_: LiveSessionProps) {
     const recentLines = transcriptLinesRef.current.slice(-4);
     const isDuplicate = recentLines.some((recent) => {
       const normalizedRecent = normalizeTranscriptText(
-        recent.replace(/^DR\.\s*-\s*|^PAC\s*-\s*/i, ""),
+        recent.replace(/^DR\.\s*-\s*|^PC\s*-\s*|^PAC\s*-\s*/i, ""),
       );
       return (
         normalizedRecent === normalized ||
@@ -1710,7 +1711,7 @@ function LiveSessionInner(_: LiveSessionProps) {
           ...(prev || {}),
           provider: prev?.provider || "browser-recorder",
           transcription_status: "listening",
-          transcription_sources: "DR-profissional/PAC-paciente",
+          transcription_sources: "DR-profissional/PC-paciente",
           active_stt_source: source,
           transcription_error: "",
         }));
@@ -1839,7 +1840,7 @@ function LiveSessionInner(_: LiveSessionProps) {
     }
 
     startRawBioacousticPipeline(patientBioacousticStream, "patient-webrtc");
-    startSpeechToText(patientTranscriptStream, "PAC", "patient");
+    startSpeechToText(patientTranscriptStream, "PC", "patient");
     setLiveTranscription((prev) => ({
       ...(prev || {}),
       bioacoustic_status: "monitoring",
@@ -1847,7 +1848,7 @@ function LiveSessionInner(_: LiveSessionProps) {
       bioacoustic_track: "patient-webrtc",
       bioacoustic_warning:
         "Avaliacao FROID usando exclusivamente a voz do paciente.",
-      transcription_sources: "DR-profissional/PAC-paciente",
+      transcription_sources: "DR-profissional/PC-paciente",
       bioacoustic_error: "",
     }));
   }, [patientAudioVersion, startRawBioacousticPipeline, startSpeechToText]);
@@ -1860,7 +1861,7 @@ function LiveSessionInner(_: LiveSessionProps) {
 
     if (!localAudioTrack) return;
 
-    if (localSpeaker === "PAC") {
+    if (localSpeaker === "PC") {
       startRawBioacousticPipeline(
         new MediaStream([localAudioTrack.clone()]),
         "semantic-fallback",
@@ -1871,9 +1872,9 @@ function LiveSessionInner(_: LiveSessionProps) {
         bioacoustic_pipeline: "direct-local-patient",
         bioacoustic_track: "local-patient-selected",
         bioacoustic_warning:
-          "Atendimento presencial: metricas calculadas somente enquanto PAC esta selecionado.",
+          "Atendimento presencial: metricas calculadas somente enquanto PC esta selecionado.",
         transcription_sources:
-          "Atendimento presencial com alternancia manual DR/PAC.",
+          "Atendimento presencial com alternancia manual DR/PC.",
         bioacoustic_error: "",
       }));
       return;
@@ -1886,9 +1887,9 @@ function LiveSessionInner(_: LiveSessionProps) {
       bioacoustic_pipeline: "direct-local-paused",
       bioacoustic_track: "local-professional-selected",
       bioacoustic_warning:
-        "Atendimento presencial: selecione PAC quando o paciente estiver falando para alimentar os biomarcadores.",
+        "Atendimento presencial: selecione PC quando o paciente estiver falando para alimentar os biomarcadores.",
       transcription_sources:
-        "Atendimento presencial com alternancia manual DR/PAC.",
+        "Atendimento presencial com alternancia manual DR/PC.",
     }));
   }, [
     localSpeaker,
@@ -2324,7 +2325,7 @@ function LiveSessionInner(_: LiveSessionProps) {
             </span>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            {(["DR", "PAC"] as SpeakerRole[]).map((speaker) => {
+            {(["DR", "PC"] as SpeakerRole[]).map((speaker) => {
               const active = localSpeaker === speaker;
               const disabled = remotePatientOn;
               return (
@@ -2339,15 +2340,15 @@ function LiveSessionInner(_: LiveSessionProps) {
                       : "border-slate-200 bg-white text-slate-600 hover:border-blue-300"
                   } ${disabled ? "cursor-not-allowed opacity-45" : ""}`}
                 >
-                  {speaker === "DR" ? "DR. falando" : "PAC falando"}
+                  {speaker === "DR" ? "DR. falando" : "PC falando"}
                 </button>
               );
             })}
           </div>
           <p className="mt-2 text-[10px] leading-snug text-slate-500">
             {remotePatientOn
-              ? "Com paciente remoto, o FROID separa DR pela trilha local e PAC pela trilha do paciente."
-              : "Em consulta presencial, selecione PAC durante a fala do paciente para transcricao e biomarcadores."}
+              ? "Com paciente remoto, o FROID separa DR pela trilha local e PC pela trilha do paciente."
+              : "Em consulta presencial, selecione PC durante a fala do paciente para transcricao e biomarcadores."}
           </p>
         </div>
 

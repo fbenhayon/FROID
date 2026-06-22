@@ -24,8 +24,8 @@ interface Props {
   themeMinuteMark: number;
   audioMeta?: Record<string, unknown>;
   conversationSummaries?: ConversationSummary[];
-  activeSpeaker?: "PAC" | "DR";
-  onSpeakerChange?: (speaker: "PAC" | "DR") => void;
+  activeSpeaker?: "PC" | "DR";
+  onSpeakerChange?: (speaker: "PC" | "DR") => void;
 }
 
 const biomarkerTooltips: Record<string, string> = {
@@ -49,7 +49,7 @@ export const AudioTranscription: React.FC<Props> = ({
   themeMinuteMark,
   audioMeta: providedAudioMeta,
   conversationSummaries = [],
-  activeSpeaker = "PAC",
+  activeSpeaker = "PC",
   onSpeakerChange,
 }) => {
   const toneColor: Record<string, string> = {
@@ -84,12 +84,12 @@ export const AudioTranscription: React.FC<Props> = ({
   const bioacousticLabel =
     bioacousticStatus === "monitoring"
       ? bioacousticTrack === "patient-webrtc"
-        ? "Bio PAC"
+        ? "Bio PC"
         : bioacousticTrack === "semantic-fallback"
         ? "Bio fallback"
         : "Bio bruta"
       : bioacousticStatus === "waiting_patient"
-        ? "Bio aguardando PAC"
+        ? "Bio aguardando PC"
       : bioacousticStatus === "error"
         ? "Bio off"
         : "Bio prep";
@@ -178,7 +178,7 @@ export const AudioTranscription: React.FC<Props> = ({
         <div className="flex items-center gap-1">
           {onSpeakerChange ? (
             <div className="flex overflow-hidden rounded border border-slate-200 bg-slate-50">
-              {(["PAC", "DR"] as const).map((speaker) => (
+              {(["PC", "DR"] as const).map((speaker) => (
                 <button
                   key={speaker}
                   type="button"
@@ -195,7 +195,7 @@ export const AudioTranscription: React.FC<Props> = ({
             </div>
           ) : (
             <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-600">
-              DR/PAC auto
+              DR/PC auto
             </span>
           )}
           <span
