@@ -61,6 +61,7 @@ interface Props {
   coherenceStatus: string;
   baselineEstablished: boolean;
   sessionId?: string;
+  extraContext?: Record<string, unknown>;
 }
 
 function compactZone(zone: PerceptionZone) {
@@ -80,6 +81,7 @@ export const AIInsights: React.FC<Props> = ({
   coherenceStatus,
   baselineEstablished,
   sessionId = "",
+  extraContext = {},
 }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -110,8 +112,16 @@ export const AIInsights: React.FC<Props> = ({
       dominant_zone: dominant,
       dissonance_count: dissonanceCount,
       zones: sorted.slice(0, 12).map(compactZone),
+      ...extraContext,
     };
-  }, [zones, ipmScore, coherenceStatus, baselineEstablished, sessionId]);
+  }, [
+    zones,
+    ipmScore,
+    coherenceStatus,
+    baselineEstablished,
+    sessionId,
+    extraContext,
+  ]);
 
   const ask = useCallback(
     async (text: string) => {

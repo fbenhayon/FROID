@@ -29,6 +29,7 @@ services:
       - FROID_CHROMA_PATH=${FROID_CHROMA_PATH:-/data/chroma_db}
       - FROID_DUCKDB_PATH=${FROID_DUCKDB_PATH:-/data/datamart_anonymous.duckdb}
       - FROID_ANALYTICS_MIN_K=${FROID_ANALYTICS_MIN_K:-50}
+      - FROID_SESSION_REPORTS_PATH=${FROID_SESSION_REPORTS_PATH:-/data/session_reports.json}
     volumes:
       - ./data:/data
     restart: unless-stopped

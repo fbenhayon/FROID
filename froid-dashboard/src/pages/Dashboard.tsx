@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiUrl } from "../lib/api";
+import { formatDuration, loadSessionReports, SessionReportRecord } from "../lib/session-report";
 
 interface DashboardProps {
   user?: any;
@@ -58,9 +59,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   const [inviteError, setInviteError] = useState("");
   const [inviteResult, setInviteResult] = useState<InviteResult | null>(null);
   const [patientActivity, setPatientActivity] = useState("");
+  const [latestReport, setLatestReport] = useState<SessionReportRecord | null>(null);
   const eventCursorRef = useRef<number | null>(null);
   const redirectingRef = useRef(false);
   const professionalName = user?.name || user?.email || "Dr. Profissional";
+
+  useEffect(() => {
+    const reports = loadSessionReports();
+    setLatestReport(reports[0] || null);
+  }, []);
 
   const currentOrigin = useMemo(
     () => (typeof window !== "undefined" ? window.location.origin : ""),
@@ -258,6 +265,34 @@ export const Dashboard: React.FC<DashboardProps> = ({ user }) => {
           <div className="mb-5 rounded-lg border border-cyan-100 bg-cyan-50 px-4 py-3 text-sm font-semibold text-cyan-900">
             {patientActivity}
           </div>
+        )}
+
+        {latestReport && (
+          <section className="mb-5 rounded-xl border border-blue-100 bg-blue-50 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600">
+                  Ultimo Relatorio da Consulta
+                </p>
+                <h2 className="mt-1 text-sm font-bold text-blue-950">
+                  Sessao {latestReport.sessionId} |{" "}
+                  {formatDuration(latestReport.durationSeconds)}
+                </h2>
+                <p className="mt-1 text-xs text-blue-800">
+                  Baseline IPM {latestReport.baseline.ipmAvg.toFixed(1)} / IDM{" "}
+                  {latestReport.baseline.idmAvg.toFixed(2)} | Media IPM{" "}
+                  {latestReport.sessionAverage.ipmAvg.toFixed(1)} / IDM{" "}
+                  {latestReport.sessionAverage.idmAvg.toFixed(2)}
+                </p>
+              </div>
+              <button
+                onClick={() => nav(`/session/${latestReport.sessionId}/report`)}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700"
+              >
+                Abrir relatorio
+              </button>
+            </div>
+          </section>
         )}
 
         <section className="mb-8 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">

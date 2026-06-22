@@ -4,6 +4,7 @@ import { Dashboard } from "./pages/Dashboard";
 import { LiveSession } from "./pages/LiveSession";
 import { History } from "./pages/History";
 import { Settings } from "./pages/Settings";
+import { SessionReport } from "./pages/SessionReport";
 import { LoginPage } from "./pages/LoginPage";
 import { PatientInvitePage } from "./pages/PatientInvitePage";
 import { PatientSessionPage } from "./pages/PatientSessionPage";
@@ -72,6 +73,10 @@ function App() {
         <Route
           path="/session/:sessionId"
           element={protectedElement(<LiveSession user={user} />)}
+        />
+        <Route
+          path="/session/:sessionId/report"
+          element={protectedElement(<SessionReport user={user} />)}
         />
         <Route
           path="/history"

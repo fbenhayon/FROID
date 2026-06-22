@@ -19,6 +19,12 @@ import { getAUDetails, ZONE_CLINICAL_DESCRIPTIONS } from "../lib/froid-data";
 import { apiUrl, wsUrl } from "../lib/api";
 import { createConferenceStream, RTC_CONFIG } from "../lib/webrtc";
 import { FroidTooltip } from "../components/ui/FroidTooltip";
+import {
+  ClinicalNote,
+  MetricSnapshot,
+  saveSessionReport,
+  SessionReportRecord,
+} from "../lib/session-report";
 
 interface AggData {
   zones: PerceptionZone[];
@@ -70,6 +76,27 @@ type Action =
       camError?: string;
     }
   | { type: "END_SESSION" };
+
+const DISSONANCE_REPORT_THRESHOLD = 1.5;
+const DISSONANCE_CRITICAL_THRESHOLD = 3.0;
+
+function dissonanceScore(zone?: PerceptionZone | null) {
+  return Math.abs(Number(zone?.deviation_score || 0));
+}
+
+function isReportableDissonance(zone?: PerceptionZone | null) {
+  return Boolean(
+    zone?.facial_dissonance_detected &&
+      zone?.dissonance_details &&
+      dissonanceScore(zone) > DISSONANCE_REPORT_THRESHOLD,
+  );
+}
+
+function dissonanceSeverity(zone?: PerceptionZone | null) {
+  return dissonanceScore(zone) > DISSONANCE_CRITICAL_THRESHOLD
+    ? "CRITICA"
+    : "RELEVANTE";
+}
 
 function reducer(state: SessionState, action: Action): SessionState {
   try {
@@ -572,6 +599,181 @@ function aggregatePayloads(payloads: FroidPayload[]): AggData {
   };
 }
 
+type SessionSample = { elapsedSeconds: number; payload: FroidPayload };
+type TranscriptSegment = { elapsedSeconds: number; text: string };
+
+const REPORT_AUDIO_KEYS = [
+  "mfcc7",
+  "mfcc9",
+  "f0_mean",
+  "zcr",
+  "jitter",
+  "shimmer",
+  "subharmonic_energy_5_12hz",
+  "subharmonic_energy_12_20hz",
+] as const;
+
+const THEME_STOPWORDS = new Set([
+  "para",
+  "como",
+  "com",
+  "que",
+  "uma",
+  "por",
+  "dos",
+  "das",
+  "estou",
+  "esta",
+  "isso",
+  "mais",
+  "muito",
+  "sobre",
+  "pac",
+  "dr",
+  "voce",
+  "tambem",
+]);
+
+function makeReportId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
+}
+
+function averageNumeric(values: Array<number | null | undefined>) {
+  const valid = values.filter((value): value is number => Number.isFinite(value));
+  if (!valid.length) return null;
+  return valid.reduce((total, value) => total + value, 0) / valid.length;
+}
+
+function rounded(value: number | null, digits = 2) {
+  if (value === null || !Number.isFinite(value)) return null;
+  const factor = 10 ** digits;
+  return Math.round(value * factor) / factor;
+}
+
+function inferThemeFromTranscript(text: string) {
+  const clean = text
+    .replace(/^DR\.\s*-\s*|^PAC\s*-\s*/gim, " ")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\w\s]/g, " ");
+  const counts = new Map<string, number>();
+  clean
+    .split(/\s+/)
+    .filter((word) => word.length >= 4 && !THEME_STOPWORDS.has(word))
+    .forEach((word) => counts.set(word, (counts.get(word) || 0) + 1));
+  const top = [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([word]) => word);
+  return top.length ? top.join(" ") : "Tema em apuracao";
+}
+
+function collectTranscript(
+  segments: TranscriptSegment[],
+  startSecond: number,
+  endSecond: number,
+) {
+  return segments
+    .filter(
+      (segment) =>
+        segment.elapsedSeconds >= startSecond &&
+        segment.elapsedSeconds < endSecond,
+    )
+    .map((segment) => segment.text)
+    .join(" ")
+    .trim();
+}
+
+function buildMetricSnapshot(
+  label: string,
+  samples: SessionSample[],
+  startSecond: number,
+  endSecond: number,
+  transcriptSegments: TranscriptSegment[],
+): MetricSnapshot {
+  const scoped = samples.filter(
+    (sample) =>
+      sample.elapsedSeconds >= startSecond && sample.elapsedSeconds < endSecond,
+  );
+  const payloads = scoped.map((sample) => sample.payload);
+  const aggregate = aggregatePayloads(payloads);
+  const zones = aggregate.zones || [];
+  const dominant = [...zones].sort(
+    (a, b) =>
+      Math.abs(b?.deviation_score || 0) - Math.abs(a?.deviation_score || 0),
+  )[0];
+  const transcript = collectTranscript(transcriptSegments, startSecond, endSecond);
+  const minutes = Math.max(1 / 60, (endSecond - startSecond) / 60);
+  const wordCount = transcript
+    .replace(/^DR\.\s*-\s*|^PAC\s*-\s*/gim, " ")
+    .split(/\s+/)
+    .filter(Boolean).length;
+  const audioMetas = payloads.map((payload) => (payload as any).audio_meta || {});
+  const audioAverage = (key: (typeof REPORT_AUDIO_KEYS)[number]) =>
+    rounded(
+      averageNumeric(
+        audioMetas.map((meta) =>
+          typeof meta[key] === "number" ? Number(meta[key]) : null,
+        ),
+      ),
+    );
+  const idmAvg =
+    zones.length > 0
+      ? zones.reduce(
+          (total, zone) => total + Math.abs(Number(zone.deviation_score || 0)),
+          0,
+        ) / zones.length
+      : 0;
+
+  return {
+    label,
+    startSecond,
+    endSecond,
+    sampleCount: payloads.length,
+    ipmAvg: rounded(aggregate.ipm, 2) || 0,
+    idmAvg: rounded(idmAvg, 3) || 0,
+    dominantZone: dominant?.zone || null,
+    dominantTheme: dominant?.tema || "Sem zona dominante",
+    coherenceStatus: aggregate.coherence || "NEUTRO",
+    emotionalTone:
+      String(audioMetas.find((meta) => meta.emotional_tone)?.emotional_tone || "") ||
+      "neutro",
+    wordsPerMinute: rounded(wordCount / minutes, 1) || 0,
+    theme: inferThemeFromTranscript(transcript),
+    dissonanceCount: zones.filter(isReportableDissonance).length,
+    mfcc7: audioAverage("mfcc7"),
+    mfcc9: audioAverage("mfcc9"),
+    f0Mean: audioAverage("f0_mean"),
+    zcr: audioAverage("zcr"),
+    jitter: audioAverage("jitter"),
+    shimmer: audioAverage("shimmer"),
+    subharmonic5_12: audioAverage("subharmonic_energy_5_12hz"),
+    subharmonic12_20: audioAverage("subharmonic_energy_12_20hz"),
+    zones,
+  };
+}
+
+function buildTenMinuteCuts(
+  samples: SessionSample[],
+  transcriptSegments: TranscriptSegment[],
+  durationSeconds: number,
+) {
+  const windowSize = 10 * 60;
+  const count = Math.max(1, Math.ceil(Math.max(durationSeconds, 1) / windowSize));
+  return Array.from({ length: count }, (_, index) => {
+    const startSecond = index * windowSize;
+    const endSecond = Math.min((index + 1) * windowSize, Math.max(durationSeconds, windowSize));
+    return buildMetricSnapshot(
+      `${startSecond / 60}-${Math.ceil(endSecond / 60)}min`,
+      samples,
+      startSecond,
+      endSecond,
+      transcriptSegments,
+    );
+  }).filter((snapshot) => snapshot.sampleCount > 0);
+}
+
 function LiveSessionInner(_: LiveSessionProps) {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
@@ -592,11 +794,15 @@ function LiveSessionInner(_: LiveSessionProps) {
   const [conversationSummaries, setConversationSummaries] = useState<
     ConversationSummary[]
   >([]);
+  const [clinicalNotes, setClinicalNotes] = useState<ClinicalNote[]>([]);
   const [rtcStatus, setRtcStatus] = useState("Aguardando paciente");
   const [remotePatientOn, setRemotePatientOn] = useState(false);
   const [patientAudioVersion, setPatientAudioVersion] = useState(0);
-  const bufferRef = useRef<{ ipm: number[] }>({ ipm: [] });
   const frameBuffer = useRef<FroidPayload[]>([]);
+  const sessionSamplesRef = useRef<SessionSample[]>([]);
+  const baselineSnapshotRef = useRef<MetricSnapshot | null>(null);
+  const elapsedSecondsRef = useRef(0);
+  const reportSavedRef = useRef(false);
   const wsRef = useRef<WebSocket | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -637,7 +843,6 @@ function LiveSessionInner(_: LiveSessionProps) {
     windows: Array<{ timestamp: number; words: number }>;
   }>({ totalWords: 0, windows: [] });
   const lastDissonanceSig = useRef("");
-  const phaseRef = useRef(state.phase);
   const activeSpeakerRef = useRef<SpeakerRole>("DR");
 
   useEffect(() => {
@@ -646,8 +851,8 @@ function LiveSessionInner(_: LiveSessionProps) {
   }, []);
 
   useEffect(() => {
-    phaseRef.current = state.phase;
-  }, [state.phase]);
+    elapsedSecondsRef.current = state.elapsedSeconds;
+  }, [state.elapsedSeconds]);
 
   const refreshMediaStatus = useCallback((stream: MediaStream | null) => {
     const cameraOn =
@@ -1256,6 +1461,17 @@ function LiveSessionInner(_: LiveSessionProps) {
     }
   }, [state.elapsedSeconds, summarizeTranscriptWindow]);
 
+  const addClinicalNote = useCallback((text: string) => {
+    setClinicalNotes((prev) => [
+      {
+        id: makeReportId(),
+        text,
+        timestamp: Date.now(),
+      },
+      ...prev,
+    ]);
+  }, []);
+
   const transcribeAudioBlob = useCallback(
     async (audioBlob: Blob, mimeType: string, speaker: SpeakerRole) => {
       if (!audioBlob || audioBlob.size < MIN_STT_AUDIO_BYTES) {
@@ -1706,12 +1922,15 @@ function LiveSessionInner(_: LiveSessionProps) {
 
   useEffect(() => {
     if (state.elapsedSeconds >= 60 && state.phase === "CALIBRATING") {
-      const avg =
-        bufferRef.current.ipm.length > 0
-          ? bufferRef.current.ipm.reduce((a, b) => a + b, 0) /
-            bufferRef.current.ipm.length
-          : 0;
-      dispatch({ type: "BASELINE_LOCK", ipm: avg });
+      const baseline = buildMetricSnapshot(
+        "Baseline 0-60s",
+        sessionSamplesRef.current,
+        0,
+        60,
+        transcriptSegmentsRef.current,
+      );
+      baselineSnapshotRef.current = baseline;
+      dispatch({ type: "BASELINE_LOCK", ipm: baseline.ipmAvg });
     }
   }, [state.elapsedSeconds, state.phase]);
 
@@ -1735,11 +1954,11 @@ function LiveSessionInner(_: LiveSessionProps) {
           if (cancelled) return;
           try {
             const data: FroidPayload = JSON.parse(event.data);
-            if (
-              phaseRef.current === "CALIBRATING" &&
-              typeof data?.ipm_score === "number"
-            )
-              bufferRef.current.ipm.push(data.ipm_score);
+            const elapsedSeconds = elapsedSecondsRef.current;
+            sessionSamplesRef.current.push({ elapsedSeconds, payload: data });
+            if (sessionSamplesRef.current.length > 22000) {
+              sessionSamplesRef.current = sessionSamplesRef.current.slice(-22000);
+            }
             dispatch({ type: "PAYLOAD", data });
             frameBuffer.current.push(data);
             if (frameBuffer.current.length > 6) frameBuffer.current.shift();
@@ -1771,15 +1990,6 @@ function LiveSessionInner(_: LiveSessionProps) {
     }, 10000); /* agrega a cada 10s usando media dos ultimos 3s (6 frames) */
     return () => clearInterval(id);
   }, []);
-
-  const endSession = () => {
-    if (wsRef.current)
-      try {
-        wsRef.current.close();
-      } catch {}
-    dispatch({ type: "END_SESSION" });
-    setTimeout(() => navigate("/dashboard"), 400);
-  };
 
   const agg = state.aggregated;
   const raw = state.payload;
@@ -1817,6 +2027,86 @@ function LiveSessionInner(_: LiveSessionProps) {
   const displayCommitments =
     agg?.commitments || (raw as any)?.commitment_models || [];
 
+  const createSessionReport = useCallback((): SessionReportRecord => {
+    const durationSeconds = Math.max(1, elapsedSecondsRef.current || state.elapsedSeconds);
+    const samples = sessionSamplesRef.current.length
+      ? sessionSamplesRef.current
+      : raw
+        ? [{ elapsedSeconds: durationSeconds, payload: raw }]
+        : [];
+    const baseline =
+      baselineSnapshotRef.current ||
+      buildMetricSnapshot(
+        "Baseline inicial",
+        samples,
+        0,
+        Math.min(60, durationSeconds),
+        transcriptSegmentsRef.current,
+      );
+    const sessionAverage = buildMetricSnapshot(
+      "Media da sessao",
+      samples,
+      0,
+      Math.max(durationSeconds, 1),
+      transcriptSegmentsRef.current,
+    );
+    const tenMinuteCuts = buildTenMinuteCuts(
+      samples,
+      transcriptSegmentsRef.current,
+      durationSeconds,
+    );
+
+    return {
+      id: makeReportId(),
+      sessionId: sessionId || "default",
+      createdAt: new Date().toISOString(),
+      durationSeconds,
+      baseline,
+      sessionAverage,
+      tenMinuteCuts,
+      clinicalNotes,
+      conversationSummaries,
+      dissonances: dissonanceLog,
+      transcript: transcriptSegmentsRef.current.map((segment) => segment.text).join("\n"),
+    };
+  }, [
+    clinicalNotes,
+    conversationSummaries,
+    dissonanceLog,
+    raw,
+    sessionId,
+    state.elapsedSeconds,
+  ]);
+
+  const archiveSessionReport = useCallback(
+    async (report: SessionReportRecord) => {
+      saveSessionReport(report);
+      try {
+        await fetch(apiUrl("/api/session-reports"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(report),
+        });
+      } catch {
+        // Local report remains available even if server archival is offline.
+      }
+    },
+    [],
+  );
+
+  const endSession = useCallback(() => {
+    if (reportSavedRef.current) return;
+    reportSavedRef.current = true;
+    const report = createSessionReport();
+    void archiveSessionReport(report);
+    if (wsRef.current)
+      try {
+        wsRef.current.close();
+      } catch {}
+    dispatch({ type: "END_SESSION" });
+    setTimeout(() => navigate(`/session/${report.sessionId}/report`), 400);
+  }, [archiveSessionReport, createSessionReport, navigate]);
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       (
@@ -1828,22 +2118,34 @@ function LiveSessionInner(_: LiveSessionProps) {
 
   useEffect(() => {
     const currentEntries = (displayZones || [])
-      .filter((z) => !!z?.facial_dissonance_detected && !!z?.dissonance_details)
-      .map((z) => `${z.zone}:${z.dissonance_details?.report || ""}`);
-    const signature = currentEntries.join("|");
+      .filter(isReportableDissonance)
+      .map((z) => {
+        const score = dissonanceScore(z);
+        return {
+          zone: z.zone,
+          score,
+          severity: dissonanceSeverity(z),
+          report:
+            z.dissonance_details?.report ||
+            "Dissonancia facial-vocal detectada",
+        };
+      });
+    const signature = currentEntries
+      .map((entry) => `${entry.zone}:${entry.score.toFixed(3)}:${entry.report}`)
+      .join("|");
     if (!signature || signature === lastDissonanceSig.current) return;
     lastDissonanceSig.current = signature;
 
     const nextEntries = currentEntries
       .map((entry) => {
-        const [zoneText, report] = entry.split(":", 2);
-        const zone = Number(zoneText);
         return {
-          id: `${zone}-${Date.now()}`,
+          id: `${entry.zone}-${Date.now()}`,
           timestamp: new Date().toLocaleString("pt-BR"),
           elapsedSeconds: state.elapsedSeconds,
-          zone,
-          report: report || "Dissonância facial-vocal detectada",
+          zone: entry.zone,
+          report: `IDM ${entry.score.toFixed(2)} | ${entry.severity}: ${
+            entry.report
+          }`,
         };
       })
       .filter((entry) => Number.isFinite(entry.zone));
@@ -1858,6 +2160,7 @@ function LiveSessionInner(_: LiveSessionProps) {
     : state.phase === "ENDED"
       ? "Encerrada"
       : "Desconectado";
+  const baselineSnapshot = baselineSnapshotRef.current;
 
   if (state.phase === "ENDED") {
     return (
@@ -1921,7 +2224,7 @@ function LiveSessionInner(_: LiveSessionProps) {
         {state.phase === "CALIBRATING" && (
           <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-700 shrink-0">
             <p className="font-bold">Fase de Repouso Ativa</p>
-            <p>Coletando baseline: {state.elapsedSeconds}s / 60s</p>
+            <p>Coletando baseline completo: {state.elapsedSeconds}s / 60s</p>
             <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-blue-200">
               <div
                 className="h-full bg-blue-600 transition-all duration-1000"
@@ -1931,8 +2234,25 @@ function LiveSessionInner(_: LiveSessionProps) {
           </div>
         )}
 
+        {state.phase === "LIVE" && baselineSnapshot && (
+          <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-2 text-[10px] text-emerald-900">
+            <div className="mb-1 font-bold uppercase tracking-wider">
+              Baseline 60s registrado
+            </div>
+            <div className="grid grid-cols-3 gap-1">
+              <span>IPM {baselineSnapshot.ipmAvg.toFixed(1)}</span>
+              <span>IDM {baselineSnapshot.idmAvg.toFixed(2)}</span>
+              <span>{baselineSnapshot.wordsPerMinute.toFixed(0)} ppm</span>
+            </div>
+            <p className="mt-1 truncate text-emerald-700">
+              Tema: {baselineSnapshot.theme} | Zona{" "}
+              {baselineSnapshot.dominantZone || "--"}
+            </p>
+          </div>
+        )}
+
         <div className="flex-1 min-h-0 flex flex-col gap-3">
-          <ClinicalNotes />
+          <ClinicalNotes notes={clinicalNotes} onAddNote={addClinicalNote} />
           <div className="flex-1 min-h-[200px]">
             <AIInsights
               zones={displayZones}
@@ -2043,30 +2363,30 @@ function LiveSessionInner(_: LiveSessionProps) {
             <div className="min-h-0 overflow-y-auto rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
               <h3 className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                 Dissonâncias Identificadas (Média 10s)
-                {displayZones.some((z) => !!z?.facial_dissonance_detected) && (
+                {displayZones.some(isReportableDissonance) && (
                   <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
                 )}
+                <span className="text-[9px] font-semibold normal-case tracking-normal text-slate-400">
+                  IDM &gt; {DISSONANCE_REPORT_THRESHOLD.toFixed(2)}
+                </span>
               </h3>
 
               {(!Array.isArray(displayZones) ||
-                displayZones.filter((z) => !!z?.facial_dissonance_detected)
-                  .length === 0) && (
+                displayZones.filter(isReportableDissonance).length === 0) && (
                 <p className="text-xs italic text-slate-400">
-                  Nenhuma dissonância facial-vocal crítica persistente nos
-                  últimos 10 segundos.
+                  Nenhuma dissonancia facial-vocal acima do limiar nos ultimos
+                  10 segundos.
                 </p>
               )}
 
               {Array.isArray(displayZones) &&
                 displayZones
-                  .filter(
-                    (z) =>
-                      !!z?.facial_dissonance_detected &&
-                      !!z?.dissonance_details,
-                  )
+                  .filter(isReportableDissonance)
                   .map((zone) => {
                     const aus = zone.dissonance_details?.active_aus || [];
                     const auDescs = getAUDetails(aus);
+                    const score = dissonanceScore(zone);
+                    const severity = dissonanceSeverity(zone);
                     return (
                       <div
                         key={zone.zone}
@@ -2077,7 +2397,7 @@ function LiveSessionInner(_: LiveSessionProps) {
                             Zona {zone.zone} — {zone.tema || ""}
                           </p>
                           <span className="text-[9px] font-bold text-white bg-red-600 px-1.5 py-0.5 rounded">
-                            IDM {zone.deviation_score?.toFixed(2)}
+                            IDM {score.toFixed(2)} | {severity}
                           </span>
                         </div>
                         <p className="mt-1 text-[11px] font-medium leading-relaxed text-slate-700">
@@ -2115,7 +2435,7 @@ function LiveSessionInner(_: LiveSessionProps) {
                 <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
                   {dissonanceLog.length === 0 && (
                     <p className="text-[10px] text-slate-400">
-                      Nenhuma dissonância registrada ainda.
+                      Nenhuma dissonancia acima do limiar registrada ainda.
                     </p>
                   )}
                   {dissonanceLog

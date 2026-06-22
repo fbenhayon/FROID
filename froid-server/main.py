@@ -64,6 +64,10 @@ FROID_DUCKDB_PATH = os.getenv(
     "/data/datamart_anonymous.duckdb",
 )
 FROID_ANALYTICS_MIN_K = int(os.getenv("FROID_ANALYTICS_MIN_K", "50") or "50")
+FROID_SESSION_REPORTS_PATH = os.getenv(
+    "FROID_SESSION_REPORTS_PATH",
+    "/data/session_reports.json",
+)
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
 GOOGLE_AUTH_DEV_FALLBACK = os.getenv("GOOGLE_AUTH_DEV_FALLBACK", "true").lower() in {"1", "true", "yes", "on"}
@@ -347,8 +351,12 @@ def _validate_duckdb_select(sql_text: str) -> str:
         raise HTTPException(status_code=400, detail="SQL bloqueado: multiplas instrucoes nao sao permitidas")
     if SQL_FORBIDDEN_RE.search(sql):
         raise HTTPException(status_code=400, detail="SQL bloqueado por conter comando nao permitido")
-    if "anonymous_sessions" not in lowered:
-        raise HTTPException(status_code=400, detail="SQL deve consultar apenas anonymous_sessions")
+    allowed_tables = {"anonymous_sessions", "anonymous_session_cuts"}
+    if not any(table in lowered for table in allowed_tables):
+        raise HTTPException(
+            status_code=400,
+            detail="SQL deve consultar apenas anonymous_sessions ou anonymous_session_cuts",
+        )
     return sql
 
 
@@ -365,27 +373,39 @@ def _duckdb_connection():
 
 def _fallback_analytics_sql(query_text: str) -> Dict[str, str]:
     query = _normalize_search_text(query_text)
-    if "zona" in query:
+    if "corte" in query or "10 minuto" in query or "janela" in query:
+        result_sql = (
+            "SELECT cut_label, COUNT(DISTINCT session_hash) AS sessoes, "
+            "AVG(ipm_avg) AS ipm_medio, AVG(idm_avg) AS idm_medio, "
+            "AVG(words_per_minute) AS palavras_por_minuto_media, "
+            "AVG(dissonance_count) AS dissonancias_medias "
+            "FROM anonymous_session_cuts GROUP BY cut_label ORDER BY cut_label"
+        )
+        cohort_sql = "SELECT COUNT(DISTINCT session_hash) AS cohort_size FROM anonymous_session_cuts"
+    elif "zona" in query:
         result_sql = (
             "SELECT dominant_zone, COUNT(*) AS sessoes, AVG(ipm_score) AS ipm_medio, "
             "AVG(vocal_tension) AS tensao_vocal_media "
             "FROM anonymous_sessions GROUP BY dominant_zone ORDER BY sessoes DESC LIMIT 12"
         )
+        cohort_sql = "SELECT COUNT(DISTINCT session_hash) AS cohort_size FROM anonymous_sessions"
     elif "medic" in query or "ssri" in query:
         result_sql = (
             "SELECT ssri_medication, COUNT(*) AS sessoes, AVG(ipm_score) AS ipm_medio, "
             "AVG(vocal_tension) AS tensao_vocal_media "
             "FROM anonymous_sessions GROUP BY ssri_medication ORDER BY sessoes DESC"
         )
+        cohort_sql = "SELECT COUNT(DISTINCT session_hash) AS cohort_size FROM anonymous_sessions"
     else:
         result_sql = (
             "SELECT age_bucket, gender, COUNT(*) AS sessoes, AVG(ipm_score) AS ipm_medio, "
             "AVG(vocal_tension) AS tensao_vocal_media, AVG(session_duration) AS duracao_media "
             "FROM anonymous_sessions GROUP BY age_bucket, gender ORDER BY sessoes DESC LIMIT 20"
         )
+        cohort_sql = "SELECT COUNT(DISTINCT session_hash) AS cohort_size FROM anonymous_sessions"
     return {
         "result_sql": result_sql,
-        "cohort_sql": "SELECT COUNT(*) AS cohort_size FROM anonymous_sessions",
+        "cohort_sql": cohort_sql,
     }
 
 
@@ -434,12 +454,19 @@ async def _query_froid_analytics(payload: FroidExplicaQuery) -> FroidExplicaResp
 
     sql_instruction = (
         "Voce traduz perguntas clinicas agregadas para DuckDB com seguranca LGPD. "
-        "Existe apenas a tabela anonymous_sessions com colunas: age_bucket VARCHAR, "
-        "gender VARCHAR, ipm_score DOUBLE, dominant_zone INTEGER, vocal_tension DOUBLE, "
-        "ssri_medication BOOLEAN, session_duration INTEGER. "
+        "Existem duas tabelas anonimas: anonymous_sessions e anonymous_session_cuts. "
+        "anonymous_sessions contem: session_hash VARCHAR, age_bucket VARCHAR, gender VARCHAR, "
+        "ipm_score DOUBLE, dominant_zone INTEGER, vocal_tension DOUBLE, ssri_medication BOOLEAN, "
+        "session_duration INTEGER. "
+        "anonymous_session_cuts contem: session_hash VARCHAR, cut_index INTEGER, cut_label VARCHAR, "
+        "start_second INTEGER, end_second INTEGER, sample_count INTEGER, ipm_avg DOUBLE, "
+        "idm_avg DOUBLE, dominant_zone INTEGER, coherence_status VARCHAR, emotional_tone VARCHAR, "
+        "words_per_minute DOUBLE, theme VARCHAR, dissonance_count INTEGER, mfcc7 DOUBLE, mfcc9 DOUBLE, "
+        "f0_mean DOUBLE, zcr DOUBLE, jitter DOUBLE, shimmer DOUBLE, subharmonic_5_12 DOUBLE, "
+        "subharmonic_12_20 DOUBLE. "
         "Retorne somente JSON valido com result_sql e cohort_sql. "
         "result_sql deve ser SELECT agregado, sem dados individuais. "
-        "cohort_sql deve retornar SELECT COUNT(*) AS cohort_size FROM anonymous_sessions "
+        "cohort_sql deve retornar COUNT(DISTINCT session_hash) AS cohort_size a partir da coorte consultada "
         "com os mesmos filtros de coorte usados no result_sql. Nao use markdown."
     )
     sql_text, sql_engine = await _generate_froid_explain_text(
@@ -520,6 +547,181 @@ async def _query_froid_analytics(payload: FroidExplicaQuery) -> FroidExplicaResp
         safety_check_passed=True,
         intent="analytics",
     )
+
+
+def _load_session_reports() -> Dict[str, dict]:
+    try:
+        if not os.path.exists(FROID_SESSION_REPORTS_PATH):
+            return {}
+        with open(FROID_SESSION_REPORTS_PATH, "r", encoding="utf-8") as report_file:
+            data = json.load(report_file)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _save_session_reports(reports: Dict[str, dict]) -> None:
+    os.makedirs(os.path.dirname(FROID_SESSION_REPORTS_PATH), exist_ok=True)
+    with open(FROID_SESSION_REPORTS_PATH, "w", encoding="utf-8") as report_file:
+        json.dump(reports, report_file, ensure_ascii=False, indent=2)
+
+
+def _safe_float(value, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except Exception:
+        return default
+
+
+def _safe_int(value, default: int = 0) -> int:
+    try:
+        return int(value)
+    except Exception:
+        return default
+
+
+def _anonymous_session_hash(report: dict) -> str:
+    raw = f"{report.get('sessionId') or report.get('session_id') or ''}:{report.get('createdAt') or ''}"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _ensure_duckdb_column(conn, table: str, column: str, definition: str) -> None:
+    try:
+        columns = {
+            str(row[1]).lower()
+            for row in conn.execute(f"PRAGMA table_info('{table}')").fetchall()
+        }
+        if column.lower() not in columns:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+    except Exception:
+        pass
+
+
+def _append_anonymous_datamart_row(report: dict) -> None:
+    try:
+        import duckdb
+
+        os.makedirs(os.path.dirname(FROID_DUCKDB_PATH), exist_ok=True)
+        conn = duckdb.connect(database=FROID_DUCKDB_PATH, read_only=False)
+        session_hash = _anonymous_session_hash(report)
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS anonymous_sessions (
+                session_hash VARCHAR,
+                age_bucket VARCHAR,
+                gender VARCHAR,
+                ipm_score DOUBLE,
+                dominant_zone INTEGER,
+                vocal_tension DOUBLE,
+                ssri_medication BOOLEAN,
+                session_duration INTEGER
+            )
+            """
+        )
+        _ensure_duckdb_column(conn, "anonymous_sessions", "session_hash", "VARCHAR")
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS anonymous_session_cuts (
+                session_hash VARCHAR,
+                cut_index INTEGER,
+                cut_label VARCHAR,
+                start_second INTEGER,
+                end_second INTEGER,
+                sample_count INTEGER,
+                ipm_avg DOUBLE,
+                idm_avg DOUBLE,
+                dominant_zone INTEGER,
+                dominant_theme VARCHAR,
+                coherence_status VARCHAR,
+                emotional_tone VARCHAR,
+                words_per_minute DOUBLE,
+                theme VARCHAR,
+                dissonance_count INTEGER,
+                mfcc7 DOUBLE,
+                mfcc9 DOUBLE,
+                f0_mean DOUBLE,
+                zcr DOUBLE,
+                jitter DOUBLE,
+                shimmer DOUBLE,
+                subharmonic_5_12 DOUBLE,
+                subharmonic_12_20 DOUBLE
+            )
+            """
+        )
+        average = report.get("sessionAverage") or {}
+        baseline = report.get("baseline") or {}
+        dominant_zone = average.get("dominantZone") or baseline.get("dominantZone")
+        vocal_tension = (
+            average.get("jitter")
+            or average.get("shimmer")
+            or average.get("subharmonic5_12")
+            or 0
+        )
+        conn.execute("DELETE FROM anonymous_session_cuts WHERE session_hash = ?", [session_hash])
+        try:
+            conn.execute("DELETE FROM anonymous_sessions WHERE session_hash = ?", [session_hash])
+        except Exception:
+            pass
+        conn.execute(
+            """
+            INSERT INTO anonymous_sessions (
+                session_hash, age_bucket, gender, ipm_score, dominant_zone, vocal_tension,
+                ssri_medication, session_duration
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                session_hash,
+                "unknown",
+                "unknown",
+                _safe_float(average.get("ipmAvg")),
+                _safe_int(dominant_zone),
+                _safe_float(vocal_tension),
+                False,
+                _safe_int(report.get("durationSeconds")),
+            ],
+        )
+        for index, cut in enumerate(report.get("tenMinuteCuts") or []):
+            if not isinstance(cut, dict):
+                continue
+            conn.execute(
+                """
+                INSERT INTO anonymous_session_cuts (
+                    session_hash, cut_index, cut_label, start_second, end_second,
+                    sample_count, ipm_avg, idm_avg, dominant_zone, dominant_theme,
+                    coherence_status, emotional_tone, words_per_minute, theme,
+                    dissonance_count, mfcc7, mfcc9, f0_mean, zcr, jitter, shimmer,
+                    subharmonic_5_12, subharmonic_12_20
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    session_hash,
+                    index,
+                    str(cut.get("label") or ""),
+                    _safe_int(cut.get("startSecond")),
+                    _safe_int(cut.get("endSecond")),
+                    _safe_int(cut.get("sampleCount")),
+                    _safe_float(cut.get("ipmAvg")),
+                    _safe_float(cut.get("idmAvg")),
+                    _safe_int(cut.get("dominantZone")),
+                    str(cut.get("dominantTheme") or ""),
+                    str(cut.get("coherenceStatus") or ""),
+                    str(cut.get("emotionalTone") or ""),
+                    _safe_float(cut.get("wordsPerMinute")),
+                    str(cut.get("theme") or ""),
+                    _safe_int(cut.get("dissonanceCount")),
+                    _safe_float(cut.get("mfcc7")),
+                    _safe_float(cut.get("mfcc9")),
+                    _safe_float(cut.get("f0Mean")),
+                    _safe_float(cut.get("zcr")),
+                    _safe_float(cut.get("jitter")),
+                    _safe_float(cut.get("shimmer")),
+                    _safe_float(cut.get("subharmonic5_12")),
+                    _safe_float(cut.get("subharmonic12_20")),
+                ],
+            )
+        conn.close()
+    except Exception:
+        pass
 
 
 class ConnectionManager:
@@ -1238,6 +1440,41 @@ async def froid_explica_query(payload: FroidExplicaQuery):
 @app.post("/api/copilot/query", response_model=FroidExplicaResponse)
 async def copilot_query_alias(payload: FroidExplicaQuery):
     return await froid_explica_query(payload)
+
+
+@app.post("/api/session-reports")
+async def save_session_report(request: Request):
+    report = await request.json()
+    session_id = str(report.get("sessionId") or report.get("session_id") or "").strip()
+    if not session_id:
+        raise HTTPException(status_code=400, detail="sessionId obrigatorio")
+    reports = _load_session_reports()
+    reports[session_id] = report
+    _save_session_reports(reports)
+    _append_anonymous_datamart_row(report)
+    return {"status": "ok", "session_id": session_id}
+
+
+@app.get("/api/session-reports/{session_id}")
+async def get_session_report(session_id: str):
+    report = _load_session_reports().get(session_id)
+    if not report:
+        raise HTTPException(status_code=404, detail="Relatorio nao encontrado")
+    return report
+
+
+@app.delete("/api/session-reports/{session_id}")
+async def delete_session_report(session_id: str):
+    reports = _load_session_reports()
+    if session_id not in reports:
+        raise HTTPException(status_code=404, detail="Relatorio nao encontrado")
+    del reports[session_id]
+    _save_session_reports(reports)
+    return {
+        "status": "deleted",
+        "session_id": session_id,
+        "note": "Relatorio identificado removido. Registros anonimizados agregados nao contem PII.",
+    }
 
 
 @app.post("/api/insights")
