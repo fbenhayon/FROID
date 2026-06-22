@@ -898,9 +898,6 @@ def _transcribe_sync(audio_bytes: bytes, filename: str, prompt: str = "") -> str
     }
     if prompt:
         kwargs["prompt"] = prompt
-    if OPENAI_TRANSCRIBE_MODEL.startswith("gpt-4o"):
-        kwargs["include"] = ["logprobs"]
-
     response = client.audio.transcriptions.create(**kwargs)
     if isinstance(response, str):
         return response.strip()

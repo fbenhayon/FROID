@@ -47,6 +47,14 @@ interface ConversationSummary {
 }
 
 type SpeakerRole = "PC" | "DR";
+type SpeakerIdMode = "auto" | "manual";
+
+interface VoiceSignature {
+  vector: number[];
+  threshold: number;
+  sampleCount: number;
+  createdAt: string;
+}
 
 interface SessionState {
   connected: boolean;
@@ -79,6 +87,7 @@ type Action =
 
 const DISSONANCE_REPORT_THRESHOLD = 1.5;
 const DISSONANCE_CRITICAL_THRESHOLD = 3.0;
+const DR_VOICEPRINT_STORAGE_KEY = "froid_dr_voiceprint_v1";
 
 function dissonanceScore(zone?: PerceptionZone | null) {
   return Math.abs(Number(zone?.deviation_score || 0));
@@ -417,6 +426,109 @@ function frequencyBandEnergy(
   }
 
   return clamp(sum / (end - start + 1));
+}
+
+function voiceFeatureVector(
+  timeData: Float32Array,
+  frequencyData: Uint8Array,
+  sampleRate: number,
+  fftSize: number,
+) {
+  let sumSquares = 0;
+  let peak = 0;
+  let zeroCrossings = 0;
+  let previous = timeData[0] || 0;
+  for (let index = 0; index < timeData.length; index += 1) {
+    const value = timeData[index] || 0;
+    const abs = Math.abs(value);
+    sumSquares += value * value;
+    peak = Math.max(peak, abs);
+    if ((previous >= 0 && value < 0) || (previous < 0 && value >= 0)) {
+      zeroCrossings += 1;
+    }
+    previous = value;
+  }
+  const rms = Math.sqrt(sumSquares / Math.max(1, timeData.length));
+  if (peak < 0.006 || rms < 0.0006) return null;
+
+  let weighted = 0;
+  let total = 0;
+  const binHz = sampleRate / fftSize;
+  for (let index = 0; index < frequencyData.length; index += 1) {
+    const energy = frequencyData[index] / 255;
+    weighted += energy * index * binHz;
+    total += energy;
+  }
+  const centroid = total > 0 ? weighted / total : 0;
+  const low = frequencyBandEnergy(frequencyData, sampleRate, fftSize, 85, 255);
+  const mid = frequencyBandEnergy(frequencyData, sampleRate, fftSize, 255, 900);
+  const high = frequencyBandEnergy(frequencyData, sampleRate, fftSize, 900, 3200);
+  const upper = frequencyBandEnergy(frequencyData, sampleRate, fftSize, 3200, 7000);
+  return [
+    clamp(rms * 12),
+    clamp(peak * 3),
+    clamp(zeroCrossings / timeData.length / 0.25),
+    clamp(centroid / 5000),
+    low,
+    mid,
+    high,
+    upper,
+  ];
+}
+
+function meanVector(samples: number[][]) {
+  if (!samples.length) return [];
+  const length = samples[0].length;
+  return Array.from({ length }, (_, index) =>
+    samples.reduce((sum, sample) => sum + (sample[index] || 0), 0) /
+    samples.length,
+  );
+}
+
+function voiceDistance(a: number[] | undefined, b: number[] | undefined) {
+  if (!a?.length || !b?.length || a.length !== b.length) return Number.POSITIVE_INFINITY;
+  const sum = a.reduce((total, value, index) => {
+    const diff = value - b[index];
+    return total + diff * diff;
+  }, 0);
+  return Math.sqrt(sum / a.length);
+}
+
+function buildVoiceSignature(samples: number[][]): VoiceSignature | null {
+  if (samples.length < 18) return null;
+  const vector = meanVector(samples);
+  const distances = samples.map((sample) => voiceDistance(sample, vector));
+  const avgDistance = distances.reduce((sum, value) => sum + value, 0) / distances.length;
+  const variance =
+    distances.reduce((sum, value) => sum + (value - avgDistance) ** 2, 0) /
+    distances.length;
+  const threshold = clamp(avgDistance + Math.sqrt(variance) * 3 + 0.045, 0.09, 0.26);
+  return {
+    vector,
+    threshold,
+    sampleCount: samples.length,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+function loadDrVoiceSignature(): VoiceSignature | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(DR_VOICEPRINT_STORAGE_KEY) || "null");
+    if (
+      parsed &&
+      Array.isArray(parsed.vector) &&
+      parsed.vector.every((value: unknown) => typeof value === "number")
+    ) {
+      return parsed as VoiceSignature;
+    }
+  } catch {}
+  return null;
+}
+
+function saveDrVoiceSignature(signature: VoiceSignature) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(DR_VOICEPRINT_STORAGE_KEY, JSON.stringify(signature));
 }
 
 function envelopeBandEnergy(
@@ -799,6 +911,19 @@ function LiveSessionInner(_: LiveSessionProps) {
   const [rtcStatus, setRtcStatus] = useState("Aguardando paciente");
   const [remotePatientOn, setRemotePatientOn] = useState(false);
   const [localSpeaker, setLocalSpeaker] = useState<SpeakerRole>("DR");
+  const [attributedSpeaker, setAttributedSpeaker] = useState<SpeakerRole>("DR");
+  const [speakerIdMode, setSpeakerIdMode] = useState<SpeakerIdMode>(() =>
+    loadDrVoiceSignature() ? "auto" : "manual",
+  );
+  const [drVoiceSignature, setDrVoiceSignature] = useState<VoiceSignature | null>(() =>
+    loadDrVoiceSignature(),
+  );
+  const [voiceIdStatus, setVoiceIdStatus] = useState(
+    loadDrVoiceSignature()
+      ? "Identificacao automatica pronta."
+      : "Cadastre a voz do DR para identificacao automatica.",
+  );
+  const [isEnrollingDrVoice, setIsEnrollingDrVoice] = useState(false);
   const [patientAudioVersion, setPatientAudioVersion] = useState(0);
   const frameBuffer = useRef<FroidPayload[]>([]);
   const sessionSamplesRef = useRef<SessionSample[]>([]);
@@ -847,8 +972,14 @@ function LiveSessionInner(_: LiveSessionProps) {
   }>({ totalWords: 0, windows: [] });
   const lastDissonanceSig = useRef("");
   const activeSpeakerRef = useRef<SpeakerRole>("DR");
+  const attributedSpeakerRef = useRef<SpeakerRole>("DR");
   const forcedLocalSegmentSpeakerRef = useRef<SpeakerRole | null>(null);
   const remotePatientOnRef = useRef(false);
+  const speakerIdModeRef = useRef<SpeakerIdMode>(speakerIdMode);
+  const drVoiceSignatureRef = useRef<VoiceSignature | null>(drVoiceSignature);
+  const voiceIdRafRef = useRef<number | null>(null);
+  const voiceIdContextRef = useRef<AudioContext | null>(null);
+  const voiceIdHistoryRef = useRef<SpeakerRole[]>([]);
 
   useEffect(() => {
     const id = setInterval(() => dispatch({ type: "TICK" }), 1000);
@@ -863,9 +994,33 @@ function LiveSessionInner(_: LiveSessionProps) {
     remotePatientOnRef.current = remotePatientOn;
   }, [remotePatientOn]);
 
+  useEffect(() => {
+    speakerIdModeRef.current = speakerIdMode;
+  }, [speakerIdMode]);
+
+  useEffect(() => {
+    drVoiceSignatureRef.current = drVoiceSignature;
+  }, [drVoiceSignature]);
+
+  const applyAttributedSpeaker = useCallback((speaker: SpeakerRole, reason = "") => {
+    attributedSpeakerRef.current = speaker;
+    setAttributedSpeaker((prev) => (prev === speaker ? prev : speaker));
+    if (speakerIdModeRef.current === "auto") {
+      setLocalSpeaker((prev) => (prev === speaker ? prev : speaker));
+    }
+    if (reason) {
+      setLiveTranscription((prev) => ({
+        ...(prev || {}),
+        speaker_identification: reason,
+        attributed_speaker: speaker,
+      }));
+    }
+  }, []);
+
   const selectLocalSpeaker = useCallback((speaker: SpeakerRole) => {
     const previousSpeaker = activeSpeakerRef.current;
     if (previousSpeaker === speaker) return;
+    setSpeakerIdMode("manual");
     const recorder = recorderRef.current;
     if (
       recorder &&
@@ -882,6 +1037,7 @@ function LiveSessionInner(_: LiveSessionProps) {
       frameBuffer.current = [];
     }
     activeSpeakerRef.current = speaker;
+    applyAttributedSpeaker(speaker, "Modo manual definido pelo profissional.");
     setLocalSpeaker(speaker);
     setLiveTranscription((prev) => ({
       ...(prev || {}),
@@ -902,6 +1058,181 @@ function LiveSessionInner(_: LiveSessionProps) {
         .some((track) => track.enabled && track.readyState === "live") || false;
     dispatch({ type: "MEDIA_STATUS", cameraOn, micOn });
   }, []);
+
+  const stopVoiceIdentification = useCallback(() => {
+    if (voiceIdRafRef.current) {
+      window.cancelAnimationFrame(voiceIdRafRef.current);
+      voiceIdRafRef.current = null;
+    }
+    const context = voiceIdContextRef.current;
+    voiceIdContextRef.current = null;
+    if (context && context.state !== "closed") {
+      void context.close().catch(() => undefined);
+    }
+    voiceIdHistoryRef.current = [];
+  }, []);
+
+  const startVoiceIdentification = useCallback(
+    (stream: MediaStream) => {
+      if (typeof window === "undefined" || remotePatientOnRef.current) return;
+      const signature = drVoiceSignatureRef.current;
+      if (!signature) {
+        setVoiceIdStatus("Cadastre a voz do DR para identificacao automatica.");
+        return;
+      }
+      const audioTrack = stream
+        .getAudioTracks()
+        .find((track) => track.readyState === "live");
+      if (!audioTrack) return;
+
+      const AudioContextCtor =
+        (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextCtor) {
+        setVoiceIdStatus("Identificacao vocal indisponivel neste navegador.");
+        return;
+      }
+
+      stopVoiceIdentification();
+      let context: AudioContext;
+      try {
+        context = new AudioContextCtor({ sampleRate: 48000 });
+      } catch {
+        context = new AudioContextCtor();
+      }
+      const analyser = context.createAnalyser();
+      analyser.fftSize = 2048;
+      analyser.minDecibels = -95;
+      analyser.maxDecibels = -15;
+      analyser.smoothingTimeConstant = 0.18;
+      const source = context.createMediaStreamSource(new MediaStream([audioTrack]));
+      source.connect(analyser);
+      voiceIdContextRef.current = context;
+      const timeData = new Float32Array(analyser.fftSize);
+      const frequencyData = new Uint8Array(analyser.frequencyBinCount);
+      let frameCount = 0;
+
+      const analyse = () => {
+        if (voiceIdContextRef.current !== context) return;
+        analyser.getFloatTimeDomainData(timeData);
+        analyser.getByteFrequencyData(frequencyData);
+        frameCount += 1;
+        if (frameCount % 18 === 0 && speakerIdModeRef.current === "auto") {
+          const currentSignature = drVoiceSignatureRef.current;
+          const vector = voiceFeatureVector(
+            timeData,
+            frequencyData,
+            context.sampleRate,
+            analyser.fftSize,
+          );
+          if (currentSignature && vector) {
+            const distance = voiceDistance(vector, currentSignature.vector);
+            const speaker: SpeakerRole =
+              distance <= currentSignature.threshold ? "DR" : "PC";
+            voiceIdHistoryRef.current = [
+              ...voiceIdHistoryRef.current.slice(-5),
+              speaker,
+            ];
+            const drVotes = voiceIdHistoryRef.current.filter((item) => item === "DR").length;
+            const pcVotes = voiceIdHistoryRef.current.length - drVotes;
+            const stableSpeaker: SpeakerRole = drVotes >= pcVotes ? "DR" : "PC";
+            applyAttributedSpeaker(
+              stableSpeaker,
+              `Auto voz DR: ${distance.toFixed(3)} / ${currentSignature.threshold.toFixed(3)}`,
+            );
+            setVoiceIdStatus(
+              `Auto: ${stableSpeaker} (${distance.toFixed(3)} / ${currentSignature.threshold.toFixed(3)})`,
+            );
+          }
+        }
+        voiceIdRafRef.current = window.requestAnimationFrame(analyse);
+      };
+
+      void context.resume?.().catch(() => undefined);
+      setVoiceIdStatus("Identificacao automatica ativa.");
+      voiceIdRafRef.current = window.requestAnimationFrame(analyse);
+    },
+    [applyAttributedSpeaker, stopVoiceIdentification],
+  );
+
+  const enrollDrVoice = useCallback(async () => {
+    if (isEnrollingDrVoice) return;
+    const stream = mediaStreamRef.current;
+    const audioTrack = stream
+      ?.getAudioTracks()
+      .find((track) => track.readyState === "live");
+    if (!stream || !audioTrack || typeof window === "undefined") {
+      setVoiceIdStatus("Microfone local indisponivel para cadastrar voz do DR.");
+      return;
+    }
+    const AudioContextCtor =
+      (window as any).AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextCtor) {
+      setVoiceIdStatus("Cadastro vocal indisponivel neste navegador.");
+      return;
+    }
+    setIsEnrollingDrVoice(true);
+    setSpeakerIdMode("manual");
+    applyAttributedSpeaker("DR", "Cadastro da voz do DR em andamento.");
+
+    let context: AudioContext;
+    try {
+      context = new AudioContextCtor({ sampleRate: 48000 });
+    } catch {
+      context = new AudioContextCtor();
+    }
+    const analyser = context.createAnalyser();
+    analyser.fftSize = 2048;
+    analyser.minDecibels = -95;
+    analyser.maxDecibels = -15;
+    analyser.smoothingTimeConstant = 0.12;
+    const source = context.createMediaStreamSource(new MediaStream([audioTrack]));
+    source.connect(analyser);
+    const timeData = new Float32Array(analyser.fftSize);
+    const frequencyData = new Uint8Array(analyser.frequencyBinCount);
+    const samples: number[][] = [];
+    const start = performance.now();
+
+    await new Promise<void>((resolve) => {
+      const collect = (now: number) => {
+        analyser.getFloatTimeDomainData(timeData);
+        analyser.getByteFrequencyData(frequencyData);
+        const vector = voiceFeatureVector(
+          timeData,
+          frequencyData,
+          context!.sampleRate,
+          analyser.fftSize,
+        );
+        if (vector) samples.push(vector);
+        const elapsed = Math.min(8, (now - start) / 1000);
+        setVoiceIdStatus(`Cadastrando voz do DR: ${elapsed.toFixed(1)}s / 8s`);
+        if (now - start >= 8000) {
+          resolve();
+          return;
+        }
+        window.requestAnimationFrame(collect);
+      };
+      void context?.resume?.().catch(() => undefined);
+      window.requestAnimationFrame(collect);
+    });
+
+    const signature = buildVoiceSignature(samples);
+    if (context.state !== "closed") {
+      await context.close().catch(() => undefined);
+    }
+    setIsEnrollingDrVoice(false);
+    if (!signature) {
+      setVoiceIdStatus("Cadastro insuficiente. Fale novamente por 8 segundos em tom natural.");
+      setSpeakerIdMode("manual");
+      return;
+    }
+    saveDrVoiceSignature(signature);
+    setDrVoiceSignature(signature);
+    setSpeakerIdMode("auto");
+    setVoiceIdStatus(
+      `Voz do DR cadastrada (${signature.sampleCount} amostras). Identificacao automatica ativa.`,
+    );
+    startVoiceIdentification(stream);
+  }, [applyAttributedSpeaker, isEnrollingDrVoice, startVoiceIdentification]);
 
   const cleanupRtcCall = useCallback(() => {
     rtcSignalRef.current?.close();
@@ -1208,7 +1539,7 @@ function LiveSessionInner(_: LiveSessionProps) {
     const text = rawText.replace(/\s+/g, " ").trim();
     if (!text) return;
 
-    const speaker = speakerOverride || activeSpeakerRef.current;
+    const speaker = speakerOverride || attributedSpeakerRef.current;
     const prefix = speakerPrefix(speaker);
     const line = `${prefix}${text}`;
     const normalized = normalizeTranscriptText(text);
@@ -1311,11 +1642,12 @@ function LiveSessionInner(_: LiveSessionProps) {
     patientRecorderRef.current = null;
     cleanupRtcCall();
     stopRawBioacousticPipeline();
+    stopVoiceIdentification();
     mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
     mediaStreamRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
     if (reportStatus) refreshMediaStatus(null);
-  }, [cleanupRtcCall, refreshMediaStatus, stopRawBioacousticPipeline]);
+  }, [cleanupRtcCall, refreshMediaStatus, stopRawBioacousticPipeline, stopVoiceIdentification]);
 
   const startBrowserSpeechToText = useCallback((stream: MediaStream) => {
     if (typeof window === "undefined") return false;
@@ -1367,7 +1699,7 @@ function LiveSessionInner(_: LiveSessionProps) {
             ...(prev || {}),
             provider: prev?.provider || "browser-live",
             transcription_status: "listening",
-            transcription_interim: `${speakerPrefix(activeSpeakerRef.current)}${interim.trim()}`,
+            transcription_interim: `${speakerPrefix(attributedSpeakerRef.current)}${interim.trim()}`,
             transcription_error: "",
           }));
         }
@@ -1766,7 +2098,7 @@ function LiveSessionInner(_: LiveSessionProps) {
             const segmentSpeaker =
               forcedSpeaker ||
               (source === "professional" && !remotePatientOnRef.current
-                ? activeSpeakerRef.current
+                ? attributedSpeakerRef.current
                 : speaker);
             if (source === "professional") {
               forcedLocalSegmentSpeakerRef.current = null;
@@ -1843,6 +2175,7 @@ function LiveSessionInner(_: LiveSessionProps) {
       return;
     }
 
+    stopVoiceIdentification();
     startRawBioacousticPipeline(patientBioacousticStream, "patient-webrtc");
     startSpeechToText(patientTranscriptStream, "PC", "patient");
     setLiveTranscription((prev) => ({
@@ -1855,7 +2188,7 @@ function LiveSessionInner(_: LiveSessionProps) {
       transcription_sources: "DR-profissional/PC-paciente",
       bioacoustic_error: "",
     }));
-  }, [patientAudioVersion, startRawBioacousticPipeline, startSpeechToText]);
+  }, [patientAudioVersion, startRawBioacousticPipeline, startSpeechToText, stopVoiceIdentification]);
 
   useEffect(() => {
     if (remotePatientOn) return;
@@ -1865,7 +2198,10 @@ function LiveSessionInner(_: LiveSessionProps) {
 
     if (!localAudioTrack) return;
 
-    if (localSpeaker === "PC") {
+    const metricSpeaker =
+      speakerIdMode === "auto" && drVoiceSignature ? attributedSpeaker : localSpeaker;
+
+    if (metricSpeaker === "PC") {
       startRawBioacousticPipeline(
         new MediaStream([localAudioTrack.clone()]),
         "semantic-fallback",
@@ -1896,8 +2232,11 @@ function LiveSessionInner(_: LiveSessionProps) {
         "Atendimento presencial com alternancia manual DR/PC.",
     }));
   }, [
+    attributedSpeaker,
+    drVoiceSignature,
     localSpeaker,
     remotePatientOn,
+    speakerIdMode,
     state.micOn,
     startRawBioacousticPipeline,
     stopRawBioacousticPipeline,
@@ -1953,6 +2292,7 @@ function LiveSessionInner(_: LiveSessionProps) {
 
     const stream = new MediaStream(tracks);
     mediaStreamRef.current = stream;
+    startVoiceIdentification(stream);
     startSpeechToText(stream, "DR", "professional");
     setLiveTranscription((prev) => ({
       ...(prev || {}),
@@ -1998,6 +2338,7 @@ function LiveSessionInner(_: LiveSessionProps) {
     refreshMediaStatus,
     startBrowserSpeechToText,
     startProfessionalRtcCall,
+    startVoiceIdentification,
     startRawBioacousticPipeline,
     startSpeechToText,
     stopMedia,
@@ -2068,7 +2409,7 @@ function LiveSessionInner(_: LiveSessionProps) {
             const data: FroidPayload = JSON.parse(event.data);
             const elapsedSeconds = elapsedSecondsRef.current;
             const shouldUseForMetrics =
-              remotePatientOnRef.current || activeSpeakerRef.current === "PC";
+              remotePatientOnRef.current || attributedSpeakerRef.current === "PC";
             if (!shouldUseForMetrics) {
               setLiveTranscription((prev) => ({
                 ...(prev || {}),
@@ -2350,13 +2691,59 @@ function LiveSessionInner(_: LiveSessionProps) {
               Fala presencial
             </span>
             <span className="text-[9px] font-semibold text-slate-400">
-              {remotePatientOn ? "Remoto automatico" : "Alternancia manual"}
+              {remotePatientOn
+                ? "Remoto automatico"
+                : speakerIdMode === "auto"
+                  ? `Auto: ${attributedSpeaker}`
+                  : "Manual"}
             </span>
           </div>
+          {!remotePatientOn && (
+            <div className="mb-2 grid grid-cols-[1fr_auto_auto] gap-2">
+              <button
+                type="button"
+                onClick={enrollDrVoice}
+                disabled={isEnrollingDrVoice}
+                className="rounded-md border border-cyan-200 bg-cyan-50 px-2 py-1 text-[10px] font-black text-cyan-800 hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {drVoiceSignature ? "Recadastrar voz DR" : "Cadastrar voz DR"}
+              </button>
+              <button
+                type="button"
+                disabled={!drVoiceSignature}
+                onClick={() => {
+                  setSpeakerIdMode("auto");
+                  if (mediaStreamRef.current) startVoiceIdentification(mediaStreamRef.current);
+                }}
+                className={`rounded-md border px-2 py-1 text-[10px] font-black ${
+                  speakerIdMode === "auto"
+                    ? "border-emerald-500 bg-emerald-500 text-white"
+                    : "border-slate-200 bg-white text-slate-600 hover:border-emerald-300"
+                } disabled:cursor-not-allowed disabled:opacity-40`}
+              >
+                Auto
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSpeakerIdMode("manual");
+                  stopVoiceIdentification();
+                }}
+                className={`rounded-md border px-2 py-1 text-[10px] font-black ${
+                  speakerIdMode === "manual"
+                    ? "border-slate-700 bg-slate-700 text-white"
+                    : "border-slate-200 bg-white text-slate-600 hover:border-slate-400"
+                }`}
+              >
+                Manual
+              </button>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-2">
             {(["DR", "PC"] as SpeakerRole[]).map((speaker) => {
-              const active = localSpeaker === speaker;
-              const disabled = remotePatientOn;
+              const active =
+                (speakerIdMode === "auto" ? attributedSpeaker : localSpeaker) === speaker;
+              const disabled = remotePatientOn || speakerIdMode === "auto";
               return (
                 <button
                   key={speaker}
@@ -2377,7 +2764,9 @@ function LiveSessionInner(_: LiveSessionProps) {
           <p className="mt-2 text-[10px] leading-snug text-slate-500">
             {remotePatientOn
               ? "Com paciente remoto, o FROID separa DR pela trilha local e PC pela trilha do paciente."
-              : "Em consulta presencial, clique DR ou PC antes de cada fala. DR entra somente na transcricao; PC alimenta transcricao e metricas FROID."}
+              : speakerIdMode === "auto"
+                ? `${voiceIdStatus} DR entra somente na transcricao; PC alimenta transcricao e metricas FROID.`
+                : "Fallback manual: clique DR ou PC antes da fala. DR entra somente na transcricao; PC alimenta transcricao e metricas FROID."}
           </p>
         </div>
 
@@ -2391,8 +2780,10 @@ function LiveSessionInner(_: LiveSessionProps) {
           themeMinuteMark={displayAudio.theme_minute_mark}
           audioMeta={displayAudio}
           conversationSummaries={conversationSummaries}
-          activeSpeaker={localSpeaker}
-          onSpeakerChange={remotePatientOn ? undefined : selectLocalSpeaker}
+          activeSpeaker={attributedSpeaker}
+          onSpeakerChange={
+            remotePatientOn || speakerIdMode === "auto" ? undefined : selectLocalSpeaker
+          }
         />
 
         {state.phase === "CALIBRATING" && (
