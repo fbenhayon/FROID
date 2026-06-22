@@ -55,6 +55,57 @@ export interface SessionReportRecord {
     report: string;
   }>;
   transcript: string;
+  metricsAnalysis?: MetricsAnalysis;
+  metricsAnalysisError?: string;
+}
+
+export interface MetricsAnalysis {
+  schema: string;
+  metrics: Array<{
+    key: string;
+    label: string;
+    unit: string;
+    category: string;
+  }>;
+  dashboard: {
+    populated_windows: number;
+    mean_coverage: number | null;
+    mean_confidence: number | null;
+    last_risk: number | null;
+    max_risk: number | null;
+    last_dissonance: number | null;
+    max_dissonance: number | null;
+    data_status: string;
+    critical_alerts: number;
+    alerts_count: number;
+  };
+  summary: Record<
+    string,
+    {
+      baseline: number | null;
+      baseline_std: number | null;
+      session_mean: number | null;
+      last: number | null;
+      min: number | null;
+      max: number | null;
+      delta_mean: number | null;
+      delta_last: number | null;
+      z_last: number | null;
+      alerts: string[];
+    }
+  >;
+  evolution: Array<{
+    label: string;
+    start_min: number;
+    end_min: number;
+    ipm: number | null;
+    idm: number | null;
+    words_per_minute: number | null;
+    clinical_risk: number | null;
+    facial_vocal_dissonance: number | null;
+    quality: string;
+  }>;
+  report_rendered: string;
 }
 
 const REPORT_STORAGE_KEY = "froid_session_reports_v1";

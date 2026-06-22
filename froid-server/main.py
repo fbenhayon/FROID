@@ -14,6 +14,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPExcept
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from froid_core import SessionState, MockBiometricStream
+from froid_metrics_engine import calculate_report_metrics
 import httpx
 
 app = FastAPI(title="FROID Fusion Server", version="3.0.0")
@@ -722,6 +723,15 @@ def _append_anonymous_datamart_row(report: dict) -> None:
         conn.close()
     except Exception:
         pass
+
+
+def _attach_metrics_analysis(report: dict) -> dict:
+    try:
+        report["metricsAnalysis"] = calculate_report_metrics(report)
+        report.pop("metricsAnalysisError", None)
+    except Exception as exc:
+        report["metricsAnalysisError"] = str(exc)
+    return report
 
 
 class ConnectionManager:
@@ -1448,11 +1458,29 @@ async def save_session_report(request: Request):
     session_id = str(report.get("sessionId") or report.get("session_id") or "").strip()
     if not session_id:
         raise HTTPException(status_code=400, detail="sessionId obrigatorio")
+    report = _attach_metrics_analysis(report)
     reports = _load_session_reports()
     reports[session_id] = report
     _save_session_reports(reports)
     _append_anonymous_datamart_row(report)
-    return {"status": "ok", "session_id": session_id}
+    return {
+        "status": "ok",
+        "session_id": session_id,
+        "metrics_analysis": report.get("metricsAnalysis"),
+        "metrics_analysis_error": report.get("metricsAnalysisError"),
+    }
+
+
+@app.get("/api/session-reports/{session_id}/metrics")
+async def get_session_report_metrics(session_id: str):
+    report = _load_session_reports().get(session_id)
+    if not report:
+        raise HTTPException(status_code=404, detail="Relatorio nao encontrado")
+    if not report.get("metricsAnalysis"):
+        report = _attach_metrics_analysis(report)
+    if report.get("metricsAnalysisError") and not report.get("metricsAnalysis"):
+        raise HTTPException(status_code=500, detail=report["metricsAnalysisError"])
+    return report.get("metricsAnalysis")
 
 
 @app.get("/api/session-reports/{session_id}")
@@ -1460,6 +1488,8 @@ async def get_session_report(session_id: str):
     report = _load_session_reports().get(session_id)
     if not report:
         raise HTTPException(status_code=404, detail="Relatorio nao encontrado")
+    if not report.get("metricsAnalysis"):
+        report = _attach_metrics_analysis(report)
     return report
 
 
