@@ -797,6 +797,7 @@ function LiveSessionInner(_: LiveSessionProps) {
   const [clinicalNotes, setClinicalNotes] = useState<ClinicalNote[]>([]);
   const [rtcStatus, setRtcStatus] = useState("Aguardando paciente");
   const [remotePatientOn, setRemotePatientOn] = useState(false);
+  const [localSpeaker, setLocalSpeaker] = useState<SpeakerRole>("DR");
   const [patientAudioVersion, setPatientAudioVersion] = useState(0);
   const frameBuffer = useRef<FroidPayload[]>([]);
   const sessionSamplesRef = useRef<SessionSample[]>([]);
@@ -844,6 +845,8 @@ function LiveSessionInner(_: LiveSessionProps) {
   }>({ totalWords: 0, windows: [] });
   const lastDissonanceSig = useRef("");
   const activeSpeakerRef = useRef<SpeakerRole>("DR");
+  const forcedLocalSegmentSpeakerRef = useRef<SpeakerRole | null>(null);
+  const remotePatientOnRef = useRef(false);
 
   useEffect(() => {
     const id = setInterval(() => dispatch({ type: "TICK" }), 1000);
@@ -853,6 +856,35 @@ function LiveSessionInner(_: LiveSessionProps) {
   useEffect(() => {
     elapsedSecondsRef.current = state.elapsedSeconds;
   }, [state.elapsedSeconds]);
+
+  useEffect(() => {
+    remotePatientOnRef.current = remotePatientOn;
+  }, [remotePatientOn]);
+
+  const selectLocalSpeaker = useCallback((speaker: SpeakerRole) => {
+    const previousSpeaker = activeSpeakerRef.current;
+    if (previousSpeaker === speaker) return;
+    const recorder = recorderRef.current;
+    if (
+      recorder &&
+      recorder.state === "recording" &&
+      !remotePatientOnRef.current
+    ) {
+      forcedLocalSegmentSpeakerRef.current = previousSpeaker;
+      segmentingRecorderStopRef.current = true;
+      try {
+        recorder.stop();
+      } catch {}
+    }
+    activeSpeakerRef.current = speaker;
+    setLocalSpeaker(speaker);
+    setLiveTranscription((prev) => ({
+      ...(prev || {}),
+      local_session_speaker: speaker,
+      local_session_mode:
+        "Atendimento presencial: microfone local rotulado manualmente.",
+    }));
+  }, []);
 
   const refreshMediaStatus = useCallback((stream: MediaStream | null) => {
     const cameraOn =
@@ -1201,10 +1233,7 @@ function LiveSessionInner(_: LiveSessionProps) {
 
     const words = text.split(/\s+/).filter(Boolean).length;
     const now = Date.now();
-    const elapsedSeconds = Math.max(
-      0,
-      state.sessionStart ? Math.floor((now - state.sessionStart) / 1000) : 0,
-    );
+    const elapsedSeconds = Math.max(0, elapsedSecondsRef.current);
     transcriptSegmentsRef.current = [
       ...transcriptSegmentsRef.current,
       { elapsedSeconds, text: line },
@@ -1233,7 +1262,7 @@ function LiveSessionInner(_: LiveSessionProps) {
       transcription_status: "ok",
       transcription_error: "",
     }));
-  }, [state.sessionStart]);
+  }, []);
 
   const stopMedia = useCallback((reportStatus = true) => {
     if (sttRestartTimerRef.current) {
@@ -1725,10 +1754,22 @@ function LiveSessionInner(_: LiveSessionProps) {
           if (recorderBox.current === recorder) recorderBox.current = null;
           window.setTimeout(() => startSpeechToText(stream, speaker, source, 0), 0);
           if (finishedBlob) {
+            const forcedSpeaker =
+              source === "professional"
+                ? forcedLocalSegmentSpeakerRef.current
+                : null;
+            const segmentSpeaker =
+              forcedSpeaker ||
+              (source === "professional" && !remotePatientOnRef.current
+                ? activeSpeakerRef.current
+                : speaker);
+            if (source === "professional") {
+              forcedLocalSegmentSpeakerRef.current = null;
+            }
             enqueueTranscriptionBlob(
               finishedBlob,
               finishedBlob.type || mimeType || "audio/webm",
-              speaker,
+              segmentSpeaker,
             );
           }
           return;
@@ -1810,6 +1851,52 @@ function LiveSessionInner(_: LiveSessionProps) {
       bioacoustic_error: "",
     }));
   }, [patientAudioVersion, startRawBioacousticPipeline, startSpeechToText]);
+
+  useEffect(() => {
+    if (remotePatientOn) return;
+    const localAudioTrack = mediaStreamRef.current
+      ?.getAudioTracks()
+      .find((track) => track.readyState === "live");
+
+    if (!localAudioTrack) return;
+
+    if (localSpeaker === "PAC") {
+      startRawBioacousticPipeline(
+        new MediaStream([localAudioTrack.clone()]),
+        "semantic-fallback",
+      );
+      setLiveTranscription((prev) => ({
+        ...(prev || {}),
+        bioacoustic_status: "monitoring",
+        bioacoustic_pipeline: "direct-local-patient",
+        bioacoustic_track: "local-patient-selected",
+        bioacoustic_warning:
+          "Atendimento presencial: metricas calculadas somente enquanto PAC esta selecionado.",
+        transcription_sources:
+          "Atendimento presencial com alternancia manual DR/PAC.",
+        bioacoustic_error: "",
+      }));
+      return;
+    }
+
+    stopRawBioacousticPipeline();
+    setLiveTranscription((prev) => ({
+      ...(prev || {}),
+      bioacoustic_status: "waiting_patient",
+      bioacoustic_pipeline: "direct-local-paused",
+      bioacoustic_track: "local-professional-selected",
+      bioacoustic_warning:
+        "Atendimento presencial: selecione PAC quando o paciente estiver falando para alimentar os biomarcadores.",
+      transcription_sources:
+        "Atendimento presencial com alternancia manual DR/PAC.",
+    }));
+  }, [
+    localSpeaker,
+    remotePatientOn,
+    state.micOn,
+    startRawBioacousticPipeline,
+    stopRawBioacousticPipeline,
+  ]);
 
   const activateMedia = useCallback(async () => {
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -1937,7 +2024,14 @@ function LiveSessionInner(_: LiveSessionProps) {
   useEffect(() => {
     let ws: WebSocket | null = null;
     let cancelled = false;
-    const openTimer = window.setTimeout(() => {
+    let reconnectTimer: number | null = null;
+
+    const scheduleConnect = (attempt: number) => {
+      const delay = attempt === 0 ? 50 : Math.min(5000, 600 + attempt * 700);
+      reconnectTimer = window.setTimeout(() => connect(attempt), delay);
+    };
+
+    const connect = (attempt = 0) => {
       if (cancelled) return;
       try {
         const socket = new WebSocket(wsUrl(`/ws/fusion/${sessionId || "default"}`));
@@ -1947,9 +2041,17 @@ function LiveSessionInner(_: LiveSessionProps) {
           if (wsRef.current === socket) dispatch({ type: "WS_OPEN" });
         };
         socket.onclose = () => {
-          if (wsRef.current === socket) dispatch({ type: "WS_CLOSE" });
+          if (wsRef.current === socket) {
+            wsRef.current = null;
+            dispatch({ type: "WS_CLOSE" });
+          }
+          if (!cancelled) scheduleConnect(attempt + 1);
         };
-        socket.onerror = () => {};
+        socket.onerror = () => {
+          try {
+            socket.close();
+          } catch {}
+        };
         socket.onmessage = (event) => {
           if (cancelled) return;
           try {
@@ -1967,13 +2069,16 @@ function LiveSessionInner(_: LiveSessionProps) {
           }
         };
       } catch {
-        dispatch({ type: "END_SESSION" });
+        dispatch({ type: "WS_CLOSE" });
+        if (!cancelled) scheduleConnect(attempt + 1);
       }
-    }, 50);
+    };
+
+    scheduleConnect(0);
 
     return () => {
       cancelled = true;
-      window.clearTimeout(openTimer);
+      if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
       if (wsRef.current === ws) wsRef.current = null;
       try {
         ws?.close();
@@ -2208,6 +2313,43 @@ function LiveSessionInner(_: LiveSessionProps) {
           startTime={state.sessionStart}
           onEndSession={endSession}
         />
+
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              Fala presencial
+            </span>
+            <span className="text-[9px] font-semibold text-slate-400">
+              {remotePatientOn ? "Remoto automatico" : "Alternancia manual"}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {(["DR", "PAC"] as SpeakerRole[]).map((speaker) => {
+              const active = localSpeaker === speaker;
+              const disabled = remotePatientOn;
+              return (
+                <button
+                  key={speaker}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => selectLocalSpeaker(speaker)}
+                  className={`rounded-md border px-2 py-1.5 text-[11px] font-black transition ${
+                    active
+                      ? "border-blue-600 bg-blue-600 text-white"
+                      : "border-slate-200 bg-white text-slate-600 hover:border-blue-300"
+                  } ${disabled ? "cursor-not-allowed opacity-45" : ""}`}
+                >
+                  {speaker === "DR" ? "DR. falando" : "PAC falando"}
+                </button>
+              );
+            })}
+          </div>
+          <p className="mt-2 text-[10px] leading-snug text-slate-500">
+            {remotePatientOn
+              ? "Com paciente remoto, o FROID separa DR pela trilha local e PAC pela trilha do paciente."
+              : "Em consulta presencial, selecione PAC durante a fala do paciente para transcricao e biomarcadores."}
+          </p>
+        </div>
 
         <AudioTranscription
           snippet={displayAudio.transcription_snippet}
