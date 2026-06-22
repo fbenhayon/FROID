@@ -375,7 +375,7 @@ async function measureAudioActivity(blob: Blob) {
 
     const rms = samples > 0 ? Math.sqrt(sumSquares / samples) : 0;
     return {
-      active: peak >= 0.012 && rms >= 0.0012,
+      active: peak >= 0.006 && rms >= 0.0006,
       rms,
       peak,
     };
@@ -802,6 +802,7 @@ function LiveSessionInner(_: LiveSessionProps) {
   const [patientAudioVersion, setPatientAudioVersion] = useState(0);
   const frameBuffer = useRef<FroidPayload[]>([]);
   const sessionSamplesRef = useRef<SessionSample[]>([]);
+  const firstPatientMetricSecondRef = useRef<number | null>(null);
   const baselineSnapshotRef = useRef<MetricSnapshot | null>(null);
   const elapsedSecondsRef = useRef(0);
   const reportSavedRef = useRef(false);
@@ -876,6 +877,9 @@ function LiveSessionInner(_: LiveSessionProps) {
       try {
         recorder.stop();
       } catch {}
+    }
+    if (speaker === "DR" && !remotePatientOnRef.current) {
+      frameBuffer.current = [];
     }
     activeSpeakerRef.current = speaker;
     setLocalSpeaker(speaker);
@@ -2009,12 +2013,17 @@ function LiveSessionInner(_: LiveSessionProps) {
   }, [flushDueTranscriptSummaries]);
 
   useEffect(() => {
-    if (state.elapsedSeconds >= 60 && state.phase === "CALIBRATING") {
+    const baselineStart = firstPatientMetricSecondRef.current;
+    if (
+      baselineStart !== null &&
+      state.elapsedSeconds >= baselineStart + 60 &&
+      state.phase === "CALIBRATING"
+    ) {
       const baseline = buildMetricSnapshot(
-        "Baseline 0-60s",
+        "Baseline PC 60s",
         sessionSamplesRef.current,
-        0,
-        60,
+        baselineStart,
+        baselineStart + 60,
         transcriptSegmentsRef.current,
       );
       baselineSnapshotRef.current = baseline;
@@ -2058,6 +2067,21 @@ function LiveSessionInner(_: LiveSessionProps) {
           try {
             const data: FroidPayload = JSON.parse(event.data);
             const elapsedSeconds = elapsedSecondsRef.current;
+            const shouldUseForMetrics =
+              remotePatientOnRef.current || activeSpeakerRef.current === "PC";
+            if (!shouldUseForMetrics) {
+              setLiveTranscription((prev) => ({
+                ...(prev || {}),
+                bioacoustic_status: "waiting_patient",
+                bioacoustic_track: "local-professional-selected",
+                bioacoustic_warning:
+                  "DR selecionado: audio transcrito sem atribuicao a IPM, IDM, riscos ou sub-harmonicos.",
+              }));
+              return;
+            }
+            if (firstPatientMetricSecondRef.current === null) {
+              firstPatientMetricSecondRef.current = elapsedSeconds;
+            }
             sessionSamplesRef.current.push({ elapsedSeconds, payload: data });
             if (sessionSamplesRef.current.length > 22000) {
               sessionSamplesRef.current = sessionSamplesRef.current.slice(-22000);
@@ -2267,6 +2291,11 @@ function LiveSessionInner(_: LiveSessionProps) {
       ? "Encerrada"
       : "Desconectado";
   const baselineSnapshot = baselineSnapshotRef.current;
+  const patientBaselineStart = firstPatientMetricSecondRef.current;
+  const patientBaselineElapsed =
+    patientBaselineStart === null
+      ? 0
+      : clamp(state.elapsedSeconds - patientBaselineStart, 0, 60);
 
   if (state.phase === "ENDED") {
     return (
@@ -2348,7 +2377,7 @@ function LiveSessionInner(_: LiveSessionProps) {
           <p className="mt-2 text-[10px] leading-snug text-slate-500">
             {remotePatientOn
               ? "Com paciente remoto, o FROID separa DR pela trilha local e PC pela trilha do paciente."
-              : "Em consulta presencial, selecione PC durante a fala do paciente para transcricao e biomarcadores."}
+              : "Em consulta presencial, clique DR ou PC antes de cada fala. DR entra somente na transcricao; PC alimenta transcricao e metricas FROID."}
           </p>
         </div>
 
@@ -2362,16 +2391,22 @@ function LiveSessionInner(_: LiveSessionProps) {
           themeMinuteMark={displayAudio.theme_minute_mark}
           audioMeta={displayAudio}
           conversationSummaries={conversationSummaries}
+          activeSpeaker={localSpeaker}
+          onSpeakerChange={remotePatientOn ? undefined : selectLocalSpeaker}
         />
 
         {state.phase === "CALIBRATING" && (
           <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-700 shrink-0">
             <p className="font-bold">Fase de Repouso Ativa</p>
-            <p>Coletando baseline completo: {state.elapsedSeconds}s / 60s</p>
+            <p>
+              {patientBaselineStart === null
+                ? "Aguardando PC para iniciar baseline de metricas."
+                : `Coletando baseline do PC: ${patientBaselineElapsed.toFixed(0)}s / 60s`}
+            </p>
             <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-blue-200">
               <div
                 className="h-full bg-blue-600 transition-all duration-1000"
-                style={{ width: (state.elapsedSeconds / 60) * 100 + "%" }}
+                style={{ width: (patientBaselineElapsed / 60) * 100 + "%" }}
               />
             </div>
           </div>
