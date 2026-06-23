@@ -39,6 +39,10 @@ const biomarkerTooltips: Record<string, string> = {
     "Shimmer mede variacoes de amplitude entre ciclos vocais, indicando instabilidade de energia, tensao e controle respiratorio/vocal.",
 };
 
+function limitWords(text: string, maxWords: number) {
+  return String(text || "").trim().split(/\s+/).filter(Boolean).slice(0, maxWords).join(" ");
+}
+
 export const AudioTranscription: React.FC<Props> = ({
   snippet,
   wordsCount,
@@ -278,11 +282,11 @@ export const AudioTranscription: React.FC<Props> = ({
                   {item.startMinute}-{item.endMinute}min
                 </span>
                 <strong className="truncate text-[10px] text-slate-800">
-                  {item.theme}
+                  {limitWords(item.theme, 4)}
                 </strong>
               </div>
               <p className="mt-0.5 text-[10px] leading-snug text-slate-600">
-                {item.summary}
+                {limitWords(item.summary, 100)}
               </p>
             </div>
           ))}
@@ -313,7 +317,7 @@ export const AudioTranscription: React.FC<Props> = ({
             </span>
           </div>
           <p className="text-[10px] text-amber-900 leading-snug mt-0.5">
-            {sessionTheme}
+            {limitWords(sessionTheme, 4)}
           </p>
         </div>
       )}

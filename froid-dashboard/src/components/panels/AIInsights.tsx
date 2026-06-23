@@ -1,41 +1,30 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { PerceptionZone } from "../../lib/froid-engine";
 import { apiUrl } from "../../lib/api";
-import { FroidTooltip } from "../ui/FroidTooltip";
 
 const PRESETS = [
-  {
-    text: "Explique a leitura clinica das zonas dominantes desta sessao",
-    desc: "Usa o IPM, coerencia, zonas e dissonancias atuais para gerar uma leitura contextualizada.",
-  },
-  {
-    text: "O que o IPM atual sugere sobre a energia emocional do paciente?",
-    desc: "Diferencia intensidade global de direcao do desequilibrio e evita conclusoes diagnosticas.",
-  },
-  {
-    text: "Como interpretar as dissonancias faciais-vocais observadas?",
-    desc: "Relaciona dissonancia, FACS, voz e possiveis limites de interpretacao.",
-  },
-  {
-    text: "Quais marcadores bioacusticos merecem atencao neste momento?",
-    desc: "Foca em MFCC7, MFCC9, F0, jitter, shimmer, pausas e sub-harmonicos quando disponiveis.",
-  },
-  {
-    text: "Este paciente se compara como a base populacional anonima?",
-    desc: "Consulta o Data Mart anonimo se estiver disponivel e aplica k-anonimato antes do benchmark.",
-  },
-  {
-    text: "Quais padroes aparecem em casos similares na base anonima?",
-    desc: "Executa consulta populacional agregada, bloqueando coortes pequenas por governanca LGPD.",
-  },
-  {
-    text: "Explique a diferenca entre IPM e IDM para esta sessao",
-    desc: "Clarifica intensidade global, direcao do desequilibrio e limites de inferencia.",
-  },
-  {
-    text: "Que perguntas clinicas podem aprofundar esta leitura?",
-    desc: "Sugere caminhos de exploracao ao profissional sem substituir julgamento clinico.",
-  },
+  { text: "Como este paciente se compara a media populacional em Zonas FROID?" },
+  { text: "Identificar padroes atipicos comparados a base de dados" },
+  { text: "Este paciente esta acima ou abaixo da media em riscos clinicos?" },
+  { text: "Progresso nas ultimas sessoes versus populacao" },
+  { text: "Velocidade de melhora comparada a casos similares" },
+  { text: "Perfil vocal facial similar a quais condicoes na base?" },
+  { text: "Casos mais parecidos com este paciente top 5" },
+  { text: "Intervencoes mais eficazes para perfis similares" },
+  { text: "Predicao de resposta terapeutica baseada em casos analogos" },
+  { text: "Alertas: padroes de risco identificados na base populacional" },
+  { text: "Explique a leitura clinica das zonas dominantes desta sessao" },
+  { text: "O que o IPM atual sugere sobre a energia emocional do paciente?" },
+  { text: "Como interpretar as dissonancias faciais-vocais observadas?" },
+  { text: "Quais marcadores bioacusticos merecem atencao neste momento?" },
+  { text: "Este paciente se compara com a base populacional anonima?" },
+  { text: "Quais padroes aparecem em casos similares na base anonima?" },
+  { text: "Explique a diferenca entre IPM e IDM para esta sessao" },
+  { text: "Que perguntas clinicas podem aprofundar esta leitura?" },
+  { text: "Explique o resumo geral da sessao e seus cortes de 10 minutos" },
+  { text: "Quais mudancas ocorreram entre baseline e media da sessao?" },
+  { text: "Quais dissonancias registradas exigem maior atencao clinica?" },
+  { text: "Como interpretar os biomarcadores acusticos desta sessao?" },
 ];
 
 interface FroidExplicaResponse {
@@ -84,6 +73,7 @@ export const AIInsights: React.FC<Props> = ({
   extraContext = {},
 }) => {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [selectedPrompt, setSelectedPrompt] = useState("");
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [lastError, setLastError] = useState("");
@@ -129,8 +119,9 @@ export const AIInsights: React.FC<Props> = ({
       if (!prompt || loading) return;
 
       setLastError("");
-      setMessages((prev) => [...prev, { role: "user", content: prompt }]);
       setInput("");
+      setMessages((prev) => [...prev, { role: "user", content: prompt }]);
+
       setLoading(true);
 
       try {
@@ -255,14 +246,37 @@ export const AIInsights: React.FC<Props> = ({
         <div ref={bottomRef} />
       </div>
 
-      <div className="flex gap-2">
+      <div className="relative">
+        <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+          Prompts FROID Explica
+        </label>
+        <select
+          value={selectedPrompt}
+          disabled={loading}
+          onChange={(event) => {
+            const prompt = event.target.value;
+            if (!prompt) return;
+            setSelectedPrompt("");
+            void ask(prompt);
+          }}
+          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <option value="">Selecione um prompt...</option>
+          {PRESETS.map((preset, index) => (
+            <option key={preset.text} value={preset.text}>
+              {index + 1}. {preset.text}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="mt-2 flex gap-2">
         <input
           value={input}
           onChange={(event) => setInput(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter") void ask(input);
           }}
-          placeholder="Pergunte ao FROID Explica..."
+          placeholder="Pergunta livre ao FROID Explica..."
           className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
         <button
@@ -272,35 +286,6 @@ export const AIInsights: React.FC<Props> = ({
         >
           Enviar
         </button>
-      </div>
-
-      <div className="mt-2 flex flex-wrap gap-1">
-        {PRESETS.map((preset, index) => (
-          <FroidTooltip
-            key={preset.text}
-            width={300}
-            content={
-              <div className="max-w-[280px]">
-                <p className="text-[11px] font-bold text-slate-900">
-                  {preset.text}
-                </p>
-                <p className="mt-1 text-[10px] text-slate-600">
-                  {preset.desc}
-                </p>
-              </div>
-            }
-          >
-            <button
-              onClick={() => void ask(preset.text)}
-              className="max-w-[150px] truncate rounded border border-transparent bg-slate-100 px-2 py-1 text-left text-[9px] text-slate-600 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
-            >
-              {index + 1}.{" "}
-              {preset.text.length > 26
-                ? `${preset.text.slice(0, 26)}...`
-                : preset.text}
-            </button>
-          </FroidTooltip>
-        ))}
       </div>
     </div>
   );

@@ -567,6 +567,57 @@ def _save_session_reports(reports: Dict[str, dict]) -> None:
         json.dump(reports, report_file, ensure_ascii=False, indent=2)
 
 
+def _find_invite_by_session(session_id: str) -> Optional[dict]:
+    if not session_id:
+        return None
+    for invite in SESSION_INVITES.values():
+        if str(invite.get("session_id") or "") == str(session_id):
+            return invite
+    return None
+
+
+def _patient_payload_from_invite(invite: Optional[dict]) -> dict:
+    if not invite:
+        return {}
+    patient_id = str(invite.get("patient_id") or "")
+    registered = (PATIENTS.get(patient_id) if patient_id else {}) or {}
+    return {
+        "id": patient_id or registered.get("id") or "",
+        "name": registered.get("name") or invite.get("patient_name") or "",
+        "email": registered.get("email") or invite.get("patient_email") or "",
+        "phone": registered.get("phone") or invite.get("patient_phone") or "",
+        "document": registered.get("document") or "",
+    }
+
+
+def _enrich_report_patient(report: dict) -> dict:
+    if not isinstance(report, dict):
+        return report
+    session_id = str(report.get("sessionId") or report.get("session_id") or "")
+    existing = report.get("patient") if isinstance(report.get("patient"), dict) else {}
+    invite_patient = _patient_payload_from_invite(_find_invite_by_session(session_id))
+    patient = {
+        **invite_patient,
+        **existing,
+    }
+    patient_id = patient.get("id") or report.get("patientId") or ""
+    patient_name = patient.get("name") or report.get("patientName") or ""
+    patient_document = patient.get("document") or report.get("patientDocument") or ""
+    if patient_id or patient_name or patient_document:
+        patient.update(
+            {
+                "id": patient_id,
+                "name": patient_name,
+                "document": patient_document,
+            }
+        )
+        report["patient"] = patient
+        report["patientId"] = patient_id
+        report["patientName"] = patient_name
+        report["patientDocument"] = patient_document
+    return report
+
+
 def _safe_float(value, default: float = 0.0) -> float:
     try:
         return float(value)
@@ -1449,12 +1500,27 @@ async def copilot_query_alias(payload: FroidExplicaQuery):
     return await froid_explica_query(payload)
 
 
+@app.get("/api/session-reports")
+async def list_session_reports():
+    reports = [
+        _enrich_report_patient(report)
+        for report in _load_session_reports().values()
+        if isinstance(report, dict)
+    ]
+    reports.sort(
+        key=lambda report: str(report.get("createdAt") or report.get("created_at") or ""),
+        reverse=True,
+    )
+    return {"reports": reports}
+
+
 @app.post("/api/session-reports")
 async def save_session_report(request: Request):
     report = await request.json()
     session_id = str(report.get("sessionId") or report.get("session_id") or "").strip()
     if not session_id:
         raise HTTPException(status_code=400, detail="sessionId obrigatorio")
+    report = _enrich_report_patient(report)
     report = _attach_metrics_analysis(report)
     reports = _load_session_reports()
     reports[session_id] = report
@@ -1473,6 +1539,7 @@ async def get_session_report_metrics(session_id: str):
     report = _load_session_reports().get(session_id)
     if not report:
         raise HTTPException(status_code=404, detail="Relatorio nao encontrado")
+    report = _enrich_report_patient(report)
     if not report.get("metricsAnalysis"):
         report = _attach_metrics_analysis(report)
     if report.get("metricsAnalysisError") and not report.get("metricsAnalysis"):
@@ -1485,6 +1552,7 @@ async def get_session_report(session_id: str):
     report = _load_session_reports().get(session_id)
     if not report:
         raise HTTPException(status_code=404, detail="Relatorio nao encontrado")
+    report = _enrich_report_patient(report)
     if not report.get("metricsAnalysis"):
         report = _attach_metrics_analysis(report)
     return report
@@ -1581,7 +1649,7 @@ async def session_summary(request: Request):
     fallback = {
         "status": "fallback",
         "theme": "Tema em apuração",
-        "summary": _limit_words(transcript, 200),
+        "summary": _limit_words(transcript, 100),
         "start_minute": start_minute,
         "end_minute": end_minute,
         "model": OPENAI_MODEL,
@@ -1593,10 +1661,10 @@ async def session_summary(request: Request):
     prompt = (
         "Analise a transcricao clinica abaixo e responda somente em JSON valido "
         "com as chaves theme e summary. theme deve ser resultado direto do assunto tratado, "
-        "nao pode vir de lista predefinida e deve ter no maximo 5 palavras. "
-        "summary deve ter entre 100 e 200 palavras, em portugues do Brasil, sem diagnostico, "
+        "nao pode vir de lista predefinida e deve ter no maximo 4 palavras. "
+        "summary deve ter no maximo 100 palavras, em portugues do Brasil, sem diagnostico, "
         "sem inventar fatos e preservando apenas o que foi falado no intervalo. "
-        "Se a transcricao tiver menos conteudo do que 100 palavras, resuma apenas o material real disponivel. "
+        "Se a transcricao tiver pouco conteudo, resuma apenas o material real disponivel. "
         f"Intervalo: {start_minute}-{end_minute} minutos.\n\nTranscricao:\n{transcript}"
     )
 
@@ -1631,12 +1699,12 @@ async def session_summary(request: Request):
             .strip()
         )
         parsed = _parse_json_object(content)
-        theme = _limit_words(str(parsed.get("theme") or fallback["theme"]).strip(), 5)
+        theme = _limit_words(str(parsed.get("theme") or fallback["theme"]).strip(), 4)
         summary_text = str(parsed.get("summary") or fallback["summary"]).strip()
         return {
             "status": "ok",
             "theme": theme,
-            "summary": _limit_words(summary_text, 200),
+            "summary": _limit_words(summary_text, 100),
             "start_minute": start_minute,
             "end_minute": end_minute,
             "model": OPENAI_MODEL,

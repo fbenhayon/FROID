@@ -38,6 +38,32 @@ function fmtPct(value: number | null | undefined) {
   return `${(Number(value) * 100).toFixed(1)}%`;
 }
 
+function limitWords(text: string, maxWords: number) {
+  return String(text || "").trim().split(/\s+/).filter(Boolean).slice(0, maxWords).join(" ");
+}
+
+function derivedSessionSummary(report: SessionReportRecord) {
+  if (report.sessionSummary?.summary) return report.sessionSummary;
+  const ordered = [...(report.conversationSummaries || [])].sort(
+    (a, b) => a.startMinute - b.startMinute,
+  );
+  const source = ordered.length
+    ? ordered.map((item) => `${item.theme}: ${item.summary}`).join(" ")
+    : report.transcript;
+  return {
+    theme: limitWords(
+      ordered.length
+        ? ordered.map((item) => item.theme).join(" ")
+        : report.sessionAverage.theme,
+      4,
+    ),
+    summary:
+      limitWords(source || "", 150) ||
+      "Resumo geral indisponivel para esta sessao.",
+    generatedAt: report.createdAt,
+  };
+}
+
 function norm(value: number | null | undefined, baseline: number | null | undefined) {
   if (
     value === null ||
@@ -296,10 +322,12 @@ export const SessionReport: React.FC<Props> = () => {
 
   const reportContext = useMemo(() => {
     if (!report) return {};
+    const summary = derivedSessionSummary(report);
     return {
       report_baseline: report.baseline,
       report_session_average: report.sessionAverage,
       report_ten_minute_cuts: report.tenMinuteCuts,
+      report_session_summary: summary,
       report_metrics_analysis: metricsAnalysis,
       report_notes_count: report.clinicalNotes.length,
       report_summaries: report.conversationSummaries,
@@ -330,6 +358,7 @@ export const SessionReport: React.FC<Props> = () => {
   const toggle = (key: SectionKey) =>
     setSections((prev) => ({ ...prev, [key]: !prev[key] }));
   const activeMetricsAnalysis = metricsAnalysis || report.metricsAnalysis || null;
+  const sessionSummary = derivedSessionSummary(report);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800">
@@ -582,11 +611,28 @@ export const SessionReport: React.FC<Props> = () => {
                         <td>{fmt(cut.idmAvg, 2)}</td>
                         <td>{cut.dominantZone || "--"}</td>
                         <td>{fmt(cut.wordsPerMinute, 1)}</td>
-                        <td>{cut.theme}</td>
+                        <td>{limitWords(cut.theme, 4)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+              </div>
+            </section>
+          )}
+
+          {sections.summaries && (
+            <section className="rounded-lg border border-slate-200 bg-white p-4">
+              <h2 className="mb-3 text-sm font-bold text-slate-900">
+                Resumo geral da sessao
+              </h2>
+              <div className="rounded border border-blue-100 bg-blue-50 p-3">
+                <p className="text-xs font-bold text-blue-950">
+                  Tema predominante:{" "}
+                  {limitWords(sessionSummary.theme || report.sessionAverage.theme, 4)}
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-blue-900">
+                  {limitWords(sessionSummary.summary, 150)}
+                </p>
               </div>
             </section>
           )}
@@ -600,10 +646,11 @@ export const SessionReport: React.FC<Props> = () => {
                 {report.conversationSummaries.map((item) => (
                   <div key={item.id} className="rounded border border-slate-100 bg-slate-50 p-3">
                     <p className="text-xs font-bold text-slate-800">
-                      {item.startMinute}-{item.endMinute}min | {item.theme}
+                      {item.startMinute}-{item.endMinute}min |{" "}
+                      {limitWords(item.theme, 4)}
                     </p>
                     <p className="mt-1 text-xs leading-relaxed text-slate-600">
-                      {item.summary}
+                      {limitWords(item.summary, 100)}
                     </p>
                   </div>
                 ))}

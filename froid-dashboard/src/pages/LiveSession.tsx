@@ -22,6 +22,7 @@ import { FroidTooltip } from "../components/ui/FroidTooltip";
 import {
   ClinicalNote,
   MetricSnapshot,
+  loadSessionPatient,
   saveSessionReport,
   SessionReportRecord,
 } from "../lib/session-report";
@@ -763,6 +764,15 @@ function rounded(value: number | null, digits = 2) {
   return Math.round(value * factor) / factor;
 }
 
+function limitWords(text: string, maxWords: number) {
+  return String(text || "").trim().split(/\s+/).filter(Boolean).slice(0, maxWords).join(" ");
+}
+
+function limitTheme(text: string, maxWords = 4) {
+  const clean = limitWords(text, maxWords);
+  return clean || "Tema em apuracao";
+}
+
 function inferThemeFromTranscript(text: string) {
   const clean = text
     .replace(/^DR\.\s*-\s*|^PC\s*-\s*|^PAC\s*-\s*/gim, " ")
@@ -777,9 +787,9 @@ function inferThemeFromTranscript(text: string) {
     .forEach((word) => counts.set(word, (counts.get(word) || 0) + 1));
   const top = [...counts.entries()]
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
+    .slice(0, 4)
     .map(([word]) => word);
-  return top.length ? top.join(" ") : "Tema em apuracao";
+  return top.length ? limitTheme(top.join(" "), 4) : "Tema em apuracao";
 }
 
 function collectTranscript(
@@ -885,6 +895,34 @@ function buildTenMinuteCuts(
       transcriptSegments,
     );
   }).filter((snapshot) => snapshot.sampleCount > 0);
+}
+
+function buildSessionSummary(
+  summaries: ConversationSummary[],
+  transcript: string,
+): SessionReportRecord["sessionSummary"] {
+  const ordered = [...summaries].sort((a, b) => a.startMinute - b.startMinute);
+  const source = ordered.length
+    ? ordered
+        .map(
+          (item) =>
+            `${item.startMinute}-${item.endMinute}min ${item.theme}: ${item.summary}`,
+        )
+        .join(" ")
+    : transcript;
+  const theme = limitTheme(
+    ordered.length
+      ? ordered.map((item) => item.theme).join(" ")
+      : inferThemeFromTranscript(transcript),
+    4,
+  );
+  return {
+    theme,
+    summary:
+      limitWords(source, 150) ||
+      "Resumo geral indisponivel por ausencia de transcricao suficiente.",
+    generatedAt: new Date().toISOString(),
+  };
 }
 
 function LiveSessionInner(_: LiveSessionProps) {
@@ -1804,8 +1842,8 @@ function LiveSessionInner(_: LiveSessionProps) {
         id: `summary-${windowIndex}`,
         startMinute,
         endMinute,
-        theme: String(data?.theme || "Tema em apuracao"),
-        summary: String(data?.summary || "").trim(),
+        theme: limitTheme(String(data?.theme || "Tema em apuracao"), 4),
+        summary: limitWords(String(data?.summary || "").trim(), 100),
       });
     } catch {
       commitSummary({
@@ -1813,7 +1851,7 @@ function LiveSessionInner(_: LiveSessionProps) {
         startMinute,
         endMinute,
         theme: "Resumo indisponivel",
-        summary: transcript.split(/\s+/).slice(0, 200).join(" "),
+        summary: limitWords(transcript, 100),
       });
     }
   }, [sessionId]);
@@ -2526,10 +2564,14 @@ function LiveSessionInner(_: LiveSessionProps) {
       transcriptSegmentsRef.current,
       durationSeconds,
     );
+    const transcript = transcriptSegmentsRef.current
+      .map((segment) => segment.text)
+      .join("\n");
 
     return {
       id: makeReportId(),
       sessionId: sessionId || "default",
+      patient: loadSessionPatient(sessionId || "") || undefined,
       createdAt: new Date().toISOString(),
       durationSeconds,
       baseline,
@@ -2537,8 +2579,9 @@ function LiveSessionInner(_: LiveSessionProps) {
       tenMinuteCuts,
       clinicalNotes,
       conversationSummaries,
+      sessionSummary: buildSessionSummary(conversationSummaries, transcript),
       dissonances: dissonanceLog,
-      transcript: transcriptSegmentsRef.current.map((segment) => segment.text).join("\n"),
+      transcript,
     };
   }, [
     clinicalNotes,

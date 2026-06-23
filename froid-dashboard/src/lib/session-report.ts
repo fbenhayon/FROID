@@ -6,6 +6,14 @@ export interface ClinicalNote {
   timestamp: number;
 }
 
+export interface PatientIdentity {
+  id?: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  document?: string;
+}
+
 export interface MetricSnapshot {
   label: string;
   startSecond: number;
@@ -34,6 +42,10 @@ export interface MetricSnapshot {
 export interface SessionReportRecord {
   id: string;
   sessionId: string;
+  patient?: PatientIdentity;
+  patientId?: string;
+  patientName?: string;
+  patientDocument?: string;
   createdAt: string;
   durationSeconds: number;
   baseline: MetricSnapshot;
@@ -47,6 +59,11 @@ export interface SessionReportRecord {
     theme: string;
     summary: string;
   }>;
+  sessionSummary?: {
+    theme: string;
+    summary: string;
+    generatedAt: string;
+  };
   dissonances: Array<{
     id: string;
     timestamp: string;
@@ -109,13 +126,16 @@ export interface MetricsAnalysis {
 }
 
 const REPORT_STORAGE_KEY = "froid_session_reports_v1";
+const SESSION_PATIENT_STORAGE_KEY = "froid_session_patients_v1";
 
 export function loadSessionReports(): SessionReportRecord[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = window.localStorage.getItem(REPORT_STORAGE_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed)
+      ? parsed.map((report) => hydrateReportPatient(report))
+      : [];
   } catch {
     return [];
   }
@@ -123,16 +143,85 @@ export function loadSessionReports(): SessionReportRecord[] {
 
 export function saveSessionReport(report: SessionReportRecord) {
   if (typeof window === "undefined") return;
+  const hydrated = hydrateReportPatient(report);
   const reports = loadSessionReports();
   const next = [
-    report,
-    ...reports.filter((item) => item.sessionId !== report.sessionId),
+    hydrated,
+    ...reports.filter((item) => item.sessionId !== hydrated.sessionId),
   ].slice(0, 100);
+  if (hydrated.sessionId && hydrated.patient) {
+    rememberSessionPatient(hydrated.sessionId, hydrated.patient);
+  }
   window.localStorage.setItem(REPORT_STORAGE_KEY, JSON.stringify(next));
 }
 
 export function loadSessionReport(sessionId: string) {
   return loadSessionReports().find((report) => report.sessionId === sessionId);
+}
+
+function loadSessionPatients(): Record<string, PatientIdentity> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(SESSION_PATIENT_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? parsed
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+export function rememberSessionPatient(sessionId: string, patient: PatientIdentity) {
+  if (typeof window === "undefined" || !sessionId) return;
+  const current = loadSessionPatients();
+  const previous = current[sessionId] || {};
+  current[sessionId] = {
+    ...previous,
+    ...patient,
+  };
+  window.localStorage.setItem(SESSION_PATIENT_STORAGE_KEY, JSON.stringify(current));
+}
+
+export function loadSessionPatient(sessionId: string): PatientIdentity | null {
+  if (!sessionId) return null;
+  return loadSessionPatients()[sessionId] || null;
+}
+
+export function getReportPatient(report: SessionReportRecord): PatientIdentity {
+  const stored = loadSessionPatient(report.sessionId) || {};
+  return {
+    ...stored,
+    ...(report.patient || {}),
+    id: report.patient?.id || report.patientId || stored.id,
+    name: report.patient?.name || report.patientName || stored.name || "Paciente sem nome",
+    document: report.patient?.document || report.patientDocument || stored.document || "",
+  };
+}
+
+export function hydrateReportPatient(report: SessionReportRecord): SessionReportRecord {
+  const patient = getReportPatient(report);
+  return {
+    ...report,
+    patient,
+    patientId: patient.id || report.patientId,
+    patientName: patient.name || report.patientName,
+    patientDocument: patient.document || report.patientDocument,
+  };
+}
+
+export function patientGroupKey(patient: PatientIdentity, fallback: string) {
+  return (
+    patient.id ||
+    patient.email ||
+    patient.phone ||
+    patient.document ||
+    patient.name ||
+    fallback
+  )
+    .toString()
+    .trim()
+    .toLowerCase();
 }
 
 export function formatDuration(totalSeconds: number) {
