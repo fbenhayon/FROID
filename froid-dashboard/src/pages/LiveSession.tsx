@@ -23,6 +23,7 @@ import {
   ClinicalNote,
   MetricSnapshot,
   loadSessionPatient,
+  loadSessionReports,
   saveSessionReport,
   SessionReportRecord,
 } from "../lib/session-report";
@@ -637,6 +638,7 @@ const MIN_STT_AUDIO_BYTES = 1200;
 const MAX_VISIBLE_TRANSCRIPT_LINES = 12;
 const TRANSCRIPT_SUMMARY_WINDOW_MS = 10 * 60 * 1000;
 const ENABLE_BROWSER_LIVE_STT = false;
+const FROID_ALGORITHM_VERSION = "3.0.0-dashboard";
 
 function speakerPrefix(speaker: SpeakerRole) {
   return speaker === "DR" ? "DR. - " : "PC - ";
@@ -922,6 +924,147 @@ function buildSessionSummary(
       limitWords(source, 120) ||
       "Resumo geral indisponivel por ausencia de transcricao suficiente.",
     generatedAt: new Date().toISOString(),
+  };
+}
+
+function transcriptWordCount(text: string, speakerPrefixText?: string) {
+  const source = speakerPrefixText
+    ? String(text || "")
+        .split(/\n+/)
+        .filter((line) => line.trim().startsWith(speakerPrefixText))
+        .join(" ")
+    : String(text || "");
+  return source
+    .replace(/^DR\.\s*-\s*|^PC\s*-\s*|^PAC\s*-\s*/gim, " ")
+    .split(/\s+/)
+    .filter(Boolean).length;
+}
+
+function inferInterventionCategory(text: string) {
+  const clean = normalizeTranscriptText(text);
+  if (!clean) return "nao_classificada";
+  const buckets: Array<[string, string[]]> = [
+    ["grounding_regulacao", ["respira", "corpo", "observe", "presenca", "aterrar"]],
+    ["psicoeducacao", ["explicar", "entenda", "funciona", "modelo", "sistema nervoso"]],
+    ["reestruturacao_cognitiva", ["pensamento", "crenca", "evidencia", "alternativa"]],
+    ["validacao_emocional", ["faz sentido", "compreendo", "valido", "acolho"]],
+    ["pergunta_aberta", ["como", "quando", "qual", "conte", "fale"]],
+    ["orientacao_pratica", ["exercicio", "praticar", "anotar", "combinado", "tarefa"]],
+    ["confrontacao_terapeutica", ["percebe", "padrao", "evita", "resistencia"]],
+    ["encerramento_sintese", ["resumindo", "sintese", "proxima sessao", "encerrar"]],
+  ];
+  const ranked = buckets
+    .map(([category, words]) => ({
+      category,
+      score: words.filter((word) => clean.includes(word)).length,
+    }))
+    .sort((a, b) => b.score - a.score);
+  return ranked[0]?.score ? ranked[0].category : "intervencao_geral";
+}
+
+function inferPatientResponse(
+  cut: MetricSnapshot,
+  previousCut: MetricSnapshot | null,
+  baseline: MetricSnapshot,
+) {
+  const reference = previousCut || baseline;
+  const ipmDelta = cut.ipmAvg - reference.ipmAvg;
+  const dissonanceDelta = cut.dissonanceCount - reference.dissonanceCount;
+  if (ipmDelta <= -0.5 && dissonanceDelta <= 0) return "melhora_regulacao";
+  if (ipmDelta >= 0.5 || dissonanceDelta > 0) return "aumento_ativacao";
+  return "estabilidade";
+}
+
+function cutQualityConfidence(cut: MetricSnapshot) {
+  const duration = Math.max(1, cut.endSecond - cut.startSecond);
+  const coverage = Math.min(1, cut.sampleCount / Math.max(1, duration / 10));
+  const speech = Math.min(1, cut.wordsPerMinute / 80);
+  return Math.round(((coverage * 0.65 + speech * 0.35) || 0) * 1000) / 1000;
+}
+
+function samePatientReport(report: SessionReportRecord, patient?: { id?: string; name?: string; document?: string }) {
+  if (!patient) return false;
+  const currentId = patient.id || "";
+  const currentDocument = patient.document || "";
+  const currentName = normalizeTranscriptText(patient.name || "");
+  const reportPatient = report.patient || {};
+  return Boolean(
+    (currentId && reportPatient.id === currentId) ||
+      (currentDocument && reportPatient.document === currentDocument) ||
+      (currentName && normalizeTranscriptText(reportPatient.name || "") === currentName),
+  );
+}
+
+function buildAnonymizedContext(
+  sessionId: string,
+  durationSeconds: number,
+  baseline: MetricSnapshot,
+  cuts: MetricSnapshot[],
+  transcriptSegments: TranscriptSegment[],
+  remotePatientOn: boolean,
+): SessionReportRecord["anonymizedContext"] {
+  const patient = loadSessionPatient(sessionId || "");
+  const previousReports = loadSessionReports()
+    .filter(
+      (report) =>
+        report.sessionId !== sessionId && samePatientReport(report, patient || undefined),
+    )
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt || 0).getTime() -
+        new Date(a.createdAt || 0).getTime(),
+    );
+  const previousEnd = previousReports[0]?.createdAt
+    ? new Date(previousReports[0].createdAt).getTime()
+    : 0;
+  const now = Date.now();
+  const intervalDays =
+    previousEnd > 0 ? Math.max(0, (now - previousEnd) / 86400000) : null;
+  const fullTranscript = transcriptSegments.map((segment) => segment.text).join("\n");
+
+  return {
+    schemaVersion: "anonymous_datamart_v2",
+    sessionModality: remotePatientOn ? "remote" : "presential",
+    sessionKind: previousReports.length ? "seguimento" : "primeira_sessao",
+    treatmentPhase:
+      previousReports.length < 3
+        ? "inicio"
+        : previousReports.length < 12
+          ? "meio"
+          : "manutencao",
+    sessionOrdinal: previousReports.length + 1,
+    intervalSincePreviousDays: intervalDays,
+    sttModel: "gpt-4o-transcribe",
+    llmModel: "gpt-4o/gemini-froid-explica",
+    algorithmVersion: FROID_ALGORITHM_VERSION,
+    audioQuality:
+      transcriptWordCount(fullTranscript) > 20 || cuts.some((cut) => cut.sampleCount > 0)
+        ? "suficiente"
+        : "baixa_amostragem",
+    mediaInterruptions: 0,
+    consentAnonymousResearch: true,
+    cuts: cuts.map((cut, index) => {
+      const scopedTranscript = transcriptSegments
+        .filter(
+          (segment) =>
+            segment.elapsedSeconds >= cut.startSecond &&
+            segment.elapsedSeconds < cut.endSecond,
+        )
+        .map((segment) => segment.text)
+        .join("\n");
+      const drText = scopedTranscript
+        .split(/\n+/)
+        .filter((line) => line.trim().startsWith("DR. - "))
+        .join(" ");
+      return {
+        cutIndex: index,
+        cutTrigger:
+          cut.endSecond >= durationSeconds ? "final" : "automatico_10min",
+        qualityConfidence: cutQualityConfidence(cut),
+        interventionCategory: inferInterventionCategory(drText),
+        patientResponse: inferPatientResponse(cut, cuts[index - 1] || null, baseline),
+      };
+    }),
   };
 }
 
@@ -2564,6 +2707,14 @@ function LiveSessionInner(_: LiveSessionProps) {
       transcriptSegmentsRef.current,
       durationSeconds,
     );
+    const anonymizedContext = buildAnonymizedContext(
+      sessionId || "default",
+      durationSeconds,
+      baseline,
+      tenMinuteCuts,
+      transcriptSegmentsRef.current,
+      remotePatientOnRef.current,
+    );
     const transcript = transcriptSegmentsRef.current
       .map((segment) => segment.text)
       .join("\n");
@@ -2582,6 +2733,7 @@ function LiveSessionInner(_: LiveSessionProps) {
       sessionSummary: buildSessionSummary(conversationSummaries, transcript),
       dissonances: dissonanceLog,
       transcript,
+      anonymizedContext,
     };
   }, [
     clinicalNotes,

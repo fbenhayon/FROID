@@ -72,6 +72,27 @@ export interface SessionReportRecord {
     report: string;
   }>;
   transcript: string;
+  anonymizedContext?: {
+    schemaVersion: string;
+    sessionModality: "remote" | "presential" | "unknown";
+    sessionKind: string;
+    treatmentPhase: string;
+    sessionOrdinal: number;
+    intervalSincePreviousDays: number | null;
+    sttModel: string;
+    llmModel: string;
+    algorithmVersion: string;
+    audioQuality: string;
+    mediaInterruptions: number;
+    consentAnonymousResearch: boolean;
+    cuts: Array<{
+      cutIndex: number;
+      cutTrigger: "automatico_10min" | "manual" | "final";
+      qualityConfidence: number;
+      interventionCategory: string;
+      patientResponse: string;
+    }>;
+  };
   metricsAnalysis?: MetricsAnalysis;
   metricsAnalysisError?: string;
 }

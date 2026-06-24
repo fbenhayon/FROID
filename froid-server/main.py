@@ -64,6 +64,7 @@ FROID_DUCKDB_PATH = os.getenv(
     "FROID_DUCKDB_PATH",
     "/data/datamart_anonymous.duckdb",
 )
+FROID_ALGORITHM_VERSION = os.getenv("FROID_ALGORITHM_VERSION", app.version)
 FROID_ANALYTICS_MIN_K = int(os.getenv("FROID_ANALYTICS_MIN_K", "50") or "50")
 FROID_SESSION_REPORTS_PATH = os.getenv(
     "FROID_SESSION_REPORTS_PATH",
@@ -458,13 +459,28 @@ async def _query_froid_analytics(payload: FroidExplicaQuery) -> FroidExplicaResp
         "Existem duas tabelas anonimas: anonymous_sessions e anonymous_session_cuts. "
         "anonymous_sessions contem: session_hash VARCHAR, age_bucket VARCHAR, gender VARCHAR, "
         "ipm_score DOUBLE, dominant_zone INTEGER, vocal_tension DOUBLE, ssri_medication BOOLEAN, "
-        "session_duration INTEGER. "
+        "session_duration INTEGER, schema_version VARCHAR, created_at VARCHAR, session_modality VARCHAR, "
+        "session_kind VARCHAR, treatment_phase VARCHAR, session_ordinal INTEGER, "
+        "interval_since_previous_days DOUBLE, baseline_ipm DOUBLE, baseline_idm DOUBLE, "
+        "baseline_zone INTEGER, baseline_tone VARCHAR, baseline_words_per_minute DOUBLE, "
+        "average_idm DOUBLE, average_words_per_minute DOUBLE, dissonance_count INTEGER, "
+        "cuts_count INTEGER, clinical_notes_count INTEGER, summary_theme VARCHAR, "
+        "summary_text_anon VARCHAR, stt_model VARCHAR, llm_model VARCHAR, algorithm_version VARCHAR, "
+        "audio_quality VARCHAR, media_interruptions INTEGER, confidence_score DOUBLE, "
+        "consent_anonymous_research BOOLEAN. "
         "anonymous_session_cuts contem: session_hash VARCHAR, cut_index INTEGER, cut_label VARCHAR, "
         "start_second INTEGER, end_second INTEGER, sample_count INTEGER, ipm_avg DOUBLE, "
         "idm_avg DOUBLE, dominant_zone INTEGER, coherence_status VARCHAR, emotional_tone VARCHAR, "
         "words_per_minute DOUBLE, theme VARCHAR, dissonance_count INTEGER, mfcc7 DOUBLE, mfcc9 DOUBLE, "
         "f0_mean DOUBLE, zcr DOUBLE, jitter DOUBLE, shimmer DOUBLE, subharmonic_5_12 DOUBLE, "
-        "subharmonic_12_20 DOUBLE. "
+        "subharmonic_12_20 DOUBLE, cut_trigger VARCHAR, cut_summary_anon VARCHAR, "
+        "patient_summary_anon VARCHAR, professional_summary_anon VARCHAR, patient_word_count INTEGER, "
+        "professional_word_count INTEGER, intervention_category VARCHAR, patient_response VARCHAR, "
+        "ipm_delta_from_baseline DOUBLE, idm_delta_from_baseline DOUBLE, "
+        "dissonance_delta_from_baseline DOUBLE, ipm_delta_previous_cut DOUBLE, "
+        "idm_delta_previous_cut DOUBLE, dissonance_delta_previous_cut DOUBLE, risk_score DOUBLE, "
+        "quality_confidence DOUBLE, stt_model VARCHAR, llm_model VARCHAR, algorithm_version VARCHAR, "
+        "audio_quality VARCHAR. "
         "Retorne somente JSON valido com result_sql e cohort_sql. "
         "result_sql deve ser SELECT agregado, sem dados individuais. "
         "cohort_sql deve retornar COUNT(DISTINCT session_hash) AS cohort_size a partir da coorte consultada "
@@ -632,6 +648,22 @@ def _safe_int(value, default: int = 0) -> int:
         return default
 
 
+def _safe_str(value, max_chars: int = 4000) -> str:
+    text = str(value or "").strip()
+    return text[:max_chars]
+
+
+def _safe_bool(value, default: bool = False) -> bool:
+    if isinstance(value, bool):
+        return value
+    text = str(value or "").strip().lower()
+    if text in {"1", "true", "yes", "sim", "on", "paid", "pago"}:
+        return True
+    if text in {"0", "false", "no", "nao", "não", "off"}:
+        return False
+    return default
+
+
 def _anonymous_session_hash(report: dict) -> str:
     raw = f"{report.get('sessionId') or report.get('session_id') or ''}:{report.get('createdAt') or ''}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
@@ -647,6 +679,92 @@ def _ensure_duckdb_column(conn, table: str, column: str, definition: str) -> Non
             conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
     except Exception:
         pass
+
+
+def _ensure_duckdb_columns(conn, table: str, columns: Dict[str, str]) -> None:
+    for column, definition in columns.items():
+        _ensure_duckdb_column(conn, table, column, definition)
+
+
+def _session_context(report: dict) -> dict:
+    context = report.get("anonymizedContext")
+    return context if isinstance(context, dict) else {}
+
+
+def _summary_for_cut(report: dict, start_minute: int, end_minute: int) -> dict:
+    for item in report.get("conversationSummaries") or []:
+        if not isinstance(item, dict):
+            continue
+        if _safe_int(item.get("startMinute")) == start_minute and _safe_int(item.get("endMinute")) == end_minute:
+            return item
+    return {}
+
+
+def _transcript_for_range(report: dict, start_second: int, end_second: int) -> str:
+    transcript = str(report.get("transcript") or "")
+    if not transcript.strip():
+        return ""
+    # Relatorios antigos salvam apenas texto linear; usamos o trecho inteiro como fallback anonimo.
+    return transcript
+
+
+def _speaker_text(transcript: str, speaker: str) -> str:
+    if not transcript:
+        return ""
+    pattern = r"(?:^|\n)\s*" + re.escape(speaker) + r"\s*-\s*([^\n]+)"
+    parts = re.findall(pattern, transcript, flags=re.IGNORECASE)
+    return " ".join(part.strip() for part in parts if part.strip())
+
+
+def _word_count(text: str) -> int:
+    return len(re.findall(r"\b[\wÀ-ÿ]{2,}\b", str(text or ""), flags=re.UNICODE))
+
+
+def _infer_intervention_category(text: str) -> str:
+    clean = str(text or "").lower()
+    if not clean:
+        return "nao_classificada"
+    buckets = [
+        ("grounding_regulacao", ["respira", "aterrar", "grounding", "corpo", "observe", "presenca"]),
+        ("psicoeducacao", ["explicar", "psicoeduc", "entenda", "funciona", "modelo", "sistema nervoso"]),
+        ("reestruturacao_cognitiva", ["pensamento", "crenca", "evidencia", "alternativa", "reinterpretar"]),
+        ("validacao_emocional", ["faz sentido", "compreendo", "valido", "acolho", "natural sentir"]),
+        ("pergunta_aberta", ["como", "quando", "o que", "qual", "pode falar", "?"]),
+        ("orientacao_pratica", ["tarefa", "exercicio", "praticar", "anotar", "combinado"]),
+        ("confrontacao_terapeutica", ["percebe", "contradicao", "padrao", "evita", "resistencia"]),
+        ("encerramento_sintese", ["resumindo", "sintese", "encerrar", "proxima sessao", "combinamos"]),
+    ]
+    scores = [
+        (category, sum(1 for needle in needles if needle in clean))
+        for category, needles in buckets
+    ]
+    best = max(scores, key=lambda item: item[1])
+    return best[0] if best[1] > 0 else "intervencao_geral"
+
+
+def _infer_patient_response(cut: dict, previous_cut: Optional[dict], baseline: dict) -> str:
+    ipm = _safe_float(cut.get("ipmAvg"))
+    dissonance = _safe_float(cut.get("dissonanceCount"))
+    reference_ipm = _safe_float((previous_cut or {}).get("ipmAvg"), _safe_float(baseline.get("ipmAvg")))
+    reference_dissonance = _safe_float(
+        (previous_cut or {}).get("dissonanceCount"),
+        _safe_float(baseline.get("dissonanceCount")),
+    )
+    ipm_delta = ipm - reference_ipm
+    dissonance_delta = dissonance - reference_dissonance
+    if ipm_delta <= -0.5 and dissonance_delta <= 0:
+        return "melhora_regulacao"
+    if ipm_delta >= 0.5 or dissonance_delta > 0:
+        return "aumento_ativacao"
+    return "estabilidade"
+
+
+def _cut_confidence(cut: dict) -> float:
+    sample_count = _safe_float(cut.get("sampleCount"))
+    duration = max(1.0, _safe_float(cut.get("endSecond")) - _safe_float(cut.get("startSecond")))
+    coverage = min(1.0, sample_count / max(1.0, duration / 10.0))
+    speech = min(1.0, _safe_float(cut.get("wordsPerMinute")) / 80.0)
+    return round((coverage * 0.65) + (speech * 0.35), 3)
 
 
 def _append_anonymous_datamart_row(report: dict) -> None:
@@ -666,11 +784,69 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 dominant_zone INTEGER,
                 vocal_tension DOUBLE,
                 ssri_medication BOOLEAN,
-                session_duration INTEGER
+                session_duration INTEGER,
+                schema_version VARCHAR,
+                created_at VARCHAR,
+                session_modality VARCHAR,
+                session_kind VARCHAR,
+                treatment_phase VARCHAR,
+                session_ordinal INTEGER,
+                interval_since_previous_days DOUBLE,
+                baseline_ipm DOUBLE,
+                baseline_idm DOUBLE,
+                baseline_zone INTEGER,
+                baseline_tone VARCHAR,
+                baseline_words_per_minute DOUBLE,
+                average_idm DOUBLE,
+                average_words_per_minute DOUBLE,
+                dissonance_count INTEGER,
+                cuts_count INTEGER,
+                clinical_notes_count INTEGER,
+                summary_theme VARCHAR,
+                summary_text_anon VARCHAR,
+                stt_model VARCHAR,
+                llm_model VARCHAR,
+                algorithm_version VARCHAR,
+                audio_quality VARCHAR,
+                media_interruptions INTEGER,
+                confidence_score DOUBLE,
+                consent_anonymous_research BOOLEAN
             )
             """
         )
-        _ensure_duckdb_column(conn, "anonymous_sessions", "session_hash", "VARCHAR")
+        _ensure_duckdb_columns(
+            conn,
+            "anonymous_sessions",
+            {
+                "session_hash": "VARCHAR",
+                "schema_version": "VARCHAR",
+                "created_at": "VARCHAR",
+                "session_modality": "VARCHAR",
+                "session_kind": "VARCHAR",
+                "treatment_phase": "VARCHAR",
+                "session_ordinal": "INTEGER",
+                "interval_since_previous_days": "DOUBLE",
+                "baseline_ipm": "DOUBLE",
+                "baseline_idm": "DOUBLE",
+                "baseline_zone": "INTEGER",
+                "baseline_tone": "VARCHAR",
+                "baseline_words_per_minute": "DOUBLE",
+                "average_idm": "DOUBLE",
+                "average_words_per_minute": "DOUBLE",
+                "dissonance_count": "INTEGER",
+                "cuts_count": "INTEGER",
+                "clinical_notes_count": "INTEGER",
+                "summary_theme": "VARCHAR",
+                "summary_text_anon": "VARCHAR",
+                "stt_model": "VARCHAR",
+                "llm_model": "VARCHAR",
+                "algorithm_version": "VARCHAR",
+                "audio_quality": "VARCHAR",
+                "media_interruptions": "INTEGER",
+                "confidence_score": "DOUBLE",
+                "consent_anonymous_research": "BOOLEAN",
+            },
+        )
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS anonymous_session_cuts (
@@ -696,18 +872,80 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 jitter DOUBLE,
                 shimmer DOUBLE,
                 subharmonic_5_12 DOUBLE,
-                subharmonic_12_20 DOUBLE
+                subharmonic_12_20 DOUBLE,
+                cut_trigger VARCHAR,
+                cut_summary_anon VARCHAR,
+                patient_summary_anon VARCHAR,
+                professional_summary_anon VARCHAR,
+                patient_word_count INTEGER,
+                professional_word_count INTEGER,
+                intervention_category VARCHAR,
+                patient_response VARCHAR,
+                ipm_delta_from_baseline DOUBLE,
+                idm_delta_from_baseline DOUBLE,
+                dissonance_delta_from_baseline DOUBLE,
+                ipm_delta_previous_cut DOUBLE,
+                idm_delta_previous_cut DOUBLE,
+                dissonance_delta_previous_cut DOUBLE,
+                risk_score DOUBLE,
+                quality_confidence DOUBLE,
+                stt_model VARCHAR,
+                llm_model VARCHAR,
+                algorithm_version VARCHAR,
+                audio_quality VARCHAR
             )
             """
         )
+        _ensure_duckdb_columns(
+            conn,
+            "anonymous_session_cuts",
+            {
+                "cut_trigger": "VARCHAR",
+                "cut_summary_anon": "VARCHAR",
+                "patient_summary_anon": "VARCHAR",
+                "professional_summary_anon": "VARCHAR",
+                "patient_word_count": "INTEGER",
+                "professional_word_count": "INTEGER",
+                "intervention_category": "VARCHAR",
+                "patient_response": "VARCHAR",
+                "ipm_delta_from_baseline": "DOUBLE",
+                "idm_delta_from_baseline": "DOUBLE",
+                "dissonance_delta_from_baseline": "DOUBLE",
+                "ipm_delta_previous_cut": "DOUBLE",
+                "idm_delta_previous_cut": "DOUBLE",
+                "dissonance_delta_previous_cut": "DOUBLE",
+                "risk_score": "DOUBLE",
+                "quality_confidence": "DOUBLE",
+                "stt_model": "VARCHAR",
+                "llm_model": "VARCHAR",
+                "algorithm_version": "VARCHAR",
+                "audio_quality": "VARCHAR",
+            },
+        )
         average = report.get("sessionAverage") or {}
         baseline = report.get("baseline") or {}
+        context = _session_context(report)
+        session_summary = report.get("sessionSummary") or {}
+        ten_minute_cuts = [
+            cut for cut in (report.get("tenMinuteCuts") or []) if isinstance(cut, dict)
+        ]
         dominant_zone = average.get("dominantZone") or baseline.get("dominantZone")
         vocal_tension = (
             average.get("jitter")
             or average.get("shimmer")
             or average.get("subharmonic5_12")
             or 0
+        )
+        cuts_confidence = [_cut_confidence(cut) for cut in ten_minute_cuts]
+        confidence_score = (
+            sum(cuts_confidence) / len(cuts_confidence) if cuts_confidence else 0.0
+        )
+        audio_quality = str(context.get("audio_quality") or context.get("audioQuality") or "nao_informada")
+        consent_research = _safe_bool(
+            context.get("consent_anonymous_research")
+            or context.get("consentAnonymousResearch")
+            or report.get("consentAnonymousResearch"),
+            True,
         )
         conn.execute("DELETE FROM anonymous_session_cuts WHERE session_hash = ?", [session_hash])
         try:
@@ -718,23 +956,86 @@ def _append_anonymous_datamart_row(report: dict) -> None:
             """
             INSERT INTO anonymous_sessions (
                 session_hash, age_bucket, gender, ipm_score, dominant_zone, vocal_tension,
-                ssri_medication, session_duration
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ssri_medication, session_duration, schema_version, created_at,
+                session_modality, session_kind, treatment_phase, session_ordinal,
+                interval_since_previous_days, baseline_ipm, baseline_idm, baseline_zone,
+                baseline_tone, baseline_words_per_minute, average_idm,
+                average_words_per_minute, dissonance_count, cuts_count,
+                clinical_notes_count, summary_theme, summary_text_anon, stt_model,
+                llm_model, algorithm_version, audio_quality, media_interruptions,
+                confidence_score, consent_anonymous_research
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
                 session_hash,
-                "unknown",
-                "unknown",
+                _safe_str(context.get("age_bucket") or context.get("ageBucket") or "unknown", 64),
+                _safe_str(context.get("gender") or "unknown", 64),
                 _safe_float(average.get("ipmAvg")),
                 _safe_int(dominant_zone),
                 _safe_float(vocal_tension),
-                False,
+                _safe_bool(context.get("ssri_medication") or context.get("ssriMedication"), False),
                 _safe_int(report.get("durationSeconds")),
+                "anonymous_datamart_v2",
+                _safe_str(report.get("createdAt") or datetime.now(timezone.utc).isoformat(), 80),
+                _safe_str(context.get("session_modality") or context.get("sessionModality") or "unknown", 80),
+                _safe_str(context.get("session_kind") or context.get("sessionKind") or "seguimento", 80),
+                _safe_str(context.get("treatment_phase") or context.get("treatmentPhase") or "nao_informada", 80),
+                _safe_int(context.get("session_ordinal") or context.get("sessionOrdinal")),
+                _safe_float(context.get("interval_since_previous_days") or context.get("intervalSincePreviousDays")),
+                _safe_float(baseline.get("ipmAvg")),
+                _safe_float(baseline.get("idmAvg")),
+                _safe_int(baseline.get("dominantZone")),
+                _safe_str(baseline.get("emotionalTone") or "", 80),
+                _safe_float(baseline.get("wordsPerMinute")),
+                _safe_float(average.get("idmAvg")),
+                _safe_float(average.get("wordsPerMinute")),
+                _safe_int(average.get("dissonanceCount")),
+                len(ten_minute_cuts),
+                len(report.get("clinicalNotes") or []),
+                _safe_str(session_summary.get("theme") or average.get("theme") or "", 180),
+                _limit_words(_safe_str(session_summary.get("summary") or "", 3000), 150),
+                _safe_str(context.get("stt_model") or context.get("sttModel") or OPENAI_TRANSCRIBE_MODEL, 120),
+                _safe_str(context.get("llm_model") or context.get("llmModel") or FROID_EXPLICA_MODEL, 120),
+                _safe_str(context.get("algorithm_version") or context.get("algorithmVersion") or FROID_ALGORITHM_VERSION, 80),
+                _safe_str(audio_quality, 80),
+                _safe_int(context.get("media_interruptions") or context.get("mediaInterruptions")),
+                _safe_float(confidence_score),
+                consent_research,
             ],
         )
-        for index, cut in enumerate(report.get("tenMinuteCuts") or []):
-            if not isinstance(cut, dict):
-                continue
+        previous_cut: Optional[dict] = None
+        for index, cut in enumerate(ten_minute_cuts):
+            start_second = _safe_int(cut.get("startSecond"))
+            end_second = _safe_int(cut.get("endSecond"))
+            start_minute = int(start_second / 60)
+            end_minute = max(start_minute + 1, int(round(end_second / 60)))
+            summary = _summary_for_cut(report, start_minute, end_minute)
+            transcript = _transcript_for_range(report, start_second, end_second)
+            patient_text = _speaker_text(transcript, "PC")
+            professional_text = _speaker_text(transcript, "DR.")
+            if not patient_text and not professional_text:
+                patient_text = transcript
+            cut_context = {}
+            if isinstance(context.get("cuts"), list) and index < len(context.get("cuts") or []):
+                maybe_cut_context = (context.get("cuts") or [])[index]
+                if isinstance(maybe_cut_context, dict):
+                    cut_context = maybe_cut_context
+            intervention_category = _safe_str(
+                cut_context.get("intervention_category")
+                or cut_context.get("interventionCategory")
+                or _infer_intervention_category(professional_text),
+                120,
+            )
+            patient_response = _safe_str(
+                cut_context.get("patient_response")
+                or cut_context.get("patientResponse")
+                or _infer_patient_response(cut, previous_cut, baseline),
+                120,
+            )
+            baseline_dissonance = _safe_float(baseline.get("dissonanceCount"))
+            previous_ipm = _safe_float((previous_cut or {}).get("ipmAvg"), _safe_float(baseline.get("ipmAvg")))
+            previous_idm = _safe_float((previous_cut or {}).get("idmAvg"), _safe_float(baseline.get("idmAvg")))
+            previous_dissonance = _safe_float((previous_cut or {}).get("dissonanceCount"), baseline_dissonance)
             conn.execute(
                 """
                 INSERT INTO anonymous_session_cuts (
@@ -742,15 +1043,21 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                     sample_count, ipm_avg, idm_avg, dominant_zone, dominant_theme,
                     coherence_status, emotional_tone, words_per_minute, theme,
                     dissonance_count, mfcc7, mfcc9, f0_mean, zcr, jitter, shimmer,
-                    subharmonic_5_12, subharmonic_12_20
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    subharmonic_5_12, subharmonic_12_20, cut_trigger,
+                    cut_summary_anon, patient_summary_anon, professional_summary_anon,
+                    patient_word_count, professional_word_count, intervention_category,
+                    patient_response, ipm_delta_from_baseline, idm_delta_from_baseline,
+                    dissonance_delta_from_baseline, ipm_delta_previous_cut,
+                    idm_delta_previous_cut, dissonance_delta_previous_cut, risk_score,
+                    quality_confidence, stt_model, llm_model, algorithm_version, audio_quality
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 [
                     session_hash,
                     index,
                     str(cut.get("label") or ""),
-                    _safe_int(cut.get("startSecond")),
-                    _safe_int(cut.get("endSecond")),
+                    start_second,
+                    end_second,
                     _safe_int(cut.get("sampleCount")),
                     _safe_float(cut.get("ipmAvg")),
                     _safe_float(cut.get("idmAvg")),
@@ -769,8 +1076,29 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                     _safe_float(cut.get("shimmer")),
                     _safe_float(cut.get("subharmonic5_12")),
                     _safe_float(cut.get("subharmonic12_20")),
+                    _safe_str(cut_context.get("cut_trigger") or cut_context.get("cutTrigger") or "automatico_10min", 80),
+                    _limit_words(_safe_str(summary.get("summary") or cut.get("theme") or "", 3000), 120),
+                    _limit_words(_safe_str(cut_context.get("patient_summary_anon") or cut_context.get("patientSummaryAnon") or patient_text, 3000), 120),
+                    _limit_words(_safe_str(cut_context.get("professional_summary_anon") or cut_context.get("professionalSummaryAnon") or professional_text, 3000), 120),
+                    _word_count(patient_text),
+                    _word_count(professional_text),
+                    intervention_category,
+                    patient_response,
+                    _safe_float(cut.get("ipmAvg")) - _safe_float(baseline.get("ipmAvg")),
+                    _safe_float(cut.get("idmAvg")) - _safe_float(baseline.get("idmAvg")),
+                    _safe_float(cut.get("dissonanceCount")) - baseline_dissonance,
+                    _safe_float(cut.get("ipmAvg")) - previous_ipm,
+                    _safe_float(cut.get("idmAvg")) - previous_idm,
+                    _safe_float(cut.get("dissonanceCount")) - previous_dissonance,
+                    _safe_float((report.get("metricsAnalysis") or {}).get("dashboard", {}).get("max_risk")),
+                    _cut_confidence(cut),
+                    _safe_str(cut_context.get("stt_model") or cut_context.get("sttModel") or OPENAI_TRANSCRIBE_MODEL, 120),
+                    _safe_str(cut_context.get("llm_model") or cut_context.get("llmModel") or FROID_EXPLICA_MODEL, 120),
+                    _safe_str(cut_context.get("algorithm_version") or cut_context.get("algorithmVersion") or FROID_ALGORITHM_VERSION, 80),
+                    _safe_str(cut_context.get("audio_quality") or cut_context.get("audioQuality") or audio_quality, 80),
                 ],
             )
+            previous_cut = cut
         conn.close()
     except Exception:
         pass

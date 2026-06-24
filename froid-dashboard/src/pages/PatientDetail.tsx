@@ -366,6 +366,7 @@ const PatientEvolutionChart: React.FC<{ reports: SessionReportRecord[] }> = ({
       <svg viewBox={`0 0 ${width} ${height}`} className="min-w-[760px] w-full">
         {[0, 1, 2, 3, 4].map((line) => {
           const y = padY + (line / 4) * chartHeight;
+          const isCenter = line === 2;
           return (
             <line
               key={line}
@@ -373,8 +374,9 @@ const PatientEvolutionChart: React.FC<{ reports: SessionReportRecord[] }> = ({
               x2={width - padX}
               y1={y}
               y2={y}
-              stroke="#d1d5db"
-              strokeWidth="1"
+              stroke={isCenter ? "#94a3b8" : "#d1d5db"}
+              strokeDasharray={isCenter ? "0" : "5 5"}
+              strokeWidth={isCenter ? "1.4" : "1"}
             />
           );
         })}
