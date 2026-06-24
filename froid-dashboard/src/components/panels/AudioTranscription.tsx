@@ -282,11 +282,11 @@ export const AudioTranscription: React.FC<Props> = ({
                   {item.startMinute}-{item.endMinute}min
                 </span>
                 <strong className="truncate text-[10px] text-slate-800">
-                  {limitWords(item.theme, 4)}
+                  {limitWords(item.theme, 6)}
                 </strong>
               </div>
               <p className="mt-0.5 text-[10px] leading-snug text-slate-600">
-                {limitWords(item.summary, 100)}
+                {limitWords(item.summary, 60)}
               </p>
             </div>
           ))}
@@ -317,7 +317,7 @@ export const AudioTranscription: React.FC<Props> = ({
             </span>
           </div>
           <p className="text-[10px] text-amber-900 leading-snug mt-0.5">
-            {limitWords(sessionTheme, 4)}
+            {limitWords(sessionTheme, 6)}
           </p>
         </div>
       )}

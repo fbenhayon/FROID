@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AIInsights } from "../components/panels/AIInsights";
+import { FroidTooltip } from "../components/ui/FroidTooltip";
 import { apiUrl } from "../lib/api";
 import {
   formatDuration,
@@ -42,6 +43,104 @@ function limitWords(text: string, maxWords: number) {
   return String(text || "").trim().split(/\s+/).filter(Boolean).slice(0, maxWords).join(" ");
 }
 
+const TITLE_TOOLTIPS: Record<string, string> = {
+  "Linha comparativa da sessao":
+    "Compara o baseline inicial de 60 segundos com a media consolidada da sessao.",
+  "Evolucao FROID":
+    "Grafico normalizado pelo baseline inicial. A linha 100 representa o ponto de partida da sessao.",
+  "Leitura estatistica das metricas":
+    "Resume baseline, media, ultimo corte, delta e escore-z das metricas evolutivas do FROID.",
+  "Composicao do relatorio":
+    "Permite escolher quais blocos entram na visualizacao e no relatorio da consulta.",
+  "Parametros iniciais - 60 segundos":
+    "Primeira fotografia bioacustica e multimodal da sessao, tomada apos a ativacao do audio do paciente.",
+  "Media das metricas da sessao":
+    "Media consolidada dos marcadores coletados durante todo o periodo analisado da sessao.",
+  "Cortes de 10 minutos":
+    "Janelas temporais da sessao com as mesmas metricas da media, permitindo comparar a evolucao corte a corte.",
+  "Resumo geral da sessao":
+    "Sintese geral da sessao, limitada a 120 palavras, com tema predominante de ate 6 palavras.",
+  "Temas e resumos por janela":
+    "Resumo de cada janela temporal, limitado a 60 palavras, com tema de ate 6 palavras.",
+  "Observacoes do profissional":
+    "Anotacoes clinicas registradas manualmente pelo profissional durante a sessao.",
+  "Dissonancias registradas":
+    "Lista apenas dissonancias persistentes acima do limiar clinico configurado.",
+  "Transcricao da sessao":
+    "Transcricao arquivada da fala do profissional e do paciente quando disponivel.",
+  "Relatorio Descritivo":
+    "Campo editavel para o profissional montar texto a copiar, enviar ou futuramente imprimir.",
+};
+
+const METRIC_TOOLTIPS: Record<string, string> = {
+  Corte: "Janela temporal analisada na sessao.",
+  IPM: "Indice de Potencia Multimodal: intensidade global ou energia emocional empregada.",
+  IDM: "Indice de Desvio Multimodal: direcao e grau do desequilibrio multimodal.",
+  "Z Domin.": "Zona FROID dominante no periodo analisado.",
+  Tema: "Tema predominante consolidado da sessao ou do bloco analisado.",
+  Tom: "Tom emocional inferido pela combinacao vocal e semantica.",
+  "P/min": "Palavras por minuto no periodo analisado.",
+  "Disso.": "Quantidade de dissonancias facial-vocais persistentes registradas.",
+  MFCC7: "Biomarcador acustico associado a conteudo de valencia negativa e risco depressivo quando combinado a outros sinais.",
+  MFCC9: "Biomarcador acustico acompanhado em fala neutra, relevante para tensao autonomica e ansiedade somatica.",
+  "F0 Med.": "Frequencia fundamental media da voz no periodo.",
+  ZCR: "Taxa de cruzamento por zero, relacionada a textura/ruido e dinamica acustica.",
+  Jitter: "Microvariacao ciclo a ciclo da frequencia vocal.",
+  Shimmer: "Microvariacao ciclo a ciclo da amplitude vocal.",
+  "Sub-H 5-12Hz": "Energia sub-harmonica baixa, usada no cruzamento com sinais autonomicos.",
+  "Sub-H 12-20Hz": "Energia sub-harmonica complementar para leitura bioacustica.",
+  Metrica: "Nome da metrica estatistica analisada pelo motor evolutivo.",
+  Baseline: "Valor inicial de referencia, apurado no baseline da sessao.",
+  Media: "Media consolidada da sessao para a metrica.",
+  "Ultimo corte": "Valor mais recente observado nos cortes temporais.",
+  "Delta ultimo": "Variacao percentual do ultimo corte em relacao ao baseline.",
+  "Z ultimo": "Desvio padronizado do ultimo corte em relacao ao comportamento de referencia.",
+  Alertas: "Alertas estatisticos ou clinicos levantados para a metrica.",
+  ipm: "Indice de Potencia Multimodal no motor estatistico.",
+  idm: "Indice de Desvio Multimodal no motor estatistico.",
+  words_per_minute: "Velocidade media de fala em palavras por minuto.",
+  facial_vocal_dissonance: "Dissonancia entre expressao facial e trilha vocal.",
+  clinical_risk: "Risco clinico agregado calculado pelo motor FROID.",
+  "Palavras/min": "Velocidade media de fala em palavras por minuto.",
+  Dissonancia: "Dissonancia entre expressao facial e trilha vocal.",
+  "Risco clinico": "Risco clinico agregado calculado pelo motor FROID.",
+};
+
+const HelpTitle: React.FC<{ title: string; className?: string }> = ({
+  title,
+  className = "text-sm font-bold text-slate-900",
+}) => (
+  <FroidTooltip
+    width={320}
+    content={
+      <div>
+        <p className="font-bold text-slate-900">{title}</p>
+        <p className="mt-1">{TITLE_TOOLTIPS[title] || "Informacao do bloco."}</p>
+      </div>
+    }
+  >
+    <span className={`${className} cursor-help border-b border-dashed border-slate-300`}>
+      {title}
+    </span>
+  </FroidTooltip>
+);
+
+const HelpMetric: React.FC<{ label: string }> = ({ label }) => (
+  <FroidTooltip
+    width={300}
+    content={
+      <div>
+        <p className="font-bold text-slate-900">{label}</p>
+        <p className="mt-1">{METRIC_TOOLTIPS[label] || "Metrica FROID."}</p>
+      </div>
+    }
+  >
+    <span className="cursor-help border-b border-dashed border-slate-300">
+      {label}
+    </span>
+  </FroidTooltip>
+);
+
 function derivedSessionSummary(report: SessionReportRecord) {
   if (report.sessionSummary?.summary) return report.sessionSummary;
   const ordered = [...(report.conversationSummaries || [])].sort(
@@ -55,10 +154,10 @@ function derivedSessionSummary(report: SessionReportRecord) {
       ordered.length
         ? ordered.map((item) => item.theme).join(" ")
         : report.sessionAverage.theme,
-      4,
+      6,
     ),
     summary:
-      limitWords(source || "", 150) ||
+      limitWords(source || "", 120) ||
       "Resumo geral indisponivel para esta sessao.",
     generatedAt: report.createdAt,
   };
@@ -83,44 +182,102 @@ function metricRows(snapshot: MetricSnapshot) {
   return [
     ["IPM", fmt(snapshot.ipmAvg, 1)],
     ["IDM", fmt(snapshot.idmAvg, 2)],
-    ["Zona dominante", snapshot.dominantZone ? `Zona ${snapshot.dominantZone}` : "--"],
+    ["Z Domin.", snapshot.dominantZone ? `Zona ${snapshot.dominantZone}` : "--"],
     ["Tema", snapshot.theme || "--"],
-    ["Tom emocional", snapshot.emotionalTone || "--"],
-    ["Palavras/min", fmt(snapshot.wordsPerMinute, 1)],
-    ["Dissonancias", String(snapshot.dissonanceCount || 0)],
+    ["Tom", snapshot.emotionalTone || "--"],
+    ["P/min", fmt(snapshot.wordsPerMinute, 1)],
+    ["Disso.", String(snapshot.dissonanceCount || 0)],
     ["MFCC7", fmt(snapshot.mfcc7, 3)],
     ["MFCC9", fmt(snapshot.mfcc9, 3)],
-    ["F0 medio", fmt(snapshot.f0Mean, 2)],
+    ["F0 Med.", fmt(snapshot.f0Mean, 2)],
     ["ZCR", fmt(snapshot.zcr, 3)],
     ["Jitter", fmt(snapshot.jitter, 3)],
     ["Shimmer", fmt(snapshot.shimmer, 3)],
-    ["Sub-harmonico 5-12Hz", fmt(snapshot.subharmonic5_12, 3)],
-    ["Sub-harmonico 12-20Hz", fmt(snapshot.subharmonic12_20, 3)],
+    ["Sub-H 5-12Hz", fmt(snapshot.subharmonic5_12, 3)],
+    ["Sub-H 12-20Hz", fmt(snapshot.subharmonic12_20, 3)],
   ];
 }
+
+function cutMetricRows(snapshot: MetricSnapshot, sessionTheme: string) {
+  return metricRows(snapshot).map(([label, value]) =>
+    label === "Tema" ? ["Tema", sessionTheme || "--"] : [label, value],
+  );
+}
+
+function buildDescriptiveReportText(
+  report: SessionReportRecord,
+  sessionSummary: { theme: string; summary: string },
+) {
+  return [
+    `Relatorio descritivo da sessao ${report.sessionId}`,
+    `Data: ${new Date(report.createdAt).toLocaleString("pt-BR")}`,
+    `Duracao: ${formatDuration(report.durationSeconds)}`,
+    `Tema predominante: ${limitWords(sessionSummary.theme || report.sessionAverage.theme, 6)}`,
+    "",
+    `Resumo geral: ${limitWords(sessionSummary.summary, 120)}`,
+    "",
+    `Linha comparativa: IPM ${fmt(report.baseline.ipmAvg, 1)} -> ${fmt(report.sessionAverage.ipmAvg, 1)}; IDM ${fmt(report.baseline.idmAvg, 2)} -> ${fmt(report.sessionAverage.idmAvg, 2)}; Zona ${report.sessionAverage.dominantZone || "--"}; Tom ${report.sessionAverage.emotionalTone || "--"}; ${fmt(report.sessionAverage.wordsPerMinute, 1)} palavras/min.`,
+    "",
+    `Observacoes clinicas registradas: ${report.clinicalNotes.length}. Dissonancias persistentes registradas: ${report.dissonances.length}.`,
+  ].join("\n");
+}
+
+const CompactMetricTable: React.FC<{
+  title: string;
+  rows: Array<{ label: string; metrics: string[][] }>;
+}> = ({ title, rows }) => (
+  <section className="rounded-lg border border-slate-200 bg-white p-4">
+    <div className="mb-3">
+      <HelpTitle title={title} />
+    </div>
+    <div className="overflow-x-auto">
+      <table className="w-full table-auto text-left text-[10px] leading-tight">
+        <thead className="text-[9px] uppercase tracking-normal text-slate-400">
+          <tr>
+            <th className="whitespace-nowrap py-1 pr-2">
+              <HelpMetric label="Corte" />
+            </th>
+            {rows[0]?.metrics.map(([label]) => (
+              <th
+                key={label}
+                className="max-w-28 whitespace-nowrap px-1 py-1 font-bold"
+              >
+                <HelpMetric label={label} />
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {rows.map((row) => (
+            <tr key={row.label} className="align-top">
+              <td className="whitespace-nowrap py-1 pr-2 font-bold text-slate-700">
+                {row.label}
+              </td>
+              {row.metrics.map(([label, value]) => (
+                <td
+                  key={`${row.label}-${label}`}
+                  className="max-w-28 truncate px-1 py-1 text-slate-700"
+                  title={value}
+                >
+                  {value}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </section>
+);
 
 const MetricList: React.FC<{ title: string; snapshot: MetricSnapshot }> = ({
   title,
   snapshot,
 }) => (
-  <section className="rounded-lg border border-slate-200 bg-white p-4">
-    <div className="mb-3 flex items-center justify-between gap-3">
-      <h2 className="text-sm font-bold text-slate-900">{title}</h2>
-      <span className="rounded bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-500">
-        {snapshot.label}
-      </span>
-    </div>
-    <div className="grid gap-2 md:grid-cols-3">
-      {metricRows(snapshot).map(([label, value]) => (
-        <div key={label} className="rounded border border-slate-100 bg-slate-50 p-2">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-            {label}
-          </p>
-          <p className="mt-0.5 text-sm font-semibold text-slate-800">{value}</p>
-        </div>
-      ))}
-    </div>
-  </section>
+  <CompactMetricTable
+    title={title}
+    rows={[{ label: snapshot.label, metrics: metricRows(snapshot) }]}
+  />
 );
 
 const METRIC_SUMMARY_KEYS = [
@@ -216,6 +373,32 @@ const EvolutionChart: React.FC<{ analysis: MetricsAnalysis }> = ({ analysis }) =
         ))}
       </div>
       <svg viewBox={`0 0 ${width} ${height}`} className="h-64 w-full">
+        {rows.map((row, index) => (
+          <g key={`x-grid-${row.label}-${index}`}>
+            <line
+              x1={x(index)}
+              x2={x(index)}
+              y1={pad.top}
+              y2={height - pad.bottom}
+              stroke="#e2e8f0"
+              strokeDasharray="2 4"
+            />
+            <line
+              x1={x(index)}
+              x2={x(index)}
+              y1={height - pad.bottom}
+              y2={height - pad.bottom + 5}
+              stroke="#94a3b8"
+            />
+          </g>
+        ))}
+        <line
+          x1={pad.left}
+          x2={width - pad.right}
+          y1={height - pad.bottom}
+          y2={height - pad.bottom}
+          stroke="#94a3b8"
+        />
         {[min, 100, max].map((tick) => (
           <g key={tick}>
             <line
@@ -260,10 +443,12 @@ const EvolutionChart: React.FC<{ analysis: MetricsAnalysis }> = ({ analysis }) =
             x={x(index)}
             y={height - 16}
             textAnchor="middle"
-            fontSize="10"
+            fontSize="9"
             fill="#64748b"
           >
-            {row.label}
+            {Number.isFinite(row.start_min) && Number.isFinite(row.end_min)
+              ? `${row.start_min}-${row.end_min}m`
+              : row.label}
           </text>
         ))}
       </svg>
@@ -282,6 +467,7 @@ export const SessionReport: React.FC<Props> = () => {
   );
   const [metricsError, setMetricsError] = useState("");
   const [sections, setSections] = useState(DEFAULT_SECTIONS);
+  const [descriptiveReport, setDescriptiveReport] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -334,6 +520,11 @@ export const SessionReport: React.FC<Props> = () => {
     };
   }, [metricsAnalysis, report]);
 
+  useEffect(() => {
+    if (!report || descriptiveReport.trim()) return;
+    setDescriptiveReport(buildDescriptiveReportText(report, derivedSessionSummary(report)));
+  }, [descriptiveReport, report]);
+
   if (!report) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 p-6 text-slate-700">
@@ -385,12 +576,15 @@ export const SessionReport: React.FC<Props> = () => {
         </div>
       </header>
 
-      <main className="mx-auto grid max-w-7xl gap-4 p-6 lg:grid-cols-[1fr_360px]">
+      <main className="mx-auto grid max-w-7xl items-start gap-4 p-6 lg:grid-cols-[1fr_390px]">
         <div className="space-y-4">
           <section className="rounded-lg border border-blue-100 bg-blue-50 p-4">
-            <h2 className="mb-3 text-sm font-bold text-blue-950">
-              Linha comparativa da sessao
-            </h2>
+            <div className="mb-3">
+              <HelpTitle
+                title="Linha comparativa da sessao"
+                className="text-sm font-bold text-blue-950"
+              />
+            </div>
             <div className="grid gap-2 md:grid-cols-5">
               <div>
                 <p className="text-[10px] font-bold uppercase text-blue-500">
@@ -440,7 +634,7 @@ export const SessionReport: React.FC<Props> = () => {
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
                   <h2 className="text-sm font-bold text-slate-900">
-                    Evolucao FROID
+                    <HelpTitle title="Evolucao FROID" />
                   </h2>
                   <p className="text-[11px] text-slate-500">
                     Curvas normalizadas pelo baseline inicial de 60 segundos.
@@ -512,19 +706,25 @@ export const SessionReport: React.FC<Props> = () => {
           {sections.statistics && activeMetricsAnalysis && (
             <section className="rounded-lg border border-slate-200 bg-white p-4">
               <h2 className="mb-3 text-sm font-bold text-slate-900">
-                Leitura estatistica das metricas
+                <HelpTitle title="Leitura estatistica das metricas" />
               </h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead className="text-[10px] uppercase tracking-wider text-slate-400">
                     <tr>
-                      <th className="py-2">Metrica</th>
-                      <th>Baseline</th>
-                      <th>Media</th>
-                      <th>Ultimo corte</th>
-                      <th>Delta ultimo</th>
-                      <th>Z ultimo</th>
-                      <th>Alertas</th>
+                      {[
+                        "Metrica",
+                        "Baseline",
+                        "Media",
+                        "Ultimo corte",
+                        "Delta ultimo",
+                        "Z ultimo",
+                        "Alertas",
+                      ].map((label, index) => (
+                        <th key={label} className={index === 0 ? "py-2" : ""}>
+                          <HelpMetric label={label} />
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -533,7 +733,7 @@ export const SessionReport: React.FC<Props> = () => {
                       return (
                         <tr key={key}>
                           <td className="py-2 font-bold text-slate-700">
-                            {metricLabel(activeMetricsAnalysis, key)}
+                            <HelpMetric label={metricLabel(activeMetricsAnalysis, key)} />
                           </td>
                           <td>{fmt(summary.baseline, 2)}</td>
                           <td>{fmt(summary.session_mean, 2)}</td>
@@ -560,7 +760,7 @@ export const SessionReport: React.FC<Props> = () => {
 
           <section className="rounded-lg border border-slate-200 bg-white p-4">
             <h2 className="mb-3 text-sm font-bold text-slate-900">
-              Composicao do relatorio
+              <HelpTitle title="Composicao do relatorio" />
             </h2>
             <div className="grid gap-2 md:grid-cols-4">
               {(Object.keys(sections) as SectionKey[]).map((key) => (
@@ -587,51 +787,30 @@ export const SessionReport: React.FC<Props> = () => {
           )}
 
           {sections.cuts && (
-            <section className="rounded-lg border border-slate-200 bg-white p-4">
-              <h2 className="mb-3 text-sm font-bold text-slate-900">
-                Cortes de 10 minutos
-              </h2>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="text-[10px] uppercase tracking-wider text-slate-400">
-                    <tr>
-                      <th className="py-2">Corte</th>
-                      <th>IPM</th>
-                      <th>IDM</th>
-                      <th>Zona</th>
-                      <th>PPM</th>
-                      <th>Tema</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {report.tenMinuteCuts.map((cut) => (
-                      <tr key={cut.label}>
-                        <td className="py-2 font-bold text-slate-700">{cut.label}</td>
-                        <td>{fmt(cut.ipmAvg, 1)}</td>
-                        <td>{fmt(cut.idmAvg, 2)}</td>
-                        <td>{cut.dominantZone || "--"}</td>
-                        <td>{fmt(cut.wordsPerMinute, 1)}</td>
-                        <td>{limitWords(cut.theme, 4)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
+            <CompactMetricTable
+              title="Cortes de 10 minutos"
+              rows={report.tenMinuteCuts.map((cut) => ({
+                label: cut.label,
+                metrics: cutMetricRows(
+                  cut,
+                  limitWords(sessionSummary.theme || report.sessionAverage.theme, 6),
+                ),
+              }))}
+            />
           )}
 
           {sections.summaries && (
             <section className="rounded-lg border border-slate-200 bg-white p-4">
               <h2 className="mb-3 text-sm font-bold text-slate-900">
-                Resumo geral da sessao
+                <HelpTitle title="Resumo geral da sessao" />
               </h2>
               <div className="rounded border border-blue-100 bg-blue-50 p-3">
                 <p className="text-xs font-bold text-blue-950">
                   Tema predominante:{" "}
-                  {limitWords(sessionSummary.theme || report.sessionAverage.theme, 4)}
+                  {limitWords(sessionSummary.theme || report.sessionAverage.theme, 6)}
                 </p>
                 <p className="mt-1 text-xs leading-relaxed text-blue-900">
-                  {limitWords(sessionSummary.summary, 150)}
+                  {limitWords(sessionSummary.summary, 120)}
                 </p>
               </div>
             </section>
@@ -640,17 +819,17 @@ export const SessionReport: React.FC<Props> = () => {
           {sections.summaries && (
             <section className="rounded-lg border border-slate-200 bg-white p-4">
               <h2 className="mb-3 text-sm font-bold text-slate-900">
-                Temas e resumos por janela
+                <HelpTitle title="Temas e resumos por janela" />
               </h2>
               <div className="space-y-2">
                 {report.conversationSummaries.map((item) => (
                   <div key={item.id} className="rounded border border-slate-100 bg-slate-50 p-3">
                     <p className="text-xs font-bold text-slate-800">
                       {item.startMinute}-{item.endMinute}min |{" "}
-                      {limitWords(item.theme, 4)}
+                      {limitWords(item.theme, 6)}
                     </p>
                     <p className="mt-1 text-xs leading-relaxed text-slate-600">
-                      {limitWords(item.summary, 100)}
+                      {limitWords(item.summary, 60)}
                     </p>
                   </div>
                 ))}
@@ -661,7 +840,7 @@ export const SessionReport: React.FC<Props> = () => {
           {sections.notes && (
             <section className="rounded-lg border border-slate-200 bg-white p-4">
               <h2 className="mb-3 text-sm font-bold text-slate-900">
-                Observacoes do profissional
+                <HelpTitle title="Observacoes do profissional" />
               </h2>
               <div className="space-y-2">
                 {report.clinicalNotes.length === 0 && (
@@ -686,7 +865,7 @@ export const SessionReport: React.FC<Props> = () => {
           {sections.dissonances && (
             <section className="rounded-lg border border-slate-200 bg-white p-4">
               <h2 className="mb-3 text-sm font-bold text-slate-900">
-                Dissonancias registradas
+                <HelpTitle title="Dissonancias registradas" />
               </h2>
               <div className="space-y-2">
                 {report.dissonances.length === 0 && (
@@ -709,7 +888,7 @@ export const SessionReport: React.FC<Props> = () => {
           {sections.transcript && (
             <section className="rounded-lg border border-slate-200 bg-white p-4">
               <h2 className="mb-3 text-sm font-bold text-slate-900">
-                Transcricao da sessao
+                <HelpTitle title="Transcricao da sessao" />
               </h2>
               <pre className="max-h-96 overflow-y-auto whitespace-pre-wrap rounded bg-slate-950 p-3 text-xs leading-relaxed text-slate-100">
                 {report.transcript || "Sem transcricao arquivada."}
@@ -718,15 +897,40 @@ export const SessionReport: React.FC<Props> = () => {
           )}
         </div>
 
-        <aside className="min-h-[520px] rounded-lg border border-slate-200 bg-white p-4">
-          <AIInsights
-            zones={report.sessionAverage.zones || []}
-            ipmScore={report.sessionAverage.ipmAvg}
-            coherenceStatus={report.sessionAverage.coherenceStatus}
-            baselineEstablished
-            sessionId={report.sessionId}
-            extraContext={reportContext}
-          />
+        <aside className="space-y-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
+          <section className="min-h-[420px] rounded-lg border border-slate-200 bg-white p-4">
+            <AIInsights
+              zones={report.sessionAverage.zones || []}
+              ipmScore={report.sessionAverage.ipmAvg}
+              coherenceStatus={report.sessionAverage.coherenceStatus}
+              baselineEstablished
+              sessionId={report.sessionId}
+              extraContext={reportContext}
+            />
+          </section>
+
+          <section className="rounded-lg border border-slate-200 bg-white p-4">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <h2 className="text-sm font-bold text-slate-900">
+                <HelpTitle title="Relatorio Descritivo" />
+              </h2>
+              <button
+                onClick={() => navigator.clipboard?.writeText(descriptiveReport)}
+                className="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-bold text-slate-600 hover:bg-slate-100"
+              >
+                Copiar
+              </button>
+            </div>
+            <textarea
+              value={descriptiveReport}
+              onChange={(event) => setDescriptiveReport(event.target.value)}
+              className="min-h-72 w-full resize-y rounded border border-slate-200 bg-slate-50 p-3 text-xs leading-relaxed text-slate-800 outline-none focus:border-blue-400 focus:bg-white"
+              placeholder="Cole aqui os pontos relevantes que serao usados no relatorio para paciente, pares ou impressao."
+            />
+            <p className="mt-2 text-[10px] text-slate-400">
+              Campo fixo para edicao, copia e posterior composicao do documento de impressao.
+            </p>
+          </section>
         </aside>
       </main>
     </div>

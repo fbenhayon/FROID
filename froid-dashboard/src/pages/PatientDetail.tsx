@@ -5,15 +5,18 @@ import { apiUrl } from "../lib/api";
 import {
   buildPatientGroups,
   formatDateTime,
-  limitWords,
   mergeReports,
+  paymentStatusForReport,
   reportEndDate,
   reportStartDate,
+  sessionMetricCells,
+  splitSessionResult,
   shortId,
 } from "../lib/patient-dashboard";
 import {
   formatDuration,
   loadSessionReports,
+  MetricSnapshot,
   SessionReportRecord,
 } from "../lib/session-report";
 
@@ -95,110 +98,181 @@ export const PatientDetail: React.FC = () => {
         Voltar ao Dashboard
       </button>
 
-      <h1 className="mt-4 text-2xl font-bold">
-        {group.patient.name || "Paciente sem nome"}
-      </h1>
-      <p className="mt-4 text-xs">
-        CPF: {group.patient.document || "Nao informado"}
-      </p>
+      <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">
+            {group.patient.name || "Paciente sem nome"}
+          </h1>
+          <p className="mt-3 text-xs">
+            CPF: {group.patient.document || "Nao informado"}
+          </p>
+        </div>
+        <button
+          onClick={() => navigate(`/session/${latest.sessionId}`)}
+          className="border border-black px-2 py-1 text-xs font-bold"
+        >
+          Enviar convite / abrir sessao
+        </button>
+      </div>
 
-      <section className="mt-8 grid grid-cols-4 gap-4 text-xs">
+      <section className="mt-5 grid grid-cols-4 gap-4 text-xs">
         <Counter label="Total de Sessoes" value={group.totalSessions} />
         <Counter label="Sessoes Concluidas" value={group.completedSessions} />
         <Counter label="Sessoes Ativas" value={group.activeSessions} />
         <Counter label="Total de Analises" value={group.totalAnalyses} />
       </section>
 
-      <section className="mt-7">
-        <h2 className="text-lg font-bold">Indicadores Clinicos</h2>
-        <div className="mt-6 grid grid-cols-3 gap-10 text-xs">
-          <Indicator
-            label="Zona FROID Dominante"
-            value={group.dominantZone ? `Zona ${group.dominantZone}` : "--"}
-            detail={`Baseado em ${group.completedSessions} sessoes`}
-          />
-          <Indicator
-            label="Emocao Recorrente"
-            value={group.recurrentEmotion || "--"}
-            detail="FACS - Analise Facial"
-          />
-          <Indicator
-            label="Risco Clinico"
-            value={group.clinicalRisk}
-            detail={group.riskTypes}
-          />
-        </div>
-        <p className="mt-5 text-xs">
-          <strong>Nota Clinica:</strong> {group.clinicalNote}
-        </p>
-      </section>
-
       <section className="mt-5">
-        <h2 className="text-lg font-bold">Historico de Sessoes</h2>
-        <table className="mt-3 w-full table-fixed text-left text-xs">
-          <thead>
-            <tr className="font-bold">
-              <th className="w-[13%]">ID</th>
-              <th className="w-[12%]">STATUS</th>
-              <th className="w-[23%]">INICIO</th>
-              <th className="w-[23%]">FIM</th>
-              <th className="w-[17%]">DURACAO</th>
-              <th>ANALISES</th>
-            </tr>
-          </thead>
-          <tbody>
-            {group.reports.map((report, index) => (
-              <tr key={report.sessionId}>
-                <td>
-                  <button
-                    onClick={() => navigate(`/session/${report.sessionId}/report`)}
-                    className="underline-offset-2 hover:underline"
-                  >
-                    {shortId(report.sessionId)}
-                  </button>
-                </td>
-                <td>{index === 0 ? "Concluida" : "Ativa"}</td>
-                <td>{formatDateTime(reportStartDate(report))}</td>
-                <td>{formatDateTime(reportEndDate(report))}</td>
-                <td>{formatDuration(report.durationSeconds)}</td>
-                <td>
-                  {report.metricsAnalysis?.dashboard.populated_windows ||
-                    report.tenMinuteCuts.filter((cut) => cut.sampleCount > 0)
-                      .length}{" "}
-                  registros
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <h2 className="text-lg font-bold">Evolucao das ultimas 20 sessoes</h2>
+        <PatientEvolutionChart reports={group.reports} />
       </section>
 
-      <section className="mt-6 border border-black p-2">
-        <h2 className="text-sm font-bold">Leitura das 3 ultimas sessoes</h2>
-        <div className="mt-2 space-y-1 text-xs">
-          {group.reports.slice(0, 3).map((report) => (
-            <div key={report.sessionId}>
-              {shortId(report.sessionId)} | IPM {report.baseline.ipmAvg.toFixed(1)} -{" "}
-              {report.sessionAverage.ipmAvg.toFixed(1)} | IDM{" "}
-              {report.baseline.idmAvg.toFixed(2)} -{" "}
-              {report.sessionAverage.idmAvg.toFixed(2)} | Zona{" "}
-              {report.sessionAverage.dominantZone || "--"} | Tema{" "}
-              {limitWords(report.sessionAverage.theme || report.baseline.theme, 4)}
+      <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <main className="min-w-0">
+          <section>
+            <h2 className="text-lg font-bold">Indicadores Clinicos</h2>
+            <div className="mt-4 grid grid-cols-3 gap-8 text-xs">
+              <Indicator
+                label="Zona FROID Dominante"
+                value={group.dominantZone ? `Zona ${group.dominantZone}` : "--"}
+                detail={`Baseado em ${group.completedSessions} sessoes`}
+              />
+              <Indicator
+                label="Emocao Recorrente"
+                value={group.recurrentEmotion || "--"}
+                detail="FACS - Analise Facial"
+              />
+              <Indicator
+                label="Risco Clinico"
+                value={group.clinicalRisk}
+                detail={group.riskTypes}
+              />
             </div>
-          ))}
-        </div>
-      </section>
+            <p className="mt-4 text-xs">
+              <strong>Nota Clinica:</strong> {group.clinicalNote}
+            </p>
+          </section>
 
-      <section className="mt-6 border border-black p-2">
-        <AIInsights
-          zones={latest.sessionAverage.zones || []}
-          ipmScore={latest.sessionAverage.ipmAvg}
-          coherenceStatus={latest.sessionAverage.coherenceStatus}
-          baselineEstablished
-          sessionId={latest.sessionId}
-          extraContext={context}
-        />
-      </section>
+          <section className="mt-5">
+            <h2 className="text-lg font-bold">Sessoes realizadas</h2>
+            <div className="mt-3 overflow-x-auto border border-black">
+              <table className="min-w-[1500px] w-full border-collapse text-left text-[10px]">
+                <thead>
+                  <tr className="border-b border-black font-bold">
+                    <th className="px-1 py-1">Data</th>
+                    <th className="px-1 py-1">Sessao</th>
+                    {sessionMetricCells(latest.sessionAverage).map((cell) => (
+                      <th key={cell.key} className="px-1 py-1">
+                        {cell.label}
+                      </th>
+                    ))}
+                    <th className="px-1 py-1">Pagamento</th>
+                    <th className="px-1 py-1">Detalhe</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {group.reports.map((report) => {
+                    const resultLines = splitSessionResult(report);
+                    return (
+                      <React.Fragment key={report.sessionId}>
+                        <tr className="border-b border-slate-300 align-top">
+                          <td className="px-1 py-1">
+                            {formatDateTime(reportEndDate(report))}
+                          </td>
+                          <td className="px-1 py-1">{shortId(report.sessionId)}</td>
+                          {sessionMetricCells(report.sessionAverage).map((cell) => (
+                            <td key={cell.key} className="px-1 py-1">
+                              {cell.value}
+                            </td>
+                          ))}
+                          <td className="px-1 py-1 font-bold">
+                            {paymentStatusForReport(report)}
+                          </td>
+                          <td className="px-1 py-1">
+                            <button
+                              onClick={() =>
+                                navigate(`/session/${report.sessionId}/report`)
+                              }
+                              className="border border-black px-1 py-0.5 font-bold"
+                            >
+                              Ver
+                            </button>
+                          </td>
+                        </tr>
+                        <tr className="border-b border-slate-200">
+                          <td colSpan={19} className="px-1 py-1 text-xs">
+                            <strong>Resultado da sessao:</strong> {resultLines[0]}
+                          </td>
+                        </tr>
+                        <tr className="border-b border-black">
+                          <td colSpan={19} className="px-1 py-1 text-xs">
+                            {resultLines[1] || "Complemento ainda nao consolidado."}
+                          </td>
+                        </tr>
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section className="mt-5">
+            <h2 className="text-lg font-bold">Historico de Sessoes</h2>
+            <table className="mt-3 w-full table-fixed text-left text-xs">
+              <thead>
+                <tr className="font-bold">
+                  <th className="w-[13%]">ID</th>
+                  <th className="w-[12%]">STATUS</th>
+                  <th className="w-[23%]">INICIO</th>
+                  <th className="w-[23%]">FIM</th>
+                  <th className="w-[17%]">DURACAO</th>
+                  <th>ANALISES</th>
+                </tr>
+              </thead>
+              <tbody>
+                {group.reports.map((report, index) => (
+                  <tr key={report.sessionId}>
+                    <td>
+                      <button
+                        onClick={() =>
+                          navigate(`/session/${report.sessionId}/report`)
+                        }
+                        className="underline-offset-2 hover:underline"
+                      >
+                        {shortId(report.sessionId)}
+                      </button>
+                    </td>
+                    <td>{index === 0 ? "Concluida" : "Ativa"}</td>
+                    <td>{formatDateTime(reportStartDate(report))}</td>
+                    <td>{formatDateTime(reportEndDate(report))}</td>
+                    <td>{formatDuration(report.durationSeconds)}</td>
+                    <td>
+                      {report.metricsAnalysis?.dashboard.populated_windows ||
+                        report.tenMinuteCuts.filter((cut) => cut.sampleCount > 0)
+                          .length}{" "}
+                      registros
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        </main>
+
+        <aside className="xl:sticky xl:top-3 xl:self-start">
+          <section className="border border-black p-2">
+            <AIInsights
+              zones={latest.sessionAverage.zones || []}
+              ipmScore={latest.sessionAverage.ipmAvg}
+              coherenceStatus={latest.sessionAverage.coherenceStatus}
+              baselineEstablished
+              sessionId={latest.sessionId}
+              extraContext={context}
+            />
+          </section>
+        </aside>
+      </div>
     </div>
   );
 };
@@ -217,7 +291,143 @@ const Indicator: React.FC<{
 }> = ({ label, value, detail }) => (
   <div>
     <p className="font-bold">{label}</p>
-    <p className="mt-5">{value}</p>
-    <p className="mt-5 font-bold">{detail}</p>
+    <p className="mt-4">{value}</p>
+    <p className="mt-4 font-bold">{detail}</p>
   </div>
 );
+
+const CHART_METRICS = [
+  { key: "ipm", label: "IPM", color: "#2563eb", get: (m: MetricSnapshot) => m.ipmAvg },
+  { key: "idm", label: "IDM", color: "#16a34a", get: (m: MetricSnapshot) => m.idmAvg },
+  {
+    key: "wpm",
+    label: "P/min",
+    color: "#dc2626",
+    get: (m: MetricSnapshot) => m.wordsPerMinute,
+  },
+  {
+    key: "dissonance",
+    label: "Disso.",
+    color: "#9333ea",
+    get: (m: MetricSnapshot) => m.dissonanceCount,
+  },
+  {
+    key: "subharmonic",
+    label: "Sub-H",
+    color: "#ea580c",
+    get: (m: MetricSnapshot) => m.subharmonic5_12 || 0,
+  },
+];
+
+const PatientEvolutionChart: React.FC<{ reports: SessionReportRecord[] }> = ({
+  reports,
+}) => {
+  const ordered = [...reports]
+    .sort(
+      (a, b) =>
+        new Date(a.createdAt || 0).getTime() -
+        new Date(b.createdAt || 0).getTime(),
+    )
+    .slice(-20);
+  const width = 980;
+  const height = 260;
+  const padX = 46;
+  const padY = 24;
+  const chartWidth = width - padX * 2;
+  const chartHeight = height - padY * 2;
+
+  const xFor = (index: number) =>
+    padX + (ordered.length <= 1 ? chartWidth / 2 : (index / (ordered.length - 1)) * chartWidth);
+
+  const pointsFor = (metric: (typeof CHART_METRICS)[number]) => {
+    const values = ordered.map((report) => Number(metric.get(report.sessionAverage) || 0));
+    const min = Math.min(...values, 0);
+    const max = Math.max(...values, 1);
+    const span = max - min || 1;
+    return values
+      .map((value, index) => {
+        const x = xFor(index);
+        const y = padY + chartHeight - ((value - min) / span) * chartHeight;
+        return `${x},${y}`;
+      })
+      .join(" ");
+  };
+
+  if (!ordered.length) {
+    return (
+      <div className="mt-3 border border-black p-4 text-xs">
+        Sem sessoes suficientes para desenhar evolucao longitudinal.
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-3 overflow-x-auto border border-black p-2">
+      <svg viewBox={`0 0 ${width} ${height}`} className="min-w-[760px] w-full">
+        {[0, 1, 2, 3, 4].map((line) => {
+          const y = padY + (line / 4) * chartHeight;
+          return (
+            <line
+              key={line}
+              x1={padX}
+              x2={width - padX}
+              y1={y}
+              y2={y}
+              stroke="#d1d5db"
+              strokeWidth="1"
+            />
+          );
+        })}
+        {ordered.map((report, index) => {
+          const x = xFor(index);
+          return (
+            <g key={report.sessionId}>
+              <line
+                x1={x}
+                x2={x}
+                y1={padY}
+                y2={height - padY}
+                stroke="#e5e7eb"
+                strokeWidth="1"
+              />
+              <text
+                x={x}
+                y={height - 4}
+                textAnchor="middle"
+                fontSize="10"
+                fill="#111827"
+              >
+                {reportEndDate(report).toLocaleDateString("pt-BR", {
+                  day: "2-digit",
+                  month: "2-digit",
+                })}
+              </text>
+            </g>
+          );
+        })}
+        {CHART_METRICS.map((metric) => (
+          <polyline
+            key={metric.key}
+            points={pointsFor(metric)}
+            fill="none"
+            stroke={metric.color}
+            strokeWidth="3"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+          />
+        ))}
+      </svg>
+      <div className="mt-2 flex flex-wrap gap-3 text-[10px] font-bold">
+        {CHART_METRICS.map((metric) => (
+          <span key={metric.key} className="inline-flex items-center gap-1">
+            <span
+              className="inline-block h-2 w-5"
+              style={{ backgroundColor: metric.color }}
+            />
+            {metric.label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+};

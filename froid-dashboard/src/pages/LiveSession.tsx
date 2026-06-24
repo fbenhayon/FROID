@@ -768,7 +768,7 @@ function limitWords(text: string, maxWords: number) {
   return String(text || "").trim().split(/\s+/).filter(Boolean).slice(0, maxWords).join(" ");
 }
 
-function limitTheme(text: string, maxWords = 4) {
+function limitTheme(text: string, maxWords = 6) {
   const clean = limitWords(text, maxWords);
   return clean || "Tema em apuracao";
 }
@@ -787,9 +787,9 @@ function inferThemeFromTranscript(text: string) {
     .forEach((word) => counts.set(word, (counts.get(word) || 0) + 1));
   const top = [...counts.entries()]
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 4)
+    .slice(0, 6)
     .map(([word]) => word);
-  return top.length ? limitTheme(top.join(" "), 4) : "Tema em apuracao";
+  return top.length ? limitTheme(top.join(" "), 6) : "Tema em apuracao";
 }
 
 function collectTranscript(
@@ -914,12 +914,12 @@ function buildSessionSummary(
     ordered.length
       ? ordered.map((item) => item.theme).join(" ")
       : inferThemeFromTranscript(transcript),
-    4,
+    6,
   );
   return {
     theme,
     summary:
-      limitWords(source, 150) ||
+      limitWords(source, 120) ||
       "Resumo geral indisponivel por ausencia de transcricao suficiente.",
     generatedAt: new Date().toISOString(),
   };
@@ -1842,8 +1842,8 @@ function LiveSessionInner(_: LiveSessionProps) {
         id: `summary-${windowIndex}`,
         startMinute,
         endMinute,
-        theme: limitTheme(String(data?.theme || "Tema em apuracao"), 4),
-        summary: limitWords(String(data?.summary || "").trim(), 100),
+        theme: limitTheme(String(data?.theme || "Tema em apuracao"), 6),
+        summary: limitWords(String(data?.summary || "").trim(), 60),
       });
     } catch {
       commitSummary({
@@ -1851,7 +1851,7 @@ function LiveSessionInner(_: LiveSessionProps) {
         startMinute,
         endMinute,
         theme: "Resumo indisponivel",
-        summary: limitWords(transcript, 100),
+        summary: limitWords(transcript, 60),
       });
     }
   }, [sessionId]);

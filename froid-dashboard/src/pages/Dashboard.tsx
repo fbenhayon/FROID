@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { AIInsights } from "../components/panels/AIInsights";
 import { apiUrl } from "../lib/api";
 import {
   buildPatientGroups,
@@ -8,7 +9,10 @@ import {
   formatDateTime,
   limitWords,
   mergeReports,
+  paymentStatusForReport,
   reportEndDate,
+  sessionMetricCells,
+  sessionResultText,
   shortId,
 } from "../lib/patient-dashboard";
 import {
@@ -72,6 +76,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   const [inviteError, setInviteError] = useState("");
   const [inviteResult, setInviteResult] = useState<InviteResult | null>(null);
   const [patientActivity, setPatientActivity] = useState("");
+  const [selectedPatientKey, setSelectedPatientKey] = useState("");
   const [reports, setReports] = useState<SessionReportRecord[]>(() =>
     loadSessionReports(),
   );
@@ -102,6 +107,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   }, []);
 
   const patientGroups = useMemo(() => buildPatientGroups(reports), [reports]);
+  const selectedGroup =
+    patientGroups.find((group) => group.key === selectedPatientKey) ||
+    patientGroups[0];
   const currentOrigin = useMemo(
     () => (typeof window !== "undefined" ? window.location.origin : ""),
     [],
@@ -238,6 +246,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ user }) => {
         </p>
       )}
 
+      {selectedGroup && (
+        <p className="mt-3 border border-amber-700 bg-amber-50 px-2 py-1 text-xs font-bold text-amber-950">
+          Aviso de agenda: acesse o layout de{" "}
+          {selectedGroup.patient.name || "Paciente sem nome"} e envie o convite da
+          sessao quando estiver a 5 minutos do atendimento programado.
+        </p>
+      )}
+
       <div className="mt-6 flex items-center justify-between">
         <h2 className="text-base font-bold">Meus Pacientes</h2>
         <button
@@ -257,7 +273,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ user }) => {
         )}
 
         {patientGroups.map((group) => (
-          <article key={group.key} className="border-b-2 border-black py-3">
+          <article
+            key={group.key}
+            className="border-b-2 border-black py-3"
+            onMouseEnter={() => setSelectedPatientKey(group.key)}
+          >
             <div className="flex justify-between gap-4">
               <div>
                 <h3 className="text-sm font-bold">
@@ -268,7 +288,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                 </p>
               </div>
               <button
-                onClick={() => nav(`/patients/${encodeURIComponent(group.key)}`)}
+                onClick={() => {
+                  setSelectedPatientKey(group.key);
+                  nav(`/patients/${encodeURIComponent(group.key)}`);
+                }}
                 className="h-fit border border-black px-2 py-0.5 text-[10px]"
               >
                 Ver Detalhes
@@ -277,42 +300,107 @@ export const Dashboard: React.FC<DashboardProps> = ({ user }) => {
 
             <div className="mt-6">
               <p className="text-xs font-bold">Ultimas 3 Sessoes</p>
-              <div className="mt-4 space-y-1">
+              <div className="mt-3 overflow-x-auto border border-black">
+                <table className="min-w-[1500px] w-full border-collapse text-left text-[10px]">
+                  <thead>
+                    <tr className="border-b border-black font-bold">
+                      <th className="px-1 py-1">Data</th>
+                      <th className="px-1 py-1">Sessao</th>
+                      {sessionMetricCells(group.latestReport.sessionAverage).map((cell) => (
+                        <th key={cell.key} className="px-1 py-1">
+                          {cell.label}
+                        </th>
+                      ))}
+                      <th className="px-1 py-1">Pagamento</th>
+                      <th className="px-1 py-1">Detalhe</th>
+                    </tr>
+                  </thead>
+                  <tbody>
                 {group.reports.slice(0, 3).map((report, index) => (
-                  <div
-                    key={report.sessionId}
-                    className="grid grid-cols-[1fr_auto] gap-3 text-xs"
-                  >
-                    <button
-                      onClick={() => nav(`/session/${report.sessionId}/report`)}
-                      className="text-left underline-offset-2 hover:underline"
-                    >
-                      {index === 0 ? "Concluida " : "Ativa "}
-                      {formatDateTime(reportEndDate(report))}
-                    </button>
-                    <span>ID: {shortId(report.sessionId)}</span>
-                    <div className="col-span-2 text-[11px] text-slate-700">
-                      Linha comparativa: IPM {fmt(report.baseline.ipmAvg, 1)} -&gt;{" "}
-                      {fmt(report.sessionAverage.ipmAvg, 1)} (
-                      {fmtDelta(
-                        report.sessionAverage.ipmAvg - report.baseline.ipmAvg,
-                        1,
-                      )}
-                      ) | IDM {fmt(report.baseline.idmAvg, 2)} -&gt;{" "}
-                      {fmt(report.sessionAverage.idmAvg, 2)} | Zona{" "}
-                      {report.sessionAverage.dominantZone || "--"} | Tema{" "}
-                      {limitWords(
-                        report.sessionAverage.theme || report.baseline.theme,
-                        4,
-                      )}
-                    </div>
-                  </div>
+                  <React.Fragment key={report.sessionId}>
+                    <tr className="border-b border-slate-300 align-top">
+                      <td className="px-1 py-1">
+                        {formatDateTime(reportEndDate(report))}
+                      </td>
+                      <td className="px-1 py-1">
+                        {index === 0 ? "Concluida " : "Ativa "}
+                        {shortId(report.sessionId)}
+                      </td>
+                      {sessionMetricCells(report.sessionAverage).map((cell) => (
+                        <td key={cell.key} className="px-1 py-1">
+                          {cell.value}
+                        </td>
+                      ))}
+                      <td className="px-1 py-1 font-bold">
+                        {paymentStatusForReport(report)}
+                      </td>
+                      <td className="px-1 py-1">
+                        <button
+                          onClick={() => nav(`/session/${report.sessionId}/report`)}
+                          className="border border-black px-1 py-0.5 font-bold"
+                        >
+                          Ver
+                        </button>
+                      </td>
+                    </tr>
+                    <tr className="border-b border-black">
+                      <td colSpan={19} className="px-1 py-1 text-xs">
+                        <strong>Resultado da sessao:</strong>{" "}
+                        {sessionResultText(report, 70)}
+                      </td>
+                    </tr>
+                  </React.Fragment>
                 ))}
+                  </tbody>
+                </table>
               </div>
+              <p className="mt-2 text-[11px] text-slate-700">
+                Linha comparativa mais recente: IPM{" "}
+                {fmt(group.latestReport.baseline.ipmAvg, 1)} -&gt;{" "}
+                {fmt(group.latestReport.sessionAverage.ipmAvg, 1)} (
+                {fmtDelta(
+                  group.latestReport.sessionAverage.ipmAvg -
+                    group.latestReport.baseline.ipmAvg,
+                  1,
+                )}
+                ) | IDM {fmt(group.latestReport.baseline.idmAvg, 2)} -&gt;{" "}
+                {fmt(group.latestReport.sessionAverage.idmAvg, 2)} | Tema{" "}
+                {limitWords(
+                  group.latestReport.sessionAverage.theme ||
+                    group.latestReport.baseline.theme,
+                  6,
+                )}
+              </p>
             </div>
           </article>
         ))}
       </section>
+
+      {selectedGroup && (
+        <section className="mt-6 border border-black p-3">
+          <h2 className="mb-2 text-sm font-bold">FROID Explica</h2>
+          <AIInsights
+            zones={selectedGroup.latestReport.sessionAverage.zones || []}
+            ipmScore={selectedGroup.latestReport.sessionAverage.ipmAvg}
+            coherenceStatus={
+              selectedGroup.latestReport.sessionAverage.coherenceStatus
+            }
+            baselineEstablished
+            sessionId={selectedGroup.latestReport.sessionId}
+            extraContext={{
+              patient: selectedGroup.patient,
+              latest_report_average: selectedGroup.latestReport.sessionAverage,
+              latest_report_baseline: selectedGroup.latestReport.baseline,
+              last_three_sessions: selectedGroup.reports.slice(0, 3).map((report) => ({
+                session_id: report.sessionId,
+                average: report.sessionAverage,
+                result: sessionResultText(report, 120),
+                payment_status: paymentStatusForReport(report),
+              })),
+            }}
+          />
+        </section>
+      )}
 
       <section className="mt-6 border border-black p-3">
         <div className="mb-3 flex items-center justify-between">

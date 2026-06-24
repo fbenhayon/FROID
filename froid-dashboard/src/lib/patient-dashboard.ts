@@ -1,5 +1,6 @@
 import {
   getReportPatient,
+  MetricSnapshot,
   patientGroupKey,
   PatientIdentity,
   SessionReportRecord,
@@ -59,6 +60,84 @@ export function formatDateTime(date: Date) {
 
 export function shortId(value: string) {
   return value ? `${value.slice(0, 8)}...` : "--";
+}
+
+export interface SessionMetricCell {
+  key: string;
+  label: string;
+  value: string;
+}
+
+export function sessionMetricCells(
+  snapshot: MetricSnapshot,
+  themeOverride?: string,
+): SessionMetricCell[] {
+  return [
+    { key: "ipm", label: "IPM", value: fmt(snapshot.ipmAvg, 1) },
+    { key: "idm", label: "IDM", value: fmt(snapshot.idmAvg, 2) },
+    {
+      key: "zone",
+      label: "Z Domin.",
+      value: snapshot.dominantZone ? String(snapshot.dominantZone) : "--",
+    },
+    {
+      key: "theme",
+      label: "Tema",
+      value: limitWords(themeOverride || snapshot.theme || snapshot.dominantTheme, 6) || "--",
+    },
+    { key: "tone", label: "Tom", value: snapshot.emotionalTone || "--" },
+    { key: "wpm", label: "P/min", value: fmt(snapshot.wordsPerMinute, 0) },
+    { key: "dissonance", label: "Disso.", value: String(snapshot.dissonanceCount || 0) },
+    { key: "mfcc7", label: "MFCC7", value: fmt(snapshot.mfcc7, 2) },
+    { key: "mfcc9", label: "MFCC9", value: fmt(snapshot.mfcc9, 2) },
+    { key: "f0", label: "F0 Med.", value: fmt(snapshot.f0Mean, 1) },
+    { key: "zcr", label: "ZCR", value: fmt(snapshot.zcr, 3) },
+    { key: "jitter", label: "Jitter", value: fmt(snapshot.jitter, 3) },
+    { key: "shimmer", label: "Shimmer", value: fmt(snapshot.shimmer, 3) },
+    { key: "sub5", label: "Sub-H 5-12Hz", value: fmt(snapshot.subharmonic5_12, 2) },
+    { key: "sub12", label: "Sub-H 12-20Hz", value: fmt(snapshot.subharmonic12_20, 2) },
+  ];
+}
+
+export function sessionResultText(report: SessionReportRecord, maxWords = 120) {
+  const summary =
+    report.sessionSummary?.summary ||
+    report.conversationSummaries?.[0]?.summary ||
+    report.metricsAnalysis?.dashboard.data_status ||
+    report.sessionAverage.theme ||
+    "Resultado da sessao ainda nao consolidado.";
+  return limitWords(summary, maxWords);
+}
+
+export function splitSessionResult(report: SessionReportRecord) {
+  const words = sessionResultText(report, 120).split(/\s+/).filter(Boolean);
+  const midpoint = Math.ceil(words.length / 2);
+  return [
+    words.slice(0, midpoint).join(" ") || "Resultado da sessao ainda nao consolidado.",
+    words.slice(midpoint).join(" "),
+  ];
+}
+
+export function paymentStatusForReport(report: SessionReportRecord) {
+  const source = report as SessionReportRecord & {
+    payment?: { payment_status?: string; status?: string };
+    paymentStatus?: string;
+    payment_status?: string;
+  };
+  const raw =
+    source.payment?.payment_status ||
+    source.payment?.status ||
+    source.paymentStatus ||
+    source.payment_status ||
+    "";
+  const normalized = String(raw).toLowerCase();
+  if (["paid", "pago", "approved", "aprovado", "settled"].some((word) => normalized.includes(word))) {
+    return "Pago";
+  }
+  if (["package", "pacote", "prepaid", "pre-pago"].some((word) => normalized.includes(word))) {
+    return "Pacote";
+  }
+  return "Em aberto";
 }
 
 function mostFrequent<T extends string | number>(values: T[]): T | null {

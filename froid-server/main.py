@@ -1649,7 +1649,7 @@ async def session_summary(request: Request):
     fallback = {
         "status": "fallback",
         "theme": "Tema em apuração",
-        "summary": _limit_words(transcript, 100),
+        "summary": _limit_words(transcript, 60),
         "start_minute": start_minute,
         "end_minute": end_minute,
         "model": OPENAI_MODEL,
@@ -1661,8 +1661,8 @@ async def session_summary(request: Request):
     prompt = (
         "Analise a transcricao clinica abaixo e responda somente em JSON valido "
         "com as chaves theme e summary. theme deve ser resultado direto do assunto tratado, "
-        "nao pode vir de lista predefinida e deve ter no maximo 4 palavras. "
-        "summary deve ter no maximo 100 palavras, em portugues do Brasil, sem diagnostico, "
+        "nao pode vir de lista predefinida e deve ter no maximo 6 palavras. "
+        "summary deve ter no maximo 60 palavras, em portugues do Brasil, sem diagnostico, "
         "sem inventar fatos e preservando apenas o que foi falado no intervalo. "
         "Se a transcricao tiver pouco conteudo, resuma apenas o material real disponivel. "
         f"Intervalo: {start_minute}-{end_minute} minutos.\n\nTranscricao:\n{transcript}"
@@ -1699,12 +1699,12 @@ async def session_summary(request: Request):
             .strip()
         )
         parsed = _parse_json_object(content)
-        theme = _limit_words(str(parsed.get("theme") or fallback["theme"]).strip(), 4)
+        theme = _limit_words(str(parsed.get("theme") or fallback["theme"]).strip(), 6)
         summary_text = str(parsed.get("summary") or fallback["summary"]).strip()
         return {
             "status": "ok",
             "theme": theme,
-            "summary": _limit_words(summary_text, 100),
+            "summary": _limit_words(summary_text, 60),
             "start_minute": start_minute,
             "end_minute": end_minute,
             "model": OPENAI_MODEL,
