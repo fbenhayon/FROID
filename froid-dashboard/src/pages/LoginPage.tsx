@@ -1,9 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import type { FroidUser } from "../App";
 import { apiUrl } from "../lib/api";
+import { rememberProfessionalEmail } from "../lib/professional-prompts";
 
 interface Props {
   onLogin: (user: FroidUser) => void;
+  afterLoginPath?: string;
 }
 
 type GoogleCredentialResponse = {
@@ -29,7 +32,8 @@ declare global {
   }
 }
 
-export const LoginPage: React.FC<Props> = ({ onLogin }) => {
+export const LoginPage: React.FC<Props> = ({ onLogin, afterLoginPath = "/dashboard" }) => {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -54,7 +58,9 @@ export const LoginPage: React.FC<Props> = ({ onLogin }) => {
       const data = text ? JSON.parse(text) : {};
       if (!res.ok) throw new Error(data.detail || "Falha no login");
       localStorage.setItem("froid_token", data.token);
+      rememberProfessionalEmail(data.user?.email);
       onLogin(data.user);
+      navigate(afterLoginPath, { replace: true });
     } catch (err: any) {
       setError(err.message || "Falha no login");
     } finally {
@@ -174,6 +180,16 @@ export const LoginPage: React.FC<Props> = ({ onLogin }) => {
             <p className="text-sm text-slate-400">Validando credencial...</p>
           )}
           {error && <p className="text-sm text-red-400">{error}</p>}
+        </div>
+        <div className="mt-5 rounded-lg border border-cyan-400/20 bg-cyan-400/10 p-3 text-sm text-cyan-50">
+          Ainda nao tem cadastro profissional?{" "}
+          <button
+            type="button"
+            onClick={() => navigate("/access/register")}
+            className="font-bold text-cyan-200 underline"
+          >
+            Criar cadastro e escolher plano
+          </button>
         </div>
         <p className="mt-4 text-[11px] text-slate-500">
           {googleClientId

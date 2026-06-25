@@ -39,6 +39,29 @@ export function apiUrl(path: string) {
   return `${base.replace(/\/+$/, "")}${cleanPath(path)}`;
 }
 
+export function publicAppUrl() {
+  const explicitBase = (
+    (import.meta as any).env?.VITE_PUBLIC_APP_URL ||
+    (import.meta as any).env?.VITE_PATIENT_PUBLIC_URL ||
+    ""
+  ).trim();
+  if (explicitBase) return explicitBase.replace(/\/+$/, "");
+
+  const localEnvBase = ((import.meta as any).env?.VITE_LOCAL_API_URL || "").trim();
+  if (isLocalBrowserContext() && localEnvBase) {
+    try {
+      const parsed = new URL(localEnvBase);
+      if (!["localhost", "127.0.0.1", "::1"].includes(parsed.hostname)) {
+        return parsed.origin.replace(/\/+$/, "");
+      }
+    } catch {
+      // Fall back to browser origin.
+    }
+  }
+
+  return currentOrigin().replace(/\/+$/, "");
+}
+
 export function wsUrl(path: string) {
   const envBase = ((import.meta as any).env?.VITE_WS_URL || "").trim();
   const localEnvBase = ((import.meta as any).env?.VITE_LOCAL_WS_URL || "").trim();

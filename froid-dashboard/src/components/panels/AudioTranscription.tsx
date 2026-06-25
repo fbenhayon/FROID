@@ -15,7 +15,6 @@ interface ConversationSummary {
 }
 
 interface Props {
-  snippet: string;
   wordsCount: number;
   totalWords: number;
   tone: string;
@@ -24,8 +23,6 @@ interface Props {
   themeMinuteMark: number;
   audioMeta?: Record<string, unknown>;
   conversationSummaries?: ConversationSummary[];
-  activeSpeaker?: "PC" | "DR";
-  onSpeakerChange?: (speaker: "PC" | "DR") => void;
 }
 
 const biomarkerTooltips: Record<string, string> = {
@@ -44,7 +41,6 @@ function limitWords(text: string, maxWords: number) {
 }
 
 export const AudioTranscription: React.FC<Props> = ({
-  snippet,
   wordsCount,
   totalWords,
   tone,
@@ -53,8 +49,6 @@ export const AudioTranscription: React.FC<Props> = ({
   themeMinuteMark,
   audioMeta: providedAudioMeta,
   conversationSummaries = [],
-  activeSpeaker = "PC",
-  onSpeakerChange,
 }) => {
   const toneColor: Record<string, string> = {
     neutro: "text-slate-600",
@@ -78,7 +72,6 @@ export const AudioTranscription: React.FC<Props> = ({
   const provider = String(audioMeta.provider || "");
   const transcriptionStatus = String(audioMeta.transcription_status || "");
   const transcriptionError = String(audioMeta.transcription_error || "");
-  const interimText = String(audioMeta.transcription_interim || "");
   const bioacousticStatus = String(audioMeta.bioacoustic_status || "");
   const bioacousticPipeline = String(audioMeta.bioacoustic_pipeline || "");
   const bioacousticTrack = String(audioMeta.bioacoustic_track || "");
@@ -88,12 +81,12 @@ export const AudioTranscription: React.FC<Props> = ({
   const bioacousticLabel =
     bioacousticStatus === "monitoring"
       ? bioacousticTrack === "patient-webrtc"
-        ? "Bio PC"
+        ? "Bio paciente"
         : bioacousticTrack === "semantic-fallback"
         ? "Bio fallback"
         : "Bio bruta"
       : bioacousticStatus === "waiting_patient"
-        ? "Bio aguardando PC"
+        ? "Bio aguardando paciente"
       : bioacousticStatus === "error"
         ? "Bio off"
         : "Bio prep";
@@ -111,18 +104,18 @@ export const AudioTranscription: React.FC<Props> = ({
         : "bg-slate-100 text-slate-500";
 
   const sttLabel = provider.includes("openai")
-    ? "GPT-4o STT"
+    ? "STT por cortes"
     : provider.includes("browser-live")
-      ? "STT ao vivo"
+      ? "STT local"
     : transcriptionStatus === "transcribing"
-      ? "STT enviando"
+      ? "Corte em analise"
       : transcriptionStatus === "listening"
-        ? "STT ouvindo"
+        ? "Captura ativa"
         : transcriptionStatus === "restarting"
-          ? "STT reiniciando"
+          ? "Captura reiniciando"
           : transcriptionStatus === "error"
-            ? "STT off"
-            : "STT local";
+            ? "Captura off"
+            : "Captura local";
   const sttClass = provider.includes("openai")
     ? "bg-green-50 text-green-700"
     : provider.includes("browser-live")
@@ -136,14 +129,14 @@ export const AudioTranscription: React.FC<Props> = ({
           : "bg-slate-100 text-slate-500";
   const placeholder =
     transcriptionStatus === "listening"
-      ? "Microfone ativo. Fale por alguns segundos para iniciar a transcricao..."
+      ? "Audio ativo. A transcricao integral nao e exibida; apenas resumos por corte serao registrados."
       : transcriptionStatus === "transcribing"
-        ? "Audio capturado. Enviando para transcricao..."
+        ? "Bloco de audio capturado. Gerando insumos para o proximo resumo de corte..."
         : transcriptionStatus === "restarting"
-          ? "Reiniciando captura de audio..."
+          ? "Reiniciando captura de audio para o proximo corte..."
           : transcriptionStatus === "error" && transcriptionError
             ? transcriptionError
-            : "Aguardando fala do paciente...";
+            : "Aguardando audio para resumos por corte.";
 
   const biomarkerItems = [
     { key: "mfcc7", label: "MFCC7", value: mfcc7.toFixed(2) },
@@ -160,15 +153,16 @@ export const AudioTranscription: React.FC<Props> = ({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-            Transcricao & Metricas Vocais
+            Metricas Vocais & Resumos IA
           </span>
           <FroidTooltip
             content={
               <div className="max-w-[260px]">
                 <p className="font-bold">Analise Vocal em Tempo Real</p>
                 <p className="text-[11px] mt-1">
-                  Transcricao em blocos curtos, tom vocal, palavras por minuto,
-                  biomarcadores acusticos e resumo da conversa a cada 10 minutos.
+                  A fala nao e exibida como transcricao continua. O FROID usa blocos
+                  temporarios apenas para gerar tema, resumo por corte, palavras por
+                  minuto e biomarcadores acusticos.
                 </p>
               </div>
             }
@@ -180,30 +174,8 @@ export const AudioTranscription: React.FC<Props> = ({
           </FroidTooltip>
         </div>
         <div className="flex items-center gap-1">
-          {onSpeakerChange ? (
-            <div className="flex overflow-hidden rounded border border-slate-200 bg-slate-50">
-              {(["PC", "DR"] as const).map((speaker) => (
-                <button
-                  key={speaker}
-                  type="button"
-                  onClick={() => onSpeakerChange(speaker)}
-                  className={`px-1.5 py-0.5 text-[9px] font-black ${
-                    activeSpeaker === speaker
-                      ? "bg-slate-800 text-white"
-                      : "text-slate-500 hover:bg-white"
-                  }`}
-                >
-                  {speaker}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-600">
-              DR/PC auto
-            </span>
-          )}
           <span
-            title={transcriptionError || provider || transcriptionStatus || "STT local"}
+            title={transcriptionError || provider || transcriptionStatus || "Captura semantica por cortes"}
             className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${sttClass}`}
           >
             {sttLabel}
@@ -222,14 +194,11 @@ export const AudioTranscription: React.FC<Props> = ({
       </div>
 
       <div className="min-h-[8.75rem] max-h-[8.75rem] overflow-y-auto rounded-lg border border-slate-100 bg-slate-50 p-2.5">
-        <p className="whitespace-pre-wrap text-[11px] leading-5 text-slate-700">
-          {snippet || interimText || placeholder}
+        <p className="text-[11px] leading-5 text-slate-700">{placeholder}</p>
+        <p className="mt-2 text-[10px] leading-5 text-slate-500">
+          Transcricao literal completa: desativada na interface e no relatorio.
+          O processamento textual permanece restrito a resumos por janela e corte final.
         </p>
-        {snippet && interimText && (
-          <p className="mt-1 whitespace-pre-wrap text-[11px] leading-5 text-blue-600">
-            {interimText}
-          </p>
-        )}
       </div>
 
       <div className="grid grid-cols-2 gap-2">

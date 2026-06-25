@@ -1,6 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { PerceptionZone } from "../../lib/froid-engine";
 import { apiUrl } from "../../lib/api";
+import {
+  loadProfessionalPrompts,
+  PROFESSIONAL_PROMPTS_EVENT,
+  type ProfessionalPrompt,
+} from "../../lib/professional-prompts";
 
 const PRESETS = [
   { text: "Como este paciente se compara a media populacional em Zonas FROID?" },
@@ -74,6 +79,7 @@ export const AIInsights: React.FC<Props> = ({
 }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedPrompt, setSelectedPrompt] = useState("");
+  const [professionalPrompts, setProfessionalPrompts] = useState<ProfessionalPrompt[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [lastError, setLastError] = useState("");
@@ -82,6 +88,17 @@ export const AIInsights: React.FC<Props> = ({
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
+
+  useEffect(() => {
+    const refresh = () => setProfessionalPrompts(loadProfessionalPrompts());
+    refresh();
+    window.addEventListener(PROFESSIONAL_PROMPTS_EVENT, refresh);
+    window.addEventListener("storage", refresh);
+    return () => {
+      window.removeEventListener(PROFESSIONAL_PROMPTS_EVENT, refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, []);
 
   const buildClinicalContext = useCallback(() => {
     const safeZones = Array.isArray(zones) ? zones : [];
@@ -262,11 +279,22 @@ export const AIInsights: React.FC<Props> = ({
           className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <option value="">Selecione um prompt...</option>
-          {PRESETS.map((preset, index) => (
-            <option key={preset.text} value={preset.text}>
-              {index + 1}. {preset.text}
-            </option>
-          ))}
+          <optgroup label="Prompts nativos FROID">
+            {PRESETS.map((preset, index) => (
+              <option key={preset.text} value={preset.text}>
+                {index + 1}. {preset.text}
+              </option>
+            ))}
+          </optgroup>
+          {professionalPrompts.length > 0 && (
+            <optgroup label="Prompts do profissional">
+              {professionalPrompts.map((prompt, index) => (
+                <option key={prompt.id} value={prompt.text}>
+                  {index + 1}. {prompt.title || prompt.text}
+                </option>
+              ))}
+            </optgroup>
+          )}
         </select>
       </div>
       <div className="mt-2 flex gap-2">

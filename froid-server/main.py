@@ -79,8 +79,11 @@ FROID_LOCAL_AUTH_EMAILS = {
     for email in os.getenv("FROID_LOCAL_AUTH_EMAILS", "").split(",")
     if email.strip()
 }
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
+STRIPE_CURRENCY = os.getenv("STRIPE_CURRENCY", "brl")
 
 SESSION_USERS = {}
+PROFESSIONAL_PROFILES: Dict[str, dict] = {}
 PATIENTS: Dict[str, dict] = {}
 PATIENTS_BY_CONTACT: Dict[str, str] = {}
 SESSION_INVITES: Dict[str, dict] = {}
@@ -1381,7 +1384,53 @@ def _format_brl(cents: int) -> str:
     cents = max(0, int(cents or 0))
     reais = cents // 100
     centavos = cents % 100
+    if STRIPE_CURRENCY.lower() == "usd":
+        return f"US$ {reais}.{centavos:02d}"
     return f"R$ {reais},{centavos:02d}"
+
+
+FROID_ACCESS_PLANS = {
+    "single_session": {
+        "id": "single_session",
+        "name": "Sessao avulsa FROID",
+        "description": "Credito individual para uma sessao FROID.",
+        "session_credits": 1,
+        "amount_cents": 50,
+    },
+    "professional_pack_25": {
+        "id": "professional_pack_25",
+        "name": "Pacote profissional 25 sessoes",
+        "description": "Pacote mensal com 25 sessoes FROID.",
+        "session_credits": 25,
+        "amount_cents": 51,
+    },
+    "developer_pack_25": {
+        "id": "developer_pack_25",
+        "name": "Pacote desenvolvedor 25 sessoes",
+        "description": "Pacote tecnico de desenvolvimento e testes com 25 sessoes.",
+        "session_credits": 25,
+        "amount_cents": 52,
+    },
+}
+
+
+def _public_app_base_url(base_url: str = "") -> str:
+    base = str(base_url or "").strip().rstrip("/")
+    if base:
+        return base
+    return os.getenv("FROID_PUBLIC_URL", "http://localhost:5173").rstrip("/")
+
+
+def _current_user_from_request(request: Request) -> Optional[dict]:
+    auth_header = request.headers.get("authorization", "")
+    token = (
+        auth_header.replace("Bearer ", "", 1).strip()
+        if auth_header.startswith("Bearer ")
+        else ""
+    )
+    if not token:
+        return None
+    return SESSION_USERS.get(token)
 
 
 def _build_whatsapp_message(invite: dict) -> str:
@@ -1814,6 +1863,153 @@ async def auth_me(request: Request):
     if not user:
         raise HTTPException(status_code=401, detail="não autenticado")
     return user
+
+@app.get("/api/access/plans")
+async def access_plans():
+    return {
+        "currency": STRIPE_CURRENCY,
+        "plans": [
+            {
+                **plan,
+                "amount_brl": _format_brl(plan["amount_cents"]),
+            }
+            for plan in FROID_ACCESS_PLANS.values()
+        ],
+    }
+
+
+@app.get("/api/professional/profile")
+async def get_professional_profile(request: Request):
+    user = _current_user_from_request(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="nao autenticado")
+
+    email = _normalize_email(user.get("email") or "")
+    profile = PROFESSIONAL_PROFILES.get(email)
+    return {
+        "has_profile": bool(profile),
+        "profile": profile,
+    }
+
+
+@app.post("/api/professional/profile")
+async def save_professional_profile(request: Request):
+    user = _current_user_from_request(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="nao autenticado")
+
+    body = await request.json()
+    owner_email = _normalize_email(user.get("email") or body.get("email") or "")
+    if not owner_email:
+        raise HTTPException(status_code=400, detail="email profissional obrigatorio")
+
+    account_type = str(body.get("account_type") or "individual").strip().lower()
+    if account_type not in {"individual", "organization"}:
+        raise HTTPException(status_code=400, detail="tipo de cadastro invalido")
+
+    professionals = body.get("professionals") if isinstance(body.get("professionals"), list) else []
+    patient_base_access = (
+        body.get("patient_base_access")
+        if isinstance(body.get("patient_base_access"), list)
+        else []
+    )
+    profile_fields = body.get("profile_fields") if isinstance(body.get("profile_fields"), dict) else {}
+    referrals = body.get("referrals") if isinstance(body.get("referrals"), list) else []
+
+    now = datetime.now(timezone.utc).isoformat()
+    existing = PROFESSIONAL_PROFILES.get(owner_email) or {}
+    profile = {
+        "id": existing.get("id") or f"prof-{uuid.uuid4().hex[:12]}",
+        "owner_email": owner_email,
+        "owner_name": str(body.get("owner_name") or user.get("name") or "").strip(),
+        "account_type": account_type,
+        "document": str(body.get("document") or "").strip(),
+        "phone": str(body.get("phone") or "").strip(),
+        "organization_name": str(body.get("organization_name") or "").strip(),
+        "organization_document": str(body.get("organization_document") or "").strip(),
+        "professionals": professionals,
+        "patient_base_access": patient_base_access,
+        "profile_fields": profile_fields,
+        "referrals": referrals,
+        "lgpd_acknowledged": bool(body.get("lgpd_acknowledged")),
+        "lgpd_acknowledged_at": body.get("lgpd_acknowledged_at") or existing.get("lgpd_acknowledged_at"),
+        "monthly_consultations": int(body.get("monthly_consultations") or 0),
+        "selected_plan": str(body.get("selected_plan") or "").strip(),
+        "created_at": existing.get("created_at") or now,
+        "updated_at": now,
+    }
+    PROFESSIONAL_PROFILES[owner_email] = profile
+    return {"status": "ok", "profile": profile}
+
+
+@app.post("/api/billing/checkout")
+async def create_billing_checkout(request: Request):
+    user = _current_user_from_request(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="nao autenticado")
+
+    body = await request.json()
+    plan_id = str(body.get("plan_id") or "").strip()
+    plan = FROID_ACCESS_PLANS.get(plan_id)
+    if not plan:
+        raise HTTPException(status_code=400, detail="plano FROID invalido")
+
+    base_url = _public_app_base_url(body.get("base_url") or "")
+    success_url = f"{base_url}/#/dashboard?checkout=success&plan={quote(plan_id)}"
+    cancel_url = f"{base_url}/#/access/register?checkout=cancelled&plan={quote(plan_id)}"
+    email = _normalize_email(user.get("email") or body.get("email") or "")
+
+    if not STRIPE_SECRET_KEY:
+        return {
+            "status": "stripe_not_configured",
+            "mode": "local_fallback",
+            "checkout_url": success_url,
+            "message": "STRIPE_SECRET_KEY nao configurada; usando redirecionamento local para testes.",
+            "plan": {**plan, "amount_brl": _format_brl(plan["amount_cents"])},
+        }
+
+    form = {
+        "mode": "payment",
+        "success_url": success_url,
+        "cancel_url": cancel_url,
+        "client_reference_id": email or uuid.uuid4().hex,
+        "line_items[0][quantity]": "1",
+        "line_items[0][price_data][currency]": STRIPE_CURRENCY,
+        "line_items[0][price_data][unit_amount]": str(plan["amount_cents"]),
+        "line_items[0][price_data][product_data][name]": plan["name"],
+        "line_items[0][price_data][product_data][description]": plan["description"],
+        "metadata[plan_id]": plan_id,
+        "metadata[session_credits]": str(plan["session_credits"]),
+        "metadata[professional_email]": email,
+    }
+    if email:
+        form["customer_email"] = email
+
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            response = await client.post(
+                "https://api.stripe.com/v1/checkout/sessions",
+                headers={"Authorization": f"Bearer {STRIPE_SECRET_KEY}"},
+                data=form,
+            )
+        data = response.json()
+        if response.status_code >= 400:
+            detail = data.get("error", {}).get("message") if isinstance(data, dict) else None
+            raise HTTPException(
+                status_code=502,
+                detail=detail or "Falha ao criar checkout Stripe",
+            )
+        return {
+            "status": "ok",
+            "checkout_session_id": data.get("id"),
+            "checkout_url": data.get("url"),
+            "plan": {**plan, "amount_brl": _format_brl(plan["amount_cents"])},
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Erro Stripe: {exc}")
+
 
 @app.post("/api/froid-explica/query", response_model=FroidExplicaResponse)
 async def froid_explica_query(payload: FroidExplicaQuery):

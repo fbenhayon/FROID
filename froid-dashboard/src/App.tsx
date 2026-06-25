@@ -6,10 +6,14 @@ import { History } from "./pages/History";
 import { Settings } from "./pages/Settings";
 import { SessionReport } from "./pages/SessionReport";
 import { PatientDetail } from "./pages/PatientDetail";
+import { NewPatient } from "./pages/NewPatient";
 import { LoginPage } from "./pages/LoginPage";
+import { HomePage } from "./pages/HomePage";
+import { ProfessionalOnboarding } from "./pages/ProfessionalOnboarding";
 import { PatientInvitePage } from "./pages/PatientInvitePage";
 import { PatientSessionPage } from "./pages/PatientSessionPage";
 import { apiUrl } from "./lib/api";
+import { rememberProfessionalEmail } from "./lib/professional-prompts";
 
 export type FroidUser = {
   email: string;
@@ -34,8 +38,10 @@ function App() {
     })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data) setUser(data);
-        else localStorage.removeItem("froid_token");
+        if (data) {
+          setUser(data);
+          rememberProfessionalEmail(data.email);
+        } else localStorage.removeItem("froid_token");
       })
       .catch(() => localStorage.removeItem("froid_token"))
       .finally(() => setCheckingSession(false));
@@ -51,7 +57,13 @@ function App() {
         </div>
       );
     }
-    if (!isAuthenticated) return <LoginPage onLogin={setUser} />;
+    if (!isAuthenticated) {
+      const currentPath =
+        typeof window !== "undefined"
+          ? window.location.hash.replace(/^#/, "") || "/dashboard"
+          : "/dashboard";
+      return <LoginPage onLogin={setUser} afterLoginPath={currentPath} />;
+    }
     return element;
   };
 
@@ -65,7 +77,21 @@ function App() {
         />
         <Route
           path="/"
-          element={protectedElement(<Navigate to="/dashboard" replace />)}
+          element={<HomePage />}
+        />
+        <Route
+          path="/login"
+          element={
+            isAuthenticated ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <LoginPage onLogin={setUser} afterLoginPath="/dashboard" />
+            )
+          }
+        />
+        <Route
+          path="/access/register"
+          element={protectedElement(<ProfessionalOnboarding user={user} />)}
         />
         <Route
           path="/dashboard"
@@ -78,6 +104,10 @@ function App() {
         <Route
           path="/session/:sessionId/report"
           element={protectedElement(<SessionReport user={user} />)}
+        />
+        <Route
+          path="/patients/new"
+          element={protectedElement(<NewPatient />)}
         />
         <Route
           path="/patients/:patientKey"

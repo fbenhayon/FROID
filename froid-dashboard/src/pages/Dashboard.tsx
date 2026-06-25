@@ -25,28 +25,6 @@ interface DashboardProps {
   user?: any;
 }
 
-type PaymentMode = "package" | "single";
-
-interface InviteResult {
-  token: string;
-  session_id: string;
-  invite_url: string;
-  whatsapp_url: string;
-  whatsapp_message: string;
-  patient_id?: string;
-  patient_known: boolean;
-  payment: {
-    mode: PaymentMode;
-    package_sessions: number;
-    session_value_cents: number;
-    session_value_brl: string;
-    package_total_cents: number;
-    package_total_brl: string;
-    pix_code: string;
-    payment_status: string;
-  };
-}
-
 interface SessionEvent {
   id: number;
   type: "invite_created" | "invite_opened" | "invite_accepted" | "patient_joined";
@@ -59,22 +37,8 @@ function makeId() {
   return `froid-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 }
 
-const initialInviteForm = {
-  patient_name: "",
-  patient_email: "",
-  patient_phone: "",
-  payment_mode: "single" as PaymentMode,
-  session_value: "",
-  package_sessions: "4",
-  pix_code: "",
-};
-
 export const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   const nav = useNavigate();
-  const [form, setForm] = useState(initialInviteForm);
-  const [creatingInvite, setCreatingInvite] = useState(false);
-  const [inviteError, setInviteError] = useState("");
-  const [inviteResult, setInviteResult] = useState<InviteResult | null>(null);
   const [patientActivity, setPatientActivity] = useState("");
   const [selectedPatientKey, setSelectedPatientKey] = useState("");
   const [reports, setReports] = useState<SessionReportRecord[]>(() =>
@@ -110,57 +74,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   const selectedGroup =
     patientGroups.find((group) => group.key === selectedPatientKey) ||
     patientGroups[0];
-  const currentOrigin = useMemo(
-    () => (typeof window !== "undefined" ? window.location.origin : ""),
-    [],
-  );
-
-  const updateForm = (key: keyof typeof initialInviteForm, value: string) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const createInvite = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setCreatingInvite(true);
-    setInviteError("");
-    setInviteResult(null);
-
-    try {
-      const response = await fetch(apiUrl("/api/session-invites"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...form,
-          session_id: makeId(),
-          base_url: currentOrigin,
-          package_sessions: Number(form.package_sessions || 0),
-          session_value: form.session_value,
-        }),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data?.detail || "Nao foi possivel criar o convite.");
-      }
-      setInviteResult(data);
-      rememberSessionPatient(data.session_id, {
-        id: data.patient_id,
-        name: form.patient_name,
-        email: form.patient_email,
-        phone: form.patient_phone,
-      });
-    } catch (err) {
-      setInviteError(err instanceof Error ? err.message : "Falha ao criar convite.");
-    } finally {
-      setCreatingInvite(false);
-    }
-  };
-
-  const copyText = async (text: string) => {
-    try {
-      await navigator.clipboard?.writeText(text);
-    } catch {
-      window.prompt("Copie o conteudo abaixo:", text);
-    }
+  const openPatientRegistration = (
+    patient?: {
+      name?: string;
+      email?: string;
+      phone?: string;
+    },
+    patientKey?: string,
+  ) => {
+    if (patientKey) setSelectedPatientKey(patientKey);
+    const params = new URLSearchParams();
+    if (patient?.name) params.set("name", patient.name);
+    if (patient?.email) params.set("email", patient.email);
+    if (patient?.phone) params.set("phone", patient.phone);
+    const query = params.toString();
+    nav(`/patients/new${query ? `?${query}` : ""}`);
   };
 
   useEffect(() => {
@@ -229,44 +157,96 @@ export const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   }, [nav]);
 
   return (
-    <div className="min-h-screen bg-white p-1 text-black">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-xl font-bold">FROID Dashboard</h1>
-          <p className="mt-4 text-xs">Bem-vindo, {professionalName}</p>
+    <div className="min-h-screen bg-slate-50 text-slate-800">
+      <header className="border-b border-slate-200 bg-white px-6 py-4">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600">
+              Dashboard Profissional
+            </p>
+            <h1 className="text-xl font-bold text-slate-900">FROID Dashboard</h1>
+            <p className="mt-1 text-xs text-slate-500">
+              Bem-vindo, {professionalName}
+            </p>
+          </div>
+          <button className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50">
+            Sair
+          </button>
         </div>
-        <button className="border border-black px-2 py-0.5 text-[10px]">
-          Sair
-        </button>
-      </div>
+      </header>
+
+      <main className="mx-auto max-w-7xl space-y-4 p-6">
 
       {patientActivity && (
-        <p className="mt-3 border border-cyan-600 bg-cyan-50 px-2 py-1 text-xs font-bold text-cyan-900">
+        <p className="rounded-lg border border-cyan-100 bg-cyan-50 px-3 py-2 text-xs font-bold text-cyan-900">
           {patientActivity}
         </p>
       )}
 
       {selectedGroup && (
-        <p className="mt-3 border border-amber-700 bg-amber-50 px-2 py-1 text-xs font-bold text-amber-950">
+        <p className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900">
           Aviso de agenda: acesse o layout de{" "}
           {selectedGroup.patient.name || "Paciente sem nome"} e envie o convite da
           sessao quando estiver a 5 minutos do atendimento programado.
         </p>
       )}
 
-      <div className="mt-6 flex items-center justify-between">
-        <h2 className="text-base font-bold">Meus Pacientes</h2>
-        <button
-          onClick={() => nav(`/session/${makeId()}`)}
-          className="border border-black px-2 py-0.5 text-[10px]"
-        >
-          + Nova Sessao Direta
-        </button>
-      </div>
+      <section className="rounded-lg border border-blue-100 bg-blue-50 p-4">
+        <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-bold text-blue-950">Meus Pacientes</h2>
+          <p className="mt-1 text-[11px] text-blue-700">
+            Ultimas sessoes, metricas medias e resultado clinico resumido.
+          </p>
+        </div>
+        <div className="flex flex-wrap justify-end gap-2">
+          <button
+            onClick={() => openPatientRegistration()}
+            className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700"
+          >
+            + Novo Paciente
+          </button>
+          <button
+            onClick={() => nav(`/session/${makeId()}`)}
+            className="rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs font-bold text-blue-700 hover:bg-blue-50"
+          >
+            + Nova Sessao Direta
+          </button>
+        </div>
+        </div>
+      </section>
 
-      <section className="mt-3 border-t border-black">
+      {selectedGroup && (
+        <section className="sticky top-0 z-20 rounded-lg border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur">
+          <h2 className="mb-2 text-sm font-bold text-slate-900">FROID Explica</h2>
+          <div className="max-h-56 overflow-y-auto pr-1">
+            <AIInsights
+              zones={selectedGroup.latestReport.sessionAverage.zones || []}
+              ipmScore={selectedGroup.latestReport.sessionAverage.ipmAvg}
+              coherenceStatus={
+                selectedGroup.latestReport.sessionAverage.coherenceStatus
+              }
+              baselineEstablished
+              sessionId={selectedGroup.latestReport.sessionId}
+              extraContext={{
+                patient: selectedGroup.patient,
+                latest_report_average: selectedGroup.latestReport.sessionAverage,
+                latest_report_baseline: selectedGroup.latestReport.baseline,
+                last_three_sessions: selectedGroup.reports.slice(0, 3).map((report) => ({
+                  session_id: report.sessionId,
+                  average: report.sessionAverage,
+                  result: sessionResultText(report, 120),
+                  payment_status: paymentStatusForReport(report),
+                })),
+              }}
+            />
+          </div>
+        </section>
+      )}
+
+      <section className="space-y-4">
         {patientGroups.length === 0 && (
-          <div className="border-b border-black py-4 text-xs">
+          <div className="rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-500">
             Nenhum paciente com relatorio encontrado. Finalize uma sessao para
             alimentar o dashboard profissional.
           </div>
@@ -275,35 +255,52 @@ export const Dashboard: React.FC<DashboardProps> = ({ user }) => {
         {patientGroups.map((group) => (
           <article
             key={group.key}
-            className="border-b-2 border-black py-3"
+            className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
             onMouseEnter={() => setSelectedPatientKey(group.key)}
           >
             <div className="flex justify-between gap-4">
               <div>
-                <h3 className="text-sm font-bold">
+                <h3 className="text-sm font-bold text-slate-900">
                   {group.patient.name || "Paciente sem nome"}
                 </h3>
-                <p className="mt-3 text-xs">
+                <p className="mt-1 text-xs text-slate-500">
                   CPF: {group.patient.document || "Nao informado"}
                 </p>
               </div>
-              <button
-                onClick={() => {
-                  setSelectedPatientKey(group.key);
-                  nav(`/patients/${encodeURIComponent(group.key)}`);
-                }}
-                className="h-fit border border-black px-2 py-0.5 text-[10px]"
-              >
-                Ver Detalhes
-              </button>
+              <div className="flex h-fit flex-wrap justify-end gap-2">
+                <button
+                  onClick={() =>
+                    openPatientRegistration(
+                      {
+                        name: group.patient.name,
+                        email: group.patient.email,
+                        phone: group.patient.phone,
+                      },
+                      group.key,
+                    )
+                  }
+                  className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700"
+                >
+                  Convite
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedPatientKey(group.key);
+                    nav(`/patients/${encodeURIComponent(group.key)}`);
+                  }}
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
+                >
+                  Ver Detalhes
+                </button>
+              </div>
             </div>
 
-            <div className="mt-6">
-              <p className="text-xs font-bold">Ultimas 3 Sessoes</p>
-              <div className="mt-3 overflow-x-auto border border-black">
+            <div className="mt-4">
+              <p className="text-xs font-bold text-slate-900">Ultimas 3 Sessoes</p>
+              <div className="mt-3 overflow-x-auto rounded-lg border border-slate-100">
                 <table className="min-w-[1500px] w-full border-collapse text-left text-[10px]">
-                  <thead>
-                    <tr className="border-b border-black font-bold">
+                  <thead className="bg-slate-50 uppercase tracking-normal text-slate-400">
+                    <tr className="border-b border-slate-100 font-bold">
                       <th className="px-1 py-1">Data</th>
                       <th className="px-1 py-1">Sessao</th>
                       {sessionMetricCells(group.latestReport.sessionAverage).map((cell) => (
@@ -315,36 +312,38 @@ export const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                       <th className="px-1 py-1">Detalhe</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-slate-100">
                 {group.reports.slice(0, 3).map((report, index) => (
                   <React.Fragment key={report.sessionId}>
-                    <tr className="border-b border-slate-300 align-top">
-                      <td className="px-1 py-1">
+                    <tr className="align-top">
+                      <td className="px-1 py-1 text-slate-600">
                         {formatDateTime(reportEndDate(report))}
                       </td>
-                      <td className="px-1 py-1">
+                      <td className="px-1 py-1 font-bold text-slate-700">
                         {index === 0 ? "Concluida " : "Ativa "}
                         {shortId(report.sessionId)}
                       </td>
                       {sessionMetricCells(report.sessionAverage).map((cell) => (
-                        <td key={cell.key} className="px-1 py-1">
+                        <td key={cell.key} className="px-1 py-1 text-slate-700">
                           {cell.value}
                         </td>
                       ))}
-                      <td className="px-1 py-1 font-bold">
+                      <td className="px-1 py-1">
+                        <span className="rounded bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700">
                         {paymentStatusForReport(report)}
+                        </span>
                       </td>
                       <td className="px-1 py-1">
                         <button
                           onClick={() => nav(`/session/${report.sessionId}/report`)}
-                          className="border border-black px-1 py-0.5 font-bold"
+                          className="rounded border border-slate-200 bg-white px-2 py-1 font-bold text-slate-600 hover:bg-slate-50"
                         >
                           Ver
                         </button>
                       </td>
                     </tr>
-                    <tr className="border-b border-black">
-                      <td colSpan={19} className="px-1 py-1 text-xs">
+                    <tr>
+                      <td colSpan={19} className="bg-slate-50 px-2 py-2 text-xs text-slate-600">
                         <strong>Resultado da sessao:</strong>{" "}
                         {sessionResultText(report, 70)}
                       </td>
@@ -354,7 +353,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                   </tbody>
                 </table>
               </div>
-              <p className="mt-2 text-[11px] text-slate-700">
+              <p className="mt-3 rounded border border-blue-100 bg-blue-50 px-3 py-2 text-[11px] font-medium text-blue-900">
                 Linha comparativa mais recente: IPM{" "}
                 {fmt(group.latestReport.baseline.ipmAvg, 1)} -&gt;{" "}
                 {fmt(group.latestReport.sessionAverage.ipmAvg, 1)} (
@@ -376,154 +375,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user }) => {
         ))}
       </section>
 
-      {selectedGroup && (
-        <section className="mt-6 border border-black p-3">
-          <h2 className="mb-2 text-sm font-bold">FROID Explica</h2>
-          <AIInsights
-            zones={selectedGroup.latestReport.sessionAverage.zones || []}
-            ipmScore={selectedGroup.latestReport.sessionAverage.ipmAvg}
-            coherenceStatus={
-              selectedGroup.latestReport.sessionAverage.coherenceStatus
-            }
-            baselineEstablished
-            sessionId={selectedGroup.latestReport.sessionId}
-            extraContext={{
-              patient: selectedGroup.patient,
-              latest_report_average: selectedGroup.latestReport.sessionAverage,
-              latest_report_baseline: selectedGroup.latestReport.baseline,
-              last_three_sessions: selectedGroup.reports.slice(0, 3).map((report) => ({
-                session_id: report.sessionId,
-                average: report.sessionAverage,
-                result: sessionResultText(report, 120),
-                payment_status: paymentStatusForReport(report),
-              })),
-            }}
-          />
-        </section>
-      )}
-
-      <section className="mt-6 border border-black p-3">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-bold">Convite de sessao ao paciente</h2>
-          <span className="text-[10px] font-bold uppercase">Algoritmo inicial</span>
-        </div>
-        <form onSubmit={createInvite} className="grid gap-2 md:grid-cols-4">
-          <label className="text-xs font-bold">
-            Nome do paciente
-            <input
-              value={form.patient_name}
-              onChange={(event) => updateForm("patient_name", event.target.value)}
-              className="mt-1 w-full border border-black px-2 py-1 font-normal"
-            />
-          </label>
-          <label className="text-xs font-bold">
-            WhatsApp
-            <input
-              value={form.patient_phone}
-              onChange={(event) => updateForm("patient_phone", event.target.value)}
-              className="mt-1 w-full border border-black px-2 py-1 font-normal"
-            />
-          </label>
-          <label className="text-xs font-bold">
-            E-mail
-            <input
-              value={form.patient_email}
-              onChange={(event) => updateForm("patient_email", event.target.value)}
-              className="mt-1 w-full border border-black px-2 py-1 font-normal"
-            />
-          </label>
-          <label className="text-xs font-bold">
-            Forma de pagamento
-            <select
-              value={form.payment_mode}
-              onChange={(event) =>
-                updateForm("payment_mode", event.target.value as PaymentMode)
-              }
-              className="mt-1 w-full border border-black px-2 py-1 font-normal"
-            >
-              <option value="single">Sessao avulsa com PIX</option>
-              <option value="package">Pacote de sessoes</option>
-            </select>
-          </label>
-          <label className="text-xs font-bold">
-            Valor da sessao (R$)
-            <input
-              value={form.session_value}
-              onChange={(event) => updateForm("session_value", event.target.value)}
-              className="mt-1 w-full border border-black px-2 py-1 font-normal"
-            />
-          </label>
-          {form.payment_mode === "package" ? (
-            <label className="text-xs font-bold">
-              Numero de sessoes
-              <input
-                type="number"
-                min={1}
-                value={form.package_sessions}
-                onChange={(event) =>
-                  updateForm("package_sessions", event.target.value)
-                }
-                className="mt-1 w-full border border-black px-2 py-1 font-normal"
-              />
-            </label>
-          ) : (
-            <label className="text-xs font-bold md:col-span-2">
-              Codigo PIX copia e cola
-              <input
-                value={form.pix_code}
-                onChange={(event) => updateForm("pix_code", event.target.value)}
-                className="mt-1 w-full border border-black px-2 py-1 font-normal"
-              />
-            </label>
-          )}
-          <div className="self-end">
-            <button
-              type="submit"
-              disabled={creatingInvite}
-              className="w-full border border-black bg-black px-3 py-1 font-bold text-white disabled:opacity-50"
-            >
-              {creatingInvite ? "Gerando..." : "Gerar convite"}
-            </button>
-            {inviteError && (
-              <p className="mt-1 text-xs font-bold text-red-600">{inviteError}</p>
-            )}
-          </div>
-        </form>
-
-        {inviteResult && (
-          <div className="mt-3 border border-black p-2 text-xs">
-            <p className="font-bold">
-              Convite criado: {inviteResult.session_id} |{" "}
-              {inviteResult.patient_known ? "paciente cadastrado" : "novo cadastro"}
-            </p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <button
-                onClick={() => copyText(inviteResult.whatsapp_message)}
-                className="border border-black px-2 py-1"
-              >
-                Copiar mensagem
-              </button>
-              <button
-                onClick={() => copyText(inviteResult.invite_url)}
-                className="border border-black px-2 py-1"
-              >
-                Copiar link
-              </button>
-              <button
-                onClick={() => nav(`/session/${inviteResult.session_id}`)}
-                className="border border-black px-2 py-1"
-              >
-                Abrir sala profissional
-              </button>
-            </div>
-            <textarea
-              readOnly
-              value={inviteResult.whatsapp_message}
-              className="mt-2 h-28 w-full border border-black p-2"
-            />
-          </div>
-        )}
-      </section>
+      </main>
     </div>
   );
 };

@@ -1091,8 +1091,8 @@ function LiveSessionInner(_: LiveSessionProps) {
   const [clinicalNotes, setClinicalNotes] = useState<ClinicalNote[]>([]);
   const [rtcStatus, setRtcStatus] = useState("Aguardando paciente");
   const [remotePatientOn, setRemotePatientOn] = useState(false);
-  const [localSpeaker, setLocalSpeaker] = useState<SpeakerRole>("DR");
-  const [attributedSpeaker, setAttributedSpeaker] = useState<SpeakerRole>("DR");
+  const [localSpeaker, setLocalSpeaker] = useState<SpeakerRole>("PC");
+  const [attributedSpeaker, setAttributedSpeaker] = useState<SpeakerRole>("PC");
   const [speakerIdMode, setSpeakerIdMode] = useState<SpeakerIdMode>(() =>
     loadDrVoiceSignature() ? "auto" : "manual",
   );
@@ -1153,7 +1153,7 @@ function LiveSessionInner(_: LiveSessionProps) {
   }>({ totalWords: 0, windows: [] });
   const lastDissonanceSig = useRef("");
   const activeSpeakerRef = useRef<SpeakerRole>("DR");
-  const attributedSpeakerRef = useRef<SpeakerRole>("DR");
+  const attributedSpeakerRef = useRef<SpeakerRole>("PC");
   const forcedLocalSegmentSpeakerRef = useRef<SpeakerRole | null>(null);
   const remotePatientOnRef = useRef(false);
   const speakerIdModeRef = useRef<SpeakerIdMode>(speakerIdMode);
@@ -1414,6 +1414,12 @@ function LiveSessionInner(_: LiveSessionProps) {
     );
     startVoiceIdentification(stream);
   }, [applyAttributedSpeaker, isEnrollingDrVoice, startVoiceIdentification]);
+
+  // Recursos preservados para futura configuracao automatica de identidade vocal,
+  // sem expor controles manuais no layout da sessao.
+  void voiceIdStatus;
+  void selectLocalSpeaker;
+  void enrollDrVoice;
 
   const cleanupRtcCall = useCallback(() => {
     rtcSignalRef.current?.close();
@@ -1770,7 +1776,7 @@ function LiveSessionInner(_: LiveSessionProps) {
 
     setLiveTranscription((prev) => ({
       ...(prev || {}),
-      transcription_snippet: transcriptLinesRef.current.slice().reverse().join("\n"),
+      transcription_snippet: "",
       transcription_interim: "",
       words_per_window: words,
       total_words_session: stats.totalWords,
@@ -1880,7 +1886,7 @@ function LiveSessionInner(_: LiveSessionProps) {
             ...(prev || {}),
             provider: prev?.provider || "browser-live",
             transcription_status: "listening",
-            transcription_interim: `${speakerPrefix(attributedSpeakerRef.current)}${interim.trim()}`,
+            transcription_interim: "",
             transcription_error: "",
           }));
         }
@@ -2228,7 +2234,7 @@ function LiveSessionInner(_: LiveSessionProps) {
           ...(prev || {}),
           provider: prev?.provider || "browser-recorder",
           transcription_status: "listening",
-          transcription_sources: "DR-profissional/PC-paciente",
+          transcription_sources: "captura-semantica-por-cortes",
           active_stt_source: source,
           transcription_error: "",
         }));
@@ -2366,7 +2372,7 @@ function LiveSessionInner(_: LiveSessionProps) {
       bioacoustic_track: "patient-webrtc",
       bioacoustic_warning:
         "Avaliacao FROID usando exclusivamente a voz do paciente.",
-      transcription_sources: "DR-profissional/PC-paciente",
+      transcription_sources: "captura-semantica-por-cortes",
       bioacoustic_error: "",
     }));
   }, [patientAudioVersion, startRawBioacousticPipeline, startSpeechToText, stopVoiceIdentification]);
@@ -2393,9 +2399,8 @@ function LiveSessionInner(_: LiveSessionProps) {
         bioacoustic_pipeline: "direct-local-patient",
         bioacoustic_track: "local-patient-selected",
         bioacoustic_warning:
-          "Atendimento presencial: metricas calculadas somente enquanto PC esta selecionado.",
-        transcription_sources:
-          "Atendimento presencial com alternancia manual DR/PC.",
+          "Atendimento presencial: metricas calculadas a partir da trilha vocal local configurada para paciente.",
+        transcription_sources: "captura-semantica-por-cortes",
         bioacoustic_error: "",
       }));
       return;
@@ -2408,9 +2413,8 @@ function LiveSessionInner(_: LiveSessionProps) {
       bioacoustic_pipeline: "direct-local-paused",
       bioacoustic_track: "local-professional-selected",
       bioacoustic_warning:
-        "Atendimento presencial: selecione PC quando o paciente estiver falando para alimentar os biomarcadores.",
-      transcription_sources:
-        "Atendimento presencial com alternancia manual DR/PC.",
+        "Aguardando trilha vocal de paciente para alimentar biomarcadores.",
+      transcription_sources: "captura-semantica-por-cortes",
     }));
   }, [
     attributedSpeaker,
@@ -2597,7 +2601,7 @@ function LiveSessionInner(_: LiveSessionProps) {
                 bioacoustic_status: "waiting_patient",
                 bioacoustic_track: "local-professional-selected",
                 bioacoustic_warning:
-                  "DR selecionado: audio transcrito sem atribuicao a IPM, IDM, riscos ou sub-harmonicos.",
+                  "Audio local fora da trilha de paciente: metricas multimodais pausadas.",
               }));
               return;
             }
@@ -2715,7 +2719,7 @@ function LiveSessionInner(_: LiveSessionProps) {
       transcriptSegmentsRef.current,
       remotePatientOnRef.current,
     );
-    const transcript = transcriptSegmentsRef.current
+    const summarySourceTranscript = transcriptSegmentsRef.current
       .map((segment) => segment.text)
       .join("\n");
 
@@ -2730,9 +2734,10 @@ function LiveSessionInner(_: LiveSessionProps) {
       tenMinuteCuts,
       clinicalNotes,
       conversationSummaries,
-      sessionSummary: buildSessionSummary(conversationSummaries, transcript),
+      sessionSummary: buildSessionSummary(conversationSummaries, summarySourceTranscript),
       dissonances: dissonanceLog,
-      transcript,
+      transcript: "",
+      transcriptRetention: "disabled_summary_only",
       anonymizedContext,
     };
   }, [
@@ -2880,93 +2885,7 @@ function LiveSessionInner(_: LiveSessionProps) {
           onEndSession={endSession}
         />
 
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-              Fala presencial
-            </span>
-            <span className="text-[9px] font-semibold text-slate-400">
-              {remotePatientOn
-                ? "Remoto automatico"
-                : speakerIdMode === "auto"
-                  ? `Auto: ${attributedSpeaker}`
-                  : "Manual"}
-            </span>
-          </div>
-          {!remotePatientOn && (
-            <div className="mb-2 grid grid-cols-[1fr_auto_auto] gap-2">
-              <button
-                type="button"
-                onClick={enrollDrVoice}
-                disabled={isEnrollingDrVoice}
-                className="rounded-md border border-cyan-200 bg-cyan-50 px-2 py-1 text-[10px] font-black text-cyan-800 hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {drVoiceSignature ? "Recadastrar voz DR" : "Cadastrar voz DR"}
-              </button>
-              <button
-                type="button"
-                disabled={!drVoiceSignature}
-                onClick={() => {
-                  setSpeakerIdMode("auto");
-                  if (mediaStreamRef.current) startVoiceIdentification(mediaStreamRef.current);
-                }}
-                className={`rounded-md border px-2 py-1 text-[10px] font-black ${
-                  speakerIdMode === "auto"
-                    ? "border-emerald-500 bg-emerald-500 text-white"
-                    : "border-slate-200 bg-white text-slate-600 hover:border-emerald-300"
-                } disabled:cursor-not-allowed disabled:opacity-40`}
-              >
-                Auto
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSpeakerIdMode("manual");
-                  stopVoiceIdentification();
-                }}
-                className={`rounded-md border px-2 py-1 text-[10px] font-black ${
-                  speakerIdMode === "manual"
-                    ? "border-slate-700 bg-slate-700 text-white"
-                    : "border-slate-200 bg-white text-slate-600 hover:border-slate-400"
-                }`}
-              >
-                Manual
-              </button>
-            </div>
-          )}
-          <div className="grid grid-cols-2 gap-2">
-            {(["DR", "PC"] as SpeakerRole[]).map((speaker) => {
-              const active =
-                (speakerIdMode === "auto" ? attributedSpeaker : localSpeaker) === speaker;
-              const disabled = remotePatientOn || speakerIdMode === "auto";
-              return (
-                <button
-                  key={speaker}
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => selectLocalSpeaker(speaker)}
-                  className={`rounded-md border px-2 py-1.5 text-[11px] font-black transition ${
-                    active
-                      ? "border-blue-600 bg-blue-600 text-white"
-                      : "border-slate-200 bg-white text-slate-600 hover:border-blue-300"
-                  } ${disabled ? "cursor-not-allowed opacity-45" : ""}`}
-                >
-                  {speaker === "DR" ? "DR. falando" : "PC falando"}
-                </button>
-              );
-            })}
-          </div>
-          <p className="mt-2 text-[10px] leading-snug text-slate-500">
-            {remotePatientOn
-              ? "Com paciente remoto, o FROID separa DR pela trilha local e PC pela trilha do paciente."
-              : speakerIdMode === "auto"
-                ? `${voiceIdStatus} DR entra somente na transcricao; PC alimenta transcricao e metricas FROID.`
-                : "Fallback manual: clique DR ou PC antes da fala. DR entra somente na transcricao; PC alimenta transcricao e metricas FROID."}
-          </p>
-        </div>
-
         <AudioTranscription
-          snippet={displayAudio.transcription_snippet}
           wordsCount={displayAudio.words_per_window}
           totalWords={displayAudio.total_words_session}
           tone={displayAudio.emotional_tone}
@@ -2975,10 +2894,6 @@ function LiveSessionInner(_: LiveSessionProps) {
           themeMinuteMark={displayAudio.theme_minute_mark}
           audioMeta={displayAudio}
           conversationSummaries={conversationSummaries}
-          activeSpeaker={attributedSpeaker}
-          onSpeakerChange={
-            remotePatientOn || speakerIdMode === "auto" ? undefined : selectLocalSpeaker
-          }
         />
 
         {state.phase === "CALIBRATING" && (

@@ -24,7 +24,6 @@ const DEFAULT_SECTIONS = {
   summaries: true,
   notes: true,
   dissonances: true,
-  transcript: false,
 };
 
 type SectionKey = keyof typeof DEFAULT_SECTIONS;
@@ -66,8 +65,6 @@ const TITLE_TOOLTIPS: Record<string, string> = {
     "Anotacoes clinicas registradas manualmente pelo profissional durante a sessao.",
   "Dissonancias registradas":
     "Lista apenas dissonancias persistentes acima do limiar clinico configurado.",
-  "Transcricao da sessao":
-    "Transcricao arquivada da fala do profissional e do paciente quando disponivel.",
   "Relatorio Descritivo":
     "Campo editavel para o profissional montar texto a copiar, enviar ou futuramente imprimir.",
 };
@@ -885,16 +882,6 @@ export const SessionReport: React.FC<Props> = () => {
             </section>
           )}
 
-          {sections.transcript && (
-            <section className="rounded-lg border border-slate-200 bg-white p-4">
-              <h2 className="mb-3 text-sm font-bold text-slate-900">
-                <HelpTitle title="Transcricao da sessao" />
-              </h2>
-              <pre className="max-h-96 overflow-y-auto whitespace-pre-wrap rounded bg-slate-950 p-3 text-xs leading-relaxed text-slate-100">
-                {report.transcript || "Sem transcricao arquivada."}
-              </pre>
-            </section>
-          )}
         </div>
 
         <aside className="space-y-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">

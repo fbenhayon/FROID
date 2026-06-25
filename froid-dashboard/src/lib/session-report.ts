@@ -72,6 +72,7 @@ export interface SessionReportRecord {
     report: string;
   }>;
   transcript: string;
+  transcriptRetention?: "disabled_summary_only" | "enabled";
   anonymizedContext?: {
     schemaVersion: string;
     sessionModality: "remote" | "presential" | "unknown";

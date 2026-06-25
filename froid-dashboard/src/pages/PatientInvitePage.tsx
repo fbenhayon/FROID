@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { apiUrl } from "../lib/api";
+import { LgpdNotice } from "../components/legal/LgpdNotice";
 
 type PaymentMode = "package" | "single";
 
@@ -279,6 +280,9 @@ export const PatientInvitePage: React.FC = () => {
                 clinicas. O uso deve ocorrer para apoio ao profissional, com
                 registro de consentimento e finalidade terapeutica.
               </p>
+              <div className="mt-3">
+                <LgpdNotice audience="patient" compact />
+              </div>
               <div className="mt-3 space-y-2 text-xs text-slate-700">
                 {[
                   ["terms_of_use", "Li e aceito as condicoes de utilizacao do FROID."],
