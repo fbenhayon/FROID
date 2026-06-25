@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 
 interface TooltipProps {
   children: React.ReactNode;
@@ -8,21 +8,31 @@ interface TooltipProps {
 
 export function FroidTooltip({ children, content, width = 280 }: TooltipProps) {
   const [show, setShow] = useState(false);
+  const anchorRef = useRef<HTMLSpanElement | null>(null);
+  const rect = anchorRef.current?.getBoundingClientRect();
+  const safeWidth = Math.min(width, typeof window !== "undefined" ? window.innerWidth - 24 : width);
+  const left = rect
+    ? Math.min(
+        Math.max(12 + safeWidth / 2, rect.left + rect.width / 2),
+        (typeof window !== "undefined" ? window.innerWidth : 1200) - 12 - safeWidth / 2,
+      )
+    : 0;
+  const top = rect ? Math.max(12, rect.top - 10) : 0;
 
   return (
     <span
+      ref={anchorRef}
       className="relative inline-block"
       onMouseEnter={() => setShow(true)}
       onMouseLeave={() => setShow(false)}
     >
       {children}
-      {show && (
+      {show && rect && (
         <div
-          className="absolute z-[100] bottom-full left-1/2 -translate-x-1/2 mb-2 w-[280px] max-w-[90vw] rounded-lg border border-slate-200 bg-white p-3 shadow-xl text-[11px] leading-snug text-slate-700"
-          style={{ width }}
+          className="fixed z-[9999] max-h-[70vh] max-w-[calc(100vw-24px)] -translate-x-1/2 -translate-y-full overflow-y-auto rounded-lg border border-slate-200 bg-white p-3 text-[11px] leading-snug text-slate-700 shadow-xl"
+          style={{ width: safeWidth, left, top }}
         >
           {content}
-          <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 h-2 w-2 rotate-45 border-b border-r border-slate-200 bg-white" />
         </div>
       )}
     </span>

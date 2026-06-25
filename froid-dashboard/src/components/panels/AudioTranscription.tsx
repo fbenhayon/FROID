@@ -15,12 +15,6 @@ interface ConversationSummary {
 }
 
 interface Props {
-  wordsCount: number;
-  totalWords: number;
-  tone: string;
-  wordsPerMinute10m: number;
-  sessionTheme: string;
-  themeMinuteMark: number;
   audioMeta?: Record<string, unknown>;
   conversationSummaries?: ConversationSummary[];
 }
@@ -41,24 +35,9 @@ function limitWords(text: string, maxWords: number) {
 }
 
 export const AudioTranscription: React.FC<Props> = ({
-  wordsCount,
-  totalWords,
-  tone,
-  wordsPerMinute10m,
-  sessionTheme,
-  themeMinuteMark,
   audioMeta: providedAudioMeta,
   conversationSummaries = [],
 }) => {
-  const toneColor: Record<string, string> = {
-    neutro: "text-slate-600",
-    ansioso: "text-amber-700",
-    triste: "text-blue-700",
-    irritado: "text-red-700",
-    alegre: "text-green-700",
-    suprimido: "text-purple-700",
-  };
-
   const audioMeta =
     providedAudioMeta ||
     (typeof window !== "undefined"
@@ -71,13 +50,8 @@ export const AudioTranscription: React.FC<Props> = ({
   const shimmer = Number(audioMeta.shimmer ?? 0);
   const provider = String(audioMeta.provider || "");
   const transcriptionStatus = String(audioMeta.transcription_status || "");
-  const transcriptionError = String(audioMeta.transcription_error || "");
   const bioacousticStatus = String(audioMeta.bioacoustic_status || "");
-  const bioacousticPipeline = String(audioMeta.bioacoustic_pipeline || "");
   const bioacousticTrack = String(audioMeta.bioacoustic_track || "");
-  const bioacousticWarning = String(
-    audioMeta.bioacoustic_warning || audioMeta.bioacoustic_error || "",
-  );
   const bioacousticLabel =
     bioacousticStatus === "monitoring"
       ? bioacousticTrack === "patient-webrtc"
@@ -127,17 +101,6 @@ export const AudioTranscription: React.FC<Props> = ({
         : transcriptionStatus === "error"
           ? "bg-red-50 text-red-700"
           : "bg-slate-100 text-slate-500";
-  const placeholder =
-    transcriptionStatus === "listening"
-      ? "Audio ativo. A transcricao integral nao e exibida; apenas resumos por corte serao registrados."
-      : transcriptionStatus === "transcribing"
-        ? "Bloco de audio capturado. Gerando insumos para o proximo resumo de corte..."
-        : transcriptionStatus === "restarting"
-          ? "Reiniciando captura de audio para o proximo corte..."
-          : transcriptionStatus === "error" && transcriptionError
-            ? transcriptionError
-            : "Aguardando audio para resumos por corte.";
-
   const biomarkerItems = [
     { key: "mfcc7", label: "MFCC7", value: mfcc7.toFixed(2) },
     { key: "mfcc9", label: "MFCC9", value: mfcc9.toFixed(2) },
@@ -150,90 +113,15 @@ export const AudioTranscription: React.FC<Props> = ({
 
   return (
     <div className="w-full bg-white rounded-xl border border-slate-100 shadow-sm p-3 space-y-2">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-            Metricas Vocais & Resumos IA
-          </span>
-          <FroidTooltip
-            content={
-              <div className="max-w-[260px]">
-                <p className="font-bold">Analise Vocal em Tempo Real</p>
-                <p className="text-[11px] mt-1">
-                  A fala nao e exibida como transcricao continua. O FROID usa blocos
-                  temporarios apenas para gerar tema, resumo por corte, palavras por
-                  minuto e biomarcadores acusticos.
-                </p>
-              </div>
-            }
-            width={280}
-          >
-            <span className="cursor-help text-[10px] text-slate-400 border-b border-dashed border-slate-300">
-              ?
-            </span>
-          </FroidTooltip>
-        </div>
-        <div className="flex items-center gap-1">
-          <span
-            title={transcriptionError || provider || transcriptionStatus || "Captura semantica por cortes"}
-            className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${sttClass}`}
-          >
-            {sttLabel}
-          </span>
-          <span
-            title={
-              bioacousticWarning ||
-              bioacousticPipeline ||
-              "Trilha bioacustica bruta independente"
-            }
-            className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${bioacousticClass}`}
-          >
-            {bioacousticLabel}
-          </span>
-        </div>
-      </div>
-
-      <div className="min-h-[8.75rem] max-h-[8.75rem] overflow-y-auto rounded-lg border border-slate-100 bg-slate-50 p-2.5">
-        <p className="text-[11px] leading-5 text-slate-700">{placeholder}</p>
-        <p className="mt-2 text-[10px] leading-5 text-slate-500">
-          Transcricao literal completa: desativada na interface e no relatorio.
-          O processamento textual permanece restrito a resumos por janela e corte final.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2">
-        <div className="rounded-md border border-amber-100 bg-amber-50 px-2 py-1.5">
-          <span className="block text-[8px] font-bold uppercase tracking-wider text-amber-700">
-            Tom vocal
-          </span>
-          <strong className={`text-[11px] uppercase ${toneColor[tone] || "text-slate-600"}`}>
-            {tone}
-          </strong>
-        </div>
-        <div className="rounded-md border border-blue-100 bg-blue-50 px-2 py-1.5">
-          <span className="block text-[8px] font-bold uppercase tracking-wider text-blue-700">
-            Palavras/min
-          </span>
-          <strong className="font-mono text-[11px] text-blue-800">
-            {wordsPerMinute10m.toFixed(0)} ppm
-          </strong>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between text-[9px] text-slate-500">
-        <span>
-          Janela atual: <strong className="text-slate-700">{wordsCount}</strong>{" "}
-          palavras
-        </span>
-        <span>
-          Total: <strong className="text-slate-700">{totalWords}</strong>
-        </span>
-      </div>
-
       <div className="rounded-md border border-slate-100 bg-white px-2 py-2">
-        <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-wider text-slate-500">
+        <div className="flex items-center justify-between gap-2 text-[9px] font-bold uppercase tracking-wider text-slate-500">
           <span>Resumos IA 10min</span>
-          <span>{orderedSummaries.length}</span>
+          <div className="flex items-center gap-1">
+            <span className={`rounded px-1.5 py-0.5 text-[8px] ${sttClass}`}>
+              {sttLabel}
+            </span>
+            <span>{orderedSummaries.length}</span>
+          </div>
         </div>
         <div className="mt-1 max-h-48 space-y-1 overflow-y-auto">
           {orderedSummaries.length === 0 && (
@@ -265,7 +153,9 @@ export const AudioTranscription: React.FC<Props> = ({
       <div className="rounded-md bg-slate-50 border border-slate-100 px-2 py-2">
         <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-wider text-slate-500">
           <span>Biomarcadores vocais</span>
-          <span>Edge AI</span>
+          <span className={`rounded px-1.5 py-0.5 text-[8px] ${bioacousticClass}`}>
+            {bioacousticLabel}
+          </span>
         </div>
         <div className="mt-1 grid grid-cols-2 gap-2 text-[10px] text-slate-600">
           {biomarkerItems.map((item) => (
@@ -277,19 +167,6 @@ export const AudioTranscription: React.FC<Props> = ({
           ))}
         </div>
       </div>
-
-      {sessionTheme && (
-        <div className="rounded-md bg-amber-50 border border-amber-100 px-2 py-1.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[9px] font-bold text-amber-800 uppercase">
-              Tema da Sessao ({themeMinuteMark}min)
-            </span>
-          </div>
-          <p className="text-[10px] text-amber-900 leading-snug mt-0.5">
-            {limitWords(sessionTheme, 6)}
-          </p>
-        </div>
-      )}
     </div>
   );
 };

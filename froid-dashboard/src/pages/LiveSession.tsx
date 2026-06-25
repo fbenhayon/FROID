@@ -109,6 +109,100 @@ function dissonanceSeverity(zone?: PerceptionZone | null) {
     : "RELEVANTE";
 }
 
+function normalizeAuCode(code: string) {
+  const match = String(code || "").toUpperCase().match(/AU?\s*(\d+)/);
+  return match ? Number(match[1]) : null;
+}
+
+function hasAu(auSet: Set<number>, ...codes: number[]) {
+  return codes.some((code) => auSet.has(code));
+}
+
+function classifyDissonance(zone?: PerceptionZone | null, audioMeta?: Record<string, unknown>) {
+  const activeAus = zone?.dissonance_details?.active_aus || [];
+  const auSet = new Set(
+    activeAus
+      .map(normalizeAuCode)
+      .filter((code): code is number => typeof code === "number"),
+  );
+  const score = dissonanceScore(zone);
+  const sub5 = Number(audioMeta?.subharmonic_energy_5_12hz || 0);
+  const basal = Number(audioMeta?.energy_85_165hz || 0);
+  const hasDeepSna = sub5 >= 0.35 || score >= DISSONANCE_CRITICAL_THRESHOLD;
+
+  if (hasDeepSna && hasAu(auSet, 15) && hasAu(auSet, 20)) {
+    return {
+      title: "Risco de retraumatizacao / flooding autonomico",
+      summary:
+        "Picos sub-harmonicos de 5-12 Hz cruzados com AU15 (dor profunda) e AU20 (panico) sugerem sobrecarga autonomica relevante.",
+      action:
+        "Reduzir intensidade da intervencao, priorizar aterramento, ritmo respiratorio e monitoramento de seguranca.",
+    };
+  }
+  if (hasDeepSna && hasAu(auSet, 15) && basal < 0.25) {
+    return {
+      title: "Shutdown psiquico / dissociacao",
+      summary:
+        "Tremor autonomico profundo com AU15 e baixa energia vocal basal sugere supressao, congelamento ou queda de disponibilidade emocional.",
+      action:
+        "Pausar confronto direto, restaurar orientacao ao presente e checar janela de tolerancia.",
+    };
+  }
+  if (hasAu(auSet, 12) && !hasAu(auSet, 6)) {
+    return {
+      title: "Sorriso falso / falsa calma",
+      summary:
+        "AU12 aparece sem AU6, indicando sorriso social sem marcador Duchenne, enquanto o IDM aponta tensao vocal/facial relevante.",
+      action:
+        "Investigar discrepancia entre relato de calma e carga corporal, sem confrontar de modo abrupto.",
+    };
+  }
+  if (hasAu(auSet, 23, 24) || (zone?.zone === 7 && score > DISSONANCE_REPORT_THRESHOLD)) {
+    return {
+      title: "Raiva contida / resposta verbal suprimida",
+      summary:
+        "AUs 23/24 indicam compressao ou estreitamento mecanico dos labios, biomarcadores faciais de contencao e supressao de resposta.",
+      action:
+        "Abrir espaco seguro para nomear irritacao, limite, injustica percebida ou agressividade internalizada.",
+    };
+  }
+  if (hasAu(auSet, 1) && hasAu(auSet, 4) && hasAu(auSet, 15)) {
+    return {
+      title: "Tristeza mascarada",
+      summary:
+        "A combinacao AU1+AU4+AU15 sugere vazamento involuntario de tristeza, dor ou amargura apesar de possivel discurso de bem-estar.",
+      action:
+        "Explorar perdas, desamparo e afetos evitados com perguntas abertas e ritmo cuidadoso.",
+    };
+  }
+  if (hasAu(auSet, 12, 14) && activeAus.some((au) => /^[LR]/i.test(String(au)))) {
+    return {
+      title: "Desprezo unilateral",
+      summary:
+        "Ativacao assimetrica de AU12/AU14 pode indicar desprezo, resistencia ou superioridade defensiva durante fala sobre terceiros.",
+      action:
+        "Observar contexto relacional e investigar julgamentos, vergonha, rivalidade ou defesa narcísica.",
+    };
+  }
+  if (hasAu(auSet, 5, 20, 25, 26, 27) || hasAu(auSet, 4, 5, 7)) {
+    return {
+      title: "Microexpressao contraditoria",
+      summary:
+        "Vazamentos breves de medo, panico, raiva ou foco defensivo contradizem a neutralidade aparente e elevam o IDM.",
+      action:
+        "Registrar o instante clinico e testar a hipotese com observacao fenomenologica, sem transformar em diagnostico isolado.",
+    };
+  }
+  return {
+    title: "Dissonancia facial-vocal relevante",
+    summary:
+      zone?.dissonance_details?.report ||
+      "O rosto e a voz apresentaram incongruencia acima do limiar configurado do IDM.",
+    action:
+      "Usar como marcador de investigacao clinica, cruzando relato, contexto, biomarcadores vocais e mapa zonal.",
+  };
+}
+
 function reducer(state: SessionState, action: Action): SessionState {
   try {
     switch (action.type) {
@@ -1091,8 +1185,8 @@ function LiveSessionInner(_: LiveSessionProps) {
   const [clinicalNotes, setClinicalNotes] = useState<ClinicalNote[]>([]);
   const [rtcStatus, setRtcStatus] = useState("Aguardando paciente");
   const [remotePatientOn, setRemotePatientOn] = useState(false);
-  const [localSpeaker, setLocalSpeaker] = useState<SpeakerRole>("PC");
-  const [attributedSpeaker, setAttributedSpeaker] = useState<SpeakerRole>("PC");
+  const [localSpeaker, setLocalSpeaker] = useState<SpeakerRole>("DR");
+  const [attributedSpeaker, setAttributedSpeaker] = useState<SpeakerRole>("DR");
   const [speakerIdMode, setSpeakerIdMode] = useState<SpeakerIdMode>(() =>
     loadDrVoiceSignature() ? "auto" : "manual",
   );
@@ -1153,7 +1247,7 @@ function LiveSessionInner(_: LiveSessionProps) {
   }>({ totalWords: 0, windows: [] });
   const lastDissonanceSig = useRef("");
   const activeSpeakerRef = useRef<SpeakerRole>("DR");
-  const attributedSpeakerRef = useRef<SpeakerRole>("PC");
+  const attributedSpeakerRef = useRef<SpeakerRole>("DR");
   const forcedLocalSegmentSpeakerRef = useRef<SpeakerRole | null>(null);
   const remotePatientOnRef = useRef(false);
   const speakerIdModeRef = useRef<SpeakerIdMode>(speakerIdMode);
@@ -1530,6 +1624,7 @@ function LiveSessionInner(_: LiveSessionProps) {
           setPatientAudioVersion((value) => value + 1);
         }
         setRemotePatientOn(true);
+        applyAttributedSpeaker("PC", "Trilha remota do paciente recebida por WebRTC.");
         setRtcStatus("Paciente conectado por audio e video.");
       };
 
@@ -1581,7 +1676,7 @@ function LiveSessionInner(_: LiveSessionProps) {
         }
       };
     },
-    [cleanupRtcCall, sessionId],
+    [applyAttributedSpeaker, cleanupRtcCall, sessionId],
   );
 
   const stopRawBioacousticPipeline = useCallback(() => {
@@ -2792,13 +2887,12 @@ function LiveSessionInner(_: LiveSessionProps) {
       .filter(isReportableDissonance)
       .map((z) => {
         const score = dissonanceScore(z);
+        const interpretation = classifyDissonance(z, displayAudio);
         return {
           zone: z.zone,
           score,
           severity: dissonanceSeverity(z),
-          report:
-            z.dissonance_details?.report ||
-            "Dissonancia facial-vocal detectada",
+          report: `${interpretation.title}: ${interpretation.summary} Conduta sugerida: ${interpretation.action}`,
         };
       });
     const signature = currentEntries
@@ -2822,7 +2916,7 @@ function LiveSessionInner(_: LiveSessionProps) {
       .filter((entry) => Number.isFinite(entry.zone));
 
     setDissonanceLog((prev) => [...prev, ...nextEntries].slice(-18));
-  }, [displayZones, state.elapsedSeconds]);
+  }, [displayAudio, displayZones, state.elapsedSeconds]);
 
   const connectionText = state.connected
     ? state.phase === "CALIBRATING"
@@ -2886,12 +2980,6 @@ function LiveSessionInner(_: LiveSessionProps) {
         />
 
         <AudioTranscription
-          wordsCount={displayAudio.words_per_window}
-          totalWords={displayAudio.total_words_session}
-          tone={displayAudio.emotional_tone}
-          wordsPerMinute10m={displayAudio.words_per_minute_10m || 0}
-          sessionTheme={displayAudio.session_theme}
-          themeMinuteMark={displayAudio.theme_minute_mark}
           audioMeta={displayAudio}
           conversationSummaries={conversationSummaries}
         />
@@ -3066,6 +3154,7 @@ function LiveSessionInner(_: LiveSessionProps) {
                     const auDescs = getAUDetails(aus);
                     const score = dissonanceScore(zone);
                     const severity = dissonanceSeverity(zone);
+                    const interpretation = classifyDissonance(zone, displayAudio);
                     return (
                       <div
                         key={zone.zone}
@@ -3079,11 +3168,14 @@ function LiveSessionInner(_: LiveSessionProps) {
                             IDM {score.toFixed(2)} | {severity}
                           </span>
                         </div>
-                        <p className="mt-1 text-[11px] font-medium leading-relaxed text-slate-700">
-                          {ZONE_CLINICAL_DESCRIPTIONS[zone.zone] || ""}
+                        <p className="mt-1 text-[11px] font-black uppercase tracking-wide text-red-800">
+                          {interpretation.title}
                         </p>
-                        <p className="mt-2 text-[11px] font-semibold leading-relaxed text-red-700">
-                          {zone.dissonance_details?.report || ""}
+                        <p className="mt-1 text-[11px] font-medium leading-relaxed text-slate-700">
+                          {interpretation.summary}
+                        </p>
+                        <p className="mt-2 text-[10px] leading-relaxed text-slate-600">
+                          Zona clinica: {ZONE_CLINICAL_DESCRIPTIONS[zone.zone] || "sem descricao zonal."}
                         </p>
                         <div className="mt-2 space-y-1">
                           {auDescs.map((d, i) => (
@@ -3096,6 +3188,9 @@ function LiveSessionInner(_: LiveSessionProps) {
                           ))}
                         </div>
                         <p className="mt-2 text-[10px] font-bold text-red-800">
+                          Conduta sugerida: {interpretation.action}
+                        </p>
+                        <p className="mt-1 text-[10px] font-bold text-red-800">
                           Multiplicador facial 2.5x aplicado ao IDM.
                         </p>
                       </div>
