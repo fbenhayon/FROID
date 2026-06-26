@@ -17,18 +17,39 @@ type SubharmonicMetric = {
   tooltip: string;
 };
 
+const DNA_COLORS: Record<string, string> = {
+  sna_5_12: "#25A84A",
+  limbic_12_20: "#3D8FE6",
+  vocal_85_165: "#875ED4",
+  flooding: "#FF9800",
+  shutdown: "#FF4560",
+  compensation: "#22B3BE",
+};
+
 const clamp = (value: number, min = 0, max = 1) =>
   Math.min(Math.max(Number.isFinite(value) ? value : 0, min), max);
 
 const percent = (value: number) => Math.round(clamp(value) * 100);
 
-const metricColor = (value: number) => {
-  const pct = percent(value);
-  if (pct < 15) return "#15803d";
-  if (pct < 30) return "#22c55e";
-  if (pct < 50) return "#eab308";
-  if (pct < 70) return "#f97316";
-  return "#dc2626";
+const polarPoint = (cx: number, cy: number, radius: number, angle: number) => {
+  const radians = ((angle - 90) * Math.PI) / 180;
+  return {
+    x: cx + radius * Math.cos(radians),
+    y: cy + radius * Math.sin(radians),
+  };
+};
+
+const piePath = (
+  cx: number,
+  cy: number,
+  radius: number,
+  startAngle: number,
+  endAngle: number,
+) => {
+  const start = polarPoint(cx, cy, radius, endAngle);
+  const end = polarPoint(cx, cy, radius, startAngle);
+  const largeArc = endAngle - startAngle <= 180 ? "0" : "1";
+  return `M ${cx} ${cy} L ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArc} 0 ${end.x} ${end.y} Z`;
 };
 
 const readNumber = (
@@ -92,56 +113,56 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta }) => {
       {
         id: "sna_5_12",
         label: "Tremor SNA profundo",
-        band: "5-12 Hz",
+        band: "5-12 Hz - acustico",
         value: tremor5_12,
         source: acoustic5_12 !== null ? "acustico" : "proxy",
         tooltip:
-          "Energia sub-harmônica entre 5 e 12 Hz. No motor Python, esta banda rastreia tremores autonômicos profundos ligados a flooding, dissociação e trauma.",
+          "Energia sub-harmonica entre 5 e 12 Hz. Esta banda rastreia tremores autonomicos profundos ligados a flooding, dissociacao e trauma.",
       },
       {
         id: "limbic_12_20",
-        label: "Modulação límbica",
-        band: "12-20 Hz",
+        label: "Modulacao limbica",
+        band: "12-20 Hz - acustico",
         value: upper12_20,
         source: acoustic12_20 !== null ? "acustico" : "proxy",
         tooltip:
-          "Faixa superior de modulação autonômica. Ajuda a separar tensão límbica alta de tremor visceral profundo.",
+          "Faixa superior de modulacao autonomica. Ajuda a separar tensao limbica alta de tremor visceral profundo.",
       },
       {
         id: "vocal_85_165",
-        label: "Tensão vocal basal",
-        band: "85-165 Hz",
+        label: "Tensao vocal basal",
+        band: "85-165 Hz - acustico",
         value: tension85_165,
         source: acoustic85_165 !== null ? "acustico" : "proxy",
         tooltip:
-          "Energia vocal basal usada no cruzamento de risco. Quando sobe junto da banda 5-12 Hz, aponta sobrecarga autonômica/flooding.",
+          "Energia vocal basal usada no cruzamento de risco. Quando sobe junto da banda 5-12 Hz, aponta sobrecarga autonomica/flooding.",
       },
       {
         id: "flooding",
-        label: "Flooding autonômico",
+        label: "Flooding autonomico",
         band: "5-12 + 85-165",
         value: flooding,
         source: hasAcoustic ? "acustico" : "proxy",
         tooltip:
-          "Composição entre tremor profundo e tensão vocal. Representa risco de sobrecarga autonômica ativa.",
+          "Composicao entre tremor profundo e tensao vocal. Representa risco de sobrecarga autonomica ativa.",
       },
       {
         id: "shutdown",
         label: "Shutdown dissociativo",
-        band: "SNA - tensão",
+        band: "SNA - tensao",
         value: shutdown,
         source: hasAcoustic ? "acustico" : "proxy",
         tooltip:
-          "Cresce quando há tremor autonômico com baixa energia vocal basal ou muitas zonas compensatórias, sugerindo supressão/dissociação.",
+          "Cresce quando ha tremor autonomico com baixa energia vocal basal ou muitas zonas compensatorias, sugerindo supressao/dissociacao.",
       },
       {
         id: "compensation",
-        label: "Compensação zonal",
-        band: "Offsetting",
+        label: "Compensacao zonal",
+        band: "Offsetting - proxy",
         value: compensation,
         source: "proxy",
         tooltip:
-          "Carga de zonas em BRANCO ou com desvio negativo. Mantém a ponte entre o mapa zonal atual e o futuro motor acústico completo.",
+          "Carga de zonas em BRANCO ou com desvio negativo. Mantem a ponte entre o mapa zonal atual e o futuro motor acustico completo.",
       },
     ];
 
@@ -149,17 +170,17 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta }) => {
       typeof audioMeta?.clinical_insight === "string"
         ? audioMeta.clinical_insight
         : tremor5_12 > 0.4 && tension85_165 > 0.6
-          ? "ALERTA SEVERO: sobrecarga autonômica crítica por tremor profundo cruzado com tensão vocal."
+          ? "ALERTA SEVERO: sobrecarga autonomica critica por tremor profundo cruzado com tensao vocal."
           : tremor5_12 > 0.4
-            ? "ALERTA DE DISSOCIAÇÃO: tremor autonômico profundo predominando sobre a emissão vocal basal."
-            : "Sistema Nervoso Autônomo estável. Fluxo simpático regular.";
+            ? "ALERTA DE DISSOCIACAO: tremor autonomico profundo predominando sobre a emissao vocal basal."
+            : "Sistema Nervoso Autonomo estavel. Fluxo simpatico regular.";
 
     return {
       hasAcousticData: hasAcoustic,
       insight: clinicalInsight,
       metrics: items.map((item) => ({
         ...item,
-        color: metricColor(item.value),
+        color: DNA_COLORS[item.id] || "#64748B",
       })),
     };
   }, [zones, audioMeta]);
@@ -168,103 +189,83 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta }) => {
     (top, metric) => (metric.value > top.value ? metric : top),
     metrics[0],
   );
+  const values = metrics.map((metric) => percent(metric.value));
+  const total = values.reduce((sum, value) => sum + value, 0) || 1;
+  const maxValue = Math.max(...values, 1);
+  const generalIndex = Math.round(
+    values.reduce((sum, value) => sum + value, 0) / Math.max(values.length, 1),
+  );
+  let currentAngle = 0;
+  const slices = metrics.map((metric) => {
+    const value = percent(metric.value);
+    const startAngle = currentAngle;
+    const sweep = (value / total) * 360;
+    const endAngle = startAngle + sweep;
+    currentAngle = endAngle;
+    const labelPoint = polarPoint(120, 120, 84, startAngle + sweep / 2);
+    return { metric, value, startAngle, endAngle, labelPoint };
+  });
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
-      <div className="mb-2 flex shrink-0 items-center justify-between gap-3">
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+      <div className="mb-1 flex shrink-0 items-start justify-between gap-3">
         <div className="min-w-0">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-            DNA Sub-harmônico
-          </span>
-          <span
-            className="ml-2 rounded px-1.5 py-0.5 text-[8px] font-black uppercase text-white"
-            style={{ backgroundColor: dominant.color }}
-          >
-            {dominant.label} {percent(dominant.value)}%
-          </span>
+          <h3 className="text-[15px] font-black uppercase tracking-wide text-slate-950">
+            DNA Sub-harmonico
+          </h3>
+          <p className="truncate text-[10px] font-semibold text-slate-500">
+            Componente percentual dos indicadores sub-harmonicos.
+          </p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <span
-            className={`rounded px-1.5 py-0.5 text-[8px] font-black uppercase ${
-              hasAcousticData ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"
-            }`}
-          >
-            {hasAcousticData ? "acústico" : "proxy"}
-          </span>
-          <FroidTooltip
-            content={
-              <div className="max-w-[320px]">
-                <p className="font-bold">DNA dos sub-harmônicos</p>
-                <p className="mt-1 text-[10px] leading-relaxed">
-                  O gráfico está preparado para receber as bandas acústicas
-                  5-12 Hz, 12-20 Hz e 85-165 Hz. Enquanto elas não chegam do
-                  backend, usa proxies de zonas, compensações e dissonâncias.
-                </p>
-              </div>
-            }
-            width={340}
-          >
-            <span className="cursor-help border-b border-dashed border-slate-300 text-[10px] text-slate-400">
-              ?
-            </span>
-          </FroidTooltip>
+        <div className="shrink-0 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-1 text-center text-blue-800">
+          <span className="block text-[9px] font-black uppercase">Indice geral</span>
+          <strong className="font-mono text-[14px]">{generalIndex}%</strong>
         </div>
       </div>
 
-      <div className="grid min-h-0 flex-1 auto-rows-fr grid-cols-[minmax(118px,0.95fr)_minmax(120px,1.4fr)_42px_18px] gap-x-2">
-        {metrics.map((metric) => (
-          <React.Fragment key={metric.id}>
-            <div className="flex h-full min-h-0 flex-col justify-center overflow-visible">
-              <FroidTooltip
-                content={
-                  <div className="max-w-[340px]">
-                    <p className="font-bold">
-                      {metric.label} ({metric.band})
-                    </p>
-                    <p className="mt-1 text-[10px] leading-relaxed">
-                      {metric.tooltip}
-                    </p>
-                  </div>
-                }
-                width={360}
-              >
-                <span className="block cursor-help">
-                  <span className="block truncate text-[9px] font-black uppercase leading-none text-slate-700">
-                    {metric.label}
-                  </span>
-                  <span className="mt-0.5 block text-[7px] font-bold uppercase leading-none tracking-wide text-slate-400">
-                    {metric.band} - {metric.source}
-                  </span>
-                </span>
-              </FroidTooltip>
-            </div>
-
-            <div className="relative flex h-full min-h-0 items-center overflow-visible">
-              <div className="absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-slate-100" />
-              <div
-                className="absolute left-0 top-1/2 h-3 -translate-y-1/2 rounded-r-full transition-all duration-1000 ease-out"
-                style={{
-                  width: `${percent(metric.value)}%`,
-                  backgroundColor: metric.color,
-                  boxShadow:
-                    metric.id === dominant.id ? `0 0 8px ${metric.color}66` : "none",
-                }}
-                title={metric.tooltip}
+      <div className="relative min-h-0 flex-[0.95]">
+        <svg viewBox="0 0 240 240" className="mx-auto h-full max-h-[208px] w-full">
+          {slices.map(({ metric, value, startAngle, endAngle, labelPoint }) => (
+            <g key={metric.id} className="cursor-help">
+              <title>{`${metric.label}: ${value}%`}</title>
+              <path
+                d={piePath(120, 120, 78, startAngle, endAngle)}
+                fill={metric.color}
+                stroke="#ffffff"
+                strokeWidth={4}
+                className="transition-opacity hover:opacity-90"
               />
-              <span
-                className="absolute top-1/2 -translate-y-1/2 pl-1 font-mono text-[8px] font-black text-slate-700 transition-all duration-1000 ease-out"
-                style={{ left: `min(calc(${percent(metric.value)}% + 3px), 78%)` }}
-              >
-                {metric.source}
-              </span>
-            </div>
+              {value >= 8 && (
+                <text
+                  x={labelPoint.x}
+                  y={labelPoint.y}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  className="fill-white text-[12px] font-black"
+                >
+                  {value}%
+                </text>
+              )}
+            </g>
+          ))}
+        </svg>
+      </div>
 
-            <div className="flex h-full min-h-0 items-center justify-end font-mono text-[10px] font-black text-slate-700">
-              {percent(metric.value)}%
-            </div>
-
-            <div className="flex h-full min-h-0 items-center justify-end">
+      <div className="min-h-0 flex-1 overflow-y-auto pt-1">
+        <div className="mb-1">
+          <h4 className="text-[12px] font-black text-slate-950">
+            Distribuicao dos indicadores
+          </h4>
+          <p className="text-[10px] font-medium text-slate-500">
+            Percentual por componente e descricao tecnica.
+          </p>
+        </div>
+        <div className="space-y-2">
+          {metrics.map((metric, index) => {
+            const value = percent(metric.value);
+            return (
               <FroidTooltip
+                key={metric.id}
                 content={
                   <div className="max-w-[340px]">
                     <p className="font-bold">
@@ -277,17 +278,45 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta }) => {
                 }
                 width={360}
               >
-                <span className="cursor-help text-[10px] font-bold text-slate-400">
-                  ?
-                </span>
+                <div className="cursor-help">
+                  <div className="mb-1 flex items-center justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span
+                        className="h-5 w-3 shrink-0"
+                        style={{ backgroundColor: metric.color }}
+                      />
+                      <div className="min-w-0">
+                        <span className="block truncate text-[11px] font-black uppercase text-slate-900">
+                          {index + 1}. {metric.label}
+                        </span>
+                        <span className="block truncate text-[9px] font-bold uppercase tracking-wide text-slate-400">
+                          {metric.band} | {metric.source}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="font-mono text-[11px] font-black" style={{ color: metric.color }}>
+                      {value}%
+                    </span>
+                  </div>
+                  <div className="ml-5 h-2.5 overflow-hidden rounded-full bg-slate-100">
+                    <div
+                      className="h-full rounded-full transition-all duration-700"
+                      style={{
+                        width: `${(value / maxValue) * 100}%`,
+                        backgroundColor: metric.color,
+                      }}
+                    />
+                  </div>
+                </div>
               </FroidTooltip>
-            </div>
-          </React.Fragment>
-        ))}
+            );
+          })}
+        </div>
       </div>
 
       <p className="mt-1 shrink-0 truncate text-[9px] font-medium text-slate-500">
-        {insight}
+        {dominant.label}: {percent(dominant.value)}% |{" "}
+        {hasAcousticData ? "acustico" : "proxy"} | {insight}
       </p>
     </div>
   );

@@ -68,6 +68,35 @@ const severityLabel = (pct: number) => {
   return "Extremo";
 };
 
+const RISK_PIE_COLORS: Record<string, string> = {
+  depression: "#2C7FB8",
+  anxiety: "#FF7F0E",
+  mania: "#2CA02C",
+  stress: "#D62728",
+  autonomic: "#9467BD",
+};
+
+const polarPoint = (cx: number, cy: number, radius: number, angle: number) => {
+  const radians = ((angle - 90) * Math.PI) / 180;
+  return {
+    x: cx + radius * Math.cos(radians),
+    y: cy + radius * Math.sin(radians),
+  };
+};
+
+const piePath = (
+  cx: number,
+  cy: number,
+  radius: number,
+  startAngle: number,
+  endAngle: number,
+) => {
+  const start = polarPoint(cx, cy, radius, endAngle);
+  const end = polarPoint(cx, cy, radius, startAngle);
+  const largeArc = endAngle - startAngle <= 180 ? "0" : "1";
+  return `M ${cx} ${cy} L ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArc} 0 ${end.x} ${end.y} Z`;
+};
+
 const zonePressure = (zones: PerceptionZone[], zoneIds: number[]) => {
   const selected = zoneIds
     .map((id) => zones.find((z) => z.zone === id))
@@ -277,116 +306,121 @@ export const RiskChart: React.FC<Props> = ({
     typeof baseline === "number" && Number.isFinite(baseline)
       ? baseline.toFixed(1)
       : "--";
+  const totalShare = risks.reduce((sum, risk) => sum + risk.sharePct, 0) || 1;
+  let currentAngle = 0;
+  const slices = risks.map((risk) => {
+    const startAngle = currentAngle;
+    const sweep = (risk.sharePct / totalShare) * 360;
+    const endAngle = startAngle + sweep;
+    currentAngle = endAngle;
+    const midAngle = startAngle + sweep / 2;
+    const labelPoint = polarPoint(120, 120, 86, midAngle);
+    const color = RISK_PIE_COLORS[risk.id] || risk.color;
+    return { risk, startAngle, endAngle, midAngle, labelPoint, color };
+  });
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col overflow-visible rounded-xl border border-slate-100 bg-white p-2 shadow-sm">
-      <div className="mb-1 grid shrink-0 grid-cols-[22px_minmax(96px,0.95fr)_minmax(150px,1.5fr)_48px_18px] items-center gap-x-1">
-        <div className="text-[9px] font-semibold uppercase tracking-tight text-slate-500">
-          R
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+      <div className="flex shrink-0 items-start justify-between gap-3">
+        <div>
+          <h3 className="text-[15px] font-black uppercase tracking-wide text-slate-950">
+            Risco Clinico
+          </h3>
+          <p className="text-[10px] font-semibold text-slate-500">
+            IPM 60s {baselineLabel} | dominante: {dominantRisk.label}
+          </p>
         </div>
-        <div className="text-[9px] font-semibold uppercase tracking-tight text-slate-500">
-          Risco
-        </div>
-        <div className="flex items-center justify-center gap-1 text-[9px] font-semibold uppercase tracking-tight text-slate-900">
-          <span>IPM 60s: {baselineLabel}</span>
-          <span className="text-slate-300">|</span>
-          <span>{dominantRisk.label}</span>
-        </div>
-        <div className="text-right text-[9px] font-semibold uppercase tracking-tight text-slate-500">
-          Part.
-        </div>
-        <div />
+        <span className="rounded-full bg-slate-100 px-2 py-1 text-[9px] font-black uppercase text-slate-600">
+          Pie dinamico
+        </span>
       </div>
 
-      <div className="grid min-h-0 flex-1 auto-rows-fr grid-cols-[22px_minmax(96px,0.95fr)_minmax(150px,1.5fr)_48px_18px] gap-x-1">
-        {risks.map((risk, index) => (
-          <React.Fragment key={risk.id}>
-            <div className="flex h-full min-h-0 items-center justify-end pr-0.5 text-[9px] font-bold text-slate-700">
-              {index + 1}.
-            </div>
+      <div className="grid min-h-0 flex-1 grid-rows-[minmax(120px,0.95fr)_minmax(130px,1.05fr)]">
+        <div className="relative min-h-0">
+          <svg viewBox="0 0 240 240" className="mx-auto h-full max-h-[210px] w-full">
+            {slices.map(({ risk, startAngle, endAngle, color, labelPoint }) => (
+              <g key={risk.id} className="cursor-help">
+                <title>{`${risk.label}: ${risk.sharePct}%`}</title>
+                <path
+                  d={piePath(120, 120, 78, startAngle, endAngle)}
+                  fill={color}
+                  stroke="#ffffff"
+                  strokeWidth={4}
+                  className="transition-opacity hover:opacity-90"
+                />
+                {risk.sharePct >= 8 && (
+                  <text
+                    x={labelPoint.x}
+                    y={labelPoint.y}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    className="fill-white text-[12px] font-black"
+                  >
+                    {risk.sharePct}%
+                  </text>
+                )}
+              </g>
+            ))}
+          </svg>
+        </div>
 
-            <div className="flex h-full min-h-0 flex-col justify-center overflow-visible pr-1">
-              <FroidTooltip
-                content={
-                  <div className="max-w-[360px]">
-                    <p className="font-bold">
-                      {index + 1}. {risk.label} ({risk.scale})
-                    </p>
-                    <p className="mt-1 text-[10px] leading-relaxed">
-                      {risk.tooltip}
-                    </p>
+        <div className="min-h-0 overflow-y-auto pt-1">
+          <div className="mb-1">
+            <h4 className="text-[12px] font-black text-slate-950">
+              Distribuicao dos riscos
+            </h4>
+            <p className="text-[10px] font-medium text-slate-500">
+              Percentual de participacao por categoria.
+            </p>
+          </div>
+          <div className="space-y-2">
+            {risks.map((risk, index) => {
+              const color = RISK_PIE_COLORS[risk.id] || risk.color;
+              return (
+                <FroidTooltip
+                  key={risk.id}
+                  content={
+                    <div className="max-w-[360px]">
+                      <p className="font-bold">
+                        {index + 1}. {risk.label} ({risk.scale})
+                      </p>
+                      <p className="mt-1 text-[10px] leading-relaxed">
+                        {risk.tooltip}
+                      </p>
+                    </div>
+                  }
+                  width={380}
+                >
+                  <div className="cursor-help">
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span
+                          className="h-4 w-3 shrink-0"
+                          style={{ backgroundColor: color }}
+                        />
+                        <span className="truncate text-[11px] font-black text-slate-900">
+                          {index + 1}. {risk.label}
+                        </span>
+                      </div>
+                      <span className="font-mono text-[11px] font-black" style={{ color }}>
+                        {risk.sharePct}%
+                      </span>
+                    </div>
+                    <div className="ml-5 h-2.5 overflow-hidden rounded-full bg-slate-100">
+                      <div
+                        className="h-full rounded-full transition-all duration-700"
+                        style={{ width: `${risk.sharePct}%`, backgroundColor: color }}
+                      />
+                    </div>
+                    <div className="ml-5 mt-0.5 truncate text-[9px] font-bold uppercase tracking-wide text-slate-400">
+                      {risk.scale} | {severityLabel(risk.pct)} | {risk.source}
+                    </div>
                   </div>
-                }
-                width={380}
-              >
-                <span className="block cursor-help">
-                  <span className="block truncate text-[9px] font-black uppercase leading-none text-slate-700">
-                    {risk.label}
-                  </span>
-                  <span className="mt-0.5 block text-[7px] font-bold uppercase leading-none tracking-wide text-slate-400">
-                    {risk.scale} - {severityLabel(risk.pct)} - {risk.source}
-                  </span>
-                </span>
-              </FroidTooltip>
-            </div>
-
-            <div
-              className="relative flex h-full min-h-0 cursor-help items-center overflow-visible"
-              title={`${risk.label} (${risk.scale}): ${risk.tooltip}`}
-            >
-              <div className="absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-slate-100" />
-              <div className="absolute left-0 top-0 h-full w-px border-l border-dashed border-slate-300" />
-              <div
-                className="absolute left-0 top-1/2 h-3 -translate-y-1/2 rounded-r-full transition-all duration-1000 ease-out"
-                style={{
-                  width: `${risk.sharePct}%`,
-                  backgroundColor: risk.color,
-                  boxShadow:
-                    risk.pct >= dominantRisk.pct
-                      ? `0 0 8px ${risk.color}66`
-                      : "none",
-                }}
-              />
-              <div
-                className="absolute top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full border border-white transition-all duration-1000 ease-out"
-                style={{
-                  left: `calc(${risk.sharePct}% - 3px)`,
-                  backgroundColor: risk.color,
-                }}
-              />
-              <span
-                className="absolute top-1/2 -translate-y-1/2 pl-1 font-mono text-[8px] font-black text-slate-700 transition-all duration-1000 ease-out"
-                style={{ left: `min(calc(${risk.sharePct}% + 3px), 84%)` }}
-              >
-                int. {risk.pct}%
-              </span>
-            </div>
-
-            <div className="flex h-full min-h-0 items-center justify-end font-mono text-[10px] font-black text-slate-700">
-              {risk.sharePct}%
-            </div>
-
-            <div className="flex h-full min-h-0 items-center justify-end">
-              <FroidTooltip
-                content={
-                  <div className="max-w-[360px]">
-                    <p className="font-bold">
-                      {index + 1}. {risk.label} ({risk.scale})
-                    </p>
-                    <p className="mt-1 text-[10px] leading-relaxed">
-                      {risk.tooltip}
-                    </p>
-                  </div>
-                }
-                width={380}
-              >
-                <span className="cursor-help text-[10px] font-bold text-slate-400">
-                  ?
-                </span>
-              </FroidTooltip>
-            </div>
-          </React.Fragment>
-        ))}
+                </FroidTooltip>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );

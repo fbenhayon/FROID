@@ -12,6 +12,7 @@ interface ConversationSummary {
   endMinute: number;
   theme: string;
   summary: string;
+  trigger?: "automatico_10min" | "manual" | "final";
 }
 
 interface Props {
@@ -135,9 +136,16 @@ export const AudioTranscription: React.FC<Props> = ({
               className="rounded border border-slate-100 bg-slate-50 px-2 py-1.5"
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[9px] font-mono font-bold text-slate-500">
-                  {item.startMinute}-{item.endMinute}min
-                </span>
+                <div className="flex items-center gap-1">
+                  <span className="text-[9px] font-mono font-bold text-slate-500">
+                    {item.startMinute}-{item.endMinute}min
+                  </span>
+                  {item.trigger === "manual" && (
+                    <span className="rounded bg-blue-100 px-1 text-[8px] font-bold uppercase text-blue-700">
+                      manual
+                    </span>
+                  )}
+                </div>
                 <strong className="truncate text-[10px] text-slate-800">
                   {limitWords(item.theme, 6)}
                 </strong>

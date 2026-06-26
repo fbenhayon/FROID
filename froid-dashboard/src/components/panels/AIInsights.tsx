@@ -43,10 +43,7 @@ interface FroidExplicaResponse {
 interface Message {
   role: "user" | "assistant";
   content: string;
-  engine?: string;
-  citations?: string[];
   safety?: boolean;
-  intent?: string;
 }
 
 interface Props {
@@ -67,6 +64,16 @@ function compactZone(zone: PerceptionZone) {
     facial_dissonance_detected: Boolean(zone.facial_dissonance_detected),
     active_aus: zone.dissonance_details?.active_aus || [],
   };
+}
+
+function cleanFroidExplicaText(text: string) {
+  return String(text || "")
+    .replace(
+      /\n?\s*FROID Explica RAG[^\n]*(\n\s*(knowledge|analytics|bloqueado))?(\n\s*fontes:[^\n]*)?/gi,
+      "",
+    )
+    .replace(/\n?\s*fontes:\s*[^\n]+/gi, "")
+    .trim();
 }
 
 export const AIInsights: React.FC<Props> = ({
@@ -165,11 +172,10 @@ export const AIInsights: React.FC<Props> = ({
           ...prev,
           {
             role: "assistant",
-            content: data.result_text || "Sem resposta disponivel.",
-            engine: data.engine_used,
-            citations: data.citations || [],
+            content:
+              cleanFroidExplicaText(data.result_text) ||
+              "Sem resposta disponivel.",
             safety: data.safety_check_passed,
-            intent: data.intent,
           },
         ]);
       } catch (error: any) {
@@ -181,7 +187,6 @@ export const AIInsights: React.FC<Props> = ({
             role: "assistant",
             content:
               "FROID Explica nao conseguiu completar a consulta agora. Verifique o backend e tente novamente.",
-            engine: "offline",
             safety: false,
           },
         ]);
@@ -233,16 +238,9 @@ export const AIInsights: React.FC<Props> = ({
                 {message.role === "user" ? "Voce" : "FROID Explica"}
               </p>
               {message.content}
-              {message.role === "assistant" && (
-                <div className="mt-2 flex flex-wrap gap-1 text-[9px] text-slate-400">
-                  {message.engine && <span>{message.engine}</span>}
-                  {message.intent && <span>{message.intent}</span>}
-                  {message.safety === false && (
-                    <span className="font-bold text-red-500">bloqueado</span>
-                  )}
-                  {message.citations && message.citations.length > 0 && (
-                    <span>fontes: {message.citations.join(", ")}</span>
-                  )}
+              {message.role === "assistant" && message.safety === false && (
+                <div className="mt-2 text-[9px] font-bold text-red-500">
+                  Consulta bloqueada por governanca de dados.
                 </div>
               )}
             </div>

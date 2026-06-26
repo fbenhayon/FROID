@@ -46,6 +46,7 @@ interface ConversationSummary {
   endMinute: number;
   theme: string;
   summary: string;
+  trigger?: "automatico_10min" | "manual" | "final";
 }
 
 type SpeakerRole = "PC" | "DR";
@@ -738,6 +739,15 @@ function speakerPrefix(speaker: SpeakerRole) {
   return speaker === "DR" ? "DR. - " : "PC - ";
 }
 
+function formatCutClock(seconds: number) {
+  const safeSeconds = Math.max(0, Math.floor(seconds));
+  const minutes = Math.floor(safeSeconds / 60)
+    .toString()
+    .padStart(2, "0");
+  const rest = (safeSeconds % 60).toString().padStart(2, "0");
+  return `${minutes}:${rest}`;
+}
+
 function normalizeTranscriptText(text: string) {
   return text
     .toLowerCase()
@@ -1182,6 +1192,10 @@ function LiveSessionInner(_: LiveSessionProps) {
   const [conversationSummaries, setConversationSummaries] = useState<
     ConversationSummary[]
   >([]);
+  const [semanticCutStartSecond, setSemanticCutStartSecond] = useState(0);
+  const [semanticCutStatus, setSemanticCutStatus] = useState(
+    "Corte semantico aguardando fala.",
+  );
   const [clinicalNotes, setClinicalNotes] = useState<ClinicalNote[]>([]);
   const [rtcStatus, setRtcStatus] = useState("Aguardando paciente");
   const [remotePatientOn, setRemotePatientOn] = useState(false);
@@ -1227,8 +1241,9 @@ function LiveSessionInner(_: LiveSessionProps) {
   const browserSttAvailableRef = useRef(false);
   const transcriptLinesRef = useRef<string[]>([]);
   const transcriptSegmentsRef = useRef<Array<{ elapsedSeconds: number; text: string }>>([]);
-  const summarizedWindowsRef = useRef<Set<number>>(new Set());
-  const pendingSummaryWindowsRef = useRef<Set<number>>(new Set());
+  const semanticCutStartSecondRef = useRef(0);
+  const semanticCutClosingRef = useRef(false);
+  const manualCutCounterRef = useRef(0);
   const sttRestartTimerRef = useRef<number | null>(null);
   const sttSegmentTimerRef = useRef<number | null>(null);
   const patientSttRestartTimerRef = useRef<number | null>(null);
@@ -1264,6 +1279,10 @@ function LiveSessionInner(_: LiveSessionProps) {
   useEffect(() => {
     elapsedSecondsRef.current = state.elapsedSeconds;
   }, [state.elapsedSeconds]);
+
+  useEffect(() => {
+    semanticCutStartSecondRef.current = semanticCutStartSecond;
+  }, [semanticCutStartSecond]);
 
   useEffect(() => {
     remotePatientOnRef.current = remotePatientOn;
@@ -2026,88 +2045,133 @@ function LiveSessionInner(_: LiveSessionProps) {
     }
   }, [appendTranscriptText]);
 
-  const summarizeTranscriptWindow = useCallback(async (windowIndex: number) => {
-    if (
-      summarizedWindowsRef.current.has(windowIndex) ||
-      pendingSummaryWindowsRef.current.has(windowIndex)
-    ) {
-      return;
-    }
+  const summarizeTranscriptRange = useCallback(
+    async ({
+      id,
+      startSecond,
+      endSecond,
+      trigger,
+    }: {
+      id: string;
+      startSecond: number;
+      endSecond: number;
+      trigger: "automatico_10min" | "manual" | "final";
+    }) => {
+      const safeStartSecond = Math.max(0, Math.floor(startSecond));
+      const safeEndSecond = Math.max(safeStartSecond + 1, Math.ceil(endSecond));
+      const startMinute = Math.floor(safeStartSecond / 60);
+      const endMinute = Math.max(startMinute + 1, Math.ceil(safeEndSecond / 60));
+      const transcript = transcriptSegmentsRef.current
+        .filter(
+          (segment) =>
+            segment.elapsedSeconds >= safeStartSecond &&
+            segment.elapsedSeconds < safeEndSecond,
+        )
+        .map((segment) => segment.text)
+        .join(" ")
+        .trim();
 
-    pendingSummaryWindowsRef.current.add(windowIndex);
-    const startMinute = windowIndex * 10;
-    const endMinute = startMinute + 10;
-    const startSeconds = windowIndex * 10 * 60;
-    const endSeconds = startSeconds + 10 * 60;
-    const transcript = transcriptSegmentsRef.current
-      .filter(
-        (segment) =>
-          segment.elapsedSeconds >= startSeconds &&
-          segment.elapsedSeconds < endSeconds,
-      )
-      .map((segment) => segment.text)
-      .join(" ")
-      .trim();
+      const commitSummary = (entry: ConversationSummary) => {
+        setConversationSummaries((prev) =>
+          [...prev.filter((item) => item.id !== entry.id), entry].sort(
+            (a, b) => b.startMinute - a.startMinute,
+          ),
+        );
+      };
 
-    const commitSummary = (entry: ConversationSummary) => {
-      setConversationSummaries((prev) =>
-        [...prev.filter((item) => item.id !== entry.id), entry].sort(
-          (a, b) => b.startMinute - a.startMinute,
-        ),
+      const cutLabel =
+        trigger === "manual"
+          ? "Corte manual"
+          : trigger === "final"
+            ? "Corte final"
+            : "Corte automatico";
+      setSemanticCutStatus(`${cutLabel} em processamento...`);
+
+      if (!transcript) {
+        commitSummary({
+          id,
+          startMinute,
+          endMinute,
+          theme: "Sem fala transcrita",
+          summary: "Nenhuma fala foi transcrita neste intervalo.",
+          trigger,
+        });
+        setSemanticCutStatus(`${cutLabel} registrado sem fala transcrita.`);
+        return;
+      }
+
+      try {
+        const response = await fetch(apiUrl("/api/session-summary"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            transcript,
+            start_minute: startMinute,
+            end_minute: endMinute,
+            session_id: sessionId || "default",
+          }),
+        });
+        const data = await response.json();
+        commitSummary({
+          id,
+          startMinute,
+          endMinute,
+          theme: limitTheme(String(data?.theme || "Tema em apuracao"), 6),
+          summary: limitWords(String(data?.summary || "").trim(), 60),
+          trigger,
+        });
+        setSemanticCutStatus(`${cutLabel} registrado com resumo IA.`);
+      } catch {
+        commitSummary({
+          id,
+          startMinute,
+          endMinute,
+          theme: "Resumo indisponivel",
+          summary: limitWords(transcript, 60),
+          trigger,
+        });
+        setSemanticCutStatus(`${cutLabel} registrado com resumo local.`);
+      }
+    },
+    [sessionId],
+  );
+
+  const closeSemanticCut = useCallback(
+    async (trigger: "automatico_10min" | "manual" | "final") => {
+      if (semanticCutClosingRef.current) return;
+      const endSecond = Math.max(
+        elapsedSecondsRef.current || state.elapsedSeconds,
+        semanticCutStartSecondRef.current,
       );
-      summarizedWindowsRef.current.add(windowIndex);
-      pendingSummaryWindowsRef.current.delete(windowIndex);
-    };
+      const startSecond = semanticCutStartSecondRef.current;
+      const duration = endSecond - startSecond;
 
-    if (!transcript) {
-      commitSummary({
-        id: `summary-${windowIndex}`,
-        startMinute,
-        endMinute,
-        theme: "Sem fala transcrita",
-        summary: "Nenhuma fala foi transcrita neste intervalo.",
-      });
-      return;
-    }
+      if (trigger === "manual" && duration < 10) {
+        setSemanticCutStatus("Aguarde ao menos 10 segundos para fechar um corte manual.");
+        return;
+      }
 
-    try {
-      const response = await fetch(apiUrl("/api/session-summary"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          transcript,
-          start_minute: startMinute,
-          end_minute: endMinute,
-          session_id: sessionId || "default",
-        }),
-      });
-      const data = await response.json();
-      commitSummary({
-        id: `summary-${windowIndex}`,
-        startMinute,
-        endMinute,
-        theme: limitTheme(String(data?.theme || "Tema em apuracao"), 6),
-        summary: limitWords(String(data?.summary || "").trim(), 60),
-      });
-    } catch {
-      commitSummary({
-        id: `summary-${windowIndex}`,
-        startMinute,
-        endMinute,
-        theme: "Resumo indisponivel",
-        summary: limitWords(transcript, 60),
-      });
-    }
-  }, [sessionId]);
+      semanticCutClosingRef.current = true;
+      const cutId =
+        trigger === "manual"
+          ? `manual-${Date.now()}-${manualCutCounterRef.current++}`
+          : `${trigger}-${Date.now()}`;
 
-  const flushDueTranscriptSummaries = useCallback(() => {
-    const currentWindowIndex = Math.floor(
-      state.elapsedSeconds / (TRANSCRIPT_SUMMARY_WINDOW_MS / 1000),
-    );
-    for (let index = 0; index < currentWindowIndex; index += 1) {
-      void summarizeTranscriptWindow(index);
-    }
-  }, [state.elapsedSeconds, summarizeTranscriptWindow]);
+      try {
+        await summarizeTranscriptRange({
+          id: cutId,
+          startSecond,
+          endSecond,
+          trigger,
+        });
+        semanticCutStartSecondRef.current = endSecond;
+        setSemanticCutStartSecond(endSecond);
+      } finally {
+        semanticCutClosingRef.current = false;
+      }
+    },
+    [state.elapsedSeconds, summarizeTranscriptRange],
+  );
 
   const addClinicalNote = useCallback((text: string) => {
     setClinicalNotes((prev) => [
@@ -2630,8 +2694,17 @@ function LiveSessionInner(_: LiveSessionProps) {
   }, [activateMedia, stopMedia]);
 
   useEffect(() => {
-    flushDueTranscriptSummaries();
-  }, [flushDueTranscriptSummaries]);
+    if (state.phase === "ENDED") return;
+    const elapsedInCut = state.elapsedSeconds - semanticCutStartSecond;
+    if (elapsedInCut >= TRANSCRIPT_SUMMARY_WINDOW_MS / 1000) {
+      void closeSemanticCut("automatico_10min");
+    }
+  }, [
+    closeSemanticCut,
+    semanticCutStartSecond,
+    state.elapsedSeconds,
+    state.phase,
+  ]);
 
   useEffect(() => {
     const baselineStart = firstPatientMetricSecondRef.current;
@@ -2777,6 +2850,16 @@ function LiveSessionInner(_: LiveSessionProps) {
     : realTranscriptAudio;
   const displayCommitments =
     agg?.commitments || (raw as any)?.commitment_models || [];
+  const semanticCutElapsed = Math.max(0, state.elapsedSeconds - semanticCutStartSecond);
+  const semanticCutWindowSeconds = TRANSCRIPT_SUMMARY_WINDOW_MS / 1000;
+  const semanticCutProgress = Math.min(
+    100,
+    (semanticCutElapsed / semanticCutWindowSeconds) * 100,
+  );
+  const semanticCutRemaining = Math.max(
+    0,
+    semanticCutWindowSeconds - semanticCutElapsed,
+  );
 
   const createSessionReport = useCallback((): SessionReportRecord => {
     const durationSeconds = Math.max(1, elapsedSecondsRef.current || state.elapsedSeconds);
@@ -2979,6 +3062,38 @@ function LiveSessionInner(_: LiveSessionProps) {
           onEndSession={endSession}
         />
 
+        <div className="rounded-xl border border-cyan-100 bg-cyan-50 p-3 text-[10px] text-cyan-900 shadow-sm">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <div>
+              <p className="font-bold uppercase tracking-wider">
+                Corte semantico da sessao
+              </p>
+              <p className="text-cyan-700">
+                {semanticCutStatus}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void closeSemanticCut("manual")}
+              className="shrink-0 rounded bg-cyan-700 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white hover:bg-cyan-800 disabled:cursor-not-allowed disabled:bg-cyan-200"
+              disabled={semanticCutElapsed < 10 || semanticCutClosingRef.current}
+              title="Fecha manualmente o corte atual e gera resumo IA do periodo."
+            >
+              Fechar corte
+            </button>
+          </div>
+          <div className="flex items-center justify-between font-mono text-[10px] text-cyan-800">
+            <span>Atual {formatCutClock(semanticCutElapsed)}</span>
+            <span>Auto em {formatCutClock(semanticCutRemaining)}</span>
+          </div>
+          <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-cyan-100">
+            <div
+              className="h-full rounded-full bg-cyan-600 transition-all duration-1000"
+              style={{ width: `${semanticCutProgress}%` }}
+            />
+          </div>
+        </div>
+
         <AudioTranscription
           audioMeta={displayAudio}
           conversationSummaries={conversationSummaries}
@@ -3102,7 +3217,7 @@ function LiveSessionInner(_: LiveSessionProps) {
       </div>
 
       {/* COLUNA 3 — 35%: IPM grande, Risco, Subharm, Coherence, Dissonâncias */}
-      <div className="grid flex-1 grid-rows-4 gap-2 overflow-visible bg-slate-50 p-3">
+      <div className="grid flex-1 grid-rows-[1.05fr_1.35fr_1.45fr_1.15fr] gap-2 overflow-visible bg-slate-50 p-3">
         {raw ? (
           <>
             <div className="min-h-0 overflow-visible">

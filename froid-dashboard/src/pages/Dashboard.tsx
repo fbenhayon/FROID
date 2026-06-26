@@ -23,6 +23,7 @@ import {
 
 interface DashboardProps {
   user?: any;
+  onLogout?: () => void;
 }
 
 interface SessionEvent {
@@ -37,7 +38,7 @@ function makeId() {
   return `froid-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ user }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   const nav = useNavigate();
   const [patientActivity, setPatientActivity] = useState("");
   const [selectedPatientKey, setSelectedPatientKey] = useState("");
@@ -169,7 +170,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ user }) => {
               Bem-vindo, {professionalName}
             </p>
           </div>
-          <button className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50">
+          <button
+            onClick={onLogout}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
+          >
             Sair
           </button>
         </div>
@@ -297,61 +301,57 @@ export const Dashboard: React.FC<DashboardProps> = ({ user }) => {
 
             <div className="mt-4">
               <p className="text-xs font-bold text-slate-900">Ultimas 3 Sessoes</p>
-              <div className="mt-3 overflow-x-auto rounded-lg border border-slate-100">
-                <table className="min-w-[1500px] w-full border-collapse text-left text-[10px]">
-                  <thead className="bg-slate-50 uppercase tracking-normal text-slate-400">
-                    <tr className="border-b border-slate-100 font-bold">
-                      <th className="px-1 py-1">Data</th>
-                      <th className="px-1 py-1">Sessao</th>
-                      {sessionMetricCells(group.latestReport.sessionAverage).map((cell) => (
-                        <th key={cell.key} className="px-1 py-1">
-                          {cell.label}
-                        </th>
-                      ))}
-                      <th className="px-1 py-1">Pagamento</th>
-                      <th className="px-1 py-1">Detalhe</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
+              <div className="mt-3 space-y-3">
                 {group.reports.slice(0, 3).map((report, index) => (
-                  <React.Fragment key={report.sessionId}>
-                    <tr className="align-top">
-                      <td className="px-1 py-1 text-slate-600">
-                        {formatDateTime(reportEndDate(report))}
-                      </td>
-                      <td className="px-1 py-1 font-bold text-slate-700">
-                        {index === 0 ? "Concluida " : "Ativa "}
-                        {shortId(report.sessionId)}
-                      </td>
-                      {sessionMetricCells(report.sessionAverage).map((cell) => (
-                        <td key={cell.key} className="px-1 py-1 text-slate-700">
-                          {cell.value}
-                        </td>
-                      ))}
-                      <td className="px-1 py-1">
+                  <div
+                    key={report.sessionId}
+                    className="rounded-lg border border-slate-100 bg-slate-50/60 p-3"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] font-bold text-slate-900">
+                          {index === 0 ? "Concluida " : "Ativa "}
+                          {shortId(report.sessionId)}
+                        </p>
+                        <p className="mt-0.5 text-[10px] font-semibold text-slate-500">
+                          {formatDateTime(reportEndDate(report))}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-end gap-2">
                         <span className="rounded bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700">
-                        {paymentStatusForReport(report)}
+                          {paymentStatusForReport(report)}
                         </span>
-                      </td>
-                      <td className="px-1 py-1">
                         <button
                           onClick={() => nav(`/session/${report.sessionId}/report`)}
-                          className="rounded border border-slate-200 bg-white px-2 py-1 font-bold text-slate-600 hover:bg-slate-50"
+                          className="rounded border border-slate-200 bg-white px-2 py-1 text-[10px] font-bold text-slate-600 hover:bg-slate-50"
                         >
                           Ver
                         </button>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td colSpan={19} className="bg-slate-50 px-2 py-2 text-xs text-slate-600">
-                        <strong>Resultado da sessao:</strong>{" "}
-                        {sessionResultText(report, 70)}
-                      </td>
-                    </tr>
-                  </React.Fragment>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8 xl:grid-cols-12">
+                      {sessionMetricCells(report.sessionAverage).map((cell) => (
+                        <div
+                          key={cell.key}
+                          className="min-w-0 rounded border border-slate-100 bg-white px-2 py-1.5"
+                        >
+                          <p className="truncate text-[9px] font-bold uppercase tracking-wide text-slate-400">
+                            {cell.label}
+                          </p>
+                          <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-800">
+                            {cell.value}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="mt-3 rounded border border-blue-50 bg-white px-3 py-2 text-xs leading-relaxed text-slate-600">
+                      <strong className="text-slate-800">Resultado da sessao:</strong>{" "}
+                      {sessionResultText(report, 85)}
+                    </div>
+                  </div>
                 ))}
-                  </tbody>
-                </table>
               </div>
               <p className="mt-3 rounded border border-blue-100 bg-blue-50 px-3 py-2 text-[11px] font-medium text-blue-900">
                 Linha comparativa mais recente: IPM{" "}

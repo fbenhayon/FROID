@@ -22,6 +22,30 @@ export type FroidUser = {
   provider?: string;
 };
 
+function localDevUser(): FroidUser | null {
+  if (typeof window === "undefined") return null;
+  const isLocalhost = ["localhost", "127.0.0.1", "::1"].includes(
+    window.location.hostname,
+  );
+  if (!isLocalhost || localStorage.getItem("froid_token") !== "dev-local") {
+    return null;
+  }
+  try {
+    const stored = JSON.parse(localStorage.getItem("froid_user") || "{}");
+    return {
+      email: stored.email || "dev@froid.local",
+      name: stored.name || "Profissional FROID",
+      provider: "local-dev",
+    };
+  } catch {
+    return {
+      email: "dev@froid.local",
+      name: "Profissional FROID",
+      provider: "local-dev",
+    };
+  }
+}
+
 function App() {
   const [user, setUser] = useState<FroidUser | null>(null);
   const [checkingSession, setCheckingSession] = useState(true);
@@ -29,6 +53,14 @@ function App() {
   useEffect(() => {
     const token = localStorage.getItem("froid_token");
     if (!token) {
+      setCheckingSession(false);
+      return;
+    }
+
+    const devUser = localDevUser();
+    if (devUser) {
+      setUser(devUser);
+      rememberProfessionalEmail(devUser.email);
       setCheckingSession(false);
       return;
     }
@@ -48,6 +80,13 @@ function App() {
   }, []);
 
   const isAuthenticated = useMemo(() => !!user, [user]);
+
+  const logout = () => {
+    localStorage.removeItem("froid_token");
+    localStorage.removeItem("froid_user");
+    setUser(null);
+    window.location.hash = "#/login";
+  };
 
   const protectedElement = (element: ReactNode) => {
     if (checkingSession) {
@@ -95,7 +134,7 @@ function App() {
         />
         <Route
           path="/dashboard"
-          element={protectedElement(<Dashboard user={user} />)}
+          element={protectedElement(<Dashboard user={user} onLogout={logout} />)}
         />
         <Route
           path="/session/:sessionId"
