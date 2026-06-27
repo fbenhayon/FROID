@@ -1265,6 +1265,7 @@ function LiveSessionInner(_: LiveSessionProps) {
   const attributedSpeakerRef = useRef<SpeakerRole>("DR");
   const forcedLocalSegmentSpeakerRef = useRef<SpeakerRole | null>(null);
   const remotePatientOnRef = useRef(false);
+  const directLocalMetricsActiveRef = useRef(false);
   const speakerIdModeRef = useRef<SpeakerIdMode>(speakerIdMode);
   const drVoiceSignatureRef = useRef<VoiceSignature | null>(drVoiceSignature);
   const voiceIdRafRef = useRef<number | null>(null);
@@ -1720,7 +1721,11 @@ function LiveSessionInner(_: LiveSessionProps) {
   const startRawBioacousticPipeline = useCallback(
     (
       stream: MediaStream,
-      sourceMode: "patient-webrtc" | "raw-independent" | "semantic-fallback",
+      sourceMode:
+        | "patient-webrtc"
+        | "raw-independent"
+        | "semantic-fallback"
+        | "direct-local-patient",
     ) => {
       const liveTracks = stream
         .getAudioTracks()
@@ -2542,29 +2547,44 @@ function LiveSessionInner(_: LiveSessionProps) {
       ?.getAudioTracks()
       .find((track) => track.readyState === "live");
 
-    if (!localAudioTrack) return;
+    if (!localAudioTrack) {
+      directLocalMetricsActiveRef.current = false;
+      return;
+    }
 
-    const metricSpeaker =
-      speakerIdMode === "auto" && drVoiceSignature ? attributedSpeaker : localSpeaker;
+    const hasAutomaticVoiceGuard = speakerIdMode === "auto" && Boolean(drVoiceSignature);
+    const metricSpeaker = hasAutomaticVoiceGuard ? attributedSpeaker : "PC";
 
     if (metricSpeaker === "PC") {
+      directLocalMetricsActiveRef.current = true;
+      if (!hasAutomaticVoiceGuard && attributedSpeakerRef.current !== "PC") {
+        applyAttributedSpeaker(
+          "PC",
+          "Atendimento presencial: sem voz DR cadastrada, microfone local atribuido ao PC para metricas.",
+        );
+      }
       startRawBioacousticPipeline(
         new MediaStream([localAudioTrack.clone()]),
-        "semantic-fallback",
+        hasAutomaticVoiceGuard ? "semantic-fallback" : "direct-local-patient",
       );
       setLiveTranscription((prev) => ({
         ...(prev || {}),
         bioacoustic_status: "monitoring",
         bioacoustic_pipeline: "direct-local-patient",
-        bioacoustic_track: "local-patient-selected",
+        bioacoustic_track: hasAutomaticVoiceGuard
+          ? "local-patient-selected"
+          : "direct-local-patient",
         bioacoustic_warning:
-          "Atendimento presencial: metricas calculadas a partir da trilha vocal local configurada para paciente.",
+          hasAutomaticVoiceGuard
+            ? "Atendimento presencial: metricas calculadas a partir da voz local identificada como paciente."
+            : "Atendimento presencial: microfone local alimentando a trilha PC para manter metricas e graficos ativos.",
         transcription_sources: "captura-semantica-por-cortes",
         bioacoustic_error: "",
       }));
       return;
     }
 
+    directLocalMetricsActiveRef.current = false;
     stopRawBioacousticPipeline();
     setLiveTranscription((prev) => ({
       ...(prev || {}),
@@ -2577,6 +2597,7 @@ function LiveSessionInner(_: LiveSessionProps) {
     }));
   }, [
     attributedSpeaker,
+    applyAttributedSpeaker,
     drVoiceSignature,
     localSpeaker,
     remotePatientOn,
@@ -2762,7 +2783,9 @@ function LiveSessionInner(_: LiveSessionProps) {
             const data: FroidPayload = JSON.parse(event.data);
             const elapsedSeconds = elapsedSecondsRef.current;
             const shouldUseForMetrics =
-              remotePatientOnRef.current || attributedSpeakerRef.current === "PC";
+              remotePatientOnRef.current ||
+              attributedSpeakerRef.current === "PC" ||
+              directLocalMetricsActiveRef.current;
             if (!shouldUseForMetrics) {
               setLiveTranscription((prev) => ({
                 ...(prev || {}),

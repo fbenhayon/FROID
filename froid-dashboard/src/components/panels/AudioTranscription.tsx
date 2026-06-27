@@ -57,6 +57,8 @@ export const AudioTranscription: React.FC<Props> = ({
     bioacousticStatus === "monitoring"
       ? bioacousticTrack === "patient-webrtc"
         ? "Bio paciente"
+        : bioacousticTrack === "direct-local-patient"
+        ? "Bio PC presencial"
         : bioacousticTrack === "semantic-fallback"
         ? "Bio fallback"
         : "Bio bruta"
@@ -68,6 +70,8 @@ export const AudioTranscription: React.FC<Props> = ({
   const bioacousticClass =
     bioacousticStatus === "monitoring"
       ? bioacousticTrack === "patient-webrtc"
+        ? "bg-emerald-50 text-emerald-700"
+        : bioacousticTrack === "direct-local-patient"
         ? "bg-emerald-50 text-emerald-700"
         : bioacousticTrack === "semantic-fallback"
         ? "bg-amber-50 text-amber-700"
