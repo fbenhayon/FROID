@@ -70,6 +70,10 @@ FROID_SESSION_REPORTS_PATH = os.getenv(
     "FROID_SESSION_REPORTS_PATH",
     "/data/session_reports.json",
 )
+FROID_LEGACY_REPORT_OWNER = os.getenv(
+    "FROID_LEGACY_REPORT_OWNER",
+    "fbenhayon@gmail.com",
+)
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
 GOOGLE_AUTH_DEV_FALLBACK = os.getenv("GOOGLE_AUTH_DEV_FALLBACK", "true").lower() in {"1", "true", "yes", "on"}
@@ -584,6 +588,38 @@ def _save_session_reports(reports: Dict[str, dict]) -> None:
     os.makedirs(os.path.dirname(FROID_SESSION_REPORTS_PATH), exist_ok=True)
     with open(FROID_SESSION_REPORTS_PATH, "w", encoding="utf-8") as report_file:
         json.dump(reports, report_file, ensure_ascii=False, indent=2)
+
+
+def _professional_access_status(email: str) -> dict:
+    owner_email = _normalize_email(email)
+    profile = PROFESSIONAL_PROFILES.get(owner_email) if owner_email else None
+    selected_plan = str((profile or {}).get("selected_plan") or "").strip()
+    lgpd_acknowledged = bool((profile or {}).get("lgpd_acknowledged"))
+    has_profile = bool(profile)
+    access_ready = has_profile and lgpd_acknowledged and bool(selected_plan)
+    return {
+        "has_profile": has_profile,
+        "lgpd_acknowledged": lgpd_acknowledged,
+        "selected_plan": selected_plan,
+        "payment_status": str((profile or {}).get("payment_status") or ("pending_checkout" if access_ready else "not_started")),
+        "onboarding_required": not access_ready,
+    }
+
+
+def _report_owner_email(report: dict) -> str:
+    direct = _normalize_email(
+        report.get("professionalEmail")
+        or report.get("professional_email")
+        or ((report.get("professional") or {}) if isinstance(report.get("professional"), dict) else {}).get("email")
+        or ""
+    )
+    if direct:
+        return direct
+    return _normalize_email(FROID_LEGACY_REPORT_OWNER)
+
+
+def _can_access_report(report: dict, owner_email: str) -> bool:
+    return _report_owner_email(report) == _normalize_email(owner_email)
 
 
 def _find_invite_by_session(session_id: str) -> Optional[dict]:
@@ -1492,8 +1528,11 @@ async def _transcribe_with_openai(
 
 def _issue_session(user: dict):
     token = secrets.token_urlsafe(32)
-    SESSION_USERS[token] = user
-    return {"token": token, "user": user}
+    session_user = dict(user or {})
+    session_user["email"] = _normalize_email(session_user.get("email") or "")
+    session_user["access_status"] = _professional_access_status(session_user.get("email") or "")
+    SESSION_USERS[token] = session_user
+    return {"token": token, "user": session_user}
 
 
 def _verify_local_login(body: dict) -> dict:
@@ -1862,6 +1901,9 @@ async def auth_me(request: Request):
     user = SESSION_USERS.get(token)
     if not user:
         raise HTTPException(status_code=401, detail="não autenticado")
+    user = dict(user)
+    user["access_status"] = _professional_access_status(user.get("email") or "")
+    SESSION_USERS[token] = user
     return user
 
 @app.get("/api/access/plans")
@@ -1889,6 +1931,7 @@ async def get_professional_profile(request: Request):
     return {
         "has_profile": bool(profile),
         "profile": profile,
+        "access_status": _professional_access_status(email),
     }
 
 
@@ -1935,11 +1978,13 @@ async def save_professional_profile(request: Request):
         "lgpd_acknowledged_at": body.get("lgpd_acknowledged_at") or existing.get("lgpd_acknowledged_at"),
         "monthly_consultations": int(body.get("monthly_consultations") or 0),
         "selected_plan": str(body.get("selected_plan") or "").strip(),
+        "payment_status": existing.get("payment_status")
+        or ("pending_checkout" if str(body.get("selected_plan") or "").strip() else "not_started"),
         "created_at": existing.get("created_at") or now,
         "updated_at": now,
     }
     PROFESSIONAL_PROFILES[owner_email] = profile
-    return {"status": "ok", "profile": profile}
+    return {"status": "ok", "profile": profile, "access_status": _professional_access_status(owner_email)}
 
 
 @app.post("/api/billing/checkout")
@@ -2025,11 +2070,15 @@ async def copilot_query_alias(payload: FroidExplicaQuery):
 
 
 @app.get("/api/session-reports")
-async def list_session_reports():
+async def list_session_reports(request: Request):
+    user = _current_user_from_request(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="nao autenticado")
+    owner_email = _normalize_email(user.get("email") or "")
     reports = [
         _enrich_report_patient(report)
         for report in _load_session_reports().values()
-        if isinstance(report, dict)
+        if isinstance(report, dict) and _can_access_report(report, owner_email)
     ]
     reports.sort(
         key=lambda report: str(report.get("createdAt") or report.get("created_at") or ""),
@@ -2040,10 +2089,20 @@ async def list_session_reports():
 
 @app.post("/api/session-reports")
 async def save_session_report(request: Request):
+    user = _current_user_from_request(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="nao autenticado")
+    owner_email = _normalize_email(user.get("email") or "")
     report = await request.json()
     session_id = str(report.get("sessionId") or report.get("session_id") or "").strip()
     if not session_id:
         raise HTTPException(status_code=400, detail="sessionId obrigatorio")
+    report["professionalEmail"] = owner_email
+    report["professional"] = {
+        **(report.get("professional") if isinstance(report.get("professional"), dict) else {}),
+        "email": owner_email,
+        "name": user.get("name") or owner_email,
+    }
     report = _enrich_report_patient(report)
     report = _attach_metrics_analysis(report)
     reports = _load_session_reports()
@@ -2059,10 +2118,15 @@ async def save_session_report(request: Request):
 
 
 @app.get("/api/session-reports/{session_id}/metrics")
-async def get_session_report_metrics(session_id: str):
+async def get_session_report_metrics(session_id: str, request: Request):
+    user = _current_user_from_request(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="nao autenticado")
     report = _load_session_reports().get(session_id)
     if not report:
         raise HTTPException(status_code=404, detail="Relatorio nao encontrado")
+    if not _can_access_report(report, user.get("email") or ""):
+        raise HTTPException(status_code=403, detail="Relatorio pertence a outro profissional")
     report = _enrich_report_patient(report)
     if not report.get("metricsAnalysis"):
         report = _attach_metrics_analysis(report)
@@ -2072,10 +2136,15 @@ async def get_session_report_metrics(session_id: str):
 
 
 @app.get("/api/session-reports/{session_id}")
-async def get_session_report(session_id: str):
+async def get_session_report(session_id: str, request: Request):
+    user = _current_user_from_request(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="nao autenticado")
     report = _load_session_reports().get(session_id)
     if not report:
         raise HTTPException(status_code=404, detail="Relatorio nao encontrado")
+    if not _can_access_report(report, user.get("email") or ""):
+        raise HTTPException(status_code=403, detail="Relatorio pertence a outro profissional")
     report = _enrich_report_patient(report)
     if not report.get("metricsAnalysis"):
         report = _attach_metrics_analysis(report)
@@ -2083,10 +2152,15 @@ async def get_session_report(session_id: str):
 
 
 @app.delete("/api/session-reports/{session_id}")
-async def delete_session_report(session_id: str):
+async def delete_session_report(session_id: str, request: Request):
+    user = _current_user_from_request(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="nao autenticado")
     reports = _load_session_reports()
     if session_id not in reports:
         raise HTTPException(status_code=404, detail="Relatorio nao encontrado")
+    if not _can_access_report(reports[session_id], user.get("email") or ""):
+        raise HTTPException(status_code=403, detail="Relatorio pertence a outro profissional")
     del reports[session_id]
     _save_session_reports(reports)
     return {

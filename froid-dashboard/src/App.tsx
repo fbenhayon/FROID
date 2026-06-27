@@ -20,7 +20,22 @@ export type FroidUser = {
   name?: string;
   picture?: string;
   provider?: string;
+  access_status?: {
+    has_profile?: boolean;
+    lgpd_acknowledged?: boolean;
+    selected_plan?: string;
+    payment_status?: string;
+    onboarding_required?: boolean;
+  };
 };
+
+function onboardingRequired(user: FroidUser | null) {
+  return Boolean(user?.access_status?.onboarding_required);
+}
+
+function defaultAuthenticatedPath(user: FroidUser | null) {
+  return onboardingRequired(user) ? "/access/register" : "/dashboard";
+}
 
 function localDevUser(): FroidUser | null {
   if (typeof window === "undefined") return null;
@@ -106,6 +121,15 @@ function App() {
     return element;
   };
 
+  const clinicalElement = (element: ReactNode) =>
+    protectedElement(
+      onboardingRequired(user) ? (
+        <Navigate to="/access/register" replace />
+      ) : (
+        element
+      ),
+    );
+
   return (
     <HashRouter>
       <Routes>
@@ -122,7 +146,7 @@ function App() {
           path="/login"
           element={
             isAuthenticated ? (
-              <Navigate to="/dashboard" replace />
+              <Navigate to={defaultAuthenticatedPath(user)} replace />
             ) : (
               <LoginPage onLogin={setUser} afterLoginPath="/dashboard" />
             )
@@ -134,31 +158,39 @@ function App() {
         />
         <Route
           path="/dashboard"
-          element={protectedElement(<Dashboard user={user} onLogout={logout} />)}
+          element={
+            protectedElement(
+              onboardingRequired(user) ? (
+                <Navigate to="/access/register" replace />
+              ) : (
+                <Dashboard user={user} onLogout={logout} />
+              ),
+            )
+          }
         />
         <Route
           path="/session/:sessionId"
-          element={protectedElement(<LiveSession user={user} />)}
+          element={clinicalElement(<LiveSession user={user} />)}
         />
         <Route
           path="/session/:sessionId/report"
-          element={protectedElement(<SessionReport user={user} />)}
+          element={clinicalElement(<SessionReport user={user} />)}
         />
         <Route
           path="/patients/new"
-          element={protectedElement(<NewPatient />)}
+          element={clinicalElement(<NewPatient />)}
         />
         <Route
           path="/patients/:patientKey"
-          element={protectedElement(<PatientDetail />)}
+          element={clinicalElement(<PatientDetail />)}
         />
         <Route
           path="/history"
-          element={protectedElement(<History user={user} />)}
+          element={clinicalElement(<History user={user} />)}
         />
         <Route
           path="/settings"
-          element={protectedElement(<Settings user={user} />)}
+          element={clinicalElement(<Settings user={user} />)}
         />
       </Routes>
     </HashRouter>

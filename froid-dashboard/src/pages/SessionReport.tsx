@@ -549,7 +549,10 @@ export const SessionReport: React.FC<Props> = () => {
   useEffect(() => {
     let active = true;
     if (report || !sessionId) return;
-    fetch(apiUrl(`/api/session-reports/${sessionId}`))
+    const token = localStorage.getItem("froid_token") || "";
+    fetch(apiUrl(`/api/session-reports/${sessionId}`), {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => {
         if (active && data?.sessionId) {
@@ -566,7 +569,10 @@ export const SessionReport: React.FC<Props> = () => {
   useEffect(() => {
     let active = true;
     if (!sessionId) return;
-    fetch(apiUrl(`/api/session-reports/${sessionId}/metrics`))
+    const token = localStorage.getItem("froid_token") || "";
+    fetch(apiUrl(`/api/session-reports/${sessionId}/metrics`), {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => {
         if (!active) return;

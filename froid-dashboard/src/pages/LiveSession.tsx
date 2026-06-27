@@ -1176,7 +1176,7 @@ function buildAnonymizedContext(
   };
 }
 
-function LiveSessionInner(_: LiveSessionProps) {
+function LiveSessionInner({ user }: LiveSessionProps) {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
   const [state, dispatch] = useReducer(reducer, undefined, createInitialState);
@@ -2932,6 +2932,11 @@ function LiveSessionInner(_: LiveSessionProps) {
       id: makeReportId(),
       sessionId: sessionId || "default",
       patient: loadSessionPatient(sessionId || "") || undefined,
+      professionalEmail: user?.email || "",
+      professional: {
+        email: user?.email || "",
+        name: user?.name || user?.email || "Profissional FROID",
+      },
       createdAt: new Date().toISOString(),
       durationSeconds,
       baseline,
@@ -2958,9 +2963,13 @@ function LiveSessionInner(_: LiveSessionProps) {
     async (report: SessionReportRecord) => {
       saveSessionReport(report);
       try {
+        const token = localStorage.getItem("froid_token") || "";
         await fetch(apiUrl("/api/session-reports"), {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
           body: JSON.stringify(report),
         });
       } catch {

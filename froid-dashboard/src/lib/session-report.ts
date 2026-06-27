@@ -46,6 +46,11 @@ export interface SessionReportRecord {
   patientId?: string;
   patientName?: string;
   patientDocument?: string;
+  professionalEmail?: string;
+  professional?: {
+    email?: string;
+    name?: string;
+  };
   createdAt: string;
   durationSeconds: number;
   baseline: MetricSnapshot;
@@ -149,6 +154,31 @@ export interface MetricsAnalysis {
 
 const REPORT_STORAGE_KEY = "froid_session_reports_v1";
 const SESSION_PATIENT_STORAGE_KEY = "froid_session_patients_v1";
+const CURRENT_EMAIL_KEY = "froid_user_email";
+const LEGACY_LOCAL_REPORT_OWNER = "fbenhayon@gmail.com";
+
+function normalizeOwnerEmail(email?: string) {
+  return String(email || "").trim().toLowerCase();
+}
+
+function currentProfessionalEmail() {
+  if (typeof window === "undefined") return "";
+  return normalizeOwnerEmail(window.localStorage.getItem(CURRENT_EMAIL_KEY) || "");
+}
+
+function reportOwnerEmail(report: Partial<SessionReportRecord> & Record<string, any>) {
+  return normalizeOwnerEmail(
+    report.professionalEmail ||
+      report.professional_email ||
+      report.professional?.email ||
+      "",
+  ) || LEGACY_LOCAL_REPORT_OWNER;
+}
+
+function reportBelongsToCurrentProfessional(report: Partial<SessionReportRecord> & Record<string, any>) {
+  const owner = currentProfessionalEmail();
+  return !owner || reportOwnerEmail(report) === owner;
+}
 
 export function loadSessionReports(): SessionReportRecord[] {
   if (typeof window === "undefined") return [];
@@ -156,7 +186,9 @@ export function loadSessionReports(): SessionReportRecord[] {
     const raw = window.localStorage.getItem(REPORT_STORAGE_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
     return Array.isArray(parsed)
-      ? parsed.map((report) => hydrateReportPatient(report))
+      ? parsed
+          .filter((report) => reportBelongsToCurrentProfessional(report))
+          .map((report) => hydrateReportPatient(report))
       : [];
   } catch {
     return [];
@@ -165,7 +197,15 @@ export function loadSessionReports(): SessionReportRecord[] {
 
 export function saveSessionReport(report: SessionReportRecord) {
   if (typeof window === "undefined") return;
-  const hydrated = hydrateReportPatient(report);
+  const owner = currentProfessionalEmail();
+  const hydrated = hydrateReportPatient({
+    ...report,
+    professionalEmail: report.professionalEmail || owner,
+    professional: {
+      ...(report as any).professional,
+      email: ((report as any).professional?.email || report.professionalEmail || owner),
+    },
+  });
   const reports = loadSessionReports();
   const next = [
     hydrated,

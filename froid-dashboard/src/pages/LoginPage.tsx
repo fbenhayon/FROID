@@ -60,7 +60,10 @@ export const LoginPage: React.FC<Props> = ({ onLogin, afterLoginPath = "/dashboa
       localStorage.setItem("froid_token", data.token);
       rememberProfessionalEmail(data.user?.email);
       onLogin(data.user);
-      navigate(afterLoginPath, { replace: true });
+      const target = data.user?.access_status?.onboarding_required
+        ? "/access/register"
+        : afterLoginPath;
+      navigate(target, { replace: true });
     } catch (err: any) {
       setError(err.message || "Falha no login");
     } finally {

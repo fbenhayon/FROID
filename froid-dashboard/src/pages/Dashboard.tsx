@@ -110,7 +110,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   useEffect(() => {
     setReports(loadSessionReports());
     let active = true;
-    fetch(apiUrl("/api/session-reports"))
+    const token = localStorage.getItem("froid_token") || "";
+    fetch(apiUrl("/api/session-reports"), {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => {
         if (!active) return;
