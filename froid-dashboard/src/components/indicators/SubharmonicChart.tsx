@@ -207,17 +207,17 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta }) => {
   });
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-2xl border border-slate-700 bg-slate-950 p-3 text-slate-100 shadow-sm">
       <div className="mb-1 flex shrink-0 items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="text-[15px] font-black uppercase tracking-wide text-slate-950">
+          <h3 className="text-[15px] font-black uppercase tracking-wide text-slate-100">
             DNA Sub-harmonico
           </h3>
-          <p className="truncate text-[10px] font-semibold text-slate-500">
+          <p className="truncate text-[10px] font-semibold text-slate-400">
             Componente percentual dos indicadores sub-harmonicos.
           </p>
         </div>
-        <div className="shrink-0 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-1 text-center text-blue-800">
+        <div className="shrink-0 rounded-2xl border border-blue-800 bg-blue-950 px-3 py-1 text-center text-blue-200">
           <span className="block text-[9px] font-black uppercase">Indice geral</span>
           <strong className="font-mono text-[14px]">{generalIndex}%</strong>
         </div>
@@ -253,10 +253,10 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta }) => {
 
       <div className="min-h-0 flex-1 overflow-y-auto pt-1">
         <div className="mb-1">
-          <h4 className="text-[12px] font-black text-slate-950">
+          <h4 className="text-[12px] font-black text-slate-100">
             Distribuicao dos indicadores
           </h4>
-          <p className="text-[10px] font-medium text-slate-500">
+          <p className="text-[10px] font-medium text-slate-400">
             Percentual por componente e descricao tecnica.
           </p>
         </div>
@@ -286,7 +286,7 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta }) => {
                         style={{ backgroundColor: metric.color }}
                       />
                       <div className="min-w-0">
-                        <span className="block truncate text-[11px] font-black uppercase text-slate-900">
+                        <span className="block truncate text-[11px] font-black uppercase text-slate-100">
                           {index + 1}. {metric.label}
                         </span>
                         <span className="block truncate text-[9px] font-bold uppercase tracking-wide text-slate-400">
@@ -298,7 +298,7 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta }) => {
                       {value}%
                     </span>
                   </div>
-                  <div className="ml-5 h-2.5 overflow-hidden rounded-full bg-slate-100">
+                  <div className="ml-5 h-2.5 overflow-hidden rounded-full bg-slate-800">
                     <div
                       className="h-full rounded-full transition-all duration-700"
                       style={{
@@ -314,7 +314,7 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta }) => {
         </div>
       </div>
 
-      <p className="mt-1 shrink-0 truncate text-[9px] font-medium text-slate-500">
+      <p className="mt-1 shrink-0 truncate text-[9px] font-medium text-slate-400">
         {dominant.label}: {percent(dominant.value)}% |{" "}
         {hasAcousticData ? "acustico" : "proxy"} | {insight}
       </p>

@@ -9,7 +9,9 @@ import {
   formatDateTime,
   limitWords,
   mergeReports,
+  patientAdvancedSignal,
   paymentStatusForReport,
+  professionalPortfolioSummary,
   reportEndDate,
   sessionMetricCells,
   sessionResultText,
@@ -37,6 +39,62 @@ interface SessionEvent {
 function makeId() {
   return `froid-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 }
+
+const PRIORITY_STYLES: Record<string, string> = {
+  ROTINA: "border-emerald-400 bg-emerald-50 text-emerald-700",
+  OBSERVAR: "border-amber-400 bg-amber-50 text-amber-700",
+  REVISAR: "border-orange-400 bg-orange-50 text-orange-700",
+  "ALTA PRIORIDADE": "border-red-400 bg-red-50 text-red-700",
+  "DADOS INSUFICIENTES": "border-slate-300 bg-slate-50 text-slate-600",
+};
+
+function scoreText(value: number) {
+  return `${Math.round(value)}/100`;
+}
+
+const KpiCard: React.FC<{
+  label: string;
+  value: string;
+  detail: string;
+  tone?: "blue" | "green" | "amber" | "red";
+}> = ({ label, value, detail, tone = "blue" }) => {
+  const color =
+    tone === "green"
+      ? "text-emerald-300"
+      : tone === "amber"
+        ? "text-amber-300"
+        : tone === "red"
+          ? "text-red-300"
+          : "text-cyan-300";
+  return (
+    <div className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white shadow-sm">
+      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+        {label}
+      </p>
+      <p className={`mt-2 text-xl font-black ${color}`}>{value}</p>
+      <p className="mt-1 text-[10px] leading-snug text-slate-400">{detail}</p>
+    </div>
+  );
+};
+
+const ScoreBar: React.FC<{ label: string; value: number; color: string }> = ({
+  label,
+  value,
+  color,
+}) => (
+  <div>
+    <div className="mb-1 flex items-center justify-between gap-2 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+      <span>{label}</span>
+      <span>{scoreText(value)}</span>
+    </div>
+    <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+      <div
+        className="h-full rounded-full"
+        style={{ width: `${Math.max(4, Math.min(100, value))}%`, backgroundColor: color }}
+      />
+    </div>
+  </div>
+);
 
 export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   const nav = useNavigate();
@@ -72,6 +130,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   }, []);
 
   const patientGroups = useMemo(() => buildPatientGroups(reports), [reports]);
+  const portfolio = useMemo(
+    () => professionalPortfolioSummary(patientGroups),
+    [patientGroups],
+  );
   const selectedGroup =
     patientGroups.find((group) => group.key === selectedPatientKey) ||
     patientGroups[0];
@@ -220,6 +282,43 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
         </div>
       </section>
 
+      <section className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <KpiCard
+          label="Pacientes"
+          value={String(portfolio.totalPatients)}
+          detail="Carteira visivel apos filtros locais."
+        />
+        <KpiCard
+          label="Atencao media"
+          value={scoreText(portfolio.meanAttention)}
+          detail="Indice global de prioridade profissional."
+          tone="red"
+        />
+        <KpiCard
+          label="Carga clinica"
+          value={scoreText(portfolio.meanClinicalLoad)}
+          detail="IPM, IDM, dissonancias e qualidade."
+          tone="amber"
+        />
+        <KpiCard
+          label="Comunicacao"
+          value={scoreText(portfolio.meanCommunication)}
+          detail="Resumo, cortes e anotacoes disponiveis."
+        />
+        <KpiCard
+          label="Continuidade"
+          value={scoreText(portfolio.meanContinuity)}
+          detail="Sessoes, analises e status operacional."
+          tone="green"
+        />
+        <KpiCard
+          label="Para revisao"
+          value={String(portfolio.reviewCount)}
+          detail="Pacientes em revisar ou alta prioridade."
+          tone="red"
+        />
+      </section>
+
       {selectedGroup && (
         <section className="sticky top-0 z-20 rounded-lg border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur">
           <h2 className="mb-2 text-sm font-bold text-slate-900">FROID Explica</h2>
@@ -256,10 +355,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
           </div>
         )}
 
-        {patientGroups.map((group) => (
+        {patientGroups.map((group) => {
+          const signal = patientAdvancedSignal(group);
+          const priorityClass =
+            PRIORITY_STYLES[signal.priority] ||
+            PRIORITY_STYLES["DADOS INSUFICIENTES"];
+          return (
           <article
             key={group.key}
-            className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
+            className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
             onMouseEnter={() => setSelectedPatientKey(group.key)}
           >
             <div className="flex justify-between gap-4">
@@ -268,10 +372,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                   {group.patient.name || "Paciente sem nome"}
                 </h3>
                 <p className="mt-1 text-xs text-slate-500">
-                  CPF: {group.patient.document || "Nao informado"}
+                  CPF: {group.patient.document || "Nao informado"} · {group.totalSessions} sessoes
                 </p>
               </div>
               <div className="flex h-fit flex-wrap justify-end gap-2">
+                <span
+                  className={`rounded-full border px-2 py-1 text-[10px] font-black ${priorityClass}`}
+                >
+                  {signal.priority}
+                </span>
                 <button
                   onClick={() =>
                     openPatientRegistration(
@@ -299,7 +408,31 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
               </div>
             </div>
 
-            <div className="mt-4">
+            <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2">
+              <div className="flex flex-wrap items-center gap-2 text-[11px] text-blue-900">
+                <strong>Resultado global integrado:</strong>
+                <span>Atencao {scoreText(signal.attentionIndex)}</span>
+                <span>Comunicacao {scoreText(signal.communication)}</span>
+                <span>Continuidade {scoreText(signal.continuity)}</span>
+                <span>Insight {scoreText(signal.insight)}</span>
+                <span>{signal.state}</span>
+              </div>
+              <p className="mt-1 text-[11px] font-semibold text-blue-700">
+                Acao sugerida: {signal.action}
+              </p>
+            </div>
+
+            <div className="mt-3 rounded-lg border border-slate-100 bg-slate-50 p-3">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                <ScoreBar label="Atencao" value={signal.attentionIndex} color="#ef4444" />
+                <ScoreBar label="Carga" value={signal.clinicalLoad} color="#f97316" />
+                <ScoreBar label="Comunicacao" value={signal.communication} color="#0ea5e9" />
+                <ScoreBar label="Continuidade" value={signal.continuity} color="#22c55e" />
+                <ScoreBar label="Insight" value={signal.insight} color="#8b5cf6" />
+              </div>
+            </div>
+
+            <div className="mt-3 min-w-0">
               <p className="text-xs font-bold text-slate-900">Ultimas 3 Sessoes</p>
               <div className="mt-3 space-y-3">
                 {group.reports.slice(0, 3).map((report, index) => (
@@ -353,6 +486,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                   </div>
                 ))}
               </div>
+            </div>
               <p className="mt-3 rounded border border-blue-100 bg-blue-50 px-3 py-2 text-[11px] font-medium text-blue-900">
                 Linha comparativa mais recente: IPM{" "}
                 {fmt(group.latestReport.baseline.ipmAvg, 1)} -&gt;{" "}
@@ -370,9 +504,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                   6,
                 )}
               </p>
-            </div>
           </article>
-        ))}
+          );
+        })}
       </section>
 
       </main>

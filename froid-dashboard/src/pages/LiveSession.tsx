@@ -3035,11 +3035,11 @@ function LiveSessionInner(_: LiveSessionProps) {
   }
 
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden text-slate-800">
+    <div className="flex h-screen overflow-hidden bg-slate-950 text-slate-100">
       {/* COLUNA 1 — 30% */}
-      <div className="w-[28%] flex flex-col gap-2 border-r border-slate-200 bg-white p-3 overflow-y-auto">
+      <div className="w-[28%] flex flex-col gap-2 overflow-y-auto border-r border-slate-800 bg-slate-900 p-3">
         <div className="flex items-center justify-between">
-          <h1 className="text-base font-bold text-slate-800">
+          <h1 className="text-base font-bold text-slate-100">
             Sessão {sessionId?.slice(0, 8) || "--"}
           </h1>
           <div className="flex items-center gap-2">
@@ -3062,13 +3062,13 @@ function LiveSessionInner(_: LiveSessionProps) {
           onEndSession={endSession}
         />
 
-        <div className="rounded-xl border border-cyan-100 bg-cyan-50 p-3 text-[10px] text-cyan-900 shadow-sm">
+        <div className="rounded-xl border border-cyan-800 bg-cyan-950 p-3 text-[10px] text-cyan-100 shadow-sm">
           <div className="mb-2 flex items-center justify-between gap-2">
             <div>
               <p className="font-bold uppercase tracking-wider">
                 Corte semantico da sessao
               </p>
-              <p className="text-cyan-700">
+              <p className="text-cyan-300">
                 {semanticCutStatus}
               </p>
             </div>
@@ -3082,11 +3082,11 @@ function LiveSessionInner(_: LiveSessionProps) {
               Fechar corte
             </button>
           </div>
-          <div className="flex items-center justify-between font-mono text-[10px] text-cyan-800">
+          <div className="flex items-center justify-between font-mono text-[10px] text-cyan-200">
             <span>Atual {formatCutClock(semanticCutElapsed)}</span>
             <span>Auto em {formatCutClock(semanticCutRemaining)}</span>
           </div>
-          <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-cyan-100">
+          <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-cyan-900">
             <div
               className="h-full rounded-full bg-cyan-600 transition-all duration-1000"
               style={{ width: `${semanticCutProgress}%` }}
@@ -3100,14 +3100,14 @@ function LiveSessionInner(_: LiveSessionProps) {
         />
 
         {state.phase === "CALIBRATING" && (
-          <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-700 shrink-0">
+          <div className="shrink-0 rounded-lg border border-blue-800 bg-blue-950 p-3 text-xs text-blue-100">
             <p className="font-bold">Fase de Repouso Ativa</p>
             <p>
               {patientBaselineStart === null
                 ? "Aguardando PC para iniciar baseline de metricas."
                 : `Coletando baseline do PC: ${patientBaselineElapsed.toFixed(0)}s / 60s`}
             </p>
-            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-blue-200">
+            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-blue-900">
               <div
                 className="h-full bg-blue-600 transition-all duration-1000"
                 style={{ width: (patientBaselineElapsed / 60) * 100 + "%" }}
@@ -3117,7 +3117,7 @@ function LiveSessionInner(_: LiveSessionProps) {
         )}
 
         {state.phase === "LIVE" && baselineSnapshot && (
-          <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-2 text-[10px] text-emerald-900">
+          <div className="rounded-lg border border-emerald-800 bg-emerald-950 p-2 text-[10px] text-emerald-100">
             <div className="mb-1 font-bold uppercase tracking-wider">
               Baseline 60s registrado
             </div>
@@ -3126,7 +3126,7 @@ function LiveSessionInner(_: LiveSessionProps) {
               <span>IDM {baselineSnapshot.idmAvg.toFixed(2)}</span>
               <span>{baselineSnapshot.wordsPerMinute.toFixed(0)} ppm</span>
             </div>
-            <p className="mt-1 truncate text-emerald-700">
+            <p className="mt-1 truncate text-emerald-300">
               Tema: {baselineSnapshot.theme} | Zona{" "}
               {baselineSnapshot.dominantZone || "--"}
             </p>
@@ -3148,9 +3148,9 @@ function LiveSessionInner(_: LiveSessionProps) {
       </div>
 
       {/* COLUNA 2 — 34%: Vídeo (50%) + Mapa Zonal (50%) */}
-      <div className="w-[34%] flex flex-col gap-0 bg-white shadow-inner overflow-hidden">
+      <div className="w-[34%] flex flex-col gap-2 overflow-hidden bg-slate-950 p-2 shadow-inner">
         {/* Vídeo — 50% do espaço */}
-        <div className="h-1/2 relative rounded-xl bg-slate-900 overflow-hidden flex items-center justify-center border-b border-slate-200">
+        <div className="relative flex h-1/2 items-center justify-center overflow-hidden rounded-xl border border-slate-700 bg-slate-900">
           <MediaStatus
             cameraOn={state.cameraOn}
             micOn={state.micOn}
@@ -3205,7 +3205,7 @@ function LiveSessionInner(_: LiveSessionProps) {
           )}
         </div>
 
-        <div className="h-1/2 flex flex-col gap-0 p-2 overflow-hidden">
+        <div className="h-1/2 flex flex-col gap-0 overflow-hidden">
           <MapaZonalFroid
             className="h-full"
             zones={displayZones}
@@ -3217,7 +3217,7 @@ function LiveSessionInner(_: LiveSessionProps) {
       </div>
 
       {/* COLUNA 3 — 35%: IPM grande, Risco, Subharm, Coherence, Dissonâncias */}
-      <div className="grid flex-1 grid-rows-[1.05fr_1.35fr_1.45fr_1.15fr] gap-2 overflow-visible bg-slate-50 p-3">
+      <div className="grid flex-1 grid-rows-[1.05fr_1.35fr_1.45fr_1.15fr] gap-2 overflow-visible bg-slate-950 p-3">
         {raw ? (
           <>
             <div className="min-h-0 overflow-visible">
@@ -3242,7 +3242,7 @@ function LiveSessionInner(_: LiveSessionProps) {
               <SubharmonicChart zones={displayZones} audioMeta={displayAudio} />
             </div>
 
-            <div className="min-h-0 overflow-y-auto rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
+            <div className="min-h-0 overflow-y-auto rounded-xl border border-slate-700 bg-slate-950 p-3 text-slate-100 shadow-sm">
               <h3 className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                 Dissonâncias Identificadas (Média 10s)
                 {displayZones.some(isReportableDissonance) && (
@@ -3312,9 +3312,9 @@ function LiveSessionInner(_: LiveSessionProps) {
                     );
                   })}
 
-              <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-2">
+                <div className="mt-3 rounded-lg border border-slate-700 bg-slate-900 p-2">
                 <div className="mb-2 flex items-center justify-between">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-300">
                     Registro de Dissonâncias
                   </p>
                   <span className="text-[9px] text-slate-500">

@@ -23,6 +23,31 @@ export interface PatientDashboardGroup {
   clinicalNote: string;
 }
 
+export interface PatientAdvancedSignal {
+  state: string;
+  priority: "ALTA PRIORIDADE" | "REVISAR" | "OBSERVAR" | "ROTINA" | "DADOS INSUFICIENTES";
+  action: string;
+  attentionIndex: number;
+  clinicalLoad: number;
+  communication: number;
+  continuity: number;
+  insight: number;
+  dataQuality: number;
+  ipmTrend: number;
+  idmRecent: number;
+  qualityLabel: string;
+}
+
+export interface ProfessionalPortfolioSummary {
+  totalPatients: number;
+  meanAttention: number;
+  meanClinicalLoad: number;
+  meanCommunication: number;
+  meanContinuity: number;
+  meanInsight: number;
+  reviewCount: number;
+}
+
 export function fmt(value: number | null | undefined, digits = 2) {
   if (value === null || value === undefined || !Number.isFinite(value)) return "--";
   return Number(value).toFixed(digits);
@@ -138,6 +163,184 @@ export function paymentStatusForReport(report: SessionReportRecord) {
     return "Pacote";
   }
   return "Em aberto";
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function average(values: Array<number | null | undefined>, fallback = 0) {
+  const clean = values.filter(
+    (value): value is number => typeof value === "number" && Number.isFinite(value),
+  );
+  if (!clean.length) return fallback;
+  return clean.reduce((sum, value) => sum + value, 0) / clean.length;
+}
+
+function qualityFromReport(report: SessionReportRecord) {
+  const dashboard = report.metricsAnalysis?.dashboard;
+  const confidence =
+    typeof dashboard?.mean_confidence === "number" ? dashboard.mean_confidence : null;
+  const coverage =
+    typeof dashboard?.mean_coverage === "number" ? dashboard.mean_coverage : null;
+  const cutCoverage =
+    (report.tenMinuteCuts || []).filter((cut) => (cut.sampleCount || 0) > 0).length /
+    Math.max(1, (report.tenMinuteCuts || []).length || 1);
+  const transcriptSignal =
+    report.transcriptRetention === "disabled_summary_only" ||
+    report.conversationSummaries?.length ||
+    report.sessionSummary
+      ? 0.82
+      : 0.52;
+  return clamp(
+    average([confidence, coverage, cutCoverage, transcriptSignal], 0.6) * 100,
+    0,
+    100,
+  );
+}
+
+function stateFromMetrics(ipm: number, idm: number, quality: number) {
+  if (quality < 45) return "DADOS INSUFICIENTES";
+  if (ipm <= 35 && idm <= -0.65) return "BAIXA ENERGIA + NEGATIVO";
+  if (ipm >= 55 && idm <= -0.45) return "SOFRIMENTO ATIVO";
+  if (ipm <= 35 && idm < 0.15) return "EMBOTAMENTO / DEFESA";
+  if (ipm >= 55 && idm >= 0.15) return "FLUXO SAUDAVEL";
+  if (idm >= 0.35) return "ADAPTATIVO";
+  return "ATENCAO";
+}
+
+function qualityLabel(score: number) {
+  if (score >= 85) return "COMPLETO";
+  if (score >= 60) return "PARCIAL";
+  if (score >= 45) return "BAIXA ROBUSTEZ";
+  return "NAO PROCESSADO";
+}
+
+export function patientAdvancedSignal(group: PatientDashboardGroup): PatientAdvancedSignal {
+  const reports = group.reports || [];
+  const recent = reports.slice(0, 3);
+  const latest = group.latestReport;
+  const latestAverage = latest.sessionAverage;
+  const ipmRecent = average(recent.map((report) => report.sessionAverage.ipmAvg), latestAverage.ipmAvg);
+  const idmRecent = average(recent.map((report) => report.sessionAverage.idmAvg), latestAverage.idmAvg);
+  const firstRecent = recent[recent.length - 1]?.sessionAverage.ipmAvg ?? ipmRecent;
+  const lastRecent = recent[0]?.sessionAverage.ipmAvg ?? ipmRecent;
+  const ipmTrend = lastRecent - firstRecent;
+  const dataQuality = average(recent.map(qualityFromReport), qualityFromReport(latest));
+  const maxRisk = Math.max(
+    0,
+    ...recent.map((report) => report.metricsAnalysis?.dashboard.max_risk || 0),
+    ...recent.map((report) => (report.sessionAverage.dissonanceCount || 0) * 18),
+  );
+  const dissonance = average(
+    recent.map((report) => report.sessionAverage.dissonanceCount || 0),
+    0,
+  );
+  const negativeDirection = clamp(-idmRecent, 0, 1) * 100;
+  const lowEnergyNegative =
+    (clamp(35 - ipmRecent, 0, 35) / 35) * clamp(-idmRecent, 0, 1) * 100;
+  const clinicalLoad = clamp(
+    ipmRecent * 0.22 +
+      negativeDirection * 0.34 +
+      lowEnergyNegative * 0.22 +
+      dissonance * 4 +
+      maxRisk * 0.18 +
+      clamp(75 - dataQuality, 0, 75) * 0.24,
+    0,
+    100,
+  );
+  const summarizedCuts = recent.reduce(
+    (sum, report) => sum + (report.conversationSummaries?.length || 0),
+    0,
+  );
+  const communication = clamp(
+    42 +
+      summarizedCuts * 8 +
+      Math.min(18, group.completedSessions * 3) +
+      (latest.clinicalNotes?.length || 0) * 4,
+    0,
+    100,
+  );
+  const continuity = clamp(
+    35 +
+      Math.min(36, group.totalSessions * 6) +
+      Math.min(16, group.totalAnalyses * 2) -
+      (paymentStatusForReport(latest) === "Em aberto" ? 6 : 0),
+    0,
+    100,
+  );
+  const insight = clamp(
+    communication * 0.24 +
+      continuity * 0.16 +
+      dataQuality * 0.22 +
+      clamp(100 - Math.abs(clinicalLoad - 58), 0, 100) * 0.28 +
+      clamp(Math.abs(ipmTrend) * 4, 0, 20) -
+      clamp(-idmRecent, 0, 1) * 18,
+    0,
+    100,
+  );
+  const attentionIndex = clamp(
+    clinicalLoad * 0.38 +
+      (100 - communication) * 0.18 +
+      (100 - continuity) * 0.18 +
+      (100 - dataQuality) * 0.13 +
+      insight * 0.13,
+    0,
+    100,
+  );
+  const state = stateFromMetrics(ipmRecent, idmRecent, dataQuality);
+  const priority: PatientAdvancedSignal["priority"] =
+    state === "DADOS INSUFICIENTES" || dataQuality < 45
+      ? "DADOS INSUFICIENTES"
+      : attentionIndex >= 72
+        ? "ALTA PRIORIDADE"
+        : attentionIndex >= 58
+          ? "REVISAR"
+          : attentionIndex >= 42
+            ? "OBSERVAR"
+            : "ROTINA";
+  const action =
+    priority === "ALTA PRIORIDADE"
+      ? "Revisao clinica prioritaria"
+      : priority === "REVISAR"
+        ? "Revisar proximos cortes e anotacoes"
+        : priority === "OBSERVAR"
+          ? "Acompanhar tendencia longitudinal"
+          : priority === "DADOS INSUFICIENTES"
+            ? "Revisar qualidade de coleta"
+            : "Rotina de acompanhamento";
+
+  return {
+    state,
+    priority,
+    action,
+    attentionIndex,
+    clinicalLoad,
+    communication,
+    continuity,
+    insight,
+    dataQuality,
+    ipmTrend,
+    idmRecent,
+    qualityLabel: qualityLabel(dataQuality),
+  };
+}
+
+export function professionalPortfolioSummary(
+  groups: PatientDashboardGroup[],
+): ProfessionalPortfolioSummary {
+  const signals = groups.map(patientAdvancedSignal);
+  return {
+    totalPatients: groups.length,
+    meanAttention: average(signals.map((signal) => signal.attentionIndex), 0),
+    meanClinicalLoad: average(signals.map((signal) => signal.clinicalLoad), 0),
+    meanCommunication: average(signals.map((signal) => signal.communication), 0),
+    meanContinuity: average(signals.map((signal) => signal.continuity), 0),
+    meanInsight: average(signals.map((signal) => signal.insight), 0),
+    reviewCount: signals.filter((signal) =>
+      ["ALTA PRIORIDADE", "REVISAR"].includes(signal.priority),
+    ).length,
+  };
 }
 
 function mostFrequent<T extends string | number>(values: T[]): T | null {
