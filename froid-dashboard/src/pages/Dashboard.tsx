@@ -232,12 +232,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
               Bem-vindo, {professionalName}
             </p>
           </div>
-          <button
-            onClick={onLogout}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
-          >
-            Sair
-          </button>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <button
+              onClick={() => nav("/settings")}
+              className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700 hover:bg-blue-100"
+            >
+              Configuracoes
+            </button>
+            <button
+              onClick={onLogout}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
+            >
+              Sair
+            </button>
+          </div>
         </div>
       </header>
 
@@ -321,7 +329,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
 
       {selectedGroup && (
         <section className="sticky top-0 z-20 rounded-lg border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur">
-          <h2 className="mb-2 text-sm font-bold text-slate-900">FROID Explica</h2>
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="text-sm font-bold text-slate-900">FROID Explica</h2>
+              <p className="mt-0.5 text-[11px] text-slate-500">
+                Use os prompts nativos ou configure prompts pessoais do profissional.
+              </p>
+            </div>
+            <button
+              onClick={() => nav("/settings")}
+              className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-[11px] font-bold text-cyan-800 hover:bg-cyan-100"
+            >
+              Meus Prompts...
+            </button>
+          </div>
           <div className="max-h-56 overflow-y-auto pr-1">
             <AIInsights
               zones={selectedGroup.latestReport.sessionAverage.zones || []}

@@ -86,6 +86,7 @@ export const AIInsights: React.FC<Props> = ({
 }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedPrompt, setSelectedPrompt] = useState("");
+  const [selectedProfessionalPrompt, setSelectedProfessionalPrompt] = useState("");
   const [professionalPrompts, setProfessionalPrompts] = useState<ProfessionalPrompt[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -261,39 +262,58 @@ export const AIInsights: React.FC<Props> = ({
         <div ref={bottomRef} />
       </div>
 
-      <div className="relative">
-        <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500">
-          Prompts FROID Explica
-        </label>
-        <select
-          value={selectedPrompt}
-          disabled={loading}
-          onChange={(event) => {
-            const prompt = event.target.value;
-            if (!prompt) return;
-            setSelectedPrompt("");
-            void ask(prompt);
-          }}
-          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <option value="">Selecione um prompt...</option>
-          <optgroup label="Prompts nativos FROID">
+      <div className="grid gap-2 md:grid-cols-2">
+        <div className="relative">
+          <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+            Prompts FROID Explica
+          </label>
+          <select
+            value={selectedPrompt}
+            disabled={loading}
+            onChange={(event) => {
+              const prompt = event.target.value;
+              if (!prompt) return;
+              setSelectedPrompt("");
+              void ask(prompt);
+            }}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <option value="">Selecione um prompt...</option>
             {PRESETS.map((preset, index) => (
               <option key={preset.text} value={preset.text}>
                 {index + 1}. {preset.text}
               </option>
             ))}
-          </optgroup>
-          {professionalPrompts.length > 0 && (
-            <optgroup label="Prompts do profissional">
-              {professionalPrompts.map((prompt, index) => (
-                <option key={prompt.id} value={prompt.text}>
-                  {index + 1}. {prompt.title || prompt.text}
-                </option>
-              ))}
-            </optgroup>
-          )}
-        </select>
+          </select>
+        </div>
+
+        <div className="relative">
+          <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+            Meus Prompts...
+          </label>
+          <select
+            value={selectedProfessionalPrompt}
+            disabled={loading || professionalPrompts.length === 0}
+            onChange={(event) => {
+              const prompt = event.target.value;
+              if (!prompt) return;
+              setSelectedProfessionalPrompt("");
+              void ask(prompt);
+            }}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <option value="">
+              {professionalPrompts.length
+                ? "Selecione meus prompts..."
+                : "Nenhum prompt pessoal cadastrado"}
+            </option>
+            {professionalPrompts.map((prompt, index) => (
+              <option key={prompt.id} value={prompt.text}>
+                {index + 1}. {prompt.title || prompt.text}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
       <div className="mt-2 flex gap-2">
         <input
