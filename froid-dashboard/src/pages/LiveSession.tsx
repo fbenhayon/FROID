@@ -1022,10 +1022,14 @@ function buildSessionSummary(
       : inferThemeFromTranscript(transcript),
     6,
   );
+  const cleanSource = source.replace(/\s+/g, " ").trim();
+  const summary = cleanSource
+    ? `A sessao teve como eixo predominante ${theme}. A sequencia dos cortes indica a seguinte progressao clinica e semantica: ${cleanSource}. Em conclusao, este resumo deve ser lido como sintese da substancia verbal registrada nos cortes, servindo de base para comparar conteudo, ritmo e deslocamentos tematicos com as metricas multimodais do relatorio.`
+    : "";
   return {
     theme,
     summary:
-      limitWords(source, 120) ||
+      limitWords(summary, 300) ||
       "Resumo geral indisponivel por ausencia de transcricao suficiente.",
     generatedAt: new Date().toISOString(),
   };

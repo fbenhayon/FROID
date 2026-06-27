@@ -27,6 +27,7 @@ const DEFAULT_SECTIONS = {
 };
 
 type SectionKey = keyof typeof DEFAULT_SECTIONS;
+const SESSION_SUMMARY_MAX_WORDS = 300;
 
 function fmt(value: number | null | undefined, digits = 2) {
   if (value === null || value === undefined || !Number.isFinite(value)) return "--";
@@ -40,6 +41,24 @@ function fmtPct(value: number | null | undefined) {
 
 function limitWords(text: string, maxWords: number) {
   return String(text || "").trim().split(/\s+/).filter(Boolean).slice(0, maxWords).join(" ");
+}
+
+function cleanSummaryText(text: string) {
+  return String(text || "")
+    .replace(/\s+/g, " ")
+    .replace(/\s+([,.;:!?])/g, "$1")
+    .trim();
+}
+
+function hasSubstantiveSummary(text: string) {
+  const normalized = cleanSummaryText(text).toLowerCase();
+  if (!normalized) return false;
+  return ![
+    "nenhuma fala foi transcrita",
+    "sem fala transcrita",
+    "resumo geral indisponivel",
+    "ausencia de transcricao",
+  ].some((token) => normalized.includes(token));
 }
 
 const TITLE_TOOLTIPS: Record<string, string> = {
@@ -58,7 +77,7 @@ const TITLE_TOOLTIPS: Record<string, string> = {
   "Cortes de 10 minutos":
     "Janelas temporais da sessao com as mesmas metricas da media, permitindo comparar a evolucao corte a corte.",
   "Resumo geral da sessao":
-    "Sintese geral da sessao, limitada a 120 palavras, com tema predominante de ate 6 palavras.",
+    "Sintese analitica final da sessao, limitada a 300 palavras, com tema predominante de ate 6 palavras.",
   "Temas e resumos por janela":
     "Resumo de cada janela temporal, limitado a 60 palavras, com tema de ate 6 palavras.",
   "Observacoes do profissional":
@@ -138,25 +157,86 @@ const HelpMetric: React.FC<{ label: string }> = ({ label }) => (
   </FroidTooltip>
 );
 
-function derivedSessionSummary(report: SessionReportRecord) {
-  if (report.sessionSummary?.summary) return report.sessionSummary;
+function dominantReportTheme(report: SessionReportRecord) {
   const ordered = [...(report.conversationSummaries || [])].sort(
     (a, b) => a.startMinute - b.startMinute,
   );
-  const source = ordered.length
-    ? ordered.map((item) => `${item.theme}: ${item.summary}`).join(" ")
-    : report.transcript;
+  const themeSource = [
+    ...ordered
+      .filter((item) => hasSubstantiveSummary(item.summary))
+      .map((item) => item.theme),
+    report.sessionSummary?.theme || "",
+    report.sessionAverage.theme || "",
+    report.baseline.theme || "",
+  ].join(" ");
+  return limitWords(themeSource || "Tema em apuracao", 6);
+}
+
+function metricDeltaSentence(label: string, baseline: number, average: number, digits = 2) {
+  if (!Number.isFinite(baseline) || !Number.isFinite(average)) return "";
+  const delta = average - baseline;
+  const direction =
+    Math.abs(delta) < 0.01
+      ? "permaneceu estavel"
+      : delta > 0
+        ? "aumentou"
+        : "reduziu";
+  return `${label} ${direction} de ${baseline.toFixed(digits)} para ${average.toFixed(digits)}`;
+}
+
+function derivedSessionSummary(report: SessionReportRecord) {
+  const ordered = [...(report.conversationSummaries || [])].sort(
+    (a, b) => a.startMinute - b.startMinute,
+  );
+  const substantiveCuts = ordered.filter((item) => hasSubstantiveSummary(item.summary));
+  const theme = dominantReportTheme(report);
+  const savedSummary =
+    report.sessionSummary?.summary && hasSubstantiveSummary(report.sessionSummary.summary)
+      ? report.sessionSummary.summary
+      : "";
+  const progressionSource = substantiveCuts.length
+    ? substantiveCuts
+        .map(
+          (item) =>
+            `${item.startMinute}-${item.endMinute}min, ${limitWords(item.theme, 6)}: ${item.summary}`,
+        )
+        .join(" ")
+    : savedSummary || report.transcript || "";
+  const metricSentences = [
+    metricDeltaSentence("IPM", report.baseline.ipmAvg, report.sessionAverage.ipmAvg, 1),
+    metricDeltaSentence("IDM", report.baseline.idmAvg, report.sessionAverage.idmAvg, 2),
+  ].filter(Boolean);
+  const metricText = [
+    metricSentences.join("; "),
+    report.sessionAverage.dominantZone
+      ? `zona dominante ${report.sessionAverage.dominantZone} (${report.sessionAverage.dominantTheme || report.sessionAverage.theme || "tema em apuracao"})`
+      : "",
+    report.sessionAverage.emotionalTone
+      ? `tom predominante ${report.sessionAverage.emotionalTone}`
+      : "",
+    Number.isFinite(report.sessionAverage.wordsPerMinute)
+      ? `${report.sessionAverage.wordsPerMinute.toFixed(1)} palavras/min em media`
+      : "",
+    report.sessionAverage.dissonanceCount
+      ? `${report.sessionAverage.dissonanceCount} dissonancia(s) media(s) acima do limiar`
+      : "sem dissonancias medias relevantes registradas",
+  ]
+    .filter(Boolean)
+    .join("; ");
+
+  const body = progressionSource
+    ? limitWords(cleanSummaryText(progressionSource), 185)
+    : "";
+  const analyticalClose = body
+    ? `A sequencia dos cortes indica que a substancia central da sessao se organizou em torno de ${theme.toLowerCase()}, com progressao narrativa observavel entre os blocos registrados. ${body}. Na leitura multimodal, ${metricText}. Em conclusao, o registro recomenda que o profissional leia o conteudo verbal em conjunto com a variacao bioacustica e zonal, usando os proximos encontros para comparar se o tema se estabiliza, se desloca ou se intensifica em relacao ao baseline desta consulta.`
+    : `A sessao teve tema predominante ${theme}, mas nao reuniu transcricao ou cortes semanticos suficientes para uma conclusao textual completa. Na leitura multimodal, ${metricText}. Em conclusao, o relatorio deve ser utilizado principalmente como linha de base comparativa, aguardando proximas sessoes com maior densidade verbal para consolidar a substancia clinica do processo.`;
+
   return {
-    theme: limitWords(
-      ordered.length
-        ? ordered.map((item) => item.theme).join(" ")
-        : report.sessionAverage.theme,
-      6,
-    ),
+    theme,
     summary:
-      limitWords(source || "", 120) ||
+      limitWords(cleanSummaryText(analyticalClose), SESSION_SUMMARY_MAX_WORDS) ||
       "Resumo geral indisponivel para esta sessao.",
-    generatedAt: report.createdAt,
+    generatedAt: report.sessionSummary?.generatedAt || report.createdAt,
   };
 }
 
@@ -211,7 +291,7 @@ function buildDescriptiveReportText(
     `Duracao: ${formatDuration(report.durationSeconds)}`,
     `Tema predominante: ${limitWords(sessionSummary.theme || report.sessionAverage.theme, 6)}`,
     "",
-    `Resumo geral: ${limitWords(sessionSummary.summary, 120)}`,
+    `Resumo geral: ${limitWords(sessionSummary.summary, SESSION_SUMMARY_MAX_WORDS)}`,
     "",
     `Linha comparativa: IPM ${fmt(report.baseline.ipmAvg, 1)} -> ${fmt(report.sessionAverage.ipmAvg, 1)}; IDM ${fmt(report.baseline.idmAvg, 2)} -> ${fmt(report.sessionAverage.idmAvg, 2)}; Zona ${report.sessionAverage.dominantZone || "--"}; Tom ${report.sessionAverage.emotionalTone || "--"}; ${fmt(report.sessionAverage.wordsPerMinute, 1)} palavras/min.`,
     "",
@@ -807,7 +887,7 @@ export const SessionReport: React.FC<Props> = () => {
                   {limitWords(sessionSummary.theme || report.sessionAverage.theme, 6)}
                 </p>
                 <p className="mt-1 text-xs leading-relaxed text-blue-900">
-                  {limitWords(sessionSummary.summary, 120)}
+                  {limitWords(sessionSummary.summary, SESSION_SUMMARY_MAX_WORDS)}
                 </p>
               </div>
             </section>
