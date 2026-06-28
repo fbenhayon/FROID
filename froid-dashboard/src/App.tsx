@@ -154,7 +154,7 @@ function App() {
         />
         <Route
           path="/access/register"
-          element={protectedElement(<ProfessionalOnboarding user={user} />)}
+          element={protectedElement(<ProfessionalOnboarding user={user} onUserChange={setUser} />)}
         />
         <Route
           path="/dashboard"

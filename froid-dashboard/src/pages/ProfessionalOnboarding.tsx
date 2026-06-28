@@ -28,6 +28,7 @@ type Referral = {
 
 interface Props {
   user: FroidUser | null;
+  onUserChange: (user: FroidUser | null) => void;
 }
 
 const fallbackPlans: AccessPlan[] = [
@@ -148,12 +149,6 @@ function openWhatsappReferral(referral: Referral) {
   if (!opened) window.location.href = url;
 }
 
-function centsFromUsd(value: string) {
-  const normalized = value.replace(/[^\d.,]/g, "").replace(",", ".");
-  const amount = Number(normalized);
-  return Number.isFinite(amount) ? Math.max(0, Math.round(amount * 100)) : 0;
-}
-
 function formatUsdFromCents(cents: number) {
   return `US$ ${(Math.max(0, cents) / 100).toFixed(2)}`;
 }
@@ -197,7 +192,7 @@ const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title
   </section>
 );
 
-export const ProfessionalOnboarding: React.FC<Props> = ({ user }) => {
+export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) => {
   const navigate = useNavigate();
   const [accountType, setAccountType] = useState<"individual" | "organization">("individual");
   const [fields, setFields] = useState<Record<string, string>>({
@@ -210,7 +205,6 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user }) => {
   const [monthlyConsultations, setMonthlyConsultations] = useState(25);
   const [selectedPlan, setSelectedPlan] = useState("professional_pack_25");
   const [contractedSessions, setContractedSessions] = useState(25);
-  const [sessionValueUsd, setSessionValueUsd] = useState("1.50");
   const [plans, setPlans] = useState<AccessPlan[]>([]);
   const [referral, setReferral] = useState<Referral>({ name: "", phone: "", email: "" });
   const [referrals, setReferrals] = useState<Referral[]>([]);
@@ -223,7 +217,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user }) => {
   const availablePlans = plans.length ? plans : fallbackPlans;
   const selectedPlanData =
     availablePlans.find((plan) => plan.id === selectedPlan) || availablePlans[0] || fallbackPlans[0];
-  const unitAmountCents = selectedPlanData?.amount_cents ? centsFromUsd(sessionValueUsd) : 0;
+  const unitAmountCents = Math.max(0, Number(selectedPlanData?.amount_cents || 0));
   const bonusSessions = bonusForSessions(contractedSessions);
   const totalSessions = Math.max(0, contractedSessions) + bonusSessions;
   const packageTotalCents = unitAmountCents * Math.max(0, contractedSessions);
@@ -237,7 +231,6 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user }) => {
           if (!data.plans.some((plan: AccessPlan) => plan.id === selectedPlan) && data.plans[0]) {
             setSelectedPlan(data.plans[0].id);
             setContractedSessions(Number(data.plans[0].session_credits || 1));
-            setSessionValueUsd(((Number(data.plans[0].amount_cents || 0) / 100).toFixed(2)));
           }
         }
       })
@@ -258,7 +251,6 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user }) => {
         setMonthlyConsultations(Number(profile.monthly_consultations || 25));
         setSelectedPlan(profile.selected_plan || "professional_pack_25");
         setContractedSessions(Number(profile.contracted_sessions || profile.total_sessions || 25));
-        setSessionValueUsd(((Number(profile.session_unit_amount_cents || 150) / 100).toFixed(2)));
         setLgpdAccepted(Boolean(profile.lgpd_acknowledged));
         setFields({
           ...emptyFields,
@@ -295,13 +287,13 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user }) => {
   const logoutToLogin = () => {
     localStorage.removeItem("froid_token");
     localStorage.removeItem("froid_user");
+    onUserChange(null);
     navigate("/login", { replace: true });
   };
 
   const selectPlan = (plan: AccessPlan) => {
     setSelectedPlan(plan.id);
     setContractedSessions(Number(plan.session_credits || 1));
-    setSessionValueUsd(((Number(plan.amount_cents || 0) / 100).toFixed(2)));
   };
 
   const addReferral = () => {
@@ -344,9 +336,6 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user }) => {
     if (missing) return `Preencha o campo obrigatorio: ${missing[0]}.`;
     if (!lgpdAccepted) return "Aceite os termos LGPD para continuar.";
     if (contractedSessions < 1) return "Informe ao menos 1 sessao contratada.";
-    if (selectedPlanData?.amount_cents > 0 && unitAmountCents <= 0) {
-      return "Informe o valor da sessao em dolares para o pacote escolhido.";
-    }
     return "";
   };
 
@@ -418,15 +407,15 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user }) => {
         } catch {
           storedUser = {};
         }
-        localStorage.setItem(
-          "froid_user",
-          JSON.stringify({
-            ...storedUser,
-            email: user?.email || storedUser.email,
-            name: user?.name || storedUser.name,
-            access_status: profileData.access_status,
-          }),
-        );
+        const nextUser = {
+          ...storedUser,
+          ...user,
+          email: user?.email || String(storedUser.email || ""),
+          name: user?.name || String(storedUser.name || ""),
+          access_status: profileData.access_status,
+        } as FroidUser;
+        localStorage.setItem("froid_user", JSON.stringify(nextUser));
+        onUserChange(nextUser);
       }
       setMessage("Cadastro salvo. Encaminhando para o pagamento...");
 
@@ -454,7 +443,11 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user }) => {
         setMessage(checkoutData.message || "Cadastro salvo. Stripe ainda nao configurado.");
       }
       const nextUrl = checkoutData.checkout_url || `${publicAppUrl()}/#/dashboard`;
-      window.location.assign(nextUrl);
+      if (checkoutData.status === "free_access" || checkoutData.status === "stripe_not_configured") {
+        navigate("/dashboard", { replace: true });
+      } else {
+        window.location.assign(nextUrl);
+      }
     } catch (err: any) {
       setError(err.message || "Falha ao concluir cadastro");
     } finally {
@@ -758,18 +751,8 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user }) => {
                   className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
                 />
               </label>
-              <label className="block">
-                <span className="text-[11px] font-black uppercase text-slate-500">
-                  Valor por sessao (USD)
-                </span>
-                <input
-                  value={sessionValueUsd}
-                  onChange={(e) => setSessionValueUsd(e.target.value)}
-                  inputMode="decimal"
-                  className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
-                />
-              </label>
               <div className="rounded-md border border-cyan-200 bg-cyan-50 p-3 text-xs font-bold leading-5 text-cyan-950">
+                <p>Valor unitario do plano: {formatUsdFromCents(unitAmountCents)}</p>
                 <p>Total do pacote: {formatUsdFromCents(packageTotalCents)}</p>
                 <p>Sessoes contratadas: {contractedSessions}</p>
                 <p>Bonus acima de 100 sessoes: +{bonusSessions} sessoes</p>
