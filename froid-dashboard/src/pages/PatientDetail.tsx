@@ -7,7 +7,6 @@ import {
   fmt,
   fmtDelta,
   formatDateTime,
-  limitWords,
   mergeReports,
   patientAdvancedSignal,
   paymentStatusForReport,
@@ -23,6 +22,10 @@ import {
   MetricSnapshot,
   SessionReportRecord,
 } from "../lib/session-report";
+
+function detailMetricCells(snapshot: MetricSnapshot) {
+  return sessionMetricCells(snapshot).filter((cell) => cell.key !== "theme");
+}
 
 export const PatientDetail: React.FC = () => {
   const navigate = useNavigate();
@@ -141,6 +144,36 @@ export const PatientDetail: React.FC = () => {
       </section>
       </div>
 
+      <section className="sticky top-0 z-20 mt-4 rounded-2xl border border-emerald-300 bg-emerald-50/95 p-4 shadow-sm backdrop-blur">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-sm font-bold text-emerald-950">FROID Explica</h2>
+            <p className="mt-0.5 text-[11px] text-emerald-800">
+              Consulta longitudinal fixa para este paciente.
+            </p>
+          </div>
+          <button
+            onClick={() => navigate("/settings")}
+            className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-[11px] font-bold text-cyan-800 hover:bg-cyan-100"
+          >
+            Meus Prompts...
+          </button>
+        </div>
+        <div className="max-h-80 overflow-y-auto rounded-lg border border-emerald-200 bg-white/80 px-2 pb-2 pr-1">
+          <AIInsights
+            zones={latest.sessionAverage.zones || []}
+            ipmScore={latest.sessionAverage.ipmAvg}
+            coherenceStatus={latest.sessionAverage.coherenceStatus}
+            baselineEstablished
+            sessionId={latest.sessionId}
+            extraContext={context}
+            controlsSticky
+            rootClassName="border-0"
+            messagesClassName="min-h-36 max-h-52"
+          />
+        </div>
+      </section>
+
       <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
@@ -156,7 +189,7 @@ export const PatientDetail: React.FC = () => {
         <PatientEvolutionChart reports={group.reports} />
       </section>
 
-      <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="mt-5">
         <main className="min-w-0">
           <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <h2 className="text-lg font-bold">Indicadores Clinicos</h2>
@@ -193,7 +226,6 @@ export const PatientDetail: React.FC = () => {
               {fmtDelta(latest.sessionAverage.ipmAvg - latest.baseline.ipmAvg, 1)})
               {" | "}IDM {fmt(latest.baseline.idmAvg, 2)} -&gt;{" "}
               {fmt(latest.sessionAverage.idmAvg, 2)}
-              {" | "}Tema {limitWords(latest.sessionAverage.theme || latest.baseline.theme, 6)}
             </p>
           </section>
 
@@ -205,7 +237,7 @@ export const PatientDetail: React.FC = () => {
                   <tr className="border-b border-slate-200 bg-slate-50 font-bold uppercase text-slate-400">
                     <th className="px-1 py-1">Data</th>
                     <th className="px-1 py-1">Sessao</th>
-                    {sessionMetricCells(latest.sessionAverage).map((cell) => (
+                    {detailMetricCells(latest.sessionAverage).map((cell) => (
                       <th key={cell.key} className="px-1 py-1">
                         {cell.label}
                       </th>
@@ -219,12 +251,12 @@ export const PatientDetail: React.FC = () => {
                     const resultLines = splitSessionResult(report);
                     return (
                       <React.Fragment key={report.sessionId}>
-                        <tr className="border-b border-slate-200 align-top">
+                        <tr className="border-b border-slate-200 align-top odd:bg-white even:bg-slate-50">
                           <td className="px-1 py-1">
                             {formatDateTime(reportEndDate(report))}
                           </td>
                           <td className="px-1 py-1">{shortId(report.sessionId)}</td>
-                          {sessionMetricCells(report.sessionAverage).map((cell) => (
+                          {detailMetricCells(report.sessionAverage).map((cell) => (
                             <td key={cell.key} className="px-1 py-1">
                               {cell.value}
                             </td>
@@ -243,13 +275,13 @@ export const PatientDetail: React.FC = () => {
                             </button>
                           </td>
                         </tr>
-                        <tr className="border-b border-slate-100 bg-slate-50">
-                          <td colSpan={19} className="px-1 py-1 text-xs">
+                        <tr className="border-b border-slate-100 bg-blue-50/60">
+                          <td colSpan={18} className="px-2 py-2 text-xs">
                             <strong>Resultado da sessao:</strong> {resultLines[0]}
                           </td>
                         </tr>
-                        <tr className="border-b border-slate-200 bg-slate-50">
-                          <td colSpan={19} className="px-1 py-1 text-xs">
+                        <tr className="border-b border-slate-200 bg-blue-50/40">
+                          <td colSpan={18} className="px-2 py-2 text-xs">
                             {resultLines[1] || "Complemento ainda nao consolidado."}
                           </td>
                         </tr>
@@ -303,19 +335,6 @@ export const PatientDetail: React.FC = () => {
             </table>
           </section>
         </main>
-
-        <aside className="xl:sticky xl:top-3 xl:self-start">
-          <section className="border border-black p-2">
-            <AIInsights
-              zones={latest.sessionAverage.zones || []}
-              ipmScore={latest.sessionAverage.ipmAvg}
-              coherenceStatus={latest.sessionAverage.coherenceStatus}
-              baselineEstablished
-              sessionId={latest.sessionId}
-              extraContext={context}
-            />
-          </section>
-        </aside>
       </div>
     </div>
   );

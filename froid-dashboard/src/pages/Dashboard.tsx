@@ -7,7 +7,6 @@ import {
   fmt,
   fmtDelta,
   formatDateTime,
-  limitWords,
   mergeReports,
   patientAdvancedSignal,
   paymentStatusForReport,
@@ -95,6 +94,10 @@ function patientAverageSnapshot(reports: SessionReportRecord[]): MetricSnapshot 
       latest.subharmonic12_20,
     ),
   };
+}
+
+function compactMetricCells(snapshot: MetricSnapshot) {
+  return sessionMetricCells(snapshot).filter((cell) => cell.key !== "theme");
 }
 
 const KpiCard: React.FC<{
@@ -391,7 +394,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
               Meus Prompts...
             </button>
           </div>
-          <div className="max-h-56 overflow-y-auto rounded-lg border border-emerald-200 bg-white/80 px-2 pb-2 pr-1">
+          <div className="max-h-80 overflow-y-auto rounded-lg border border-emerald-200 bg-white/80 px-2 pb-2 pr-1">
             <AIInsights
               zones={selectedGroup.latestReport.sessionAverage.zones || []}
               ipmScore={selectedGroup.latestReport.sessionAverage.ipmAvg}
@@ -413,7 +416,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
               }}
               controlsSticky
               rootClassName="border-0"
-              messagesClassName="max-h-28"
+              messagesClassName="min-h-36 max-h-52"
             />
           </div>
         </section>
@@ -439,7 +442,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
             className="rounded-xl border border-slate-300 bg-white p-4 shadow-md ring-1 ring-slate-100"
             onMouseEnter={() => setSelectedPatientKey(group.key)}
           >
-            <div className="flex justify-between gap-4">
+            <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <h3 className="text-lg font-black uppercase tracking-wide text-slate-950">
                   {group.patient.name || "Paciente sem nome"}
@@ -447,6 +450,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                 <p className="mt-1 text-xs text-slate-500">
                   CPF: {group.patient.document || "Nao informado"} - {group.totalSessions} sessoes
                 </p>
+              </div>
+              <div className="min-w-[320px] flex-1 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-950">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                  <span>
+                    <strong>Acao sugerida:</strong> {signal.action}
+                  </span>
+                  <span>
+                    <strong>Qualidade:</strong> {signal.qualityLabel}
+                  </span>
+                  <span>
+                    <strong>Estado atual:</strong> {signal.state}
+                  </span>
+                </div>
               </div>
               <div className="flex h-fit flex-wrap justify-end gap-2">
                 <span
@@ -481,32 +497,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
               </div>
             </div>
 
-            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
-              <p className="text-xs font-black uppercase tracking-wide text-amber-950">
-                Acao sugerida para este paciente
-              </p>
-              <p className="mt-1 text-sm font-black text-amber-900">{signal.action}</p>
-              <p className="mt-1 text-[11px] font-semibold text-amber-800">
-                Estado atual: {signal.state}
-              </p>
-            </div>
-
             <div className="mt-3 rounded-lg border border-slate-100 bg-slate-50 p-3">
               <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-700">
                 Indicadores medios de todas as sessoes
               </p>
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+              <div className="grid gap-2 md:grid-cols-5">
                 <ScoreBar label="Atencao" value={signal.attentionIndex} color="#ef4444" />
                 <ScoreBar label="Carga" value={signal.clinicalLoad} color="#f97316" />
                 <ScoreBar label="Comunicacao" value={signal.communication} color="#0ea5e9" />
                 <ScoreBar label="Continuidade" value={signal.continuity} color="#22c55e" />
                 <ScoreBar label="Insight" value={signal.insight} color="#8b5cf6" />
               </div>
-              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8 xl:grid-cols-12">
-                {sessionMetricCells(averageSnapshot).map((cell) => (
+              <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+                {compactMetricCells(averageSnapshot).map((cell) => (
                   <div
                     key={`avg-${cell.key}`}
-                    className="min-w-0 rounded border border-slate-100 bg-white px-2 py-1.5"
+                    className="min-w-[82px] rounded border border-slate-100 bg-white px-2 py-1.5"
                   >
                     <p className="truncate text-[9px] font-bold uppercase tracking-wide text-slate-400">
                       {cell.label}
@@ -523,14 +529,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
               <p className="text-xs font-black uppercase tracking-wide text-slate-900">
                 Indicadores das ultimas 3 sessoes
               </p>
-              <div className="mt-3 grid gap-3 xl:grid-cols-3">
+              <div className="mt-3 space-y-2">
                 {group.reports.slice(0, 3).map((report, index) => (
                   <div
                     key={report.sessionId}
                     className="rounded-lg border border-slate-200 bg-slate-50/80 p-3"
                   >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div className="min-w-[140px]">
                         <p className="text-[11px] font-bold text-slate-900">
                           {index === 0 ? "Concluida " : "Ativa "}
                           {shortId(report.sessionId)}
@@ -539,7 +545,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                           {formatDateTime(reportEndDate(report))}
                         </p>
                       </div>
-                      <div className="flex flex-wrap items-center justify-end gap-2">
+                      <div className="flex items-center gap-2">
                         <span className="rounded bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700">
                           {paymentStatusForReport(report)}
                         </span>
@@ -550,13 +556,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                           Ver
                         </button>
                       </div>
-                    </div>
-
-                    <div className="mt-3 grid grid-cols-2 gap-2">
-                      {sessionMetricCells(report.sessionAverage).map((cell) => (
+                      <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1">
+                        {compactMetricCells(report.sessionAverage).map((cell) => (
                         <div
                           key={cell.key}
-                          className="min-w-0 rounded border border-slate-100 bg-white px-2 py-1.5"
+                          className="min-w-[82px] rounded border border-slate-100 bg-white px-2 py-1.5"
                         >
                           <p className="truncate text-[9px] font-bold uppercase tracking-wide text-slate-400">
                             {cell.label}
@@ -566,6 +570,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                           </p>
                         </div>
                       ))}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -594,12 +599,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                   1,
                 )}
                 ) | IDM {fmt(group.latestReport.baseline.idmAvg, 2)} -&gt;{" "}
-                {fmt(group.latestReport.sessionAverage.idmAvg, 2)} | Tema{" "}
-                {limitWords(
-                  group.latestReport.sessionAverage.theme ||
-                    group.latestReport.baseline.theme,
-                  6,
-                )}
+                {fmt(group.latestReport.sessionAverage.idmAvg, 2)}
               </p>
           </article>
           );
