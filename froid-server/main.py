@@ -1416,11 +1416,11 @@ def _parse_money_cents(value) -> int:
         return 0
 
 
-def _format_brl(cents: int) -> str:
+def _format_brl(cents: int, currency: str = "brl") -> str:
     cents = max(0, int(cents or 0))
     reais = cents // 100
     centavos = cents % 100
-    if STRIPE_CURRENCY.lower() == "usd":
+    if str(currency or "").lower() == "usd":
         return f"US$ {reais}.{centavos:02d}"
     return f"R$ {reais},{centavos:02d}"
 
@@ -1431,21 +1431,24 @@ FROID_ACCESS_PLANS = {
         "name": "Sessao avulsa FROID",
         "description": "Credito individual para uma sessao FROID.",
         "session_credits": 1,
-        "amount_cents": 50,
+        "amount_cents": 0,
+        "currency": "usd",
     },
     "professional_pack_25": {
         "id": "professional_pack_25",
         "name": "Pacote profissional 25 sessoes",
         "description": "Pacote mensal com 25 sessoes FROID.",
         "session_credits": 25,
-        "amount_cents": 51,
+        "amount_cents": 150,
+        "currency": "usd",
     },
     "developer_pack_25": {
         "id": "developer_pack_25",
         "name": "Pacote desenvolvedor 25 sessoes",
         "description": "Pacote tecnico de desenvolvimento e testes com 25 sessoes.",
         "session_credits": 25,
-        "amount_cents": 52,
+        "amount_cents": 250,
+        "currency": "usd",
     },
 }
 
@@ -1909,11 +1912,11 @@ async def auth_me(request: Request):
 @app.get("/api/access/plans")
 async def access_plans():
     return {
-        "currency": STRIPE_CURRENCY,
+        "currency": "usd",
         "plans": [
             {
                 **plan,
-                "amount_brl": _format_brl(plan["amount_cents"]),
+                "amount_brl": _format_brl(plan["amount_cents"], plan.get("currency", "usd")),
             }
             for plan in FROID_ACCESS_PLANS.values()
         ],
@@ -2010,8 +2013,19 @@ async def create_billing_checkout(request: Request):
             "mode": "local_fallback",
             "checkout_url": success_url,
             "message": "STRIPE_SECRET_KEY nao configurada; usando redirecionamento local para testes.",
-            "plan": {**plan, "amount_brl": _format_brl(plan["amount_cents"])},
+            "plan": {**plan, "amount_brl": _format_brl(plan["amount_cents"], plan.get("currency", "usd"))},
         }
+
+    if int(plan.get("amount_cents") or 0) <= 0:
+        return {
+            "status": "free_access",
+            "mode": "local_success",
+            "checkout_url": success_url,
+            "message": "Plano gratuito liberado sem checkout Stripe.",
+            "plan": {**plan, "amount_brl": _format_brl(plan["amount_cents"], plan.get("currency", "usd"))},
+        }
+
+    stripe_currency = str(plan.get("currency") or STRIPE_CURRENCY or "brl").lower()
 
     form = {
         "mode": "payment",
@@ -2019,7 +2033,7 @@ async def create_billing_checkout(request: Request):
         "cancel_url": cancel_url,
         "client_reference_id": email or uuid.uuid4().hex,
         "line_items[0][quantity]": "1",
-        "line_items[0][price_data][currency]": STRIPE_CURRENCY,
+        "line_items[0][price_data][currency]": stripe_currency,
         "line_items[0][price_data][unit_amount]": str(plan["amount_cents"]),
         "line_items[0][price_data][product_data][name]": plan["name"],
         "line_items[0][price_data][product_data][description]": plan["description"],
@@ -2048,7 +2062,7 @@ async def create_billing_checkout(request: Request):
             "status": "ok",
             "checkout_session_id": data.get("id"),
             "checkout_url": data.get("url"),
-            "plan": {**plan, "amount_brl": _format_brl(plan["amount_cents"])},
+            "plan": {**plan, "amount_brl": _format_brl(plan["amount_cents"], plan.get("currency", "usd"))},
         }
     except HTTPException:
         raise

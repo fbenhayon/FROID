@@ -31,9 +31,9 @@ const scienceBlocks = [
 ];
 
 const plans = [
-  { name: "Sessao avulsa", price: "US$ 0.50", detail: "1 credito de sessao" },
-  { name: "Pacote profissional", price: "US$ 0.51", detail: "25 sessoes" },
-  { name: "Desenvolvedores", price: "US$ 0.52", detail: "25 sessoes de teste" },
+  { name: "Acesso livre", price: "US$ 0.00", detail: "Entrada livre ao sistema" },
+  { name: "Pacote profissional", price: "US$ 1.50", detail: "25 sessoes" },
+  { name: "Desenvolvedores", price: "US$ 2.50", detail: "25 sessoes de teste" },
 ];
 
 export const HomePage: React.FC = () => {
