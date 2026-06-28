@@ -19,6 +19,7 @@ import {
 } from "../lib/patient-dashboard";
 import {
   loadSessionReports,
+  MetricSnapshot,
   rememberSessionPatient,
   SessionReportRecord,
 } from "../lib/session-report";
@@ -50,6 +51,50 @@ const PRIORITY_STYLES: Record<string, string> = {
 
 function scoreText(value: number) {
   return `${Math.round(value)}/100`;
+}
+
+function averageNumeric(values: Array<number | null | undefined>, fallback: number | null | undefined = 0) {
+  const clean = values.filter(
+    (value): value is number => typeof value === "number" && Number.isFinite(value),
+  );
+  if (!clean.length) return typeof fallback === "number" && Number.isFinite(fallback) ? fallback : 0;
+  return clean.reduce((sum, value) => sum + value, 0) / clean.length;
+}
+
+function patientAverageSnapshot(reports: SessionReportRecord[]): MetricSnapshot {
+  const snapshots = reports.map((report) => report.sessionAverage);
+  const latest = snapshots[0] || ({} as MetricSnapshot);
+  const zoneCounts = new Map<number, number>();
+  snapshots.forEach((snapshot) => {
+    if (snapshot.dominantZone) {
+      zoneCounts.set(snapshot.dominantZone, (zoneCounts.get(snapshot.dominantZone) || 0) + 1);
+    }
+  });
+  const dominantZone =
+    [...zoneCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || latest.dominantZone || null;
+  return {
+    ...latest,
+    label: "Media geral",
+    ipmAvg: averageNumeric(snapshots.map((snapshot) => snapshot.ipmAvg), latest.ipmAvg),
+    idmAvg: averageNumeric(snapshots.map((snapshot) => snapshot.idmAvg), latest.idmAvg),
+    dominantZone,
+    wordsPerMinute: averageNumeric(snapshots.map((snapshot) => snapshot.wordsPerMinute), latest.wordsPerMinute),
+    dissonanceCount: Math.round(averageNumeric(snapshots.map((snapshot) => snapshot.dissonanceCount), latest.dissonanceCount || 0)),
+    mfcc7: averageNumeric(snapshots.map((snapshot) => snapshot.mfcc7), latest.mfcc7),
+    mfcc9: averageNumeric(snapshots.map((snapshot) => snapshot.mfcc9), latest.mfcc9),
+    f0Mean: averageNumeric(snapshots.map((snapshot) => snapshot.f0Mean), latest.f0Mean),
+    zcr: averageNumeric(snapshots.map((snapshot) => snapshot.zcr), latest.zcr),
+    jitter: averageNumeric(snapshots.map((snapshot) => snapshot.jitter), latest.jitter),
+    shimmer: averageNumeric(snapshots.map((snapshot) => snapshot.shimmer), latest.shimmer),
+    subharmonic5_12: averageNumeric(
+      snapshots.map((snapshot) => snapshot.subharmonic5_12),
+      latest.subharmonic5_12,
+    ),
+    subharmonic12_20: averageNumeric(
+      snapshots.map((snapshot) => snapshot.subharmonic12_20),
+      latest.subharmonic12_20,
+    ),
+  };
 }
 
 const KpiCard: React.FC<{
@@ -331,11 +376,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
       </section>
 
       {selectedGroup && (
-        <section className="sticky top-0 z-20 rounded-lg border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur">
+        <section className="sticky top-0 z-20 rounded-lg border border-emerald-300 bg-emerald-50/95 p-3 shadow-sm backdrop-blur">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <div>
-              <h2 className="text-sm font-bold text-slate-900">FROID Explica</h2>
-              <p className="mt-0.5 text-[11px] text-slate-500">
+              <h2 className="text-sm font-bold text-emerald-950">FROID Explica</h2>
+              <p className="mt-0.5 text-[11px] text-emerald-800">
                 Use os prompts nativos ou configure prompts pessoais do profissional.
               </p>
             </div>
@@ -346,7 +391,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
               Meus Prompts...
             </button>
           </div>
-          <div className="max-h-56 overflow-y-auto pr-1">
+          <div className="max-h-56 overflow-y-auto rounded-lg border border-emerald-200 bg-white/80 px-2 pb-2 pr-1">
             <AIInsights
               zones={selectedGroup.latestReport.sessionAverage.zones || []}
               ipmScore={selectedGroup.latestReport.sessionAverage.ipmAvg}
@@ -366,6 +411,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                   payment_status: paymentStatusForReport(report),
                 })),
               }}
+              controlsSticky
+              rootClassName="border-0"
+              messagesClassName="max-h-28"
             />
           </div>
         </section>
@@ -381,22 +429,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
 
         {patientGroups.map((group) => {
           const signal = patientAdvancedSignal(group);
+          const averageSnapshot = patientAverageSnapshot(group.reports);
           const priorityClass =
             PRIORITY_STYLES[signal.priority] ||
             PRIORITY_STYLES["DADOS INSUFICIENTES"];
           return (
           <article
             key={group.key}
-            className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+            className="rounded-xl border border-slate-300 bg-white p-4 shadow-md ring-1 ring-slate-100"
             onMouseEnter={() => setSelectedPatientKey(group.key)}
           >
             <div className="flex justify-between gap-4">
               <div>
-                <h3 className="text-sm font-bold text-slate-900">
+                <h3 className="text-lg font-black uppercase tracking-wide text-slate-950">
                   {group.patient.name || "Paciente sem nome"}
                 </h3>
                 <p className="mt-1 text-xs text-slate-500">
-                  CPF: {group.patient.document || "Nao informado"} · {group.totalSessions} sessoes
+                  CPF: {group.patient.document || "Nao informado"} - {group.totalSessions} sessoes
                 </p>
               </div>
               <div className="flex h-fit flex-wrap justify-end gap-2">
@@ -432,21 +481,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
               </div>
             </div>
 
-            <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2">
-              <div className="flex flex-wrap items-center gap-2 text-[11px] text-blue-900">
-                <strong>Resultado global integrado:</strong>
-                <span>Atencao {scoreText(signal.attentionIndex)}</span>
-                <span>Comunicacao {scoreText(signal.communication)}</span>
-                <span>Continuidade {scoreText(signal.continuity)}</span>
-                <span>Insight {scoreText(signal.insight)}</span>
-                <span>{signal.state}</span>
-              </div>
-              <p className="mt-1 text-[11px] font-semibold text-blue-700">
-                Acao sugerida: {signal.action}
+            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+              <p className="text-xs font-black uppercase tracking-wide text-amber-950">
+                Acao sugerida para este paciente
+              </p>
+              <p className="mt-1 text-sm font-black text-amber-900">{signal.action}</p>
+              <p className="mt-1 text-[11px] font-semibold text-amber-800">
+                Estado atual: {signal.state}
               </p>
             </div>
 
             <div className="mt-3 rounded-lg border border-slate-100 bg-slate-50 p-3">
+              <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-700">
+                Indicadores medios de todas as sessoes
+              </p>
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
                 <ScoreBar label="Atencao" value={signal.attentionIndex} color="#ef4444" />
                 <ScoreBar label="Carga" value={signal.clinicalLoad} color="#f97316" />
@@ -454,15 +502,32 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                 <ScoreBar label="Continuidade" value={signal.continuity} color="#22c55e" />
                 <ScoreBar label="Insight" value={signal.insight} color="#8b5cf6" />
               </div>
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8 xl:grid-cols-12">
+                {sessionMetricCells(averageSnapshot).map((cell) => (
+                  <div
+                    key={`avg-${cell.key}`}
+                    className="min-w-0 rounded border border-slate-100 bg-white px-2 py-1.5"
+                  >
+                    <p className="truncate text-[9px] font-bold uppercase tracking-wide text-slate-400">
+                      {cell.label}
+                    </p>
+                    <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-800">
+                      {cell.value}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="mt-3 min-w-0">
-              <p className="text-xs font-bold text-slate-900">Ultimas 3 Sessoes</p>
-              <div className="mt-3 space-y-3">
+              <p className="text-xs font-black uppercase tracking-wide text-slate-900">
+                Indicadores das ultimas 3 sessoes
+              </p>
+              <div className="mt-3 grid gap-3 xl:grid-cols-3">
                 {group.reports.slice(0, 3).map((report, index) => (
                   <div
                     key={report.sessionId}
-                    className="rounded-lg border border-slate-100 bg-slate-50/60 p-3"
+                    className="rounded-lg border border-slate-200 bg-slate-50/80 p-3"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
@@ -487,7 +552,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                       </div>
                     </div>
 
-                    <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8 xl:grid-cols-12">
+                    <div className="mt-3 grid grid-cols-2 gap-2">
                       {sessionMetricCells(report.sessionAverage).map((cell) => (
                         <div
                           key={cell.key}
@@ -502,11 +567,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                         </div>
                       ))}
                     </div>
-
-                    <div className="mt-3 rounded border border-blue-50 bg-white px-3 py-2 text-xs leading-relaxed text-slate-600">
-                      <strong className="text-slate-800">Resultado da sessao:</strong>{" "}
-                      {sessionResultText(report, 85)}
-                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 space-y-2">
+                {group.reports.slice(0, 3).map((report) => (
+                  <div
+                    key={`result-${report.sessionId}`}
+                    className="rounded border border-blue-50 bg-white px-3 py-2 text-xs leading-relaxed text-slate-600"
+                  >
+                    <strong className="text-slate-800">
+                      Resultado da sessao {shortId(report.sessionId)}:
+                    </strong>{" "}
+                    {sessionResultText(report, 85)}
                   </div>
                 ))}
               </div>

@@ -53,6 +53,9 @@ interface Props {
   baselineEstablished: boolean;
   sessionId?: string;
   extraContext?: Record<string, unknown>;
+  controlsSticky?: boolean;
+  rootClassName?: string;
+  messagesClassName?: string;
 }
 
 function compactZone(zone: PerceptionZone) {
@@ -83,6 +86,9 @@ export const AIInsights: React.FC<Props> = ({
   baselineEstablished,
   sessionId = "",
   extraContext = {},
+  controlsSticky = false,
+  rootClassName = "",
+  messagesClassName = "",
 }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedPrompt, setSelectedPrompt] = useState("");
@@ -199,7 +205,7 @@ export const AIInsights: React.FC<Props> = ({
   );
 
   return (
-    <div className="flex h-full min-h-[200px] flex-col border-t border-slate-200 pt-3 mt-2">
+    <div className={`flex h-full min-h-[200px] flex-col border-t border-slate-200 pt-3 mt-2 ${rootClassName}`}>
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="rounded bg-slate-900 px-1.5 py-0.5 text-[9px] font-bold text-white">
@@ -216,7 +222,7 @@ export const AIInsights: React.FC<Props> = ({
         )}
       </div>
 
-      <div className="mb-2 min-h-[120px] flex-1 overflow-y-auto rounded-lg border border-slate-100 bg-slate-50/50 p-2 space-y-3">
+      <div className={`mb-2 min-h-[120px] flex-1 overflow-y-auto rounded-lg border border-slate-100 bg-slate-50/50 p-2 space-y-3 ${messagesClassName}`}>
         {messages.length === 0 && (
           <div className="py-4 text-center">
             <p className="text-[11px] text-slate-400">FROID Explica pronto.</p>
@@ -262,76 +268,78 @@ export const AIInsights: React.FC<Props> = ({
         <div ref={bottomRef} />
       </div>
 
-      <div className="grid gap-2 md:grid-cols-2">
-        <div className="relative">
-          <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500">
-            Prompts FROID Explica
-          </label>
-          <select
-            value={selectedPrompt}
-            disabled={loading}
-            onChange={(event) => {
-              const prompt = event.target.value;
-              if (!prompt) return;
-              setSelectedPrompt("");
-              void ask(prompt);
-            }}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <option value="">Selecione um prompt...</option>
-            {PRESETS.map((preset, index) => (
-              <option key={preset.text} value={preset.text}>
-                {index + 1}. {preset.text}
-              </option>
-            ))}
-          </select>
-        </div>
+      <div className={controlsSticky ? "sticky bottom-0 z-10 border-t border-slate-200 bg-white/95 pt-2 backdrop-blur" : ""}>
+        <div className="grid gap-2 md:grid-cols-2">
+          <div className="relative">
+            <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              Prompts FROID Explica
+            </label>
+            <select
+              value={selectedPrompt}
+              disabled={loading}
+              onChange={(event) => {
+                const prompt = event.target.value;
+                if (!prompt) return;
+                setSelectedPrompt("");
+                void ask(prompt);
+              }}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <option value="">Selecione um prompt...</option>
+              {PRESETS.map((preset, index) => (
+                <option key={preset.text} value={preset.text}>
+                  {index + 1}. {preset.text}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        <div className="relative">
-          <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500">
-            Meus Prompts...
-          </label>
-          <select
-            value={selectedProfessionalPrompt}
-            disabled={loading || professionalPrompts.length === 0}
-            onChange={(event) => {
-              const prompt = event.target.value;
-              if (!prompt) return;
-              setSelectedProfessionalPrompt("");
-              void ask(prompt);
-            }}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <option value="">
-              {professionalPrompts.length
-                ? "Selecione meus prompts..."
-                : "Nenhum prompt pessoal cadastrado"}
-            </option>
-            {professionalPrompts.map((prompt, index) => (
-              <option key={prompt.id} value={prompt.text}>
-                {index + 1}. {prompt.title || prompt.text}
+          <div className="relative">
+            <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              Meus Prompts...
+            </label>
+            <select
+              value={selectedProfessionalPrompt}
+              disabled={loading || professionalPrompts.length === 0}
+              onChange={(event) => {
+                const prompt = event.target.value;
+                if (!prompt) return;
+                setSelectedProfessionalPrompt("");
+                void ask(prompt);
+              }}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <option value="">
+                {professionalPrompts.length
+                  ? "Selecione meus prompts..."
+                  : "Nenhum prompt pessoal cadastrado"}
               </option>
-            ))}
-          </select>
+              {professionalPrompts.map((prompt, index) => (
+                <option key={prompt.id} value={prompt.text}>
+                  {index + 1}. {prompt.title || prompt.text}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
-      </div>
-      <div className="mt-2 flex gap-2">
-        <input
-          value={input}
-          onChange={(event) => setInput(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") void ask(input);
-          }}
-          placeholder="Pergunta livre ao FROID Explica..."
-          className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-        />
-        <button
-          onClick={() => void ask(input)}
-          disabled={!input.trim() || loading}
-          className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-40"
-        >
-          Enviar
-        </button>
+        <div className="mt-2 flex gap-2">
+          <input
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") void ask(input);
+            }}
+            placeholder="Pergunta livre ao FROID Explica..."
+            className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+          <button
+            onClick={() => void ask(input)}
+            disabled={!input.trim() || loading}
+            className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-40"
+          >
+            Enviar
+          </button>
+        </div>
       </div>
     </div>
   );

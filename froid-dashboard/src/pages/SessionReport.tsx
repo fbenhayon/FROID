@@ -43,6 +43,15 @@ function limitWords(text: string, maxWords: number) {
   return String(text || "").trim().split(/\s+/).filter(Boolean).slice(0, maxWords).join(" ");
 }
 
+function limitThemeWords(text: string, maxWords = 6) {
+  const dangling = new Set(["e", "ou", "de", "da", "do", "das", "dos", "com", "em", "para"]);
+  const words = cleanSummaryText(text).split(/\s+/).filter(Boolean).slice(0, maxWords);
+  while (words.length > 1 && dangling.has(words[words.length - 1].toLowerCase())) {
+    words.pop();
+  }
+  return words.join(" ");
+}
+
 function cleanSummaryText(text: string) {
   return String(text || "")
     .replace(/\s+/g, " ")
@@ -161,15 +170,17 @@ function dominantReportTheme(report: SessionReportRecord) {
   const ordered = [...(report.conversationSummaries || [])].sort(
     (a, b) => a.startMinute - b.startMinute,
   );
-  const themeSource = [
+  const candidates = [
     ...ordered
       .filter((item) => hasSubstantiveSummary(item.summary))
       .map((item) => item.theme),
     report.sessionSummary?.theme || "",
     report.sessionAverage.theme || "",
     report.baseline.theme || "",
-  ].join(" ");
-  return limitWords(themeSource || "Tema em apuracao", 6);
+  ]
+    .map((theme) => limitThemeWords(theme, 6))
+    .filter(Boolean);
+  return candidates[0] || "Tema em apuracao";
 }
 
 function metricDeltaSentence(label: string, baseline: number, average: number, digits = 2) {
@@ -198,7 +209,7 @@ function derivedSessionSummary(report: SessionReportRecord) {
     ? substantiveCuts
         .map(
           (item) =>
-            `${item.startMinute}-${item.endMinute}min, ${limitWords(item.theme, 6)}: ${item.summary}`,
+            `${item.startMinute}-${item.endMinute}min, ${limitThemeWords(item.theme, 6)}: ${item.summary}`,
         )
         .join(" ")
     : savedSummary || report.transcript || "";
@@ -289,7 +300,7 @@ function buildDescriptiveReportText(
     `Relatorio descritivo da sessao ${report.sessionId}`,
     `Data: ${new Date(report.createdAt).toLocaleString("pt-BR")}`,
     `Duracao: ${formatDuration(report.durationSeconds)}`,
-    `Tema predominante: ${limitWords(sessionSummary.theme || report.sessionAverage.theme, 6)}`,
+    `Tema predominante: ${limitThemeWords(sessionSummary.theme || report.sessionAverage.theme, 6)}`,
     "",
     `Resumo geral: ${limitWords(sessionSummary.summary, SESSION_SUMMARY_MAX_WORDS)}`,
     "",
@@ -876,7 +887,7 @@ export const SessionReport: React.FC<Props> = () => {
                 label: cut.label,
                 metrics: cutMetricRows(
                   cut,
-                  limitWords(sessionSummary.theme || report.sessionAverage.theme, 6),
+                  limitThemeWords(sessionSummary.theme || report.sessionAverage.theme, 6),
                 ),
               }))}
             />
@@ -890,7 +901,7 @@ export const SessionReport: React.FC<Props> = () => {
               <div className="rounded border border-blue-100 bg-blue-50 p-3">
                 <p className="text-xs font-bold text-blue-950">
                   Tema predominante:{" "}
-                  {limitWords(sessionSummary.theme || report.sessionAverage.theme, 6)}
+                  {limitThemeWords(sessionSummary.theme || report.sessionAverage.theme, 6)}
                 </p>
                 <p className="mt-1 text-xs leading-relaxed text-blue-900">
                   {limitWords(sessionSummary.summary, SESSION_SUMMARY_MAX_WORDS)}
@@ -909,7 +920,7 @@ export const SessionReport: React.FC<Props> = () => {
                   <div key={item.id} className="rounded border border-slate-100 bg-slate-50 p-3">
                     <p className="text-xs font-bold text-slate-800">
                       {item.startMinute}-{item.endMinute}min |{" "}
-                      {limitWords(item.theme, 6)}
+                      {limitThemeWords(item.theme, 6)}
                     </p>
                     <p className="mt-1 text-xs leading-relaxed text-slate-600">
                       {limitWords(item.summary, 60)}
@@ -971,7 +982,7 @@ export const SessionReport: React.FC<Props> = () => {
         </div>
 
         <aside className="space-y-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
-          <section className="min-h-[420px] rounded-lg border border-slate-200 bg-white p-4">
+          <section className="min-h-[560px] rounded-lg border border-slate-200 bg-white p-4">
             <AIInsights
               zones={report.sessionAverage.zones || []}
               ipmScore={report.sessionAverage.ipmAvg}
@@ -979,6 +990,8 @@ export const SessionReport: React.FC<Props> = () => {
               baselineEstablished
               sessionId={report.sessionId}
               extraContext={reportContext}
+              controlsSticky
+              messagesClassName="min-h-[330px]"
             />
           </section>
 

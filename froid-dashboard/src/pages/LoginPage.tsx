@@ -34,7 +34,6 @@ declare global {
 
 export const LoginPage: React.FC<Props> = ({ onLogin, afterLoginPath = "/dashboard" }) => {
   const navigate = useNavigate();
-  const isRegisterFlow = afterLoginPath === "/access/register";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -139,13 +138,6 @@ export const LoginPage: React.FC<Props> = ({ onLogin, afterLoginPath = "/dashboa
             Entre com o e-mail profissional para acessar o painel clinico e os
             recursos multimodais.
           </p>
-          {isRegisterFlow && (
-            <p className="mt-3 rounded-lg border border-cyan-400/25 bg-cyan-400/10 p-3 text-xs font-semibold leading-5 text-cyan-50">
-              Para criar o cadastro profissional e escolher o plano, identifique-se
-              primeiro. Apos a validacao, o FROID abre automaticamente o formulario
-              LGPD e pagamento.
-            </p>
-          )}
         </div>
         <div className="space-y-4">
           {googleClientId && (
@@ -191,16 +183,6 @@ export const LoginPage: React.FC<Props> = ({ onLogin, afterLoginPath = "/dashboa
             <p className="text-sm text-slate-400">Validando credencial...</p>
           )}
           {error && <p className="text-sm text-red-400">{error}</p>}
-        </div>
-        <div className="mt-5 rounded-lg border border-cyan-400/20 bg-cyan-400/10 p-3 text-sm text-cyan-50">
-          Ainda nao tem cadastro profissional?{" "}
-          <button
-            type="button"
-            onClick={() => navigate("/access/register")}
-            className="font-bold text-cyan-200 underline"
-          >
-            Criar cadastro e escolher plano
-          </button>
         </div>
         <p className="mt-4 text-[11px] text-slate-500">
           {googleClientId
