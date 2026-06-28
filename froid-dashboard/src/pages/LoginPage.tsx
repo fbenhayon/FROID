@@ -34,6 +34,7 @@ declare global {
 
 export const LoginPage: React.FC<Props> = ({ onLogin, afterLoginPath = "/dashboard" }) => {
   const navigate = useNavigate();
+  const isRegisterFlow = afterLoginPath === "/access/register";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -138,6 +139,13 @@ export const LoginPage: React.FC<Props> = ({ onLogin, afterLoginPath = "/dashboa
             Entre com o e-mail profissional para acessar o painel clinico e os
             recursos multimodais.
           </p>
+          {isRegisterFlow && (
+            <p className="mt-3 rounded-lg border border-cyan-400/25 bg-cyan-400/10 p-3 text-xs font-semibold leading-5 text-cyan-50">
+              Para criar o cadastro profissional e escolher o plano, identifique-se
+              primeiro. Apos a validacao, o FROID abre automaticamente o formulario
+              LGPD e pagamento.
+            </p>
+          )}
         </div>
         <div className="space-y-4">
           {googleClientId && (

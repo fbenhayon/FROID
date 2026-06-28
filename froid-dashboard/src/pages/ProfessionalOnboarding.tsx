@@ -127,6 +127,7 @@ function onlyDigits(value: string) {
 
 function whatsappUrl(referral: Referral) {
   const phoneDigits = onlyDigits(referral.phone);
+  if (!phoneDigits) return "";
   const phone = phoneDigits.startsWith("55") ? phoneDigits : `55${phoneDigits}`;
   const message = [
     `Ola, ${referral.name || "profissional"}.`,
@@ -137,6 +138,13 @@ function whatsappUrl(referral: Referral) {
     .filter(Boolean)
     .join("\n");
   return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+}
+
+function openWhatsappReferral(referral: Referral) {
+  const url = whatsappUrl(referral);
+  if (!url) return;
+  const opened = window.open(url, "_blank", "noopener,noreferrer");
+  if (!opened) window.location.href = url;
 }
 
 const Field: React.FC<{
@@ -265,7 +273,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user }) => {
 
   const openReferralWhatsapp = () => {
     if (!referral.phone.trim()) return;
-    window.open(whatsappUrl(referral), "_blank", "noopener,noreferrer");
+    openWhatsappReferral(referral);
   };
 
   const saveAndCheckout = async (e: React.FormEvent) => {
@@ -543,8 +551,25 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user }) => {
               {referrals.length > 0 && (
                 <div className="mt-3 grid gap-2 text-xs text-slate-600">
                   {referrals.map((item, index) => (
-                    <div key={`${item.email}-${index}`} className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
-                      {item.name || "Sem nome"} - {item.phone || "sem celular"} - {item.email || "sem email"}
+                    <div
+                      key={`${item.email}-${item.phone}-${index}`}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2"
+                    >
+                      <span>
+                        <strong className="text-slate-800">{item.name || "Sem nome"}</strong>
+                        {" - "}
+                        {item.phone || "sem celular"}
+                        {" - "}
+                        {item.email || "sem email"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => openWhatsappReferral(item)}
+                        disabled={!item.phone.trim()}
+                        className="rounded-md bg-emerald-600 px-3 py-1.5 text-[11px] font-black text-white hover:bg-emerald-700 disabled:opacity-40"
+                      >
+                        WhatsApp
+                      </button>
                     </div>
                   ))}
                 </div>
