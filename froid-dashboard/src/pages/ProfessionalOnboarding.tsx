@@ -11,6 +11,7 @@ type AccessPlan = {
   session_credits: number;
   amount_cents: number;
   amount_brl: string;
+  currency?: string;
 };
 
 type ProfessionalLine = {
@@ -147,6 +148,20 @@ function openWhatsappReferral(referral: Referral) {
   if (!opened) window.location.href = url;
 }
 
+function centsFromUsd(value: string) {
+  const normalized = value.replace(/[^\d.,]/g, "").replace(",", ".");
+  const amount = Number(normalized);
+  return Number.isFinite(amount) ? Math.max(0, Math.round(amount * 100)) : 0;
+}
+
+function formatUsdFromCents(cents: number) {
+  return `US$ ${(Math.max(0, cents) / 100).toFixed(2)}`;
+}
+
+function bonusForSessions(sessions: number) {
+  return Math.floor(Math.max(0, sessions) / 100) * 10;
+}
+
 const Field: React.FC<{
   label: string;
   name: string;
@@ -194,6 +209,8 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user }) => {
   const [baseAccessRaw, setBaseAccessRaw] = useState("");
   const [monthlyConsultations, setMonthlyConsultations] = useState(25);
   const [selectedPlan, setSelectedPlan] = useState("professional_pack_25");
+  const [contractedSessions, setContractedSessions] = useState(25);
+  const [sessionValueUsd, setSessionValueUsd] = useState("1.50");
   const [plans, setPlans] = useState<AccessPlan[]>([]);
   const [referral, setReferral] = useState<Referral>({ name: "", phone: "", email: "" });
   const [referrals, setReferrals] = useState<Referral[]>([]);
@@ -204,6 +221,12 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user }) => {
 
   const professionals = useMemo(() => parseProfessionals(professionalsRaw), [professionalsRaw]);
   const availablePlans = plans.length ? plans : fallbackPlans;
+  const selectedPlanData =
+    availablePlans.find((plan) => plan.id === selectedPlan) || availablePlans[0] || fallbackPlans[0];
+  const unitAmountCents = selectedPlanData?.amount_cents ? centsFromUsd(sessionValueUsd) : 0;
+  const bonusSessions = bonusForSessions(contractedSessions);
+  const totalSessions = Math.max(0, contractedSessions) + bonusSessions;
+  const packageTotalCents = unitAmountCents * Math.max(0, contractedSessions);
 
   useEffect(() => {
     fetch(apiUrl("/api/access/plans"))
@@ -213,6 +236,8 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user }) => {
           setPlans(data.plans);
           if (!data.plans.some((plan: AccessPlan) => plan.id === selectedPlan) && data.plans[0]) {
             setSelectedPlan(data.plans[0].id);
+            setContractedSessions(Number(data.plans[0].session_credits || 1));
+            setSessionValueUsd(((Number(data.plans[0].amount_cents || 0) / 100).toFixed(2)));
           }
         }
       })
@@ -232,6 +257,8 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user }) => {
         setAccountType(profile.account_type === "organization" ? "organization" : "individual");
         setMonthlyConsultations(Number(profile.monthly_consultations || 25));
         setSelectedPlan(profile.selected_plan || "professional_pack_25");
+        setContractedSessions(Number(profile.contracted_sessions || profile.total_sessions || 25));
+        setSessionValueUsd(((Number(profile.session_unit_amount_cents || 150) / 100).toFixed(2)));
         setLgpdAccepted(Boolean(profile.lgpd_acknowledged));
         setFields({
           ...emptyFields,
@@ -265,6 +292,18 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user }) => {
     setFields((prev) => ({ ...prev, [name]: value }));
   };
 
+  const logoutToLogin = () => {
+    localStorage.removeItem("froid_token");
+    localStorage.removeItem("froid_user");
+    navigate("/login", { replace: true });
+  };
+
+  const selectPlan = (plan: AccessPlan) => {
+    setSelectedPlan(plan.id);
+    setContractedSessions(Number(plan.session_credits || 1));
+    setSessionValueUsd(((Number(plan.amount_cents || 0) / 100).toFixed(2)));
+  };
+
   const addReferral = () => {
     if (!referral.name.trim() && !referral.phone.trim() && !referral.email.trim()) return;
     setReferrals((prev) => [referral, ...prev].slice(0, 20));
@@ -276,8 +315,49 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user }) => {
     openWhatsappReferral(referral);
   };
 
+  const validateForm = () => {
+    const requiredFields =
+      accountType === "organization"
+        ? [
+            ["Razao social", fields.corporateName],
+            ["CNPJ", fields.cnpj],
+            ["Celular da empresa", fields.companyMobile],
+            ["E-mail da empresa", fields.companyEmail],
+            ["Nome do representante legal", fields.legalRepresentativeName],
+            ["Celular do representante legal", fields.legalRepresentativeMobile],
+            ["E-mail do representante legal", fields.legalRepresentativeEmail],
+            ["CPF do representante legal", fields.legalRepresentativeCpf],
+          ]
+        : [
+            ["Nome completo", fields.fullName],
+            ["Celular", fields.mobile],
+            ["E-mail", fields.email],
+            ["CPF", fields.cpf],
+          ];
+    const addressFields = [
+      ["CEP", fields.postalCode],
+      ["Logradouro", fields.street],
+      ["Numero", fields.number],
+      ["Bairro", fields.district],
+    ];
+    const missing = [...requiredFields, ...addressFields].find(([, value]) => !String(value || "").trim());
+    if (missing) return `Preencha o campo obrigatorio: ${missing[0]}.`;
+    if (!lgpdAccepted) return "Aceite os termos LGPD para continuar.";
+    if (contractedSessions < 1) return "Informe ao menos 1 sessao contratada.";
+    if (selectedPlanData?.amount_cents > 0 && unitAmountCents <= 0) {
+      return "Informe o valor da sessao em dolares para o pacote escolhido.";
+    }
+    return "";
+  };
+
   const saveAndCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
+    const validationError = validateForm();
+    if (validationError) {
+      setError(validationError);
+      setMessage("");
+      return;
+    }
     const token = localStorage.getItem("froid_token");
     if (!token) {
       navigate("/login");
@@ -313,6 +393,11 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user }) => {
         lgpd_acknowledged_at: lgpdAccepted ? new Date().toISOString() : "",
         monthly_consultations: monthlyConsultations,
         selected_plan: selectedPlan,
+        contracted_sessions: contractedSessions,
+        bonus_sessions: bonusSessions,
+        total_sessions: totalSessions,
+        session_unit_amount_cents: unitAmountCents,
+        package_total_cents: packageTotalCents,
       };
 
       const profileRes = await fetch(apiUrl("/api/professional/profile"), {
@@ -326,6 +411,24 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user }) => {
       const profileText = await profileRes.text();
       const profileData = profileText ? JSON.parse(profileText) : {};
       if (!profileRes.ok) throw new Error(profileData.detail || "Falha ao salvar cadastro");
+      if (profileData?.access_status) {
+        let storedUser: Record<string, unknown> = {};
+        try {
+          storedUser = JSON.parse(localStorage.getItem("froid_user") || "{}");
+        } catch {
+          storedUser = {};
+        }
+        localStorage.setItem(
+          "froid_user",
+          JSON.stringify({
+            ...storedUser,
+            email: user?.email || storedUser.email,
+            name: user?.name || storedUser.name,
+            access_status: profileData.access_status,
+          }),
+        );
+      }
+      setMessage("Cadastro salvo. Encaminhando para o pagamento...");
 
       const checkoutRes = await fetch(apiUrl("/api/billing/checkout"), {
         method: "POST",
@@ -337,6 +440,11 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user }) => {
           plan_id: selectedPlan,
           email: user?.email,
           base_url: publicAppUrl(),
+          contracted_sessions: contractedSessions,
+          bonus_sessions: bonusSessions,
+          total_sessions: totalSessions,
+          session_unit_amount_cents: unitAmountCents,
+          package_total_cents: packageTotalCents,
         }),
       });
       const checkoutText = await checkoutRes.text();
@@ -345,7 +453,8 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user }) => {
       if (checkoutData.status === "stripe_not_configured") {
         setMessage(checkoutData.message || "Cadastro salvo. Stripe ainda nao configurado.");
       }
-      window.location.href = checkoutData.checkout_url || "/#/dashboard";
+      const nextUrl = checkoutData.checkout_url || `${publicAppUrl()}/#/dashboard`;
+      window.location.assign(nextUrl);
     } catch (err: any) {
       setError(err.message || "Falha ao concluir cadastro");
     } finally {
@@ -364,9 +473,19 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user }) => {
             <Link to="/dashboard" className="rounded-md border border-slate-300 px-3 py-2 text-xs font-black">
               Dashboard
             </Link>
-            <Link to="/login" className="rounded-md bg-slate-950 px-3 py-2 text-xs font-black text-white">
-              Login
-            </Link>
+            {user ? (
+              <button
+                type="button"
+                onClick={logoutToLogin}
+                className="rounded-md bg-slate-950 px-3 py-2 text-xs font-black text-white"
+              >
+                Sair
+              </button>
+            ) : (
+              <Link to="/login" className="rounded-md bg-slate-950 px-3 py-2 text-xs font-black text-white">
+                Login
+              </Link>
+            )}
           </div>
         </div>
       </header>
@@ -383,7 +502,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user }) => {
           </p>
         </div>
 
-        <form onSubmit={saveAndCheckout} className="grid gap-5 xl:grid-cols-[1fr_360px]">
+        <form noValidate onSubmit={saveAndCheckout} className="grid gap-5 xl:grid-cols-[1fr_360px]">
           <div className="space-y-4">
             <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <span className="text-[11px] font-black uppercase text-slate-500">Tipo de cadastro</span>
@@ -626,6 +745,38 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user }) => {
               />
             </label>
 
+            <div className="mt-4 grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <label className="block">
+                <span className="text-[11px] font-black uppercase text-slate-500">
+                  Numero de sessoes contratadas
+                </span>
+                <input
+                  value={contractedSessions}
+                  onChange={(e) => setContractedSessions(Math.max(0, Number(e.target.value || 0)))}
+                  type="number"
+                  min={1}
+                  className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+                />
+              </label>
+              <label className="block">
+                <span className="text-[11px] font-black uppercase text-slate-500">
+                  Valor por sessao (USD)
+                </span>
+                <input
+                  value={sessionValueUsd}
+                  onChange={(e) => setSessionValueUsd(e.target.value)}
+                  inputMode="decimal"
+                  className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+                />
+              </label>
+              <div className="rounded-md border border-cyan-200 bg-cyan-50 p-3 text-xs font-bold leading-5 text-cyan-950">
+                <p>Total do pacote: {formatUsdFromCents(packageTotalCents)}</p>
+                <p>Sessoes contratadas: {contractedSessions}</p>
+                <p>Bonus acima de 100 sessoes: +{bonusSessions} sessoes</p>
+                <p>Total liberado: {totalSessions} sessoes</p>
+              </div>
+            </div>
+
             <div className="mt-4 space-y-3">
               {availablePlans.map((plan) => (
                 <label
@@ -640,7 +791,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user }) => {
                     type="radio"
                     name="plan"
                     checked={selectedPlan === plan.id}
-                    onChange={() => setSelectedPlan(plan.id)}
+                    onChange={() => selectPlan(plan)}
                     className="sr-only"
                   />
                   <span className="block text-sm font-black text-slate-900">{plan.name}</span>

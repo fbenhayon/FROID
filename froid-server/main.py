@@ -1981,6 +1981,11 @@ async def save_professional_profile(request: Request):
         "lgpd_acknowledged_at": body.get("lgpd_acknowledged_at") or existing.get("lgpd_acknowledged_at"),
         "monthly_consultations": int(body.get("monthly_consultations") or 0),
         "selected_plan": str(body.get("selected_plan") or "").strip(),
+        "contracted_sessions": max(0, int(body.get("contracted_sessions") or 0)),
+        "bonus_sessions": max(0, int(body.get("bonus_sessions") or 0)),
+        "total_sessions": max(0, int(body.get("total_sessions") or 0)),
+        "session_unit_amount_cents": max(0, int(body.get("session_unit_amount_cents") or 0)),
+        "package_total_cents": max(0, int(body.get("package_total_cents") or 0)),
         "payment_status": existing.get("payment_status")
         or ("pending_checkout" if str(body.get("selected_plan") or "").strip() else "not_started"),
         "created_at": existing.get("created_at") or now,
@@ -2006,6 +2011,19 @@ async def create_billing_checkout(request: Request):
     success_url = f"{base_url}/#/dashboard?checkout=success&plan={quote(plan_id)}"
     cancel_url = f"{base_url}/#/access/register?checkout=cancelled&plan={quote(plan_id)}"
     email = _normalize_email(user.get("email") or body.get("email") or "")
+    contracted_sessions = max(0, int(body.get("contracted_sessions") or plan.get("session_credits") or 0))
+    bonus_sessions = max(0, int(body.get("bonus_sessions") or ((contracted_sessions // 100) * 10)))
+    total_sessions = max(0, int(body.get("total_sessions") or (contracted_sessions + bonus_sessions)))
+    unit_amount_cents = max(0, int(body.get("session_unit_amount_cents") or plan.get("amount_cents") or 0))
+    package_total_cents = max(0, int(body.get("package_total_cents") or (unit_amount_cents * contracted_sessions)))
+    plan_currency = str(plan.get("currency") or STRIPE_CURRENCY or "usd").lower()
+    checkout_description = (
+        f"{plan['description']} "
+        f"Sessoes contratadas: {contracted_sessions}. "
+        f"Bonus: {bonus_sessions}. "
+        f"Total liberado: {total_sessions}. "
+        f"Valor por sessao: {_format_brl(unit_amount_cents, plan_currency)}."
+    )
 
     if not STRIPE_SECRET_KEY:
         return {
@@ -2013,19 +2031,33 @@ async def create_billing_checkout(request: Request):
             "mode": "local_fallback",
             "checkout_url": success_url,
             "message": "STRIPE_SECRET_KEY nao configurada; usando redirecionamento local para testes.",
-            "plan": {**plan, "amount_brl": _format_brl(plan["amount_cents"], plan.get("currency", "usd"))},
+            "plan": {
+                **plan,
+                "amount_brl": _format_brl(package_total_cents, plan_currency),
+                "contracted_sessions": contracted_sessions,
+                "bonus_sessions": bonus_sessions,
+                "total_sessions": total_sessions,
+                "session_unit_amount_brl": _format_brl(unit_amount_cents, plan_currency),
+            },
         }
 
-    if int(plan.get("amount_cents") or 0) <= 0:
+    if package_total_cents <= 0:
         return {
             "status": "free_access",
             "mode": "local_success",
             "checkout_url": success_url,
             "message": "Plano gratuito liberado sem checkout Stripe.",
-            "plan": {**plan, "amount_brl": _format_brl(plan["amount_cents"], plan.get("currency", "usd"))},
+            "plan": {
+                **plan,
+                "amount_brl": _format_brl(package_total_cents, plan_currency),
+                "contracted_sessions": contracted_sessions,
+                "bonus_sessions": bonus_sessions,
+                "total_sessions": total_sessions,
+                "session_unit_amount_brl": _format_brl(unit_amount_cents, plan_currency),
+            },
         }
 
-    stripe_currency = str(plan.get("currency") or STRIPE_CURRENCY or "brl").lower()
+    stripe_currency = plan_currency
 
     form = {
         "mode": "payment",
@@ -2034,11 +2066,15 @@ async def create_billing_checkout(request: Request):
         "client_reference_id": email or uuid.uuid4().hex,
         "line_items[0][quantity]": "1",
         "line_items[0][price_data][currency]": stripe_currency,
-        "line_items[0][price_data][unit_amount]": str(plan["amount_cents"]),
-        "line_items[0][price_data][product_data][name]": plan["name"],
-        "line_items[0][price_data][product_data][description]": plan["description"],
+        "line_items[0][price_data][unit_amount]": str(package_total_cents),
+        "line_items[0][price_data][product_data][name]": f"{plan['name']} - {total_sessions} sessoes",
+        "line_items[0][price_data][product_data][description]": checkout_description,
         "metadata[plan_id]": plan_id,
-        "metadata[session_credits]": str(plan["session_credits"]),
+        "metadata[session_credits]": str(total_sessions),
+        "metadata[contracted_sessions]": str(contracted_sessions),
+        "metadata[bonus_sessions]": str(bonus_sessions),
+        "metadata[unit_amount_cents]": str(unit_amount_cents),
+        "metadata[package_total_cents]": str(package_total_cents),
         "metadata[professional_email]": email,
     }
     if email:
@@ -2062,7 +2098,14 @@ async def create_billing_checkout(request: Request):
             "status": "ok",
             "checkout_session_id": data.get("id"),
             "checkout_url": data.get("url"),
-            "plan": {**plan, "amount_brl": _format_brl(plan["amount_cents"], plan.get("currency", "usd"))},
+            "plan": {
+                **plan,
+                "amount_brl": _format_brl(package_total_cents, plan_currency),
+                "contracted_sessions": contracted_sessions,
+                "bonus_sessions": bonus_sessions,
+                "total_sessions": total_sessions,
+                "session_unit_amount_brl": _format_brl(unit_amount_cents, plan_currency),
+            },
         }
     except HTTPException:
         raise
