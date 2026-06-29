@@ -35,6 +35,61 @@ function limitWords(text: string, maxWords: number) {
   return String(text || "").trim().split(/\s+/).filter(Boolean).slice(0, maxWords).join(" ");
 }
 
+const clamp = (value: number, min = 0, max = 1) =>
+  Math.min(Math.max(Number.isFinite(value) ? value : 0, min), max);
+
+const classifyStability = (
+  value: number,
+  stable: number,
+  warning: number,
+) => {
+  if (value <= stable) return { label: "Estavel", color: "#22c55e" };
+  if (value <= warning) return { label: "Atencao", color: "#f59e0b" };
+  return { label: "Alterado", color: "#ef4444" };
+};
+
+const StabilityGauge: React.FC<{
+  label: string;
+  value: number;
+  max: number;
+  stable: number;
+  warning: number;
+  tooltip: string;
+}> = ({ label, value, max, stable, warning, tooltip }) => {
+  const ratio = clamp(value / Math.max(max, 0.0001));
+  const angle = Math.PI - Math.PI * ratio;
+  const dotX = 100 + 75 * Math.cos(angle);
+  const dotY = 75 - 75 * Math.sin(angle);
+  const status = classifyStability(value, stable, warning);
+
+  return (
+    <FroidTooltip content={<p>{tooltip}</p>} width={270}>
+      <div className="cursor-help rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-center">
+        <p className="text-[10px] font-black uppercase text-slate-200">{label}</p>
+        <svg viewBox="0 0 200 95" className="mx-auto mt-1 h-14 w-full">
+          <path
+            d="M 25 75 A 75 75 0 0 1 175 75"
+            fill="none"
+            stroke="#334155"
+            strokeLinecap="round"
+            strokeWidth="14"
+          />
+          <circle cx={dotX} cy={dotY} r="7" fill={status.color} />
+        </svg>
+        <p className="font-mono text-[12px] font-black text-slate-100">
+          {value.toFixed(3)}
+        </p>
+        <span
+          className="mt-1 inline-flex rounded-full px-2 py-0.5 text-[9px] font-black uppercase"
+          style={{ backgroundColor: `${status.color}22`, color: status.color }}
+        >
+          {status.label}
+        </span>
+      </div>
+    </FroidTooltip>
+  );
+};
+
 export const AudioTranscription: React.FC<Props> = ({
   audioMeta: providedAudioMeta,
   conversationSummaries = [],
@@ -106,21 +161,20 @@ export const AudioTranscription: React.FC<Props> = ({
         : transcriptionStatus === "error"
           ? "bg-red-50 text-red-700"
           : "bg-slate-100 text-slate-500";
-  const biomarkerItems = [
-    { key: "mfcc7", label: "MFCC7", value: mfcc7.toFixed(2) },
-    { key: "mfcc9", label: "MFCC9", value: mfcc9.toFixed(2) },
-    { key: "jitter", label: "Jitter", value: jitter.toFixed(3) },
-    { key: "shimmer", label: "Shimmer", value: shimmer.toFixed(3) },
+  const mfccMax = Math.max(mfcc7, mfcc9, 0.01);
+  const mfccItems = [
+    { key: "mfcc7", label: "MFCC7", value: mfcc7 },
+    { key: "mfcc9", label: "MFCC9", value: mfcc9 },
   ];
   const orderedSummaries = [...conversationSummaries].sort(
     (a, b) => b.startMinute - a.startMinute,
   );
 
   return (
-    <div className="w-full bg-white rounded-xl border border-slate-100 shadow-sm p-3 space-y-2">
-      <div className="rounded-md border border-slate-100 bg-white px-2 py-2">
-        <div className="flex items-center justify-between gap-2 text-[9px] font-bold uppercase tracking-wider text-slate-500">
-          <span>Resumos IA 10min</span>
+    <div className="w-full space-y-2 rounded-xl border border-slate-700 bg-slate-950 p-3 text-slate-100 shadow-sm">
+      <div className="rounded-md border border-slate-700 bg-slate-900 px-2 py-2">
+        <div className="flex items-center justify-between gap-2 text-[9px] font-bold uppercase tracking-wider text-slate-300">
+          <span>Resumo da Fala IA</span>
           <div className="flex items-center gap-1">
             <span className={`rounded px-1.5 py-0.5 text-[8px] ${sttClass}`}>
               {sttLabel}
@@ -128,7 +182,7 @@ export const AudioTranscription: React.FC<Props> = ({
             <span>{orderedSummaries.length}</span>
           </div>
         </div>
-        <div className="mt-1 max-h-48 space-y-1 overflow-y-auto">
+        <div className="mt-1 max-h-44 space-y-1 overflow-y-auto">
           {orderedSummaries.length === 0 && (
             <p className="text-[10px] italic leading-snug text-slate-400">
               Aguardando fechamento do primeiro bloco de 10 minutos.
@@ -137,24 +191,24 @@ export const AudioTranscription: React.FC<Props> = ({
           {orderedSummaries.map((item) => (
             <div
               key={item.id}
-              className="rounded border border-slate-100 bg-slate-50 px-2 py-1.5"
+              className="rounded border border-slate-700 bg-slate-950 px-2 py-1.5"
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-1">
-                  <span className="text-[9px] font-mono font-bold text-slate-500">
+                  <span className="text-[9px] font-mono font-bold text-slate-400">
                     {item.startMinute}-{item.endMinute}min
                   </span>
                   {item.trigger === "manual" && (
-                    <span className="rounded bg-blue-100 px-1 text-[8px] font-bold uppercase text-blue-700">
+                    <span className="rounded bg-blue-950 px-1 text-[8px] font-bold uppercase text-blue-200">
                       manual
                     </span>
                   )}
                 </div>
-                <strong className="truncate text-[10px] text-slate-800">
+                <strong className="truncate text-[10px] text-slate-100">
                   {limitWords(item.theme, 6)}
                 </strong>
               </div>
-              <p className="mt-0.5 text-[10px] leading-snug text-slate-600">
+              <p className="mt-0.5 text-[10px] leading-snug text-slate-300">
                 {limitWords(item.summary, 60)}
               </p>
             </div>
@@ -162,21 +216,62 @@ export const AudioTranscription: React.FC<Props> = ({
         </div>
       </div>
 
-      <div className="rounded-md bg-slate-50 border border-slate-100 px-2 py-2">
-        <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-wider text-slate-500">
+      <div className="rounded-md border border-slate-700 bg-slate-900 px-2 py-2">
+        <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-wider text-slate-300">
           <span>Biomarcadores vocais</span>
           <span className={`rounded px-1.5 py-0.5 text-[8px] ${bioacousticClass}`}>
             {bioacousticLabel}
           </span>
         </div>
-        <div className="mt-1 grid grid-cols-2 gap-2 text-[10px] text-slate-600">
-          {biomarkerItems.map((item) => (
-            <FroidTooltip key={item.key} content={<p>{biomarkerTooltips[item.key]}</p>} width={270}>
-              <div className="cursor-help rounded bg-white p-1.5 border border-slate-100">
-                {item.label}: <strong>{item.value}</strong>
-              </div>
-            </FroidTooltip>
-          ))}
+        <div className="mt-2 space-y-2 text-[10px]">
+          <div className="rounded-[18px] border border-slate-700 bg-slate-950 px-4 py-3">
+            <p className="mb-3 text-[11px] font-black uppercase tracking-wide text-slate-300">
+              Grafico Comparativo MFCC7 x MFCC9
+            </p>
+            <div className="space-y-4">
+            {mfccItems.map((item) => (
+              <FroidTooltip
+                key={item.key}
+                content={<p>{biomarkerTooltips[item.key]}</p>}
+                width={300}
+              >
+                <div className="grid cursor-help grid-cols-[72px_minmax(0,1fr)_62px] items-center gap-3">
+                  <span className="text-[13px] font-black text-slate-100">{item.label}</span>
+                  <div className="h-5 overflow-hidden rounded-full bg-slate-800">
+                    <div
+                      className="h-full rounded-full bg-slate-300 transition-all duration-500"
+                      style={{
+                        width: `${Math.max(3, (Math.max(0, item.value) / mfccMax) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                  <span className="text-right font-mono text-[14px] font-black text-slate-100">
+                    {item.value.toFixed(2)}
+                  </span>
+                </div>
+              </FroidTooltip>
+            ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <StabilityGauge
+              label="Jitter"
+              value={jitter}
+              max={0.06}
+              stable={0.02}
+              warning={0.04}
+              tooltip={biomarkerTooltips.jitter}
+            />
+            <StabilityGauge
+              label="Shimmer"
+              value={shimmer}
+              max={1}
+              stable={0.3}
+              warning={0.6}
+              tooltip={biomarkerTooltips.shimmer}
+            />
+          </div>
         </div>
       </div>
     </div>

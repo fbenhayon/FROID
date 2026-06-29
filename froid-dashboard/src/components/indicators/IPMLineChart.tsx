@@ -22,11 +22,11 @@ const polarBands = [
 
 export const IPMLineChart: React.FC<Props> = ({ data, current, baseline }) => {
   const viewW = 620;
-  const viewH = 260;
-  const padLeft = 44;
-  const padRight = 28;
-  const padTop = 22;
-  const padBot = 34;
+  const viewH = 300;
+  const padLeft = 40;
+  const padRight = 20;
+  const padTop = 10;
+  const padBot = 28;
   const chartW = viewW - padLeft - padRight;
   const chartH = viewH - padTop - padBot;
 
@@ -73,8 +73,8 @@ export const IPMLineChart: React.FC<Props> = ({ data, current, baseline }) => {
   const deltaLabel = `${currentDelta > 0 ? "+" : ""}${currentDelta.toFixed(1)}`;
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-white shadow-sm">
-      <div className="mb-2 flex shrink-0 items-center justify-between gap-3 border-b border-slate-800 pb-2">
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border border-slate-700 bg-slate-950 px-2 py-2 text-white shadow-sm">
+      <div className="mb-1 flex shrink-0 items-center justify-between gap-3 border-b border-slate-800 pb-1">
         <div className="flex min-w-0 items-center gap-3">
           <span className="text-[11px] font-black uppercase tracking-widest text-slate-100">
             FROID - IPM
@@ -93,34 +93,16 @@ export const IPMLineChart: React.FC<Props> = ({ data, current, baseline }) => {
         </div>
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-[90px_minmax(0,1fr)] gap-3">
-        <div className="flex flex-col justify-between rounded-lg border border-slate-700 bg-slate-900 p-2">
-          <div>
-            <p className="text-[10px] font-black uppercase text-slate-400">
-              IPM atual
-            </p>
-            <p className="mt-1 text-3xl font-black leading-none text-emerald-400">
+      <div className="min-h-0 flex-1">
+        <div className="relative h-full min-h-0 rounded-lg border border-slate-700 bg-slate-900 p-1.5">
+          <div className="absolute left-3 top-2 z-10 flex items-baseline gap-2">
+            <span className="text-2xl font-black leading-none text-emerald-400">
               {currentValue.toFixed(1)}
-            </p>
+            </span>
+            <span className="font-mono text-[10px] font-black text-slate-300">
+              delta {deltaLabel}
+            </span>
           </div>
-          <div className="space-y-1 text-[10px] font-bold text-slate-300">
-            <p>Delta {deltaLabel}</p>
-            <p className="text-slate-500">vs 60s iniciais</p>
-          </div>
-          <div>
-            <p className="mb-1 text-[9px] font-black uppercase text-slate-500">
-              Sinal
-            </p>
-            <div className="h-2 overflow-hidden rounded-full bg-slate-700">
-              <div
-                className="h-full rounded-full bg-emerald-400"
-                style={{ width: `${Math.max(6, currentValue)}%` }}
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="relative min-h-0 rounded-lg border border-slate-700 bg-slate-900 p-2">
           <div className="absolute right-3 top-2 z-10 text-[9px] font-black uppercase text-slate-400">
             escala IPM
           </div>
@@ -159,7 +141,7 @@ export const IPMLineChart: React.FC<Props> = ({ data, current, baseline }) => {
                     width={chartW}
                     height={Math.max(1, yBottom - yTop)}
                     fill={band.color}
-                    opacity={0.9}
+                    opacity={0.98}
                   />
                   <text
                     x={padLeft + 8}

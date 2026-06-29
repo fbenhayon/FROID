@@ -10,7 +10,6 @@ import { RiskChart } from "../components/indicators/RiskChart";
 import { SubharmonicChart } from "../components/indicators/SubharmonicChart";
 import { MediaStatus } from "../components/indicators/MediaStatus";
 import { SessionTimer } from "../components/indicators/SessionTimer";
-import { ClinicalNotes } from "../components/panels/ClinicalNotes";
 import { AIInsights } from "../components/panels/AIInsights";
 import { AudioTranscription } from "../components/panels/AudioTranscription";
 import { COMMITMENT_TEXTS } from "../components/panels/CommitmentPanel";
@@ -20,7 +19,6 @@ import { apiUrl, wsUrl } from "../lib/api";
 import { createConferenceStream, RTC_CONFIG } from "../lib/webrtc";
 import { FroidTooltip } from "../components/ui/FroidTooltip";
 import {
-  ClinicalNote,
   MetricSnapshot,
   loadSessionPatient,
   loadSessionReports,
@@ -135,73 +133,103 @@ function classifyDissonance(zone?: PerceptionZone | null, audioMeta?: Record<str
     return {
       title: "Risco de retraumatizacao / flooding autonomico",
       summary:
-        "Picos sub-harmonicos de 5-12 Hz cruzados com AU15 (dor profunda) e AU20 (panico) sugerem sobrecarga autonomica relevante.",
+        "O motor de dissonancias cruzou tremor sub-harmonico de 5-12 Hz, tensao basal e AUs 15/20, indicando vazamento extrapiramidal de dor/panico acima do relato consciente.",
       action:
-        "Reduzir intensidade da intervencao, priorizar aterramento, ritmo respiratorio e monitoramento de seguranca.",
+        "Mitigar reduzindo intensidade, desacelerando a exploracao, usando aterramento, orientacao ao presente, respiracao ritmada e checagem da janela de tolerancia antes de prosseguir.",
     };
   }
   if (hasDeepSna && hasAu(auSet, 15) && basal < 0.25) {
     return {
       title: "Shutdown psiquico / dissociacao",
       summary:
-        "Tremor autonomico profundo com AU15 e baixa energia vocal basal sugere supressao, congelamento ou queda de disponibilidade emocional.",
+        "A combinacao de tremor autonomico profundo, AU15 e baixa energia vocal basal sugere queda de disponibilidade, congelamento ou supressao defensiva da expressao emocional.",
       action:
-        "Pausar confronto direto, restaurar orientacao ao presente e checar janela de tolerancia.",
+        "Mitigar pausando confronto direto, reduzindo demanda cognitiva, restaurando orientacao corporal e confirmando se o paciente permanece presente e responsivo.",
     };
   }
   if (hasAu(auSet, 12) && !hasAu(auSet, 6)) {
     return {
       title: "Sorriso falso / falsa calma",
       summary:
-        "AU12 aparece sem AU6, indicando sorriso social sem marcador Duchenne, enquanto o IDM aponta tensao vocal/facial relevante.",
+        "AU12 sem AU6 indica sorriso voluntario sem marcador Duchenne; quando o IDM tambem sobe, o FROID interpreta possivel mascara social cobrindo tensao interna.",
       action:
-        "Investigar discrepancia entre relato de calma e carga corporal, sem confrontar de modo abrupto.",
+        "Mitigar validando a fala sem confrontar bruscamente, investigando com perguntas abertas a diferenca entre calma relatada e carga corporal observada.",
     };
   }
   if (hasAu(auSet, 23, 24) || (zone?.zone === 7 && score > DISSONANCE_REPORT_THRESHOLD)) {
     return {
       title: "Raiva contida / resposta verbal suprimida",
       summary:
-        "AUs 23/24 indicam compressao ou estreitamento mecanico dos labios, biomarcadores faciais de contencao e supressao de resposta.",
+        "AUs 23/24 ou pico na Zona 7 indicam contencao mecanica dos labios diante de energia vocal de conflito, sugerindo resposta verbal freada ou agressividade reprimida.",
       action:
-        "Abrir espaco seguro para nomear irritacao, limite, injustica percebida ou agressividade internalizada.",
+        "Mitigar abrindo espaco seguro para nomear irritacao, limite ou injustica percebida, preservando contencao e evitando escalada confrontativa.",
     };
   }
   if (hasAu(auSet, 1) && hasAu(auSet, 4) && hasAu(auSet, 15)) {
     return {
       title: "Tristeza mascarada",
       summary:
-        "A combinacao AU1+AU4+AU15 sugere vazamento involuntario de tristeza, dor ou amargura apesar de possivel discurso de bem-estar.",
+        "A conjuncao AU1+AU4+AU15 sugere vazamento involuntario de tristeza ou dor profunda, especialmente quando a fala aparenta neutralidade, controle ou bem-estar.",
       action:
-        "Explorar perdas, desamparo e afetos evitados com perguntas abertas e ritmo cuidadoso.",
+        "Mitigar desacelerando o ritmo, explorando perdas e desamparo com linguagem permissiva e evitando insistencia caso surjam sinais de retraimento.",
     };
   }
   if (hasAu(auSet, 12, 14) && activeAus.some((au) => /^[LR]/i.test(String(au)))) {
     return {
       title: "Desprezo unilateral",
       summary:
-        "Ativacao assimetrica de AU12/AU14 pode indicar desprezo, resistencia ou superioridade defensiva durante fala sobre terceiros.",
+        "Ativacao unilateral de AU12/AU14 aponta assimetria expressiva compativel com desprezo, resistencia ou defesa de superioridade em contexto relacional.",
       action:
-        "Observar contexto relacional e investigar julgamentos, vergonha, rivalidade ou defesa narcísica.",
+        "Mitigar observando o contexto interpessoal, investigando julgamentos, vergonha ou rivalidade com neutralidade fenomenologica e sem rotular o paciente.",
     };
   }
   if (hasAu(auSet, 5, 20, 25, 26, 27) || hasAu(auSet, 4, 5, 7)) {
     return {
       title: "Microexpressao contraditoria",
       summary:
-        "Vazamentos breves de medo, panico, raiva ou foco defensivo contradizem a neutralidade aparente e elevam o IDM.",
+        "O FROID detectou vazamento facial breve de medo, panico, raiva ou foco defensivo contradizendo a neutralidade aparente em janela temporal curta.",
       action:
-        "Registrar o instante clinico e testar a hipotese com observacao fenomenologica, sem transformar em diagnostico isolado.",
+        "Mitigar registrando o instante clinico, checando o tema que precedeu o vazamento e testando a hipotese com pergunta aberta, sem assumir diagnostico isolado.",
     };
   }
   return {
     title: "Dissonancia facial-vocal relevante",
     summary:
       zone?.dissonance_details?.report ||
-      "O rosto e a voz apresentaram incongruencia acima do limiar configurado do IDM.",
+      "O rosto, a voz e/ou a semantica apresentaram incongruencia acima do limiar configurado do IDM, indicando possivel desalinhamento entre intencao consciente e expressao involuntaria.",
     action:
-      "Usar como marcador de investigacao clinica, cruzando relato, contexto, biomarcadores vocais e mapa zonal.",
+      "Mitigar usando o achado apenas como marcador de investigacao, cruzando relato, contexto, biomarcadores, AUs, mapa zonal e resposta do paciente.",
   };
+}
+
+function formatMetricValue(value: unknown, digits = 2) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed.toFixed(digits) : "--";
+}
+
+function dissonanceTechnicalFactors(
+  zone?: PerceptionZone | null,
+  audioMeta?: Record<string, unknown>,
+) {
+  const aus = zone?.dissonance_details?.active_aus || [];
+  const score = dissonanceScore(zone);
+  const severity = dissonanceSeverity(zone).toLowerCase();
+  const semantic =
+    String(
+      audioMeta?.semantic_valence ||
+        audioMeta?.semantic_tone ||
+        audioMeta?.substancia_semantica ||
+        "",
+    ).trim() || "nao informada";
+
+  return [
+    `IDM ${score.toFixed(2)} (${severity}) acima do limiar ${DISSONANCE_REPORT_THRESHOLD.toFixed(2)}, comparado a linha de base dinamica calibrada nos 60 segundos iniciais.`,
+    "Integracao multimodal em janela de 500 ms: bioacustica vocal, morfodinamica facial/FACS e valencia semantica foram cruzadas antes do apontamento.",
+    `AUs ativas: ${aus.length ? aus.join(", ") : "sem AU especifica reportada"}; a regra clinica exige coerencia temporal entre onset, apex e offset da expressao.`,
+    `Zona ${zone?.zone ?? "--"} (${zone?.tema || "tema em apuracao"}): ${ZONE_CLINICAL_DESCRIPTIONS[zone?.zone || 0] || "sem descricao zonal."}`,
+    `Sinais acusticos: MFCC7 ${formatMetricValue(audioMeta?.mfcc7)}, MFCC9 ${formatMetricValue(audioMeta?.mfcc9)}, F0 medio ${formatMetricValue(audioMeta?.f0_mean || audioMeta?.f0_medio)}, sub-harmonico 5-12 Hz ${formatMetricValue(audioMeta?.subharmonic_energy_5_12hz, 3)} e energia basal 85-165 Hz ${formatMetricValue(audioMeta?.energy_85_165hz, 3)}.`,
+    `Valencia semantica considerada: ${semantic}. Quando ha contradicao facial-vocal, o multiplicador facial M_fac pode elevar o IDM em 2.5x; quando ha congruencia, permanece em 1.0.`,
+  ];
 }
 
 function reducer(state: SessionState, action: Action): SessionState {
@@ -1197,10 +1225,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     ConversationSummary[]
   >([]);
   const [semanticCutStartSecond, setSemanticCutStartSecond] = useState(0);
-  const [semanticCutStatus, setSemanticCutStatus] = useState(
-    "Corte semantico aguardando fala.",
-  );
-  const [clinicalNotes, setClinicalNotes] = useState<ClinicalNote[]>([]);
   const [rtcStatus, setRtcStatus] = useState("Aguardando paciente");
   const [remotePatientOn, setRemotePatientOn] = useState(false);
   const [localSpeaker, setLocalSpeaker] = useState<SpeakerRole>("DR");
@@ -2088,13 +2112,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         );
       };
 
-      const cutLabel =
-        trigger === "manual"
-          ? "Corte manual"
-          : trigger === "final"
-            ? "Corte final"
-            : "Corte automatico";
-      setSemanticCutStatus(`${cutLabel} em processamento...`);
 
       if (!transcript) {
         commitSummary({
@@ -2105,7 +2122,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           summary: "Nenhuma fala foi transcrita neste intervalo.",
           trigger,
         });
-        setSemanticCutStatus(`${cutLabel} registrado sem fala transcrita.`);
         return;
       }
 
@@ -2129,7 +2145,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           summary: limitWords(String(data?.summary || "").trim(), 60),
           trigger,
         });
-        setSemanticCutStatus(`${cutLabel} registrado com resumo IA.`);
       } catch {
         commitSummary({
           id,
@@ -2139,7 +2154,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           summary: limitWords(transcript, 60),
           trigger,
         });
-        setSemanticCutStatus(`${cutLabel} registrado com resumo local.`);
       }
     },
     [sessionId],
@@ -2156,7 +2170,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       const duration = endSecond - startSecond;
 
       if (trigger === "manual" && duration < 10) {
-        setSemanticCutStatus("Aguarde ao menos 10 segundos para fechar um corte manual.");
         return;
       }
 
@@ -2181,17 +2194,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     },
     [state.elapsedSeconds, summarizeTranscriptRange],
   );
-
-  const addClinicalNote = useCallback((text: string) => {
-    setClinicalNotes((prev) => [
-      {
-        id: makeReportId(),
-        text,
-        timestamp: Date.now(),
-      },
-      ...prev,
-    ]);
-  }, []);
 
   const transcribeAudioBlob = useCallback(
     async (audioBlob: Blob, mimeType: string, speaker: SpeakerRole) => {
@@ -2942,7 +2944,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       baseline,
       sessionAverage,
       tenMinuteCuts,
-      clinicalNotes,
+      clinicalNotes: [],
       conversationSummaries,
       sessionSummary: buildSessionSummary(conversationSummaries, summarySourceTranscript),
       dissonances: dissonanceLog,
@@ -2951,7 +2953,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       anonymizedContext,
     };
   }, [
-    clinicalNotes,
     conversationSummaries,
     dissonanceLog,
     raw,
@@ -3011,7 +3012,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           zone: z.zone,
           score,
           severity: dissonanceSeverity(z),
-          report: `${interpretation.title}: ${interpretation.summary} Conduta sugerida: ${interpretation.action}`,
+          report: `${interpretation.title}: ${interpretation.summary} Fatores de mitigacao: ${interpretation.action}`,
         };
       });
     const signature = currentEntries
@@ -3044,7 +3045,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     : state.phase === "ENDED"
       ? "Encerrada"
       : "Desconectado";
-  const baselineSnapshot = baselineSnapshotRef.current;
   const patientBaselineStart = firstPatientMetricSecondRef.current;
   const patientBaselineElapsed =
     patientBaselineStart === null
@@ -3073,7 +3073,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   return (
     <div className="flex h-screen overflow-hidden bg-slate-950 text-slate-100">
       {/* COLUNA 1 — 30% */}
-      <div className="w-[28%] flex flex-col gap-2 overflow-y-auto border-r border-slate-800 bg-slate-900 p-3">
+      <div className="order-2 w-[22%] flex flex-col gap-2 overflow-y-auto border-x border-slate-800 bg-slate-950 p-2 text-slate-100">
         <div className="flex items-center justify-between">
           <h1 className="text-base font-bold text-slate-100">
             Sessão {sessionId?.slice(0, 8) || "--"}
@@ -3104,9 +3104,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
               <p className="font-bold uppercase tracking-wider">
                 Corte semantico da sessao
               </p>
-              <p className="text-cyan-300">
-                {semanticCutStatus}
-              </p>
             </div>
             <button
               type="button"
@@ -3130,11 +3127,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           </div>
         </div>
 
-        <AudioTranscription
-          audioMeta={displayAudio}
-          conversationSummaries={conversationSummaries}
-        />
-
         {state.phase === "CALIBRATING" && (
           <div className="shrink-0 rounded-lg border border-blue-800 bg-blue-950 p-3 text-xs text-blue-100">
             <p className="font-bold">Fase de Repouso Ativa</p>
@@ -3152,41 +3144,32 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           </div>
         )}
 
-        {state.phase === "LIVE" && baselineSnapshot && (
-          <div className="rounded-lg border border-emerald-800 bg-emerald-950 p-2 text-[10px] text-emerald-100">
-            <div className="mb-1 font-bold uppercase tracking-wider">
-              Baseline 60s registrado
-            </div>
-            <div className="grid grid-cols-3 gap-1">
-              <span>IPM {baselineSnapshot.ipmAvg.toFixed(1)}</span>
-              <span>IDM {baselineSnapshot.idmAvg.toFixed(2)}</span>
-              <span>{baselineSnapshot.wordsPerMinute.toFixed(0)} ppm</span>
-            </div>
-            <p className="mt-1 truncate text-emerald-300">
-              Tema: {baselineSnapshot.theme} | Zona{" "}
-              {baselineSnapshot.dominantZone || "--"}
-            </p>
-          </div>
-        )}
-
         <div className="flex-1 min-h-0 flex flex-col gap-3">
-          <ClinicalNotes notes={clinicalNotes} onAddNote={addClinicalNote} />
-          <div className="flex-1 min-h-[200px]">
-            <AIInsights
+          <div className="min-h-[270px]">
+            <RiskChart
               zones={displayZones}
               ipmScore={displayIpm}
               coherenceStatus={displayCoherence}
-              baselineEstablished={state.phase === "LIVE"}
-              sessionId={sessionId || ""}
+              baseline={state.baselineIPM}
+              audioMeta={displayAudio}
             />
           </div>
+
+          <div className="min-h-[310px]">
+            <SubharmonicChart zones={displayZones} audioMeta={displayAudio} />
+          </div>
+
+          <AudioTranscription
+            audioMeta={displayAudio}
+            conversationSummaries={conversationSummaries}
+          />
         </div>
       </div>
 
       {/* COLUNA 2 — 34%: Vídeo (50%) + Mapa Zonal (50%) */}
-      <div className="w-[34%] flex flex-col gap-2 overflow-hidden bg-slate-950 p-2 shadow-inner">
+      <div className="order-1 w-[36%] flex flex-col gap-2 overflow-hidden bg-slate-950 p-2 shadow-inner">
         {/* Vídeo — 50% do espaço */}
-        <div className="relative flex h-1/2 items-center justify-center overflow-hidden rounded-xl border border-slate-700 bg-slate-900">
+        <div className="relative flex min-h-[320px] flex-[0.9] items-center justify-center overflow-hidden rounded-xl border border-slate-700 bg-slate-900">
           <MediaStatus
             cameraOn={state.cameraOn}
             micOn={state.micOn}
@@ -3241,19 +3224,22 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           )}
         </div>
 
-        <div className="h-1/2 flex flex-col gap-0 overflow-hidden">
-          <MapaZonalFroid
-            className="h-full"
+        <div className="min-h-[320px] flex-1 overflow-hidden rounded-xl border border-slate-700 bg-slate-950 p-2">
+          <AIInsights
             zones={displayZones}
-            baselineIpm={state.baselineIPM}
-            drValue={displayDrValue}
-            isCalibrating={state.phase === "CALIBRATING"}
+            ipmScore={displayIpm}
+            coherenceStatus={displayCoherence}
+            baselineEstablished={state.phase === "LIVE"}
+            sessionId={sessionId || ""}
+            controlsSticky
+            rootClassName="h-full border-0 bg-transparent p-0 text-slate-100"
+            messagesClassName="min-h-[190px] bg-slate-800/80 text-slate-200"
           />
         </div>
       </div>
 
       {/* COLUNA 3 — 35%: IPM grande, Risco, Subharm, Coherence, Dissonâncias */}
-      <div className="grid flex-1 grid-rows-[1.05fr_1.35fr_1.45fr_1.15fr] gap-2 overflow-visible bg-slate-950 p-3">
+      <div className="order-3 grid flex-1 grid-rows-[1.1fr_1.25fr_0.65fr] gap-2 overflow-visible bg-slate-950 p-3">
         {raw ? (
           <>
             <div className="min-h-0 overflow-visible">
@@ -3264,39 +3250,17 @@ function LiveSessionInner({ user }: LiveSessionProps) {
               />
             </div>
 
-            <div className="min-h-0 overflow-visible">
-              <RiskChart
+            <div className="min-h-0 overflow-hidden rounded-xl border border-slate-800 bg-slate-900 p-1">
+              <MapaZonalFroid
+                className="h-full"
                 zones={displayZones}
-                ipmScore={displayIpm}
-                coherenceStatus={displayCoherence}
-                baseline={state.baselineIPM}
-                audioMeta={displayAudio}
+                baselineIpm={state.baselineIPM}
+                drValue={displayDrValue}
+                isCalibrating={state.phase === "CALIBRATING"}
               />
             </div>
 
-            <div className="min-h-0 overflow-hidden">
-              <SubharmonicChart zones={displayZones} audioMeta={displayAudio} />
-            </div>
-
             <div className="min-h-0 overflow-y-auto rounded-xl border border-slate-700 bg-slate-950 p-3 text-slate-100 shadow-sm">
-              <h3 className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Dissonâncias Identificadas (Média 10s)
-                {displayZones.some(isReportableDissonance) && (
-                  <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-                )}
-                <span className="text-[9px] font-semibold normal-case tracking-normal text-slate-400">
-                  IDM &gt; {DISSONANCE_REPORT_THRESHOLD.toFixed(2)}
-                </span>
-              </h3>
-
-              {(!Array.isArray(displayZones) ||
-                displayZones.filter(isReportableDissonance).length === 0) && (
-                <p className="text-xs italic text-slate-400">
-                  Nenhuma dissonancia facial-vocal acima do limiar nos ultimos
-                  10 segundos.
-                </p>
-              )}
-
               {Array.isArray(displayZones) &&
                 displayZones
                   .filter(isReportableDissonance)
@@ -3306,87 +3270,102 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                     const score = dissonanceScore(zone);
                     const severity = dissonanceSeverity(zone);
                     const interpretation = classifyDissonance(zone, displayAudio);
+                    const technicalFactors = dissonanceTechnicalFactors(zone, displayAudio);
                     return (
                       <div
                         key={zone.zone}
-                        className="mb-2 rounded-r-lg border-l-4 border-red-600 bg-red-50 p-3"
+                        className="mb-3 rounded-xl border border-red-800/70 bg-red-950/25 p-3 shadow-sm"
                       >
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs font-bold text-red-900">
-                            Zona {zone.zone} — {zone.tema || ""}
-                          </p>
-                          <span className="text-[9px] font-bold text-white bg-red-600 px-1.5 py-0.5 rounded">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-[11px] font-black uppercase tracking-wide text-red-200">
+                              {interpretation.title}
+                            </p>
+                            <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                              Zona {zone.zone} - {zone.tema || "tema em apuracao"}
+                            </p>
+                          </div>
+                          <span className="shrink-0 rounded bg-red-600 px-1.5 py-0.5 text-[9px] font-black text-white">
                             IDM {score.toFixed(2)} | {severity}
                           </span>
                         </div>
-                        <p className="mt-1 text-[11px] font-black uppercase tracking-wide text-red-800">
-                          {interpretation.title}
-                        </p>
-                        <p className="mt-1 text-[11px] font-medium leading-relaxed text-slate-700">
+
+                        <p className="mt-2 text-[11px] font-medium leading-relaxed text-slate-200">
                           {interpretation.summary}
                         </p>
-                        <p className="mt-2 text-[10px] leading-relaxed text-slate-600">
-                          Zona clinica: {ZONE_CLINICAL_DESCRIPTIONS[zone.zone] || "sem descricao zonal."}
-                        </p>
-                        <div className="mt-2 space-y-1">
-                          {auDescs.map((d, i) => (
-                            <p
-                              key={i}
-                              className="text-[10px] font-mono text-slate-600 leading-tight"
-                            >
-                              • {d}
-                            </p>
-                          ))}
+
+                        <div className="mt-2 rounded-lg border border-slate-700 bg-slate-950/70 p-2">
+                          <p className="text-[10px] font-black uppercase tracking-wider text-cyan-200">
+                            Elementos tecnicos apurados
+                          </p>
+                          <ul className="mt-1 space-y-1 text-[10px] leading-snug text-slate-300">
+                            {technicalFactors.map((factor, i) => (
+                              <li key={i} className="list-inside list-disc">
+                                {factor}
+                              </li>
+                            ))}
+                          </ul>
                         </div>
-                        <p className="mt-2 text-[10px] font-bold text-red-800">
-                          Conduta sugerida: {interpretation.action}
-                        </p>
-                        <p className="mt-1 text-[10px] font-bold text-red-800">
-                          Multiplicador facial 2.5x aplicado ao IDM.
+
+                        {auDescs.length > 0 && (
+                          <div className="mt-2 space-y-1 rounded-lg border border-slate-700 bg-slate-950/50 p-2">
+                            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                              Leitura FACS/AUs
+                            </p>
+                            {auDescs.map((d, i) => (
+                              <p
+                                key={i}
+                                className="text-[10px] font-mono leading-tight text-slate-300"
+                              >
+                                {d}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+
+                        <p className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-[10px] font-bold leading-relaxed text-amber-100">
+                          Fatores de mitigacao: {interpretation.action}
                         </p>
                       </div>
                     );
                   })}
 
+              {dissonanceLog.length > 0 && (
                 <div className="mt-3 rounded-lg border border-slate-700 bg-slate-900 p-2">
-                <div className="mb-2 flex items-center justify-between">
+                  <div className="mb-2 flex items-center justify-between">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-slate-300">
-                    Registro de Dissonâncias
-                  </p>
-                  <span className="text-[9px] text-slate-500">
-                    {dissonanceLog.length} itens
-                  </span>
-                </div>
-                <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
-                  {dissonanceLog.length === 0 && (
-                    <p className="text-[10px] text-slate-400">
-                      Nenhuma dissonancia acima do limiar registrada ainda.
+                      Registro de Dissonancias
                     </p>
-                  )}
-                  {dissonanceLog
-                    .slice()
-                    .reverse()
-                    .map((entry) => (
-                      <div
-                        key={entry.id}
-                        className="rounded border border-red-100 bg-white p-2 text-[10px] text-slate-600"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-bold text-red-700">
-                            Zona {entry.zone}
-                          </span>
-                          <span className="text-[9px] text-slate-400">
-                            {entry.elapsedSeconds}s
-                          </span>
+                    <span className="text-[9px] text-slate-500">
+                      {dissonanceLog.length} itens
+                    </span>
+                  </div>
+                  <div className="max-h-32 space-y-1 overflow-y-auto pr-1">
+                    {dissonanceLog
+                      .slice()
+                      .reverse()
+                      .map((entry) => (
+                        <div
+                          key={entry.id}
+                          className="rounded border border-red-900/60 bg-red-950/20 p-2 text-[10px] text-slate-300"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-bold text-red-200">
+                              Zona {entry.zone}
+                            </span>
+                            <span className="text-[9px] text-slate-500">
+                              {entry.elapsedSeconds}s
+                            </span>
+                          </div>
+                          <p className="mt-0.5 text-[9px] text-slate-500">
+                            {entry.timestamp}
+                          </p>
+                          <p className="mt-0.5 leading-snug">{entry.report}</p>
                         </div>
-                        <p className="mt-0.5 text-[9px] text-slate-500">
-                          {entry.timestamp}
-                        </p>
-                        <p className="mt-0.5 leading-snug">{entry.report}</p>
-                      </div>
-                  ))}
+                      ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50/40 p-2">
                 <div className="mb-2 flex items-center justify-between">
@@ -3466,7 +3445,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             </div>
           </>
         ) : (
-          <div className="row-span-4 flex items-center justify-center text-sm text-slate-400">
+          <div className="row-span-3 flex items-center justify-center text-sm text-slate-400">
             <div className="text-center">
               <div className="mb-2 mx-auto h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
               Aguardando pacote multimodal FROID...

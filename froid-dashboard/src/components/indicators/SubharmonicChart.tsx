@@ -31,27 +31,6 @@ const clamp = (value: number, min = 0, max = 1) =>
 
 const percent = (value: number) => Math.round(clamp(value) * 100);
 
-const polarPoint = (cx: number, cy: number, radius: number, angle: number) => {
-  const radians = ((angle - 90) * Math.PI) / 180;
-  return {
-    x: cx + radius * Math.cos(radians),
-    y: cy + radius * Math.sin(radians),
-  };
-};
-
-const piePath = (
-  cx: number,
-  cy: number,
-  radius: number,
-  startAngle: number,
-  endAngle: number,
-) => {
-  const start = polarPoint(cx, cy, radius, endAngle);
-  const end = polarPoint(cx, cy, radius, startAngle);
-  const largeArc = endAngle - startAngle <= 180 ? "0" : "1";
-  return `M ${cx} ${cy} L ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArc} 0 ${end.x} ${end.y} Z`;
-};
-
 const readNumber = (
   audioMeta: Props["audioMeta"],
   key: keyof AcousticBiomarkers,
@@ -190,76 +169,31 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta }) => {
     metrics[0],
   );
   const values = metrics.map((metric) => percent(metric.value));
-  const total = values.reduce((sum, value) => sum + value, 0) || 1;
   const maxValue = Math.max(...values, 1);
   const generalIndex = Math.round(
     values.reduce((sum, value) => sum + value, 0) / Math.max(values.length, 1),
   );
-  let currentAngle = 0;
-  const slices = metrics.map((metric) => {
-    const value = percent(metric.value);
-    const startAngle = currentAngle;
-    const sweep = (value / total) * 360;
-    const endAngle = startAngle + sweep;
-    currentAngle = endAngle;
-    const labelPoint = polarPoint(120, 120, 84, startAngle + sweep / 2);
-    return { metric, value, startAngle, endAngle, labelPoint };
-  });
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-2xl border border-slate-700 bg-slate-950 p-3 text-slate-100 shadow-sm">
-      <div className="mb-1 flex shrink-0 items-start justify-between gap-3">
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border border-slate-700 bg-slate-950 p-3 text-slate-100 shadow-sm">
+      <div className="mb-2 flex shrink-0 items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="text-[15px] font-black uppercase tracking-wide text-slate-100">
-            DNA Sub-harmonico
+          <h3 className="text-[14px] font-black text-slate-100">
+            Sub-Harmonicos
           </h3>
-          <p className="truncate text-[10px] font-semibold text-slate-400">
-            Componente percentual dos indicadores sub-harmonicos.
+          <p className="truncate text-[10px] font-medium text-slate-400">
+            Percentual por componente e descricao tecnica
           </p>
         </div>
         <div className="shrink-0 rounded-2xl border border-blue-800 bg-blue-950 px-3 py-1 text-center text-blue-200">
-          <span className="block text-[9px] font-black uppercase">Indice geral</span>
+          <span className="block text-[9px] font-black uppercase">
+            Indice geral
+          </span>
           <strong className="font-mono text-[14px]">{generalIndex}%</strong>
         </div>
       </div>
 
-      <div className="relative min-h-0 flex-[0.95]">
-        <svg viewBox="0 0 240 240" className="mx-auto h-full max-h-[208px] w-full">
-          {slices.map(({ metric, value, startAngle, endAngle, labelPoint }) => (
-            <g key={metric.id} className="cursor-help">
-              <title>{`${metric.label}: ${value}%`}</title>
-              <path
-                d={piePath(120, 120, 78, startAngle, endAngle)}
-                fill={metric.color}
-                stroke="#ffffff"
-                strokeWidth={4}
-                className="transition-opacity hover:opacity-90"
-              />
-              {value >= 8 && (
-                <text
-                  x={labelPoint.x}
-                  y={labelPoint.y}
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  className="fill-white text-[12px] font-black"
-                >
-                  {value}%
-                </text>
-              )}
-            </g>
-          ))}
-        </svg>
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-y-auto pt-1">
-        <div className="mb-1">
-          <h4 className="text-[12px] font-black text-slate-100">
-            Distribuicao dos indicadores
-          </h4>
-          <p className="text-[10px] font-medium text-slate-400">
-            Percentual por componente e descricao tecnica.
-          </p>
-        </div>
+      <div className="min-h-0 flex-1 overflow-y-auto pr-1">
         <div className="space-y-2">
           {metrics.map((metric, index) => {
             const value = percent(metric.value);
@@ -314,7 +248,7 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta }) => {
         </div>
       </div>
 
-      <p className="mt-1 shrink-0 truncate text-[9px] font-medium text-slate-400">
+      <p className="mt-2 shrink-0 truncate text-[9px] font-medium text-slate-400">
         {dominant.label}: {percent(dominant.value)}% |{" "}
         {hasAcousticData ? "acustico" : "proxy"} | {insight}
       </p>
