@@ -1080,6 +1080,8 @@ function inferInterventionCategory(text: string) {
   const clean = normalizeTranscriptText(text);
   if (!clean) return "nao_classificada";
   const buckets: Array<[string, string[]]> = [
+    ["acolhimento", ["estou aqui", "vamos com calma", "pode falar", "te escuto", "acolho"]],
+    ["silencio_terapeutico", ["pausa", "silencio", "podemos esperar", "sem pressa"]],
     ["grounding_regulacao", ["respira", "corpo", "observe", "presenca", "aterrar"]],
     ["psicoeducacao", ["explicar", "entenda", "funciona", "modelo", "sistema nervoso"]],
     ["reestruturacao_cognitiva", ["pensamento", "crenca", "evidencia", "alternativa"]],
@@ -1131,12 +1133,75 @@ function samePatientReport(report: SessionReportRecord, patient?: { id?: string;
   );
 }
 
+function anonymizeForResearch(text: string, maxWords = 80) {
+  return limitWords(
+    String(text || "")
+      .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]")
+      .replace(/\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/g, "[documento]")
+      .replace(/\b(?:\+?55\s*)?(?:\(?\d{2}\)?\s*)?9?\d{4}[-\s]?\d{4}\b/g, "[telefone]")
+      .replace(/\b\d{5,}\b/g, "[numero]")
+      .replace(/\s+/g, " ")
+      .trim(),
+    maxWords,
+  );
+}
+
+function scopedSpeakerText(transcript: string, speaker: SpeakerRole) {
+  const prefix = speakerPrefix(speaker);
+  return String(transcript || "")
+    .split(/\n+/)
+    .filter((line) => line.trim().startsWith(prefix))
+    .map((line) => line.replace(prefix, "").trim())
+    .join(" ");
+}
+
+function reportsMetricAverage(
+  reports: SessionReportRecord[],
+  selector: (report: SessionReportRecord) => number | null | undefined,
+) {
+  return rounded(averageNumeric(reports.map(selector)), 3);
+}
+
+function recurringFromReports<T>(values: T[], maxItems = 5) {
+  const counts = new Map<string, { value: T; count: number }>();
+  values
+    .filter((value) => value !== null && value !== undefined && String(value).trim() !== "")
+    .forEach((value) => {
+      const key = String(value);
+      const current = counts.get(key) || { value, count: 0 };
+      counts.set(key, { value, count: current.count + 1 });
+    });
+  return [...counts.values()]
+    .sort((a, b) => b.count - a.count)
+    .slice(0, maxItems)
+    .map((item) => item.value);
+}
+
+function deltaDirection(delta: number | null | undefined, threshold = 0.05) {
+  if (delta === null || delta === undefined || !Number.isFinite(delta)) return "nao_apurado";
+  if (delta > threshold) return "aumento";
+  if (delta < -threshold) return "reducao";
+  return "estabilidade";
+}
+
+function aggregatedClinicalRisk(cut: MetricSnapshot) {
+  const idm = Math.min(40, Math.abs(cut.idmAvg || 0) * 20);
+  const dissonance = Math.min(35, (cut.dissonanceCount || 0) * 12);
+  const vocal = Math.min(
+    25,
+    Math.max(0, cut.subharmonic5_12 || 0) * 15 + Math.max(0, cut.jitter || 0) * 12,
+  );
+  return Math.round((idm + dissonance + vocal) * 10) / 10;
+}
+
 function buildAnonymizedContext(
   sessionId: string,
   durationSeconds: number,
   baseline: MetricSnapshot,
+  sessionAverage: MetricSnapshot,
   cuts: MetricSnapshot[],
   transcriptSegments: TranscriptSegment[],
+  conversationSummaries: ConversationSummary[],
   remotePatientOn: boolean,
 ): SessionReportRecord["anonymizedContext"] {
   const patient = loadSessionPatient(sessionId || "");
@@ -1150,6 +1215,7 @@ function buildAnonymizedContext(
         new Date(b.createdAt || 0).getTime() -
         new Date(a.createdAt || 0).getTime(),
     );
+  const last3Reports = previousReports.slice(0, 3);
   const previousEnd = previousReports[0]?.createdAt
     ? new Date(previousReports[0].createdAt).getTime()
     : 0;
@@ -1157,11 +1223,34 @@ function buildAnonymizedContext(
   const intervalDays =
     previousEnd > 0 ? Math.max(0, (now - previousEnd) / 86400000) : null;
   const fullTranscript = transcriptSegments.map((segment) => segment.text).join("\n");
+  const previousSessionsCount = previousReports.length;
+  const last3Ipm = reportsMetricAverage(last3Reports, (report) => report.sessionAverage?.ipmAvg);
+  const last3Idm = reportsMetricAverage(last3Reports, (report) => report.sessionAverage?.idmAvg);
+  const historicalIpm = reportsMetricAverage(previousReports, (report) => report.sessionAverage?.ipmAvg);
+  const historicalIdm = reportsMetricAverage(previousReports, (report) => report.sessionAverage?.idmAvg);
+  const deltaIpmVsLast3 = last3Ipm === null ? null : rounded(sessionAverage.ipmAvg - last3Ipm, 3);
+  const deltaIdmVsLast3 = last3Idm === null ? null : rounded(sessionAverage.idmAvg - last3Idm, 3);
+  const deltaIpmVsHistorical = historicalIpm === null ? null : rounded(sessionAverage.ipmAvg - historicalIpm, 3);
+  const deltaIdmVsHistorical = historicalIdm === null ? null : rounded(sessionAverage.idmAvg - historicalIdm, 3);
+  const longitudinalTrend =
+    deltaIdmVsLast3 === null
+      ? "sem_historico"
+      : deltaIdmVsLast3 < -0.05
+        ? "melhora"
+        : deltaIdmVsLast3 > 0.05
+          ? "piora"
+          : "estabilidade";
+  const emotionalStability =
+    (sessionAverage.dissonanceCount || 0) <= (baseline.dissonanceCount || 0) &&
+    Math.abs(sessionAverage.idmAvg - baseline.idmAvg) < 0.25
+      ? "estavel"
+      : "oscilante";
 
   return {
-    schemaVersion: "anonymous_datamart_v2",
+    schemaVersion: "anonymous_datamart_v3",
     sessionModality: remotePatientOn ? "remote" : "presential",
     sessionKind: previousReports.length ? "seguimento" : "primeira_sessao",
+    sessionType: previousReports.length ? "seguimento" : "primeira_sessao",
     treatmentPhase:
       previousReports.length < 3
         ? "inicio"
@@ -1169,16 +1258,41 @@ function buildAnonymizedContext(
           ? "meio"
           : "manutencao",
     sessionOrdinal: previousReports.length + 1,
+    previousSessionsCount,
     intervalSincePreviousDays: intervalDays,
     sttModel: "gpt-4o-transcribe",
     llmModel: "gpt-4o/gemini-froid-explica",
     algorithmVersion: FROID_ALGORITHM_VERSION,
+    metricsVersion: "froid-metrics-v3",
+    weightsVersion: "froid-weights-v1",
     audioQuality:
       transcriptWordCount(fullTranscript) > 20 || cuts.some((cut) => cut.sampleCount > 0)
         ? "suficiente"
         : "baixa_amostragem",
     mediaInterruptions: 0,
+    mediaLossEvents: 0,
     consentAnonymousResearch: true,
+    privacyTier: "anonymous_research_datamart",
+    piiExcluded: true,
+    rawAudioRetained: false,
+    literalTranscriptRetained: false,
+    deltaIpmFromSessionBaseline: rounded(sessionAverage.ipmAvg - baseline.ipmAvg, 3),
+    deltaIdmFromSessionBaseline: rounded(sessionAverage.idmAvg - baseline.idmAvg, 3),
+    deltaIpmVsLast3,
+    deltaIdmVsLast3,
+    deltaIpmVsHistorical,
+    deltaIdmVsHistorical,
+    longitudinalTrend,
+    emotionalStability,
+    recurringThemes: recurringFromReports(
+      previousReports.map((report) => report.sessionSummary?.theme || report.sessionAverage?.theme || ""),
+    ) as string[],
+    recurringZones: recurringFromReports(
+      previousReports.map((report) => report.sessionAverage?.dominantZone || null),
+    ) as number[],
+    recurringRisks: recurringFromReports(
+      previousReports.map((report) => report.sessionAverage?.coherenceStatus || ""),
+    ) as string[],
     cuts: cuts.map((cut, index) => {
       const scopedTranscript = transcriptSegments
         .filter(
@@ -1188,17 +1302,55 @@ function buildAnonymizedContext(
         )
         .map((segment) => segment.text)
         .join("\n");
-      const drText = scopedTranscript
-        .split(/\n+/)
-        .filter((line) => line.trim().startsWith("DR. - "))
-        .join(" ");
+      const summary = conversationSummaries.find(
+        (item) =>
+          item.startMinute === Math.floor(cut.startSecond / 60) &&
+          item.endMinute === Math.max(item.startMinute + 1, Math.ceil(cut.endSecond / 60)),
+      );
+      const previousCut = cuts[index - 1] || null;
+      const nextCut = cuts[index + 1] || null;
+      const drText = scopedSpeakerText(scopedTranscript, "DR");
+      const pcText = scopedSpeakerText(scopedTranscript, "PC");
+      const reference = previousCut || baseline;
+      const nextReference = nextCut || cut;
       return {
         cutIndex: index,
         cutTrigger:
           cut.endSecond >= durationSeconds ? "final" : "automatico_10min",
+        startSecond: cut.startSecond,
+        endSecond: cut.endSecond,
+        themePredominant: limitTheme(summary?.theme || cut.theme, 6),
+        patientSummaryAnon: anonymizeForResearch(pcText || summary?.summary || cut.theme, 80),
+        professionalSummaryAnon: anonymizeForResearch(drText || "intervencao profissional sem texto suficiente", 80),
         qualityConfidence: cutQualityConfidence(cut),
         interventionCategory: inferInterventionCategory(drText),
-        patientResponse: inferPatientResponse(cut, cuts[index - 1] || null, baseline),
+        patientResponse: inferPatientResponse(cut, previousCut, baseline),
+        ipmDeltaFromBaseline: rounded(cut.ipmAvg - baseline.ipmAvg, 3),
+        idmDeltaFromBaseline: rounded(cut.idmAvg - baseline.idmAvg, 3),
+        dissonanceDeltaFromBaseline: rounded(cut.dissonanceCount - baseline.dissonanceCount, 3),
+        ipmDeltaPreviousCut: rounded(cut.ipmAvg - reference.ipmAvg, 3),
+        idmDeltaPreviousCut: rounded(cut.idmAvg - reference.idmAvg, 3),
+        dissonanceDeltaPreviousCut: rounded(cut.dissonanceCount - reference.dissonanceCount, 3),
+        ipmDeltaAfterIntervention: rounded(nextReference.ipmAvg - cut.ipmAvg, 3),
+        idmDeltaAfterIntervention: rounded(nextReference.idmAvg - cut.idmAvg, 3),
+        dissonanceDeltaAfterIntervention: rounded(nextReference.dissonanceCount - cut.dissonanceCount, 3),
+        dominantZoneShift:
+          previousCut && previousCut.dominantZone !== cut.dominantZone ? "mudanca_zona" : "sem_mudanca_zona",
+        emotionalToneShift:
+          previousCut && previousCut.emotionalTone !== cut.emotionalTone ? "mudanca_tom" : "sem_mudanca_tom",
+        cadenceShift: deltaDirection(cut.wordsPerMinute - reference.wordsPerMinute, 5),
+        responseIpmDirection: deltaDirection(nextReference.ipmAvg - cut.ipmAvg, 0.5),
+        responseIdmDirection: deltaDirection(nextReference.idmAvg - cut.idmAvg, 0.05),
+        responseDissonanceDirection: deltaDirection(nextReference.dissonanceCount - cut.dissonanceCount, 0.5),
+        semanticCoherenceShift:
+          previousCut && previousCut.coherenceStatus !== cut.coherenceStatus
+            ? "mudanca_coerencia"
+            : "sem_mudanca_coerencia",
+        relevantDissonances:
+          cut.dissonanceCount > 0
+            ? `dissonancias_relevantes_${cut.dissonanceCount}_zona_${cut.dominantZone || "nao_apurada"}`
+            : "sem_dissonancia_relevante",
+        aggregatedClinicalRisk: aggregatedClinicalRisk(cut),
       };
     }),
   };
@@ -2922,8 +3074,10 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       sessionId || "default",
       durationSeconds,
       baseline,
+      sessionAverage,
       tenMinuteCuts,
       transcriptSegmentsRef.current,
+      conversationSummaries,
       remotePatientOnRef.current,
     );
     const summarySourceTranscript = transcriptSegmentsRef.current

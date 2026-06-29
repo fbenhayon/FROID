@@ -474,7 +474,13 @@ async def _query_froid_analytics(payload: FroidExplicaQuery) -> FroidExplicaResp
         "cuts_count INTEGER, clinical_notes_count INTEGER, summary_theme VARCHAR, "
         "summary_text_anon VARCHAR, stt_model VARCHAR, llm_model VARCHAR, algorithm_version VARCHAR, "
         "audio_quality VARCHAR, media_interruptions INTEGER, confidence_score DOUBLE, "
-        "consent_anonymous_research BOOLEAN. "
+        "consent_anonymous_research BOOLEAN, session_type VARCHAR, previous_sessions_count INTEGER, "
+        "delta_ipm_from_session_baseline DOUBLE, delta_idm_from_session_baseline DOUBLE, "
+        "delta_ipm_vs_last3 DOUBLE, delta_idm_vs_last3 DOUBLE, delta_ipm_vs_historical DOUBLE, "
+        "delta_idm_vs_historical DOUBLE, longitudinal_trend VARCHAR, emotional_stability VARCHAR, "
+        "recurring_themes VARCHAR, recurring_zones VARCHAR, recurring_risks VARCHAR, metrics_version VARCHAR, "
+        "weights_version VARCHAR, privacy_tier VARCHAR, pii_excluded BOOLEAN, raw_audio_retained BOOLEAN, "
+        "literal_transcript_retained BOOLEAN, media_loss_events INTEGER. "
         "anonymous_session_cuts contem: session_hash VARCHAR, cut_index INTEGER, cut_label VARCHAR, "
         "start_second INTEGER, end_second INTEGER, sample_count INTEGER, ipm_avg DOUBLE, "
         "idm_avg DOUBLE, dominant_zone INTEGER, coherence_status VARCHAR, emotional_tone VARCHAR, "
@@ -487,7 +493,13 @@ async def _query_froid_analytics(payload: FroidExplicaQuery) -> FroidExplicaResp
         "dissonance_delta_from_baseline DOUBLE, ipm_delta_previous_cut DOUBLE, "
         "idm_delta_previous_cut DOUBLE, dissonance_delta_previous_cut DOUBLE, risk_score DOUBLE, "
         "quality_confidence DOUBLE, stt_model VARCHAR, llm_model VARCHAR, algorithm_version VARCHAR, "
-        "audio_quality VARCHAR. "
+        "audio_quality VARCHAR, theme_predominant VARCHAR, relevant_dissonances VARCHAR, "
+        "aggregated_clinical_risk DOUBLE, ipm_delta_after_intervention DOUBLE, "
+        "idm_delta_after_intervention DOUBLE, dissonance_delta_after_intervention DOUBLE, "
+        "dominant_zone_shift VARCHAR, emotional_tone_shift VARCHAR, cadence_shift VARCHAR, "
+        "semantic_coherence_shift VARCHAR, biomarker_snapshot_json VARCHAR, subharmonic_snapshot_json VARCHAR, "
+        "response_ipm_direction VARCHAR, response_idm_direction VARCHAR, response_dissonance_direction VARCHAR, "
+        "metrics_version VARCHAR, weights_version VARCHAR, media_loss_events INTEGER. "
         "Retorne somente JSON valido com result_sql e cohort_sql. "
         "result_sql deve ser SELECT agregado, sem dados individuais. "
         "cohort_sql deve retornar COUNT(DISTINCT session_hash) AS cohort_size a partir da coorte consultada "
@@ -764,6 +776,8 @@ def _infer_intervention_category(text: str) -> str:
     if not clean:
         return "nao_classificada"
     buckets = [
+        ("acolhimento", ["estou aqui", "vamos com calma", "pode falar", "te escuto", "acolho"]),
+        ("silencio_terapeutico", ["pausa", "silencio", "podemos esperar", "sem pressa"]),
         ("grounding_regulacao", ["respira", "aterrar", "grounding", "corpo", "observe", "presenca"]),
         ("psicoeducacao", ["explicar", "psicoeduc", "entenda", "funciona", "modelo", "sistema nervoso"]),
         ("reestruturacao_cognitiva", ["pensamento", "crenca", "evidencia", "alternativa", "reinterpretar"]),
@@ -849,7 +863,27 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 audio_quality VARCHAR,
                 media_interruptions INTEGER,
                 confidence_score DOUBLE,
-                consent_anonymous_research BOOLEAN
+                consent_anonymous_research BOOLEAN,
+                session_type VARCHAR,
+                previous_sessions_count INTEGER,
+                delta_ipm_from_session_baseline DOUBLE,
+                delta_idm_from_session_baseline DOUBLE,
+                delta_ipm_vs_last3 DOUBLE,
+                delta_idm_vs_last3 DOUBLE,
+                delta_ipm_vs_historical DOUBLE,
+                delta_idm_vs_historical DOUBLE,
+                longitudinal_trend VARCHAR,
+                emotional_stability VARCHAR,
+                recurring_themes VARCHAR,
+                recurring_zones VARCHAR,
+                recurring_risks VARCHAR,
+                metrics_version VARCHAR,
+                weights_version VARCHAR,
+                privacy_tier VARCHAR,
+                pii_excluded BOOLEAN,
+                raw_audio_retained BOOLEAN,
+                literal_transcript_retained BOOLEAN,
+                media_loss_events INTEGER
             )
             """
         )
@@ -884,6 +918,26 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 "media_interruptions": "INTEGER",
                 "confidence_score": "DOUBLE",
                 "consent_anonymous_research": "BOOLEAN",
+                "session_type": "VARCHAR",
+                "previous_sessions_count": "INTEGER",
+                "delta_ipm_from_session_baseline": "DOUBLE",
+                "delta_idm_from_session_baseline": "DOUBLE",
+                "delta_ipm_vs_last3": "DOUBLE",
+                "delta_idm_vs_last3": "DOUBLE",
+                "delta_ipm_vs_historical": "DOUBLE",
+                "delta_idm_vs_historical": "DOUBLE",
+                "longitudinal_trend": "VARCHAR",
+                "emotional_stability": "VARCHAR",
+                "recurring_themes": "VARCHAR",
+                "recurring_zones": "VARCHAR",
+                "recurring_risks": "VARCHAR",
+                "metrics_version": "VARCHAR",
+                "weights_version": "VARCHAR",
+                "privacy_tier": "VARCHAR",
+                "pii_excluded": "BOOLEAN",
+                "raw_audio_retained": "BOOLEAN",
+                "literal_transcript_retained": "BOOLEAN",
+                "media_loss_events": "INTEGER",
             },
         )
         conn.execute(
@@ -931,7 +985,25 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 stt_model VARCHAR,
                 llm_model VARCHAR,
                 algorithm_version VARCHAR,
-                audio_quality VARCHAR
+                audio_quality VARCHAR,
+                theme_predominant VARCHAR,
+                relevant_dissonances VARCHAR,
+                aggregated_clinical_risk DOUBLE,
+                ipm_delta_after_intervention DOUBLE,
+                idm_delta_after_intervention DOUBLE,
+                dissonance_delta_after_intervention DOUBLE,
+                dominant_zone_shift VARCHAR,
+                emotional_tone_shift VARCHAR,
+                cadence_shift VARCHAR,
+                semantic_coherence_shift VARCHAR,
+                biomarker_snapshot_json VARCHAR,
+                subharmonic_snapshot_json VARCHAR,
+                response_ipm_direction VARCHAR,
+                response_idm_direction VARCHAR,
+                response_dissonance_direction VARCHAR,
+                metrics_version VARCHAR,
+                weights_version VARCHAR,
+                media_loss_events INTEGER
             )
             """
         )
@@ -959,6 +1031,24 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 "llm_model": "VARCHAR",
                 "algorithm_version": "VARCHAR",
                 "audio_quality": "VARCHAR",
+                "theme_predominant": "VARCHAR",
+                "relevant_dissonances": "VARCHAR",
+                "aggregated_clinical_risk": "DOUBLE",
+                "ipm_delta_after_intervention": "DOUBLE",
+                "idm_delta_after_intervention": "DOUBLE",
+                "dissonance_delta_after_intervention": "DOUBLE",
+                "dominant_zone_shift": "VARCHAR",
+                "emotional_tone_shift": "VARCHAR",
+                "cadence_shift": "VARCHAR",
+                "semantic_coherence_shift": "VARCHAR",
+                "biomarker_snapshot_json": "VARCHAR",
+                "subharmonic_snapshot_json": "VARCHAR",
+                "response_ipm_direction": "VARCHAR",
+                "response_idm_direction": "VARCHAR",
+                "response_dissonance_direction": "VARCHAR",
+                "metrics_version": "VARCHAR",
+                "weights_version": "VARCHAR",
+                "media_loss_events": "INTEGER",
             },
         )
         average = report.get("sessionAverage") or {}
@@ -1040,6 +1130,44 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 _safe_int(context.get("media_interruptions") or context.get("mediaInterruptions")),
                 _safe_float(confidence_score),
                 consent_research,
+            ],
+        )
+        conn.execute(
+            """
+            UPDATE anonymous_sessions SET
+                session_type = ?, previous_sessions_count = ?,
+                delta_ipm_from_session_baseline = ?, delta_idm_from_session_baseline = ?,
+                delta_ipm_vs_last3 = ?, delta_idm_vs_last3 = ?,
+                delta_ipm_vs_historical = ?, delta_idm_vs_historical = ?,
+                longitudinal_trend = ?, emotional_stability = ?,
+                recurring_themes = ?, recurring_zones = ?, recurring_risks = ?,
+                metrics_version = ?, weights_version = ?, privacy_tier = ?,
+                pii_excluded = ?, raw_audio_retained = ?, literal_transcript_retained = ?,
+                media_loss_events = ?
+            WHERE session_hash = ?
+            """,
+            [
+                _safe_str(context.get("session_type") or context.get("sessionType") or context.get("session_kind") or context.get("sessionKind"), 80),
+                _safe_int(context.get("previous_sessions_count") or context.get("previousSessionsCount")),
+                _safe_float(context.get("delta_ipm_from_session_baseline") or context.get("deltaIpmFromSessionBaseline")),
+                _safe_float(context.get("delta_idm_from_session_baseline") or context.get("deltaIdmFromSessionBaseline")),
+                _safe_float(context.get("delta_ipm_vs_last3") or context.get("deltaIpmVsLast3")),
+                _safe_float(context.get("delta_idm_vs_last3") or context.get("deltaIdmVsLast3")),
+                _safe_float(context.get("delta_ipm_vs_historical") or context.get("deltaIpmVsHistorical")),
+                _safe_float(context.get("delta_idm_vs_historical") or context.get("deltaIdmVsHistorical")),
+                _safe_str(context.get("longitudinal_trend") or context.get("longitudinalTrend") or "nao_apurado", 80),
+                _safe_str(context.get("emotional_stability") or context.get("emotionalStability") or "nao_apurada", 80),
+                _safe_str(json.dumps(context.get("recurring_themes") or context.get("recurringThemes") or [], ensure_ascii=False), 1200),
+                _safe_str(json.dumps(context.get("recurring_zones") or context.get("recurringZones") or [], ensure_ascii=False), 1200),
+                _safe_str(json.dumps(context.get("recurring_risks") or context.get("recurringRisks") or [], ensure_ascii=False), 1200),
+                _safe_str(context.get("metrics_version") or context.get("metricsVersion") or "froid-metrics-v3", 80),
+                _safe_str(context.get("weights_version") or context.get("weightsVersion") or "froid-weights-v1", 80),
+                _safe_str(context.get("privacy_tier") or context.get("privacyTier") or "anonymous_research_datamart", 120),
+                _safe_bool(context.get("pii_excluded") or context.get("piiExcluded"), True),
+                _safe_bool(context.get("raw_audio_retained") or context.get("rawAudioRetained"), False),
+                _safe_bool(context.get("literal_transcript_retained") or context.get("literalTranscriptRetained"), False),
+                _safe_int(context.get("media_loss_events") or context.get("mediaLossEvents") or context.get("media_interruptions") or context.get("mediaInterruptions")),
+                session_hash,
             ],
         )
         previous_cut: Optional[dict] = None
@@ -1135,6 +1263,54 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                     _safe_str(cut_context.get("llm_model") or cut_context.get("llmModel") or FROID_EXPLICA_MODEL, 120),
                     _safe_str(cut_context.get("algorithm_version") or cut_context.get("algorithmVersion") or FROID_ALGORITHM_VERSION, 80),
                     _safe_str(cut_context.get("audio_quality") or cut_context.get("audioQuality") or audio_quality, 80),
+                ],
+            )
+            biomarker_snapshot = {
+                "mfcc7": cut.get("mfcc7"),
+                "mfcc9": cut.get("mfcc9"),
+                "f0_mean": cut.get("f0Mean"),
+                "zcr": cut.get("zcr"),
+                "jitter": cut.get("jitter"),
+                "shimmer": cut.get("shimmer"),
+            }
+            subharmonic_snapshot = {
+                "subharmonic_5_12": cut.get("subharmonic5_12"),
+                "subharmonic_12_20": cut.get("subharmonic12_20"),
+            }
+            conn.execute(
+                """
+                UPDATE anonymous_session_cuts SET
+                    theme_predominant = ?, relevant_dissonances = ?,
+                    aggregated_clinical_risk = ?, ipm_delta_after_intervention = ?,
+                    idm_delta_after_intervention = ?, dissonance_delta_after_intervention = ?,
+                    dominant_zone_shift = ?, emotional_tone_shift = ?, cadence_shift = ?,
+                    semantic_coherence_shift = ?, biomarker_snapshot_json = ?,
+                    subharmonic_snapshot_json = ?, response_ipm_direction = ?,
+                    response_idm_direction = ?, response_dissonance_direction = ?,
+                    metrics_version = ?, weights_version = ?, media_loss_events = ?
+                WHERE session_hash = ? AND cut_index = ?
+                """,
+                [
+                    _safe_str(cut_context.get("theme_predominant") or cut_context.get("themePredominant") or cut.get("theme") or "", 180),
+                    _safe_str(cut_context.get("relevant_dissonances") or cut_context.get("relevantDissonances") or "", 500),
+                    _safe_float(cut_context.get("aggregated_clinical_risk") or cut_context.get("aggregatedClinicalRisk") or (report.get("metricsAnalysis") or {}).get("dashboard", {}).get("max_risk")),
+                    _safe_float(cut_context.get("ipm_delta_after_intervention") or cut_context.get("ipmDeltaAfterIntervention")),
+                    _safe_float(cut_context.get("idm_delta_after_intervention") or cut_context.get("idmDeltaAfterIntervention")),
+                    _safe_float(cut_context.get("dissonance_delta_after_intervention") or cut_context.get("dissonanceDeltaAfterIntervention")),
+                    _safe_str(cut_context.get("dominant_zone_shift") or cut_context.get("dominantZoneShift") or "nao_apurado", 80),
+                    _safe_str(cut_context.get("emotional_tone_shift") or cut_context.get("emotionalToneShift") or "nao_apurado", 80),
+                    _safe_str(cut_context.get("cadence_shift") or cut_context.get("cadenceShift") or "nao_apurado", 80),
+                    _safe_str(cut_context.get("semantic_coherence_shift") or cut_context.get("semanticCoherenceShift") or "nao_apurado", 80),
+                    _safe_str(json.dumps(biomarker_snapshot, ensure_ascii=False, sort_keys=True), 1200),
+                    _safe_str(json.dumps(subharmonic_snapshot, ensure_ascii=False, sort_keys=True), 1200),
+                    _safe_str(cut_context.get("response_ipm_direction") or cut_context.get("responseIpmDirection") or "nao_apurado", 80),
+                    _safe_str(cut_context.get("response_idm_direction") or cut_context.get("responseIdmDirection") or "nao_apurado", 80),
+                    _safe_str(cut_context.get("response_dissonance_direction") or cut_context.get("responseDissonanceDirection") or "nao_apurado", 80),
+                    _safe_str(cut_context.get("metrics_version") or cut_context.get("metricsVersion") or context.get("metrics_version") or context.get("metricsVersion") or "froid-metrics-v3", 80),
+                    _safe_str(cut_context.get("weights_version") or cut_context.get("weightsVersion") or context.get("weights_version") or context.get("weightsVersion") or "froid-weights-v1", 80),
+                    _safe_int(cut_context.get("media_loss_events") or cut_context.get("mediaLossEvents") or context.get("media_loss_events") or context.get("mediaLossEvents")),
+                    session_hash,
+                    index,
                 ],
             )
             previous_cut = cut
