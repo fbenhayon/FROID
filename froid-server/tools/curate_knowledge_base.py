@@ -128,11 +128,20 @@ OBSOLETE_PATTERNS = [
     r"\bsubstitu[ií]d[oa]\b",
     r"\bvers[aã]o antiga\b",
     r"\bnao utilizar\b",
+    r"\bnão utilizar\b",
     r"\bdescontinuad[oa]\b",
-    r"\brascunho\b",
-    r"\bdraft\b",
-    r"\bv0\b",
-    r"\bv1\b",
+    r"\bdocumento antigo\b",
+    r"\bmaterial antigo\b",
+]
+
+OBSOLETE_FILENAME_PATTERNS = [
+    r"\brevisar\b",
+    r"\bsubstitu[ií]d[oa]\b",
+    r"\bvers[aã]o antiga\b",
+    r"\bdeprecated\b",
+    r"\bobsoleto\b",
+    r"(?:^|[_\-\s])v0(?:[_\-\s.]|$)",
+    r"(?:^|[_\-\s])v1(?:[_\-\s.]|$)",
 ]
 
 PRIMARY_SOURCE_PATTERNS = [
@@ -213,24 +222,71 @@ def classify_area(text: str, filename: str) -> tuple[str, dict[str, int]]:
     return (best_area if best_score > 0 else "Geral"), scores
 
 
-def suspicious_obsolete(text: str, filename: str) -> list[str]:
+def is_scientific_or_legal_source(text: str, filename: str) -> bool:
     haystack = f"{filename}\n{text}".lower()
+    scientific_markers = [
+        "doi",
+        "pubmed",
+        "pmc",
+        "nih",
+        "mdpi",
+        "frontiers",
+        "nature",
+        "springer",
+        "sciencedirect",
+        "journal",
+        "article",
+        "research",
+        "study",
+        "systematic review",
+        "lei 13.709",
+        "lgpd",
+        "facial action coding system",
+    ]
+    file_markers = [
+        ".pdf.md",
+        "fulltext",
+        "fpsyg",
+        "fpsyt",
+        "s41599",
+        "nsac",
+        "pmc",
+        "nih",
+        "mdpi",
+    ]
+    return any(marker in haystack for marker in scientific_markers) or any(
+        marker in filename.lower() for marker in file_markers
+    )
+
+
+def suspicious_obsolete(text: str, filename: str, scientific_or_legal: bool = False) -> list[str]:
+    if scientific_or_legal:
+        return []
     reasons = []
     for pattern in OBSOLETE_PATTERNS:
-        if re.search(pattern, haystack, flags=re.IGNORECASE):
+        if re.search(pattern, text, flags=re.IGNORECASE):
             reasons.append(f"obsolete_pattern:{pattern}")
+    for pattern in OBSOLETE_FILENAME_PATTERNS:
+        if re.search(pattern, filename, flags=re.IGNORECASE):
+            reasons.append(f"obsolete_filename:{pattern}")
     return reasons
 
 
-def confidence_score(text: str, area: str, area_scores: dict[str, int]) -> tuple[int, list[str]]:
+def confidence_score(
+    text: str,
+    area: str,
+    area_scores: dict[str, int],
+    filename: str = "",
+) -> tuple[int, list[str]]:
     tokens = word_tokens(text)
+    scientific_or_legal = is_scientific_or_legal_source(text, filename)
     score = 45
     reasons = [f"area:{area}"]
     if len(tokens) >= 250:
         score += 10
         reasons.append("conteudo_suficiente")
     elif len(tokens) < 80:
-        score -= 20
+        score -= 12
         reasons.append("conteudo_curto")
     if area != "Geral":
         score += min(20, area_scores.get(area, 0) * 2)
@@ -238,7 +294,10 @@ def confidence_score(text: str, area: str, area_scores: dict[str, int]) -> tuple
     if primary_hits:
         score += min(20, primary_hits * 5)
         reasons.append("fonte_primaria_ou_cientifica")
-    obsolete_hits = suspicious_obsolete(text, "")
+    if scientific_or_legal:
+        score += 18
+        reasons.append("preservar_fonte_cientifica_ou_legal")
+    obsolete_hits = suspicious_obsolete(text, filename, scientific_or_legal)
     if obsolete_hits:
         score -= min(35, len(obsolete_hits) * 12)
         reasons.extend(obsolete_hits)
@@ -310,7 +369,8 @@ def curate_sources(source_dir: Path, output_dir: Path, similarity_threshold: flo
         exact_hash = content_hash(raw)
         normalized_hash = content_hash(normalized)
         simhash = content_hash(fingerprint(tokens))
-        confidence, reasons = confidence_score(raw, area, area_scores)
+        scientific_or_legal = is_scientific_or_legal_source(raw, path.name)
+        confidence, reasons = confidence_score(raw, area, area_scores, path.name)
         status = "approved"
         duplicate_of = ""
         similarity = 0.0
@@ -349,9 +409,9 @@ def curate_sources(source_dir: Path, output_dir: Path, similarity_threshold: flo
                 duplicate_of = str(best_match["path"])
                 similarity = round(best_similarity, 4)
                 reasons.append("possivel_conflito_numerico_normativo")
-            elif suspicious_obsolete(raw, path.name):
+            elif suspicious_obsolete(raw, path.name, scientific_or_legal):
                 status = "quarantine_obsolete"
-            elif confidence < 45:
+            elif confidence < 35 and not scientific_or_legal:
                 status = "quarantine_low_confidence"
 
         target = copy_to_bucket(path, output_dir, status, area)
