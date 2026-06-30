@@ -22,24 +22,33 @@ const polarBands = [
 
 export const IPMLineChart: React.FC<Props> = ({ data, current, baseline }) => {
   const viewW = 620;
-  const viewH = 300;
-  const padLeft = 40;
-  const padRight = 20;
+  const viewH = 230;
+  const padLeft = 0;
+  const padRight = 0;
   const padTop = 10;
   const padBot = 28;
   const chartW = viewW - padLeft - padRight;
   const chartH = viewH - padTop - padBot;
 
-  const { pathD, areaD, pts } = useMemo(() => {
+  const { pathD, areaD, pts, values } = useMemo(() => {
     const values = Array.isArray(data)
       ? data.filter((v) => typeof v === "number" && Number.isFinite(v))
       : [];
     const n = values.length;
 
-    if (n === 0) return { pathD: "", areaD: "", pts: [] as number[][] };
+    if (n === 0) {
+      return { pathD: "", areaD: "", pts: [] as number[][], values };
+    }
+
+    const smoothed = values.map((_, index) => {
+      const start = Math.max(0, index - 4);
+      const end = Math.min(values.length, index + 5);
+      const slice = values.slice(start, end);
+      return slice.reduce((sum, value) => sum + value, 0) / slice.length;
+    });
 
     const step = n > 1 ? chartW / (n - 1) : 0;
-    const points = values.map((value, index) => [
+    const points = smoothed.map((value, index) => [
       padLeft + index * step,
       padTop + (1 - clamp(value) / 100) * chartH,
     ]);
@@ -62,6 +71,7 @@ export const IPMLineChart: React.FC<Props> = ({ data, current, baseline }) => {
       pathD: d,
       areaD: `${d} L ${last[0]},${viewH - padBot} L ${points[0][0]},${viewH - padBot} Z`,
       pts: points,
+      values,
     };
   }, [chartH, chartW, data]);
 
@@ -71,6 +81,31 @@ export const IPMLineChart: React.FC<Props> = ({ data, current, baseline }) => {
   const currentValue = clamp(current);
   const currentDelta = hasBaseline ? current - baseline : 0;
   const deltaLabel = `${currentDelta > 0 ? "+" : ""}${currentDelta.toFixed(1)}`;
+  const average =
+    values.length > 0
+      ? values.reduce((sum, value) => sum + value, 0) / values.length
+      : currentValue;
+  const peak = values.length > 0 ? Math.max(...values) : currentValue;
+  const minimum = values.length > 0 ? Math.min(...values) : currentValue;
+  const variability =
+    values.length > 1
+      ? Math.sqrt(
+          values.reduce((sum, value) => sum + Math.pow(value - average, 2), 0) /
+            values.length,
+        )
+      : 0;
+  const quality =
+    values.length >= 20 ? "Excelente" : values.length >= 6 ? "Boa" : "Aguardando";
+  const timeline = polarBands
+    .map((band) => {
+      const count = values.filter((value) => value >= band.from && value < band.to).length;
+      return {
+        ...band,
+        count,
+        pct: values.length ? Math.round((count / values.length) * 100) : 0,
+      };
+    })
+    .filter((band) => band.pct > 0);
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border border-slate-700 bg-slate-950 px-2 py-2 text-white shadow-sm">
@@ -81,6 +116,12 @@ export const IPMLineChart: React.FC<Props> = ({ data, current, baseline }) => {
           </span>
           <span className="truncate text-[10px] font-bold uppercase tracking-wider text-slate-500">
             Indice de potencia motivacional
+          </span>
+          <span className="font-mono text-[18px] font-black leading-none text-emerald-400">
+            {currentValue.toFixed(1)}
+          </span>
+          <span className="font-mono text-[10px] font-black text-slate-300">
+            delta {deltaLabel}
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -95,14 +136,6 @@ export const IPMLineChart: React.FC<Props> = ({ data, current, baseline }) => {
 
       <div className="min-h-0 flex-1">
         <div className="relative h-full min-h-0 rounded-lg border border-slate-700 bg-slate-900 p-1.5">
-          <div className="absolute left-3 top-2 z-10 flex items-baseline gap-2">
-            <span className="text-2xl font-black leading-none text-emerald-400">
-              {currentValue.toFixed(1)}
-            </span>
-            <span className="font-mono text-[10px] font-black text-slate-300">
-              delta {deltaLabel}
-            </span>
-          </div>
           <div className="absolute right-3 top-2 z-10 text-[9px] font-black uppercase text-slate-400">
             escala IPM
           </div>
@@ -124,8 +157,8 @@ export const IPMLineChart: React.FC<Props> = ({ data, current, baseline }) => {
 
           <svg viewBox={`0 0 ${viewW} ${viewH}`} className="h-full w-full">
             <defs>
-              <linearGradient id="ipmAreaV4" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#ffffff" stopOpacity="0.26" />
+              <linearGradient id="ipmAreaCompact" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#ffffff" stopOpacity="0.22" />
                 <stop offset="100%" stopColor="#ffffff" stopOpacity="0.02" />
               </linearGradient>
             </defs>
@@ -221,7 +254,7 @@ export const IPMLineChart: React.FC<Props> = ({ data, current, baseline }) => {
 
             {pts.length > 0 && (
               <>
-                {areaD && <path d={areaD} fill="url(#ipmAreaV4)" />}
+                {areaD && <path d={areaD} fill="url(#ipmAreaCompact)" />}
                 {pathD && (
                   <path
                     d={pathD}
@@ -230,7 +263,7 @@ export const IPMLineChart: React.FC<Props> = ({ data, current, baseline }) => {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    opacity={0.85}
+                    opacity={0.8}
                   />
                 )}
                 {pathD && (
@@ -240,21 +273,63 @@ export const IPMLineChart: React.FC<Props> = ({ data, current, baseline }) => {
                     stroke="#22f58b"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    strokeWidth={3.2}
+                    strokeWidth={3}
                   />
                 )}
                 <circle
                   cx={pts[pts.length - 1][0]}
                   cy={pts[pts.length - 1][1]}
-                  r={5.4}
+                  r={5.2}
                   fill="#22f58b"
                   stroke="#ffffff"
-                  strokeWidth={2.4}
+                  strokeWidth={2.2}
                 />
               </>
             )}
           </svg>
         </div>
+      </div>
+
+      <div className="mt-1 grid shrink-0 grid-cols-5 overflow-hidden rounded-md border border-slate-700 bg-slate-900 text-[9px]">
+        {[
+          ["Med. IPM", average.toFixed(1), "text-white"],
+          ["P. Max", peak.toFixed(1), "text-orange-300"],
+          ["Min", minimum.toFixed(1), "text-cyan-300"],
+          ["Variabl.", variability.toFixed(1), "text-white"],
+          ["Qualid.", quality, "text-emerald-300"],
+        ].map(([label, value, color]) => (
+          <div
+            key={label}
+            className="flex min-w-0 items-center justify-center gap-1 border-r border-slate-700 px-1.5 py-1 last:border-r-0"
+          >
+            <span className="truncate font-black uppercase text-slate-400">
+              {label}:
+            </span>
+            <strong className={`truncate font-mono text-[11px] font-black ${color}`}>
+              {value}
+            </strong>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-1 flex shrink-0 overflow-hidden rounded-md border border-slate-700 bg-slate-900 text-[8px] font-black uppercase text-white">
+        {(timeline.length ? timeline : [{ ...polarBands[1], pct: 100, count: 0 }]).map(
+          (segment) => (
+            <div
+              key={segment.label}
+              className="min-w-0 px-2 py-1"
+              style={{
+                width: `${Math.max(14, segment.pct)}%`,
+                borderTop: `4px solid ${segment.color}`,
+              }}
+              title={`${segment.label}: ${segment.pct}%`}
+            >
+              <span className="block truncate">
+                {segment.label} - {segment.pct}%
+              </span>
+            </div>
+          ),
+        )}
       </div>
     </div>
   );

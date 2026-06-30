@@ -69,6 +69,7 @@ interface SessionState {
   sessionStart: number;
   camError: string;
   aggregated: AggData | null;
+  localIpm: number | null;
 }
 
 type Action =
@@ -77,6 +78,7 @@ type Action =
   | { type: "TICK" }
   | { type: "BASELINE_LOCK"; ipm: number }
   | { type: "PAYLOAD"; data: FroidPayload }
+  | { type: "LOCAL_IPM"; ipm: number }
   | { type: "AGGREGATE"; agg: AggData }
   | {
       type: "MEDIA_STATUS";
@@ -88,6 +90,7 @@ type Action =
 
 const DISSONANCE_REPORT_THRESHOLD = 1.5;
 const DISSONANCE_CRITICAL_THRESHOLD = 3.0;
+const IPM_HISTORY_LIMIT = 1200;
 const DR_VOICEPRINT_STORAGE_KEY = "froid_dr_voiceprint_v1";
 
 function dissonanceScore(zone?: PerceptionZone | null) {
@@ -95,11 +98,33 @@ function dissonanceScore(zone?: PerceptionZone | null) {
 }
 
 function isReportableDissonance(zone?: PerceptionZone | null) {
+  const activeAus = zone?.dissonance_details?.active_aus || [];
   return Boolean(
     zone?.facial_dissonance_detected &&
       zone?.dissonance_details &&
+      activeAus.length > 0 &&
       dissonanceScore(zone) > DISSONANCE_REPORT_THRESHOLD,
   );
+}
+
+function hasConfirmedDissonanceEvidence(
+  zone?: PerceptionZone | null,
+  audioMeta?: Record<string, unknown>,
+) {
+  if (!isReportableDissonance(zone)) return false;
+  const score = dissonanceScore(zone);
+  const sub5 = Number(audioMeta?.subharmonic_energy_5_12hz || 0);
+  const basal = Number(audioMeta?.energy_85_165hz || 0);
+  const mfcc7 = Number(audioMeta?.mfcc7 || 0);
+  const mfcc9 = Number(audioMeta?.mfcc9 || 0);
+  const hasAcousticMarker =
+    Math.abs(score) >= DISSONANCE_REPORT_THRESHOLD ||
+    sub5 > 0.05 ||
+    basal > 0.05 ||
+    mfcc7 > 0 ||
+    mfcc9 > 0;
+
+  return hasAcousticMarker;
 }
 
 function dissonanceSeverity(zone?: PerceptionZone | null) {
@@ -223,13 +248,29 @@ function dissonanceTechnicalFactors(
     ).trim() || "nao informada";
 
   return [
-    `IDM ${score.toFixed(2)} (${severity}) acima do limiar ${DISSONANCE_REPORT_THRESHOLD.toFixed(2)}, comparado a linha de base dinamica calibrada nos 60 segundos iniciais.`,
-    "Integracao multimodal em janela de 500 ms: bioacustica vocal, morfodinamica facial/FACS e valencia semantica foram cruzadas antes do apontamento.",
-    `AUs ativas: ${aus.length ? aus.join(", ") : "sem AU especifica reportada"}; a regra clinica exige coerencia temporal entre onset, apex e offset da expressao.`,
+    `Linha de base dinamica: o apontamento so e considerado apos contraste com a impressao emocional calibrada nos 60 segundos iniciais, incluindo F0, variabilidade prosodica, AUs de repouso e energia acustica media.`,
+    `IDM ${score.toFixed(2)} (${severity}) acima do limiar ${DISSONANCE_REPORT_THRESHOLD.toFixed(2)}: o desvio energetico compara E_vocal contra E_baseline e aplica M_fac quando ha contradicao facial-vocal.`,
+    `Bioacustica vocal: FFT em 12 Zonas FROID e 7 bandas espectrais, com MFCC7 ${formatMetricValue(audioMeta?.mfcc7)}, MFCC9 ${formatMetricValue(audioMeta?.mfcc9)}, F0 medio ${formatMetricValue(audioMeta?.f0_mean || audioMeta?.f0_medio)}, sub-harmonico 5-12 Hz ${formatMetricValue(audioMeta?.subharmonic_energy_5_12hz, 3)} e energia basal 85-165 Hz ${formatMetricValue(audioMeta?.energy_85_165hz, 3)}.`,
+    `Morfodinamica facial/FACS: AUs ativas ${aus.length ? aus.join(", ") : "sem AU especifica reportada"}; a leitura exige coerencia temporal entre neutral, onset, apex e offset para reduzir falso positivo.`,
+    `Semantica verbal: valencia considerada ${semantic}; o FROID compara aquilo que e verbalizado com o que voz e face expressam involuntariamente.`,
     `Zona ${zone?.zone ?? "--"} (${zone?.tema || "tema em apuracao"}): ${ZONE_CLINICAL_DESCRIPTIONS[zone?.zone || 0] || "sem descricao zonal."}`,
-    `Sinais acusticos: MFCC7 ${formatMetricValue(audioMeta?.mfcc7)}, MFCC9 ${formatMetricValue(audioMeta?.mfcc9)}, F0 medio ${formatMetricValue(audioMeta?.f0_mean || audioMeta?.f0_medio)}, sub-harmonico 5-12 Hz ${formatMetricValue(audioMeta?.subharmonic_energy_5_12hz, 3)} e energia basal 85-165 Hz ${formatMetricValue(audioMeta?.energy_85_165hz, 3)}.`,
-    `Valencia semantica considerada: ${semantic}. Quando ha contradicao facial-vocal, o multiplicador facial M_fac pode elevar o IDM em 2.5x; quando ha congruencia, permanece em 1.0.`,
+    `Matriz IPM x IDM: IPM estima intensidade global, IDM estima direcao do desequilibrio; risco maior ocorre quando baixa aparencia externa contrasta com IDM elevado ou negativo persistente.`,
   ];
+}
+
+function buildDissonanceReportText(
+  zone: PerceptionZone,
+  audioMeta?: Record<string, unknown>,
+) {
+  const score = dissonanceScore(zone);
+  const interpretation = classifyDissonance(zone, audioMeta);
+  const factors = dissonanceTechnicalFactors(zone, audioMeta);
+  return [
+    `IDM ${score.toFixed(2)} | ${dissonanceSeverity(zone)} | Zona ${zone.zone}`,
+    `${interpretation.title}: ${interpretation.summary}`,
+    `Elementos tecnicos: ${factors.join(" ")}`,
+    `Fatores de mitigacao: ${interpretation.action}`,
+  ].join(" ");
 }
 
 function reducer(state: SessionState, action: Action): SessionState {
@@ -256,9 +297,20 @@ function reducer(state: SessionState, action: Action): SessionState {
             ? [
                 ...state.ipmHistory,
                 typeof p.ipm_score === "number" ? p.ipm_score : 0,
-              ].slice(-120)
+              ].slice(-IPM_HISTORY_LIMIT)
             : state.ipmHistory;
         return { ...state, payload: p, ipmHistory: nextHistory };
+      }
+      case "LOCAL_IPM": {
+        const ipm = clamp(action.ipm, 0, 100);
+        const shouldAppend = state.phase !== "ENDED" && state.micOn;
+        return {
+          ...state,
+          localIpm: ipm,
+          ipmHistory: shouldAppend
+            ? [...state.ipmHistory, ipm].slice(-IPM_HISTORY_LIMIT)
+            : state.ipmHistory,
+        };
       }
       case "AGGREGATE":
         return { ...state, aggregated: action.agg };
@@ -298,6 +350,7 @@ const createInitialState = (): SessionState => ({
   sessionStart: 0,
   camError: "",
   aggregated: null,
+  localIpm: null,
 });
 
 class ErrorGuard extends React.Component<
@@ -693,6 +746,126 @@ function envelopeBandEnergy(
   return clamp((sum / Math.max(1, bins)) * 18);
 }
 
+type DnaBandSample = {
+  sub5_12: number;
+  sub12_20: number;
+  sub20_40: number;
+  energy85_165: number;
+  zcr: number;
+};
+
+type DnaBaselineState = {
+  startedAtMs: number;
+  samples: DnaBandSample[];
+  baseline: DnaBandSample | null;
+  locked: boolean;
+  limbicRatioEma: number | null;
+};
+
+const DNA_EPSILON = 1e-9;
+const DNA_BASELINE_MS = 60_000;
+
+const meanDnaSample = (samples: DnaBandSample[]): DnaBandSample => {
+  const safe = samples.length
+    ? samples
+    : [{ sub5_12: 0, sub12_20: 0, sub20_40: 0, energy85_165: 0, zcr: 0 }];
+  return {
+    sub5_12: safe.reduce((sum, item) => sum + item.sub5_12, 0) / safe.length,
+    sub12_20: safe.reduce((sum, item) => sum + item.sub12_20, 0) / safe.length,
+    sub20_40: safe.reduce((sum, item) => sum + item.sub20_40, 0) / safe.length,
+    energy85_165: safe.reduce((sum, item) => sum + item.energy85_165, 0) / safe.length,
+    zcr: safe.reduce((sum, item) => sum + item.zcr, 0) / safe.length,
+  };
+};
+
+const positiveDeviation = (current: number, baseline: number) =>
+  clamp((current - baseline) / (baseline + DNA_EPSILON));
+
+function hasSuppressionAu(zones: PerceptionZone[]) {
+  return zones.some((zone) =>
+    (zone.dissonance_details?.active_aus || []).some((code) => {
+      const normalized = normalizeAuCode(String(code));
+      return normalized === 23 || normalized === 24;
+    }),
+  );
+}
+
+function computeDnaSubharmonics(
+  frame: DnaBandSample,
+  state: DnaBaselineState,
+  now: number,
+  zones: PerceptionZone[],
+  ipm: number,
+) {
+  if (!state.startedAtMs) state.startedAtMs = now;
+  if (frame.sub5_12 || frame.sub12_20 || frame.sub20_40 || frame.energy85_165) {
+    state.samples.push(frame);
+    if (state.samples.length > 3600) state.samples.shift();
+  }
+  if (!state.locked && now - state.startedAtMs >= DNA_BASELINE_MS) {
+    state.baseline = meanDnaSample(state.samples);
+    state.locked = true;
+  }
+
+  const baseline = state.baseline || meanDnaSample(state.samples);
+  const dSub = positiveDeviation(frame.sub5_12, baseline.sub5_12);
+  const dBasal = positiveDeviation(frame.energy85_165, baseline.energy85_165);
+  const resNeuro = positiveDeviation(frame.sub20_40, baseline.sub20_40);
+  const currentLimbicRatio =
+    frame.sub12_20 / (frame.sub5_12 + frame.sub12_20 + DNA_EPSILON);
+  const baselineLimbicRatio =
+    baseline.sub12_20 / (baseline.sub5_12 + baseline.sub12_20 + DNA_EPSILON);
+  state.limbicRatioEma =
+    state.limbicRatioEma === null
+      ? currentLimbicRatio
+      : state.limbicRatioEma * 0.85 + currentLimbicRatio * 0.15;
+  const ratioEma = currentLimbicRatio / (state.limbicRatioEma + DNA_EPSILON);
+  const limbicModulation = clamp(
+    Math.max(
+      0,
+      (currentLimbicRatio - baselineLimbicRatio) /
+        (baselineLimbicRatio + DNA_EPSILON),
+    ) * ratioEma,
+  );
+
+  const facialMultiplier = zones.some((zone) => zone.facial_dissonance_detected)
+    ? 2.5
+    : 1.0;
+  const au2324 = hasSuppressionAu(zones) ? 1 : 0;
+  const zcrDropRatio = clamp((baseline.zcr - frame.zcr) / (baseline.zcr + DNA_EPSILON));
+  const ipmRatio = clamp(ipm / 100);
+  const flooding = clamp((dSub * 0.55 + dBasal * 0.45) * (facialMultiplier / 2.5));
+  const shutdown = clamp(dSub * (1 - ipmRatio) * zcrDropRatio);
+  const somatoaffective = clamp(
+    ((dSub + dBasal) / 2) *
+      (1 + (facialMultiplier - 1) * au2324) /
+      2.5,
+  );
+  const index = clamp(
+    (dSub +
+      limbicModulation +
+      resNeuro +
+      dBasal +
+      flooding +
+      shutdown +
+      somatoaffective) /
+      7,
+  );
+
+  return {
+    dna_infrasound_nuclear: dSub,
+    dna_limbic_modulation: limbicModulation,
+    dna_neurogenic_resonance: resNeuro,
+    dna_vocal_basal_tension: dBasal,
+    dna_autonomic_flooding: flooding,
+    dna_dissociative_shutdown: shutdown,
+    dna_somatoaffective_dissonance: somatoaffective,
+    dna_subharmonic_index: index,
+    dna_baseline_locked: state.locked,
+    dna_facial_multiplier: facialMultiplier,
+  };
+}
+
 function calculateRawBioacousticFrame(
   timeData: Float32Array,
   frequencyData: Uint8Array,
@@ -753,7 +926,30 @@ function calculateRawBioacousticFrame(
     ) * voiceGain,
     sub5_12: envelopeBandEnergy(envelope, frameRate, 5, 12) * voiceGain,
     sub12_20: envelopeBandEnergy(envelope, frameRate, 12, 20) * voiceGain,
+    sub20_40:
+      Math.max(
+        envelopeBandEnergy(envelope, frameRate, 20, 40),
+        frequencyBandEnergy(frequencyData, sampleRate, fftSize, 20, 40),
+      ) * voiceGain,
   };
+}
+
+function computeLocalIpmFromBioacoustics(
+  metrics: ReturnType<typeof calculateRawBioacousticFrame>,
+  dnaMetrics: ReturnType<typeof computeDnaSubharmonics>,
+) {
+  if (!metrics.voicePresence) return null;
+
+  const acousticDrive = metrics.rms * 650 + metrics.peak * 90;
+  const perturbationDrive = (metrics.jitter + metrics.shimmer) * 8;
+  const basalDrive = metrics.energy85_165 * 14;
+  const subharmonicDrive = Number(dnaMetrics.dna_subharmonic_index || 0) * 24;
+
+  return clamp(
+    50 + acousticDrive + perturbationDrive + basalDrive + subharmonicDrive,
+    0,
+    100,
+  );
 }
 
 const STT_CHUNK_MS = 7000;
@@ -858,6 +1054,16 @@ const REPORT_AUDIO_KEYS = [
   "shimmer",
   "subharmonic_energy_5_12hz",
   "subharmonic_energy_12_20hz",
+  "subharmonic_energy_20_40hz",
+  "energy_85_165hz",
+  "dna_infrasound_nuclear",
+  "dna_limbic_modulation",
+  "dna_vocal_basal_tension",
+  "dna_autonomic_flooding",
+  "dna_dissociative_shutdown",
+  "dna_neurogenic_resonance",
+  "dna_somatoaffective_dissonance",
+  "dna_subharmonic_index",
 ] as const;
 
 const THEME_STOPWORDS = new Set([
@@ -1007,6 +1213,16 @@ function buildMetricSnapshot(
     shimmer: audioAverage("shimmer"),
     subharmonic5_12: audioAverage("subharmonic_energy_5_12hz"),
     subharmonic12_20: audioAverage("subharmonic_energy_12_20hz"),
+    subharmonic20_40: audioAverage("subharmonic_energy_20_40hz"),
+    vocalBasal85_165: audioAverage("energy_85_165hz"),
+    dnaInfrasoundNuclear: audioAverage("dna_infrasound_nuclear"),
+    dnaLimbicModulation: audioAverage("dna_limbic_modulation"),
+    dnaVocalBasalTension: audioAverage("dna_vocal_basal_tension"),
+    dnaAutonomicFlooding: audioAverage("dna_autonomic_flooding"),
+    dnaDissociativeShutdown: audioAverage("dna_dissociative_shutdown"),
+    dnaNeurogenicResonance: audioAverage("dna_neurogenic_resonance"),
+    dnaSomatoaffectiveDissonance: audioAverage("dna_somatoaffective_dissonance"),
+    dnaSubharmonicIndex: audioAverage("dna_subharmonic_index"),
     zones,
   };
 }
@@ -1414,6 +1630,13 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const bioacousticEnvelopeRef = useRef<number[]>([]);
   const bioacousticFrameRef = useRef(0);
   const bioacousticClockRef = useRef({ lastTime: 0, frameRate: 60 });
+  const bioacousticDnaRef = useRef<DnaBaselineState>({
+    startedAtMs: 0,
+    samples: [],
+    baseline: null,
+    locked: false,
+    limbicRatioEma: null,
+  });
   const recorderRef = useRef<MediaRecorder | null>(null);
   const patientRecorderRef = useRef<MediaRecorder | null>(null);
   const browserRecognitionRef = useRef<any>(null);
@@ -1451,11 +1674,21 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const voiceIdRafRef = useRef<number | null>(null);
   const voiceIdContextRef = useRef<AudioContext | null>(null);
   const voiceIdHistoryRef = useRef<SpeakerRole[]>([]);
+  const latestZonesRef = useRef<PerceptionZone[]>([]);
+  const latestIpmRef = useRef(50);
+  const lastLocalIpmDispatchMsRef = useRef(0);
 
   useEffect(() => {
     const id = setInterval(() => dispatch({ type: "TICK" }), 1000);
     return () => clearInterval(id);
   }, []);
+
+  useEffect(() => {
+    latestZonesRef.current =
+      state.aggregated?.zones || state.payload?.perception_zones || [];
+    latestIpmRef.current =
+      state.aggregated?.ipm ?? state.payload?.ipm_score ?? state.localIpm ?? 50;
+  }, [state.aggregated, state.payload, state.localIpm]);
 
   useEffect(() => {
     elapsedSecondsRef.current = state.elapsedSeconds;
@@ -1896,6 +2129,13 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     bioacousticEnvelopeRef.current = [];
     bioacousticFrameRef.current = 0;
     bioacousticClockRef.current = { lastTime: 0, frameRate: 60 };
+    bioacousticDnaRef.current = {
+      startedAtMs: 0,
+      samples: [],
+      baseline: null,
+      locked: false,
+      limbicRatioEma: null,
+    };
   }, []);
 
   const startRawBioacousticPipeline = useCallback(
@@ -1984,9 +2224,36 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           bioacousticEnvelopeRef.current,
           clock.frameRate,
         );
+        const dnaMetrics = computeDnaSubharmonics(
+          {
+            sub5_12: metrics.sub5_12,
+            sub12_20: metrics.sub12_20,
+            sub20_40: metrics.sub20_40,
+            energy85_165: metrics.energy85_165,
+            zcr: metrics.zcr,
+          },
+          bioacousticDnaRef.current,
+          now,
+          latestZonesRef.current,
+          latestIpmRef.current,
+        );
 
         bioacousticFrameRef.current += 1;
         if (bioacousticFrameRef.current % 8 === 0) {
+          const shouldFeedLocalIpm =
+            remotePatientOnRef.current ||
+            attributedSpeakerRef.current === "PC" ||
+            directLocalMetricsActiveRef.current;
+          const localIpm = computeLocalIpmFromBioacoustics(metrics, dnaMetrics);
+          if (
+            shouldFeedLocalIpm &&
+            localIpm !== null &&
+            now - lastLocalIpmDispatchMsRef.current >= 2000
+          ) {
+            lastLocalIpmDispatchMsRef.current = now;
+            dispatch({ type: "LOCAL_IPM", ipm: localIpm });
+          }
+
           setLiveTranscription((prev) => ({
             ...(prev || {}),
             bioacoustic_status: "monitoring",
@@ -2009,6 +2276,9 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             energy_85_165hz: metrics.energy85_165,
             subharmonic_energy_5_12hz: metrics.sub5_12,
             subharmonic_energy_12_20hz: metrics.sub12_20,
+            subharmonic_energy_20_40hz: metrics.sub20_40,
+            local_ipm_score: localIpm,
+            ...dnaMetrics,
           }));
         }
 
@@ -2999,7 +3269,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const agg = state.aggregated;
   const raw = state.payload;
   const displayZones = agg?.zones || raw?.perception_zones || [];
-  const displayIpm = agg?.ipm || raw?.ipm_score || 0;
+  const displayIpm = agg?.ipm ?? raw?.ipm_score ?? state.localIpm ?? 0;
   const displayDrValue = agg?.drValue ?? (raw as any)?.dr_value ?? null;
   const displayCoherence = agg?.coherence || raw?.coherence_status || "NEUTRO";
   const displayAlerts = agg?.alerts || raw?.realtime_alerts || [];
@@ -3029,6 +3299,9 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const displayAudio = liveTranscription
     ? { ...realTranscriptAudio, ...liveTranscription }
     : realTranscriptAudio;
+  const confirmedDissonanceZones = (Array.isArray(displayZones) ? displayZones : []).filter(
+    (zone) => hasConfirmedDissonanceEvidence(zone, displayAudio),
+  );
   const displayCommitments =
     agg?.commitments || (raw as any)?.commitment_models || [];
   const semanticCutElapsed = Math.max(0, state.elapsedSeconds - semanticCutStartSecond);
@@ -3157,16 +3430,14 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   }, [displayAudio]);
 
   useEffect(() => {
-    const currentEntries = (displayZones || [])
-      .filter(isReportableDissonance)
+    const currentEntries = confirmedDissonanceZones
       .map((z) => {
         const score = dissonanceScore(z);
-        const interpretation = classifyDissonance(z, displayAudio);
         return {
           zone: z.zone,
           score,
           severity: dissonanceSeverity(z),
-          report: `${interpretation.title}: ${interpretation.summary} Fatores de mitigacao: ${interpretation.action}`,
+          report: buildDissonanceReportText(z, displayAudio),
         };
       });
     const signature = currentEntries
@@ -3182,15 +3453,13 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           timestamp: new Date().toLocaleString("pt-BR"),
           elapsedSeconds: state.elapsedSeconds,
           zone: entry.zone,
-          report: `IDM ${entry.score.toFixed(2)} | ${entry.severity}: ${
-            entry.report
-          }`,
+          report: entry.report,
         };
       })
       .filter((entry) => Number.isFinite(entry.zone));
 
     setDissonanceLog((prev) => [...prev, ...nextEntries].slice(-18));
-  }, [displayAudio, displayZones, state.elapsedSeconds]);
+  }, [confirmedDissonanceZones, displayAudio, state.elapsedSeconds]);
 
   const connectionText = state.connected
     ? state.phase === "CALIBRATING"
@@ -3309,7 +3578,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             />
           </div>
 
-          <div className="min-h-[310px]">
+          <div className="min-h-[390px]">
             <SubharmonicChart zones={displayZones} audioMeta={displayAudio} />
           </div>
 
@@ -3393,10 +3662,10 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       </div>
 
       {/* COLUNA 3 — 35%: IPM grande, Risco, Subharm, Coherence, Dissonâncias */}
-      <div className="order-3 grid flex-1 grid-rows-[1.1fr_1.25fr_0.65fr] gap-2 overflow-visible bg-slate-950 p-3">
+      <div className="order-3 grid flex-1 grid-rows-3 gap-2 overflow-hidden bg-slate-950 p-3">
         {raw ? (
           <>
-            <div className="min-h-0 overflow-visible">
+            <div className="min-h-0 overflow-hidden">
               <IPMLineChart
                 data={state.ipmHistory}
                 current={displayIpm}
@@ -3415,9 +3684,8 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             </div>
 
             <div className="min-h-0 overflow-y-auto rounded-xl border border-slate-700 bg-slate-950 p-3 text-slate-100 shadow-sm">
-              {Array.isArray(displayZones) &&
-                displayZones
-                  .filter(isReportableDissonance)
+              {confirmedDissonanceZones.length > 0 &&
+                confirmedDissonanceZones
                   .map((zone) => {
                     const aus = zone.dissonance_details?.active_aus || [];
                     const auDescs = getAUDetails(aus);
@@ -3450,7 +3718,12 @@ function LiveSessionInner({ user }: LiveSessionProps) {
 
                         <div className="mt-2 rounded-lg border border-slate-700 bg-slate-950/70 p-2">
                           <p className="text-[10px] font-black uppercase tracking-wider text-cyan-200">
-                            Elementos tecnicos apurados
+                            Motivo tecnico do apontamento
+                          </p>
+                          <p className="mt-1 text-[10px] leading-snug text-slate-300">
+                            O FROID registrou esta dissonancia porque a expressao facial,
+                            a energia vocal e a leitura semantica ultrapassaram o limiar
+                            configurado apos comparacao com a baseline dinamica da sessao.
                           </p>
                           <ul className="mt-1 space-y-1 text-[10px] leading-snug text-slate-300">
                             {technicalFactors.map((factor, i) => (

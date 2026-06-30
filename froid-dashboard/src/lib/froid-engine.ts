@@ -42,7 +42,18 @@ export interface PerceptionZone {
 export interface AcousticBiomarkers {
   subharmonic_energy_5_12hz?: number;
   subharmonic_energy_12_20hz?: number;
+  subharmonic_energy_20_40hz?: number;
   energy_85_165hz?: number;
+  dna_infrasound_nuclear?: number;
+  dna_limbic_modulation?: number;
+  dna_vocal_basal_tension?: number;
+  dna_autonomic_flooding?: number;
+  dna_dissociative_shutdown?: number;
+  dna_neurogenic_resonance?: number;
+  dna_somatoaffective_dissonance?: number;
+  dna_subharmonic_index?: number;
+  dna_baseline_locked?: boolean;
+  dna_facial_multiplier?: number;
   clinical_insight?: string | null;
   mfcc7?: number;
   mfcc9?: number;

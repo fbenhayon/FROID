@@ -240,7 +240,7 @@ export const RiskChart: React.FC<Props> = ({
       },
       {
         id: "autonomic",
-        label: "Dissociação / Trauma",
+        label: "Dissociação / trauma",
         scale: "SNA",
         pct:
           Math.max(traumaRaw, dissociationRaw) +
@@ -274,69 +274,70 @@ export const RiskChart: React.FC<Props> = ({
   );
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[14px] border border-[#263a61] bg-[#050a1a] p-3 text-white shadow-sm">
-      <div className="mb-3 flex shrink-0 items-start justify-between gap-3">
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border border-slate-700 bg-slate-950 p-2 text-slate-100 shadow-sm">
+      <div className="mb-1.5 flex shrink-0 items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="text-[14px] font-black text-white">
-            Distribuicao dos riscos
+          <h3 className="text-[12px] font-black text-slate-100">
+            Riscos clinicos
           </h3>
-          <p className="truncate text-[10px] font-medium text-[#9bc9ff]">
+          <p className="truncate text-[9px] font-medium text-slate-400">
             Resumo percentual por categoria
             {typeof baseline === "number" && Number.isFinite(baseline)
               ? ` | IPM 60s ${baseline.toFixed(1)}`
               : ""}
           </p>
         </div>
-        <div className="shrink-0 rounded-[14px] border border-[#4e7cff] bg-[#143b87] px-4 py-2 text-center text-white">
-          <span className="block text-[8px] font-black uppercase tracking-wide">
+        <div className="shrink-0 rounded-xl border border-blue-800 bg-blue-950 px-2.5 py-0.5 text-center text-blue-200">
+          <span className="block text-[7px] font-black uppercase">
             Indice geral
           </span>
-          <strong className="font-mono text-[14px]">{generalRiskIndex}%</strong>
+          <strong className="font-mono text-[11px]">{generalRiskIndex}%</strong>
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+      <div className="min-h-0 flex-1 space-y-0.5 overflow-hidden pr-1">
         {risks.map((risk, index) => {
           const color = RISK_PIE_COLORS[risk.id] || risk.color;
           return (
-            <FroidTooltip
-              key={risk.id}
-              content={
-                <div className="max-w-[360px]">
-                  <p className="font-bold">
-                    {index + 1}. {risk.label} ({risk.scale})
-                  </p>
-                  <p className="mt-1 text-[10px] leading-relaxed">
-                    {risk.tooltip}
-                  </p>
+            <div key={risk.id} className="block w-full">
+              <FroidTooltip
+                content={
+                  <div className="max-w-[360px]">
+                    <p className="font-bold">
+                      {index + 1}. {risk.label} ({risk.scale})
+                    </p>
+                    <p className="mt-1 text-[10px] leading-relaxed">
+                      {risk.tooltip}
+                    </p>
+                  </div>
+                }
+                width={380}
+              >
+                <div className="w-full cursor-help">
+                  <div className="mb-0.5 grid min-w-0 grid-cols-[10px_minmax(0,1fr)_42px] items-start gap-1.5">
+                    <span
+                      className="mt-0.5 h-4 w-2.5"
+                      style={{ backgroundColor: color }}
+                    />
+                    <span className="min-w-0 truncate text-[9px] font-black leading-tight text-slate-100">
+                      {index + 1}. {risk.label}
+                    </span>
+                    <span className="rounded-full border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-center font-mono text-[9px] font-black text-white">
+                      {risk.sharePct}%
+                    </span>
+                  </div>
+                  <div className="ml-4 h-1.5 w-[calc(100%-1rem)] overflow-hidden rounded-full bg-slate-800">
+                    <div
+                      className="h-full rounded-full transition-all duration-700"
+                      style={{
+                        width: `${Math.max(3, Math.min(100, risk.sharePct))}%`,
+                        backgroundColor: color,
+                      }}
+                    />
+                  </div>
                 </div>
-              }
-              width={380}
-            >
-              <div className="cursor-help">
-                <div className="mb-1 flex min-w-0 items-center gap-2">
-                  <span
-                    className="h-3.5 w-3.5 shrink-0"
-                    style={{ backgroundColor: color }}
-                  />
-                  <span className="min-w-0 flex-1 truncate text-[12px] font-black text-white">
-                    {index + 1}. {risk.label}
-                  </span>
-                  <span className="font-mono text-[11px] font-black text-white">
-                    {risk.sharePct}%
-                  </span>
-                </div>
-                <div className="ml-5 h-2.5 overflow-hidden rounded-full bg-[#25314a]">
-                  <div
-                    className="h-full rounded-full transition-all duration-700"
-                    style={{
-                      width: `${Math.max(3, Math.min(100, risk.sharePct))}%`,
-                      backgroundColor: color,
-                    }}
-                  />
-                </div>
-              </div>
-            </FroidTooltip>
+              </FroidTooltip>
+            </div>
           );
         })}
       </div>

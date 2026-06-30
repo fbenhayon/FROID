@@ -228,8 +228,31 @@ class SessionState:
         mfcc9 = round(float(np.clip(np.mean(voice_spectral_12[6:10]) - baseline_mean * 0.08, 0.0, 25.0)), 3)
         subharmonic_5_12 = round(float(np.clip((np.mean(voice_spectral_12[4:8]) * 0.7) + (np.std(voice_spectral_12) * 0.2), 0.0, 25.0)), 3)
         subharmonic_12_20 = round(float(np.clip((np.mean(voice_spectral_12[8:12]) * 0.65) + (np.std(voice_spectral_12) * 0.15), 0.0, 25.0)), 3)
+        subharmonic_20_40 = round(float(np.clip((np.mean(voice_spectral_12[1:4]) * 0.55) + (np.std(voice_spectral_12) * 0.12), 0.0, 25.0)), 3)
+        energy_85_165 = round(float(np.clip((np.mean(voice_spectral_12[0:3]) * 0.7) + (np.std(voice_spectral_12) * 0.2), 0.0, 25.0)), 3)
         jitter = round(float(np.clip(np.std(voice_spectral_12) / max(1.0, np.mean(voice_spectral_12)), 0.0, 2.0)), 3)
         shimmer = round(float(np.clip(np.mean(np.abs(np.diff(voice_spectral_12))) / max(1.0, np.mean(voice_spectral_12)), 0.0, 2.0)), 3)
+        base_subharmonic_5_12 = float(np.clip((np.mean(self.baseline_energy[4:8]) * 0.7) + (np.std(self.baseline_energy) * 0.2), 0.0, 25.0))
+        base_subharmonic_12_20 = float(np.clip((np.mean(self.baseline_energy[8:12]) * 0.65) + (np.std(self.baseline_energy) * 0.15), 0.0, 25.0))
+        base_subharmonic_20_40 = float(np.clip((np.mean(self.baseline_energy[1:4]) * 0.55) + (np.std(self.baseline_energy) * 0.12), 0.0, 25.0))
+        base_energy_85_165 = float(np.clip((np.mean(self.baseline_energy[0:3]) * 0.7) + (np.std(self.baseline_energy) * 0.2), 0.0, 25.0))
+        eps = 1e-9
+        dna_infrasound = float(np.clip((subharmonic_5_12 - base_subharmonic_5_12) / (base_subharmonic_5_12 + eps), 0.0, 1.0))
+        current_limbic_ratio = subharmonic_12_20 / (subharmonic_5_12 + subharmonic_12_20 + eps)
+        baseline_limbic_ratio = base_subharmonic_12_20 / (base_subharmonic_5_12 + base_subharmonic_12_20 + eps)
+        dna_limbic = float(np.clip((current_limbic_ratio - baseline_limbic_ratio) / (baseline_limbic_ratio + eps), 0.0, 1.0))
+        dna_neurogenic = float(np.clip((subharmonic_20_40 - base_subharmonic_20_40) / (base_subharmonic_20_40 + eps), 0.0, 1.0))
+        dna_basal = float(np.clip((energy_85_165 - base_energy_85_165) / (base_energy_85_165 + eps), 0.0, 1.0))
+        facial_multiplier = 2.5 if has_dissonance else 1.0
+        au_suppression = any(
+            details and any(str(au).upper().replace("AU", "") in {"23", "24"} for au in details.get("active_aus", []))
+            for details in facs_details.values()
+        )
+        zcr_drop_ratio = float(np.clip(1.0 - (jitter / 2.0), 0.0, 1.0))
+        dna_flooding = float(np.clip((dna_infrasound * 0.55 + dna_basal * 0.45) * (facial_multiplier / 2.5), 0.0, 1.0))
+        dna_shutdown = float(np.clip(dna_infrasound * (1.0 - (ipm_score / 100.0)) * zcr_drop_ratio, 0.0, 1.0))
+        dna_somato = float(np.clip(((dna_infrasound + dna_basal) / 2.0) * (1.0 + (facial_multiplier - 1.0) * (1.0 if au_suppression else 0.0)) / 2.5, 0.0, 1.0))
+        dna_index = float(np.clip(np.mean([dna_infrasound, dna_limbic, dna_neurogenic, dna_basal, dna_flooding, dna_shutdown, dna_somato]), 0.0, 1.0))
         speech_rate_proxy = round(float(np.clip(95.0 + (words_this_window * 4.5) + (mfcc7 * 1.1), 70.0, 180.0)), 1)
         clinical_insight = (
             "Coerência preservada" if coherence_status == "COERENTE" else
@@ -263,6 +286,18 @@ class SessionState:
                 "baseline_mfcc9": round(float(np.clip(baseline_mean * 0.08, 0.0, 25.0)), 3),
                 "subharmonic_energy_5_12hz": subharmonic_5_12,
                 "subharmonic_energy_12_20hz": subharmonic_12_20,
+                "subharmonic_energy_20_40hz": subharmonic_20_40,
+                "energy_85_165hz": energy_85_165,
+                "dna_infrasound_nuclear": round(dna_infrasound, 3),
+                "dna_limbic_modulation": round(dna_limbic, 3),
+                "dna_neurogenic_resonance": round(dna_neurogenic, 3),
+                "dna_vocal_basal_tension": round(dna_basal, 3),
+                "dna_autonomic_flooding": round(dna_flooding, 3),
+                "dna_dissociative_shutdown": round(dna_shutdown, 3),
+                "dna_somatoaffective_dissonance": round(dna_somato, 3),
+                "dna_subharmonic_index": round(dna_index, 3),
+                "dna_baseline_locked": self.baseline_locked,
+                "dna_facial_multiplier": facial_multiplier,
                 "jitter": jitter,
                 "shimmer": shimmer,
                 "speech_rate_proxy": speech_rate_proxy,

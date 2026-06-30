@@ -36,6 +36,16 @@ export interface MetricSnapshot {
   shimmer: number | null;
   subharmonic5_12: number | null;
   subharmonic12_20: number | null;
+  subharmonic20_40?: number | null;
+  vocalBasal85_165?: number | null;
+  dnaInfrasoundNuclear?: number | null;
+  dnaLimbicModulation?: number | null;
+  dnaVocalBasalTension?: number | null;
+  dnaAutonomicFlooding?: number | null;
+  dnaDissociativeShutdown?: number | null;
+  dnaNeurogenicResonance?: number | null;
+  dnaSomatoaffectiveDissonance?: number | null;
+  dnaSubharmonicIndex?: number | null;
   zones: PerceptionZone[];
 }
 

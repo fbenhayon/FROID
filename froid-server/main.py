@@ -1276,6 +1276,16 @@ def _append_anonymous_datamart_row(report: dict) -> None:
             subharmonic_snapshot = {
                 "subharmonic_5_12": cut.get("subharmonic5_12"),
                 "subharmonic_12_20": cut.get("subharmonic12_20"),
+                "subharmonic_20_40": cut.get("subharmonic20_40"),
+                "vocal_basal_85_165": cut.get("vocalBasal85_165"),
+                "dna_infrasound_nuclear": cut.get("dnaInfrasoundNuclear"),
+                "dna_limbic_modulation": cut.get("dnaLimbicModulation"),
+                "dna_vocal_basal_tension": cut.get("dnaVocalBasalTension"),
+                "dna_autonomic_flooding": cut.get("dnaAutonomicFlooding"),
+                "dna_dissociative_shutdown": cut.get("dnaDissociativeShutdown"),
+                "dna_neurogenic_resonance": cut.get("dnaNeurogenicResonance"),
+                "dna_somatoaffective_dissonance": cut.get("dnaSomatoaffectiveDissonance"),
+                "dna_subharmonic_index": cut.get("dnaSubharmonicIndex"),
             }
             conn.execute(
                 """

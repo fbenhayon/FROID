@@ -18,12 +18,13 @@ type SubharmonicMetric = {
 };
 
 const DNA_COLORS: Record<string, string> = {
-  sna_5_12: "#25A84A",
-  limbic_12_20: "#3D8FE6",
-  vocal_85_165: "#875ED4",
-  flooding: "#FF9800",
-  shutdown: "#FF4560",
-  compensation: "#22B3BE",
+  nuclear_infrasound: "#5CC9FF",
+  limbic_12_20: "#6B8CFF",
+  vocal_85_165: "#9A5BFF",
+  flooding: "#FFB22E",
+  shutdown: "#FF5D9B",
+  neurogenic: "#66D7FF",
+  somatoaffective: "#6EF2A8",
 };
 
 const clamp = (value: number, min = 0, max = 1) =>
@@ -37,6 +38,24 @@ const readNumber = (
 ) => {
   const raw = audioMeta?.[key];
   return typeof raw === "number" && Number.isFinite(raw) ? raw : null;
+};
+
+const readMetaNumber = (
+  audioMeta: Props["audioMeta"],
+  key: string,
+) => {
+  const raw = audioMeta?.[key];
+  return typeof raw === "number" && Number.isFinite(raw) ? raw : null;
+};
+
+const readMetric = (
+  audioMeta: Props["audioMeta"],
+  preferredKey: keyof AcousticBiomarkers,
+  fallbackKey?: keyof AcousticBiomarkers,
+) => {
+  const preferred = readNumber(audioMeta, preferredKey);
+  if (preferred !== null) return preferred;
+  return fallbackKey ? readNumber(audioMeta, fallbackKey) : null;
 };
 
 const zoneLoad = (zones: PerceptionZone[], ids: number[]) => {
@@ -68,11 +87,32 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta }) => {
       ? zones.filter((zone) => zone && typeof zone.zone === "number")
       : [];
 
-    const acoustic5_12 = readNumber(audioMeta, "subharmonic_energy_5_12hz");
-    const acoustic12_20 = readNumber(audioMeta, "subharmonic_energy_12_20hz");
-    const acoustic85_165 = readNumber(audioMeta, "energy_85_165hz");
+    const acoustic5_12 = readMetric(
+      audioMeta,
+      "dna_infrasound_nuclear",
+      "subharmonic_energy_5_12hz",
+    );
+    const acoustic12_20 = readMetric(
+      audioMeta,
+      "dna_limbic_modulation",
+      "subharmonic_energy_12_20hz",
+    );
+    const acoustic85_165 = readMetric(
+      audioMeta,
+      "dna_vocal_basal_tension",
+      "energy_85_165hz",
+    );
+    const acoustic20_40 =
+      readMetric(audioMeta, "dna_neurogenic_resonance", "subharmonic_energy_20_40hz") ??
+      readMetaNumber(audioMeta, "subharmonic_energy_20_40hz");
+    const acousticFlooding = readNumber(audioMeta, "dna_autonomic_flooding");
+    const acousticShutdown = readNumber(audioMeta, "dna_dissociative_shutdown");
+    const acousticSomato = readNumber(audioMeta, "dna_somatoaffective_dissonance");
     const hasAcoustic =
-      acoustic5_12 !== null || acoustic12_20 !== null || acoustic85_165 !== null;
+      acoustic5_12 !== null ||
+      acoustic12_20 !== null ||
+      acoustic85_165 !== null ||
+      acoustic20_40 !== null;
 
     const dissonanceLoad = clamp(
       arr.filter((zone) => !!zone.facial_dissonance_detected).length / 5,
@@ -84,64 +124,78 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta }) => {
     const tremor5_12 = acoustic5_12 ?? traumaProxy;
     const upper12_20 = acoustic12_20 ?? limbicProxy;
     const tension85_165 = acoustic85_165 ?? tensionProxy;
-    const flooding = clamp(tremor5_12 * 0.58 + tension85_165 * 0.42);
-    const shutdown = clamp(tremor5_12 * (1 - tension85_165) + compensationLoad(arr) * 0.32);
-    const compensation = compensationLoad(arr);
+    const flooding = acousticFlooding ?? clamp(tremor5_12 * 0.58 + tension85_165 * 0.42);
+    const shutdown =
+      acousticShutdown ??
+      clamp(tremor5_12 * (1 - tension85_165) + compensationLoad(arr) * 0.32);
+    const neurogenic = acoustic20_40 ?? clamp(upper12_20 * 0.44 + dissonanceLoad * 0.22);
+    const somatoaffective =
+      acousticSomato ??
+      clamp(tremor5_12 * 0.34 + tension85_165 * 0.34 + dissonanceLoad * 0.32);
 
     const items: Omit<SubharmonicMetric, "color">[] = [
       {
-        id: "sna_5_12",
-        label: "Tremor SNA profundo",
-        band: "5-12 Hz - acustico",
+        id: "nuclear_infrasound",
+        label: "Infrassom Nuclear",
+        band: "5-12 Hz | Tremor SNA profundo",
         value: tremor5_12,
         source: acoustic5_12 !== null ? "acustico" : "proxy",
         tooltip:
-          "Energia sub-harmonica entre 5 e 12 Hz. Esta banda rastreia tremores autonomicos profundos ligados a flooding, dissociacao e trauma.",
+          "Infrassom Nuclear: leitura da faixa 5-12 Hz, associada a tremor profundo do Sistema Nervoso Autonomo e ativacao inconsciente.",
       },
       {
         id: "limbic_12_20",
         label: "Modulacao limbica",
-        band: "12-20 Hz - acustico",
+        band: "12-20 Hz | Reatividade afetiva",
         value: upper12_20,
         source: acoustic12_20 !== null ? "acustico" : "proxy",
         tooltip:
-          "Faixa superior de modulacao autonomica. Ajuda a separar tensao limbica alta de tremor visceral profundo.",
+          "Modulacao Limbica: faixa 12-20 Hz, usada para estimar reatividade afetiva e variacao autonoma ligada a estados emocionais.",
       },
       {
         id: "vocal_85_165",
         label: "Tensao vocal basal",
-        band: "85-165 Hz - acustico",
+        band: "85-165 Hz | Rigidez laringea",
         value: tension85_165,
         source: acoustic85_165 !== null ? "acustico" : "proxy",
         tooltip:
-          "Energia vocal basal usada no cruzamento de risco. Quando sobe junto da banda 5-12 Hz, aponta sobrecarga autonomica/flooding.",
+          "Tensao Vocal Basal: faixa 85-165 Hz, relacionada a rigidez laringea, hipercontrole vocal e esforco de sustentacao.",
       },
       {
         id: "flooding",
         label: "Flooding autonomico",
-        band: "5-12 + 85-165",
+        band: "5-12 + 85-165 Hz | Colisao autonoma",
         value: flooding,
         source: hasAcoustic ? "acustico" : "proxy",
         tooltip:
-          "Composicao entre tremor profundo e tensao vocal. Representa risco de sobrecarga autonomica ativa.",
+          "Flooding Autonomico: colisao entre energia 5-12 Hz e tensao vocal basal, indicando sobrecarga neurofisiologica ativa.",
       },
       {
         id: "shutdown",
         label: "Shutdown dissociativo",
-        band: "SNA - tensao",
+        band: "Queda energetica | Coerencia reduzida",
         value: shutdown,
         source: hasAcoustic ? "acustico" : "proxy",
         tooltip:
-          "Cresce quando ha tremor autonomico com baixa energia vocal basal ou muitas zonas compensatorias, sugerindo supressao/dissociacao.",
+          "Shutdown Dissociativo: queda energetica com reducao de coerencia, sugerindo supressao defensiva, embotamento ou retraimento autonomico.",
       },
       {
-        id: "compensation",
-        label: "Compensacao zonal",
-        band: "Offsetting - proxy",
-        value: compensation,
+        id: "neurogenic",
+        label: "Ressonancia neurogenica",
+        band: "20-40 Hz | Descarga vegetativa",
+        value: neurogenic,
+        source: acoustic20_40 !== null ? "acustico" : "proxy",
+        tooltip:
+          "Ressonancia Neurogenica: faixa 20-40 Hz, associada a descarga vegetativa, regulacao autonoma e reorganizacao neurofisiologica.",
+      },
+      {
+        id: "somatoaffective",
+        label: "Dissonancia somatoafetiva",
+        band: "Calma verbal x tensao sub-harmonica",
+        value: somatoaffective,
         source: "proxy",
         tooltip:
-          "Carga de zonas em BRANCO ou com desvio negativo. Mantem a ponte entre o mapa zonal atual e o futuro motor acustico completo.",
+          "Dissonancia Somatoafetiva: contraste entre calma verbal aparente e tensao sub-harmonica, indicando possivel conflito corpo-fala.",
       },
     ];
 
@@ -175,26 +229,26 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta }) => {
   );
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border border-slate-700 bg-slate-950 p-3 text-slate-100 shadow-sm">
-      <div className="mb-2 flex shrink-0 items-start justify-between gap-3">
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border border-slate-700 bg-slate-950 p-2 text-slate-100 shadow-sm">
+      <div className="mb-1.5 flex shrink-0 items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="text-[14px] font-black text-slate-100">
-            Sub-Harmonicos
+          <h3 className="text-[13px] font-black text-slate-100">
+            Sub-harmonicos
           </h3>
           <p className="truncate text-[10px] font-medium text-slate-400">
-            Percentual por componente e descricao tecnica
+            Percentual por componente e substancia tecnica
           </p>
         </div>
-        <div className="shrink-0 rounded-2xl border border-blue-800 bg-blue-950 px-3 py-1 text-center text-blue-200">
-          <span className="block text-[9px] font-black uppercase">
+        <div className="shrink-0 rounded-xl border border-blue-800 bg-blue-950 px-2.5 py-0.5 text-center text-blue-200">
+          <span className="block text-[8px] font-black uppercase">
             Indice geral
           </span>
-          <strong className="font-mono text-[14px]">{generalIndex}%</strong>
+          <strong className="font-mono text-[12px]">{generalIndex}%</strong>
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-        <div className="space-y-2">
+      <div className="min-h-0 flex-1 overflow-hidden pr-1">
+        <div className="space-y-1">
           {metrics.map((metric, index) => {
             const value = percent(metric.value);
             return (
@@ -213,26 +267,27 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta }) => {
                 width={360}
               >
                 <div className="cursor-help">
-                  <div className="mb-1 flex items-center justify-between gap-2">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span
-                        className="h-5 w-3 shrink-0"
-                        style={{ backgroundColor: metric.color }}
-                      />
-                      <div className="min-w-0">
-                        <span className="block truncate text-[11px] font-black uppercase text-slate-100">
-                          {index + 1}. {metric.label}
-                        </span>
-                        <span className="block truncate text-[9px] font-bold uppercase tracking-wide text-slate-400">
-                          {metric.band} | {metric.source}
-                        </span>
-                      </div>
+                  <div className="mb-0.5 grid min-w-0 grid-cols-[10px_minmax(0,1fr)_42px] items-start gap-1.5">
+                    <span
+                      className="mt-0.5 h-4 w-2.5"
+                      style={{ backgroundColor: metric.color }}
+                    />
+                    <div className="min-w-0">
+                      <span className="block truncate text-[10px] font-black leading-tight text-slate-100">
+                        {index + 1}. {metric.label}
+                      </span>
+                      <span className="block truncate text-[8px] font-bold leading-tight tracking-wide text-[#9bc9ff]">
+                        {metric.band}
+                      </span>
                     </div>
-                    <span className="font-mono text-[11px] font-black" style={{ color: metric.color }}>
+                    <span
+                      className="rounded-full border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-center font-mono text-[10px] font-black"
+                      style={{ color: metric.color }}
+                    >
                       {value}%
                     </span>
                   </div>
-                  <div className="ml-5 h-2.5 overflow-hidden rounded-full bg-slate-800">
+                  <div className="ml-4 h-1.5 w-[calc(100%-1rem)] overflow-hidden rounded-full bg-slate-800">
                     <div
                       className="h-full rounded-full transition-all duration-700"
                       style={{
@@ -248,7 +303,7 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta }) => {
         </div>
       </div>
 
-      <p className="mt-2 shrink-0 truncate text-[9px] font-medium text-slate-400">
+      <p className="mt-1 shrink-0 truncate text-[8px] font-medium text-slate-400">
         {dominant.label}: {percent(dominant.value)}% |{" "}
         {hasAcousticData ? "acustico" : "proxy"} | {insight}
       </p>
