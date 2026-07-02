@@ -98,7 +98,7 @@ const TITLE_TOOLTIPS: Record<string, string> = {
 };
 
 const METRIC_TOOLTIPS: Record<string, string> = {
-  Corte: "Janela temporal analisada na sessao.",
+  Corte: "Intervalo temporal efetivamente analisado no corte da sessao.",
   IPM: "Indice de Potencia Multimodal: intensidade global ou energia emocional empregada.",
   IDM: "Indice de Desvio Multimodal: direcao e grau do desequilibrio multimodal.",
   "Z Domin.": "Zona FROID dominante no periodo analisado.",
@@ -286,10 +286,8 @@ function metricRows(snapshot: MetricSnapshot) {
   ];
 }
 
-function cutMetricRows(snapshot: MetricSnapshot, sessionTheme: string) {
-  return metricRows(snapshot).map(([label, value]) =>
-    label === "Tema" ? ["Tema", sessionTheme || "--"] : [label, value],
-  );
+function cutMetricRows(snapshot: MetricSnapshot) {
+  return metricRows(snapshot).filter(([label]) => label !== "Tema");
 }
 
 type ConversationCutSummary = SessionReportRecord["conversationSummaries"][number];
@@ -359,6 +357,13 @@ function findSummaryForCut(
   return best?.overlap ? best.summary : undefined;
 }
 
+function cutTimeLabel(cut: MetricSnapshot, summary?: ConversationCutSummary) {
+  if (summary) {
+    return `${summary.startMinute}-${summary.endMinute}min`;
+  }
+  return `${Math.floor(cut.startSecond / 60)}-${Math.ceil(cut.endSecond / 60)}min`;
+}
+
 function summaryMetricLine(cut?: MetricSnapshot) {
   if (!cut) return "";
   return [
@@ -400,7 +405,7 @@ const CompactMetricTable: React.FC<{
       <HelpTitle title={title} />
     </div>
     <div className="overflow-x-auto">
-      <table className="w-full table-auto text-left text-[10px] leading-tight">
+      <table className="min-w-max table-auto text-left text-[10px] leading-tight">
         <thead className="text-[9px] uppercase tracking-normal text-slate-400">
           <tr>
             <th className="whitespace-nowrap py-1 pr-2">
@@ -409,7 +414,7 @@ const CompactMetricTable: React.FC<{
             {rows[0]?.metrics.map(([label]) => (
               <th
                 key={label}
-                className="max-w-28 whitespace-nowrap px-1 py-1 font-bold"
+                className="whitespace-nowrap border-l border-slate-200 px-2 py-1 font-bold"
               >
                 <HelpMetric label={label} />
               </th>
@@ -425,7 +430,7 @@ const CompactMetricTable: React.FC<{
               {row.metrics.map(([label, value]) => (
                 <td
                   key={`${row.label}-${label}`}
-                  className="max-w-28 truncate px-1 py-1 text-slate-700"
+                  className="whitespace-nowrap border-l border-slate-200 px-2 py-1 text-slate-700"
                   title={value}
                 >
                   {value}
@@ -970,17 +975,8 @@ export const SessionReport: React.FC<Props> = () => {
                   report.conversationSummaries || [],
                 );
                 return {
-                  label: cut.label,
-                  metrics: cutMetricRows(
-                    cut,
-                    limitThemeWords(
-                      summary?.theme ||
-                        cut.theme ||
-                        sessionSummary.theme ||
-                        report.sessionAverage.theme,
-                      6,
-                    ),
-                  ),
+                  label: cutTimeLabel(cut, summary),
+                  metrics: cutMetricRows(cut),
                 };
               })}
             />
