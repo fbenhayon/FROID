@@ -271,7 +271,6 @@ function metricRows(snapshot: MetricSnapshot) {
     ["IPM", fmt(snapshot.ipmAvg, 1)],
     ["IDM", fmt(snapshot.idmAvg, 2)],
     ["Z Domin.", snapshot.dominantZone ? `Zona ${snapshot.dominantZone}` : "--"],
-    ["Tema", snapshot.theme || "--"],
     ["Tom", snapshot.emotionalTone || "--"],
     ["P/min", fmt(snapshot.wordsPerMinute, 1)],
     ["Disso.", String(snapshot.dissonanceCount || 0)],
@@ -286,17 +285,7 @@ function metricRows(snapshot: MetricSnapshot) {
   ];
 }
 
-function cutMetricRows(snapshot: MetricSnapshot) {
-  return metricRows(snapshot).filter(([label]) => label !== "Tema");
-}
-
 type ConversationCutSummary = SessionReportRecord["conversationSummaries"][number];
-
-function cutTriggerLabel(trigger?: ConversationCutSummary["trigger"]) {
-  if (trigger === "manual") return "Corte profissional";
-  if (trigger === "final") return "Corte final";
-  return "Corte automatico 10min";
-}
 
 function secondsForSummary(summary: ConversationCutSummary) {
   return {
@@ -976,7 +965,7 @@ export const SessionReport: React.FC<Props> = () => {
                 );
                 return {
                   label: cutTimeLabel(cut, summary),
-                  metrics: cutMetricRows(cut),
+                  metrics: metricRows(cut),
                 };
               })}
             />
@@ -1026,10 +1015,6 @@ export const SessionReport: React.FC<Props> = () => {
                             <p className="text-xs font-bold text-slate-800">
                               {item.startMinute}-{item.endMinute}min |{" "}
                               {limitThemeWords(item.theme, 6)}
-                            </p>
-                            <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                              {cutTriggerLabel(item.trigger)}
-                              {cut?.sampleCount ? ` | ${cut.sampleCount} amostras` : ""}
                             </p>
                           </div>
                         </div>
