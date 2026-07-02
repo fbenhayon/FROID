@@ -338,6 +338,20 @@ function findCutForSummary(
   return best?.overlap ? best.cut : undefined;
 }
 
+function summaryMetricLine(cut?: MetricSnapshot) {
+  if (!cut) return "";
+  return [
+    `IPM ${fmt(cut.ipmAvg, 1)}`,
+    `IDM ${fmt(cut.idmAvg, 2)}`,
+    `Zona ${cut.dominantZone || "--"}`,
+    `Tom ${cut.emotionalTone || "--"}`,
+    `${fmt(cut.wordsPerMinute, 1)} p/min`,
+    `Disson. ${cut.dissonanceCount || 0}`,
+    `MFCC7 ${fmt(cut.mfcc7, 3)}`,
+    `MFCC9 ${fmt(cut.mfcc9, 3)}`,
+  ].join(" | ");
+}
+
 function buildDescriptiveReportText(
   report: SessionReportRecord,
   sessionSummary: { theme: string; summary: string },
@@ -975,9 +989,7 @@ export const SessionReport: React.FC<Props> = () => {
                   })
                   .map((item) => {
                     const cut = findCutForSummary(item, report.tenMinuteCuts);
-                    const metrics = cut
-                      ? cutMetricRows(cut, limitThemeWords(item.theme || cut.theme, 6))
-                      : [];
+                    const metricLine = summaryMetricLine(cut);
                     return (
                       <div key={item.id} className="rounded border border-slate-100 bg-slate-50 p-3">
                         <div className="flex flex-wrap items-start justify-between gap-2">
@@ -991,31 +1003,15 @@ export const SessionReport: React.FC<Props> = () => {
                               {cut?.sampleCount ? ` | ${cut.sampleCount} amostras` : ""}
                             </p>
                           </div>
-                          {cut && (
-                            <span className="rounded bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-700">
-                              Metricas do corte
-                            </span>
-                          )}
                         </div>
                         <p className="mt-2 text-xs leading-relaxed text-slate-600">
                           {limitWords(item.summary, 60)}
                         </p>
-                        {metrics.length > 0 && (
-                          <div className="mt-3 grid gap-1 sm:grid-cols-2 xl:grid-cols-3">
-                            {metrics.map(([label, value]) => (
-                              <div
-                                key={`${item.id}-${label}`}
-                                className="flex items-center justify-between gap-2 rounded border border-slate-200 bg-white px-2 py-1 text-[10px]"
-                              >
-                                <span className="font-bold text-slate-500">
-                                  <HelpMetric label={label} />
-                                </span>
-                                <span className="truncate text-right font-mono text-slate-800" title={value}>
-                                  {value}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
+                        {metricLine && (
+                          <p className="mt-2 rounded border border-slate-200 bg-white px-2 py-1 font-mono text-[10px] leading-relaxed text-slate-600">
+                            <span className="font-bold text-slate-800">Metricas:</span>{" "}
+                            {metricLine}
+                          </p>
                         )}
                         {!cut && (
                           <p className="mt-2 text-[10px] italic text-amber-600">
