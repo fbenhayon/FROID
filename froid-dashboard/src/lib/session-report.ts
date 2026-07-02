@@ -69,10 +69,13 @@ export interface SessionReportRecord {
   clinicalNotes: ClinicalNote[];
   conversationSummaries: Array<{
     id: string;
+    startSecond?: number;
+    endSecond?: number;
     startMinute: number;
     endMinute: number;
     theme: string;
     summary: string;
+    trigger?: "automatico_10min" | "manual" | "final";
   }>;
   sessionSummary?: {
     theme: string;

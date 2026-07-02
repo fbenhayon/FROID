@@ -83,12 +83,12 @@ const TITLE_TOOLTIPS: Record<string, string> = {
     "Primeira fotografia bioacustica e multimodal da sessao, tomada apos a ativacao do audio do paciente.",
   "Media das metricas da sessao":
     "Media consolidada dos marcadores coletados durante todo o periodo analisado da sessao.",
-  "Cortes de 10 minutos":
-    "Janelas temporais da sessao com as mesmas metricas da media, permitindo comparar a evolucao corte a corte.",
+  "Cortes da sessao":
+    "Cortes temporais da sessao, incluindo cortes manuais do profissional e cortes automaticos obrigatorios a cada 10 minutos apos o ultimo corte.",
   "Resumo geral da sessao":
     "Sintese analitica final da sessao, limitada a 300 palavras, com tema predominante de ate 6 palavras.",
-  "Temas e resumos por janela":
-    "Resumo de cada janela temporal, limitado a 60 palavras, com tema de ate 6 palavras.",
+  "Temas e Resumos por Cortes":
+    "Resumo e metricas de cada corte temporal, alinhando tema, sintese semantica e marcadores multimodais do mesmo periodo.",
   "Observacoes do profissional":
     "Anotacoes clinicas registradas manualmente pelo profissional durante a sessao.",
   "Dissonancias registradas":
@@ -290,6 +290,52 @@ function cutMetricRows(snapshot: MetricSnapshot, sessionTheme: string) {
   return metricRows(snapshot).map(([label, value]) =>
     label === "Tema" ? ["Tema", sessionTheme || "--"] : [label, value],
   );
+}
+
+type ConversationCutSummary = SessionReportRecord["conversationSummaries"][number];
+
+function cutTriggerLabel(trigger?: ConversationCutSummary["trigger"]) {
+  if (trigger === "manual") return "Corte profissional";
+  if (trigger === "final") return "Corte final";
+  return "Corte automatico 10min";
+}
+
+function secondsForSummary(summary: ConversationCutSummary) {
+  return {
+    start: Math.max(0, Math.floor(summary.startSecond ?? summary.startMinute * 60)),
+    end: Math.max(
+      Math.floor(summary.startSecond ?? summary.startMinute * 60) + 1,
+      Math.ceil(summary.endSecond ?? summary.endMinute * 60),
+    ),
+  };
+}
+
+function overlapSeconds(
+  leftStart: number,
+  leftEnd: number,
+  rightStart: number,
+  rightEnd: number,
+) {
+  return Math.max(0, Math.min(leftEnd, rightEnd) - Math.max(leftStart, rightStart));
+}
+
+function findCutForSummary(
+  summary: ConversationCutSummary,
+  cuts: MetricSnapshot[],
+) {
+  const interval = secondsForSummary(summary);
+  const best = [...cuts]
+    .map((cut) => ({
+      cut,
+      overlap: overlapSeconds(
+        interval.start,
+        interval.end,
+        cut.startSecond,
+        cut.endSecond,
+      ),
+    }))
+    .sort((a, b) => b.overlap - a.overlap)[0];
+  return best?.overlap ? best.cut : undefined;
 }
 
 function buildDescriptiveReportText(
@@ -882,7 +928,7 @@ export const SessionReport: React.FC<Props> = () => {
 
           {sections.cuts && (
             <CompactMetricTable
-              title="Cortes de 10 minutos"
+              title="Cortes da sessao"
               rows={report.tenMinuteCuts.map((cut) => ({
                 label: cut.label,
                 metrics: cutMetricRows(
@@ -913,20 +959,72 @@ export const SessionReport: React.FC<Props> = () => {
           {sections.summaries && (
             <section className="rounded-lg border border-slate-200 bg-white p-4">
               <h2 className="mb-3 text-sm font-bold text-slate-900">
-                <HelpTitle title="Temas e resumos por janela" />
+                <HelpTitle title="Temas e Resumos por Cortes" />
               </h2>
               <div className="space-y-2">
-                {report.conversationSummaries.map((item) => (
-                  <div key={item.id} className="rounded border border-slate-100 bg-slate-50 p-3">
-                    <p className="text-xs font-bold text-slate-800">
-                      {item.startMinute}-{item.endMinute}min |{" "}
-                      {limitThemeWords(item.theme, 6)}
-                    </p>
-                    <p className="mt-1 text-xs leading-relaxed text-slate-600">
-                      {limitWords(item.summary, 60)}
-                    </p>
-                  </div>
-                ))}
+                {!(report.conversationSummaries || []).length && (
+                  <p className="rounded border border-slate-100 bg-slate-50 p-3 text-xs italic text-slate-400">
+                    Nenhum corte semantico registrado para esta sessao.
+                  </p>
+                )}
+                {[...(report.conversationSummaries || [])]
+                  .sort((a, b) => {
+                    const aStart = a.startSecond ?? a.startMinute * 60;
+                    const bStart = b.startSecond ?? b.startMinute * 60;
+                    return bStart - aStart;
+                  })
+                  .map((item) => {
+                    const cut = findCutForSummary(item, report.tenMinuteCuts);
+                    const metrics = cut
+                      ? cutMetricRows(cut, limitThemeWords(item.theme || cut.theme, 6))
+                      : [];
+                    return (
+                      <div key={item.id} className="rounded border border-slate-100 bg-slate-50 p-3">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <p className="text-xs font-bold text-slate-800">
+                              {item.startMinute}-{item.endMinute}min |{" "}
+                              {limitThemeWords(item.theme, 6)}
+                            </p>
+                            <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                              {cutTriggerLabel(item.trigger)}
+                              {cut?.sampleCount ? ` | ${cut.sampleCount} amostras` : ""}
+                            </p>
+                          </div>
+                          {cut && (
+                            <span className="rounded bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-700">
+                              Metricas do corte
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-2 text-xs leading-relaxed text-slate-600">
+                          {limitWords(item.summary, 60)}
+                        </p>
+                        {metrics.length > 0 && (
+                          <div className="mt-3 grid gap-1 sm:grid-cols-2 xl:grid-cols-3">
+                            {metrics.map(([label, value]) => (
+                              <div
+                                key={`${item.id}-${label}`}
+                                className="flex items-center justify-between gap-2 rounded border border-slate-200 bg-white px-2 py-1 text-[10px]"
+                              >
+                                <span className="font-bold text-slate-500">
+                                  <HelpMetric label={label} />
+                                </span>
+                                <span className="truncate text-right font-mono text-slate-800" title={value}>
+                                  {value}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {!cut && (
+                          <p className="mt-2 text-[10px] italic text-amber-600">
+                            Metricas deste corte indisponiveis no registro legado.
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
               </div>
             </section>
           )}

@@ -38,6 +38,8 @@ interface AggData {
 
 interface ConversationSummary {
   id: string;
+  startSecond?: number;
+  endSecond?: number;
   startMinute: number;
   endMinute: number;
   theme: string;
@@ -1341,6 +1343,54 @@ function buildTenMinuteCuts(
   }).filter((snapshot) => snapshot.sampleCount > 0);
 }
 
+function buildReportCuts(
+  samples: SessionSample[],
+  transcriptSegments: TranscriptSegment[],
+  durationSeconds: number,
+  conversationSummaries: ConversationSummary[],
+) {
+  const orderedSummaries = [...conversationSummaries]
+    .filter((summary) => summary.endMinute > summary.startMinute)
+    .sort((a, b) => {
+      const aStart = a.startSecond ?? a.startMinute * 60;
+      const bStart = b.startSecond ?? b.startMinute * 60;
+      return aStart - bStart;
+    });
+
+  if (!orderedSummaries.length) {
+    return buildTenMinuteCuts(samples, transcriptSegments, durationSeconds);
+  }
+
+  return orderedSummaries
+    .map((summary) => {
+      const startSecond = Math.max(
+        0,
+        Math.floor(summary.startSecond ?? summary.startMinute * 60),
+      );
+      const endSecond = Math.min(
+        Math.max(durationSeconds, startSecond + 1),
+        Math.max(
+          startSecond + 1,
+          Math.ceil(summary.endSecond ?? summary.endMinute * 60),
+        ),
+      );
+      const triggerLabel =
+        summary.trigger === "manual"
+          ? "manual"
+          : summary.trigger === "final"
+            ? "final"
+            : "10min";
+      return buildMetricSnapshot(
+        `${summary.startMinute}-${summary.endMinute}min (${triggerLabel})`,
+        samples,
+        startSecond,
+        endSecond,
+        transcriptSegments,
+      );
+    })
+    .filter((snapshot) => snapshot.sampleCount > 0);
+}
+
 function buildSessionSummary(
   summaries: ConversationSummary[],
   transcript: string,
@@ -2632,6 +2682,8 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       if (!transcript) {
         commitSummary({
           id,
+          startSecond: safeStartSecond,
+          endSecond: safeEndSecond,
           startMinute,
           endMinute,
           theme: "Sem fala transcrita",
@@ -2655,6 +2707,8 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         const data = await response.json();
         commitSummary({
           id,
+          startSecond: safeStartSecond,
+          endSecond: safeEndSecond,
           startMinute,
           endMinute,
           theme: limitTheme(String(data?.theme || "Tema em apuracao"), 6),
@@ -2664,6 +2718,8 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       } catch {
         commitSummary({
           id,
+          startSecond: safeStartSecond,
+          endSecond: safeEndSecond,
           startMinute,
           endMinute,
           theme: "Resumo indisponivel",
@@ -3430,10 +3486,11 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       Math.max(durationSeconds, 1),
       transcriptSegmentsRef.current,
     );
-    const tenMinuteCuts = buildTenMinuteCuts(
+    const tenMinuteCuts = buildReportCuts(
       samples,
       transcriptSegmentsRef.current,
       durationSeconds,
+      conversationSummaries,
     );
     const anonymizedContext = buildAnonymizedContext(
       sessionId || "default",
