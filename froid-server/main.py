@@ -7,6 +7,7 @@ import json
 import os
 import re
 import secrets
+import threading
 import uuid
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import quote
@@ -70,6 +71,10 @@ FROID_SESSION_REPORTS_PATH = os.getenv(
     "FROID_SESSION_REPORTS_PATH",
     "/data/session_reports.json",
 )
+FROID_IDENTITY_STATE_PATH = os.getenv(
+    "FROID_IDENTITY_STATE_PATH",
+    "/data/identity_state.json",
+)
 FROID_LEGACY_REPORT_OWNER = os.getenv(
     "FROID_LEGACY_REPORT_OWNER",
     "fbenhayon@gmail.com",
@@ -95,6 +100,152 @@ CONSENT_LEDGER: list[dict] = []
 PATIENT_SESSION_ENTRIES: Dict[str, list[dict]] = {}
 SESSION_EVENTS: list[dict] = []
 SESSION_EVENT_COUNTER = 0
+IDENTITY_STATE_LOCK = threading.Lock()
+
+
+def _local_digits_only(value: Any) -> str:
+    return "".join(ch for ch in str(value or "") if ch.isdigit())
+
+
+def _local_normalize_email(value: Any) -> str:
+    return str(value or "").strip().lower()
+
+
+def _local_int(value: Any) -> int:
+    try:
+        return int(value or 0)
+    except Exception:
+        return 0
+
+
+def _patient_contact_keys(patient: dict) -> list[str]:
+    keys = []
+    email = _local_normalize_email(patient.get("email") or "")
+    phone = _local_digits_only(patient.get("phone") or "")
+    if email:
+        keys.append(f"email:{email}")
+    if phone:
+        keys.append(f"phone:{phone}")
+    return keys
+
+
+def _rebuild_patient_contact_index(
+    patients: Dict[str, dict],
+    persisted_index: Dict[str, str] | None = None,
+) -> Dict[str, str]:
+    index: Dict[str, str] = {}
+    for contact_key, patient_id in (persisted_index or {}).items():
+        if contact_key and str(patient_id) in patients:
+            index[str(contact_key)] = str(patient_id)
+    for patient_id, patient in patients.items():
+        if not isinstance(patient, dict):
+            continue
+        for contact_key in _patient_contact_keys(patient):
+            index[contact_key] = str(patient_id)
+    return index
+
+
+def _load_identity_state() -> None:
+    global PROFESSIONAL_PROFILES
+    global PATIENTS
+    global PATIENTS_BY_CONTACT
+    global SESSION_INVITES
+    global CONSENT_LEDGER
+    global PATIENT_SESSION_ENTRIES
+    global SESSION_EVENTS
+    global SESSION_EVENT_COUNTER
+
+    if not FROID_IDENTITY_STATE_PATH or not os.path.exists(FROID_IDENTITY_STATE_PATH):
+        return
+    try:
+        with open(FROID_IDENTITY_STATE_PATH, "r", encoding="utf-8") as state_file:
+            state = json.load(state_file)
+    except Exception:
+        return
+    if not isinstance(state, dict):
+        return
+
+    raw_profiles = state.get("professional_profiles")
+    if isinstance(raw_profiles, dict):
+        PROFESSIONAL_PROFILES = {
+            _local_normalize_email(email): profile
+            for email, profile in raw_profiles.items()
+            if _local_normalize_email(email) and isinstance(profile, dict)
+        }
+
+    raw_patients = state.get("patients")
+    if isinstance(raw_patients, dict):
+        PATIENTS = {
+            str(patient_id): patient
+            for patient_id, patient in raw_patients.items()
+            if patient_id and isinstance(patient, dict)
+        }
+
+    persisted_contact_index = state.get("patients_by_contact")
+    PATIENTS_BY_CONTACT = _rebuild_patient_contact_index(
+        PATIENTS,
+        persisted_contact_index if isinstance(persisted_contact_index, dict) else {},
+    )
+
+    raw_invites = state.get("session_invites")
+    if isinstance(raw_invites, dict):
+        SESSION_INVITES = {
+            str(token): invite
+            for token, invite in raw_invites.items()
+            if token and isinstance(invite, dict)
+        }
+
+    raw_ledger = state.get("consent_ledger")
+    if isinstance(raw_ledger, list):
+        CONSENT_LEDGER = [item for item in raw_ledger if isinstance(item, dict)]
+
+    raw_entries = state.get("patient_session_entries")
+    if isinstance(raw_entries, dict):
+        PATIENT_SESSION_ENTRIES = {
+            str(session_id): [item for item in entries if isinstance(item, dict)]
+            for session_id, entries in raw_entries.items()
+            if isinstance(entries, list)
+        }
+
+    raw_events = state.get("session_events")
+    if isinstance(raw_events, list):
+        SESSION_EVENTS = [item for item in raw_events if isinstance(item, dict)][-500:]
+
+    max_event_id = max(
+        [_local_int(event.get("id")) for event in SESSION_EVENTS if isinstance(event, dict)]
+        or [0]
+    )
+    SESSION_EVENT_COUNTER = max(_local_int(state.get("session_event_counter")), max_event_id)
+
+
+def _identity_state_snapshot() -> dict:
+    return {
+        "schema_version": "froid-identity-state-v1",
+        "saved_at": datetime.now(timezone.utc).isoformat(),
+        "professional_profiles": PROFESSIONAL_PROFILES,
+        "patients": PATIENTS,
+        "patients_by_contact": PATIENTS_BY_CONTACT,
+        "session_invites": SESSION_INVITES,
+        "consent_ledger": CONSENT_LEDGER[-2000:],
+        "patient_session_entries": PATIENT_SESSION_ENTRIES,
+        "session_events": SESSION_EVENTS[-500:],
+        "session_event_counter": SESSION_EVENT_COUNTER,
+    }
+
+
+def _save_identity_state() -> None:
+    if not FROID_IDENTITY_STATE_PATH:
+        return
+    with IDENTITY_STATE_LOCK:
+        state_dir = os.path.dirname(FROID_IDENTITY_STATE_PATH) or "."
+        os.makedirs(state_dir, exist_ok=True)
+        tmp_path = f"{FROID_IDENTITY_STATE_PATH}.tmp"
+        with open(tmp_path, "w", encoding="utf-8") as state_file:
+            json.dump(_identity_state_snapshot(), state_file, ensure_ascii=False, indent=2)
+        os.replace(tmp_path, FROID_IDENTITY_STATE_PATH)
+
+
+_load_identity_state()
 
 KNOWLEDGE_BASE = {
     "froid_zonas": "As 12 Zonas de Percepcao FROID organizam padroes de desequilibrio facial-vocal e orientam a leitura clinica por temas, tensoes e dissonancias.",
@@ -1545,6 +1696,7 @@ def _record_session_event(event_type: str, invite: dict, extra: dict | None = No
     SESSION_EVENTS.append(event)
     if len(SESSION_EVENTS) > 500:
         del SESSION_EVENTS[: len(SESSION_EVENTS) - 500]
+    _save_identity_state()
     return event
 
 
@@ -2178,6 +2330,7 @@ async def save_professional_profile(request: Request):
         "updated_at": now,
     }
     PROFESSIONAL_PROFILES[owner_email] = profile
+    _save_identity_state()
     return {"status": "ok", "profile": profile, "access_status": _professional_access_status(owner_email)}
 
 

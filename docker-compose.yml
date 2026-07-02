@@ -30,6 +30,7 @@ services:
       - FROID_DUCKDB_PATH=${FROID_DUCKDB_PATH:-/data/datamart_anonymous.duckdb}
       - FROID_ANALYTICS_MIN_K=${FROID_ANALYTICS_MIN_K:-50}
       - FROID_SESSION_REPORTS_PATH=${FROID_SESSION_REPORTS_PATH:-/data/session_reports.json}
+      - FROID_IDENTITY_STATE_PATH=${FROID_IDENTITY_STATE_PATH:-/data/identity_state.json}
     volumes:
       - ./data:/data
     restart: unless-stopped

@@ -12,12 +12,10 @@ import { MediaStatus } from "../components/indicators/MediaStatus";
 import { SessionTimer } from "../components/indicators/SessionTimer";
 import { AIInsights } from "../components/panels/AIInsights";
 import { AudioTranscription } from "../components/panels/AudioTranscription";
-import { COMMITMENT_TEXTS } from "../components/panels/CommitmentPanel";
 import { FroidPayload, PerceptionZone } from "../lib/froid-engine";
 import { getAUDetails, ZONE_CLINICAL_DESCRIPTIONS } from "../lib/froid-data";
 import { apiUrl, wsUrl } from "../lib/api";
 import { createConferenceStream, RTC_CONFIG } from "../lib/webrtc";
-import { FroidTooltip } from "../components/ui/FroidTooltip";
 import {
   MetricSnapshot,
   loadSessionPatient,
@@ -90,6 +88,9 @@ type Action =
 
 const DISSONANCE_REPORT_THRESHOLD = 1.5;
 const DISSONANCE_CRITICAL_THRESHOLD = 3.0;
+const DISSONANCE_MFCC_DELTA_THRESHOLD = 0.35;
+const DISSONANCE_DNA_THRESHOLD = 0.18;
+const DISSONANCE_IPM_DELTA_THRESHOLD = 3.0;
 const IPM_HISTORY_LIMIT = 1200;
 const DR_VOICEPRINT_STORAGE_KEY = "froid_dr_voiceprint_v1";
 
@@ -140,6 +141,22 @@ function normalizeAuCode(code: string) {
 
 function hasAu(auSet: Set<number>, ...codes: number[]) {
   return codes.some((code) => auSet.has(code));
+}
+
+function readFiniteNumber(value: unknown) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function metricDelta(
+  audioMeta: Record<string, unknown> | undefined,
+  currentKey: string,
+  baselineKey: string,
+) {
+  const current = readFiniteNumber(audioMeta?.[currentKey]);
+  const baseline = readFiniteNumber(audioMeta?.[baselineKey]);
+  if (current === null || baseline === null) return null;
+  return current - baseline;
 }
 
 function classifyDissonance(zone?: PerceptionZone | null, audioMeta?: Record<string, unknown>) {
@@ -235,6 +252,8 @@ function formatMetricValue(value: unknown, digits = 2) {
 function dissonanceTechnicalFactors(
   zone?: PerceptionZone | null,
   audioMeta?: Record<string, unknown>,
+  currentIpm?: number | null,
+  baselineIpm?: number | null,
 ) {
   const aus = zone?.dissonance_details?.active_aus || [];
   const score = dissonanceScore(zone);
@@ -246,30 +265,105 @@ function dissonanceTechnicalFactors(
         audioMeta?.substancia_semantica ||
         "",
     ).trim() || "nao informada";
+  const mfcc7Delta = metricDelta(audioMeta, "mfcc7", "baseline_mfcc7");
+  const mfcc9Delta = metricDelta(audioMeta, "mfcc9", "baseline_mfcc9");
+  const dnaInfrasound = readFiniteNumber(audioMeta?.dna_infrasound_nuclear);
+  const dnaBasal = readFiniteNumber(audioMeta?.dna_vocal_basal_tension);
+  const dnaFlooding = readFiniteNumber(audioMeta?.dna_autonomic_flooding);
+  const dnaShutdown = readFiniteNumber(audioMeta?.dna_dissociative_shutdown);
+  const dnaSomato = readFiniteNumber(audioMeta?.dna_somatoaffective_dissonance);
+  const dnaNeurogenic = readFiniteNumber(audioMeta?.dna_neurogenic_resonance);
+  const jitter = readFiniteNumber(audioMeta?.jitter);
+  const shimmer = readFiniteNumber(audioMeta?.shimmer);
+  const ipmDelta =
+    typeof currentIpm === "number" && typeof baselineIpm === "number"
+      ? currentIpm - baselineIpm
+      : null;
 
-  return [
-    `Linha de base dinamica: o apontamento so e considerado apos contraste com a impressao emocional calibrada nos 60 segundos iniciais, incluindo F0, variabilidade prosodica, AUs de repouso e energia acustica media.`,
+  const factors = [
     `IDM ${score.toFixed(2)} (${severity}) acima do limiar ${DISSONANCE_REPORT_THRESHOLD.toFixed(2)}: o desvio energetico compara E_vocal contra E_baseline e aplica M_fac quando ha contradicao facial-vocal.`,
-    `Bioacustica vocal: FFT em 12 Zonas FROID e 7 bandas espectrais, com MFCC7 ${formatMetricValue(audioMeta?.mfcc7)}, MFCC9 ${formatMetricValue(audioMeta?.mfcc9)}, F0 medio ${formatMetricValue(audioMeta?.f0_mean || audioMeta?.f0_medio)}, sub-harmonico 5-12 Hz ${formatMetricValue(audioMeta?.subharmonic_energy_5_12hz, 3)} e energia basal 85-165 Hz ${formatMetricValue(audioMeta?.energy_85_165hz, 3)}.`,
     `Morfodinamica facial/FACS: AUs ativas ${aus.length ? aus.join(", ") : "sem AU especifica reportada"}; a leitura exige coerencia temporal entre neutral, onset, apex e offset para reduzir falso positivo.`,
-    `Semantica verbal: valencia considerada ${semantic}; o FROID compara aquilo que e verbalizado com o que voz e face expressam involuntariamente.`,
     `Zona ${zone?.zone ?? "--"} (${zone?.tema || "tema em apuracao"}): ${ZONE_CLINICAL_DESCRIPTIONS[zone?.zone || 0] || "sem descricao zonal."}`,
-    `Matriz IPM x IDM: IPM estima intensidade global, IDM estima direcao do desequilibrio; risco maior ocorre quando baixa aparencia externa contrasta com IDM elevado ou negativo persistente.`,
   ];
+
+  if (mfcc7Delta !== null && Math.abs(mfcc7Delta) >= DISSONANCE_MFCC_DELTA_THRESHOLD) {
+    factors.push(
+      `MFCC7 divergente: ${formatMetricValue(audioMeta?.mfcc7)} contra baseline ${formatMetricValue(audioMeta?.baseline_mfcc7)} (delta ${mfcc7Delta.toFixed(2)}), marcador acustico associado a valencia negativa quando sustentado em fala emocionalmente carregada.`,
+    );
+  }
+  if (mfcc9Delta !== null && Math.abs(mfcc9Delta) >= DISSONANCE_MFCC_DELTA_THRESHOLD) {
+    factors.push(
+      `MFCC9 divergente: ${formatMetricValue(audioMeta?.mfcc9)} contra baseline ${formatMetricValue(audioMeta?.baseline_mfcc9)} (delta ${mfcc9Delta.toFixed(2)}), sugerindo tensao autonoma latente quando cruza discurso neutro ou controlado.`,
+    );
+  }
+  if (dnaInfrasound !== null && dnaInfrasound >= DISSONANCE_DNA_THRESHOLD) {
+    factors.push(
+      `Sub-harmonicos 5-12 Hz acima da metrica (${dnaInfrasound.toFixed(2)}): indicam tremor autonomico vocal detectado na trilha bruta do paciente.`,
+    );
+  }
+  if (dnaBasal !== null && dnaBasal >= DISSONANCE_DNA_THRESHOLD) {
+    factors.push(
+      `Tensao basal 85-165 Hz acima da metrica (${dnaBasal.toFixed(2)}): aponta carga laringea/respiratoria sustentada sob a fala.`,
+    );
+  }
+  if (dnaFlooding !== null && dnaFlooding >= DISSONANCE_DNA_THRESHOLD) {
+    factors.push(
+      `Flooding autonomico acima da metrica (${dnaFlooding.toFixed(2)}): combinacao de energia sub-harmonica, tensao basal e multiplicador facial.`,
+    );
+  }
+  if (dnaShutdown !== null && dnaShutdown >= DISSONANCE_DNA_THRESHOLD) {
+    factors.push(
+      `Shutdown/dissociacao acima da metrica (${dnaShutdown.toFixed(2)}): queda relativa de disponibilidade expressiva com tremor autonomico residual.`,
+    );
+  }
+  if (dnaSomato !== null && dnaSomato >= DISSONANCE_DNA_THRESHOLD) {
+    factors.push(
+      `Dissonancia somatoafetiva acima da metrica (${dnaSomato.toFixed(2)}): contraste corpo-voz-face suficiente para registro clinico.`,
+    );
+  }
+  if (dnaNeurogenic !== null && dnaNeurogenic >= DISSONANCE_DNA_THRESHOLD) {
+    factors.push(
+      `Ressonancia neurogenica acima da metrica (${dnaNeurogenic.toFixed(2)}): alteracao sub-harmonica em faixa superior compativel com ativacao corporal nao verbalizada.`,
+    );
+  }
+  if (jitter !== null && jitter >= 0.45) {
+    factors.push(
+      `Jitter elevado (${jitter.toFixed(2)}): microperturbacao de frequencia acima do esperado para estabilidade vocal naquele corte.`,
+    );
+  }
+  if (shimmer !== null && shimmer >= 0.45) {
+    factors.push(
+      `Shimmer elevado (${shimmer.toFixed(2)}): variacao de amplitude vocal acima do esperado, sugerindo instabilidade de energia vocal.`,
+    );
+  }
+  if (ipmDelta !== null && Math.abs(ipmDelta) >= DISSONANCE_IPM_DELTA_THRESHOLD) {
+    factors.push(
+      `IPM divergiu da baseline inicial em ${ipmDelta.toFixed(1)} pontos: a intensidade global mudou o suficiente para compor o alerta multimodal.`,
+    );
+  }
+  if (semantic && !/^nao informada$/i.test(semantic) && !/^neutro$/i.test(semantic)) {
+    factors.push(
+      `Semantica verbal considerada ${semantic}: o FROID cruza o conteudo transcrito com face e voz para detectar contradicao entre relato e expressao involuntaria.`,
+    );
+  }
+
+  return factors;
 }
 
 function buildDissonanceReportText(
   zone: PerceptionZone,
   audioMeta?: Record<string, unknown>,
+  currentIpm?: number | null,
+  baselineIpm?: number | null,
 ) {
   const score = dissonanceScore(zone);
   const interpretation = classifyDissonance(zone, audioMeta);
-  const factors = dissonanceTechnicalFactors(zone, audioMeta);
+  const factors = dissonanceTechnicalFactors(zone, audioMeta, currentIpm, baselineIpm);
   return [
     `IDM ${score.toFixed(2)} | ${dissonanceSeverity(zone)} | Zona ${zone.zone}`,
     `${interpretation.title}: ${interpretation.summary}`,
-    `Elementos tecnicos: ${factors.join(" ")}`,
-    `Fatores de mitigacao: ${interpretation.action}`,
+    `Itens divergentes apurados: ${factors.join(" ")}`,
+    `Sugestao tecnica ao profissional: ${interpretation.action}`,
   ].join(" ");
 }
 
@@ -3302,8 +3396,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const confirmedDissonanceZones = (Array.isArray(displayZones) ? displayZones : []).filter(
     (zone) => hasConfirmedDissonanceEvidence(zone, displayAudio),
   );
-  const displayCommitments =
-    agg?.commitments || (raw as any)?.commitment_models || [];
   const semanticCutElapsed = Math.max(0, state.elapsedSeconds - semanticCutStartSecond);
   const semanticCutWindowSeconds = TRANSCRIPT_SUMMARY_WINDOW_MS / 1000;
   const semanticCutProgress = Math.min(
@@ -3437,7 +3529,12 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           zone: z.zone,
           score,
           severity: dissonanceSeverity(z),
-          report: buildDissonanceReportText(z, displayAudio),
+          report: buildDissonanceReportText(
+            z,
+            displayAudio,
+            displayIpm,
+            state.baselineIPM,
+          ),
         };
       });
     const signature = currentEntries
@@ -3684,6 +3781,38 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             </div>
 
             <div className="min-h-0 overflow-y-auto rounded-xl border border-slate-700 bg-slate-950 p-3 text-slate-100 shadow-sm">
+              <div className="mb-3 flex items-start justify-between gap-3 border-b border-slate-800 pb-2">
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-red-200">
+                    Dissonâncias
+                  </p>
+                  <p className="mt-1 text-[10px] leading-snug text-slate-400">
+                    Divergencias multimodais acima dos limiares FROID. Itens abaixo
+                    das metricas configuradas sao omitidos.
+                  </p>
+                </div>
+                <span
+                  className={`shrink-0 rounded px-2 py-1 text-[9px] font-black uppercase ${
+                    confirmedDissonanceZones.length
+                      ? "bg-red-600 text-white"
+                      : "bg-emerald-900/70 text-emerald-200"
+                  }`}
+                >
+                  {confirmedDissonanceZones.length
+                    ? `${confirmedDissonanceZones.length} ativa(s)`
+                    : "sem alerta"}
+                </span>
+              </div>
+
+              {confirmedDissonanceZones.length === 0 && (
+                <div className="rounded-xl border border-emerald-900/70 bg-emerald-950/20 p-3 text-[11px] leading-relaxed text-emerald-100">
+                  Nenhuma dissonancia facial-vocal-semantica ultrapassou os
+                  limiares definidos neste instante. O FROID segue monitorando
+                  voz do paciente, FACS, IPM, IDM, sub-harmonicos, biomarcadores
+                  acusticos e conteudo transcrito.
+                </div>
+              )}
+
               {confirmedDissonanceZones.length > 0 &&
                 confirmedDissonanceZones
                   .map((zone) => {
@@ -3692,7 +3821,12 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                     const score = dissonanceScore(zone);
                     const severity = dissonanceSeverity(zone);
                     const interpretation = classifyDissonance(zone, displayAudio);
-                    const technicalFactors = dissonanceTechnicalFactors(zone, displayAudio);
+                    const technicalFactors = dissonanceTechnicalFactors(
+                      zone,
+                      displayAudio,
+                      displayIpm,
+                      state.baselineIPM,
+                    );
                     return (
                       <div
                         key={zone.zone}
@@ -3721,9 +3855,13 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                             Motivo tecnico do apontamento
                           </p>
                           <p className="mt-1 text-[10px] leading-snug text-slate-300">
-                            O FROID registrou esta dissonancia porque a expressao facial,
-                            a energia vocal e a leitura semantica ultrapassaram o limiar
-                            configurado apos comparacao com a baseline dinamica da sessao.
+                            O FROID registrou este apontamento apenas porque a
+                            composicao entre face, voz, zona, IDM e/ou semantica
+                            ultrapassou os limiares definidos apos comparacao com
+                            a baseline de 60 segundos da sessao.
+                          </p>
+                          <p className="mt-2 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                            Itens divergentes apurados
                           </p>
                           <ul className="mt-1 space-y-1 text-[10px] leading-snug text-slate-300">
                             {technicalFactors.map((factor, i) => (
@@ -3793,71 +3931,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                   </div>
                 </div>
               )}
-
-              <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50/40 p-2">
-                <div className="mb-2 flex items-center justify-between">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    Compromissos Terapeuticos Sugeridos
-                  </p>
-                  <span className="text-[9px] text-slate-500">
-                    {displayCommitments.slice(0, 3).length} itens
-                  </span>
-                </div>
-                <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
-                  {displayCommitments.slice(0, 3).length === 0 && (
-                    <p className="text-[10px] text-slate-400">
-                      Coletando padroes para sugerir declaracoes de compromisso.
-                    </p>
-                  )}
-                  {displayCommitments.slice(0, 3).map((commitment: any) => {
-                    const model = COMMITMENT_TEXTS[Number(commitment.model_id)];
-                    if (!model) return null;
-                    return (
-                      <div
-                        key={`commitment-${commitment.model_id}`}
-                        className="rounded border border-blue-100 bg-white p-2 text-[10px] text-slate-600"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-bold text-blue-800">
-                            {model.title}
-                          </span>
-                          <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[9px] font-bold text-blue-700">
-                            Zonas: {(commitment.zones || []).join(", ")}
-                          </span>
-                        </div>
-                        <p className="mt-0.5 leading-snug">
-                          {model.lines[0]} {model.lines[1] || ""}
-                        </p>
-                        <FroidTooltip
-                          content={
-                            <div className="max-w-[340px] space-y-1">
-                              <p className="text-xs font-bold text-slate-900">
-                                {model.title}
-                              </p>
-                              {model.lines.map((line, index) => (
-                                <p
-                                  key={index}
-                                  className="text-[11px] leading-snug text-slate-600"
-                                >
-                                  - {line}
-                                </p>
-                              ))}
-                              <p className="border-t border-slate-100 pt-1 text-[10px] text-slate-400">
-                                Baseado nas zonas: {(commitment.zones || []).join(", ")}
-                              </p>
-                            </div>
-                          }
-                          width={360}
-                        >
-                          <button className="mt-1 bg-transparent p-0 text-[9px] font-bold text-blue-600 hover:text-blue-800">
-                            Ler declaracao completa
-                          </button>
-                        </FroidTooltip>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
 
               <div className="mt-3 space-y-2">
                 {displayAlerts.slice(0, 4).map((alert, i) => (
