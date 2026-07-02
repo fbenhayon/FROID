@@ -338,6 +338,27 @@ function findCutForSummary(
   return best?.overlap ? best.cut : undefined;
 }
 
+function findSummaryForCut(
+  cut: MetricSnapshot,
+  summaries: ConversationCutSummary[],
+) {
+  const best = [...summaries]
+    .map((summary) => {
+      const interval = secondsForSummary(summary);
+      return {
+        summary,
+        overlap: overlapSeconds(
+          cut.startSecond,
+          cut.endSecond,
+          interval.start,
+          interval.end,
+        ),
+      };
+    })
+    .sort((a, b) => b.overlap - a.overlap)[0];
+  return best?.overlap ? best.summary : undefined;
+}
+
 function summaryMetricLine(cut?: MetricSnapshot) {
   if (!cut) return "";
   return [
@@ -943,13 +964,25 @@ export const SessionReport: React.FC<Props> = () => {
           {sections.cuts && (
             <CompactMetricTable
               title="Cortes da sessao"
-              rows={report.tenMinuteCuts.map((cut) => ({
-                label: cut.label,
-                metrics: cutMetricRows(
+              rows={report.tenMinuteCuts.map((cut) => {
+                const summary = findSummaryForCut(
                   cut,
-                  limitThemeWords(sessionSummary.theme || report.sessionAverage.theme, 6),
-                ),
-              }))}
+                  report.conversationSummaries || [],
+                );
+                return {
+                  label: cut.label,
+                  metrics: cutMetricRows(
+                    cut,
+                    limitThemeWords(
+                      summary?.theme ||
+                        cut.theme ||
+                        sessionSummary.theme ||
+                        report.sessionAverage.theme,
+                      6,
+                    ),
+                  ),
+                };
+              })}
             />
           )}
 
