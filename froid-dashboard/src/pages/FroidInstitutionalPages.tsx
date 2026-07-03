@@ -79,6 +79,76 @@ function ImagePanel({ src, alt }: { src: string; alt: string }) {
   );
 }
 
+const technologyStack = [
+  ["STT semantico", "GPT-4o Transcribe para transcricao temporal da fala, preservando a distincao DR/PAC e alimentando tema, resumo e relatorio."],
+  ["LLM explicativa", "FROID Explica com orquestracao por LLMs para responder perguntas, interpretar metricas, executar correlacoes e explicar achados tecnicos."],
+  ["RAG clinico", "ChromaDB para indexacao vetorial de manuais, FACS, zonas FROID, regras internas, especificacoes tecnicas e fontes cientificas curadas."],
+  ["Data Mart anonimo", "DuckDB local para cortes anonimizados, benchmarks populacionais, coortes, comparacoes longitudinais e k-anonimato."],
+  ["Bioacustica", "Extracao de F0, energia, ZCR, Jitter, Shimmer, MFCC7, MFCC9, pausas, speech rate e sub-harmonicos de 5-20 Hz."],
+  ["Visao facial", "FACS/AUs, intensidade A-E, simetria, onset-apex-offset, descritores de acao e composicao temporal das expressoes."],
+  ["Fusao multimodal", "Normalizacao robusta por baseline, ponderacao por confiabilidade, janelas temporais e inferencia de dissonancia por divergencia entre canais."],
+  ["Infraestrutura", "FastAPI, React, Docker, Caddy, WebRTC/media streams, APIs protegidas, auditoria e segregacao entre dados identificados e anonimos."],
+];
+
+const researchReferences = [
+  ["FACS", "Ekman, Friesen e Hager: Facial Action Coding System, base para AUs, intensidade, combinacoes e codificacao temporal facial."],
+  ["MFCC", "Davis e Mermelstein: representacoes cepstrais em escala Mel para modelagem espectral da fala e reconhecimento automatico."],
+  ["openSMILE", "Eyben, Wollmer e Schuller: extracao automatica em larga escala de parametros acusticos para fala, musica e estados afetivos."],
+  ["PHQ-9", "Kroenke, Spitzer e Williams: escala breve de gravidade depressiva, usada como matriz psicometrica para calibracao de risco depressivo."],
+  ["HAM-D / HAMD", "Hamilton: escala clinica de depressao, incluindo dimensoes somaticas, ansiedade, retardo e sintomas vegetativos."],
+  ["YMRS", "Young, Biggs, Ziegler e Meyer: escala de mania para severidade de ativacao, energia, fala acelerada e excitacao psicomotora."],
+  ["Affective Computing", "Literatura de reconhecimento afetivo multimodal: fusao de voz, face, texto, tempo e confiabilidade de canal."],
+  ["Clinimetria", "Uso de escalas como referencia, nao como substituto diagnostico: o FROID converte sinais em hipoteses auditaveis."],
+];
+
+const metricFamilies = [
+  ["Voz espectral", "MFCC7, MFCC9, centroides, roll-off, fluxo espectral, energia RMS, loudness e variabilidade interjanelas."],
+  ["Voz temporal", "Pausas, speech rate, palavras/minuto, ZCR, duracao de fonacao, silabacao estimada e irregularidade ritmica."],
+  ["Perturbacao laringea", "Jitter, Shimmer, instabilidade ciclo-a-ciclo, F0 medio, F0 range, tremor e bandas sub-harmonicas."],
+  ["Face muscular", "AU1, AU2, AU4, AU5, AU6, AU7, AU9, AU10, AU12, AU15, AU20, AU23/24, AU25/26 e combinacoes."],
+  ["Semantica", "Valencia, tema em ate cinco palavras, densidade verbal, contradicao narrativa, mudanca de topico e resumo por corte."],
+  ["Sessao", "Baseline de 60s, cortes de 10min, cortes profissionais, media global, delta interjanelas e tendencia longitudinal."],
+];
+
+const formulaBlocks = [
+  {
+    name: "Normalizacao por baseline individual",
+    formula: "z_i(t) = (x_i(t) - median(x_i[0:60s])) / (MAD(x_i[0:60s]) + eps)",
+    text:
+      "Cada marcador e comparado ao proprio paciente, reduzindo vieses de timbre, anatomia facial, idade, habito vocal e estilo expressivo.",
+  },
+  {
+    name: "Indice de Potencia Multimodal",
+    formula: "IPM(t) = 100 * sigmoid(sum_i w_i * r_i(t) * |z_i(t)|)",
+    text:
+      "O IPM agrega magnitude vocal, facial e semantica ponderada por confiabilidade do canal, funcionando como medidor de energia emocional.",
+  },
+  {
+    name: "Direcao dinamica do mapa zonal",
+    formula: "IDM(t) = argmax_z P(z | V_audio(t), V_face(t), V_sem(t), B_60s)",
+    text:
+      "O IDM estima a zona dominante a partir da composicao probabilistica dos vetores de audio, face, semantica e baseline.",
+  },
+  {
+    name: "Dissonancia intermodal",
+    formula: "D(t) = JS(P_sem || P_face) + JS(P_sem || P_audio) + lambda * Delta_zone(t)",
+    text:
+      "A divergencia Jensen-Shannon entre distribuicoes semanticas, faciais e acusticas fornece uma medida de contradicao entre canais.",
+  },
+  {
+    name: "Risco clinico calibrado",
+    formula: "R_k(t) = sigmoid(beta0 + beta^T Z(t) + gamma^T C(t) + eta * H_sub(t))",
+    text:
+      "Riscos sao tratados como scores de apoio, combinando biomarcadores normalizados, contexto semantico e energia sub-harmonica.",
+  },
+  {
+    name: "Confiabilidade de canal",
+    formula: "r_i(t) = q_audio * q_face * q_text * (1 - missing_i(t))",
+    text:
+      "Baixa qualidade de microfone, oclusao facial, silencio ou perda de transcricao reduzem automaticamente a influencia do canal.",
+  },
+];
+
 export const FroidSciencePage: React.FC = () => {
   return (
     <PageShell
@@ -128,47 +198,116 @@ export const FroidTechnologyPage: React.FC = () => {
   return (
     <PageShell
       eyebrow="Tecnologia"
-      title="IA de ponta, dados anonimos e engenharia clinica auditavel."
-      intro="O FROID combina modelos modernos de linguagem, transcricao, analise bioacustica, visao computacional, base vetorial, Data Mart anonimo e governanca LGPD para transformar sessoes em conhecimento clinico estruturado."
+      title="Engenharia matematica para uma clinica multimodal de altissima resolucao."
+      intro="O FROID foi concebido para uma classe de problema que, ate a convergencia recente entre IA generativa, transcricao neural, visao computacional, bioacustica, bancos vetoriais e analitica local, era impraticavel em escala clinica: fundir voz, face, semantica, tempo, baseline individual, psicometria e Data Mart anonimo em um algoritmo proprietario de leitura dinamica da sessao."
     >
-      <section className="mx-auto grid max-w-7xl gap-6 px-5 py-12 md:grid-cols-2">
-        <TextBlock
-          title="Trilha semantica"
-          text="A transcricao preserva a conversa entre profissional e paciente, mantendo a distincao DR e PAC para leitura clinica, resumos, temas e relatorio."
-        />
-        <TextBlock
-          title="Trilha bioacustica"
-          text="A avaliacao dos graficos e indices deve usar exclusivamente a voz do paciente, mantendo a trilha do profissional apenas para contexto semantico."
-        />
-        <TextBlock
-          title="FROID Explica"
-          text="A camada explicativa responde perguntas do profissional a partir das metricas, do relatorio, das fontes tecnicas e da base de conhecimento configurada."
-        />
-        <TextBlock
-          title="Data Mart anonimo"
-          text="Ao final da sessao, cortes e metricas anonimizadas podem alimentar benchmarks e pesquisa populacional com k-anonimato, auditoria e governanca."
-        />
+      <section className="mx-auto max-w-7xl px-5 py-12">
+        <div className="rounded-lg border border-cyan-300/20 bg-cyan-300/5 p-6">
+          <p className="text-xs font-black uppercase tracking-[0.28em] text-cyan-300">Tese tecnologica</p>
+          <h2 className="mt-3 text-3xl font-black leading-tight text-white">
+            O algoritmo FROID nasce da fusao entre clinimetria, sinais humanos e inteligencia interrogavel.
+          </h2>
+          <p className="mt-5 text-sm leading-7 text-slate-300 md:text-base">
+            A originalidade tecnica nao esta em medir uma variavel isolada. A ruptura esta
+            em compor dezenas de familias de marcadores, com confiabilidade de canal,
+            normalizacao individual, janelas temporais, escalas clinicas de referencia,
+            FACS/AUs, sub-harmonicos, transcricao e interpretacao por IA. O resultado e
+            uma arquitetura proprietaria de suporte clinico que transforma sinais dispersos
+            em hipoteses auditaveis, metricas comparaveis e perguntas respondiveis.
+          </p>
+        </div>
       </section>
 
       <section className="border-y border-white/10 bg-slate-900/70">
+        <div className="mx-auto max-w-7xl px-5 py-12">
+          <p className="text-xs font-black uppercase tracking-[0.32em] text-cyan-300">Ferramentas e infraestrutura</p>
+          <h2 className="mt-3 text-3xl font-black text-white">Stack tecnico usado para viabilizar a complexidade matematica.</h2>
+          <div className="mt-8 grid gap-4 md:grid-cols-2">
+            {technologyStack.map(([title, text]) => (
+              <TextBlock key={title} title={title} text={text} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto grid max-w-7xl gap-8 px-5 py-12 lg:grid-cols-[0.9fr_1.1fr]">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.32em] text-cyan-300">Fontes cientificas</p>
+          <h2 className="mt-3 text-3xl font-black leading-tight text-white">Referencias adotadas como matriz de metricas, nao como diagnostico automatico.</h2>
+          <p className="mt-5 text-sm leading-7 text-slate-300">
+            O FROID utiliza escalas, modelos e literatura como estruturas de calibracao,
+            nomenclatura e interpretabilidade. O sistema nao substitui instrumentos
+            validados nem a avaliacao do especialista; ele traduz sinais da sessao em
+            vetores comparaveis, explicaveis e interrogaveis.
+          </p>
+          <div className="mt-6 grid gap-3">
+            {researchReferences.map(([title, text]) => (
+              <div key={title} className="rounded-lg border border-white/10 bg-slate-900 p-4">
+                <p className="text-sm font-black text-cyan-200">{title}</p>
+                <p className="mt-2 text-sm leading-7 text-slate-300">{text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        <ImagePanel src={facsImage} alt="Mapa FACS, AUs e descritores de acao integrados ao FROID" />
+      </section>
+
+      <section className="border-y border-white/10 bg-slate-900/70">
+        <div className="mx-auto max-w-7xl px-5 py-12">
+          <p className="text-xs font-black uppercase tracking-[0.32em] text-cyan-300">Familias metricas</p>
+          <h2 className="mt-3 text-3xl font-black text-white">Parametros tecnicos revelados ao profissional.</h2>
+          <div className="mt-8 rounded-lg border border-white/10 bg-slate-950 px-5">
+            {metricFamilies.map(([label, value]) => (
+              <DataRow key={label} label={label} value={value} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-5 py-12">
+        <p className="text-xs font-black uppercase tracking-[0.32em] text-cyan-300">Formulacao matematica</p>
+        <h2 className="mt-3 max-w-5xl text-3xl font-black leading-tight text-white">
+          Exemplos de composicao formal do algoritmo multimodal.
+        </h2>
+        <p className="mt-5 max-w-4xl text-sm leading-7 text-slate-300">
+          As formulas abaixo sao uma representacao publica de alto nivel. A implementacao
+          proprietaria inclui calibracao por canal, pesos condicionais, thresholds
+          clinimetricos, filtros de qualidade, regularizacao temporal e auditoria de corte.
+        </p>
+        <div className="mt-8 grid gap-4 lg:grid-cols-2">
+          {formulaBlocks.map((block) => (
+            <article key={block.name} className="rounded-lg border border-white/10 bg-slate-900 p-5">
+              <h3 className="text-base font-black text-white">{block.name}</h3>
+              <pre className="mt-4 overflow-x-auto rounded-md border border-cyan-300/20 bg-slate-950 p-4 text-xs font-bold leading-6 text-cyan-100">
+                {block.formula}
+              </pre>
+              <p className="mt-4 text-sm leading-7 text-slate-300">{block.text}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="border-y border-cyan-300/20 bg-cyan-300/5">
         <div className="mx-auto grid max-w-7xl gap-8 px-5 py-12 lg:grid-cols-[1.1fr_0.9fr]">
-          <ImagePanel src={facsImage} alt="Mapa completo FACS, AUs e descritores de acao no FROID" />
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.32em] text-cyan-300">Aprendizado responsavel</p>
-            <h2 className="mt-3 text-3xl font-black leading-tight text-white">Evoluir com padroes anonimos, sem perder governanca clinica.</h2>
-            <p className="mt-5 text-sm leading-7 text-slate-300">
-              A capacidade de desenvolvimento do FROID deve vir da combinacao entre
-              dados anonimos, fontes tecnicas, revisao humana e validacao cientifica.
-              A plataforma pode sugerir caminhos ocultos, associacoes e padroes, mas
-              sua forca esta em servir ao profissional, nao em substituir a clinica.
+            <p className="text-xs font-black uppercase tracking-[0.32em] text-cyan-300">FROID Explica</p>
+            <h2 className="mt-3 text-3xl font-black leading-tight text-white">
+              Uma inteligencia criada para dialogar com doutores, pesquisadores e especialistas.
+            </h2>
+            <p className="mt-5 text-sm leading-7 text-slate-300 md:text-base">
+              O FROID Explica e a interface epistemica da plataforma. Ele existe para
+              responder duvidas, explicar metricas, justificar alertas, recuperar fontes,
+              executar correlacoes propostas pelo profissional e transformar a matematica
+              multimodal em raciocinio clinico compreensivel para qualquer especialidade
+              da saude mental.
             </p>
             <div className="mt-6 grid gap-3">
               {[
-                "Base vetorial para manuais, FACS, zonas, regras e fontes tecnicas.",
-                "Data Mart anonimo para benchmarks populacionais e comparacao longitudinal.",
-                "Guardrails para evitar reidentificacao e proteger dados sensiveis.",
-                "Relatorios auditaveis com metricas, cortes e anotacoes clinicas.",
-                "IA explicativa para transformar dados complexos em linguagem clinica utilizavel.",
+                "Explique por que o IPM subiu no corte 20-30min apesar de o tema verbal permanecer estavel.",
+                "Correlacione AU15 + AU20 com sub-harmonicos de 5-12 Hz e mudanca de ZCR no ultimo corte.",
+                "Compare o baseline de 60s com a media da sessao e aponte quais marcadores sustentam a dissonancia.",
+                "Gere uma hipotese tecnica sobre divergencia entre valencia semantica positiva e tensionamento vocal.",
+                "Recupere fontes cientificas usadas para MFCC, FACS, PHQ-9, HAMD ou YMRS dentro do repositorio FROID.",
               ].map((item) => (
                 <p key={item} className="rounded-lg border border-white/10 bg-slate-950 p-4 text-sm leading-7 text-slate-300">
                   {item}
@@ -176,6 +315,37 @@ export const FroidTechnologyPage: React.FC = () => {
               ))}
             </div>
           </div>
+          <div className="rounded-lg border border-cyan-300/20 bg-slate-950 p-5">
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-300">Modelo interrogavel</p>
+            <div className="mt-5 grid gap-3">
+              {[
+                ["Entrada", "Pergunta do profissional + contexto da sessao + cortes selecionados."],
+                ["Grounding", "Busca vetorial em fontes tecnicas, manuais e parametros FROID."],
+                ["Analitica", "Consulta a metricas, Data Mart anonimo e series temporais autorizadas."],
+                ["Resposta", "Explicacao tecnica, limites, correlacoes e proximas perguntas possiveis."],
+              ].map(([title, text]) => (
+                <div key={title} className="rounded border border-white/10 bg-white/[0.03] p-4">
+                  <p className="text-sm font-black text-cyan-100">{title}</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-300">{text}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-5 py-12">
+        <div className="rounded-lg border border-rose-300/20 bg-rose-400/5 p-6">
+          <p className="text-xs font-black uppercase tracking-[0.28em] text-rose-200">Limite epistemologico</p>
+          <h2 className="mt-3 text-2xl font-black text-white">Sofisticacao nao autoriza automatismo diagnostico.</h2>
+          <p className="mt-4 text-sm leading-7 text-slate-300">
+            O FROID foi desenhado para um publico altamente qualificado: doutores,
+            mestres, pesquisadores, psiquiatras, psicologos, psicanalistas,
+            neurocientistas, terapeutas e demais profissionais da saude mental. Sua
+            linguagem pode ser tecnica porque seu usuario e sofisticado. Ainda assim,
+            todo score, formula, correlacao ou alerta deve ser entendido como apoio
+            investigativo e nao como sentenca clinica automatica.
+          </p>
         </div>
       </section>
     </PageShell>
@@ -243,4 +413,3 @@ export const FroidProfessionalsPage: React.FC = () => {
     </PageShell>
   );
 };
-
