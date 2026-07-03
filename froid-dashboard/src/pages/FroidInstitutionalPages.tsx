@@ -79,6 +79,28 @@ function ImagePanel({ src, alt }: { src: string; alt: string }) {
   );
 }
 
+function DarkImagePanel({ src, alt }: { src: string; alt: string }) {
+  return (
+    <div className="rounded-lg border border-cyan-300/20 bg-slate-950 p-4 shadow-2xl shadow-cyan-950/30">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <p className="text-xs font-black uppercase tracking-[0.2em] text-cyan-300">
+          matriz visual tecnica
+        </p>
+        <span className="rounded border border-white/10 bg-white/[0.04] px-2 py-1 text-xs font-black text-slate-300">
+          FACS / AUs
+        </span>
+      </div>
+      <div className="grid min-h-[320px] place-items-center rounded-md border border-white/10 bg-slate-900 p-3">
+        <img src={src} alt={alt} className="h-auto max-h-[360px] w-full object-contain" />
+      </div>
+      <p className="mt-3 text-xs leading-5 text-slate-400">
+        Referencia visual de unidades de acao e descritores faciais. A leitura tecnica
+        do FROID ocorre pela composicao temporal entre AUs, voz, semantica e baseline.
+      </p>
+    </div>
+  );
+}
+
 const technologyStack = [
   ["STT semantico", "GPT-4o Transcribe para transcricao temporal da fala, preservando a distincao DR/PAC e alimentando tema, resumo e relatorio."],
   ["LLM explicativa", "FROID Explica com orquestracao por LLMs para responder perguntas, interpretar metricas, executar correlacoes e explicar achados tecnicos."],
@@ -249,7 +271,7 @@ export const FroidTechnologyPage: React.FC = () => {
             ))}
           </div>
         </div>
-        <ImagePanel src={facsImage} alt="Mapa FACS, AUs e descritores de acao integrados ao FROID" />
+        <DarkImagePanel src={facsImage} alt="Mapa FACS, AUs e descritores de acao integrados ao FROID" />
       </section>
 
       <section className="border-y border-white/10 bg-slate-900/70">
