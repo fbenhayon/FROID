@@ -108,19 +108,19 @@ const KpiCard: React.FC<{
 }> = ({ label, value, detail, tone = "blue" }) => {
   const color =
     tone === "green"
-      ? "text-emerald-300"
+      ? "text-emerald-700"
       : tone === "amber"
-        ? "text-amber-300"
+        ? "text-amber-700"
         : tone === "red"
-          ? "text-red-300"
-          : "text-cyan-300";
+          ? "text-red-700"
+          : "text-blue-700";
   return (
-    <div className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white shadow-sm">
-      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+    <div className="rounded-lg border border-slate-200 bg-white px-3 py-3 shadow-sm">
+      <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">
         {label}
       </p>
       <p className={`mt-2 text-xl font-black ${color}`}>{value}</p>
-      <p className="mt-1 text-[10px] leading-snug text-slate-400">{detail}</p>
+      <p className="mt-1 text-[10px] leading-snug text-slate-500">{detail}</p>
     </div>
   );
 };
@@ -316,11 +316,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
         </p>
       )}
 
-      <section className="rounded-lg border border-blue-100 bg-blue-50 p-4">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="min-w-0 space-y-4">
+      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-bold text-blue-950">Meus Pacientes</h2>
-          <p className="mt-1 text-[11px] text-blue-700">
+          <h2 className="text-sm font-bold text-slate-900">Meus Pacientes</h2>
+          <p className="mt-1 text-[11px] text-slate-500">
             Ultimas sessoes, metricas medias e resultado clinico resumido.
           </p>
         </div>
@@ -341,87 +343,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
         </div>
       </section>
 
-      <section className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
-        <KpiCard
-          label="Pacientes"
-          value={String(portfolio.totalPatients)}
-          detail="Carteira visivel apos filtros locais."
-        />
-        <KpiCard
-          label="Atencao media"
-          value={scoreText(portfolio.meanAttention)}
-          detail="Indice global de prioridade profissional."
-          tone="red"
-        />
-        <KpiCard
-          label="Carga clinica"
-          value={scoreText(portfolio.meanClinicalLoad)}
-          detail="IPM, IDM, dissonancias e qualidade."
-          tone="amber"
-        />
-        <KpiCard
-          label="Comunicacao"
-          value={scoreText(portfolio.meanCommunication)}
-          detail="Resumo, cortes e anotacoes disponiveis."
-        />
-        <KpiCard
-          label="Continuidade"
-          value={scoreText(portfolio.meanContinuity)}
-          detail="Sessoes, analises e status operacional."
-          tone="green"
-        />
-        <KpiCard
-          label="Para revisao"
-          value={String(portfolio.reviewCount)}
-          detail="Pacientes em revisar ou alta prioridade."
-          tone="red"
-        />
-      </section>
-
-      {selectedGroup && (
-        <section className="sticky top-0 z-20 rounded-lg border border-emerald-300 bg-emerald-50/95 p-3 shadow-sm backdrop-blur">
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h2 className="text-sm font-bold text-emerald-950">FROID Explica</h2>
-              <p className="mt-0.5 text-[11px] text-emerald-800">
-                Use os prompts nativos ou configure prompts pessoais do profissional.
-              </p>
-            </div>
-            <button
-              onClick={() => nav("/settings")}
-              className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-[11px] font-bold text-cyan-800 hover:bg-cyan-100"
-            >
-              Meus Prompts...
-            </button>
-          </div>
-          <div className="max-h-80 overflow-y-auto rounded-lg border border-emerald-200 bg-white/80 px-2 pb-2 pr-1">
-            <AIInsights
-              zones={selectedGroup.latestReport.sessionAverage.zones || []}
-              ipmScore={selectedGroup.latestReport.sessionAverage.ipmAvg}
-              coherenceStatus={
-                selectedGroup.latestReport.sessionAverage.coherenceStatus
-              }
-              baselineEstablished
-              sessionId={selectedGroup.latestReport.sessionId}
-              extraContext={{
-                patient: selectedGroup.patient,
-                latest_report_average: selectedGroup.latestReport.sessionAverage,
-                latest_report_baseline: selectedGroup.latestReport.baseline,
-                last_three_sessions: selectedGroup.reports.slice(0, 3).map((report) => ({
-                  session_id: report.sessionId,
-                  average: report.sessionAverage,
-                  result: sessionResultText(report, 120),
-                  payment_status: paymentStatusForReport(report),
-                })),
-              }}
-              controlsSticky
-              rootClassName="border-0"
-              messagesClassName="min-h-36 max-h-52"
-            />
-          </div>
-        </section>
-      )}
-
       <section className="space-y-4">
         {patientGroups.length === 0 && (
           <div className="rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-500">
@@ -439,7 +360,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
           return (
           <article
             key={group.key}
-            className="rounded-xl border border-slate-300 bg-white p-4 shadow-md ring-1 ring-slate-100"
+            className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
             onMouseEnter={() => setSelectedPatientKey(group.key)}
           >
             <div className="flex flex-wrap items-start justify-between gap-4">
@@ -451,7 +372,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                   CPF: {group.patient.document || "Nao informado"} - {group.totalSessions} sessoes
                 </p>
               </div>
-              <div className="min-w-[320px] flex-1 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-950">
+              <div className="min-w-[320px] flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-700">
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                   <span>
                     <strong>Acao sugerida:</strong> {signal.action}
@@ -497,7 +418,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
               </div>
             </div>
 
-            <div className="mt-3 rounded-lg border border-slate-100 bg-slate-50 p-3">
+            <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
               <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-700">
                 Indicadores medios de todas as sessoes
               </p>
@@ -536,7 +457,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                     className="rounded-lg border border-slate-200 bg-slate-50/80 p-3"
                   >
                     <div className="flex flex-wrap items-center gap-3">
-                      <div className="min-w-[140px]">
+                      <div className="min-w-[170px] space-y-1">
                         <p className="text-[11px] font-bold text-slate-900">
                           {index === 0 ? "Concluida " : "Ativa "}
                           {shortId(report.sessionId)}
@@ -544,17 +465,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                         <p className="mt-0.5 text-[10px] font-semibold text-slate-500">
                           {formatDateTime(reportEndDate(report))}
                         </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="rounded bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700">
-                          {paymentStatusForReport(report)}
-                        </span>
-                        <button
-                          onClick={() => nav(`/session/${report.sessionId}/report`)}
-                          className="rounded border border-slate-200 bg-white px-2 py-1 text-[10px] font-bold text-slate-600 hover:bg-slate-50"
-                        >
-                          Ver
-                        </button>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="rounded bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700">
+                            {paymentStatusForReport(report)}
+                          </span>
+                          <button
+                            onClick={() => nav(`/session/${report.sessionId}/report`)}
+                            className="rounded border border-slate-200 bg-white px-2 py-1 text-[10px] font-bold text-slate-600 hover:bg-slate-50"
+                          >
+                            Ver
+                          </button>
+                        </div>
                       </div>
                       <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1">
                         {compactMetricCells(report.sessionAverage).map((cell) => (
@@ -579,7 +500,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                 {group.reports.slice(0, 3).map((report) => (
                   <div
                     key={`result-${report.sessionId}`}
-                    className="rounded border border-blue-50 bg-white px-3 py-2 text-xs leading-relaxed text-slate-600"
+                    className="rounded border border-slate-200 bg-white px-3 py-2 text-xs leading-relaxed text-slate-600"
                   >
                     <strong className="text-slate-800">
                       Resultado da sessao {shortId(report.sessionId)}:
@@ -605,6 +526,106 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
           );
         })}
       </section>
+        </div>
+
+        <aside className="space-y-4 xl:sticky xl:top-4 xl:self-start">
+          <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="mb-3">
+              <h2 className="text-sm font-bold text-slate-900">Resumo profissional</h2>
+              <p className="mt-1 text-[11px] text-slate-500">
+                Indicadores consolidados da carteira em acompanhamento.
+              </p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+              <KpiCard
+                label="Pacientes"
+                value={String(portfolio.totalPatients)}
+                detail="Carteira visivel apos filtros locais."
+              />
+              <KpiCard
+                label="Atencao media"
+                value={scoreText(portfolio.meanAttention)}
+                detail="Indice global de prioridade profissional."
+                tone="red"
+              />
+              <KpiCard
+                label="Carga clinica"
+                value={scoreText(portfolio.meanClinicalLoad)}
+                detail="IPM, IDM, dissonancias e qualidade."
+                tone="amber"
+              />
+              <KpiCard
+                label="Comunicacao"
+                value={scoreText(portfolio.meanCommunication)}
+                detail="Resumo, cortes e anotacoes disponiveis."
+              />
+              <KpiCard
+                label="Continuidade"
+                value={scoreText(portfolio.meanContinuity)}
+                detail="Sessoes, analises e status operacional."
+                tone="green"
+              />
+              <KpiCard
+                label="Para revisao"
+                value={String(portfolio.reviewCount)}
+                detail="Pacientes em revisar ou alta prioridade."
+                tone="red"
+              />
+            </div>
+          </section>
+
+          <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 className="text-sm font-bold text-slate-900">FROID Explica</h2>
+                <p className="mt-0.5 text-[11px] text-slate-500">
+                  {selectedGroup
+                    ? "Contexto carregado a partir do paciente selecionado."
+                    : "Passe o mouse sobre um paciente para carregar o contexto."}
+                </p>
+              </div>
+              <button
+                onClick={() => nav("/settings")}
+                className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-[11px] font-bold text-blue-800 hover:bg-blue-100"
+              >
+                Meus Prompts...
+              </button>
+            </div>
+            {selectedGroup ? (
+              <div className="max-h-[520px] overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 px-2 pb-2 pr-1">
+                <AIInsights
+                  zones={selectedGroup.latestReport.sessionAverage.zones || []}
+                  ipmScore={selectedGroup.latestReport.sessionAverage.ipmAvg}
+                  coherenceStatus={
+                    selectedGroup.latestReport.sessionAverage.coherenceStatus
+                  }
+                  baselineEstablished
+                  sessionId={selectedGroup.latestReport.sessionId}
+                  extraContext={{
+                    patient: selectedGroup.patient,
+                    latest_report_average: selectedGroup.latestReport.sessionAverage,
+                    latest_report_baseline: selectedGroup.latestReport.baseline,
+                    last_three_sessions: selectedGroup.reports.slice(0, 3).map((report) => ({
+                      session_id: report.sessionId,
+                      average: report.sessionAverage,
+                      result: sessionResultText(report, 120),
+                      payment_status: paymentStatusForReport(report),
+                    })),
+                  }}
+                  controlsSticky
+                  rootClassName="border-0"
+                  messagesClassName="min-h-48 max-h-72"
+                />
+              </div>
+            ) : (
+              <div className="rounded-lg border border-slate-100 bg-slate-50 p-4 text-xs leading-relaxed text-slate-500">
+                Selecione um paciente na coluna principal para habilitar perguntas
+                ao FROID Explica com contexto clinico longitudinal.
+              </div>
+            )}
+          </section>
+        </aside>
+      </div>
 
       </main>
     </div>
