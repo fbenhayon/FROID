@@ -161,7 +161,7 @@ const KpiCard: React.FC<{
           ? "text-red-700"
           : "text-blue-700";
   return (
-    <div className="rounded-lg border border-slate-200 bg-white px-3 py-3 shadow-sm">
+    <div className="rounded-lg border border-slate-200 bg-white px-2.5 py-2.5 shadow-sm">
       <FroidTooltip
         width={320}
         content={
@@ -175,7 +175,7 @@ const KpiCard: React.FC<{
           {label}
         </p>
       </FroidTooltip>
-      <p className={`mt-2 text-xl font-black ${color}`}>{value}</p>
+      <p className={`mt-1.5 text-lg font-black ${color}`}>{value}</p>
       <p className="mt-1 text-[10px] leading-snug text-slate-500">{detail}</p>
     </div>
   );
@@ -632,7 +632,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                 Indicadores consolidados da carteira em acompanhamento.
               </p>
             </div>
-            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+            <div className="grid grid-cols-2 gap-2">
               <KpiCard
                 label="Pacientes"
                 value={String(portfolio.totalPatients)}
