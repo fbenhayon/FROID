@@ -2,163 +2,347 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { LgpdNotice } from "../components/legal/LgpdNotice";
 
-const scienceBlocks = [
+const heroImage = "/froid-home/facs-matrizes-emocionais.png";
+const auImage = "/froid-home/facs-unidades-acao.png";
+const facsImage = "/froid-home/facs-mapa-completo.png";
+
+const navItems = [
+  { label: "Ciencia", to: "/froid/ciencia" },
+  { label: "Tecnologia", to: "/froid/tecnologia" },
+  { label: "Profissionais", to: "/froid/profissionais" },
+];
+
+const capabilityBlocks = [
   {
-    title: "A Ciencia da Transparencia",
+    title: "Sessao multimodal em tempo real",
     text:
-      "O FROID opera com uma formulacao fisico-matematica auditavel. A linha de base dinamica usa os primeiros 60 segundos para calibrar F0, Jitter, Shimmer e energia vocal media, permitindo comparar desvios posteriores com a referencia individual do paciente.",
+      "Voz, face, semantica, IPM, IDM, riscos, dissonancias, cortes temporais e relatorio clinico em um mesmo fluxo de trabalho.",
   },
   {
-    title: "Biopsia Espectral e Bioacustica",
+    title: "Bioacustica vocal",
     text:
-      "O motor FROID-Voice analisa bandas espectrais, MFCC7, MFCC9, ZCR, infrassons vocais e sub-harmonicos para apoiar a leitura clinica da fala, da tensao autonomica e de padroes de risco ao longo da sessao.",
+      "Analise de MFCC7, MFCC9, F0, ZCR, Jitter, Shimmer, energia, pausas, cadencia verbal e sub-harmonicos vocais.",
   },
   {
-    title: "Morfodinamica Facial FACS",
+    title: "FACS e unidades de acao",
     text:
-      "O FROID-Face cruza microexpressoes, unidades de acao facial, assimetrias e marcadores temporais para ampliar a percepcao do profissional sem substituir seu julgamento clinico.",
+      "Leitura de AUs, assimetrias, intensidade, duracao e combinacoes faciais que podem revelar consonancias e dissonancias expressivas.",
   },
   {
-    title: "Bussola IPM x IDM",
+    title: "IPM e IDM",
     text:
-      "O IPM mede a intensidade global da energia emocional, enquanto o IDM aponta a direcao do desequilibrio. A dissonancia nasce do cruzamento entre semantica, voz, face e zonas FROID.",
+      "O IPM funciona como velocimetro da intensidade emocional; o IDM aponta a direcao dominante do desequilibrio no mapa zonal.",
   },
   {
-    title: "Data-FROID e Evidencias",
+    title: "FROID Explica",
     text:
-      "As features anonimizadas podem alimentar benchmarks e analises populacionais com governanca, k-anonimato e trilhas de auditoria para apoiar pesquisa, comparacao longitudinal e medicina de precisao psicologica.",
+      "Uma camada de inteligencia para apoiar perguntas do profissional durante a sessao, no relatorio e na analise longitudinal.",
+  },
+  {
+    title: "Base anonima evolutiva",
+    text:
+      "Dados anonimizados podem alimentar benchmarks, comparacoes e pesquisas com governanca, k-anonimato e auditoria tecnica.",
   },
 ];
 
-const plans = [
-  { name: "Acesso livre", price: "US$ 0.00", detail: "Entrada livre ao sistema" },
-  { name: "Pacote profissional", price: "US$ 1.50", detail: "25 sessoes" },
-  { name: "Desenvolvedores", price: "US$ 2.50", detail: "25 sessoes de teste" },
+const clinicalSignals = [
+  "Dissonancias entre fala, voz, face e zonas emocionais",
+  "Mudancas de intensidade comparadas ao baseline de 60 segundos",
+  "Padroes vocais associados a tensao, retardo, aceleracao ou sobrecarga",
+  "Consonancias expressivas que reforcam coerencia do relato",
+  "Temas e resumos por cortes para revisao clinica posterior",
+  "Relatorio da Consulta com metricas, observacoes e historico",
 ];
+
+const systemLayers = [
+  "Captura protegida de audio e video da sessao",
+  "Transcricao semantica com separacao entre profissional e paciente",
+  "Analise bioacustica exclusiva da trilha vocal do paciente",
+  "Mapeamento facial por unidades de acao e microdinamica expressiva",
+  "Fusao de sinais em IPM, IDM, riscos, dissonancias e cortes",
+  "Anonimizacao para Data Mart populacional e aprendizado agregado",
+];
+
+const offers = [
+  {
+    title: "Primeiros 100 profissionais",
+    value: "20 sessoes gratuitas",
+    text: "Acesso inicial para experimentar o FROID em rotina clinica real, com relatorios e FROID Explica.",
+  },
+  {
+    title: "Proximos 100 profissionais",
+    value: "10 sessoes gratuitas",
+    text: "Entrada assistida para ampliar a base de uso, validar fluxos e acelerar a evolucao da plataforma.",
+  },
+];
+
+function MarketingHeader() {
+  return (
+    <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-3">
+        <Link to="/" className="text-sm font-black tracking-[0.38em] text-slate-950">
+          FROID
+        </Link>
+        <nav className="hidden items-center gap-1 text-xs font-black text-slate-600 md:flex">
+          {navItems.map((item) => (
+            <Link key={item.to} to={item.to} className="rounded px-3 py-2 hover:bg-slate-100">
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+        <div className="flex items-center gap-2">
+          <Link to="/login" className="rounded border border-slate-300 px-3 py-2 text-xs font-black text-slate-800 hover:bg-slate-100">
+            Login
+          </Link>
+          <Link to="/access/register" className="rounded bg-slate-950 px-3 py-2 text-xs font-black text-white hover:bg-cyan-700">
+            Cadastro
+          </Link>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function SectionTitle({
+  eyebrow,
+  title,
+  text,
+}: {
+  eyebrow: string;
+  title: string;
+  text: string;
+}) {
+  return (
+    <div className="max-w-3xl">
+      <p className="text-xs font-black uppercase tracking-[0.26em] text-cyan-700">{eyebrow}</p>
+      <h2 className="mt-3 text-2xl font-black leading-tight text-slate-950 md:text-4xl">{title}</h2>
+      <p className="mt-4 text-sm leading-7 text-slate-600 md:text-base">{text}</p>
+    </div>
+  );
+}
+
+function CapabilityGrid() {
+  return (
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      {capabilityBlocks.map((block) => (
+        <article key={block.title} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <h3 className="text-base font-black text-slate-950">{block.title}</h3>
+          <p className="mt-3 text-sm leading-7 text-slate-600">{block.text}</p>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function NumberList({ items }: { items: string[] }) {
+  return (
+    <div className="grid gap-3 md:grid-cols-2">
+      {items.map((item, index) => (
+        <div key={item} className="flex gap-3 rounded-lg border border-slate-200 bg-white p-4">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-cyan-50 text-xs font-black text-cyan-800">
+            {index + 1}
+          </span>
+          <p className="text-sm font-semibold leading-6 text-slate-700">{item}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export const HomePage: React.FC = () => {
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
-      <header className="sticky top-0 z-20 border-b border-white/10 bg-slate-950/90 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
-          <Link to="/" className="text-sm font-black tracking-[0.42em] text-cyan-300">
-            FROID
-          </Link>
-          <nav className="flex items-center gap-2 text-xs font-bold">
-            <a href="#ciencia" className="rounded-md px-3 py-2 text-slate-300 hover:bg-white/10">
-              Ciencia
-            </a>
-            <a href="#planos" className="rounded-md px-3 py-2 text-slate-300 hover:bg-white/10">
-              Planos
-            </a>
-            <Link to="/access/register" className="rounded-md px-3 py-2 text-slate-300 hover:bg-white/10">
-              Cadastro
-            </Link>
-            <Link to="/login" className="rounded-md bg-cyan-500 px-4 py-2 text-slate-950 hover:bg-cyan-300">
-              Login
-            </Link>
-          </nav>
-        </div>
-      </header>
+    <div className="min-h-screen bg-slate-50 text-slate-900">
+      <MarketingHeader />
 
       <main>
-        <section className="mx-auto grid min-h-[72vh] max-w-7xl items-center gap-10 px-5 py-14 lg:grid-cols-[1.08fr_0.92fr]">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.38em] text-cyan-300">
-              Frequency Recognition of Internal Dynamics
-            </p>
-            <h1 className="mt-5 max-w-4xl text-4xl font-black leading-tight text-white md:text-6xl">
-              Plataforma de Percepcao Clinica Aumentada
-            </h1>
-            <p className="mt-6 max-w-3xl text-base leading-8 text-slate-300">
-              O FROID integra bioacustica vocal, decodificacao morfodinamica facial
-              e processamento semantico para apoiar psiquiatras, psicologos e
-              pesquisadores na leitura em tempo real da dinamica interna da sessao.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link
-                to="/login"
-                className="rounded-lg bg-cyan-400 px-5 py-3 text-sm font-black text-slate-950 hover:bg-cyan-300"
-              >
-                Entrar no FROID
-              </Link>
-              <Link
-                to="/access/register"
-                className="rounded-lg border border-cyan-300/40 px-5 py-3 text-sm font-black text-cyan-100 hover:bg-cyan-300/10"
-              >
-                Criar cadastro profissional
-              </Link>
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-cyan-300/20 bg-slate-900 p-5 shadow-2xl shadow-cyan-950/40">
-            <div className="grid gap-3">
-              {["Voz", "Face", "Semantica", "IPM", "IDM", "Dissonancias"].map((item, index) => (
-                <div key={item} className="flex items-center gap-3 rounded-md border border-white/10 bg-white/[0.03] p-3">
-                  <span className="flex h-8 w-8 items-center justify-center rounded bg-cyan-400/15 text-xs font-black text-cyan-200">
-                    {index + 1}
-                  </span>
-                  <div>
-                    <p className="font-black text-white">{item}</p>
-                    <p className="text-xs text-slate-400">
-                      leitura integrada para apoio clinico e analise longitudinal
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section id="ciencia" className="border-y border-white/10 bg-slate-900/70">
-          <div className="mx-auto max-w-7xl px-5 py-12">
-            <h2 className="text-2xl font-black text-white">Arquitetura FROID</h2>
-            <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {scienceBlocks.map((block) => (
-                <article key={block.title} className="rounded-lg border border-slate-700 bg-slate-950 p-5">
-                  <h3 className="text-base font-black text-cyan-200">{block.title}</h3>
-                  <p className="mt-3 text-sm leading-7 text-slate-300">{block.text}</p>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section id="planos" className="mx-auto max-w-7xl px-5 py-12">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <h2 className="text-2xl font-black text-white">Planos de acesso</h2>
-              <p className="mt-2 text-sm text-slate-400">
-                Escolha o pacote no cadastro profissional e conclua o pagamento via Stripe.
+        <section
+          className="relative min-h-[82vh] overflow-hidden bg-slate-950"
+          style={{
+            backgroundImage: `linear-gradient(90deg, rgba(3,7,18,0.93) 0%, rgba(3,7,18,0.78) 42%, rgba(3,7,18,0.18) 100%), url(${heroImage})`,
+            backgroundPosition: "center",
+            backgroundSize: "cover",
+          }}
+        >
+          <div className="mx-auto flex min-h-[82vh] max-w-7xl items-center px-5 py-16">
+            <div className="max-w-3xl text-white">
+              <p className="text-xs font-black uppercase tracking-[0.32em] text-cyan-200">
+                Frequency Recognition of Internal Dynamics
+              </p>
+              <h1 className="mt-5 text-4xl font-black leading-[1.02] md:text-6xl">
+                FROID: coerencia entre psique, voz, face e narrativa clinica.
+              </h1>
+              <p className="mt-6 max-w-2xl text-base leading-8 text-slate-100 md:text-lg">
+                Uma plataforma de percepcao clinica aumentada para apoiar profissionais
+                de saude mental na identificacao de consonancias, dissonancias,
+                padroes bioacusticos e microexpressivos durante a sessao.
+              </p>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <Link to="/access/register" className="rounded bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950 hover:bg-cyan-200">
+                  Quero testar o FROID
+                </Link>
+                <Link to="/froid/ciencia" className="rounded border border-white/50 px-5 py-3 text-sm font-black text-white hover:bg-white/10">
+                  Entender a ciencia
+                </Link>
+              </div>
+              <p className="mt-5 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100">
+                20 sessoes gratuitas para os primeiros 100 profissionais cadastrados
               </p>
             </div>
-            <Link to="/access/register" className="rounded-lg bg-white px-4 py-2 text-sm font-black text-slate-950">
-              Selecionar plano
-            </Link>
           </div>
-          <div className="mt-6 grid gap-4 md:grid-cols-3">
-            {plans.map((plan) => (
-              <div key={plan.name} className="rounded-lg border border-white/10 bg-white/[0.03] p-5">
-                <p className="text-sm font-black text-slate-200">{plan.name}</p>
-                <p className="mt-3 text-3xl font-black text-cyan-200">{plan.price}</p>
-                <p className="mt-2 text-sm text-slate-400">{plan.detail}</p>
+        </section>
+
+        <section className="border-b border-slate-200 bg-white">
+          <div className="mx-auto grid max-w-7xl gap-6 px-5 py-10 md:grid-cols-3">
+            <div>
+              <p className="text-3xl font-black text-cyan-700">4</p>
+              <p className="mt-1 text-sm font-black text-slate-950">fontes principais</p>
+              <p className="mt-2 text-sm leading-6 text-slate-600">voz, face, semantica e historico temporal da sessao.</p>
+            </div>
+            <div>
+              <p className="text-3xl font-black text-emerald-700">500ms</p>
+              <p className="mt-1 text-sm font-black text-slate-950">atualizacao de indices</p>
+              <p className="mt-2 text-sm leading-6 text-slate-600">indicadores dinamicos para acompanhamento clinico em tempo real.</p>
+            </div>
+            <div>
+              <p className="text-3xl font-black text-rose-700">60s</p>
+              <p className="mt-1 text-sm font-black text-slate-950">baseline individual</p>
+              <p className="mt-2 text-sm leading-6 text-slate-600">marco inicial para comparacao dos cortes e do relatorio final.</p>
+            </div>
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-7xl px-5 py-14">
+          <SectionTitle
+            eyebrow="Porque existe"
+            title="O DNA do FROID e ampliar a leitura clinica sem substituir o profissional."
+            text="A saude mental exige escuta, experiencia e sensibilidade. O FROID acrescenta uma camada tecnica capaz de observar sinais que escapam ao olho e ao ouvido humanos: microvariacoes vocais, unidades de acao facial, tensoes, assimetrias, coerencias e contradicoes entre aquilo que e dito e aquilo que o corpo expressa."
+          />
+          <div className="mt-8 rounded-lg border border-cyan-200 bg-cyan-50 p-6">
+            <p className="text-sm leading-7 text-slate-800 md:text-base">
+              O objetivo nao e automatizar a clinica. O objetivo e oferecer ao profissional uma
+              segunda inteligencia de observacao: rigorosa, auditavel, multimodal e capaz de
+              aprender com padroes anonimos agregados para revelar associacoes, caminhos
+              terapeuticos possiveis e pontos de atencao que podem orientar a sessao.
+            </p>
+          </div>
+        </section>
+
+        <section className="border-y border-slate-200 bg-white">
+          <div className="mx-auto max-w-7xl px-5 py-14">
+            <SectionTitle
+              eyebrow="Habilidades"
+              title="Uma leitura integrada da expressao humana."
+              text="Cada modulo do FROID observa uma camada da sessao. A potencia esta na fusao: sinais isolados ajudam, mas as correlacoes entre eles podem revelar dissonancias clinicamente relevantes."
+            />
+            <div className="mt-8">
+              <CapabilityGrid />
+            </div>
+          </div>
+        </section>
+
+        <section className="mx-auto grid max-w-7xl gap-8 px-5 py-14 lg:grid-cols-[0.95fr_1.05fr]">
+          <div>
+            <SectionTitle
+              eyebrow="FACS / AUs"
+              title="A face como matriz de unidades de acao."
+              text="O FROID utiliza o mapa de AUs para apoiar a leitura de combinacoes expressivas, assimetrias e microdinamicas. A relevancia clinica surge quando a face, a voz e a narrativa apontam direcoes divergentes."
+            />
+            <div className="mt-7">
+              <NumberList items={clinicalSignals} />
+            </div>
+          </div>
+          <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+            <img src={auImage} alt="Mapa de unidades de acao facial FACS do FROID" className="h-full w-full object-cover" />
+          </div>
+        </section>
+
+        <section className="border-y border-slate-200 bg-slate-950 text-white">
+          <div className="mx-auto grid max-w-7xl gap-8 px-5 py-14 lg:grid-cols-[1.05fr_0.95fr]">
+            <div className="overflow-hidden rounded-lg border border-white/15 bg-white">
+              <img src={facsImage} alt="Mapa completo FACS e AUs FROID" className="h-full w-full object-cover" />
+            </div>
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.26em] text-cyan-200">Dissonancias</p>
+              <h2 className="mt-3 text-2xl font-black leading-tight md:text-4xl">
+                O aviso que importa antes da ruptura clinica.
+              </h2>
+              <p className="mt-4 text-sm leading-7 text-slate-200 md:text-base">
+                Dissonancia nao e uma frase do paciente. E uma avaliacao tecnica entregue ao
+                profissional quando o FROID detecta divergencias acima da metrica definida
+                entre semantica, bioacustica, face, zonas emocionais e comportamento temporal.
+              </p>
+              <div className="mt-7 grid gap-3">
+                {[
+                  "O paciente afirma estabilidade, mas a voz apresenta tensao, pausas e sub-harmonicos elevados.",
+                  "A fala indica calma, mas AUs de dor, medo ou contencao aparecem com intensidade relevante.",
+                  "O tema verbal muda, mas o IDM permanece fixado em uma zona de resistencia ou risco.",
+                  "O IPM aumenta sem coerencia com a narrativa, sugerindo sobrecarga ou defesa emocional.",
+                ].map((item) => (
+                  <p key={item} className="rounded border border-white/15 bg-white/5 p-4 text-sm leading-6 text-slate-100">
+                    {item}
+                  </p>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-7xl px-5 py-14">
+          <SectionTitle
+            eyebrow="Inteligencia evolutiva"
+            title="A base anonima transforma experiencia clinica em conhecimento agregado."
+            text="Com consentimento, governanca e anonimato, os cortes e metricas das sessoes podem alimentar uma base populacional para revelar benchmarks, padroes raros, correlacoes de percurso e novas hipoteses de intervencao."
+          />
+          <div className="mt-8 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+            {systemLayers.map((layer) => (
+              <div key={layer} className="rounded-lg border border-slate-200 bg-white p-4">
+                <p className="text-sm font-bold leading-6 text-slate-700">{layer}</p>
               </div>
             ))}
           </div>
+          <p className="mt-6 max-w-4xl text-sm leading-7 text-slate-600">
+            Essa capacidade nao elimina a necessidade de validacao cientifica e supervisao
+            profissional. Ela cria uma infraestrutura para que o FROID evolua com dados
+            anonimos, auditoria, revisao humana e aperfeicoamento continuo dos seus modelos.
+          </p>
         </section>
 
-        <section id="lgpd" className="border-t border-white/10 bg-slate-900/70">
+        <section className="border-y border-slate-200 bg-white">
+          <div className="mx-auto max-w-7xl px-5 py-14">
+            <SectionTitle
+              eyebrow="Convite"
+              title="Acesso inicial para profissionais de saude mental."
+              text="Estamos abrindo o FROID para profissionais que desejam testar uma nova camada de percepcao clinica, contribuir com validacao real e participar da formacao de uma base anonima de conhecimento em saude mental."
+            />
+            <div className="mt-8 grid gap-4 md:grid-cols-2">
+              {offers.map((offer) => (
+                <article key={offer.title} className="rounded-lg border border-cyan-200 bg-cyan-50 p-6">
+                  <p className="text-sm font-black uppercase tracking-[0.18em] text-cyan-800">{offer.title}</p>
+                  <h3 className="mt-3 text-3xl font-black text-slate-950">{offer.value}</h3>
+                  <p className="mt-3 text-sm leading-7 text-slate-700">{offer.text}</p>
+                </article>
+              ))}
+            </div>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link to="/access/register" className="rounded bg-slate-950 px-5 py-3 text-sm font-black text-white hover:bg-cyan-700">
+                Cadastrar profissional
+              </Link>
+              <Link to="/login" className="rounded border border-slate-300 px-5 py-3 text-sm font-black text-slate-900 hover:bg-slate-100">
+                Ja tenho acesso
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <section className="bg-slate-50">
           <div className="mx-auto max-w-7xl px-5 py-12">
             <div className="mb-5">
-              <h2 className="text-2xl font-black text-white">
-                Governanca LGPD e dados sensiveis
-              </h2>
-              <p className="mt-2 max-w-4xl text-sm leading-7 text-slate-300">
-                O FROID foi concebido para operar com minimizacao de dados,
-                consentimento destacado, auditoria, seguranca e anonimização de
-                bases populacionais. A conformidade real depende da configuracao
-                tecnica, dos contratos e da governanca de cada profissional ou
-                instituicao usuaria.
+              <h2 className="text-2xl font-black text-slate-950">LGPD, governanca e limites clinicos</h2>
+              <p className="mt-3 max-w-4xl text-sm leading-7 text-slate-600">
+                O FROID deve operar com consentimento, minimizacao de dados, segregacao de
+                trilhas, registro auditavel, anonimato para pesquisa e controle formal de
+                exclusao quando solicitado. As informacoes produzidas sao apoio ao profissional
+                habilitado, nao diagnostico automatico.
               </p>
             </div>
             <LgpdNotice audience="home" />

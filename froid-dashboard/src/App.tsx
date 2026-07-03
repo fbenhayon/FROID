@@ -9,6 +9,11 @@ import { PatientDetail } from "./pages/PatientDetail";
 import { NewPatient } from "./pages/NewPatient";
 import { LoginPage } from "./pages/LoginPage";
 import { HomePage } from "./pages/HomePage";
+import {
+  FroidProfessionalsPage,
+  FroidSciencePage,
+  FroidTechnologyPage,
+} from "./pages/FroidInstitutionalPages";
 import { ProfessionalOnboarding } from "./pages/ProfessionalOnboarding";
 import { PatientInvitePage } from "./pages/PatientInvitePage";
 import { PatientSessionPage } from "./pages/PatientSessionPage";
@@ -142,6 +147,9 @@ function App() {
           path="/"
           element={<HomePage />}
         />
+        <Route path="/froid/ciencia" element={<FroidSciencePage />} />
+        <Route path="/froid/tecnologia" element={<FroidTechnologyPage />} />
+        <Route path="/froid/profissionais" element={<FroidProfessionalsPage />} />
         <Route
           path="/login"
           element={
