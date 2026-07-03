@@ -79,6 +79,19 @@ function cleanFroidExplicaText(text: string) {
     .trim();
 }
 
+function appendCitations(text: string, citations?: string[]) {
+  const cleanCitations = Array.from(
+    new Set((citations || []).map((citation) => String(citation || "").trim()).filter(Boolean)),
+  );
+  if (!cleanCitations.length || /refer[eê]ncias utilizadas/i.test(text)) {
+    return text;
+  }
+  return `${text}\n\nReferências utilizadas:\n${cleanCitations
+    .slice(0, 6)
+    .map((citation) => `- ${citation}`)
+    .join("\n")}`;
+}
+
 export const AIInsights: React.FC<Props> = ({
   zones,
   ipmScore,
@@ -162,6 +175,10 @@ export const AIInsights: React.FC<Props> = ({
           body: JSON.stringify({
             query_text: prompt,
             session_id: sessionId,
+            conversation_history: messages.slice(-6).map((message) => ({
+              role: message.role,
+              content: message.content,
+            })),
             context: buildClinicalContext(),
           }),
         });
@@ -179,9 +196,11 @@ export const AIInsights: React.FC<Props> = ({
           ...prev,
           {
             role: "assistant",
-            content:
+            content: appendCitations(
               cleanFroidExplicaText(data.result_text) ||
-              "Sem resposta disponivel.",
+                "Sem resposta disponivel.",
+              data.citations,
+            ),
             safety: data.safety_check_passed,
           },
         ]);
@@ -201,7 +220,7 @@ export const AIInsights: React.FC<Props> = ({
         setLoading(false);
       }
     },
-    [buildClinicalContext, loading, sessionId],
+    [buildClinicalContext, loading, messages, sessionId],
   );
 
   return (

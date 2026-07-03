@@ -253,6 +253,10 @@ KNOWLEDGE_BASE = {
     "idm_direcao": "O IDM aponta a direcao do desequilibrio entre marcadores negativos e positivos, enquanto o IPM mede a energia global empregada.",
     "mfcc7_depressao": "MFCC7 elevado durante conteudos semanticamente negativos, associado a pausas, menor variacao de F0 e retardo psicomotor, contribui para risco depressivo.",
     "mfcc9_ansiedade": "MFCC9 em discurso neutro pode ter relacao inversa com ansiedade somatica; quedas acusticas podem indicar tensao autonoma latente.",
+    "shimmer_bioacustico": "Shimmer mede perturbacao ciclo-a-ciclo da amplitude vocal. No FROID, deve ser interpretado contra baseline individual, cortes temporais, Jitter, F0, ZCR, energia, pausas, tema semantico e dissonancias; isoladamente nao define estado emocional.",
+    "jitter_bioacustico": "Jitter mede perturbacao ciclo-a-ciclo da frequencia fundamental. Quando sustentado junto a Shimmer, alteracoes de F0, pausas e tensao vocal, pode apoiar hipotese de instabilidade laringea ou carga autonomica.",
+    "f0_bioacustico": "F0 e a frequencia fundamental da voz. Elevacoes, quedas ou reducao de variabilidade devem ser comparadas ao baseline de 60 segundos e ao contexto semantico da fala.",
+    "zcr_bioacustico": "ZCR, taxa de cruzamento por zero, apoia leitura de aspereza, ruido, energia de alta frequencia e alteracoes acusticas quando combinado a MFCCs, F0, Jitter e Shimmer.",
     "mania_ativacao": "A ativacao de mania acompanha pitch/F0 elevado, loudness, taxa acelerada de fala e fluxo espectral mais incisivo.",
     "sub_harmonicos": "Sub-harmonicos vocais entre 5 e 12 Hz podem refletir tremores do sistema nervoso autonomo quando cruzados com FACS e tensao vocal basal.",
     "facs_trauma": "A combinacao AU15, AU20, dor facial, angustia e tensao vocal pode sinalizar flooding, sobrecarga autonomica ou retraumatizacao.",
@@ -265,6 +269,7 @@ class FroidExplicaQuery(BaseModel):
     patient_id: Optional[str] = None
     session_id: Optional[str] = None
     context: Dict[str, Any] = Field(default_factory=dict)
+    conversation_history: List[Dict[str, str]] = Field(default_factory=list)
 
 
 class FroidExplicaResponse(BaseModel):
@@ -408,6 +413,46 @@ def _format_session_context(context: Dict[str, Any]) -> str:
     return json.dumps(safe_context, ensure_ascii=False, indent=2)[:5000]
 
 
+def _format_conversation_history(history: List[Dict[str, str]]) -> str:
+    if not history:
+        return "Sem historico conversacional enviado."
+    lines: List[str] = []
+    for message in history[-6:]:
+        role = str(message.get("role") or "").strip().lower()
+        label = "Profissional" if role == "user" else "FROID Explica"
+        content = str(message.get("content") or "").strip()
+        if not content:
+            continue
+        lines.append(f"{label}: {content[:1200]}")
+    return "\n\n".join(lines)[:5000] or "Sem historico conversacional util."
+
+
+def _is_source_followup(query_text: str) -> bool:
+    query = _normalize_search_text(query_text)
+    source_markers = {
+        "quais fontes",
+        "qual fonte",
+        "fontes utilizadas",
+        "fontes usadas",
+        "de onde",
+        "referencias",
+        "referencias utilizadas",
+        "bibliografia",
+        "base utilizada",
+    }
+    return any(marker in query for marker in source_markers)
+
+
+def _retrieval_query_for_payload(payload: "FroidExplicaQuery") -> str:
+    if not _is_source_followup(payload.query_text):
+        return payload.query_text
+    previous = " ".join(
+        str(message.get("content") or "")
+        for message in payload.conversation_history[-4:]
+    )
+    return f"{previous}\n\nPergunta atual: {payload.query_text}".strip()
+
+
 def _find_context_metric(context: Any, names: set[str]) -> Any:
     if isinstance(context, dict):
         for key, value in context.items():
@@ -497,6 +542,41 @@ def _fallback_froid_explica_result(query_text: str, context: Dict[str, Any]) -> 
         if isinstance(dominant, dict) and dominant.get("zone")
         else "zona dominante ainda indefinida"
     )
+
+    def _metric_response(
+        metric_label: str,
+        value_names: set[str],
+        concept: str,
+        interpretation: str,
+        integration: str,
+        references: str,
+    ) -> str:
+        metric_value = _find_context_metric(context, value_names)
+        tone = _find_context_metric(
+            context,
+            {"tone", "emotional_tone", "baseline_tone", "tom"},
+        )
+        return (
+            f"Leitura local do {metric_label} na sessao atual.\n\n"
+            "1. Valor contextual\n"
+            f"- {metric_label}: {metric_value if metric_value is not None else '--'}"
+            f"{f' | tom: {tone}' if tone is not None else ''}\n\n"
+            "2. O que a metrica representa\n"
+            f"- {concept}\n\n"
+            "3. Como interpretar no FROID\n"
+            f"- {interpretation}\n\n"
+            "4. Como incorporar na avaliacao clinica\n"
+            f"- {integration}\n\n"
+            "5. Limite clinico\n"
+            "- Use como marcador de apoio e nunca como conclusao isolada. A leitura deve ser "
+            "validada pela escuta, pelo contexto da fala, pelo baseline de 60 segundos, pelos "
+            "cortes temporais e pelo julgamento do profissional.\n\n"
+            "Referencias utilizadas\n"
+            f"- {references}\n"
+            "- Contexto da sessao atual enviado ao FROID Explica.\n"
+            "- Base local FROID de biomarcadores vocais."
+        )
+
     if "mfcc7" in query:
         mfcc7_value = _find_context_metric(
             context,
@@ -511,18 +591,70 @@ def _fallback_froid_explica_result(query_text: str, context: Dict[str, Any]) -> 
             {"tone", "emotional_tone", "baseline_tone", "tom"},
         )
         return (
-            "Leitura local do MFCC7 na sessao atual. "
-            f"Valor informado/contextual: MFCC7 {mfcc7_value if mfcc7_value is not None else '--'}"
-            f"{f', MFCC9 {mfcc9_value}' if mfcc9_value is not None else ''}"
-            f"{f', tom {tone}' if tone is not None else ''}. "
-            "Use o MFCC7 como marcador acustico de apoio, nao como conclusao isolada. "
-            "Ele ganha relevancia clinica quando se eleva durante fala de valencia negativa "
-            "e aparece junto de pausas prolongadas, menor variacao de F0, alteracoes de ZCR, "
-            "Jitter/Shimmer ou sinais de retardo/tensao vocal. Na pratica, incorpore a leitura "
-            "comparando o valor ao baseline de 60 segundos, aos cortes de 10 minutos, ao tema do "
-            "trecho e as dissonancias registradas. Se o valor estiver sustentado, use-o para "
-            "formular perguntas clinicas mais cuidadosas sobre carga afetiva, perda, desesperanca, "
-            "inibicao emocional ou defesa, sempre validando com a escuta e com o julgamento profissional."
+            "Leitura local do MFCC7 na sessao atual.\n\n"
+            "1. Valor contextual\n"
+            f"- MFCC7: {mfcc7_value if mfcc7_value is not None else '--'}"
+            f"{f' | MFCC9: {mfcc9_value}' if mfcc9_value is not None else ''}"
+            f"{f' | tom: {tone}' if tone is not None else ''}\n\n"
+            "2. O que a metrica representa\n"
+            "- MFCC7 e um coeficiente cepstral em escala Mel, associado a componentes espectrais "
+            "da voz. No FROID, ele e usado como biomarcador acustico de apoio, especialmente "
+            "quando aparece em fala de valencia semantica negativa.\n\n"
+            "3. Como interpretar no FROID\n"
+            "- O MFCC7 ganha relevancia quando se eleva junto de pausas prolongadas, menor "
+            "variacao de F0, alteracoes de ZCR, Jitter/Shimmer ou sinais de retardo/tensao vocal.\n\n"
+            "4. Como incorporar na avaliacao clinica\n"
+            "- Compare com o baseline de 60 segundos, com os cortes de 10 minutos, com o tema "
+            "do trecho e com as dissonancias registradas. Se o valor estiver sustentado, use-o "
+            "para formular perguntas clinicas mais cuidadosas sobre carga afetiva, perda, "
+            "desesperanca, inibicao emocional ou defesa.\n\n"
+            "5. Limite clinico\n"
+            "- Nao use o MFCC7 como conclusao isolada. Ele deve apoiar, e nao substituir, a "
+            "escuta e o julgamento profissional.\n\n"
+            "Referencias utilizadas\n"
+            "- Base local FROID: mfcc7_depressao.\n"
+            "- Contexto da sessao atual enviado ao FROID Explica.\n"
+            "- Literatura de representacoes cepstrais/MFCC aplicada a sinais de fala."
+        )
+
+    if "shimmer" in query:
+        return _metric_response(
+            "Shimmer",
+            {"shimmer", "shimmer_avg", "average_shimmer", "shimmermean"},
+            "Shimmer mede perturbacao ciclo-a-ciclo da amplitude vocal, isto e, a instabilidade da intensidade da voz entre ciclos sucessivos de fonacao.",
+            "No FROID, o Shimmer deve ser comparado ao baseline individual e aos cortes posteriores. Ele se torna mais informativo quando aparece junto de Jitter, alteracoes de F0, energia, pausas, ZCR, tensao vocal ou dissonancias faciais-vocais.",
+            "Use o Shimmer para observar esforco vocal, instabilidade autonomica possivel, tensao afetiva ou controle emocional excessivo. Em atendimento, ele pode orientar perguntas mais finas sobre carga emocional no trecho em que a amplitude vocal se tornou instavel.",
+            "Base local FROID: shimmer_bioacustico.",
+        )
+
+    if "jitter" in query:
+        return _metric_response(
+            "Jitter",
+            {"jitter", "jitter_avg", "average_jitter", "jittermean"},
+            "Jitter mede perturbacao ciclo-a-ciclo da frequencia fundamental, refletindo instabilidade fina da fonacao.",
+            "No FROID, Jitter ganha relevancia quando aparece sustentado com Shimmer, alteracoes de F0, pausas, tensao vocal, queda de fluidez ou mudanca de tom emocional.",
+            "Use o Jitter como apoio para investigar instabilidade laringea, carga autonomica ou esforco de controle emocional, sempre relacionando com o conteudo verbal e com o baseline.",
+            "Base local FROID: jitter_bioacustico.",
+        )
+
+    if "zcr" in query or "cruzamento por zero" in query:
+        return _metric_response(
+            "ZCR",
+            {"zcr", "zcr_avg", "average_zcr", "zcrmean"},
+            "ZCR e a taxa de cruzamento por zero do sinal acustico, usada para observar caracteristicas de ruido, aspereza e energia de alta frequencia.",
+            "No FROID, ZCR deve ser lido junto de MFCCs, F0, Jitter, Shimmer, pausas e intensidade. Alteracoes isoladas podem refletir artefato, microfone, fricativas ou mudanca real de qualidade vocal.",
+            "Use o ZCR para apoiar a leitura de tensao, aspereza vocal ou mudancas acusticas durante temas especificos, sempre conferindo qualidade do audio e contexto semantico.",
+            "Base local FROID: zcr_bioacustico.",
+        )
+
+    if "f0" in query or "frequencia fundamental" in query:
+        return _metric_response(
+            "F0",
+            {"f0", "f0_mean", "average_f0", "f0mean"},
+            "F0 e a frequencia fundamental da voz, relacionada ao pitch percebido e a dinamica de ativacao vocal.",
+            "No FROID, F0 e sua variabilidade devem ser comparados ao baseline individual. Elevacao, queda ou achatamento de variabilidade ganham sentido quando cruzados com energia, fala acelerada, pausas, tom e tema.",
+            "Use F0 para acompanhar ativacao, retardo, tensao ou reducao expressiva, sempre cruzando com IPM, IDM, biomarcadores acusticos e dissonancias.",
+            "Base local FROID: f0_bioacustico.",
         )
     return (
         "FROID Explica em modo local. "
@@ -534,8 +666,9 @@ def _fallback_froid_explica_result(query_text: str, context: Dict[str, Any]) -> 
 
 
 async def _query_froid_knowledge(payload: FroidExplicaQuery) -> FroidExplicaResponse:
-    chroma_docs, chroma_citations = _query_chroma_froid_knowledge(payload.query_text)
-    local_docs, local_citations = _query_local_froid_knowledge(payload.query_text)
+    retrieval_query = _retrieval_query_for_payload(payload)
+    chroma_docs, chroma_citations = _query_chroma_froid_knowledge(retrieval_query)
+    local_docs, local_citations = _query_local_froid_knowledge(retrieval_query)
     context_chunks = chroma_docs or local_docs
     citations = chroma_citations or local_citations
     context_str = "\n\n".join(
@@ -543,15 +676,22 @@ async def _query_froid_knowledge(payload: FroidExplicaQuery) -> FroidExplicaResp
         for source, doc in zip(citations, context_chunks)
     )
     session_context = _format_session_context(payload.context)
+    conversation_history = _format_conversation_history(payload.conversation_history)
     system_instruction = (
         "Voce e o FROID Explica, uma inteligencia clinica de apoio ao profissional. "
         "Responda em portugues do Brasil, de modo objetivo, sem diagnosticar e sem inventar. "
-        "Use estritamente o contexto cientifico e o contexto da sessao. "
-        "Se os dados forem insuficientes, diga claramente o que falta."
+        "Use estritamente o contexto cientifico disponivel, o contexto da sessao e o historico "
+        "conversacional. Se a pergunta for de seguimento, como 'quais fontes?', responda sobre "
+        "a resposta anterior, nao sobre um tema novo. Nao cite LGPD ou governanca se o assunto "
+        "anterior era biomarcador vocal, FACS, IPM, IDM ou outra metrica clinica. "
+        "Use as referencias disponiveis em todas as respostas; se as fontes forem insuficientes, "
+        "diga claramente o que falta. Ao final, inclua uma secao curta chamada "
+        "'Referencias utilizadas' com as fontes realmente relacionadas ao tema."
     )
     prompt = (
         f"CONTEXTO CIENTIFICO FROID:\n{context_str or 'Base cientifica nao carregada.'}\n\n"
         f"CONTEXTO DA SESSAO ATUAL:\n{session_context}\n\n"
+        f"HISTORICO RECENTE DO FROID EXPLICA:\n{conversation_history}\n\n"
         f"PERGUNTA DO PROFISSIONAL:\n{payload.query_text}"
     )
     text, engine = await _generate_froid_explain_text(
