@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AIInsights } from "../components/panels/AIInsights";
+import { FroidTooltip } from "../components/ui/FroidTooltip";
 import { apiUrl } from "../lib/api";
 import {
   buildPatientGroups,
@@ -46,6 +47,51 @@ const PRIORITY_STYLES: Record<string, string> = {
   REVISAR: "border-orange-400 bg-orange-50 text-orange-700",
   "ALTA PRIORIDADE": "border-red-400 bg-red-50 text-red-700",
   "DADOS INSUFICIENTES": "border-slate-300 bg-slate-50 text-slate-600",
+};
+
+const KPI_TOOLTIPS: Record<string, string> = {
+  Pacientes:
+    "Quantidade de pacientes com relatorios ou registros clinicos visiveis na carteira profissional.",
+  "Atencao media":
+    "Indice agregado de prioridade de acompanhamento. Combina sinais recentes, risco clinico, necessidade de revisao e intensidade multimodal.",
+  "Carga clinica":
+    "Carga multimodal media da carteira, considerando IPM, IDM, dissonancias, biomarcadores e qualidade/amostragem dos dados.",
+  Comunicacao:
+    "Qualidade documental e comunicacional: presenca de resumo, cortes, transcricao util, anotacoes e material suficiente para continuidade clinica.",
+  Continuidade:
+    "Consistencia longitudinal do acompanhamento: sessoes registradas, recorrencia de dados e disponibilidade de comparacao entre consultas.",
+  "Para revisao":
+    "Numero de pacientes que o FROID sinaliza para revisao por prioridade elevada, baixa qualidade de dados ou necessidade de acompanhamento profissional.",
+};
+
+const SIGNAL_TOOLTIPS: Record<string, string> = {
+  Atencao:
+    "Prioridade atual do paciente na carteira. Sobe quando ha maior ativacao, risco, baixa estabilidade ou necessidade de revisao.",
+  Carga:
+    "Esforco clinico estimado a partir da intensidade multimodal, dissonancias, risco agregado e marcadores de tensao.",
+  Comunicacao:
+    "Disponibilidade de conteudo clinico interpretavel: resumos, cortes, anotacoes e consistencia semantica das sessoes.",
+  Continuidade:
+    "Grau de sustentacao do acompanhamento no tempo, considerando quantidade de sessoes e comparabilidade longitudinal.",
+  Insight:
+    "Indice de material analitico disponivel para apoiar hipoteses clinicas, FROID Explica e revisao entre sessoes.",
+};
+
+const METRIC_TOOLTIPS: Record<string, string> = {
+  ipm: "IPM mede a intensidade global da energia emocional empregada na sessao.",
+  idm: "IDM aponta direcao e magnitude do desequilibrio multimodal entre voz, face, zonas e baseline.",
+  zone: "Zona FROID dominante observada no periodo analisado.",
+  tone: "Tom emocional inferido a partir da composicao vocal e semantica.",
+  wpm: "Palavras por minuto, usado como indicador de cadencia, aceleração, lentificacao ou carga discursiva.",
+  dissonance: "Quantidade de dissonancias facial-vocais persistentes acima do limiar configurado.",
+  mfcc7: "Biomarcador acustico acompanhado em contextos de valencia negativa e risco depressivo quando combinado a outros sinais.",
+  mfcc9: "Biomarcador acustico relevante para tensao autonoma e ansiedade somatica em fala neutra/controlada.",
+  f0: "Frequencia fundamental media da voz, associada a variacao de pitch e ativacao.",
+  zcr: "Taxa de cruzamento por zero, relacionada a textura acustica, ruido e dinamica vocal.",
+  jitter: "Microvariacao ciclo a ciclo da frequencia vocal, util para observar instabilidade e tensao.",
+  shimmer: "Microvariacao ciclo a ciclo da amplitude vocal, associada a instabilidade de energia vocal.",
+  sub5: "Energia sub-harmonica de 5-12 Hz, usada para rastrear tremores autonomicos da voz.",
+  sub12: "Energia sub-harmonica de 12-20 Hz, complementar na leitura bioacustica e limbica.",
 };
 
 function scoreText(value: number) {
@@ -116,9 +162,19 @@ const KpiCard: React.FC<{
           : "text-blue-700";
   return (
     <div className="rounded-lg border border-slate-200 bg-white px-3 py-3 shadow-sm">
-      <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">
-        {label}
-      </p>
+      <FroidTooltip
+        width={320}
+        content={
+          <div>
+            <p className="font-bold text-slate-900">{label}</p>
+            <p className="mt-1">{KPI_TOOLTIPS[label] || detail}</p>
+          </div>
+        }
+      >
+        <p className="inline cursor-help border-b border-dashed border-slate-300 text-[10px] font-black uppercase tracking-wider text-slate-500">
+          {label}
+        </p>
+      </FroidTooltip>
       <p className={`mt-2 text-xl font-black ${color}`}>{value}</p>
       <p className="mt-1 text-[10px] leading-snug text-slate-500">{detail}</p>
     </div>
@@ -132,7 +188,19 @@ const ScoreBar: React.FC<{ label: string; value: number; color: string }> = ({
 }) => (
   <div>
     <div className="mb-1 flex items-center justify-between gap-2 text-[10px] font-bold uppercase tracking-wide text-slate-500">
-      <span>{label}</span>
+      <FroidTooltip
+        width={320}
+        content={
+          <div>
+            <p className="font-bold text-slate-900">{label}</p>
+            <p className="mt-1">{SIGNAL_TOOLTIPS[label] || "Indicador medio da carteira do paciente."}</p>
+          </div>
+        }
+      >
+        <span className="cursor-help border-b border-dashed border-slate-300">
+          {label}
+        </span>
+      </FroidTooltip>
       <span>{scoreText(value)}</span>
     </div>
     <div className="h-2 overflow-hidden rounded-full bg-slate-200">
@@ -435,9 +503,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                     key={`avg-${cell.key}`}
                     className="min-w-[82px] rounded border border-slate-100 bg-white px-2 py-1.5"
                   >
-                    <p className="truncate text-[9px] font-bold uppercase tracking-wide text-slate-400">
-                      {cell.label}
-                    </p>
+                    <FroidTooltip
+                      width={300}
+                      content={
+                        <div>
+                          <p className="font-bold text-slate-900">{cell.label}</p>
+                          <p className="mt-1">
+                            {METRIC_TOOLTIPS[cell.key] || "Metrica media consolidada das sessoes do paciente."}
+                          </p>
+                        </div>
+                      }
+                    >
+                      <p className="truncate text-[9px] font-bold uppercase tracking-wide text-slate-400">
+                        <span className="cursor-help border-b border-dashed border-slate-300">
+                          {cell.label}
+                        </span>
+                      </p>
+                    </FroidTooltip>
                     <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-800">
                       {cell.value}
                     </p>
@@ -483,9 +565,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                           key={cell.key}
                           className="min-w-[82px] rounded border border-slate-100 bg-white px-2 py-1.5"
                         >
-                          <p className="truncate text-[9px] font-bold uppercase tracking-wide text-slate-400">
-                            {cell.label}
-                          </p>
+                          <FroidTooltip
+                            width={300}
+                            content={
+                              <div>
+                                <p className="font-bold text-slate-900">{cell.label}</p>
+                                <p className="mt-1">
+                                  {METRIC_TOOLTIPS[cell.key] || "Metrica desta sessao no acompanhamento do paciente."}
+                                </p>
+                              </div>
+                            }
+                          >
+                            <p className="truncate text-[9px] font-bold uppercase tracking-wide text-slate-400">
+                              <span className="cursor-help border-b border-dashed border-slate-300">
+                                {cell.label}
+                              </span>
+                            </p>
+                          </FroidTooltip>
                           <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-800">
                             {cell.value}
                           </p>
