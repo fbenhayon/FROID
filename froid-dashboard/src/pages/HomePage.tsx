@@ -16,46 +16,91 @@ const abilities = [
     title: "Transcricao clinica em tempo real",
     brief:
       "Registra a fala na cadencia da sessao, separando profissional e paciente, para leitura, revisao e relatorio posterior.",
+    detail:
+      "A transcricao e a memoria semantica da consulta. Ela organiza a fala real, preserva a alternancia entre profissional e paciente e permite que o especialista acompanhe a narrativa sem perder a observacao corporal e vocal.",
+    impact:
+      "Permite revisar a sessao com precisao, localizar mudancas de tema, validar cortes e produzir relatorios clinicos mais completos.",
+    visual: ["DR", "PAC", "Tema", "Resumo"],
   },
   {
     title: "Bioacustica vocal do paciente",
     brief:
       "Extrai F0, ZCR, Jitter, Shimmer, energia, pausas, cadencia, MFCC7, MFCC9 e sub-harmonicos vocais da trilha do paciente.",
+    detail:
+      "A voz e uma das expressoes mais diretas da dinamica interna. O FROID utiliza exclusivamente a trilha vocal do paciente para avaliar tensao, intensidade, tremores, pausas, aceleracao, retardo e sinais sub-harmonicos.",
+    impact:
+      "Ajuda o profissional a perceber mudancas autonomicas e emocionais que podem nao aparecer claramente no conteudo verbal.",
+    visual: ["F0", "MFCC7", "MFCC9", "5-20Hz"],
   },
   {
     title: "FACS, AUs e microexpressoes",
     brief:
       "Mapeia unidades de acao facial, intensidade, assimetria, duracao e combinacoes expressivas associadas a matrizes emocionais.",
+    detail:
+      "O rosto e analisado como matriz dinamica de unidades de acao facial. O FROID cruza AUs isoladas e combinadas, assimetrias, intensidade e tempo de ativacao para apoiar a leitura de sinais expressivos sutis.",
+    impact:
+      "Amplia a capacidade de observar dor, contencao, surpresa, medo, tristeza mascarada, raiva contida e outras matrizes emocionais.",
+    visual: ["AU1", "AU4", "AU15", "AU20"],
   },
   {
     title: "IPM e IDM",
     brief:
       "O IPM mede a intensidade global da mobilizacao emocional; o IDM aponta a direcao dominante do desequilibrio no mapa zonal.",
+    detail:
+      "O IPM funciona como velocimetro da energia emocional; o IDM aponta a direcao do desequilibrio nas zonas FROID. Ambos ganham valor quando comparados ao baseline inicial e aos cortes temporais.",
+    impact:
+      "Oferece uma leitura rapida da intensidade e da direcao do processo, permitindo ajustar a conducao clinica em tempo real.",
+    visual: ["IPM", "IDM", "Delta", "Zona"],
   },
   {
     title: "Dissonancias e consonancias",
     brief:
       "Cruza voz, face, narrativa, zonas, riscos e baseline para apontar divergencias relevantes e coerencias expressivas.",
+    detail:
+      "A dissonancia e o aviso central do FROID: ela surge quando sinais efetivamente apurados ultrapassam a metrica definida e indicam divergencia entre narrativa, corpo, voz, face, zona ou intensidade emocional.",
+    impact:
+      "Ajuda o profissional a identificar pontos onde talvez seja necessario investigar, acolher, mudar o ritmo ou redirecionar a sessao.",
+    visual: ["Fala", "Voz", "Face", "Zona"],
   },
   {
     title: "Cortes, temas e resumos",
     brief:
       "Consolida janelas obrigatorias de 10 minutos e cortes profissionais com tema, resumo e metricas correspondentes.",
+    detail:
+      "Os cortes transformam a sessao em blocos comparaveis. Cada janela preserva tema, resumo, metricas, tom, palavras por minuto, biomarcadores, zonas e dissonancias do periodo.",
+    impact:
+      "Permite acompanhar a evolucao da consulta, comparar momentos e reconstruir o percurso emocional com objetividade.",
+    visual: ["0-10", "10-20", "20-30", "Corte"],
   },
   {
     title: "Relatorio da Consulta",
     brief:
       "Organiza baseline, medias, cortes, dissonancias, observacoes clinicas e selecao do profissional em um documento de revisao.",
+    detail:
+      "Ao final da sessao, o FROID organiza parametros iniciais, medias, cortes, temas, resumos, observacoes clinicas e dissonancias em um layout de composicao selecionavel pelo profissional.",
+    impact:
+      "Cria memoria clinica estruturada para revisao, supervisao, estudo de caso e continuidade terapeutica.",
+    visual: ["Baseline", "Medias", "Cortes", "Notas"],
   },
   {
     title: "FROID Explica",
     brief:
       "Permite ao profissional perguntar sobre achados, metricas, fontes tecnicas e possiveis relacoes clinicas durante ou apos a sessao.",
+    detail:
+      "O FROID Explica e a camada de inteligencia que traduz sinais complexos em linguagem clinica. Ele pode responder perguntas, esclarecer metricas, relacionar achados e apoiar a interpretacao do relatorio.",
+    impact:
+      "Reduz a distancia entre dados tecnicos e decisao clinica, tornando a plataforma mais util durante a pratica real.",
+    visual: ["Pergunta", "Fonte", "Metrica", "Resposta"],
   },
   {
     title: "Data Mart anonimo",
     brief:
       "Transforma metricas anonimizadas em base populacional para benchmarks, pesquisa, comparacao longitudinal e descoberta de padroes.",
+    detail:
+      "Com consentimento e governanca, as metricas anonimizadas das sessoes alimentam uma base populacional capaz de revelar padroes, benchmarks, associacoes e novas hipoteses de estudo.",
+    impact:
+      "Permite que o FROID evolua com dados agregados, preservando privacidade e fortalecendo pesquisa em saude mental.",
+    visual: ["Anonimo", "k>=50", "Benchmark", "Padroes"],
   },
 ];
 
@@ -120,17 +165,109 @@ function SectionHeading({
   );
 }
 
-function AbilityCard({ title, brief, index }: { title: string; brief: string; index: number }) {
+function AbilityVisual({
+  title,
+  visual,
+  index,
+}: {
+  title: string;
+  visual: string[];
+  index: number;
+}) {
   return (
-    <article className="rounded-lg border border-white/10 bg-slate-900 p-5 shadow-lg shadow-slate-950/20">
-      <div className="flex items-center gap-3">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-cyan-400/15 text-xs font-black text-cyan-200">
-          {String(index + 1).padStart(2, "0")}
-        </span>
-        <h3 className="text-base font-black text-white">{title}</h3>
+    <div className="rounded-lg border border-cyan-300/20 bg-slate-950 p-4 shadow-2xl shadow-cyan-950/20">
+      <div className="rounded-md border border-white/10 bg-slate-900 p-4">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-xs font-black uppercase tracking-[0.22em] text-cyan-300">
+            Imagem conceitual
+          </span>
+          <span className="rounded bg-cyan-400/15 px-2 py-1 text-xs font-black text-cyan-200">
+            {String(index + 1).padStart(2, "0")}
+          </span>
+        </div>
+        <div className="mt-5 grid min-h-[220px] place-items-center rounded-md border border-white/10 bg-slate-950 p-5">
+          <div className="relative flex h-44 w-44 items-center justify-center rounded-full border border-cyan-300/40 bg-cyan-300/5">
+            <div className="absolute h-28 w-28 rounded-full border border-emerald-300/35" />
+            <div className="absolute h-16 w-16 rounded-full border border-rose-300/35" />
+            <p className="max-w-[120px] text-center text-sm font-black leading-5 text-white">
+              {title}
+            </p>
+            {visual.map((item, itemIndex) => {
+              const positions = [
+                "left-1/2 top-0 -translate-x-1/2 -translate-y-1/2",
+                "right-0 top-1/2 translate-x-1/2 -translate-y-1/2",
+                "bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2",
+                "left-0 top-1/2 -translate-x-1/2 -translate-y-1/2",
+              ];
+              return (
+                <span
+                  key={item}
+                  className={`absolute ${positions[itemIndex] || positions[0]} rounded border border-white/10 bg-slate-800 px-2 py-1 text-xs font-black text-cyan-100`}
+                >
+                  {item}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+        <div className="mt-3 rounded border border-dashed border-white/15 bg-white/[0.03] p-3">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
+            Espaco preparado para video ou imagem especifica
+          </p>
+        </div>
       </div>
-      <p className="mt-4 text-sm leading-7 text-slate-300">{brief}</p>
-    </article>
+    </div>
+  );
+}
+
+function AbilitySection({
+  title,
+  brief,
+  detail,
+  impact,
+  visual,
+  index,
+}: {
+  title: string;
+  brief: string;
+  detail: string;
+  impact: string;
+  visual: string[];
+  index: number;
+}) {
+  const reversed = index % 2 === 1;
+  return (
+    <section className="border-t border-white/10">
+      <div
+        className={`mx-auto grid max-w-7xl gap-8 px-5 py-12 lg:grid-cols-[0.95fr_1.05fr] ${
+          reversed ? "lg:[&>*:first-child]:order-2" : ""
+        }`}
+      >
+        <div>
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-cyan-400/15 text-sm font-black text-cyan-200">
+              {String(index + 1).padStart(2, "0")}
+            </span>
+            <p className="text-xs font-black uppercase tracking-[0.28em] text-cyan-300">
+              Habilidade FROID
+            </p>
+          </div>
+          <h3 className="mt-4 text-3xl font-black leading-tight text-white">{title}</h3>
+          <p className="mt-4 text-base font-semibold leading-8 text-cyan-100">{brief}</p>
+          <div className="mt-6 grid gap-3">
+            <div className="rounded-lg border border-white/10 bg-slate-900 p-5">
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Como funciona</p>
+              <p className="mt-3 text-sm leading-7 text-slate-300">{detail}</p>
+            </div>
+            <div className="rounded-lg border border-emerald-300/20 bg-emerald-300/5 p-5">
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-200">Valor para o profissional</p>
+              <p className="mt-3 text-sm leading-7 text-slate-300">{impact}</p>
+            </div>
+          </div>
+        </div>
+        <AbilityVisual title={title} visual={visual} index={index} />
+      </div>
+    </section>
   );
 }
 
@@ -221,14 +358,14 @@ export const HomePage: React.FC = () => {
           <div className="mx-auto max-w-7xl px-5 py-14">
             <SectionHeading
               eyebrow="Habilidades"
-              title="Todas as habilidades centrais em um unico fluxo de sessao."
-              text="O modelo anterior era correto no essencial: cada habilidade precisa aparecer como um bloco claro, com briefing objetivo. Esta e a matriz operacional que o profissional deve compreender antes de usar o FROID."
+              title="Nove habilidades centrais, descritas uma a uma."
+              text="Cada habilidade do FROID representa uma camada de observacao clinica. A magnitude da plataforma aparece quando essas camadas deixam de ser telas isoladas e passam a trabalhar como um unico sistema de leitura da sessao."
             />
-            <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {abilities.map((ability, index) => (
-                <AbilityCard key={ability.title} {...ability} index={index} />
-              ))}
-            </div>
+          </div>
+          <div className="border-t border-white/10">
+            {abilities.map((ability, index) => (
+              <AbilitySection key={ability.title} {...ability} index={index} />
+            ))}
           </div>
         </section>
 
@@ -334,4 +471,3 @@ export const HomePage: React.FC = () => {
     </div>
   );
 };
-
