@@ -171,6 +171,80 @@ const formulaBlocks = [
   },
 ];
 
+const professionalFlow = [
+  ["1. Cadastro profissional", "O profissional completa perfil, LGPD, plano de acesso e dados operacionais para usar o FROID em sua rotina."],
+  ["2. Convite ao paciente", "Cria convite, define pacote ou sessao avulsa, informa valor, PIX quando aplicavel e envia mensagem pronta pelo WhatsApp."],
+  ["3. Cadastro do paciente", "O paciente acessa link, completa dados, aceita termos e entra em fluxo protegido de consentimento e identificacao."],
+  ["4. Sala online", "Profissional e paciente entram em video e audio bidirecional, preservando a trilha do paciente para avaliacao FROID."],
+  ["5. Monitoramento multimodal", "Durante a sessao, o profissional acompanha transcricao, biomarcadores, IPM, IDM, riscos, zonas e dissonancias."],
+  ["6. Cortes e relatorio", "Cortes obrigatorios e profissionais alimentam o Relatorio da Consulta, com metricas, resumos e observacoes clinicas."],
+];
+
+const professionalLayoutItems = [
+  ["Resumo profissional", "Pacientes, atencao media, carga clinica, comunicacao, continuidade e itens para revisao em leitura compacta."],
+  ["Indicadores medios", "Consolida indicadores das sessoes recentes para sinalizar tendencia, estabilidade, risco e mudancas de percurso."],
+  ["Pacientes e sessoes", "Acesso a historico, ultimas sessoes, relatorios, convites e detalhes individuais de cada paciente."],
+  ["FROID Explica", "Segunda coluna para perguntas, revisao de metricas, correlacoes e apoio interpretativo sem sair do painel."],
+];
+
+const liveSessionItems = [
+  ["Coluna 1", "Tempo de sessao, transcricao DR/PAC, tom, palavras/minuto, biomarcadores vocais, resumos por cortes e anotacoes clinicas."],
+  ["Coluna 2", "Video, biofeedback facial, mapa zonal, IPM/IDM, zonas dominantes, baseline e leitura grafica da dinamica emocional."],
+  ["Coluna 3", "IPM ampliado, riscos clinicos, sub-harmonicos, dissonancias, FROID Explica e paineis de investigacao interativa."],
+  ["Interatividade", "Cortes profissionais, perguntas ao FROID Explica, consulta a base anonima, comparacao com baseline e registro de observacoes."],
+];
+
+const reportItems = [
+  ["Parametros iniciais", "Linha de 60 segundos com todas as metricas basais para comparacao posterior."],
+  ["Medias da sessao", "Media consolidada de IPM, IDM, zona, tom, palavras/minuto, biomarcadores, sub-harmonicos e dissonancias."],
+  ["Cortes da sessao", "Tabela temporal com cortes obrigatorios e profissionais, mantendo valores tecnicos abertos e legiveis."],
+  ["Resumo geral", "Sintese narrativa da consulta, tema predominante, progressao dos blocos e orientacao para continuidade."],
+  ["Analise individual", "Comparacao longitudinal de um paciente ao longo das sessoes."],
+  ["Analise conjunta", "Discussao com pares e supervisao usando dados selecionados, anonimizados quando necessario."],
+];
+
+function ProfessionalSystemImage() {
+  const nodes = [
+    ["Convite", "Paciente"],
+    ["Sessao", "FROID"],
+    ["Cortes", "Relatorio"],
+  ];
+  return (
+    <div className="rounded-lg border border-cyan-300/20 bg-slate-950 p-5 shadow-2xl shadow-cyan-950/30">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <p className="text-xs font-black uppercase tracking-[0.24em] text-cyan-300">imagem conceitual do fluxo</p>
+        <span className="rounded border border-white/10 bg-white/[0.04] px-2 py-1 text-xs font-black text-slate-300">
+          profissional + paciente
+        </span>
+      </div>
+      <div className="grid gap-4 rounded-md border border-white/10 bg-slate-900 p-4">
+        {nodes.map((row, rowIndex) => (
+          <div key={row.join("-")} className="grid grid-cols-[1fr_44px_1fr] items-center gap-3">
+            <div className="rounded-lg border border-cyan-300/25 bg-cyan-300/10 p-4 text-center">
+              <p className="text-sm font-black text-cyan-100">{row[0]}</p>
+            </div>
+            <div className="flex items-center justify-center">
+              <span className="h-px w-full bg-cyan-300/40" />
+            </div>
+            <div className="rounded-lg border border-emerald-300/25 bg-emerald-300/10 p-4 text-center">
+              <p className="text-sm font-black text-emerald-100">{row[1]}</p>
+            </div>
+            {rowIndex < nodes.length - 1 && (
+              <div className="col-span-3 flex justify-center">
+                <span className="h-8 w-px bg-white/20" />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      <p className="mt-4 text-xs leading-5 text-slate-400">
+        Do convite ao relatorio, o FROID conecta operacao clinica, sessao online,
+        inteligencia explicativa e analise longitudinal.
+      </p>
+    </div>
+  );
+}
+
 export const FroidSciencePage: React.FC = () => {
   return (
     <PageShell
@@ -252,26 +326,28 @@ export const FroidTechnologyPage: React.FC = () => {
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-7xl gap-8 px-5 py-12 lg:grid-cols-[0.9fr_1.1fr]">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.32em] text-cyan-300">Fontes cientificas</p>
-          <h2 className="mt-3 text-3xl font-black leading-tight text-white">Referencias adotadas como matriz de metricas, nao como diagnostico automatico.</h2>
-          <p className="mt-5 text-sm leading-7 text-slate-300">
-            O FROID utiliza escalas, modelos e literatura como estruturas de calibracao,
-            nomenclatura e interpretabilidade. O sistema nao substitui instrumentos
-            validados nem a avaliacao do especialista; ele traduz sinais da sessao em
-            vetores comparaveis, explicaveis e interrogaveis.
-          </p>
-          <div className="mt-6 grid gap-3">
-            {researchReferences.map(([title, text]) => (
-              <div key={title} className="rounded-lg border border-white/10 bg-slate-900 p-4">
-                <p className="text-sm font-black text-cyan-200">{title}</p>
-                <p className="mt-2 text-sm leading-7 text-slate-300">{text}</p>
-              </div>
-            ))}
-          </div>
+      <section className="mx-auto max-w-7xl px-5 py-12">
+        <p className="text-xs font-black uppercase tracking-[0.32em] text-cyan-300">Fontes cientificas</p>
+        <h2 className="mt-3 max-w-5xl text-3xl font-black leading-tight text-white">
+          Referencias adotadas como matriz de metricas, nao como diagnostico automatico.
+        </h2>
+        <p className="mt-5 max-w-4xl text-sm leading-7 text-slate-300">
+          O FROID utiliza escalas, modelos e literatura como estruturas de calibracao,
+          nomenclatura e interpretabilidade. O sistema nao substitui instrumentos
+          validados nem a avaliacao do especialista; ele traduz sinais da sessao em
+          vetores comparaveis, explicaveis e interrogaveis.
+        </p>
+        <div className="mt-8">
+          <DarkImagePanel src={facsImage} alt="Mapa FACS, AUs e descritores de acao integrados ao FROID" />
         </div>
-        <DarkImagePanel src={facsImage} alt="Mapa FACS, AUs e descritores de acao integrados ao FROID" />
+        <div className="mt-6 grid gap-3 md:grid-cols-2">
+          {researchReferences.map(([title, text]) => (
+            <div key={title} className="rounded-lg border border-white/10 bg-slate-900 p-4">
+              <p className="text-sm font-black text-cyan-200">{title}</p>
+              <p className="mt-2 text-sm leading-7 text-slate-300">{text}</p>
+            </div>
+          ))}
+        </div>
       </section>
 
       <section className="border-y border-white/10 bg-slate-900/70">
@@ -378,29 +454,103 @@ export const FroidProfessionalsPage: React.FC = () => {
   return (
     <PageShell
       eyebrow="Profissionais"
-      title="Uma ferramenta para ampliar a escuta, a revisao e a decisao clinica."
-      intro="O FROID foi criado para profissionais que desejam observar a sessao com mais profundidade: nao apenas o que foi dito, mas como foi dito, quando mudou, como o corpo respondeu e onde a coerencia se rompeu ou se confirmou."
+      title="Da primeira mensagem ao relatorio: o fluxo clinico completo do FROID."
+      intro="O FROID foi desenhado para entrar na rotina real do profissional de saude mental: convidar o paciente, realizar sessao online, capturar sinais multimodais, interagir com o FROID Explica, consultar bases anonimizadas e produzir um relatorio pos-sessao util para acompanhamento individual, supervisao e analise conjunta."
     >
-      <section className="mx-auto grid max-w-7xl gap-8 px-5 py-12 lg:grid-cols-[0.95fr_1.05fr]">
+      <section className="mx-auto grid max-w-7xl gap-8 px-5 py-12 lg:grid-cols-[1fr_0.9fr]">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.32em] text-cyan-300">Na rotina clinica</p>
-          <h2 className="mt-3 text-3xl font-black leading-tight text-white">Do convite ao relatorio final.</h2>
-          <div className="mt-6 grid gap-4">
-            <TextBlock
-              title="Antes da sessao"
-              text="O profissional gera convite, define pagamento ou pacote, envia link ao paciente e registra consentimentos e dados necessarios conforme a LGPD."
-            />
-            <TextBlock
-              title="Durante a sessao"
-              text="Acompanha video, audio, transcricao, biomarcadores, IPM, IDM, riscos, zonas, dissonancias, cortes e FROID Explica."
-            />
-            <TextBlock
-              title="Depois da sessao"
-              text="Recebe o Relatorio da Consulta com parametros iniciais, medias, cortes, resumos, anotacoes clinicas e dados anonimizaveis para pesquisa."
-            />
+          <p className="text-xs font-black uppercase tracking-[0.32em] text-cyan-300">Dinamica operacional</p>
+          <h2 className="mt-3 text-3xl font-black leading-tight text-white">Um sistema de trabalho, nao apenas uma tela de sessao.</h2>
+          <p className="mt-5 text-sm leading-7 text-slate-300">
+            A experiencia do FROID comeca antes da consulta e continua depois dela. O
+            profissional controla convite, pagamento, consentimento, sessao, cortes,
+            relatorio, analise longitudinal e perguntas ao FROID Explica em um unico
+            ecossistema clinico.
+          </p>
+          <div className="mt-6 grid gap-3">
+            {professionalFlow.map(([title, text]) => (
+              <div key={title} className="rounded-lg border border-white/10 bg-slate-900 p-4">
+                <p className="text-sm font-black text-cyan-200">{title}</p>
+                <p className="mt-2 text-sm leading-7 text-slate-300">{text}</p>
+              </div>
+            ))}
           </div>
         </div>
-        <ImagePanel src={auImage} alt="Unidades de acao facial aplicadas ao FROID" />
+        <ProfessionalSystemImage />
+      </section>
+
+      <section className="border-y border-white/10 bg-slate-900/70">
+        <div className="mx-auto max-w-7xl px-5 py-12">
+          <p className="text-xs font-black uppercase tracking-[0.32em] text-cyan-300">Layout do profissional</p>
+          <h2 className="mt-3 text-3xl font-black text-white">Painel de gestao clinica, continuidade e decisao.</h2>
+          <p className="mt-5 max-w-4xl text-sm leading-7 text-slate-300">
+            O dashboard profissional organiza a visao geral da pratica: pacientes,
+            sessoes, indicadores medios, itens de revisao e FROID Explica em uma segunda
+            coluna. O objetivo e oferecer contexto antes de entrar na sessao, e nao
+            apenas uma lista administrativa.
+          </p>
+          <div className="mt-8 grid gap-4 md:grid-cols-2">
+            {professionalLayoutItems.map(([title, text]) => (
+              <TextBlock key={title} title={title} text={text} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto grid max-w-7xl gap-8 px-5 py-12 lg:grid-cols-[0.9fr_1.1fr]">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.32em] text-cyan-300">Layout da sessao</p>
+          <h2 className="mt-3 text-3xl font-black leading-tight text-white">Consulta online com graficos, video, voz e inteligencia ativa.</h2>
+          <p className="mt-5 text-sm leading-7 text-slate-300">
+            Durante a sessao, profissional e paciente se veem e se ouvem. A trilha de
+            audio do paciente alimenta os parametros FROID; a fala de ambos permanece
+            preservada na transcricao. A interface permite cortes, anotacoes clinicas,
+            perguntas ao FROID Explica e consulta a base anonima quando autorizada.
+          </p>
+          <div className="mt-6 grid gap-3">
+            {liveSessionItems.map(([title, text]) => (
+              <div key={title} className="rounded-lg border border-white/10 bg-slate-900 p-4">
+                <p className="text-sm font-black text-cyan-200">{title}</p>
+                <p className="mt-2 text-sm leading-7 text-slate-300">{text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        <ImagePanel src={auImage} alt="Unidades de acao facial aplicadas ao layout de sessao FROID" />
+      </section>
+
+      <section className="border-y border-white/10 bg-slate-900/70">
+        <div className="mx-auto max-w-7xl px-5 py-12">
+          <p className="text-xs font-black uppercase tracking-[0.32em] text-cyan-300">Relatorio pos-sessao</p>
+          <h2 className="mt-3 text-3xl font-black text-white">Memoria tecnica para analise individual e discussao clinica conjunta.</h2>
+          <p className="mt-5 max-w-4xl text-sm leading-7 text-slate-300">
+            Ao encerrar a consulta, o FROID disponibiliza um layout proprio para composicao
+            do Relatorio da Consulta. O profissional seleciona o que deseja incluir:
+            metricas, cortes, temas, resumos, dissonancias, observacoes e dados uteis
+            para acompanhamento longitudinal ou discussao com pares.
+          </p>
+          <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {reportItems.map(([title, text]) => (
+              <TextBlock key={title} title={title} text={text} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-5 py-12">
+        <div className="rounded-lg border border-cyan-300/20 bg-cyan-300/5 p-6">
+          <p className="text-xs font-black uppercase tracking-[0.32em] text-cyan-300">Analise e pesquisa</p>
+          <h2 className="mt-3 text-3xl font-black leading-tight text-white">
+            Individual, longitudinal, conjunta e anonima.
+          </h2>
+          <p className="mt-5 text-sm leading-7 text-slate-300 md:text-base">
+            O FROID permite acompanhar um paciente ao longo de sessoes, comparar cortes
+            dentro da mesma consulta, discutir relatorios com pares, consultar benchmarks
+            anonimizados e propor novas correlacoes ao FROID Explica. Assim, a pratica
+            individual do profissional pode dialogar com uma base populacional protegida,
+            sem expor dados identificaveis do paciente.
+          </p>
+        </div>
       </section>
 
       <section className="border-y border-cyan-300/20 bg-cyan-300/5">
