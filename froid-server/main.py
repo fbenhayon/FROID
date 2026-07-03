@@ -408,31 +408,87 @@ def _format_session_context(context: Dict[str, Any]) -> str:
     return json.dumps(safe_context, ensure_ascii=False, indent=2)[:5000]
 
 
+def _find_context_metric(context: Any, names: set[str]) -> Any:
+    if isinstance(context, dict):
+        for key, value in context.items():
+            if str(key).lower() in names:
+                return value
+        for value in context.values():
+            found = _find_context_metric(value, names)
+            if found is not None:
+                return found
+    elif isinstance(context, list):
+        for item in context:
+            found = _find_context_metric(item, names)
+            if found is not None:
+                return found
+    return None
+
+
 def _classify_froid_explica_intent(query_text: str) -> str:
     query = _normalize_search_text(query_text)
-    analytics_markers = {
-        "estatistica",
-        "estatisticas",
-        "comparar",
-        "comparacao",
+
+    current_session_markers = {
+        "sessao atual",
+        "desta sessao",
+        "da sessao",
+        "nesta sessao",
+        "media da sessao",
+        "media das metricas",
+        "metricas da sessao",
+        "corte atual",
+        "neste corte",
+        "deste corte",
+        "baseline",
+        "ipm",
+        "idm",
+        "mfcc",
+        "mfcc7",
+        "mfcc9",
+        "f0",
+        "zcr",
+        "jitter",
+        "shimmer",
+        "sub-harmonico",
+        "sub harmonico",
+        "biomarcador",
+        "biomarcadores",
+        "dissonancia",
+        "dissonancias",
+        "zona dominante",
+        "tom",
+        "palavras por minuto",
+    }
+    if any(marker in query for marker in current_session_markers):
+        return "knowledge"
+
+    explicit_analytics_markers = {
+        "base anonima",
+        "base anonimizada",
+        "base populacional",
+        "data mart",
         "benchmark",
         "populacional",
         "populacao",
         "coorte",
-        "media",
         "percentil",
         "demografico",
-        "similar",
-        "similares",
-        "base",
-        "casos",
+        "casos similares",
+        "pacientes similares",
+        "comparar com outros pacientes",
+        "comparacao com outros pacientes",
+        "comparar com a populacao",
+        "comparacao populacional",
+        "estatistica populacional",
+        "estatisticas populacionais",
     }
-    if any(marker in query for marker in analytics_markers):
+    if any(marker in query for marker in explicit_analytics_markers):
         return "analytics"
     return "knowledge"
 
 
 def _fallback_froid_explica_result(query_text: str, context: Dict[str, Any]) -> str:
+    query = _normalize_search_text(query_text)
     ipm = context.get("ipm_score", "--")
     coherence = context.get("coherence_status", "--")
     dominant = context.get("dominant_zone") or {}
@@ -441,6 +497,33 @@ def _fallback_froid_explica_result(query_text: str, context: Dict[str, Any]) -> 
         if isinstance(dominant, dict) and dominant.get("zone")
         else "zona dominante ainda indefinida"
     )
+    if "mfcc7" in query:
+        mfcc7_value = _find_context_metric(
+            context,
+            {"mfcc7", "mfcc7_avg", "average_mfcc7", "mfcc7mean"},
+        )
+        mfcc9_value = _find_context_metric(
+            context,
+            {"mfcc9", "mfcc9_avg", "average_mfcc9", "mfcc9mean"},
+        )
+        tone = _find_context_metric(
+            context,
+            {"tone", "emotional_tone", "baseline_tone", "tom"},
+        )
+        return (
+            "Leitura local do MFCC7 na sessao atual. "
+            f"Valor informado/contextual: MFCC7 {mfcc7_value if mfcc7_value is not None else '--'}"
+            f"{f', MFCC9 {mfcc9_value}' if mfcc9_value is not None else ''}"
+            f"{f', tom {tone}' if tone is not None else ''}. "
+            "Use o MFCC7 como marcador acustico de apoio, nao como conclusao isolada. "
+            "Ele ganha relevancia clinica quando se eleva durante fala de valencia negativa "
+            "e aparece junto de pausas prolongadas, menor variacao de F0, alteracoes de ZCR, "
+            "Jitter/Shimmer ou sinais de retardo/tensao vocal. Na pratica, incorpore a leitura "
+            "comparando o valor ao baseline de 60 segundos, aos cortes de 10 minutos, ao tema do "
+            "trecho e as dissonancias registradas. Se o valor estiver sustentado, use-o para "
+            "formular perguntas clinicas mais cuidadosas sobre carga afetiva, perda, desesperanca, "
+            "inibicao emocional ou defesa, sempre validando com a escuta e com o julgamento profissional."
+        )
     return (
         "FROID Explica em modo local. "
         f"Pergunta recebida: {query_text}. "
