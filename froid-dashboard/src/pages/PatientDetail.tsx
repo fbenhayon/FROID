@@ -63,17 +63,21 @@ export const PatientDetail: React.FC = () => {
 
   if (!group) {
     return (
-      <div className="min-h-screen bg-white p-1 text-black">
-        <button
-          onClick={() => navigate("/dashboard")}
-          className="border border-black px-2 py-0.5 text-[10px]"
-        >
-          Voltar ao Dashboard
-        </button>
-        <h1 className="mt-5 text-xl font-bold">Paciente nao encontrado</h1>
-        <p className="mt-2 text-xs">
-          Ainda nao ha relatorios locais ou sincronizados para este paciente.
-        </p>
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 p-6 text-slate-700">
+        <div className="max-w-md rounded-lg border border-slate-200 bg-white p-6 text-center shadow-sm">
+          <h1 className="text-lg font-bold text-slate-900">
+            Paciente nao encontrado
+          </h1>
+          <p className="mt-2 text-sm text-slate-500">
+            Ainda nao ha relatorios locais ou sincronizados para este paciente.
+          </p>
+          <button
+            onClick={() => navigate("/dashboard")}
+            className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700"
+          >
+            Voltar ao dashboard
+          </button>
+        </div>
       </div>
     );
   }
@@ -96,103 +100,151 @@ export const PatientDetail: React.FC = () => {
     latest_report_cuts: latest.tenMinuteCuts,
   };
   const signal = patientAdvancedSignal(group);
+  const sessionTableColSpan = detailMetricCells(latest.sessionAverage).length + 4;
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 text-slate-800">
-      <button
-        onClick={() => navigate("/dashboard")}
-        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100"
-      >
-        Voltar ao Dashboard
-      </button>
-
-      <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-blue-600">
-            Dashboard Longitudinal do Paciente
-          </p>
-          <h1 className="mt-1 text-2xl font-bold">
-            {group.patient.name || "Paciente sem nome"}
-          </h1>
-          <p className="mt-2 text-xs text-slate-500">
-            CPF: {group.patient.document || "Nao informado"}
-          </p>
-        </div>
-        <div className="flex flex-wrap justify-end gap-2">
-          <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-black text-blue-700">
-            {signal.priority}
-          </span>
-          <button
-            onClick={() => navigate(`/session/${latest.sessionId}`)}
-            className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700"
-          >
-            Enviar convite / abrir sessao
-          </button>
-        </div>
-      </div>
-
-      <section className="mt-5 grid gap-3 md:grid-cols-4 xl:grid-cols-8">
-        <PatientKpi label="Total de Sessoes" value={String(group.totalSessions)} />
-        <PatientKpi label="Concluidas" value={String(group.completedSessions)} />
-        <PatientKpi label="Ativas" value={String(group.activeSessions)} />
-        <PatientKpi label="Analises" value={String(group.totalAnalyses)} />
-        <PatientKpi label="Atencao" value={`${Math.round(signal.attentionIndex)}/100`} tone="red" />
-        <PatientKpi label="Qualidade" value={signal.qualityLabel} tone="green" />
-        <PatientKpi label="Comunicacao" value={`${Math.round(signal.communication)}/100`} tone="blue" />
-        <PatientKpi label="Insight" value={`${Math.round(signal.insight)}/100`} tone="violet" />
-      </section>
-      </div>
-
-      <section className="sticky top-0 z-20 mt-4 rounded-2xl border border-emerald-300 bg-emerald-50/95 p-4 shadow-sm backdrop-blur">
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+    <div className="min-h-screen bg-slate-50 text-slate-800">
+      <header className="border-b border-slate-200 bg-white px-6 py-4">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
           <div>
-            <h2 className="text-sm font-bold text-emerald-950">FROID Explica</h2>
-            <p className="mt-0.5 text-[11px] text-emerald-800">
-              Consulta longitudinal fixa para este paciente.
+            <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600">
+              Dashboard Longitudinal do Paciente
             </p>
-          </div>
-          <button
-            onClick={() => navigate("/settings")}
-            className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-[11px] font-bold text-cyan-800 hover:bg-cyan-100"
-          >
-            Meus Prompts...
-          </button>
-        </div>
-        <div className="max-h-80 overflow-y-auto rounded-lg border border-emerald-200 bg-white/80 px-2 pb-2 pr-1">
-          <AIInsights
-            zones={latest.sessionAverage.zones || []}
-            ipmScore={latest.sessionAverage.ipmAvg}
-            coherenceStatus={latest.sessionAverage.coherenceStatus}
-            baselineEstablished
-            sessionId={latest.sessionId}
-            extraContext={context}
-            controlsSticky
-            rootClassName="border-0"
-            messagesClassName="min-h-36 max-h-52"
-          />
-        </div>
-      </section>
-
-      <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-bold">Evolucao das ultimas 20 sessoes</h2>
+            <h1 className="text-xl font-bold text-slate-900">
+              {group.patient.name || "Paciente sem nome"}
+            </h1>
             <p className="mt-1 text-xs text-slate-500">
-              IPM, IDM, palavras por minuto, dissonancias e sub-harmonicos em escala propria.
+              CPF: {group.patient.document || "Nao informado"} | Ultima sessao{" "}
+              {formatDateTime(reportEndDate(latest))}
             </p>
           </div>
-          <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-black uppercase text-slate-500">
-            {signal.state}
-          </span>
+          <div className="flex flex-wrap justify-end gap-2">
+            <span className="rounded border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-black text-blue-700">
+              {signal.priority}
+            </span>
+            <button
+              onClick={() => navigate(`/session/${latest.sessionId}`)}
+              className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700"
+            >
+              Abrir sessao
+            </button>
+            <button
+              onClick={() => navigate("/dashboard")}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
+            >
+              Dashboard
+            </button>
+          </div>
         </div>
-        <PatientEvolutionChart reports={group.reports} />
-      </section>
+      </header>
 
-      <div className="mt-5">
-        <main className="min-w-0">
-          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <h2 className="text-lg font-bold">Indicadores Clinicos</h2>
+      <main className="mx-auto grid max-w-7xl items-start gap-4 p-6 lg:grid-cols-[1fr_390px]">
+        <div className="space-y-4">
+          <section className="rounded-lg border border-blue-100 bg-blue-50 p-4">
+            <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-bold text-blue-950">
+                  Linha longitudinal do paciente
+                </h2>
+                <p className="mt-1 text-[11px] text-blue-800">
+                  Leitura consolidada das sessoes, qualidade de dados e sinais clinicos recorrentes.
+                </p>
+              </div>
+              <span className="rounded bg-white px-2 py-1 text-[10px] font-black uppercase text-blue-700">
+                {signal.state}
+              </span>
+            </div>
+            <div className="grid gap-2 md:grid-cols-4 xl:grid-cols-8">
+              <PatientKpi label="Total de Sessoes" value={String(group.totalSessions)} />
+              <PatientKpi label="Concluidas" value={String(group.completedSessions)} />
+              <PatientKpi label="Ativas" value={String(group.activeSessions)} />
+              <PatientKpi label="Analises" value={String(group.totalAnalyses)} />
+              <PatientKpi label="Atencao" value={`${Math.round(signal.attentionIndex)}/100`} tone="red" />
+              <PatientKpi label="Qualidade" value={signal.qualityLabel} tone="green" />
+              <PatientKpi label="Comunicacao" value={`${Math.round(signal.communication)}/100`} tone="blue" />
+              <PatientKpi label="Insight" value={`${Math.round(signal.insight)}/100`} tone="violet" />
+            </div>
+          </section>
+
+          <section className="rounded-lg border border-blue-100 bg-blue-50 p-4">
+            <div className="mb-3">
+              <h2 className="text-sm font-bold text-blue-950">
+                Linha comparativa da ultima sessao
+              </h2>
+            </div>
+            <div className="grid gap-2 md:grid-cols-5">
+              <div>
+                <p className="text-[10px] font-bold uppercase text-blue-500">
+                  IPM baseline
+                </p>
+                <p className="text-lg font-black text-blue-950">
+                  {fmt(latest.baseline.ipmAvg, 1)}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase text-blue-500">
+                  IPM medio
+                </p>
+                <p className="text-lg font-black text-blue-950">
+                  {fmt(latest.sessionAverage.ipmAvg, 1)}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase text-blue-500">
+                  IDM baseline
+                </p>
+                <p className="text-lg font-black text-blue-950">
+                  {fmt(latest.baseline.idmAvg, 2)}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase text-blue-500">
+                  IDM medio
+                </p>
+                <p className="text-lg font-black text-blue-950">
+                  {fmt(latest.sessionAverage.idmAvg, 2)}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase text-blue-500">
+                  Estado
+                </p>
+                <p className="text-sm font-bold text-blue-950">
+                  {signal.state}
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <PatientMetricTable
+            title="Parametros iniciais - 60 segundos"
+            rows={[{ label: latest.baseline.label, metrics: patientMetricRows(latest.baseline) }]}
+          />
+
+          <PatientMetricTable
+            title="Media das metricas da ultima sessao"
+            rows={[{ label: latest.sessionAverage.label, metrics: patientMetricRows(latest.sessionAverage) }]}
+          />
+
+          <section className="rounded-lg border border-slate-200 bg-white p-4">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-bold text-slate-900">
+                  Evolucao das ultimas 20 sessoes
+                </h2>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  IPM, IDM, palavras por minuto, dissonancias e sub-harmonicos em escala propria.
+                </p>
+              </div>
+              <span className="rounded bg-slate-50 px-2 py-1 text-[10px] font-black uppercase text-slate-500">
+                {signal.state}
+              </span>
+            </div>
+            <PatientEvolutionChart reports={group.reports} />
+          </section>
+
+          <section className="rounded-lg border border-slate-200 bg-white p-4">
+            <h2 className="text-sm font-bold text-slate-900">Indicadores Clinicos</h2>
             <div className="mt-4 grid gap-3 md:grid-cols-3">
               <Indicator
                 label="Zona FROID Dominante"
@@ -229,12 +281,12 @@ export const PatientDetail: React.FC = () => {
             </p>
           </section>
 
-          <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <h2 className="text-lg font-bold">Sessoes realizadas</h2>
-            <div className="mt-3 overflow-x-auto rounded-xl border border-slate-200">
+          <section className="rounded-lg border border-slate-200 bg-white p-4">
+            <h2 className="text-sm font-bold text-slate-900">Sessoes realizadas</h2>
+            <div className="mt-3 overflow-x-auto">
               <table className="min-w-[1500px] w-full border-collapse text-left text-[10px]">
-                <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50 font-bold uppercase text-slate-400">
+                <thead className="text-[10px] uppercase tracking-wider text-slate-400">
+                  <tr className="border-b border-slate-200">
                     <th className="px-1 py-1">Data</th>
                     <th className="px-1 py-1">Sessao</th>
                     {detailMetricCells(latest.sessionAverage).map((cell) => (
@@ -246,12 +298,12 @@ export const PatientDetail: React.FC = () => {
                     <th className="px-1 py-1">Detalhe</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-slate-100">
                   {group.reports.map((report) => {
                     const resultLines = splitSessionResult(report);
                     return (
                       <React.Fragment key={report.sessionId}>
-                        <tr className="border-b border-slate-200 align-top odd:bg-white even:bg-slate-50">
+                        <tr className="align-top">
                           <td className="px-1 py-1">
                             {formatDateTime(reportEndDate(report))}
                           </td>
@@ -269,19 +321,19 @@ export const PatientDetail: React.FC = () => {
                               onClick={() =>
                                 navigate(`/session/${report.sessionId}/report`)
                               }
-                              className="rounded border border-slate-200 bg-white px-2 py-1 font-bold text-slate-600 hover:bg-slate-50"
+                              className="rounded border border-slate-200 bg-slate-50 px-2 py-1 font-bold text-slate-600 hover:bg-slate-100"
                             >
                               Ver
                             </button>
                           </td>
                         </tr>
                         <tr className="border-b border-slate-100 bg-blue-50/60">
-                          <td colSpan={18} className="px-2 py-2 text-xs">
+                          <td colSpan={sessionTableColSpan} className="px-2 py-2 text-xs">
                             <strong>Resultado da sessao:</strong> {resultLines[0]}
                           </td>
                         </tr>
                         <tr className="border-b border-slate-200 bg-blue-50/40">
-                          <td colSpan={18} className="px-2 py-2 text-xs">
+                          <td colSpan={sessionTableColSpan} className="px-2 py-2 text-xs">
                             {resultLines[1] || "Complemento ainda nao consolidado."}
                           </td>
                         </tr>
@@ -293,11 +345,11 @@ export const PatientDetail: React.FC = () => {
             </div>
           </section>
 
-          <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <h2 className="text-lg font-bold">Historico de Sessoes</h2>
+          <section className="rounded-lg border border-slate-200 bg-white p-4">
+            <h2 className="text-sm font-bold text-slate-900">Historico de Sessoes</h2>
             <table className="mt-3 w-full table-fixed text-left text-xs">
-              <thead>
-                <tr className="font-bold">
+              <thead className="text-[10px] uppercase tracking-wider text-slate-400">
+                <tr className="border-b border-slate-200">
                   <th className="w-[13%]">ID</th>
                   <th className="w-[12%]">STATUS</th>
                   <th className="w-[23%]">INICIO</th>
@@ -306,7 +358,7 @@ export const PatientDetail: React.FC = () => {
                   <th>ANALISES</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-slate-100">
                 {group.reports.map((report, index) => (
                   <tr key={report.sessionId}>
                     <td>
@@ -334,8 +386,54 @@ export const PatientDetail: React.FC = () => {
               </tbody>
             </table>
           </section>
-        </main>
-      </div>
+        </div>
+
+        <aside className="space-y-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
+          <section className="min-h-[560px] rounded-lg border border-slate-200 bg-white p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-bold text-slate-900">FROID Explica</h2>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Consulta longitudinal fixa para este paciente.
+                </p>
+              </div>
+              <button
+                onClick={() => navigate("/settings")}
+                className="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-bold text-slate-600 hover:bg-slate-100"
+              >
+                Meus Prompts...
+              </button>
+            </div>
+            <AIInsights
+              zones={latest.sessionAverage.zones || []}
+              ipmScore={latest.sessionAverage.ipmAvg}
+              coherenceStatus={latest.sessionAverage.coherenceStatus}
+              baselineEstablished
+              sessionId={latest.sessionId}
+              extraContext={context}
+              controlsSticky
+              messagesClassName="min-h-[330px]"
+            />
+          </section>
+
+          <section className="rounded-lg border border-slate-200 bg-white p-4">
+            <h2 className="text-sm font-bold text-slate-900">Resumo longitudinal</h2>
+            <div className="mt-3 space-y-2 text-xs text-slate-600">
+              <p>
+                <strong>Nota clinica:</strong> {group.clinicalNote}
+              </p>
+              <p>
+                <strong>Risco:</strong> {group.clinicalRisk}
+              </p>
+              <p>
+                <strong>Predominancia:</strong>{" "}
+                {group.dominantZone ? `Zona ${group.dominantZone}` : "--"} |{" "}
+                {group.recurrentEmotion || "--"}
+              </p>
+            </div>
+          </section>
+        </aside>
+      </main>
     </div>
   );
 };
@@ -347,18 +445,18 @@ const PatientKpi: React.FC<{
 }> = ({ label, value, tone = "blue" }) => {
   const color =
     tone === "green"
-      ? "text-emerald-300"
+      ? "text-emerald-700"
       : tone === "red"
-        ? "text-red-300"
+        ? "text-red-700"
         : tone === "violet"
-          ? "text-violet-300"
-          : "text-cyan-300";
+          ? "text-violet-700"
+          : "text-blue-950";
   return (
-    <div className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-white">
-      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+    <div className="rounded border border-blue-100 bg-white px-3 py-2">
+      <p className="text-[9px] font-black uppercase tracking-widest text-blue-500">
         {label}
       </p>
-      <p className={`mt-2 text-lg font-black ${color}`}>{value}</p>
+      <p className={`mt-1 text-lg font-black ${color}`}>{value}</p>
     </div>
   );
 };
@@ -387,11 +485,76 @@ const Indicator: React.FC<{
   value: string;
   detail: string;
 }> = ({ label, value, detail }) => (
-  <div>
-    <p className="font-bold">{label}</p>
-    <p className="mt-4">{value}</p>
-    <p className="mt-4 font-bold">{detail}</p>
+  <div className="rounded border border-slate-100 bg-slate-50 p-3">
+    <p className="text-[10px] font-bold uppercase text-slate-400">{label}</p>
+    <p className="mt-2 text-sm font-black text-slate-900">{value}</p>
+    <p className="mt-2 text-[11px] font-semibold text-slate-500">{detail}</p>
   </div>
+);
+
+function patientMetricRows(snapshot: MetricSnapshot) {
+  return [
+    ["IPM", fmt(snapshot.ipmAvg, 1)],
+    ["IDM", fmt(snapshot.idmAvg, 2)],
+    ["Z Domin.", snapshot.dominantZone ? `Zona ${snapshot.dominantZone}` : "--"],
+    ["Tom", snapshot.emotionalTone || "--"],
+    ["P/min", fmt(snapshot.wordsPerMinute, 1)],
+    ["Disso.", String(snapshot.dissonanceCount || 0)],
+    ["MFCC7", fmt(snapshot.mfcc7, 3)],
+    ["MFCC9", fmt(snapshot.mfcc9, 3)],
+    ["F0 Med.", fmt(snapshot.f0Mean, 2)],
+    ["ZCR", fmt(snapshot.zcr, 3)],
+    ["Jitter", fmt(snapshot.jitter, 3)],
+    ["Shimmer", fmt(snapshot.shimmer, 3)],
+    ["Sub-H 5-12Hz", fmt(snapshot.subharmonic5_12, 3)],
+    ["Sub-H 12-20Hz", fmt(snapshot.subharmonic12_20, 3)],
+  ];
+}
+
+const PatientMetricTable: React.FC<{
+  title: string;
+  rows: Array<{ label: string; metrics: string[][] }>;
+}> = ({ title, rows }) => (
+  <section className="rounded-lg border border-slate-200 bg-white p-4">
+    <div className="mb-3">
+      <h2 className="text-sm font-bold text-slate-900">{title}</h2>
+    </div>
+    <div className="overflow-x-auto">
+      <table className="min-w-max table-auto text-left text-[10px] leading-tight">
+        <thead className="text-[9px] uppercase tracking-normal text-slate-400">
+          <tr>
+            <th className="whitespace-nowrap py-1 pr-2">Corte</th>
+            {rows[0]?.metrics.map(([label]) => (
+              <th
+                key={label}
+                className="whitespace-nowrap border-l border-slate-200 px-2 py-1 font-bold"
+              >
+                {label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {rows.map((row) => (
+            <tr key={row.label} className="align-top">
+              <td className="whitespace-nowrap py-1 pr-2 font-bold text-slate-700">
+                {row.label}
+              </td>
+              {row.metrics.map(([label, value]) => (
+                <td
+                  key={`${row.label}-${label}`}
+                  className="whitespace-nowrap border-l border-slate-200 px-2 py-1 text-slate-700"
+                  title={value}
+                >
+                  {value}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </section>
 );
 
 const CHART_METRICS = [
@@ -453,14 +616,14 @@ const PatientEvolutionChart: React.FC<{ reports: SessionReportRecord[] }> = ({
 
   if (!ordered.length) {
     return (
-      <div className="mt-3 border border-black p-4 text-xs">
+      <div className="mt-3 rounded border border-slate-100 bg-slate-50 p-4 text-xs text-slate-500">
         Sem sessoes suficientes para desenhar evolucao longitudinal.
       </div>
     );
   }
 
   return (
-    <div className="mt-3 overflow-x-auto border border-black p-2">
+    <div className="mt-3 overflow-x-auto rounded border border-slate-100 bg-slate-50 p-2">
       <svg viewBox={`0 0 ${width} ${height}`} className="min-w-[760px] w-full">
         {[0, 1, 2, 3, 4].map((line) => {
           const y = padY + (line / 4) * chartHeight;

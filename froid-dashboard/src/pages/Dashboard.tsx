@@ -563,34 +563,52 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                 <ScoreBar label="Continuidade" value={signal.continuity} color="#22c55e" />
                 <ScoreBar label="Insight" value={signal.insight} color="#8b5cf6" />
               </div>
-              <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-                {compactMetricCells(averageSnapshot).map((cell) => (
-                  <div
-                    key={`avg-${cell.key}`}
-                    className="min-w-[82px] rounded border border-slate-100 bg-white px-2 py-1.5"
-                  >
-                    <FroidTooltip
-                      width={300}
-                      content={
-                        <div>
-                          <p className="font-bold text-slate-900">{cell.label}</p>
-                          <p className="mt-1">
-                            {METRIC_TOOLTIPS[cell.key] || "Metrica media consolidada das sessoes do paciente."}
-                          </p>
-                        </div>
-                      }
-                    >
-                      <p className="truncate text-[9px] font-bold uppercase tracking-wide text-slate-400">
-                        <span className="cursor-help border-b border-dashed border-slate-300">
-                          {cell.label}
-                        </span>
-                      </p>
-                    </FroidTooltip>
-                    <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-800">
-                      {cell.value}
-                    </p>
-                  </div>
-                ))}
+              <div className="mt-3 overflow-x-auto">
+                <table className="min-w-max table-auto text-left text-[10px] leading-tight">
+                  <thead className="text-[9px] uppercase tracking-normal text-slate-400">
+                    <tr>
+                      <th className="whitespace-nowrap py-1 pr-2">Corte</th>
+                      {compactMetricCells(averageSnapshot).map((cell) => (
+                        <th
+                          key={`avg-head-${cell.key}`}
+                          className="whitespace-nowrap border-l border-slate-200 px-2 py-1 font-bold"
+                        >
+                          <FroidTooltip
+                            width={300}
+                            content={
+                              <div>
+                                <p className="font-bold text-slate-900">{cell.label}</p>
+                                <p className="mt-1">
+                                  {METRIC_TOOLTIPS[cell.key] || "Metrica media consolidada das sessoes do paciente."}
+                                </p>
+                              </div>
+                            }
+                          >
+                            <span className="cursor-help border-b border-dashed border-slate-300">
+                              {cell.label}
+                            </span>
+                          </FroidTooltip>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    <tr className="align-top">
+                      <td className="whitespace-nowrap py-1 pr-2 font-bold text-slate-700">
+                        Media
+                      </td>
+                      {compactMetricCells(averageSnapshot).map((cell) => (
+                        <td
+                          key={`avg-value-${cell.key}`}
+                          className="whitespace-nowrap border-l border-slate-200 px-2 py-1 text-slate-700"
+                          title={cell.value}
+                        >
+                          {cell.value}
+                        </td>
+                      ))}
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
 
@@ -598,38 +616,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
               <p className="text-xs font-black uppercase tracking-wide text-slate-900">
                 Indicadores das ultimas 3 sessoes
               </p>
-              <div className="mt-3 space-y-2">
-                {group.reports.slice(0, 3).map((report, index) => (
-                  <div
-                    key={report.sessionId}
-                    className="rounded-lg border border-slate-200 bg-slate-50/80 p-3"
-                  >
-                    <div className="flex flex-wrap items-center gap-3">
-                      <div className="min-w-[170px] space-y-1">
-                        <p className="text-[11px] font-bold text-slate-900">
-                          {index === 0 ? "Concluida " : "Ativa "}
-                          {shortId(report.sessionId)}
-                        </p>
-                        <p className="mt-0.5 text-[10px] font-semibold text-slate-500">
-                          {formatDateTime(reportEndDate(report))}
-                        </p>
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="rounded bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700">
-                            {paymentStatusForReport(report)}
-                          </span>
-                          <button
-                            onClick={() => nav(`/session/${report.sessionId}/report`)}
-                            className="rounded border border-slate-200 bg-white px-2 py-1 text-[10px] font-bold text-slate-600 hover:bg-slate-50"
-                          >
-                            Ver
-                          </button>
-                        </div>
-                      </div>
-                      <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1">
-                        {compactMetricCells(report.sessionAverage).map((cell) => (
-                        <div
-                          key={cell.key}
-                          className="min-w-[82px] rounded border border-slate-100 bg-white px-2 py-1.5"
+              <div className="mt-3 overflow-x-auto">
+                <table className="min-w-max table-auto text-left text-[10px] leading-tight">
+                  <thead className="text-[9px] uppercase tracking-normal text-slate-400">
+                    <tr>
+                      <th className="whitespace-nowrap py-1 pr-2">Data</th>
+                      <th className="whitespace-nowrap border-l border-slate-200 px-2 py-1 font-bold">
+                        Status
+                      </th>
+                      <th className="whitespace-nowrap border-l border-slate-200 px-2 py-1 font-bold">
+                        Pagamento
+                      </th>
+                      <th className="whitespace-nowrap border-l border-slate-200 px-2 py-1 font-bold">
+                        Detalhe
+                      </th>
+                      {compactMetricCells(group.reports[0]?.sessionAverage || averageSnapshot).map((cell) => (
+                        <th
+                          key={`last-head-${cell.key}`}
+                          className="whitespace-nowrap border-l border-slate-200 px-2 py-1 font-bold"
                         >
                           <FroidTooltip
                             width={300}
@@ -642,21 +646,47 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                               </div>
                             }
                           >
-                            <p className="truncate text-[9px] font-bold uppercase tracking-wide text-slate-400">
-                              <span className="cursor-help border-b border-dashed border-slate-300">
-                                {cell.label}
-                              </span>
-                            </p>
+                            <span className="cursor-help border-b border-dashed border-slate-300">
+                              {cell.label}
+                            </span>
                           </FroidTooltip>
-                          <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-800">
-                            {cell.value}
-                          </p>
-                        </div>
+                        </th>
                       ))}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {group.reports.slice(0, 3).map((report, index) => (
+                      <tr key={report.sessionId} className="align-top">
+                        <td className="whitespace-nowrap py-1 pr-2 font-bold text-slate-700">
+                          {formatDateTime(reportEndDate(report))}
+                        </td>
+                        <td className="whitespace-nowrap border-l border-slate-200 px-2 py-1 text-slate-700">
+                          {index === 0 ? "Concluida" : "Ativa"} {shortId(report.sessionId)}
+                        </td>
+                        <td className="whitespace-nowrap border-l border-slate-200 px-2 py-1 text-slate-700">
+                          {paymentStatusForReport(report)}
+                        </td>
+                        <td className="whitespace-nowrap border-l border-slate-200 px-2 py-1">
+                          <button
+                            onClick={() => nav(`/session/${report.sessionId}/report`)}
+                            className="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-bold text-slate-600 hover:bg-slate-100"
+                          >
+                            Ver
+                          </button>
+                        </td>
+                        {compactMetricCells(report.sessionAverage).map((cell) => (
+                          <td
+                            key={`${report.sessionId}-${cell.key}`}
+                            className="whitespace-nowrap border-l border-slate-200 px-2 py-1 text-slate-700"
+                            title={cell.value}
+                          >
+                            {cell.value}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
               <div className="mt-3 space-y-2">
                 {group.reports.slice(0, 3).map((report) => (
