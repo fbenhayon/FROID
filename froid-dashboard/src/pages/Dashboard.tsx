@@ -256,6 +256,72 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   const selectedGroup =
     patientGroups.find((group) => group.key === selectedPatientKey) ||
     patientGroups[0];
+  const froidExplicaOperationalContext = useMemo(() => {
+    const selectedSignal = selectedGroup
+      ? patientAdvancedSignal(selectedGroup)
+      : null;
+    return {
+      operational_scope: "professional_dashboard",
+      patients_count: portfolio.totalPatients,
+      active_patients_count: patientGroups.length,
+      review_patients_count: portfolio.reviewCount,
+      patients_summary: patientGroups.slice(0, 50).map((group) => {
+        const signal = patientAdvancedSignal(group);
+        return {
+          patient_key: group.key,
+          patient_name: group.patient.name || "Paciente sem nome",
+          total_sessions: group.totalSessions,
+          completed_sessions: group.completedSessions,
+          active_sessions: group.activeSessions,
+          latest_session_id: group.latestReport.sessionId,
+          latest_session_at: group.latestReport.createdAt,
+          priority: signal.priority,
+          state: signal.state,
+          action: signal.action,
+          attention_index: Number(signal.attentionIndex.toFixed(1)),
+          clinical_load: Number(signal.clinicalLoad.toFixed(1)),
+          communication: Number(signal.communication.toFixed(1)),
+          continuity: Number(signal.continuity.toFixed(1)),
+          insight: Number(signal.insight.toFixed(1)),
+          dominant_zone: group.dominantZone,
+          recurrent_emotion: group.recurrentEmotion,
+          clinical_risk: group.clinicalRisk,
+        };
+      }),
+      selected_patient: selectedGroup
+        ? {
+            patient_key: selectedGroup.key,
+            patient_name: selectedGroup.patient.name || "Paciente sem nome",
+            total_sessions: selectedGroup.totalSessions,
+            completed_sessions: selectedGroup.completedSessions,
+            active_sessions: selectedGroup.activeSessions,
+            latest_session_id: selectedGroup.latestReport.sessionId,
+            latest_session_at: selectedGroup.latestReport.createdAt,
+            priority: selectedSignal?.priority,
+            state: selectedSignal?.state,
+            action: selectedSignal?.action,
+            attention_index: selectedSignal
+              ? Number(selectedSignal.attentionIndex.toFixed(1))
+              : null,
+            clinical_load: selectedSignal
+              ? Number(selectedSignal.clinicalLoad.toFixed(1))
+              : null,
+            communication: selectedSignal
+              ? Number(selectedSignal.communication.toFixed(1))
+              : null,
+            continuity: selectedSignal
+              ? Number(selectedSignal.continuity.toFixed(1))
+              : null,
+            insight: selectedSignal
+              ? Number(selectedSignal.insight.toFixed(1))
+              : null,
+            dominant_zone: selectedGroup.dominantZone,
+            recurrent_emotion: selectedGroup.recurrentEmotion,
+            clinical_risk: selectedGroup.clinicalRisk,
+          }
+        : null,
+    };
+  }, [patientGroups, portfolio, selectedGroup]);
   const openPatientRegistration = (
     patient?: {
       name?: string;
@@ -698,6 +764,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                   baselineEstablished
                   sessionId={selectedGroup.latestReport.sessionId}
                   extraContext={{
+                    ...froidExplicaOperationalContext,
                     patient: selectedGroup.patient,
                     latest_report_average: selectedGroup.latestReport.sessionAverage,
                     latest_report_baseline: selectedGroup.latestReport.baseline,

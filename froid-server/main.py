@@ -401,9 +401,9 @@ def _query_local_froid_knowledge(query_text: str, limit: int = 4) -> Tuple[List[
         if not tokens or score > 0:
             ranked.append((score, source, content))
     ranked.sort(key=lambda item: item[0], reverse=True)
-    selected = ranked[:limit] or [
-        (0, key, value) for key, value in list(KNOWLEDGE_BASE.items())[:limit]
-    ]
+    selected = [item for item in ranked if item[0] > 0][:limit]
+    if not selected:
+        return [], []
     return [
         item[2] for item in selected
     ], [
@@ -510,6 +510,31 @@ def _is_contextual_followup(query_text: str) -> bool:
     return any(marker in query for marker in contextual_markers)
 
 
+def _is_operational_question(query_text: str) -> bool:
+    query = _normalize_search_text(query_text)
+    operational_markers = {
+        "quantos pacientes",
+        "pacientes ativos",
+        "pacientes inativos",
+        "minha relacao",
+        "minha relação",
+        "lista de pacientes",
+        "relacao de pacientes",
+        "relação de pacientes",
+        "meus pacientes",
+        "paciente selecionado",
+        "paciente atual",
+        "este paciente",
+        "desse paciente",
+        "deste paciente",
+        "agenda",
+        "convites pendentes",
+        "sessoes agendadas",
+        "sessões agendadas",
+    }
+    return any(marker in query for marker in operational_markers)
+
+
 def _retrieval_query_for_payload(payload: "FroidExplicaQuery") -> str:
     if not (
         _is_source_followup(payload.query_text)
@@ -521,6 +546,69 @@ def _retrieval_query_for_payload(payload: "FroidExplicaQuery") -> str:
         for message in payload.conversation_history[-4:]
     )
     return f"{previous}\n\nPergunta atual: {payload.query_text}".strip()
+
+
+def _operational_fallback_result(query_text: str, context: Dict[str, Any]) -> Optional[str]:
+    if not _is_operational_question(query_text):
+        return None
+    query = _normalize_search_text(query_text)
+    if "paciente" in query:
+        selected_patient = context.get("selected_patient")
+        if isinstance(selected_patient, dict) and (
+            "selecionado" in query
+            or "este paciente" in query
+            or "desse paciente" in query
+            or "deste paciente" in query
+            or "paciente atual" in query
+        ):
+            name = selected_patient.get("patient_name") or "Paciente selecionado"
+            return (
+                "1. Paciente em contexto\n"
+                f"- {name}.\n"
+                f"- Sessões registradas: {selected_patient.get('total_sessions', '--')}.\n"
+                f"- Sessões ativas: {selected_patient.get('active_sessions', '--')}.\n"
+                f"- Prioridade: {selected_patient.get('priority', '--')}.\n"
+                f"- Estado FROID: {selected_patient.get('state', '--')}.\n"
+                f"- Ação sugerida: {selected_patient.get('action', '--')}.\n\n"
+                "2. Como utilizar\n"
+                "- Use esses dados como resumo operacional do dashboard para decidir revisão, "
+                "continuidade, convite de nova sessão ou abertura do histórico individual.\n\n"
+                "Referências utilizadas\n"
+                "- Contexto operacional do dashboard profissional."
+            )
+        active_count = _find_context_metric(
+            context,
+            {"active_patients_count", "activepatientscount", "pacientes_ativos", "active_patients"},
+        )
+        total_count = _find_context_metric(
+            context,
+            {"patients_count", "patientscount", "total_patients", "pacientes_total"},
+        )
+        if active_count is not None:
+            return (
+                "1. Resultado disponível\n"
+                f"- Pacientes ativos identificados no contexto atual: {active_count}.\n"
+                f"{f'- Total de pacientes no contexto atual: {total_count}.\\n' if total_count is not None else ''}\n"
+                "2. Como interpretar\n"
+                "- Este número vem do contexto operacional enviado pelo painel, não de uma fonte científica.\n\n"
+                "Referências utilizadas\n"
+                "- Contexto operacional do dashboard profissional."
+            )
+        return (
+            "1. Resultado\n"
+            "- Não tenho, nesta conversa, acesso direto à sua relação administrativa de pacientes "
+            "nem a um contador operacional enviado pelo dashboard.\n\n"
+            "2. O que falta\n"
+            "- Para responder com precisão, o painel profissional precisa enviar ao FROID Explica "
+            "um campo como `active_patients_count` ou a lista administrativa de pacientes com status ativo.\n\n"
+            "3. Próximo passo técnico\n"
+            "- Recomendo conectar o FROID Explica ao resumo operacional do dashboard profissional, "
+            "permitindo responder perguntas como pacientes ativos, pacientes em revisão, convites pendentes "
+            "e sessões recentes.\n\n"
+            "Referências utilizadas\n"
+            "- Nenhuma referência científica foi usada, pois a pergunta é administrativa/operacional."
+        )
+    return None
 
 
 def _find_context_metric(context: Any, names: set[str]) -> Any:
@@ -736,6 +824,19 @@ def _fallback_froid_explica_result(query_text: str, context: Dict[str, Any]) -> 
 
 
 async def _query_froid_knowledge(payload: FroidExplicaQuery) -> FroidExplicaResponse:
+    operational_result = _operational_fallback_result(
+        payload.query_text,
+        payload.context,
+    )
+    if operational_result:
+        return FroidExplicaResponse(
+            result_text=operational_result,
+            engine_used="FROID Explica Operacional - local",
+            citations=[],
+            safety_check_passed=True,
+            intent="knowledge",
+        )
+
     retrieval_query = _retrieval_query_for_payload(payload)
     chroma_docs, chroma_citations = _query_chroma_froid_knowledge(retrieval_query)
     local_docs, local_citations = _query_local_froid_knowledge(retrieval_query)
@@ -761,7 +862,9 @@ async def _query_froid_knowledge(payload: FroidExplicaQuery) -> FroidExplicaResp
         "Use as referencias disponiveis em todas as respostas; quando houver referencias "
         "cientificas disponiveis no contexto, cite-as explicitamente. Se a resposta usar fontes "
         "internas FROID e literatura cientifica, separe quando possivel em 'Fontes internas FROID' "
-        "e 'Referencias cientificas'. Se as fontes forem insuficientes, diga claramente o que falta. "
+        "e 'Referencias cientificas'. Se nao houver fonte relacionada ao tema perguntado, nao cite "
+        "fontes irrelevantes e informe que nenhuma referencia especifica foi usada. "
+        "Se as fontes forem insuficientes, diga claramente o que falta. "
         "Ao final, inclua uma secao curta chamada 'Referencias utilizadas' com as fontes realmente "
         "relacionadas ao tema."
     )
