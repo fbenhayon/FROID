@@ -1035,8 +1035,9 @@ async def _query_froid_analytics(payload: FroidExplicaQuery) -> FroidExplicaResp
         "recurring_themes VARCHAR, recurring_zones VARCHAR, recurring_risks VARCHAR, metrics_version VARCHAR, "
         "weights_version VARCHAR, privacy_tier VARCHAR, pii_excluded BOOLEAN, raw_audio_retained BOOLEAN, "
         "literal_transcript_retained BOOLEAN, media_loss_events INTEGER. "
-        "anonymous_session_cuts contem: session_hash VARCHAR, cut_index INTEGER, cut_label VARCHAR, "
-        "start_second INTEGER, end_second INTEGER, sample_count INTEGER, ipm_avg DOUBLE, "
+        "anonymous_session_cuts contem: session_hash VARCHAR, cut_hash VARCHAR, cut_index INTEGER, cut_label VARCHAR, "
+        "start_second INTEGER, end_second INTEGER, duration_seconds INTEGER, relative_position DOUBLE, "
+        "sample_count INTEGER, speech_density DOUBLE, patient_professional_word_ratio DOUBLE, ipm_avg DOUBLE, "
         "idm_avg DOUBLE, dominant_zone INTEGER, coherence_status VARCHAR, emotional_tone VARCHAR, "
         "words_per_minute DOUBLE, theme VARCHAR, dissonance_count INTEGER, mfcc7 DOUBLE, mfcc9 DOUBLE, "
         "f0_mean DOUBLE, zcr DOUBLE, jitter DOUBLE, shimmer DOUBLE, subharmonic_5_12 DOUBLE, "
@@ -1052,6 +1053,7 @@ async def _query_froid_analytics(payload: FroidExplicaQuery) -> FroidExplicaResp
         "idm_delta_after_intervention DOUBLE, dissonance_delta_after_intervention DOUBLE, "
         "dominant_zone_shift VARCHAR, emotional_tone_shift VARCHAR, cadence_shift VARCHAR, "
         "semantic_coherence_shift VARCHAR, biomarker_snapshot_json VARCHAR, subharmonic_snapshot_json VARCHAR, "
+        "cut_context_json VARCHAR, previous_cut_context VARCHAR, next_cut_context VARCHAR, "
         "response_ipm_direction VARCHAR, response_idm_direction VARCHAR, response_dissonance_direction VARCHAR, "
         "metrics_version VARCHAR, weights_version VARCHAR, media_loss_events INTEGER. "
         "Retorne somente JSON valido com result_sql e cohort_sql. "
@@ -1271,6 +1273,11 @@ def _safe_bool(value, default: bool = False) -> bool:
 
 def _anonymous_session_hash(report: dict) -> str:
     raw = f"{report.get('sessionId') or report.get('session_id') or ''}:{report.get('createdAt') or ''}"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _anonymous_cut_hash(session_hash: str, cut_index: int, start_second: int, end_second: int) -> str:
+    raw = f"{session_hash}:{cut_index}:{start_second}:{end_second}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
@@ -1498,11 +1505,16 @@ def _append_anonymous_datamart_row(report: dict) -> None:
             """
             CREATE TABLE IF NOT EXISTS anonymous_session_cuts (
                 session_hash VARCHAR,
+                cut_hash VARCHAR,
                 cut_index INTEGER,
                 cut_label VARCHAR,
                 start_second INTEGER,
                 end_second INTEGER,
+                duration_seconds INTEGER,
+                relative_position DOUBLE,
                 sample_count INTEGER,
+                speech_density DOUBLE,
+                patient_professional_word_ratio DOUBLE,
                 ipm_avg DOUBLE,
                 idm_avg DOUBLE,
                 dominant_zone INTEGER,
@@ -1552,6 +1564,9 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 semantic_coherence_shift VARCHAR,
                 biomarker_snapshot_json VARCHAR,
                 subharmonic_snapshot_json VARCHAR,
+                cut_context_json VARCHAR,
+                previous_cut_context VARCHAR,
+                next_cut_context VARCHAR,
                 response_ipm_direction VARCHAR,
                 response_idm_direction VARCHAR,
                 response_dissonance_direction VARCHAR,
@@ -1565,6 +1580,11 @@ def _append_anonymous_datamart_row(report: dict) -> None:
             conn,
             "anonymous_session_cuts",
             {
+                "cut_hash": "VARCHAR",
+                "duration_seconds": "INTEGER",
+                "relative_position": "DOUBLE",
+                "speech_density": "DOUBLE",
+                "patient_professional_word_ratio": "DOUBLE",
                 "cut_trigger": "VARCHAR",
                 "cut_summary_anon": "VARCHAR",
                 "patient_summary_anon": "VARCHAR",
@@ -1597,6 +1617,9 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 "semantic_coherence_shift": "VARCHAR",
                 "biomarker_snapshot_json": "VARCHAR",
                 "subharmonic_snapshot_json": "VARCHAR",
+                "cut_context_json": "VARCHAR",
+                "previous_cut_context": "VARCHAR",
+                "next_cut_context": "VARCHAR",
                 "response_ipm_direction": "VARCHAR",
                 "response_idm_direction": "VARCHAR",
                 "response_dissonance_direction": "VARCHAR",
@@ -1736,6 +1759,23 @@ def _append_anonymous_datamart_row(report: dict) -> None:
             professional_text = _speaker_text(transcript, "DR.")
             if not patient_text and not professional_text:
                 patient_text = transcript
+            patient_word_count = _word_count(patient_text)
+            professional_word_count = _word_count(professional_text)
+            duration_seconds = max(1, end_second - start_second)
+            relative_position = (
+                round(start_second / max(1, _safe_int(report.get("durationSeconds"))), 4)
+                if _safe_int(report.get("durationSeconds")) > 0
+                else 0.0
+            )
+            speech_density = round(
+                (patient_word_count + professional_word_count) / max(1.0, duration_seconds / 60.0),
+                3,
+            )
+            patient_professional_word_ratio = round(
+                patient_word_count / max(1, professional_word_count),
+                3,
+            )
+            cut_hash = _anonymous_cut_hash(session_hash, index, start_second, end_second)
             cut_context = {}
             if isinstance(context.get("cuts"), list) and index < len(context.get("cuts") or []):
                 maybe_cut_context = (context.get("cuts") or [])[index]
@@ -1801,8 +1841,8 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                     _limit_words(_safe_str(summary.get("summary") or cut.get("theme") or "", 3000), 120),
                     _limit_words(_safe_str(cut_context.get("patient_summary_anon") or cut_context.get("patientSummaryAnon") or patient_text, 3000), 120),
                     _limit_words(_safe_str(cut_context.get("professional_summary_anon") or cut_context.get("professionalSummaryAnon") or professional_text, 3000), 120),
-                    _word_count(patient_text),
-                    _word_count(professional_text),
+                    patient_word_count,
+                    professional_word_count,
                     intervention_category,
                     patient_response,
                     _safe_float(cut.get("ipmAvg")) - _safe_float(baseline.get("ipmAvg")),
@@ -1841,20 +1881,100 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 "dna_somatoaffective_dissonance": cut.get("dnaSomatoaffectiveDissonance"),
                 "dna_subharmonic_index": cut.get("dnaSubharmonicIndex"),
             }
+            previous_context_label = (
+                f"cut_{index - 1}:{previous_cut.get('theme') or previous_cut.get('dominantTheme') or 'sem_tema'}"
+                if previous_cut
+                else "baseline"
+            )
+            next_cut = ten_minute_cuts[index + 1] if index + 1 < len(ten_minute_cuts) else None
+            next_context_label = (
+                f"cut_{index + 1}:{next_cut.get('theme') or next_cut.get('dominantTheme') or 'sem_tema'}"
+                if isinstance(next_cut, dict)
+                else "fim_sessao"
+            )
+            cut_context_vector = {
+                "schema": "anonymous_cut_context_v1",
+                "cut_hash": cut_hash,
+                "cut_index": index,
+                "cut_label": str(cut.get("label") or ""),
+                "time": {
+                    "start_second": start_second,
+                    "end_second": end_second,
+                    "duration_seconds": duration_seconds,
+                    "relative_position": relative_position,
+                    "trigger": _safe_str(cut_context.get("cut_trigger") or cut_context.get("cutTrigger") or "automatico_10min", 80),
+                },
+                "semantic": {
+                    "theme": cut.get("theme") or "",
+                    "theme_predominant": cut_context.get("theme_predominant") or cut_context.get("themePredominant") or cut.get("theme") or "",
+                    "coherence_status": cut.get("coherenceStatus") or "",
+                    "patient_word_count": patient_word_count,
+                    "professional_word_count": professional_word_count,
+                    "speech_density": speech_density,
+                    "patient_professional_word_ratio": patient_professional_word_ratio,
+                },
+                "intervention": {
+                    "category": intervention_category,
+                    "patient_response": patient_response,
+                    "response_ipm_direction": cut_context.get("response_ipm_direction") or cut_context.get("responseIpmDirection") or "nao_apurado",
+                    "response_idm_direction": cut_context.get("response_idm_direction") or cut_context.get("responseIdmDirection") or "nao_apurado",
+                    "response_dissonance_direction": cut_context.get("response_dissonance_direction") or cut_context.get("responseDissonanceDirection") or "nao_apurado",
+                },
+                "metrics": {
+                    "ipm_avg": cut.get("ipmAvg"),
+                    "idm_avg": cut.get("idmAvg"),
+                    "dominant_zone": cut.get("dominantZone"),
+                    "dominant_theme": cut.get("dominantTheme"),
+                    "emotional_tone": cut.get("emotionalTone"),
+                    "words_per_minute": cut.get("wordsPerMinute"),
+                    "dissonance_count": cut.get("dissonanceCount"),
+                    "risk_score": _safe_float((report.get("metricsAnalysis") or {}).get("dashboard", {}).get("max_risk")),
+                    "quality_confidence": _cut_confidence(cut),
+                },
+                "deltas": {
+                    "ipm_from_baseline": _safe_float(cut.get("ipmAvg")) - _safe_float(baseline.get("ipmAvg")),
+                    "idm_from_baseline": _safe_float(cut.get("idmAvg")) - _safe_float(baseline.get("idmAvg")),
+                    "dissonance_from_baseline": _safe_float(cut.get("dissonanceCount")) - baseline_dissonance,
+                    "ipm_previous_cut": _safe_float(cut.get("ipmAvg")) - previous_ipm,
+                    "idm_previous_cut": _safe_float(cut.get("idmAvg")) - previous_idm,
+                    "dissonance_previous_cut": _safe_float(cut.get("dissonanceCount")) - previous_dissonance,
+                },
+                "bioacoustics": biomarker_snapshot,
+                "subharmonics": subharmonic_snapshot,
+                "context_links": {
+                    "previous_cut_context": previous_context_label,
+                    "next_cut_context": next_context_label,
+                },
+                "quality": {
+                    "audio_quality": _safe_str(cut_context.get("audio_quality") or cut_context.get("audioQuality") or audio_quality, 80),
+                    "media_loss_events": _safe_int(cut_context.get("media_loss_events") or cut_context.get("mediaLossEvents") or context.get("media_loss_events") or context.get("mediaLossEvents")),
+                    "stt_model": _safe_str(cut_context.get("stt_model") or cut_context.get("sttModel") or OPENAI_TRANSCRIBE_MODEL, 120),
+                    "llm_model": _safe_str(cut_context.get("llm_model") or cut_context.get("llmModel") or FROID_EXPLICA_MODEL, 120),
+                    "algorithm_version": _safe_str(cut_context.get("algorithm_version") or cut_context.get("algorithmVersion") or FROID_ALGORITHM_VERSION, 80),
+                },
+            }
             conn.execute(
                 """
                 UPDATE anonymous_session_cuts SET
+                    cut_hash = ?, duration_seconds = ?, relative_position = ?,
+                    speech_density = ?, patient_professional_word_ratio = ?,
                     theme_predominant = ?, relevant_dissonances = ?,
                     aggregated_clinical_risk = ?, ipm_delta_after_intervention = ?,
                     idm_delta_after_intervention = ?, dissonance_delta_after_intervention = ?,
                     dominant_zone_shift = ?, emotional_tone_shift = ?, cadence_shift = ?,
                     semantic_coherence_shift = ?, biomarker_snapshot_json = ?,
-                    subharmonic_snapshot_json = ?, response_ipm_direction = ?,
+                    subharmonic_snapshot_json = ?, cut_context_json = ?,
+                    previous_cut_context = ?, next_cut_context = ?, response_ipm_direction = ?,
                     response_idm_direction = ?, response_dissonance_direction = ?,
                     metrics_version = ?, weights_version = ?, media_loss_events = ?
                 WHERE session_hash = ? AND cut_index = ?
                 """,
                 [
+                    cut_hash,
+                    duration_seconds,
+                    relative_position,
+                    speech_density,
+                    patient_professional_word_ratio,
                     _safe_str(cut_context.get("theme_predominant") or cut_context.get("themePredominant") or cut.get("theme") or "", 180),
                     _safe_str(cut_context.get("relevant_dissonances") or cut_context.get("relevantDissonances") or "", 500),
                     _safe_float(cut_context.get("aggregated_clinical_risk") or cut_context.get("aggregatedClinicalRisk") or (report.get("metricsAnalysis") or {}).get("dashboard", {}).get("max_risk")),
@@ -1867,6 +1987,9 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                     _safe_str(cut_context.get("semantic_coherence_shift") or cut_context.get("semanticCoherenceShift") or "nao_apurado", 80),
                     _safe_str(json.dumps(biomarker_snapshot, ensure_ascii=False, sort_keys=True), 1200),
                     _safe_str(json.dumps(subharmonic_snapshot, ensure_ascii=False, sort_keys=True), 1200),
+                    _safe_str(json.dumps(cut_context_vector, ensure_ascii=False, sort_keys=True), 6000),
+                    _safe_str(previous_context_label, 240),
+                    _safe_str(next_context_label, 240),
                     _safe_str(cut_context.get("response_ipm_direction") or cut_context.get("responseIpmDirection") or "nao_apurado", 80),
                     _safe_str(cut_context.get("response_idm_direction") or cut_context.get("responseIdmDirection") or "nao_apurado", 80),
                     _safe_str(cut_context.get("response_dissonance_direction") or cut_context.get("responseDissonanceDirection") or "nao_apurado", 80),
