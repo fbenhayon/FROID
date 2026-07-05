@@ -257,10 +257,37 @@ KNOWLEDGE_BASE = {
     "jitter_bioacustico": "Jitter mede perturbacao ciclo-a-ciclo da frequencia fundamental. Quando sustentado junto a Shimmer, alteracoes de F0, pausas e tensao vocal, pode apoiar hipotese de instabilidade laringea ou carga autonomica.",
     "f0_bioacustico": "F0 e a frequencia fundamental da voz. Elevacoes, quedas ou reducao de variabilidade devem ser comparadas ao baseline de 60 segundos e ao contexto semantico da fala.",
     "zcr_bioacustico": "ZCR, taxa de cruzamento por zero, apoia leitura de aspereza, ruido, energia de alta frequencia e alteracoes acusticas quando combinado a MFCCs, F0, Jitter e Shimmer.",
+    "ref_mfcc_davis_mermelstein": "Referencia cientifica: Davis e Mermelstein (1980) introduzem representacoes cepstrais em escala Mel para modelagem espectral da fala, fundamento conceitual dos MFCCs.",
+    "ref_opensmile_eyben": "Referencia cientifica: Eyben, Wollmer e Schuller (2010) descrevem o openSMILE como toolkit para extracao de features acusticas em fala, musica e reconhecimento afetivo.",
+    "ref_facs_ekman": "Referencia cientifica: Ekman, Friesen e Hager consolidam o Facial Action Coding System (FACS), base para codificacao de unidades de acao facial, intensidade e combinacoes expressivas.",
+    "ref_praat_boersma": "Referencia cientifica: Boersma e Weenink/Praat sustentam analises acusticas como F0, Jitter, Shimmer e parametros fonatorios em fonetica computacional.",
+    "ref_phq9_kroenke": "Referencia cientifica: Kroenke, Spitzer e Williams (2001) validam o PHQ-9 como medida breve de gravidade depressiva.",
+    "ref_hamilton_hamd": "Referencia cientifica: Hamilton (1960) estabelece escala clinica para depressao, incluindo sintomas somaticos, retardo e ansiedade.",
+    "ref_ymrs_young": "Referencia cientifica: Young, Biggs, Ziegler e Meyer (1978) apresentam a Young Mania Rating Scale para avaliacao de severidade maniforme.",
     "mania_ativacao": "A ativacao de mania acompanha pitch/F0 elevado, loudness, taxa acelerada de fala e fluxo espectral mais incisivo.",
     "sub_harmonicos": "Sub-harmonicos vocais entre 5 e 12 Hz podem refletir tremores do sistema nervoso autonomo quando cruzados com FACS e tensao vocal basal.",
     "facs_trauma": "A combinacao AU15, AU20, dor facial, angustia e tensao vocal pode sinalizar flooding, sobrecarga autonomica ou retraumatizacao.",
     "governanca_lgpd": "Benchmarks populacionais devem usar dados anonimizados e agregados. O FROID aplica k-anonimato minimo para reduzir risco de reidentificacao.",
+}
+
+
+KNOWLEDGE_SOURCE_LABELS = {
+    "froid_zonas": "Fonte interna FROID: Zonas de Percepcao",
+    "ipm_velocimetro": "Fonte interna FROID: IPM",
+    "idm_direcao": "Fonte interna FROID: IDM",
+    "mfcc7_depressao": "Fonte interna FROID: MFCC7 e risco depressivo",
+    "mfcc9_ansiedade": "Fonte interna FROID: MFCC9 e ansiedade somatica",
+    "shimmer_bioacustico": "Fonte interna FROID: Shimmer bioacustico",
+    "jitter_bioacustico": "Fonte interna FROID: Jitter bioacustico",
+    "f0_bioacustico": "Fonte interna FROID: F0 bioacustico",
+    "zcr_bioacustico": "Fonte interna FROID: ZCR bioacustico",
+    "ref_mfcc_davis_mermelstein": "Referencia cientifica: Davis e Mermelstein (1980), MFCC",
+    "ref_opensmile_eyben": "Referencia cientifica: Eyben, Wollmer e Schuller (2010), openSMILE",
+    "ref_facs_ekman": "Referencia cientifica: Ekman, Friesen e Hager, FACS",
+    "ref_praat_boersma": "Referencia cientifica: Boersma e Weenink, Praat/acustica vocal",
+    "ref_phq9_kroenke": "Referencia cientifica: Kroenke, Spitzer e Williams (2001), PHQ-9",
+    "ref_hamilton_hamd": "Referencia cientifica: Hamilton (1960), HAM-D",
+    "ref_ymrs_young": "Referencia cientifica: Young et al. (1978), YMRS",
 }
 
 
@@ -377,7 +404,11 @@ def _query_local_froid_knowledge(query_text: str, limit: int = 4) -> Tuple[List[
     selected = ranked[:limit] or [
         (0, key, value) for key, value in list(KNOWLEDGE_BASE.items())[:limit]
     ]
-    return [item[2] for item in selected], [item[1] for item in selected]
+    return [
+        item[2] for item in selected
+    ], [
+        KNOWLEDGE_SOURCE_LABELS.get(item[1], item[1]) for item in selected
+    ]
 
 
 def _query_chroma_froid_knowledge(query_text: str, limit: int = 4) -> Tuple[List[str], List[str]]:
@@ -443,8 +474,47 @@ def _is_source_followup(query_text: str) -> bool:
     return any(marker in query for marker in source_markers)
 
 
+def _is_contextual_followup(query_text: str) -> bool:
+    query = _normalize_search_text(query_text)
+    contextual_markers = {
+        "essa metrica",
+        "esta metrica",
+        "dessa metrica",
+        "desta metrica",
+        "esse resultado",
+        "este resultado",
+        "desse resultado",
+        "deste resultado",
+        "esse parametro",
+        "este parametro",
+        "desse parametro",
+        "deste parametro",
+        "esse indice",
+        "este indice",
+        "desse indice",
+        "deste indice",
+        "isso representa",
+        "isso significa",
+        "como posso integrar",
+        "como integrar",
+        "como incorporar",
+        "incorporar nos meus atendimentos",
+        "usar isso",
+        "utilizar isso",
+        "aplicar isso",
+        "na pratica",
+        "na consulta",
+        "em minhas consultas",
+        "nos atendimentos",
+    }
+    return any(marker in query for marker in contextual_markers)
+
+
 def _retrieval_query_for_payload(payload: "FroidExplicaQuery") -> str:
-    if not _is_source_followup(payload.query_text):
+    if not (
+        _is_source_followup(payload.query_text)
+        or _is_contextual_followup(payload.query_text)
+    ):
         return payload.query_text
     previous = " ".join(
         str(message.get("content") or "")
@@ -614,7 +684,7 @@ def _fallback_froid_explica_result(query_text: str, context: Dict[str, Any]) -> 
             "Referencias utilizadas\n"
             "- Base local FROID: mfcc7_depressao.\n"
             "- Contexto da sessao atual enviado ao FROID Explica.\n"
-            "- Literatura de representacoes cepstrais/MFCC aplicada a sinais de fala."
+            "- Referencia cientifica: Davis e Mermelstein (1980), MFCC."
         )
 
     if "shimmer" in query:
@@ -624,7 +694,7 @@ def _fallback_froid_explica_result(query_text: str, context: Dict[str, Any]) -> 
             "Shimmer mede perturbacao ciclo-a-ciclo da amplitude vocal, isto e, a instabilidade da intensidade da voz entre ciclos sucessivos de fonacao.",
             "No FROID, o Shimmer deve ser comparado ao baseline individual e aos cortes posteriores. Ele se torna mais informativo quando aparece junto de Jitter, alteracoes de F0, energia, pausas, ZCR, tensao vocal ou dissonancias faciais-vocais.",
             "Use o Shimmer para observar esforco vocal, instabilidade autonomica possivel, tensao afetiva ou controle emocional excessivo. Em atendimento, ele pode orientar perguntas mais finas sobre carga emocional no trecho em que a amplitude vocal se tornou instavel.",
-            "Base local FROID: shimmer_bioacustico.",
+            "Base local FROID: shimmer_bioacustico; Referencia cientifica: Boersma e Weenink/Praat para analise acustica vocal.",
         )
 
     if "jitter" in query:
@@ -634,7 +704,7 @@ def _fallback_froid_explica_result(query_text: str, context: Dict[str, Any]) -> 
             "Jitter mede perturbacao ciclo-a-ciclo da frequencia fundamental, refletindo instabilidade fina da fonacao.",
             "No FROID, Jitter ganha relevancia quando aparece sustentado com Shimmer, alteracoes de F0, pausas, tensao vocal, queda de fluidez ou mudanca de tom emocional.",
             "Use o Jitter como apoio para investigar instabilidade laringea, carga autonomica ou esforco de controle emocional, sempre relacionando com o conteudo verbal e com o baseline.",
-            "Base local FROID: jitter_bioacustico.",
+            "Base local FROID: jitter_bioacustico; Referencia cientifica: Boersma e Weenink/Praat para analise acustica vocal.",
         )
 
     if "zcr" in query or "cruzamento por zero" in query:
@@ -644,7 +714,7 @@ def _fallback_froid_explica_result(query_text: str, context: Dict[str, Any]) -> 
             "ZCR e a taxa de cruzamento por zero do sinal acustico, usada para observar caracteristicas de ruido, aspereza e energia de alta frequencia.",
             "No FROID, ZCR deve ser lido junto de MFCCs, F0, Jitter, Shimmer, pausas e intensidade. Alteracoes isoladas podem refletir artefato, microfone, fricativas ou mudanca real de qualidade vocal.",
             "Use o ZCR para apoiar a leitura de tensao, aspereza vocal ou mudancas acusticas durante temas especificos, sempre conferindo qualidade do audio e contexto semantico.",
-            "Base local FROID: zcr_bioacustico.",
+            "Base local FROID: zcr_bioacustico; Referencia cientifica: Eyben, Wollmer e Schuller (2010), openSMILE/features acusticas.",
         )
 
     if "f0" in query or "frequencia fundamental" in query:
@@ -654,7 +724,7 @@ def _fallback_froid_explica_result(query_text: str, context: Dict[str, Any]) -> 
             "F0 e a frequencia fundamental da voz, relacionada ao pitch percebido e a dinamica de ativacao vocal.",
             "No FROID, F0 e sua variabilidade devem ser comparados ao baseline individual. Elevacao, queda ou achatamento de variabilidade ganham sentido quando cruzados com energia, fala acelerada, pausas, tom e tema.",
             "Use F0 para acompanhar ativacao, retardo, tensao ou reducao expressiva, sempre cruzando com IPM, IDM, biomarcadores acusticos e dissonancias.",
-            "Base local FROID: f0_bioacustico.",
+            "Base local FROID: f0_bioacustico; Referencia cientifica: Boersma e Weenink/Praat para F0 e fonetica computacional.",
         )
     return (
         "FROID Explica em modo local. "
@@ -682,11 +752,18 @@ async def _query_froid_knowledge(payload: FroidExplicaQuery) -> FroidExplicaResp
         "Responda em portugues do Brasil, de modo objetivo, sem diagnosticar e sem inventar. "
         "Use estritamente o contexto cientifico disponivel, o contexto da sessao e o historico "
         "conversacional. Se a pergunta for de seguimento, como 'quais fontes?', responda sobre "
-        "a resposta anterior, nao sobre um tema novo. Nao cite LGPD ou governanca se o assunto "
+        "a resposta anterior, nao sobre um tema novo. Se o profissional disser 'essa metrica', "
+        "'esse resultado', 'isso', 'como integrar' ou expressao equivalente, identifique no "
+        "historico qual foi a ultima metrica ou tema discutido e continue exatamente desse ponto. "
+        "Nao substitua a metrica anterior por IPM, IDM ou zonas se o assunto anterior era MFCC7, "
+        "Shimmer, Jitter, F0, ZCR ou outro biomarcador especifico. Nao cite LGPD ou governanca se o assunto "
         "anterior era biomarcador vocal, FACS, IPM, IDM ou outra metrica clinica. "
-        "Use as referencias disponiveis em todas as respostas; se as fontes forem insuficientes, "
-        "diga claramente o que falta. Ao final, inclua uma secao curta chamada "
-        "'Referencias utilizadas' com as fontes realmente relacionadas ao tema."
+        "Use as referencias disponiveis em todas as respostas; quando houver referencias "
+        "cientificas disponiveis no contexto, cite-as explicitamente. Se a resposta usar fontes "
+        "internas FROID e literatura cientifica, separe quando possivel em 'Fontes internas FROID' "
+        "e 'Referencias cientificas'. Se as fontes forem insuficientes, diga claramente o que falta. "
+        "Ao final, inclua uma secao curta chamada 'Referencias utilizadas' com as fontes realmente "
+        "relacionadas ao tema."
     )
     prompt = (
         f"CONTEXTO CIENTIFICO FROID:\n{context_str or 'Base cientifica nao carregada.'}\n\n"
