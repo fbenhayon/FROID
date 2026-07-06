@@ -1219,6 +1219,67 @@ def _find_invite_by_session(session_id: str) -> Optional[dict]:
     return None
 
 
+def _invite_patient_key(invite: dict) -> str:
+    patient_id = str(invite.get("patient_id") or "").strip()
+    if patient_id:
+        return f"id:{patient_id}"
+    email = _normalize_email(invite.get("patient_email") or "")
+    if email:
+        return f"email:{email}"
+    phone = _digits_only(invite.get("patient_phone") or "")
+    if phone:
+        return f"phone:{phone}"
+    return f"name:{str(invite.get('patient_name') or 'paciente').strip().lower()}"
+
+
+def _invite_patient_identity(invite: dict) -> dict:
+    patient_id = str(invite.get("patient_id") or "").strip()
+    patient = PATIENTS.get(patient_id) if patient_id else {}
+    patient = patient if isinstance(patient, dict) else {}
+    return {
+        "id": patient_id,
+        "name": patient.get("name") or invite.get("patient_name") or "Paciente sem nome",
+        "email": patient.get("email") or invite.get("patient_email") or "",
+        "phone": patient.get("phone") or invite.get("patient_phone") or "",
+    }
+
+
+def _receivable_due_cents(invite: dict) -> int:
+    payment = invite.get("payment") if isinstance(invite.get("payment"), dict) else {}
+    return max(
+        0,
+        _local_int(payment.get("package_total_cents") or payment.get("session_value_cents") or 0),
+    )
+
+
+def _receivable_received_cents(invite: dict) -> int:
+    payment = invite.get("payment") if isinstance(invite.get("payment"), dict) else {}
+    explicit = payment.get("received_cents")
+    if explicit is not None:
+        return max(0, _local_int(explicit))
+    status = str(payment.get("payment_status") or "").lower()
+    if status in {"paid", "received", "recebido", "completed"}:
+        return _receivable_due_cents(invite)
+    return 0
+
+
+def _receivable_status(due_cents: int, received_cents: int) -> str:
+    if due_cents <= 0:
+        return "sem_valor"
+    if received_cents >= due_cents:
+        return "recebido"
+    if received_cents > 0:
+        return "parcial"
+    return "pendente"
+
+
+def _can_access_invite_finance(invite: dict, owner_email: str) -> bool:
+    invite_owner = _normalize_email(invite.get("professional_email") or "")
+    if invite_owner:
+        return invite_owner == _normalize_email(owner_email)
+    return _normalize_email(owner_email) == _normalize_email(FROID_LEGACY_REPORT_OWNER)
+
+
 def _patient_payload_from_invite(invite: Optional[dict]) -> dict:
     if not invite:
         return {}
@@ -2666,7 +2727,9 @@ def create_session(): return {"session_id": str(uuid.uuid4())}
 
 @app.post("/api/session-invites")
 async def create_session_invite(request: Request):
+    current_user = _require_current_user(request)
     body = await request.json()
+    professional_email = _normalize_email(current_user.get("email") or "")
     patient_name = str(body.get("patient_name") or "").strip()
     patient_email = _normalize_email(body.get("patient_email") or "")
     patient_phone = _digits_only(body.get("patient_phone") or "")
@@ -2713,6 +2776,7 @@ async def create_session_invite(request: Request):
         "patient_name": patient_name,
         "patient_email": patient_email,
         "patient_phone": patient_phone,
+        "professional_email": professional_email,
         "payment": {
             "mode": payment_mode,
             "package_sessions": package_sessions if payment_mode == "package" else 0,
@@ -2737,7 +2801,125 @@ async def create_session_invite(request: Request):
     )
     SESSION_INVITES[token] = invite
     _record_session_event("invite_created", invite)
+    _save_identity_state()
     return invite
+
+
+@app.get("/api/professional/receivables")
+async def professional_receivables(request: Request):
+    user = _require_current_user(request)
+    owner_email = _normalize_email(user.get("email") or "")
+    grouped: Dict[str, dict] = {}
+
+    for invite in SESSION_INVITES.values():
+        if not isinstance(invite, dict) or not _can_access_invite_finance(invite, owner_email):
+            continue
+        key = _invite_patient_key(invite)
+        patient = _invite_patient_identity(invite)
+        payment = invite.get("payment") if isinstance(invite.get("payment"), dict) else {}
+        due_cents = _receivable_due_cents(invite)
+        received_cents = min(_receivable_received_cents(invite), due_cents)
+        row = grouped.setdefault(
+            key,
+            {
+                "patient_key": key,
+                "patient": patient,
+                "total_due_cents": 0,
+                "total_received_cents": 0,
+                "total_pending_cents": 0,
+                "session_count": 0,
+                "package_count": 0,
+                "single_count": 0,
+                "last_invite_at": "",
+            },
+        )
+        row["total_due_cents"] += due_cents
+        row["total_received_cents"] += received_cents
+        row["session_count"] += max(1, _local_int(payment.get("package_sessions") or 1))
+        if payment.get("mode") == "package":
+            row["package_count"] += 1
+        else:
+            row["single_count"] += 1
+        created_at = str(invite.get("created_at") or "")
+        if created_at > str(row.get("last_invite_at") or ""):
+            row["last_invite_at"] = created_at
+
+    rows = []
+    for row in grouped.values():
+        row["total_pending_cents"] = max(0, row["total_due_cents"] - row["total_received_cents"])
+        row["status"] = _receivable_status(row["total_due_cents"], row["total_received_cents"])
+        row["total_due_brl"] = _format_brl(row["total_due_cents"])
+        row["total_received_brl"] = _format_brl(row["total_received_cents"])
+        row["total_pending_brl"] = _format_brl(row["total_pending_cents"])
+        rows.append(row)
+
+    status_rank = {"pendente": 0, "parcial": 1, "sem_valor": 2, "recebido": 3}
+    rows.sort(
+        key=lambda item: (
+            status_rank.get(str(item.get("status") or ""), 9),
+            item.get("patient", {}).get("name") or "",
+        )
+    )
+    totals_due = sum(_local_int(row["total_due_cents"]) for row in rows)
+    totals_received = sum(_local_int(row["total_received_cents"]) for row in rows)
+    return {
+        "rows": rows,
+        "summary": {
+            "patients": len(rows),
+            "total_due_cents": totals_due,
+            "total_received_cents": totals_received,
+            "total_pending_cents": max(0, totals_due - totals_received),
+            "total_due_brl": _format_brl(totals_due),
+            "total_received_brl": _format_brl(totals_received),
+            "total_pending_brl": _format_brl(max(0, totals_due - totals_received)),
+        },
+    }
+
+
+@app.post("/api/professional/receivables/update")
+async def update_professional_receivable(request: Request):
+    user = _require_current_user(request)
+    owner_email = _normalize_email(user.get("email") or "")
+    body = await request.json()
+    patient_key = str(body.get("patient_key") or "").strip()
+    action = str(body.get("action") or "").strip().lower()
+    received_cents = body.get("received_cents")
+    if not patient_key:
+        raise HTTPException(status_code=400, detail="patient_key obrigatorio")
+    if action not in {"paid", "pending", "partial"}:
+        raise HTTPException(status_code=400, detail="action deve ser paid, pending ou partial")
+
+    matching = [
+        invite
+        for invite in SESSION_INVITES.values()
+        if isinstance(invite, dict)
+        and _invite_patient_key(invite) == patient_key
+        and _can_access_invite_finance(invite, owner_email)
+    ]
+    if not matching:
+        raise HTTPException(status_code=404, detail="Recebimento nao encontrado")
+
+    remaining_partial = max(0, _local_int(received_cents)) if action == "partial" else 0
+    now = _utc_now_iso()
+    for invite in matching:
+        payment = invite.setdefault("payment", {})
+        due_cents = _receivable_due_cents(invite)
+        if action == "paid":
+            payment["received_cents"] = due_cents
+            payment["payment_status"] = "paid"
+            payment["received_at"] = now
+        elif action == "pending":
+            payment["received_cents"] = 0
+            payment["payment_status"] = "pending_pix" if payment.get("mode") == "single" else "prearranged"
+            payment["received_at"] = ""
+        else:
+            applied = min(due_cents, remaining_partial)
+            payment["received_cents"] = applied
+            payment["payment_status"] = "partial" if applied < due_cents else "paid"
+            payment["received_at"] = now if applied else ""
+            remaining_partial = max(0, remaining_partial - applied)
+    _save_identity_state()
+    return {"updated": True, "patient_key": patient_key}
 
 
 @app.get("/api/session-invites/{token}")

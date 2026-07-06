@@ -82,9 +82,13 @@ export const NewPatient: React.FC = () => {
     setInvite(null);
 
     try {
+      const token = localStorage.getItem("froid_token") || "";
       const response = await fetch(apiUrl("/api/session-invites"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           ...form,
           session_id: makeId(),

@@ -37,6 +37,34 @@ interface SessionEvent {
   created_at: string;
 }
 
+interface ReceivableRow {
+  patient_key: string;
+  patient: {
+    id?: string;
+    name?: string;
+    email?: string;
+    phone?: string;
+  };
+  total_due_cents: number;
+  total_received_cents: number;
+  total_pending_cents: number;
+  total_due_brl: string;
+  total_received_brl: string;
+  total_pending_brl: string;
+  session_count: number;
+  package_count: number;
+  single_count: number;
+  last_invite_at: string;
+  status: "recebido" | "parcial" | "pendente" | "sem_valor";
+}
+
+interface ReceivablesSummary {
+  patients: number;
+  total_due_brl: string;
+  total_received_brl: string;
+  total_pending_brl: string;
+}
+
 function makeId() {
   return `froid-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 }
@@ -92,6 +120,13 @@ const METRIC_TOOLTIPS: Record<string, string> = {
   shimmer: "Microvariacao ciclo a ciclo da amplitude vocal, associada a instabilidade de energia vocal.",
   sub5: "Energia sub-harmonica de 5-12 Hz, usada para rastrear tremores autonomicos da voz.",
   sub12: "Energia sub-harmonica de 12-20 Hz, complementar na leitura bioacustica e limbica.",
+};
+
+const RECEIVABLE_STATUS: Record<string, string> = {
+  recebido: "border-emerald-700 bg-emerald-950/40 text-emerald-200",
+  parcial: "border-amber-600 bg-amber-950/40 text-amber-100",
+  pendente: "border-red-700 bg-red-950/50 text-red-100",
+  sem_valor: "border-slate-700 bg-slate-900 text-slate-300",
 };
 
 function scoreText(value: number) {
@@ -216,6 +251,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   const nav = useNavigate();
   const [patientActivity, setPatientActivity] = useState("");
   const [selectedPatientKey, setSelectedPatientKey] = useState("");
+  const [receivables, setReceivables] = useState<ReceivableRow[]>([]);
+  const [receivablesSummary, setReceivablesSummary] = useState<ReceivablesSummary | null>(null);
+  const [receivablesMessage, setReceivablesMessage] = useState("");
+  const [receivablesLoading, setReceivablesLoading] = useState(false);
   const [reports, setReports] = useState<SessionReportRecord[]>(() =>
     loadSessionReports(),
   );
@@ -223,8 +262,65 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   const redirectingRef = useRef(false);
   const professionalName = user?.name || user?.email || "Profissional";
 
+  const authHeaders = (): Record<string, string> => {
+    const token = localStorage.getItem("froid_token") || "";
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
+  const loadReceivables = async () => {
+    try {
+      const response = await fetch(apiUrl("/api/professional/receivables"), {
+        headers: authHeaders(),
+      });
+      const data = response.ok ? await response.json() : null;
+      setReceivables(Array.isArray(data?.rows) ? data.rows : []);
+      setReceivablesSummary(data?.summary || null);
+    } catch {
+      setReceivables([]);
+      setReceivablesSummary(null);
+    }
+  };
+
+  const updateReceivable = async (
+    patientKey: string,
+    action: "paid" | "pending" | "partial",
+  ) => {
+    setReceivablesLoading(true);
+    setReceivablesMessage("");
+    try {
+      let received_cents: number | undefined;
+      if (action === "partial") {
+        const typed = window.prompt("Valor recebido parcialmente em R$:", "");
+        if (!typed) return;
+        const normalized = typed.replace(/\./g, "").replace(",", ".");
+        received_cents = Math.round(Number(normalized) * 100);
+        if (!Number.isFinite(received_cents) || received_cents < 0) {
+          throw new Error("Valor parcial invalido.");
+        }
+      }
+      const response = await fetch(apiUrl("/api/professional/receivables/update"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders(),
+        },
+        body: JSON.stringify({ patient_key: patientKey, action, received_cents }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.detail || "Nao foi possivel atualizar o recebimento.");
+      setReceivablesMessage("Recebimento atualizado.");
+      await loadReceivables();
+      window.setTimeout(() => setReceivablesMessage(""), 2500);
+    } catch (error: any) {
+      setReceivablesMessage(error?.message || "Falha ao atualizar recebimento.");
+    } finally {
+      setReceivablesLoading(false);
+    }
+  };
+
   useEffect(() => {
     setReports(loadSessionReports());
+    void loadReceivables();
     let active = true;
     const token = localStorage.getItem("froid_token") || "";
     fetch(apiUrl("/api/session-reports"), {
@@ -265,6 +361,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
       patients_count: portfolio.totalPatients,
       active_patients_count: patientGroups.length,
       review_patients_count: portfolio.reviewCount,
+      financial_summary: receivablesSummary,
+      receivables_by_patient: receivables.slice(0, 80).map((row) => ({
+        patient_key: row.patient_key,
+        patient_name: row.patient?.name || "Paciente sem nome",
+        total_due: row.total_due_brl,
+        total_received: row.total_received_brl,
+        total_pending: row.total_pending_brl,
+        status: row.status,
+        session_count: row.session_count,
+        package_count: row.package_count,
+        single_count: row.single_count,
+      })),
       patients_summary: patientGroups.slice(0, 50).map((group) => {
         const signal = patientAdvancedSignal(group);
         return {
@@ -321,7 +429,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
           }
         : null,
     };
-  }, [patientGroups, portfolio, selectedGroup]);
+  }, [patientGroups, portfolio, receivables, receivablesSummary, selectedGroup]);
   const openPatientRegistration = (
     patient?: {
       name?: string;
@@ -452,6 +560,162 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="min-w-0 space-y-4">
+      <section className="rounded-lg border border-slate-800 bg-slate-900 p-4 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-bold text-slate-100">Recebimentos por paciente</h2>
+            <p className="mt-1 text-[11px] text-slate-400">
+              Controle operacional dos valores devidos e realizados a partir dos convites e pacotes.
+            </p>
+          </div>
+          <div className="grid min-w-[360px] grid-cols-3 gap-2 text-right text-[10px]">
+            <div className="rounded border border-slate-700 bg-slate-950 px-2 py-1.5">
+              <p className="font-black uppercase text-slate-500">Devido</p>
+              <p className="mt-1 font-black text-cyan-200">
+                {receivablesSummary?.total_due_brl || "R$ 0,00"}
+              </p>
+            </div>
+            <div className="rounded border border-slate-700 bg-slate-950 px-2 py-1.5">
+              <p className="font-black uppercase text-slate-500">Recebido</p>
+              <p className="mt-1 font-black text-emerald-200">
+                {receivablesSummary?.total_received_brl || "R$ 0,00"}
+              </p>
+            </div>
+            <div className="rounded border border-slate-700 bg-slate-950 px-2 py-1.5">
+              <p className="font-black uppercase text-slate-500">Pendente</p>
+              <p className="mt-1 font-black text-amber-100">
+                {receivablesSummary?.total_pending_brl || "R$ 0,00"}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {receivablesMessage && (
+          <p className="mt-3 rounded border border-cyan-800 bg-cyan-950 px-3 py-2 text-xs font-bold text-cyan-100">
+            {receivablesMessage}
+          </p>
+        )}
+
+        <div className="mt-3 overflow-x-auto">
+          <table className="min-w-max table-auto text-left text-[10px] leading-tight">
+            <thead className="text-[9px] uppercase tracking-normal text-slate-500">
+              <tr>
+                <th className="whitespace-nowrap py-1 pr-2">Paciente</th>
+                <th className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-bold">
+                  Sessoes
+                </th>
+                <th className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-bold">
+                  Pacotes
+                </th>
+                <th className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-bold">
+                  Avulsas
+                </th>
+                <th className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-bold">
+                  Devido
+                </th>
+                <th className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-bold">
+                  Recebido
+                </th>
+                <th className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-bold">
+                  Pendente
+                </th>
+                <th className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-bold">
+                  Ultimo convite
+                </th>
+                <th className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-bold">
+                  Status
+                </th>
+                <th className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-bold">
+                  Acoes
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800">
+              {receivables.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="py-3 text-xs text-slate-400">
+                    Nenhum recebimento registrado. Gere convites com valor de sessao para alimentar esta tabela.
+                  </td>
+                </tr>
+              ) : (
+                receivables.map((row) => (
+                  <tr key={row.patient_key} className="align-top">
+                    <td className="whitespace-nowrap py-1 pr-2">
+                      <p className="font-black text-slate-100">
+                        {row.patient?.name || "Paciente sem nome"}
+                      </p>
+                      <p className="text-[9px] text-slate-500">
+                        {row.patient?.email || row.patient?.phone || row.patient_key}
+                      </p>
+                    </td>
+                    <td className="whitespace-nowrap border-l border-slate-700 px-2 py-1 text-slate-300">
+                      {row.session_count}
+                    </td>
+                    <td className="whitespace-nowrap border-l border-slate-700 px-2 py-1 text-slate-300">
+                      {row.package_count}
+                    </td>
+                    <td className="whitespace-nowrap border-l border-slate-700 px-2 py-1 text-slate-300">
+                      {row.single_count}
+                    </td>
+                    <td className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-bold text-cyan-200">
+                      {row.total_due_brl}
+                    </td>
+                    <td className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-bold text-emerald-200">
+                      {row.total_received_brl}
+                    </td>
+                    <td className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-bold text-amber-100">
+                      {row.total_pending_brl}
+                    </td>
+                    <td className="whitespace-nowrap border-l border-slate-700 px-2 py-1 text-slate-300">
+                      {row.last_invite_at
+                        ? new Date(row.last_invite_at).toLocaleDateString("pt-BR")
+                        : "--"}
+                    </td>
+                    <td className="whitespace-nowrap border-l border-slate-700 px-2 py-1">
+                      <span
+                        className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase ${
+                          RECEIVABLE_STATUS[row.status] || RECEIVABLE_STATUS.sem_valor
+                        }`}
+                      >
+                        {row.status}
+                      </span>
+                    </td>
+                    <td className="whitespace-nowrap border-l border-slate-700 px-2 py-1">
+                      <div className="flex flex-wrap gap-1">
+                        <button
+                          type="button"
+                          disabled={receivablesLoading}
+                          onClick={() => void updateReceivable(row.patient_key, "paid")}
+                          className="rounded border border-emerald-800 bg-emerald-950/50 px-2 py-1 text-[9px] font-bold text-emerald-100 hover:bg-emerald-900 disabled:opacity-40"
+                        >
+                          Recebido
+                        </button>
+                        <button
+                          type="button"
+                          disabled={receivablesLoading}
+                          onClick={() => void updateReceivable(row.patient_key, "partial")}
+                          className="rounded border border-amber-700 bg-amber-950/50 px-2 py-1 text-[9px] font-bold text-amber-100 hover:bg-amber-900 disabled:opacity-40"
+                        >
+                          Parcial
+                        </button>
+                        <button
+                          type="button"
+                          disabled={receivablesLoading}
+                          onClick={() => void updateReceivable(row.patient_key, "pending")}
+                          className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-[9px] font-bold text-slate-300 hover:bg-slate-800 disabled:opacity-40"
+                        >
+                          Pendente
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
       <section className="rounded-lg border border-slate-800 bg-slate-900 p-4 shadow-sm">
         <div className="flex items-center justify-between gap-3">
         <div>
