@@ -152,7 +152,12 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
               </thead>
               <tbody className="divide-y divide-slate-800">
                 {professionals.map((row: any) => (
-                  <tr key={row.email} className="align-top">
+                  <tr
+                    key={row.email}
+                    onClick={() => nav(`/admin/professional/${encodeURIComponent(row.email)}`)}
+                    className="cursor-pointer align-top hover:bg-cyan-950/20"
+                    title="Abrir controle administrativo deste profissional"
+                  >
                     <td className="whitespace-nowrap px-2 py-1 first:pl-0">
                       <p className="font-black text-slate-100">{row.name || row.email}</p>
                       <p className="text-[9px] text-slate-500">{row.email}</p>

@@ -6,6 +6,7 @@ import { LiveSession } from "./pages/LiveSession";
 import { History } from "./pages/History";
 import { Settings } from "./pages/Settings";
 import { AdminDashboard } from "./pages/AdminDashboard";
+import { AdminProfessionalDetail } from "./pages/AdminProfessionalDetail";
 import { SessionReport } from "./pages/SessionReport";
 import { PatientDetail } from "./pages/PatientDetail";
 import { NewPatient } from "./pages/NewPatient";
@@ -210,6 +211,10 @@ function App() {
         <Route
           path="/admin"
           element={clinicalElement(<AdminDashboard user={user} />)}
+        />
+        <Route
+          path="/admin/professional/:professionalEmail"
+          element={clinicalElement(<AdminProfessionalDetail user={user} />)}
         />
       </Routes>
     </HashRouter>

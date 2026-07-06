@@ -10,7 +10,7 @@ import secrets
 import threading
 import uuid
 from typing import Any, Dict, List, Optional, Tuple
-from urllib.parse import quote, urlencode
+from urllib.parse import quote, unquote, urlencode
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
@@ -112,6 +112,7 @@ SESSION_INVITES: Dict[str, dict] = {}
 CONSENT_LEDGER: list[dict] = []
 PATIENT_SESSION_ENTRIES: Dict[str, list[dict]] = {}
 SESSION_EVENTS: list[dict] = []
+ADMIN_AUDIT_EVENTS: list[dict] = []
 SESSION_EVENT_COUNTER = 0
 GOOGLE_CALENDAR_CONNECTIONS: Dict[str, dict] = {}
 GOOGLE_CALENDAR_OAUTH_STATES: Dict[str, dict] = {}
@@ -168,6 +169,7 @@ def _load_identity_state() -> None:
     global CONSENT_LEDGER
     global PATIENT_SESSION_ENTRIES
     global SESSION_EVENTS
+    global ADMIN_AUDIT_EVENTS
     global SESSION_EVENT_COUNTER
     global GOOGLE_CALENDAR_CONNECTIONS
 
@@ -227,6 +229,10 @@ def _load_identity_state() -> None:
     if isinstance(raw_events, list):
         SESSION_EVENTS = [item for item in raw_events if isinstance(item, dict)][-500:]
 
+    raw_admin_events = state.get("admin_audit_events")
+    if isinstance(raw_admin_events, list):
+        ADMIN_AUDIT_EVENTS = [item for item in raw_admin_events if isinstance(item, dict)][-1000:]
+
     max_event_id = max(
         [_local_int(event.get("id")) for event in SESSION_EVENTS if isinstance(event, dict)]
         or [0]
@@ -253,6 +259,7 @@ def _identity_state_snapshot() -> dict:
         "consent_ledger": CONSENT_LEDGER[-2000:],
         "patient_session_entries": PATIENT_SESSION_ENTRIES,
         "session_events": SESSION_EVENTS[-500:],
+        "admin_audit_events": ADMIN_AUDIT_EVENTS[-1000:],
         "session_event_counter": SESSION_EVENT_COUNTER,
         "google_calendar_connections": GOOGLE_CALENDAR_CONNECTIONS,
     }
@@ -2653,6 +2660,25 @@ def _require_admin_user(request: Request) -> dict:
     return user
 
 
+def _record_admin_audit_event(request: Request, action: str, target: str, detail: Optional[dict] = None) -> None:
+    user = _current_user_from_request(request) or {}
+    ADMIN_AUDIT_EVENTS.append(
+        {
+            "id": str(uuid.uuid4()),
+            "action": action,
+            "admin_email": _normalize_email(user.get("email") or ""),
+            "target": target,
+            "detail": detail or {},
+            "created_at": _utc_now_iso(),
+            "remote_addr": request.client.host if request.client else "",
+            "user_agent": request.headers.get("user-agent", ""),
+        }
+    )
+    if len(ADMIN_AUDIT_EVENTS) > 1000:
+        del ADMIN_AUDIT_EVENTS[: len(ADMIN_AUDIT_EVENTS) - 1000]
+    _save_identity_state()
+
+
 def _calendar_connection_public(connection: Optional[dict]) -> dict:
     if not connection:
         return {"connected": False}
@@ -3243,6 +3269,106 @@ async def admin_overview(request: Request):
         },
         "professionals": professional_rows,
         "patients": patient_rows[:300],
+    }
+
+
+@app.get("/api/admin/professionals/{professional_email}")
+async def admin_professional_detail(professional_email: str, request: Request):
+    _require_admin_user(request)
+    email = _normalize_email(unquote(professional_email))
+    profile = PROFESSIONAL_PROFILES.get(email)
+    if not isinstance(profile, dict):
+        raise HTTPException(status_code=404, detail="profissional nao encontrado")
+    _record_admin_audit_event(
+        request,
+        action="admin_open_professional",
+        target=email,
+        detail={"profile_id": profile.get("id") or ""},
+    )
+
+    reports = [
+        _enrich_report_patient(report)
+        for report in _load_session_reports().values()
+        if isinstance(report, dict) and _report_owner_email(report) == email
+    ]
+    reports.sort(
+        key=lambda report: str(report.get("createdAt") or report.get("created_at") or ""),
+        reverse=True,
+    )
+    invites = [
+        invite
+        for invite in SESSION_INVITES.values()
+        if isinstance(invite, dict)
+        and _normalize_email(invite.get("professional_email") or "") == email
+    ]
+    invites.sort(key=lambda invite: str(invite.get("created_at") or ""), reverse=True)
+
+    patient_map: Dict[str, dict] = {}
+    for invite in invites:
+        patient = _invite_patient_identity(invite)
+        key = str(patient.get("id") or patient.get("email") or patient.get("phone") or patient.get("name") or "")
+        if key:
+            patient_map[key] = patient
+    for report in reports:
+        patient = report.get("patient") if isinstance(report.get("patient"), dict) else {}
+        key = str(patient.get("id") or report.get("patientId") or report.get("patientName") or "")
+        if key:
+            patient_map[key] = {
+                "id": patient.get("id") or report.get("patientId") or "",
+                "name": patient.get("name") or report.get("patientName") or "Paciente sem nome",
+                "email": patient.get("email") or "",
+                "phone": patient.get("phone") or "",
+                "document": patient.get("document") or report.get("patientDocument") or "",
+            }
+
+    receivable_items = []
+    due_cents = 0
+    received_cents = 0
+    for invite in invites:
+        item = _receivable_item(invite)
+        due_cents += _local_int(item.get("due_cents"))
+        received_cents += _local_int(item.get("received_cents"))
+        receivable_items.append(
+            {
+                **item,
+                "patient": _invite_patient_identity(invite),
+                "status": invite.get("status") or "",
+            }
+        )
+
+    report_rows = []
+    for report in reports[:120]:
+        session_average = report.get("sessionAverage") if isinstance(report.get("sessionAverage"), dict) else {}
+        report_rows.append(
+            {
+                "session_id": report.get("sessionId") or report.get("session_id") or "",
+                "created_at": report.get("createdAt") or report.get("created_at") or "",
+                "patient": report.get("patient") or {},
+                "ipm": session_average.get("ipmAvg"),
+                "idm": session_average.get("idmAvg"),
+                "dominant_zone": session_average.get("dominantZone"),
+                "theme": session_average.get("theme") or session_average.get("dominantTheme") or "",
+                "summary": ((report.get("sessionSummary") or {}) if isinstance(report.get("sessionSummary"), dict) else {}).get("summary") or "",
+            }
+        )
+
+    return {
+        "profile": profile,
+        "access_status": _professional_access_status(email),
+        "summary": {
+            "patients": len(patient_map),
+            "reports": len(reports),
+            "invites": len(invites),
+            "total_due_cents": due_cents,
+            "total_received_cents": received_cents,
+            "total_pending_cents": max(0, due_cents - received_cents),
+            "total_due_brl": _format_brl(due_cents),
+            "total_received_brl": _format_brl(received_cents),
+            "total_pending_brl": _format_brl(max(0, due_cents - received_cents)),
+        },
+        "patients": list(patient_map.values())[:300],
+        "receivables": receivable_items[:300],
+        "reports": report_rows,
     }
 
 
