@@ -87,6 +87,7 @@ GOOGLE_CALENDAR_SCOPES = [
     "openid",
     "email",
     "profile",
+    "https://www.googleapis.com/auth/calendar.calendarlist.readonly",
     "https://www.googleapis.com/auth/calendar.events",
 ]
 FROID_LOCAL_AUTH_PASSWORD = os.getenv("FROID_LOCAL_AUTH_PASSWORD", "")
@@ -2374,6 +2375,8 @@ def _calendar_connection_public(connection: Optional[dict]) -> dict:
         "professional_email": connection.get("professional_email") or "",
         "google_email": connection.get("google_email") or "",
         "scope": connection.get("scope") or "",
+        "selected_calendar_id": connection.get("selected_calendar_id") or "primary",
+        "selected_calendar_summary": connection.get("selected_calendar_summary") or "Agenda principal",
         "connected_at": connection.get("connected_at") or "",
         "updated_at": connection.get("updated_at") or "",
         "expires_at": connection.get("expires_at") or "",
@@ -2464,6 +2467,11 @@ async def _calendar_access_token(email: str) -> str:
     if not token:
         raise HTTPException(status_code=404, detail="Google Agenda sem token ativo")
     return token
+
+
+def _selected_calendar_id(connection: Optional[dict], fallback: str = "primary") -> str:
+    calendar_id = str((connection or {}).get("selected_calendar_id") or fallback or "primary").strip()
+    return calendar_id or "primary"
 
 
 async def _google_userinfo(access_token: str) -> dict:
@@ -2983,20 +2991,85 @@ async def google_calendar_disconnect(request: Request):
     return {"connected": False}
 
 
-@app.get("/api/google-calendar/events")
-async def google_calendar_events(request: Request, max_results: int = 10):
+@app.get("/api/google-calendar/calendars")
+async def google_calendar_calendars(request: Request):
     user = _require_current_user(request)
     email = _normalize_email(user.get("email") or "")
     token = await _calendar_access_token(email)
+    connection = GOOGLE_CALENDAR_CONNECTIONS.get(email) or {}
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        response = await client.get(
+            "https://www.googleapis.com/calendar/v3/users/me/calendarList",
+            params={"minAccessRole": "writer", "maxResults": 100},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+    if response.status_code >= 400:
+        raise HTTPException(status_code=400, detail=f"Falha ao listar agendas Google: {response.text[:300]}")
+    payload = response.json()
+    selected_id = _selected_calendar_id(connection)
+    calendars = [
+        {
+            "id": item.get("id"),
+            "summary": item.get("summary") or item.get("id") or "Agenda",
+            "primary": bool(item.get("primary")),
+            "accessRole": item.get("accessRole") or "",
+            "backgroundColor": item.get("backgroundColor") or "",
+            "selected": str(item.get("id") or "") == selected_id,
+        }
+        for item in payload.get("items", [])
+        if isinstance(item, dict) and item.get("id")
+    ]
+    return {"selected_calendar_id": selected_id, "items": calendars}
+
+
+@app.post("/api/google-calendar/select-calendar")
+async def google_calendar_select_calendar(request: Request):
+    user = _require_current_user(request)
+    email = _normalize_email(user.get("email") or "")
+    body = await request.json()
+    calendar_id = str(body.get("calendar_id") or "").strip()
+    calendar_summary = str(body.get("calendar_summary") or "").strip()
+    if not calendar_id:
+        raise HTTPException(status_code=400, detail="calendar_id obrigatorio")
+    connection = GOOGLE_CALENDAR_CONNECTIONS.get(email)
+    if not connection:
+        raise HTTPException(status_code=404, detail="Google Agenda nao conectado")
+    connection.update(
+        {
+            "selected_calendar_id": calendar_id,
+            "selected_calendar_summary": calendar_summary or calendar_id,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+    )
+    GOOGLE_CALENDAR_CONNECTIONS[email] = connection
+    _save_identity_state()
+    return _calendar_connection_public(connection)
+
+
+@app.get("/api/google-calendar/events")
+async def google_calendar_events(
+    request: Request,
+    max_results: int = 30,
+    time_min: str = "",
+    time_max: str = "",
+    calendar_id: str = "",
+):
+    user = _require_current_user(request)
+    email = _normalize_email(user.get("email") or "")
+    token = await _calendar_access_token(email)
+    connection = GOOGLE_CALENDAR_CONNECTIONS.get(email) or {}
+    selected_calendar = _selected_calendar_id(connection, calendar_id or "primary")
     params = {
-        "timeMin": datetime.now(timezone.utc).isoformat(),
-        "maxResults": max(1, min(max_results, 20)),
+        "timeMin": time_min or datetime.now(timezone.utc).isoformat(),
+        "maxResults": max(1, min(max_results, 100)),
         "singleEvents": "true",
         "orderBy": "startTime",
     }
+    if time_max:
+        params["timeMax"] = time_max
     async with httpx.AsyncClient(timeout=15.0) as client:
         response = await client.get(
-            "https://www.googleapis.com/calendar/v3/calendars/primary/events",
+            f"https://www.googleapis.com/calendar/v3/calendars/{quote(selected_calendar, safe='')}/events",
             params=params,
             headers={"Authorization": f"Bearer {token}"},
         )
@@ -3023,6 +3096,7 @@ async def google_calendar_create_event(request: Request):
     user = _require_current_user(request)
     email = _normalize_email(user.get("email") or "")
     token = await _calendar_access_token(email)
+    connection = GOOGLE_CALENDAR_CONNECTIONS.get(email) or {}
     body = await request.json()
     summary = str(body.get("summary") or "Sessao FROID").strip()
     start = str(body.get("start") or "").strip()
@@ -3044,7 +3118,7 @@ async def google_calendar_create_event(request: Request):
         ]
     async with httpx.AsyncClient(timeout=15.0) as client:
         response = await client.post(
-            "https://www.googleapis.com/calendar/v3/calendars/primary/events",
+            f"https://www.googleapis.com/calendar/v3/calendars/{quote(_selected_calendar_id(connection, body.get('calendar_id') or 'primary'), safe='')}/events",
             params={"sendUpdates": "all" if event.get("attendees") else "none"},
             headers={"Authorization": f"Bearer {token}"},
             json=event,
@@ -3052,6 +3126,46 @@ async def google_calendar_create_event(request: Request):
     if response.status_code >= 400:
         raise HTTPException(status_code=400, detail=f"Falha ao criar evento Google Agenda: {response.text[:300]}")
     return response.json()
+
+
+@app.patch("/api/google-calendar/events/{event_id}")
+async def google_calendar_update_event(event_id: str, request: Request):
+    user = _require_current_user(request)
+    email = _normalize_email(user.get("email") or "")
+    token = await _calendar_access_token(email)
+    connection = GOOGLE_CALENDAR_CONNECTIONS.get(email) or {}
+    body = await request.json()
+    calendar_id = _selected_calendar_id(connection, body.get("calendar_id") or "primary")
+    allowed = {key: body[key] for key in ["summary", "description", "start", "end", "attendees"] if key in body}
+    if not allowed:
+        raise HTTPException(status_code=400, detail="Informe campos para atualizar")
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        response = await client.patch(
+            f"https://www.googleapis.com/calendar/v3/calendars/{quote(calendar_id, safe='')}/events/{quote(event_id, safe='')}",
+            params={"sendUpdates": "all" if allowed.get("attendees") else "none"},
+            headers={"Authorization": f"Bearer {token}"},
+            json=allowed,
+        )
+    if response.status_code >= 400:
+        raise HTTPException(status_code=400, detail=f"Falha ao alterar evento Google Agenda: {response.text[:300]}")
+    return response.json()
+
+
+@app.delete("/api/google-calendar/events/{event_id}")
+async def google_calendar_delete_event(event_id: str, request: Request, calendar_id: str = ""):
+    user = _require_current_user(request)
+    email = _normalize_email(user.get("email") or "")
+    token = await _calendar_access_token(email)
+    connection = GOOGLE_CALENDAR_CONNECTIONS.get(email) or {}
+    selected_calendar = _selected_calendar_id(connection, calendar_id or "primary")
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        response = await client.delete(
+            f"https://www.googleapis.com/calendar/v3/calendars/{quote(selected_calendar, safe='')}/events/{quote(event_id, safe='')}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+    if response.status_code not in {200, 204}:
+        raise HTTPException(status_code=400, detail=f"Falha ao excluir evento Google Agenda: {response.text[:300]}")
+    return {"deleted": True, "event_id": event_id}
 
 
 @app.get("/api/access/plans")
