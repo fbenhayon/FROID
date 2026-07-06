@@ -5,6 +5,7 @@ import { AgendaReminderBanner } from "./components/panels/AgendaReminderBanner";
 import { LiveSession } from "./pages/LiveSession";
 import { History } from "./pages/History";
 import { Settings } from "./pages/Settings";
+import { AdminDashboard } from "./pages/AdminDashboard";
 import { SessionReport } from "./pages/SessionReport";
 import { PatientDetail } from "./pages/PatientDetail";
 import { NewPatient } from "./pages/NewPatient";
@@ -32,6 +33,10 @@ export type FroidUser = {
     selected_plan?: string;
     payment_status?: string;
     onboarding_required?: boolean;
+    total_sessions?: number;
+    used_sessions?: number;
+    remaining_sessions?: number;
+    admin?: boolean;
   };
 };
 
@@ -201,6 +206,10 @@ function App() {
         <Route
           path="/settings"
           element={clinicalElement(<Settings user={user} />)}
+        />
+        <Route
+          path="/admin"
+          element={clinicalElement(<AdminDashboard user={user} />)}
         />
       </Routes>
     </HashRouter>

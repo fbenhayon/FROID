@@ -751,7 +751,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
                 onChange={(e) => setMonthlyConsultations(Number(e.target.value || 0))}
                 type="number"
                 min={1}
-                className="mt-1 w-full rounded-md border border-slate-700 px-3 py-2"
+                className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
               />
             </label>
 
@@ -765,7 +765,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
                   onChange={(e) => setContractedSessions(Math.max(0, Number(e.target.value || 0)))}
                   type="number"
                   min={1}
-                  className="mt-1 w-full rounded-md border border-slate-700 px-3 py-2"
+                  className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                 />
               </label>
               <div className="rounded-md border border-cyan-200 bg-cyan-50 p-3 text-xs font-bold leading-5 text-cyan-950">

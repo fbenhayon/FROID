@@ -80,6 +80,11 @@ FROID_LEGACY_REPORT_OWNER = os.getenv(
     "FROID_LEGACY_REPORT_OWNER",
     "fbenhayon@gmail.com",
 )
+FROID_ADMIN_EMAILS = {
+    email.strip().lower()
+    for email in os.getenv("FROID_ADMIN_EMAILS", "fbenhayon@gmail.com").split(",")
+    if email.strip()
+}
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
 GOOGLE_AUTH_DEV_FALLBACK = os.getenv("GOOGLE_AUTH_DEV_FALLBACK", "true").lower() in {"1", "true", "yes", "on"}
@@ -1258,13 +1263,49 @@ def _professional_access_status(email: str) -> dict:
     lgpd_acknowledged = bool((profile or {}).get("lgpd_acknowledged"))
     has_profile = bool(profile)
     access_ready = has_profile and lgpd_acknowledged and bool(selected_plan)
+    total_sessions = max(0, _local_int((profile or {}).get("total_sessions")))
+    used_sessions = max(0, _local_int((profile or {}).get("used_sessions")))
+    remaining_sessions = max(
+        0,
+        _local_int((profile or {}).get("remaining_sessions") if profile else 0)
+        if (profile or {}).get("remaining_sessions") is not None
+        else total_sessions - used_sessions,
+    )
     return {
         "has_profile": has_profile,
         "lgpd_acknowledged": lgpd_acknowledged,
         "selected_plan": selected_plan,
         "payment_status": str((profile or {}).get("payment_status") or ("pending_checkout" if access_ready else "not_started")),
         "onboarding_required": not access_ready,
+        "total_sessions": total_sessions,
+        "used_sessions": used_sessions,
+        "remaining_sessions": remaining_sessions,
+        "admin": _is_admin_email(owner_email),
     }
+
+
+def _consume_professional_session_credit(owner_email: str, session_id: str) -> dict:
+    email = _normalize_email(owner_email)
+    if not email or not session_id:
+        return {}
+    profile = PROFESSIONAL_PROFILES.get(email)
+    if not isinstance(profile, dict):
+        return {}
+    consumed = profile.get("consumed_session_ids")
+    if not isinstance(consumed, list):
+        consumed = []
+    if session_id in {str(item) for item in consumed}:
+        return _professional_access_status(email)
+
+    total_sessions = max(0, _local_int(profile.get("total_sessions")))
+    used_sessions = max(0, _local_int(profile.get("used_sessions"))) + 1
+    profile["used_sessions"] = used_sessions
+    profile["remaining_sessions"] = max(0, total_sessions - used_sessions)
+    profile["last_session_consumed_at"] = _utc_now_iso()
+    profile["consumed_session_ids"] = [*consumed, session_id][-500:]
+    PROFESSIONAL_PROFILES[email] = profile
+    _save_identity_state()
+    return _professional_access_status(email)
 
 
 def _report_owner_email(report: dict) -> str:
@@ -2496,6 +2537,81 @@ FROID_ACCESS_PLANS = {
 }
 
 
+def _apply_session_credit_purchase(
+    email: str,
+    plan_id: str,
+    purchase_type: str,
+    contracted_sessions: int,
+    bonus_sessions: int,
+    total_sessions: int,
+    unit_amount_cents: int,
+    package_total_cents: int,
+    status: str,
+    checkout_session_id: str = "",
+) -> dict:
+    owner_email = _normalize_email(email)
+    if not owner_email:
+        return {}
+    profile = PROFESSIONAL_PROFILES.get(owner_email)
+    if not isinstance(profile, dict):
+        return {}
+    purchases = profile.get("session_credit_purchases")
+    if not isinstance(purchases, list):
+        purchases = []
+    if checkout_session_id and any(
+        str(item.get("checkout_session_id") or "") == checkout_session_id
+        for item in purchases
+        if isinstance(item, dict)
+    ):
+        return profile
+
+    current_total = max(0, _local_int(profile.get("total_sessions")))
+    current_contracted = max(0, _local_int(profile.get("contracted_sessions")))
+    current_bonus = max(0, _local_int(profile.get("bonus_sessions")))
+    total_sessions = max(0, _local_int(total_sessions))
+    contracted_sessions = max(0, _local_int(contracted_sessions))
+    bonus_sessions = max(0, _local_int(bonus_sessions))
+    if purchase_type == "add_sessions":
+        profile["contracted_sessions"] = current_contracted + contracted_sessions
+        profile["bonus_sessions"] = current_bonus + bonus_sessions
+        profile["total_sessions"] = current_total + total_sessions
+        profile["remaining_sessions"] = max(
+            0,
+            _local_int(profile.get("remaining_sessions")) + total_sessions,
+        )
+    else:
+        profile["contracted_sessions"] = contracted_sessions
+        profile["bonus_sessions"] = bonus_sessions
+        profile["total_sessions"] = total_sessions
+        profile["remaining_sessions"] = max(
+            0,
+            total_sessions - max(0, _local_int(profile.get("used_sessions"))),
+        )
+    profile["selected_plan"] = plan_id
+    profile["session_unit_amount_cents"] = max(0, _local_int(unit_amount_cents))
+    profile["package_total_cents"] = max(0, _local_int(package_total_cents))
+    profile["payment_status"] = status
+    profile["updated_at"] = _utc_now_iso()
+    purchases.append(
+        {
+            "id": f"purchase-{uuid.uuid4().hex[:12]}",
+            "plan_id": plan_id,
+            "purchase_type": purchase_type,
+            "contracted_sessions": contracted_sessions,
+            "bonus_sessions": bonus_sessions,
+            "total_sessions": total_sessions,
+            "package_total_cents": max(0, _local_int(package_total_cents)),
+            "status": status,
+            "checkout_session_id": checkout_session_id,
+            "created_at": _utc_now_iso(),
+        }
+    )
+    profile["session_credit_purchases"] = purchases[-200:]
+    PROFESSIONAL_PROFILES[owner_email] = profile
+    _save_identity_state()
+    return profile
+
+
 def _public_app_base_url(base_url: str = "") -> str:
     base = str(base_url or "").strip().rstrip("/")
     if base:
@@ -2523,6 +2639,17 @@ def _require_current_user(request: Request) -> dict:
     user = _current_user_from_request(request)
     if not user:
         raise HTTPException(status_code=401, detail="nao autenticado")
+    return user
+
+
+def _is_admin_email(email: str) -> bool:
+    return _normalize_email(email) in FROID_ADMIN_EMAILS
+
+
+def _require_admin_user(request: Request) -> dict:
+    user = _require_current_user(request)
+    if not _is_admin_email(user.get("email") or ""):
+        raise HTTPException(status_code=403, detail="acesso administrativo restrito")
     return user
 
 
@@ -3022,6 +3149,103 @@ async def update_professional_receivable(request: Request):
     return {"updated": True, "patient_key": patient_key}
 
 
+@app.get("/api/admin/overview")
+async def admin_overview(request: Request):
+    _require_admin_user(request)
+    reports = [
+        report
+        for report in _load_session_reports().values()
+        if isinstance(report, dict)
+    ]
+    professional_rows = []
+    for email, profile in PROFESSIONAL_PROFILES.items():
+        if not isinstance(profile, dict):
+            continue
+        access = _professional_access_status(email)
+        professional_reports = [
+            report for report in reports if _report_owner_email(report) == _normalize_email(email)
+        ]
+        professional_invites = [
+            invite
+            for invite in SESSION_INVITES.values()
+            if isinstance(invite, dict)
+            and _normalize_email(invite.get("professional_email") or "") == _normalize_email(email)
+        ]
+        due_cents = sum(_receivable_due_cents(invite) for invite in professional_invites)
+        received_cents = sum(
+            min(_receivable_received_cents(invite), _receivable_due_cents(invite))
+            for invite in professional_invites
+        )
+        professional_rows.append(
+            {
+                "email": email,
+                "name": profile.get("owner_name") or profile.get("organization_name") or email,
+                "account_type": profile.get("account_type") or "",
+                "payment_status": profile.get("payment_status") or "",
+                "selected_plan": profile.get("selected_plan") or "",
+                "total_sessions": access.get("total_sessions", 0),
+                "used_sessions": access.get("used_sessions", 0),
+                "remaining_sessions": access.get("remaining_sessions", 0),
+                "reports_count": len(professional_reports),
+                "patients_count": len({
+                    str((report.get("patient") or {}).get("id") or report.get("patientId") or report.get("patientName") or "")
+                    for report in professional_reports
+                    if isinstance(report, dict)
+                }),
+                "invites_count": len(professional_invites),
+                "due_cents": due_cents,
+                "received_cents": received_cents,
+                "pending_cents": max(0, due_cents - received_cents),
+                "due_brl": _format_brl(due_cents),
+                "received_brl": _format_brl(received_cents),
+                "pending_brl": _format_brl(max(0, due_cents - received_cents)),
+                "updated_at": profile.get("updated_at") or "",
+            }
+        )
+
+    patient_rows = []
+    for patient_id, patient in PATIENTS.items():
+        if not isinstance(patient, dict):
+            continue
+        patient_reports = [
+            report
+            for report in reports
+            if str((report.get("patient") or {}).get("id") or report.get("patientId") or "") == str(patient_id)
+        ]
+        patient_rows.append(
+            {
+                "id": patient_id,
+                "name": patient.get("name") or "Paciente sem nome",
+                "email": patient.get("email") or "",
+                "phone": patient.get("phone") or "",
+                "sessions_count": len(patient_reports),
+                "created_at": patient.get("created_at") or "",
+                "updated_at": patient.get("updated_at") or "",
+            }
+        )
+
+    total_due = sum(_local_int(row.get("due_cents")) for row in professional_rows)
+    total_received = sum(_local_int(row.get("received_cents")) for row in professional_rows)
+    professional_rows.sort(key=lambda row: str(row.get("updated_at") or ""), reverse=True)
+    patient_rows.sort(key=lambda row: str(row.get("updated_at") or row.get("created_at") or ""), reverse=True)
+    return {
+        "summary": {
+            "professionals": len(professional_rows),
+            "patients": len(patient_rows),
+            "session_reports": len(reports),
+            "invites": len(SESSION_INVITES),
+            "total_due_cents": total_due,
+            "total_received_cents": total_received,
+            "total_pending_cents": max(0, total_due - total_received),
+            "total_due_brl": _format_brl(total_due),
+            "total_received_brl": _format_brl(total_received),
+            "total_pending_brl": _format_brl(max(0, total_due - total_received)),
+        },
+        "professionals": professional_rows,
+        "patients": patient_rows[:300],
+    }
+
+
 @app.get("/api/session-invites/{token}")
 async def get_session_invite(token: str):
     invite = SESSION_INVITES.get(token)
@@ -3505,6 +3729,13 @@ async def save_professional_profile(request: Request):
 
     now = datetime.now(timezone.utc).isoformat()
     existing = PROFESSIONAL_PROFILES.get(owner_email) or {}
+    existing_used_sessions = max(0, _local_int(existing.get("used_sessions")))
+    existing_consumed_sessions = (
+        existing.get("consumed_session_ids")
+        if isinstance(existing.get("consumed_session_ids"), list)
+        else []
+    )
+    total_sessions = max(0, int(body.get("total_sessions") or 0))
     profile = {
         "id": existing.get("id") or f"prof-{uuid.uuid4().hex[:12]}",
         "owner_email": owner_email,
@@ -3524,7 +3755,10 @@ async def save_professional_profile(request: Request):
         "selected_plan": str(body.get("selected_plan") or "").strip(),
         "contracted_sessions": max(0, int(body.get("contracted_sessions") or 0)),
         "bonus_sessions": max(0, int(body.get("bonus_sessions") or 0)),
-        "total_sessions": max(0, int(body.get("total_sessions") or 0)),
+        "total_sessions": total_sessions,
+        "used_sessions": existing_used_sessions,
+        "remaining_sessions": max(0, total_sessions - existing_used_sessions),
+        "consumed_session_ids": existing_consumed_sessions[-500:],
         "session_unit_amount_cents": max(0, int(body.get("session_unit_amount_cents") or 0)),
         "package_total_cents": max(0, int(body.get("package_total_cents") or 0)),
         "payment_status": existing.get("payment_status")
@@ -3550,8 +3784,11 @@ async def create_billing_checkout(request: Request):
         raise HTTPException(status_code=400, detail="plano FROID invalido")
 
     base_url = _public_app_base_url(body.get("base_url") or "")
-    success_url = f"{base_url}/#/dashboard?checkout=success&plan={quote(plan_id)}"
-    cancel_url = f"{base_url}/#/access/register?checkout=cancelled&plan={quote(plan_id)}"
+    purchase_type = str(body.get("purchase_type") or "onboarding").strip().lower()
+    return_path = "/settings" if purchase_type == "add_sessions" else "/dashboard"
+    cancel_path = "/settings" if purchase_type == "add_sessions" else "/access/register"
+    success_url = f"{base_url}/#{return_path}?checkout=success&plan={quote(plan_id)}&stripe_session_id={{CHECKOUT_SESSION_ID}}"
+    cancel_url = f"{base_url}/#{cancel_path}?checkout=cancelled&plan={quote(plan_id)}"
     email = _normalize_email(user.get("email") or body.get("email") or "")
     contracted_sessions = max(0, int(body.get("contracted_sessions") or plan.get("session_credits") or 0))
     bonus_sessions = max(0, int(body.get("bonus_sessions") or ((contracted_sessions // 100) * 10)))
@@ -3567,7 +3804,21 @@ async def create_billing_checkout(request: Request):
         f"Valor por sessao: {_format_brl(unit_amount_cents, plan_currency)}."
     )
 
+    def apply_local_credits() -> None:
+        _apply_session_credit_purchase(
+            email=email,
+            plan_id=plan_id,
+            purchase_type=purchase_type,
+            contracted_sessions=contracted_sessions,
+            bonus_sessions=bonus_sessions,
+            total_sessions=total_sessions,
+            unit_amount_cents=unit_amount_cents,
+            package_total_cents=package_total_cents,
+            status="paid_local" if package_total_cents <= 0 else "local_applied",
+        )
+
     if not STRIPE_SECRET_KEY:
+        apply_local_credits()
         return {
             "status": "stripe_not_configured",
             "mode": "local_fallback",
@@ -3584,6 +3835,7 @@ async def create_billing_checkout(request: Request):
         }
 
     if package_total_cents <= 0:
+        apply_local_credits()
         return {
             "status": "free_access",
             "mode": "local_success",
@@ -3612,6 +3864,7 @@ async def create_billing_checkout(request: Request):
         "line_items[0][price_data][product_data][name]": f"{plan['name']} - {total_sessions} sessoes",
         "line_items[0][price_data][product_data][description]": checkout_description,
         "metadata[plan_id]": plan_id,
+        "metadata[purchase_type]": purchase_type,
         "metadata[session_credits]": str(total_sessions),
         "metadata[contracted_sessions]": str(contracted_sessions),
         "metadata[bonus_sessions]": str(bonus_sessions),
@@ -3653,6 +3906,56 @@ async def create_billing_checkout(request: Request):
         raise
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Erro Stripe: {exc}")
+
+
+@app.post("/api/billing/confirm-checkout")
+async def confirm_billing_checkout(request: Request):
+    user = _current_user_from_request(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="nao autenticado")
+    if not STRIPE_SECRET_KEY:
+        raise HTTPException(status_code=409, detail="Stripe nao configurado")
+
+    body = await request.json()
+    checkout_session_id = str(body.get("checkout_session_id") or "").strip()
+    if not checkout_session_id:
+        raise HTTPException(status_code=400, detail="checkout_session_id obrigatorio")
+
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        response = await client.get(
+            f"https://api.stripe.com/v1/checkout/sessions/{quote(checkout_session_id, safe='')}",
+            headers={"Authorization": f"Bearer {STRIPE_SECRET_KEY}"},
+        )
+    data = response.json()
+    if response.status_code >= 400:
+        detail = data.get("error", {}).get("message") if isinstance(data, dict) else None
+        raise HTTPException(status_code=502, detail=detail or "Falha ao confirmar checkout Stripe")
+
+    metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
+    email = _normalize_email(metadata.get("professional_email") or data.get("customer_email") or "")
+    current_email = _normalize_email(user.get("email") or "")
+    if email != current_email:
+        raise HTTPException(status_code=403, detail="checkout nao pertence ao profissional autenticado")
+    if data.get("payment_status") != "paid" and data.get("status") != "complete":
+        raise HTTPException(status_code=409, detail="pagamento Stripe ainda nao confirmado")
+
+    profile = _apply_session_credit_purchase(
+        email=email,
+        plan_id=str(metadata.get("plan_id") or ""),
+        purchase_type=str(metadata.get("purchase_type") or body.get("purchase_type") or "add_sessions"),
+        contracted_sessions=_local_int(metadata.get("contracted_sessions")),
+        bonus_sessions=_local_int(metadata.get("bonus_sessions")),
+        total_sessions=_local_int(metadata.get("session_credits")),
+        unit_amount_cents=_local_int(metadata.get("unit_amount_cents")),
+        package_total_cents=_local_int(metadata.get("package_total_cents")),
+        status="paid",
+        checkout_session_id=checkout_session_id,
+    )
+    return {
+        "status": "ok",
+        "profile": profile,
+        "access_status": _professional_access_status(email),
+    }
 
 
 @app.post("/api/froid-explica/query", response_model=FroidExplicaResponse)
@@ -3709,14 +4012,17 @@ async def save_session_report(request: Request):
     report = _enrich_report_patient(report)
     report = _attach_metrics_analysis(report)
     reports = _load_session_reports()
+    is_new_report = session_id not in reports
     reports[session_id] = report
     _save_session_reports(reports)
+    access_status = _consume_professional_session_credit(owner_email, session_id) if is_new_report else _professional_access_status(owner_email)
     _append_anonymous_datamart_row(report)
     return {
         "status": "ok",
         "session_id": session_id,
         "metrics_analysis": report.get("metricsAnalysis"),
         "metrics_analysis_error": report.get("metricsAnalysisError"),
+        "access_status": access_status,
     }
 
 

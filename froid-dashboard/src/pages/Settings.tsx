@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { FroidUser } from "../App";
-import { apiUrl } from "../lib/api";
+import { apiUrl, publicAppUrl } from "../lib/api";
 import {
   createProfessionalPrompt,
   loadProfessionalPrompts,
@@ -14,6 +14,35 @@ interface SettingsProps {
 }
 
 type CalendarViewMode = "day" | "week" | "month";
+
+type AccessPlan = {
+  id: string;
+  name: string;
+  description: string;
+  session_credits: number;
+  amount_cents: number;
+  amount_brl: string;
+  currency?: string;
+};
+
+const fallbackPlans: AccessPlan[] = [
+  {
+    id: "single_session",
+    name: "Sessao avulsa FROID",
+    description: "Credito individual para uma sessao FROID.",
+    session_credits: 1,
+    amount_cents: 0,
+    amount_brl: "US$ 0.00",
+  },
+  {
+    id: "professional_pack_25",
+    name: "Pacote profissional 25 sessoes",
+    description: "Pacote mensal com 25 sessoes FROID.",
+    session_credits: 25,
+    amount_cents: 150,
+    amount_brl: "US$ 1.50",
+  },
+];
 
 type GoogleCalendarItem = {
   id: string;
@@ -125,11 +154,43 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
   const [eventDate, setEventDate] = useState(() => dateInputValue(new Date()));
   const [eventStart, setEventStart] = useState("09:00");
   const [eventDuration, setEventDuration] = useState("50");
+  const [profileStatus, setProfileStatus] = useState<any>(user?.access_status || null);
+  const [plans, setPlans] = useState<AccessPlan[]>([]);
+  const [selectedPlan, setSelectedPlan] = useState("professional_pack_25");
+  const [sessionQuantity, setSessionQuantity] = useState(25);
+  const [billingMessage, setBillingMessage] = useState("");
+  const [billingLoading, setBillingLoading] = useState(false);
 
   const authHeaders = (): Record<string, string> => {
     const token = window.localStorage.getItem("froid_token") || "";
     return token ? { Authorization: `Bearer ${token}` } : {};
   };
+
+  async function confirmStripeCheckout(checkoutSessionId: string) {
+    if (!checkoutSessionId) return;
+    setBillingLoading(true);
+    setBillingMessage("Confirmando pagamento Stripe...");
+    try {
+      const response = await fetch(apiUrl("/api/billing/confirm-checkout"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders(),
+        },
+        body: JSON.stringify({ checkout_session_id: checkoutSessionId }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.detail || "Nao foi possivel confirmar o pagamento.");
+      setProfileStatus(data?.access_status || null);
+      setBillingMessage("Pagamento confirmado e sessoes acrescentadas ao saldo.");
+      window.history.replaceState(null, "", window.location.pathname + window.location.hash.split("?")[0]);
+      await loadBillingProfile();
+    } catch (error: any) {
+      setBillingMessage(error?.message || "Falha ao confirmar pagamento Stripe.");
+    } finally {
+      setBillingLoading(false);
+    }
+  }
 
   const loadCalendarStatus = async (
     mode: CalendarViewMode = calendarView,
@@ -182,7 +243,35 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
 
   useEffect(() => {
     void loadCalendarStatus();
+    void loadBillingProfile();
+    const hashQuery = window.location.hash.split("?")[1] || "";
+    const params = new URLSearchParams(hashQuery);
+    const checkoutSessionId = params.get("stripe_session_id") || "";
+    if (checkoutSessionId && checkoutSessionId !== "{CHECKOUT_SESSION_ID}") {
+      void confirmStripeCheckout(checkoutSessionId);
+    }
   }, []);
+
+  const loadBillingProfile = async () => {
+    try {
+      const [profileResponse, plansResponse] = await Promise.all([
+        fetch(apiUrl("/api/professional/profile"), { headers: authHeaders() }),
+        fetch(apiUrl("/api/access/plans")),
+      ]);
+      const profileData = profileResponse.ok ? await profileResponse.json() : null;
+      const plansData = plansResponse.ok ? await plansResponse.json() : null;
+      setProfileStatus(profileData?.access_status || user?.access_status || null);
+      const nextPlans = Array.isArray(plansData?.plans) ? plansData.plans : fallbackPlans;
+      setPlans(nextPlans);
+      if (nextPlans[0] && !nextPlans.some((plan: AccessPlan) => plan.id === selectedPlan)) {
+        setSelectedPlan(nextPlans[0].id);
+        setSessionQuantity(Number(nextPlans[0].session_credits || 1));
+      }
+    } catch {
+      setPlans(fallbackPlans);
+      setProfileStatus(user?.access_status || null);
+    }
+  };
 
   const addPrompt = (event: React.FormEvent) => {
     event.preventDefault();
@@ -359,6 +448,57 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
     }
   };
 
+  const selectedPlanData =
+    plans.find((plan) => plan.id === selectedPlan) || plans[0] || fallbackPlans[0];
+  const purchaseBonusSessions = Math.floor(Math.max(0, sessionQuantity) / 100) * 10;
+  const purchaseTotalSessions = Math.max(0, sessionQuantity) + purchaseBonusSessions;
+  const purchaseTotalCents = Math.max(0, Number(selectedPlanData?.amount_cents || 0)) * Math.max(0, sessionQuantity);
+
+  const buySessionCredits = async () => {
+    if (!selectedPlanData || sessionQuantity < 1) {
+      setBillingMessage("Informe ao menos 1 sessao para compra.");
+      return;
+    }
+    setBillingLoading(true);
+    setBillingMessage("");
+    try {
+      const response = await fetch(apiUrl("/api/billing/checkout"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders(),
+        },
+        body: JSON.stringify({
+          purchase_type: "add_sessions",
+          plan_id: selectedPlan,
+          email: ownerEmail,
+          base_url: publicAppUrl(),
+          contracted_sessions: sessionQuantity,
+          bonus_sessions: purchaseBonusSessions,
+          total_sessions: purchaseTotalSessions,
+          session_unit_amount_cents: selectedPlanData.amount_cents,
+          package_total_cents: purchaseTotalCents,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.detail || "Nao foi possivel iniciar a compra.");
+      if (data.status === "free_access" || data.status === "stripe_not_configured") {
+        setBillingMessage(data.message || "Creditos atualizados localmente.");
+        await loadBillingProfile();
+        return;
+      }
+      if (data.checkout_url) {
+        window.location.assign(data.checkout_url);
+        return;
+      }
+      setBillingMessage("Checkout iniciado, mas sem URL de redirecionamento.");
+    } catch (error: any) {
+      setBillingMessage(error?.message || "Falha ao comprar sessoes.");
+    } finally {
+      setBillingLoading(false);
+    }
+  };
+
   const calendarDays = useMemo(() => {
     const { start, end } = getCalendarRange(calendarView, calendarAnchor);
     const days: Date[] = [];
@@ -401,9 +541,20 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
             </p>
           </div>
           {ownerEmail && (
-            <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-bold text-slate-300">
-              {ownerEmail}
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              {(user?.access_status?.admin || ownerEmail.toLowerCase() === "fbenhayon@gmail.com") && (
+                <button
+                  type="button"
+                  onClick={() => nav("/admin")}
+                  className="rounded-lg border border-cyan-800 bg-cyan-950 px-3 py-1.5 text-xs font-bold text-cyan-100 hover:bg-cyan-900"
+                >
+                  Admin
+                </button>
+              )}
+              <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-bold text-slate-300">
+                {ownerEmail}
+              </span>
+            </div>
           )}
         </div>
 
@@ -767,15 +918,74 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
           <div className="rounded-lg border border-slate-700 p-3">
             <p className="text-sm font-semibold">Planos e Cobranca</p>
             <p className="mt-1 text-xs text-slate-400">
-              Checkout Stripe e controle de creditos de sessao FROID.
+              Checkout Stripe, saldo contratado e controle de creditos de sessao FROID.
             </p>
-            <div className="mt-3 flex gap-2 text-xs">
-              <span className="rounded-full bg-blue-950 px-2 py-0.5 text-blue-200">
-                Sessao avulsa
-              </span>
-              <span className="rounded-full bg-emerald-950/40 px-2 py-0.5 text-emerald-200">
-                Pacote 25
-              </span>
+            <div className="mt-3 grid gap-2 text-xs sm:grid-cols-3">
+              <div className="rounded border border-slate-700 bg-slate-950 p-2">
+                <p className="font-black uppercase text-slate-500">Contratadas</p>
+                <p className="mt-1 text-lg font-black text-cyan-200">
+                  {profileStatus?.total_sessions ?? "--"}
+                </p>
+              </div>
+              <div className="rounded border border-slate-700 bg-slate-950 p-2">
+                <p className="font-black uppercase text-slate-500">Usadas</p>
+                <p className="mt-1 text-lg font-black text-amber-100">
+                  {profileStatus?.used_sessions ?? "--"}
+                </p>
+              </div>
+              <div className="rounded border border-slate-700 bg-slate-950 p-2">
+                <p className="font-black uppercase text-slate-500">Saldo</p>
+                <p className="mt-1 text-lg font-black text-emerald-200">
+                  {profileStatus?.remaining_sessions ?? "--"}
+                </p>
+              </div>
+            </div>
+            <div className="mt-3 grid gap-2 rounded border border-slate-700 bg-slate-950 p-3">
+              <label className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+                Pacote
+                <select
+                  value={selectedPlan}
+                  onChange={(event) => {
+                    const plan = (plans.length ? plans : fallbackPlans).find(
+                      (item) => item.id === event.target.value,
+                    );
+                    setSelectedPlan(event.target.value);
+                    if (plan) setSessionQuantity(Number(plan.session_credits || 1));
+                  }}
+                  className="mt-1 w-full rounded border border-slate-700 bg-slate-900 px-2 py-2 text-xs font-semibold normal-case tracking-normal text-slate-100 outline-none focus:border-cyan-500"
+                >
+                  {(plans.length ? plans : fallbackPlans).map((plan) => (
+                    <option key={plan.id} value={plan.id}>
+                      {plan.name} - {plan.amount_brl}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+                Sessoes a comprar
+                <input
+                  type="number"
+                  min={1}
+                  value={sessionQuantity}
+                  onChange={(event) => setSessionQuantity(Math.max(0, Number(event.target.value || 0)))}
+                  className="mt-1 w-full rounded border border-slate-700 bg-slate-900 px-2 py-2 text-xs font-semibold normal-case tracking-normal text-slate-100 outline-none focus:border-cyan-500"
+                />
+              </label>
+              <div className="rounded border border-cyan-900/70 bg-cyan-950/30 p-2 text-xs text-cyan-100">
+                Total liberado: <strong>{purchaseTotalSessions}</strong> sessoes
+                {purchaseBonusSessions ? `, incluindo ${purchaseBonusSessions} bonus` : ""}.
+              </div>
+              <button
+                type="button"
+                disabled={billingLoading || sessionQuantity < 1}
+                onClick={() => void buySessionCredits()}
+                className="rounded-lg bg-cyan-700 px-3 py-2 text-xs font-bold text-white hover:bg-cyan-800 disabled:opacity-40"
+              >
+                {billingLoading ? "Processando..." : "Comprar sessoes"}
+              </button>
+              {billingMessage && (
+                <p className="text-xs font-bold text-amber-100">{billingMessage}</p>
+              )}
             </div>
           </div>
           <div className="rounded-lg border border-slate-700 p-3">

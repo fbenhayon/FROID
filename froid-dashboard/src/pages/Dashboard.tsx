@@ -91,6 +91,9 @@ interface ProfessionalProfile {
   organization_name?: string;
   organization_document?: string;
   profile_fields?: Record<string, string>;
+  total_sessions?: number;
+  used_sessions?: number;
+  remaining_sessions?: number;
 }
 
 function makeId() {
@@ -840,6 +843,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
             <h1 className="mt-1 text-xl font-bold text-slate-100">{professionalName}</h1>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
+            {professionalProfile && (
+              <span className="rounded-lg border border-emerald-800 bg-emerald-950 px-3 py-2 text-xs font-bold text-emerald-100">
+                Saldo: {professionalProfile.remaining_sessions ?? "--"} sessoes
+              </span>
+            )}
+            {(user?.access_status?.admin || String(user?.email || "").toLowerCase() === "fbenhayon@gmail.com") && (
+              <button
+                onClick={() => nav("/admin")}
+                className="rounded-lg border border-cyan-800 bg-cyan-950 px-3 py-2 text-xs font-bold text-cyan-100 hover:bg-cyan-900"
+              >
+                Admin
+              </button>
+            )}
             <button
               onClick={() => nav("/settings")}
               className="rounded-lg border border-cyan-800 bg-cyan-950 px-3 py-2 text-xs font-bold text-cyan-100 hover:bg-cyan-900"
