@@ -1563,6 +1563,7 @@ function buildAnonymizedContext(
   transcriptSegments: TranscriptSegment[],
   conversationSummaries: ConversationSummary[],
   remotePatientOn: boolean,
+  sessionMode?: "remote" | "presential" | "presential_mobile",
 ): SessionReportRecord["anonymizedContext"] {
   const patient = loadSessionPatient(sessionId || "");
   const previousReports = loadSessionReports()
@@ -1608,7 +1609,12 @@ function buildAnonymizedContext(
 
   return {
     schemaVersion: "anonymous_datamart_v3",
-    sessionModality: remotePatientOn ? "remote" : "presential",
+    sessionModality:
+      sessionMode === "presential_mobile"
+        ? "presential_mobile"
+        : remotePatientOn
+          ? "remote"
+          : "presential",
     sessionKind: previousReports.length ? "seguimento" : "primeira_sessao",
     sessionType: previousReports.length ? "seguimento" : "primeira_sessao",
     treatmentPhase:
@@ -1719,6 +1725,9 @@ function buildAnonymizedContext(
 function LiveSessionInner({ user }: LiveSessionProps) {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
+  const sessionPatient = loadSessionPatient(sessionId || "");
+  const isPresentialSession = sessionPatient?.sessionMode === "presential";
+  const isPresentialMobileSession = sessionPatient?.sessionMode === "presential_mobile";
   const [state, dispatch] = useReducer(reducer, undefined, createInitialState);
   const [dissonanceLog, setDissonanceLog] = useState<
     Array<{
@@ -1739,7 +1748,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const [semanticCutStartSecond, setSemanticCutStartSecond] = useState(0);
   const [rtcStatus, setRtcStatus] = useState("Aguardando paciente");
   const [remotePatientOn, setRemotePatientOn] = useState(false);
-  const [localSpeaker, setLocalSpeaker] = useState<SpeakerRole>("DR");
   const [attributedSpeaker, setAttributedSpeaker] = useState<SpeakerRole>("DR");
   const [speakerIdMode, setSpeakerIdMode] = useState<SpeakerIdMode>(() =>
     loadDrVoiceSignature() ? "auto" : "manual",
@@ -1808,7 +1816,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     windows: Array<{ timestamp: number; words: number }>;
   }>({ totalWords: 0, windows: [] });
   const lastDissonanceSig = useRef("");
-  const activeSpeakerRef = useRef<SpeakerRole>("DR");
   const attributedSpeakerRef = useRef<SpeakerRole>("DR");
   const forcedLocalSegmentSpeakerRef = useRef<SpeakerRole | null>(null);
   const remotePatientOnRef = useRef(false);
@@ -1857,9 +1864,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const applyAttributedSpeaker = useCallback((speaker: SpeakerRole, reason = "") => {
     attributedSpeakerRef.current = speaker;
     setAttributedSpeaker((prev) => (prev === speaker ? prev : speaker));
-    if (speakerIdModeRef.current === "auto") {
-      setLocalSpeaker((prev) => (prev === speaker ? prev : speaker));
-    }
     if (reason) {
       setLiveTranscription((prev) => ({
         ...(prev || {}),
@@ -1867,36 +1871,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         attributed_speaker: speaker,
       }));
     }
-  }, []);
-
-  const selectLocalSpeaker = useCallback((speaker: SpeakerRole) => {
-    const previousSpeaker = activeSpeakerRef.current;
-    if (previousSpeaker === speaker) return;
-    setSpeakerIdMode("manual");
-    const recorder = recorderRef.current;
-    if (
-      recorder &&
-      recorder.state === "recording" &&
-      !remotePatientOnRef.current
-    ) {
-      forcedLocalSegmentSpeakerRef.current = previousSpeaker;
-      segmentingRecorderStopRef.current = true;
-      try {
-        recorder.stop();
-      } catch {}
-    }
-    if (speaker === "DR" && !remotePatientOnRef.current) {
-      frameBuffer.current = [];
-    }
-    activeSpeakerRef.current = speaker;
-    applyAttributedSpeaker(speaker, "Modo manual definido pelo profissional.");
-    setLocalSpeaker(speaker);
-    setLiveTranscription((prev) => ({
-      ...(prev || {}),
-      local_session_speaker: speaker,
-      local_session_mode:
-        "Atendimento presencial: microfone local rotulado manualmente.",
-    }));
   }, []);
 
   const refreshMediaStatus = useCallback((stream: MediaStream | null) => {
@@ -2085,12 +2059,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     );
     startVoiceIdentification(stream);
   }, [applyAttributedSpeaker, isEnrollingDrVoice, startVoiceIdentification]);
-
-  // Recursos preservados para futura configuracao automatica de identidade vocal,
-  // sem expor controles manuais no layout da sessao.
-  void voiceIdStatus;
-  void selectLocalSpeaker;
-  void enrollDrVoice;
 
   const cleanupRtcCall = useCallback(() => {
     rtcSignalRef.current?.close();
@@ -3177,7 +3145,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     attributedSpeaker,
     applyAttributedSpeaker,
     drVoiceSignature,
-    localSpeaker,
     remotePatientOn,
     speakerIdMode,
     state.micOn,
@@ -3501,6 +3468,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       transcriptSegmentsRef.current,
       conversationSummaries,
       remotePatientOnRef.current,
+      sessionPatient?.sessionMode,
     );
     const summarySourceTranscript = transcriptSegmentsRef.current
       .map((segment) => segment.text)
@@ -3533,6 +3501,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     dissonanceLog,
     raw,
     sessionId,
+    sessionPatient?.sessionMode,
     state.elapsedSeconds,
   ]);
 
@@ -3674,6 +3643,37 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           startTime={state.sessionStart}
           onEndSession={endSession}
         />
+
+        {(isPresentialSession || isPresentialMobileSession) && (
+          <div className="rounded-lg border border-emerald-800 bg-emerald-950 p-3 text-[10px] leading-relaxed text-emerald-100">
+            <div className="flex items-center justify-between gap-2">
+              <p className="font-black uppercase tracking-wide">
+                {isPresentialMobileSession
+                  ? "Presencial com celular do paciente"
+                  : "Sessao presencial"}
+              </p>
+              <span className="rounded bg-slate-950/60 px-2 py-0.5 font-black">
+                {speakerIdMode === "auto" ? "voz DR auto" : "captura PC prioritária"}
+              </span>
+            </div>
+            <p className="mt-1">
+              {isPresentialMobileSession
+                ? "O celular do paciente deve ficar voltado ao rosto dele e funcionar como captura dedicada. Recomenda-se microfone de lapela no profissional para reduzir interferencia da voz do DR."
+                : "Recomendado: camera e microfone externos direcionados ao paciente. Cadastre a voz do DR antes da consulta para reduzir contaminacao da trilha bioacustica."}
+            </p>
+            <div className="mt-2 grid grid-cols-1 gap-1.5">
+              <button
+                type="button"
+                disabled={isEnrollingDrVoice || !state.micOn}
+                onClick={() => void enrollDrVoice()}
+                className="rounded border border-emerald-700 bg-slate-950/60 px-2 py-1 font-bold text-emerald-100 hover:bg-emerald-900 disabled:opacity-40"
+              >
+                Cadastrar voz do DR antes da sessao
+              </button>
+            </div>
+            <p className="mt-2 text-[9px] text-emerald-200">{voiceIdStatus}</p>
+          </div>
+        )}
 
         <div className="rounded-xl border border-cyan-800 bg-cyan-950 p-3 text-[10px] text-cyan-100 shadow-sm">
           <div className="mb-2 flex items-center justify-between gap-2">

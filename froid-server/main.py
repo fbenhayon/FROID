@@ -311,6 +311,79 @@ KNOWLEDGE_SOURCE_LABELS = {
 }
 
 
+SCIENTIFIC_CITATION_MARKERS = {
+    "referencia cientifica",
+    "referência científica",
+    "davis",
+    "mermelstein",
+    "eyben",
+    "wollmer",
+    "schuller",
+    "opensmile",
+    "ekman",
+    "friesen",
+    "hager",
+    "facs",
+    "boersma",
+    "weenink",
+    "praat",
+    "kroenke",
+    "spitzer",
+    "williams",
+    "phq-9",
+    "phq9",
+    "hamilton",
+    "ham-d",
+    "hamd",
+    "young",
+    "ymrs",
+    "doi",
+    "pubmed",
+    "journal",
+    "artigo",
+    "paper",
+}
+
+
+def _is_scientific_citation(citation: str) -> bool:
+    normalized = _normalize_search_text(citation)
+    return any(marker in normalized for marker in SCIENTIFIC_CITATION_MARKERS)
+
+
+def _scientific_citations(citations: List[str]) -> List[str]:
+    return sorted(
+        {
+            str(citation or "").strip()
+            for citation in citations
+            if str(citation or "").strip() and _is_scientific_citation(str(citation))
+        }
+    )
+
+
+def _sanitize_reference_sections(text: str) -> str:
+    value = str(text or "").strip()
+    if not value:
+        return value
+    match = re.search(r"\n\s*refer[^\n]*utilizad[^\n]*\n", value, flags=re.IGNORECASE)
+    if not match:
+        return value
+    before = value[: match.start()].rstrip()
+    reference_block = value[match.end() :].strip()
+    lines = [
+        line.strip()
+        for line in reference_block.splitlines()
+        if line.strip().startswith(("-", "*"))
+    ]
+    scientific_lines = [
+        line
+        for line in lines
+        if _is_scientific_citation(line)
+    ]
+    if not scientific_lines:
+        return before
+    return f"{before}\n\nReferencias utilizadas:\n" + "\n".join(scientific_lines)
+
+
 class FroidExplicaQuery(BaseModel):
     query_text: str = Field(..., min_length=1)
     patient_id: Optional[str] = None
@@ -861,10 +934,11 @@ async def _query_froid_knowledge(payload: FroidExplicaQuery) -> FroidExplicaResp
     chroma_docs, chroma_citations = _query_chroma_froid_knowledge(retrieval_query)
     local_docs, local_citations = _query_local_froid_knowledge(retrieval_query)
     context_chunks = chroma_docs or local_docs
-    citations = chroma_citations or local_citations
+    context_labels = chroma_citations or local_citations
+    citations = _scientific_citations(context_labels)
     context_str = "\n\n".join(
         f"[Fonte: {source}]\n{doc}"
-        for source, doc in zip(citations, context_chunks)
+        for source, doc in zip(context_labels, context_chunks)
     )
     session_context = _format_session_context(payload.context)
     conversation_history = _format_conversation_history(payload.conversation_history)
@@ -879,14 +953,13 @@ async def _query_froid_knowledge(payload: FroidExplicaQuery) -> FroidExplicaResp
         "Nao substitua a metrica anterior por IPM, IDM ou zonas se o assunto anterior era MFCC7, "
         "Shimmer, Jitter, F0, ZCR ou outro biomarcador especifico. Nao cite LGPD ou governanca se o assunto "
         "anterior era biomarcador vocal, FACS, IPM, IDM ou outra metrica clinica. "
-        "Use as referencias disponiveis em todas as respostas; quando houver referencias "
-        "cientificas disponiveis no contexto, cite-as explicitamente. Se a resposta usar fontes "
-        "internas FROID e literatura cientifica, separe quando possivel em 'Fontes internas FROID' "
-        "e 'Referencias cientificas'. Se nao houver fonte relacionada ao tema perguntado, nao cite "
-        "fontes irrelevantes e informe que nenhuma referencia especifica foi usada. "
+        "Use documentos internos FROID apenas como contexto tecnico, sem lista-los espontaneamente "
+        "como referencias finais. Ao final, em 'Referencias utilizadas', liste somente referencias "
+        "cientificas/documentos cientificos diretamente relacionados ao tema. Nao inclua base "
+        "operacional, campos anonimizados, proximas acoes, familia/relacionamentos, dashboard, "
+        "contexto da sessao ou documentos internos nao cientificos nessa secao. Se nao houver "
+        "referencia cientifica relacionada ao tema perguntado, omita a secao de referencias. "
         "Se as fontes forem insuficientes, diga claramente o que falta. "
-        "Ao final, inclua uma secao curta chamada 'Referencias utilizadas' com as fontes realmente "
-        "relacionadas ao tema."
     )
     prompt = (
         f"CONTEXTO CIENTIFICO FROID:\n{context_str or 'Base cientifica nao carregada.'}\n\n"
@@ -905,7 +978,7 @@ async def _query_froid_knowledge(payload: FroidExplicaQuery) -> FroidExplicaResp
     return FroidExplicaResponse(
         result_text=text,
         engine_used=f"FROID Explica RAG - {engine}",
-        citations=sorted(set(citations)),
+        citations=citations,
         safety_check_passed=True,
         intent="knowledge",
     )
@@ -1241,6 +1314,31 @@ def _invite_patient_identity(invite: dict) -> dict:
         "name": patient.get("name") or invite.get("patient_name") or "Paciente sem nome",
         "email": patient.get("email") or invite.get("patient_email") or "",
         "phone": patient.get("phone") or invite.get("patient_phone") or "",
+        "document": patient.get("document") or "",
+    }
+
+
+def _receivable_item(invite: dict) -> dict:
+    payment = invite.get("payment") if isinstance(invite.get("payment"), dict) else {}
+    due_cents = _receivable_due_cents(invite)
+    received_cents = min(_receivable_received_cents(invite), due_cents)
+    return {
+        "invite_id": invite.get("id") or "",
+        "session_id": invite.get("session_id") or "",
+        "created_at": invite.get("created_at") or "",
+        "accepted_at": invite.get("accepted_at") or "",
+        "session_count": max(1, _local_int(payment.get("package_sessions") or 1)),
+        "payment_mode": payment.get("mode") or "",
+        "payment_status": payment.get("payment_status") or "",
+        "session_value_cents": _local_int(payment.get("session_value_cents") or 0),
+        "session_value_brl": payment.get("session_value_brl") or _format_brl(_local_int(payment.get("session_value_cents") or 0)),
+        "due_cents": due_cents,
+        "received_cents": received_cents,
+        "pending_cents": max(0, due_cents - received_cents),
+        "due_brl": _format_brl(due_cents),
+        "received_brl": _format_brl(received_cents),
+        "pending_brl": _format_brl(max(0, due_cents - received_cents)),
+        "received_at": payment.get("received_at") or "",
     }
 
 
@@ -2831,6 +2929,7 @@ async def professional_receivables(request: Request):
                 "package_count": 0,
                 "single_count": 0,
                 "last_invite_at": "",
+                "items": [],
             },
         )
         row["total_due_cents"] += due_cents
@@ -2843,6 +2942,7 @@ async def professional_receivables(request: Request):
         created_at = str(invite.get("created_at") or "")
         if created_at > str(row.get("last_invite_at") or ""):
             row["last_invite_at"] = created_at
+        row["items"].append(_receivable_item(invite))
 
     rows = []
     for row in grouped.values():
@@ -3559,8 +3659,12 @@ async def create_billing_checkout(request: Request):
 async def froid_explica_query(payload: FroidExplicaQuery):
     intent = _classify_froid_explica_intent(payload.query_text)
     if intent == "analytics":
-        return await _query_froid_analytics(payload)
-    return await _query_froid_knowledge(payload)
+        result = await _query_froid_analytics(payload)
+    else:
+        result = await _query_froid_knowledge(payload)
+    result.result_text = _sanitize_reference_sections(result.result_text)
+    result.citations = _scientific_citations(result.citations)
+    return result
 
 
 @app.post("/api/copilot/query", response_model=FroidExplicaResponse)

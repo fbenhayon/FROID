@@ -112,6 +112,33 @@ const technologyStack = [
   ["Infraestrutura", "FastAPI, React, Docker, Caddy, WebRTC/media streams, APIs protegidas, auditoria e segregacao entre dados identificados e anonimos."],
 ];
 
+const captureArchitectureItems = [
+  [
+    "Captura presencial dedicada",
+    "O FROID admite sessao presencial com camera e microfone externos orientados ao paciente, reduzindo ruido de sala e aumentando a qualidade do vetor facial-vocal usado nos graficos.",
+  ],
+  [
+    "Celular do paciente como sensor",
+    "No modo Presencial com celular do paciente, o telefone do paciente abre o link FROID e se torna fonte dedicada de video e audio do paciente dentro do consultorio.",
+  ],
+  [
+    "Lapela do profissional",
+    "A recomendacao tecnica e que o profissional use microfone de lapela proprio. Assim, a fala do DR fica mais controlada e a trilha do celular permanece predominantemente vinculada ao paciente.",
+  ],
+  [
+    "Separacao de trilhas",
+    "A transcricao preserva a conversa DR/PAC, enquanto os biomarcadores, riscos, IPM, IDM, sub-harmonicos e dissonancias devem priorizar exclusivamente a trilha do paciente.",
+  ],
+  [
+    "Cadastro vocal do DR",
+    "A assinatura vocal do profissional pode ser cadastrada antes da consulta para apoiar a identificacao automatica e reduzir contaminacao acustica na leitura bioacustica do paciente.",
+  ],
+  [
+    "Qualidade e confiabilidade",
+    "A arquitetura pondera confiabilidade de canal: proximidade do microfone, enquadramento facial, perdas de midia, audio insuficiente e estabilidade do baseline afetam a forca dos sinais.",
+  ],
+];
+
 const researchReferences = [
   ["FACS", "Ekman, Friesen e Hager: Facial Action Coding System, base para AUs, intensidade, combinacoes e codificacao temporal facial."],
   ["MFCC", "Davis e Mermelstein: representacoes cepstrais em escala Mel para modelagem espectral da fala e reconhecimento automatico."],
@@ -192,6 +219,21 @@ const liveSessionItems = [
   ["Coluna 2", "Video, biofeedback facial, mapa zonal, IPM/IDM, zonas dominantes, baseline e leitura grafica da dinamica emocional."],
   ["Coluna 3", "IPM ampliado, riscos clinicos, sub-harmonicos, dissonancias, FROID Explica e paineis de investigacao interativa."],
   ["Interatividade", "Cortes profissionais, perguntas ao FROID Explica, consulta a base anonima, comparacao com baseline e registro de observacoes."],
+];
+
+const presentialSessionItems = [
+  [
+    "Sessao presencial com captura externa",
+    "Modo indicado para consultorios com camera e microfone externos posicionados para o paciente. A captura deve priorizar rosto e voz do paciente; a voz do profissional pode ser mitigada pelo cadastro previo da voz do DR e, quando possivel, por microfone de lapela separado.",
+  ],
+  [
+    "Presencial com celular do paciente",
+    "O paciente abre o link FROID no proprio celular dentro do consultorio. O telefone funciona como camera e microfone dedicados ao paciente, aproximando a captura facial e vocal da fonte real que alimenta os graficos.",
+  ],
+  [
+    "Microfone de lapela do profissional",
+    "Quando o paciente usa o celular como captura dedicada, recomenda-se que o profissional utilize microfone de lapela proprio. Isso reduz vazamento da voz do DR na trilha do paciente e melhora a separacao entre transcricao conversacional e bioacustica do paciente.",
+  ],
 ];
 
 const reportItems = [
@@ -323,6 +365,25 @@ export const FroidTechnologyPage: React.FC = () => {
               <TextBlock key={title} title={title} text={text} />
             ))}
           </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-5 py-12">
+        <p className="text-xs font-black uppercase tracking-[0.32em] text-emerald-300">Arquitetura de captura</p>
+        <h2 className="mt-3 max-w-5xl text-3xl font-black leading-tight text-white">
+          Presencial, online e celular do paciente como fonte dedicada de sinais.
+        </h2>
+        <p className="mt-5 max-w-4xl text-sm leading-7 text-slate-300">
+          A precisao do FROID depende da qualidade das trilhas que entram no sistema.
+          Por isso a engenharia de captura diferencia a conversa clinica completa da
+          trilha bioacustica prioritariamente atribuida ao paciente, permitindo
+          configuracoes presenciais com sensores externos ou com o proprio celular do
+          paciente no consultorio.
+        </p>
+        <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {captureArchitectureItems.map(([title, text]) => (
+            <TextBlock key={title} title={title} text={text} />
+          ))}
         </div>
       </section>
 
@@ -517,6 +578,26 @@ export const FroidProfessionalsPage: React.FC = () => {
           </div>
         </div>
         <ImagePanel src={auImage} alt="Unidades de acao facial aplicadas ao layout de sessao FROID" />
+      </section>
+
+      <section className="border-y border-emerald-300/20 bg-emerald-300/5">
+        <div className="mx-auto max-w-7xl px-5 py-12">
+          <p className="text-xs font-black uppercase tracking-[0.32em] text-emerald-300">Atendimento presencial</p>
+          <h2 className="mt-3 text-3xl font-black text-white">
+            Captura dedicada ao paciente sem exigir operacao manual durante a consulta.
+          </h2>
+          <p className="mt-5 max-w-4xl text-sm leading-7 text-slate-300">
+            O fluxo presencial do FROID foi desenhado para nao depender de cliques do
+            profissional durante a sessao. A melhor configuracao e aquela em que a
+            voz e a imagem do paciente chegam ao sistema por uma fonte dedicada, enquanto
+            a fala do profissional permanece identificavel para transcricao e contexto.
+          </p>
+          <div className="mt-8 grid gap-4 md:grid-cols-2">
+            {presentialSessionItems.map(([title, text]) => (
+              <TextBlock key={title} title={title} text={text} />
+            ))}
+          </div>
+        </div>
       </section>
 
       <section className="border-y border-white/10 bg-slate-900/70">

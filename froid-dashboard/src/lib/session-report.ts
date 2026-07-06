@@ -12,6 +12,8 @@ export interface PatientIdentity {
   email?: string;
   phone?: string;
   document?: string;
+  sessionMode?: "remote" | "presential" | "presential_mobile";
+  captureProfile?: "patient_external_media" | "patient_mobile" | "local_default";
 }
 
 export interface MetricSnapshot {
@@ -93,7 +95,7 @@ export interface SessionReportRecord {
   transcriptRetention?: "disabled_summary_only" | "enabled";
   anonymizedContext?: {
     schemaVersion: string;
-    sessionModality: "remote" | "presential" | "unknown";
+    sessionModality: "remote" | "presential" | "presential_mobile" | "unknown";
     sessionKind: string;
     sessionType?: string;
     treatmentPhase: string;

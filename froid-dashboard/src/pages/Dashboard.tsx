@@ -44,6 +44,7 @@ interface ReceivableRow {
     name?: string;
     email?: string;
     phone?: string;
+    document?: string;
   };
   total_due_cents: number;
   total_received_cents: number;
@@ -56,6 +57,22 @@ interface ReceivableRow {
   single_count: number;
   last_invite_at: string;
   status: "recebido" | "parcial" | "pendente" | "sem_valor";
+  items?: ReceivableItem[];
+}
+
+interface ReceivableItem {
+  invite_id?: string;
+  session_id?: string;
+  created_at?: string;
+  accepted_at?: string;
+  session_count?: number;
+  payment_mode?: string;
+  payment_status?: string;
+  session_value_brl?: string;
+  due_brl?: string;
+  received_brl?: string;
+  pending_brl?: string;
+  received_at?: string;
 }
 
 interface ReceivablesSummary {
@@ -63,6 +80,17 @@ interface ReceivablesSummary {
   total_due_brl: string;
   total_received_brl: string;
   total_pending_brl: string;
+}
+
+interface ProfessionalProfile {
+  account_type?: "individual" | "organization";
+  owner_name?: string;
+  owner_email?: string;
+  document?: string;
+  phone?: string;
+  organization_name?: string;
+  organization_document?: string;
+  profile_fields?: Record<string, string>;
 }
 
 function makeId() {
@@ -131,6 +159,242 @@ const RECEIVABLE_STATUS: Record<string, string> = {
 
 function scoreText(value: number) {
   return `${Math.round(value)}/100`;
+}
+
+function escapeHtml(value: unknown) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function compactAddress(profile: ProfessionalProfile | null) {
+  const fields = profile?.profile_fields || {};
+  return [
+    [fields.street, fields.number].filter(Boolean).join(", "),
+    fields.complement,
+    fields.district,
+    [fields.city, fields.state].filter(Boolean).join(" - "),
+    fields.postalCode ? `CEP ${fields.postalCode}` : "",
+    fields.country,
+  ]
+    .filter(Boolean)
+    .join(" | ");
+}
+
+function professionalReceiptInfo(profile: ProfessionalProfile | null, user?: any) {
+  const fields = profile?.profile_fields || {};
+  const isOrganization = profile?.account_type === "organization";
+  const name = isOrganization
+    ? fields.corporateName || profile?.organization_name || fields.tradeName || profile?.owner_name
+    : fields.fullName || profile?.owner_name || user?.name;
+  const document = isOrganization
+    ? fields.cnpj || profile?.organization_document || profile?.document
+    : fields.cpf || profile?.document;
+  const contactEmail = isOrganization ? fields.companyEmail : fields.email;
+  const contactPhone = isOrganization
+    ? fields.companyMainPhone || fields.companyMobile || profile?.phone
+    : fields.mobile || fields.phone || profile?.phone;
+  return {
+    name: name || user?.email || "Profissional FROID",
+    tradeName: fields.tradeName || "",
+    role: fields.profession || (isOrganization ? "Clinica/consultorio de saude" : "Profissional de saude"),
+    document: document || "",
+    registry: [fields.professionalCouncil, fields.professionalRegistry].filter(Boolean).join(" "),
+    address: compactAddress(profile),
+    email: contactEmail || profile?.owner_email || user?.email || "",
+    phone: contactPhone || "",
+    municipalRegistration: fields.municipalRegistration || "",
+    stateRegistration: fields.stateRegistration || "",
+    taxRegime: fields.taxRegime || "",
+    receiptCity: fields.receiptCity || [fields.city, fields.state].filter(Boolean).join(" - "),
+    serviceDescription:
+      fields.receiptServiceDescription ||
+      "Atendimento profissional em saude mental realizado com apoio operacional FROID.",
+    fiscalObservation: fields.receiptFiscalObservation || "",
+    isOrganization,
+  };
+}
+
+function receiptDate(value?: string) {
+  if (!value) return "--";
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "--";
+  return date.toLocaleDateString("pt-BR");
+}
+
+function openReceiptPrintWindow(
+  row: ReceivableRow,
+  profile: ProfessionalProfile | null,
+  user?: any,
+) {
+  const info = professionalReceiptInfo(profile, user);
+  const officialReference = window.prompt(
+    "Referencia do recibo oficial Receita Saude/NFS-e, se houver:",
+    "",
+  ) || "";
+  const payerName = window.prompt(
+    "Nome do pagador, se diferente do paciente:",
+    row.patient?.name || "",
+  ) || row.patient?.name || "";
+  const payerDocument = window.prompt(
+    "CPF/CNPJ do pagador, se aplicavel:",
+    row.patient?.document || "",
+  ) || row.patient?.document || "";
+  const issueDate = new Date();
+  const internalId = row.items?.[0]?.session_id || row.patient_key;
+  const items = row.items && row.items.length ? row.items : [];
+  const rowsHtml = items.length
+    ? items
+        .map(
+          (item) => `
+            <tr>
+              <td>${escapeHtml(item.session_id || item.invite_id || "--")}</td>
+              <td>${escapeHtml(receiptDate(item.accepted_at || item.created_at))}</td>
+              <td>${escapeHtml(item.session_count || 1)}</td>
+              <td>${escapeHtml(item.session_value_brl || "--")}</td>
+              <td>${escapeHtml(item.due_brl || "--")}</td>
+              <td>${escapeHtml(item.received_brl || "--")}</td>
+              <td>${escapeHtml(item.payment_status || row.status)}</td>
+            </tr>
+          `,
+        )
+        .join("")
+    : `
+      <tr>
+        <td>${escapeHtml(internalId)}</td>
+        <td>${escapeHtml(receiptDate(row.last_invite_at))}</td>
+        <td>${escapeHtml(row.session_count)}</td>
+        <td>--</td>
+        <td>${escapeHtml(row.total_due_brl)}</td>
+        <td>${escapeHtml(row.total_received_brl)}</td>
+        <td>${escapeHtml(row.status)}</td>
+      </tr>
+    `;
+
+  const html = `<!doctype html>
+  <html lang="pt-BR">
+    <head>
+      <meta charset="utf-8" />
+      <title>FROID - Fatura Recibo</title>
+      <style>
+        body { color: #0f172a; font-family: Arial, sans-serif; margin: 32px; }
+        .top { border-bottom: 3px solid #0e7490; display: flex; justify-content: space-between; gap: 24px; padding-bottom: 14px; }
+        .brand { color: #0e7490; font-size: 12px; font-weight: 900; letter-spacing: .25em; text-transform: uppercase; }
+        h1 { font-size: 22px; margin: 8px 0 0; }
+        h2 { border-bottom: 1px solid #cbd5e1; color: #334155; font-size: 13px; margin-top: 22px; padding-bottom: 6px; text-transform: uppercase; }
+        .box { border: 1px solid #cbd5e1; border-radius: 8px; margin-top: 10px; padding: 12px; }
+        .grid { display: grid; gap: 8px 16px; grid-template-columns: repeat(2, 1fr); }
+        .label { color: #64748b; display: block; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+        .value { font-size: 13px; font-weight: 700; margin-top: 2px; }
+        table { border-collapse: collapse; margin-top: 10px; width: 100%; }
+        th, td { border: 1px solid #cbd5e1; font-size: 11px; padding: 7px; text-align: left; }
+        th { background: #e2e8f0; color: #334155; text-transform: uppercase; }
+        .totals { display: grid; gap: 8px; grid-template-columns: repeat(3, 1fr); margin-top: 12px; }
+        .total { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; }
+        .note { color: #475569; font-size: 11px; line-height: 1.55; margin-top: 18px; }
+        .signature { margin-top: 48px; text-align: center; }
+        .line { border-top: 1px solid #0f172a; margin: 0 auto 8px; width: 320px; }
+        @media print { body { margin: 18mm; } button { display: none; } }
+      </style>
+    </head>
+    <body>
+      <button onclick="window.print()" style="float:right;margin-bottom:16px">Imprimir / salvar PDF</button>
+      <div class="top">
+        <div>
+          <div class="brand">FROID</div>
+          <h1>Fatura / Recibo complementar de atendimento em saude</h1>
+          <p class="note">Documento operacional gerado pelo FROID para conferencia, envio ao paciente e organizacao interna.</p>
+        </div>
+        <div>
+          <span class="label">Emissao</span>
+          <div class="value">${escapeHtml(issueDate.toLocaleDateString("pt-BR"))}</div>
+          <span class="label">ID interno FROID</span>
+          <div class="value">${escapeHtml(internalId)}</div>
+        </div>
+      </div>
+
+      <h2>1. Dados do profissional / prestador</h2>
+      <div class="box grid">
+        <div><span class="label">Nome/Razao social</span><div class="value">${escapeHtml(info.name)}</div></div>
+        <div><span class="label">Profissao/atividade</span><div class="value">${escapeHtml(info.role)}</div></div>
+        <div><span class="label">CPF/CNPJ</span><div class="value">${escapeHtml(info.document || "--")}</div></div>
+        <div><span class="label">Registro profissional</span><div class="value">${escapeHtml(info.registry || "--")}</div></div>
+        <div><span class="label">Contato</span><div class="value">${escapeHtml([info.phone, info.email].filter(Boolean).join(" | ") || "--")}</div></div>
+        <div><span class="label">Endereco</span><div class="value">${escapeHtml(info.address || "--")}</div></div>
+        ${info.isOrganization ? `<div><span class="label">Inscricao municipal</span><div class="value">${escapeHtml(info.municipalRegistration || "--")}</div></div>` : ""}
+        ${info.isOrganization ? `<div><span class="label">Regime tributario</span><div class="value">${escapeHtml(info.taxRegime || "--")}</div></div>` : ""}
+      </div>
+
+      <h2>2. Dados do paciente / pagador</h2>
+      <div class="box grid">
+        <div><span class="label">Paciente</span><div class="value">${escapeHtml(row.patient?.name || "--")}</div></div>
+        <div><span class="label">CPF do paciente/beneficiario</span><div class="value">${escapeHtml(row.patient?.document || "--")}</div></div>
+        <div><span class="label">Pagador</span><div class="value">${escapeHtml(payerName || "--")}</div></div>
+        <div><span class="label">CPF/CNPJ do pagador</span><div class="value">${escapeHtml(payerDocument || "--")}</div></div>
+      </div>
+
+      <h2>3. Dados do atendimento e pagamento</h2>
+      <div class="box">
+        <div class="grid">
+          <div><span class="label">Descricao do servico</span><div class="value">${escapeHtml(info.serviceDescription)}</div></div>
+          <div><span class="label">Referencia oficial Receita Saude/NFS-e</span><div class="value">${escapeHtml(officialReference || "--")}</div></div>
+          <div><span class="label">Forma de pagamento</span><div class="value">PIX / acordo profissional / conciliacao interna</div></div>
+          <div><span class="label">Situacao</span><div class="value">${escapeHtml(row.status)}</div></div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>ID FROID</th>
+              <th>Data sessao/convite</th>
+              <th>Sessoes</th>
+              <th>Valor unit.</th>
+              <th>Devido</th>
+              <th>Recebido</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+        <div class="totals">
+          <div class="total"><span class="label">Total devido</span><div class="value">${escapeHtml(row.total_due_brl)}</div></div>
+          <div class="total"><span class="label">Total recebido</span><div class="value">${escapeHtml(row.total_received_brl)}</div></div>
+          <div class="total"><span class="label">Pendente</span><div class="value">${escapeHtml(row.total_pending_brl)}</div></div>
+        </div>
+      </div>
+
+      <h2>4. Declaracao e observacao fiscal</h2>
+      <p class="note">
+        Declara-se, para fins operacionais, que o atendimento acima descrito foi prestado ao paciente identificado neste documento,
+        nos valores informados e conforme registros internos do FROID.
+      </p>
+      <p class="note">
+        Quando o atendimento for prestado por profissional de saude autonomo pessoa fisica, o comprovante fiscal valido para fins
+        oficiais deve ser emitido no sistema Receita Saude no momento do pagamento. Quando o atendimento for prestado por pessoa
+        juridica, a emissao fiscal/NFS-e deve seguir a orientacao contabil aplicavel. Este PDF nao substitui o recibo eletronico
+        oficial quando este for exigido.
+      </p>
+      ${info.fiscalObservation ? `<p class="note"><strong>Observacao do profissional:</strong> ${escapeHtml(info.fiscalObservation)}</p>` : ""}
+
+      <div class="signature">
+        <div class="line"></div>
+        <div>${escapeHtml(info.name)}</div>
+        <div>${escapeHtml(info.receiptCity || "Local de emissao")}, ${escapeHtml(issueDate.toLocaleDateString("pt-BR"))}</div>
+      </div>
+    </body>
+  </html>`;
+
+  const receiptWindow = window.open("", "_blank", "width=980,height=760");
+  if (!receiptWindow) {
+    window.alert("Nao foi possivel abrir a janela de recibo. Verifique o bloqueador de pop-ups.");
+    return;
+  }
+  receiptWindow.document.open();
+  receiptWindow.document.write(html);
+  receiptWindow.document.close();
+  receiptWindow.focus();
 }
 
 function averageNumeric(values: Array<number | null | undefined>, fallback: number | null | undefined = 0) {
@@ -255,6 +519,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   const [receivablesSummary, setReceivablesSummary] = useState<ReceivablesSummary | null>(null);
   const [receivablesMessage, setReceivablesMessage] = useState("");
   const [receivablesLoading, setReceivablesLoading] = useState(false);
+  const [professionalProfile, setProfessionalProfile] = useState<ProfessionalProfile | null>(null);
   const [reports, setReports] = useState<SessionReportRecord[]>(() =>
     loadSessionReports(),
   );
@@ -278,6 +543,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
     } catch {
       setReceivables([]);
       setReceivablesSummary(null);
+    }
+  };
+
+  const loadProfessionalProfile = async () => {
+    try {
+      const response = await fetch(apiUrl("/api/professional/profile"), {
+        headers: authHeaders(),
+      });
+      const data = response.ok ? await response.json() : null;
+      setProfessionalProfile(data?.profile || null);
+    } catch {
+      setProfessionalProfile(null);
     }
   };
 
@@ -321,6 +598,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   useEffect(() => {
     setReports(loadSessionReports());
     void loadReceivables();
+    void loadProfessionalProfile();
     let active = true;
     const token = localStorage.getItem("froid_token") || "";
     fetch(apiUrl("/api/session-reports"), {
@@ -437,14 +715,53 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
       phone?: string;
     },
     patientKey?: string,
+    captureMode?: "patient_mobile",
   ) => {
     if (patientKey) setSelectedPatientKey(patientKey);
     const params = new URLSearchParams();
     if (patient?.name) params.set("name", patient.name);
     if (patient?.email) params.set("email", patient.email);
     if (patient?.phone) params.set("phone", patient.phone);
+    if (captureMode) params.set("capture", captureMode);
     const query = params.toString();
     nav(`/patients/new${query ? `?${query}` : ""}`);
+  };
+
+  const startPresentialSession = (group = selectedGroup) => {
+    const sessionId = makeId();
+    if (group?.patient) {
+      rememberSessionPatient(sessionId, {
+        id: group.patient.id,
+        name: group.patient.name,
+        email: group.patient.email,
+        phone: group.patient.phone,
+        document: group.patient.document,
+        sessionMode: "presential",
+        captureProfile: "patient_external_media",
+      });
+      setSelectedPatientKey(group.key);
+    } else {
+      rememberSessionPatient(sessionId, {
+        name: "Paciente presencial",
+        sessionMode: "presential",
+        captureProfile: "patient_external_media",
+      });
+    }
+    nav(`/session/${sessionId}`);
+  };
+
+  const startPresentialMobileSession = (group = selectedGroup) => {
+    openPatientRegistration(
+      group?.patient
+        ? {
+            name: group.patient.name,
+            email: group.patient.email,
+            phone: group.patient.phone,
+          }
+        : undefined,
+      group?.key,
+      "patient_mobile",
+    );
   };
 
   useEffect(() => {
@@ -520,10 +837,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
             <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-300">
               Dashboard Profissional
             </p>
-            <h1 className="text-xl font-bold text-slate-100">FROID Dashboard</h1>
-            <p className="mt-1 text-xs text-slate-400">
-              Bem-vindo, {professionalName}
-            </p>
+            <h1 className="mt-1 text-xl font-bold text-slate-100">{professionalName}</h1>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
             <button
@@ -547,14 +861,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
       {patientActivity && (
         <p className="rounded-lg border border-cyan-800 bg-cyan-950 px-3 py-2 text-xs font-bold text-cyan-100">
           {patientActivity}
-        </p>
-      )}
-
-      {selectedGroup && (
-        <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-100">
-          Aviso de agenda: acesse o layout de{" "}
-          {selectedGroup.patient.name || "Paciente sem nome"} e envie o convite da
-          sessao quando estiver a 5 minutos do atendimento programado.
         </p>
       )}
 
@@ -706,6 +1012,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                         >
                           Pendente
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => openReceiptPrintWindow(row, professionalProfile, user)}
+                          className="rounded border border-cyan-700 bg-cyan-950/50 px-2 py-1 text-[9px] font-bold text-cyan-100 hover:bg-cyan-900"
+                        >
+                          Recibo
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -730,6 +1043,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
             className="rounded-lg bg-cyan-700 px-3 py-2 text-xs font-bold text-white hover:bg-cyan-800"
           >
             + Novo Paciente
+          </button>
+          <button
+            onClick={() => startPresentialSession()}
+            className="rounded-lg border border-emerald-700 bg-emerald-950 px-3 py-2 text-xs font-bold text-emerald-100 hover:bg-emerald-900"
+          >
+            + Sessao Presencial
+          </button>
+          <button
+            onClick={() => startPresentialMobileSession()}
+            className="rounded-lg border border-violet-700 bg-violet-950 px-3 py-2 text-xs font-bold text-violet-100 hover:bg-violet-900"
+          >
+            + Presencial com Celular
           </button>
           <button
             onClick={() => nav(`/session/${makeId()}`)}
@@ -803,6 +1128,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                   className="rounded-lg bg-cyan-700 px-3 py-2 text-xs font-bold text-white hover:bg-cyan-800"
                 >
                   Convite
+                </button>
+                <button
+                  onClick={() => startPresentialSession(group)}
+                  className="rounded-lg border border-emerald-700 bg-emerald-950 px-3 py-2 text-xs font-bold text-emerald-100 hover:bg-emerald-900"
+                >
+                  Presencial
+                </button>
+                <button
+                  onClick={() => startPresentialMobileSession(group)}
+                  className="rounded-lg border border-violet-700 bg-violet-950 px-3 py-2 text-xs font-bold text-violet-100 hover:bg-violet-900"
+                >
+                  Celular PC
                 </button>
                 <button
                   onClick={() => {
@@ -884,16 +1221,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                 <table className="min-w-max table-auto text-left text-[10px] leading-tight">
                   <thead className="text-[9px] uppercase tracking-normal text-slate-500">
                     <tr>
-                      <th className="whitespace-nowrap py-1 pr-2">Data</th>
-                      <th className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-bold">
-                        Status
-                      </th>
-                      <th className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-bold">
-                        Pagamento
-                      </th>
-                      <th className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-bold">
-                        Detalhe
-                      </th>
+                      <th className="whitespace-nowrap py-1 pr-2">Data / Pagamento / Detalhe</th>
                       {compactMetricCells(group.reports[0]?.sessionAverage || averageSnapshot).map((cell) => (
                         <th
                           key={`last-head-${cell.key}`}
@@ -919,24 +1247,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800">
-                    {group.reports.slice(0, 3).map((report, index) => (
+                    {group.reports.slice(0, 3).map((report) => (
                       <tr key={report.sessionId} className="align-top">
-                        <td className="whitespace-nowrap py-1 pr-2 font-bold text-slate-300">
-                          {formatDateTime(reportEndDate(report))}
-                        </td>
-                        <td className="whitespace-nowrap border-l border-slate-700 px-2 py-1 text-slate-300">
-                          {index === 0 ? "Concluida" : "Ativa"} {shortId(report.sessionId)}
-                        </td>
-                        <td className="whitespace-nowrap border-l border-slate-700 px-2 py-1 text-slate-300">
-                          {paymentStatusForReport(report)}
-                        </td>
-                        <td className="whitespace-nowrap border-l border-slate-700 px-2 py-1">
-                          <button
-                            onClick={() => nav(`/session/${report.sessionId}/report`)}
-                            className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-[10px] font-bold text-slate-200 hover:bg-slate-800"
-                          >
-                            Ver
-                          </button>
+                        <td className="whitespace-nowrap py-1 pr-2 text-slate-300">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold">{formatDateTime(reportEndDate(report))}</span>
+                            <span className="rounded border border-slate-700 bg-slate-950 px-2 py-0.5 text-[9px] font-bold uppercase text-slate-300">
+                              {paymentStatusForReport(report)}
+                            </span>
+                            <button
+                              onClick={() => nav(`/session/${report.sessionId}/report`)}
+                              className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-[10px] font-bold text-slate-200 hover:bg-slate-800"
+                            >
+                              Ver
+                            </button>
+                          </div>
                         </td>
                         {compactMetricCells(report.sessionAverage).map((cell) => (
                           <td

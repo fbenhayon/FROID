@@ -79,9 +79,60 @@ function cleanFroidExplicaText(text: string) {
     .trim();
 }
 
+const SCIENTIFIC_CITATION_MARKERS = [
+  "referencia cientifica",
+  "referência científica",
+  "davis",
+  "mermelstein",
+  "eyben",
+  "wollmer",
+  "schuller",
+  "opensmile",
+  "ekman",
+  "friesen",
+  "hager",
+  "facs",
+  "boersma",
+  "weenink",
+  "praat",
+  "kroenke",
+  "spitzer",
+  "williams",
+  "phq-9",
+  "phq9",
+  "hamilton",
+  "ham-d",
+  "hamd",
+  "young",
+  "ymrs",
+  "doi",
+  "pubmed",
+  "journal",
+  "artigo",
+  "paper",
+];
+
+function normalizeCitationText(citation: string) {
+  return String(citation || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function isScientificCitation(citation: string) {
+  const normalized = normalizeCitationText(citation);
+  return SCIENTIFIC_CITATION_MARKERS.some((marker) =>
+    normalized.includes(normalizeCitationText(marker)),
+  );
+}
+
 function appendCitations(text: string, citations?: string[]) {
   const cleanCitations = Array.from(
-    new Set((citations || []).map((citation) => String(citation || "").trim()).filter(Boolean)),
+    new Set(
+      (citations || [])
+        .map((citation) => String(citation || "").trim())
+        .filter((citation) => citation && isScientificCitation(citation)),
+    ),
   );
   if (!cleanCitations.length || /refer[eê]ncias utilizadas/i.test(text)) {
     return text;

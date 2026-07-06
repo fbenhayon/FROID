@@ -79,10 +79,16 @@ const emptyFields: Record<string, string> = {
   state: "",
   city: "",
   profession: "",
+  professionalCouncil: "",
+  professionalRegistry: "",
   company: "",
   companyAddress: "",
   professionalTimeMonths: "",
   companyPhone: "",
+  taxRegime: "",
+  receiptServiceDescription: "",
+  receiptCity: "",
+  receiptFiscalObservation: "",
   referenceName1: "",
   referencePhone1: "",
   referenceName2: "",
@@ -561,9 +567,20 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
               <Field label="Cidade" name="city" value={fields.city} onChange={updateField} />
             </Section>
 
+            <Section title="Dados fiscais para fatura e recibo">
+              <Field label={accountType === "organization" ? "Atividade principal" : "Profissao"} name="profession" value={fields.profession} onChange={updateField} placeholder="Psicologa(o), Medica(o) Psiquiatra..." />
+              <Field label="Conselho profissional" name="professionalCouncil" value={fields.professionalCouncil} onChange={updateField} placeholder="CRP, CRM..." />
+              <Field label="Registro profissional" name="professionalRegistry" value={fields.professionalRegistry} onChange={updateField} placeholder="Numero do CRP/CRM" />
+              <Field label="Descricao padrao do servico" name="receiptServiceDescription" value={fields.receiptServiceDescription} onChange={updateField} placeholder="Sessao de psicoterapia individual, consulta psiquiatrica..." />
+              <Field label="Local de emissao" name="receiptCity" value={fields.receiptCity} onChange={updateField} placeholder="Cidade/UF" />
+              <Field label="Observacao fiscal padrao" name="receiptFiscalObservation" value={fields.receiptFiscalObservation} onChange={updateField} placeholder="Referencia Receita Saude/NFS-e quando aplicavel" />
+              {accountType === "organization" && (
+                <Field label="Regime tributario" name="taxRegime" value={fields.taxRegime} onChange={updateField} />
+              )}
+            </Section>
+
             {accountType === "individual" && (
               <Section title="Dados Profissionais">
-                <Field label="Profissao" name="profession" value={fields.profession} onChange={updateField} />
                 <Field label="Empresa" name="company" value={fields.company} onChange={updateField} />
                 <Field label="Endereco da empresa" name="companyAddress" value={fields.companyAddress} onChange={updateField} />
                 <Field label="Tempo meses" name="professionalTimeMonths" value={fields.professionalTimeMonths} onChange={updateField} type="number" />

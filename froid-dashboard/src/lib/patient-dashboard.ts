@@ -102,7 +102,7 @@ export function sessionMetricCells(
     { key: "idm", label: "IDM", value: fmt(snapshot.idmAvg, 2) },
     {
       key: "zone",
-      label: "Z Domin.",
+      label: "ZONAS",
       value: snapshot.dominantZone ? String(snapshot.dominantZone) : "--",
     },
     {

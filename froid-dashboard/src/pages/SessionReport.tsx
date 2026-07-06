@@ -101,7 +101,7 @@ const METRIC_TOOLTIPS: Record<string, string> = {
   Corte: "Intervalo temporal efetivamente analisado no corte da sessao.",
   IPM: "Indice de Potencia Multimodal: intensidade global ou energia emocional empregada.",
   IDM: "Indice de Desvio Multimodal: direcao e grau do desequilibrio multimodal.",
-  "Z Domin.": "Zona FROID dominante no periodo analisado.",
+  ZONAS: "Zona FROID dominante no periodo analisado.",
   Tema: "Tema predominante consolidado da sessao ou do bloco analisado.",
   Tom: "Tom emocional inferido pela combinacao vocal e semantica.",
   "P/min": "Palavras por minuto no periodo analisado.",
@@ -270,7 +270,7 @@ function metricRows(snapshot: MetricSnapshot) {
   return [
     ["IPM", fmt(snapshot.ipmAvg, 1)],
     ["IDM", fmt(snapshot.idmAvg, 2)],
-    ["Z Domin.", snapshot.dominantZone ? `Zona ${snapshot.dominantZone}` : "--"],
+    ["ZONAS", snapshot.dominantZone ? `Zona ${snapshot.dominantZone}` : "--"],
     ["Tom", snapshot.emotionalTone || "--"],
     ["P/min", fmt(snapshot.wordsPerMinute, 1)],
     ["Disso.", String(snapshot.dissonanceCount || 0)],

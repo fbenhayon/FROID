@@ -669,7 +669,7 @@ function patientMetricRows(snapshot: MetricSnapshot) {
   return [
     ["IPM", fmt(snapshot.ipmAvg, 1)],
     ["IDM", fmt(snapshot.idmAvg, 2)],
-    ["Z Domin.", snapshot.dominantZone ? `Zona ${snapshot.dominantZone}` : "--"],
+    ["ZONAS", snapshot.dominantZone ? `Zona ${snapshot.dominantZone}` : "--"],
     ["Tom", snapshot.emotionalTone || "--"],
     ["P/min", fmt(snapshot.wordsPerMinute, 1)],
     ["Disso.", String(snapshot.dissonanceCount || 0)],

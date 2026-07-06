@@ -49,6 +49,8 @@ function makeId() {
 export const NewPatient: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const captureMode = searchParams.get("capture") === "patient_mobile" ? "patient_mobile" : "";
+  const isPatientMobileCapture = captureMode === "patient_mobile";
   const [form, setForm] = useState(() => ({
     ...initialForm,
     patient_name: searchParams.get("name") || "",
@@ -107,6 +109,8 @@ export const NewPatient: React.FC = () => {
         name: form.patient_name,
         email: form.patient_email,
         phone: form.patient_phone,
+        sessionMode: isPatientMobileCapture ? "presential_mobile" : "remote",
+        captureProfile: isPatientMobileCapture ? "patient_mobile" : "local_default",
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao criar convite.");
@@ -162,6 +166,8 @@ export const NewPatient: React.FC = () => {
             name: patient,
             email: form.patient_email,
             phone: form.patient_phone,
+            sessionMode: isPatientMobileCapture ? "presential_mobile" : "remote",
+            captureProfile: isPatientMobileCapture ? "patient_mobile" : "local_default",
           });
           redirectingRef.current = true;
           window.setTimeout(() => {
@@ -179,7 +185,7 @@ export const NewPatient: React.FC = () => {
       active = false;
       window.clearInterval(intervalId);
     };
-  }, [form.patient_email, form.patient_name, form.patient_phone, invite, navigate]);
+  }, [form.patient_email, form.patient_name, form.patient_phone, invite, isPatientMobileCapture, navigate]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
@@ -190,10 +196,14 @@ export const NewPatient: React.FC = () => {
               Cadastro de Paciente
             </p>
             <h1 className="text-xl font-bold text-slate-100">
-              Novo paciente e convite LGPD
+              {isPatientMobileCapture
+                ? "Presencial com celular do paciente"
+                : "Novo paciente e convite LGPD"}
             </h1>
             <p className="mt-1 text-xs text-slate-400">
-              Gere o link publico para cadastro, consentimentos e entrada na sessao.
+              {isPatientMobileCapture
+                ? "Gere o link para o paciente abrir no proprio celular dentro do consultorio."
+                : "Gere o link publico para cadastro, consentimentos e entrada na sessao."}
             </p>
           </div>
           <button
@@ -210,6 +220,17 @@ export const NewPatient: React.FC = () => {
           <h2 className="text-sm font-bold text-slate-100">
             Dados iniciais e pagamento
           </h2>
+          {isPatientMobileCapture && (
+            <div className="mt-3 rounded-lg border border-violet-800 bg-violet-950 p-3 text-xs leading-relaxed text-violet-100">
+              <p className="font-black uppercase tracking-wide">Captura dedicada do paciente</p>
+              <p className="mt-1">
+                O paciente deve abrir o link no proprio celular. O aparelho funcionara
+                como camera e microfone proximos ao paciente. Recomenda-se que o
+                profissional use microfone de lapela proprio para reduzir vazamento da
+                voz do DR na trilha do paciente.
+              </p>
+            </div>
+          )}
           <form onSubmit={createInvite} className="mt-4 grid gap-3 md:grid-cols-2">
             <label className="text-xs font-bold text-slate-300">
               Nome do paciente
@@ -285,7 +306,11 @@ export const NewPatient: React.FC = () => {
                 disabled={creating}
                 className="rounded-lg bg-cyan-700 px-4 py-2 text-sm font-bold text-white hover:bg-cyan-800 disabled:opacity-50"
               >
-                {creating ? "Gerando..." : "Gerar link de cadastro"}
+                {creating
+                  ? "Gerando..."
+                  : isPatientMobileCapture
+                    ? "Gerar link para celular do paciente"
+                    : "Gerar link de cadastro"}
               </button>
               {error && (
                 <p className="mt-2 rounded bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
@@ -299,8 +324,9 @@ export const NewPatient: React.FC = () => {
         <aside className="rounded-lg border border-blue-800 bg-blue-950 p-4 text-xs text-blue-100">
           <h2 className="text-sm font-bold">Fluxo do paciente</h2>
           <p className="mt-2 leading-relaxed">
-            O paciente recebe o link, confirma dados, aceita LGPD e entra na sala.
-            O cadastro definitivo acontece no aceite do convite.
+            {isPatientMobileCapture
+              ? "No consultorio, o paciente abre o link no celular, confirma consentimentos e entra na sala. O celular passa a ser a captura dedicada do paciente."
+              : "O paciente recebe o link, confirma dados, aceita LGPD e entra na sala. O cadastro definitivo acontece no aceite do convite."}
           </p>
           {patientActivity && (
             <p className="mt-3 rounded border border-emerald-100 bg-emerald-950/40 p-2 font-bold text-emerald-800">
@@ -347,7 +373,9 @@ export const NewPatient: React.FC = () => {
             </div>
           ) : (
             <p className="mt-4 rounded border border-blue-100 bg-slate-950 p-3 text-blue-200">
-              Preencha os dados para gerar o link de cadastro do paciente.
+              {isPatientMobileCapture
+                ? "Preencha os dados para gerar o link que sera aberto no celular do paciente."
+                : "Preencha os dados para gerar o link de cadastro do paciente."}
             </p>
           )}
         </aside>

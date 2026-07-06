@@ -1,6 +1,7 @@
 import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Dashboard } from "./pages/Dashboard";
+import { AgendaReminderBanner } from "./components/panels/AgendaReminderBanner";
 import { LiveSession } from "./pages/LiveSession";
 import { History } from "./pages/History";
 import { Settings } from "./pages/Settings";
@@ -137,6 +138,7 @@ function App() {
 
   return (
     <HashRouter>
+      <AgendaReminderBanner enabled={isAuthenticated && !onboardingRequired(user)} />
       <Routes>
         <Route path="/convite/:token" element={<PatientInvitePage />} />
         <Route
