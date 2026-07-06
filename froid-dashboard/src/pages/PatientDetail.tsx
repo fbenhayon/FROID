@@ -27,6 +27,27 @@ function detailMetricCells(snapshot: MetricSnapshot) {
   return sessionMetricCells(snapshot).filter((cell) => cell.key !== "theme");
 }
 
+type PatientFollowStatus = "active" | "inactive";
+
+const PATIENT_STATUS_STORAGE_KEY = "froid_patient_follow_status_v1";
+
+function loadPatientStatuses(): Record<string, PatientFollowStatus> {
+  if (typeof window === "undefined") return {};
+  try {
+    const parsed = JSON.parse(
+      window.localStorage.getItem(PATIENT_STATUS_STORAGE_KEY) || "{}",
+    );
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function savePatientStatuses(statuses: Record<string, PatientFollowStatus>) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(PATIENT_STATUS_STORAGE_KEY, JSON.stringify(statuses));
+}
+
 export const PatientDetail: React.FC = () => {
   const navigate = useNavigate();
   const { patientKey = "" } = useParams<{ patientKey: string }>();
@@ -34,6 +55,9 @@ export const PatientDetail: React.FC = () => {
   const [reports, setReports] = useState<SessionReportRecord[]>(() =>
     loadSessionReports(),
   );
+  const [patientStatuses, setPatientStatuses] = useState<
+    Record<string, PatientFollowStatus>
+  >(() => loadPatientStatuses());
 
   useEffect(() => {
     let active = true;
@@ -83,12 +107,26 @@ export const PatientDetail: React.FC = () => {
   }
 
   const latest = group.latestReport;
+  const patientStatus = patientStatuses[decodedPatientKey] || "active";
+  const patientIsActive = patientStatus === "active";
+  const activePatients = patientIsActive ? 1 : 0;
+  const inactivePatients = patientIsActive ? 0 : 1;
+  const patientStatusLabel = patientIsActive ? "Paciente ativo" : "Paciente inativo";
+  const updatePatientStatus = (status: PatientFollowStatus) => {
+    setPatientStatuses((current) => {
+      const next = { ...current, [decodedPatientKey]: status };
+      savePatientStatuses(next);
+      return next;
+    });
+  };
   const context = {
     patient: group.patient,
     patient_summary: {
       total_sessions: group.totalSessions,
       completed_sessions: group.completedSessions,
       active_sessions: group.activeSessions,
+      active_patient: patientIsActive,
+      follow_status: patientStatus,
       total_analyses: group.totalAnalyses,
       dominant_zone: group.dominantZone,
       recurrent_emotion: group.recurrentEmotion,
@@ -101,6 +139,9 @@ export const PatientDetail: React.FC = () => {
   };
   const signal = patientAdvancedSignal(group);
   const sessionTableColSpan = detailMetricCells(latest.sessionAverage).length + 4;
+  const resultTextColSpan = Math.max(1, sessionTableColSpan - 2);
+  const latestResultLines = splitSessionResult(latest);
+  const latestCutCount = latest.tenMinuteCuts.filter((cut) => cut.sampleCount > 0).length;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800">
@@ -138,35 +179,9 @@ export const PatientDetail: React.FC = () => {
         </div>
       </header>
 
-      <main className="mx-auto grid max-w-7xl items-start gap-4 p-6 lg:grid-cols-[1fr_390px]">
-        <div className="space-y-4">
-          <section className="rounded-lg border border-blue-100 bg-blue-50 p-4">
-            <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
-              <div>
-                <h2 className="text-sm font-bold text-blue-950">
-                  Linha longitudinal do paciente
-                </h2>
-                <p className="mt-1 text-[11px] text-blue-800">
-                  Leitura consolidada das sessoes, qualidade de dados e sinais clinicos recorrentes.
-                </p>
-              </div>
-              <span className="rounded bg-white px-2 py-1 text-[10px] font-black uppercase text-blue-700">
-                {signal.state}
-              </span>
-            </div>
-            <div className="grid gap-2 md:grid-cols-4 xl:grid-cols-8">
-              <PatientKpi label="Total de Sessoes" value={String(group.totalSessions)} />
-              <PatientKpi label="Concluidas" value={String(group.completedSessions)} />
-              <PatientKpi label="Ativas" value={String(group.activeSessions)} />
-              <PatientKpi label="Analises" value={String(group.totalAnalyses)} />
-              <PatientKpi label="Atencao" value={`${Math.round(signal.attentionIndex)}/100`} tone="red" />
-              <PatientKpi label="Qualidade" value={signal.qualityLabel} tone="green" />
-              <PatientKpi label="Comunicacao" value={`${Math.round(signal.communication)}/100`} tone="blue" />
-              <PatientKpi label="Insight" value={`${Math.round(signal.insight)}/100`} tone="violet" />
-            </div>
-          </section>
-
-          <section className="rounded-lg border border-blue-100 bg-blue-50 p-4">
+      <main className="mx-auto grid max-w-7xl items-start gap-3 p-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="space-y-3">
+          <section className="rounded-lg border border-blue-100 bg-blue-50 p-3">
             <div className="mb-3">
               <h2 className="text-sm font-bold text-blue-950">
                 Linha comparativa da ultima sessao
@@ -226,7 +241,7 @@ export const PatientDetail: React.FC = () => {
             rows={[{ label: latest.sessionAverage.label, metrics: patientMetricRows(latest.sessionAverage) }]}
           />
 
-          <section className="rounded-lg border border-slate-200 bg-white p-4">
+          <section className="rounded-lg border border-slate-200 bg-white p-3">
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
                 <h2 className="text-sm font-bold text-slate-900">
@@ -243,7 +258,7 @@ export const PatientDetail: React.FC = () => {
             <PatientEvolutionChart reports={group.reports} />
           </section>
 
-          <section className="rounded-lg border border-slate-200 bg-white p-4">
+          <section className="rounded-lg border border-slate-200 bg-white p-3">
             <h2 className="text-sm font-bold text-slate-900">Indicadores Clinicos</h2>
             <div className="mt-4 grid gap-3 md:grid-cols-3">
               <Indicator
@@ -262,9 +277,14 @@ export const PatientDetail: React.FC = () => {
                 detail={group.riskTypes}
               />
             </div>
-            <p className="mt-4 text-xs">
-              <strong>Nota Clinica:</strong> {group.clinicalNote}
-            </p>
+            <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-3">
+              <p className="text-[11px] font-black uppercase tracking-wide text-amber-700">
+                Nota Clinica
+              </p>
+              <p className="mt-1 text-sm font-semibold leading-relaxed text-amber-950">
+                {group.clinicalNote}
+              </p>
+            </div>
             <div className="mt-4 grid gap-3 md:grid-cols-5">
               <PatientScoreBar label="Carga clinica" value={signal.clinicalLoad} color="#f97316" />
               <PatientScoreBar label="Comunicacao" value={signal.communication} color="#0ea5e9" />
@@ -281,7 +301,7 @@ export const PatientDetail: React.FC = () => {
             </p>
           </section>
 
-          <section className="rounded-lg border border-slate-200 bg-white p-4">
+          <section className="rounded-lg border border-slate-200 bg-white p-3">
             <h2 className="text-sm font-bold text-slate-900">Sessoes realizadas</h2>
             <div className="mt-3 overflow-x-auto">
               <table className="min-w-[1500px] w-full border-collapse text-left text-[10px]">
@@ -327,13 +347,25 @@ export const PatientDetail: React.FC = () => {
                             </button>
                           </td>
                         </tr>
-                        <tr className="border-b border-slate-100 bg-blue-50/60">
-                          <td colSpan={sessionTableColSpan} className="px-2 py-2 text-xs">
-                            <strong>Resultado da sessao:</strong> {resultLines[0]}
+                        <tr className="bg-blue-50/70 align-top">
+                          <td className="border-r border-blue-100 px-2 py-2 text-[10px] font-black uppercase text-blue-700">
+                            Resultado
+                          </td>
+                          <td className="border-r border-blue-100 px-2 py-2 text-[10px] font-bold text-blue-800">
+                            {shortId(report.sessionId)}
+                          </td>
+                          <td colSpan={resultTextColSpan} className="px-2 py-2 text-xs leading-relaxed text-blue-950">
+                            {resultLines[0]}
                           </td>
                         </tr>
-                        <tr className="border-b border-slate-200 bg-blue-50/40">
-                          <td colSpan={sessionTableColSpan} className="px-2 py-2 text-xs">
+                        <tr className="border-b border-slate-200 bg-slate-50 align-top">
+                          <td className="border-r border-slate-200 px-2 py-2 text-[10px] font-black uppercase text-slate-500">
+                            Complemento
+                          </td>
+                          <td className="border-r border-slate-200 px-2 py-2 text-[10px] font-bold text-slate-500">
+                            Analise
+                          </td>
+                          <td colSpan={resultTextColSpan} className="px-2 py-2 text-xs leading-relaxed text-slate-700">
                             {resultLines[1] || "Complemento ainda nao consolidado."}
                           </td>
                         </tr>
@@ -345,7 +377,7 @@ export const PatientDetail: React.FC = () => {
             </div>
           </section>
 
-          <section className="rounded-lg border border-slate-200 bg-white p-4">
+          <section className="rounded-lg border border-slate-200 bg-white p-3">
             <h2 className="text-sm font-bold text-slate-900">Historico de Sessoes</h2>
             <table className="mt-3 w-full table-fixed text-left text-xs">
               <thead className="text-[10px] uppercase tracking-wider text-slate-400">
@@ -388,8 +420,72 @@ export const PatientDetail: React.FC = () => {
           </section>
         </div>
 
-        <aside className="space-y-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
-          <section className="min-h-[560px] rounded-lg border border-slate-200 bg-white p-4">
+        <aside className="space-y-3 lg:sticky lg:top-3 lg:max-h-[calc(100vh-1.5rem)] lg:overflow-y-auto">
+          <section className="rounded-lg border border-blue-100 bg-blue-50 p-3">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <h2 className="text-sm font-bold text-blue-950">Resumo do paciente</h2>
+              <span className="rounded bg-white px-2 py-1 text-[10px] font-black uppercase text-blue-700">
+                {signal.state}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <PatientKpi label="Total de Sessoes" value={String(group.totalSessions)} />
+              <PatientKpi label="Inativas" value={String(inactivePatients)} />
+              <PatientKpi label="Ativas" value={String(activePatients)} tone="green" />
+              <PatientKpi label="Analises" value={String(group.totalAnalyses)} />
+              <PatientKpi label="Atencao" value={`${Math.round(signal.attentionIndex)}/100`} tone="red" />
+              <PatientKpi label="Qualidade" value={signal.qualityLabel} tone="green" />
+              <PatientKpi label="Comunicacao" value={`${Math.round(signal.communication)}/100`} tone="blue" />
+              <PatientKpi label="Insight" value={`${Math.round(signal.insight)}/100`} tone="violet" />
+            </div>
+            <div className="mt-2 rounded border border-blue-100 bg-white p-2">
+              <p className="text-[9px] font-black uppercase tracking-wide text-blue-500">
+                Status definido pelo profissional
+              </p>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => updatePatientStatus("active")}
+                  className={`rounded border px-2 py-1.5 text-[10px] font-black uppercase ${
+                    patientIsActive
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                      : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100"
+                  }`}
+                >
+                  Ativo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => updatePatientStatus("inactive")}
+                  className={`rounded border px-2 py-1.5 text-[10px] font-black uppercase ${
+                    !patientIsActive
+                      ? "border-amber-200 bg-amber-50 text-amber-700"
+                      : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100"
+                  }`}
+                >
+                  Inativo
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-lg border border-slate-200 bg-white p-3">
+            <h2 className="text-sm font-bold text-slate-900">Painel de acompanhamento</h2>
+            <p className="mt-1 text-[11px] text-slate-500">
+              Leitura operacional para orientar a proxima decisao clinica deste paciente.
+            </p>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <SideMetric label="Prioridade" value={signal.priority} tone="blue" />
+              <SideMetric label="Status" value={patientStatusLabel} tone={patientIsActive ? "green" : "amber"} />
+              <SideMetric label="Estado clinico" value={signal.state} />
+              <SideMetric label="Acao sugerida" value={signal.action} tone="amber" wide />
+              <SideMetric label="Qualidade" value={signal.qualityLabel} tone="green" />
+              <SideMetric label="IPM tendencia" value={fmtDelta(signal.ipmTrend, 1)} />
+              <SideMetric label="IDM recente" value={fmt(signal.idmRecent, 2)} />
+            </div>
+          </section>
+
+          <section className="min-h-[360px] rounded-lg border border-slate-200 bg-white p-3">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-bold text-slate-900">FROID Explica</h2>
@@ -412,13 +508,13 @@ export const PatientDetail: React.FC = () => {
               sessionId={latest.sessionId}
               extraContext={context}
               controlsSticky
-              messagesClassName="min-h-[330px]"
+              messagesClassName="min-h-[190px]"
             />
           </section>
 
-          <section className="rounded-lg border border-slate-200 bg-white p-4">
+          <section className="rounded-lg border border-slate-200 bg-white p-3">
             <h2 className="text-sm font-bold text-slate-900">Resumo longitudinal</h2>
-            <div className="mt-3 space-y-2 text-xs text-slate-600">
+            <div className="mt-2 space-y-1.5 text-xs text-slate-600">
               <p>
                 <strong>Nota clinica:</strong> {group.clinicalNote}
               </p>
@@ -430,10 +526,77 @@ export const PatientDetail: React.FC = () => {
                 {group.dominantZone ? `Zona ${group.dominantZone}` : "--"} |{" "}
                 {group.recurrentEmotion || "--"}
               </p>
+              <p>
+                <strong>Ultima sessao:</strong>{" "}
+                {formatDateTime(reportEndDate(latest))} |{" "}
+                {formatDuration(latest.durationSeconds)} | {latestCutCount} cortes
+              </p>
+              <p>
+                <strong>Pagamento:</strong> {paymentStatusForReport(latest)}
+              </p>
+              <p>
+                <strong>Observacoes:</strong> {latest.clinicalNotes.length} anotacoes |{" "}
+                {latest.dissonances.length} dissonancias
+              </p>
+            </div>
+          </section>
+
+          <section className="rounded-lg border border-blue-100 bg-blue-50 p-3">
+            <h2 className="text-sm font-bold text-blue-950">Resultado mais recente</h2>
+            <p className="mt-2 text-xs leading-relaxed text-blue-900">
+              {latestResultLines[0]}
+            </p>
+            {latestResultLines[1] && (
+              <p className="mt-2 text-xs leading-relaxed text-blue-900">
+                {latestResultLines[1]}
+              </p>
+            )}
+            <button
+              onClick={() => navigate(`/session/${latest.sessionId}/report`)}
+              className="mt-3 rounded border border-blue-200 bg-white px-3 py-2 text-[10px] font-bold text-blue-700 hover:bg-blue-50"
+            >
+              Abrir relatorio da ultima sessao
+            </button>
+          </section>
+
+          <section className="rounded-lg border border-slate-200 bg-white p-3">
+            <h2 className="text-sm font-bold text-slate-900">Indicadores de seguimento</h2>
+            <div className="mt-2 space-y-2">
+              <PatientScoreBar label="Carga clinica" value={signal.clinicalLoad} color="#f97316" />
+              <PatientScoreBar label="Comunicacao" value={signal.communication} color="#0ea5e9" />
+              <PatientScoreBar label="Continuidade" value={signal.continuity} color="#22c55e" />
+              <PatientScoreBar label="Insight" value={signal.insight} color="#8b5cf6" />
+              <PatientScoreBar label="Qualidade" value={signal.dataQuality} color="#14b8a6" />
             </div>
           </section>
         </aside>
       </main>
+    </div>
+  );
+};
+
+const SideMetric: React.FC<{
+  label: string;
+  value: string;
+  tone?: "blue" | "green" | "amber";
+  wide?: boolean;
+}> = ({ label, value, tone = "blue", wide = false }) => {
+  const valueClass =
+    tone === "green"
+      ? "text-emerald-700"
+      : tone === "amber"
+        ? "text-amber-700"
+        : "text-blue-950";
+  return (
+    <div
+      className={`rounded border border-slate-100 bg-slate-50 p-2 ${
+        wide ? "col-span-2" : ""
+      }`}
+    >
+      <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">
+        {label}
+      </p>
+      <p className={`mt-1 text-xs font-black ${valueClass}`}>{value}</p>
     </div>
   );
 };
@@ -515,7 +678,7 @@ const PatientMetricTable: React.FC<{
   title: string;
   rows: Array<{ label: string; metrics: string[][] }>;
 }> = ({ title, rows }) => (
-  <section className="rounded-lg border border-slate-200 bg-white p-4">
+  <section className="rounded-lg border border-slate-200 bg-white p-3">
     <div className="mb-3">
       <h2 className="text-sm font-bold text-slate-900">{title}</h2>
     </div>
@@ -616,7 +779,7 @@ const PatientEvolutionChart: React.FC<{ reports: SessionReportRecord[] }> = ({
 
   if (!ordered.length) {
     return (
-      <div className="mt-3 rounded border border-slate-100 bg-slate-50 p-4 text-xs text-slate-500">
+      <div className="mt-3 rounded border border-slate-100 bg-slate-50 p-3 text-xs text-slate-500">
         Sem sessoes suficientes para desenhar evolucao longitudinal.
       </div>
     );
