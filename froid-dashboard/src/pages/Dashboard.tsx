@@ -42,11 +42,11 @@ function makeId() {
 }
 
 const PRIORITY_STYLES: Record<string, string> = {
-  ROTINA: "border-emerald-400 bg-emerald-50 text-emerald-700",
-  OBSERVAR: "border-amber-400 bg-amber-50 text-amber-700",
-  REVISAR: "border-orange-400 bg-orange-50 text-orange-700",
-  "ALTA PRIORIDADE": "border-red-400 bg-red-50 text-red-700",
-  "DADOS INSUFICIENTES": "border-slate-300 bg-slate-50 text-slate-600",
+  ROTINA: "border-emerald-700 bg-emerald-950/40 text-emerald-200",
+  OBSERVAR: "border-amber-600 bg-amber-950/40 text-amber-100",
+  REVISAR: "border-orange-600 bg-orange-950/45 text-orange-100",
+  "ALTA PRIORIDADE": "border-red-700 bg-red-950/55 text-red-100",
+  "DADOS INSUFICIENTES": "border-slate-700 bg-slate-900 text-slate-300",
 };
 
 const KPI_TOOLTIPS: Record<string, string> = {
@@ -154,14 +154,14 @@ const KpiCard: React.FC<{
 }> = ({ label, value, detail, tone = "blue" }) => {
   const color =
     tone === "green"
-      ? "text-emerald-700"
+      ? "text-emerald-200"
       : tone === "amber"
-        ? "text-amber-700"
+        ? "text-amber-100"
         : tone === "red"
-          ? "text-red-700"
-          : "text-blue-700";
+          ? "text-red-200"
+          : "text-cyan-200";
   return (
-    <div className="rounded-lg border border-slate-200 bg-white px-2.5 py-2.5 shadow-sm">
+    <div className="rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-2.5 shadow-sm">
       <FroidTooltip
         width={320}
         content={
@@ -171,12 +171,12 @@ const KpiCard: React.FC<{
           </div>
         }
       >
-        <p className="inline cursor-help border-b border-dashed border-slate-300 text-[10px] font-black uppercase tracking-wider text-slate-500">
+        <p className="inline cursor-help border-b border-dashed border-slate-500 text-[10px] font-black uppercase tracking-wider text-slate-400">
           {label}
         </p>
       </FroidTooltip>
       <p className={`mt-1.5 text-lg font-black ${color}`}>{value}</p>
-      <p className="mt-1 text-[10px] leading-snug text-slate-500">{detail}</p>
+      <p className="mt-1 text-[10px] leading-snug text-slate-400">{detail}</p>
     </div>
   );
 };
@@ -187,7 +187,7 @@ const ScoreBar: React.FC<{ label: string; value: number; color: string }> = ({
   color,
 }) => (
   <div>
-    <div className="mb-1 flex items-center justify-between gap-2 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+    <div className="mb-1 flex items-center justify-between gap-2 text-[10px] font-bold uppercase tracking-wide text-slate-400">
       <FroidTooltip
         width={320}
         content={
@@ -197,13 +197,13 @@ const ScoreBar: React.FC<{ label: string; value: number; color: string }> = ({
           </div>
         }
       >
-        <span className="cursor-help border-b border-dashed border-slate-300">
+        <span className="cursor-help border-b border-dashed border-slate-500">
           {label}
         </span>
       </FroidTooltip>
       <span>{scoreText(value)}</span>
     </div>
-    <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+    <div className="h-2 overflow-hidden rounded-full bg-slate-800">
       <div
         className="h-full rounded-full"
         style={{ width: `${Math.max(4, Math.min(100, value))}%`, backgroundColor: color }}
@@ -405,28 +405,28 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   }, [nav]);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800">
-      <header className="border-b border-slate-200 bg-white px-6 py-4">
+    <div className="min-h-screen bg-slate-950 text-slate-100">
+      <header className="border-b border-slate-800 bg-slate-950 px-6 py-4">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-300">
               Dashboard Profissional
             </p>
-            <h1 className="text-xl font-bold text-slate-900">FROID Dashboard</h1>
-            <p className="mt-1 text-xs text-slate-500">
+            <h1 className="text-xl font-bold text-slate-100">FROID Dashboard</h1>
+            <p className="mt-1 text-xs text-slate-400">
               Bem-vindo, {professionalName}
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
             <button
               onClick={() => nav("/settings")}
-              className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700 hover:bg-blue-100"
+              className="rounded-lg border border-cyan-800 bg-cyan-950 px-3 py-2 text-xs font-bold text-cyan-100 hover:bg-cyan-900"
             >
               Configuracoes
             </button>
             <button
               onClick={onLogout}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
+              className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-slate-800"
             >
               Sair
             </button>
@@ -437,13 +437,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
       <main className="mx-auto max-w-7xl space-y-4 p-6">
 
       {patientActivity && (
-        <p className="rounded-lg border border-cyan-100 bg-cyan-50 px-3 py-2 text-xs font-bold text-cyan-900">
+        <p className="rounded-lg border border-cyan-800 bg-cyan-950 px-3 py-2 text-xs font-bold text-cyan-100">
           {patientActivity}
         </p>
       )}
 
       {selectedGroup && (
-        <p className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900">
+        <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-100">
           Aviso de agenda: acesse o layout de{" "}
           {selectedGroup.patient.name || "Paciente sem nome"} e envie o convite da
           sessao quando estiver a 5 minutos do atendimento programado.
@@ -452,24 +452,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="min-w-0 space-y-4">
-      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+      <section className="rounded-lg border border-slate-800 bg-slate-900 p-4 shadow-sm">
         <div className="flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-bold text-slate-900">Meus Pacientes</h2>
-          <p className="mt-1 text-[11px] text-slate-500">
+          <h2 className="text-sm font-bold text-slate-100">Meus Pacientes</h2>
+          <p className="mt-1 text-[11px] text-slate-400">
             Ultimas sessoes, metricas medias e resultado clinico resumido.
           </p>
         </div>
         <div className="flex flex-wrap justify-end gap-2">
           <button
             onClick={() => openPatientRegistration()}
-            className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700"
+            className="rounded-lg bg-cyan-700 px-3 py-2 text-xs font-bold text-white hover:bg-cyan-800"
           >
             + Novo Paciente
           </button>
           <button
             onClick={() => nav(`/session/${makeId()}`)}
-            className="rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs font-bold text-blue-700 hover:bg-blue-50"
+            className="rounded-lg border border-blue-800 bg-blue-950 px-3 py-2 text-xs font-bold text-blue-100 hover:bg-blue-900"
           >
             + Nova Sessao Direta
           </button>
@@ -479,7 +479,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
 
       <section className="space-y-4">
         {patientGroups.length === 0 && (
-          <div className="rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-500">
+          <div className="rounded-lg border border-slate-800 bg-slate-900 p-4 text-xs text-slate-400">
             Nenhum paciente com relatorio encontrado. Finalize uma sessao para
             alimentar o dashboard profissional.
           </div>
@@ -494,19 +494,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
           return (
           <article
             key={group.key}
-            className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
+            className="rounded-lg border border-slate-800 bg-slate-900 p-4 shadow-sm"
             onMouseEnter={() => setSelectedPatientKey(group.key)}
           >
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <h3 className="text-lg font-black uppercase tracking-wide text-slate-950">
+                <h3 className="text-lg font-black uppercase tracking-wide text-slate-100">
                   {group.patient.name || "Paciente sem nome"}
                 </h3>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-slate-400">
                   CPF: {group.patient.document || "Nao informado"} - {group.totalSessions} sessoes
                 </p>
               </div>
-              <div className="min-w-[320px] flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-700">
+              <div className="min-w-[320px] flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-[11px] text-slate-300">
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                   <span>
                     <strong>Acao sugerida:</strong> {signal.action}
@@ -536,7 +536,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                       group.key,
                     )
                   }
-                  className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700"
+                  className="rounded-lg bg-cyan-700 px-3 py-2 text-xs font-bold text-white hover:bg-cyan-800"
                 >
                   Convite
                 </button>
@@ -545,15 +545,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                     setSelectedPatientKey(group.key);
                     nav(`/patients/${encodeURIComponent(group.key)}`);
                   }}
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
+                  className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-slate-800"
                 >
                   Ver Detalhes
                 </button>
               </div>
             </div>
 
-            <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
-              <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-700">
+            <div className="mt-3 rounded-lg border border-slate-700 bg-slate-950 p-3">
+              <p className="mb-2 text-xs font-black uppercase tracking-wide text-cyan-200">
                 Indicadores medios de todas as sessoes
               </p>
               <div className="grid gap-2 md:grid-cols-5">
@@ -565,13 +565,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
               </div>
               <div className="mt-3 overflow-x-auto">
                 <table className="min-w-max table-auto text-left text-[10px] leading-tight">
-                  <thead className="text-[9px] uppercase tracking-normal text-slate-400">
+                  <thead className="text-[9px] uppercase tracking-normal text-slate-500">
                     <tr>
                       <th className="whitespace-nowrap py-1 pr-2">Corte</th>
                       {compactMetricCells(averageSnapshot).map((cell) => (
                         <th
                           key={`avg-head-${cell.key}`}
-                          className="whitespace-nowrap border-l border-slate-200 px-2 py-1 font-bold"
+                          className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-bold"
                         >
                           <FroidTooltip
                             width={300}
@@ -584,7 +584,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                               </div>
                             }
                           >
-                            <span className="cursor-help border-b border-dashed border-slate-300">
+                            <span className="cursor-help border-b border-dashed border-slate-500">
                               {cell.label}
                             </span>
                           </FroidTooltip>
@@ -592,15 +592,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-800">
                     <tr className="align-top">
-                      <td className="whitespace-nowrap py-1 pr-2 font-bold text-slate-700">
+                      <td className="whitespace-nowrap py-1 pr-2 font-bold text-slate-300">
                         Media
                       </td>
                       {compactMetricCells(averageSnapshot).map((cell) => (
                         <td
                           key={`avg-value-${cell.key}`}
-                          className="whitespace-nowrap border-l border-slate-200 px-2 py-1 text-slate-700"
+                          className="whitespace-nowrap border-l border-slate-700 px-2 py-1 text-slate-300"
                           title={cell.value}
                         >
                           {cell.value}
@@ -613,27 +613,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
             </div>
 
             <div className="mt-3 min-w-0">
-              <p className="text-xs font-black uppercase tracking-wide text-slate-900">
+              <p className="text-xs font-black uppercase tracking-wide text-slate-100">
                 Indicadores das ultimas 3 sessoes
               </p>
               <div className="mt-3 overflow-x-auto">
                 <table className="min-w-max table-auto text-left text-[10px] leading-tight">
-                  <thead className="text-[9px] uppercase tracking-normal text-slate-400">
+                  <thead className="text-[9px] uppercase tracking-normal text-slate-500">
                     <tr>
                       <th className="whitespace-nowrap py-1 pr-2">Data</th>
-                      <th className="whitespace-nowrap border-l border-slate-200 px-2 py-1 font-bold">
+                      <th className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-bold">
                         Status
                       </th>
-                      <th className="whitespace-nowrap border-l border-slate-200 px-2 py-1 font-bold">
+                      <th className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-bold">
                         Pagamento
                       </th>
-                      <th className="whitespace-nowrap border-l border-slate-200 px-2 py-1 font-bold">
+                      <th className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-bold">
                         Detalhe
                       </th>
                       {compactMetricCells(group.reports[0]?.sessionAverage || averageSnapshot).map((cell) => (
                         <th
                           key={`last-head-${cell.key}`}
-                          className="whitespace-nowrap border-l border-slate-200 px-2 py-1 font-bold"
+                          className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-bold"
                         >
                           <FroidTooltip
                             width={300}
@@ -646,7 +646,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                               </div>
                             }
                           >
-                            <span className="cursor-help border-b border-dashed border-slate-300">
+                            <span className="cursor-help border-b border-dashed border-slate-500">
                               {cell.label}
                             </span>
                           </FroidTooltip>
@@ -654,22 +654,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-800">
                     {group.reports.slice(0, 3).map((report, index) => (
                       <tr key={report.sessionId} className="align-top">
-                        <td className="whitespace-nowrap py-1 pr-2 font-bold text-slate-700">
+                        <td className="whitespace-nowrap py-1 pr-2 font-bold text-slate-300">
                           {formatDateTime(reportEndDate(report))}
                         </td>
-                        <td className="whitespace-nowrap border-l border-slate-200 px-2 py-1 text-slate-700">
+                        <td className="whitespace-nowrap border-l border-slate-700 px-2 py-1 text-slate-300">
                           {index === 0 ? "Concluida" : "Ativa"} {shortId(report.sessionId)}
                         </td>
-                        <td className="whitespace-nowrap border-l border-slate-200 px-2 py-1 text-slate-700">
+                        <td className="whitespace-nowrap border-l border-slate-700 px-2 py-1 text-slate-300">
                           {paymentStatusForReport(report)}
                         </td>
-                        <td className="whitespace-nowrap border-l border-slate-200 px-2 py-1">
+                        <td className="whitespace-nowrap border-l border-slate-700 px-2 py-1">
                           <button
                             onClick={() => nav(`/session/${report.sessionId}/report`)}
-                            className="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-bold text-slate-600 hover:bg-slate-100"
+                            className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-[10px] font-bold text-slate-200 hover:bg-slate-800"
                           >
                             Ver
                           </button>
@@ -677,7 +677,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                         {compactMetricCells(report.sessionAverage).map((cell) => (
                           <td
                             key={`${report.sessionId}-${cell.key}`}
-                            className="whitespace-nowrap border-l border-slate-200 px-2 py-1 text-slate-700"
+                            className="whitespace-nowrap border-l border-slate-700 px-2 py-1 text-slate-300"
                             title={cell.value}
                           >
                             {cell.value}
@@ -692,9 +692,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                 {group.reports.slice(0, 3).map((report) => (
                   <div
                     key={`result-${report.sessionId}`}
-                    className="rounded border border-slate-200 bg-white px-3 py-2 text-xs leading-relaxed text-slate-600"
+                    className="rounded border border-slate-700 bg-slate-950 px-3 py-2 text-xs leading-relaxed text-slate-300"
                   >
-                    <strong className="text-slate-800">
+                    <strong className="text-cyan-200">
                       Resultado da sessao {shortId(report.sessionId)}:
                     </strong>{" "}
                     {sessionResultText(report, 85)}
@@ -702,7 +702,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                 ))}
               </div>
             </div>
-              <p className="mt-3 rounded border border-blue-100 bg-blue-50 px-3 py-2 text-[11px] font-medium text-blue-900">
+              <p className="mt-3 rounded border border-blue-800 bg-blue-950 px-3 py-2 text-[11px] font-medium text-blue-100">
                 Linha comparativa mais recente: IPM{" "}
                 {fmt(group.latestReport.baseline.ipmAvg, 1)} -&gt;{" "}
                 {fmt(group.latestReport.sessionAverage.ipmAvg, 1)} (
@@ -721,10 +721,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
         </div>
 
         <aside className="space-y-4 xl:sticky xl:top-4 xl:self-start">
-          <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <section className="rounded-lg border border-slate-800 bg-slate-900 p-4 shadow-sm">
             <div className="mb-3">
-              <h2 className="text-sm font-bold text-slate-900">Resumo profissional</h2>
-              <p className="mt-1 text-[11px] text-slate-500">
+              <h2 className="text-sm font-bold text-slate-100">Resumo profissional</h2>
+              <p className="mt-1 text-[11px] text-slate-400">
                 Indicadores consolidados da carteira em acompanhamento.
               </p>
             </div>
@@ -766,11 +766,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
             </div>
           </section>
 
-          <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <section className="rounded-lg border border-slate-800 bg-slate-900 p-4 shadow-sm">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h2 className="text-sm font-bold text-slate-900">FROID Explica</h2>
-                <p className="mt-0.5 text-[11px] text-slate-500">
+                <h2 className="text-sm font-bold text-slate-100">FROID Explica</h2>
+                <p className="mt-0.5 text-[11px] text-slate-400">
                   {selectedGroup
                     ? "Contexto carregado a partir do paciente selecionado."
                     : "Passe o mouse sobre um paciente para carregar o contexto."}
@@ -778,13 +778,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
               </div>
               <button
                 onClick={() => nav("/settings")}
-                className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-[11px] font-bold text-blue-800 hover:bg-blue-100"
+                className="rounded-lg border border-cyan-800 bg-cyan-950 px-3 py-1.5 text-[11px] font-bold text-cyan-100 hover:bg-cyan-900"
               >
                 Meus Prompts...
               </button>
             </div>
             {selectedGroup ? (
-              <div className="max-h-[520px] overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 px-2 pb-2 pr-1">
+              <div className="max-h-[520px] overflow-y-auto rounded-lg border border-slate-700 bg-slate-950 px-2 pb-2 pr-1">
                 <AIInsights
                   zones={selectedGroup.latestReport.sessionAverage.zones || []}
                   ipmScore={selectedGroup.latestReport.sessionAverage.ipmAvg}
@@ -806,12 +806,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                     })),
                   }}
                   controlsSticky
-                  rootClassName="border-0"
-                  messagesClassName="min-h-48 max-h-72"
+                  rootClassName="border-0 bg-transparent text-slate-100"
+                  messagesClassName="min-h-48 max-h-72 bg-slate-800/80 text-slate-200"
                 />
               </div>
             ) : (
-              <div className="rounded-lg border border-slate-100 bg-slate-50 p-4 text-xs leading-relaxed text-slate-500">
+              <div className="rounded-lg border border-slate-700 bg-slate-950 p-4 text-xs leading-relaxed text-slate-400">
                 Selecione um paciente na coluna principal para habilitar perguntas
                 ao FROID Explica com contexto clinico longitudinal.
               </div>
