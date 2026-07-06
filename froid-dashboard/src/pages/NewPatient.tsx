@@ -178,23 +178,23 @@ export const NewPatient: React.FC = () => {
   }, [form.patient_email, form.patient_name, form.patient_phone, invite, navigate]);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800">
-      <header className="border-b border-slate-200 bg-white px-6 py-4">
+    <div className="min-h-screen bg-slate-950 text-slate-100">
+      <header className="border-b border-slate-700 bg-slate-900 px-6 py-4">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-300">
               Cadastro de Paciente
             </p>
-            <h1 className="text-xl font-bold text-slate-900">
+            <h1 className="text-xl font-bold text-slate-100">
               Novo paciente e convite LGPD
             </h1>
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-slate-400">
               Gere o link publico para cadastro, consentimentos e entrada na sessao.
             </p>
           </div>
           <button
             onClick={() => navigate("/dashboard")}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
+            className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-950"
           >
             Dashboard
           </button>
@@ -202,58 +202,58 @@ export const NewPatient: React.FC = () => {
       </header>
 
       <main className="mx-auto grid max-w-5xl gap-4 p-6 lg:grid-cols-[1fr_360px]">
-        <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="text-sm font-bold text-slate-900">
+        <section className="rounded-lg border border-slate-700 bg-slate-900 p-4 shadow-sm">
+          <h2 className="text-sm font-bold text-slate-100">
             Dados iniciais e pagamento
           </h2>
           <form onSubmit={createInvite} className="mt-4 grid gap-3 md:grid-cols-2">
-            <label className="text-xs font-bold text-slate-700">
+            <label className="text-xs font-bold text-slate-300">
               Nome do paciente
               <input
                 value={form.patient_name}
                 onChange={(event) => updateForm("patient_name", event.target.value)}
-                className="mt-1 w-full rounded border border-slate-200 bg-slate-50 px-3 py-2 font-normal outline-none focus:border-blue-400 focus:bg-white"
+                className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 font-normal outline-none focus:border-cyan-500 focus:bg-slate-900"
               />
             </label>
-            <label className="text-xs font-bold text-slate-700">
+            <label className="text-xs font-bold text-slate-300">
               WhatsApp
               <input
                 value={form.patient_phone}
                 onChange={(event) => updateForm("patient_phone", event.target.value)}
-                className="mt-1 w-full rounded border border-slate-200 bg-slate-50 px-3 py-2 font-normal outline-none focus:border-blue-400 focus:bg-white"
+                className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 font-normal outline-none focus:border-cyan-500 focus:bg-slate-900"
               />
             </label>
-            <label className="text-xs font-bold text-slate-700">
+            <label className="text-xs font-bold text-slate-300">
               E-mail
               <input
                 value={form.patient_email}
                 onChange={(event) => updateForm("patient_email", event.target.value)}
-                className="mt-1 w-full rounded border border-slate-200 bg-slate-50 px-3 py-2 font-normal outline-none focus:border-blue-400 focus:bg-white"
+                className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 font-normal outline-none focus:border-cyan-500 focus:bg-slate-900"
               />
             </label>
-            <label className="text-xs font-bold text-slate-700">
+            <label className="text-xs font-bold text-slate-300">
               Forma de pagamento
               <select
                 value={form.payment_mode}
                 onChange={(event) =>
                   updateForm("payment_mode", event.target.value as PaymentMode)
                 }
-                className="mt-1 w-full rounded border border-slate-200 bg-slate-50 px-3 py-2 font-normal outline-none focus:border-blue-400 focus:bg-white"
+                className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 font-normal outline-none focus:border-cyan-500 focus:bg-slate-900"
               >
                 <option value="single">Sessao avulsa com PIX</option>
                 <option value="package">Pacote de sessoes</option>
               </select>
             </label>
-            <label className="text-xs font-bold text-slate-700">
+            <label className="text-xs font-bold text-slate-300">
               Valor da sessao (R$)
               <input
                 value={form.session_value}
                 onChange={(event) => updateForm("session_value", event.target.value)}
-                className="mt-1 w-full rounded border border-slate-200 bg-slate-50 px-3 py-2 font-normal outline-none focus:border-blue-400 focus:bg-white"
+                className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 font-normal outline-none focus:border-cyan-500 focus:bg-slate-900"
               />
             </label>
             {form.payment_mode === "package" ? (
-              <label className="text-xs font-bold text-slate-700">
+              <label className="text-xs font-bold text-slate-300">
                 Numero de sessoes
                 <input
                   type="number"
@@ -262,16 +262,16 @@ export const NewPatient: React.FC = () => {
                   onChange={(event) =>
                     updateForm("package_sessions", event.target.value)
                   }
-                  className="mt-1 w-full rounded border border-slate-200 bg-slate-50 px-3 py-2 font-normal outline-none focus:border-blue-400 focus:bg-white"
+                  className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 font-normal outline-none focus:border-cyan-500 focus:bg-slate-900"
                 />
               </label>
             ) : (
-              <label className="text-xs font-bold text-slate-700">
+              <label className="text-xs font-bold text-slate-300">
                 Codigo PIX copia e cola
                 <input
                   value={form.pix_code}
                   onChange={(event) => updateForm("pix_code", event.target.value)}
-                  className="mt-1 w-full rounded border border-slate-200 bg-slate-50 px-3 py-2 font-normal outline-none focus:border-blue-400 focus:bg-white"
+                  className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 font-normal outline-none focus:border-cyan-500 focus:bg-slate-900"
                 />
               </label>
             )}
@@ -279,7 +279,7 @@ export const NewPatient: React.FC = () => {
               <button
                 type="submit"
                 disabled={creating}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50"
+                className="rounded-lg bg-cyan-700 px-4 py-2 text-sm font-bold text-white hover:bg-cyan-800 disabled:opacity-50"
               >
                 {creating ? "Gerando..." : "Gerar link de cadastro"}
               </button>
@@ -292,18 +292,18 @@ export const NewPatient: React.FC = () => {
           </form>
         </section>
 
-        <aside className="rounded-lg border border-blue-100 bg-blue-50 p-4 text-xs text-blue-950">
+        <aside className="rounded-lg border border-blue-800 bg-blue-950 p-4 text-xs text-blue-100">
           <h2 className="text-sm font-bold">Fluxo do paciente</h2>
           <p className="mt-2 leading-relaxed">
             O paciente recebe o link, confirma dados, aceita LGPD e entra na sala.
             O cadastro definitivo acontece no aceite do convite.
           </p>
           {patientActivity && (
-            <p className="mt-3 rounded border border-emerald-100 bg-emerald-50 p-2 font-bold text-emerald-800">
+            <p className="mt-3 rounded border border-emerald-100 bg-emerald-950/40 p-2 font-bold text-emerald-800">
               {patientActivity}
             </p>
           )}
-          <p className="mt-2 rounded border border-blue-100 bg-white p-2 font-mono text-[11px] text-blue-800">
+          <p className="mt-2 rounded border border-blue-100 bg-slate-950 p-2 font-mono text-[11px] text-blue-200">
             Base publica: {inviteBaseUrl}
           </p>
           <div className="mt-3">
@@ -318,19 +318,19 @@ export const NewPatient: React.FC = () => {
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => copyText(invite.whatsapp_message)}
-                  className="rounded border border-blue-200 bg-white px-2 py-1 font-bold text-blue-700 hover:bg-blue-50"
+                  className="rounded border border-blue-800 bg-slate-900 px-2 py-1 font-bold text-blue-200 hover:bg-blue-900"
                 >
                   Copiar mensagem
                 </button>
                 <button
                   onClick={() => copyText(invite.invite_url)}
-                  className="rounded border border-blue-200 bg-white px-2 py-1 font-bold text-blue-700 hover:bg-blue-50"
+                  className="rounded border border-blue-800 bg-slate-900 px-2 py-1 font-bold text-blue-200 hover:bg-blue-900"
                 >
                   Copiar link
                 </button>
                 <button
                   onClick={() => navigate(`/session/${invite.session_id}`)}
-                  className="rounded border border-blue-200 bg-white px-2 py-1 font-bold text-blue-700 hover:bg-blue-50"
+                  className="rounded border border-blue-800 bg-slate-900 px-2 py-1 font-bold text-blue-200 hover:bg-blue-900"
                 >
                   Abrir sala DR
                 </button>
@@ -338,11 +338,11 @@ export const NewPatient: React.FC = () => {
               <textarea
                 readOnly
                 value={invite.whatsapp_message}
-                className="h-44 w-full rounded border border-blue-100 bg-white p-2 text-slate-700"
+                className="h-44 w-full rounded border border-blue-100 bg-slate-950 p-2 text-slate-300"
               />
             </div>
           ) : (
-            <p className="mt-4 rounded border border-blue-100 bg-white p-3 text-blue-800">
+            <p className="mt-4 rounded border border-blue-100 bg-slate-950 p-3 text-blue-200">
               Preencha os dados para gerar o link de cadastro do paciente.
             </p>
           )}
@@ -351,3 +351,5 @@ export const NewPatient: React.FC = () => {
     </div>
   );
 };
+
+

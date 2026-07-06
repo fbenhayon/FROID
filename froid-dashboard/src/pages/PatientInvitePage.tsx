@@ -143,37 +143,37 @@ export const PatientInvitePage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8 text-slate-800">
-      <main className="mx-auto max-w-3xl rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div className="min-h-screen bg-slate-950 px-4 py-8 text-slate-100">
+      <main className="mx-auto max-w-3xl rounded-xl border border-slate-700 bg-slate-900 p-6 shadow-sm">
         <div className="mb-5">
-          <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-blue-600">
+          <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-cyan-300">
             FROID
           </p>
           <h1 className="mt-2 text-xl font-bold text-slate-950">
             Convite para sessao clinica
           </h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-slate-400">
             Confirme seus dados e os consentimentos antes da sessao.
           </p>
         </div>
 
         {invite && (
-          <div className="mb-5 rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm">
+          <div className="mb-5 rounded-lg border border-blue-800 bg-blue-950 p-4 text-sm">
             <div className="grid gap-2 md:grid-cols-2">
               <div>
-                <span className="block text-[10px] font-bold uppercase text-blue-700">
+                <span className="block text-[10px] font-bold uppercase text-blue-200">
                   Paciente
                 </span>
                 <strong>{invite.patient_name}</strong>
               </div>
               <div>
-                <span className="block text-[10px] font-bold uppercase text-blue-700">
+                <span className="block text-[10px] font-bold uppercase text-blue-200">
                   Sessao
                 </span>
                 <strong>{invite.session_id}</strong>
               </div>
               <div>
-                <span className="block text-[10px] font-bold uppercase text-blue-700">
+                <span className="block text-[10px] font-bold uppercase text-blue-200">
                   Pagamento
                 </span>
                 <strong>
@@ -181,7 +181,7 @@ export const PatientInvitePage: React.FC = () => {
                     ? `Pacote com ${invite.payment.package_sessions} sessoes`
                     : "Sessao avulsa"}
                 </strong>
-                <p className="mt-1 text-xs text-slate-600">
+                <p className="mt-1 text-xs text-slate-300">
                   Valor da sessao: {invite.payment.session_value_brl}
                   {invite.payment.mode === "package"
                     ? ` | Total: ${invite.payment.package_total_brl}`
@@ -190,10 +190,10 @@ export const PatientInvitePage: React.FC = () => {
               </div>
               {invite.payment.mode === "single" && (
                 <div>
-                  <span className="block text-[10px] font-bold uppercase text-blue-700">
+                  <span className="block text-[10px] font-bold uppercase text-blue-200">
                     PIX
                   </span>
-                  <code className="block max-h-16 overflow-y-auto rounded bg-white p-2 text-[10px] text-slate-600">
+                  <code className="block max-h-16 overflow-y-auto rounded bg-slate-950 p-2 text-[10px] text-slate-300">
                     {invite.payment.pix_code}
                   </code>
                 </div>
@@ -203,7 +203,7 @@ export const PatientInvitePage: React.FC = () => {
         )}
 
         {accepted ? (
-          <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-5">
+          <div className="rounded-lg border border-emerald-100 bg-emerald-950/40 p-5">
             <p className="text-base font-bold text-emerald-900">
               Convite confirmado
             </p>
@@ -223,41 +223,41 @@ export const PatientInvitePage: React.FC = () => {
         ) : (
           <form onSubmit={submitAcceptance} className="space-y-5">
             <div className="grid gap-3 md:grid-cols-2">
-              <label className="text-xs font-semibold text-slate-600">
+              <label className="text-xs font-semibold text-slate-300">
                 Nome completo
                 <input
                   value={patientForm.name}
                   onChange={(event) => updatePatient("name", event.target.value)}
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-400"
+                  className="mt-1 w-full rounded-lg border border-slate-700 px-3 py-2 text-sm outline-none focus:border-cyan-500"
                 />
               </label>
-              <label className="text-xs font-semibold text-slate-600">
+              <label className="text-xs font-semibold text-slate-300">
                 CPF ou documento
                 <input
                   value={patientForm.document}
                   onChange={(event) =>
                     updatePatient("document", event.target.value)
                   }
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-400"
+                  className="mt-1 w-full rounded-lg border border-slate-700 px-3 py-2 text-sm outline-none focus:border-cyan-500"
                 />
               </label>
-              <label className="text-xs font-semibold text-slate-600">
+              <label className="text-xs font-semibold text-slate-300">
                 E-mail
                 <input
                   value={patientForm.email}
                   onChange={(event) => updatePatient("email", event.target.value)}
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-400"
+                  className="mt-1 w-full rounded-lg border border-slate-700 px-3 py-2 text-sm outline-none focus:border-cyan-500"
                 />
               </label>
-              <label className="text-xs font-semibold text-slate-600">
+              <label className="text-xs font-semibold text-slate-300">
                 WhatsApp
                 <input
                   value={patientForm.phone}
                   onChange={(event) => updatePatient("phone", event.target.value)}
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-400"
+                  className="mt-1 w-full rounded-lg border border-slate-700 px-3 py-2 text-sm outline-none focus:border-cyan-500"
                 />
               </label>
-              <label className="text-xs font-semibold text-slate-600">
+              <label className="text-xs font-semibold text-slate-300">
                 Data de nascimento
                 <input
                   type="date"
@@ -265,16 +265,16 @@ export const PatientInvitePage: React.FC = () => {
                   onChange={(event) =>
                     updatePatient("birth_date", event.target.value)
                   }
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-400"
+                  className="mt-1 w-full rounded-lg border border-slate-700 px-3 py-2 text-sm outline-none focus:border-cyan-500"
                 />
               </label>
             </div>
 
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <p className="text-sm font-bold text-slate-900">
+            <div className="rounded-lg border border-slate-700 bg-slate-950 p-4">
+              <p className="text-sm font-bold text-slate-100">
                 Consentimentos LGPD
               </p>
-              <p className="mt-1 text-xs leading-relaxed text-slate-500">
+              <p className="mt-1 text-xs leading-relaxed text-slate-400">
                 O FROID trata dados pessoais e dados sensiveis de saude,
                 incluindo audio, video, biomarcadores, transcricao e analises
                 clinicas. O uso deve ocorrer para apoio ao profissional, com
@@ -283,7 +283,7 @@ export const PatientInvitePage: React.FC = () => {
               <div className="mt-3">
                 <LgpdNotice audience="patient" compact />
               </div>
-              <div className="mt-3 space-y-2 text-xs text-slate-700">
+              <div className="mt-3 space-y-2 text-xs text-slate-300">
                 {[
                   ["terms_of_use", "Li e aceito as condicoes de utilizacao do FROID."],
                   ["privacy_policy", "Li e aceito a politica de privacidade."],
@@ -326,7 +326,7 @@ export const PatientInvitePage: React.FC = () => {
             <button
               type="submit"
               disabled={submitting}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-lg bg-cyan-700 px-4 py-2 text-sm font-bold text-white hover:bg-cyan-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {submitting ? "Confirmando..." : "Confirmar cadastro e convite"}
             </button>
@@ -336,3 +336,5 @@ export const PatientInvitePage: React.FC = () => {
     </div>
   );
 };
+
+

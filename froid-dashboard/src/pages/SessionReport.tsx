@@ -133,13 +133,13 @@ const METRIC_TOOLTIPS: Record<string, string> = {
 
 const HelpTitle: React.FC<{ title: string; className?: string }> = ({
   title,
-  className = "text-sm font-bold text-slate-900",
+  className = "text-sm font-bold text-slate-100",
 }) => (
   <FroidTooltip
     width={320}
     content={
       <div>
-        <p className="font-bold text-slate-900">{title}</p>
+        <p className="font-bold text-slate-100">{title}</p>
         <p className="mt-1">{TITLE_TOOLTIPS[title] || "Informacao do bloco."}</p>
       </div>
     }
@@ -155,7 +155,7 @@ const HelpMetric: React.FC<{ label: string }> = ({ label }) => (
     width={300}
     content={
       <div>
-        <p className="font-bold text-slate-900">{label}</p>
+        <p className="font-bold text-slate-100">{label}</p>
         <p className="mt-1">{METRIC_TOOLTIPS[label] || "Metrica FROID."}</p>
       </div>
     }
@@ -389,13 +389,13 @@ const CompactMetricTable: React.FC<{
   title: string;
   rows: Array<{ label: string; metrics: string[][] }>;
 }> = ({ title, rows }) => (
-  <section className="rounded-lg border border-slate-200 bg-white p-4">
+  <section className="rounded-lg border border-slate-700 bg-slate-900 p-4">
     <div className="mb-3">
       <HelpTitle title={title} />
     </div>
     <div className="overflow-x-auto">
       <table className="min-w-max table-auto text-left text-[10px] leading-tight">
-        <thead className="text-[9px] uppercase tracking-normal text-slate-400">
+        <thead className="text-[9px] uppercase tracking-normal text-slate-500">
           <tr>
             <th className="whitespace-nowrap py-1 pr-2">
               <HelpMetric label="Corte" />
@@ -403,23 +403,23 @@ const CompactMetricTable: React.FC<{
             {rows[0]?.metrics.map(([label]) => (
               <th
                 key={label}
-                className="whitespace-nowrap border-l border-slate-200 px-2 py-1 font-bold"
+                className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-bold"
               >
                 <HelpMetric label={label} />
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody className="divide-y divide-slate-800">
           {rows.map((row) => (
             <tr key={row.label} className="align-top">
-              <td className="whitespace-nowrap py-1 pr-2 font-bold text-slate-700">
+              <td className="whitespace-nowrap py-1 pr-2 font-bold text-slate-300">
                 {row.label}
               </td>
               {row.metrics.map(([label, value]) => (
                 <td
                   key={`${row.label}-${label}`}
-                  className="whitespace-nowrap border-l border-slate-200 px-2 py-1 text-slate-700"
+                  className="whitespace-nowrap border-l border-slate-700 px-2 py-1 text-slate-300"
                   title={value}
                 >
                   {value}
@@ -516,14 +516,14 @@ const EvolutionChart: React.FC<{ analysis: MetricsAnalysis }> = ({ analysis }) =
 
   if (!rows.length) {
     return (
-      <div className="rounded-lg border border-slate-100 bg-slate-50 p-4 text-xs italic text-slate-400">
+      <div className="rounded-lg border border-slate-700 bg-slate-950 p-4 text-xs italic text-slate-500">
         Evolucao estatistica aguardando cortes com dados.
       </div>
     );
   }
 
   return (
-    <div className="rounded-lg border border-slate-100 bg-white p-3">
+    <div className="rounded-lg border border-slate-700 bg-slate-950 p-3">
       <div className="mb-2 flex flex-wrap items-center gap-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">
         {series.map((item) => (
           <span key={item.key} className="inline-flex items-center gap-1">
@@ -696,9 +696,9 @@ export const SessionReport: React.FC<Props> = () => {
 
   if (!report) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 p-6 text-slate-700">
-        <div className="max-w-md rounded-xl border border-slate-200 bg-white p-6 text-center shadow-sm">
-          <h1 className="text-lg font-bold text-slate-900">
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 p-6 text-slate-300">
+        <div className="max-w-md rounded-xl border border-slate-700 bg-slate-900 p-6 text-center shadow-sm">
+          <h1 className="text-lg font-bold text-slate-100">
             Relatorio nao encontrado
           </h1>
           <p className="mt-2 text-sm text-slate-500">
@@ -706,7 +706,7 @@ export const SessionReport: React.FC<Props> = () => {
           </p>
           <button
             onClick={() => navigate("/dashboard")}
-            className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700"
+            className="mt-4 rounded-lg bg-cyan-700 px-4 py-2 text-sm font-bold text-white hover:bg-cyan-800"
           >
             Voltar ao dashboard
           </button>
@@ -721,14 +721,14 @@ export const SessionReport: React.FC<Props> = () => {
   const sessionSummary = derivedSessionSummary(report);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800">
-      <header className="border-b border-slate-200 bg-white px-6 py-4">
+    <div className="min-h-screen bg-slate-950 text-slate-200">
+      <header className="border-b border-slate-700 bg-slate-900 px-6 py-4">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-300">
               Relatorio da Consulta
             </p>
-            <h1 className="text-xl font-bold text-slate-900">
+            <h1 className="text-xl font-bold text-slate-100">
               Sessao {report.sessionId}
             </h1>
             <p className="mt-1 text-xs text-slate-500">
@@ -738,7 +738,7 @@ export const SessionReport: React.FC<Props> = () => {
           </div>
           <button
             onClick={() => navigate("/dashboard")}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
+            className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-800"
           >
             Dashboard
           </button>
@@ -747,51 +747,51 @@ export const SessionReport: React.FC<Props> = () => {
 
       <main className="mx-auto grid max-w-7xl items-start gap-4 p-6 lg:grid-cols-[1fr_390px]">
         <div className="space-y-4">
-          <section className="rounded-lg border border-blue-100 bg-blue-50 p-4">
+          <section className="rounded-lg border border-blue-800 bg-blue-950 p-4">
             <div className="mb-3">
               <HelpTitle
                 title="Linha comparativa da sessao"
-                className="text-sm font-bold text-blue-950"
+                className="text-sm font-bold text-blue-100"
               />
             </div>
             <div className="grid gap-2 md:grid-cols-5">
               <div>
-                <p className="text-[10px] font-bold uppercase text-blue-500">
+                <p className="text-[10px] font-bold uppercase text-blue-300">
                   IPM baseline
                 </p>
-                <p className="text-lg font-black text-blue-950">
+                <p className="text-lg font-black text-blue-100">
                   {fmt(report.baseline.ipmAvg, 1)}
                 </p>
               </div>
               <div>
-                <p className="text-[10px] font-bold uppercase text-blue-500">
+                <p className="text-[10px] font-bold uppercase text-blue-300">
                   IPM medio
                 </p>
-                <p className="text-lg font-black text-blue-950">
+                <p className="text-lg font-black text-blue-100">
                   {fmt(report.sessionAverage.ipmAvg, 1)}
                 </p>
               </div>
               <div>
-                <p className="text-[10px] font-bold uppercase text-blue-500">
+                <p className="text-[10px] font-bold uppercase text-blue-300">
                   IDM baseline
                 </p>
-                <p className="text-lg font-black text-blue-950">
+                <p className="text-lg font-black text-blue-100">
                   {fmt(report.baseline.idmAvg, 2)}
                 </p>
               </div>
               <div>
-                <p className="text-[10px] font-bold uppercase text-blue-500">
+                <p className="text-[10px] font-bold uppercase text-blue-300">
                   IDM medio
                 </p>
-                <p className="text-lg font-black text-blue-950">
+                <p className="text-lg font-black text-blue-100">
                   {fmt(report.sessionAverage.idmAvg, 2)}
                 </p>
               </div>
               <div>
-                <p className="text-[10px] font-bold uppercase text-blue-500">
+                <p className="text-[10px] font-bold uppercase text-blue-300">
                   Tema inicial
                 </p>
-                <p className="text-sm font-bold text-blue-950">
+                <p className="text-sm font-bold text-blue-100">
                   {report.baseline.theme}
                 </p>
               </div>
@@ -799,10 +799,10 @@ export const SessionReport: React.FC<Props> = () => {
           </section>
 
           {sections.evolution && activeMetricsAnalysis && (
-            <section className="rounded-lg border border-slate-200 bg-white p-4">
+            <section className="rounded-lg border border-slate-700 bg-slate-900 p-4">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-sm font-bold text-slate-900">
+                  <h2 className="text-sm font-bold text-slate-100">
                     <HelpTitle title="Evolucao FROID" />
                   </h2>
                   <p className="text-[11px] text-slate-500">
@@ -812,51 +812,51 @@ export const SessionReport: React.FC<Props> = () => {
                 <span
                   className={`rounded px-2 py-1 text-[10px] font-black uppercase ${
                     activeMetricsAnalysis.dashboard.data_status === "Adequado"
-                      ? "bg-emerald-50 text-emerald-700"
-                      : "bg-amber-50 text-amber-700"
+                      ? "bg-emerald-950/40 text-emerald-200"
+                      : "bg-amber-950/40 text-amber-100"
                   }`}
                 >
                   {activeMetricsAnalysis.dashboard.data_status}
                 </span>
               </div>
               <div className="mb-3 grid gap-2 md:grid-cols-5">
-                <div className="rounded border border-slate-100 bg-slate-50 p-2">
-                  <p className="text-[10px] font-bold uppercase text-slate-400">
+                <div className="rounded border border-slate-700 bg-slate-950 p-2">
+                  <p className="text-[10px] font-bold uppercase text-slate-500">
                     Cortes com dados
                   </p>
-                  <p className="text-lg font-black text-slate-900">
+                  <p className="text-lg font-black text-slate-100">
                     {activeMetricsAnalysis.dashboard.populated_windows}
                   </p>
                 </div>
-                <div className="rounded border border-slate-100 bg-slate-50 p-2">
-                  <p className="text-[10px] font-bold uppercase text-slate-400">
+                <div className="rounded border border-slate-700 bg-slate-950 p-2">
+                  <p className="text-[10px] font-bold uppercase text-slate-500">
                     Cobertura media
                   </p>
-                  <p className="text-lg font-black text-slate-900">
+                  <p className="text-lg font-black text-slate-100">
                     {fmtPct(activeMetricsAnalysis.dashboard.mean_coverage)}
                   </p>
                 </div>
-                <div className="rounded border border-slate-100 bg-slate-50 p-2">
-                  <p className="text-[10px] font-bold uppercase text-slate-400">
+                <div className="rounded border border-slate-700 bg-slate-950 p-2">
+                  <p className="text-[10px] font-bold uppercase text-slate-500">
                     Confianca media
                   </p>
-                  <p className="text-lg font-black text-slate-900">
+                  <p className="text-lg font-black text-slate-100">
                     {fmtPct(activeMetricsAnalysis.dashboard.mean_confidence)}
                   </p>
                 </div>
-                <div className="rounded border border-slate-100 bg-slate-50 p-2">
-                  <p className="text-[10px] font-bold uppercase text-slate-400">
+                <div className="rounded border border-slate-700 bg-slate-950 p-2">
+                  <p className="text-[10px] font-bold uppercase text-slate-500">
                     Alertas
                   </p>
-                  <p className="text-lg font-black text-slate-900">
+                  <p className="text-lg font-black text-slate-100">
                     {activeMetricsAnalysis.dashboard.alerts_count}
                   </p>
                 </div>
-                <div className="rounded border border-slate-100 bg-slate-50 p-2">
-                  <p className="text-[10px] font-bold uppercase text-slate-400">
+                <div className="rounded border border-slate-700 bg-slate-950 p-2">
+                  <p className="text-[10px] font-bold uppercase text-slate-500">
                     Criticos
                   </p>
-                  <p className="text-lg font-black text-slate-900">
+                  <p className="text-lg font-black text-slate-100">
                     {activeMetricsAnalysis.dashboard.critical_alerts}
                   </p>
                 </div>
@@ -866,20 +866,20 @@ export const SessionReport: React.FC<Props> = () => {
           )}
 
           {sections.evolution && !activeMetricsAnalysis && (
-            <section className="rounded-lg border border-amber-100 bg-amber-50 p-4 text-xs text-amber-800">
+            <section className="rounded-lg border border-amber-700 bg-amber-950/40 p-4 text-xs text-amber-100">
               Motor evolutivo aguardando analise do servidor.
               {metricsError ? ` ${metricsError}` : ""}
             </section>
           )}
 
           {sections.statistics && activeMetricsAnalysis && (
-            <section className="rounded-lg border border-slate-200 bg-white p-4">
-              <h2 className="mb-3 text-sm font-bold text-slate-900">
+            <section className="rounded-lg border border-slate-700 bg-slate-900 p-4">
+              <h2 className="mb-3 text-sm font-bold text-slate-100">
                 <HelpTitle title="Leitura estatistica das metricas" />
               </h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="text-[10px] uppercase tracking-wider text-slate-400">
+                  <thead className="text-[10px] uppercase tracking-wider text-slate-500">
                     <tr>
                       {[
                         "Metrica",
@@ -896,12 +896,12 @@ export const SessionReport: React.FC<Props> = () => {
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-800">
                     {METRIC_SUMMARY_KEYS.map((key) => {
                       const summary = activeMetricsAnalysis.summary[key] || {};
                       return (
                         <tr key={key}>
-                          <td className="py-2 font-bold text-slate-700">
+                          <td className="py-2 font-bold text-slate-300">
                             <HelpMetric label={metricLabel(activeMetricsAnalysis, key)} />
                           </td>
                           <td>{fmt(summary.baseline, 2)}</td>
@@ -911,11 +911,11 @@ export const SessionReport: React.FC<Props> = () => {
                           <td>{fmt(summary.z_last, 2)}</td>
                           <td>
                             {(summary.alerts || []).length ? (
-                              <span className="rounded bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-700">
+                              <span className="rounded bg-amber-950/40 px-2 py-1 text-[10px] font-bold text-amber-100">
                                 {(summary.alerts || []).join(", ")}
                               </span>
                             ) : (
-                              <span className="text-slate-400">Sem alerta</span>
+                              <span className="text-slate-500">Sem alerta</span>
                             )}
                           </td>
                         </tr>
@@ -927,15 +927,15 @@ export const SessionReport: React.FC<Props> = () => {
             </section>
           )}
 
-          <section className="rounded-lg border border-slate-200 bg-white p-4">
-            <h2 className="mb-3 text-sm font-bold text-slate-900">
+          <section className="rounded-lg border border-slate-700 bg-slate-900 p-4">
+            <h2 className="mb-3 text-sm font-bold text-slate-100">
               <HelpTitle title="Composicao do relatorio" />
             </h2>
             <div className="grid gap-2 md:grid-cols-4">
               {(Object.keys(sections) as SectionKey[]).map((key) => (
                 <label
                   key={key}
-                  className="flex items-center gap-2 rounded border border-slate-100 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-600"
+                  className="flex items-center gap-2 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs font-semibold text-slate-300"
                 >
                   <input
                     type="checkbox"
@@ -972,16 +972,16 @@ export const SessionReport: React.FC<Props> = () => {
           )}
 
           {sections.summaries && (
-            <section className="rounded-lg border border-slate-200 bg-white p-4">
-              <h2 className="mb-3 text-sm font-bold text-slate-900">
+            <section className="rounded-lg border border-slate-700 bg-slate-900 p-4">
+              <h2 className="mb-3 text-sm font-bold text-slate-100">
                 <HelpTitle title="Resumo geral da sessao" />
               </h2>
-              <div className="rounded border border-blue-100 bg-blue-50 p-3">
-                <p className="text-xs font-bold text-blue-950">
+              <div className="rounded border border-blue-800 bg-blue-950 p-3">
+                <p className="text-xs font-bold text-blue-100">
                   Tema predominante:{" "}
                   {limitThemeWords(sessionSummary.theme || report.sessionAverage.theme, 6)}
                 </p>
-                <p className="mt-1 text-xs leading-relaxed text-blue-900">
+                <p className="mt-1 text-xs leading-relaxed text-blue-100">
                   {limitWords(sessionSummary.summary, SESSION_SUMMARY_MAX_WORDS)}
                 </p>
               </div>
@@ -989,13 +989,13 @@ export const SessionReport: React.FC<Props> = () => {
           )}
 
           {sections.summaries && (
-            <section className="rounded-lg border border-slate-200 bg-white p-4">
-              <h2 className="mb-3 text-sm font-bold text-slate-900">
+            <section className="rounded-lg border border-slate-700 bg-slate-900 p-4">
+              <h2 className="mb-3 text-sm font-bold text-slate-100">
                 <HelpTitle title="Temas e Resumos por Cortes" />
               </h2>
               <div className="space-y-2">
                 {!(report.conversationSummaries || []).length && (
-                  <p className="rounded border border-slate-100 bg-slate-50 p-3 text-xs italic text-slate-400">
+                  <p className="rounded border border-slate-700 bg-slate-950 p-3 text-xs italic text-slate-500">
                     Nenhum corte semantico registrado para esta sessao.
                   </p>
                 )}
@@ -1009,21 +1009,21 @@ export const SessionReport: React.FC<Props> = () => {
                     const cut = findCutForSummary(item, report.tenMinuteCuts);
                     const metricLine = summaryMetricLine(cut);
                     return (
-                      <div key={item.id} className="rounded border border-slate-100 bg-slate-50 p-3">
+                      <div key={item.id} className="rounded border border-slate-700 bg-slate-950 p-3">
                         <div className="flex flex-wrap items-start justify-between gap-2">
                           <div>
-                            <p className="text-xs font-bold text-slate-800">
+                            <p className="text-xs font-bold text-slate-200">
                               {item.startMinute}-{item.endMinute}min |{" "}
                               {limitThemeWords(item.theme, 6)}
                             </p>
                           </div>
                         </div>
-                        <p className="mt-2 text-xs leading-relaxed text-slate-600">
+                        <p className="mt-2 text-xs leading-relaxed text-slate-300">
                           {limitWords(item.summary, 60)}
                         </p>
                         {metricLine && (
-                          <p className="mt-2 rounded border border-slate-200 bg-white px-2 py-1 font-mono text-[10px] leading-relaxed text-slate-600">
-                            <span className="font-bold text-slate-800">Metricas:</span>{" "}
+                          <p className="mt-2 rounded border border-slate-700 bg-slate-950 px-2 py-1 font-mono text-[10px] leading-relaxed text-slate-300">
+                            <span className="font-bold text-slate-200">Metricas:</span>{" "}
                             {metricLine}
                           </p>
                         )}
@@ -1040,22 +1040,22 @@ export const SessionReport: React.FC<Props> = () => {
           )}
 
           {sections.notes && (
-            <section className="rounded-lg border border-slate-200 bg-white p-4">
-              <h2 className="mb-3 text-sm font-bold text-slate-900">
+            <section className="rounded-lg border border-slate-700 bg-slate-900 p-4">
+              <h2 className="mb-3 text-sm font-bold text-slate-100">
                 <HelpTitle title="Observacoes do profissional" />
               </h2>
               <div className="space-y-2">
                 {report.clinicalNotes.length === 0 && (
-                  <p className="text-xs italic text-slate-400">
+                  <p className="text-xs italic text-slate-500">
                     Nenhuma anotacao clinica registrada.
                   </p>
                 )}
                 {report.clinicalNotes.map((note) => (
-                  <div key={note.id} className="rounded border border-slate-100 bg-slate-50 p-3">
-                    <p className="whitespace-pre-wrap text-xs text-slate-700">
+                  <div key={note.id} className="rounded border border-slate-700 bg-slate-950 p-3">
+                    <p className="whitespace-pre-wrap text-xs text-slate-300">
                       {note.text}
                     </p>
-                    <p className="mt-1 text-[10px] text-slate-400">
+                    <p className="mt-1 text-[10px] text-slate-500">
                       {new Date(note.timestamp).toLocaleString("pt-BR")}
                     </p>
                   </div>
@@ -1065,22 +1065,22 @@ export const SessionReport: React.FC<Props> = () => {
           )}
 
           {sections.dissonances && (
-            <section className="rounded-lg border border-slate-200 bg-white p-4">
-              <h2 className="mb-3 text-sm font-bold text-slate-900">
+            <section className="rounded-lg border border-slate-700 bg-slate-900 p-4">
+              <h2 className="mb-3 text-sm font-bold text-slate-100">
                 <HelpTitle title="Dissonancias registradas" />
               </h2>
               <div className="space-y-2">
                 {report.dissonances.length === 0 && (
-                  <p className="text-xs italic text-slate-400">
+                  <p className="text-xs italic text-slate-500">
                     Nenhuma dissonancia persistente registrada.
                   </p>
                 )}
                 {report.dissonances.map((item) => (
-                  <div key={item.id} className="rounded border border-red-100 bg-red-50 p-3">
-                    <p className="text-xs font-bold text-red-900">
+                  <div key={item.id} className="rounded border border-red-800 bg-red-950/40 p-3">
+                    <p className="text-xs font-bold text-red-100">
                       Zona {item.zone} | {item.elapsedSeconds}s
                     </p>
-                    <p className="mt-1 text-xs text-red-800">{item.report}</p>
+                    <p className="mt-1 text-xs text-red-200">{item.report}</p>
                   </div>
                 ))}
               </div>
@@ -1090,7 +1090,7 @@ export const SessionReport: React.FC<Props> = () => {
         </div>
 
         <aside className="space-y-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
-          <section className="min-h-[560px] rounded-lg border border-slate-200 bg-white p-4">
+          <section className="min-h-[560px] rounded-lg border border-slate-700 bg-slate-900 p-4">
             <AIInsights
               zones={report.sessionAverage.zones || []}
               ipmScore={report.sessionAverage.ipmAvg}
@@ -1103,14 +1103,14 @@ export const SessionReport: React.FC<Props> = () => {
             />
           </section>
 
-          <section className="rounded-lg border border-slate-200 bg-white p-4">
+          <section className="rounded-lg border border-slate-700 bg-slate-900 p-4">
             <div className="mb-2 flex items-center justify-between gap-3">
-              <h2 className="text-sm font-bold text-slate-900">
+              <h2 className="text-sm font-bold text-slate-100">
                 <HelpTitle title="Relatorio Descritivo" />
               </h2>
               <button
                 onClick={() => navigator.clipboard?.writeText(descriptiveReport)}
-                className="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-bold text-slate-600 hover:bg-slate-100"
+                className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-[10px] font-bold text-slate-300 hover:bg-slate-900"
               >
                 Copiar
               </button>
@@ -1118,10 +1118,10 @@ export const SessionReport: React.FC<Props> = () => {
             <textarea
               value={descriptiveReport}
               onChange={(event) => setDescriptiveReport(event.target.value)}
-              className="min-h-72 w-full resize-y rounded border border-slate-200 bg-slate-50 p-3 text-xs leading-relaxed text-slate-800 outline-none focus:border-blue-400 focus:bg-white"
+              className="min-h-72 w-full resize-y rounded border border-slate-700 bg-slate-950 p-3 text-xs leading-relaxed text-slate-200 outline-none focus:border-cyan-500 focus:bg-slate-900"
               placeholder="Cole aqui os pontos relevantes que serao usados no relatorio para paciente, pares ou impressao."
             />
-            <p className="mt-2 text-[10px] text-slate-400">
+            <p className="mt-2 text-[10px] text-slate-500">
               Campo fixo para edicao, copia e posterior composicao do documento de impressao.
             </p>
           </section>
@@ -1130,3 +1130,5 @@ export const SessionReport: React.FC<Props> = () => {
     </div>
   );
 };
+
+

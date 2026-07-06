@@ -168,7 +168,7 @@ const Field: React.FC<{
   className?: string;
 }> = ({ label, name, value, onChange, type = "text", required, placeholder, className = "" }) => (
   <label className={className}>
-    <span className="text-[11px] font-black uppercase text-slate-500">
+    <span className="text-[11px] font-black uppercase text-slate-400">
       {label}
       {required && <span className="text-red-500"> *</span>}
     </span>
@@ -178,14 +178,14 @@ const Field: React.FC<{
       type={type}
       required={required}
       placeholder={placeholder}
-      className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+      className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
     />
   </label>
 );
 
 const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-  <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-    <h2 className="border-b border-slate-200 pb-2 text-lg font-light text-slate-700">
+  <section className="rounded-lg border border-slate-700 bg-slate-900 p-4 shadow-sm">
+    <h2 className="border-b border-slate-700 pb-2 text-lg font-light text-slate-300">
       {title}
     </h2>
     <div className="mt-4 grid gap-3 md:grid-cols-3">{children}</div>
@@ -456,14 +456,14 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900">
-      <header className="border-b border-slate-200 bg-white">
+    <div className="min-h-screen bg-slate-900 text-slate-100">
+      <header className="border-b border-slate-700 bg-slate-900">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
           <Link to="/" className="text-sm font-black tracking-[0.35em] text-cyan-700">
             FROID
           </Link>
           <div className="flex items-center gap-2">
-            <Link to="/dashboard" className="rounded-md border border-slate-300 px-3 py-2 text-xs font-black">
+            <Link to="/dashboard" className="rounded-md border border-slate-700 px-3 py-2 text-xs font-black">
               Dashboard
             </Link>
             {user ? (
@@ -489,7 +489,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
             Cadastro profissional
           </p>
           <h1 className="mt-2 text-3xl font-black">Ficha cadastral FROID</h1>
-          <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">
+          <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-300">
             Complete o cadastro da pessoa fisica ou juridica, indique usuarios,
             aceite as condicoes LGPD e selecione o plano para liberar o dashboard clinico.
           </p>
@@ -497,8 +497,8 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
 
         <form noValidate onSubmit={saveAndCheckout} className="grid gap-5 xl:grid-cols-[1fr_360px]">
           <div className="space-y-4">
-            <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-              <span className="text-[11px] font-black uppercase text-slate-500">Tipo de cadastro</span>
+            <section className="rounded-lg border border-slate-700 bg-slate-900 p-4 shadow-sm">
+              <span className="text-[11px] font-black uppercase text-slate-400">Tipo de cadastro</span>
               <div className="mt-2 flex flex-wrap gap-3 text-sm font-bold">
                 <label className="flex items-center gap-2">
                   <input
@@ -579,13 +579,13 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
             </Section>
 
             {accountType === "organization" && (
-              <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                <h2 className="border-b border-slate-200 pb-2 text-lg font-light text-slate-700">
+              <section className="rounded-lg border border-slate-700 bg-slate-900 p-4 shadow-sm">
+                <h2 className="border-b border-slate-700 pb-2 text-lg font-light text-slate-300">
                   Usuarios e acesso a base de pacientes
                 </h2>
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
                   <label>
-                    <span className="text-[11px] font-black uppercase text-slate-500">
+                    <span className="text-[11px] font-black uppercase text-slate-400">
                       Profissionais autorizados
                     </span>
                     <textarea
@@ -593,11 +593,11 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
                       onChange={(e) => setProfessionalsRaw(e.target.value)}
                       rows={5}
                       placeholder="Nome, email, telefone&#10;Nome, email, telefone"
-                      className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-cyan-500"
+                      className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200 outline-none focus:border-cyan-500"
                     />
                   </label>
                   <label>
-                    <span className="text-[11px] font-black uppercase text-slate-500">
+                    <span className="text-[11px] font-black uppercase text-slate-400">
                       Podem acessar a base de pacientes
                     </span>
                     <textarea
@@ -605,41 +605,41 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
                       onChange={(e) => setBaseAccessRaw(e.target.value)}
                       rows={5}
                       placeholder="um email por linha"
-                      className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-cyan-500"
+                      className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200 outline-none focus:border-cyan-500"
                     />
                   </label>
                 </div>
               </section>
             )}
 
-            <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-              <h2 className="border-b border-slate-200 pb-2 text-lg font-light text-slate-700">
+            <section className="rounded-lg border border-slate-700 bg-slate-900 p-4 shadow-sm">
+              <h2 className="border-b border-slate-700 pb-2 text-lg font-light text-slate-300">
                 Indicacao de novo usuario
               </h2>
               <div className="mt-4 grid gap-3 md:grid-cols-3">
                 <label>
-                  <span className="text-[11px] font-black uppercase text-slate-500">Nome completo</span>
+                  <span className="text-[11px] font-black uppercase text-slate-400">Nome completo</span>
                   <input
                     value={referral.name}
                     onChange={(event) => setReferral((prev) => ({ ...prev, name: event.target.value }))}
-                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500"
+                    className="mt-1 w-full rounded-md border border-slate-700 px-3 py-2 text-sm outline-none focus:border-cyan-500"
                   />
                 </label>
                 <label>
-                  <span className="text-[11px] font-black uppercase text-slate-500">Celular</span>
+                  <span className="text-[11px] font-black uppercase text-slate-400">Celular</span>
                   <input
                     value={referral.phone}
                     onChange={(event) => setReferral((prev) => ({ ...prev, phone: event.target.value }))}
-                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500"
+                    className="mt-1 w-full rounded-md border border-slate-700 px-3 py-2 text-sm outline-none focus:border-cyan-500"
                   />
                 </label>
                 <label>
-                  <span className="text-[11px] font-black uppercase text-slate-500">E-mail</span>
+                  <span className="text-[11px] font-black uppercase text-slate-400">E-mail</span>
                   <input
                     value={referral.email}
                     onChange={(event) => setReferral((prev) => ({ ...prev, email: event.target.value }))}
                     type="email"
-                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500"
+                    className="mt-1 w-full rounded-md border border-slate-700 px-3 py-2 text-sm outline-none focus:border-cyan-500"
                   />
                 </label>
               </div>
@@ -647,7 +647,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
                 <button
                   type="button"
                   onClick={addReferral}
-                  className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-50"
+                  className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-black text-slate-300 hover:bg-slate-800"
                 >
                   Adicionar indicacao
                 </button>
@@ -661,14 +661,14 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
                 </button>
               </div>
               {referrals.length > 0 && (
-                <div className="mt-3 grid gap-2 text-xs text-slate-600">
+                <div className="mt-3 grid gap-2 text-xs text-slate-300">
                   {referrals.map((item, index) => (
                     <div
                       key={`${item.email}-${item.phone}-${index}`}
-                      className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2"
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-700 bg-slate-950 px-3 py-2"
                     >
                       <span>
-                        <strong className="text-slate-800">{item.name || "Sem nome"}</strong>
+                        <strong className="text-slate-200">{item.name || "Sem nome"}</strong>
                         {" - "}
                         {item.phone || "sem celular"}
                         {" - "}
@@ -688,8 +688,8 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
               )}
             </section>
 
-            <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-              <h2 className="border-b border-slate-200 pb-2 text-lg font-light text-slate-700">
+            <section className="rounded-lg border border-slate-700 bg-slate-900 p-4 shadow-sm">
+              <h2 className="border-b border-slate-700 pb-2 text-lg font-light text-slate-300">
                 Observacoes e responsabilidade LGPD
               </h2>
               <textarea
@@ -697,7 +697,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
                 onChange={(event) => updateField("observations", event.target.value)}
                 rows={4}
                 placeholder="Observacoes cadastrais relevantes..."
-                className="mt-4 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-cyan-500"
+                className="mt-4 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200 outline-none focus:border-cyan-500"
               />
               <div className="mt-4">
                 <LgpdNotice audience="professional" />
@@ -719,14 +719,14 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
             </section>
           </div>
 
-          <aside id="planos" className="h-fit rounded-lg border border-slate-200 bg-white p-5 shadow-sm xl:sticky xl:top-4">
+          <aside id="planos" className="h-fit rounded-lg border border-slate-700 bg-slate-900 p-5 shadow-sm xl:sticky xl:top-4">
             <h2 className="text-lg font-black">Plano e pagamento</h2>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-slate-400">
               O pagamento sera processado pelo Stripe e depois o acesso retorna ao dashboard.
             </p>
 
             <label className="mt-4 block">
-              <span className="text-[11px] font-black uppercase text-slate-500">
+              <span className="text-[11px] font-black uppercase text-slate-400">
                 Consultas mensais estimadas
               </span>
               <input
@@ -734,13 +734,13 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
                 onChange={(e) => setMonthlyConsultations(Number(e.target.value || 0))}
                 type="number"
                 min={1}
-                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+                className="mt-1 w-full rounded-md border border-slate-700 px-3 py-2"
               />
             </label>
 
-            <div className="mt-4 grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <div className="mt-4 grid gap-3 rounded-lg border border-slate-700 bg-slate-950 p-3">
               <label className="block">
-                <span className="text-[11px] font-black uppercase text-slate-500">
+                <span className="text-[11px] font-black uppercase text-slate-400">
                   Numero de sessoes contratadas
                 </span>
                 <input
@@ -748,7 +748,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
                   onChange={(e) => setContractedSessions(Math.max(0, Number(e.target.value || 0)))}
                   type="number"
                   min={1}
-                  className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+                  className="mt-1 w-full rounded-md border border-slate-700 px-3 py-2"
                 />
               </label>
               <div className="rounded-md border border-cyan-200 bg-cyan-50 p-3 text-xs font-bold leading-5 text-cyan-950">
@@ -767,7 +767,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
                   className={`block cursor-pointer rounded-lg border p-4 ${
                     selectedPlan === plan.id
                       ? "border-cyan-500 bg-cyan-50"
-                      : "border-slate-200 bg-white"
+                      : "border-slate-700 bg-slate-900"
                   }`}
                 >
                   <input
@@ -777,9 +777,9 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
                     onChange={() => selectPlan(plan)}
                     className="sr-only"
                   />
-                  <span className="block text-sm font-black text-slate-900">{plan.name}</span>
+                  <span className="block text-sm font-black text-slate-100">{plan.name}</span>
                   <span className="mt-1 block text-2xl font-black text-cyan-800">{plan.amount_brl}</span>
-                  <span className="mt-1 block text-xs text-slate-500">
+                  <span className="mt-1 block text-xs text-slate-400">
                     {plan.session_credits} sessoes - {plan.description}
                   </span>
                 </label>
@@ -787,7 +787,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
             </div>
 
             {error && <p className="mt-4 text-sm font-bold text-red-600">{error}</p>}
-            {message && <p className="mt-4 text-sm font-bold text-amber-700">{message}</p>}
+            {message && <p className="mt-4 text-sm font-bold text-amber-100">{message}</p>}
 
             <button
               disabled={loading || !lgpdAccepted}
@@ -801,3 +801,5 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
     </div>
   );
 };
+
+
