@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { FroidUser } from "../App";
+import { apiUrl } from "../lib/api";
 import {
   createProfessionalPrompt,
   loadProfessionalPrompts,
@@ -19,10 +20,44 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
   const [promptTitle, setPromptTitle] = useState("");
   const [promptText, setPromptText] = useState("");
   const [savedMessage, setSavedMessage] = useState("");
+  const [calendarStatus, setCalendarStatus] = useState<any>(null);
+  const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
+  const [calendarMessage, setCalendarMessage] = useState("");
+  const [calendarLoading, setCalendarLoading] = useState(false);
+
+  const authHeaders = (): Record<string, string> => {
+    const token = window.localStorage.getItem("froid_token") || "";
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
+  const loadCalendarStatus = async () => {
+    try {
+      const response = await fetch(apiUrl("/api/google-calendar/status"), {
+        headers: authHeaders(),
+      });
+      const data = response.ok ? await response.json() : null;
+      setCalendarStatus(data);
+      if (data?.connected) {
+        const eventsResponse = await fetch(apiUrl("/api/google-calendar/events?max_results=5"), {
+          headers: authHeaders(),
+        });
+        const eventsData = eventsResponse.ok ? await eventsResponse.json() : null;
+        setCalendarEvents(Array.isArray(eventsData?.items) ? eventsData.items : []);
+      } else {
+        setCalendarEvents([]);
+      }
+    } catch {
+      setCalendarStatus({ connected: false, configured: false });
+    }
+  };
 
   useEffect(() => {
     setPrompts(loadProfessionalPrompts(ownerEmail));
   }, [ownerEmail]);
+
+  useEffect(() => {
+    void loadCalendarStatus();
+  }, []);
 
   const addPrompt = (event: React.FormEvent) => {
     event.preventDefault();
@@ -45,6 +80,47 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
     saveProfessionalPrompts(ownerEmail, next);
     setSavedMessage("Prompt removido.");
     window.setTimeout(() => setSavedMessage(""), 2500);
+  };
+
+  const connectGoogleCalendar = async () => {
+    setCalendarLoading(true);
+    setCalendarMessage("");
+    try {
+      const response = await fetch(apiUrl("/api/google-calendar/connect"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders(),
+        },
+        body: JSON.stringify({ base_url: apiUrl("").replace(/\/+$/, "") }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data?.auth_url) {
+        throw new Error(data?.detail || "Nao foi possivel iniciar a conexao Google Agenda.");
+      }
+      window.location.href = data.auth_url;
+    } catch (error: any) {
+      setCalendarMessage(error?.message || "Falha ao conectar Google Agenda.");
+      setCalendarLoading(false);
+    }
+  };
+
+  const disconnectGoogleCalendar = async () => {
+    setCalendarLoading(true);
+    setCalendarMessage("");
+    try {
+      const response = await fetch(apiUrl("/api/google-calendar/disconnect"), {
+        method: "POST",
+        headers: authHeaders(),
+      });
+      if (!response.ok) throw new Error("Nao foi possivel desconectar Google Agenda.");
+      setCalendarMessage("Google Agenda desconectado.");
+      await loadCalendarStatus();
+    } catch (error: any) {
+      setCalendarMessage(error?.message || "Falha ao desconectar Google Agenda.");
+    } finally {
+      setCalendarLoading(false);
+    }
   };
 
   return (
@@ -139,13 +215,83 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
 
         <div className="grid gap-4 md:grid-cols-2">
           <div className="rounded-lg border border-slate-700 p-3">
-            <p className="text-sm font-semibold">Google OAuth e Agenda</p>
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <p className="text-sm font-semibold">Google OAuth e Agenda</p>
+                <p className="mt-1 text-xs text-slate-400">
+                  Conecte a agenda do profissional para consultar compromissos e preparar lembretes de sessoes.
+                </p>
+              </div>
+              <span
+                className={`rounded px-2 py-1 text-[10px] font-black uppercase ${
+                  calendarStatus?.connected
+                    ? "border border-emerald-700 bg-emerald-950/40 text-emerald-200"
+                    : "border border-amber-600 bg-amber-950/40 text-amber-100"
+                }`}
+              >
+                {calendarStatus?.connected ? "Conectado" : "Pendente"}
+              </span>
+            </div>
             <p className="mt-1 text-xs text-slate-400">
-              Conecte Google para sincronizar agenda, lembretes e cobranca de sessoes.
+              URI de retorno:{" "}
+              <span className="font-mono text-[10px] text-cyan-200">
+                {calendarStatus?.redirect_uri || "aguardando servidor"}
+              </span>
             </p>
-            <button className="mt-3 rounded-lg bg-cyan-700 px-3 py-1.5 text-xs font-bold text-white">
-              Conectar Google
-            </button>
+            {calendarStatus?.connected && (
+              <div className="mt-3 rounded border border-slate-700 bg-slate-950 p-2 text-xs text-slate-300">
+                <p>
+                  <strong>Conta:</strong>{" "}
+                  {calendarStatus.google_email || calendarStatus.professional_email || ownerEmail}
+                </p>
+                <p className="mt-1">
+                  <strong>Atualizado:</strong>{" "}
+                  {calendarStatus.updated_at
+                    ? new Date(calendarStatus.updated_at).toLocaleString("pt-BR")
+                    : "--"}
+                </p>
+              </div>
+            )}
+            {calendarEvents.length > 0 && (
+              <div className="mt-3 space-y-1 rounded border border-slate-700 bg-slate-950 p-2">
+                <p className="text-[10px] font-black uppercase tracking-wide text-cyan-200">
+                  Proximos eventos
+                </p>
+                {calendarEvents.map((event) => (
+                  <div key={event.id} className="border-t border-slate-800 pt-1 text-xs text-slate-300">
+                    <p className="font-bold text-slate-100">{event.summary}</p>
+                    <p className="text-[10px] text-slate-500">
+                      {event.start?.dateTime || event.start?.date || "--"}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+            {calendarMessage && (
+              <p className="mt-3 rounded border border-amber-600 bg-amber-950/40 px-2 py-1 text-xs font-bold text-amber-100">
+                {calendarMessage}
+              </p>
+            )}
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={calendarLoading}
+                onClick={connectGoogleCalendar}
+                className="rounded-lg bg-cyan-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-cyan-800 disabled:opacity-40"
+              >
+                {calendarStatus?.connected ? "Reconectar Google" : "Conectar Google"}
+              </button>
+              {calendarStatus?.connected && (
+                <button
+                  type="button"
+                  disabled={calendarLoading}
+                  onClick={disconnectGoogleCalendar}
+                  className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs font-bold text-slate-200 hover:bg-slate-800 disabled:opacity-40"
+                >
+                  Desconectar
+                </button>
+              )}
+            </div>
           </div>
           <div className="rounded-lg border border-slate-700 p-3">
             <p className="text-sm font-semibold">Consentimentos LGPD</p>

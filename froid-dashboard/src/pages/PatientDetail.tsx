@@ -12,7 +12,6 @@ import {
   paymentStatusForReport,
   reportEndDate,
   reportStartDate,
-  sessionMetricCells,
   splitSessionResult,
   shortId,
 } from "../lib/patient-dashboard";
@@ -22,10 +21,6 @@ import {
   MetricSnapshot,
   SessionReportRecord,
 } from "../lib/session-report";
-
-function detailMetricCells(snapshot: MetricSnapshot) {
-  return sessionMetricCells(snapshot).filter((cell) => cell.key !== "theme");
-}
 
 type PatientFollowStatus = "active" | "inactive";
 
@@ -138,7 +133,7 @@ export const PatientDetail: React.FC = () => {
     latest_report_cuts: latest.tenMinuteCuts,
   };
   const signal = patientAdvancedSignal(group);
-  const sessionTableColSpan = detailMetricCells(latest.sessionAverage).length + 4;
+  const sessionTableColSpan = patientMetricRows(latest.sessionAverage).length + 4;
   const resultTextColSpan = Math.max(1, sessionTableColSpan - 2);
   const latestResultLines = splitSessionResult(latest);
   const latestCutCount = latest.tenMinuteCuts.filter((cut) => cut.sampleCount > 0).length;
@@ -304,18 +299,27 @@ export const PatientDetail: React.FC = () => {
           <section className="rounded-lg border border-slate-800 bg-slate-900 p-3">
             <h2 className="text-sm font-bold text-slate-100">Sessoes realizadas</h2>
             <div className="mt-3 overflow-x-auto">
-              <table className="min-w-[1500px] w-full border-collapse text-left text-[10px]">
-                <thead className="text-[10px] uppercase tracking-wider text-slate-400">
-                  <tr className="border-b border-slate-700">
-                    <th className="px-1 py-1">Data</th>
-                    <th className="px-1 py-1">Sessao</th>
-                    {detailMetricCells(latest.sessionAverage).map((cell) => (
-                      <th key={cell.key} className="px-1 py-1">
-                        {cell.label}
+              <table className="min-w-max table-auto text-left text-[10px] leading-tight">
+                <thead className="text-[9px] uppercase tracking-normal text-slate-400">
+                  <tr>
+                    <th className="whitespace-nowrap py-1 pr-2">Data</th>
+                    <th className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-bold">
+                      Sessao
+                    </th>
+                    {patientMetricRows(latest.sessionAverage).map(([label]) => (
+                      <th
+                        key={label}
+                        className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-bold"
+                      >
+                        {label}
                       </th>
                     ))}
-                    <th className="px-1 py-1">Pagamento</th>
-                    <th className="px-1 py-1">Detalhe</th>
+                    <th className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-bold">
+                      Pagamento
+                    </th>
+                    <th className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-bold">
+                      Detalhe
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
@@ -324,34 +328,40 @@ export const PatientDetail: React.FC = () => {
                     return (
                       <React.Fragment key={report.sessionId}>
                         <tr className="align-top">
-                          <td className="px-1 py-1">
+                          <td className="whitespace-nowrap py-1 pr-2 font-bold text-slate-300">
                             {formatDateTime(reportEndDate(report))}
                           </td>
-                          <td className="px-1 py-1">{shortId(report.sessionId)}</td>
-                          {detailMetricCells(report.sessionAverage).map((cell) => (
-                            <td key={cell.key} className="px-1 py-1">
-                              {cell.value}
+                          <td className="whitespace-nowrap border-l border-slate-700 px-2 py-1 text-slate-300">
+                            {shortId(report.sessionId)}
+                          </td>
+                          {patientMetricRows(report.sessionAverage).map(([label, value]) => (
+                            <td
+                              key={`${report.sessionId}-${label}`}
+                              className="whitespace-nowrap border-l border-slate-700 px-2 py-1 text-slate-300"
+                              title={value}
+                            >
+                              {value}
                             </td>
                           ))}
-                          <td className="px-1 py-1 font-bold">
+                          <td className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-bold text-slate-300">
                             {paymentStatusForReport(report)}
                           </td>
-                          <td className="px-1 py-1">
+                          <td className="whitespace-nowrap border-l border-slate-700 px-2 py-1">
                             <button
                               onClick={() =>
                                 navigate(`/session/${report.sessionId}/report`)
                               }
-                              className="rounded border border-slate-700 bg-slate-950 px-2 py-1 font-bold text-slate-300 hover:bg-slate-100"
+                              className="rounded border border-slate-700 bg-slate-950 px-2 py-1 font-bold text-slate-300 hover:bg-slate-800"
                             >
                               Ver
                             </button>
                           </td>
                         </tr>
                         <tr className="bg-blue-950/70 align-top">
-                          <td className="border-r border-blue-100 px-2 py-2 text-[10px] font-black uppercase text-blue-200">
+                          <td className="border-r border-blue-800 px-2 py-2 text-[10px] font-black uppercase text-blue-200">
                             Resultado
                           </td>
-                          <td className="border-r border-blue-100 px-2 py-2 text-[10px] font-bold text-blue-200">
+                          <td className="border-r border-blue-800 px-2 py-2 text-[10px] font-bold text-blue-200">
                             {shortId(report.sessionId)}
                           </td>
                           <td colSpan={resultTextColSpan} className="px-2 py-2 text-xs leading-relaxed text-blue-100">
