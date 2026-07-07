@@ -27,6 +27,8 @@ services:
       - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
       - OPENAI_TRANSCRIBE_MODEL=${OPENAI_TRANSCRIBE_MODEL:-gpt-4o-transcribe}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
+      - STRIPE_CURRENCY=${STRIPE_CURRENCY:-usd}
       - FROID_EXPLICA_MODEL=${FROID_EXPLICA_MODEL:-gemini-1.5-pro}
       - FROID_CHROMA_PATH=${FROID_CHROMA_PATH:-/data/chroma_db}
       - FROID_DUCKDB_PATH=${FROID_DUCKDB_PATH:-/data/datamart_anonymous.duckdb}
