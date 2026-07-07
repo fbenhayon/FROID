@@ -25,6 +25,12 @@ type AccessPlan = {
   currency?: string;
 };
 
+const billingMarkets = [
+  { code: "BR", label: "Brasil", currency: "brl", note: "Cartoes nacionais e pagamento em reais." },
+  { code: "US", label: "Estados Unidos", currency: "usd", note: "Clientes com cartao apto para USD." },
+  { code: "EU", label: "Europa", currency: "eur", note: "Franca, Italia, Alemanha e demais paises da zona EUR." },
+];
+
 const fallbackPlans: AccessPlan[] = [
   {
     id: "single_session",
@@ -157,6 +163,8 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
   const [profileStatus, setProfileStatus] = useState<any>(user?.access_status || null);
   const [plans, setPlans] = useState<AccessPlan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState("professional_pack_25");
+  const [billingMarket, setBillingMarket] = useState("BR");
+  const [billingCurrency, setBillingCurrency] = useState("brl");
   const [sessionQuantity, setSessionQuantity] = useState(25);
   const [billingMessage, setBillingMessage] = useState("");
   const [billingLoading, setBillingLoading] = useState(false);
@@ -243,7 +251,7 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
 
   useEffect(() => {
     void loadCalendarStatus();
-    void loadBillingProfile();
+    void loadBillingProfile(billingCurrency);
     const hashQuery = window.location.hash.split("?")[1] || "";
     const params = new URLSearchParams(hashQuery);
     const checkoutSessionId = params.get("stripe_session_id") || "";
@@ -252,11 +260,11 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
     }
   }, []);
 
-  const loadBillingProfile = async () => {
+  const loadBillingProfile = async (currency: string = billingCurrency) => {
     try {
       const [profileResponse, plansResponse] = await Promise.all([
         fetch(apiUrl("/api/professional/profile"), { headers: authHeaders() }),
-        fetch(apiUrl("/api/access/plans")),
+        fetch(apiUrl(`/api/access/plans?currency=${encodeURIComponent(currency)}`)),
       ]);
       const profileData = profileResponse.ok ? await profileResponse.json() : null;
       const plansData = plansResponse.ok ? await plansResponse.json() : null;
@@ -271,6 +279,13 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
       setPlans(fallbackPlans);
       setProfileStatus(user?.access_status || null);
     }
+  };
+
+  const changeBillingMarket = async (marketCode: string) => {
+    const market = billingMarkets.find((item) => item.code === marketCode) || billingMarkets[0];
+    setBillingMarket(market.code);
+    setBillingCurrency(market.currency);
+    await loadBillingProfile(market.currency);
   };
 
   const addPrompt = (event: React.FormEvent) => {
@@ -471,6 +486,7 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
         body: JSON.stringify({
           purchase_type: "add_sessions",
           plan_id: selectedPlan,
+          currency: billingCurrency,
           email: ownerEmail,
           base_url: publicAppUrl(),
           contracted_sessions: sessionQuantity,
@@ -942,6 +958,23 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
             </div>
             <div className="mt-3 grid gap-2 rounded border border-slate-700 bg-slate-950 p-3">
               <label className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+                Mercado / moeda
+                <select
+                  value={billingMarket}
+                  onChange={(event) => void changeBillingMarket(event.target.value)}
+                  className="mt-1 w-full rounded border border-slate-700 bg-slate-900 px-2 py-2 text-xs font-semibold normal-case tracking-normal text-slate-100 outline-none focus:border-cyan-500"
+                >
+                  {billingMarkets.map((market) => (
+                    <option key={market.code} value={market.code}>
+                      {market.label} - {market.currency.toUpperCase()}
+                    </option>
+                  ))}
+                </select>
+                <span className="mt-1 block text-[10px] normal-case tracking-normal text-slate-500">
+                  {billingMarkets.find((market) => market.code === billingMarket)?.note}
+                </span>
+              </label>
+              <label className="text-[10px] font-black uppercase tracking-wide text-slate-400">
                 Pacote
                 <select
                   value={selectedPlan}
@@ -974,6 +1007,8 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
               <div className="rounded border border-cyan-900/70 bg-cyan-950/30 p-2 text-xs text-cyan-100">
                 Total liberado: <strong>{purchaseTotalSessions}</strong> sessoes
                 {purchaseBonusSessions ? `, incluindo ${purchaseBonusSessions} bonus` : ""}.
+                <br />
+                Moeda do checkout: <strong>{billingCurrency.toUpperCase()}</strong>.
               </div>
               <button
                 type="button"

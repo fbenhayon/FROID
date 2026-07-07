@@ -2513,7 +2513,33 @@ def _format_brl(cents: int, currency: str = "brl") -> str:
     centavos = cents % 100
     if str(currency or "").lower() == "usd":
         return f"US$ {reais}.{centavos:02d}"
+    if str(currency or "").lower() == "eur":
+        return f"€ {reais},{centavos:02d}"
     return f"R$ {reais},{centavos:02d}"
+
+
+def _normalize_stripe_currency(value: Any) -> str:
+    currency = str(value or "").strip().lower()
+    return currency if currency in {"brl", "usd", "eur"} else ""
+
+
+def _plan_amount_for_currency(plan: dict, currency: str) -> int:
+    prices = plan.get("prices") if isinstance(plan.get("prices"), dict) else {}
+    normalized = _normalize_stripe_currency(currency) or _normalize_stripe_currency(plan.get("currency")) or "usd"
+    if normalized in prices:
+        return max(0, _local_int(prices.get(normalized)))
+    return max(0, _local_int(plan.get("amount_cents")))
+
+
+def _plan_public(plan: dict, currency: str = "") -> dict:
+    normalized = _normalize_stripe_currency(currency) or _normalize_stripe_currency(plan.get("currency")) or "usd"
+    amount_cents = _plan_amount_for_currency(plan, normalized)
+    return {
+        **plan,
+        "currency": normalized,
+        "amount_cents": amount_cents,
+        "amount_brl": _format_brl(amount_cents, normalized),
+    }
 
 
 FROID_ACCESS_PLANS = {
@@ -2523,6 +2549,7 @@ FROID_ACCESS_PLANS = {
         "description": "Credito individual para uma sessao FROID.",
         "session_credits": 1,
         "amount_cents": 0,
+        "prices": {"usd": 0, "eur": 0, "brl": 0},
         "currency": "usd",
     },
     "professional_pack_25": {
@@ -2531,6 +2558,7 @@ FROID_ACCESS_PLANS = {
         "description": "Pacote mensal com 25 sessoes FROID.",
         "session_credits": 25,
         "amount_cents": 150,
+        "prices": {"usd": 150, "eur": 150, "brl": 800},
         "currency": "usd",
     },
     "developer_pack_25": {
@@ -2539,6 +2567,7 @@ FROID_ACCESS_PLANS = {
         "description": "Pacote tecnico de desenvolvimento e testes com 25 sessoes.",
         "session_credits": 25,
         "amount_cents": 250,
+        "prices": {"usd": 250, "eur": 250, "brl": 1300},
         "currency": "usd",
     },
 }
@@ -3801,14 +3830,12 @@ async def google_calendar_delete_event(event_id: str, request: Request, calendar
 
 
 @app.get("/api/access/plans")
-async def access_plans():
+async def access_plans(currency: str = ""):
+    selected_currency = _normalize_stripe_currency(currency) or _normalize_stripe_currency(STRIPE_CURRENCY) or "usd"
     return {
-        "currency": "usd",
+        "currency": selected_currency,
         "plans": [
-            {
-                **plan,
-                "amount_brl": _format_brl(plan["amount_cents"], plan.get("currency", "usd")),
-            }
+            _plan_public(plan, selected_currency)
             for plan in FROID_ACCESS_PLANS.values()
         ],
     }
@@ -3919,9 +3946,14 @@ async def create_billing_checkout(request: Request):
     contracted_sessions = max(0, int(body.get("contracted_sessions") or plan.get("session_credits") or 0))
     bonus_sessions = max(0, int(body.get("bonus_sessions") or ((contracted_sessions // 100) * 10)))
     total_sessions = max(0, int(body.get("total_sessions") or (contracted_sessions + bonus_sessions)))
-    unit_amount_cents = max(0, int(body.get("session_unit_amount_cents") or plan.get("amount_cents") or 0))
-    package_total_cents = max(0, int(body.get("package_total_cents") or (unit_amount_cents * contracted_sessions)))
-    plan_currency = str(plan.get("currency") or STRIPE_CURRENCY or "usd").lower()
+    plan_currency = (
+        _normalize_stripe_currency(body.get("currency"))
+        or _normalize_stripe_currency(plan.get("currency"))
+        or _normalize_stripe_currency(STRIPE_CURRENCY)
+        or "usd"
+    )
+    unit_amount_cents = _plan_amount_for_currency(plan, plan_currency)
+    package_total_cents = max(0, unit_amount_cents * contracted_sessions)
     checkout_description = (
         f"{plan['description']} "
         f"Sessoes contratadas: {contracted_sessions}. "
@@ -3996,6 +4028,7 @@ async def create_billing_checkout(request: Request):
         "metadata[bonus_sessions]": str(bonus_sessions),
         "metadata[unit_amount_cents]": str(unit_amount_cents),
         "metadata[package_total_cents]": str(package_total_cents),
+        "metadata[currency]": plan_currency,
         "metadata[professional_email]": email,
     }
     if email:

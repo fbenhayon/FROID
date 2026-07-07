@@ -14,6 +14,12 @@ type AccessPlan = {
   currency?: string;
 };
 
+const billingMarkets = [
+  { code: "BR", label: "Brasil", currency: "brl", note: "Cobrança em reais para cartões nacionais." },
+  { code: "US", label: "Estados Unidos", currency: "usd", note: "Cobrança em dólar para cartões aptos a USD." },
+  { code: "EU", label: "Europa", currency: "eur", note: "França, Itália, Alemanha e demais países em EUR." },
+];
+
 type ProfessionalLine = {
   name: string;
   email: string;
@@ -155,8 +161,11 @@ function openWhatsappReferral(referral: Referral) {
   if (!opened) window.location.href = url;
 }
 
-function formatUsdFromCents(cents: number) {
-  return `US$ ${(Math.max(0, cents) / 100).toFixed(2)}`;
+function formatMoneyFromCents(cents: number, currency = "usd") {
+  const value = Math.max(0, cents) / 100;
+  if (currency === "brl") return `R$ ${value.toFixed(2).replace(".", ",")}`;
+  if (currency === "eur") return `€ ${value.toFixed(2).replace(".", ",")}`;
+  return `US$ ${value.toFixed(2)}`;
 }
 
 function bonusForSessions(sessions: number) {
@@ -210,6 +219,8 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
   const [baseAccessRaw, setBaseAccessRaw] = useState("");
   const [monthlyConsultations, setMonthlyConsultations] = useState(25);
   const [selectedPlan, setSelectedPlan] = useState("professional_pack_25");
+  const [billingMarket, setBillingMarket] = useState("BR");
+  const [billingCurrency, setBillingCurrency] = useState("brl");
   const [contractedSessions, setContractedSessions] = useState(25);
   const [plans, setPlans] = useState<AccessPlan[]>([]);
   const [referral, setReferral] = useState<Referral>({ name: "", phone: "", email: "" });
@@ -228,8 +239,8 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
   const totalSessions = Math.max(0, contractedSessions) + bonusSessions;
   const packageTotalCents = unitAmountCents * Math.max(0, contractedSessions);
 
-  useEffect(() => {
-    fetch(apiUrl("/api/access/plans"))
+  const loadPlans = (currency = billingCurrency) => {
+    fetch(apiUrl(`/api/access/plans?currency=${encodeURIComponent(currency)}`))
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (Array.isArray(data?.plans)) {
@@ -241,7 +252,18 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
         }
       })
       .catch(() => undefined);
+  };
+
+  useEffect(() => {
+    loadPlans(billingCurrency);
   }, []);
+
+  const changeBillingMarket = (marketCode: string) => {
+    const market = billingMarkets.find((item) => item.code === marketCode) || billingMarkets[0];
+    setBillingMarket(market.code);
+    setBillingCurrency(market.currency);
+    loadPlans(market.currency);
+  };
 
   useEffect(() => {
     const token = localStorage.getItem("froid_token");
@@ -388,6 +410,8 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
         lgpd_acknowledged_at: lgpdAccepted ? new Date().toISOString() : "",
         monthly_consultations: monthlyConsultations,
         selected_plan: selectedPlan,
+        billing_market: billingMarket,
+        billing_currency: billingCurrency,
         contracted_sessions: contractedSessions,
         bonus_sessions: bonusSessions,
         total_sessions: totalSessions,
@@ -433,6 +457,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
         },
         body: JSON.stringify({
           plan_id: selectedPlan,
+          currency: billingCurrency,
           email: user?.email,
           base_url: publicAppUrl(),
           contracted_sessions: contractedSessions,
@@ -744,6 +769,26 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
 
             <label className="mt-4 block">
               <span className="text-[11px] font-black uppercase text-slate-400">
+                Mercado / moeda
+              </span>
+              <select
+                value={billingMarket}
+                onChange={(event) => changeBillingMarket(event.target.value)}
+                className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+              >
+                {billingMarkets.map((market) => (
+                  <option key={market.code} value={market.code}>
+                    {market.label} - {market.currency.toUpperCase()}
+                  </option>
+                ))}
+              </select>
+              <span className="mt-1 block text-[11px] text-slate-500">
+                {billingMarkets.find((market) => market.code === billingMarket)?.note}
+              </span>
+            </label>
+
+            <label className="mt-4 block">
+              <span className="text-[11px] font-black uppercase text-slate-400">
                 Consultas mensais estimadas
               </span>
               <input
@@ -769,11 +814,12 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
                 />
               </label>
               <div className="rounded-md border border-cyan-200 bg-cyan-50 p-3 text-xs font-bold leading-5 text-cyan-950">
-                <p>Valor unitario do plano: {formatUsdFromCents(unitAmountCents)}</p>
-                <p>Total do pacote: {formatUsdFromCents(packageTotalCents)}</p>
+                <p>Valor unitario do plano: {formatMoneyFromCents(unitAmountCents, billingCurrency)}</p>
+                <p>Total do pacote: {formatMoneyFromCents(packageTotalCents, billingCurrency)}</p>
                 <p>Sessoes contratadas: {contractedSessions}</p>
                 <p>Bonus acima de 100 sessoes: +{bonusSessions} sessoes</p>
                 <p>Total liberado: {totalSessions} sessoes</p>
+                <p>Moeda do checkout: {billingCurrency.toUpperCase()}</p>
               </div>
             </div>
 
