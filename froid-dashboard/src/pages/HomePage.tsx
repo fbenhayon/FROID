@@ -6,6 +6,7 @@ const heroImage = "/froid-home/facs-matrizes-emocionais.png";
 const auImage = "/froid-home/facs-unidades-acao.png";
 
 const navItems = [
+  { label: "Inicio", to: "/" },
   { label: "Ciencia", to: "/froid/ciencia" },
   { label: "Tecnologia", to: "/froid/tecnologia" },
   { label: "Profissionais", to: "/froid/profissionais" },
@@ -448,6 +449,9 @@ export const HomePage: React.FC = () => {
               </div>
               <Link to="/access/register" className="rounded-lg bg-cyan-400 px-5 py-3 text-center text-sm font-black text-slate-950 hover:bg-cyan-300">
                 Solicitar cadastro
+              </Link>
+              <Link to="/login" className="rounded-lg border border-white/20 px-5 py-3 text-center text-sm font-black text-white hover:bg-white/10">
+                Entrar no FROID
               </Link>
             </div>
           </div>

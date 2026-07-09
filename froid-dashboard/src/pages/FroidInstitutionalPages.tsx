@@ -13,13 +13,19 @@ function Header() {
           FROID
         </Link>
         <nav className="hidden items-center gap-1 text-xs font-black text-slate-300 md:flex">
+          <Link to="/" className="rounded px-3 py-2 hover:bg-white/10">Inicio</Link>
           <Link to="/froid/ciencia" className="rounded px-3 py-2 hover:bg-white/10">Ciencia</Link>
           <Link to="/froid/tecnologia" className="rounded px-3 py-2 hover:bg-white/10">Tecnologia</Link>
           <Link to="/froid/profissionais" className="rounded px-3 py-2 hover:bg-white/10">Profissionais</Link>
         </nav>
-        <Link to="/access/register" className="rounded bg-cyan-400 px-3 py-2 text-xs font-black text-slate-950 hover:bg-cyan-300">
-          Cadastro
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link to="/login" className="rounded border border-white/20 px-3 py-2 text-xs font-black text-slate-100 hover:bg-white/10">
+            Login
+          </Link>
+          <Link to="/access/register" className="rounded bg-cyan-400 px-3 py-2 text-xs font-black text-slate-950 hover:bg-cyan-300">
+            Cadastro
+          </Link>
+        </div>
       </div>
     </header>
   );
