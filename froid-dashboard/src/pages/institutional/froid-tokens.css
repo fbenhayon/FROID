@@ -1,0 +1,83 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;800;900&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+/* ===================================================================
+   FROID — Design Tokens
+   Institutional website (Home / Ciência / Tecnologia / Profissionais)
+   =================================================================== */
+
+:root {
+  /* Surfaces */
+  --bg: #020617;
+  --surface: #0f172a;
+  --surface-soft: rgba(15,23,42,.7);
+  --border: rgba(255,255,255,.1);
+  --border-soft: rgba(255,255,255,.2);
+
+  /* Accent — cyan (primary) */
+  --cyan: #67e8f9;
+  --cyan-strong: #22d3ee;
+  --cyan-pale: #bbf5fc;
+  --cyan-mist: #e4fbfe;
+  --cyan-wash: rgba(103,232,249,.07);
+  --cyan-wash2: rgba(103,232,249,.14);
+
+  /* Accent — emerald (secondary / "valor para o profissional") */
+  --emerald: #6ee7b7;
+  --emerald-pale: #aff2d7;
+  --emerald-wash: rgba(110,231,183,.06);
+
+  /* Accent — rose (dissonance / warning) */
+  --rose: #fda4af;
+  --rose-pale: #fecdd3;
+  --rose-wash: rgba(253,164,175,.06);
+
+  /* Text */
+  --text: #f1f5f9;
+  --text-dim: #cbd5e1;
+  --text-faint: #94a3b8;
+
+  /* Type */
+  --serif: 'Orbitron', system-ui, sans-serif;   /* display / headings */
+  --sans: 'Manrope', system-ui, -apple-system, sans-serif; /* body */
+  --mono: 'IBM Plex Mono', ui-monospace, monospace; /* technical labels, formulas */
+
+  /* Decorative-only, currently unused directly but kept for parity with source */
+  --dna-blue: #3b6bff;
+  --dna-violet: #7c3aed;
+
+  /* Layout scale knobs from the original design's Tweaks panel — pinned to
+     their default values here since this handoff ships no runtime JS.
+     A real implementation may re-expose these as CSS custom properties. */
+  --text-scale: 1;
+  --space-scale: 1;
+  --col-text: 420px;
+  --col-image: 380px;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  line-height: 1.5;
+}
+::selection { background: rgba(103,232,249,.25); }
+
+/* Page shell: dotted background grid + base type, matches every page */
+.froid-page {
+  min-height: 100vh;
+  background: var(--bg) radial-gradient(circle at 1px 1px, rgba(255,255,255,.05) 1px, transparent 0) 0 0/28px 28px;
+  color: var(--text);
+  font-family: var(--sans);
+  line-height: 1.5;
+  position: relative;
+}
+
+a { color: var(--cyan-pale); text-decoration: underline; }
+a:hover { color: var(--cyan); }
+
+@keyframes froid-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(8px); }
+}
