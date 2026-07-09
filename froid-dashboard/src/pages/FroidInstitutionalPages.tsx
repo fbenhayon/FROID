@@ -46,11 +46,36 @@ function PageShell({
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <Header />
       <main>
-        <section className="border-b border-white/10 bg-slate-900/70">
-          <div className="mx-auto max-w-7xl px-5 py-12">
-            <p className="text-xs font-black uppercase tracking-[0.32em] text-cyan-300">{eyebrow}</p>
-            <h1 className="mt-4 max-w-5xl text-4xl font-black leading-tight text-white md:text-6xl">{title}</h1>
-            <p className="mt-5 max-w-4xl text-base leading-8 text-slate-300">{intro}</p>
+        <section
+          className="border-b border-white/10 bg-slate-950"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle at 1px 1px, rgba(103,232,249,.12) 1px, transparent 0)",
+            backgroundSize: "28px 28px",
+          }}
+        >
+          <div className="mx-auto grid max-w-7xl gap-8 px-5 py-14 lg:grid-cols-[1fr_360px]">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.32em] text-cyan-300">{eyebrow}</p>
+              <h1 className="mt-4 max-w-5xl text-4xl font-black leading-tight text-white md:text-6xl">{title}</h1>
+              <p className="mt-5 max-w-4xl text-base leading-8 text-slate-300">{intro}</p>
+            </div>
+            <div className="rounded-lg border border-cyan-300/20 bg-slate-900/80 p-5 shadow-2xl shadow-cyan-950/30">
+              <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-300">FROID institucional</p>
+              <div className="mt-5 grid gap-3">
+                {["Base cientifica", "Tecnologia proprietaria", "Fluxo clinico"].map((item) => (
+                  <div key={item} className="rounded border border-white/10 bg-white/[0.03] p-4">
+                    <p className="text-sm font-black text-white">{item}</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-400">
+                      Conteudo publico para apresentar o alcance tecnico e clinico do FROID.
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <Link to="/access/register" className="mt-5 block rounded bg-cyan-400 px-4 py-3 text-center text-xs font-black text-slate-950 hover:bg-cyan-300">
+                Solicitar cadastro
+              </Link>
+            </div>
           </div>
         </section>
         {children}

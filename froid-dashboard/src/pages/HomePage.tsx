@@ -4,6 +4,7 @@ import { LgpdNotice } from "../components/legal/LgpdNotice";
 
 const heroImage = "/froid-home/facs-matrizes-emocionais.png";
 const auImage = "/froid-home/facs-unidades-acao.png";
+const facsMapImage = "/froid-home/facs-mapa-completo.png";
 
 const navItems = [
   { label: "Inicio", to: "/" },
@@ -280,6 +281,55 @@ function ImagePanel({ src, alt }: { src: string; alt: string }) {
   );
 }
 
+function SignalConsole() {
+  const rows = [
+    ["Voz", "MFCC7, MFCC9, F0, ZCR, Jitter, Shimmer"],
+    ["Face", "AUs, assimetria, onset, apex, offset"],
+    ["Semantica", "tema, valencia, resumo, contradicao"],
+    ["Tempo", "baseline, cortes, medias, delta"],
+  ];
+  return (
+    <div className="rounded-lg border border-cyan-300/25 bg-slate-950 p-4 shadow-2xl shadow-cyan-950/30">
+      <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.28em] text-cyan-300">FROID OS</p>
+          <p className="mt-1 text-sm font-bold text-white">Fusao multimodal ativa</p>
+        </div>
+        <span className="rounded bg-emerald-300/10 px-2 py-1 text-xs font-black text-emerald-200">
+          500ms
+        </span>
+      </div>
+      <div className="mt-4 grid gap-3">
+        {rows.map(([label, value], index) => (
+          <div key={label} className="grid grid-cols-[96px_1fr] items-center gap-3">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-cyan-200">{label}</p>
+            <div className="rounded border border-white/10 bg-white/[0.03] p-3">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold text-slate-300">{value}</span>
+                <span className="text-xs font-black text-white">{92 - index * 7}%</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-slate-800">
+                <div
+                  className="h-full rounded-full bg-cyan-300"
+                  style={{ width: `${92 - index * 7}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 grid grid-cols-3 gap-3">
+        {["IPM", "IDM", "Dissonancia"].map((item) => (
+          <div key={item} className="rounded border border-cyan-300/15 bg-cyan-300/5 p-3 text-center">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{item}</p>
+            <p className="mt-1 text-lg font-black text-cyan-100">ativo</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export const HomePage: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
@@ -287,39 +337,57 @@ export const HomePage: React.FC = () => {
 
       <main>
         <section
-          className="relative border-b border-white/10 bg-slate-950"
+          className="relative overflow-hidden border-b border-white/10 bg-slate-950"
           style={{
-            backgroundImage: `linear-gradient(90deg, rgba(2,6,23,0.98) 0%, rgba(2,6,23,0.92) 40%, rgba(2,6,23,0.35) 100%), url(${heroImage})`,
-            backgroundPosition: "right center",
-            backgroundRepeat: "no-repeat",
-            backgroundSize: "min(78vw, 1120px) auto",
+            backgroundImage:
+              "radial-gradient(circle at 1px 1px, rgba(103,232,249,.12) 1px, transparent 0)",
+            backgroundSize: "28px 28px",
           }}
         >
-          <div className="mx-auto flex min-h-[78vh] max-w-7xl items-center px-5 py-16">
-            <div className="max-w-3xl">
+          <div className="mx-auto grid min-h-[82vh] max-w-7xl items-center gap-10 px-5 py-16 lg:grid-cols-[0.96fr_1.04fr]">
+            <div>
               <p className="text-xs font-black uppercase tracking-[0.38em] text-cyan-300">
                 Frequency Recognition of Internal Dynamics
               </p>
               <h1 className="mt-5 text-4xl font-black leading-[1.03] text-white md:text-6xl">
-                A inteligencia de observacao clinica para decifrar dissonancias humanas.
+                FROID decifra a coerencia entre psique, voz, face e narrativa.
               </h1>
               <p className="mt-6 max-w-2xl text-base leading-8 text-slate-200 md:text-lg">
-                O FROID integra bioacustica vocal, FACS, unidades de acao facial,
-                transcricao, IPM, IDM, zonas emocionais, cortes temporais e IA explicativa
-                para apoiar profissionais na leitura da coerencia entre psique, fala,
-                corpo e expressao.
+                Uma plataforma de percepcao clinica aumentada para profissionais de
+                saude mental: bioacustica vocal, FACS, AUs, transcricao, IPM, IDM,
+                dissonancias, Data Mart anonimo e FROID Explica trabalhando como um
+                unico organismo de apoio clinico.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link to="/access/register" className="rounded-lg bg-cyan-400 px-5 py-3 text-sm font-black text-slate-950 hover:bg-cyan-300">
                   Cadastrar profissional
                 </Link>
-                <Link to="/froid/ciencia" className="rounded-lg border border-cyan-300/50 px-5 py-3 text-sm font-black text-cyan-100 hover:bg-cyan-300/10">
-                  Ver ciencia FROID
+                <Link to="/login" className="rounded-lg border border-white/20 px-5 py-3 text-sm font-black text-white hover:bg-white/10">
+                  Entrar no FROID
+                </Link>
+                <Link to="/froid/tecnologia" className="rounded-lg border border-cyan-300/50 px-5 py-3 text-sm font-black text-cyan-100 hover:bg-cyan-300/10">
+                  Ver tecnologia
                 </Link>
               </div>
-              <p className="mt-5 text-xs font-black uppercase tracking-[0.2em] text-cyan-100">
-                20 sessoes gratuitas para os primeiros 100 profissionais. 10 sessoes para os proximos 100.
-              </p>
+              <div className="mt-7 grid gap-3 text-sm leading-6 text-slate-300 md:grid-cols-2">
+                <p className="rounded-lg border border-cyan-300/15 bg-cyan-300/5 p-4">
+                  20 sessoes gratuitas para os primeiros 100 profissionais cadastrados.
+                </p>
+                <p className="rounded-lg border border-emerald-300/20 bg-emerald-300/5 p-4">
+                  10 sessoes gratuitas para os proximos 100 profissionais.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-4">
+              <SignalConsole />
+              <div className="rounded-lg border border-white/10 bg-white p-3 shadow-2xl shadow-cyan-950/30">
+                <img
+                  src={heroImage}
+                  alt="Mapa das expressoes faciais e matrizes emocionais do FROID"
+                  className="h-auto max-h-[430px] w-full object-contain"
+                />
+              </div>
             </div>
           </div>
         </section>
@@ -385,7 +453,10 @@ export const HomePage: React.FC = () => {
               ))}
             </div>
           </div>
-          <ImagePanel src={auImage} alt="Mapa completo das unidades de acao facial FACS no FROID" />
+          <div className="grid gap-4">
+            <ImagePanel src={auImage} alt="Mapa completo das unidades de acao facial FACS no FROID" />
+            <ImagePanel src={facsMapImage} alt="Mapa FACS com descritores de acao e regioes anatomicas" />
+          </div>
         </section>
 
         <section className="border-y border-white/10 bg-slate-900/70">
