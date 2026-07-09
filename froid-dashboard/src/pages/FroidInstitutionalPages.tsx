@@ -7,12 +7,9 @@ const matrixImage = "/froid-home/facs-matrizes-emocionais.png";
 
 function Header() {
   return (
-    <header className="sticky top-0 z-30 border-b border-white/10 bg-slate-950/95 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4">
-        <Link to="/" className="text-sm font-black tracking-[0.42em] text-cyan-300">
-          FROID
-        </Link>
-        <nav className="hidden items-center gap-1 text-xs font-black text-slate-300 md:flex">
+    <header className="sticky top-0 z-40 border-b border-white/10 bg-black/95">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-center gap-3 px-5">
+        <nav className="flex flex-wrap items-center justify-center gap-2 text-[15px] font-bold text-slate-300">
           <Link to="/" className="rounded px-3 py-2 hover:bg-white/10">Inicio</Link>
           <Link to="/froid/ciencia" className="rounded px-3 py-2 hover:bg-white/10">Ciencia</Link>
           <Link to="/froid/tecnologia" className="rounded px-3 py-2 hover:bg-white/10">Tecnologia</Link>
@@ -43,39 +40,23 @@ function PageShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
+    <div
+      className="min-h-screen bg-[#020617] text-slate-100"
+      style={{
+        backgroundImage:
+          "radial-gradient(circle at 1px 1px, rgba(255,255,255,.05) 1px, transparent 0)",
+        backgroundSize: "28px 28px",
+      }}
+    >
       <Header />
       <main>
         <section
-          className="border-b border-white/10 bg-slate-950"
-          style={{
-            backgroundImage:
-              "radial-gradient(circle at 1px 1px, rgba(103,232,249,.12) 1px, transparent 0)",
-            backgroundSize: "28px 28px",
-          }}
+          className="border-b border-white/10 bg-slate-900/70"
         >
-          <div className="mx-auto grid max-w-7xl gap-8 px-5 py-14 lg:grid-cols-[1fr_360px]">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.32em] text-cyan-300">{eyebrow}</p>
-              <h1 className="mt-4 max-w-5xl text-4xl font-black leading-tight text-white md:text-6xl">{title}</h1>
-              <p className="mt-5 max-w-4xl text-base leading-8 text-slate-300">{intro}</p>
-            </div>
-            <div className="rounded-lg border border-cyan-300/20 bg-slate-900/80 p-5 shadow-2xl shadow-cyan-950/30">
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-300">FROID institucional</p>
-              <div className="mt-5 grid gap-3">
-                {["Base cientifica", "Tecnologia proprietaria", "Fluxo clinico"].map((item) => (
-                  <div key={item} className="rounded border border-white/10 bg-white/[0.03] p-4">
-                    <p className="text-sm font-black text-white">{item}</p>
-                    <p className="mt-1 text-xs leading-5 text-slate-400">
-                      Conteudo publico para apresentar o alcance tecnico e clinico do FROID.
-                    </p>
-                  </div>
-                ))}
-              </div>
-              <Link to="/access/register" className="mt-5 block rounded bg-cyan-400 px-4 py-3 text-center text-xs font-black text-slate-950 hover:bg-cyan-300">
-                Solicitar cadastro
-              </Link>
-            </div>
+          <div className="mx-auto max-w-7xl px-5 py-16">
+            <p className="text-xs font-black uppercase tracking-[0.32em] text-cyan-300">{eyebrow}</p>
+            <h1 className="mt-4 max-w-5xl font-serif text-4xl font-normal leading-tight text-white md:text-6xl">{title}</h1>
+            <p className="mt-5 max-w-4xl text-base leading-8 text-slate-300">{intro}</p>
           </div>
         </section>
         {children}
