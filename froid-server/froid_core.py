@@ -75,7 +75,11 @@ class SessionState:
     mapper: FROIDColorimetryMapper = field(default_factory=FROIDColorimetryMapper)
     last_alert_signature: str = ""
     tick_count: int = 0
-    word_windows: List[int] = field(default_factory=list)  # palavras por janela de ~500ms
+    word_windows: List[int] = field(default_factory=list)  # palavras por janela de 1s
+    previous_mfcc7: Optional[float] = None
+    previous_mfcc9: Optional[float] = None
+    previous_delta_mfcc7: float = 0.0
+    previous_delta_mfcc9: float = 0.0
 
     def process_tick(self, voice_spectral_12, facs_dissonance_flags, facs_details):
         self.tick_count += 1
@@ -150,18 +154,18 @@ class SessionState:
         else:
             coherence_status = "COERENTE"
 
-        # Simulação: palavras por janela (~12 palavras/min em média = 6 por 500ms com variação)
-        words_this_window = int(np.random.poisson(8))
+        # Simulação: palavras por janela clínica de 1 segundo.
+        words_this_window = int(np.random.poisson(2.4))
         self.word_windows.append(words_this_window)
-        # Manter últimas 1200 janelas = ~10 minutos (500ms * 1200 = 600s)
-        if len(self.word_windows) > 1200:
+        # Manter últimas 600 janelas = ~10 minutos (1s * 600 = 600s)
+        if len(self.word_windows) > 600:
             self.word_windows.pop(0)
 
         # Média de palavras por minuto nos últimos 10 minutos
-        words_per_minute_10m = sum(self.word_windows) / max(1, len(self.word_windows)) * 2 * 60  # *2 (janelas/segundo) *60 (segundos/min)
+        words_per_minute_10m = sum(self.word_windows) / max(1, len(self.word_windows)) * 60
 
         # Tema da sessão (simulado — a cada 10 min mudaria via análise semântica)
-        minutes_elapsed = self.tick_count // 120  # 120 ticks = 60s
+        minutes_elapsed = self.tick_count // 60
         themes = [
             "Exploração inicial e construção de vínculo terapêutico",
             "Conflitos de autovalidação e reconhecimento pessoal",
@@ -226,10 +230,24 @@ class SessionState:
         baseline_mean = float(np.mean(self.baseline_energy))
         mfcc7 = round(float(np.clip(np.mean(voice_spectral_12[4:8]) - baseline_mean * 0.12, 0.0, 25.0)), 3)
         mfcc9 = round(float(np.clip(np.mean(voice_spectral_12[6:10]) - baseline_mean * 0.08, 0.0, 25.0)), 3)
+        mfcc7_delta = round(float(mfcc7 - (self.previous_mfcc7 if self.previous_mfcc7 is not None else mfcc7)), 4)
+        mfcc9_delta = round(float(mfcc9 - (self.previous_mfcc9 if self.previous_mfcc9 is not None else mfcc9)), 4)
+        mfcc7_delta_delta = round(float(mfcc7_delta - self.previous_delta_mfcc7), 4)
+        mfcc9_delta_delta = round(float(mfcc9_delta - self.previous_delta_mfcc9), 4)
+        self.previous_mfcc7 = mfcc7
+        self.previous_mfcc9 = mfcc9
+        self.previous_delta_mfcc7 = mfcc7_delta
+        self.previous_delta_mfcc9 = mfcc9_delta
         subharmonic_5_12 = round(float(np.clip((np.mean(voice_spectral_12[4:8]) * 0.7) + (np.std(voice_spectral_12) * 0.2), 0.0, 25.0)), 3)
         subharmonic_12_20 = round(float(np.clip((np.mean(voice_spectral_12[8:12]) * 0.65) + (np.std(voice_spectral_12) * 0.15), 0.0, 25.0)), 3)
         subharmonic_20_40 = round(float(np.clip((np.mean(voice_spectral_12[1:4]) * 0.55) + (np.std(voice_spectral_12) * 0.12), 0.0, 25.0)), 3)
         energy_85_165 = round(float(np.clip((np.mean(voice_spectral_12[0:3]) * 0.7) + (np.std(voice_spectral_12) * 0.2), 0.0, 25.0)), 3)
+        spectral_delta = round(float(np.clip(np.mean(voice_spectral_12[0:2]) / 25.0, 0.0, 1.0)), 3)
+        spectral_theta = round(float(np.clip(np.mean(voice_spectral_12[2:4]) / 25.0, 0.0, 1.0)), 3)
+        spectral_alpha = round(float(np.clip(np.mean(voice_spectral_12[4:6]) / 25.0, 0.0, 1.0)), 3)
+        spectral_beta = round(float(np.clip(np.mean(voice_spectral_12[6:9]) / 25.0, 0.0, 1.0)), 3)
+        spectral_gamma = round(float(np.clip(np.mean(voice_spectral_12[9:12]) / 25.0, 0.0, 1.0)), 3)
+        spectral_index = round(float(np.clip(np.mean([spectral_delta, spectral_theta, spectral_alpha, spectral_beta, spectral_gamma]), 0.0, 1.0)), 3)
         jitter = round(float(np.clip(np.std(voice_spectral_12) / max(1.0, np.mean(voice_spectral_12)), 0.0, 2.0)), 3)
         shimmer = round(float(np.clip(np.mean(np.abs(np.diff(voice_spectral_12))) / max(1.0, np.mean(voice_spectral_12)), 0.0, 2.0)), 3)
         base_subharmonic_5_12 = float(np.clip((np.mean(self.baseline_energy[4:8]) * 0.7) + (np.std(self.baseline_energy) * 0.2), 0.0, 25.0))
@@ -280,10 +298,21 @@ class SessionState:
                 "transcription_snippet": transcription_snippet,
                 "session_theme": session_theme,
                 "theme_minute_mark": (minutes_elapsed // 10) * 10,
+                "bioacoustic_window_ms": 1000,
                 "mfcc7": mfcc7,
                 "mfcc9": mfcc9,
+                "mfcc7_delta": mfcc7_delta,
+                "mfcc9_delta": mfcc9_delta,
+                "mfcc7_delta_delta": mfcc7_delta_delta,
+                "mfcc9_delta_delta": mfcc9_delta_delta,
                 "baseline_mfcc7": round(float(np.clip(baseline_mean * 0.12, 0.0, 25.0)), 3),
                 "baseline_mfcc9": round(float(np.clip(baseline_mean * 0.08, 0.0, 25.0)), 3),
+                "spectral_delta_0_4hz": spectral_delta,
+                "spectral_theta_4_8hz": spectral_theta,
+                "spectral_alpha_8_12hz": spectral_alpha,
+                "spectral_beta_12_30hz": spectral_beta,
+                "spectral_gamma_30_80hz": spectral_gamma,
+                "spectral_band_index": spectral_index,
                 "subharmonic_energy_5_12hz": subharmonic_5_12,
                 "subharmonic_energy_12_20hz": subharmonic_12_20,
                 "subharmonic_energy_20_40hz": subharmonic_20_40,

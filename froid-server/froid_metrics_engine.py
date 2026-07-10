@@ -12,8 +12,15 @@ METRICS: tuple[dict[str, str], ...] = (
     {"key": "ipm", "label": "IPM", "unit": "indice", "category": "Indices FROID"},
     {"key": "idm", "label": "IDM", "unit": "indice", "category": "Indices FROID"},
     {"key": "subharmonics", "label": "Sub-harmonicos", "unit": "energia", "category": "Bioacustica"},
+    {"key": "spectral_beta", "label": "Beta 12-30Hz", "unit": "energia", "category": "Neuroacustica"},
+    {"key": "spectral_gamma", "label": "Gama 30-80Hz", "unit": "energia", "category": "Neuroacustica"},
+    {"key": "spectral_band_index", "label": "Indice espectral", "unit": "0-1", "category": "Neuroacustica"},
     {"key": "mfcc7", "label": "MFCC7", "unit": "coef.", "category": "Acustica"},
     {"key": "mfcc9", "label": "MFCC9", "unit": "coef.", "category": "Acustica"},
+    {"key": "mfcc7_delta", "label": "DMFCC7", "unit": "coef./s", "category": "Acustica"},
+    {"key": "mfcc9_delta", "label": "DMFCC9", "unit": "coef./s", "category": "Acustica"},
+    {"key": "mfcc7_delta_delta", "label": "DDMFCC7", "unit": "coef./s2", "category": "Acustica"},
+    {"key": "mfcc9_delta_delta", "label": "DDMFCC9", "unit": "coef./s2", "category": "Acustica"},
     {"key": "f0", "label": "F0", "unit": "Hz", "category": "Bioacustica"},
     {"key": "jitter", "label": "Jitter", "unit": "%", "category": "Bioacustica"},
     {"key": "shimmer", "label": "Shimmer", "unit": "%", "category": "Bioacustica"},
@@ -408,7 +415,17 @@ def compose_report(session: Mapping[str, Any]) -> str:
         "",
         "Leitura evolutiva:",
     ]
-    for key in ("ipm", "idm", "words_per_minute", "facial_vocal_dissonance", "clinical_risk"):
+    for key in (
+        "ipm",
+        "idm",
+        "spectral_beta",
+        "spectral_gamma",
+        "mfcc7_delta",
+        "mfcc9_delta_delta",
+        "words_per_minute",
+        "facial_vocal_dissonance",
+        "clinical_risk",
+    ):
         metric = next(item for item in METRICS if item["key"] == key)
         summary = session["summary"][key]
         lines.append(
@@ -452,8 +469,15 @@ def _snapshot_metrics(snapshot: Mapping[str, Any]) -> dict[str, Any]:
         "ipm": _metric_value(snapshot.get("ipmAvg")),
         "idm": _metric_value(snapshot.get("idmAvg")),
         "subharmonics": _metric_value(subharmonics),
+        "spectral_beta": _metric_value(snapshot.get("spectralBeta12_30")),
+        "spectral_gamma": _metric_value(snapshot.get("spectralGamma30_80")),
+        "spectral_band_index": _metric_value(snapshot.get("spectralBandIndex")),
         "mfcc7": _metric_value(snapshot.get("mfcc7")),
         "mfcc9": _metric_value(snapshot.get("mfcc9")),
+        "mfcc7_delta": _metric_value(snapshot.get("mfcc7Delta")),
+        "mfcc9_delta": _metric_value(snapshot.get("mfcc9Delta")),
+        "mfcc7_delta_delta": _metric_value(snapshot.get("mfcc7DeltaDelta")),
+        "mfcc9_delta_delta": _metric_value(snapshot.get("mfcc9DeltaDelta")),
         "f0": _metric_value(snapshot.get("f0Mean")),
         "jitter": _metric_value(snapshot.get("jitter")),
         "shimmer": _metric_value(snapshot.get("shimmer")),

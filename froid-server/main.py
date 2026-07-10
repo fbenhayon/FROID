@@ -1130,6 +1130,9 @@ async def _query_froid_analytics(payload: FroidExplicaQuery) -> FroidExplicaResp
         "interval_since_previous_days DOUBLE, baseline_ipm DOUBLE, baseline_idm DOUBLE, "
         "baseline_zone INTEGER, baseline_tone VARCHAR, baseline_words_per_minute DOUBLE, "
         "average_idm DOUBLE, average_words_per_minute DOUBLE, dissonance_count INTEGER, "
+        "average_spectral_beta DOUBLE, average_spectral_gamma DOUBLE, average_spectral_band_index DOUBLE, "
+        "average_mfcc7_delta DOUBLE, average_mfcc9_delta_delta DOUBLE, "
+        "baseline_spectral_beta DOUBLE, baseline_spectral_gamma DOUBLE, "
         "cuts_count INTEGER, clinical_notes_count INTEGER, summary_theme VARCHAR, "
         "summary_text_anon VARCHAR, stt_model VARCHAR, llm_model VARCHAR, algorithm_version VARCHAR, "
         "audio_quality VARCHAR, media_interruptions INTEGER, confidence_score DOUBLE, "
@@ -1146,7 +1149,11 @@ async def _query_froid_analytics(payload: FroidExplicaQuery) -> FroidExplicaResp
         "idm_avg DOUBLE, dominant_zone INTEGER, coherence_status VARCHAR, emotional_tone VARCHAR, "
         "words_per_minute DOUBLE, theme VARCHAR, dissonance_count INTEGER, mfcc7 DOUBLE, mfcc9 DOUBLE, "
         "f0_mean DOUBLE, zcr DOUBLE, jitter DOUBLE, shimmer DOUBLE, subharmonic_5_12 DOUBLE, "
-        "subharmonic_12_20 DOUBLE, cut_trigger VARCHAR, cut_summary_anon VARCHAR, "
+        "subharmonic_12_20 DOUBLE, subharmonic_20_40 DOUBLE, vocal_basal_85_165 DOUBLE, "
+        "spectral_delta_0_4 DOUBLE, spectral_theta_4_8 DOUBLE, spectral_alpha_8_12 DOUBLE, "
+        "spectral_beta_12_30 DOUBLE, spectral_gamma_30_80 DOUBLE, spectral_band_index DOUBLE, "
+        "mfcc7_delta DOUBLE, mfcc9_delta DOUBLE, mfcc7_delta_delta DOUBLE, mfcc9_delta_delta DOUBLE, "
+        "cut_trigger VARCHAR, cut_summary_anon VARCHAR, "
         "patient_summary_anon VARCHAR, professional_summary_anon VARCHAR, patient_word_count INTEGER, "
         "professional_word_count INTEGER, intervention_category VARCHAR, patient_response VARCHAR, "
         "ipm_delta_from_baseline DOUBLE, idm_delta_from_baseline DOUBLE, "
@@ -1671,7 +1678,14 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 pii_excluded BOOLEAN,
                 raw_audio_retained BOOLEAN,
                 literal_transcript_retained BOOLEAN,
-                media_loss_events INTEGER
+                media_loss_events INTEGER,
+                average_spectral_beta DOUBLE,
+                average_spectral_gamma DOUBLE,
+                average_spectral_band_index DOUBLE,
+                average_mfcc7_delta DOUBLE,
+                average_mfcc9_delta_delta DOUBLE,
+                baseline_spectral_beta DOUBLE,
+                baseline_spectral_gamma DOUBLE
             )
             """
         )
@@ -1726,6 +1740,13 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 "raw_audio_retained": "BOOLEAN",
                 "literal_transcript_retained": "BOOLEAN",
                 "media_loss_events": "INTEGER",
+                "average_spectral_beta": "DOUBLE",
+                "average_spectral_gamma": "DOUBLE",
+                "average_spectral_band_index": "DOUBLE",
+                "average_mfcc7_delta": "DOUBLE",
+                "average_mfcc9_delta_delta": "DOUBLE",
+                "baseline_spectral_beta": "DOUBLE",
+                "baseline_spectral_gamma": "DOUBLE",
             },
         )
         conn.execute(
@@ -1759,6 +1780,18 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 shimmer DOUBLE,
                 subharmonic_5_12 DOUBLE,
                 subharmonic_12_20 DOUBLE,
+                subharmonic_20_40 DOUBLE,
+                vocal_basal_85_165 DOUBLE,
+                spectral_delta_0_4 DOUBLE,
+                spectral_theta_4_8 DOUBLE,
+                spectral_alpha_8_12 DOUBLE,
+                spectral_beta_12_30 DOUBLE,
+                spectral_gamma_30_80 DOUBLE,
+                spectral_band_index DOUBLE,
+                mfcc7_delta DOUBLE,
+                mfcc9_delta DOUBLE,
+                mfcc7_delta_delta DOUBLE,
+                mfcc9_delta_delta DOUBLE,
                 cut_trigger VARCHAR,
                 cut_summary_anon VARCHAR,
                 patient_summary_anon VARCHAR,
@@ -1844,6 +1877,18 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 "semantic_coherence_shift": "VARCHAR",
                 "biomarker_snapshot_json": "VARCHAR",
                 "subharmonic_snapshot_json": "VARCHAR",
+                "subharmonic_20_40": "DOUBLE",
+                "vocal_basal_85_165": "DOUBLE",
+                "spectral_delta_0_4": "DOUBLE",
+                "spectral_theta_4_8": "DOUBLE",
+                "spectral_alpha_8_12": "DOUBLE",
+                "spectral_beta_12_30": "DOUBLE",
+                "spectral_gamma_30_80": "DOUBLE",
+                "spectral_band_index": "DOUBLE",
+                "mfcc7_delta": "DOUBLE",
+                "mfcc9_delta": "DOUBLE",
+                "mfcc7_delta_delta": "DOUBLE",
+                "mfcc9_delta_delta": "DOUBLE",
                 "cut_context_json": "VARCHAR",
                 "previous_cut_context": "VARCHAR",
                 "next_cut_context": "VARCHAR",
@@ -1947,7 +1992,10 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 recurring_themes = ?, recurring_zones = ?, recurring_risks = ?,
                 metrics_version = ?, weights_version = ?, privacy_tier = ?,
                 pii_excluded = ?, raw_audio_retained = ?, literal_transcript_retained = ?,
-                media_loss_events = ?
+                media_loss_events = ?, average_spectral_beta = ?,
+                average_spectral_gamma = ?, average_spectral_band_index = ?,
+                average_mfcc7_delta = ?, average_mfcc9_delta_delta = ?,
+                baseline_spectral_beta = ?, baseline_spectral_gamma = ?
             WHERE session_hash = ?
             """,
             [
@@ -1971,6 +2019,13 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 _safe_bool(context.get("raw_audio_retained") or context.get("rawAudioRetained"), False),
                 _safe_bool(context.get("literal_transcript_retained") or context.get("literalTranscriptRetained"), False),
                 _safe_int(context.get("media_loss_events") or context.get("mediaLossEvents") or context.get("media_interruptions") or context.get("mediaInterruptions")),
+                _safe_float(average.get("spectralBeta12_30")),
+                _safe_float(average.get("spectralGamma30_80")),
+                _safe_float(average.get("spectralBandIndex")),
+                _safe_float(average.get("mfcc7Delta")),
+                _safe_float(average.get("mfcc9DeltaDelta")),
+                _safe_float(baseline.get("spectralBeta12_30")),
+                _safe_float(baseline.get("spectralGamma30_80")),
                 session_hash,
             ],
         )
@@ -2031,14 +2086,18 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                     sample_count, ipm_avg, idm_avg, dominant_zone, dominant_theme,
                     coherence_status, emotional_tone, words_per_minute, theme,
                     dissonance_count, mfcc7, mfcc9, f0_mean, zcr, jitter, shimmer,
-                    subharmonic_5_12, subharmonic_12_20, cut_trigger,
+                    subharmonic_5_12, subharmonic_12_20, subharmonic_20_40,
+                    vocal_basal_85_165, spectral_delta_0_4, spectral_theta_4_8,
+                    spectral_alpha_8_12, spectral_beta_12_30, spectral_gamma_30_80,
+                    spectral_band_index, mfcc7_delta, mfcc9_delta,
+                    mfcc7_delta_delta, mfcc9_delta_delta, cut_trigger,
                     cut_summary_anon, patient_summary_anon, professional_summary_anon,
                     patient_word_count, professional_word_count, intervention_category,
                     patient_response, ipm_delta_from_baseline, idm_delta_from_baseline,
                     dissonance_delta_from_baseline, ipm_delta_previous_cut,
                     idm_delta_previous_cut, dissonance_delta_previous_cut, risk_score,
                     quality_confidence, stt_model, llm_model, algorithm_version, audio_quality
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 [
                     session_hash,
@@ -2064,6 +2123,18 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                     _safe_float(cut.get("shimmer")),
                     _safe_float(cut.get("subharmonic5_12")),
                     _safe_float(cut.get("subharmonic12_20")),
+                    _safe_float(cut.get("subharmonic20_40")),
+                    _safe_float(cut.get("vocalBasal85_165")),
+                    _safe_float(cut.get("spectralDelta0_4")),
+                    _safe_float(cut.get("spectralTheta4_8")),
+                    _safe_float(cut.get("spectralAlpha8_12")),
+                    _safe_float(cut.get("spectralBeta12_30")),
+                    _safe_float(cut.get("spectralGamma30_80")),
+                    _safe_float(cut.get("spectralBandIndex")),
+                    _safe_float(cut.get("mfcc7Delta")),
+                    _safe_float(cut.get("mfcc9Delta")),
+                    _safe_float(cut.get("mfcc7DeltaDelta")),
+                    _safe_float(cut.get("mfcc9DeltaDelta")),
                     _safe_str(cut_context.get("cut_trigger") or cut_context.get("cutTrigger") or "automatico_10min", 80),
                     _limit_words(_safe_str(summary.get("summary") or cut.get("theme") or "", 3000), 120),
                     _limit_words(_safe_str(cut_context.get("patient_summary_anon") or cut_context.get("patientSummaryAnon") or patient_text, 3000), 120),
@@ -2089,10 +2160,20 @@ def _append_anonymous_datamart_row(report: dict) -> None:
             biomarker_snapshot = {
                 "mfcc7": cut.get("mfcc7"),
                 "mfcc9": cut.get("mfcc9"),
+                "mfcc7_delta": cut.get("mfcc7Delta"),
+                "mfcc9_delta": cut.get("mfcc9Delta"),
+                "mfcc7_delta_delta": cut.get("mfcc7DeltaDelta"),
+                "mfcc9_delta_delta": cut.get("mfcc9DeltaDelta"),
                 "f0_mean": cut.get("f0Mean"),
                 "zcr": cut.get("zcr"),
                 "jitter": cut.get("jitter"),
                 "shimmer": cut.get("shimmer"),
+                "spectral_delta_0_4": cut.get("spectralDelta0_4"),
+                "spectral_theta_4_8": cut.get("spectralTheta4_8"),
+                "spectral_alpha_8_12": cut.get("spectralAlpha8_12"),
+                "spectral_beta_12_30": cut.get("spectralBeta12_30"),
+                "spectral_gamma_30_80": cut.get("spectralGamma30_80"),
+                "spectral_band_index": cut.get("spectralBandIndex"),
             }
             subharmonic_snapshot = {
                 "subharmonic_5_12": cut.get("subharmonic5_12"),
@@ -2155,6 +2236,16 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                     "emotional_tone": cut.get("emotionalTone"),
                     "words_per_minute": cut.get("wordsPerMinute"),
                     "dissonance_count": cut.get("dissonanceCount"),
+                    "spectral_delta_0_4": cut.get("spectralDelta0_4"),
+                    "spectral_theta_4_8": cut.get("spectralTheta4_8"),
+                    "spectral_alpha_8_12": cut.get("spectralAlpha8_12"),
+                    "spectral_beta_12_30": cut.get("spectralBeta12_30"),
+                    "spectral_gamma_30_80": cut.get("spectralGamma30_80"),
+                    "spectral_band_index": cut.get("spectralBandIndex"),
+                    "mfcc7_delta": cut.get("mfcc7Delta"),
+                    "mfcc9_delta": cut.get("mfcc9Delta"),
+                    "mfcc7_delta_delta": cut.get("mfcc7DeltaDelta"),
+                    "mfcc9_delta_delta": cut.get("mfcc9DeltaDelta"),
                     "risk_score": _safe_float((report.get("metricsAnalysis") or {}).get("dashboard", {}).get("max_risk")),
                     "quality_confidence": _cut_confidence(cut),
                 },
@@ -2952,7 +3043,7 @@ async def froid_stream_loop(session_id: str, connection_id: str):
         facs_flags, facs_details = MockBiometricStream.generate_facs_dissonance()
         payload = state.process_tick(voice_12, facs_flags, facs_details)
         await manager.broadcast_payload(session_id, payload)
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(1.0)
 
 @app.websocket("/ws/fusion/{session_id}")
 async def websocket_fusion(websocket: WebSocket, session_id: str):

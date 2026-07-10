@@ -8,7 +8,7 @@ interface Props {
 }
 
 const IPM_ROLE_TEXT =
-  'O Papel do IPM (O "Velocimetro"): enquanto o IDM aponta a direcao do desequilibrio, o IPM indica a intensidade ou energia global, servindo como velocimetro emocional. Ele e um indice composto atualizado a cada 500 milissegundos que funde magnitude acustica da voz, comportamento facial e substancia semantica transcrita. Assim, o IPM mede quanto combustivel emocional o paciente esta empregando, independente de estar sendo coerente ou nao.';
+  'O Papel do IPM (O "Velocimetro"): enquanto o IDM aponta a direcao do desequilibrio, o IPM indica a intensidade ou energia global, servindo como velocimetro emocional. Ele e um indice composto atualizado a cada 1 segundo que funde magnitude acustica da voz, comportamento facial e substancia semantica transcrita. Assim, o IPM mede quanto combustivel emocional o paciente esta empregando, independente de estar sendo coerente ou nao.';
 
 const clamp = (value: number, min = 0, max = 100) =>
   Math.min(Math.max(Number.isFinite(value) ? value : 0, min), max);

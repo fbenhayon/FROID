@@ -129,6 +129,16 @@ const METRIC_TOOLTIPS: Record<string, string> = {
   "Palavras/min": "Velocidade media de fala em palavras por minuto.",
   Dissonancia: "Dissonancia entre expressao facial e trilha vocal.",
   "Risco clinico": "Risco clinico agregado calculado pelo motor FROID.",
+  "Delta 0.5-4Hz": "Modulacao lenta do envelope vocal, associada a carga vegetativa basal.",
+  "Theta 4-8Hz": "Faixa de modulacao lenta relacionada a flutuacao afetiva e organizacao narrativa.",
+  "Alpha 8-12Hz": "Faixa intermediaria de estabilizacao autonoma e transicao ritmica.",
+  "Beta 12-30Hz": "Faixa de ativacao rapida ligada a tensao cognitiva, vigilancia e mobilizacao autonoma.",
+  "Gama 30-80Hz": "Faixa alta de energia espectral, interpretada como tensao fina, aspereza ou descarga rapida.",
+  "Ind. espectral": "Indice ponderado das bandas Delta, Theta, Alpha, Beta e Gama.",
+  "DMFCC7": "Derivada temporal do MFCC7, comparando a janela atual com a anterior.",
+  "DMFCC9": "Derivada temporal do MFCC9, comparando a janela atual com a anterior.",
+  "DDMFCC7": "Aceleracao cepstral do MFCC7, usada para detectar mudancas abruptas no marcador.",
+  "DDMFCC9": "Aceleracao cepstral do MFCC9, usada para detectar mudancas abruptas no marcador.",
 };
 
 const HelpTitle: React.FC<{ title: string; className?: string }> = ({
@@ -276,10 +286,20 @@ function metricRows(snapshot: MetricSnapshot) {
     ["Disso.", String(snapshot.dissonanceCount || 0)],
     ["MFCC7", fmt(snapshot.mfcc7, 3)],
     ["MFCC9", fmt(snapshot.mfcc9, 3)],
+    ["DMFCC7", fmt(snapshot.mfcc7Delta, 4)],
+    ["DMFCC9", fmt(snapshot.mfcc9Delta, 4)],
+    ["DDMFCC7", fmt(snapshot.mfcc7DeltaDelta, 4)],
+    ["DDMFCC9", fmt(snapshot.mfcc9DeltaDelta, 4)],
     ["F0 Med.", fmt(snapshot.f0Mean, 2)],
     ["ZCR", fmt(snapshot.zcr, 3)],
     ["Jitter", fmt(snapshot.jitter, 3)],
     ["Shimmer", fmt(snapshot.shimmer, 3)],
+    ["Delta 0.5-4Hz", fmt(snapshot.spectralDelta0_4, 3)],
+    ["Theta 4-8Hz", fmt(snapshot.spectralTheta4_8, 3)],
+    ["Alpha 8-12Hz", fmt(snapshot.spectralAlpha8_12, 3)],
+    ["Beta 12-30Hz", fmt(snapshot.spectralBeta12_30, 3)],
+    ["Gama 30-80Hz", fmt(snapshot.spectralGamma30_80, 3)],
+    ["Ind. espectral", fmt(snapshot.spectralBandIndex, 3)],
     ["Sub-H 5-12Hz", fmt(snapshot.subharmonic5_12, 3)],
     ["Sub-H 12-20Hz", fmt(snapshot.subharmonic12_20, 3)],
   ];
@@ -364,6 +384,9 @@ function summaryMetricLine(cut?: MetricSnapshot) {
     `Disson. ${cut.dissonanceCount || 0}`,
     `MFCC7 ${fmt(cut.mfcc7, 3)}`,
     `MFCC9 ${fmt(cut.mfcc9, 3)}`,
+    `Beta ${fmt(cut.spectralBeta12_30, 3)}`,
+    `Gama ${fmt(cut.spectralGamma30_80, 3)}`,
+    `DMFCC7 ${fmt(cut.mfcc7Delta, 4)}`,
   ].join(" | ");
 }
 
@@ -380,6 +403,7 @@ function buildDescriptiveReportText(
     `Resumo geral: ${limitWords(sessionSummary.summary, SESSION_SUMMARY_MAX_WORDS)}`,
     "",
     `Linha comparativa: IPM ${fmt(report.baseline.ipmAvg, 1)} -> ${fmt(report.sessionAverage.ipmAvg, 1)}; IDM ${fmt(report.baseline.idmAvg, 2)} -> ${fmt(report.sessionAverage.idmAvg, 2)}; Zona ${report.sessionAverage.dominantZone || "--"}; Tom ${report.sessionAverage.emotionalTone || "--"}; ${fmt(report.sessionAverage.wordsPerMinute, 1)} palavras/min.`,
+    `Linha bioacustica: Beta ${fmt(report.baseline.spectralBeta12_30, 3)} -> ${fmt(report.sessionAverage.spectralBeta12_30, 3)}; Gama ${fmt(report.baseline.spectralGamma30_80, 3)} -> ${fmt(report.sessionAverage.spectralGamma30_80, 3)}; DMFCC7 medio ${fmt(report.sessionAverage.mfcc7Delta, 4)}; DDMFCC9 medio ${fmt(report.sessionAverage.mfcc9DeltaDelta, 4)}.`,
     "",
     `Observacoes clinicas registradas: ${report.clinicalNotes.length}. Dissonancias persistentes registradas: ${report.dissonances.length}.`,
   ].join("\n");
@@ -446,6 +470,11 @@ const MetricList: React.FC<{ title: string; snapshot: MetricSnapshot }> = ({
 const METRIC_SUMMARY_KEYS = [
   "ipm",
   "idm",
+  "spectral_beta",
+  "spectral_gamma",
+  "spectral_band_index",
+  "mfcc7_delta",
+  "mfcc9_delta_delta",
   "words_per_minute",
   "facial_vocal_dissonance",
   "clinical_risk",

@@ -40,10 +40,17 @@ export interface PerceptionZone {
 }
 
 export interface AcousticBiomarkers {
+  bioacoustic_window_ms?: number;
   subharmonic_energy_5_12hz?: number;
   subharmonic_energy_12_20hz?: number;
   subharmonic_energy_20_40hz?: number;
   energy_85_165hz?: number;
+  spectral_delta_0_4hz?: number;
+  spectral_theta_4_8hz?: number;
+  spectral_alpha_8_12hz?: number;
+  spectral_beta_12_30hz?: number;
+  spectral_gamma_30_80hz?: number;
+  spectral_band_index?: number;
   dna_infrasound_nuclear?: number;
   dna_limbic_modulation?: number;
   dna_vocal_basal_tension?: number;
@@ -61,6 +68,10 @@ export interface AcousticBiomarkers {
   baseline_mfcc9?: number;
   desvio_mfcc7?: number;
   desvio_mfcc9?: number;
+  mfcc7_delta?: number;
+  mfcc9_delta?: number;
+  mfcc7_delta_delta?: number;
+  mfcc9_delta_delta?: number;
   f0_mean?: number;
   f0_var?: number;
   zcr?: number;

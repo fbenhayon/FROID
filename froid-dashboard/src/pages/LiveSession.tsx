@@ -7,6 +7,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import MapaZonalFroid from "../components/charts/MapaZonalFroid";
 import { IPMLineChart } from "../components/indicators/IPMLineChart";
 import { RiskChart } from "../components/indicators/RiskChart";
+import { SpectralBandsChart } from "../components/indicators/SpectralBandsChart";
 import { SubharmonicChart } from "../components/indicators/SubharmonicChart";
 import { MediaStatus } from "../components/indicators/MediaStatus";
 import { SessionTimer } from "../components/indicators/SessionTimer";
@@ -858,8 +859,31 @@ type DnaBaselineState = {
   limbicRatioEma: number | null;
 };
 
+type CepstralSample = {
+  mfcc7: number;
+  mfcc9: number;
+  mfcc7Delta: number;
+  mfcc9Delta: number;
+  mfcc7DeltaDelta: number;
+  mfcc9DeltaDelta: number;
+  baselineMfcc7: number | null;
+  baselineMfcc9: number | null;
+  desvioMfcc7: number | null;
+  desvioMfcc9: number | null;
+};
+
+type CepstralBaselineState = {
+  startedAtMs: number;
+  samples: Array<{ mfcc7: number; mfcc9: number }>;
+  baseline: { mfcc7: number; mfcc9: number } | null;
+  previous: { mfcc7: number; mfcc9: number } | null;
+  previousDelta: { mfcc7: number; mfcc9: number } | null;
+  locked: boolean;
+};
+
 const DNA_EPSILON = 1e-9;
 const DNA_BASELINE_MS = 60_000;
+const BIOACOUSTIC_WINDOW_MS = 1000;
 
 const meanDnaSample = (samples: DnaBandSample[]): DnaBandSample => {
   const safe = samples.length
@@ -877,6 +901,108 @@ const meanDnaSample = (samples: DnaBandSample[]): DnaBandSample => {
 const positiveDeviation = (current: number, baseline: number) =>
   clamp((current - baseline) / (baseline + DNA_EPSILON));
 
+function computeCepstralCoefficients(
+  frequencyData: Uint8Array,
+  sampleRate: number,
+  fftSize: number,
+) {
+  const bandCount = 20;
+  const minHz = 65;
+  const maxHz = Math.min(8000, sampleRate / 2);
+  const logMin = Math.log(minHz);
+  const logMax = Math.log(maxHz);
+  const bands: number[] = [];
+
+  for (let band = 0; band < bandCount; band += 1) {
+    const lower = Math.exp(logMin + (band / bandCount) * (logMax - logMin));
+    const upper = Math.exp(logMin + ((band + 1) / bandCount) * (logMax - logMin));
+    const energy = frequencyBandEnergy(frequencyData, sampleRate, fftSize, lower, upper);
+    bands.push(Math.log(Math.max(1e-6, energy)));
+  }
+
+  const coefficients: number[] = [];
+  for (let k = 0; k < bandCount; k += 1) {
+    let sum = 0;
+    for (let n = 0; n < bandCount; n += 1) {
+      sum += bands[n] * Math.cos((Math.PI * k * (n + 0.5)) / bandCount);
+    }
+    coefficients.push(sum / bandCount);
+  }
+  return coefficients;
+}
+
+function meanCepstral(samples: Array<{ mfcc7: number; mfcc9: number }>) {
+  const safe = samples.length ? samples : [{ mfcc7: 0, mfcc9: 0 }];
+  return {
+    mfcc7: safe.reduce((sum, item) => sum + item.mfcc7, 0) / safe.length,
+    mfcc9: safe.reduce((sum, item) => sum + item.mfcc9, 0) / safe.length,
+  };
+}
+
+function computeCepstralDynamics(
+  frequencyData: Uint8Array,
+  sampleRate: number,
+  fftSize: number,
+  state: CepstralBaselineState,
+  now: number,
+  voicePresence: boolean,
+): CepstralSample {
+  if (!voicePresence) {
+    const baseline = state.baseline || (state.samples.length ? meanCepstral(state.samples) : null);
+    return {
+      mfcc7: 0,
+      mfcc9: 0,
+      mfcc7Delta: 0,
+      mfcc9Delta: 0,
+      mfcc7DeltaDelta: 0,
+      mfcc9DeltaDelta: 0,
+      baselineMfcc7: baseline ? rounded(baseline.mfcc7, 4) : null,
+      baselineMfcc9: baseline ? rounded(baseline.mfcc9, 4) : null,
+      desvioMfcc7: null,
+      desvioMfcc9: null,
+    };
+  }
+
+  if (!state.startedAtMs) state.startedAtMs = now;
+  const coeffs = computeCepstralCoefficients(frequencyData, sampleRate, fftSize);
+  const mfcc7 = rounded(coeffs[7] || 0, 4) || 0;
+  const mfcc9 = rounded(coeffs[9] || 0, 4) || 0;
+  const previous = state.previous || { mfcc7, mfcc9 };
+  const mfcc7Delta = rounded(mfcc7 - previous.mfcc7, 4) || 0;
+  const mfcc9Delta = rounded(mfcc9 - previous.mfcc9, 4) || 0;
+  const previousDelta = state.previousDelta || { mfcc7: mfcc7Delta, mfcc9: mfcc9Delta };
+  const mfcc7DeltaDelta = rounded(mfcc7Delta - previousDelta.mfcc7, 4) || 0;
+  const mfcc9DeltaDelta = rounded(mfcc9Delta - previousDelta.mfcc9, 4) || 0;
+
+  state.samples.push({ mfcc7, mfcc9 });
+  if (state.samples.length > 600) state.samples.shift();
+  if (!state.locked && state.samples.length > 0 && now - state.startedAtMs >= DNA_BASELINE_MS) {
+    state.baseline = meanCepstral(state.samples);
+    state.locked = true;
+  }
+
+  state.previous = { mfcc7, mfcc9 };
+  state.previousDelta = { mfcc7: mfcc7Delta, mfcc9: mfcc9Delta };
+  const baseline = state.baseline || meanCepstral(state.samples);
+  const desvioMfcc7 =
+    baseline.mfcc7 === 0 ? null : rounded((mfcc7 - baseline.mfcc7) / Math.abs(baseline.mfcc7), 4);
+  const desvioMfcc9 =
+    baseline.mfcc9 === 0 ? null : rounded((mfcc9 - baseline.mfcc9) / Math.abs(baseline.mfcc9), 4);
+
+  return {
+    mfcc7,
+    mfcc9,
+    mfcc7Delta,
+    mfcc9Delta,
+    mfcc7DeltaDelta,
+    mfcc9DeltaDelta,
+    baselineMfcc7: rounded(baseline.mfcc7, 4),
+    baselineMfcc9: rounded(baseline.mfcc9, 4),
+    desvioMfcc7,
+    desvioMfcc9,
+  };
+}
+
 function hasSuppressionAu(zones: PerceptionZone[]) {
   return zones.some((zone) =>
     (zone.dissonance_details?.active_aus || []).some((code) => {
@@ -893,12 +1019,22 @@ function computeDnaSubharmonics(
   zones: PerceptionZone[],
   ipm: number,
 ) {
-  if (!state.startedAtMs) state.startedAtMs = now;
-  if (frame.sub5_12 || frame.sub12_20 || frame.sub20_40 || frame.energy85_165) {
+  const hasSignal =
+    frame.sub5_12 > 0 ||
+    frame.sub12_20 > 0 ||
+    frame.sub20_40 > 0 ||
+    frame.energy85_165 > 0;
+  if (hasSignal && !state.startedAtMs) state.startedAtMs = now;
+  if (hasSignal) {
     state.samples.push(frame);
     if (state.samples.length > 3600) state.samples.shift();
   }
-  if (!state.locked && now - state.startedAtMs >= DNA_BASELINE_MS) {
+  if (
+    state.startedAtMs &&
+    !state.locked &&
+    state.samples.length > 0 &&
+    now - state.startedAtMs >= DNA_BASELINE_MS
+  ) {
     state.baseline = meanDnaSample(state.samples);
     state.locked = true;
   }
@@ -1005,6 +1141,23 @@ function calculateRawBioacousticFrame(
     ? clamp(Math.sqrt(envelopeVariance) / Math.max(0.0001, meanEnvelope))
     : 0;
   const jitter = voicePresence ? clamp(zcr * 45) : 0;
+  const spectralDelta = envelopeBandEnergy(envelope, frameRate, 0.5, 4) * voiceGain;
+  const spectralTheta = envelopeBandEnergy(envelope, frameRate, 4, 8) * voiceGain;
+  const spectralAlpha = envelopeBandEnergy(envelope, frameRate, 8, 12) * voiceGain;
+  const spectralBeta =
+    Math.max(
+      envelopeBandEnergy(envelope, frameRate, 12, 30),
+      frequencyBandEnergy(frequencyData, sampleRate, fftSize, 12, 30),
+    ) * voiceGain;
+  const spectralGamma =
+    frequencyBandEnergy(frequencyData, sampleRate, fftSize, 30, 80) * voiceGain;
+  const spectralBandIndex = clamp(
+    spectralDelta * 0.16 +
+      spectralTheta * 0.18 +
+      spectralAlpha * 0.16 +
+      spectralBeta * 0.25 +
+      spectralGamma * 0.25,
+  );
 
   return {
     rms,
@@ -1027,6 +1180,12 @@ function calculateRawBioacousticFrame(
         envelopeBandEnergy(envelope, frameRate, 20, 40),
         frequencyBandEnergy(frequencyData, sampleRate, fftSize, 20, 40),
       ) * voiceGain,
+    spectralDelta,
+    spectralTheta,
+    spectralAlpha,
+    spectralBeta,
+    spectralGamma,
+    spectralBandIndex,
   };
 }
 
@@ -1144,10 +1303,20 @@ type TranscriptSegment = { elapsedSeconds: number; text: string };
 const REPORT_AUDIO_KEYS = [
   "mfcc7",
   "mfcc9",
+  "mfcc7_delta",
+  "mfcc9_delta",
+  "mfcc7_delta_delta",
+  "mfcc9_delta_delta",
   "f0_mean",
   "zcr",
   "jitter",
   "shimmer",
+  "spectral_delta_0_4hz",
+  "spectral_theta_4_8hz",
+  "spectral_alpha_8_12hz",
+  "spectral_beta_12_30hz",
+  "spectral_gamma_30_80hz",
+  "spectral_band_index",
   "subharmonic_energy_5_12hz",
   "subharmonic_energy_12_20hz",
   "subharmonic_energy_20_40hz",
@@ -1303,10 +1472,20 @@ function buildMetricSnapshot(
     dissonanceCount: zones.filter(isReportableDissonance).length,
     mfcc7: audioAverage("mfcc7"),
     mfcc9: audioAverage("mfcc9"),
+    mfcc7Delta: audioAverage("mfcc7_delta"),
+    mfcc9Delta: audioAverage("mfcc9_delta"),
+    mfcc7DeltaDelta: audioAverage("mfcc7_delta_delta"),
+    mfcc9DeltaDelta: audioAverage("mfcc9_delta_delta"),
     f0Mean: audioAverage("f0_mean"),
     zcr: audioAverage("zcr"),
     jitter: audioAverage("jitter"),
     shimmer: audioAverage("shimmer"),
+    spectralDelta0_4: audioAverage("spectral_delta_0_4hz"),
+    spectralTheta4_8: audioAverage("spectral_theta_4_8hz"),
+    spectralAlpha8_12: audioAverage("spectral_alpha_8_12hz"),
+    spectralBeta12_30: audioAverage("spectral_beta_12_30hz"),
+    spectralGamma30_80: audioAverage("spectral_gamma_30_80hz"),
+    spectralBandIndex: audioAverage("spectral_band_index"),
     subharmonic5_12: audioAverage("subharmonic_energy_5_12hz"),
     subharmonic12_20: audioAverage("subharmonic_energy_12_20hz"),
     subharmonic20_40: audioAverage("subharmonic_energy_20_40hz"),
@@ -1717,6 +1896,16 @@ function buildAnonymizedContext(
             ? `dissonancias_relevantes_${cut.dissonanceCount}_zona_${cut.dominantZone || "nao_apurada"}`
             : "sem_dissonancia_relevante",
         aggregatedClinicalRisk: aggregatedClinicalRisk(cut),
+        spectralDelta0_4: cut.spectralDelta0_4,
+        spectralTheta4_8: cut.spectralTheta4_8,
+        spectralAlpha8_12: cut.spectralAlpha8_12,
+        spectralBeta12_30: cut.spectralBeta12_30,
+        spectralGamma30_80: cut.spectralGamma30_80,
+        spectralBandIndex: cut.spectralBandIndex,
+        mfcc7Delta: cut.mfcc7Delta,
+        mfcc9Delta: cut.mfcc9Delta,
+        mfcc7DeltaDelta: cut.mfcc7DeltaDelta,
+        mfcc9DeltaDelta: cut.mfcc9DeltaDelta,
       };
     }),
   };
@@ -1780,14 +1969,22 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const bioacousticContextRef = useRef<AudioContext | null>(null);
   const bioacousticRafRef = useRef<number | null>(null);
   const bioacousticEnvelopeRef = useRef<number[]>([]);
-  const bioacousticFrameRef = useRef(0);
   const bioacousticClockRef = useRef({ lastTime: 0, frameRate: 60 });
+  const lastBioacousticPublishMsRef = useRef(0);
   const bioacousticDnaRef = useRef<DnaBaselineState>({
     startedAtMs: 0,
     samples: [],
     baseline: null,
     locked: false,
     limbicRatioEma: null,
+  });
+  const bioacousticCepstralRef = useRef<CepstralBaselineState>({
+    startedAtMs: 0,
+    samples: [],
+    baseline: null,
+    previous: null,
+    previousDelta: null,
+    locked: false,
   });
   const recorderRef = useRef<MediaRecorder | null>(null);
   const patientRecorderRef = useRef<MediaRecorder | null>(null);
@@ -2239,7 +2436,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     bioacousticStreamRef.current?.getTracks().forEach((track) => track.stop());
     bioacousticStreamRef.current = null;
     bioacousticEnvelopeRef.current = [];
-    bioacousticFrameRef.current = 0;
+    lastBioacousticPublishMsRef.current = 0;
     bioacousticClockRef.current = { lastTime: 0, frameRate: 60 };
     bioacousticDnaRef.current = {
       startedAtMs: 0,
@@ -2247,6 +2444,14 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       baseline: null,
       locked: false,
       limbicRatioEma: null,
+    };
+    bioacousticCepstralRef.current = {
+      startedAtMs: 0,
+      samples: [],
+      baseline: null,
+      previous: null,
+      previousDelta: null,
+      locked: false,
     };
   }, []);
 
@@ -2298,7 +2503,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       bioacousticStreamRef.current = stream;
       bioacousticContextRef.current = context;
       bioacousticEnvelopeRef.current = [];
-      bioacousticFrameRef.current = 0;
+      lastBioacousticPublishMsRef.current = 0;
       bioacousticClockRef.current = { lastTime: 0, frameRate: 60 };
 
       setLiveTranscription((prev) => ({
@@ -2349,9 +2554,19 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           latestZonesRef.current,
           latestIpmRef.current,
         );
-
-        bioacousticFrameRef.current += 1;
-        if (bioacousticFrameRef.current % 8 === 0) {
+        const shouldPublishBioacoustic =
+          lastBioacousticPublishMsRef.current === 0 ||
+          now - lastBioacousticPublishMsRef.current >= BIOACOUSTIC_WINDOW_MS;
+        if (shouldPublishBioacoustic) {
+          lastBioacousticPublishMsRef.current = now;
+          const cepstralMetrics = computeCepstralDynamics(
+            frequencyData,
+            context.sampleRate,
+            analyser.fftSize,
+            bioacousticCepstralRef.current,
+            now,
+            metrics.voicePresence,
+          );
           const shouldFeedLocalIpm =
             remotePatientOnRef.current ||
             attributedSpeakerRef.current === "PC" ||
@@ -2360,7 +2575,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           if (
             shouldFeedLocalIpm &&
             localIpm !== null &&
-            now - lastLocalIpmDispatchMsRef.current >= 2000
+            now - lastLocalIpmDispatchMsRef.current >= BIOACOUSTIC_WINDOW_MS
           ) {
             lastLocalIpmDispatchMsRef.current = now;
             dispatch({ type: "LOCAL_IPM", ipm: localIpm });
@@ -2372,6 +2587,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             bioacoustic_pipeline: "raw-webaudio",
             bioacoustic_track: sourceMode,
             bioacoustic_sample_rate: context.sampleRate,
+            bioacoustic_window_ms: BIOACOUSTIC_WINDOW_MS,
             bioacoustic_frame_rate: clock.frameRate,
             semantic_stt_pipeline: "chunked-gpt-4o-transcribe",
             semantic_streaming_target: "openai-realtime-transcription",
@@ -2389,6 +2605,22 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             subharmonic_energy_5_12hz: metrics.sub5_12,
             subharmonic_energy_12_20hz: metrics.sub12_20,
             subharmonic_energy_20_40hz: metrics.sub20_40,
+            spectral_delta_0_4hz: metrics.spectralDelta,
+            spectral_theta_4_8hz: metrics.spectralTheta,
+            spectral_alpha_8_12hz: metrics.spectralAlpha,
+            spectral_beta_12_30hz: metrics.spectralBeta,
+            spectral_gamma_30_80hz: metrics.spectralGamma,
+            spectral_band_index: metrics.spectralBandIndex,
+            mfcc7: cepstralMetrics.mfcc7,
+            mfcc9: cepstralMetrics.mfcc9,
+            baseline_mfcc7: cepstralMetrics.baselineMfcc7,
+            baseline_mfcc9: cepstralMetrics.baselineMfcc9,
+            desvio_mfcc7: cepstralMetrics.desvioMfcc7,
+            desvio_mfcc9: cepstralMetrics.desvioMfcc9,
+            mfcc7_delta: cepstralMetrics.mfcc7Delta,
+            mfcc9_delta: cepstralMetrics.mfcc9Delta,
+            mfcc7_delta_delta: cepstralMetrics.mfcc7DeltaDelta,
+            mfcc9_delta_delta: cepstralMetrics.mfcc9DeltaDelta,
             local_ipm_score: localIpm,
             ...dnaMetrics,
           }));
@@ -3730,6 +3962,10 @@ function LiveSessionInner({ user }: LiveSessionProps) {
               baseline={state.baselineIPM}
               audioMeta={displayAudio}
             />
+          </div>
+
+          <div className="min-h-[250px]">
+            <SpectralBandsChart audioMeta={displayAudio} />
           </div>
 
           <div className="min-h-[390px]">
