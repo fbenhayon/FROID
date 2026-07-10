@@ -80,9 +80,10 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta }) => {
               <div>
                 <p className="font-bold text-slate-100">Bandas neuroacusticas</p>
                 <p className="mt-1">
-                  Leitura das modulacoes Delta, Theta, Alpha, Beta e Gama da
-                  trilha do paciente, consolidada a cada 1 segundo e cruzada
-                  com os deltas cepstrais MFCC7/MFCC9.
+                  Leitura das modulacoes vocais Delta, Theta, Alpha, Beta e
+                  Gama da trilha do paciente. A nomenclatura e analogica para
+                  bandas de voz, nao EEG, consolidada a cada 1 segundo e
+                  cruzada com os deltas cepstrais MFCC7/MFCC9.
                 </p>
               </div>
             }

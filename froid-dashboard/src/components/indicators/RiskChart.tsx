@@ -29,7 +29,7 @@ const TOOLTIP_TEXT = {
   mania:
     'Ativação de Mania (Mania Activation): baseada em preditores vocais da YMRS. Monitora pitch/F0 elevado, loudness, taxa acelerada de fala e fluxo espectral mais incisivo ("sharper voice").',
   stress:
-    "Estresse Cognitivo (Stress Cognitive): reflete workload contínuo. É detectado por microperturbações laríngeas ciclo a ciclo, com F0 sustentado, Jitter e Shimmer alterados.",
+    "Estresse Cognitivo (Stress Cognitive): reflete workload contínuo. É estimado por F0 sustentado, ZCR e índices proxy internos de Jitter/Shimmer alterados, sem equivaler diretamente a medidas normativas em % ou dB.",
   autonomic:
     "Risco de Dissociação e Trauma: deriva do cruzamento entre infrassom vocal e FACS. Energia sub-harmônica de 5 a 12 Hz, AU15/AU20 e tensão vocal em 85-165 Hz elevam o alerta para flooding, sobrecarga autonômica ou retraumatização.",
 };

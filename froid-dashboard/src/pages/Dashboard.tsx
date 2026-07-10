@@ -147,8 +147,10 @@ const METRIC_TOOLTIPS: Record<string, string> = {
   mfcc9: "Biomarcador acustico relevante para tensao autonoma e ansiedade somatica em fala neutra/controlada.",
   f0: "Frequencia fundamental media da voz, associada a variacao de pitch e ativacao.",
   zcr: "Taxa de cruzamento por zero, relacionada a textura acustica, ruido e dinamica vocal.",
-  jitter: "Microvariacao ciclo a ciclo da frequencia vocal, util para observar instabilidade e tensao.",
-  shimmer: "Microvariacao ciclo a ciclo da amplitude vocal, associada a instabilidade de energia vocal.",
+  jitter:
+    "Indice proxy interno normalizado, derivado de ZCR escalado, util para observar instabilidade vocal relativa. Nao equivale diretamente a jitter percentual normativo.",
+  shimmer:
+    "Indice proxy interno normalizado da variacao relativa do envelope RMS, util para observar instabilidade de energia vocal. Nao equivale diretamente a shimmer em dB.",
   sub5: "Energia sub-harmonica de 5-12 Hz, usada para rastrear tremores autonomicos da voz.",
   sub12: "Energia sub-harmonica de 12-20 Hz, complementar na leitura bioacustica e limbica.",
 };

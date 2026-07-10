@@ -62,6 +62,10 @@ FROID_CHROMA_COLLECTION = os.getenv(
     "FROID_CHROMA_COLLECTION",
     "froid_clinical_knowledge",
 )
+FROID_APPROVED_KNOWLEDGE_DIR = os.getenv(
+    "FROID_APPROVED_KNOWLEDGE_DIR",
+    os.path.join(os.path.dirname(__file__), "knowledge", "approved"),
+)
 FROID_DUCKDB_PATH = os.getenv(
     "FROID_DUCKDB_PATH",
     "/data/datamart_anonymous.duckdb",
@@ -285,10 +289,10 @@ KNOWLEDGE_BASE = {
     "idm_direcao": "O IDM aponta a direcao do desequilibrio entre marcadores negativos e positivos, enquanto o IPM mede a energia global empregada.",
     "mfcc7_depressao": "MFCC7 elevado durante conteudos semanticamente negativos, associado a pausas, menor variacao de F0 e retardo psicomotor, contribui para risco depressivo.",
     "mfcc9_ansiedade": "MFCC9 em discurso neutro pode ter relacao inversa com ansiedade somatica; quedas acusticas podem indicar tensao autonoma latente.",
-    "shimmer_bioacustico": "Shimmer mede perturbacao ciclo-a-ciclo da amplitude vocal. No FROID, deve ser interpretado contra baseline individual, cortes temporais, Jitter, F0, ZCR, energia, pausas, tema semantico e dissonancias; isoladamente nao define estado emocional.",
-    "jitter_bioacustico": "Jitter mede perturbacao ciclo-a-ciclo da frequencia fundamental. Quando sustentado junto a Shimmer, alteracoes de F0, pausas e tensao vocal, pode apoiar hipotese de instabilidade laringea ou carga autonomica.",
+    "shimmer_bioacustico": "Shimmer no FROID e atualmente um indice proxy interno normalizado da variacao relativa do envelope RMS, nao uma medida em dB. Deve ser interpretado contra baseline individual, cortes temporais, Jitter proxy, F0, ZCR, energia, pausas, tema semantico e dissonancias; isoladamente nao define estado emocional.",
+    "jitter_bioacustico": "Jitter no FROID e atualmente um indice proxy interno normalizado derivado de ZCR escalado, nao uma medida percentual normativa. Quando sustentado junto a Shimmer proxy, alteracoes de F0, pausas e tensao vocal, pode apoiar hipotese de instabilidade laringea ou carga autonomica.",
     "f0_bioacustico": "F0 e a frequencia fundamental da voz. Elevacoes, quedas ou reducao de variabilidade devem ser comparadas ao baseline de 60 segundos e ao contexto semantico da fala.",
-    "zcr_bioacustico": "ZCR, taxa de cruzamento por zero, apoia leitura de aspereza, ruido, energia de alta frequencia e alteracoes acusticas quando combinado a MFCCs, F0, Jitter e Shimmer.",
+    "zcr_bioacustico": "ZCR, taxa de cruzamento por zero, apoia leitura de aspereza, ruido, energia de alta frequencia e alteracoes acusticas quando combinado a MFCCs, F0, Jitter proxy e Shimmer proxy.",
     "ref_mfcc_davis_mermelstein": "Referencia cientifica: Davis e Mermelstein (1980) introduzem representacoes cepstrais em escala Mel para modelagem espectral da fala, fundamento conceitual dos MFCCs.",
     "ref_opensmile_eyben": "Referencia cientifica: Eyben, Wollmer e Schuller (2010) descrevem o openSMILE como toolkit para extracao de features acusticas em fala, musica e reconhecimento afetivo.",
     "ref_facs_ekman": "Referencia cientifica: Ekman, Friesen e Hager consolidam o Facial Action Coding System (FACS), base para codificacao de unidades de acao facial, intensidade e combinacoes expressivas.",
@@ -352,6 +356,7 @@ SCIENTIFIC_CITATION_MARKERS = {
     "doi",
     "pubmed",
     "journal",
+    "bibliografia cientifica",
     "artigo",
     "paper",
 }
@@ -496,11 +501,69 @@ async def _generate_froid_explain_text(
     return "", "local-fallback"
 
 
+APPROVED_KNOWLEDGE_CACHE: Optional[List[Tuple[str, str]]] = None
+
+
+def _title_from_markdown_text(path: str, text: str) -> str:
+    for line in str(text or "").splitlines():
+        match = re.match(r"^\s{0,3}#\s+(.+?)\s*$", line)
+        if match:
+            return match.group(1).strip()[:180]
+    return os.path.splitext(os.path.basename(path))[0].replace("_", " ")[:180]
+
+
+def _chunk_approved_markdown(text: str, words_per_chunk: int = 700, overlap: int = 100) -> List[str]:
+    clean = re.sub(r"```.*?```", " ", str(text or ""), flags=re.DOTALL)
+    clean = re.sub(r"\s+", " ", clean).strip()
+    words = clean.split()
+    if not words:
+        return []
+    chunks: List[str] = []
+    step = max(1, words_per_chunk - overlap)
+    for start in range(0, len(words), step):
+        chunk = " ".join(words[start : start + words_per_chunk]).strip()
+        if len(chunk) >= 80:
+            chunks.append(chunk)
+        if start + words_per_chunk >= len(words):
+            break
+    return chunks
+
+
+def _load_approved_knowledge_docs() -> List[Tuple[str, str]]:
+    global APPROVED_KNOWLEDGE_CACHE
+    if APPROVED_KNOWLEDGE_CACHE is not None:
+        return APPROVED_KNOWLEDGE_CACHE
+    docs: List[Tuple[str, str]] = []
+    root = FROID_APPROVED_KNOWLEDGE_DIR
+    if os.path.exists(root):
+        for dirpath, _, filenames in os.walk(root):
+            for filename in sorted(filenames):
+                if not filename.lower().endswith(".md"):
+                    continue
+                path = os.path.join(dirpath, filename)
+                try:
+                    with open(path, "r", encoding="utf-8-sig", errors="ignore") as file:
+                        text = file.read()
+                    title = _title_from_markdown_text(path, text)
+                    for index, chunk in enumerate(_chunk_approved_markdown(text)):
+                        label = title if index == 0 else f"{title} (parte {index + 1})"
+                        docs.append((label, chunk))
+                except Exception:
+                    continue
+    APPROVED_KNOWLEDGE_CACHE = docs
+    return docs
+
+
 def _query_local_froid_knowledge(query_text: str, limit: int = 4) -> Tuple[List[str], List[str]]:
     query = _normalize_search_text(query_text)
     tokens = {token for token in re.split(r"\W+", query) if len(token) >= 4}
     ranked: List[Tuple[int, str, str]] = []
     for source, content in KNOWLEDGE_BASE.items():
+        haystack = _normalize_search_text(f"{source} {content}")
+        score = sum(1 for token in tokens if token in haystack)
+        if not tokens or score > 0:
+            ranked.append((score, source, content))
+    for source, content in _load_approved_knowledge_docs():
         haystack = _normalize_search_text(f"{source} {content}")
         score = sum(1 for token in tokens if token in haystack)
         if not tokens or score > 0:
@@ -884,20 +947,20 @@ def _fallback_froid_explica_result(query_text: str, context: Dict[str, Any]) -> 
         return _metric_response(
             "Shimmer",
             {"shimmer", "shimmer_avg", "average_shimmer", "shimmermean"},
-            "Shimmer mede perturbacao ciclo-a-ciclo da amplitude vocal, isto e, a instabilidade da intensidade da voz entre ciclos sucessivos de fonacao.",
-            "No FROID, o Shimmer deve ser comparado ao baseline individual e aos cortes posteriores. Ele se torna mais informativo quando aparece junto de Jitter, alteracoes de F0, energia, pausas, ZCR, tensao vocal ou dissonancias faciais-vocais.",
-            "Use o Shimmer para observar esforco vocal, instabilidade autonomica possivel, tensao afetiva ou controle emocional excessivo. Em atendimento, ele pode orientar perguntas mais finas sobre carga emocional no trecho em que a amplitude vocal se tornou instavel.",
-            "Base local FROID: shimmer_bioacustico; Referencia cientifica: Boersma e Weenink/Praat para analise acustica vocal.",
+            "No dashboard atual, Shimmer e um indice proxy interno normalizado da variacao relativa do envelope RMS da voz do paciente. Ele nao deve ser lido como shimmer em dB.",
+            "Compare esse indice com o baseline individual e com os cortes posteriores. Ele se torna mais informativo quando aparece junto de Jitter proxy, alteracoes de F0, energia, pausas, ZCR, tensao vocal ou dissonancias faciais-vocais.",
+            "Use o Shimmer idx. para observar instabilidade relativa de energia vocal, esforco, tensao afetiva ou controle respiratorio/vocal. Para aplicar limiares normativos em dB, sera necessaria uma camada fisica especifica de extracao validada.",
+            "Base local FROID: shimmer_bioacustico; Referencia cientifica conceitual: Boersma e Weenink/Praat para shimmer fisico em analise acustica vocal.",
         )
 
     if "jitter" in query:
         return _metric_response(
             "Jitter",
             {"jitter", "jitter_avg", "average_jitter", "jittermean"},
-            "Jitter mede perturbacao ciclo-a-ciclo da frequencia fundamental, refletindo instabilidade fina da fonacao.",
-            "No FROID, Jitter ganha relevancia quando aparece sustentado com Shimmer, alteracoes de F0, pausas, tensao vocal, queda de fluidez ou mudanca de tom emocional.",
-            "Use o Jitter como apoio para investigar instabilidade laringea, carga autonomica ou esforco de controle emocional, sempre relacionando com o conteudo verbal e com o baseline.",
-            "Base local FROID: jitter_bioacustico; Referencia cientifica: Boersma e Weenink/Praat para analise acustica vocal.",
+            "No dashboard atual, Jitter e um indice proxy interno normalizado derivado da taxa de cruzamento por zero escalada. Ele nao deve ser lido como jitter percentual normativo.",
+            "No FROID, Jitter idx. ganha relevancia quando aparece sustentado com Shimmer idx., alteracoes de F0, pausas, tensao vocal, queda de fluidez ou mudanca de tom emocional.",
+            "Use o Jitter idx. como apoio para investigar instabilidade vocal relativa, carga autonomica possivel ou esforco de controle emocional, sempre relacionando com o conteudo verbal e com o baseline. Para aplicar limiares percentuais normativos, sera necessaria uma camada fisica especifica de extracao validada.",
+            "Base local FROID: jitter_bioacustico; Referencia cientifica conceitual: Boersma e Weenink/Praat para jitter fisico em analise acustica vocal.",
         )
 
     if "zcr" in query or "cruzamento por zero" in query:
@@ -905,7 +968,7 @@ def _fallback_froid_explica_result(query_text: str, context: Dict[str, Any]) -> 
             "ZCR",
             {"zcr", "zcr_avg", "average_zcr", "zcrmean"},
             "ZCR e a taxa de cruzamento por zero do sinal acustico, usada para observar caracteristicas de ruido, aspereza e energia de alta frequencia.",
-            "No FROID, ZCR deve ser lido junto de MFCCs, F0, Jitter, Shimmer, pausas e intensidade. Alteracoes isoladas podem refletir artefato, microfone, fricativas ou mudanca real de qualidade vocal.",
+            "No FROID, ZCR deve ser lido junto de MFCCs, F0, Jitter idx., Shimmer idx., pausas e intensidade. Alteracoes isoladas podem refletir artefato, microfone, fricativas ou mudanca real de qualidade vocal.",
             "Use o ZCR para apoiar a leitura de tensao, aspereza vocal ou mudancas acusticas durante temas especificos, sempre conferindo qualidade do audio e contexto semantico.",
             "Base local FROID: zcr_bioacustico; Referencia cientifica: Eyben, Wollmer e Schuller (2010), openSMILE/features acusticas.",
         )
@@ -945,8 +1008,8 @@ async def _query_froid_knowledge(payload: FroidExplicaQuery) -> FroidExplicaResp
     retrieval_query = _retrieval_query_for_payload(payload)
     chroma_docs, chroma_citations = _query_chroma_froid_knowledge(retrieval_query)
     local_docs, local_citations = _query_local_froid_knowledge(retrieval_query)
-    context_chunks = chroma_docs or local_docs
-    context_labels = chroma_citations or local_citations
+    context_chunks = (chroma_docs + local_docs)[:8]
+    context_labels = (chroma_citations + local_citations)[:8]
     citations = _scientific_citations(context_labels)
     context_str = "\n\n".join(
         f"[Fonte: {source}]\n{doc}"
@@ -1148,7 +1211,9 @@ async def _query_froid_analytics(payload: FroidExplicaQuery) -> FroidExplicaResp
         "sample_count INTEGER, speech_density DOUBLE, patient_professional_word_ratio DOUBLE, ipm_avg DOUBLE, "
         "idm_avg DOUBLE, dominant_zone INTEGER, coherence_status VARCHAR, emotional_tone VARCHAR, "
         "words_per_minute DOUBLE, theme VARCHAR, dissonance_count INTEGER, mfcc7 DOUBLE, mfcc9 DOUBLE, "
-        "f0_mean DOUBLE, zcr DOUBLE, jitter DOUBLE, shimmer DOUBLE, subharmonic_5_12 DOUBLE, "
+        "f0_mean DOUBLE, zcr DOUBLE, jitter DOUBLE, shimmer DOUBLE, "
+        "jitter_proxy_index DOUBLE, shimmer_proxy_index DOUBLE, jitter_unit VARCHAR, shimmer_unit VARCHAR, "
+        "subharmonic_5_12 DOUBLE, "
         "subharmonic_12_20 DOUBLE, subharmonic_20_40 DOUBLE, vocal_basal_85_165 DOUBLE, "
         "spectral_delta_0_4 DOUBLE, spectral_theta_4_8 DOUBLE, spectral_alpha_8_12 DOUBLE, "
         "spectral_beta_12_30 DOUBLE, spectral_gamma_30_80 DOUBLE, spectral_band_index DOUBLE, "
@@ -1778,6 +1843,10 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 zcr DOUBLE,
                 jitter DOUBLE,
                 shimmer DOUBLE,
+                jitter_proxy_index DOUBLE,
+                shimmer_proxy_index DOUBLE,
+                jitter_unit VARCHAR,
+                shimmer_unit VARCHAR,
                 subharmonic_5_12 DOUBLE,
                 subharmonic_12_20 DOUBLE,
                 subharmonic_20_40 DOUBLE,
@@ -1885,6 +1954,10 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 "spectral_beta_12_30": "DOUBLE",
                 "spectral_gamma_30_80": "DOUBLE",
                 "spectral_band_index": "DOUBLE",
+                "jitter_proxy_index": "DOUBLE",
+                "shimmer_proxy_index": "DOUBLE",
+                "jitter_unit": "VARCHAR",
+                "shimmer_unit": "VARCHAR",
                 "mfcc7_delta": "DOUBLE",
                 "mfcc9_delta": "DOUBLE",
                 "mfcc7_delta_delta": "DOUBLE",
@@ -2168,6 +2241,10 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 "zcr": cut.get("zcr"),
                 "jitter": cut.get("jitter"),
                 "shimmer": cut.get("shimmer"),
+                "jitter_proxy_index": cut.get("jitter"),
+                "shimmer_proxy_index": cut.get("shimmer"),
+                "jitter_unit": "internal_proxy_0_1_zcr_scaled",
+                "shimmer_unit": "internal_proxy_0_1_envelope_cv",
                 "spectral_delta_0_4": cut.get("spectralDelta0_4"),
                 "spectral_theta_4_8": cut.get("spectralTheta4_8"),
                 "spectral_alpha_8_12": cut.get("spectralAlpha8_12"),
@@ -2236,6 +2313,11 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                     "emotional_tone": cut.get("emotionalTone"),
                     "words_per_minute": cut.get("wordsPerMinute"),
                     "dissonance_count": cut.get("dissonanceCount"),
+                    "jitter_proxy_index": cut.get("jitter"),
+                    "shimmer_proxy_index": cut.get("shimmer"),
+                    "jitter_unit": "internal_proxy_0_1_zcr_scaled",
+                    "shimmer_unit": "internal_proxy_0_1_envelope_cv",
+                    "spectral_band_context": "voice_modulation_not_eeg",
                     "spectral_delta_0_4": cut.get("spectralDelta0_4"),
                     "spectral_theta_4_8": cut.get("spectralTheta4_8"),
                     "spectral_alpha_8_12": cut.get("spectralAlpha8_12"),
@@ -2282,6 +2364,8 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                     dominant_zone_shift = ?, emotional_tone_shift = ?, cadence_shift = ?,
                     semantic_coherence_shift = ?, biomarker_snapshot_json = ?,
                     subharmonic_snapshot_json = ?, cut_context_json = ?,
+                    jitter_proxy_index = ?, shimmer_proxy_index = ?,
+                    jitter_unit = ?, shimmer_unit = ?,
                     previous_cut_context = ?, next_cut_context = ?, response_ipm_direction = ?,
                     response_idm_direction = ?, response_dissonance_direction = ?,
                     metrics_version = ?, weights_version = ?, media_loss_events = ?
@@ -2306,6 +2390,10 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                     _safe_str(json.dumps(biomarker_snapshot, ensure_ascii=False, sort_keys=True), 1200),
                     _safe_str(json.dumps(subharmonic_snapshot, ensure_ascii=False, sort_keys=True), 1200),
                     _safe_str(json.dumps(cut_context_vector, ensure_ascii=False, sort_keys=True), 6000),
+                    _safe_float(cut.get("jitter")),
+                    _safe_float(cut.get("shimmer")),
+                    "internal_proxy_0_1_zcr_scaled",
+                    "internal_proxy_0_1_envelope_cv",
                     _safe_str(previous_context_label, 240),
                     _safe_str(next_context_label, 240),
                     _safe_str(cut_context.get("response_ipm_direction") or cut_context.get("responseIpmDirection") or "nao_apurado", 80),

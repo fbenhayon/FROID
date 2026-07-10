@@ -26,9 +26,9 @@ const biomarkerTooltips: Record<string, string> = {
   mfcc9:
     "MFCC9 e acompanhado em fala neutra; quedas ou desvios podem sugerir tensao autonomica latente e ansiedade somatica.",
   jitter:
-    "Jitter mede microvariacoes ciclo a ciclo da frequencia vocal, uteis para observar instabilidade laringea, esforco e estresse cognitivo.",
+    "Jitter no FROID e um indice proxy interno normalizado, derivado de ZCR escalado, util para observar instabilidade vocal relativa. Nao equivale diretamente ao jitter percentual normativo de Praat.",
   shimmer:
-    "Shimmer mede variacoes de amplitude entre ciclos vocais, indicando instabilidade de energia, tensao e controle respiratorio/vocal.",
+    "Shimmer no FROID e um indice proxy interno normalizado da variacao relativa do envelope RMS, util para observar instabilidade de energia vocal. Nao equivale diretamente ao shimmer em dB.",
 };
 
 function limitWords(text: string, maxWords: number) {
@@ -256,15 +256,15 @@ export const AudioTranscription: React.FC<Props> = ({
 
           <div className="grid grid-cols-2 gap-2">
             <StabilityGauge
-              label="Jitter"
+              label="Jitter idx."
               value={jitter}
-              max={0.06}
-              stable={0.02}
-              warning={0.04}
+              max={1}
+              stable={0.2}
+              warning={0.45}
               tooltip={biomarkerTooltips.jitter}
             />
             <StabilityGauge
-              label="Shimmer"
+              label="Shimmer idx."
               value={shimmer}
               max={1}
               stable={0.3}

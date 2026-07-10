@@ -120,8 +120,8 @@ export function sessionMetricCells(
     { key: "gamma", label: "Gama", value: fmt(snapshot.spectralGamma30_80, 2) },
     { key: "f0", label: "F0 Med.", value: fmt(snapshot.f0Mean, 1) },
     { key: "zcr", label: "ZCR", value: fmt(snapshot.zcr, 3) },
-    { key: "jitter", label: "Jitter", value: fmt(snapshot.jitter, 3) },
-    { key: "shimmer", label: "Shimmer", value: fmt(snapshot.shimmer, 3) },
+    { key: "jitter", label: "Jitter idx.", value: fmt(snapshot.jitter, 3) },
+    { key: "shimmer", label: "Shimmer idx.", value: fmt(snapshot.shimmer, 3) },
     { key: "sub5", label: "Sub-H 5-12Hz", value: fmt(snapshot.subharmonic5_12, 2) },
     { key: "sub12", label: "Sub-H 12-20Hz", value: fmt(snapshot.subharmonic12_20, 2) },
   ];

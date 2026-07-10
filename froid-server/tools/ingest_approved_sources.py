@@ -15,7 +15,13 @@ import re
 from pathlib import Path
 
 
-DEFAULT_APPROVED_DIR = Path("/data/froid_sources/curated/approved")
+REPO_APPROVED_DIR = Path(__file__).resolve().parents[1] / "knowledge" / "approved"
+DEFAULT_APPROVED_DIR = Path(
+    os.getenv(
+        "FROID_APPROVED_KNOWLEDGE_DIR",
+        str(Path("/data/froid_sources/curated/approved") if Path("/data/froid_sources/curated/approved").exists() else REPO_APPROVED_DIR),
+    )
+)
 DEFAULT_CHROMA_PATH = Path(os.getenv("FROID_CHROMA_PATH", "/data/chroma_db"))
 DEFAULT_COLLECTION = os.getenv("FROID_CHROMA_COLLECTION", "froid_clinical_knowledge")
 

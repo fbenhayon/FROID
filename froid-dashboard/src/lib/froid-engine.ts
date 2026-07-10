@@ -75,6 +75,13 @@ export interface AcousticBiomarkers {
   f0_mean?: number;
   f0_var?: number;
   zcr?: number;
+  jitter_proxy_index?: number;
+  shimmer_proxy_index?: number;
+  jitter_unit?: string;
+  shimmer_unit?: string;
+  jitter_source?: string;
+  shimmer_source?: string;
+  spectral_band_context?: string;
   jitter?: number;
   shimmer?: number;
   speech_rate?: number;

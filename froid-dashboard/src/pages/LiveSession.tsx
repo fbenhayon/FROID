@@ -329,14 +329,14 @@ function dissonanceTechnicalFactors(
       `Ressonancia neurogenica acima da metrica (${dnaNeurogenic.toFixed(2)}): alteracao sub-harmonica em faixa superior compativel com ativacao corporal nao verbalizada.`,
     );
   }
-  if (jitter !== null && jitter >= 0.45) {
+  if (jitter !== null && jitter >= VOICE_PERTURBATION_PROXY_ALERT_THRESHOLD) {
     factors.push(
-      `Jitter elevado (${jitter.toFixed(2)}): microperturbacao de frequencia acima do esperado para estabilidade vocal naquele corte.`,
+      `Jitter proxy elevado (${jitter.toFixed(2)}): indice interno normalizado derivado de ZCR escalado, usado como sinal de instabilidade vocal relativa; nao equivale diretamente a jitter percentual normativo.`,
     );
   }
-  if (shimmer !== null && shimmer >= 0.45) {
+  if (shimmer !== null && shimmer >= VOICE_PERTURBATION_PROXY_ALERT_THRESHOLD) {
     factors.push(
-      `Shimmer elevado (${shimmer.toFixed(2)}): variacao de amplitude vocal acima do esperado, sugerindo instabilidade de energia vocal.`,
+      `Shimmer proxy elevado (${shimmer.toFixed(2)}): indice interno normalizado da variacao relativa do envelope RMS, usado como sinal de instabilidade energetica; nao equivale diretamente a shimmer em dB.`,
     );
   }
   if (ipmDelta !== null && Math.abs(ipmDelta) >= DISSONANCE_IPM_DELTA_THRESHOLD) {
@@ -884,6 +884,10 @@ type CepstralBaselineState = {
 const DNA_EPSILON = 1e-9;
 const DNA_BASELINE_MS = 60_000;
 const BIOACOUSTIC_WINDOW_MS = 1000;
+const VOICE_PERTURBATION_PROXY_ALERT_THRESHOLD = 0.45;
+const JITTER_PROXY_UNIT = "internal_proxy_0_1_zcr_scaled";
+const SHIMMER_PROXY_UNIT = "internal_proxy_0_1_envelope_cv";
+const VOCAL_SPECTRAL_BAND_CONTEXT = "voice_modulation_not_eeg";
 
 const meanDnaSample = (samples: DnaBandSample[]): DnaBandSample => {
   const safe = samples.length
@@ -1137,10 +1141,10 @@ function calculateRawBioacousticFrame(
       const diff = value - meanEnvelope;
       return total + diff * diff;
     }, 0) / Math.max(1, envelope.length);
-  const shimmer = voicePresence
+  const shimmerProxyIndex = voicePresence
     ? clamp(Math.sqrt(envelopeVariance) / Math.max(0.0001, meanEnvelope))
     : 0;
-  const jitter = voicePresence ? clamp(zcr * 45) : 0;
+  const jitterProxyIndex = voicePresence ? clamp(zcr * 45) : 0;
   const spectralDelta = envelopeBandEnergy(envelope, frameRate, 0.5, 4) * voiceGain;
   const spectralTheta = envelopeBandEnergy(envelope, frameRate, 4, 8) * voiceGain;
   const spectralAlpha = envelopeBandEnergy(envelope, frameRate, 8, 12) * voiceGain;
@@ -1163,8 +1167,10 @@ function calculateRawBioacousticFrame(
     rms,
     peak,
     zcr,
-    jitter,
-    shimmer,
+    jitter: jitterProxyIndex,
+    shimmer: shimmerProxyIndex,
+    jitter_proxy_index: jitterProxyIndex,
+    shimmer_proxy_index: shimmerProxyIndex,
     voicePresence,
     energy85_165: frequencyBandEnergy(
       frequencyData,
@@ -1212,7 +1218,7 @@ const MIN_STT_AUDIO_BYTES = 1200;
 const MAX_VISIBLE_TRANSCRIPT_LINES = 12;
 const TRANSCRIPT_SUMMARY_WINDOW_MS = 10 * 60 * 1000;
 const ENABLE_BROWSER_LIVE_STT = false;
-const FROID_ALGORITHM_VERSION = "3.0.0-dashboard";
+const FROID_ALGORITHM_VERSION = "3.1.0-dashboard-bioacoustic-units";
 
 function speakerPrefix(speaker: SpeakerRole) {
   return speaker === "DR" ? "DR. - " : "PC - ";
@@ -1311,6 +1317,8 @@ const REPORT_AUDIO_KEYS = [
   "zcr",
   "jitter",
   "shimmer",
+  "jitter_proxy_index",
+  "shimmer_proxy_index",
   "spectral_delta_0_4hz",
   "spectral_theta_4_8hz",
   "spectral_alpha_8_12hz",
@@ -1808,7 +1816,7 @@ function buildAnonymizedContext(
     sttModel: "gpt-4o-transcribe",
     llmModel: "gpt-4o/gemini-froid-explica",
     algorithmVersion: FROID_ALGORITHM_VERSION,
-    metricsVersion: "froid-metrics-v3",
+    metricsVersion: "froid-metrics-v4-bioacoustic-proxy-units",
     weightsVersion: "froid-weights-v1",
     audioQuality:
       transcriptWordCount(fullTranscript) > 20 || cuts.some((cut) => cut.sampleCount > 0)
@@ -2600,6 +2608,13 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             zcr: metrics.zcr,
             jitter: metrics.jitter,
             shimmer: metrics.shimmer,
+            jitter_proxy_index: metrics.jitter_proxy_index,
+            shimmer_proxy_index: metrics.shimmer_proxy_index,
+            jitter_unit: JITTER_PROXY_UNIT,
+            shimmer_unit: SHIMMER_PROXY_UNIT,
+            jitter_source: "zero_crossing_rate_scaled_x45",
+            shimmer_source: "rms_envelope_coefficient_of_variation",
+            spectral_band_context: VOCAL_SPECTRAL_BAND_CONTEXT,
             voice_presence: metrics.voicePresence,
             energy_85_165hz: metrics.energy85_165,
             subharmonic_energy_5_12hz: metrics.sub5_12,
