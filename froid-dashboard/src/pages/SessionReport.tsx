@@ -752,8 +752,8 @@ export const SessionReport: React.FC<Props> = () => {
   const sessionSummary = derivedSessionSummary(report);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200">
-      <header className="border-b border-slate-700 bg-slate-900 px-6 py-4">
+    <div className="min-h-screen bg-slate-950 text-slate-100">
+      <header className="border-b border-slate-800 bg-slate-950 px-6 py-4">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-300">
@@ -769,15 +769,15 @@ export const SessionReport: React.FC<Props> = () => {
           </div>
           <button
             onClick={() => navigate("/dashboard")}
-            className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-800"
+            className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-slate-800"
           >
             Dashboard
           </button>
         </div>
       </header>
 
-      <main className="mx-auto grid max-w-7xl items-start gap-4 p-6 lg:grid-cols-[1fr_390px]">
-        <div className="space-y-4">
+      <main className="mx-auto grid max-w-7xl items-start gap-4 p-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="min-w-0 space-y-4">
           <section className="rounded-lg border border-blue-800 bg-blue-950 p-4">
             <div className="mb-3">
               <HelpTitle
@@ -1120,8 +1120,8 @@ export const SessionReport: React.FC<Props> = () => {
 
         </div>
 
-        <aside className="space-y-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
-          <section className="min-h-[560px] rounded-lg border border-slate-700 bg-slate-900 p-4">
+        <aside className="min-w-0 space-y-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
+          <section className="min-h-[520px] rounded-lg border border-slate-700 bg-slate-900 p-3">
             <AIInsights
               zones={report.sessionAverage.zones || []}
               ipmScore={report.sessionAverage.ipmAvg}
@@ -1130,7 +1130,7 @@ export const SessionReport: React.FC<Props> = () => {
               sessionId={report.sessionId}
               extraContext={reportContext}
               controlsSticky
-              messagesClassName="min-h-[330px]"
+              messagesClassName="min-h-[300px]"
             />
           </section>
 

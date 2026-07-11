@@ -73,9 +73,27 @@ function localDevUser(): FroidUser | null {
   }
 }
 
+function normalizeDirectPublicPath() {
+  if (typeof window === "undefined") return;
+  if (window.location.hash) return;
+  const directRoutes: Record<string, string> = {
+    "/login": "/login",
+    "/entrar": "/login",
+    "/cadastro": "/access/register",
+    "/access/register": "/access/register",
+  };
+  const target = directRoutes[window.location.pathname.toLowerCase()];
+  if (!target) return;
+  window.history.replaceState(null, "", `/#${target}`);
+}
+
 function App() {
   const [user, setUser] = useState<FroidUser | null>(null);
   const [checkingSession, setCheckingSession] = useState(true);
+
+  useEffect(() => {
+    normalizeDirectPublicPath();
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem("froid_token");
