@@ -66,7 +66,7 @@ const StabilityBar: React.FC<{
   const status = classifyStability(value, stable, warning);
 
   return (
-    <FroidTooltip content={<p>{tooltip}</p>} width={270}>
+    <FroidTooltip content={<p>{tooltip}</p>} width={270} fullWidth>
       <div className="w-full cursor-help rounded-lg border border-slate-700 bg-slate-950 p-2.5">
         <div className="mb-1 grid min-w-0 grid-cols-[12px_minmax(0,1fr)_48px] items-center gap-2">
           <span
@@ -166,7 +166,7 @@ export const AudioTranscription: React.FC<Props> = ({
         : transcriptionStatus === "error"
           ? "bg-red-50 text-red-700"
           : "bg-slate-100 text-slate-500";
-  const mfccMax = Math.max(mfcc7, mfcc9, 0.01);
+  const mfccMagnitudeMax = Math.max(Math.abs(mfcc7), Math.abs(mfcc9), 0.01);
   const mfccItems = [
     { key: "mfcc7", label: "MFCC7", value: mfcc7, color: "#3b82f6" },
     { key: "mfcc9", label: "MFCC9", value: mfcc9, color: "#8b5cf6" },
@@ -226,21 +226,30 @@ export const AudioTranscription: React.FC<Props> = ({
 
       {section !== "summary" && (
       <div className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-2">
-        <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-wider text-slate-300">
-          <span>Biomarcadores vocais</span>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="text-[13px] font-black text-slate-100">Biomarcadores vocais</h3>
+            <p className="truncate text-[10px] font-medium text-slate-400">
+              Comparacao vocal por indicador
+            </p>
+          </div>
           <span className={`rounded px-1.5 py-0.5 text-[8px] ${bioacousticClass}`}>
             {bioacousticLabel}
           </span>
         </div>
         <div className="mt-2 space-y-2 text-[10px]">
           <div className="rounded-xl border border-slate-700 bg-slate-950 p-2.5">
-            <p className="mb-3 text-[11px] font-black uppercase tracking-wide text-slate-300">
+            <p className="text-[11px] font-black text-slate-100">
               Grafico Comparativo MFCC7 x MFCC9
+            </p>
+            <p className="mb-3 text-[8px] text-slate-400">
+              Magnitude relativa | coeficiente bruto a direita
             </p>
             <div className="space-y-2">
             {mfccItems.map((item) => (
               <FroidTooltip
                 key={item.key}
+                fullWidth
                 content={<p>{biomarkerTooltips[item.key]}</p>}
                 width={300}
               >
@@ -254,21 +263,18 @@ export const AudioTranscription: React.FC<Props> = ({
                       {item.label}
                     </span>
                     <span className="text-right font-mono text-[10px] font-black text-slate-100">
-                      {Math.round((Math.max(0, item.value) / mfccMax) * 100)}%
+                      {item.value.toFixed(2)}
                     </span>
                   </div>
                   <div className="ml-5 h-2.5 w-[calc(100%-1.25rem)] overflow-hidden rounded-full bg-slate-800">
                     <div
                       className="h-full rounded-full transition-all duration-700"
                       style={{
-                        width: `${Math.max(3, (Math.max(0, item.value) / mfccMax) * 100)}%`,
+                        width: `${Math.max(3, (Math.abs(item.value) / mfccMagnitudeMax) * 100)}%`,
                         backgroundColor: item.color,
                       }}
                     />
                   </div>
-                  <p className="mt-1 text-right font-mono text-[8px] text-slate-400">
-                    valor {item.value.toFixed(2)}
-                  </p>
                 </div>
               </FroidTooltip>
             ))}

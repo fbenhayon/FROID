@@ -248,12 +248,13 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta }) => {
       </div>
 
       <div className="min-h-0 flex-1 overflow-hidden pr-1">
-        <div className="space-y-1">
+        <div className="space-y-2">
           {metrics.map((metric, index) => {
             const value = percent(metric.value);
             return (
               <FroidTooltip
                 key={metric.id}
+                fullWidth
                 content={
                   <div className="max-w-[340px]">
                     <p className="font-bold">
@@ -266,10 +267,10 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta }) => {
                 }
                 width={360}
               >
-                <div className="cursor-help">
-                  <div className="mb-0.5 grid min-w-0 grid-cols-[10px_minmax(0,1fr)_42px] items-start gap-1.5">
+                <div className="w-full cursor-help">
+                  <div className="mb-1 grid min-w-0 grid-cols-[12px_minmax(0,1fr)_48px] items-center gap-2">
                     <span
-                      className="mt-0.5 h-4 w-2.5"
+                      className="h-5 w-3 rounded-sm"
                       style={{ backgroundColor: metric.color }}
                     />
                     <div className="min-w-0">
@@ -280,14 +281,11 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta }) => {
                         {metric.band}
                       </span>
                     </div>
-                    <span
-                      className="rounded-full border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-center font-mono text-[10px] font-black"
-                      style={{ color: metric.color }}
-                    >
+                    <span className="text-right font-mono text-[10px] font-black text-slate-100">
                       {value}%
                     </span>
                   </div>
-                  <div className="ml-4 h-1.5 w-[calc(100%-1rem)] overflow-hidden rounded-full bg-slate-800">
+                  <div className="ml-5 h-2.5 w-[calc(100%-1.25rem)] overflow-hidden rounded-full bg-slate-800">
                     <div
                       className="h-full rounded-full transition-all duration-700"
                       style={{

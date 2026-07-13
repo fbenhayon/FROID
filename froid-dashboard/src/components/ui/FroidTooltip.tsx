@@ -4,9 +4,15 @@ interface TooltipProps {
   children: React.ReactNode;
   content: React.ReactNode;
   width?: number;
+  fullWidth?: boolean;
 }
 
-export function FroidTooltip({ children, content, width = 280 }: TooltipProps) {
+export function FroidTooltip({
+  children,
+  content,
+  width = 280,
+  fullWidth = false,
+}: TooltipProps) {
   const [show, setShow] = useState(false);
   const anchorRef = useRef<HTMLSpanElement | null>(null);
   const rect = anchorRef.current?.getBoundingClientRect();
@@ -22,7 +28,7 @@ export function FroidTooltip({ children, content, width = 280 }: TooltipProps) {
   return (
     <span
       ref={anchorRef}
-      className="relative inline-block"
+      className={fullWidth ? "relative block w-full" : "relative inline-block"}
       onMouseEnter={() => setShow(true)}
       onMouseLeave={() => setShow(false)}
     >

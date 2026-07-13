@@ -302,6 +302,7 @@ export const RiskChart: React.FC<Props> = ({
           return (
             <div key={risk.id} className="block w-full">
               <FroidTooltip
+                fullWidth
                 content={
                   <div className="max-w-[360px]">
                     <p className="font-bold">

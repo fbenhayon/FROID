@@ -90,17 +90,17 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta }) => {
               </div>
             }
           >
-            <h3 className="cursor-help text-[11px] font-bold uppercase tracking-wider text-cyan-200">
+            <h3 className="cursor-help text-[13px] font-black text-slate-100">
               Bandas neuroacusticas
             </h3>
           </FroidTooltip>
-          <p className="mt-0.5 text-[9px] text-slate-400">
+          <p className="mt-0.5 truncate text-[10px] font-medium text-slate-400">
             Consolidacao bioacustica: {Number(audioMeta?.bioacoustic_window_ms || 1000)}ms
           </p>
         </div>
-        <div className="rounded border border-cyan-700 bg-cyan-950 px-2 py-1 text-right">
-          <p className="text-[8px] uppercase text-cyan-300">Indice</p>
-          <p className="font-mono text-sm font-black text-cyan-100">{percent(index)}%</p>
+        <div className="shrink-0 rounded-xl border border-blue-800 bg-blue-950 px-2.5 py-0.5 text-center text-blue-200">
+          <p className="text-[8px] font-black uppercase">Indice geral</p>
+          <p className="font-mono text-[12px] font-black">{percent(index)}%</p>
         </div>
       </div>
 
@@ -108,6 +108,7 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta }) => {
         {metrics.map((metric) => (
           <FroidTooltip
             key={metric.label}
+            fullWidth
             width={340}
             content={
               <div>
