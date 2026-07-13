@@ -187,7 +187,7 @@ export default function MapaZonalFroid({
         className,
       ].join(" ")}
     >
-      <div className="mb-1 grid grid-cols-[24px_minmax(74px,0.75fr)_minmax(150px,1.6fr)_minmax(74px,0.75fr)] items-center gap-x-1">
+      <div className="mb-1 grid grid-cols-[24px_minmax(96px,0.9fr)_minmax(220px,1.8fr)_minmax(96px,0.9fr)] items-center gap-x-1">
         <div className="text-[10px] font-semibold uppercase tracking-tight text-slate-400">
           Z
         </div>
@@ -222,7 +222,7 @@ export default function MapaZonalFroid({
         </div>
       </div>
 
-      <div className="grid flex-1 auto-rows-fr grid-cols-[24px_minmax(74px,0.75fr)_minmax(150px,1.6fr)_minmax(74px,0.75fr)] gap-x-1">
+      <div className="grid flex-1 auto-rows-fr grid-cols-[24px_minmax(96px,0.9fr)_minmax(220px,1.8fr)_minmax(96px,0.9fr)] gap-x-1">
         {normalizedZones.map((item, index) => {
           const zn = item.zone;
           const val = item.deviation_score;
@@ -232,7 +232,7 @@ export default function MapaZonalFroid({
           const intensity = item.hasData
             ? clamp(Math.abs(val) / maxAbs, 0, 1)
             : 0;
-          const barW = intensity * 50;
+          const barW = intensity * 42;
           const color = isNeu
             ? NEUTRAL_COLOR
             : isNeg

@@ -13,6 +13,7 @@ import { MediaStatus } from "../components/indicators/MediaStatus";
 import { SessionTimer } from "../components/indicators/SessionTimer";
 import { AIInsights } from "../components/panels/AIInsights";
 import { AudioTranscription } from "../components/panels/AudioTranscription";
+import { FroidTooltip } from "../components/ui/FroidTooltip";
 import { FroidPayload, PerceptionZone } from "../lib/froid-engine";
 import { getAUDetails, ZONE_CLINICAL_DESCRIPTIONS } from "../lib/froid-data";
 import { apiUrl, wsUrl } from "../lib/api";
@@ -24,6 +25,80 @@ import {
   saveSessionReport,
   SessionReportRecord,
 } from "../lib/session-report";
+
+const SIMPLIFIED_METRIC_TOOLTIPS: Record<string, string> = {
+  CORTE:
+    "Intervalo temporal em analise desde o ultimo corte semantico, seja automatico ou executado pelo profissional.",
+  IPM:
+    "Indice de Potencia Motivacional. Funciona como o velocimetro emocional: indica a intensidade global da energia vocal, facial e semantica do paciente.",
+  IDM:
+    "Indice de Desvio Multimodal. Indica a direcao e o grau de afastamento entre voz, face, semantica e zonas FROID.",
+  ZONAS:
+    "Zona FROID predominante no corte atual, calculada pela composicao das metricas bioacusticas, semanticas e multimodais.",
+  TOM:
+    "Tom emocional predominante inferido pela composicao entre fala transcrita, marcadores acusticos e contexto do corte.",
+  "P/MIN":
+    "Palavras por minuto no corte atual. Ajuda a identificar aceleracao, lentificacao, bloqueios ou mudancas de cadencia.",
+  "DISSO.":
+    "Quantidade de dissonancias confirmadas acima da metrica definida no corte atual. Exibe somente apontamentos efetivamente detectados.",
+  MFCC7:
+    "Coeficiente cepstral vocal associado ao timbre e a energia espectral. No FROID, ganha relevancia quando cruza valencia semantica negativa e marcadores de retardo ou tensao.",
+  MFCC9:
+    "Coeficiente cepstral vocal usado como marcador complementar de tensao autonoma, especialmente quando observado em trechos semanticamente neutros.",
+  DMFCC7:
+    "Delta do MFCC7. Mede a variacao de primeira ordem do coeficiente durante o corte.",
+  DMFCC9:
+    "Delta do MFCC9. Mede a variacao de primeira ordem do coeficiente durante o corte.",
+  DDMFCC7:
+    "Delta-delta do MFCC7. Indica aceleracao ou desaceleracao da mudanca cepstral.",
+  DDMFCC9:
+    "Delta-delta do MFCC9. Indica aceleracao ou desaceleracao da mudanca cepstral.",
+  "F0 MED.":
+    "Frequencia fundamental media da voz. Ajuda a observar elevacao de pitch, queda vocal, tensao ou variacoes de ativacao.",
+  ZCR:
+    "Taxa de cruzamento por zero. Aponta irregularidade acustica e componentes de aspereza, ruido ou tensao vocal.",
+  JITTER:
+    "Indice interno normalizado de perturbacao de frequencia, derivado para comparacao longitudinal no FROID. Nao e percentual acustico bruto.",
+  SHIMMER:
+    "Indice interno normalizado de variacao de amplitude vocal, derivado para comparacao longitudinal no FROID. Nao e medida bruta em dB.",
+  DELTA:
+    "Energia de modulacao vocal na faixa delta. No FROID, representa modulacao bioacustica lenta, nao atividade EEG direta.",
+  THETA:
+    "Energia de modulacao vocal na faixa theta. Usada como marcador de oscilacao lenta da expressao vocal.",
+  ALPHA:
+    "Energia de modulacao vocal na faixa alpha. Ajuda a compor estabilidade, ritmo e organizacao da emissao.",
+  BETA:
+    "Energia de modulacao vocal na faixa beta. Ajuda a compor indices de ativacao, esforco e tensao cognitiva.",
+  GAMA:
+    "Energia de modulacao vocal na faixa gama. Ajuda a observar ativacao rapida e instabilidade espectral fina.",
+  "IND. ESPECTRAL":
+    "Indice composto das bandas espectrais vocais, usado para sintetizar o perfil de modulacao bioacustica do corte.",
+  "SUB-H 5-12":
+    "Energia sub-harmonica entre 5 e 12 Hz. No FROID, integra o nucleo de leitura autonoma e sinais de sobrecarga profunda.",
+  "SUB-H 12-20":
+    "Energia sub-harmonica entre 12 e 20 Hz. Complementa a leitura de tremor, tensao e modulacao involuntaria.",
+  "SUB-H 20-40":
+    "Energia sub-harmonica entre 20 e 40 Hz. Complementa a leitura de excitacao, instabilidade e microtremores vocais.",
+  "VOCAL 85-165":
+    "Banda basal de tensao vocal. Ajuda a identificar sustentacao, constricao e esforco na base da emissao.",
+  "DNA INFRA":
+    "Componente nuclear de infrassom vocal usado na matriz bioacustica do FROID.",
+  "DNA LIMBICO":
+    "Componente de modulacao limbica estimado pela combinacao de sub-harmonicos, voz e contexto emocional.",
+  "DNA VOCAL":
+    "Componente de tensao vocal basal usado para compor riscos, dissonancias e estado de ativacao.",
+  "DNA FLOOD":
+    "Indicador composto de flooding autonomico, sugerindo sobrecarga ou intensificacao fisiologica relevante.",
+  "DNA SHUTDOWN":
+    "Indicador composto de retraimento ou desligamento dissociativo, quando a assinatura bioacustica sugere queda defensiva.",
+  "DNA NEURO":
+    "Indice de ressonancia neurogenica estimado por combinacoes sub-harmonicas e estabilidade vocal.",
+  "DNA SOMATO":
+    "Indice de dissonancia somatoafetiva, usado para cruzar expressao vocal, tensao e marcadores corporais inferidos.",
+};
+
+const SIMPLIFIED_CUT_TOOLTIP =
+  "O corte organiza a sessao em janelas analisaveis. A cada fechamento, o FROID consolida tema, resumo da fala, metricas vocais, indicadores bioacusticos e dissonancias relevantes.";
 
 interface AggData {
   zones: PerceptionZone[];
@@ -3977,9 +4052,14 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           <div className="flex min-w-max divide-x divide-slate-700 px-2 py-1.5">
             {simplifiedMetricEntries.map(([label, value]) => (
               <div key={label} className="px-2 first:pl-1">
-                <p className="whitespace-nowrap text-[9px] font-black uppercase tracking-wide text-slate-500 underline decoration-slate-600 underline-offset-2">
-                  {label}
-                </p>
+                <FroidTooltip
+                  content={SIMPLIFIED_METRIC_TOOLTIPS[label] || "Metrica do corte atual da sessao simplificada."}
+                  width={330}
+                >
+                  <span className="block cursor-help whitespace-nowrap text-[9px] font-black uppercase tracking-wide text-slate-500 underline decoration-slate-600 underline-offset-2">
+                    {label}
+                  </span>
+                </FroidTooltip>
                 <p className="mt-0.5 whitespace-nowrap font-mono text-[10px] text-slate-200">
                   {value}
                 </p>
@@ -4049,7 +4129,13 @@ function LiveSessionInner({ user }: LiveSessionProps) {
               <div className="bg-cyan-950 p-3 text-[10px] text-cyan-100">
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <div>
-                    <p className="font-black uppercase tracking-wider">Corte semântico + Resumo da Fala IA</p>
+                    <p className="font-black uppercase tracking-wider">
+                      <FroidTooltip content={SIMPLIFIED_CUT_TOOLTIP} width={360}>
+                        <span className="cursor-help underline decoration-cyan-700 underline-offset-2">
+                          Corte semantico + Resumo da Fala IA
+                        </span>
+                      </FroidTooltip>
+                    </p>
                     <p className="mt-0.5 text-[9px] text-cyan-300">
                       Fechamento do corte e sintese complementar
                     </p>
@@ -4103,9 +4189,9 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-950 text-slate-100">
+    <div className="grid h-screen min-w-[1620px] grid-cols-[minmax(500px,28%)_minmax(620px,44%)_minmax(500px,28%)] overflow-x-auto overflow-y-hidden bg-slate-950 text-slate-100">
       {/* COLUNA 1 — 30% */}
-      <div className="order-1 w-[22%] flex flex-col gap-2 overflow-y-auto border-x border-slate-800 bg-slate-950 p-2 text-slate-100">
+      <div className="order-1 min-w-0 flex flex-col gap-2 overflow-y-auto border-x border-slate-800 bg-slate-950 p-2 text-slate-100">
         <div className="flex items-center justify-between">
           <h1 className="text-base font-bold text-slate-100">
             Sessão Detalhada
@@ -4237,7 +4323,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       </div>
 
       {/* COLUNA 2 — 34%: Vídeo (50%) + Mapa Zonal (50%) */}
-      <div className="order-2 w-[36%] flex flex-col gap-2 overflow-y-auto bg-slate-950 p-2 shadow-inner">
+      <div className="order-2 min-w-0 flex flex-col gap-2 overflow-y-auto bg-slate-950 p-2 shadow-inner">
         {/* Vídeo — 50% do espaço */}
         <div className="relative flex min-h-[320px] flex-[0.9] items-center justify-center overflow-hidden rounded-xl border border-slate-700 bg-slate-900">
           <MediaStatus
@@ -4315,7 +4401,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       </div>
 
       {/* COLUNA 3 — 35%: IPM grande, Risco, Subharm, Coherence, Dissonâncias */}
-      <div className="order-3 grid flex-1 grid-rows-3 gap-2 overflow-hidden bg-slate-950 p-3">
+      <div className="order-3 grid min-w-0 grid-rows-3 gap-2 overflow-hidden bg-slate-950 p-3">
         {raw ? (
           <>
             <div className="min-h-0 overflow-hidden">
@@ -4520,3 +4606,4 @@ export function LiveSession({ user }: LiveSessionProps) {
     </ErrorGuard>
   );
 }
+
