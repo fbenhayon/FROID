@@ -1942,6 +1942,9 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const [conversationSummaries, setConversationSummaries] = useState<
     ConversationSummary[]
   >([]);
+  const [sessionLayout, setSessionLayout] = useState<"detailed" | "simplified">(
+    "detailed",
+  );
   const [semanticCutStartSecond, setSemanticCutStartSecond] = useState(0);
   const [rtcStatus, setRtcStatus] = useState("Aguardando paciente");
   const [remotePatientOn, setRemotePatientOn] = useState(false);
@@ -2057,6 +2060,28 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   useEffect(() => {
     remotePatientOnRef.current = remotePatientOn;
   }, [remotePatientOn]);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      const localVideoTracks = mediaStreamRef.current
+        ?.getVideoTracks()
+        .filter((track) => track.readyState === "live");
+      if (videoRef.current && localVideoTracks?.length) {
+        videoRef.current.srcObject = new MediaStream(localVideoTracks);
+        void videoRef.current.play().catch(() => undefined);
+      }
+
+      const remoteTracks = rtcPeerRef.current
+        ?.getReceivers()
+        .map((receiver) => receiver.track)
+        .filter((track) => track && track.readyState === "live");
+      if (remoteVideoRef.current && remoteTracks?.length) {
+        remoteVideoRef.current.srcObject = new MediaStream(remoteTracks);
+        void remoteVideoRef.current.play().catch(() => undefined);
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [sessionLayout]);
 
   useEffect(() => {
     speakerIdModeRef.current = speakerIdMode;
@@ -3676,6 +3701,55 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     0,
     semanticCutWindowSeconds - semanticCutElapsed,
   );
+  const simplifiedSnapshot = buildMetricSnapshot(
+    "Atual",
+    sessionSamplesRef.current,
+    semanticCutStartSecond,
+    Math.max(semanticCutStartSecond + 1, state.elapsedSeconds),
+    transcriptSegmentsRef.current,
+  );
+  const simplifiedMetricEntries: Array<[string, string]> = [
+    [
+      "CORTE",
+      `${Math.floor(semanticCutStartSecond / 60)}-${Math.max(
+        Math.floor(semanticCutStartSecond / 60) + 1,
+        Math.ceil(state.elapsedSeconds / 60),
+      )}min`,
+    ],
+    ["IPM", formatMetricValue(simplifiedSnapshot.ipmAvg, 1)],
+    ["IDM", formatMetricValue(simplifiedSnapshot.idmAvg, 2)],
+    ["ZONAS", simplifiedSnapshot.dominantZone ? `Zona ${simplifiedSnapshot.dominantZone}` : "--"],
+    ["TOM", simplifiedSnapshot.emotionalTone || "--"],
+    ["P/MIN", formatMetricValue(simplifiedSnapshot.wordsPerMinute, 1)],
+    ["DISSO.", String(simplifiedSnapshot.dissonanceCount || 0)],
+    ["MFCC7", formatMetricValue(simplifiedSnapshot.mfcc7, 3)],
+    ["MFCC9", formatMetricValue(simplifiedSnapshot.mfcc9, 3)],
+    ["DMFCC7", formatMetricValue(simplifiedSnapshot.mfcc7Delta, 4)],
+    ["DMFCC9", formatMetricValue(simplifiedSnapshot.mfcc9Delta, 4)],
+    ["DDMFCC7", formatMetricValue(simplifiedSnapshot.mfcc7DeltaDelta, 4)],
+    ["DDMFCC9", formatMetricValue(simplifiedSnapshot.mfcc9DeltaDelta, 4)],
+    ["F0 MED.", formatMetricValue(simplifiedSnapshot.f0Mean, 2)],
+    ["ZCR", formatMetricValue(simplifiedSnapshot.zcr, 3)],
+    ["JITTER", formatMetricValue(simplifiedSnapshot.jitter, 3)],
+    ["SHIMMER", formatMetricValue(simplifiedSnapshot.shimmer, 3)],
+    ["DELTA", formatMetricValue(simplifiedSnapshot.spectralDelta0_4, 3)],
+    ["THETA", formatMetricValue(simplifiedSnapshot.spectralTheta4_8, 3)],
+    ["ALPHA", formatMetricValue(simplifiedSnapshot.spectralAlpha8_12, 3)],
+    ["BETA", formatMetricValue(simplifiedSnapshot.spectralBeta12_30, 3)],
+    ["GAMA", formatMetricValue(simplifiedSnapshot.spectralGamma30_80, 3)],
+    ["IND. ESPECTRAL", formatMetricValue(simplifiedSnapshot.spectralBandIndex, 3)],
+    ["SUB-H 5-12", formatMetricValue(simplifiedSnapshot.subharmonic5_12, 3)],
+    ["SUB-H 12-20", formatMetricValue(simplifiedSnapshot.subharmonic12_20, 3)],
+    ["SUB-H 20-40", formatMetricValue(simplifiedSnapshot.subharmonic20_40, 3)],
+    ["VOCAL 85-165", formatMetricValue(simplifiedSnapshot.vocalBasal85_165, 3)],
+    ["DNA INFRA", formatMetricValue(simplifiedSnapshot.dnaInfrasoundNuclear, 3)],
+    ["DNA LIMBICO", formatMetricValue(simplifiedSnapshot.dnaLimbicModulation, 3)],
+    ["DNA VOCAL", formatMetricValue(simplifiedSnapshot.dnaVocalBasalTension, 3)],
+    ["DNA FLOOD", formatMetricValue(simplifiedSnapshot.dnaAutonomicFlooding, 3)],
+    ["DNA SHUTDOWN", formatMetricValue(simplifiedSnapshot.dnaDissociativeShutdown, 3)],
+    ["DNA NEURO", formatMetricValue(simplifiedSnapshot.dnaNeurogenicResonance, 3)],
+    ["DNA SOMATO", formatMetricValue(simplifiedSnapshot.dnaSomatoaffectiveDissonance, 3)],
+  ];
 
   const createSessionReport = useCallback((): SessionReportRecord => {
     const durationSeconds = Math.max(1, elapsedSecondsRef.current || state.elapsedSeconds);
@@ -3863,13 +3937,178 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     );
   }
 
+  const layoutSelector = (
+    <button
+      type="button"
+      onClick={() =>
+        setSessionLayout((current) =>
+          current === "detailed" ? "simplified" : "detailed",
+        )
+      }
+      className="w-full rounded-lg border border-blue-700 bg-blue-950 px-3 py-2 text-[9px] font-black uppercase tracking-wide text-blue-100 transition-colors hover:bg-blue-900"
+    >
+      {sessionLayout === "detailed"
+        ? "Abrir Sessão Simplificada"
+        : "Voltar à Sessão Detalhada"}
+    </button>
+  );
+
+  if (sessionLayout === "simplified") {
+    return (
+      <div className="flex h-screen min-w-0 flex-col overflow-hidden bg-slate-950 text-slate-100">
+        <header className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-800 bg-slate-900 px-3 py-2">
+          <div className="min-w-0">
+            <h1 className="truncate text-sm font-black">Sessão Simplificada</h1>
+            <p className="truncate text-[9px] text-slate-400">
+              Sessão {sessionId?.slice(0, 8) || "--"} | vídeo, corte, resumo, métricas e FROID Explica
+            </p>
+          </div>
+          <div className="w-[310px] max-w-[45vw]">{layoutSelector}</div>
+          <button
+            type="button"
+            onClick={endSession}
+            className="shrink-0 rounded bg-red-600 px-3 py-1.5 text-[10px] font-bold text-white hover:bg-red-700"
+          >
+            Encerrar
+          </button>
+        </header>
+
+        <div className="shrink-0 overflow-x-auto border-b border-slate-700 bg-slate-900">
+          <div className="flex min-w-max divide-x divide-slate-700 px-2 py-1.5">
+            {simplifiedMetricEntries.map(([label, value]) => (
+              <div key={label} className="px-2 first:pl-1">
+                <p className="whitespace-nowrap text-[9px] font-black uppercase tracking-wide text-slate-500 underline decoration-slate-600 underline-offset-2">
+                  {label}
+                </p>
+                <p className="mt-0.5 whitespace-nowrap font-mono text-[10px] text-slate-200">
+                  {value}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <main className="grid min-h-0 flex-1 grid-cols-[minmax(0,3fr)_minmax(360px,2fr)] gap-2 overflow-hidden p-2">
+          <section className="relative flex min-h-0 items-center justify-center overflow-hidden rounded-xl border border-slate-700 bg-slate-900">
+            <MediaStatus
+              cameraOn={state.cameraOn}
+              micOn={state.micOn}
+              simulated={!state.cameraOn}
+            />
+            <video
+              ref={remoteVideoRef}
+              autoPlay
+              playsInline
+              className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${
+                remotePatientOn ? "opacity-100" : "opacity-0"
+              }`}
+            />
+            <video
+              ref={videoRef}
+              autoPlay
+              muted
+              playsInline
+              className={`absolute scale-x-[-1] object-cover transition-all duration-500 ${
+                remotePatientOn
+                  ? "bottom-3 right-3 z-20 h-24 w-36 rounded-lg border border-white/40 shadow-lg"
+                  : "inset-0 h-full w-full"
+              } ${state.cameraOn ? "opacity-100" : "opacity-0"}`}
+            />
+            <div
+              className={`absolute left-3 top-3 z-20 rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wide backdrop-blur ${
+                remotePatientOn
+                  ? "bg-emerald-500/90 text-white"
+                  : "bg-slate-950/70 text-slate-200"
+              }`}
+            >
+              {rtcStatus}
+            </div>
+            {!state.cameraOn && <SimulatedCamera />}
+            {(state.camError || !state.micOn) && (
+              <div className="absolute bottom-3 left-3 right-3 z-20 rounded-lg border border-amber-300/50 bg-slate-950/75 px-3 py-2 text-[10px] font-semibold text-amber-100 backdrop-blur-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="min-w-0 flex-1">
+                    {state.camError || "Audio aguardando permissao do navegador."}
+                  </span>
+                  {!state.micOn && (
+                    <button
+                      type="button"
+                      onClick={() => void activateMedia()}
+                      className="shrink-0 rounded bg-amber-400 px-2 py-1 text-[10px] font-black text-slate-950 hover:bg-amber-300"
+                    >
+                      Ativar audio
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </section>
+
+          <div className="flex min-h-0 flex-col gap-2 overflow-y-auto">
+            <section className="shrink-0 overflow-hidden rounded-xl border border-cyan-800 bg-slate-950 shadow-sm">
+              <div className="bg-cyan-950 p-3 text-[10px] text-cyan-100">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <div>
+                    <p className="font-black uppercase tracking-wider">Corte semântico + Resumo da Fala IA</p>
+                    <p className="mt-0.5 text-[9px] text-cyan-300">
+                      Fechamento do corte e sintese complementar
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void closeSemanticCut("manual")}
+                    className="shrink-0 rounded bg-cyan-700 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white hover:bg-cyan-800 disabled:cursor-not-allowed disabled:bg-cyan-200"
+                    disabled={semanticCutElapsed < 10 || semanticCutClosingRef.current}
+                    title="Fecha manualmente o corte atual e gera resumo IA do periodo."
+                  >
+                    Fechar corte
+                  </button>
+                </div>
+                <div className="flex items-center justify-between font-mono text-[10px] text-cyan-200">
+                  <span>Atual {formatCutClock(semanticCutElapsed)}</span>
+                  <span>Auto em {formatCutClock(semanticCutRemaining)}</span>
+                </div>
+                <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-cyan-900">
+                  <div
+                    className="h-full rounded-full bg-cyan-600 transition-all duration-1000"
+                    style={{ width: `${semanticCutProgress}%` }}
+                  />
+                </div>
+              </div>
+              <div className="p-2">
+                <AudioTranscription
+                  audioMeta={displayAudio}
+                  conversationSummaries={conversationSummaries}
+                  section="summary"
+                />
+              </div>
+            </section>
+
+            <section className="min-h-[320px] flex-1 overflow-hidden rounded-xl border border-slate-700 bg-slate-950 p-2">
+              <AIInsights
+                zones={displayZones}
+                ipmScore={displayIpm}
+                coherenceStatus={displayCoherence}
+                baselineEstablished={state.phase === "LIVE"}
+                sessionId={sessionId || ""}
+                controlsSticky
+                rootClassName="h-full border-0 bg-transparent p-0 text-slate-100"
+                messagesClassName="min-h-[190px] bg-slate-800/80 text-slate-200"
+              />
+            </section>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen overflow-hidden bg-slate-950 text-slate-100">
       {/* COLUNA 1 — 30% */}
       <div className="order-2 w-[22%] flex flex-col gap-2 overflow-y-auto border-x border-slate-800 bg-slate-950 p-2 text-slate-100">
         <div className="flex items-center justify-between">
           <h1 className="text-base font-bold text-slate-100">
-            Sessão {sessionId?.slice(0, 8) || "--"}
+            Sessão Detalhada
           </h1>
           <div className="flex items-center gap-2">
             <span
@@ -3885,6 +4124,8 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             </button>
           </div>
         </div>
+
+        {layoutSelector}
 
         <SessionTimer
           startTime={state.sessionStart}
