@@ -3979,7 +3979,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             />
           </div>
 
-          <div className="min-h-[250px]">
+          <div className="min-h-[300px]">
             <SpectralBandsChart audioMeta={displayAudio} />
           </div>
 
@@ -3990,12 +3990,13 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           <AudioTranscription
             audioMeta={displayAudio}
             conversationSummaries={conversationSummaries}
+            section="biomarkers"
           />
         </div>
       </div>
 
       {/* COLUNA 2 — 34%: Vídeo (50%) + Mapa Zonal (50%) */}
-      <div className="order-1 w-[36%] flex flex-col gap-2 overflow-hidden bg-slate-950 p-2 shadow-inner">
+      <div className="order-1 w-[36%] flex flex-col gap-2 overflow-y-auto bg-slate-950 p-2 shadow-inner">
         {/* Vídeo — 50% do espaço */}
         <div className="relative flex min-h-[320px] flex-[0.9] items-center justify-center overflow-hidden rounded-xl border border-slate-700 bg-slate-900">
           <MediaStatus
@@ -4051,6 +4052,12 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             </div>
           )}
         </div>
+
+        <AudioTranscription
+          audioMeta={displayAudio}
+          conversationSummaries={conversationSummaries}
+          section="summary"
+        />
 
         <div className="min-h-[320px] flex-1 overflow-hidden rounded-xl border border-slate-700 bg-slate-950 p-2">
           <AIInsights

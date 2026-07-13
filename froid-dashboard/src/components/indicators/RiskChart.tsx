@@ -272,6 +272,7 @@ export const RiskChart: React.FC<Props> = ({
     risks.reduce((sum, risk) => sum + risk.sharePct, 0) /
       Math.max(risks.length, 1),
   );
+  const maxRiskShare = Math.max(...risks.map((risk) => risk.sharePct), 1);
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border border-slate-700 bg-slate-950 p-2 text-slate-100 shadow-sm">
@@ -295,7 +296,7 @@ export const RiskChart: React.FC<Props> = ({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-0.5 overflow-hidden pr-1">
+      <div className="min-h-0 flex-1 space-y-2 overflow-hidden pr-1">
         {risks.map((risk, index) => {
           const color = RISK_PIE_COLORS[risk.id] || risk.color;
           return (
@@ -314,23 +315,23 @@ export const RiskChart: React.FC<Props> = ({
                 width={380}
               >
                 <div className="w-full cursor-help">
-                  <div className="mb-0.5 grid min-w-0 grid-cols-[10px_minmax(0,1fr)_42px] items-start gap-1.5">
+                  <div className="mb-1 grid min-w-0 grid-cols-[12px_minmax(0,1fr)_48px] items-center gap-2">
                     <span
-                      className="mt-0.5 h-4 w-2.5"
+                      className="h-5 w-3 rounded-sm"
                       style={{ backgroundColor: color }}
                     />
-                    <span className="min-w-0 truncate text-[9px] font-black leading-tight text-slate-100">
+                    <span className="min-w-0 truncate text-[10px] font-black leading-tight text-slate-100">
                       {index + 1}. {risk.label}
                     </span>
-                    <span className="rounded-full border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-center font-mono text-[9px] font-black text-white">
+                    <span className="text-right font-mono text-[10px] font-black text-white">
                       {risk.sharePct}%
                     </span>
                   </div>
-                  <div className="ml-4 h-1.5 w-[calc(100%-1rem)] overflow-hidden rounded-full bg-slate-800">
+                  <div className="ml-5 h-2.5 w-[calc(100%-1.25rem)] overflow-hidden rounded-full bg-slate-800">
                     <div
                       className="h-full rounded-full transition-all duration-700"
                       style={{
-                        width: `${Math.max(3, Math.min(100, risk.sharePct))}%`,
+                        width: `${Math.max(3, (risk.sharePct / maxRiskShare) * 100)}%`,
                         backgroundColor: color,
                       }}
                     />

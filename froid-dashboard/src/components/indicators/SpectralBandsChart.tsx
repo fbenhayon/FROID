@@ -69,10 +69,12 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta }) => {
   const mfcc7DeltaDelta = read(audioMeta, "mfcc7_delta_delta");
   const mfcc9DeltaDelta = read(audioMeta, "mfcc9_delta_delta");
   const hasData = metrics.some((metric) => metric.value > 0);
+  const metricPercentages = metrics.map((metric) => percent(metric.value));
+  const maxMetricPercentage = Math.max(...metricPercentages, 1);
 
   return (
-    <div className="h-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-slate-100 shadow-sm">
-      <div className="mb-2 flex items-start justify-between gap-3">
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border border-slate-700 bg-slate-950 p-2 text-slate-100 shadow-sm">
+      <div className="mb-1.5 flex shrink-0 items-start justify-between gap-3">
         <div>
           <FroidTooltip
             width={360}
@@ -102,7 +104,7 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta }) => {
         </div>
       </div>
 
-      <div className="space-y-2">
+      <div className="min-h-0 flex-1 space-y-2 overflow-hidden pr-1">
         {metrics.map((metric) => (
           <FroidTooltip
             key={metric.label}
@@ -116,18 +118,24 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta }) => {
               </div>
             }
           >
-            <div className="cursor-help">
-              <div className="mb-1 flex items-center justify-between text-[9px]">
-                <span className="font-bold uppercase tracking-wide text-slate-200">
-                  {metric.label} <span className="text-slate-500">{metric.band}</span>
+            <div className="w-full cursor-help">
+              <div className="mb-1 grid min-w-0 grid-cols-[12px_minmax(0,1fr)_48px] items-center gap-2">
+                <span
+                  className="h-5 w-3 rounded-sm"
+                  style={{ backgroundColor: metric.color }}
+                />
+                <span className="min-w-0 truncate text-[10px] font-black text-slate-100">
+                  {metric.label} <span className="text-[8px] text-slate-500">{metric.band}</span>
                 </span>
-                <span className="font-mono text-slate-300">{percent(metric.value)}%</span>
+                <span className="text-right font-mono text-[10px] font-black text-slate-100">
+                  {percent(metric.value)}%
+                </span>
               </div>
-              <div className="h-2 overflow-hidden rounded-full bg-slate-800">
+              <div className="ml-5 h-2.5 w-[calc(100%-1.25rem)] overflow-hidden rounded-full bg-slate-800">
                 <div
-                  className="h-full rounded-full transition-all duration-1000"
+                  className="h-full rounded-full transition-all duration-700"
                   style={{
-                    width: `${percent(metric.value)}%`,
+                    width: `${Math.max(3, (percent(metric.value) / maxMetricPercentage) * 100)}%`,
                     backgroundColor: metric.color,
                   }}
                 />
