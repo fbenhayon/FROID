@@ -4105,7 +4105,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   return (
     <div className="flex h-screen overflow-hidden bg-slate-950 text-slate-100">
       {/* COLUNA 1 — 30% */}
-      <div className="order-2 w-[22%] flex flex-col gap-2 overflow-y-auto border-x border-slate-800 bg-slate-950 p-2 text-slate-100">
+      <div className="order-1 w-[22%] flex flex-col gap-2 overflow-y-auto border-x border-slate-800 bg-slate-950 p-2 text-slate-100">
         <div className="flex items-center justify-between">
           <h1 className="text-base font-bold text-slate-100">
             Sessão Detalhada
@@ -4237,7 +4237,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       </div>
 
       {/* COLUNA 2 — 34%: Vídeo (50%) + Mapa Zonal (50%) */}
-      <div className="order-1 w-[36%] flex flex-col gap-2 overflow-y-auto bg-slate-950 p-2 shadow-inner">
+      <div className="order-2 w-[36%] flex flex-col gap-2 overflow-y-auto bg-slate-950 p-2 shadow-inner">
         {/* Vídeo — 50% do espaço */}
         <div className="relative flex min-h-[320px] flex-[0.9] items-center justify-center overflow-hidden rounded-xl border border-slate-700 bg-slate-900">
           <MediaStatus

@@ -104,7 +104,7 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta }) => {
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-2 overflow-hidden pr-1">
+      <div className="grid min-h-0 flex-1 grid-cols-5 items-stretch gap-1.5 overflow-hidden px-1">
         {metrics.map((metric) => (
           <FroidTooltip
             key={metric.label}
@@ -119,28 +119,25 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta }) => {
               </div>
             }
           >
-            <div className="w-full cursor-help">
-              <div className="mb-1 grid min-w-0 grid-cols-[12px_minmax(0,1fr)_48px] items-center gap-2">
-                <span
-                  className="h-5 w-3 rounded-sm"
-                  style={{ backgroundColor: metric.color }}
-                />
-                <span className="min-w-0 truncate text-[10px] font-black text-slate-100">
-                  {metric.label} <span className="text-[8px] text-slate-500">{metric.band}</span>
-                </span>
-                <span className="text-right font-mono text-[10px] font-black text-slate-100">
-                  {percent(metric.value)}%
-                </span>
-              </div>
-              <div className="ml-5 h-2.5 w-[calc(100%-1.25rem)] overflow-hidden rounded-full bg-slate-800">
+            <div className="flex h-full min-w-0 cursor-help flex-col items-center">
+              <span className="mb-1 font-mono text-[9px] font-black text-slate-100">
+                {percent(metric.value)}%
+              </span>
+              <div className="flex min-h-0 w-full flex-1 items-end justify-center overflow-hidden rounded-md bg-slate-800/70 px-1 pt-1">
                 <div
-                  className="h-full rounded-full transition-all duration-700"
+                  className="w-full max-w-8 rounded-t-sm transition-all duration-700"
                   style={{
-                    width: `${Math.max(3, (percent(metric.value) / maxMetricPercentage) * 100)}%`,
+                    height: `${Math.max(3, (percent(metric.value) / maxMetricPercentage) * 100)}%`,
                     backgroundColor: metric.color,
                   }}
                 />
               </div>
+              <span className="mt-1 block w-full truncate text-center text-[9px] font-black text-slate-100">
+                {metric.label}
+              </span>
+              <span className="block w-full truncate text-center text-[7px] font-bold text-slate-500">
+                {metric.band}
+              </span>
             </div>
           </FroidTooltip>
         ))}
