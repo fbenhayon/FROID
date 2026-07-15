@@ -125,6 +125,7 @@ interface ConversationSummary {
 
 type SpeakerRole = "PC" | "DR";
 type SpeakerIdMode = "auto" | "manual";
+type ClinicalUpdateMode = "realtime" | "1" | "3" | "5" | "7";
 
 interface VoiceSignature {
   vector: number[];
@@ -170,6 +171,16 @@ const DISSONANCE_MFCC_DELTA_THRESHOLD = 0.35;
 const DISSONANCE_DNA_THRESHOLD = 0.18;
 const DISSONANCE_IPM_DELTA_THRESHOLD = 3.0;
 const IPM_HISTORY_LIMIT = 1200;
+const CLINICAL_MICRO_WINDOW_SECONDS = 60;
+const CLINICAL_DEFAULT_UPDATE_MODE: ClinicalUpdateMode = "5";
+const CLINICAL_UPDATE_STORAGE_KEY = "froid_clinical_update_mode";
+const CLINICAL_UPDATE_OPTIONS: Array<{ value: ClinicalUpdateMode; label: string }> = [
+  { value: "realtime", label: "Tempo real" },
+  { value: "1", label: "1 min" },
+  { value: "3", label: "3 min" },
+  { value: "5", label: "5 min" },
+  { value: "7", label: "7 min" },
+];
 const DR_VOICEPRINT_STORAGE_KEY = "froid_dr_voiceprint_v1";
 
 function dissonanceScore(zone?: PerceptionZone | null) {
@@ -1414,6 +1425,213 @@ const REPORT_AUDIO_KEYS = [
   "dna_subharmonic_index",
 ] as const;
 
+const CLINICAL_AUDIO_KEYS = [
+  ...REPORT_AUDIO_KEYS,
+  "raw_rms",
+  "raw_peak",
+  "audio_rms",
+  "audio_peak",
+  "jitter_proxy_index",
+  "shimmer_proxy_index",
+  "words_per_minute_10m",
+] as const;
+
+type ClinicalPresentationSnapshot = {
+  mode: ClinicalUpdateMode;
+  generatedAtSecond: number;
+  nextUpdateSecond: number;
+  windowStartSecond: number;
+  windowEndSecond: number;
+  microWindowCount: number;
+  agg: AggData;
+  metricSnapshot: MetricSnapshot;
+  ipmHistory: number[];
+};
+
+function clinicalModeToMinutes(mode: ClinicalUpdateMode) {
+  if (mode === "realtime") return 0;
+  const parsed = Number(mode);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 5;
+}
+
+function loadClinicalUpdateMode(): ClinicalUpdateMode {
+  if (typeof window === "undefined") return CLINICAL_DEFAULT_UPDATE_MODE;
+  const stored = window.localStorage.getItem(CLINICAL_UPDATE_STORAGE_KEY);
+  return CLINICAL_UPDATE_OPTIONS.some((option) => option.value === stored)
+    ? (stored as ClinicalUpdateMode)
+    : CLINICAL_DEFAULT_UPDATE_MODE;
+}
+
+function clinicalWeights(count: number) {
+  if (count <= 1) return [1];
+  if (count === 3) return [0.2, 0.3, 0.5];
+  if (count === 5) return [0.1, 0.15, 0.2, 0.25, 0.3];
+  if (count === 7) return [0.05, 0.07, 0.09, 0.12, 0.16, 0.21, 0.3];
+  const raw = Array.from({ length: count }, (_, index) => index + 1);
+  const total = raw.reduce((sum, value) => sum + value, 0);
+  return raw.map((value) => value / total);
+}
+
+function weightedAverage(values: Array<{ value: number | null; weight: number }>) {
+  const valid = values.filter((item) => typeof item.value === "number" && Number.isFinite(item.value));
+  const totalWeight = valid.reduce((sum, item) => sum + item.weight, 0);
+  if (!valid.length || totalWeight <= 0) return null;
+  return (
+    valid.reduce((sum, item) => sum + Number(item.value) * item.weight, 0) /
+    totalWeight
+  );
+}
+
+function latestString(values: Array<string | undefined | null>) {
+  return [...values].reverse().find((value) => String(value || "").trim()) || "";
+}
+
+function buildClinicalPresentationSnapshot(
+  mode: ClinicalUpdateMode,
+  samples: SessionSample[],
+  transcriptSegments: TranscriptSegment[],
+  elapsedSeconds: number,
+): ClinicalPresentationSnapshot | null {
+  const minutes = clinicalModeToMinutes(mode);
+  if (!minutes || !samples.length) return null;
+  const endSecond = Math.max(1, elapsedSeconds);
+  const windowSeconds = minutes * CLINICAL_MICRO_WINDOW_SECONDS;
+  const windowStartSecond = Math.max(0, endSecond - windowSeconds);
+  const weights = clinicalWeights(minutes);
+  const microAggs = Array.from({ length: minutes }, (_, index) => {
+    const microStart = Math.max(
+      windowStartSecond,
+      endSecond - (minutes - index) * CLINICAL_MICRO_WINDOW_SECONDS,
+    );
+    const microEnd = Math.min(
+      endSecond,
+      microStart + CLINICAL_MICRO_WINDOW_SECONDS,
+    );
+    const payloads = samples
+      .filter((sample) => sample.elapsedSeconds >= microStart && sample.elapsedSeconds < microEnd)
+      .map((sample) => sample.payload);
+    if (!payloads.length) return null;
+    return {
+      weight: weights[index] || 0,
+      startSecond: microStart,
+      endSecond: microEnd,
+      agg: aggregatePayloads(payloads),
+    };
+  }).filter(Boolean) as Array<{
+    weight: number;
+    startSecond: number;
+    endSecond: number;
+    agg: AggData;
+  }>;
+
+  if (!microAggs.length) return null;
+
+  const zoneBuckets = new Map<number, Array<{ zone: PerceptionZone; weight: number }>>();
+  microAggs.forEach(({ agg, weight }) => {
+    (agg.zones || []).forEach((zone) => {
+      if (!zoneBuckets.has(zone.zone)) zoneBuckets.set(zone.zone, []);
+      zoneBuckets.get(zone.zone)!.push({ zone, weight });
+    });
+  });
+  const zones: PerceptionZone[] = [];
+  zoneBuckets.forEach((items) => {
+    const last = items[items.length - 1]?.zone;
+    if (!last) return;
+    const totalWeight = items.reduce((sum, item) => sum + item.weight, 0) || 1;
+    const deviation =
+      items.reduce(
+        (sum, item) => sum + Number(item.zone.deviation_score || 0) * item.weight,
+        0,
+      ) / totalWeight;
+    const dissonanceWeight = items
+      .filter((item) => hasConfirmedDissonanceEvidence(item.zone, (microAggs[microAggs.length - 1]?.agg.audioMeta || {}) as Record<string, unknown>))
+      .reduce((sum, item) => sum + item.weight, 0);
+    zones.push({
+      ...last,
+      deviation_score: deviation,
+      facial_dissonance_detected:
+        Boolean(last.facial_dissonance_detected) || dissonanceWeight / totalWeight >= 0.35,
+    });
+  });
+
+  const audioMeta: Record<string, unknown> = {};
+  CLINICAL_AUDIO_KEYS.forEach((key) => {
+    const value = weightedAverage(
+      microAggs.map(({ agg, weight }) => ({
+        value:
+          typeof agg.audioMeta?.[key] === "number"
+            ? Number(agg.audioMeta[key])
+            : null,
+        weight,
+      })),
+    );
+    if (value !== null) audioMeta[key] = rounded(value, 4);
+  });
+  const latestAudio = microAggs[microAggs.length - 1]?.agg.audioMeta || {};
+  audioMeta.emotional_tone = latestString(
+    microAggs.map(({ agg }) => String(agg.audioMeta?.emotional_tone || "")),
+  ) || latestAudio.emotional_tone || "neutro";
+  audioMeta.clinical_presentation_mode = mode;
+  audioMeta.clinical_presentation_window_seconds = windowSeconds;
+  audioMeta.clinical_micro_window_seconds = CLINICAL_MICRO_WINDOW_SECONDS;
+  audioMeta.clinical_presentation_generated_at_second = endSecond;
+
+  const agg: AggData = {
+    zones: zones.sort((a, b) => a.zone - b.zone),
+    ipm:
+      weightedAverage(microAggs.map(({ agg, weight }) => ({ value: agg.ipm, weight }))) ??
+      microAggs[microAggs.length - 1].agg.ipm,
+    coherence: microAggs[microAggs.length - 1].agg.coherence,
+    globalColor: microAggs[microAggs.length - 1].agg.globalColor,
+    globalDesc: microAggs[microAggs.length - 1].agg.globalDesc,
+    alerts: Array.from(new Set(microAggs.flatMap(({ agg }) => agg.alerts || []))).slice(0, 8),
+    drValue:
+      weightedAverage(microAggs.map(({ agg, weight }) => ({ value: agg.drValue, weight }))) ??
+      microAggs[microAggs.length - 1].agg.drValue,
+    audioMeta,
+    commitments: microAggs[microAggs.length - 1].agg.commitments,
+  };
+
+  return {
+    mode,
+    generatedAtSecond: endSecond,
+    nextUpdateSecond: endSecond + windowSeconds,
+    windowStartSecond,
+    windowEndSecond: endSecond,
+    microWindowCount: microAggs.length,
+    agg,
+    metricSnapshot: buildMetricSnapshot(
+      `Janela clinica ${minutes}min`,
+      samples,
+      windowStartSecond,
+      endSecond,
+      transcriptSegments,
+    ),
+    ipmHistory: microAggs.map(({ agg }) => rounded(agg.ipm, 2) || 0),
+  };
+}
+
+function transcriptOverlay(meta: Record<string, unknown> | null) {
+  if (!meta) return {};
+  const allowed = [
+    "transcription_snippet",
+    "transcription_interim",
+    "transcription_status",
+    "transcription_error",
+    "transcription_provider",
+    "provider",
+    "attributed_speaker",
+    "speaker_identification",
+    "semantic_stt_pipeline",
+    "realtime_transcription_ready",
+  ];
+  return Object.fromEntries(
+    allowed
+      .filter((key) => key in meta)
+      .map((key) => [key, meta[key]]),
+  );
+}
+
 const THEME_STOPWORDS = new Set([
   "para",
   "como",
@@ -2020,6 +2238,11 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const [sessionLayout, setSessionLayout] = useState<"detailed" | "simplified">(
     "detailed",
   );
+  const [clinicalUpdateMode, setClinicalUpdateMode] = useState<ClinicalUpdateMode>(
+    loadClinicalUpdateMode,
+  );
+  const [clinicalSnapshot, setClinicalSnapshot] =
+    useState<ClinicalPresentationSnapshot | null>(null);
   const [semanticCutStartSecond, setSemanticCutStartSecond] = useState(0);
   const [rtcStatus, setRtcStatus] = useState("Aguardando paciente");
   const [remotePatientOn, setRemotePatientOn] = useState(false);
@@ -2111,6 +2334,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const latestZonesRef = useRef<PerceptionZone[]>([]);
   const latestIpmRef = useRef(50);
   const lastLocalIpmDispatchMsRef = useRef(0);
+  const lastCriticalClinicalRefreshSecondRef = useRef(0);
 
   useEffect(() => {
     const id = setInterval(() => dispatch({ type: "TICK" }), 1000);
@@ -2131,6 +2355,46 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   useEffect(() => {
     semanticCutStartSecondRef.current = semanticCutStartSecond;
   }, [semanticCutStartSecond]);
+
+  const refreshClinicalPresentation = useCallback(
+    (mode: ClinicalUpdateMode = clinicalUpdateMode) => {
+      if (mode === "realtime") {
+        setClinicalSnapshot(null);
+        return;
+      }
+      const snapshot = buildClinicalPresentationSnapshot(
+        mode,
+        sessionSamplesRef.current,
+        transcriptSegmentsRef.current,
+        elapsedSecondsRef.current || state.elapsedSeconds,
+      );
+      if (snapshot) setClinicalSnapshot(snapshot);
+    },
+    [clinicalUpdateMode],
+  );
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(CLINICAL_UPDATE_STORAGE_KEY, clinicalUpdateMode);
+    }
+    refreshClinicalPresentation(clinicalUpdateMode);
+  }, [clinicalUpdateMode, refreshClinicalPresentation]);
+
+  useEffect(() => {
+    if (clinicalUpdateMode === "realtime") return;
+    if (!clinicalSnapshot) {
+      refreshClinicalPresentation();
+      return;
+    }
+    if (state.elapsedSeconds >= clinicalSnapshot.nextUpdateSecond) {
+      refreshClinicalPresentation();
+    }
+  }, [
+    clinicalSnapshot,
+    clinicalUpdateMode,
+    refreshClinicalPresentation,
+    state.elapsedSeconds,
+  ]);
 
   useEffect(() => {
     remotePatientOnRef.current = remotePatientOn;
@@ -3732,12 +3996,19 @@ function LiveSessionInner({ user }: LiveSessionProps) {
 
   const agg = state.aggregated;
   const raw = state.payload;
-  const displayZones = agg?.zones || raw?.perception_zones || [];
-  const displayIpm = agg?.ipm ?? raw?.ipm_score ?? state.localIpm ?? 0;
-  const displayDrValue = agg?.drValue ?? (raw as any)?.dr_value ?? null;
-  const displayCoherence = agg?.coherence || raw?.coherence_status || "NEUTRO";
-  const displayAlerts = agg?.alerts || raw?.realtime_alerts || [];
-  const baseDisplayAudio = agg?.audioMeta ||
+  const clinicalPresentationActive =
+    clinicalUpdateMode !== "realtime" && clinicalSnapshot;
+  const presentationAgg = clinicalPresentationActive ? clinicalSnapshot.agg : agg;
+  const displayZones = presentationAgg?.zones || raw?.perception_zones || [];
+  const displayIpm = presentationAgg?.ipm ?? raw?.ipm_score ?? state.localIpm ?? 0;
+  const displayDrValue = presentationAgg?.drValue ?? (raw as any)?.dr_value ?? null;
+  const displayCoherence = presentationAgg?.coherence || raw?.coherence_status || "NEUTRO";
+  const displayAlerts = presentationAgg?.alerts || raw?.realtime_alerts || [];
+  const displayIpmHistory =
+    clinicalPresentationActive && clinicalSnapshot.ipmHistory.length
+      ? clinicalSnapshot.ipmHistory
+      : state.ipmHistory;
+  const baseDisplayAudio = presentationAgg?.audioMeta ||
     (raw as any)?.audio_meta || {
       words_per_window: 0,
       total_words_session: 0,
@@ -3761,8 +4032,41 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     transcription_error: "",
   };
   const displayAudio = liveTranscription
-    ? { ...realTranscriptAudio, ...liveTranscription }
+    ? clinicalPresentationActive
+      ? { ...realTranscriptAudio, ...transcriptOverlay(liveTranscription) }
+      : { ...realTranscriptAudio, ...liveTranscription }
     : realTranscriptAudio;
+  const clinicalWindowMinutes = clinicalModeToMinutes(clinicalUpdateMode);
+  const clinicalNextUpdateSeconds =
+    clinicalPresentationActive
+      ? Math.max(0, clinicalSnapshot.nextUpdateSecond - state.elapsedSeconds)
+      : 0;
+  const clinicalWindowLabel =
+    clinicalUpdateMode === "realtime"
+      ? "Tempo real"
+      : `${clinicalWindowMinutes}min`;
+  useEffect(() => {
+    if (clinicalUpdateMode === "realtime" || !raw) return;
+    const rawZones = Array.isArray(raw.perception_zones) ? raw.perception_zones : [];
+    const rawAudio = ((raw as any)?.audio_meta || liveTranscription || {}) as Record<string, unknown>;
+    const hasCriticalSignal =
+      Boolean(raw.realtime_alerts?.length) ||
+      rawZones.some(
+        (zone) =>
+          hasConfirmedDissonanceEvidence(zone, rawAudio) &&
+          Math.abs(Number(zone.deviation_score || 0)) >= DISSONANCE_REPORT_THRESHOLD,
+      );
+    if (!hasCriticalSignal) return;
+    if (state.elapsedSeconds - lastCriticalClinicalRefreshSecondRef.current < 20) return;
+    lastCriticalClinicalRefreshSecondRef.current = state.elapsedSeconds;
+    refreshClinicalPresentation();
+  }, [
+    clinicalUpdateMode,
+    liveTranscription,
+    raw,
+    refreshClinicalPresentation,
+    state.elapsedSeconds,
+  ]);
   const confirmedDissonanceZones = (Array.isArray(displayZones) ? displayZones : []).filter(
     (zone) => hasConfirmedDissonanceEvidence(zone, displayAudio),
   );
@@ -3776,13 +4080,16 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     0,
     semanticCutWindowSeconds - semanticCutElapsed,
   );
-  const simplifiedSnapshot = buildMetricSnapshot(
-    "Atual",
-    sessionSamplesRef.current,
-    semanticCutStartSecond,
-    Math.max(semanticCutStartSecond + 1, state.elapsedSeconds),
-    transcriptSegmentsRef.current,
-  );
+  const simplifiedSnapshot =
+    clinicalPresentationActive && clinicalSnapshot.metricSnapshot
+      ? clinicalSnapshot.metricSnapshot
+      : buildMetricSnapshot(
+          "Atual",
+          sessionSamplesRef.current,
+          semanticCutStartSecond,
+          Math.max(semanticCutStartSecond + 1, state.elapsedSeconds),
+          transcriptSegmentsRef.current,
+        );
   const simplifiedMetricEntries: Array<[string, string]> = [
     [
       "CORTE",
@@ -4028,6 +4335,43 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     </button>
   );
 
+  const clinicalStabilizationControl = (
+    <div className="rounded-lg border border-slate-700 bg-slate-900/90 p-2 text-[10px] text-slate-200">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="font-black uppercase tracking-wide text-cyan-200">
+            Estabilizacao clinica
+          </p>
+          <p className="truncate text-[9px] text-slate-400">
+            Janela visual: {clinicalWindowLabel}
+            {clinicalUpdateMode !== "realtime"
+              ? ` | proxima em ${formatCutClock(clinicalNextUpdateSeconds)}`
+              : " | sem congelamento"}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => refreshClinicalPresentation()}
+          disabled={clinicalUpdateMode === "realtime"}
+          className="shrink-0 rounded border border-cyan-800 bg-cyan-950 px-2 py-1 text-[9px] font-black uppercase text-cyan-100 hover:bg-cyan-900 disabled:cursor-not-allowed disabled:border-slate-700 disabled:bg-slate-800 disabled:text-slate-500"
+        >
+          Atualizar agora
+        </button>
+      </div>
+      <select
+        value={clinicalUpdateMode}
+        onChange={(event) => setClinicalUpdateMode(event.target.value as ClinicalUpdateMode)}
+        className="mt-2 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1.5 text-[10px] font-bold text-slate-100 outline-none focus:border-cyan-500"
+      >
+        {CLINICAL_UPDATE_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+
   if (sessionLayout === "simplified") {
     return (
       <div className="flex h-screen min-w-0 flex-col overflow-hidden bg-slate-950 text-slate-100">
@@ -4038,7 +4382,10 @@ function LiveSessionInner({ user }: LiveSessionProps) {
               Sessão {sessionId?.slice(0, 8) || "--"} | vídeo, corte, resumo, métricas e FROID Explica
             </p>
           </div>
-          <div className="w-[310px] max-w-[45vw]">{layoutSelector}</div>
+          <div className="flex w-[560px] max-w-[55vw] items-center gap-2">
+            <div className="w-[240px]">{layoutSelector}</div>
+            <div className="min-w-[300px] flex-1">{clinicalStabilizationControl}</div>
+          </div>
           <button
             type="button"
             onClick={endSession}
@@ -4212,6 +4559,8 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         </div>
 
         {layoutSelector}
+
+        {clinicalStabilizationControl}
 
         <SessionTimer
           startTime={state.sessionStart}
@@ -4406,7 +4755,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           <>
             <div className="min-h-0 overflow-hidden">
               <IPMLineChart
-                data={state.ipmHistory}
+                data={displayIpmHistory}
                 current={displayIpm}
                 baseline={state.baselineIPM || undefined}
               />

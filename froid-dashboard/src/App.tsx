@@ -12,6 +12,7 @@ import { PatientDetail } from "./pages/PatientDetail";
 import { NewPatient } from "./pages/NewPatient";
 import { LoginPage } from "./pages/LoginPage";
 import { HomePage } from "./pages/HomePage";
+import { PrivacyPage, TermsPage } from "./pages/LegalPages";
 import {
   FroidProfessionalsPage,
   FroidSciencePage,
@@ -81,6 +82,10 @@ function normalizeDirectPublicPath() {
     "/entrar": "/login",
     "/cadastro": "/access/register",
     "/access/register": "/access/register",
+    "/privacidade": "/privacidade",
+    "/politica-de-privacidade": "/privacidade",
+    "/termos": "/termos",
+    "/termos-de-uso": "/termos",
   };
   const target = directRoutes[window.location.pathname.toLowerCase()];
   if (!target) return;
@@ -173,6 +178,8 @@ function App() {
           path="/"
           element={<HomePage />}
         />
+        <Route path="/privacidade" element={<PrivacyPage />} />
+        <Route path="/termos" element={<TermsPage />} />
         <Route path="/froid/ciencia" element={<FroidSciencePage />} />
         <Route path="/froid/tecnologia" element={<FroidTechnologyPage />} />
         <Route path="/froid/profissionais" element={<FroidProfessionalsPage />} />

@@ -97,7 +97,7 @@ GOOGLE_CALENDAR_SCOPES = [
     "email",
     "profile",
     "https://www.googleapis.com/auth/calendar.calendarlist.readonly",
-    "https://www.googleapis.com/auth/calendar.events",
+    "https://www.googleapis.com/auth/calendar.events.owned",
 ]
 FROID_LOCAL_AUTH_PASSWORD = os.getenv("FROID_LOCAL_AUTH_PASSWORD", "")
 FROID_LOCAL_AUTH_EMAILS = {
@@ -2920,7 +2920,7 @@ def _calendar_auth_url(email: str, redirect_uri: str) -> str:
         "response_type": "code",
         "scope": " ".join(GOOGLE_CALENDAR_SCOPES),
         "access_type": "offline",
-        "include_granted_scopes": "true",
+        "include_granted_scopes": "false",
         "prompt": "consent",
         "state": state,
         "login_hint": email,
@@ -3840,7 +3840,7 @@ async def google_calendar_calendars(request: Request):
     async with httpx.AsyncClient(timeout=15.0) as client:
         response = await client.get(
             "https://www.googleapis.com/calendar/v3/users/me/calendarList",
-            params={"minAccessRole": "writer", "maxResults": 100},
+            params={"minAccessRole": "owner", "maxResults": 100},
             headers={"Authorization": f"Bearer {token}"},
         )
     if response.status_code >= 400:

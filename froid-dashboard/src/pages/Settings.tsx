@@ -653,7 +653,8 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
               <div>
                 <p className="text-sm font-semibold">Google OAuth e Agenda</p>
                 <p className="mt-1 text-xs text-slate-400">
-                  Conecte, selecione e altere a agenda do profissional para organizar sessoes FROID.
+                  Conecte uma agenda Google do proprio profissional para organizar sessoes FROID,
+                  criar compromissos e preparar lembretes.
                 </p>
               </div>
               <span
@@ -694,7 +695,8 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
                   Recomendacao FROID: crie no Google Calendar uma agenda separada chamada{" "}
                   <strong>FROID - Sessoes</strong> e selecione essa agenda aqui. Isso preserva a
                   organizacao clinica, facilita auditoria e evita misturar agenda pessoal com agenda
-                  terapeutica.
+                  terapeutica. O FROID usa escopo reduzido: lista agendas de sua propriedade e altera
+                  eventos apenas na agenda selecionada.
                 </div>
               </div>
             )}
@@ -904,6 +906,21 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
                 {calendarMessage}
               </p>
             )}
+            <div className="mt-3 rounded border border-slate-700 bg-slate-950 p-3 text-[11px] leading-relaxed text-slate-400">
+              <p>
+                Para facilitar a aprovacao pelo Google e proteger o profissional, o FROID solicita
+                somente as permissoes necessarias para a agenda clinica selecionada. Politica de
+                Privacidade e Termos de Uso publicos:{" "}
+                <a className="font-bold text-cyan-200 underline" href="/privacidade" target="_blank" rel="noreferrer">
+                  privacidade
+                </a>{" "}
+                e{" "}
+                <a className="font-bold text-cyan-200 underline" href="/termos" target="_blank" rel="noreferrer">
+                  termos
+                </a>
+                .
+              </p>
+            </div>
             <div className="mt-3 flex flex-wrap gap-2">
               <button
                 type="button"
