@@ -21,6 +21,7 @@ import {
 import { ProfessionalOnboarding } from "./pages/ProfessionalOnboarding";
 import { PatientInvitePage } from "./pages/PatientInvitePage";
 import { PatientSessionPage } from "./pages/PatientSessionPage";
+import { PatientPortalPage } from "./pages/PatientPortalPage";
 import { apiUrl } from "./lib/api";
 import { rememberProfessionalEmail } from "./lib/professional-prompts";
 
@@ -86,6 +87,9 @@ function normalizeDirectPublicPath() {
     "/politica-de-privacidade": "/privacidade",
     "/termos": "/termos",
     "/termos-de-uso": "/termos",
+    "/paciente": "/paciente",
+    "/paciente/login": "/paciente",
+    "/paciente/portal": "/paciente",
   };
   const target = directRoutes[window.location.pathname.toLowerCase()];
   if (!target) return;
@@ -174,6 +178,9 @@ function App() {
           path="/paciente/sessao/:sessionId"
           element={<PatientSessionPage />}
         />
+        <Route path="/paciente" element={<PatientPortalPage />} />
+        <Route path="/paciente/login" element={<PatientPortalPage />} />
+        <Route path="/paciente/portal" element={<PatientPortalPage />} />
         <Route
           path="/"
           element={<HomePage />}

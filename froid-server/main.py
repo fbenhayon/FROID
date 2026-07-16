@@ -109,6 +109,7 @@ STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
 STRIPE_CURRENCY = os.getenv("STRIPE_CURRENCY", "brl")
 
 SESSION_USERS = {}
+PATIENT_PORTAL_SESSIONS: Dict[str, dict] = {}
 PROFESSIONAL_PROFILES: Dict[str, dict] = {}
 PATIENTS: Dict[str, dict] = {}
 PATIENTS_BY_CONTACT: Dict[str, str] = {}
@@ -142,10 +143,13 @@ def _patient_contact_keys(patient: dict) -> list[str]:
     keys = []
     email = _local_normalize_email(patient.get("email") or "")
     phone = _local_digits_only(patient.get("phone") or "")
+    document = _local_digits_only(patient.get("document") or "")
     if email:
         keys.append(f"email:{email}")
     if phone:
         keys.append(f"phone:{phone}")
+    if document:
+        keys.append(f"document:{document}")
     return keys
 
 
@@ -415,6 +419,19 @@ class FroidExplicaResponse(BaseModel):
     citations: List[str] = Field(default_factory=list)
     safety_check_passed: bool
     intent: str = "knowledge"
+
+
+class PatientPortalLoginRequest(BaseModel):
+    email: str = ""
+    document: str = ""
+    phone: str = ""
+
+
+class PatientPortalProfileUpdate(BaseModel):
+    name: str = ""
+    phone: str = ""
+    document: str = ""
+    birth_date: str = ""
 
 
 def _clean_llm_text(text: str) -> str:
@@ -1538,6 +1555,116 @@ def _enrich_report_patient(report: dict) -> dict:
         report["patientName"] = patient_name
         report["patientDocument"] = patient_document
     return report
+
+
+def _patient_public_identity(patient: dict) -> dict:
+    if not isinstance(patient, dict):
+        return {}
+    return {
+        "id": str(patient.get("id") or ""),
+        "name": str(patient.get("name") or ""),
+        "email": _normalize_email(patient.get("email") or ""),
+        "phone": _digits_only(patient.get("phone") or ""),
+        "document": _digits_only(patient.get("document") or ""),
+        "birth_date": str(patient.get("birth_date") or ""),
+        "created_at": str(patient.get("created_at") or ""),
+        "updated_at": str(patient.get("updated_at") or ""),
+    }
+
+
+def _patient_identity_matches(candidate: dict, email: str, document: str, phone: str) -> bool:
+    if not isinstance(candidate, dict):
+        return False
+    candidate_email = _normalize_email(candidate.get("email") or "")
+    candidate_document = _digits_only(candidate.get("document") or "")
+    candidate_phone = _digits_only(candidate.get("phone") or "")
+    email_match = bool(email and candidate_email and candidate_email == email)
+    document_match = bool(document and candidate_document and candidate_document == document)
+    phone_match = bool(phone and candidate_phone and candidate_phone == phone)
+    return email_match and (document_match or phone_match)
+
+
+def _patient_identity_from_report(report: dict) -> dict:
+    enriched = _enrich_report_patient(dict(report or {}))
+    patient = enriched.get("patient") if isinstance(enriched.get("patient"), dict) else {}
+    return _patient_public_identity(
+        {
+            **patient,
+            "id": patient.get("id") or enriched.get("patientId") or "",
+            "name": patient.get("name") or enriched.get("patientName") or "",
+            "document": patient.get("document") or enriched.get("patientDocument") or "",
+        }
+    )
+
+
+def _find_patient_for_portal_login(email: str, document: str, phone: str) -> Optional[dict]:
+    for patient in PATIENTS.values():
+        public_patient = _patient_public_identity(patient)
+        if _patient_identity_matches(public_patient, email, document, phone):
+            return public_patient
+
+    for invite in SESSION_INVITES.values():
+        candidate = _patient_public_identity(_patient_payload_from_invite(invite))
+        if _patient_identity_matches(candidate, email, document, phone):
+            return candidate
+
+    for report in _load_session_reports().values():
+        candidate = _patient_identity_from_report(report)
+        if _patient_identity_matches(candidate, email, document, phone):
+            return candidate
+    return None
+
+
+def _patient_session_matches_report(report: dict, patient_session: dict) -> bool:
+    patient = _patient_identity_from_report(report)
+    session_patient_id = str(patient_session.get("id") or "")
+    if session_patient_id and patient.get("id") and session_patient_id == str(patient.get("id")):
+        return True
+    return _patient_identity_matches(
+        patient,
+        _normalize_email(patient_session.get("email") or ""),
+        _digits_only(patient_session.get("document") or ""),
+        _digits_only(patient_session.get("phone") or ""),
+    )
+
+
+def _sanitize_report_for_patient(report: dict) -> dict:
+    enriched = _enrich_report_patient(dict(report or {}))
+    allowed_keys = [
+        "id",
+        "sessionId",
+        "createdAt",
+        "durationSeconds",
+        "patient",
+        "professional",
+        "professionalEmail",
+        "baseline",
+        "sessionAverage",
+        "tenMinuteCuts",
+        "conversationSummaries",
+        "sessionSummary",
+        "dissonances",
+        "clinicalNotes",
+        "transcriptRetention",
+        "metricsAnalysis",
+        "metricsAnalysisError",
+    ]
+    sanitized = {key: enriched.get(key) for key in allowed_keys if key in enriched}
+    sanitized["patient"] = _patient_identity_from_report(enriched)
+    return sanitized
+
+
+def _reports_for_patient_session(patient_session: dict) -> list[dict]:
+    reports = [
+        _sanitize_report_for_patient(report)
+        for report in _load_session_reports().values()
+        if isinstance(report, dict) and _patient_session_matches_report(report, patient_session)
+    ]
+    reports.sort(
+        key=lambda report: str(report.get("createdAt") or report.get("created_at") or ""),
+        reverse=True,
+    )
+    return reports
 
 
 def _safe_float(value, default: float = 0.0) -> float:
@@ -2857,6 +2984,25 @@ def _require_current_user(request: Request) -> dict:
     return user
 
 
+def _current_patient_from_request(request: Request) -> Optional[dict]:
+    auth_header = request.headers.get("authorization", "")
+    token = (
+        auth_header.replace("Bearer ", "", 1).strip()
+        if auth_header.startswith("Bearer ")
+        else ""
+    )
+    if not token:
+        return None
+    return PATIENT_PORTAL_SESSIONS.get(token)
+
+
+def _require_current_patient(request: Request) -> dict:
+    patient_session = _current_patient_from_request(request)
+    if not patient_session:
+        raise HTTPException(status_code=401, detail="paciente nao autenticado")
+    return patient_session
+
+
 def _is_admin_email(email: str) -> bool:
     return _normalize_email(email) in FROID_ADMIN_EMAILS
 
@@ -3620,7 +3766,12 @@ async def accept_session_invite(token: str, request: Request):
         raise HTTPException(status_code=400, detail="Informe email ou WhatsApp do paciente")
 
     contact_key = _patient_contact_key(patient_email, patient_phone)
-    patient_id = invite.get("patient_id") or PATIENTS_BY_CONTACT.get(contact_key) or str(uuid.uuid4())
+    patient_id = (
+        invite.get("patient_id")
+        or PATIENTS_BY_CONTACT.get(contact_key)
+        or (PATIENTS_BY_CONTACT.get(f"document:{document}") if document else "")
+        or str(uuid.uuid4())
+    )
     now = _utc_now_iso()
     patient = {
         "id": patient_id,
@@ -3635,8 +3786,8 @@ async def accept_session_invite(token: str, request: Request):
         "lgpd_consent_at": now,
     }
     PATIENTS[patient_id] = patient
-    if contact_key:
-        PATIENTS_BY_CONTACT[contact_key] = patient_id
+    for patient_contact_key in _patient_contact_keys(patient):
+        PATIENTS_BY_CONTACT[patient_contact_key] = patient_id
 
     ledger_payload = {
         "patient_id": patient_id,
@@ -3709,6 +3860,97 @@ async def join_patient_session(session_id: str, request: Request):
         "join_count": len(PATIENT_SESSION_ENTRIES.get(session_id, [])),
         "event_id": event.get("id"),
     }
+
+
+@app.post("/api/patient-auth/login")
+async def patient_portal_login(payload: PatientPortalLoginRequest):
+    email = _normalize_email(payload.email or "")
+    document = _digits_only(payload.document or "")
+    phone = _digits_only(payload.phone or "")
+    if not email or not (document or phone):
+        raise HTTPException(
+            status_code=400,
+            detail="Informe e-mail e CPF/documento ou WhatsApp para acessar o portal do paciente",
+        )
+    patient = _find_patient_for_portal_login(email, document, phone)
+    if not patient:
+        raise HTTPException(status_code=401, detail="Paciente nao localizado com os dados informados")
+    token = secrets.token_urlsafe(32)
+    patient_session = {
+        **patient,
+        "email": email,
+        "document": patient.get("document") or document,
+        "phone": patient.get("phone") or phone,
+        "role": "patient",
+        "issued_at": _utc_now_iso(),
+    }
+    PATIENT_PORTAL_SESSIONS[token] = patient_session
+    return {"token": token, "patient": _patient_public_identity(patient_session)}
+
+
+@app.get("/api/patient-auth/me")
+async def patient_portal_me(request: Request):
+    patient_session = _require_current_patient(request)
+    return {"patient": _patient_public_identity(patient_session)}
+
+
+@app.post("/api/patient-auth/logout")
+async def patient_portal_logout(request: Request):
+    auth_header = request.headers.get("authorization", "")
+    token = auth_header.replace("Bearer ", "", 1).strip() if auth_header.startswith("Bearer ") else ""
+    if token:
+        PATIENT_PORTAL_SESSIONS.pop(token, None)
+    return {"status": "ok"}
+
+
+@app.get("/api/patient-portal/reports")
+async def patient_portal_reports(request: Request):
+    patient_session = _require_current_patient(request)
+    reports = _reports_for_patient_session(patient_session)
+    return {
+        "patient": _patient_public_identity(patient_session),
+        "reports": reports,
+        "total": len(reports),
+    }
+
+
+@app.put("/api/patient-portal/profile")
+async def patient_portal_update_profile(payload: PatientPortalProfileUpdate, request: Request):
+    patient_session = _require_current_patient(request)
+    patient_id = str(patient_session.get("id") or "")
+    patient = PATIENTS.get(patient_id) if patient_id else None
+    if not isinstance(patient, dict):
+        patient = None
+        for candidate_id, candidate in PATIENTS.items():
+            if _patient_identity_matches(
+                candidate,
+                _normalize_email(patient_session.get("email") or ""),
+                _digits_only(patient_session.get("document") or ""),
+                _digits_only(patient_session.get("phone") or ""),
+            ):
+                patient_id = str(candidate_id)
+                patient = candidate
+                break
+    if not isinstance(patient, dict):
+        raise HTTPException(status_code=404, detail="Cadastro do paciente nao encontrado para atualizacao")
+
+    now = _utc_now_iso()
+    patient.update(
+        {
+            "name": str(payload.name or patient.get("name") or "").strip(),
+            "phone": _digits_only(payload.phone or patient.get("phone") or ""),
+            "document": _digits_only(payload.document or patient.get("document") or ""),
+            "birth_date": str(payload.birth_date or patient.get("birth_date") or "").strip(),
+            "updated_at": now,
+        }
+    )
+    PATIENTS[patient_id] = patient
+    rebuilt = _rebuild_patient_contact_index(PATIENTS, PATIENTS_BY_CONTACT)
+    PATIENTS_BY_CONTACT.clear()
+    PATIENTS_BY_CONTACT.update(rebuilt)
+    patient_session.update(_patient_public_identity(patient))
+    _save_identity_state()
+    return {"patient": _patient_public_identity(patient)}
 
 
 @app.get("/api/session-events/latest")
