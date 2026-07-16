@@ -62,6 +62,18 @@ header.site-header {
 .nav-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .nav-actions .btn { padding: 8px 14px; font-size: 0.82rem; }
 .btn { display: inline-block; padding: 9px 18px; border-radius: 999px; font-weight: 600; font-size: 0.9rem; border: 1px solid transparent; cursor: pointer; white-space: nowrap; }
+/* Header no celular: empilha em blocos centrados, links em linhas fluidas, botões lado a lado */
+@media (max-width: 860px) {
+  header.site-header { position: static; }
+  .nav-row {
+    flex-direction: column; align-items: center; gap: 12px;
+    padding: 12px 14px;
+  }
+  .nav-links { justify-content: center; row-gap: 8px; column-gap: 14px; }
+  .nav-links a { font-size: 0.82rem; }
+  .nav-actions { width: 100%; justify-content: center; }
+  .nav-actions .btn { flex: 1 1 0; max-width: 190px; text-align: center; padding: 9px 8px; font-size: 0.8rem; }
+}
 .btn-ghost { color: var(--froid-branco); border-color: rgba(248,250,252,0.35); }
 .btn-ghost:hover { background: rgba(248,250,252,0.08); text-decoration: none; }
 .btn-solid { background: var(--froid-azul); color: #fff; }
