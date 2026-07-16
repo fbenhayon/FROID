@@ -74,7 +74,7 @@ export const PatientPortalPage: React.FC = () => {
   );
   const [patient, setPatient] = useState<PatientIdentity | null>(() => readStoredPatient());
   const [reports, setReports] = useState<SessionReportRecord[]>([]);
-  const [loginForm, setLoginForm] = useState({ email: "", document: "", phone: "" });
+  const [loginForm, setLoginForm] = useState({ document: "", password: "" });
   const [profileForm, setProfileForm] = useState({
     name: "",
     phone: "",
@@ -239,7 +239,7 @@ export const PatientPortalPage: React.FC = () => {
             <p className="mt-3 text-sm leading-6 text-slate-300">
               O FROID disponibiliza ao paciente uma area propria para consultar os resultados
               das sessoes finalizadas, conferir dados pessoais e baixar os registros autorizados.
-              O acesso exige dados informados no cadastro LGPD para proteger suas informacoes.
+              O acesso exige CPF/documento e senha criados no cadastro LGPD para proteger suas informacoes.
             </p>
             <div className="mt-5 grid gap-3 text-xs text-slate-300 sm:grid-cols-3">
               {[
@@ -258,29 +258,25 @@ export const PatientPortalPage: React.FC = () => {
           <form onSubmit={login} className="rounded-lg border border-slate-800 bg-slate-900 p-5">
             <h2 className="text-base font-black text-white">Login do paciente</h2>
             <p className="mt-1 text-xs text-slate-400">
-              Informe e-mail e CPF/documento ou WhatsApp cadastrados.
+              Informe CPF/documento e senha cadastrados no aceite do convite.
             </p>
             <label className="mt-4 block text-xs font-bold text-slate-300">
-              E-mail
-              <input
-                value={loginForm.email}
-                onChange={(event) => setLoginForm((prev) => ({ ...prev, email: event.target.value }))}
-                className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-cyan-400"
-              />
-            </label>
-            <label className="mt-3 block text-xs font-bold text-slate-300">
               CPF ou documento
               <input
                 value={loginForm.document}
                 onChange={(event) => setLoginForm((prev) => ({ ...prev, document: event.target.value }))}
+                required
                 className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-cyan-400"
               />
             </label>
             <label className="mt-3 block text-xs font-bold text-slate-300">
-              WhatsApp
+              Senha
               <input
-                value={loginForm.phone}
-                onChange={(event) => setLoginForm((prev) => ({ ...prev, phone: event.target.value }))}
+                type="password"
+                value={loginForm.password}
+                onChange={(event) => setLoginForm((prev) => ({ ...prev, password: event.target.value }))}
+                minLength={8}
+                required
                 className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-cyan-400"
               />
             </label>

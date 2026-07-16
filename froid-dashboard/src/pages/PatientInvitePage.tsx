@@ -33,6 +33,8 @@ const initialPatientForm = {
   phone: "",
   document: "",
   birth_date: "",
+  password: "",
+  password_confirm: "",
 };
 
 const initialConsent = {
@@ -103,17 +105,44 @@ export const PatientInvitePage: React.FC = () => {
     event.preventDefault();
     setSubmitting(true);
     setError("");
+    if (!patientForm.document.trim()) {
+      setError("Informe o CPF/documento do paciente.");
+      setSubmitting(false);
+      return;
+    }
+    if (patientForm.password.length < 8) {
+      setError("A senha do paciente deve ter no minimo 8 caracteres.");
+      setSubmitting(false);
+      return;
+    }
+    if (patientForm.password !== patientForm.password_confirm) {
+      setError("A confirmacao de senha nao confere.");
+      setSubmitting(false);
+      return;
+    }
+    const patientPayload: Omit<typeof patientForm, "password_confirm"> = {
+      name: patientForm.name,
+      email: patientForm.email,
+      phone: patientForm.phone,
+      document: patientForm.document,
+      birth_date: patientForm.birth_date,
+      password: patientForm.password,
+    };
     try {
       const response = await fetch(apiUrl(`/api/session-invites/${token}/accept`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...patientForm,
+          ...patientPayload,
           consent,
         }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.detail || "Nao foi possivel confirmar.");
+      if (data?.patient_portal_token) {
+        localStorage.setItem("froid_patient_token", data.patient_portal_token);
+        localStorage.setItem("froid_patient_user", JSON.stringify(data.patient || {}));
+      }
       setInvite(data);
       setAccepted(true);
     } catch (err) {
@@ -212,12 +241,20 @@ export const PatientInvitePage: React.FC = () => {
               liberada para entrada do paciente.
             </p>
             {sessionEntryUrl && (
-              <a
-                href={sessionEntryUrl}
-                className="mt-4 inline-flex rounded-lg bg-emerald-700 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-800"
-              >
-                Entrar na sessao
-              </a>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <a
+                  href={sessionEntryUrl}
+                  className="inline-flex rounded-lg bg-emerald-700 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-800"
+                >
+                  Entrar na sessao
+                </a>
+                <a
+                  href="/app/#/paciente"
+                  className="inline-flex rounded-lg border border-emerald-700 px-4 py-2 text-sm font-bold text-emerald-100 hover:bg-emerald-900"
+                >
+                  Portal do paciente
+                </a>
+              </div>
             )}
           </div>
         ) : (
@@ -232,12 +269,13 @@ export const PatientInvitePage: React.FC = () => {
                 />
               </label>
               <label className="text-xs font-semibold text-slate-300">
-                CPF ou documento
+                CPF ou documento *
                 <input
                   value={patientForm.document}
                   onChange={(event) =>
                     updatePatient("document", event.target.value)
                   }
+                  required
                   className="mt-1 w-full rounded-lg border border-slate-700 px-3 py-2 text-sm outline-none focus:border-cyan-500"
                 />
               </label>
@@ -265,6 +303,30 @@ export const PatientInvitePage: React.FC = () => {
                   onChange={(event) =>
                     updatePatient("birth_date", event.target.value)
                   }
+                  className="mt-1 w-full rounded-lg border border-slate-700 px-3 py-2 text-sm outline-none focus:border-cyan-500"
+                />
+              </label>
+              <label className="text-xs font-semibold text-slate-300">
+                Senha de acesso ao portal *
+                <input
+                  type="password"
+                  value={patientForm.password}
+                  onChange={(event) => updatePatient("password", event.target.value)}
+                  minLength={8}
+                  required
+                  className="mt-1 w-full rounded-lg border border-slate-700 px-3 py-2 text-sm outline-none focus:border-cyan-500"
+                />
+              </label>
+              <label className="text-xs font-semibold text-slate-300">
+                Confirmar senha *
+                <input
+                  type="password"
+                  value={patientForm.password_confirm}
+                  onChange={(event) =>
+                    updatePatient("password_confirm", event.target.value)
+                  }
+                  minLength={8}
+                  required
                   className="mt-1 w-full rounded-lg border border-slate-700 px-3 py-2 text-sm outline-none focus:border-cyan-500"
                 />
               </label>

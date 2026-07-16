@@ -90,10 +90,16 @@ function normalizeDirectPublicPath() {
     "/paciente": "/paciente",
     "/paciente/login": "/paciente",
     "/paciente/portal": "/paciente",
+    "/app/login": "/login",
+    "/app/entrar": "/login",
+    "/app/cadastro": "/access/register",
+    "/app/paciente": "/paciente",
+    "/app/paciente/login": "/paciente",
+    "/app/paciente/portal": "/paciente",
   };
   const target = directRoutes[window.location.pathname.toLowerCase()];
   if (!target) return;
-  window.history.replaceState(null, "", `/#${target}`);
+  window.history.replaceState(null, "", `/app/#${target}`);
 }
 
 function App() {

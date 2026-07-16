@@ -422,9 +422,8 @@ class FroidExplicaResponse(BaseModel):
 
 
 class PatientPortalLoginRequest(BaseModel):
-    email: str = ""
     document: str = ""
-    phone: str = ""
+    password: str = ""
 
 
 class PatientPortalProfileUpdate(BaseModel):
@@ -1358,7 +1357,15 @@ def _professional_access_status(email: str) -> dict:
     selected_plan = str((profile or {}).get("selected_plan") or "").strip()
     lgpd_acknowledged = bool((profile or {}).get("lgpd_acknowledged"))
     has_profile = bool(profile)
-    access_ready = has_profile and lgpd_acknowledged and bool(selected_plan)
+    profile_fields = (profile or {}).get("profile_fields")
+    profile_fields = profile_fields if isinstance(profile_fields, dict) else {}
+    account_type = str((profile or {}).get("account_type") or "individual").lower()
+    professional_cpf = _local_digits_only(
+        profile_fields.get("legalRepresentativeCpf")
+        if account_type == "organization"
+        else profile_fields.get("cpf") or (profile or {}).get("document")
+    )
+    access_ready = has_profile and lgpd_acknowledged and bool(selected_plan) and bool(professional_cpf)
     total_sessions = max(0, _local_int((profile or {}).get("total_sessions")))
     used_sessions = max(0, _local_int((profile or {}).get("used_sessions")))
     remaining_sessions = max(
@@ -1377,6 +1384,7 @@ def _professional_access_status(email: str) -> dict:
         "used_sessions": used_sessions,
         "remaining_sessions": remaining_sessions,
         "admin": _is_admin_email(owner_email),
+        "cpf_required": not bool(professional_cpf),
     }
 
 
@@ -1597,21 +1605,16 @@ def _patient_identity_from_report(report: dict) -> dict:
     )
 
 
-def _find_patient_for_portal_login(email: str, document: str, phone: str) -> Optional[dict]:
+def _find_registered_patient_by_document(document: str) -> Optional[dict]:
+    normalized_document = _digits_only(document)
+    if not normalized_document:
+        return None
+    patient_id = PATIENTS_BY_CONTACT.get(f"document:{normalized_document}")
+    if patient_id and isinstance(PATIENTS.get(patient_id), dict):
+        return PATIENTS[patient_id]
     for patient in PATIENTS.values():
-        public_patient = _patient_public_identity(patient)
-        if _patient_identity_matches(public_patient, email, document, phone):
-            return public_patient
-
-    for invite in SESSION_INVITES.values():
-        candidate = _patient_public_identity(_patient_payload_from_invite(invite))
-        if _patient_identity_matches(candidate, email, document, phone):
-            return candidate
-
-    for report in _load_session_reports().values():
-        candidate = _patient_identity_from_report(report)
-        if _patient_identity_matches(candidate, email, document, phone):
-            return candidate
+        if _digits_only(patient.get("document") or "") == normalized_document:
+            return patient
     return None
 
 
@@ -2767,6 +2770,43 @@ def _normalize_email(value: str) -> str:
     return str(value or "").strip().lower()
 
 
+def _password_hash(password: str, salt: str) -> str:
+    return hashlib.pbkdf2_hmac(
+        "sha256",
+        str(password or "").encode("utf-8"),
+        str(salt or "").encode("utf-8"),
+        120_000,
+    ).hex()
+
+
+def _set_patient_password(patient: dict, password: str) -> None:
+    salt = secrets.token_hex(16)
+    patient["password_salt"] = salt
+    patient["password_hash"] = _password_hash(password, salt)
+    patient["password_set_at"] = _utc_now_iso()
+
+
+def _verify_patient_password(patient: dict, password: str) -> bool:
+    if not isinstance(patient, dict):
+        return False
+    salt = str(patient.get("password_salt") or "")
+    expected = str(patient.get("password_hash") or "")
+    if not salt or not expected or not password:
+        return False
+    return secrets.compare_digest(_password_hash(password, salt), expected)
+
+
+def _issue_patient_portal_session(patient: dict) -> dict:
+    token = secrets.token_urlsafe(32)
+    patient_session = {
+        **_patient_public_identity(patient),
+        "role": "patient",
+        "issued_at": _utc_now_iso(),
+    }
+    PATIENT_PORTAL_SESSIONS[token] = patient_session
+    return {"token": token, "patient": _patient_public_identity(patient_session)}
+
+
 def _patient_contact_key(email: str = "", phone: str = "") -> str:
     normalized_email = _normalize_email(email)
     normalized_phone = _digits_only(phone)
@@ -2781,6 +2821,8 @@ def _public_invite_url(base_url: str, token: str) -> str:
     base = str(base_url or "").strip().rstrip("/")
     if not base:
         base = os.getenv("FROID_PUBLIC_URL", "http://localhost:5173").rstrip("/")
+    if not base.endswith("/app"):
+        base = f"{base}/app"
     return f"{base}/#/convite/{token}"
 
 
@@ -2788,6 +2830,8 @@ def _public_patient_session_url(base_url: str, session_id: str, token: str) -> s
     base = str(base_url or "").strip().rstrip("/")
     if not base:
         base = os.getenv("FROID_PUBLIC_URL", "http://localhost:5173").rstrip("/")
+    if not base.endswith("/app"):
+        base = f"{base}/app"
     return f"{base}/#/paciente/sessao/{session_id}?invite={token}"
 
 
@@ -3749,6 +3793,7 @@ async def accept_session_invite(token: str, request: Request):
     patient_phone = _digits_only(body.get("phone") or invite.get("patient_phone") or "")
     document = _digits_only(body.get("document") or "")
     birth_date = str(body.get("birth_date") or "").strip()
+    password = str(body.get("password") or "")
     consent = body.get("consent") or {}
 
     required_consents = [
@@ -3764,6 +3809,10 @@ async def accept_session_invite(token: str, request: Request):
         raise HTTPException(status_code=400, detail="Nome do paciente obrigatorio")
     if not patient_email and not patient_phone:
         raise HTTPException(status_code=400, detail="Informe email ou WhatsApp do paciente")
+    if not document:
+        raise HTTPException(status_code=400, detail="CPF/documento obrigatorio como chave de conferencia do paciente")
+    if len(password) < 8:
+        raise HTTPException(status_code=400, detail="Senha do paciente obrigatoria com no minimo 8 caracteres")
 
     contact_key = _patient_contact_key(patient_email, patient_phone)
     patient_id = (
@@ -3785,9 +3834,12 @@ async def accept_session_invite(token: str, request: Request):
         "lgpd_consent_version": "FROID-LGPD-v1.0",
         "lgpd_consent_at": now,
     }
+    _set_patient_password(patient, password)
     PATIENTS[patient_id] = patient
     for patient_contact_key in _patient_contact_keys(patient):
         PATIENTS_BY_CONTACT[patient_contact_key] = patient_id
+
+    patient_portal_session = _issue_patient_portal_session(patient)
 
     ledger_payload = {
         "patient_id": patient_id,
@@ -3822,7 +3874,8 @@ async def accept_session_invite(token: str, request: Request):
     _record_session_event("invite_accepted", invite)
     return {
         **invite,
-        "patient": patient,
+        "patient": patient_portal_session["patient"],
+        "patient_portal_token": patient_portal_session["token"],
         "consent": ledger_entry,
     }
 
@@ -3864,28 +3917,19 @@ async def join_patient_session(session_id: str, request: Request):
 
 @app.post("/api/patient-auth/login")
 async def patient_portal_login(payload: PatientPortalLoginRequest):
-    email = _normalize_email(payload.email or "")
     document = _digits_only(payload.document or "")
-    phone = _digits_only(payload.phone or "")
-    if not email or not (document or phone):
+    password = str(payload.password or "")
+    if not document or not password:
         raise HTTPException(
             status_code=400,
-            detail="Informe e-mail e CPF/documento ou WhatsApp para acessar o portal do paciente",
+            detail="Informe CPF/documento e senha para acessar o portal do paciente",
         )
-    patient = _find_patient_for_portal_login(email, document, phone)
+    patient = _find_registered_patient_by_document(document)
     if not patient:
-        raise HTTPException(status_code=401, detail="Paciente nao localizado com os dados informados")
-    token = secrets.token_urlsafe(32)
-    patient_session = {
-        **patient,
-        "email": email,
-        "document": patient.get("document") or document,
-        "phone": patient.get("phone") or phone,
-        "role": "patient",
-        "issued_at": _utc_now_iso(),
-    }
-    PATIENT_PORTAL_SESSIONS[token] = patient_session
-    return {"token": token, "patient": _patient_public_identity(patient_session)}
+        raise HTTPException(status_code=401, detail="Paciente nao localizado com o CPF/documento informado")
+    if not _verify_patient_password(patient, password):
+        raise HTTPException(status_code=401, detail="CPF/documento ou senha invalido")
+    return _issue_patient_portal_session(patient)
 
 
 @app.get("/api/patient-auth/me")
@@ -4300,6 +4344,13 @@ async def save_professional_profile(request: Request):
     )
     profile_fields = body.get("profile_fields") if isinstance(body.get("profile_fields"), dict) else {}
     referrals = body.get("referrals") if isinstance(body.get("referrals"), list) else []
+    professional_cpf = _digits_only(
+        profile_fields.get("legalRepresentativeCpf")
+        if account_type == "organization"
+        else profile_fields.get("cpf") or body.get("document") or ""
+    )
+    if not professional_cpf:
+        raise HTTPException(status_code=400, detail="CPF obrigatorio como chave de conferencia do profissional")
 
     now = datetime.now(timezone.utc).isoformat()
     existing = PROFESSIONAL_PROFILES.get(owner_email) or {}
