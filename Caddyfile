@@ -15,7 +15,7 @@ froid.com.br, www.froid.com.br {
 
     # Painel FROID (SPA React) — rotas de acesso preservadas + bundles Vite
     @app {
-        path /app /app/* /login /login/* /entrar /cadastro /cadastro/* /access/* /convite/* /assets/* /vite.svg /favicon.ico
+        path /app /app/* /login /login/* /entrar /cadastro /cadastro/* /paciente /paciente/* /access/* /convite/* /assets/* /vite.svg /favicon.ico
     }
     handle @app {
         header /assets/* Cache-Control "public, max-age=31536000, immutable"
