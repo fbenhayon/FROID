@@ -5,20 +5,23 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Demonstração — FROID</title>
 <meta name="description" content="Explore de forma interativa as 12 Zonas de Percepção, veja os índices IPM e IDM reagindo a uma dissonância simulada e navegue por um relatório-exemplo anônimo do FROID." />
-<link rel="stylesheet" href="site-assets/style.css?v=2" />
+<link rel="stylesheet" href="site-assets/style.css?v=3" />
 <style>
   .demo-note { font-size:0.85rem; color:var(--froid-cinza); }
   /* Explorador das 12 Zonas */
   .zonas-wrap { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:32px; align-items:center; }
   @media (max-width:820px){ .zonas-wrap { grid-template-columns:1fr; } }
   #zonasSvg { width:100%; max-width:460px; height:auto; margin:0 auto; display:block; }
-  #zonasSvg path { cursor:pointer; transition:opacity .15s, transform .15s; transform-origin:center; }
+  #zonasSvg path { cursor:pointer; transition:opacity .15s, transform .15s; transform-origin:center; outline:none; }
   #zonasSvg path:hover { opacity:.85; }
+  #zonasSvg path:focus, #zonasSvg path:focus-visible { outline:none; }
   #zonasSvg text { pointer-events:none; font-family:var(--font); font-weight:700; fill:#0f172a; }
+  #zonasSvg text.center-t { fill:#7dd3fc; }
+  #zonasSvg text.center-s { fill:#cbd5e1; font-weight:500; }
   .zona-detail { background:#1e293b; border:1px solid #334155; border-radius:var(--radius); padding:24px 26px; box-shadow:0 1px 2px rgba(0,0,0,.35); }
   .zona-detail .note-badge { display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:12px; background:#334155; color:#fff; font-weight:800; font-size:1.1rem; }
   .dichotomy { display:flex; align-items:center; gap:12px; margin:16px 0; }
-  .dichotomy .neg, .dichotomy .pos { flex:1; padding:12px 14px; border-radius:10px; font-size:0.92rem; font-weight:600; }
+  .dichotomy .neg, .dichotomy .pos { flex:1; padding:12px 14px; border-radius:10px; font-size:0.92rem; font-weight:600; text-align:center; }
   .dichotomy .neg { background:#fde2d5; color:#b1440e; }
   .dichotomy .pos { background:#dcf5e3; color:#15803d; }
   .dichotomy .arrow { color:var(--froid-cinza); font-weight:800; }
@@ -323,11 +326,11 @@
   svg.appendChild(center);
   var ct = document.createElementNS(SVGNS,"text");
   ct.setAttribute("x",cx); ct.setAttribute("y",cy-4); ct.setAttribute("text-anchor","middle");
-  ct.setAttribute("font-size","13"); ct.setAttribute("fill","#7dd3fc"); ct.textContent="12 Zonas";
+  ct.setAttribute("font-size","13"); ct.setAttribute("class","center-t"); ct.textContent="12 Zonas";
   svg.appendChild(ct);
   var ct2 = document.createElementNS(SVGNS,"text");
   ct2.setAttribute("x",cx); ct2.setAttribute("y",cy+14); ct2.setAttribute("text-anchor","middle");
-  ct2.setAttribute("font-size","11"); ct2.setAttribute("fill","#cbd5e1"); ct2.textContent="clique p/ detalhar";
+  ct2.setAttribute("font-size","11"); ct2.setAttribute("class","center-s"); ct2.textContent="clique p/ detalhar";
   svg.appendChild(ct2);
 
   function select(i){
@@ -436,6 +439,6 @@
   ipmVal.textContent=Math.round(ipm[0]); idmVal.textContent=idm[0].toFixed(1).replace(".",",");
 })();
 </script>
-<script src="site-assets/script.js"></script>
+<script src="site-assets/script.js?v=3"></script>
 </body>
 </html>

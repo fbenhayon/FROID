@@ -59,6 +59,13 @@ header.site-header {
 .nav-links { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
 .nav-links a { color: rgba(248,250,252,0.85); font-weight: 500; font-size: 0.84rem; white-space: nowrap; }
 .nav-links a:hover { color: var(--froid-branco); text-decoration: none; }
+/* Sem caixa de foco em volta dos links; a página atual é destacada por itálico + sublinhado */
+.nav-links a:focus, .nav-links a:focus-visible { outline: none; }
+.nav-links a.ativo {
+  font-style: italic; font-weight: 600; color: var(--froid-branco);
+  text-decoration: underline; text-underline-offset: 5px;
+  text-decoration-color: #7dd3fc;
+}
 .nav-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .nav-actions .btn { padding: 8px 14px; font-size: 0.82rem; }
 .btn { display: inline-block; padding: 9px 18px; border-radius: 999px; font-weight: 600; font-size: 0.9rem; border: 1px solid transparent; cursor: pointer; white-space: nowrap; }
@@ -134,10 +141,13 @@ header.site-header {
   width: auto; height: auto; display: block;
   max-width: min(1100px, 92%); max-height: 52vh;
   object-fit: contain; margin: 0 auto;
+  /* Realça o wordmark FROID embutido na arte */
+  filter: brightness(1.22) contrast(1.06);
 }
 .hero-neuro__overlay {
   position: absolute; inset: 0; z-index: 1;
-  background: radial-gradient(ellipse at center, rgba(0,1,4,0.1) 0%, rgba(0,1,4,0.45) 60%, rgba(0,1,4,0.85) 100%);
+  /* Vinheta mais leve no centro para não apagar o wordmark da arte */
+  background: radial-gradient(ellipse at center, rgba(0,1,4,0) 0%, rgba(0,1,4,0.22) 60%, rgba(0,1,4,0.7) 100%);
 }
 /* 1.5cm entre a arte e o texto */
 .hero-neuro__content { position: relative; z-index: 2; max-width: 900px; margin-top: 1.5cm; }

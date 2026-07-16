@@ -1,5 +1,12 @@
 // FROID site — comportamento das seções "Só para Nerds"
 document.addEventListener("DOMContentLoaded", function () {
+  // Destaca no header o link da página atual (itálico + sublinhado via CSS .ativo)
+  var pagina = (location.pathname.split("/").pop() || "index.html").toLowerCase();
+  document.querySelectorAll(".nav-links a").forEach(function (a) {
+    var href = (a.getAttribute("href") || "").toLowerCase();
+    if (href === pagina) a.classList.add("ativo");
+  });
+
   document.querySelectorAll(".nerds-toggle").forEach(function (btn) {
     btn.addEventListener("click", function () {
       var targetId = btn.getAttribute("data-target");
