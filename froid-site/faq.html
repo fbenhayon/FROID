@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Perguntas Frequentes — FROID</title>
+<meta name="description" content="Respostas diretas sobre o que o FROID faz, o que não faz, seus limites, ética, consentimento e viés algorítmico." />
+<link rel="stylesheet" href="site-assets/style.css" />
+</head>
+<body>
+
+<header class="site-header">
+  <div class="nav-row">
+    <a class="brand" href="index.html"><img class="brand-logo" src="site-assets/img/froid-logo.png" alt="FROID" /></a>
+    <nav class="nav-links">
+      <a href="index.html">Início</a>
+      <a href="ciencia.html">Ciência</a>
+      <a href="tecnologia.html">Tecnologia</a>
+      <a href="froid-explica.html">FROID Explica</a>
+      <a href="etica.html">Ética</a>
+      <a href="seguranca.html">Segurança</a>
+      <a href="profissionais.html">Profissionais</a>
+      <a href="precos.html">Preços</a>
+    </nav>
+    <div class="nav-actions">
+      <a class="btn btn-ghost" href="https://www.froid.com.br/login">Entrar no FROID</a>
+      <a class="btn btn-solid" href="https://www.froid.com.br/cadastro">Cadastrar no FROID</a>
+    </div>
+  </div>
+</header>
+
+<section class="hero" style="padding:64px 0 56px;">
+  <div class="container">
+    <p class="section-kicker" style="color:#93c5fd;">FAQ</p>
+    <h1 style="font-size:2.1rem;">Perguntas que profissionais fazem antes de decidir</h1>
+    <p class="lead">Direto ao ponto — inclusive sobre os limites, a ética e o viés do sistema.</p>
+  </div>
+</section>
+
+<section class="block">
+  <div class="container">
+    <p class="section-kicker">O sistema e seus limites</p>
+    <h2 class="section-title">Perguntas frequentes</h2>
+
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="margin:0 0 8px;">O FROID faz diagnóstico?</h3>
+      <p style="margin:0; color:var(--froid-cinza);">Não. O FROID é uma ferramenta de apoio à escuta clínica — um coprocessador de sinais biológicos, nunca um instrumento de diagnóstico autônomo. Nenhum índice (IPM, IDM, zona dominante) deve ser usado como conclusão isolada; a avaliação e a decisão terapêutica permanecem sob a responsabilidade do profissional habilitado.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="margin:0 0 8px;">As 12 Zonas são baseadas em neurociência validada?</h3>
+      <p style="margin:0; color:var(--froid-cinza);">Não diretamente. A física acústica por trás (energia espectral via FFT) é real. O mapeamento específico de zonas para temas emocionais é um framework interpretativo proprietário do FROID, inspirado em tecnologia de biofeedback de voz — não é achado de estudo revisado por pares. Detalhes completos na página <a href="ciencia.html">Ciência</a>.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="margin:0 0 8px;">Como o FROID lida com viés algorítmico (cor de pele, sotaque, gênero)?</h3>
+      <p style="margin:0; color:var(--froid-cinza);">De frente. Modelos de voz e face têm viés demográfico documentado. A principal mitigação do FROID é não usar tabelas absolutas: cada paciente é comparado apenas contra a própria linha de base calibrada nos primeiros 60 segundos da sessão, medindo desvio relativo a si mesmo. Ainda assim, isso não elimina todo o viés — a página <a href="etica.html">Ética, Fairness e Limites</a> descreve as salvaguardas e os limites remanescentes.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="margin:0 0 8px;">E se a iluminação ou o áudio da teleconsulta estiverem ruins?</h3>
+      <p style="margin:0; color:var(--froid-cinza);">O sistema não tenta adivinhar dados corrompidos. Camadas de triagem em tempo real (Quality Gates) monitoram a visibilidade facial e o ruído acústico; quando a qualidade cai, o dashboard alerta o profissional e reduz o peso (fator de confiabilidade) do canal comprometido, evitando que o indicador flutue por ruído de rede.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="margin:0 0 8px;">O FROID monitora crises ou risco de suicídio automaticamente?</h3>
+      <p style="margin:0; color:var(--froid-cinza);"><strong>Não.</strong> O FROID não detecta emergências nem risco iminente de vida de forma automatizada. Diante de sinais de crise, o profissional deve acionar os canais convencionais — SAMU 192, CVV 188 e os protocolos da sua prática. O sistema é de apoio à percepção, não de vigilância de emergência.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="margin:0 0 8px;">Preciso de consentimento do paciente? Como funciona?</h3>
+      <p style="margin:0; color:var(--froid-cinza);">Sim. Captura de áudio, vídeo e transcrição exige consentimento livre, esclarecido e granular (autorizações separadas), com direito de revogação a qualquer momento e exclusão definitiva dos dados (art. 18 da LGPD). Disponibilizamos um modelo de TCLE alinhado às resoluções do CFP e do CFM na página <a href="etica.html">Ética</a>.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="margin:0 0 8px;">Onde os dados de áudio e vídeo são processados?</h3>
+      <p style="margin:0; color:var(--froid-cinza);">O processamento de fonação e das imagens musculares faciais ocorre localmente, no computador do consultório (Edge AI). Os arquivos biométricos brutos não são transmitidos a nuvens públicas para inferência. Detalhes na página <a href="seguranca.html">Segurança</a>.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="margin:0 0 8px;">O FROID grava as sessões?</h3>
+      <p style="margin:0; color:var(--froid-cinza);">O áudio e o vídeo são processados para extração de métricas conforme o consentimento do paciente configurado pelo profissional. Consulte a página <a href="seguranca.html">Segurança</a> para os controles de dados aplicados.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="margin:0 0 8px;">Preciso de hardware especial?</h3>
+      <p style="margin:0; color:var(--froid-cinza);">Não — o FROID roda no navegador via Web Audio API e webcam padrão, sem necessidade de sensores dedicados.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="margin:0 0 8px;">Como funciona a calibração no início da sessão?</h3>
+      <p style="margin:0; color:var(--froid-cinza);">Os primeiros 60 segundos estabelecem a linha de base individual do paciente (F0, energia por banda, estado facial de repouso). Todas as leituras seguintes são comparadas contra essa referência, não contra uma população genérica.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="margin:0 0 8px;">Posso cancelar quando quiser?</h3>
+      <p style="margin:0; color:var(--froid-cinza);">Sim, o modelo é de créditos por sessão sem fidelidade mínima no plano Individual. Planos Clínica/Enterprise têm condições contratuais próprias — fale com o time em <a href="sobre-contato.html">Sobre &amp; Contato</a>.</p>
+    </div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="foot-grid">
+      <div>
+        <h5>FROID</h5>
+        <p style="max-width:340px; color:rgba(248,250,252,0.55);">Frequency Recognition of Internal Dynamics. Ferramenta de apoio à escuta clínica — não substitui avaliação, diagnóstico ou julgamento profissional.</p>
+      </div>
+      <div>
+        <h5>Navegação</h5>
+        <ul>
+          <li><a href="index.html">Início</a></li>
+          <li><a href="ciencia.html">Ciência</a></li>
+          <li><a href="tecnologia.html">Tecnologia</a></li>
+          <li><a href="froid-explica.html">FROID Explica</a></li>
+          <li><a href="etica.html">Ética</a></li>
+          <li><a href="seguranca.html">Segurança</a></li>
+          <li><a href="profissionais.html">Profissionais</a></li>
+          <li><a href="precos.html">Preços</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Suporte</h5>
+        <ul>
+          <li><a href="faq.html">Perguntas Frequentes</a></li>
+          <li><a href="glossario.html">Glossário</a></li>
+          <li><a href="demonstracao.html">Demonstração</a></li>
+          <li><a href="sobre-contato.html">Sobre &amp; Contato</a></li>
+          <li><a href="termos.html">Termos de Uso</a></li>
+          <li><a href="privacidade.html">Política de Privacidade</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Acesso</h5>
+        <ul>
+          <li><a href="https://www.froid.com.br/login">Entrar no FROID</a></li>
+          <li><a href="https://www.froid.com.br/cadastro">Cadastrar no FROID</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">© 2026 FROID.</div>
+  </div>
+</footer>
+
+<script src="site-assets/script.js"></script>
+</body>
+</html>

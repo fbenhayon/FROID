@@ -10,3 +10,5 @@ froid-server/.env.local
 froid-dashboard/.env.local
 .vscode/
 *.log
+.codex-tmp/
+.claude/

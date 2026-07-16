@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Demonstração — FROID</title>
+<meta name="description" content="Explore de forma interativa as 12 Zonas de Percepção, veja os índices IPM e IDM reagindo a uma dissonância simulada e navegue por um relatório-exemplo anônimo do FROID." />
+<link rel="stylesheet" href="site-assets/style.css" />
+<style>
+  .demo-note { font-size:0.85rem; color:var(--froid-cinza); }
+  /* Explorador das 12 Zonas */
+  .zonas-wrap { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:32px; align-items:center; }
+  @media (max-width:820px){ .zonas-wrap { grid-template-columns:1fr; } }
+  #zonasSvg { width:100%; max-width:460px; height:auto; margin:0 auto; display:block; }
+  #zonasSvg path { cursor:pointer; transition:opacity .15s, transform .15s; transform-origin:center; }
+  #zonasSvg path:hover { opacity:.85; }
+  #zonasSvg text { pointer-events:none; font-family:var(--font); font-weight:700; fill:#0f172a; }
+  .zona-detail { background:#1e293b; border:1px solid #334155; border-radius:var(--radius); padding:24px 26px; box-shadow:0 1px 2px rgba(0,0,0,.35); }
+  .zona-detail .note-badge { display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:12px; background:#334155; color:#fff; font-weight:800; font-size:1.1rem; }
+  .dichotomy { display:flex; align-items:center; gap:12px; margin:16px 0; }
+  .dichotomy .neg, .dichotomy .pos { flex:1; padding:12px 14px; border-radius:10px; font-size:0.92rem; font-weight:600; }
+  .dichotomy .neg { background:#fde2d5; color:#b1440e; }
+  .dichotomy .pos { background:#dcf5e3; color:#15803d; }
+  .dichotomy .arrow { color:var(--froid-cinza); font-weight:800; }
+
+  /* Micro-demo IPM/IDM */
+  .demo-stage { background:var(--froid-preto); border-radius:var(--radius); padding:22px; }
+  #ipmCanvas { width:100%; height:auto; display:block; border-radius:8px; background:#0a1226; }
+  .demo-readout { display:flex; gap:14px; flex-wrap:wrap; margin-top:16px; }
+  .stat-tile { flex:1; min-width:130px; background:#0a1226; border:1px solid #2a3a5c; border-radius:10px; padding:12px 14px; }
+  .stat-tile .lbl { font-size:0.72rem; text-transform:uppercase; letter-spacing:.06em; color:#9fb0d1; }
+  .stat-tile .val { font-size:1.7rem; font-weight:800; color:#fff; font-variant-numeric:tabular-nums; }
+  .stat-pill { display:inline-block; padding:2px 10px; border-radius:999px; font-size:0.72rem; font-weight:700; }
+  .demo-log { color:#dbe4ff; font-family:'JetBrains Mono','Courier New',monospace; font-size:0.82rem; margin-top:12px; min-height:1.4em; }
+
+  /* Relatório-exemplo */
+  .report { background:#1e293b; border:1px solid #334155; border-radius:var(--radius); overflow:hidden; box-shadow:0 6px 24px rgba(0,0,0,.45); }
+  .report-head { background:var(--froid-preto); color:#fff; padding:20px 26px; }
+  .report-head h3 { margin:0; font-size:1.15rem; }
+  .report-head .sub { color:rgba(248,250,252,.65); font-size:0.85rem; margin-top:2px; }
+  .report-body { padding:26px; }
+  .report-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:22px; }
+  @media (max-width:700px){ .report-grid { grid-template-columns:1fr; } }
+  .metric { border:1px solid var(--border); border-radius:12px; padding:16px; }
+  .metric .k { font-size:0.72rem; text-transform:uppercase; letter-spacing:.05em; color:var(--froid-cinza); }
+  .metric .v { font-size:1.6rem; font-weight:800; color:#f8fafc; font-variant-numeric:tabular-nums; }
+  .report-disclaimer { background:#451a03; border-top:1px solid #92400e; color:#fcd34d; font-size:0.82rem; padding:14px 26px; }
+  .theme-tag { display:inline-block; background:var(--paper-soft); border:1px solid var(--border); border-radius:999px; padding:4px 12px; font-size:0.82rem; margin:3px 4px 3px 0; }
+  /* Galeria do produto */
+  .gallery { display:grid; grid-template-columns:repeat(auto-fill, minmax(320px,1fr)); gap:22px; }
+  .gallery figure { margin:0; background:#1e293b; border:1px solid #334155; border-radius:var(--radius); overflow:hidden; box-shadow:0 4px 16px rgba(0,0,0,.4); display:flex; flex-direction:column; }
+  .gallery figure img { width:100%; height:auto; display:block; border-bottom:1px solid var(--border); }
+  .gallery figcaption { padding:13px 16px; font-size:0.86rem; color:var(--froid-cinza); }
+  .gallery figcaption strong { display:block; color:#f8fafc; font-size:0.95rem; margin-bottom:3px; }
+  .gallery .wide { grid-column:1 / -1; }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="nav-row">
+    <a class="brand" href="index.html"><img class="brand-logo" src="site-assets/img/froid-logo.png" alt="FROID" /></a>
+    <nav class="nav-links">
+      <a href="index.html">Início</a>
+      <a href="ciencia.html">Ciência</a>
+      <a href="tecnologia.html">Tecnologia</a>
+      <a href="froid-explica.html">FROID Explica</a>
+      <a href="etica.html">Ética</a>
+      <a href="seguranca.html">Segurança</a>
+      <a href="profissionais.html">Profissionais</a>
+      <a href="precos.html">Preços</a>
+    </nav>
+    <div class="nav-actions">
+      <a class="btn btn-ghost" href="https://www.froid.com.br/login">Entrar no FROID</a>
+      <a class="btn btn-solid" href="https://www.froid.com.br/cadastro">Cadastrar no FROID</a>
+    </div>
+  </div>
+</header>
+
+<section class="hero" style="padding:64px 0 48px;">
+  <div class="container">
+    <p class="section-kicker" style="color:#93c5fd;">Demonstração interativa</p>
+    <h1 style="font-size:2.1rem;">Veja o FROID funcionando — sem cadastro</h1>
+    <p class="lead">Três peças interativas: o mapa das 12 Zonas, os índices IPM e IDM reagindo a uma dissonância simulada, e um relatório-exemplo anônimo. Todos os dados aqui são ilustrativos e sintéticos.</p>
+  </div>
+</section>
+
+<div class="disclaimer-box container" style="margin-top:28px;">
+  <strong>Dados sintéticos:</strong> esta página usa valores simulados para fins de demonstração. Nenhuma sessão real, paciente ou gravação está representada aqui.
+</div>
+
+<!-- A. Explorador das 12 Zonas -->
+<section class="block">
+  <div class="container">
+    <p class="section-kicker">Framework proprietário FROID</p>
+    <h2 class="section-title">Explore as 12 Zonas de Percepção</h2>
+    <p class="section-lead">Cada zona corresponde a uma nota da escala cromática (de C2 a C#7) e a uma dicotomia entre um estado limitante e um estado expansivo. Clique em uma zona para ver o detalhe. A física (energia espectral) é real; o mapeamento tema↔faixa é heurística de produto — não neurociência publicada.</p>
+    <div class="zonas-wrap">
+      <svg id="zonasSvg" viewBox="0 0 400 400" role="img" aria-label="Mapa circular das 12 Zonas de Percepção"></svg>
+      <div class="zona-detail" id="zonaDetail" aria-live="polite"></div>
+    </div>
+  </div>
+</section>
+
+<!-- B. Micro-demo IPM / IDM -->
+<section class="block soft">
+  <div class="container">
+    <p class="section-kicker">Índices em tempo real</p>
+    <h2 class="section-title">IPM e IDM reagindo a uma dissonância</h2>
+    <p class="section-lead">Reproduza uma sessão simulada. O IPM (energia/vitalidade) oscila continuamente; o IDM (coerência) permanece baixo até um momento de dissonância — quando o paciente mantém um sorriso voluntário sobre tensão vocal — e então salta para a faixa de alerta.</p>
+    <div class="demo-stage">
+      <canvas id="ipmCanvas" width="900" height="320" aria-label="Gráfico animado dos índices IPM e IDM"></canvas>
+      <div class="demo-readout">
+        <div class="stat-tile"><div class="lbl">IPM · potência</div><div class="val" id="ipmVal">—</div></div>
+        <div class="stat-tile"><div class="lbl">IDM · desvio</div><div class="val" id="idmVal">—</div></div>
+        <div class="stat-tile"><div class="lbl">Estado</div><div class="val" style="font-size:1rem; padding-top:8px;"><span class="stat-pill" id="statePill" style="background:#334155; color:#cbd5e1;">aguardando</span></div></div>
+      </div>
+      <div class="demo-log" id="demoLog"></div>
+      <div style="margin-top:16px; display:flex; gap:10px;">
+        <button class="btn btn-solid" id="playBtn">Reproduzir sessão</button>
+        <button class="btn btn-ghost" id="resetBtn" style="color:#fff; border-color:rgba(255,255,255,.3);">Reiniciar</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- C. Relatório-exemplo -->
+<section class="block">
+  <div class="container">
+    <p class="section-kicker">Depois da sessão</p>
+    <h2 class="section-title">Relatório-exemplo (anônimo)</h2>
+    <p class="section-lead">Ao encerrar, o profissional recebe um relatório estruturado, sempre comparado contra a própria linha de base do paciente. Exemplo sintético abaixo.</p>
+
+    <div class="report">
+      <div class="report-head">
+        <h3>Relatório de sessão · Paciente P-2043 (pseudonimizado)</h3>
+        <div class="sub">Sessão 7 de 12 · duração 48 min · calibração de base concluída (60 s)</div>
+      </div>
+      <div class="report-body">
+        <div class="report-grid">
+          <div class="metric"><div class="k">IPM médio</div><div class="v">52</div><div class="demo-note">vitalidade estável vs. base</div></div>
+          <div class="metric"><div class="k">Pico de IDM</div><div class="v">3,4</div><div class="demo-note">1 evento em faixa vermelha</div></div>
+          <div class="metric"><div class="k">Zona dominante</div><div class="v" style="font-size:1.15rem;">Zona 7 · Raiva</div><div class="demo-note">F# · aceitação da mudança</div></div>
+        </div>
+
+        <h4 style="margin:0 0 8px;">Linha do tempo da sessão</h4>
+        <svg viewBox="0 0 900 120" style="width:100%; height:auto; margin-bottom:8px;" role="img" aria-label="Linha do tempo simplificada da sessão">
+          <rect x="0" y="0" width="900" height="120" fill="#f4f6fb"></rect>
+          <polyline fill="none" stroke="#3b82f6" stroke-width="2.5" points="0,70 90,64 180,72 270,60 360,66 450,58 540,50 630,80 720,54 810,62 900,60"></polyline>
+          <circle cx="600" cy="30" r="7" fill="#ef4444"></circle>
+          <line x1="600" y1="37" x2="600" y2="120" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="4 3"></line>
+          <text x="608" y="26" font-size="13" fill="#b91c1c" font-family="Inter, sans-serif" font-weight="700">Dissonância · 31min</text>
+        </svg>
+        <p class="demo-note" style="margin:0 0 20px;">Linha azul: IPM ao longo do tempo. Marcador vermelho: pico de IDM (incongruência fala–face) para o clínico revisar.</p>
+
+        <h4 style="margin:0 0 8px;">Temas recorrentes (NLP)</h4>
+        <div style="margin-bottom:20px;">
+          <span class="theme-tag">trabalho</span>
+          <span class="theme-tag">reconhecimento</span>
+          <span class="theme-tag">família</span>
+          <span class="theme-tag">culpa</span>
+          <span class="theme-tag">mudança</span>
+        </div>
+
+        <h4 style="margin:0 0 8px;">Observação do sistema</h4>
+        <p style="margin:0; color:var(--froid-cinza);">Aos 31 min, tensão de infra-tremor vocal (5–12 Hz) coincidiu com sorriso de configuração voluntária (AU12 sem AU6) durante fala sobre reconhecimento profissional — sinal de possível Dissonância Somatoafetiva. Sugestão de exploração, a critério do profissional.</p>
+      </div>
+      <div class="report-disclaimer">
+        <strong>Limitações da IA:</strong> os índices são estimativas estatísticas com limitações demográficas e de captura (iluminação/áudio); correlações não implicam causalidade. Apoio à decisão — não diagnóstico. Ver <a href="etica.html">Ética, Fairness e Limites</a>.
+      </div>
+    </div>
+
+    <div style="margin-top:28px;">
+      <a class="btn btn-solid" href="https://www.froid.com.br/cadastro">Criar conta profissional</a>
+      <a class="btn btn-ghost" href="sobre-contato.html" style="margin-left:8px;">Falar sobre um piloto</a>
+    </div>
+  </div>
+</section>
+
+<section class="block soft">
+  <div class="container">
+    <p class="section-kicker">Galeria do produto</p>
+    <h2 class="section-title">As telas reais do FROID</h2>
+    <p class="section-lead">Um panorama das capacidades de análise. Todas as capturas usam dados sintéticos; vários painéis são heurísticas de visualização proprietárias — apoio à leitura, nunca diagnóstico. Ver <a href="etica.html">Ética</a> e <a href="ciencia.html">Ciência</a>.</p>
+    <div class="gallery">
+      <figure class="wide">
+        <img src="site-assets/img/cap-mapa-facial.png" alt="Mapa das expressões faciais e matrizes emocionais do FROID: combinações de Unidades de Ação por emoção." />
+        <figcaption><strong>Mapa das expressões faciais (FACS)</strong>Matrizes de Unidades de Ação por emoção e as dissonâncias subconscientes que o FROID cruza com a bioacústica vocal.</figcaption>
+      </figure>
+      <figure>
+        <img src="site-assets/img/cap-ipm.png" alt="Gráfico do IPM ao vivo sobre a escala do FROID." />
+        <figcaption><strong>IPM ao vivo</strong>A energia e a vitalidade psicomotora da sessão, segundo a segundo, sobre a escala do FROID.</figcaption>
+      </figure>
+      <figure>
+        <img src="site-assets/img/cap-dissonancias.png" alt="Painel de detecção de dissonâncias multimodais com alerta por zona." />
+        <figcaption><strong>Detector de dissonâncias</strong>Divergências fala–face–semântica acima dos limiares, com alerta localizado por zona.</figcaption>
+      </figure>
+      <figure>
+        <img src="site-assets/img/cap-biomarcadores.png" alt="Comparação de biomarcadores vocais: MFCC7, MFCC9 e índices proxy." />
+        <figcaption><strong>Biomarcadores vocais</strong>Comparação de MFCC7×MFCC9 e dos índices proxy de jitter e shimmer.</figcaption>
+      </figure>
+      <figure>
+        <img src="site-assets/img/cap-bandas.png" alt="Distribuição da energia vocal por bandas neuroacústicas." />
+        <figcaption><strong>Bandas neuroacústicas</strong>Distribuição espectral da voz por banda — uma heurística de visualização proprietária.</figcaption>
+      </figure>
+      <figure>
+        <img src="site-assets/img/cap-subharmonicos.png" alt="Componentes de sub-harmônicos vocais na faixa de 5 a 12 Hz." />
+        <figcaption><strong>Sub-harmônicos (5–12 Hz)</strong>Componentes de infra-tremor vocal — o pilar mais exploratório do sistema.</figcaption>
+      </figure>
+      <figure>
+        <img src="site-assets/img/cap-riscos.png" alt="Resumo percentual de padrões por categoria de risco clínico." />
+        <figcaption><strong>Panorama de padrões</strong>Resumo heurístico por categoria — apoio à leitura do profissional, nunca diagnóstico automatizado.</figcaption>
+      </figure>
+      <figure>
+        <img src="site-assets/img/cap-cortes-temas.png" alt="Temas e resumos por cortes de 10 minutos gerados por NLP." />
+        <figcaption><strong>Temas e resumos por cortes</strong>Síntese semântica (NLP) da fala a cada 10 minutos da sessão.</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="foot-grid">
+      <div>
+        <h5>FROID</h5>
+        <p style="max-width:340px; color:rgba(248,250,252,0.55);">Frequency Recognition of Internal Dynamics. Ferramenta de apoio à escuta clínica — não substitui avaliação, diagnóstico ou julgamento profissional.</p>
+      </div>
+      <div>
+        <h5>Navegação</h5>
+        <ul>
+          <li><a href="index.html">Início</a></li>
+          <li><a href="ciencia.html">Ciência</a></li>
+          <li><a href="tecnologia.html">Tecnologia</a></li>
+          <li><a href="froid-explica.html">FROID Explica</a></li>
+          <li><a href="etica.html">Ética</a></li>
+          <li><a href="seguranca.html">Segurança</a></li>
+          <li><a href="profissionais.html">Profissionais</a></li>
+          <li><a href="precos.html">Preços</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Suporte</h5>
+        <ul>
+          <li><a href="faq.html">Perguntas Frequentes</a></li>
+          <li><a href="glossario.html">Glossário</a></li>
+          <li><a href="demonstracao.html">Demonstração</a></li>
+          <li><a href="sobre-contato.html">Sobre &amp; Contato</a></li>
+          <li><a href="termos.html">Termos de Uso</a></li>
+          <li><a href="privacidade.html">Política de Privacidade</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Acesso</h5>
+        <ul>
+          <li><a href="https://www.froid.com.br/login">Entrar no FROID</a></li>
+          <li><a href="https://www.froid.com.br/cadastro">Cadastrar no FROID</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">© 2026 FROID. Conteúdo desta página é ilustrativo e sintético.</div>
+  </div>
+</footer>
+
+<script>
+/* ===== A. Explorador das 12 Zonas ===== */
+(function(){
+  var SVGNS = "http://www.w3.org/2000/svg";
+  var zonas = [
+    {n:1, nota:"C",  neg:"Não reconhecido",            pos:"Autovalidação",              reg:"Tronco cerebral e regulação autonômica"},
+    {n:2, nota:"C#", neg:"Pensamento repetitivo",       pos:"Criativo / Independente",    reg:"Sistema límbico e emoções primárias"},
+    {n:3, nota:"D",  neg:"Tristeza",                     pos:"Paz interior",               reg:"Córtex pré-frontal e regulação emocional"},
+    {n:4, nota:"D#", neg:"Desconectado emocionalmente",  pos:"Integrado emocionalmente",   reg:"Equilíbrio e serenidade"},
+    {n:5, nota:"E",  neg:"Autocrítico",                  pos:"Amor-próprio",               reg:"Expressão emocional e vulnerabilidade"},
+    {n:6, nota:"F",  neg:"Amor condicional",             pos:"Amor incondicional",         reg:"Introspecção e tristeza"},
+    {n:7, nota:"F#", neg:"Raiva",                        pos:"Aceitação da mudança",       reg:"Criatividade e insight"},
+    {n:8, nota:"G",  neg:"Medroso e sobrecarregado",     pos:"Responsabilização",          reg:"Integração cognitiva"},
+    {n:9, nota:"G#", neg:"Expressão emocional suprimida", pos:"Autoexpressão apropriada",  reg:"Processamento superior"},
+    {n:10,nota:"A",  neg:"Indigno / Não merecedor",      pos:"Autoaceitação",              reg:"Harmonização"},
+    {n:11,nota:"A#", neg:"Crenças rígidas",              pos:"Aberto a possibilidades",    reg:"Expansão consciente"},
+    {n:12,nota:"B",  neg:"Crenças conflitantes",         pos:"Crença congruente e ação",   reg:"Integração total"}
+  ];
+  var svg = document.getElementById("zonasSvg");
+  var detail = document.getElementById("zonaDetail");
+  var cx=200, cy=200, r1=70, r2=185, seg=(Math.PI*2)/12;
+  function pol(a,r){ return [cx + r*Math.cos(a), cy + r*Math.sin(a)]; }
+  function wedge(i){
+    var a0 = -Math.PI/2 + i*seg + 0.012;
+    var a1 = -Math.PI/2 + (i+1)*seg - 0.012;
+    var p0=pol(a0,r1), p1=pol(a0,r2), p2=pol(a1,r2), p3=pol(a1,r1);
+    return "M"+p0[0]+","+p0[1]+" L"+p1[0]+","+p1[1]+
+           " A"+r2+","+r2+" 0 0 1 "+p2[0]+","+p2[1]+
+           " L"+p3[0]+","+p3[1]+
+           " A"+r1+","+r1+" 0 0 0 "+p0[0]+","+p0[1]+" Z";
+  }
+  var paths=[];
+  zonas.forEach(function(z,i){
+    var hue = i*30;
+    var path = document.createElementNS(SVGNS,"path");
+    path.setAttribute("d", wedge(i));
+    path.setAttribute("fill", "hsl("+hue+",48%,74%)");
+    path.setAttribute("stroke", "#fff");
+    path.setAttribute("stroke-width","2");
+    path.setAttribute("tabindex","0");
+    path.setAttribute("role","button");
+    path.setAttribute("aria-label","Zona "+z.n+", nota "+z.nota);
+    path.addEventListener("click", function(){ select(i); });
+    path.addEventListener("keydown", function(e){ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); select(i);} });
+    svg.appendChild(path);
+    paths.push({el:path, hue:hue});
+    var mid = -Math.PI/2 + (i+0.5)*seg;
+    var lp = pol(mid,(r1+r2)/2);
+    var t = document.createElementNS(SVGNS,"text");
+    t.setAttribute("x",lp[0]); t.setAttribute("y",lp[1]+4);
+    t.setAttribute("text-anchor","middle"); t.setAttribute("font-size","14");
+    t.textContent = z.n;
+    svg.appendChild(t);
+  });
+  var center = document.createElementNS(SVGNS,"circle");
+  center.setAttribute("cx",cx); center.setAttribute("cy",cy); center.setAttribute("r",r1-8);
+  center.setAttribute("fill","#0f172a");
+  svg.appendChild(center);
+  var ct = document.createElementNS(SVGNS,"text");
+  ct.setAttribute("x",cx); ct.setAttribute("y",cy-4); ct.setAttribute("text-anchor","middle");
+  ct.setAttribute("font-size","13"); ct.setAttribute("fill","#7dd3fc"); ct.textContent="12 Zonas";
+  svg.appendChild(ct);
+  var ct2 = document.createElementNS(SVGNS,"text");
+  ct2.setAttribute("x",cx); ct2.setAttribute("y",cy+14); ct2.setAttribute("text-anchor","middle");
+  ct2.setAttribute("font-size","11"); ct2.setAttribute("fill","#cbd5e1"); ct2.textContent="clique p/ detalhar";
+  svg.appendChild(ct2);
+
+  function select(i){
+    paths.forEach(function(p,j){
+      p.el.setAttribute("fill","hsl("+p.hue+","+(j===i?"62%,55%":"48%,74%")+")");
+      p.el.setAttribute("stroke-width", j===i?"3":"2");
+    });
+    var z = zonas[i];
+    detail.innerHTML =
+      '<div style="display:flex; align-items:center; gap:14px;">'+
+        '<span class="note-badge">'+z.nota+'</span>'+
+        '<div><div style="font-weight:800; font-size:1.15rem;">Zona '+z.n+'</div>'+
+        '<div class="demo-note">nota '+z.nota+' da escala cromática</div></div>'+
+      '</div>'+
+      '<div class="dichotomy"><span class="neg">'+z.neg+'</span><span class="arrow">↔</span><span class="pos">'+z.pos+'</span></div>'+
+      '<p class="demo-note" style="margin:0 0 8px;"><strong>Associação neurofuncional (heurística):</strong> '+z.reg+'.</p>'+
+      '<p class="demo-note" style="margin:0;">Sobrecarga nesta zona indica o polo limitante; a diretriz clínica orienta a transição para o polo expansivo. <a href="ciencia.html">Enquadramento na Ciência</a>.</p>';
+  }
+  select(0);
+})();
+
+/* ===== B. Micro-demo IPM / IDM ===== */
+(function(){
+  var canvas = document.getElementById("ipmCanvas");
+  var ctx = canvas.getContext("2d");
+  var W = canvas.width, H = canvas.height;
+  var N = 260, EVENT = 165;
+  var ipm=[], idm=[];
+  function build(){
+    ipm=[]; idm=[];
+    var base=48;
+    for(var i=0;i<N;i++){
+      var wobble = Math.sin(i/9)*7 + Math.sin(i/3.3)*3 + (Math.random()-0.5)*4;
+      var dip = i>90 && i<150 ? -12*Math.sin((i-90)/60*Math.PI) : 0;
+      ipm.push(Math.max(8, Math.min(96, base + wobble + dip)));
+      var d = 0.35 + (Math.random()-0.5)*0.15;
+      if(i>=EVENT && i<EVENT+16){ d = 0.4 + (i-EVENT)/16*3.1; }
+      else if(i>=EVENT+16 && i<EVENT+40){ d = 3.5 - (i-EVENT-16)/24*2.6; }
+      else if(i>=EVENT+40){ d = 0.9 - Math.min(0.5,(i-EVENT-40)/60); }
+      idm.push(Math.max(0.1, d));
+    }
+  }
+  function idmColor(v){ if(v>3)return"#ef4444"; if(v>1.5)return"#eab308"; if(v>0.5)return"#22c55e"; return"#3b82f6"; }
+  var padL=44, padR=16, padT=16, padB=26;
+  function x(i){ return padL + (W-padL-padR)*(i/(N-1)); }
+  function yIpm(v){ return padT + (H-padT-padB)*(1 - v/100); }
+  function yIdm(v){ return padT + (H-padT-padB)*(1 - v/4); }
+  function draw(upto){
+    ctx.clearRect(0,0,W,H);
+    // threshold bands (IDM scale)
+    var bands=[[0,0.5,"rgba(59,130,246,.10)"],[0.5,1.5,"rgba(34,197,94,.10)"],[1.5,3,"rgba(234,179,8,.12)"],[3,4,"rgba(239,68,68,.14)"]];
+    bands.forEach(function(b){ ctx.fillStyle=b[2]; var y0=yIdm(b[1]), y1=yIdm(b[0]); ctx.fillRect(padL,y0,W-padL-padR,y1-y0); });
+    // grid
+    ctx.strokeStyle="rgba(148,163,184,.18)"; ctx.lineWidth=1;
+    for(var g=0;g<=4;g++){ var yy=padT+(H-padT-padB)*g/4; ctx.beginPath(); ctx.moveTo(padL,yy); ctx.lineTo(W-padR,yy); ctx.stroke(); }
+    // axes labels
+    ctx.fillStyle="#9fb0d1"; ctx.font="11px Inter, sans-serif"; ctx.textAlign="right";
+    ctx.fillText("IDM 4",padL-6,yIdm(4)+4); ctx.fillText("0",padL-6,yIdm(0)+2);
+    // event marker
+    if(upto>=EVENT){
+      ctx.strokeStyle="rgba(239,68,68,.6)"; ctx.setLineDash([5,4]); ctx.beginPath();
+      ctx.moveTo(x(EVENT),padT); ctx.lineTo(x(EVENT),H-padB); ctx.stroke(); ctx.setLineDash([]);
+    }
+    // IPM line
+    ctx.strokeStyle="#3b82f6"; ctx.lineWidth=2.4; ctx.beginPath();
+    for(var i=0;i<=upto;i++){ var px=x(i), py=yIpm(ipm[i]); i===0?ctx.moveTo(px,py):ctx.lineTo(px,py); }
+    ctx.stroke();
+    // IDM line
+    ctx.strokeStyle="#eab308"; ctx.lineWidth=2.4; ctx.beginPath();
+    for(var j=0;j<=upto;j++){ var qx=x(j), qy=yIdm(idm[j]); j===0?ctx.moveTo(qx,qy):ctx.lineTo(qx,qy); }
+    ctx.stroke();
+    // heads
+    if(upto>=0){
+      ctx.fillStyle="#3b82f6"; ctx.beginPath(); ctx.arc(x(upto),yIpm(ipm[upto]),4,0,7); ctx.fill();
+      ctx.fillStyle=idmColor(idm[upto]); ctx.beginPath(); ctx.arc(x(upto),yIdm(idm[upto]),4,0,7); ctx.fill();
+    }
+    // legend
+    ctx.textAlign="left"; ctx.font="12px Inter, sans-serif";
+    ctx.fillStyle="#3b82f6"; ctx.fillText("● IPM", padL+4, padT+12);
+    ctx.fillStyle="#eab308"; ctx.fillText("● IDM", padL+62, padT+12);
+  }
+  var ipmVal=document.getElementById("ipmVal"), idmVal=document.getElementById("idmVal"),
+      pill=document.getElementById("statePill"), log=document.getElementById("demoLog");
+  function state(v){ if(v>3)return["ALERTA · dissonância","#ef4444","#fff"]; if(v>1.5)return["atenção","#eab308","#0f172a"]; return["coerente","#22c55e","#fff"]; }
+  function readout(i){
+    ipmVal.textContent=Math.round(ipm[i]);
+    idmVal.textContent=idm[i].toFixed(1).replace(".",",");
+    var s=state(idm[i]); pill.textContent=s[0]; pill.style.background=s[1]; pill.style.color=s[2];
+    if(i===EVENT+8){ log.textContent="⚠ Incongruência: AU12 sem AU6 (sorriso voluntário) sobre tensão vocal 5–12 Hz."; }
+    else if(i===EVENT-1){ log.textContent="Sinais congruentes — energia dentro da variação basal."; }
+    else if(i>=N-1){ log.textContent="Sessão simulada concluída. Pico de IDM registrado para revisão clínica."; }
+  }
+  var timer=null, idx=0;
+  function stop(){ if(timer){ clearTimeout(timer); timer=null; } }
+  function play(){
+    stop(); if(idx>=N-1) idx=0;
+    (function step(){
+      draw(idx); readout(idx);
+      idx += 1;
+      if(idx<N){ timer=setTimeout(step,26); } else { draw(N-1); readout(N-1); timer=null; }
+    })();
+  }
+  document.getElementById("playBtn").addEventListener("click", play);
+  document.getElementById("resetBtn").addEventListener("click", function(){ stop(); idx=0; build(); draw(0); ipmVal.textContent=Math.round(ipm[0]); idmVal.textContent=idm[0].toFixed(1).replace(".",","); pill.textContent="aguardando"; pill.style.background="#334155"; pill.style.color="#cbd5e1"; log.textContent=""; });
+  build(); draw(0);
+  ipmVal.textContent=Math.round(ipm[0]); idmVal.textContent=idm[0].toFixed(1).replace(".",",");
+})();
+</script>
+<script src="site-assets/script.js"></script>
+</body>
+</html>

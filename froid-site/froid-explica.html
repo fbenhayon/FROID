@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FROID Explica — a inteligência clínica do FROID</title>
+<meta name="description" content="FROID Explica é o assistente LLM-RAG do FROID: responde sobre as capacidades da plataforma, traz 22 prompts pré-configurados, permite prompts próprios do profissional e cruza a carteira de pacientes com o Data Mart anônimo para validar as métricas IPM, IDM e proprietárias ao longo do tempo." />
+<link rel="stylesheet" href="site-assets/style.css" />
+<style>
+  /* Área reservada para vídeo (16:9) */
+  .video-frame {
+    position:relative; width:100%; max-width:920px; margin:8px auto 0; aspect-ratio:16/9;
+    border-radius:var(--radius); border:2px dashed var(--froid-cinza);
+    background:repeating-linear-gradient(45deg,#eef1f7,#eef1f7 10px,#f7f8fb 10px,#f7f8fb 20px);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;
+    color:var(--froid-cinza); text-align:center; padding:24px;
+  }
+  .video-frame .play {
+    width:74px; height:74px; border-radius:50%; background:var(--froid-azul);
+    display:flex; align-items:center; justify-content:center; box-shadow:0 8px 24px rgba(59,130,246,.35);
+  }
+  .video-frame .cap { font-size:0.9rem; font-weight:700; letter-spacing:.02em; }
+  .video-frame .sub { font-size:0.82rem; }
+
+  /* Modo cards */
+  .mode-card { position:relative; overflow:hidden; }
+  .mode-card .tag { position:absolute; top:16px; right:16px; }
+
+  /* Prompt lists */
+  .prompt-cols { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
+  @media (max-width:820px){ .prompt-cols { grid-template-columns:1fr; } }
+  .prompt-group { background:#1e293b; border:1px solid #334155; border-radius:var(--radius); padding:22px 24px; }
+  .prompt-group h3 { margin:0 0 4px; }
+  .prompt-group .desc { color:var(--froid-cinza); font-size:0.88rem; margin:0 0 14px; }
+  .prompt-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:9px; counter-reset:pl; }
+  .prompt-list li { display:flex; gap:10px; align-items:flex-start; font-size:0.93rem; line-height:1.5; }
+  .prompt-list li::before {
+    counter-increment:pl; content:counter(pl);
+    flex:0 0 auto; width:22px; height:22px; border-radius:6px; background:var(--paper-soft);
+    border:1px solid var(--border); color:var(--froid-azul); font-size:0.72rem; font-weight:800;
+    display:flex; align-items:center; justify-content:center; margin-top:1px;
+  }
+  .prompt-list.analytics li::before { color:#3730a3; background:#e0e7ff; border-color:#c7d2fe; }
+
+  /* Data Mart stats */
+  .dm-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin:8px 0 4px; }
+  @media (max-width:760px){ .dm-stats { grid-template-columns:1fr 1fr; } }
+  .dm-stat { background:#0a1226; border:1px solid #2a3a5c; border-radius:12px; padding:18px 16px; text-align:center; }
+  .dm-stat .n { font-size:1.7rem; font-weight:800; color:#7dd3fc; font-variant-numeric:tabular-nums; }
+  .dm-stat .l { font-size:0.76rem; color:#9fb0d1; margin-top:2px; }
+  .dm-panel { background:radial-gradient(ellipse at top,#0c1330,#05070f); color:#dbe4ff; border-radius:18px; padding:34px; }
+  .dm-panel h2 { color:#fff; }
+  .dm-panel .section-lead { color:rgba(219,228,255,.72); }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="nav-row">
+    <a class="brand" href="index.html"><img class="brand-logo" src="site-assets/img/froid-logo.png" alt="FROID" /></a>
+    <nav class="nav-links">
+      <a href="index.html">Início</a>
+      <a href="ciencia.html">Ciência</a>
+      <a href="tecnologia.html">Tecnologia</a>
+      <a href="froid-explica.html">FROID Explica</a>
+      <a href="etica.html">Ética</a>
+      <a href="seguranca.html">Segurança</a>
+      <a href="profissionais.html">Profissionais</a>
+      <a href="precos.html">Preços</a>
+    </nav>
+    <div class="nav-actions">
+      <a class="btn btn-ghost" href="https://www.froid.com.br/login">Entrar no FROID</a>
+      <a class="btn btn-solid" href="https://www.froid.com.br/cadastro">Cadastrar no FROID</a>
+    </div>
+  </div>
+</header>
+
+<section class="hero" style="padding:64px 0 48px;">
+  <div class="container">
+    <p class="section-kicker" style="color:#93c5fd;">O diferencial FROID</p>
+    <h1 style="font-size:2.3rem;">FROID Explica: a inteligência que conhece o FROID <em>e</em> a sua prática</h1>
+    <p class="lead">Um assistente de IA com recuperação aumentada por conhecimento (LLM-RAG) que responde, em linguagem clínica, tudo o que o profissional precisa para explorar as capacidades da plataforma durante a sessão — e que cruza a sua carteira de pacientes com o Data Mart anônimo global.</p>
+    <div class="hero-actions">
+      <a class="btn btn-solid" href="#prompts">Ver os 22 prompts</a>
+      <a class="btn btn-ghost" href="#datamart">Conhecer o Data Mart</a>
+    </div>
+  </div>
+</section>
+
+<!-- ÁREA DE VÍDEO -->
+<section class="block">
+  <div class="container">
+    <p class="section-kicker">Veja em ação</p>
+    <h2 class="section-title">FROID Explica em uma sessão real</h2>
+    <p class="section-lead">Um exemplo real da interface: o profissional pergunta e o FROID Explica responde, com fundamento, sobre a leitura da sessão — com os seletores de prompts pré-configurados e de prompts próprios.</p>
+    <figure class="site-fig">
+      <img class="site-img" src="site-assets/img/froid-explica-interface.png" alt="Interface do FROID Explica: uma pergunta do profissional e a resposta fundamentada do assistente, com os seletores de prompts pré-configurados e de prompts próprios." />
+      <figcaption>Interface do FROID Explica no painel profissional. Um vídeo de demonstração poderá substituir esta imagem futuramente.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- COMO FUNCIONA: DOIS MODOS -->
+<section class="block soft">
+  <div class="container">
+    <p class="section-kicker">Como funciona</p>
+    <h2 class="section-title">Dois cérebros, uma conversa</h2>
+    <p class="section-lead">O FROID Explica decide, a cada pergunta, se ela é sobre <em>conhecimento</em> (como interpretar a leitura) ou sobre <em>dados</em> (como este paciente se compara à base) — e roteia para o motor certo.</p>
+    <div class="grid-2">
+      <div class="card mode-card">
+        <span class="badge badge-strong tag">RAG · Conhecimento</span>
+        <h3>Explica a leitura clínica</h3>
+        <p>Recuperação aumentada (RAG) sobre a base de conhecimento verificada do FROID: 12 Zonas, IPM, IDM, biomarcadores, FACS e a bibliografia científica. Responde "o que significa esta dissonância?" com fundamento — sempre sobre métricas já calculadas, <strong>nunca gerando os valores acústicos</strong>.</p>
+      </div>
+      <div class="card mode-card">
+        <span class="badge badge-proprietary tag">Analytics · Data Mart</span>
+        <h3>Compara com a base populacional</h3>
+        <p>Consultas analíticas sobre o Data Mart anônimo: "este paciente está acima da média em risco?", "casos mais parecidos (top 5)", "intervenções mais eficazes para perfis similares". A inteligência da sua carteira encontra a inteligência de milhares de sessões — sem PII.</p>
+      </div>
+    </div>
+    <div class="card" style="margin-top:24px;">
+      <span class="badge badge-proprietary">Framework proprietário FROID</span>
+      <h3>O que o Explica enxerga: o estado consolidado da tela</h3>
+      <p>Toda consulta ao FROID Explica recebe o <strong>estado consolidado exibido na tela</strong> — a janela clínica móvel da <a href="tecnologia.html">Estabilização Clínica da Tela</a> (padrão: 5 minutos, média ponderada temporal) — com acesso ao bruto recente quando necessário. Assim, a resposta da IA fala sobre exatamente o que o profissional está vendo, sem divergência entre tela e análise.</p>
+      <p style="font-size:0.9rem; color:var(--froid-cinza);">Essa e outras definições de algoritmo proprietário estão documentadas em referências internas consultáveis pelo motor RAG — ex.: <code>FROID_Estabilizacao_Clinica_Da_Tela.md</code>, que registra a métrica, a matemática dos pesos e o racional clínico do módulo.</p>
+    </div>
+    <p style="margin-top:18px; font-size:0.9rem; color:var(--froid-cinza);">Motor de linguagem sobre modelos de última geração (ex.: Gemini / GPT-4o), com verificação de segurança em cada resposta. Detalhes de arquitetura em <a href="tecnologia.html">Tecnologia</a> e privacidade em <a href="seguranca.html">Segurança</a>.</p>
+  </div>
+</section>
+
+<!-- 22 PROMPTS -->
+<section class="block" id="prompts">
+  <div class="container">
+    <p class="section-kicker">Biblioteca de prompts</p>
+    <h2 class="section-title">22 prompts pré-configurados, prontos para a sessão</h2>
+    <p class="section-lead">Um clique no painel dispara qualquer um destes. Metade lê a sessão em profundidade; a outra metade cruza o paciente com a base populacional anônima.</p>
+
+    <div class="prompt-cols">
+      <div class="prompt-group">
+        <h3>Leitura clínica da sessão</h3>
+        <p class="desc">Interpretação fundamentada dos indicadores atuais (motor de conhecimento / RAG).</p>
+        <ol class="prompt-list">
+          <li>Explique a leitura clínica das zonas dominantes desta sessão.</li>
+          <li>O que o IPM atual sugere sobre a energia emocional do paciente?</li>
+          <li>Como interpretar as dissonâncias faciais-vocais observadas?</li>
+          <li>Quais marcadores bioacústicos merecem atenção neste momento?</li>
+          <li>Explique a diferença entre IPM e IDM para esta sessão.</li>
+          <li>Que perguntas clínicas podem aprofundar esta leitura?</li>
+          <li>Explique o resumo geral da sessão e seus cortes de 10 minutos.</li>
+          <li>Quais mudanças ocorreram entre o baseline e a média da sessão?</li>
+          <li>Quais dissonâncias registradas exigem maior atenção clínica?</li>
+          <li>Como interpretar os biomarcadores acústicos desta sessão?</li>
+        </ol>
+      </div>
+      <div class="prompt-group">
+        <h3>Comparação com o Data Mart</h3>
+        <p class="desc">Cruzamento do paciente com a base populacional anônima (motor de analytics).</p>
+        <ol class="prompt-list analytics">
+          <li>Como este paciente se compara à média populacional em Zonas FROID?</li>
+          <li>Identificar padrões atípicos comparados à base de dados.</li>
+          <li>Este paciente está acima ou abaixo da média em riscos clínicos?</li>
+          <li>Progresso nas últimas sessões versus população.</li>
+          <li>Velocidade de melhora comparada a casos similares.</li>
+          <li>Perfil vocal-facial similar a quais condições na base?</li>
+          <li>Casos mais parecidos com este paciente (top 5).</li>
+          <li>Intervenções mais eficazes para perfis similares.</li>
+          <li>Predição de resposta terapêutica baseada em casos análogos.</li>
+          <li>Alertas: padrões de risco identificados na base populacional.</li>
+          <li>Este paciente se compara com a base populacional anônima?</li>
+          <li>Quais padrões aparecem em casos similares na base anônima?</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PROMPTS PRÓPRIOS -->
+<section class="block soft">
+  <div class="container">
+    <p class="section-kicker">Personalização</p>
+    <h2 class="section-title">Crie os seus próprios prompts</h2>
+    <div class="grid-2">
+      <div>
+        <p>Na sua área de configurações, o profissional cadastra prompts próprios — perguntas recorrentes da sua abordagem, do seu enquadramento teórico ou do seu público específico. Eles ficam salvos na sua conta e acessíveis a um clique, ao lado dos 22 nativos.</p>
+        <p>Cada prompt personalizado pode consultar tanto a <strong>sua carteira de pacientes</strong> quanto o <strong>Data Mart anônimo</strong> — combinando o que só você conhece dos seus casos com a força estatística de milhares de sessões no mundo. É esse cruzamento que cria o grande diferencial: quanto mais a rede cresce, mais as suas perguntas são respondidas com base empírica.</p>
+        <ul>
+          <li>Prompts pessoais salvos por profissional, na área de configurações</li>
+          <li>Acesso à própria carteira + à base populacional anônima</li>
+          <li>Ao longo do tempo, validam empiricamente o IPM, o IDM e as demais métricas proprietárias</li>
+        </ul>
+      </div>
+      <div class="card">
+        <span class="badge badge-proprietary">Exemplo de prompt próprio</span>
+        <h3 style="margin-top:10px;">"Meus pacientes com queda de IPM"</h3>
+        <p style="color:var(--froid-cinza);">"Entre os meus pacientes, quais tiveram queda sustentada de IPM nas últimas 3 sessões, e como esse padrão se compara a casos análogos no Data Mart?"</p>
+        <p style="font-size:0.86rem; color:var(--froid-cinza); margin-top:12px;">O assistente combina a leitura da sua carteira com a base anônima e devolve uma resposta fundamentada — a decisão clínica segue sendo sua.</p>
+      </div>
+    </div>
+    <figure class="site-fig" style="margin-top:28px;">
+      <img class="site-img" src="site-assets/img/explica-prompts-proprios.png" alt="Tela de configuração de prompts próprios do profissional: campo de título curto, campo de prompt completo e botão salvar." />
+      <figcaption>Área de configurações: o profissional cria e salva os próprios prompts, vinculados à sua conta, ao lado dos 22 nativos.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- DATA MART -->
+<section class="block" id="datamart">
+  <div class="container">
+    <div class="dm-panel">
+      <p class="section-kicker" style="color:#93c5fd;">A base que aprende com o mundo</p>
+      <h2 class="section-title" style="color:#fff;">O Data Mart: a maior base de percepção clínica anônima</h2>
+      <p class="section-lead">Um repositório crescente com a transcrição e os sinais anonimizados de milhares de sessões realizadas em todo o mundo — desprovido de qualquer informação pessoal (PII) — pensado para ser explorado por modelos de altíssima escala em busca de novos caminhos, métricas e associações clínicas.</p>
+
+      <div class="dm-stats">
+        <div class="dm-stat"><div class="n">Milhares</div><div class="l">de sessões anonimizadas</div></div>
+        <div class="dm-stat"><div class="n">k ≥ 50</div><div class="l">k-anonymity garantida</div></div>
+        <div class="dm-stat"><div class="n">0 PII</div><div class="l">hashes de via única</div></div>
+        <div class="dm-stat"><div class="n">1,2 tri</div><div class="l">parâmetros de análise</div></div>
+      </div>
+
+      <p style="margin-top:20px; color:rgba(219,228,255,.82);">À medida que a rede cresce, esse acervo passa a ser analisado por inteligências com mais de <strong>1,2 trilhão de parâmetros</strong>, capazes de mapear associações que nenhuma sessão isolada revelaria — e de converter, progressivamente, as heurísticas de IPM e IDM em métricas estatisticamente validadas. É o motor de validação populacional do FROID.</p>
+      <p style="margin-top:12px; font-size:0.9rem; color:rgba(219,228,255,.6);"><strong>Compromisso de honestidade:</strong> o Data Mart é o caminho de validação ao longo do tempo, não uma prova já concluída. Hoje, IPM e IDM permanecem parâmetros de engenharia qualificados; a base cresce para prová-los. Anonimização e limites descritos em <a href="etica.html" style="color:#93c5fd;">Ética</a> e <a href="seguranca.html" style="color:#93c5fd;">Segurança</a>.</p>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="block soft">
+  <div class="container">
+    <h2 class="section-title">Explore o FROID Explica na prática</h2>
+    <p class="section-lead">Veja a demonstração interativa ou converse com o time sobre um piloto.</p>
+    <div class="hero-actions">
+      <a class="btn btn-solid" href="demonstracao.html">Ver demonstração</a>
+      <a class="btn btn-ghost" href="profissionais.html">Recursos para profissionais</a>
+      <a class="btn btn-ghost" href="sobre-contato.html">Falar sobre um piloto</a>
+    </div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="foot-grid">
+      <div>
+        <h5>FROID</h5>
+        <p style="max-width:340px; color:rgba(248,250,252,0.55);">Frequency Recognition of Internal Dynamics. Ferramenta de apoio à escuta clínica — não substitui avaliação, diagnóstico ou julgamento profissional.</p>
+      </div>
+      <div>
+        <h5>Navegação</h5>
+        <ul>
+          <li><a href="index.html">Início</a></li>
+          <li><a href="ciencia.html">Ciência</a></li>
+          <li><a href="tecnologia.html">Tecnologia</a></li>
+          <li><a href="froid-explica.html">FROID Explica</a></li>
+          <li><a href="etica.html">Ética</a></li>
+          <li><a href="seguranca.html">Segurança</a></li>
+          <li><a href="profissionais.html">Profissionais</a></li>
+          <li><a href="precos.html">Preços</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Suporte</h5>
+        <ul>
+          <li><a href="faq.html">Perguntas Frequentes</a></li>
+          <li><a href="glossario.html">Glossário</a></li>
+          <li><a href="demonstracao.html">Demonstração</a></li>
+          <li><a href="sobre-contato.html">Sobre &amp; Contato</a></li>
+          <li><a href="termos.html">Termos de Uso</a></li>
+          <li><a href="privacidade.html">Política de Privacidade</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Acesso</h5>
+        <ul>
+          <li><a href="https://www.froid.com.br/login">Entrar no FROID</a></li>
+          <li><a href="https://www.froid.com.br/cadastro">Cadastrar no FROID</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">© 2026 FROID. O FROID Explica é ferramenta de apoio; respostas de IA não constituem diagnóstico.</div>
+  </div>
+</footer>
+
+<script src="site-assets/script.js"></script>
+</body>
+</html>

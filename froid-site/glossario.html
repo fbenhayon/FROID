@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Glossário — FROID</title>
+<meta name="description" content="Glossário clínico e técnico do FROID: IPM, IDM, MFCC, F0, FACS, Action Units, 12 Zonas e demais termos em linguagem acessível." />
+<link rel="stylesheet" href="site-assets/style.css" />
+<style>
+  .gloss-controls { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:28px; }
+  .gloss-search {
+    flex:1; min-width:220px; padding:11px 16px; border:1px solid var(--border);
+    border-radius:999px; font-size:0.95rem; font-family:var(--font);
+  }
+  .gloss-search:focus { outline:2px solid var(--froid-azul); outline-offset:1px; }
+  .gloss-list { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  @media (max-width:760px){ .gloss-list { grid-template-columns:1fr; } }
+  .gloss-item {
+    background:#1e293b; border:1px solid #334155; border-radius:var(--radius);
+    padding:18px 20px; box-shadow:0 1px 2px rgba(15,23,42,0.04);
+  }
+  .gloss-item dt { font-weight:800; color:#f8fafc; font-size:1.02rem; margin-bottom:4px; }
+  .gloss-item dd { margin:0; color:var(--froid-cinza); font-size:0.93rem; line-height:1.6; }
+  .gloss-item .cat { font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--froid-azul); }
+  .gloss-empty { color:var(--froid-cinza); padding:20px 0; display:none; }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="nav-row">
+    <a class="brand" href="index.html"><img class="brand-logo" src="site-assets/img/froid-logo.png" alt="FROID" /></a>
+    <nav class="nav-links">
+      <a href="index.html">Início</a>
+      <a href="ciencia.html">Ciência</a>
+      <a href="tecnologia.html">Tecnologia</a>
+      <a href="froid-explica.html">FROID Explica</a>
+      <a href="etica.html">Ética</a>
+      <a href="seguranca.html">Segurança</a>
+      <a href="profissionais.html">Profissionais</a>
+      <a href="precos.html">Preços</a>
+    </nav>
+    <div class="nav-actions">
+      <a class="btn btn-ghost" href="https://www.froid.com.br/login">Entrar no FROID</a>
+      <a class="btn btn-solid" href="https://www.froid.com.br/cadastro">Cadastrar no FROID</a>
+    </div>
+  </div>
+</header>
+
+<section class="hero" style="padding:64px 0 56px;">
+  <div class="container">
+    <p class="section-kicker" style="color:#93c5fd;">Glossário</p>
+    <h1 style="font-size:2.1rem;">Os termos do FROID em linguagem clara</h1>
+    <p class="lead">Uma referência rápida para clínicos e curiosos técnicos. Onde um termo é ciência consolidada, dizemos; onde é framework proprietário FROID, também.</p>
+  </div>
+</section>
+
+<section class="block">
+  <div class="container">
+    <div class="gloss-controls">
+      <input type="text" id="glossSearch" class="gloss-search" placeholder="Buscar termo (ex.: IPM, MFCC, Action Unit)…" aria-label="Buscar termo no glossário" />
+    </div>
+
+    <dl class="gloss-list" id="glossList">
+      <div class="gloss-item"><span class="cat">Índice proprietário</span><dt>IPM — Índice de Potência Multimodal</dt><dd>O "velocímetro" da energia da sessão: quantifica, de 0 a 100, a intensidade expressiva e a vitalidade psicomotora do paciente, fundindo voz, face e semântica. Queda sustentada sugere letargia; picos, hiperativação.</dd></div>
+      <div class="gloss-item"><span class="cat">Índice proprietário</span><dt>IDM — Índice de Desvio Multimodal</dt><dd>A "bússola" da coerência: avalia se as reações do paciente são congruentes com o conteúdo. Aponta incongruências entre fala e expressão facial (dissonância), sinalizando "pontos quentes" emocionais.</dd></div>
+      <div class="gloss-item"><span class="cat">Acústica · ciência</span><dt>MFCC — Coeficientes Cepstrais de Frequência Mel</dt><dd>Representação matemática do timbre da voz, amplamente usada em processamento de fala. O FROID acompanha o MFCC7 e o MFCC9 e suas variações no tempo.</dd></div>
+      <div class="gloss-item"><span class="cat">Acústica · ciência</span><dt>MFCC7 / MFCC9</dt><dd>Coeficientes específicos que, no estudo-âncora (Zhao et al., 2022), se associaram à depressão (MFCC7) e à ansiedade somática (MFCC9).</dd></div>
+      <div class="gloss-item"><span class="cat">Acústica · ciência</span><dt>Δ e ΔΔ (delta e delta-delta)</dt><dd>Primeira e segunda derivadas no tempo de um coeficiente — a "velocidade" e a "aceleração" da mudança. O ΔΔMFCC9 é lido como aceleração da tensão na laringe.</dd></div>
+      <div class="gloss-item"><span class="cat">Acústica · ciência</span><dt>F0 — Frequência Fundamental</dt><dd>A altura (pitch) da voz. Menor variabilidade de F0 (fala monótona) é um marcador estudado de retardo psicomotor.</dd></div>
+      <div class="gloss-item"><span class="cat">Acústica · ciência</span><dt>ZCR — Taxa de Cruzamento por Zero</dt><dd>Quantas vezes o sinal de áudio cruza o zero por unidade de tempo; um indicador simples de conteúdo de frequência e ruído.</dd></div>
+      <div class="gloss-item"><span class="cat">Acústica · proxy interno</span><dt>Jitter / Shimmer (proxy)</dt><dd>Instabilidade de frequência (jitter) e de amplitude (shimmer) da voz. No FROID são índices proxy normalizados, não os valores clínicos clássicos de Praat.</dd></div>
+      <div class="gloss-item"><span class="cat">Acústica · ciência</span><dt>HNR — Relação Harmônico-Ruído</dt><dd>Mede quanto da voz é som harmônico versus ruído. Usada como Quality Gate: HNR baixo indica áudio degradado e reduz a confiabilidade do canal vocal.</dd></div>
+      <div class="gloss-item"><span class="cat">Face · ciência</span><dt>FACS — Facial Action Coding System</dt><dd>Sistema padrão-ouro para descrever movimentos faciais em unidades objetivas (Action Units), independentemente de interpretação emocional.</dd></div>
+      <div class="gloss-item"><span class="cat">Face · ciência</span><dt>AU — Action Unit (Unidade de Ação)</dt><dd>Cada músculo ou grupo muscular facial codificado pelo FACS. Ex.: AU6 (contração ao redor dos olhos) e AU12 (elevação dos cantos da boca).</dd></div>
+      <div class="gloss-item"><span class="cat">Face · ciência</span><dt>Onset · Apex · Offset</dt><dd>As três fases temporais de uma expressão: início, pico e término. Rastreá-las ajuda a distinguir expressões espontâneas de voluntárias.</dd></div>
+      <div class="gloss-item"><span class="cat">Sinal · ciência</span><dt>FFT — Transformada Rápida de Fourier</dt><dd>Algoritmo que decompõe o som em suas frequências componentes. É a base física por trás da energia espectral usada nas 12 Zonas.</dd></div>
+      <div class="gloss-item"><span class="cat">Método FROID</span><dt>Linha de Base Dinâmica (calibração de 60s)</dt><dd>A "impressão digital biológica" do paciente, medida no primeiro minuto de cada sessão. Todas as leituras seguintes são desvios relativos a ela — o principal mecanismo de mitigação de viés.</dd></div>
+      <div class="gloss-item"><span class="cat">Método FROID</span><dt>Estabilização Clínica da Tela</dt><dd>Módulo proprietário que separa processamento de apresentação: o FROID segue processando na cadência de 1 segundo, mas a tela exibe uma janela clínica configurável (tempo real, 1, 3, 5 ou 7 min; padrão 5 min) para dar ao profissional tempo de avaliar todas as métricas. Alertas críticos rompem a estabilização e atualizam imediatamente.</dd></div>
+      <div class="gloss-item"><span class="cat">Método FROID</span><dt>Janela clínica móvel / Microjanela técnica</dt><dd>A cada 1 minuto o FROID fecha uma microjanela técnica; a tela consolida as últimas 5 por média ponderada temporal (10% · 15% · 20% · 25% · 30%, do minuto mais antigo ao atual) — estabilidade visual sem perder a reação gradual ao presente.</dd></div>
+      <div class="gloss-item"><span class="cat">Método FROID</span><dt>Trava de pico</dt><dd>Regra de consolidação dos riscos clínicos na janela estabilizada: um pico crítico recente não desaparece da tela imediatamente, mesmo que a média ponderada já tenha baixado.</dd></div>
+      <div class="gloss-item"><span class="cat">Método FROID</span><dt>D_energia — Desvio Energético Relativo</dt><dd>Quanto a energia atual de uma zona se afasta da linha de base do próprio paciente. Garante que traços biológicos estáveis não sejam lidos como sintoma.</dd></div>
+      <div class="gloss-item"><span class="cat">Método FROID</span><dt>M_fac — Multiplicador Facial de Dissonância</dt><dd>Fator (até 2,5) que amplifica o IDM quando a face contradiz a voz — por exemplo, sorriso voluntário (AU12 sem AU6) durante conteúdo de tensão vocal.</dd></div>
+      <div class="gloss-item"><span class="cat">Framework proprietário</span><dt>12 Zonas de Percepção</dt><dd>Interface visual que distribui a energia vocal em 12 bandas associadas a temas clínicos. A física é real; o mapeamento tema↔faixa é heurística de produto, não neurociência publicada.</dd></div>
+      <div class="gloss-item"><span class="cat">Clínico · FROID</span><dt>Dissonância Somatoafetiva (Falsa Calma)</dt><dd>Estado em que o estresse foi reprimido da face mas continua tensionando a laringe — uma calma aparente que o IDM ajuda a revelar.</dd></div>
+      <div class="gloss-item"><span class="cat">Arquitetura</span><dt>Edge AI (Processamento de Borda)</dt><dd>O áudio e o vídeo são processados localmente, no computador do consultório, sem enviar arquivos biométricos brutos para a nuvem.</dd></div>
+      <div class="gloss-item"><span class="cat">Privacidade</span><dt>k-anonymity (k ≥ 50)</dt><dd>Técnica que garante que cada registro anônimo seja indistinguível de pelo menos outros 49, tornando inviável reidentificar um paciente no Data Mart.</dd></div>
+      <div class="gloss-item"><span class="cat">Pesquisa</span><dt>Data Mart Anônimo</dt><dd>Repositório de dados de sessão desidentificados usado para auditar viés e validar estatisticamente as heurísticas do FROID em larga escala.</dd></div>
+    </dl>
+    <p class="gloss-empty" id="glossEmpty">Nenhum termo encontrado. Tente outra palavra.</p>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="foot-grid">
+      <div>
+        <h5>FROID</h5>
+        <p style="max-width:340px; color:rgba(248,250,252,0.55);">Frequency Recognition of Internal Dynamics. Ferramenta de apoio à escuta clínica — não substitui avaliação, diagnóstico ou julgamento profissional.</p>
+      </div>
+      <div>
+        <h5>Navegação</h5>
+        <ul>
+          <li><a href="index.html">Início</a></li>
+          <li><a href="ciencia.html">Ciência</a></li>
+          <li><a href="tecnologia.html">Tecnologia</a></li>
+          <li><a href="froid-explica.html">FROID Explica</a></li>
+          <li><a href="etica.html">Ética</a></li>
+          <li><a href="seguranca.html">Segurança</a></li>
+          <li><a href="profissionais.html">Profissionais</a></li>
+          <li><a href="precos.html">Preços</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Suporte</h5>
+        <ul>
+          <li><a href="faq.html">Perguntas Frequentes</a></li>
+          <li><a href="glossario.html">Glossário</a></li>
+          <li><a href="demonstracao.html">Demonstração</a></li>
+          <li><a href="sobre-contato.html">Sobre &amp; Contato</a></li>
+          <li><a href="termos.html">Termos de Uso</a></li>
+          <li><a href="privacidade.html">Política de Privacidade</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Acesso</h5>
+        <ul>
+          <li><a href="https://www.froid.com.br/login">Entrar no FROID</a></li>
+          <li><a href="https://www.froid.com.br/cadastro">Cadastrar no FROID</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">© 2026 FROID.</div>
+  </div>
+</footer>
+
+<script>
+  (function(){
+    var input = document.getElementById('glossSearch');
+    var items = Array.prototype.slice.call(document.querySelectorAll('#glossList .gloss-item'));
+    var empty = document.getElementById('glossEmpty');
+    input.addEventListener('input', function(){
+      var q = input.value.trim().toLowerCase();
+      var shown = 0;
+      items.forEach(function(it){
+        var match = it.textContent.toLowerCase().indexOf(q) !== -1;
+        it.style.display = match ? '' : 'none';
+        if (match) shown++;
+      });
+      empty.style.display = shown === 0 ? 'block' : 'none';
+    });
+  })();
+</script>
+<script src="site-assets/script.js"></script>
+</body>
+</html>
