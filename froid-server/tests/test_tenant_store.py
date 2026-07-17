@@ -1,0 +1,37 @@
+from pathlib import Path
+import sys
+import unittest
+
+
+SERVER_DIR = Path(__file__).resolve().parents[1]
+if str(SERVER_DIR) not in sys.path:
+    sys.path.insert(0, str(SERVER_DIR))
+
+from tenant_store import TenantStore, normalize_email, stable_uuid  # noqa: E402
+
+
+class TenantStoreUnitTests(unittest.TestCase):
+    def test_stable_uuid_is_deterministic_and_scoped_by_kind(self):
+        first = stable_uuid("patient", "org-1", "Patient-1")
+        self.assertEqual(first, stable_uuid("patient", "ORG-1", "patient-1"))
+        self.assertNotEqual(first, stable_uuid("report", "org-1", "patient-1"))
+
+    def test_normalize_email(self):
+        self.assertEqual(normalize_email("  Pro@FROID.COM "), "pro@froid.com")
+
+    def test_legacy_mode_never_requires_database(self):
+        store = TenantStore("legacy", "", SERVER_DIR / "missing.sql")
+        self.assertFalse(store.enabled)
+        self.assertEqual(store.sync_all({}, {}), {})
+
+    def test_dual_mode_requires_database_url(self):
+        with self.assertRaises(ValueError):
+            TenantStore("dual", "", SERVER_DIR / "missing.sql")
+
+    def test_phase_one_rejects_unsafe_cutover_mode(self):
+        with self.assertRaises(ValueError):
+            TenantStore("postgres", "postgresql://unused", SERVER_DIR / "missing.sql")
+
+
+if __name__ == "__main__":
+    unittest.main()

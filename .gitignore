@@ -12,3 +12,6 @@ froid-dashboard/.env.local
 *.log
 .codex-tmp/
 .claude/
+.codex-backups/
+backups/postgres/*.dump
+backups/postgres/*.sql

@@ -36,8 +36,26 @@ services:
       - FROID_ANALYTICS_MIN_K=${FROID_ANALYTICS_MIN_K:-50}
       - FROID_SESSION_REPORTS_PATH=${FROID_SESSION_REPORTS_PATH:-/data/session_reports.json}
       - FROID_IDENTITY_STATE_PATH=${FROID_IDENTITY_STATE_PATH:-/data/identity_state.json}
+      - FROID_PERSISTENCE_MODE=${FROID_PERSISTENCE_MODE:-legacy}
+      - FROID_DATABASE_URL=${FROID_DATABASE_URL:-}
     volumes:
       - ./data:/data
+    restart: unless-stopped
+  froid-postgres:
+    image: postgres:16-alpine
+    profiles: ["multitenant"]
+    environment:
+      - POSTGRES_DB=${FROID_POSTGRES_DB:-froid}
+      - POSTGRES_USER=${FROID_POSTGRES_USER:-froid}
+      - POSTGRES_PASSWORD=${FROID_POSTGRES_PASSWORD:-}
+    volumes:
+      - froid_postgres_data:/var/lib/postgresql/data
+      - ./backups/postgres:/backups
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
     restart: unless-stopped
   froid-frontend:
     build: ./froid-dashboard
@@ -48,3 +66,4 @@ services:
 volumes:
   caddy_data:
   caddy_config:
+  froid_postgres_data:
