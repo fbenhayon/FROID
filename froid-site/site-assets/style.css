@@ -201,8 +201,9 @@ header.site-header {
 /* ---------- Sections ---------- */
 section.block { padding: 72px 0; border-bottom: 1px solid var(--border); }
 section.block.soft { background: var(--paper-soft); }
-h2.section-title { font-family: var(--font-serif); font-size: 2rem; margin: 0 0 12px; color: #f8fafc; }
-p.section-kicker { text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.78rem; color: var(--froid-azul); font-weight: 700; margin: 0 0 10px; }
+/* Títulos de seção centralizados em todas as páginas (kicker acompanha para manter o bloco coeso) */
+h2.section-title { font-family: var(--font-serif); font-size: 2rem; margin: 0 0 12px; color: #f8fafc; text-align: center; }
+p.section-kicker { text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.78rem; color: var(--froid-azul); font-weight: 700; margin: 0 0 10px; text-align: center; }
 p.section-lead { color: var(--froid-cinza); max-width: 720px; font-size: 1.05rem; margin-bottom: 40px; }
 
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start; }
