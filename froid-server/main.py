@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import hashlib
 import io
 import json
+import logging
 import os
 import re
 import secrets
@@ -17,9 +18,11 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 from froid_core import SessionState, MockBiometricStream
 from froid_metrics_engine import calculate_report_metrics
+from tenant_store import TenantStore
 import httpx
 
 app = FastAPI(title="FROID Fusion Server", version="3.0.0")
+LOGGER = logging.getLogger("froid.persistence")
 
 app.add_middleware(
     CORSMiddleware,
@@ -107,6 +110,7 @@ FROID_LOCAL_AUTH_EMAILS = {
 }
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
 STRIPE_CURRENCY = os.getenv("STRIPE_CURRENCY", "brl")
+TENANT_STORE = TenantStore.from_env()
 
 SESSION_USERS = {}
 PATIENT_PORTAL_SESSIONS: Dict[str, dict] = {}
@@ -283,6 +287,7 @@ def _save_identity_state() -> None:
         with open(tmp_path, "w", encoding="utf-8") as state_file:
             json.dump(_identity_state_snapshot(), state_file, ensure_ascii=False, indent=2)
         os.replace(tmp_path, FROID_IDENTITY_STATE_PATH)
+    _mirror_legacy_state_to_postgres()
 
 
 _load_identity_state()
@@ -1093,11 +1098,11 @@ def _validate_duckdb_select(sql_text: str) -> str:
     sql = _strip_sql(sql_text)
     lowered = sql.lower()
     if not re.match(r"^\s*(select|with)\b", lowered):
-        raise HTTPException(status_code=400, detail="SQL bloqueado: apenas SELECT e WITH sao permitidos")
+        raise HTTPException(status_code=400, detail="SQL bloqueado: apenas SELECT e WITH são permitidos")
     if ";" in sql:
-        raise HTTPException(status_code=400, detail="SQL bloqueado: multiplas instrucoes nao sao permitidas")
+        raise HTTPException(status_code=400, detail="SQL bloqueado: multiplas instrucoes não são permitidas")
     if SQL_FORBIDDEN_RE.search(sql):
-        raise HTTPException(status_code=400, detail="SQL bloqueado por conter comando nao permitido")
+        raise HTTPException(status_code=400, detail="SQL bloqueado por conter comando não permitido")
     allowed_tables = {"anonymous_sessions", "anonymous_session_cuts"}
     if not any(table in lowered for table in allowed_tables):
         raise HTTPException(
@@ -1347,8 +1352,26 @@ def _load_session_reports() -> Dict[str, dict]:
 
 def _save_session_reports(reports: Dict[str, dict]) -> None:
     os.makedirs(os.path.dirname(FROID_SESSION_REPORTS_PATH), exist_ok=True)
-    with open(FROID_SESSION_REPORTS_PATH, "w", encoding="utf-8") as report_file:
+    tmp_path = f"{FROID_SESSION_REPORTS_PATH}.tmp"
+    with open(tmp_path, "w", encoding="utf-8") as report_file:
         json.dump(reports, report_file, ensure_ascii=False, indent=2)
+    os.replace(tmp_path, FROID_SESSION_REPORTS_PATH)
+    _mirror_legacy_state_to_postgres(reports)
+
+
+def _mirror_legacy_state_to_postgres(reports: Optional[Dict[str, dict]] = None) -> None:
+    """Best-effort Phase 1 mirror; legacy JSON remains authoritative."""
+    if not TENANT_STORE.enabled:
+        return
+    try:
+        TENANT_STORE.sync_all(
+            _identity_state_snapshot(),
+            reports if reports is not None else _load_session_reports(),
+        )
+    except Exception:
+        LOGGER.exception(
+            "PostgreSQL mirror failed; the authoritative legacy write was preserved"
+        )
 
 
 def _professional_access_status(email: str) -> dict:
@@ -3024,7 +3047,7 @@ def _current_user_from_request(request: Request) -> Optional[dict]:
 def _require_current_user(request: Request) -> dict:
     user = _current_user_from_request(request)
     if not user:
-        raise HTTPException(status_code=401, detail="nao autenticado")
+        raise HTTPException(status_code=401, detail="não autenticado")
     return user
 
 
@@ -3043,7 +3066,7 @@ def _current_patient_from_request(request: Request) -> Optional[dict]:
 def _require_current_patient(request: Request) -> dict:
     patient_session = _current_patient_from_request(request)
     if not patient_session:
-        raise HTTPException(status_code=401, detail="paciente nao autenticado")
+        raise HTTPException(status_code=401, detail="paciente não autenticado")
     return patient_session
 
 
@@ -3169,7 +3192,7 @@ async def _refresh_google_calendar_token(email: str, connection: dict) -> dict:
 async def _calendar_access_token(email: str) -> str:
     connection = GOOGLE_CALENDAR_CONNECTIONS.get(_normalize_email(email))
     if not connection:
-        raise HTTPException(status_code=404, detail="Google Agenda nao conectado")
+        raise HTTPException(status_code=404, detail="Google Agenda não conectado")
     expires_at = float(connection.get("expires_at") or 0)
     if expires_at <= datetime.now(timezone.utc).timestamp() + 60:
         connection = await _refresh_google_calendar_token(email, connection)
@@ -3263,15 +3286,15 @@ def _verify_local_login(body: dict) -> dict:
     email = (body.get("email") or "").strip().lower()
     password = body.get("password") or ""
     if not email:
-        raise HTTPException(status_code=400, detail="email obrigatorio")
+        raise HTTPException(status_code=400, detail="email obrigatório")
 
     if FROID_LOCAL_AUTH_PASSWORD:
         if not secrets.compare_digest(password, FROID_LOCAL_AUTH_PASSWORD):
-            raise HTTPException(status_code=401, detail="senha invalida")
+            raise HTTPException(status_code=401, detail="senha inválida")
         if FROID_LOCAL_AUTH_EMAILS and email not in FROID_LOCAL_AUTH_EMAILS:
-            raise HTTPException(status_code=403, detail="email nao autorizado")
+            raise HTTPException(status_code=403, detail="email não autorizado")
     elif not GOOGLE_AUTH_DEV_FALLBACK:
-        raise HTTPException(status_code=400, detail="Credencial Google obrigatoria")
+        raise HTTPException(status_code=400, detail="Credencial Google obrigatória")
 
     return {
         "email": email,
@@ -3282,7 +3305,7 @@ def _verify_local_login(body: dict) -> dict:
 
 async def _verify_google_credential(credential: str) -> dict:
     if not GOOGLE_CLIENT_ID:
-        raise HTTPException(status_code=503, detail="GOOGLE_CLIENT_ID nao configurado")
+        raise HTTPException(status_code=503, detail="GOOGLE_CLIENT_ID não configurado")
 
     async with httpx.AsyncClient(timeout=10.0) as client:
         response = await client.get(
@@ -3291,13 +3314,13 @@ async def _verify_google_credential(credential: str) -> dict:
         )
 
     if response.status_code != 200:
-        raise HTTPException(status_code=401, detail="Credencial Google invalida")
+        raise HTTPException(status_code=401, detail="Credencial Google inválida")
 
     profile = response.json()
     if profile.get("aud") != GOOGLE_CLIENT_ID:
         raise HTTPException(status_code=401, detail="Credencial Google de outro aplicativo")
     if str(profile.get("email_verified", "")).lower() != "true":
-        raise HTTPException(status_code=401, detail="E-mail Google nao verificado")
+        raise HTTPException(status_code=401, detail="E-mail Google não verificado")
 
     email = (profile.get("email") or "").strip().lower()
     if not email:
@@ -3369,7 +3392,12 @@ async def websocket_rtc_signaling(websocket: WebSocket, session_id: str, role: s
 
 
 @app.get("/health")
-def health(): return {"status": "ok", "active_sessions": len(manager.active_sessions)}
+def health():
+    return {
+        "status": "ok",
+        "active_sessions": len(manager.active_sessions),
+        "persistence": TENANT_STORE.status(),
+    }
 
 @app.post("/session/create")
 def create_session(): return {"session_id": str(uuid.uuid4())}
@@ -3393,17 +3421,17 @@ async def create_session_invite(request: Request):
     session_id = str(body.get("session_id") or f"froid-{uuid.uuid4().hex[:12]}")
 
     if not patient_name:
-        raise HTTPException(status_code=400, detail="Nome do paciente obrigatorio")
+        raise HTTPException(status_code=400, detail="Nome do paciente obrigatório")
     if not patient_email and not patient_phone:
         raise HTTPException(status_code=400, detail="Informe email ou WhatsApp do paciente")
     if payment_mode not in {"package", "single"}:
         raise HTTPException(status_code=400, detail="payment_mode deve ser package ou single")
     if session_value_cents <= 0:
-        raise HTTPException(status_code=400, detail="Informe o valor da sessao")
+        raise HTTPException(status_code=400, detail="Informe o valor da sessão")
     if payment_mode == "package" and package_sessions <= 0:
-        raise HTTPException(status_code=400, detail="Informe o numero de sessoes do pacote")
+        raise HTTPException(status_code=400, detail="Informe o número de sessões do pacote")
     if payment_mode == "single" and not pix_code:
-        raise HTTPException(status_code=400, detail="Codigo PIX obrigatorio para sessao avulsa")
+        raise HTTPException(status_code=400, detail="Código PIX obrigatório para sessão avulsa")
 
     contact_key = _patient_contact_key(patient_email, patient_phone)
     known_patient_id = PATIENTS_BY_CONTACT.get(contact_key)
@@ -3536,7 +3564,7 @@ async def update_professional_receivable(request: Request):
     action = str(body.get("action") or "").strip().lower()
     received_cents = body.get("received_cents")
     if not patient_key:
-        raise HTTPException(status_code=400, detail="patient_key obrigatorio")
+        raise HTTPException(status_code=400, detail="patient_key obrigatório")
     if action not in {"paid", "pending", "partial"}:
         raise HTTPException(status_code=400, detail="action deve ser paid, pending ou partial")
 
@@ -3548,7 +3576,7 @@ async def update_professional_receivable(request: Request):
         and _can_access_invite_finance(invite, owner_email)
     ]
     if not matching:
-        raise HTTPException(status_code=404, detail="Recebimento nao encontrado")
+        raise HTTPException(status_code=404, detail="Recebimento não encontrado")
 
     remaining_partial = max(0, _local_int(received_cents)) if action == "partial" else 0
     now = _utc_now_iso()
@@ -3676,7 +3704,7 @@ async def admin_professional_detail(professional_email: str, request: Request):
     email = _normalize_email(unquote(professional_email))
     profile = PROFESSIONAL_PROFILES.get(email)
     if not isinstance(profile, dict):
-        raise HTTPException(status_code=404, detail="profissional nao encontrado")
+        raise HTTPException(status_code=404, detail="profissional não encontrado")
     _record_admin_audit_event(
         request,
         action="admin_open_professional",
@@ -3774,7 +3802,7 @@ async def admin_professional_detail(professional_email: str, request: Request):
 async def get_session_invite(token: str):
     invite = SESSION_INVITES.get(token)
     if not invite:
-        raise HTTPException(status_code=404, detail="Convite nao encontrado")
+        raise HTTPException(status_code=404, detail="Convite não encontrado")
     _record_session_event("invite_opened", invite)
     return invite
 
@@ -3783,13 +3811,14 @@ async def get_session_invite(token: str):
 async def accept_session_invite(token: str, request: Request):
     invite = SESSION_INVITES.get(token)
     if not invite:
-        raise HTTPException(status_code=404, detail="Convite nao encontrado")
+        raise HTTPException(status_code=404, detail="Convite não encontrado")
     if invite.get("status") == "accepted":
         return invite
 
     body = await request.json()
     patient_name = str(body.get("name") or invite.get("patient_name") or "").strip()
     patient_email = _normalize_email(body.get("email") or invite.get("patient_email") or "")
+    email_confirm = _normalize_email(body.get("email_confirm") or body.get("emailConfirmation") or "")
     patient_phone = _digits_only(body.get("phone") or invite.get("patient_phone") or "")
     document = _digits_only(body.get("document") or "")
     birth_date = str(body.get("birth_date") or "").strip()
@@ -3806,13 +3835,15 @@ async def accept_session_invite(token: str, request: Request):
     if missing:
         raise HTTPException(status_code=400, detail=f"Consentimentos obrigatorios ausentes: {', '.join(missing)}")
     if not patient_name:
-        raise HTTPException(status_code=400, detail="Nome do paciente obrigatorio")
-    if not patient_email and not patient_phone:
-        raise HTTPException(status_code=400, detail="Informe email ou WhatsApp do paciente")
+        raise HTTPException(status_code=400, detail="Nome do paciente obrigatório")
+    if not patient_email:
+        raise HTTPException(status_code=400, detail="E-mail do paciente obrigatório")
+    if email_confirm != patient_email:
+        raise HTTPException(status_code=400, detail="Confirmação de e-mail do paciente não confere")
     if not document:
-        raise HTTPException(status_code=400, detail="CPF/documento obrigatorio como chave de conferencia do paciente")
+        raise HTTPException(status_code=400, detail="CPF/documento obrigatório como chave de conferência do paciente")
     if len(password) < 8:
-        raise HTTPException(status_code=400, detail="Senha do paciente obrigatoria com no minimo 8 caracteres")
+        raise HTTPException(status_code=400, detail="Senha do paciente obrigatória com no minimo 8 caracteres")
 
     contact_key = _patient_contact_key(patient_email, patient_phone)
     patient_id = (
@@ -3886,11 +3917,11 @@ async def join_patient_session(session_id: str, request: Request):
     invite_token = str(body.get("invite_token") or "").strip()
     invite = SESSION_INVITES.get(invite_token)
     if not invite or str(invite.get("session_id") or "") != session_id:
-        raise HTTPException(status_code=404, detail="Sessao do paciente nao encontrada")
+        raise HTTPException(status_code=404, detail="Sessão do paciente não encontrada")
     if invite.get("status") != "accepted":
         raise HTTPException(
             status_code=403,
-            detail="Confirme o cadastro e os consentimentos antes de entrar na sessao",
+            detail="Confirme o cadastro e os consentimentos antes de entrar na sessão",
         )
 
     now = _utc_now_iso()
@@ -3926,9 +3957,9 @@ async def patient_portal_login(payload: PatientPortalLoginRequest):
         )
     patient = _find_registered_patient_by_document(document)
     if not patient:
-        raise HTTPException(status_code=401, detail="Paciente nao localizado com o CPF/documento informado")
+        raise HTTPException(status_code=401, detail="Paciente não localizado com o CPF/documento informado")
     if not _verify_patient_password(patient, password):
-        raise HTTPException(status_code=401, detail="CPF/documento ou senha invalido")
+        raise HTTPException(status_code=401, detail="CPF/documento ou senha inválido")
     return _issue_patient_portal_session(patient)
 
 
@@ -3976,7 +4007,7 @@ async def patient_portal_update_profile(payload: PatientPortalProfileUpdate, req
                 patient = candidate
                 break
     if not isinstance(patient, dict):
-        raise HTTPException(status_code=404, detail="Cadastro do paciente nao encontrado para atualizacao")
+        raise HTTPException(status_code=404, detail="Cadastro do paciente não encontrado para atualização")
 
     now = _utc_now_iso()
     patient.update(
@@ -4156,10 +4187,10 @@ async def google_calendar_select_calendar(request: Request):
     calendar_id = str(body.get("calendar_id") or "").strip()
     calendar_summary = str(body.get("calendar_summary") or "").strip()
     if not calendar_id:
-        raise HTTPException(status_code=400, detail="calendar_id obrigatorio")
+        raise HTTPException(status_code=400, detail="calendar_id obrigatório")
     connection = GOOGLE_CALENDAR_CONNECTIONS.get(email)
     if not connection:
-        raise HTTPException(status_code=404, detail="Google Agenda nao conectado")
+        raise HTTPException(status_code=404, detail="Google Agenda não conectado")
     connection.update(
         {
             "selected_calendar_id": calendar_id,
@@ -4310,7 +4341,7 @@ async def access_plans(currency: str = ""):
 async def get_professional_profile(request: Request):
     user = _current_user_from_request(request)
     if not user:
-        raise HTTPException(status_code=401, detail="nao autenticado")
+        raise HTTPException(status_code=401, detail="não autenticado")
 
     email = _normalize_email(user.get("email") or "")
     profile = PROFESSIONAL_PROFILES.get(email)
@@ -4325,16 +4356,16 @@ async def get_professional_profile(request: Request):
 async def save_professional_profile(request: Request):
     user = _current_user_from_request(request)
     if not user:
-        raise HTTPException(status_code=401, detail="nao autenticado")
+        raise HTTPException(status_code=401, detail="não autenticado")
 
     body = await request.json()
     owner_email = _normalize_email(user.get("email") or body.get("email") or "")
     if not owner_email:
-        raise HTTPException(status_code=400, detail="email profissional obrigatorio")
+        raise HTTPException(status_code=400, detail="email profissional obrigatório")
 
     account_type = str(body.get("account_type") or "individual").strip().lower()
     if account_type not in {"individual", "organization"}:
-        raise HTTPException(status_code=400, detail="tipo de cadastro invalido")
+        raise HTTPException(status_code=400, detail="tipo de cadastro inválido")
 
     professionals = body.get("professionals") if isinstance(body.get("professionals"), list) else []
     patient_base_access = (
@@ -4350,7 +4381,7 @@ async def save_professional_profile(request: Request):
         else profile_fields.get("cpf") or body.get("document") or ""
     )
     if not professional_cpf:
-        raise HTTPException(status_code=400, detail="CPF obrigatorio como chave de conferencia do profissional")
+        raise HTTPException(status_code=400, detail="CPF obrigatório como chave de conferência do profissional")
 
     now = datetime.now(timezone.utc).isoformat()
     existing = PROFESSIONAL_PROFILES.get(owner_email) or {}
@@ -4400,13 +4431,13 @@ async def save_professional_profile(request: Request):
 async def create_billing_checkout(request: Request):
     user = _current_user_from_request(request)
     if not user:
-        raise HTTPException(status_code=401, detail="nao autenticado")
+        raise HTTPException(status_code=401, detail="não autenticado")
 
     body = await request.json()
     plan_id = str(body.get("plan_id") or "").strip()
     plan = FROID_ACCESS_PLANS.get(plan_id)
     if not plan:
-        raise HTTPException(status_code=400, detail="plano FROID invalido")
+        raise HTTPException(status_code=400, detail="plano FROID inválido")
 
     base_url = _public_app_base_url(body.get("base_url") or "")
     purchase_type = str(body.get("purchase_type") or "onboarding").strip().lower()
@@ -4543,14 +4574,14 @@ async def create_billing_checkout(request: Request):
 async def confirm_billing_checkout(request: Request):
     user = _current_user_from_request(request)
     if not user:
-        raise HTTPException(status_code=401, detail="nao autenticado")
+        raise HTTPException(status_code=401, detail="não autenticado")
     if not STRIPE_SECRET_KEY:
-        raise HTTPException(status_code=409, detail="Stripe nao configurado")
+        raise HTTPException(status_code=409, detail="Stripe não configurado")
 
     body = await request.json()
     checkout_session_id = str(body.get("checkout_session_id") or "").strip()
     if not checkout_session_id:
-        raise HTTPException(status_code=400, detail="checkout_session_id obrigatorio")
+        raise HTTPException(status_code=400, detail="checkout_session_id obrigatório")
 
     async with httpx.AsyncClient(timeout=20.0) as client:
         response = await client.get(
@@ -4566,9 +4597,9 @@ async def confirm_billing_checkout(request: Request):
     email = _normalize_email(metadata.get("professional_email") or data.get("customer_email") or "")
     current_email = _normalize_email(user.get("email") or "")
     if email != current_email:
-        raise HTTPException(status_code=403, detail="checkout nao pertence ao profissional autenticado")
+        raise HTTPException(status_code=403, detail="checkout não pertence ao profissional autenticado")
     if data.get("payment_status") != "paid" and data.get("status") != "complete":
-        raise HTTPException(status_code=409, detail="pagamento Stripe ainda nao confirmado")
+        raise HTTPException(status_code=409, detail="pagamento Stripe ainda não confirmado")
 
     profile = _apply_session_credit_purchase(
         email=email,
@@ -4610,7 +4641,7 @@ async def copilot_query_alias(payload: FroidExplicaQuery):
 async def list_session_reports(request: Request):
     user = _current_user_from_request(request)
     if not user:
-        raise HTTPException(status_code=401, detail="nao autenticado")
+        raise HTTPException(status_code=401, detail="não autenticado")
     owner_email = _normalize_email(user.get("email") or "")
     reports = [
         _enrich_report_patient(report)
@@ -4628,12 +4659,12 @@ async def list_session_reports(request: Request):
 async def save_session_report(request: Request):
     user = _current_user_from_request(request)
     if not user:
-        raise HTTPException(status_code=401, detail="nao autenticado")
+        raise HTTPException(status_code=401, detail="não autenticado")
     owner_email = _normalize_email(user.get("email") or "")
     report = await request.json()
     session_id = str(report.get("sessionId") or report.get("session_id") or "").strip()
     if not session_id:
-        raise HTTPException(status_code=400, detail="sessionId obrigatorio")
+        raise HTTPException(status_code=400, detail="sessionId obrigatório")
     report["professionalEmail"] = owner_email
     report["professional"] = {
         **(report.get("professional") if isinstance(report.get("professional"), dict) else {}),
@@ -4661,12 +4692,12 @@ async def save_session_report(request: Request):
 async def get_session_report_metrics(session_id: str, request: Request):
     user = _current_user_from_request(request)
     if not user:
-        raise HTTPException(status_code=401, detail="nao autenticado")
+        raise HTTPException(status_code=401, detail="não autenticado")
     report = _load_session_reports().get(session_id)
     if not report:
-        raise HTTPException(status_code=404, detail="Relatorio nao encontrado")
+        raise HTTPException(status_code=404, detail="Relatório não encontrado")
     if not _can_access_report(report, user.get("email") or ""):
-        raise HTTPException(status_code=403, detail="Relatorio pertence a outro profissional")
+        raise HTTPException(status_code=403, detail="Relatório pertence a outro profissional")
     report = _enrich_report_patient(report)
     if not report.get("metricsAnalysis"):
         report = _attach_metrics_analysis(report)
@@ -4679,12 +4710,12 @@ async def get_session_report_metrics(session_id: str, request: Request):
 async def get_session_report(session_id: str, request: Request):
     user = _current_user_from_request(request)
     if not user:
-        raise HTTPException(status_code=401, detail="nao autenticado")
+        raise HTTPException(status_code=401, detail="não autenticado")
     report = _load_session_reports().get(session_id)
     if not report:
-        raise HTTPException(status_code=404, detail="Relatorio nao encontrado")
+        raise HTTPException(status_code=404, detail="Relatório não encontrado")
     if not _can_access_report(report, user.get("email") or ""):
-        raise HTTPException(status_code=403, detail="Relatorio pertence a outro profissional")
+        raise HTTPException(status_code=403, detail="Relatório pertence a outro profissional")
     report = _enrich_report_patient(report)
     if not report.get("metricsAnalysis"):
         report = _attach_metrics_analysis(report)
@@ -4695,12 +4726,12 @@ async def get_session_report(session_id: str, request: Request):
 async def delete_session_report(session_id: str, request: Request):
     user = _current_user_from_request(request)
     if not user:
-        raise HTTPException(status_code=401, detail="nao autenticado")
+        raise HTTPException(status_code=401, detail="não autenticado")
     reports = _load_session_reports()
     if session_id not in reports:
-        raise HTTPException(status_code=404, detail="Relatorio nao encontrado")
+        raise HTTPException(status_code=404, detail="Relatório não encontrado")
     if not _can_access_report(reports[session_id], user.get("email") or ""):
-        raise HTTPException(status_code=403, detail="Relatorio pertence a outro profissional")
+        raise HTTPException(status_code=403, detail="Relatório pertence a outro profissional")
     del reports[session_id]
     _save_session_reports(reports)
     return {

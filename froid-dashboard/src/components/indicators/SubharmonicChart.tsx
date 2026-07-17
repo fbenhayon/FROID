@@ -13,7 +13,7 @@ type SubharmonicMetric = {
   band: string;
   value: number;
   color: string;
-  source: "acustico" | "proxy";
+  source: "acústico" | "proxy";
   tooltip: string;
 };
 
@@ -139,63 +139,63 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta }) => {
         label: "Infrassom Nuclear",
         band: "5-12 Hz | Tremor SNA profundo",
         value: tremor5_12,
-        source: acoustic5_12 !== null ? "acustico" : "proxy",
+        source: acoustic5_12 !== null ? "acústico" : "proxy",
         tooltip:
-          "Infrassom Nuclear: leitura da faixa 5-12 Hz, associada a tremor profundo do Sistema Nervoso Autonomo e ativacao inconsciente.",
+          "Infrassom Nuclear: leitura da faixa 5-12 Hz, associada a tremor profundo do Sistema Nervoso Autonomo e ativaÃ§Ã£o inconsciente.",
       },
       {
         id: "limbic_12_20",
         label: "Modulacao limbica",
         band: "12-20 Hz | Reatividade afetiva",
         value: upper12_20,
-        source: acoustic12_20 !== null ? "acustico" : "proxy",
+        source: acoustic12_20 !== null ? "acústico" : "proxy",
         tooltip:
-          "Modulacao Limbica: faixa 12-20 Hz, usada para estimar reatividade afetiva e variacao autonoma ligada a estados emocionais.",
+          "Modulacao Limbica: faixa 12-20 Hz, usada para estimar reatividade afetiva e variação autônoma ligada a estados emocionais.",
       },
       {
         id: "vocal_85_165",
-        label: "Tensao vocal basal",
-        band: "85-165 Hz | Rigidez laringea",
+        label: "Tensão vocal basal",
+        band: "85-165 Hz | Rigidez laríngea",
         value: tension85_165,
-        source: acoustic85_165 !== null ? "acustico" : "proxy",
+        source: acoustic85_165 !== null ? "acústico" : "proxy",
         tooltip:
-          "Tensao Vocal Basal: faixa 85-165 Hz, relacionada a rigidez laringea, hipercontrole vocal e esforco de sustentacao.",
+          "Tensão Vocal Basal: faixa 85-165 Hz, relacionada a rigidez laríngea, hipercontrole vocal e esforco de sustentacao.",
       },
       {
         id: "flooding",
-        label: "Flooding autonomico",
-        band: "5-12 + 85-165 Hz | Colisao autonoma",
+        label: "Flooding autonômico",
+        band: "5-12 + 85-165 Hz | Colisao autônoma",
         value: flooding,
-        source: hasAcoustic ? "acustico" : "proxy",
+        source: hasAcoustic ? "acústico" : "proxy",
         tooltip:
-          "Flooding Autonomico: colisao entre energia 5-12 Hz e tensao vocal basal, indicando sobrecarga neurofisiologica ativa.",
+          "Flooding Autonomico: colisao entre energia 5-12 Hz e tensão vocal basal, indicando sobrecarga neurofisiologica ativa.",
       },
       {
         id: "shutdown",
         label: "Shutdown dissociativo",
-        band: "Queda energetica | Coerencia reduzida",
+        band: "Queda energética | Coerencia reduzida",
         value: shutdown,
-        source: hasAcoustic ? "acustico" : "proxy",
+        source: hasAcoustic ? "acústico" : "proxy",
         tooltip:
-          "Shutdown Dissociativo: queda energetica com reducao de coerencia, sugerindo supressao defensiva, embotamento ou retraimento autonomico.",
+          "Shutdown Dissociativo: queda energética com redução de coerencia, sugerindo supressao defensiva, embotamento ou retraimento autonômico.",
       },
       {
         id: "neurogenic",
         label: "Ressonancia neurogenica",
         band: "20-40 Hz | Descarga vegetativa",
         value: neurogenic,
-        source: acoustic20_40 !== null ? "acustico" : "proxy",
+        source: acoustic20_40 !== null ? "acústico" : "proxy",
         tooltip:
-          "Ressonancia Neurogenica: faixa 20-40 Hz, associada a descarga vegetativa, regulacao autonoma e reorganizacao neurofisiologica.",
+          "Ressonancia Neurogenica: faixa 20-40 Hz, associada a descarga vegetativa, regulacao autônoma e reorganizacao neurofisiologica.",
       },
       {
         id: "somatoaffective",
-        label: "Dissonancia somatoafetiva",
-        band: "Calma verbal x tensao sub-harmonica",
+        label: "Dissonância somatoafetiva",
+        band: "Calma verbal x tensão sub-harmônica",
         value: somatoaffective,
         source: "proxy",
         tooltip:
-          "Dissonancia Somatoafetiva: contraste entre calma verbal aparente e tensao sub-harmonica, indicando possivel conflito corpo-fala.",
+          "Dissonância Somatoafetiva: contraste entre calma verbal aparente e tensão sub-harmônica, indicando possível conflito corpo-fala.",
       },
     ];
 
@@ -203,10 +203,10 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta }) => {
       typeof audioMeta?.clinical_insight === "string"
         ? audioMeta.clinical_insight
         : tremor5_12 > 0.4 && tension85_165 > 0.6
-          ? "ALERTA SEVERO: sobrecarga autonomica critica por tremor profundo cruzado com tensao vocal."
+          ? "ALERTA SEVERO: sobrecarga autonômica crítica por tremor profundo cruzado com tensão vocal."
           : tremor5_12 > 0.4
-            ? "ALERTA DE DISSOCIACAO: tremor autonomico profundo predominando sobre a emissao vocal basal."
-            : "Sistema Nervoso Autonomo estavel. Fluxo simpatico regular.";
+            ? "ALERTA DE DISSOCIACAO: tremor autonômico profundo predominando sobre a emissao vocal basal."
+            : "Sistema Nervoso Autonomo estável. Fluxo simpatico regular.";
 
     return {
       hasAcousticData: hasAcoustic,
@@ -233,15 +233,15 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta }) => {
       <div className="mb-1.5 flex shrink-0 items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="text-[13px] font-black text-slate-100">
-            Sub-harmonicos
+            Sub-harmônicos
           </h3>
           <p className="truncate text-[10px] font-medium text-slate-400">
-            Percentual por componente e substancia tecnica
+            Percentual por componente e substancia técnica
           </p>
         </div>
         <div className="shrink-0 rounded-xl border border-blue-800 bg-blue-950 px-2.5 py-0.5 text-center text-blue-200">
           <span className="block text-[8px] font-black uppercase">
-            Indice geral
+            Índice geral
           </span>
           <strong className="font-mono text-[12px]">{generalIndex}%</strong>
         </div>
@@ -303,7 +303,7 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta }) => {
 
       <p className="mt-1 shrink-0 truncate text-[8px] font-medium text-slate-400">
         {dominant.label}: {percent(dominant.value)}% |{" "}
-        {hasAcousticData ? "acustico" : "proxy"} | {insight}
+        {hasAcousticData ? "acústico" : "proxy"} | {insight}
       </p>
     </div>
   );

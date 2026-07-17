@@ -25,7 +25,7 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta }) => {
         value: read(audioMeta, "spectral_delta_0_4hz"),
         color: "#7DD3FC",
         tooltip:
-          "Delta 0.5-4 Hz: oscilacao lenta do envelope vocal, usada como marcador de carga vegetativa basal e baixa variabilidade dinamica.",
+          "Delta 0.5-4 Hz: oscilacao lenta do envelope vocal, usada como marcador de carga vegetativa basal e baixa variabilidade dinâmica.",
       },
       {
         label: "Theta",
@@ -33,7 +33,7 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta }) => {
         value: read(audioMeta, "spectral_theta_4_8hz"),
         color: "#A5B4FC",
         tooltip:
-          "Theta 4-8 Hz: componente de modulacao lenta relacionado a flutuacoes afetivas e organizacao narrativa sob esforco emocional.",
+          "Theta 4-8 Hz: componente de modulacao lenta relacionado a flutuacoes afetivas e organizaÃ§Ã£o narrativa sob esforco emocional.",
       },
       {
         label: "Alpha",
@@ -41,7 +41,7 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta }) => {
         value: read(audioMeta, "spectral_alpha_8_12hz"),
         color: "#6EE7B7",
         tooltip:
-          "Alpha 8-12 Hz: faixa de estabilizacao moduladora entre ritmos lentos e resposta autonoma mais ativa.",
+          "Alpha 8-12 Hz: faixa de estabilização moduladora entre ritmos lentos e resposta autônoma mais ativa.",
       },
       {
         label: "Beta",
@@ -49,7 +49,7 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta }) => {
         value: read(audioMeta, "spectral_beta_12_30hz"),
         color: "#FBBF24",
         tooltip:
-          "Beta 12-30 Hz: ativacao rapida associada a tensao cognitiva, vigilancia, pressao articulatoria e mobilizacao autonoma.",
+          "Beta 12-30 Hz: ativaÃ§Ã£o rápida associada a tensão cognitiva, vigilância, pressao articulatoria e mobilizacao autônoma.",
       },
       {
         label: "Gama",
@@ -57,7 +57,7 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta }) => {
         value: read(audioMeta, "spectral_gamma_30_80hz"),
         color: "#FB7185",
         tooltip:
-          "Gama 30-80 Hz: energia espectral de alta frequencia, interpretada com cautela como indicador de descarga fina, tensao e aspereza vocal.",
+          "Gama 30-80 Hz: energia espectral de alta frequência, interpretada com cautela como indicador de descarga fina, tensão e aspereza vocal.",
       },
     ],
     [audioMeta],
@@ -84,7 +84,7 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta }) => {
                 <p className="mt-1">
                   Leitura das modulacoes vocais Delta, Theta, Alpha, Beta e
                   Gama da trilha do paciente. A nomenclatura e analogica para
-                  bandas de voz, nao EEG, consolidada a cada 1 segundo e
+                  bandas de voz, não EEG, consolidada a cada 1 segundo e
                   cruzada com os deltas cepstrais MFCC7/MFCC9.
                 </p>
               </div>
@@ -99,7 +99,7 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta }) => {
           </p>
         </div>
         <div className="shrink-0 rounded-xl border border-blue-800 bg-blue-950 px-2.5 py-0.5 text-center text-blue-200">
-          <p className="text-[8px] font-black uppercase">Indice geral</p>
+          <p className="text-[8px] font-black uppercase">Índice geral</p>
           <p className="font-mono text-[12px] font-black">{percent(index)}%</p>
         </div>
       </div>

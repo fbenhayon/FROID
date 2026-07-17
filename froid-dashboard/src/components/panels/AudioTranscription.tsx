@@ -25,11 +25,11 @@ const biomarkerTooltips: Record<string, string> = {
   mfcc7:
     "MFCC7 indica componentes espectrais associados a valencia negativa e risco depressivo quando se eleva em fala emocionalmente negativa.",
   mfcc9:
-    "MFCC9 e acompanhado em fala neutra; quedas ou desvios podem sugerir tensao autonomica latente e ansiedade somatica.",
+    "MFCC9 e acompanhado em fala neutra; quedas ou desvios podem sugerir tensão autonômica latente e ansiedade somática.",
   jitter:
-    "Jitter no FROID e um indice proxy interno normalizado, derivado de ZCR escalado, util para observar instabilidade vocal relativa. Nao equivale diretamente ao jitter percentual normativo de Praat.",
+    "Jitter no FROID e um índice proxy interno normalizado, derivado de ZCR escalado, útil para observar instabilidade vocal relativa. Não equivale diretamente ao jitter percentual normativo de Praat.",
   shimmer:
-    "Shimmer no FROID e um indice proxy interno normalizado da variacao relativa do envelope RMS, util para observar instabilidade de energia vocal. Nao equivale diretamente ao shimmer em dB.",
+    "Shimmer no FROID e um índice proxy interno normalizado da variação relativa do envelope RMS, útil para observar instabilidade de energia vocal. Não equivale diretamente ao shimmer em dB.",
 };
 
 function limitWords(text: string, maxWords: number) {
@@ -44,8 +44,8 @@ const classifyStability = (
   stable: number,
   warning: number,
 ) => {
-  if (value <= stable) return { label: "Estavel", color: "#22c55e" };
-  if (value <= warning) return { label: "Atencao", color: "#f59e0b" };
+  if (value <= stable) return { label: "Estável", color: "#22c55e" };
+  if (value <= warning) return { label: "Atenção", color: "#f59e0b" };
   return { label: "Alterado", color: "#ef4444" };
 };
 
@@ -147,7 +147,7 @@ export const AudioTranscription: React.FC<Props> = ({
     : provider.includes("browser-live")
       ? "STT local"
     : transcriptionStatus === "transcribing"
-      ? "Corte em analise"
+      ? "Corte em análise"
       : transcriptionStatus === "listening"
         ? "Captura ativa"
         : transcriptionStatus === "restarting"
@@ -240,7 +240,7 @@ export const AudioTranscription: React.FC<Props> = ({
         <div className="mt-2 space-y-2 text-[10px]">
           <div className="rounded-xl border border-slate-700 bg-slate-950 p-2.5">
             <p className="text-[11px] font-black text-slate-100">
-              Grafico Comparativo MFCC7 x MFCC9
+              Gráfico Comparativo MFCC7 x MFCC9
             </p>
             <p className="mb-3 text-[8px] text-slate-400">
               Magnitude relativa | coeficiente bruto a direita

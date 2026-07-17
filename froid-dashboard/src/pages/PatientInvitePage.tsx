@@ -30,6 +30,7 @@ interface InviteData {
 const initialPatientForm = {
   name: "",
   email: "",
+  email_confirm: "",
   phone: "",
   document: "",
   birth_date: "",
@@ -67,7 +68,7 @@ export const PatientInvitePage: React.FC = () => {
     fetch(apiUrl(`/api/session-invites/${token}`))
       .then(async (response) => {
         const data = await response.json();
-        if (!response.ok) throw new Error(data?.detail || "Convite invalido.");
+        if (!response.ok) throw new Error(data?.detail || "Convite inválido.");
         return data;
       })
       .then((data: InviteData) => {
@@ -83,7 +84,7 @@ export const PatientInvitePage: React.FC = () => {
       })
       .catch((err) => {
         if (!active) return;
-        setError(err instanceof Error ? err.message : "Convite nao encontrado.");
+        setError(err instanceof Error ? err.message : "Convite não encontrado.");
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -110,17 +111,27 @@ export const PatientInvitePage: React.FC = () => {
       setSubmitting(false);
       return;
     }
+    if (!patientForm.email.trim()) {
+      setError("Informe o e-mail do paciente.");
+      setSubmitting(false);
+      return;
+    }
+    if (patientForm.email.trim().toLowerCase() !== patientForm.email_confirm.trim().toLowerCase()) {
+      setError("A confirmaÃ§Ã£o de e-mail não confere.");
+      setSubmitting(false);
+      return;
+    }
     if (patientForm.password.length < 8) {
-      setError("A senha do paciente deve ter no minimo 8 caracteres.");
+      setError("A senha do paciente deve ter no mínimo 8 caracteres.");
       setSubmitting(false);
       return;
     }
     if (patientForm.password !== patientForm.password_confirm) {
-      setError("A confirmacao de senha nao confere.");
+      setError("A confirmaÃ§Ã£o de senha não confere.");
       setSubmitting(false);
       return;
     }
-    const patientPayload: Omit<typeof patientForm, "password_confirm"> = {
+    const patientPayload: Omit<typeof patientForm, "password_confirm" | "email_confirm"> = {
       name: patientForm.name,
       email: patientForm.email,
       phone: patientForm.phone,
@@ -138,7 +149,7 @@ export const PatientInvitePage: React.FC = () => {
         }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data?.detail || "Nao foi possivel confirmar.");
+      if (!response.ok) throw new Error(data?.detail || "Não foi possível confirmar.");
       if (data?.patient_portal_token) {
         localStorage.setItem("froid_patient_token", data.patient_portal_token);
         localStorage.setItem("froid_patient_user", JSON.stringify(data.patient || {}));
@@ -164,7 +175,7 @@ export const PatientInvitePage: React.FC = () => {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 p-6 text-slate-100">
         <div className="max-w-md rounded-xl border border-red-900/40 bg-slate-900 p-6">
-          <p className="text-sm font-bold text-red-300">Convite indisponivel</p>
+          <p className="text-sm font-bold text-red-300">Convite indisponÃ­vel</p>
           <p className="mt-2 text-sm text-slate-300">{error}</p>
         </div>
       </div>
@@ -179,10 +190,10 @@ export const PatientInvitePage: React.FC = () => {
             FROID
           </p>
           <h1 className="mt-2 text-xl font-bold text-slate-950">
-            Convite para sessao clinica
+            Convite para sessão clínica
           </h1>
           <p className="mt-1 text-sm text-slate-400">
-            Confirme seus dados e os consentimentos antes da sessao.
+            Confirme seus dados e os consentimentos antes da sessão.
           </p>
         </div>
 
@@ -197,7 +208,7 @@ export const PatientInvitePage: React.FC = () => {
               </div>
               <div>
                 <span className="block text-[10px] font-bold uppercase text-blue-200">
-                  Sessao
+                  Sessão
                 </span>
                 <strong>{invite.session_id}</strong>
               </div>
@@ -207,8 +218,8 @@ export const PatientInvitePage: React.FC = () => {
                 </span>
                 <strong>
                   {invite.payment.mode === "package"
-                    ? `Pacote com ${invite.payment.package_sessions} sessoes`
-                    : "Sessao avulsa"}
+                    ? `Pacote com ${invite.payment.package_sessions} sessões`
+                    : "Sessão avulsa"}
                 </strong>
                 <p className="mt-1 text-xs text-slate-300">
                   Valor da sessao: {invite.payment.session_value_brl}
@@ -237,7 +248,7 @@ export const PatientInvitePage: React.FC = () => {
               Convite confirmado
             </p>
             <p className="mt-2 text-sm text-emerald-800">
-              Seu cadastro e consentimento foram registrados. A sessao esta
+              Seu cadastro e consentimento foram registrados. A sessão esta
               liberada para entrada do paciente.
             </p>
             {sessionEntryUrl && (
@@ -246,7 +257,7 @@ export const PatientInvitePage: React.FC = () => {
                   href={sessionEntryUrl}
                   className="inline-flex rounded-lg bg-emerald-700 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-800"
                 >
-                  Entrar na sessao
+                  Entrar na sessão
                 </a>
                 <a
                   href="/app/#/paciente"
@@ -280,10 +291,20 @@ export const PatientInvitePage: React.FC = () => {
                 />
               </label>
               <label className="text-xs font-semibold text-slate-300">
-                E-mail
+                E-mail *
                 <input
                   value={patientForm.email}
                   onChange={(event) => updatePatient("email", event.target.value)}
+                  required
+                  className="mt-1 w-full rounded-lg border border-slate-700 px-3 py-2 text-sm outline-none focus:border-cyan-500"
+                />
+              </label>
+              <label className="text-xs font-semibold text-slate-300">
+                Confirmar e-mail *
+                <input
+                  value={patientForm.email_confirm}
+                  onChange={(event) => updatePatient("email_confirm", event.target.value)}
+                  required
                   className="mt-1 w-full rounded-lg border border-slate-700 px-3 py-2 text-sm outline-none focus:border-cyan-500"
                 />
               </label>
@@ -337,25 +358,25 @@ export const PatientInvitePage: React.FC = () => {
                 Consentimentos LGPD
               </p>
               <p className="mt-1 text-xs leading-relaxed text-slate-400">
-                O FROID trata dados pessoais e dados sensiveis de saude,
-                incluindo audio, video, biomarcadores, transcricao e analises
-                clinicas. O uso deve ocorrer para apoio ao profissional, com
-                registro de consentimento e finalidade terapeutica.
+                O FROID trata dados pessoais e dados sensíveis de saúde,
+                incluindo áudio, vídeo, biomarcadores, transcrição e análises
+                clínicas. O uso deve ocorrer para apoio ao profissional, com
+                registro de consentimento e finalidade terapêutica.
               </p>
               <div className="mt-3">
                 <LgpdNotice audience="patient" compact />
               </div>
               <div className="mt-3 space-y-2 text-xs text-slate-300">
                 {[
-                  ["terms_of_use", "Li e aceito as condicoes de utilizacao do FROID."],
+                  ["terms_of_use", "Li e aceito as condiÃ§Ãµes de utilizaÃ§Ã£o do FROID."],
                   ["privacy_policy", "Li e aceito a politica de privacidade."],
                   [
                     "sensitive_data_processing",
-                    "Autorizo o tratamento de dados sensiveis de saude para esta sessao.",
+                    "Autorizo o tratamento de dados sensíveis de saúde para esta sessão.",
                   ],
                   [
                     "audio_video_processing",
-                    "Autorizo a captura e processamento de audio, video e biomarcadores.",
+                    "Autorizo a captura e processamento de áudio, vídeo e biomarcadores.",
                   ],
                   [
                     "research_anonymized",

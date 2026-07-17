@@ -8,7 +8,7 @@ interface Props {
 }
 
 const IPM_ROLE_TEXT =
-  'O Papel do IPM (O "Velocimetro"): enquanto o IDM aponta a direcao do desequilibrio, o IPM indica a intensidade ou energia global, servindo como velocimetro emocional. Ele e um indice composto atualizado a cada 1 segundo que funde magnitude acustica da voz, comportamento facial e substancia semantica transcrita. Assim, o IPM mede quanto combustivel emocional o paciente esta empregando, independente de estar sendo coerente ou nao.';
+  'O Papel do IPM (O "Velocimetro"): enquanto o IDM aponta a direÃ§Ã£o do desequilibrio, o IPM indica a intensidade ou energia global, servindo como velocimetro emocional. Ele e um índice composto atualizado a cada 1 segundo que funde magnitude acústica da voz, comportamento facial e substancia semântica transcrita. Assim, o IPM mede quanto combustivel emocional o paciente esta empregando, independente de estar sendo coerente ou não.';
 
 const clamp = (value: number, min = 0, max = 100) =>
   Math.min(Math.max(Number.isFinite(value) ? value : 0, min), max);
@@ -16,7 +16,7 @@ const clamp = (value: number, min = 0, max = 100) =>
 const polarBands = [
   { from: 0, to: 25, color: "#1686c7", label: "Adaptativo" },
   { from: 25, to: 55, color: "#06a743", label: "Fluxo saudavel" },
-  { from: 55, to: 75, color: "#f59e0b", label: "Atencao" },
+  { from: 55, to: 75, color: "#f59e0b", label: "Atenção" },
   { from: 75, to: 100, color: "#dc2626", label: "Desadaptativo" },
 ];
 
@@ -115,7 +115,7 @@ export const IPMLineChart: React.FC<Props> = ({ data, current, baseline }) => {
             FROID - IPM
           </span>
           <span className="truncate text-[10px] font-bold uppercase tracking-wider text-slate-500">
-            Indice de potencia motivacional
+            Índice de potencia motivacional
           </span>
           <span className="font-mono text-[18px] font-black leading-none text-emerald-400">
             {currentValue.toFixed(1)}

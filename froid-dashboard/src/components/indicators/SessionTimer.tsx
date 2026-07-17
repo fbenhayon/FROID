@@ -28,12 +28,12 @@ export const SessionTimer: React.FC<Props> = ({ startTime, onEndSession }) => {
 
       if (seconds >= 3000 && !alertShown.current[3000]) {
         alertShown.current[3000] = true;
-        window.alert("FROID: 50 minutos. Ultimos 5 minutos.");
+        window.alert("FROID: 50 minutos. Últimos 5 minutos.");
       }
 
       if (seconds >= 3300 && !alertShown.current[3300]) {
         alertShown.current[3300] = true;
-        window.alert("Sessao encerrada automaticamente.");
+        window.alert("Sessão encerrada automaticamente.");
         onEndSessionRef.current();
       }
     };
@@ -52,7 +52,7 @@ export const SessionTimer: React.FC<Props> = ({ startTime, onEndSession }) => {
     <div className="mb-1 w-full rounded-lg border border-slate-100 bg-white p-2">
       <div className="mb-1 flex items-center justify-between">
         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-          Tempo de Sessao
+          Tempo de Sessão
         </span>
         <span
           className={`font-mono text-xs font-bold ${

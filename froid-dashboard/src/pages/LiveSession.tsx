@@ -28,77 +28,77 @@ import {
 
 const SIMPLIFIED_METRIC_TOOLTIPS: Record<string, string> = {
   CORTE:
-    "Intervalo temporal em analise desde o ultimo corte semantico, seja automatico ou executado pelo profissional.",
+    "Intervalo temporal em análise desde o último corte semântico, seja automático ou executado pelo profissional.",
   IPM:
-    "Indice de Potencia Motivacional. Funciona como o velocimetro emocional: indica a intensidade global da energia vocal, facial e semantica do paciente.",
+    "Índice de Potencia Motivacional. Funciona como o velocimetro emocional: indica a intensidade global da energia vocal, facial e semântica do paciente.",
   IDM:
-    "Indice de Desvio Multimodal. Indica a direcao e o grau de afastamento entre voz, face, semantica e zonas FROID.",
+    "Índice de Desvio Multimodal. Indica a direÃ§Ã£o e o grau de afastamento entre voz, face, semântica e zonas FROID.",
   ZONAS:
-    "Zona FROID predominante no corte atual, calculada pela composicao das metricas bioacusticas, semanticas e multimodais.",
+    "Zona FROID predominante no corte atual, calculada pela composicao das métricas bioacusticas, semanticas e multimodais.",
   TOM:
-    "Tom emocional predominante inferido pela composicao entre fala transcrita, marcadores acusticos e contexto do corte.",
+    "Tom emocional predominante inferido pela composicao entre fala transcrita, marcadores acústicos e contexto do corte.",
   "P/MIN":
-    "Palavras por minuto no corte atual. Ajuda a identificar aceleracao, lentificacao, bloqueios ou mudancas de cadencia.",
+    "Palavras por minuto no corte atual. Ajuda a identificar aceleraÃ§Ã£o, lentificacao, bloqueios ou mudancas de cadencia.",
   "DISSO.":
-    "Quantidade de dissonancias confirmadas acima da metrica definida no corte atual. Exibe somente apontamentos efetivamente detectados.",
+    "Quantidade de dissonâncias confirmadas acima da métrica definida no corte atual. Exibe somente apontamentos efetivamente detectados.",
   MFCC7:
-    "Coeficiente cepstral vocal associado ao timbre e a energia espectral. No FROID, ganha relevancia quando cruza valencia semantica negativa e marcadores de retardo ou tensao.",
+    "Coeficiente cepstral vocal associado ao timbre e a energia espectral. No FROID, ganha relevância quando cruza valencia semântica negativa e marcadores de retardo ou tensão.",
   MFCC9:
-    "Coeficiente cepstral vocal usado como marcador complementar de tensao autonoma, especialmente quando observado em trechos semanticamente neutros.",
+    "Coeficiente cepstral vocal usado como marcador complementar de tensão autônoma, especialmente quando observado em trechos semanticamente neutros.",
   DMFCC7:
-    "Delta do MFCC7. Mede a variacao de primeira ordem do coeficiente durante o corte.",
+    "Delta do MFCC7. Mede a variação de primeira ordem do coeficiente durante o corte.",
   DMFCC9:
-    "Delta do MFCC9. Mede a variacao de primeira ordem do coeficiente durante o corte.",
+    "Delta do MFCC9. Mede a variação de primeira ordem do coeficiente durante o corte.",
   DDMFCC7:
-    "Delta-delta do MFCC7. Indica aceleracao ou desaceleracao da mudanca cepstral.",
+    "Delta-delta do MFCC7. Indica aceleraÃ§Ã£o ou desaceleraÃ§Ã£o da mudanca cepstral.",
   DDMFCC9:
-    "Delta-delta do MFCC9. Indica aceleracao ou desaceleracao da mudanca cepstral.",
+    "Delta-delta do MFCC9. Indica aceleraÃ§Ã£o ou desaceleraÃ§Ã£o da mudanca cepstral.",
   "F0 MED.":
-    "Frequencia fundamental media da voz. Ajuda a observar elevacao de pitch, queda vocal, tensao ou variacoes de ativacao.",
+    "Frequência fundamental média da voz. Ajuda a observar elevação de pitch, queda vocal, tensão ou variações de ativaÃ§Ã£o.",
   ZCR:
-    "Taxa de cruzamento por zero. Aponta irregularidade acustica e componentes de aspereza, ruido ou tensao vocal.",
+    "Taxa de cruzamento por zero. Aponta irregularidade acústica e componentes de aspereza, ruído ou tensão vocal.",
   JITTER:
-    "Indice interno normalizado de perturbacao de frequencia, derivado para comparacao longitudinal no FROID. Nao e percentual acustico bruto.",
+    "Índice interno normalizado de perturbacao de frequência, derivado para comparacao longitudinal no FROID. Não e percentual acústico bruto.",
   SHIMMER:
-    "Indice interno normalizado de variacao de amplitude vocal, derivado para comparacao longitudinal no FROID. Nao e medida bruta em dB.",
+    "Índice interno normalizado de variação de amplitude vocal, derivado para comparacao longitudinal no FROID. Não e medida bruta em dB.",
   DELTA:
-    "Energia de modulacao vocal na faixa delta. No FROID, representa modulacao bioacustica lenta, nao atividade EEG direta.",
+    "Energia de modulacao vocal na faixa delta. No FROID, representa modulacao bioacústica lenta, não atividade EEG direta.",
   THETA:
-    "Energia de modulacao vocal na faixa theta. Usada como marcador de oscilacao lenta da expressao vocal.",
+    "Energia de modulacao vocal na faixa theta. Usada como marcador de oscilacao lenta da expressão vocal.",
   ALPHA:
-    "Energia de modulacao vocal na faixa alpha. Ajuda a compor estabilidade, ritmo e organizacao da emissao.",
+    "Energia de modulacao vocal na faixa alpha. Ajuda a compor estabilidade, ritmo e organizaÃ§Ã£o da emissao.",
   BETA:
-    "Energia de modulacao vocal na faixa beta. Ajuda a compor indices de ativacao, esforco e tensao cognitiva.",
+    "Energia de modulacao vocal na faixa beta. Ajuda a compor índices de ativaÃ§Ã£o, esforco e tensão cognitiva.",
   GAMA:
-    "Energia de modulacao vocal na faixa gama. Ajuda a observar ativacao rapida e instabilidade espectral fina.",
+    "Energia de modulacao vocal na faixa gama. Ajuda a observar ativaÃ§Ã£o rápida e instabilidade espectral fina.",
   "IND. ESPECTRAL":
-    "Indice composto das bandas espectrais vocais, usado para sintetizar o perfil de modulacao bioacustica do corte.",
+    "Índice composto das bandas espectrais vocais, usado para sintetizar o perfil de modulacao bioacústica do corte.",
   "SUB-H 5-12":
-    "Energia sub-harmonica entre 5 e 12 Hz. No FROID, integra o nucleo de leitura autonoma e sinais de sobrecarga profunda.",
+    "Energia sub-harmônica entre 5 e 12 Hz. No FROID, integra o nucleo de leitura autônoma e sinais de sobrecarga profunda.",
   "SUB-H 12-20":
-    "Energia sub-harmonica entre 12 e 20 Hz. Complementa a leitura de tremor, tensao e modulacao involuntaria.",
+    "Energia sub-harmônica entre 12 e 20 Hz. Complementa a leitura de tremor, tensão e modulacao involuntária.",
   "SUB-H 20-40":
-    "Energia sub-harmonica entre 20 e 40 Hz. Complementa a leitura de excitacao, instabilidade e microtremores vocais.",
+    "Energia sub-harmônica entre 20 e 40 Hz. Complementa a leitura de excitacao, instabilidade e microtremores vocais.",
   "VOCAL 85-165":
-    "Banda basal de tensao vocal. Ajuda a identificar sustentacao, constricao e esforco na base da emissao.",
+    "Banda basal de tensão vocal. Ajuda a identificar sustentacao, constricao e esforco na base da emissao.",
   "DNA INFRA":
-    "Componente nuclear de infrassom vocal usado na matriz bioacustica do FROID.",
+    "Componente nuclear de infrassom vocal usado na matriz bioacústica do FROID.",
   "DNA LIMBICO":
-    "Componente de modulacao limbica estimado pela combinacao de sub-harmonicos, voz e contexto emocional.",
+    "Componente de modulacao limbica estimado pela combinacao de sub-harmônicos, voz e contexto emocional.",
   "DNA VOCAL":
-    "Componente de tensao vocal basal usado para compor riscos, dissonancias e estado de ativacao.",
+    "Componente de tensão vocal basal usado para compor riscos, dissonâncias e estado de ativaÃ§Ã£o.",
   "DNA FLOOD":
-    "Indicador composto de flooding autonomico, sugerindo sobrecarga ou intensificacao fisiologica relevante.",
+    "Indicador composto de flooding autonômico, sugerindo sobrecarga ou intensificacao fisiológica relevante.",
   "DNA SHUTDOWN":
-    "Indicador composto de retraimento ou desligamento dissociativo, quando a assinatura bioacustica sugere queda defensiva.",
+    "Indicador composto de retraimento ou desligamento dissociativo, quando a assinatura bioacústica sugere queda defensiva.",
   "DNA NEURO":
-    "Indice de ressonancia neurogenica estimado por combinacoes sub-harmonicas e estabilidade vocal.",
+    "Índice de ressonancia neurogenica estimado por combinacoes sub-harmônicas e estabilidade vocal.",
   "DNA SOMATO":
-    "Indice de dissonancia somatoafetiva, usado para cruzar expressao vocal, tensao e marcadores corporais inferidos.",
+    "Índice de dissonância somatoafetiva, usado para cruzar expressão vocal, tensão e marcadores corporais inferidos.",
 };
 
 const SIMPLIFIED_CUT_TOOLTIP =
-  "O corte organiza a sessao em janelas analisaveis. A cada fechamento, o FROID consolida tema, resumo da fala, metricas vocais, indicadores bioacusticos e dissonancias relevantes.";
+  "O corte organiza a sessão em janelas analisaveis. A cada fechamento, o FROID consolida tema, resumo da fala, métricas vocais, indicadores bioacústicos e dissonâncias relevantes.";
 
 interface AggData {
   zones: PerceptionZone[];
@@ -262,18 +262,18 @@ function classifyDissonance(zone?: PerceptionZone | null, audioMeta?: Record<str
 
   if (hasDeepSna && hasAu(auSet, 15) && hasAu(auSet, 20)) {
     return {
-      title: "Risco de retraumatizacao / flooding autonomico",
+      title: "Risco de retraumatizacao / flooding autonômico",
       summary:
-        "O motor de dissonancias cruzou tremor sub-harmonico de 5-12 Hz, tensao basal e AUs 15/20, indicando vazamento extrapiramidal de dor/panico acima do relato consciente.",
+        "O motor de dissonâncias cruzou tremor sub-harmônico de 5-12 Hz, tensão basal e AUs 15/20, indicando vazamento extrapiramidal de dor/panico acima do relato consciente.",
       action:
-        "Mitigar reduzindo intensidade, desacelerando a exploracao, usando aterramento, orientacao ao presente, respiracao ritmada e checagem da janela de tolerancia antes de prosseguir.",
+        "Mitigar reduzindo intensidade, desacelerando a exploracao, usando aterramento, orientacao ao presente, respiracao ritmada e checagem da janela de tolerância antes de prosseguir.",
     };
   }
   if (hasDeepSna && hasAu(auSet, 15) && basal < 0.25) {
     return {
-      title: "Shutdown psiquico / dissociacao",
+      title: "Shutdown psíquico / dissociacao",
       summary:
-        "A combinacao de tremor autonomico profundo, AU15 e baixa energia vocal basal sugere queda de disponibilidade, congelamento ou supressao defensiva da expressao emocional.",
+        "A combinacao de tremor autonômico profundo, AU15 e baixa energia vocal basal sugere queda de disponibilidade, congelamento ou supressao defensiva da expressão emocional.",
       action:
         "Mitigar pausando confronto direto, reduzindo demanda cognitiva, restaurando orientacao corporal e confirmando se o paciente permanece presente e responsivo.",
     };
@@ -282,7 +282,7 @@ function classifyDissonance(zone?: PerceptionZone | null, audioMeta?: Record<str
     return {
       title: "Sorriso falso / falsa calma",
       summary:
-        "AU12 sem AU6 indica sorriso voluntario sem marcador Duchenne; quando o IDM tambem sobe, o FROID interpreta possivel mascara social cobrindo tensao interna.",
+        "AU12 sem AU6 indica sorriso voluntário sem marcador Duchenne; quando o IDM também sobe, o FROID interpreta possível mascara social cobrindo tensão interna.",
       action:
         "Mitigar validando a fala sem confrontar bruscamente, investigando com perguntas abertas a diferenca entre calma relatada e carga corporal observada.",
     };
@@ -293,14 +293,14 @@ function classifyDissonance(zone?: PerceptionZone | null, audioMeta?: Record<str
       summary:
         "AUs 23/24 ou pico na Zona 7 indicam contencao mecanica dos labios diante de energia vocal de conflito, sugerindo resposta verbal freada ou agressividade reprimida.",
       action:
-        "Mitigar abrindo espaco seguro para nomear irritacao, limite ou injustica percebida, preservando contencao e evitando escalada confrontativa.",
+        "Mitigar abrindo espaço seguro para nomear irritacao, limite ou injustica percebida, preservando contencao e evitando escalada confrontativa.",
     };
   }
   if (hasAu(auSet, 1) && hasAu(auSet, 4) && hasAu(auSet, 15)) {
     return {
       title: "Tristeza mascarada",
       summary:
-        "A conjuncao AU1+AU4+AU15 sugere vazamento involuntario de tristeza ou dor profunda, especialmente quando a fala aparenta neutralidade, controle ou bem-estar.",
+        "A conjuncao AU1+AU4+AU15 sugere vazamento involuntário de tristeza ou dor profunda, especialmente quando a fala aparenta neutralidade, controle ou bem-estar.",
       action:
         "Mitigar desacelerando o ritmo, explorando perdas e desamparo com linguagem permissiva e evitando insistencia caso surjam sinais de retraimento.",
     };
@@ -309,7 +309,7 @@ function classifyDissonance(zone?: PerceptionZone | null, audioMeta?: Record<str
     return {
       title: "Desprezo unilateral",
       summary:
-        "Ativacao unilateral de AU12/AU14 aponta assimetria expressiva compativel com desprezo, resistencia ou defesa de superioridade em contexto relacional.",
+        "AtivaÃ§Ã£o unilateral de AU12/AU14 aponta assimetria expressiva compatível com desprezo, resistência ou defesa de superioridade em contexto relacional.",
       action:
         "Mitigar observando o contexto interpessoal, investigando julgamentos, vergonha ou rivalidade com neutralidade fenomenologica e sem rotular o paciente.",
     };
@@ -320,14 +320,14 @@ function classifyDissonance(zone?: PerceptionZone | null, audioMeta?: Record<str
       summary:
         "O FROID detectou vazamento facial breve de medo, panico, raiva ou foco defensivo contradizendo a neutralidade aparente em janela temporal curta.",
       action:
-        "Mitigar registrando o instante clinico, checando o tema que precedeu o vazamento e testando a hipotese com pergunta aberta, sem assumir diagnostico isolado.",
+        "Mitigar registrando o instante clínico, checando o tema que precedeu o vazamento e testando a hipótese com pergunta aberta, sem assumir diagnóstico isolado.",
     };
   }
   return {
-    title: "Dissonancia facial-vocal relevante",
+    title: "Dissonância facial-vocal relevante",
     summary:
       zone?.dissonance_details?.report ||
-      "O rosto, a voz e/ou a semantica apresentaram incongruencia acima do limiar configurado do IDM, indicando possivel desalinhamento entre intencao consciente e expressao involuntaria.",
+      "O rosto, a voz e/ou a semântica apresentaram incongruencia acima do limiar configurado do IDM, indicando possível desalinhamento entre intencao consciente e expressão involuntária.",
     action:
       "Mitigar usando o achado apenas como marcador de investigacao, cruzando relato, contexto, biomarcadores, AUs, mapa zonal e resposta do paciente.",
   };
@@ -353,7 +353,7 @@ function dissonanceTechnicalFactors(
         audioMeta?.semantic_tone ||
         audioMeta?.substancia_semantica ||
         "",
-    ).trim() || "nao informada";
+    ).trim() || "não informada";
   const mfcc7Delta = metricDelta(audioMeta, "mfcc7", "baseline_mfcc7");
   const mfcc9Delta = metricDelta(audioMeta, "mfcc9", "baseline_mfcc9");
   const dnaInfrasound = readFiniteNumber(audioMeta?.dna_infrasound_nuclear);
@@ -370,59 +370,59 @@ function dissonanceTechnicalFactors(
       : null;
 
   const factors = [
-    `IDM ${score.toFixed(2)} (${severity}) acima do limiar ${DISSONANCE_REPORT_THRESHOLD.toFixed(2)}: o desvio energetico compara E_vocal contra E_baseline e aplica M_fac quando ha contradicao facial-vocal.`,
-    `Morfodinamica facial/FACS: AUs ativas ${aus.length ? aus.join(", ") : "sem AU especifica reportada"}; a leitura exige coerencia temporal entre neutral, onset, apex e offset para reduzir falso positivo.`,
-    `Zona ${zone?.zone ?? "--"} (${zone?.tema || "tema em apuracao"}): ${ZONE_CLINICAL_DESCRIPTIONS[zone?.zone || 0] || "sem descricao zonal."}`,
+    `IDM ${score.toFixed(2)} (${severity}) acima do limiar ${DISSONANCE_REPORT_THRESHOLD.toFixed(2)}: o desvio energético compara E_vocal contra E_baseline e aplica M_fac quando ha contradicao facial-vocal.`,
+    `Morfodinamica facial/FACS: AUs ativas ${aus.length ? aus.join(", ") : "sem AU específica reportada"}; a leitura exige coerencia temporal entre neutral, onset, apex e offset para reduzir falso positivo.`,
+    `Zona ${zone?.zone ?? "--"} (${zone?.tema || "tema em apuraÃ§Ã£o"}): ${ZONE_CLINICAL_DESCRIPTIONS[zone?.zone || 0] || "sem descricao zonal."}`,
   ];
 
   if (mfcc7Delta !== null && Math.abs(mfcc7Delta) >= DISSONANCE_MFCC_DELTA_THRESHOLD) {
     factors.push(
-      `MFCC7 divergente: ${formatMetricValue(audioMeta?.mfcc7)} contra baseline ${formatMetricValue(audioMeta?.baseline_mfcc7)} (delta ${mfcc7Delta.toFixed(2)}), marcador acustico associado a valencia negativa quando sustentado em fala emocionalmente carregada.`,
+      `MFCC7 divergente: ${formatMetricValue(audioMeta?.mfcc7)} contra baseline ${formatMetricValue(audioMeta?.baseline_mfcc7)} (delta ${mfcc7Delta.toFixed(2)}), marcador acústico associado a valencia negativa quando sustentado em fala emocionalmente carregada.`,
     );
   }
   if (mfcc9Delta !== null && Math.abs(mfcc9Delta) >= DISSONANCE_MFCC_DELTA_THRESHOLD) {
     factors.push(
-      `MFCC9 divergente: ${formatMetricValue(audioMeta?.mfcc9)} contra baseline ${formatMetricValue(audioMeta?.baseline_mfcc9)} (delta ${mfcc9Delta.toFixed(2)}), sugerindo tensao autonoma latente quando cruza discurso neutro ou controlado.`,
+      `MFCC9 divergente: ${formatMetricValue(audioMeta?.mfcc9)} contra baseline ${formatMetricValue(audioMeta?.baseline_mfcc9)} (delta ${mfcc9Delta.toFixed(2)}), sugerindo tensão autônoma latente quando cruza discurso neutro ou controlado.`,
     );
   }
   if (dnaInfrasound !== null && dnaInfrasound >= DISSONANCE_DNA_THRESHOLD) {
     factors.push(
-      `Sub-harmonicos 5-12 Hz acima da metrica (${dnaInfrasound.toFixed(2)}): indicam tremor autonomico vocal detectado na trilha bruta do paciente.`,
+      `Sub-harmônicos 5-12 Hz acima da métrica (${dnaInfrasound.toFixed(2)}): indicam tremor autonômico vocal detectado na trilha bruta do paciente.`,
     );
   }
   if (dnaBasal !== null && dnaBasal >= DISSONANCE_DNA_THRESHOLD) {
     factors.push(
-      `Tensao basal 85-165 Hz acima da metrica (${dnaBasal.toFixed(2)}): aponta carga laringea/respiratoria sustentada sob a fala.`,
+      `Tensão basal 85-165 Hz acima da métrica (${dnaBasal.toFixed(2)}): aponta carga laríngea/respiratoria sustentada sob a fala.`,
     );
   }
   if (dnaFlooding !== null && dnaFlooding >= DISSONANCE_DNA_THRESHOLD) {
     factors.push(
-      `Flooding autonomico acima da metrica (${dnaFlooding.toFixed(2)}): combinacao de energia sub-harmonica, tensao basal e multiplicador facial.`,
+      `Flooding autonômico acima da métrica (${dnaFlooding.toFixed(2)}): combinacao de energia sub-harmônica, tensão basal e multiplicador facial.`,
     );
   }
   if (dnaShutdown !== null && dnaShutdown >= DISSONANCE_DNA_THRESHOLD) {
     factors.push(
-      `Shutdown/dissociacao acima da metrica (${dnaShutdown.toFixed(2)}): queda relativa de disponibilidade expressiva com tremor autonomico residual.`,
+      `Shutdown/dissociacao acima da métrica (${dnaShutdown.toFixed(2)}): queda relativa de disponibilidade expressiva com tremor autonômico residual.`,
     );
   }
   if (dnaSomato !== null && dnaSomato >= DISSONANCE_DNA_THRESHOLD) {
     factors.push(
-      `Dissonancia somatoafetiva acima da metrica (${dnaSomato.toFixed(2)}): contraste corpo-voz-face suficiente para registro clinico.`,
+      `Dissonância somatoafetiva acima da métrica (${dnaSomato.toFixed(2)}): contraste corpo-voz-face suficiente para registro clínico.`,
     );
   }
   if (dnaNeurogenic !== null && dnaNeurogenic >= DISSONANCE_DNA_THRESHOLD) {
     factors.push(
-      `Ressonancia neurogenica acima da metrica (${dnaNeurogenic.toFixed(2)}): alteracao sub-harmonica em faixa superior compativel com ativacao corporal nao verbalizada.`,
+      `Ressonancia neurogenica acima da métrica (${dnaNeurogenic.toFixed(2)}): alteração sub-harmônica em faixa superior compatível com ativaÃ§Ã£o corporal não verbalizada.`,
     );
   }
   if (jitter !== null && jitter >= VOICE_PERTURBATION_PROXY_ALERT_THRESHOLD) {
     factors.push(
-      `Jitter proxy elevado (${jitter.toFixed(2)}): indice interno normalizado derivado de ZCR escalado, usado como sinal de instabilidade vocal relativa; nao equivale diretamente a jitter percentual normativo.`,
+      `Jitter proxy elevado (${jitter.toFixed(2)}): índice interno normalizado derivado de ZCR escalado, usado como sinal de instabilidade vocal relativa; não equivale diretamente a jitter percentual normativo.`,
     );
   }
   if (shimmer !== null && shimmer >= VOICE_PERTURBATION_PROXY_ALERT_THRESHOLD) {
     factors.push(
-      `Shimmer proxy elevado (${shimmer.toFixed(2)}): indice interno normalizado da variacao relativa do envelope RMS, usado como sinal de instabilidade energetica; nao equivale diretamente a shimmer em dB.`,
+      `Shimmer proxy elevado (${shimmer.toFixed(2)}): índice interno normalizado da variação relativa do envelope RMS, usado como sinal de instabilidade energética; não equivale diretamente a shimmer em dB.`,
     );
   }
   if (ipmDelta !== null && Math.abs(ipmDelta) >= DISSONANCE_IPM_DELTA_THRESHOLD) {
@@ -430,9 +430,9 @@ function dissonanceTechnicalFactors(
       `IPM divergiu da baseline inicial em ${ipmDelta.toFixed(1)} pontos: a intensidade global mudou o suficiente para compor o alerta multimodal.`,
     );
   }
-  if (semantic && !/^nao informada$/i.test(semantic) && !/^neutro$/i.test(semantic)) {
+  if (semantic && !/^não informada$/i.test(semantic) && !/^neutro$/i.test(semantic)) {
     factors.push(
-      `Semantica verbal considerada ${semantic}: o FROID cruza o conteudo transcrito com face e voz para detectar contradicao entre relato e expressao involuntaria.`,
+      `Semântica verbal considerada ${semantic}: o FROID cruza o conteudo transcrito com face e voz para detectar contradicao entre relato e expressão involuntária.`,
     );
   }
 
@@ -452,7 +452,7 @@ function buildDissonanceReportText(
     `IDM ${score.toFixed(2)} | ${dissonanceSeverity(zone)} | Zona ${zone.zone}`,
     `${interpretation.title}: ${interpretation.summary}`,
     `Itens divergentes apurados: ${factors.join(" ")}`,
-    `Sugestao tecnica ao profissional: ${interpretation.action}`,
+    `Sugestao técnica ao profissional: ${interpretation.action}`,
   ].join(" ");
 }
 
@@ -686,10 +686,10 @@ const SimulatedCamera: React.FC = () => {
 function selectAudioMimeType() {
   if (typeof MediaRecorder === "undefined") return "";
   const candidates = [
-    "audio/webm;codecs=opus",
-    "audio/webm",
-    "audio/mp4",
-    "audio/ogg;codecs=opus",
+    "áudio/webm;codecs=opus",
+    "áudio/webm",
+    "áudio/mp4",
+    "áudio/ogg;codecs=opus",
   ];
   return candidates.find((type) => MediaRecorder.isTypeSupported(type)) || "";
 }
@@ -1601,7 +1601,7 @@ function buildClinicalPresentationSnapshot(
     microWindowCount: microAggs.length,
     agg,
     metricSnapshot: buildMetricSnapshot(
-      `Janela clinica ${minutes}min`,
+      `Janela clínica ${minutes}min`,
       samples,
       windowStartSecond,
       endSecond,
@@ -1650,8 +1650,8 @@ const THEME_STOPWORDS = new Set([
   "pc",
   "pac",
   "dr",
-  "voce",
-  "tambem",
+  "você",
+  "também",
 ]);
 
 function makeReportId() {
@@ -1676,7 +1676,7 @@ function limitWords(text: string, maxWords: number) {
 
 function limitTheme(text: string, maxWords = 6) {
   const clean = limitWords(text, maxWords);
-  return clean || "Tema em apuracao";
+  return clean || "Tema em apuraÃ§Ã£o";
 }
 
 function inferThemeFromTranscript(text: string) {
@@ -1695,7 +1695,7 @@ function inferThemeFromTranscript(text: string) {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 6)
     .map(([word]) => word);
-  return top.length ? limitTheme(top.join(" "), 6) : "Tema em apuracao";
+  return top.length ? limitTheme(top.join(" "), 6) : "Tema em apuraÃ§Ã£o";
 }
 
 function collectTranscript(
@@ -1892,13 +1892,13 @@ function buildSessionSummary(
   );
   const cleanSource = source.replace(/\s+/g, " ").trim();
   const summary = cleanSource
-    ? `A sessao teve como eixo predominante ${theme}. A sequencia dos cortes indica a seguinte progressao clinica e semantica: ${cleanSource}. Em conclusao, este resumo deve ser lido como sintese da substancia verbal registrada nos cortes, servindo de base para comparar conteudo, ritmo e deslocamentos tematicos com as metricas multimodais do relatorio.`
+    ? `A sessão teve como eixo predominante ${theme}. A sequência dos cortes indica a seguinte progressao clínica e semantica: ${cleanSource}. Em conclusão, este resumo deve ser lido como síntese da substancia verbal registrada nos cortes, servindo de base para comparar conteudo, ritmo e deslocamentos tematicos com as métricas multimodais do relatório.`
     : "";
   return {
     theme,
     summary:
       limitWords(summary, 300) ||
-      "Resumo geral indisponivel por ausencia de transcricao suficiente.",
+      "Resumo geral indisponÃ­vel por ausência de transcrição suficiente.",
     generatedAt: new Date().toISOString(),
   };
 }
@@ -1921,15 +1921,15 @@ function inferInterventionCategory(text: string) {
   if (!clean) return "nao_classificada";
   const buckets: Array<[string, string[]]> = [
     ["acolhimento", ["estou aqui", "vamos com calma", "pode falar", "te escuto", "acolho"]],
-    ["silencio_terapeutico", ["pausa", "silencio", "podemos esperar", "sem pressa"]],
-    ["grounding_regulacao", ["respira", "corpo", "observe", "presenca", "aterrar"]],
+    ["silencio_terapeutico", ["pausa", "silêncio", "podemos esperar", "sem pressa"]],
+    ["grounding_regulacao", ["respira", "corpo", "observe", "presença", "aterrar"]],
     ["psicoeducacao", ["explicar", "entenda", "funciona", "modelo", "sistema nervoso"]],
-    ["reestruturacao_cognitiva", ["pensamento", "crenca", "evidencia", "alternativa"]],
-    ["validacao_emocional", ["faz sentido", "compreendo", "valido", "acolho"]],
+    ["reestruturacao_cognitiva", ["pensamento", "crenca", "evidência", "alternativa"]],
+    ["validacao_emocional", ["faz sentido", "compreendo", "válido", "acolho"]],
     ["pergunta_aberta", ["como", "quando", "qual", "conte", "fale"]],
     ["orientacao_pratica", ["exercicio", "praticar", "anotar", "combinado", "tarefa"]],
-    ["confrontacao_terapeutica", ["percebe", "padrao", "evita", "resistencia"]],
-    ["encerramento_sintese", ["resumindo", "sintese", "proxima sessao", "encerrar"]],
+    ["confrontacao_terapeutica", ["percebe", "padrão", "evita", "resistência"]],
+    ["encerramento_sintese", ["resumindo", "síntese", "próxima sessão", "encerrar"]],
   ];
   const ranked = buckets
     .map(([category, words]) => ({
@@ -1979,7 +1979,7 @@ function anonymizeForResearch(text: string, maxWords = 80) {
       .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]")
       .replace(/\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/g, "[documento]")
       .replace(/\b(?:\+?55\s*)?(?:\(?\d{2}\)?\s*)?9?\d{4}[-\s]?\d{4}\b/g, "[telefone]")
-      .replace(/\b\d{5,}\b/g, "[numero]")
+      .replace(/\b\d{5,}\b/g, "[número]")
       .replace(/\s+/g, " ")
       .trim(),
     maxWords,
@@ -2020,7 +2020,7 @@ function recurringFromReports<T>(values: T[], maxItems = 5) {
 function deltaDirection(delta: number | null | undefined, threshold = 0.05) {
   if (delta === null || delta === undefined || !Number.isFinite(delta)) return "nao_apurado";
   if (delta > threshold) return "aumento";
-  if (delta < -threshold) return "reducao";
+  if (delta < -threshold) return "redução";
   return "estabilidade";
 }
 
@@ -2084,7 +2084,7 @@ function buildAnonymizedContext(
   const emotionalStability =
     (sessionAverage.dissonanceCount || 0) <= (baseline.dissonanceCount || 0) &&
     Math.abs(sessionAverage.idmAvg - baseline.idmAvg) < 0.25
-      ? "estavel"
+      ? "estável"
       : "oscilante";
 
   return {
@@ -2099,7 +2099,7 @@ function buildAnonymizedContext(
     sessionType: previousReports.length ? "seguimento" : "primeira_sessao",
     treatmentPhase:
       previousReports.length < 3
-        ? "inicio"
+        ? "início"
         : previousReports.length < 12
           ? "meio"
           : "manutencao",
@@ -2255,8 +2255,8 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   );
   const [voiceIdStatus, setVoiceIdStatus] = useState(
     loadDrVoiceSignature()
-      ? "Identificacao automatica pronta."
-      : "Cadastre a voz do DR para identificacao automatica.",
+      ? "IdentificaÃ§Ã£o automática pronta."
+      : "Cadastre a voz do DR para identificaÃ§Ã£o automática.",
   );
   const [isEnrollingDrVoice, setIsEnrollingDrVoice] = useState(false);
   const [patientAudioVersion, setPatientAudioVersion] = useState(0);
@@ -2472,7 +2472,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       if (typeof window === "undefined" || remotePatientOnRef.current) return;
       const signature = drVoiceSignatureRef.current;
       if (!signature) {
-        setVoiceIdStatus("Cadastre a voz do DR para identificacao automatica.");
+        setVoiceIdStatus("Cadastre a voz do DR para identificaÃ§Ã£o automática.");
         return;
       }
       const audioTrack = stream
@@ -2483,7 +2483,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       const AudioContextCtor =
         (window as any).AudioContext || (window as any).webkitAudioContext;
       if (!AudioContextCtor) {
-        setVoiceIdStatus("Identificacao vocal indisponivel neste navegador.");
+        setVoiceIdStatus("IdentificaÃ§Ã£o vocal indisponÃ­vel neste navegador.");
         return;
       }
 
@@ -2543,7 +2543,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       };
 
       void context.resume?.().catch(() => undefined);
-      setVoiceIdStatus("Identificacao automatica ativa.");
+      setVoiceIdStatus("IdentificaÃ§Ã£o automática ativa.");
       voiceIdRafRef.current = window.requestAnimationFrame(analyse);
     },
     [applyAttributedSpeaker, stopVoiceIdentification],
@@ -2556,13 +2556,13 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       ?.getAudioTracks()
       .find((track) => track.readyState === "live");
     if (!stream || !audioTrack || typeof window === "undefined") {
-      setVoiceIdStatus("Microfone local indisponivel para cadastrar voz do DR.");
+      setVoiceIdStatus("Microfone local indisponÃ­vel para cadastrar voz do DR.");
       return;
     }
     const AudioContextCtor =
       (window as any).AudioContext || (window as any).webkitAudioContext;
     if (!AudioContextCtor) {
-      setVoiceIdStatus("Cadastro vocal indisponivel neste navegador.");
+      setVoiceIdStatus("Cadastro vocal indisponÃ­vel neste navegador.");
       return;
     }
     setIsEnrollingDrVoice(true);
@@ -2624,7 +2624,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     setDrVoiceSignature(signature);
     setSpeakerIdMode("auto");
     setVoiceIdStatus(
-      `Voz do DR cadastrada (${signature.sampleCount} amostras). Identificacao automatica ativa.`,
+      `Voz do DR cadastrada (${signature.sampleCount} amostras). IdentificaÃ§Ã£o automática ativa.`,
     );
     startVoiceIdentification(stream);
   }, [applyAttributedSpeaker, isEnrollingDrVoice, startVoiceIdentification]);
@@ -2668,14 +2668,14 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const startProfessionalRtcCall = useCallback(
     async (localSource: MediaStream) => {
       if (!sessionId || typeof RTCPeerConnection === "undefined") {
-        setRtcStatus("WebRTC indisponivel neste navegador.");
+        setRtcStatus("WebRTC indisponÃ­vel neste navegador.");
         return;
       }
 
       cleanupRtcCall();
       const localConferenceStream = createConferenceStream(localSource);
       if (!localConferenceStream.getTracks().length) {
-        setRtcStatus("Audio e video locais indisponiveis para chamada.");
+        setRtcStatus("Áudio e vídeo locais indisponiveis para chamada.");
         return;
       }
 
@@ -2739,7 +2739,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         }
         setRemotePatientOn(true);
         applyAttributedSpeaker("PC", "Trilha remota do paciente recebida por WebRTC.");
-        setRtcStatus("Paciente conectado por audio e video.");
+        setRtcStatus("Paciente conectado por áudio e vídeo.");
       };
 
       peer.onicecandidate = (event) => {
@@ -2753,12 +2753,12 @@ function LiveSessionInner({ user }: LiveSessionProps) {
 
       peer.onconnectionstatechange = () => {
         if (peer.connectionState === "connected") {
-          setRtcStatus("Audio e video bidirecionais ativos.");
+          setRtcStatus("Áudio e vídeo bidirecionais ativos.");
         } else if (["failed", "disconnected"].includes(peer.connectionState)) {
           setRemotePatientOn(false);
           setRtcStatus("Conexao com paciente interrompida.");
         } else if (peer.connectionState === "connecting") {
-          setRtcStatus("Conectando audio e video do paciente...");
+          setRtcStatus("Conectando áudio e vídeo do paciente...");
         }
       };
 
@@ -2766,8 +2766,8 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       rtcSignalRef.current = socket;
 
       socket.onopen = () => setRtcStatus("Aguardando paciente...");
-      socket.onclose = () => setRtcStatus("Sinalizacao de video encerrada.");
-      socket.onerror = () => setRtcStatus("Falha na sinalizacao de video.");
+      socket.onclose = () => setRtcStatus("Sinalizacao de vídeo encerrada.");
+      socket.onerror = () => setRtcStatus("Falha na sinalizaÃ§Ã£o de vídeo.");
       socket.onmessage = async (event) => {
         const data = JSON.parse(String(event.data || "{}"));
         if (data.type === "signal-ready" && data.peer_connected) {
@@ -2847,7 +2847,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         setLiveTranscription((prev) => ({
           ...(prev || {}),
           bioacoustic_status: "error",
-          bioacoustic_error: "WebAudio indisponivel para bioacustica bruta.",
+          bioacoustic_error: "WebAudio indisponÃ­vel para bioacústica bruta.",
         }));
         return;
       }
@@ -3217,7 +3217,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         provider: prev?.provider || "browser-live",
         transcription_status: "listening",
         transcription_error:
-          err?.message || "Reconhecimento de fala do navegador indisponivel.",
+          err?.message || "Reconhecimento de fala do navegador indisponÃ­vel.",
       }));
       return false;
     }
@@ -3290,7 +3290,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           endSecond: safeEndSecond,
           startMinute,
           endMinute,
-          theme: limitTheme(String(data?.theme || "Tema em apuracao"), 6),
+          theme: limitTheme(String(data?.theme || "Tema em apuraÃ§Ã£o"), 6),
           summary: limitWords(String(data?.summary || "").trim(), 60),
           trigger,
         });
@@ -3301,7 +3301,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           endSecond: safeEndSecond,
           startMinute,
           endMinute,
-          theme: "Resumo indisponivel",
+          theme: "Resumo indisponÃ­vel",
           summary: limitWords(transcript, 60),
           trigger,
         });
@@ -3353,7 +3353,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           ...(prev || {}),
           provider: prev?.provider || "browser-recorder",
           transcription_status: "listening",
-          transcription_error: "Audio capturado ainda insuficiente.",
+          transcription_error: "Áudio capturado ainda insuficiente.",
           last_audio_bytes: audioBlob?.size || 0,
         }));
         return;
@@ -3386,7 +3386,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       }));
 
       try {
-        const chunkMime = audioBlob.type || mimeType || "audio/webm";
+        const chunkMime = audioBlob.type || mimeType || "áudio/webm";
         const previousContext = transcriptLinesRef.current
           .slice(-3)
           .join("\n")
@@ -3403,8 +3403,8 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             )}`,
             session_id: sessionId || "default",
             prompt:
-              "Sessao clinica FROID em portugues do Brasil. Transcreva literalmente somente a fala humana audivel, com pontuacao natural. Nao traduza, nao resuma, nao complete frases e nao invente palavras. Mantenha termos tecnicos, nomes e siglas como falados. Se nao houver fala humana clara, retorne vazio." +
-              " Vocabulario obrigatorio: FROID deve ser grafado FROID, nunca Freud; IPM, IDM, biomarcadores, sub-harmonicos, bioacustica, dissonancias, paciente e profissional." +
+              "Sessão clínica FROID em portugues do Brasil. Transcreva literalmente somente a fala humana audivel, com pontuacao natural. Não traduza, não resuma, não complete frases e não invente palavras. Mantenha termos técnicos, nomes e siglas como falados. Se não houver fala humana clara, retorne vazio." +
+              " Vocabulario obrigatorio: FROID deve ser grafado FROID, nunca Freud; IPM, IDM, biomarcadores, sub-harmônicos, bioacústica, dissonâncias, paciente e profissional." +
               (previousContext
                 ? `\n\nContexto transcrito imediatamente anterior para continuidade e pontuacao:\n${previousContext}`
                 : ""),
@@ -3419,7 +3419,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             provider: data?.provider || "local-fallback",
             transcription_status: "error",
             transcription_error:
-              data?.error || `Falha HTTP ${response.status} na transcricao.`,
+              data?.error || `Falha HTTP ${response.status} na transcrição.`,
           }));
           return;
         }
@@ -3430,7 +3430,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             transcription_status: "listening",
             transcription_interim: "",
             transcription_error:
-              data?.error || "Audio enviado, sem fala transcrita no bloco.",
+              data?.error || "Áudio enviado, sem fala transcrita no bloco.",
           }));
           return;
         }
@@ -3452,7 +3452,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           provider: prev?.provider || "browser-recorder",
           transcription_status: "error",
           transcription_error:
-            err instanceof Error ? err.message : "Falha ao enviar audio.",
+            err instanceof Error ? err.message : "Falha ao enviar áudio.",
         }));
       } finally {
         transcribingRef.current = false;
@@ -3503,10 +3503,10 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           transcription_status: "error",
           transcription_error:
             typeof MediaRecorder === "undefined"
-              ? "MediaRecorder indisponivel neste navegador."
+              ? "MediaRecorder indisponÃ­vel neste navegador."
               : source === "patient"
-                ? "Audio do paciente ainda nao chegou ao gravador."
-                : "Microfone do profissional indisponivel para gravacao.",
+                ? "Áudio do paciente ainda não chegou ao gravador."
+                : "Microfone do profissional indisponÃ­vel para gravação.",
         }));
         return;
       }
@@ -3531,7 +3531,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           provider: "browser-recorder",
           transcription_status: "error",
           transcription_error:
-            err?.message || "Nao foi possivel criar o gravador de audio.",
+            err?.message || "Não foi possível criar o gravador de áudio.",
         }));
         return;
       }
@@ -3574,7 +3574,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           provider: prev?.provider || "browser-recorder",
           transcription_status: "error",
           transcription_error:
-            error?.message || "Erro no gravador de audio do navegador.",
+            error?.message || "Erro no gravador de áudio do navegador.",
         }));
       };
 
@@ -3591,7 +3591,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         const finishedBlob =
           recordedChunks.length > 0
             ? new Blob(recordedChunks, {
-                type: recorder.mimeType || mimeType || "audio/webm",
+                type: recorder.mimeType || mimeType || "áudio/webm",
               })
             : null;
 
@@ -3613,7 +3613,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             }
             enqueueTranscriptionBlob(
               finishedBlob,
-              finishedBlob.type || mimeType || "audio/webm",
+              finishedBlob.type || mimeType || "áudio/webm",
               segmentSpeaker,
             );
           }
@@ -3653,7 +3653,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           provider: "browser-recorder",
           transcription_status: "error",
           transcription_error:
-            err?.message || "Nao foi possivel iniciar o gravador de audio.",
+            err?.message || "Não foi possível iniciar o gravador de áudio.",
         }));
         return;
       }
@@ -3692,7 +3692,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       bioacoustic_pipeline: "patient-webrtc",
       bioacoustic_track: "patient-webrtc",
       bioacoustic_warning:
-        "Avaliacao FROID usando exclusivamente a voz do paciente.",
+        "Avaliação FROID usando exclusivamente a voz do paciente.",
       transcription_sources: "captura-semantica-por-cortes",
       bioacoustic_error: "",
     }));
@@ -3717,7 +3717,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       if (!hasAutomaticVoiceGuard && attributedSpeakerRef.current !== "PC") {
         applyAttributedSpeaker(
           "PC",
-          "Atendimento presencial: sem voz DR cadastrada, microfone local atribuido ao PC para metricas.",
+          "Atendimento presencial: sem voz DR cadastrada, microfone local atribuido ao PC para métricas.",
         );
       }
       startRawBioacousticPipeline(
@@ -3733,8 +3733,8 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           : "direct-local-patient",
         bioacoustic_warning:
           hasAutomaticVoiceGuard
-            ? "Atendimento presencial: metricas calculadas a partir da voz local identificada como paciente."
-            : "Atendimento presencial: microfone local alimentando a trilha PC para manter metricas e graficos ativos.",
+            ? "Atendimento presencial: métricas calculadas a partir da voz local identificada como paciente."
+            : "Atendimento presencial: microfone local alimentando a trilha PC para manter métricas e gráficos ativos.",
         transcription_sources: "captura-semantica-por-cortes",
         bioacoustic_error: "",
       }));
@@ -3791,7 +3791,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       audioError =
         err?.name === "NotAllowedError"
           ? "Permissao de microfone negada pelo navegador."
-          : "Nao foi possivel ativar o microfone.";
+          : "Não foi possível ativar o microfone.";
     }
 
     try {
@@ -3808,7 +3808,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       videoError =
         err?.name === "NotAllowedError"
           ? "Permissao de camera negada pelo navegador."
-          : "Nao foi possivel ativar a camera.";
+          : "Não foi possível ativar a camera.";
     }
 
     const stream = new MediaStream(tracks);
@@ -3821,7 +3821,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       bioacoustic_pipeline: "patient-webrtc",
       bioacoustic_track: "patient-webrtc",
       bioacoustic_warning:
-        "Biomarcadores e graficos aguardam exclusivamente o audio do paciente.",
+        "Biomarcadores e gráficos aguardam exclusivamente o áudio do paciente.",
       bioacoustic_error: "",
     }));
     if (ENABLE_BROWSER_LIVE_STT) {
@@ -3948,7 +3948,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                 bioacoustic_status: "waiting_patient",
                 bioacoustic_track: "local-professional-selected",
                 bioacoustic_warning:
-                  "Audio local fora da trilha de paciente: metricas multimodais pausadas.",
+                  "Áudio local fora da trilha de paciente: métricas multimodais pausadas.",
               }));
               return;
             }
@@ -3990,7 +3990,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       const agg = aggregatePayloads([...frameBuffer.current]);
       dispatch({ type: "AGGREGATE", agg });
       frameBuffer.current = [];
-    }, 10000); /* agrega a cada 10s usando media dos ultimos 3s (6 frames) */
+    }, 10000); /* agrega a cada 10s usando média dos últimos 3s (6 frames) */
     return () => clearInterval(id);
   }, []);
 
@@ -4150,7 +4150,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         transcriptSegmentsRef.current,
       );
     const sessionAverage = buildMetricSnapshot(
-      "Media da sessao",
+      "Média da sessão",
       samples,
       0,
       Math.max(durationSeconds, 1),
@@ -4340,12 +4340,12 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
           <p className="font-black uppercase tracking-wide text-cyan-200">
-            Estabilizacao clinica
+            Estabilização clínica
           </p>
           <p className="truncate text-[9px] text-slate-400">
             Janela visual: {clinicalWindowLabel}
             {clinicalUpdateMode !== "realtime"
-              ? ` | proxima em ${formatCutClock(clinicalNextUpdateSeconds)}`
+              ? ` | próxima em ${formatCutClock(clinicalNextUpdateSeconds)}`
               : " | sem congelamento"}
           </p>
         </div>
@@ -4400,7 +4400,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             {simplifiedMetricEntries.map(([label, value]) => (
               <div key={label} className="px-2 first:pl-1">
                 <FroidTooltip
-                  content={SIMPLIFIED_METRIC_TOOLTIPS[label] || "Metrica do corte atual da sessao simplificada."}
+                  content={SIMPLIFIED_METRIC_TOOLTIPS[label] || "Métrica do corte atual da sessão simplificada."}
                   width={330}
                 >
                   <span className="block cursor-help whitespace-nowrap text-[9px] font-black uppercase tracking-wide text-slate-500 underline decoration-slate-600 underline-offset-2">
@@ -4455,7 +4455,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
               <div className="absolute bottom-3 left-3 right-3 z-20 rounded-lg border border-amber-300/50 bg-slate-950/75 px-3 py-2 text-[10px] font-semibold text-amber-100 backdrop-blur-sm">
                 <div className="flex items-center justify-between gap-3">
                   <span className="min-w-0 flex-1">
-                    {state.camError || "Audio aguardando permissao do navegador."}
+                    {state.camError || "Áudio aguardando permissao do navegador."}
                   </span>
                   {!state.micOn && (
                     <button
@@ -4463,7 +4463,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                       onClick={() => void activateMedia()}
                       className="shrink-0 rounded bg-amber-400 px-2 py-1 text-[10px] font-black text-slate-950 hover:bg-amber-300"
                     >
-                      Ativar audio
+                      Ativar áudio
                     </button>
                   )}
                 </div>
@@ -4479,12 +4479,12 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                     <p className="font-black uppercase tracking-wider">
                       <FroidTooltip content={SIMPLIFIED_CUT_TOOLTIP} width={360}>
                         <span className="cursor-help underline decoration-cyan-700 underline-offset-2">
-                          Corte semantico + Resumo da Fala IA
+                          Corte semântico + Resumo da Fala IA
                         </span>
                       </FroidTooltip>
                     </p>
                     <p className="mt-0.5 text-[9px] text-cyan-300">
-                      Fechamento do corte e sintese complementar
+                      Fechamento do corte e síntese complementar
                     </p>
                   </div>
                   <button
@@ -4492,7 +4492,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                     onClick={() => void closeSemanticCut("manual")}
                     className="shrink-0 rounded bg-cyan-700 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white hover:bg-cyan-800 disabled:cursor-not-allowed disabled:bg-cyan-200"
                     disabled={semanticCutElapsed < 10 || semanticCutClosingRef.current}
-                    title="Fecha manualmente o corte atual e gera resumo IA do periodo."
+                    title="Fecha manualmente o corte atual e gera resumo IA do período."
                   >
                     Fechar corte
                   </button>
@@ -4573,7 +4573,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
               <p className="font-black uppercase tracking-wide">
                 {isPresentialMobileSession
                   ? "Presencial com celular do paciente"
-                  : "Sessao presencial"}
+                  : "Sessão presencial"}
               </p>
               <span className="rounded bg-slate-950/60 px-2 py-0.5 font-black">
                 {speakerIdMode === "auto" ? "voz DR auto" : "captura PC prioritária"}
@@ -4582,7 +4582,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             <p className="mt-1">
               {isPresentialMobileSession
                 ? "O celular do paciente deve ficar voltado ao rosto dele e funcionar como captura dedicada. Recomenda-se microfone de lapela no profissional para reduzir interferencia da voz do DR."
-                : "Recomendado: camera e microfone externos direcionados ao paciente. Cadastre a voz do DR antes da consulta para reduzir contaminacao da trilha bioacustica."}
+                : "Recomendado: camera e microfone externos direcionados ao paciente. Cadastre a voz do DR antes da consulta para reduzir contaminacao da trilha bioacústica."}
             </p>
             <div className="mt-2 grid grid-cols-1 gap-1.5">
               <button
@@ -4591,7 +4591,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                 onClick={() => void enrollDrVoice()}
                 className="rounded border border-emerald-700 bg-slate-950/60 px-2 py-1 font-bold text-emerald-100 hover:bg-emerald-900 disabled:opacity-40"
               >
-                Cadastrar voz do DR antes da sessao
+                Cadastrar voz do DR antes da sessão
               </button>
             </div>
             <p className="mt-2 text-[9px] text-emerald-200">{voiceIdStatus}</p>
@@ -4602,7 +4602,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           <div className="mb-2 flex items-center justify-between gap-2">
             <div>
               <p className="font-bold uppercase tracking-wider">
-                Corte semantico da sessao
+                Corte semântico da sessão
               </p>
             </div>
             <button
@@ -4610,7 +4610,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
               onClick={() => void closeSemanticCut("manual")}
               className="shrink-0 rounded bg-cyan-700 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white hover:bg-cyan-800 disabled:cursor-not-allowed disabled:bg-cyan-200"
               disabled={semanticCutElapsed < 10 || semanticCutClosingRef.current}
-              title="Fecha manualmente o corte atual e gera resumo IA do periodo."
+              title="Fecha manualmente o corte atual e gera resumo IA do período."
             >
               Fechar corte
             </button>
@@ -4632,7 +4632,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             <p className="font-bold">Fase de Repouso Ativa</p>
             <p>
               {patientBaselineStart === null
-                ? "Aguardando PC para iniciar baseline de metricas."
+                ? "Aguardando PC para iniciar baseline de métricas."
                 : `Coletando baseline do PC: ${patientBaselineElapsed.toFixed(0)}s / 60s`}
             </p>
             <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-blue-900">
@@ -4713,7 +4713,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             <div className="absolute bottom-3 left-3 right-3 z-20 rounded-lg border border-amber-300/50 bg-slate-950/75 px-3 py-2 text-[10px] font-semibold text-amber-100 backdrop-blur-sm">
               <div className="flex items-center justify-between gap-3">
                 <span className="min-w-0 flex-1">
-                  {state.camError || "Audio aguardando permissao do navegador."}
+                  {state.camError || "Áudio aguardando permissao do navegador."}
                 </span>
                 {!state.micOn && (
                   <button
@@ -4721,7 +4721,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                     onClick={() => void activateMedia()}
                     className="shrink-0 rounded bg-amber-400 px-2 py-1 text-[10px] font-black text-slate-950 hover:bg-amber-300"
                   >
-                    Ativar audio
+                    Ativar áudio
                   </button>
                 )}
               </div>
@@ -4779,7 +4779,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                   </p>
                   <p className="mt-1 text-[10px] leading-snug text-slate-400">
                     Divergencias multimodais acima dos limiares FROID. Itens abaixo
-                    das metricas configuradas sao omitidos.
+                    das métricas configuradas são omitidos.
                   </p>
                 </div>
                 <span
@@ -4797,10 +4797,10 @@ function LiveSessionInner({ user }: LiveSessionProps) {
 
               {confirmedDissonanceZones.length === 0 && (
                 <div className="rounded-xl border border-emerald-900/70 bg-emerald-950/20 p-3 text-[11px] leading-relaxed text-emerald-100">
-                  Nenhuma dissonancia facial-vocal-semantica ultrapassou os
+                  Nenhuma dissonância facial-vocal-semantica ultrapassou os
                   limiares definidos neste instante. O FROID segue monitorando
-                  voz do paciente, FACS, IPM, IDM, sub-harmonicos, biomarcadores
-                  acusticos e conteudo transcrito.
+                  voz do paciente, FACS, IPM, IDM, sub-harmônicos, biomarcadores
+                  acústicos e conteudo transcrito.
                 </div>
               )}
 
@@ -4829,7 +4829,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                               {interpretation.title}
                             </p>
                             <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                              Zona {zone.zone} - {zone.tema || "tema em apuracao"}
+                              Zona {zone.zone} - {zone.tema || "tema em apuraÃ§Ã£o"}
                             </p>
                           </div>
                           <span className="shrink-0 rounded bg-red-600 px-1.5 py-0.5 text-[9px] font-black text-white">
@@ -4843,13 +4843,13 @@ function LiveSessionInner({ user }: LiveSessionProps) {
 
                         <div className="mt-2 rounded-lg border border-slate-700 bg-slate-950/70 p-2">
                           <p className="text-[10px] font-black uppercase tracking-wider text-cyan-200">
-                            Motivo tecnico do apontamento
+                            Motivo técnico do apontamento
                           </p>
                           <p className="mt-1 text-[10px] leading-snug text-slate-300">
                             O FROID registrou este apontamento apenas porque a
-                            composicao entre face, voz, zona, IDM e/ou semantica
-                            ultrapassou os limiares definidos apos comparacao com
-                            a baseline de 60 segundos da sessao.
+                            composicao entre face, voz, zona, IDM e/ou semântica
+                            ultrapassou os limiares definidos após comparacao com
+                            a baseline de 60 segundos da sessão.
                           </p>
                           <p className="mt-2 text-[10px] font-black uppercase tracking-wider text-slate-400">
                             Itens divergentes apurados
@@ -4890,7 +4890,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                 <div className="mt-3 rounded-lg border border-slate-700 bg-slate-900 p-2">
                   <div className="mb-2 flex items-center justify-between">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-slate-300">
-                      Registro de Dissonancias
+                      Registro de Dissonâncias
                     </p>
                     <span className="text-[9px] text-slate-500">
                       {dissonanceLog.length} itens

@@ -34,16 +34,16 @@ const billingMarkets = [
 const fallbackPlans: AccessPlan[] = [
   {
     id: "single_session",
-    name: "Sessao avulsa FROID",
-    description: "Credito individual para uma sessao FROID.",
+    name: "Sessão avulsa FROID",
+    description: "Crédito individual para uma sessão FROID.",
     session_credits: 1,
     amount_cents: 0,
     amount_brl: "US$ 0.00",
   },
   {
     id: "professional_pack_25",
-    name: "Pacote profissional 25 sessoes",
-    description: "Pacote mensal com 25 sessoes FROID.",
+    name: "Pacote profissional 25 sessões",
+    description: "Pacote mensal com 25 sessões FROID.",
     session_credits: 25,
     amount_cents: 150,
     amount_brl: "US$ 1.50",
@@ -156,7 +156,7 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [calendarView, setCalendarView] = useState<CalendarViewMode>("week");
   const [calendarAnchor, setCalendarAnchor] = useState(() => startOfLocalDay(new Date()));
-  const [eventTitle, setEventTitle] = useState("Sessao FROID");
+  const [eventTitle, setEventTitle] = useState("Sessão FROID");
   const [eventDate, setEventDate] = useState(() => dateInputValue(new Date()));
   const [eventStart, setEventStart] = useState("09:00");
   const [eventDuration, setEventDuration] = useState("50");
@@ -188,9 +188,9 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
         body: JSON.stringify({ checkout_session_id: checkoutSessionId }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data?.detail || "Nao foi possivel confirmar o pagamento.");
+      if (!response.ok) throw new Error(data?.detail || "Não foi possível confirmar o pagamento.");
       setProfileStatus(data?.access_status || null);
-      setBillingMessage("Pagamento confirmado e sessoes acrescentadas ao saldo.");
+      setBillingMessage("Pagamento confirmado e sessões acrescentadas ao saldo.");
       window.history.replaceState(null, "", window.location.pathname + window.location.hash.split("?")[0]);
       await loadBillingProfile();
     } catch (error: any) {
@@ -325,7 +325,7 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
       });
       const data = await response.json();
       if (!response.ok || !data?.auth_url) {
-        throw new Error(data?.detail || "Nao foi possivel iniciar a conexao Google Agenda.");
+        throw new Error(data?.detail || "Não foi possível iniciar a conexao Google Agenda.");
       }
       window.location.href = data.auth_url;
     } catch (error: any) {
@@ -342,7 +342,7 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
         method: "POST",
         headers: authHeaders(),
       });
-      if (!response.ok) throw new Error("Nao foi possivel desconectar Google Agenda.");
+      if (!response.ok) throw new Error("Não foi possível desconectar Google Agenda.");
       setCalendarMessage("Google Agenda desconectado.");
       await loadCalendarStatus();
     } catch (error: any) {
@@ -381,7 +381,7 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
         }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data?.detail || "Nao foi possivel selecionar a agenda.");
+      if (!response.ok) throw new Error(data?.detail || "Não foi possível selecionar a agenda.");
       setCalendarStatus((current: any) => ({ ...(current || {}), ...data }));
       setCalendarMessage(`Agenda ativa: ${calendar?.summary || calendarId}`);
       await loadCalendarStatus(calendarView, calendarAnchor);
@@ -426,11 +426,11 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
           start: start.toISOString(),
           end: end.toISOString(),
           timeZone: "America/Sao_Paulo",
-          description: "Evento criado pelo FROID para organizacao da sessao clinica.",
+          description: "Evento criado pelo FROID para organizaÃ§Ã£o da sessão clínica.",
         }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data?.detail || "Nao foi possivel criar o evento.");
+      if (!response.ok) throw new Error(data?.detail || "Não foi possível criar o evento.");
       setCalendarMessage("Evento criado na agenda selecionada.");
       await loadCalendarStatus(calendarView, calendarAnchor);
     } catch (error: any) {
@@ -453,7 +453,7 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
         },
       );
       const data = response.status === 204 ? {} : await response.json();
-      if (!response.ok) throw new Error(data?.detail || "Nao foi possivel excluir o evento.");
+      if (!response.ok) throw new Error(data?.detail || "Não foi possível excluir o evento.");
       setCalendarMessage("Evento removido da agenda.");
       await loadCalendarStatus(calendarView, calendarAnchor);
     } catch (error: any) {
@@ -471,7 +471,7 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
 
   const buySessionCredits = async () => {
     if (!selectedPlanData || sessionQuantity < 1) {
-      setBillingMessage("Informe ao menos 1 sessao para compra.");
+      setBillingMessage("Informe ao menos 1 sessão para compra.");
       return;
     }
     setBillingLoading(true);
@@ -497,9 +497,9 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
         }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data?.detail || "Nao foi possivel iniciar a compra.");
+      if (!response.ok) throw new Error(data?.detail || "Não foi possível iniciar a compra.");
       if (data.status === "free_access" || data.status === "stripe_not_configured") {
-        setBillingMessage(data.message || "Creditos atualizados localmente.");
+        setBillingMessage(data.message || "Créditos atualizados localmente.");
         await loadBillingProfile();
         return;
       }
@@ -509,7 +509,7 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
       }
       setBillingMessage("Checkout iniciado, mas sem URL de redirecionamento.");
     } catch (error: any) {
-      setBillingMessage(error?.message || "Falha ao comprar sessoes.");
+      setBillingMessage(error?.message || "Falha ao comprar sessões.");
     } finally {
       setBillingLoading(false);
     }
@@ -551,9 +551,9 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
       <div className="mx-auto max-w-5xl space-y-6 rounded-xl border border-slate-700 bg-slate-900 p-6 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-xl font-bold">Configuracoes do Profissional</h1>
+            <h1 className="text-xl font-bold">Configurações do Profissional</h1>
             <p className="mt-1 text-sm text-slate-400">
-              Gestao clinica, consentimentos, agenda, auditoria e prompts proprios do FROID Explica.
+              Gestao clínica, consentimentos, agenda, auditoria e prompts próprios do FROID Explica.
             </p>
           </div>
           {ownerEmail && (
@@ -577,7 +577,7 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
         <section className="rounded-xl border border-cyan-800 bg-cyan-950/50 p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="text-sm font-bold text-cyan-100">Prompts proprios do profissional</p>
+              <p className="text-sm font-bold text-cyan-100">Prompts próprios do profissional</p>
               <p className="mt-1 text-xs leading-5 text-cyan-200">
                 Estes prompts aparecem separados dos prompts nativos no dropdown do FROID Explica.
                 Eles ficam vinculados ao e-mail do profissional neste navegador.
@@ -591,7 +591,7 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
           <form onSubmit={addPrompt} className="mt-4 grid gap-3">
             <label>
               <span className="text-xs font-bold uppercase tracking-wide text-cyan-100">
-                Titulo curto
+                Título curto
               </span>
               <input
                 value={promptTitle}
@@ -653,7 +653,7 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
               <div>
                 <p className="text-sm font-semibold">Google OAuth e Agenda</p>
                 <p className="mt-1 text-xs text-slate-400">
-                  Conecte uma agenda Google do proprio profissional para organizar sessoes FROID,
+                  Conecte uma agenda Google do próprio profissional para organizar sessões FROID,
                   criar compromissos e preparar lembretes.
                 </p>
               </div>
@@ -693,9 +693,9 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
                 </div>
                 <div className="rounded border border-cyan-900/70 bg-cyan-950/30 p-2 text-cyan-100">
                   Recomendacao FROID: crie no Google Calendar uma agenda separada chamada{" "}
-                  <strong>FROID - Sessoes</strong> e selecione essa agenda aqui. Isso preserva a
-                  organizacao clinica, facilita auditoria e evita misturar agenda pessoal com agenda
-                  terapeutica. O FROID usa escopo reduzido: lista agendas de sua propriedade e altera
+                  <strong>FROID - Sessões</strong> e selecione essa agenda aqui. Isso preserva a
+                  organizaÃ§Ã£o clínica, facilita auditoria e evita misturar agenda pessoal com agenda
+                  terapêutica. O FROID usa escopo reduzido: lista agendas de sua propriedade e altera
                   eventos apenas na agenda selecionada.
                 </div>
               </div>
@@ -705,7 +705,7 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
                 <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
                   <label className="text-xs text-slate-300">
                     <span className="font-black uppercase tracking-wide text-cyan-200">
-                      Agenda Google para sessoes
+                      Agenda Google para sessões
                     </span>
                     <select
                       value={calendarStatus.selected_calendar_id || "primary"}
@@ -746,7 +746,7 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
                   className="grid gap-2 rounded border border-slate-700 bg-slate-950 p-3 lg:grid-cols-[1.4fr_0.8fr_0.6fr_0.6fr_auto]"
                 >
                   <label className="text-[10px] font-black uppercase tracking-wide text-slate-400">
-                    Titulo
+                    Título
                     <input
                       value={eventTitle}
                       onChange={(event) => setEventTitle(event.target.value)}
@@ -763,7 +763,7 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
                     />
                   </label>
                   <label className="text-[10px] font-black uppercase tracking-wide text-slate-400">
-                    Inicio
+                    Início
                     <input
                       type="time"
                       value={eventStart}
@@ -825,7 +825,7 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
                         onClick={() => void moveCalendar(1)}
                         className="rounded border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-bold text-slate-200 hover:bg-slate-800"
                       >
-                        Proximo
+                        Próximo
                       </button>
                     </div>
                   </div>
@@ -909,7 +909,7 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
             <div className="mt-3 rounded border border-slate-700 bg-slate-950 p-3 text-[11px] leading-relaxed text-slate-400">
               <p>
                 Para facilitar a aprovacao pelo Google e proteger o profissional, o FROID solicita
-                somente as permissoes necessarias para a agenda clinica selecionada. Politica de
+                somente as permissoes necessárias para a agenda clínica selecionada. Politica de
                 Privacidade e Termos de Uso publicos:{" "}
                 <a className="font-bold text-cyan-200 underline" href="/privacidade" target="_blank" rel="noreferrer">
                   privacidade
@@ -945,13 +945,13 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
           <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-700 p-3">
             <p className="text-sm font-semibold">Consentimentos LGPD</p>
             <span className="text-xs font-bold text-slate-400">
-              Duvidas e referencias pelo FROID Explica
+              Duvidas e referências pelo FROID Explica
             </span>
           </div>
           <div className="rounded-lg border border-slate-700 p-3">
             <p className="text-sm font-semibold">Planos e Cobranca</p>
             <p className="mt-1 text-xs text-slate-400">
-              Checkout Stripe, saldo contratado e controle de creditos de sessao FROID.
+              Checkout Stripe, saldo contratado e controle de créditos de sessão FROID.
             </p>
             <div className="mt-3 grid gap-2 text-xs sm:grid-cols-3">
               <div className="rounded border border-slate-700 bg-slate-950 p-2">
@@ -1012,7 +1012,7 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
                 </select>
               </label>
               <label className="text-[10px] font-black uppercase tracking-wide text-slate-400">
-                Sessoes a comprar
+                Sessões a comprar
                 <input
                   type="number"
                   min={1}
@@ -1022,7 +1022,7 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
                 />
               </label>
               <div className="rounded border border-cyan-900/70 bg-cyan-950/30 p-2 text-xs text-cyan-100">
-                Total liberado: <strong>{purchaseTotalSessions}</strong> sessoes
+                Total liberado: <strong>{purchaseTotalSessions}</strong> sessões
                 {purchaseBonusSessions ? `, incluindo ${purchaseBonusSessions} bonus` : ""}.
                 <br />
                 Moeda do checkout: <strong>{billingCurrency.toUpperCase()}</strong>.
@@ -1033,7 +1033,7 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
                 onClick={() => void buySessionCredits()}
                 className="rounded-lg bg-cyan-700 px-3 py-2 text-xs font-bold text-white hover:bg-cyan-800 disabled:opacity-40"
               >
-                {billingLoading ? "Processando..." : "Comprar sessoes"}
+                {billingLoading ? "Processando..." : "Comprar sessões"}
               </button>
               {billingMessage && (
                 <p className="text-xs font-bold text-amber-100">{billingMessage}</p>
@@ -1043,7 +1043,7 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
           <div className="rounded-lg border border-slate-700 p-3">
             <p className="text-sm font-semibold">Auditoria e Ledger</p>
             <p className="mt-1 text-xs text-slate-400">
-              Hash chain local para consentimentos, exclusao e acesso as sessoes.
+              Hash chain local para consentimentos, exclusao e acesso as sessões.
             </p>
             <div className="mt-3 text-xs text-slate-300">
               SHA256 - 90 dias de purga - DPO-admin

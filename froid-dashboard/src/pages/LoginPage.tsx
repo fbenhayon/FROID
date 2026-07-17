@@ -92,7 +92,7 @@ export const LoginPage: React.FC<Props> = ({ onLogin, afterLoginPath = "/dashboa
     script.defer = true;
     script.onload = activateGoogle;
     script.onerror = () =>
-      setError("Nao foi possivel carregar o login do Google.");
+      setError("Não foi possível carregar o login do Google.");
     document.head.appendChild(script);
   }, [googleClientId, googleReady]);
 
@@ -105,7 +105,7 @@ export const LoginPage: React.FC<Props> = ({ onLogin, afterLoginPath = "/dashboa
       client_id: googleClientId,
       callback: (response) => {
         if (!response.credential) {
-          setError("O Google nao retornou uma credencial valida.");
+          setError("O Google não retornou uma credencial válida.");
           return;
         }
         void completeLogin({ credential: response.credential });
@@ -135,7 +135,7 @@ export const LoginPage: React.FC<Props> = ({ onLogin, afterLoginPath = "/dashboa
           </p>
           <h1 className="mt-2 text-2xl font-bold">Acesso profissional</h1>
           <p className="mt-2 text-sm text-slate-400">
-            Entre com o e-mail profissional para acessar o painel clinico e os
+            Entre com o e-mail profissional para acessar o painel clínico e os
             recursos multimodais.
           </p>
         </div>
@@ -187,7 +187,7 @@ export const LoginPage: React.FC<Props> = ({ onLogin, afterLoginPath = "/dashboa
         <p className="mt-4 text-[11px] text-slate-500">
           {googleClientId
             ? "Login protegido por Google Identity Services com fallback local autorizado."
-            : "Defina VITE_GOOGLE_CLIENT_ID para ativar o botao real do Google."}
+            : "Defina VITE_GOOGLE_CLIENT_ID para ativar o botão real do Google."}
         </p>
       </div>
     </div>

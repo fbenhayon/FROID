@@ -65,82 +65,82 @@ function hasSubstantiveSummary(text: string) {
   return ![
     "nenhuma fala foi transcrita",
     "sem fala transcrita",
-    "resumo geral indisponivel",
-    "ausencia de transcricao",
+    "resumo geral indisponÃ­vel",
+    "ausência de transcrição",
   ].some((token) => normalized.includes(token));
 }
 
 const TITLE_TOOLTIPS: Record<string, string> = {
-  "Linha comparativa da sessao":
-    "Compara o baseline inicial de 60 segundos com a media consolidada da sessao.",
+  "Linha comparativa da sessão":
+    "Compara o baseline inicial de 60 segundos com a média consolidada da sessão.",
   "Evolucao FROID":
-    "Grafico normalizado pelo baseline inicial. A linha 100 representa o ponto de partida da sessao.",
-  "Leitura estatistica das metricas":
-    "Resume baseline, media, ultimo corte, delta e escore-z das metricas evolutivas do FROID.",
-  "Composicao do relatorio":
-    "Permite escolher quais blocos entram na visualizacao e no relatorio da consulta.",
+    "Gráfico normalizado pelo baseline inicial. A linha 100 representa o ponto de partida da sessão.",
+  "Leitura estatística das métricas":
+    "Resume baseline, média, último corte, delta e escore-z das métricas evolutivas do FROID.",
+  "Composicao do relatório":
+    "Permite escolher quais blocos entram na visualizacao e no relatório da consulta.",
   "Parametros iniciais - 60 segundos":
-    "Primeira fotografia bioacustica e multimodal da sessao, tomada apos a ativacao do audio do paciente.",
-  "Media das metricas da sessao":
-    "Media consolidada dos marcadores coletados durante todo o periodo analisado da sessao.",
-  "Cortes da sessao":
-    "Cortes temporais da sessao, incluindo cortes manuais do profissional e cortes automaticos obrigatorios a cada 10 minutos apos o ultimo corte.",
-  "Resumo geral da sessao":
-    "Sintese analitica final da sessao, limitada a 300 palavras, com tema predominante de ate 6 palavras.",
+    "Primeira fotografia bioacústica e multimodal da sessão, tomada após a ativaÃ§Ã£o do áudio do paciente.",
+  "Média das métricas da sessão":
+    "Média consolidada dos marcadores coletados durante todo o período analisado da sessão.",
+  "Cortes da sessão":
+    "Cortes temporais da sessão, incluindo cortes manuais do profissional e cortes automáticos obrigatórios a cada 10 minutos após o último corte.",
+  "Resumo geral da sessão":
+    "Síntese analitica final da sessão, limitada a 300 palavras, com tema predominante de até 6 palavras.",
   "Temas e Resumos por Cortes":
-    "Resumo e metricas de cada corte temporal, alinhando tema, sintese semantica e marcadores multimodais do mesmo periodo.",
-  "Observacoes do profissional":
-    "Anotacoes clinicas registradas manualmente pelo profissional durante a sessao.",
-  "Dissonancias registradas":
-    "Lista apenas dissonancias persistentes acima do limiar clinico configurado.",
-  "Relatorio Descritivo":
+    "Resumo e métricas de cada corte temporal, alinhando tema, síntese semântica e marcadores multimodais do mesmo período.",
+  "ObservaÃ§Ãµes do profissional":
+    "AnotaÃ§Ãµes clínicas registradas manualmente pelo profissional durante a sessão.",
+  "Dissonâncias registradas":
+    "Lista apenas dissonâncias persistentes acima do limiar clínico configurado.",
+  "Relatório Descritivo":
     "Campo editavel para o profissional montar texto a copiar, enviar ou futuramente imprimir.",
 };
 
 const METRIC_TOOLTIPS: Record<string, string> = {
-  Corte: "Intervalo temporal efetivamente analisado no corte da sessao.",
-  IPM: "Indice de Potencia Multimodal: intensidade global ou energia emocional empregada.",
-  IDM: "Indice de Desvio Multimodal: direcao e grau do desequilibrio multimodal.",
-  ZONAS: "Zona FROID dominante no periodo analisado.",
-  Tema: "Tema predominante consolidado da sessao ou do bloco analisado.",
-  Tom: "Tom emocional inferido pela combinacao vocal e semantica.",
-  "P/min": "Palavras por minuto no periodo analisado.",
-  "Disso.": "Quantidade de dissonancias facial-vocais persistentes registradas.",
-  MFCC7: "Biomarcador acustico associado a conteudo de valencia negativa e risco depressivo quando combinado a outros sinais.",
-  MFCC9: "Biomarcador acustico acompanhado em fala neutra, relevante para tensao autonomica e ansiedade somatica.",
-  "F0 Med.": "Frequencia fundamental media da voz no periodo.",
-  ZCR: "Taxa de cruzamento por zero, relacionada a textura/ruido e dinamica acustica.",
-  "Jitter idx.": "Indice proxy interno normalizado de instabilidade vocal relativa; nao equivale diretamente a jitter percentual normativo.",
-  "Shimmer idx.": "Indice proxy interno normalizado de variacao relativa do envelope RMS; nao equivale diretamente a shimmer em dB.",
-  Jitter: "Indice proxy interno normalizado de instabilidade vocal relativa.",
-  Shimmer: "Indice proxy interno normalizado de variacao relativa do envelope RMS.",
-  "Sub-H 5-12Hz": "Energia sub-harmonica baixa, usada no cruzamento com sinais autonomicos.",
-  "Sub-H 12-20Hz": "Energia sub-harmonica complementar para leitura bioacustica.",
-  Metrica: "Nome da metrica estatistica analisada pelo motor evolutivo.",
-  Baseline: "Valor inicial de referencia, apurado no baseline da sessao.",
-  Media: "Media consolidada da sessao para a metrica.",
-  "Ultimo corte": "Valor mais recente observado nos cortes temporais.",
-  "Delta ultimo": "Variacao percentual do ultimo corte em relacao ao baseline.",
-  "Z ultimo": "Desvio padronizado do ultimo corte em relacao ao comportamento de referencia.",
-  Alertas: "Alertas estatisticos ou clinicos levantados para a metrica.",
-  ipm: "Indice de Potencia Multimodal no motor estatistico.",
-  idm: "Indice de Desvio Multimodal no motor estatistico.",
-  words_per_minute: "Velocidade media de fala em palavras por minuto.",
-  facial_vocal_dissonance: "Dissonancia entre expressao facial e trilha vocal.",
-  clinical_risk: "Risco clinico agregado calculado pelo motor FROID.",
-  "Palavras/min": "Velocidade media de fala em palavras por minuto.",
-  Dissonancia: "Dissonancia entre expressao facial e trilha vocal.",
-  "Risco clinico": "Risco clinico agregado calculado pelo motor FROID.",
+  Corte: "Intervalo temporal efetivamente analisado no corte da sessão.",
+  IPM: "Índice de Potencia Multimodal: intensidade global ou energia emocional empregada.",
+  IDM: "Índice de Desvio Multimodal: direÃ§Ã£o e grau do desequilibrio multimodal.",
+  ZONAS: "Zona FROID dominante no período analisado.",
+  Tema: "Tema predominante consolidado da sessão ou do bloco analisado.",
+  Tom: "Tom emocional inferido pela combinacao vocal e semântica.",
+  "P/min": "Palavras por minuto no período analisado.",
+  "Disso.": "Quantidade de dissonâncias facial-vocais persistentes registradas.",
+  MFCC7: "Biomarcador acústico associado a conteudo de valencia negativa e risco depressivo quando combinado a outros sinais.",
+  MFCC9: "Biomarcador acústico acompanhado em fala neutra, relevante para tensão autonômica e ansiedade somática.",
+  "F0 Med.": "Frequência fundamental média da voz no período.",
+  ZCR: "Taxa de cruzamento por zero, relacionada a textura/ruido e dinâmica acústica.",
+  "Jitter idx.": "Índice proxy interno normalizado de instabilidade vocal relativa; não equivale diretamente a jitter percentual normativo.",
+  "Shimmer idx.": "Índice proxy interno normalizado de variação relativa do envelope RMS; não equivale diretamente a shimmer em dB.",
+  Jitter: "Índice proxy interno normalizado de instabilidade vocal relativa.",
+  Shimmer: "Índice proxy interno normalizado de variação relativa do envelope RMS.",
+  "Sub-H 5-12Hz": "Energia sub-harmônica baixa, usada no cruzamento com sinais autonomicos.",
+  "Sub-H 12-20Hz": "Energia sub-harmônica complementar para leitura bioacústica.",
+  Metrica: "Nome da métrica estatística analisada pelo motor evolutivo.",
+  Baseline: "Valor inicial de referência, apurado no baseline da sessão.",
+  Media: "Média consolidada da sessão para a métrica.",
+  "Último corte": "Valor mais recente observado nos cortes temporais.",
+  "Delta último": "Variação percentual do último corte em relaÃ§Ã£o ao baseline.",
+  "Z último": "Desvio padronizado do último corte em relaÃ§Ã£o ao comportamento de referência.",
+  Alertas: "Alertas estatisticos ou clínicos levantados para a métrica.",
+  ipm: "Índice de Potencia Multimodal no motor estatístico.",
+  idm: "Índice de Desvio Multimodal no motor estatístico.",
+  words_per_minute: "Velocidade média de fala em palavras por minuto.",
+  facial_vocal_dissonance: "Dissonância entre expressão facial e trilha vocal.",
+  clinical_risk: "Risco clínico agregado calculado pelo motor FROID.",
+  "Palavras/min": "Velocidade média de fala em palavras por minuto.",
+  Dissonancia: "Dissonância entre expressão facial e trilha vocal.",
+  "Risco clínico": "Risco clínico agregado calculado pelo motor FROID.",
   "Delta 0.5-4Hz": "Modulacao lenta do envelope vocal, associada a carga vegetativa basal.",
-  "Theta 4-8Hz": "Faixa de modulacao lenta relacionada a flutuacao afetiva e organizacao narrativa.",
-  "Alpha 8-12Hz": "Faixa intermediaria de estabilizacao autonoma e transicao ritmica.",
-  "Beta 12-30Hz": "Faixa de ativacao rapida ligada a tensao cognitiva, vigilancia e mobilizacao autonoma.",
-  "Gama 30-80Hz": "Faixa alta de energia espectral, interpretada como tensao fina, aspereza ou descarga rapida.",
-  "Ind. espectral": "Indice ponderado das bandas Delta, Theta, Alpha, Beta e Gama.",
+  "Theta 4-8Hz": "Faixa de modulacao lenta relacionada a flutuacao afetiva e organizaÃ§Ã£o narrativa.",
+  "Alpha 8-12Hz": "Faixa intermediaria de estabilização autônoma e transicao ritmica.",
+  "Beta 12-30Hz": "Faixa de ativaÃ§Ã£o rápida ligada a tensão cognitiva, vigilância e mobilizacao autônoma.",
+  "Gama 30-80Hz": "Faixa alta de energia espectral, interpretada como tensão fina, aspereza ou descarga rápida.",
+  "Ind. espectral": "Índice ponderado das bandas Delta, Theta, Alpha, Beta e Gama.",
   "DMFCC7": "Derivada temporal do MFCC7, comparando a janela atual com a anterior.",
   "DMFCC9": "Derivada temporal do MFCC9, comparando a janela atual com a anterior.",
-  "DDMFCC7": "Aceleracao cepstral do MFCC7, usada para detectar mudancas abruptas no marcador.",
-  "DDMFCC9": "Aceleracao cepstral do MFCC9, usada para detectar mudancas abruptas no marcador.",
+  "DDMFCC7": "AceleraÃ§Ã£o cepstral do MFCC7, usada para detectar mudancas abruptas no marcador.",
+  "DDMFCC9": "AceleraÃ§Ã£o cepstral do MFCC9, usada para detectar mudancas abruptas no marcador.",
 };
 
 const HelpTitle: React.FC<{ title: string; className?: string }> = ({
@@ -152,7 +152,7 @@ const HelpTitle: React.FC<{ title: string; className?: string }> = ({
     content={
       <div>
         <p className="font-bold text-slate-100">{title}</p>
-        <p className="mt-1">{TITLE_TOOLTIPS[title] || "Informacao do bloco."}</p>
+        <p className="mt-1">{TITLE_TOOLTIPS[title] || "Informação do bloco."}</p>
       </div>
     }
   >
@@ -168,7 +168,7 @@ const HelpMetric: React.FC<{ label: string }> = ({ label }) => (
     content={
       <div>
         <p className="font-bold text-slate-100">{label}</p>
-        <p className="mt-1">{METRIC_TOOLTIPS[label] || "Metrica FROID."}</p>
+        <p className="mt-1">{METRIC_TOOLTIPS[label] || "Métrica FROID."}</p>
       </div>
     }
   >
@@ -192,7 +192,7 @@ function dominantReportTheme(report: SessionReportRecord) {
   ]
     .map((theme) => limitThemeWords(theme, 6))
     .filter(Boolean);
-  return candidates[0] || "Tema em apuracao";
+  return candidates[0] || "Tema em apuraÃ§Ã£o";
 }
 
 function metricDeltaSentence(label: string, baseline: number, average: number, digits = 2) {
@@ -200,7 +200,7 @@ function metricDeltaSentence(label: string, baseline: number, average: number, d
   const delta = average - baseline;
   const direction =
     Math.abs(delta) < 0.01
-      ? "permaneceu estavel"
+      ? "permaneceu estável"
       : delta > 0
         ? "aumentou"
         : "reduziu";
@@ -232,17 +232,17 @@ function derivedSessionSummary(report: SessionReportRecord) {
   const metricText = [
     metricSentences.join("; "),
     report.sessionAverage.dominantZone
-      ? `zona dominante ${report.sessionAverage.dominantZone} (${report.sessionAverage.dominantTheme || report.sessionAverage.theme || "tema em apuracao"})`
+      ? `zona dominante ${report.sessionAverage.dominantZone} (${report.sessionAverage.dominantTheme || report.sessionAverage.theme || "tema em apuraÃ§Ã£o"})`
       : "",
     report.sessionAverage.emotionalTone
       ? `tom predominante ${report.sessionAverage.emotionalTone}`
       : "",
     Number.isFinite(report.sessionAverage.wordsPerMinute)
-      ? `${report.sessionAverage.wordsPerMinute.toFixed(1)} palavras/min em media`
+      ? `${report.sessionAverage.wordsPerMinute.toFixed(1)} palavras/min em média`
       : "",
     report.sessionAverage.dissonanceCount
-      ? `${report.sessionAverage.dissonanceCount} dissonancia(s) media(s) acima do limiar`
-      : "sem dissonancias medias relevantes registradas",
+      ? `${report.sessionAverage.dissonanceCount} dissonância(s) média(s) acima do limiar`
+      : "sem dissonâncias médias relevantes registradas",
   ]
     .filter(Boolean)
     .join("; ");
@@ -251,14 +251,14 @@ function derivedSessionSummary(report: SessionReportRecord) {
     ? limitWords(cleanSummaryText(progressionSource), 185)
     : "";
   const analyticalClose = body
-    ? `A sequencia dos cortes indica que a substancia central da sessao se organizou em torno de ${theme.toLowerCase()}, com progressao narrativa observavel entre os blocos registrados. ${body}. Na leitura multimodal, ${metricText}. Em conclusao, o registro recomenda que o profissional leia o conteudo verbal em conjunto com a variacao bioacustica e zonal, usando os proximos encontros para comparar se o tema se estabiliza, se desloca ou se intensifica em relacao ao baseline desta consulta.`
-    : `A sessao teve tema predominante ${theme}, mas nao reuniu transcricao ou cortes semanticos suficientes para uma conclusao textual completa. Na leitura multimodal, ${metricText}. Em conclusao, o relatorio deve ser utilizado principalmente como linha de base comparativa, aguardando proximas sessoes com maior densidade verbal para consolidar a substancia clinica do processo.`;
+    ? `A sequência dos cortes indica que a substancia central da sessão se organizou em torno de ${theme.toLowerCase()}, com progressao narrativa observavel entre os blocos registrados. ${body}. Na leitura multimodal, ${metricText}. Em conclusão, o registro recomenda que o profissional leia o conteudo verbal em conjunto com a variação bioacústica e zonal, usando os próximos encontros para comparar se o tema se estabiliza, se desloca ou se intensifica em relaÃ§Ã£o ao baseline desta consulta.`
+    : `A sessão teve tema predominante ${theme}, mas não reuniu transcrição ou cortes semanticos suficientes para uma conclusão textual completa. Na leitura multimodal, ${metricText}. Em conclusão, o relatório deve ser utilizado principalmente como linha de base comparativa, aguardando próximas sessões com maior densidade verbal para consolidar a substancia clínica do processo.`;
 
   return {
     theme,
     summary:
       limitWords(cleanSummaryText(analyticalClose), SESSION_SUMMARY_MAX_WORDS) ||
-      "Resumo geral indisponivel para esta sessao.",
+      "Resumo geral indisponÃ­vel para esta sessão.",
     generatedAt: report.sessionSummary?.generatedAt || report.createdAt,
   };
 }
@@ -397,7 +397,7 @@ function buildDescriptiveReportText(
   sessionSummary: { theme: string; summary: string },
 ) {
   return [
-    `Relatorio descritivo da sessao ${report.sessionId}`,
+    `Relatório descritivo da sessão ${report.sessionId}`,
     `Data: ${new Date(report.createdAt).toLocaleString("pt-BR")}`,
     `Duracao: ${formatDuration(report.durationSeconds)}`,
     `Tema predominante: ${limitThemeWords(sessionSummary.theme || report.sessionAverage.theme, 6)}`,
@@ -407,7 +407,7 @@ function buildDescriptiveReportText(
     `Linha comparativa: IPM ${fmt(report.baseline.ipmAvg, 1)} -> ${fmt(report.sessionAverage.ipmAvg, 1)}; IDM ${fmt(report.baseline.idmAvg, 2)} -> ${fmt(report.sessionAverage.idmAvg, 2)}; Zona ${report.sessionAverage.dominantZone || "--"}; Tom ${report.sessionAverage.emotionalTone || "--"}; ${fmt(report.sessionAverage.wordsPerMinute, 1)} palavras/min.`,
     `Linha bioacustica: Beta ${fmt(report.baseline.spectralBeta12_30, 3)} -> ${fmt(report.sessionAverage.spectralBeta12_30, 3)}; Gama ${fmt(report.baseline.spectralGamma30_80, 3)} -> ${fmt(report.sessionAverage.spectralGamma30_80, 3)}; DMFCC7 medio ${fmt(report.sessionAverage.mfcc7Delta, 4)}; DDMFCC9 medio ${fmt(report.sessionAverage.mfcc9DeltaDelta, 4)}.`,
     "",
-    `Observacoes clinicas registradas: ${report.clinicalNotes.length}. Dissonancias persistentes registradas: ${report.dissonances.length}.`,
+    `ObservaÃ§Ãµes clínicas registradas: ${report.clinicalNotes.length}. Dissonâncias persistentes registradas: ${report.dissonances.length}.`,
   ].join("\n");
 }
 
@@ -511,7 +511,7 @@ const EvolutionChart: React.FC<{ analysis: MetricsAnalysis }> = ({ analysis }) =
     },
     {
       key: "facial_vocal_dissonance",
-      label: "Dissonancia",
+      label: "Dissonância",
       color: "#dc2626",
       values: rows.map((row) =>
         norm(
@@ -548,7 +548,7 @@ const EvolutionChart: React.FC<{ analysis: MetricsAnalysis }> = ({ analysis }) =
   if (!rows.length) {
     return (
       <div className="rounded-lg border border-slate-700 bg-slate-950 p-4 text-xs italic text-slate-500">
-        Evolucao estatistica aguardando cortes com dados.
+        Evolucao estatística aguardando cortes com dados.
       </div>
     );
   }
@@ -699,7 +699,7 @@ export const SessionReport: React.FC<Props> = () => {
         }
       })
       .catch((error) => {
-        if (active) setMetricsError(error instanceof Error ? error.message : "Metricas indisponiveis");
+        if (active) setMetricsError(error instanceof Error ? error.message : "Métricas indisponiveis");
       });
     return () => {
       active = false;
@@ -730,10 +730,10 @@ export const SessionReport: React.FC<Props> = () => {
       <div className="flex min-h-screen items-center justify-center bg-slate-950 p-6 text-slate-300">
         <div className="max-w-md rounded-xl border border-slate-700 bg-slate-900 p-6 text-center shadow-sm">
           <h1 className="text-lg font-bold text-slate-100">
-            Relatorio nao encontrado
+            Relatório não encontrado
           </h1>
           <p className="mt-2 text-sm text-slate-500">
-            O relatorio da sessao ainda nao foi gerado neste navegador.
+            O relatório da sessão ainda não foi gerado neste navegador.
           </p>
           <button
             onClick={() => navigate("/dashboard")}
@@ -757,13 +757,13 @@ export const SessionReport: React.FC<Props> = () => {
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-300">
-              Relatorio da Consulta
+              Relatório da Consulta
             </p>
             <h1 className="text-xl font-bold text-slate-100">
-              Sessao {report.sessionId}
+              Sessão {report.sessionId}
             </h1>
             <p className="mt-1 text-xs text-slate-500">
-              {new Date(report.createdAt).toLocaleString("pt-BR")} | Duracao{" "}
+              {new Date(report.createdAt).toLocaleString("pt-BR")} | Duração{" "}
               {formatDuration(report.durationSeconds)}
             </p>
           </div>
@@ -781,7 +781,7 @@ export const SessionReport: React.FC<Props> = () => {
           <section className="rounded-lg border border-blue-800 bg-blue-950 p-4">
             <div className="mb-3">
               <HelpTitle
-                title="Linha comparativa da sessao"
+                title="Linha comparativa da sessão"
                 className="text-sm font-bold text-blue-100"
               />
             </div>
@@ -861,7 +861,7 @@ export const SessionReport: React.FC<Props> = () => {
                 </div>
                 <div className="rounded border border-slate-700 bg-slate-950 p-2">
                   <p className="text-[10px] font-bold uppercase text-slate-500">
-                    Cobertura media
+                    Cobertura média
                   </p>
                   <p className="text-lg font-black text-slate-100">
                     {fmtPct(activeMetricsAnalysis.dashboard.mean_coverage)}
@@ -869,7 +869,7 @@ export const SessionReport: React.FC<Props> = () => {
                 </div>
                 <div className="rounded border border-slate-700 bg-slate-950 p-2">
                   <p className="text-[10px] font-bold uppercase text-slate-500">
-                    Confianca media
+                    Confianca média
                   </p>
                   <p className="text-lg font-black text-slate-100">
                     {fmtPct(activeMetricsAnalysis.dashboard.mean_confidence)}
@@ -885,7 +885,7 @@ export const SessionReport: React.FC<Props> = () => {
                 </div>
                 <div className="rounded border border-slate-700 bg-slate-950 p-2">
                   <p className="text-[10px] font-bold uppercase text-slate-500">
-                    Criticos
+                    Críticos
                   </p>
                   <p className="text-lg font-black text-slate-100">
                     {activeMetricsAnalysis.dashboard.critical_alerts}
@@ -898,7 +898,7 @@ export const SessionReport: React.FC<Props> = () => {
 
           {sections.evolution && !activeMetricsAnalysis && (
             <section className="rounded-lg border border-amber-700 bg-amber-950/40 p-4 text-xs text-amber-100">
-              Motor evolutivo aguardando analise do servidor.
+              Motor evolutivo aguardando análise do servidor.
               {metricsError ? ` ${metricsError}` : ""}
             </section>
           )}
@@ -906,19 +906,19 @@ export const SessionReport: React.FC<Props> = () => {
           {sections.statistics && activeMetricsAnalysis && (
             <section className="rounded-lg border border-slate-700 bg-slate-900 p-4">
               <h2 className="mb-3 text-sm font-bold text-slate-100">
-                <HelpTitle title="Leitura estatistica das metricas" />
+                <HelpTitle title="Leitura estatística das métricas" />
               </h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead className="text-[10px] uppercase tracking-wider text-slate-500">
                     <tr>
                       {[
-                        "Metrica",
+                        "Métrica",
                         "Baseline",
-                        "Media",
-                        "Ultimo corte",
-                        "Delta ultimo",
-                        "Z ultimo",
+                        "Média",
+                        "Último corte",
+                        "Delta último",
+                        "Z último",
                         "Alertas",
                       ].map((label, index) => (
                         <th key={label} className={index === 0 ? "py-2" : ""}>
@@ -960,7 +960,7 @@ export const SessionReport: React.FC<Props> = () => {
 
           <section className="rounded-lg border border-slate-700 bg-slate-900 p-4">
             <h2 className="mb-3 text-sm font-bold text-slate-100">
-              <HelpTitle title="Composicao do relatorio" />
+              <HelpTitle title="Composicao do relatório" />
             </h2>
             <div className="grid gap-2 md:grid-cols-4">
               {(Object.keys(sections) as SectionKey[]).map((key) => (
@@ -983,12 +983,12 @@ export const SessionReport: React.FC<Props> = () => {
             <MetricList title="Parametros iniciais - 60 segundos" snapshot={report.baseline} />
           )}
           {sections.averages && (
-            <MetricList title="Media das metricas da sessao" snapshot={report.sessionAverage} />
+            <MetricList title="Média das métricas da sessão" snapshot={report.sessionAverage} />
           )}
 
           {sections.cuts && (
             <CompactMetricTable
-              title="Cortes da sessao"
+              title="Cortes da sessão"
               rows={report.tenMinuteCuts.map((cut) => {
                 const summary = findSummaryForCut(
                   cut,
@@ -1005,7 +1005,7 @@ export const SessionReport: React.FC<Props> = () => {
           {sections.summaries && (
             <section className="rounded-lg border border-slate-700 bg-slate-900 p-4">
               <h2 className="mb-3 text-sm font-bold text-slate-100">
-                <HelpTitle title="Resumo geral da sessao" />
+                <HelpTitle title="Resumo geral da sessão" />
               </h2>
               <div className="rounded border border-blue-800 bg-blue-950 p-3">
                 <p className="text-xs font-bold text-blue-100">
@@ -1027,7 +1027,7 @@ export const SessionReport: React.FC<Props> = () => {
               <div className="space-y-2">
                 {!(report.conversationSummaries || []).length && (
                   <p className="rounded border border-slate-700 bg-slate-950 p-3 text-xs italic text-slate-500">
-                    Nenhum corte semantico registrado para esta sessao.
+                    Nenhum corte semântico registrado para esta sessão.
                   </p>
                 )}
                 {[...(report.conversationSummaries || [])]
@@ -1060,7 +1060,7 @@ export const SessionReport: React.FC<Props> = () => {
                         )}
                         {!cut && (
                           <p className="mt-2 text-[10px] italic text-amber-600">
-                            Metricas deste corte indisponiveis no registro legado.
+                            Métricas deste corte indisponiveis no registro legado.
                           </p>
                         )}
                       </div>
@@ -1073,12 +1073,12 @@ export const SessionReport: React.FC<Props> = () => {
           {sections.notes && (
             <section className="rounded-lg border border-slate-700 bg-slate-900 p-4">
               <h2 className="mb-3 text-sm font-bold text-slate-100">
-                <HelpTitle title="Observacoes do profissional" />
+                <HelpTitle title="ObservaÃ§Ãµes do profissional" />
               </h2>
               <div className="space-y-2">
                 {report.clinicalNotes.length === 0 && (
                   <p className="text-xs italic text-slate-500">
-                    Nenhuma anotacao clinica registrada.
+                    Nenhuma anotaÃ§Ã£o clínica registrada.
                   </p>
                 )}
                 {report.clinicalNotes.map((note) => (
@@ -1098,12 +1098,12 @@ export const SessionReport: React.FC<Props> = () => {
           {sections.dissonances && (
             <section className="rounded-lg border border-slate-700 bg-slate-900 p-4">
               <h2 className="mb-3 text-sm font-bold text-slate-100">
-                <HelpTitle title="Dissonancias registradas" />
+                <HelpTitle title="Dissonâncias registradas" />
               </h2>
               <div className="space-y-2">
                 {report.dissonances.length === 0 && (
                   <p className="text-xs italic text-slate-500">
-                    Nenhuma dissonancia persistente registrada.
+                    Nenhuma dissonância persistente registrada.
                   </p>
                 )}
                 {report.dissonances.map((item) => (
@@ -1137,7 +1137,7 @@ export const SessionReport: React.FC<Props> = () => {
           <section className="rounded-lg border border-slate-700 bg-slate-900 p-4">
             <div className="mb-2 flex items-center justify-between gap-3">
               <h2 className="text-sm font-bold text-slate-100">
-                <HelpTitle title="Relatorio Descritivo" />
+                <HelpTitle title="Relatório Descritivo" />
               </h2>
               <button
                 onClick={() => navigator.clipboard?.writeText(descriptiveReport)}
@@ -1150,7 +1150,7 @@ export const SessionReport: React.FC<Props> = () => {
               value={descriptiveReport}
               onChange={(event) => setDescriptiveReport(event.target.value)}
               className="min-h-72 w-full resize-y rounded border border-slate-700 bg-slate-950 p-3 text-xs leading-relaxed text-slate-200 outline-none focus:border-cyan-500 focus:bg-slate-900"
-              placeholder="Cole aqui os pontos relevantes que serao usados no relatorio para paciente, pares ou impressao."
+              placeholder="Cole aqui os pontos relevantes que serão usados no relatório para paciente, pares ou impressao."
             />
             <p className="mt-2 text-[10px] text-slate-500">
               Campo fixo para edicao, copia e posterior composicao do documento de impressao.

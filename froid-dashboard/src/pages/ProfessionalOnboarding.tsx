@@ -40,24 +40,24 @@ interface Props {
 const fallbackPlans: AccessPlan[] = [
   {
     id: "single_session",
-    name: "Sessao avulsa FROID",
-    description: "Credito individual para uma sessao FROID.",
+    name: "Sessão avulsa FROID",
+    description: "Crédito individual para uma sessão FROID.",
     session_credits: 1,
     amount_cents: 0,
     amount_brl: "US$ 0.00",
   },
   {
     id: "professional_pack_25",
-    name: "Pacote profissional 25 sessoes",
-    description: "Pacote mensal com 25 sessoes FROID.",
+    name: "Pacote profissional 25 sessões",
+    description: "Pacote mensal com 25 sessões FROID.",
     session_credits: 25,
     amount_cents: 150,
     amount_brl: "US$ 1.50",
   },
   {
     id: "developer_pack_25",
-    name: "Pacote desenvolvedor 25 sessoes",
-    description: "Pacote tecnico de desenvolvimento e testes.",
+    name: "Pacote desenvolvedor 25 sessões",
+    description: "Pacote técnico de desenvolvimento e testes.",
     session_credits: 25,
     amount_cents: 250,
     amount_brl: "US$ 2.50",
@@ -145,7 +145,7 @@ function whatsappUrl(referral: Referral) {
   const phone = phoneDigits.startsWith("55") ? phoneDigits : `55${phoneDigits}`;
   const message = [
     `Ola, ${referral.name || "profissional"}.`,
-    "Estou indicando o FROID, uma plataforma de percepcao clinica aumentada para apoio a sessoes de saude mental.",
+    "Estou indicando o FROID, uma plataforma de percepção clínica aumentada para apoio a sessões de saúde mental.",
     "Acesse: https://www.froid.com.br",
     referral.email ? `E-mail indicado: ${referral.email}` : "",
   ]
@@ -357,13 +357,13 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
     const addressFields = [
       ["CEP", fields.postalCode],
       ["Logradouro", fields.street],
-      ["Numero", fields.number],
+      ["Número", fields.number],
       ["Bairro", fields.district],
     ];
     const missing = [...requiredFields, ...addressFields].find(([, value]) => !String(value || "").trim());
     if (missing) return `Preencha o campo obrigatorio: ${missing[0]}.`;
     if (!lgpdAccepted) return "Aceite os termos LGPD para continuar.";
-    if (contractedSessions < 1) return "Informe ao menos 1 sessao contratada.";
+    if (contractedSessions < 1) return "Informe ao menos 1 sessão contratada.";
     return "";
   };
 
@@ -471,7 +471,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
       const checkoutData = checkoutText ? JSON.parse(checkoutText) : {};
       if (!checkoutRes.ok) throw new Error(checkoutData.detail || "Falha ao iniciar pagamento");
       if (checkoutData.status === "stripe_not_configured") {
-        setMessage(checkoutData.message || "Cadastro salvo. Stripe ainda nao configurado.");
+        setMessage(checkoutData.message || "Cadastro salvo. Stripe ainda não configurado.");
       }
       const nextUrl = checkoutData.checkout_url || `${publicAppUrl()}/#/dashboard`;
       if (checkoutData.status === "free_access" || checkoutData.status === "stripe_not_configured") {
@@ -521,8 +521,8 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
           </p>
           <h1 className="mt-2 text-3xl font-black">Ficha cadastral FROID</h1>
           <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-300">
-            Complete o cadastro da pessoa fisica ou juridica, indique usuarios,
-            aceite as condicoes LGPD e selecione o plano para liberar o dashboard clinico.
+            Complete o cadastro da pessoa física ou juridica, indique usuários,
+            aceite as condiÃ§Ãµes LGPD e selecione o plano para liberar o dashboard clínico.
           </p>
         </div>
 
@@ -537,7 +537,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
                     checked={accountType === "individual"}
                     onChange={() => setAccountType("individual")}
                   />
-                  Pessoa Fisica
+                  Pessoa Física
                 </label>
                 <label className="flex items-center gap-2">
                   <input
@@ -551,15 +551,15 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
             </section>
 
             {accountType === "organization" && (
-              <Section title="Informacoes da Empresa">
+              <Section title="Informações da Empresa">
                 <Field label="Nome fantasia" name="tradeName" value={fields.tradeName} onChange={updateField} required />
                 <Field label="Razao social" name="corporateName" value={fields.corporateName} onChange={updateField} required />
                 <Field label="CNPJ" name="cnpj" value={fields.cnpj} onChange={updateField} required />
                 <Field label="Celular" name="companyMobile" value={fields.companyMobile} onChange={updateField} required />
                 <Field label="Telefone" name="companyMainPhone" value={fields.companyMainPhone} onChange={updateField} />
                 <Field label="E-mail" name="companyEmail" value={fields.companyEmail} onChange={updateField} type="email" required />
-                <Field label="Inscricao municipal" name="municipalRegistration" value={fields.municipalRegistration} onChange={updateField} />
-                <Field label="Inscricao estadual" name="stateRegistration" value={fields.stateRegistration} onChange={updateField} />
+                <Field label="InscriÃ§Ã£o municipal" name="municipalRegistration" value={fields.municipalRegistration} onChange={updateField} />
+                <Field label="InscriÃ§Ã£o estadual" name="stateRegistration" value={fields.stateRegistration} onChange={updateField} />
                 <Field label="Fundacao" name="foundationDate" value={fields.foundationDate} onChange={updateField} type="date" />
               </Section>
             )}
@@ -581,10 +581,10 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
               <Field label="Telefone" name={accountType === "organization" ? "legalRepresentativePhone" : "phone"} value={accountType === "organization" ? fields.legalRepresentativePhone : fields.phone} onChange={updateField} />
             </Section>
 
-            <Section title="Informacao do Endereco">
+            <Section title="Informação do Endereço">
               <Field label="CEP" name="postalCode" value={fields.postalCode} onChange={updateField} required />
               <Field label="Logradouro" name="street" value={fields.street} onChange={updateField} required />
-              <Field label="Numero" name="number" value={fields.number} onChange={updateField} required />
+              <Field label="Número" name="number" value={fields.number} onChange={updateField} required />
               <Field label="Bairro" name="district" value={fields.district} onChange={updateField} required />
               <Field label="Complemento" name="complement" value={fields.complement} onChange={updateField} />
               <Field label="Pais" name="country" value={fields.country} onChange={updateField} />
@@ -595,35 +595,35 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
             <Section title="Dados fiscais para fatura e recibo">
               <Field label={accountType === "organization" ? "Atividade principal" : "Profissao"} name="profession" value={fields.profession} onChange={updateField} placeholder="Psicologa(o), Medica(o) Psiquiatra..." />
               <Field label="Conselho profissional" name="professionalCouncil" value={fields.professionalCouncil} onChange={updateField} placeholder="CRP, CRM..." />
-              <Field label="Registro profissional" name="professionalRegistry" value={fields.professionalRegistry} onChange={updateField} placeholder="Numero do CRP/CRM" />
-              <Field label="Descricao padrao do servico" name="receiptServiceDescription" value={fields.receiptServiceDescription} onChange={updateField} placeholder="Sessao de psicoterapia individual, consulta psiquiatrica..." />
+              <Field label="Registro profissional" name="professionalRegistry" value={fields.professionalRegistry} onChange={updateField} placeholder="Número do CRP/CRM" />
+              <Field label="Descricao padrão do serviço" name="receiptServiceDescription" value={fields.receiptServiceDescription} onChange={updateField} placeholder="Sessão de psicoterapia individual, consulta psiquiátrica..." />
               <Field label="Local de emissao" name="receiptCity" value={fields.receiptCity} onChange={updateField} placeholder="Cidade/UF" />
-              <Field label="Observacao fiscal padrao" name="receiptFiscalObservation" value={fields.receiptFiscalObservation} onChange={updateField} placeholder="Referencia Receita Saude/NFS-e quando aplicavel" />
+              <Field label="ObservaÃ§Ã£o fiscal padrão" name="receiptFiscalObservation" value={fields.receiptFiscalObservation} onChange={updateField} placeholder="Referência Receita Saúde/NFS-e quando aplicÃ¡vel" />
               {accountType === "organization" && (
-                <Field label="Regime tributario" name="taxRegime" value={fields.taxRegime} onChange={updateField} />
+                <Field label="Regime tributÃ¡rio" name="taxRegime" value={fields.taxRegime} onChange={updateField} />
               )}
             </Section>
 
             {accountType === "individual" && (
               <Section title="Dados Profissionais">
                 <Field label="Empresa" name="company" value={fields.company} onChange={updateField} />
-                <Field label="Endereco da empresa" name="companyAddress" value={fields.companyAddress} onChange={updateField} />
+                <Field label="Endereço da empresa" name="companyAddress" value={fields.companyAddress} onChange={updateField} />
                 <Field label="Tempo meses" name="professionalTimeMonths" value={fields.professionalTimeMonths} onChange={updateField} type="number" />
                 <Field label="Telefone da empresa" name="companyPhone" value={fields.companyPhone} onChange={updateField} />
               </Section>
             )}
 
-            <Section title="Referencias Pessoais">
-              <Field label="Nome da referencia pessoal 1" name="referenceName1" value={fields.referenceName1} onChange={updateField} />
-              <Field label="Contato da referencia pessoal 1" name="referencePhone1" value={fields.referencePhone1} onChange={updateField} />
-              <Field label="Nome da referencia pessoal 2" name="referenceName2" value={fields.referenceName2} onChange={updateField} />
-              <Field label="Contato da referencia pessoal 2" name="referencePhone2" value={fields.referencePhone2} onChange={updateField} />
+            <Section title="Referências Pessoais">
+              <Field label="Nome da referência pessoal 1" name="referenceName1" value={fields.referenceName1} onChange={updateField} />
+              <Field label="Contato da referência pessoal 1" name="referencePhone1" value={fields.referencePhone1} onChange={updateField} />
+              <Field label="Nome da referência pessoal 2" name="referenceName2" value={fields.referenceName2} onChange={updateField} />
+              <Field label="Contato da referência pessoal 2" name="referencePhone2" value={fields.referencePhone2} onChange={updateField} />
             </Section>
 
             {accountType === "organization" && (
               <section className="rounded-lg border border-slate-700 bg-slate-900 p-4 shadow-sm">
                 <h2 className="border-b border-slate-700 pb-2 text-lg font-light text-slate-300">
-                  Usuarios e acesso a base de pacientes
+                  Usuários e acesso a base de pacientes
                 </h2>
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
                   <label>
@@ -656,7 +656,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
 
             <section className="rounded-lg border border-slate-700 bg-slate-900 p-4 shadow-sm">
               <h2 className="border-b border-slate-700 pb-2 text-lg font-light text-slate-300">
-                Indicacao de novo usuario
+                Indicacao de novo usuário
               </h2>
               <div className="mt-4 grid gap-3 md:grid-cols-3">
                 <label>
@@ -732,13 +732,13 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
 
             <section className="rounded-lg border border-slate-700 bg-slate-900 p-4 shadow-sm">
               <h2 className="border-b border-slate-700 pb-2 text-lg font-light text-slate-300">
-                Observacoes e responsabilidade LGPD
+                ObservaÃ§Ãµes e responsabilidade LGPD
               </h2>
               <textarea
                 value={fields.observations}
                 onChange={(event) => updateField("observations", event.target.value)}
                 rows={4}
-                placeholder="Observacoes cadastrais relevantes..."
+                placeholder="ObservaÃ§Ãµes cadastrais relevantes..."
                 className="mt-4 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200 outline-none focus:border-cyan-500"
               />
               <div className="mt-4">
@@ -754,7 +754,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
                 />
                 <span>
                   Li, compreendi e aceito o aviso de privacidade, responsabilidade
-                  profissional, tratamento de dados pessoais e dados sensiveis nos termos
+                  profissional, tratamento de dados pessoais e dados sensíveis nos termos
                   da LGPD, declarando possuir autorizacao e base legal para operar o FROID.
                 </span>
               </label>
@@ -764,7 +764,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
           <aside id="planos" className="h-fit rounded-lg border border-slate-700 bg-slate-900 p-5 shadow-sm xl:sticky xl:top-4">
             <h2 className="text-lg font-black">Plano e pagamento</h2>
             <p className="mt-1 text-sm text-slate-400">
-              O pagamento sera processado pelo Stripe e depois o acesso retorna ao dashboard.
+              O pagamento será processado pelo Stripe e depois o acesso retorna ao dashboard.
             </p>
 
             <label className="mt-4 block">
@@ -803,7 +803,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
             <div className="mt-4 grid gap-3 rounded-lg border border-slate-700 bg-slate-950 p-3">
               <label className="block">
                 <span className="text-[11px] font-black uppercase text-slate-400">
-                  Numero de sessoes contratadas
+                  Número de sessões contratadas
                 </span>
                 <input
                   value={contractedSessions}
@@ -816,9 +816,9 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
               <div className="rounded-md border border-cyan-200 bg-cyan-50 p-3 text-xs font-bold leading-5 text-cyan-950">
                 <p>Valor unitario do plano: {formatMoneyFromCents(unitAmountCents, billingCurrency)}</p>
                 <p>Total do pacote: {formatMoneyFromCents(packageTotalCents, billingCurrency)}</p>
-                <p>Sessoes contratadas: {contractedSessions}</p>
-                <p>Bonus acima de 100 sessoes: +{bonusSessions} sessoes</p>
-                <p>Total liberado: {totalSessions} sessoes</p>
+                <p>Sessões contratadas: {contractedSessions}</p>
+                <p>Bonus acima de 100 sessoes: +{bonusSessions} sessões</p>
+                <p>Total liberado: {totalSessions} sessões</p>
                 <p>Moeda do checkout: {billingCurrency.toUpperCase()}</p>
               </div>
             </div>
@@ -843,7 +843,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
                   <span className="block text-sm font-black text-slate-100">{plan.name}</span>
                   <span className="mt-1 block text-2xl font-black text-cyan-800">{plan.amount_brl}</span>
                   <span className="mt-1 block text-xs text-slate-400">
-                    {plan.session_credits} sessoes - {plan.description}
+                    {plan.session_credits} sessões - {plan.description}
                   </span>
                 </label>
               ))}
@@ -856,7 +856,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
               disabled={loading || !lgpdAccepted}
               className="mt-5 w-full rounded-lg bg-slate-950 px-4 py-3 text-sm font-black text-white hover:bg-slate-800 disabled:opacity-40"
             >
-              {loading ? "Processando..." : "Enviar informacoes e pagar"}
+              {loading ? "Processando..." : "Enviar informações e pagar"}
             </button>
           </aside>
         </form>

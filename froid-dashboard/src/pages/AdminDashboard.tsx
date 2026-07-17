@@ -28,7 +28,7 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
         });
         const payload = response.ok ? await response.json() : null;
         if (!response.ok) {
-          throw new Error(payload?.detail || "Acesso administrativo indisponivel.");
+          throw new Error(payload?.detail || "Acesso administrativo indisponÃ­vel.");
         }
         setData(payload);
       } catch (error: any) {
@@ -76,7 +76,7 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
             </p>
             <h1 className="mt-1 text-2xl font-black">Controle geral do sistema</h1>
             <p className="mt-1 text-xs text-slate-400">
-              Profissionais, pacientes, sessoes, convites e informativos financeiros totais.
+              Profissionais, pacientes, sessões, convites e informativos financeiros totais.
             </p>
           </div>
           <button
@@ -97,7 +97,7 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
           {[
             ["Profissionais", summary.professionals],
             ["Pacientes", summary.patients],
-            ["Relatorios", summary.session_reports],
+            ["Relatórios", summary.session_reports],
             ["Convites", summary.invites],
           ].map(([label, value]) => (
             <div key={label} className="rounded-lg border border-slate-800 bg-slate-900 p-4">
@@ -137,9 +137,9 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
                     "Tipo",
                     "Plano",
                     "Pagamento",
-                    "Sessoes",
+                    "Sessões",
                     "Saldo",
-                    "Relatorios",
+                    "Relatórios",
                     "Pacientes",
                     "Recebido",
                     "Pendente",
@@ -186,7 +186,7 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
                 <p className="font-black text-slate-100">{patient.name}</p>
                 <p className="mt-1 text-slate-500">{patient.email || patient.phone || patient.id}</p>
                 <p className="mt-2 font-bold text-cyan-200">
-                  {patient.sessions_count} sessoes registradas
+                  {patient.sessions_count} sessões registradas
                 </p>
               </div>
             ))}

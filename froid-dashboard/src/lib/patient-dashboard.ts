@@ -133,7 +133,7 @@ export function sessionResultText(report: SessionReportRecord, maxWords = 120) {
     report.conversationSummaries?.[0]?.summary ||
     report.metricsAnalysis?.dashboard.data_status ||
     report.sessionAverage.theme ||
-    "Resultado da sessao ainda nao consolidado.";
+    "Resultado da sessão ainda não consolidado.";
   return limitWords(summary, maxWords);
 }
 
@@ -141,7 +141,7 @@ export function splitSessionResult(report: SessionReportRecord) {
   const words = sessionResultText(report, 120).split(/\s+/).filter(Boolean);
   const midpoint = Math.ceil(words.length / 2);
   return [
-    words.slice(0, midpoint).join(" ") || "Resultado da sessao ainda nao consolidado.",
+    words.slice(0, midpoint).join(" ") || "Resultado da sessão ainda não consolidado.",
     words.slice(midpoint).join(" "),
   ];
 }
@@ -216,7 +216,7 @@ function qualityLabel(score: number) {
   if (score >= 85) return "COMPLETO";
   if (score >= 60) return "PARCIAL";
   if (score >= 45) return "BAIXA ROBUSTEZ";
-  return "NAO PROCESSADO";
+  return "NÃO PROCESSADO";
 }
 
 export function patientAdvancedSignal(group: PatientDashboardGroup): PatientAdvancedSignal {
@@ -304,11 +304,11 @@ export function patientAdvancedSignal(group: PatientDashboardGroup): PatientAdva
             : "ROTINA";
   const action =
     priority === "ALTA PRIORIDADE"
-      ? "Revisao clinica prioritaria"
+      ? "Revisao clínica prioritaria"
       : priority === "REVISAR"
-        ? "Revisar proximos cortes e anotacoes"
+        ? "Revisar próximos cortes e anotaÃ§Ãµes"
         : priority === "OBSERVAR"
-          ? "Acompanhar tendencia longitudinal"
+          ? "Acompanhar tendência longitudinal"
           : priority === "DADOS INSUFICIENTES"
             ? "Revisar qualidade de coleta"
             : "Rotina de acompanhamento";
@@ -392,7 +392,7 @@ function buildClinicalNote(
     recurrentEmotion && recurrentEmotion !== "--"
       ? `com tom recorrente ${recurrentEmotion.toLowerCase()}`
       : "com tom recorrente ainda em consolidacao";
-  return `${patientName} apresenta padrao longitudinal baseado em ${sessionCount} sessao(oes), com predominancia de ${zoneText}, ${emotionText} e risco clinico ${clinicalRisk.toLowerCase()}. Recomenda-se acompanhar a evolucao comparando baseline, media da sessao e cortes de 10 minutos.`;
+  return `${patientName} apresenta padrão longitudinal baseado em ${sessionCount} sessão(oes), com predominancia de ${zoneText}, ${emotionText} e risco clínico ${clinicalRisk.toLowerCase()}. Recomenda-se acompanhar a evolucao comparando baseline, média da sessão e cortes de 10 minutos.`;
 }
 
 export function buildPatientGroups(reports: SessionReportRecord[]): PatientDashboardGroup[] {
@@ -449,8 +449,8 @@ export function buildPatientGroups(reports: SessionReportRecord[]): PatientDashb
         clinicalRisk,
         facsSummary:
           dissonanceCount > 0
-            ? `${dissonanceCount} dissonancia(s) facial-vocal registrada(s)`
-            : "Sem dissonancia facial-vocal critica",
+            ? `${dissonanceCount} dissonância(s) facial-vocal registrada(s)`
+            : "Sem dissonância facial-vocal crítica",
         riskTypes: "Depressao / Mania / Estresse",
         clinicalNote: buildClinicalNote(
           patientName,

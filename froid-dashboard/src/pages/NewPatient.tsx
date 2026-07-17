@@ -101,7 +101,7 @@ export const NewPatient: React.FC = () => {
       });
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data?.detail || "Nao foi possivel criar o convite.");
+        throw new Error(data?.detail || "Não foi possível criar o convite.");
       }
       setInvite(data);
       rememberSessionPatient(data.session_id, {
@@ -160,7 +160,7 @@ export const NewPatient: React.FC = () => {
           setPatientActivity(`${patient} confirmou cadastro e consentimentos LGPD.`);
         }
         if (latest.type === "patient_joined" && !redirectingRef.current) {
-          setPatientActivity(`${patient} entrou na sessao. Abrindo sala do profissional...`);
+          setPatientActivity(`${patient} entrou na sessão. Abrindo sala do profissional...`);
           rememberSessionPatient(invite.session_id, {
             id: invite.patient_id,
             name: patient,
@@ -202,8 +202,8 @@ export const NewPatient: React.FC = () => {
             </h1>
             <p className="mt-1 text-xs text-slate-400">
               {isPatientMobileCapture
-                ? "Gere o link para o paciente abrir no proprio celular dentro do consultorio."
-                : "Gere o link publico para cadastro, consentimentos e entrada na sessao."}
+                ? "Gere o link para o paciente abrir no próprio celular dentro do consultório."
+                : "Gere o link público para cadastro, consentimentos e entrada na sessão."}
             </p>
           </div>
           <button
@@ -224,9 +224,9 @@ export const NewPatient: React.FC = () => {
             <div className="mt-3 rounded-lg border border-violet-800 bg-violet-950 p-3 text-xs leading-relaxed text-violet-100">
               <p className="font-black uppercase tracking-wide">Captura dedicada do paciente</p>
               <p className="mt-1">
-                O paciente deve abrir o link no proprio celular. O aparelho funcionara
-                como camera e microfone proximos ao paciente. Recomenda-se que o
-                profissional use microfone de lapela proprio para reduzir vazamento da
+                O paciente deve abrir o link no próprio celular. O aparelho funcionará
+                como camera e microfone próximos ao paciente. Recomenda-se que o
+                profissional use microfone de lapela próprio para reduzir vazamento da
                 voz do DR na trilha do paciente.
               </p>
             </div>
@@ -265,12 +265,12 @@ export const NewPatient: React.FC = () => {
                 }
                 className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 font-normal outline-none focus:border-cyan-500 focus:bg-slate-900"
               >
-                <option value="single">Sessao avulsa com PIX</option>
-                <option value="package">Pacote de sessoes</option>
+                <option value="single">Sessão avulsa com PIX</option>
+                <option value="package">Pacote de sessões</option>
               </select>
             </label>
             <label className="text-xs font-bold text-slate-300">
-              Valor da sessao (R$)
+              Valor da sessão (R$)
               <input
                 value={form.session_value}
                 onChange={(event) => updateForm("session_value", event.target.value)}
@@ -279,7 +279,7 @@ export const NewPatient: React.FC = () => {
             </label>
             {form.payment_mode === "package" ? (
               <label className="text-xs font-bold text-slate-300">
-                Numero de sessoes
+                Número de sessões
                 <input
                   type="number"
                   min={1}
@@ -292,7 +292,7 @@ export const NewPatient: React.FC = () => {
               </label>
             ) : (
               <label className="text-xs font-bold text-slate-300">
-                Codigo PIX copia e cola
+                Código PIX copia e cola
                 <input
                   value={form.pix_code}
                   onChange={(event) => updateForm("pix_code", event.target.value)}
@@ -325,7 +325,7 @@ export const NewPatient: React.FC = () => {
           <h2 className="text-sm font-bold">Fluxo do paciente</h2>
           <p className="mt-2 leading-relaxed">
             {isPatientMobileCapture
-              ? "No consultorio, o paciente abre o link no celular, confirma consentimentos e entra na sala. O celular passa a ser a captura dedicada do paciente."
+              ? "No consultório, o paciente abre o link no celular, confirma consentimentos e entra na sala. O celular passa a ser a captura dedicada do paciente."
               : "O paciente recebe o link, confirma dados, aceita LGPD e entra na sala. O cadastro definitivo acontece no aceite do convite."}
           </p>
           {patientActivity && (
@@ -374,7 +374,7 @@ export const NewPatient: React.FC = () => {
           ) : (
             <p className="mt-4 rounded border border-blue-100 bg-slate-950 p-3 text-blue-200">
               {isPatientMobileCapture
-                ? "Preencha os dados para gerar o link que sera aberto no celular do paciente."
+                ? "Preencha os dados para gerar o link que será aberto no celular do paciente."
                 : "Preencha os dados para gerar o link de cadastro do paciente."}
             </p>
           )}

@@ -8,28 +8,28 @@ import {
 } from "../../lib/professional-prompts";
 
 const PRESETS = [
-  { text: "Como este paciente se compara a media populacional em Zonas FROID?" },
-  { text: "Identificar padroes atipicos comparados a base de dados" },
-  { text: "Este paciente esta acima ou abaixo da media em riscos clinicos?" },
-  { text: "Progresso nas ultimas sessoes versus populacao" },
+  { text: "Como este paciente se compara a média populacional em Zonas FROID?" },
+  { text: "Identificar padrões atipicos comparados a base de dados" },
+  { text: "Este paciente esta acima ou abaixo da média em riscos clínicos?" },
+  { text: "Progresso nas últimas sessões versus populacao" },
   { text: "Velocidade de melhora comparada a casos similares" },
-  { text: "Perfil vocal facial similar a quais condicoes na base?" },
+  { text: "Perfil vocal facial similar a quais condiÃ§Ãµes na base?" },
   { text: "Casos mais parecidos com este paciente top 5" },
   { text: "Intervencoes mais eficazes para perfis similares" },
-  { text: "Predicao de resposta terapeutica baseada em casos analogos" },
-  { text: "Alertas: padroes de risco identificados na base populacional" },
-  { text: "Explique a leitura clinica das zonas dominantes desta sessao" },
+  { text: "Predicao de resposta terapêutica baseada em casos analogos" },
+  { text: "Alertas: padrões de risco identificados na base populacional" },
+  { text: "Explique a leitura clínica das zonas dominantes desta sessão" },
   { text: "O que o IPM atual sugere sobre a energia emocional do paciente?" },
-  { text: "Como interpretar as dissonancias faciais-vocais observadas?" },
-  { text: "Quais marcadores bioacusticos merecem atencao neste momento?" },
+  { text: "Como interpretar as dissonâncias faciais-vocais observadas?" },
+  { text: "Quais marcadores bioacústicos merecem atenção neste momento?" },
   { text: "Este paciente se compara com a base populacional anonima?" },
-  { text: "Quais padroes aparecem em casos similares na base anonima?" },
-  { text: "Explique a diferenca entre IPM e IDM para esta sessao" },
-  { text: "Que perguntas clinicas podem aprofundar esta leitura?" },
-  { text: "Explique o resumo geral da sessao e seus cortes de 10 minutos" },
-  { text: "Quais mudancas ocorreram entre baseline e media da sessao?" },
-  { text: "Quais dissonancias registradas exigem maior atencao clinica?" },
-  { text: "Como interpretar os biomarcadores acusticos desta sessao?" },
+  { text: "Quais padrões aparecem em casos similares na base anonima?" },
+  { text: "Explique a diferenca entre IPM e IDM para esta sessão" },
+  { text: "Que perguntas clínicas podem aprofundar esta leitura?" },
+  { text: "Explique o resumo geral da sessão e seus cortes de 10 minutos" },
+  { text: "Quais mudancas ocorreram entre baseline e média da sessão?" },
+  { text: "Quais dissonâncias registradas exigem maior atenção clínica?" },
+  { text: "Como interpretar os biomarcadores acústicos desta sessão?" },
 ];
 
 interface FroidExplicaResponse {
@@ -80,7 +80,7 @@ function cleanFroidExplicaText(text: string) {
 }
 
 const SCIENTIFIC_CITATION_MARKERS = [
-  "referencia cientifica",
+  "referência cientifica",
   "referência científica",
   "davis",
   "mermelstein",
@@ -249,7 +249,7 @@ export const AIInsights: React.FC<Props> = ({
             role: "assistant",
             content: appendCitations(
               cleanFroidExplicaText(data.result_text) ||
-                "Sem resposta disponivel.",
+                "Sem resposta disponível.",
               data.citations,
             ),
             safety: data.safety_check_passed,
@@ -263,7 +263,7 @@ export const AIInsights: React.FC<Props> = ({
           {
             role: "assistant",
             content:
-              "FROID Explica nao conseguiu completar a consulta agora. Verifique o backend e tente novamente.",
+              "FROID Explica não conseguiu completar a consulta agora. Verifique o backend e tente novamente.",
             safety: false,
           },
         ]);
@@ -312,7 +312,7 @@ export const AIInsights: React.FC<Props> = ({
               }`}
             >
               <p className="mb-0.5 text-[9px] font-semibold opacity-80">
-                {message.role === "user" ? "Voce" : "FROID Explica"}
+                {message.role === "user" ? "Você" : "FROID Explica"}
               </p>
               {message.content}
               {message.role === "assistant" && message.safety === false && (

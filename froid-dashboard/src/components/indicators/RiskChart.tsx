@@ -279,7 +279,7 @@ export const RiskChart: React.FC<Props> = ({
       <div className="mb-1.5 flex shrink-0 items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="text-[12px] font-black text-slate-100">
-            Riscos clinicos
+            Riscos clínicos
           </h3>
           <p className="truncate text-[9px] font-medium text-slate-400">
             Resumo percentual por categoria
@@ -290,7 +290,7 @@ export const RiskChart: React.FC<Props> = ({
         </div>
         <div className="shrink-0 rounded-xl border border-blue-800 bg-blue-950 px-2.5 py-0.5 text-center text-blue-200">
           <span className="block text-[7px] font-black uppercase">
-            Indice geral
+            Índice geral
           </span>
           <strong className="font-mono text-[11px]">{generalRiskIndex}%</strong>
         </div>

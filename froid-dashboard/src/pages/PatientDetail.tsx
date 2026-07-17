@@ -85,10 +85,10 @@ export const PatientDetail: React.FC = () => {
       <div className="flex min-h-screen items-center justify-center bg-slate-950 p-6 text-slate-300">
         <div className="max-w-md rounded-lg border border-slate-800 bg-slate-900 p-6 text-center shadow-sm">
           <h1 className="text-lg font-bold text-slate-100">
-            Paciente nao encontrado
+            Paciente não encontrado
           </h1>
           <p className="mt-2 text-sm text-slate-400">
-            Ainda nao ha relatorios locais ou sincronizados para este paciente.
+            Ainda não ha relatórios locais ou sincronizados para este paciente.
           </p>
           <button
             onClick={() => navigate("/dashboard")}
@@ -150,7 +150,7 @@ export const PatientDetail: React.FC = () => {
               {group.patient.name || "Paciente sem nome"}
             </h1>
             <p className="mt-1 text-xs text-slate-400">
-              CPF: {group.patient.document || "Nao informado"} | Ultima sessao{" "}
+              CPF: {group.patient.document || "Não informado"} | Última sessão{" "}
               {formatDateTime(reportEndDate(latest))}
             </p>
           </div>
@@ -162,7 +162,7 @@ export const PatientDetail: React.FC = () => {
               onClick={() => navigate(`/session/${latest.sessionId}`)}
               className="rounded-lg bg-cyan-700 px-3 py-2 text-xs font-bold text-white hover:bg-cyan-800"
             >
-              Abrir sessao
+              Abrir sessão
             </button>
             <button
               onClick={() => navigate("/dashboard")}
@@ -179,7 +179,7 @@ export const PatientDetail: React.FC = () => {
           <section className="rounded-lg border border-blue-800 bg-blue-950 p-3">
             <div className="mb-3">
               <h2 className="text-sm font-bold text-blue-100">
-                Linha comparativa da ultima sessao
+                Linha comparativa da última sessão
               </h2>
             </div>
             <div className="grid gap-2 md:grid-cols-5">
@@ -232,7 +232,7 @@ export const PatientDetail: React.FC = () => {
           />
 
           <PatientMetricTable
-            title="Media das metricas da ultima sessao"
+            title="Média das métricas da última sessão"
             rows={[{ label: latest.sessionAverage.label, metrics: patientMetricRows(latest.sessionAverage) }]}
           />
 
@@ -240,10 +240,10 @@ export const PatientDetail: React.FC = () => {
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
                 <h2 className="text-sm font-bold text-slate-100">
-                  Evolucao das ultimas 20 sessoes
+                  Evolucao das últimas 20 sessões
                 </h2>
                 <p className="mt-1 text-[11px] text-slate-400">
-                  IPM, IDM, palavras por minuto, dissonancias e sub-harmonicos em escala propria.
+                  IPM, IDM, palavras por minuto, dissonâncias e sub-harmônicos em escala própria.
                 </p>
               </div>
               <span className="rounded bg-slate-950 px-2 py-1 text-[10px] font-black uppercase text-slate-400">
@@ -254,34 +254,34 @@ export const PatientDetail: React.FC = () => {
           </section>
 
           <section className="rounded-lg border border-slate-800 bg-slate-900 p-3">
-            <h2 className="text-sm font-bold text-slate-100">Indicadores Clinicos</h2>
+            <h2 className="text-sm font-bold text-slate-100">Indicadores Clínicos</h2>
             <div className="mt-4 grid gap-3 md:grid-cols-3">
               <Indicator
                 label="Zona FROID Dominante"
                 value={group.dominantZone ? `Zona ${group.dominantZone}` : "--"}
-                detail={`Baseado em ${group.completedSessions} sessoes`}
+                detail={`Baseado em ${group.completedSessions} sessões`}
               />
               <Indicator
-                label="Emocao Recorrente"
+                label="Emoção Recorrente"
                 value={group.recurrentEmotion || "--"}
-                detail="FACS - Analise Facial"
+                detail="FACS - Análise Facial"
               />
               <Indicator
-                label="Risco Clinico"
+                label="Risco Clínico"
                 value={group.clinicalRisk}
                 detail={group.riskTypes}
               />
             </div>
             <div className="mt-4 rounded-lg border border-amber-600 bg-amber-950/40 px-3 py-3">
               <p className="text-[11px] font-black uppercase tracking-wide text-amber-100">
-                Nota Clinica
+                Nota Clínica
               </p>
               <p className="mt-1 text-sm font-semibold leading-relaxed text-amber-100">
                 {group.clinicalNote}
               </p>
             </div>
             <div className="mt-4 grid gap-3 md:grid-cols-5">
-              <PatientScoreBar label="Carga clinica" value={signal.clinicalLoad} color="#f97316" />
+              <PatientScoreBar label="Carga clínica" value={signal.clinicalLoad} color="#f97316" />
               <PatientScoreBar label="Comunicacao" value={signal.communication} color="#0ea5e9" />
               <PatientScoreBar label="Continuidade" value={signal.continuity} color="#22c55e" />
               <PatientScoreBar label="Insight" value={signal.insight} color="#8b5cf6" />
@@ -297,14 +297,14 @@ export const PatientDetail: React.FC = () => {
           </section>
 
           <section className="rounded-lg border border-slate-800 bg-slate-900 p-3">
-            <h2 className="text-sm font-bold text-slate-100">Sessoes realizadas</h2>
+            <h2 className="text-sm font-bold text-slate-100">Sessões realizadas</h2>
             <div className="mt-3 overflow-x-auto">
               <table className="min-w-max table-auto text-left text-[10px] leading-tight">
                 <thead className="text-[9px] uppercase tracking-normal text-slate-400">
                   <tr>
                     <th className="whitespace-nowrap py-1 pr-2">Data</th>
                     <th className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-bold">
-                      Sessao
+                      Sessão
                     </th>
                     {patientMetricRows(latest.sessionAverage).map(([label]) => (
                       <th
@@ -373,10 +373,10 @@ export const PatientDetail: React.FC = () => {
                             Complemento
                           </td>
                           <td className="border-r border-slate-700 px-2 py-2 text-[10px] font-bold text-slate-400">
-                            Analise
+                            Análise
                           </td>
                           <td colSpan={resultTextColSpan} className="px-2 py-2 text-xs leading-relaxed text-slate-300">
-                            {resultLines[1] || "Complemento ainda nao consolidado."}
+                            {resultLines[1] || "Complemento ainda não consolidado."}
                           </td>
                         </tr>
                       </React.Fragment>
@@ -388,7 +388,7 @@ export const PatientDetail: React.FC = () => {
           </section>
 
           <section className="rounded-lg border border-slate-800 bg-slate-900 p-3">
-            <h2 className="text-sm font-bold text-slate-100">Historico de Sessoes</h2>
+            <h2 className="text-sm font-bold text-slate-100">Histórico de Sessões</h2>
             <table className="mt-3 w-full table-fixed text-left text-xs">
               <thead className="text-[10px] uppercase tracking-wider text-slate-400">
                 <tr className="border-b border-slate-700">
@@ -413,7 +413,7 @@ export const PatientDetail: React.FC = () => {
                         {shortId(report.sessionId)}
                       </button>
                     </td>
-                    <td>{index === 0 ? "Concluida" : "Ativa"}</td>
+                    <td>{index === 0 ? "Concluída" : "Ativa"}</td>
                     <td>{formatDateTime(reportStartDate(report))}</td>
                     <td>{formatDateTime(reportEndDate(report))}</td>
                     <td>{formatDuration(report.durationSeconds)}</td>
@@ -439,11 +439,11 @@ export const PatientDetail: React.FC = () => {
               </span>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <PatientKpi label="Total de Sessoes" value={String(group.totalSessions)} />
+              <PatientKpi label="Total de Sessões" value={String(group.totalSessions)} />
               <PatientKpi label="Inativas" value={String(inactivePatients)} />
               <PatientKpi label="Ativas" value={String(activePatients)} tone="green" />
-              <PatientKpi label="Analises" value={String(group.totalAnalyses)} />
-              <PatientKpi label="Atencao" value={`${Math.round(signal.attentionIndex)}/100`} tone="red" />
+              <PatientKpi label="Análises" value={String(group.totalAnalyses)} />
+              <PatientKpi label="Atenção" value={`${Math.round(signal.attentionIndex)}/100`} tone="red" />
               <PatientKpi label="Qualidade" value={signal.qualityLabel} tone="green" />
               <PatientKpi label="Comunicacao" value={`${Math.round(signal.communication)}/100`} tone="blue" />
               <PatientKpi label="Insight" value={`${Math.round(signal.insight)}/100`} tone="violet" />
@@ -482,15 +482,15 @@ export const PatientDetail: React.FC = () => {
           <section className="rounded-lg border border-slate-800 bg-slate-900 p-3">
             <h2 className="text-sm font-bold text-slate-100">Painel de acompanhamento</h2>
             <p className="mt-1 text-[11px] text-slate-400">
-              Leitura operacional para orientar a proxima decisao clinica deste paciente.
+              Leitura operacional para orientar a próxima decisao clínica deste paciente.
             </p>
             <div className="mt-2 grid grid-cols-2 gap-2">
               <SideMetric label="Prioridade" value={signal.priority} tone="blue" />
               <SideMetric label="Status" value={patientStatusLabel} tone={patientIsActive ? "green" : "amber"} />
-              <SideMetric label="Estado clinico" value={signal.state} />
+              <SideMetric label="Estado clínico" value={signal.state} />
               <SideMetric label="Acao sugerida" value={signal.action} tone="amber" wide />
               <SideMetric label="Qualidade" value={signal.qualityLabel} tone="green" />
-              <SideMetric label="IPM tendencia" value={fmtDelta(signal.ipmTrend, 1)} />
+              <SideMetric label="IPM tendência" value={fmtDelta(signal.ipmTrend, 1)} />
               <SideMetric label="IDM recente" value={fmt(signal.idmRecent, 2)} />
             </div>
           </section>
@@ -537,7 +537,7 @@ export const PatientDetail: React.FC = () => {
                 {group.recurrentEmotion || "--"}
               </p>
               <p>
-                <strong>Ultima sessao:</strong>{" "}
+                <strong>Última sessao:</strong>{" "}
                 {formatDateTime(reportEndDate(latest))} |{" "}
                 {formatDuration(latest.durationSeconds)} | {latestCutCount} cortes
               </p>
@@ -545,8 +545,8 @@ export const PatientDetail: React.FC = () => {
                 <strong>Pagamento:</strong> {paymentStatusForReport(latest)}
               </p>
               <p>
-                <strong>Observacoes:</strong> {latest.clinicalNotes.length} anotacoes |{" "}
-                {latest.dissonances.length} dissonancias
+                <strong>Observacoes:</strong> {latest.clinicalNotes.length} anotaÃ§Ãµes |{" "}
+                {latest.dissonances.length} dissonâncias
               </p>
             </div>
           </section>
@@ -565,14 +565,14 @@ export const PatientDetail: React.FC = () => {
               onClick={() => navigate(`/session/${latest.sessionId}/report`)}
               className="mt-3 rounded border border-blue-800 bg-slate-950 px-3 py-2 text-[10px] font-bold text-blue-200 hover:bg-blue-900"
             >
-              Abrir relatorio da ultima sessao
+              Abrir relatório da última sessão
             </button>
           </section>
 
           <section className="rounded-lg border border-slate-800 bg-slate-900 p-3">
             <h2 className="text-sm font-bold text-slate-100">Indicadores de seguimento</h2>
             <div className="mt-2 space-y-2">
-              <PatientScoreBar label="Carga clinica" value={signal.clinicalLoad} color="#f97316" />
+              <PatientScoreBar label="Carga clínica" value={signal.clinicalLoad} color="#f97316" />
               <PatientScoreBar label="Comunicacao" value={signal.communication} color="#0ea5e9" />
               <PatientScoreBar label="Continuidade" value={signal.continuity} color="#22c55e" />
               <PatientScoreBar label="Insight" value={signal.insight} color="#8b5cf6" />
@@ -795,7 +795,7 @@ const PatientEvolutionChart: React.FC<{ reports: SessionReportRecord[] }> = ({
   if (!ordered.length) {
     return (
       <div className="mt-3 rounded border border-slate-700 bg-slate-950 p-3 text-xs text-slate-400">
-        Sem sessoes suficientes para desenhar evolucao longitudinal.
+        Sem sessões suficientes para desenhar evolucao longitudinal.
       </div>
     );
   }

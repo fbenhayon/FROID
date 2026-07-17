@@ -40,7 +40,7 @@ export const PatientSessionPage: React.FC = () => {
     let active = true;
     if (!sessionId || !inviteToken) {
       setJoinState("blocked");
-      setError("Link de sessao incompleto.");
+      setError("Link de sessão incompleto.");
       return;
     }
 
@@ -51,7 +51,7 @@ export const PatientSessionPage: React.FC = () => {
     })
       .then(async (response) => {
         const data = await response.json();
-        if (!response.ok) throw new Error(data?.detail || "Sessao indisponivel.");
+        if (!response.ok) throw new Error(data?.detail || "Sessão indisponÃ­vel.");
         return data;
       })
       .then((data) => {
@@ -62,7 +62,7 @@ export const PatientSessionPage: React.FC = () => {
       .catch((err) => {
         if (!active) return;
         setJoinState("blocked");
-        setError(err instanceof Error ? err.message : "Nao foi possivel entrar.");
+        setError(err instanceof Error ? err.message : "Não foi possível entrar.");
       });
 
     return () => {
@@ -74,14 +74,14 @@ export const PatientSessionPage: React.FC = () => {
 
   const startPatientRtc = async (localSource: MediaStream) => {
     if (!sessionId || typeof RTCPeerConnection === "undefined") {
-      setCallStatus("WebRTC indisponivel neste navegador.");
+      setCallStatus("WebRTC indisponÃ­vel neste navegador.");
       return;
     }
 
     cleanupRtc();
     const localConferenceStream = createConferenceStream(localSource);
     if (!localConferenceStream.getTracks().length) {
-      setCallStatus("Audio e video locais indisponiveis para chamada.");
+      setCallStatus("Áudio e vídeo locais indisponiveis para chamada.");
       return;
     }
 
@@ -119,7 +119,7 @@ export const PatientSessionPage: React.FC = () => {
         remoteVideoRef.current.play().catch(() => undefined);
       }
       setRemoteProfessionalOn(true);
-      setCallStatus("Profissional conectado por audio e video.");
+      setCallStatus("Profissional conectado por áudio e vídeo.");
     };
 
     peer.onicecandidate = (event) => {
@@ -130,12 +130,12 @@ export const PatientSessionPage: React.FC = () => {
 
     peer.onconnectionstatechange = () => {
       if (peer.connectionState === "connected") {
-        setCallStatus("Audio e video bidirecionais ativos.");
+        setCallStatus("Áudio e vídeo bidirecionais ativos.");
       } else if (["failed", "disconnected"].includes(peer.connectionState)) {
         setRemoteProfessionalOn(false);
         setCallStatus("Conexao com profissional interrompida.");
       } else if (peer.connectionState === "connecting") {
-        setCallStatus("Conectando audio e video do profissional...");
+        setCallStatus("Conectando áudio e vídeo do profissional...");
       }
     };
 
@@ -143,8 +143,8 @@ export const PatientSessionPage: React.FC = () => {
     rtcSignalRef.current = socket;
 
     socket.onopen = () => setCallStatus("Aguardando chamada do profissional...");
-    socket.onclose = () => setCallStatus("Sinalizacao de video encerrada.");
-    socket.onerror = () => setCallStatus("Falha na sinalizacao de video.");
+    socket.onclose = () => setCallStatus("Sinalizacao de vídeo encerrada.");
+    socket.onerror = () => setCallStatus("Falha na sinalizaÃ§Ã£o de vídeo.");
     socket.onmessage = async (event) => {
       const data = JSON.parse(String(event.data || "{}"));
       if (data.type === "offer" && data.offer) {
@@ -188,7 +188,7 @@ export const PatientSessionPage: React.FC = () => {
       await startPatientRtc(stream);
     } catch {
       setMediaState("failed");
-      setError("Nao foi possivel ativar camera e microfone neste navegador.");
+      setError("Não foi possível ativar camera e microfone neste navegador.");
     }
   };
 
@@ -253,10 +253,10 @@ export const PatientSessionPage: React.FC = () => {
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-sm font-bold text-slate-100">
-                Sessao {sessionId}
+                Sessão {sessionId}
               </p>
               <p className="mt-1 text-xs text-slate-400">
-                O profissional conduz a sessao pelo painel clinico FROID.
+                O profissional conduz a sessão pelo painel clínico FROID.
               </p>
             </div>
             <button
@@ -268,8 +268,8 @@ export const PatientSessionPage: React.FC = () => {
               {mediaState === "requesting"
                 ? "Ativando..."
                 : mediaState === "active"
-                  ? "Audio e video ativos"
-                  : "Ativar audio e video"}
+                  ? "Áudio e vídeo ativos"
+                  : "Ativar áudio e vídeo"}
             </button>
           </div>
 

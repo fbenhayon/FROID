@@ -35,7 +35,7 @@ function metricValue(snapshot: SessionReportRecord["sessionAverage"] | undefined
 }
 
 function savePatientDownload(report: SessionReportRecord) {
-  const sessionId = report.sessionId || report.id || "sessao";
+  const sessionId = report.sessionId || report.id || "sessão";
   const blob = new Blob([JSON.stringify(report, null, 2)], {
     type: "application/json;charset=utf-8",
   });
@@ -119,7 +119,7 @@ export const PatientPortalPage: React.FC = () => {
         headers: authHeaders,
       });
       const data: PatientPortalResponse = await response.json();
-      if (!response.ok) throw new Error((data as any)?.detail || "Nao foi possivel carregar os resultados.");
+      if (!response.ok) throw new Error((data as any)?.detail || "Não foi possível carregar os resultados.");
       applyPatient(data.patient || null);
       setReports(Array.isArray(data.reports) ? data.reports : []);
     } catch (err) {
@@ -135,7 +135,7 @@ export const PatientPortalPage: React.FC = () => {
     fetch(apiUrl("/api/patient-auth/me"), { headers: authHeaders })
       .then(async (response) => {
         const data = await response.json();
-        if (!response.ok) throw new Error(data?.detail || "Sessao expirada.");
+        if (!response.ok) throw new Error(data?.detail || "Sessão expirada.");
         applyPatient(data.patient || null);
         return loadReports();
       })
@@ -161,7 +161,7 @@ export const PatientPortalPage: React.FC = () => {
         body: JSON.stringify(loginForm),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data?.detail || "Nao foi possivel acessar o portal.");
+      if (!response.ok) throw new Error(data?.detail || "Não foi possível acessar o portal.");
       const nextToken = data.token || "";
       setToken(nextToken);
       if (typeof window !== "undefined") {
@@ -192,7 +192,7 @@ export const PatientPortalPage: React.FC = () => {
         body: JSON.stringify(profileForm),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data?.detail || "Nao foi possivel salvar seus dados.");
+      if (!response.ok) throw new Error(data?.detail || "Não foi possível salvar seus dados.");
       applyPatient(data.patient || null);
       setMessage("Dados do paciente atualizados.");
     } catch (err) {
@@ -229,22 +229,22 @@ export const PatientPortalPage: React.FC = () => {
           </p>
           <h1 className="mt-2 text-2xl font-black text-white">Acesso aos seus resultados FROID</h1>
           <p className="mt-2 max-w-3xl text-sm text-slate-300">
-            Entre para consultar suas sessoes, gerenciar seus dados cadastrais e baixar seus
+            Entre para consultar suas sessões, gerenciar seus dados cadastrais e baixar seus
             resultados registrados na plataforma.
           </p>
         </header>
         <main className="mx-auto grid max-w-5xl gap-4 px-4 py-8 md:grid-cols-[1fr_0.85fr]">
           <section className="rounded-lg border border-slate-800 bg-slate-900 p-5">
-            <h2 className="text-lg font-black text-white">Seus dados pertencem a voce</h2>
+            <h2 className="text-lg font-black text-white">Seus dados pertencem a você</h2>
             <p className="mt-3 text-sm leading-6 text-slate-300">
-              O FROID disponibiliza ao paciente uma area propria para consultar os resultados
-              das sessoes finalizadas, conferir dados pessoais e baixar os registros autorizados.
-              O acesso exige CPF/documento e senha criados no cadastro LGPD para proteger suas informacoes.
+              O FROID disponibiliza ao paciente uma area própria para consultar os resultados
+              das sessões finalizadas, conferir dados pessoais e baixar os registros autorizados.
+              O acesso exige CPF/documento e senha criados no cadastro LGPD para proteger suas informações.
             </p>
             <div className="mt-5 grid gap-3 text-xs text-slate-300 sm:grid-cols-3">
               {[
-                ["Resultados", "Metricas, cortes, resumos e dissonancias da sessao."],
-                ["Cadastro", "Atualizacao de telefone, documento e dados basicos."],
+                ["Resultados", "Métricas, cortes, resumos e dissonâncias da sessão."],
+                ["Cadastro", "Atualização de telefone, documento e dados básicos."],
                 ["Download", "Exportacao do resultado em arquivo JSON para guarda pessoal."],
               ].map(([title, detail]) => (
                 <div key={title} className="rounded border border-slate-700 bg-slate-950 p-3">
@@ -306,7 +306,7 @@ export const PatientPortalPage: React.FC = () => {
               {patient?.name || "Paciente FROID"}
             </h1>
             <p className="mt-1 text-sm text-slate-300">
-              Resultados das sessoes, dados cadastrais e downloads.
+              Resultados das sessões, dados cadastrais e downloads.
             </p>
           </div>
           <div className="flex gap-2">
@@ -397,7 +397,7 @@ export const PatientPortalPage: React.FC = () => {
             <h2 className="text-sm font-black text-white">Resumo do paciente</h2>
             <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
               <div className="rounded border border-slate-700 bg-slate-950 p-3">
-                <p className="text-[10px] font-bold uppercase text-slate-400">Sessoes</p>
+                <p className="text-[10px] font-bold uppercase text-slate-400">Sessões</p>
                 <p className="mt-1 text-xl font-black text-white">{reports.length}</p>
               </div>
               <div className="rounded border border-slate-700 bg-slate-950 p-3">
@@ -420,7 +420,7 @@ export const PatientPortalPage: React.FC = () => {
         <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="text-sm font-black text-white">Resultados das sessoes</h2>
+              <h2 className="text-sm font-black text-white">Resultados das sessões</h2>
               <p className="mt-1 text-xs text-slate-400">
                 Registros mais recentes aparecem primeiro.
               </p>
@@ -430,7 +430,7 @@ export const PatientPortalPage: React.FC = () => {
 
           {!reports.length ? (
             <div className="mt-4 rounded border border-slate-700 bg-slate-950 p-4 text-sm text-slate-300">
-              Nenhum resultado de sessao finalizada foi localizado para este cadastro.
+              Nenhum resultado de sessão finalizada foi localizado para este cadastro.
             </div>
           ) : (
             <div className="mt-4 space-y-3">
@@ -449,7 +449,7 @@ export const PatientPortalPage: React.FC = () => {
                           {formatDateTime(createdAt)}
                         </p>
                         <h3 className="mt-1 text-sm font-black text-white">
-                          {report.sessionSummary?.theme || report.sessionAverage?.theme || "Sessao FROID"}
+                          {report.sessionSummary?.theme || report.sessionAverage?.theme || "Sessão FROID"}
                         </h3>
                         <p className="mt-2 max-w-3xl text-xs leading-5 text-slate-300">{summary}</p>
                       </div>
@@ -475,7 +475,7 @@ export const PatientPortalPage: React.FC = () => {
                       <table className="min-w-max table-auto text-left text-[10px] leading-tight">
                         <thead className="uppercase text-slate-400">
                           <tr>
-                            {["Duracao", "IPM", "IDM", "ZONAS", "Tom", "P/min", "Disso.", "MFCC7", "MFCC9"].map(
+                            {["Duração", "IPM", "IDM", "ZONAS", "Tom", "P/min", "Disso.", "MFCC7", "MFCC9"].map(
                               (label) => (
                                 <th key={label} className="whitespace-nowrap border-l border-slate-700 px-2 py-1 first:border-l-0">
                                   {label}
@@ -537,18 +537,18 @@ export const PatientPortalPage: React.FC = () => {
                             {(report.conversationSummaries || []).map((cut) => (
                               <div key={cut.id} className="rounded border border-slate-800 bg-slate-950 p-2 text-xs">
                                 <p className="font-black text-slate-100">
-                                  {cut.startMinute}-{cut.endMinute}min | {cut.theme || "Tema nao definido"}
+                                  {cut.startMinute}-{cut.endMinute}min | {cut.theme || "Tema não definido"}
                                 </p>
                                 <p className="mt-1 leading-5 text-slate-300">{cut.summary}</p>
                               </div>
                             ))}
                             {!report.conversationSummaries?.length && (
-                              <p className="text-xs text-slate-400">Sem cortes resumidos nesta sessao.</p>
+                              <p className="text-xs text-slate-400">Sem cortes resumidos nesta sessão.</p>
                             )}
                           </div>
                         </div>
                         <div className="rounded border border-slate-800 bg-slate-900 p-3">
-                          <p className="text-[10px] font-bold uppercase text-slate-400">Dissonancias</p>
+                          <p className="text-[10px] font-bold uppercase text-slate-400">Dissonâncias</p>
                           {(report.dissonances || []).length ? (
                             <ul className="mt-2 space-y-2 text-xs text-slate-300">
                               {report.dissonances.map((item) => (
@@ -559,7 +559,7 @@ export const PatientPortalPage: React.FC = () => {
                             </ul>
                           ) : (
                             <p className="mt-2 text-xs text-slate-400">
-                              Nenhuma dissonancia acima do limiar foi registrada.
+                              Nenhuma dissonância acima do limiar foi registrada.
                             </p>
                           )}
                         </div>

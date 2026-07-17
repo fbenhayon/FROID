@@ -110,49 +110,49 @@ const PRIORITY_STYLES: Record<string, string> = {
 
 const KPI_TOOLTIPS: Record<string, string> = {
   Pacientes:
-    "Quantidade de pacientes com relatorios ou registros clinicos visiveis na carteira profissional.",
-  "Atencao media":
-    "Indice agregado de prioridade de acompanhamento. Combina sinais recentes, risco clinico, necessidade de revisao e intensidade multimodal.",
-  "Carga clinica":
-    "Carga multimodal media da carteira, considerando IPM, IDM, dissonancias, biomarcadores e qualidade/amostragem dos dados.",
+    "Quantidade de pacientes com relatórios ou registros clínicos visiveis na carteira profissional.",
+  "Atenção média":
+    "Índice agregado de prioridade de acompanhamento. Combina sinais recentes, risco clínico, necessidade de revisao e intensidade multimodal.",
+  "Carga clínica":
+    "Carga multimodal média da carteira, considerando IPM, IDM, dissonâncias, biomarcadores e qualidade/amostragem dos dados.",
   Comunicacao:
-    "Qualidade documental e comunicacional: presenca de resumo, cortes, transcricao util, anotacoes e material suficiente para continuidade clinica.",
+    "Qualidade documental e comunicacional: presença de resumo, cortes, transcrição útil, anotaÃ§Ãµes e material suficiente para continuidade clínica.",
   Continuidade:
-    "Consistencia longitudinal do acompanhamento: sessoes registradas, recorrencia de dados e disponibilidade de comparacao entre consultas.",
+    "Consistência longitudinal do acompanhamento: sessões registradas, recorrencia de dados e disponibilidade de comparacao entre consultas.",
   "Para revisao":
-    "Numero de pacientes que o FROID sinaliza para revisao por prioridade elevada, baixa qualidade de dados ou necessidade de acompanhamento profissional.",
+    "Número de pacientes que o FROID sinaliza para revisao por prioridade elevada, baixa qualidade de dados ou necessidade de acompanhamento profissional.",
 };
 
 const SIGNAL_TOOLTIPS: Record<string, string> = {
   Atencao:
-    "Prioridade atual do paciente na carteira. Sobe quando ha maior ativacao, risco, baixa estabilidade ou necessidade de revisao.",
+    "Prioridade atual do paciente na carteira. Sobe quando ha maior ativaÃ§Ã£o, risco, baixa estabilidade ou necessidade de revisao.",
   Carga:
-    "Esforco clinico estimado a partir da intensidade multimodal, dissonancias, risco agregado e marcadores de tensao.",
+    "Esforco clínico estimado a partir da intensidade multimodal, dissonâncias, risco agregado e marcadores de tensão.",
   Comunicacao:
-    "Disponibilidade de conteudo clinico interpretavel: resumos, cortes, anotacoes e consistencia semantica das sessoes.",
+    "Disponibilidade de conteudo clínico interpretavel: resumos, cortes, anotaÃ§Ãµes e consistência semântica das sessões.",
   Continuidade:
-    "Grau de sustentacao do acompanhamento no tempo, considerando quantidade de sessoes e comparabilidade longitudinal.",
+    "Grau de sustentacao do acompanhamento no tempo, considerando quantidade de sessões e comparabilidade longitudinal.",
   Insight:
-    "Indice de material analitico disponivel para apoiar hipoteses clinicas, FROID Explica e revisao entre sessoes.",
+    "Índice de material analitico disponível para apoiar hipóteses clínicas, FROID Explica e revisao entre sessões.",
 };
 
 const METRIC_TOOLTIPS: Record<string, string> = {
-  ipm: "IPM mede a intensidade global da energia emocional empregada na sessao.",
-  idm: "IDM aponta direcao e magnitude do desequilibrio multimodal entre voz, face, zonas e baseline.",
-  zone: "Zona FROID dominante observada no periodo analisado.",
-  tone: "Tom emocional inferido a partir da composicao vocal e semantica.",
+  ipm: "IPM mede a intensidade global da energia emocional empregada na sessão.",
+  idm: "IDM aponta direÃ§Ã£o e magnitude do desequilibrio multimodal entre voz, face, zonas e baseline.",
+  zone: "Zona FROID dominante observada no período analisado.",
+  tone: "Tom emocional inferido a partir da composicao vocal e semântica.",
   wpm: "Palavras por minuto, usado como indicador de cadencia, aceleração, lentificacao ou carga discursiva.",
-  dissonance: "Quantidade de dissonancias facial-vocais persistentes acima do limiar configurado.",
-  mfcc7: "Biomarcador acustico acompanhado em contextos de valencia negativa e risco depressivo quando combinado a outros sinais.",
-  mfcc9: "Biomarcador acustico relevante para tensao autonoma e ansiedade somatica em fala neutra/controlada.",
-  f0: "Frequencia fundamental media da voz, associada a variacao de pitch e ativacao.",
-  zcr: "Taxa de cruzamento por zero, relacionada a textura acustica, ruido e dinamica vocal.",
+  dissonance: "Quantidade de dissonâncias facial-vocais persistentes acima do limiar configurado.",
+  mfcc7: "Biomarcador acústico acompanhado em contextos de valencia negativa e risco depressivo quando combinado a outros sinais.",
+  mfcc9: "Biomarcador acústico relevante para tensão autônoma e ansiedade somática em fala neutra/controlada.",
+  f0: "Frequência fundamental média da voz, associada a variação de pitch e ativaÃ§Ã£o.",
+  zcr: "Taxa de cruzamento por zero, relacionada a textura acústica, ruído e dinâmica vocal.",
   jitter:
-    "Indice proxy interno normalizado, derivado de ZCR escalado, util para observar instabilidade vocal relativa. Nao equivale diretamente a jitter percentual normativo.",
+    "Índice proxy interno normalizado, derivado de ZCR escalado, útil para observar instabilidade vocal relativa. Não equivale diretamente a jitter percentual normativo.",
   shimmer:
-    "Indice proxy interno normalizado da variacao relativa do envelope RMS, util para observar instabilidade de energia vocal. Nao equivale diretamente a shimmer em dB.",
-  sub5: "Energia sub-harmonica de 5-12 Hz, usada para rastrear tremores autonomicos da voz.",
-  sub12: "Energia sub-harmonica de 12-20 Hz, complementar na leitura bioacustica e limbica.",
+    "Índice proxy interno normalizado da variação relativa do envelope RMS, útil para observar instabilidade de energia vocal. Não equivale diretamente a shimmer em dB.",
+  sub5: "Energia sub-harmônica de 5-12 Hz, usada para rastrear tremores autonomicos da voz.",
+  sub12: "Energia sub-harmônica de 12-20 Hz, complementar na leitura bioacústica e limbica.",
 };
 
 const RECEIVABLE_STATUS: Record<string, string> = {
@@ -205,7 +205,7 @@ function professionalReceiptInfo(profile: ProfessionalProfile | null, user?: any
   return {
     name: name || user?.email || "Profissional FROID",
     tradeName: fields.tradeName || "",
-    role: fields.profession || (isOrganization ? "Clinica/consultorio de saude" : "Profissional de saude"),
+    role: fields.profession || (isOrganization ? "Clínica/consultorio de saúde" : "Profissional de saúde"),
     document: document || "",
     registry: [fields.professionalCouncil, fields.professionalRegistry].filter(Boolean).join(" "),
     address: compactAddress(profile),
@@ -217,7 +217,7 @@ function professionalReceiptInfo(profile: ProfessionalProfile | null, user?: any
     receiptCity: fields.receiptCity || [fields.city, fields.state].filter(Boolean).join(" - "),
     serviceDescription:
       fields.receiptServiceDescription ||
-      "Atendimento profissional em saude mental realizado com apoio operacional FROID.",
+      "Atendimento profissional em saúde mental realizado com apoio operacional FROID.",
     fiscalObservation: fields.receiptFiscalObservation || "",
     isOrganization,
   };
@@ -237,7 +237,7 @@ function openReceiptPrintWindow(
 ) {
   const info = professionalReceiptInfo(profile, user);
   const officialReference = window.prompt(
-    "Referencia do recibo oficial Receita Saude/NFS-e, se houver:",
+    "Referência do recibo oficial Receita Saúde/NFS-e, se houver:",
     "",
   ) || "";
   const payerName = window.prompt(
@@ -310,8 +310,8 @@ function openReceiptPrintWindow(
       <div class="top">
         <div>
           <div class="brand">FROID</div>
-          <h1>Fatura / Recibo complementar de atendimento em saude</h1>
-          <p class="note">Documento operacional gerado pelo FROID para conferencia, envio ao paciente e organizacao interna.</p>
+          <h1>Fatura / Recibo complementar de atendimento em saúde</h1>
+          <p class="note">Documento operacional gerado pelo FROID para conferencia, envio ao paciente e organizaÃ§Ã£o interna.</p>
         </div>
         <div>
           <span class="label">Emissao</span>
@@ -328,9 +328,9 @@ function openReceiptPrintWindow(
         <div><span class="label">CPF/CNPJ</span><div class="value">${escapeHtml(info.document || "--")}</div></div>
         <div><span class="label">Registro profissional</span><div class="value">${escapeHtml(info.registry || "--")}</div></div>
         <div><span class="label">Contato</span><div class="value">${escapeHtml([info.phone, info.email].filter(Boolean).join(" | ") || "--")}</div></div>
-        <div><span class="label">Endereco</span><div class="value">${escapeHtml(info.address || "--")}</div></div>
-        ${info.isOrganization ? `<div><span class="label">Inscricao municipal</span><div class="value">${escapeHtml(info.municipalRegistration || "--")}</div></div>` : ""}
-        ${info.isOrganization ? `<div><span class="label">Regime tributario</span><div class="value">${escapeHtml(info.taxRegime || "--")}</div></div>` : ""}
+        <div><span class="label">Endereço</span><div class="value">${escapeHtml(info.address || "--")}</div></div>
+        ${info.isOrganization ? `<div><span class="label">InscriÃ§Ã£o municipal</span><div class="value">${escapeHtml(info.municipalRegistration || "--")}</div></div>` : ""}
+        ${info.isOrganization ? `<div><span class="label">Regime tributÃ¡rio</span><div class="value">${escapeHtml(info.taxRegime || "--")}</div></div>` : ""}
       </div>
 
       <h2>2. Dados do paciente / pagador</h2>
@@ -344,8 +344,8 @@ function openReceiptPrintWindow(
       <h2>3. Dados do atendimento e pagamento</h2>
       <div class="box">
         <div class="grid">
-          <div><span class="label">Descricao do servico</span><div class="value">${escapeHtml(info.serviceDescription)}</div></div>
-          <div><span class="label">Referencia oficial Receita Saude/NFS-e</span><div class="value">${escapeHtml(officialReference || "--")}</div></div>
+          <div><span class="label">Descricao do serviço</span><div class="value">${escapeHtml(info.serviceDescription)}</div></div>
+          <div><span class="label">Referência oficial Receita Saúde/NFS-e</span><div class="value">${escapeHtml(officialReference || "--")}</div></div>
           <div><span class="label">Forma de pagamento</span><div class="value">PIX / acordo profissional / conciliacao interna</div></div>
           <div><span class="label">Situacao</span><div class="value">${escapeHtml(row.status)}</div></div>
         </div>
@@ -353,8 +353,8 @@ function openReceiptPrintWindow(
           <thead>
             <tr>
               <th>ID FROID</th>
-              <th>Data sessao/convite</th>
-              <th>Sessoes</th>
+              <th>Data sessão/convite</th>
+              <th>Sessões</th>
               <th>Valor unit.</th>
               <th>Devido</th>
               <th>Recebido</th>
@@ -370,18 +370,18 @@ function openReceiptPrintWindow(
         </div>
       </div>
 
-      <h2>4. Declaracao e observacao fiscal</h2>
+      <h2>4. Declaracao e observaÃ§Ã£o fiscal</h2>
       <p class="note">
         Declara-se, para fins operacionais, que o atendimento acima descrito foi prestado ao paciente identificado neste documento,
         nos valores informados e conforme registros internos do FROID.
       </p>
       <p class="note">
-        Quando o atendimento for prestado por profissional de saude autonomo pessoa fisica, o comprovante fiscal valido para fins
-        oficiais deve ser emitido no sistema Receita Saude no momento do pagamento. Quando o atendimento for prestado por pessoa
-        juridica, a emissao fiscal/NFS-e deve seguir a orientacao contabil aplicavel. Este PDF nao substitui o recibo eletronico
+        Quando o atendimento for prestado por profissional de saúde autônomo pessoa física, o comprovante fiscal válido para fins
+        oficiais deve ser emitido no sistema Receita Saúde no momento do pagamento. Quando o atendimento for prestado por pessoa
+        juridica, a emissao fiscal/NFS-e deve seguir a orientacao contabil aplicÃ¡vel. Este PDF não substitui o recibo eletrônico
         oficial quando este for exigido.
       </p>
-      ${info.fiscalObservation ? `<p class="note"><strong>Observacao do profissional:</strong> ${escapeHtml(info.fiscalObservation)}</p>` : ""}
+      ${info.fiscalObservation ? `<p class="note"><strong>ObservaÃ§Ã£o do profissional:</strong> ${escapeHtml(info.fiscalObservation)}</p>` : ""}
 
       <div class="signature">
         <div class="line"></div>
@@ -393,7 +393,7 @@ function openReceiptPrintWindow(
 
   const receiptWindow = window.open("", "_blank", "width=980,height=760");
   if (!receiptWindow) {
-    window.alert("Nao foi possivel abrir a janela de recibo. Verifique o bloqueador de pop-ups.");
+    window.alert("Não foi possível abrir a janela de recibo. Verifique o bloqueador de pop-ups.");
     return;
   }
   receiptWindow.document.open();
@@ -423,7 +423,7 @@ function patientAverageSnapshot(reports: SessionReportRecord[]): MetricSnapshot 
     [...zoneCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || latest.dominantZone || null;
   return {
     ...latest,
-    label: "Media geral",
+    label: "Média geral",
     ipmAvg: averageNumeric(snapshots.map((snapshot) => snapshot.ipmAvg), latest.ipmAvg),
     idmAvg: averageNumeric(snapshots.map((snapshot) => snapshot.idmAvg), latest.idmAvg),
     dominantZone,
@@ -587,7 +587,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
         const normalized = typed.replace(/\./g, "").replace(",", ".");
         received_cents = Math.round(Number(normalized) * 100);
         if (!Number.isFinite(received_cents) || received_cents < 0) {
-          throw new Error("Valor parcial invalido.");
+          throw new Error("Valor parcial inválido.");
         }
       }
       const response = await fetch(apiUrl("/api/professional/receivables/update"), {
@@ -599,7 +599,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
         body: JSON.stringify({ patient_key: patientKey, action, received_cents }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data?.detail || "Nao foi possivel atualizar o recebimento.");
+      if (!response.ok) throw new Error(data?.detail || "Não foi possível atualizar o recebimento.");
       setReceivablesMessage("Recebimento atualizado.");
       await loadReceivables();
       window.setTimeout(() => setReceivablesMessage(""), 2500);
@@ -824,7 +824,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
           latest.session_id &&
           !redirectingRef.current
         ) {
-          setPatientActivity(`${patient} entrou na sessao. Abrindo sala profissional...`);
+          setPatientActivity(`${patient} entrou na sessão. Abrindo sala profissional...`);
           rememberSessionPatient(latest.session_id, { name: patient });
           redirectingRef.current = true;
           window.setTimeout(() => {
@@ -857,7 +857,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
           <div className="flex flex-wrap items-center justify-end gap-2">
             {professionalProfile && (
               <span className="rounded-lg border border-emerald-800 bg-emerald-950 px-3 py-2 text-xs font-bold text-emerald-100">
-                Saldo: {professionalProfile.remaining_sessions ?? "--"} sessoes
+                Saldo: {professionalProfile.remaining_sessions ?? "--"} sessões
               </span>
             )}
             {(user?.access_status?.admin || String(user?.email || "").toLowerCase() === "fbenhayon@gmail.com") && (
@@ -872,7 +872,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
               onClick={() => nav("/settings")}
               className="rounded-lg border border-cyan-800 bg-cyan-950 px-3 py-2 text-xs font-bold text-cyan-100 hover:bg-cyan-900"
             >
-              Configuracoes
+              Configurações
             </button>
             <button
               onClick={onLogout}
@@ -936,7 +936,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
               <tr>
                 <th className="whitespace-nowrap py-1 pr-2">Paciente</th>
                 <th className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-bold">
-                  Sessoes
+                  Sessões
                 </th>
                 <th className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-bold">
                   Pacotes
@@ -954,7 +954,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                   Pendente
                 </th>
                 <th className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-bold">
-                  Ultimo convite
+                  Último convite
                 </th>
                 <th className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-bold">
                   Status
@@ -968,7 +968,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
               {receivables.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="py-3 text-xs text-slate-400">
-                    Nenhum recebimento registrado. Gere convites com valor de sessao para alimentar esta tabela.
+                    Nenhum recebimento registrado. Gere convites com valor de sessão para alimentar esta tabela.
                   </td>
                 </tr>
               ) : (
@@ -1062,7 +1062,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
         <div>
           <h2 className="text-sm font-bold text-slate-100">Meus Pacientes</h2>
           <p className="mt-1 text-[11px] text-slate-400">
-            Ultimas sessoes, metricas medias e resultado clinico resumido.
+            Últimas sessões, métricas médias e resultado clínico resumido.
           </p>
         </div>
         <div className="flex flex-wrap justify-end gap-2">
@@ -1076,7 +1076,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
             onClick={() => startPresentialSession()}
             className="rounded-lg border border-emerald-700 bg-emerald-950 px-3 py-2 text-xs font-bold text-emerald-100 hover:bg-emerald-900"
           >
-            + Sessao Presencial
+            + Sessão Presencial
           </button>
           <button
             onClick={() => startPresentialMobileSession()}
@@ -1088,7 +1088,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
             onClick={() => nav(`/session/${makeId()}`)}
             className="rounded-lg border border-blue-800 bg-blue-950 px-3 py-2 text-xs font-bold text-blue-100 hover:bg-blue-900"
           >
-            + Nova Sessao Direta
+            + Nova Sessão Direta
           </button>
         </div>
         </div>
@@ -1097,7 +1097,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
       <section className="space-y-4">
         {patientGroups.length === 0 && (
           <div className="rounded-lg border border-slate-800 bg-slate-900 p-4 text-xs text-slate-400">
-            Nenhum paciente com relatorio encontrado. Finalize uma sessao para
+            Nenhum paciente com relatório encontrado. Finalize uma sessão para
             alimentar o dashboard profissional.
           </div>
         )}
@@ -1120,7 +1120,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                   {group.patient.name || "Paciente sem nome"}
                 </h3>
                 <p className="mt-1 text-xs text-slate-400">
-                  CPF: {group.patient.document || "Nao informado"} - {group.totalSessions} sessoes
+                  CPF: {group.patient.document || "Não informado"} - {group.totalSessions} sessões
                 </p>
               </div>
               <div className="min-w-[320px] flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-[11px] text-slate-300">
@@ -1183,10 +1183,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
 
             <div className="mt-3 rounded-lg border border-slate-700 bg-slate-950 p-3">
               <p className="mb-2 text-xs font-black uppercase tracking-wide text-cyan-200">
-                Indicadores medios de todas as sessoes
+                Indicadores medios de todas as sessões
               </p>
               <div className="grid gap-2 md:grid-cols-5">
-                <ScoreBar label="Atencao" value={signal.attentionIndex} color="#ef4444" />
+                <ScoreBar label="Atenção" value={signal.attentionIndex} color="#ef4444" />
                 <ScoreBar label="Carga" value={signal.clinicalLoad} color="#f97316" />
                 <ScoreBar label="Comunicacao" value={signal.communication} color="#0ea5e9" />
                 <ScoreBar label="Continuidade" value={signal.continuity} color="#22c55e" />
@@ -1208,7 +1208,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                               <div>
                                 <p className="font-bold text-slate-900">{cell.label}</p>
                                 <p className="mt-1">
-                                  {METRIC_TOOLTIPS[cell.key] || "Metrica media consolidada das sessoes do paciente."}
+                                  {METRIC_TOOLTIPS[cell.key] || "Métrica média consolidada das sessões do paciente."}
                                 </p>
                               </div>
                             }
@@ -1224,7 +1224,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                   <tbody className="divide-y divide-slate-800">
                     <tr className="align-top">
                       <td className="whitespace-nowrap py-1 pr-2 font-bold text-slate-300">
-                        Media
+                        Média
                       </td>
                       {compactMetricCells(averageSnapshot).map((cell) => (
                         <td
@@ -1243,7 +1243,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
 
             <div className="mt-3 min-w-0">
               <p className="text-xs font-black uppercase tracking-wide text-slate-100">
-                Indicadores das ultimas 3 sessoes
+                Indicadores das últimas 3 sessões
               </p>
               <div className="mt-3 overflow-x-auto">
                 <table className="min-w-max table-auto text-left text-[10px] leading-tight">
@@ -1261,7 +1261,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                               <div>
                                 <p className="font-bold text-slate-900">{cell.label}</p>
                                 <p className="mt-1">
-                                  {METRIC_TOOLTIPS[cell.key] || "Metrica desta sessao no acompanhamento do paciente."}
+                                  {METRIC_TOOLTIPS[cell.key] || "Métrica desta sessão no acompanhamento do paciente."}
                                 </p>
                               </div>
                             }
@@ -1312,7 +1312,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                     className="rounded border border-slate-700 bg-slate-950 px-3 py-2 text-xs leading-relaxed text-slate-300"
                   >
                     <strong className="text-cyan-200">
-                      Resultado da sessao {shortId(report.sessionId)}:
+                      Resultado da sessão {shortId(report.sessionId)}:
                     </strong>{" "}
                     {sessionResultText(report, 85)}
                   </div>
@@ -1349,29 +1349,29 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
               <KpiCard
                 label="Pacientes"
                 value={String(portfolio.totalPatients)}
-                detail="Carteira visivel apos filtros locais."
+                detail="Carteira visível após filtros locais."
               />
               <KpiCard
-                label="Atencao media"
+                label="Atenção média"
                 value={scoreText(portfolio.meanAttention)}
-                detail="Indice global de prioridade profissional."
+                detail="Índice global de prioridade profissional."
                 tone="red"
               />
               <KpiCard
-                label="Carga clinica"
+                label="Carga clínica"
                 value={scoreText(portfolio.meanClinicalLoad)}
-                detail="IPM, IDM, dissonancias e qualidade."
+                detail="IPM, IDM, dissonâncias e qualidade."
                 tone="amber"
               />
               <KpiCard
                 label="Comunicacao"
                 value={scoreText(portfolio.meanCommunication)}
-                detail="Resumo, cortes e anotacoes disponiveis."
+                detail="Resumo, cortes e anotaÃ§Ãµes disponíveis."
               />
               <KpiCard
                 label="Continuidade"
                 value={scoreText(portfolio.meanContinuity)}
-                detail="Sessoes, analises e status operacional."
+                detail="Sessões, análises e status operacional."
                 tone="green"
               />
               <KpiCard
@@ -1430,7 +1430,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
             ) : (
               <div className="rounded-lg border border-slate-700 bg-slate-950 p-4 text-xs leading-relaxed text-slate-400">
                 Selecione um paciente na coluna principal para habilitar perguntas
-                ao FROID Explica com contexto clinico longitudinal.
+                ao FROID Explica com contexto clínico longitudinal.
               </div>
             )}
           </section>

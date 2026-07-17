@@ -36,7 +36,7 @@ export const AdminProfessionalDetail: React.FC<Props> = ({ user }) => {
           { headers: token ? { Authorization: `Bearer ${token}` } : {} },
         );
         const payload = response.ok ? await response.json() : null;
-        if (!response.ok) throw new Error(payload?.detail || "Nao foi possivel carregar o profissional.");
+        if (!response.ok) throw new Error(payload?.detail || "Não foi possível carregar o profissional.");
         setData(payload);
       } catch (error: any) {
         setMessage(error?.message || "Falha ao carregar profissional.");
@@ -110,7 +110,7 @@ export const AdminProfessionalDetail: React.FC<Props> = ({ user }) => {
         <section className="grid gap-3 md:grid-cols-4">
           {[
             ["Pacientes", summary.patients],
-            ["Relatorios", summary.reports],
+            ["Relatórios", summary.reports],
             ["Convites", summary.invites],
             ["Saldo", status.remaining_sessions],
           ].map(([label, value]) => (
@@ -135,7 +135,7 @@ export const AdminProfessionalDetail: React.FC<Props> = ({ user }) => {
         </section>
 
         <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-          <h2 className="text-sm font-black text-slate-100">Cadastro e creditos</h2>
+          <h2 className="text-sm font-black text-slate-100">Cadastro e créditos</h2>
           <div className="mt-3 grid gap-2 text-xs md:grid-cols-3">
             <div className="rounded border border-slate-800 bg-slate-950 p-3">
               <p className="font-black uppercase text-slate-500">Tipo</p>
@@ -148,7 +148,7 @@ export const AdminProfessionalDetail: React.FC<Props> = ({ user }) => {
             <div className="rounded border border-slate-800 bg-slate-950 p-3">
               <p className="font-black uppercase text-slate-500">Uso</p>
               <p className="mt-1 font-bold text-slate-200">
-                {status.used_sessions ?? 0}/{status.total_sessions ?? 0} sessoes
+                {status.used_sessions ?? 0}/{status.total_sessions ?? 0} sessões
               </p>
             </div>
           </div>
@@ -156,7 +156,7 @@ export const AdminProfessionalDetail: React.FC<Props> = ({ user }) => {
 
         <section className="grid gap-4 xl:grid-cols-2">
           <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-            <h2 className="text-sm font-black text-slate-100">Relatorios recentes</h2>
+            <h2 className="text-sm font-black text-slate-100">Relatórios recentes</h2>
             <div className="mt-3 space-y-2">
               {reports.slice(0, 20).map((report: any) => (
                 <button
