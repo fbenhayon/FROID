@@ -20,12 +20,13 @@ ROLE_PERMISSIONS = {
         "organization.read", "organization.manage", "members.manage",
         "patients.read_all", "patients.manage", "reports.read_all",
         "reports.write", "reports.delete", "assignments.manage",
-        "credits.manage", "audit.read",
+        "credits.read", "credits.manage", "audit.read",
     }),
     "administrator": frozenset({
         "organization.read", "members.manage", "patients.read_all",
         "patients.manage", "reports.read_all", "reports.write",
-        "reports.delete", "assignments.manage", "credits.manage", "audit.read",
+        "reports.delete", "assignments.manage", "credits.read",
+        "credits.manage", "audit.read",
     }),
     "supervisor": frozenset({
         "organization.read", "patients.read_all", "reports.read_all",
@@ -33,7 +34,7 @@ ROLE_PERMISSIONS = {
     }),
     "professional": frozenset({
         "organization.read", "patients.read_assigned", "reports.read_assigned",
-        "reports.write",
+        "reports.write", "credits.read",
     }),
     "auditor": frozenset({"organization.read", "audit.read"}),
 }

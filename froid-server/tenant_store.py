@@ -212,6 +212,50 @@ class TenantStore:
             )
             connection.commit()
 
+    def list_audit_events(
+        self, *, organization_id: str, membership_id: str, limit: int = 100
+    ) -> list[dict]:
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        safe_limit = max(1, min(500, int(limit)))
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                connection.execute(
+                    "SELECT set_config('app.organization_id', %s, true)",
+                    (organization_id,),
+                )
+                connection.execute(
+                    "SELECT set_config('app.membership_id', %s, true)",
+                    (membership_id,),
+                )
+                rows = connection.execute(
+                    """
+                    SELECT event.id, event.actor_user_id, account.email,
+                           event.action, event.resource_type, event.resource_id,
+                           event.outcome, event.metadata, event.occurred_at
+                    FROM audit_events event
+                    LEFT JOIN users account ON account.id=event.actor_user_id
+                    WHERE event.organization_id=%s
+                    ORDER BY event.occurred_at DESC, event.id DESC
+                    LIMIT %s
+                    """,
+                    (organization_id, safe_limit),
+                ).fetchall()
+        return [
+            {
+                "id": str(row[0]),
+                "actor_user_id": str(row[1]) if row[1] else None,
+                "actor_email": row[2],
+                "action": row[3],
+                "resource_type": row[4],
+                "resource_id": row[5],
+                "outcome": row[6],
+                "metadata": row[7] or {},
+                "occurred_at": row[8],
+            }
+            for row in rows
+        ]
+
     def list_members(self, organization_id: str) -> list[dict]:
         if not self.enabled:
             return []
@@ -514,6 +558,80 @@ class TenantStore:
                     raise ValueError("assignment_not_found")
             connection.commit()
 
+    def activate_shared_wallet(
+        self,
+        *,
+        organization_id: str,
+        membership_id: str,
+        actor_user_id: str,
+        expected_legacy_balance: int,
+    ) -> dict:
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                connection.execute(
+                    "SELECT set_config('app.organization_id', %s, true)",
+                    (organization_id,),
+                )
+                connection.execute(
+                    "SELECT set_config('app.membership_id', %s, true)",
+                    (membership_id,),
+                )
+                row = connection.execute(
+                    """
+                    SELECT resulting_balance, activated
+                    FROM froid_activate_shared_wallet(%s,%s,%s,%s)
+                    """,
+                    (
+                        organization_id, membership_id, actor_user_id,
+                        max(0, int(expected_legacy_balance)),
+                    ),
+                ).fetchone()
+        return {"balance": int(row[0]), "activated": bool(row[1])}
+
+    def wallet_status(self, *, organization_id: str, membership_id: str) -> dict:
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                connection.execute(
+                    "SELECT set_config('app.organization_id', %s, true)",
+                    (organization_id,),
+                )
+                connection.execute(
+                    "SELECT set_config('app.membership_id', %s, true)",
+                    (membership_id,),
+                )
+                row = connection.execute(
+                    """
+                    SELECT balance, version, authority, updated_at
+                    FROM organization_wallets WHERE organization_id=%s
+                    """,
+                    (organization_id,),
+                ).fetchone()
+        if not row:
+            raise ValueError("wallet_not_found")
+        return {
+            "balance": int(row[0]), "version": int(row[1]),
+            "authority": row[2], "updated_at": row[3],
+        }
+
+    def mark_mirrored_report_deleted(
+        self, *, organization_id: str, session_id: str
+    ) -> None:
+        if not self.enabled:
+            return
+        with self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE session_reports SET deleted_at=now(), updated_at=now()
+                WHERE organization_id=%s AND legacy_session_id=%s
+                """,
+                (organization_id, session_id),
+            )
+            connection.commit()
+
     def apply_credit_event(
         self,
         *,
@@ -813,7 +931,10 @@ class TenantStore:
                 """
                 INSERT INTO organization_wallets (organization_id, balance)
                 VALUES (%s,%s) ON CONFLICT (organization_id) DO UPDATE SET
-                    balance=EXCLUDED.balance, updated_at=now()
+                    balance=CASE WHEN organization_wallets.authority='legacy'
+                        THEN EXCLUDED.balance ELSE organization_wallets.balance END,
+                    updated_at=CASE WHEN organization_wallets.authority='legacy'
+                        THEN now() ELSE organization_wallets.updated_at END
                 """,
                 (ref["organization_id"], balance),
             )
@@ -826,6 +947,11 @@ class TenantStore:
                 ON CONFLICT (organization_id, idempotency_key) DO UPDATE SET
                     delta=EXCLUDED.delta, balance_after=EXCLUDED.balance_after,
                     actor_user_id=EXCLUDED.actor_user_id, metadata=EXCLUDED.metadata
+                WHERE EXISTS (
+                    SELECT 1 FROM organization_wallets wallet
+                    WHERE wallet.organization_id=EXCLUDED.organization_id
+                      AND wallet.authority='legacy'
+                )
                 """,
                 (
                     stable_uuid("credit", ref["organization_id"], "legacy-opening-v1"),

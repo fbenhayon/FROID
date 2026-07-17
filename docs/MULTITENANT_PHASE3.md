@@ -6,34 +6,46 @@ Transformar a fundação de organizações e permissões em operação diária s
 
 - carteira de sessões compartilhada por clínica;
 - consumo concorrente e idempotente de créditos;
-- telas de seleção da organização, membros e atribuições;
-- auditoria consultável de acessos, exportações e compartilhamentos;
-- ativação de pilotos por organização com métricas operacionais.
+- auditoria consultável de acessos e alterações;
+- ativação de pilotos por organização com implantação gradual.
 
-## Primeiro checkpoint: carteira compartilhada
+## Carteira compartilhada e operação gradual
 
-A migração `004_shared_credit_wallet.sql` introduz uma função transacional que:
+As migrações `004_shared_credit_wallet.sql` e
+`005_wallet_activation_safety.sql` implementam uma carteira que:
 
-- exige contexto de organização e vínculo autenticado;
-- valida o papel para compra, ajuste, reembolso ou consumo;
-- bloqueia a linha da carteira com `FOR UPDATE`;
-- impede saldo negativo;
-- consome exatamente um crédito por sessão;
-- usa chave de idempotência para impedir cobrança duplicada;
+- exige contexto de organização, vínculo autenticado e papel autorizado;
+- bloqueia a linha com `FOR UPDATE` e impede saldo negativo;
+- consome exatamente um crédito por nova sessão;
+- usa chave de idempotência, inclusive após adquirir o bloqueio;
 - atualiza carteira e razão contábil na mesma transação;
-- só pode ser chamada pelo usuário PostgreSQL runtime não proprietário.
+- só aceita eventos pelo usuário PostgreSQL runtime não proprietário;
+- mantém o legado como autoridade até a ativação explícita e reconciliada.
 
-O backend exige `FROID_RUNTIME_DATABASE_URL` para qualquer evento da carteira.
-Não existe fallback para a conexão proprietária, evitando contornar o RLS.
+Depois da ativação por proprietário ou administrador, o backfill deixa de alterar
+o saldo. Compras Stripe e consumos passam a usar o razão transacional. O backend
+exige `FROID_RUNTIME_DATABASE_URL`; não há fallback para a conexão proprietária.
 
-## Próximos incrementos desta fase
+Configuração gradual:
 
-1. substituir o débito legado por `apply_credit_event` no modo piloto;
-2. reconciliar compras Stripe com a carteira organizacional;
-3. criar testes PostgreSQL concorrentes e de idempotência;
-4. implementar as telas administrativas;
-5. registrar eventos de exportação e compartilhamento;
-6. criar painel de auditoria e alertas de acesso negado.
+- `FROID_SHARED_CREDITS_MODE=off|observe|enforce`;
+- `FROID_SHARED_CREDITS_ORGANIZATIONS` limita `enforce` às organizações piloto;
+- `FROID_ALLOW_LOCAL_BILLING_FALLBACK=false` impede crédito sem Stripe por padrão.
 
-O modo legado permanece autoritativo até a reconciliação financeira demonstrar
-equivalência entre perfil, carteira e razão de créditos.
+## Auditoria
+
+Os endpoints organizacionais permitem consultar e ativar a carteira e consultar
+a trilha append-only. Criação, leitura, atualização e exclusão de relatórios
+registram eventos de sucesso; decisões negadas são registradas desde a Fase 2.
+
+## Entregas e portão da próxima fase
+
+1. débito organizacional com rollback do relatório quando o crédito falha;
+2. compra Stripe reconciliada com a carteira compartilhada;
+3. ativação explícita e consulta administrativa da carteira;
+4. trilha consultável por proprietário, administrador e auditor;
+5. testes estáticos de invariantes e testes unitários sem PostgreSQL.
+
+O modo legado permanece autoritativo por organização até a reconciliação e a
+ativação explícita. Testes reais de concorrência, RLS, backup e recuperação
+exigem PostgreSQL disponível e são portão obrigatório da implantação da Fase 4.

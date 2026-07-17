@@ -36,6 +36,11 @@ class TenantAccessPolicyTests(unittest.TestCase):
         self.assertFalse(decision.allowed)
         self.assertEqual(decision.reason, "permission_denied")
 
+    def test_professional_reads_wallet_but_cannot_manage_credits(self):
+        professional = context("professional")
+        self.assertTrue(decide(professional, "credits.read").allowed)
+        self.assertFalse(decide(professional, "credits.manage").allowed)
+
     def test_professional_reads_only_assigned_patient(self):
         professional = context("professional")
         self.assertTrue(decide(professional, "patients.read", assigned=True).allowed)

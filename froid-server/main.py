@@ -117,6 +117,9 @@ FROID_LOCAL_AUTH_EMAILS = {
 }
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
 STRIPE_CURRENCY = os.getenv("STRIPE_CURRENCY", "brl")
+FROID_ALLOW_LOCAL_BILLING_FALLBACK = os.getenv(
+    "FROID_ALLOW_LOCAL_BILLING_FALLBACK", "false"
+).lower() in {"1", "true", "yes", "on"}
 TENANT_STORE = TenantStore.from_env()
 FROID_TENANT_AUTHORIZATION_MODE = os.getenv(
     "FROID_TENANT_AUTHORIZATION_MODE", "off"
@@ -125,6 +128,16 @@ FROID_TENANT_ENFORCEMENT_ORGANIZATIONS = {
     organization_id.strip()
     for organization_id in os.getenv(
         "FROID_TENANT_ENFORCEMENT_ORGANIZATIONS", ""
+    ).split(",")
+    if organization_id.strip()
+}
+FROID_SHARED_CREDITS_MODE = os.getenv(
+    "FROID_SHARED_CREDITS_MODE", "off"
+).strip().lower()
+FROID_SHARED_CREDITS_ORGANIZATIONS = {
+    organization_id.strip()
+    for organization_id in os.getenv(
+        "FROID_SHARED_CREDITS_ORGANIZATIONS", ""
     ).split(",")
     if organization_id.strip()
 }
@@ -143,6 +156,17 @@ if (
     raise RuntimeError(
         "Enforcement requires at least one organization in "
         "FROID_TENANT_ENFORCEMENT_ORGANIZATIONS"
+    )
+if FROID_SHARED_CREDITS_MODE not in TENANT_AUTHORIZATION_MODES:
+    raise RuntimeError("FROID_SHARED_CREDITS_MODE must be off, observe or enforce")
+if FROID_SHARED_CREDITS_MODE == "enforce" and (
+    not TENANT_STORE.enabled
+    or not TENANT_STORE.runtime_database_url
+    or not FROID_SHARED_CREDITS_ORGANIZATIONS
+):
+    raise RuntimeError(
+        "Shared credit enforcement requires dual persistence, runtime database "
+        "URL and FROID_SHARED_CREDITS_ORGANIZATIONS"
     )
 
 SESSION_USERS = {}
@@ -1466,6 +1490,83 @@ def _consume_professional_session_credit(owner_email: str, session_id: str) -> d
     PROFESSIONAL_PROFILES[email] = profile
     _save_identity_state()
     return _professional_access_status(email)
+
+
+def _apply_shared_wallet_compatibility(
+    owner_email: str, session_id: str, wallet_result: dict
+) -> dict:
+    email = _normalize_email(owner_email)
+    profile = PROFESSIONAL_PROFILES.get(email)
+    if not isinstance(profile, dict):
+        return {
+            "remaining_sessions": max(0, _local_int(wallet_result.get("balance"))),
+            "shared_wallet": wallet_result,
+        }
+    consumed = profile.get("consumed_session_ids")
+    consumed = consumed if isinstance(consumed, list) else []
+    if session_id not in {str(item) for item in consumed}:
+        consumed = [*consumed, session_id][-500:]
+    balance = max(0, _local_int(wallet_result.get("balance")))
+    total = max(0, _local_int(profile.get("total_sessions")))
+    profile["remaining_sessions"] = balance
+    profile["used_sessions"] = max(0, total - balance)
+    profile["consumed_session_ids"] = consumed
+    profile["last_session_consumed_at"] = _utc_now_iso()
+    PROFESSIONAL_PROFILES[email] = profile
+    _save_identity_state()
+    return {
+        **_professional_access_status(email),
+        "shared_wallet": wallet_result,
+    }
+
+
+def _consume_session_credit(
+    context: Optional[AccessContext], owner_email: str, session_id: str
+) -> dict:
+    organization_id = context.organization_id if context else ""
+    mode = _shared_credit_mode_for(organization_id)
+    if mode != "enforce":
+        status = _consume_professional_session_credit(owner_email, session_id)
+        status["shared_credit_mode"] = mode
+        if mode == "observe" and context:
+            try:
+                wallet = TENANT_STORE.wallet_status(
+                    organization_id=context.organization_id,
+                    membership_id=context.membership_id,
+                )
+                status["shared_wallet_observation"] = {
+                    "balance": wallet["balance"],
+                    "authority": wallet["authority"],
+                    "matches_legacy": wallet["balance"]
+                    == max(0, _local_int(status.get("remaining_sessions"))),
+                }
+            except Exception:
+                LOGGER.exception("Unable to observe shared wallet reconciliation")
+        return status
+    if context is None:
+        raise HTTPException(status_code=403, detail="contexto organizacional ausente")
+    try:
+        result = TENANT_STORE.apply_credit_event(
+            organization_id=context.organization_id,
+            membership_id=context.membership_id,
+            actor_user_id=context.user_id,
+            delta=-1,
+            event_type="consumption",
+            idempotency_key=f"session:{session_id}",
+            session_id=session_id,
+            metadata={"source": "session_report"},
+        )
+    except Exception as exc:
+        message = str(exc).lower()
+        if "insufficient" in message:
+            raise HTTPException(status_code=402, detail="créditos da organização insuficientes")
+        if "not active" in message:
+            raise HTTPException(status_code=409, detail="carteira compartilhada ainda não ativada")
+        LOGGER.exception("Shared wallet consumption failed")
+        raise HTTPException(status_code=503, detail="falha ao consumir crédito organizacional")
+    status = _apply_shared_wallet_compatibility(owner_email, session_id, result)
+    status["shared_credit_mode"] = "enforce"
+    return status
 
 
 def _report_owner_email(report: dict) -> str:
@@ -3142,6 +3243,16 @@ def _tenant_authorization_mode_for(organization_id: str) -> str:
     )
 
 
+def _shared_credit_mode_for(organization_id: str) -> str:
+    if FROID_SHARED_CREDITS_MODE != "enforce":
+        return FROID_SHARED_CREDITS_MODE
+    return (
+        "enforce"
+        if str(organization_id or "") in FROID_SHARED_CREDITS_ORGANIZATIONS
+        else "observe"
+    )
+
+
 def _attach_tenant_contexts(user: dict) -> dict:
     enriched = dict(user or {})
     contexts = _tenant_contexts_for_email(enriched.get("email") or "")
@@ -3254,6 +3365,25 @@ def _require_tenant_management_context(
     if not decision.allowed or context is None:
         raise HTTPException(status_code=403, detail="permissão organizacional insuficiente")
     return context
+
+
+def _record_tenant_success(
+    context: Optional[AccessContext], action: str, resource_type: str,
+    resource_id: str = "", metadata: Optional[dict] = None,
+) -> None:
+    if context is None:
+        return
+    try:
+        TENANT_STORE.record_access_audit(
+            organization_id=context.organization_id,
+            actor_user_id=context.user_id,
+            action=action,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            metadata=metadata,
+        )
+    except Exception:
+        LOGGER.exception("Unable to record successful tenant audit event")
 
 
 def _current_patient_from_request(request: Request) -> Optional[dict]:
@@ -4504,6 +4634,80 @@ async def delete_patient_assignment(
     return {"status": "revoked", "assignment_id": assignment_id}
 
 
+@app.get("/api/organizations/{organization_id}/wallet")
+async def get_organization_wallet(organization_id: str, request: Request):
+    context = _require_tenant_management_context(
+        request, organization_id, "credits.read"
+    )
+    try:
+        return TENANT_STORE.wallet_status(
+            organization_id=organization_id,
+            membership_id=context.membership_id,
+        )
+    except ValueError:
+        raise HTTPException(status_code=404, detail="carteira organizacional não encontrada")
+    except Exception:
+        LOGGER.exception("Unable to read organization wallet")
+        raise HTTPException(status_code=503, detail="carteira organizacional indisponível")
+
+
+@app.post("/api/organizations/{organization_id}/wallet/activate")
+async def activate_organization_wallet(organization_id: str, request: Request):
+    context = _require_tenant_management_context(
+        request, organization_id, "credits.manage"
+    )
+    body = await request.json()
+    if "expected_legacy_balance" not in body:
+        raise HTTPException(status_code=400, detail="saldo legado esperado obrigatório")
+    expected_balance = _local_int(body.get("expected_legacy_balance"))
+    if expected_balance < 0:
+        raise HTTPException(status_code=400, detail="saldo legado esperado inválido")
+    try:
+        result = TENANT_STORE.activate_shared_wallet(
+            organization_id=organization_id,
+            membership_id=context.membership_id,
+            actor_user_id=context.user_id,
+            expected_legacy_balance=expected_balance,
+        )
+    except Exception as exc:
+        message = str(exc).lower()
+        if "reconciliation" in message:
+            raise HTTPException(
+                status_code=409,
+                detail="saldo legado diverge da carteira; reconciliação obrigatória",
+            )
+        LOGGER.exception("Unable to activate organization wallet")
+        raise HTTPException(status_code=503, detail="falha ao ativar carteira organizacional")
+    TENANT_STORE.record_access_audit(
+        organization_id=organization_id,
+        actor_user_id=context.user_id,
+        action="wallet.activate",
+        resource_type="organization_wallet",
+        resource_id=organization_id,
+        metadata={"expected_legacy_balance": expected_balance, **result},
+    )
+    return {"status": "ok", **result}
+
+
+@app.get("/api/organizations/{organization_id}/audit-events")
+async def list_organization_audit_events(
+    organization_id: str, request: Request, limit: int = 100
+):
+    context = _require_tenant_management_context(
+        request, organization_id, "audit.read"
+    )
+    try:
+        events = TENANT_STORE.list_audit_events(
+            organization_id=organization_id,
+            membership_id=context.membership_id,
+            limit=limit,
+        )
+    except Exception:
+        LOGGER.exception("Unable to list organization audit events")
+        raise HTTPException(status_code=503, detail="trilha de auditoria indisponível")
+    return {"events": events}
+
+
 @app.get("/api/google-calendar/status")
 async def google_calendar_status(request: Request):
     user = _require_current_user(request)
@@ -4872,9 +5076,12 @@ async def create_billing_checkout(request: Request):
     success_url = f"{base_url}/#{return_path}?checkout=success&plan={quote(plan_id)}&stripe_session_id={{CHECKOUT_SESSION_ID}}"
     cancel_url = f"{base_url}/#{cancel_path}?checkout=cancelled&plan={quote(plan_id)}"
     email = _normalize_email(user.get("email") or body.get("email") or "")
-    contracted_sessions = max(0, int(body.get("contracted_sessions") or plan.get("session_credits") or 0))
-    bonus_sessions = max(0, int(body.get("bonus_sessions") or ((contracted_sessions // 100) * 10)))
-    total_sessions = max(0, int(body.get("total_sessions") or (contracted_sessions + bonus_sessions)))
+    contracted_sessions = max(
+        1,
+        min(10000, _local_int(body.get("contracted_sessions") or plan.get("session_credits") or 1)),
+    )
+    bonus_sessions = (contracted_sessions // 100) * 10
+    total_sessions = contracted_sessions + bonus_sessions
     plan_currency = (
         _normalize_stripe_currency(body.get("currency"))
         or _normalize_stripe_currency(plan.get("currency"))
@@ -4905,6 +5112,11 @@ async def create_billing_checkout(request: Request):
         )
 
     if not STRIPE_SECRET_KEY:
+        if not FROID_ALLOW_LOCAL_BILLING_FALLBACK:
+            raise HTTPException(
+                status_code=503,
+                detail="checkout indisponível: Stripe não configurado",
+            )
         apply_local_credits()
         return {
             "status": "stripe_not_configured",
@@ -4922,6 +5134,11 @@ async def create_billing_checkout(request: Request):
         }
 
     if package_total_cents <= 0:
+        if not FROID_ALLOW_LOCAL_BILLING_FALLBACK:
+            raise HTTPException(
+                status_code=409,
+                detail="plano sem cobrança disponível apenas em ambiente autorizado",
+            )
         apply_local_credits()
         return {
             "status": "free_access",
@@ -5027,6 +5244,26 @@ async def confirm_billing_checkout(request: Request):
     if data.get("payment_status") != "paid" and data.get("status") != "complete":
         raise HTTPException(status_code=409, detail="pagamento Stripe ainda não confirmado")
 
+    credit_total = max(0, _local_int(metadata.get("session_credits")))
+    context = _tenant_context_from_request(request)
+    wallet_result = None
+    if _shared_credit_mode_for(context.organization_id if context else "") == "enforce":
+        if context is None:
+            raise HTTPException(status_code=403, detail="contexto organizacional ausente")
+        try:
+            wallet_result = TENANT_STORE.apply_credit_event(
+                organization_id=context.organization_id,
+                membership_id=context.membership_id,
+                actor_user_id=context.user_id,
+                delta=credit_total,
+                event_type="purchase",
+                idempotency_key=f"stripe:{checkout_session_id}",
+                metadata={"source": "stripe_checkout", "plan_id": metadata.get("plan_id")},
+            )
+        except Exception:
+            LOGGER.exception("Shared wallet purchase failed")
+            raise HTTPException(status_code=503, detail="falha ao creditar carteira organizacional")
+
     profile = _apply_session_credit_purchase(
         email=email,
         plan_id=str(metadata.get("plan_id") or ""),
@@ -5039,10 +5276,15 @@ async def confirm_billing_checkout(request: Request):
         status="paid",
         checkout_session_id=checkout_session_id,
     )
+    if wallet_result and isinstance(profile, dict):
+        profile["remaining_sessions"] = max(0, _local_int(wallet_result.get("balance")))
+        PROFESSIONAL_PROFILES[email] = profile
+        _save_identity_state()
     return {
         "status": "ok",
         "profile": profile,
         "access_status": _professional_access_status(email),
+        "shared_wallet": wallet_result,
     }
 
 
@@ -5142,7 +5384,31 @@ async def save_session_report(request: Request):
         )
     reports[session_id] = report
     _save_session_reports(reports)
-    access_status = _consume_professional_session_credit(owner_email, session_id) if is_new_report else _professional_access_status(owner_email)
+    try:
+        access_status = (
+            _consume_session_credit(context, owner_email, session_id)
+            if is_new_report
+            else _professional_access_status(owner_email)
+        )
+    except HTTPException:
+        if is_new_report:
+            reports.pop(session_id, None)
+            _save_session_reports(reports)
+            if context:
+                try:
+                    TENANT_STORE.mark_mirrored_report_deleted(
+                        organization_id=context.organization_id,
+                        session_id=session_id,
+                    )
+                except Exception:
+                    LOGGER.exception("Unable to roll back mirrored session report")
+        raise
+    _record_tenant_success(
+        context,
+        "report.create" if is_new_report else "report.update",
+        "session_report",
+        session_id,
+    )
     _append_anonymous_datamart_row(report)
     return {
         "status": "ok",
@@ -5161,7 +5427,7 @@ async def get_session_report_metrics(session_id: str, request: Request):
     report = _load_session_reports().get(session_id)
     if not report:
         raise HTTPException(status_code=404, detail="Relatório não encontrado")
-    _authorize_tenant_request(
+    context = _authorize_tenant_request(
         request,
         "reports.read",
         resource_type="session_report",
@@ -5177,6 +5443,7 @@ async def get_session_report_metrics(session_id: str, request: Request):
         report = _attach_metrics_analysis(report)
     if report.get("metricsAnalysisError") and not report.get("metricsAnalysis"):
         raise HTTPException(status_code=500, detail=report["metricsAnalysisError"])
+    _record_tenant_success(context, "report.metrics.read", "session_report", session_id)
     return report.get("metricsAnalysis")
 
 
@@ -5188,7 +5455,7 @@ async def get_session_report(session_id: str, request: Request):
     report = _load_session_reports().get(session_id)
     if not report:
         raise HTTPException(status_code=404, detail="Relatório não encontrado")
-    _authorize_tenant_request(
+    context = _authorize_tenant_request(
         request,
         "reports.read",
         resource_type="session_report",
@@ -5202,6 +5469,7 @@ async def get_session_report(session_id: str, request: Request):
     report = _enrich_report_patient(report)
     if not report.get("metricsAnalysis"):
         report = _attach_metrics_analysis(report)
+    _record_tenant_success(context, "report.read", "session_report", session_id)
     return report
 
 
@@ -5213,7 +5481,7 @@ async def delete_session_report(session_id: str, request: Request):
     reports = _load_session_reports()
     if session_id not in reports:
         raise HTTPException(status_code=404, detail="Relatório não encontrado")
-    _authorize_tenant_request(
+    context = _authorize_tenant_request(
         request,
         "reports.delete",
         resource_type="session_report",
@@ -5228,6 +5496,15 @@ async def delete_session_report(session_id: str, request: Request):
             raise HTTPException(status_code=403, detail="Relatório pertence a outro profissional")
     del reports[session_id]
     _save_session_reports(reports)
+    if context:
+        try:
+            TENANT_STORE.mark_mirrored_report_deleted(
+                organization_id=context.organization_id,
+                session_id=session_id,
+            )
+        except Exception:
+            LOGGER.exception("Unable to delete mirrored session report")
+    _record_tenant_success(context, "report.delete", "session_report", session_id)
     return {
         "status": "deleted",
         "session_id": session_id,

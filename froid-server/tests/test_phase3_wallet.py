@@ -13,22 +13,40 @@ from tenant_store import TenantStore  # noqa: E402
 class SharedCreditWalletTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.sql = (
+        cls.initial_sql = (
             SERVER_DIR / "migrations" / "004_shared_credit_wallet.sql"
         ).read_text(encoding="utf-8")
+        cls.safety_sql = (
+            SERVER_DIR / "migrations" / "005_wallet_activation_safety.sql"
+        ).read_text(encoding="utf-8")
+        cls.store_source = (SERVER_DIR / "tenant_store.py").read_text(encoding="utf-8")
+        cls.main_source = (SERVER_DIR / "main.py").read_text(encoding="utf-8")
 
     def test_wallet_update_locks_row_and_is_idempotent(self):
-        self.assertIn("FOR UPDATE", self.sql)
-        self.assertIn("idempotency_key = target_idempotency_key", self.sql)
-        self.assertIn("resulting_balance", self.sql)
+        self.assertIn("FOR UPDATE", self.safety_sql)
+        self.assertGreaterEqual(self.safety_sql.count("idempotency_key=idem"), 2)
+        self.assertIn("resulting_balance", self.safety_sql)
 
     def test_wallet_rejects_negative_balance_and_cross_context(self):
-        self.assertIn("insufficient organization credits", self.sql)
-        self.assertIn("organization context mismatch", self.sql)
-        self.assertIn("membership context mismatch", self.sql)
+        self.assertIn("insufficient organization credits", self.safety_sql)
+        self.assertIn("wallet event context mismatch", self.safety_sql)
 
     def test_consumption_is_exactly_one_credit(self):
-        self.assertIn("credit_delta <> -1", self.sql)
+        self.assertIn("kind='consumption' AND delta<>-1", self.safety_sql)
+
+    def test_shared_wallet_requires_explicit_reconciled_activation(self):
+        self.assertIn("authority IN ('legacy','shared')", self.safety_sql)
+        self.assertIn("legacy balance reconciliation failed", self.safety_sql)
+        self.assertIn("wallet.authority<>'shared'", self.safety_sql)
+
+    def test_legacy_backfill_cannot_overwrite_shared_balance(self):
+        self.assertGreaterEqual(
+            self.store_source.count("organization_wallets.authority='legacy'"), 2
+        )
+
+    def test_billing_fallback_is_opt_in_and_bonus_is_server_calculated(self):
+        self.assertIn('"FROID_ALLOW_LOCAL_BILLING_FALLBACK", "false"', self.main_source)
+        self.assertIn("bonus_sessions = (contracted_sessions // 100) * 10", self.main_source)
 
     def test_legacy_mode_cannot_mutate_shared_wallet(self):
         store = TenantStore("legacy", "", SERVER_DIR / "missing.sql")
