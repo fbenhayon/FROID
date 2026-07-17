@@ -108,13 +108,395 @@ class TenantStore:
     def ensure_schema(self, connection=None) -> None:
         if self._schema_ready:
             return
-        sql = self.migration_path.read_text(encoding="utf-8")
+        migration_paths = sorted(self.migration_path.parent.glob("*.sql"))
+        if self.migration_path not in migration_paths:
+            migration_paths.insert(0, self.migration_path)
         if connection is None:
             with self._connect() as conn:
-                conn.execute(sql)
+                for migration_path in migration_paths:
+                    conn.execute(migration_path.read_text(encoding="utf-8"))
         else:
-            connection.execute(sql)
+            for migration_path in migration_paths:
+                connection.execute(migration_path.read_text(encoding="utf-8"))
         self._schema_ready = True
+
+    def access_contexts(self, email: str) -> list[dict]:
+        """Return active organization memberships for an authenticated email."""
+        if not self.enabled:
+            return []
+        normalized_email = normalize_email(email)
+        if not normalized_email:
+            return []
+        with self._connect() as connection:
+            self.ensure_schema(connection)
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT organization.id, organization.display_name,
+                           membership.id, user_account.id, membership.status,
+                           coalesce(array_agg(role.role) FILTER (
+                               WHERE role.role IS NOT NULL
+                           ), ARRAY[]::text[])
+                    FROM users user_account
+                    JOIN organization_memberships membership
+                      ON membership.user_id = user_account.id
+                    JOIN organizations organization
+                      ON organization.id = membership.organization_id
+                    LEFT JOIN membership_roles role
+                      ON role.membership_id = membership.id
+                    WHERE lower(user_account.email) = %s
+                      AND user_account.status = 'active'
+                      AND membership.status = 'active'
+                      AND organization.status = 'active'
+                    GROUP BY organization.id, organization.display_name,
+                             membership.id, user_account.id, membership.status
+                    ORDER BY organization.display_name, organization.id
+                    """,
+                    (normalized_email,),
+                )
+                return [
+                    {
+                        "organization_id": str(row[0]),
+                        "organization_name": row[1],
+                        "membership_id": str(row[2]),
+                        "user_id": str(row[3]),
+                        "status": row[4],
+                        "roles": sorted(row[5] or []),
+                    }
+                    for row in cursor.fetchall()
+                ]
+
+    def record_access_audit(
+        self,
+        *,
+        organization_id: str,
+        actor_user_id: str,
+        action: str,
+        resource_type: str,
+        resource_id: str = "",
+        outcome: str = "success",
+        metadata: Optional[dict] = None,
+    ) -> None:
+        if not self.enabled or not organization_id:
+            return
+        with self._connect() as connection:
+            self.ensure_schema(connection)
+            connection.execute(
+                """
+                INSERT INTO audit_events
+                    (id, organization_id, actor_user_id, action, resource_type,
+                     resource_id, outcome, metadata)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s::jsonb)
+                """,
+                (
+                    uuid.uuid4(), organization_id, actor_user_id or None, action,
+                    resource_type, resource_id or None, outcome,
+                    _json(metadata or {}),
+                ),
+            )
+            connection.commit()
+
+    def list_members(self, organization_id: str) -> list[dict]:
+        if not self.enabled:
+            return []
+        with self._connect() as connection:
+            self.ensure_schema(connection)
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT membership.id, user_account.id, user_account.email,
+                           user_account.display_name, membership.status,
+                           membership.joined_at, membership.revoked_at,
+                           coalesce(array_agg(role.role) FILTER (
+                               WHERE role.role IS NOT NULL
+                           ), ARRAY[]::text[])
+                    FROM organization_memberships membership
+                    JOIN users user_account ON user_account.id = membership.user_id
+                    LEFT JOIN membership_roles role
+                      ON role.membership_id = membership.id
+                    WHERE membership.organization_id = %s
+                    GROUP BY membership.id, user_account.id, user_account.email,
+                             user_account.display_name, membership.status,
+                             membership.joined_at, membership.revoked_at
+                    ORDER BY user_account.display_name, user_account.email
+                    """,
+                    (organization_id,),
+                )
+                return [
+                    {
+                        "membership_id": str(row[0]), "user_id": str(row[1]),
+                        "email": row[2], "display_name": row[3],
+                        "status": row[4], "joined_at": row[5],
+                        "revoked_at": row[6], "roles": sorted(row[7] or []),
+                    }
+                    for row in cursor.fetchall()
+                ]
+
+    def create_member_invitation(
+        self,
+        *,
+        organization_id: str,
+        invited_by_membership_id: str,
+        invited_email: str,
+        token_hash: str,
+        roles: Iterable[str],
+        expires_at: datetime,
+    ) -> str:
+        invitation_id = uuid.uuid4()
+        with self._connect() as connection:
+            self.ensure_schema(connection)
+            connection.execute(
+                """
+                INSERT INTO membership_invitations
+                    (id, organization_id, invited_email,
+                     invited_by_membership_id, token_hash, requested_roles,
+                     expires_at)
+                VALUES (%s,%s,%s,%s,%s,%s::jsonb,%s)
+                """,
+                (
+                    invitation_id, organization_id, normalize_email(invited_email),
+                    invited_by_membership_id, token_hash,
+                    _json(sorted(set(roles))), expires_at,
+                ),
+            )
+            connection.commit()
+        return str(invitation_id)
+
+    def accept_member_invitation(
+        self, *, token_hash: str, email: str, display_name: str
+    ) -> dict:
+        normalized_email = normalize_email(email)
+        with self._connect() as connection:
+            self.ensure_schema(connection)
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT id, organization_id, invited_email, requested_roles
+                    FROM membership_invitations
+                    WHERE token_hash=%s AND status='pending' AND expires_at > now()
+                    FOR UPDATE
+                    """,
+                    (token_hash,),
+                )
+                invitation = cursor.fetchone()
+                if not invitation:
+                    raise ValueError("invalid_or_expired_invitation")
+                if normalize_email(invitation[2]) != normalized_email:
+                    raise PermissionError("invitation_email_mismatch")
+                organization_id = invitation[1]
+                roles = invitation[3]
+                if isinstance(roles, str):
+                    roles = json.loads(roles)
+                user_id = stable_uuid("user", normalized_email)
+                membership_id = stable_uuid("membership", organization_id, user_id)
+                now = datetime.now(timezone.utc)
+                cursor.execute(
+                    """
+                    INSERT INTO users (id, email, display_name, status)
+                    VALUES (%s,%s,%s,'active')
+                    ON CONFLICT (id) DO UPDATE SET
+                        display_name=EXCLUDED.display_name, status='active',
+                        updated_at=now()
+                    """,
+                    (user_id, normalized_email, display_name or normalized_email),
+                )
+                cursor.execute(
+                    """
+                    INSERT INTO organization_memberships
+                        (id, organization_id, user_id, status, joined_at)
+                    VALUES (%s,%s,%s,'active',%s)
+                    ON CONFLICT (organization_id, user_id) DO UPDATE SET
+                        status='active', joined_at=EXCLUDED.joined_at,
+                        revoked_at=NULL, updated_at=now()
+                    """,
+                    (membership_id, organization_id, user_id, now),
+                )
+                cursor.execute(
+                    "DELETE FROM membership_roles WHERE membership_id=%s",
+                    (membership_id,),
+                )
+                for role in roles or []:
+                    cursor.execute(
+                        "INSERT INTO membership_roles (membership_id, role) VALUES (%s,%s)",
+                        (membership_id, role),
+                    )
+                cursor.execute(
+                    """
+                    UPDATE membership_invitations
+                    SET status='accepted', accepted_at=%s WHERE id=%s
+                    """,
+                    (now, invitation[0]),
+                )
+            connection.commit()
+        return {
+            "organization_id": str(organization_id),
+            "membership_id": str(membership_id),
+            "user_id": str(user_id),
+            "roles": sorted(roles or []),
+            "status": "active",
+        }
+
+    def revoke_membership(
+        self, *, organization_id: str, membership_id: str
+    ) -> None:
+        with self._connect() as connection:
+            self.ensure_schema(connection)
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT EXISTS (
+                        SELECT 1 FROM membership_roles
+                        WHERE membership_id=%s AND role='owner'
+                    )
+                    """,
+                    (membership_id,),
+                )
+                target_is_owner = bool(cursor.fetchone()[0])
+                if target_is_owner:
+                    cursor.execute(
+                        """
+                        SELECT count(*)
+                        FROM organization_memberships membership
+                        JOIN membership_roles role ON role.membership_id=membership.id
+                        WHERE membership.organization_id=%s
+                          AND membership.status='active' AND role.role='owner'
+                        """,
+                        (organization_id,),
+                    )
+                    if int(cursor.fetchone()[0]) <= 1:
+                        raise ValueError("cannot_revoke_last_owner")
+                cursor.execute(
+                    """
+                    UPDATE organization_memberships
+                    SET status='revoked', revoked_at=now(), updated_at=now()
+                    WHERE id=%s AND organization_id=%s AND status <> 'revoked'
+                    """,
+                    (membership_id, organization_id),
+                )
+                if cursor.rowcount != 1:
+                    raise ValueError("membership_not_found")
+                cursor.execute(
+                    """
+                    UPDATE patient_assignments
+                    SET status='revoked', revoked_at=now()
+                    WHERE organization_id=%s AND membership_id=%s AND status='active'
+                    """,
+                    (organization_id, membership_id),
+                )
+                cursor.execute(
+                    """
+                    UPDATE membership_invitations
+                    SET status='revoked', revoked_at=now()
+                    WHERE organization_id=%s AND invited_by_membership_id=%s
+                      AND status='pending'
+                    """,
+                    (organization_id, membership_id),
+                )
+            connection.commit()
+
+    def list_patient_assignments(
+        self, *, organization_id: str, patient_id: str
+    ) -> list[dict]:
+        with self._connect() as connection:
+            self.ensure_schema(connection)
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT assignment.id, assignment.membership_id,
+                           assignment.assignment_type, assignment.status,
+                           assignment.assigned_at, assignment.revoked_at,
+                           user_account.email, user_account.display_name
+                    FROM patient_assignments assignment
+                    JOIN organization_memberships membership
+                      ON membership.id=assignment.membership_id
+                     AND membership.organization_id=assignment.organization_id
+                    JOIN users user_account ON user_account.id=membership.user_id
+                    WHERE assignment.organization_id=%s
+                      AND assignment.patient_id=%s
+                    ORDER BY assignment.status, user_account.display_name,
+                             assignment.assigned_at
+                    """,
+                    (organization_id, patient_id),
+                )
+                return [
+                    {
+                        "assignment_id": str(row[0]),
+                        "membership_id": str(row[1]),
+                        "assignment_type": row[2], "status": row[3],
+                        "assigned_at": row[4], "revoked_at": row[5],
+                        "professional_email": row[6],
+                        "professional_name": row[7],
+                    }
+                    for row in cursor.fetchall()
+                ]
+
+    def assign_patient(
+        self,
+        *,
+        organization_id: str,
+        patient_id: str,
+        membership_id: str,
+        assignment_type: str,
+    ) -> str:
+        assignment_id = stable_uuid(
+            "assignment", patient_id, membership_id, assignment_type
+        )
+        with self._connect() as connection:
+            self.ensure_schema(connection)
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT
+                      EXISTS(SELECT 1 FROM patients
+                             WHERE id=%s AND organization_id=%s
+                               AND status NOT IN ('deleted', 'restricted')),
+                      EXISTS(SELECT 1 FROM organization_memberships
+                             WHERE id=%s AND organization_id=%s
+                               AND status='active')
+                    """,
+                    (patient_id, organization_id, membership_id, organization_id),
+                )
+                patient_exists, membership_exists = cursor.fetchone()
+                if not patient_exists:
+                    raise ValueError("patient_not_found")
+                if not membership_exists:
+                    raise ValueError("membership_not_found")
+                cursor.execute(
+                    """
+                    INSERT INTO patient_assignments
+                        (id, organization_id, patient_id, membership_id,
+                         assignment_type, status, assigned_at)
+                    VALUES (%s,%s,%s,%s,%s,'active',now())
+                    ON CONFLICT (patient_id, membership_id, assignment_type)
+                    DO UPDATE SET status='active', assigned_at=now(),
+                                  revoked_at=NULL
+                    """,
+                    (
+                        assignment_id, organization_id, patient_id,
+                        membership_id, assignment_type,
+                    ),
+                )
+            connection.commit()
+        return str(assignment_id)
+
+    def revoke_patient_assignment(
+        self, *, organization_id: str, patient_id: str, assignment_id: str
+    ) -> None:
+        with self._connect() as connection:
+            self.ensure_schema(connection)
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    UPDATE patient_assignments
+                    SET status='revoked', revoked_at=now()
+                    WHERE id=%s AND organization_id=%s AND patient_id=%s
+                      AND status='active'
+                    """,
+                    (assignment_id, organization_id, patient_id),
+                )
+                if cursor.rowcount != 1:
+                    raise ValueError("assignment_not_found")
+            connection.commit()
 
     def _organization_for_email(self, cursor, email: str, profile: dict) -> dict:
         owner_email = normalize_email(email) or "legacy-unassigned@froid.local"

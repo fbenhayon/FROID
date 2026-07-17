@@ -1,6 +1,6 @@
 import asyncio
 import base64
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import hashlib
 import io
 import json
@@ -18,7 +18,14 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 from froid_core import SessionState, MockBiometricStream
 from froid_metrics_engine import calculate_report_metrics
-from tenant_store import TenantStore
+from tenant_access import (
+    AccessContext,
+    VALID_MODES as TENANT_AUTHORIZATION_MODES,
+    VALID_ROLES as TENANT_ROLES,
+    decide,
+    should_block,
+)
+from tenant_store import TenantStore, stable_uuid
 import httpx
 
 app = FastAPI(title="FROID Fusion Server", version="3.0.0")
@@ -111,6 +118,32 @@ FROID_LOCAL_AUTH_EMAILS = {
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
 STRIPE_CURRENCY = os.getenv("STRIPE_CURRENCY", "brl")
 TENANT_STORE = TenantStore.from_env()
+FROID_TENANT_AUTHORIZATION_MODE = os.getenv(
+    "FROID_TENANT_AUTHORIZATION_MODE", "off"
+).strip().lower()
+FROID_TENANT_ENFORCEMENT_ORGANIZATIONS = {
+    organization_id.strip()
+    for organization_id in os.getenv(
+        "FROID_TENANT_ENFORCEMENT_ORGANIZATIONS", ""
+    ).split(",")
+    if organization_id.strip()
+}
+if FROID_TENANT_AUTHORIZATION_MODE not in TENANT_AUTHORIZATION_MODES:
+    raise RuntimeError(
+        "FROID_TENANT_AUTHORIZATION_MODE must be off, observe or enforce"
+    )
+if FROID_TENANT_AUTHORIZATION_MODE == "enforce" and not TENANT_STORE.enabled:
+    raise RuntimeError(
+        "Tenant authorization enforcement requires FROID_PERSISTENCE_MODE=dual"
+    )
+if (
+    FROID_TENANT_AUTHORIZATION_MODE == "enforce"
+    and not FROID_TENANT_ENFORCEMENT_ORGANIZATIONS
+):
+    raise RuntimeError(
+        "Enforcement requires at least one organization in "
+        "FROID_TENANT_ENFORCEMENT_ORGANIZATIONS"
+    )
 
 SESSION_USERS = {}
 PATIENT_PORTAL_SESSIONS: Dict[str, dict] = {}
@@ -1445,6 +1478,15 @@ def _report_owner_email(report: dict) -> str:
     if direct:
         return direct
     return _normalize_email(FROID_LEGACY_REPORT_OWNER)
+
+
+def _report_organization_id(report: dict) -> str:
+    direct = str(
+        report.get("organizationId") or report.get("organization_id") or ""
+    ).strip()
+    if direct:
+        return direct
+    return str(stable_uuid("organization", _report_owner_email(report)))
 
 
 def _can_access_report(report: dict, owner_email: str) -> bool:
@@ -3051,6 +3093,169 @@ def _require_current_user(request: Request) -> dict:
     return user
 
 
+def _legacy_tenant_context(email: str) -> dict:
+    normalized_email = _normalize_email(email)
+    organization_id = stable_uuid("organization", normalized_email)
+    user_id = stable_uuid("user", normalized_email)
+    membership_id = stable_uuid("membership", organization_id, user_id)
+    profile = PROFESSIONAL_PROFILES.get(normalized_email) or {}
+    return {
+        "organization_id": str(organization_id),
+        "organization_name": str(
+            profile.get("organization_name")
+            or profile.get("owner_name")
+            or normalized_email
+        ),
+        "membership_id": str(membership_id),
+        "user_id": str(user_id),
+        "status": "active",
+        "roles": ["owner", "professional"],
+        "legacy_fallback": True,
+    }
+
+
+def _tenant_contexts_for_email(email: str) -> list[dict]:
+    normalized_email = _normalize_email(email)
+    if not normalized_email:
+        return []
+    if TENANT_STORE.enabled:
+        try:
+            contexts = TENANT_STORE.access_contexts(normalized_email)
+            if contexts:
+                return contexts
+        except Exception:
+            LOGGER.exception("Unable to load tenant access contexts")
+            if FROID_TENANT_AUTHORIZATION_MODE == "enforce":
+                return []
+    if FROID_TENANT_AUTHORIZATION_MODE == "enforce":
+        return []
+    return [_legacy_tenant_context(normalized_email)]
+
+
+def _tenant_authorization_mode_for(organization_id: str) -> str:
+    if FROID_TENANT_AUTHORIZATION_MODE != "enforce":
+        return FROID_TENANT_AUTHORIZATION_MODE
+    return (
+        "enforce"
+        if str(organization_id or "") in FROID_TENANT_ENFORCEMENT_ORGANIZATIONS
+        else "observe"
+    )
+
+
+def _attach_tenant_contexts(user: dict) -> dict:
+    enriched = dict(user or {})
+    contexts = _tenant_contexts_for_email(enriched.get("email") or "")
+    active_id = str(enriched.get("active_organization_id") or "")
+    if not any(item.get("organization_id") == active_id for item in contexts):
+        active_id = str((contexts[0] if contexts else {}).get("organization_id") or "")
+    enriched["organizations"] = [
+        {
+            **context,
+            "authorization_mode": _tenant_authorization_mode_for(
+                context.get("organization_id") or ""
+            ),
+        }
+        for context in contexts
+    ]
+    enriched["active_organization_id"] = active_id
+    enriched["tenant_authorization_mode"] = FROID_TENANT_AUTHORIZATION_MODE
+    return enriched
+
+
+def _tenant_context_from_request(request: Request) -> Optional[AccessContext]:
+    user = _require_current_user(request)
+    contexts = user.get("organizations")
+    if not isinstance(contexts, list):
+        refreshed = _attach_tenant_contexts(user)
+        user.update(refreshed)
+        contexts = refreshed.get("organizations") or []
+    requested_id = str(
+        request.headers.get("x-froid-organization-id")
+        or user.get("active_organization_id")
+        or ""
+    )
+    selected = next(
+        (
+            item
+            for item in contexts
+            if isinstance(item, dict)
+            and str(item.get("organization_id") or "") == requested_id
+        ),
+        None,
+    )
+    if selected is None and len(contexts) == 1 and isinstance(contexts[0], dict):
+        selected = contexts[0]
+    if selected is None:
+        return None
+    return AccessContext.create(
+        organization_id=selected.get("organization_id") or "",
+        membership_id=selected.get("membership_id") or "",
+        user_id=selected.get("user_id") or "",
+        roles=selected.get("roles") or [],
+        status=selected.get("status") or "",
+    )
+
+
+def _authorize_tenant_request(
+    request: Request,
+    permission: str,
+    *,
+    resource_type: str,
+    resource_id: str = "",
+    resource_organization_id: str = "",
+    assigned: bool = False,
+    owns_resource: bool = False,
+) -> Optional[AccessContext]:
+    if FROID_TENANT_AUTHORIZATION_MODE == "off":
+        return _tenant_context_from_request(request)
+    context = _tenant_context_from_request(request)
+    decision = decide(
+        context,
+        permission,
+        resource_organization_id=resource_organization_id,
+        assigned=assigned,
+        owns_resource=owns_resource,
+    )
+    effective_mode = _tenant_authorization_mode_for(
+        context.organization_id if context else resource_organization_id
+    )
+    if not decision.allowed:
+        try:
+            TENANT_STORE.record_access_audit(
+                organization_id=(context.organization_id if context else resource_organization_id),
+                actor_user_id=(context.user_id if context else ""),
+                action=permission,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                outcome="denied" if should_block(effective_mode, decision) else "observed_denial",
+                metadata={"reason": decision.reason},
+            )
+        except Exception:
+            LOGGER.exception("Unable to record tenant authorization audit")
+    if should_block(effective_mode, decision):
+        raise HTTPException(status_code=403, detail="acesso restrito nesta organização")
+    return context
+
+
+def _require_tenant_management_context(
+    request: Request, organization_id: str, permission: str
+) -> AccessContext:
+    if not TENANT_STORE.enabled:
+        raise HTTPException(
+            status_code=409,
+            detail="gestão multi-organização requer persistência dual",
+        )
+    context = _tenant_context_from_request(request)
+    decision = decide(
+        context,
+        permission,
+        resource_organization_id=str(organization_id or ""),
+    )
+    if not decision.allowed or context is None:
+        raise HTTPException(status_code=403, detail="permissão organizacional insuficiente")
+    return context
+
+
 def _current_patient_from_request(request: Request) -> Optional[dict]:
     auth_header = request.headers.get("authorization", "")
     token = (
@@ -3278,6 +3483,7 @@ def _issue_session(user: dict):
     session_user = dict(user or {})
     session_user["email"] = _normalize_email(session_user.get("email") or "")
     session_user["access_status"] = _professional_access_status(session_user.get("email") or "")
+    session_user = _attach_tenant_contexts(session_user)
     SESSION_USERS[token] = session_user
     return {"token": token, "user": session_user}
 
@@ -3397,6 +3603,10 @@ def health():
         "status": "ok",
         "active_sessions": len(manager.active_sessions),
         "persistence": TENANT_STORE.status(),
+        "tenant_authorization_mode": FROID_TENANT_AUTHORIZATION_MODE,
+        "tenant_enforcement_organizations": len(
+            FROID_TENANT_ENFORCEMENT_ORGANIZATIONS
+        ),
     }
 
 @app.post("/session/create")
@@ -4074,8 +4284,224 @@ async def auth_me(request: Request):
         raise HTTPException(status_code=401, detail="não autenticado")
     user = dict(user)
     user["access_status"] = _professional_access_status(user.get("email") or "")
+    user = _attach_tenant_contexts(user)
     SESSION_USERS[token] = user
     return user
+
+
+@app.get("/api/organizations")
+async def list_current_user_organizations(request: Request):
+    user = _require_current_user(request)
+    enriched = _attach_tenant_contexts(user)
+    user.update(enriched)
+    return {
+        "organizations": enriched.get("organizations") or [],
+        "active_organization_id": enriched.get("active_organization_id") or "",
+        "authorization_mode": FROID_TENANT_AUTHORIZATION_MODE,
+    }
+
+
+@app.get("/api/organizations/{organization_id}/members")
+async def list_organization_members(organization_id: str, request: Request):
+    _require_tenant_management_context(request, organization_id, "members.manage")
+    return {"members": TENANT_STORE.list_members(organization_id)}
+
+
+@app.post("/api/organizations/{organization_id}/members/invitations")
+async def invite_organization_member(organization_id: str, request: Request):
+    context = _require_tenant_management_context(
+        request, organization_id, "members.manage"
+    )
+    body = await request.json()
+    invited_email = _normalize_email(body.get("email") or "")
+    roles = {
+        str(role).strip().lower()
+        for role in (body.get("roles") if isinstance(body.get("roles"), list) else ["professional"])
+        if str(role).strip()
+    }
+    if not invited_email:
+        raise HTTPException(status_code=400, detail="email do profissional obrigatório")
+    if not roles or roles - TENANT_ROLES:
+        raise HTTPException(status_code=400, detail="papéis organizacionais inválidos")
+    if "owner" in roles and "owner" not in context.roles:
+        raise HTTPException(status_code=403, detail="somente proprietário pode convidar outro proprietário")
+    expires_hours = min(168, max(1, _local_int(body.get("expires_hours") or 72)))
+    invitation_token = secrets.token_urlsafe(32)
+    token_hash = hashlib.sha256(invitation_token.encode("utf-8")).hexdigest()
+    invitation_id = TENANT_STORE.create_member_invitation(
+        organization_id=organization_id,
+        invited_by_membership_id=context.membership_id,
+        invited_email=invited_email,
+        token_hash=token_hash,
+        roles=roles,
+        expires_at=datetime.now(timezone.utc) + timedelta(hours=expires_hours),
+    )
+    TENANT_STORE.record_access_audit(
+        organization_id=organization_id,
+        actor_user_id=context.user_id,
+        action="member.invite",
+        resource_type="membership_invitation",
+        resource_id=invitation_id,
+        metadata={"roles": sorted(roles), "expires_hours": expires_hours},
+    )
+    return {
+        "invitation_id": invitation_id,
+        "invitation_token": invitation_token,
+        "expires_in_hours": expires_hours,
+        "note": "o token é exibido uma única vez e deve ser enviado ao destinatário por canal seguro",
+    }
+
+
+@app.post("/api/organization-invitations/accept")
+async def accept_organization_invitation(request: Request):
+    user = _require_current_user(request)
+    if not TENANT_STORE.enabled:
+        raise HTTPException(status_code=409, detail="persistência dual obrigatória")
+    body = await request.json()
+    invitation_token = str(body.get("invitation_token") or "").strip()
+    if not invitation_token:
+        raise HTTPException(status_code=400, detail="token de convite obrigatório")
+    token_hash = hashlib.sha256(invitation_token.encode("utf-8")).hexdigest()
+    try:
+        context = TENANT_STORE.accept_member_invitation(
+            token_hash=token_hash,
+            email=user.get("email") or "",
+            display_name=user.get("name") or "",
+        )
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="convite destinado a outro email")
+    except ValueError:
+        raise HTTPException(status_code=404, detail="convite inválido ou expirado")
+    TENANT_STORE.record_access_audit(
+        organization_id=context["organization_id"],
+        actor_user_id=context["user_id"],
+        action="member.join",
+        resource_type="organization_membership",
+        resource_id=context["membership_id"],
+    )
+    refreshed = _attach_tenant_contexts(user)
+    user.update(refreshed)
+    return {"status": "accepted", "membership": context}
+
+
+@app.delete("/api/organizations/{organization_id}/members/{membership_id}")
+async def revoke_organization_member(
+    organization_id: str, membership_id: str, request: Request
+):
+    context = _require_tenant_management_context(
+        request, organization_id, "members.manage"
+    )
+    if membership_id == context.membership_id:
+        raise HTTPException(
+            status_code=409,
+            detail="use o fluxo de transferência de propriedade para remover a própria conta",
+        )
+    try:
+        TENANT_STORE.revoke_membership(
+            organization_id=organization_id, membership_id=membership_id
+        )
+    except ValueError as exc:
+        reason = str(exc)
+        if reason == "cannot_revoke_last_owner":
+            raise HTTPException(status_code=409, detail="não é permitido remover o último proprietário")
+        raise HTTPException(status_code=404, detail="vínculo profissional não encontrado")
+    TENANT_STORE.record_access_audit(
+        organization_id=organization_id,
+        actor_user_id=context.user_id,
+        action="member.revoke",
+        resource_type="organization_membership",
+        resource_id=membership_id,
+    )
+    return {"status": "revoked", "membership_id": membership_id}
+
+
+@app.get(
+    "/api/organizations/{organization_id}/patients/{patient_id}/assignments"
+)
+async def list_patient_assignments(
+    organization_id: str, patient_id: str, request: Request
+):
+    _require_tenant_management_context(
+        request, organization_id, "assignments.manage"
+    )
+    return {
+        "assignments": TENANT_STORE.list_patient_assignments(
+            organization_id=organization_id, patient_id=patient_id
+        )
+    }
+
+
+@app.post(
+    "/api/organizations/{organization_id}/patients/{patient_id}/assignments"
+)
+async def create_patient_assignment(
+    organization_id: str, patient_id: str, request: Request
+):
+    context = _require_tenant_management_context(
+        request, organization_id, "assignments.manage"
+    )
+    body = await request.json()
+    membership_id = str(body.get("membership_id") or "").strip()
+    assignment_type = str(body.get("assignment_type") or "care_team").strip()
+    if assignment_type not in {"primary", "care_team", "supervisor", "read_only"}:
+        raise HTTPException(status_code=400, detail="tipo de atribuição inválido")
+    if not membership_id:
+        raise HTTPException(status_code=400, detail="vínculo profissional obrigatório")
+    try:
+        assignment_id = TENANT_STORE.assign_patient(
+            organization_id=organization_id,
+            patient_id=patient_id,
+            membership_id=membership_id,
+            assignment_type=assignment_type,
+        )
+    except ValueError as exc:
+        if str(exc) == "patient_not_found":
+            raise HTTPException(status_code=404, detail="paciente não encontrado na organização")
+        raise HTTPException(status_code=404, detail="profissional ativo não encontrado na organização")
+    TENANT_STORE.record_access_audit(
+        organization_id=organization_id,
+        actor_user_id=context.user_id,
+        action="patient.assign",
+        resource_type="patient_assignment",
+        resource_id=assignment_id,
+        metadata={
+            "patient_id": patient_id,
+            "membership_id": membership_id,
+            "assignment_type": assignment_type,
+        },
+    )
+    return {"status": "assigned", "assignment_id": assignment_id}
+
+
+@app.delete(
+    "/api/organizations/{organization_id}/patients/{patient_id}/assignments/{assignment_id}"
+)
+async def delete_patient_assignment(
+    organization_id: str,
+    patient_id: str,
+    assignment_id: str,
+    request: Request,
+):
+    context = _require_tenant_management_context(
+        request, organization_id, "assignments.manage"
+    )
+    try:
+        TENANT_STORE.revoke_patient_assignment(
+            organization_id=organization_id,
+            patient_id=patient_id,
+            assignment_id=assignment_id,
+        )
+    except ValueError:
+        raise HTTPException(status_code=404, detail="atribuição ativa não encontrada")
+    TENANT_STORE.record_access_audit(
+        organization_id=organization_id,
+        actor_user_id=context.user_id,
+        action="patient.unassign",
+        resource_type="patient_assignment",
+        resource_id=assignment_id,
+        metadata={"patient_id": patient_id},
+    )
+    return {"status": "revoked", "assignment_id": assignment_id}
 
 
 @app.get("/api/google-calendar/status")
@@ -4643,10 +5069,31 @@ async def list_session_reports(request: Request):
     if not user:
         raise HTTPException(status_code=401, detail="não autenticado")
     owner_email = _normalize_email(user.get("email") or "")
+    context = _authorize_tenant_request(
+        request, "organization.read", resource_type="session_report"
+    )
+    effective_mode = _tenant_authorization_mode_for(
+        context.organization_id if context else ""
+    )
     reports = [
         _enrich_report_patient(report)
         for report in _load_session_reports().values()
-        if isinstance(report, dict) and _can_access_report(report, owner_email)
+        if isinstance(report, dict)
+        and (
+            (
+                effective_mode != "enforce"
+                and _can_access_report(report, owner_email)
+            )
+            or (
+                effective_mode == "enforce"
+                and decide(
+                    context,
+                    "reports.read",
+                    resource_organization_id=_report_organization_id(report),
+                    owns_resource=_can_access_report(report, owner_email),
+                ).allowed
+            )
+        )
     ]
     reports.sort(
         key=lambda report: str(report.get("createdAt") or report.get("created_at") or ""),
@@ -4665,7 +5112,15 @@ async def save_session_report(request: Request):
     session_id = str(report.get("sessionId") or report.get("session_id") or "").strip()
     if not session_id:
         raise HTTPException(status_code=400, detail="sessionId obrigatório")
+    context = _authorize_tenant_request(
+        request,
+        "reports.write",
+        resource_type="session_report",
+        resource_id=session_id,
+    )
     report["professionalEmail"] = owner_email
+    if context:
+        report["organizationId"] = context.organization_id
     report["professional"] = {
         **(report.get("professional") if isinstance(report.get("professional"), dict) else {}),
         "email": owner_email,
@@ -4675,6 +5130,16 @@ async def save_session_report(request: Request):
     report = _attach_metrics_analysis(report)
     reports = _load_session_reports()
     is_new_report = session_id not in reports
+    if not is_new_report:
+        existing_report = reports[session_id]
+        _authorize_tenant_request(
+            request,
+            "reports.update",
+            resource_type="session_report",
+            resource_id=session_id,
+            resource_organization_id=_report_organization_id(existing_report),
+            owns_resource=_can_access_report(existing_report, owner_email),
+        )
     reports[session_id] = report
     _save_session_reports(reports)
     access_status = _consume_professional_session_credit(owner_email, session_id) if is_new_report else _professional_access_status(owner_email)
@@ -4696,8 +5161,17 @@ async def get_session_report_metrics(session_id: str, request: Request):
     report = _load_session_reports().get(session_id)
     if not report:
         raise HTTPException(status_code=404, detail="Relatório não encontrado")
+    _authorize_tenant_request(
+        request,
+        "reports.read",
+        resource_type="session_report",
+        resource_id=session_id,
+        resource_organization_id=_report_organization_id(report),
+        owns_resource=_can_access_report(report, user.get("email") or ""),
+    )
     if not _can_access_report(report, user.get("email") or ""):
-        raise HTTPException(status_code=403, detail="Relatório pertence a outro profissional")
+        if _tenant_authorization_mode_for(_report_organization_id(report)) != "enforce":
+            raise HTTPException(status_code=403, detail="Relatório pertence a outro profissional")
     report = _enrich_report_patient(report)
     if not report.get("metricsAnalysis"):
         report = _attach_metrics_analysis(report)
@@ -4714,8 +5188,17 @@ async def get_session_report(session_id: str, request: Request):
     report = _load_session_reports().get(session_id)
     if not report:
         raise HTTPException(status_code=404, detail="Relatório não encontrado")
+    _authorize_tenant_request(
+        request,
+        "reports.read",
+        resource_type="session_report",
+        resource_id=session_id,
+        resource_organization_id=_report_organization_id(report),
+        owns_resource=_can_access_report(report, user.get("email") or ""),
+    )
     if not _can_access_report(report, user.get("email") or ""):
-        raise HTTPException(status_code=403, detail="Relatório pertence a outro profissional")
+        if _tenant_authorization_mode_for(_report_organization_id(report)) != "enforce":
+            raise HTTPException(status_code=403, detail="Relatório pertence a outro profissional")
     report = _enrich_report_patient(report)
     if not report.get("metricsAnalysis"):
         report = _attach_metrics_analysis(report)
@@ -4730,8 +5213,19 @@ async def delete_session_report(session_id: str, request: Request):
     reports = _load_session_reports()
     if session_id not in reports:
         raise HTTPException(status_code=404, detail="Relatório não encontrado")
+    _authorize_tenant_request(
+        request,
+        "reports.delete",
+        resource_type="session_report",
+        resource_id=session_id,
+        resource_organization_id=_report_organization_id(reports[session_id]),
+        owns_resource=_can_access_report(reports[session_id], user.get("email") or ""),
+    )
     if not _can_access_report(reports[session_id], user.get("email") or ""):
-        raise HTTPException(status_code=403, detail="Relatório pertence a outro profissional")
+        if _tenant_authorization_mode_for(
+            _report_organization_id(reports[session_id])
+        ) != "enforce":
+            raise HTTPException(status_code=403, detail="Relatório pertence a outro profissional")
     del reports[session_id]
     _save_session_reports(reports)
     return {
