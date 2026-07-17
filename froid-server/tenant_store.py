@@ -55,7 +55,13 @@ def _json(value: Any) -> str:
 class TenantStore:
     """Optional, rollback-safe mirror of legacy FROID state in PostgreSQL."""
 
-    def __init__(self, mode: str, database_url: str, migration_path: Path):
+    def __init__(
+        self,
+        mode: str,
+        database_url: str,
+        migration_path: Path,
+        runtime_database_url: str = "",
+    ):
         requested_mode = (mode or "legacy").strip().lower()
         if requested_mode not in VALID_MODES:
             raise ValueError(
@@ -65,6 +71,7 @@ class TenantStore:
             raise ValueError("FROID_DATABASE_URL is required in dual mode")
         self.mode = requested_mode
         self.database_url = database_url
+        self.runtime_database_url = str(runtime_database_url or "").strip()
         self.migration_path = migration_path
         self._lock = threading.Lock()
         self._schema_ready = False
@@ -80,6 +87,9 @@ class TenantStore:
             migration_path=Path(__file__).parent
             / "migrations"
             / "001_multitenant_foundation.sql",
+            runtime_database_url=os.getenv(
+                "FROID_RUNTIME_DATABASE_URL", ""
+            ).strip(),
         )
 
     @property
@@ -90,20 +100,26 @@ class TenantStore:
         return {
             "mode": self.mode,
             "postgres_mirror_enabled": self.enabled,
+            "runtime_role_configured": bool(self.runtime_database_url),
             "schema_ready": self._schema_ready,
             "last_sync_at": self._last_sync_at,
             "last_error": self._last_error,
             "last_counters": self._last_counters,
         }
 
-    def _connect(self):
+    def _connect(self, *, runtime: bool = False):
         try:
             import psycopg
         except ImportError as exc:
             raise RuntimeError(
                 "psycopg is required when FROID_PERSISTENCE_MODE=dual"
             ) from exc
-        return psycopg.connect(self.database_url, connect_timeout=10)
+        database_url = (
+            self.runtime_database_url
+            if runtime and self.runtime_database_url
+            else self.database_url
+        )
+        return psycopg.connect(database_url, connect_timeout=10)
 
     def ensure_schema(self, connection=None) -> None:
         if self._schema_ready:
@@ -497,6 +513,56 @@ class TenantStore:
                 if cursor.rowcount != 1:
                     raise ValueError("assignment_not_found")
             connection.commit()
+
+    def apply_credit_event(
+        self,
+        *,
+        organization_id: str,
+        membership_id: str,
+        actor_user_id: str,
+        delta: int,
+        event_type: str,
+        idempotency_key: str,
+        session_id: str = "",
+        metadata: Optional[dict] = None,
+    ) -> dict:
+        """Atomically update an organization wallet through the RLS runtime role."""
+        if not self.enabled:
+            raise RuntimeError("shared credit wallet requires dual persistence")
+        if not self.runtime_database_url:
+            raise RuntimeError("FROID_RUNTIME_DATABASE_URL is required for wallet events")
+        if event_type not in {"purchase", "consumption", "refund", "adjustment"}:
+            raise ValueError("invalid_credit_event_type")
+        if not str(idempotency_key or "").strip():
+            raise ValueError("idempotency_key_required")
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                connection.execute(
+                    "SELECT set_config('app.organization_id', %s, true)",
+                    (organization_id,),
+                )
+                connection.execute(
+                    "SELECT set_config('app.membership_id', %s, true)",
+                    (membership_id,),
+                )
+                row = connection.execute(
+                    """
+                    SELECT ledger_id, resulting_balance, applied
+                    FROM froid_apply_credit_event(
+                        %s,%s,%s,%s,%s,%s,%s,%s::jsonb
+                    )
+                    """,
+                    (
+                        organization_id, membership_id, actor_user_id, int(delta),
+                        event_type, idempotency_key, session_id or None,
+                        _json(metadata or {}),
+                    ),
+                ).fetchone()
+        return {
+            "ledger_id": str(row[0]),
+            "balance": int(row[1]),
+            "applied": bool(row[2]),
+        }
 
     def _organization_for_email(self, cursor, email: str, profile: dict) -> dict:
         owner_email = normalize_email(email) or "legacy-unassigned@froid.local"
