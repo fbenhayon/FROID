@@ -100,9 +100,10 @@ header.site-header {
   background: linear-gradient(180deg, rgba(2,6,23,0.72) 0%, rgba(2,6,23,0.88) 100%);
 }
 .hero > .container { position: relative; z-index: 1; }
-.hero h1 { font-family: var(--font-serif); font-size: 2.6rem; line-height: 1.2; max-width: 780px; margin: 0 0 20px; }
-.hero p.lead { font-size: 1.15rem; color: rgba(248,250,252,0.78); max-width: 620px; margin: 0 0 32px; }
-.hero-actions { display: flex; gap: 14px; flex-wrap: wrap; }
+/* Heros das subpáginas centralizados, acompanhando títulos e leads de seção */
+.hero h1 { font-family: var(--font-serif); font-size: 2.6rem; line-height: 1.2; max-width: 780px; margin: 0 auto 20px; text-align: center; }
+.hero p.lead { font-size: 1.15rem; color: rgba(248,250,252,0.78); max-width: 620px; margin: 0 auto 32px; text-align: center; }
+.hero-actions { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
 
 /* ============================================================
    HERO "NEURO" — hero de página inicial, alinhado ao modelo de
@@ -204,7 +205,8 @@ section.block.soft { background: var(--paper-soft); }
 /* Títulos de seção centralizados em todas as páginas (kicker acompanha para manter o bloco coeso) */
 h2.section-title { font-family: var(--font-serif); font-size: 2rem; margin: 0 0 12px; color: #f8fafc; text-align: center; }
 p.section-kicker { text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.78rem; color: var(--froid-azul); font-weight: 700; margin: 0 0 10px; text-align: center; }
-p.section-lead { color: var(--froid-cinza); max-width: 720px; font-size: 1.05rem; margin-bottom: 40px; }
+/* Texto de apoio das seções também centralizado (bloco limitado a 720px, centrado na página) */
+p.section-lead { color: var(--froid-cinza); max-width: 720px; font-size: 1.05rem; margin: 0 auto 40px; text-align: center; }
 
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start; }
 .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
