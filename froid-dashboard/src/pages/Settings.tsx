@@ -1079,6 +1079,13 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
             <div className="mt-3 text-xs text-slate-300">
               SHA256 - 90 dias de purga - DPO-admin
             </div>
+            <button
+              type="button"
+              onClick={() => nav("/privacy-requests")}
+              className="mt-3 rounded-lg border border-cyan-700 bg-cyan-950 px-3 py-2 text-xs font-bold text-cyan-100 hover:bg-cyan-900"
+            >
+              Abrir fila de direitos LGPD
+            </button>
           </div>
         </div>
 

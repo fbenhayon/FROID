@@ -19,6 +19,7 @@ const ProfessionalOnboarding = lazy(() => import("./pages/ProfessionalOnboarding
 const PatientInvitePage = lazy(() => import("./pages/PatientInvitePage").then((module) => ({ default: module.PatientInvitePage })));
 const PatientSessionPage = lazy(() => import("./pages/PatientSessionPage").then((module) => ({ default: module.PatientSessionPage })));
 const PatientPortalPage = lazy(() => import("./pages/PatientPortalPage").then((module) => ({ default: module.PatientPortalPage })));
+const PrivacyRequests = lazy(() => import("./pages/PrivacyRequests").then((module) => ({ default: module.PrivacyRequests })));
 const PrivacyPage = lazy(() => import("./pages/LegalPages").then((module) => ({ default: module.PrivacyPage })));
 const TermsPage = lazy(() => import("./pages/LegalPages").then((module) => ({ default: module.TermsPage })));
 const FroidProfessionalsPage = lazy(() => import("./pages/FroidInstitutionalPages").then((module) => ({ default: module.FroidProfessionalsPage })));
@@ -266,6 +267,10 @@ function App() {
         <Route
           path="/settings"
           element={clinicalElement(<Settings user={user} />)}
+        />
+        <Route
+          path="/privacy-requests"
+          element={clinicalElement(<PrivacyRequests user={user} />)}
         />
         <Route
           path="/admin"

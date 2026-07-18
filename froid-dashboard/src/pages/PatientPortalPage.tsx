@@ -18,10 +18,42 @@ type PatientPortalResponse = {
   total: number;
 };
 
+type PrivacyRequest = {
+  id: string;
+  organization_name: string;
+  request_type: string;
+  status: string;
+  submitted_at: string;
+  service_due_at: string;
+  response_summary?: string;
+  legal_basis?: string;
+  retention_exception?: string;
+};
+
+type PrivacyOverview = {
+  organizations: Array<{ organization_id: string; organization_name: string }>;
+  requests: PrivacyRequest[];
+  rights: string[];
+  processing: { categories: string[]; automated_decision: boolean };
+};
+
+const PRIVACY_RIGHT_LABELS: Record<string, string> = {
+  access: "Acesso aos dados",
+  correction: "Correção",
+  portability: "Portabilidade",
+  processing_information: "Informações sobre o tratamento",
+  consent_withdrawal: "Revogação de consentimento",
+  restriction: "Bloqueio ou restrição",
+  deletion: "Eliminação",
+  anonymization: "Anonimização",
+  automated_review: "Revisão de processamento automatizado",
+};
+
 function readStoredPatient() {
   if (typeof window === "undefined") return null;
   try {
-    const raw = window.localStorage.getItem(PATIENT_USER_KEY);
+    window.localStorage.removeItem(PATIENT_USER_KEY);
+    const raw = window.sessionStorage.getItem(PATIENT_USER_KEY);
     return raw ? (JSON.parse(raw) as PatientIdentity) : null;
   } catch {
     return null;
@@ -69,9 +101,11 @@ function saveAllPatientDownloads(patient: PatientIdentity | null, reports: Sessi
 }
 
 export const PatientPortalPage: React.FC = () => {
-  const [token, setToken] = useState(() =>
-    typeof window !== "undefined" ? window.localStorage.getItem(PATIENT_TOKEN_KEY) || "" : "",
-  );
+  const [token, setToken] = useState(() => {
+    if (typeof window === "undefined") return "";
+    window.localStorage.removeItem(PATIENT_TOKEN_KEY);
+    return window.sessionStorage.getItem(PATIENT_TOKEN_KEY) || "";
+  });
   const [patient, setPatient] = useState<PatientIdentity | null>(() => readStoredPatient());
   const [reports, setReports] = useState<SessionReportRecord[]>([]);
   const [loginForm, setLoginForm] = useState({ document: "", password: "" });
@@ -86,6 +120,13 @@ export const PatientPortalPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [privacy, setPrivacy] = useState<PrivacyOverview | null>(null);
+  const [privacyForm, setPrivacyForm] = useState({
+    request_type: "access",
+    organization_id: "",
+    details: "",
+  });
+  const [privacySaving, setPrivacySaving] = useState(false);
 
   const authHeaders = useMemo<Record<string, string>>(() => {
     const headers: Record<string, string> = {};
@@ -103,9 +144,9 @@ export const PatientPortalPage: React.FC = () => {
     });
     if (typeof window !== "undefined") {
       if (nextPatient) {
-        window.localStorage.setItem(PATIENT_USER_KEY, JSON.stringify(nextPatient));
+        window.sessionStorage.setItem(PATIENT_USER_KEY, JSON.stringify(nextPatient));
       } else {
-        window.localStorage.removeItem(PATIENT_USER_KEY);
+        window.sessionStorage.removeItem(PATIENT_USER_KEY);
       }
     }
   }, []);
@@ -130,6 +171,16 @@ export const PatientPortalPage: React.FC = () => {
     }
   }, [applyPatient, authHeaders, token]);
 
+  const loadPrivacy = useCallback(async () => {
+    if (!token) return;
+    const response = await fetch(apiUrl("/api/patient-portal/privacy"), {
+      headers: authHeaders,
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data?.detail || "Não foi possível carregar seus direitos LGPD.");
+    setPrivacy(data as PrivacyOverview);
+  }, [authHeaders, token]);
+
   useEffect(() => {
     if (!token) return;
     fetch(apiUrl("/api/patient-auth/me"), { headers: authHeaders })
@@ -137,17 +188,68 @@ export const PatientPortalPage: React.FC = () => {
         const data = await response.json();
         if (!response.ok) throw new Error(data?.detail || "Sessão expirada.");
         applyPatient(data.patient || null);
-        return loadReports();
+        return Promise.all([
+          loadReports(),
+          loadPrivacy().catch((err) => {
+            setPrivacy(null);
+            setError(err instanceof Error ? err.message : "Portal LGPD temporariamente indisponível.");
+          }),
+        ]);
       })
       .catch(() => {
         if (typeof window !== "undefined") {
-          window.localStorage.removeItem(PATIENT_TOKEN_KEY);
-          window.localStorage.removeItem(PATIENT_USER_KEY);
+          window.sessionStorage.removeItem(PATIENT_TOKEN_KEY);
+          window.sessionStorage.removeItem(PATIENT_USER_KEY);
         }
         setToken("");
         applyPatient(null);
       });
-  }, [applyPatient, authHeaders, loadReports, token]);
+  }, [applyPatient, authHeaders, loadPrivacy, loadReports, token]);
+
+  const submitPrivacyRequest = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setPrivacySaving(true);
+    setError("");
+    setMessage("");
+    try {
+      const response = await fetch(apiUrl("/api/patient-portal/privacy/requests"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders },
+        body: JSON.stringify(privacyForm),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.detail || "Não foi possível protocolar a solicitação.");
+      setPrivacyForm((current) => ({ ...current, details: "" }));
+      await loadPrivacy();
+      setMessage(`Solicitação protocolada para ${data.total || 1} organização(ões).`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao protocolar solicitação LGPD.");
+    } finally {
+      setPrivacySaving(false);
+    }
+  };
+
+  const downloadPrivacyExport = async () => {
+    setError("");
+    try {
+      const response = await fetch(apiUrl("/api/patient-portal/privacy/export"), {
+        headers: authHeaders,
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.detail || "Não foi possível preparar a exportação.");
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "froid-exportacao-lgpd.json";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao exportar dados LGPD.");
+    }
+  };
 
   const login = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -165,7 +267,7 @@ export const PatientPortalPage: React.FC = () => {
       const nextToken = data.token || "";
       setToken(nextToken);
       if (typeof window !== "undefined") {
-        window.localStorage.setItem(PATIENT_TOKEN_KEY, nextToken);
+        window.sessionStorage.setItem(PATIENT_TOKEN_KEY, nextToken);
       }
       applyPatient(data.patient || null);
       setMessage("Acesso do paciente liberado.");
@@ -210,12 +312,13 @@ export const PatientPortalPage: React.FC = () => {
       }).catch(() => undefined);
     }
     if (typeof window !== "undefined") {
-      window.localStorage.removeItem(PATIENT_TOKEN_KEY);
-      window.localStorage.removeItem(PATIENT_USER_KEY);
+      window.sessionStorage.removeItem(PATIENT_TOKEN_KEY);
+      window.sessionStorage.removeItem(PATIENT_USER_KEY);
     }
     setToken("");
     applyPatient(null);
     setReports([]);
+    setPrivacy(null);
     setMessage("");
     setError("");
   };
@@ -392,6 +495,124 @@ export const PatientPortalPage: React.FC = () => {
               {saving ? "Salvando..." : "Salvar dados"}
             </button>
           </form>
+
+          <section className="rounded-lg border border-cyan-900 bg-slate-900 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300">
+                  Direitos do titular
+                </p>
+                <h2 className="mt-1 text-sm font-black text-white">Portal LGPD</h2>
+              </div>
+              <button
+                type="button"
+                onClick={downloadPrivacyExport}
+                className="rounded border border-cyan-700 bg-cyan-950 px-3 py-2 text-[11px] font-black text-cyan-100 hover:bg-cyan-900"
+              >
+                Exportar meus dados
+              </button>
+            </div>
+
+            <p className="mt-3 text-xs leading-5 text-slate-300">
+              Consulte o tratamento realizado e protocole pedidos de acesso, correção,
+              portabilidade, revisão, bloqueio, anonimização ou eliminação. Solicitações que
+              envolvam registros clínicos passam por análise documentada da organização responsável.
+            </p>
+
+            <form onSubmit={submitPrivacyRequest} className="mt-4 rounded border border-slate-700 bg-slate-950 p-3">
+              <label className="block text-[10px] font-bold uppercase text-slate-400">
+                Direito que deseja exercer
+                <select
+                  value={privacyForm.request_type}
+                  onChange={(event) =>
+                    setPrivacyForm((current) => ({ ...current, request_type: event.target.value }))
+                  }
+                  className="mt-1 w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-xs normal-case text-white outline-none focus:border-cyan-400"
+                >
+                  {Object.entries(PRIVACY_RIGHT_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="mt-3 block text-[10px] font-bold uppercase text-slate-400">
+                Organização responsável
+                <select
+                  value={privacyForm.organization_id}
+                  onChange={(event) =>
+                    setPrivacyForm((current) => ({ ...current, organization_id: event.target.value }))
+                  }
+                  className="mt-1 w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-xs normal-case text-white outline-none focus:border-cyan-400"
+                >
+                  <option value="">Todas as organizações relacionadas</option>
+                  {(privacy?.organizations || []).map((organization) => (
+                    <option key={organization.organization_id} value={organization.organization_id}>
+                      {organization.organization_name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="mt-3 block text-[10px] font-bold uppercase text-slate-400">
+                Detalhes do pedido
+                <textarea
+                  value={privacyForm.details}
+                  onChange={(event) =>
+                    setPrivacyForm((current) => ({ ...current, details: event.target.value }))
+                  }
+                  maxLength={4000}
+                  rows={3}
+                  placeholder="Descreva o período, dado ou correção solicitada."
+                  className="mt-1 w-full resize-y rounded border border-slate-700 bg-slate-900 px-3 py-2 text-xs normal-case text-white outline-none focus:border-cyan-400"
+                />
+              </label>
+
+              <button
+                type="submit"
+                disabled={privacySaving || !(privacy?.organizations || []).length}
+                className="mt-3 rounded bg-cyan-600 px-4 py-2 text-xs font-black text-white hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {privacySaving ? "Protocolando..." : "Protocolar solicitação"}
+              </button>
+            </form>
+
+            <div className="mt-4 space-y-2">
+              <p className="text-[10px] font-bold uppercase text-slate-400">Acompanhamento</p>
+              {(privacy?.requests || []).map((item) => (
+                <article key={item.id} className="rounded border border-slate-700 bg-slate-950 p-3 text-xs">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <p className="font-black text-slate-100">
+                        {PRIVACY_RIGHT_LABELS[item.request_type] || item.request_type}
+                      </p>
+                      <p className="mt-1 text-slate-400">{item.organization_name}</p>
+                    </div>
+                    <span className="rounded bg-slate-800 px-2 py-1 text-[10px] font-bold uppercase text-cyan-200">
+                      {item.status.replace(/_/g, " ")}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-[11px] text-slate-400">
+                    Protocolo {item.id} · prazo operacional {formatDateTime(new Date(item.service_due_at))}
+                  </p>
+                  {item.response_summary && (
+                    <p className="mt-2 rounded bg-slate-900 p-2 leading-5 text-slate-300">
+                      {item.response_summary}
+                    </p>
+                  )}
+                  {item.retention_exception && (
+                    <p className="mt-2 text-[11px] text-amber-200">
+                      Exceção de retenção: {item.retention_exception}
+                    </p>
+                  )}
+                </article>
+              ))}
+              {!privacy?.requests?.length && (
+                <p className="rounded border border-slate-800 bg-slate-950 p-3 text-xs text-slate-400">
+                  Nenhuma solicitação LGPD protocolada.
+                </p>
+              )}
+            </div>
+          </section>
 
           <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">
             <h2 className="text-sm font-black text-white">Resumo do paciente</h2>

@@ -158,14 +158,15 @@ class TenantStore:
                         "organization_memberships", "patients",
                         "patient_assignments", "session_reports", "consents",
                         "organization_wallets", "credit_ledger", "audit_events",
-                        "organization_subscriptions",
+                        "organization_subscriptions", "data_subject_requests",
+                        "data_subject_request_events",
                     ],),
                 ).fetchone()[0]
             checks["owner_database_reachable"] = True
             checks["all_migrations_applied"] = expected_migrations.issubset(
                 applied_migrations
             )
-            checks["rls_enabled_on_tenant_tables"] = int(rls_count) == 9
+            checks["rls_enabled_on_tenant_tables"] = int(rls_count) == 11
         except Exception as exc:
             checks["owner_database_reachable"] = False
             checks["all_migrations_applied"] = False
@@ -399,6 +400,289 @@ class TenantStore:
             }
             for row in rows
         ]
+
+    @staticmethod
+    def _data_subject_request(row) -> dict:
+        return {
+            "id": str(row[0]),
+            "request_batch_id": str(row[1]),
+            "organization_id": str(row[2]),
+            "organization_name": row[3],
+            "patient_id": str(row[4]),
+            "request_type": row[5],
+            "status": row[6],
+            "channel": row[7],
+            "request_payload": row[8] or {},
+            "response_summary": row[9] or "",
+            "legal_basis": row[10] or "",
+            "retention_exception": row[11] or "",
+            "submitted_at": row[12],
+            "service_due_at": row[13],
+            "identity_verified_at": row[14],
+            "resolved_at": row[15],
+            "updated_at": row[16],
+        }
+
+    def patient_privacy_scopes(
+        self, legacy_patient_id: str, identity_document: str
+    ) -> list[dict]:
+        """Resolve organizations holding data for an authenticated legacy patient."""
+        if not self.enabled or not legacy_patient_id or not identity_document:
+            return []
+        with self._connect() as connection:
+            self.ensure_schema(connection)
+            rows = connection.execute(
+                """
+                SELECT patient.organization_id, organization.display_name, patient.id
+                FROM patients patient
+                JOIN organizations organization ON organization.id=patient.organization_id
+                WHERE patient.legacy_patient_id=%s
+                  AND regexp_replace(coalesce(patient.document, ''), '\\D', '', 'g')=%s
+                  AND patient.status <> 'deleted'
+                ORDER BY organization.display_name, organization.id
+                """,
+                (str(legacy_patient_id), str(identity_document)),
+            ).fetchall()
+        return [
+            {
+                "organization_id": str(row[0]),
+                "organization_name": row[1],
+                "patient_id": str(row[2]),
+            }
+            for row in rows
+        ]
+
+    def create_data_subject_requests(
+        self,
+        *,
+        legacy_patient_id: str,
+        identity_document: str,
+        request_type: str,
+        request_payload: dict,
+        organization_id: str = "",
+    ) -> list[dict]:
+        if not self.enabled:
+            raise RuntimeError("dual persistence is required")
+        batch_id = uuid.uuid4()
+        with self._connect() as connection:
+            self.ensure_schema(connection)
+            scopes = connection.execute(
+                """
+                SELECT patient.organization_id, organization.display_name, patient.id
+                FROM patients patient
+                JOIN organizations organization ON organization.id=patient.organization_id
+                WHERE patient.legacy_patient_id=%s
+                  AND regexp_replace(coalesce(patient.document, ''), '\\D', '', 'g')=%s
+                  AND patient.status <> 'deleted'
+                  AND (%s='' OR patient.organization_id::text=%s)
+                ORDER BY organization.display_name, organization.id
+                """,
+                (
+                    str(legacy_patient_id), str(identity_document),
+                    str(organization_id or ""), str(organization_id or ""),
+                ),
+            ).fetchall()
+            if not scopes:
+                raise ValueError("patient has no matching organization scope")
+            created_ids = []
+            for scoped_organization_id, _name, patient_id in scopes:
+                request_id = uuid.uuid4()
+                connection.execute(
+                    """
+                    INSERT INTO data_subject_requests
+                        (id, request_batch_id, organization_id, patient_id,
+                         request_type, status, channel, request_payload,
+                         identity_verified_at)
+                    VALUES (%s,%s,%s,%s,%s,'identity_verified','patient_portal',
+                            %s::jsonb,now())
+                    """,
+                    (
+                        request_id, batch_id, scoped_organization_id, patient_id,
+                        request_type, _json(request_payload or {}),
+                    ),
+                )
+                connection.execute(
+                    """
+                    INSERT INTO data_subject_request_events
+                        (id, organization_id, request_id, actor_kind, action,
+                         from_status, to_status, metadata)
+                    VALUES (%s,%s,%s,'patient','request.submitted',NULL,
+                            'identity_verified','{}'::jsonb)
+                    """,
+                    (uuid.uuid4(), scoped_organization_id, request_id),
+                )
+                connection.execute(
+                    """INSERT INTO audit_events
+                        (id, organization_id, action, resource_type, resource_id,
+                         outcome, metadata)
+                    VALUES (%s,%s,'privacy.request.submitted','data_subject_request',
+                            %s,'success','{"actor_kind":"patient"}'::jsonb)""",
+                    (uuid.uuid4(), scoped_organization_id, str(request_id)),
+                )
+                created_ids.append(request_id)
+            connection.commit()
+            rows = connection.execute(
+                """
+                SELECT request.id, request.request_batch_id, request.organization_id,
+                       organization.display_name, request.patient_id,
+                       request.request_type, request.status, request.channel,
+                       request.request_payload, request.response_summary,
+                       request.legal_basis, request.retention_exception,
+                       request.submitted_at, request.service_due_at,
+                       request.identity_verified_at, request.resolved_at,
+                       request.updated_at
+                FROM data_subject_requests request
+                JOIN organizations organization ON organization.id=request.organization_id
+                WHERE request.id=ANY(%s)
+                ORDER BY organization.display_name
+                """,
+                (created_ids,),
+            ).fetchall()
+        return [self._data_subject_request(row) for row in rows]
+
+    def list_patient_data_subject_requests(
+        self, legacy_patient_id: str, identity_document: str
+    ) -> list[dict]:
+        if not self.enabled or not legacy_patient_id or not identity_document:
+            return []
+        with self._connect() as connection:
+            self.ensure_schema(connection)
+            rows = connection.execute(
+                """
+                SELECT request.id, request.request_batch_id, request.organization_id,
+                       organization.display_name, request.patient_id,
+                       request.request_type, request.status, request.channel,
+                       request.request_payload, request.response_summary,
+                       request.legal_basis, request.retention_exception,
+                       request.submitted_at, request.service_due_at,
+                       request.identity_verified_at, request.resolved_at,
+                       request.updated_at
+                FROM data_subject_requests request
+                JOIN patients patient
+                  ON patient.organization_id=request.organization_id
+                 AND patient.id=request.patient_id
+                JOIN organizations organization ON organization.id=request.organization_id
+                WHERE patient.legacy_patient_id=%s
+                  AND regexp_replace(coalesce(patient.document, ''), '\\D', '', 'g')=%s
+                ORDER BY request.submitted_at DESC, request.id DESC
+                """,
+                (str(legacy_patient_id), str(identity_document)),
+            ).fetchall()
+        return [self._data_subject_request(row) for row in rows]
+
+    def list_organization_data_subject_requests(
+        self, *, organization_id: str, membership_id: str, limit: int = 200
+    ) -> list[dict]:
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        safe_limit = max(1, min(500, int(limit)))
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                connection.execute("SELECT set_config('app.organization_id', %s, true)", (organization_id,))
+                connection.execute("SELECT set_config('app.membership_id', %s, true)", (membership_id,))
+                rows = connection.execute(
+                    """
+                    SELECT request.id, request.request_batch_id, request.organization_id,
+                           organization.display_name, request.patient_id,
+                           request.request_type, request.status, request.channel,
+                           request.request_payload, request.response_summary,
+                           request.legal_basis, request.retention_exception,
+                           request.submitted_at, request.service_due_at,
+                           request.identity_verified_at, request.resolved_at,
+                           request.updated_at
+                    FROM data_subject_requests request
+                    JOIN organizations organization ON organization.id=request.organization_id
+                    WHERE request.organization_id=%s
+                    ORDER BY request.service_due_at, request.submitted_at
+                    LIMIT %s
+                    """,
+                    (organization_id, safe_limit),
+                ).fetchall()
+        return [self._data_subject_request(row) for row in rows]
+
+    def update_data_subject_request(
+        self,
+        *,
+        organization_id: str,
+        membership_id: str,
+        actor_user_id: str,
+        request_id: str,
+        status: str,
+        response_summary: str = "",
+        legal_basis: str = "",
+        retention_exception: str = "",
+    ) -> dict:
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        final_statuses = {"completed", "cancelled", "denied", "partially_approved"}
+        allowed_transitions = {
+            "submitted": {"identity_verified", "cancelled"},
+            "identity_verified": {"in_review", "awaiting_information", "cancelled"},
+            "in_review": {"awaiting_information", "approved", "partially_approved", "denied", "cancelled"},
+            "awaiting_information": {"in_review", "cancelled"},
+            "approved": {"in_review", "completed"},
+            "partially_approved": {"in_review", "completed"},
+            "denied": {"in_review"},
+            "completed": set(),
+            "cancelled": set(),
+        }
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                connection.execute("SELECT set_config('app.organization_id', %s, true)", (organization_id,))
+                connection.execute("SELECT set_config('app.membership_id', %s, true)", (membership_id,))
+                current = connection.execute(
+                    "SELECT status FROM data_subject_requests WHERE organization_id=%s AND id=%s FOR UPDATE",
+                    (organization_id, request_id),
+                ).fetchone()
+                if not current:
+                    raise ValueError("data subject request not found")
+                previous_status = str(current[0])
+                if status != previous_status and status not in allowed_transitions.get(previous_status, set()):
+                    raise ValueError(
+                        f"invalid data subject request transition: {previous_status} -> {status}"
+                    )
+                connection.execute(
+                    """
+                    UPDATE data_subject_requests SET status=%s, response_summary=%s,
+                        legal_basis=%s, retention_exception=%s,
+                        resolved_by_user_id=%s,
+                        resolved_at=CASE WHEN %s=ANY(%s) THEN now() ELSE NULL END,
+                        updated_at=now()
+                    WHERE organization_id=%s AND id=%s
+                    """,
+                    (
+                        status, response_summary or None, legal_basis or None,
+                        retention_exception or None, actor_user_id or None,
+                        status, list(final_statuses), organization_id, request_id,
+                    ),
+                )
+                connection.execute(
+                    """
+                    INSERT INTO data_subject_request_events
+                        (id, organization_id, request_id, actor_kind, actor_user_id,
+                         action, from_status, to_status, metadata)
+                    VALUES (%s,%s,%s,'professional',%s,'request.status_changed',
+                            %s,%s,'{}'::jsonb)
+                    """,
+                    (uuid.uuid4(), organization_id, request_id, actor_user_id, previous_status, status),
+                )
+                row = connection.execute(
+                    """
+                    SELECT request.id, request.request_batch_id, request.organization_id,
+                           organization.display_name, request.patient_id,
+                           request.request_type, request.status, request.channel,
+                           request.request_payload, request.response_summary,
+                           request.legal_basis, request.retention_exception,
+                           request.submitted_at, request.service_due_at,
+                           request.identity_verified_at, request.resolved_at,
+                           request.updated_at
+                    FROM data_subject_requests request
+                    JOIN organizations organization ON organization.id=request.organization_id
+                    WHERE request.organization_id=%s AND request.id=%s
+                    """,
+                    (organization_id, request_id),
+                ).fetchone()
+        return self._data_subject_request(row)
 
     def accessible_legacy_report_ids(
         self, *, organization_id: str, membership_id: str

@@ -38,9 +38,10 @@ class Phase4OperationTests(unittest.TestCase):
 
     def test_restore_checks_migrations_rls_and_stops_on_error(self):
         self.assertIn("--exit-on-error", self.restore)
-        self.assertIn("migration_count <> 7", self.restore)
+        self.assertIn("migration_count <> 8", self.restore)
         self.assertIn("007_multitenant_security_hardening", self.restore)
-        self.assertIn("rls_count <> 9", self.restore)
+        self.assertIn("008_data_subject_rights", self.restore)
+        self.assertIn("rls_count <> 11", self.restore)
         self.assertIn('actual_sha256=$(sha256sum "$backup_path"', self.restore)
         self.assertIn("/root/froid-backups/*", self.restore)
         self.assertIn("froid-homologacao.dump", self.restore)

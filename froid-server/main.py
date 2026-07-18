@@ -2,6 +2,7 @@ import asyncio
 import base64
 from datetime import datetime, timedelta, timezone
 import hashlib
+import hmac
 import io
 import json
 import logging
@@ -10,6 +11,7 @@ import re
 import secrets
 import threading
 import time
+import unicodedata
 import uuid
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import quote, unquote, urlencode
@@ -109,6 +111,13 @@ FROID_DUCKDB_PATH = os.getenv(
 )
 FROID_ALGORITHM_VERSION = os.getenv("FROID_ALGORITHM_VERSION", app.version)
 FROID_ANALYTICS_MIN_K = int(os.getenv("FROID_ANALYTICS_MIN_K", "50") or "50")
+FROID_ANALYTICS_MAX_SUPPRESSION_RATIO = min(
+    0.10,
+    max(0.0, float(os.getenv("FROID_ANALYTICS_MAX_SUPPRESSION_RATIO", "0.10") or "0.10")),
+)
+FROID_DATAMART_PSEUDONYM_KEY = os.getenv(
+    "FROID_DATAMART_PSEUDONYM_KEY", ""
+).strip()
 FROID_SESSION_REPORTS_PATH = os.getenv(
     "FROID_SESSION_REPORTS_PATH",
     "/data/session_reports.json",
@@ -213,6 +222,10 @@ FROID_SESSION_TOKEN_TTL_SECONDS = max(
     300, int(os.getenv("FROID_SESSION_TOKEN_TTL_SECONDS", "28800") or "28800")
 )
 PATIENT_PORTAL_SESSIONS: Dict[str, dict] = {}
+PATIENT_LOGIN_ATTEMPTS: Dict[str, list[float]] = {}
+FROID_PATIENT_SESSION_TTL_SECONDS = max(
+    900, int(os.getenv("FROID_PATIENT_SESSION_TTL_SECONDS", "7200") or "7200")
+)
 PROFESSIONAL_PROFILES: Dict[str, dict] = {}
 PATIENTS: Dict[str, dict] = {}
 PATIENTS_BY_CONTACT: Dict[str, str] = {}
@@ -603,6 +616,30 @@ class PatientPortalProfileUpdate(BaseModel):
     phone: str = ""
     document: str = ""
     birth_date: str = ""
+
+
+class DataSubjectRequestCreate(BaseModel):
+    request_type: str
+    organization_id: str = ""
+    details: str = Field(default="", max_length=4000)
+
+
+class DataSubjectRequestUpdate(BaseModel):
+    status: str
+    response_summary: str = Field(default="", max_length=4000)
+    legal_basis: str = Field(default="", max_length=1000)
+    retention_exception: str = Field(default="", max_length=2000)
+
+
+DATA_SUBJECT_REQUEST_TYPES = {
+    "access", "correction", "portability", "processing_information",
+    "consent_withdrawal", "restriction", "deletion", "anonymization",
+    "automated_review",
+}
+DATA_SUBJECT_REQUEST_STATUSES = {
+    "submitted", "identity_verified", "in_review", "awaiting_information",
+    "approved", "partially_approved", "denied", "completed", "cancelled",
+}
 
 
 def _clean_llm_text(text: str) -> str:
@@ -1447,7 +1484,7 @@ async def _query_froid_analytics(payload: FroidExplicaQuery) -> FroidExplicaResp
             pass
         raise HTTPException(status_code=400, detail=f"Erro de validacao SQL: {exc}")
 
-    if cohort_size < FROID_ANALYTICS_MIN_K:
+    if cohort_size <= FROID_ANALYTICS_MIN_K:
         try:
             conn.close()
         except Exception:
@@ -1455,8 +1492,9 @@ async def _query_froid_analytics(payload: FroidExplicaQuery) -> FroidExplicaResp
         return FroidExplicaResponse(
             result_text=(
                 "Acesso bloqueado por governanca de dados e LGPD. "
-                f"A coorte resultante contem {cohort_size} registros, abaixo do minimo "
-                f"k >= {FROID_ANALYTICS_MIN_K}. Refine para uma coorte maior ou use apenas leitura qualitativa da sessao atual."
+                f"A coorte resultante contém {cohort_size} registros. O Data-FROID "
+                f"exige coortes maiores que {FROID_ANALYTICS_MIN_K}. Refine para uma "
+                "coorte maior ou use apenas a leitura qualitativa da sessão atual."
             ),
             engine_used=f"FROID Explica Analytics - {sql_engine}",
             citations=["Data Mart Populacional Anonimizado"],
@@ -2038,6 +2076,16 @@ def _reports_for_patient_session(patient_session: dict) -> list[dict]:
     return reports
 
 
+def _privacy_export_report(report: dict) -> dict:
+    """Return immediate portable results without free clinical text or third-party data."""
+    allowed_keys = (
+        "id", "sessionId", "createdAt", "durationSeconds", "patient",
+        "baseline", "sessionAverage", "metricsAnalysis", "metricsAnalysisError",
+        "transcriptRetention",
+    )
+    return {key: report.get(key) for key in allowed_keys if key in report}
+
+
 def _safe_float(value, default: float = 0.0) -> float:
     try:
         return float(value)
@@ -2069,13 +2117,78 @@ def _safe_bool(value, default: bool = False) -> bool:
 
 
 def _anonymous_session_hash(report: dict) -> str:
-    raw = f"{report.get('sessionId') or report.get('session_id') or ''}:{report.get('createdAt') or ''}"
-    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+    if not FROID_DATAMART_PSEUDONYM_KEY:
+        raise RuntimeError("FROID_DATAMART_PSEUDONYM_KEY is required")
+    session_id = str(report.get("sessionId") or report.get("session_id") or "").strip()
+    if not session_id:
+        raise ValueError("Data-FROID requires a technical session identifier")
+    raw = f"{session_id}:{report.get('createdAt') or ''}"
+    return hmac.new(
+        FROID_DATAMART_PSEUDONYM_KEY.encode("utf-8"),
+        raw.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
 
 
 def _anonymous_cut_hash(session_hash: str, cut_index: int, start_second: int, end_second: int) -> str:
     raw = f"{session_hash}:{cut_index}:{start_second}:{end_second}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _anonymous_category(value: Any, default: str = "nao_classificado") -> str:
+    """Keep taxonomy labels while rejecting text that can carry literal speech or PII."""
+    text = re.sub(r"\s+", " ", str(value or "").strip().lower())
+    if not text:
+        return default
+    if len(text) > 80 or len(text.split()) > 6:
+        return default
+    pii_patterns = (
+        r"@", r"https?://", r"\b\d{3}\.\d{3}\.\d{3}-\d{2}\b",
+        r"\b\+?\d[\d\s().-]{7,}\d\b", r"\b\d{2}/\d{2}/\d{4}\b",
+    )
+    if any(re.search(pattern, text, flags=re.IGNORECASE) for pattern in pii_patterns):
+        return default
+    ascii_text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
+    normalized = re.sub(r"[^a-z0-9]+", "_", ascii_text).strip("_")
+    safe_tokens = {
+        "a", "ao", "da", "das", "de", "do", "dos", "e", "em", "na", "nas", "no", "nos",
+        "unknown", "nao", "informada", "informado", "apurada", "apurado", "classificado",
+        "automatico", "baseline", "cut", "fim", "sessao", "seguimento", "inicial", "remota", "presencial",
+        "ansiedade", "depressao", "estresse", "trauma", "dissociacao", "mania", "ativacao", "regulacao",
+        "emocional", "estabilidade", "instabilidade", "neutro", "positivo", "negativo", "triste", "alegre",
+        "raiva", "medo", "culpa", "vergonha", "luto", "relacionamento", "familia", "trabalho", "sono",
+        "saude", "dor", "conflito", "mudanca", "perda", "autocuidado", "acolhimento", "silencio",
+        "terapeutico", "grounding", "psicoeducacao", "reestruturacao", "cognitiva", "validacao", "pergunta",
+        "aberta", "orientacao", "pratica", "confrontacao", "encerramento", "sintese", "intervencao", "geral",
+        "melhora", "aumento", "resposta", "coerente", "incoerente", "estavel", "crescente", "decrescente",
+        "feminino", "masculino", "nao_binario", "binario", "online", "hibrida", "boa", "regular", "baixa",
+    }
+    tokens = [token for token in normalized.split("_") if token and not token.isdigit()]
+    if not tokens or any(token not in safe_tokens for token in tokens):
+        return default
+    return normalized[:80] or default
+
+
+def _anonymous_age_bucket(value: Any) -> str:
+    text = str(value or "").strip().lower().replace(" ", "")
+    if re.fullmatch(r"\d{1,3}[-_]\d{1,3}", text):
+        return text.replace("-", "_")
+    return "unknown"
+
+
+def _safe_technical_id(value: Any, default: str, max_chars: int = 120) -> str:
+    text = str(value or "").strip()
+    return text[:max_chars] if re.fullmatch(r"[A-Za-z0-9._:/+-]{1,120}", text) else default
+
+
+def _anonymous_category_list(value: Any, limit: int = 20) -> list[str]:
+    raw_items = value if isinstance(value, list) else []
+    categories = []
+    for item in raw_items[:limit]:
+        category = _anonymous_category(item, "")
+        if category and category not in categories:
+            categories.append(category)
+    return categories
 
 
 def _ensure_duckdb_column(conn, table: str, column: str, definition: str) -> None:
@@ -2179,25 +2292,27 @@ def _cut_confidence(cut: dict) -> float:
 
 
 def _append_anonymous_datamart_row(report: dict) -> None:
+    conn = None
+    transaction_started = False
+    session_hash = ""
     try:
         import duckdb
 
         context = _session_context(report)
-        consent_value = None
-        for source, key in (
-            (context, "consent_anonymous_research"),
-            (context, "consentAnonymousResearch"),
-            (report, "consentAnonymousResearch"),
-        ):
-            if key in source:
-                consent_value = source.get(key)
-                break
-        if not _safe_bool(consent_value, False):
-            return
-
-        os.makedirs(os.path.dirname(FROID_DUCKDB_PATH), exist_ok=True)
+        os.makedirs(os.path.dirname(FROID_DUCKDB_PATH) or ".", exist_ok=True)
         conn = duckdb.connect(database=FROID_DUCKDB_PATH, read_only=False)
         session_hash = _anonymous_session_hash(report)
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS privacy_ingestion_audit (
+                session_hash VARCHAR,
+                accepted BOOLEAN,
+                reason VARCHAR,
+                checked_at VARCHAR,
+                pipeline_version VARCHAR
+            )
+            """
+        )
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS anonymous_sessions (
@@ -2261,7 +2376,8 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 average_mfcc7_delta DOUBLE,
                 average_mfcc9_delta_delta DOUBLE,
                 baseline_spectral_beta DOUBLE,
-                baseline_spectral_gamma DOUBLE
+                baseline_spectral_gamma DOUBLE,
+                ingestion_basis VARCHAR
             )
             """
         )
@@ -2323,6 +2439,7 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 "average_mfcc9_delta_delta": "DOUBLE",
                 "baseline_spectral_beta": "DOUBLE",
                 "baseline_spectral_gamma": "DOUBLE",
+                "ingestion_basis": "VARCHAR",
             },
         )
         conn.execute(
@@ -2484,6 +2601,8 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 "media_loss_events": "INTEGER",
             },
         )
+        conn.execute("BEGIN TRANSACTION")
+        transaction_started = True
         average = report.get("sessionAverage") or {}
         baseline = report.get("baseline") or {}
         session_summary = report.get("sessionSummary") or {}
@@ -2501,8 +2620,11 @@ def _append_anonymous_datamart_row(report: dict) -> None:
         confidence_score = (
             sum(cuts_confidence) / len(cuts_confidence) if cuts_confidence else 0.0
         )
-        audio_quality = str(context.get("audio_quality") or context.get("audioQuality") or "nao_informada")
-        consent_research = True
+        audio_quality = _anonymous_category(
+            context.get("audio_quality") or context.get("audioQuality") or "nao_informada",
+            "nao_informada",
+        )
+        consent_research = False
         conn.execute("DELETE FROM anonymous_session_cuts WHERE session_hash = ?", [session_hash])
         try:
             conn.execute("DELETE FROM anonymous_sessions WHERE session_hash = ?", [session_hash])
@@ -2524,8 +2646,8 @@ def _append_anonymous_datamart_row(report: dict) -> None:
             """,
             [
                 session_hash,
-                _safe_str(context.get("age_bucket") or context.get("ageBucket") or "unknown", 64),
-                _safe_str(context.get("gender") or "unknown", 64),
+                _anonymous_age_bucket(context.get("age_bucket") or context.get("ageBucket")),
+                _anonymous_category(context.get("gender") or "unknown", "unknown"),
                 _safe_float(average.get("ipmAvg")),
                 _safe_int(dominant_zone),
                 _safe_float(vocal_tension),
@@ -2533,27 +2655,27 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 _safe_int(report.get("durationSeconds")),
                 "anonymous_datamart_v2",
                 _safe_str(report.get("createdAt") or datetime.now(timezone.utc).isoformat(), 80),
-                _safe_str(context.get("session_modality") or context.get("sessionModality") or "unknown", 80),
-                _safe_str(context.get("session_kind") or context.get("sessionKind") or "seguimento", 80),
-                _safe_str(context.get("treatment_phase") or context.get("treatmentPhase") or "nao_informada", 80),
+                _anonymous_category(context.get("session_modality") or context.get("sessionModality") or "unknown", "unknown"),
+                _anonymous_category(context.get("session_kind") or context.get("sessionKind") or "seguimento", "seguimento"),
+                _anonymous_category(context.get("treatment_phase") or context.get("treatmentPhase") or "nao_informada", "nao_informada"),
                 _safe_int(context.get("session_ordinal") or context.get("sessionOrdinal")),
                 _safe_float(context.get("interval_since_previous_days") or context.get("intervalSincePreviousDays")),
                 _safe_float(baseline.get("ipmAvg")),
                 _safe_float(baseline.get("idmAvg")),
                 _safe_int(baseline.get("dominantZone")),
-                _safe_str(baseline.get("emotionalTone") or "", 80),
+                _anonymous_category(baseline.get("emotionalTone") or ""),
                 _safe_float(baseline.get("wordsPerMinute")),
                 _safe_float(average.get("idmAvg")),
                 _safe_float(average.get("wordsPerMinute")),
                 _safe_int(average.get("dissonanceCount")),
                 len(ten_minute_cuts),
                 len(report.get("clinicalNotes") or []),
-                _safe_str(session_summary.get("theme") or average.get("theme") or "", 180),
+                _anonymous_category(session_summary.get("theme") or average.get("theme") or ""),
                 "",
-                _safe_str(context.get("stt_model") or context.get("sttModel") or OPENAI_TRANSCRIBE_MODEL, 120),
-                _safe_str(context.get("llm_model") or context.get("llmModel") or FROID_EXPLICA_MODEL, 120),
-                _safe_str(context.get("algorithm_version") or context.get("algorithmVersion") or FROID_ALGORITHM_VERSION, 80),
-                _safe_str(audio_quality, 80),
+                _safe_technical_id(context.get("stt_model") or context.get("sttModel") or OPENAI_TRANSCRIBE_MODEL, OPENAI_TRANSCRIBE_MODEL),
+                _safe_technical_id(context.get("llm_model") or context.get("llmModel") or FROID_EXPLICA_MODEL, FROID_EXPLICA_MODEL),
+                _safe_technical_id(context.get("algorithm_version") or context.get("algorithmVersion") or FROID_ALGORITHM_VERSION, FROID_ALGORITHM_VERSION, 80),
+                audio_quality,
                 _safe_int(context.get("media_interruptions") or context.get("mediaInterruptions")),
                 _safe_float(confidence_score),
                 consent_research,
@@ -2577,7 +2699,14 @@ def _append_anonymous_datamart_row(report: dict) -> None:
             WHERE session_hash = ?
             """,
             [
-                _safe_str(context.get("session_type") or context.get("sessionType") or context.get("session_kind") or context.get("sessionKind"), 80),
+                _anonymous_category(
+                    context.get("session_type")
+                    or context.get("sessionType")
+                    or context.get("session_kind")
+                    or context.get("sessionKind")
+                    or "seguimento",
+                    "seguimento",
+                ),
                 _safe_int(context.get("previous_sessions_count") or context.get("previousSessionsCount")),
                 _safe_float(context.get("delta_ipm_from_session_baseline") or context.get("deltaIpmFromSessionBaseline")),
                 _safe_float(context.get("delta_idm_from_session_baseline") or context.get("deltaIdmFromSessionBaseline")),
@@ -2585,17 +2714,25 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 _safe_float(context.get("delta_idm_vs_last3") or context.get("deltaIdmVsLast3")),
                 _safe_float(context.get("delta_ipm_vs_historical") or context.get("deltaIpmVsHistorical")),
                 _safe_float(context.get("delta_idm_vs_historical") or context.get("deltaIdmVsHistorical")),
-                _safe_str(context.get("longitudinal_trend") or context.get("longitudinalTrend") or "nao_apurado", 80),
-                _safe_str(context.get("emotional_stability") or context.get("emotionalStability") or "nao_apurada", 80),
-                _safe_str(json.dumps(context.get("recurring_themes") or context.get("recurringThemes") or [], ensure_ascii=False), 1200),
-                _safe_str(json.dumps(context.get("recurring_zones") or context.get("recurringZones") or [], ensure_ascii=False), 1200),
-                _safe_str(json.dumps(context.get("recurring_risks") or context.get("recurringRisks") or [], ensure_ascii=False), 1200),
-                _safe_str(context.get("metrics_version") or context.get("metricsVersion") or "froid-metrics-v3", 80),
-                _safe_str(context.get("weights_version") or context.get("weightsVersion") or "froid-weights-v1", 80),
-                _safe_str(context.get("privacy_tier") or context.get("privacyTier") or "anonymous_research_datamart", 120),
-                _safe_bool(context.get("pii_excluded") or context.get("piiExcluded"), True),
-                _safe_bool(context.get("raw_audio_retained") or context.get("rawAudioRetained"), False),
-                _safe_bool(context.get("literal_transcript_retained") or context.get("literalTranscriptRetained"), False),
+                _anonymous_category(context.get("longitudinal_trend") or context.get("longitudinalTrend") or "nao_apurado", "nao_apurado"),
+                _anonymous_category(context.get("emotional_stability") or context.get("emotionalStability") or "nao_apurada", "nao_apurada"),
+                _safe_str(json.dumps(_anonymous_category_list(context.get("recurring_themes") or context.get("recurringThemes") or []), ensure_ascii=False), 1200),
+                _safe_str(json.dumps(_anonymous_category_list(context.get("recurring_zones") or context.get("recurringZones") or []), ensure_ascii=False), 1200),
+                _safe_str(json.dumps(_anonymous_category_list(context.get("recurring_risks") or context.get("recurringRisks") or []), ensure_ascii=False), 1200),
+                _safe_technical_id(
+                    context.get("metrics_version") or context.get("metricsVersion") or "froid-metrics-v3",
+                    "froid-metrics-v3",
+                    80,
+                ),
+                _safe_technical_id(
+                    context.get("weights_version") or context.get("weightsVersion") or "froid-weights-v1",
+                    "froid-weights-v1",
+                    80,
+                ),
+                "anonymous_research_datamart",
+                True,
+                False,
+                False,
                 _safe_int(context.get("media_loss_events") or context.get("mediaLossEvents") or context.get("media_interruptions") or context.get("mediaInterruptions")),
                 _safe_float(average.get("spectralBeta12_30")),
                 _safe_float(average.get("spectralGamma30_80")),
@@ -2606,6 +2743,10 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 _safe_float(baseline.get("spectralGamma30_80")),
                 session_hash,
             ],
+        )
+        conn.execute(
+            "UPDATE anonymous_sessions SET ingestion_basis='post_anonymization' WHERE session_hash=?",
+            [session_hash],
         )
         previous_cut: Optional[dict] = None
         for index, cut in enumerate(ten_minute_cuts):
@@ -2641,17 +2782,17 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 maybe_cut_context = (context.get("cuts") or [])[index]
                 if isinstance(maybe_cut_context, dict):
                     cut_context = maybe_cut_context
-            intervention_category = _safe_str(
+            intervention_category = _anonymous_category(
                 cut_context.get("intervention_category")
                 or cut_context.get("interventionCategory")
                 or _infer_intervention_category(professional_text),
-                120,
+                "intervencao_geral",
             )
-            patient_response = _safe_str(
+            patient_response = _anonymous_category(
                 cut_context.get("patient_response")
                 or cut_context.get("patientResponse")
                 or _infer_patient_response(cut, previous_cut, baseline),
-                120,
+                "estabilidade",
             )
             baseline_dissonance = _safe_float(baseline.get("dissonanceCount"))
             previous_ipm = _safe_float((previous_cut or {}).get("ipmAvg"), _safe_float(baseline.get("ipmAvg")))
@@ -2680,18 +2821,18 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 [
                     session_hash,
                     index,
-                    str(cut.get("label") or ""),
+                    _anonymous_category(cut.get("label") or "", "cut"),
                     start_second,
                     end_second,
                     _safe_int(cut.get("sampleCount")),
                     _safe_float(cut.get("ipmAvg")),
                     _safe_float(cut.get("idmAvg")),
                     _safe_int(cut.get("dominantZone")),
-                    str(cut.get("dominantTheme") or ""),
-                    str(cut.get("coherenceStatus") or ""),
-                    str(cut.get("emotionalTone") or ""),
+                    _anonymous_category(cut.get("dominantTheme") or ""),
+                    _anonymous_category(cut.get("coherenceStatus") or ""),
+                    _anonymous_category(cut.get("emotionalTone") or ""),
                     _safe_float(cut.get("wordsPerMinute")),
-                    str(cut.get("theme") or ""),
+                    _anonymous_category(cut.get("theme") or ""),
                     _safe_int(cut.get("dissonanceCount")),
                     _safe_float(cut.get("mfcc7")),
                     _safe_float(cut.get("mfcc9")),
@@ -2713,10 +2854,10 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                     _safe_float(cut.get("mfcc9Delta")),
                     _safe_float(cut.get("mfcc7DeltaDelta")),
                     _safe_float(cut.get("mfcc9DeltaDelta")),
-                    _safe_str(cut_context.get("cut_trigger") or cut_context.get("cutTrigger") or "automatico_10min", 80),
-                    _limit_words(_safe_str(summary.get("summary") or cut.get("theme") or "", 3000), 120),
-                    _limit_words(_safe_str(cut_context.get("patient_summary_anon") or cut_context.get("patientSummaryAnon") or patient_text, 3000), 120),
-                    _limit_words(_safe_str(cut_context.get("professional_summary_anon") or cut_context.get("professionalSummaryAnon") or professional_text, 3000), 120),
+                    _anonymous_category(cut_context.get("cut_trigger") or cut_context.get("cutTrigger") or "automatico", "automatico"),
+                    "",
+                    "",
+                    "",
                     patient_word_count,
                     professional_word_count,
                     intervention_category,
@@ -2729,10 +2870,10 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                     _safe_float(cut.get("dissonanceCount")) - previous_dissonance,
                     _safe_float((report.get("metricsAnalysis") or {}).get("dashboard", {}).get("max_risk")),
                     _cut_confidence(cut),
-                    _safe_str(cut_context.get("stt_model") or cut_context.get("sttModel") or OPENAI_TRANSCRIBE_MODEL, 120),
-                    _safe_str(cut_context.get("llm_model") or cut_context.get("llmModel") or FROID_EXPLICA_MODEL, 120),
-                    _safe_str(cut_context.get("algorithm_version") or cut_context.get("algorithmVersion") or FROID_ALGORITHM_VERSION, 80),
-                    _safe_str(cut_context.get("audio_quality") or cut_context.get("audioQuality") or audio_quality, 80),
+                    _safe_technical_id(cut_context.get("stt_model") or cut_context.get("sttModel") or OPENAI_TRANSCRIBE_MODEL, OPENAI_TRANSCRIBE_MODEL),
+                    _safe_technical_id(cut_context.get("llm_model") or cut_context.get("llmModel") or FROID_EXPLICA_MODEL, FROID_EXPLICA_MODEL),
+                    _safe_technical_id(cut_context.get("algorithm_version") or cut_context.get("algorithmVersion") or FROID_ALGORITHM_VERSION, FROID_ALGORITHM_VERSION, 80),
+                    _anonymous_category(cut_context.get("audio_quality") or cut_context.get("audioQuality") or audio_quality, "nao_informada"),
                 ],
             )
             biomarker_snapshot = {
@@ -2771,14 +2912,10 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 "dna_somatoaffective_dissonance": cut.get("dnaSomatoaffectiveDissonance"),
                 "dna_subharmonic_index": cut.get("dnaSubharmonicIndex"),
             }
-            previous_context_label = (
-                f"cut_{index - 1}:{previous_cut.get('theme') or previous_cut.get('dominantTheme') or 'sem_tema'}"
-                if previous_cut
-                else "baseline"
-            )
+            previous_context_label = f"cut_{index - 1}" if previous_cut else "baseline"
             next_cut = ten_minute_cuts[index + 1] if index + 1 < len(ten_minute_cuts) else None
             next_context_label = (
-                f"cut_{index + 1}:{next_cut.get('theme') or next_cut.get('dominantTheme') or 'sem_tema'}"
+                f"cut_{index + 1}"
                 if isinstance(next_cut, dict)
                 else "fim_sessao"
             )
@@ -2786,18 +2923,18 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 "schema": "anonymous_cut_context_v1",
                 "cut_hash": cut_hash,
                 "cut_index": index,
-                "cut_label": str(cut.get("label") or ""),
+                "cut_label": _anonymous_category(cut.get("label") or "", "cut"),
                 "time": {
                     "start_second": start_second,
                     "end_second": end_second,
                     "duration_seconds": duration_seconds,
                     "relative_position": relative_position,
-                    "trigger": _safe_str(cut_context.get("cut_trigger") or cut_context.get("cutTrigger") or "automatico_10min", 80),
+                    "trigger": _anonymous_category(cut_context.get("cut_trigger") or cut_context.get("cutTrigger") or "automatico", "automatico"),
                 },
                 "semantic": {
-                    "theme": cut.get("theme") or "",
-                    "theme_predominant": cut_context.get("theme_predominant") or cut_context.get("themePredominant") or cut.get("theme") or "",
-                    "coherence_status": cut.get("coherenceStatus") or "",
+                    "theme": _anonymous_category(cut.get("theme") or ""),
+                    "theme_predominant": _anonymous_category(cut_context.get("theme_predominant") or cut_context.get("themePredominant") or cut.get("theme") or ""),
+                    "coherence_status": _anonymous_category(cut.get("coherenceStatus") or ""),
                     "patient_word_count": patient_word_count,
                     "professional_word_count": professional_word_count,
                     "speech_density": speech_density,
@@ -2806,16 +2943,16 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 "intervention": {
                     "category": intervention_category,
                     "patient_response": patient_response,
-                    "response_ipm_direction": cut_context.get("response_ipm_direction") or cut_context.get("responseIpmDirection") or "nao_apurado",
-                    "response_idm_direction": cut_context.get("response_idm_direction") or cut_context.get("responseIdmDirection") or "nao_apurado",
-                    "response_dissonance_direction": cut_context.get("response_dissonance_direction") or cut_context.get("responseDissonanceDirection") or "nao_apurado",
+                    "response_ipm_direction": _anonymous_category(cut_context.get("response_ipm_direction") or cut_context.get("responseIpmDirection") or "nao_apurado", "nao_apurado"),
+                    "response_idm_direction": _anonymous_category(cut_context.get("response_idm_direction") or cut_context.get("responseIdmDirection") or "nao_apurado", "nao_apurado"),
+                    "response_dissonance_direction": _anonymous_category(cut_context.get("response_dissonance_direction") or cut_context.get("responseDissonanceDirection") or "nao_apurado", "nao_apurado"),
                 },
                 "metrics": {
                     "ipm_avg": cut.get("ipmAvg"),
                     "idm_avg": cut.get("idmAvg"),
                     "dominant_zone": cut.get("dominantZone"),
-                    "dominant_theme": cut.get("dominantTheme"),
-                    "emotional_tone": cut.get("emotionalTone"),
+                    "dominant_theme": _anonymous_category(cut.get("dominantTheme") or ""),
+                    "emotional_tone": _anonymous_category(cut.get("emotionalTone") or ""),
                     "words_per_minute": cut.get("wordsPerMinute"),
                     "dissonance_count": cut.get("dissonanceCount"),
                     "jitter_proxy_index": cut.get("jitter"),
@@ -2851,11 +2988,11 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                     "next_cut_context": next_context_label,
                 },
                 "quality": {
-                    "audio_quality": _safe_str(cut_context.get("audio_quality") or cut_context.get("audioQuality") or audio_quality, 80),
+                    "audio_quality": _anonymous_category(cut_context.get("audio_quality") or cut_context.get("audioQuality") or audio_quality, "nao_informada"),
                     "media_loss_events": _safe_int(cut_context.get("media_loss_events") or cut_context.get("mediaLossEvents") or context.get("media_loss_events") or context.get("mediaLossEvents")),
-                    "stt_model": _safe_str(cut_context.get("stt_model") or cut_context.get("sttModel") or OPENAI_TRANSCRIBE_MODEL, 120),
-                    "llm_model": _safe_str(cut_context.get("llm_model") or cut_context.get("llmModel") or FROID_EXPLICA_MODEL, 120),
-                    "algorithm_version": _safe_str(cut_context.get("algorithm_version") or cut_context.get("algorithmVersion") or FROID_ALGORITHM_VERSION, 80),
+                    "stt_model": _safe_technical_id(cut_context.get("stt_model") or cut_context.get("sttModel") or OPENAI_TRANSCRIBE_MODEL, OPENAI_TRANSCRIBE_MODEL),
+                    "llm_model": _safe_technical_id(cut_context.get("llm_model") or cut_context.get("llmModel") or FROID_EXPLICA_MODEL, FROID_EXPLICA_MODEL),
+                    "algorithm_version": _safe_technical_id(cut_context.get("algorithm_version") or cut_context.get("algorithmVersion") or FROID_ALGORITHM_VERSION, FROID_ALGORITHM_VERSION, 80),
                 },
             }
             conn.execute(
@@ -2882,16 +3019,16 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                     relative_position,
                     speech_density,
                     patient_professional_word_ratio,
-                    _safe_str(cut_context.get("theme_predominant") or cut_context.get("themePredominant") or cut.get("theme") or "", 180),
-                    _safe_str(cut_context.get("relevant_dissonances") or cut_context.get("relevantDissonances") or "", 500),
+                    _anonymous_category(cut_context.get("theme_predominant") or cut_context.get("themePredominant") or cut.get("theme") or ""),
+                    "",
                     _safe_float(cut_context.get("aggregated_clinical_risk") or cut_context.get("aggregatedClinicalRisk") or (report.get("metricsAnalysis") or {}).get("dashboard", {}).get("max_risk")),
                     _safe_float(cut_context.get("ipm_delta_after_intervention") or cut_context.get("ipmDeltaAfterIntervention")),
                     _safe_float(cut_context.get("idm_delta_after_intervention") or cut_context.get("idmDeltaAfterIntervention")),
                     _safe_float(cut_context.get("dissonance_delta_after_intervention") or cut_context.get("dissonanceDeltaAfterIntervention")),
-                    _safe_str(cut_context.get("dominant_zone_shift") or cut_context.get("dominantZoneShift") or "nao_apurado", 80),
-                    _safe_str(cut_context.get("emotional_tone_shift") or cut_context.get("emotionalToneShift") or "nao_apurado", 80),
-                    _safe_str(cut_context.get("cadence_shift") or cut_context.get("cadenceShift") or "nao_apurado", 80),
-                    _safe_str(cut_context.get("semantic_coherence_shift") or cut_context.get("semanticCoherenceShift") or "nao_apurado", 80),
+                    _anonymous_category(cut_context.get("dominant_zone_shift") or cut_context.get("dominantZoneShift") or "nao_apurado", "nao_apurado"),
+                    _anonymous_category(cut_context.get("emotional_tone_shift") or cut_context.get("emotionalToneShift") or "nao_apurado", "nao_apurado"),
+                    _anonymous_category(cut_context.get("cadence_shift") or cut_context.get("cadenceShift") or "nao_apurado", "nao_apurado"),
+                    _anonymous_category(cut_context.get("semantic_coherence_shift") or cut_context.get("semanticCoherenceShift") or "nao_apurado", "nao_apurado"),
                     _safe_str(json.dumps(biomarker_snapshot, ensure_ascii=False, sort_keys=True), 1200),
                     _safe_str(json.dumps(subharmonic_snapshot, ensure_ascii=False, sort_keys=True), 1200),
                     _safe_str(json.dumps(cut_context_vector, ensure_ascii=False, sort_keys=True), 6000),
@@ -2901,20 +3038,49 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                     "internal_proxy_0_1_envelope_cv",
                     _safe_str(previous_context_label, 240),
                     _safe_str(next_context_label, 240),
-                    _safe_str(cut_context.get("response_ipm_direction") or cut_context.get("responseIpmDirection") or "nao_apurado", 80),
-                    _safe_str(cut_context.get("response_idm_direction") or cut_context.get("responseIdmDirection") or "nao_apurado", 80),
-                    _safe_str(cut_context.get("response_dissonance_direction") or cut_context.get("responseDissonanceDirection") or "nao_apurado", 80),
-                    _safe_str(cut_context.get("metrics_version") or cut_context.get("metricsVersion") or context.get("metrics_version") or context.get("metricsVersion") or "froid-metrics-v3", 80),
-                    _safe_str(cut_context.get("weights_version") or cut_context.get("weightsVersion") or context.get("weights_version") or context.get("weightsVersion") or "froid-weights-v1", 80),
+                    _anonymous_category(cut_context.get("response_ipm_direction") or cut_context.get("responseIpmDirection") or "nao_apurado", "nao_apurado"),
+                    _anonymous_category(cut_context.get("response_idm_direction") or cut_context.get("responseIdmDirection") or "nao_apurado", "nao_apurado"),
+                    _anonymous_category(cut_context.get("response_dissonance_direction") or cut_context.get("responseDissonanceDirection") or "nao_apurado", "nao_apurado"),
+                    _safe_technical_id(cut_context.get("metrics_version") or cut_context.get("metricsVersion") or context.get("metrics_version") or context.get("metricsVersion") or "froid-metrics-v3", "froid-metrics-v3", 80),
+                    _safe_technical_id(cut_context.get("weights_version") or cut_context.get("weightsVersion") or context.get("weights_version") or context.get("weightsVersion") or "froid-weights-v1", "froid-weights-v1", 80),
                     _safe_int(cut_context.get("media_loss_events") or cut_context.get("mediaLossEvents") or context.get("media_loss_events") or context.get("mediaLossEvents")),
                     session_hash,
                     index,
                 ],
             )
             previous_cut = cut
+        conn.execute(
+            "DELETE FROM privacy_ingestion_audit WHERE session_hash=?",
+            [session_hash],
+        )
+        conn.execute(
+            "INSERT INTO privacy_ingestion_audit VALUES (?, true, 'approved', ?, 'data-froid-privacy-v3')",
+            [session_hash, datetime.now(timezone.utc).isoformat()],
+        )
+        conn.execute("COMMIT")
+        transaction_started = False
         conn.close()
-    except Exception:
-        pass
+    except Exception as exc:
+        try:
+            if conn is not None:
+                if transaction_started:
+                    conn.execute("ROLLBACK")
+                conn.close()
+            if session_hash and os.path.exists(FROID_DUCKDB_PATH):
+                import duckdb
+                audit_connection = duckdb.connect(database=FROID_DUCKDB_PATH, read_only=False)
+                audit_connection.execute(
+                    "DELETE FROM privacy_ingestion_audit WHERE session_hash=?",
+                    [session_hash],
+                )
+                audit_connection.execute(
+                    "INSERT INTO privacy_ingestion_audit VALUES (?, false, ?, ?, 'data-froid-privacy-v3')",
+                    [session_hash, type(exc).__name__, datetime.now(timezone.utc).isoformat()],
+                )
+                audit_connection.close()
+        except Exception:
+            LOGGER.exception("Unable to record Data-FROID quarantine event")
+        LOGGER.exception("Data-FROID anonymization gate rejected session")
 
 
 def _attach_metrics_analysis(report: dict) -> dict:
@@ -3179,6 +3345,8 @@ def _issue_patient_portal_session(patient: dict) -> dict:
         **_patient_public_identity(patient),
         "role": "patient",
         "issued_at": _utc_now_iso(),
+        "_session_expires_at": datetime.now(timezone.utc).timestamp()
+        + FROID_PATIENT_SESSION_TTL_SECONDS,
     }
     PATIENT_PORTAL_SESSIONS[token] = patient_session
     return {"token": token, "patient": _patient_public_identity(patient_session)}
@@ -3837,7 +4005,13 @@ def _current_patient_from_request(request: Request) -> Optional[dict]:
     )
     if not token:
         return None
-    return PATIENT_PORTAL_SESSIONS.get(token)
+    patient_session = PATIENT_PORTAL_SESSIONS.get(token)
+    if not isinstance(patient_session, dict):
+        return None
+    if float(patient_session.get("_session_expires_at") or 0) <= datetime.now(timezone.utc).timestamp():
+        PATIENT_PORTAL_SESSIONS.pop(token, None)
+        return None
+    return patient_session
 
 
 def _require_current_patient(request: Request) -> dict:
@@ -3845,6 +4019,68 @@ def _require_current_patient(request: Request) -> dict:
     if not patient_session:
         raise HTTPException(status_code=401, detail="paciente não autenticado")
     return patient_session
+
+
+def _protect_data_subject_details(details: str) -> dict:
+    clean_details = str(details or "").strip()
+    if not clean_details:
+        return {}
+    if not CLINICAL_TEXT_CIPHER:
+        raise HTTPException(
+            status_code=503,
+            detail="proteção dos detalhes da solicitação temporariamente indisponível",
+        )
+    return CLINICAL_TEXT_CIPHER.protect(
+        {"details": clean_details}, "details", "details_encrypted"
+    )
+
+
+def _reveal_data_subject_request(item: dict) -> dict:
+    public_item = dict(item or {})
+    payload = public_item.get("request_payload")
+    payload = dict(payload) if isinstance(payload, dict) else {}
+    if payload.get("details_encrypted") and CLINICAL_TEXT_CIPHER:
+        try:
+            payload = CLINICAL_TEXT_CIPHER.reveal(
+                payload, "details", "details_encrypted"
+            )
+        except TokenEncryptionError:
+            payload = {"details": "", "details_locked": True}
+    else:
+        payload.pop("details_encrypted", None)
+    public_item["request_payload"] = payload
+    encrypted_response = str(public_item.get("response_summary") or "")
+    if encrypted_response:
+        if CLINICAL_TEXT_CIPHER:
+            try:
+                response = CLINICAL_TEXT_CIPHER.reveal(
+                    {"response_encrypted": encrypted_response},
+                    "response",
+                    "response_encrypted",
+                )
+                public_item["response_summary"] = response.get("response") or ""
+            except TokenEncryptionError:
+                public_item["response_summary"] = ""
+                public_item["response_locked"] = True
+        else:
+            public_item["response_summary"] = ""
+            public_item["response_locked"] = True
+    return public_item
+
+
+def _protect_data_subject_response(response_summary: str) -> str:
+    clean_response = str(response_summary or "").strip()
+    if not clean_response:
+        return ""
+    if not CLINICAL_TEXT_CIPHER:
+        raise HTTPException(
+            status_code=503,
+            detail="proteção da resposta ao titular temporariamente indisponível",
+        )
+    protected = CLINICAL_TEXT_CIPHER.protect(
+        {"response": clean_response}, "response", "response_encrypted"
+    )
+    return str(protected.get("response_encrypted") or "")
 
 
 def _is_admin_email(email: str) -> bool:
@@ -4368,6 +4604,7 @@ def readiness():
     result = TENANT_STORE.readiness()
     security_checks = {
         "clinical_record_encryption_configured": bool(CLINICAL_TEXT_CIPHER),
+        "datamart_pseudonym_key_configured": bool(FROID_DATAMART_PSEUDONYM_KEY),
         "google_token_encryption_configured": (
             bool(TOKEN_CIPHER) if _calendar_configured() else True
         ),
@@ -4968,7 +5205,7 @@ async def join_patient_session(session_id: str, request: Request):
 
 
 @app.post("/api/patient-auth/login")
-async def patient_portal_login(payload: PatientPortalLoginRequest):
+async def patient_portal_login(payload: PatientPortalLoginRequest, request: Request):
     document = _digits_only(payload.document or "")
     password = str(payload.password or "")
     if not document or not password:
@@ -4976,11 +5213,28 @@ async def patient_portal_login(payload: PatientPortalLoginRequest):
             status_code=400,
             detail="Informe CPF/documento e senha para acessar o portal do paciente",
         )
+    now = datetime.now(timezone.utc).timestamp()
+    remote_reference = request.client.host if request.client else "unknown"
+    attempt_key = hashlib.sha256(
+        f"{remote_reference}:{document}".encode("utf-8")
+    ).hexdigest()
+    recent_attempts = [
+        attempt for attempt in PATIENT_LOGIN_ATTEMPTS.get(attempt_key, [])
+        if attempt >= now - 900
+    ]
+    if len(recent_attempts) >= 5:
+        raise HTTPException(
+            status_code=429,
+            detail="Muitas tentativas. Aguarde 15 minutos antes de tentar novamente.",
+        )
+    recent_attempts.append(now)
+    PATIENT_LOGIN_ATTEMPTS[attempt_key] = recent_attempts
     patient = _find_registered_patient_by_document(document)
     if not patient:
         raise HTTPException(status_code=401, detail="Paciente não localizado com o CPF/documento informado")
     if not _verify_patient_password(patient, password):
         raise HTTPException(status_code=401, detail="CPF/documento ou senha inválido")
+    PATIENT_LOGIN_ATTEMPTS.pop(attempt_key, None)
     return _issue_patient_portal_session(patient)
 
 
@@ -5031,11 +5285,15 @@ async def patient_portal_update_profile(payload: PatientPortalProfileUpdate, req
         raise HTTPException(status_code=404, detail="Cadastro do paciente não encontrado para atualização")
 
     now = _utc_now_iso()
+    requested_document = _digits_only(payload.document or patient.get("document") or "")
+    existing_document_owner = PATIENTS_BY_CONTACT.get(f"document:{requested_document}")
+    if requested_document and existing_document_owner and str(existing_document_owner) != patient_id:
+        raise HTTPException(status_code=409, detail="documento já vinculado a outro cadastro")
     patient.update(
         {
             "name": str(payload.name or patient.get("name") or "").strip(),
             "phone": _digits_only(payload.phone or patient.get("phone") or ""),
-            "document": _digits_only(payload.document or patient.get("document") or ""),
+            "document": requested_document,
             "birth_date": str(payload.birth_date or patient.get("birth_date") or "").strip(),
             "updated_at": now,
         }
@@ -5047,6 +5305,194 @@ async def patient_portal_update_profile(payload: PatientPortalProfileUpdate, req
     patient_session.update(_patient_public_identity(patient))
     _save_identity_state()
     return {"patient": _patient_public_identity(patient)}
+
+
+@app.get("/api/patient-portal/privacy")
+async def patient_portal_privacy_overview(request: Request):
+    patient_session = _require_current_patient(request)
+    patient_id = str(patient_session.get("id") or "")
+    identity_document = _digits_only(patient_session.get("document") or "")
+    if not TENANT_STORE.enabled:
+        raise HTTPException(
+            status_code=503,
+            detail="portal de direitos requer persistência protegida disponível",
+        )
+    scopes = TENANT_STORE.patient_privacy_scopes(patient_id, identity_document)
+    requests = [
+        _reveal_data_subject_request(item)
+        for item in TENANT_STORE.list_patient_data_subject_requests(
+            patient_id, identity_document
+        )
+    ]
+    return {
+        "patient": _patient_public_identity(patient_session),
+        "organizations": scopes,
+        "requests": requests,
+        "rights": sorted(DATA_SUBJECT_REQUEST_TYPES),
+        "processing": {
+            "categories": [
+                "cadastro e autenticação",
+                "áudio e transcrição clínica, quando aplicável",
+                "métricas vocais e multimodais",
+                "relatórios, cortes semânticos e resumos",
+                "segurança, auditoria e prevenção de fraude",
+                "faturamento e gestão de sessões",
+                "Data-FROID após anonimização",
+            ],
+            "automated_decision": False,
+            "clinical_decision_owner": "profissional habilitado",
+            "datamart_rule": "somente dados aprovados pelo gate de anonimização",
+        },
+    }
+
+
+@app.post("/api/patient-portal/privacy/requests", status_code=201)
+async def patient_portal_create_privacy_request(
+    payload: DataSubjectRequestCreate, request: Request
+):
+    patient_session = _require_current_patient(request)
+    request_type = str(payload.request_type or "").strip().lower()
+    if request_type not in DATA_SUBJECT_REQUEST_TYPES:
+        raise HTTPException(status_code=400, detail="direito solicitado não reconhecido")
+    if not TENANT_STORE.enabled:
+        raise HTTPException(
+            status_code=503,
+            detail="portal de direitos requer persistência protegida disponível",
+        )
+    patient_id = str(patient_session.get("id") or "")
+    identity_document = _digits_only(patient_session.get("document") or "")
+    try:
+        created = TENANT_STORE.create_data_subject_requests(
+            legacy_patient_id=patient_id,
+            identity_document=identity_document,
+            request_type=request_type,
+            request_payload=_protect_data_subject_details(payload.details),
+            organization_id=str(payload.organization_id or "").strip(),
+        )
+    except ValueError as exc:
+        status_code = 409 if "transition" in str(exc) else 404
+        raise HTTPException(status_code=status_code, detail=str(exc)) from exc
+    return {
+        "status": "submitted",
+        "requests": [_reveal_data_subject_request(item) for item in created],
+        "total": len(created),
+    }
+
+
+@app.get("/api/patient-portal/privacy/export")
+async def patient_portal_privacy_export(request: Request):
+    patient_session = _require_current_patient(request)
+    patient_id = str(patient_session.get("id") or "")
+    identity_document = _digits_only(patient_session.get("document") or "")
+    reports = _reports_for_patient_session(patient_session)
+    consents = [
+        {
+            "version": item.get("version"),
+            "accepted_at": item.get("accepted_at"),
+            "consent": item.get("consent") or {},
+            "hash": item.get("hash"),
+        }
+        for item in CONSENT_LEDGER
+        if str(item.get("patient_id") or "") == patient_id
+    ]
+    requests = (
+        [
+            _reveal_data_subject_request(item)
+            for item in TENANT_STORE.list_patient_data_subject_requests(
+                patient_id, identity_document
+            )
+        ]
+        if TENANT_STORE.enabled
+        else []
+    )
+    return {
+        "export_version": "FROID-LGPD-export-v1",
+        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "patient": _patient_public_identity(patient_session),
+        "organizations": (
+            TENANT_STORE.patient_privacy_scopes(patient_id, identity_document)
+            if TENANT_STORE.enabled else []
+        ),
+        "consents": consents,
+        "available_session_records": [
+            _privacy_export_report(report) for report in reports
+        ],
+        "privacy_requests": requests,
+        "limitations": [
+            "Transcrições integrais e registros que possam conter dados de terceiros são fornecidos após revisão do pedido de acesso ou portabilidade.",
+            "Registros cuja conservação seja obrigatória podem ser bloqueados em vez de eliminados.",
+        ],
+    }
+
+
+@app.get("/api/organizations/{organization_id}/privacy-requests")
+async def organization_privacy_requests(
+    organization_id: str, request: Request, limit: int = 200
+):
+    context = _require_tenant_management_context(
+        request, organization_id, "privacy.read"
+    )
+    items = TENANT_STORE.list_organization_data_subject_requests(
+        organization_id=organization_id,
+        membership_id=context.membership_id,
+        limit=limit,
+    )
+    _record_tenant_success(
+        context, "privacy.request.list", "data_subject_request"
+    )
+    return {
+        "requests": [_reveal_data_subject_request(item) for item in items],
+        "total": len(items),
+    }
+
+
+@app.patch("/api/organizations/{organization_id}/privacy-requests/{request_id}")
+async def organization_update_privacy_request(
+    organization_id: str,
+    request_id: str,
+    payload: DataSubjectRequestUpdate,
+    request: Request,
+):
+    context = _require_tenant_management_context(
+        request, organization_id, "privacy.manage"
+    )
+    status = str(payload.status or "").strip().lower()
+    if status not in DATA_SUBJECT_REQUEST_STATUSES:
+        raise HTTPException(status_code=400, detail="status de solicitação inválido")
+    if status in {"completed", "denied", "partially_approved"} and not payload.response_summary.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="conclusão ou decisão restritiva exige resposta ao titular",
+        )
+    if status in {"denied", "partially_approved"} and not (
+        payload.legal_basis.strip() or payload.retention_exception.strip()
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="decisão restritiva exige fundamento ou exceção de retenção",
+        )
+    try:
+        updated = TENANT_STORE.update_data_subject_request(
+            organization_id=organization_id,
+            membership_id=context.membership_id,
+            actor_user_id=context.user_id,
+            request_id=request_id,
+            status=status,
+            response_summary=_protect_data_subject_response(payload.response_summary),
+            legal_basis=str(payload.legal_basis or "").strip(),
+            retention_exception=str(payload.retention_exception or "").strip(),
+        )
+    except ValueError as exc:
+        status_code = 409 if "transition" in str(exc) else 404
+        raise HTTPException(status_code=status_code, detail=str(exc)) from exc
+    _record_tenant_success(
+        context,
+        "privacy.request.update",
+        "data_subject_request",
+        request_id,
+        {"status": status},
+    )
+    return {"request": _reveal_data_subject_request(updated)}
 
 
 @app.get("/api/session-events/latest")

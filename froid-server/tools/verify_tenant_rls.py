@@ -47,7 +47,8 @@ def main() -> int:
                 SELECT count(*) FROM pg_class table_entry
                 WHERE table_entry.relname IN (
                     'organizations', 'patients', 'session_reports',
-                    'audit_events', 'organization_memberships'
+                    'audit_events', 'organization_memberships',
+                    'data_subject_requests', 'data_subject_request_events'
                 )
                   AND pg_has_role(current_user, table_entry.relowner, 'MEMBER')
                 """
@@ -77,6 +78,12 @@ def main() -> int:
                 (args.other_organization,),
             ).fetchone()[0]
             checks["cross_organization_reports_hidden"] = cross_reports == 0
+
+            cross_privacy_requests = connection.execute(
+                "SELECT count(*) FROM data_subject_requests WHERE organization_id=%s",
+                (args.other_organization,),
+            ).fetchone()[0]
+            checks["cross_organization_privacy_requests_hidden"] = cross_privacy_requests == 0
 
             connection.execute(
                 "SELECT froid_has_role(ARRAY['owner','administrator','supervisor','professional','auditor']::text[])"

@@ -39,7 +39,7 @@ class Connection:
         if "SELECT version FROM schema_migrations" in normalized:
             return Result([(migration,) for migration in self.migrations])
         if "relrowsecurity" in normalized:
-            return Result([(9,)])
+            return Result([(11,)])
         if "pg_has_role" in normalized:
             return Result([(0,)])
         if "has_function_privilege" in normalized:

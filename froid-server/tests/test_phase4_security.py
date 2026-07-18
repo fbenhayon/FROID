@@ -90,9 +90,12 @@ class Phase4SecurityTests(unittest.TestCase):
         )
         self.assertIn('outcome="denied"', self.main_source)
 
-    def test_anonymous_datamart_is_explicit_opt_in_and_excludes_summary(self):
-        self.assertIn("if not _safe_bool(consent_value, False):", self.main_source)
-        self.assertNotIn("_limit_words(_safe_str(session_summary.get(\"summary\")", self.main_source)
+    def test_anonymous_datamart_requires_anonymization_and_excludes_literal_speech(self):
+        self.assertIn("FROID_DATAMART_PSEUDONYM_KEY", self.main_source)
+        self.assertIn("ingestion_basis='post_anonymization'", self.main_source)
+        self.assertNotIn("patientSummaryAnon\") or patient_text", self.main_source)
+        self.assertNotIn("professionalSummaryAnon\") or professional_text", self.main_source)
+        self.assertIn('"",\n                    "",\n                    "",', self.main_source)
 
     def test_subscription_tables_have_rls_and_idempotency(self):
         self.assertIn("ALTER TABLE organization_subscriptions ENABLE ROW LEVEL SECURITY", self.migration)
