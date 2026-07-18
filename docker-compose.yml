@@ -65,6 +65,9 @@ services:
       - FROID_SHARED_CREDITS_ORGANIZATIONS=${FROID_SHARED_CREDITS_ORGANIZATIONS:-}
     volumes:
       - ./data:/data
+    networks:
+      - default
+      - froid-data
     restart: unless-stopped
     logging:
       driver: local
@@ -102,3 +105,8 @@ volumes:
   caddy_data:
   caddy_config:
   froid_postgres_data:
+
+networks:
+  froid-data:
+    external: true
+    name: ${FROID_DATA_NETWORK:-froid_froid-network}

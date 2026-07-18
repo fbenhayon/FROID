@@ -18,6 +18,7 @@ class Phase4OperationTests(unittest.TestCase):
         cls.full_verify = (ROOT / "ops" / "verify_froid_state_backup.sh").read_text(
             encoding="utf-8"
         )
+        cls.compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
 
     def test_backup_is_atomic_and_validated_before_publish(self):
         self.assertIn(".partial", self.backup)
@@ -56,6 +57,12 @@ class Phase4OperationTests(unittest.TestCase):
         self.assertEqual(self.full_verify.count("pg_restore --list"), 2)
         self.assertIn("application-data.tar.gz", self.full_verify)
         self.assertNotIn("STRIPE_SECRET_KEY", self.full_backup)
+
+    def test_backend_joins_the_external_postgres_network(self):
+        self.assertIn("- froid-data", self.compose)
+        self.assertIn(
+            "name: ${FROID_DATA_NETWORK:-froid_froid-network}", self.compose
+        )
 
 
 if __name__ == "__main__":
