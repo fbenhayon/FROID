@@ -2,24 +2,31 @@
 set -eu
 
 if [ "$#" -ne 1 ]; then
-  printf '%s\n' "Usage: $0 backups/postgres/froid-YYYYMMDDTHHMMSSZ.dump" >&2
+  printf '%s\n' "Usage: $0 /root/froid-backups/.../froid-*.dump" >&2
   exit 2
 fi
 
 postgres_container=${FROID_POSTGRES_CONTAINER:-froid-postgres-1}
+project_root=${FROID_PROJECT_ROOT:-/root/froid-project}
 docker inspect "$postgres_container" >/dev/null
 
-backup_path=$1
+backup_path=$(readlink -f "$1")
+case "$backup_path" in
+  "$project_root"/backups/postgres/*|/root/froid-backups/*) ;;
+  *) printf '%s\n' "FROID backup is outside an allowed root" >&2; exit 2 ;;
+esac
 backup_name=$(basename "$backup_path")
 case "$backup_name" in
-  froid-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]T[0-9][0-9][0-9][0-9][0-9][0-9]Z.dump) ;;
+  froid-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]T[0-9][0-9][0-9][0-9][0-9][0-9]Z.dump|froid-homologacao.dump) ;;
   *) printf '%s\n' "Invalid FROID backup filename" >&2; exit 2 ;;
 esac
 
-backup_path="backups/postgres/$backup_name"
-test -f "$backup_path"
-test -f "${backup_path}.sha256"
-(cd backups/postgres && sha256sum -c "$backup_name.sha256")
+test -s "$backup_path"
+test -s "${backup_path}.sha256"
+expected_sha256=$(awk 'NR==1 {print $1}' "${backup_path}.sha256")
+actual_sha256=$(sha256sum "$backup_path" | awk '{print $1}')
+test -n "$expected_sha256"
+test "$actual_sha256" = "$expected_sha256"
 
 restore_db="froid_restore_verify_$(date -u +%Y%m%d%H%M%S)_$$"
 case "$restore_db" in

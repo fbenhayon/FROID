@@ -41,7 +41,9 @@ class Phase4OperationTests(unittest.TestCase):
         self.assertIn("migration_count <> 7", self.restore)
         self.assertIn("007_multitenant_security_hardening", self.restore)
         self.assertIn("rls_count <> 9", self.restore)
-        self.assertIn("sha256sum -c", self.restore)
+        self.assertIn('actual_sha256=$(sha256sum "$backup_path"', self.restore)
+        self.assertIn("/root/froid-backups/*", self.restore)
+        self.assertIn("froid-homologacao.dump", self.restore)
 
     def test_full_state_backup_is_encrypted_authenticated_and_self_verified(self):
         self.assertIn("FROID_BACKUP_ENCRYPTION_PASSPHRASE", self.full_backup)
