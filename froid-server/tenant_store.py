@@ -55,6 +55,20 @@ def _json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, default=str)
 
 
+def _migration_is_applied(connection, version: str) -> bool:
+    """Return whether a version is recorded without assuming the table exists."""
+    table_exists = connection.execute(
+        "SELECT to_regclass('public.schema_migrations') IS NOT NULL"
+    ).fetchone()
+    if not table_exists or not bool(table_exists[0]):
+        return False
+    recorded = connection.execute(
+        "SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version=%s)",
+        (version,),
+    ).fetchone()
+    return bool(recorded and recorded[0])
+
+
 class TenantStore:
     """Optional, rollback-safe mirror of legacy FROID state in PostgreSQL."""
 
@@ -248,6 +262,8 @@ class TenantStore:
                 conn.execute("SELECT pg_advisory_lock(%s)", (lock_id,))
                 try:
                     for migration_path in migration_paths:
+                        if _migration_is_applied(conn, migration_path.stem):
+                            continue
                         conn.execute(migration_path.read_text(encoding="utf-8"))
                 except Exception:
                     conn.rollback()
