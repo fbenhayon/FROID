@@ -18,6 +18,10 @@ class Phase4OperationTests(unittest.TestCase):
         self.assertIn("pg_restore --list", self.backup)
         self.assertLess(self.backup.index("pg_restore --list"), self.backup.index('mv "$temporary"'))
         self.assertIn("sha256sum", self.backup)
+        self.assertIn(
+            '(cd backups/postgres && sha256sum "$backup_name"',
+            self.backup,
+        )
         self.assertIn('test -s "backups/postgres/$backup_name"\n', self.backup)
         self.assertIn('test -s "backups/postgres/$backup_name.sha256"', self.backup)
 

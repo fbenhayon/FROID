@@ -26,7 +26,7 @@ docker exec "$postgres_container" sh -ceu \
 test -s "$temporary"
 docker exec -i "$postgres_container" pg_restore --list < "$temporary" >/dev/null
 mv "$temporary" "$final"
-sha256sum "$final" > "${final}.sha256"
+(cd backups/postgres && sha256sum "$backup_name" > "${backup_name}.sha256")
 trap - EXIT INT TERM
 
 test -s "backups/postgres/$backup_name"
