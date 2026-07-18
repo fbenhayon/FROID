@@ -4,8 +4,27 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Preços — FROID</title>
-<meta name="description" content="Planos e modelo de créditos por sessão do FROID." />
+<meta name="description" content="Planos FROID PRO, PLUS e MASTER: pacotes de créditos por sessão com análise multimodal, FROID Explica e recursos multiprofissionais." />
 <link rel="stylesheet" href="site-assets/style.css?v=5" />
+<style>
+  .plan-card h3 { margin-bottom:2px; }
+  .plan-tag { font-size:0.78rem; color:var(--froid-azul); font-weight:700; text-transform:uppercase; letter-spacing:0.06em; }
+  .pack { display:flex; align-items:baseline; justify-content:space-between; gap:10px; border:1px solid #334155; border-radius:10px; padding:10px 14px; margin:8px 0; }
+  .pack .qtd { font-weight:700; color:#f8fafc; }
+  .pack .valor { font-weight:800; color:#f8fafc; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .pack .unit { display:block; font-size:0.75rem; font-weight:500; color:var(--froid-cinza); text-align:right; }
+  .plan-list { list-style:none; margin:14px 0 18px; padding:0; }
+  .plan-list li { font-size:0.9rem; padding:3px 0 3px 22px; position:relative; }
+  .plan-list li::before { content:"✓"; position:absolute; left:0; color:#22c55e; font-weight:800; }
+  .hab-wrap { overflow-x:auto; }
+  .hab-table { width:100%; border-collapse:collapse; font-size:0.9rem; min-width:640px; }
+  .hab-table th, .hab-table td { padding:9px 12px; border-bottom:1px solid #334155; text-align:center; }
+  .hab-table td:first-child, .hab-table th:first-child { text-align:left; }
+  .hab-table th { background:#1e293b; color:#f8fafc; font-size:0.82rem; text-transform:uppercase; letter-spacing:0.05em; }
+  .hab-table .ok { color:#22c55e; font-weight:800; }
+  .hab-table .no { color:#64748b; }
+  .hab-table .grp td { background:#0f172a; color:#93c5fd; font-weight:700; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em; }
+</style>
 </head>
 <body>
 
@@ -40,33 +59,152 @@
 <section class="block">
   <div class="container">
     <p class="section-kicker">Planos</p>
-    <h2 class="section-title">Preços por sessão, sem letra miúda</h2>
-    <p class="section-lead">Modelo de créditos por sessão realizada — sem mensalidade obrigatória para começar.</p>
+    <h2 class="section-title">PRO, PLUS e MASTER — créditos por sessão, sem letra miúda</h2>
+    <p class="section-lead">O FROID evoluiu para uma arquitetura multi-organização, preparada para profissionais independentes, clínicas e equipes de saúde mental. Todos os planos oferecem sessões com análise multimodal da fala, métricas vocais, cortes semânticos, relatórios detalhados e apoio do FROID Explica.</p>
+
+    <div class="disclaimer-box" style="margin-bottom:28px;">
+      <strong>Preços de lançamento:</strong> os valores abaixo são desta fase inicial de disponibilidade controlada e <strong>sofrerão atualização em breve</strong>. Contratar agora garante o pacote pelo valor vigente no momento da compra.
+    </div>
 
     <div class="grid-3">
-      <div class="card">
-        <h3>Individual</h3>
-        <p style="font-size:1.8rem; font-weight:800; margin:8px 0;">Sob consulta</p>
-        <p>Para profissionais autônomos. Créditos avulsos por sessão, painel financeiro e relatórios inclusos.</p>
+      <div class="card plan-card">
+        <span class="plan-tag">Prática individual</span>
+        <h3>FROID PRO</h3>
+        <p style="font-size:0.92rem;">Para o profissional que deseja utilizar todas as capacidades clínicas centrais do FROID em sua prática individual.</p>
+        <div class="pack"><span class="qtd">10 sessões</span><span class="valor">R$ 198,00<span class="unit">equivale a R$ 19,80/sessão</span></span></div>
+        <div class="pack"><span class="qtd">25 sessões</span><span class="valor">R$ 470,00<span class="unit">equivale a R$ 18,80/sessão</span></span></div>
+        <ul class="plan-list">
+          <li>1 usuário</li>
+          <li>Layouts Simplificado e Detalhado</li>
+          <li>Vídeo, captura e transcrição da sessão</li>
+          <li>Métricas clínicas e vocais completas</li>
+          <li>Cortes semânticos e resumo da fala</li>
+          <li>FROID Explica e relatório completo</li>
+          <li>Portal do paciente, consentimentos e histórico</li>
+          <li>Integração com Google Agenda</li>
+        </ul>
         <a class="btn btn-solid" href="https://www.froid.com.br/cadastro">Cadastrar no FROID</a>
       </div>
-      <div class="card" style="border-color:var(--froid-azul); box-shadow:0 0 0 2px var(--froid-azul);">
+
+      <div class="card plan-card" style="border-color:var(--froid-azul); box-shadow:0 0 0 2px var(--froid-azul);">
         <span class="badge badge-proprietary">Mais popular</span>
-        <h3>Clínica</h3>
-        <p style="font-size:1.8rem; font-weight:800; margin:8px 0;">Sob consulta</p>
-        <p>Pacote de créditos para equipes, com gestão de múltiplos profissionais e recebíveis centralizados.</p>
-        <a class="btn btn-solid" href="https://www.froid.com.br/cadastro">Falar com vendas</a>
+        <span class="plan-tag">Clínicas e equipes</span>
+        <h3>FROID PLUS</h3>
+        <p style="font-size:0.92rem;">Para clínicas e equipes que precisam compartilhar pacientes, organizar profissionais e trabalhar com supervisão.</p>
+        <div class="pack"><span class="qtd">50 sessões</span><span class="valor">R$ 1.182,00<span class="unit">equivale a R$ 23,64/sessão</span></span></div>
+        <div class="pack"><span class="qtd">100 sessões</span><span class="valor">R$ 2.202,00<span class="unit">equivale a R$ 22,02/sessão</span></span></div>
+        <ul class="plan-list">
+          <li>Tudo do PRO, mais:</li>
+          <li>Até 10 usuários</li>
+          <li>Gestão multiprofissional</li>
+          <li>Papéis: proprietário, administrador, supervisor, profissional e auditor</li>
+          <li>Atribuição controlada de pacientes</li>
+          <li>Supervisão clínica</li>
+          <li>Auditoria avançada</li>
+          <li>Créditos compartilhados pela equipe</li>
+        </ul>
+        <a class="btn btn-solid" href="sobre-contato.html">Falar com a equipe</a>
       </div>
-      <div class="card">
-        <h3>Enterprise</h3>
-        <p style="font-size:1.8rem; font-weight:800; margin:8px 0;">Sob consulta</p>
-        <p>Para redes de clínicas e hospitais — integrações, SLA dedicado e onboarding assistido.</p>
-        <a class="btn btn-ghost" href="sobre-contato.html">Falar com o time</a>
+
+      <div class="card plan-card">
+        <span class="plan-tag">Escala e redes</span>
+        <h3>FROID MASTER</h3>
+        <p style="font-size:0.92rem;">O plano de escala: para redes e operações maiores, com todas as habilidades do FROID habilitadas e acesso prioritário aos novos recursos à medida que são lançados.</p>
+        <div class="pack"><span class="qtd">25 sessões <span style="display:block; font-size:0.75rem; color:var(--froid-cinza); font-weight:500;">pacote de entrada/piloto</span></span><span class="valor">R$ 20,00<span class="unit">valor simbólico de lançamento</span></span></div>
+        <div class="pack" style="border-style:dashed;"><span class="qtd" style="color:var(--froid-cinza);">Pacotes de volume</span><span class="valor" style="color:var(--froid-cinza); font-weight:600;">em breve</span></div>
+        <ul class="plan-list">
+          <li>Tudo do PRO e do PLUS</li>
+          <li>Até 35 usuários</li>
+          <li>Gestão multiprofissional completa</li>
+          <li>Supervisão e auditoria avançada</li>
+          <li>Controle organizacional e carteira compartilhada</li>
+          <li>Todos os layouts, métricas, relatórios e recursos de IA</li>
+          <li>Acesso prioritário a novos recursos</li>
+        </ul>
+        <a class="btn btn-solid" href="sobre-contato.html">Falar com a equipe</a>
       </div>
     </div>
 
-    <div class="disclaimer-box">
-      <strong>Nota de transparência:</strong> os valores finais dependem de volume de sessões e integrações contratadas — por isso não publicamos uma tabela fixa sem contexto. Fale com o time para uma proposta real.
+    <p style="margin-top:20px; font-size:0.88rem; color:var(--froid-cinza); text-align:center;">Valores em reais (BRL). Cobrança em US$, € ou CN¥ disponível no checkout, com valor validado pelo Stripe. Os limites de usuários incluem ativos, convidados e convites pendentes, incluindo o proprietário.</p>
+  </div>
+</section>
+
+<section class="block soft">
+  <div class="container">
+    <p class="section-kicker">Comparação</p>
+    <h2 class="section-title">As habilidades de cada plano</h2>
+    <p class="section-lead">A base clínica é generosa em todos os planos — a diferença está na organização: quantos usuários, quais papéis e que nível de supervisão e auditoria a sua operação precisa.</p>
+
+    <div class="hab-wrap">
+      <table class="hab-table">
+        <thead>
+          <tr><th>Habilidade</th><th>PRO</th><th>PLUS</th><th>MASTER</th></tr>
+        </thead>
+        <tbody>
+          <tr class="grp"><td colspan="4">Sessão e captura</td></tr>
+          <tr><td>Sessão com vídeo</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td>Captura da fala do paciente e do profissional</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td>Transcrição integral da sessão</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td>Cortes semânticos temporais</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td>Resumo da fala por IA</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td>FROID Explica</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td>Layout Simplificado</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td>Layout Detalhado</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td>Relatório completo da sessão</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr class="grp"><td colspan="4">Métricas e indicadores</td></tr>
+          <tr><td>IPM e IDM</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td>Zonas emocionais e tom predominante</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td>Palavras por minuto e dissonâncias</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td>Bandas neuroacústicas</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td>Sub-harmônicos</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td>MFCC7 × MFCC9</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td>Jitter e Shimmer proxy</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td>Biomarcadores vocais</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td>Indicadores de riscos clínicos</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr class="grp"><td colspan="4">Pacientes e integração</td></tr>
+          <tr><td>Histórico de pacientes e sessões</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td>Portal e consentimento do paciente</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td>Integração com Google Agenda</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td>Isolamento organizacional dos dados</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr class="grp"><td colspan="4">Organização e equipe</td></tr>
+          <tr><td>Gestão de membros da organização</td><td>1 usuário</td><td>Até 10</td><td>Até 35</td></tr>
+          <tr><td>Papéis organizacionais</td><td>Individual</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td>Gestão multiprofissional</td><td class="no">—</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td>Supervisão clínica</td><td class="no">—</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td>Atribuição de pacientes à equipe</td><td class="no">—</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td>Auditoria organizacional avançada</td><td class="no">—</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td>Créditos compartilhados pela equipe</td><td class="no">—</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td>Acesso prioritário a novos recursos</td><td class="no">—</td><td class="no">—</td><td class="ok">✓</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:14px; font-size:0.85rem; color:var(--froid-cinza); text-align:center;">FROID MASTER — todas as habilidades do FROID habilitadas em um único plano.</p>
+  </div>
+</section>
+
+<section class="block">
+  <div class="container">
+    <p class="section-kicker">Como funcionam os créditos</p>
+    <h2 class="section-title">Pacotes de créditos, regras claras</h2>
+    <p class="section-lead">Os planos funcionam como pacotes de créditos de sessões: cada sessão realizada consome um crédito. Sem mensalidade obrigatória.</p>
+
+    <div class="grid-3">
+      <div class="card">
+        <h3>🔁 Recarga automática</h3>
+        <p style="font-size:0.92rem;">Opcional e transparente: depende de <strong>consentimento expresso</strong>, ocorre somente quando o saldo chega a zero, recompra o mesmo pacote, mantém a moeda escolhida e utiliza o valor validado pelo Stripe. Se o pagamento falhar, pode ser necessária nova ação do cliente.</p>
+      </div>
+      <div class="card">
+        <h3>📅 Validade de 12 meses</h3>
+        <p style="font-size:0.92rem;">Os créditos são válidos por <strong>12 meses</strong> a partir da compra do pacote — tempo de sobra para a rotina clínica real, sem pressão de consumo.</p>
+      </div>
+      <div class="card">
+        <h3>🤝 Contratação acompanhada</h3>
+        <p style="font-size:0.92rem;">Estamos em fase de disponibilidade controlada: a contratação é acompanhada pela equipe FROID, que orienta a configuração da organização, dos papéis e dos primeiros pacientes.</p>
+      </div>
+    </div>
+
+    <div class="disclaimer-box" style="margin-top:28px;">
+      <strong>Apoio, não diagnóstico:</strong> o FROID é uma tecnologia de apoio ao profissional. Suas métricas não constituem diagnóstico clínico automatizado e devem ser interpretadas por profissional habilitado.
     </div>
   </div>
 </section>
