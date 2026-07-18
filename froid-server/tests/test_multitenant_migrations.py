@@ -17,6 +17,9 @@ class MultitenantMigrationTests(unittest.TestCase):
         cls.runtime_grants = (
             SERVER_DIR / "migrations" / "003_runtime_role_grants.sql"
         ).read_text(encoding="utf-8")
+        cls.wallet_safety = (
+            SERVER_DIR / "migrations" / "005_wallet_activation_safety.sql"
+        ).read_text(encoding="utf-8")
 
     def test_cross_organization_foreign_keys_are_present(self):
         self.assertGreaterEqual(
@@ -49,6 +52,19 @@ class MultitenantMigrationTests(unittest.TestCase):
         self.assertIn("GRANT EXECUTE ON FUNCTION froid_has_role", self.runtime_grants)
         self.assertNotIn("ALTER TABLE", self.runtime_grants)
         self.assertNotIn("CREATE ROLE", self.runtime_grants)
+
+    def test_wallet_function_is_dropped_before_parameter_rename(self):
+        signature = (
+            "DROP FUNCTION IF EXISTS froid_apply_credit_event(\n"
+            "  uuid, uuid, uuid, integer, text, text, text, jsonb\n"
+            ");"
+        )
+        drop_position = self.wallet_safety.index(signature)
+        replacement_position = self.wallet_safety.index(
+            "CREATE OR REPLACE FUNCTION froid_apply_credit_event(",
+            drop_position,
+        )
+        self.assertLess(drop_position, replacement_position)
 
 
 if __name__ == "__main__":

@@ -35,6 +35,15 @@ BEGIN
   RETURN QUERY SELECT wallet.balance,true;
 END $$;
 
+-- PostgreSQL does not allow CREATE OR REPLACE FUNCTION to rename input
+-- parameters. Phase 004 used the longer target_* names for this signature,
+-- while this hardened implementation uses the concise names below. Drop and
+-- recreate atomically so both a clean install and an upgrade from phase 004
+-- follow the same safe path. Any previous EXECUTE grants are restored below.
+DROP FUNCTION IF EXISTS froid_apply_credit_event(
+  uuid, uuid, uuid, integer, text, text, text, jsonb
+);
+
 CREATE OR REPLACE FUNCTION froid_apply_credit_event(
   org uuid, member uuid, actor uuid, delta integer, kind text,
   idem text, session_id text DEFAULT NULL, meta jsonb DEFAULT '{}'::jsonb
