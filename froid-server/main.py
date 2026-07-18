@@ -107,7 +107,7 @@ FROID_APPROVED_KNOWLEDGE_DIR = os.getenv(
 )
 FROID_DUCKDB_PATH = os.getenv(
     "FROID_DUCKDB_PATH",
-    "/data/datamart_anonymous.duckdb",
+    "/data/datamart_anonymous_v3.duckdb",
 )
 FROID_ALGORITHM_VERSION = os.getenv("FROID_ALGORITHM_VERSION", app.version)
 FROID_ANALYTICS_MIN_K = int(os.getenv("FROID_ANALYTICS_MIN_K", "50") or "50")

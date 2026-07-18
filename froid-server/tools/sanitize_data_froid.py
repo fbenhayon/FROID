@@ -13,8 +13,13 @@ import shutil
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--database", default=os.getenv("FROID_DUCKDB_PATH", "/data/datamart_anonymous.duckdb"))
+    parser.add_argument("--database", default=os.getenv("FROID_DUCKDB_PATH", "/data/datamart_anonymous_v3.duckdb"))
     parser.add_argument("--backup-dir", default="/data/data-froid-backups")
+    parser.add_argument(
+        "--max-removal-ratio",
+        type=float,
+        default=float(os.getenv("FROID_ANALYTICS_MAX_SUPPRESSION_RATIO", "0.10")),
+    )
     parser.add_argument("--apply", action="store_true")
     args = parser.parse_args()
     database = Path(args.database)
@@ -27,6 +32,7 @@ def main() -> int:
     connection = duckdb.connect(str(database), read_only=True)
     tables = {row[0] for row in connection.execute("SHOW TABLES").fetchall()}
     legacy_count = 0
+    total_count = 0
     if "anonymous_sessions" in tables:
         columns = {row[1] for row in connection.execute("PRAGMA table_info('anonymous_sessions')").fetchall()}
         legacy_count = (
@@ -36,11 +42,29 @@ def main() -> int:
             if "ingestion_basis" in columns
             else connection.execute("SELECT count(*) FROM anonymous_sessions").fetchone()[0]
         )
+        total_count = connection.execute(
+            "SELECT count(*) FROM anonymous_sessions"
+        ).fetchone()[0]
     connection.close()
-    preview = {"legacy_rows": int(legacy_count), "apply": bool(args.apply)}
+    removal_ratio = round(int(legacy_count) / int(total_count), 6) if total_count else 0.0
+    allowed_ratio = min(0.10, max(0.0, float(args.max_removal_ratio)))
+    preview = {
+        "legacy_rows": int(legacy_count),
+        "total_rows": int(total_count),
+        "removal_ratio": removal_ratio,
+        "max_removal_ratio": allowed_ratio,
+        "apply": bool(args.apply),
+    }
     if not args.apply or not legacy_count:
         print(json.dumps({"status": "preview", **preview}))
         return 0
+    if removal_ratio > allowed_ratio:
+        print(json.dumps({
+            "status": "blocked",
+            "reason": "legacy removal would exceed the approved ratio; reprocess into a new v3 database",
+            **preview,
+        }))
+        return 2
 
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     backup_dir = Path(args.backup_dir)

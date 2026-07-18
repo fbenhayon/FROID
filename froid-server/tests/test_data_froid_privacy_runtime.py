@@ -80,6 +80,39 @@ class DataFroidPrivacyRuntimeTests(unittest.TestCase):
             self.assertEqual(result["status"], "failed")
             self.assertFalse(result["checks"]["literal_text_absent"])
 
+    def test_sanitizer_blocks_removal_above_ten_percent(self):
+        import duckdb
+        from tools import sanitize_data_froid
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "legacy.duckdb"
+            connection = duckdb.connect(str(path))
+            connection.execute(
+                "CREATE TABLE anonymous_sessions(session_hash VARCHAR, ingestion_basis VARCHAR)"
+            )
+            connection.execute(
+                "CREATE TABLE anonymous_session_cuts(session_hash VARCHAR)"
+            )
+            connection.execute(
+                "INSERT INTO anonymous_sessions VALUES ('legacy', 'pre-v3')"
+            )
+            connection.close()
+            output = io.StringIO()
+            with patch.object(
+                sys, "argv", ["sanitize", "--database", str(path), "--apply"]
+            ):
+                with contextlib.redirect_stdout(output):
+                    exit_code = sanitize_data_froid.main()
+            result = json.loads(output.getvalue())
+            self.assertEqual(exit_code, 2)
+            self.assertEqual(result["status"], "blocked")
+            connection = duckdb.connect(str(path), read_only=True)
+            self.assertEqual(
+                connection.execute("SELECT count(*) FROM anonymous_sessions").fetchone()[0],
+                1,
+            )
+            connection.close()
+
 
 if __name__ == "__main__":
     unittest.main()

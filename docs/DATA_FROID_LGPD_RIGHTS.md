@@ -20,6 +20,8 @@
 - auditoria executável por `tools/audit_data_froid_privacy.py`;
 - remoção segura de linhas legadas por `tools/sanitize_data_froid.py`, sempre com cópia anterior.
 
+O Data-FROID v3 usa por padrão `/data/datamart_anonymous_v3.duckdb`. O arquivo anterior permanece preservado e inativo até reprocessamento. O higienizador bloqueia qualquer remoção superior a 10%; nesse caso, os dados devem ser reconstruídos no arquivo v3 em vez de apagados em massa.
+
 `FROID_DATAMART_PSEUDONYM_KEY` deve ser uma chave aleatória exclusiva, protegida no `.env`. A chave não deve ser reutilizada em Stripe, banco, backups ou criptografia clínica.
 
 ## Portal de direitos

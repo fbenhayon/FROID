@@ -17,7 +17,7 @@ TEXT_COLUMNS = (
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--database", default=os.getenv("FROID_DUCKDB_PATH", "/data/datamart_anonymous.duckdb"))
+    parser.add_argument("--database", default=os.getenv("FROID_DUCKDB_PATH", "/data/datamart_anonymous_v3.duckdb"))
     parser.add_argument(
         "--max-suppression-ratio",
         type=float,
