@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily encrypted FROID state backup
+
+[Timer]
+OnCalendar=*-*-* 03:15:00 UTC
+RandomizedDelaySec=900
+Persistent=true
+Unit=froid-backup.service
+
+[Install]
+WantedBy=timers.target

@@ -68,6 +68,26 @@ class Phase4SecurityTests(unittest.TestCase):
         )
         self.assertIn("def scoped_ref(owner:", self.store_source)
 
+    def test_every_http_action_has_content_safe_audit_correlation(self):
+        self.assertIn('@app.middleware("http")', self.main_source)
+        self.assertIn('"event": "froid.http_audit"', self.main_source)
+        self.assertIn('resource_type="api_route"', self.main_source)
+        middleware_start = self.main_source.index("async def security_audit_middleware")
+        middleware_end = self.main_source.index(
+            "def _require_active_subscription_for_context", middleware_start
+        )
+        middleware = self.main_source[middleware_start:middleware_end]
+        for sensitive_name in ("transcript", "authorization", "access_token", "password"):
+            self.assertNotIn(sensitive_name, middleware.lower())
+
+    def test_realtime_clinical_connections_are_audited(self):
+        self.assertIn('"event": "froid.websocket_audit"', self.main_source)
+        self.assertGreaterEqual(
+            self.main_source.count("await _record_websocket_audit("),
+            13,
+        )
+        self.assertIn('outcome="denied"', self.main_source)
+
     def test_anonymous_datamart_is_explicit_opt_in_and_excludes_summary(self):
         self.assertIn("if not _safe_bool(consent_value, False):", self.main_source)
         self.assertNotIn("_limit_words(_safe_str(session_summary.get(\"summary\")", self.main_source)

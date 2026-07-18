@@ -9,6 +9,7 @@ import os
 import re
 import secrets
 import threading
+import time
 import uuid
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import quote, unquote, urlencode
@@ -45,6 +46,7 @@ import httpx
 
 app = FastAPI(title="FROID Fusion Server", version="3.0.0")
 LOGGER = logging.getLogger("froid.persistence")
+AUDIT_LOGGER = logging.getLogger("uvicorn.access")
 
 app.add_middleware(
     CORSMiddleware,
@@ -3533,6 +3535,88 @@ def _tenant_context_from_request(request: Request) -> Optional[AccessContext]:
     )
 
 
+def _audit_context_from_session(user: Optional[dict]) -> Optional[dict]:
+    """Read non-sensitive audit identifiers without trusting them for access."""
+    if not isinstance(user, dict):
+        return None
+    contexts = user.get("organizations")
+    if not isinstance(contexts, list):
+        return None
+    active_id = str(user.get("active_organization_id") or "")
+    selected = next(
+        (
+            item
+            for item in contexts
+            if isinstance(item, dict)
+            and str(item.get("organization_id") or "") == active_id
+        ),
+        contexts[0] if len(contexts) == 1 and isinstance(contexts[0], dict) else None,
+    )
+    return selected if isinstance(selected, dict) else None
+
+
+@app.middleware("http")
+async def security_audit_middleware(request: Request, call_next):
+    """Correlate every HTTP action without copying clinical or secret payloads."""
+    started = time.perf_counter()
+    supplied_request_id = str(request.headers.get("x-request-id") or "").strip()
+    request_id = (
+        supplied_request_id
+        if re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", supplied_request_id)
+        else uuid.uuid4().hex
+    )
+    user = _current_user_from_request(request)
+    audit_context = _audit_context_from_session(user)
+    response = None
+    status_code = 500
+    try:
+        response = await call_next(request)
+        status_code = int(response.status_code)
+        response.headers["x-request-id"] = request_id
+        return response
+    finally:
+        elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
+        route = request.scope.get("route")
+        route_template = str(getattr(route, "path", "") or "unmatched")[:300]
+        outcome = (
+            "success" if status_code < 400
+            else "denied" if status_code in {401, 402, 403}
+            else "error"
+        )
+        event = {
+            "event": "froid.http_audit",
+            "request_id": request_id,
+            "method": request.method,
+            "route": route_template,
+            "status_code": status_code,
+            "outcome": outcome,
+            "duration_ms": elapsed_ms,
+            "organization_id": str((audit_context or {}).get("organization_id") or ""),
+            "actor_user_id": str((audit_context or {}).get("user_id") or ""),
+        }
+        AUDIT_LOGGER.info(json.dumps(event, ensure_ascii=False, separators=(",", ":")))
+        if audit_context and TENANT_STORE.enabled:
+            try:
+                await asyncio.to_thread(
+                    TENANT_STORE.record_access_audit,
+                    organization_id=str(audit_context.get("organization_id") or ""),
+                    actor_user_id=str(audit_context.get("user_id") or ""),
+                    action=f"http.{request.method.lower()}",
+                    resource_type="api_route",
+                    resource_id=route_template,
+                    outcome=outcome,
+                    metadata={
+                        "request_id": request_id,
+                        "status_code": status_code,
+                        "duration_ms": elapsed_ms,
+                    },
+                )
+            except Exception:
+                LOGGER.exception(
+                    "Unable to persist HTTP audit event request_id=%s", request_id
+                )
+
+
 def _require_active_subscription_for_context(
     context: Optional[AccessContext],
 ) -> Optional[dict]:
@@ -3605,6 +3689,50 @@ def _session_matches_context(session_id: str, context: Optional[AccessContext]) 
     return not organization_id or bool(
         context and organization_id == context.organization_id
     )
+
+
+async def _record_websocket_audit(
+    *,
+    action: str,
+    session_id: str,
+    role: str,
+    outcome: str,
+    context: Optional[AccessContext] = None,
+    organization_id: str = "",
+) -> None:
+    safe_session_reference = hashlib.sha256(
+        str(session_id or "").encode("utf-8")
+    ).hexdigest()[:16]
+    request_id = uuid.uuid4().hex
+    tenant_id = context.organization_id if context else str(organization_id or "")
+    safe_role = str(role or "unknown")[:32]
+    event = {
+        "event": "froid.websocket_audit",
+        "request_id": request_id,
+        "action": action,
+        "session_reference": safe_session_reference,
+        "role": safe_role,
+        "outcome": outcome,
+        "organization_id": tenant_id,
+        "actor_user_id": context.user_id if context else "",
+    }
+    AUDIT_LOGGER.info(json.dumps(event, ensure_ascii=False, separators=(",", ":")))
+    if tenant_id and TENANT_STORE.enabled:
+        try:
+            await asyncio.to_thread(
+                TENANT_STORE.record_access_audit,
+                organization_id=tenant_id,
+                actor_user_id=context.user_id if context else "",
+                action=f"websocket.{action}",
+                resource_type="clinical_session",
+                resource_id=session_id,
+                outcome=outcome,
+                metadata={"request_id": request_id, "role": safe_role},
+            )
+        except Exception:
+            LOGGER.exception(
+                "Unable to persist WebSocket audit event request_id=%s", request_id
+            )
 
 
 def _authorize_tenant_request(
@@ -4072,17 +4200,33 @@ async def websocket_fusion(websocket: WebSocket, session_id: str):
     token = str(websocket.query_params.get("token") or "")
     user = _session_user_for_token(token)
     if not user or SESSION_OWNERS.get(session_id) != _normalize_email(user.get("email") or ""):
+        await _record_websocket_audit(
+            action="connect", session_id=session_id, role="professional",
+            outcome="denied",
+        )
         await websocket.close(code=4401)
         return
     try:
         context = _require_professional_websocket_access(user)
     except HTTPException as exc:
+        await _record_websocket_audit(
+            action="connect", session_id=session_id, role="professional",
+            outcome="denied",
+        )
         await websocket.close(code=4402 if exc.status_code == 402 else 1013)
         return
     if not _session_matches_context(session_id, context):
+        await _record_websocket_audit(
+            action="connect", session_id=session_id, role="professional",
+            outcome="denied", context=context,
+        )
         await websocket.close(code=4403)
         return
     connection_id = await manager.connect(websocket, session_id)
+    await _record_websocket_audit(
+        action="connect", session_id=session_id, role="professional",
+        outcome="success", context=context,
+    )
     task = asyncio.create_task(froid_stream_loop(session_id, connection_id))
     try:
         while True:
@@ -4090,13 +4234,25 @@ async def websocket_fusion(websocket: WebSocket, session_id: str):
             if msg == "ping": await websocket.send_text("pong")
     except WebSocketDisconnect:
         manager.disconnect(session_id, connection_id); task.cancel()
+        await _record_websocket_audit(
+            action="disconnect", session_id=session_id, role="professional",
+            outcome="success", context=context,
+        )
     except Exception:
         manager.disconnect(session_id, connection_id); task.cancel()
+        await _record_websocket_audit(
+            action="disconnect", session_id=session_id, role="professional",
+            outcome="error", context=context,
+        )
 
 
 @app.websocket("/ws/rtc/{session_id}/{role}")
 async def websocket_rtc_signaling(websocket: WebSocket, session_id: str, role: str):
     if role not in {"professional", "patient"}:
+        await _record_websocket_audit(
+            action="connect", session_id=session_id, role=role,
+            outcome="denied",
+        )
         await websocket.accept()
         await websocket.send_json({"type": "error", "detail": "role invalido"})
         await websocket.close(code=1008)
@@ -4106,14 +4262,26 @@ async def websocket_rtc_signaling(websocket: WebSocket, session_id: str, role: s
         token = str(websocket.query_params.get("token") or "")
         user = _session_user_for_token(token)
         if not user or SESSION_OWNERS.get(session_id) != _normalize_email(user.get("email") or ""):
+            await _record_websocket_audit(
+                action="connect", session_id=session_id, role=role,
+                outcome="denied",
+            )
             await websocket.close(code=4401)
             return
         try:
             context = _require_professional_websocket_access(user)
         except HTTPException as exc:
+            await _record_websocket_audit(
+                action="connect", session_id=session_id, role=role,
+                outcome="denied",
+            )
             await websocket.close(code=4402 if exc.status_code == 402 else 1013)
             return
         if not _session_matches_context(session_id, context):
+            await _record_websocket_audit(
+                action="connect", session_id=session_id, role=role,
+                outcome="denied", context=context,
+            )
             await websocket.close(code=4403)
             return
     else:
@@ -4129,10 +4297,24 @@ async def websocket_rtc_signaling(websocket: WebSocket, session_id: str, role: s
                 != SESSION_ORGANIZATIONS.get(session_id)
             )
         ):
+            await _record_websocket_audit(
+                action="connect", session_id=session_id, role=role,
+                outcome="denied",
+            )
             await websocket.close(code=4403)
             return
 
     await rtc_signals.connect(websocket, session_id, role)
+    websocket_organization_id = (
+        context.organization_id
+        if role == "professional"
+        else _invite_organization_id(invite)
+    )
+    await _record_websocket_audit(
+        action="connect", session_id=session_id, role=role,
+        outcome="success", context=context if role == "professional" else None,
+        organization_id=websocket_organization_id,
+    )
     try:
         while True:
             message = await websocket.receive_json()
@@ -4146,6 +4328,11 @@ async def websocket_rtc_signaling(websocket: WebSocket, session_id: str, role: s
                 peer_socket,
                 {"type": "peer-left", "role": role},
             )
+        await _record_websocket_audit(
+            action="disconnect", session_id=session_id, role=role,
+            outcome="success", context=context if role == "professional" else None,
+            organization_id=websocket_organization_id,
+        )
     except Exception:
         peer_socket = rtc_signals.disconnect(session_id, role, websocket)
         if peer_socket:
@@ -4153,6 +4340,11 @@ async def websocket_rtc_signaling(websocket: WebSocket, session_id: str, role: s
                 peer_socket,
                 {"type": "peer-left", "role": role},
             )
+        await _record_websocket_audit(
+            action="disconnect", session_id=session_id, role=role,
+            outcome="error", context=context if role == "professional" else None,
+            organization_id=websocket_organization_id,
+        )
 
 
 @app.get("/health")

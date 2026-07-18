@@ -110,6 +110,44 @@ restaura com `--exit-on-error`, verifica as sete migrações e RLS nas nove
 tabelas tenant e remove o banco temporário mesmo em caso de falha. O banco
 `$POSTGRES_DB` em produção não é usado como destino da restauração.
 
+## Auditoria integral e preservação clínica
+
+Toda requisição HTTP recebe um identificador de correlação e gera um evento
+técnico estruturado com método, rota parametrizada, resultado, duração, ator e
+organização quando autenticados. Em modo `dual`, o mesmo evento é persistido na
+tabela append-only `audit_events`. Corpos das requisições, transcrições, nomes,
+documentos, tokens, senhas, chaves e strings de conexão não são copiados para o
+log técnico.
+
+Essa separação não elimina conteúdo clínico. A transcrição integral e os demais
+registros da sessão permanecem no repositório clínico criptografado e são
+incluídos no backup de estado. O log guarda a evidência de acesso ou alteração e
+o identificador do registro, sem criar uma segunda cópia desprotegida do dado
+sensível.
+
+O backup integral reúne dumps separados do banco legado e do banco multitenant,
+o diretório persistente `data/`, o ambiente de implantação e um manifesto do
+commit. O pacote é criptografado,
+recebe SHA-256 e HMAC independente e é aberto e inspecionado antes de ser
+considerado válido:
+
+```bash
+set -a
+. /root/froid-project/.env
+set +a
+sh ops/backup_froid_state.sh
+```
+
+O timer versionado executa diariamente e pode ser instalado em
+`/etc/systemd/system`. A chave de criptografia e a chave de integridade precisam
+ter cópia em cofre independente do servidor; sem elas o backup criptografado não
+pode ser recuperado. Uma cópia mantida apenas no mesmo Hetzner protege contra
+erro lógico, mas não contra perda completa do host. Para recuperação de desastre
+é obrigatório sincronizar os arquivos `.enc`, `.sha256` e `.hmac` para um
+destino externo independente e ensaiar periodicamente a restauração. Para
+recuperação ponto no tempo, adote também backup base e arquivamento contínuo de
+WAL conforme a documentação oficial do PostgreSQL.
+
 ## Topologia atual do Hetzner
 
 O backend de `/root/froid-project` e o PostgreSQL de `/root/froid` pertencem a

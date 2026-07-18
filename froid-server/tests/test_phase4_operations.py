@@ -12,6 +12,12 @@ class Phase4OperationTests(unittest.TestCase):
         cls.restore = (ROOT / "ops" / "verify_postgres_restore.sh").read_text(
             encoding="utf-8"
         )
+        cls.full_backup = (ROOT / "ops" / "backup_froid_state.sh").read_text(
+            encoding="utf-8"
+        )
+        cls.full_verify = (ROOT / "ops" / "verify_froid_state_backup.sh").read_text(
+            encoding="utf-8"
+        )
 
     def test_backup_is_atomic_and_validated_before_publish(self):
         self.assertIn(".partial", self.backup)
@@ -36,6 +42,17 @@ class Phase4OperationTests(unittest.TestCase):
         self.assertIn("007_multitenant_security_hardening", self.restore)
         self.assertIn("rls_count <> 9", self.restore)
         self.assertIn("sha256sum -c", self.restore)
+
+    def test_full_state_backup_is_encrypted_authenticated_and_self_verified(self):
+        self.assertIn("FROID_BACKUP_ENCRYPTION_PASSPHRASE", self.full_backup)
+        self.assertIn("FROID_BACKUP_INTEGRITY_KEY", self.full_backup)
+        self.assertIn("-aes-256-cbc -pbkdf2", self.full_backup)
+        self.assertIn("verify_froid_state_backup.sh", self.full_backup)
+        self.assertIn("postgres-legacy.dump", self.full_backup)
+        self.assertIn("postgres-tenant.dump", self.full_backup)
+        self.assertEqual(self.full_verify.count("pg_restore --list"), 2)
+        self.assertIn("application-data.tar.gz", self.full_verify)
+        self.assertNotIn("STRIPE_SECRET_KEY", self.full_backup)
 
 
 if __name__ == "__main__":

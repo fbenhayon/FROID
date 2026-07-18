@@ -1,0 +1,19 @@
+[Unit]
+Description=Encrypted and verified FROID state backup
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/froid-project
+EnvironmentFile=/root/froid-project/.env
+ExecStart=/bin/sh /root/froid-project/ops/backup_froid_state.sh
+User=root
+Group=root
+UMask=0077
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+
+[Install]
+WantedBy=multi-user.target
