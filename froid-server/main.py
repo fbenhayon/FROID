@@ -46,7 +46,10 @@ import httpx
 
 app = FastAPI(title="FROID Fusion Server", version="3.0.0")
 LOGGER = logging.getLogger("froid.persistence")
-AUDIT_LOGGER = logging.getLogger("uvicorn.access")
+# ``uvicorn.access`` uses a formatter that requires Uvicorn's internal
+# five-item request tuple. Audit events are ordinary structured messages, so
+# they must use the general server logger instead.
+AUDIT_LOGGER = logging.getLogger("uvicorn.error")
 
 app.add_middleware(
     CORSMiddleware,

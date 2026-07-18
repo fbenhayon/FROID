@@ -71,6 +71,8 @@ class Phase4SecurityTests(unittest.TestCase):
     def test_every_http_action_has_content_safe_audit_correlation(self):
         self.assertIn('@app.middleware("http")', self.main_source)
         self.assertIn('"event": "froid.http_audit"', self.main_source)
+        self.assertIn('AUDIT_LOGGER = logging.getLogger("uvicorn.error")', self.main_source)
+        self.assertNotIn('AUDIT_LOGGER = logging.getLogger("uvicorn.access")', self.main_source)
         self.assertIn('resource_type="api_route"', self.main_source)
         middleware_start = self.main_source.index("async def security_audit_middleware")
         middleware_end = self.main_source.index(
