@@ -19,6 +19,9 @@ import uuid
 
 NAMESPACE = uuid.UUID("c173f252-e04f-4ca4-a337-39767764c79c")
 VALID_MODES = {"legacy", "dual"}
+VALID_MEMBERSHIP_ROLES = {
+    "owner", "administrator", "supervisor", "professional", "auditor"
+}
 
 
 def normalize_email(value: Any) -> str:
@@ -74,6 +77,7 @@ class TenantStore:
         self.runtime_database_url = str(runtime_database_url or "").strip()
         self.migration_path = migration_path
         self._lock = threading.Lock()
+        self._schema_lock = threading.Lock()
         self._schema_ready = False
         self._last_sync_at: Optional[str] = None
         self._last_error: Optional[str] = None
@@ -107,6 +111,113 @@ class TenantStore:
             "last_counters": self._last_counters,
         }
 
+    def readiness(self) -> dict:
+        """Read-only cutover checks that never apply migrations or expose PII."""
+        checks = {
+            "persistence_mode_supported": self.mode in VALID_MODES,
+        }
+        if not self.enabled:
+            checks["legacy_source_available"] = True
+            return {"ready": True, "mode": self.mode, "checks": checks}
+
+        expected_migrations = {
+            path.stem for path in self.migration_path.parent.glob("*.sql")
+        }
+        try:
+            with self._connect() as owner_connection:
+                owner_database = owner_connection.execute(
+                    "SELECT current_database()"
+                ).fetchone()[0]
+                applied_migrations = {
+                    row[0]
+                    for row in owner_connection.execute(
+                        "SELECT version FROM schema_migrations"
+                    ).fetchall()
+                }
+                rls_count = owner_connection.execute(
+                    """
+                    SELECT count(*) FROM pg_class
+                    WHERE relnamespace='public'::regnamespace
+                      AND relname = ANY(%s) AND relrowsecurity
+                    """,
+                    ([
+                        "organization_memberships", "patients",
+                        "patient_assignments", "session_reports", "consents",
+                        "organization_wallets", "credit_ledger", "audit_events",
+                        "organization_subscriptions",
+                    ],),
+                ).fetchone()[0]
+            checks["owner_database_reachable"] = True
+            checks["all_migrations_applied"] = expected_migrations.issubset(
+                applied_migrations
+            )
+            checks["rls_enabled_on_tenant_tables"] = int(rls_count) == 9
+        except Exception as exc:
+            checks["owner_database_reachable"] = False
+            checks["all_migrations_applied"] = False
+            checks["rls_enabled_on_tenant_tables"] = False
+            return {
+                "ready": False,
+                "mode": self.mode,
+                "checks": checks,
+                "error": type(exc).__name__,
+            }
+
+        if not self.runtime_database_url:
+            checks["runtime_database_configured"] = False
+        else:
+            checks["runtime_database_configured"] = True
+            try:
+                with self._connect(runtime=True) as runtime_connection:
+                    runtime_database = runtime_connection.execute(
+                        "SELECT current_database()"
+                    ).fetchone()[0]
+                    owner_count = runtime_connection.execute(
+                        """
+                        SELECT count(*) FROM pg_class table_entry
+                        WHERE table_entry.relnamespace='public'::regnamespace
+                          AND table_entry.relname = ANY(%s)
+                          AND pg_has_role(
+                              current_user, table_entry.relowner, 'MEMBER'
+                          )
+                        """,
+                        ([
+                            "organizations", "patients", "session_reports",
+                            "organization_wallets", "credit_ledger",
+                            "audit_events", "organization_subscriptions",
+                        ],),
+                    ).fetchone()[0]
+                    function_access = runtime_connection.execute(
+                        """
+                        SELECT has_function_privilege(
+                            current_user, 'froid_has_role(text[])', 'EXECUTE'
+                        )
+                        """
+                    ).fetchone()[0]
+                checks["runtime_database_reachable"] = True
+                checks["runtime_targets_owner_database"] = (
+                    runtime_database == owner_database
+                )
+                checks["runtime_is_not_table_owner"] = int(owner_count) == 0
+                checks["runtime_role_function_available"] = bool(function_access)
+            except Exception as exc:
+                checks["runtime_database_reachable"] = False
+                checks["runtime_targets_owner_database"] = False
+                checks["runtime_is_not_table_owner"] = False
+                checks["runtime_role_function_available"] = False
+                return {
+                    "ready": False,
+                    "mode": self.mode,
+                    "checks": checks,
+                    "error": type(exc).__name__,
+                }
+
+        return {
+            "ready": all(checks.values()),
+            "mode": self.mode,
+            "checks": checks,
+        }
+
     def _connect(self, *, runtime: bool = False):
         try:
             import psycopg
@@ -124,17 +235,34 @@ class TenantStore:
     def ensure_schema(self, connection=None) -> None:
         if self._schema_ready:
             return
-        migration_paths = sorted(self.migration_path.parent.glob("*.sql"))
-        if self.migration_path not in migration_paths:
-            migration_paths.insert(0, self.migration_path)
-        if connection is None:
-            with self._connect() as conn:
-                for migration_path in migration_paths:
-                    conn.execute(migration_path.read_text(encoding="utf-8"))
-        else:
-            for migration_path in migration_paths:
-                connection.execute(migration_path.read_text(encoding="utf-8"))
-        self._schema_ready = True
+        with self._schema_lock:
+            if self._schema_ready:
+                return
+            migration_paths = sorted(self.migration_path.parent.glob("*.sql"))
+            if self.migration_path not in migration_paths:
+                migration_paths.insert(0, self.migration_path)
+
+            def apply_migrations(conn) -> None:
+                # Serializes schema startup across workers on the same database.
+                lock_id = 7_346_643_004
+                conn.execute("SELECT pg_advisory_lock(%s)", (lock_id,))
+                try:
+                    for migration_path in migration_paths:
+                        conn.execute(migration_path.read_text(encoding="utf-8"))
+                except Exception:
+                    conn.rollback()
+                    conn.execute("SELECT pg_advisory_unlock(%s)", (lock_id,))
+                    conn.commit()
+                    raise
+                conn.execute("SELECT pg_advisory_unlock(%s)", (lock_id,))
+                conn.commit()
+
+            if connection is None:
+                with self._connect() as conn:
+                    apply_migrations(conn)
+            else:
+                apply_migrations(connection)
+            self._schema_ready = True
 
     def access_contexts(self, email: str) -> list[dict]:
         """Return active organization memberships for an authenticated email."""
@@ -256,6 +384,29 @@ class TenantStore:
             for row in rows
         ]
 
+    def accessible_legacy_report_ids(
+        self, *, organization_id: str, membership_id: str
+    ) -> set[str]:
+        """Return report IDs visible through assignment-aware PostgreSQL RLS."""
+        if not self.enabled or not self.runtime_database_url:
+            return set()
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                connection.execute(
+                    "SELECT set_config('app.organization_id', %s, true)",
+                    (organization_id,),
+                )
+                connection.execute(
+                    "SELECT set_config('app.membership_id', %s, true)",
+                    (membership_id,),
+                )
+                rows = connection.execute(
+                    """SELECT legacy_session_id FROM session_reports
+                    WHERE organization_id=%s AND deleted_at IS NULL""",
+                    (organization_id,),
+                ).fetchall()
+        return {str(row[0]) for row in rows if row and row[0]}
+
     def list_members(self, organization_id: str) -> list[dict]:
         if not self.enabled:
             return []
@@ -305,6 +456,37 @@ class TenantStore:
         invitation_id = uuid.uuid4()
         with self._connect() as connection:
             self.ensure_schema(connection)
+            organization = connection.execute(
+                "SELECT id FROM organizations WHERE id=%s FOR UPDATE",
+                (organization_id,),
+            ).fetchone()
+            if not organization:
+                raise ValueError("organization_not_found")
+            normalized_email = normalize_email(invited_email)
+            connection.execute(
+                """UPDATE membership_invitations
+                SET status='revoked',revoked_at=now()
+                WHERE organization_id=%s AND lower(invited_email)=%s
+                  AND status='pending'""",
+                (organization_id, normalized_email),
+            )
+            entitlement = connection.execute(
+                """SELECT coalesce((p.entitlements->>'organization_members')::integer,1)
+                FROM organization_subscriptions s JOIN subscription_plans p
+                ON p.code=s.plan_code WHERE s.organization_id=%s
+                AND s.status IN ('active','trialing')
+                FOR UPDATE OF s""",
+                (organization_id,),
+            ).fetchone()
+            if entitlement:
+                occupied = connection.execute(
+                    """SELECT
+                    (SELECT count(*) FROM organization_memberships WHERE organization_id=%s AND status IN ('active','invited')) +
+                    (SELECT count(*) FROM membership_invitations WHERE organization_id=%s AND status='pending' AND expires_at>now())""",
+                    (organization_id, organization_id),
+                ).fetchone()[0]
+                if int(occupied) >= int(entitlement[0]):
+                    raise ValueError("organization_member_limit_reached")
             connection.execute(
                 """
                 INSERT INTO membership_invitations
@@ -314,7 +496,7 @@ class TenantStore:
                 VALUES (%s,%s,%s,%s,%s,%s::jsonb,%s)
                 """,
                 (
-                    invitation_id, organization_id, normalize_email(invited_email),
+                    invitation_id, organization_id, normalized_email,
                     invited_by_membership_id, token_hash,
                     _json(sorted(set(roles))), expires_at,
                 ),
@@ -347,8 +529,40 @@ class TenantStore:
                 roles = invitation[3]
                 if isinstance(roles, str):
                     roles = json.loads(roles)
+                roles = {
+                    str(role).strip().lower() for role in (roles or [])
+                    if str(role).strip()
+                }
+                if not roles or roles - VALID_MEMBERSHIP_ROLES:
+                    raise ValueError("invalid_invitation_roles")
                 user_id = stable_uuid("user", normalized_email)
                 membership_id = stable_uuid("membership", organization_id, user_id)
+                entitlement = cursor.execute(
+                    """SELECT s.status,
+                    coalesce((p.entitlements->>'organization_members')::integer,1)
+                    FROM organization_subscriptions s JOIN subscription_plans p
+                    ON p.code=s.plan_code WHERE s.organization_id=%s
+                    FOR UPDATE OF s""",
+                    (organization_id,),
+                ).fetchone()
+                if entitlement:
+                    if entitlement[0] not in {"active", "trialing"}:
+                        raise ValueError("organization_subscription_inactive")
+                    current = cursor.execute(
+                        """SELECT status FROM organization_memberships
+                        WHERE organization_id=%s AND user_id=%s""",
+                        (organization_id, user_id),
+                    ).fetchone()
+                    active_count = cursor.execute(
+                        """SELECT count(*) FROM organization_memberships
+                        WHERE organization_id=%s AND status='active'""",
+                        (organization_id,),
+                    ).fetchone()[0]
+                    if (
+                        (not current or current[0] != "active")
+                        and int(active_count) >= int(entitlement[1])
+                    ):
+                        raise ValueError("organization_member_limit_reached")
                 now = datetime.now(timezone.utc)
                 cursor.execute(
                     """
@@ -392,12 +606,13 @@ class TenantStore:
             "organization_id": str(organization_id),
             "membership_id": str(membership_id),
             "user_id": str(user_id),
-            "roles": sorted(roles or []),
+            "roles": sorted(roles),
             "status": "active",
         }
 
     def revoke_membership(
-        self, *, organization_id: str, membership_id: str
+        self, *, organization_id: str, membership_id: str,
+        allow_owner_revoke: bool = False,
     ) -> None:
         with self._connect() as connection:
             self.ensure_schema(connection)
@@ -413,6 +628,8 @@ class TenantStore:
                 )
                 target_is_owner = bool(cursor.fetchone()[0])
                 if target_is_owner:
+                    if not allow_owner_revoke:
+                        raise PermissionError("only_owner_can_revoke_owner")
                     cursor.execute(
                         """
                         SELECT count(*)
@@ -506,21 +723,47 @@ class TenantStore:
             with connection.cursor() as cursor:
                 cursor.execute(
                     """
-                    SELECT
-                      EXISTS(SELECT 1 FROM patients
-                             WHERE id=%s AND organization_id=%s
-                               AND status NOT IN ('deleted', 'restricted')),
-                      EXISTS(SELECT 1 FROM organization_memberships
-                             WHERE id=%s AND organization_id=%s
-                               AND status='active')
+                    SELECT status FROM patients
+                    WHERE id=%s AND organization_id=%s
+                    FOR UPDATE
                     """,
-                    (patient_id, organization_id, membership_id, organization_id),
+                    (patient_id, organization_id),
                 )
-                patient_exists, membership_exists = cursor.fetchone()
-                if not patient_exists:
+                patient = cursor.fetchone()
+                if not patient or patient[0] in {"deleted", "restricted"}:
                     raise ValueError("patient_not_found")
-                if not membership_exists:
+                cursor.execute(
+                    """SELECT coalesce(array_agg(role.role) FILTER (
+                    WHERE role.role IS NOT NULL), ARRAY[]::text[])
+                    FROM organization_memberships membership
+                    LEFT JOIN membership_roles role ON role.membership_id=membership.id
+                    WHERE membership.id=%s AND membership.organization_id=%s
+                      AND membership.status='active'
+                    GROUP BY membership.id""",
+                    (membership_id, organization_id),
+                )
+                membership = cursor.fetchone()
+                if not membership:
                     raise ValueError("membership_not_found")
+                target_roles = set(membership[0] or [])
+                required_roles = {
+                    "primary": {"professional"},
+                    "care_team": {"professional"},
+                    "supervisor": {"supervisor"},
+                    "read_only": {"professional", "supervisor"},
+                }.get(assignment_type, set())
+                if not (target_roles & required_roles):
+                    raise ValueError("assignment_role_mismatch")
+                if assignment_type == "primary":
+                    cursor.execute(
+                        """SELECT id FROM patient_assignments
+                        WHERE organization_id=%s AND patient_id=%s
+                          AND assignment_type='primary' AND status='active'
+                          AND membership_id<>%s""",
+                        (organization_id, patient_id, membership_id),
+                    )
+                    if cursor.fetchone():
+                        raise ValueError("primary_assignment_exists")
                 cursor.execute(
                     """
                     INSERT INTO patient_assignments
@@ -616,6 +859,256 @@ class TenantStore:
             "balance": int(row[0]), "version": int(row[1]),
             "authority": row[2], "updated_at": row[3],
         }
+
+    def subscription_status(
+        self, *, organization_id: str, membership_id: str
+    ) -> Optional[dict]:
+        """Read the current subscription through the restricted runtime role."""
+        if not self.enabled or not self.runtime_database_url:
+            return None
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                connection.execute(
+                    "SELECT set_config('app.organization_id', %s, true)",
+                    (organization_id,),
+                )
+                connection.execute(
+                    "SELECT set_config('app.membership_id', %s, true)",
+                    (membership_id,),
+                )
+                row = connection.execute(
+                    """
+                    SELECT s.plan_code, s.status, s.current_period_start,
+                           s.current_period_end, s.cancel_at_period_end,
+                           p.display_name, p.entitlements, s.package_code,
+                           s.sessions_per_recharge, s.auto_replenish,
+                           s.last_recharge_status, s.currency,
+                           s.recharge_amount_cents,
+                           s.auto_replenish_consent_at,
+                           s.auto_replenish_terms_version
+                    FROM organization_subscriptions s
+                    JOIN subscription_plans p ON p.code=s.plan_code
+                    WHERE s.organization_id=%s
+                    """,
+                    (organization_id,),
+                ).fetchone()
+        if not row:
+            return None
+        return {
+            "plan_code": row[0], "status": row[1],
+            "current_period_start": row[2], "current_period_end": row[3],
+            "cancel_at_period_end": bool(row[4]), "display_name": row[5],
+            "entitlements": row[6] if isinstance(row[6], dict) else {},
+            "package_code": row[7], "sessions_per_recharge": int(row[8]),
+            "auto_replenish": bool(row[9]), "last_recharge_status": row[10],
+            "currency": row[11], "recharge_amount_minor": int(row[12]),
+            "auto_replenish_consent_at": row[13],
+            "auto_replenish_terms_version": row[14],
+        }
+
+    def apply_checkout_purchase(
+        self, *, event_id: str, event_type: str, payload_sha256: str,
+        organization_id: str, plan_code: str, package_code: str,
+        session_credits: int, amount_cents: int, stripe_customer_id: str,
+        stripe_payment_method_id: str, currency: str, terms_version: str,
+    ) -> dict:
+        """Activate access and credit a paid package exactly once."""
+        if not self.enabled:
+            raise RuntimeError("package persistence requires dual mode")
+        with self._connect() as connection:
+            self.ensure_schema(connection)
+            with connection.transaction():
+                inserted = connection.execute(
+                    """INSERT INTO stripe_webhook_events(event_id,event_type,payload_sha256)
+                    VALUES(%s,%s,%s) ON CONFLICT(event_id) DO NOTHING RETURNING event_id""",
+                    (event_id, event_type, payload_sha256),
+                ).fetchone()
+                if not inserted:
+                    return {"applied": False}
+                wallet = connection.execute(
+                    "SELECT balance,authority FROM organization_wallets WHERE organization_id=%s FOR UPDATE",
+                    (organization_id,),
+                ).fetchone()
+                if not wallet:
+                    connection.execute(
+                        "INSERT INTO organization_wallets(organization_id,balance,authority) VALUES(%s,0,'shared')",
+                        (organization_id,),
+                    )
+                    balance = 0
+                else:
+                    balance = int(wallet[0])
+                    if wallet[1] != "shared":
+                        if balance != 0:
+                            raise RuntimeError("legacy wallet must be reconciled before purchase")
+                        connection.execute(
+                            "UPDATE organization_wallets SET authority='shared' WHERE organization_id=%s",
+                            (organization_id,),
+                        )
+                new_balance = balance + int(session_credits)
+                connection.execute(
+                    "UPDATE organization_wallets SET balance=%s,version=version+1,updated_at=now() WHERE organization_id=%s",
+                    (new_balance, organization_id),
+                )
+                connection.execute(
+                    """UPDATE automatic_recharges
+                    SET status='failed',failure_code='superseded_by_checkout',updated_at=now()
+                    WHERE organization_id=%s
+                      AND status IN ('pending','processing','action_required')""",
+                    (organization_id,),
+                )
+                connection.execute(
+                    """INSERT INTO credit_ledger(id,organization_id,delta,balance_after,event_type,
+                    idempotency_key,metadata) VALUES(%s,%s,%s,%s,'purchase',%s,%s::jsonb)""",
+                    (uuid.uuid4(), organization_id, int(session_credits), new_balance,
+                     f"stripe:{event_id}", _json({
+                         "package_code": package_code, "currency": currency,
+                         "amount_minor": int(amount_cents),
+                     })),
+                )
+                connection.execute(
+                    """INSERT INTO organization_subscriptions(
+                    organization_id,plan_code,package_code,sessions_per_recharge,recharge_amount_cents,
+                    currency,status,stripe_customer_id,stripe_payment_method_id,auto_replenish,
+                    auto_replenish_consent_at,auto_replenish_terms_version,last_recharge_status)
+                    VALUES(%s,%s,%s,%s,%s,%s,'active',%s,%s,true,now(),%s,'succeeded')
+                    ON CONFLICT(organization_id) DO UPDATE SET plan_code=excluded.plan_code,
+                    package_code=excluded.package_code,sessions_per_recharge=excluded.sessions_per_recharge,
+                    recharge_amount_cents=excluded.recharge_amount_cents,currency=excluded.currency,status='active',
+                    stripe_customer_id=excluded.stripe_customer_id,
+                    stripe_payment_method_id=excluded.stripe_payment_method_id,
+                    auto_replenish=true,auto_replenish_consent_at=now(),
+                    auto_replenish_terms_version=excluded.auto_replenish_terms_version,
+                    last_recharge_status='succeeded',updated_at=now()""",
+                    (organization_id, plan_code, package_code, int(session_credits),
+                     int(amount_cents), currency, stripe_customer_id,
+                     stripe_payment_method_id, terms_version),
+                )
+        return {"applied": True, "balance": new_balance}
+
+    def prepare_auto_recharge(self, *, organization_id: str) -> Optional[dict]:
+        """Reserve one recharge when an active shared wallet reaches zero."""
+        if not self.enabled:
+            return None
+        with self._connect() as connection:
+            self.ensure_schema(connection)
+            with connection.transaction():
+                row = connection.execute(
+                    """SELECT s.package_code,s.sessions_per_recharge,s.recharge_amount_cents,
+                    s.stripe_customer_id,s.stripe_payment_method_id,w.balance,s.currency
+                    FROM organization_subscriptions s JOIN organization_wallets w
+                    ON w.organization_id=s.organization_id
+                    WHERE s.organization_id=%s AND s.status='active' AND s.auto_replenish
+                    AND w.authority='shared' FOR UPDATE OF s,w""",
+                    (organization_id,),
+                ).fetchone()
+                if not row or int(row[5]) != 0 or not row[3] or not row[4]:
+                    return None
+                open_recharge = connection.execute(
+                    "SELECT id FROM automatic_recharges WHERE organization_id=%s AND status IN ('pending','processing','action_required')",
+                    (organization_id,),
+                ).fetchone()
+                if open_recharge:
+                    return None
+                recharge_id = uuid.uuid4()
+                idempotency_key = f"froid-recharge:{organization_id}:{recharge_id}"
+                connection.execute(
+                    """INSERT INTO automatic_recharges(id,organization_id,package_code,
+                    session_credits,amount_cents,currency,status,idempotency_key)
+                    VALUES(%s,%s,%s,%s,%s,%s,'processing',%s)""",
+                    (recharge_id, organization_id, row[0], int(row[1]),
+                     int(row[2]), row[6], idempotency_key),
+                )
+                connection.execute(
+                    "UPDATE organization_subscriptions SET last_recharge_status='pending',updated_at=now() WHERE organization_id=%s",
+                    (organization_id,),
+                )
+        return {"recharge_id": str(recharge_id), "package_code": row[0],
+                "session_credits": int(row[1]), "amount_cents": int(row[2]),
+                "stripe_customer_id": row[3], "stripe_payment_method_id": row[4],
+                "currency": row[6], "idempotency_key": idempotency_key}
+
+    def complete_auto_recharge(
+        self, *, recharge_id: str, stripe_payment_intent_id: str,
+        event_id: str, event_type: str, payload_sha256: str,
+        paid_amount_cents: int, paid_currency: str,
+    ) -> dict:
+        """Credit a successful automatic recharge once, regardless of retries."""
+        with self._connect() as connection:
+            self.ensure_schema(connection)
+            with connection.transaction():
+                connection.execute(
+                    """INSERT INTO stripe_webhook_events(event_id,event_type,payload_sha256)
+                    VALUES(%s,%s,%s) ON CONFLICT(event_id) DO NOTHING""",
+                    (event_id, event_type, payload_sha256),
+                )
+                recharge = connection.execute(
+                    """SELECT organization_id,session_credits,status,amount_cents,currency
+                    FROM automatic_recharges
+                    WHERE id=%s FOR UPDATE""", (recharge_id,),
+                ).fetchone()
+                if not recharge or recharge[2] == "succeeded":
+                    return {"applied": False}
+                if (
+                    int(recharge[3]) != int(paid_amount_cents)
+                    or recharge[4] != str(paid_currency or "").lower()
+                ):
+                    raise RuntimeError("automatic recharge amount or currency mismatch")
+                wallet = connection.execute(
+                    "SELECT balance FROM organization_wallets WHERE organization_id=%s FOR UPDATE",
+                    (recharge[0],),
+                ).fetchone()
+                if not wallet:
+                    raise RuntimeError("organization wallet not found")
+                new_balance = int(wallet[0]) + int(recharge[1])
+                connection.execute(
+                    "UPDATE organization_wallets SET balance=%s,version=version+1,updated_at=now() WHERE organization_id=%s",
+                    (new_balance, recharge[0]),
+                )
+                connection.execute(
+                    """INSERT INTO credit_ledger(id,organization_id,delta,balance_after,event_type,
+                    idempotency_key,metadata) VALUES(%s,%s,%s,%s,'purchase',%s,%s::jsonb)""",
+                    (uuid.uuid4(), recharge[0], int(recharge[1]), new_balance,
+                     f"recharge:{recharge_id}", _json({"stripe_payment_intent_id": stripe_payment_intent_id})),
+                )
+                connection.execute(
+                    "UPDATE automatic_recharges SET status='succeeded',stripe_payment_intent_id=%s,updated_at=now() WHERE id=%s",
+                    (stripe_payment_intent_id, recharge_id),
+                )
+                connection.execute(
+                    "UPDATE organization_subscriptions SET last_recharge_status='succeeded',updated_at=now() WHERE organization_id=%s",
+                    (recharge[0],),
+                )
+        return {"applied": True, "balance": new_balance}
+
+    def fail_auto_recharge(
+        self, *, recharge_id: str, status: str, failure_code: str = "",
+        stripe_payment_intent_id: str = "",
+        event_id: str = "", event_type: str = "", payload_sha256: str = "",
+    ) -> None:
+        if status not in {"failed", "action_required"}:
+            raise ValueError("invalid recharge failure status")
+        with self._connect() as connection:
+            self.ensure_schema(connection)
+            with connection.transaction():
+                if event_id:
+                    connection.execute(
+                        """INSERT INTO stripe_webhook_events(event_id,event_type,payload_sha256)
+                        VALUES(%s,%s,%s) ON CONFLICT(event_id) DO NOTHING""",
+                        (event_id, event_type, payload_sha256),
+                    )
+                row = connection.execute(
+                    """UPDATE automatic_recharges
+                    SET status=%s,failure_code=%s,stripe_payment_intent_id=%s,updated_at=now()
+                    WHERE id=%s
+                      AND status IN ('pending','processing','action_required')
+                    RETURNING organization_id""",
+                    (status, failure_code or None, stripe_payment_intent_id or None, recharge_id),
+                ).fetchone()
+                if row:
+                    connection.execute(
+                        "UPDATE organization_subscriptions SET last_recharge_status=%s,updated_at=now() WHERE organization_id=%s",
+                        (status, row[0]),
+                    )
 
     def mark_mirrored_report_deleted(
         self, *, organization_id: str, session_id: str
@@ -844,16 +1337,50 @@ class TenantStore:
                 {"owner_name": "FROID Legacy", "account_type": "individual"},
             )
 
-        patient_owners: Dict[str, set[str]] = {}
+        scoped_refs: Dict[tuple[str, str], dict] = {}
+
+        def scoped_ref(owner: str, explicit_organization_id: Any = "") -> dict:
+            """Resolve the professional's real membership for tenant-bound data."""
+            normalized_owner = normalize_email(owner) or fallback_email
+            organization_id = str(explicit_organization_id or "").strip()
+            fallback_ref = owner_refs.get(normalized_owner) or owner_refs[fallback_email]
+            if not organization_id:
+                return fallback_ref
+            cache_key = (normalized_owner, organization_id)
+            if cache_key in scoped_refs:
+                return scoped_refs[cache_key]
+            row = cursor.execute(
+                """SELECT membership.organization_id, membership.user_id, membership.id
+                FROM organization_memberships membership
+                JOIN users user_account ON user_account.id=membership.user_id
+                WHERE membership.organization_id=%s AND lower(user_account.email)=%s""",
+                (organization_id, normalized_owner),
+            ).fetchone()
+            if not row:
+                raise ValueError(
+                    "tenant-bound clinical data has no matching organization membership"
+                )
+            resolved = {
+                "organization_id": row[0],
+                "user_id": row[1],
+                "membership_id": row[2],
+            }
+            scoped_refs[cache_key] = resolved
+            return resolved
+
+        patient_scopes: Dict[str, set[tuple[str, str]]] = {}
         session_invites: Dict[str, dict] = {}
         invite_ids: Dict[str, dict] = {}
         for token, invite in invites.items():
             if not isinstance(invite, dict):
                 continue
             owner = normalize_email(invite.get("professional_email")) or fallback_email
+            organization_id = str(invite.get("organization_id") or "").strip()
             patient_id = str(invite.get("patient_id") or "").strip()
             if patient_id:
-                patient_owners.setdefault(patient_id, set()).add(owner)
+                patient_scopes.setdefault(patient_id, set()).add(
+                    (owner, organization_id)
+                )
             session_id = str(invite.get("session_id") or "").strip()
             if session_id:
                 session_invites[session_id] = invite
@@ -870,11 +1397,16 @@ class TenantStore:
                 or report.get("professional_email")
                 or professional.get("email")
             ) or fallback_email
+            organization_id = str(
+                report.get("organizationId") or report.get("organization_id") or ""
+            ).strip()
             legacy_patient_id = str(
                 report.get("patientId") or report.get("patient_id") or ""
             ).strip()
             if legacy_patient_id:
-                patient_owners.setdefault(legacy_patient_id, set()).add(owner)
+                patient_scopes.setdefault(legacy_patient_id, set()).add(
+                    (owner, organization_id)
+                )
 
         migrated_patients: Dict[tuple[str, str], uuid.UUID] = {}
         patients = state.get("patients") or {}
@@ -882,11 +1414,13 @@ class TenantStore:
             if not isinstance(patient, dict):
                 continue
             legacy_patient_id = str(legacy_patient_id)
-            for owner in patient_owners.get(legacy_patient_id, {fallback_email}):
-                ref = owner_refs.get(owner) or owner_refs[fallback_email]
+            for owner, scoped_organization_id in patient_scopes.get(
+                legacy_patient_id, {(fallback_email, "")}
+            ):
+                ref = scoped_ref(owner, scoped_organization_id)
                 organization_id = ref["organization_id"]
                 patient_id = stable_uuid("patient", organization_id, legacy_patient_id)
-                migrated_patients[(owner, legacy_patient_id)] = patient_id
+                migrated_patients[(str(organization_id), legacy_patient_id)] = patient_id
                 cursor.execute(
                     """
                     INSERT INTO patients
@@ -971,9 +1505,11 @@ class TenantStore:
                 str(consent.get("session_id") or "")
             ) or {}
             owner = normalize_email(invite.get("professional_email")) or fallback_email
-            ref = owner_refs.get(owner) or owner_refs[fallback_email]
+            ref = scoped_ref(owner, invite.get("organization_id"))
             legacy_patient_id = str(consent.get("patient_id") or invite.get("patient_id") or "")
-            patient_id = migrated_patients.get((owner, legacy_patient_id))
+            patient_id = migrated_patients.get(
+                (str(ref["organization_id"]), legacy_patient_id)
+            )
             consent_hash = str(consent.get("hash") or stable_uuid("consent-hash", _json(consent)))
             cursor.execute(
                 """
@@ -1010,11 +1546,19 @@ class TenantStore:
                 or report_professional.get("email")
                 or invite.get("professional_email")
             ) or fallback_email
-            ref = owner_refs.get(owner) or owner_refs[fallback_email]
+            explicit_organization_id = (
+                report.get("organizationId")
+                or report.get("organization_id")
+                or invite.get("organization_id")
+                or ""
+            )
+            ref = scoped_ref(owner, explicit_organization_id)
             legacy_patient_id = str(
                 report.get("patientId") or report.get("patient_id") or invite.get("patient_id") or ""
             )
-            patient_id = migrated_patients.get((owner, legacy_patient_id))
+            patient_id = migrated_patients.get(
+                (str(ref["organization_id"]), legacy_patient_id)
+            )
             cursor.execute(
                 """
                 INSERT INTO session_reports

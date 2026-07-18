@@ -127,15 +127,20 @@ export const NewPatient: React.FC = () => {
     const pollSessionEvents = async () => {
       try {
         if (eventCursorRef.current === null) {
-          const response = await fetch(apiUrl("/api/session-events/latest"));
+          const token = localStorage.getItem("froid_token") || "";
+          const response = await fetch(apiUrl("/api/session-events/latest"), {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          });
           if (!response.ok) return;
           const data = await response.json();
           eventCursorRef.current = Number(data?.latest_id || 0);
           return;
         }
 
+        const token = localStorage.getItem("froid_token") || "";
         const response = await fetch(
           apiUrl(`/api/session-events?after=${eventCursorRef.current}`),
+          { headers: token ? { Authorization: `Bearer ${token}` } : {} },
         );
         if (!response.ok) return;
         const data = await response.json();

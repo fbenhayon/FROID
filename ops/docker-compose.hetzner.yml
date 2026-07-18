@@ -1,0 +1,10 @@
+services:
+  froid-backend:
+    networks:
+      - default
+      - froid-data
+
+networks:
+  froid-data:
+    external: true
+    name: ${FROID_DATA_NETWORK:-froid_froid-network}

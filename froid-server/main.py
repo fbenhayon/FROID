@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import quote, unquote, urlencode
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 from froid_core import SessionState, MockBiometricStream
 from froid_metrics_engine import calculate_report_metrics
@@ -26,6 +26,21 @@ from tenant_access import (
     should_block,
 )
 from tenant_store import TenantStore, stable_uuid
+from subscriptions import (
+    ACTIVE_SUBSCRIPTION_STATUSES,
+    AUTO_REPLENISH_TERMS_VERSION,
+    SESSION_PACKAGES,
+    SUPPORTED_BILLING_CURRENCIES,
+    SUBSCRIPTION_PLANS,
+    StripeSignatureError,
+    public_plan_catalog,
+    public_package_catalog,
+    verify_stripe_event,
+    package_price,
+)
+from secure_tokens import (
+    TOKEN_FIELDS, TextCipher, TokenCipher, TokenEncryptionError,
+)
 import httpx
 
 app = FastAPI(title="FROID Fusion Server", version="3.0.0")
@@ -33,7 +48,14 @@ LOGGER = logging.getLogger("froid.persistence")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        origin.strip()
+        for origin in os.getenv(
+            "FROID_ALLOWED_ORIGINS",
+            "https://www.froid.com.br,https://froid.com.br,http://localhost:5173,http://127.0.0.1:5173",
+        ).split(",")
+        if origin.strip()
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -101,7 +123,7 @@ FROID_ADMIN_EMAILS = {
 }
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
-GOOGLE_AUTH_DEV_FALLBACK = os.getenv("GOOGLE_AUTH_DEV_FALLBACK", "true").lower() in {"1", "true", "yes", "on"}
+GOOGLE_AUTH_DEV_FALLBACK = os.getenv("GOOGLE_AUTH_DEV_FALLBACK", "false").lower() in {"1", "true", "yes", "on"}
 GOOGLE_CALENDAR_SCOPES = [
     "openid",
     "email",
@@ -116,10 +138,22 @@ FROID_LOCAL_AUTH_EMAILS = {
     if email.strip()
 }
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 STRIPE_CURRENCY = os.getenv("STRIPE_CURRENCY", "brl")
+STRIPE_SUBSCRIPTION_PRICE_IDS = {
+    code: os.getenv(f"STRIPE_PRICE_{code.upper()}", "").strip()
+    for code in SESSION_PACKAGES
+}
+FROID_SUBSCRIPTIONS_REQUIRED = os.getenv(
+    "FROID_SUBSCRIPTIONS_REQUIRED", "false"
+).lower() in {"1", "true", "yes", "on"}
 FROID_ALLOW_LOCAL_BILLING_FALLBACK = os.getenv(
     "FROID_ALLOW_LOCAL_BILLING_FALLBACK", "false"
 ).lower() in {"1", "true", "yes", "on"}
+TOKEN_CIPHER = TokenCipher.from_csv(os.getenv("FROID_TOKEN_ENCRYPTION_KEYS", ""))
+CLINICAL_TEXT_CIPHER = TextCipher.from_csv(
+    os.getenv("FROID_CLINICAL_RECORD_ENCRYPTION_KEYS", "")
+)
 TENANT_STORE = TenantStore.from_env()
 FROID_TENANT_AUTHORIZATION_MODE = os.getenv(
     "FROID_TENANT_AUTHORIZATION_MODE", "off"
@@ -170,11 +204,16 @@ if FROID_SHARED_CREDITS_MODE == "enforce" and (
     )
 
 SESSION_USERS = {}
+FROID_SESSION_TOKEN_TTL_SECONDS = max(
+    300, int(os.getenv("FROID_SESSION_TOKEN_TTL_SECONDS", "28800") or "28800")
+)
 PATIENT_PORTAL_SESSIONS: Dict[str, dict] = {}
 PROFESSIONAL_PROFILES: Dict[str, dict] = {}
 PATIENTS: Dict[str, dict] = {}
 PATIENTS_BY_CONTACT: Dict[str, str] = {}
 SESSION_INVITES: Dict[str, dict] = {}
+SESSION_OWNERS: Dict[str, str] = {}
+SESSION_ORGANIZATIONS: Dict[str, str] = {}
 CONSENT_LEDGER: list[dict] = []
 PATIENT_SESSION_ENTRIES: Dict[str, list[dict]] = {}
 SESSION_EVENTS: list[dict] = []
@@ -182,6 +221,7 @@ ADMIN_AUDIT_EVENTS: list[dict] = []
 SESSION_EVENT_COUNTER = 0
 GOOGLE_CALENDAR_CONNECTIONS: Dict[str, dict] = {}
 GOOGLE_CALENDAR_OAUTH_STATES: Dict[str, dict] = {}
+CALENDAR_TOKEN_MIGRATION_REQUIRED = False
 IDENTITY_STATE_LOCK = threading.Lock()
 
 
@@ -235,12 +275,15 @@ def _load_identity_state() -> None:
     global PATIENTS
     global PATIENTS_BY_CONTACT
     global SESSION_INVITES
+    global SESSION_OWNERS
+    global SESSION_ORGANIZATIONS
     global CONSENT_LEDGER
     global PATIENT_SESSION_ENTRIES
     global SESSION_EVENTS
     global ADMIN_AUDIT_EVENTS
     global SESSION_EVENT_COUNTER
     global GOOGLE_CALENDAR_CONNECTIONS
+    global CALENDAR_TOKEN_MIGRATION_REQUIRED
 
     if not FROID_IDENTITY_STATE_PATH or not os.path.exists(FROID_IDENTITY_STATE_PATH):
         return
@@ -275,12 +318,34 @@ def _load_identity_state() -> None:
     )
 
     raw_invites = state.get("session_invites")
+    raw_session_owners = state.get("session_owners")
+    if isinstance(raw_session_owners, dict):
+        SESSION_OWNERS = {
+            str(session_id): _local_normalize_email(email)
+            for session_id, email in raw_session_owners.items()
+            if session_id and _local_normalize_email(email)
+        }
+    raw_session_organizations = state.get("session_organizations")
+    if isinstance(raw_session_organizations, dict):
+        SESSION_ORGANIZATIONS = {
+            str(session_id): str(organization_id)
+            for session_id, organization_id in raw_session_organizations.items()
+            if session_id and organization_id
+        }
     if isinstance(raw_invites, dict):
         SESSION_INVITES = {
             str(token): invite
             for token, invite in raw_invites.items()
             if token and isinstance(invite, dict)
         }
+        for invite in SESSION_INVITES.values():
+            session_id = str(invite.get("session_id") or "")
+            owner_email = _local_normalize_email(invite.get("professional_email") or "")
+            if session_id and owner_email:
+                SESSION_OWNERS[session_id] = owner_email
+            organization_id = str(invite.get("organization_id") or "")
+            if session_id and organization_id:
+                SESSION_ORGANIZATIONS[session_id] = organization_id
 
     raw_ledger = state.get("consent_ledger")
     if isinstance(raw_ledger, list):
@@ -310,14 +375,51 @@ def _load_identity_state() -> None:
 
     raw_calendar_connections = state.get("google_calendar_connections")
     if isinstance(raw_calendar_connections, dict):
-        GOOGLE_CALENDAR_CONNECTIONS = {
-            _local_normalize_email(email): connection
-            for email, connection in raw_calendar_connections.items()
-            if _local_normalize_email(email) and isinstance(connection, dict)
-        }
+        GOOGLE_CALENDAR_CONNECTIONS = {}
+        for email, connection in raw_calendar_connections.items():
+            normalized_email = _local_normalize_email(email)
+            if not normalized_email or not isinstance(connection, dict):
+                continue
+            has_plaintext = any(connection.get(field) for field in TOKEN_FIELDS)
+            if TOKEN_CIPHER:
+                try:
+                    revealed = TOKEN_CIPHER.reveal(connection)
+                    revealed.pop("token_storage_locked", None)
+                    revealed.pop("token_storage_error", None)
+                    GOOGLE_CALENDAR_CONNECTIONS[normalized_email] = revealed
+                    CALENDAR_TOKEN_MIGRATION_REQUIRED = (
+                        CALENDAR_TOKEN_MIGRATION_REQUIRED
+                        or has_plaintext
+                        or TOKEN_CIPHER.needs_rotation(connection)
+                    )
+                except TokenEncryptionError:
+                    LOGGER.exception("Unable to decrypt stored Google OAuth tokens")
+                    locked = {
+                        key: value for key, value in connection.items()
+                        if key not in TOKEN_FIELDS
+                    }
+                    locked["token_storage_locked"] = True
+                    locked["token_storage_error"] = True
+                    GOOGLE_CALENDAR_CONNECTIONS[normalized_email] = locked
+            else:
+                metadata = {
+                    key: value for key, value in connection.items()
+                    if key not in TOKEN_FIELDS
+                }
+                metadata["token_storage_locked"] = True
+                GOOGLE_CALENDAR_CONNECTIONS[normalized_email] = metadata
 
 
 def _identity_state_snapshot() -> dict:
+    calendar_connections = {}
+    for email, connection in GOOGLE_CALENDAR_CONNECTIONS.items():
+        if TOKEN_CIPHER:
+            calendar_connections[email] = TOKEN_CIPHER.protect(connection)
+        else:
+            calendar_connections[email] = {
+                key: value for key, value in connection.items()
+                if key not in TOKEN_FIELDS
+            }
     return {
         "schema_version": "froid-identity-state-v1",
         "saved_at": datetime.now(timezone.utc).isoformat(),
@@ -325,12 +427,14 @@ def _identity_state_snapshot() -> dict:
         "patients": PATIENTS,
         "patients_by_contact": PATIENTS_BY_CONTACT,
         "session_invites": SESSION_INVITES,
+        "session_owners": SESSION_OWNERS,
+        "session_organizations": SESSION_ORGANIZATIONS,
         "consent_ledger": CONSENT_LEDGER[-2000:],
         "patient_session_entries": PATIENT_SESSION_ENTRIES,
         "session_events": SESSION_EVENTS[-500:],
         "admin_audit_events": ADMIN_AUDIT_EVENTS[-1000:],
         "session_event_counter": SESSION_EVENT_COUNTER,
-        "google_calendar_connections": GOOGLE_CALENDAR_CONNECTIONS,
+        "google_calendar_connections": calendar_connections,
     }
 
 
@@ -344,6 +448,7 @@ def _save_identity_state() -> None:
         with open(tmp_path, "w", encoding="utf-8") as state_file:
             json.dump(_identity_state_snapshot(), state_file, ensure_ascii=False, indent=2)
         os.replace(tmp_path, FROID_IDENTITY_STATE_PATH)
+        os.chmod(FROID_IDENTITY_STATE_PATH, 0o600)
     _mirror_legacy_state_to_postgres()
 
 
@@ -1396,24 +1501,74 @@ async def _query_froid_analytics(payload: FroidExplicaQuery) -> FroidExplicaResp
     )
 
 
-def _load_session_reports() -> Dict[str, dict]:
+def _load_session_reports(*, reveal_transcripts: bool = True) -> Dict[str, dict]:
     try:
         if not os.path.exists(FROID_SESSION_REPORTS_PATH):
             return {}
         with open(FROID_SESSION_REPORTS_PATH, "r", encoding="utf-8") as report_file:
             data = json.load(report_file)
-        return data if isinstance(data, dict) else {}
+        if not isinstance(data, dict):
+            return {}
+        reports = {}
+        for session_id, report in data.items():
+            if not isinstance(report, dict):
+                continue
+            if report.get("transcript_encrypted"):
+                if not reveal_transcripts:
+                    reports[session_id] = dict(report)
+                    continue
+                if not CLINICAL_TEXT_CIPHER:
+                    locked = dict(report)
+                    locked["transcript"] = ""
+                    locked["transcript_storage_locked"] = True
+                    reports[session_id] = locked
+                    continue
+                try:
+                    report = CLINICAL_TEXT_CIPHER.reveal(
+                        report, "transcript", "transcript_encrypted"
+                    )
+                    report.pop("transcript_storage_locked", None)
+                    report.pop("transcript_storage_error", None)
+                except TokenEncryptionError:
+                    LOGGER.exception("Unable to decrypt clinical transcript")
+                    locked = dict(report)
+                    locked["transcript"] = ""
+                    locked["transcript_storage_locked"] = True
+                    locked["transcript_storage_error"] = True
+                    reports[session_id] = locked
+                    continue
+            reports[session_id] = report
+        return reports
     except Exception:
+        LOGGER.exception("Unable to load persisted session reports")
         return {}
 
 
 def _save_session_reports(reports: Dict[str, dict]) -> None:
-    os.makedirs(os.path.dirname(FROID_SESSION_REPORTS_PATH), exist_ok=True)
+    protected_reports = {}
+    for session_id, report in reports.items():
+        protected = dict(report)
+        if protected.get("transcript"):
+            if not CLINICAL_TEXT_CIPHER:
+                raise RuntimeError("FROID_CLINICAL_RECORD_ENCRYPTION_KEYS is required")
+            protected = CLINICAL_TEXT_CIPHER.protect(
+                protected, "transcript", "transcript_encrypted"
+            )
+        protected_reports[session_id] = protected
+    report_dir = os.path.dirname(FROID_SESSION_REPORTS_PATH) or "."
+    os.makedirs(report_dir, exist_ok=True)
     tmp_path = f"{FROID_SESSION_REPORTS_PATH}.tmp"
     with open(tmp_path, "w", encoding="utf-8") as report_file:
-        json.dump(reports, report_file, ensure_ascii=False, indent=2)
+        json.dump(protected_reports, report_file, ensure_ascii=False, indent=2)
     os.replace(tmp_path, FROID_SESSION_REPORTS_PATH)
-    _mirror_legacy_state_to_postgres(reports)
+    os.chmod(FROID_SESSION_REPORTS_PATH, 0o600)
+    _mirror_legacy_state_to_postgres(protected_reports)
+
+
+def _report_for_api(report: dict) -> dict:
+    public_report = dict(report or {})
+    public_report.pop("transcript_encrypted", None)
+    return public_report
 
 
 def _mirror_legacy_state_to_postgres(reports: Optional[Dict[str, dict]] = None) -> None:
@@ -1423,12 +1578,19 @@ def _mirror_legacy_state_to_postgres(reports: Optional[Dict[str, dict]] = None) 
     try:
         TENANT_STORE.sync_all(
             _identity_state_snapshot(),
-            reports if reports is not None else _load_session_reports(),
+            reports
+            if reports is not None
+            else _load_session_reports(reveal_transcripts=False),
         )
     except Exception:
         LOGGER.exception(
             "PostgreSQL mirror failed; the authoritative legacy write was preserved"
         )
+
+
+# The migration can mirror safely only after the mirror helper has been defined.
+if CALENDAR_TOKEN_MIGRATION_REQUIRED:
+    _save_identity_state()
 
 
 def _professional_access_status(email: str) -> dict:
@@ -1445,7 +1607,7 @@ def _professional_access_status(email: str) -> dict:
         if account_type == "organization"
         else profile_fields.get("cpf") or (profile or {}).get("document")
     )
-    access_ready = has_profile and lgpd_acknowledged and bool(selected_plan) and bool(professional_cpf)
+    payment_status = str((profile or {}).get("payment_status") or "").lower()
     total_sessions = max(0, _local_int((profile or {}).get("total_sessions")))
     used_sessions = max(0, _local_int((profile or {}).get("used_sessions")))
     remaining_sessions = max(
@@ -1454,11 +1616,19 @@ def _professional_access_status(email: str) -> dict:
         if (profile or {}).get("remaining_sessions") is not None
         else total_sessions - used_sessions,
     )
+    access_ready = (
+        has_profile
+        and lgpd_acknowledged
+        and bool(selected_plan)
+        and bool(professional_cpf)
+        and payment_status in {"paid", "active", "trialing"}
+        and remaining_sessions > 0
+    )
     return {
         "has_profile": has_profile,
         "lgpd_acknowledged": lgpd_acknowledged,
         "selected_plan": selected_plan,
-        "payment_status": str((profile or {}).get("payment_status") or ("pending_checkout" if access_ready else "not_started")),
+        "payment_status": payment_status or ("pending_checkout" if selected_plan else "not_started"),
         "onboarding_required": not access_ready,
         "total_sessions": total_sessions,
         "used_sessions": used_sessions,
@@ -1480,6 +1650,9 @@ def _consume_professional_session_credit(owner_email: str, session_id: str) -> d
         consumed = []
     if session_id in {str(item) for item in consumed}:
         return _professional_access_status(email)
+
+    if max(0, _local_int(profile.get("remaining_sessions"))) <= 0:
+        raise HTTPException(status_code=402, detail="créditos de sessão insuficientes")
 
     total_sessions = max(0, _local_int(profile.get("total_sessions")))
     used_sessions = max(0, _local_int(profile.get("used_sessions"))) + 1
@@ -1566,6 +1739,14 @@ def _consume_session_credit(
         raise HTTPException(status_code=503, detail="falha ao consumir crédito organizacional")
     status = _apply_shared_wallet_compatibility(owner_email, session_id, result)
     status["shared_credit_mode"] = "enforce"
+    if int(result.get("balance") or 0) == 0:
+        try:
+            asyncio.get_running_loop().create_task(
+                _run_automatic_recharge(context.organization_id)
+            )
+            status["automatic_recharge"] = "scheduled"
+        except RuntimeError:
+            LOGGER.exception("Unable to schedule automatic recharge")
     return status
 
 
@@ -1682,11 +1863,27 @@ def _receivable_status(due_cents: int, received_cents: int) -> str:
     return "pendente"
 
 
-def _can_access_invite_finance(invite: dict, owner_email: str) -> bool:
+def _invite_organization_id(invite: dict) -> str:
+    explicit = str((invite or {}).get("organization_id") or "").strip()
+    if explicit:
+        return explicit
+    owner_email = _normalize_email((invite or {}).get("professional_email") or "")
+    return str(stable_uuid("organization", owner_email)) if owner_email else ""
+
+
+def _can_access_invite_finance(
+    invite: dict, owner_email: str, organization_id: str = ""
+) -> bool:
     invite_owner = _normalize_email(invite.get("professional_email") or "")
-    if invite_owner:
-        return invite_owner == _normalize_email(owner_email)
-    return _normalize_email(owner_email) == _normalize_email(FROID_LEGACY_REPORT_OWNER)
+    owner_matches = (
+        invite_owner == _normalize_email(owner_email)
+        if invite_owner
+        else _normalize_email(owner_email) == _normalize_email(FROID_LEGACY_REPORT_OWNER)
+    )
+    return owner_matches and (
+        not organization_id
+        or _invite_organization_id(invite) == str(organization_id)
+    )
 
 
 def _patient_payload_from_invite(invite: Optional[dict]) -> dict:
@@ -1980,6 +2177,19 @@ def _append_anonymous_datamart_row(report: dict) -> None:
     try:
         import duckdb
 
+        context = _session_context(report)
+        consent_value = None
+        for source, key in (
+            (context, "consent_anonymous_research"),
+            (context, "consentAnonymousResearch"),
+            (report, "consentAnonymousResearch"),
+        ):
+            if key in source:
+                consent_value = source.get(key)
+                break
+        if not _safe_bool(consent_value, False):
+            return
+
         os.makedirs(os.path.dirname(FROID_DUCKDB_PATH), exist_ok=True)
         conn = duckdb.connect(database=FROID_DUCKDB_PATH, read_only=False)
         session_hash = _anonymous_session_hash(report)
@@ -2271,7 +2481,6 @@ def _append_anonymous_datamart_row(report: dict) -> None:
         )
         average = report.get("sessionAverage") or {}
         baseline = report.get("baseline") or {}
-        context = _session_context(report)
         session_summary = report.get("sessionSummary") or {}
         ten_minute_cuts = [
             cut for cut in (report.get("tenMinuteCuts") or []) if isinstance(cut, dict)
@@ -2288,12 +2497,7 @@ def _append_anonymous_datamart_row(report: dict) -> None:
             sum(cuts_confidence) / len(cuts_confidence) if cuts_confidence else 0.0
         )
         audio_quality = str(context.get("audio_quality") or context.get("audioQuality") or "nao_informada")
-        consent_research = _safe_bool(
-            context.get("consent_anonymous_research")
-            or context.get("consentAnonymousResearch")
-            or report.get("consentAnonymousResearch"),
-            True,
-        )
+        consent_research = True
         conn.execute("DELETE FROM anonymous_session_cuts WHERE session_hash = ?", [session_hash])
         try:
             conn.execute("DELETE FROM anonymous_sessions WHERE session_hash = ?", [session_hash])
@@ -2340,7 +2544,7 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 len(ten_minute_cuts),
                 len(report.get("clinicalNotes") or []),
                 _safe_str(session_summary.get("theme") or average.get("theme") or "", 180),
-                _limit_words(_safe_str(session_summary.get("summary") or "", 3000), 150),
+                "",
                 _safe_str(context.get("stt_model") or context.get("sttModel") or OPENAI_TRANSCRIBE_MODEL, 120),
                 _safe_str(context.get("llm_model") or context.get("llmModel") or FROID_EXPLICA_MODEL, 120),
                 _safe_str(context.get("algorithm_version") or context.get("algorithmVersion") or FROID_ALGORITHM_VERSION, 80),
@@ -2915,6 +3119,8 @@ def _record_session_event(event_type: str, invite: dict, extra: dict | None = No
         "type": event_type,
         "session_id": invite.get("session_id"),
         "invite_id": invite.get("id"),
+        "professional_email": _normalize_email(invite.get("professional_email") or ""),
+        "organization_id": _invite_organization_id(invite),
         "patient_name": invite.get("patient_name"),
         "patient_known": bool(invite.get("patient_known")),
         "created_at": _utc_now_iso(),
@@ -3031,12 +3237,14 @@ def _format_brl(cents: int, currency: str = "brl") -> str:
         return f"US$ {reais}.{centavos:02d}"
     if str(currency or "").lower() == "eur":
         return f"€ {reais},{centavos:02d}"
+    if str(currency or "").lower() == "cny":
+        return f"CNY {reais}.{centavos:02d}"
     return f"R$ {reais},{centavos:02d}"
 
 
 def _normalize_stripe_currency(value: Any) -> str:
     currency = str(value or "").strip().lower()
-    return currency if currency in {"brl", "usd", "eur"} else ""
+    return currency if currency in SUPPORTED_BILLING_CURRENCIES else ""
 
 
 def _plan_amount_for_currency(plan: dict, currency: str) -> int:
@@ -3184,7 +3392,19 @@ def _current_user_from_request(request: Request) -> Optional[dict]:
     )
     if not token:
         return None
-    return SESSION_USERS.get(token)
+    return _session_user_for_token(token)
+
+
+def _session_user_for_token(token: str) -> Optional[dict]:
+    if not token:
+        return None
+    user = SESSION_USERS.get(token)
+    if not isinstance(user, dict):
+        return None
+    if float(user.get("_session_expires_at") or 0) <= datetime.now(timezone.utc).timestamp():
+        SESSION_USERS.pop(token, None)
+        return None
+    return user
 
 
 def _require_current_user(request: Request) -> dict:
@@ -3276,7 +3496,13 @@ def _attach_tenant_contexts(user: dict) -> dict:
 def _tenant_context_from_request(request: Request) -> Optional[AccessContext]:
     user = _require_current_user(request)
     contexts = user.get("organizations")
-    if not isinstance(contexts, list):
+    # Memberships and roles are security state, not durable session claims.
+    # Refresh from PostgreSQL so revocation/offboarding takes effect immediately.
+    if TENANT_STORE.enabled:
+        refreshed = _attach_tenant_contexts(user)
+        user.update(refreshed)
+        contexts = refreshed.get("organizations") or []
+    elif not isinstance(contexts, list) or not contexts:
         refreshed = _attach_tenant_contexts(user)
         user.update(refreshed)
         contexts = refreshed.get("organizations") or []
@@ -3307,6 +3533,80 @@ def _tenant_context_from_request(request: Request) -> Optional[AccessContext]:
     )
 
 
+def _require_active_subscription_for_context(
+    context: Optional[AccessContext],
+) -> Optional[dict]:
+    """Fail closed for professional features when commercial access is enforced."""
+    if not FROID_SUBSCRIPTIONS_REQUIRED:
+        return None
+    if not TENANT_STORE.enabled:
+        raise HTTPException(
+            status_code=503,
+            detail="validação de assinatura temporariamente indisponível",
+        )
+    if context is None or context.status != "active":
+        raise HTTPException(status_code=402, detail="plano FROID ativo obrigatório")
+    try:
+        subscription = TENANT_STORE.subscription_status(
+            organization_id=context.organization_id,
+            membership_id=context.membership_id,
+        )
+    except Exception:
+        LOGGER.exception("Unable to validate required FROID subscription")
+        raise HTTPException(
+            status_code=503,
+            detail="validação de assinatura temporariamente indisponível",
+        )
+    if (
+        not subscription
+        or subscription.get("status") not in ACTIVE_SUBSCRIPTION_STATUSES
+    ):
+        raise HTTPException(status_code=402, detail="plano FROID ativo obrigatório")
+    return subscription
+
+
+def _require_professional_feature_access(request: Request) -> Optional[AccessContext]:
+    """Authenticate and apply the subscription gate to a professional feature."""
+    context = _tenant_context_from_request(request)
+    _require_active_subscription_for_context(context)
+    return context
+
+
+def _require_professional_websocket_access(user: dict) -> Optional[AccessContext]:
+    """Apply the same fail-closed gate before accepting professional sockets."""
+    contexts = _tenant_contexts_for_email(user.get("email") or "")
+    active_id = str(user.get("active_organization_id") or "")
+    selected = next(
+        (
+            item
+            for item in contexts
+            if isinstance(item, dict)
+            and str(item.get("organization_id") or "") == active_id
+        ),
+        contexts[0] if len(contexts) == 1 else None,
+    )
+    context = (
+        AccessContext.create(
+            organization_id=selected.get("organization_id") or "",
+            membership_id=selected.get("membership_id") or "",
+            user_id=selected.get("user_id") or "",
+            roles=selected.get("roles") or [],
+            status=selected.get("status") or "",
+        )
+        if isinstance(selected, dict)
+        else None
+    )
+    _require_active_subscription_for_context(context)
+    return context
+
+
+def _session_matches_context(session_id: str, context: Optional[AccessContext]) -> bool:
+    organization_id = str(SESSION_ORGANIZATIONS.get(session_id) or "")
+    return not organization_id or bool(
+        context and organization_id == context.organization_id
+    )
+
+
 def _authorize_tenant_request(
     request: Request,
     permission: str,
@@ -3316,10 +3616,12 @@ def _authorize_tenant_request(
     resource_organization_id: str = "",
     assigned: bool = False,
     owns_resource: bool = False,
+    context_override: Optional[AccessContext] = None,
 ) -> Optional[AccessContext]:
+    context = context_override or _tenant_context_from_request(request)
+    _require_active_subscription_for_context(context)
     if FROID_TENANT_AUTHORIZATION_MODE == "off":
-        return _tenant_context_from_request(request)
-    context = _tenant_context_from_request(request)
+        return context
     decision = decide(
         context,
         permission,
@@ -3364,6 +3666,15 @@ def _require_tenant_management_context(
     )
     if not decision.allowed or context is None:
         raise HTTPException(status_code=403, detail="permissão organizacional insuficiente")
+    subscription = _require_active_subscription_for_context(context)
+    if subscription is None:
+        subscription = TENANT_STORE.subscription_status(
+            organization_id=context.organization_id,
+            membership_id=context.membership_id,
+        )
+    if permission == "audit.read" and subscription:
+        if not bool((subscription.get("entitlements") or {}).get("audit_export")):
+            raise HTTPException(status_code=403, detail="plano sem trilha de auditoria avançada")
     return context
 
 
@@ -3584,6 +3895,70 @@ def _build_whatsapp_message(invite: dict) -> str:
     return "\n".join(lines)
 
 
+def _effective_professional_access_status(user: dict) -> dict:
+    """Combine legacy onboarding evidence with authoritative tenant billing."""
+    legacy = _professional_access_status(user.get("email") or "")
+    fail_closed = {
+        **legacy,
+        "payment_status": "subscription_unavailable",
+        "remaining_sessions": 0,
+        "onboarding_required": True,
+    }
+    if not TENANT_STORE.enabled:
+        return fail_closed if FROID_SUBSCRIPTIONS_REQUIRED else legacy
+    contexts = user.get("organizations") if isinstance(user, dict) else []
+    contexts = contexts if isinstance(contexts, list) else []
+    active_id = str(user.get("active_organization_id") or "")
+    context = next(
+        (
+            item for item in contexts
+            if isinstance(item, dict)
+            and str(item.get("organization_id") or "") == active_id
+        ),
+        contexts[0] if len(contexts) == 1 and isinstance(contexts[0], dict) else None,
+    )
+    if not context:
+        return fail_closed if FROID_SUBSCRIPTIONS_REQUIRED else legacy
+    try:
+        subscription = TENANT_STORE.subscription_status(
+            organization_id=str(context.get("organization_id") or ""),
+            membership_id=str(context.get("membership_id") or ""),
+        )
+        if not subscription:
+            return fail_closed if FROID_SUBSCRIPTIONS_REQUIRED else legacy
+        wallet = TENANT_STORE.wallet_status(
+            organization_id=str(context.get("organization_id") or ""),
+            membership_id=str(context.get("membership_id") or ""),
+        )
+    except Exception:
+        LOGGER.exception("Unable to derive authoritative subscription access")
+        return fail_closed if FROID_SUBSCRIPTIONS_REQUIRED else legacy
+    balance = max(0, _local_int(wallet.get("balance")))
+    billing_active = (
+        subscription.get("status") in ACTIVE_SUBSCRIPTION_STATUSES
+        and wallet.get("authority") == "shared"
+        and balance > 0
+    )
+    profile_ready = (
+        bool(legacy.get("has_profile"))
+        and bool(legacy.get("lgpd_acknowledged"))
+        and not bool(legacy.get("cpf_required"))
+    )
+    return {
+        **legacy,
+        "selected_plan": subscription.get("package_code") or subscription.get("plan_code"),
+        "payment_status": subscription.get("status") or "not_started",
+        "remaining_sessions": balance,
+        "total_sessions": max(
+            balance,
+            _local_int(legacy.get("total_sessions")),
+        ),
+        "onboarding_required": not (profile_ready and billing_active),
+        "subscription": subscription,
+        "shared_wallet": wallet,
+    }
+
+
 async def _transcribe_with_openai(
     audio_bytes: bytes,
     fallback_text: str = "",
@@ -3612,10 +3987,20 @@ def _issue_session(user: dict):
     token = secrets.token_urlsafe(32)
     session_user = dict(user or {})
     session_user["email"] = _normalize_email(session_user.get("email") or "")
-    session_user["access_status"] = _professional_access_status(session_user.get("email") or "")
     session_user = _attach_tenant_contexts(session_user)
+    session_user["access_status"] = _effective_professional_access_status(session_user)
+    session_user["_session_expires_at"] = (
+        datetime.now(timezone.utc).timestamp() + FROID_SESSION_TOKEN_TTL_SECONDS
+    )
     SESSION_USERS[token] = session_user
-    return {"token": token, "user": session_user}
+    public_user = {
+        key: value for key, value in session_user.items() if not key.startswith("_")
+    }
+    return {
+        "token": token,
+        "expires_in": FROID_SESSION_TOKEN_TTL_SECONDS,
+        "user": public_user,
+    }
 
 
 def _verify_local_login(body: dict) -> dict:
@@ -3624,13 +4009,13 @@ def _verify_local_login(body: dict) -> dict:
     if not email:
         raise HTTPException(status_code=400, detail="email obrigatório")
 
-    if FROID_LOCAL_AUTH_PASSWORD:
+    if FROID_LOCAL_AUTH_PASSWORD and FROID_LOCAL_AUTH_EMAILS:
         if not secrets.compare_digest(password, FROID_LOCAL_AUTH_PASSWORD):
             raise HTTPException(status_code=401, detail="senha inválida")
         if FROID_LOCAL_AUTH_EMAILS and email not in FROID_LOCAL_AUTH_EMAILS:
             raise HTTPException(status_code=403, detail="email não autorizado")
-    elif not GOOGLE_AUTH_DEV_FALLBACK:
-        raise HTTPException(status_code=400, detail="Credencial Google obrigatória")
+    else:
+        raise HTTPException(status_code=403, detail="login local desabilitado")
 
     return {
         "email": email,
@@ -3684,6 +4069,19 @@ async def froid_stream_loop(session_id: str, connection_id: str):
 
 @app.websocket("/ws/fusion/{session_id}")
 async def websocket_fusion(websocket: WebSocket, session_id: str):
+    token = str(websocket.query_params.get("token") or "")
+    user = _session_user_for_token(token)
+    if not user or SESSION_OWNERS.get(session_id) != _normalize_email(user.get("email") or ""):
+        await websocket.close(code=4401)
+        return
+    try:
+        context = _require_professional_websocket_access(user)
+    except HTTPException as exc:
+        await websocket.close(code=4402 if exc.status_code == 402 else 1013)
+        return
+    if not _session_matches_context(session_id, context):
+        await websocket.close(code=4403)
+        return
     connection_id = await manager.connect(websocket, session_id)
     task = asyncio.create_task(froid_stream_loop(session_id, connection_id))
     try:
@@ -3703,6 +4101,36 @@ async def websocket_rtc_signaling(websocket: WebSocket, session_id: str, role: s
         await websocket.send_json({"type": "error", "detail": "role invalido"})
         await websocket.close(code=1008)
         return
+
+    if role == "professional":
+        token = str(websocket.query_params.get("token") or "")
+        user = _session_user_for_token(token)
+        if not user or SESSION_OWNERS.get(session_id) != _normalize_email(user.get("email") or ""):
+            await websocket.close(code=4401)
+            return
+        try:
+            context = _require_professional_websocket_access(user)
+        except HTTPException as exc:
+            await websocket.close(code=4402 if exc.status_code == 402 else 1013)
+            return
+        if not _session_matches_context(session_id, context):
+            await websocket.close(code=4403)
+            return
+    else:
+        invite_token = str(websocket.query_params.get("invite") or "")
+        invite = SESSION_INVITES.get(invite_token)
+        if (
+            not isinstance(invite, dict)
+            or str(invite.get("session_id") or "") != session_id
+            or invite.get("status") != "accepted"
+            or (
+                SESSION_ORGANIZATIONS.get(session_id)
+                and _invite_organization_id(invite)
+                != SESSION_ORGANIZATIONS.get(session_id)
+            )
+        ):
+            await websocket.close(code=4403)
+            return
 
     await rtc_signals.connect(websocket, session_id, role)
     try:
@@ -3739,12 +4167,46 @@ def health():
         ),
     }
 
+
+@app.get("/ready")
+def readiness():
+    result = TENANT_STORE.readiness()
+    security_checks = {
+        "clinical_record_encryption_configured": bool(CLINICAL_TEXT_CIPHER),
+        "google_token_encryption_configured": (
+            bool(TOKEN_CIPHER) if _calendar_configured() else True
+        ),
+    }
+    billing_checks = {
+        "stripe_secret_configured": bool(STRIPE_SECRET_KEY),
+        "stripe_webhook_secret_configured": bool(STRIPE_WEBHOOK_SECRET),
+        "subscription_prices_configured": all(STRIPE_SUBSCRIPTION_PRICE_IDS.values()),
+        "subscription_persistence_enabled": TENANT_STORE.enabled,
+    }
+    result["checks"]["subscriptions_required"] = FROID_SUBSCRIPTIONS_REQUIRED
+    result["checks"].update(security_checks)
+    result["checks"].update(billing_checks)
+    if not all(security_checks.values()):
+        result["ready"] = False
+    if FROID_SUBSCRIPTIONS_REQUIRED and not all(billing_checks.values()):
+        result["ready"] = False
+    return JSONResponse(status_code=200 if result["ready"] else 503, content=result)
+
 @app.post("/session/create")
-def create_session(): return {"session_id": str(uuid.uuid4())}
+def create_session(request: Request):
+    user = _require_current_user(request)
+    context = _require_professional_feature_access(request)
+    session_id = str(uuid.uuid4())
+    SESSION_OWNERS[session_id] = _normalize_email(user.get("email") or "")
+    if context:
+        SESSION_ORGANIZATIONS[session_id] = context.organization_id
+    _save_identity_state()
+    return {"session_id": session_id, "organization_id": context.organization_id if context else ""}
 
 @app.post("/api/session-invites")
 async def create_session_invite(request: Request):
     current_user = _require_current_user(request)
+    context = _require_professional_feature_access(request)
     body = await request.json()
     professional_email = _normalize_email(current_user.get("email") or "")
     patient_name = str(body.get("patient_name") or "").strip()
@@ -3759,6 +4221,11 @@ async def create_session_invite(request: Request):
         else body.get("session_value")
     )
     session_id = str(body.get("session_id") or f"froid-{uuid.uuid4().hex[:12]}")
+    if not _session_matches_context(session_id, context):
+        raise HTTPException(status_code=409, detail="sessão pertence a outra organização")
+    existing_owner = _normalize_email(SESSION_OWNERS.get(session_id) or "")
+    if existing_owner and existing_owner != professional_email:
+        raise HTTPException(status_code=409, detail="sessão pertence a outro profissional")
 
     if not patient_name:
         raise HTTPException(status_code=400, detail="Nome do paciente obrigatório")
@@ -3794,6 +4261,7 @@ async def create_session_invite(request: Request):
         "patient_email": patient_email,
         "patient_phone": patient_phone,
         "professional_email": professional_email,
+        "organization_id": context.organization_id if context else "",
         "payment": {
             "mode": payment_mode,
             "package_sessions": package_sessions if payment_mode == "package" else 0,
@@ -3817,6 +4285,9 @@ async def create_session_invite(request: Request):
         else ""
     )
     SESSION_INVITES[token] = invite
+    SESSION_OWNERS[session_id] = professional_email
+    if context:
+        SESSION_ORGANIZATIONS[session_id] = context.organization_id
     _record_session_event("invite_created", invite)
     _save_identity_state()
     return invite
@@ -3825,11 +4296,16 @@ async def create_session_invite(request: Request):
 @app.get("/api/professional/receivables")
 async def professional_receivables(request: Request):
     user = _require_current_user(request)
+    context = _tenant_context_from_request(request)
+    if context is None:
+        raise HTTPException(status_code=403, detail="contexto organizacional indisponível")
     owner_email = _normalize_email(user.get("email") or "")
     grouped: Dict[str, dict] = {}
 
     for invite in SESSION_INVITES.values():
-        if not isinstance(invite, dict) or not _can_access_invite_finance(invite, owner_email):
+        if not isinstance(invite, dict) or not _can_access_invite_finance(
+            invite, owner_email, context.organization_id if context else ""
+        ):
             continue
         key = _invite_patient_key(invite)
         patient = _invite_patient_identity(invite)
@@ -3898,6 +4374,9 @@ async def professional_receivables(request: Request):
 @app.post("/api/professional/receivables/update")
 async def update_professional_receivable(request: Request):
     user = _require_current_user(request)
+    context = _tenant_context_from_request(request)
+    if context is None:
+        raise HTTPException(status_code=403, detail="contexto organizacional indisponível")
     owner_email = _normalize_email(user.get("email") or "")
     body = await request.json()
     patient_key = str(body.get("patient_key") or "").strip()
@@ -3913,7 +4392,9 @@ async def update_professional_receivable(request: Request):
         for invite in SESSION_INVITES.values()
         if isinstance(invite, dict)
         and _invite_patient_key(invite) == patient_key
-        and _can_access_invite_finance(invite, owner_email)
+        and _can_access_invite_finance(
+            invite, owner_email, context.organization_id if context else ""
+        )
     ]
     if not matching:
         raise HTTPException(status_code=404, detail="Recebimento não encontrado")
@@ -4053,7 +4534,7 @@ async def admin_professional_detail(professional_email: str, request: Request):
     )
 
     reports = [
-        _enrich_report_patient(report)
+        _report_for_api(_enrich_report_patient(report))
         for report in _load_session_reports().values()
         if isinstance(report, dict) and _report_owner_email(report) == email
     ]
@@ -4258,6 +4739,11 @@ async def join_patient_session(session_id: str, request: Request):
     invite = SESSION_INVITES.get(invite_token)
     if not invite or str(invite.get("session_id") or "") != session_id:
         raise HTTPException(status_code=404, detail="Sessão do paciente não encontrada")
+    if (
+        SESSION_ORGANIZATIONS.get(session_id)
+        and _invite_organization_id(invite) != SESSION_ORGANIZATIONS.get(session_id)
+    ):
+        raise HTTPException(status_code=403, detail="sessão pertence a outra organização")
     if invite.get("status") != "accepted":
         raise HTTPException(
             status_code=403,
@@ -4369,16 +4855,32 @@ async def patient_portal_update_profile(payload: PatientPortalProfileUpdate, req
 
 
 @app.get("/api/session-events/latest")
-async def get_latest_session_event():
-    latest_id = SESSION_EVENTS[-1]["id"] if SESSION_EVENTS else 0
+async def get_latest_session_event(request: Request):
+    user = _require_current_user(request)
+    context = _require_professional_feature_access(request)
+    owner_email = _normalize_email(user.get("email") or "")
+    visible = [
+        event for event in SESSION_EVENTS
+        if _normalize_email(event.get("professional_email") or "") == owner_email
+        and _invite_organization_id(event) == (context.organization_id if context else "")
+    ]
+    latest_id = visible[-1]["id"] if visible else 0
     return {"latest_id": latest_id}
 
 
 @app.get("/api/session-events")
-async def get_session_events(after: int = 0):
-    events = [event for event in SESSION_EVENTS if int(event.get("id") or 0) > after]
+async def get_session_events(request: Request, after: int = 0):
+    user = _require_current_user(request)
+    context = _require_professional_feature_access(request)
+    owner_email = _normalize_email(user.get("email") or "")
+    events = [
+        event for event in SESSION_EVENTS
+        if int(event.get("id") or 0) > after
+        and _normalize_email(event.get("professional_email") or "") == owner_email
+        and _invite_organization_id(event) == (context.organization_id if context else "")
+    ]
     return {
-        "latest_id": SESSION_EVENTS[-1]["id"] if SESSION_EVENTS else after,
+        "latest_id": events[-1]["id"] if events else after,
         "events": events[-50:],
     }
 
@@ -4387,7 +4889,10 @@ def auth_config():
     return {
         "google_client_id": GOOGLE_CLIENT_ID,
         "dev_fallback_enabled": GOOGLE_AUTH_DEV_FALLBACK,
-        "local_login_enabled": bool(FROID_LOCAL_AUTH_PASSWORD or GOOGLE_AUTH_DEV_FALLBACK),
+        "local_login_enabled": bool(
+            (FROID_LOCAL_AUTH_PASSWORD and FROID_LOCAL_AUTH_EMAILS)
+            or GOOGLE_AUTH_DEV_FALLBACK
+        ),
     }
 
 @app.post("/api/auth/google")
@@ -4402,6 +4907,8 @@ async def auth_google(request: Request):
 
 @app.post("/api/auth/google-dev")
 async def auth_google_dev(request: Request):
+    if not GOOGLE_AUTH_DEV_FALLBACK:
+        raise HTTPException(status_code=404, detail="rota de desenvolvimento desabilitada")
     body = await request.json()
     return _issue_session(_verify_local_login(body))
 
@@ -4409,14 +4916,44 @@ async def auth_google_dev(request: Request):
 async def auth_me(request: Request):
     auth_header = request.headers.get("authorization", "")
     token = auth_header.replace("Bearer ", "", 1).strip() if auth_header.startswith("Bearer ") else ""
-    user = SESSION_USERS.get(token)
+    user = _session_user_for_token(token)
     if not user:
         raise HTTPException(status_code=401, detail="não autenticado")
     user = dict(user)
-    user["access_status"] = _professional_access_status(user.get("email") or "")
     user = _attach_tenant_contexts(user)
+    user["access_status"] = _effective_professional_access_status(user)
     SESSION_USERS[token] = user
-    return user
+    return {key: value for key, value in user.items() if not key.startswith("_")}
+
+
+@app.post("/api/auth/logout")
+async def auth_logout(request: Request):
+    auth_header = request.headers.get("authorization", "")
+    token = auth_header.replace("Bearer ", "", 1).strip() if auth_header.startswith("Bearer ") else ""
+    if token:
+        SESSION_USERS.pop(token, None)
+    return {"status": "ok"}
+
+
+@app.post("/api/auth/active-organization")
+async def set_active_organization(request: Request):
+    auth_header = request.headers.get("authorization", "")
+    token = auth_header.replace("Bearer ", "", 1).strip() if auth_header.startswith("Bearer ") else ""
+    user = _session_user_for_token(token)
+    if not user:
+        raise HTTPException(status_code=401, detail="não autenticado")
+    body = await request.json()
+    organization_id = str(body.get("organization_id") or "").strip()
+    enriched = _attach_tenant_contexts(user)
+    if not any(
+        str(item.get("organization_id") or "") == organization_id
+        for item in enriched.get("organizations") or []
+        if isinstance(item, dict)
+    ):
+        raise HTTPException(status_code=403, detail="organização não pertence ao usuário")
+    enriched["active_organization_id"] = organization_id
+    SESSION_USERS[token] = enriched
+    return {"status": "ok", "active_organization_id": organization_id}
 
 
 @app.get("/api/organizations")
@@ -4433,8 +4970,13 @@ async def list_current_user_organizations(request: Request):
 
 @app.get("/api/organizations/{organization_id}/members")
 async def list_organization_members(organization_id: str, request: Request):
-    _require_tenant_management_context(request, organization_id, "members.manage")
-    return {"members": TENANT_STORE.list_members(organization_id)}
+    context = _require_tenant_management_context(request, organization_id, "members.manage")
+    members = TENANT_STORE.list_members(organization_id)
+    _record_tenant_success(
+        context, "member.list", "organization_membership",
+        metadata={"result_count": len(members)},
+    )
+    return {"members": members}
 
 
 @app.post("/api/organizations/{organization_id}/members/invitations")
@@ -4500,7 +5042,11 @@ async def accept_organization_invitation(request: Request):
         )
     except PermissionError:
         raise HTTPException(status_code=403, detail="convite destinado a outro email")
-    except ValueError:
+    except ValueError as exc:
+        if str(exc) == "organization_member_limit_reached":
+            raise HTTPException(status_code=409, detail="limite de profissionais do plano atingido")
+        if str(exc) == "organization_subscription_inactive":
+            raise HTTPException(status_code=402, detail="plano FROID inativo")
         raise HTTPException(status_code=404, detail="convite inválido ou expirado")
     TENANT_STORE.record_access_audit(
         organization_id=context["organization_id"],
@@ -4528,8 +5074,12 @@ async def revoke_organization_member(
         )
     try:
         TENANT_STORE.revoke_membership(
-            organization_id=organization_id, membership_id=membership_id
+            organization_id=organization_id,
+            membership_id=membership_id,
+            allow_owner_revoke="owner" in context.roles,
         )
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="somente proprietário pode remover proprietário")
     except ValueError as exc:
         reason = str(exc)
         if reason == "cannot_revoke_last_owner":
@@ -4551,14 +5101,17 @@ async def revoke_organization_member(
 async def list_patient_assignments(
     organization_id: str, patient_id: str, request: Request
 ):
-    _require_tenant_management_context(
+    context = _require_tenant_management_context(
         request, organization_id, "assignments.manage"
     )
-    return {
-        "assignments": TENANT_STORE.list_patient_assignments(
-            organization_id=organization_id, patient_id=patient_id
-        )
-    }
+    assignments = TENANT_STORE.list_patient_assignments(
+        organization_id=organization_id, patient_id=patient_id
+    )
+    _record_tenant_success(
+        context, "patient.assignment.list", "patient", patient_id,
+        {"result_count": len(assignments)},
+    )
+    return {"assignments": assignments}
 
 
 @app.post(
@@ -4575,6 +5128,15 @@ async def create_patient_assignment(
     assignment_type = str(body.get("assignment_type") or "care_team").strip()
     if assignment_type not in {"primary", "care_team", "supervisor", "read_only"}:
         raise HTTPException(status_code=400, detail="tipo de atribuição inválido")
+    if assignment_type == "supervisor":
+        subscription = TENANT_STORE.subscription_status(
+            organization_id=context.organization_id,
+            membership_id=context.membership_id,
+        )
+        if not subscription or not bool(
+            (subscription.get("entitlements") or {}).get("supervision")
+        ):
+            raise HTTPException(status_code=403, detail="supervisão não incluída no plano")
     if not membership_id:
         raise HTTPException(status_code=400, detail="vínculo profissional obrigatório")
     try:
@@ -4585,8 +5147,19 @@ async def create_patient_assignment(
             assignment_type=assignment_type,
         )
     except ValueError as exc:
-        if str(exc) == "patient_not_found":
+        reason = str(exc)
+        if reason == "patient_not_found":
             raise HTTPException(status_code=404, detail="paciente não encontrado na organização")
+        if reason == "assignment_role_mismatch":
+            raise HTTPException(
+                status_code=409,
+                detail="papel incompatível com a atribuição clínica",
+            )
+        if reason == "primary_assignment_exists":
+            raise HTTPException(
+                status_code=409,
+                detail="paciente já possui profissional primário ativo",
+            )
         raise HTTPException(status_code=404, detail="profissional ativo não encontrado na organização")
     TENANT_STORE.record_access_audit(
         organization_id=organization_id,
@@ -4640,10 +5213,12 @@ async def get_organization_wallet(organization_id: str, request: Request):
         request, organization_id, "credits.read"
     )
     try:
-        return TENANT_STORE.wallet_status(
+        wallet = TENANT_STORE.wallet_status(
             organization_id=organization_id,
             membership_id=context.membership_id,
         )
+        _record_tenant_success(context, "wallet.read", "organization_wallet", organization_id)
+        return wallet
     except ValueError:
         raise HTTPException(status_code=404, detail="carteira organizacional não encontrada")
     except Exception:
@@ -4705,7 +5280,43 @@ async def list_organization_audit_events(
     except Exception:
         LOGGER.exception("Unable to list organization audit events")
         raise HTTPException(status_code=503, detail="trilha de auditoria indisponível")
+    _record_tenant_success(
+        context, "audit.read", "audit_event",
+        metadata={"result_count": len(events)},
+    )
     return {"events": events}
+
+
+@app.post("/api/audit/client-event")
+async def record_client_audit_event(request: Request):
+    context = _tenant_context_from_request(request)
+    _require_active_subscription_for_context(context)
+    if context is None:
+        raise HTTPException(status_code=409, detail="contexto organizacional ausente")
+    body = await request.json()
+    action = str(body.get("action") or "").strip().lower()
+    allowed_actions = {"receipt.export", "report.export", "report.share"}
+    if action not in allowed_actions:
+        raise HTTPException(status_code=400, detail="evento de auditoria inválido")
+    permitted_roles = (
+        {"owner", "administrator", "professional"}
+        if action == "receipt.export"
+        else {"owner", "administrator", "supervisor", "professional"}
+    )
+    if not (set(context.roles) & permitted_roles):
+        raise HTTPException(status_code=403, detail="papel sem permissão para exportar")
+    resource_id = str(body.get("resource_id") or "").strip()[:200]
+    if not resource_id:
+        raise HTTPException(status_code=400, detail="recurso auditado obrigatório")
+    TENANT_STORE.record_access_audit(
+        organization_id=context.organization_id,
+        actor_user_id=context.user_id,
+        action=action,
+        resource_type=action.split(".", 1)[0],
+        resource_id=resource_id,
+        metadata={"source": "web", "surface": str(body.get("surface") or "")[:80]},
+    )
+    return {"status": "recorded"}
 
 
 @app.get("/api/google-calendar/status")
@@ -4723,10 +5334,16 @@ async def google_calendar_status(request: Request):
 @app.post("/api/google-calendar/connect")
 async def google_calendar_connect(request: Request):
     user = _require_current_user(request)
+    _require_professional_feature_access(request)
     if not _calendar_configured():
         raise HTTPException(
             status_code=503,
             detail="Configure GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET no servidor",
+        )
+    if not TOKEN_CIPHER:
+        raise HTTPException(
+            status_code=503,
+            detail="Configure FROID_TOKEN_ENCRYPTION_KEYS antes de conectar o Google",
         )
     body = await request.json()
     email = _normalize_email(user.get("email") or "")
@@ -4781,6 +5398,7 @@ async def google_calendar_disconnect(request: Request):
 @app.get("/api/google-calendar/calendars")
 async def google_calendar_calendars(request: Request):
     user = _require_current_user(request)
+    _require_professional_feature_access(request)
     email = _normalize_email(user.get("email") or "")
     token = await _calendar_access_token(email)
     connection = GOOGLE_CALENDAR_CONNECTIONS.get(email) or {}
@@ -4812,6 +5430,7 @@ async def google_calendar_calendars(request: Request):
 @app.post("/api/google-calendar/select-calendar")
 async def google_calendar_select_calendar(request: Request):
     user = _require_current_user(request)
+    _require_professional_feature_access(request)
     email = _normalize_email(user.get("email") or "")
     body = await request.json()
     calendar_id = str(body.get("calendar_id") or "").strip()
@@ -4842,6 +5461,7 @@ async def google_calendar_events(
     calendar_id: str = "",
 ):
     user = _require_current_user(request)
+    _require_professional_feature_access(request)
     email = _normalize_email(user.get("email") or "")
     token = await _calendar_access_token(email)
     connection = GOOGLE_CALENDAR_CONNECTIONS.get(email) or {}
@@ -4881,6 +5501,7 @@ async def google_calendar_events(
 @app.post("/api/google-calendar/events")
 async def google_calendar_create_event(request: Request):
     user = _require_current_user(request)
+    _require_professional_feature_access(request)
     email = _normalize_email(user.get("email") or "")
     token = await _calendar_access_token(email)
     connection = GOOGLE_CALENDAR_CONNECTIONS.get(email) or {}
@@ -4918,6 +5539,7 @@ async def google_calendar_create_event(request: Request):
 @app.patch("/api/google-calendar/events/{event_id}")
 async def google_calendar_update_event(event_id: str, request: Request):
     user = _require_current_user(request)
+    _require_professional_feature_access(request)
     email = _normalize_email(user.get("email") or "")
     token = await _calendar_access_token(email)
     connection = GOOGLE_CALENDAR_CONNECTIONS.get(email) or {}
@@ -4941,6 +5563,7 @@ async def google_calendar_update_event(event_id: str, request: Request):
 @app.delete("/api/google-calendar/events/{event_id}")
 async def google_calendar_delete_event(event_id: str, request: Request, calendar_id: str = ""):
     user = _require_current_user(request)
+    _require_professional_feature_access(request)
     email = _normalize_email(user.get("email") or "")
     token = await _calendar_access_token(email)
     connection = GOOGLE_CALENDAR_CONNECTIONS.get(email) or {}
@@ -4997,14 +5620,46 @@ async def save_professional_profile(request: Request):
     if account_type not in {"individual", "organization"}:
         raise HTTPException(status_code=400, detail="tipo de cadastro inválido")
 
-    professionals = body.get("professionals") if isinstance(body.get("professionals"), list) else []
-    patient_base_access = (
+    professionals = [
+        {
+            "name": str(item.get("name") or "")[:300],
+            "email": _normalize_email(item.get("email") or "")[:320],
+            "phone": str(item.get("phone") or "")[:80],
+        }
+        for item in (
+            body.get("professionals")
+            if isinstance(body.get("professionals"), list) else []
+        )[:100]
+        if isinstance(item, dict)
+    ]
+    raw_patient_base_access = (
         body.get("patient_base_access")
         if isinstance(body.get("patient_base_access"), list)
         else []
     )
-    profile_fields = body.get("profile_fields") if isinstance(body.get("profile_fields"), dict) else {}
-    referrals = body.get("referrals") if isinstance(body.get("referrals"), list) else []
+    patient_base_access = [
+        str(item)[:500] for item in raw_patient_base_access[:500]
+        if isinstance(item, (str, int))
+    ]
+    raw_profile_fields = (
+        body.get("profile_fields") if isinstance(body.get("profile_fields"), dict) else {}
+    )
+    profile_fields = {
+        str(key)[:100]: str(value or "")[:4000]
+        for key, value in list(raw_profile_fields.items())[:150]
+        if isinstance(value, (str, int, float, bool)) or value is None
+    }
+    referrals = [
+        {
+            "name": str(item.get("name") or "")[:300],
+            "email": _normalize_email(item.get("email") or "")[:320],
+            "phone": str(item.get("phone") or "")[:80],
+        }
+        for item in (
+            body.get("referrals") if isinstance(body.get("referrals"), list) else []
+        )[:100]
+        if isinstance(item, dict)
+    ]
     professional_cpf = _digits_only(
         profile_fields.get("legalRepresentativeCpf")
         if account_type == "organization"
@@ -5021,7 +5676,7 @@ async def save_professional_profile(request: Request):
         if isinstance(existing.get("consumed_session_ids"), list)
         else []
     )
-    total_sessions = max(0, int(body.get("total_sessions") or 0))
+    total_sessions = max(0, _local_int(existing.get("total_sessions")))
     profile = {
         "id": existing.get("id") or f"prof-{uuid.uuid4().hex[:12]}",
         "owner_email": owner_email,
@@ -5037,18 +5692,19 @@ async def save_professional_profile(request: Request):
         "referrals": referrals,
         "lgpd_acknowledged": bool(body.get("lgpd_acknowledged")),
         "lgpd_acknowledged_at": body.get("lgpd_acknowledged_at") or existing.get("lgpd_acknowledged_at"),
-        "monthly_consultations": int(body.get("monthly_consultations") or 0),
-        "selected_plan": str(body.get("selected_plan") or "").strip(),
-        "contracted_sessions": max(0, int(body.get("contracted_sessions") or 0)),
-        "bonus_sessions": max(0, int(body.get("bonus_sessions") or 0)),
+        "monthly_consultations": max(
+            0, min(100_000, _local_int(body.get("monthly_consultations")))
+        ),
+        "selected_plan": str(existing.get("selected_plan") or "").strip(),
+        "contracted_sessions": max(0, _local_int(existing.get("contracted_sessions"))),
+        "bonus_sessions": max(0, _local_int(existing.get("bonus_sessions"))),
         "total_sessions": total_sessions,
         "used_sessions": existing_used_sessions,
         "remaining_sessions": max(0, total_sessions - existing_used_sessions),
         "consumed_session_ids": existing_consumed_sessions[-500:],
-        "session_unit_amount_cents": max(0, int(body.get("session_unit_amount_cents") or 0)),
-        "package_total_cents": max(0, int(body.get("package_total_cents") or 0)),
-        "payment_status": existing.get("payment_status")
-        or ("pending_checkout" if str(body.get("selected_plan") or "").strip() else "not_started"),
+        "session_unit_amount_cents": max(0, _local_int(existing.get("session_unit_amount_cents"))),
+        "package_total_cents": max(0, _local_int(existing.get("package_total_cents"))),
+        "payment_status": existing.get("payment_status") or "not_started",
         "created_at": existing.get("created_at") or now,
         "updated_at": now,
     }
@@ -5057,8 +5713,337 @@ async def save_professional_profile(request: Request):
     return {"status": "ok", "profile": profile, "access_status": _professional_access_status(owner_email)}
 
 
+@app.get("/api/subscriptions/plans")
+async def subscription_plans(request: Request, currency: str = "brl"):
+    _require_current_user(request)
+    selected_currency = _normalize_stripe_currency(currency) or "brl"
+    return {
+        "plans": [
+            {
+                **plan,
+                "available": any(
+                    package["plan_code"] == plan["code"]
+                    and bool(STRIPE_SUBSCRIPTION_PRICE_IDS.get(package["code"]))
+                    for package in SESSION_PACKAGES.values()
+                ),
+            }
+            for plan in public_plan_catalog()
+        ],
+        "currency": selected_currency,
+        "supported_currencies": list(SUPPORTED_BILLING_CURRENCIES),
+        "packages": [{
+            **package,
+            "selected_price": package_price(package, selected_currency),
+            "available": bool(STRIPE_SUBSCRIPTION_PRICE_IDS.get(package["code"])),
+        } for package in public_package_catalog()],
+    }
+
+
+@app.get("/api/subscriptions/current")
+async def current_subscription(request: Request):
+    context = _tenant_context_from_request(request)
+    if context is None:
+        raise HTTPException(status_code=409, detail="contexto organizacional ausente")
+    subscription = TENANT_STORE.subscription_status(
+        organization_id=context.organization_id,
+        membership_id=context.membership_id,
+    )
+    return {
+        "subscription": subscription,
+        "access_active": bool(
+            subscription and subscription.get("status") in ACTIVE_SUBSCRIPTION_STATUSES
+        ),
+    }
+
+
+@app.post("/api/subscriptions/checkout")
+async def create_subscription_checkout(request: Request):
+    user = _require_current_user(request)
+    context = _tenant_context_from_request(request)
+    if context is None:
+        raise HTTPException(status_code=409, detail="contexto organizacional ausente")
+    if not ({"owner", "administrator"} & set(context.roles)):
+        raise HTTPException(status_code=403, detail="papel sem permissão para contratar plano")
+    if not STRIPE_SECRET_KEY:
+        raise HTTPException(status_code=503, detail="Stripe não configurado")
+    body = await request.json()
+    if body.get("auto_replenish_consent") is not True:
+        raise HTTPException(
+            status_code=400,
+            detail="consentimento expresso para recarga automática obrigatório",
+        )
+    package_code = str(body.get("package_code") or "").strip().lower()
+    package = SESSION_PACKAGES.get(package_code)
+    if not package:
+        raise HTTPException(status_code=400, detail="pacote de assinatura inválido")
+    plan_code = str(package["plan_code"])
+    currency = _normalize_stripe_currency(body.get("currency"))
+    commercial_price = package_price(package, currency)
+    if not currency or not commercial_price:
+        raise HTTPException(status_code=400, detail="moeda de cobrança inválida")
+    price_id = STRIPE_SUBSCRIPTION_PRICE_IDS.get(package_code) or ""
+    if not price_id:
+        raise HTTPException(status_code=503, detail="preço Stripe do plano não configurado")
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        price_response = await client.get(
+            f"https://api.stripe.com/v1/prices/{quote(price_id, safe='')}",
+            headers={"Authorization": f"Bearer {STRIPE_SECRET_KEY}"},
+            params={"expand[]": "currency_options"},
+        )
+    price_data = price_response.json()
+    recurring = price_data.get("recurring") if isinstance(price_data, dict) else None
+    currency_options = (
+        price_data.get("currency_options")
+        if isinstance(price_data.get("currency_options"), dict) else {}
+    )
+    stripe_amount = (
+        price_data.get("unit_amount")
+        if price_data.get("currency") == currency
+        else (currency_options.get(currency) or {}).get("unit_amount")
+    )
+    if (
+        price_response.status_code >= 400
+        or not price_data.get("active")
+        or int(stripe_amount or 0) != int(commercial_price["total_amount_minor"])
+        or recurring is not None
+    ):
+        raise HTTPException(status_code=409, detail="preço Stripe diverge do catálogo FROID")
+    base_url = _public_app_base_url(body.get("base_url") or "")
+    checkout_context = str(body.get("checkout_context") or "settings").strip().lower()
+    return_path = "access/register" if checkout_context == "onboarding" else "settings"
+    email = _normalize_email(user.get("email") or "")
+    form = {
+        "mode": "payment",
+        "success_url": f"{base_url}/#/{return_path}?subscription=success&session_id={{CHECKOUT_SESSION_ID}}",
+        "cancel_url": f"{base_url}/#/{return_path}?subscription=cancelled",
+        "client_reference_id": context.organization_id,
+        "line_items[0][price]": price_id,
+        "line_items[0][quantity]": "1",
+        "currency": currency,
+        "metadata[organization_id]": context.organization_id,
+        "metadata[plan_code]": plan_code,
+        "metadata[package_code]": package_code,
+        "metadata[currency]": currency,
+        "metadata[auto_replenish_terms_version]": AUTO_REPLENISH_TERMS_VERSION,
+        "customer_creation": "always",
+        "payment_intent_data[setup_future_usage]": "off_session",
+        "payment_intent_data[metadata][organization_id]": context.organization_id,
+        "payment_intent_data[metadata][plan_code]": plan_code,
+        "payment_intent_data[metadata][package_code]": package_code,
+        "payment_intent_data[metadata][currency]": currency,
+        "payment_intent_data[metadata][auto_replenish_terms_version]": AUTO_REPLENISH_TERMS_VERSION,
+        "custom_text[submit][message]": (
+            "Ao concluir, você autoriza o FROID a salvar o método de pagamento "
+            "e recomprar este pacote, na mesma moeda e pelo valor informado, "
+            "quando o saldo de sessões chegar a zero."
+        ),
+    }
+    if email:
+        form["customer_email"] = email
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        response = await client.post(
+            "https://api.stripe.com/v1/checkout/sessions",
+            headers={"Authorization": f"Bearer {STRIPE_SECRET_KEY}"},
+            data=form,
+        )
+    data = response.json()
+    if response.status_code >= 400:
+        detail = data.get("error", {}).get("message") if isinstance(data, dict) else None
+        raise HTTPException(status_code=502, detail=detail or "Falha ao criar assinatura Stripe")
+    return {
+        "status": "ok", "checkout_session_id": data.get("id"),
+        "checkout_url": data.get("url"), "plan": SUBSCRIPTION_PLANS[plan_code],
+        "package": package,
+    }
+
+
+@app.post("/api/stripe/webhook")
+async def stripe_webhook(request: Request):
+    payload = await request.body()
+    try:
+        event = verify_stripe_event(
+            payload,
+            request.headers.get("stripe-signature", ""),
+            STRIPE_WEBHOOK_SECRET,
+        )
+    except StripeSignatureError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    event_type = str(event.get("type") or "")
+    if event_type not in {
+        "checkout.session.completed", "payment_intent.succeeded",
+        "payment_intent.payment_failed",
+    }:
+        return {"received": True, "handled": False}
+    data = event.get("data") if isinstance(event.get("data"), dict) else {}
+    stripe_object = data.get("object") if isinstance(data.get("object"), dict) else {}
+    metadata = stripe_object.get("metadata") if isinstance(stripe_object.get("metadata"), dict) else {}
+    if not TENANT_STORE.enabled:
+        raise HTTPException(status_code=503, detail="persistência de assinaturas indisponível")
+
+    if event_type == "checkout.session.completed":
+        if stripe_object.get("payment_status") != "paid":
+            return {"received": True, "handled": True, "applied": False}
+        organization_id = str(metadata.get("organization_id") or "").strip()
+        package_code = str(metadata.get("package_code") or "").strip().lower()
+        package = SESSION_PACKAGES.get(package_code)
+        currency = _normalize_stripe_currency(metadata.get("currency"))
+        commercial_price = package_price(package or {}, currency)
+        try:
+            uuid.UUID(organization_id)
+        except (ValueError, AttributeError) as exc:
+            raise HTTPException(status_code=422, detail="checkout sem organização válida") from exc
+        if (
+            not package or not commercial_price
+            or metadata.get("plan_code") != package["plan_code"]
+            or metadata.get("auto_replenish_terms_version")
+            != AUTO_REPLENISH_TERMS_VERSION
+        ):
+            raise HTTPException(status_code=422, detail="pacote Stripe não reconhecido")
+        payment_intent_id = str(stripe_object.get("payment_intent") or "")
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            pi_response = await client.get(
+                f"https://api.stripe.com/v1/payment_intents/{quote(payment_intent_id, safe='')}",
+                headers={"Authorization": f"Bearer {STRIPE_SECRET_KEY}"},
+            )
+        payment_intent = pi_response.json()
+        paid_amount = int(
+            payment_intent.get("amount_received")
+            or payment_intent.get("amount") or 0
+        )
+        if (
+            pi_response.status_code >= 400
+            or payment_intent.get("status") != "succeeded"
+            or payment_intent.get("currency") != currency
+            or paid_amount != int(commercial_price["total_amount_minor"])
+        ):
+            raise HTTPException(status_code=409, detail="pagamento inicial não confirmado")
+        stripe_customer_id = str(
+            stripe_object.get("customer") or payment_intent.get("customer") or ""
+        )
+        stripe_payment_method_id = str(payment_intent.get("payment_method") or "")
+        if not stripe_customer_id or not stripe_payment_method_id:
+            raise HTTPException(status_code=409, detail="método sem suporte a recarga")
+        result = TENANT_STORE.apply_checkout_purchase(
+            event_id=str(event.get("id") or ""), event_type=event_type,
+            payload_sha256=hashlib.sha256(payload).hexdigest(),
+            organization_id=organization_id, plan_code=str(package["plan_code"]),
+            package_code=package_code, session_credits=int(package["sessions"]),
+            amount_cents=int(commercial_price["total_amount_minor"]),
+            currency=currency, stripe_customer_id=stripe_customer_id,
+            stripe_payment_method_id=stripe_payment_method_id,
+            terms_version=str(metadata.get("auto_replenish_terms_version") or ""),
+        )
+        return {"received": True, "handled": True, **result}
+
+    recharge_id = str(metadata.get("recharge_id") or "")
+    if metadata.get("froid_auto_recharge") != "true" or not recharge_id:
+        return {"received": True, "handled": False}
+    if event_type == "payment_intent.succeeded":
+        result = TENANT_STORE.complete_auto_recharge(
+            recharge_id=recharge_id,
+            stripe_payment_intent_id=str(stripe_object.get("id") or ""),
+            event_id=str(event.get("id") or ""), event_type=event_type,
+            payload_sha256=hashlib.sha256(payload).hexdigest(),
+            paid_amount_cents=int(
+                stripe_object.get("amount_received")
+                or stripe_object.get("amount") or 0
+            ),
+            paid_currency=str(stripe_object.get("currency") or "").lower(),
+        )
+        return {"received": True, "handled": True, **result}
+    error = stripe_object.get("last_payment_error") if isinstance(stripe_object.get("last_payment_error"), dict) else {}
+    TENANT_STORE.fail_auto_recharge(
+        recharge_id=recharge_id, status="failed",
+        failure_code=str(error.get("code") or "payment_failed"),
+        stripe_payment_intent_id=str(stripe_object.get("id") or ""),
+        event_id=str(event.get("id") or ""), event_type=event_type,
+        payload_sha256=hashlib.sha256(payload).hexdigest(),
+    )
+    return {"received": True, "handled": True, "applied": False}
+
+
+async def _run_automatic_recharge(organization_id: str) -> None:
+    recharge = None
+    try:
+        recharge = await asyncio.to_thread(
+            TENANT_STORE.prepare_auto_recharge, organization_id=organization_id
+        )
+        if not recharge:
+            return
+        form = {
+            "amount": str(recharge["amount_cents"]),
+            "currency": recharge["currency"],
+            "customer": recharge["stripe_customer_id"],
+            "payment_method": recharge["stripe_payment_method_id"],
+            "off_session": "true", "confirm": "true",
+            "metadata[froid_auto_recharge]": "true",
+            "metadata[recharge_id]": recharge["recharge_id"],
+            "metadata[organization_id]": organization_id,
+            "metadata[package_code]": recharge["package_code"],
+        }
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                "https://api.stripe.com/v1/payment_intents",
+                headers={"Authorization": f"Bearer {STRIPE_SECRET_KEY}",
+                         "Idempotency-Key": recharge["idempotency_key"]},
+                data=form,
+            )
+        payment_intent = response.json()
+        payment_intent_id = str(payment_intent.get("id") or "")
+        if response.status_code < 400 and payment_intent.get("status") == "succeeded":
+            await asyncio.to_thread(
+                TENANT_STORE.complete_auto_recharge,
+                recharge_id=recharge["recharge_id"],
+                stripe_payment_intent_id=payment_intent_id,
+                event_id=f"direct:{payment_intent_id}",
+                event_type="payment_intent.succeeded.direct",
+                payload_sha256=hashlib.sha256(response.content).hexdigest(),
+                paid_amount_cents=int(
+                    payment_intent.get("amount_received")
+                    or payment_intent.get("amount") or 0
+                ),
+                paid_currency=str(payment_intent.get("currency") or "").lower(),
+            )
+            return
+        error = payment_intent.get("error") if isinstance(payment_intent.get("error"), dict) else {}
+        intent = error.get("payment_intent") if isinstance(error.get("payment_intent"), dict) else payment_intent
+        requires_action = intent.get("status") in {"requires_action", "requires_confirmation"}
+        await asyncio.to_thread(
+            TENANT_STORE.fail_auto_recharge,
+            recharge_id=recharge["recharge_id"],
+            status="action_required" if requires_action else "failed",
+            failure_code=str(error.get("code") or intent.get("status") or "payment_failed"),
+            stripe_payment_intent_id=str(intent.get("id") or payment_intent_id),
+        )
+    except Exception as exc:
+        LOGGER.exception("Automatic package recharge failed")
+        if recharge:
+            try:
+                await asyncio.to_thread(
+                    TENANT_STORE.fail_auto_recharge,
+                    recharge_id=recharge["recharge_id"],
+                    status="failed",
+                    failure_code=f"transport_error:{type(exc).__name__}",
+                )
+            except Exception:
+                LOGGER.exception("Unable to release failed automatic recharge")
+
+
+@app.post("/api/subscriptions/recharge/retry")
+async def retry_automatic_recharge(request: Request):
+    context = _tenant_context_from_request(request)
+    if context is None:
+        raise HTTPException(status_code=409, detail="contexto organizacional ausente")
+    if not ({"owner", "administrator"} & set(context.roles)):
+        raise HTTPException(status_code=403, detail="papel sem permissão para recarga")
+    await _run_automatic_recharge(context.organization_id)
+    return {"status": "processed"}
+
+
 @app.post("/api/billing/checkout")
 async def create_billing_checkout(request: Request):
+    if FROID_SUBSCRIPTIONS_REQUIRED:
+        raise HTTPException(status_code=410, detail="checkout legado desativado")
     user = _current_user_from_request(request)
     if not user:
         raise HTTPException(status_code=401, detail="não autenticado")
@@ -5215,6 +6200,8 @@ async def create_billing_checkout(request: Request):
 
 @app.post("/api/billing/confirm-checkout")
 async def confirm_billing_checkout(request: Request):
+    if FROID_SUBSCRIPTIONS_REQUIRED:
+        raise HTTPException(status_code=410, detail="confirmação legada desativada")
     user = _current_user_from_request(request)
     if not user:
         raise HTTPException(status_code=401, detail="não autenticado")
@@ -5241,8 +6228,14 @@ async def confirm_billing_checkout(request: Request):
     current_email = _normalize_email(user.get("email") or "")
     if email != current_email:
         raise HTTPException(status_code=403, detail="checkout não pertence ao profissional autenticado")
-    if data.get("payment_status") != "paid" and data.get("status") != "complete":
+    if data.get("payment_status") != "paid":
         raise HTTPException(status_code=409, detail="pagamento Stripe ainda não confirmado")
+
+    plan_id = str(metadata.get("plan_id") or "")
+    if plan_id not in FROID_ACCESS_PLANS:
+        raise HTTPException(status_code=409, detail="plano Stripe não reconhecido")
+    if max(0, _local_int(metadata.get("session_credits"))) <= 0:
+        raise HTTPException(status_code=409, detail="checkout Stripe sem créditos válidos")
 
     credit_total = max(0, _local_int(metadata.get("session_credits")))
     context = _tenant_context_from_request(request)
@@ -5289,7 +6282,8 @@ async def confirm_billing_checkout(request: Request):
 
 
 @app.post("/api/froid-explica/query", response_model=FroidExplicaResponse)
-async def froid_explica_query(payload: FroidExplicaQuery):
+async def froid_explica_query(payload: FroidExplicaQuery, request: Request):
+    _require_professional_feature_access(request)
     intent = _classify_froid_explica_intent(payload.query_text)
     if intent == "analytics":
         result = await _query_froid_analytics(payload)
@@ -5301,8 +6295,8 @@ async def froid_explica_query(payload: FroidExplicaQuery):
 
 
 @app.post("/api/copilot/query", response_model=FroidExplicaResponse)
-async def copilot_query_alias(payload: FroidExplicaQuery):
-    return await froid_explica_query(payload)
+async def copilot_query_alias(payload: FroidExplicaQuery, request: Request):
+    return await froid_explica_query(payload, request)
 
 
 @app.get("/api/session-reports")
@@ -5317,10 +6311,22 @@ async def list_session_reports(request: Request):
     effective_mode = _tenant_authorization_mode_for(
         context.organization_id if context else ""
     )
+    assigned_report_ids = (
+        TENANT_STORE.accessible_legacy_report_ids(
+            organization_id=context.organization_id,
+            membership_id=context.membership_id,
+        )
+        if effective_mode == "enforce" and context
+        else set()
+    )
     reports = [
-        _enrich_report_patient(report)
+        _report_for_api(_enrich_report_patient(report))
         for report in _load_session_reports().values()
         if isinstance(report, dict)
+        and (
+            context is None
+            or _report_organization_id(report) == context.organization_id
+        )
         and (
             (
                 effective_mode != "enforce"
@@ -5332,6 +6338,9 @@ async def list_session_reports(request: Request):
                     context,
                     "reports.read",
                     resource_organization_id=_report_organization_id(report),
+                    assigned=str(
+                        report.get("sessionId") or report.get("session_id") or ""
+                    ) in assigned_report_ids,
                     owns_resource=_can_access_report(report, owner_email),
                 ).allowed
             )
@@ -5340,6 +6349,12 @@ async def list_session_reports(request: Request):
     reports.sort(
         key=lambda report: str(report.get("createdAt") or report.get("created_at") or ""),
         reverse=True,
+    )
+    _record_tenant_success(
+        context,
+        "report.list",
+        "session_report",
+        metadata={"result_count": len(reports)},
     )
     return {"reports": reports}
 
@@ -5351,15 +6366,28 @@ async def save_session_report(request: Request):
         raise HTTPException(status_code=401, detail="não autenticado")
     owner_email = _normalize_email(user.get("email") or "")
     report = await request.json()
+    report.pop("transcript_encrypted", None)
+    report.pop("transcript_storage_locked", None)
+    report.pop("transcript_storage_error", None)
     session_id = str(report.get("sessionId") or report.get("session_id") or "").strip()
     if not session_id:
         raise HTTPException(status_code=400, detail="sessionId obrigatório")
+    transcript = str(report.get("transcript") or "")
+    if not transcript.strip():
+        raise HTTPException(
+            status_code=422,
+            detail="transcrição integral obrigatória para arquivar a sessão",
+        )
+    if len(transcript) > 2_000_000:
+        raise HTTPException(status_code=413, detail="transcrição excede o limite seguro")
     context = _authorize_tenant_request(
         request,
         "reports.write",
         resource_type="session_report",
         resource_id=session_id,
     )
+    if not _session_matches_context(session_id, context):
+        raise HTTPException(status_code=409, detail="sessão pertence a outra organização")
     report["professionalEmail"] = owner_email
     if context:
         report["organizationId"] = context.organization_id
@@ -5374,6 +6402,11 @@ async def save_session_report(request: Request):
     is_new_report = session_id not in reports
     if not is_new_report:
         existing_report = reports[session_id]
+        if (
+            context
+            and _report_organization_id(existing_report) != context.organization_id
+        ):
+            raise HTTPException(status_code=403, detail="relatório pertence a outra organização")
         _authorize_tenant_request(
             request,
             "reports.update",
@@ -5382,6 +6415,9 @@ async def save_session_report(request: Request):
             resource_organization_id=_report_organization_id(existing_report),
             owns_resource=_can_access_report(existing_report, owner_email),
         )
+    if context and not SESSION_ORGANIZATIONS.get(session_id):
+        SESSION_ORGANIZATIONS[session_id] = context.organization_id
+        _save_identity_state()
     reports[session_id] = report
     _save_session_reports(reports)
     try:
@@ -5427,13 +6463,28 @@ async def get_session_report_metrics(session_id: str, request: Request):
     report = _load_session_reports().get(session_id)
     if not report:
         raise HTTPException(status_code=404, detail="Relatório não encontrado")
+    request_context = _tenant_context_from_request(request)
+    if (
+        request_context
+        and _report_organization_id(report) != request_context.organization_id
+    ):
+        raise HTTPException(status_code=403, detail="relatório pertence a outra organização")
+    assigned_report_ids = (
+        TENANT_STORE.accessible_legacy_report_ids(
+            organization_id=request_context.organization_id,
+            membership_id=request_context.membership_id,
+        )
+        if request_context else set()
+    )
     context = _authorize_tenant_request(
         request,
         "reports.read",
         resource_type="session_report",
         resource_id=session_id,
         resource_organization_id=_report_organization_id(report),
+        assigned=session_id in assigned_report_ids,
         owns_resource=_can_access_report(report, user.get("email") or ""),
+        context_override=request_context,
     )
     if not _can_access_report(report, user.get("email") or ""):
         if _tenant_authorization_mode_for(_report_organization_id(report)) != "enforce":
@@ -5455,13 +6506,28 @@ async def get_session_report(session_id: str, request: Request):
     report = _load_session_reports().get(session_id)
     if not report:
         raise HTTPException(status_code=404, detail="Relatório não encontrado")
+    request_context = _tenant_context_from_request(request)
+    if (
+        request_context
+        and _report_organization_id(report) != request_context.organization_id
+    ):
+        raise HTTPException(status_code=403, detail="relatório pertence a outra organização")
+    assigned_report_ids = (
+        TENANT_STORE.accessible_legacy_report_ids(
+            organization_id=request_context.organization_id,
+            membership_id=request_context.membership_id,
+        )
+        if request_context else set()
+    )
     context = _authorize_tenant_request(
         request,
         "reports.read",
         resource_type="session_report",
         resource_id=session_id,
         resource_organization_id=_report_organization_id(report),
+        assigned=session_id in assigned_report_ids,
         owns_resource=_can_access_report(report, user.get("email") or ""),
+        context_override=request_context,
     )
     if not _can_access_report(report, user.get("email") or ""):
         if _tenant_authorization_mode_for(_report_organization_id(report)) != "enforce":
@@ -5470,7 +6536,7 @@ async def get_session_report(session_id: str, request: Request):
     if not report.get("metricsAnalysis"):
         report = _attach_metrics_analysis(report)
     _record_tenant_success(context, "report.read", "session_report", session_id)
-    return report
+    return _report_for_api(report)
 
 
 @app.delete("/api/session-reports/{session_id}")
@@ -5481,6 +6547,13 @@ async def delete_session_report(session_id: str, request: Request):
     reports = _load_session_reports()
     if session_id not in reports:
         raise HTTPException(status_code=404, detail="Relatório não encontrado")
+    request_context = _tenant_context_from_request(request)
+    if (
+        request_context
+        and _report_organization_id(reports[session_id])
+        != request_context.organization_id
+    ):
+        raise HTTPException(status_code=403, detail="relatório pertence a outra organização")
     context = _authorize_tenant_request(
         request,
         "reports.delete",
@@ -5488,6 +6561,7 @@ async def delete_session_report(session_id: str, request: Request):
         resource_id=session_id,
         resource_organization_id=_report_organization_id(reports[session_id]),
         owns_resource=_can_access_report(reports[session_id], user.get("email") or ""),
+        context_override=request_context,
     )
     if not _can_access_report(reports[session_id], user.get("email") or ""):
         if _tenant_authorization_mode_for(
@@ -5514,22 +6588,46 @@ async def delete_session_report(session_id: str, request: Request):
 
 @app.post("/api/insights")
 async def insights_proxy(request: Request):
+    _require_professional_feature_access(request)
     try:
         body = await request.json()
+        raw_messages = body.get("messages") if isinstance(body, dict) else []
+        if not isinstance(raw_messages, list):
+            raise HTTPException(status_code=400, detail="mensagens inválidas")
+        messages = []
+        total_chars = 0
+        for item in raw_messages[-20:]:
+            if not isinstance(item, dict):
+                continue
+            role = str(item.get("role") or "user").strip().lower()
+            if role not in {"system", "user", "assistant"}:
+                continue
+            content = str(item.get("content") or "")[:12_000]
+            total_chars += len(content)
+            if total_chars > 50_000:
+                raise HTTPException(status_code=413, detail="contexto de insights muito extenso")
+            messages.append({"role": role, "content": content})
         if not OPENAI_API_KEY:
-            return {"choices": [{"message": {"content": f"[FROID-IA local] {body.get('messages', [{}])[-1].get('content', 'Sem resposta.')}"}}]}
+            fallback = messages[-1]["content"] if messages else "Sem resposta."
+            return {"choices": [{"message": {"content": f"[FROID-IA local] {fallback}"}}]}
         async with httpx.AsyncClient(timeout=30.0) as client:
             r = await client.post(
                 "https://api.openai.com/v1/chat/completions",
                 headers={"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"},
-                json={"model": body.get("model", OPENAI_MODEL), "messages": body.get("messages", []), "temperature": 0.4, "max_tokens": 700}
+                json={"model": OPENAI_MODEL, "messages": messages, "temperature": 0.4, "max_tokens": 700}
             )
+            if r.status_code >= 400:
+                raise RuntimeError(f"OpenAI insights status {r.status_code}")
             return r.json()
-    except Exception as e:
-        return {"error": str(e)}
+    except HTTPException:
+        raise
+    except Exception:
+        LOGGER.exception("FROID insights request failed")
+        raise HTTPException(status_code=502, detail="Falha ao processar insights")
 
 @app.get("/api/knowledge")
-async def knowledge_base(q: str = ""):
+async def knowledge_base(request: Request, q: str = ""):
+    _require_professional_feature_access(request)
     results = []
     qlower = q.lower()
     for k, v in KNOWLEDGE_BASE.items():
@@ -5540,9 +6638,12 @@ async def knowledge_base(q: str = ""):
 @app.post("/api/transcribe")
 async def transcribe_audio(request: Request):
     """Endpoint de transcrição vocal com fallback local para uso clínico e testes."""
+    _require_professional_feature_access(request)
     body = await request.json()
     fallback_text = body.get("fallback_text") or body.get("text") or ""
     audio_bytes = _decode_audio_bytes(body)
+    if audio_bytes and len(audio_bytes) > 25 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="segmento de áudio excede 25 MB")
     filename = _audio_filename(body)
     prompt = body.get("prompt") or (
         "Transcreva literalmente em portugues do Brasil com pontuacao clinica clara. "
@@ -5571,6 +6672,7 @@ async def transcribe_audio(request: Request):
 
 @app.post("/api/session-summary")
 async def session_summary(request: Request):
+    _require_professional_feature_access(request)
     body = await request.json()
     transcript = str(body.get("transcript") or "").strip()
     start_minute = int(body.get("start_minute") or 0)

@@ -1,35 +1,41 @@
 import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Dashboard } from "./pages/Dashboard";
+import { lazy, Suspense, useEffect, useMemo, useState, type ReactNode } from "react";
 import { AgendaReminderBanner } from "./components/panels/AgendaReminderBanner";
-import { LiveSession } from "./pages/LiveSession";
-import { History } from "./pages/History";
-import { Settings } from "./pages/Settings";
-import { AdminDashboard } from "./pages/AdminDashboard";
-import { AdminProfessionalDetail } from "./pages/AdminProfessionalDetail";
-import { SessionReport } from "./pages/SessionReport";
-import { PatientDetail } from "./pages/PatientDetail";
-import { NewPatient } from "./pages/NewPatient";
 import { LoginPage } from "./pages/LoginPage";
 import { HomePage } from "./pages/HomePage";
-import { PrivacyPage, TermsPage } from "./pages/LegalPages";
-import {
-  FroidProfessionalsPage,
-  FroidSciencePage,
-  FroidTechnologyPage,
-} from "./pages/FroidInstitutionalPages";
-import { ProfessionalOnboarding } from "./pages/ProfessionalOnboarding";
-import { PatientInvitePage } from "./pages/PatientInvitePage";
-import { PatientSessionPage } from "./pages/PatientSessionPage";
-import { PatientPortalPage } from "./pages/PatientPortalPage";
 import { apiUrl } from "./lib/api";
 import { rememberProfessionalEmail } from "./lib/professional-prompts";
+
+const Dashboard = lazy(() => import("./pages/Dashboard").then((module) => ({ default: module.Dashboard })));
+const LiveSession = lazy(() => import("./pages/LiveSession").then((module) => ({ default: module.LiveSession })));
+const History = lazy(() => import("./pages/History").then((module) => ({ default: module.History })));
+const Settings = lazy(() => import("./pages/Settings").then((module) => ({ default: module.Settings })));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard").then((module) => ({ default: module.AdminDashboard })));
+const AdminProfessionalDetail = lazy(() => import("./pages/AdminProfessionalDetail").then((module) => ({ default: module.AdminProfessionalDetail })));
+const SessionReport = lazy(() => import("./pages/SessionReport").then((module) => ({ default: module.SessionReport })));
+const PatientDetail = lazy(() => import("./pages/PatientDetail").then((module) => ({ default: module.PatientDetail })));
+const NewPatient = lazy(() => import("./pages/NewPatient").then((module) => ({ default: module.NewPatient })));
+const ProfessionalOnboarding = lazy(() => import("./pages/ProfessionalOnboarding").then((module) => ({ default: module.ProfessionalOnboarding })));
+const PatientInvitePage = lazy(() => import("./pages/PatientInvitePage").then((module) => ({ default: module.PatientInvitePage })));
+const PatientSessionPage = lazy(() => import("./pages/PatientSessionPage").then((module) => ({ default: module.PatientSessionPage })));
+const PatientPortalPage = lazy(() => import("./pages/PatientPortalPage").then((module) => ({ default: module.PatientPortalPage })));
+const PrivacyPage = lazy(() => import("./pages/LegalPages").then((module) => ({ default: module.PrivacyPage })));
+const TermsPage = lazy(() => import("./pages/LegalPages").then((module) => ({ default: module.TermsPage })));
+const FroidProfessionalsPage = lazy(() => import("./pages/FroidInstitutionalPages").then((module) => ({ default: module.FroidProfessionalsPage })));
+const FroidSciencePage = lazy(() => import("./pages/FroidInstitutionalPages").then((module) => ({ default: module.FroidSciencePage })));
+const FroidTechnologyPage = lazy(() => import("./pages/FroidInstitutionalPages").then((module) => ({ default: module.FroidTechnologyPage })));
 
 export type FroidUser = {
   email: string;
   name?: string;
   picture?: string;
   provider?: string;
+  active_organization_id?: string;
+  organizations?: Array<{
+    organization_id: string;
+    organization_name?: string;
+    roles?: string[];
+  }>;
   access_status?: {
     has_profile?: boolean;
     lgpd_acknowledged?: boolean;
@@ -53,6 +59,7 @@ function defaultAuthenticatedPath(user: FroidUser | null) {
 
 function localDevUser(): FroidUser | null {
   if (typeof window === "undefined") return null;
+  if (!import.meta.env.DEV) return null;
   const isLocalhost = ["localhost", "127.0.0.1", "::1"].includes(
     window.location.hostname,
   );
@@ -142,6 +149,13 @@ function App() {
   const isAuthenticated = useMemo(() => !!user, [user]);
 
   const logout = () => {
+    const token = localStorage.getItem("froid_token") || "";
+    if (token && token !== "dev-local") {
+      void fetch(apiUrl("/api/auth/logout"), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => undefined);
+    }
     localStorage.removeItem("froid_token");
     localStorage.removeItem("froid_user");
     setUser(null);
@@ -178,7 +192,14 @@ function App() {
   return (
     <HashRouter>
       <AgendaReminderBanner enabled={isAuthenticated && !onboardingRequired(user)} />
-      <Routes>
+      <Suspense
+        fallback={(
+          <div className="flex min-h-screen items-center justify-center bg-slate-950 text-sm font-semibold text-slate-300">
+            Carregando módulo FROID...
+          </div>
+        )}
+      >
+        <Routes>
         <Route path="/convite/:token" element={<PatientInvitePage />} />
         <Route
           path="/paciente/sessao/:sessionId"
@@ -254,7 +275,8 @@ function App() {
           path="/admin/professional/:professionalEmail"
           element={clinicalElement(<AdminProfessionalDetail user={user} />)}
         />
-      </Routes>
+        </Routes>
+      </Suspense>
     </HashRouter>
   );
 }

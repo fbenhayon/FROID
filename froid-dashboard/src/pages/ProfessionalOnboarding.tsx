@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { apiUrl, publicAppUrl } from "../lib/api";
 import type { FroidUser } from "../App";
@@ -10,14 +10,16 @@ type AccessPlan = {
   description: string;
   session_credits: number;
   amount_cents: number;
-  amount_brl: string;
+  display_amount: string;
+  total_amount_cents?: number;
   currency?: string;
 };
 
 const billingMarkets = [
-  { code: "BR", label: "Brasil", currency: "brl", note: "Cobrança em reais para cartões nacionais." },
-  { code: "US", label: "Estados Unidos", currency: "usd", note: "Cobrança em dólar para cartões aptos a USD." },
-  { code: "EU", label: "Europa", currency: "eur", note: "França, Itália, Alemanha e demais países em EUR." },
+  { code: "BR", label: "Brasil", currency: "brl", note: "Pacotes comerciais cobrados em reais." },
+  { code: "US", label: "Estados Unidos / internacional", currency: "usd", note: "Pacotes comerciais cobrados em dólares americanos." },
+  { code: "EU", label: "União Europeia", currency: "eur", note: "Pacotes comerciais cobrados em euros." },
+  { code: "CN", label: "China", currency: "cny", note: "Pacotes comerciais cobrados em yuan renminbi." },
 ];
 
 type ProfessionalLine = {
@@ -36,33 +38,6 @@ interface Props {
   user: FroidUser | null;
   onUserChange: (user: FroidUser | null) => void;
 }
-
-const fallbackPlans: AccessPlan[] = [
-  {
-    id: "single_session",
-    name: "Sessão avulsa FROID",
-    description: "Crédito individual para uma sessão FROID.",
-    session_credits: 1,
-    amount_cents: 0,
-    amount_brl: "US$ 0.00",
-  },
-  {
-    id: "professional_pack_25",
-    name: "Pacote profissional 25 sessões",
-    description: "Pacote mensal com 25 sessões FROID.",
-    session_credits: 25,
-    amount_cents: 150,
-    amount_brl: "US$ 1.50",
-  },
-  {
-    id: "developer_pack_25",
-    name: "Pacote desenvolvedor 25 sessões",
-    description: "Pacote técnico de desenvolvimento e testes.",
-    session_credits: 25,
-    amount_cents: 250,
-    amount_brl: "US$ 2.50",
-  },
-];
 
 const emptyFields: Record<string, string> = {
   fullName: "",
@@ -162,14 +137,13 @@ function openWhatsappReferral(referral: Referral) {
 }
 
 function formatMoneyFromCents(cents: number, currency = "usd") {
-  const value = Math.max(0, cents) / 100;
-  if (currency === "brl") return `R$ ${value.toFixed(2).replace(".", ",")}`;
-  if (currency === "eur") return `€ ${value.toFixed(2).replace(".", ",")}`;
-  return `US$ ${value.toFixed(2)}`;
-}
-
-function bonusForSessions(sessions: number) {
-  return Math.floor(Math.max(0, sessions) / 100) * 10;
+  const locales: Record<string, string> = {
+    brl: "pt-BR", usd: "en-US", eur: "fr-FR", cny: "zh-CN",
+  };
+  return new Intl.NumberFormat(locales[currency] || "en-US", {
+    style: "currency", currency: currency.toUpperCase(),
+    minimumFractionDigits: 2, maximumFractionDigits: 2,
+  }).format(Math.max(0, cents) / 100);
 }
 
 const Field: React.FC<{
@@ -218,50 +192,134 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
   const [professionalsRaw, setProfessionalsRaw] = useState("");
   const [baseAccessRaw, setBaseAccessRaw] = useState("");
   const [monthlyConsultations, setMonthlyConsultations] = useState(25);
-  const [selectedPlan, setSelectedPlan] = useState("professional_pack_25");
+  const [selectedPlan, setSelectedPlan] = useState("pro_10");
   const [billingMarket, setBillingMarket] = useState("BR");
   const [billingCurrency, setBillingCurrency] = useState("brl");
-  const [contractedSessions, setContractedSessions] = useState(25);
+  const requestedCurrencyRef = useRef("brl");
+  const [contractedSessions, setContractedSessions] = useState(0);
   const [plans, setPlans] = useState<AccessPlan[]>([]);
+  const [plansLoading, setPlansLoading] = useState(true);
+  const [plansError, setPlansError] = useState("");
   const [referral, setReferral] = useState<Referral>({ name: "", phone: "", email: "" });
   const [referrals, setReferrals] = useState<Referral[]>([]);
   const [lgpdAccepted, setLgpdAccepted] = useState(false);
+  const [autoReplenishAccepted, setAutoReplenishAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
   const professionals = useMemo(() => parseProfessionals(professionalsRaw), [professionalsRaw]);
-  const availablePlans = plans.length ? plans : fallbackPlans;
+  const availablePlans = plans;
   const selectedPlanData =
-    availablePlans.find((plan) => plan.id === selectedPlan) || availablePlans[0] || fallbackPlans[0];
+    availablePlans.find((plan) => plan.id === selectedPlan) || availablePlans[0];
   const unitAmountCents = Math.max(0, Number(selectedPlanData?.amount_cents || 0));
-  const bonusSessions = bonusForSessions(contractedSessions);
+  const bonusSessions = 0;
   const totalSessions = Math.max(0, contractedSessions) + bonusSessions;
-  const packageTotalCents = unitAmountCents * Math.max(0, contractedSessions);
+  const packageTotalCents = Number(
+    selectedPlanData?.total_amount_cents || unitAmountCents * Math.max(0, contractedSessions),
+  );
 
-  const loadPlans = (currency = billingCurrency) => {
-    fetch(apiUrl(`/api/access/plans?currency=${encodeURIComponent(currency)}`))
+  const loadPlans = (_currency = billingCurrency) => {
+    requestedCurrencyRef.current = _currency;
+    setPlansLoading(true);
+    setPlansError("");
+    const token = localStorage.getItem("froid_token") || "";
+    fetch(apiUrl(`/api/subscriptions/plans?currency=${encodeURIComponent(_currency)}`), {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (Array.isArray(data?.plans)) {
-          setPlans(data.plans);
-          if (!data.plans.some((plan: AccessPlan) => plan.id === selectedPlan) && data.plans[0]) {
-            setSelectedPlan(data.plans[0].id);
-            setContractedSessions(Number(data.plans[0].session_credits || 1));
-          }
+        if (requestedCurrencyRef.current !== _currency) return;
+        if (Array.isArray(data?.packages)) {
+          const mapped = data.packages.map((item: any) => {
+            const price = item.selected_price || item.prices?.[_currency] || {};
+            const unitAmount = Number(price.unit_amount_minor || 0);
+            const totalAmount = Number(price.total_amount_minor || 0);
+            return {
+              id: item.code,
+              name: `FROID ${String(item.plan_code || "").toUpperCase()} — ${item.sessions} sessões`,
+              description: `${formatMoneyFromCents(unitAmount, _currency)} por sessão`,
+              session_credits: item.sessions,
+              amount_cents: unitAmount,
+              total_amount_cents: totalAmount,
+              display_amount: formatMoneyFromCents(totalAmount, _currency),
+              currency: _currency,
+            };
+          });
+          setPlans(mapped);
+          setSelectedPlan((current) => {
+            const selected = mapped.find((plan: AccessPlan) => plan.id === current) || mapped[0];
+            setContractedSessions(Number(selected?.session_credits || 0));
+            return selected?.id || "";
+          });
+          if (!mapped.length) setPlansError("Nenhum pacote comercial está disponível.");
+        } else {
+          setPlans([]);
+          setPlansError("Catálogo de pacotes inválido.");
         }
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (requestedCurrencyRef.current !== _currency) return;
+        setPlans([]);
+        setPlansError("Não foi possível carregar os pacotes do FROID.");
+      })
+      .finally(() => {
+        if (requestedCurrencyRef.current === _currency) setPlansLoading(false);
+      });
   };
 
   useEffect(() => {
     loadPlans(billingCurrency);
   }, []);
 
+  useEffect(() => {
+    const query = window.location.hash.split("?")[1] || "";
+    const subscriptionResult = new URLSearchParams(query).get("subscription");
+    if (subscriptionResult === "cancelled") {
+      setMessage("Pagamento cancelado. Seu cadastro foi preservado.");
+      return;
+    }
+    if (subscriptionResult !== "success") return;
+    const token = localStorage.getItem("froid_token") || "";
+    if (!token) return;
+    let cancelled = false;
+    let attempt = 0;
+    setMessage("Pagamento recebido. Confirmando a liberação das sessões...");
+    const refreshAccess = async () => {
+      attempt += 1;
+      try {
+        const response = await fetch(apiUrl("/api/auth/me"), {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const refreshed = response.ok ? await response.json() : null;
+        if (cancelled) return;
+        if (refreshed && !refreshed.access_status?.onboarding_required) {
+          localStorage.setItem("froid_user", JSON.stringify(refreshed));
+          onUserChange(refreshed);
+          navigate("/dashboard", { replace: true });
+          return;
+        }
+      } catch {
+        // Stripe may deliver the signed webhook shortly after the browser returns.
+      }
+      if (!cancelled && attempt < 12) {
+        window.setTimeout(() => void refreshAccess(), 1500);
+      } else if (!cancelled) {
+        setMessage("Pagamento em conciliação. Atualize esta página em instantes.");
+      }
+    };
+    void refreshAccess();
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate, onUserChange]);
+
   const changeBillingMarket = (marketCode: string) => {
     const market = billingMarkets.find((item) => item.code === marketCode) || billingMarkets[0];
     setBillingMarket(market.code);
     setBillingCurrency(market.currency);
+    setPlans([]);
+    setContractedSessions(0);
     loadPlans(market.currency);
   };
 
@@ -277,8 +335,6 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
         if (!profile) return;
         setAccountType(profile.account_type === "organization" ? "organization" : "individual");
         setMonthlyConsultations(Number(profile.monthly_consultations || 25));
-        setSelectedPlan(profile.selected_plan || "professional_pack_25");
-        setContractedSessions(Number(profile.contracted_sessions || profile.total_sessions || 25));
         setLgpdAccepted(Boolean(profile.lgpd_acknowledged));
         setFields({
           ...emptyFields,
@@ -363,7 +419,10 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
     const missing = [...requiredFields, ...addressFields].find(([, value]) => !String(value || "").trim());
     if (missing) return `Preencha o campo obrigatorio: ${missing[0]}.`;
     if (!lgpdAccepted) return "Aceite os termos LGPD para continuar.";
-    if (contractedSessions < 1) return "Informe ao menos 1 sessão contratada.";
+    if (!autoReplenishAccepted) return "Autorize a recarga automática para continuar.";
+    if (!selectedPlanData || contractedSessions < 1) {
+      return "Selecione um pacote comercial válido.";
+    }
     return "";
   };
 
@@ -409,14 +468,6 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
         lgpd_acknowledged: lgpdAccepted,
         lgpd_acknowledged_at: lgpdAccepted ? new Date().toISOString() : "",
         monthly_consultations: monthlyConsultations,
-        selected_plan: selectedPlan,
-        billing_market: billingMarket,
-        billing_currency: billingCurrency,
-        contracted_sessions: contractedSessions,
-        bonus_sessions: bonusSessions,
-        total_sessions: totalSessions,
-        session_unit_amount_cents: unitAmountCents,
-        package_total_cents: packageTotalCents,
       };
 
       const profileRes = await fetch(apiUrl("/api/professional/profile"), {
@@ -449,22 +500,18 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
       }
       setMessage("Cadastro salvo. Encaminhando para o pagamento...");
 
-      const checkoutRes = await fetch(apiUrl("/api/billing/checkout"), {
+      const checkoutRes = await fetch(apiUrl("/api/subscriptions/checkout"), {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          plan_id: selectedPlan,
+          package_code: selectedPlan,
           currency: billingCurrency,
-          email: user?.email,
+          auto_replenish_consent: true,
+          checkout_context: "onboarding",
           base_url: publicAppUrl(),
-          contracted_sessions: contractedSessions,
-          bonus_sessions: bonusSessions,
-          total_sessions: totalSessions,
-          session_unit_amount_cents: unitAmountCents,
-          package_total_cents: packageTotalCents,
         }),
       });
       const checkoutText = await checkoutRes.text();
@@ -807,9 +854,9 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
                 </span>
                 <input
                   value={contractedSessions}
-                  onChange={(e) => setContractedSessions(Math.max(0, Number(e.target.value || 0)))}
                   type="number"
                   min={1}
+                  readOnly
                   className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                 />
               </label>
@@ -817,13 +864,33 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
                 <p>Valor unitario do plano: {formatMoneyFromCents(unitAmountCents, billingCurrency)}</p>
                 <p>Total do pacote: {formatMoneyFromCents(packageTotalCents, billingCurrency)}</p>
                 <p>Sessões contratadas: {contractedSessions}</p>
-                <p>Bonus acima de 100 sessoes: +{bonusSessions} sessões</p>
                 <p>Total liberado: {totalSessions} sessões</p>
                 <p>Moeda do checkout: {billingCurrency.toUpperCase()}</p>
               </div>
             </div>
 
+            <label className="mt-4 flex gap-3 rounded-lg border border-cyan-700 bg-cyan-950 p-3 text-xs font-bold leading-5 text-cyan-100">
+              <input
+                type="checkbox"
+                checked={autoReplenishAccepted}
+                onChange={(event) => setAutoReplenishAccepted(event.target.checked)}
+                required
+                className="mt-1"
+              />
+              <span>
+                Autorizo o FROID a salvar o método de pagamento e recomprar automaticamente
+                o mesmo pacote quando o saldo de sessões chegar a zero, na mesma moeda e pelo
+                valor total informado nesta contratação. Qualquer alteração exigirá nova autorização.
+              </span>
+            </label>
+
             <div className="mt-4 space-y-3">
+              {plansLoading && (
+                <p className="text-sm font-bold text-slate-400">Carregando pacotes...</p>
+              )}
+              {plansError && (
+                <p className="text-sm font-bold text-red-400">{plansError}</p>
+              )}
               {availablePlans.map((plan) => (
                 <label
                   key={plan.id}
@@ -841,7 +908,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
                     className="sr-only"
                   />
                   <span className="block text-sm font-black text-slate-100">{plan.name}</span>
-                  <span className="mt-1 block text-2xl font-black text-cyan-800">{plan.amount_brl}</span>
+                  <span className="mt-1 block text-2xl font-black text-cyan-800">{plan.display_amount}</span>
                   <span className="mt-1 block text-xs text-slate-400">
                     {plan.session_credits} sessões - {plan.description}
                   </span>
@@ -853,7 +920,10 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
             {message && <p className="mt-4 text-sm font-bold text-amber-100">{message}</p>}
 
             <button
-              disabled={loading || !lgpdAccepted}
+              disabled={
+                loading || plansLoading || !selectedPlanData
+                || !lgpdAccepted || !autoReplenishAccepted
+              }
               className="mt-5 w-full rounded-lg bg-slate-950 px-4 py-3 text-sm font-black text-white hover:bg-slate-800 disabled:opacity-40"
             >
               {loading ? "Processando..." : "Enviar informações e pagar"}

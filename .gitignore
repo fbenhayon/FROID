@@ -1,4 +1,11 @@
 node_modules/
+.env
+/.env.*
+!/.env.example
+/data/
+*.bak
+*.bak.*
+*.corrupt.bak
 dist/
 .vite/
 froid-server/venv/

@@ -2762,7 +2762,10 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         }
       };
 
-      const socket = new WebSocket(wsUrl(`/ws/rtc/${sessionId}/professional`));
+      const token = localStorage.getItem("froid_token") || "";
+      const socket = new WebSocket(
+        wsUrl(`/ws/rtc/${sessionId}/professional?token=${encodeURIComponent(token)}`),
+      );
       rtcSignalRef.current = socket;
 
       socket.onopen = () => setRtcStatus("Aguardando paciente...");
@@ -3273,9 +3276,13 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       }
 
       try {
+        const token = localStorage.getItem("froid_token") || "";
         const response = await fetch(apiUrl("/api/session-summary"), {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
           body: JSON.stringify({
             transcript,
             start_minute: startMinute,
@@ -3392,9 +3399,13 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           .join("\n")
           .slice(-900);
         const audioBase64 = await blobToBase64(audioBlob);
+        const token = localStorage.getItem("froid_token") || "";
         const response = await fetch(apiUrl("/api/transcribe"), {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
           body: JSON.stringify({
             audio_base64: audioBase64,
             mime_type: chunkMime,
@@ -3915,7 +3926,10 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     const connect = (attempt = 0) => {
       if (cancelled) return;
       try {
-        const socket = new WebSocket(wsUrl(`/ws/fusion/${sessionId || "default"}`));
+        const token = localStorage.getItem("froid_token") || "";
+        const socket = new WebSocket(
+          wsUrl(`/ws/fusion/${sessionId || "default"}?token=${encodeURIComponent(token)}`),
+        );
         ws = socket;
         wsRef.current = socket;
         socket.onopen = () => {
@@ -4195,8 +4209,8 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       conversationSummaries,
       sessionSummary: buildSessionSummary(conversationSummaries, summarySourceTranscript),
       dissonances: dissonanceLog,
-      transcript: "",
-      transcriptRetention: "disabled_summary_only",
+      transcript: summarySourceTranscript,
+      transcriptRetention: "enabled",
       anonymizedContext,
     };
   }, [
@@ -4211,34 +4225,43 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const archiveSessionReport = useCallback(
     async (report: SessionReportRecord) => {
       saveSessionReport(report);
-      try {
-        const token = localStorage.getItem("froid_token") || "";
-        await fetch(apiUrl("/api/session-reports"), {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify(report),
-        });
-      } catch {
-        // Local report remains available even if server archival is offline.
+      const token = localStorage.getItem("froid_token") || "";
+      const response = await fetch(apiUrl("/api/session-reports"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(report),
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload?.detail || "Falha ao arquivar a sessão no servidor.");
       }
     },
     [],
   );
 
-  const endSession = useCallback(() => {
+  const endSession = useCallback(async () => {
     if (reportSavedRef.current) return;
     reportSavedRef.current = true;
     const report = createSessionReport();
-    void archiveSessionReport(report);
+    try {
+      await archiveSessionReport(report);
+    } catch (error) {
+      reportSavedRef.current = false;
+      const message = error instanceof Error ? error.message : "Falha ao arquivar a sessão.";
+      window.alert(
+        `${message}\n\nA sessão permanecerá aberta para preservar a transcrição. Tente encerrar novamente.`,
+      );
+      return;
+    }
     if (wsRef.current)
       try {
         wsRef.current.close();
       } catch {}
     dispatch({ type: "END_SESSION" });
-    setTimeout(() => navigate(`/session/${report.sessionId}/report`), 400);
+    navigate(`/session/${report.sessionId}/report`);
   }, [archiveSessionReport, createSessionReport, navigate]);
 
   useEffect(() => {
@@ -4955,4 +4978,3 @@ export function LiveSession({ user }: LiveSessionProps) {
     </ErrorGuard>
   );
 }
-

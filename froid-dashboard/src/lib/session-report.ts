@@ -275,6 +275,9 @@ export function saveSessionReport(report: SessionReportRecord) {
   const owner = currentProfessionalEmail();
   const hydrated = hydrateReportPatient({
     ...report,
+    // The complete transcript is archived by the protected backend and is
+    // deliberately excluded from persistent browser storage.
+    transcript: "",
     professionalEmail: report.professionalEmail || owner,
     professional: {
       ...(report as any).professional,

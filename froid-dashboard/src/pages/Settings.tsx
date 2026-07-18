@@ -21,7 +21,8 @@ type AccessPlan = {
   description: string;
   session_credits: number;
   amount_cents: number;
-  amount_brl: string;
+  total_amount_cents: number;
+  display_amount: string;
   currency?: string;
 };
 
@@ -29,26 +30,20 @@ const billingMarkets = [
   { code: "BR", label: "Brasil", currency: "brl", note: "Cartoes nacionais e pagamento em reais." },
   { code: "US", label: "Estados Unidos", currency: "usd", note: "Clientes com cartao apto para USD." },
   { code: "EU", label: "Europa", currency: "eur", note: "Franca, Italia, Alemanha e demais paises da zona EUR." },
+  { code: "CN", label: "China", currency: "cny", note: "Pacotes comerciais cobrados em yuan renminbi." },
 ];
 
-const fallbackPlans: AccessPlan[] = [
-  {
-    id: "single_session",
-    name: "Sessão avulsa FROID",
-    description: "Crédito individual para uma sessão FROID.",
-    session_credits: 1,
-    amount_cents: 0,
-    amount_brl: "US$ 0.00",
-  },
-  {
-    id: "professional_pack_25",
-    name: "Pacote profissional 25 sessões",
-    description: "Pacote mensal com 25 sessões FROID.",
-    session_credits: 25,
-    amount_cents: 150,
-    amount_brl: "US$ 1.50",
-  },
-];
+function formatMoneyFromCents(cents: number, currency = "brl") {
+  const locales: Record<string, string> = {
+    brl: "pt-BR", usd: "en-US", eur: "fr-FR", cny: "zh-CN",
+  };
+  return new Intl.NumberFormat(locales[currency] || "pt-BR", {
+    style: "currency",
+    currency: currency.toUpperCase(),
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Math.max(0, cents) / 100);
+}
 
 type GoogleCalendarItem = {
   id: string;
@@ -162,10 +157,11 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
   const [eventDuration, setEventDuration] = useState("50");
   const [profileStatus, setProfileStatus] = useState<any>(user?.access_status || null);
   const [plans, setPlans] = useState<AccessPlan[]>([]);
-  const [selectedPlan, setSelectedPlan] = useState("professional_pack_25");
+  const [selectedPlan, setSelectedPlan] = useState("pro_10");
   const [billingMarket, setBillingMarket] = useState("BR");
   const [billingCurrency, setBillingCurrency] = useState("brl");
-  const [sessionQuantity, setSessionQuantity] = useState(25);
+  const [sessionQuantity, setSessionQuantity] = useState(0);
+  const [autoReplenishAccepted, setAutoReplenishAccepted] = useState(false);
   const [billingMessage, setBillingMessage] = useState("");
   const [billingLoading, setBillingLoading] = useState(false);
 
@@ -173,32 +169,6 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
     const token = window.localStorage.getItem("froid_token") || "";
     return token ? { Authorization: `Bearer ${token}` } : {};
   };
-
-  async function confirmStripeCheckout(checkoutSessionId: string) {
-    if (!checkoutSessionId) return;
-    setBillingLoading(true);
-    setBillingMessage("Confirmando pagamento Stripe...");
-    try {
-      const response = await fetch(apiUrl("/api/billing/confirm-checkout"), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeaders(),
-        },
-        body: JSON.stringify({ checkout_session_id: checkoutSessionId }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data?.detail || "Não foi possível confirmar o pagamento.");
-      setProfileStatus(data?.access_status || null);
-      setBillingMessage("Pagamento confirmado e sessões acrescentadas ao saldo.");
-      window.history.replaceState(null, "", window.location.pathname + window.location.hash.split("?")[0]);
-      await loadBillingProfile();
-    } catch (error: any) {
-      setBillingMessage(error?.message || "Falha ao confirmar pagamento Stripe.");
-    } finally {
-      setBillingLoading(false);
-    }
-  }
 
   const loadCalendarStatus = async (
     mode: CalendarViewMode = calendarView,
@@ -254,30 +224,55 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
     void loadBillingProfile(billingCurrency);
     const hashQuery = window.location.hash.split("?")[1] || "";
     const params = new URLSearchParams(hashQuery);
-    const checkoutSessionId = params.get("stripe_session_id") || "";
-    if (checkoutSessionId && checkoutSessionId !== "{CHECKOUT_SESSION_ID}") {
-      void confirmStripeCheckout(checkoutSessionId);
+    if (params.get("subscription") === "success") {
+      setBillingMessage("Pagamento recebido. Aguardando confirmação segura do Stripe...");
+      window.setTimeout(() => void loadBillingProfile(billingCurrency), 1800);
+    } else if (params.get("subscription") === "cancelled") {
+      setBillingMessage("Pagamento cancelado. Nenhuma cobrança foi aplicada.");
     }
   }, []);
 
   const loadBillingProfile = async (currency: string = billingCurrency) => {
     try {
-      const [profileResponse, plansResponse] = await Promise.all([
-        fetch(apiUrl("/api/professional/profile"), { headers: authHeaders() }),
-        fetch(apiUrl(`/api/access/plans?currency=${encodeURIComponent(currency)}`)),
+      const [meResponse, plansResponse] = await Promise.all([
+        fetch(apiUrl("/api/auth/me"), { headers: authHeaders() }),
+        fetch(apiUrl(`/api/subscriptions/plans?currency=${encodeURIComponent(currency)}`), {
+          headers: authHeaders(),
+        }),
       ]);
-      const profileData = profileResponse.ok ? await profileResponse.json() : null;
+      const meData = meResponse.ok ? await meResponse.json() : null;
       const plansData = plansResponse.ok ? await plansResponse.json() : null;
-      setProfileStatus(profileData?.access_status || user?.access_status || null);
-      const nextPlans = Array.isArray(plansData?.plans) ? plansData.plans : fallbackPlans;
+      setProfileStatus(meData?.access_status || user?.access_status || null);
+      const nextPlans: AccessPlan[] = Array.isArray(plansData?.packages)
+        ? plansData.packages.map((item: any) => {
+            const price = item.selected_price || {};
+            const unitAmount = Number(price.unit_amount_minor || 0);
+            const totalAmount = Number(price.total_amount_minor || 0);
+            return {
+              id: item.code,
+              name: `FROID ${String(item.plan_code || "").toUpperCase()} — ${item.sessions} sessões`,
+              description: `${formatMoneyFromCents(unitAmount, currency)} por sessão`,
+              session_credits: Number(item.sessions || 0),
+              amount_cents: unitAmount,
+              total_amount_cents: totalAmount,
+              display_amount: formatMoneyFromCents(totalAmount, currency),
+              currency,
+            };
+          })
+        : [];
       setPlans(nextPlans);
-      if (nextPlans[0] && !nextPlans.some((plan: AccessPlan) => plan.id === selectedPlan)) {
-        setSelectedPlan(nextPlans[0].id);
-        setSessionQuantity(Number(nextPlans[0].session_credits || 1));
+      const selected = nextPlans.find((plan) => plan.id === selectedPlan) || nextPlans[0];
+      if (selected) {
+        setSelectedPlan(selected.id);
+        setSessionQuantity(Number(selected.session_credits || 0));
+      } else {
+        setSelectedPlan("");
+        setSessionQuantity(0);
       }
     } catch {
-      setPlans(fallbackPlans);
+      setPlans([]);
       setProfileStatus(user?.access_status || null);
+      setBillingMessage("Não foi possível carregar o catálogo comercial.");
     }
   };
 
@@ -464,52 +459,63 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
   };
 
   const selectedPlanData =
-    plans.find((plan) => plan.id === selectedPlan) || plans[0] || fallbackPlans[0];
-  const purchaseBonusSessions = Math.floor(Math.max(0, sessionQuantity) / 100) * 10;
-  const purchaseTotalSessions = Math.max(0, sessionQuantity) + purchaseBonusSessions;
-  const purchaseTotalCents = Math.max(0, Number(selectedPlanData?.amount_cents || 0)) * Math.max(0, sessionQuantity);
+    plans.find((plan) => plan.id === selectedPlan) || plans[0];
+  const purchaseTotalSessions = Math.max(0, sessionQuantity);
+  const purchaseTotalCents = Math.max(
+    0,
+    Number(selectedPlanData?.total_amount_cents || 0),
+  );
 
   const buySessionCredits = async () => {
-    if (!selectedPlanData || sessionQuantity < 1) {
-      setBillingMessage("Informe ao menos 1 sessão para compra.");
+    if (!selectedPlanData || sessionQuantity < 1 || !autoReplenishAccepted) {
+      setBillingMessage("Selecione um pacote e autorize a recarga automática.");
       return;
     }
     setBillingLoading(true);
     setBillingMessage("");
     try {
-      const response = await fetch(apiUrl("/api/billing/checkout"), {
+      const response = await fetch(apiUrl("/api/subscriptions/checkout"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...authHeaders(),
         },
         body: JSON.stringify({
-          purchase_type: "add_sessions",
-          plan_id: selectedPlan,
+          package_code: selectedPlan,
           currency: billingCurrency,
-          email: ownerEmail,
+          auto_replenish_consent: true,
+          checkout_context: "settings",
           base_url: publicAppUrl(),
-          contracted_sessions: sessionQuantity,
-          bonus_sessions: purchaseBonusSessions,
-          total_sessions: purchaseTotalSessions,
-          session_unit_amount_cents: selectedPlanData.amount_cents,
-          package_total_cents: purchaseTotalCents,
         }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.detail || "Não foi possível iniciar a compra.");
-      if (data.status === "free_access" || data.status === "stripe_not_configured") {
-        setBillingMessage(data.message || "Créditos atualizados localmente.");
-        await loadBillingProfile();
-        return;
-      }
       if (data.checkout_url) {
         window.location.assign(data.checkout_url);
         return;
       }
-      setBillingMessage("Checkout iniciado, mas sem URL de redirecionamento.");
+      setBillingMessage("Checkout iniciado sem URL de redirecionamento.");
     } catch (error: any) {
       setBillingMessage(error?.message || "Falha ao comprar sessões.");
+    } finally {
+      setBillingLoading(false);
+    }
+  };
+
+  const retryAutomaticRecharge = async () => {
+    setBillingLoading(true);
+    setBillingMessage("Tentando novamente a recarga autorizada...");
+    try {
+      const response = await fetch(apiUrl("/api/subscriptions/recharge/retry"), {
+        method: "POST",
+        headers: authHeaders(),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.detail || "Não foi possível repetir a recarga.");
+      await loadBillingProfile(billingCurrency);
+      setBillingMessage("Tentativa de recarga processada.");
+    } catch (error: any) {
+      setBillingMessage(error?.message || "Falha ao repetir a recarga.");
     } finally {
       setBillingLoading(false);
     }
@@ -996,7 +1002,7 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
                 <select
                   value={selectedPlan}
                   onChange={(event) => {
-                    const plan = (plans.length ? plans : fallbackPlans).find(
+                    const plan = plans.find(
                       (item) => item.id === event.target.value,
                     );
                     setSelectedPlan(event.target.value);
@@ -1004,9 +1010,9 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
                   }}
                   className="mt-1 w-full rounded border border-slate-700 bg-slate-900 px-2 py-2 text-xs font-semibold normal-case tracking-normal text-slate-100 outline-none focus:border-cyan-500"
                 >
-                  {(plans.length ? plans : fallbackPlans).map((plan) => (
+                  {plans.map((plan) => (
                     <option key={plan.id} value={plan.id}>
-                      {plan.name} - {plan.amount_brl}
+                      {plan.name} - {plan.display_amount}
                     </option>
                   ))}
                 </select>
@@ -1017,24 +1023,49 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
                   type="number"
                   min={1}
                   value={sessionQuantity}
-                  onChange={(event) => setSessionQuantity(Math.max(0, Number(event.target.value || 0)))}
+                  readOnly
                   className="mt-1 w-full rounded border border-slate-700 bg-slate-900 px-2 py-2 text-xs font-semibold normal-case tracking-normal text-slate-100 outline-none focus:border-cyan-500"
                 />
               </label>
               <div className="rounded border border-cyan-900/70 bg-cyan-950/30 p-2 text-xs text-cyan-100">
-                Total liberado: <strong>{purchaseTotalSessions}</strong> sessões
-                {purchaseBonusSessions ? `, incluindo ${purchaseBonusSessions} bonus` : ""}.
+                Total liberado: <strong>{purchaseTotalSessions}</strong> sessões.
+                <br />
+                Total do pacote: <strong>{formatMoneyFromCents(purchaseTotalCents, billingCurrency)}</strong>.
                 <br />
                 Moeda do checkout: <strong>{billingCurrency.toUpperCase()}</strong>.
               </div>
+              <label className="flex gap-2 rounded border border-cyan-900/70 bg-cyan-950/30 p-2 text-xs text-cyan-100">
+                <input
+                  type="checkbox"
+                  checked={autoReplenishAccepted}
+                  onChange={(event) => setAutoReplenishAccepted(event.target.checked)}
+                />
+                <span>
+                  Autorizo salvar o método de pagamento e recomprar este pacote
+                  quando o saldo compartilhado chegar a zero.
+                </span>
+              </label>
               <button
                 type="button"
-                disabled={billingLoading || sessionQuantity < 1}
+                disabled={
+                  billingLoading || sessionQuantity < 1
+                  || !autoReplenishAccepted || !selectedPlanData
+                }
                 onClick={() => void buySessionCredits()}
                 className="rounded-lg bg-cyan-700 px-3 py-2 text-xs font-bold text-white hover:bg-cyan-800 disabled:opacity-40"
               >
                 {billingLoading ? "Processando..." : "Comprar sessões"}
               </button>
+              {profileStatus?.subscription?.last_recharge_status === "failed" && (
+                <button
+                  type="button"
+                  disabled={billingLoading}
+                  onClick={() => void retryAutomaticRecharge()}
+                  className="rounded-lg border border-amber-500 px-3 py-2 text-xs font-bold text-amber-100 hover:bg-amber-950 disabled:opacity-40"
+                >
+                  Tentar recarga novamente
+                </button>
+              )}
               {billingMessage && (
                 <p className="text-xs font-bold text-amber-100">{billingMessage}</p>
               )}

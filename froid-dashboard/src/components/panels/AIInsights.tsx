@@ -220,9 +220,13 @@ export const AIInsights: React.FC<Props> = ({
       setLoading(true);
 
       try {
+        const token = localStorage.getItem("froid_token") || "";
         const response = await fetch(apiUrl("/api/froid-explica/query"), {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
           body: JSON.stringify({
             query_text: prompt,
             session_id: sessionId,

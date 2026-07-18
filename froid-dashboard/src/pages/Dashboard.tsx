@@ -250,6 +250,21 @@ function openReceiptPrintWindow(
   ) || row.patient?.document || "";
   const issueDate = new Date();
   const internalId = row.items?.[0]?.session_id || row.patient_key;
+  const token = localStorage.getItem("froid_token") || "";
+  if (token && internalId) {
+    void fetch(apiUrl("/api/audit/client-event"), {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        action: "receipt.export",
+        resource_id: internalId,
+        surface: "dashboard_receivables",
+      }),
+    }).catch(() => undefined);
+  }
   const items = row.items && row.items.length ? row.items : [];
   const rowsHtml = items.length
     ? items
@@ -547,6 +562,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
     return token ? { Authorization: `Bearer ${token}` } : {};
   };
 
+  const selectOrganization = async (organizationId: string) => {
+    const response = await fetch(apiUrl("/api/auth/active-organization"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({ organization_id: organizationId }),
+    });
+    if (response.ok) window.location.reload();
+  };
+
   const loadReceivables = async () => {
     try {
       const response = await fetch(apiUrl("/api/professional/receivables"), {
@@ -785,7 +809,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
     const pollSessionEvents = async () => {
       try {
         if (eventCursorRef.current === null) {
-          const response = await fetch(apiUrl("/api/session-events/latest"));
+          const response = await fetch(apiUrl("/api/session-events/latest"), {
+            headers: authHeaders(),
+          });
           if (!response.ok) return;
           const data = await response.json();
           eventCursorRef.current = Number(data?.latest_id || 0);
@@ -794,6 +820,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
 
         const response = await fetch(
           apiUrl(`/api/session-events?after=${eventCursorRef.current}`),
+          { headers: authHeaders() },
         );
         if (!response.ok) return;
         const data = await response.json();
@@ -855,6 +882,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
             <h1 className="mt-1 text-xl font-bold text-slate-100">{professionalName}</h1>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
+            {Array.isArray(user?.organizations) && user.organizations.length > 1 && (
+              <select
+                value={user.active_organization_id || ""}
+                onChange={(event) => void selectOrganization(event.target.value)}
+                className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-100"
+                aria-label="Organização ativa"
+              >
+                {user.organizations.map((organization: any) => (
+                  <option key={organization.organization_id} value={organization.organization_id}>
+                    {organization.organization_name || organization.organization_id}
+                  </option>
+                ))}
+              </select>
+            )}
             {professionalProfile && (
               <span className="rounded-lg border border-emerald-800 bg-emerald-950 px-3 py-2 text-xs font-bold text-emerald-100">
                 Saldo: {professionalProfile.remaining_sessions ?? "--"} sessões

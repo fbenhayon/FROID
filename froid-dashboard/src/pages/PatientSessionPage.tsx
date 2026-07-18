@@ -139,7 +139,9 @@ export const PatientSessionPage: React.FC = () => {
       }
     };
 
-    const socket = new WebSocket(wsUrl(`/ws/rtc/${sessionId}/patient`));
+    const socket = new WebSocket(
+      wsUrl(`/ws/rtc/${sessionId}/patient?invite=${encodeURIComponent(inviteToken)}`),
+    );
     rtcSignalRef.current = socket;
 
     socket.onopen = () => setCallStatus("Aguardando chamada do profissional...");
