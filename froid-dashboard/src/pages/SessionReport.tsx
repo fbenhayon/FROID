@@ -10,6 +10,7 @@ import {
   MetricSnapshot,
   SessionReportRecord,
 } from "../lib/session-report";
+import { dashboardText, loadSessionLanguagePreferences, normalizeSessionLocale } from "../lib/localization";
 
 interface Props {
   user?: any;
@@ -662,6 +663,11 @@ export const SessionReport: React.FC<Props> = () => {
   const [metricsError, setMetricsError] = useState("");
   const [sections, setSections] = useState(DEFAULT_SECTIONS);
   const [descriptiveReport, setDescriptiveReport] = useState("");
+  const locale = normalizeSessionLocale(
+    report?.reportLocale,
+    loadSessionLanguagePreferences().reportLocale,
+  );
+  const tr = (text: string) => dashboardText(locale, text);
 
   useEffect(() => {
     let active = true;
@@ -699,7 +705,7 @@ export const SessionReport: React.FC<Props> = () => {
         }
       })
       .catch((error) => {
-        if (active) setMetricsError(error instanceof Error ? error.message : "Métricas indisponiveis");
+        if (active) setMetricsError(error instanceof Error ? error.message : "Métricas indisponíveis");
       });
     return () => {
       active = false;
@@ -730,7 +736,7 @@ export const SessionReport: React.FC<Props> = () => {
       <div className="flex min-h-screen items-center justify-center bg-slate-950 p-6 text-slate-300">
         <div className="max-w-md rounded-xl border border-slate-700 bg-slate-900 p-6 text-center shadow-sm">
           <h1 className="text-lg font-bold text-slate-100">
-            Relatório não encontrado
+            {tr("Relatório não encontrado")}
           </h1>
           <p className="mt-2 text-sm text-slate-500">
             O relatório da sessão ainda não foi gerado neste navegador.
@@ -739,7 +745,7 @@ export const SessionReport: React.FC<Props> = () => {
             onClick={() => navigate("/dashboard")}
             className="mt-4 rounded-lg bg-cyan-700 px-4 py-2 text-sm font-bold text-white hover:bg-cyan-800"
           >
-            Voltar ao dashboard
+            {tr("Voltar ao dashboard")}
           </button>
         </div>
       </div>
@@ -757,13 +763,13 @@ export const SessionReport: React.FC<Props> = () => {
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-300">
-              Relatório da Consulta
+              {tr("Relatório da Consulta")}
             </p>
             <h1 className="text-xl font-bold text-slate-100">
-              Sessão {report.sessionId}
+              {tr("Sessão")} {report.sessionId}
             </h1>
             <p className="mt-1 text-xs text-slate-500">
-              {new Date(report.createdAt).toLocaleString("pt-BR")} | Duração{" "}
+              {new Date(report.createdAt).toLocaleString(locale)} | {tr("Duração")}{" "}
               {formatDuration(report.durationSeconds)}
             </p>
           </div>
@@ -781,7 +787,7 @@ export const SessionReport: React.FC<Props> = () => {
           <section className="rounded-lg border border-blue-800 bg-blue-950 p-4">
             <div className="mb-3">
               <HelpTitle
-                title="Linha comparativa da sessão"
+                title={tr("Linha comparativa da sessão")}
                 className="text-sm font-bold text-blue-100"
               />
             </div>
@@ -869,7 +875,7 @@ export const SessionReport: React.FC<Props> = () => {
                 </div>
                 <div className="rounded border border-slate-700 bg-slate-950 p-2">
                   <p className="text-[10px] font-bold uppercase text-slate-500">
-                    Confianca média
+                    Confiança média
                   </p>
                   <p className="text-lg font-black text-slate-100">
                     {fmtPct(activeMetricsAnalysis.dashboard.mean_confidence)}
@@ -1060,7 +1066,7 @@ export const SessionReport: React.FC<Props> = () => {
                         )}
                         {!cut && (
                           <p className="mt-2 text-[10px] italic text-amber-600">
-                            Métricas deste corte indisponiveis no registro legado.
+                            Métricas deste corte indisponíveis no registro legado.
                           </p>
                         )}
                       </div>
@@ -1128,6 +1134,7 @@ export const SessionReport: React.FC<Props> = () => {
               coherenceStatus={report.sessionAverage.coherenceStatus}
               baselineEstablished
               sessionId={report.sessionId}
+              responseLocale={locale}
               extraContext={reportContext}
               controlsSticky
               messagesClassName="min-h-[300px]"
@@ -1161,5 +1168,3 @@ export const SessionReport: React.FC<Props> = () => {
     </div>
   );
 };
-
-

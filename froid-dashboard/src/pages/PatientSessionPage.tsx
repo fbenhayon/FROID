@@ -7,6 +7,7 @@ import {
   createConferenceStream,
   loadRtcConfiguration,
 } from "../lib/webrtc";
+import { normalizeSessionLocale, patientCopy, type SessionLocale } from "../lib/localization";
 
 type JoinState = "checking" | "joined" | "blocked";
 type MediaState = "idle" | "requesting" | "active" | "failed";
@@ -33,6 +34,10 @@ export const PatientSessionPage: React.FC = () => {
   const [remoteProfessionalVideoOn, setRemoteProfessionalVideoOn] = useState(false);
   const [patientName, setPatientName] = useState("");
   const [error, setError] = useState("");
+  const [uiLocale, setUiLocale] = useState<SessionLocale>(() =>
+    normalizeSessionLocale(typeof navigator === "undefined" ? "" : navigator.language),
+  );
+  const copy = patientCopy(uiLocale);
 
   const cleanupRtc = () => {
     rtcClosingRef.current = true;
@@ -80,6 +85,9 @@ export const PatientSessionPage: React.FC = () => {
       .then((data) => {
         if (!active) return;
         setPatientName(String(data?.patient_name || ""));
+        const nextLocale = normalizeSessionLocale(data?.patient_ui_locale, uiLocale);
+        setUiLocale(nextLocale);
+        document.documentElement.lang = nextLocale;
         setJoinState("joined");
       })
       .catch((err) => {
@@ -285,10 +293,10 @@ export const PatientSessionPage: React.FC = () => {
 
   const statusText =
     joinState === "checking"
-      ? "Validando convite..."
+      ? copy.checking
       : joinState === "joined"
-        ? "Paciente conectado"
-        : "Entrada bloqueada";
+        ? copy.connected
+        : copy.blocked;
 
   return (
     <div className="min-h-screen bg-slate-950 px-4 py-8 text-slate-100">
@@ -297,7 +305,12 @@ export const PatientSessionPage: React.FC = () => {
           <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-cyan-300">
             FROID
           </p>
-          <h1 className="mt-2 text-2xl font-bold">Sala do paciente</h1>
+          <h1 className="mt-2 text-2xl font-bold">{copy.patientRoom}</h1>
+          {uiLocale !== "pt-BR" && (
+            <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-amber-300">
+              {copy.pilotNotice}
+            </p>
+          )}
           <p className="mt-1 text-sm text-slate-400">
             {statusText}
             {patientName ? ` - ${patientName}` : ""}
@@ -329,7 +342,7 @@ export const PatientSessionPage: React.FC = () => {
             />
             {mediaState !== "active" && (
               <div className="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-slate-400">
-                Câmera e microfone aguardando permissão.
+                {copy.mediaPermission}
               </div>
             )}
             <div
@@ -359,10 +372,10 @@ export const PatientSessionPage: React.FC = () => {
               className="rounded-lg bg-cyan-500 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {mediaState === "requesting"
-                ? "Ativando..."
+                ? copy.enablingMedia
                 : mediaState === "active"
-                  ? "Áudio e vídeo ativos"
-                  : "Ativar áudio e vídeo"}
+                  ? copy.mediaActive
+                  : copy.enableMedia}
             </button>
           </div>
 

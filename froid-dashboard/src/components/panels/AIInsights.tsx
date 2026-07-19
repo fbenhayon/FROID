@@ -6,6 +6,7 @@ import {
   PROFESSIONAL_PROMPTS_EVENT,
   type ProfessionalPrompt,
 } from "../../lib/professional-prompts";
+import { normalizeSessionLocale, type SessionLocale } from "../../lib/localization";
 
 const PRESETS = [
   { text: "Como este paciente se compara a média populacional em Zonas FROID?" },
@@ -56,6 +57,7 @@ interface Props {
   controlsSticky?: boolean;
   rootClassName?: string;
   messagesClassName?: string;
+  responseLocale?: SessionLocale;
 }
 
 function compactZone(zone: PerceptionZone) {
@@ -153,7 +155,14 @@ export const AIInsights: React.FC<Props> = ({
   controlsSticky = false,
   rootClassName = "",
   messagesClassName = "",
+  responseLocale = normalizeSessionLocale(undefined),
 }) => {
+  const ui = {
+    "pt-BR": { ready: "FROID Explica pronto.", you: "Você", blocked: "Consulta bloqueada por governança de dados.", native: "Prompts FROID Explica", mine: "Meus prompts", select: "Selecione um prompt...", selectMine: "Selecione meus prompts...", none: "Nenhum prompt pessoal cadastrado", placeholder: "Pergunta livre ao FROID Explica...", send: "Enviar" },
+    "en-US": { ready: "FROID Explica is ready.", you: "You", blocked: "Request blocked by data-governance controls.", native: "FROID Explica prompts", mine: "My prompts", select: "Select a prompt...", selectMine: "Select one of my prompts...", none: "No personal prompt registered", placeholder: "Ask FROID Explica...", send: "Send" },
+    "fr-FR": { ready: "FROID Explica est prêt.", you: "Vous", blocked: "Requête bloquée par les contrôles de gouvernance des données.", native: "Prompts FROID Explica", mine: "Mes prompts", select: "Sélectionnez un prompt...", selectMine: "Sélectionnez l’un de mes prompts...", none: "Aucun prompt personnel enregistré", placeholder: "Posez une question à FROID Explica...", send: "Envoyer" },
+    "es-ES": { ready: "FROID Explica está listo.", you: "Usted", blocked: "Consulta bloqueada por los controles de gobernanza de datos.", native: "Prompts de FROID Explica", mine: "Mis prompts", select: "Seleccione un prompt...", selectMine: "Seleccione uno de mis prompts...", none: "No hay prompts personales registrados", placeholder: "Pregunte a FROID Explica...", send: "Enviar" },
+  }[responseLocale];
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedPrompt, setSelectedPrompt] = useState("");
   const [selectedProfessionalPrompt, setSelectedProfessionalPrompt] = useState("");
@@ -230,6 +239,7 @@ export const AIInsights: React.FC<Props> = ({
           body: JSON.stringify({
             query_text: prompt,
             session_id: sessionId,
+            response_locale: responseLocale,
             conversation_history: messages.slice(-6).map((message) => ({
               role: message.role,
               content: message.content,
@@ -275,7 +285,7 @@ export const AIInsights: React.FC<Props> = ({
         setLoading(false);
       }
     },
-    [buildClinicalContext, loading, messages, sessionId],
+    [buildClinicalContext, loading, messages, responseLocale, sessionId],
   );
 
   return (
@@ -299,7 +309,7 @@ export const AIInsights: React.FC<Props> = ({
       <div className={`mb-2 min-h-[120px] flex-1 overflow-y-auto rounded-lg border border-slate-700 bg-slate-950 p-2 space-y-3 ${messagesClassName}`}>
         {messages.length === 0 && (
           <div className="py-4 text-center">
-            <p className="text-[11px] text-slate-500">FROID Explica pronto.</p>
+            <p className="text-[11px] text-slate-500">{ui.ready}</p>
           </div>
         )}
 
@@ -316,12 +326,12 @@ export const AIInsights: React.FC<Props> = ({
               }`}
             >
               <p className="mb-0.5 text-[9px] font-semibold opacity-80">
-                {message.role === "user" ? "Você" : "FROID Explica"}
+                {message.role === "user" ? ui.you : "FROID Explica"}
               </p>
               {message.content}
               {message.role === "assistant" && message.safety === false && (
                 <div className="mt-2 text-[9px] font-bold text-red-500">
-                  Consulta bloqueada por governanca de dados.
+                  {ui.blocked}
                 </div>
               )}
             </div>
@@ -346,7 +356,7 @@ export const AIInsights: React.FC<Props> = ({
         <div className="grid gap-2 md:grid-cols-2">
           <div className="relative">
             <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Prompts FROID Explica
+              {ui.native}
             </label>
             <select
               value={selectedPrompt}
@@ -359,7 +369,7 @@ export const AIInsights: React.FC<Props> = ({
               }}
               className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-semibold text-slate-200 shadow-sm outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <option value="">Selecione um prompt...</option>
+              <option value="">{ui.select}</option>
               {PRESETS.map((preset, index) => (
                 <option key={preset.text} value={preset.text}>
                   {index + 1}. {preset.text}
@@ -370,7 +380,7 @@ export const AIInsights: React.FC<Props> = ({
 
           <div className="relative">
             <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Meus Prompts...
+              {ui.mine}
             </label>
             <select
               value={selectedProfessionalPrompt}
@@ -385,8 +395,8 @@ export const AIInsights: React.FC<Props> = ({
             >
               <option value="">
                 {professionalPrompts.length
-                  ? "Selecione meus prompts..."
-                  : "Nenhum prompt pessoal cadastrado"}
+                  ? ui.selectMine
+                  : ui.none}
               </option>
               {professionalPrompts.map((prompt, index) => (
                 <option key={prompt.id} value={prompt.text}>
@@ -403,7 +413,7 @@ export const AIInsights: React.FC<Props> = ({
             onKeyDown={(event) => {
               if (event.key === "Enter") void ask(input);
             }}
-            placeholder="Pergunta livre ao FROID Explica..."
+            placeholder={ui.placeholder}
             className="flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-200 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
           />
           <button
@@ -411,7 +421,7 @@ export const AIInsights: React.FC<Props> = ({
             disabled={!input.trim() || loading}
             className="rounded-lg bg-cyan-700 px-3 py-2 text-xs font-bold text-white hover:bg-cyan-800 disabled:opacity-40"
           >
-            Enviar
+            {ui.send}
           </button>
         </div>
       </div>

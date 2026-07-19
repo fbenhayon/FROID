@@ -1,5 +1,6 @@
 import React from "react";
 import { FroidTooltip } from "../ui/FroidTooltip";
+import { normalizeSessionLocale, type SessionLocale } from "../../lib/localization";
 
 type FroidAudioMetaWindow = Window &
   typeof globalThis & {
@@ -19,6 +20,7 @@ interface Props {
   audioMeta?: Record<string, unknown>;
   conversationSummaries?: ConversationSummary[];
   section?: "all" | "summary" | "biomarkers";
+  locale?: SessionLocale;
 }
 
 const biomarkerTooltips: Record<string, string> = {
@@ -98,7 +100,14 @@ export const AudioTranscription: React.FC<Props> = ({
   audioMeta: providedAudioMeta,
   conversationSummaries = [],
   section = "all",
+  locale = normalizeSessionLocale(undefined),
 }) => {
+  const ui = {
+    "pt-BR": { summary: "Resumo da Fala IA", waiting: "Aguardando fechamento do primeiro bloco de 10 minutos.", biomarkers: "Biomarcadores vocais", comparison: "Comparação vocal por indicador", chart: "Gráfico Comparativo MFCC7 x MFCC9", magnitude: "Magnitude relativa | coeficiente bruto à direita" },
+    "en-US": { summary: "AI Speech Summary", waiting: "Waiting for the first 10-minute block to close.", biomarkers: "Voice biomarkers", comparison: "Voice comparison by indicator", chart: "MFCC7 vs MFCC9 Comparison", magnitude: "Relative magnitude | raw coefficient on the right" },
+    "fr-FR": { summary: "Résumé IA de la parole", waiting: "En attente de la clôture du premier bloc de 10 minutes.", biomarkers: "Biomarqueurs vocaux", comparison: "Comparaison vocale par indicateur", chart: "Comparaison MFCC7 / MFCC9", magnitude: "Amplitude relative | coefficient brut à droite" },
+    "es-ES": { summary: "Resumen de voz con IA", waiting: "Esperando el cierre del primer bloque de 10 minutos.", biomarkers: "Biomarcadores vocales", comparison: "Comparación vocal por indicador", chart: "Comparación MFCC7 vs MFCC9", magnitude: "Magnitud relativa | coeficiente bruto a la derecha" },
+  }[locale];
   const audioMeta =
     providedAudioMeta ||
     (typeof window !== "undefined"
@@ -181,7 +190,7 @@ export const AudioTranscription: React.FC<Props> = ({
       {section !== "biomarkers" && (
       <div className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-2">
         <div className="flex items-center justify-between gap-2 text-[9px] font-bold uppercase tracking-wider text-slate-300">
-          <span>Resumo da Fala IA</span>
+          <span>{ui.summary}</span>
           <div className="flex items-center gap-1">
             <span className={`rounded px-1.5 py-0.5 text-[8px] ${sttClass}`}>
               {sttLabel}
@@ -192,7 +201,7 @@ export const AudioTranscription: React.FC<Props> = ({
         <div className="mt-1 max-h-44 space-y-1 overflow-y-auto">
           {orderedSummaries.length === 0 && (
             <p className="text-[10px] italic leading-snug text-slate-400">
-              Aguardando fechamento do primeiro bloco de 10 minutos.
+              {ui.waiting}
             </p>
           )}
           {orderedSummaries.map((item) => (
@@ -228,9 +237,9 @@ export const AudioTranscription: React.FC<Props> = ({
       <div className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-2">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h3 className="text-[13px] font-black text-slate-100">Biomarcadores vocais</h3>
+            <h3 className="text-[13px] font-black text-slate-100">{ui.biomarkers}</h3>
             <p className="truncate text-[10px] font-medium text-slate-400">
-              Comparação vocal por indicador
+              {ui.comparison}
             </p>
           </div>
           <span className={`rounded px-1.5 py-0.5 text-[8px] ${bioacousticClass}`}>
@@ -240,10 +249,10 @@ export const AudioTranscription: React.FC<Props> = ({
         <div className="mt-2 space-y-2 text-[10px]">
           <div className="rounded-xl border border-slate-700 bg-slate-950 p-2.5">
             <p className="text-[11px] font-black text-slate-100">
-              Gráfico Comparativo MFCC7 x MFCC9
+              {ui.chart}
             </p>
             <p className="mb-3 text-[8px] text-slate-400">
-              Magnitude relativa | coeficiente bruto a direita
+              {ui.magnitude}
             </p>
             <div className="space-y-2">
             {mfccItems.map((item) => (

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { apiUrl } from "../lib/api";
 import { LgpdNotice } from "../components/legal/LgpdNotice";
+import { normalizeSessionLocale, patientCopy, type SessionLocale } from "../lib/localization";
 
 type PaymentMode = "package" | "single";
 
@@ -16,6 +17,10 @@ interface InviteData {
   patient_name: string;
   patient_email: string;
   patient_phone: string;
+  patient_ui_locale?: SessionLocale;
+  spoken_language?: SessionLocale;
+  analysis_language?: SessionLocale;
+  report_locale?: SessionLocale;
   payment: {
     mode: PaymentMode;
     package_sessions: number;
@@ -56,6 +61,10 @@ export const PatientInvitePage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [accepted, setAccepted] = useState(false);
+  const [uiLocale, setUiLocale] = useState<SessionLocale>(() =>
+    normalizeSessionLocale(typeof navigator === "undefined" ? "" : navigator.language),
+  );
+  const copy = patientCopy(uiLocale);
   const sessionEntryUrl =
     invite?.session_url ||
     invite?.patient_session_url ||
@@ -74,6 +83,9 @@ export const PatientInvitePage: React.FC = () => {
       })
       .then((data: InviteData) => {
         if (!active) return;
+        const nextLocale = normalizeSessionLocale(data.patient_ui_locale, uiLocale);
+        setUiLocale(nextLocale);
+        document.documentElement.lang = nextLocale;
         setInvite(data);
         setPatientForm((prev) => ({
           ...prev,
@@ -109,12 +121,12 @@ export const PatientInvitePage: React.FC = () => {
     setError("");
     const passwordOnly = Boolean(invite?.password_only);
     if (!passwordOnly && !patientForm.document.trim()) {
-      setError("Informe o CPF/documento do paciente.");
+      setError(copy.errors.document);
       setSubmitting(false);
       return;
     }
     if (!passwordOnly && !patientForm.email.trim()) {
-      setError("Informe o e-mail do paciente.");
+      setError(copy.errors.email);
       setSubmitting(false);
       return;
     }
@@ -123,17 +135,17 @@ export const PatientInvitePage: React.FC = () => {
       patientForm.email.trim().toLowerCase() !==
         patientForm.email_confirm.trim().toLowerCase()
     ) {
-      setError("A confirmação de e-mail não confere.");
+      setError(copy.errors.emailMatch);
       setSubmitting(false);
       return;
     }
     if (patientForm.password.length < 8) {
-      setError("A senha do paciente deve ter no mínimo 8 caracteres.");
+      setError(copy.errors.passwordLength);
       setSubmitting(false);
       return;
     }
     if (!passwordOnly && patientForm.password !== patientForm.password_confirm) {
-      setError("A confirmação de senha não confere.");
+      setError(copy.errors.passwordMatch);
       setSubmitting(false);
       return;
     }
@@ -155,7 +167,7 @@ export const PatientInvitePage: React.FC = () => {
         }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data?.detail || "Não foi possível confirmar.");
+      if (!response.ok) throw new Error(data?.detail || copy.errors.confirmation);
       if (data?.patient_portal_token) {
         sessionStorage.setItem("froid_patient_token", data.patient_portal_token);
         sessionStorage.setItem("froid_patient_user", JSON.stringify(data.patient || {}));
@@ -163,7 +175,7 @@ export const PatientInvitePage: React.FC = () => {
       setInvite(data);
       setAccepted(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Falha ao confirmar convite.");
+      setError(err instanceof Error ? err.message : copy.errors.confirmation);
     } finally {
       setSubmitting(false);
     }
@@ -172,7 +184,7 @@ export const PatientInvitePage: React.FC = () => {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 text-sm font-semibold text-slate-300">
-        Carregando convite FROID...
+        {copy.loadingInvite}
       </div>
     );
   }
@@ -181,7 +193,7 @@ export const PatientInvitePage: React.FC = () => {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 p-6 text-slate-100">
         <div className="max-w-md rounded-xl border border-red-900/40 bg-slate-900 p-6">
-          <p className="text-sm font-bold text-red-300">Convite indisponível</p>
+          <p className="text-sm font-bold text-red-300">{copy.unavailableInvite}</p>
           <p className="mt-2 text-sm text-slate-300">{error}</p>
         </div>
       </div>
@@ -196,11 +208,16 @@ export const PatientInvitePage: React.FC = () => {
             FROID
           </p>
           <h1 className="mt-2 text-xl font-bold text-slate-950">
-            Convite para sessão clínica
+            {copy.invitationTitle}
           </h1>
           <p className="mt-1 text-sm text-slate-400">
-            Confirme seus dados e os consentimentos antes da sessão.
+            {copy.invitationSubtitle}
           </p>
+          {uiLocale !== "pt-BR" && (
+            <p className="mt-2 text-[10px] font-bold uppercase tracking-wide text-amber-300">
+              {copy.pilotNotice}
+            </p>
+          )}
         </div>
 
         {invite && (
@@ -208,29 +225,29 @@ export const PatientInvitePage: React.FC = () => {
             <div className="grid gap-2 md:grid-cols-2">
               <div>
                 <span className="block text-[10px] font-bold uppercase text-blue-200">
-                  Paciente
+                  {copy.patient}
                 </span>
                 <strong>{invite.patient_name}</strong>
               </div>
               <div>
                 <span className="block text-[10px] font-bold uppercase text-blue-200">
-                  Sessão
+                  {copy.session}
                 </span>
                 <strong>{invite.session_id}</strong>
               </div>
               <div>
                 <span className="block text-[10px] font-bold uppercase text-blue-200">
-                  Pagamento
+                  {copy.payment}
                 </span>
                 <strong>
                   {invite.payment.mode === "package"
-                    ? `Pacote com ${invite.payment.package_sessions} sessões`
-                    : "Sessão avulsa"}
+                    ? copy.packageLabel(invite.payment.package_sessions)
+                    : copy.singleSession}
                 </strong>
                 <p className="mt-1 text-xs text-slate-300">
-                  Valor da sessão: {invite.payment.session_value_brl}
+                  {copy.sessionValue}: {invite.payment.session_value_brl}
                   {invite.payment.mode === "package"
-                    ? ` | Total: ${invite.payment.package_total_brl}`
+                    ? ` | ${copy.total}: ${invite.payment.package_total_brl}`
                     : ""}
                 </p>
               </div>
@@ -251,11 +268,10 @@ export const PatientInvitePage: React.FC = () => {
         {accepted ? (
           <div className="rounded-lg border border-emerald-100 bg-emerald-950/40 p-5">
             <p className="text-base font-bold text-emerald-900">
-              Convite confirmado
+              {copy.confirmed}
             </p>
             <p className="mt-2 text-sm text-emerald-800">
-              Seu cadastro e consentimento foram registrados. A sessão está
-              liberada para entrada do paciente.
+              {copy.confirmedBody}
             </p>
             {sessionEntryUrl && (
               <div className="mt-4 flex flex-wrap gap-2">
@@ -263,13 +279,13 @@ export const PatientInvitePage: React.FC = () => {
                   href={sessionEntryUrl}
                   className="inline-flex rounded-lg bg-emerald-700 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-800"
                 >
-                  Entrar na sessão
+                  {copy.enterSession}
                 </a>
                 <a
                   href="/app/#/paciente"
                   className="inline-flex rounded-lg border border-emerald-700 px-4 py-2 text-sm font-bold text-emerald-100 hover:bg-emerald-900"
                 >
-                  Portal do paciente
+                  {copy.patientPortal}
                 </a>
               </div>
             )}
@@ -279,15 +295,13 @@ export const PatientInvitePage: React.FC = () => {
             {invite?.password_only ? (
               <div className="rounded-lg border border-cyan-800 bg-cyan-950/40 p-4">
                 <p className="text-sm font-bold text-cyan-100">
-                  Cadastro e autorizações localizados
+                  {copy.accountLocated}
                 </p>
                 <p className="mt-1 text-xs leading-relaxed text-slate-300">
-                  Para liberar esta sessão, informe somente sua senha. Suas
-                  autorizações permanecem válidas até que você as altere no
-                  Portal do Paciente.
+                  {copy.accountLocatedBody}
                 </p>
                 <label className="mt-4 block text-xs font-semibold text-slate-200">
-                  Senha de acesso *
+                  {copy.accessPassword} *
                   <input
                     type="password"
                     value={patientForm.password}
@@ -303,7 +317,7 @@ export const PatientInvitePage: React.FC = () => {
               <>
               <div className="grid gap-3 md:grid-cols-2">
               <label className="text-xs font-semibold text-slate-300">
-                Nome completo
+                {copy.fullName}
                 <input
                   value={patientForm.name}
                   onChange={(event) => updatePatient("name", event.target.value)}
@@ -311,7 +325,7 @@ export const PatientInvitePage: React.FC = () => {
                 />
               </label>
               <label className="text-xs font-semibold text-slate-300">
-                CPF ou documento *
+                {copy.document} *
                 <input
                   value={patientForm.document}
                   onChange={(event) =>
@@ -322,7 +336,7 @@ export const PatientInvitePage: React.FC = () => {
                 />
               </label>
               <label className="text-xs font-semibold text-slate-300">
-                E-mail *
+                {copy.email} *
                 <input
                   value={patientForm.email}
                   onChange={(event) => updatePatient("email", event.target.value)}
@@ -331,7 +345,7 @@ export const PatientInvitePage: React.FC = () => {
                 />
               </label>
               <label className="text-xs font-semibold text-slate-300">
-                Confirmar e-mail *
+                {copy.confirmEmail} *
                 <input
                   value={patientForm.email_confirm}
                   onChange={(event) => updatePatient("email_confirm", event.target.value)}
@@ -340,7 +354,7 @@ export const PatientInvitePage: React.FC = () => {
                 />
               </label>
               <label className="text-xs font-semibold text-slate-300">
-                WhatsApp
+                {copy.phone}
                 <input
                   value={patientForm.phone}
                   onChange={(event) => updatePatient("phone", event.target.value)}
@@ -348,7 +362,7 @@ export const PatientInvitePage: React.FC = () => {
                 />
               </label>
               <label className="text-xs font-semibold text-slate-300">
-                Data de nascimento
+                {copy.birthDate}
                 <input
                   type="date"
                   value={patientForm.birth_date}
@@ -359,7 +373,7 @@ export const PatientInvitePage: React.FC = () => {
                 />
               </label>
               <label className="text-xs font-semibold text-slate-300">
-                Senha de acesso ao portal *
+                {copy.portalPassword} *
                 <input
                   type="password"
                   value={patientForm.password}
@@ -370,7 +384,7 @@ export const PatientInvitePage: React.FC = () => {
                 />
               </label>
               <label className="text-xs font-semibold text-slate-300">
-                Confirmar senha *
+                {copy.confirmPassword} *
                 <input
                   type="password"
                   value={patientForm.password_confirm}
@@ -386,33 +400,21 @@ export const PatientInvitePage: React.FC = () => {
 
             <div className="rounded-lg border border-slate-700 bg-slate-950 p-4">
               <p className="text-sm font-bold text-slate-100">
-                Consentimentos LGPD
+                {copy.privacyAuthorizations}
               </p>
               <p className="mt-1 text-xs leading-relaxed text-slate-400">
-                O FROID trata dados pessoais e dados sensíveis de saúde,
-                incluindo áudio, vídeo, biomarcadores, transcrição e análises
-                clínicas. O uso deve ocorrer para apoio ao profissional, com
-                registro de consentimento e finalidade terapêutica.
+                {copy.privacyBody}
               </p>
               <div className="mt-3">
-                <LgpdNotice audience="patient" compact />
+                <LgpdNotice audience="patient" compact locale={uiLocale} />
               </div>
               <div className="mt-3 space-y-2 text-xs text-slate-300">
                 {[
-                  ["terms_of_use", "Li e aceito as condições de utilização do FROID."],
-                  ["privacy_policy", "Li e aceito a política de privacidade."],
-                  [
-                    "sensitive_data_processing",
-                    "Autorizo o tratamento de dados sensíveis de saúde para esta sessão.",
-                  ],
-                  [
-                    "audio_video_processing",
-                    "Autorizo a captura e processamento de áudio, vídeo e biomarcadores.",
-                  ],
-                  [
-                    "research_anonymized",
-                    "Autorizo uso anonimizado para pesquisa e melhoria do FROID.",
-                  ],
+                  ["terms_of_use", copy.consentLabels.terms_of_use],
+                  ["privacy_policy", copy.consentLabels.privacy_policy],
+                  ["sensitive_data_processing", copy.consentLabels.sensitive_data_processing],
+                  ["audio_video_processing", copy.consentLabels.audio_video_processing],
+                  ["research_anonymized", copy.consentLabels.research_anonymized],
                 ].map(([key, label]) => (
                   <label key={key} className="flex gap-2">
                     <input
@@ -445,10 +447,10 @@ export const PatientInvitePage: React.FC = () => {
               className="rounded-lg bg-cyan-700 px-4 py-2 text-sm font-bold text-white hover:bg-cyan-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {submitting
-                ? "Confirmando..."
+                ? copy.confirming
                 : invite?.password_only
-                  ? "Confirmar senha e entrar"
-                  : "Confirmar cadastro e convite"}
+                  ? copy.confirmPasswordEntry
+                  : copy.confirmRegistration}
             </button>
           </form>
         )}

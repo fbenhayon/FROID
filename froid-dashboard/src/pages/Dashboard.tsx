@@ -23,6 +23,13 @@ import {
   rememberSessionPatient,
   SessionReportRecord,
 } from "../lib/session-report";
+import {
+  dashboardText,
+  loadSessionLanguagePreferences,
+  saveSessionLanguagePreferences,
+  sessionLocaleOptions,
+  type SessionLocale,
+} from "../lib/localization";
 
 interface DashboardProps {
   user?: any;
@@ -224,12 +231,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   const [receivables, setReceivables] = useState<ReceivableRow[]>([]);
   const [receivablesSummary, setReceivablesSummary] = useState<ReceivablesSummary | null>(null);
   const [professionalProfile, setProfessionalProfile] = useState<ProfessionalProfile | null>(null);
+  const [defaultSessionLocale, setDefaultSessionLocale] = useState<SessionLocale>(
+    () => loadSessionLanguagePreferences().spokenLanguage,
+  );
   const [reports, setReports] = useState<SessionReportRecord[]>(() =>
     loadSessionReports(),
   );
   const eventCursorRef = useRef<number | null>(null);
   const redirectingRef = useRef(false);
   const professionalName = user?.name || user?.email || "Profissional";
+  const tr = (text: string) => dashboardText(defaultSessionLocale, text);
+
+  const updateDefaultSessionLocale = (locale: SessionLocale) => {
+    setDefaultSessionLocale(locale);
+    saveSessionLanguagePreferences({
+      patientUiLocale: locale,
+      spokenLanguage: locale,
+      analysisLanguage: locale,
+      reportLocale: locale,
+    });
+  };
 
   const authHeaders = (): Record<string, string> => {
     const token = localStorage.getItem("froid_token") || "";
@@ -405,6 +426,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
 
   const startPresentialSession = (group = selectedGroup) => {
     const sessionId = makeId();
+    const languages = loadSessionLanguagePreferences();
     if (group?.patient) {
       rememberSessionPatient(sessionId, {
         id: group.patient.id,
@@ -414,6 +436,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
         document: group.patient.document,
         sessionMode: "presential",
         captureProfile: "patient_external_media",
+        ...languages,
       });
       setSelectedPatientKey(group.key);
     } else {
@@ -421,6 +444,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
         name: "Paciente presencial",
         sessionMode: "presential",
         captureProfile: "patient_external_media",
+        ...languages,
       });
     }
     nav(`/session/${sessionId}`);
@@ -514,7 +538,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-300">
-              Dashboard Profissional
+              {tr("Dashboard Profissional")}
             </p>
             <h1 className="mt-1 text-xl font-bold text-slate-100">{professionalName}</h1>
           </div>
@@ -550,19 +574,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
               onClick={() => nav("/dashboard/resumido")}
               className="rounded-lg border border-violet-800 bg-violet-950 px-3 py-2 text-xs font-bold text-violet-100 hover:bg-violet-900"
             >
-              Dashboard resumido
+              {tr("Dashboard resumido")}
             </button>
             <button
               onClick={() => nav("/settings")}
               className="rounded-lg border border-cyan-800 bg-cyan-950 px-3 py-2 text-xs font-bold text-cyan-100 hover:bg-cyan-900"
             >
-              Administrativo
+              {tr("Administrativo")}
             </button>
             <button
               onClick={onLogout}
               className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-slate-800"
             >
-              Sair
+              {tr("Sair")}
             </button>
           </div>
         </div>
@@ -582,44 +606,56 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
 
       <section className="overflow-x-auto rounded-lg border border-slate-800 bg-slate-900 p-3 shadow-sm">
         <div className="flex min-w-max items-center gap-5 text-[11px]">
-          <strong className="text-sm text-slate-100">Resumo profissional</strong>
-          <span><b className="text-slate-500">Pacientes:</b> {portfolio.totalPatients}</span>
-          <span><b className="text-slate-500">Devido:</b> <em className="not-italic text-cyan-200">{receivablesSummary?.total_due_brl || "R$ 0,00"}</em></span>
-          <span><b className="text-slate-500">Recebido:</b> <em className="not-italic text-emerald-200">{receivablesSummary?.total_received_brl || "R$ 0,00"}</em></span>
-          <span><b className="text-slate-500">Pendente:</b> <em className="not-italic text-amber-100">{receivablesSummary?.total_pending_brl || "R$ 0,00"}</em></span>
-          <span><b className="text-slate-500">Carga:</b> {scoreText(portfolio.meanClinicalLoad)}</span>
-          <span><b className="text-slate-500">Comunicação:</b> {scoreText(portfolio.meanCommunication)}</span>
-          <span><b className="text-slate-500">Continuidade:</b> {scoreText(portfolio.meanContinuity)}</span>
-          <span><b className="text-slate-500">Para revisão:</b> {portfolio.reviewCount}</span>
+          <strong className="text-sm text-slate-100">{tr("Resumo profissional")}</strong>
+          <span><b className="text-slate-500">{tr("Pacientes")}:</b> {portfolio.totalPatients}</span>
+          <span><b className="text-slate-500">{tr("Devido")}:</b> <em className="not-italic text-cyan-200">{receivablesSummary?.total_due_brl || "R$ 0,00"}</em></span>
+          <span><b className="text-slate-500">{tr("Recebido")}:</b> <em className="not-italic text-emerald-200">{receivablesSummary?.total_received_brl || "R$ 0,00"}</em></span>
+          <span><b className="text-slate-500">{tr("Pendente")}:</b> <em className="not-italic text-amber-100">{receivablesSummary?.total_pending_brl || "R$ 0,00"}</em></span>
+          <span><b className="text-slate-500">{tr("Carga")}:</b> {scoreText(portfolio.meanClinicalLoad)}</span>
+          <span><b className="text-slate-500">{tr("Comunicação")}:</b> {scoreText(portfolio.meanCommunication)}</span>
+          <span><b className="text-slate-500">{tr("Continuidade")}:</b> {scoreText(portfolio.meanContinuity)}</span>
+          <span><b className="text-slate-500">{tr("Para revisão")}:</b> {portfolio.reviewCount}</span>
         </div>
       </section>
 
       <section className="rounded-lg border border-slate-800 bg-slate-900 p-4 shadow-sm">
         <div className="flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-bold text-slate-100">Meus Pacientes</h2>
+          <h2 className="text-sm font-bold text-slate-100">{tr("Meus Pacientes")}</h2>
           <p className="mt-1 text-[11px] text-slate-400">
-            Últimas sessões, métricas médias e resultado clínico resumido.
+            {tr("Últimas sessões, métricas médias e resultado clínico resumido.")}
           </p>
         </div>
         <div className="flex flex-nowrap justify-end gap-2 overflow-x-auto">
+          <label className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-950 px-2 text-[10px] font-bold text-slate-300">
+            {tr("Idioma")}
+            <select
+              value={defaultSessionLocale}
+              onChange={(event) => updateDefaultSessionLocale(event.target.value as SessionLocale)}
+              className="bg-slate-950 py-2 text-[10px] font-bold text-slate-100 outline-none"
+            >
+              {sessionLocaleOptions().map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
           <button
             onClick={() => openPatientRegistration()}
             className="rounded-lg bg-cyan-700 px-3 py-2 text-xs font-bold text-white hover:bg-cyan-800"
           >
-            Sessão Remota
+            {tr("Sessão Remota")}
           </button>
           <button
             onClick={() => startPresentialSession()}
             className="rounded-lg border border-emerald-700 bg-emerald-950 px-3 py-2 text-xs font-bold text-emerald-100 hover:bg-emerald-900"
           >
-            Presencial
+            {tr("Presencial")}
           </button>
           <button
             onClick={() => startPresentialMobileSession()}
             className="rounded-lg border border-violet-700 bg-violet-950 px-3 py-2 text-xs font-bold text-violet-100 hover:bg-violet-900"
           >
-            Celular
+            {tr("Celular")}
           </button>
         </div>
         </div>
@@ -648,22 +684,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <h3 className="text-lg font-black uppercase tracking-wide text-slate-100">
-                  {group.patient.name || "Paciente sem nome"}
+                  {group.patient.name || tr("Paciente sem nome")}
                 </h3>
                 <p className="mt-1 text-xs text-slate-400">
-                  CPF: {group.patient.document || "Não informado"} - {group.totalSessions} sessões
+                  ID: {group.patient.document || tr("Não informado")} - {group.totalSessions} {tr("Sessões").toLowerCase()}
                 </p>
               </div>
               <div className="min-w-[320px] flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-[11px] text-slate-300">
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                   <span>
-                    <strong>Acao sugerida:</strong> {signal.action}
+                    <strong>{tr("Ação sugerida")}:</strong> {signal.action}
                   </span>
                   <span>
-                    <strong>Qualidade:</strong> {signal.qualityLabel}
+                    <strong>{tr("Qualidade")}:</strong> {signal.qualityLabel}
                   </span>
                   <span>
-                    <strong>Estado atual:</strong> {signal.state}
+                    <strong>{tr("Estado atual")}:</strong> {signal.state}
                   </span>
                 </div>
               </div>
@@ -686,19 +722,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                   }
                   className="rounded-lg bg-cyan-700 px-3 py-2 text-xs font-bold text-white hover:bg-cyan-800"
                 >
-                  Sessão Remota
+                  {tr("Sessão Remota")}
                 </button>
                 <button
                   onClick={() => startPresentialSession(group)}
                   className="rounded-lg border border-emerald-700 bg-emerald-950 px-3 py-2 text-xs font-bold text-emerald-100 hover:bg-emerald-900"
                 >
-                  Presencial
+                  {tr("Presencial")}
                 </button>
                 <button
                   onClick={() => startPresentialMobileSession(group)}
                   className="rounded-lg border border-violet-700 bg-violet-950 px-3 py-2 text-xs font-bold text-violet-100 hover:bg-violet-900"
                 >
-                  Celular
+                  {tr("Celular")}
                 </button>
                 <button
                   onClick={() => {
@@ -707,14 +743,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                   }}
                   className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-slate-800"
                 >
-                  Ver Detalhes
+                  {tr("Ver Detalhes")}
                 </button>
               </div>
             </div>
 
             <div className="mt-3 rounded-lg border border-slate-700 bg-slate-950 p-3">
               <p className="mb-2 text-xs font-black uppercase tracking-wide text-cyan-200">
-                Indicadores medios de todas as sessões
+                {tr("Indicadores médios de todas as sessões")}
               </p>
               <div className="grid gap-2 md:grid-cols-5">
                 <ScoreBar label="Atenção" value={signal.attentionIndex} color="#ef4444" />
@@ -755,7 +791,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                   <tbody className="divide-y divide-slate-800">
                     <tr className="align-top">
                       <td className="whitespace-nowrap py-1 pr-2 font-bold text-slate-300">
-                        Média
+                        {tr("Média")}
                       </td>
                       {compactMetricCells(averageSnapshot).map((cell) => (
                         <td
@@ -774,7 +810,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
 
             <div className="mt-3 min-w-0">
               <p className="text-xs font-black uppercase tracking-wide text-slate-100">
-                Indicadores das últimas 3 sessões
+                {tr("Indicadores das últimas 3 sessões")}
               </p>
               <div className="mt-3 overflow-x-auto">
                 <table className="min-w-max table-auto text-left text-[10px] leading-tight">
@@ -818,7 +854,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                               onClick={() => nav(`/session/${report.sessionId}/report`)}
                               className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-[10px] font-bold text-slate-200 hover:bg-slate-800"
                             >
-                              Ver
+                              {tr("Ver")}
                             </button>
                           </div>
                         </td>
@@ -843,7 +879,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                     className="rounded border border-slate-700 bg-slate-950 px-3 py-2 text-xs leading-relaxed text-slate-300"
                   >
                     <strong className="text-cyan-200">
-                      Resultado da sessão {shortId(report.sessionId)}:
+                      {tr("Resultado da sessão")} {shortId(report.sessionId)}:
                     </strong>{" "}
                     {sessionResultText(report, 85)}
                   </div>
@@ -876,20 +912,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                 <h2 className="text-sm font-bold text-slate-100">FROID Explica</h2>
                 <p className="mt-0.5 text-[11px] text-slate-400">
                   {selectedGroup
-                    ? "Contexto carregado a partir do paciente selecionado."
-                    : "Passe o mouse sobre um paciente para carregar o contexto."}
+                    ? tr("Contexto carregado a partir do paciente selecionado.")
+                    : tr("Passe o mouse sobre um paciente para carregar o contexto.")}
                 </p>
               </div>
               <button
                 onClick={() => nav("/settings")}
                 className="rounded-lg border border-cyan-800 bg-cyan-950 px-3 py-1.5 text-[11px] font-bold text-cyan-100 hover:bg-cyan-900"
               >
-                Meus prompts
+                {tr("Meus prompts")}
               </button>
             </div>
             {selectedGroup ? (
               <div className="max-h-[680px] overflow-y-auto rounded-lg border border-slate-700 bg-slate-950 px-2 pb-2 pr-1">
                 <AIInsights
+                  responseLocale={defaultSessionLocale}
                   zones={selectedGroup.latestReport.sessionAverage.zones || []}
                   ipmScore={selectedGroup.latestReport.sessionAverage.ipmAvg}
                   coherenceStatus={

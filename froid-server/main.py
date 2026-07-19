@@ -44,6 +44,13 @@ from subscriptions import (
 from secure_tokens import (
     TOKEN_FIELDS, TextCipher, TokenCipher, TokenEncryptionError,
 )
+from localization import (
+    normalize_session_locale,
+    session_language,
+    summary_prompt,
+    summary_system_prompt,
+    transcription_prompt,
+)
 import httpx
 
 app = FastAPI(title="FROID Fusion Server", version="3.0.0")
@@ -612,6 +619,7 @@ class FroidExplicaQuery(BaseModel):
     session_id: Optional[str] = None
     context: Dict[str, Any] = Field(default_factory=dict)
     conversation_history: List[Dict[str, str]] = Field(default_factory=list)
+    response_locale: str = "pt-BR"
 
 
 class FroidExplicaResponse(BaseModel):
@@ -1245,9 +1253,11 @@ def _fallback_froid_explica_result(query_text: str, context: Dict[str, Any]) -> 
 
 
 async def _query_froid_knowledge(payload: FroidExplicaQuery) -> FroidExplicaResponse:
-    operational_result = _operational_fallback_result(
-        payload.query_text,
-        payload.context,
+    response_locale = normalize_session_locale(payload.response_locale)
+    operational_result = (
+        _operational_fallback_result(payload.query_text, payload.context)
+        if response_locale == "pt-BR"
+        else ""
     )
     if operational_result:
         return FroidExplicaResponse(
@@ -1272,7 +1282,7 @@ async def _query_froid_knowledge(payload: FroidExplicaQuery) -> FroidExplicaResp
     conversation_history = _format_conversation_history(payload.conversation_history)
     system_instruction = (
         "Voce e o FROID Explica, uma inteligencia clinica de apoio ao profissional. "
-        "Responda em portugues do Brasil, de modo objetivo, sem diagnosticar e sem inventar. "
+        f"{session_language(response_locale).summary_instruction}, de modo objetivo, sem diagnosticar e sem inventar. "
         "Use estritamente o contexto cientifico disponivel, o contexto da sessao e o historico "
         "conversacional. Se a pergunta for de seguimento, como 'quais fontes?', responda sobre "
         "a resposta anterior, nao sobre um tema novo. Se o profissional disser 'essa metrica', "
@@ -1442,6 +1452,7 @@ async def _query_froid_analytics(payload: FroidExplicaQuery) -> FroidExplicaResp
         "anonymous_sessions contem: session_hash VARCHAR, age_bucket VARCHAR, gender VARCHAR, "
         "ipm_score DOUBLE, dominant_zone INTEGER, vocal_tension DOUBLE, ssri_medication BOOLEAN, "
         "session_duration INTEGER, schema_version VARCHAR, created_at VARCHAR, session_modality VARCHAR, "
+        "spoken_language VARCHAR, analysis_language VARCHAR, report_locale VARCHAR, "
         "session_kind VARCHAR, treatment_phase VARCHAR, session_ordinal INTEGER, "
         "interval_since_previous_days DOUBLE, baseline_ipm DOUBLE, baseline_idm DOUBLE, "
         "baseline_zone INTEGER, baseline_tone VARCHAR, baseline_words_per_minute DOUBLE, "
@@ -2355,6 +2366,9 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 schema_version VARCHAR,
                 created_at VARCHAR,
                 session_modality VARCHAR,
+                spoken_language VARCHAR,
+                analysis_language VARCHAR,
+                report_locale VARCHAR,
                 session_kind VARCHAR,
                 treatment_phase VARCHAR,
                 session_ordinal INTEGER,
@@ -2417,6 +2431,9 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 "schema_version": "VARCHAR",
                 "created_at": "VARCHAR",
                 "session_modality": "VARCHAR",
+                "spoken_language": "VARCHAR",
+                "analysis_language": "VARCHAR",
+                "report_locale": "VARCHAR",
                 "session_kind": "VARCHAR",
                 "treatment_phase": "VARCHAR",
                 "session_ordinal": "INTEGER",
@@ -2663,14 +2680,15 @@ def _append_anonymous_datamart_row(report: dict) -> None:
             INSERT INTO anonymous_sessions (
                 session_hash, age_bucket, gender, ipm_score, dominant_zone, vocal_tension,
                 ssri_medication, session_duration, schema_version, created_at,
-                session_modality, session_kind, treatment_phase, session_ordinal,
+                session_modality, spoken_language, analysis_language, report_locale,
+                session_kind, treatment_phase, session_ordinal,
                 interval_since_previous_days, baseline_ipm, baseline_idm, baseline_zone,
                 baseline_tone, baseline_words_per_minute, average_idm,
                 average_words_per_minute, dissonance_count, cuts_count,
                 clinical_notes_count, summary_theme, summary_text_anon, stt_model,
                 llm_model, algorithm_version, audio_quality, media_interruptions,
                 confidence_score, consent_anonymous_research
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
                 session_hash,
@@ -2681,9 +2699,12 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 _safe_float(vocal_tension),
                 _safe_bool(context.get("ssri_medication") or context.get("ssriMedication"), False),
                 _safe_int(report.get("durationSeconds")),
-                "anonymous_datamart_v2",
+                "anonymous_datamart_v3",
                 _safe_str(report.get("createdAt") or datetime.now(timezone.utc).isoformat(), 80),
                 _anonymous_category(context.get("session_modality") or context.get("sessionModality") or "unknown", "unknown"),
+                normalize_session_locale(context.get("spoken_language") or context.get("spokenLanguage") or report.get("spokenLanguage")),
+                normalize_session_locale(context.get("analysis_language") or context.get("analysisLanguage") or report.get("analysisLanguage")),
+                normalize_session_locale(context.get("report_locale") or context.get("reportLocale") or report.get("reportLocale")),
                 _anonymous_category(context.get("session_kind") or context.get("sessionKind") or "seguimento", "seguimento"),
                 _anonymous_category(context.get("treatment_phase") or context.get("treatmentPhase") or "nao_informada", "nao_informada"),
                 _safe_int(context.get("session_ordinal") or context.get("sessionOrdinal")),
@@ -3327,7 +3348,12 @@ def _limit_words(text: str, max_words: int) -> str:
     return " ".join(str(text or "").split()[:max_words]).strip()
 
 
-def _transcribe_sync(audio_bytes: bytes, filename: str, prompt: str = "") -> str:
+def _transcribe_sync(
+    audio_bytes: bytes,
+    filename: str,
+    prompt: str = "",
+    spoken_locale: str = "pt-BR",
+) -> str:
     from openai import OpenAI
 
     client = OpenAI(api_key=OPENAI_API_KEY)
@@ -3336,7 +3362,7 @@ def _transcribe_sync(audio_bytes: bytes, filename: str, prompt: str = "") -> str
     kwargs = {
         "model": OPENAI_TRANSCRIBE_MODEL,
         "file": audio_file,
-        "language": "pt",
+        "language": session_language(spoken_locale).provider_language,
         "response_format": "json",
         "temperature": 0,
     }
@@ -4430,6 +4456,7 @@ async def _transcribe_with_openai(
     fallback_text: str = "",
     filename: str = "froid-session.webm",
     prompt: str = "",
+    spoken_locale: str = "pt-BR",
 ) -> tuple[str, str]:
     if not audio_bytes:
         return fallback_text, ""
@@ -4441,6 +4468,7 @@ async def _transcribe_with_openai(
             audio_bytes,
             filename,
             prompt,
+            spoken_locale,
         )
         if transcript:
             return transcript, ""
@@ -4762,6 +4790,16 @@ async def create_session_invite(request: Request):
     )
     session_id = str(body.get("session_id") or f"froid-{uuid.uuid4().hex[:12]}")
     session_mode = str(body.get("session_mode") or "remote").strip().lower()
+    spoken_language = normalize_session_locale(body.get("spoken_language"))
+    analysis_language = normalize_session_locale(
+        body.get("analysis_language"), spoken_language
+    )
+    report_locale = normalize_session_locale(
+        body.get("report_locale"), analysis_language
+    )
+    patient_ui_locale = normalize_session_locale(
+        body.get("patient_ui_locale"), spoken_language
+    )
     if session_mode not in {"remote", "presential_mobile"}:
         raise HTTPException(status_code=400, detail="modalidade de sessão inválida")
     if not _session_matches_context(session_id, context):
@@ -4798,6 +4836,10 @@ async def create_session_invite(request: Request):
         "token": token,
         "session_id": session_id,
         "session_mode": session_mode,
+        "spoken_language": spoken_language,
+        "analysis_language": analysis_language,
+        "report_locale": report_locale,
+        "patient_ui_locale": patient_ui_locale,
         "status": "pending",
         "patient_id": known_patient_id,
         "patient_known": bool(known_patient_id),
@@ -4835,6 +4877,44 @@ async def create_session_invite(request: Request):
     _record_session_event("invite_created", invite)
     _save_identity_state()
     return invite
+
+
+@app.get("/api/sessions/{session_id}/configuration")
+async def get_professional_session_configuration(session_id: str, request: Request):
+    """Return server-authoritative session language and modality."""
+    current_user = _require_current_user(request)
+    context = _require_professional_feature_access(request)
+    professional_email = _normalize_email(current_user.get("email") or "")
+    invite = next(
+        (
+            item
+            for item in SESSION_INVITES.values()
+            if str(item.get("session_id") or "") == session_id
+            and _normalize_email(item.get("professional_email") or "") == professional_email
+            and _session_matches_context(session_id, context)
+        ),
+        None,
+    )
+    if not invite:
+        raise HTTPException(status_code=404, detail="configuração da sessão não encontrada")
+    spoken_language = normalize_session_locale(invite.get("spoken_language"))
+    analysis_language = normalize_session_locale(invite.get("analysis_language"), spoken_language)
+    report_locale = normalize_session_locale(invite.get("report_locale"), analysis_language)
+    patient_ui_locale = normalize_session_locale(invite.get("patient_ui_locale"), spoken_language)
+    return {
+        "session_id": session_id,
+        "session_mode": invite.get("session_mode") or "remote",
+        "spoken_language": spoken_language,
+        "analysis_language": analysis_language,
+        "report_locale": report_locale,
+        "patient_ui_locale": patient_ui_locale,
+        "patient": {
+            "id": invite.get("patient_id") or "",
+            "name": invite.get("patient_name") or "",
+            "email": invite.get("patient_email") or "",
+            "phone": invite.get("patient_phone") or "",
+        },
+    }
 
 
 @app.get("/api/professional/receivables")
@@ -5348,6 +5428,19 @@ async def join_patient_session(session_id: str, request: Request):
         "session_id": session_id,
         "patient_name": invite.get("patient_name"),
         "session_mode": invite.get("session_mode") or "remote",
+        "spoken_language": normalize_session_locale(invite.get("spoken_language")),
+        "analysis_language": normalize_session_locale(
+            invite.get("analysis_language"),
+            normalize_session_locale(invite.get("spoken_language")),
+        ),
+        "report_locale": normalize_session_locale(
+            invite.get("report_locale"),
+            normalize_session_locale(invite.get("spoken_language")),
+        ),
+        "patient_ui_locale": normalize_session_locale(
+            invite.get("patient_ui_locale"),
+            normalize_session_locale(invite.get("spoken_language")),
+        ),
         "joined_at": now,
         "join_count": len(PATIENT_SESSION_ENTRIES.get(session_id, [])),
         "event_id": event.get("id"),
@@ -7534,28 +7627,54 @@ async def transcribe_audio(request: Request):
     if audio_bytes and len(audio_bytes) > 25 * 1024 * 1024:
         raise HTTPException(status_code=413, detail="segmento de áudio excede 25 MB")
     filename = _audio_filename(body)
-    prompt = body.get("prompt") or (
-        "Transcreva literalmente em portugues do Brasil com pontuacao clinica clara. "
-        "Vocabulario obrigatorio: FROID deve ser grafado FROID, nunca Freud; IPM, IDM, "
-        "biomarcadores, sub-harmonicos, bioacustica, dissonancias, paciente e profissional."
+    spoken_language = normalize_session_locale(body.get("spoken_language"))
+    prompt = transcription_prompt(
+        spoken_language,
+        body.get("previous_context"),
     )
-    transcript, error = await _transcribe_with_openai(
-        audio_bytes,
-        fallback_text,
-        filename,
-        prompt,
-    )
+    started_at = time.perf_counter()
+    try:
+        transcript, error = await _transcribe_with_openai(
+            audio_bytes,
+            fallback_text,
+            filename,
+            prompt,
+            spoken_language,
+        )
+    except Exception:
+        LOGGER.exception("FROID transcription provider failure")
+        transcript, error = fallback_text, "serviço de transcrição indisponível"
+    latency_ms = round((time.perf_counter() - started_at) * 1000, 2)
     provider = (
         f"openai-{OPENAI_TRANSCRIBE_MODEL}"
         if OPENAI_API_KEY and audio_bytes and not error
         else "local-fallback"
     )
+    status = "ok" if transcript and not error else "empty" if not error else "error"
+    AUDIT_LOGGER.info(
+        json.dumps(
+            {
+                "event": "froid.transcription",
+                "session_id": str(body.get("session_id") or ""),
+                "status": status,
+                "provider": provider,
+                "spoken_language": spoken_language,
+                "audio_bytes": len(audio_bytes or b""),
+                "latency_ms": latency_ms,
+            },
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+    )
     return {
-        "status": "ok" if transcript and not error else "empty" if not error else "error",
+        "status": status,
         "text": transcript or fallback_text,
         "provider": provider,
         "model": OPENAI_TRANSCRIBE_MODEL,
+        "spoken_language": spoken_language,
         "filename": filename,
+        "latency_ms": latency_ms,
+        "audio_bytes": len(audio_bytes or b""),
         "error": error,
     }
 
@@ -7566,38 +7685,46 @@ async def session_summary(request: Request):
     transcript = str(body.get("transcript") or "").strip()
     start_minute = int(body.get("start_minute") or 0)
     end_minute = int(body.get("end_minute") or start_minute + 10)
+    spoken_language = normalize_session_locale(body.get("spoken_language"))
+    analysis_language = normalize_session_locale(
+        body.get("analysis_language"), spoken_language
+    )
+    output_locale = normalize_session_locale(
+        body.get("report_locale"), analysis_language
+    )
+    output_language = session_language(output_locale)
 
     if not transcript:
         return {
             "status": "empty",
-            "theme": "Sem fala transcrita",
-            "summary": "Nenhuma fala foi transcrita neste intervalo.",
+            "theme": output_language.no_speech_theme,
+            "summary": output_language.no_speech_summary,
             "start_minute": start_minute,
             "end_minute": end_minute,
             "model": OPENAI_MODEL,
+            "spoken_language": spoken_language,
+            "analysis_language": analysis_language,
+            "report_locale": output_locale,
+            "summary_locale": output_locale,
         }
 
     fallback = {
         "status": "fallback",
-        "theme": "Tema em apuração",
+        "theme": output_language.pending_theme,
         "summary": _limit_words(transcript, 60),
         "start_minute": start_minute,
         "end_minute": end_minute,
         "model": OPENAI_MODEL,
+        "spoken_language": spoken_language,
+        "analysis_language": analysis_language,
+        "report_locale": output_locale,
+        "summary_locale": spoken_language,
     }
 
     if not OPENAI_API_KEY:
         return fallback
 
-    prompt = (
-        "Analise a transcricao clinica abaixo e responda somente em JSON valido "
-        "com as chaves theme e summary. theme deve ser resultado direto do assunto tratado, "
-        "nao pode vir de lista predefinida e deve ter no maximo 6 palavras. "
-        "summary deve ter no maximo 60 palavras, em portugues do Brasil, sem diagnostico, "
-        "sem inventar fatos e preservando apenas o que foi falado no intervalo. "
-        "Se a transcricao tiver pouco conteudo, resuma apenas o material real disponivel. "
-        f"Intervalo: {start_minute}-{end_minute} minutos.\n\nTranscricao:\n{transcript}"
-    )
+    prompt = summary_prompt(transcript, start_minute, end_minute, output_locale)
 
     try:
         async with httpx.AsyncClient(timeout=45.0) as client:
@@ -7612,7 +7739,7 @@ async def session_summary(request: Request):
                     "messages": [
                         {
                             "role": "system",
-                            "content": "Voce resume conversas clinicas para apoio ao profissional, sem diagnosticar nem inventar conteudo.",
+                            "content": summary_system_prompt(output_locale),
                         },
                         {"role": "user", "content": prompt},
                     ],
@@ -7639,6 +7766,10 @@ async def session_summary(request: Request):
             "start_minute": start_minute,
             "end_minute": end_minute,
             "model": OPENAI_MODEL,
+            "spoken_language": spoken_language,
+            "analysis_language": analysis_language,
+            "report_locale": output_locale,
+            "summary_locale": output_locale,
         }
     except Exception:
         return fallback

@@ -1,8 +1,31 @@
 import React from "react";
+import { normalizeSessionLocale, type SessionLocale } from "../../lib/localization";
 
 type LgpdNoticeProps = {
   compact?: boolean;
   audience?: "professional" | "patient" | "home";
+  locale?: SessionLocale;
+};
+
+const internationalCompactNotice: Partial<Record<SessionLocale, { title: string; body: string; rights: string; review: string }>> = {
+  "en-US": {
+    title: "Sensitive health information and professional responsibility",
+    body: "FROID may process mental-health information, voice, image, acoustic metrics, transcripts, session reports, technical identifiers, audit records, and access-payment information. Processing is limited to the session purposes authorized by the patient and the qualified professional.",
+    rights: "The patient may request access, correction, information about sharing, restriction, deletion where legally applicable, and withdrawal of optional authorizations. FROID outputs support professional review and do not replace diagnosis or professional judgment.",
+    review: "Controlled-validation notice. The country-specific privacy notice and contract require final legal review before general commercial release.",
+  },
+  "fr-FR": {
+    title: "Données de santé sensibles et responsabilité professionnelle",
+    body: "FROID peut traiter des informations de santé mentale, la voix, l’image, des métriques acoustiques, des transcriptions, des rapports de séance, des identifiants techniques, des journaux d’audit et des informations de paiement. Le traitement est limité aux finalités autorisées par le patient et le professionnel qualifié.",
+    rights: "Le patient peut demander l’accès, la rectification, des informations sur les destinataires, la limitation, l’effacement lorsque la loi le permet et le retrait des autorisations facultatives. Les résultats FROID aident le professionnel et ne remplacent ni un diagnostic ni son jugement.",
+    review: "Notice de validation contrôlée. La notice de confidentialité et le contrat propres au pays doivent faire l’objet d’une validation juridique finale avant la commercialisation générale.",
+  },
+  "es-ES": {
+    title: "Datos sensibles de salud y responsabilidad profesional",
+    body: "FROID puede procesar información de salud mental, voz, imagen, métricas acústicas, transcripciones, informes de sesión, identificadores técnicos, registros de auditoría e información de pago. El tratamiento se limita a las finalidades autorizadas por el paciente y el profesional cualificado.",
+    rights: "El paciente puede solicitar acceso, rectificación, información sobre destinatarios, limitación, supresión cuando sea legalmente aplicable y retirada de autorizaciones opcionales. Los resultados de FROID apoyan la revisión profesional y no sustituyen el diagnóstico ni el criterio profesional.",
+    review: "Aviso de validación controlada. El aviso de privacidad y el contrato específicos del país requieren revisión jurídica final antes de la comercialización general.",
+  },
 };
 
 const legalBases = [
@@ -29,9 +52,23 @@ const holderRights = [
 export const LgpdNotice: React.FC<LgpdNoticeProps> = ({
   compact = false,
   audience = "professional",
+  locale = "pt-BR",
 }) => {
+  const normalizedLocale = normalizeSessionLocale(locale);
+  const internationalNotice = internationalCompactNotice[normalizedLocale];
   const isPatient = audience === "patient";
   const isHome = audience === "home";
+
+  if (compact && internationalNotice) {
+    return (
+      <section className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950">
+        <h2 className="text-sm font-black">{internationalNotice.title}</h2>
+        <p className="mt-2 leading-6">{internationalNotice.body}</p>
+        <p className="mt-2 leading-6">{internationalNotice.rights}</p>
+        <p className="mt-2 text-[11px] leading-5 text-amber-800">{internationalNotice.review}</p>
+      </section>
+    );
+  }
 
   return (
     <section

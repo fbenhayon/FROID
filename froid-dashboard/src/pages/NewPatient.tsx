@@ -3,6 +3,13 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { apiUrl, publicAppUrl } from "../lib/api";
 import { rememberSessionPatient } from "../lib/session-report";
 import { LgpdNotice } from "../components/legal/LgpdNotice";
+import {
+  loadSessionLanguagePreferences,
+  saveSessionLanguagePreferences,
+  sessionLocaleOptions,
+  type SessionLanguagePreferences,
+  type SessionLocale,
+} from "../lib/localization";
 
 type PaymentMode = "package" | "single";
 
@@ -57,6 +64,9 @@ export const NewPatient: React.FC = () => {
     patient_email: searchParams.get("email") || "",
     patient_phone: searchParams.get("phone") || "",
   }));
+  const [languages, setLanguages] = useState<SessionLanguagePreferences>(
+    loadSessionLanguagePreferences,
+  );
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
   const [invite, setInvite] = useState<InviteResult | null>(null);
@@ -67,6 +77,14 @@ export const NewPatient: React.FC = () => {
 
   const updateForm = (key: keyof typeof initialForm, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const updateLanguage = (key: keyof SessionLanguagePreferences, value: SessionLocale) => {
+    setLanguages((previous) => {
+      const next = { ...previous, [key]: value };
+      saveSessionLanguagePreferences(next);
+      return next;
+    });
   };
 
   const copyText = async (text: string) => {
@@ -98,6 +116,10 @@ export const NewPatient: React.FC = () => {
           package_sessions: Number(form.package_sessions || 0),
           session_value: form.session_value,
           session_mode: isPatientMobileCapture ? "presential_mobile" : "remote",
+          patient_ui_locale: languages.patientUiLocale,
+          spoken_language: languages.spokenLanguage,
+          analysis_language: languages.analysisLanguage,
+          report_locale: languages.reportLocale,
         }),
       });
       const data = await response.json();
@@ -112,6 +134,10 @@ export const NewPatient: React.FC = () => {
         phone: form.patient_phone,
         sessionMode: isPatientMobileCapture ? "presential_mobile" : "remote",
         captureProfile: isPatientMobileCapture ? "patient_mobile" : "local_default",
+        patientUiLocale: languages.patientUiLocale,
+        spokenLanguage: languages.spokenLanguage,
+        analysisLanguage: languages.analysisLanguage,
+        reportLocale: languages.reportLocale,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao criar convite.");
@@ -174,6 +200,10 @@ export const NewPatient: React.FC = () => {
             phone: form.patient_phone,
             sessionMode: isPatientMobileCapture ? "presential_mobile" : "remote",
             captureProfile: isPatientMobileCapture ? "patient_mobile" : "local_default",
+            patientUiLocale: languages.patientUiLocale,
+            spokenLanguage: languages.spokenLanguage,
+            analysisLanguage: languages.analysisLanguage,
+            reportLocale: languages.reportLocale,
           });
           redirectingRef.current = true;
           window.setTimeout(() => {
@@ -191,7 +221,7 @@ export const NewPatient: React.FC = () => {
       active = false;
       window.clearInterval(intervalId);
     };
-  }, [form.patient_email, form.patient_name, form.patient_phone, invite, isPatientMobileCapture, navigate]);
+  }, [form.patient_email, form.patient_name, form.patient_phone, invite, isPatientMobileCapture, languages, navigate]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
@@ -238,6 +268,38 @@ export const NewPatient: React.FC = () => {
             </div>
           )}
           <form onSubmit={createInvite} className="mt-4 grid gap-3 md:grid-cols-2">
+            <div className="grid gap-3 rounded-lg border border-cyan-900/60 bg-cyan-950/30 p-3 md:col-span-2 md:grid-cols-2">
+              <div className="md:col-span-2">
+                <p className="text-xs font-black uppercase tracking-wide text-cyan-200">
+                  Idiomas da sessão
+                </p>
+                <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+                  Inglês, francês e espanhol estão disponíveis em validação controlada. A
+                  transcrição literal permanece no idioma falado e nunca é substituída pela tradução.
+                </p>
+              </div>
+              {([
+                ["spokenLanguage", "Idioma falado"],
+                ["patientUiLocale", "Interface do paciente"],
+                ["analysisLanguage", "Idioma da análise semântica"],
+                ["reportLocale", "Idioma do relatório"],
+              ] as Array<[keyof SessionLanguagePreferences, string]>).map(([key, label]) => (
+                <label key={key} className="text-xs font-bold text-slate-300">
+                  {label}
+                  <select
+                    value={languages[key]}
+                    onChange={(event) => updateLanguage(key, event.target.value as SessionLocale)}
+                    className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 font-normal outline-none focus:border-cyan-500"
+                  >
+                    {sessionLocaleOptions().map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}{option.validationStatus === "pilot" ? " — validação" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ))}
+            </div>
             <label className="text-xs font-bold text-slate-300">
               Nome do paciente
               <input

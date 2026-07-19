@@ -1,4 +1,5 @@
 import { PerceptionZone } from "./froid-engine";
+import type { SessionLocale } from "./localization";
 
 export interface ClinicalNote {
   id: string;
@@ -14,6 +15,10 @@ export interface PatientIdentity {
   document?: string;
   sessionMode?: "remote" | "presential" | "presential_mobile";
   captureProfile?: "patient_external_media" | "patient_mobile" | "local_default";
+  patientUiLocale?: SessionLocale;
+  spokenLanguage?: SessionLocale;
+  analysisLanguage?: SessionLocale;
+  reportLocale?: SessionLocale;
 }
 
 export interface MetricSnapshot {
@@ -102,9 +107,24 @@ export interface SessionReportRecord {
     report: string;
   }>;
   transcript: string;
+  transcriptionQuality?: {
+    successfulSegments: number;
+    emptySegments: number;
+    silentSegments: number;
+    failedSegments: number;
+    undersizedSegments: number;
+    latencyP50Ms: number | null;
+    latencyP95Ms: number | null;
+  };
+  spokenLanguage?: SessionLocale;
+  analysisLanguage?: SessionLocale;
+  reportLocale?: SessionLocale;
   transcriptRetention?: "disabled_summary_only" | "enabled";
   anonymizedContext?: {
     schemaVersion: string;
+    spokenLanguage?: SessionLocale;
+    analysisLanguage?: SessionLocale;
+    reportLocale?: SessionLocale;
     sessionModality: "remote" | "presential" | "presential_mobile" | "unknown";
     sessionKind: string;
     sessionType?: string;

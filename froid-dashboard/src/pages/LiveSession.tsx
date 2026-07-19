@@ -27,9 +27,11 @@ import {
   MetricSnapshot,
   loadSessionPatient,
   loadSessionReports,
+  rememberSessionPatient,
   saveSessionReport,
   SessionReportRecord,
 } from "../lib/session-report";
+import { countSpokenUnits, normalizeSessionLocale, SESSION_LOCALES } from "../lib/localization";
 
 const SIMPLIFIED_METRIC_TOOLTIPS: Record<string, string> = {
   CORTE:
@@ -1308,7 +1310,6 @@ const STT_CHUNK_MS = 7000;
 const MIN_STT_AUDIO_BYTES = 1200;
 const MAX_VISIBLE_TRANSCRIPT_LINES = 12;
 const TRANSCRIPT_SUMMARY_WINDOW_MS = 10 * 60 * 1000;
-const ENABLE_BROWSER_LIVE_STT = false;
 const FROID_ALGORITHM_VERSION = "3.1.0-dashboard-bioacoustic-units";
 
 function speakerPrefix(speaker: SpeakerRole) {
@@ -2049,6 +2050,9 @@ function buildAnonymizedContext(
   conversationSummaries: ConversationSummary[],
   remotePatientOn: boolean,
   sessionMode?: "remote" | "presential" | "presential_mobile",
+  spokenLanguage = normalizeSessionLocale(undefined),
+  analysisLanguage = spokenLanguage,
+  reportLocale = analysisLanguage,
 ): SessionReportRecord["anonymizedContext"] {
   const patient = loadSessionPatient(sessionId || "");
   const previousReports = loadSessionReports()
@@ -2094,6 +2098,9 @@ function buildAnonymizedContext(
 
   return {
     schemaVersion: "anonymous_datamart_v3",
+    spokenLanguage,
+    analysisLanguage,
+    reportLocale,
     sessionModality:
       sessionMode === "presential_mobile"
         ? "presential_mobile"
@@ -2220,7 +2227,15 @@ function buildAnonymizedContext(
 function LiveSessionInner({ user }: LiveSessionProps) {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
-  const sessionPatient = loadSessionPatient(sessionId || "");
+  const [sessionPatient, setSessionPatient] = useState(() =>
+    loadSessionPatient(sessionId || ""),
+  );
+  const spokenLanguage = normalizeSessionLocale(sessionPatient?.spokenLanguage);
+  const analysisLanguage = normalizeSessionLocale(
+    sessionPatient?.analysisLanguage,
+    spokenLanguage,
+  );
+  const reportLocale = normalizeSessionLocale(sessionPatient?.reportLocale, analysisLanguage);
   const isPresentialSession = sessionPatient?.sessionMode === "presential";
   const isPresentialMobileSession = sessionPatient?.sessionMode === "presential_mobile";
   const [state, dispatch] = useReducer(reducer, undefined, createInitialState);
@@ -2308,9 +2323,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   });
   const recorderRef = useRef<MediaRecorder | null>(null);
   const patientRecorderRef = useRef<MediaRecorder | null>(null);
-  const browserRecognitionRef = useRef<any>(null);
-  const browserSttRestartTimerRef = useRef<number | null>(null);
-  const browserSttAvailableRef = useRef(false);
   const transcriptLinesRef = useRef<string[]>([]);
   const transcriptSegmentsRef = useRef<Array<{ elapsedSeconds: number; text: string }>>([]);
   const semanticCutStartSecondRef = useRef(0);
@@ -2326,12 +2338,26 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const patientSegmentingRecorderStopRef = useRef(false);
   const patientBioacousticStreamRef = useRef<MediaStream | null>(null);
   const patientTranscriptStreamRef = useRef<MediaStream | null>(null);
-  const transcribingRef = useRef(false);
   const transcriptionQueueRef = useRef<Promise<void>>(Promise.resolve());
   const transcriptionStatsRef = useRef<{
     totalWords: number;
     windows: Array<{ timestamp: number; words: number }>;
-  }>({ totalWords: 0, windows: [] });
+    successfulSegments: number;
+    emptySegments: number;
+    silentSegments: number;
+    failedSegments: number;
+    undersizedSegments: number;
+    latenciesMs: number[];
+  }>({
+    totalWords: 0,
+    windows: [],
+    successfulSegments: 0,
+    emptySegments: 0,
+    silentSegments: 0,
+    failedSegments: 0,
+    undersizedSegments: 0,
+    latenciesMs: [],
+  });
   const lastDissonanceSig = useRef("");
   const attributedSpeakerRef = useRef<SpeakerRole>("DR");
   const forcedLocalSegmentSpeakerRef = useRef<SpeakerRole | null>(null);
@@ -2346,6 +2372,46 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const latestIpmRef = useRef(50);
   const lastLocalIpmDispatchMsRef = useRef(0);
   const lastCriticalClinicalRefreshSecondRef = useRef(0);
+
+  useEffect(() => {
+    if (!sessionId) return;
+    const token = localStorage.getItem("froid_token") || "";
+    if (!token) return;
+    const controller = new AbortController();
+    fetch(apiUrl(`/api/sessions/${encodeURIComponent(sessionId)}/configuration`), {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) return null;
+        return response.json();
+      })
+      .then((configuration) => {
+        if (!configuration) return;
+        const patient = {
+          ...(configuration.patient || {}),
+          sessionMode: configuration.session_mode,
+          patientUiLocale: normalizeSessionLocale(configuration.patient_ui_locale),
+          spokenLanguage: normalizeSessionLocale(configuration.spoken_language),
+          analysisLanguage: normalizeSessionLocale(
+            configuration.analysis_language,
+            normalizeSessionLocale(configuration.spoken_language),
+          ),
+          reportLocale: normalizeSessionLocale(
+            configuration.report_locale,
+            normalizeSessionLocale(configuration.analysis_language),
+          ),
+        };
+        rememberSessionPatient(sessionId, patient);
+        setSessionPatient((current) => ({ ...(current || {}), ...patient }));
+      })
+      .catch((error) => {
+        if (error?.name !== "AbortError") {
+          console.warn("FROID session configuration:", error);
+        }
+      });
+    return () => controller.abort();
+  }, [sessionId]);
 
   useEffect(() => {
     const id = setInterval(() => dispatch({ type: "TICK" }), 1000);
@@ -2700,7 +2766,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       rtcClosingRef.current = false;
       const localConferenceStream = createConferenceStream(localSource);
       if (!localConferenceStream.getTracks().length) {
-        setRtcStatus("Áudio e vídeo locais indisponiveis para chamada.");
+        setRtcStatus("Áudio e vídeo locais indisponíveis para chamada.");
         return;
       }
 
@@ -3144,7 +3210,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     }
     transcriptLinesRef.current = nextLines.slice(-MAX_VISIBLE_TRANSCRIPT_LINES);
 
-    const words = text.split(/\s+/).filter(Boolean).length;
+    const words = countSpokenUnits(text, spokenLanguage);
     const now = Date.now();
     const elapsedSeconds = Math.max(0, elapsedSecondsRef.current);
     transcriptSegmentsRef.current = [
@@ -3175,7 +3241,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       transcription_status: "ok",
       transcription_error: "",
     }));
-  }, []);
+  }, [spokenLanguage]);
 
   const stopMedia = useCallback((reportStatus = true) => {
     if (sttRestartTimerRef.current) {
@@ -3194,21 +3260,10 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       window.clearTimeout(patientSttSegmentTimerRef.current);
       patientSttSegmentTimerRef.current = null;
     }
-    if (browserSttRestartTimerRef.current) {
-      window.clearTimeout(browserSttRestartTimerRef.current);
-      browserSttRestartTimerRef.current = null;
-    }
     intentionalRecorderStopRef.current = true;
     segmentingRecorderStopRef.current = false;
     patientIntentionalRecorderStopRef.current = true;
     patientSegmentingRecorderStopRef.current = false;
-    if (browserRecognitionRef.current) {
-      try {
-        browserRecognitionRef.current.onend = null;
-        browserRecognitionRef.current.stop();
-      } catch {}
-      browserRecognitionRef.current = null;
-    }
     if (recorderRef.current && recorderRef.current.state !== "inactive") {
       recorderRef.current.stop();
     }
@@ -3225,101 +3280,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     if (videoRef.current) videoRef.current.srcObject = null;
     if (reportStatus) refreshMediaStatus(null);
   }, [cleanupRtcCall, refreshMediaStatus, stopRawBioacousticPipeline, stopVoiceIdentification]);
-
-  const startBrowserSpeechToText = useCallback((stream: MediaStream) => {
-    if (typeof window === "undefined") return false;
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      browserSttAvailableRef.current = false;
-      return false;
-    }
-
-    const micStillLive = () =>
-      stream.getAudioTracks().some((track) => track.readyState === "live");
-
-    try {
-      if (browserRecognitionRef.current) {
-        browserRecognitionRef.current.onend = null;
-        browserRecognitionRef.current.stop();
-      }
-
-      const recognition = new SpeechRecognition();
-      browserRecognitionRef.current = recognition;
-      browserSttAvailableRef.current = true;
-      recognition.lang = "pt-BR";
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.maxAlternatives = 1;
-
-      recognition.onstart = () => {
-        setLiveTranscription((prev) => ({
-          ...(prev || {}),
-          provider: prev?.provider || "browser-live",
-          transcription_status: "listening",
-          transcription_error: "",
-        }));
-      };
-
-      recognition.onresult = (event: any) => {
-        let interim = "";
-        let finalText = "";
-        for (let i = event.resultIndex; i < event.results.length; i += 1) {
-          const transcript = String(event.results[i]?.[0]?.transcript || "").trim();
-          if (!transcript) continue;
-          if (event.results[i].isFinal) finalText += ` ${transcript}`;
-          else interim += ` ${transcript}`;
-        }
-
-        if (interim.trim()) {
-          setLiveTranscription((prev) => ({
-            ...(prev || {}),
-            provider: prev?.provider || "browser-live",
-            transcription_status: "listening",
-            transcription_interim: "",
-            transcription_error: "",
-          }));
-        }
-
-        if (finalText.trim()) {
-          appendTranscriptText(finalText);
-        }
-      };
-
-      recognition.onerror = (event: any) => {
-        const error = String(event?.error || "");
-        if (error === "no-speech" || error === "aborted") return;
-        setLiveTranscription((prev) => ({
-          ...(prev || {}),
-          provider: prev?.provider || "browser-live",
-          transcription_status: "listening",
-          transcription_error: `STT navegador: ${error || "erro desconhecido"}`,
-        }));
-      };
-
-      recognition.onend = () => {
-        if (!intentionalRecorderStopRef.current && micStillLive()) {
-          browserSttRestartTimerRef.current = window.setTimeout(() => {
-            browserSttRestartTimerRef.current = null;
-            startBrowserSpeechToText(stream);
-          }, 350);
-        }
-      };
-
-      recognition.start();
-      return true;
-    } catch (err: any) {
-      browserSttAvailableRef.current = false;
-      setLiveTranscription((prev) => ({
-        ...(prev || {}),
-        provider: prev?.provider || "browser-live",
-        transcription_status: "listening",
-        transcription_error:
-          err?.message || "Reconhecimento de fala do navegador indisponível.",
-      }));
-      return false;
-    }
-  }, [appendTranscriptText]);
 
   const summarizeTranscriptRange = useCallback(
     async ({
@@ -3383,6 +3343,9 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             start_minute: startMinute,
             end_minute: endMinute,
             session_id: sessionId || "default",
+            spoken_language: spokenLanguage,
+            analysis_language: analysisLanguage,
+            report_locale: reportLocale,
           }),
         });
         const data = await response.json();
@@ -3409,7 +3372,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         });
       }
     },
-    [sessionId],
+    [analysisLanguage, reportLocale, sessionId, spokenLanguage],
   );
 
   const closeSemanticCut = useCallback(
@@ -3451,6 +3414,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const transcribeAudioBlob = useCallback(
     async (audioBlob: Blob, mimeType: string, speaker: SpeakerRole) => {
       if (!audioBlob || audioBlob.size < MIN_STT_AUDIO_BYTES) {
+        transcriptionStatsRef.current.undersizedSegments += 1;
         setLiveTranscription((prev) => ({
           ...(prev || {}),
           provider: prev?.provider || "browser-recorder",
@@ -3463,6 +3427,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
 
       const activity = await measureAudioActivity(audioBlob);
       if (!activity.active) {
+        transcriptionStatsRef.current.silentSegments += 1;
         setLiveTranscription((prev) => ({
           ...(prev || {}),
           provider: prev?.provider || "browser-recorder",
@@ -3476,7 +3441,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         return;
       }
 
-      transcribingRef.current = true;
       setLiveTranscription((prev) => ({
         ...(prev || {}),
         provider: prev?.provider || "browser-recorder",
@@ -3508,18 +3472,22 @@ function LiveSessionInner({ user }: LiveSessionProps) {
               chunkMime,
             )}`,
             session_id: sessionId || "default",
-            prompt:
-              "Sessão clínica FROID em português do Brasil. Transcreva literalmente somente a fala humana audível, com pontuação natural. Não traduza, não resuma, não complete frases e não invente palavras. Mantenha termos técnicos, nomes e siglas como falados. Se não houver fala humana clara, retorne vazio." +
-              " Vocabulario obrigatorio: FROID deve ser grafado FROID, nunca Freud; IPM, IDM, biomarcadores, sub-harmônicos, bioacústica, dissonâncias, paciente e profissional." +
-              (previousContext
-                ? `\n\nContexto transcrito imediatamente anterior para continuidade e pontuação:\n${previousContext}`
-                : ""),
+            spoken_language: spokenLanguage,
+            previous_context: previousContext,
           }),
         });
 
         const data = await response.json();
+        const latencyMs = Number(data?.latency_ms);
+        if (Number.isFinite(latencyMs) && latencyMs >= 0) {
+          transcriptionStatsRef.current.latenciesMs = [
+            ...transcriptionStatsRef.current.latenciesMs,
+            latencyMs,
+          ].slice(-500);
+        }
         const text = String(data?.text || "").trim();
         if (!response.ok) {
+          transcriptionStatsRef.current.failedSegments += 1;
           setLiveTranscription((prev) => ({
             ...(prev || {}),
             provider: data?.provider || "local-fallback",
@@ -3530,6 +3498,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           return;
         }
         if (!text) {
+          transcriptionStatsRef.current.emptySegments += 1;
           setLiveTranscription((prev) => ({
             ...(prev || {}),
             provider: data?.provider || "openai-gpt-4o-transcribe",
@@ -3542,6 +3511,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         }
 
         appendTranscriptText(text, speaker);
+        transcriptionStatsRef.current.successfulSegments += 1;
 
         setLiveTranscription((prev) => ({
           ...(prev || {}),
@@ -3550,8 +3520,10 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           transcription_status: data?.status || "ok",
           transcription_error: "",
           last_audio_bytes: audioBlob.size,
+          last_transcription_latency_ms: Number.isFinite(latencyMs) ? latencyMs : null,
         }));
       } catch (err) {
+        transcriptionStatsRef.current.failedSegments += 1;
         console.error("FROID speech-to-text:", err);
         setLiveTranscription((prev) => ({
           ...(prev || {}),
@@ -3560,11 +3532,9 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           transcription_error:
             err instanceof Error ? err.message : "Falha ao enviar áudio.",
         }));
-      } finally {
-        transcribingRef.current = false;
       }
     },
-    [appendTranscriptText, sessionId],
+    [appendTranscriptText, sessionId, spokenLanguage],
   );
 
   const enqueueTranscriptionBlob = useCallback(
@@ -3961,9 +3931,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         "Biomarcadores e gráficos aguardam exclusivamente o áudio do paciente.",
       bioacoustic_error: "",
     }));
-    if (ENABLE_BROWSER_LIVE_STT) {
-      startBrowserSpeechToText(stream);
-    }
 
     const updateStatus = () => refreshMediaStatus(mediaStreamRef.current);
     stream.getTracks().forEach((track) => {
@@ -4002,7 +3969,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     isPresentialSession,
     sessionId,
     refreshMediaStatus,
-    startBrowserSpeechToText,
     startProfessionalRtcCall,
     startVoiceIdentification,
     startRawBioacousticPipeline,
@@ -4320,10 +4286,20 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       conversationSummaries,
       remotePatientOnRef.current,
       sessionPatient?.sessionMode,
+      spokenLanguage,
+      analysisLanguage,
+      reportLocale,
     );
     const summarySourceTranscript = transcriptSegmentsRef.current
       .map((segment) => segment.text)
       .join("\n");
+    const transcriptionStats = transcriptionStatsRef.current;
+    const sortedLatencies = [...transcriptionStats.latenciesMs].sort((a, b) => a - b);
+    const percentile = (ratio: number) => {
+      if (!sortedLatencies.length) return null;
+      const index = Math.max(0, Math.ceil(sortedLatencies.length * ratio) - 1);
+      return Math.round(sortedLatencies[index]);
+    };
 
     return {
       id: makeReportId(),
@@ -4344,6 +4320,18 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       sessionSummary: buildSessionSummary(conversationSummaries, summarySourceTranscript),
       dissonances: dissonanceLog,
       transcript: summarySourceTranscript,
+      transcriptionQuality: {
+        successfulSegments: transcriptionStats.successfulSegments,
+        emptySegments: transcriptionStats.emptySegments,
+        silentSegments: transcriptionStats.silentSegments,
+        failedSegments: transcriptionStats.failedSegments,
+        undersizedSegments: transcriptionStats.undersizedSegments,
+        latencyP50Ms: percentile(0.5),
+        latencyP95Ms: percentile(0.95),
+      },
+      spokenLanguage,
+      analysisLanguage,
+      reportLocale,
       transcriptRetention: "enabled",
       anonymizedContext,
     };
@@ -4351,8 +4339,11 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     conversationSummaries,
     dissonanceLog,
     raw,
+    analysisLanguage,
+    reportLocale,
     sessionId,
     sessionPatient?.sessionMode,
+    spokenLanguage,
     state.elapsedSeconds,
   ]);
 
@@ -4538,6 +4529,9 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             <span className="text-[9px] text-slate-400">
               Sessão {sessionId?.slice(0, 8) || "--"} · vídeo · corte semântico · resumo · métricas · FROID Explica
             </span>
+            <span className="rounded border border-cyan-800 bg-cyan-950 px-2 py-1 text-[9px] font-black text-cyan-100">
+              Voz {SESSION_LOCALES[spokenLanguage].shortLabel} · relatório {SESSION_LOCALES[reportLocale].shortLabel}
+            </span>
             <div className="w-[220px] shrink-0">{layoutSelector}</div>
             <strong className="text-[9px] uppercase text-cyan-200">Estabilização:</strong>
             <select
@@ -4690,12 +4684,14 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                   audioMeta={displayAudio}
                   conversationSummaries={conversationSummaries}
                   section="summary"
+                  locale={reportLocale}
                 />
               </div>
             </section>
 
             <section className="min-h-[320px] flex-1 overflow-hidden rounded-xl border border-slate-700 bg-slate-950 p-2">
               <AIInsights
+                responseLocale={reportLocale}
                 zones={displayZones}
                 ipmScore={displayIpm}
                 coherenceStatus={displayCoherence}
@@ -4721,6 +4717,9 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             Sessão Detalhada
           </h1>
           <div className="flex items-center gap-2">
+            <span className="rounded border border-cyan-800 bg-cyan-950 px-2 py-0.5 text-[9px] font-black text-cyan-100">
+              {SESSION_LOCALES[spokenLanguage].shortLabel} → {SESSION_LOCALES[reportLocale].shortLabel}
+            </span>
             <span
               className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${state.connected ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}
             >
@@ -4844,6 +4843,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             audioMeta={displayAudio}
             conversationSummaries={conversationSummaries}
             section="biomarkers"
+            locale={reportLocale}
           />
         </div>
       </div>
@@ -4912,10 +4912,12 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           audioMeta={displayAudio}
           conversationSummaries={conversationSummaries}
           section="summary"
+          locale={reportLocale}
         />
 
         <div className="min-h-[320px] flex-1 overflow-hidden rounded-xl border border-slate-700 bg-slate-950 p-2">
           <AIInsights
+            responseLocale={reportLocale}
             zones={displayZones}
             ipmScore={displayIpm}
             coherenceStatus={displayCoherence}
