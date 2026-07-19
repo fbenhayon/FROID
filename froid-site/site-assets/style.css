@@ -68,6 +68,12 @@ header.site-header {
 }
 .nav-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .nav-actions .btn { padding: 8px 14px; font-size: 0.82rem; }
+/* Seletor de idioma no header — pill compacta antes dos botões de acesso */
+.lang-switch {
+  padding: 6px 11px !important; font-size: 0.76rem !important; font-weight: 700;
+  letter-spacing: 0.03em;
+}
+.lang-switch::before { content: "🌐 "; }
 .btn { display: inline-block; padding: 9px 18px; border-radius: 999px; font-weight: 600; font-size: 0.9rem; border: 1px solid transparent; cursor: pointer; white-space: nowrap; }
 /* Header no celular: empilha em blocos centrados, links em linhas fluidas, botões lado a lado */
 @media (max-width: 860px) {

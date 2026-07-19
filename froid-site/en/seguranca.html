@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Security &amp; Privacy — FROID</title>
+<meta name="description" content="How FROID protects sensitive therapy session data: encryption, access control, and LGPD compliance." />
+<link rel="alternate" hreflang="pt-BR" href="https://www.froid.com.br/seguranca.html" />
+<link rel="alternate" hreflang="en" href="https://www.froid.com.br/en/seguranca.html" />
+<link rel="alternate" hreflang="x-default" href="https://www.froid.com.br/seguranca.html" />
+<link rel="stylesheet" href="../site-assets/style.css?v=5" />
+</head>
+<body>
+
+<header class="site-header">
+  <div class="nav-row">
+    <a class="brand" href="index.html"><img class="brand-logo" src="../site-assets/img/froid-logo.png" alt="FROID" /></a>
+    <nav class="nav-links">
+      <a href="index.html">Home</a>
+      <a href="ciencia.html">Science</a>
+      <a href="tecnologia.html">Technology</a>
+      <a href="froid-explica.html">FROID Explains</a>
+      <a href="etica.html">Ethics</a>
+      <a href="seguranca.html">Security</a>
+      <a href="profissionais.html">Professionals</a>
+      <a href="precos.html">Pricing</a>
+    </nav>
+    <div class="nav-actions">
+      <a class="btn btn-ghost" href="https://www.froid.com.br/app/#/login">Sign in to FROID</a>
+      <a class="btn btn-solid" href="https://www.froid.com.br/cadastro">Sign up for FROID</a>
+      <a class="btn btn-ghost lang-switch" href="../seguranca.html" title="Mudar para português">PT</a>
+    </div>
+  </div>
+</header>
+
+<section class="hero" style="padding:64px 0 56px;">
+  <div class="container">
+    <p class="section-kicker" style="color:#93c5fd;">Security &amp; LGPD</p>
+    <h1 style="font-size:2.1rem;">Sensitive data demands serious controls — that's how we treat yours</h1>
+    <p class="lead">Encryption, ownership-based access control, and LGPD principles built into the architecture, not bolted on afterward.</p>
+  </div>
+</section>
+
+<div class="disclaimer-box container" style="margin-top:32px;">
+  <strong>Sensitive health data:</strong> voice, facial expression, and therapy session content are treated as sensitive data under Brazil's LGPD (Law 13.709/2018). This page describes the applied technical and organizational controls.
+</div>
+
+<section class="block">
+  <div class="container">
+    <p class="section-kicker">Data protection</p>
+    <h2 class="section-title">How session data is protected</h2>
+    <div class="grid-3">
+      <div class="card">
+        <h3>Encryption</h3>
+        <p>Data in transit is protected by TLS; data at rest is stored encrypted in the analytics database.</p>
+      </div>
+      <div class="card">
+        <h3>Access control</h3>
+        <p>Each session report is tied to the ownership of the responsible professional — access restricted per account, not freely shared per session.</p>
+      </div>
+      <div class="card">
+        <h3>Analytical anonymization</h3>
+        <p>Aggregated metrics used for internal research rely on session and patient hashes, with no directly identifiable data in the analytics layer.</p>
+      </div>
+    </div>
+    <div class="img-placeholder" style="margin-top:32px;"></div>
+  </div>
+</section>
+
+<section class="block soft">
+  <div class="container">
+    <p class="section-kicker">Compliance</p>
+    <h2 class="section-title">LGPD and industry best practices</h2>
+    <div class="grid-2">
+      <div>
+        <p>We treat LGPD's principles — purpose, necessity, transparency, and security — as architectural requirements, not a checklist applied afterward. This follows the same rationale applied by international health SaaS standards (HIPAA, GDPR): compliance needs to be built into encryption, audit trails, and role-based access control, not just into a contract.</p>
+        <p>For clinics and professionals who contract FROID, we make data processing terms available as part of the professional onboarding process.</p>
+      </div>
+      <div class="card">
+        <h3>Current commitments</h3>
+        <ul>
+          <li>Explicit patient consent before every recorded session</li>
+          <li>Right to data erasure upon request</li>
+          <li>Notification in the event of a security incident</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="nerds-wrapper">
+      <button class="nerds-toggle" data-target="nerds-seguranca" aria-expanded="false">Nerds only</button>
+      <div class="nerds-panel" id="nerds-seguranca">
+        <h4>Shared responsibility model</h4>
+        <p>As with any health SaaS, security is split: FROID is responsible for the platform infrastructure (encryption, backups, application access control); the contracting clinic/professional is responsible for managing their team's access and for the consent obtained from the patient.</p>
+        <h4>Relevant technical stack</h4>
+        <p>FastAPI backend with DuckDB persistence for aggregated analytics; report ownership control via <code>_can_access_report()</code> and <code>_report_owner_email()</code>; anonymous session hashing via <code>_anonymous_session_hash()</code> before any statistical aggregation.</p>
+        <div class="ref">This section describes technical controls already audited in the code; it does not constitute legal advice. Consult your DPO/legal counsel for formal LGPD adequacy.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="foot-grid">
+      <div>
+        <h5>FROID</h5>
+        <p style="max-width:340px; color:rgba(248,250,252,0.55);">Frequency Recognition of Internal Dynamics. A tool to support clinical listening — it does not replace professional assessment, diagnosis, or judgment.</p>
+      </div>
+      <div>
+        <h5>Navigation</h5>
+        <ul>
+          <li><a href="index.html">Home</a></li>
+          <li><a href="ciencia.html">Science</a></li>
+          <li><a href="tecnologia.html">Technology</a></li>
+          <li><a href="froid-explica.html">FROID Explains</a></li>
+          <li><a href="etica.html">Ethics</a></li>
+          <li><a href="seguranca.html">Security</a></li>
+          <li><a href="profissionais.html">Professionals</a></li>
+          <li><a href="precos.html">Pricing</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Support</h5>
+        <ul>
+          <li><a href="faq.html">FAQ</a></li>
+          <li><a href="glossario.html">Glossary</a></li>
+          <li><a href="demonstracao.html">Demo</a></li>
+          <li><a href="sobre-contato.html">About &amp; Contact</a></li>
+          <li><a href="termos.html">Terms of Use</a></li>
+          <li><a href="privacidade.html">Privacy Policy</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Access</h5>
+        <ul>
+          <li><a href="https://www.froid.com.br/app/#/login">Sign in to FROID</a></li>
+          <li><a href="https://www.froid.com.br/cadastro">Sign up for FROID</a></li>
+          <li><a href="https://www.froid.com.br/app/#/paciente">Patient Portal</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">© 2026 FROID.</div>
+  </div>
+</footer>
+
+<script src="../site-assets/script.js?v=3"></script>
+</body>
+</html>

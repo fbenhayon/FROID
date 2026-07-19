@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FAQ — FROID</title>
+<meta name="description" content="Direct answers about what FROID does, what it doesn't do, its limits, ethics, consent, and algorithmic bias." />
+<link rel="alternate" hreflang="pt-BR" href="https://www.froid.com.br/faq.html" />
+<link rel="alternate" hreflang="en" href="https://www.froid.com.br/en/faq.html" />
+<link rel="alternate" hreflang="x-default" href="https://www.froid.com.br/faq.html" />
+<link rel="stylesheet" href="../site-assets/style.css?v=5" />
+</head>
+<body>
+
+<header class="site-header">
+  <div class="nav-row">
+    <a class="brand" href="index.html"><img class="brand-logo" src="../site-assets/img/froid-logo.png" alt="FROID" /></a>
+    <nav class="nav-links">
+      <a href="index.html">Home</a>
+      <a href="ciencia.html">Science</a>
+      <a href="tecnologia.html">Technology</a>
+      <a href="froid-explica.html">FROID Explains</a>
+      <a href="etica.html">Ethics</a>
+      <a href="seguranca.html">Security</a>
+      <a href="profissionais.html">Professionals</a>
+      <a href="precos.html">Pricing</a>
+    </nav>
+    <div class="nav-actions">
+      <a class="btn btn-ghost" href="https://www.froid.com.br/app/#/login">Sign in to FROID</a>
+      <a class="btn btn-solid" href="https://www.froid.com.br/cadastro">Sign up for FROID</a>
+      <a class="btn btn-ghost lang-switch" href="../faq.html" title="Mudar para português">PT</a>
+    </div>
+  </div>
+</header>
+
+<section class="hero" style="padding:64px 0 56px;">
+  <div class="container">
+    <p class="section-kicker" style="color:#93c5fd;">FAQ</p>
+    <h1 style="font-size:2.1rem;">Questions professionals ask before deciding</h1>
+    <p class="lead">Straight to the point — including about the system's limits, ethics, and bias.</p>
+  </div>
+</section>
+
+<section class="block">
+  <div class="container">
+    <p class="section-kicker">The system and its limits</p>
+    <h2 class="section-title">Frequently asked questions</h2>
+
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="margin:0 0 8px;">Does FROID make a diagnosis?</h3>
+      <p style="margin:0; color:var(--froid-cinza);">No. FROID is a tool that supports clinical listening — a coprocessor of biological signals, never an autonomous diagnostic instrument. No index (IPM, IDM, dominant zone) should be used as a standalone conclusion; assessment and the therapeutic decision remain the responsibility of the licensed professional.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="margin:0 0 8px;">Are the 12 Zones based on validated neuroscience?</h3>
+      <p style="margin:0; color:var(--froid-cinza);">Not directly. The underlying acoustic physics (spectral energy via FFT) is real. The specific mapping of zones to emotional themes is a FROID proprietary interpretive framework, inspired by voice biofeedback technology — it is not a finding from peer-reviewed research. Full details on the <a href="ciencia.html">Science</a> page.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="margin:0 0 8px;">How does FROID handle algorithmic bias (skin tone, accent, gender)?</h3>
+      <p style="margin:0; color:var(--froid-cinza);">Head-on. Voice and face models have documented demographic bias. FROID's main mitigation is not using absolute tables: every patient is compared only against their own baseline, calibrated in the first 60 seconds of the session, measuring deviation relative to themselves. Even so, this does not eliminate all bias — the <a href="etica.html">Ethics, Fairness &amp; Limits</a> page describes the safeguards and remaining limitations.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="margin:0 0 8px;">What if the teleconsultation's lighting or audio is poor?</h3>
+      <p style="margin:0; color:var(--froid-cinza);">The system does not try to guess at corrupted data. Real-time triage layers (Quality Gates) monitor facial visibility and acoustic noise; when quality drops, the dashboard alerts the professional and reduces the weight (reliability factor) of the compromised channel, preventing the indicator from drifting due to network noise.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="margin:0 0 8px;">Does FROID automatically monitor crises or suicide risk?</h3>
+      <p style="margin:0; color:var(--froid-cinza);"><strong>No.</strong> FROID does not automatically detect emergencies or imminent life risk. In the presence of crisis signs, the professional should activate conventional channels — local emergency services and crisis lines, and the protocols of their practice. The system supports perception, not emergency surveillance.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="margin:0 0 8px;">Do I need the patient's consent? How does it work?</h3>
+      <p style="margin:0; color:var(--froid-cinza);">Yes. Audio, video, and transcript capture each require free, informed, and granular consent (separate authorizations), with the right to revoke at any time and permanent data deletion (LGPD article 18 in Brazil). We provide a consent form template aligned with CFP/CFM resolutions on the <a href="etica.html">Ethics</a> page.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="margin:0 0 8px;">Where is audio and video data processed?</h3>
+      <p style="margin:0; color:var(--froid-cinza);">Phonation processing and facial muscle imaging happen locally, on the practice's computer (Edge AI). Raw biometric files are not transmitted to public clouds for inference. Details on the <a href="seguranca.html">Security</a> page.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="margin:0 0 8px;">Does FROID record sessions?</h3>
+      <p style="margin:0; color:var(--froid-cinza);">Audio and video are processed for metric extraction according to the patient's consent as configured by the professional. See the <a href="seguranca.html">Security</a> page for the applied data controls.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="margin:0 0 8px;">Do I need special hardware?</h3>
+      <p style="margin:0; color:var(--froid-cinza);">No — FROID runs in the browser via the Web Audio API and a standard webcam, with no need for dedicated sensors.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="margin:0 0 8px;">How does the calibration at the start of the session work?</h3>
+      <p style="margin:0; color:var(--froid-cinza);">The first 60 seconds establish the patient's individual baseline (F0, energy per band, resting facial state). Every subsequent reading is compared against this reference, not against a generic population.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="margin:0 0 8px;">Can I cancel whenever I want?</h3>
+      <p style="margin:0; color:var(--froid-cinza);">Yes, the model is per-session credit packages, with no mandatory monthly fee or minimum commitment. The PLUS and MASTER plans come with guided onboarding — talk to the team at <a href="sobre-contato.html">About &amp; Contact</a>.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="margin:0 0 8px;">How does credit auto-recharge work?</h3>
+      <p style="margin:0; color:var(--froid-cinza);">It is optional and depends on explicit consent. It only triggers when the balance reaches zero, repurchases the same package, keeps the chosen currency, and uses the value validated by Stripe. If payment fails, a new action from you may be required.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="margin:0 0 8px;">Do credits expire?</h3>
+      <p style="margin:0; color:var(--froid-cinza);">Credits are valid for <strong>12 months</strong> from the package purchase. Each session completed consumes one credit, regardless of plan.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="margin:0 0 8px;">What currencies can I pay in?</h3>
+      <p style="margin:0; color:var(--froid-cinza);">Prices are shown in US dollars, and checkout also accepts BRL, EUR, and CNY, with the value validated by Stripe at the time of payment. Auto-recharge always keeps the currency chosen on the first purchase.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="margin:0 0 8px;">Are the current prices final?</h3>
+      <p style="margin:0; color:var(--froid-cinza);">No — the values published on the <a href="precos.html">Pricing</a> page reflect this initial phase of controlled availability and will be updated soon. Packages already purchased keep the price paid at the time of purchase.</p>
+    </div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="foot-grid">
+      <div>
+        <h5>FROID</h5>
+        <p style="max-width:340px; color:rgba(248,250,252,0.55);">Frequency Recognition of Internal Dynamics. A tool to support clinical listening — it does not replace professional assessment, diagnosis, or judgment.</p>
+      </div>
+      <div>
+        <h5>Navigation</h5>
+        <ul>
+          <li><a href="index.html">Home</a></li>
+          <li><a href="ciencia.html">Science</a></li>
+          <li><a href="tecnologia.html">Technology</a></li>
+          <li><a href="froid-explica.html">FROID Explains</a></li>
+          <li><a href="etica.html">Ethics</a></li>
+          <li><a href="seguranca.html">Security</a></li>
+          <li><a href="profissionais.html">Professionals</a></li>
+          <li><a href="precos.html">Pricing</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Support</h5>
+        <ul>
+          <li><a href="faq.html">FAQ</a></li>
+          <li><a href="glossario.html">Glossary</a></li>
+          <li><a href="demonstracao.html">Demo</a></li>
+          <li><a href="sobre-contato.html">About &amp; Contact</a></li>
+          <li><a href="termos.html">Terms of Use</a></li>
+          <li><a href="privacidade.html">Privacy Policy</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Access</h5>
+        <ul>
+          <li><a href="https://www.froid.com.br/app/#/login">Sign in to FROID</a></li>
+          <li><a href="https://www.froid.com.br/cadastro">Sign up for FROID</a></li>
+          <li><a href="https://www.froid.com.br/app/#/paciente">Patient Portal</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">© 2026 FROID.</div>
+  </div>
+</footer>
+
+<script src="../site-assets/script.js?v=3"></script>
+</body>
+</html>

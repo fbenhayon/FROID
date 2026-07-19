@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Science — FROID</title>
+<meta name="description" content="FROID's verified bibliography, organized by technology pillar and strength of evidence, with a clear distinction between peer-reviewed literature and proprietary framework." />
+<link rel="alternate" hreflang="pt-BR" href="https://www.froid.com.br/ciencia.html" />
+<link rel="alternate" hreflang="en" href="https://www.froid.com.br/en/ciencia.html" />
+<link rel="alternate" hreflang="x-default" href="https://www.froid.com.br/ciencia.html" />
+<link rel="stylesheet" href="../site-assets/style.css?v=5" />
+<style>
+  .ev-controls { margin-bottom:28px; }
+  .ev-search { width:100%; padding:11px 16px; border:1px solid var(--border); border-radius:999px; font-size:0.95rem; font-family:var(--font); margin-bottom:14px; }
+  .ev-search:focus { outline:2px solid var(--froid-azul); outline-offset:1px; }
+  .ev-filters { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .ev-btn { border:1px solid #334155; background:#1e293b; color:var(--ink); border-radius:999px; padding:7px 15px; font-size:0.82rem; font-weight:600; cursor:pointer; font-family:var(--font); }
+  .ev-btn[aria-pressed="true"] { background:var(--froid-azul); color:#fff; border-color:var(--froid-azul); }
+  .ev-count { margin-left:auto; font-size:0.85rem; color:var(--froid-cinza); }
+  .card.ev-hidden { display:none; }
+  .ev-empty { display:none; color:var(--froid-cinza); padding:16px 0; }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="nav-row">
+    <a class="brand" href="index.html"><img class="brand-logo" src="../site-assets/img/froid-logo.png" alt="FROID" /></a>
+    <nav class="nav-links">
+      <a href="index.html">Home</a>
+      <a href="ciencia.html">Science</a>
+      <a href="tecnologia.html">Technology</a>
+      <a href="froid-explica.html">FROID Explains</a>
+      <a href="etica.html">Ethics</a>
+      <a href="seguranca.html">Security</a>
+      <a href="profissionais.html">Professionals</a>
+      <a href="precos.html">Pricing</a>
+    </nav>
+    <div class="nav-actions">
+      <a class="btn btn-ghost" href="https://www.froid.com.br/app/#/login">Sign in to FROID</a>
+      <a class="btn btn-solid" href="https://www.froid.com.br/cadastro">Sign up for FROID</a>
+      <a class="btn btn-ghost lang-switch" href="../ciencia.html" title="Mudar para português">PT</a>
+    </div>
+  </div>
+</header>
+
+<section class="hero" style="padding:64px 0 56px;">
+  <div class="container">
+    <p class="section-kicker" style="color:#93c5fd;">Science</p>
+    <h1 style="font-size:2.1rem;">Every technical claim, with the strength of evidence it actually has</h1>
+    <p class="lead">We organize the bibliography by technology pillar. Where the science is solid, we show the study and the exact number. Where it's a proprietary framework, we say so without hedging.</p>
+  </div>
+</section>
+
+<section class="block" id="evidencia">
+  <div class="container">
+
+    <div class="ev-controls">
+      <p class="section-kicker" style="margin-bottom:12px;">Evidence explorer</p>
+      <input type="text" id="evSearch" class="ev-search" placeholder="Search by topic, author, or metric (e.g., MFCC, Zhao, depression)…" aria-label="Search the bibliography" />
+      <div class="ev-filters" role="group" aria-label="Filter by strength of evidence">
+        <button class="ev-btn" data-f="all" aria-pressed="true">All</button>
+        <button class="ev-btn" data-f="forte" aria-pressed="false">Strong evidence</button>
+        <button class="ev-btn" data-f="emergente" aria-pressed="false">Emerging</button>
+        <button class="ev-btn" data-f="fraca" aria-pressed="false">Weak</button>
+        <button class="ev-btn" data-f="proprietaria" aria-pressed="false">Proprietary</button>
+        <span class="ev-count" id="evCount"></span>
+      </div>
+    </div>
+
+    <!-- PILLAR 1 -->
+    <div class="card" style="margin-bottom:28px;">
+      <span class="badge badge-strong">Strong evidence</span>
+      <h2 style="margin:12px 0 6px;">Depression and psychomotor retardation</h2>
+      <p>Less variable voice in F0, more pauses, and slower speech in depressive presentations — replicated across multiple independent studies.</p>
+      <div class="citation">Zhao, Q. et al. (2022). <em>Vocal Acoustic Features as Potential Biomarkers for Identifying/Diagnosing Depression: A Cross-Sectional Study.</em> Frontiers in Psychiatry. 71 depressed patients, 62 controls. MFCC7 predictive of PHQ-9 (β=0.90, p=0.01); MFCC9 correlated with HAMD somatic anxiety (r=−0.34, β=−0.45, p=0.049); 89.66% discriminant accuracy. <a href="https://doi.org/10.3389/fpsyt.2022.815678" target="_blank" rel="noopener">DOI 10.3389/fpsyt.2022.815678</a> — full text checked directly at the source.</div>
+      <div class="citation">Taguchi, T. et al. (2018). <em>Major depressive disorder discrimination using vocal acoustic features.</em> Journal of Affective Disorders. MFCC2 discriminates MDD with 77.8% sensitivity / 86.1% specificity. <a href="https://doi.org/10.1016/j.jad.2017.08.038" target="_blank" rel="noopener">DOI 10.1016/j.jad.2017.08.038</a></div>
+      <div class="citation">Quatieri, T. &amp; Malyska, N. (2012). <em>Vocal-Source Biomarkers for Depression: A Link to Psychomotor Activity.</em> Interspeech. <a href="https://doi.org/10.21437/interspeech.2012-311" target="_blank" rel="noopener">DOI 10.21437/interspeech.2012-311</a></div>
+      <p style="margin-top:14px; font-size:0.92rem; color:var(--froid-cinza);"><strong>Rigor caveat:</strong> the same patterns (reduced F0, flattened prosody) also appear in Parkinson's disease, frontotemporal degeneration, ALS, and schizophrenia. It is not a marker specific to depression alone — it is a transdiagnostic signal of neuromotor slowing, and we treat it as such.</p>
+    </div>
+
+    <!-- PILLAR 2 -->
+    <div class="card" style="margin-bottom:28px;">
+      <span class="badge badge-strong">Strong evidence</span>
+      <h2 style="margin:12px 0 6px;">MFCC and temporal derivatives (Δ, ΔΔ)</h2>
+      <p>Static cepstral coefficients and their derivatives capture temporal dynamics relevant to affective state and articulatory coordination.</p>
+      <div class="citation">Williamson, J. et al. (2013). <em>Vocal biomarkers of depression based on motor incoordination.</em> Proc. 3rd ACM AVEC Workshop. <a href="https://doi.org/10.1145/2512530.2512531" target="_blank" rel="noopener">DOI 10.1145/2512530.2512531</a></div>
+      <div class="citation">Davis, S. &amp; Mermelstein, P. (1980). <em>Comparison of parametric representations for monosyllabic word recognition in continuously spoken sentences.</em> IEEE Trans. ASSP. — conceptual foundation of MFCCs, cited directly in FROID's engine.</div>
+      <p style="margin-top:14px; font-size:0.92rem; color:var(--froid-cinza);"><strong>Caveat:</strong> deltas do not always outperform the static MFCC — it depends on the task and the classifier.</p>
+    </div>
+
+    <!-- PILLAR 3 -->
+    <div class="card" style="margin-bottom:28px;">
+      <span class="badge badge-moderate">Emerging evidence</span>
+      <h2 style="margin:12px 0 6px;">Prosody in mania and bipolarity</h2>
+      <p>Dynamic F0 and speech rate change with mood state, but with high intra- and inter-individual variability.</p>
+      <div class="citation">Guidi, A. et al. (2015). <em>Automatic analysis of speech F0 contour for the characterization of mood changes in bipolar patients.</em> Biomedical Signal Processing and Control. <a href="https://doi.org/10.1016/j.bspc.2014.10.011" target="_blank" rel="noopener">DOI 10.1016/j.bspc.2014.10.011</a></div>
+      <div class="citation">Anmella, G. et al. (2024). <em>Automated Speech Analysis in Bipolar Disorder: The CALIBER Study Protocol and Preliminary Results.</em> Journal of Clinical Medicine. Preliminary/protocol results. <a href="https://doi.org/10.3390/jcm13174997" target="_blank" rel="noopener">DOI 10.3390/jcm13174997</a></div>
+      <p style="margin-top:14px; font-size:0.92rem; color:var(--froid-cinza);"><strong>Scientific honesty:</strong> Pal et al. (2025), Annals of Indian Psychiatry, found no significant difference in F0, intensity, jitter, or shimmer between mania, depression, and euthymia (DOI 10.4103/aip.aip_221_24). We include this contrary result on purpose.</p>
+    </div>
+
+    <!-- PILLAR 4 -->
+    <div class="card" style="margin-bottom:28px;">
+      <span class="badge badge-strong">Strong infrastructure</span> <span class="badge badge-weak">Dissimulation: contested</span>
+      <h2 style="margin:12px 0 6px;">Facial dynamics (FACS + Markov models)</h2>
+      <p>Onset/apex/offset modeling of Action Units with HMM/HSMM is a mature methodology in computer vision.</p>
+      <div class="citation">Valstar, M. &amp; Pantic, M. (2012). <em>Fully Automatic Recognition of the Temporal Phases of Facial Actions.</em> IEEE TSMC-B. <a href="https://doi.org/10.1109/tsmcb.2011.2163710" target="_blank" rel="noopener">DOI 10.1109/tsmcb.2011.2163710</a></div>
+      <div class="citation">Hamm, J. et al. (2011). <em>Automated Facial Action Coding System for dynamic analysis of facial expressions in neuropsychiatric disorders.</em> Journal of Neuroscience Methods, 200(2), 237–256.</div>
+      <div class="citation">Kawulok, M. et al. (2021). <em>Dynamics of facial actions for assessing smile genuineness.</em> PLoS ONE. <a href="https://doi.org/10.1371/journal.pone.0244647" target="_blank" rel="noopener">DOI 10.1371/journal.pone.0244647</a></div>
+      <p style="margin-top:14px; font-size:0.92rem; color:var(--froid-cinza);"><strong>Important caveat:</strong> the classic "Duchenne smile" hypothesis (AU6+AU12 = genuine smile) is contested by recent research, which found that AU6 correlates with smile intensity, not emotional authenticity. FROID uses this configuration as one factor among several, not as a standalone dissimulation detector.</p>
+    </div>
+
+    <!-- PILLAR 5 -->
+    <div class="card" style="margin-bottom:28px;">
+      <span class="badge badge-weak">Weak evidence</span>
+      <h2 style="margin:12px 0 6px;">Vocal micro-tremor (5–12 Hz) and autonomic activation</h2>
+      <p>There is real literature on physiological vocal microtremor and on F0/jitter/shimmer reacting to stress in general.</p>
+      <div class="citation">Schoentgen, J. (2002). <em>Modulation frequency and modulation level owing to vocal microtremor.</em> Journal of the Acoustical Society of America. <a href="https://doi.org/10.1121/1.1492820" target="_blank" rel="noopener">DOI 10.1121/1.1492820</a> — characterizes microtremor in normal/dysphonic voices; does not establish the specific autonomic/psychiatric link that FROID monitors.</div>
+      <div class="citation">De Lacerda Veiga, D. et al. (2025). <em>The Fundamental Frequency of Voice as a Potential Stress Biomarker: A Systematic Review and Meta-Analysis.</em> Stress and Health. High heterogeneity, insufficient evidence for standalone clinical use. <a href="https://doi.org/10.1002/smi.70112" target="_blank" rel="noopener">DOI 10.1002/smi.70112</a></div>
+      <p style="margin-top:14px; font-size:0.92rem; color:var(--froid-cinza);">This is the system's most experimental pillar — we treat the <code>subharmonic_energy_5_12hz</code> indices as an exploratory signal, not a validated biomarker.</p>
+    </div>
+
+    <!-- PILLAR 6 -->
+    <div class="card" style="margin-bottom:0;">
+      <span class="badge badge-none">No published scientific basis</span> <span class="badge badge-proprietary">Proprietary framework</span>
+      <h2 style="margin:12px 0 6px;">The 12 Perception Zones</h2>
+      <p>The physics behind it (power spectral density via FFT) is real. The mapping of specific Hz ranges to emotional dichotomies has no peer-reviewed source — it follows the solfeggio/chakra frequency pattern, and its real origin is commercial voice biofeedback technology (EVOX/ZYTO line).</p>
+      <p style="margin-top:14px; font-size:0.92rem; color:var(--froid-cinza);">We communicate this explicitly as a FROID product heuristic — never as validated neuroscience.</p>
+    </div>
+
+  </div>
+</section>
+
+<section class="block soft">
+  <div class="container">
+    <p class="section-kicker">Verification methodology</p>
+    <h2 class="section-title">How we arrived at this bibliography</h2>
+    <p class="section-lead">Every citation on this page was independently checked — DOI resolved, and in the case of the anchor study (Zhao et al., 2022), the full text was read at the original source to confirm that the numbers match exactly what FROID cites.</p>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="foot-grid">
+      <div>
+        <h5>FROID</h5>
+        <p style="max-width:340px; color:rgba(248,250,252,0.55);">Frequency Recognition of Internal Dynamics. A tool to support clinical listening — it does not replace professional assessment, diagnosis, or judgment.</p>
+      </div>
+      <div>
+        <h5>Navigation</h5>
+        <ul>
+          <li><a href="index.html">Home</a></li>
+          <li><a href="ciencia.html">Science</a></li>
+          <li><a href="tecnologia.html">Technology</a></li>
+          <li><a href="froid-explica.html">FROID Explains</a></li>
+          <li><a href="etica.html">Ethics</a></li>
+          <li><a href="seguranca.html">Security</a></li>
+          <li><a href="profissionais.html">Professionals</a></li>
+          <li><a href="precos.html">Pricing</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Support</h5>
+        <ul>
+          <li><a href="faq.html">FAQ</a></li>
+          <li><a href="glossario.html">Glossary</a></li>
+          <li><a href="demonstracao.html">Demo</a></li>
+          <li><a href="sobre-contato.html">About &amp; Contact</a></li>
+          <li><a href="termos.html">Terms of Use</a></li>
+          <li><a href="privacidade.html">Privacy Policy</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Access</h5>
+        <ul>
+          <li><a href="https://www.froid.com.br/app/#/login">Sign in to FROID</a></li>
+          <li><a href="https://www.froid.com.br/cadastro">Sign up for FROID</a></li>
+          <li><a href="https://www.froid.com.br/app/#/paciente">Patient Portal</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">© 2026 FROID.</div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var section = document.getElementById("evidencia");
+  if(!section) return;
+  var cards = Array.prototype.slice.call(section.querySelectorAll(".card"));
+  var search = document.getElementById("evSearch");
+  var count = document.getElementById("evCount");
+  var buttons = Array.prototype.slice.call(section.querySelectorAll(".ev-btn"));
+  var empty = document.createElement("p");
+  empty.className = "ev-empty"; empty.id = "evEmpty";
+  empty.textContent = "No pillar matches this filter.";
+  cards[cards.length-1].parentNode.appendChild(empty);
+
+  function strengthOf(card){
+    var b = card.innerHTML;
+    if(card.querySelector(".badge-none") || card.querySelector(".badge-proprietary")) return "proprietaria";
+    if(card.querySelector(".badge-strong")) return "forte";
+    if(card.querySelector(".badge-moderate")) return "emergente";
+    if(card.querySelector(".badge-weak")) return "fraca";
+    return "outra";
+  }
+  cards.forEach(function(c){ c.dataset.strength = strengthOf(c); });
+
+  var activeFilter = "all";
+  function apply(){
+    var q = search.value.trim().toLowerCase();
+    var shown = 0;
+    cards.forEach(function(c){
+      var okF = activeFilter === "all" || c.dataset.strength === activeFilter;
+      var okQ = q === "" || c.textContent.toLowerCase().indexOf(q) !== -1;
+      var vis = okF && okQ;
+      c.classList.toggle("ev-hidden", !vis);
+      if(vis) shown++;
+    });
+    count.textContent = "showing " + shown + " of " + cards.length + " pillars";
+    document.getElementById("evEmpty").style.display = shown === 0 ? "block" : "none";
+  }
+  buttons.forEach(function(btn){
+    btn.addEventListener("click", function(){
+      activeFilter = btn.dataset.f;
+      buttons.forEach(function(b){ b.setAttribute("aria-pressed", b === btn ? "true" : "false"); });
+      apply();
+    });
+  });
+  search.addEventListener("input", apply);
+  apply();
+})();
+</script>
+<script src="../site-assets/script.js?v=3"></script>
+</body>
+</html>

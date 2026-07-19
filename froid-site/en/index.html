@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FROID — Frequency Recognition of Internal Dynamics</title>
+<meta name="description" content="FROID is a clinical support platform that analyzes voice and facial expression in therapy sessions, combining validated signal engineering with a proprietary interpretive layer." />
+<link rel="alternate" hreflang="pt-BR" href="https://www.froid.com.br/" />
+<link rel="alternate" hreflang="en" href="https://www.froid.com.br/en/" />
+<link rel="alternate" hreflang="x-default" href="https://www.froid.com.br/" />
+<link rel="stylesheet" href="../site-assets/style.css?v=5" />
+<script>
+  // The FROID panel uses HashRouter (/#/dashboard). On refresh, the server receives "/"
+  // and serves this site — this redirect sends the user back to the panel at /app/.
+  if (location.hash.indexOf("#/") === 0) { location.replace("/app/" + location.hash); }
+</script>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="nav-row">
+    <a class="brand" href="index.html"><img class="brand-logo" src="../site-assets/img/froid-logo.png" alt="FROID" /></a>
+    <nav class="nav-links">
+      <a href="index.html">Home</a>
+      <a href="ciencia.html">Science</a>
+      <a href="tecnologia.html">Technology</a>
+      <a href="froid-explica.html">FROID Explains</a>
+      <a href="etica.html">Ethics</a>
+      <a href="seguranca.html">Security</a>
+      <a href="profissionais.html">Professionals</a>
+      <a href="precos.html">Pricing</a>
+    </nav>
+    <div class="nav-actions">
+      <a class="btn btn-ghost" href="https://www.froid.com.br/app/#/login">Sign in to FROID</a>
+      <a class="btn btn-solid" href="https://www.froid.com.br/cadastro">Sign up for FROID</a>
+      <a class="btn btn-ghost lang-switch" href="../index.html" title="Mudar para português">PT</a>
+    </div>
+  </div>
+</header>
+
+<section class="hero-neuro">
+  <!-- Hero art (froid-hero.png), in flow. Swappable for another image in ../site-assets/img/. -->
+  <div class="hero-neuro__art" aria-hidden="true">
+    <img class="hero-neuro__img" src="../site-assets/img/froid-hero.png?v=2" alt="" />
+  </div>
+  <div class="hero-neuro__overlay" aria-hidden="true"></div>
+
+  <div class="hero-neuro__content">
+    <h1 class="hero-neuro__wordmark">FROID</h1>
+    <p class="hero-neuro__tagline">Frequency Recognition of Internal Dynamics</p>
+    <blockquote class="hero-quote">
+      <p>Any intelligence that sets out to help a human being understand themselves is born small before the immensity of what it seeks. It will grow exponentially and indefinitely toward becoming the largest and most useful intelligence in aid of those seeking to understand the metaphysics behind the coherent relationship between the soul and its expressions: what the voice — the greatest expression of the human psyche — reveals, the intention behind words, and what the face confesses; and the truth that emerges when the three converge. Because giving humans the means to understand themselves better is, in the end, caring for their very existence.</p>
+      <footer>This is the vision that guides FROID. Every step of this journey is taken with the rigor described in our Science and Ethics pages.</footer>
+    </blockquote>
+    <div class="hero-actions" style="justify-content:center;">
+      <a class="btn btn-solid" href="demonstracao.html">See the demo</a>
+      <a class="btn btn-ghost" href="tecnologia.html">How it works</a>
+      <a class="btn btn-ghost" href="ciencia.html">See the scientific basis</a>
+    </div>
+  </div>
+
+  <div class="hero-neuro__scroll">scroll to explore</div>
+</section>
+
+<section class="block">
+  <div class="container">
+    <p class="section-kicker">Overview</p>
+    <h2 class="section-title">What FROID measures during a session</h2>
+    <p class="section-lead">Three layers of signal, processed in real time and always compared against an individual 60-second calibration at the start of each session.</p>
+
+    <div class="disclaimer-box" style="margin-bottom:28px;">
+      <strong>FROID's positioning:</strong> FROID's positioning is based on the premise that it does not perform autonomous diagnoses. Responsibility and sovereignty over the clinical assessment remain entirely with the professional. FROID acts strictly as a coprocessor of involuntary neuromuscular and biophysiological signals, capturing micro-leaks of emotion that escape subjective human visual or auditory perception.
+    </div>
+
+    <div class="grid-3">
+      <div class="card">
+        <span class="badge badge-strong">Solid scientific basis</span>
+        <h3>Voice acoustics</h3>
+        <p>Fundamental frequency (<abbr class="term" title="F0: pitch of the voice. Lower variability is a marker of psychomotor retardation. See Glossary.">F0</abbr>), cepstral coefficients (<abbr class="term" title="MFCC: mathematical representation of vocal timbre, used for affective state and articulation. See Glossary.">MFCC</abbr>) and their temporal derivatives, zero-crossing rate — extracted continuously and compared to the patient's own baseline.</p>
+      </div>
+      <div class="card">
+        <span class="badge badge-moderate">Validated infrastructure</span>
+        <h3>Facial dynamics</h3>
+        <p>Tracking of 468 facial landmarks and classification of Action Units (<abbr class="term" title="FACS: Facial Action Coding System, the gold standard for describing facial movements in objective units. See Glossary.">FACS</abbr>) with onset–apex–offset temporal modeling.</p>
+      </div>
+      <div class="card">
+        <span class="badge badge-proprietary">FROID proprietary framework</span>
+        <h3>Interpretive layer</h3>
+        <p>The 12 Perception Zones and two synthesis indices — the <strong>Multimodal Power Index (IPM)</strong>, the "speedometer" of energy and psychomotor vitality, and the <strong>Multimodal Deviance Index (IDM)</strong>, the "compass" of coherence between voice and face — reduce acoustic-facial signals to a visual reading meant to support, not replace, clinical listening.</p>
+      </div>
+    </div>
+
+    <img class="site-img" style="margin-top:40px;" src="../site-assets/img/home-visao-geral.png" alt="Overview of the FROID panel: average indicators, latest sessions, and results by segment." />
+
+    <div class="nerds-wrapper">
+      <button class="nerds-toggle" data-target="nerds-medicao" aria-expanded="false">Nerds only</button>
+      <div class="nerds-panel" id="nerds-medicao">
+        <h4>Capture pipeline</h4>
+        <p>Audio at 48 kHz, Hamming windowing, FFT run in the browser via the Web Audio API (no DSP dependency on the Python backend — only FastAPI/DuckDB/LLMs for explanation and transcription). Video processed locally at 30+ FPS for the 468 facial landmarks.</p>
+        <h4>Real fields tracked per session</h4>
+        <div class="formula">mfcc7, mfcc9, mfcc7_delta, mfcc9_delta, mfcc7_delta_delta, mfcc9_delta_delta,
+f0_mean, f0_var, zcr, jitter_proxy_index, shimmer_proxy_index,
+subharmonic_energy_5_12hz, energy_85_165hz, dna_facial_multiplier</div>
+        <p>All compared against the baseline locked in the first 60 seconds of the session (<code>baseline_mfcc7</code>, <code>baseline_mfcc9</code>, etc.).</p>
+        <div class="ref">Full breakdown of each metric in <a href="tecnologia.html">Technology</a>.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block soft">
+  <div class="container">
+    <p class="section-kicker">Transparency</p>
+    <h2 class="section-title">What is published science and what is proprietary methodology</h2>
+    <p class="section-lead">Unlike most tools in the industry, FROID explicitly separates these two layers — and invites you to check each one.</p>
+    <div class="grid-2">
+      <div class="card">
+        <h3>Based on peer-reviewed literature</h3>
+        <p>F0, MFCC, jitter/shimmer, and Action Unit dynamics as signals associated with affective states and psychomotor retardation have decades of published research behind them — <a href="ciencia.html">see the references</a>.</p>
+      </div>
+      <div class="card">
+        <h3>FROID proprietary interpretive framework</h3>
+        <p>The 12 Perception Zones, the Facial Dissonance Multiplier, and the IPM/IDM indices are FROID's way of organizing these signals visually. They are not findings from published clinical studies — they are product heuristics, and we treat them as such.</p>
+      </div>
+    </div>
+
+    <div class="nerds-wrapper">
+      <button class="nerds-toggle" data-target="nerds-home" data-label-closed="Nerds only" data-label-open="Close technical details" aria-expanded="false">Nerds only</button>
+      <div class="nerds-panel" id="nerds-home">
+        <h4>Why do we separate "science" from "proprietary framework"?</h4>
+        <p>Because mixing the two without warning is the kind of thing that misleads clinicians and harms patients. Any claim of automated diagnosis is false — FROID is a support tool, not a validated diagnostic instrument.</p>
+        <h4>Origin of the 12 Zones</h4>
+        <p>The structure of 12 zones mapped to notes of the chromatic scale is a transposition inspired by commercial voice biofeedback technology (EVOX/ZYTO line), adapted by the FROID team as a visualization interface — it is not published neuroscience.</p>
+        <div class="ref">See the full bibliography in <a href="ciencia.html">Science</a>.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block">
+  <div class="container">
+    <p class="section-kicker">Who it's for</p>
+    <h2 class="section-title">Built for the real clinical routine</h2>
+    <div class="grid-2">
+      <img class="site-img" src="../site-assets/img/home-sessao-ao-vivo.png" alt="FROID live session panel, with session time and semantic segment in progress." />
+      <div>
+        <p class="section-lead" style="margin-bottom:20px;">Psychiatrists, psychologists, and therapists who want an additional layer of objective reading during the appointment — without wasting time on tools that don't integrate with the session.</p>
+        <ul>
+          <li>Automatic 60-second calibration at the start of each session</li>
+          <li>Real-time alerts for dissonance between speech and facial expression</li>
+          <li>Automatically organized transcription and clinical notes</li>
+          <li>Financial and reporting panel for the professional practice</li>
+        </ul>
+        <a class="btn btn-solid" href="profissionais.html">See resources for professionals</a>
+      </div>
+    </div>
+
+    <div class="nerds-wrapper">
+      <button class="nerds-toggle" data-target="nerds-arquitetura" aria-expanded="false">Nerds only</button>
+      <div class="nerds-panel" id="nerds-arquitetura">
+        <h4>System architecture</h4>
+        <p>Frontend in React + Vite + TypeScript (<code>froid-dashboard</code>), FastAPI backend with DuckDB for anonymous analytics and ChromaDB for RAG powering the "FROID Explains" assistant (<code>froid-server</code>). Transcription via GPT-4o-transcribe; explanations via Gemini 1.5 Pro/GPT-4o — always about already-calculated metrics, never generating the acoustic values themselves.</p>
+        <h4>Access security</h4>
+        <p>Professional access control per session, with credit consumption per appointment and ownership binding per report (<code>_can_access_report</code>, <code>_professional_access_status</code>).</p>
+        <div class="ref">More on security and compliance in <a href="seguranca.html">Security</a>.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block soft">
+  <div class="container">
+    <p class="section-kicker">The differentiator</p>
+    <h2 class="section-title">FROID Explains: the intelligence that talks with you</h2>
+    <p class="section-lead">An LLM-RAG assistant that answers, in clinical language, everything about the session's reading — and cross-references your patient roster with the global anonymous Data Mart. Comes with 22 ready-made prompts, and you can create your own.</p>
+    <div class="grid-3">
+      <div class="card">
+        <span class="badge badge-strong">Knowledge</span>
+        <h3>Explains the reading</h3>
+        <p>"What does this dissonance mean?", "what does the IPM suggest?" — grounded answers about already-calculated metrics.</p>
+      </div>
+      <div class="card">
+        <span class="badge badge-proprietary">Data Mart</span>
+        <h3>Compares with the world</h3>
+        <p>"Is this patient above average in risk?", "most similar cases (top 5)?" — the statistical power of thousands of anonymous sessions.</p>
+      </div>
+      <div class="card">
+        <span class="badge badge-moderate">Your own prompts</span>
+        <h3>Your way</h3>
+        <p>Create prompts in your settings area — and over time, empirically validate the IPM, the IDM, and the other metrics.</p>
+      </div>
+    </div>
+    <div style="margin-top:24px;">
+      <a class="btn btn-solid" href="froid-explica.html">Learn about FROID Explains</a>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="paciente">
+  <div class="container">
+    <p class="section-kicker">Transparency · LGPD</p>
+    <h2 class="section-title">Patient Portal: the data is yours</h2>
+    <p class="section-lead">By law, the patient owns their own information. FROID takes this seriously: a dedicated portal, with a login separate from the professional's, where the patient sees and manages everything that is theirs.</p>
+
+    <div class="grid-3">
+      <div class="card">
+        <h3>👁️ See your sessions</h3>
+        <p>Results of completed sessions: key metrics, baseline, segments/summaries, and dissonances — the same reading that supports your professional, now in your hands.</p>
+      </div>
+      <div class="card">
+        <h3>🗂️ Manage your data</h3>
+        <p>Basic registration data under your control, in line with Brazil's LGPD (Law 13.709/2018) — the right to access and manage your own information in one place.</p>
+      </div>
+      <div class="card">
+        <h3>⬇️ Take it with you</h3>
+        <p>Download the results of each session individually or all results in a single file — real portability, with no requests and no waiting.</p>
+      </div>
+    </div>
+
+    <div style="margin-top:24px;">
+      <a class="btn btn-solid" href="https://www.froid.com.br/app/#/paciente">Access the Patient Portal</a>
+      <a class="btn btn-ghost" href="privacidade.html" style="margin-left:10px;">Privacy Policy</a>
+    </div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="foot-grid">
+      <div>
+        <h5>FROID</h5>
+        <p style="max-width:340px; color:rgba(248,250,252,0.55);">Frequency Recognition of Internal Dynamics. A tool to support clinical listening — it does not replace professional assessment, diagnosis, or judgment.</p>
+      </div>
+      <div>
+        <h5>Navigation</h5>
+        <ul>
+          <li><a href="ciencia.html">Science</a></li>
+          <li><a href="tecnologia.html">Technology</a></li>
+          <li><a href="froid-explica.html">FROID Explains</a></li>
+          <li><a href="etica.html">Ethics</a></li>
+          <li><a href="seguranca.html">Security</a></li>
+          <li><a href="profissionais.html">Professionals</a></li>
+          <li><a href="precos.html">Pricing</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Support</h5>
+        <ul>
+          <li><a href="faq.html">FAQ</a></li>
+          <li><a href="glossario.html">Glossary</a></li>
+          <li><a href="demonstracao.html">Demo</a></li>
+          <li><a href="sobre-contato.html">About &amp; Contact</a></li>
+          <li><a href="termos.html">Terms of Use</a></li>
+          <li><a href="privacidade.html">Privacy Policy</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Access</h5>
+        <ul>
+          <li><a href="https://www.froid.com.br/app/#/login">Sign in to FROID</a></li>
+          <li><a href="https://www.froid.com.br/cadastro">Sign up for FROID</a></li>
+          <li><a href="https://www.froid.com.br/app/#/paciente">Patient Portal</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">© 2026 FROID. All scientific claims cited on this page have a verifiable reference in the <a href="ciencia.html">Science</a> section.</div>
+  </div>
+</footer>
+
+<script src="../site-assets/script.js?v=3"></script>
+</body>
+</html>
