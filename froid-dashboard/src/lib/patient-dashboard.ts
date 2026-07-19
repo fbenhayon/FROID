@@ -209,7 +209,7 @@ function stateFromMetrics(ipm: number, idm: number, quality: number) {
   if (ipm <= 35 && idm < 0.15) return "EMBOTAMENTO / DEFESA";
   if (ipm >= 55 && idm >= 0.15) return "FLUXO SAUDAVEL";
   if (idm >= 0.35) return "ADAPTATIVO";
-  return "ATENCAO";
+  return "ATENÇÃO";
 }
 
 function qualityLabel(score: number) {
@@ -304,9 +304,9 @@ export function patientAdvancedSignal(group: PatientDashboardGroup): PatientAdva
             : "ROTINA";
   const action =
     priority === "ALTA PRIORIDADE"
-      ? "Revisao clínica prioritaria"
+      ? "Revisão clínica prioritária"
       : priority === "REVISAR"
-        ? "Revisar próximos cortes e anotaÃ§Ãµes"
+        ? "Revisar próximos cortes e anotações"
         : priority === "OBSERVAR"
           ? "Acompanhar tendência longitudinal"
           : priority === "DADOS INSUFICIENTES"
@@ -392,7 +392,7 @@ function buildClinicalNote(
     recurrentEmotion && recurrentEmotion !== "--"
       ? `com tom recorrente ${recurrentEmotion.toLowerCase()}`
       : "com tom recorrente ainda em consolidacao";
-  return `${patientName} apresenta padrão longitudinal baseado em ${sessionCount} sessão(oes), com predominancia de ${zoneText}, ${emotionText} e risco clínico ${clinicalRisk.toLowerCase()}. Recomenda-se acompanhar a evolucao comparando baseline, média da sessão e cortes de 10 minutos.`;
+  return `${patientName} apresenta padrão longitudinal baseado em ${sessionCount} sessão(oes), com predominância de ${zoneText}, ${emotionText} e risco clínico ${clinicalRisk.toLowerCase()}. Recomenda-se acompanhar a evolução comparando baseline, média da sessão e cortes de 10 minutos.`;
 }
 
 export function buildPatientGroups(reports: SessionReportRecord[]): PatientDashboardGroup[] {

@@ -141,16 +141,16 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta }) => {
         value: tremor5_12,
         source: acoustic5_12 !== null ? "acústico" : "proxy",
         tooltip:
-          "Infrassom Nuclear: leitura da faixa 5-12 Hz, associada a tremor profundo do Sistema Nervoso Autonomo e ativaÃ§Ã£o inconsciente.",
+          "Infrassom Nuclear: leitura da faixa 5-12 Hz, associada a tremor profundo do Sistema Nervoso Autonomo e ativação inconsciente.",
       },
       {
         id: "limbic_12_20",
-        label: "Modulacao limbica",
+        label: "Modulação límbica",
         band: "12-20 Hz | Reatividade afetiva",
         value: upper12_20,
         source: acoustic12_20 !== null ? "acústico" : "proxy",
         tooltip:
-          "Modulacao Limbica: faixa 12-20 Hz, usada para estimar reatividade afetiva e variação autônoma ligada a estados emocionais.",
+          "Modulação Límbica: faixa 12-20 Hz, usada para estimar reatividade afetiva e variação autônoma ligada a estados emocionais.",
       },
       {
         id: "vocal_85_165",
@@ -177,7 +177,7 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta }) => {
         value: shutdown,
         source: hasAcoustic ? "acústico" : "proxy",
         tooltip:
-          "Shutdown Dissociativo: queda energética com redução de coerencia, sugerindo supressao defensiva, embotamento ou retraimento autonômico.",
+          "Shutdown Dissociativo: queda energética com redução de coerencia, sugerindo supressão defensiva, embotamento ou retraimento autonômico.",
       },
       {
         id: "neurogenic",
@@ -236,7 +236,7 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta }) => {
             Sub-harmônicos
           </h3>
           <p className="truncate text-[10px] font-medium text-slate-400">
-            Percentual por componente e substancia técnica
+            Percentual por componente e substância técnica
           </p>
         </div>
         <div className="shrink-0 rounded-xl border border-blue-800 bg-blue-950 px-2.5 py-0.5 text-center text-blue-200">

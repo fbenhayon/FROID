@@ -37,6 +37,21 @@ type PrivacyOverview = {
   processing: { categories: string[]; automated_decision: boolean };
 };
 
+type ConsentPreferences = {
+  terms_of_use: boolean;
+  privacy_policy: boolean;
+  sensitive_data_processing: boolean;
+  audio_video_processing: boolean;
+  research_anonymized: boolean;
+};
+
+type ConsentOverview = {
+  consent: ConsentPreferences;
+  version: string;
+  updated_at: string;
+  session_authorization_active: boolean;
+};
+
 const PRIVACY_RIGHT_LABELS: Record<string, string> = {
   access: "Acesso aos dados",
   correction: "Correção",
@@ -127,6 +142,15 @@ export const PatientPortalPage: React.FC = () => {
     details: "",
   });
   const [privacySaving, setPrivacySaving] = useState(false);
+  const [consentOverview, setConsentOverview] = useState<ConsentOverview | null>(null);
+  const [consentForm, setConsentForm] = useState<ConsentPreferences>({
+    terms_of_use: false,
+    privacy_policy: false,
+    sensitive_data_processing: false,
+    audio_video_processing: false,
+    research_anonymized: false,
+  });
+  const [consentSaving, setConsentSaving] = useState(false);
 
   const authHeaders = useMemo<Record<string, string>>(() => {
     const headers: Record<string, string> = {};
@@ -181,6 +205,17 @@ export const PatientPortalPage: React.FC = () => {
     setPrivacy(data as PrivacyOverview);
   }, [authHeaders, token]);
 
+  const loadConsent = useCallback(async () => {
+    if (!token) return;
+    const response = await fetch(apiUrl("/api/patient-portal/consent"), {
+      headers: authHeaders,
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data?.detail || "Não foi possível carregar suas autorizações.");
+    setConsentOverview(data as ConsentOverview);
+    setConsentForm((data as ConsentOverview).consent);
+  }, [authHeaders, token]);
+
   useEffect(() => {
     if (!token) return;
     fetch(apiUrl("/api/patient-auth/me"), { headers: authHeaders })
@@ -190,6 +225,7 @@ export const PatientPortalPage: React.FC = () => {
         applyPatient(data.patient || null);
         return Promise.all([
           loadReports(),
+          loadConsent(),
           loadPrivacy().catch((err) => {
             setPrivacy(null);
             setError(err instanceof Error ? err.message : "Portal LGPD temporariamente indisponível.");
@@ -204,7 +240,30 @@ export const PatientPortalPage: React.FC = () => {
         setToken("");
         applyPatient(null);
       });
-  }, [applyPatient, authHeaders, loadPrivacy, loadReports, token]);
+  }, [applyPatient, authHeaders, loadConsent, loadPrivacy, loadReports, token]);
+
+  const saveConsent = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setConsentSaving(true);
+    setError("");
+    setMessage("");
+    try {
+      const response = await fetch(apiUrl("/api/patient-portal/consent"), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", ...authHeaders },
+        body: JSON.stringify(consentForm),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.detail || "Não foi possível atualizar suas autorizações.");
+      setConsentOverview(data as ConsentOverview);
+      setConsentForm((data as ConsentOverview).consent);
+      setMessage("Autorizações atualizadas e registradas.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao atualizar autorizações.");
+    } finally {
+      setConsentSaving(false);
+    }
+  };
 
   const submitPrivacyRequest = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -319,6 +378,7 @@ export const PatientPortalPage: React.FC = () => {
     applyPatient(null);
     setReports([]);
     setPrivacy(null);
+    setConsentOverview(null);
     setMessage("");
     setError("");
   };
@@ -493,6 +553,65 @@ export const PatientPortalPage: React.FC = () => {
               className="mt-4 rounded bg-cyan-600 px-4 py-2 text-xs font-black text-white hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {saving ? "Salvando..." : "Salvar dados"}
+            </button>
+          </form>
+
+          <form onSubmit={saveConsent} className="rounded-lg border border-emerald-900 bg-slate-900 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-300">
+                  Autorizações permanentes
+                </p>
+                <h2 className="mt-1 text-sm font-black text-white">
+                  Participação nas sessões FROID
+                </h2>
+              </div>
+              <span
+                className={`rounded px-2 py-1 text-[10px] font-black uppercase ${
+                  consentOverview?.session_authorization_active
+                    ? "bg-emerald-950 text-emerald-200"
+                    : "bg-amber-950 text-amber-200"
+                }`}
+              >
+                {consentOverview?.session_authorization_active
+                  ? "Sessões autorizadas"
+                  : "Autorização incompleta"}
+              </span>
+            </div>
+            <p className="mt-3 text-xs leading-5 text-slate-300">
+              Estas escolhas acompanham seu cadastro. Nos próximos convites,
+              você informará apenas sua senha. Desmarcar uma autorização
+              obrigatória bloqueia novas sessões até uma nova alteração.
+            </p>
+            <div className="mt-3 space-y-2 text-xs text-slate-300">
+              {[
+                ["terms_of_use", "Aceito os termos de uso do FROID."],
+                ["privacy_policy", "Aceito a política de privacidade."],
+                ["sensitive_data_processing", "Autorizo o tratamento de dados sensíveis de saúde."],
+                ["audio_video_processing", "Autorizo a captura e o processamento de áudio, vídeo e biomarcadores."],
+                ["research_anonymized", "Autorizo o uso anonimizado para pesquisa e melhoria do FROID (opcional)."],
+              ].map(([key, label]) => (
+                <label key={key} className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    checked={consentForm[key as keyof ConsentPreferences]}
+                    onChange={(event) =>
+                      setConsentForm((current) => ({
+                        ...current,
+                        [key]: event.target.checked,
+                      }))
+                    }
+                  />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </div>
+            <button
+              type="submit"
+              disabled={consentSaving}
+              className="mt-4 rounded bg-emerald-700 px-4 py-2 text-xs font-black text-white hover:bg-emerald-600 disabled:opacity-50"
+            >
+              {consentSaving ? "Salvando..." : "Salvar autorizações"}
             </button>
           </form>
 

@@ -6,24 +6,24 @@ type LgpdNoticeProps = {
 };
 
 const legalBases = [
-  "consentimento livre, informado, inequivoco, específico e destacado quando aplicÃ¡vel",
+  "consentimento livre, informado, inequivoco, específico e destacado quando aplicável",
   "execucao de contrato e procedimentos preliminares relacionados ao acesso ao FROID",
   "tutela da saúde e apoio a procedimento realizado por profissional habilitado",
-  "cumprimento de obrigacoes legais ou regulatorias",
+  "cumprimento de obrigações legais ou regulatorias",
   "legitimo interesse estritamente limitado a segurança, auditoria, prevencao a fraude e melhoria operacional",
   "estudos e melhoria técnica com dados anonimizados sempre que possível",
 ];
 
 const holderRights = [
-  "confirmaÃ§Ã£o da existencia de tratamento",
+  "confirmação da existencia de tratamento",
   "acesso aos dados pessoais",
   "correcao de dados incompletos, inexatos ou desatualizados",
   "anonimizacao, bloqueio ou eliminacao de dados desnecessarios, excessivos ou tratados em desconformidade",
-  "portabilidade quando tecnicamente aplicÃ¡vel",
+  "portabilidade quando tecnicamente aplicável",
   "informação sobre compartilhamentos realizados",
   "revogacao do consentimento e informação sobre as consequencias da negativa",
   "oposicao a tratamento irregular",
-  "revisao de decisoes automatizadas quando houver decisao baseada exclusivamente em tratamento automatizado",
+  "revisão de decisões automatizadas quando houver decisao baseada exclusivamente em tratamento automatizado",
 ];
 
 export const LgpdNotice: React.FC<LgpdNoticeProps> = ({
@@ -44,7 +44,7 @@ export const LgpdNotice: React.FC<LgpdNoticeProps> = ({
       </h2>
       <p className="mt-2 leading-6">
         O FROID foi projetado para operar de acordo com a Lei Geral de Proteção
-        de Dados Pessoais, Lei Federal n. 13.709/2018, e com orientacoes da
+        de Dados Pessoais, Lei Federal n. 13.709/2018, e com orientações da
         Autoridade Nacional de Proteção de Dados. A plataforma trata dados
         pessoais e pode tratar dados pessoais sensíveis, incluindo informações
         de saúde mental, voz, imagem, biometria facial, biomarcadores acústicos,
@@ -58,11 +58,11 @@ export const LgpdNotice: React.FC<LgpdNoticeProps> = ({
             <div className="rounded-md border border-amber-200 bg-white/60 p-3">
               <p className="font-black">Finalidades autorizadas</p>
               <p className="mt-1 leading-5">
-                cadastro, autenticacao, gestao de convites, realizacao de sessões,
+                cadastro, autenticação, gestão de convites, realização de sessões,
                 processamento de áudio/video quando consentido, leitura multimodal,
                 geracao de métricas, relatórios, suporte clínico ao profissional,
                 faturamento, segurança, auditoria, prevencao de fraude,
-                atendimento a solicitacoes do titular e melhoria do sistema.
+                atendimento a solicitações do titular e melhoria do sistema.
               </p>
             </div>
             <div className="rounded-md border border-amber-200 bg-white/60 p-3">
@@ -93,10 +93,10 @@ export const LgpdNotice: React.FC<LgpdNoticeProps> = ({
               <p className="mt-1 leading-5">
                 O FROID adota arquitetura orientada a minimizacao, segregacao,
                 controle de acesso, registros de auditoria, criptografia quando
-                aplicÃ¡vel, anonimização para bases populacionais e governanca de
+                aplicável, anonimização para bases populacionais e governanca de
                 incidentes. Na hipótese de incidente confirmado que possa causar
                 risco ou dano relevante, o controlador deve avaliar e comunicar
-                titulares e ANPD nos termos da regulamentacao aplicÃ¡vel.
+                titulares e ANPD nos termos da regulamentacao aplicável.
               </p>
             </div>
             <div className="rounded-md border border-amber-200 bg-white/60 p-3">
@@ -115,14 +115,14 @@ export const LgpdNotice: React.FC<LgpdNoticeProps> = ({
 
       <p className="mt-3 leading-6">
         {isPatient
-          ? "Ao prosseguir, o paciente declara ter recebido informações claras sobre a coleta e o tratamento de seus dados, podendo negar ou revogar consentimentos quando aplicÃ¡vel, ciente de que a negativa pode limitar funcionalidades da sessão."
+          ? "Ao prosseguir, o paciente declara ter recebido informações claras sobre a coleta e o tratamento de seus dados, podendo negar ou revogar consentimentos quando aplicável, ciente de que a negativa pode limitar funcionalidades da sessão."
           : isHome
             ? "A conformidade depende também da correta configuração operacional, da obtencao de consentimentos validos, de contratos adequados e da governanca do profissional ou instituicao usuaria."
             : "O profissional ou instituicao cadastrante declara possuir base legal, autorizacao e consentimentos necessários para inserir e tratar dados de pacientes, assumindo responsabilidade pela veracidade das informações, pela finalidade clínica e pelo uso adequado da plataforma."}
       </p>
       <p className="mt-2 text-[11px] leading-5 text-amber-800">
-        Este aviso não substitui politica de privacidade, contrato, termo de uso,
-        consentimento específico, RIPD/DPIA ou revisao juridica especializada. O
+        Este aviso não substitui política de privacidade, contrato, termo de uso,
+        consentimento específico, RIPD/DPIA ou revisão jurídica especializada. O
         texto deve ser revisado pelo responsável juridico/DPO antes de uso em
         producao.
       </p>

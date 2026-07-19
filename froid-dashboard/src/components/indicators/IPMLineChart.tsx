@@ -8,7 +8,7 @@ interface Props {
 }
 
 const IPM_ROLE_TEXT =
-  'O Papel do IPM (O "Velocimetro"): enquanto o IDM aponta a direÃ§Ã£o do desequilibrio, o IPM indica a intensidade ou energia global, servindo como velocimetro emocional. Ele e um índice composto atualizado a cada 1 segundo que funde magnitude acústica da voz, comportamento facial e substancia semântica transcrita. Assim, o IPM mede quanto combustivel emocional o paciente esta empregando, independente de estar sendo coerente ou não.';
+  'O Papel do IPM (O "Velocímetro"): enquanto o IDM aponta a direção do desequilíbrio, o IPM indica a intensidade ou energia global, servindo como velocímetro emocional. Ele é um índice composto atualizado a cada 1 segundo que funde magnitude acústica da voz, comportamento facial e substância semântica transcrita. Assim, o IPM mede quanto combustível emocional o paciente está empregando, independentemente de estar sendo coerente ou não.';
 
 const clamp = (value: number, min = 0, max = 100) =>
   Math.min(Math.max(Number.isFinite(value) ? value : 0, min), max);
@@ -142,7 +142,7 @@ export const IPMLineChart: React.FC<Props> = ({ data, current, baseline }) => {
           <FroidTooltip
             content={
               <div className="max-w-[380px]">
-                <p className="font-bold">O Papel do IPM (O "Velocimetro")</p>
+                <p className="font-bold">O Papel do IPM (O "Velocímetro")</p>
                 <p className="mt-1 text-[11px] leading-relaxed">
                   {IPM_ROLE_TEXT}
                 </p>

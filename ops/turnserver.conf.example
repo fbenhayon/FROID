@@ -1,0 +1,18 @@
+# Copy to /root/froid-project/data/turnserver.conf with mode 600.
+# Replace the two placeholders before starting the webrtc profile.
+listening-port=3478
+min-port=49160
+max-port=49200
+external-ip=HETZNER_PUBLIC_IP
+realm=turn.froid.com.br
+server-name=turn.froid.com.br
+fingerprint
+use-auth-secret
+static-auth-secret=REPLACE_WITH_THE_SAME_FROID_TURN_SECRET
+stale-nonce=600
+no-cli
+no-multicast-peers
+no-loopback-peers
+no-tcp-relay
+log-file=stdout
+simple-log

@@ -28,7 +28,7 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
         });
         const payload = response.ok ? await response.json() : null;
         if (!response.ok) {
-          throw new Error(payload?.detail || "Acesso administrativo indisponÃ­vel.");
+          throw new Error(payload?.detail || "Acesso administrativo indisponível.");
         }
         setData(payload);
       } catch (error: any) {

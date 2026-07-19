@@ -19,6 +19,7 @@ import {
   formatDuration,
   loadSessionReports,
   MetricSnapshot,
+  saveSessionReport,
   SessionReportRecord,
 } from "../lib/session-report";
 
@@ -53,10 +54,16 @@ export const PatientDetail: React.FC = () => {
   const [patientStatuses, setPatientStatuses] = useState<
     Record<string, PatientFollowStatus>
   >(() => loadPatientStatuses());
+  const [professionalObservation, setProfessionalObservation] = useState("");
+  const [observationSaving, setObservationSaving] = useState(false);
+  const [observationFeedback, setObservationFeedback] = useState("");
 
   useEffect(() => {
     let active = true;
-    fetch(apiUrl("/api/session-reports"))
+    const token = localStorage.getItem("froid_token") || "";
+    fetch(apiUrl("/api/session-reports"), {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => {
         if (!active) return;
@@ -88,7 +95,7 @@ export const PatientDetail: React.FC = () => {
             Paciente não encontrado
           </h1>
           <p className="mt-2 text-sm text-slate-400">
-            Ainda não ha relatórios locais ou sincronizados para este paciente.
+            Ainda não há relatórios locais ou sincronizados para este paciente.
           </p>
           <button
             onClick={() => navigate("/dashboard")}
@@ -113,6 +120,49 @@ export const PatientDetail: React.FC = () => {
       savePatientStatuses(next);
       return next;
     });
+  };
+  const saveProfessionalObservation = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const text = professionalObservation.trim();
+    if (!text) return;
+    setObservationSaving(true);
+    setObservationFeedback("");
+    try {
+      const token = localStorage.getItem("froid_token") || "";
+      const response = await fetch(
+        apiUrl(`/api/session-reports/${latest.sessionId}/clinical-notes`),
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ text }),
+        },
+      );
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.detail || "Não foi possível salvar a observação.");
+      }
+      const updatedReport = {
+        ...latest,
+        clinicalNotes: [...(latest.clinicalNotes || []), data.note],
+      };
+      saveSessionReport(updatedReport);
+      setReports((current) =>
+        current.map((report) =>
+          report.sessionId === updatedReport.sessionId ? updatedReport : report,
+        ),
+      );
+      setProfessionalObservation("");
+      setObservationFeedback("Observação registrada no prontuário longitudinal.");
+    } catch (err) {
+      setObservationFeedback(
+        err instanceof Error ? err.message : "Falha ao salvar observação.",
+      );
+    } finally {
+      setObservationSaving(false);
+    }
   };
   const context = {
     patient: group.patient,
@@ -227,7 +277,7 @@ export const PatientDetail: React.FC = () => {
           </section>
 
           <PatientMetricTable
-            title="Parametros iniciais - 60 segundos"
+            title="Parâmetros iniciais - 60 segundos"
             rows={[{ label: latest.baseline.label, metrics: patientMetricRows(latest.baseline) }]}
           />
 
@@ -240,7 +290,7 @@ export const PatientDetail: React.FC = () => {
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
                 <h2 className="text-sm font-bold text-slate-100">
-                  Evolucao das últimas 20 sessões
+                  Evolução das últimas 20 sessões
                 </h2>
                 <p className="mt-1 text-[11px] text-slate-400">
                   IPM, IDM, palavras por minuto, dissonâncias e sub-harmônicos em escala própria.
@@ -282,7 +332,7 @@ export const PatientDetail: React.FC = () => {
             </div>
             <div className="mt-4 grid gap-3 md:grid-cols-5">
               <PatientScoreBar label="Carga clínica" value={signal.clinicalLoad} color="#f97316" />
-              <PatientScoreBar label="Comunicacao" value={signal.communication} color="#0ea5e9" />
+              <PatientScoreBar label="Comunicação" value={signal.communication} color="#0ea5e9" />
               <PatientScoreBar label="Continuidade" value={signal.continuity} color="#22c55e" />
               <PatientScoreBar label="Insight" value={signal.insight} color="#8b5cf6" />
               <PatientScoreBar label="Qualidade" value={signal.dataQuality} color="#14b8a6" />
@@ -445,7 +495,7 @@ export const PatientDetail: React.FC = () => {
               <PatientKpi label="Análises" value={String(group.totalAnalyses)} />
               <PatientKpi label="Atenção" value={`${Math.round(signal.attentionIndex)}/100`} tone="red" />
               <PatientKpi label="Qualidade" value={signal.qualityLabel} tone="green" />
-              <PatientKpi label="Comunicacao" value={`${Math.round(signal.communication)}/100`} tone="blue" />
+              <PatientKpi label="Comunicação" value={`${Math.round(signal.communication)}/100`} tone="blue" />
               <PatientKpi label="Insight" value={`${Math.round(signal.insight)}/100`} tone="violet" />
             </div>
             <div className="mt-2 rounded border border-blue-100 bg-slate-950 p-2">
@@ -522,6 +572,56 @@ export const PatientDetail: React.FC = () => {
             />
           </section>
 
+          <form
+            onSubmit={saveProfessionalObservation}
+            className="rounded-lg border border-emerald-900 bg-slate-900 p-3"
+          >
+            <h2 className="text-sm font-bold text-slate-100">
+              Observações do profissional
+            </h2>
+            <p className="mt-1 text-[11px] leading-5 text-slate-400">
+              Registre uma observação vinculada à sessão mais recente e ao
+              histórico longitudinal deste paciente.
+            </p>
+            <textarea
+              value={professionalObservation}
+              onChange={(event) => setProfessionalObservation(event.target.value)}
+              maxLength={4000}
+              rows={4}
+              placeholder="Escreva a observação clínica..."
+              className="mt-3 w-full resize-y rounded border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-100 outline-none focus:border-emerald-500"
+            />
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+              <span className="text-[10px] text-slate-400">
+                {professionalObservation.length}/4000 caracteres
+              </span>
+              <button
+                type="submit"
+                disabled={observationSaving || !professionalObservation.trim()}
+                className="rounded bg-emerald-700 px-3 py-2 text-[11px] font-black text-white hover:bg-emerald-600 disabled:opacity-50"
+              >
+                {observationSaving ? "Salvando..." : "Salvar observação"}
+              </button>
+            </div>
+            {observationFeedback && (
+              <p className="mt-2 text-[11px] font-semibold text-emerald-200">
+                {observationFeedback}
+              </p>
+            )}
+            {!!latest.clinicalNotes.length && (
+              <div className="mt-3 space-y-2 border-t border-slate-800 pt-3">
+                {latest.clinicalNotes.slice(-3).reverse().map((note) => (
+                  <article key={note.id} className="rounded bg-slate-950 p-2 text-xs text-slate-300">
+                    <p>{note.text}</p>
+                    <p className="mt-1 text-[10px] text-slate-500">
+                      {formatDateTime(new Date(note.timestamp))}
+                    </p>
+                  </article>
+                ))}
+              </div>
+            )}
+          </form>
+
           <section className="rounded-lg border border-slate-800 bg-slate-900 p-3">
             <h2 className="text-sm font-bold text-slate-100">Resumo longitudinal</h2>
             <div className="mt-2 space-y-1.5 text-xs text-slate-300">
@@ -537,7 +637,7 @@ export const PatientDetail: React.FC = () => {
                 {group.recurrentEmotion || "--"}
               </p>
               <p>
-                <strong>Última sessao:</strong>{" "}
+                <strong>Última sessão:</strong>{" "}
                 {formatDateTime(reportEndDate(latest))} |{" "}
                 {formatDuration(latest.durationSeconds)} | {latestCutCount} cortes
               </p>
@@ -545,7 +645,7 @@ export const PatientDetail: React.FC = () => {
                 <strong>Pagamento:</strong> {paymentStatusForReport(latest)}
               </p>
               <p>
-                <strong>Observacoes:</strong> {latest.clinicalNotes.length} anotaÃ§Ãµes |{" "}
+                <strong>Observações:</strong> {latest.clinicalNotes.length} anotações |{" "}
                 {latest.dissonances.length} dissonâncias
               </p>
             </div>
@@ -573,7 +673,7 @@ export const PatientDetail: React.FC = () => {
             <h2 className="text-sm font-bold text-slate-100">Indicadores de seguimento</h2>
             <div className="mt-2 space-y-2">
               <PatientScoreBar label="Carga clínica" value={signal.clinicalLoad} color="#f97316" />
-              <PatientScoreBar label="Comunicacao" value={signal.communication} color="#0ea5e9" />
+              <PatientScoreBar label="Comunicação" value={signal.communication} color="#0ea5e9" />
               <PatientScoreBar label="Continuidade" value={signal.continuity} color="#22c55e" />
               <PatientScoreBar label="Insight" value={signal.insight} color="#8b5cf6" />
               <PatientScoreBar label="Qualidade" value={signal.dataQuality} color="#14b8a6" />
@@ -795,7 +895,7 @@ const PatientEvolutionChart: React.FC<{ reports: SessionReportRecord[] }> = ({
   if (!ordered.length) {
     return (
       <div className="mt-3 rounded border border-slate-700 bg-slate-950 p-3 text-xs text-slate-400">
-        Sem sessões suficientes para desenhar evolucao longitudinal.
+        Sem sessões suficientes para desenhar evolução longitudinal.
       </div>
     );
   }

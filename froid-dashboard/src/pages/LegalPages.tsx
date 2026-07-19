@@ -50,7 +50,7 @@ function LegalShell({
 
 export function PrivacyPage() {
   return (
-    <LegalShell title="Politica de Privacidade" eyebrow="Legal e LGPD">
+    <LegalShell title="Política de Privacidade" eyebrow="Legal e LGPD">
       <p>
         O FROID trata dados pessoais e dados sensíveis de saúde com finalidade
         clínica, operacional e de segurança, sempre como ferramenta de apoio ao
@@ -62,7 +62,7 @@ export function PrivacyPage() {
         <h2 className="text-base font-black text-white">Dados tratados</h2>
         <p className="mt-2">
           Podem ser tratados dados de cadastro do profissional, dados cadastrais
-          do paciente, agenda de sessões, áudio, vídeo, transcrição, anotaÃ§Ãµes
+          do paciente, agenda de sessões, áudio, vídeo, transcrição, anotações
           clínicas, métricas acústicas, métricas faciais, indicadores derivados,
           relatórios de sessão e registros de auditoria.
         </p>
@@ -84,7 +84,7 @@ export function PrivacyPage() {
         <p className="mt-2">
           Os dados são usados para autenticar usuários, organizar sessões,
           apoiar a escuta clínica em tempo real, gerar relatórios, permitir
-          continuidade longitudinal do atendimento, cumprir obrigacoes legais e
+          continuidade longitudinal do atendimento, cumprir obrigações legais e
           melhorar a segurança e qualidade técnica da plataforma.
         </p>
       </section>
@@ -93,7 +93,7 @@ export function PrivacyPage() {
         <h2 className="text-base font-black text-white">Base anonima e pesquisa</h2>
         <p className="mt-2">
           Informações agregadas e anonimizadas podem compor base estatística
-          para pesquisa, melhoria algoritmica e comparacoes populacionais,
+          para pesquisa, melhoria algoritmica e comparações populacionais,
           observando governanca, minimizacao, controles de acesso e criterios
           de anonimato.
         </p>
@@ -104,7 +104,7 @@ export function PrivacyPage() {
         <p className="mt-2">
           O titular pode solicitar acesso, correcao, portabilidade, informações
           sobre tratamento, revogacao de consentimento e exclusao de dados,
-          conforme aplicÃ¡vel pela LGPD. Solicite atendimento pelo contato do
+          conforme aplicável pela LGPD. Solicite atendimento pelo contato do
           FROID informado no site.
         </p>
       </section>
@@ -114,7 +114,7 @@ export function PrivacyPage() {
 
 export function TermsPage() {
   return (
-    <LegalShell title="Termos de Uso" eyebrow="CondiÃ§Ãµes de utilizaÃ§Ã£o">
+    <LegalShell title="Termos de Uso" eyebrow="Condições de utilização">
       <p>
         Estes termos regulam o uso do FROID por profissionais de saúde mental,
         pacientes convidados e usuários autorizados. Ao utilizar a plataforma, o
@@ -156,7 +156,7 @@ export function TermsPage() {
         <p className="mt-2">
           O FROID não emite diagnóstico autônomo, não substitui atendimento
           médico ou psicologico e não deve ser usado como único fundamento para
-          decisoes clínicas, legais, laborais, securitarias ou emergenciais.
+          decisões clínicas, legais, laborais, securitarias ou emergenciais.
         </p>
       </section>
     </LegalShell>

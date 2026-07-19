@@ -1,7 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { apiUrl, wsUrl } from "../lib/api";
-import { createConferenceStream, RTC_CONFIG } from "../lib/webrtc";
+import {
+  attachRemoteMedia,
+  configureConferenceSender,
+  createConferenceStream,
+  loadRtcConfiguration,
+} from "../lib/webrtc";
 
 type JoinState = "checking" | "joined" | "blocked";
 type MediaState = "idle" | "requesting" | "active" | "failed";
@@ -12,28 +17,46 @@ export const PatientSessionPage: React.FC = () => {
   const inviteToken = searchParams.get("invite") || "";
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const rtcSignalRef = useRef<WebSocket | null>(null);
   const rtcPeerRef = useRef<RTCPeerConnection | null>(null);
+  const rtcRemoteStreamRef = useRef<MediaStream | null>(null);
   const rtcIceQueueRef = useRef<RTCIceCandidateInit[]>([]);
+  const rtcReconnectTimerRef = useRef<number | null>(null);
+  const rtcDisconnectTimerRef = useRef<number | null>(null);
+  const rtcClosingRef = useRef(false);
   const [joinState, setJoinState] = useState<JoinState>("checking");
   const [mediaState, setMediaState] = useState<MediaState>("idle");
   const [callStatus, setCallStatus] = useState("Aguardando profissional");
   const [remoteProfessionalOn, setRemoteProfessionalOn] = useState(false);
+  const [remoteProfessionalVideoOn, setRemoteProfessionalVideoOn] = useState(false);
   const [patientName, setPatientName] = useState("");
   const [error, setError] = useState("");
 
   const cleanupRtc = () => {
+    rtcClosingRef.current = true;
+    if (rtcReconnectTimerRef.current) {
+      window.clearTimeout(rtcReconnectTimerRef.current);
+      rtcReconnectTimerRef.current = null;
+    }
+    if (rtcDisconnectTimerRef.current) {
+      window.clearTimeout(rtcDisconnectTimerRef.current);
+      rtcDisconnectTimerRef.current = null;
+    }
     rtcSignalRef.current?.close();
     rtcSignalRef.current = null;
     rtcPeerRef.current?.close();
     rtcPeerRef.current = null;
+    rtcRemoteStreamRef.current = null;
     rtcIceQueueRef.current = [];
     setRemoteProfessionalOn(false);
+    setRemoteProfessionalVideoOn(false);
     setCallStatus("Aguardando profissional");
     if (remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = null;
     }
+    if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
   };
 
   useEffect(() => {
@@ -51,7 +74,7 @@ export const PatientSessionPage: React.FC = () => {
     })
       .then(async (response) => {
         const data = await response.json();
-        if (!response.ok) throw new Error(data?.detail || "Sessão indisponÃ­vel.");
+        if (!response.ok) throw new Error(data?.detail || "Sessão indisponível.");
         return data;
       })
       .then((data) => {
@@ -74,23 +97,28 @@ export const PatientSessionPage: React.FC = () => {
 
   const startPatientRtc = async (localSource: MediaStream) => {
     if (!sessionId || typeof RTCPeerConnection === "undefined") {
-      setCallStatus("WebRTC indisponÃ­vel neste navegador.");
+      setCallStatus("WebRTC indisponível neste navegador.");
       return;
     }
 
     cleanupRtc();
+    rtcClosingRef.current = false;
     const localConferenceStream = createConferenceStream(localSource);
     if (!localConferenceStream.getTracks().length) {
       setCallStatus("Áudio e vídeo locais indisponiveis para chamada.");
       return;
     }
 
-    const peer = new RTCPeerConnection(RTC_CONFIG);
+    const peer = new RTCPeerConnection(
+      await loadRtcConfiguration({ sessionId, inviteToken }),
+    );
     const remoteStream = new MediaStream();
     rtcPeerRef.current = peer;
+    rtcRemoteStreamRef.current = remoteStream;
 
     localConferenceStream.getTracks().forEach((track) => {
-      peer.addTrack(track, localConferenceStream);
+      const sender = peer.addTrack(track, localConferenceStream);
+      void configureConferenceSender(sender);
     });
 
     const sendSignal = (payload: Record<string, unknown>) => {
@@ -108,18 +136,36 @@ export const PatientSessionPage: React.FC = () => {
       }
     };
 
+    const refreshRemoteTracks = () => {
+      const media = attachRemoteMedia(
+        remoteStream,
+        remoteVideoRef.current,
+        remoteAudioRef.current,
+      );
+      setRemoteProfessionalOn(media.audio);
+      setRemoteProfessionalVideoOn(media.video);
+      setCallStatus(
+        media.audio && media.video
+          ? "Profissional conectado: áudio e vídeo ativos."
+          : media.audio
+            ? "Profissional conectado: áudio ativo, aguardando vídeo."
+            : media.video
+              ? "Profissional conectado: vídeo ativo, aguardando áudio."
+              : "Conectado, aguardando mídia do profissional.",
+      );
+    };
+
     peer.ontrack = (event) => {
-      event.streams[0]?.getTracks().forEach((track) => {
+      const incomingTracks = event.streams[0]?.getTracks() || [event.track];
+      incomingTracks.forEach((track) => {
         if (!remoteStream.getTracks().some((item) => item.id === track.id)) {
           remoteStream.addTrack(track);
         }
+        track.onended = refreshRemoteTracks;
+        track.onmute = refreshRemoteTracks;
+        track.onunmute = refreshRemoteTracks;
       });
-      if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = remoteStream;
-        remoteVideoRef.current.play().catch(() => undefined);
-      }
-      setRemoteProfessionalOn(true);
-      setCallStatus("Profissional conectado por áudio e vídeo.");
+      refreshRemoteTracks();
     };
 
     peer.onicecandidate = (event) => {
@@ -130,24 +176,35 @@ export const PatientSessionPage: React.FC = () => {
 
     peer.onconnectionstatechange = () => {
       if (peer.connectionState === "connected") {
-        setCallStatus("Áudio e vídeo bidirecionais ativos.");
-      } else if (["failed", "disconnected"].includes(peer.connectionState)) {
+        if (rtcDisconnectTimerRef.current) {
+          window.clearTimeout(rtcDisconnectTimerRef.current);
+          rtcDisconnectTimerRef.current = null;
+        }
+        refreshRemoteTracks();
+      } else if (peer.connectionState === "failed") {
+        peer.restartIce();
+        sendSignal({ type: "renegotiate-request" });
         setRemoteProfessionalOn(false);
-        setCallStatus("Conexao com profissional interrompida.");
+        setRemoteProfessionalVideoOn(false);
+        setCallStatus("Reconectando áudio e vídeo do profissional...");
+      } else if (peer.connectionState === "disconnected") {
+        setCallStatus("Mídia instável; tentando reconectar...");
+        if (!rtcDisconnectTimerRef.current) {
+          rtcDisconnectTimerRef.current = window.setTimeout(() => {
+            rtcDisconnectTimerRef.current = null;
+            if (peer.connectionState === "disconnected") {
+              peer.restartIce();
+              sendSignal({ type: "renegotiate-request" });
+            }
+          }, 3_000);
+        }
       } else if (peer.connectionState === "connecting") {
         setCallStatus("Conectando áudio e vídeo do profissional...");
       }
     };
 
-    const socket = new WebSocket(
-      wsUrl(`/ws/rtc/${sessionId}/patient?invite=${encodeURIComponent(inviteToken)}`),
-    );
-    rtcSignalRef.current = socket;
-
-    socket.onopen = () => setCallStatus("Aguardando chamada do profissional...");
-    socket.onclose = () => setCallStatus("Sinalizacao de vídeo encerrada.");
-    socket.onerror = () => setCallStatus("Falha na sinalizaÃ§Ã£o de vídeo.");
-    socket.onmessage = async (event) => {
+    let reconnectAttempt = 0;
+    const handleSignal = async (event: MessageEvent) => {
       const data = JSON.parse(String(event.data || "{}"));
       if (data.type === "offer" && data.offer) {
         await peer.setRemoteDescription(data.offer);
@@ -164,18 +221,50 @@ export const PatientSessionPage: React.FC = () => {
         }
       } else if (data.type === "peer-left") {
         setRemoteProfessionalOn(false);
+        setRemoteProfessionalVideoOn(false);
         setCallStatus("Profissional saiu da chamada.");
         if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+        if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
       }
     };
+
+    const connectSignaling = () => {
+      if (rtcClosingRef.current || peer.connectionState === "closed") return;
+      const socket = new WebSocket(
+        wsUrl(
+          `/ws/rtc/${sessionId}/patient?invite=${encodeURIComponent(inviteToken)}`,
+        ),
+      );
+      rtcSignalRef.current = socket;
+      socket.onopen = () => {
+        reconnectAttempt = 0;
+        setCallStatus("Aguardando chamada do profissional...");
+      };
+      socket.onmessage = (event) => void handleSignal(event);
+      socket.onerror = () => socket.close();
+      socket.onclose = () => {
+        if (rtcClosingRef.current || peer.connectionState === "closed") return;
+        const delay = Math.min(4_000, 500 * 2 ** reconnectAttempt);
+        reconnectAttempt += 1;
+        setCallStatus("Reconectando sinalização da chamada...");
+        rtcReconnectTimerRef.current = window.setTimeout(connectSignaling, delay);
+      };
+    };
+    connectSignaling();
   };
 
   const activateMedia = async () => {
     setMediaState("requesting");
     setError("");
     try {
+      void loadRtcConfiguration({ sessionId, inviteToken });
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          frameRate: { ideal: 24, max: 30 },
+          facingMode: "user",
+        },
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
@@ -190,7 +279,7 @@ export const PatientSessionPage: React.FC = () => {
       await startPatientRtc(stream);
     } catch {
       setMediaState("failed");
-      setError("Não foi possível ativar camera e microfone neste navegador.");
+      setError("Não foi possível ativar câmera e microfone neste navegador.");
     }
   };
 
@@ -221,29 +310,31 @@ export const PatientSessionPage: React.FC = () => {
               ref={remoteVideoRef}
               autoPlay
               playsInline
+              muted
               className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${
-                remoteProfessionalOn ? "opacity-100" : "opacity-0"
+                remoteProfessionalVideoOn ? "opacity-100" : "opacity-0"
               }`}
             />
+            <audio ref={remoteAudioRef} autoPlay className="hidden" />
             <video
               ref={videoRef}
               autoPlay
               playsInline
               muted
               className={`absolute scale-x-[-1] object-cover transition-all duration-500 ${
-                remoteProfessionalOn
+                remoteProfessionalVideoOn
                   ? "bottom-3 right-3 z-20 h-24 w-36 rounded-lg border border-white/40 shadow-lg"
                   : "inset-0 h-full w-full"
               } ${mediaState === "active" ? "opacity-100" : "opacity-0"}`}
             />
             {mediaState !== "active" && (
               <div className="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-slate-400">
-                Camera e microfone aguardando permissao.
+                Câmera e microfone aguardando permissão.
               </div>
             )}
             <div
               className={`absolute left-3 top-3 z-20 rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wide backdrop-blur ${
-                remoteProfessionalOn
+                remoteProfessionalOn || remoteProfessionalVideoOn
                   ? "bg-emerald-500/90 text-white"
                   : "bg-slate-950/70 text-slate-200"
               }`}

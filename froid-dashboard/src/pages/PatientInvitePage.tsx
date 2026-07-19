@@ -12,6 +12,7 @@ interface InviteData {
   session_url?: string;
   patient_session_url?: string;
   patient_known: boolean;
+  password_only?: boolean;
   patient_name: string;
   patient_email: string;
   patient_phone: string;
@@ -106,18 +107,23 @@ export const PatientInvitePage: React.FC = () => {
     event.preventDefault();
     setSubmitting(true);
     setError("");
-    if (!patientForm.document.trim()) {
+    const passwordOnly = Boolean(invite?.password_only);
+    if (!passwordOnly && !patientForm.document.trim()) {
       setError("Informe o CPF/documento do paciente.");
       setSubmitting(false);
       return;
     }
-    if (!patientForm.email.trim()) {
+    if (!passwordOnly && !patientForm.email.trim()) {
       setError("Informe o e-mail do paciente.");
       setSubmitting(false);
       return;
     }
-    if (patientForm.email.trim().toLowerCase() !== patientForm.email_confirm.trim().toLowerCase()) {
-      setError("A confirmaÃ§Ã£o de e-mail não confere.");
+    if (
+      !passwordOnly &&
+      patientForm.email.trim().toLowerCase() !==
+        patientForm.email_confirm.trim().toLowerCase()
+    ) {
+      setError("A confirmação de e-mail não confere.");
       setSubmitting(false);
       return;
     }
@@ -126,8 +132,8 @@ export const PatientInvitePage: React.FC = () => {
       setSubmitting(false);
       return;
     }
-    if (patientForm.password !== patientForm.password_confirm) {
-      setError("A confirmaÃ§Ã£o de senha não confere.");
+    if (!passwordOnly && patientForm.password !== patientForm.password_confirm) {
+      setError("A confirmação de senha não confere.");
       setSubmitting(false);
       return;
     }
@@ -144,15 +150,15 @@ export const PatientInvitePage: React.FC = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...patientPayload,
-          consent,
+          ...(passwordOnly ? { password: patientForm.password } : patientPayload),
+          ...(passwordOnly ? {} : { consent }),
         }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.detail || "Não foi possível confirmar.");
       if (data?.patient_portal_token) {
-        localStorage.setItem("froid_patient_token", data.patient_portal_token);
-        localStorage.setItem("froid_patient_user", JSON.stringify(data.patient || {}));
+        sessionStorage.setItem("froid_patient_token", data.patient_portal_token);
+        sessionStorage.setItem("froid_patient_user", JSON.stringify(data.patient || {}));
       }
       setInvite(data);
       setAccepted(true);
@@ -175,7 +181,7 @@ export const PatientInvitePage: React.FC = () => {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 p-6 text-slate-100">
         <div className="max-w-md rounded-xl border border-red-900/40 bg-slate-900 p-6">
-          <p className="text-sm font-bold text-red-300">Convite indisponÃ­vel</p>
+          <p className="text-sm font-bold text-red-300">Convite indisponível</p>
           <p className="mt-2 text-sm text-slate-300">{error}</p>
         </div>
       </div>
@@ -222,7 +228,7 @@ export const PatientInvitePage: React.FC = () => {
                     : "Sessão avulsa"}
                 </strong>
                 <p className="mt-1 text-xs text-slate-300">
-                  Valor da sessao: {invite.payment.session_value_brl}
+                  Valor da sessão: {invite.payment.session_value_brl}
                   {invite.payment.mode === "package"
                     ? ` | Total: ${invite.payment.package_total_brl}`
                     : ""}
@@ -248,7 +254,7 @@ export const PatientInvitePage: React.FC = () => {
               Convite confirmado
             </p>
             <p className="mt-2 text-sm text-emerald-800">
-              Seu cadastro e consentimento foram registrados. A sessão esta
+              Seu cadastro e consentimento foram registrados. A sessão está
               liberada para entrada do paciente.
             </p>
             {sessionEntryUrl && (
@@ -270,7 +276,32 @@ export const PatientInvitePage: React.FC = () => {
           </div>
         ) : (
           <form onSubmit={submitAcceptance} className="space-y-5">
-            <div className="grid gap-3 md:grid-cols-2">
+            {invite?.password_only ? (
+              <div className="rounded-lg border border-cyan-800 bg-cyan-950/40 p-4">
+                <p className="text-sm font-bold text-cyan-100">
+                  Cadastro e autorizações localizados
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-slate-300">
+                  Para liberar esta sessão, informe somente sua senha. Suas
+                  autorizações permanecem válidas até que você as altere no
+                  Portal do Paciente.
+                </p>
+                <label className="mt-4 block text-xs font-semibold text-slate-200">
+                  Senha de acesso *
+                  <input
+                    type="password"
+                    value={patientForm.password}
+                    onChange={(event) => updatePatient("password", event.target.value)}
+                    minLength={8}
+                    required
+                    autoComplete="current-password"
+                    className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none focus:border-cyan-500"
+                  />
+                </label>
+              </div>
+            ) : (
+              <>
+              <div className="grid gap-3 md:grid-cols-2">
               <label className="text-xs font-semibold text-slate-300">
                 Nome completo
                 <input
@@ -368,8 +399,8 @@ export const PatientInvitePage: React.FC = () => {
               </div>
               <div className="mt-3 space-y-2 text-xs text-slate-300">
                 {[
-                  ["terms_of_use", "Li e aceito as condiÃ§Ãµes de utilizaÃ§Ã£o do FROID."],
-                  ["privacy_policy", "Li e aceito a politica de privacidade."],
+                  ["terms_of_use", "Li e aceito as condições de utilização do FROID."],
+                  ["privacy_policy", "Li e aceito a política de privacidade."],
                   [
                     "sensitive_data_processing",
                     "Autorizo o tratamento de dados sensíveis de saúde para esta sessão.",
@@ -399,6 +430,8 @@ export const PatientInvitePage: React.FC = () => {
                 ))}
               </div>
             </div>
+              </>
+            )}
 
             {error && (
               <p className="rounded-md bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
@@ -411,7 +444,11 @@ export const PatientInvitePage: React.FC = () => {
               disabled={submitting}
               className="rounded-lg bg-cyan-700 px-4 py-2 text-sm font-bold text-white hover:bg-cyan-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {submitting ? "Confirmando..." : "Confirmar cadastro e convite"}
+              {submitting
+                ? "Confirmando..."
+                : invite?.password_only
+                  ? "Confirmar senha e entrar"
+                  : "Confirmar cadastro e convite"}
             </button>
           </form>
         )}
@@ -419,5 +456,3 @@ export const PatientInvitePage: React.FC = () => {
     </div>
   );
 };
-
-

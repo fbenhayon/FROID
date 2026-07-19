@@ -73,7 +73,7 @@ export const NewPatient: React.FC = () => {
     try {
       await navigator.clipboard?.writeText(text);
     } catch {
-      window.prompt("Copie o conteudo abaixo:", text);
+      window.prompt("Copie o conteúdo abaixo:", text);
     }
   };
 
@@ -97,6 +97,7 @@ export const NewPatient: React.FC = () => {
           base_url: inviteBaseUrl,
           package_sessions: Number(form.package_sessions || 0),
           session_value: form.session_value,
+          session_mode: isPatientMobileCapture ? "presential_mobile" : "remote",
         }),
       });
       const data = await response.json();
@@ -230,7 +231,7 @@ export const NewPatient: React.FC = () => {
               <p className="font-black uppercase tracking-wide">Captura dedicada do paciente</p>
               <p className="mt-1">
                 O paciente deve abrir o link no próprio celular. O aparelho funcionará
-                como camera e microfone próximos ao paciente. Recomenda-se que o
+                como câmera e microfone próximos ao paciente. Recomenda-se que o
                 profissional use microfone de lapela próprio para reduzir vazamento da
                 voz do DR na trilha do paciente.
               </p>
@@ -297,7 +298,7 @@ export const NewPatient: React.FC = () => {
               </label>
             ) : (
               <label className="text-xs font-bold text-slate-300">
-                Código PIX copia e cola
+                Código PIX cópia e cola
                 <input
                   value={form.pix_code}
                   onChange={(event) => updateForm("pix_code", event.target.value)}

@@ -33,7 +33,7 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta }) => {
         value: read(audioMeta, "spectral_theta_4_8hz"),
         color: "#A5B4FC",
         tooltip:
-          "Theta 4-8 Hz: componente de modulacao lenta relacionado a flutuacoes afetivas e organizaÃ§Ã£o narrativa sob esforco emocional.",
+          "Theta 4-8 Hz: componente de modulação lenta relacionado a flutuações afetivas e organização narrativa sob esforco emocional.",
       },
       {
         label: "Alpha",
@@ -49,7 +49,7 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta }) => {
         value: read(audioMeta, "spectral_beta_12_30hz"),
         color: "#FBBF24",
         tooltip:
-          "Beta 12-30 Hz: ativaÃ§Ã£o rápida associada a tensão cognitiva, vigilância, pressao articulatoria e mobilizacao autônoma.",
+          "Beta 12-30 Hz: ativação rápida associada a tensão cognitiva, vigilância, pressao articulatoria e mobilizacao autônoma.",
       },
       {
         label: "Gama",
@@ -82,7 +82,7 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta }) => {
               <div>
                 <p className="font-bold text-slate-100">Bandas neuroacusticas</p>
                 <p className="mt-1">
-                  Leitura das modulacoes vocais Delta, Theta, Alpha, Beta e
+                  Leitura das modulações vocais Delta, Theta, Alpha, Beta e
                   Gama da trilha do paciente. A nomenclatura e analogica para
                   bandas de voz, não EEG, consolidada a cada 1 segundo e
                   cruzada com os deltas cepstrais MFCC7/MFCC9.

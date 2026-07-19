@@ -568,8 +568,8 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
           </p>
           <h1 className="mt-2 text-3xl font-black">Ficha cadastral FROID</h1>
           <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-300">
-            Complete o cadastro da pessoa física ou juridica, indique usuários,
-            aceite as condiÃ§Ãµes LGPD e selecione o plano para liberar o dashboard clínico.
+            Complete o cadastro da pessoa física ou jurídica, indique usuários,
+            aceite as condições LGPD e selecione o plano para liberar o dashboard clínico.
           </p>
         </div>
 
@@ -605,8 +605,8 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
                 <Field label="Celular" name="companyMobile" value={fields.companyMobile} onChange={updateField} required />
                 <Field label="Telefone" name="companyMainPhone" value={fields.companyMainPhone} onChange={updateField} />
                 <Field label="E-mail" name="companyEmail" value={fields.companyEmail} onChange={updateField} type="email" required />
-                <Field label="InscriÃ§Ã£o municipal" name="municipalRegistration" value={fields.municipalRegistration} onChange={updateField} />
-                <Field label="InscriÃ§Ã£o estadual" name="stateRegistration" value={fields.stateRegistration} onChange={updateField} />
+                <Field label="Inscrição municipal" name="municipalRegistration" value={fields.municipalRegistration} onChange={updateField} />
+                <Field label="Inscrição estadual" name="stateRegistration" value={fields.stateRegistration} onChange={updateField} />
                 <Field label="Fundacao" name="foundationDate" value={fields.foundationDate} onChange={updateField} type="date" />
               </Section>
             )}
@@ -645,9 +645,9 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
               <Field label="Registro profissional" name="professionalRegistry" value={fields.professionalRegistry} onChange={updateField} placeholder="Número do CRP/CRM" />
               <Field label="Descricao padrão do serviço" name="receiptServiceDescription" value={fields.receiptServiceDescription} onChange={updateField} placeholder="Sessão de psicoterapia individual, consulta psiquiátrica..." />
               <Field label="Local de emissao" name="receiptCity" value={fields.receiptCity} onChange={updateField} placeholder="Cidade/UF" />
-              <Field label="ObservaÃ§Ã£o fiscal padrão" name="receiptFiscalObservation" value={fields.receiptFiscalObservation} onChange={updateField} placeholder="Referência Receita Saúde/NFS-e quando aplicÃ¡vel" />
+              <Field label="Observação fiscal padrão" name="receiptFiscalObservation" value={fields.receiptFiscalObservation} onChange={updateField} placeholder="Referência Receita Saúde/NFS-e quando aplicável" />
               {accountType === "organization" && (
-                <Field label="Regime tributÃ¡rio" name="taxRegime" value={fields.taxRegime} onChange={updateField} />
+                <Field label="Regime tributário" name="taxRegime" value={fields.taxRegime} onChange={updateField} />
               )}
             </Section>
 
@@ -779,13 +779,13 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
 
             <section className="rounded-lg border border-slate-700 bg-slate-900 p-4 shadow-sm">
               <h2 className="border-b border-slate-700 pb-2 text-lg font-light text-slate-300">
-                ObservaÃ§Ãµes e responsabilidade LGPD
+                Observações e responsabilidade LGPD
               </h2>
               <textarea
                 value={fields.observations}
                 onChange={(event) => updateField("observations", event.target.value)}
                 rows={4}
-                placeholder="ObservaÃ§Ãµes cadastrais relevantes..."
+                placeholder="Observações cadastrais relevantes..."
                 className="mt-4 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200 outline-none focus:border-cyan-500"
               />
               <div className="mt-4">

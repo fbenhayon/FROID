@@ -118,6 +118,22 @@ FROID_ANALYTICS_MAX_SUPPRESSION_RATIO = min(
 FROID_DATAMART_PSEUDONYM_KEY = os.getenv(
     "FROID_DATAMART_PSEUDONYM_KEY", ""
 ).strip()
+FROID_TURN_URLS = [
+    url.strip()
+    for url in os.getenv("FROID_TURN_URLS", "").split(",")
+    if url.strip().startswith(("turn:", "turns:"))
+]
+FROID_TURN_SECRET = os.getenv("FROID_TURN_SECRET", "").strip()
+FROID_TURN_CREDENTIAL_TTL_SECONDS = max(
+    300,
+    min(86400, int(os.getenv("FROID_TURN_CREDENTIAL_TTL_SECONDS", "3600") or "3600")),
+)
+FROID_ICE_TRANSPORT_POLICY = os.getenv(
+    "FROID_ICE_TRANSPORT_POLICY", "all"
+).strip().lower()
+if FROID_ICE_TRANSPORT_POLICY not in {"all", "relay"}:
+    FROID_ICE_TRANSPORT_POLICY = "all"
+FROID_REQUIRE_TURN = os.getenv("FROID_REQUIRE_TURN", "false").strip().lower() == "true"
 FROID_SESSION_REPORTS_PATH = os.getenv(
     "FROID_SESSION_REPORTS_PATH",
     "/data/session_reports.json",
@@ -616,6 +632,18 @@ class PatientPortalProfileUpdate(BaseModel):
     phone: str = ""
     document: str = ""
     birth_date: str = ""
+
+
+class PatientConsentPreferences(BaseModel):
+    terms_of_use: bool
+    privacy_policy: bool
+    sensitive_data_processing: bool
+    audio_video_processing: bool
+    research_anonymized: bool = False
+
+
+class ClinicalNoteCreate(BaseModel):
+    text: str = Field(min_length=1, max_length=4000)
 
 
 class DataSubjectRequestCreate(BaseModel):
@@ -3188,6 +3216,64 @@ class RtcSignalManager:
 rtc_signals = RtcSignalManager()
 
 
+@app.get("/api/rtc/config")
+async def rtc_configuration(
+    request: Request,
+    session_id: str = "",
+    invite: str = "",
+):
+    professional = _current_user_from_request(request)
+    invite_record = SESSION_INVITES.get(invite) if invite else None
+    patient_authorized = bool(
+        invite_record
+        and invite_record.get("status") == "accepted"
+        and str(invite_record.get("session_id") or "") == session_id
+    )
+    professional_authorized = bool(
+        professional
+        and session_id
+        and _normalize_email(SESSION_OWNERS.get(session_id) or "")
+        == _normalize_email(professional.get("email") or "")
+    )
+    if not patient_authorized and not professional_authorized:
+        raise HTTPException(status_code=401, detail="acesso RTC não autorizado")
+    ice_servers: list[dict[str, Any]] = [
+        {"urls": ["stun:stun.l.google.com:19302"]}
+    ]
+    expires_at = 0
+    if FROID_TURN_URLS and FROID_TURN_SECRET:
+        expires_at = int(time.time()) + FROID_TURN_CREDENTIAL_TTL_SECONDS
+        username = f"{expires_at}:{secrets.token_urlsafe(8)}"
+        credential = base64.b64encode(
+            hmac.new(
+                FROID_TURN_SECRET.encode("utf-8"),
+                username.encode("utf-8"),
+                hashlib.sha1,
+            ).digest()
+        ).decode("ascii")
+        ice_servers.append(
+            {
+                "urls": FROID_TURN_URLS,
+                "username": username,
+                "credential": credential,
+                "credentialType": "password",
+            }
+        )
+    return JSONResponse(
+        content={
+            "iceServers": ice_servers,
+            "iceTransportPolicy": (
+                FROID_ICE_TRANSPORT_POLICY
+                if FROID_TURN_URLS and FROID_TURN_SECRET
+                else "all"
+            ),
+            "turnConfigured": bool(FROID_TURN_URLS and FROID_TURN_SECRET),
+            "credentialExpiresAt": expires_at,
+        },
+        headers={"Cache-Control": "no-store, max-age=0"},
+    )
+
+
 def _decode_audio_bytes(body: dict):
     for key in ("audio_bytes", "audio", "audio_chunk", "file"):
         value = body.get(key)
@@ -3383,6 +3469,19 @@ def _public_patient_session_url(base_url: str, session_id: str, token: str) -> s
 def _consent_hash(payload: dict) -> str:
     serialized = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
+def _patient_consent_preferences(patient: dict) -> dict:
+    preferences = patient.get("consent_preferences")
+    if isinstance(preferences, dict) and preferences:
+        return dict(preferences)
+    patient_id = str(patient.get("id") or "")
+    for entry in reversed(CONSENT_LEDGER):
+        if str(entry.get("patient_id") or "") == patient_id:
+            consent = entry.get("consent")
+            if isinstance(consent, dict) and consent:
+                return dict(consent)
+    return {}
 
 
 def _parse_money_cents(value) -> int:
@@ -4596,6 +4695,10 @@ def health():
         "tenant_enforcement_organizations": len(
             FROID_TENANT_ENFORCEMENT_ORGANIZATIONS
         ),
+        "media": {
+            "turn_configured": bool(FROID_TURN_URLS and FROID_TURN_SECRET),
+            "ice_transport_policy": FROID_ICE_TRANSPORT_POLICY,
+        },
     }
 
 
@@ -4607,6 +4710,11 @@ def readiness():
         "datamart_pseudonym_key_configured": bool(FROID_DATAMART_PSEUDONYM_KEY),
         "google_token_encryption_configured": (
             bool(TOKEN_CIPHER) if _calendar_configured() else True
+        ),
+        "rtc_relay_configured": (
+            bool(FROID_TURN_URLS and FROID_TURN_SECRET)
+            if FROID_REQUIRE_TURN
+            else True
         ),
     }
     billing_checks = {
@@ -4653,6 +4761,9 @@ async def create_session_invite(request: Request):
         else body.get("session_value")
     )
     session_id = str(body.get("session_id") or f"froid-{uuid.uuid4().hex[:12]}")
+    session_mode = str(body.get("session_mode") or "remote").strip().lower()
+    if session_mode not in {"remote", "presential_mobile"}:
+        raise HTTPException(status_code=400, detail="modalidade de sessão inválida")
     if not _session_matches_context(session_id, context):
         raise HTTPException(status_code=409, detail="sessão pertence a outra organização")
     existing_owner = _normalize_email(SESSION_OWNERS.get(session_id) or "")
@@ -4686,6 +4797,7 @@ async def create_session_invite(request: Request):
         "id": str(uuid.uuid4()),
         "token": token,
         "session_id": session_id,
+        "session_mode": session_mode,
         "status": "pending",
         "patient_id": known_patient_id,
         "patient_known": bool(known_patient_id),
@@ -5057,7 +5169,13 @@ async def get_session_invite(token: str):
     if not invite:
         raise HTTPException(status_code=404, detail="Convite não encontrado")
     _record_session_event("invite_opened", invite)
-    return invite
+    patient = PATIENTS.get(str(invite.get("patient_id") or ""))
+    return {
+        **invite,
+        "password_only": bool(
+            isinstance(patient, dict) and patient.get("password_hash")
+        ),
+    }
 
 
 @app.post("/api/session-invites/{token}/accept")
@@ -5069,59 +5187,89 @@ async def accept_session_invite(token: str, request: Request):
         return invite
 
     body = await request.json()
-    patient_name = str(body.get("name") or invite.get("patient_name") or "").strip()
-    patient_email = _normalize_email(body.get("email") or invite.get("patient_email") or "")
-    email_confirm = _normalize_email(body.get("email_confirm") or body.get("emailConfirmation") or "")
-    patient_phone = _digits_only(body.get("phone") or invite.get("patient_phone") or "")
-    document = _digits_only(body.get("document") or "")
-    birth_date = str(body.get("birth_date") or "").strip()
     password = str(body.get("password") or "")
-    consent = body.get("consent") or {}
-
     required_consents = [
         "terms_of_use",
         "privacy_policy",
         "sensitive_data_processing",
         "audio_video_processing",
     ]
-    missing = [key for key in required_consents if consent.get(key) is not True]
-    if missing:
-        raise HTTPException(status_code=400, detail=f"Consentimentos obrigatorios ausentes: {', '.join(missing)}")
-    if not patient_name:
-        raise HTTPException(status_code=400, detail="Nome do paciente obrigatório")
-    if not patient_email:
-        raise HTTPException(status_code=400, detail="E-mail do paciente obrigatório")
-    if email_confirm != patient_email:
-        raise HTTPException(status_code=400, detail="Confirmação de e-mail do paciente não confere")
-    if not document:
-        raise HTTPException(status_code=400, detail="CPF/documento obrigatório como chave de conferência do paciente")
-    if len(password) < 8:
-        raise HTTPException(status_code=400, detail="Senha do paciente obrigatória com no minimo 8 caracteres")
-
-    contact_key = _patient_contact_key(patient_email, patient_phone)
-    patient_id = (
-        invite.get("patient_id")
-        or PATIENTS_BY_CONTACT.get(contact_key)
-        or (PATIENTS_BY_CONTACT.get(f"document:{document}") if document else "")
-        or str(uuid.uuid4())
-    )
     now = _utc_now_iso()
-    patient = {
-        "id": patient_id,
-        "name": patient_name,
-        "email": patient_email,
-        "phone": patient_phone,
-        "document": document,
-        "birth_date": birth_date,
-        "created_at": PATIENTS.get(patient_id, {}).get("created_at") or now,
-        "updated_at": now,
-        "lgpd_consent_version": "FROID-LGPD-v1.0",
-        "lgpd_consent_at": now,
-    }
-    _set_patient_password(patient, password)
-    PATIENTS[patient_id] = patient
-    for patient_contact_key in _patient_contact_keys(patient):
-        PATIENTS_BY_CONTACT[patient_contact_key] = patient_id
+    known_patient_id = str(invite.get("patient_id") or "")
+    known_patient = PATIENTS.get(known_patient_id) if known_patient_id else None
+    returning_patient = bool(
+        isinstance(known_patient, dict) and known_patient.get("password_hash")
+    )
+
+    if returning_patient:
+        patient = known_patient
+        if not _verify_patient_password(patient, password):
+            raise HTTPException(status_code=401, detail="Senha do paciente inválida")
+        consent = _patient_consent_preferences(patient)
+        if consent and not patient.get("consent_preferences"):
+            patient["consent_preferences"] = consent
+            patient["consent_updated_at"] = patient.get("lgpd_consent_at") or now
+        missing = [key for key in required_consents if consent.get(key) is not True]
+        if missing:
+            raise HTTPException(
+                status_code=403,
+                detail="Autorização do paciente inativa. Atualize-a no Portal do Paciente.",
+            )
+        patient_id = known_patient_id
+        patient_name = str(patient.get("name") or invite.get("patient_name") or "").strip()
+        patient_email = _normalize_email(patient.get("email") or "")
+        patient_phone = _digits_only(patient.get("phone") or "")
+        consent_source = "persisted_patient_authorization"
+    else:
+        patient_name = str(body.get("name") or invite.get("patient_name") or "").strip()
+        patient_email = _normalize_email(body.get("email") or invite.get("patient_email") or "")
+        email_confirm = _normalize_email(
+            body.get("email_confirm") or body.get("emailConfirmation") or ""
+        )
+        patient_phone = _digits_only(body.get("phone") or invite.get("patient_phone") or "")
+        document = _digits_only(body.get("document") or "")
+        birth_date = str(body.get("birth_date") or "").strip()
+        consent = body.get("consent") or {}
+        missing = [key for key in required_consents if consent.get(key) is not True]
+        if missing:
+            raise HTTPException(status_code=400, detail=f"Consentimentos obrigatorios ausentes: {', '.join(missing)}")
+        if not patient_name:
+            raise HTTPException(status_code=400, detail="Nome do paciente obrigatório")
+        if not patient_email:
+            raise HTTPException(status_code=400, detail="E-mail do paciente obrigatório")
+        if email_confirm != patient_email:
+            raise HTTPException(status_code=400, detail="Confirmação de e-mail do paciente não confere")
+        if not document:
+            raise HTTPException(status_code=400, detail="CPF/documento obrigatório como chave de conferência do paciente")
+        if len(password) < 8:
+            raise HTTPException(status_code=400, detail="Senha do paciente obrigatória com no minimo 8 caracteres")
+
+        contact_key = _patient_contact_key(patient_email, patient_phone)
+        patient_id = (
+            known_patient_id
+            or PATIENTS_BY_CONTACT.get(contact_key)
+            or PATIENTS_BY_CONTACT.get(f"document:{document}")
+            or str(uuid.uuid4())
+        )
+        patient = {
+            "id": patient_id,
+            "name": patient_name,
+            "email": patient_email,
+            "phone": patient_phone,
+            "document": document,
+            "birth_date": birth_date,
+            "created_at": PATIENTS.get(patient_id, {}).get("created_at") or now,
+            "updated_at": now,
+            "lgpd_consent_version": "FROID-LGPD-v1.0",
+            "lgpd_consent_at": now,
+            "consent_preferences": consent,
+            "consent_updated_at": now,
+        }
+        _set_patient_password(patient, password)
+        PATIENTS[patient_id] = patient
+        for patient_contact_key in _patient_contact_keys(patient):
+            PATIENTS_BY_CONTACT[patient_contact_key] = patient_id
+        consent_source = "initial_registration"
 
     patient_portal_session = _issue_patient_portal_session(patient)
 
@@ -5130,6 +5278,7 @@ async def accept_session_invite(token: str, request: Request):
         "invite_id": invite.get("id"),
         "session_id": invite.get("session_id"),
         "consent": consent,
+        "source": consent_source,
         "version": "FROID-LGPD-v1.0",
         "accepted_at": now,
         "remote_addr": request.client.host if request.client else "",
@@ -5198,6 +5347,7 @@ async def join_patient_session(session_id: str, request: Request):
         "status": "joined",
         "session_id": session_id,
         "patient_name": invite.get("patient_name"),
+        "session_mode": invite.get("session_mode") or "remote",
         "joined_at": now,
         "join_count": len(PATIENT_SESSION_ENTRIES.get(session_id, [])),
         "event_id": event.get("id"),
@@ -5305,6 +5455,62 @@ async def patient_portal_update_profile(payload: PatientPortalProfileUpdate, req
     patient_session.update(_patient_public_identity(patient))
     _save_identity_state()
     return {"patient": _patient_public_identity(patient)}
+
+
+@app.get("/api/patient-portal/consent")
+async def patient_portal_consent(request: Request):
+    patient_session = _require_current_patient(request)
+    patient_id = str(patient_session.get("id") or "")
+    patient = PATIENTS.get(patient_id)
+    if not isinstance(patient, dict):
+        raise HTTPException(status_code=404, detail="Cadastro do paciente não encontrado")
+    preferences = _patient_consent_preferences(patient)
+    return {
+        "consent": preferences,
+        "version": patient.get("lgpd_consent_version") or "FROID-LGPD-v1.0",
+        "updated_at": patient.get("consent_updated_at") or patient.get("lgpd_consent_at"),
+        "session_authorization_active": all(
+            preferences.get(key) is True
+            for key in (
+                "terms_of_use",
+                "privacy_policy",
+                "sensitive_data_processing",
+                "audio_video_processing",
+            )
+        ),
+    }
+
+
+@app.put("/api/patient-portal/consent")
+async def patient_portal_update_consent(
+    payload: PatientConsentPreferences, request: Request
+):
+    patient_session = _require_current_patient(request)
+    patient_id = str(patient_session.get("id") or "")
+    patient = PATIENTS.get(patient_id)
+    if not isinstance(patient, dict):
+        raise HTTPException(status_code=404, detail="Cadastro do paciente não encontrado")
+    now = _utc_now_iso()
+    preferences = payload.model_dump()
+    patient["consent_preferences"] = preferences
+    patient["consent_updated_at"] = now
+    patient["lgpd_consent_version"] = "FROID-LGPD-v1.0"
+    ledger_payload = {
+        "patient_id": patient_id,
+        "invite_id": "",
+        "session_id": "",
+        "consent": preferences,
+        "version": "FROID-LGPD-v1.0",
+        "accepted_at": now,
+        "source": "patient_portal_update",
+        "remote_addr": request.client.host if request.client else "",
+        "user_agent": request.headers.get("user-agent", ""),
+    }
+    CONSENT_LEDGER.append(
+        {**ledger_payload, "hash": _consent_hash(ledger_payload)}
+    )
+    _save_identity_state()
+    return await patient_portal_consent(request)
 
 
 @app.get("/api/patient-portal/privacy")
@@ -7094,6 +7300,48 @@ async def save_session_report(request: Request):
         "metrics_analysis_error": report.get("metricsAnalysisError"),
         "access_status": access_status,
     }
+
+
+@app.post("/api/session-reports/{session_id}/clinical-notes", status_code=201)
+async def add_session_clinical_note(
+    session_id: str, payload: ClinicalNoteCreate, request: Request
+):
+    user = _require_current_user(request)
+    owner_email = _normalize_email(user.get("email") or "")
+    reports = _load_session_reports()
+    report = reports.get(session_id)
+    if not isinstance(report, dict):
+        raise HTTPException(status_code=404, detail="Relatório não encontrado")
+    context = _authorize_tenant_request(
+        request,
+        "reports.update",
+        resource_type="session_report",
+        resource_id=session_id,
+        resource_organization_id=_report_organization_id(report),
+        owns_resource=_can_access_report(report, owner_email),
+    )
+    text = payload.text.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Observação vazia")
+    note = {
+        "id": str(uuid.uuid4()),
+        "text": text,
+        "timestamp": int(time.time() * 1000),
+        "professional_email": owner_email,
+    }
+    notes = list(report.get("clinicalNotes") or [])
+    notes.append(note)
+    report["clinicalNotes"] = notes[-500:]
+    reports[session_id] = report
+    _save_session_reports(reports)
+    _record_tenant_success(
+        context,
+        "report.clinical_note.create",
+        "session_report",
+        session_id,
+        metadata={"clinical_note_id": note["id"]},
+    )
+    return {"status": "created", "note": note}
 
 
 @app.get("/api/session-reports/{session_id}/metrics")

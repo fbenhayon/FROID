@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { FroidUser } from "../App";
+import { ProfessionalReceivables } from "../components/administrative/ProfessionalReceivables";
 import { apiUrl, publicAppUrl } from "../lib/api";
 import {
   createProfessionalPrompt,
@@ -421,7 +422,7 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
           start: start.toISOString(),
           end: end.toISOString(),
           timeZone: "America/Sao_Paulo",
-          description: "Evento criado pelo FROID para organizaÃ§Ã£o da sessão clínica.",
+          description: "Evento criado pelo FROID para organização da sessão clínica.",
         }),
       });
       const data = await response.json();
@@ -557,9 +558,9 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
       <div className="mx-auto max-w-5xl space-y-6 rounded-xl border border-slate-700 bg-slate-900 p-6 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-xl font-bold">Configurações do Profissional</h1>
+            <h1 className="text-xl font-bold">Administrativo do Profissional</h1>
             <p className="mt-1 text-sm text-slate-400">
-              Gestao clínica, consentimentos, agenda, auditoria e prompts próprios do FROID Explica.
+              Gestão clínica, consentimentos, agenda, auditoria e prompts próprios do FROID Explica.
             </p>
           </div>
           {ownerEmail && (
@@ -579,6 +580,8 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
             </div>
           )}
         </div>
+
+        <ProfessionalReceivables />
 
         <section className="rounded-xl border border-cyan-800 bg-cyan-950/50 p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -700,7 +703,7 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
                 <div className="rounded border border-cyan-900/70 bg-cyan-950/30 p-2 text-cyan-100">
                   Recomendacao FROID: crie no Google Calendar uma agenda separada chamada{" "}
                   <strong>FROID - Sessões</strong> e selecione essa agenda aqui. Isso preserva a
-                  organizaÃ§Ã£o clínica, facilita auditoria e evita misturar agenda pessoal com agenda
+                  organização clínica, facilita auditoria e evita misturar agenda pessoal com agenda
                   terapêutica. O FROID usa escopo reduzido: lista agendas de sua propriedade e altera
                   eventos apenas na agenda selecionada.
                 </div>
@@ -915,7 +918,7 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
             <div className="mt-3 rounded border border-slate-700 bg-slate-950 p-3 text-[11px] leading-relaxed text-slate-400">
               <p>
                 Para facilitar a aprovacao pelo Google e proteger o profissional, o FROID solicita
-                somente as permissoes necessárias para a agenda clínica selecionada. Politica de
+                somente as permissões necessárias para a agenda clínica selecionada. Política de
                 Privacidade e Termos de Uso publicos:{" "}
                 <a className="font-bold text-cyan-200 underline" href="/privacidade" target="_blank" rel="noreferrer">
                   privacidade
@@ -951,7 +954,7 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
           <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-700 p-3">
             <p className="text-sm font-semibold">Consentimentos LGPD</p>
             <span className="text-xs font-bold text-slate-400">
-              Duvidas e referências pelo FROID Explica
+              Dúvidas e referências pelo FROID Explica
             </span>
           </div>
           <div className="rounded-lg border border-slate-700 p-3">

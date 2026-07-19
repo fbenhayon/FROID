@@ -7,6 +7,7 @@ import { apiUrl } from "./lib/api";
 import { rememberProfessionalEmail } from "./lib/professional-prompts";
 
 const Dashboard = lazy(() => import("./pages/Dashboard").then((module) => ({ default: module.Dashboard })));
+const ProfessionalDashboardSummary = lazy(() => import("./pages/ProfessionalDashboardSummary").then((module) => ({ default: module.ProfessionalDashboardSummary })));
 const LiveSession = lazy(() => import("./pages/LiveSession").then((module) => ({ default: module.LiveSession })));
 const History = lazy(() => import("./pages/History").then((module) => ({ default: module.History })));
 const Settings = lazy(() => import("./pages/Settings").then((module) => ({ default: module.Settings })));
@@ -243,6 +244,10 @@ function App() {
               ),
             )
           }
+        />
+        <Route
+          path="/dashboard/resumido"
+          element={clinicalElement(<ProfessionalDashboardSummary user={user} onLogout={logout} />)}
         />
         <Route
           path="/session/:sessionId"

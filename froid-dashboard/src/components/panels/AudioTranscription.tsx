@@ -230,7 +230,7 @@ export const AudioTranscription: React.FC<Props> = ({
           <div className="min-w-0">
             <h3 className="text-[13px] font-black text-slate-100">Biomarcadores vocais</h3>
             <p className="truncate text-[10px] font-medium text-slate-400">
-              Comparacao vocal por indicador
+              Comparação vocal por indicador
             </p>
           </div>
           <span className={`rounded px-1.5 py-0.5 text-[8px] ${bioacousticClass}`}>

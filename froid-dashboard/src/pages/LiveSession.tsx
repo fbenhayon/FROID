@@ -17,7 +17,12 @@ import { FroidTooltip } from "../components/ui/FroidTooltip";
 import { FroidPayload, PerceptionZone } from "../lib/froid-engine";
 import { getAUDetails, ZONE_CLINICAL_DESCRIPTIONS } from "../lib/froid-data";
 import { apiUrl, wsUrl } from "../lib/api";
-import { createConferenceStream, RTC_CONFIG } from "../lib/webrtc";
+import {
+  attachRemoteMedia,
+  configureConferenceSender,
+  createConferenceStream,
+  loadRtcConfiguration,
+} from "../lib/webrtc";
 import {
   MetricSnapshot,
   loadSessionPatient,
@@ -30,15 +35,15 @@ const SIMPLIFIED_METRIC_TOOLTIPS: Record<string, string> = {
   CORTE:
     "Intervalo temporal em análise desde o último corte semântico, seja automático ou executado pelo profissional.",
   IPM:
-    "Índice de Potencia Motivacional. Funciona como o velocimetro emocional: indica a intensidade global da energia vocal, facial e semântica do paciente.",
+    "Índice de Potencia Motivacional. Funciona como o velocímetro emocional: indica a intensidade global da energia vocal, facial e semântica do paciente.",
   IDM:
-    "Índice de Desvio Multimodal. Indica a direÃ§Ã£o e o grau de afastamento entre voz, face, semântica e zonas FROID.",
+    "Índice de Desvio Multimodal. Indica a direção e o grau de afastamento entre voz, face, semântica e zonas FROID.",
   ZONAS:
-    "Zona FROID predominante no corte atual, calculada pela composicao das métricas bioacusticas, semanticas e multimodais.",
+    "Zona FROID predominante no corte atual, calculada pela composição das métricas bioacústicas, semânticas e multimodais.",
   TOM:
-    "Tom emocional predominante inferido pela composicao entre fala transcrita, marcadores acústicos e contexto do corte.",
+    "Tom emocional predominante inferido pela composição entre fala transcrita, marcadores acústicos e contexto do corte.",
   "P/MIN":
-    "Palavras por minuto no corte atual. Ajuda a identificar aceleraÃ§Ã£o, lentificacao, bloqueios ou mudancas de cadencia.",
+    "Palavras por minuto no corte atual. Ajuda a identificar aceleração, lentificação, bloqueios ou mudancas de cadência.",
   "DISSO.":
     "Quantidade de dissonâncias confirmadas acima da métrica definida no corte atual. Exibe somente apontamentos efetivamente detectados.",
   MFCC7:
@@ -50,33 +55,33 @@ const SIMPLIFIED_METRIC_TOOLTIPS: Record<string, string> = {
   DMFCC9:
     "Delta do MFCC9. Mede a variação de primeira ordem do coeficiente durante o corte.",
   DDMFCC7:
-    "Delta-delta do MFCC7. Indica aceleraÃ§Ã£o ou desaceleraÃ§Ã£o da mudanca cepstral.",
+    "Delta-delta do MFCC7. Indica aceleração ou desaceleração da mudanca cepstral.",
   DDMFCC9:
-    "Delta-delta do MFCC9. Indica aceleraÃ§Ã£o ou desaceleraÃ§Ã£o da mudanca cepstral.",
+    "Delta-delta do MFCC9. Indica aceleração ou desaceleração da mudanca cepstral.",
   "F0 MED.":
-    "Frequência fundamental média da voz. Ajuda a observar elevação de pitch, queda vocal, tensão ou variações de ativaÃ§Ã£o.",
+    "Frequência fundamental média da voz. Ajuda a observar elevação de pitch, queda vocal, tensão ou variações de ativação.",
   ZCR:
     "Taxa de cruzamento por zero. Aponta irregularidade acústica e componentes de aspereza, ruído ou tensão vocal.",
   JITTER:
-    "Índice interno normalizado de perturbacao de frequência, derivado para comparacao longitudinal no FROID. Não e percentual acústico bruto.",
+    "Índice interno normalizado de perturbação de frequência, derivado para comparação longitudinal no FROID. Não e percentual acústico bruto.",
   SHIMMER:
-    "Índice interno normalizado de variação de amplitude vocal, derivado para comparacao longitudinal no FROID. Não e medida bruta em dB.",
+    "Índice interno normalizado de variação de amplitude vocal, derivado para comparação longitudinal no FROID. Não e medida bruta em dB.",
   DELTA:
-    "Energia de modulacao vocal na faixa delta. No FROID, representa modulacao bioacústica lenta, não atividade EEG direta.",
+    "Energia de modulação vocal na faixa delta. No FROID, representa modulação bioacústica lenta, não atividade EEG direta.",
   THETA:
-    "Energia de modulacao vocal na faixa theta. Usada como marcador de oscilacao lenta da expressão vocal.",
+    "Energia de modulação vocal na faixa theta. Usada como marcador de oscilacao lenta da expressão vocal.",
   ALPHA:
-    "Energia de modulacao vocal na faixa alpha. Ajuda a compor estabilidade, ritmo e organizaÃ§Ã£o da emissao.",
+    "Energia de modulação vocal na faixa alpha. Ajuda a compor estabilidade, ritmo e organização da emissao.",
   BETA:
-    "Energia de modulacao vocal na faixa beta. Ajuda a compor índices de ativaÃ§Ã£o, esforco e tensão cognitiva.",
+    "Energia de modulação vocal na faixa beta. Ajuda a compor índices de ativação, esforco e tensão cognitiva.",
   GAMA:
-    "Energia de modulacao vocal na faixa gama. Ajuda a observar ativaÃ§Ã£o rápida e instabilidade espectral fina.",
+    "Energia de modulação vocal na faixa gama. Ajuda a observar ativação rápida e instabilidade espectral fina.",
   "IND. ESPECTRAL":
-    "Índice composto das bandas espectrais vocais, usado para sintetizar o perfil de modulacao bioacústica do corte.",
+    "Índice composto das bandas espectrais vocais, usado para sintetizar o perfil de modulação bioacústica do corte.",
   "SUB-H 5-12":
     "Energia sub-harmônica entre 5 e 12 Hz. No FROID, integra o nucleo de leitura autônoma e sinais de sobrecarga profunda.",
   "SUB-H 12-20":
-    "Energia sub-harmônica entre 12 e 20 Hz. Complementa a leitura de tremor, tensão e modulacao involuntária.",
+    "Energia sub-harmônica entre 12 e 20 Hz. Complementa a leitura de tremor, tensão e modulação involuntária.",
   "SUB-H 20-40":
     "Energia sub-harmônica entre 20 e 40 Hz. Complementa a leitura de excitacao, instabilidade e microtremores vocais.",
   "VOCAL 85-165":
@@ -84,15 +89,15 @@ const SIMPLIFIED_METRIC_TOOLTIPS: Record<string, string> = {
   "DNA INFRA":
     "Componente nuclear de infrassom vocal usado na matriz bioacústica do FROID.",
   "DNA LIMBICO":
-    "Componente de modulacao limbica estimado pela combinacao de sub-harmônicos, voz e contexto emocional.",
+    "Componente de modulação límbica estimado pela combinação de sub-harmônicos, voz e contexto emocional.",
   "DNA VOCAL":
-    "Componente de tensão vocal basal usado para compor riscos, dissonâncias e estado de ativaÃ§Ã£o.",
+    "Componente de tensão vocal basal usado para compor riscos, dissonâncias e estado de ativação.",
   "DNA FLOOD":
     "Indicador composto de flooding autonômico, sugerindo sobrecarga ou intensificacao fisiológica relevante.",
   "DNA SHUTDOWN":
     "Indicador composto de retraimento ou desligamento dissociativo, quando a assinatura bioacústica sugere queda defensiva.",
   "DNA NEURO":
-    "Índice de ressonancia neurogenica estimado por combinacoes sub-harmônicas e estabilidade vocal.",
+    "Índice de ressonancia neurogenica estimado por combinações sub-harmônicas e estabilidade vocal.",
   "DNA SOMATO":
     "Índice de dissonância somatoafetiva, usado para cruzar expressão vocal, tensão e marcadores corporais inferidos.",
 };
@@ -273,7 +278,7 @@ function classifyDissonance(zone?: PerceptionZone | null, audioMeta?: Record<str
     return {
       title: "Shutdown psíquico / dissociacao",
       summary:
-        "A combinacao de tremor autonômico profundo, AU15 e baixa energia vocal basal sugere queda de disponibilidade, congelamento ou supressao defensiva da expressão emocional.",
+        "A combinação de tremor autonômico profundo, AU15 e baixa energia vocal basal sugere queda de disponibilidade, congelamento ou supressão defensiva da expressão emocional.",
       action:
         "Mitigar pausando confronto direto, reduzindo demanda cognitiva, restaurando orientacao corporal e confirmando se o paciente permanece presente e responsivo.",
     };
@@ -284,7 +289,7 @@ function classifyDissonance(zone?: PerceptionZone | null, audioMeta?: Record<str
       summary:
         "AU12 sem AU6 indica sorriso voluntário sem marcador Duchenne; quando o IDM também sobe, o FROID interpreta possível mascara social cobrindo tensão interna.",
       action:
-        "Mitigar validando a fala sem confrontar bruscamente, investigando com perguntas abertas a diferenca entre calma relatada e carga corporal observada.",
+        "Mitigar validando a fala sem confrontar bruscamente, investigando com perguntas abertas a diferença entre calma relatada e carga corporal observada.",
     };
   }
   if (hasAu(auSet, 23, 24) || (zone?.zone === 7 && score > DISSONANCE_REPORT_THRESHOLD)) {
@@ -309,7 +314,7 @@ function classifyDissonance(zone?: PerceptionZone | null, audioMeta?: Record<str
     return {
       title: "Desprezo unilateral",
       summary:
-        "AtivaÃ§Ã£o unilateral de AU12/AU14 aponta assimetria expressiva compatível com desprezo, resistência ou defesa de superioridade em contexto relacional.",
+        "Ativação unilateral de AU12/AU14 aponta assimetria expressiva compatível com desprezo, resistência ou defesa de superioridade em contexto relacional.",
       action:
         "Mitigar observando o contexto interpessoal, investigando julgamentos, vergonha ou rivalidade com neutralidade fenomenologica e sem rotular o paciente.",
     };
@@ -370,9 +375,9 @@ function dissonanceTechnicalFactors(
       : null;
 
   const factors = [
-    `IDM ${score.toFixed(2)} (${severity}) acima do limiar ${DISSONANCE_REPORT_THRESHOLD.toFixed(2)}: o desvio energético compara E_vocal contra E_baseline e aplica M_fac quando ha contradicao facial-vocal.`,
+    `IDM ${score.toFixed(2)} (${severity}) acima do limiar ${DISSONANCE_REPORT_THRESHOLD.toFixed(2)}: o desvio energético compara E_vocal contra E_baseline e aplica M_fac quando há contradição facial-vocal.`,
     `Morfodinamica facial/FACS: AUs ativas ${aus.length ? aus.join(", ") : "sem AU específica reportada"}; a leitura exige coerencia temporal entre neutral, onset, apex e offset para reduzir falso positivo.`,
-    `Zona ${zone?.zone ?? "--"} (${zone?.tema || "tema em apuraÃ§Ã£o"}): ${ZONE_CLINICAL_DESCRIPTIONS[zone?.zone || 0] || "sem descricao zonal."}`,
+    `Zona ${zone?.zone ?? "--"} (${zone?.tema || "tema em apuração"}): ${ZONE_CLINICAL_DESCRIPTIONS[zone?.zone || 0] || "sem descricao zonal."}`,
   ];
 
   if (mfcc7Delta !== null && Math.abs(mfcc7Delta) >= DISSONANCE_MFCC_DELTA_THRESHOLD) {
@@ -397,7 +402,7 @@ function dissonanceTechnicalFactors(
   }
   if (dnaFlooding !== null && dnaFlooding >= DISSONANCE_DNA_THRESHOLD) {
     factors.push(
-      `Flooding autonômico acima da métrica (${dnaFlooding.toFixed(2)}): combinacao de energia sub-harmônica, tensão basal e multiplicador facial.`,
+      `Flooding autonômico acima da métrica (${dnaFlooding.toFixed(2)}): combinação de energia sub-harmônica, tensão basal e multiplicador facial.`,
     );
   }
   if (dnaShutdown !== null && dnaShutdown >= DISSONANCE_DNA_THRESHOLD) {
@@ -412,7 +417,7 @@ function dissonanceTechnicalFactors(
   }
   if (dnaNeurogenic !== null && dnaNeurogenic >= DISSONANCE_DNA_THRESHOLD) {
     factors.push(
-      `Ressonancia neurogenica acima da métrica (${dnaNeurogenic.toFixed(2)}): alteração sub-harmônica em faixa superior compatível com ativaÃ§Ã£o corporal não verbalizada.`,
+      `Ressonancia neurogenica acima da métrica (${dnaNeurogenic.toFixed(2)}): alteração sub-harmônica em faixa superior compatível com ativação corporal não verbalizada.`,
     );
   }
   if (jitter !== null && jitter >= VOICE_PERTURBATION_PROXY_ALERT_THRESHOLD) {
@@ -432,7 +437,7 @@ function dissonanceTechnicalFactors(
   }
   if (semantic && !/^não informada$/i.test(semantic) && !/^neutro$/i.test(semantic)) {
     factors.push(
-      `Semântica verbal considerada ${semantic}: o FROID cruza o conteudo transcrito com face e voz para detectar contradicao entre relato e expressão involuntária.`,
+      `Semântica verbal considerada ${semantic}: o FROID cruza o conteúdo transcrito com face e voz para detectar contradição entre relato e expressão involuntária.`,
     );
   }
 
@@ -452,7 +457,7 @@ function buildDissonanceReportText(
     `IDM ${score.toFixed(2)} | ${dissonanceSeverity(zone)} | Zona ${zone.zone}`,
     `${interpretation.title}: ${interpretation.summary}`,
     `Itens divergentes apurados: ${factors.join(" ")}`,
-    `Sugestao técnica ao profissional: ${interpretation.action}`,
+    `Sugestão técnica ao profissional: ${interpretation.action}`,
   ].join(" ");
 }
 
@@ -686,10 +691,10 @@ const SimulatedCamera: React.FC = () => {
 function selectAudioMimeType() {
   if (typeof MediaRecorder === "undefined") return "";
   const candidates = [
-    "áudio/webm;codecs=opus",
-    "áudio/webm",
-    "áudio/mp4",
-    "áudio/ogg;codecs=opus",
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/mp4",
+    "audio/ogg;codecs=opus",
   ];
   return candidates.find((type) => MediaRecorder.isTypeSupported(type)) || "";
 }
@@ -1676,7 +1681,7 @@ function limitWords(text: string, maxWords: number) {
 
 function limitTheme(text: string, maxWords = 6) {
   const clean = limitWords(text, maxWords);
-  return clean || "Tema em apuraÃ§Ã£o";
+  return clean || "Tema em apuração";
 }
 
 function inferThemeFromTranscript(text: string) {
@@ -1695,7 +1700,7 @@ function inferThemeFromTranscript(text: string) {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 6)
     .map(([word]) => word);
-  return top.length ? limitTheme(top.join(" "), 6) : "Tema em apuraÃ§Ã£o";
+  return top.length ? limitTheme(top.join(" "), 6) : "Tema em apuração";
 }
 
 function collectTranscript(
@@ -1892,13 +1897,13 @@ function buildSessionSummary(
   );
   const cleanSource = source.replace(/\s+/g, " ").trim();
   const summary = cleanSource
-    ? `A sessão teve como eixo predominante ${theme}. A sequência dos cortes indica a seguinte progressao clínica e semantica: ${cleanSource}. Em conclusão, este resumo deve ser lido como síntese da substancia verbal registrada nos cortes, servindo de base para comparar conteudo, ritmo e deslocamentos tematicos com as métricas multimodais do relatório.`
+    ? `A sessão teve como eixo predominante ${theme}. A sequência dos cortes indica a seguinte progressão clínica e semântica: ${cleanSource}. Em conclusão, este resumo deve ser lido como síntese da substância verbal registrada nos cortes, servindo de base para comparar conteúdo, ritmo e deslocamentos temáticos com as métricas multimodais do relatório.`
     : "";
   return {
     theme,
     summary:
       limitWords(summary, 300) ||
-      "Resumo geral indisponÃ­vel por ausência de transcrição suficiente.",
+      "Resumo geral indisponível por ausência de transcrição suficiente.",
     generatedAt: new Date().toISOString(),
   };
 }
@@ -2246,6 +2251,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const [semanticCutStartSecond, setSemanticCutStartSecond] = useState(0);
   const [rtcStatus, setRtcStatus] = useState("Aguardando paciente");
   const [remotePatientOn, setRemotePatientOn] = useState(false);
+  const [remotePatientVideoOn, setRemotePatientVideoOn] = useState(false);
   const [attributedSpeaker, setAttributedSpeaker] = useState<SpeakerRole>("DR");
   const [speakerIdMode, setSpeakerIdMode] = useState<SpeakerIdMode>(() =>
     loadDrVoiceSignature() ? "auto" : "manual",
@@ -2255,8 +2261,8 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   );
   const [voiceIdStatus, setVoiceIdStatus] = useState(
     loadDrVoiceSignature()
-      ? "IdentificaÃ§Ã£o automática pronta."
-      : "Cadastre a voz do DR para identificaÃ§Ã£o automática.",
+      ? "Identificação automática pronta."
+      : "Cadastre a voz do DR para identificação automática.",
   );
   const [isEnrollingDrVoice, setIsEnrollingDrVoice] = useState(false);
   const [patientAudioVersion, setPatientAudioVersion] = useState(0);
@@ -2269,11 +2275,16 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const wsRef = useRef<WebSocket | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const rtcSignalRef = useRef<WebSocket | null>(null);
   const rtcPeerRef = useRef<RTCPeerConnection | null>(null);
+  const rtcRemoteStreamRef = useRef<MediaStream | null>(null);
   const rtcIceQueueRef = useRef<RTCIceCandidateInit[]>([]);
   const rtcMakingOfferRef = useRef(false);
+  const rtcReconnectTimerRef = useRef<number | null>(null);
+  const rtcDisconnectTimerRef = useRef<number | null>(null);
+  const rtcClosingRef = useRef(false);
   const bioacousticStreamRef = useRef<MediaStream | null>(null);
   const bioacousticContextRef = useRef<AudioContext | null>(null);
   const bioacousticRafRef = useRef<number | null>(null);
@@ -2410,13 +2421,14 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         void videoRef.current.play().catch(() => undefined);
       }
 
-      const remoteTracks = rtcPeerRef.current
-        ?.getReceivers()
-        .map((receiver) => receiver.track)
-        .filter((track) => track && track.readyState === "live");
-      if (remoteVideoRef.current && remoteTracks?.length) {
-        remoteVideoRef.current.srcObject = new MediaStream(remoteTracks);
-        void remoteVideoRef.current.play().catch(() => undefined);
+      if (rtcRemoteStreamRef.current) {
+        const media = attachRemoteMedia(
+          rtcRemoteStreamRef.current,
+          remoteVideoRef.current,
+          remoteAudioRef.current,
+        );
+        setRemotePatientOn(media.audio);
+        setRemotePatientVideoOn(media.video);
       }
     });
     return () => window.cancelAnimationFrame(frame);
@@ -2472,7 +2484,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       if (typeof window === "undefined" || remotePatientOnRef.current) return;
       const signature = drVoiceSignatureRef.current;
       if (!signature) {
-        setVoiceIdStatus("Cadastre a voz do DR para identificaÃ§Ã£o automática.");
+        setVoiceIdStatus("Cadastre a voz do DR para identificação automática.");
         return;
       }
       const audioTrack = stream
@@ -2483,7 +2495,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       const AudioContextCtor =
         (window as any).AudioContext || (window as any).webkitAudioContext;
       if (!AudioContextCtor) {
-        setVoiceIdStatus("IdentificaÃ§Ã£o vocal indisponÃ­vel neste navegador.");
+        setVoiceIdStatus("Identificação vocal indisponível neste navegador.");
         return;
       }
 
@@ -2543,7 +2555,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       };
 
       void context.resume?.().catch(() => undefined);
-      setVoiceIdStatus("IdentificaÃ§Ã£o automática ativa.");
+      setVoiceIdStatus("Identificação automática ativa.");
       voiceIdRafRef.current = window.requestAnimationFrame(analyse);
     },
     [applyAttributedSpeaker, stopVoiceIdentification],
@@ -2556,13 +2568,13 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       ?.getAudioTracks()
       .find((track) => track.readyState === "live");
     if (!stream || !audioTrack || typeof window === "undefined") {
-      setVoiceIdStatus("Microfone local indisponÃ­vel para cadastrar voz do DR.");
+      setVoiceIdStatus("Microfone local indisponível para cadastrar voz do DR.");
       return;
     }
     const AudioContextCtor =
       (window as any).AudioContext || (window as any).webkitAudioContext;
     if (!AudioContextCtor) {
-      setVoiceIdStatus("Cadastro vocal indisponÃ­vel neste navegador.");
+      setVoiceIdStatus("Cadastro vocal indisponível neste navegador.");
       return;
     }
     setIsEnrollingDrVoice(true);
@@ -2624,16 +2636,26 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     setDrVoiceSignature(signature);
     setSpeakerIdMode("auto");
     setVoiceIdStatus(
-      `Voz do DR cadastrada (${signature.sampleCount} amostras). IdentificaÃ§Ã£o automática ativa.`,
+      `Voz do DR cadastrada (${signature.sampleCount} amostras). Identificação automática ativa.`,
     );
     startVoiceIdentification(stream);
   }, [applyAttributedSpeaker, isEnrollingDrVoice, startVoiceIdentification]);
 
   const cleanupRtcCall = useCallback(() => {
+    rtcClosingRef.current = true;
+    if (rtcReconnectTimerRef.current) {
+      window.clearTimeout(rtcReconnectTimerRef.current);
+      rtcReconnectTimerRef.current = null;
+    }
+    if (rtcDisconnectTimerRef.current) {
+      window.clearTimeout(rtcDisconnectTimerRef.current);
+      rtcDisconnectTimerRef.current = null;
+    }
     rtcSignalRef.current?.close();
     rtcSignalRef.current = null;
     rtcPeerRef.current?.close();
     rtcPeerRef.current = null;
+    rtcRemoteStreamRef.current = null;
     rtcIceQueueRef.current = [];
     rtcMakingOfferRef.current = false;
     if (patientSttRestartTimerRef.current) {
@@ -2659,33 +2681,46 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       .forEach((track) => track.stop());
     patientTranscriptStreamRef.current = null;
     setRemotePatientOn(false);
+    setRemotePatientVideoOn(false);
     setRtcStatus("Aguardando paciente");
     if (remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = null;
     }
+    if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
   }, []);
 
   const startProfessionalRtcCall = useCallback(
     async (localSource: MediaStream) => {
       if (!sessionId || typeof RTCPeerConnection === "undefined") {
-        setRtcStatus("WebRTC indisponÃ­vel neste navegador.");
+        setRtcStatus("WebRTC indisponível neste navegador.");
         return;
       }
 
       cleanupRtcCall();
+      rtcClosingRef.current = false;
       const localConferenceStream = createConferenceStream(localSource);
       if (!localConferenceStream.getTracks().length) {
         setRtcStatus("Áudio e vídeo locais indisponiveis para chamada.");
         return;
       }
 
-      const peer = new RTCPeerConnection(RTC_CONFIG);
+      const token = localStorage.getItem("froid_token") || "";
+      const peer = new RTCPeerConnection(
+        await loadRtcConfiguration({ sessionId, professionalToken: token }),
+      );
       const remoteStream = new MediaStream();
       rtcPeerRef.current = peer;
+      rtcRemoteStreamRef.current = remoteStream;
 
-      localConferenceStream.getTracks().forEach((track) => {
-        peer.addTrack(track, localConferenceStream);
-      });
+      if (isPresentialMobileSession) {
+        peer.addTransceiver("audio", { direction: "recvonly" });
+        peer.addTransceiver("video", { direction: "recvonly" });
+      } else {
+        localConferenceStream.getTracks().forEach((track) => {
+          const sender = peer.addTrack(track, localConferenceStream);
+          void configureConferenceSender(sender);
+        });
+      }
 
       const sendSignal = (payload: Record<string, unknown>) => {
         const socket = rtcSignalRef.current;
@@ -2715,16 +2750,36 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         }
       };
 
+      const refreshRemoteTracks = () => {
+        const media = attachRemoteMedia(
+          remoteStream,
+          remoteVideoRef.current,
+          isPresentialMobileSession ? null : remoteAudioRef.current,
+        );
+        setRemotePatientOn(media.audio);
+        setRemotePatientVideoOn(media.video);
+        setRtcStatus(
+          media.audio && media.video
+            ? "Paciente conectado: áudio e vídeo ativos."
+            : media.audio
+              ? "Paciente conectado: áudio ativo, aguardando vídeo."
+              : media.video
+                ? "Paciente conectado: vídeo ativo, aguardando áudio."
+                : "Conectado, aguardando trilhas do paciente.",
+        );
+      };
+
       peer.ontrack = (event) => {
-        event.streams[0]?.getTracks().forEach((track) => {
+        const incomingTracks = event.streams[0]?.getTracks() || [event.track];
+        incomingTracks.forEach((track) => {
           if (!remoteStream.getTracks().some((item) => item.id === track.id)) {
             remoteStream.addTrack(track);
           }
+          track.onended = refreshRemoteTracks;
+          track.onmute = refreshRemoteTracks;
+          track.onunmute = refreshRemoteTracks;
         });
-        if (remoteVideoRef.current) {
-          remoteVideoRef.current.srcObject = remoteStream;
-          remoteVideoRef.current.play().catch(() => undefined);
-        }
+        refreshRemoteTracks();
         const patientAudioTrack = remoteStream
           .getAudioTracks()
           .find((track) => track.readyState === "live");
@@ -2737,9 +2792,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           ]);
           setPatientAudioVersion((value) => value + 1);
         }
-        setRemotePatientOn(true);
         applyAttributedSpeaker("PC", "Trilha remota do paciente recebida por WebRTC.");
-        setRtcStatus("Paciente conectado por áudio e vídeo.");
       };
 
       peer.onicecandidate = (event) => {
@@ -2753,25 +2806,33 @@ function LiveSessionInner({ user }: LiveSessionProps) {
 
       peer.onconnectionstatechange = () => {
         if (peer.connectionState === "connected") {
-          setRtcStatus("Áudio e vídeo bidirecionais ativos.");
-        } else if (["failed", "disconnected"].includes(peer.connectionState)) {
-          setRemotePatientOn(false);
-          setRtcStatus("Conexao com paciente interrompida.");
+          if (rtcDisconnectTimerRef.current) {
+            window.clearTimeout(rtcDisconnectTimerRef.current);
+            rtcDisconnectTimerRef.current = null;
+          }
+          refreshRemoteTracks();
+        } else if (peer.connectionState === "failed") {
+          peer.restartIce();
+          void makeOffer();
+          setRtcStatus("Reconectando mídia do paciente...");
+        } else if (peer.connectionState === "disconnected") {
+          setRtcStatus("Mídia instável; tentando reconectar...");
+          if (!rtcDisconnectTimerRef.current) {
+            rtcDisconnectTimerRef.current = window.setTimeout(() => {
+              rtcDisconnectTimerRef.current = null;
+              if (peer.connectionState === "disconnected") {
+                peer.restartIce();
+                void makeOffer();
+              }
+            }, 3_000);
+          }
         } else if (peer.connectionState === "connecting") {
           setRtcStatus("Conectando áudio e vídeo do paciente...");
         }
       };
 
-      const token = localStorage.getItem("froid_token") || "";
-      const socket = new WebSocket(
-        wsUrl(`/ws/rtc/${sessionId}/professional?token=${encodeURIComponent(token)}`),
-      );
-      rtcSignalRef.current = socket;
-
-      socket.onopen = () => setRtcStatus("Aguardando paciente...");
-      socket.onclose = () => setRtcStatus("Sinalizacao de vídeo encerrada.");
-      socket.onerror = () => setRtcStatus("Falha na sinalizaÃ§Ã£o de vídeo.");
-      socket.onmessage = async (event) => {
+      let reconnectAttempt = 0;
+      const handleSignal = async (event: MessageEvent) => {
         const data = JSON.parse(String(event.data || "{}"));
         if (data.type === "signal-ready" && data.peer_connected) {
           await makeOffer();
@@ -2780,6 +2841,9 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         } else if (data.type === "answer" && data.answer) {
           await peer.setRemoteDescription(data.answer);
           await flushIceQueue();
+        } else if (data.type === "renegotiate-request") {
+          peer.restartIce();
+          await makeOffer();
         } else if (data.type === "ice" && data.candidate) {
           if (peer.remoteDescription) {
             await peer.addIceCandidate(data.candidate).catch(() => undefined);
@@ -2788,12 +2852,43 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           }
         } else if (data.type === "peer-left") {
           setRemotePatientOn(false);
+          setRemotePatientVideoOn(false);
           setRtcStatus("Paciente saiu da chamada.");
           if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+          if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
         }
       };
+
+      const connectSignaling = () => {
+        if (rtcClosingRef.current || peer.connectionState === "closed") return;
+        const socket = new WebSocket(
+          wsUrl(
+            `/ws/rtc/${sessionId}/professional?token=${encodeURIComponent(token)}`,
+          ),
+        );
+        rtcSignalRef.current = socket;
+        socket.onopen = () => {
+          reconnectAttempt = 0;
+          setRtcStatus("Aguardando paciente...");
+        };
+        socket.onmessage = (event) => void handleSignal(event);
+        socket.onerror = () => socket.close();
+        socket.onclose = () => {
+          if (rtcClosingRef.current || peer.connectionState === "closed") return;
+          const delay = Math.min(4_000, 500 * 2 ** reconnectAttempt);
+          reconnectAttempt += 1;
+          setRtcStatus("Reconectando sinalização da chamada...");
+          rtcReconnectTimerRef.current = window.setTimeout(connectSignaling, delay);
+        };
+      };
+      connectSignaling();
     },
-    [applyAttributedSpeaker, cleanupRtcCall, sessionId],
+    [
+      applyAttributedSpeaker,
+      cleanupRtcCall,
+      isPresentialMobileSession,
+      sessionId,
+    ],
   );
 
   const stopRawBioacousticPipeline = useCallback(() => {
@@ -2850,7 +2945,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         setLiveTranscription((prev) => ({
           ...(prev || {}),
           bioacoustic_status: "error",
-          bioacoustic_error: "WebAudio indisponÃ­vel para bioacústica bruta.",
+          bioacoustic_error: "WebAudio indisponível para bioacústica bruta.",
         }));
         return;
       }
@@ -3220,7 +3315,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         provider: prev?.provider || "browser-live",
         transcription_status: "listening",
         transcription_error:
-          err?.message || "Reconhecimento de fala do navegador indisponÃ­vel.",
+          err?.message || "Reconhecimento de fala do navegador indisponível.",
       }));
       return false;
     }
@@ -3297,7 +3392,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           endSecond: safeEndSecond,
           startMinute,
           endMinute,
-          theme: limitTheme(String(data?.theme || "Tema em apuraÃ§Ã£o"), 6),
+          theme: limitTheme(String(data?.theme || "Tema em apuração"), 6),
           summary: limitWords(String(data?.summary || "").trim(), 60),
           trigger,
         });
@@ -3308,7 +3403,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           endSecond: safeEndSecond,
           startMinute,
           endMinute,
-          theme: "Resumo indisponÃ­vel",
+          theme: "Resumo indisponível",
           summary: limitWords(transcript, 60),
           trigger,
         });
@@ -3393,7 +3488,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       }));
 
       try {
-        const chunkMime = audioBlob.type || mimeType || "áudio/webm";
+        const chunkMime = audioBlob.type || mimeType || "audio/webm";
         const previousContext = transcriptLinesRef.current
           .slice(-3)
           .join("\n")
@@ -3414,10 +3509,10 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             )}`,
             session_id: sessionId || "default",
             prompt:
-              "Sessão clínica FROID em portugues do Brasil. Transcreva literalmente somente a fala humana audivel, com pontuacao natural. Não traduza, não resuma, não complete frases e não invente palavras. Mantenha termos técnicos, nomes e siglas como falados. Se não houver fala humana clara, retorne vazio." +
+              "Sessão clínica FROID em português do Brasil. Transcreva literalmente somente a fala humana audível, com pontuação natural. Não traduza, não resuma, não complete frases e não invente palavras. Mantenha termos técnicos, nomes e siglas como falados. Se não houver fala humana clara, retorne vazio." +
               " Vocabulario obrigatorio: FROID deve ser grafado FROID, nunca Freud; IPM, IDM, biomarcadores, sub-harmônicos, bioacústica, dissonâncias, paciente e profissional." +
               (previousContext
-                ? `\n\nContexto transcrito imediatamente anterior para continuidade e pontuacao:\n${previousContext}`
+                ? `\n\nContexto transcrito imediatamente anterior para continuidade e pontuação:\n${previousContext}`
                 : ""),
           }),
         });
@@ -3514,10 +3609,10 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           transcription_status: "error",
           transcription_error:
             typeof MediaRecorder === "undefined"
-              ? "MediaRecorder indisponÃ­vel neste navegador."
+              ? "MediaRecorder indisponível neste navegador."
               : source === "patient"
                 ? "Áudio do paciente ainda não chegou ao gravador."
-                : "Microfone do profissional indisponÃ­vel para gravação.",
+                : "Microfone do profissional indisponível para gravação.",
         }));
         return;
       }
@@ -3602,7 +3697,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         const finishedBlob =
           recordedChunks.length > 0
             ? new Blob(recordedChunks, {
-                type: recorder.mimeType || mimeType || "áudio/webm",
+                type: recorder.mimeType || mimeType || "audio/webm",
               })
             : null;
 
@@ -3624,7 +3719,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             }
             enqueueTranscriptionBlob(
               finishedBlob,
-              finishedBlob.type || mimeType || "áudio/webm",
+              finishedBlob.type || mimeType || "audio/webm",
               segmentSpeaker,
             );
           }
@@ -3780,7 +3875,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         type: "MEDIA_STATUS",
         cameraOn: false,
         micOn: false,
-        camError: "Navegador sem suporte a camera e microfone.",
+        camError: "Navegador sem suporte a câmera e microfone.",
       });
       return;
     }
@@ -3792,34 +3887,65 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     let audioError = "";
     let videoError = "";
 
-    try {
-      semanticAudioStream = await navigator.mediaDevices.getUserMedia({
-        audio: getSemanticAudioConstraints(),
-        video: false,
+    if (!isPresentialSession && sessionId) {
+      void loadRtcConfiguration({
+        sessionId,
+        professionalToken: localStorage.getItem("froid_token") || "",
       });
+    }
+
+    const videoConstraints: MediaTrackConstraints = {
+      width: { ideal: 1280 },
+      height: { ideal: 720 },
+      frameRate: { ideal: 24, max: 30 },
+      facingMode: "user",
+    };
+    let audioCapture: PromiseSettledResult<MediaStream>;
+    let videoCapture: PromiseSettledResult<MediaStream>;
+    try {
+      const combinedStream = await navigator.mediaDevices.getUserMedia({
+        audio: getSemanticAudioConstraints(),
+        video: videoConstraints,
+      });
+      audioCapture = { status: "fulfilled", value: combinedStream };
+      videoCapture = { status: "fulfilled", value: combinedStream };
+    } catch {
+      [audioCapture, videoCapture] = await Promise.allSettled([
+        navigator.mediaDevices.getUserMedia({
+          audio: getSemanticAudioConstraints(),
+          video: false,
+        }),
+        navigator.mediaDevices.getUserMedia({
+          video: videoConstraints,
+          audio: false,
+        }),
+      ]);
+    }
+
+    if (audioCapture.status === "fulfilled") {
+      semanticAudioStream = audioCapture.value;
       tracks.push(...semanticAudioStream.getAudioTracks());
-    } catch (err: any) {
+    } else {
+      const err = audioCapture.reason;
       audioError =
         err?.name === "NotAllowedError"
-          ? "Permissao de microfone negada pelo navegador."
+          ? "Permissão de microfone negada pelo navegador."
           : "Não foi possível ativar o microfone.";
     }
 
-    try {
-      const videoStream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          facingMode: "user",
-        },
-        audio: false,
-      });
-      tracks.push(...videoStream.getVideoTracks());
-    } catch (err: any) {
+    if (videoCapture.status === "fulfilled") {
+      const existingTrackIds = new Set(tracks.map((track) => track.id));
+      tracks.push(
+        ...videoCapture.value
+          .getVideoTracks()
+          .filter((track) => !existingTrackIds.has(track.id)),
+      );
+    } else {
+      const err = videoCapture.reason;
       videoError =
         err?.name === "NotAllowedError"
-          ? "Permissao de camera negada pelo navegador."
-          : "Não foi possível ativar a camera.";
+          ? "Permissão de câmera negada pelo navegador."
+          : "Não foi possível ativar a câmera.";
     }
 
     const stream = new MediaStream(tracks);
@@ -3865,8 +3991,16 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       micOn,
       camError: [audioError, videoError].filter(Boolean).join(" "),
     });
-    void startProfessionalRtcCall(stream);
+    if (isPresentialSession) {
+      cleanupRtcCall();
+      setRtcStatus("Sessão presencial: captura local ativa.");
+    } else {
+      void startProfessionalRtcCall(stream);
+    }
   }, [
+    cleanupRtcCall,
+    isPresentialSession,
+    sessionId,
     refreshMediaStatus,
     startBrowserSpeechToText,
     startProfessionalRtcCall,
@@ -4398,24 +4532,42 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   if (sessionLayout === "simplified") {
     return (
       <div className="flex h-screen min-w-0 flex-col overflow-hidden bg-slate-950 text-slate-100">
-        <header className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-800 bg-slate-900 px-3 py-2">
-          <div className="min-w-0">
-            <h1 className="truncate text-sm font-black">Sessão Simplificada</h1>
-            <p className="truncate text-[9px] text-slate-400">
-              Sessão {sessionId?.slice(0, 8) || "--"} | vídeo, corte, resumo, métricas e FROID Explica
-            </p>
+        <header className="shrink-0 overflow-x-auto border-b border-slate-800 bg-slate-900 px-3 py-2">
+          <div className="flex min-w-max items-center gap-3 whitespace-nowrap">
+            <h1 className="text-sm font-black">Sessão Simplificada</h1>
+            <span className="text-[9px] text-slate-400">
+              Sessão {sessionId?.slice(0, 8) || "--"} · vídeo · corte semântico · resumo · métricas · FROID Explica
+            </span>
+            <div className="w-[220px] shrink-0">{layoutSelector}</div>
+            <strong className="text-[9px] uppercase text-cyan-200">Estabilização:</strong>
+            <select
+              value={clinicalUpdateMode}
+              onChange={(event) => setClinicalUpdateMode(event.target.value as ClinicalUpdateMode)}
+              className="rounded border border-slate-700 bg-slate-950 px-2 py-1.5 text-[9px] font-bold text-slate-100 outline-none focus:border-cyan-500"
+            >
+              {CLINICAL_UPDATE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+            <span className="text-[9px] text-slate-400">
+              {clinicalWindowLabel}{clinicalUpdateMode !== "realtime" ? ` · próxima em ${formatCutClock(clinicalNextUpdateSeconds)}` : " · tempo real"}
+            </span>
+            <button
+              type="button"
+              onClick={() => refreshClinicalPresentation()}
+              disabled={clinicalUpdateMode === "realtime"}
+              className="rounded border border-cyan-800 bg-cyan-950 px-2 py-1.5 text-[9px] font-black uppercase text-cyan-100 disabled:opacity-40"
+            >
+              Atualizar
+            </button>
+            <button
+              type="button"
+              onClick={endSession}
+              className="rounded bg-red-600 px-3 py-1.5 text-[10px] font-bold text-white hover:bg-red-700"
+            >
+              Encerrar
+            </button>
           </div>
-          <div className="flex w-[560px] max-w-[55vw] items-center gap-2">
-            <div className="w-[240px]">{layoutSelector}</div>
-            <div className="min-w-[300px] flex-1">{clinicalStabilizationControl}</div>
-          </div>
-          <button
-            type="button"
-            onClick={endSession}
-            className="shrink-0 rounded bg-red-600 px-3 py-1.5 text-[10px] font-bold text-white hover:bg-red-700"
-          >
-            Encerrar
-          </button>
         </header>
 
         <div className="shrink-0 overflow-x-auto border-b border-slate-700 bg-slate-900">
@@ -4448,25 +4600,27 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             <video
               ref={remoteVideoRef}
               autoPlay
+              muted
               playsInline
               className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${
-                remotePatientOn ? "opacity-100" : "opacity-0"
+                remotePatientVideoOn ? "opacity-100" : "opacity-0"
               }`}
             />
+            <audio ref={remoteAudioRef} autoPlay className="hidden" />
             <video
               ref={videoRef}
               autoPlay
               muted
               playsInline
               className={`absolute scale-x-[-1] object-cover transition-all duration-500 ${
-                remotePatientOn
+                remotePatientVideoOn
                   ? "bottom-3 right-3 z-20 h-24 w-36 rounded-lg border border-white/40 shadow-lg"
                   : "inset-0 h-full w-full"
               } ${state.cameraOn ? "opacity-100" : "opacity-0"}`}
             />
             <div
               className={`absolute left-3 top-3 z-20 rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wide backdrop-blur ${
-                remotePatientOn
+                remotePatientVideoOn
                   ? "bg-emerald-500/90 text-white"
                   : "bg-slate-950/70 text-slate-200"
               }`}
@@ -4478,7 +4632,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
               <div className="absolute bottom-3 left-3 right-3 z-20 rounded-lg border border-amber-300/50 bg-slate-950/75 px-3 py-2 text-[10px] font-semibold text-amber-100 backdrop-blur-sm">
                 <div className="flex items-center justify-between gap-3">
                   <span className="min-w-0 flex-1">
-                    {state.camError || "Áudio aguardando permissao do navegador."}
+                    {state.camError || "Áudio aguardando permissão do navegador."}
                   </span>
                   {!state.micOn && (
                     <button
@@ -4605,7 +4759,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             <p className="mt-1">
               {isPresentialMobileSession
                 ? "O celular do paciente deve ficar voltado ao rosto dele e funcionar como captura dedicada. Recomenda-se microfone de lapela no profissional para reduzir interferencia da voz do DR."
-                : "Recomendado: camera e microfone externos direcionados ao paciente. Cadastre a voz do DR antes da consulta para reduzir contaminacao da trilha bioacústica."}
+                : "Recomendado: câmera e microfone externos direcionados ao paciente. Cadastre a voz do DR antes da consulta para reduzir contaminação da trilha bioacústica."}
             </p>
             <div className="mt-2 grid grid-cols-1 gap-1.5">
               <button
@@ -4706,25 +4860,27 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           <video
             ref={remoteVideoRef}
             autoPlay
+            muted
             playsInline
             className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${
-              remotePatientOn ? "opacity-100" : "opacity-0"
+              remotePatientVideoOn ? "opacity-100" : "opacity-0"
             }`}
           />
+          <audio ref={remoteAudioRef} autoPlay className="hidden" />
           <video
             ref={videoRef}
             autoPlay
             muted
             playsInline
             className={`absolute scale-x-[-1] object-cover transition-all duration-500 ${
-              remotePatientOn
+              remotePatientVideoOn
                 ? "bottom-3 right-3 z-20 h-24 w-36 rounded-lg border border-white/40 shadow-lg"
                 : "inset-0 h-full w-full"
             } ${state.cameraOn ? "opacity-100" : "opacity-0"}`}
           />
           <div
             className={`absolute left-3 top-3 z-20 rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wide backdrop-blur ${
-              remotePatientOn
+              remotePatientVideoOn
                 ? "bg-emerald-500/90 text-white"
                 : "bg-slate-950/70 text-slate-200"
             }`}
@@ -4736,7 +4892,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             <div className="absolute bottom-3 left-3 right-3 z-20 rounded-lg border border-amber-300/50 bg-slate-950/75 px-3 py-2 text-[10px] font-semibold text-amber-100 backdrop-blur-sm">
               <div className="flex items-center justify-between gap-3">
                 <span className="min-w-0 flex-1">
-                  {state.camError || "Áudio aguardando permissao do navegador."}
+                  {state.camError || "Áudio aguardando permissão do navegador."}
                 </span>
                 {!state.micOn && (
                   <button
@@ -4820,10 +4976,10 @@ function LiveSessionInner({ user }: LiveSessionProps) {
 
               {confirmedDissonanceZones.length === 0 && (
                 <div className="rounded-xl border border-emerald-900/70 bg-emerald-950/20 p-3 text-[11px] leading-relaxed text-emerald-100">
-                  Nenhuma dissonância facial-vocal-semantica ultrapassou os
+                  Nenhuma dissonância facial-vocal-semântica ultrapassou os
                   limiares definidos neste instante. O FROID segue monitorando
                   voz do paciente, FACS, IPM, IDM, sub-harmônicos, biomarcadores
-                  acústicos e conteudo transcrito.
+                  acústicos e conteúdo transcrito.
                 </div>
               )}
 
@@ -4852,7 +5008,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                               {interpretation.title}
                             </p>
                             <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                              Zona {zone.zone} - {zone.tema || "tema em apuraÃ§Ã£o"}
+                              Zona {zone.zone} - {zone.tema || "tema em apuração"}
                             </p>
                           </div>
                           <span className="shrink-0 rounded bg-red-600 px-1.5 py-0.5 text-[9px] font-black text-white">
@@ -4870,8 +5026,8 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                           </p>
                           <p className="mt-1 text-[10px] leading-snug text-slate-300">
                             O FROID registrou este apontamento apenas porque a
-                            composicao entre face, voz, zona, IDM e/ou semântica
-                            ultrapassou os limiares definidos após comparacao com
+                            composição entre face, voz, zona, IDM e/ou semântica
+                            ultrapassou os limiares definidos após comparação com
                             a baseline de 60 segundos da sessão.
                           </p>
                           <p className="mt-2 text-[10px] font-black uppercase tracking-wider text-slate-400">
