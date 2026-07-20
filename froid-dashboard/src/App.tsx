@@ -231,7 +231,13 @@ function App() {
         />
         <Route
           path="/access/register"
-          element={protectedElement(<ProfessionalOnboarding user={user} onUserChange={setUser} />)}
+          element={protectedElement(
+            !onboardingRequired(user) ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <ProfessionalOnboarding user={user} onUserChange={setUser} />
+            ),
+          )}
         />
         <Route
           path="/dashboard"

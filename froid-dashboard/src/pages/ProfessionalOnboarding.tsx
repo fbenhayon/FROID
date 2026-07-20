@@ -341,7 +341,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
         if (refreshed && !refreshed.access_status?.onboarding_required) {
           localStorage.setItem("froid_user", JSON.stringify(refreshed));
           onUserChange(refreshed);
-          navigate("/dashboard", { replace: true });
+          window.location.replace(`${publicAppUrl()}/#/dashboard`);
           return;
         }
       } catch (confirmationError: any) {
