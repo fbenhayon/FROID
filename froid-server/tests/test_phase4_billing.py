@@ -8,6 +8,27 @@ if str(SERVER_DIR) not in sys.path:
     sys.path.insert(0, str(SERVER_DIR))
 
 from subscriptions import SESSION_PACKAGES, SUPPORTED_BILLING_CURRENCIES
+from tenant_store import TenantStore
+
+
+class _RowResult:
+    def __init__(self, row=None):
+        self.row = row
+
+    def fetchone(self):
+        return self.row
+
+
+class _LegacyWalletConnection:
+    def __init__(self, opening):
+        self.opening = opening
+        self.statements = []
+
+    def execute(self, statement, params=()):
+        self.statements.append((statement, params))
+        if "SELECT delta,balance_after FROM credit_ledger" in statement:
+            return _RowResult(self.opening)
+        return _RowResult()
 
 
 class Phase4BillingTests(unittest.TestCase):
@@ -66,6 +87,31 @@ class Phase4BillingTests(unittest.TestCase):
         self.assertIn('str(price.get("id") or "") != expected_price_id', self.main)
         self.assertIn('payment_metadata.get("organization_id") != organization_id', self.main)
         self.assertIn('paid_amount != int(commercial_price["total_amount_minor"])', self.main)
+
+    def test_paid_checkout_reconciles_proven_legacy_balance_without_loss(self):
+        store = TenantStore("dual", "postgresql://owner", SERVER_DIR / "missing.sql")
+        connection = _LegacyWalletConnection((7, 7))
+        store._reconcile_legacy_wallet_for_purchase(
+            connection,
+            organization_id="00000000-0000-0000-0000-000000000001",
+            balance=7,
+            checkout_event_id="checkout:cs_test_once",
+        )
+        statements = "\n".join(statement for statement, _ in connection.statements)
+        self.assertIn("SET authority='shared'", statements)
+        self.assertIn("wallet.legacy_reconciled_for_purchase", statements)
+        self.assertIn('"legacy_balance_preserved": 7', connection.statements[-1][1][-1])
+
+    def test_paid_checkout_rejects_unproven_legacy_balance(self):
+        store = TenantStore("dual", "postgresql://owner", SERVER_DIR / "missing.sql")
+        connection = _LegacyWalletConnection((6, 6))
+        with self.assertRaisesRegex(RuntimeError, "opening balance reconciliation failed"):
+            store._reconcile_legacy_wallet_for_purchase(
+                connection,
+                organization_id="00000000-0000-0000-0000-000000000001",
+                balance=7,
+                checkout_event_id="checkout:cs_test_mismatch",
+            )
 
     def test_webhook_handles_purchase_success_and_failure(self):
         for event_type in (

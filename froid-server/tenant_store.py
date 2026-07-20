@@ -1206,6 +1206,42 @@ class TenantStore:
             "auto_replenish_terms_version": row[14],
         }
 
+    def _reconcile_legacy_wallet_for_purchase(
+        self, connection, *, organization_id: str, balance: int, checkout_event_id: str,
+    ) -> None:
+        """Activate a legacy wallet only when its opening ledger proves the balance."""
+        opening = connection.execute(
+            """SELECT delta,balance_after FROM credit_ledger
+            WHERE organization_id=%s AND idempotency_key='legacy-opening-v1'
+            FOR UPDATE""",
+            (organization_id,),
+        ).fetchone()
+        if (
+            not opening
+            or int(opening[0]) != int(balance)
+            or int(opening[1]) != int(balance)
+        ):
+            raise RuntimeError("legacy wallet opening balance reconciliation failed")
+        connection.execute(
+            """UPDATE organization_wallets
+            SET authority='shared',version=version+1,updated_at=now()
+            WHERE organization_id=%s AND authority='legacy' AND balance=%s""",
+            (organization_id, int(balance)),
+        )
+        connection.execute(
+            """INSERT INTO audit_events(
+            id,organization_id,action,resource_type,resource_id,outcome,metadata)
+            VALUES(%s,%s,'wallet.legacy_reconciled_for_purchase','organization_wallet',
+            %s,'success',%s::jsonb)""",
+            (
+                uuid.uuid4(), organization_id, organization_id,
+                _json({
+                    "legacy_balance_preserved": int(balance),
+                    "checkout_event_id": checkout_event_id,
+                }),
+            ),
+        )
+
     def apply_checkout_purchase(
         self, *, event_id: str, event_type: str, payload_sha256: str,
         organization_id: str, plan_code: str, package_code: str,
@@ -1239,11 +1275,11 @@ class TenantStore:
                 else:
                     balance = int(wallet[0])
                     if wallet[1] != "shared":
-                        if balance != 0:
-                            raise RuntimeError("legacy wallet must be reconciled before purchase")
-                        connection.execute(
-                            "UPDATE organization_wallets SET authority='shared' WHERE organization_id=%s",
-                            (organization_id,),
+                        self._reconcile_legacy_wallet_for_purchase(
+                            connection,
+                            organization_id=organization_id,
+                            balance=balance,
+                            checkout_event_id=event_id,
                         )
                 new_balance = balance + int(session_credits)
                 connection.execute(
