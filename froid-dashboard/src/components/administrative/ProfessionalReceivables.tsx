@@ -51,15 +51,23 @@ function escapeHtml(value: unknown) {
 }
 
 function openReceipt(row: ReceivableRow) {
-  const reference = window.prompt(
-    "Referência oficial Receita Saúde/NFS-e, se houver:",
-    "",
-  ) || "--";
+  // Abra a janela enquanto o clique ainda é o gesto ativo do usuário. Se a
+  // referência for solicitada antes, navegadores móveis podem bloquear o recibo.
   const receiptWindow = window.open("", "_blank", "width=920,height=720");
   if (!receiptWindow) {
     window.alert("Não foi possível abrir o recibo. Verifique o bloqueador de pop-ups.");
     return;
   }
+  receiptWindow.document.open();
+  receiptWindow.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8" />
+    <title>FROID — Preparando recibo</title></head><body style="font-family:Arial,sans-serif;padding:32px;color:#0f172a">
+    <p>Preparando recibo do paciente…</p></body></html>`);
+  receiptWindow.document.close();
+
+  const reference = window.prompt(
+    "Referência oficial Receita Saúde/NFS-e, se houver:",
+    "",
+  ) || "--";
   const issuedAt = new Date().toLocaleDateString("pt-BR");
   const rows = (row.items?.length ? row.items : [{}]).map((item) => `
     <tr>
