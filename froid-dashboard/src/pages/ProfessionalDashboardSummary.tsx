@@ -104,7 +104,19 @@ export const ProfessionalDashboardSummary: React.FC<Props> = ({ user, onLogout }
                     const signal = patientAdvancedSignal(group);
                     return (
                       <tr key={group.key} onClick={() => setSelectedKey(group.key)} className={`cursor-pointer hover:bg-slate-800 ${selected?.key === group.key ? "bg-cyan-950/40" : ""}`}>
-                        <td className="px-2 py-2 font-black text-slate-100">{group.patient.name || tr("Paciente sem nome")}</td>
+                        <td className="px-2 py-2 font-black text-slate-100">
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              nav(`/patients/${encodeURIComponent(group.key)}`);
+                            }}
+                            className="rounded text-left text-cyan-100 underline decoration-cyan-700 underline-offset-2 hover:text-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                            title={tr("Abrir layout longitudinal do paciente")}
+                          >
+                            {group.patient.name || tr("Paciente sem nome")}
+                          </button>
+                        </td>
                         <td className="px-2 py-2">{group.totalSessions}</td>
                         <td className="px-2 py-2">{fmt(mean(group.reports, (r) => r.sessionAverage.ipmAvg), 1)}</td>
                         <td className="px-2 py-2">{fmt(mean(group.reports, (r) => r.sessionAverage.idmAvg), 2)}</td>
