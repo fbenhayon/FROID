@@ -34,6 +34,11 @@ type Referral = {
   email: string;
 };
 
+type ValidationIssue = {
+  message: string;
+  target?: string;
+};
+
 interface Props {
   user: FroidUser | null;
   onUserChange: (user: FroidUser | null) => void;
@@ -162,10 +167,13 @@ const Field: React.FC<{
       {required && <span className="text-red-500"> *</span>}
     </span>
     <input
+      id={`onboarding-${name}`}
+      name={name}
       value={value}
       onChange={(event) => onChange(name, event.target.value)}
       type={type}
       required={required}
+      aria-required={required || undefined}
       placeholder={placeholder}
       className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
     />
@@ -207,9 +215,23 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const feedbackRef = useRef<HTMLDivElement | null>(null);
 
   const professionals = useMemo(() => parseProfessionals(professionalsRaw), [professionalsRaw]);
   const availablePlans = plans;
+  const requiredFieldLabels = accountType === "organization"
+    ? [
+        "Nome fantasia e razão social",
+        "CNPJ, celular e e-mail da empresa",
+        "Nome, celular, e-mail e CPF do representante legal",
+        "CEP, logradouro, número e bairro",
+        "Aviso de privacidade, recarga automática e pacote comercial",
+      ]
+    : [
+        "Nome completo, celular, e-mail e CPF",
+        "CEP, logradouro, número e bairro",
+        "Aviso de privacidade, recarga automática e pacote comercial",
+      ];
   const selectedPlanData =
     availablePlans.find((plan) => plan.id === selectedPlan) || availablePlans[0];
   const unitAmountCents = Math.max(0, Number(selectedPlanData?.amount_cents || 0));
@@ -391,47 +413,78 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
     openWhatsappReferral(referral);
   };
 
-  const validateForm = () => {
+  const validateForm = (): ValidationIssue | null => {
     const requiredFields =
       accountType === "organization"
         ? [
-            ["Razao social", fields.corporateName],
-            ["CNPJ", fields.cnpj],
-            ["Celular da empresa", fields.companyMobile],
-            ["E-mail da empresa", fields.companyEmail],
-            ["Nome do representante legal", fields.legalRepresentativeName],
-            ["Celular do representante legal", fields.legalRepresentativeMobile],
-            ["E-mail do representante legal", fields.legalRepresentativeEmail],
-            ["CPF do representante legal", fields.legalRepresentativeCpf],
+            ["Nome fantasia", "tradeName", fields.tradeName],
+            ["Razão social", "corporateName", fields.corporateName],
+            ["CNPJ", "cnpj", fields.cnpj],
+            ["Celular da empresa", "companyMobile", fields.companyMobile],
+            ["E-mail da empresa", "companyEmail", fields.companyEmail],
+            ["Nome do representante legal", "legalRepresentativeName", fields.legalRepresentativeName],
+            ["Celular do representante legal", "legalRepresentativeMobile", fields.legalRepresentativeMobile],
+            ["E-mail do representante legal", "legalRepresentativeEmail", fields.legalRepresentativeEmail],
+            ["CPF do representante legal", "legalRepresentativeCpf", fields.legalRepresentativeCpf],
           ]
         : [
-            ["Nome completo", fields.fullName],
-            ["Celular", fields.mobile],
-            ["E-mail", fields.email],
-            ["CPF", fields.cpf],
+            ["Nome completo", "fullName", fields.fullName],
+            ["Celular", "mobile", fields.mobile],
+            ["E-mail", "email", fields.email],
+            ["CPF", "cpf", fields.cpf],
           ];
     const addressFields = [
-      ["CEP", fields.postalCode],
-      ["Logradouro", fields.street],
-      ["Número", fields.number],
-      ["Bairro", fields.district],
+      ["CEP", "postalCode", fields.postalCode],
+      ["Logradouro", "street", fields.street],
+      ["Número", "number", fields.number],
+      ["Bairro", "district", fields.district],
     ];
-    const missing = [...requiredFields, ...addressFields].find(([, value]) => !String(value || "").trim());
-    if (missing) return `Preencha o campo obrigatorio: ${missing[0]}.`;
-    if (!lgpdAccepted) return "Aceite os termos LGPD para continuar.";
-    if (!autoReplenishAccepted) return "Autorize a recarga automática para continuar.";
-    if (!selectedPlanData || contractedSessions < 1) {
-      return "Selecione um pacote comercial válido.";
+    const missing = [...requiredFields, ...addressFields].find(([, , value]) => !String(value || "").trim());
+    if (missing) {
+      return { message: `Preencha o campo obrigatório: ${missing[0]}.`, target: `onboarding-${missing[1]}` };
     }
-    return "";
+    const emailField = accountType === "organization"
+      ? ["E-mail da empresa", "companyEmail", fields.companyEmail]
+      : ["E-mail", "email", fields.email];
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(emailField[2] || "").trim())) {
+      return { message: `Informe um ${emailField[0]} válido.`, target: `onboarding-${emailField[1]}` };
+    }
+    if (!lgpdAccepted) {
+      return { message: "Aceite o aviso de privacidade e responsabilidade profissional para continuar.", target: "lgpd-consent" };
+    }
+    if (!autoReplenishAccepted) {
+      return { message: "Autorize a recarga automática para continuar.", target: "auto-replenish-consent" };
+    }
+    if (plansLoading) {
+      return { message: "Aguarde o carregamento dos pacotes comerciais.", target: "planos" };
+    }
+    if (plansError) {
+      return { message: `${plansError} Tente carregar novamente.`, target: "reload-plans" };
+    }
+    if (!selectedPlanData || contractedSessions < 1) {
+      return { message: "Selecione um pacote comercial válido.", target: "planos" };
+    }
+    return null;
+  };
+
+  const focusValidationTarget = (target?: string) => {
+    window.requestAnimationFrame(() => {
+      const element = target ? document.getElementById(target) : feedbackRef.current;
+      element?.scrollIntoView({ behavior: "smooth", block: "center" });
+      if (element instanceof HTMLElement && typeof element.focus === "function") {
+        element.focus({ preventScroll: true });
+      }
+    });
   };
 
   const saveAndCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
-    const validationError = validateForm();
-    if (validationError) {
-      setError(validationError);
+    setMessage("Verificando as informações obrigatórias...");
+    const validationIssue = validateForm();
+    if (validationIssue) {
+      setError(validationIssue.message);
       setMessage("");
+      focusValidationTarget(validationIssue.target);
       return;
     }
     const token = localStorage.getItem("froid_token");
@@ -570,6 +623,9 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
           <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-300">
             Complete o cadastro da pessoa física ou jurídica, indique usuários,
             aceite as condições LGPD e selecione o plano para liberar o dashboard clínico.
+          </p>
+          <p className="mt-3 rounded-lg border border-cyan-800 bg-cyan-950/60 px-3 py-2 text-xs font-semibold text-cyan-100">
+            Os campos marcados com <span className="font-black text-red-300">*</span>, os dois consentimentos e a seleção de um pacote são obrigatórios.
           </p>
         </div>
 
@@ -793,6 +849,8 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
               </div>
               <label className="mt-4 flex gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-bold leading-5 text-amber-950">
                 <input
+                  id="lgpd-consent"
+                  name="lgpd_consent"
                   type="checkbox"
                   checked={lgpdAccepted}
                   onChange={(event) => setLgpdAccepted(event.target.checked)}
@@ -813,6 +871,15 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
             <p className="mt-1 text-sm text-slate-400">
               O pagamento será processado pelo Stripe e depois o acesso retorna ao dashboard.
             </p>
+
+            <div className="mt-4 rounded-lg border border-slate-700 bg-slate-950 p-3">
+              <p className="text-xs font-black uppercase tracking-wide text-cyan-200">
+                Informações obrigatórias
+              </p>
+              <ul className="mt-2 list-disc space-y-1 pl-4 text-xs leading-5 text-slate-300">
+                {requiredFieldLabels.map((label) => <li key={label}>{label}</li>)}
+              </ul>
+            </div>
 
             <label className="mt-4 block">
               <span className="text-[11px] font-black uppercase text-slate-400">
@@ -871,6 +938,8 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
 
             <label className="mt-4 flex gap-3 rounded-lg border border-cyan-700 bg-cyan-950 p-3 text-xs font-bold leading-5 text-cyan-100">
               <input
+                id="auto-replenish-consent"
+                name="auto_replenish_consent"
                 type="checkbox"
                 checked={autoReplenishAccepted}
                 onChange={(event) => setAutoReplenishAccepted(event.target.checked)}
@@ -889,14 +958,24 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
                 <p className="text-sm font-bold text-slate-400">Carregando pacotes...</p>
               )}
               {plansError && (
-                <p className="text-sm font-bold text-red-400">{plansError}</p>
+                <div className="space-y-2 rounded-lg border border-red-800 bg-red-950/50 p-3">
+                  <p className="text-sm font-bold text-red-200">{plansError}</p>
+                  <button
+                    id="reload-plans"
+                    type="button"
+                    onClick={() => loadPlans(billingCurrency)}
+                    className="rounded-md border border-red-700 px-3 py-2 text-xs font-black text-red-100 hover:bg-red-900"
+                  >
+                    Tentar carregar novamente
+                  </button>
+                </div>
               )}
               {availablePlans.map((plan) => (
                 <label
                   key={plan.id}
                   className={`block cursor-pointer rounded-lg border p-4 ${
                     selectedPlan === plan.id
-                      ? "border-cyan-500 bg-cyan-50"
+                      ? "border-cyan-500 bg-cyan-950"
                       : "border-slate-700 bg-slate-900"
                   }`}
                 >
@@ -908,7 +987,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
                     className="sr-only"
                   />
                   <span className="block text-sm font-black text-slate-100">{plan.name}</span>
-                  <span className="mt-1 block text-2xl font-black text-cyan-800">{plan.display_amount}</span>
+                  <span className="mt-1 block text-2xl font-black text-cyan-200">{plan.display_amount}</span>
                   <span className="mt-1 block text-xs text-slate-400">
                     {plan.session_credits} sessões - {plan.description}
                   </span>
@@ -916,15 +995,24 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
               ))}
             </div>
 
-            {error && <p className="mt-4 text-sm font-bold text-red-600">{error}</p>}
-            {message && <p className="mt-4 text-sm font-bold text-amber-100">{message}</p>}
+            <div ref={feedbackRef} tabIndex={-1} aria-live="assertive">
+              {error && (
+                <p role="alert" className="mt-4 rounded-lg border border-red-700 bg-red-950/70 p-3 text-sm font-bold text-red-100">
+                  {error}
+                </p>
+              )}
+              {message && (
+                <p role="status" className="mt-4 rounded-lg border border-amber-700 bg-amber-950/60 p-3 text-sm font-bold text-amber-100">
+                  {message}
+                </p>
+              )}
+            </div>
 
             <button
-              disabled={
-                loading || plansLoading || !selectedPlanData
-                || !lgpdAccepted || !autoReplenishAccepted
-              }
-              className="mt-5 w-full rounded-lg bg-slate-950 px-4 py-3 text-sm font-black text-white hover:bg-slate-800 disabled:opacity-40"
+              type="submit"
+              disabled={loading}
+              aria-busy={loading}
+              className="mt-5 w-full rounded-lg bg-cyan-700 px-4 py-3 text-sm font-black text-white hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-cyan-300 disabled:cursor-wait disabled:opacity-60"
             >
               {loading ? "Processando..." : "Enviar informações e pagar"}
             </button>
