@@ -57,8 +57,15 @@ class Phase4BillingTests(unittest.TestCase):
     def test_checkout_return_has_authenticated_reconciliation(self):
         self.assertIn('@app.post("/api/subscriptions/confirm-checkout")', self.main)
         self.assertIn('event_id=f"checkout:{checkout_session_id}"', self.main)
-        self.assertIn('event_id=f"checkout:{stripe_object.get(\'id\')}"', self.main)
         self.assertIn("pagamento não pertence à organização ativa", self.main)
+
+    def test_access_requires_authoritative_stripe_payment_evidence(self):
+        self.assertIn("async def _verify_stripe_checkout_line_item", self.main)
+        self.assertIn('payment_intent.get("status") != "succeeded"', self.main)
+        self.assertIn('stripe_session.get("payment_status") != "paid"', self.main)
+        self.assertIn('str(price.get("id") or "") != expected_price_id', self.main)
+        self.assertIn('payment_metadata.get("organization_id") != organization_id', self.main)
+        self.assertIn('paid_amount != int(commercial_price["total_amount_minor"])', self.main)
 
     def test_webhook_handles_purchase_success_and_failure(self):
         for event_type in (
