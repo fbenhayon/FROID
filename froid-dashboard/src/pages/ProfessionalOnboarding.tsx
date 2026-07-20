@@ -322,8 +322,15 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
             body: JSON.stringify({ checkout_session_id: checkoutSessionId }),
           });
           const confirmationData = await confirmation.json().catch(() => ({}));
-          if (!confirmation.ok && confirmation.status !== 409) {
-            throw new Error(confirmationData.detail || "Não foi possível confirmar o pagamento.");
+          if (!confirmation.ok) {
+            const detail = confirmationData.detail || "Não foi possível confirmar o pagamento.";
+            const awaitingStripe = confirmation.status === 409
+              && String(detail).toLowerCase().includes("ainda não confirmado");
+            if (!awaitingStripe) {
+              setError(detail);
+              setMessage("Pagamento não liberado. Não faça uma nova cobrança.");
+              return;
+            }
           }
         }
         const response = await fetch(apiUrl("/api/auth/me"), {

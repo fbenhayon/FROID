@@ -236,7 +236,7 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
             body: JSON.stringify({ checkout_session_id: checkoutSessionId }),
           });
           const data = await response.json().catch(() => ({}));
-          if (!response.ok && response.status !== 409) {
+          if (!response.ok) {
             throw new Error(data.detail || "Não foi possível confirmar o pagamento.");
           }
           await loadBillingProfile(billingCurrency);
