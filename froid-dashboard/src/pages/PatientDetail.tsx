@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { AIInsights } from "../components/panels/AIInsights";
 import { apiUrl } from "../lib/api";
 import {
@@ -47,7 +47,12 @@ function savePatientStatuses(statuses: Record<string, PatientFollowStatus>) {
 
 export const PatientDetail: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { patientKey = "" } = useParams<{ patientKey: string }>();
+  const requestedReturnTo = (location.state as { returnTo?: string } | null)?.returnTo;
+  const returnTo = requestedReturnTo === "/dashboard/resumido"
+    ? "/dashboard/resumido"
+    : "/dashboard";
   const decodedPatientKey = decodeURIComponent(patientKey);
   const [reports, setReports] = useState<SessionReportRecord[]>(() =>
     loadSessionReports(),
@@ -211,8 +216,11 @@ export const PatientDetail: React.FC = () => {
             </p>
           </div>
           <div className="flex flex-wrap justify-end gap-2">
-            <span className="rounded border border-blue-800 bg-blue-950 px-3 py-2 text-xs font-black text-blue-200">
-              {signal.priority}
+            <span
+              className="rounded border border-blue-800 bg-blue-950 px-3 py-2 text-xs font-black text-blue-200"
+              title="Indicador calculado de prioridade atual do acompanhamento"
+            >
+              {tr("Prioridade")}: {signal.priority}
             </span>
             <button
               onClick={() => navigate(`/session/${latest.sessionId}`)}
@@ -221,10 +229,10 @@ export const PatientDetail: React.FC = () => {
               Abrir sessão
             </button>
             <button
-              onClick={() => navigate("/dashboard")}
+              onClick={() => navigate(returnTo)}
               className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-slate-800"
             >
-              Dashboard
+              {tr("Voltar")}
             </button>
           </div>
         </div>

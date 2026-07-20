@@ -19,6 +19,12 @@ type FinancialSummary = {
   total_received_brl?: string;
   total_pending_brl?: string;
 };
+type PatientFinancialRow = {
+  patient_key: string;
+  total_due_brl?: string;
+  total_received_brl?: string;
+  total_pending_brl?: string;
+};
 
 function mean(reports: SessionReportRecord[], select: (report: SessionReportRecord) => number | null | undefined) {
   const values = reports.map(select).filter((value): value is number => Number.isFinite(value));
@@ -29,6 +35,7 @@ export const ProfessionalDashboardSummary: React.FC<Props> = ({ user, onLogout }
   const nav = useNavigate();
   const [reports, setReports] = useState<SessionReportRecord[]>(() => loadSessionReports());
   const [financial, setFinancial] = useState<FinancialSummary | null>(null);
+  const [patientFinancials, setPatientFinancials] = useState<PatientFinancialRow[]>([]);
   const [selectedKey, setSelectedKey] = useState("");
   const locale = loadSessionLanguagePreferences().spokenLanguage;
   const tr = (text: string) => dashboardText(locale, text);
@@ -51,6 +58,9 @@ export const ProfessionalDashboardSummary: React.FC<Props> = ({ user, onLogout }
       const remote = Array.isArray(reportData?.reports) ? reportData.reports : [];
       if (remote.length) setReports((current) => mergeReports(current, remote));
       setFinancial(receivableData?.summary || null);
+      setPatientFinancials(
+        Array.isArray(receivableData?.rows) ? receivableData.rows : [],
+      );
     }).catch(() => undefined);
     return () => { active = false; };
   }, []);
@@ -91,25 +101,60 @@ export const ProfessionalDashboardSummary: React.FC<Props> = ({ user, onLogout }
           </div>
         </section>
 
-        <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.08fr)_minmax(420px,0.92fr)]">
+        <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h2 className="text-sm font-black">FROID Explica</h2>
+            <button onClick={() => nav("/settings")} className="rounded border border-cyan-800 bg-cyan-950 px-3 py-1.5 text-[11px] font-bold text-cyan-100">{tr("Meus prompts")}</button>
+          </div>
+          {selected ? (
+            <AIInsights
+              zones={selected.latestReport.sessionAverage.zones || []}
+              ipmScore={selected.latestReport.sessionAverage.ipmAvg}
+              coherenceStatus={selected.latestReport.sessionAverage.coherenceStatus}
+              baselineEstablished
+              sessionId={selected.latestReport.sessionId}
+              responseLocale={locale}
+              extraContext={{ patient: selected.patient, reports: selected.reports.slice(0, 20) }}
+              controlsSticky
+              messagesClassName="min-h-72 max-h-[520px]"
+            />
+          ) : <p className="text-xs text-slate-400">{tr("Nenhum paciente com relatório disponível.")}</p>}
+        </section>
+
           <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">
             <h2 className="text-sm font-black">{tr("Pacientes e indicadores médios")}</h2>
             <div className="mt-3 overflow-x-auto">
-              <table className="min-w-max table-auto text-left text-[10px]">
+              <table className="min-w-max table-auto whitespace-nowrap text-left text-[10px]">
                 <thead className="uppercase text-slate-500">
-                  <tr>{["Paciente", "Sessões", "IPM", "IDM", "P/min", "MFCC7", "MFCC9", "Jitter", "Shimmer", "Prioridade"].map((label) => <th key={label} className="px-2 py-2">{tr(label)}</th>)}</tr>
+                  <tr>{["Paciente", "Sessões", "Tom", "IPM", "IDM", "P/min", "MFCC7", "MFCC9", "Jitter", "Shimmer", "Prioridade", "Devido", "Recebido", "Pendente"].map((label) => <th key={label} className="whitespace-nowrap px-2 py-2">{tr(label)}</th>)}</tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
                   {groups.map((group) => {
                     const signal = patientAdvancedSignal(group);
+                    const financialKeys = new Set([
+                      group.key,
+                      group.patient.id ? `id:${group.patient.id}` : "",
+                      group.patient.email ? `email:${group.patient.email.toLowerCase()}` : "",
+                      group.patient.phone
+                        ? `phone:${group.patient.phone.replace(/\D/g, "")}`
+                        : "",
+                      group.patient.name
+                        ? `name:${group.patient.name.trim().toLowerCase()}`
+                        : "",
+                    ].filter(Boolean));
+                    const patientFinancial = patientFinancials.find(
+                      (row) => financialKeys.has(String(row.patient_key || "").toLowerCase()),
+                    );
                     return (
-                      <tr key={group.key} onClick={() => setSelectedKey(group.key)} className={`cursor-pointer hover:bg-slate-800 ${selected?.key === group.key ? "bg-cyan-950/40" : ""}`}>
-                        <td className="px-2 py-2 font-black text-slate-100">
+                      <tr key={group.key} onClick={() => setSelectedKey(group.key)} className={`cursor-pointer whitespace-nowrap hover:bg-slate-800 ${selected?.key === group.key ? "bg-cyan-950/40" : ""}`}>
+                        <td className="whitespace-nowrap px-2 py-2 font-black text-slate-100">
                           <button
                             type="button"
                             onClick={(event) => {
                               event.stopPropagation();
-                              nav(`/patients/${encodeURIComponent(group.key)}`);
+                              nav(`/patients/${encodeURIComponent(group.key)}`, {
+                                state: { returnTo: "/dashboard/resumido" },
+                              });
                             }}
                             className="rounded text-left text-cyan-100 underline decoration-cyan-700 underline-offset-2 hover:text-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-500"
                             title={tr("Abrir layout longitudinal do paciente")}
@@ -117,7 +162,8 @@ export const ProfessionalDashboardSummary: React.FC<Props> = ({ user, onLogout }
                             {group.patient.name || tr("Paciente sem nome")}
                           </button>
                         </td>
-                        <td className="px-2 py-2">{group.totalSessions}</td>
+                        <td className="whitespace-nowrap px-2 py-2">{group.totalSessions}</td>
+                        <td className="whitespace-nowrap px-2 py-2">{group.latestReport.sessionAverage.emotionalTone || "--"}</td>
                         <td className="px-2 py-2">{fmt(mean(group.reports, (r) => r.sessionAverage.ipmAvg), 1)}</td>
                         <td className="px-2 py-2">{fmt(mean(group.reports, (r) => r.sessionAverage.idmAvg), 2)}</td>
                         <td className="px-2 py-2">{fmt(mean(group.reports, (r) => r.sessionAverage.wordsPerMinute), 1)}</td>
@@ -126,6 +172,9 @@ export const ProfessionalDashboardSummary: React.FC<Props> = ({ user, onLogout }
                         <td className="px-2 py-2">{fmt(mean(group.reports, (r) => r.sessionAverage.jitter), 3)}</td>
                         <td className="px-2 py-2">{fmt(mean(group.reports, (r) => r.sessionAverage.shimmer), 3)}</td>
                         <td className="px-2 py-2 font-bold text-cyan-200">{signal.priority}</td>
+                        <td className="whitespace-nowrap px-2 py-2 text-cyan-200">{patientFinancial?.total_due_brl || "R$ 0,00"}</td>
+                        <td className="whitespace-nowrap px-2 py-2 text-emerald-200">{patientFinancial?.total_received_brl || "R$ 0,00"}</td>
+                        <td className="whitespace-nowrap px-2 py-2 text-amber-100">{patientFinancial?.total_pending_brl || "R$ 0,00"}</td>
                       </tr>
                     );
                   })}
@@ -133,27 +182,6 @@ export const ProfessionalDashboardSummary: React.FC<Props> = ({ user, onLogout }
               </table>
             </div>
           </section>
-
-          <section className="sticky top-4 rounded-lg border border-slate-800 bg-slate-900 p-4">
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <h2 className="text-sm font-black">FROID Explica</h2>
-              <button onClick={() => nav("/settings")} className="rounded border border-cyan-800 bg-cyan-950 px-3 py-1.5 text-[11px] font-bold text-cyan-100">{tr("Meus prompts")}</button>
-            </div>
-            {selected ? (
-              <AIInsights
-                zones={selected.latestReport.sessionAverage.zones || []}
-                ipmScore={selected.latestReport.sessionAverage.ipmAvg}
-                coherenceStatus={selected.latestReport.sessionAverage.coherenceStatus}
-                baselineEstablished
-                sessionId={selected.latestReport.sessionId}
-                responseLocale={locale}
-                extraContext={{ patient: selected.patient, reports: selected.reports.slice(0, 20) }}
-                controlsSticky
-                messagesClassName="min-h-72 max-h-[520px]"
-              />
-            ) : <p className="text-xs text-slate-400">{tr("Nenhum paciente com relatório disponível.")}</p>}
-          </section>
-        </div>
       </main>
     </div>
   );

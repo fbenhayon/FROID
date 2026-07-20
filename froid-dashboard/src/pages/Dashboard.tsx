@@ -739,7 +739,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                 <button
                   onClick={() => {
                     setSelectedPatientKey(group.key);
-                    nav(`/patients/${encodeURIComponent(group.key)}`);
+                    nav(`/patients/${encodeURIComponent(group.key)}`, {
+                      state: { returnTo: "/dashboard" },
+                    });
                   }}
                   className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-slate-800"
                 >
