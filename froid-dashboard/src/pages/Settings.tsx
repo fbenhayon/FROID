@@ -226,8 +226,28 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
     const hashQuery = window.location.hash.split("?")[1] || "";
     const params = new URLSearchParams(hashQuery);
     if (params.get("subscription") === "success") {
-      setBillingMessage("Pagamento recebido. Aguardando confirmação segura do Stripe...");
-      window.setTimeout(() => void loadBillingProfile(billingCurrency), 1800);
+      const checkoutSessionId = params.get("session_id") || "";
+      setBillingMessage("Pagamento recebido. Confirmando a liberação das sessões...");
+      void (async () => {
+        try {
+          const response = await fetch(apiUrl("/api/subscriptions/confirm-checkout"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...authHeaders() },
+            body: JSON.stringify({ checkout_session_id: checkoutSessionId }),
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok && response.status !== 409) {
+            throw new Error(data.detail || "Não foi possível confirmar o pagamento.");
+          }
+          await loadBillingProfile(billingCurrency);
+          setBillingMessage("Pagamento confirmado e sessões liberadas.");
+        } catch (error: any) {
+          setBillingMessage(
+            error?.message
+            || "Pagamento recebido; não refaça a compra enquanto a liberação é conferida.",
+          );
+        }
+      })();
     } else if (params.get("subscription") === "cancelled") {
       setBillingMessage("Pagamento cancelado. Nenhuma cobrança foi aplicada.");
     }
@@ -468,8 +488,8 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
   );
 
   const buySessionCredits = async () => {
-    if (!selectedPlanData || sessionQuantity < 1 || !autoReplenishAccepted) {
-      setBillingMessage("Selecione um pacote e autorize a recarga automática.");
+    if (!selectedPlanData || sessionQuantity < 1) {
+      setBillingMessage("Selecione um pacote válido.");
       return;
     }
     setBillingLoading(true);
@@ -484,7 +504,7 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
         body: JSON.stringify({
           package_code: selectedPlan,
           currency: billingCurrency,
-          auto_replenish_consent: true,
+          auto_replenish_consent: autoReplenishAccepted,
           checkout_context: "settings",
           base_url: publicAppUrl(),
         }),
@@ -1044,15 +1064,14 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
                   onChange={(event) => setAutoReplenishAccepted(event.target.checked)}
                 />
                 <span>
-                  Autorizo salvar o método de pagamento e recomprar este pacote
+                  <strong>Opcional:</strong> autorizo salvar o método de pagamento e recomprar este pacote
                   quando o saldo compartilhado chegar a zero.
                 </span>
               </label>
               <button
                 type="button"
                 disabled={
-                  billingLoading || sessionQuantity < 1
-                  || !autoReplenishAccepted || !selectedPlanData
+                  billingLoading || sessionQuantity < 1 || !selectedPlanData
                 }
                 onClick={() => void buySessionCredits()}
                 className="rounded-lg bg-cyan-700 px-3 py-2 text-xs font-bold text-white hover:bg-cyan-800 disabled:opacity-40"

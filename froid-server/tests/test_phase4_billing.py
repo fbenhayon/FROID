@@ -46,11 +46,18 @@ class Phase4BillingTests(unittest.TestCase):
         self.assertIn("s.currency", self.store)
         self.assertIn("currency IN ('brl','usd','eur','cny')", self.migration)
 
-    def test_checkout_requires_explicit_recharge_consent(self):
-        self.assertIn('body.get("auto_replenish_consent") is not True', self.main)
-        self.assertIn('"payment_intent_data[setup_future_usage]": "off_session"', self.main)
+    def test_checkout_keeps_automatic_recharge_optional(self):
+        self.assertIn('auto_replenish = body.get("auto_replenish_consent") is True', self.main)
+        self.assertIn('if auto_replenish:', self.main)
+        self.assertIn('form["payment_intent_data[setup_future_usage]"] = "off_session"', self.main)
         self.assertIn("AUTO_REPLENISH_TERMS_VERSION", self.main)
         self.assertIn("auto_replenish_consent_at", self.migration)
+
+    def test_checkout_return_has_authenticated_reconciliation(self):
+        self.assertIn('@app.post("/api/subscriptions/confirm-checkout")', self.main)
+        self.assertIn('event_id=f"checkout:{checkout_session_id}"', self.main)
+        self.assertIn('event_id=f"checkout:{stripe_object.get(\'id\')}"', self.main)
+        self.assertIn("pagamento não pertence à organização ativa", self.main)
 
     def test_webhook_handles_purchase_success_and_failure(self):
         for event_type in (

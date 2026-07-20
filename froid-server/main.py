@@ -6707,11 +6707,7 @@ async def create_subscription_checkout(request: Request):
     if not STRIPE_SECRET_KEY:
         raise HTTPException(status_code=503, detail="Stripe não configurado")
     body = await request.json()
-    if body.get("auto_replenish_consent") is not True:
-        raise HTTPException(
-            status_code=400,
-            detail="consentimento expresso para recarga automática obrigatório",
-        )
+    auto_replenish = body.get("auto_replenish_consent") is True
     package_code = str(body.get("package_code") or "").strip().lower()
     package = SESSION_PACKAGES.get(package_code)
     if not package:
@@ -6764,20 +6760,27 @@ async def create_subscription_checkout(request: Request):
         "metadata[plan_code]": plan_code,
         "metadata[package_code]": package_code,
         "metadata[currency]": currency,
-        "metadata[auto_replenish_terms_version]": AUTO_REPLENISH_TERMS_VERSION,
-        "customer_creation": "always",
-        "payment_intent_data[setup_future_usage]": "off_session",
+        "metadata[auto_replenish]": "true" if auto_replenish else "false",
         "payment_intent_data[metadata][organization_id]": context.organization_id,
         "payment_intent_data[metadata][plan_code]": plan_code,
         "payment_intent_data[metadata][package_code]": package_code,
         "payment_intent_data[metadata][currency]": currency,
-        "payment_intent_data[metadata][auto_replenish_terms_version]": AUTO_REPLENISH_TERMS_VERSION,
-        "custom_text[submit][message]": (
+        "payment_intent_data[metadata][auto_replenish]": (
+            "true" if auto_replenish else "false"
+        ),
+    }
+    if auto_replenish:
+        form["metadata[auto_replenish_terms_version]"] = AUTO_REPLENISH_TERMS_VERSION
+        form["customer_creation"] = "always"
+        form["payment_intent_data[setup_future_usage]"] = "off_session"
+        form["payment_intent_data[metadata][auto_replenish_terms_version]"] = (
+            AUTO_REPLENISH_TERMS_VERSION
+        )
+        form["custom_text[submit][message]"] = (
             "Ao concluir, você autoriza o FROID a salvar o método de pagamento "
             "e recomprar este pacote, na mesma moeda e pelo valor informado, "
             "quando o saldo de sessões chegar a zero."
-        ),
-    }
+        )
     if email:
         form["customer_email"] = email
     async with httpx.AsyncClient(timeout=20.0) as client:
@@ -6794,6 +6797,120 @@ async def create_subscription_checkout(request: Request):
         "status": "ok", "checkout_session_id": data.get("id"),
         "checkout_url": data.get("url"), "plan": SUBSCRIPTION_PLANS[plan_code],
         "package": package,
+    }
+
+
+@app.post("/api/subscriptions/confirm-checkout")
+async def confirm_subscription_checkout(request: Request):
+    """Reconcile a paid Stripe return without depending on webhook timing."""
+    user = _require_current_user(request)
+    context = _tenant_context_from_request(request)
+    if context is None:
+        raise HTTPException(status_code=409, detail="contexto organizacional ausente")
+    if not ({"owner", "administrator"} & set(context.roles)):
+        raise HTTPException(status_code=403, detail="papel sem permissão para confirmar plano")
+    if not STRIPE_SECRET_KEY or not TENANT_STORE.enabled:
+        raise HTTPException(status_code=503, detail="confirmação de pagamento indisponível")
+    body = await request.json()
+    checkout_session_id = str(body.get("checkout_session_id") or "").strip()
+    if not checkout_session_id.startswith("cs_"):
+        raise HTTPException(status_code=400, detail="sessão de pagamento inválida")
+
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        session_response = await client.get(
+            f"https://api.stripe.com/v1/checkout/sessions/{quote(checkout_session_id, safe='')}",
+            headers={"Authorization": f"Bearer {STRIPE_SECRET_KEY}"},
+        )
+    stripe_session = session_response.json()
+    if session_response.status_code >= 400 or not isinstance(stripe_session, dict):
+        detail = (
+            stripe_session.get("error", {}).get("message")
+            if isinstance(stripe_session, dict) else None
+        )
+        raise HTTPException(status_code=502, detail=detail or "Falha ao consultar pagamento")
+
+    metadata = (
+        stripe_session.get("metadata")
+        if isinstance(stripe_session.get("metadata"), dict) else {}
+    )
+    organization_id = str(metadata.get("organization_id") or "").strip()
+    if (
+        organization_id != context.organization_id
+        or str(stripe_session.get("client_reference_id") or "") != context.organization_id
+    ):
+        raise HTTPException(status_code=403, detail="pagamento não pertence à organização ativa")
+    if stripe_session.get("payment_status") != "paid":
+        raise HTTPException(status_code=409, detail="pagamento ainda não confirmado pelo Stripe")
+
+    package_code = str(metadata.get("package_code") or "").strip().lower()
+    package = SESSION_PACKAGES.get(package_code)
+    currency = _normalize_stripe_currency(metadata.get("currency"))
+    commercial_price = package_price(package or {}, currency)
+    auto_replenish = (
+        metadata.get("auto_replenish") == "true"
+        or metadata.get("auto_replenish_terms_version")
+        == AUTO_REPLENISH_TERMS_VERSION
+    )
+    if (
+        not package or not commercial_price
+        or metadata.get("plan_code") != package["plan_code"]
+        or (
+            auto_replenish
+            and metadata.get("auto_replenish_terms_version")
+            != AUTO_REPLENISH_TERMS_VERSION
+        )
+    ):
+        raise HTTPException(status_code=422, detail="pacote Stripe não reconhecido")
+
+    payment_intent_id = str(stripe_session.get("payment_intent") or "")
+    if not payment_intent_id:
+        raise HTTPException(status_code=409, detail="pagamento sem identificação financeira")
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        pi_response = await client.get(
+            f"https://api.stripe.com/v1/payment_intents/{quote(payment_intent_id, safe='')}",
+            headers={"Authorization": f"Bearer {STRIPE_SECRET_KEY}"},
+        )
+    payment_intent = pi_response.json()
+    paid_amount = int(
+        payment_intent.get("amount_received")
+        or payment_intent.get("amount") or 0
+    )
+    if (
+        pi_response.status_code >= 400
+        or payment_intent.get("status") != "succeeded"
+        or payment_intent.get("currency") != currency
+        or paid_amount != int(commercial_price["total_amount_minor"])
+    ):
+        raise HTTPException(status_code=409, detail="pagamento inicial não confirmado")
+    stripe_customer_id = str(
+        stripe_session.get("customer") or payment_intent.get("customer") or ""
+    )
+    stripe_payment_method_id = str(payment_intent.get("payment_method") or "")
+    if auto_replenish and (not stripe_customer_id or not stripe_payment_method_id):
+        raise HTTPException(status_code=409, detail="método sem suporte a recarga")
+
+    result = TENANT_STORE.apply_checkout_purchase(
+        event_id=f"checkout:{checkout_session_id}",
+        event_type="checkout.session.confirmed",
+        payload_sha256=hashlib.sha256(
+            json.dumps(stripe_session, sort_keys=True).encode("utf-8")
+        ).hexdigest(),
+        organization_id=organization_id,
+        plan_code=str(package["plan_code"]),
+        package_code=package_code,
+        session_credits=int(package["sessions"]),
+        amount_cents=int(commercial_price["total_amount_minor"]),
+        currency=currency,
+        stripe_customer_id=stripe_customer_id,
+        stripe_payment_method_id=stripe_payment_method_id,
+        terms_version=str(metadata.get("auto_replenish_terms_version") or ""),
+        auto_replenish=auto_replenish,
+    )
+    refreshed_user = _attach_tenant_contexts(dict(user))
+    return {
+        "status": "active",
+        **result,
+        "access_status": _effective_professional_access_status(refreshed_user),
     }
 
 
@@ -6828,6 +6945,11 @@ async def stripe_webhook(request: Request):
         package = SESSION_PACKAGES.get(package_code)
         currency = _normalize_stripe_currency(metadata.get("currency"))
         commercial_price = package_price(package or {}, currency)
+        auto_replenish = (
+            metadata.get("auto_replenish") == "true"
+            or metadata.get("auto_replenish_terms_version")
+            == AUTO_REPLENISH_TERMS_VERSION
+        )
         try:
             uuid.UUID(organization_id)
         except (ValueError, AttributeError) as exc:
@@ -6835,8 +6957,11 @@ async def stripe_webhook(request: Request):
         if (
             not package or not commercial_price
             or metadata.get("plan_code") != package["plan_code"]
-            or metadata.get("auto_replenish_terms_version")
-            != AUTO_REPLENISH_TERMS_VERSION
+            or (
+                auto_replenish
+                and metadata.get("auto_replenish_terms_version")
+                != AUTO_REPLENISH_TERMS_VERSION
+            )
         ):
             raise HTTPException(status_code=422, detail="pacote Stripe não reconhecido")
         payment_intent_id = str(stripe_object.get("payment_intent") or "")
@@ -6861,10 +6986,10 @@ async def stripe_webhook(request: Request):
             stripe_object.get("customer") or payment_intent.get("customer") or ""
         )
         stripe_payment_method_id = str(payment_intent.get("payment_method") or "")
-        if not stripe_customer_id or not stripe_payment_method_id:
+        if auto_replenish and (not stripe_customer_id or not stripe_payment_method_id):
             raise HTTPException(status_code=409, detail="método sem suporte a recarga")
         result = TENANT_STORE.apply_checkout_purchase(
-            event_id=str(event.get("id") or ""), event_type=event_type,
+            event_id=f"checkout:{stripe_object.get('id')}", event_type=event_type,
             payload_sha256=hashlib.sha256(payload).hexdigest(),
             organization_id=organization_id, plan_code=str(package["plan_code"]),
             package_code=package_code, session_credits=int(package["sessions"]),
@@ -6872,6 +6997,7 @@ async def stripe_webhook(request: Request):
             currency=currency, stripe_customer_id=stripe_customer_id,
             stripe_payment_method_id=stripe_payment_method_id,
             terms_version=str(metadata.get("auto_replenish_terms_version") or ""),
+            auto_replenish=auto_replenish,
         )
         return {"received": True, "handled": True, **result}
 

@@ -1211,6 +1211,7 @@ class TenantStore:
         organization_id: str, plan_code: str, package_code: str,
         session_credits: int, amount_cents: int, stripe_customer_id: str,
         stripe_payment_method_id: str, currency: str, terms_version: str,
+        auto_replenish: bool,
     ) -> dict:
         """Activate access and credit a paid package exactly once."""
         if not self.enabled:
@@ -1270,18 +1271,23 @@ class TenantStore:
                     organization_id,plan_code,package_code,sessions_per_recharge,recharge_amount_cents,
                     currency,status,stripe_customer_id,stripe_payment_method_id,auto_replenish,
                     auto_replenish_consent_at,auto_replenish_terms_version,last_recharge_status)
-                    VALUES(%s,%s,%s,%s,%s,%s,'active',%s,%s,true,now(),%s,'succeeded')
+                    VALUES(%s,%s,%s,%s,%s,%s,'active',%s,%s,%s,
+                    CASE WHEN %s THEN now() ELSE NULL END,%s,
+                    CASE WHEN %s THEN 'succeeded' ELSE 'not_started' END)
                     ON CONFLICT(organization_id) DO UPDATE SET plan_code=excluded.plan_code,
                     package_code=excluded.package_code,sessions_per_recharge=excluded.sessions_per_recharge,
                     recharge_amount_cents=excluded.recharge_amount_cents,currency=excluded.currency,status='active',
                     stripe_customer_id=excluded.stripe_customer_id,
                     stripe_payment_method_id=excluded.stripe_payment_method_id,
-                    auto_replenish=true,auto_replenish_consent_at=now(),
+                    auto_replenish=excluded.auto_replenish,
+                    auto_replenish_consent_at=excluded.auto_replenish_consent_at,
                     auto_replenish_terms_version=excluded.auto_replenish_terms_version,
-                    last_recharge_status='succeeded',updated_at=now()""",
+                    last_recharge_status=excluded.last_recharge_status,updated_at=now()""",
                     (organization_id, plan_code, package_code, int(session_credits),
                      int(amount_cents), currency, stripe_customer_id,
-                     stripe_payment_method_id, terms_version),
+                     stripe_payment_method_id, bool(auto_replenish),
+                     bool(auto_replenish), terms_version or None,
+                     bool(auto_replenish)),
                 )
         return {"applied": True, "balance": new_balance}
 

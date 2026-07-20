@@ -225,12 +225,12 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
         "CNPJ, celular e e-mail da empresa",
         "Nome, celular, e-mail e CPF do representante legal",
         "CEP, logradouro, número e bairro",
-        "Aviso de privacidade, recarga automática e pacote comercial",
+        "Aviso de privacidade e pacote comercial",
       ]
     : [
         "Nome completo, celular, e-mail e CPF",
         "CEP, logradouro, número e bairro",
-        "Aviso de privacidade, recarga automática e pacote comercial",
+        "Aviso de privacidade e pacote comercial",
       ];
   const selectedPlanData =
     availablePlans.find((plan) => plan.id === selectedPlan) || availablePlans[0];
@@ -296,7 +296,9 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
 
   useEffect(() => {
     const query = window.location.hash.split("?")[1] || "";
-    const subscriptionResult = new URLSearchParams(query).get("subscription");
+    const returnParams = new URLSearchParams(query);
+    const subscriptionResult = returnParams.get("subscription");
+    const checkoutSessionId = returnParams.get("session_id") || "";
     if (subscriptionResult === "cancelled") {
       setMessage("Pagamento cancelado. Seu cadastro foi preservado.");
       return;
@@ -310,6 +312,20 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
     const refreshAccess = async () => {
       attempt += 1;
       try {
+        if (checkoutSessionId) {
+          const confirmation = await fetch(apiUrl("/api/subscriptions/confirm-checkout"), {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ checkout_session_id: checkoutSessionId }),
+          });
+          const confirmationData = await confirmation.json().catch(() => ({}));
+          if (!confirmation.ok && confirmation.status !== 409) {
+            throw new Error(confirmationData.detail || "Não foi possível confirmar o pagamento.");
+          }
+        }
         const response = await fetch(apiUrl("/api/auth/me"), {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -321,13 +337,15 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
           navigate("/dashboard", { replace: true });
           return;
         }
-      } catch {
-        // Stripe may deliver the signed webhook shortly after the browser returns.
+      } catch (confirmationError: any) {
+        if (!cancelled && attempt >= 12) {
+          setError(confirmationError?.message || "Não foi possível confirmar o pagamento.");
+        }
       }
       if (!cancelled && attempt < 12) {
         window.setTimeout(() => void refreshAccess(), 1500);
       } else if (!cancelled) {
-        setMessage("Pagamento em conciliação. Atualize esta página em instantes.");
+        setMessage("Não refaça o pagamento. A cobrança foi recebida, mas a liberação requer conferência.");
       }
     };
     void refreshAccess();
@@ -452,9 +470,6 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
     if (!lgpdAccepted) {
       return { message: "Aceite o aviso de privacidade e responsabilidade profissional para continuar.", target: "lgpd-consent" };
     }
-    if (!autoReplenishAccepted) {
-      return { message: "Autorize a recarga automática para continuar.", target: "auto-replenish-consent" };
-    }
     if (plansLoading) {
       return { message: "Aguarde o carregamento dos pacotes comerciais.", target: "planos" };
     }
@@ -562,7 +577,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
         body: JSON.stringify({
           package_code: selectedPlan,
           currency: billingCurrency,
-          auto_replenish_consent: true,
+          auto_replenish_consent: autoReplenishAccepted,
           checkout_context: "onboarding",
           base_url: publicAppUrl(),
         }),
@@ -947,7 +962,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
                 className="mt-1"
               />
               <span>
-                Autorizo o FROID a salvar o método de pagamento e recomprar automaticamente
+                  <strong>Opcional:</strong> autorizo o FROID a salvar o método de pagamento e recomprar automaticamente
                 o mesmo pacote quando o saldo de sessões chegar a zero, na mesma moeda e pelo
                 valor total informado nesta contratação. Qualquer alteração exigirá nova autorização.
               </span>
