@@ -50,6 +50,7 @@ class Phase4BillingTests(unittest.TestCase):
         self.assertIn('auto_replenish = body.get("auto_replenish_consent") is True', self.main)
         self.assertIn('if auto_replenish:', self.main)
         self.assertIn('form["payment_intent_data[setup_future_usage]"] = "off_session"', self.main)
+        self.assertEqual(self.main.count('metadata.get("auto_replenish") == "true"'), 2)
         self.assertIn("AUTO_REPLENISH_TERMS_VERSION", self.main)
         self.assertIn("auto_replenish_consent_at", self.migration)
 

@@ -6846,11 +6846,7 @@ async def confirm_subscription_checkout(request: Request):
     package = SESSION_PACKAGES.get(package_code)
     currency = _normalize_stripe_currency(metadata.get("currency"))
     commercial_price = package_price(package or {}, currency)
-    auto_replenish = (
-        metadata.get("auto_replenish") == "true"
-        or metadata.get("auto_replenish_terms_version")
-        == AUTO_REPLENISH_TERMS_VERSION
-    )
+    auto_replenish = metadata.get("auto_replenish") == "true"
     if (
         not package or not commercial_price
         or metadata.get("plan_code") != package["plan_code"]
@@ -6945,11 +6941,7 @@ async def stripe_webhook(request: Request):
         package = SESSION_PACKAGES.get(package_code)
         currency = _normalize_stripe_currency(metadata.get("currency"))
         commercial_price = package_price(package or {}, currency)
-        auto_replenish = (
-            metadata.get("auto_replenish") == "true"
-            or metadata.get("auto_replenish_terms_version")
-            == AUTO_REPLENISH_TERMS_VERSION
-        )
+        auto_replenish = metadata.get("auto_replenish") == "true"
         try:
             uuid.UUID(organization_id)
         except (ValueError, AttributeError) as exc:
