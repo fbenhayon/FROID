@@ -162,7 +162,9 @@ export const PatientInvitePage: React.FC = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...(passwordOnly ? { password: patientForm.password } : patientPayload),
+          ...(passwordOnly
+            ? { password: patientForm.password }
+            : { ...patientPayload, email_confirm: patientForm.email_confirm }),
           ...(passwordOnly ? {} : { consent }),
         }),
       });
