@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Technologie — FROID</title>
+<meta name="description" content="Comment fonctionne le moteur acoustico-facial de FROID : étalonnage de la ligne de base, extraction MFCC, dynamique des Unités d'Action, les 12 Zones et les indices de synthèse IPM et IDM." />
+<link rel="alternate" hreflang="pt-BR" href="https://www.froid.com.br/tecnologia.html" />
+<link rel="alternate" hreflang="en" href="https://www.froid.com.br/en/tecnologia.html" />
+<link rel="alternate" hreflang="fr" href="https://www.froid.com.br/fr/tecnologia.html" />
+<link rel="alternate" hreflang="x-default" href="https://www.froid.com.br/tecnologia.html" />
+<link rel="stylesheet" href="../site-assets/style.css?v=6" />
+</head>
+<body>
+
+<header class="site-header">
+  <div class="nav-row">
+    <a class="brand" href="index.html"><img class="brand-logo" src="../site-assets/img/froid-logo.png" alt="FROID" /></a>
+    <nav class="nav-links">
+      <a href="index.html">Accueil</a>
+      <a href="ciencia.html">Science</a>
+      <a href="tecnologia.html">Technologie</a>
+      <a href="froid-explica.html">FROID Explique</a>
+      <a href="etica.html">Éthique</a>
+      <a href="seguranca.html">Sécurité</a>
+      <a href="profissionais.html">Professionnels</a>
+      <a href="precos.html">Tarifs</a>
+    </nav>
+    <div class="nav-actions">
+      <a class="btn btn-ghost" href="https://www.froid.com.br/app/#/login">Se connecter à FROID</a>
+      <a class="btn btn-solid" href="https://www.froid.com.br/cadastro">S'inscrire à FROID</a>
+      <div class="lang-group" role="group" aria-label="Choisir la langue"><a class="lang-pill" href="../tecnologia.html">PT</a><a class="lang-pill" href="../en/tecnologia.html">EN</a><span class="lang-pill lang-current">FR</span></div>
+    </div>
+  </div>
+</header>
+
+<section class="hero" style="padding:64px 0 56px;">
+  <div class="container">
+    <p class="section-kicker" style="color:#93c5fd;">Technologie</p>
+    <h1 style="font-size:2.1rem;">Le moteur derrière FROID, expliqué par couches</h1>
+    <p class="lead">De la capture audio brute jusqu'à la lecture visuelle des 12 Zones — ce qui relève du traitement de signal standard, ce qui relève du cadre propriétaire, et où s'arrête chacun.</p>
+  </div>
+</section>
+
+<div class="disclaimer-box container" style="margin-top:32px;">
+  <strong>Avis d'usage clinique :</strong> FROID ne réalise pas de diagnostic automatisé. Chaque indicateur présenté sur le tableau de bord est un signal d'aide à l'écoute clinique, à interpréter par le professionnel responsable en fonction du contexte de la séance — jamais isolément.
+</div>
+
+<section class="block">
+  <div class="container">
+    <p class="section-kicker">Étape 1</p>
+    <h2 class="section-title">Étalonnage de la ligne de base — 60 secondes</h2>
+    <div class="grid-2">
+      <div>
+        <p>Chaque séance commence par 60 secondes d'étalonnage. Pendant cet intervalle, le système établit la moyenne et la variabilité de la fréquence fondamentale (F0) du patient au repos, cartographie le profil de bruit de l'environnement et du microphone, et verrouille (<code>baseline_locked</code>) les valeurs de référence utilisées pour toutes les comparaisons de la séance.</p>
+        <p>Cela existe parce que l'analyse acoustique absolue n'a pas de sens clinique : une voix naturellement grave ne peut pas être confondue avec un ralentissement psychomoteur, et une voix aiguë ne peut pas être lue comme une hyperactivation. Chaque patient est comparé uniquement à lui-même.</p>
+      </div>
+      <img class="site-img" src="../site-assets/img/tec-calibracao-baseline.png" alt="Paramètres initiaux de 60 secondes : ligne de base, moyenne de séance et segments de 10 minutes." />
+    </div>
+
+    <div class="nerds-wrapper">
+      <button class="nerds-toggle" data-target="nerds-baseline" aria-expanded="false">Réservé aux passionnés</button>
+      <div class="nerds-panel" id="nerds-baseline">
+        <h4>Ce qui est verrouillé lors de l'étalonnage</h4>
+        <p>F0 de base (moyenne et écart-type), densité spectrale de puissance par bande (via FFT dans le navigateur — Web Audio API, aucune bibliothèque DSP côté backend), bruit de fond, et l'état initial des 468 points faciaux suivis.</p>
+        <h4>Implémentation réelle</h4>
+        <p>État de séance implémenté comme une machine à états <code>CALIBRATING → LIVE → ENDED</code>, avec une action <code>BASELINE_LOCK</code> déclenchant le verrouillage des valeurs de référence (<code>froid-dashboard/src/pages/LiveSession.tsx</code>).</p>
+        <div class="ref">Fondement conceptuel de l'étalonnage individuel en bioacoustique : la variabilité inter-locuteurs est largement documentée dans la littérature sur les biomarqueurs vocaux — voir <a href="ciencia.html">Science, Pilier 1</a>.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block soft">
+  <div class="container">
+    <p class="section-kicker">Étape 2</p>
+    <h2 class="section-title">Extraction acoustique continue</h2>
+    <p class="section-lead">À chaque fenêtre d'analyse, FROID extrait un ensemble de caractéristiques vocales et compare chacune à la ligne de base verrouillée.</p>
+
+    <div class="grid-3">
+      <div class="card"><span class="badge badge-strong">Zhao et al., 2022</span><h3>MFCC7 / MFCC9</h3><p>Coefficients cepstraux sur l'échelle de Mel et leurs dérivées (Δ, ΔΔ). Dans l'étude de référence, le MFCC7 sous contenu négatif est prédictif de l'échelle de dépression (β=0,90) et le MFCC9 est corrélé négativement à l'anxiété somatique de Hamilton (β=−0,45) — c'est pourquoi FROID lit le ΔΔMFCC9 comme un marqueur de l'accélération de la tension laryngée.</p></div>
+      <div class="card"><span class="badge badge-strong">Davis &amp; Mermelstein, 1980</span><h3>F0 et ZCR</h3><p>Fréquence fondamentale et taux de passage par zéro, extraits en continu et comparés à la variabilité de base.</p></div>
+      <div class="card"><span class="badge badge-weak">Indice proxy interne</span><h3>Jitter / Shimmer</h3><p>Indices internes normalisés (et non les jitter% / shimmer dB cliniques classiques) dérivés d'un ZCR mis à l'échelle et du coefficient de variation de l'enveloppe RMS — ils signalent une instabilité vocale relative.</p></div>
+    </div>
+
+    <div class="nerds-wrapper">
+      <button class="nerds-toggle" data-target="nerds-mfcc" aria-expanded="false">Réservé aux passionnés</button>
+      <div class="nerds-panel" id="nerds-mfcc">
+        <h4>Pourquoi Jitter/Shimmer sont ici des « proxys »</h4>
+        <p>Dans le code de production (<code>LiveSession.tsx</code>), ces métriques sont explicitement étiquetées comme des proxys, avec une unité documentée :</p>
+        <div class="formula">jitter_source: "zero_crossing_rate_scaled_x45"
+shimmer_source: "rms_envelope_coefficient_of_variation"
+jitter_unit / shimmer_unit: "internal_proxy_0_1_..."</div>
+        <p>Autrement dit : ils n'équivalent pas directement au jitter en % ou au shimmer en dB tels que définis par Boersma &amp; Weenink (Praat). Ce sont des proxys dérivés, utilisés comme signal relatif d'instabilité — pas comme valeur clinique normative. Une extraction physique validée (équivalente à Praat) figure sur la feuille de route.</p>
+        <h4>Accélération de la tension (ΔΔMFCC9)</h4>
+        <div class="formula">ΔMFCC9(n)  = MFCC9(n) − MFCC9(n−1)
+ΔΔMFCC9(n) = ΔMFCC9(n) − ΔMFCC9(n−1)</div>
+        <p>Des pics soutenus dans l'accélération de la dérivée Delta-Delta (ΔΔMFCC9 &gt; 1,8) signalent des micro-contractions réflexes des cordes vocales et servent de déclencheur biophysique de friction somatoaffective. Le seuil de 1,8 est un paramètre d'ingénierie calibrable, pas une constante publiée.</p>
+        <div class="ref">Davis, S. &amp; Mermelstein, P. (1980). Comparison of parametric representations for monosyllabic word recognition. <em>IEEE Trans. ASSP</em>. · Boersma, P. &amp; Weenink, D. — Praat : doing phonetics by computer.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block">
+  <div class="container">
+    <p class="section-kicker">Étape 3</p>
+    <h2 class="section-title">Dynamique faciale — FACS et Unités d'Action</h2>
+    <div class="grid-2">
+      <img class="site-img" src="../site-assets/img/tec-facs-aus.png" alt="Carte FACS des Unités d'Action faciales suivies par FROID." />
+      <div>
+        <p>468 points faciaux sont suivis par vision par ordinateur locale, classés en Unités d'Action (AU) selon le Facial Action Coding System, avec une modélisation temporelle de l'onset, de l'apex et de l'offset.</p>
+        <p>Lorsqu'une configuration faciale (ex. : AU12 sans AU6, ou AU23/AU24 soutenues) coïncide avec un écart acoustique pertinent dans une zone, le système applique un multiplicateur de dissonance à la lecture de cette zone.</p>
+      </div>
+    </div>
+
+    <div class="nerds-wrapper">
+      <button class="nerds-toggle" data-target="nerds-facs" aria-expanded="false">Réservé aux passionnés</button>
+      <div class="nerds-panel" id="nerds-facs">
+        <h4>Multiplicateur Facial de Dissonance (M_fac)</h4>
+        <div class="formula">dissonanceMultiplier = facialDissonanceFlag ? 2.5 : 1.0</div>
+        <p>Forme binaire appliquée en production lorsque le drapeau de dissonance faciale se déclenche. La valeur 2,5 est un paramètre produit FROID, non dérivé d'une étude publiée — à traiter comme une heuristique d'ingénierie calibrable, pas comme une constante scientifique. L'assemblage complet de l'IDM (moyenne des 12 zones × M_fac) et la forme continue du multiplicateur figurent à l'Étape 5.</p>
+        <h4>À propos du couple AU6+AU12 (« sourire de Duchenne »)</h4>
+        <p>L'hypothèse classique selon laquelle l'absence d'AU6 indique un sourire forcé bénéficie d'un soutien partiel dans la littérature, mais des recherches récentes la contestent directement, trouvant que l'AU6 est davantage liée à l'intensité du sourire qu'à l'authenticité émotionnelle. FROID utilise cette configuration comme l'un des multiples facteurs de dissonance, pas comme un détecteur de mensonge isolé.</p>
+        <div class="ref">Valstar &amp; Pantic (2012), Jiang et al. (2014), Gonzalez et al. (2015), Hamm et al. (2011) — infrastructure FACS+HMM. Voir la contestation de l'hypothèse de Duchenne dans <a href="ciencia.html">Science, Pilier 4</a>.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block soft">
+  <div class="container">
+    <p class="section-kicker">Étape 4 · Cadre propriétaire</p>
+    <h2 class="section-title">Les 12 Zones de Perception</h2>
+    <p class="section-lead">La couche visuelle et interprétative qui organise tous les signaux précédents en une carte circulaire de 12 zones, chacune associée à une dichotomie thématique clinique.</p>
+
+    <img class="site-img" src="../site-assets/img/tec-12-zonas.png" alt="Graphique des 12 Zones de Perception, montrant les écarts du pôle négatif au pôle positif." />
+
+    <div class="nerds-wrapper">
+      <button class="nerds-toggle" data-target="nerds-zonas" aria-expanded="false">Réservé aux passionnés</button>
+      <div class="nerds-panel" id="nerds-zonas">
+        <h4>Ce que c'est, précisément</h4>
+        <p>Une interface de visualisation propriétaire qui répartit l'énergie spectrale vocale sur 12 bandes, chacune accordée à une note de la gamme chromatique et associée par FROID à un thème clinique interprétatif (ex. : Zone 3 — « Tristesse vs. Paix intérieure »). La physique sous-jacente (densité spectrale de puissance via FFT) est réelle et mesurable.</p>
+        <h4>Ce que ce n'est pas</h4>
+        <p>Il n'existe aucune littérature évaluée par les pairs validant l'association spécifique entre une plage étroite de Hz et un thème psychologique. La structure est une transposition adaptée d'une technologie commerciale de biofeedback vocal (gamme EVOX/ZYTO). Nous le traitons explicitement comme une heuristique produit FROID.</p>
+        <h4>Couleurs de sévérité</h4>
+        <div class="formula">score ≤ -0,5 → BLANC   score ≤ 0,5 → BLEU
+score ≤  1,5 → VERT    score ≤ 3,0 → JAUNE
+score  > 3,0 → ROUGE</div>
+        <div class="ref">Origine et cadrage détaillés dans <a href="ciencia.html">Science</a>.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block">
+  <div class="container">
+    <p class="section-kicker">Étape 5 · Cadre propriétaire</p>
+    <h2 class="section-title">Les indices de synthèse : IPM et IDM</h2>
+    <p class="section-lead">Le cerveau humain n'exécute pas de Transformées de Fourier ni ne suit 468 points faciaux à 30 IPS tout en maintenant l'alliance thérapeutique. FROID résout ce goulot d'étranglement par réduction de dimensionnalité : il fusionne voix, visage et sémantique en deux vecteurs qui tournent en continu sur le panneau de suivi.</p>
+
+    <div class="grid-2">
+      <div class="card">
+        <span class="badge badge-proprietary">Cadre propriétaire FROID</span>
+        <h3>📈 Indice de Puissance Multimodale (IPM)</h3>
+        <p>Le « compteur de vitesse » de l'énergie biologique de la séance — quantifie, sur une échelle de 0 à 100, l'intensité expressive et la vitalité psychomotrice du patient à chaque seconde.</p>
+        <p>Combine l'amplitude et la variabilité de trois canaux : énergie acoustique et variabilité de F0 (voix), amplitude et vitesse de contraction des Unités d'Action (visage), et densité de termes à fort impact émotionnel détectés par NLP (sémantique). Un facteur de fiabilité dynamique par canal écarte les variations parasites, comme une toux ou un changement brusque de lumière dans la pièce.</p>
+        <p style="font-size:0.92rem; color:var(--froid-cinza);"><strong>Lecture clinique :</strong> une baisse soutenue indique une léthargie ou un ralentissement moteur dépressif ; des pics fréquents indiquent une hyperactivation, une agitation anxieuse ou une accélération des pensées.</p>
+      </div>
+      <div class="card">
+        <span class="badge badge-proprietary">Cadre propriétaire FROID</span>
+        <h3>🧭 Indice de Divergence Multimodale (IDM)</h3>
+        <p>La « boussole » qui indique la direction et la cohérence de cette énergie — évalue si les réactions du patient sont congruentes avec le contenu abordé ou s'il y a une rupture de symétrie révélant une résistance, une répression ou une somatisation.</p>
+        <p>Compare les lectures instantanées à la ligne de base individuelle verrouillée durant les 60 premières secondes. Lorsque le canal facial et le canal vocal se contredisent — contenu triste avec infra-tremblement vocal (5–12 Hz) mais sourire seulement volontaire (AU12 sans AU6) — applique le Multiplicateur Facial de Dissonance, déplaçant l'indice vers les couleurs d'alerte.</p>
+        <p style="font-size:0.92rem; color:var(--froid-cinza);"><strong>Lecture clinique :</strong> localise les « points chauds » émotionnels — révèle la Dissonance Somatoaffective (Fausse Calme), lorsque le stress a été réprimé du visage mais continue de tendre le larynx.</p>
+      </div>
+    </div>
+
+    <div class="nerds-wrapper">
+      <button class="nerds-toggle" data-target="nerds-indices" aria-expanded="false">Réservé aux passionnés</button>
+      <div class="nerds-panel" id="nerds-indices">
+        <h4>Équation de l'IPM</h4>
+        <div class="formula">IPM(t) = 100 · σ( Σ wᵢ · rᵢ(t) · |zᵢ(t)| ),   i ∈ {Voix, Visage, Sém}
+σ(x) = 1 / (1 + e⁻ˣ)</div>
+        <p>σ est la sigmoïde qui compresse le résultat entre 0 et 100. |zᵢ(t)| est l'amplitude de l'écart standardisé (z-score) du canal par rapport à la base de 60 s ; rᵢ(t) ∈ [0,1] est la fiabilité dynamique du canal ; wᵢ sont les poids calibrés par ingénierie de la phonation pour équilibrer chaque capteur.</p>
+        <h4>Équation de l'IDM et pénalisation de dissonance</h4>
+        <div class="formula">IDM(t) = ( (1/12) Σ D_énergie,z(t) ) × M_fac(t)
+D_énergie,z = (E_z − E_base,z) / (E_base,z + ε),   ε = 1e-9
+M_fac(t) = 1,0 + 1,5 · [ AU12 · (1 − AU6) · Conf_apex ]   (plafond = 2,5)</div>
+        <p>Au repos ou en congruence, M_fac = 1,0. Au seuil maximal de dissonance (sourire social pur, sans contraction orbitale, Conf_apex ≥ 0,75) le multiplicateur atteint le plafond de 2,5. La production actuelle applique la forme binaire de ce multiplicateur (2,5 lorsque le drapeau de dissonance se déclenche, 1,0 sinon — voir Étape 3) ; l'expression continue ci-dessus est le modèle de référence. Implémenté dans <code>froid-engine.ts → calculateIDM()</code>.</p>
+        <p style="font-size:0.92rem; color:var(--froid-cinza);"><strong>Honnêteté d'ingénierie :</strong> les poids, les coefficients de fusion et le 2,5 lui-même sont des paramètres produit affinés en laboratoire — des hypothèses cliniques qualifiées, pas des constantes scientifiques publiées. La validation populationnelle définitive dépend du Data Mart anonyme (k-anonymat + hachages à sens unique). Voir le cadrage dans <a href="ciencia.html">Science</a>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block soft">
+  <div class="container">
+    <p class="section-kicker">Étape 6 · Cadre propriétaire</p>
+    <h2 class="section-title">Stabilisation Clinique de l'Écran</h2>
+    <p class="section-lead">Lors des tests avec des professionnels, un écran qui change toutes les quelques secondes s'est révélé trop rapide pour évaluer toutes les métriques avec calme clinique. La réponse de FROID : le traitement brut continue en haute résolution (cadence d'1 seconde), mais la <strong>présentation visuelle</strong> est stabilisée dans une fenêtre clinique configurable — sans gel et sans perte de précision.</p>
+
+    <div class="grid-3">
+      <div class="card">
+        <span class="badge badge-proprietary">Cadre propriétaire FROID</span>
+        <h3>🧮 Comment ça marche</h3>
+        <p>Toutes les 1 minute, FROID clôture une <strong>micro-fenêtre technique</strong>. L'écran affiche une <strong>fenêtre clinique glissante de 5 minutes</strong>, composée des 5 dernières micro-fenêtres — consolidées par <strong>moyenne pondérée temporelle</strong>, jamais par une moyenne simple : la minute en cours pèse plus que les précédentes.</p>
+        <p style="font-size:0.92rem; color:var(--froid-cinza);">Le professionnel voit de la stabilité, mais FROID continue de réagir progressivement à ce qui se passe maintenant.</p>
+      </div>
+      <div class="card">
+        <span class="badge badge-proprietary">Cadre propriétaire FROID</span>
+        <h3>⏱️ Fenêtres disponibles</h3>
+        <p><strong>Temps réel</strong> — sans gel visuel<br />
+        <strong>1 minute</strong> — fenêtre clinique légère<br />
+        <strong>3 minutes</strong> — supervision dynamique<br />
+        <strong>5 minutes</strong> — réglage recommandé<br />
+        <strong>7 minutes</strong> — séance plus lente/réflexive</p>
+        <p style="font-size:0.92rem; color:var(--froid-cinza);">« Temps réel » signifie que les graphiques et indicateurs suivent la cadence technique disponible (≈1s/10s selon l'origine de la métrique) — ce n'est pas du temps réel absolu de laboratoire, mais l'absence de gel clinique de l'écran.</p>
+      </div>
+      <div class="card">
+        <span class="badge badge-proprietary">Cadre propriétaire FROID</span>
+        <h3>🖥️ Comportement à l'écran</h3>
+        <p>Le panneau affiche <code>Fenêtre clinique : 5min</code> et le compte à rebours <code>Prochaine mise à jour dans 03:42</code>, avec le bouton <code>Mettre à jour maintenant</code> toujours disponible.</p>
+        <p style="font-size:0.92rem; color:var(--froid-cinza);"><strong>Exception de sécurité :</strong> une alerte critique rompt la stabilisation et met à jour l'écran immédiatement, avant l'échéance.</p>
+      </div>
+    </div>
+
+    <div class="nerds-wrapper">
+      <button class="nerds-toggle" data-target="nerds-estabilizacao" aria-expanded="false">Réservé aux passionnés</button>
+      <div class="nerds-panel" id="nerds-estabilizacao">
+        <h4>Poids de la fenêtre clinique de 5 minutes</h4>
+        <div class="formula">V_écran(t) = Σ w_k · m_k(t),   k ∈ {−4, −3, −2, −1, 0}
+w = { minute −4 : 10 %, minute −3 : 15 %, minute −2 : 20 %, minute −1 : 25 %, minute actuelle : 30 % }</div>
+        <p>m_k est la valeur consolidée de la micro-fenêtre technique k (1 minute). Le traitement brut suit la cadence d'1 seconde ; seule la couche de présentation est stabilisée.</p>
+        <h4>Consolidation par type de métrique</h4>
+        <ul>
+          <li><strong>IPM</strong> — moyenne pondérée des 5 dernières minutes.</li>
+          <li><strong>IDM</strong> — moyenne pondérée, préservant le signe positif/négatif.</li>
+          <li><strong>Zones</strong> — zone dominante par somme pondérée d'intensité.</li>
+          <li><strong>Risques cliniques</strong> — moyenne pondérée avec <em>verrouillage de pic</em> : un pic critique récent ne disparaît pas immédiatement de l'écran.</li>
+          <li><strong>Dissonances</strong> — n'apparaissent que si elles persistent au-dessus du seuil pendant au moins 2 micro-fenêtres, sauf alerte critique.</li>
+          <li><strong>MFCC7 / MFCC9 / ZCR / Jitter / Shimmer / Sous-harmoniques</strong> — moyenne pondérée + enregistrement du pic maximal sur la période.</li>
+          <li><strong>Tonalité émotionnelle</strong> — majorité pondérée ou classification dominante sur les 5 dernières minutes.</li>
+          <li><strong>Mots/min</strong> — total des mots sur 5 minutes divisé par 5.</li>
+          <li><strong>FROID Explique</strong> — chaque requête reçoit l'état consolidé affiché à l'écran + accès aux données brutes récentes si nécessaire.</li>
+        </ul>
+        <p class="ref">Référence propriétaire : <code>FROID_Estabilizacao_Clinica_Da_Tela.md</code> — documente la métrique, les mathématiques et le raisonnement clinique, et intègre la base de connaissances consultée par <a href="froid-explica.html">FROID Explique</a>. Les segments sémantiques de la séance ne sont pas affectés par ce module.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="foot-grid">
+      <div>
+        <h5>FROID</h5>
+        <p style="max-width:340px; color:rgba(248,250,252,0.55);">Frequency Recognition of Internal Dynamics. Un outil d'aide à l'écoute clinique — il ne remplace pas l'évaluation, le diagnostic ou le jugement professionnel.</p>
+      </div>
+      <div>
+        <h5>Navigation</h5>
+        <ul>
+          <li><a href="index.html">Accueil</a></li>
+          <li><a href="ciencia.html">Science</a></li>
+          <li><a href="tecnologia.html">Technologie</a></li>
+          <li><a href="froid-explica.html">FROID Explique</a></li>
+          <li><a href="etica.html">Éthique</a></li>
+          <li><a href="seguranca.html">Sécurité</a></li>
+          <li><a href="profissionais.html">Professionnels</a></li>
+          <li><a href="precos.html">Tarifs</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Assistance</h5>
+        <ul>
+          <li><a href="faq.html">FAQ</a></li>
+          <li><a href="glossario.html">Glossaire</a></li>
+          <li><a href="demonstracao.html">Démonstration</a></li>
+          <li><a href="sobre-contato.html">À propos &amp; Contact</a></li>
+          <li><a href="termos.html">Conditions d'utilisation</a></li>
+          <li><a href="privacidade.html">Politique de confidentialité</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Accès</h5>
+        <ul>
+          <li><a href="https://www.froid.com.br/app/#/login">Se connecter à FROID</a></li>
+          <li><a href="https://www.froid.com.br/cadastro">S'inscrire à FROID</a></li>
+          <li><a href="https://www.froid.com.br/app/#/paciente">Portail Patient</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">© 2026 FROID. FROID est une marque en cours d'enregistrement auprès de l'INPI (Brésil), avec une demande de protection internationale à l'étude. Le code, les textes, les modèles et l'identité visuelle sont protégés par les droits d'auteur de Fábio de Assumpção Benhayon.</div>
+  </div>
+</footer>
+
+<script src="../site-assets/script.js?v=3"></script>
+</body>
+</html>

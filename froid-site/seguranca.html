@@ -7,8 +7,9 @@
 <meta name="description" content="Como o FROID protege dados sensíveis de sessão terapêutica: criptografia, controle de acesso e conformidade com a LGPD." />
 <link rel="alternate" hreflang="pt-BR" href="https://www.froid.com.br/seguranca.html" />
 <link rel="alternate" hreflang="en" href="https://www.froid.com.br/en/seguranca.html" />
+<link rel="alternate" hreflang="fr" href="https://www.froid.com.br/fr/seguranca.html" />
 <link rel="alternate" hreflang="x-default" href="https://www.froid.com.br/seguranca.html" />
-<link rel="stylesheet" href="site-assets/style.css?v=5" />
+<link rel="stylesheet" href="site-assets/style.css?v=6" />
 </head>
 <body>
 
@@ -28,7 +29,7 @@
     <div class="nav-actions">
       <a class="btn btn-ghost" href="https://www.froid.com.br/app/#/login">Entrar no FROID</a>
       <a class="btn btn-solid" href="https://www.froid.com.br/cadastro">Cadastrar no FROID</a>
-      <a class="btn btn-ghost lang-switch" href="en/seguranca.html" title="Switch to English">EN</a>
+      <div class="lang-group" role="group" aria-label="Choose language"><span class="lang-pill lang-current">PT</span><a class="lang-pill" href="en/seguranca.html">EN</a><a class="lang-pill" href="fr/seguranca.html">FR</a></div>
     </div>
   </div>
 </header>
@@ -68,6 +69,32 @@
 </section>
 
 <section class="block soft">
+  <div class="container">
+    <p class="section-kicker">Como funciona, sem simplificar demais</p>
+    <h2 class="section-title">O caminho real de uma sessão</h2>
+    <p class="section-lead">Preferimos descrever a operação completa a resumi-la de forma que pareça mais simples do que é.</p>
+    <div class="grid-2">
+      <div class="card">
+        <h3>Transmissão e processamento</h3>
+        <p>Sessões remotas usam WebRTC; quando a conexão direta entre os dispositivos não é possível, um servidor TURN atua como retransmissor. Parte relevante das métricas é calculada no navegador do profissional; segmentos de áudio podem ser enviados ao backend do FROID e a um provedor de transcrição especializado para processamento de voz, imagem e texto.</p>
+      </div>
+      <div class="card">
+        <h3>Hospedagem e backups</h3>
+        <p>Transcrições, relatórios e registros autorizados são armazenados na infraestrutura do FROID, que pode incluir hospedagem na Estônia e fornecedores de pagamento, IA, e-mail e agenda — o que pode envolver transferência internacional, protegida pelos mecanismos contratuais e técnicos aplicáveis. Backups são criptografados e verificados periodicamente.</p>
+      </div>
+      <div class="card">
+        <h3>Isolamento multitenant</h3>
+        <p>Dados de cada organização (clínica ou profissional) são segregados por Row-Level Security (RLS) no banco de dados — uma organização não acessa, por construção, registros de outra.</p>
+      </div>
+      <div class="card">
+        <h3>Auditoria de acesso</h3>
+        <p>Acesso, alteração, exportação e negação de acesso a relatórios e dados de pacientes são registrados em trilha de auditoria, vinculados à conta que realizou a ação.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block">
   <div class="container">
     <p class="section-kicker">Conformidade</p>
     <h2 class="section-title">LGPD e boas práticas do setor</h2>
@@ -139,7 +166,7 @@
         </ul>
       </div>
     </div>
-    <div class="foot-bottom">© 2026 FROID.</div>
+    <div class="foot-bottom">© 2026 FROID. FROID é uma marca em processo de registro no INPI (Brasil), com pedido de proteção internacional em análise. Código, textos, modelos e identidade visual são protegidos por direitos autorais de Fábio de Assumpção Benhayon.</div>
   </div>
 </footer>
 

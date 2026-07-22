@@ -7,8 +7,9 @@
 <meta name="description" content="FROID's privacy policy and data handling practices, aligned with Brazil's LGPD." />
 <link rel="alternate" hreflang="pt-BR" href="https://www.froid.com.br/privacidade.html" />
 <link rel="alternate" hreflang="en" href="https://www.froid.com.br/en/privacidade.html" />
+<link rel="alternate" hreflang="fr" href="https://www.froid.com.br/fr/privacidade.html" />
 <link rel="alternate" hreflang="x-default" href="https://www.froid.com.br/privacidade.html" />
-<link rel="stylesheet" href="../site-assets/style.css?v=5" />
+<link rel="stylesheet" href="../site-assets/style.css?v=6" />
 </head>
 <body>
 
@@ -28,7 +29,7 @@
     <div class="nav-actions">
       <a class="btn btn-ghost" href="https://www.froid.com.br/app/#/login">Sign in to FROID</a>
       <a class="btn btn-solid" href="https://www.froid.com.br/cadastro">Sign up for FROID</a>
-      <a class="btn btn-ghost lang-switch" href="../privacidade.html" title="Mudar para português">PT</a>
+      <div class="lang-group" role="group" aria-label="Choose language"><a class="lang-pill" href="../privacidade.html">PT</a><span class="lang-pill lang-current">EN</span><a class="lang-pill" href="../fr/privacidade.html">FR</a></div>
     </div>
   </div>
 </header>
@@ -37,21 +38,31 @@
   <div class="container">
     <p class="section-kicker" style="color:#93c5fd;">Legal</p>
     <h1 style="font-size:2.1rem;">Privacy Policy</h1>
-    <p class="lead">Template to be reviewed by legal counsel/DPO before publication.</p>
+    <p class="lead">Current version <code>2026-07-21.br-pf-v1</code>, for the Brazilian operation. The full, official document, with complete supplier identification, is presented and accepted inside the app at sign-up.</p>
   </div>
 </section>
 
 <section class="block">
   <div class="container" style="max-width:820px;">
-    <p>This is a template document and must be reviewed by legal counsel/DPO before final publication, in compliance with Brazil's LGPD (Law 13.709/2018) and applicable data protection laws in your jurisdiction.</p>
-    <h3>1. Data collected</h3>
-    <p>Session audio and video (with consent), derived acoustic and facial metrics, professional account data, and billing information.</p>
-    <h3>2. Purpose</h3>
-    <p>Real-time processing to support clinical listening; anonymous aggregation for product improvement.</p>
-    <h3>3. Sharing</h3>
-    <p>Session data is not shared with third parties outside the infrastructure and AI providers strictly necessary for the service to function (e.g., transcription, metric explanation).</p>
-    <h3>4. Data subject rights</h3>
-    <p>Access, correction, and deletion of data upon request, under LGPD and applicable local law.</p>
+    <h3>1. Who is responsible for the service</h3>
+    <p>FROID's supplier is responsible for the activities inherent to sign-up, security, billing, support, and platform operation. The professional or clinic decides the clinical purposes and the composition of their patients' records — controller and processor roles depend on each operation actually performed.</p>
+    <h3>2. Data processed</h3>
+    <p>The service may process sign-up, authentication, scheduling, payments, access and audit logs, voice, image, facial signals, acoustic metrics, transcription, patient and professional speech context, notes, reports, and session history.</p>
+    <h3>3. How processing happens</h3>
+    <p>Part of the metrics are calculated in the browser. In remote sessions, audio and video are transmitted over the internet and may use a TURN server. Audio segments may be sent to the backend and to a transcription provider. Transcripts, reports, and authorized records may be stored on FROID's infrastructure. Details in <a href="seguranca.html">Security</a>.</p>
+    <h3>4. Providers and international transfer</h3>
+    <p>FROID may use hosting infrastructure in Estonia and providers for payments, transcription, artificial intelligence, email, and calendaring. This may involve international data transfer, protected by the applicable contractual and technical mechanisms.</p>
+    <h3>5. Purposes and legal bases</h3>
+    <p>Data is used to run the contracted service, protect accounts and sessions, process payments, meet legal obligations, support healthcare activity by a licensed professional, and fulfill specific authorizations. Research and the anonymous Data Mart require data previously approved through the anonymization process and, when applicable, optional patient authorization.</p>
+    <h3>6. Retention and deletion</h3>
+    <p>Retention considers purpose, contract, security, and professional or legal obligations. Deletion requests are reviewed and may result in deletion, anonymization, blocking, or restricted, justified retention. We do not promise automatic deletion on a fixed timeline when a legitimate retention obligation exists.</p>
+    <div class="disclaimer-box" style="margin:18px 0;">
+      <strong>Irreversibility:</strong> once permanent deletion is processed, the deleted data cannot be recovered — not by FROID, not by the professional, not by the data subject themselves.
+    </div>
+    <h3>7. Data subject rights</h3>
+    <p>The patient can request confirmation, access, correction, information about sharing, portability where applicable, objection, consent revocation, and anonymization, blocking, or deletion in the legal circumstances. Requests can be made through the Patient Portal or the privacy contact listed in the app, and receive documented review.</p>
+    <h3>8. Security</h3>
+    <p>FROID uses per-organization segregation (multitenant isolation and RLS), access control, audit trails, encryption of clinical records, and protected, verified backups. No system eliminates risk entirely; relevant incidents are assessed and communicated as required by applicable law.</p>
     <div class="ref" style="margin-top:16px;"><a href="seguranca.html">See also: Security &amp; Compliance</a></div>
   </div>
 </section>
@@ -96,7 +107,7 @@
         </ul>
       </div>
     </div>
-    <div class="foot-bottom">© 2026 FROID.</div>
+    <div class="foot-bottom">© 2026 FROID. FROID is a trademark pending registration with Brazil's INPI, with an international protection application under review. Code, text, models, and visual identity are protected by the copyright of Fábio de Assumpção Benhayon.</div>
   </div>
 </footer>
 

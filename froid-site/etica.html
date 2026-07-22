@@ -7,8 +7,9 @@
 <meta name="description" content="A postura de transparência radical do FROID: mitigação ativa de viés algorítmico, quality gates de teleconsulta, disclaimers obrigatórios, soberania de dados (Edge AI) e auditoria via Data Mart anônimo, em conformidade com LGPD, CFP e CFM." />
 <link rel="alternate" hreflang="pt-BR" href="https://www.froid.com.br/etica.html" />
 <link rel="alternate" hreflang="en" href="https://www.froid.com.br/en/etica.html" />
+<link rel="alternate" hreflang="fr" href="https://www.froid.com.br/fr/etica.html" />
 <link rel="alternate" hreflang="x-default" href="https://www.froid.com.br/etica.html" />
-<link rel="stylesheet" href="site-assets/style.css?v=5" />
+<link rel="stylesheet" href="site-assets/style.css?v=6" />
 <style>
   /* Componentes específicos da página de Ética */
   .legal-quote {
@@ -56,7 +57,7 @@
     <div class="nav-actions">
       <a class="btn btn-ghost" href="https://www.froid.com.br/app/#/login">Entrar no FROID</a>
       <a class="btn btn-solid" href="https://www.froid.com.br/cadastro">Cadastrar no FROID</a>
-      <a class="btn btn-ghost lang-switch" href="en/etica.html" title="Switch to English">EN</a>
+      <div class="lang-group" role="group" aria-label="Choose language"><span class="lang-pill lang-current">PT</span><a class="lang-pill" href="en/etica.html">EN</a><a class="lang-pill" href="fr/etica.html">FR</a></div>
     </div>
   </div>
 </header>
@@ -90,7 +91,7 @@
       </div>
       <div class="card">
         <h3>Comitê de ética multidisciplinar</h3>
-        <p>A evolução dos algoritmos e das práticas da plataforma é submetida à revisão periódica de um conselho independente com psicólogos, psiquiatras e especialistas em ética de IA.</p>
+        <p>A evolução dos algoritmos e das práticas da plataforma está estruturada para revisão periódica por um conselho independente com psicólogos, psiquiatras e especialistas em ética de IA. A composição efetiva do conselho é publicada em <a href="sobre-contato.html">Sobre &amp; Contato</a> assim que constituída.</p>
       </div>
     </div>
   </div>
@@ -170,13 +171,13 @@
     <h2 class="section-title"><span class="pillar-num">5</span>Processamento local (Edge AI) e auditoria contínua</h2>
     <div class="grid-2">
       <div>
-        <p><strong>Processamento de borda.</strong> Todo o processamento de fonação (<code>froid-voice</code>) e das imagens musculares faciais (<code>froid-face</code>) ocorre 100% de forma local, no computador do consultório. Os arquivos biométricos brutos (áudio e vídeo) jamais são transmitidos a nuvens públicas ou a servidores de terceiros para fins de inferência — o que extingue o risco de vazamento de identidade.</p>
-        <p><strong>Consentimento granular e direito de exclusão.</strong> Capturas de áudio, vídeo ou transcrição exigem autorizações específicas, voluntárias e separadas. O paciente pode revogar o consentimento a qualquer instante, acionando o pipeline automatizado de deleção definitiva de dados, em conformidade com o art. 18 da LGPD.</p>
+        <p><strong>Processamento em borda.</strong> Parte relevante do cálculo de fonação e das imagens musculares faciais ocorre no navegador, no computador do consultório. Em sessões remotas, áudio e vídeo trafegam pela internet (com servidor TURN como retransmissor quando a conexão direta não é possível) e segmentos de áudio podem ser enviados ao backend e a um provedor de transcrição para processamento — nunca de forma oculta, sempre coberto pelas autorizações do paciente. Ver a operação completa em <a href="seguranca.html">Segurança</a>.</p>
+        <p><strong>Consentimento granular e direito de exclusão.</strong> Capturas de áudio, vídeo ou transcrição exigem autorizações específicas, voluntárias e separadas. O paciente pode revogar o consentimento e solicitar a eliminação dos dados a qualquer instante; o pedido é analisado e pode resultar em exclusão, anonimização, bloqueio ou retenção restrita quando houver obrigação legal ou profissional de guarda (art. 18 da LGPD). Não prometemos eliminação automática em prazo fixo quando essa obrigação existir.</p>
       </div>
       <div class="card">
         <h3>Auditoria de viés via Data Mart anônimo</h3>
         <p>Os pesos e thresholds do IPM e do IDM são apresentados honestamente como parâmetros de engenharia qualificados — heurísticas proprietárias, não verdades biológicas imutáveis. Sua validação usa o acúmulo de dados anonimizados para estudos de desvio demográfico (por exemplo, auditar se o padrão de transição do ΔΔMFCC9 se mantém entre faixas etárias e sotaques regionais do Brasil).</p>
-        <p style="font-size:0.9rem; color:var(--froid-cinza); margin-top:10px;">Antes da agregação, as métricas passam pelo <em>ReID Risk Lab</em>: Action Units e bandas vocais são anonimizadas com privacidade diferencial e restrições de <em>k</em>-anonymity (<em>k</em> ≥ 50), tornando matematicamente inviável a reidentificação. Ver arquitetura em <a href="seguranca.html">Segurança</a>.</p>
+        <p style="font-size:0.9rem; color:var(--froid-cinza); margin-top:10px;">Consultas analíticas sobre o Data Mart exigem coortes de no mínimo <em>k</em> = 50 registros (k-anonimato), aplicado tecnicamente no backend — abaixo desse limiar, a consulta é recusada. Isso reduz substancialmente, mas não elimina por completo, o risco de reidentificação. Ver arquitetura em <a href="seguranca.html">Segurança</a>.</p>
       </div>
     </div>
     <div class="disclaimer-box" style="margin-top:24px;">
@@ -280,7 +281,7 @@
         </ul>
       </div>
     </div>
-    <div class="foot-bottom">© 2026 FROID. Esta página descreve controles técnicos e princípios éticos; não constitui parecer jurídico.</div>
+    <div class="foot-bottom">© 2026 FROID. Esta página descreve controles técnicos e princípios éticos; não constitui parecer jurídico. FROID é uma marca em processo de registro no INPI (Brasil), com pedido de proteção internacional em análise. Código, textos, modelos e identidade visual são protegidos por direitos autorais de Fábio de Assumpção Benhayon.</div>
   </div>
 </footer>
 

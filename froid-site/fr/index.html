@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FROID — Reconnaissance des Fréquences des Dynamiques Internes</title>
+<meta name="description" content="FROID est une plateforme d'aide clinique qui analyse la voix et l'expression faciale lors des séances thérapeutiques, en combinant une ingénierie du signal validée avec une couche interprétative propriétaire." />
+<link rel="alternate" hreflang="pt-BR" href="https://www.froid.com.br/" />
+<link rel="alternate" hreflang="en" href="https://www.froid.com.br/en/" />
+<link rel="alternate" hreflang="fr" href="https://www.froid.com.br/fr/" />
+<link rel="alternate" hreflang="x-default" href="https://www.froid.com.br/" />
+<link rel="stylesheet" href="../site-assets/style.css?v=6" />
+<script>
+  // Le panneau FROID utilise HashRouter (/#/dashboard). Lors d'une actualisation, le serveur reçoit « / »
+  // et sert ce site — cette redirection ramène l'utilisateur au panneau sur /app/.
+  if (location.hash.indexOf("#/") === 0) { location.replace("/app/" + location.hash); }
+</script>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="nav-row">
+    <a class="brand" href="index.html"><img class="brand-logo" src="../site-assets/img/froid-logo.png" alt="FROID" /></a>
+    <nav class="nav-links">
+      <a href="index.html">Accueil</a>
+      <a href="ciencia.html">Science</a>
+      <a href="tecnologia.html">Technologie</a>
+      <a href="froid-explica.html">FROID Explique</a>
+      <a href="etica.html">Éthique</a>
+      <a href="seguranca.html">Sécurité</a>
+      <a href="profissionais.html">Professionnels</a>
+      <a href="precos.html">Tarifs</a>
+    </nav>
+    <div class="nav-actions">
+      <a class="btn btn-ghost" href="https://www.froid.com.br/app/#/login">Se connecter à FROID</a>
+      <a class="btn btn-solid" href="https://www.froid.com.br/cadastro">S'inscrire à FROID</a>
+      <div class="lang-group" role="group" aria-label="Choisir la langue"><a class="lang-pill" href="../index.html">PT</a><a class="lang-pill" href="../en/index.html">EN</a><span class="lang-pill lang-current">FR</span></div>
+    </div>
+  </div>
+</header>
+
+<section class="hero-neuro">
+  <!-- Illustration du hero (froid-hero.png), en flux. Remplaçable par une autre image dans ../site-assets/img/. -->
+  <div class="hero-neuro__art" aria-hidden="true">
+    <img class="hero-neuro__img" src="../site-assets/img/froid-hero.png?v=2" alt="" />
+  </div>
+  <div class="hero-neuro__overlay" aria-hidden="true"></div>
+
+  <div class="hero-neuro__content">
+    <h1 class="hero-neuro__wordmark">FROID</h1>
+    <p class="hero-neuro__tagline">Frequency Recognition of Internal Dynamics</p>
+    <blockquote class="hero-quote">
+      <p>Toute intelligence qui se propose d'aider l'être humain à mieux se comprendre naît petite face à l'immensité de ce qu'elle recherche. Elle grandira de façon exponentielle et indéfinie pour devenir la plus grande et la plus utile intelligence d'assistance à ceux qui cherchent à comprendre la métaphysique qui unit, de façon cohérente, l'âme et ses expressions : ce que la voix, plus grande expression de la psyché humaine, révèle, l'intention des mots et ce que le visage confesse, et la vérité qui émerge lorsque les trois se rencontrent. Car donner aux humains les moyens de mieux se comprendre, c'est en définitive prendre soin de leur propre existence.</p>
+      <footer>C'est la vision qui guide FROID. Chaque étape de ce parcours est menée avec la rigueur décrite dans nos pages Science et Éthique.</footer>
+    </blockquote>
+    <div class="hero-actions" style="justify-content:center;">
+      <a class="btn btn-solid" href="demonstracao.html">Voir la démonstration</a>
+      <a class="btn btn-ghost" href="tecnologia.html">Comment ça marche</a>
+      <a class="btn btn-ghost" href="ciencia.html">Voir la base scientifique</a>
+    </div>
+  </div>
+
+  <div class="hero-neuro__scroll">défiler pour explorer</div>
+</section>
+
+<div class="disclaimer-box container" style="margin-top:28px;">
+  <strong>Disponibilité en France :</strong> l'exploitation en France, y compris l'hébergement de données de santé, est actuellement en cours d'examen juridique local (notamment le cadre HDS). Le contenu de ce site décrit FROID de façon générale ; il ne constitue pas une annonce de disponibilité commerciale en France. Pour toute question sur le calendrier, contactez <a href="sobre-contato.html">l'équipe</a>.
+</div>
+
+<section class="block">
+  <div class="container">
+    <p class="section-kicker">Vue d'ensemble</p>
+    <h2 class="section-title">Ce que FROID mesure pendant la séance</h2>
+    <p class="section-lead">Trois couches de signal, traitées en temps réel et toujours comparées à un étalonnage individuel de 60 secondes au début de chaque séance.</p>
+
+    <div class="disclaimer-box" style="margin-bottom:28px;">
+      <strong>Positionnement de FROID :</strong> le positionnement de FROID repose sur le principe qu'il ne réalise aucun diagnostic autonome. La responsabilité et la souveraineté du bilan clinique restent entièrement entre les mains du professionnel. FROID agit strictement comme un coprocesseur de signaux neuromusculaires et biophysiologiques involontaires, captant des micro-fuites émotionnelles qui échappent à la perception visuelle ou auditive humaine subjective.
+    </div>
+
+    <div class="grid-3">
+      <div class="card">
+        <span class="badge badge-strong">Base scientifique solide</span>
+        <h3>Acoustique de la voix</h3>
+        <p>Fréquence fondamentale (<abbr class="term" title="F0 : la hauteur de la voix. Une variabilité plus faible est un marqueur de ralentissement psychomoteur. Voir le Glossaire.">F0</abbr>), coefficients cepstraux (<abbr class="term" title="MFCC : représentation mathématique du timbre vocal, utilisée pour l'état affectif et l'articulation. Voir le Glossaire.">MFCC</abbr>) et leurs dérivées temporelles, taux de passage par zéro — extraits en continu et comparés à la ligne de base du patient lui-même.</p>
+      </div>
+      <div class="card">
+        <span class="badge badge-moderate">Infrastructure validée</span>
+        <h3>Dynamique faciale</h3>
+        <p>Suivi de 468 points faciaux et classification des Unités d'Action (<abbr class="term" title="FACS : Facial Action Coding System, la référence pour décrire les mouvements faciaux en unités objectives. Voir le Glossaire.">FACS</abbr>) avec modélisation temporelle onset–apex–offset.</p>
+      </div>
+      <div class="card">
+        <span class="badge badge-proprietary">Cadre propriétaire FROID</span>
+        <h3>Couche interprétative</h3>
+        <p>Les 12 Zones de Perception et deux indices de synthèse — l'<strong>Indice de Puissance Multimodale (IPM)</strong>, le « compteur de vitesse » de l'énergie et de la vitalité psychomotrice, et l'<strong>Indice de Divergence Multimodale (IDM)</strong>, la « boussole » de la cohérence entre voix et visage — réduisent les signaux acoustico-faciaux à une lecture visuelle pensée pour soutenir, non remplacer, l'écoute clinique.</p>
+      </div>
+    </div>
+
+    <img class="site-img" style="margin-top:40px;" src="../site-assets/img/home-visao-geral.png" alt="Vue d'ensemble du panneau FROID : indicateurs moyens, dernières séances et résultats par segment." />
+
+    <div class="nerds-wrapper">
+      <button class="nerds-toggle" data-target="nerds-medicao" aria-expanded="false">Réservé aux passionnés</button>
+      <div class="nerds-panel" id="nerds-medicao">
+        <h4>Pipeline de capture</h4>
+        <p>Audio à 48 kHz, fenêtrage de Hamming, FFT exécutée dans le navigateur via la Web Audio API (aucune dépendance DSP côté backend Python — uniquement FastAPI/DuckDB/LLM pour l'explication et la transcription). Vidéo traitée localement à 30+ FPS pour les 468 points faciaux.</p>
+        <h4>Champs réels suivis par séance</h4>
+        <div class="formula">mfcc7, mfcc9, mfcc7_delta, mfcc9_delta, mfcc7_delta_delta, mfcc9_delta_delta,
+f0_mean, f0_var, zcr, jitter_proxy_index, shimmer_proxy_index,
+subharmonic_energy_5_12hz, energy_85_165hz, dna_facial_multiplier</div>
+        <p>Tous comparés à la ligne de base fixée durant les 60 premières secondes de la séance (<code>baseline_mfcc7</code>, <code>baseline_mfcc9</code>, etc.).</p>
+        <div class="ref">Détail complet de chaque métrique dans <a href="tecnologia.html">Technologie</a>.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block soft">
+  <div class="container">
+    <p class="section-kicker">Transparence</p>
+    <h2 class="section-title">Ce qui relève de la science publiée et ce qui relève de la méthodologie propriétaire</h2>
+    <p class="section-lead">Contrairement à la plupart des outils du secteur, FROID sépare explicitement ces deux couches — et vous invite à vérifier chacune d'elles.</p>
+    <div class="grid-2">
+      <div class="card">
+        <h3>Fondé sur la littérature évaluée par les pairs</h3>
+        <p>F0, MFCC, jitter/shimmer et dynamique des Unités d'Action comme signaux associés aux états affectifs et au ralentissement psychomoteur bénéficient de décennies de recherche publiée — <a href="ciencia.html">consultez les références</a>.</p>
+      </div>
+      <div class="card">
+        <h3>Cadre interprétatif propriétaire FROID</h3>
+        <p>Les 12 Zones de Perception, le Multiplicateur Facial de Dissonance et les indices IPM/IDM sont la façon dont FROID organise visuellement ces signaux. Ce ne sont pas des résultats d'études cliniques publiées — ce sont des heuristiques produit, et nous les traitons comme telles.</p>
+      </div>
+    </div>
+
+    <div class="nerds-wrapper">
+      <button class="nerds-toggle" data-target="nerds-home" data-label-closed="Réservé aux passionnés" data-label-open="Fermer les détails techniques" aria-expanded="false">Réservé aux passionnés</button>
+      <div class="nerds-panel" id="nerds-home">
+        <h4>Pourquoi séparons-nous « science » et « cadre propriétaire » ?</h4>
+        <p>Parce que mélanger les deux sans avertissement est le genre de pratique qui trompe les cliniciens et nuit aux patients. Toute allégation de diagnostic automatisé est fausse — FROID est un outil d'aide, pas un instrument diagnostique validé.</p>
+        <h4>Origine des 12 Zones</h4>
+        <p>La structure de 12 zones associées aux notes de la gamme chromatique est une transposition inspirée d'une technologie commerciale de biofeedback vocal (gamme EVOX/ZYTO), adaptée par l'équipe FROID comme interface de visualisation — ce n'est pas de la neuroscience publiée.</p>
+        <div class="ref">Voir la bibliographie complète dans <a href="ciencia.html">Science</a>.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block">
+  <div class="container">
+    <p class="section-kicker">À qui s'adresse FROID</p>
+    <h2 class="section-title">Conçu pour la pratique clinique réelle</h2>
+    <div class="grid-2">
+      <img class="site-img" src="../site-assets/img/home-sessao-ao-vivo.png" alt="Panneau de séance en direct de FROID, avec durée de séance et segment sémantique en cours." />
+      <div>
+        <p class="section-lead" style="margin-bottom:20px;">Psychiatres, psychologues et thérapeutes qui souhaitent une couche supplémentaire de lecture objective pendant la consultation — sans perdre de temps avec des outils qui ne s'intègrent pas à la séance.</p>
+        <ul>
+          <li>Étalonnage automatique de 60 secondes au début de chaque séance</li>
+          <li>Alertes en temps réel de dissonance entre parole et expression faciale</li>
+          <li>Transcription et notes cliniques organisées automatiquement</li>
+          <li>Panneau financier et de rapports pour la pratique professionnelle</li>
+        </ul>
+        <a class="btn btn-solid" href="profissionais.html">Voir les ressources pour professionnels</a>
+      </div>
+    </div>
+
+    <div class="nerds-wrapper">
+      <button class="nerds-toggle" data-target="nerds-arquitetura" aria-expanded="false">Réservé aux passionnés</button>
+      <div class="nerds-panel" id="nerds-arquitetura">
+        <h4>Architecture du système</h4>
+        <p>Frontend en React + Vite + TypeScript (<code>froid-dashboard</code>), backend FastAPI avec DuckDB pour l'analytique anonyme et ChromaDB pour le RAG de l'assistant « FROID Explique » (<code>froid-server</code>). Transcription via GPT-4o-transcribe ; explications via Gemini 1.5 Pro/GPT-4o — toujours sur des métriques déjà calculées, jamais en générant les valeurs acoustiques elles-mêmes.</p>
+        <h4>Sécurité d'accès</h4>
+        <p>Contrôle d'accès professionnel par séance, avec consommation de crédit par consultation et lien de propriété par rapport (<code>_can_access_report</code>, <code>_professional_access_status</code>).</p>
+        <div class="ref">Plus d'informations sur la sécurité et la conformité dans <a href="seguranca.html">Sécurité</a>.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block soft">
+  <div class="container">
+    <p class="section-kicker">Le différenciateur</p>
+    <h2 class="section-title">FROID Explique : l'intelligence qui vous parle</h2>
+    <p class="section-lead">Un assistant LLM-RAG qui répond, en langage clinique, à tout ce qui concerne la lecture de la séance — et qui croise votre portefeuille de patients avec le Data Mart anonyme mondial. Livré avec 22 prompts prêts à l'emploi, et vous pouvez créer les vôtres.</p>
+    <div class="grid-3">
+      <div class="card">
+        <span class="badge badge-strong">Connaissance</span>
+        <h3>Explique la lecture</h3>
+        <p>« Que signifie cette dissonance ? », « que suggère l'IPM ? » — des réponses argumentées sur des métriques déjà calculées.</p>
+      </div>
+      <div class="card">
+        <span class="badge badge-proprietary">Data Mart</span>
+        <h3>Compare avec le monde</h3>
+        <p>« Ce patient est-il au-dessus de la moyenne en risque ? », « cas les plus similaires (top 5) ? » — la puissance statistique de milliers de séances anonymes.</p>
+      </div>
+      <div class="card">
+        <span class="badge badge-moderate">Vos propres prompts</span>
+        <h3>À votre façon</h3>
+        <p>Créez des prompts dans votre espace de configuration — et, avec le temps, validez empiriquement l'IPM, l'IDM et les autres métriques.</p>
+      </div>
+    </div>
+    <div style="margin-top:24px;">
+      <a class="btn btn-solid" href="froid-explica.html">Découvrir FROID Explique</a>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="paciente">
+  <div class="container">
+    <p class="section-kicker">Transparence · LGPD</p>
+    <h2 class="section-title">Portail Patient : les données vous appartiennent</h2>
+    <p class="section-lead">Selon la loi, le patient est propriétaire de ses propres informations. FROID prend cela au sérieux : un portail dédié, avec une connexion distincte de celle du professionnel, où le patient consulte et gère tout ce qui lui appartient.</p>
+
+    <div class="grid-3">
+      <div class="card">
+        <h3>👁️ Consultez vos séances</h3>
+        <p>Résultats des séances terminées : métriques principales, ligne de base, segments/résumés et dissonances — la même lecture qui accompagne votre professionnel, désormais entre vos mains.</p>
+      </div>
+      <div class="card">
+        <h3>🗂️ Gérez vos données</h3>
+        <p>Données d'inscription de base sous votre contrôle, conformément à la LGPD brésilienne (loi 13.709/2018) — le droit d'accès et de gestion de vos propres informations en un seul endroit.</p>
+      </div>
+      <div class="card">
+        <h3>⬇️ Emportez-les avec vous</h3>
+        <p>Téléchargez le résultat de chaque séance individuellement ou tous les résultats dans un seul fichier — une véritable portabilité, sans demande ni attente.</p>
+      </div>
+    </div>
+
+    <div style="margin-top:24px;">
+      <a class="btn btn-solid" href="https://www.froid.com.br/app/#/paciente">Accéder au Portail Patient</a>
+      <a class="btn btn-ghost" href="privacidade.html" style="margin-left:10px;">Politique de confidentialité</a>
+    </div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="foot-grid">
+      <div>
+        <h5>FROID</h5>
+        <p style="max-width:340px; color:rgba(248,250,252,0.55);">Frequency Recognition of Internal Dynamics. Un outil d'aide à l'écoute clinique — il ne remplace pas l'évaluation, le diagnostic ou le jugement professionnel.</p>
+      </div>
+      <div>
+        <h5>Navigation</h5>
+        <ul>
+          <li><a href="ciencia.html">Science</a></li>
+          <li><a href="tecnologia.html">Technologie</a></li>
+          <li><a href="froid-explica.html">FROID Explique</a></li>
+          <li><a href="etica.html">Éthique</a></li>
+          <li><a href="seguranca.html">Sécurité</a></li>
+          <li><a href="profissionais.html">Professionnels</a></li>
+          <li><a href="precos.html">Tarifs</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Assistance</h5>
+        <ul>
+          <li><a href="faq.html">FAQ</a></li>
+          <li><a href="glossario.html">Glossaire</a></li>
+          <li><a href="demonstracao.html">Démonstration</a></li>
+          <li><a href="sobre-contato.html">À propos &amp; Contact</a></li>
+          <li><a href="termos.html">Conditions d'utilisation</a></li>
+          <li><a href="privacidade.html">Politique de confidentialité</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Accès</h5>
+        <ul>
+          <li><a href="https://www.froid.com.br/app/#/login">Se connecter à FROID</a></li>
+          <li><a href="https://www.froid.com.br/cadastro">S'inscrire à FROID</a></li>
+          <li><a href="https://www.froid.com.br/app/#/paciente">Portail Patient</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">© 2026 FROID. Toutes les affirmations scientifiques citées sur cette page ont une référence vérifiable dans la section <a href="ciencia.html">Science</a>. FROID est une marque en cours d'enregistrement auprès de l'INPI (Brésil), avec une demande de protection internationale à l'étude. Le code, les textes, les modèles et l'identité visuelle sont protégés par les droits d'auteur de Fábio de Assumpção Benhayon.</div>
+  </div>
+</footer>
+
+<script src="../site-assets/script.js?v=3"></script>
+</body>
+</html>

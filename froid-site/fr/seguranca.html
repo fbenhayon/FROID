@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sécurité &amp; confidentialité — FROID</title>
+<meta name="description" content="Comment FROID protège les données sensibles des séances thérapeutiques : chiffrement, contrôle d'accès et conformité avec la LGPD." />
+<link rel="alternate" hreflang="pt-BR" href="https://www.froid.com.br/seguranca.html" />
+<link rel="alternate" hreflang="en" href="https://www.froid.com.br/en/seguranca.html" />
+<link rel="alternate" hreflang="fr" href="https://www.froid.com.br/fr/seguranca.html" />
+<link rel="alternate" hreflang="x-default" href="https://www.froid.com.br/seguranca.html" />
+<link rel="stylesheet" href="../site-assets/style.css?v=6" />
+</head>
+<body>
+
+<header class="site-header">
+  <div class="nav-row">
+    <a class="brand" href="index.html"><img class="brand-logo" src="../site-assets/img/froid-logo.png" alt="FROID" /></a>
+    <nav class="nav-links">
+      <a href="index.html">Accueil</a>
+      <a href="ciencia.html">Science</a>
+      <a href="tecnologia.html">Technologie</a>
+      <a href="froid-explica.html">FROID Explique</a>
+      <a href="etica.html">Éthique</a>
+      <a href="seguranca.html">Sécurité</a>
+      <a href="profissionais.html">Professionnels</a>
+      <a href="precos.html">Tarifs</a>
+    </nav>
+    <div class="nav-actions">
+      <a class="btn btn-ghost" href="https://www.froid.com.br/app/#/login">Se connecter à FROID</a>
+      <a class="btn btn-solid" href="https://www.froid.com.br/cadastro">S'inscrire à FROID</a>
+      <div class="lang-group" role="group" aria-label="Choisir la langue"><a class="lang-pill" href="../seguranca.html">PT</a><a class="lang-pill" href="../en/seguranca.html">EN</a><span class="lang-pill lang-current">FR</span></div>
+    </div>
+  </div>
+</header>
+
+<section class="hero" style="padding:64px 0 56px;">
+  <div class="container">
+    <p class="section-kicker" style="color:#93c5fd;">Sécurité &amp; LGPD</p>
+    <h1 style="font-size:2.1rem;">Les données sensibles exigent des contrôles sérieux — c'est ainsi que nous traitons les vôtres</h1>
+    <p class="lead">Chiffrement, contrôle d'accès basé sur la propriété et principes LGPD intégrés à l'architecture, non ajoutés après coup.</p>
+  </div>
+</section>
+
+<div class="disclaimer-box container" style="margin-top:32px;">
+  <strong>Données de santé sensibles :</strong> la voix, l'expression faciale et le contenu des séances thérapeutiques sont traités comme des données sensibles au sens de la LGPD brésilienne (loi 13.709/2018). Cette page décrit les contrôles techniques et organisationnels appliqués.
+</div>
+
+<section class="block">
+  <div class="container">
+    <p class="section-kicker">Protection des données</p>
+    <h2 class="section-title">Comment les données de séance sont protégées</h2>
+    <div class="grid-3">
+      <div class="card">
+        <h3>Chiffrement</h3>
+        <p>Les données en transit sont protégées par TLS ; les données au repos sont stockées de façon chiffrée dans la base analytique.</p>
+      </div>
+      <div class="card">
+        <h3>Contrôle d'accès</h3>
+        <p>Chaque rapport de séance est lié à la propriété du professionnel responsable — accès restreint par compte, non partagé librement par séance.</p>
+      </div>
+      <div class="card">
+        <h3>Anonymisation analytique</h3>
+        <p>Les métriques agrégées utilisées pour la recherche interne reposent sur des hachages de séance et de patient, sans données directement identifiables dans la couche analytique.</p>
+      </div>
+    </div>
+    <div class="img-placeholder" style="margin-top:32px;"></div>
+  </div>
+</section>
+
+<section class="block soft">
+  <div class="container">
+    <p class="section-kicker">Le fonctionnement, sans simplifier à l'excès</p>
+    <h2 class="section-title">Le parcours réel d'une séance</h2>
+    <p class="section-lead">Nous préférons décrire l'exploitation complète plutôt que la résumer d'une façon qui la ferait paraître plus simple qu'elle ne l'est.</p>
+    <div class="grid-2">
+      <div class="card">
+        <h3>Transmission et traitement</h3>
+        <p>Les séances à distance utilisent WebRTC ; lorsque la connexion directe entre les appareils n'est pas possible, un serveur TURN agit comme relais. Une part importante des métriques est calculée dans le navigateur du professionnel ; des segments audio peuvent être envoyés au backend de FROID et à un prestataire de transcription spécialisé pour le traitement de la voix, de l'image et du texte.</p>
+      </div>
+      <div class="card">
+        <h3>Hébergement et sauvegardes</h3>
+        <p>Les transcriptions, rapports et enregistrements autorisés sont stockés sur l'infrastructure de FROID, qui peut inclure un hébergement en Estonie et des prestataires de paiement, d'IA, d'e-mail et d'agenda — ce qui peut impliquer un transfert international de données, protégé par les mécanismes contractuels et techniques applicables. Les sauvegardes sont chiffrées et vérifiées périodiquement.</p>
+      </div>
+      <div class="card">
+        <h3>Isolation multitenant</h3>
+        <p>Les données de chaque organisation (clinique ou professionnel indépendant) sont segmentées par sécurité au niveau des lignes (RLS) dans la base de données — par construction, une organisation ne peut pas accéder aux enregistrements d'une autre.</p>
+      </div>
+      <div class="card">
+        <h3>Audit des accès</h3>
+        <p>L'accès, la modification, l'exportation et le refus d'accès aux rapports et données des patients sont enregistrés dans une piste d'audit, liée au compte ayant effectué l'action.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block">
+  <div class="container">
+    <p class="section-kicker">Conformité</p>
+    <h2 class="section-title">LGPD et bonnes pratiques du secteur</h2>
+    <div class="grid-2">
+      <div>
+        <p>Nous traitons les principes de la LGPD — finalité, nécessité, transparence et sécurité — comme des exigences architecturales, non comme une liste de contrôle appliquée après coup. Cela suit le même raisonnement que les standards internationaux de SaaS de santé (HIPAA, RGPD) : la conformité doit être intégrée au chiffrement, aux pistes d'audit et au contrôle d'accès fondé sur les rôles, pas seulement dans un contrat.</p>
+        <p>Pour les cliniques et professionnels qui souscrivent à FROID, nous mettons à disposition les conditions de traitement des données dans le cadre du processus d'inscription professionnelle.</p>
+      </div>
+      <div class="card">
+        <h3>Engagements actuels</h3>
+        <ul>
+          <li>Consentement explicite du patient avant chaque séance enregistrée</li>
+          <li>Droit à l'effacement des données sur demande</li>
+          <li>Notification en cas d'incident de sécurité</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="nerds-wrapper">
+      <button class="nerds-toggle" data-target="nerds-seguranca" aria-expanded="false">Réservé aux passionnés</button>
+      <div class="nerds-panel" id="nerds-seguranca">
+        <h4>Modèle de responsabilité partagée</h4>
+        <p>Comme pour tout SaaS de santé, la sécurité se répartit ainsi : FROID est responsable de l'infrastructure de la plateforme (chiffrement, sauvegardes, contrôle d'accès à l'application) ; la clinique/le professionnel souscripteur est responsable de la gestion de l'accès de son équipe et du consentement obtenu du patient.</p>
+        <h4>Pile technique pertinente</h4>
+        <p>Backend FastAPI avec persistance DuckDB pour l'analytique agrégée ; contrôle de propriété des rapports via <code>_can_access_report()</code> et <code>_report_owner_email()</code> ; hachage de séance anonyme via <code>_anonymous_session_hash()</code> avant toute agrégation statistique.</p>
+        <div class="ref">Cette section décrit des contrôles techniques déjà audités dans le code ; elle ne constitue pas un avis juridique. Consultez votre DPO/service juridique pour la conformité formelle à la LGPD et aux lois locales applicables.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="foot-grid">
+      <div>
+        <h5>FROID</h5>
+        <p style="max-width:340px; color:rgba(248,250,252,0.55);">Frequency Recognition of Internal Dynamics. Un outil d'aide à l'écoute clinique — il ne remplace pas l'évaluation, le diagnostic ou le jugement professionnel.</p>
+      </div>
+      <div>
+        <h5>Navigation</h5>
+        <ul>
+          <li><a href="index.html">Accueil</a></li>
+          <li><a href="ciencia.html">Science</a></li>
+          <li><a href="tecnologia.html">Technologie</a></li>
+          <li><a href="froid-explica.html">FROID Explique</a></li>
+          <li><a href="etica.html">Éthique</a></li>
+          <li><a href="seguranca.html">Sécurité</a></li>
+          <li><a href="profissionais.html">Professionnels</a></li>
+          <li><a href="precos.html">Tarifs</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Assistance</h5>
+        <ul>
+          <li><a href="faq.html">FAQ</a></li>
+          <li><a href="glossario.html">Glossaire</a></li>
+          <li><a href="demonstracao.html">Démonstration</a></li>
+          <li><a href="sobre-contato.html">À propos &amp; Contact</a></li>
+          <li><a href="termos.html">Conditions d'utilisation</a></li>
+          <li><a href="privacidade.html">Politique de confidentialité</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Accès</h5>
+        <ul>
+          <li><a href="https://www.froid.com.br/app/#/login">Se connecter à FROID</a></li>
+          <li><a href="https://www.froid.com.br/cadastro">S'inscrire à FROID</a></li>
+          <li><a href="https://www.froid.com.br/app/#/paciente">Portail Patient</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">© 2026 FROID. FROID est une marque en cours d'enregistrement auprès de l'INPI (Brésil), avec une demande de protection internationale à l'étude. Le code, les textes, les modèles et l'identité visuelle sont protégés par les droits d'auteur de Fábio de Assumpção Benhayon.</div>
+  </div>
+</footer>
+
+<script src="../site-assets/script.js?v=3"></script>
+</body>
+</html>
