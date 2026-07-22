@@ -3,6 +3,11 @@ import { Link, useNavigate } from "react-router-dom";
 import { apiUrl, publicAppUrl } from "../lib/api";
 import type { FroidUser } from "../App";
 import { LgpdNotice } from "../components/legal/LgpdNotice";
+import {
+  acceptanceFor,
+  loadLegalCatalog,
+  type LegalCatalog,
+} from "../lib/legal";
 
 type AccessPlan = {
   id: string;
@@ -211,6 +216,11 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
   const [referral, setReferral] = useState<Referral>({ name: "", phone: "", email: "" });
   const [referrals, setReferrals] = useState<Referral[]>([]);
   const [lgpdAccepted, setLgpdAccepted] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [contractAccepted, setContractAccepted] = useState(false);
+  const [orderSummaryAccepted, setOrderSummaryAccepted] = useState(false);
+  const [legalCatalog, setLegalCatalog] = useState<LegalCatalog | null>(null);
+  const [legalError, setLegalError] = useState("");
   const [autoReplenishAccepted, setAutoReplenishAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -219,6 +229,12 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
 
   const professionals = useMemo(() => parseProfessionals(professionalsRaw), [professionalsRaw]);
   const availablePlans = plans;
+
+  useEffect(() => {
+    loadLegalCatalog().then(setLegalCatalog).catch((reason) => {
+      setLegalError(reason instanceof Error ? reason.message : "Documentos jurídicos indisponíveis.");
+    });
+  }, []);
   const requiredFieldLabels = accountType === "organization"
     ? [
         "Nome fantasia e razão social",
@@ -477,6 +493,15 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
     if (!lgpdAccepted) {
       return { message: "Aceite o aviso de privacidade e responsabilidade profissional para continuar.", target: "lgpd-consent" };
     }
+    if (legalCatalog?.acceptance_required && (!termsAccepted || !contractAccepted)) {
+      return { message: "Leia e aceite os termos e o contrato de licença aplicável.", target: "legal-contract-consent" };
+    }
+    if (legalCatalog?.acceptance_required && !orderSummaryAccepted) {
+      return { message: "Confirme o resumo comercial desta contratação.", target: "order-summary-consent" };
+    }
+    if (legalCatalog?.acceptance_required && (!legalCatalog.supplier.configured || legalError)) {
+      return { message: legalError || "Identificação jurídica do fornecedor indisponível.", target: "legal-contract-consent" };
+    }
     if (plansLoading) {
       return { message: "Aguarde o carregamento dos pacotes comerciais.", target: "planos" };
     }
@@ -543,6 +568,17 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
         lgpd_acknowledged: lgpdAccepted,
         lgpd_acknowledged_at: lgpdAccepted ? new Date().toISOString() : "",
         monthly_consultations: monthlyConsultations,
+        legal_acceptances: legalCatalog ? {
+          terms: acceptanceFor(legalCatalog.documents.terms, termsAccepted),
+          privacy: acceptanceFor(legalCatalog.documents.privacy, lgpdAccepted),
+          [accountType === "organization" ? "organization_contract" : "professional_contract"]:
+            acceptanceFor(
+              legalCatalog.documents[
+                accountType === "organization" ? "organization_contract" : "professional_contract"
+              ],
+              contractAccepted,
+            ),
+        } : {},
       };
 
       const profileRes = await fetch(apiUrl("/api/professional/profile"), {
@@ -585,6 +621,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
           package_code: selectedPlan,
           currency: billingCurrency,
           auto_replenish_consent: autoReplenishAccepted,
+          order_summary_accepted: orderSummaryAccepted,
           checkout_context: "onboarding",
           base_url: publicAppUrl(),
         }),
@@ -647,7 +684,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
             aceite as condições LGPD e selecione o plano para liberar o dashboard clínico.
           </p>
           <p className="mt-3 rounded-lg border border-cyan-800 bg-cyan-950/60 px-3 py-2 text-xs font-semibold text-cyan-100">
-            Os campos marcados com <span className="font-black text-red-300">*</span>, os dois consentimentos e a seleção de um pacote são obrigatórios.
+            Os campos marcados com <span className="font-black text-red-300">*</span>, os aceites jurídicos vigentes e a seleção de um pacote são obrigatórios.
           </p>
         </div>
 
@@ -660,7 +697,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
                   <input
                     type="radio"
                     checked={accountType === "individual"}
-                    onChange={() => setAccountType("individual")}
+                    onChange={() => { setAccountType("individual"); setContractAccepted(false); }}
                   />
                   Pessoa Física
                 </label>
@@ -668,7 +705,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
                   <input
                     type="radio"
                     checked={accountType === "organization"}
-                    onChange={() => setAccountType("organization")}
+                    onChange={() => { setAccountType("organization"); setContractAccepted(false); }}
                   />
                   Pessoa Juridica
                 </label>
@@ -880,11 +917,25 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
                   className="mt-1"
                 />
                 <span>
-                  Li, compreendi e aceito o aviso de privacidade, responsabilidade
-                  profissional, tratamento de dados pessoais e dados sensíveis nos termos
-                  da LGPD, declarando possuir autorizacao e base legal para operar o FROID.
+                  Li e compreendi a <a className="underline" href="#/privacidade" target="_blank" rel="noreferrer">Política de Privacidade</a>,
+                  incluindo tratamento de dados sensíveis, fornecedores e transferência internacional.
                 </span>
               </label>
+              <div id="legal-contract-consent" className="mt-3 space-y-2">
+                <label className="flex gap-3 rounded-lg border border-slate-700 bg-slate-950 p-3 text-xs font-bold leading-5 text-slate-200">
+                  <input type="checkbox" checked={termsAccepted} onChange={(event) => setTermsAccepted(event.target.checked)} className="mt-1" />
+                  <span>Li e aceito os <a className="text-cyan-200 underline" href="#/termos" target="_blank" rel="noreferrer">Termos Gerais de Uso</a>, inclusive limites clínicos, segurança e propriedade intelectual.</span>
+                </label>
+                <label className="flex gap-3 rounded-lg border border-slate-700 bg-slate-950 p-3 text-xs font-bold leading-5 text-slate-200">
+                  <input type="checkbox" checked={contractAccepted} onChange={(event) => setContractAccepted(event.target.checked)} className="mt-1" />
+                  <span>
+                    Li e aceito o {accountType === "organization" ? "Contrato para Clínica ou Organização" : "Contrato de Licença para Profissional"}{" "}
+                    (<a className="text-cyan-200 underline" href={accountType === "organization" ? "#/contrato-clinica" : "#/contrato-profissional"} target="_blank" rel="noreferrer">abrir versão integral</a>).
+                  </span>
+                </label>
+              </div>
+              {legalCatalog && <p className="mt-2 text-[10px] text-slate-500">Documentos versão {legalCatalog.version}. O conteúdo integral e seu hash serão vinculados ao aceite.</p>}
+              {legalError && <p className="mt-2 text-xs font-bold text-red-300">{legalError}</p>}
             </section>
           </div>
 
@@ -957,6 +1008,18 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
                 <p>Moeda do checkout: {billingCurrency.toUpperCase()}</p>
               </div>
             </div>
+
+            <label id="order-summary-consent" className="mt-4 flex gap-3 rounded-lg border border-amber-700 bg-amber-950/60 p-3 text-xs font-bold leading-5 text-amber-100">
+              <input
+                type="checkbox"
+                checked={orderSummaryAccepted}
+                onChange={(event) => setOrderSummaryAccepted(event.target.checked)}
+                className="mt-1"
+              />
+              <span>
+                Confirmo o pacote selecionado, a quantidade de sessões, a moeda e o valor total exibidos acima. Esta confirmação será vinculada à ordem enviada ao Stripe.
+              </span>
+            </label>
 
             <label className="mt-4 flex gap-3 rounded-lg border border-cyan-700 bg-cyan-950 p-3 text-xs font-bold leading-5 text-cyan-100">
               <input

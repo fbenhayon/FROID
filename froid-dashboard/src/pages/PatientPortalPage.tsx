@@ -38,6 +38,7 @@ type PrivacyOverview = {
 };
 
 type ConsentPreferences = {
+  patient_tcle: boolean;
   terms_of_use: boolean;
   privacy_policy: boolean;
   sensitive_data_processing: boolean;
@@ -144,6 +145,7 @@ export const PatientPortalPage: React.FC = () => {
   const [privacySaving, setPrivacySaving] = useState(false);
   const [consentOverview, setConsentOverview] = useState<ConsentOverview | null>(null);
   const [consentForm, setConsentForm] = useState<ConsentPreferences>({
+    patient_tcle: false,
     terms_of_use: false,
     privacy_policy: false,
     sensitive_data_processing: false,
@@ -213,7 +215,7 @@ export const PatientPortalPage: React.FC = () => {
     const data = await response.json();
     if (!response.ok) throw new Error(data?.detail || "Não foi possível carregar suas autorizações.");
     setConsentOverview(data as ConsentOverview);
-    setConsentForm((data as ConsentOverview).consent);
+    setConsentForm({ ...(data as ConsentOverview).consent, patient_tcle: Boolean((data as ConsentOverview).consent.patient_tcle) });
   }, [authHeaders, token]);
 
   useEffect(() => {
@@ -256,7 +258,7 @@ export const PatientPortalPage: React.FC = () => {
       const data = await response.json();
       if (!response.ok) throw new Error(data?.detail || "Não foi possível atualizar suas autorizações.");
       setConsentOverview(data as ConsentOverview);
-      setConsentForm((data as ConsentOverview).consent);
+      setConsentForm({ ...(data as ConsentOverview).consent, patient_tcle: Boolean((data as ConsentOverview).consent.patient_tcle) });
       setMessage("Autorizações atualizadas e registradas.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao atualizar autorizações.");
@@ -585,6 +587,7 @@ export const PatientPortalPage: React.FC = () => {
             </p>
             <div className="mt-3 space-y-2 text-xs text-slate-300">
               {[
+                ["patient_tcle", "Li e aceito o TCLE vigente do FROID."],
                 ["terms_of_use", "Aceito os termos de uso do FROID."],
                 ["privacy_policy", "Aceito a política de privacidade."],
                 ["sensitive_data_processing", "Autorizo o tratamento de dados sensíveis de saúde."],

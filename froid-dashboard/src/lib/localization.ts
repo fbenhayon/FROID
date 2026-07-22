@@ -407,6 +407,7 @@ const PATIENT_COPY: Record<SessionLocale, PatientCopy> = {
     privacyAuthorizations: "Privacidade e autorizações",
     privacyBody: "O FROID processa dados pessoais e dados sensíveis de saúde, incluindo áudio, vídeo, métricas vocais, transcrição e análises de apoio profissional.",
     consentLabels: {
+      patient_tcle: "Li e aceito o TCLE do FROID para esta sessão.",
       terms_of_use: "Li e aceito as condições de utilização do FROID.",
       privacy_policy: "Li e aceito a política de privacidade.",
       sensitive_data_processing: "Autorizo o tratamento de dados sensíveis de saúde para esta sessão.",
@@ -465,6 +466,7 @@ const PATIENT_COPY: Record<SessionLocale, PatientCopy> = {
     privacyAuthorizations: "Privacy and authorizations",
     privacyBody: "FROID processes personal and sensitive health information, including audio, video, voice metrics, transcripts, and analyses that support the professional.",
     consentLabels: {
+      patient_tcle: "I have read and accept the FROID informed consent form for this session.",
       terms_of_use: "I have read and accept the FROID terms of use.",
       privacy_policy: "I have read and accept the privacy notice.",
       sensitive_data_processing: "I authorize the processing of sensitive health information for this session.",
@@ -523,6 +525,7 @@ const PATIENT_COPY: Record<SessionLocale, PatientCopy> = {
     privacyAuthorizations: "Confidentialité et autorisations",
     privacyBody: "FROID traite des données personnelles et des données de santé sensibles, notamment l’audio, la vidéo, les métriques vocales, les transcriptions et les analyses d’aide au professionnel.",
     consentLabels: {
+      patient_tcle: "J’ai lu et j’accepte le consentement éclairé FROID pour cette séance.",
       terms_of_use: "J’ai lu et j’accepte les conditions d’utilisation de FROID.",
       privacy_policy: "J’ai lu et j’accepte la notice de confidentialité.",
       sensitive_data_processing: "J’autorise le traitement de données de santé sensibles pour cette séance.",
@@ -581,6 +584,7 @@ const PATIENT_COPY: Record<SessionLocale, PatientCopy> = {
     privacyAuthorizations: "Privacidad y autorizaciones",
     privacyBody: "FROID procesa datos personales y datos sensibles de salud, incluidos audio, vídeo, métricas vocales, transcripciones y análisis de apoyo al profesional.",
     consentLabels: {
+      patient_tcle: "He leído y acepto el consentimiento informado de FROID para esta sesión.",
       terms_of_use: "He leído y acepto las condiciones de uso de FROID.",
       privacy_policy: "He leído y acepto el aviso de privacidad.",
       sensitive_data_processing: "Autorizo el tratamiento de datos sensibles de salud para esta sesión.",

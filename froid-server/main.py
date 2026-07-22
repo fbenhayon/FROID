@@ -51,6 +51,11 @@ from localization import (
     summary_system_prompt,
     transcription_prompt,
 )
+from legal_documents import (
+    LEGAL_DOCUMENT_VERSION,
+    public_legal_catalog,
+    required_document_keys,
+)
 import httpx
 
 app = FastAPI(title="FROID Fusion Server", version="3.0.0")
@@ -187,6 +192,12 @@ FROID_SUBSCRIPTIONS_REQUIRED = os.getenv(
 FROID_ALLOW_LOCAL_BILLING_FALLBACK = os.getenv(
     "FROID_ALLOW_LOCAL_BILLING_FALLBACK", "false"
 ).lower() in {"1", "true", "yes", "on"}
+FROID_LEGAL_ACCEPTANCE_REQUIRED = os.getenv(
+    "FROID_LEGAL_ACCEPTANCE_REQUIRED", "false"
+).lower() in {"1", "true", "yes", "on"}
+FROID_LEGAL_AUDIT_HMAC_KEY = os.getenv(
+    "FROID_LEGAL_AUDIT_HMAC_KEY", ""
+).strip()
 TOKEN_CIPHER = TokenCipher.from_csv(os.getenv("FROID_TOKEN_ENCRYPTION_KEYS", ""))
 CLINICAL_TEXT_CIPHER = TextCipher.from_csv(
     os.getenv("FROID_CLINICAL_RECORD_ENCRYPTION_KEYS", "")
@@ -643,6 +654,7 @@ class PatientPortalProfileUpdate(BaseModel):
 
 
 class PatientConsentPreferences(BaseModel):
+    patient_tcle: bool = False
     terms_of_use: bool
     privacy_policy: bool
     sensitive_data_processing: bool
@@ -3497,6 +3509,93 @@ def _consent_hash(payload: dict) -> str:
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
 
+def _legal_audit_key_configured() -> bool:
+    return len(FROID_LEGAL_AUDIT_HMAC_KEY.encode("utf-8")) >= 32
+
+
+def _legal_hmac(value: str) -> str:
+    if not _legal_audit_key_configured():
+        return ""
+    return hmac.new(
+        FROID_LEGAL_AUDIT_HMAC_KEY.encode("utf-8"),
+        str(value or "").encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+
+
+def _legal_request_fingerprint(request: Request) -> str:
+    remote = request.client.host if request.client else ""
+    agent = request.headers.get("user-agent", "")[:1000]
+    return _legal_hmac(f"{remote}|{agent}")
+
+
+def _validated_legal_acceptances(
+    payload: object, account_type: str, *, required: bool
+) -> dict[str, dict]:
+    submitted = payload if isinstance(payload, dict) else {}
+    catalog = public_legal_catalog()
+    if required and not (
+        catalog["supplier"].get("configured")
+        and _legal_audit_key_configured()
+        and TENANT_STORE.enabled
+    ):
+        raise HTTPException(
+            status_code=503,
+            detail="configuração jurídica do fornecedor incompleta",
+        )
+    documents = catalog["documents"]
+    accepted: dict[str, dict] = {}
+    for key in required_document_keys(account_type):
+        candidate = submitted.get(key) if isinstance(submitted.get(key), dict) else {}
+        document = documents[key]
+        valid = (
+            candidate.get("accepted") is True
+            and candidate.get("version") == document["version"]
+            and candidate.get("sha256") == document["sha256"]
+        )
+        if required and not valid:
+            raise HTTPException(
+                status_code=428,
+                detail=f"aceite jurídico atual obrigatório: {key}",
+            )
+        if valid:
+            accepted[key] = {
+                "version": document["version"],
+                "sha256": document["sha256"],
+                "accepted_at": _utc_now_iso(),
+            }
+    return accepted
+
+
+def _record_legal_documents(
+    *, request: Request, subject_reference: str, subject_kind: str,
+    organization_id: str, acceptances: dict[str, dict], context: str,
+    commercial_snapshot: Optional[dict] = None,
+) -> None:
+    if FROID_LEGAL_ACCEPTANCE_REQUIRED and not TENANT_STORE.enabled:
+        raise HTTPException(
+            status_code=503,
+            detail="trilha jurídica persistente indisponível",
+        )
+    subject_hash = _legal_hmac(subject_reference)
+    if not subject_hash:
+        return
+    fingerprint = _legal_request_fingerprint(request)
+    for key, acceptance in acceptances.items():
+        TENANT_STORE.record_legal_acceptance(
+            organization_id=organization_id,
+            subject_kind=subject_kind,
+            subject_reference_hash=subject_hash,
+            document_key=key,
+            document_version=str(acceptance.get("version") or ""),
+            document_sha256=str(acceptance.get("sha256") or ""),
+            acceptance_context=context,
+            commercial_snapshot=commercial_snapshot or {},
+            request_fingerprint_hash=fingerprint,
+            accepted_at=str(acceptance.get("accepted_at") or ""),
+        )
+
+
 def _patient_consent_preferences(patient: dict) -> dict:
     preferences = patient.get("consent_preferences")
     if isinstance(preferences, dict) and preferences:
@@ -3543,6 +3642,57 @@ def _format_brl(cents: int, currency: str = "brl") -> str:
 def _normalize_stripe_currency(value: Any) -> str:
     currency = str(value or "").strip().lower()
     return currency if currency in SUPPORTED_BILLING_CURRENCIES else ""
+
+
+def _commercial_order_snapshot(
+    package_code: str,
+    package: dict,
+    currency: str,
+    commercial_price: dict,
+    auto_replenish: bool,
+) -> dict:
+    return {
+        "package_code": package_code,
+        "plan_code": str(package["plan_code"]),
+        "sessions": int(package["sessions"]),
+        "currency": currency,
+        "unit_amount_minor": int(commercial_price["unit_amount_minor"]),
+        "total_amount_minor": int(commercial_price["total_amount_minor"]),
+        "auto_replenish": bool(auto_replenish),
+    }
+
+
+def _commercial_order_sha256(snapshot: dict) -> str:
+    return hashlib.sha256(
+        json.dumps(snapshot, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
+
+def _validate_checkout_legal_metadata(
+    metadata: dict,
+    *,
+    package_code: str,
+    package: dict,
+    currency: str,
+    commercial_price: dict,
+    auto_replenish: bool,
+) -> None:
+    if not FROID_LEGAL_ACCEPTANCE_REQUIRED:
+        return
+    expected_snapshot = _commercial_order_snapshot(
+        package_code, package, currency, commercial_price, auto_replenish
+    )
+    if (
+        metadata.get("legal_terms_version") != LEGAL_DOCUMENT_VERSION
+        or not hmac.compare_digest(
+            str(metadata.get("order_sha256") or ""),
+            _commercial_order_sha256(expected_snapshot),
+        )
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="evidência jurídica do checkout não confere",
+        )
 
 
 def _plan_amount_for_currency(plan: dict, currency: str) -> int:
@@ -4713,6 +4863,15 @@ async def websocket_rtc_signaling(websocket: WebSocket, session_id: str, role: s
         )
 
 
+@app.get("/api/legal/documents")
+def legal_documents():
+    """Public, versioned copy used by every acceptance surface."""
+    return {
+        **public_legal_catalog(),
+        "acceptance_required": FROID_LEGAL_ACCEPTANCE_REQUIRED,
+    }
+
+
 @app.get("/health")
 def health():
     return {
@@ -4733,6 +4892,7 @@ def health():
 @app.get("/ready")
 def readiness():
     result = TENANT_STORE.readiness()
+    legal_catalog = public_legal_catalog()
     security_checks = {
         "clinical_record_encryption_configured": bool(CLINICAL_TEXT_CIPHER),
         "datamart_pseudonym_key_configured": bool(FROID_DATAMART_PSEUDONYM_KEY),
@@ -4754,9 +4914,26 @@ def readiness():
     result["checks"]["subscriptions_required"] = FROID_SUBSCRIPTIONS_REQUIRED
     result["checks"].update(security_checks)
     result["checks"].update(billing_checks)
+    result["checks"]["legal_supplier_configured"] = (
+        bool(legal_catalog["supplier"].get("configured"))
+        if FROID_LEGAL_ACCEPTANCE_REQUIRED else True
+    )
+    result["checks"]["legal_audit_hmac_configured"] = (
+        _legal_audit_key_configured()
+        if FROID_LEGAL_ACCEPTANCE_REQUIRED else True
+    )
+    result["checks"]["legal_ledger_persistence_enabled"] = (
+        TENANT_STORE.enabled if FROID_LEGAL_ACCEPTANCE_REQUIRED else True
+    )
     if not all(security_checks.values()):
         result["ready"] = False
     if FROID_SUBSCRIPTIONS_REQUIRED and not all(billing_checks.values()):
+        result["ready"] = False
+    if FROID_LEGAL_ACCEPTANCE_REQUIRED and not (
+        legal_catalog["supplier"].get("configured")
+        and _legal_audit_key_configured()
+        and TENANT_STORE.enabled
+    ):
         result["ready"] = False
     return JSONResponse(status_code=200 if result["ready"] else 503, content=result)
 
@@ -5274,6 +5451,8 @@ async def accept_session_invite(token: str, request: Request):
         "sensitive_data_processing",
         "audio_video_processing",
     ]
+    if FROID_LEGAL_ACCEPTANCE_REQUIRED:
+        required_consents.append("patient_tcle")
     now = _utc_now_iso()
     known_patient_id = str(invite.get("patient_id") or "")
     known_patient = PATIENTS.get(known_patient_id) if known_patient_id else None
@@ -5369,6 +5548,25 @@ async def accept_session_invite(token: str, request: Request):
         "hash": _consent_hash(ledger_payload),
     }
     CONSENT_LEDGER.append(ledger_entry)
+
+    if consent.get("patient_tcle") is True:
+        legal_catalog = public_legal_catalog()["documents"]
+        patient_legal_acceptances = {
+            key: {
+                "version": legal_catalog[key]["version"],
+                "sha256": legal_catalog[key]["sha256"],
+                "accepted_at": now,
+            }
+            for key in ("patient_tcle", "terms", "privacy")
+        }
+        _record_legal_documents(
+            request=request,
+            subject_reference=patient_id,
+            subject_kind="patient",
+            organization_id=_invite_organization_id(invite),
+            acceptances=patient_legal_acceptances,
+            context="patient_invite_acceptance",
+        )
 
     invite.update(
         {
@@ -5560,11 +5758,12 @@ async def patient_portal_consent(request: Request):
     preferences = _patient_consent_preferences(patient)
     return {
         "consent": preferences,
-        "version": patient.get("lgpd_consent_version") or "FROID-LGPD-v1.0",
+        "version": patient.get("lgpd_consent_version") or LEGAL_DOCUMENT_VERSION,
         "updated_at": patient.get("consent_updated_at") or patient.get("lgpd_consent_at"),
         "session_authorization_active": all(
             preferences.get(key) is True
             for key in (
+                *(("patient_tcle",) if FROID_LEGAL_ACCEPTANCE_REQUIRED else ()),
                 "terms_of_use",
                 "privacy_policy",
                 "sensitive_data_processing",
@@ -5587,13 +5786,13 @@ async def patient_portal_update_consent(
     preferences = payload.model_dump()
     patient["consent_preferences"] = preferences
     patient["consent_updated_at"] = now
-    patient["lgpd_consent_version"] = "FROID-LGPD-v1.0"
+    patient["lgpd_consent_version"] = LEGAL_DOCUMENT_VERSION
     ledger_payload = {
         "patient_id": patient_id,
         "invite_id": "",
         "session_id": "",
         "consent": preferences,
-        "version": "FROID-LGPD-v1.0",
+        "version": LEGAL_DOCUMENT_VERSION,
         "accepted_at": now,
         "source": "patient_portal_update",
         "remote_addr": request.client.host if request.client else "",
@@ -5602,6 +5801,23 @@ async def patient_portal_update_consent(
     CONSENT_LEDGER.append(
         {**ledger_payload, "hash": _consent_hash(ledger_payload)}
     )
+    if preferences.get("patient_tcle") is True:
+        legal_catalog = public_legal_catalog()["documents"]
+        _record_legal_documents(
+            request=request,
+            subject_reference=patient_id,
+            subject_kind="patient",
+            organization_id="",
+            acceptances={
+                key: {
+                    "version": legal_catalog[key]["version"],
+                    "sha256": legal_catalog[key]["sha256"],
+                    "accepted_at": now,
+                }
+                for key in ("patient_tcle", "terms", "privacy")
+            },
+            context="patient_portal_consent_update",
+        )
     _save_identity_state()
     return await patient_portal_consent(request)
 
@@ -6608,6 +6824,12 @@ async def save_professional_profile(request: Request):
     if not professional_cpf:
         raise HTTPException(status_code=400, detail="CPF obrigatório como chave de conferência do profissional")
 
+    legal_acceptances = _validated_legal_acceptances(
+        body.get("legal_acceptances"),
+        account_type,
+        required=FROID_LEGAL_ACCEPTANCE_REQUIRED,
+    )
+
     now = datetime.now(timezone.utc).isoformat()
     existing = PROFESSIONAL_PROFILES.get(owner_email) or {}
     existing_used_sessions = max(0, _local_int(existing.get("used_sessions")))
@@ -6632,6 +6854,7 @@ async def save_professional_profile(request: Request):
         "referrals": referrals,
         "lgpd_acknowledged": bool(body.get("lgpd_acknowledged")),
         "lgpd_acknowledged_at": body.get("lgpd_acknowledged_at") or existing.get("lgpd_acknowledged_at"),
+        "legal_acceptances": legal_acceptances or existing.get("legal_acceptances") or {},
         "monthly_consultations": max(
             0, min(100_000, _local_int(body.get("monthly_consultations")))
         ),
@@ -6648,6 +6871,15 @@ async def save_professional_profile(request: Request):
         "created_at": existing.get("created_at") or now,
         "updated_at": now,
     }
+    if legal_acceptances:
+        _record_legal_documents(
+            request=request,
+            subject_reference=owner_email,
+            subject_kind=("organization" if account_type == "organization" else "professional"),
+            organization_id=str(stable_uuid("organization", owner_email)),
+            acceptances=legal_acceptances,
+            context="professional_onboarding",
+        )
     PROFESSIONAL_PROFILES[owner_email] = profile
     _save_identity_state()
     return {"status": "ok", "profile": profile, "access_status": _professional_access_status(owner_email)}
@@ -6749,6 +6981,26 @@ async def create_subscription_checkout(request: Request):
     commercial_price = package_price(package, currency)
     if not currency or not commercial_price:
         raise HTTPException(status_code=400, detail="moeda de cobrança inválida")
+    order_summary_accepted = body.get("order_summary_accepted") is True
+    email = _normalize_email(user.get("email") or "")
+    profile = PROFESSIONAL_PROFILES.get(email) or {}
+    if FROID_LEGAL_ACCEPTANCE_REQUIRED:
+        if not order_summary_accepted:
+            raise HTTPException(status_code=428, detail="confirme o resumo da contratação")
+        current_documents = public_legal_catalog()["documents"]
+        current_acceptances = profile.get("legal_acceptances") or {}
+        account_type = str(profile.get("account_type") or "individual")
+        for key in required_document_keys(account_type):
+            accepted = current_acceptances.get(key) or {}
+            if (
+                accepted.get("version") != current_documents[key]["version"]
+                or accepted.get("sha256") != current_documents[key]["sha256"]
+            ):
+                raise HTTPException(status_code=428, detail=f"renove o aceite jurídico: {key}")
+    order_snapshot = _commercial_order_snapshot(
+        package_code, package, currency, commercial_price, auto_replenish
+    )
+    order_sha256 = _commercial_order_sha256(order_snapshot)
     price_id = STRIPE_SUBSCRIPTION_PRICE_IDS.get(package_code) or ""
     if not price_id:
         raise HTTPException(status_code=503, detail="preço Stripe do plano não configurado")
@@ -6779,7 +7031,6 @@ async def create_subscription_checkout(request: Request):
     base_url = _public_app_base_url(body.get("base_url") or "")
     checkout_context = str(body.get("checkout_context") or "settings").strip().lower()
     return_path = "access/register" if checkout_context == "onboarding" else "settings"
-    email = _normalize_email(user.get("email") or "")
     form = {
         "mode": "payment",
         "success_url": f"{base_url}/#/{return_path}?subscription=success&session_id={{CHECKOUT_SESSION_ID}}",
@@ -6793,6 +7044,8 @@ async def create_subscription_checkout(request: Request):
         "metadata[package_code]": package_code,
         "metadata[currency]": currency,
         "metadata[auto_replenish]": "true" if auto_replenish else "false",
+        "metadata[legal_terms_version]": LEGAL_DOCUMENT_VERSION,
+        "metadata[order_sha256]": order_sha256,
         "payment_intent_data[metadata][organization_id]": context.organization_id,
         "payment_intent_data[metadata][plan_code]": plan_code,
         "payment_intent_data[metadata][package_code]": package_code,
@@ -6800,6 +7053,8 @@ async def create_subscription_checkout(request: Request):
         "payment_intent_data[metadata][auto_replenish]": (
             "true" if auto_replenish else "false"
         ),
+        "payment_intent_data[metadata][legal_terms_version]": LEGAL_DOCUMENT_VERSION,
+        "payment_intent_data[metadata][order_sha256]": order_sha256,
     }
     if auto_replenish:
         form["metadata[auto_replenish_terms_version]"] = AUTO_REPLENISH_TERMS_VERSION
@@ -6815,6 +7070,26 @@ async def create_subscription_checkout(request: Request):
         )
     if email:
         form["customer_email"] = email
+    if order_summary_accepted:
+        _record_legal_documents(
+            request=request,
+            subject_reference=email,
+            subject_kind=(
+                "organization"
+                if profile.get("account_type") == "organization"
+                else "professional"
+            ),
+            organization_id=context.organization_id,
+            acceptances={
+                "order_summary": {
+                    "version": LEGAL_DOCUMENT_VERSION,
+                    "sha256": order_sha256,
+                    "accepted_at": _utc_now_iso(),
+                }
+            },
+            context="stripe_checkout_requested",
+            commercial_snapshot=order_snapshot,
+        )
     async with httpx.AsyncClient(timeout=20.0) as client:
         response = await client.post(
             "https://api.stripe.com/v1/checkout/sessions",
@@ -6889,6 +7164,14 @@ async def confirm_subscription_checkout(request: Request):
         )
     ):
         raise HTTPException(status_code=422, detail="pacote Stripe não reconhecido")
+    _validate_checkout_legal_metadata(
+        metadata,
+        package_code=package_code,
+        package=package,
+        currency=currency,
+        commercial_price=commercial_price,
+        auto_replenish=auto_replenish,
+    )
     if (
         stripe_session.get("mode") != "payment"
         or stripe_session.get("status") != "complete"
@@ -6933,6 +7216,14 @@ async def confirm_subscription_checkout(request: Request):
         or payment_metadata.get("currency") != currency
     ):
         raise HTTPException(status_code=409, detail="pagamento inicial não confirmado")
+    _validate_checkout_legal_metadata(
+        payment_metadata,
+        package_code=package_code,
+        package=package,
+        currency=currency,
+        commercial_price=commercial_price,
+        auto_replenish=auto_replenish,
+    )
     stripe_customer_id = str(
         stripe_session.get("customer") or payment_intent.get("customer") or ""
     )
@@ -7011,6 +7302,14 @@ async def stripe_webhook(request: Request):
             )
         ):
             raise HTTPException(status_code=422, detail="pacote Stripe não reconhecido")
+        _validate_checkout_legal_metadata(
+            metadata,
+            package_code=package_code,
+            package=package,
+            currency=currency,
+            commercial_price=commercial_price,
+            auto_replenish=auto_replenish,
+        )
         if (
             stripe_object.get("mode") != "payment"
             or stripe_object.get("status") != "complete"
@@ -7053,6 +7352,14 @@ async def stripe_webhook(request: Request):
             or payment_metadata.get("currency") != currency
         ):
             raise HTTPException(status_code=409, detail="pagamento inicial não confirmado")
+        _validate_checkout_legal_metadata(
+            payment_metadata,
+            package_code=package_code,
+            package=package,
+            currency=currency,
+            commercial_price=commercial_price,
+            auto_replenish=auto_replenish,
+        )
         stripe_customer_id = str(
             stripe_object.get("customer") or payment_intent.get("customer") or ""
         )

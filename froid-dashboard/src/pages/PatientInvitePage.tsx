@@ -45,6 +45,7 @@ const initialPatientForm = {
 };
 
 const initialConsent = {
+  patient_tcle: false,
   terms_of_use: false,
   privacy_policy: false,
   sensitive_data_processing: false,
@@ -407,11 +408,19 @@ export const PatientInvitePage: React.FC = () => {
               <p className="mt-1 text-xs leading-relaxed text-slate-400">
                 {copy.privacyBody}
               </p>
+              <p className="mt-2 text-xs font-bold text-cyan-300">
+                <a className="underline" href="#/tcle-paciente" target="_blank" rel="noreferrer">TCLE integral</a>
+                {" · "}
+                <a className="underline" href="#/privacidade" target="_blank" rel="noreferrer">Política de Privacidade</a>
+                {" · "}
+                <a className="underline" href="#/termos" target="_blank" rel="noreferrer">Termos de Uso</a>
+              </p>
               <div className="mt-3">
                 <LgpdNotice audience="patient" compact locale={uiLocale} />
               </div>
               <div className="mt-3 space-y-2 text-xs text-slate-300">
                 {[
+                  ["patient_tcle", copy.consentLabels.patient_tcle],
                   ["terms_of_use", copy.consentLabels.terms_of_use],
                   ["privacy_policy", copy.consentLabels.privacy_policy],
                   ["sensitive_data_processing", copy.consentLabels.sensitive_data_processing],

@@ -57,9 +57,10 @@ BEGIN
     '001_multitenant_foundation', '002_access_control',
     '003_runtime_role_grants', '004_shared_credit_wallet',
     '005_wallet_activation_safety', '006_subscription_entitlements',
-    '007_multitenant_security_hardening', '008_data_subject_rights'
+    '007_multitenant_security_hardening', '008_data_subject_rights',
+    '009_legal_acceptance_ledger'
   );
-  IF migration_count <> 8 THEN
+  IF migration_count <> 9 THEN
     RAISE EXCEPTION 'restore missing required migrations: %', migration_count;
   END IF;
   SELECT count(*) INTO rls_count FROM pg_class
@@ -67,9 +68,10 @@ BEGIN
     'organization_memberships', 'patients', 'patient_assignments',
     'session_reports', 'consents', 'organization_wallets',
     'credit_ledger', 'audit_events', 'organization_subscriptions',
-    'data_subject_requests', 'data_subject_request_events'
+    'data_subject_requests', 'data_subject_request_events',
+    'legal_acceptance_events'
   ) AND relrowsecurity;
-  IF rls_count <> 11 THEN
+  IF rls_count <> 12 THEN
     RAISE EXCEPTION 'restore RLS check failed: %', rls_count;
   END IF;
 END $$;

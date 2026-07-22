@@ -159,14 +159,14 @@ class TenantStore:
                         "patient_assignments", "session_reports", "consents",
                         "organization_wallets", "credit_ledger", "audit_events",
                         "organization_subscriptions", "data_subject_requests",
-                        "data_subject_request_events",
+                        "data_subject_request_events", "legal_acceptance_events",
                     ],),
                 ).fetchone()[0]
             checks["owner_database_reachable"] = True
             checks["all_migrations_applied"] = expected_migrations.issubset(
                 applied_migrations
             )
-            checks["rls_enabled_on_tenant_tables"] = int(rls_count) == 11
+            checks["rls_enabled_on_tenant_tables"] = int(rls_count) == 12
         except Exception as exc:
             checks["owner_database_reachable"] = False
             checks["all_migrations_applied"] = False
@@ -353,6 +353,47 @@ class TenantStore:
                     uuid.uuid4(), organization_id, actor_user_id or None, action,
                     resource_type, resource_id or None, outcome,
                     _json(metadata or {}),
+                ),
+            )
+            connection.commit()
+
+    def record_legal_acceptance(
+        self,
+        *,
+        organization_id: str = "",
+        subject_kind: str,
+        subject_reference_hash: str,
+        document_key: str,
+        document_version: str,
+        document_sha256: str,
+        acceptance_context: str,
+        commercial_snapshot: Optional[dict] = None,
+        request_fingerprint_hash: str = "",
+        accepted_at: str = "",
+    ) -> None:
+        """Persist immutable legal evidence without copying identity PII."""
+        if not self.enabled:
+            return
+        if subject_kind not in {"professional", "organization", "patient"}:
+            raise ValueError("invalid legal acceptance subject")
+        with self._connect() as connection:
+            self.ensure_schema(connection)
+            connection.execute(
+                """
+                INSERT INTO legal_acceptance_events
+                    (id, organization_id, subject_kind, subject_reference_hash,
+                     document_key, document_version, document_sha256,
+                     acceptance_context, commercial_snapshot,
+                     request_fingerprint_hash, accepted_at)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s,%s)
+                """,
+                (
+                    uuid.uuid4(), organization_id or None, subject_kind,
+                    subject_reference_hash, document_key, document_version,
+                    document_sha256, acceptance_context,
+                    _json(commercial_snapshot or {}),
+                    request_fingerprint_hash or None,
+                    parse_timestamp(accepted_at),
                 ),
             )
             connection.commit()

@@ -23,6 +23,9 @@ const PatientPortalPage = lazy(() => import("./pages/PatientPortalPage").then((m
 const PrivacyRequests = lazy(() => import("./pages/PrivacyRequests").then((module) => ({ default: module.PrivacyRequests })));
 const PrivacyPage = lazy(() => import("./pages/LegalPages").then((module) => ({ default: module.PrivacyPage })));
 const TermsPage = lazy(() => import("./pages/LegalPages").then((module) => ({ default: module.TermsPage })));
+const ProfessionalContractPage = lazy(() => import("./pages/LegalPages").then((module) => ({ default: module.ProfessionalContractPage })));
+const OrganizationContractPage = lazy(() => import("./pages/LegalPages").then((module) => ({ default: module.OrganizationContractPage })));
+const PatientTclePage = lazy(() => import("./pages/LegalPages").then((module) => ({ default: module.PatientTclePage })));
 const FroidProfessionalsPage = lazy(() => import("./pages/FroidInstitutionalPages").then((module) => ({ default: module.FroidProfessionalsPage })));
 const FroidSciencePage = lazy(() => import("./pages/FroidInstitutionalPages").then((module) => ({ default: module.FroidSciencePage })));
 const FroidTechnologyPage = lazy(() => import("./pages/FroidInstitutionalPages").then((module) => ({ default: module.FroidTechnologyPage })));
@@ -216,6 +219,9 @@ function App() {
         />
         <Route path="/privacidade" element={<PrivacyPage />} />
         <Route path="/termos" element={<TermsPage />} />
+        <Route path="/contrato-profissional" element={<ProfessionalContractPage />} />
+        <Route path="/contrato-clinica" element={<OrganizationContractPage />} />
+        <Route path="/tcle-paciente" element={<PatientTclePage />} />
         <Route path="/froid/ciencia" element={<FroidSciencePage />} />
         <Route path="/froid/tecnologia" element={<FroidTechnologyPage />} />
         <Route path="/froid/profissionais" element={<FroidProfessionalsPage />} />
