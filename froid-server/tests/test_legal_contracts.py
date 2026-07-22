@@ -99,6 +99,20 @@ class LegalContractsTests(unittest.TestCase):
         checkbox = self.onboarding[start : start + 350]
         self.assertNotIn("required", checkbox)
 
+    def test_observation_mode_presents_documents_without_blocking_onboarding(self):
+        self.assertIn(
+            "legalCatalog?.acceptance_required && !lgpdAccepted",
+            self.onboarding,
+        )
+        self.assertIn(
+            "o não aceite não impede o cadastro, o pagamento nem o início da operação",
+            self.onboarding,
+        )
+        self.assertIn(
+            "required={Boolean(legalCatalog?.acceptance_required)}",
+            self.onboarding,
+        )
+
     def test_legal_enforcement_is_independent_by_jurisdiction(self):
         for jurisdiction in ("BR", "ES", "FR", "US"):
             self.assertIn(

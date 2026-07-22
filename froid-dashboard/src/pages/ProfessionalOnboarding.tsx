@@ -247,12 +247,12 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
         "CNPJ, celular e e-mail da empresa",
         "Nome, celular, e-mail e CPF do representante legal",
         "CEP, logradouro, número e bairro",
-        "Aviso de privacidade e pacote comercial",
+        "Pacote comercial",
       ]
     : [
         "Nome completo, celular, e-mail e CPF",
         "CEP, logradouro, número e bairro",
-        "Aviso de privacidade e pacote comercial",
+        "Pacote comercial",
       ];
   const selectedPlanData =
     availablePlans.find((plan) => plan.id === selectedPlan) || availablePlans[0];
@@ -496,7 +496,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(emailField[2] || "").trim())) {
       return { message: `Informe um ${emailField[0]} válido.`, target: `onboarding-${emailField[1]}` };
     }
-    if (!lgpdAccepted) {
+    if (legalCatalog?.acceptance_required && !lgpdAccepted) {
       return { message: "Aceite o aviso de privacidade e responsabilidade profissional para continuar.", target: "lgpd-consent" };
     }
     if (legalCatalog?.acceptance_required && (!termsAccepted || !contractAccepted)) {
@@ -915,6 +915,15 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
               <div className="mt-4">
                 <LgpdNotice audience="professional" />
               </div>
+              <p className={`mt-4 rounded-lg border p-3 text-xs font-bold leading-5 ${
+                legalCatalog?.acceptance_required
+                  ? "border-amber-700 bg-amber-950/60 text-amber-100"
+                  : "border-cyan-800 bg-cyan-950/40 text-cyan-100"
+              }`}>
+                {legalCatalog?.acceptance_required
+                  ? "Os documentos abaixo são obrigatórios nesta localidade. Leia e aceite para concluir o cadastro."
+                  : "Os documentos abaixo são apresentados para sua leitura e permanecem disponíveis integralmente. Nesta fase inicial, o não aceite não impede o cadastro, o pagamento nem o início da operação."}
+              </p>
               <label className="mt-4 flex gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-bold leading-5 text-amber-950">
                 <input
                   id="lgpd-consent"
@@ -922,7 +931,8 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
                   type="checkbox"
                   checked={lgpdAccepted}
                   onChange={(event) => setLgpdAccepted(event.target.checked)}
-                  required
+                  required={Boolean(legalCatalog?.acceptance_required)}
+                  aria-required={legalCatalog?.acceptance_required || undefined}
                   className="mt-1"
                 />
                 <span>
