@@ -627,18 +627,38 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
           </p>
         </div>
         <div className="flex flex-nowrap justify-end gap-2 overflow-x-auto">
-          <label className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-950 px-2 text-[10px] font-bold text-slate-300">
-            {tr("Idioma")}
-            <select
-              value={defaultSessionLocale}
-              onChange={(event) => updateDefaultSessionLocale(event.target.value as SessionLocale)}
-              className="bg-slate-950 py-2 text-[10px] font-bold text-slate-100 outline-none"
-            >
-              {sessionLocaleOptions().map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </label>
+          <div
+            role="radiogroup"
+            aria-label={tr("Idioma")}
+            className="flex shrink-0 items-center gap-2 rounded-lg border border-slate-700 bg-slate-950 px-2 py-1"
+          >
+            <span className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-500">
+              {tr("Idioma")}
+            </span>
+            <div className="flex items-center rounded-md border border-slate-800 bg-slate-900 p-0.5">
+              {sessionLocaleOptions().map((option) => {
+                const selected = option.value === defaultSessionLocale;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    aria-label={option.label}
+                    title={`${option.label}${option.validationStatus === "pilot" ? " · validação controlada" : ""}`}
+                    onClick={() => updateDefaultSessionLocale(option.value)}
+                    className={`min-w-8 rounded px-2 py-1.5 text-[10px] font-black tracking-wide transition-colors ${
+                      selected
+                        ? "bg-cyan-700 text-white shadow-sm shadow-cyan-950"
+                        : "text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+                    }`}
+                  >
+                    {option.value.split("-")[0].toUpperCase()}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           <button
             onClick={() => openPatientRegistration()}
             className="rounded-lg bg-cyan-700 px-3 py-2 text-xs font-bold text-white hover:bg-cyan-800"

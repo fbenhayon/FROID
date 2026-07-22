@@ -20,6 +20,9 @@ class InternationalizationPhase1Tests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.main_source = (SERVER_DIR / "main.py").read_text(encoding="utf-8")
+        cls.dashboard_source = (
+            SERVER_DIR.parent / "froid-dashboard" / "src" / "pages" / "Dashboard.tsx"
+        ).read_text(encoding="utf-8")
 
     def test_phase1_locales_have_provider_hints(self):
         self.assertEqual(
@@ -91,6 +94,13 @@ class InternationalizationPhase1Tests(unittest.TestCase):
         audit_block = route[route.index("AUDIT_LOGGER.info(") : route.index("return {")]
         self.assertNotIn('"text"', audit_block)
         self.assertNotIn("transcript,", audit_block)
+
+    def test_professional_dashboard_uses_accessible_froid_language_control(self):
+        self.assertIn('role="radiogroup"', self.dashboard_source)
+        self.assertIn('role="radio"', self.dashboard_source)
+        self.assertIn('aria-checked={selected}', self.dashboard_source)
+        self.assertIn('bg-cyan-700 text-white', self.dashboard_source)
+        self.assertNotIn('<select\n              value={defaultSessionLocale}', self.dashboard_source)
 
 
 if __name__ == "__main__":
