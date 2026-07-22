@@ -228,6 +228,9 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [accessStatus, setAccessStatus] = useState<FroidUser["access_status"]>(
+    user?.access_status,
+  );
   const feedbackRef = useRef<HTMLDivElement | null>(null);
 
   const professionals = useMemo(() => parseProfessionals(professionalsRaw), [professionalsRaw]);
@@ -360,9 +363,16 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
         });
         const refreshed = response.ok ? await response.json() : null;
         if (cancelled) return;
-        if (refreshed && !refreshed.access_status?.onboarding_required) {
+        if (refreshed?.access_status) {
+          setAccessStatus(refreshed.access_status);
           localStorage.setItem("froid_user", JSON.stringify(refreshed));
           onUserChange(refreshed);
+        }
+        if (refreshed?.access_status?.manual_approval_pending) {
+          setMessage("Pagamento confirmado. Seu cadastro aguarda aprovação manual do FROID.");
+          return;
+        }
+        if (refreshed && !refreshed.access_status?.onboarding_required) {
           window.location.replace(`${publicAppUrl()}/#/dashboard`);
           return;
         }
@@ -400,6 +410,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
     })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
+        if (data?.access_status) setAccessStatus(data.access_status);
         const profile = data?.profile;
         if (!profile) return;
         setAccountType(profile.account_type === "organization" ? "organization" : "individual");
@@ -442,6 +453,32 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
     localStorage.removeItem("froid_user");
     onUserChange(null);
     navigate("/login", { replace: true });
+  };
+
+  const verifyManualApproval = async () => {
+    const token = localStorage.getItem("froid_token") || "";
+    if (!token) return;
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch(apiUrl("/api/auth/me"), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const refreshed = response.ok ? await response.json() : null;
+      if (!response.ok || !refreshed) throw new Error("Não foi possível verificar a aprovação.");
+      setAccessStatus(refreshed.access_status);
+      localStorage.setItem("froid_user", JSON.stringify(refreshed));
+      onUserChange(refreshed);
+      if (!refreshed.access_status?.onboarding_required) {
+        window.location.replace(`${publicAppUrl()}/#/dashboard`);
+        return;
+      }
+      setMessage("Seu cadastro continua aguardando aprovação manual do FROID.");
+    } catch (verificationError: any) {
+      setError(verificationError?.message || "Falha ao verificar a aprovação.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const selectPlan = (plan: AccessPlan) => {
@@ -653,6 +690,49 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
       setLoading(false);
     }
   };
+
+  if (
+    accessStatus?.manual_approval_pending
+    && ["paid", "active", "trialing"].includes(String(accessStatus.payment_status || ""))
+  ) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 p-6 text-slate-100">
+        <main className="w-full max-w-xl rounded-2xl border border-cyan-900 bg-slate-900 p-7 shadow-2xl">
+          <p className="text-xs font-black uppercase tracking-[0.3em] text-emerald-300">
+            Pagamento confirmado
+          </p>
+          <h1 className="mt-3 text-2xl font-black">Cadastro aguardando aprovação FROID</h1>
+          <p className="mt-3 text-sm leading-6 text-slate-300">
+            Seus dados e créditos estão preservados. Durante esta fase de testes, o acesso
+            operacional é liberado pessoalmente pelo responsável do FROID após a conferência
+            do cadastro.
+          </p>
+          <p className="mt-4 rounded-lg border border-amber-800 bg-amber-950/40 px-4 py-3 text-sm font-bold text-amber-100">
+            Não realize outro pagamento. A compra já foi confirmada.
+          </p>
+          {message && <p className="mt-4 text-sm text-cyan-200">{message}</p>}
+          {error && <p className="mt-4 text-sm font-bold text-red-300">{error}</p>}
+          <div className="mt-6 flex flex-wrap gap-3">
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => void verifyManualApproval()}
+              className="rounded-lg bg-cyan-700 px-4 py-2 text-sm font-black text-white hover:bg-cyan-600 disabled:opacity-50"
+            >
+              {loading ? "Verificando..." : "Verificar aprovação"}
+            </button>
+            <button
+              type="button"
+              onClick={logoutToLogin}
+              className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-black text-slate-200 hover:bg-slate-800"
+            >
+              Sair
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100">

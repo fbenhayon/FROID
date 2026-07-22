@@ -93,12 +93,13 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
           </p>
         )}
 
-        <section className="grid gap-3 md:grid-cols-4">
+        <section className="grid gap-3 md:grid-cols-5">
           {[
             ["Profissionais", summary.professionals],
             ["Pacientes", summary.patients],
             ["Relatórios", summary.session_reports],
             ["Convites", summary.invites],
+            ["Aprovações pendentes", summary.pending_professional_approvals],
           ].map(([label, value]) => (
             <div key={label} className="rounded-lg border border-slate-800 bg-slate-900 p-4">
               <p className="text-[10px] font-black uppercase tracking-wide text-slate-500">
@@ -137,6 +138,7 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
                     "Tipo",
                     "Plano",
                     "Pagamento",
+                    "Acesso",
                     "Sessões",
                     "Saldo",
                     "Relatórios",
@@ -165,6 +167,21 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
                     <td className="whitespace-nowrap border-l border-slate-700 px-2 py-1 text-slate-300">{row.account_type || "--"}</td>
                     <td className="whitespace-nowrap border-l border-slate-700 px-2 py-1 text-slate-300">{row.selected_plan || "--"}</td>
                     <td className="whitespace-nowrap border-l border-slate-700 px-2 py-1 text-slate-300">{row.payment_status || "--"}</td>
+                    <td className="whitespace-nowrap border-l border-slate-700 px-2 py-1">
+                      <span className={`rounded-full px-2 py-1 font-black uppercase ${
+                        row.manual_approval_status === "approved"
+                          ? "bg-emerald-950 text-emerald-200"
+                          : row.manual_approval_status === "suspended"
+                            ? "bg-red-950 text-red-200"
+                            : "bg-amber-950 text-amber-100"
+                      }`}>
+                        {row.manual_approval_status === "approved"
+                          ? "Aprovado"
+                          : row.manual_approval_status === "suspended"
+                            ? "Suspenso"
+                            : "Aguardando"}
+                      </span>
+                    </td>
                     <td className="whitespace-nowrap border-l border-slate-700 px-2 py-1 text-cyan-200">{row.used_sessions}/{row.total_sessions}</td>
                     <td className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-black text-emerald-200">{row.remaining_sessions}</td>
                     <td className="whitespace-nowrap border-l border-slate-700 px-2 py-1 text-slate-300">{row.reports_count}</td>

@@ -189,6 +189,9 @@ STRIPE_SUBSCRIPTION_PRICE_IDS = {
 FROID_SUBSCRIPTIONS_REQUIRED = os.getenv(
     "FROID_SUBSCRIPTIONS_REQUIRED", "false"
 ).lower() in {"1", "true", "yes", "on"}
+FROID_PROFESSIONAL_APPROVAL_REQUIRED = os.getenv(
+    "FROID_PROFESSIONAL_APPROVAL_REQUIRED", "false"
+).lower() in {"1", "true", "yes", "on"}
 FROID_ALLOW_LOCAL_BILLING_FALLBACK = os.getenv(
     "FROID_ALLOW_LOCAL_BILLING_FALLBACK", "false"
 ).lower() in {"1", "true", "yes", "on"}
@@ -1717,6 +1720,15 @@ def _professional_access_status(email: str) -> dict:
         if (profile or {}).get("remaining_sessions") is not None
         else total_sessions - used_sessions,
     )
+    approval_status = str(
+        (profile or {}).get("access_approval_status")
+        or ("approved" if profile else "pending")
+    ).strip().lower()
+    if approval_status not in {"pending", "approved", "rejected", "suspended"}:
+        approval_status = "pending"
+    approval_ready = approval_status == "approved" or (
+        not FROID_PROFESSIONAL_APPROVAL_REQUIRED and approval_status == "pending"
+    )
     access_ready = (
         has_profile
         and lgpd_acknowledged
@@ -1724,6 +1736,7 @@ def _professional_access_status(email: str) -> dict:
         and bool(professional_cpf)
         and payment_status in {"paid", "active", "trialing"}
         and remaining_sessions > 0
+        and approval_ready
     )
     return {
         "has_profile": has_profile,
@@ -1736,6 +1749,12 @@ def _professional_access_status(email: str) -> dict:
         "remaining_sessions": remaining_sessions,
         "admin": _is_admin_email(owner_email),
         "cpf_required": not bool(professional_cpf),
+        "manual_approval_required": FROID_PROFESSIONAL_APPROVAL_REQUIRED,
+        "manual_approval_status": approval_status,
+        "manual_approval_pending": (
+            FROID_PROFESSIONAL_APPROVAL_REQUIRED and approval_status == "pending"
+        ),
+        "manual_approval_ready": approval_ready,
     }
 
 
@@ -4038,6 +4057,33 @@ async def security_audit_middleware(request: Request, call_next):
     response = None
     status_code = 500
     try:
+        approval_exempt = (
+            "/api/auth/",
+            "/api/legal/",
+            "/api/professional/profile",
+            "/api/professional/legal-acceptances",
+            "/api/subscriptions/",
+            "/api/billing/",
+        )
+        approval = (
+            _professional_access_status(user.get("email") or "")
+            if isinstance(user, dict)
+            else {}
+        )
+        if (
+            user
+            and request.url.path.startswith("/api/")
+            and not _is_admin_email(user.get("email") or "")
+            and not any(request.url.path.startswith(prefix) for prefix in approval_exempt)
+            and not approval.get("manual_approval_ready")
+        ):
+            status_code = 403
+            response = JSONResponse(
+                status_code=403,
+                content={"detail": "acesso profissional aguardando aprovação FROID"},
+            )
+            response.headers["x-request-id"] = request_id
+            return response
         response = await call_next(request)
         status_code = int(response.status_code)
         response.headers["x-request-id"] = request_id
@@ -4119,6 +4165,15 @@ def _require_active_subscription_for_context(
 
 def _require_professional_feature_access(request: Request) -> Optional[AccessContext]:
     """Authenticate and apply the subscription gate to a professional feature."""
+    user = _require_current_user(request)
+    approval = _professional_access_status(user.get("email") or "")
+    if not approval.get("manual_approval_ready"):
+        detail = (
+            "acesso profissional suspenso pelo FROID"
+            if approval.get("manual_approval_status") == "suspended"
+            else "acesso profissional aguardando aprovação FROID"
+        )
+        raise HTTPException(status_code=403, detail=detail)
     context = _tenant_context_from_request(request)
     _require_active_subscription_for_context(context)
     return context
@@ -4126,6 +4181,12 @@ def _require_professional_feature_access(request: Request) -> Optional[AccessCon
 
 def _require_professional_websocket_access(user: dict) -> Optional[AccessContext]:
     """Apply the same fail-closed gate before accepting professional sockets."""
+    approval = _professional_access_status(user.get("email") or "")
+    if not approval.get("manual_approval_ready"):
+        raise HTTPException(
+            status_code=403,
+            detail="acesso profissional aguardando aprovação FROID",
+        )
     contexts = _tenant_contexts_for_email(user.get("email") or "")
     active_id = str(user.get("active_organization_id") or "")
     selected = next(
@@ -4607,6 +4668,7 @@ def _effective_professional_access_status(user: dict) -> dict:
         bool(legacy.get("has_profile"))
         and bool(legacy.get("lgpd_acknowledged"))
         and not bool(legacy.get("cpf_required"))
+        and bool(legacy.get("manual_approval_ready"))
     )
     return {
         **legacy,
@@ -4939,6 +5001,7 @@ def readiness():
         "subscription_persistence_enabled": TENANT_STORE.enabled,
     }
     result["checks"]["subscriptions_required"] = FROID_SUBSCRIPTIONS_REQUIRED
+    result["professional_approval_required"] = FROID_PROFESSIONAL_APPROVAL_REQUIRED
     result["checks"].update(security_checks)
     result["checks"].update(billing_checks)
     result["checks"]["legal_supplier_configured"] = (
@@ -5287,6 +5350,8 @@ async def admin_overview(request: Request):
                 "total_sessions": access.get("total_sessions", 0),
                 "used_sessions": access.get("used_sessions", 0),
                 "remaining_sessions": access.get("remaining_sessions", 0),
+                "manual_approval_status": access.get("manual_approval_status", "pending"),
+                "manual_approval_pending": access.get("manual_approval_pending", False),
                 "reports_count": len(professional_reports),
                 "patients_count": len({
                     str((report.get("patient") or {}).get("id") or report.get("patientId") or report.get("patientName") or "")
@@ -5332,6 +5397,10 @@ async def admin_overview(request: Request):
     return {
         "summary": {
             "professionals": len(professional_rows),
+            "pending_professional_approvals": sum(
+                1 for row in professional_rows
+                if row.get("manual_approval_status") == "pending"
+            ),
             "patients": len(patient_rows),
             "session_reports": len(reports),
             "invites": len(SESSION_INVITES),
@@ -5444,6 +5513,48 @@ async def admin_professional_detail(professional_email: str, request: Request):
         "patients": list(patient_map.values())[:300],
         "receivables": receivable_items[:300],
         "reports": report_rows,
+    }
+
+
+@app.post("/api/admin/professionals/{professional_email}/access-approval")
+async def admin_professional_access_approval(professional_email: str, request: Request):
+    admin = _require_admin_user(request)
+    email = _normalize_email(unquote(professional_email))
+    profile = PROFESSIONAL_PROFILES.get(email)
+    if not isinstance(profile, dict):
+        raise HTTPException(status_code=404, detail="profissional não encontrado")
+
+    body = await request.json()
+    next_status = str(body.get("status") or "").strip().lower()
+    if next_status not in {"pending", "approved", "rejected", "suspended"}:
+        raise HTTPException(status_code=400, detail="status de aprovação inválido")
+    note = str(body.get("note") or "").strip()[:1000]
+    previous_status = str(
+        profile.get("access_approval_status") or "approved"
+    ).strip().lower()
+    now = _utc_now_iso()
+    profile["access_approval_status"] = next_status
+    profile["access_approval_updated_at"] = now
+    profile["access_approval_updated_by"] = _normalize_email(admin.get("email") or "")
+    profile["access_approval_note"] = note
+    if next_status == "approved":
+        profile["access_approved_at"] = now
+        profile["access_approved_by"] = _normalize_email(admin.get("email") or "")
+    PROFESSIONAL_PROFILES[email] = profile
+    _record_admin_audit_event(
+        request,
+        action="admin_professional_access_approval",
+        target=email,
+        detail={
+            "previous_status": previous_status,
+            "new_status": next_status,
+            "note": note,
+        },
+    )
+    return {
+        "status": "ok",
+        "professional_email": email,
+        "access_status": _professional_access_status(email),
     }
 
 
@@ -6915,6 +7026,13 @@ async def save_professional_profile(request: Request):
 
     now = datetime.now(timezone.utc).isoformat()
     existing = PROFESSIONAL_PROFILES.get(owner_email) or {}
+    approval_status = str(existing.get("access_approval_status") or "").strip().lower()
+    if not approval_status:
+        approval_status = (
+            "approved"
+            if existing or not FROID_PROFESSIONAL_APPROVAL_REQUIRED
+            else "pending"
+        )
     existing_used_sessions = max(0, _local_int(existing.get("used_sessions")))
     existing_consumed_sessions = (
         existing.get("consumed_session_ids")
@@ -6952,6 +7070,15 @@ async def save_professional_profile(request: Request):
         "session_unit_amount_cents": max(0, _local_int(existing.get("session_unit_amount_cents"))),
         "package_total_cents": max(0, _local_int(existing.get("package_total_cents"))),
         "payment_status": existing.get("payment_status") or "not_started",
+        "access_approval_status": approval_status,
+        "access_approval_requested_at": (
+            existing.get("access_approval_requested_at") or now
+        ),
+        "access_approval_updated_at": existing.get("access_approval_updated_at") or "",
+        "access_approval_updated_by": existing.get("access_approval_updated_by") or "",
+        "access_approval_note": existing.get("access_approval_note") or "",
+        "access_approved_at": existing.get("access_approved_at") or "",
+        "access_approved_by": existing.get("access_approved_by") or "",
         "created_at": existing.get("created_at") or now,
         "updated_at": now,
     }

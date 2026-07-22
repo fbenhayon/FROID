@@ -22,6 +22,7 @@ export const AdminProfessionalDetail: React.FC<Props> = ({ user }) => {
   const [data, setData] = useState<any>(null);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
+  const [approvalLoading, setApprovalLoading] = useState(false);
   const isFabio = adminEmails.has(String(user?.email || "").toLowerCase());
 
   useEffect(() => {
@@ -46,6 +47,39 @@ export const AdminProfessionalDetail: React.FC<Props> = ({ user }) => {
     };
     void loadDetail();
   }, [professionalEmail]);
+
+  const changeApproval = async (nextStatus: "approved" | "suspended") => {
+    const verb = nextStatus === "approved" ? "aprovar" : "suspender";
+    if (!window.confirm(`Confirma ${verb} o acesso de ${professionalEmail}?`)) return;
+    setApprovalLoading(true);
+    setMessage("");
+    try {
+      const token = localStorage.getItem("froid_token") || "";
+      const response = await fetch(
+        apiUrl(`/api/admin/professionals/${encodeURIComponent(professionalEmail)}/access-approval`),
+        {
+          method: "POST",
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ status: nextStatus }),
+        },
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.detail || "Não foi possível alterar a aprovação.");
+      setData((current: any) => ({
+        ...current,
+        profile: { ...(current?.profile || {}), access_approval_status: nextStatus },
+        access_status: payload.access_status,
+      }));
+      setMessage(nextStatus === "approved" ? "Acesso profissional aprovado." : "Acesso profissional suspenso.");
+    } catch (error: any) {
+      setMessage(error?.message || "Falha ao alterar a aprovação.");
+    } finally {
+      setApprovalLoading(false);
+    }
+  };
 
   if (!isFabio) {
     return (
@@ -135,7 +169,45 @@ export const AdminProfessionalDetail: React.FC<Props> = ({ user }) => {
         </section>
 
         <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-          <h2 className="text-sm font-black text-slate-100">Cadastro e créditos</h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-black text-slate-100">Cadastro, créditos e acesso</h2>
+              <p className="mt-1 text-xs text-slate-400">
+                Aprovação manual durante a fase controlada de testes.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span
+                className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-wide ${
+                  status.manual_approval_status === "approved"
+                    ? "border-emerald-700 bg-emerald-950 text-emerald-200"
+                    : status.manual_approval_status === "suspended"
+                      ? "border-red-700 bg-red-950 text-red-200"
+                      : "border-amber-700 bg-amber-950 text-amber-100"
+                }`}
+              >
+                {status.manual_approval_status === "approved"
+                  ? "Aprovado"
+                  : status.manual_approval_status === "suspended"
+                    ? "Suspenso"
+                    : "Aguardando aprovação"}
+              </span>
+              <button
+                type="button"
+                disabled={approvalLoading}
+                onClick={() => void changeApproval(
+                  status.manual_approval_status === "approved" ? "suspended" : "approved",
+                )}
+                className="rounded-lg border border-cyan-700 bg-cyan-950 px-3 py-2 text-xs font-black text-cyan-100 hover:bg-cyan-900 disabled:cursor-wait disabled:opacity-50"
+              >
+                {approvalLoading
+                  ? "Processando..."
+                  : status.manual_approval_status === "approved"
+                    ? "Suspender acesso"
+                    : "Aprovar acesso"}
+              </button>
+            </div>
+          </div>
           <div className="mt-3 grid gap-2 text-xs md:grid-cols-3">
             <div className="rounded border border-slate-800 bg-slate-950 p-3">
               <p className="font-black uppercase text-slate-500">Tipo</p>

@@ -51,6 +51,10 @@ export type FroidUser = {
     used_sessions?: number;
     remaining_sessions?: number;
     admin?: boolean;
+    manual_approval_required?: boolean;
+    manual_approval_status?: "pending" | "approved" | "rejected" | "suspended";
+    manual_approval_pending?: boolean;
+    manual_approval_ready?: boolean;
   };
 };
 
