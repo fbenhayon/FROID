@@ -5,6 +5,7 @@ import type { FroidUser } from "../App";
 import { LgpdNotice } from "../components/legal/LgpdNotice";
 import {
   acceptanceFor,
+  legalJurisdiction,
   loadLegalCatalog,
   type LegalCatalog,
 } from "../lib/legal";
@@ -22,8 +23,10 @@ type AccessPlan = {
 
 const billingMarkets = [
   { code: "BR", label: "Brasil", currency: "brl", note: "Pacotes comerciais cobrados em reais." },
-  { code: "US", label: "Estados Unidos / internacional", currency: "usd", note: "Pacotes comerciais cobrados em dólares americanos." },
-  { code: "EU", label: "União Europeia", currency: "eur", note: "Pacotes comerciais cobrados em euros." },
+  { code: "US", label: "Estados Unidos", currency: "usd", note: "Pacotes comerciais cobrados em dólares americanos." },
+  { code: "ES", label: "Espanha", currency: "eur", note: "Pacotes comerciais cobrados em euros." },
+  { code: "FR", label: "França", currency: "eur", note: "Pacotes comerciais cobrados em euros." },
+  { code: "EU", label: "Outros países da União Europeia", currency: "eur", note: "Pacotes comerciais cobrados em euros." },
   { code: "CN", label: "China", currency: "cny", note: "Pacotes comerciais cobrados em yuan renminbi." },
 ];
 
@@ -231,10 +234,13 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
   const availablePlans = plans;
 
   useEffect(() => {
-    loadLegalCatalog().then(setLegalCatalog).catch((reason) => {
+    const jurisdiction = legalJurisdiction(
+      ["ES", "FR", "US"].includes(billingMarket) ? billingMarket : fields.country,
+    );
+    loadLegalCatalog(jurisdiction).then(setLegalCatalog).catch((reason) => {
       setLegalError(reason instanceof Error ? reason.message : "Documentos jurídicos indisponíveis.");
     });
-  }, []);
+  }, [billingMarket, fields.country]);
   const requiredFieldLabels = accountType === "organization"
     ? [
         "Nome fantasia e razão social",
@@ -568,6 +574,9 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
         lgpd_acknowledged: lgpdAccepted,
         lgpd_acknowledged_at: lgpdAccepted ? new Date().toISOString() : "",
         monthly_consultations: monthlyConsultations,
+        legal_jurisdiction: legalJurisdiction(
+          ["ES", "FR", "US"].includes(billingMarket) ? billingMarket : fields.country,
+        ),
         legal_acceptances: legalCatalog ? {
           terms: acceptanceFor(legalCatalog.documents.terms, termsAccepted),
           privacy: acceptanceFor(legalCatalog.documents.privacy, lgpdAccepted),
@@ -1028,7 +1037,6 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
                 type="checkbox"
                 checked={autoReplenishAccepted}
                 onChange={(event) => setAutoReplenishAccepted(event.target.checked)}
-                required
                 className="mt-1"
               />
               <span>

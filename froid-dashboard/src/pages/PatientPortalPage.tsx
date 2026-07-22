@@ -269,6 +269,23 @@ export const PatientPortalPage: React.FC = () => {
 
   const submitPrivacyRequest = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (privacyForm.request_type === "deletion") {
+      const confirmed = window.confirm(
+        "ATENÇÃO: esta opção é irreversível para todos, inclusive para você. " +
+        "Após a exclusão definitiva dos dados elegíveis, eles não poderão ser recuperados " +
+        "pelo FROID, pelos profissionais nem pelo próprio paciente. Registros sujeitos a " +
+        "obrigação legal de conservação poderão ser bloqueados ou anonimizados em vez de eliminados. " +
+        "Deseja prosseguir?",
+      );
+      if (!confirmed) return;
+      const typedConfirmation = window.prompt(
+        "Para confirmar a solicitação irreversível, digite EXCLUIR:",
+      );
+      if (typedConfirmation?.trim().toUpperCase() !== "EXCLUIR") {
+        setError("Exclusão cancelada: a confirmação EXCLUIR não foi informada.");
+        return;
+      }
+    }
     setPrivacySaving(true);
     setError("");
     setMessage("");
@@ -521,6 +538,7 @@ export const PatientPortalPage: React.FC = () => {
                   className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm normal-case text-white outline-none focus:border-cyan-400"
                 />
               </label>
+
               <label className="block text-[10px] font-bold uppercase text-slate-400">
                 WhatsApp
                 <input
@@ -657,6 +675,18 @@ export const PatientPortalPage: React.FC = () => {
                 </select>
               </label>
 
+              {privacyForm.request_type === "deletion" && (
+                <div
+                  role="alert"
+                  className="mt-3 rounded border border-red-700 bg-red-950/60 p-3 text-xs font-bold leading-5 text-red-100"
+                >
+                  Esta opção é irreversível para todos, inclusive para você. Depois da
+                  exclusão definitiva, os dados elegíveis não poderão ser recuperados pelo
+                  FROID, pelos profissionais nem pelo próprio paciente. Dados cuja guarda
+                  seja obrigatória poderão ser bloqueados ou anonimizados.
+                </div>
+              )}
+
               <label className="mt-3 block text-[10px] font-bold uppercase text-slate-400">
                 Organização responsável
                 <select
@@ -692,9 +722,17 @@ export const PatientPortalPage: React.FC = () => {
               <button
                 type="submit"
                 disabled={privacySaving || !(privacy?.organizations || []).length}
-                className="mt-3 rounded bg-cyan-600 px-4 py-2 text-xs font-black text-white hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
+                className={`mt-3 rounded px-4 py-2 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-50 ${
+                  privacyForm.request_type === "deletion"
+                    ? "bg-red-700 hover:bg-red-600"
+                    : "bg-cyan-600 hover:bg-cyan-500"
+                }`}
               >
-                {privacySaving ? "Protocolando..." : "Protocolar solicitação"}
+                {privacySaving
+                  ? "Protocolando..."
+                  : privacyForm.request_type === "deletion"
+                    ? "Deletar meus dados"
+                    : "Protocolar solicitação"}
               </button>
             </form>
 

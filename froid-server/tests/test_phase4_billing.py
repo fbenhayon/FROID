@@ -80,6 +80,12 @@ class Phase4BillingTests(unittest.TestCase):
         self.assertIn('event_id=f"checkout:{checkout_session_id}"', self.main)
         self.assertIn("pagamento não pertence à organização ativa", self.main)
 
+    def test_legacy_confirmation_is_disabled_without_explicit_fallback(self):
+        self.assertIn(
+            "if FROID_SUBSCRIPTIONS_REQUIRED or not FROID_ALLOW_LOCAL_BILLING_FALLBACK:",
+            self.main,
+        )
+
     def test_access_requires_authoritative_stripe_payment_evidence(self):
         self.assertIn("async def _verify_stripe_checkout_line_item", self.main)
         self.assertIn('payment_intent.get("status") != "succeeded"', self.main)

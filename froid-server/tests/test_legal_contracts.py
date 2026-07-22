@@ -20,6 +20,12 @@ class LegalContractsTests(unittest.TestCase):
         cls.onboarding = (
             ROOT / "froid-dashboard" / "src" / "pages" / "ProfessionalOnboarding.tsx"
         ).read_text(encoding="utf-8")
+        cls.settings = (
+            ROOT / "froid-dashboard" / "src" / "pages" / "Settings.tsx"
+        ).read_text(encoding="utf-8")
+        cls.patient_portal = (
+            ROOT / "froid-dashboard" / "src" / "pages" / "PatientPortalPage.tsx"
+        ).read_text(encoding="utf-8")
 
     def test_supplier_pii_is_not_committed(self):
         self.assertIn('os.getenv("FROID_LEGAL_SUPPLIER_NAME", "")', self.documents)
@@ -71,6 +77,37 @@ class LegalContractsTests(unittest.TestCase):
         self.assertIn("auto_replenish_consent", self.onboarding)
         self.assertIn("_validate_checkout_legal_metadata", self.main)
         self.assertIn("legal_ledger_persistence_enabled", self.main)
+
+    def test_existing_professional_can_renew_acceptances_before_checkout(self):
+        self.assertIn('@app.post("/api/professional/legal-acceptances")', self.main)
+        self.assertIn('apiUrl("/api/professional/legal-acceptances")', self.settings)
+        self.assertIn("order_summary_accepted: orderSummaryAccepted", self.settings)
+
+    def test_patient_deletion_has_irreversible_double_confirmation(self):
+        self.assertIn('privacyForm.request_type === "deletion"', self.patient_portal)
+        self.assertIn("irreversível para todos, inclusive para você", self.patient_portal)
+        self.assertIn('typedConfirmation?.trim().toUpperCase() !== "EXCLUIR"', self.patient_portal)
+
+    def test_patient_authorization_tracks_current_legal_version(self):
+        self.assertIn('"lgpd_consent_version": LEGAL_DOCUMENT_VERSION', self.main)
+        self.assertIn('patient.get("lgpd_consent_version") != LEGAL_DOCUMENT_VERSION', self.main)
+        self.assertIn('patient.get("lgpd_consent_version") == LEGAL_DOCUMENT_VERSION', self.main)
+
+    def test_automatic_recharge_checkbox_is_optional_in_onboarding(self):
+        marker = 'name="auto_replenish_consent"'
+        start = self.onboarding.index(marker)
+        checkbox = self.onboarding[start : start + 350]
+        self.assertNotIn("required", checkbox)
+
+    def test_legal_enforcement_is_independent_by_jurisdiction(self):
+        for jurisdiction in ("BR", "ES", "FR", "US"):
+            self.assertIn(
+                f"FROID_LEGAL_ACCEPTANCE_REQUIRED_{jurisdiction}",
+                (SERVER / ".env.multitenant.example").read_text(encoding="utf-8"),
+            )
+        self.assertIn("FROID_LEGAL_ACCEPTANCE_REQUIRED_BY_JURISDICTION", self.main)
+        self.assertIn("_legal_acceptance_required(legal_jurisdiction)", self.main)
+        self.assertIn('"metadata[legal_jurisdiction]"', self.main)
 
 
 if __name__ == "__main__":

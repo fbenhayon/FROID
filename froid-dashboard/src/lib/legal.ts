@@ -11,6 +11,7 @@ export type LegalDocument = {
 
 export type LegalCatalog = {
   version: string;
+  jurisdiction: LegalJurisdiction;
   acceptance_required: boolean;
   supplier: {
     name: string;
@@ -23,20 +24,32 @@ export type LegalCatalog = {
   documents: Record<string, LegalDocument>;
 };
 
-let catalogPromise: Promise<LegalCatalog> | null = null;
+export type LegalJurisdiction = "BR" | "ES" | "FR" | "US";
 
-export function loadLegalCatalog(): Promise<LegalCatalog> {
+const catalogPromises = new Map<LegalJurisdiction, Promise<LegalCatalog>>();
+
+export function legalJurisdiction(value: unknown): LegalJurisdiction {
+  const token = String(value || "").trim().toLowerCase().replace("_", "-");
+  if (["es", "es-es", "esp", "espanha", "españa", "spain"].includes(token)) return "ES";
+  if (["fr", "fr-fr", "frança", "france"].includes(token)) return "FR";
+  if (["us", "en-us", "usa", "estados unidos", "united states"].includes(token)) return "US";
+  return "BR";
+}
+
+export function loadLegalCatalog(jurisdiction: LegalJurisdiction = "BR"): Promise<LegalCatalog> {
+  let catalogPromise = catalogPromises.get(jurisdiction);
   if (!catalogPromise) {
-    catalogPromise = fetch(apiUrl("/api/legal/documents"))
+    catalogPromise = fetch(apiUrl(`/api/legal/documents?jurisdiction=${jurisdiction}`))
       .then(async (response) => {
         const data = await response.json();
         if (!response.ok) throw new Error(data?.detail || "Documentos jurídicos indisponíveis.");
         return data as LegalCatalog;
       })
       .catch((error) => {
-        catalogPromise = null;
+        catalogPromises.delete(jurisdiction);
         throw error;
       });
+    catalogPromises.set(jurisdiction, catalogPromise);
   }
   return catalogPromise;
 }

@@ -4,6 +4,12 @@ import type { FroidUser } from "../App";
 import { ProfessionalReceivables } from "../components/administrative/ProfessionalReceivables";
 import { apiUrl, publicAppUrl } from "../lib/api";
 import {
+  acceptanceFor,
+  legalJurisdiction,
+  loadLegalCatalog,
+  type LegalCatalog,
+} from "../lib/legal";
+import {
   createProfessionalPrompt,
   loadProfessionalPrompts,
   saveProfessionalPrompts,
@@ -30,7 +36,9 @@ type AccessPlan = {
 const billingMarkets = [
   { code: "BR", label: "Brasil", currency: "brl", note: "Cartoes nacionais e pagamento em reais." },
   { code: "US", label: "Estados Unidos", currency: "usd", note: "Clientes com cartao apto para USD." },
-  { code: "EU", label: "Europa", currency: "eur", note: "Franca, Italia, Alemanha e demais paises da zona EUR." },
+  { code: "ES", label: "Espanha", currency: "eur", note: "Clientes com cartão apto para EUR." },
+  { code: "FR", label: "França", currency: "eur", note: "Clientes com cartão apto para EUR." },
+  { code: "EU", label: "Outros países da Europa", currency: "eur", note: "Clientes com cartão apto para EUR." },
   { code: "CN", label: "China", currency: "cny", note: "Pacotes comerciais cobrados em yuan renminbi." },
 ];
 
@@ -163,6 +171,12 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
   const [billingCurrency, setBillingCurrency] = useState("brl");
   const [sessionQuantity, setSessionQuantity] = useState(0);
   const [autoReplenishAccepted, setAutoReplenishAccepted] = useState(false);
+  const [legalCatalog, setLegalCatalog] = useState<LegalCatalog | null>(null);
+  const [accountType, setAccountType] = useState<"individual" | "organization">("individual");
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  const [contractAccepted, setContractAccepted] = useState(false);
+  const [orderSummaryAccepted, setOrderSummaryAccepted] = useState(false);
   const [billingMessage, setBillingMessage] = useState("");
   const [billingLoading, setBillingLoading] = useState(false);
 
@@ -219,6 +233,24 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
   useEffect(() => {
     setPrompts(loadProfessionalPrompts(ownerEmail));
   }, [ownerEmail]);
+
+  useEffect(() => {
+    void fetch(apiUrl("/api/professional/profile"), { headers: authHeaders() })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        const jurisdiction = legalJurisdiction(
+          data?.profile?.legal_jurisdiction || data?.profile?.profile_fields?.country,
+        );
+        setAccountType(
+          data?.profile?.account_type === "organization" ? "organization" : "individual",
+        );
+        return loadLegalCatalog(jurisdiction);
+      })
+      .then(setLegalCatalog)
+      .catch(() => {
+        setLegalCatalog(null);
+      });
+  }, []);
 
   useEffect(() => {
     void loadCalendarStatus();
@@ -495,6 +527,42 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
     setBillingLoading(true);
     setBillingMessage("");
     try {
+      if (
+        legalCatalog?.acceptance_required
+        && (!termsAccepted || !privacyAccepted || !contractAccepted || !orderSummaryAccepted)
+      ) {
+        throw new Error(
+          "Confirme os documentos jurídicos e o resumo comercial antes de continuar.",
+        );
+      }
+      if (legalCatalog?.acceptance_required) {
+        const contractKey = accountType === "organization"
+          ? "organization_contract"
+          : "professional_contract";
+        const acceptanceResponse = await fetch(
+          apiUrl("/api/professional/legal-acceptances"),
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...authHeaders() },
+            body: JSON.stringify({
+              legal_acceptances: {
+                terms: acceptanceFor(legalCatalog.documents.terms, termsAccepted),
+                privacy: acceptanceFor(legalCatalog.documents.privacy, privacyAccepted),
+                [contractKey]: acceptanceFor(
+                  legalCatalog.documents[contractKey],
+                  contractAccepted,
+                ),
+              },
+            }),
+          },
+        );
+        const acceptanceData = await acceptanceResponse.json().catch(() => ({}));
+        if (!acceptanceResponse.ok) {
+          throw new Error(
+            acceptanceData?.detail || "Não foi possível registrar os aceites jurídicos.",
+          );
+        }
+      }
       const response = await fetch(apiUrl("/api/subscriptions/checkout"), {
         method: "POST",
         headers: {
@@ -505,6 +573,7 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
           package_code: selectedPlan,
           currency: billingCurrency,
           auto_replenish_consent: autoReplenishAccepted,
+          order_summary_accepted: orderSummaryAccepted,
           checkout_context: "settings",
           base_url: publicAppUrl(),
         }),
@@ -1057,6 +1126,37 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
                 <br />
                 Moeda do checkout: <strong>{billingCurrency.toUpperCase()}</strong>.
               </div>
+              {legalCatalog?.acceptance_required && (
+                <div className="space-y-2 rounded border border-slate-700 bg-slate-950 p-3 text-xs text-slate-200">
+                  <p className="font-black text-white">Confirmações desta contratação</p>
+                  <label className="flex items-start gap-2">
+                    <input type="checkbox" checked={termsAccepted} onChange={(event) => setTermsAccepted(event.target.checked)} />
+                    <span>Li e aceito os <a className="text-cyan-300 underline" href="#/termos" target="_blank" rel="noreferrer">Termos de Uso</a> vigentes.</span>
+                  </label>
+                  <label className="flex items-start gap-2">
+                    <input type="checkbox" checked={privacyAccepted} onChange={(event) => setPrivacyAccepted(event.target.checked)} />
+                    <span>Li e aceito a <a className="text-cyan-300 underline" href="#/privacidade" target="_blank" rel="noreferrer">Política de Privacidade</a> vigente.</span>
+                  </label>
+                  <label className="flex items-start gap-2">
+                    <input type="checkbox" checked={contractAccepted} onChange={(event) => setContractAccepted(event.target.checked)} />
+                    <span>
+                      Li e aceito o <a
+                        className="text-cyan-300 underline"
+                        href={accountType === "organization" ? "#/contrato-clinica" : "#/contrato-profissional"}
+                        target="_blank"
+                        rel="noreferrer"
+                      >contrato aplicável ao meu cadastro</a>.
+                    </span>
+                  </label>
+                  <label className="flex items-start gap-2 rounded border border-cyan-900/70 bg-cyan-950/30 p-2">
+                    <input type="checkbox" checked={orderSummaryAccepted} onChange={(event) => setOrderSummaryAccepted(event.target.checked)} />
+                    <span>
+                      Confirmo o pacote, a quantidade de sessões, a moeda e o valor total
+                      mostrados acima. Esta confirmação será vinculada à ordem enviada ao Stripe.
+                    </span>
+                  </label>
+                </div>
+              )}
               <label className="flex gap-2 rounded border border-cyan-900/70 bg-cyan-950/30 p-2 text-xs text-cyan-100">
                 <input
                   type="checkbox"

@@ -195,6 +195,13 @@ FROID_ALLOW_LOCAL_BILLING_FALLBACK = os.getenv(
 FROID_LEGAL_ACCEPTANCE_REQUIRED = os.getenv(
     "FROID_LEGAL_ACCEPTANCE_REQUIRED", "false"
 ).lower() in {"1", "true", "yes", "on"}
+FROID_LEGAL_ACCEPTANCE_REQUIRED_BY_JURISDICTION = {
+    jurisdiction: os.getenv(
+        f"FROID_LEGAL_ACCEPTANCE_REQUIRED_{jurisdiction}",
+        "true" if FROID_LEGAL_ACCEPTANCE_REQUIRED else "false",
+    ).lower() in {"1", "true", "yes", "on"}
+    for jurisdiction in ("BR", "ES", "FR", "US")
+}
 FROID_LEGAL_AUDIT_HMAC_KEY = os.getenv(
     "FROID_LEGAL_AUDIT_HMAC_KEY", ""
 ).strip()
@@ -3529,6 +3536,26 @@ def _legal_request_fingerprint(request: Request) -> str:
     return _legal_hmac(f"{remote}|{agent}")
 
 
+def _normalize_legal_jurisdiction(value: object) -> str:
+    normalized = unicodedata.normalize("NFKD", str(value or ""))
+    normalized = "".join(character for character in normalized if not unicodedata.combining(character))
+    token = normalized.strip().lower().replace("_", "-")
+    if token in {"es", "es-es", "esp", "espanha", "espana", "spain"}:
+        return "ES"
+    if token in {"fr", "fr-fr", "franca", "france"}:
+        return "FR"
+    if token in {"us", "en-us", "usa", "estados unidos", "united states", "united states of america"}:
+        return "US"
+    return "BR"
+
+
+def _legal_acceptance_required(jurisdiction: object) -> bool:
+    return FROID_LEGAL_ACCEPTANCE_REQUIRED_BY_JURISDICTION.get(
+        _normalize_legal_jurisdiction(jurisdiction),
+        False,
+    )
+
+
 def _validated_legal_acceptances(
     payload: object, account_type: str, *, required: bool
 ) -> dict[str, dict]:
@@ -3572,11 +3599,6 @@ def _record_legal_documents(
     organization_id: str, acceptances: dict[str, dict], context: str,
     commercial_snapshot: Optional[dict] = None,
 ) -> None:
-    if FROID_LEGAL_ACCEPTANCE_REQUIRED and not TENANT_STORE.enabled:
-        raise HTTPException(
-            status_code=503,
-            detail="trilha jurídica persistente indisponível",
-        )
     subject_hash = _legal_hmac(subject_reference)
     if not subject_hash:
         return
@@ -3677,7 +3699,7 @@ def _validate_checkout_legal_metadata(
     commercial_price: dict,
     auto_replenish: bool,
 ) -> None:
-    if not FROID_LEGAL_ACCEPTANCE_REQUIRED:
+    if metadata.get("legal_acceptance_required") != "true":
         return
     expected_snapshot = _commercial_order_snapshot(
         package_code, package, currency, commercial_price, auto_replenish
@@ -4864,11 +4886,13 @@ async def websocket_rtc_signaling(websocket: WebSocket, session_id: str, role: s
 
 
 @app.get("/api/legal/documents")
-def legal_documents():
+def legal_documents(jurisdiction: str = "BR"):
     """Public, versioned copy used by every acceptance surface."""
+    normalized_jurisdiction = _normalize_legal_jurisdiction(jurisdiction)
     return {
         **public_legal_catalog(),
-        "acceptance_required": FROID_LEGAL_ACCEPTANCE_REQUIRED,
+        "jurisdiction": normalized_jurisdiction,
+        "acceptance_required": _legal_acceptance_required(normalized_jurisdiction),
     }
 
 
@@ -4893,6 +4917,9 @@ def health():
 def readiness():
     result = TENANT_STORE.readiness()
     legal_catalog = public_legal_catalog()
+    any_legal_acceptance_required = any(
+        FROID_LEGAL_ACCEPTANCE_REQUIRED_BY_JURISDICTION.values()
+    )
     security_checks = {
         "clinical_record_encryption_configured": bool(CLINICAL_TEXT_CIPHER),
         "datamart_pseudonym_key_configured": bool(FROID_DATAMART_PSEUDONYM_KEY),
@@ -4916,20 +4943,20 @@ def readiness():
     result["checks"].update(billing_checks)
     result["checks"]["legal_supplier_configured"] = (
         bool(legal_catalog["supplier"].get("configured"))
-        if FROID_LEGAL_ACCEPTANCE_REQUIRED else True
+        if any_legal_acceptance_required else True
     )
     result["checks"]["legal_audit_hmac_configured"] = (
         _legal_audit_key_configured()
-        if FROID_LEGAL_ACCEPTANCE_REQUIRED else True
+        if any_legal_acceptance_required else True
     )
     result["checks"]["legal_ledger_persistence_enabled"] = (
-        TENANT_STORE.enabled if FROID_LEGAL_ACCEPTANCE_REQUIRED else True
+        TENANT_STORE.enabled if any_legal_acceptance_required else True
     )
     if not all(security_checks.values()):
         result["ready"] = False
     if FROID_SUBSCRIPTIONS_REQUIRED and not all(billing_checks.values()):
         result["ready"] = False
-    if FROID_LEGAL_ACCEPTANCE_REQUIRED and not (
+    if any_legal_acceptance_required and not (
         legal_catalog["supplier"].get("configured")
         and _legal_audit_key_configured()
         and TENANT_STORE.enabled
@@ -5451,7 +5478,11 @@ async def accept_session_invite(token: str, request: Request):
         "sensitive_data_processing",
         "audio_video_processing",
     ]
-    if FROID_LEGAL_ACCEPTANCE_REQUIRED:
+    legal_jurisdiction = _normalize_legal_jurisdiction(
+        invite.get("patient_ui_locale") or invite.get("spoken_language")
+    )
+    legal_acceptance_required = _legal_acceptance_required(legal_jurisdiction)
+    if legal_acceptance_required:
         required_consents.append("patient_tcle")
     now = _utc_now_iso()
     known_patient_id = str(invite.get("patient_id") or "")
@@ -5469,10 +5500,14 @@ async def accept_session_invite(token: str, request: Request):
             patient["consent_preferences"] = consent
             patient["consent_updated_at"] = patient.get("lgpd_consent_at") or now
         missing = [key for key in required_consents if consent.get(key) is not True]
-        if missing:
+        legal_version_outdated = (
+            legal_acceptance_required
+            and patient.get("lgpd_consent_version") != LEGAL_DOCUMENT_VERSION
+        )
+        if missing or legal_version_outdated:
             raise HTTPException(
                 status_code=403,
-                detail="Autorização do paciente inativa. Atualize-a no Portal do Paciente.",
+                detail="Autorização do paciente inativa ou desatualizada. Atualize-a no Portal do Paciente.",
             )
         patient_id = known_patient_id
         patient_name = str(patient.get("name") or invite.get("patient_name") or "").strip()
@@ -5519,7 +5554,8 @@ async def accept_session_invite(token: str, request: Request):
             "birth_date": birth_date,
             "created_at": PATIENTS.get(patient_id, {}).get("created_at") or now,
             "updated_at": now,
-            "lgpd_consent_version": "FROID-LGPD-v1.0",
+            "lgpd_consent_version": LEGAL_DOCUMENT_VERSION,
+            "legal_jurisdiction": legal_jurisdiction,
             "lgpd_consent_at": now,
             "consent_preferences": consent,
             "consent_updated_at": now,
@@ -5756,18 +5792,27 @@ async def patient_portal_consent(request: Request):
     if not isinstance(patient, dict):
         raise HTTPException(status_code=404, detail="Cadastro do paciente não encontrado")
     preferences = _patient_consent_preferences(patient)
+    legal_acceptance_required = _legal_acceptance_required(
+        patient.get("legal_jurisdiction") or "BR"
+    )
     return {
         "consent": preferences,
         "version": patient.get("lgpd_consent_version") or LEGAL_DOCUMENT_VERSION,
         "updated_at": patient.get("consent_updated_at") or patient.get("lgpd_consent_at"),
-        "session_authorization_active": all(
-            preferences.get(key) is True
-            for key in (
-                *(("patient_tcle",) if FROID_LEGAL_ACCEPTANCE_REQUIRED else ()),
-                "terms_of_use",
-                "privacy_policy",
-                "sensitive_data_processing",
-                "audio_video_processing",
+        "session_authorization_active": (
+            (
+                not legal_acceptance_required
+                or patient.get("lgpd_consent_version") == LEGAL_DOCUMENT_VERSION
+            )
+            and all(
+                preferences.get(key) is True
+                for key in (
+                    *(("patient_tcle",) if legal_acceptance_required else ()),
+                    "terms_of_use",
+                    "privacy_policy",
+                    "sensitive_data_processing",
+                    "audio_video_processing",
+                )
             )
         ),
     }
@@ -6761,6 +6806,41 @@ async def get_professional_profile(request: Request):
     }
 
 
+@app.post("/api/professional/legal-acceptances")
+async def renew_professional_legal_acceptances(request: Request):
+    """Record the current legal documents without rewriting the professional profile."""
+    user = _require_current_user(request)
+    context = _tenant_context_from_request(request)
+    if context is None:
+        raise HTTPException(status_code=409, detail="contexto organizacional ausente")
+    if not ({"owner", "administrator"} & set(context.roles)):
+        raise HTTPException(status_code=403, detail="papel sem permissão para aceitar contratação")
+    email = _normalize_email(user.get("email") or "")
+    profile = PROFESSIONAL_PROFILES.get(email)
+    if not isinstance(profile, dict):
+        raise HTTPException(status_code=409, detail="cadastro profissional ausente")
+    body = await request.json()
+    account_type = str(profile.get("account_type") or "individual")
+    legal_acceptances = _validated_legal_acceptances(
+        body.get("legal_acceptances"),
+        account_type,
+        required=True,
+    )
+    _record_legal_documents(
+        request=request,
+        subject_reference=email,
+        subject_kind=("organization" if account_type == "organization" else "professional"),
+        organization_id=context.organization_id,
+        acceptances=legal_acceptances,
+        context="professional_legal_renewal",
+    )
+    profile["legal_acceptances"] = legal_acceptances
+    profile["updated_at"] = _utc_now_iso()
+    PROFESSIONAL_PROFILES[email] = profile
+    _save_identity_state()
+    return {"status": "accepted", "legal_acceptances": legal_acceptances}
+
+
 @app.post("/api/professional/profile")
 async def save_professional_profile(request: Request):
     user = _current_user_from_request(request)
@@ -6805,6 +6885,9 @@ async def save_professional_profile(request: Request):
         for key, value in list(raw_profile_fields.items())[:150]
         if isinstance(value, (str, int, float, bool)) or value is None
     }
+    legal_jurisdiction = _normalize_legal_jurisdiction(
+        body.get("legal_jurisdiction") or profile_fields.get("country") or "BR"
+    )
     referrals = [
         {
             "name": str(item.get("name") or "")[:300],
@@ -6827,7 +6910,7 @@ async def save_professional_profile(request: Request):
     legal_acceptances = _validated_legal_acceptances(
         body.get("legal_acceptances"),
         account_type,
-        required=FROID_LEGAL_ACCEPTANCE_REQUIRED,
+        required=_legal_acceptance_required(legal_jurisdiction),
     )
 
     now = datetime.now(timezone.utc).isoformat()
@@ -6844,6 +6927,7 @@ async def save_professional_profile(request: Request):
         "owner_email": owner_email,
         "owner_name": str(body.get("owner_name") or user.get("name") or "").strip(),
         "account_type": account_type,
+        "legal_jurisdiction": legal_jurisdiction,
         "document": str(body.get("document") or "").strip(),
         "phone": str(body.get("phone") or "").strip(),
         "organization_name": str(body.get("organization_name") or "").strip(),
@@ -6984,7 +7068,13 @@ async def create_subscription_checkout(request: Request):
     order_summary_accepted = body.get("order_summary_accepted") is True
     email = _normalize_email(user.get("email") or "")
     profile = PROFESSIONAL_PROFILES.get(email) or {}
-    if FROID_LEGAL_ACCEPTANCE_REQUIRED:
+    legal_jurisdiction = _normalize_legal_jurisdiction(
+        profile.get("legal_jurisdiction")
+        or (profile.get("profile_fields") or {}).get("country")
+        or "BR"
+    )
+    legal_acceptance_required = _legal_acceptance_required(legal_jurisdiction)
+    if legal_acceptance_required:
         if not order_summary_accepted:
             raise HTTPException(status_code=428, detail="confirme o resumo da contratação")
         current_documents = public_legal_catalog()["documents"]
@@ -7045,6 +7135,10 @@ async def create_subscription_checkout(request: Request):
         "metadata[currency]": currency,
         "metadata[auto_replenish]": "true" if auto_replenish else "false",
         "metadata[legal_terms_version]": LEGAL_DOCUMENT_VERSION,
+        "metadata[legal_jurisdiction]": legal_jurisdiction,
+        "metadata[legal_acceptance_required]": (
+            "true" if legal_acceptance_required else "false"
+        ),
         "metadata[order_sha256]": order_sha256,
         "payment_intent_data[metadata][organization_id]": context.organization_id,
         "payment_intent_data[metadata][plan_code]": plan_code,
@@ -7054,6 +7148,10 @@ async def create_subscription_checkout(request: Request):
             "true" if auto_replenish else "false"
         ),
         "payment_intent_data[metadata][legal_terms_version]": LEGAL_DOCUMENT_VERSION,
+        "payment_intent_data[metadata][legal_jurisdiction]": legal_jurisdiction,
+        "payment_intent_data[metadata][legal_acceptance_required]": (
+            "true" if legal_acceptance_required else "false"
+        ),
         "payment_intent_data[metadata][order_sha256]": order_sha256,
     }
     if auto_replenish:
@@ -7214,6 +7312,10 @@ async def confirm_subscription_checkout(request: Request):
         or payment_metadata.get("plan_code") != package["plan_code"]
         or payment_metadata.get("package_code") != package_code
         or payment_metadata.get("currency") != currency
+        or payment_metadata.get("legal_jurisdiction")
+        != metadata.get("legal_jurisdiction")
+        or payment_metadata.get("legal_acceptance_required")
+        != metadata.get("legal_acceptance_required")
     ):
         raise HTTPException(status_code=409, detail="pagamento inicial não confirmado")
     _validate_checkout_legal_metadata(
@@ -7350,6 +7452,10 @@ async def stripe_webhook(request: Request):
             or payment_metadata.get("plan_code") != package["plan_code"]
             or payment_metadata.get("package_code") != package_code
             or payment_metadata.get("currency") != currency
+            or payment_metadata.get("legal_jurisdiction")
+            != metadata.get("legal_jurisdiction")
+            or payment_metadata.get("legal_acceptance_required")
+            != metadata.get("legal_acceptance_required")
         ):
             raise HTTPException(status_code=409, detail="pagamento inicial não confirmado")
         _validate_checkout_legal_metadata(
@@ -7644,7 +7750,7 @@ async def create_billing_checkout(request: Request):
 
 @app.post("/api/billing/confirm-checkout")
 async def confirm_billing_checkout(request: Request):
-    if FROID_SUBSCRIPTIONS_REQUIRED:
+    if FROID_SUBSCRIPTIONS_REQUIRED or not FROID_ALLOW_LOCAL_BILLING_FALLBACK:
         raise HTTPException(status_code=410, detail="confirmação legada desativada")
     user = _current_user_from_request(request)
     if not user:
