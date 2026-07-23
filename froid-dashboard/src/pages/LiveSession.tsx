@@ -4604,39 +4604,32 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   );
 
   const clinicalStabilizationControl = (
-    <div className="rounded-lg border border-slate-700 bg-slate-900/90 p-2 text-[10px] text-slate-200">
-      <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0">
-          <p className="font-black uppercase tracking-wide text-cyan-200">
-            Estabilização clínica
-          </p>
-          <p className="truncate text-[9px] text-slate-400">
-            Janela visual: {clinicalWindowLabel}
-            {clinicalUpdateMode !== "realtime"
-              ? ` | próxima em ${formatCutClock(clinicalNextUpdateSeconds)}`
-              : " | sem congelamento"}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => refreshClinicalPresentation()}
-          disabled={clinicalUpdateMode === "realtime"}
-          className="shrink-0 rounded border border-cyan-800 bg-cyan-950 px-2 py-1 text-[9px] font-black uppercase text-cyan-100 hover:bg-cyan-900 disabled:cursor-not-allowed disabled:border-slate-700 disabled:bg-slate-800 disabled:text-slate-500"
-        >
-          Atualizar agora
-        </button>
-      </div>
+    <div className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-[9px] text-slate-200">
+      <strong className="uppercase tracking-wide text-cyan-200">Gráficos:</strong>
       <select
         value={clinicalUpdateMode}
         onChange={(event) => setClinicalUpdateMode(event.target.value as ClinicalUpdateMode)}
-        className="mt-2 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1.5 text-[10px] font-bold text-slate-100 outline-none focus:border-cyan-500"
+        aria-label="Tempo de atualização dos gráficos"
+        className="rounded border border-slate-700 bg-slate-950 px-2 py-1.5 text-[9px] font-bold text-slate-100 outline-none focus:border-cyan-500"
       >
         {CLINICAL_UPDATE_OPTIONS.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
+          <option key={option.value} value={option.value}>{option.label}</option>
         ))}
       </select>
+      <span className="text-slate-400">
+        {clinicalWindowLabel}
+        {clinicalUpdateMode !== "realtime"
+          ? ` · próxima ${formatCutClock(clinicalNextUpdateSeconds)}`
+          : " · contínuo"}
+      </span>
+      <button
+        type="button"
+        onClick={() => refreshClinicalPresentation()}
+        disabled={clinicalUpdateMode === "realtime"}
+        className="rounded border border-cyan-800 bg-cyan-950 px-2 py-1.5 font-black uppercase text-cyan-100 hover:bg-cyan-900 disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        Atualizar
+      </button>
     </div>
   );
 
@@ -4653,27 +4646,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
               Voz {SESSION_LOCALES[spokenLanguage].shortLabel} · relatório {SESSION_LOCALES[reportLocale].shortLabel}
             </span>
             <div className="w-[220px] shrink-0">{layoutSelector}</div>
-            <strong className="text-[9px] uppercase text-cyan-200">Estabilização:</strong>
-            <select
-              value={clinicalUpdateMode}
-              onChange={(event) => setClinicalUpdateMode(event.target.value as ClinicalUpdateMode)}
-              className="rounded border border-slate-700 bg-slate-950 px-2 py-1.5 text-[9px] font-bold text-slate-100 outline-none focus:border-cyan-500"
-            >
-              {CLINICAL_UPDATE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-            <span className="text-[9px] text-slate-400">
-              {clinicalWindowLabel}{clinicalUpdateMode !== "realtime" ? ` · próxima em ${formatCutClock(clinicalNextUpdateSeconds)}` : " · tempo real"}
-            </span>
-            <button
-              type="button"
-              onClick={() => refreshClinicalPresentation()}
-              disabled={clinicalUpdateMode === "realtime"}
-              className="rounded border border-cyan-800 bg-cyan-950 px-2 py-1.5 text-[9px] font-black uppercase text-cyan-100 disabled:opacity-40"
-            >
-              Atualizar
-            </button>
+            {clinicalStabilizationControl}
             <button
               type="button"
               onClick={endSession}
@@ -4841,10 +4814,11 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     <div className="grid h-screen min-w-[1620px] grid-cols-[minmax(500px,28%)_minmax(620px,44%)_minmax(500px,28%)] overflow-x-auto overflow-y-hidden bg-slate-950 text-slate-100">
       {/* COLUNA 1 — 30% */}
       <div className="order-1 min-w-0 flex flex-col gap-2 overflow-y-auto border-x border-slate-800 bg-slate-950 p-2 text-slate-100">
-        <div className="flex items-center justify-between">
+        <div className="flex min-w-max items-center justify-between gap-2 overflow-x-auto">
           <h1 className="text-base font-bold text-slate-100">
             Sessão Detalhada
           </h1>
+          {clinicalStabilizationControl}
           <div className="flex items-center gap-2">
             <span className="rounded border border-cyan-800 bg-cyan-950 px-2 py-0.5 text-[9px] font-black text-cyan-100">
               {SESSION_LOCALES[spokenLanguage].shortLabel} → {SESSION_LOCALES[reportLocale].shortLabel}
@@ -4864,8 +4838,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         </div>
 
         {layoutSelector}
-
-        {clinicalStabilizationControl}
 
         <SessionTimer
           startTime={state.sessionStart}
