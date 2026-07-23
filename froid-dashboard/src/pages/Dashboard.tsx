@@ -623,18 +623,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
         <div>
           <h2 className="text-sm font-bold text-slate-100">{tr("Meus Pacientes")}</h2>
           <p className="mt-1 text-[11px] text-slate-400">
-            {tr("Últimas sessões, métricas médias e resultado clínico resumido.")}
+            {tr("Incluir Paciente")}
           </p>
         </div>
         <div className="flex flex-nowrap justify-end gap-2 overflow-x-auto">
           <div
             role="radiogroup"
             aria-label={tr("Idioma")}
-            className="flex shrink-0 items-center gap-2 rounded-lg border border-slate-700 bg-slate-950 px-2 py-1"
+            className="flex shrink-0 items-center rounded-lg border border-slate-700 bg-slate-950 p-1"
           >
-            <span className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-500">
-              {tr("Idioma")}
-            </span>
             <div className="flex items-center rounded-md border border-slate-800 bg-slate-900 p-0.5">
               {sessionLocaleOptions().map((option) => {
                 const selected = option.value === defaultSessionLocale;
