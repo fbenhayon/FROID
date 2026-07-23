@@ -71,6 +71,13 @@ class ProfessionalManualApprovalTests(unittest.TestCase):
         self.assertIn("Suspender acesso", self.admin_detail)
         self.assertIn("Aprovações pendentes", self.admin_dashboard)
 
+    def test_admin_professional_detail_is_compact_and_limits_recent_items(self):
+        self.assertIn('grid min-w-[980px] grid-cols-7', self.admin_detail)
+        self.assertIn('reports.slice(0, 3)', self.admin_detail)
+        self.assertIn('receivables.slice(0, 3)', self.admin_detail)
+        self.assertIn('overflow-y-auto', self.admin_detail)
+        self.assertIn('href={`tel:${patient.phone}`}', self.admin_detail)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -6,6 +6,7 @@ import {
   configureConferenceSender,
   createConferenceStream,
   loadRtcConfiguration,
+  shouldReconnectRtcSignaling,
 } from "../lib/webrtc";
 import { normalizeSessionLocale, patientCopy, type SessionLocale } from "../lib/localization";
 
@@ -169,7 +170,10 @@ export const PatientSessionPage: React.FC = () => {
         if (!remoteStream.getTracks().some((item) => item.id === track.id)) {
           remoteStream.addTrack(track);
         }
-        track.onended = refreshRemoteTracks;
+        track.onended = () => {
+          remoteStream.removeTrack(track);
+          refreshRemoteTracks();
+        };
         track.onmute = refreshRemoteTracks;
         track.onunmute = refreshRemoteTracks;
       });
@@ -215,6 +219,7 @@ export const PatientSessionPage: React.FC = () => {
     const handleSignal = async (event: MessageEvent) => {
       const data = JSON.parse(String(event.data || "{}"));
       if (data.type === "offer" && data.offer) {
+        if (peer.signalingState !== "stable") return;
         await peer.setRemoteDescription(data.offer);
         await flushIceQueue();
         const answer = await peer.createAnswer();
@@ -228,6 +233,10 @@ export const PatientSessionPage: React.FC = () => {
           rtcIceQueueRef.current.push(data.candidate);
         }
       } else if (data.type === "peer-left") {
+        remoteStream.getTracks().forEach((track) => {
+          track.stop();
+          remoteStream.removeTrack(track);
+        });
         setRemoteProfessionalOn(false);
         setRemoteProfessionalVideoOn(false);
         setCallStatus("Profissional saiu da chamada.");
@@ -236,6 +245,7 @@ export const PatientSessionPage: React.FC = () => {
       }
     };
 
+    let signalQueue: Promise<void> = Promise.resolve();
     const connectSignaling = () => {
       if (rtcClosingRef.current || peer.connectionState === "closed") return;
       const socket = new WebSocket(
@@ -248,10 +258,21 @@ export const PatientSessionPage: React.FC = () => {
         reconnectAttempt = 0;
         setCallStatus("Aguardando chamada do profissional...");
       };
-      socket.onmessage = (event) => void handleSignal(event);
+      socket.onmessage = (event) => {
+        signalQueue = signalQueue
+          .then(() => handleSignal(event))
+          .catch(() => {
+            setCallStatus("Sincronizando novamente a chamada...");
+            sendSignal({ type: "renegotiate-request" });
+          });
+      };
       socket.onerror = () => socket.close();
-      socket.onclose = () => {
+      socket.onclose = (event) => {
         if (rtcClosingRef.current || peer.connectionState === "closed") return;
+        if (!shouldReconnectRtcSignaling(event.code, reconnectAttempt, peer.connectionState)) {
+          setCallStatus("Não foi possível manter a conexão. Atualize o link da sessão.");
+          return;
+        }
         const delay = Math.min(4_000, 500 * 2 ** reconnectAttempt);
         reconnectAttempt += 1;
         setCallStatus("Reconectando sinalização da chamada...");
@@ -262,26 +283,51 @@ export const PatientSessionPage: React.FC = () => {
   };
 
   const activateMedia = async () => {
+    if (mediaState === "active" || mediaState === "requesting") return;
     setMediaState("requesting");
     setError("");
     try {
       void loadRtcConfiguration({ sessionId, inviteToken });
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          frameRate: { ideal: 24, max: 30 },
-          facingMode: "user",
-        },
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-      });
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      const video = {
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        frameRate: { ideal: 24, max: 30 },
+        facingMode: "user",
+      } satisfies MediaTrackConstraints;
+      const audio = {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      } satisfies MediaTrackConstraints;
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video, audio });
+      } catch {
+        const [audioCapture, videoCapture] = await Promise.allSettled([
+          navigator.mediaDevices.getUserMedia({ audio, video: false }),
+          navigator.mediaDevices.getUserMedia({ video, audio: false }),
+        ]);
+        const tracks = [
+          ...(audioCapture.status === "fulfilled" ? audioCapture.value.getAudioTracks() : []),
+          ...(videoCapture.status === "fulfilled" ? videoCapture.value.getVideoTracks() : []),
+        ];
+        if (!tracks.length) throw new Error("camera-and-microphone-unavailable");
+        stream = new MediaStream(tracks);
+      }
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        await videoRef.current.play().catch(() => undefined);
+      }
+      const hasAudio = stream.getAudioTracks().some((track) => track.readyState === "live");
+      const hasVideo = stream.getVideoTracks().some((track) => track.readyState === "live");
+      if (!hasAudio || !hasVideo) {
+        setError(
+          hasAudio
+            ? "Microfone ativo, mas a câmera não foi liberada. Verifique a permissão do navegador."
+            : "Câmera ativa, mas o microfone não foi liberado. Verifique a permissão do navegador.",
+        );
       }
       setMediaState("active");
       await startPatientRtc(stream);
@@ -368,7 +414,7 @@ export const PatientSessionPage: React.FC = () => {
             <button
               type="button"
               onClick={activateMedia}
-              disabled={joinState !== "joined" || mediaState === "requesting"}
+              disabled={joinState !== "joined" || mediaState === "requesting" || mediaState === "active"}
               className="rounded-lg bg-cyan-500 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {mediaState === "requesting"

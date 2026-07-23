@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { apiUrl, publicAppUrl } from "../lib/api";
 import { rememberSessionPatient } from "../lib/session-report";
 import { LgpdNotice } from "../components/legal/LgpdNotice";
@@ -55,14 +55,18 @@ function makeId() {
 
 export const NewPatient: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const captureMode = searchParams.get("capture") === "patient_mobile" ? "patient_mobile" : "";
   const isPatientMobileCapture = captureMode === "patient_mobile";
+  const patientNamePrefill = searchParams.get("name") || "";
+  const patientEmailPrefill = searchParams.get("email") || "";
+  const patientPhonePrefill = searchParams.get("phone") || "";
   const [form, setForm] = useState(() => ({
     ...initialForm,
-    patient_name: searchParams.get("name") || "",
-    patient_email: searchParams.get("email") || "",
-    patient_phone: searchParams.get("phone") || "",
+    patient_name: patientNamePrefill,
+    patient_email: patientEmailPrefill,
+    patient_phone: patientPhonePrefill,
   }));
   const [languages, setLanguages] = useState<SessionLanguagePreferences>(
     loadSessionLanguagePreferences,
@@ -74,6 +78,25 @@ export const NewPatient: React.FC = () => {
   const eventCursorRef = useRef<number | null>(null);
   const redirectingRef = useRef(false);
   const inviteBaseUrl = useMemo(() => publicAppUrl(), []);
+
+  useEffect(() => {
+    setForm({
+      ...initialForm,
+      patient_name: patientNamePrefill,
+      patient_email: patientEmailPrefill,
+      patient_phone: patientPhonePrefill,
+    });
+    setInvite(null);
+    setError("");
+    setPatientActivity("");
+    eventCursorRef.current = null;
+    redirectingRef.current = false;
+  }, [
+    location.key,
+    patientEmailPrefill,
+    patientNamePrefill,
+    patientPhonePrefill,
+  ]);
 
   const updateForm = (key: keyof typeof initialForm, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -267,7 +290,7 @@ export const NewPatient: React.FC = () => {
               </p>
             </div>
           )}
-          <form onSubmit={createInvite} className="mt-4 grid gap-3 md:grid-cols-2">
+          <form autoComplete="off" onSubmit={createInvite} className="mt-4 grid gap-3 md:grid-cols-2">
             <div className="grid gap-3 rounded-lg border border-cyan-900/60 bg-cyan-950/30 p-3 md:col-span-2 md:grid-cols-2">
               <div className="md:col-span-2">
                 <p className="text-xs font-black uppercase tracking-wide text-cyan-200">
@@ -303,6 +326,7 @@ export const NewPatient: React.FC = () => {
             <label className="text-xs font-bold text-slate-300">
               Nome do paciente
               <input
+                autoComplete="off"
                 value={form.patient_name}
                 onChange={(event) => updateForm("patient_name", event.target.value)}
                 className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 font-normal outline-none focus:border-cyan-500 focus:bg-slate-900"
@@ -311,6 +335,7 @@ export const NewPatient: React.FC = () => {
             <label className="text-xs font-bold text-slate-300">
               WhatsApp
               <input
+                autoComplete="off"
                 value={form.patient_phone}
                 onChange={(event) => updateForm("patient_phone", event.target.value)}
                 className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 font-normal outline-none focus:border-cyan-500 focus:bg-slate-900"
@@ -319,6 +344,7 @@ export const NewPatient: React.FC = () => {
             <label className="text-xs font-bold text-slate-300">
               E-mail
               <input
+                autoComplete="off"
                 value={form.patient_email}
                 onChange={(event) => updateForm("patient_email", event.target.value)}
                 className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 font-normal outline-none focus:border-cyan-500 focus:bg-slate-900"

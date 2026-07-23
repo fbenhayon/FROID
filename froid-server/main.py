@@ -3263,13 +3263,20 @@ class RtcSignalManager:
             return
         payload = dict(message or {})
         payload["from"] = role
-        await self._safe_send(peer_socket, payload)
+        if await self._safe_send(peer_socket, payload):
+            return
+        if room.get(peer_role) is peer_socket:
+            del room[peer_role]
+        own_socket = room.get(role)
+        if own_socket:
+            await self._safe_send(own_socket, {"type": "peer-waiting"})
 
     async def _safe_send(self, websocket: WebSocket, payload: dict):
         try:
             await websocket.send_json(payload)
+            return True
         except Exception:
-            pass
+            return False
 
 
 rtc_signals = RtcSignalManager()

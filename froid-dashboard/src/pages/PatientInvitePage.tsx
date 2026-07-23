@@ -76,6 +76,18 @@ export const PatientInvitePage: React.FC = () => {
   useEffect(() => {
     let active = true;
     setLoading(true);
+    setInvite(null);
+    setPatientForm({ ...initialPatientForm });
+    setConsent({ ...initialConsent });
+    setAccepted(false);
+    setSubmitting(false);
+    setError("");
+    const previousInviteToken = sessionStorage.getItem("froid_patient_invite_token") || "";
+    if (previousInviteToken !== token) {
+      sessionStorage.removeItem("froid_patient_token");
+      sessionStorage.removeItem("froid_patient_user");
+    }
+    sessionStorage.setItem("froid_patient_invite_token", token);
     fetch(apiUrl(`/api/session-invites/${token}`))
       .then(async (response) => {
         const data = await response.json();
@@ -88,12 +100,12 @@ export const PatientInvitePage: React.FC = () => {
         setUiLocale(nextLocale);
         document.documentElement.lang = nextLocale;
         setInvite(data);
-        setPatientForm((prev) => ({
-          ...prev,
+        setPatientForm({
+          ...initialPatientForm,
           name: data.patient_name || "",
           email: data.patient_email || "",
           phone: data.patient_phone || "",
-        }));
+        });
         setAccepted(data.status === "accepted");
       })
       .catch((err) => {
@@ -210,7 +222,7 @@ export const PatientInvitePage: React.FC = () => {
           <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-cyan-300">
             FROID
           </p>
-          <h1 className="mt-2 text-xl font-bold text-slate-950">
+          <h1 className="mt-2 text-xl font-bold text-slate-100">
             {copy.invitationTitle}
           </h1>
           <p className="mt-1 text-sm text-slate-400">
@@ -270,10 +282,10 @@ export const PatientInvitePage: React.FC = () => {
 
         {accepted ? (
           <div className="rounded-lg border border-emerald-100 bg-emerald-950/40 p-5">
-            <p className="text-base font-bold text-emerald-900">
+            <p className="text-base font-bold text-emerald-100">
               {copy.confirmed}
             </p>
-            <p className="mt-2 text-sm text-emerald-800">
+            <p className="mt-2 text-sm text-emerald-200">
               {copy.confirmedBody}
             </p>
             {sessionEntryUrl && (
@@ -294,7 +306,11 @@ export const PatientInvitePage: React.FC = () => {
             )}
           </div>
         ) : (
-          <form onSubmit={submitAcceptance} className="space-y-5">
+          <form
+            autoComplete="off"
+            onSubmit={submitAcceptance}
+            className="space-y-5 [&_input]:border-blue-800 [&_input]:bg-blue-950 [&_input]:text-white [&_input]:placeholder:text-blue-300 [&_input]:focus:border-cyan-400"
+          >
             {invite?.password_only ? (
               <div className="rounded-lg border border-cyan-800 bg-cyan-950/40 p-4">
                 <p className="text-sm font-bold text-cyan-100">
@@ -379,6 +395,7 @@ export const PatientInvitePage: React.FC = () => {
                 {copy.portalPassword} *
                 <input
                   type="password"
+                  autoComplete="new-password"
                   value={patientForm.password}
                   onChange={(event) => updatePatient("password", event.target.value)}
                   minLength={8}
@@ -388,9 +405,10 @@ export const PatientInvitePage: React.FC = () => {
               </label>
               <label className="text-xs font-semibold text-slate-300">
                 {copy.confirmPassword} *
-                <input
-                  type="password"
-                  value={patientForm.password_confirm}
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    value={patientForm.password_confirm}
                   onChange={(event) =>
                     updatePatient("password_confirm", event.target.value)
                   }

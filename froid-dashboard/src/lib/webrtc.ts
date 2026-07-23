@@ -20,6 +20,19 @@ type CachedRtcConfiguration = {
 
 const rtcConfigurationPromises = new Map<string, CachedRtcConfiguration>();
 
+const TERMINAL_SIGNALING_CLOSE_CODES = new Set([1008, 4000, 4401, 4402, 4403]);
+const MAX_INITIAL_SIGNALING_RECONNECTS = 8;
+
+export function shouldReconnectRtcSignaling(
+  closeCode: number,
+  reconnectAttempt: number,
+  connectionState: RTCPeerConnectionState,
+) {
+  if (TERMINAL_SIGNALING_CLOSE_CODES.has(closeCode)) return false;
+  return connectionState === "connected"
+    || reconnectAttempt < MAX_INITIAL_SIGNALING_RECONNECTS;
+}
+
 export function loadRtcConfiguration(
   access: RtcConfigurationAccess,
 ): Promise<RTCConfiguration> {
@@ -103,6 +116,24 @@ export async function configureConferenceSender(sender: RTCRtpSender) {
   await sender.setParameters(parameters).catch(() => undefined);
 }
 
+function sameTrackSet(element: HTMLMediaElement, tracks: MediaStreamTrack[]) {
+  const current = element.srcObject instanceof MediaStream
+    ? element.srcObject.getTracks().map((track) => track.id).sort()
+    : [];
+  const next = tracks.map((track) => track.id).sort();
+  return current.length === next.length
+    && current.every((trackId, index) => trackId === next[index]);
+}
+
+function attachTracks(
+  element: HTMLMediaElement | null,
+  tracks: MediaStreamTrack[],
+) {
+  if (!element || sameTrackSet(element, tracks)) return;
+  element.srcObject = tracks.length ? new MediaStream(tracks) : null;
+  if (tracks.length) void element.play().catch(() => undefined);
+}
+
 export function attachRemoteMedia(
   remoteStream: MediaStream,
   videoElement: HTMLVideoElement | null,
@@ -117,17 +148,9 @@ export function attachRemoteMedia(
 
   if (videoElement) {
     videoElement.muted = true;
-    videoElement.srcObject = liveVideoTracks.length
-      ? new MediaStream(liveVideoTracks)
-      : null;
-    if (liveVideoTracks.length) void videoElement.play().catch(() => undefined);
+    attachTracks(videoElement, liveVideoTracks);
   }
-  if (audioElement) {
-    audioElement.srcObject = liveAudioTracks.length
-      ? new MediaStream(liveAudioTracks)
-      : null;
-    if (liveAudioTracks.length) void audioElement.play().catch(() => undefined);
-  }
+  attachTracks(audioElement, liveAudioTracks);
   return {
     audio: liveAudioTracks.length > 0,
     video: liveVideoTracks.length > 0,

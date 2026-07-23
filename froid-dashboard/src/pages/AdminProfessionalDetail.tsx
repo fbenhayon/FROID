@@ -141,31 +141,27 @@ export const AdminProfessionalDetail: React.FC<Props> = ({ user }) => {
           </p>
         )}
 
-        <section className="grid gap-3 md:grid-cols-4">
-          {[
-            ["Pacientes", summary.patients],
-            ["Relatórios", summary.reports],
-            ["Convites", summary.invites],
-            ["Saldo", status.remaining_sessions],
-          ].map(([label, value]) => (
-            <div key={label} className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-              <p className="text-[10px] font-black uppercase tracking-wide text-slate-500">{label}</p>
-              <p className="mt-2 text-2xl font-black text-cyan-200">{loading ? "--" : value ?? 0}</p>
-            </div>
-          ))}
-        </section>
-
-        <section className="grid gap-3 md:grid-cols-3">
-          {[
-            ["Devido", summary.total_due_brl, "text-cyan-200"],
-            ["Recebido", summary.total_received_brl, "text-emerald-200"],
-            ["Pendente", summary.total_pending_brl, "text-amber-100"],
-          ].map(([label, value, color]) => (
-            <div key={label} className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-              <p className="text-[10px] font-black uppercase tracking-wide text-slate-500">{label}</p>
-              <p className={`mt-2 text-xl font-black ${color}`}>{value || "R$ 0,00"}</p>
-            </div>
-          ))}
+        <section className="overflow-x-auto pb-1">
+          <div className="grid min-w-[980px] grid-cols-7 gap-2">
+            {[
+              ["Pacientes", summary.patients, "text-cyan-200"],
+              ["Relatórios", summary.reports, "text-cyan-200"],
+              ["Convites", summary.invites, "text-cyan-200"],
+              ["Saldo", status.remaining_sessions, "text-cyan-200"],
+              ["Devido", summary.total_due_brl, "text-cyan-200"],
+              ["Recebido", summary.total_received_brl, "text-emerald-200"],
+              ["Pendente", summary.total_pending_brl, "text-amber-100"],
+            ].map(([label, value, color]) => (
+              <div key={label} className="rounded-lg border border-slate-800 bg-slate-900 px-3 py-2.5">
+                <p className="whitespace-nowrap text-[9px] font-black uppercase tracking-wide text-slate-500">
+                  {label}
+                </p>
+                <p className={`mt-1 whitespace-nowrap text-lg font-black ${color}`}>
+                  {loading ? "--" : value ?? (String(label) === "Devido" || String(label) === "Recebido" || String(label) === "Pendente" ? "R$ 0,00" : 0)}
+                </p>
+              </div>
+            ))}
+          </div>
         </section>
 
         <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">
@@ -229,8 +225,8 @@ export const AdminProfessionalDetail: React.FC<Props> = ({ user }) => {
         <section className="grid gap-4 xl:grid-cols-2">
           <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
             <h2 className="text-sm font-black text-slate-100">Relatórios recentes</h2>
-            <div className="mt-3 space-y-2">
-              {reports.slice(0, 20).map((report: any) => (
+            <div className="mt-3 max-h-[360px] space-y-2 overflow-y-auto pr-1">
+              {reports.slice(0, 3).map((report: any) => (
                 <button
                   key={report.session_id}
                   type="button"
@@ -249,8 +245,8 @@ export const AdminProfessionalDetail: React.FC<Props> = ({ user }) => {
 
           <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
             <h2 className="text-sm font-black text-slate-100">Recebimentos e convites</h2>
-            <div className="mt-3 space-y-2">
-              {receivables.slice(0, 30).map((item: any) => (
+            <div className="mt-3 max-h-[360px] space-y-2 overflow-y-auto pr-1">
+              {receivables.slice(0, 3).map((item: any) => (
                 <div key={`${item.invite_id}-${item.session_id}`} className="rounded border border-slate-800 bg-slate-950 p-3 text-xs">
                   <p className="font-black text-slate-100">{item.patient?.name || "Paciente sem nome"}</p>
                   <p className="mt-1 text-slate-500">{item.session_id || item.invite_id}</p>
@@ -269,7 +265,21 @@ export const AdminProfessionalDetail: React.FC<Props> = ({ user }) => {
             {patients.slice(0, 90).map((patient: any, index: number) => (
               <div key={`${patient.id || patient.email || patient.phone || patient.name}-${index}`} className="rounded border border-slate-800 bg-slate-950 p-3 text-xs">
                 <p className="font-black text-slate-100">{patient.name || "Paciente sem nome"}</p>
-                <p className="mt-1 text-slate-500">{patient.email || patient.phone || patient.id || "--"}</p>
+                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+                  {patient.email && (
+                    <a className="text-slate-400 hover:text-cyan-200 hover:underline" href={`mailto:${patient.email}`}>
+                      {patient.email}
+                    </a>
+                  )}
+                  {patient.phone && (
+                    <a className="font-bold text-cyan-300 hover:text-cyan-100 hover:underline" href={`tel:${patient.phone}`}>
+                      {patient.phone}
+                    </a>
+                  )}
+                  {!patient.email && !patient.phone && (
+                    <span className="text-slate-500">{patient.id || "--"}</span>
+                  )}
+                </div>
               </div>
             ))}
           </div>
