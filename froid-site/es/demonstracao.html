@@ -1,19 +1,19 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="es">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Demonstração — FROID</title>
-<meta name="description" content="Explore de forma interativa as 12 Zonas de Percepção, veja os índices IPM e IDM reagindo a uma dissonância simulada e navegue por um relatório-exemplo anônimo do FROID." />
+<title>Demostración — FROID</title>
+<meta name="description" content="Explora de forma interactiva las 12 Zonas de Percepción, observa los índices IPM e IDM reaccionar ante una disonancia simulada y recorre un informe de ejemplo anónimo de FROID." />
 <link rel="alternate" hreflang="pt-BR" href="https://www.froid.com.br/demonstracao.html" />
 <link rel="alternate" hreflang="en" href="https://www.froid.com.br/en/demonstracao.html" />
 <link rel="alternate" hreflang="fr" href="https://www.froid.com.br/fr/demonstracao.html" />
 <link rel="alternate" hreflang="es" href="https://www.froid.com.br/es/demonstracao.html" />
 <link rel="alternate" hreflang="x-default" href="https://www.froid.com.br/demonstracao.html" />
-<link rel="stylesheet" href="site-assets/style.css?v=7" />
+<link rel="stylesheet" href="../site-assets/style.css?v=7" />
 <style>
   .demo-note { font-size:0.85rem; color:var(--froid-cinza); }
-  /* Explorador das 12 Zonas */
+  /* Explorador de las 12 Zonas */
   .zonas-wrap { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:32px; align-items:center; }
   @media (max-width:820px){ .zonas-wrap { grid-template-columns:1fr; } }
   #zonasSvg { width:100%; max-width:460px; height:auto; margin:0 auto; display:block; }
@@ -41,7 +41,7 @@
   .stat-pill { display:inline-block; padding:2px 10px; border-radius:999px; font-size:0.72rem; font-weight:700; }
   .demo-log { color:#dbe4ff; font-family:'JetBrains Mono','Courier New',monospace; font-size:0.82rem; margin-top:12px; min-height:1.4em; }
 
-  /* Relatório-exemplo */
+  /* Informe de ejemplo */
   .report { background:#1e293b; border:1px solid #334155; border-radius:var(--radius); overflow:hidden; box-shadow:0 6px 24px rgba(0,0,0,.45); }
   .report-head { background:var(--froid-preto); color:#fff; padding:20px 26px; }
   .report-head h3 { margin:0; font-size:1.15rem; }
@@ -54,7 +54,7 @@
   .metric .v { font-size:1.6rem; font-weight:800; color:#f8fafc; font-variant-numeric:tabular-nums; }
   .report-disclaimer { background:#451a03; border-top:1px solid #92400e; color:#fcd34d; font-size:0.82rem; padding:14px 26px; }
   .theme-tag { display:inline-block; background:var(--paper-soft); border:1px solid var(--border); border-radius:999px; padding:4px 12px; font-size:0.82rem; margin:3px 4px 3px 0; }
-  /* Galeria do produto */
+  /* Galería del producto */
   .gallery { display:grid; grid-template-columns:repeat(auto-fill, minmax(320px,1fr)); gap:22px; }
   .gallery figure { margin:0; background:#1e293b; border:1px solid #334155; border-radius:var(--radius); overflow:hidden; box-shadow:0 4px 16px rgba(0,0,0,.4); display:flex; flex-direction:column; }
   .gallery figure img { width:100%; height:auto; display:block; border-bottom:1px solid var(--border); }
@@ -67,44 +67,45 @@
 
 <header class="site-header">
   <div class="nav-row">
-    <a class="brand" href="index.html"><img class="brand-logo" src="site-assets/img/froid-logo.png" alt="FROID" /></a>
+    <a class="brand" href="index.html"><img class="brand-logo" src="../site-assets/img/froid-logo.png" alt="FROID" /></a>
     <nav class="nav-links">
-      <a href="index.html">Início</a>
-      <a href="ciencia.html">Ciência</a>
-      <a href="tecnologia.html">Tecnologia</a>
+      <a href="index.html">Inicio</a>
+      <a href="ciencia.html">Ciencia</a>
+      <a href="tecnologia.html">Tecnología</a>
       <a href="froid-explica.html">FROID Explica</a>
       <a href="etica.html">Ética</a>
-      <a href="seguranca.html">Segurança</a>
-      <a href="profissionais.html">Profissionais</a>
-      <a href="precos.html">Preços</a>
+      <a href="seguranca.html">Seguridad</a>
+      <a href="profissionais.html">Profesionales</a>
+      <a href="precos.html">Precios</a>
     </nav>
     <div class="nav-actions">
-      <a class="btn btn-ghost" href="https://www.froid.com.br/app/#/login">Entrar no FROID</a>
-      <div class="lang-group" role="group" aria-label="Choose language"><span class="lang-pill lang-current">PT</span><a class="lang-pill" href="en/demonstracao.html">EN</a><a class="lang-pill" href="fr/demonstracao.html">FR</a><a class="lang-pill" href="es/demonstracao.html">ES</a></div>
+      <a class="btn btn-ghost" href="https://www.froid.com.br/app/#/login">Iniciar sesión en FROID</a>
+      <a class="btn btn-solid" href="https://www.froid.com.br/cadastro">Registrarse en FROID</a>
+      <div class="lang-group" role="group" aria-label="Elegir idioma"><a class="lang-pill" href="../demonstracao.html">PT</a><a class="lang-pill" href="../en/demonstracao.html">EN</a><a class="lang-pill" href="../fr/demonstracao.html">FR</a><span class="lang-pill lang-current">ES</span></div>
     </div>
   </div>
 </header>
 
 <section class="hero" style="padding:64px 0 48px;">
   <div class="container">
-    <p class="section-kicker" style="color:#93c5fd;">Demonstração interativa</p>
-    <h1 style="font-size:2.1rem;">Veja o FROID funcionando — sem cadastro</h1>
-    <p class="lead">Três peças interativas: o mapa das 12 Zonas, os índices IPM e IDM reagindo a uma dissonância simulada, e um relatório-exemplo anônimo. Todos os dados aqui são ilustrativos e sintéticos.</p>
+    <p class="section-kicker" style="color:#93c5fd;">Demostración interactiva</p>
+    <h1 style="font-size:2.1rem;">Mira FROID en acción — sin registro</h1>
+    <p class="lead">Tres elementos interactivos: el mapa de las 12 Zonas, los índices IPM e IDM reaccionando ante una disonancia simulada, y un informe de ejemplo anónimo. Todos los datos aquí son ilustrativos y sintéticos.</p>
   </div>
 </section>
 
-<div class="disclaimer-box container" style="margin-top:28px; text-align:center;">
-  <strong>Dados sintéticos:</strong> esta página usa valores simulados para fins de demonstração. Nenhuma sessão real, paciente ou gravação está representada aqui.
+<div class="disclaimer-box container" style="margin-top:28px;">
+  <strong>Datos sintéticos:</strong> esta página usa valores simulados con fines de demostración. No se representa ninguna sesión real, ningún paciente ni grabación.
 </div>
 
-<!-- A. Explorador das 12 Zonas -->
+<!-- A. Explorador de las 12 Zonas -->
 <section class="block">
   <div class="container">
-    <p class="section-kicker">Framework proprietário FROID</p>
-    <h2 class="section-title">Explore as 12 Zonas de Percepção</h2>
-    <p class="section-lead">Cada zona corresponde a uma nota da escala cromática (de C2 a C#7) e a uma dicotomia entre um estado limitante e um estado expansivo. Clique em uma zona para ver o detalhe. A física (energia espectral) é real; o mapeamento tema↔faixa é heurística de produto — não neurociência publicada.</p>
+    <p class="section-kicker">Marco propietario de FROID</p>
+    <h2 class="section-title">Explora las 12 Zonas de Percepción</h2>
+    <p class="section-lead">Cada zona corresponde a una nota de la escala cromática (de C2 a C#7) y a una dicotomía entre un estado limitante y un estado expansivo. Haz clic en una zona para ver el detalle. La física (energía espectral) es real; la asociación tema↔banda es una heurística de producto — no neurociencia publicada.</p>
     <div class="zonas-wrap">
-      <svg id="zonasSvg" viewBox="0 0 400 400" role="img" aria-label="Mapa circular das 12 Zonas de Percepção"></svg>
+      <svg id="zonasSvg" viewBox="0 0 400 400" role="img" aria-label="Mapa circular de las 12 Zonas de Percepción"></svg>
       <div class="zona-detail" id="zonaDetail" aria-live="polite"></div>
     </div>
   </div>
@@ -113,115 +114,115 @@
 <!-- B. Micro-demo IPM / IDM -->
 <section class="block soft">
   <div class="container">
-    <p class="section-kicker">Índices em tempo real</p>
-    <h2 class="section-title">IPM e IDM reagindo a uma dissonância</h2>
-    <p class="section-lead">Reproduza uma sessão simulada. O IPM (energia/vitalidade) oscila continuamente; o IDM (coerência) permanece baixo até um momento de dissonância — quando o paciente mantém um sorriso voluntário sobre tensão vocal — e então salta para a faixa de alerta.</p>
+    <p class="section-kicker">Índices en tiempo real</p>
+    <h2 class="section-title">El IPM y el IDM reaccionando ante una disonancia</h2>
+    <p class="section-lead">Inicia una sesión simulada. El IPM (energía/vitalidad) oscila de forma continua; el IDM (coherencia) se mantiene bajo hasta un momento de disonancia — cuando el paciente mantiene una sonrisa voluntaria sobre una tensión vocal — y luego pasa al rango de alerta.</p>
     <div class="demo-stage">
-      <canvas id="ipmCanvas" width="900" height="320" aria-label="Gráfico animado dos índices IPM e IDM"></canvas>
+      <canvas id="ipmCanvas" width="900" height="320" aria-label="Gráfico animado de los índices IPM e IDM"></canvas>
       <div class="demo-readout">
-        <div class="stat-tile"><div class="lbl">IPM · potência</div><div class="val" id="ipmVal">—</div></div>
-        <div class="stat-tile"><div class="lbl">IDM · desvio</div><div class="val" id="idmVal">—</div></div>
-        <div class="stat-tile"><div class="lbl">Estado</div><div class="val" style="font-size:1rem; padding-top:8px;"><span class="stat-pill" id="statePill" style="background:#334155; color:#cbd5e1;">aguardando</span></div></div>
+        <div class="stat-tile"><div class="lbl">IPM · potencia</div><div class="val" id="ipmVal">—</div></div>
+        <div class="stat-tile"><div class="lbl">IDM · desviación</div><div class="val" id="idmVal">—</div></div>
+        <div class="stat-tile"><div class="lbl">Estado</div><div class="val" style="font-size:1rem; padding-top:8px;"><span class="stat-pill" id="statePill" style="background:#334155; color:#cbd5e1;">en espera</span></div></div>
       </div>
       <div class="demo-log" id="demoLog"></div>
       <div style="margin-top:16px; display:flex; gap:10px;">
-        <button class="btn btn-solid" id="playBtn">Reproduzir sessão</button>
+        <button class="btn btn-solid" id="playBtn">Iniciar la sesión</button>
         <button class="btn btn-ghost" id="resetBtn" style="color:#fff; border-color:rgba(255,255,255,.3);">Reiniciar</button>
       </div>
     </div>
   </div>
 </section>
 
-<!-- C. Relatório-exemplo -->
+<!-- C. Informe de ejemplo -->
 <section class="block">
   <div class="container">
-    <p class="section-kicker">Depois da sessão</p>
-    <h2 class="section-title">Relatório-exemplo (anônimo)</h2>
-    <p class="section-lead">Ao encerrar, o profissional recebe um relatório estruturado, sempre comparado contra a própria linha de base do paciente. Exemplo sintético abaixo.</p>
+    <p class="section-kicker">Después de la sesión</p>
+    <h2 class="section-title">Informe de ejemplo (anónimo)</h2>
+    <p class="section-lead">Al finalizar, el profesional recibe un informe estructurado, siempre comparado con la propia línea de base del paciente. Ejemplo sintético a continuación.</p>
 
     <div class="report">
       <div class="report-head">
-        <h3>Relatório de sessão · Paciente P-2043 (pseudonimizado)</h3>
-        <div class="sub">Sessão 7 de 12 · duração 48 min · calibração de base concluída (60 s)</div>
+        <h3>Informe de sesión · Paciente P-2043 (seudonimizado)</h3>
+        <div class="sub">Sesión 7 de 12 · duración 48 min · calibración de línea de base finalizada (60 s)</div>
       </div>
       <div class="report-body">
         <div class="report-grid">
-          <div class="metric"><div class="k">IPM médio</div><div class="v">52</div><div class="demo-note">vitalidade estável vs. base</div></div>
-          <div class="metric"><div class="k">Pico de IDM</div><div class="v">3,4</div><div class="demo-note">1 evento em faixa vermelha</div></div>
-          <div class="metric"><div class="k">Zona dominante</div><div class="v" style="font-size:1.15rem;">Zona 7 · Raiva</div><div class="demo-note">F# · aceitação da mudança</div></div>
+          <div class="metric"><div class="k">IPM promedio</div><div class="v">52</div><div class="demo-note">vitalidad estable vs. línea de base</div></div>
+          <div class="metric"><div class="k">Pico de IDM</div><div class="v">3,4</div><div class="demo-note">1 evento en rango rojo</div></div>
+          <div class="metric"><div class="k">Zona dominante</div><div class="v" style="font-size:1.15rem;">Zona 7 · Ira</div><div class="demo-note">F# · aceptación del cambio</div></div>
         </div>
 
-        <h4 style="margin:0 0 8px;">Linha do tempo da sessão</h4>
-        <svg viewBox="0 0 900 120" style="width:100%; height:auto; margin-bottom:8px;" role="img" aria-label="Linha do tempo simplificada da sessão">
+        <h4 style="margin:0 0 8px;">Cronología de la sesión</h4>
+        <svg viewBox="0 0 900 120" style="width:100%; height:auto; margin-bottom:8px;" role="img" aria-label="Cronología simplificada de la sesión">
           <rect x="0" y="0" width="900" height="120" fill="#f4f6fb"></rect>
           <polyline fill="none" stroke="#3b82f6" stroke-width="2.5" points="0,70 90,64 180,72 270,60 360,66 450,58 540,50 630,80 720,54 810,62 900,60"></polyline>
           <circle cx="600" cy="30" r="7" fill="#ef4444"></circle>
           <line x1="600" y1="37" x2="600" y2="120" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="4 3"></line>
-          <text x="608" y="26" font-size="13" fill="#b91c1c" font-family="Inter, sans-serif" font-weight="700">Dissonância · 31min</text>
+          <text x="608" y="26" font-size="13" fill="#b91c1c" font-family="Inter, sans-serif" font-weight="700">Disonancia · 31min</text>
         </svg>
-        <p class="demo-note" style="margin:0 0 20px;">Linha azul: IPM ao longo do tempo. Marcador vermelho: pico de IDM (incongruência fala–face) para o clínico revisar.</p>
+        <p class="demo-note" style="margin:0 0 20px;">Línea azul: IPM a lo largo del tiempo. Marcador rojo: pico de IDM (incongruencia habla-rostro) a examinar por el clínico.</p>
 
-        <h4 style="margin:0 0 8px;">Temas recorrentes (NLP)</h4>
+        <h4 style="margin:0 0 8px;">Temas recurrentes (NLP)</h4>
         <div style="margin-bottom:20px;">
-          <span class="theme-tag">trabalho</span>
-          <span class="theme-tag">reconhecimento</span>
-          <span class="theme-tag">família</span>
+          <span class="theme-tag">trabajo</span>
+          <span class="theme-tag">reconocimiento</span>
+          <span class="theme-tag">familia</span>
           <span class="theme-tag">culpa</span>
-          <span class="theme-tag">mudança</span>
+          <span class="theme-tag">cambio</span>
         </div>
 
-        <h4 style="margin:0 0 8px;">Observação do sistema</h4>
-        <p style="margin:0; color:var(--froid-cinza);">Aos 31 min, tensão de infra-tremor vocal (5–12 Hz) coincidiu com sorriso de configuração voluntária (AU12 sem AU6) durante fala sobre reconhecimento profissional — sinal de possível Dissonância Somatoafetiva. Sugestão de exploração, a critério do profissional.</p>
+        <h4 style="margin:0 0 8px;">Observación del sistema</h4>
+        <p style="margin:0; color:var(--froid-cinza);">A los 31 min, una tensión de infratemblor vocal (5–12 Hz) coincidió con una sonrisa de configuración voluntaria (AU12 sin AU6) durante un discurso sobre reconocimiento profesional — señal de una posible Disonancia Somatoafectiva. Sugerencia de exploración, a criterio del profesional.</p>
       </div>
       <div class="report-disclaimer">
-        <strong>Limitações da IA:</strong> os índices são estimativas estatísticas com limitações demográficas e de captura (iluminação/áudio); correlações não implicam causalidade. Apoio à decisão — não diagnóstico. Ver <a href="etica.html">Ética, Fairness e Limites</a>.
+        <strong>Límites de la IA:</strong> los índices son estimaciones estadísticas con límites demográficos y de captura (iluminación/audio); las correlaciones no implican causalidad. Apoyo a la decisión — no un diagnóstico. Ver <a href="etica.html">Ética, equidad y límites</a>.
       </div>
     </div>
 
     <div style="margin-top:28px;">
-      <a class="btn btn-solid" href="https://www.froid.com.br/cadastro">Criar conta profissional</a>
-      <a class="btn btn-ghost" href="sobre-contato.html" style="margin-left:8px;">Falar sobre um piloto</a>
+      <a class="btn btn-solid" href="https://www.froid.com.br/cadastro">Crear una cuenta profesional</a>
+      <a class="btn btn-ghost" href="sobre-contato.html" style="margin-left:8px;">Hablar sobre un piloto</a>
     </div>
   </div>
 </section>
 
 <section class="block soft">
   <div class="container">
-    <p class="section-kicker">Galeria do produto</p>
-    <h2 class="section-title">As telas reais do FROID</h2>
-    <p class="section-lead">Um panorama das capacidades de análise. Todas as capturas usam dados sintéticos; vários painéis são heurísticas de visualização proprietárias — apoio à leitura, nunca diagnóstico. Ver <a href="etica.html">Ética</a> e <a href="ciencia.html">Ciência</a>.</p>
+    <p class="section-kicker">Galería del producto</p>
+    <h2 class="section-title">Las pantallas reales de FROID</h2>
+    <p class="section-lead">Un panorama de las capacidades de análisis. Todas las capturas usan datos sintéticos; varios paneles son heurísticas de visualización propietarias — una ayuda para la lectura, nunca un diagnóstico. Ver <a href="etica.html">Ética</a> y <a href="ciencia.html">Ciencia</a>.</p>
     <div class="gallery">
       <figure class="wide">
-        <img src="site-assets/img/cap-mapa-facial.png" alt="Mapa das expressões faciais e matrizes emocionais do FROID: combinações de Unidades de Ação por emoção." />
-        <figcaption><strong>Mapa das expressões faciais (FACS)</strong>Matrizes de Unidades de Ação por emoção e as dissonâncias subconscientes que o FROID cruza com a bioacústica vocal.</figcaption>
+        <img src="../site-assets/img/cap-mapa-facial.png" alt="Mapa de expresiones faciales y matrices emocionales de FROID: combinaciones de Unidades de Acción por emoción." />
+        <figcaption><strong>Mapa de expresiones faciales (FACS)</strong>Matrices de Unidades de Acción por emoción y las disonancias subconscientes que FROID cruza con la bioacústica vocal.</figcaption>
       </figure>
       <figure>
-        <img src="site-assets/img/cap-ipm.png" alt="Gráfico do IPM ao vivo sobre a escala do FROID." />
-        <figcaption><strong>IPM ao vivo</strong>A energia e a vitalidade psicomotora da sessão, segundo a segundo, sobre a escala do FROID.</figcaption>
+        <img src="../site-assets/img/cap-ipm.png" alt="Gráfico del IPM en vivo en la escala de FROID." />
+        <figcaption><strong>IPM en vivo</strong>La energía y vitalidad psicomotriz de la sesión, segundo a segundo, en la escala de FROID.</figcaption>
       </figure>
       <figure>
-        <img src="site-assets/img/cap-dissonancias.png" alt="Painel de detecção de dissonâncias multimodais com alerta por zona." />
-        <figcaption><strong>Detector de dissonâncias</strong>Divergências fala–face–semântica acima dos limiares, com alerta localizado por zona.</figcaption>
+        <img src="../site-assets/img/cap-dissonancias.png" alt="Panel de detección de disonancias multimodales con alerta por zona." />
+        <figcaption><strong>Detector de disonancias</strong>Divergencias habla-rostro-semántica por encima de los umbrales, con alerta localizada por zona.</figcaption>
       </figure>
       <figure>
-        <img src="site-assets/img/cap-biomarcadores.png" alt="Comparação de biomarcadores vocais: MFCC7, MFCC9 e índices proxy." />
-        <figcaption><strong>Biomarcadores vocais</strong>Comparação de MFCC7×MFCC9 e dos índices proxy de jitter e shimmer.</figcaption>
+        <img src="../site-assets/img/cap-biomarcadores.png" alt="Comparación de biomarcadores vocales: MFCC7, MFCC9 e índices proxy." />
+        <figcaption><strong>Biomarcadores vocales</strong>Comparación de MFCC7×MFCC9 y de los índices proxy de jitter y shimmer.</figcaption>
       </figure>
       <figure>
-        <img src="site-assets/img/cap-bandas.png" alt="Distribuição da energia vocal por bandas neuroacústicas." />
-        <figcaption><strong>Bandas neuroacústicas</strong>Distribuição espectral da voz por banda — uma heurística de visualização proprietária.</figcaption>
+        <img src="../site-assets/img/cap-bandas.png" alt="Distribución de la energía vocal por bandas neuroacústicas." />
+        <figcaption><strong>Bandas neuroacústicas</strong>Distribución espectral de la voz por banda — una heurística de visualización propietaria.</figcaption>
       </figure>
       <figure>
-        <img src="site-assets/img/cap-subharmonicos.png" alt="Componentes de sub-harmônicos vocais na faixa de 5 a 12 Hz." />
-        <figcaption><strong>Sub-harmônicos (5–12 Hz)</strong>Componentes de infra-tremor vocal — o pilar mais exploratório do sistema.</figcaption>
+        <img src="../site-assets/img/cap-subharmonicos.png" alt="Componentes subarmónicos vocales en el rango de 5 a 12 Hz." />
+        <figcaption><strong>Subarmónicos (5–12 Hz)</strong>Componentes de infratemblor vocal — el pilar más exploratorio del sistema.</figcaption>
       </figure>
       <figure>
-        <img src="site-assets/img/cap-riscos.png" alt="Resumo percentual de padrões por categoria de risco clínico." />
-        <figcaption><strong>Panorama de padrões</strong>Resumo heurístico por categoria — apoio à leitura do profissional, nunca diagnóstico automatizado.</figcaption>
+        <img src="../site-assets/img/cap-riscos.png" alt="Resumen porcentual de los patrones por categoría de riesgo clínico." />
+        <figcaption><strong>Panorama de patrones</strong>Resumen heurístico por categoría — ayuda para la lectura del profesional, nunca un diagnóstico automatizado.</figcaption>
       </figure>
       <figure>
-        <img src="site-assets/img/cap-cortes-temas.png" alt="Temas e resumos por cortes de 10 minutos gerados por NLP." />
-        <figcaption><strong>Temas e resumos por cortes</strong>Síntese semântica (NLP) da fala a cada 10 minutos da sessão.</figcaption>
+        <img src="../site-assets/img/cap-cortes-temas.png" alt="Temas y resúmenes por segmentos de 10 minutos generados por NLP." />
+        <figcaption><strong>Temas y resúmenes por segmento</strong>Síntesis semántica (NLP) del habla cada 10 minutos de la sesión.</figcaption>
       </figure>
     </div>
   </div>
@@ -232,62 +233,62 @@
     <div class="foot-grid">
       <div>
         <h5>FROID</h5>
-        <p style="max-width:340px; color:rgba(248,250,252,0.55);">Frequency Recognition of Internal Dynamics. Ferramenta de apoio à escuta clínica — não substitui avaliação, diagnóstico ou julgamento profissional.</p>
+        <p style="max-width:340px; color:rgba(248,250,252,0.55);">Frequency Recognition of Internal Dynamics. Una herramienta de apoyo a la escucha clínica — no sustituye la evaluación, el diagnóstico ni el juicio profesional.</p>
       </div>
       <div>
-        <h5>Navegação</h5>
+        <h5>Navegación</h5>
         <ul>
-          <li><a href="index.html">Início</a></li>
-          <li><a href="ciencia.html">Ciência</a></li>
-          <li><a href="tecnologia.html">Tecnologia</a></li>
+          <li><a href="index.html">Inicio</a></li>
+          <li><a href="ciencia.html">Ciencia</a></li>
+          <li><a href="tecnologia.html">Tecnología</a></li>
           <li><a href="froid-explica.html">FROID Explica</a></li>
           <li><a href="etica.html">Ética</a></li>
-          <li><a href="seguranca.html">Segurança</a></li>
-          <li><a href="profissionais.html">Profissionais</a></li>
-          <li><a href="precos.html">Preços</a></li>
+          <li><a href="seguranca.html">Seguridad</a></li>
+          <li><a href="profissionais.html">Profesionales</a></li>
+          <li><a href="precos.html">Precios</a></li>
         </ul>
       </div>
       <div>
-        <h5>Suporte</h5>
+        <h5>Soporte</h5>
         <ul>
-          <li><a href="faq.html">Perguntas Frequentes</a></li>
-          <li><a href="glossario.html">Glossário</a></li>
-          <li><a href="demonstracao.html">Demonstração</a></li>
-          <li><a href="sobre-contato.html">Sobre &amp; Contato</a></li>
-          <li><a href="termos.html">Termos de Uso</a></li>
-          <li><a href="privacidade.html">Política de Privacidade</a></li>
+          <li><a href="faq.html">Preguntas Frecuentes</a></li>
+          <li><a href="glossario.html">Glosario</a></li>
+          <li><a href="demonstracao.html">Demostración</a></li>
+          <li><a href="sobre-contato.html">Acerca de &amp; Contacto</a></li>
+          <li><a href="termos.html">Términos de Uso</a></li>
+          <li><a href="privacidade.html">Política de Privacidad</a></li>
         </ul>
       </div>
       <div>
-        <h5>Acesso</h5>
+        <h5>Acceso</h5>
         <ul>
-          <li><a href="https://www.froid.com.br/app/#/login">Entrar no FROID</a></li>
-          <li><a href="https://www.froid.com.br/cadastro">Cadastrar no FROID</a></li>
-          <li><a href="https://www.froid.com.br/app/#/paciente">Portal do Paciente</a></li>
+          <li><a href="https://www.froid.com.br/app/#/login">Iniciar sesión en FROID</a></li>
+          <li><a href="https://www.froid.com.br/cadastro">Registrarse en FROID</a></li>
+          <li><a href="https://www.froid.com.br/app/#/paciente">Portal del Paciente</a></li>
         </ul>
       </div>
     </div>
-    <div class="foot-bottom">© 2026 FROID. Conteúdo desta página é ilustrativo e sintético. FROID é uma marca em processo de registro no INPI (Brasil), com pedido de proteção internacional em análise. Código, textos, modelos e identidade visual são protegidos por direitos autorais de Fábio de Assumpção Benhayon.</div>
+    <div class="foot-bottom">© 2026 FROID. El contenido de esta página es ilustrativo y sintético. FROID es una marca en proceso de registro ante el INPI (Brasil), con solicitud de protección internacional en análisis. El código, los textos, las plantillas y la identidad visual están protegidos por derechos de autor de Fábio de Assumpção Benhayon.</div>
   </div>
 </footer>
 
 <script>
-/* ===== A. Explorador das 12 Zonas ===== */
+/* ===== A. Explorador de las 12 Zonas ===== */
 (function(){
   var SVGNS = "http://www.w3.org/2000/svg";
   var zonas = [
-    {n:1, nota:"C",  neg:"Não reconhecido",            pos:"Autovalidação",              reg:"Tronco cerebral e regulação autonômica"},
-    {n:2, nota:"C#", neg:"Pensamento repetitivo",       pos:"Criativo / Independente",    reg:"Sistema límbico e emoções primárias"},
-    {n:3, nota:"D",  neg:"Tristeza",                     pos:"Paz interior",               reg:"Córtex pré-frontal e regulação emocional"},
-    {n:4, nota:"D#", neg:"Desconectado emocionalmente",  pos:"Integrado emocionalmente",   reg:"Equilíbrio e serenidade"},
-    {n:5, nota:"E",  neg:"Autocrítico",                  pos:"Amor-próprio",               reg:"Expressão emocional e vulnerabilidade"},
-    {n:6, nota:"F",  neg:"Amor condicional",             pos:"Amor incondicional",         reg:"Introspecção e tristeza"},
-    {n:7, nota:"F#", neg:"Raiva",                        pos:"Aceitação da mudança",       reg:"Criatividade e insight"},
-    {n:8, nota:"G",  neg:"Medroso e sobrecarregado",     pos:"Responsabilização",          reg:"Integração cognitiva"},
-    {n:9, nota:"G#", neg:"Expressão emocional suprimida", pos:"Autoexpressão apropriada",  reg:"Processamento superior"},
-    {n:10,nota:"A",  neg:"Indigno / Não merecedor",      pos:"Autoaceitação",              reg:"Harmonização"},
-    {n:11,nota:"A#", neg:"Crenças rígidas",              pos:"Aberto a possibilidades",    reg:"Expansão consciente"},
-    {n:12,nota:"B",  neg:"Crenças conflitantes",         pos:"Crença congruente e ação",   reg:"Integração total"}
+    {n:1, nota:"C",  neg:"No reconocido",                  pos:"Autovalidación",              reg:"Tronco encefálico y regulación autónoma"},
+    {n:2, nota:"C#", neg:"Pensamiento repetitivo",          pos:"Creativo / Independiente",    reg:"Sistema límbico y emociones primarias"},
+    {n:3, nota:"D",  neg:"Tristeza",                        pos:"Paz interior",                reg:"Corteza prefrontal y regulación emocional"},
+    {n:4, nota:"D#", neg:"Desconectado emocionalmente",     pos:"Integrado emocionalmente",    reg:"Equilibrio y serenidad"},
+    {n:5, nota:"E",  neg:"Autocrítica",                     pos:"Amor propio",                 reg:"Expresión emocional y vulnerabilidad"},
+    {n:6, nota:"F",  neg:"Amor condicional",                pos:"Amor incondicional",          reg:"Introspección y tristeza"},
+    {n:7, nota:"F#", neg:"Ira",                              pos:"Aceptación del cambio",       reg:"Creatividad e insight"},
+    {n:8, nota:"G",  neg:"Temeroso y desbordado",           pos:"Empoderamiento",              reg:"Integración cognitiva"},
+    {n:9, nota:"G#", neg:"Expresión emocional reprimida",   pos:"Expresión de sí mismo apropiada", reg:"Procesamiento superior"},
+    {n:10,nota:"A",  neg:"Indigno / Inmerecido",            pos:"Autoaceptación",              reg:"Armonización"},
+    {n:11,nota:"A#", neg:"Creencias rígidas",               pos:"Abierto a posibilidades",     reg:"Expansión consciente"},
+    {n:12,nota:"B",  neg:"Creencias conflictivas",          pos:"Creencia congruente y acción", reg:"Integración total"}
   ];
   var svg = document.getElementById("zonasSvg");
   var detail = document.getElementById("zonaDetail");
@@ -335,7 +336,7 @@
   svg.appendChild(ct);
   var ct2 = document.createElementNS(SVGNS,"text");
   ct2.setAttribute("x",cx); ct2.setAttribute("y",cy+14); ct2.setAttribute("text-anchor","middle");
-  ct2.setAttribute("font-size","11"); ct2.setAttribute("class","center-s"); ct2.textContent="clique p/ detalhar";
+  ct2.setAttribute("font-size","11"); ct2.setAttribute("class","center-s"); ct2.textContent="clic para detallar";
   svg.appendChild(ct2);
 
   function select(i){
@@ -348,11 +349,11 @@
       '<div style="display:flex; align-items:center; gap:14px;">'+
         '<span class="note-badge">'+z.nota+'</span>'+
         '<div><div style="font-weight:800; font-size:1.15rem;">Zona '+z.n+'</div>'+
-        '<div class="demo-note">nota '+z.nota+' da escala cromática</div></div>'+
+        '<div class="demo-note">nota '+z.nota+' de la escala cromática</div></div>'+
       '</div>'+
       '<div class="dichotomy"><span class="neg">'+z.neg+'</span><span class="arrow">↔</span><span class="pos">'+z.pos+'</span></div>'+
-      '<p class="demo-note" style="margin:0 0 8px;"><strong>Associação neurofuncional (heurística):</strong> '+z.reg+'.</p>'+
-      '<p class="demo-note" style="margin:0;">Sobrecarga nesta zona indica o polo limitante; a diretriz clínica orienta a transição para o polo expansivo. <a href="ciencia.html">Enquadramento na Ciência</a>.</p>';
+      '<p class="demo-note" style="margin:0 0 8px;"><strong>Asociación neurofuncional (heurística):</strong> '+z.reg+'.</p>'+
+      '<p class="demo-note" style="margin:0;">Una sobrecarga en esta zona indica el polo limitante; la orientación clínica apunta a la transición hacia el polo expansivo. <a href="ciencia.html">Marco en Ciencia</a>.</p>';
   }
   select(0);
 })();
@@ -385,48 +386,48 @@
   function yIdm(v){ return padT + (H-padT-padB)*(1 - v/4); }
   function draw(upto){
     ctx.clearRect(0,0,W,H);
-    // threshold bands (IDM scale)
+    // bandas de umbral (escala IDM)
     var bands=[[0,0.5,"rgba(59,130,246,.10)"],[0.5,1.5,"rgba(34,197,94,.10)"],[1.5,3,"rgba(234,179,8,.12)"],[3,4,"rgba(239,68,68,.14)"]];
     bands.forEach(function(b){ ctx.fillStyle=b[2]; var y0=yIdm(b[1]), y1=yIdm(b[0]); ctx.fillRect(padL,y0,W-padL-padR,y1-y0); });
-    // grid
+    // cuadrícula
     ctx.strokeStyle="rgba(148,163,184,.18)"; ctx.lineWidth=1;
     for(var g=0;g<=4;g++){ var yy=padT+(H-padT-padB)*g/4; ctx.beginPath(); ctx.moveTo(padL,yy); ctx.lineTo(W-padR,yy); ctx.stroke(); }
-    // axes labels
+    // etiquetas de los ejes
     ctx.fillStyle="#9fb0d1"; ctx.font="11px Inter, sans-serif"; ctx.textAlign="right";
     ctx.fillText("IDM 4",padL-6,yIdm(4)+4); ctx.fillText("0",padL-6,yIdm(0)+2);
-    // event marker
+    // marcador de evento
     if(upto>=EVENT){
       ctx.strokeStyle="rgba(239,68,68,.6)"; ctx.setLineDash([5,4]); ctx.beginPath();
       ctx.moveTo(x(EVENT),padT); ctx.lineTo(x(EVENT),H-padB); ctx.stroke(); ctx.setLineDash([]);
     }
-    // IPM line
+    // línea IPM
     ctx.strokeStyle="#3b82f6"; ctx.lineWidth=2.4; ctx.beginPath();
     for(var i=0;i<=upto;i++){ var px=x(i), py=yIpm(ipm[i]); i===0?ctx.moveTo(px,py):ctx.lineTo(px,py); }
     ctx.stroke();
-    // IDM line
+    // línea IDM
     ctx.strokeStyle="#eab308"; ctx.lineWidth=2.4; ctx.beginPath();
     for(var j=0;j<=upto;j++){ var qx=x(j), qy=yIdm(idm[j]); j===0?ctx.moveTo(qx,qy):ctx.lineTo(qx,qy); }
     ctx.stroke();
-    // heads
+    // punteros
     if(upto>=0){
       ctx.fillStyle="#3b82f6"; ctx.beginPath(); ctx.arc(x(upto),yIpm(ipm[upto]),4,0,7); ctx.fill();
       ctx.fillStyle=idmColor(idm[upto]); ctx.beginPath(); ctx.arc(x(upto),yIdm(idm[upto]),4,0,7); ctx.fill();
     }
-    // legend
+    // leyenda
     ctx.textAlign="left"; ctx.font="12px Inter, sans-serif";
     ctx.fillStyle="#3b82f6"; ctx.fillText("● IPM", padL+4, padT+12);
     ctx.fillStyle="#eab308"; ctx.fillText("● IDM", padL+62, padT+12);
   }
   var ipmVal=document.getElementById("ipmVal"), idmVal=document.getElementById("idmVal"),
       pill=document.getElementById("statePill"), log=document.getElementById("demoLog");
-  function state(v){ if(v>3)return["ALERTA · dissonância","#ef4444","#fff"]; if(v>1.5)return["atenção","#eab308","#0f172a"]; return["coerente","#22c55e","#fff"]; }
+  function state(v){ if(v>3)return["ALERTA · disonancia","#ef4444","#fff"]; if(v>1.5)return["atención","#eab308","#0f172a"]; return["coherente","#22c55e","#fff"]; }
   function readout(i){
     ipmVal.textContent=Math.round(ipm[i]);
     idmVal.textContent=idm[i].toFixed(1).replace(".",",");
     var s=state(idm[i]); pill.textContent=s[0]; pill.style.background=s[1]; pill.style.color=s[2];
-    if(i===EVENT+8){ log.textContent="⚠ Incongruência: AU12 sem AU6 (sorriso voluntário) sobre tensão vocal 5–12 Hz."; }
-    else if(i===EVENT-1){ log.textContent="Sinais congruentes — energia dentro da variação basal."; }
-    else if(i>=N-1){ log.textContent="Sessão simulada concluída. Pico de IDM registrado para revisão clínica."; }
+    if(i===EVENT+8){ log.textContent="⚠ Incongruencia: AU12 sin AU6 (sonrisa voluntaria) sobre tensión vocal 5–12 Hz."; }
+    else if(i===EVENT-1){ log.textContent="Señales congruentes — energía dentro de la variación base."; }
+    else if(i>=N-1){ log.textContent="Sesión simulada finalizada. Pico de IDM registrado para revisión clínica."; }
   }
   var timer=null, idx=0;
   function stop(){ if(timer){ clearTimeout(timer); timer=null; } }
@@ -439,11 +440,11 @@
     })();
   }
   document.getElementById("playBtn").addEventListener("click", play);
-  document.getElementById("resetBtn").addEventListener("click", function(){ stop(); idx=0; build(); draw(0); ipmVal.textContent=Math.round(ipm[0]); idmVal.textContent=idm[0].toFixed(1).replace(".",","); pill.textContent="aguardando"; pill.style.background="#334155"; pill.style.color="#cbd5e1"; log.textContent=""; });
+  document.getElementById("resetBtn").addEventListener("click", function(){ stop(); idx=0; build(); draw(0); ipmVal.textContent=Math.round(ipm[0]); idmVal.textContent=idm[0].toFixed(1).replace(".",","); pill.textContent="en espera"; pill.style.background="#334155"; pill.style.color="#cbd5e1"; log.textContent=""; });
   build(); draw(0);
   ipmVal.textContent=Math.round(ipm[0]); idmVal.textContent=idm[0].toFixed(1).replace(".",",");
 })();
 </script>
-<script src="site-assets/script.js?v=3"></script>
+<script src="../site-assets/script.js?v=3"></script>
 </body>
 </html>

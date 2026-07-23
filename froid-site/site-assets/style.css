@@ -326,6 +326,7 @@ footer.site-footer ul { list-style: none; padding: 0; margin: 0; display: flex; 
 .disclaimer-box {
   background: #451a03; border: 1px solid #92400e; border-radius: var(--radius);
   padding: 20px 24px; font-size: 0.92rem; color: #fcd34d; margin: 32px 0;
+  text-align: center;
 }
 .disclaimer-box strong { color: #fde68a; }
 

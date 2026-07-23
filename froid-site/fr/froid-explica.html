@@ -4,12 +4,13 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>FROID Explique — l'intelligence clinique de FROID</title>
-<meta name="description" content="FROID Explique est l'assistant LLM-RAG de FROID : répond sur les capacités de la plateforme, propose 22 prompts préconfigurés, permet des prompts personnalisés et croise votre portefeuille de patients avec le Data Mart anonyme pour valider les métriques IPM, IDM et propriétaires dans le temps." />
+<meta name="description" content="FROID Explique est l'assistant LLM-RAG de FROID : répond sur les capacités de la plateforme, propose 22 prompts préconfigurés, permet des prompts personnalisés et croise votre portefeuille de patients avec le Data-Froid anonyme pour valider les métriques IPM, IDM et propriétaires dans le temps." />
 <link rel="alternate" hreflang="pt-BR" href="https://www.froid.com.br/froid-explica.html" />
 <link rel="alternate" hreflang="en" href="https://www.froid.com.br/en/froid-explica.html" />
 <link rel="alternate" hreflang="fr" href="https://www.froid.com.br/fr/froid-explica.html" />
+<link rel="alternate" hreflang="es" href="https://www.froid.com.br/es/froid-explica.html" />
 <link rel="alternate" hreflang="x-default" href="https://www.froid.com.br/froid-explica.html" />
-<link rel="stylesheet" href="../site-assets/style.css?v=6" />
+<link rel="stylesheet" href="../site-assets/style.css?v=7" />
 <style>
   /* Zone vidéo réservée (16:9) */
   .video-frame {
@@ -46,7 +47,7 @@
   }
   .prompt-list.analytics li::before { color:#3730a3; background:#e0e7ff; border-color:#c7d2fe; }
 
-  /* Statistiques du Data Mart */
+  /* Statistiques du Data-Froid */
   .dm-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin:8px 0 4px; }
   @media (max-width:760px){ .dm-stats { grid-template-columns:1fr 1fr; } }
   .dm-stat { background:#0a1226; border:1px solid #2a3a5c; border-radius:12px; padding:18px 16px; text-align:center; }
@@ -75,7 +76,7 @@
     <div class="nav-actions">
       <a class="btn btn-ghost" href="https://www.froid.com.br/app/#/login">Se connecter à FROID</a>
       <a class="btn btn-solid" href="https://www.froid.com.br/cadastro">S'inscrire à FROID</a>
-      <div class="lang-group" role="group" aria-label="Choisir la langue"><a class="lang-pill" href="../froid-explica.html">PT</a><a class="lang-pill" href="../en/froid-explica.html">EN</a><span class="lang-pill lang-current">FR</span></div>
+      <div class="lang-group" role="group" aria-label="Choisir la langue"><a class="lang-pill" href="../froid-explica.html">PT</a><a class="lang-pill" href="../en/froid-explica.html">EN</a><span class="lang-pill lang-current">FR</span><a class="lang-pill" href="../es/froid-explica.html">ES</a></div>
     </div>
   </div>
 </header>
@@ -84,10 +85,10 @@
   <div class="container">
     <p class="section-kicker" style="color:#93c5fd;">Le différenciateur FROID</p>
     <h1 style="font-size:2.3rem;">FROID Explique : l'intelligence qui connaît FROID <em>et</em> votre pratique</h1>
-    <p class="lead">Un assistant IA à génération augmentée par récupération (LLM-RAG) qui répond, en langage clinique, à tout ce dont le professionnel a besoin pour explorer les capacités de la plateforme pendant la séance — et qui croise votre portefeuille de patients avec le Data Mart anonyme mondial.</p>
+    <p class="lead">Un assistant IA à génération augmentée par récupération (LLM-RAG) qui répond, en langage clinique, à tout ce dont le professionnel a besoin pour explorer les capacités de la plateforme pendant la séance — et qui croise votre portefeuille de patients avec le Data-Froid anonyme mondial.</p>
     <div class="hero-actions">
       <a class="btn btn-solid" href="#prompts">Voir les 22 prompts</a>
-      <a class="btn btn-ghost" href="#datamart">Découvrir le Data Mart</a>
+      <a class="btn btn-ghost" href="#datamart">Découvrir le Data-Froid</a>
     </div>
   </div>
 </section>
@@ -118,9 +119,9 @@
         <p>Génération augmentée par récupération (RAG) sur la base de connaissances vérifiée de FROID : 12 Zones, IPM, IDM, biomarqueurs, FACS et la bibliographie scientifique. Répond à « que signifie cette dissonance ? » avec des arguments — toujours sur des métriques déjà calculées, <strong>sans jamais générer les valeurs acoustiques</strong>.</p>
       </div>
       <div class="card mode-card">
-        <span class="badge badge-proprietary tag">Analytique · Data Mart</span>
+        <span class="badge badge-proprietary tag">Analytique · Data-Froid</span>
         <h3>Compare avec la base populationnelle</h3>
-        <p>Requêtes analytiques sur le Data Mart anonyme : « ce patient est-il au-dessus de la moyenne en risque ? », « cas les plus similaires (top 5) », « interventions les plus efficaces pour des profils similaires ». L'intelligence de votre portefeuille rencontre l'intelligence de milliers de séances — sans DCP.</p>
+        <p>Requêtes analytiques sur le Data-Froid anonyme : « ce patient est-il au-dessus de la moyenne en risque ? », « cas les plus similaires (top 5) », « interventions les plus efficaces pour des profils similaires ». L'intelligence de votre portefeuille rencontre l'intelligence de milliers de séances — sans DCP.</p>
       </div>
     </div>
     <div class="card" style="margin-top:24px;">
@@ -158,7 +159,7 @@
         </ol>
       </div>
       <div class="prompt-group">
-        <h3>Comparaison avec le Data Mart</h3>
+        <h3>Comparaison avec le Data-Froid</h3>
         <p class="desc">Croisement du patient avec la base populationnelle anonyme (moteur analytique).</p>
         <ol class="prompt-list analytics">
           <li>Comment ce patient se compare-t-il à la moyenne populationnelle en Zones FROID ?</li>
@@ -187,7 +188,7 @@
     <div class="grid-2">
       <div>
         <p>Dans son espace de configuration, le professionnel enregistre ses propres prompts — des questions récurrentes de son approche, de son cadre théorique ou de sa patientèle spécifique. Ils restent sauvegardés sur son compte et accessibles en un clic, aux côtés des 22 prompts natifs.</p>
-        <p>Chaque prompt personnalisé peut interroger à la fois <strong>votre portefeuille de patients</strong> et le <strong>Data Mart anonyme</strong> — combinant ce que vous seul savez de vos cas avec la puissance statistique de milliers de séances dans le monde. C'est ce croisement qui crée le grand différenciateur : plus le réseau grandit, plus vos questions obtiennent des réponses fondées empiriquement.</p>
+        <p>Chaque prompt personnalisé peut interroger à la fois <strong>votre portefeuille de patients</strong> et le <strong>Data-Froid anonyme</strong> — combinant ce que vous seul savez de vos cas avec la puissance statistique de milliers de séances dans le monde. C'est ce croisement qui crée le grand différenciateur : plus le réseau grandit, plus vos questions obtiennent des réponses fondées empiriquement.</p>
         <ul>
           <li>Prompts personnels enregistrés par professionnel, dans l'espace de configuration</li>
           <li>Accès à votre propre portefeuille + à la base populationnelle anonyme</li>
@@ -197,7 +198,7 @@
       <div class="card">
         <span class="badge badge-proprietary">Exemple de prompt personnalisé</span>
         <h3 style="margin-top:10px;">« Mes patients avec une baisse d'IPM »</h3>
-        <p style="color:var(--froid-cinza);">« Parmi mes patients, lesquels ont eu une baisse soutenue de l'IPM lors des 3 dernières séances, et comment ce schéma se compare-t-il à des cas analogues dans le Data Mart ? »</p>
+        <p style="color:var(--froid-cinza);">« Parmi mes patients, lesquels ont eu une baisse soutenue de l'IPM lors des 3 dernières séances, et comment ce schéma se compare-t-il à des cas analogues dans le Data-Froid ? »</p>
         <p style="font-size:0.86rem; color:var(--froid-cinza); margin-top:12px;">L'assistant combine la lecture de votre portefeuille avec la base anonyme et renvoie une réponse argumentée — la décision clinique reste la vôtre.</p>
       </div>
     </div>
@@ -208,12 +209,12 @@
   </div>
 </section>
 
-<!-- DATA MART -->
+<!-- DATA-FROID -->
 <section class="block" id="datamart">
   <div class="container">
     <div class="dm-panel">
       <p class="section-kicker" style="color:#93c5fd;">La base qui apprend du monde</p>
-      <h2 class="section-title" style="color:#fff;">Le Data Mart : la plus grande base de perception clinique anonyme</h2>
+      <h2 class="section-title" style="color:#fff;">Le Data-Froid : la plus grande base de perception clinique anonyme</h2>
       <p class="section-lead">Un référentiel croissant contenant la transcription et les signaux anonymisés de milliers de séances réalisées dans le monde entier — dépourvu de toute information personnelle (DCP) — conçu pour être exploré par des modèles à très grande échelle à la recherche de nouvelles pistes, métriques et associations cliniques.</p>
 
       <div class="dm-stats">
@@ -224,7 +225,7 @@
       </div>
 
       <p style="margin-top:20px; color:rgba(219,228,255,.82);">À mesure que le réseau grandit, ce corpus est analysé par des intelligences dotées de plus de <strong>1,2 mille milliards de paramètres</strong>, capables de cartographier des associations qu'aucune séance isolée ne révélerait — et de convertir progressivement les heuristiques de l'IPM et de l'IDM en métriques statistiquement validées. C'est le moteur de validation populationnelle de FROID.</p>
-      <p style="margin-top:12px; font-size:0.9rem; color:rgba(219,228,255,.6);"><strong>Engagement d'honnêteté :</strong> le Data Mart est le chemin vers la validation dans le temps, pas une preuve déjà établie. Aujourd'hui, l'IPM et l'IDM demeurent des paramètres d'ingénierie qualifiés ; la base grandit pour les prouver. Anonymisation et limites décrites dans <a href="etica.html" style="color:#93c5fd;">Éthique</a> et <a href="seguranca.html" style="color:#93c5fd;">Sécurité</a>.</p>
+      <p style="margin-top:12px; font-size:0.9rem; color:rgba(219,228,255,.6);"><strong>Engagement d'honnêteté :</strong> le Data-Froid est le chemin vers la validation dans le temps, pas une preuve déjà établie. Aujourd'hui, l'IPM et l'IDM demeurent des paramètres d'ingénierie qualifiés ; la base grandit pour les prouver. Anonymisation et limites décrites dans <a href="etica.html" style="color:#93c5fd;">Éthique</a> et <a href="seguranca.html" style="color:#93c5fd;">Sécurité</a>.</p>
     </div>
   </div>
 </section>

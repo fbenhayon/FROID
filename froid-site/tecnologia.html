@@ -8,8 +8,9 @@
 <link rel="alternate" hreflang="pt-BR" href="https://www.froid.com.br/tecnologia.html" />
 <link rel="alternate" hreflang="en" href="https://www.froid.com.br/en/tecnologia.html" />
 <link rel="alternate" hreflang="fr" href="https://www.froid.com.br/fr/tecnologia.html" />
+<link rel="alternate" hreflang="es" href="https://www.froid.com.br/es/tecnologia.html" />
 <link rel="alternate" hreflang="x-default" href="https://www.froid.com.br/tecnologia.html" />
-<link rel="stylesheet" href="site-assets/style.css?v=6" />
+<link rel="stylesheet" href="site-assets/style.css?v=7" />
 </head>
 <body>
 
@@ -29,7 +30,7 @@
     <div class="nav-actions">
       <a class="btn btn-ghost" href="https://www.froid.com.br/app/#/login">Entrar no FROID</a>
       <a class="btn btn-solid" href="https://www.froid.com.br/cadastro">Cadastrar no FROID</a>
-      <div class="lang-group" role="group" aria-label="Choose language"><span class="lang-pill lang-current">PT</span><a class="lang-pill" href="en/tecnologia.html">EN</a><a class="lang-pill" href="fr/tecnologia.html">FR</a></div>
+      <div class="lang-group" role="group" aria-label="Choose language"><span class="lang-pill lang-current">PT</span><a class="lang-pill" href="en/tecnologia.html">EN</a><a class="lang-pill" href="fr/tecnologia.html">FR</a><a class="lang-pill" href="es/tecnologia.html">ES</a></div>
     </div>
   </div>
 </header>
@@ -188,7 +189,7 @@ score  > 3.0 → VERMELHO</div>
 D_energia,z = (E_z − E_baseline,z) / (E_baseline,z + ε),   ε = 1e-9
 M_fac(t) = 1.0 + 1.5 · [ AU12 · (1 − AU6) · Conf_apex ]   (teto = 2.5)</div>
         <p>Em repouso ou congruência, M_fac = 1.0. No limiar máximo de dissonância (sorriso social puro, sem contração orbital, Conf_apex ≥ 0.75) o multiplicador atinge o teto de 2.5. A produção atual aplica a forma binária desse multiplicador (2.5 quando o flag de dissonância dispara, 1.0 caso contrário — ver Etapa 3); a expressão contínua acima é o modelo de referência. Implementado em <code>froid-engine.ts → calculateIDM()</code>.</p>
-        <p style="font-size:0.92rem; color:var(--froid-cinza);"><strong>Honestidade de engenharia:</strong> os pesos, os coeficientes de fusão e o próprio 2.5 são parâmetros de produto refinados em laboratório — hipóteses clínicas qualificadas, não constantes científicas publicadas. A validação populacional definitiva depende do Data Mart anônimo (k-anonymity + hashes de via única). Ver enquadramento em <a href="ciencia.html">Ciência</a>.</p>
+        <p style="font-size:0.92rem; color:var(--froid-cinza);"><strong>Honestidade de engenharia:</strong> os pesos, os coeficientes de fusão e o próprio 2.5 são parâmetros de produto refinados em laboratório — hipóteses clínicas qualificadas, não constantes científicas publicadas. A validação populacional definitiva depende do Data-Froid anônimo (k-anonymity + hashes de via única). Ver enquadramento em <a href="ciencia.html">Ciência</a>.</p>
       </div>
     </div>
   </div>
