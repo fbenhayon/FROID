@@ -35,7 +35,7 @@ class Phase4SecurityTests(unittest.TestCase):
     def test_clinical_routes_require_commercial_access_gate(self):
         for route in (
             "/session/create", "/api/session-invites", "/api/session-events/latest",
-            "/api/session-events", "/api/froid-explica/query",
+            "/api/session-events", "/api/session-waiting", "/api/froid-explica/query",
             "/api/insights", "/api/knowledge", "/api/transcribe",
             "/api/session-summary",
         ):

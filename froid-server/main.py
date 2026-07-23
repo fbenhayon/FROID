@@ -3252,6 +3252,9 @@ class RtcSignalManager:
             self.rooms.pop(session_id, None)
         return peer_socket
 
+    def role_connected(self, session_id: str, role: str) -> bool:
+        return bool((self.rooms.get(session_id) or {}).get(role))
+
     async def relay(self, session_id: str, role: str, message: dict):
         room = self.rooms.get(session_id) or {}
         peer_role = "patient" if role == "professional" else "professional"
@@ -6202,6 +6205,48 @@ async def get_session_events(request: Request, after: int = 0):
         "latest_id": events[-1]["id"] if events else after,
         "events": events[-50:],
     }
+
+
+@app.get("/api/session-waiting")
+async def get_waiting_patient_sessions(request: Request):
+    user = _require_current_user(request)
+    context = _require_professional_feature_access(request)
+    owner_email = _normalize_email(user.get("email") or "")
+    organization_id = context.organization_id if context else ""
+    completed_session_ids = set(_load_session_reports(reveal_transcripts=False))
+    waiting = []
+
+    for invite in SESSION_INVITES.values():
+        session_id = str(invite.get("session_id") or "").strip()
+        if (
+            not session_id
+            or session_id in completed_session_ids
+            or invite.get("status") != "accepted"
+            or _normalize_email(invite.get("professional_email") or "") != owner_email
+            or _invite_organization_id(invite) != organization_id
+            or not rtc_signals.role_connected(session_id, "patient")
+        ):
+            continue
+
+        entries = PATIENT_SESSION_ENTRIES.get(session_id) or []
+        latest_entry = entries[-1] if entries else {}
+        waiting.append(
+            {
+                "session_id": session_id,
+                "patient_id": invite.get("patient_id"),
+                "patient_name": invite.get("patient_name") or "Paciente",
+                "patient_email": invite.get("patient_email") or "",
+                "patient_phone": invite.get("patient_phone") or "",
+                "session_mode": invite.get("session_mode") or "remote",
+                "joined_at": latest_entry.get("joined_at")
+                or invite.get("accepted_at")
+                or invite.get("created_at"),
+                "patient_connected": True,
+            }
+        )
+
+    waiting.sort(key=lambda item: str(item.get("joined_at") or ""), reverse=True)
+    return {"waiting": waiting}
 
 @app.get("/api/auth/config")
 def auth_config():

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { FroidUser } from "../App";
 import { AIInsights } from "../components/panels/AIInsights";
+import { WaitingPatientSessions } from "../components/WaitingPatientSessions";
 import { apiUrl } from "../lib/api";
 import {
   buildPatientGroups,
@@ -88,6 +89,8 @@ export const ProfessionalDashboardSummary: React.FC<Props> = ({ user, onLogout }
       </header>
 
       <main className="mx-auto max-w-7xl space-y-4 p-5">
+        <WaitingPatientSessions />
+
         <section className="overflow-x-auto rounded-lg border border-slate-800 bg-slate-900 p-3">
           <div className="flex min-w-max items-center gap-5 text-[11px]">
             <strong className="text-sm">{tr("Resumo profissional")}</strong>

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { WaitingPatientSessions } from "../components/WaitingPatientSessions";
 import { AIInsights } from "../components/panels/AIInsights";
 import { FroidTooltip } from "../components/ui/FroidTooltip";
 import { apiUrl } from "../lib/api";
@@ -593,6 +594,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
       </header>
 
       <main className="mx-auto max-w-7xl space-y-4 p-6">
+
+      <WaitingPatientSessions />
 
       {patientActivity && (
         <p className="rounded-lg border border-cyan-800 bg-cyan-950 px-3 py-2 text-xs font-bold text-cyan-100">
