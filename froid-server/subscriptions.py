@@ -93,20 +93,6 @@ SESSION_PACKAGES: dict[str, dict[str, Any]] = {
             "cny": {"unit_amount_minor": 1656, "total_amount_minor": 165600},
         },
     },
-    "master_200": {
-        "code": "master_200", "plan_code": "master", "sessions": 200,
-        "prices": {
-            "brl": {"unit_amount_minor": 2444, "total_amount_minor": 488800},
-            "usd": {"unit_amount_minor": 489, "total_amount_minor": 97800},
-            "eur": {"unit_amount_minor": 408, "total_amount_minor": 81500},
-            "cny": {"unit_amount_minor": 1833, "total_amount_minor": 366600},
-        },
-    },
-}
-
-# Historical packages remain recognizable only for delayed Stripe reconciliation.
-# They are deliberately excluded from public_package_catalog() and new checkout.
-LEGACY_SESSION_PACKAGES: dict[str, dict[str, Any]] = {
     "master_25": {
         "code": "master_25", "plan_code": "master", "sessions": 25,
         "prices": {
@@ -117,16 +103,6 @@ LEGACY_SESSION_PACKAGES: dict[str, dict[str, Any]] = {
         },
     },
 }
-
-
-def resolve_session_package(
-    package_code: str, *, include_legacy: bool = False
-) -> dict[str, Any] | None:
-    normalized = str(package_code or "").strip().lower()
-    package = SESSION_PACKAGES.get(normalized)
-    if package or not include_legacy:
-        return package
-    return LEGACY_SESSION_PACKAGES.get(normalized)
 
 
 def package_price(package: dict[str, Any], currency: str) -> dict[str, int] | None:

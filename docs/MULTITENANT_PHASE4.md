@@ -41,7 +41,7 @@ A migração `006_subscription_entitlements.sql` mantém catálogo, assinatura p
 organização e identificadores de eventos Stripe. O navegador nunca informa
 preço nem libera acesso. Os cinco pacotes comerciais usam IDs Stripe definidos
 por `STRIPE_PRICE_PRO_10`, `STRIPE_PRICE_PRO_25`, `STRIPE_PRICE_PLUS_50`,
-`STRIPE_PRICE_PLUS_100` e `STRIPE_PRICE_MASTER_200`; o webhook exige
+`STRIPE_PRICE_PLUS_100` e `STRIPE_PRICE_MASTER_25`; o webhook exige
 `STRIPE_WEBHOOK_SECRET`, valida o corpo bruto e registra cada evento uma única
 vez. A recarga automática somente é autorizada após consentimento expresso e
 quando o saldo total da organização chega a zero. Ative
@@ -58,14 +58,12 @@ multimoeda BRL, USD, EUR e CNY. Os totais oficiais cobrados são:
 | PRO 25 | 470 | 94 | 78 | 353 |
 | PLUS 50 | 1.182 | 236 | 197 | 889 |
 | PLUS 100 | 2.202 | 440 | 367 | 1.656 |
-| MASTER 200 | 4.888 | 978 | 815 | 3.666 |
+| MASTER 25 | 20 | 4 | 3 | 15 |
 
 O backend expande `currency_options` do preço, valida moeda e total antes do
 Checkout e novamente no webhook. A moeda contratada é armazenada e não pode ser
 trocada pela recarga automática. O consentimento de recarga registra data e
 versão dos termos aceitos; uma alteração comercial exige nova contratação.
-`STRIPE_PRICE_MASTER_25` permanece opcional apenas durante a transição para
-reconciliar checkouts antigos e nunca é apresentado para uma nova venda.
 
 ## Chaves de criptografia obrigatórias
 

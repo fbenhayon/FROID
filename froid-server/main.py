@@ -32,14 +32,12 @@ from tenant_store import TenantStore, stable_uuid
 from subscriptions import (
     ACTIVE_SUBSCRIPTION_STATUSES,
     AUTO_REPLENISH_TERMS_VERSION,
-    LEGACY_SESSION_PACKAGES,
     SESSION_PACKAGES,
     SUPPORTED_BILLING_CURRENCIES,
     SUBSCRIPTION_PLANS,
     StripeSignatureError,
     public_plan_catalog,
     public_package_catalog,
-    resolve_session_package,
     verify_stripe_event,
     package_price,
 )
@@ -196,10 +194,6 @@ STRIPE_CURRENCY = os.getenv("STRIPE_CURRENCY", "brl")
 STRIPE_SUBSCRIPTION_PRICE_IDS = {
     code: os.getenv(f"STRIPE_PRICE_{code.upper()}", "").strip()
     for code in SESSION_PACKAGES
-}
-STRIPE_LEGACY_PRICE_IDS = {
-    code: os.getenv(f"STRIPE_PRICE_{code.upper()}", "").strip()
-    for code in LEGACY_SESSION_PACKAGES
 }
 FROID_SUBSCRIPTIONS_REQUIRED = os.getenv(
     "FROID_SUBSCRIPTIONS_REQUIRED", "false"
@@ -7374,11 +7368,7 @@ async def _verify_stripe_checkout_line_item(
     expected_amount: int,
 ) -> None:
     """Fail closed unless Stripe confirms the exact server-owned package price."""
-    expected_price_id = (
-        STRIPE_SUBSCRIPTION_PRICE_IDS.get(package_code)
-        or STRIPE_LEGACY_PRICE_IDS.get(package_code)
-        or ""
-    )
+    expected_price_id = STRIPE_SUBSCRIPTION_PRICE_IDS.get(package_code) or ""
     if not expected_price_id:
         raise HTTPException(status_code=503, detail="preço Stripe não configurado")
     async with httpx.AsyncClient(timeout=20.0) as client:
@@ -7607,7 +7597,7 @@ async def confirm_subscription_checkout(request: Request):
         raise HTTPException(status_code=409, detail="pagamento ainda não confirmado pelo Stripe")
 
     package_code = str(metadata.get("package_code") or "").strip().lower()
-    package = resolve_session_package(package_code, include_legacy=True)
+    package = SESSION_PACKAGES.get(package_code)
     currency = _normalize_stripe_currency(metadata.get("currency"))
     commercial_price = package_price(package or {}, currency)
     auto_replenish = metadata.get("auto_replenish") == "true"
@@ -7745,7 +7735,7 @@ async def stripe_webhook(request: Request):
             return {"received": True, "handled": True, "applied": False}
         organization_id = str(metadata.get("organization_id") or "").strip()
         package_code = str(metadata.get("package_code") or "").strip().lower()
-        package = resolve_session_package(package_code, include_legacy=True)
+        package = SESSION_PACKAGES.get(package_code)
         currency = _normalize_stripe_currency(metadata.get("currency"))
         commercial_price = package_price(package or {}, currency)
         auto_replenish = metadata.get("auto_replenish") == "true"
