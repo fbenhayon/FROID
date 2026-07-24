@@ -135,6 +135,28 @@ export async function configureConferenceSender(sender: RTCRtpSender) {
   await sender.setParameters(parameters).catch(() => undefined);
 }
 
+export function adoptRemoteTrack(
+  remoteStream: MediaStream,
+  track: MediaStreamTrack,
+) {
+  const sameKindTracks = track.kind === "audio"
+    ? remoteStream.getAudioTracks()
+    : remoteStream.getVideoTracks();
+  let alreadyPresent = false;
+  sameKindTracks.forEach((existing) => {
+    if (existing.id === track.id) {
+      alreadyPresent = true;
+      return;
+    }
+    // Uma trilha nova do mesmo tipo substitui a anterior; manter as duas
+    // deixa o elemento de mídia renderizando a trilha antiga/congelada.
+    existing.stop();
+    remoteStream.removeTrack(existing);
+  });
+  if (!alreadyPresent) remoteStream.addTrack(track);
+  return !alreadyPresent;
+}
+
 function sameTrackSet(element: HTMLMediaElement, tracks: MediaStreamTrack[]) {
   const current = element.srcObject instanceof MediaStream
     ? element.srcObject.getTracks().map((track) => track.id).sort()
@@ -175,11 +197,13 @@ export function attachRemoteMedia(
         && !track.muted,
     );
 
+  // Renderiza no máximo uma trilha por tipo (a mais recente): um <video> só
+  // exibe uma trilha do stream, e a antiga venceria a nova se permanecesse.
   if (videoElement) {
     videoElement.muted = true;
-    attachTracks(videoElement, liveVideoTracks);
+    attachTracks(videoElement, liveVideoTracks.slice(-1));
   }
-  attachTracks(audioElement, liveAudioTracks);
+  attachTracks(audioElement, liveAudioTracks.slice(-1));
   return {
     audio: liveAudioTracks.length > 0,
     video: liveVideoTracks.length > 0,
@@ -195,6 +219,43 @@ export type RtcMediaFlowStats = {
   videoFramesEncoded: number;
   candidateType: string;
 };
+
+export type MediaFlowDelta = {
+  audioFlowing: boolean;
+  videoFlowing: boolean;
+};
+
+export function evaluateInboundFlow(
+  previous: RtcMediaFlowStats | null,
+  current: RtcMediaFlowStats,
+): MediaFlowDelta | null {
+  if (!previous) return null;
+  return {
+    audioFlowing: current.audioBytesReceived > previous.audioBytesReceived,
+    videoFlowing:
+      current.videoFramesDecoded > previous.videoFramesDecoded
+      || (
+        current.videoFramesDecoded === 0
+        && current.videoBytesReceived > previous.videoBytesReceived
+      ),
+  };
+}
+
+export function evaluateOutboundFlow(
+  previous: RtcMediaFlowStats | null,
+  current: RtcMediaFlowStats,
+): MediaFlowDelta | null {
+  if (!previous) return null;
+  return {
+    audioFlowing: current.audioBytesSent > previous.audioBytesSent,
+    videoFlowing:
+      current.videoFramesEncoded > previous.videoFramesEncoded
+      || (
+        current.videoFramesEncoded === 0
+        && current.videoBytesSent > previous.videoBytesSent
+      ),
+  };
+}
 
 export async function readRtcMediaFlowStats(
   peer: RTCPeerConnection,

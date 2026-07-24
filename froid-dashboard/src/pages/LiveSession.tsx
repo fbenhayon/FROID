@@ -19,12 +19,15 @@ import { getAUDetails, ZONE_CLINICAL_DESCRIPTIONS } from "../lib/froid-data";
 import { apiUrl, wsUrl } from "../lib/api";
 import {
   activateRtcRelayFallback,
+  adoptRemoteTrack,
   attachRemoteMedia,
   configureConferenceSender,
   createConferenceStream,
+  evaluateInboundFlow,
   loadRtcConfiguration,
   readRtcMediaFlowStats,
   shouldReconnectRtcSignaling,
+  type RtcMediaFlowStats,
 } from "../lib/webrtc";
 import {
   MetricSnapshot,
@@ -2854,6 +2857,11 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         if (markDisconnected) setPatientAudioVersion(0);
       };
 
+      let offerWatchdogTimer: number | null = null;
+      const clearOfferWatchdog = () => {
+        if (offerWatchdogTimer) window.clearTimeout(offerWatchdogTimer);
+        offerWatchdogTimer = null;
+      };
       const makeOffer = async () => {
         if (rtcMakingOfferRef.current || peer.signalingState !== "stable") return;
         rtcMakingOfferRef.current = true;
@@ -2862,6 +2870,21 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           await peer.setLocalDescription(offer);
           sendSignal({ type: "offer", offer: peer.localDescription });
           setRtcStatus("Chamando paciente...");
+          // Sem resposta dentro do prazo, a conexão ficaria presa em
+          // have-local-offer e nenhum caminho de recuperação conseguiria
+          // reofertar; o rollback devolve o estado stable e tenta de novo.
+          clearOfferWatchdog();
+          offerWatchdogTimer = window.setTimeout(() => {
+            offerWatchdogTimer = null;
+            if (
+              peer.signalingState !== "have-local-offer"
+              || peer.connectionState === "closed"
+            ) return;
+            void peer
+              .setLocalDescription({ type: "rollback" })
+              .catch(() => undefined)
+              .then(() => makeOffer());
+          }, 8_000);
         } finally {
           rtcMakingOfferRef.current = false;
         }
@@ -2944,14 +2967,19 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       peer.ontrack = (event) => {
         const incomingTracks = event.streams[0]?.getTracks() || [event.track];
         incomingTracks.forEach((track) => {
-          if (!remoteStream.getTracks().some((item) => item.id === track.id)) {
-            remoteStream.addTrack(track);
-          }
+          adoptRemoteTrack(remoteStream, track);
           track.onended = () => {
             clearMutedTrackRecovery(track);
             remoteStream.removeTrack(track);
             refreshRemoteTracks();
-            if (track.kind === "audio") resetPatientAudioPipeline(true);
+            // Só derruba o pipeline de áudio se a trilha encerrada for a que
+            // está vinculada; uma trilha obsoleta não pode matar a atual.
+            if (
+              track.kind === "audio"
+              && patientRemoteAudioTrackIdRef.current === track.id
+            ) {
+              resetPatientAudioPipeline(true);
+            }
           };
           track.onmute = () => scheduleMutedTrackRecovery(track);
           track.onunmute = () => {
@@ -2965,27 +2993,16 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         bindPatientAudioTrack();
       };
 
-      let previousFlowStats: Awaited<
-        ReturnType<typeof readRtcMediaFlowStats>
-      > | null = null;
+      let previousFlowStats: RtcMediaFlowStats | null = null;
       let stalledFlowChecks = 0;
       const monitorInboundPatientMedia = async () => {
         if (peer.connectionState === "closed") return;
         const current = await readRtcMediaFlowStats(peer).catch(() => null);
         if (!current) return;
-        if (!previousFlowStats) {
-          previousFlowStats = current;
-          return;
-        }
-        const audioFlowing =
-          current.audioBytesReceived > previousFlowStats.audioBytesReceived;
-        const videoFlowing =
-          current.videoFramesDecoded > previousFlowStats.videoFramesDecoded
-          || (
-            current.videoFramesDecoded === 0
-            && current.videoBytesReceived > previousFlowStats.videoBytesReceived
-          );
+        const inbound = evaluateInboundFlow(previousFlowStats, current);
         previousFlowStats = current;
+        if (!inbound) return;
+        const { audioFlowing, videoFlowing } = inbound;
         setRemotePatientOn(audioFlowing);
         setRemotePatientVideoOn(videoFlowing);
         const route = current.candidateType
@@ -3072,6 +3089,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           await makeOffer();
         } else if (data.type === "answer" && data.answer) {
           if (peer.signalingState !== "have-local-offer") return;
+          clearOfferWatchdog();
           await peer.setRemoteDescription(data.answer);
           await flushIceQueue();
         } else if (data.type === "renegotiate-request") {

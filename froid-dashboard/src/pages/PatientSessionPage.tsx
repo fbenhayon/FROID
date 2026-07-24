@@ -3,12 +3,16 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { apiUrl, wsUrl } from "../lib/api";
 import {
   activateRtcRelayFallback,
+  adoptRemoteTrack,
   attachRemoteMedia,
   configureConferenceSender,
   createConferenceStream,
+  evaluateInboundFlow,
+  evaluateOutboundFlow,
   loadRtcConfiguration,
   readRtcMediaFlowStats,
   shouldReconnectRtcSignaling,
+  type RtcMediaFlowStats,
 } from "../lib/webrtc";
 import { normalizeSessionLocale, patientCopy, type SessionLocale } from "../lib/localization";
 
@@ -111,19 +115,50 @@ export const PatientSessionPage: React.FC = () => {
     };
   }, [inviteToken, sessionId]);
 
+  const replaceOutgoingTracks = async (localConferenceStream: MediaStream) => {
+    const peer = rtcPeerRef.current;
+    const signal = rtcSignalRef.current;
+    const peerAlive = peer
+      && peer.connectionState !== "closed"
+      && peer.connectionState !== "failed"
+      && peer.signalingState !== "closed";
+    if (!peerAlive || signal?.readyState !== WebSocket.OPEN) return false;
+    const senders = peer.getSenders();
+    for (const track of localConferenceStream.getTracks()) {
+      const sender = senders.find((item) => item.track?.kind === track.kind);
+      if (!sender) return false;
+      try {
+        await sender.replaceTrack(track);
+        await configureConferenceSender(sender);
+      } catch {
+        return false;
+      }
+    }
+    return true;
+  };
+
   const startPatientRtc = async (localSource: MediaStream) => {
     if (!sessionId || typeof RTCPeerConnection === "undefined") {
       setCallStatus("WebRTC indisponível neste navegador.");
       return;
     }
 
-    cleanupRtc();
-    rtcClosingRef.current = false;
     const localConferenceStream = createConferenceStream(localSource);
     if (!localConferenceStream.getTracks().length) {
       setCallStatus("Áudio e vídeo locais indisponiveis para chamada.");
       return;
     }
+
+    // Reaproveita a conexão viva trocando apenas as trilhas nos senders:
+    // sem novo ICE nem oferta, e o profissional mantém os mesmos objetos de
+    // trilha remota — impossível acumular trilha antiga com nova.
+    if (await replaceOutgoingTracks(localConferenceStream)) {
+      setCallStatus("Câmera e microfone atualizados na chamada atual.");
+      return;
+    }
+
+    cleanupRtc();
+    rtcClosingRef.current = false;
 
     const peer = new RTCPeerConnection(
       await loadRtcConfiguration({ sessionId, inviteToken }),
@@ -158,25 +193,21 @@ export const PatientSessionPage: React.FC = () => {
         remoteVideoRef.current,
         remoteAudioRef.current,
       );
-      setRemoteProfessionalOn(media.audio);
-      setRemoteProfessionalVideoOn(media.video);
+      // A existência de trilha só pode rebaixar o status; quem promove para
+      // "ativo" é o monitor de fluxo real (getStats), nunca a negociação.
+      if (!media.audio) setRemoteProfessionalOn(false);
+      if (!media.video) setRemoteProfessionalVideoOn(false);
       setCallStatus(
-        media.audio && media.video
-          ? "Profissional conectado: áudio e vídeo ativos."
-          : media.audio
-            ? "Profissional conectado: áudio ativo, aguardando vídeo."
-            : media.video
-              ? "Profissional conectado: vídeo ativo, aguardando áudio."
-              : "Conectado, aguardando mídia do profissional.",
+        media.audio || media.video
+          ? "Trilhas do profissional negociadas; validando fluxo real..."
+          : "Conectado, aguardando mídia do profissional.",
       );
     };
 
     peer.ontrack = (event) => {
       const incomingTracks = event.streams[0]?.getTracks() || [event.track];
       incomingTracks.forEach((track) => {
-        if (!remoteStream.getTracks().some((item) => item.id === track.id)) {
-          remoteStream.addTrack(track);
-        }
+        adoptRemoteTrack(remoteStream, track);
         track.onended = () => {
           remoteStream.removeTrack(track);
           refreshRemoteTracks();
@@ -187,33 +218,40 @@ export const PatientSessionPage: React.FC = () => {
       refreshRemoteTracks();
     };
 
-    let previousFlowStats: Awaited<
-      ReturnType<typeof readRtcMediaFlowStats>
-    > | null = null;
+    let previousFlowStats: RtcMediaFlowStats | null = null;
     let stalledOutboundChecks = 0;
-    const monitorPatientOutboundMedia = async () => {
+    const monitorPatientMediaFlow = async () => {
       if (peer.connectionState === "closed") return;
       const current = await readRtcMediaFlowStats(peer).catch(() => null);
       if (!current) return;
-      if (!previousFlowStats) {
-        previousFlowStats = current;
-        return;
-      }
-      const audioSending =
-        current.audioBytesSent > previousFlowStats.audioBytesSent;
-      const videoSending =
-        current.videoFramesEncoded > previousFlowStats.videoFramesEncoded
-        || (
-          current.videoFramesEncoded === 0
-          && current.videoBytesSent > previousFlowStats.videoBytesSent
-        );
+      const inbound = evaluateInboundFlow(previousFlowStats, current);
+      const outbound = evaluateOutboundFlow(previousFlowStats, current);
       previousFlowStats = current;
+      if (!inbound || !outbound) return;
+      // O que o paciente vê do profissional só fica "ativo" com fluxo real.
+      setRemoteProfessionalOn(inbound.audioFlowing);
+      setRemoteProfessionalVideoOn(inbound.videoFlowing);
       const route = current.candidateType
         ? ` · rota ${current.candidateType}`
         : "";
-      if (audioSending && videoSending) {
+      if (outbound.audioFlowing && outbound.videoFlowing) {
         stalledOutboundChecks = 0;
-        setCallStatus(`Transmitindo áudio e vídeo ao profissional${route}.`);
+        setCallStatus(
+          inbound.audioFlowing && inbound.videoFlowing
+            ? `Áudio e vídeo fluindo nos dois sentidos${route}.`
+            : `Transmitindo ao profissional; aguardando a mídia dele${route}.`,
+        );
+        return;
+      }
+      if (outbound.audioFlowing || outbound.videoFlowing) {
+        // Falha parcial não escala para renegociação: derrubar a trilha que
+        // funciona para recuperar a outra é o que gerava a instabilidade.
+        stalledOutboundChecks = 0;
+        setCallStatus(
+          outbound.audioFlowing
+            ? `Enviando áudio; vídeo sem saída${route}.`
+            : `Enviando vídeo; áudio sem saída${route}.`,
+        );
         return;
       }
       if (peer.connectionState !== "connected") return;
@@ -240,7 +278,7 @@ export const PatientSessionPage: React.FC = () => {
       window.clearInterval(rtcMediaHealthTimerRef.current);
     }
     rtcMediaHealthTimerRef.current = window.setInterval(
-      () => void monitorPatientOutboundMedia(),
+      () => void monitorPatientMediaFlow(),
       2_000,
     );
 
