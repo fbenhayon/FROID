@@ -2,10 +2,12 @@ import React, { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { apiUrl, wsUrl } from "../lib/api";
 import {
+  activateRtcRelayFallback,
   attachRemoteMedia,
   configureConferenceSender,
   createConferenceStream,
   loadRtcConfiguration,
+  readRtcMediaFlowStats,
   shouldReconnectRtcSignaling,
 } from "../lib/webrtc";
 import { normalizeSessionLocale, patientCopy, type SessionLocale } from "../lib/localization";
@@ -27,6 +29,7 @@ export const PatientSessionPage: React.FC = () => {
   const rtcIceQueueRef = useRef<RTCIceCandidateInit[]>([]);
   const rtcReconnectTimerRef = useRef<number | null>(null);
   const rtcDisconnectTimerRef = useRef<number | null>(null);
+  const rtcMediaHealthTimerRef = useRef<number | null>(null);
   const rtcClosingRef = useRef(false);
   const [joinState, setJoinState] = useState<JoinState>("checking");
   const [mediaState, setMediaState] = useState<MediaState>("idle");
@@ -49,6 +52,10 @@ export const PatientSessionPage: React.FC = () => {
     if (rtcDisconnectTimerRef.current) {
       window.clearTimeout(rtcDisconnectTimerRef.current);
       rtcDisconnectTimerRef.current = null;
+    }
+    if (rtcMediaHealthTimerRef.current) {
+      window.clearInterval(rtcMediaHealthTimerRef.current);
+      rtcMediaHealthTimerRef.current = null;
     }
     rtcSignalRef.current?.close();
     rtcSignalRef.current = null;
@@ -179,6 +186,63 @@ export const PatientSessionPage: React.FC = () => {
       });
       refreshRemoteTracks();
     };
+
+    let previousFlowStats: Awaited<
+      ReturnType<typeof readRtcMediaFlowStats>
+    > | null = null;
+    let stalledOutboundChecks = 0;
+    const monitorPatientOutboundMedia = async () => {
+      if (peer.connectionState === "closed") return;
+      const current = await readRtcMediaFlowStats(peer).catch(() => null);
+      if (!current) return;
+      if (!previousFlowStats) {
+        previousFlowStats = current;
+        return;
+      }
+      const audioSending =
+        current.audioBytesSent > previousFlowStats.audioBytesSent;
+      const videoSending =
+        current.videoFramesEncoded > previousFlowStats.videoFramesEncoded
+        || (
+          current.videoFramesEncoded === 0
+          && current.videoBytesSent > previousFlowStats.videoBytesSent
+        );
+      previousFlowStats = current;
+      const route = current.candidateType
+        ? ` · rota ${current.candidateType}`
+        : "";
+      if (audioSending && videoSending) {
+        stalledOutboundChecks = 0;
+        setCallStatus(`Transmitindo áudio e vídeo ao profissional${route}.`);
+        return;
+      }
+      if (peer.connectionState !== "connected") return;
+      stalledOutboundChecks += 1;
+      setCallStatus(
+        `Conexão ativa, mas mídia sem saída (${stalledOutboundChecks}/3)${route}.`,
+      );
+      if (stalledOutboundChecks < 3) return;
+      stalledOutboundChecks = 0;
+      const relayActivated = activateRtcRelayFallback(peer);
+      if (relayActivated) {
+        peer.restartIce();
+        setCallStatus("Rota direta sem mídia; ativando o relay TURN protegido...");
+        sendSignal({ type: "renegotiate-request" });
+        return;
+      }
+      setMediaState("failed");
+      setError(
+        "A chamada conectou sem transmitir câmera e microfone. Toque em Ativar câmera e microfone para reconstruir a conexão.",
+      );
+      sendSignal({ type: "renegotiate-request" });
+    };
+    if (rtcMediaHealthTimerRef.current) {
+      window.clearInterval(rtcMediaHealthTimerRef.current);
+    }
+    rtcMediaHealthTimerRef.current = window.setInterval(
+      () => void monitorPatientOutboundMedia(),
+      2_000,
+    );
 
     peer.onicecandidate = (event) => {
       if (event.candidate) {

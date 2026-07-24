@@ -94,6 +94,25 @@ export function createConferenceStream(source: MediaStream) {
   return stream;
 }
 
+export function activateRtcRelayFallback(peer: RTCPeerConnection) {
+  const configuration = peer.getConfiguration();
+  if (configuration.iceTransportPolicy === "relay") return false;
+  const hasTurn = (configuration.iceServers || []).some((server) => {
+    const urls = Array.isArray(server.urls) ? server.urls : [server.urls];
+    return urls.some((url) => String(url || "").toLowerCase().startsWith("turn"));
+  });
+  if (!hasTurn) return false;
+  try {
+    peer.setConfiguration({
+      ...configuration,
+      iceTransportPolicy: "relay",
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function configureConferenceSender(sender: RTCRtpSender) {
   const track = sender.track;
   if (!track) return;
@@ -165,4 +184,67 @@ export function attachRemoteMedia(
     audio: liveAudioTracks.length > 0,
     video: liveVideoTracks.length > 0,
   };
+}
+
+export type RtcMediaFlowStats = {
+  audioBytesReceived: number;
+  videoBytesReceived: number;
+  videoFramesDecoded: number;
+  audioBytesSent: number;
+  videoBytesSent: number;
+  videoFramesEncoded: number;
+  candidateType: string;
+};
+
+export async function readRtcMediaFlowStats(
+  peer: RTCPeerConnection,
+): Promise<RtcMediaFlowStats> {
+  const result: RtcMediaFlowStats = {
+    audioBytesReceived: 0,
+    videoBytesReceived: 0,
+    videoFramesDecoded: 0,
+    audioBytesSent: 0,
+    videoBytesSent: 0,
+    videoFramesEncoded: 0,
+    candidateType: "",
+  };
+  const reports = await peer.getStats();
+  let selectedPair: any = null;
+  let selectedPairId = "";
+  reports.forEach((report: any) => {
+    const kind = String(report.kind || report.mediaType || "");
+    if (report.type === "inbound-rtp" && !report.isRemote) {
+      if (kind === "audio") {
+        result.audioBytesReceived += Number(report.bytesReceived || 0);
+      } else if (kind === "video") {
+        result.videoBytesReceived += Number(report.bytesReceived || 0);
+        result.videoFramesDecoded += Number(report.framesDecoded || 0);
+      }
+    } else if (report.type === "outbound-rtp" && !report.isRemote) {
+      if (kind === "audio") {
+        result.audioBytesSent += Number(report.bytesSent || 0);
+      } else if (kind === "video") {
+        result.videoBytesSent += Number(report.bytesSent || 0);
+        result.videoFramesEncoded += Number(report.framesEncoded || 0);
+      }
+    } else if (
+      report.type === "candidate-pair"
+      && report.state === "succeeded"
+      && (report.nominated || report.selected)
+    ) {
+      selectedPair = report;
+    } else if (report.type === "transport" && report.selectedCandidatePairId) {
+      selectedPairId = String(report.selectedCandidatePairId);
+    }
+  });
+  if (!selectedPair && selectedPairId) selectedPair = reports.get(selectedPairId);
+  if (selectedPair) {
+    const local = reports.get(selectedPair.localCandidateId) as any;
+    const remote = reports.get(selectedPair.remoteCandidateId) as any;
+    result.candidateType = [
+      local?.candidateType || "",
+      remote?.candidateType || "",
+    ].filter(Boolean).join("/");
+  }
+  return result;
 }

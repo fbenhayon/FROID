@@ -82,6 +82,13 @@ class PatientMobileWebRtcTests(unittest.TestCase):
         self.assertIn("peer.restartIce()", self.professional_session)
         self.assertIn("reconectando...", self.professional_session)
 
+    def test_connected_status_requires_actual_media_flow(self):
+        self.assertIn("monitorInboundPatientMedia", self.professional_session)
+        self.assertIn("WebRTC conectado sem transportar mídia", self.professional_session)
+        self.assertIn("monitorPatientOutboundMedia", self.patient_session)
+        self.assertIn("mídia sem saída", self.patient_session)
+        self.assertIn("candidateType", self.webrtc)
+
     def test_media_attachment_and_signaling_reconnects_are_bounded(self):
         self.assertIn("sameTrackSet", self.webrtc)
         self.assertIn("MAX_INITIAL_SIGNALING_RECONNECTS = 8", self.webrtc)

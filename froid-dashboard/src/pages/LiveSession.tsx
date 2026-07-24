@@ -18,10 +18,12 @@ import { FroidPayload, PerceptionZone } from "../lib/froid-engine";
 import { getAUDetails, ZONE_CLINICAL_DESCRIPTIONS } from "../lib/froid-data";
 import { apiUrl, wsUrl } from "../lib/api";
 import {
+  activateRtcRelayFallback,
   attachRemoteMedia,
   configureConferenceSender,
   createConferenceStream,
   loadRtcConfiguration,
+  readRtcMediaFlowStats,
   shouldReconnectRtcSignaling,
 } from "../lib/webrtc";
 import {
@@ -2300,6 +2302,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const rtcMakingOfferRef = useRef(false);
   const rtcReconnectTimerRef = useRef<number | null>(null);
   const rtcDisconnectTimerRef = useRef<number | null>(null);
+  const rtcMediaHealthTimerRef = useRef<number | null>(null);
   const rtcClosingRef = useRef(false);
   const bioacousticStreamRef = useRef<MediaStream | null>(null);
   const bioacousticContextRef = useRef<AudioContext | null>(null);
@@ -2719,6 +2722,10 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       window.clearTimeout(rtcDisconnectTimerRef.current);
       rtcDisconnectTimerRef.current = null;
     }
+    if (rtcMediaHealthTimerRef.current) {
+      window.clearInterval(rtcMediaHealthTimerRef.current);
+      rtcMediaHealthTimerRef.current = null;
+    }
     rtcSignalRef.current?.close();
     rtcSignalRef.current = null;
     rtcPeerRef.current?.close();
@@ -2866,16 +2873,12 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           remoteVideoRef.current,
           isPresentialMobileSession ? null : remoteAudioRef.current,
         );
-        setRemotePatientOn(media.audio);
-        setRemotePatientVideoOn(media.video);
+        if (!media.audio) setRemotePatientOn(false);
+        if (!media.video) setRemotePatientVideoOn(false);
         setRtcStatus(
-          media.audio && media.video
-            ? "Paciente conectado: áudio e vídeo ativos."
-            : media.audio
-              ? "Paciente conectado: áudio ativo, aguardando vídeo."
-              : media.video
-                ? "Paciente conectado: vídeo ativo, aguardando áudio."
-                : "Conectado, aguardando trilhas reais do paciente.",
+          media.audio || media.video
+            ? "Trilhas negociadas; validando fluxo real do paciente..."
+            : "Conectado, aguardando trilhas reais do paciente.",
         );
       };
 
@@ -2961,6 +2964,68 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         refreshRemoteTracks();
         bindPatientAudioTrack();
       };
+
+      let previousFlowStats: Awaited<
+        ReturnType<typeof readRtcMediaFlowStats>
+      > | null = null;
+      let stalledFlowChecks = 0;
+      const monitorInboundPatientMedia = async () => {
+        if (peer.connectionState === "closed") return;
+        const current = await readRtcMediaFlowStats(peer).catch(() => null);
+        if (!current) return;
+        if (!previousFlowStats) {
+          previousFlowStats = current;
+          return;
+        }
+        const audioFlowing =
+          current.audioBytesReceived > previousFlowStats.audioBytesReceived;
+        const videoFlowing =
+          current.videoFramesDecoded > previousFlowStats.videoFramesDecoded
+          || (
+            current.videoFramesDecoded === 0
+            && current.videoBytesReceived > previousFlowStats.videoBytesReceived
+          );
+        previousFlowStats = current;
+        setRemotePatientOn(audioFlowing);
+        setRemotePatientVideoOn(videoFlowing);
+        const route = current.candidateType
+          ? ` · rota ${current.candidateType}`
+          : "";
+        if (audioFlowing && videoFlowing) {
+          stalledFlowChecks = 0;
+          setRtcStatus(`Paciente conectado: áudio e vídeo recebidos${route}.`);
+          return;
+        }
+        if (audioFlowing || videoFlowing) {
+          stalledFlowChecks = 0;
+          setRtcStatus(
+            audioFlowing
+              ? `Áudio recebido; vídeo sem quadros${route}.`
+              : `Vídeo recebido; áudio sem pacotes${route}.`,
+          );
+          return;
+        }
+        if (peer.connectionState !== "connected") return;
+        stalledFlowChecks += 1;
+        setRtcStatus(
+          `WebRTC conectado sem transportar mídia (${stalledFlowChecks}/3)${route}.`,
+        );
+        if (stalledFlowChecks < 3 || peer.signalingState !== "stable") return;
+        stalledFlowChecks = 0;
+        const relayActivated = activateRtcRelayFallback(peer);
+        if (relayActivated) {
+          setRtcStatus("Rota direta sem mídia; alternando para o relay TURN protegido...");
+        }
+        peer.restartIce();
+        await makeOffer();
+      };
+      if (rtcMediaHealthTimerRef.current) {
+        window.clearInterval(rtcMediaHealthTimerRef.current);
+      }
+      rtcMediaHealthTimerRef.current = window.setInterval(
+        () => void monitorInboundPatientMedia(),
+        2_000,
+      );
 
       peer.onicecandidate = (event) => {
         if (event.candidate) {
@@ -4554,7 +4619,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         wsRef.current.close();
       } catch {}
     dispatch({ type: "END_SESSION" });
-    navigate(`/session/${report.sessionId}/report`);
+    navigate(`/session/${report.sessionId}/report`, { replace: true });
   }, [archiveSessionReport, createSessionReport, navigate]);
 
   useEffect(() => {
