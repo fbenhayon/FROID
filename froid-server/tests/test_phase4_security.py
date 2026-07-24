@@ -7,6 +7,7 @@ import unittest
 
 
 SERVER_DIR = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = SERVER_DIR.parent
 if str(SERVER_DIR) not in sys.path:
     sys.path.insert(0, str(SERVER_DIR))
 
@@ -20,6 +21,12 @@ class Phase4SecurityTests(unittest.TestCase):
     def setUpClass(cls):
         cls.main_source = (SERVER_DIR / "main.py").read_text(encoding="utf-8")
         cls.store_source = (SERVER_DIR / "tenant_store.py").read_text(encoding="utf-8")
+        cls.compose_source = (PROJECT_ROOT / "docker-compose.yml").read_text(
+            encoding="utf-8"
+        )
+        cls.frontend_dockerfile = (
+            PROJECT_ROOT / "froid-dashboard" / "Dockerfile"
+        ).read_text(encoding="utf-8")
         cls.migration = (
             SERVER_DIR / "migrations" / "006_subscription_entitlements.sql"
         ).read_text(encoding="utf-8")
@@ -137,6 +144,44 @@ class Phase4SecurityTests(unittest.TestCase):
         revealed = cipher.reveal(protected)
         self.assertEqual(revealed["access_token"], "access-secret")
         self.assertEqual(revealed["refresh_token"], "refresh-secret")
+
+    def test_google_sign_in_and_calendar_use_separate_oauth_clients(self):
+        self.assertIn("GOOGLE_AUTH_CLIENT_ID", self.main_source)
+        self.assertIn("GOOGLE_CALENDAR_CLIENT_ID", self.main_source)
+        self.assertIn("GOOGLE_CALENDAR_CLIENT_SECRET", self.main_source)
+        self.assertIn(
+            "VITE_GOOGLE_CLIENT_ID=${GOOGLE_AUTH_CLIENT_ID:-",
+            self.compose_source,
+        )
+        self.assertIn("ARG VITE_GOOGLE_CLIENT_ID", self.frontend_dockerfile)
+        verify_start = self.main_source.index("async def _verify_google_credential")
+        verify_end = self.main_source.index(
+            "\n\nasync def froid_stream_loop", verify_start
+        )
+        verify_source = self.main_source[verify_start:verify_end]
+        self.assertIn("GOOGLE_AUTH_CLIENT_ID", verify_source)
+        self.assertNotIn("GOOGLE_CALENDAR_CLIENT_ID", verify_source)
+        calendar_start = self.main_source.index("def _calendar_auth_url")
+        calendar_end = self.main_source.index(
+            "\n\nasync def _refresh_google_calendar_token", calendar_start
+        )
+        calendar_source = self.main_source[calendar_start:calendar_end]
+        self.assertIn("GOOGLE_CALENDAR_CLIENT_ID", calendar_source)
+        self.assertIn("GOOGLE_CALENDAR_CLIENT_SECRET", calendar_source)
+
+    def test_calendar_selection_is_user_controlled_and_server_verified(self):
+        route_start = self.main_source.index(
+            '@app.post("/api/google-calendar/select-calendar")'
+        )
+        route_end = self.main_source.index(
+            '@app.get("/api/google-calendar/events")', route_start
+        )
+        route_source = self.main_source[route_start:route_end]
+        self.assertIn("calendarList/", route_source)
+        self.assertIn('calendar.get("accessRole") != "owner"', route_source)
+        self.assertIn('"selected_calendar_id": calendar_id', route_source)
+        self.assertIn("verified_summary", route_source)
+        self.assertIn('"recommended_calendar_id": recommended', self.main_source)
 
     def test_encrypted_token_survives_a_locked_state_save(self):
         cipher = TokenCipher([Fernet.generate_key().decode("ascii")])

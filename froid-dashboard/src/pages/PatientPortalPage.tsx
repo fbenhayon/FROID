@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiUrl } from "../lib/api";
 import {
   fmt,
@@ -125,6 +125,18 @@ export const PatientPortalPage: React.FC = () => {
   const [patient, setPatient] = useState<PatientIdentity | null>(() => readStoredPatient());
   const [reports, setReports] = useState<SessionReportRecord[]>([]);
   const [loginForm, setLoginForm] = useState({ document: "", password: "" });
+  const [passwordForm, setPasswordForm] = useState({
+    current_password: "",
+    new_password: "",
+    password_confirm: "",
+  });
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [googleReady, setGoogleReady] = useState(false);
+  const googleButtonRef = useRef<HTMLDivElement | null>(null);
+  const googleClientId = useMemo(
+    () => ((import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || "").trim(),
+    [],
+  );
   const [profileForm, setProfileForm] = useState({
     name: "",
     phone: "",
@@ -176,6 +188,88 @@ export const PatientPortalPage: React.FC = () => {
       }
     }
   }, []);
+
+  const applyAuthenticatedPatient = useCallback(
+    (data: any) => {
+      const nextToken = data?.token || "";
+      if (!nextToken) throw new Error("O FROID não recebeu uma sessão válida.");
+      setToken(nextToken);
+      if (typeof window !== "undefined") {
+        window.sessionStorage.setItem(PATIENT_TOKEN_KEY, nextToken);
+      }
+      applyPatient(data.patient || null);
+      setMessage("Acesso do paciente liberado.");
+    },
+    [applyPatient],
+  );
+
+  useEffect(() => {
+    if (!googleClientId || googleReady || token) return;
+    const existing = document.querySelector<HTMLScriptElement>(
+      'script[src="https://accounts.google.com/gsi/client"]',
+    );
+    const activateGoogle = () => setGoogleReady(true);
+    if (existing) {
+      if ((window as any).google?.accounts?.id) activateGoogle();
+      else existing.addEventListener("load", activateGoogle, { once: true });
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = activateGoogle;
+    script.onerror = () => setError("Não foi possível carregar o acesso pelo Google.");
+    document.head.appendChild(script);
+  }, [googleClientId, googleReady, token]);
+
+  useEffect(() => {
+    if (!googleReady || !googleClientId || !googleButtonRef.current || token) return;
+    const googleAuth = (window as any).google?.accounts?.id;
+    if (!googleAuth) return;
+    googleButtonRef.current.replaceChildren();
+    googleAuth.initialize({
+      client_id: googleClientId,
+      callback: async (response: { credential?: string }) => {
+        if (!response.credential) {
+          setError("O Google não retornou uma credencial válida.");
+          return;
+        }
+        setLoading(true);
+        setError("");
+        setMessage("");
+        try {
+          const result = await fetch(apiUrl("/api/patient-auth/google"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ credential: response.credential }),
+          });
+          const data = await result.json().catch(() => ({}));
+          if (!result.ok) {
+            throw new Error(data?.detail || "Não foi possível entrar com o Google.");
+          }
+          applyAuthenticatedPatient(data);
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "Falha no acesso pelo Google.");
+        } finally {
+          setLoading(false);
+        }
+      },
+    });
+    googleAuth.renderButton(googleButtonRef.current, {
+      theme: "outline",
+      size: "large",
+      type: "standard",
+      text: "continue_with",
+      shape: "rectangular",
+      width: 352,
+    });
+  }, [
+    applyAuthenticatedPatient,
+    googleClientId,
+    googleReady,
+    token,
+  ]);
 
   const loadReports = useCallback(async () => {
     if (!token) return;
@@ -342,17 +436,40 @@ export const PatientPortalPage: React.FC = () => {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.detail || "Não foi possível acessar o portal.");
-      const nextToken = data.token || "";
-      setToken(nextToken);
-      if (typeof window !== "undefined") {
-        window.sessionStorage.setItem(PATIENT_TOKEN_KEY, nextToken);
-      }
-      applyPatient(data.patient || null);
-      setMessage("Acesso do paciente liberado.");
+      applyAuthenticatedPatient(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao autenticar paciente.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const updatePassword = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!token) return;
+    setPasswordSaving(true);
+    setError("");
+    setMessage("");
+    try {
+      const response = await fetch(apiUrl("/api/patient-portal/password"), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", ...authHeaders },
+        body: JSON.stringify(passwordForm),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.detail || "Não foi possível alterar a senha.");
+      }
+      setPasswordForm({
+        current_password: "",
+        new_password: "",
+        password_confirm: "",
+      });
+      setMessage("Nova senha registrada com segurança.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao alterar a senha.");
+    } finally {
+      setPasswordSaving(false);
     }
   };
 
@@ -470,6 +587,22 @@ export const PatientPortalPage: React.FC = () => {
             >
               {loading ? "Validando..." : "Entrar no portal"}
             </button>
+            {googleClientId && (
+              <>
+                <div className="my-4 flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
+                  <span className="h-px flex-1 bg-slate-700" />
+                  esqueceu a senha?
+                  <span className="h-px flex-1 bg-slate-700" />
+                </div>
+                <p className="mb-3 text-xs leading-5 text-slate-300">
+                  Entre com a conta Google que usa o mesmo e-mail cadastrado no FROID.
+                  Depois você poderá criar uma nova senha.
+                </p>
+                <div className="rounded-lg bg-white p-2">
+                  <div ref={googleButtonRef} className="flex justify-center" />
+                </div>
+              </>
+            )}
           </form>
         </main>
       </div>
@@ -573,6 +706,75 @@ export const PatientPortalPage: React.FC = () => {
               className="mt-4 rounded bg-cyan-600 px-4 py-2 text-xs font-black text-white hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {saving ? "Salvando..." : "Salvar dados"}
+            </button>
+          </form>
+
+          <form
+            onSubmit={updatePassword}
+            className="rounded-lg border border-cyan-900 bg-slate-900 p-4"
+          >
+            <h2 className="text-sm font-black text-white">Segurança do acesso</h2>
+            <p className="mt-2 text-xs leading-5 text-slate-300">
+              Se você entrou pelo Google, não precisa informar a senha atual para
+              criar uma nova senha FROID.
+            </p>
+            <label className="mt-3 block text-[10px] font-bold uppercase text-slate-400">
+              Senha atual
+              <input
+                type="password"
+                autoComplete="current-password"
+                value={passwordForm.current_password}
+                onChange={(event) =>
+                  setPasswordForm((current) => ({
+                    ...current,
+                    current_password: event.target.value,
+                  }))
+                }
+                className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm normal-case text-white outline-none focus:border-cyan-400"
+              />
+            </label>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <label className="block text-[10px] font-bold uppercase text-slate-400">
+                Nova senha
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  minLength={8}
+                  required
+                  value={passwordForm.new_password}
+                  onChange={(event) =>
+                    setPasswordForm((current) => ({
+                      ...current,
+                      new_password: event.target.value,
+                    }))
+                  }
+                  className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm normal-case text-white outline-none focus:border-cyan-400"
+                />
+              </label>
+              <label className="block text-[10px] font-bold uppercase text-slate-400">
+                Confirmar nova senha
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  minLength={8}
+                  required
+                  value={passwordForm.password_confirm}
+                  onChange={(event) =>
+                    setPasswordForm((current) => ({
+                      ...current,
+                      password_confirm: event.target.value,
+                    }))
+                  }
+                  className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm normal-case text-white outline-none focus:border-cyan-400"
+                />
+              </label>
+            </div>
+            <button
+              type="submit"
+              disabled={passwordSaving}
+              className="mt-4 rounded bg-cyan-600 px-4 py-2 text-xs font-black text-white hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {passwordSaving ? "Protegendo..." : "Registrar nova senha"}
             </button>
           </form>
 

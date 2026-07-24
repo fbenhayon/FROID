@@ -32,12 +32,14 @@ from tenant_store import TenantStore, stable_uuid
 from subscriptions import (
     ACTIVE_SUBSCRIPTION_STATUSES,
     AUTO_REPLENISH_TERMS_VERSION,
+    LEGACY_SESSION_PACKAGES,
     SESSION_PACKAGES,
     SUPPORTED_BILLING_CURRENCIES,
     SUBSCRIPTION_PLANS,
     StripeSignatureError,
     public_plan_catalog,
     public_package_catalog,
+    resolve_session_package,
     verify_stripe_event,
     package_price,
 )
@@ -165,6 +167,15 @@ FROID_ADMIN_EMAILS = {
 }
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
+GOOGLE_AUTH_CLIENT_ID = (
+    os.getenv("GOOGLE_AUTH_CLIENT_ID", "").strip() or GOOGLE_CLIENT_ID
+)
+GOOGLE_CALENDAR_CLIENT_ID = (
+    os.getenv("GOOGLE_CALENDAR_CLIENT_ID", "").strip() or GOOGLE_CLIENT_ID
+)
+GOOGLE_CALENDAR_CLIENT_SECRET = (
+    os.getenv("GOOGLE_CALENDAR_CLIENT_SECRET", "").strip() or GOOGLE_CLIENT_SECRET
+)
 GOOGLE_AUTH_DEV_FALLBACK = os.getenv("GOOGLE_AUTH_DEV_FALLBACK", "false").lower() in {"1", "true", "yes", "on"}
 GOOGLE_CALENDAR_SCOPES = [
     "openid",
@@ -185,6 +196,10 @@ STRIPE_CURRENCY = os.getenv("STRIPE_CURRENCY", "brl")
 STRIPE_SUBSCRIPTION_PRICE_IDS = {
     code: os.getenv(f"STRIPE_PRICE_{code.upper()}", "").strip()
     for code in SESSION_PACKAGES
+}
+STRIPE_LEGACY_PRICE_IDS = {
+    code: os.getenv(f"STRIPE_PRICE_{code.upper()}", "").strip()
+    for code in LEGACY_SESSION_PACKAGES
 }
 FROID_SUBSCRIPTIONS_REQUIRED = os.getenv(
     "FROID_SUBSCRIPTIONS_REQUIRED", "false"
@@ -654,6 +669,16 @@ class FroidExplicaResponse(BaseModel):
 class PatientPortalLoginRequest(BaseModel):
     document: str = ""
     password: str = ""
+
+
+class PatientGoogleLoginRequest(BaseModel):
+    credential: str = Field(..., min_length=20)
+
+
+class PatientPasswordUpdate(BaseModel):
+    current_password: str = ""
+    new_password: str = Field(..., min_length=8, max_length=256)
+    password_confirm: str = Field(..., min_length=8, max_length=256)
 
 
 class PatientPortalProfileUpdate(BaseModel):
@@ -2101,6 +2126,21 @@ def _find_registered_patient_by_document(document: str) -> Optional[dict]:
     return None
 
 
+def _find_registered_patient_by_email(email: str) -> Optional[dict]:
+    normalized_email = _normalize_email(email)
+    if not normalized_email:
+        return None
+    matches = {
+        str(patient.get("id") or patient_id): patient
+        for patient_id, patient in PATIENTS.items()
+        if isinstance(patient, dict)
+        and _normalize_email(patient.get("email") or "") == normalized_email
+    }
+    if len(matches) != 1:
+        return None
+    return next(iter(matches.values()))
+
+
 def _patient_session_matches_report(report: dict, patient_session: dict) -> bool:
     patient = _patient_identity_from_report(report)
     session_patient_id = str(patient_session.get("id") or "")
@@ -3499,11 +3539,14 @@ def _verify_patient_password(patient: dict, password: str) -> bool:
     return secrets.compare_digest(_password_hash(password, salt), expected)
 
 
-def _issue_patient_portal_session(patient: dict) -> dict:
+def _issue_patient_portal_session(
+    patient: dict, auth_provider: str = "password"
+) -> dict:
     token = secrets.token_urlsafe(32)
     patient_session = {
         **_patient_public_identity(patient),
         "role": "patient",
+        "_auth_provider": str(auth_provider or "password"),
         "issued_at": _utc_now_iso(),
         "_session_expires_at": datetime.now(timezone.utc).timestamp()
         + FROID_PATIENT_SESSION_TTL_SECONDS,
@@ -4498,7 +4541,7 @@ def _calendar_connection_public(connection: Optional[dict]) -> dict:
 
 
 def _calendar_configured() -> bool:
-    return bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET)
+    return bool(GOOGLE_CALENDAR_CLIENT_ID and GOOGLE_CALENDAR_CLIENT_SECRET)
 
 
 def _calendar_auth_url(email: str, redirect_uri: str) -> str:
@@ -4509,7 +4552,7 @@ def _calendar_auth_url(email: str, redirect_uri: str) -> str:
         "created_at": datetime.now(timezone.utc).timestamp(),
     }
     params = {
-        "client_id": GOOGLE_CLIENT_ID,
+        "client_id": GOOGLE_CALENDAR_CLIENT_ID,
         "redirect_uri": redirect_uri,
         "response_type": "code",
         "scope": " ".join(GOOGLE_CALENDAR_SCOPES),
@@ -4528,8 +4571,8 @@ async def _exchange_google_calendar_code(code: str, redirect_uri: str) -> dict:
             "https://oauth2.googleapis.com/token",
             data={
                 "code": code,
-                "client_id": GOOGLE_CLIENT_ID,
-                "client_secret": GOOGLE_CLIENT_SECRET,
+                "client_id": GOOGLE_CALENDAR_CLIENT_ID,
+                "client_secret": GOOGLE_CALENDAR_CLIENT_SECRET,
                 "redirect_uri": redirect_uri,
                 "grant_type": "authorization_code",
             },
@@ -4547,8 +4590,8 @@ async def _refresh_google_calendar_token(email: str, connection: dict) -> dict:
         response = await client.post(
             "https://oauth2.googleapis.com/token",
             data={
-                "client_id": GOOGLE_CLIENT_ID,
-                "client_secret": GOOGLE_CLIENT_SECRET,
+                "client_id": GOOGLE_CALENDAR_CLIENT_ID,
+                "client_secret": GOOGLE_CALENDAR_CLIENT_SECRET,
                 "refresh_token": refresh_token,
                 "grant_type": "refresh_token",
             },
@@ -4586,6 +4629,11 @@ async def _calendar_access_token(email: str) -> str:
 def _selected_calendar_id(connection: Optional[dict], fallback: str = "primary") -> str:
     calendar_id = str((connection or {}).get("selected_calendar_id") or fallback or "primary").strip()
     return calendar_id or "primary"
+
+
+def _is_recommended_froid_calendar(summary: Any) -> bool:
+    normalized = " ".join(str(summary or "").strip().casefold().split())
+    return normalized == "froid" or normalized.startswith("froid -")
 
 
 async def _google_userinfo(access_token: str) -> dict:
@@ -4763,8 +4811,10 @@ def _verify_local_login(body: dict) -> dict:
 
 
 async def _verify_google_credential(credential: str) -> dict:
-    if not GOOGLE_CLIENT_ID:
-        raise HTTPException(status_code=503, detail="GOOGLE_CLIENT_ID não configurado")
+    if not GOOGLE_AUTH_CLIENT_ID:
+        raise HTTPException(
+            status_code=503, detail="GOOGLE_AUTH_CLIENT_ID não configurado"
+        )
 
     async with httpx.AsyncClient(timeout=10.0) as client:
         response = await client.get(
@@ -4776,7 +4826,7 @@ async def _verify_google_credential(credential: str) -> dict:
         raise HTTPException(status_code=401, detail="Credencial Google inválida")
 
     profile = response.json()
-    if profile.get("aud") != GOOGLE_CLIENT_ID:
+    if profile.get("aud") != GOOGLE_AUTH_CLIENT_ID:
         raise HTTPException(status_code=401, detail="Credencial Google de outro aplicativo")
     if str(profile.get("email_verified", "")).lower() != "true":
         raise HTTPException(status_code=401, detail="E-mail Google não verificado")
@@ -5833,7 +5883,53 @@ async def patient_portal_login(payload: PatientPortalLoginRequest, request: Requ
     if not _verify_patient_password(patient, password):
         raise HTTPException(status_code=401, detail="CPF/documento ou senha inválido")
     PATIENT_LOGIN_ATTEMPTS.pop(attempt_key, None)
-    return _issue_patient_portal_session(patient)
+    patient["last_auth_at"] = _utc_now_iso()
+    patient["last_auth_provider"] = "password"
+    _save_identity_state()
+    return _issue_patient_portal_session(patient, "password")
+
+
+@app.post("/api/patient-auth/google")
+async def patient_portal_google_login(
+    payload: PatientGoogleLoginRequest, request: Request
+):
+    google_identity = await _verify_google_credential(payload.credential)
+    patient = _find_registered_patient_by_email(
+        google_identity.get("email") or ""
+    )
+    if not patient:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Esta conta Google não corresponde ao e-mail de um paciente "
+                "já cadastrado no FROID"
+            ),
+        )
+    google_sub = str(google_identity.get("google_sub") or "").strip()
+    bound_google_sub = str(patient.get("google_sub") or "").strip()
+    if not google_sub or (bound_google_sub and bound_google_sub != google_sub):
+        raise HTTPException(
+            status_code=403,
+            detail="Conta Google diferente da vinculada a este paciente",
+        )
+    patient["google_sub"] = google_sub
+    patient["google_linked_at"] = patient.get("google_linked_at") or _utc_now_iso()
+    patient["last_auth_at"] = _utc_now_iso()
+    patient["last_auth_provider"] = "google"
+    patient["updated_at"] = _utc_now_iso()
+    _save_identity_state()
+    LOGGER.info(
+        json.dumps(
+            {
+                "event": "froid.patient_google_auth",
+                "outcome": "success",
+                "patient_id": str(patient.get("id") or ""),
+                "remote_addr": request.client.host if request.client else "",
+            },
+            ensure_ascii=False,
+        )
+    )
+    return _issue_patient_portal_session(patient, "google")
 
 
 @app.get("/api/patient-auth/me")
@@ -5848,6 +5944,51 @@ async def patient_portal_logout(request: Request):
     token = auth_header.replace("Bearer ", "", 1).strip() if auth_header.startswith("Bearer ") else ""
     if token:
         PATIENT_PORTAL_SESSIONS.pop(token, None)
+    return {"status": "ok"}
+
+
+@app.put("/api/patient-portal/password")
+async def patient_portal_update_password(
+    payload: PatientPasswordUpdate, request: Request
+):
+    patient_session = _require_current_patient(request)
+    patient_id = str(patient_session.get("id") or "")
+    patient = PATIENTS.get(patient_id)
+    if not isinstance(patient, dict):
+        raise HTTPException(status_code=404, detail="Paciente não localizado")
+    if payload.new_password != payload.password_confirm:
+        raise HTTPException(status_code=400, detail="Confirmação da nova senha não confere")
+    authenticated_with_google = (
+        str(patient_session.get("_auth_provider") or "") == "google"
+    )
+    if not authenticated_with_google and not _verify_patient_password(
+        patient, payload.current_password
+    ):
+        raise HTTPException(status_code=401, detail="Senha atual inválida")
+    _set_patient_password(patient, payload.new_password)
+    patient["updated_at"] = _utc_now_iso()
+    patient["password_updated_via"] = (
+        "google_recovery" if authenticated_with_google else "authenticated_change"
+    )
+    for session_token, active_session in list(PATIENT_PORTAL_SESSIONS.items()):
+        if (
+            active_session is not patient_session
+            and str(active_session.get("id") or "") == patient_id
+        ):
+            PATIENT_PORTAL_SESSIONS.pop(session_token, None)
+    patient_session.update(_patient_public_identity(patient))
+    _save_identity_state()
+    LOGGER.info(
+        json.dumps(
+            {
+                "event": "froid.patient_password_updated",
+                "patient_id": patient_id,
+                "method": patient["password_updated_via"],
+                "remote_addr": request.client.host if request.client else "",
+            },
+            ensure_ascii=False,
+        )
+    )
     return {"status": "ok"}
 
 
@@ -6251,7 +6392,8 @@ async def get_waiting_patient_sessions(request: Request):
 @app.get("/api/auth/config")
 def auth_config():
     return {
-        "google_client_id": GOOGLE_CLIENT_ID,
+        "google_client_id": GOOGLE_AUTH_CLIENT_ID,
+        "google_auth_configured": bool(GOOGLE_AUTH_CLIENT_ID),
         "dev_fallback_enabled": GOOGLE_AUTH_DEV_FALLBACK,
         "local_login_enabled": bool(
             (FROID_LOCAL_AUTH_PASSWORD and FROID_LOCAL_AUTH_EMAILS)
@@ -6702,7 +6844,10 @@ async def google_calendar_connect(request: Request):
     if not _calendar_configured():
         raise HTTPException(
             status_code=503,
-            detail="Configure GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET no servidor",
+            detail=(
+                "Configure GOOGLE_CALENDAR_CLIENT_ID e "
+                "GOOGLE_CALENDAR_CLIENT_SECRET no servidor"
+            ),
         )
     if not TOKEN_CIPHER:
         raise HTTPException(
@@ -6776,19 +6921,31 @@ async def google_calendar_calendars(request: Request):
         raise HTTPException(status_code=400, detail=f"Falha ao listar agendas Google: {response.text[:300]}")
     payload = response.json()
     selected_id = _selected_calendar_id(connection)
-    calendars = [
-        {
-            "id": item.get("id"),
-            "summary": item.get("summary") or item.get("id") or "Agenda",
-            "primary": bool(item.get("primary")),
-            "accessRole": item.get("accessRole") or "",
-            "backgroundColor": item.get("backgroundColor") or "",
-            "selected": str(item.get("id") or "") == selected_id,
-        }
-        for item in payload.get("items", [])
-        if isinstance(item, dict) and item.get("id")
-    ]
-    return {"selected_calendar_id": selected_id, "items": calendars}
+    calendars = []
+    for item in payload.get("items", []):
+        if not isinstance(item, dict) or not item.get("id"):
+            continue
+        summary = item.get("summary") or item.get("id") or "Agenda"
+        calendars.append(
+            {
+                "id": item.get("id"),
+                "summary": summary,
+                "primary": bool(item.get("primary")),
+                "accessRole": item.get("accessRole") or "",
+                "backgroundColor": item.get("backgroundColor") or "",
+                "selected": str(item.get("id") or "") == selected_id,
+                "recommended": _is_recommended_froid_calendar(summary),
+            }
+        )
+    recommended = next(
+        (calendar["id"] for calendar in calendars if calendar["recommended"]),
+        "",
+    )
+    return {
+        "selected_calendar_id": selected_id,
+        "recommended_calendar_id": recommended,
+        "items": calendars,
+    }
 
 
 @app.post("/api/google-calendar/select-calendar")
@@ -6798,16 +6955,35 @@ async def google_calendar_select_calendar(request: Request):
     email = _normalize_email(user.get("email") or "")
     body = await request.json()
     calendar_id = str(body.get("calendar_id") or "").strip()
-    calendar_summary = str(body.get("calendar_summary") or "").strip()
     if not calendar_id:
         raise HTTPException(status_code=400, detail="calendar_id obrigatório")
     connection = GOOGLE_CALENDAR_CONNECTIONS.get(email)
     if not connection:
         raise HTTPException(status_code=404, detail="Google Agenda não conectado")
+    token = await _calendar_access_token(email)
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        response = await client.get(
+            "https://www.googleapis.com/calendar/v3/users/me/calendarList/"
+            f"{quote(calendar_id, safe='')}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+    calendar = response.json() if response.status_code < 400 else {}
+    if (
+        response.status_code >= 400
+        or not isinstance(calendar, dict)
+        or calendar.get("accessRole") != "owner"
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Selecione uma agenda Google própria autorizada para o FROID",
+        )
+    verified_summary = str(
+        calendar.get("summary") or calendar.get("id") or calendar_id
+    ).strip()
     connection.update(
         {
             "selected_calendar_id": calendar_id,
-            "selected_calendar_summary": calendar_summary or calendar_id,
+            "selected_calendar_summary": verified_summary,
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
     )
@@ -7198,7 +7374,11 @@ async def _verify_stripe_checkout_line_item(
     expected_amount: int,
 ) -> None:
     """Fail closed unless Stripe confirms the exact server-owned package price."""
-    expected_price_id = STRIPE_SUBSCRIPTION_PRICE_IDS.get(package_code) or ""
+    expected_price_id = (
+        STRIPE_SUBSCRIPTION_PRICE_IDS.get(package_code)
+        or STRIPE_LEGACY_PRICE_IDS.get(package_code)
+        or ""
+    )
     if not expected_price_id:
         raise HTTPException(status_code=503, detail="preço Stripe não configurado")
     async with httpx.AsyncClient(timeout=20.0) as client:
@@ -7427,7 +7607,7 @@ async def confirm_subscription_checkout(request: Request):
         raise HTTPException(status_code=409, detail="pagamento ainda não confirmado pelo Stripe")
 
     package_code = str(metadata.get("package_code") or "").strip().lower()
-    package = SESSION_PACKAGES.get(package_code)
+    package = resolve_session_package(package_code, include_legacy=True)
     currency = _normalize_stripe_currency(metadata.get("currency"))
     commercial_price = package_price(package or {}, currency)
     auto_replenish = metadata.get("auto_replenish") == "true"
@@ -7565,7 +7745,7 @@ async def stripe_webhook(request: Request):
             return {"received": True, "handled": True, "applied": False}
         organization_id = str(metadata.get("organization_id") or "").strip()
         package_code = str(metadata.get("package_code") or "").strip().lower()
-        package = SESSION_PACKAGES.get(package_code)
+        package = resolve_session_package(package_code, include_legacy=True)
         currency = _normalize_stripe_currency(metadata.get("currency"))
         commercial_price = package_price(package or {}, currency)
         auto_replenish = metadata.get("auto_replenish") == "true"

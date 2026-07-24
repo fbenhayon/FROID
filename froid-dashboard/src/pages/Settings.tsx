@@ -61,6 +61,7 @@ type GoogleCalendarItem = {
   accessRole?: string;
   backgroundColor?: string;
   selected?: boolean;
+  recommended?: boolean;
 };
 
 const dateInputValue = (date: Date) => {
@@ -425,7 +426,6 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
         },
         body: JSON.stringify({
           calendar_id: calendarId,
-          calendar_summary: calendar?.summary || calendarId,
         }),
       });
       const data = await response.json();
@@ -816,6 +816,7 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
                         <option key={calendar.id} value={calendar.id}>
                           {calendar.summary}
                           {calendar.primary ? " (principal)" : ""}
+                          {calendar.recommended ? " — recomendada para o FROID" : ""}
                         </option>
                       ))}
                     </select>

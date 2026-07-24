@@ -25,6 +25,9 @@ services:
     environment:
       - GOOGLE_CLIENT_ID=109290160674-cbmk7j15patqk0679joi43lr2ndm5fal.apps.googleusercontent.com
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - GOOGLE_AUTH_CLIENT_ID=${GOOGLE_AUTH_CLIENT_ID:-}
+      - GOOGLE_CALENDAR_CLIENT_ID=${GOOGLE_CALENDAR_CLIENT_ID:-}
+      - GOOGLE_CALENDAR_CLIENT_SECRET=${GOOGLE_CALENDAR_CLIENT_SECRET:-}
       - GOOGLE_AUTH_DEV_FALLBACK=${GOOGLE_AUTH_DEV_FALLBACK:-false}
       - FROID_ALLOWED_ORIGINS=${FROID_ALLOWED_ORIGINS:-https://www.froid.com.br,https://froid.com.br}
       - FROID_SESSION_TOKEN_TTL_SECONDS=${FROID_SESSION_TOKEN_TTL_SECONDS:-28800}
@@ -41,6 +44,8 @@ services:
       - STRIPE_PRICE_PRO_25=${STRIPE_PRICE_PRO_25:-}
       - STRIPE_PRICE_PLUS_50=${STRIPE_PRICE_PLUS_50:-}
       - STRIPE_PRICE_PLUS_100=${STRIPE_PRICE_PLUS_100:-}
+      - STRIPE_PRICE_MASTER_200=${STRIPE_PRICE_MASTER_200:-}
+      # Legacy only: delayed reconciliation of checkouts created before MASTER 200.
       - STRIPE_PRICE_MASTER_25=${STRIPE_PRICE_MASTER_25:-}
       - FROID_TOKEN_ENCRYPTION_KEYS=${FROID_TOKEN_ENCRYPTION_KEYS:-}
       - FROID_CLINICAL_RECORD_ENCRYPTION_KEYS=${FROID_CLINICAL_RECORD_ENCRYPTION_KEYS:-}
@@ -104,7 +109,10 @@ services:
       retries: 10
     restart: unless-stopped
   froid-frontend:
-    build: ./froid-dashboard
+    build:
+      context: ./froid-dashboard
+      args:
+        - VITE_GOOGLE_CLIENT_ID=${GOOGLE_AUTH_CLIENT_ID:-109290160674-cbmk7j15patqk0679joi43lr2ndm5fal.apps.googleusercontent.com}
     ports:
       - "5173:80"
     restart: unless-stopped

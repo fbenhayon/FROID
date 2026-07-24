@@ -7,7 +7,13 @@ SERVER_DIR = Path(__file__).resolve().parents[1]
 if str(SERVER_DIR) not in sys.path:
     sys.path.insert(0, str(SERVER_DIR))
 
-from subscriptions import SESSION_PACKAGES, SUPPORTED_BILLING_CURRENCIES
+from subscriptions import (
+    LEGACY_SESSION_PACKAGES,
+    SESSION_PACKAGES,
+    SUPPORTED_BILLING_CURRENCIES,
+    public_package_catalog,
+    resolve_session_package,
+)
 from tenant_store import TenantStore
 
 
@@ -46,7 +52,7 @@ class Phase4BillingTests(unittest.TestCase):
             "pro_25": ("pro", 25, {"brl": (1880, 47000), "usd": (376, 9400), "eur": (313, 7800), "cny": (1414, 35300)}),
             "plus_50": ("plus", 50, {"brl": (2363, 118200), "usd": (473, 23600), "eur": (394, 19700), "cny": (1777, 88900)}),
             "plus_100": ("plus", 100, {"brl": (2202, 220200), "usd": (440, 44000), "eur": (367, 36700), "cny": (1656, 165600)}),
-            "master_25": ("master", 25, {"brl": (78, 2000), "usd": (16, 400), "eur": (13, 300), "cny": (59, 1500)}),
+            "master_200": ("master", 200, {"brl": (2444, 488800), "usd": (489, 97800), "eur": (408, 81500), "cny": (1833, 366600)}),
         }
         actual = {
             code: (
@@ -60,6 +66,30 @@ class Phase4BillingTests(unittest.TestCase):
         }
         self.assertEqual(actual, expected)
         self.assertEqual(SUPPORTED_BILLING_CURRENCIES, ("brl", "usd", "eur", "cny"))
+
+    def test_historical_master_package_is_reconciliation_only(self):
+        self.assertIn("master_25", LEGACY_SESSION_PACKAGES)
+        self.assertNotIn(
+            "master_25",
+            {package["code"] for package in public_package_catalog()},
+        )
+        legacy = resolve_session_package("master_25", include_legacy=True)
+        self.assertEqual(legacy["sessions"], 25)
+        self.assertIsNone(resolve_session_package("master_25"))
+
+    def test_new_checkout_rejects_legacy_package_but_reconciliation_accepts_it(self):
+        checkout_start = self.main.index('@app.post("/api/subscriptions/checkout")')
+        confirmation_start = self.main.index(
+            '@app.post("/api/subscriptions/confirm-checkout")'
+        )
+        webhook_start = self.main.index('@app.post("/api/stripe/webhook")')
+        checkout = self.main[checkout_start:confirmation_start]
+        confirmation = self.main[confirmation_start:webhook_start]
+        self.assertIn("package = SESSION_PACKAGES.get(package_code)", checkout)
+        self.assertIn(
+            "resolve_session_package(package_code, include_legacy=True)",
+            confirmation,
+        )
 
     def test_currency_is_validated_and_persisted(self):
         self.assertIn('params={"expand[]": "currency_options"}', self.main)
