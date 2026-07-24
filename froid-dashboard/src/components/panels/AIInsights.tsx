@@ -54,6 +54,14 @@ interface Props {
   baselineEstablished: boolean;
   sessionId?: string;
   extraContext?: Record<string, unknown>;
+  /**
+   * Fornecido no momento da pergunta (não a cada render) para evitar recriar a
+   * transcrição da sessão a cada frame; devolve transcrição com fala separada,
+   * biomarcadores e demais dados vivos que o FROID Explica pode consultar.
+   */
+  getLiveContext?: () => Record<string, unknown> | undefined;
+  /** Espelha a conversa (para anexar à ficha da sessão no encerramento). */
+  onConversationChange?: (messages: Array<{ role: string; content: string }>) => void;
   controlsSticky?: boolean;
   rootClassName?: string;
   messagesClassName?: string;
@@ -152,6 +160,8 @@ export const AIInsights: React.FC<Props> = ({
   baselineEstablished,
   sessionId = "",
   extraContext = {},
+  getLiveContext,
+  onConversationChange,
   controlsSticky = false,
   rootClassName = "",
   messagesClassName = "",
@@ -164,6 +174,15 @@ export const AIInsights: React.FC<Props> = ({
     "es-ES": { ready: "FROID Explica está listo.", you: "Usted", blocked: "Consulta bloqueada por los controles de gobernanza de datos.", native: "Prompts de FROID Explica", mine: "Mis prompts", select: "Seleccione un prompt...", selectMine: "Seleccione uno de mis prompts...", none: "No hay prompts personales registrados", placeholder: "Pregunte a FROID Explica...", send: "Enviar" },
   }[responseLocale];
   const [messages, setMessages] = useState<Message[]>([]);
+  useEffect(() => {
+    // Só espelha quando há conteúdo, para uma remontagem (troca de layout) com
+    // estado vazio não apagar a conversa já capturada para a ficha.
+    if (messages.length) {
+      onConversationChange?.(
+        messages.map((message) => ({ role: message.role, content: message.content })),
+      );
+    }
+  }, [messages, onConversationChange]);
   const [selectedPrompt, setSelectedPrompt] = useState("");
   const [selectedProfessionalPrompt, setSelectedProfessionalPrompt] = useState("");
   const [professionalPrompts, setProfessionalPrompts] = useState<ProfessionalPrompt[]>([]);
@@ -207,6 +226,9 @@ export const AIInsights: React.FC<Props> = ({
       dissonance_count: dissonanceCount,
       zones: sorted.slice(0, 12).map(compactZone),
       ...extraContext,
+      // Lido no ato da pergunta: transcrição (fala separada), biomarcadores e
+      // demais dados vivos que o FROID Explica pode consultar.
+      ...(getLiveContext?.() || {}),
     };
   }, [
     zones,
@@ -215,6 +237,7 @@ export const AIInsights: React.FC<Props> = ({
     baselineEstablished,
     sessionId,
     extraContext,
+    getLiveContext,
   ]);
 
   const ask = useCallback(

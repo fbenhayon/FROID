@@ -715,6 +715,10 @@ export const SessionReport: React.FC<Props> = () => {
   const reportContext = useMemo(() => {
     if (!report) return {};
     const summary = derivedSessionSummary(report);
+    const transcript = String(report.transcript || "");
+    const transcriptLines = transcript.split("\n").filter((line) => line.trim());
+    const patientLines = transcriptLines.filter((line) => /^(PC|PAC)\b/i.test(line));
+    const professionalLines = transcriptLines.filter((line) => /^DR\b/i.test(line));
     return {
       report_baseline: report.baseline,
       report_session_average: report.sessionAverage,
@@ -723,6 +727,14 @@ export const SessionReport: React.FC<Props> = () => {
       report_metrics_analysis: metricsAnalysis,
       report_notes_count: report.clinicalNotes.length,
       report_summaries: report.conversationSummaries,
+      // Transcrição arquivada, no mesmo formato que o backend consome, para o
+      // FROID Explica responder sobre falas e recomendações após a sessão.
+      patient_id: report.patient?.id || (report as Record<string, any>).patientId || "",
+      transcript_available: transcriptLines.length > 0,
+      transcript_speaker_legend: "DR = profissional/terapeuta; PC ou PAC = paciente.",
+      session_transcript: transcript.slice(-8000),
+      patient_speech: patientLines.slice(-120).join("\n").slice(-4000),
+      professional_speech: professionalLines.slice(-120).join("\n").slice(-4000),
     };
   }, [metricsAnalysis, report]);
 
@@ -1118,6 +1130,31 @@ export const SessionReport: React.FC<Props> = () => {
                       Zona {item.zone} | {item.elapsedSeconds}s
                     </p>
                     <p className="mt-1 text-xs text-red-200">{item.report}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {(report.froidExplicaConversation?.length || 0) > 0 && (
+            <section className="rounded-lg border border-slate-700 bg-slate-900 p-4">
+              <h2 className="mb-3 text-sm font-bold text-slate-100">
+                Consultas ao FROID Explica na sessão
+              </h2>
+              <div className="space-y-2">
+                {(report.froidExplicaConversation || []).map((message, index) => (
+                  <div
+                    key={index}
+                    className={`rounded border p-3 text-xs ${
+                      message.role === "user"
+                        ? "border-blue-800 bg-blue-950/40 text-blue-100"
+                        : "border-slate-700 bg-slate-950 text-slate-200"
+                    }`}
+                  >
+                    <p className="mb-1 font-bold uppercase tracking-wide text-[10px] text-slate-400">
+                      {message.role === "user" ? "Profissional" : "FROID Explica"}
+                    </p>
+                    <p className="whitespace-pre-wrap">{message.content}</p>
                   </div>
                 ))}
               </div>

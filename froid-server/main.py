@@ -903,6 +903,16 @@ def _query_chroma_froid_knowledge(query_text: str, limit: int = 4) -> Tuple[List
         return [], []
 
 
+# Campos volumosos/textuais tratados em secoes proprias do prompt, fora do
+# dump JSON de metricas (evita truncar tudo no limite de caracteres).
+_SESSION_TEXT_FIELDS = {
+    "session_transcript",
+    "patient_speech",
+    "professional_speech",
+    "portfolio_summary",
+}
+
+
 def _format_session_context(context: Dict[str, Any]) -> str:
     if not context:
         return "Sem contexto de sessao enviado pelo painel."
@@ -910,8 +920,128 @@ def _format_session_context(context: Dict[str, Any]) -> str:
         key: value
         for key, value in context.items()
         if key not in {"patient_name", "email", "phone", "document"}
+        and key not in _SESSION_TEXT_FIELDS
     }
     return json.dumps(safe_context, ensure_ascii=False, indent=2)[:5000]
+
+
+def _format_session_transcript(context: Dict[str, Any]) -> str:
+    """Transcricao da sessao atual com fala do paciente e do profissional
+    separadas e identificadas, para o FROID Explica consultar diretamente."""
+    if not isinstance(context, dict):
+        return "Sem transcricao disponivel nesta sessao."
+    if not context.get("transcript_available"):
+        return (
+            "Nenhuma transcricao foi capturada ainda nesta sessao "
+            "(a fala e transcrita quando o audio do paciente esta ativo)."
+        )
+    legend = str(
+        context.get("transcript_speaker_legend")
+        or "DR = profissional; PC/PAC = paciente."
+    )
+    transcript = str(context.get("session_transcript") or "").strip()
+    patient_speech = str(context.get("patient_speech") or "").strip()
+    professional_speech = str(context.get("professional_speech") or "").strip()
+    parts = [f"Legenda de locutores: {legend}"]
+    if transcript:
+        parts.append(f"TRANSCRICAO CRONOLOGICA DA SESSAO:\n{transcript[:8000]}")
+    if patient_speech:
+        parts.append(f"APENAS FALA DO PACIENTE:\n{patient_speech[:4000]}")
+    if professional_speech:
+        parts.append(
+            f"APENAS FALA DO PROFISSIONAL (recomendacoes, intervencoes):\n"
+            f"{professional_speech[:4000]}"
+        )
+    return "\n\n".join(parts)
+
+
+_COMPARATIVE_QUERY_MARKERS = (
+    "compar",
+    "outras sess",
+    "sessoes anteriores",
+    "sessões anteriores",
+    "sessoes ja realizadas",
+    "sessões já realizadas",
+    "carteira",
+    "portfolio",
+    "portfólio",
+    "historico",
+    "histórico",
+    "evolu",
+    "media das sess",
+    "média das sess",
+    "outros pacientes",
+    "casos similares",
+    "base populac",
+    "ultimas sess",
+    "últimas sess",
+)
+
+
+def _is_comparative_question(query_text: str) -> bool:
+    normalized = _normalize_search_text(query_text)
+    return any(marker in normalized for marker in _COMPARATIVE_QUERY_MARKERS)
+
+
+def _compact_report_summary(report: dict) -> dict:
+    """Resumo minimo e seguro de uma sessao para comparacao: sem transcricao
+    bruta de outras sessoes, apenas metricas agregadas e identificadores."""
+    metrics = report.get("metricsAnalysis") if isinstance(report, dict) else None
+    average = report.get("sessionAverage") if isinstance(report, dict) else None
+    summary_source = metrics if isinstance(metrics, dict) else {}
+    average_source = average if isinstance(average, dict) else {}
+    return {
+        "session_id": str(report.get("sessionId") or report.get("session_id") or ""),
+        "date": str(report.get("createdAt") or report.get("created_at") or "")[:10],
+        "patient_id": str(report.get("patientId") or ""),
+        "ipm_average": average_source.get("ipm")
+        or summary_source.get("ipm_average")
+        or summary_source.get("average_ipm"),
+        "dominant_zone": summary_source.get("dominant_zone")
+        or summary_source.get("dominantZone"),
+        "coherence": average_source.get("coherence")
+        or summary_source.get("coherence_status"),
+        "session_summary": str(report.get("sessionSummary") or "")[:400],
+    }
+
+
+def _build_portfolio_summary(
+    request: Request, current_patient_id: str
+) -> list[dict]:
+    """Resumos compactos das sessoes que o profissional pode ver (RLS aplicado),
+    priorizando o mesmo paciente. Nunca inclui transcricao bruta de outras
+    sessoes; respeita os acessos definidos pelo admin em planos multiprofissionais."""
+    try:
+        accessible, _context = _accessible_session_reports(
+            request, reveal_transcripts=False
+        )
+    except HTTPException:
+        return []
+    summaries = [
+        _compact_report_summary(_enrich_report_patient(report))
+        for report in accessible
+        if isinstance(report, dict)
+    ]
+    summaries.sort(key=lambda item: str(item.get("date") or ""), reverse=True)
+    patient_id = str(current_patient_id or "").strip()
+    if patient_id:
+        same_patient = [s for s in summaries if s.get("patient_id") == patient_id]
+        others = [s for s in summaries if s.get("patient_id") != patient_id]
+        summaries = same_patient[:12] + others[:8]
+    else:
+        summaries = summaries[:15]
+    return summaries
+
+
+def _format_portfolio_summary(context: Dict[str, Any]) -> str:
+    summaries = context.get("portfolio_summary") if isinstance(context, dict) else None
+    if not summaries:
+        return ""
+    return (
+        "SESSOES DA CARTEIRA DO PROFISSIONAL (resumo agregado, sem transcricao "
+        "das outras sessoes; use para comparar evolucao e casos):\n"
+        + json.dumps(summaries, ensure_ascii=False, indent=2)[:4000]
+    )
 
 
 def _format_conversation_history(history: List[Dict[str, str]]) -> str:
@@ -1320,12 +1450,22 @@ async def _query_froid_knowledge(payload: FroidExplicaQuery) -> FroidExplicaResp
         for source, doc in zip(context_labels, context_chunks)
     )
     session_context = _format_session_context(payload.context)
+    session_transcript = _format_session_transcript(payload.context)
+    portfolio_summary = _format_portfolio_summary(payload.context)
     conversation_history = _format_conversation_history(payload.conversation_history)
     system_instruction = (
         "Voce e o FROID Explica, uma inteligencia clinica de apoio ao profissional. "
         f"{session_language(response_locale).summary_instruction}, de modo objetivo, sem diagnosticar e sem inventar. "
-        "Use estritamente o contexto cientifico disponivel, o contexto da sessao e o historico "
-        "conversacional. Se a pergunta for de seguimento, como 'quais fontes?', responda sobre "
+        "Voce TEM acesso, nesta sessao, a transcricao do que foi falado, com a fala do "
+        "PACIENTE e do PROFISSIONAL separadas e identificadas (secao TRANSCRICAO), e aos "
+        "biomarcadores e metricas da sessao (secao CONTEXTO DA SESSAO). Quando o profissional "
+        "perguntar sobre o que foi dito, recomendacoes dadas, falas do paciente ou do "
+        "profissional, responda com base nessa transcricao, citando o trecho pertinente. "
+        "So diga que nao tem acesso se a secao TRANSCRICAO indicar que nenhuma fala foi "
+        "capturada. Avalie metricas e fala do paciente e do profissional de forma separada "
+        "quando solicitado. "
+        "Use estritamente o contexto cientifico disponivel, o contexto da sessao, a transcricao "
+        "e o historico conversacional. Se a pergunta for de seguimento, como 'quais fontes?', responda sobre "
         "a resposta anterior, nao sobre um tema novo. Se o profissional disser 'essa metrica', "
         "'esse resultado', 'isso', 'como integrar' ou expressao equivalente, identifique no "
         "historico qual foi a ultima metrica ou tema discutido e continue exatamente desse ponto. "
@@ -1342,8 +1482,10 @@ async def _query_froid_knowledge(payload: FroidExplicaQuery) -> FroidExplicaResp
     )
     prompt = (
         f"CONTEXTO CIENTIFICO FROID:\n{context_str or 'Base cientifica nao carregada.'}\n\n"
-        f"CONTEXTO DA SESSAO ATUAL:\n{session_context}\n\n"
-        f"HISTORICO RECENTE DO FROID EXPLICA:\n{conversation_history}\n\n"
+        f"CONTEXTO DA SESSAO ATUAL (metricas e biomarcadores):\n{session_context}\n\n"
+        f"TRANSCRICAO DA SESSAO ATUAL:\n{session_transcript}\n\n"
+        + (f"{portfolio_summary}\n\n" if portfolio_summary else "")
+        + f"HISTORICO RECENTE DO FROID EXPLICA:\n{conversation_history}\n\n"
         f"PERGUNTA DO PROFISSIONAL:\n{payload.query_text}"
     )
     text, engine = await _generate_froid_explain_text(
@@ -8183,6 +8325,17 @@ async def confirm_billing_checkout(request: Request):
 @app.post("/api/froid-explica/query", response_model=FroidExplicaResponse)
 async def froid_explica_query(payload: FroidExplicaQuery, request: Request):
     _require_professional_feature_access(request)
+    # Comparacao com a carteira: injeta resumos autorizados (RLS aplicado) so
+    # quando a pergunta e comparativa, minimizando exposicao de dados.
+    if _is_comparative_question(payload.query_text):
+        current_patient_id = str(
+            payload.patient_id
+            or (payload.context or {}).get("patient_id")
+            or ""
+        )
+        portfolio = _build_portfolio_summary(request, current_patient_id)
+        if portfolio:
+            payload.context = {**(payload.context or {}), "portfolio_summary": portfolio}
     intent = _classify_froid_explica_intent(payload.query_text)
     if intent == "analytics":
         result = await _query_froid_analytics(payload)
@@ -8198,8 +8351,13 @@ async def copilot_query_alias(payload: FroidExplicaQuery, request: Request):
     return await froid_explica_query(payload, request)
 
 
-@app.get("/api/session-reports")
-async def list_session_reports(request: Request):
+def _accessible_session_reports(
+    request: Request, *, reveal_transcripts: bool = False
+) -> tuple[list[dict], Any]:
+    """Fonte unica de verdade para o RLS de relatorios: devolve os relatorios
+    brutos que o solicitante pode ver e o contexto tenant, aplicando exatamente
+    a mesma autorizacao (posse, organizacao e, em planos multiprofissionais, a
+    decisao tenant que respeita os acessos definidos pelo administrador)."""
     user = _current_user_from_request(request)
     if not user:
         raise HTTPException(status_code=401, detail="não autenticado")
@@ -8219,8 +8377,10 @@ async def list_session_reports(request: Request):
         else set()
     )
     reports = [
-        _report_for_api(_enrich_report_patient(report))
-        for report in _load_session_reports().values()
+        report
+        for report in _load_session_reports(
+            reveal_transcripts=reveal_transcripts
+        ).values()
         if isinstance(report, dict)
         and (
             context is None
@@ -8244,6 +8404,17 @@ async def list_session_reports(request: Request):
                 ).allowed
             )
         )
+    ]
+    return reports, context
+
+
+@app.get("/api/session-reports")
+async def list_session_reports(request: Request):
+    # Preserva o comportamento original: a lista decripta transcricoes (True).
+    accessible, context = _accessible_session_reports(request, reveal_transcripts=True)
+    reports = [
+        _report_for_api(_enrich_report_patient(report))
+        for report in accessible
     ]
     reports.sort(
         key=lambda report: str(report.get("createdAt") or report.get("created_at") or ""),

@@ -99,6 +99,7 @@ export interface SessionReportRecord {
     summary: string;
     generatedAt: string;
   };
+  froidExplicaConversation?: Array<{ role: string; content: string }>;
   dissonances: Array<{
     id: string;
     timestamp: string;

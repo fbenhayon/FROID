@@ -185,6 +185,9 @@ const DISSONANCE_DNA_THRESHOLD = 0.18;
 const DISSONANCE_IPM_DELTA_THRESHOLD = 3.0;
 const IPM_HISTORY_LIMIT = 1200;
 const CLINICAL_MICRO_WINDOW_SECONDS = 60;
+// Teto de caracteres da transcrição enviada ao FROID Explica por consulta,
+// preservando o trecho mais recente sem estourar o contexto do modelo.
+const FROID_EXPLICA_TRANSCRIPT_CHAR_LIMIT = 8000;
 const CLINICAL_DEFAULT_UPDATE_MODE: ClinicalUpdateMode = "5";
 const CLINICAL_UPDATE_STORAGE_KEY = "froid_clinical_update_mode";
 const CLINICAL_UPDATE_OPTIONS: Array<{ value: ClinicalUpdateMode; label: string }> = [
@@ -1607,7 +1610,9 @@ function buildClinicalPresentationSnapshot(
   return {
     mode,
     generatedAtSecond: endSecond,
-    nextUpdateSecond: endSecond + windowSeconds,
+    // A janela clínica desliza a cada micro-janela (1 min), consolidando as
+    // últimas N — não a cada janela cheia, que congelava o painel por 5-7 min.
+    nextUpdateSecond: endSecond + CLINICAL_MICRO_WINDOW_SECONDS,
     windowStartSecond,
     windowEndSecond: endSecond,
     microWindowCount: microAggs.length,
@@ -2332,6 +2337,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const patientRecorderRef = useRef<MediaRecorder | null>(null);
   const transcriptLinesRef = useRef<string[]>([]);
   const transcriptSegmentsRef = useRef<Array<{ elapsedSeconds: number; text: string }>>([]);
+  const froidExplicaConversationRef = useRef<Array<{ role: string; content: string }>>([]);
   const semanticCutStartSecondRef = useRef(0);
   const semanticCutClosingRef = useRef(false);
   const manualCutCounterRef = useRef(0);
@@ -2783,6 +2789,56 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       setRtcStatus("O navegador bloqueou o áudio. Clique novamente para ouvir.");
     }
   }, []);
+
+  // Contexto vivo entregue ao FROID Explica no ato da pergunta (lê refs, para
+  // não recriar a transcrição a cada render). Transcrição já vem com o locutor
+  // embutido: "DR. -" é o profissional, "PC -"/"PAC -" é o paciente.
+  const getFroidExplicaContext = useCallback((): Record<string, unknown> => {
+    const segments = transcriptSegmentsRef.current || [];
+    const transcriptLines = segments.map((segment) => segment.text);
+    // Limita ao final da transcrição para não estourar o contexto do modelo.
+    let transcript = transcriptLines.join("\n");
+    if (transcript.length > FROID_EXPLICA_TRANSCRIPT_CHAR_LIMIT) {
+      transcript = transcript.slice(-FROID_EXPLICA_TRANSCRIPT_CHAR_LIMIT);
+    }
+    const patientLines = transcriptLines.filter((line) =>
+      /^(PC|PAC)\b/i.test(line),
+    );
+    const professionalLines = transcriptLines.filter((line) =>
+      /^DR\b/i.test(line),
+    );
+    const latestPayload =
+      sessionSamplesRef.current[sessionSamplesRef.current.length - 1]?.payload;
+    const latestAudio =
+      ((latestPayload as any)?.audio_meta as Record<string, unknown>) || {};
+    const biomarkers: Record<string, number> = {};
+    REPORT_AUDIO_KEYS.forEach((key) => {
+      const value = latestAudio[key];
+      if (typeof value === "number" && Number.isFinite(value)) {
+        biomarkers[key] = Number(value.toFixed(4));
+      }
+    });
+    return {
+      patient_id: sessionPatient?.id || "",
+      patient_name: sessionPatient?.name || "",
+      transcript_available: transcriptLines.length > 0,
+      transcript_speaker_legend:
+        "DR = profissional/terapeuta; PC ou PAC = paciente.",
+      session_transcript: transcript,
+      patient_speech: patientLines.slice(-80).join("\n"),
+      professional_speech: professionalLines.slice(-80).join("\n"),
+      transcript_line_count: transcriptLines.length,
+      session_biomarkers: biomarkers,
+      session_elapsed_seconds: Math.max(0, elapsedSecondsRef.current),
+    };
+  }, [sessionPatient?.id, sessionPatient?.name]);
+
+  const handleFroidExplicaConversation = useCallback(
+    (conversation: Array<{ role: string; content: string }>) => {
+      froidExplicaConversationRef.current = conversation;
+    },
+    [],
+  );
 
   const startProfessionalRtcCall = useCallback(
     async (localSource: MediaStream) => {
@@ -4369,10 +4425,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const displayDrValue = presentationAgg?.drValue ?? (raw as any)?.dr_value ?? null;
   const displayCoherence = presentationAgg?.coherence || raw?.coherence_status || "NEUTRO";
   const displayAlerts = presentationAgg?.alerts || raw?.realtime_alerts || [];
-  const displayIpmHistory =
-    clinicalPresentationActive && clinicalSnapshot.ipmHistory.length
-      ? clinicalSnapshot.ipmHistory
-      : state.ipmHistory;
   const baseDisplayAudio = presentationAgg?.audioMeta ||
     (raw as any)?.audio_meta || {
       words_per_window: 0,
@@ -4401,6 +4453,15 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       ? { ...realTranscriptAudio, ...transcriptOverlay(liveTranscription) }
       : { ...realTranscriptAudio, ...liveTranscription }
     : realTranscriptAudio;
+  // Detalhe diagnóstico (bandas, sub-harmônicos, biomarcadores e timeline do
+  // IPM) é sempre AO VIVO: a estabilização clínica se aplica ao painel de
+  // risco/zonas, não a estes gráficos, que devem acompanhar o sinal real.
+  const liveAudioMeta =
+    (agg?.audioMeta as Record<string, unknown> | undefined) ||
+    ((raw as any)?.audio_meta as Record<string, unknown> | undefined) ||
+    displayAudio;
+  const liveZones = agg?.zones || raw?.perception_zones || displayZones;
+  const liveIpm = agg?.ipm ?? raw?.ipm_score ?? state.localIpm ?? displayIpm;
   const clinicalWindowMinutes = clinicalModeToMinutes(clinicalUpdateMode);
   const clinicalNextUpdateSeconds =
     clinicalPresentationActive
@@ -4568,6 +4629,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       tenMinuteCuts,
       clinicalNotes: [],
       conversationSummaries,
+      froidExplicaConversation: froidExplicaConversationRef.current,
       sessionSummary: buildSessionSummary(conversationSummaries, summarySourceTranscript),
       dissonances: dissonanceLog,
       transcript: summarySourceTranscript,
@@ -4930,6 +4992,8 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                 coherenceStatus={displayCoherence}
                 baselineEstablished={state.phase === "LIVE"}
                 sessionId={sessionId || ""}
+                getLiveContext={getFroidExplicaContext}
+                onConversationChange={handleFroidExplicaConversation}
                 controlsSticky
                 rootClassName="h-full border-0 bg-transparent p-0 text-slate-100"
                 messagesClassName="min-h-[190px] bg-slate-800/80 text-slate-200"
@@ -5064,15 +5128,15 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           </div>
 
           <div className="min-h-[300px]">
-            <SpectralBandsChart audioMeta={displayAudio} />
+            <SpectralBandsChart audioMeta={liveAudioMeta} />
           </div>
 
           <div className="min-h-[390px]">
-            <SubharmonicChart zones={displayZones} audioMeta={displayAudio} />
+            <SubharmonicChart zones={liveZones} audioMeta={liveAudioMeta} />
           </div>
 
           <AudioTranscription
-            audioMeta={displayAudio}
+            audioMeta={liveAudioMeta}
             conversationSummaries={conversationSummaries}
             section="biomarkers"
             locale={reportLocale}
@@ -5164,6 +5228,8 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             coherenceStatus={displayCoherence}
             baselineEstablished={state.phase === "LIVE"}
             sessionId={sessionId || ""}
+            getLiveContext={getFroidExplicaContext}
+            onConversationChange={handleFroidExplicaConversation}
             controlsSticky
             rootClassName="h-full border-0 bg-transparent p-0 text-slate-100"
             messagesClassName="min-h-[190px] bg-slate-800/80 text-slate-200"
@@ -5177,8 +5243,8 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           <>
             <div className="min-h-0 overflow-hidden">
               <IPMLineChart
-                data={displayIpmHistory}
-                current={displayIpm}
+                data={state.ipmHistory}
+                current={liveIpm}
                 baseline={state.baselineIPM || undefined}
               />
             </div>
