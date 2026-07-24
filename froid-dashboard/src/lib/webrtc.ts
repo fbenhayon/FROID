@@ -141,10 +141,20 @@ export function attachRemoteMedia(
 ) {
   const liveVideoTracks = remoteStream
     .getVideoTracks()
-    .filter((track) => track.readyState === "live");
+    .filter(
+      (track) =>
+        track.readyState === "live"
+        && track.enabled
+        && !track.muted,
+    );
   const liveAudioTracks = remoteStream
     .getAudioTracks()
-    .filter((track) => track.readyState === "live");
+    .filter(
+      (track) =>
+        track.readyState === "live"
+        && track.enabled
+        && !track.muted,
+    );
 
   if (videoElement) {
     videoElement.muted = true;

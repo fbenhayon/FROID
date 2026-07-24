@@ -2875,28 +2875,19 @@ function LiveSessionInner({ user }: LiveSessionProps) {
               ? "Paciente conectado: áudio ativo, aguardando vídeo."
               : media.video
                 ? "Paciente conectado: vídeo ativo, aguardando áudio."
-                : "Conectado, aguardando trilhas do paciente.",
+                : "Conectado, aguardando trilhas reais do paciente.",
         );
       };
 
-      peer.ontrack = (event) => {
-        const incomingTracks = event.streams[0]?.getTracks() || [event.track];
-        incomingTracks.forEach((track) => {
-          if (!remoteStream.getTracks().some((item) => item.id === track.id)) {
-            remoteStream.addTrack(track);
-          }
-          track.onended = () => {
-            remoteStream.removeTrack(track);
-            refreshRemoteTracks();
-            if (track.kind === "audio") resetPatientAudioPipeline(true);
-          };
-          track.onmute = refreshRemoteTracks;
-          track.onunmute = refreshRemoteTracks;
-        });
-        refreshRemoteTracks();
+      const bindPatientAudioTrack = () => {
         const patientAudioTrack = remoteStream
           .getAudioTracks()
-          .find((track) => track.readyState === "live");
+          .find(
+            (track) =>
+              track.readyState === "live"
+              && track.enabled
+              && !track.muted,
+          );
         if (
           patientAudioTrack
           && patientRemoteAudioTrackIdRef.current !== patientAudioTrack.id
@@ -2910,8 +2901,65 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           ]);
           patientRemoteAudioTrackIdRef.current = patientAudioTrack.id;
           setPatientAudioVersion((value) => value + 1);
+          applyAttributedSpeaker("PC", "Trilha remota do paciente recebida por WebRTC.");
         }
-        applyAttributedSpeaker("PC", "Trilha remota do paciente recebida por WebRTC.");
+      };
+
+      const mutedTrackRecoveryTimers = new Map<string, number>();
+      const clearMutedTrackRecovery = (track: MediaStreamTrack) => {
+        const timer = mutedTrackRecoveryTimers.get(track.id);
+        if (timer) window.clearTimeout(timer);
+        mutedTrackRecoveryTimers.delete(track.id);
+      };
+      const scheduleMutedTrackRecovery = (track: MediaStreamTrack) => {
+        clearMutedTrackRecovery(track);
+        refreshRemoteTracks();
+        const timer = window.setTimeout(() => {
+          mutedTrackRecoveryTimers.delete(track.id);
+          if (
+            track.readyState !== "live"
+            || !track.muted
+            || peer.connectionState === "closed"
+          ) return;
+          if (track.kind === "audio") {
+            resetPatientAudioPipeline(true);
+            setRemotePatientOn(false);
+          } else {
+            setRemotePatientVideoOn(false);
+          }
+          setRtcStatus(
+            `${track.kind === "video" ? "Vídeo" : "Áudio"} do paciente sem dados; reconectando...`,
+          );
+          if (peer.signalingState === "stable") {
+            peer.restartIce();
+            void makeOffer();
+          }
+        }, 2_500);
+        mutedTrackRecoveryTimers.set(track.id, timer);
+      };
+
+      peer.ontrack = (event) => {
+        const incomingTracks = event.streams[0]?.getTracks() || [event.track];
+        incomingTracks.forEach((track) => {
+          if (!remoteStream.getTracks().some((item) => item.id === track.id)) {
+            remoteStream.addTrack(track);
+          }
+          track.onended = () => {
+            clearMutedTrackRecovery(track);
+            remoteStream.removeTrack(track);
+            refreshRemoteTracks();
+            if (track.kind === "audio") resetPatientAudioPipeline(true);
+          };
+          track.onmute = () => scheduleMutedTrackRecovery(track);
+          track.onunmute = () => {
+            clearMutedTrackRecovery(track);
+            refreshRemoteTracks();
+            if (track.kind === "audio") bindPatientAudioTrack();
+          };
+          if (track.muted) scheduleMutedTrackRecovery(track);
+        });
+        refreshRemoteTracks();
+        bindPatientAudioTrack();
       };
 
       peer.onicecandidate = (event) => {

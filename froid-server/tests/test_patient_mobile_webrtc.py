@@ -39,11 +39,13 @@ class PatientMobileWebRtcTests(unittest.TestCase):
         self.assertIn("return True", safe_send)
         self.assertIn("return False", safe_send)
 
-    def test_patient_capture_falls_back_to_independent_audio_and_video(self):
-        self.assertIn("await Promise.allSettled([", self.patient_session)
-        self.assertIn("audioCapture.status", self.patient_session)
-        self.assertIn("videoCapture.status", self.patient_session)
-        self.assertIn('mediaState === "active"', self.patient_session)
+    def test_patient_capture_falls_back_to_sequential_audio_and_video(self):
+        self.assertNotIn("await Promise.allSettled([", self.patient_session)
+        self.assertIn("const audioCapture = await navigator.mediaDevices.getUserMedia", self.patient_session)
+        self.assertIn("const videoCapture = await navigator.mediaDevices.getUserMedia", self.patient_session)
+        self.assertIn('setMediaState(hasAudio && hasVideo ? "active" : "failed")', self.patient_session)
+        self.assertIn("track.onended = markCaptureUnavailable", self.patient_session)
+        self.assertIn("track.onmute = () =>", self.patient_session)
 
     def test_signaling_is_serialized_on_both_peers(self):
         self.assertIn("let signalQueue: Promise<void> = Promise.resolve()", self.patient_session)
@@ -72,6 +74,13 @@ class PatientMobileWebRtcTests(unittest.TestCase):
         self.assertIn("track.onended", self.professional_session)
         self.assertEqual(self.professional_session.count("Ouvir paciente"), 2)
         self.assertIn("unlockPatientAudio", self.professional_session)
+
+    def test_muted_remote_tracks_are_not_reported_as_active(self):
+        self.assertIn("&& !track.muted", self.webrtc)
+        self.assertIn("scheduleMutedTrackRecovery", self.professional_session)
+        self.assertIn("bindPatientAudioTrack", self.professional_session)
+        self.assertIn("peer.restartIce()", self.professional_session)
+        self.assertIn("reconectando...", self.professional_session)
 
     def test_media_attachment_and_signaling_reconnects_are_bounded(self):
         self.assertIn("sameTrackSet", self.webrtc)

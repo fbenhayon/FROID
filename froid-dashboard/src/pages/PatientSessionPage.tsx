@@ -304,24 +304,61 @@ export const PatientSessionPage: React.FC = () => {
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video, audio });
       } catch {
-        const [audioCapture, videoCapture] = await Promise.allSettled([
-          navigator.mediaDevices.getUserMedia({ audio, video: false }),
-          navigator.mediaDevices.getUserMedia({ video, audio: false }),
-        ]);
-        const tracks = [
-          ...(audioCapture.status === "fulfilled" ? audioCapture.value.getAudioTracks() : []),
-          ...(videoCapture.status === "fulfilled" ? videoCapture.value.getVideoTracks() : []),
-        ];
+        const tracks: MediaStreamTrack[] = [];
+        try {
+          const audioCapture = await navigator.mediaDevices.getUserMedia({
+            audio,
+            video: false,
+          });
+          tracks.push(...audioCapture.getAudioTracks());
+        } catch {
+          // Continue para permitir diagnóstico e nova tentativa da câmera.
+        }
+        try {
+          const videoCapture = await navigator.mediaDevices.getUserMedia({
+            video,
+            audio: false,
+          });
+          tracks.push(...videoCapture.getVideoTracks());
+        } catch {
+          // A interface informa exatamente qual trilha não foi liberada.
+        }
         if (!tracks.length) throw new Error("camera-and-microphone-unavailable");
         stream = new MediaStream(tracks);
       }
       streamRef.current = stream;
+      stream.getTracks().forEach((track) => {
+        let muteTimer: number | null = null;
+        const markCaptureUnavailable = () => {
+          if (track.readyState !== "live" || track.muted) {
+            setMediaState("failed");
+            setError(
+              track.kind === "video"
+                ? "A câmera parou de transmitir. Toque em Ativar câmera e microfone para reconectar."
+                : "O microfone parou de transmitir. Toque em Ativar câmera e microfone para reconectar.",
+            );
+          }
+        };
+        track.onended = markCaptureUnavailable;
+        track.onmute = () => {
+          if (muteTimer) window.clearTimeout(muteTimer);
+          muteTimer = window.setTimeout(markCaptureUnavailable, 2_000);
+        };
+        track.onunmute = () => {
+          if (muteTimer) window.clearTimeout(muteTimer);
+          muteTimer = null;
+        };
+      });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play().catch(() => undefined);
       }
-      const hasAudio = stream.getAudioTracks().some((track) => track.readyState === "live");
-      const hasVideo = stream.getVideoTracks().some((track) => track.readyState === "live");
+      const hasAudio = stream.getAudioTracks().some(
+        (track) => track.readyState === "live" && track.enabled && !track.muted,
+      );
+      const hasVideo = stream.getVideoTracks().some(
+        (track) => track.readyState === "live" && track.enabled && !track.muted,
+      );
       if (!hasAudio || !hasVideo) {
         setError(
           hasAudio
@@ -329,7 +366,7 @@ export const PatientSessionPage: React.FC = () => {
             : "Câmera ativa, mas o microfone não foi liberado. Verifique a permissão do navegador.",
         );
       }
-      setMediaState("active");
+      setMediaState(hasAudio && hasVideo ? "active" : "failed");
       await startPatientRtc(stream);
     } catch {
       setMediaState("failed");
