@@ -1068,7 +1068,7 @@ export const SessionReport: React.FC<Props> = () => {
                           </div>
                         </div>
                         <p className="mt-2 text-xs leading-relaxed text-slate-300">
-                          {limitWords(item.summary, 60)}
+                          {limitWords(item.summary, 80)}
                         </p>
                         {metricLine && (
                           <p className="mt-2 rounded border border-slate-700 bg-slate-950 px-2 py-1 font-mono text-[10px] leading-relaxed text-slate-300">

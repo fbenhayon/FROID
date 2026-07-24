@@ -3614,7 +3614,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           startMinute,
           endMinute,
           theme: limitTheme(String(data?.theme || "Tema em apuração"), 6),
-          summary: limitWords(String(data?.summary || "").trim(), 60),
+          summary: limitWords(String(data?.summary || "").trim(), 80),
           trigger,
         });
       } catch {
@@ -3625,7 +3625,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           startMinute,
           endMinute,
           theme: "Resumo indisponível",
-          summary: limitWords(transcript, 60),
+          summary: limitWords(transcript, 80),
           trigger,
         });
       }

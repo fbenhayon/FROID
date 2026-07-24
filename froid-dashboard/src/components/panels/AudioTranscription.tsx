@@ -225,7 +225,7 @@ export const AudioTranscription: React.FC<Props> = ({
                 </strong>
               </div>
               <p className="mt-0.5 text-[10px] leading-snug text-slate-300">
-                {limitWords(item.summary, 60)}
+                {limitWords(item.summary, 80)}
               </p>
             </div>
           ))}

@@ -129,7 +129,7 @@ def summary_prompt(
         "Analyze the clinical-session transcript below and return only a valid JSON object with "
         "the keys theme and summary. The theme must derive directly from the subject discussed, "
         "must not come from a predefined list, and must contain at most 6 words. The summary must "
-        f"contain at most 60 words. {language.summary_instruction}. Produce only the derived theme "
+        f"contain between 70 and 80 words. {language.summary_instruction}. Produce only the derived theme "
         "and summary; the stored literal transcript must remain unchanged. Do not diagnose, invent "
         "facts, or add information that was not spoken. When content is "
         "limited, summarize only the material actually available. "

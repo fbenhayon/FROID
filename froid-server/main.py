@@ -8841,7 +8841,7 @@ async def session_summary(request: Request):
     fallback = {
         "status": "fallback",
         "theme": output_language.pending_theme,
-        "summary": _limit_words(transcript, 60),
+        "summary": _limit_words(transcript, 80),
         "start_minute": start_minute,
         "end_minute": end_minute,
         "model": OPENAI_MODEL,
@@ -8892,7 +8892,7 @@ async def session_summary(request: Request):
         return {
             "status": "ok",
             "theme": theme,
-            "summary": _limit_words(summary_text, 60),
+            "summary": _limit_words(summary_text, 80),
             "start_minute": start_minute,
             "end_minute": end_minute,
             "model": OPENAI_MODEL,
