@@ -26,7 +26,7 @@ froid.com.br, www.froid.com.br {
     handle {
         root * /srv/froid-site
         @html {
-            path / /*.html /ciencia /tecnologia /froid-explica /etica /seguranca /profissionais /precos /demonstracao /faq /glossario /privacidade /termos /sobre-contato
+            path / /*.html /*/*.html /ciencia /tecnologia /froid-explica /etica /seguranca /profissionais /precos /demonstracao /faq /glossario /privacidade /termos /sobre-contato /*/ /*/ciencia /*/tecnologia /*/froid-explica /*/etica /*/seguranca /*/profissionais /*/precos /*/demonstracao /*/faq /*/glossario /*/privacidade /*/termos /*/sobre-contato
         }
         header @html Cache-Control "no-store, no-cache, must-revalidate"
         header /site-assets/* Cache-Control "public, max-age=604800"
