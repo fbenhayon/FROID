@@ -22,3 +22,7 @@ froid-dashboard/.env.local
 .codex-backups/
 backups/postgres/*.dump
 backups/postgres/*.sql
+
+# Python virtualenvs
+froid-server/.venv/
+.venv/

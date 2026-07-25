@@ -220,7 +220,7 @@ export const PatientSessionPage: React.FC = () => {
 
     let previousFlowStats: RtcMediaFlowStats | null = null;
     let stalledOutboundChecks = 0;
-    const monitorPatientMediaFlow = async () => {
+    const monitorPatientOutboundMedia = async () => {
       if (peer.connectionState === "closed") return;
       const current = await readRtcMediaFlowStats(peer).catch(() => null);
       if (!current) return;
@@ -256,6 +256,11 @@ export const PatientSessionPage: React.FC = () => {
       }
       if (peer.connectionState !== "connected") return;
       stalledOutboundChecks += 1;
+      // Registra os contadores RTP reais para diferenciar "sem saída" de
+      // uma janela de leitura sem delta (câmera/microfone realmente parados).
+      console.debug(
+        `FROID mídia sem saída: audioBytesSent=${current.audioBytesSent} videoFramesEncoded=${current.videoFramesEncoded}`,
+      );
       setCallStatus(
         `Conexão ativa, mas mídia sem saída (${stalledOutboundChecks}/3)${route}.`,
       );
@@ -278,7 +283,7 @@ export const PatientSessionPage: React.FC = () => {
       window.clearInterval(rtcMediaHealthTimerRef.current);
     }
     rtcMediaHealthTimerRef.current = window.setInterval(
-      () => void monitorPatientMediaFlow(),
+      () => void monitorPatientOutboundMedia(),
       2_000,
     );
 

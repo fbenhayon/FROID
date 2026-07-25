@@ -3080,6 +3080,11 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         }
         if (peer.connectionState !== "connected") return;
         stalledFlowChecks += 1;
+        // Registra os contadores RTP reais de entrada para separar "sem mídia"
+        // de uma janela sem delta (paciente com câmera/microfone parados).
+        console.debug(
+          `FROID mídia sem entrada: audioBytesReceived=${current.audioBytesReceived} videoFramesDecoded=${current.videoFramesDecoded}`,
+        );
         setRtcStatus(
           `WebRTC conectado sem transportar mídia (${stalledFlowChecks}/3)${route}.`,
         );
