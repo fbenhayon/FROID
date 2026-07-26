@@ -483,6 +483,280 @@ const TOOLTIP_I18N: Record<string, TooltipTranslations> = {
     "fr-FR": "Métrique de cette séance dans le suivi du patient.",
     "es-ES": "Métrica de esta sesión en el seguimiento del paciente.",
   },
+
+  // ----- Relatório da sessão: títulos de blocos -----
+  "Compara o baseline inicial de 60 segundos com a média consolidada da sessão.": {
+    "en-US": "Compares the initial 60-second baseline with the consolidated session average.",
+    "fr-FR": "Compare la ligne de base initiale de 60 secondes avec la moyenne consolidée de la séance.",
+    "es-ES": "Compara el baseline inicial de 60 segundos con la media consolidada de la sesión.",
+  },
+  "Gráfico normalizado pelo baseline inicial. A linha 100 representa o ponto de partida da sessão.": {
+    "en-US": "Chart normalized by the initial baseline. The 100 line represents the session's starting point.",
+    "fr-FR": "Graphique normalisé par la ligne de base initiale. La ligne 100 représente le point de départ de la séance.",
+    "es-ES": "Gráfico normalizado por el baseline inicial. La línea 100 representa el punto de partida de la sesión.",
+  },
+  "Resume baseline, média, último corte, delta e escore-z das métricas evolutivas do FROID.": {
+    "en-US": "Summarizes baseline, average, last cut, delta and z-score of FROID's evolving metrics.",
+    "fr-FR": "Résume la ligne de base, la moyenne, la dernière coupe, le delta et le score-z des métriques évolutives de FROID.",
+    "es-ES": "Resume baseline, media, último corte, delta y puntuación-z de las métricas evolutivas de FROID.",
+  },
+  "Permite escolher quais blocos entram na visualização e no relatório da consulta.": {
+    "en-US": "Lets you choose which blocks appear in the view and in the consultation report.",
+    "fr-FR": "Permet de choisir quels blocs figurent dans l'affichage et dans le rapport de consultation.",
+    "es-ES": "Permite elegir qué bloques entran en la visualización y en el informe de la consulta.",
+  },
+  "Primeira fotografia bioacústica e multimodal da sessão, tomada após a ativação do áudio do paciente.": {
+    "en-US": "First bioacoustic and multimodal snapshot of the session, taken after the patient's audio is enabled.",
+    "fr-FR": "Première photographie bioacoustique et multimodale de la séance, prise après l'activation de l'audio du patient.",
+    "es-ES": "Primera fotografía bioacústica y multimodal de la sesión, tomada tras la activación del audio del paciente.",
+  },
+  "Média consolidada dos marcadores coletados durante todo o período analisado da sessão.": {
+    "en-US": "Consolidated average of the markers collected throughout the analyzed session period.",
+    "fr-FR": "Moyenne consolidée des marqueurs collectés pendant toute la période analysée de la séance.",
+    "es-ES": "Media consolidada de los marcadores recogidos durante todo el período analizado de la sesión.",
+  },
+  "Cortes temporais da sessão, incluindo cortes manuais do profissional e cortes automáticos obrigatórios a cada 10 minutos após o último corte.": {
+    "en-US": "Time cuts of the session, including the professional's manual cuts and mandatory automatic cuts every 10 minutes after the last cut.",
+    "fr-FR": "Coupes temporelles de la séance, y compris les coupes manuelles du professionnel et les coupes automatiques obligatoires toutes les 10 minutes après la dernière coupe.",
+    "es-ES": "Cortes temporales de la sesión, incluyendo cortes manuales del profesional y cortes automáticos obligatorios cada 10 minutos tras el último corte.",
+  },
+  "Síntese analítica final da sessão, limitada a 300 palavras, com tema predominante de até 6 palavras.": {
+    "en-US": "Final analytical synthesis of the session, limited to 300 words, with a predominant theme of up to 6 words.",
+    "fr-FR": "Synthèse analytique finale de la séance, limitée à 300 mots, avec un thème prédominant d'au plus 6 mots.",
+    "es-ES": "Síntesis analítica final de la sesión, limitada a 300 palabras, con tema predominante de hasta 6 palabras.",
+  },
+  "Resumo e métricas de cada corte temporal, alinhando tema, síntese semântica e marcadores multimodais do mesmo período.": {
+    "en-US": "Summary and metrics of each time cut, aligning theme, semantic synthesis and multimodal markers from the same period.",
+    "fr-FR": "Résumé et métriques de chaque coupe temporelle, alignant thème, synthèse sémantique et marqueurs multimodaux de la même période.",
+    "es-ES": "Resumen y métricas de cada corte temporal, alineando tema, síntesis semántica y marcadores multimodales del mismo período.",
+  },
+  "Anotações clínicas registradas manualmente pelo profissional durante a sessão.": {
+    "en-US": "Clinical notes recorded manually by the professional during the session.",
+    "fr-FR": "Notes cliniques saisies manuellement par le professionnel pendant la séance.",
+    "es-ES": "Anotaciones clínicas registradas manualmente por el profesional durante la sesión.",
+  },
+  "Lista apenas dissonâncias persistentes acima do limiar clínico configurado.": {
+    "en-US": "Lists only persistent dissonances above the configured clinical threshold.",
+    "fr-FR": "Ne liste que les dissonances persistantes au-dessus du seuil clinique configuré.",
+    "es-ES": "Lista solo disonancias persistentes por encima del umbral clínico configurado.",
+  },
+  "Campo editável para o profissional montar texto a copiar, enviar ou futuramente imprimir.": {
+    "en-US": "Editable field for the professional to compose text to copy, send or later print.",
+    "fr-FR": "Champ éditable permettant au professionnel de rédiger un texte à copier, envoyer ou imprimer ultérieurement.",
+    "es-ES": "Campo editable para que el profesional redacte texto para copiar, enviar o imprimir posteriormente.",
+  },
+  "Informação do bloco.": {
+    "en-US": "Block information.",
+    "fr-FR": "Information du bloc.",
+    "es-ES": "Información del bloque.",
+  },
+
+  // ----- Relatório da sessão: métricas -----
+  "Intervalo temporal efetivamente analisado no corte da sessão.": {
+    "en-US": "Time interval effectively analyzed in the session cut.",
+    "fr-FR": "Intervalle de temps effectivement analysé dans la coupe de la séance.",
+    "es-ES": "Intervalo temporal efectivamente analizado en el corte de la sesión.",
+  },
+  "Índice de Potência Multimodal: intensidade global ou energia emocional empregada.": {
+    "en-US": "Multimodal Power Index: overall intensity or emotional energy engaged.",
+    "fr-FR": "Indice de Puissance Multimodale : intensité globale ou énergie émotionnelle mobilisée.",
+    "es-ES": "Índice de Potencia Multimodal: intensidad global o energía emocional empleada.",
+  },
+  "Índice de Desvio Multimodal: direção e grau do desequilíbrio multimodal.": {
+    "en-US": "Multimodal Deviation Index: direction and degree of the multimodal imbalance.",
+    "fr-FR": "Indice d'Écart Multimodal : direction et degré du déséquilibre multimodal.",
+    "es-ES": "Índice de Desvío Multimodal: dirección y grado del desequilibrio multimodal.",
+  },
+  "Zona FROID dominante no período analisado.": {
+    "en-US": "Dominant FROID zone in the analyzed period.",
+    "fr-FR": "Zone FROID dominante sur la période analysée.",
+    "es-ES": "Zona FROID dominante en el período analizado.",
+  },
+  "Tema predominante consolidado da sessão ou do bloco analisado.": {
+    "en-US": "Consolidated predominant theme of the session or analyzed block.",
+    "fr-FR": "Thème prédominant consolidé de la séance ou du bloc analysé.",
+    "es-ES": "Tema predominante consolidado de la sesión o del bloque analizado.",
+  },
+  "Tom emocional inferido pela combinação vocal e semântica.": {
+    "en-US": "Emotional tone inferred from the vocal and semantic combination.",
+    "fr-FR": "Tonalité émotionnelle déduite de la combinaison vocale et sémantique.",
+    "es-ES": "Tono emocional inferido por la combinación vocal y semántica.",
+  },
+  "Palavras por minuto no período analisado.": {
+    "en-US": "Words per minute in the analyzed period.",
+    "fr-FR": "Mots par minute sur la période analysée.",
+    "es-ES": "Palabras por minuto en el período analizado.",
+  },
+  "Quantidade de dissonâncias facial-vocais persistentes registradas.": {
+    "en-US": "Number of persistent facial-vocal dissonances recorded.",
+    "fr-FR": "Nombre de dissonances faciales-vocales persistantes enregistrées.",
+    "es-ES": "Cantidad de disonancias facial-vocales persistentes registradas.",
+  },
+  "Biomarcador acústico associado a conteúdo de valência negativa e risco depressivo quando combinado a outros sinais.": {
+    "en-US": "Acoustic biomarker associated with negative-valence content and depressive risk when combined with other signals.",
+    "fr-FR": "Biomarqueur acoustique associé à un contenu de valence négative et à un risque dépressif lorsqu'il est combiné à d'autres signaux.",
+    "es-ES": "Biomarcador acústico asociado a contenido de valencia negativa y riesgo depresivo cuando se combina con otras señales.",
+  },
+  "Biomarcador acústico acompanhado em fala neutra, relevante para tensão autonômica e ansiedade somática.": {
+    "en-US": "Acoustic biomarker tracked in neutral speech, relevant to autonomic tension and somatic anxiety.",
+    "fr-FR": "Biomarqueur acoustique suivi dans la parole neutre, pertinent pour la tension autonome et l'anxiété somatique.",
+    "es-ES": "Biomarcador acústico acompañado en habla neutra, relevante para tensión autonómica y ansiedad somática.",
+  },
+  "Frequência fundamental média da voz no período.": {
+    "en-US": "Average fundamental frequency of the voice in the period.",
+    "fr-FR": "Fréquence fondamentale moyenne de la voix sur la période.",
+    "es-ES": "Frecuencia fundamental media de la voz en el período.",
+  },
+  "Taxa de cruzamento por zero, relacionada a textura/ruído e dinâmica acústica.": {
+    "en-US": "Zero-crossing rate, related to texture/noise and acoustic dynamics.",
+    "fr-FR": "Taux de passage par zéro, lié à la texture/au bruit et à la dynamique acoustique.",
+    "es-ES": "Tasa de cruce por cero, relacionada con textura/ruido y dinámica acústica.",
+  },
+  "Índice proxy interno normalizado de instabilidade vocal relativa; não equivale diretamente a jitter percentual normativo.": {
+    "en-US": "Normalized internal proxy index of relative vocal instability; it does not directly correspond to normative percentage jitter.",
+    "fr-FR": "Indice proxy interne normalisé d'instabilité vocale relative ; il ne correspond pas directement au jitter en pourcentage normatif.",
+    "es-ES": "Índice proxy interno normalizado de inestabilidad vocal relativa; no equivale directamente al jitter porcentual normativo.",
+  },
+  "Índice proxy interno normalizado de variação relativa do envelope RMS; não equivale diretamente a shimmer em dB.": {
+    "en-US": "Normalized internal proxy index of relative RMS-envelope variation; it does not directly correspond to shimmer in dB.",
+    "fr-FR": "Indice proxy interne normalisé de la variation relative de l'enveloppe RMS ; il ne correspond pas directement au shimmer en dB.",
+    "es-ES": "Índice proxy interno normalizado de variación relativa de la envolvente RMS; no equivale directamente al shimmer en dB.",
+  },
+  "Índice proxy interno normalizado de instabilidade vocal relativa.": {
+    "en-US": "Normalized internal proxy index of relative vocal instability.",
+    "fr-FR": "Indice proxy interne normalisé d'instabilité vocale relative.",
+    "es-ES": "Índice proxy interno normalizado de inestabilidad vocal relativa.",
+  },
+  "Índice proxy interno normalizado de variação relativa do envelope RMS.": {
+    "en-US": "Normalized internal proxy index of relative RMS-envelope variation.",
+    "fr-FR": "Indice proxy interne normalisé de la variation relative de l'enveloppe RMS.",
+    "es-ES": "Índice proxy interno normalizado de variación relativa de la envolvente RMS.",
+  },
+  "Energia sub-harmônica baixa, usada no cruzamento com sinais autonômicos.": {
+    "en-US": "Low sub-harmonic energy, used in cross-reference with autonomic signals.",
+    "fr-FR": "Énergie sous-harmonique basse, utilisée en recoupement avec les signaux autonomes.",
+    "es-ES": "Energía subarmónica baja, usada en el cruce con señales autonómicas.",
+  },
+  "Energia sub-harmônica complementar para leitura bioacústica.": {
+    "en-US": "Complementary sub-harmonic energy for bioacoustic reading.",
+    "fr-FR": "Énergie sous-harmonique complémentaire pour la lecture bioacoustique.",
+    "es-ES": "Energía subarmónica complementaria para la lectura bioacústica.",
+  },
+  "Nome da métrica estatística analisada pelo motor evolutivo.": {
+    "en-US": "Name of the statistical metric analyzed by the evolving engine.",
+    "fr-FR": "Nom de la métrique statistique analysée par le moteur évolutif.",
+    "es-ES": "Nombre de la métrica estadística analizada por el motor evolutivo.",
+  },
+  "Valor inicial de referência, apurado no baseline da sessão.": {
+    "en-US": "Initial reference value, measured at the session baseline.",
+    "fr-FR": "Valeur de référence initiale, mesurée à la ligne de base de la séance.",
+    "es-ES": "Valor inicial de referencia, medido en el baseline de la sesión.",
+  },
+  "Média consolidada da sessão para a métrica.": {
+    "en-US": "Consolidated session average for the metric.",
+    "fr-FR": "Moyenne consolidée de la séance pour la métrique.",
+    "es-ES": "Media consolidada de la sesión para la métrica.",
+  },
+  "Valor mais recente observado nos cortes temporais.": {
+    "en-US": "Most recent value observed across the time cuts.",
+    "fr-FR": "Valeur la plus récente observée dans les coupes temporelles.",
+    "es-ES": "Valor más reciente observado en los cortes temporales.",
+  },
+  "Variação percentual do último corte em relação ao baseline.": {
+    "en-US": "Percentage change of the last cut relative to the baseline.",
+    "fr-FR": "Variation en pourcentage de la dernière coupe par rapport à la ligne de base.",
+    "es-ES": "Variación porcentual del último corte respecto al baseline.",
+  },
+  "Desvio padronizado do último corte em relação ao comportamento de referência.": {
+    "en-US": "Standardized deviation of the last cut relative to the reference behavior.",
+    "fr-FR": "Écart standardisé de la dernière coupe par rapport au comportement de référence.",
+    "es-ES": "Desvío estandarizado del último corte respecto al comportamiento de referencia.",
+  },
+  "Alertas estatísticos ou clínicos levantados para a métrica.": {
+    "en-US": "Statistical or clinical alerts raised for the metric.",
+    "fr-FR": "Alertes statistiques ou cliniques signalées pour la métrique.",
+    "es-ES": "Alertas estadísticas o clínicas levantadas para la métrica.",
+  },
+  "Índice de Potência Multimodal no motor estatístico.": {
+    "en-US": "Multimodal Power Index in the statistical engine.",
+    "fr-FR": "Indice de Puissance Multimodale dans le moteur statistique.",
+    "es-ES": "Índice de Potencia Multimodal en el motor estadístico.",
+  },
+  "Índice de Desvio Multimodal no motor estatístico.": {
+    "en-US": "Multimodal Deviation Index in the statistical engine.",
+    "fr-FR": "Indice d'Écart Multimodal dans le moteur statistique.",
+    "es-ES": "Índice de Desvío Multimodal en el motor estadístico.",
+  },
+  "Velocidade média de fala em palavras por minuto.": {
+    "en-US": "Average speech rate in words per minute.",
+    "fr-FR": "Débit de parole moyen en mots par minute.",
+    "es-ES": "Velocidad media de habla en palabras por minuto.",
+  },
+  "Dissonância entre expressão facial e trilha vocal.": {
+    "en-US": "Dissonance between facial expression and the vocal track.",
+    "fr-FR": "Dissonance entre l'expression faciale et la piste vocale.",
+    "es-ES": "Disonancia entre expresión facial y pista vocal.",
+  },
+  "Risco clínico agregado calculado pelo motor FROID.": {
+    "en-US": "Aggregate clinical risk computed by the FROID engine.",
+    "fr-FR": "Risque clinique agrégé calculé par le moteur FROID.",
+    "es-ES": "Riesgo clínico agregado calculado por el motor FROID.",
+  },
+  "Modulação lenta do envelope vocal, associada a carga vegetativa basal.": {
+    "en-US": "Slow modulation of the vocal envelope, associated with basal vegetative load.",
+    "fr-FR": "Modulation lente de l'enveloppe vocale, associée à une charge végétative basale.",
+    "es-ES": "Modulación lenta de la envolvente vocal, asociada a carga vegetativa basal.",
+  },
+  "Faixa de modulação lenta relacionada a flutuação afetiva e organização narrativa.": {
+    "en-US": "Slow-modulation band related to affective fluctuation and narrative organization.",
+    "fr-FR": "Bande de modulation lente liée à la fluctuation affective et à l'organisation narrative.",
+    "es-ES": "Banda de modulación lenta relacionada con la fluctuación afectiva y la organización narrativa.",
+  },
+  "Faixa intermediária de estabilização autônoma e transição rítmica.": {
+    "en-US": "Intermediate band of autonomic stabilization and rhythmic transition.",
+    "fr-FR": "Bande intermédiaire de stabilisation autonome et de transition rythmique.",
+    "es-ES": "Banda intermedia de estabilización autónoma y transición rítmica.",
+  },
+  "Faixa de ativação rápida ligada a tensão cognitiva, vigilância e mobilização autônoma.": {
+    "en-US": "Fast-activation band linked to cognitive tension, vigilance and autonomic mobilization.",
+    "fr-FR": "Bande d'activation rapide liée à la tension cognitive, à la vigilance et à la mobilisation autonome.",
+    "es-ES": "Banda de activación rápida ligada a tensión cognitiva, vigilancia y movilización autónoma.",
+  },
+  "Faixa alta de energia espectral, interpretada como tensão fina, aspereza ou descarga rápida.": {
+    "en-US": "High spectral-energy band, interpreted as fine tension, harshness or fast discharge.",
+    "fr-FR": "Bande haute d'énergie spectrale, interprétée comme une tension fine, une rugosité ou une décharge rapide.",
+    "es-ES": "Banda alta de energía espectral, interpretada como tensión fina, aspereza o descarga rápida.",
+  },
+  "Índice ponderado das bandas Delta, Theta, Alpha, Beta e Gama.": {
+    "en-US": "Weighted index of the Delta, Theta, Alpha, Beta and Gamma bands.",
+    "fr-FR": "Indice pondéré des bandes Delta, Thêta, Alpha, Bêta et Gamma.",
+    "es-ES": "Índice ponderado de las bandas Delta, Theta, Alpha, Beta y Gamma.",
+  },
+  "Derivada temporal do MFCC7, comparando a janela atual com a anterior.": {
+    "en-US": "Temporal derivative of MFCC7, comparing the current window with the previous one.",
+    "fr-FR": "Dérivée temporelle du MFCC7, comparant la fenêtre actuelle à la précédente.",
+    "es-ES": "Derivada temporal del MFCC7, comparando la ventana actual con la anterior.",
+  },
+  "Derivada temporal do MFCC9, comparando a janela atual com a anterior.": {
+    "en-US": "Temporal derivative of MFCC9, comparing the current window with the previous one.",
+    "fr-FR": "Dérivée temporelle du MFCC9, comparant la fenêtre actuelle à la précédente.",
+    "es-ES": "Derivada temporal del MFCC9, comparando la ventana actual con la anterior.",
+  },
+  "Aceleração cepstral do MFCC7, usada para detectar mudanças abruptas no marcador.": {
+    "en-US": "Cepstral acceleration of MFCC7, used to detect abrupt changes in the marker.",
+    "fr-FR": "Accélération cepstrale du MFCC7, utilisée pour détecter des changements brusques du marqueur.",
+    "es-ES": "Aceleración cepstral del MFCC7, usada para detectar cambios abruptos en el marcador.",
+  },
+  "Aceleração cepstral do MFCC9, usada para detectar mudanças abruptas no marcador.": {
+    "en-US": "Cepstral acceleration of MFCC9, used to detect abrupt changes in the marker.",
+    "fr-FR": "Accélération cepstrale du MFCC9, utilisée pour détecter des changements brusques du marqueur.",
+    "es-ES": "Aceleración cepstral del MFCC9, usada para detectar cambios abruptos en el marcador.",
+  },
+  "Métrica FROID.": {
+    "en-US": "FROID metric.",
+    "fr-FR": "Métrique FROID.",
+    "es-ES": "Métrica FROID.",
+  },
 };
 
 /**

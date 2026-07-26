@@ -10,7 +10,8 @@ import {
   MetricSnapshot,
   SessionReportRecord,
 } from "../lib/session-report";
-import { dashboardText, loadSessionLanguagePreferences, normalizeSessionLocale } from "../lib/localization";
+import { dashboardText, loadSessionLanguagePreferences, normalizeSessionLocale, type SessionLocale } from "../lib/localization";
+import { tooltipText } from "../lib/tooltip-i18n";
 
 interface Props {
   user?: any;
@@ -79,7 +80,7 @@ const TITLE_TOOLTIPS: Record<string, string> = {
   "Leitura estatística das métricas":
     "Resume baseline, média, último corte, delta e escore-z das métricas evolutivas do FROID.",
   "Composição do relatório":
-    "Permite escolher quais blocos entram na visualizacao e no relatório da consulta.",
+    "Permite escolher quais blocos entram na visualização e no relatório da consulta.",
   "Parâmetros iniciais - 60 segundos":
     "Primeira fotografia bioacústica e multimodal da sessão, tomada após a ativação do áudio do paciente.",
   "Média das métricas da sessão":
@@ -87,7 +88,7 @@ const TITLE_TOOLTIPS: Record<string, string> = {
   "Cortes da sessão":
     "Cortes temporais da sessão, incluindo cortes manuais do profissional e cortes automáticos obrigatórios a cada 10 minutos após o último corte.",
   "Resumo geral da sessão":
-    "Síntese analitica final da sessão, limitada a 300 palavras, com tema predominante de até 6 palavras.",
+    "Síntese analítica final da sessão, limitada a 300 palavras, com tema predominante de até 6 palavras.",
   "Temas e Resumos por Cortes":
     "Resumo e métricas de cada corte temporal, alinhando tema, síntese semântica e marcadores multimodais do mesmo período.",
   "Observações do profissional":
@@ -123,7 +124,7 @@ const METRIC_TOOLTIPS: Record<string, string> = {
   "Último corte": "Valor mais recente observado nos cortes temporais.",
   "Delta último": "Variação percentual do último corte em relação ao baseline.",
   "Z último": "Desvio padronizado do último corte em relação ao comportamento de referência.",
-  Alertas: "Alertas estatisticos ou clínicos levantados para a métrica.",
+  Alertas: "Alertas estatísticos ou clínicos levantados para a métrica.",
   ipm: "Índice de Potência Multimodal no motor estatístico.",
   idm: "Índice de Desvio Multimodal no motor estatístico.",
   words_per_minute: "Velocidade média de fala em palavras por minuto.",
@@ -144,40 +145,50 @@ const METRIC_TOOLTIPS: Record<string, string> = {
   "DDMFCC9": "Aceleração cepstral do MFCC9, usada para detectar mudanças abruptas no marcador.",
 };
 
+// Locale do relatório disponibilizado aos rótulos de ajuda sem precisar
+// passar prop em cada um dos ~14 pontos de uso.
+const ReportLocaleContext = React.createContext<SessionLocale>("pt-BR");
+
 const HelpTitle: React.FC<{ title: string; className?: string }> = ({
   title,
   className = "text-sm font-bold text-slate-100",
-}) => (
-  <FroidTooltip
-    width={320}
-    content={
-      <div>
-        <p className="font-bold text-slate-100">{title}</p>
-        <p className="mt-1">{TITLE_TOOLTIPS[title] || "Informação do bloco."}</p>
-      </div>
-    }
-  >
-    <span className={`${className} cursor-help border-b border-dashed border-slate-300`}>
-      {title}
-    </span>
-  </FroidTooltip>
-);
+}) => {
+  const locale = React.useContext(ReportLocaleContext);
+  return (
+    <FroidTooltip
+      width={320}
+      content={
+        <div>
+          <p className="font-bold text-slate-100">{title}</p>
+          <p className="mt-1">{tooltipText(locale, TITLE_TOOLTIPS[title] || "Informação do bloco.")}</p>
+        </div>
+      }
+    >
+      <span className={`${className} cursor-help border-b border-dashed border-slate-300`}>
+        {title}
+      </span>
+    </FroidTooltip>
+  );
+};
 
-const HelpMetric: React.FC<{ label: string }> = ({ label }) => (
-  <FroidTooltip
-    width={300}
-    content={
-      <div>
-        <p className="font-bold text-slate-100">{label}</p>
-        <p className="mt-1">{METRIC_TOOLTIPS[label] || "Métrica FROID."}</p>
-      </div>
-    }
-  >
-    <span className="cursor-help border-b border-dashed border-slate-300">
-      {label}
-    </span>
-  </FroidTooltip>
-);
+const HelpMetric: React.FC<{ label: string }> = ({ label }) => {
+  const locale = React.useContext(ReportLocaleContext);
+  return (
+    <FroidTooltip
+      width={300}
+      content={
+        <div>
+          <p className="font-bold text-slate-100">{label}</p>
+          <p className="mt-1">{tooltipText(locale, METRIC_TOOLTIPS[label] || "Métrica FROID.")}</p>
+        </div>
+      }
+    >
+      <span className="cursor-help border-b border-dashed border-slate-300">
+        {label}
+      </span>
+    </FroidTooltip>
+  );
+};
 
 function dominantReportTheme(report: SessionReportRecord) {
   const ordered = [...(report.conversationSummaries || [])].sort(
@@ -770,6 +781,7 @@ export const SessionReport: React.FC<Props> = () => {
   const sessionSummary = derivedSessionSummary(report);
 
   return (
+    <ReportLocaleContext.Provider value={locale}>
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <header className="border-b border-slate-800 bg-slate-950 px-6 py-4">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
@@ -1203,5 +1215,6 @@ export const SessionReport: React.FC<Props> = () => {
         </aside>
       </main>
     </div>
+    </ReportLocaleContext.Provider>
   );
 };
