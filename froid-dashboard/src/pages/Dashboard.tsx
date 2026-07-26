@@ -104,11 +104,11 @@ const SIGNAL_TOOLTIPS: Record<string, string> = {
   Atenção:
     "Prioridade atual do paciente na carteira. Sobe quando há maior ativação, risco, baixa estabilidade ou necessidade de revisão.",
   Carga:
-    "Esforco clínico estimado a partir da intensidade multimodal, dissonâncias, risco agregado e marcadores de tensão.",
+    "Esforço clínico estimado a partir da intensidade multimodal, dissonâncias, risco agregado e marcadores de tensão.",
   Comunicação:
-    "Disponibilidade de conteúdo clínico interpretavel: resumos, cortes, anotações e consistência semântica das sessões.",
+    "Disponibilidade de conteúdo clínico interpretável: resumos, cortes, anotações e consistência semântica das sessões.",
   Continuidade:
-    "Grau de sustentacao do acompanhamento no tempo, considerando quantidade de sessões e comparabilidade longitudinal.",
+    "Grau de sustentação do acompanhamento no tempo, considerando quantidade de sessões e comparabilidade longitudinal.",
   Insight:
     "Índice de material analítico disponível para apoiar hipóteses clínicas, FROID Explica e revisão entre sessões.",
 };
@@ -120,7 +120,7 @@ const METRIC_TOOLTIPS: Record<string, string> = {
   tone: "Tom emocional inferido a partir da composição vocal e semântica.",
   wpm: "Palavras por minuto, usado como indicador de cadência, aceleração, lentificação ou carga discursiva.",
   dissonance: "Quantidade de dissonâncias facial-vocais persistentes acima do limiar configurado.",
-  mfcc7: "Biomarcador acústico acompanhado em contextos de valencia negativa e risco depressivo quando combinado a outros sinais.",
+  mfcc7: "Biomarcador acústico acompanhado em contextos de valência negativa e risco depressivo quando combinado a outros sinais.",
   mfcc9: "Biomarcador acústico relevante para tensão autônoma e ansiedade somática em fala neutra/controlada.",
   f0: "Frequência fundamental média da voz, associada a variação de pitch e ativação.",
   zcr: "Taxa de cruzamento por zero, relacionada a textura acústica, ruído e dinâmica vocal.",

@@ -201,7 +201,6 @@ export default function MapaZonalFroid({
           <button
             type="button"
             className="rounded-full border border-cyan-700 bg-slate-900 px-1.5 py-0.5 text-[10px] font-bold text-cyan-200 hover:bg-slate-800"
-            title={IDM_HELP}
             onClick={() => setShowIdmHelp((current) => !current)}
             onMouseEnter={() => setShowIdmHelp(true)}
             onMouseLeave={() => setShowIdmHelp(false)}
@@ -257,7 +256,6 @@ export default function MapaZonalFroid({
 
               <div
                 className="flex h-full min-h-0 items-center justify-end truncate pr-0.5 text-right text-[10px] font-semibold leading-none text-slate-300"
-                title={NEGATIVES[index]}
                 onMouseEnter={() => setHoveredZone(zn)}
                 onMouseLeave={() => setHoveredZone(null)}
               >
@@ -333,7 +331,6 @@ export default function MapaZonalFroid({
 
               <div
                 className="flex h-full min-h-0 items-center justify-start truncate pl-0.5 text-left text-[10px] font-semibold leading-none text-slate-300"
-                title={POSITIVES[index]}
                 onMouseEnter={() => setHoveredZone(zn)}
                 onMouseLeave={() => setHoveredZone(null)}
               >

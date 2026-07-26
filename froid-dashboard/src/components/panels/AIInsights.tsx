@@ -28,7 +28,7 @@ const PRESETS = [
   { text: "Explique a diferença entre IPM e IDM para esta sessão" },
   { text: "Que perguntas clínicas podem aprofundar esta leitura?" },
   { text: "Explique o resumo geral da sessão e seus cortes de 10 minutos" },
-  { text: "Quais mudancas ocorreram entre baseline e média da sessão?" },
+  { text: "Quais mudanças ocorreram entre baseline e média da sessão?" },
   { text: "Quais dissonâncias registradas exigem maior atenção clínica?" },
   { text: "Como interpretar os biomarcadores acústicos desta sessão?" },
 ];

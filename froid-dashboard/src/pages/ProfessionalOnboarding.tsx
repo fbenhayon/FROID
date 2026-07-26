@@ -847,8 +847,8 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
               <Field label={accountType === "organization" ? "Atividade principal" : "Profissao"} name="profession" value={fields.profession} onChange={updateField} placeholder="Psicologa(o), Medica(o) Psiquiatra..." />
               <Field label="Conselho profissional" name="professionalCouncil" value={fields.professionalCouncil} onChange={updateField} placeholder="CRP, CRM..." />
               <Field label="Registro profissional" name="professionalRegistry" value={fields.professionalRegistry} onChange={updateField} placeholder="Número do CRP/CRM" />
-              <Field label="Descricao padrão do serviço" name="receiptServiceDescription" value={fields.receiptServiceDescription} onChange={updateField} placeholder="Sessão de psicoterapia individual, consulta psiquiátrica..." />
-              <Field label="Local de emissao" name="receiptCity" value={fields.receiptCity} onChange={updateField} placeholder="Cidade/UF" />
+              <Field label="Descrição padrão do serviço" name="receiptServiceDescription" value={fields.receiptServiceDescription} onChange={updateField} placeholder="Sessão de psicoterapia individual, consulta psiquiátrica..." />
+              <Field label="Local de emissão" name="receiptCity" value={fields.receiptCity} onChange={updateField} placeholder="Cidade/UF" />
               <Field label="Observação fiscal padrão" name="receiptFiscalObservation" value={fields.receiptFiscalObservation} onChange={updateField} placeholder="Referência Receita Saúde/NFS-e quando aplicável" />
               {accountType === "organization" && (
                 <Field label="Regime tributário" name="taxRegime" value={fields.taxRegime} onChange={updateField} />

@@ -25,7 +25,7 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta }) => {
         value: read(audioMeta, "spectral_delta_0_4hz"),
         color: "#7DD3FC",
         tooltip:
-          "Delta 0.5-4 Hz: oscilacao lenta do envelope vocal, usada como marcador de carga vegetativa basal e baixa variabilidade dinâmica.",
+          "Delta (0,5–4 Hz): oscilação lenta do envelope vocal, usada como marcador de carga vegetativa basal e de baixa variabilidade dinâmica. Valores altos sugerem lentificação e retraimento; valores baixos, maior mobilização.",
       },
       {
         label: "Theta",
@@ -33,7 +33,7 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta }) => {
         value: read(audioMeta, "spectral_theta_4_8hz"),
         color: "#A5B4FC",
         tooltip:
-          "Theta 4-8 Hz: componente de modulação lenta relacionado a flutuações afetivas e organização narrativa sob esforco emocional.",
+          "Theta (4–8 Hz): componente de modulação lenta relacionado a flutuações afetivas e à organização narrativa sob esforço emocional. Realça quando o paciente elabora conteúdo emocionalmente carregado.",
       },
       {
         label: "Alpha",
@@ -41,7 +41,7 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta }) => {
         value: read(audioMeta, "spectral_alpha_8_12hz"),
         color: "#6EE7B7",
         tooltip:
-          "Alpha 8-12 Hz: faixa de estabilização moduladora entre ritmos lentos e resposta autônoma mais ativa.",
+          "Alpha (8–12 Hz): faixa de estabilização moduladora entre os ritmos lentos e a resposta autônoma mais ativa. Serve de referência de equilíbrio entre relaxamento e ativação.",
       },
       {
         label: "Beta",
@@ -49,7 +49,7 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta }) => {
         value: read(audioMeta, "spectral_beta_12_30hz"),
         color: "#FBBF24",
         tooltip:
-          "Beta 12-30 Hz: ativação rápida associada a tensão cognitiva, vigilância, pressao articulatoria e mobilizacao autônoma.",
+          "Beta (12–30 Hz): ativação rápida associada a tensão cognitiva, vigilância, pressão articulatória e mobilização autônoma. Picos acompanham momentos de alerta, esforço ou ansiedade.",
       },
       {
         label: "Gama",
@@ -57,7 +57,7 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta }) => {
         value: read(audioMeta, "spectral_gamma_30_80hz"),
         color: "#FB7185",
         tooltip:
-          "Gama 30-80 Hz: energia espectral de alta frequência, interpretada com cautela como indicador de descarga fina, tensão e aspereza vocal.",
+          "Gama (30–80 Hz): energia espectral de alta frequência, interpretada com cautela como indicador de descarga fina, tensão e aspereza vocal. É a banda mais exploratória — leia sempre junto às demais.",
       },
     ],
     [audioMeta],
@@ -80,10 +80,10 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta }) => {
             width={360}
             content={
               <div>
-                <p className="font-bold text-slate-100">Bandas neuroacusticas</p>
+                <p className="font-bold text-slate-100">Bandas neuroacústicas</p>
                 <p className="mt-1">
                   Leitura das modulações vocais Delta, Theta, Alpha, Beta e
-                  Gama da trilha do paciente. A nomenclatura e analogica para
+                  Gama da trilha do paciente. A nomenclatura é analógica para
                   bandas de voz, não EEG, consolidada a cada 1 segundo e
                   cruzada com os deltas cepstrais MFCC7/MFCC9.
                 </p>
@@ -91,17 +91,31 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta }) => {
             }
           >
             <h3 className="cursor-help text-[13px] font-black text-slate-100">
-              Bandas neuroacusticas
+              Bandas neuroacústicas
             </h3>
           </FroidTooltip>
           <p className="mt-0.5 truncate text-[10px] font-medium text-slate-400">
-            Consolidacao bioacustica: {Number(audioMeta?.bioacoustic_window_ms || 1000)}ms
+            Consolidação bioacústica: {Number(audioMeta?.bioacoustic_window_ms || 1000)}ms
           </p>
         </div>
-        <div className="shrink-0 rounded-xl border border-blue-800 bg-blue-950 px-2.5 py-0.5 text-center text-blue-200">
-          <p className="text-[8px] font-black uppercase">Índice geral</p>
-          <p className="font-mono text-[12px] font-black">{percent(index)}%</p>
-        </div>
+        <FroidTooltip
+          width={300}
+          content={
+            <div>
+              <p className="font-bold text-slate-100">Índice geral das bandas</p>
+              <p className="mt-1">
+                Média ponderada da energia das cinco bandas neuroacústicas em
+                0–100%. Sintetiza o nível global de modulação vocal do momento —
+                útil como leitura rápida antes de detalhar banda a banda.
+              </p>
+            </div>
+          }
+        >
+          <div className="shrink-0 cursor-help rounded-xl border border-blue-800 bg-blue-950 px-2.5 py-0.5 text-center text-blue-200">
+            <p className="text-[8px] font-black uppercase">Índice geral</p>
+            <p className="font-mono text-[12px] font-black">{percent(index)}%</p>
+          </div>
+        </FroidTooltip>
       </div>
 
       <div className="grid min-h-0 flex-1 grid-cols-5 items-stretch gap-1.5 overflow-hidden px-1">
@@ -144,10 +158,66 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta }) => {
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-700 pt-2 font-mono text-[9px] text-slate-300">
-        <span>DMFCC7 {mfcc7Delta.toFixed(4)}</span>
-        <span>DMFCC9 {mfcc9Delta.toFixed(4)}</span>
-        <span>DDMFCC7 {mfcc7DeltaDelta.toFixed(4)}</span>
-        <span>DDMFCC9 {mfcc9DeltaDelta.toFixed(4)}</span>
+        <FroidTooltip
+          width={320}
+          content={
+            <div>
+              <p className="font-bold text-slate-100">ΔMFCC7 — velocidade do MFCC7</p>
+              <p className="mt-1">
+                Primeira derivada (taxa de variação) do coeficiente cepstral
+                MFCC7. É o marcador que o FROID isola na fala de valência
+                negativa: quando se eleva, contribui para o risco depressivo.
+              </p>
+            </div>
+          }
+        >
+          <span className="cursor-help border-b border-dotted border-slate-600">DMFCC7 {mfcc7Delta.toFixed(4)}</span>
+        </FroidTooltip>
+        <FroidTooltip
+          width={320}
+          content={
+            <div>
+              <p className="font-bold text-slate-100">ΔMFCC9 — velocidade do MFCC9</p>
+              <p className="mt-1">
+                Primeira derivada do coeficiente cepstral MFCC9. Quedas em
+                discurso neutro sugerem tensão autônoma latente nas pregas
+                vocais, associada à ansiedade somática.
+              </p>
+            </div>
+          }
+        >
+          <span className="cursor-help border-b border-dotted border-slate-600">DMFCC9 {mfcc9Delta.toFixed(4)}</span>
+        </FroidTooltip>
+        <FroidTooltip
+          width={320}
+          content={
+            <div>
+              <p className="font-bold text-slate-100">ΔΔMFCC7 — aceleração do MFCC7</p>
+              <p className="mt-1">
+                Segunda derivada do MFCC7: captura mudanças bruscas na trajetória
+                do timbre. Realça transições rápidas de estado emocional, não
+                apenas o nível sustentado.
+              </p>
+            </div>
+          }
+        >
+          <span className="cursor-help border-b border-dotted border-slate-600">DDMFCC7 {mfcc7DeltaDelta.toFixed(4)}</span>
+        </FroidTooltip>
+        <FroidTooltip
+          width={320}
+          content={
+            <div>
+              <p className="font-bold text-slate-100">ΔΔMFCC9 — aceleração do MFCC9</p>
+              <p className="mt-1">
+                Segunda derivada do MFCC9: mede a rapidez com que a tensão
+                vocal latente muda ao longo da fala, complementando a leitura
+                de ansiedade somática.
+              </p>
+            </div>
+          }
+        >
+          <span className="cursor-help border-b border-dotted border-slate-600">DDMFCC9 {mfcc9DeltaDelta.toFixed(4)}</span>
+        </FroidTooltip>
       </div>
       {!hasData && (
         <p className="mt-2 text-[9px] italic text-slate-500">

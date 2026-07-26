@@ -111,12 +111,24 @@ export const IPMLineChart: React.FC<Props> = ({ data, current, baseline }) => {
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border border-slate-700 bg-slate-950 px-2 py-2 text-white shadow-sm">
       <div className="mb-1 flex shrink-0 items-center justify-between gap-3 border-b border-slate-800 pb-1">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="text-[11px] font-black uppercase tracking-widest text-slate-100">
-            FROID - IPM
-          </span>
-          <span className="truncate text-[10px] font-bold uppercase tracking-wider text-slate-500">
-            Índice de potencia motivacional
-          </span>
+          <FroidTooltip
+            width={400}
+            content={
+              <div className="max-w-[380px]">
+                <p className="font-bold">O Papel do IPM (O "Velocímetro")</p>
+                <p className="mt-1 text-[11px] leading-relaxed">{IPM_ROLE_TEXT}</p>
+              </div>
+            }
+          >
+            <span className="flex cursor-help items-center gap-3">
+              <span className="text-[11px] font-black uppercase tracking-widest text-slate-100">
+                FROID - IPM
+              </span>
+              <span className="truncate text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                Índice de Potência Multimodal
+              </span>
+            </span>
+          </FroidTooltip>
           <span className="font-mono text-[18px] font-black leading-none text-emerald-400">
             {currentValue.toFixed(1)}
           </span>

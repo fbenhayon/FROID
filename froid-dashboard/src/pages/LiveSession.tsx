@@ -43,7 +43,7 @@ const SIMPLIFIED_METRIC_TOOLTIPS: Record<string, string> = {
   CORTE:
     "Intervalo temporal em análise desde o último corte semântico, seja automático ou executado pelo profissional.",
   IPM:
-    "Índice de Potencia Motivacional. Funciona como o velocímetro emocional: indica a intensidade global da energia vocal, facial e semântica do paciente.",
+    "Índice de Potência Multimodal. Funciona como o velocímetro emocional: indica a intensidade global da energia vocal, facial e semântica do paciente.",
   IDM:
     "Índice de Desvio Multimodal. Indica a direção e o grau de afastamento entre voz, face, semântica e zonas FROID.",
   ZONAS:
@@ -51,11 +51,11 @@ const SIMPLIFIED_METRIC_TOOLTIPS: Record<string, string> = {
   TOM:
     "Tom emocional predominante inferido pela composição entre fala transcrita, marcadores acústicos e contexto do corte.",
   "P/MIN":
-    "Palavras por minuto no corte atual. Ajuda a identificar aceleração, lentificação, bloqueios ou mudancas de cadência.",
+    "Palavras por minuto no corte atual. Ajuda a identificar aceleração, lentificação, bloqueios ou mudanças de cadência.",
   "DISSO.":
     "Quantidade de dissonâncias confirmadas acima da métrica definida no corte atual. Exibe somente apontamentos efetivamente detectados.",
   MFCC7:
-    "Coeficiente cepstral vocal associado ao timbre e a energia espectral. No FROID, ganha relevância quando cruza valencia semântica negativa e marcadores de retardo ou tensão.",
+    "Coeficiente cepstral vocal associado ao timbre e à energia espectral. No FROID, ganha relevância quando cruza valência semântica negativa e marcadores de retardo ou tensão.",
   MFCC9:
     "Coeficiente cepstral vocal usado como marcador complementar de tensão autônoma, especialmente quando observado em trechos semanticamente neutros.",
   DMFCC7:
@@ -63,37 +63,37 @@ const SIMPLIFIED_METRIC_TOOLTIPS: Record<string, string> = {
   DMFCC9:
     "Delta do MFCC9. Mede a variação de primeira ordem do coeficiente durante o corte.",
   DDMFCC7:
-    "Delta-delta do MFCC7. Indica aceleração ou desaceleração da mudanca cepstral.",
+    "Delta-delta do MFCC7. Indica aceleração ou desaceleração da mudança cepstral.",
   DDMFCC9:
-    "Delta-delta do MFCC9. Indica aceleração ou desaceleração da mudanca cepstral.",
+    "Delta-delta do MFCC9. Indica aceleração ou desaceleração da mudança cepstral.",
   "F0 MED.":
     "Frequência fundamental média da voz. Ajuda a observar elevação de pitch, queda vocal, tensão ou variações de ativação.",
   ZCR:
     "Taxa de cruzamento por zero. Aponta irregularidade acústica e componentes de aspereza, ruído ou tensão vocal.",
   JITTER:
-    "Índice interno normalizado de perturbação de frequência, derivado para comparação longitudinal no FROID. Não e percentual acústico bruto.",
+    "Índice interno normalizado de perturbação de frequência, derivado para comparação longitudinal no FROID. Não é percentual acústico bruto.",
   SHIMMER:
-    "Índice interno normalizado de variação de amplitude vocal, derivado para comparação longitudinal no FROID. Não e medida bruta em dB.",
+    "Índice interno normalizado de variação de amplitude vocal, derivado para comparação longitudinal no FROID. Não é medida bruta em dB.",
   DELTA:
     "Energia de modulação vocal na faixa delta. No FROID, representa modulação bioacústica lenta, não atividade EEG direta.",
   THETA:
-    "Energia de modulação vocal na faixa theta. Usada como marcador de oscilacao lenta da expressão vocal.",
+    "Energia de modulação vocal na faixa theta. Usada como marcador de oscilação lenta da expressão vocal.",
   ALPHA:
-    "Energia de modulação vocal na faixa alpha. Ajuda a compor estabilidade, ritmo e organização da emissao.",
+    "Energia de modulação vocal na faixa alpha. Ajuda a compor estabilidade, ritmo e organização da emissão.",
   BETA:
-    "Energia de modulação vocal na faixa beta. Ajuda a compor índices de ativação, esforco e tensão cognitiva.",
+    "Energia de modulação vocal na faixa beta. Ajuda a compor índices de ativação, esforço e tensão cognitiva.",
   GAMA:
     "Energia de modulação vocal na faixa gama. Ajuda a observar ativação rápida e instabilidade espectral fina.",
   "IND. ESPECTRAL":
     "Índice composto das bandas espectrais vocais, usado para sintetizar o perfil de modulação bioacústica do corte.",
   "SUB-H 5-12":
-    "Energia sub-harmônica entre 5 e 12 Hz. No FROID, integra o nucleo de leitura autônoma e sinais de sobrecarga profunda.",
+    "Energia sub-harmônica entre 5 e 12 Hz. No FROID, integra o núcleo de leitura autônoma e sinais de sobrecarga profunda.",
   "SUB-H 12-20":
     "Energia sub-harmônica entre 12 e 20 Hz. Complementa a leitura de tremor, tensão e modulação involuntária.",
   "SUB-H 20-40":
-    "Energia sub-harmônica entre 20 e 40 Hz. Complementa a leitura de excitacao, instabilidade e microtremores vocais.",
+    "Energia sub-harmônica entre 20 e 40 Hz. Complementa a leitura de excitação, instabilidade e microtremores vocais.",
   "VOCAL 85-165":
-    "Banda basal de tensão vocal. Ajuda a identificar sustentacao, constricao e esforco na base da emissao.",
+    "Banda basal de tensão vocal. Ajuda a identificar sustentação, constrição e esforço na base da emissão.",
   "DNA INFRA":
     "Componente nuclear de infrassom vocal usado na matriz bioacústica do FROID.",
   "DNA LIMBICO":
@@ -101,17 +101,17 @@ const SIMPLIFIED_METRIC_TOOLTIPS: Record<string, string> = {
   "DNA VOCAL":
     "Componente de tensão vocal basal usado para compor riscos, dissonâncias e estado de ativação.",
   "DNA FLOOD":
-    "Indicador composto de flooding autonômico, sugerindo sobrecarga ou intensificacao fisiológica relevante.",
+    "Indicador composto de flooding autonômico, sugerindo sobrecarga ou intensificação fisiológica relevante.",
   "DNA SHUTDOWN":
     "Indicador composto de retraimento ou desligamento dissociativo, quando a assinatura bioacústica sugere queda defensiva.",
   "DNA NEURO":
-    "Índice de ressonancia neurogenica estimado por combinações sub-harmônicas e estabilidade vocal.",
+    "Índice de ressonância neurogênica estimado por combinações sub-harmônicas e estabilidade vocal.",
   "DNA SOMATO":
     "Índice de dissonância somatoafetiva, usado para cruzar expressão vocal, tensão e marcadores corporais inferidos.",
 };
 
 const SIMPLIFIED_CUT_TOOLTIP =
-  "O corte organiza a sessão em janelas analisaveis. A cada fechamento, o FROID consolida tema, resumo da fala, métricas vocais, indicadores bioacústicos e dissonâncias relevantes.";
+  "O corte organiza a sessão em janelas analisáveis. A cada fechamento, o FROID consolida tema, resumo da fala, métricas vocais, indicadores bioacústicos e dissonâncias relevantes.";
 
 interface AggData {
   zones: PerceptionZone[];
@@ -287,7 +287,7 @@ function classifyDissonance(zone?: PerceptionZone | null, audioMeta?: Record<str
   }
   if (hasDeepSna && hasAu(auSet, 15) && basal < 0.25) {
     return {
-      title: "Shutdown psíquico / dissociacao",
+      title: "Shutdown psíquico / dissociação",
       summary:
         "A combinação de tremor autonômico profundo, AU15 e baixa energia vocal basal sugere queda de disponibilidade, congelamento ou supressão defensiva da expressão emocional.",
       action:
@@ -387,13 +387,13 @@ function dissonanceTechnicalFactors(
 
   const factors = [
     `IDM ${score.toFixed(2)} (${severity}) acima do limiar ${DISSONANCE_REPORT_THRESHOLD.toFixed(2)}: o desvio energético compara E_vocal contra E_baseline e aplica M_fac quando há contradição facial-vocal.`,
-    `Morfodinamica facial/FACS: AUs ativas ${aus.length ? aus.join(", ") : "sem AU específica reportada"}; a leitura exige coerencia temporal entre neutral, onset, apex e offset para reduzir falso positivo.`,
-    `Zona ${zone?.zone ?? "--"} (${zone?.tema || "tema em apuração"}): ${ZONE_CLINICAL_DESCRIPTIONS[zone?.zone || 0] || "sem descricao zonal."}`,
+    `Morfodinâmica facial/FACS: AUs ativas ${aus.length ? aus.join(", ") : "sem AU específica reportada"}; a leitura exige coerência temporal entre neutral, onset, apex e offset para reduzir falso positivo.`,
+    `Zona ${zone?.zone ?? "--"} (${zone?.tema || "tema em apuração"}): ${ZONE_CLINICAL_DESCRIPTIONS[zone?.zone || 0] || "sem descrição zonal."}`,
   ];
 
   if (mfcc7Delta !== null && Math.abs(mfcc7Delta) >= DISSONANCE_MFCC_DELTA_THRESHOLD) {
     factors.push(
-      `MFCC7 divergente: ${formatMetricValue(audioMeta?.mfcc7)} contra baseline ${formatMetricValue(audioMeta?.baseline_mfcc7)} (delta ${mfcc7Delta.toFixed(2)}), marcador acústico associado a valencia negativa quando sustentado em fala emocionalmente carregada.`,
+      `MFCC7 divergente: ${formatMetricValue(audioMeta?.mfcc7)} contra baseline ${formatMetricValue(audioMeta?.baseline_mfcc7)} (delta ${mfcc7Delta.toFixed(2)}), marcador acústico associado a valência negativa quando sustentado em fala emocionalmente carregada.`,
     );
   }
   if (mfcc9Delta !== null && Math.abs(mfcc9Delta) >= DISSONANCE_MFCC_DELTA_THRESHOLD) {
@@ -408,7 +408,7 @@ function dissonanceTechnicalFactors(
   }
   if (dnaBasal !== null && dnaBasal >= DISSONANCE_DNA_THRESHOLD) {
     factors.push(
-      `Tensão basal 85-165 Hz acima da métrica (${dnaBasal.toFixed(2)}): aponta carga laríngea/respiratoria sustentada sob a fala.`,
+      `Tensão basal 85-165 Hz acima da métrica (${dnaBasal.toFixed(2)}): aponta carga laríngea/respiratória sustentada sob a fala.`,
     );
   }
   if (dnaFlooding !== null && dnaFlooding >= DISSONANCE_DNA_THRESHOLD) {
@@ -418,7 +418,7 @@ function dissonanceTechnicalFactors(
   }
   if (dnaShutdown !== null && dnaShutdown >= DISSONANCE_DNA_THRESHOLD) {
     factors.push(
-      `Shutdown/dissociacao acima da métrica (${dnaShutdown.toFixed(2)}): queda relativa de disponibilidade expressiva com tremor autonômico residual.`,
+      `Shutdown/dissociação acima da métrica (${dnaShutdown.toFixed(2)}): queda relativa de disponibilidade expressiva com tremor autonômico residual.`,
     );
   }
   if (dnaSomato !== null && dnaSomato >= DISSONANCE_DNA_THRESHOLD) {
@@ -428,7 +428,7 @@ function dissonanceTechnicalFactors(
   }
   if (dnaNeurogenic !== null && dnaNeurogenic >= DISSONANCE_DNA_THRESHOLD) {
     factors.push(
-      `Ressonancia neurogenica acima da métrica (${dnaNeurogenic.toFixed(2)}): alteração sub-harmônica em faixa superior compatível com ativação corporal não verbalizada.`,
+      `Ressonância neurogênica acima da métrica (${dnaNeurogenic.toFixed(2)}): alteração sub-harmônica em faixa superior compatível com ativação corporal não verbalizada.`,
     );
   }
   if (jitter !== null && jitter >= VOICE_PERTURBATION_PROXY_ALERT_THRESHOLD) {

@@ -277,23 +277,53 @@ export const RiskChart: React.FC<Props> = ({
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border border-slate-700 bg-slate-950 p-2 text-slate-100 shadow-sm">
       <div className="mb-1.5 flex shrink-0 items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="text-[12px] font-black text-slate-100">
-            Riscos clínicos
-          </h3>
-          <p className="truncate text-[9px] font-medium text-slate-400">
-            Resumo percentual por categoria
-            {typeof baseline === "number" && Number.isFinite(baseline)
-              ? ` | IPM 60s ${baseline.toFixed(1)}`
-              : ""}
-          </p>
-        </div>
-        <div className="shrink-0 rounded-xl border border-blue-800 bg-blue-950 px-2.5 py-0.5 text-center text-blue-200">
-          <span className="block text-[7px] font-black uppercase">
-            Índice geral
-          </span>
-          <strong className="font-mono text-[11px]">{generalRiskIndex}%</strong>
-        </div>
+        <FroidTooltip
+          width={360}
+          content={
+            <div>
+              <p className="font-bold text-slate-100">Riscos clínicos</p>
+              <p className="mt-1">
+                Estimativa relativa de cinco padrões de risco (depressão,
+                ansiedade somática, mania, estresse cognitivo e dissociação/
+                trauma) a partir do cruzamento entre voz, face e zonas. Cada
+                barra é apoio à escuta, não um diagnóstico — passe o mouse em
+                cada risco para ver a base de cálculo e a escala de referência.
+              </p>
+            </div>
+          }
+        >
+          <div className="min-w-0 cursor-help">
+            <h3 className="text-[12px] font-black text-slate-100">
+              Riscos clínicos
+            </h3>
+            <p className="truncate text-[9px] font-medium text-slate-400">
+              Resumo percentual por categoria
+              {typeof baseline === "number" && Number.isFinite(baseline)
+                ? ` | IPM 60s ${baseline.toFixed(1)}`
+                : ""}
+            </p>
+          </div>
+        </FroidTooltip>
+        <FroidTooltip
+          width={300}
+          content={
+            <div>
+              <p className="font-bold text-slate-100">Índice geral de risco</p>
+              <p className="mt-1">
+                Média da participação relativa das cinco categorias. Dá uma
+                leitura rápida da carga de risco global do momento; para conduta,
+                observe qual categoria específica está elevada.
+              </p>
+            </div>
+          }
+        >
+          <div className="shrink-0 cursor-help rounded-xl border border-blue-800 bg-blue-950 px-2.5 py-0.5 text-center text-blue-200">
+            <span className="block text-[7px] font-black uppercase">
+              Índice geral
+            </span>
+            <strong className="font-mono text-[11px]">{generalRiskIndex}%</strong>
+          </div>
+        </FroidTooltip>
       </div>
 
       <div className="min-h-0 flex-1 space-y-2 overflow-hidden pr-1">

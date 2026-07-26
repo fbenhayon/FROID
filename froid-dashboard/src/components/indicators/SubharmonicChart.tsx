@@ -141,7 +141,7 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta }) => {
         value: tremor5_12,
         source: acoustic5_12 !== null ? "acústico" : "proxy",
         tooltip:
-          "Infrassom Nuclear: leitura da faixa 5-12 Hz, associada a tremor profundo do Sistema Nervoso Autonomo e ativação inconsciente.",
+          "Infrassom Nuclear: leitura da faixa 5–12 Hz, associada a tremor profundo do Sistema Nervoso Autônomo e à ativação inconsciente. Valores altos sinalizam mobilização autonômica ainda não verbalizada.",
       },
       {
         id: "limbic_12_20",
@@ -150,43 +150,43 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta }) => {
         value: upper12_20,
         source: acoustic12_20 !== null ? "acústico" : "proxy",
         tooltip:
-          "Modulação Límbica: faixa 12-20 Hz, usada para estimar reatividade afetiva e variação autônoma ligada a estados emocionais.",
+          "Modulação Límbica: faixa 12–20 Hz, usada para estimar a reatividade afetiva e a variação autônoma ligada a estados emocionais. Acompanha a intensidade da resposta emocional em curso.",
       },
       {
         id: "vocal_85_165",
         label: "Tensão vocal basal",
-        band: "85-165 Hz | Rigidez laríngea",
+        band: "85–165 Hz | Rigidez laríngea",
         value: tension85_165,
         source: acoustic85_165 !== null ? "acústico" : "proxy",
         tooltip:
-          "Tensão Vocal Basal: faixa 85-165 Hz, relacionada a rigidez laríngea, hipercontrole vocal e esforco de sustentacao.",
+          "Tensão Vocal Basal: faixa 85–165 Hz, relacionada a rigidez laríngea, hipercontrole vocal e esforço de sustentação. Sobe quando o paciente contém ou controla excessivamente a fala.",
       },
       {
         id: "flooding",
         label: "Flooding autonômico",
-        band: "5-12 + 85-165 Hz | Colisao autônoma",
+        band: "5–12 + 85–165 Hz | Colisão autônoma",
         value: flooding,
         source: hasAcoustic ? "acústico" : "proxy",
         tooltip:
-          "Flooding Autonomico: colisao entre energia 5-12 Hz e tensão vocal basal, indicando sobrecarga neurofisiologica ativa.",
+          "Flooding Autonômico: colisão entre a energia de 5–12 Hz e a tensão vocal basal, indicando sobrecarga neurofisiológica ativa. Sugere que o paciente pode estar sendo inundado por ativação — considere regular o ritmo da sessão.",
       },
       {
         id: "shutdown",
         label: "Shutdown dissociativo",
-        band: "Queda energética | Coerencia reduzida",
+        band: "Queda energética | Coerência reduzida",
         value: shutdown,
         source: hasAcoustic ? "acústico" : "proxy",
         tooltip:
-          "Shutdown Dissociativo: queda energética com redução de coerencia, sugerindo supressão defensiva, embotamento ou retraimento autonômico.",
+          "Shutdown Dissociativo: queda energética com redução de coerência, sugerindo supressão defensiva, embotamento ou retraimento autonômico. É o oposto do flooding — o paciente pode estar se desconectando.",
       },
       {
         id: "neurogenic",
-        label: "Ressonancia neurogenica",
-        band: "20-40 Hz | Descarga vegetativa",
+        label: "Ressonância neurogênica",
+        band: "20–40 Hz | Descarga vegetativa",
         value: neurogenic,
         source: acoustic20_40 !== null ? "acústico" : "proxy",
         tooltip:
-          "Ressonancia Neurogenica: faixa 20-40 Hz, associada a descarga vegetativa, regulacao autônoma e reorganizacao neurofisiologica.",
+          "Ressonância Neurogênica: faixa 20–40 Hz, associada a descarga vegetativa, regulação autônoma e reorganização neurofisiológica. Tende a acompanhar momentos de reprocessamento e alívio.",
       },
       {
         id: "somatoaffective",
@@ -195,7 +195,7 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta }) => {
         value: somatoaffective,
         source: "proxy",
         tooltip:
-          "Dissonância Somatoafetiva: contraste entre calma verbal aparente e tensão sub-harmônica, indicando possível conflito corpo-fala.",
+          "Dissonância Somatoafetiva: contraste entre a calma verbal aparente e a tensão sub-harmônica, indicando possível conflito corpo-fala — o que é dito não coincide com o que o corpo sinaliza.",
       },
     ];
 
@@ -205,8 +205,8 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta }) => {
         : tremor5_12 > 0.4 && tension85_165 > 0.6
           ? "ALERTA SEVERO: sobrecarga autonômica crítica por tremor profundo cruzado com tensão vocal."
           : tremor5_12 > 0.4
-            ? "ALERTA DE DISSOCIACAO: tremor autonômico profundo predominando sobre a emissao vocal basal."
-            : "Sistema Nervoso Autonomo estável. Fluxo simpatico regular.";
+            ? "ALERTA DE DISSOCIAÇÃO: tremor autonômico profundo predominando sobre a emissão vocal basal."
+            : "Sistema Nervoso Autônomo estável. Fluxo simpático regular.";
 
     return {
       hasAcousticData: hasAcoustic,
@@ -231,20 +231,51 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta }) => {
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border border-slate-700 bg-slate-950 p-2 text-slate-100 shadow-sm">
       <div className="mb-1.5 flex shrink-0 items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="text-[13px] font-black text-slate-100">
-            Sub-harmônicos
-          </h3>
-          <p className="truncate text-[10px] font-medium text-slate-400">
-            Percentual por componente e substância técnica
-          </p>
-        </div>
-        <div className="shrink-0 rounded-xl border border-blue-800 bg-blue-950 px-2.5 py-0.5 text-center text-blue-200">
-          <span className="block text-[8px] font-black uppercase">
-            Índice geral
-          </span>
-          <strong className="font-mono text-[12px]">{generalIndex}%</strong>
-        </div>
+        <FroidTooltip
+          width={360}
+          content={
+            <div>
+              <p className="font-bold text-slate-100">Sub-harmônicos vocais</p>
+              <p className="mt-1">
+                Componentes de infra-tremor da voz nas faixas de 5 a 165 Hz,
+                usados como pistas de ativação e regulação do Sistema Nervoso
+                Autônomo. É o pilar mais exploratório do FROID — leia como apoio
+                à escuta, nunca como diagnóstico isolado. Quando há sinal
+                acústico real usa-se a medida direta; caso contrário, um proxy
+                derivado das zonas.
+              </p>
+            </div>
+          }
+        >
+          <div className="min-w-0 cursor-help">
+            <h3 className="text-[13px] font-black text-slate-100">
+              Sub-harmônicos
+            </h3>
+            <p className="truncate text-[10px] font-medium text-slate-400">
+              Percentual por componente e substância técnica
+            </p>
+          </div>
+        </FroidTooltip>
+        <FroidTooltip
+          width={300}
+          content={
+            <div>
+              <p className="font-bold text-slate-100">Índice geral sub-harmônico</p>
+              <p className="mt-1">
+                Média dos componentes sub-harmônicos em 0–100%. Resume a carga
+                autonômica global do momento — útil para perceber tendência antes
+                de detalhar cada componente.
+              </p>
+            </div>
+          }
+        >
+          <div className="shrink-0 cursor-help rounded-xl border border-blue-800 bg-blue-950 px-2.5 py-0.5 text-center text-blue-200">
+            <span className="block text-[8px] font-black uppercase">
+              Índice geral
+            </span>
+            <strong className="font-mono text-[12px]">{generalIndex}%</strong>
+          </div>
+        </FroidTooltip>
       </div>
 
       <div className="min-h-0 flex-1 overflow-hidden pr-1">

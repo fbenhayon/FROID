@@ -95,22 +95,22 @@ const TITLE_TOOLTIPS: Record<string, string> = {
   "Dissonâncias registradas":
     "Lista apenas dissonâncias persistentes acima do limiar clínico configurado.",
   "Relatório Descritivo":
-    "Campo editavel para o profissional montar texto a cópiar, enviar ou futuramente imprimir.",
+    "Campo editável para o profissional montar texto a copiar, enviar ou futuramente imprimir.",
 };
 
 const METRIC_TOOLTIPS: Record<string, string> = {
   Corte: "Intervalo temporal efetivamente analisado no corte da sessão.",
-  IPM: "Índice de Potencia Multimodal: intensidade global ou energia emocional empregada.",
+  IPM: "Índice de Potência Multimodal: intensidade global ou energia emocional empregada.",
   IDM: "Índice de Desvio Multimodal: direção e grau do desequilíbrio multimodal.",
   ZONAS: "Zona FROID dominante no período analisado.",
   Tema: "Tema predominante consolidado da sessão ou do bloco analisado.",
   Tom: "Tom emocional inferido pela combinação vocal e semântica.",
   "P/min": "Palavras por minuto no período analisado.",
   "Disso.": "Quantidade de dissonâncias facial-vocais persistentes registradas.",
-  MFCC7: "Biomarcador acústico associado a conteúdo de valencia negativa e risco depressivo quando combinado a outros sinais.",
+  MFCC7: "Biomarcador acústico associado a conteúdo de valência negativa e risco depressivo quando combinado a outros sinais.",
   MFCC9: "Biomarcador acústico acompanhado em fala neutra, relevante para tensão autonômica e ansiedade somática.",
   "F0 Med.": "Frequência fundamental média da voz no período.",
-  ZCR: "Taxa de cruzamento por zero, relacionada a textura/ruido e dinâmica acústica.",
+  ZCR: "Taxa de cruzamento por zero, relacionada a textura/ruído e dinâmica acústica.",
   "Jitter idx.": "Índice proxy interno normalizado de instabilidade vocal relativa; não equivale diretamente a jitter percentual normativo.",
   "Shimmer idx.": "Índice proxy interno normalizado de variação relativa do envelope RMS; não equivale diretamente a shimmer em dB.",
   Jitter: "Índice proxy interno normalizado de instabilidade vocal relativa.",
@@ -124,7 +124,7 @@ const METRIC_TOOLTIPS: Record<string, string> = {
   "Delta último": "Variação percentual do último corte em relação ao baseline.",
   "Z último": "Desvio padronizado do último corte em relação ao comportamento de referência.",
   Alertas: "Alertas estatisticos ou clínicos levantados para a métrica.",
-  ipm: "Índice de Potencia Multimodal no motor estatístico.",
+  ipm: "Índice de Potência Multimodal no motor estatístico.",
   idm: "Índice de Desvio Multimodal no motor estatístico.",
   words_per_minute: "Velocidade média de fala em palavras por minuto.",
   facial_vocal_dissonance: "Dissonância entre expressão facial e trilha vocal.",
@@ -133,15 +133,15 @@ const METRIC_TOOLTIPS: Record<string, string> = {
   Dissonancia: "Dissonância entre expressão facial e trilha vocal.",
   "Risco clínico": "Risco clínico agregado calculado pelo motor FROID.",
   "Delta 0.5-4Hz": "Modulação lenta do envelope vocal, associada a carga vegetativa basal.",
-  "Theta 4-8Hz": "Faixa de modulação lenta relacionada a flutuacao afetiva e organização narrativa.",
-  "Alpha 8-12Hz": "Faixa intermediaria de estabilização autônoma e transicao ritmica.",
-  "Beta 12-30Hz": "Faixa de ativação rápida ligada a tensão cognitiva, vigilância e mobilizacao autônoma.",
+  "Theta 4-8Hz": "Faixa de modulação lenta relacionada a flutuação afetiva e organização narrativa.",
+  "Alpha 8-12Hz": "Faixa intermediária de estabilização autônoma e transição rítmica.",
+  "Beta 12-30Hz": "Faixa de ativação rápida ligada a tensão cognitiva, vigilância e mobilização autônoma.",
   "Gama 30-80Hz": "Faixa alta de energia espectral, interpretada como tensão fina, aspereza ou descarga rápida.",
   "Ind. espectral": "Índice ponderado das bandas Delta, Theta, Alpha, Beta e Gama.",
   "DMFCC7": "Derivada temporal do MFCC7, comparando a janela atual com a anterior.",
   "DMFCC9": "Derivada temporal do MFCC9, comparando a janela atual com a anterior.",
-  "DDMFCC7": "Aceleração cepstral do MFCC7, usada para detectar mudancas abruptas no marcador.",
-  "DDMFCC9": "Aceleração cepstral do MFCC9, usada para detectar mudancas abruptas no marcador.",
+  "DDMFCC7": "Aceleração cepstral do MFCC7, usada para detectar mudanças abruptas no marcador.",
+  "DDMFCC9": "Aceleração cepstral do MFCC9, usada para detectar mudanças abruptas no marcador.",
 };
 
 const HelpTitle: React.FC<{ title: string; className?: string }> = ({

@@ -25,13 +25,13 @@ interface Props {
 
 const biomarkerTooltips: Record<string, string> = {
   mfcc7:
-    "MFCC7 indica componentes espectrais associados a valencia negativa e risco depressivo quando se eleva em fala emocionalmente negativa.",
+    "MFCC7 indica componentes espectrais associados a valência negativa e risco depressivo quando se eleva em fala emocionalmente negativa.",
   mfcc9:
-    "MFCC9 e acompanhado em fala neutra; quedas ou desvios podem sugerir tensão autonômica latente e ansiedade somática.",
+    "MFCC9 é acompanhado em fala neutra; quedas ou desvios podem sugerir tensão autonômica latente e ansiedade somática.",
   jitter:
-    "Jitter no FROID e um índice proxy interno normalizado, derivado de ZCR escalado, útil para observar instabilidade vocal relativa. Não equivale diretamente ao jitter percentual normativo de Praat.",
+    "Jitter no FROID é um índice proxy interno normalizado, derivado de ZCR escalado, útil para observar instabilidade vocal relativa. Não equivale diretamente ao jitter percentual normativo de Praat.",
   shimmer:
-    "Shimmer no FROID e um índice proxy interno normalizado da variação relativa do envelope RMS, útil para observar instabilidade de energia vocal. Não equivale diretamente ao shimmer em dB.",
+    "Shimmer no FROID é um índice proxy interno normalizado da variação relativa do envelope RMS, útil para observar instabilidade de energia vocal. Não equivale diretamente ao shimmer em dB.",
 };
 
 function limitWords(text: string, maxWords: number) {
