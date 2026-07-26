@@ -38,6 +38,7 @@ import {
   SessionReportRecord,
 } from "../lib/session-report";
 import { countSpokenUnits, normalizeSessionLocale, SESSION_LOCALES } from "../lib/localization";
+import { tooltipText } from "../lib/tooltip-i18n";
 
 const SIMPLIFIED_METRIC_TOOLTIPS: Record<string, string> = {
   CORTE:
@@ -4860,7 +4861,11 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             {simplifiedMetricEntries.map(([label, value]) => (
               <div key={label} className="px-2 first:pl-1">
                 <FroidTooltip
-                  content={SIMPLIFIED_METRIC_TOOLTIPS[label] || "Métrica do corte atual da sessão simplificada."}
+                  content={tooltipText(
+                    reportLocale,
+                    SIMPLIFIED_METRIC_TOOLTIPS[label] ||
+                      "Métrica do corte atual da sessão simplificada.",
+                  )}
                   width={330}
                 >
                   <span className="block cursor-help whitespace-nowrap text-[9px] font-black uppercase tracking-wide text-slate-500 underline decoration-slate-600 underline-offset-2">
@@ -4948,7 +4953,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <div>
                     <p className="font-black uppercase tracking-wider">
-                      <FroidTooltip content={SIMPLIFIED_CUT_TOOLTIP} width={360}>
+                      <FroidTooltip content={tooltipText(reportLocale, SIMPLIFIED_CUT_TOOLTIP)} width={360}>
                         <span className="cursor-help underline decoration-cyan-700 underline-offset-2">
                           Corte semântico + Resumo da Fala IA
                         </span>
