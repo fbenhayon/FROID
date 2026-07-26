@@ -1,6 +1,7 @@
 import React from "react";
 import { FroidTooltip } from "../ui/FroidTooltip";
 import { normalizeSessionLocale, type SessionLocale } from "../../lib/localization";
+import { tooltipText } from "../../lib/tooltip-i18n";
 
 type FroidAudioMetaWindow = Window &
   typeof globalThis & {
@@ -259,7 +260,7 @@ export const AudioTranscription: React.FC<Props> = ({
               <FroidTooltip
                 key={item.key}
                 fullWidth
-                content={<p>{biomarkerTooltips[item.key]}</p>}
+                content={<p>{tooltipText(locale, biomarkerTooltips[item.key])}</p>}
                 width={300}
               >
                 <div className="w-full cursor-help">
@@ -298,7 +299,7 @@ export const AudioTranscription: React.FC<Props> = ({
               relativeMax={perturbationMax}
               stable={0.2}
               warning={0.45}
-              tooltip={biomarkerTooltips.jitter}
+              tooltip={tooltipText(locale, biomarkerTooltips.jitter)}
             />
             <StabilityBar
               label="Shimmer idx."
@@ -307,7 +308,7 @@ export const AudioTranscription: React.FC<Props> = ({
               relativeMax={perturbationMax}
               stable={0.3}
               warning={0.6}
-              tooltip={biomarkerTooltips.shimmer}
+              tooltip={tooltipText(locale, biomarkerTooltips.shimmer)}
             />
           </div>
         </div>

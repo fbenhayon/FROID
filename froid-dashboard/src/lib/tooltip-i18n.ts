@@ -313,6 +313,176 @@ const TOOLTIP_I18N: Record<string, TooltipTranslations> = {
       "es-ES":
         "El corte organiza la sesión en ventanas analizables. En cada cierre, FROID consolida tema, resumen del habla, métricas vocales, indicadores bioacústicos y disonancias relevantes.",
     },
+
+  // ----- Painel de transcrição: biomarcadores -----
+  "MFCC7 indica componentes espectrais associados a valência negativa e risco depressivo quando se eleva em fala emocionalmente negativa.":
+    {
+      "en-US":
+        "MFCC7 reflects spectral components associated with negative valence and depressive risk when it rises during emotionally negative speech.",
+      "fr-FR":
+        "Le MFCC7 traduit des composantes spectrales associées à une valence négative et à un risque dépressif lorsqu'il s'élève dans un discours émotionnellement négatif.",
+      "es-ES":
+        "El MFCC7 refleja componentes espectrales asociados a valencia negativa y riesgo depresivo cuando se eleva en habla emocionalmente negativa.",
+    },
+  "MFCC9 é acompanhado em fala neutra; quedas ou desvios podem sugerir tensão autonômica latente e ansiedade somática.":
+    {
+      "en-US":
+        "MFCC9 is tracked in neutral speech; drops or deviations may suggest latent autonomic tension and somatic anxiety.",
+      "fr-FR":
+        "Le MFCC9 est suivi dans la parole neutre ; des baisses ou des écarts peuvent suggérer une tension autonome latente et une anxiété somatique.",
+      "es-ES":
+        "El MFCC9 se acompaña en habla neutra; caídas o desvíos pueden sugerir tensión autonómica latente y ansiedad somática.",
+    },
+  "Jitter no FROID é um índice proxy interno normalizado, derivado de ZCR escalado, útil para observar instabilidade vocal relativa. Não equivale diretamente ao jitter percentual normativo de Praat.":
+    {
+      "en-US":
+        "Jitter in FROID is a normalized internal proxy index, derived from scaled ZCR, useful to observe relative vocal instability. It does not directly correspond to Praat's normative percentage jitter.",
+      "fr-FR":
+        "Dans FROID, le jitter est un indice proxy interne normalisé, dérivé du ZCR mis à l'échelle, utile pour observer l'instabilité vocale relative. Il ne correspond pas directement au jitter en pourcentage normatif de Praat.",
+      "es-ES":
+        "En FROID, el jitter es un índice proxy interno normalizado, derivado del ZCR escalado, útil para observar inestabilidad vocal relativa. No equivale directamente al jitter porcentual normativo de Praat.",
+    },
+  "Shimmer no FROID é um índice proxy interno normalizado da variação relativa do envelope RMS, útil para observar instabilidade de energia vocal. Não equivale diretamente ao shimmer em dB.":
+    {
+      "en-US":
+        "Shimmer in FROID is a normalized internal proxy index of the relative variation of the RMS envelope, useful to observe vocal energy instability. It does not directly correspond to shimmer in dB.",
+      "fr-FR":
+        "Dans FROID, le shimmer est un indice proxy interne normalisé de la variation relative de l'enveloppe RMS, utile pour observer l'instabilité de l'énergie vocale. Il ne correspond pas directement au shimmer en dB.",
+      "es-ES":
+        "En FROID, el shimmer es un índice proxy interno normalizado de la variación relativa de la envolvente RMS, útil para observar inestabilidad de energía vocal. No equivale directamente al shimmer en dB.",
+    },
+
+  // ----- Carteira (Dashboard): sinais e métricas -----
+  "Prioridade atual do paciente na carteira. Sobe quando há maior ativação, risco, baixa estabilidade ou necessidade de revisão.":
+    {
+      "en-US":
+        "Patient's current priority in the caseload. Rises with greater activation, risk, low stability or need for review.",
+      "fr-FR":
+        "Priorité actuelle du patient dans le portefeuille. Augmente en cas d'activation accrue, de risque, de faible stabilité ou de besoin de révision.",
+      "es-ES":
+        "Prioridad actual del paciente en la cartera. Sube cuando hay mayor activación, riesgo, baja estabilidad o necesidad de revisión.",
+    },
+  "Esforço clínico estimado a partir da intensidade multimodal, dissonâncias, risco agregado e marcadores de tensão.":
+    {
+      "en-US":
+        "Estimated clinical effort based on multimodal intensity, dissonances, aggregate risk and tension markers.",
+      "fr-FR":
+        "Effort clinique estimé à partir de l'intensité multimodale, des dissonances, du risque agrégé et des marqueurs de tension.",
+      "es-ES":
+        "Esfuerzo clínico estimado a partir de la intensidad multimodal, disonancias, riesgo agregado y marcadores de tensión.",
+    },
+  "Disponibilidade de conteúdo clínico interpretável: resumos, cortes, anotações e consistência semântica das sessões.":
+    {
+      "en-US":
+        "Availability of interpretable clinical content: summaries, cuts, notes and semantic consistency across sessions.",
+      "fr-FR":
+        "Disponibilité de contenu clinique interprétable : résumés, coupes, notes et cohérence sémantique des séances.",
+      "es-ES":
+        "Disponibilidad de contenido clínico interpretable: resúmenes, cortes, anotaciones y consistencia semántica de las sesiones.",
+    },
+  "Grau de sustentação do acompanhamento no tempo, considerando quantidade de sessões e comparabilidade longitudinal.":
+    {
+      "en-US":
+        "Degree of continuity of follow-up over time, considering the number of sessions and longitudinal comparability.",
+      "fr-FR":
+        "Degré de continuité du suivi dans le temps, compte tenu du nombre de séances et de la comparabilité longitudinale.",
+      "es-ES":
+        "Grado de sostenimiento del seguimiento en el tiempo, considerando la cantidad de sesiones y la comparabilidad longitudinal.",
+    },
+  "Índice de material analítico disponível para apoiar hipóteses clínicas, FROID Explica e revisão entre sessões.":
+    {
+      "en-US":
+        "Index of analytical material available to support clinical hypotheses, FROID Explains and between-session review.",
+      "fr-FR":
+        "Indice de matériel analytique disponible pour étayer les hypothèses cliniques, FROID Explique et la révision entre les séances.",
+      "es-ES":
+        "Índice de material analítico disponible para apoyar hipótesis clínicas, FROID Explica y revisión entre sesiones.",
+    },
+  "IPM mede a intensidade global da energia emocional empregada na sessão.": {
+    "en-US": "The IPM measures the overall intensity of emotional energy engaged in the session.",
+    "fr-FR": "L'IPM mesure l'intensité globale de l'énergie émotionnelle mobilisée pendant la séance.",
+    "es-ES": "El IPM mide la intensidad global de la energía emocional empleada en la sesión.",
+  },
+  "IDM aponta direção e magnitude do desequilíbrio multimodal entre voz, face, zonas e baseline.": {
+    "en-US": "The IDM shows the direction and magnitude of the multimodal imbalance among voice, face, zones and baseline.",
+    "fr-FR": "L'IDM indique la direction et l'ampleur du déséquilibre multimodal entre voix, visage, zones et ligne de base.",
+    "es-ES": "El IDM señala dirección y magnitud del desequilibrio multimodal entre voz, rostro, zonas y baseline.",
+  },
+  "Zona FROID dominante observada no período analisado.": {
+    "en-US": "Dominant FROID zone observed in the analyzed period.",
+    "fr-FR": "Zone FROID dominante observée sur la période analysée.",
+    "es-ES": "Zona FROID dominante observada en el período analizado.",
+  },
+  "Tom emocional inferido a partir da composição vocal e semântica.": {
+    "en-US": "Emotional tone inferred from the vocal and semantic composition.",
+    "fr-FR": "Tonalité émotionnelle déduite de la composition vocale et sémantique.",
+    "es-ES": "Tono emocional inferido a partir de la composición vocal y semántica.",
+  },
+  "Palavras por minuto, usado como indicador de cadência, aceleração, lentificação ou carga discursiva.": {
+    "en-US": "Words per minute, used as an indicator of cadence, acceleration, slowing or discursive load.",
+    "fr-FR": "Mots par minute, utilisé comme indicateur de cadence, d'accélération, de ralentissement ou de charge discursive.",
+    "es-ES": "Palabras por minuto, usado como indicador de cadencia, aceleración, lentificación o carga discursiva.",
+  },
+  "Quantidade de dissonâncias facial-vocais persistentes acima do limiar configurado.": {
+    "en-US": "Number of persistent facial-vocal dissonances above the configured threshold.",
+    "fr-FR": "Nombre de dissonances faciales-vocales persistantes au-dessus du seuil configuré.",
+    "es-ES": "Cantidad de disonancias facial-vocales persistentes por encima del umbral configurado.",
+  },
+  "Biomarcador acústico acompanhado em contextos de valência negativa e risco depressivo quando combinado a outros sinais.": {
+    "en-US": "Acoustic biomarker tracked in contexts of negative valence and depressive risk when combined with other signals.",
+    "fr-FR": "Biomarqueur acoustique suivi dans des contextes de valence négative et de risque dépressif lorsqu'il est combiné à d'autres signaux.",
+    "es-ES": "Biomarcador acústico acompañado en contextos de valencia negativa y riesgo depresivo cuando se combina con otras señales.",
+  },
+  "Biomarcador acústico relevante para tensão autônoma e ansiedade somática em fala neutra/controlada.": {
+    "en-US": "Acoustic biomarker relevant to autonomic tension and somatic anxiety in neutral/controlled speech.",
+    "fr-FR": "Biomarqueur acoustique pertinent pour la tension autonome et l'anxiété somatique dans une parole neutre/contrôlée.",
+    "es-ES": "Biomarcador acústico relevante para tensión autónoma y ansiedad somática en habla neutra/controlada.",
+  },
+  "Frequência fundamental média da voz, associada a variação de pitch e ativação.": {
+    "en-US": "Average fundamental frequency of the voice, associated with pitch variation and activation.",
+    "fr-FR": "Fréquence fondamentale moyenne de la voix, associée à la variation du pitch et à l'activation.",
+    "es-ES": "Frecuencia fundamental media de la voz, asociada a variación de pitch y activación.",
+  },
+  "Taxa de cruzamento por zero, relacionada a textura acústica, ruído e dinâmica vocal.": {
+    "en-US": "Zero-crossing rate, related to acoustic texture, noise and vocal dynamics.",
+    "fr-FR": "Taux de passage par zéro, lié à la texture acoustique, au bruit et à la dynamique vocale.",
+    "es-ES": "Tasa de cruce por cero, relacionada con textura acústica, ruido y dinámica vocal.",
+  },
+  "Índice proxy interno normalizado, derivado de ZCR escalado, útil para observar instabilidade vocal relativa. Não equivale diretamente a jitter percentual normativo.": {
+    "en-US": "Normalized internal proxy index, derived from scaled ZCR, useful to observe relative vocal instability. It does not directly correspond to normative percentage jitter.",
+    "fr-FR": "Indice proxy interne normalisé, dérivé du ZCR mis à l'échelle, utile pour observer l'instabilité vocale relative. Il ne correspond pas directement au jitter en pourcentage normatif.",
+    "es-ES": "Índice proxy interno normalizado, derivado del ZCR escalado, útil para observar inestabilidad vocal relativa. No equivale directamente al jitter porcentual normativo.",
+  },
+  "Índice proxy interno normalizado da variação relativa do envelope RMS, útil para observar instabilidade de energia vocal. Não equivale diretamente a shimmer em dB.": {
+    "en-US": "Normalized internal proxy index of the relative variation of the RMS envelope, useful to observe vocal energy instability. It does not directly correspond to shimmer in dB.",
+    "fr-FR": "Indice proxy interne normalisé de la variation relative de l'enveloppe RMS, utile pour observer l'instabilité de l'énergie vocale. Il ne correspond pas directement au shimmer en dB.",
+    "es-ES": "Índice proxy interno normalizado de la variación relativa de la envolvente RMS, útil para observar inestabilidad de energía vocal. No equivale directamente al shimmer en dB.",
+  },
+  "Energia sub-harmônica de 5-12 Hz, usada para rastrear tremores autonômicos da voz.": {
+    "en-US": "Sub-harmonic energy of 5-12 Hz, used to track autonomic tremors of the voice.",
+    "fr-FR": "Énergie sous-harmonique de 5-12 Hz, utilisée pour suivre les tremblements autonomes de la voix.",
+    "es-ES": "Energía subarmónica de 5-12 Hz, usada para rastrear temblores autonómicos de la voz.",
+  },
+  "Energia sub-harmônica de 12-20 Hz, complementar na leitura bioacústica e límbica.": {
+    "en-US": "Sub-harmonic energy of 12-20 Hz, complementary in bioacoustic and limbic reading.",
+    "fr-FR": "Énergie sous-harmonique de 12-20 Hz, complémentaire dans la lecture bioacoustique et limbique.",
+    "es-ES": "Energía subarmónica de 12-20 Hz, complementaria en la lectura bioacústica y límbica.",
+  },
+  "Indicador médio da carteira do paciente.": {
+    "en-US": "Average indicator for the patient's caseload.",
+    "fr-FR": "Indicateur moyen du portefeuille du patient.",
+    "es-ES": "Indicador medio de la cartera del paciente.",
+  },
+  "Métrica média consolidada das sessões do paciente.": {
+    "en-US": "Consolidated average metric across the patient's sessions.",
+    "fr-FR": "Métrique moyenne consolidée des séances du patient.",
+    "es-ES": "Métrica media consolidada de las sesiones del paciente.",
+  },
+  "Métrica desta sessão no acompanhamento do paciente.": {
+    "en-US": "Metric of this session within the patient's follow-up.",
+    "fr-FR": "Métrique de cette séance dans le suivi du patient.",
+    "es-ES": "Métrica de esta sesión en el seguimiento del paciente.",
+  },
 };
 
 /**

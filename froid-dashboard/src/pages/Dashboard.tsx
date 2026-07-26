@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { WaitingPatientSessions } from "../components/WaitingPatientSessions";
 import { AIInsights } from "../components/panels/AIInsights";
 import { FroidTooltip } from "../components/ui/FroidTooltip";
+import { tooltipText } from "../lib/tooltip-i18n";
 import { apiUrl } from "../lib/api";
 import {
   buildPatientGroups,
@@ -194,10 +195,11 @@ function compactMetricCells(snapshot: MetricSnapshot) {
   return sessionMetricCells(snapshot).filter((cell) => cell.key !== "theme");
 }
 
-const ScoreBar: React.FC<{ label: string; value: number; color: string }> = ({
+const ScoreBar: React.FC<{ label: string; value: number; color: string; locale: SessionLocale }> = ({
   label,
   value,
   color,
+  locale,
 }) => (
   <div>
     <div className="mb-1 flex items-center justify-between gap-2 text-[10px] font-bold uppercase tracking-wide text-slate-400">
@@ -206,7 +208,7 @@ const ScoreBar: React.FC<{ label: string; value: number; color: string }> = ({
         content={
           <div>
             <p className="font-bold text-slate-900">{label}</p>
-            <p className="mt-1">{SIGNAL_TOOLTIPS[label] || "Indicador medio da carteira do paciente."}</p>
+            <p className="mt-1">{tooltipText(locale, SIGNAL_TOOLTIPS[label] || "Indicador médio da carteira do paciente.")}</p>
           </div>
         }
       >
@@ -775,11 +777,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                 {tr("Indicadores médios de todas as sessões")}
               </p>
               <div className="grid gap-2 md:grid-cols-5">
-                <ScoreBar label="Atenção" value={signal.attentionIndex} color="#ef4444" />
-                <ScoreBar label="Carga" value={signal.clinicalLoad} color="#f97316" />
-                <ScoreBar label="Comunicação" value={signal.communication} color="#0ea5e9" />
-                <ScoreBar label="Continuidade" value={signal.continuity} color="#22c55e" />
-                <ScoreBar label="Insight" value={signal.insight} color="#8b5cf6" />
+                <ScoreBar label="Atenção" value={signal.attentionIndex} color="#ef4444" locale={defaultSessionLocale} />
+                <ScoreBar label="Carga" value={signal.clinicalLoad} color="#f97316" locale={defaultSessionLocale} />
+                <ScoreBar label="Comunicação" value={signal.communication} color="#0ea5e9" locale={defaultSessionLocale} />
+                <ScoreBar label="Continuidade" value={signal.continuity} color="#22c55e" locale={defaultSessionLocale} />
+                <ScoreBar label="Insight" value={signal.insight} color="#8b5cf6" locale={defaultSessionLocale} />
               </div>
               <div className="mt-3 overflow-x-auto">
                 <table className="min-w-max table-auto text-left text-[10px] leading-tight">
@@ -797,7 +799,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                               <div>
                                 <p className="font-bold text-slate-900">{cell.label}</p>
                                 <p className="mt-1">
-                                  {METRIC_TOOLTIPS[cell.key] || "Métrica média consolidada das sessões do paciente."}
+                                  {tooltipText(defaultSessionLocale, METRIC_TOOLTIPS[cell.key] || "Métrica média consolidada das sessões do paciente.")}
                                 </p>
                               </div>
                             }
@@ -850,7 +852,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                               <div>
                                 <p className="font-bold text-slate-900">{cell.label}</p>
                                 <p className="mt-1">
-                                  {METRIC_TOOLTIPS[cell.key] || "Métrica desta sessão no acompanhamento do paciente."}
+                                  {tooltipText(defaultSessionLocale, METRIC_TOOLTIPS[cell.key] || "Métrica desta sessão no acompanhamento do paciente.")}
                                 </p>
                               </div>
                             }
