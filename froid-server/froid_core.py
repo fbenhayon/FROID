@@ -127,7 +127,19 @@ class SessionState:
                     has_critical_dissonance = True
 
         mean_abs_dev = np.mean(np.abs(global_deviations))
-        ipm_score = float(np.clip(50.0 + (mean_abs_dev * 15.0), 0.0, 100.0))
+        # IPM (Índice de Potência Multimodal): sigmoide logística da ativação,
+        # substituindo o mapa linear que travava o índice em [50, 100]. Centrada
+        # em ativação = 1.0, ocupa toda a faixa 0-100: repouso tende a valores
+        # baixos, ativação típica ~50 e hiperativação satura em 100.
+        # Forma: 100 * sigma(k * (A - A0)), A0 = 1.0, k = 1.5.
+        ipm_activation = float(mean_abs_dev)
+        ipm_score = float(
+            np.clip(100.0 / (1.0 + np.exp(-1.5 * (ipm_activation - 1.0))), 0.0, 100.0)
+        )
+        # IDM escalar (a "bússola"): média COM SINAL dos desvios das 12 zonas.
+        # Positivo = energia acima da baseline (hiperativação); negativo =
+        # abaixo (hipoativação). Preserva a direção que o valor absoluto perdia.
+        idm_signed = float(np.mean(global_deviations))
 
         mean_vocal = float(np.mean(voice_spectral_12))
         mean_baseline = float(np.mean(self.baseline_energy))
@@ -143,7 +155,11 @@ class SessionState:
                 global_color = self.mapper.map_color(max(global_deviations))
 
         any_facs_active = any(facs_dissonance_flags.values()) or any(facs_details.values())
-        if mean_vocal > mean_baseline * 1.3 and not any_facs_active:
+        # Embotamento afetivo = REDUÇÃO da resposta emocional: voz apagada
+        # (energia abaixo da baseline) sem atividade facial. A condição anterior
+        # disparava com energia ALTA (mean_vocal > baseline*1.3), invertendo o
+        # sentido clínico. Corrigido para energia baixa.
+        if mean_vocal < mean_baseline * 0.7 and not any_facs_active:
             coherence_status = "EMBOTAMENTO"
         elif has_critical_dissonance:
             coherence_status = "DISSONANCIA ALTA"
@@ -238,6 +254,11 @@ class SessionState:
         self.previous_mfcc9 = mfcc9
         self.previous_delta_mfcc7 = mfcc7_delta
         self.previous_delta_mfcc9 = mfcc9_delta
+        # Limiar da memória de cálculo: pico persistente na aceleração cepstral
+        # (|ΔΔMFCC9| > 1.8) sinaliza contração espástica involuntária das cordas
+        # vocais por ativação do sistema nervoso simpático.
+        mfcc9_spastic_threshold = 1.8
+        mfcc9_spastic_alert = bool(abs(mfcc9_delta_delta) > mfcc9_spastic_threshold)
         subharmonic_5_12 = round(float(np.clip((np.mean(voice_spectral_12[4:8]) * 0.7) + (np.std(voice_spectral_12) * 0.2), 0.0, 25.0)), 3)
         subharmonic_12_20 = round(float(np.clip((np.mean(voice_spectral_12[8:12]) * 0.65) + (np.std(voice_spectral_12) * 0.15), 0.0, 25.0)), 3)
         subharmonic_20_40 = round(float(np.clip((np.mean(voice_spectral_12[1:4]) * 0.55) + (np.std(voice_spectral_12) * 0.12), 0.0, 25.0)), 3)
@@ -271,7 +292,9 @@ class SessionState:
         dna_shutdown = float(np.clip(dna_infrasound * (1.0 - (ipm_score / 100.0)) * zcr_drop_ratio, 0.0, 1.0))
         dna_somato = float(np.clip(((dna_infrasound + dna_basal) / 2.0) * (1.0 + (facial_multiplier - 1.0) * (1.0 if au_suppression else 0.0)) / 2.5, 0.0, 1.0))
         dna_index = float(np.clip(np.mean([dna_infrasound, dna_limbic, dna_neurogenic, dna_basal, dna_flooding, dna_shutdown, dna_somato]), 0.0, 1.0))
-        speech_rate_proxy = round(float(np.clip(95.0 + (words_this_window * 4.5) + (mfcc7 * 1.1), 70.0, 180.0)), 1)
+        # Fonte única de velocidade de fala: alinhado ao WPM consolidado da
+        # janela de 10 min, em vez de uma terceira fórmula divergente.
+        speech_rate_proxy = round(float(words_per_minute_10m), 1)
         clinical_insight = (
             "Coerência preservada" if coherence_status == "COERENTE" else
             "Ativação vocal/gestual com risco de dissonância" if has_dissonance else
@@ -282,6 +305,7 @@ class SessionState:
             "session_id": self.session_id,
             "timestamp_ms": int(time.time() * 1000),
             "ipm_score": round(ipm_score, 1),
+            "idm_score": round(idm_signed, 3),
             "coherence_status": coherence_status,
             "global_energy": {
                 "cor_plot": global_color.value,
@@ -305,6 +329,8 @@ class SessionState:
                 "mfcc9_delta": mfcc9_delta,
                 "mfcc7_delta_delta": mfcc7_delta_delta,
                 "mfcc9_delta_delta": mfcc9_delta_delta,
+                "mfcc9_delta_delta_spastic_threshold": mfcc9_spastic_threshold,
+                "mfcc9_delta_delta_spastic_alert": mfcc9_spastic_alert,
                 "baseline_mfcc7": round(float(np.clip(baseline_mean * 0.12, 0.0, 25.0)), 3),
                 "baseline_mfcc9": round(float(np.clip(baseline_mean * 0.08, 0.0, 25.0)), 3),
                 "spectral_delta_0_4hz": spectral_delta,

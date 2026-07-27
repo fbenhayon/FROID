@@ -402,6 +402,15 @@ function dissonanceTechnicalFactors(
       `MFCC9 divergente: ${formatMetricValue(audioMeta?.mfcc9)} contra baseline ${formatMetricValue(audioMeta?.baseline_mfcc9)} (delta ${mfcc9Delta.toFixed(2)}), sugerindo tensão autônoma latente quando cruza discurso neutro ou controlado.`,
     );
   }
+  if (audioMeta?.mfcc9_delta_delta_spastic_alert === true) {
+    const spasticThreshold =
+      typeof audioMeta?.mfcc9_delta_delta_spastic_threshold === "number"
+        ? audioMeta.mfcc9_delta_delta_spastic_threshold
+        : 1.8;
+    factors.push(
+      `Aceleração cepstral ΔΔMFCC9 = ${formatMetricValue(audioMeta?.mfcc9_delta_delta)} acima do limiar ${spasticThreshold.toFixed(1)}: pico persistente compatível com contração espástica involuntária das cordas vocais por ativação simpática.`,
+    );
+  }
   if (dnaInfrasound !== null && dnaInfrasound >= DISSONANCE_DNA_THRESHOLD) {
     factors.push(
       `Sub-harmônicos 5-12 Hz acima da métrica (${dnaInfrasound.toFixed(2)}): indicam tremor autonômico vocal detectado na trilha bruta do paciente.`,
@@ -1765,10 +1774,14 @@ function buildMetricSnapshot(
         ),
       ),
     );
+  // IDM como bússola: média COM SINAL dos desvios (positivo = hiperativação,
+  // negativo = hipoativação). O valor absoluto usado antes descartava a
+  // direção do desequilíbrio. Consumidores que só querem magnitude aplicam
+  // Math.abs no ponto de uso.
   const idmAvg =
     zones.length > 0
       ? zones.reduce(
-          (total, zone) => total + Math.abs(Number(zone.deviation_score || 0)),
+          (total, zone) => total + Number(zone.deviation_score || 0),
           0,
         ) / zones.length
       : 0;

@@ -72,6 +72,8 @@ export interface AcousticBiomarkers {
   mfcc9_delta?: number;
   mfcc7_delta_delta?: number;
   mfcc9_delta_delta?: number;
+  mfcc9_delta_delta_spastic_threshold?: number;
+  mfcc9_delta_delta_spastic_alert?: boolean;
   f0_mean?: number;
   f0_var?: number;
   zcr?: number;
@@ -99,6 +101,7 @@ export interface FroidPayload {
   session_id: string;
   timestamp_ms: number;
   ipm_score: number;
+  idm_score?: number;
   coherence_status: string;
   global_energy: { cor_plot: FroidColor; descricao: string };
   perception_zones: PerceptionZone[];
