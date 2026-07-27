@@ -1083,6 +1083,116 @@ const TOOLTIP_I18N: Record<string, TooltipTranslations> = {
       "es-ES":
         "El Índice de Desvío Multimodal (IDM) es una métrica central en la arquitectura diagnóstica de FROID, diseñada para medir la dirección y el grado de desequilibrio de la energía de un paciente en las 12 zonas específicas de percepción psíquica. Más detalles, Pregunta a FROID.",
     },
+
+  // ----- Mapa Zonal: descrições clínicas das 12 zonas -----
+  "Quando o FROID aponta sobrecarga na Zona 1, o paciente apresenta a percepção de não ser reconhecido, manifestando-se por meio de padrões de negação, evasão e desconfiança. A desvalorização frequentemente surge disfarçada ou através da baixa autoestima. Diretriz Clínica: estimular a transição para a autovalidação, ajudando o paciente a confiar na própria percepção como base segura.":
+    {
+      "en-US":
+        "When FROID flags overload in Zone 1, the patient shows the perception of not being recognized, manifesting through patterns of denial, evasion and distrust. Devaluation often appears disguised or through low self-esteem. Clinical guideline: encourage the transition to self-validation, helping the patient trust their own perception as a safe base.",
+      "fr-FR":
+        "Lorsque FROID signale une surcharge dans la Zone 1, le patient présente la perception de ne pas être reconnu, se manifestant par des schémas de déni, d'évitement et de méfiance. La dévalorisation apparaît souvent déguisée ou à travers une faible estime de soi. Directive clinique : encourager la transition vers l'auto-validation, en aidant le patient à faire confiance à sa propre perception comme base sûre.",
+      "es-ES":
+        "Cuando FROID señala sobrecarga en la Zona 1, el paciente presenta la percepción de no ser reconocido, manifestándose mediante patrones de negación, evasión y desconfianza. La desvalorización suele surgir disfrazada o a través de la baja autoestima. Directriz clínica: estimular la transición hacia la autovalidación, ayudando al paciente a confiar en su propia percepción como base segura.",
+    },
+  "Acionada quando o paciente fica aprisionado em circuitos lógicos e repetitivos que não conseguem filtrar pensamentos improdutivos. O FROID rastreia esse estresse subconsciente, muitas vezes ligado a medos ou dúvidas. Diretriz Clínica: abordar a fadiga mental e guiar o cérebro à liberação deste padrão, restaurando a criatividade autêntica.":
+    {
+      "en-US":
+        "Triggered when the patient is trapped in logical, repetitive loops that cannot filter unproductive thoughts. FROID tracks this subconscious stress, often tied to fears or doubts. Clinical guideline: address mental fatigue and guide the brain to release this pattern, restoring authentic creativity.",
+      "fr-FR":
+        "Déclenchée lorsque le patient est prisonnier de circuits logiques et répétitifs incapables de filtrer les pensées improductives. FROID suit ce stress subconscient, souvent lié à des peurs ou des doutes. Directive clinique : traiter la fatigue mentale et guider le cerveau vers la libération de ce schéma, en restaurant une créativité authentique.",
+      "es-ES":
+        "Activada cuando el paciente queda atrapado en circuitos lógicos y repetitivos que no logran filtrar pensamientos improductivos. FROID rastrea este estrés subconsciente, muchas veces ligado a miedos o dudas. Directriz clínica: abordar la fatiga mental y guiar al cerebro a liberar este patrón, restaurando la creatividad auténtica.",
+    },
+  "O motor do FROID detecta pensamentos excessivamente ancorados em eventos passados, rotulados como fracassos e perdas. A IA denuncia baixos níveis de energia global na voz. Diretriz Clínica: visar o desligamento de experiências traumáticas, conduzindo o indivíduo para autoaceitação e permanência no presente.":
+    {
+      "en-US":
+        "FROID's engine detects thoughts excessively anchored in past events, labeled as failures and losses. The AI reveals low levels of overall energy in the voice. Clinical guideline: aim at disengaging from traumatic experiences, leading the individual toward self-acceptance and staying in the present.",
+      "fr-FR":
+        "Le moteur de FROID détecte des pensées excessivement ancrées dans des événements passés, étiquetés comme des échecs et des pertes. L'IA révèle de faibles niveaux d'énergie globale dans la voix. Directive clinique : viser le détachement des expériences traumatiques, conduisant l'individu vers l'auto-acceptation et le maintien dans le présent.",
+      "es-ES":
+        "El motor de FROID detecta pensamientos excesivamente anclados en eventos pasados, etiquetados como fracasos y pérdidas. La IA revela bajos niveles de energía global en la voz. Directriz clínica: apuntar al desapego de experiencias traumáticas, conduciendo al individuo hacia la autoaceptación y la permanencia en el presente.",
+    },
+  "O FROID flagra essa zona quando o paciente parece excessivamente racional, distante, ou relata dificuldade em acessar sentimentos. Pode haver tensão em pescoço e garganta decorrente do medo de rejeição. Diretriz Clínica: reverter o embotamento e restaurar a consciência emocional.":
+    {
+      "en-US":
+        "FROID flags this zone when the patient seems excessively rational, distant, or reports difficulty accessing feelings. There may be tension in the neck and throat arising from fear of rejection. Clinical guideline: reverse the blunting and restore emotional awareness.",
+      "fr-FR":
+        "FROID repère cette zone lorsque le patient semble excessivement rationnel, distant, ou signale une difficulté à accéder à ses sentiments. Il peut y avoir une tension dans le cou et la gorge due à la peur du rejet. Directive clinique : inverser l'émoussement et restaurer la conscience émotionnelle.",
+      "es-ES":
+        "FROID detecta esta zona cuando el paciente parece excesivamente racional, distante, o refiere dificultad para acceder a los sentimientos. Puede haber tensión en cuello y garganta derivada del miedo al rechazo. Directriz clínica: revertir el embotamiento y restaurar la conciencia emocional.",
+    },
+  "O sistema capta tensões geradas pela falta de compaixão consigo mesmo, revelando foco excessivo em defeitos e falhas, geralmente desencadeado por experiências de rejeição. Diretriz Clínica: romper o ciclo de não se sentir amado, construindo perdão e autoamor.":
+    {
+      "en-US":
+        "The system captures tensions generated by the lack of self-compassion, revealing excessive focus on flaws and failures, usually triggered by experiences of rejection. Clinical guideline: break the cycle of not feeling loved, building forgiveness and self-love.",
+      "fr-FR":
+        "Le système capte les tensions générées par le manque de compassion envers soi-même, révélant une focalisation excessive sur les défauts et les échecs, généralement déclenchée par des expériences de rejet. Directive clinique : rompre le cycle du sentiment de ne pas être aimé, en construisant le pardon et l'amour de soi.",
+      "es-ES":
+        "El sistema capta tensiones generadas por la falta de compasión hacia uno mismo, revelando un foco excesivo en defectos y fallas, generalmente desencadenado por experiencias de rechazo. Directriz clínica: romper el ciclo de no sentirse amado, construyendo perdón y amor propio.",
+    },
+  "O FROID alerta para padrões onde o paciente baseia vínculos em julgamentos, expectativas rígidas e controle. Essa zona esconde sentimentos de insuficiência e insegurança. Diretriz Clínica: trabalhar a desconstrução das exigências transacionais, movendo a psique em direção à tolerância e ao amor incondicional.":
+    {
+      "en-US":
+        "FROID warns of patterns where the patient bases bonds on judgments, rigid expectations and control. This zone hides feelings of insufficiency and insecurity. Clinical guideline: work on deconstructing transactional demands, moving the psyche toward tolerance and unconditional love.",
+      "fr-FR":
+        "FROID alerte sur des schémas où le patient fonde ses liens sur des jugements, des attentes rigides et le contrôle. Cette zone cache des sentiments d'insuffisance et d'insécurité. Directive clinique : travailler la déconstruction des exigences transactionnelles, en orientant la psyché vers la tolérance et l'amour inconditionnel.",
+      "es-ES":
+        "FROID alerta sobre patrones donde el paciente basa los vínculos en juicios, expectativas rígidas y control. Esta zona esconde sentimientos de insuficiencia e inseguridad. Directriz clínica: trabajar la deconstrucción de las exigencias transaccionales, moviendo la psique hacia la tolerancia y el amor incondicional.",
+    },
+  "O monitoramento indica a raiva como mecanismo de defesa para encobrir sofrimento, traição ou perda. Quando crônica, causa intensa tensão muscular captável no rosto e na voz. Diretriz Clínica: alcançar aceitação da mudança para cessar a reação defensiva perpétua.":
+    {
+      "en-US":
+        "Monitoring indicates anger as a defense mechanism to cover up suffering, betrayal or loss. When chronic, it causes intense muscular tension detectable in the face and voice. Clinical guideline: reach acceptance of change to stop the perpetual defensive reaction.",
+      "fr-FR":
+        "Le monitorage indique la colère comme mécanisme de défense pour masquer la souffrance, la trahison ou la perte. Chronique, elle provoque une tension musculaire intense perceptible sur le visage et dans la voix. Directive clinique : atteindre l'acceptation du changement pour cesser la réaction défensive perpétuelle.",
+      "es-ES":
+        "El monitoreo indica la ira como mecanismo de defensa para encubrir sufrimiento, traición o pérdida. Cuando es crónica, causa intensa tensión muscular perceptible en el rostro y la voz. Directriz clínica: alcanzar la aceptación del cambio para cesar la reacción defensiva perpetua.",
+    },
+  "Sinalizada quando o indivíduo exibe acústica de vitimização, sentindo que a vida lhe acontece. O medo pode estar enraizado em críticas severas ou punições passadas. Diretriz Clínica: guiar a transição da paralisia passiva para empoderamento e responsabilização.":
+    {
+      "en-US":
+        "Signaled when the individual displays an acoustics of victimization, feeling that life happens to them. The fear may be rooted in severe criticism or past punishments. Clinical guideline: guide the transition from passive paralysis to empowerment and taking responsibility.",
+      "fr-FR":
+        "Signalée lorsque l'individu présente une acoustique de victimisation, ayant le sentiment que la vie lui arrive. La peur peut être ancrée dans des critiques sévères ou des punitions passées. Directive clinique : guider la transition de la paralysie passive vers l'autonomisation et la responsabilisation.",
+      "es-ES":
+        "Señalada cuando el individuo exhibe una acústica de victimización, sintiendo que la vida le sucede. El miedo puede estar enraizado en críticas severas o castigos pasados. Directriz clínica: guiar la transición de la parálisis pasiva hacia el empoderamiento y la responsabilización.",
+    },
+  "Uma das dissonâncias mais rastreáveis. Ocorre quando sentimentos são negados repetidamente, criando dificuldade de comunicação ou timidez excessiva. Sintomas físicos podem aparecer na mandíbula. Diretriz Clínica: estimular a comunicação de sentimentos e necessidades de forma clara e respeitosa.":
+    {
+      "en-US":
+        "One of the most trackable dissonances. It occurs when feelings are repeatedly denied, creating communication difficulty or excessive shyness. Physical symptoms may appear in the jaw. Clinical guideline: encourage the communication of feelings and needs in a clear and respectful way.",
+      "fr-FR":
+        "L'une des dissonances les plus traçables. Elle survient lorsque les sentiments sont niés à répétition, créant une difficulté de communication ou une timidité excessive. Des symptômes physiques peuvent apparaître à la mâchoire. Directive clinique : encourager la communication des sentiments et des besoins de manière claire et respectueuse.",
+      "es-ES":
+        "Una de las disonancias más rastreables. Ocurre cuando los sentimientos son negados repetidamente, creando dificultad de comunicación o timidez excesiva. Pueden aparecer síntomas físicos en la mandíbula. Directriz clínica: estimular la comunicación de sentimientos y necesidades de forma clara y respetuosa.",
+    },
+  "O sistema revela a síndrome do impostor: a conclusão inconsciente de que não se merece amor ou sucesso. Gera autossabotagem e desconforto diante de conquistas. Diretriz Clínica: ensinar a aceitação de virtudes e limitações sem cobrança por perfeição.":
+    {
+      "en-US":
+        "The system reveals impostor syndrome: the unconscious conclusion that one does not deserve love or success. It generates self-sabotage and discomfort in the face of achievements. Clinical guideline: teach the acceptance of virtues and limitations without demanding perfection.",
+      "fr-FR":
+        "Le système révèle le syndrome de l'imposteur : la conclusion inconsciente de ne pas mériter l'amour ou le succès. Il engendre l'auto-sabotage et un malaise face aux réussites. Directive clinique : enseigner l'acceptation des vertus et des limites sans exigence de perfection.",
+      "es-ES":
+        "El sistema revela el síndrome del impostor: la conclusión inconsciente de que uno no merece amor o éxito. Genera autosabotaje e incomodidad ante los logros. Directriz clínica: enseñar la aceptación de virtudes y limitaciones sin exigencia de perfección.",
+    },
+  "O FROID mapeia a inflexibilidade cognitiva. O paciente formula regras mentais absolutas para se proteger da incerteza, restringindo adaptações e criatividade. Diretriz Clínica: atuar na dissolução dogmática, conduzindo à tolerância à ambiguidade, curiosidade e perspectivas inovadoras.":
+    {
+      "en-US":
+        "FROID maps cognitive inflexibility. The patient formulates absolute mental rules to protect against uncertainty, restricting adaptation and creativity. Clinical guideline: work on dissolving dogmatism, leading to tolerance of ambiguity, curiosity and innovative perspectives.",
+      "fr-FR":
+        "FROID cartographie l'inflexibilité cognitive. Le patient formule des règles mentales absolues pour se protéger de l'incertitude, restreignant l'adaptation et la créativité. Directive clinique : agir sur la dissolution du dogmatisme, menant à la tolérance à l'ambiguïté, à la curiosité et à des perspectives innovantes.",
+      "es-ES":
+        "FROID mapea la inflexibilidad cognitiva. El paciente formula reglas mentales absolutas para protegerse de la incertidumbre, restringiendo la adaptación y la creatividad. Directriz clínica: actuar en la disolución del dogmatismo, conduciendo a la tolerancia a la ambigüedad, la curiosidad y perspectivas innovadoras.",
+    },
+  "O núcleo da detecção. Ocorre incompatibilidade entre o desejo consciente e a crença subconsciente limitante. Gera indecisão, fadiga mental massiva e estagnação sistêmica. Diretriz Clínica: focar no alinhamento psíquico absoluto, criando congruência entre pensamento, crença, emoção e ação.":
+    {
+      "en-US":
+        "The core of the detection. An incompatibility occurs between the conscious desire and the limiting subconscious belief. It generates indecision, massive mental fatigue and systemic stagnation. Clinical guideline: focus on absolute psychic alignment, creating congruence among thought, belief, emotion and action.",
+      "fr-FR":
+        "Le noyau de la détection. Une incompatibilité survient entre le désir conscient et la croyance subconsciente limitante. Elle engendre indécision, fatigue mentale massive et stagnation systémique. Directive clinique : se concentrer sur l'alignement psychique absolu, en créant une congruence entre pensée, croyance, émotion et action.",
+      "es-ES":
+        "El núcleo de la detección. Ocurre una incompatibilidad entre el deseo consciente y la creencia subconsciente limitante. Genera indecisión, fatiga mental masiva y estancamiento sistémico. Directriz clínica: enfocarse en el alineamiento psíquico absoluto, creando congruencia entre pensamiento, creencia, emoción y acción.",
+    },
 };
 
 /**
