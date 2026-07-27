@@ -80,6 +80,22 @@ class SessionState:
     previous_mfcc9: Optional[float] = None
     previous_delta_mfcc7: float = 0.0
     previous_delta_mfcc9: float = 0.0
+    # F0 real, medida da forma de onda PCM enviada pelo navegador (froid_f0/YIN).
+    # 0.0 = ainda sem medida vozeada. Atualizada pelo endpoint acústico e
+    # incluída no payload de cada tick.
+    latest_f0_mean: float = 0.0
+    latest_f0_std: float = 0.0
+    latest_f0_voiced_ratio: float = 0.0
+    f0_updated_at: float = 0.0
+
+    def update_f0(self, f0_mean: float, f0_std: float, voiced_ratio: float) -> None:
+        # Só substitui por uma medida vozeada; silêncio/ruído (f0<=0) preserva
+        # o último valor válido em vez de zerar o indicador.
+        if f0_mean and f0_mean > 0.0:
+            self.latest_f0_mean = float(f0_mean)
+            self.latest_f0_std = float(f0_std)
+            self.latest_f0_voiced_ratio = float(voiced_ratio)
+            self.f0_updated_at = time.time()
 
     def process_tick(self, voice_spectral_12, facs_dissonance_flags, facs_details):
         self.tick_count += 1
@@ -331,6 +347,11 @@ class SessionState:
                 "mfcc9_delta_delta": mfcc9_delta_delta,
                 "mfcc9_delta_delta_spastic_threshold": mfcc9_spastic_threshold,
                 "mfcc9_delta_delta_spastic_alert": mfcc9_spastic_alert,
+                # F0 real medida da voz do paciente (YIN sobre PCM do navegador).
+                "f0_mean": round(self.latest_f0_mean, 2),
+                "f0_var": round(self.latest_f0_std, 2),
+                "f0_voiced_ratio": round(self.latest_f0_voiced_ratio, 3),
+                "f0_source": "yin_pcm" if self.latest_f0_mean > 0 else "pending_audio",
                 "baseline_mfcc7": round(float(np.clip(baseline_mean * 0.12, 0.0, 25.0)), 3),
                 "baseline_mfcc9": round(float(np.clip(baseline_mean * 0.08, 0.0, 25.0)), 3),
                 "spectral_delta_0_4hz": spectral_delta,

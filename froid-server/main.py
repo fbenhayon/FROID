@@ -20,6 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 from froid_core import SessionState, MockBiometricStream
+import froid_f0
 from froid_metrics_engine import calculate_report_metrics
 from tenant_access import (
     AccessContext,
@@ -4990,6 +4991,65 @@ async def froid_stream_loop(session_id: str, connection_id: str):
         payload = state.process_tick(voice_12, facs_flags, facs_details)
         await manager.broadcast_payload(session_id, payload)
         await asyncio.sleep(1.0)
+
+
+@app.post("/api/froid/{session_id}/acoustic-f0")
+async def submit_acoustic_f0(session_id: str, request: Request):
+    """Recebe uma janela de PCM cru (int16 mono) do navegador e mede a F0 real
+    da voz do paciente por YIN, atualizando o estado da sessão ativa. Aceita
+    autenticação do paciente (convite aceito) ou do profissional (dono da
+    sessão)."""
+    body = await request.json()
+    invite = str(body.get("invite") or request.query_params.get("invite") or "")
+    professional = _current_user_from_request(request)
+    invite_record = SESSION_INVITES.get(invite) if invite else None
+    patient_authorized = bool(
+        invite_record
+        and invite_record.get("status") == "accepted"
+        and str(invite_record.get("session_id") or "") == session_id
+    )
+    professional_authorized = bool(
+        professional
+        and session_id
+        and _normalize_email(SESSION_OWNERS.get(session_id) or "")
+        == _normalize_email(professional.get("email") or "")
+    )
+    if not patient_authorized and not professional_authorized:
+        raise HTTPException(status_code=401, detail="acesso acústico não autorizado")
+
+    entry = manager.active_sessions.get(session_id)
+    if not entry:
+        # A sessão de análise do profissional ainda não está ativa; o cliente
+        # continua enviando e a F0 passa a valer quando ela abrir.
+        return {"status": "session_inactive", "f0_mean": 0.0}
+
+    try:
+        sample_rate = int(body.get("sample_rate") or 16000)
+    except (TypeError, ValueError):
+        sample_rate = 16000
+    if sample_rate < 4000 or sample_rate > 96000:
+        raise HTTPException(status_code=400, detail="sample_rate inválido")
+    pcm_b64 = body.get("pcm_base64") or ""
+    if not isinstance(pcm_b64, str) or not pcm_b64:
+        raise HTTPException(status_code=400, detail="pcm_base64 ausente")
+    try:
+        pcm_bytes = base64.b64decode(pcm_b64, validate=True)
+    except Exception:
+        raise HTTPException(status_code=400, detail="pcm_base64 inválido")
+    # Teto de tamanho: ~5 s a 48 kHz int16 mono.
+    if len(pcm_bytes) > 500_000:
+        raise HTTPException(status_code=413, detail="quadro de áudio grande demais")
+
+    state: SessionState = entry["state"]
+    signal = froid_f0.pcm16_bytes_to_float(pcm_bytes)
+    f0_mean, f0_std, voiced_ratio = froid_f0.estimate_f0_series(signal, sample_rate)
+    state.update_f0(f0_mean, f0_std, voiced_ratio)
+    return {
+        "f0_mean": f0_mean,
+        "f0_std": f0_std,
+        "voiced_ratio": voiced_ratio,
+        "sample_rate": sample_rate,
+    }
 
 @app.websocket("/ws/fusion/{session_id}")
 async def websocket_fusion(websocket: WebSocket, session_id: str):

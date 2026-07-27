@@ -15,6 +15,7 @@ import {
   type RtcMediaFlowStats,
 } from "../lib/webrtc";
 import { normalizeSessionLocale, patientCopy, type SessionLocale } from "../lib/localization";
+import { startF0Capture } from "../lib/froid-acoustic";
 
 type JoinState = "checking" | "joined" | "blocked";
 type MediaState = "idle" | "requesting" | "active" | "failed";
@@ -27,6 +28,8 @@ export const PatientSessionPage: React.FC = () => {
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  // Para a captura de PCM do microfone (análise de F0 real).
+  const f0StopRef = useRef<null | (() => void)>(null);
   const rtcSignalRef = useRef<WebSocket | null>(null);
   const rtcPeerRef = useRef<RTCPeerConnection | null>(null);
   const rtcRemoteStreamRef = useRef<MediaStream | null>(null);
@@ -111,6 +114,12 @@ export const PatientSessionPage: React.FC = () => {
     return () => {
       active = false;
       cleanupRtc();
+      try {
+        f0StopRef.current?.();
+      } catch {
+        /* noop */
+      }
+      f0StopRef.current = null;
       streamRef.current?.getTracks().forEach((track) => track.stop());
     };
   }, [inviteToken, sessionId]);
@@ -474,6 +483,25 @@ export const PatientSessionPage: React.FC = () => {
         );
       }
       setMediaState(hasAudio && hasVideo ? "active" : "failed");
+      // Captura o microfone cru (pré-Opus) para o cálculo de F0 real no
+      // backend. Aditivo e tolerante a falhas; não interfere na chamada.
+      if (hasAudio && sessionId) {
+        try {
+          f0StopRef.current?.();
+        } catch {
+          /* noop */
+        }
+        f0StopRef.current = null;
+        startF0Capture(stream, {
+          endpoint: apiUrl(`/api/froid/${sessionId}/acoustic-f0`),
+          invite: inviteToken,
+        })
+          .then((stop) => {
+            if (streamRef.current === stream) f0StopRef.current = stop;
+            else stop();
+          })
+          .catch(() => undefined);
+      }
       await startPatientRtc(stream);
     } catch {
       setMediaState("failed");
