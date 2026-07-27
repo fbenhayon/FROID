@@ -757,6 +757,332 @@ const TOOLTIP_I18N: Record<string, TooltipTranslations> = {
     "fr-FR": "Métrique FROID.",
     "es-ES": "Métrica FROID.",
   },
+
+  // ----- IPM (gráfico de linha) -----
+  'O Papel do IPM (O "Velocímetro")': {
+    "en-US": 'The role of the IPM (the "speedometer")',
+    "fr-FR": 'Le rôle de l\'IPM (le « compteur de vitesse »)',
+    "es-ES": 'El papel del IPM (el "velocímetro")',
+  },
+  'O Papel do IPM (O "Velocímetro"): enquanto o IDM aponta a direção do desequilíbrio, o IPM indica a intensidade ou energia global, servindo como velocímetro emocional. Ele é um índice composto atualizado a cada 1 segundo que funde magnitude acústica da voz, comportamento facial e substância semântica transcrita. Assim, o IPM mede quanto combustível emocional o paciente está empregando, independentemente de estar sendo coerente ou não.':
+    {
+      "en-US":
+        'The role of the IPM (the "speedometer"): while the IDM points to the direction of the imbalance, the IPM indicates the overall intensity or energy, acting as an emotional speedometer. It is a composite index updated every second that fuses the acoustic magnitude of the voice, facial behavior and transcribed semantic substance. Thus the IPM measures how much emotional fuel the patient is spending, regardless of whether they are being coherent or not.',
+      "fr-FR":
+        "Le rôle de l'IPM (le « compteur de vitesse ») : alors que l'IDM indique la direction du déséquilibre, l'IPM indique l'intensité ou l'énergie globale, tel un compteur de vitesse émotionnel. C'est un indice composite mis à jour chaque seconde qui fusionne l'amplitude acoustique de la voix, le comportement facial et la substance sémantique transcrite. Ainsi, l'IPM mesure la quantité de carburant émotionnel que le patient dépense, qu'il soit cohérent ou non.",
+      "es-ES":
+        'El papel del IPM (el "velocímetro"): mientras el IDM señala la dirección del desequilibrio, el IPM indica la intensidad o energía global, funcionando como velocímetro emocional. Es un índice compuesto actualizado cada 1 segundo que fusiona la magnitud acústica de la voz, el comportamiento facial y la sustancia semántica transcrita. Así, el IPM mide cuánto combustible emocional está empleando el paciente, independientemente de si es coherente o no.',
+    },
+
+  // ----- Bandas neuroacústicas (gráfico) -----
+  "Delta (0,5–4 Hz): oscilação lenta do envelope vocal, usada como marcador de carga vegetativa basal e de baixa variabilidade dinâmica. Valores altos sugerem lentificação e retraimento; valores baixos, maior mobilização.":
+    {
+      "en-US":
+        "Delta (0.5–4 Hz): slow oscillation of the vocal envelope, used as a marker of basal vegetative load and low dynamic variability. High values suggest slowing and withdrawal; low values, greater mobilization.",
+      "fr-FR":
+        "Delta (0,5–4 Hz) : oscillation lente de l'enveloppe vocale, utilisée comme marqueur de charge végétative basale et de faible variabilité dynamique. Des valeurs élevées suggèrent un ralentissement et un retrait ; des valeurs basses, une mobilisation accrue.",
+      "es-ES":
+        "Delta (0,5–4 Hz): oscilación lenta de la envolvente vocal, usada como marcador de carga vegetativa basal y de baja variabilidad dinámica. Valores altos sugieren lentificación y retraimiento; valores bajos, mayor movilización.",
+    },
+  "Theta (4–8 Hz): componente de modulação lenta relacionado a flutuações afetivas e à organização narrativa sob esforço emocional. Realça quando o paciente elabora conteúdo emocionalmente carregado.":
+    {
+      "en-US":
+        "Theta (4–8 Hz): slow-modulation component related to affective fluctuations and to narrative organization under emotional effort. It stands out when the patient elaborates emotionally charged content.",
+      "fr-FR":
+        "Thêta (4–8 Hz) : composante de modulation lente liée aux fluctuations affectives et à l'organisation narrative sous effort émotionnel. Elle ressort lorsque le patient élabore un contenu émotionnellement chargé.",
+      "es-ES":
+        "Theta (4–8 Hz): componente de modulación lenta relacionado con fluctuaciones afectivas y con la organización narrativa bajo esfuerzo emocional. Resalta cuando el paciente elabora contenido emocionalmente cargado.",
+    },
+  "Alpha (8–12 Hz): faixa de estabilização moduladora entre os ritmos lentos e a resposta autônoma mais ativa. Serve de referência de equilíbrio entre relaxamento e ativação.":
+    {
+      "en-US":
+        "Alpha (8–12 Hz): modulating stabilization band between the slow rhythms and the more active autonomic response. It serves as a reference of balance between relaxation and activation.",
+      "fr-FR":
+        "Alpha (8–12 Hz) : bande de stabilisation modulatrice entre les rythmes lents et la réponse autonome plus active. Elle sert de référence d'équilibre entre relaxation et activation.",
+      "es-ES":
+        "Alpha (8–12 Hz): banda de estabilización moduladora entre los ritmos lentos y la respuesta autónoma más activa. Sirve de referencia de equilibrio entre relajación y activación.",
+    },
+  "Beta (12–30 Hz): ativação rápida associada a tensão cognitiva, vigilância, pressão articulatória e mobilização autônoma. Picos acompanham momentos de alerta, esforço ou ansiedade.":
+    {
+      "en-US":
+        "Beta (12–30 Hz): fast activation associated with cognitive tension, vigilance, articulatory pressure and autonomic mobilization. Peaks accompany moments of alertness, effort or anxiety.",
+      "fr-FR":
+        "Bêta (12–30 Hz) : activation rapide associée à la tension cognitive, à la vigilance, à la pression articulatoire et à la mobilisation autonome. Les pics accompagnent les moments d'alerte, d'effort ou d'anxiété.",
+      "es-ES":
+        "Beta (12–30 Hz): activación rápida asociada a tensión cognitiva, vigilancia, presión articulatoria y movilización autónoma. Los picos acompañan momentos de alerta, esfuerzo o ansiedad.",
+    },
+  "Gama (30–80 Hz): energia espectral de alta frequência, interpretada com cautela como indicador de descarga fina, tensão e aspereza vocal. É a banda mais exploratória — leia sempre junto às demais.":
+    {
+      "en-US":
+        "Gamma (30–80 Hz): high-frequency spectral energy, interpreted cautiously as an indicator of fine discharge, tension and vocal harshness. It is the most exploratory band — always read it alongside the others.",
+      "fr-FR":
+        "Gamma (30–80 Hz) : énergie spectrale de haute fréquence, interprétée avec prudence comme un indicateur de décharge fine, de tension et de rugosité vocale. C'est la bande la plus exploratoire — à lire toujours avec les autres.",
+      "es-ES":
+        "Gamma (30–80 Hz): energía espectral de alta frecuencia, interpretada con cautela como indicador de descarga fina, tensión y aspereza vocal. Es la banda más exploratoria — léela siempre junto a las demás.",
+    },
+  "Bandas neuroacústicas": {
+    "en-US": "Neuroacoustic bands",
+    "fr-FR": "Bandes neuroacoustiques",
+    "es-ES": "Bandas neuroacústicas",
+  },
+  "Leitura das modulações vocais Delta, Theta, Alpha, Beta e Gama da trilha do paciente. A nomenclatura é analógica para bandas de voz, não EEG, consolidada a cada 1 segundo e cruzada com os deltas cepstrais MFCC7/MFCC9.":
+    {
+      "en-US":
+        "Reading of the Delta, Theta, Alpha, Beta and Gamma vocal modulations from the patient's track. The nomenclature is analogical for voice bands, not EEG, consolidated every second and cross-referenced with the MFCC7/MFCC9 cepstral deltas.",
+      "fr-FR":
+        "Lecture des modulations vocales Delta, Thêta, Alpha, Bêta et Gamma de la piste du patient. La nomenclature est analogique pour les bandes de voix, non l'EEG, consolidée chaque seconde et croisée avec les deltas cepstraux MFCC7/MFCC9.",
+      "es-ES":
+        "Lectura de las modulaciones vocales Delta, Theta, Alpha, Beta y Gamma de la pista del paciente. La nomenclatura es analógica para bandas de voz, no EEG, consolidada cada 1 segundo y cruzada con los deltas cepstrales MFCC7/MFCC9.",
+    },
+  "Índice geral das bandas": {
+    "en-US": "Overall band index",
+    "fr-FR": "Indice global des bandes",
+    "es-ES": "Índice general de las bandas",
+  },
+  "Média ponderada da energia das cinco bandas neuroacústicas em 0–100%. Sintetiza o nível global de modulação vocal do momento — útil como leitura rápida antes de detalhar banda a banda.":
+    {
+      "en-US":
+        "Weighted average of the energy of the five neuroacoustic bands on 0–100%. It summarizes the overall level of vocal modulation at the moment — useful as a quick read before detailing band by band.",
+      "fr-FR":
+        "Moyenne pondérée de l'énergie des cinq bandes neuroacoustiques sur 0–100 %. Elle synthétise le niveau global de modulation vocale du moment — utile comme lecture rapide avant de détailler bande par bande.",
+      "es-ES":
+        "Media ponderada de la energía de las cinco bandas neuroacústicas en 0–100%. Sintetiza el nivel global de modulación vocal del momento — útil como lectura rápida antes de detallar banda a banda.",
+    },
+  "ΔMFCC7 — velocidade do MFCC7": {
+    "en-US": "ΔMFCC7 — MFCC7 velocity",
+    "fr-FR": "ΔMFCC7 — vitesse du MFCC7",
+    "es-ES": "ΔMFCC7 — velocidad del MFCC7",
+  },
+  "Primeira derivada (taxa de variação) do coeficiente cepstral MFCC7. É o marcador que o FROID isola na fala de valência negativa: quando se eleva, contribui para o risco depressivo.":
+    {
+      "en-US":
+        "First derivative (rate of change) of the MFCC7 cepstral coefficient. It is the marker FROID isolates in negative-valence speech: when it rises, it contributes to depressive risk.",
+      "fr-FR":
+        "Dérivée première (taux de variation) du coefficient cepstral MFCC7. C'est le marqueur que FROID isole dans la parole à valence négative : lorsqu'il s'élève, il contribue au risque dépressif.",
+      "es-ES":
+        "Primera derivada (tasa de variación) del coeficiente cepstral MFCC7. Es el marcador que FROID aísla en el habla de valencia negativa: cuando se eleva, contribuye al riesgo depresivo.",
+    },
+  "ΔMFCC9 — velocidade do MFCC9": {
+    "en-US": "ΔMFCC9 — MFCC9 velocity",
+    "fr-FR": "ΔMFCC9 — vitesse du MFCC9",
+    "es-ES": "ΔMFCC9 — velocidad del MFCC9",
+  },
+  "Primeira derivada do coeficiente cepstral MFCC9. Quedas em discurso neutro sugerem tensão autônoma latente nas pregas vocais, associada à ansiedade somática.":
+    {
+      "en-US":
+        "First derivative of the MFCC9 cepstral coefficient. Drops in neutral speech suggest latent autonomic tension in the vocal folds, associated with somatic anxiety.",
+      "fr-FR":
+        "Dérivée première du coefficient cepstral MFCC9. Des baisses dans un discours neutre suggèrent une tension autonome latente dans les plis vocaux, associée à l'anxiété somatique.",
+      "es-ES":
+        "Primera derivada del coeficiente cepstral MFCC9. Caídas en discurso neutro sugieren tensión autónoma latente en los pliegues vocales, asociada a la ansiedad somática.",
+    },
+  "ΔΔMFCC7 — aceleração do MFCC7": {
+    "en-US": "ΔΔMFCC7 — MFCC7 acceleration",
+    "fr-FR": "ΔΔMFCC7 — accélération du MFCC7",
+    "es-ES": "ΔΔMFCC7 — aceleración del MFCC7",
+  },
+  "Segunda derivada do MFCC7: captura mudanças bruscas na trajetória do timbre. Realça transições rápidas de estado emocional, não apenas o nível sustentado.":
+    {
+      "en-US":
+        "Second derivative of MFCC7: captures abrupt changes in the timbre trajectory. It highlights fast transitions of emotional state, not just the sustained level.",
+      "fr-FR":
+        "Dérivée seconde du MFCC7 : capte les changements brusques de la trajectoire du timbre. Elle met en évidence les transitions rapides d'état émotionnel, et pas seulement le niveau soutenu.",
+      "es-ES":
+        "Segunda derivada del MFCC7: capta cambios bruscos en la trayectoria del timbre. Resalta transiciones rápidas de estado emocional, no solo el nivel sostenido.",
+    },
+  "ΔΔMFCC9 — aceleração do MFCC9": {
+    "en-US": "ΔΔMFCC9 — MFCC9 acceleration",
+    "fr-FR": "ΔΔMFCC9 — accélération du MFCC9",
+    "es-ES": "ΔΔMFCC9 — aceleración del MFCC9",
+  },
+  "Segunda derivada do MFCC9: mede a rapidez com que a tensão vocal latente muda ao longo da fala, complementando a leitura de ansiedade somática.":
+    {
+      "en-US":
+        "Second derivative of MFCC9: measures how quickly the latent vocal tension changes over speech, complementing the reading of somatic anxiety.",
+      "fr-FR":
+        "Dérivée seconde du MFCC9 : mesure la rapidité avec laquelle la tension vocale latente change au fil de la parole, complétant la lecture de l'anxiété somatique.",
+      "es-ES":
+        "Segunda derivada del MFCC9: mide la rapidez con que la tensión vocal latente cambia a lo largo del habla, complementando la lectura de ansiedad somática.",
+    },
+
+  // ----- Sub-harmônicos (gráfico) -----
+  "Infrassom Nuclear: leitura da faixa 5–12 Hz, associada a tremor profundo do Sistema Nervoso Autônomo e à ativação inconsciente. Valores altos sinalizam mobilização autonômica ainda não verbalizada.":
+    {
+      "en-US":
+        "Nuclear Infrasound: reading of the 5–12 Hz band, associated with deep tremor of the Autonomic Nervous System and unconscious activation. High values signal autonomic mobilization not yet verbalized.",
+      "fr-FR":
+        "Infrason nucléaire : lecture de la bande 5–12 Hz, associée à un tremblement profond du système nerveux autonome et à une activation inconsciente. Des valeurs élevées signalent une mobilisation autonome pas encore verbalisée.",
+      "es-ES":
+        "Infrasonido Nuclear: lectura de la banda 5–12 Hz, asociada a temblor profundo del Sistema Nervioso Autónomo y a la activación inconsciente. Valores altos señalan movilización autonómica aún no verbalizada.",
+    },
+  "Modulação Límbica: faixa 12–20 Hz, usada para estimar a reatividade afetiva e a variação autônoma ligada a estados emocionais. Acompanha a intensidade da resposta emocional em curso.":
+    {
+      "en-US":
+        "Limbic Modulation: 12–20 Hz band, used to estimate affective reactivity and the autonomic variation linked to emotional states. It tracks the intensity of the ongoing emotional response.",
+      "fr-FR":
+        "Modulation limbique : bande 12–20 Hz, utilisée pour estimer la réactivité affective et la variation autonome liée aux états émotionnels. Elle suit l'intensité de la réponse émotionnelle en cours.",
+      "es-ES":
+        "Modulación Límbica: banda 12–20 Hz, usada para estimar la reactividad afectiva y la variación autónoma ligada a estados emocionales. Acompaña la intensidad de la respuesta emocional en curso.",
+    },
+  "Tensão Vocal Basal: faixa 85–165 Hz, relacionada a rigidez laríngea, hipercontrole vocal e esforço de sustentação. Sobe quando o paciente contém ou controla excessivamente a fala.":
+    {
+      "en-US":
+        "Basal Vocal Tension: 85–165 Hz band, related to laryngeal rigidity, vocal over-control and sustaining effort. It rises when the patient holds back or over-controls speech.",
+      "fr-FR":
+        "Tension vocale basale : bande 85–165 Hz, liée à la rigidité laryngée, au sur-contrôle vocal et à l'effort de soutien. Elle augmente lorsque le patient retient ou contrôle excessivement la parole.",
+      "es-ES":
+        "Tensión Vocal Basal: banda 85–165 Hz, relacionada con rigidez laríngea, hipercontrol vocal y esfuerzo de sostén. Sube cuando el paciente contiene o controla excesivamente el habla.",
+    },
+  "Flooding Autonômico: colisão entre a energia de 5–12 Hz e a tensão vocal basal, indicando sobrecarga neurofisiológica ativa. Sugere que o paciente pode estar sendo inundado por ativação — considere regular o ritmo da sessão.":
+    {
+      "en-US":
+        "Autonomic Flooding: collision between the 5–12 Hz energy and the basal vocal tension, indicating active neurophysiological overload. It suggests the patient may be flooded by activation — consider regulating the session's pace.",
+      "fr-FR":
+        "Débordement autonome : collision entre l'énergie 5–12 Hz et la tension vocale basale, indiquant une surcharge neurophysiologique active. Cela suggère que le patient peut être submergé par l'activation — envisagez de réguler le rythme de la séance.",
+      "es-ES":
+        "Flooding Autonómico: colisión entre la energía de 5–12 Hz y la tensión vocal basal, indicando sobrecarga neurofisiológica activa. Sugiere que el paciente puede estar siendo inundado por activación — considere regular el ritmo de la sesión.",
+    },
+  "Shutdown Dissociativo: queda energética com redução de coerência, sugerindo supressão defensiva, embotamento ou retraimento autonômico. É o oposto do flooding — o paciente pode estar se desconectando.":
+    {
+      "en-US":
+        "Dissociative Shutdown: energy drop with reduced coherence, suggesting defensive suppression, blunting or autonomic withdrawal. It is the opposite of flooding — the patient may be disconnecting.",
+      "fr-FR":
+        "Désactivation dissociative : chute d'énergie avec réduction de la cohérence, suggérant une suppression défensive, un émoussement ou un retrait autonome. C'est l'inverse du débordement — le patient peut être en train de se déconnecter.",
+      "es-ES":
+        "Shutdown Disociativo: caída energética con reducción de coherencia, sugiriendo supresión defensiva, embotamiento o retraimiento autonómico. Es lo opuesto al flooding — el paciente puede estar desconectándose.",
+    },
+  "Ressonância Neurogênica: faixa 20–40 Hz, associada a descarga vegetativa, regulação autônoma e reorganização neurofisiológica. Tende a acompanhar momentos de reprocessamento e alívio.":
+    {
+      "en-US":
+        "Neurogenic Resonance: 20–40 Hz band, associated with vegetative discharge, autonomic regulation and neurophysiological reorganization. It tends to accompany moments of reprocessing and relief.",
+      "fr-FR":
+        "Résonance neurogène : bande 20–40 Hz, associée à la décharge végétative, à la régulation autonome et à la réorganisation neurophysiologique. Elle tend à accompagner les moments de retraitement et de soulagement.",
+      "es-ES":
+        "Resonancia Neurogénica: banda 20–40 Hz, asociada a descarga vegetativa, regulación autónoma y reorganización neurofisiológica. Tiende a acompañar momentos de reprocesamiento y alivio.",
+    },
+  "Dissonância Somatoafetiva: contraste entre a calma verbal aparente e a tensão sub-harmônica, indicando possível conflito corpo-fala — o que é dito não coincide com o que o corpo sinaliza.":
+    {
+      "en-US":
+        "Somatoaffective Dissonance: contrast between apparent verbal calm and sub-harmonic tension, indicating a possible body-speech conflict — what is said does not match what the body signals.",
+      "fr-FR":
+        "Dissonance somato-affective : contraste entre le calme verbal apparent et la tension sous-harmonique, indiquant un possible conflit corps-parole — ce qui est dit ne coïncide pas avec ce que le corps signale.",
+      "es-ES":
+        "Disonancia Somatoafectiva: contraste entre la calma verbal aparente y la tensión subarmónica, indicando un posible conflicto cuerpo-habla — lo que se dice no coincide con lo que el cuerpo señala.",
+    },
+  "Sub-harmônicos vocais": {
+    "en-US": "Vocal sub-harmonics",
+    "fr-FR": "Sous-harmoniques vocales",
+    "es-ES": "Subarmónicos vocales",
+  },
+  "Componentes de infra-tremor da voz nas faixas de 5 a 165 Hz, usados como pistas de ativação e regulação do Sistema Nervoso Autônomo. É o pilar mais exploratório do FROID — leia como apoio à escuta, nunca como diagnóstico isolado. Quando há sinal acústico real usa-se a medida direta; caso contrário, um proxy derivado das zonas.":
+    {
+      "en-US":
+        "Infra-tremor components of the voice in the 5 to 165 Hz ranges, used as cues of activation and regulation of the Autonomic Nervous System. It is FROID's most exploratory pillar — read it as listening support, never as an isolated diagnosis. When a real acoustic signal exists the direct measure is used; otherwise, a proxy derived from the zones.",
+      "fr-FR":
+        "Composantes d'infra-tremblement de la voix dans les plages de 5 à 165 Hz, utilisées comme indices d'activation et de régulation du système nerveux autonome. C'est le pilier le plus exploratoire de FROID — à lire comme un appui à l'écoute, jamais comme un diagnostic isolé. Lorsqu'un signal acoustique réel existe, la mesure directe est utilisée ; sinon, un proxy dérivé des zones.",
+      "es-ES":
+        "Componentes de infra-temblor de la voz en las bandas de 5 a 165 Hz, usados como pistas de activación y regulación del Sistema Nervioso Autónomo. Es el pilar más exploratorio de FROID — léelo como apoyo a la escucha, nunca como diagnóstico aislado. Cuando hay señal acústica real se usa la medida directa; de lo contrario, un proxy derivado de las zonas.",
+    },
+  "Índice geral sub-harmônico": {
+    "en-US": "Overall sub-harmonic index",
+    "fr-FR": "Indice global sous-harmonique",
+    "es-ES": "Índice general subarmónico",
+  },
+  "Média dos componentes sub-harmônicos em 0–100%. Resume a carga autonômica global do momento — útil para perceber tendência antes de detalhar cada componente.":
+    {
+      "en-US":
+        "Average of the sub-harmonic components on 0–100%. It summarizes the overall autonomic load of the moment — useful to sense the trend before detailing each component.",
+      "fr-FR":
+        "Moyenne des composantes sous-harmoniques sur 0–100 %. Elle résume la charge autonome globale du moment — utile pour percevoir la tendance avant de détailler chaque composante.",
+      "es-ES":
+        "Media de los componentes subarmónicos en 0–100%. Resume la carga autonómica global del momento — útil para percibir la tendencia antes de detallar cada componente.",
+    },
+
+  // ----- Riscos clínicos (gráfico) -----
+  "Risco de Depressão (Depression Risk): deriva diretamente da predição matemática da escala PHQ-9. O algoritmo isola o biomarcador MFCC7 durante a verbalização de conteúdos com valência semântica negativa. Quando este coeficiente se eleva junto a marcadores de retardo psicomotor, como ZCR, pausas prolongadas e menor variação de F0, o percentual de risco depressivo escala.":
+    {
+      "en-US":
+        "Depression Risk: derives directly from the mathematical prediction of the PHQ-9 scale. The algorithm isolates the MFCC7 biomarker during the verbalization of content with negative semantic valence. When this coefficient rises together with markers of psychomotor slowing, such as ZCR, prolonged pauses and reduced F0 variation, the depressive-risk percentage scales up.",
+      "fr-FR":
+        "Risque de dépression (Depression Risk) : découle directement de la prédiction mathématique de l'échelle PHQ-9. L'algorithme isole le biomarqueur MFCC7 pendant la verbalisation de contenus à valence sémantique négative. Lorsque ce coefficient s'élève avec des marqueurs de ralentissement psychomoteur, comme le ZCR, des pauses prolongées et une moindre variation de F0, le pourcentage de risque dépressif augmente.",
+      "es-ES":
+        "Riesgo de Depresión (Depression Risk): deriva directamente de la predicción matemática de la escala PHQ-9. El algoritmo aísla el biomarcador MFCC7 durante la verbalización de contenidos con valencia semántica negativa. Cuando este coeficiente se eleva junto a marcadores de retardo psicomotor, como ZCR, pausas prolongadas y menor variación de F0, el porcentaje de riesgo depresivo escala.",
+    },
+  'Risco de Ansiedade Somática (Anxiety Risk): espelha subescalas de ansiedade e somatização da HAMD. O sistema busca o coeficiente MFCC9 em discurso "neutro"; quedas nos valores acústicos sugerem tensão autônoma latente nas pregas vocais, elevando o risco.':
+    {
+      "en-US":
+        'Somatic Anxiety Risk: mirrors the anxiety and somatization subscales of the HAMD. The system looks for the MFCC9 coefficient in "neutral" speech; drops in the acoustic values suggest latent autonomic tension in the vocal folds, raising the risk.',
+      "fr-FR":
+        "Risque d'anxiété somatique (Anxiety Risk) : reflète les sous-échelles d'anxiété et de somatisation de la HAMD. Le système recherche le coefficient MFCC9 dans un discours « neutre » ; des baisses des valeurs acoustiques suggèrent une tension autonome latente dans les plis vocaux, augmentant le risque.",
+      "es-ES":
+        'Riesgo de Ansiedad Somática (Anxiety Risk): refleja las subescalas de ansiedad y somatización de la HAMD. El sistema busca el coeficiente MFCC9 en discurso "neutro"; caídas en los valores acústicos sugieren tensión autónoma latente en los pliegues vocales, elevando el riesgo.',
+    },
+  'Ativação de Mania (Mania Activation): baseada em preditores vocais da YMRS. Monitora pitch/F0 elevado, loudness, taxa acelerada de fala e fluxo espectral mais incisivo ("sharper voice").':
+    {
+      "en-US":
+        'Mania Activation: based on vocal predictors of the YMRS. It monitors elevated pitch/F0, loudness, accelerated speech rate and a sharper spectral flux ("sharper voice").',
+      "fr-FR":
+        "Activation maniaque (Mania Activation) : basée sur des prédicteurs vocaux de la YMRS. Elle surveille un pitch/F0 élevé, l'intensité (loudness), un débit de parole accéléré et un flux spectral plus incisif (« sharper voice »).",
+      "es-ES":
+        'Activación de Manía (Mania Activation): basada en predictores vocales de la YMRS. Monitorea pitch/F0 elevado, loudness, tasa acelerada de habla y flujo espectral más incisivo ("sharper voice").',
+    },
+  "Estresse Cognitivo (Stress Cognitive): reflete workload contínuo. É estimado por F0 sustentado, ZCR e índices proxy internos de Jitter/Shimmer alterados, sem equivaler diretamente a medidas normativas em % ou dB.":
+    {
+      "en-US":
+        "Cognitive Stress (Stress Cognitive): reflects continuous workload. It is estimated from sustained F0, ZCR and altered internal Jitter/Shimmer proxy indices, without directly corresponding to normative measures in % or dB.",
+      "fr-FR":
+        "Stress cognitif (Stress Cognitive) : reflète une charge de travail continue. Il est estimé à partir d'un F0 soutenu, du ZCR et d'indices proxy internes de Jitter/Shimmer altérés, sans correspondre directement à des mesures normatives en % ou dB.",
+      "es-ES":
+        "Estrés Cognitivo (Stress Cognitive): refleja workload continuo. Se estima por F0 sostenido, ZCR e índices proxy internos de Jitter/Shimmer alterados, sin equivaler directamente a medidas normativas en % o dB.",
+    },
+  "Risco de Dissociação e Trauma: deriva do cruzamento entre infrassom vocal e FACS. Energia sub-harmônica de 5 a 12 Hz, AU15/AU20 e tensão vocal em 85-165 Hz elevam o alerta para flooding, sobrecarga autonômica ou retraumatização.":
+    {
+      "en-US":
+        "Dissociation and Trauma Risk: derives from the cross-reference between vocal infrasound and FACS. Sub-harmonic energy of 5 to 12 Hz, AU15/AU20 and vocal tension at 85-165 Hz raise the alert for flooding, autonomic overload or retraumatization.",
+      "fr-FR":
+        "Risque de dissociation et de trauma : découle du recoupement entre l'infrason vocal et le FACS. L'énergie sous-harmonique de 5 à 12 Hz, les AU15/AU20 et la tension vocale à 85-165 Hz augmentent l'alerte de débordement, de surcharge autonome ou de retraumatisation.",
+      "es-ES":
+        "Riesgo de Disociación y Trauma: deriva del cruce entre infrasonido vocal y FACS. Energía subarmónica de 5 a 12 Hz, AU15/AU20 y tensión vocal en 85-165 Hz elevan la alerta de flooding, sobrecarga autonómica o retraumatización.",
+    },
+  "Riscos clínicos": {
+    "en-US": "Clinical risks",
+    "fr-FR": "Risques cliniques",
+    "es-ES": "Riesgos clínicos",
+  },
+  "Estimativa relativa de cinco padrões de risco (depressão, ansiedade somática, mania, estresse cognitivo e dissociação/trauma) a partir do cruzamento entre voz, face e zonas. Cada barra é apoio à escuta, não um diagnóstico — passe o mouse em cada risco para ver a base de cálculo e a escala de referência.":
+    {
+      "en-US":
+        "Relative estimate of five risk patterns (depression, somatic anxiety, mania, cognitive stress and dissociation/trauma) from the cross-reference of voice, face and zones. Each bar is listening support, not a diagnosis — hover over each risk to see the basis of calculation and the reference scale.",
+      "fr-FR":
+        "Estimation relative de cinq schémas de risque (dépression, anxiété somatique, manie, stress cognitif et dissociation/trauma) à partir du recoupement entre voix, visage et zones. Chaque barre est un appui à l'écoute, non un diagnostic — survolez chaque risque pour voir la base de calcul et l'échelle de référence.",
+      "es-ES":
+        "Estimación relativa de cinco patrones de riesgo (depresión, ansiedad somática, manía, estrés cognitivo y disociación/trauma) a partir del cruce entre voz, rostro y zonas. Cada barra es apoyo a la escucha, no un diagnóstico — pasa el ratón por cada riesgo para ver la base de cálculo y la escala de referencia.",
+    },
+  "Índice geral de risco": {
+    "en-US": "Overall risk index",
+    "fr-FR": "Indice global de risque",
+    "es-ES": "Índice general de riesgo",
+  },
+  "Média da participação relativa das cinco categorias. Dá uma leitura rápida da carga de risco global do momento; para conduta, observe qual categoria específica está elevada.":
+    {
+      "en-US":
+        "Average of the relative share of the five categories. It gives a quick read of the overall risk load of the moment; for clinical decisions, note which specific category is elevated.",
+      "fr-FR":
+        "Moyenne de la part relative des cinq catégories. Elle donne une lecture rapide de la charge de risque globale du moment ; pour la conduite, observez quelle catégorie spécifique est élevée.",
+      "es-ES":
+        "Media de la participación relativa de las cinco categorías. Da una lectura rápida de la carga de riesgo global del momento; para la conducta, observa qué categoría específica está elevada.",
+    },
+
+  // ----- Mapa Zonal: ajuda do IDM -----
+  "O Índice de Desvio Multimodal (IDM) é uma métrica central na arquitetura diagnóstica do sistema FROID, projetada para medir a direção e o grau de desequilíbrio da energia de um paciente nas 12 zonas específicas de percepção psíquica. Maiores detalhes Pergunte ao FROID.":
+    {
+      "en-US":
+        "The Multimodal Deviation Index (IDM) is a central metric in FROID's diagnostic architecture, designed to measure the direction and degree of imbalance of a patient's energy across the 12 specific zones of psychic perception. For more details, Ask FROID.",
+      "fr-FR":
+        "L'Indice d'Écart Multimodal (IDM) est une métrique centrale de l'architecture diagnostique de FROID, conçue pour mesurer la direction et le degré de déséquilibre de l'énergie d'un patient dans les 12 zones spécifiques de perception psychique. Pour plus de détails, Demandez à FROID.",
+      "es-ES":
+        "El Índice de Desvío Multimodal (IDM) es una métrica central en la arquitectura diagnóstica de FROID, diseñada para medir la dirección y el grado de desequilibrio de la energía de un paciente en las 12 zonas específicas de percepción psíquica. Más detalles, Pregunta a FROID.",
+    },
 };
 
 /**

@@ -1,9 +1,12 @@
 import React, { useMemo } from "react";
 import { AcousticBiomarkers } from "../../lib/froid-engine";
 import { FroidTooltip } from "../ui/FroidTooltip";
+import { tooltipText } from "../../lib/tooltip-i18n";
+import type { SessionLocale } from "../../lib/localization";
 
 interface Props {
   audioMeta?: (AcousticBiomarkers & Record<string, unknown>) | null;
+  locale?: SessionLocale;
 }
 
 const clamp = (value: number, min = 0, max = 1) =>
@@ -16,7 +19,7 @@ const read = (audioMeta: Props["audioMeta"], key: keyof AcousticBiomarkers) => {
 
 const percent = (value: number) => Math.round(clamp(value) * 100);
 
-export const SpectralBandsChart: React.FC<Props> = ({ audioMeta }) => {
+export const SpectralBandsChart: React.FC<Props> = ({ audioMeta, locale = "pt-BR" }) => {
   const metrics = useMemo(
     () => [
       {
@@ -80,12 +83,12 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta }) => {
             width={360}
             content={
               <div>
-                <p className="font-bold text-slate-100">Bandas neuroacústicas</p>
+                <p className="font-bold text-slate-100">{tooltipText(locale, "Bandas neuroacústicas")}</p>
                 <p className="mt-1">
-                  Leitura das modulações vocais Delta, Theta, Alpha, Beta e
-                  Gama da trilha do paciente. A nomenclatura é analógica para
-                  bandas de voz, não EEG, consolidada a cada 1 segundo e
-                  cruzada com os deltas cepstrais MFCC7/MFCC9.
+                  {tooltipText(
+                    locale,
+                    "Leitura das modulações vocais Delta, Theta, Alpha, Beta e Gama da trilha do paciente. A nomenclatura é analógica para bandas de voz, não EEG, consolidada a cada 1 segundo e cruzada com os deltas cepstrais MFCC7/MFCC9.",
+                  )}
                 </p>
               </div>
             }
@@ -102,11 +105,12 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta }) => {
           width={300}
           content={
             <div>
-              <p className="font-bold text-slate-100">Índice geral das bandas</p>
+              <p className="font-bold text-slate-100">{tooltipText(locale, "Índice geral das bandas")}</p>
               <p className="mt-1">
-                Média ponderada da energia das cinco bandas neuroacústicas em
-                0–100%. Sintetiza o nível global de modulação vocal do momento —
-                útil como leitura rápida antes de detalhar banda a banda.
+                {tooltipText(
+                  locale,
+                  "Média ponderada da energia das cinco bandas neuroacústicas em 0–100%. Sintetiza o nível global de modulação vocal do momento — útil como leitura rápida antes de detalhar banda a banda.",
+                )}
               </p>
             </div>
           }
@@ -129,7 +133,7 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta }) => {
                 <p className="font-bold text-slate-100">
                   {metric.label} | {metric.band}
                 </p>
-                <p className="mt-1">{metric.tooltip}</p>
+                <p className="mt-1">{tooltipText(locale, metric.tooltip)}</p>
               </div>
             }
           >
@@ -162,11 +166,12 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta }) => {
           width={320}
           content={
             <div>
-              <p className="font-bold text-slate-100">ΔMFCC7 — velocidade do MFCC7</p>
+              <p className="font-bold text-slate-100">{tooltipText(locale, "ΔMFCC7 — velocidade do MFCC7")}</p>
               <p className="mt-1">
-                Primeira derivada (taxa de variação) do coeficiente cepstral
-                MFCC7. É o marcador que o FROID isola na fala de valência
-                negativa: quando se eleva, contribui para o risco depressivo.
+                {tooltipText(
+                  locale,
+                  "Primeira derivada (taxa de variação) do coeficiente cepstral MFCC7. É o marcador que o FROID isola na fala de valência negativa: quando se eleva, contribui para o risco depressivo.",
+                )}
               </p>
             </div>
           }
@@ -177,11 +182,12 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta }) => {
           width={320}
           content={
             <div>
-              <p className="font-bold text-slate-100">ΔMFCC9 — velocidade do MFCC9</p>
+              <p className="font-bold text-slate-100">{tooltipText(locale, "ΔMFCC9 — velocidade do MFCC9")}</p>
               <p className="mt-1">
-                Primeira derivada do coeficiente cepstral MFCC9. Quedas em
-                discurso neutro sugerem tensão autônoma latente nas pregas
-                vocais, associada à ansiedade somática.
+                {tooltipText(
+                  locale,
+                  "Primeira derivada do coeficiente cepstral MFCC9. Quedas em discurso neutro sugerem tensão autônoma latente nas pregas vocais, associada à ansiedade somática.",
+                )}
               </p>
             </div>
           }
@@ -192,11 +198,12 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta }) => {
           width={320}
           content={
             <div>
-              <p className="font-bold text-slate-100">ΔΔMFCC7 — aceleração do MFCC7</p>
+              <p className="font-bold text-slate-100">{tooltipText(locale, "ΔΔMFCC7 — aceleração do MFCC7")}</p>
               <p className="mt-1">
-                Segunda derivada do MFCC7: captura mudanças bruscas na trajetória
-                do timbre. Realça transições rápidas de estado emocional, não
-                apenas o nível sustentado.
+                {tooltipText(
+                  locale,
+                  "Segunda derivada do MFCC7: captura mudanças bruscas na trajetória do timbre. Realça transições rápidas de estado emocional, não apenas o nível sustentado.",
+                )}
               </p>
             </div>
           }
@@ -207,11 +214,12 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta }) => {
           width={320}
           content={
             <div>
-              <p className="font-bold text-slate-100">ΔΔMFCC9 — aceleração do MFCC9</p>
+              <p className="font-bold text-slate-100">{tooltipText(locale, "ΔΔMFCC9 — aceleração do MFCC9")}</p>
               <p className="mt-1">
-                Segunda derivada do MFCC9: mede a rapidez com que a tensão
-                vocal latente muda ao longo da fala, complementando a leitura
-                de ansiedade somática.
+                {tooltipText(
+                  locale,
+                  "Segunda derivada do MFCC9: mede a rapidez com que a tensão vocal latente muda ao longo da fala, complementando a leitura de ansiedade somática.",
+                )}
               </p>
             </div>
           }

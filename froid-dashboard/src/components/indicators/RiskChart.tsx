@@ -1,6 +1,8 @@
 import React, { useMemo } from "react";
 import { AcousticBiomarkers, PerceptionZone } from "../../lib/froid-engine";
 import { FroidTooltip } from "../ui/FroidTooltip";
+import { tooltipText } from "../../lib/tooltip-i18n";
+import type { SessionLocale } from "../../lib/localization";
 
 interface Props {
   zones: PerceptionZone[];
@@ -8,6 +10,7 @@ interface Props {
   coherenceStatus: string;
   baseline?: number | null;
   audioMeta?: (AcousticBiomarkers & Record<string, unknown>) | null;
+  locale?: SessionLocale;
 }
 
 type RiskItem = {
@@ -128,6 +131,7 @@ export const RiskChart: React.FC<Props> = ({
   coherenceStatus,
   baseline,
   audioMeta,
+  locale = "pt-BR",
 }) => {
   const risks = useMemo<RiskItem[]>(() => {
     const arr = Array.isArray(zones)
@@ -281,13 +285,12 @@ export const RiskChart: React.FC<Props> = ({
           width={360}
           content={
             <div>
-              <p className="font-bold text-slate-100">Riscos clínicos</p>
+              <p className="font-bold text-slate-100">{tooltipText(locale, "Riscos clínicos")}</p>
               <p className="mt-1">
-                Estimativa relativa de cinco padrões de risco (depressão,
-                ansiedade somática, mania, estresse cognitivo e dissociação/
-                trauma) a partir do cruzamento entre voz, face e zonas. Cada
-                barra é apoio à escuta, não um diagnóstico — passe o mouse em
-                cada risco para ver a base de cálculo e a escala de referência.
+                {tooltipText(
+                  locale,
+                  "Estimativa relativa de cinco padrões de risco (depressão, ansiedade somática, mania, estresse cognitivo e dissociação/trauma) a partir do cruzamento entre voz, face e zonas. Cada barra é apoio à escuta, não um diagnóstico — passe o mouse em cada risco para ver a base de cálculo e a escala de referência.",
+                )}
               </p>
             </div>
           }
@@ -308,11 +311,12 @@ export const RiskChart: React.FC<Props> = ({
           width={300}
           content={
             <div>
-              <p className="font-bold text-slate-100">Índice geral de risco</p>
+              <p className="font-bold text-slate-100">{tooltipText(locale, "Índice geral de risco")}</p>
               <p className="mt-1">
-                Média da participação relativa das cinco categorias. Dá uma
-                leitura rápida da carga de risco global do momento; para conduta,
-                observe qual categoria específica está elevada.
+                {tooltipText(
+                  locale,
+                  "Média da participação relativa das cinco categorias. Dá uma leitura rápida da carga de risco global do momento; para conduta, observe qual categoria específica está elevada.",
+                )}
               </p>
             </div>
           }
@@ -339,7 +343,7 @@ export const RiskChart: React.FC<Props> = ({
                       {index + 1}. {risk.label} ({risk.scale})
                     </p>
                     <p className="mt-1 text-[10px] leading-relaxed">
-                      {risk.tooltip}
+                      {tooltipText(locale, risk.tooltip)}
                     </p>
                   </div>
                 }

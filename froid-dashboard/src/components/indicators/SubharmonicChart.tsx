@@ -1,10 +1,13 @@
 import React, { useMemo } from "react";
 import { AcousticBiomarkers, PerceptionZone } from "../../lib/froid-engine";
 import { FroidTooltip } from "../ui/FroidTooltip";
+import { tooltipText } from "../../lib/tooltip-i18n";
+import type { SessionLocale } from "../../lib/localization";
 
 interface Props {
   zones: PerceptionZone[];
   audioMeta?: (AcousticBiomarkers & Record<string, unknown>) | null;
+  locale?: SessionLocale;
 }
 
 type SubharmonicMetric = {
@@ -81,7 +84,7 @@ const compensationLoad = (zones: PerceptionZone[]) => {
   return clamp(offsets.length / 6);
 };
 
-export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta }) => {
+export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta, locale = "pt-BR" }) => {
   const { metrics, insight, hasAcousticData } = useMemo(() => {
     const arr = Array.isArray(zones)
       ? zones.filter((zone) => zone && typeof zone.zone === "number")
@@ -235,14 +238,12 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta }) => {
           width={360}
           content={
             <div>
-              <p className="font-bold text-slate-100">Sub-harmônicos vocais</p>
+              <p className="font-bold text-slate-100">{tooltipText(locale, "Sub-harmônicos vocais")}</p>
               <p className="mt-1">
-                Componentes de infra-tremor da voz nas faixas de 5 a 165 Hz,
-                usados como pistas de ativação e regulação do Sistema Nervoso
-                Autônomo. É o pilar mais exploratório do FROID — leia como apoio
-                à escuta, nunca como diagnóstico isolado. Quando há sinal
-                acústico real usa-se a medida direta; caso contrário, um proxy
-                derivado das zonas.
+                {tooltipText(
+                  locale,
+                  "Componentes de infra-tremor da voz nas faixas de 5 a 165 Hz, usados como pistas de ativação e regulação do Sistema Nervoso Autônomo. É o pilar mais exploratório do FROID — leia como apoio à escuta, nunca como diagnóstico isolado. Quando há sinal acústico real usa-se a medida direta; caso contrário, um proxy derivado das zonas.",
+                )}
               </p>
             </div>
           }
@@ -260,11 +261,12 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta }) => {
           width={300}
           content={
             <div>
-              <p className="font-bold text-slate-100">Índice geral sub-harmônico</p>
+              <p className="font-bold text-slate-100">{tooltipText(locale, "Índice geral sub-harmônico")}</p>
               <p className="mt-1">
-                Média dos componentes sub-harmônicos em 0–100%. Resume a carga
-                autonômica global do momento — útil para perceber tendência antes
-                de detalhar cada componente.
+                {tooltipText(
+                  locale,
+                  "Média dos componentes sub-harmônicos em 0–100%. Resume a carga autonômica global do momento — útil para perceber tendência antes de detalhar cada componente.",
+                )}
               </p>
             </div>
           }
@@ -292,7 +294,7 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta }) => {
                       {metric.label} ({metric.band})
                     </p>
                     <p className="mt-1 text-[10px] leading-relaxed">
-                      {metric.tooltip}
+                      {tooltipText(locale, metric.tooltip)}
                     </p>
                   </div>
                 }

@@ -1,11 +1,16 @@
 import React, { useMemo } from "react";
 import { FroidTooltip } from "../ui/FroidTooltip";
+import { tooltipText } from "../../lib/tooltip-i18n";
+import type { SessionLocale } from "../../lib/localization";
 
 interface Props {
   data: number[];
   current: number;
   baseline?: number;
+  locale?: SessionLocale;
 }
+
+const IPM_TITLE = 'O Papel do IPM (O "Velocímetro")';
 
 const IPM_ROLE_TEXT =
   'O Papel do IPM (O "Velocímetro"): enquanto o IDM aponta a direção do desequilíbrio, o IPM indica a intensidade ou energia global, servindo como velocímetro emocional. Ele é um índice composto atualizado a cada 1 segundo que funde magnitude acústica da voz, comportamento facial e substância semântica transcrita. Assim, o IPM mede quanto combustível emocional o paciente está empregando, independentemente de estar sendo coerente ou não.';
@@ -20,7 +25,7 @@ const polarBands = [
   { from: 75, to: 100, color: "#dc2626", label: "Desadaptativo" },
 ];
 
-export const IPMLineChart: React.FC<Props> = ({ data, current, baseline }) => {
+export const IPMLineChart: React.FC<Props> = ({ data, current, baseline, locale = "pt-BR" }) => {
   const viewW = 620;
   const viewH = 230;
   const padLeft = 0;
@@ -115,8 +120,8 @@ export const IPMLineChart: React.FC<Props> = ({ data, current, baseline }) => {
             width={400}
             content={
               <div className="max-w-[380px]">
-                <p className="font-bold">O Papel do IPM (O "Velocímetro")</p>
-                <p className="mt-1 text-[11px] leading-relaxed">{IPM_ROLE_TEXT}</p>
+                <p className="font-bold">{tooltipText(locale, IPM_TITLE)}</p>
+                <p className="mt-1 text-[11px] leading-relaxed">{tooltipText(locale, IPM_ROLE_TEXT)}</p>
               </div>
             }
           >
@@ -154,9 +159,9 @@ export const IPMLineChart: React.FC<Props> = ({ data, current, baseline }) => {
           <FroidTooltip
             content={
               <div className="max-w-[380px]">
-                <p className="font-bold">O Papel do IPM (O "Velocímetro")</p>
+                <p className="font-bold">{tooltipText(locale, IPM_TITLE)}</p>
                 <p className="mt-1 text-[11px] leading-relaxed">
-                  {IPM_ROLE_TEXT}
+                  {tooltipText(locale, IPM_ROLE_TEXT)}
                 </p>
               </div>
             }

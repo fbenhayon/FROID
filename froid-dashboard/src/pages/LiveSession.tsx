@@ -5134,15 +5134,16 @@ function LiveSessionInner({ user }: LiveSessionProps) {
               coherenceStatus={displayCoherence}
               baseline={state.baselineIPM}
               audioMeta={displayAudio}
+              locale={reportLocale}
             />
           </div>
 
           <div className="min-h-[300px]">
-            <SpectralBandsChart audioMeta={liveAudioMeta} />
+            <SpectralBandsChart audioMeta={liveAudioMeta} locale={reportLocale} />
           </div>
 
           <div className="min-h-[390px]">
-            <SubharmonicChart zones={liveZones} audioMeta={liveAudioMeta} />
+            <SubharmonicChart zones={liveZones} audioMeta={liveAudioMeta} locale={reportLocale} />
           </div>
 
           <AudioTranscription
@@ -5256,6 +5257,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                 data={state.ipmHistory}
                 current={liveIpm}
                 baseline={state.baselineIPM || undefined}
+                locale={reportLocale}
               />
             </div>
 
@@ -5266,6 +5268,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                 baselineIpm={state.baselineIPM}
                 drValue={displayDrValue}
                 isCalibrating={state.phase === "CALIBRATING"}
+                locale={reportLocale}
               />
             </div>
 

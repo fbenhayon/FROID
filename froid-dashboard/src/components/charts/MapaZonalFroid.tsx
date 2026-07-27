@@ -1,4 +1,6 @@
 import React, { useMemo, useState } from "react";
+import { tooltipText } from "../../lib/tooltip-i18n";
+import type { SessionLocale } from "../../lib/localization";
 
 type ZoneInput = {
   zone?: number;
@@ -21,6 +23,7 @@ type MapaZonalFroidProps = {
   drValue?: number | null;
   isCalibrating?: boolean;
   className?: string;
+  locale?: SessionLocale;
 };
 
 const NEGATIVES = [
@@ -132,6 +135,7 @@ export default function MapaZonalFroid({
   drValue = null,
   isCalibrating = false,
   className = "",
+  locale = "pt-BR",
 }: MapaZonalFroidProps) {
   const [hoveredZone, setHoveredZone] = useState<number | null>(null);
   const [showIdmHelp, setShowIdmHelp] = useState(false);
@@ -212,7 +216,7 @@ export default function MapaZonalFroid({
               <p className="font-bold uppercase tracking-tight text-slate-900">
                 IDM
               </p>
-              <p className="mt-1 leading-tight">{IDM_HELP}</p>
+              <p className="mt-1 leading-tight">{tooltipText(locale, IDM_HELP)}</p>
             </div>
           )}
         </div>
@@ -323,7 +327,7 @@ export default function MapaZonalFroid({
                       {zoneLabel}
                     </p>
                     <p className="mt-1 border-t border-slate-100 pt-1 text-[9px] leading-tight text-slate-600">
-                      {ZONE_DESCRIPTIONS[index]}
+                      {tooltipText(locale, ZONE_DESCRIPTIONS[index])}
                     </p>
                   </div>
                 )}
