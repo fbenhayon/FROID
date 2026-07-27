@@ -40,8 +40,8 @@ const initialPatientForm = {
   phone: "",
   sex: "",
   birth_date: "",
-  // Mantido apenas para o fluxo de paciente recorrente (tela de senha).
   password: "",
+  password_confirm: "",
 };
 
 const SEX_COPY: Record<string, { label: string; female: string; male: string; other: string; prefer: string }> = {
@@ -132,9 +132,14 @@ export const PatientInvitePage: React.FC = () => {
     setSubmitting(true);
     setError("");
     const passwordOnly = Boolean(invite?.password_only);
-    // Fluxo de paciente recorrente: apenas a senha.
-    if (passwordOnly && patientForm.password.length < 8) {
+    // Senha obrigatoria em ambos os fluxos (novo cadastro e paciente recorrente).
+    if (patientForm.password.length < 8) {
       setError(copy.errors.passwordLength);
+      setSubmitting(false);
+      return;
+    }
+    if (!passwordOnly && patientForm.password !== patientForm.password_confirm) {
+      setError(copy.errors.passwordMatch);
       setSubmitting(false);
       return;
     }
@@ -162,6 +167,7 @@ export const PatientInvitePage: React.FC = () => {
       phone: patientForm.phone,
       sex: patientForm.sex,
       birth_date: patientForm.birth_date,
+      password: patientForm.password,
     };
     try {
       const response = await fetch(apiUrl(`/api/session-invites/${token}/accept`), {
@@ -375,6 +381,32 @@ export const PatientInvitePage: React.FC = () => {
                   onChange={(event) =>
                     updatePatient("birth_date", event.target.value)
                   }
+                  className="mt-1 w-full rounded-lg border border-slate-700 px-3 py-2 text-sm outline-none focus:border-cyan-500"
+                />
+              </label>
+              <label className="text-xs font-semibold text-slate-300">
+                {copy.portalPassword} *
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  value={patientForm.password}
+                  onChange={(event) => updatePatient("password", event.target.value)}
+                  minLength={8}
+                  required
+                  className="mt-1 w-full rounded-lg border border-slate-700 px-3 py-2 text-sm outline-none focus:border-cyan-500"
+                />
+              </label>
+              <label className="text-xs font-semibold text-slate-300">
+                {copy.confirmPassword} *
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  value={patientForm.password_confirm}
+                  onChange={(event) =>
+                    updatePatient("password_confirm", event.target.value)
+                  }
+                  minLength={8}
+                  required
                   className="mt-1 w-full rounded-lg border border-slate-700 px-3 py-2 text-sm outline-none focus:border-cyan-500"
                 />
               </label>

@@ -23,9 +23,9 @@ class PatientInviteAccessTests(unittest.TestCase):
 
     def test_backend_no_longer_requires_email_confirmation(self):
         self.assertNotIn("if email_confirm != patient_email:", self.backend)
-        # A senha deixa de ser obrigatoria; so e validada quando informada.
+        # A senha do paciente continua obrigatoria (minimo 8 caracteres).
         self.assertIn(
-            "if password and len(password) < 8:",
+            'raise HTTPException(status_code=400, detail="Senha do paciente obrigatória com no minimo 8 caracteres")',
             self.backend,
         )
 

@@ -5836,9 +5836,10 @@ async def accept_session_invite(token: str, request: Request):
             raise HTTPException(status_code=400, detail="Nome do paciente obrigatório")
         if not patient_email:
             raise HTTPException(status_code=400, detail="E-mail do paciente obrigatório")
-        # Fase de testes: CPF, confirmação de e-mail e senha nao sao mais exigidos.
-        if password and len(password) < 8:
-            raise HTTPException(status_code=400, detail="Senha do paciente, quando informada, deve ter no minimo 8 caracteres")
+        # Fase de testes: CPF e confirmação de e-mail nao sao mais exigidos; a
+        # senha continua obrigatoria.
+        if len(password) < 8:
+            raise HTTPException(status_code=400, detail="Senha do paciente obrigatória com no minimo 8 caracteres")
 
         contact_key = _patient_contact_key(patient_email, patient_phone)
         patient_id = (
@@ -5863,8 +5864,7 @@ async def accept_session_invite(token: str, request: Request):
             "consent_preferences": consent,
             "consent_updated_at": now,
         }
-        if password:
-            _set_patient_password(patient, password)
+        _set_patient_password(patient, password)
         PATIENTS[patient_id] = patient
         for patient_contact_key in _patient_contact_keys(patient):
             PATIENTS_BY_CONTACT[patient_contact_key] = patient_id
