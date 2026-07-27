@@ -33,15 +33,32 @@ interface InviteData {
   };
 }
 
-// Fase de testes: cadastro do paciente reduzido ao essencial.
+// Fase de testes iniciais: exibe apenas o cadastro reduzido do paciente
+// (Nome, Telefone, E-mail, Sexo, Data de nascimento e senha) com um unico
+// consentimento. Os demais campos (CPF, confirmacao de e-mail e as
+// autorizacoes detalhadas) permanecem no codigo e voltam ao layout ao
+// definir esta flag como false.
+const TESTING_MINIMAL_PATIENT = true;
+
 const initialPatientForm = {
   name: "",
   email: "",
+  email_confirm: "",
   phone: "",
   sex: "",
+  document: "",
   birth_date: "",
   password: "",
   password_confirm: "",
+};
+
+const initialConsent = {
+  patient_tcle: false,
+  terms_of_use: false,
+  privacy_policy: false,
+  sensitive_data_processing: false,
+  audio_video_processing: false,
+  research_anonymized: false,
 };
 
 const SEX_COPY: Record<string, { label: string; female: string; male: string; other: string; prefer: string }> = {
@@ -55,10 +72,12 @@ export const PatientInvitePage: React.FC = () => {
   const { token = "" } = useParams<{ token: string }>();
   const [invite, setInvite] = useState<InviteData | null>(null);
   const [patientForm, setPatientForm] = useState(initialPatientForm);
-  // Consentimento unico: um clique cobre TCLE, Termos, Privacidade e o
-  // tratamento de dados sensiveis (audio/video). O uso de dados no data-froid
-  // (pesquisa anonimizada) nao e mais solicitado nesta fase.
+  // Consentimento unico (fase de testes): um clique cobre TCLE, Termos,
+  // Privacidade e o tratamento de dados sensiveis (audio/video). O uso de
+  // dados no data-froid (pesquisa anonimizada) nao e solicitado nesta fase.
   const [consentAll, setConsentAll] = useState(false);
+  // Consentimentos detalhados (usados quando a flag reduzida for desativada).
+  const [consent, setConsent] = useState(initialConsent);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -81,6 +100,7 @@ export const PatientInvitePage: React.FC = () => {
     setInvite(null);
     setPatientForm({ ...initialPatientForm });
     setConsentAll(false);
+    setConsent({ ...initialConsent });
     setAccepted(false);
     setSubmitting(false);
     setError("");
@@ -126,6 +146,10 @@ export const PatientInvitePage: React.FC = () => {
     setPatientForm((prev) => ({ ...prev, [key]: value }));
   };
 
+  const updateConsent = (key: keyof typeof initialConsent, value: boolean) => {
+    setConsent((prev) => ({ ...prev, [key]: value }));
+  };
+
 
   const submitAcceptance = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -143,32 +167,67 @@ export const PatientInvitePage: React.FC = () => {
       setSubmitting(false);
       return;
     }
-    if (!passwordOnly && !patientForm.email.trim()) {
-      setError(copy.errors.email);
-      setSubmitting(false);
-      return;
+    if (!passwordOnly && TESTING_MINIMAL_PATIENT) {
+      if (!patientForm.email.trim()) {
+        setError(copy.errors.email);
+        setSubmitting(false);
+        return;
+      }
+      if (!consentAll) {
+        setError(copy.errors.consent || "É necessário aceitar as autorizações para continuar.");
+        setSubmitting(false);
+        return;
+      }
+    } else if (!passwordOnly) {
+      // Cadastro completo (flag desativada).
+      if (!patientForm.document.trim()) {
+        setError(copy.errors.document);
+        setSubmitting(false);
+        return;
+      }
+      if (!patientForm.email.trim()) {
+        setError(copy.errors.email);
+        setSubmitting(false);
+        return;
+      }
+      if (
+        patientForm.email.trim().toLowerCase() !==
+        patientForm.email_confirm.trim().toLowerCase()
+      ) {
+        setError(copy.errors.emailMatch);
+        setSubmitting(false);
+        return;
+      }
     }
-    if (!passwordOnly && !consentAll) {
-      setError(copy.errors.consent || "É necessário aceitar as autorizações para continuar.");
-      setSubmitting(false);
-      return;
-    }
-    // Um clique cobre todas as autorizações obrigatórias (sem data-froid).
-    const consent = {
-      patient_tcle: consentAll,
-      terms_of_use: consentAll,
-      privacy_policy: consentAll,
-      sensitive_data_processing: consentAll,
-      audio_video_processing: consentAll,
-    };
-    const patientPayload = {
-      name: patientForm.name,
-      email: patientForm.email,
-      phone: patientForm.phone,
-      sex: patientForm.sex,
-      birth_date: patientForm.birth_date,
-      password: patientForm.password,
-    };
+    // Fase de testes: um clique cobre as autorizações obrigatórias (sem
+    // data-froid). Com a flag desativada, usa os consentimentos detalhados.
+    const consentPayload = TESTING_MINIMAL_PATIENT
+      ? {
+          patient_tcle: consentAll,
+          terms_of_use: consentAll,
+          privacy_policy: consentAll,
+          sensitive_data_processing: consentAll,
+          audio_video_processing: consentAll,
+        }
+      : consent;
+    const patientPayload = TESTING_MINIMAL_PATIENT
+      ? {
+          name: patientForm.name,
+          email: patientForm.email,
+          phone: patientForm.phone,
+          sex: patientForm.sex,
+          birth_date: patientForm.birth_date,
+          password: patientForm.password,
+        }
+      : {
+          name: patientForm.name,
+          email: patientForm.email,
+          phone: patientForm.phone,
+          sex: patientForm.sex,
+          document: patientForm.document,
+          birth_date: patientForm.birth_date,
+          password: patientForm.password,
+        };
     try {
       const response = await fetch(apiUrl(`/api/session-invites/${token}/accept`), {
         method: "POST",
@@ -176,7 +235,9 @@ export const PatientInvitePage: React.FC = () => {
         body: JSON.stringify({
           ...(passwordOnly
             ? { password: patientForm.password }
-            : { ...patientPayload, consent }),
+            : TESTING_MINIMAL_PATIENT
+              ? { ...patientPayload, consent: consentPayload }
+              : { ...patientPayload, email_confirm: patientForm.email_confirm, consent: consentPayload }),
         }),
       });
       const data = await response.json();
@@ -342,6 +403,17 @@ export const PatientInvitePage: React.FC = () => {
                   className="mt-1 w-full rounded-lg border border-slate-700 px-3 py-2 text-sm outline-none focus:border-cyan-500"
                 />
               </label>
+              {!TESTING_MINIMAL_PATIENT && (
+              <label className="text-xs font-semibold text-slate-300">
+                {copy.document} *
+                <input
+                  value={patientForm.document}
+                  onChange={(event) => updatePatient("document", event.target.value)}
+                  required
+                  className="mt-1 w-full rounded-lg border border-slate-700 px-3 py-2 text-sm outline-none focus:border-cyan-500"
+                />
+              </label>
+              )}
               <label className="text-xs font-semibold text-slate-300">
                 {copy.phone}
                 <input
@@ -359,6 +431,17 @@ export const PatientInvitePage: React.FC = () => {
                   className="mt-1 w-full rounded-lg border border-slate-700 px-3 py-2 text-sm outline-none focus:border-cyan-500"
                 />
               </label>
+              {!TESTING_MINIMAL_PATIENT && (
+              <label className="text-xs font-semibold text-slate-300">
+                {copy.confirmEmail} *
+                <input
+                  value={patientForm.email_confirm}
+                  onChange={(event) => updatePatient("email_confirm", event.target.value)}
+                  required
+                  className="mt-1 w-full rounded-lg border border-slate-700 px-3 py-2 text-sm outline-none focus:border-cyan-500"
+                />
+              </label>
+              )}
               <label className="text-xs font-semibold text-slate-300">
                 {sexCopy.label}
                 <select
@@ -429,24 +512,51 @@ export const PatientInvitePage: React.FC = () => {
               <div className="mt-3">
                 <LgpdNotice audience="patient" compact locale={uiLocale} />
               </div>
-              <div className="mt-3 text-xs text-slate-300">
-                <label className="flex gap-2">
-                  <input
-                    type="checkbox"
-                    checked={consentAll}
-                    onChange={(event) => setConsentAll(event.target.checked)}
-                  />
-                  <span>
-                    {{
-                      "pt-BR": "Li e aceito o TCLE, os Termos de Uso e a Política de Privacidade, e autorizo o tratamento dos meus dados sensíveis (áudio e vídeo) para a realização da sessão.",
-                      "en-US": "I have read and accept the Informed Consent (TCLE), the Terms of Use and the Privacy Policy, and I authorize the processing of my sensitive data (audio and video) to run the session.",
-                      "fr-FR": "J'ai lu et j'accepte le consentement éclairé (TCLE), les Conditions d'utilisation et la Politique de confidentialité, et j'autorise le traitement de mes données sensibles (audio et vidéo) pour la réalisation de la séance.",
-                      "es-ES": "He leído y acepto el TCLE, los Términos de Uso y la Política de Privacidad, y autorizo el tratamiento de mis datos sensibles (audio y vídeo) para la realización de la sesión.",
-                    }[uiLocale] ||
-                      "Li e aceito o TCLE, os Termos de Uso e a Política de Privacidade, e autorizo o tratamento dos meus dados sensíveis (áudio e vídeo) para a realização da sessão."}
-                  </span>
-                </label>
-              </div>
+              {TESTING_MINIMAL_PATIENT ? (
+                <div className="mt-3 text-xs text-slate-300">
+                  <label className="flex gap-2">
+                    <input
+                      type="checkbox"
+                      checked={consentAll}
+                      onChange={(event) => setConsentAll(event.target.checked)}
+                    />
+                    <span>
+                      {{
+                        "pt-BR": "Li e aceito o TCLE, os Termos de Uso e a Política de Privacidade, e autorizo o tratamento dos meus dados sensíveis (áudio e vídeo) para a realização da sessão.",
+                        "en-US": "I have read and accept the Informed Consent (TCLE), the Terms of Use and the Privacy Policy, and I authorize the processing of my sensitive data (audio and video) to run the session.",
+                        "fr-FR": "J'ai lu et j'accepte le consentement éclairé (TCLE), les Conditions d'utilisation et la Politique de confidentialité, et j'autorise le traitement de mes données sensibles (audio et vidéo) pour la réalisation de la séance.",
+                        "es-ES": "He leído y acepto el TCLE, los Términos de Uso y la Política de Privacidad, y autorizo el tratamiento de mis datos sensibles (audio y vídeo) para la realización de la sesión.",
+                      }[uiLocale] ||
+                        "Li e aceito o TCLE, os Termos de Uso e a Política de Privacidade, e autorizo o tratamento dos meus dados sensíveis (áudio e vídeo) para a realização da sessão."}
+                    </span>
+                  </label>
+                </div>
+              ) : (
+                <div className="mt-3 space-y-2 text-xs text-slate-300">
+                  {[
+                    ["patient_tcle", copy.consentLabels.patient_tcle],
+                    ["terms_of_use", copy.consentLabels.terms_of_use],
+                    ["privacy_policy", copy.consentLabels.privacy_policy],
+                    ["sensitive_data_processing", copy.consentLabels.sensitive_data_processing],
+                    ["audio_video_processing", copy.consentLabels.audio_video_processing],
+                    ["research_anonymized", copy.consentLabels.research_anonymized],
+                  ].map(([key, label]) => (
+                    <label key={key} className="flex gap-2">
+                      <input
+                        type="checkbox"
+                        checked={consent[key as keyof typeof initialConsent]}
+                        onChange={(event) =>
+                          updateConsent(
+                            key as keyof typeof initialConsent,
+                            event.target.checked,
+                          )
+                        }
+                      />
+                      <span>{label}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
               </>
             )}
