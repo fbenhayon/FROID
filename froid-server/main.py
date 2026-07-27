@@ -5824,11 +5824,9 @@ async def accept_session_invite(token: str, request: Request):
     else:
         patient_name = str(body.get("name") or invite.get("patient_name") or "").strip()
         patient_email = _normalize_email(body.get("email") or invite.get("patient_email") or "")
-        email_confirm = _normalize_email(
-            body.get("email_confirm") or body.get("emailConfirmation") or ""
-        )
         patient_phone = _digits_only(body.get("phone") or invite.get("patient_phone") or "")
         document = _digits_only(body.get("document") or "")
+        sex = str(body.get("sex") or "").strip()[:20]
         birth_date = str(body.get("birth_date") or "").strip()
         consent = body.get("consent") or {}
         missing = [key for key in required_consents if consent.get(key) is not True]
@@ -5838,12 +5836,9 @@ async def accept_session_invite(token: str, request: Request):
             raise HTTPException(status_code=400, detail="Nome do paciente obrigatório")
         if not patient_email:
             raise HTTPException(status_code=400, detail="E-mail do paciente obrigatório")
-        if email_confirm != patient_email:
-            raise HTTPException(status_code=400, detail="Confirmação de e-mail do paciente não confere")
-        if not document:
-            raise HTTPException(status_code=400, detail="CPF/documento obrigatório como chave de conferência do paciente")
-        if len(password) < 8:
-            raise HTTPException(status_code=400, detail="Senha do paciente obrigatória com no minimo 8 caracteres")
+        # Fase de testes: CPF, confirmação de e-mail e senha nao sao mais exigidos.
+        if password and len(password) < 8:
+            raise HTTPException(status_code=400, detail="Senha do paciente, quando informada, deve ter no minimo 8 caracteres")
 
         contact_key = _patient_contact_key(patient_email, patient_phone)
         patient_id = (
@@ -5858,6 +5853,7 @@ async def accept_session_invite(token: str, request: Request):
             "email": patient_email,
             "phone": patient_phone,
             "document": document,
+            "sex": sex,
             "birth_date": birth_date,
             "created_at": PATIENTS.get(patient_id, {}).get("created_at") or now,
             "updated_at": now,
@@ -5867,7 +5863,8 @@ async def accept_session_invite(token: str, request: Request):
             "consent_preferences": consent,
             "consent_updated_at": now,
         }
-        _set_patient_password(patient, password)
+        if password:
+            _set_patient_password(patient, password)
         PATIENTS[patient_id] = patient
         for patient_contact_key in _patient_contact_keys(patient):
             PATIENTS_BY_CONTACT[patient_contact_key] = patient_id

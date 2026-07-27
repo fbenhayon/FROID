@@ -513,16 +513,12 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
           ]
         : [
             ["Nome completo", "fullName", fields.fullName],
-            ["Celular", "mobile", fields.mobile],
+            ["Telefone celular", "mobile", fields.mobile],
             ["E-mail", "email", fields.email],
-            ["CPF", "cpf", fields.cpf],
+            ["Número da licença médica", "professionalRegistry", fields.professionalRegistry],
           ];
-    const addressFields = [
-      ["CEP", "postalCode", fields.postalCode],
-      ["Logradouro", "street", fields.street],
-      ["Número", "number", fields.number],
-      ["Bairro", "district", fields.district],
-    ];
+    // Fase de testes: endereço não é mais exigido no cadastro reduzido.
+    const addressFields: Array<[string, string, string]> = [];
     const missing = [...requiredFields, ...addressFields].find(([, , value]) => !String(value || "").trim());
     if (missing) {
       return { message: `Preencha o campo obrigatório: ${missing[0]}.`, target: `onboarding-${missing[1]}` };
@@ -779,28 +775,6 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
 
         <form noValidate onSubmit={saveAndCheckout} className="grid gap-5 xl:grid-cols-[1fr_360px]">
           <div className="space-y-4">
-            <section className="rounded-lg border border-slate-700 bg-slate-900 p-4 shadow-sm">
-              <span className="text-[11px] font-black uppercase text-slate-400">Tipo de cadastro</span>
-              <div className="mt-2 flex flex-wrap gap-3 text-sm font-bold">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    checked={accountType === "individual"}
-                    onChange={() => { setAccountType("individual"); setContractAccepted(false); }}
-                  />
-                  Pessoa Física
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    checked={accountType === "organization"}
-                    onChange={() => { setAccountType("organization"); setContractAccepted(false); }}
-                  />
-                  Pessoa Juridica
-                </label>
-              </div>
-            </section>
-
             {accountType === "organization" && (
               <Section title="Informações da Empresa">
                 <Field label="Nome fantasia" name="tradeName" value={fields.tradeName} onChange={updateField} required />
@@ -815,60 +789,12 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
               </Section>
             )}
 
-            <Section title={accountType === "organization" ? "Dados Pessoais do Representante Legal" : "Dados Pessoais"}>
-              <Field label="Nome completo" name={accountType === "organization" ? "legalRepresentativeName" : "fullName"} value={accountType === "organization" ? fields.legalRepresentativeName : fields.fullName} onChange={updateField} required />
-              <Field label="Celular" name={accountType === "organization" ? "legalRepresentativeMobile" : "mobile"} value={accountType === "organization" ? fields.legalRepresentativeMobile : fields.mobile} onChange={updateField} required />
-              <Field label="E-mail" name={accountType === "organization" ? "legalRepresentativeEmail" : "email"} value={accountType === "organization" ? fields.legalRepresentativeEmail : fields.email} onChange={updateField} type="email" required />
-              <Field label="Sexo" name={accountType === "organization" ? "legalRepresentativeSex" : "sex"} value={accountType === "organization" ? fields.legalRepresentativeSex : fields.sex} onChange={updateField} />
-              <Field label="Data de nascimento" name={accountType === "organization" ? "legalRepresentativeBirthDate" : "birthDate"} value={accountType === "organization" ? fields.legalRepresentativeBirthDate : fields.birthDate} onChange={updateField} type="date" />
-              <Field label="CPF" name={accountType === "organization" ? "legalRepresentativeCpf" : "cpf"} value={accountType === "organization" ? fields.legalRepresentativeCpf : fields.cpf} onChange={updateField} required />
-              <Field label="RG" name={accountType === "organization" ? "legalRepresentativeRg" : "rg"} value={accountType === "organization" ? fields.legalRepresentativeRg : fields.rg} onChange={updateField} />
-              <Field label="Emissor RG" name={accountType === "organization" ? "legalRepresentativeRgIssuer" : "rgIssuer"} value={accountType === "organization" ? fields.legalRepresentativeRgIssuer : fields.rgIssuer} onChange={updateField} />
-              {accountType === "organization" && (
-                <Field label="Emissao RG" name="legalRepresentativeRgDate" value={fields.legalRepresentativeRgDate} onChange={updateField} type="date" />
-              )}
-              <Field label="Naturalidade" name={accountType === "organization" ? "legalRepresentativeNaturality" : "naturality"} value={accountType === "organization" ? fields.legalRepresentativeNaturality : fields.naturality} onChange={updateField} />
-              <Field label="Nacionalidade" name={accountType === "organization" ? "legalRepresentativeNationality" : "nationality"} value={accountType === "organization" ? fields.legalRepresentativeNationality : fields.nationality} onChange={updateField} />
-              <Field label="Telefone" name={accountType === "organization" ? "legalRepresentativePhone" : "phone"} value={accountType === "organization" ? fields.legalRepresentativePhone : fields.phone} onChange={updateField} />
-            </Section>
-
-            <Section title="Informação do Endereço">
-              <Field label="CEP" name="postalCode" value={fields.postalCode} onChange={updateField} required />
-              <Field label="Logradouro" name="street" value={fields.street} onChange={updateField} required />
-              <Field label="Número" name="number" value={fields.number} onChange={updateField} required />
-              <Field label="Bairro" name="district" value={fields.district} onChange={updateField} required />
-              <Field label="Complemento" name="complement" value={fields.complement} onChange={updateField} />
-              <Field label="Pais" name="country" value={fields.country} onChange={updateField} />
-              <Field label="Estado" name="state" value={fields.state} onChange={updateField} />
-              <Field label="Cidade" name="city" value={fields.city} onChange={updateField} />
-            </Section>
-
-            <Section title="Dados fiscais para fatura e recibo">
-              <Field label={accountType === "organization" ? "Atividade principal" : "Profissao"} name="profession" value={fields.profession} onChange={updateField} placeholder="Psicologa(o), Medica(o) Psiquiatra..." />
-              <Field label="Conselho profissional" name="professionalCouncil" value={fields.professionalCouncil} onChange={updateField} placeholder="CRP, CRM..." />
-              <Field label="Registro profissional" name="professionalRegistry" value={fields.professionalRegistry} onChange={updateField} placeholder="Número do CRP/CRM" />
-              <Field label="Descrição padrão do serviço" name="receiptServiceDescription" value={fields.receiptServiceDescription} onChange={updateField} placeholder="Sessão de psicoterapia individual, consulta psiquiátrica..." />
-              <Field label="Local de emissão" name="receiptCity" value={fields.receiptCity} onChange={updateField} placeholder="Cidade/UF" />
-              <Field label="Observação fiscal padrão" name="receiptFiscalObservation" value={fields.receiptFiscalObservation} onChange={updateField} placeholder="Referência Receita Saúde/NFS-e quando aplicável" />
-              {accountType === "organization" && (
-                <Field label="Regime tributário" name="taxRegime" value={fields.taxRegime} onChange={updateField} />
-              )}
-            </Section>
-
-            {accountType === "individual" && (
-              <Section title="Dados Profissionais">
-                <Field label="Empresa" name="company" value={fields.company} onChange={updateField} />
-                <Field label="Endereço da empresa" name="companyAddress" value={fields.companyAddress} onChange={updateField} />
-                <Field label="Tempo meses" name="professionalTimeMonths" value={fields.professionalTimeMonths} onChange={updateField} type="number" />
-                <Field label="Telefone da empresa" name="companyPhone" value={fields.companyPhone} onChange={updateField} />
-              </Section>
-            )}
-
-            <Section title="Referências Pessoais">
-              <Field label="Nome da referência pessoal 1" name="referenceName1" value={fields.referenceName1} onChange={updateField} />
-              <Field label="Contato da referência pessoal 1" name="referencePhone1" value={fields.referencePhone1} onChange={updateField} />
-              <Field label="Nome da referência pessoal 2" name="referenceName2" value={fields.referenceName2} onChange={updateField} />
-              <Field label="Contato da referência pessoal 2" name="referencePhone2" value={fields.referencePhone2} onChange={updateField} />
+            {/* Fase de testes: cadastro reduzido ao essencial. */}
+            <Section title="Dados do profissional">
+              <Field label="Nome completo" name="fullName" value={fields.fullName} onChange={updateField} required />
+              <Field label="E-mail" name="email" value={fields.email} onChange={updateField} type="email" required />
+              <Field label="Telefone celular" name="mobile" value={fields.mobile} onChange={updateField} required />
+              <Field label="Número da licença médica" name="professionalRegistry" value={fields.professionalRegistry} onChange={updateField} placeholder="CRM / CRP" required />
             </Section>
 
             {accountType === "organization" && (

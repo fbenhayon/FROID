@@ -96,14 +96,18 @@ class PatientMobileWebRtcTests(unittest.TestCase):
         self.assertIn("shouldReconnectRtcSignaling", self.patient_session)
         self.assertIn("shouldReconnectRtcSignaling", self.professional_session)
 
-    def test_new_patient_password_is_empty_and_browser_cannot_restore_it(self):
+    def test_reduced_patient_registration_has_no_password_and_single_consent(self):
+        # Fase de testes: o cadastro do novo paciente nao pede senha (apenas o
+        # fluxo de paciente recorrente mantem o campo current-password).
         self.assertIn("...initialPatientForm", self.patient_invite)
-        self.assertEqual(self.patient_invite.count('autoComplete="new-password"'), 2)
+        self.assertEqual(self.patient_invite.count('autoComplete="new-password"'), 0)
         self.assertEqual(self.patient_invite.count('autoComplete="current-password"'), 1)
         self.assertIn("[&_input]:bg-blue-950", self.patient_invite)
         self.assertIn("[&_input]:text-white", self.patient_invite)
         self.assertIn('sessionStorage.removeItem("froid_patient_token")', self.patient_invite)
-        self.assertIn("setConsent({ ...initialConsent })", self.patient_invite)
+        # Consentimento unico via um checkbox.
+        self.assertIn("setConsentAll(false)", self.patient_invite)
+        self.assertIn("checked={consentAll}", self.patient_invite)
 
 
 if __name__ == "__main__":

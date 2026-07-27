@@ -13,18 +13,21 @@ class PatientInviteAccessTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
         cls.backend = (ROOT / "froid-server" / "main.py").read_text(encoding="utf-8")
 
-    def test_confirmed_email_is_sent_to_backend(self):
-        self.assertIn(
-            "{ ...patientPayload, email_confirm: patientForm.email_confirm }",
-            self.invite_page,
-        )
+    def test_reduced_patient_payload_is_sent_to_backend(self):
+        # Fase de testes: apenas nome, telefone, e-mail, sexo, data de
+        # nascimento e o consentimento unico. Sem CPF, confirmacao de e-mail
+        # ou senha no fluxo de novo paciente.
+        self.assertIn("{ ...patientPayload, consent }", self.invite_page)
+        self.assertNotIn("email_confirm", self.invite_page)
+        self.assertIn("sex: patientForm.sex", self.invite_page)
 
-    def test_backend_keeps_server_side_email_confirmation(self):
+    def test_backend_no_longer_requires_email_confirmation(self):
+        self.assertNotIn("if email_confirm != patient_email:", self.backend)
+        # A senha deixa de ser obrigatoria; so e validada quando informada.
         self.assertIn(
-            'body.get("email_confirm") or body.get("emailConfirmation")',
+            "if password and len(password) < 8:",
             self.backend,
         )
-        self.assertIn("if email_confirm != patient_email:", self.backend)
 
 
 if __name__ == "__main__":

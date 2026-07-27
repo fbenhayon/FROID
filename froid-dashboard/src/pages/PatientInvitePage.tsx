@@ -33,31 +33,32 @@ interface InviteData {
   };
 }
 
+// Fase de testes: cadastro do paciente reduzido ao essencial.
 const initialPatientForm = {
   name: "",
   email: "",
-  email_confirm: "",
   phone: "",
-  document: "",
+  sex: "",
   birth_date: "",
+  // Mantido apenas para o fluxo de paciente recorrente (tela de senha).
   password: "",
-  password_confirm: "",
 };
 
-const initialConsent = {
-  patient_tcle: false,
-  terms_of_use: false,
-  privacy_policy: false,
-  sensitive_data_processing: false,
-  audio_video_processing: false,
-  research_anonymized: false,
+const SEX_COPY: Record<string, { label: string; female: string; male: string; other: string; prefer: string }> = {
+  "pt-BR": { label: "Sexo", female: "Feminino", male: "Masculino", other: "Outro", prefer: "Prefiro não informar" },
+  "en-US": { label: "Sex", female: "Female", male: "Male", other: "Other", prefer: "Prefer not to say" },
+  "fr-FR": { label: "Sexe", female: "Féminin", male: "Masculin", other: "Autre", prefer: "Préfère ne pas répondre" },
+  "es-ES": { label: "Sexo", female: "Femenino", male: "Masculino", other: "Otro", prefer: "Prefiero no decirlo" },
 };
 
 export const PatientInvitePage: React.FC = () => {
   const { token = "" } = useParams<{ token: string }>();
   const [invite, setInvite] = useState<InviteData | null>(null);
   const [patientForm, setPatientForm] = useState(initialPatientForm);
-  const [consent, setConsent] = useState(initialConsent);
+  // Consentimento unico: um clique cobre TCLE, Termos, Privacidade e o
+  // tratamento de dados sensiveis (audio/video). O uso de dados no data-froid
+  // (pesquisa anonimizada) nao e mais solicitado nesta fase.
+  const [consentAll, setConsentAll] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -66,6 +67,7 @@ export const PatientInvitePage: React.FC = () => {
     normalizeSessionLocale(typeof navigator === "undefined" ? "" : navigator.language),
   );
   const copy = patientCopy(uiLocale);
+  const sexCopy = SEX_COPY[uiLocale] || SEX_COPY["pt-BR"];
   const sessionEntryUrl =
     invite?.session_url ||
     invite?.patient_session_url ||
@@ -78,7 +80,7 @@ export const PatientInvitePage: React.FC = () => {
     setLoading(true);
     setInvite(null);
     setPatientForm({ ...initialPatientForm });
-    setConsent({ ...initialConsent });
+    setConsentAll(false);
     setAccepted(false);
     setSubmitting(false);
     setError("");
@@ -124,17 +126,15 @@ export const PatientInvitePage: React.FC = () => {
     setPatientForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  const updateConsent = (key: keyof typeof initialConsent, value: boolean) => {
-    setConsent((prev) => ({ ...prev, [key]: value }));
-  };
 
   const submitAcceptance = async (event: React.FormEvent) => {
     event.preventDefault();
     setSubmitting(true);
     setError("");
     const passwordOnly = Boolean(invite?.password_only);
-    if (!passwordOnly && !patientForm.document.trim()) {
-      setError(copy.errors.document);
+    // Fluxo de paciente recorrente: apenas a senha.
+    if (passwordOnly && patientForm.password.length < 8) {
+      setError(copy.errors.passwordLength);
       setSubmitting(false);
       return;
     }
@@ -143,32 +143,25 @@ export const PatientInvitePage: React.FC = () => {
       setSubmitting(false);
       return;
     }
-    if (
-      !passwordOnly &&
-      patientForm.email.trim().toLowerCase() !==
-        patientForm.email_confirm.trim().toLowerCase()
-    ) {
-      setError(copy.errors.emailMatch);
+    if (!passwordOnly && !consentAll) {
+      setError(copy.errors.consent || "É necessário aceitar as autorizações para continuar.");
       setSubmitting(false);
       return;
     }
-    if (patientForm.password.length < 8) {
-      setError(copy.errors.passwordLength);
-      setSubmitting(false);
-      return;
-    }
-    if (!passwordOnly && patientForm.password !== patientForm.password_confirm) {
-      setError(copy.errors.passwordMatch);
-      setSubmitting(false);
-      return;
-    }
-    const patientPayload: Omit<typeof patientForm, "password_confirm" | "email_confirm"> = {
+    // Um clique cobre todas as autorizações obrigatórias (sem data-froid).
+    const consent = {
+      patient_tcle: consentAll,
+      terms_of_use: consentAll,
+      privacy_policy: consentAll,
+      sensitive_data_processing: consentAll,
+      audio_video_processing: consentAll,
+    };
+    const patientPayload = {
       name: patientForm.name,
       email: patientForm.email,
       phone: patientForm.phone,
-      document: patientForm.document,
+      sex: patientForm.sex,
       birth_date: patientForm.birth_date,
-      password: patientForm.password,
     };
     try {
       const response = await fetch(apiUrl(`/api/session-invites/${token}/accept`), {
@@ -177,8 +170,7 @@ export const PatientInvitePage: React.FC = () => {
         body: JSON.stringify({
           ...(passwordOnly
             ? { password: patientForm.password }
-            : { ...patientPayload, email_confirm: patientForm.email_confirm }),
-          ...(passwordOnly ? {} : { consent }),
+            : { ...patientPayload, consent }),
         }),
       });
       const data = await response.json();
@@ -336,38 +328,10 @@ export const PatientInvitePage: React.FC = () => {
               <>
               <div className="grid gap-3 md:grid-cols-2">
               <label className="text-xs font-semibold text-slate-300">
-                {copy.fullName}
+                {copy.fullName} *
                 <input
                   value={patientForm.name}
                   onChange={(event) => updatePatient("name", event.target.value)}
-                  className="mt-1 w-full rounded-lg border border-slate-700 px-3 py-2 text-sm outline-none focus:border-cyan-500"
-                />
-              </label>
-              <label className="text-xs font-semibold text-slate-300">
-                {copy.document} *
-                <input
-                  value={patientForm.document}
-                  onChange={(event) =>
-                    updatePatient("document", event.target.value)
-                  }
-                  required
-                  className="mt-1 w-full rounded-lg border border-slate-700 px-3 py-2 text-sm outline-none focus:border-cyan-500"
-                />
-              </label>
-              <label className="text-xs font-semibold text-slate-300">
-                {copy.email} *
-                <input
-                  value={patientForm.email}
-                  onChange={(event) => updatePatient("email", event.target.value)}
-                  required
-                  className="mt-1 w-full rounded-lg border border-slate-700 px-3 py-2 text-sm outline-none focus:border-cyan-500"
-                />
-              </label>
-              <label className="text-xs font-semibold text-slate-300">
-                {copy.confirmEmail} *
-                <input
-                  value={patientForm.email_confirm}
-                  onChange={(event) => updatePatient("email_confirm", event.target.value)}
                   required
                   className="mt-1 w-full rounded-lg border border-slate-700 px-3 py-2 text-sm outline-none focus:border-cyan-500"
                 />
@@ -381,6 +345,29 @@ export const PatientInvitePage: React.FC = () => {
                 />
               </label>
               <label className="text-xs font-semibold text-slate-300">
+                {copy.email} *
+                <input
+                  value={patientForm.email}
+                  onChange={(event) => updatePatient("email", event.target.value)}
+                  required
+                  className="mt-1 w-full rounded-lg border border-slate-700 px-3 py-2 text-sm outline-none focus:border-cyan-500"
+                />
+              </label>
+              <label className="text-xs font-semibold text-slate-300">
+                {sexCopy.label}
+                <select
+                  value={patientForm.sex}
+                  onChange={(event) => updatePatient("sex", event.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-cyan-500"
+                >
+                  <option value="">—</option>
+                  <option value="F">{sexCopy.female}</option>
+                  <option value="M">{sexCopy.male}</option>
+                  <option value="O">{sexCopy.other}</option>
+                  <option value="N">{sexCopy.prefer}</option>
+                </select>
+              </label>
+              <label className="text-xs font-semibold text-slate-300">
                 {copy.birthDate}
                 <input
                   type="date"
@@ -388,32 +375,6 @@ export const PatientInvitePage: React.FC = () => {
                   onChange={(event) =>
                     updatePatient("birth_date", event.target.value)
                   }
-                  className="mt-1 w-full rounded-lg border border-slate-700 px-3 py-2 text-sm outline-none focus:border-cyan-500"
-                />
-              </label>
-              <label className="text-xs font-semibold text-slate-300">
-                {copy.portalPassword} *
-                <input
-                  type="password"
-                  autoComplete="new-password"
-                  value={patientForm.password}
-                  onChange={(event) => updatePatient("password", event.target.value)}
-                  minLength={8}
-                  required
-                  className="mt-1 w-full rounded-lg border border-slate-700 px-3 py-2 text-sm outline-none focus:border-cyan-500"
-                />
-              </label>
-              <label className="text-xs font-semibold text-slate-300">
-                {copy.confirmPassword} *
-                  <input
-                    type="password"
-                    autoComplete="new-password"
-                    value={patientForm.password_confirm}
-                  onChange={(event) =>
-                    updatePatient("password_confirm", event.target.value)
-                  }
-                  minLength={8}
-                  required
                   className="mt-1 w-full rounded-lg border border-slate-700 px-3 py-2 text-sm outline-none focus:border-cyan-500"
                 />
               </label>
@@ -436,29 +397,23 @@ export const PatientInvitePage: React.FC = () => {
               <div className="mt-3">
                 <LgpdNotice audience="patient" compact locale={uiLocale} />
               </div>
-              <div className="mt-3 space-y-2 text-xs text-slate-300">
-                {[
-                  ["patient_tcle", copy.consentLabels.patient_tcle],
-                  ["terms_of_use", copy.consentLabels.terms_of_use],
-                  ["privacy_policy", copy.consentLabels.privacy_policy],
-                  ["sensitive_data_processing", copy.consentLabels.sensitive_data_processing],
-                  ["audio_video_processing", copy.consentLabels.audio_video_processing],
-                  ["research_anonymized", copy.consentLabels.research_anonymized],
-                ].map(([key, label]) => (
-                  <label key={key} className="flex gap-2">
-                    <input
-                      type="checkbox"
-                      checked={consent[key as keyof typeof initialConsent]}
-                      onChange={(event) =>
-                        updateConsent(
-                          key as keyof typeof initialConsent,
-                          event.target.checked,
-                        )
-                      }
-                    />
-                    <span>{label}</span>
-                  </label>
-                ))}
+              <div className="mt-3 text-xs text-slate-300">
+                <label className="flex gap-2">
+                  <input
+                    type="checkbox"
+                    checked={consentAll}
+                    onChange={(event) => setConsentAll(event.target.checked)}
+                  />
+                  <span>
+                    {{
+                      "pt-BR": "Li e aceito o TCLE, os Termos de Uso e a Política de Privacidade, e autorizo o tratamento dos meus dados sensíveis (áudio e vídeo) para a realização da sessão.",
+                      "en-US": "I have read and accept the Informed Consent (TCLE), the Terms of Use and the Privacy Policy, and I authorize the processing of my sensitive data (audio and video) to run the session.",
+                      "fr-FR": "J'ai lu et j'accepte le consentement éclairé (TCLE), les Conditions d'utilisation et la Politique de confidentialité, et j'autorise le traitement de mes données sensibles (audio et vidéo) pour la réalisation de la séance.",
+                      "es-ES": "He leído y acepto el TCLE, los Términos de Uso y la Política de Privacidad, y autorizo el tratamiento de mis datos sensibles (audio y vídeo) para la realización de la sesión.",
+                    }[uiLocale] ||
+                      "Li e aceito o TCLE, os Termos de Uso e a Política de Privacidade, e autorizo o tratamento dos meus dados sensíveis (áudio e vídeo) para a realização da sessão."}
+                  </span>
+                </label>
               </div>
             </div>
               </>
