@@ -2289,6 +2289,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       categories: string[];
       markers: EvidentMarker[];
       summary: string;
+      severity?: number;
       peakZone?: number;
       peakZoneTema?: string;
       source: string;
@@ -4796,12 +4797,25 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   // Só estas — as co-ocorrências — entram na listagem detalhada com scroll.
   useEffect(() => {
     const event = (raw as any)?.dissonance_event as DissonanceEvent | undefined;
-    if (!event || !event.is_multi_dissonance) return;
+    // Confirmação temporal: registra só a dissonância múltipla sustentada
+    // (>= 2 dos últimos 3 ticks). Para payloads antigos sem o campo, recai no
+    // sinal instantâneo. Sem múltipla ativa, zera a assinatura para que um novo
+    // episódio (mesmo com os mesmos marcadores) volte a ser registrado.
+    const confirmed = event
+      ? (event.confirmed ?? event.is_multi_dissonance)
+      : false;
+    if (!event || !confirmed) {
+      lastMultiDissonanceSig.current = "";
+      return;
+    }
     const markers = Array.isArray(event.evident_markers)
       ? event.evident_markers
       : [];
+    // Deduplica pelo CONJUNTO de marcadores (não pela severidade, que oscila a
+    // cada tick): um mesmo episódio sustentado gera um único registro.
     const signature = markers
-      .map((m) => `${m.key}:${m.direction}:${Number(m.severity).toFixed(2)}`)
+      .map((m) => m.key)
+      .sort()
       .join("|");
     if (!signature || signature === lastMultiDissonanceSig.current) return;
     lastMultiDissonanceSig.current = signature;
@@ -4815,6 +4829,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         categories: Array.isArray(event.categories) ? event.categories : [],
         markers,
         summary: event.summary || "",
+        severity: typeof event.severity === "number" ? event.severity : undefined,
         peakZone: event.peak_zone,
         peakZoneTema: event.peak_zone_tema,
         source: event.voice_features_source || "mock",
@@ -5482,10 +5497,18 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                         >
                           <div className="flex items-center justify-between gap-2">
                             <span className="font-bold text-red-100">
-                              {entry.count} marcadores simultâneos
+                              {entry.count} marcadores ·{" "}
+                              {entry.categories.length} categorias
                             </span>
-                            <span className="text-[9px] text-slate-400">
-                              {entry.elapsedSeconds}s
+                            <span className="flex items-center gap-1.5">
+                              {typeof entry.severity === "number" && (
+                                <span className="rounded bg-red-800/60 px-1.5 py-0.5 text-[8px] font-bold text-red-100">
+                                  int. {Math.round(entry.severity * 100)}%
+                                </span>
+                              )}
+                              <span className="text-[9px] text-slate-400">
+                                {entry.elapsedSeconds}s
+                              </span>
                             </span>
                           </div>
                           <div className="mt-0.5 flex items-center justify-between gap-2">

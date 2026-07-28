@@ -117,8 +117,14 @@ export interface EvidentMarker {
 
 export interface DissonanceEvent {
   evident_count: number;
+  distinct_categories?: number;
   is_multi_dissonance: boolean;
+  confirmed?: boolean;
+  sustained_ticks?: number;
   min_simultaneous: number;
+  min_distinct_categories?: number;
+  severity?: number;
+  mean_severity?: number;
   categories: string[];
   evident_markers: EvidentMarker[];
   summary: string;

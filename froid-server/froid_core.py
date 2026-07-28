@@ -104,6 +104,11 @@ class SessionState:
     baseline_f0_real: float = 0.0
     baseline_loudness_real: float = 0.0
     baseline_zcr_real: float = 0.0
+    # Calibração PRÓPRIA das baselines de voz real (F0/loudness/ZCR/MFCC),
+    # independente da baseline espectral: o microfone do paciente pode entrar
+    # depois dos 60s iniciais; sem contador próprio, essas baselines ficariam
+    # zeradas e os marcadores relativos jamais avaliariam.
+    real_voice_baseline_ticks: int = 0
     # Marcações FACIAIS REAIS (froid_facs): AUs e dissonâncias faciais derivadas
     # dos blendshapes medidos pelo navegador. None = ainda sem face real (o tick
     # recai no modo simulado explícito).
@@ -111,6 +116,9 @@ class SessionState:
     latest_facs_flags: Optional[dict] = None
     latest_facs_details: Optional[dict] = None
     facial_updated_at: float = 0.0
+    # Histórico da condição de dissonância múltipla (últimos ticks) para a
+    # confirmação temporal — evita alertar sobre pico de um único tick.
+    dissonance_multi_history: List[bool] = field(default_factory=list)
 
     def update_f0(self, f0_mean: float, f0_std: float, voiced_ratio: float) -> None:
         # Só substitui por uma medida vozeada; silêncio/ruído (f0<=0) preserva
@@ -191,6 +199,7 @@ class SessionState:
 
         perception_zones = []
         global_deviations = []
+        raw_deviations = []  # desvio VOCAL puro (sem M_fac), p/ o motor de dissonância
         has_critical_dissonance = False
         has_dissonance = False
 
@@ -199,6 +208,7 @@ class SessionState:
             b_energy = float(self.baseline_energy[zone_idx - 1])
             d_flag = facs_dissonance_flags.get(zone_idx, False)
             d_details = facs_details.get(zone_idx, None)
+            raw_deviations.append((v_energy - b_energy) / (b_energy + 1e-9))
 
             dev_score = self.mapper.calculate_multimodal_deviation(zone_idx, v_energy, b_energy, d_flag)
             color = self.mapper.map_color(dev_score)
@@ -342,7 +352,11 @@ class SessionState:
             # alerta espástico passam a refletir a voz de fato.
             mfcc7 = round(float(real.get("mfcc7") or 0.0), 4)
             mfcc9 = round(float(real.get("mfcc9") or 0.0), 4)
-            if not self.baseline_locked:
+            # Calibra as baselines de voz real nos primeiros REAL_VOICE_BASELINE
+            # ticks COM voz medida — não importa se a baseline espectral já
+            # travou (o microfone do paciente pode ter entrado mais tarde).
+            REAL_VOICE_BASELINE = 30
+            if self.real_voice_baseline_ticks < REAL_VOICE_BASELINE:
                 a = 0.1
                 self.baseline_mfcc7_real = (1 - a) * self.baseline_mfcc7_real + a * mfcc7 if self.baseline_mfcc7_real else mfcc7
                 self.baseline_mfcc9_real = (1 - a) * self.baseline_mfcc9_real + a * mfcc9 if self.baseline_mfcc9_real else mfcc9
@@ -357,6 +371,7 @@ class SessionState:
                 rzcr = float(real.get("zcr") or 0.0)
                 if rzcr > 0.0:
                     self.baseline_zcr_real = (1 - a) * self.baseline_zcr_real + a * rzcr if self.baseline_zcr_real else rzcr
+                self.real_voice_baseline_ticks += 1
         else:
             mfcc7 = round(float(np.clip(np.mean(voice_spectral_12[4:8]) - baseline_mean * 0.12, 0.0, 25.0)), 3)
             mfcc9 = round(float(np.clip(np.mean(voice_spectral_12[6:10]) - baseline_mean * 0.08, 0.0, 25.0)), 3)
@@ -443,10 +458,14 @@ class SessionState:
         dissonance_snapshot = {
             "voice_real": voice_real,
             "baseline_locked": self.baseline_locked,
+            # Baseline de voz real concluída (>= 30 ticks com voz medida). Só
+            # então os marcadores relativos à baseline do paciente avaliam.
+            "voice_baseline_ready": self.real_voice_baseline_ticks >= 30,
             "jitter": jitter,
             "shimmer": shimmer,
             "f0_mean": float(self.latest_f0_mean),
             "f0_var": float(self.latest_f0_std),
+            "f0_voiced_ratio": float(self.latest_f0_voiced_ratio),
             "baseline_f0": float(self.baseline_f0_real),
             "loudness_dbfs": loudness_dbfs,
             "baseline_loudness": self.baseline_loudness_real if self.baseline_loudness_real else None,
@@ -457,7 +476,10 @@ class SessionState:
             "dna_autonomic_flooding": dna_flooding,
             "dna_dissociative_shutdown": dna_shutdown,
             "dna_somatoaffective_dissonance": dna_somato,
-            "zone_deviations": [float(d) for d in global_deviations],
+            # Desvio VOCAL puro (sem o multiplicador facial M_fac): impede que um
+            # único evento facial dispare, ao mesmo tempo, o marcador facial e o
+            # de zona extrema (dupla contagem correlacionada).
+            "zone_deviations": [float(d) for d in raw_deviations],
             "ipm_score": float(ipm_score),
             # Contradição facial-vocal REAL (só conta quando vinda de blendshapes
             # medidos; o mock não alimenta a métrica base de dissonância facial).
@@ -469,6 +491,16 @@ class SessionState:
             ),
         }
         dissonance_event = froid_dissonance.evaluate(dissonance_snapshot)
+        # Confirmação temporal: só é "confirmada" a dissonância múltipla que se
+        # sustenta em 2 dos últimos 3 ticks (ver froid_dissonance.confirm).
+        self.dissonance_multi_history.append(bool(dissonance_event["is_multi_dissonance"]))
+        if len(self.dissonance_multi_history) > froid_dissonance.CONFIRM_WINDOW:
+            self.dissonance_multi_history.pop(0)
+        dissonance_event["confirmed"] = bool(
+            dissonance_event["is_multi_dissonance"]
+            and froid_dissonance.confirm(self.dissonance_multi_history)
+        )
+        dissonance_event["sustained_ticks"] = int(sum(self.dissonance_multi_history))
         # Zona de maior desvio, para rótulo do registro na listagem.
         peak_zone = max(perception_zones, key=lambda z: abs(z["deviation_score"]))
         dissonance_event["peak_zone"] = peak_zone["zone"]

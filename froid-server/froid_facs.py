@@ -201,9 +201,12 @@ def detect_facial_dissonance(
 
 
 def _global_expressivity(aus: Dict[str, float]) -> float:
-    """Média de intensidade das AUs expressivas — proxy de quão animado está o
-    rosto. Baixa expressividade + AUs de contenção indica supressão."""
-    expressive = ["AU1", "AU2", "AU5", "AU6", "AU12", "AU15", "AU26"]
+    """Média de intensidade das AUs EMOCIONAIS — proxy de quão animado está o
+    rosto. Baixa expressividade + AUs de contenção indica supressão. AU26
+    (abertura de mandíbula) é excluída por ser dirigida pela FALA, não pela
+    emoção — incluí-la inflava a expressividade durante o discurso e mascarava
+    a contenção justamente quando ela é mais relevante."""
+    expressive = ["AU1", "AU2", "AU5", "AU6", "AU12", "AU15"]
     vals = [aus.get(a, 0.0) for a in expressive]
     return float(sum(vals) / len(vals)) if vals else 0.0
 

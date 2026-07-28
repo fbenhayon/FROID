@@ -121,6 +121,11 @@ def _voice_real(snap: Dict[str, Any]) -> bool:
 
 
 def _baseline_ready(snap: Dict[str, Any]) -> bool:
+    # A baseline de VOZ REAL do paciente (F0/loudness/ZCR) precisa estar
+    # concluída para que os marcadores relativos tenham referência confiável;
+    # recai na trava espectral em payloads sem o campo dedicado.
+    if "voice_baseline_ready" in snap:
+        return bool(snap.get("voice_baseline_ready"))
     return bool(snap.get("baseline_locked"))
 
 
@@ -154,7 +159,11 @@ def _f0_cv(snap):
     # Prosódia: coeficiente de variação da F0 na janela (f0_var/f0_mean).
     # A fala expressiva natural mantém CV ~0,08-0,35. Abaixo de 0,04 =
     # monotonia (achatamento afetivo); acima de 0,45 = instabilidade/agitação.
+    # Exige F0 vozeada suficiente (voiced_ratio >= 0,30); com poucos quadros
+    # vozeados o desvio-padrão é ruidoso e o CV não é confiável.
     if not _voice_real(snap):
+        return None
+    if float(snap.get("f0_voiced_ratio") or 0.0) < 0.30:
         return None
     f0 = float(snap.get("f0_mean") or 0.0)
     if f0 <= 0.0:
@@ -293,8 +302,19 @@ MARKER_SPECS: List[MarkerSpec] = [
 ]
 
 # Limiar de co-ocorrência: nº mínimo de dissonâncias evidentes simultâneas para
-# caracterizar (e registrar) uma dissonância real. Pedido: "dois ou mais".
+# caracterizar uma dissonância real. Pedido: "dois ou mais".
 MIN_SIMULTANEOUS = 2
+# Além de 2+ marcadores, exige-se 2+ CATEGORIAS clínicas distintas: marcadores
+# da mesma categoria (ex.: jitter e shimmer, ambos "Perturbação vocal") são
+# fortemente correlacionados e não devem, sozinhos, caracterizar uma
+# dissonância múltipla — isso reduz falsos positivos por redundância de sinal.
+MIN_DISTINCT_CATEGORIES = 2
+# Confirmação TEMPORAL: uma dissonância múltipla é "confirmada" quando se
+# sustenta em CONFIRM_MIN dos últimos CONFIRM_WINDOW ticks (janela de 1s). Um
+# pico de um único tick é tratado como transitório (não confirmado), evitando
+# alertar sobre flutuação instantânea.
+CONFIRM_WINDOW = 3
+CONFIRM_MIN = 2
 
 
 def evaluate(snapshot: Dict[str, Any]) -> Dict[str, Any]:
@@ -303,7 +323,10 @@ def evaluate(snapshot: Dict[str, Any]) -> Dict[str, Any]:
     Retorna um evento com:
       - evident_markers: lista de dissonâncias evidentes (marcadores fora da banda)
       - evident_count: quantas
-      - is_multi_dissonance: True se >= MIN_SIMULTANEOUS ocorreram juntas
+      - distinct_categories: nº de categorias clínicas distintas atingidas
+      - is_multi_dissonance: True se >= MIN_SIMULTANEOUS marcadores em
+        >= MIN_DISTINCT_CATEGORIES categorias ocorreram juntas
+      - severity / mean_severity: intensidade agregada do evento (0..1)
       - categories: categorias clínicas envolvidas (distintas)
       - summary: resumo textual (só preenchido quando is_multi_dissonance)
     """
@@ -318,22 +341,41 @@ def evaluate(snapshot: Dict[str, Any]) -> Dict[str, Any]:
 
     breaches.sort(key=lambda b: b.severity, reverse=True)
     categories = sorted({b.category for b in breaches})
-    is_multi = len(breaches) >= MIN_SIMULTANEOUS
+    is_multi = (
+        len(breaches) >= MIN_SIMULTANEOUS
+        and len(categories) >= MIN_DISTINCT_CATEGORIES
+    )
+
+    severities = [b.severity for b in breaches]
+    severity = round(max(severities), 3) if severities else 0.0
+    mean_severity = round(sum(severities) / len(severities), 3) if severities else 0.0
 
     summary = ""
     if is_multi:
         parts = [f"{b.label} ({b.direction} do limiar)" for b in breaches]
         summary = (
-            f"Dissonância evidente: {len(breaches)} marcadores ultrapassaram "
-            f"simultaneamente a métrica base — " + "; ".join(parts) + "."
+            f"Dissonância evidente: {len(breaches)} marcadores em "
+            f"{len(categories)} categorias ultrapassaram simultaneamente a "
+            f"métrica base — " + "; ".join(parts) + "."
         )
 
     return {
         "evident_count": len(breaches),
+        "distinct_categories": len(categories),
         "is_multi_dissonance": is_multi,
         "min_simultaneous": MIN_SIMULTANEOUS,
+        "min_distinct_categories": MIN_DISTINCT_CATEGORIES,
+        "severity": severity,
+        "mean_severity": mean_severity,
         "categories": categories,
         "evident_markers": [b.to_dict() for b in breaches],
         "summary": summary,
         "voice_features_source": "real_pcm" if _voice_real(snapshot) else "mock",
     }
+
+
+def confirm(history: List[bool]) -> bool:
+    """Confirmação temporal: True se a condição múltipla se sustentou em
+    CONFIRM_MIN dos últimos CONFIRM_WINDOW ticks."""
+    window = history[-CONFIRM_WINDOW:]
+    return sum(1 for h in window if h) >= CONFIRM_MIN
