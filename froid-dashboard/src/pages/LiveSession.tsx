@@ -14,7 +14,12 @@ import { SessionTimer } from "../components/indicators/SessionTimer";
 import { AIInsights } from "../components/panels/AIInsights";
 import { AudioTranscription } from "../components/panels/AudioTranscription";
 import { FroidTooltip } from "../components/ui/FroidTooltip";
-import { FroidPayload, PerceptionZone } from "../lib/froid-engine";
+import {
+  FroidPayload,
+  PerceptionZone,
+  DissonanceEvent,
+  EvidentMarker,
+} from "../lib/froid-engine";
 import { getAUDetails, ZONE_CLINICAL_DESCRIPTIONS } from "../lib/froid-data";
 import { apiUrl, wsUrl } from "../lib/api";
 import {
@@ -2273,6 +2278,23 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       report: string;
     }>
   >([]);
+  // Registro das dissonâncias EVIDENTES múltiplas (>= 2 marcadores fora da
+  // métrica base simultaneamente), vindas do motor de dissonância do backend.
+  const [multiDissonanceLog, setMultiDissonanceLog] = useState<
+    Array<{
+      id: string;
+      timestamp: string;
+      elapsedSeconds: number;
+      count: number;
+      categories: string[];
+      markers: EvidentMarker[];
+      summary: string;
+      peakZone?: number;
+      peakZoneTema?: string;
+      source: string;
+    }>
+  >([]);
+  const lastMultiDissonanceSig = useRef<string>("");
   const [liveTranscription, setLiveTranscription] = useState<Record<
     string,
     unknown
@@ -4651,6 +4673,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       froidExplicaConversation: froidExplicaConversationRef.current,
       sessionSummary: buildSessionSummary(conversationSummaries, summarySourceTranscript),
       dissonances: dissonanceLog,
+      evidentDissonances: multiDissonanceLog,
       transcript: summarySourceTranscript,
       transcriptionQuality: {
         successfulSegments: transcriptionStats.successfulSegments,
@@ -4670,6 +4693,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   }, [
     conversationSummaries,
     dissonanceLog,
+    multiDissonanceLog,
     raw,
     analysisLanguage,
     reportLocale,
@@ -4766,6 +4790,37 @@ function LiveSessionInner({ user }: LiveSessionProps) {
 
     setDissonanceLog((prev) => [...prev, ...nextEntries].slice(-18));
   }, [confirmedDissonanceZones, displayAudio, state.elapsedSeconds]);
+
+  // Captura, AO VIVO, as dissonâncias EVIDENTES múltiplas emitidas pelo motor
+  // do backend (>= 2 marcadores ultrapassando a métrica base no mesmo tick).
+  // Só estas — as co-ocorrências — entram na listagem detalhada com scroll.
+  useEffect(() => {
+    const event = (raw as any)?.dissonance_event as DissonanceEvent | undefined;
+    if (!event || !event.is_multi_dissonance) return;
+    const markers = Array.isArray(event.evident_markers)
+      ? event.evident_markers
+      : [];
+    const signature = markers
+      .map((m) => `${m.key}:${m.direction}:${Number(m.severity).toFixed(2)}`)
+      .join("|");
+    if (!signature || signature === lastMultiDissonanceSig.current) return;
+    lastMultiDissonanceSig.current = signature;
+    setMultiDissonanceLog((prev) => [
+      ...prev,
+      {
+        id: `md-${Date.now()}`,
+        timestamp: new Date().toLocaleString("pt-BR"),
+        elapsedSeconds: state.elapsedSeconds,
+        count: event.evident_count,
+        categories: Array.isArray(event.categories) ? event.categories : [],
+        markers,
+        summary: event.summary || "",
+        peakZone: event.peak_zone,
+        peakZoneTema: event.peak_zone_tema,
+        source: event.voice_features_source || "mock",
+      },
+    ].slice(-30));
+  }, [raw, state.elapsedSeconds]);
 
   const connectionText = state.connected
     ? state.phase === "CALIBRATING"
@@ -5400,11 +5455,99 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                     );
                   })}
 
+              {multiDissonanceLog.length > 0 && (
+                <div className="mt-3 rounded-lg border border-red-700/70 bg-red-950/30 p-2">
+                  <div className="mb-2 flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-red-200">
+                        Dissonâncias Evidentes (2+ marcadores)
+                      </p>
+                      <p className="text-[9px] text-red-300/70">
+                        Ocorrências com dois ou mais marcadores fora da métrica
+                        base simultaneamente
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-red-800/60 px-2 py-0.5 text-[9px] font-bold text-red-100">
+                      {multiDissonanceLog.length}
+                    </span>
+                  </div>
+                  <div className="max-h-56 space-y-1.5 overflow-y-auto pr-1">
+                    {multiDissonanceLog
+                      .slice()
+                      .reverse()
+                      .map((entry) => (
+                        <div
+                          key={entry.id}
+                          className="rounded border border-red-800/70 bg-red-950/40 p-2 text-[10px] text-slate-200"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-bold text-red-100">
+                              {entry.count} marcadores simultâneos
+                            </span>
+                            <span className="text-[9px] text-slate-400">
+                              {entry.elapsedSeconds}s
+                            </span>
+                          </div>
+                          <div className="mt-0.5 flex items-center justify-between gap-2">
+                            <p className="text-[9px] text-slate-400">
+                              {entry.timestamp}
+                            </p>
+                            <span
+                              className={`rounded px-1.5 py-0.5 text-[8px] font-bold uppercase ${
+                                entry.source === "real_pcm"
+                                  ? "bg-emerald-900/60 text-emerald-200"
+                                  : "bg-slate-700/60 text-slate-300"
+                              }`}
+                            >
+                              {entry.source === "real_pcm"
+                                ? "voz real"
+                                : "simulado"}
+                            </span>
+                          </div>
+                          {entry.peakZone && (
+                            <p className="mt-0.5 text-[9px] text-red-300/80">
+                              Zona de maior desvio: {entry.peakZone}
+                              {entry.peakZoneTema
+                                ? ` — ${entry.peakZoneTema}`
+                                : ""}
+                            </p>
+                          )}
+                          <div className="mt-1 space-y-1">
+                            {entry.markers.map((m, mi) => (
+                              <div
+                                key={`${entry.id}-${m.key}-${mi}`}
+                                className="rounded border border-red-900/50 bg-black/20 px-1.5 py-1"
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="font-semibold text-red-100">
+                                    {m.label}
+                                  </span>
+                                  <span className="text-[8px] uppercase text-slate-400">
+                                    {m.category}
+                                  </span>
+                                </div>
+                                <p className="mt-0.5 text-[9px] text-slate-300">
+                                  Valor {Number(m.value).toFixed(3)} {m.direction}{" "}
+                                  do limiar{" "}
+                                  {m.direction === "acima"
+                                    ? m.band[1]
+                                    : m.band[0]}{" "}
+                                  · {m.interpretation}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+
               {dissonanceLog.length > 0 && (
                 <div className="mt-3 rounded-lg border border-slate-700 bg-slate-900 p-2">
                   <div className="mb-2 flex items-center justify-between">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-slate-300">
-                      Registro de Dissonâncias
+                      Registro de Dissonâncias (por zona)
                     </p>
                     <span className="text-[9px] text-slate-500">
                       {dissonanceLog.length} itens

@@ -4,6 +4,8 @@ from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
 from enum import Enum
 
+import froid_dissonance
+
 class FroidColor(str, Enum):
     BRANCO = "BRANCO"
     AZUL = "AZUL"
@@ -95,6 +97,12 @@ class SessionState:
     pcm_sample_rate: int = 16000
     baseline_mfcc7_real: float = 0.0
     baseline_mfcc9_real: float = 0.0
+    # Baselines de repouso do paciente para as métricas base de dissonância
+    # (F0, loudness, ZCR), calibradas por EMA durante os ~60s iniciais. 0.0 =
+    # ainda sem referência (marcador relativo não é avaliado).
+    baseline_f0_real: float = 0.0
+    baseline_loudness_real: float = 0.0
+    baseline_zcr_real: float = 0.0
 
     def update_f0(self, f0_mean: float, f0_std: float, voiced_ratio: float) -> None:
         # Só substitui por uma medida vozeada; silêncio/ruído (f0<=0) preserva
@@ -309,6 +317,17 @@ class SessionState:
                 a = 0.1
                 self.baseline_mfcc7_real = (1 - a) * self.baseline_mfcc7_real + a * mfcc7 if self.baseline_mfcc7_real else mfcc7
                 self.baseline_mfcc9_real = (1 - a) * self.baseline_mfcc9_real + a * mfcc9 if self.baseline_mfcc9_real else mfcc9
+                # Baselines de repouso para as métricas base de dissonância.
+                rf0 = float(real.get("f0_mean") or 0.0)
+                if rf0 > 0.0:
+                    self.baseline_f0_real = (1 - a) * self.baseline_f0_real + a * rf0 if self.baseline_f0_real else rf0
+                rloud = real.get("loudness_dbfs")
+                if rloud is not None:
+                    rloud = float(rloud)
+                    self.baseline_loudness_real = (1 - a) * self.baseline_loudness_real + a * rloud if self.baseline_loudness_real else rloud
+                rzcr = float(real.get("zcr") or 0.0)
+                if rzcr > 0.0:
+                    self.baseline_zcr_real = (1 - a) * self.baseline_zcr_real + a * rzcr if self.baseline_zcr_real else rzcr
         else:
             mfcc7 = round(float(np.clip(np.mean(voice_spectral_12[4:8]) - baseline_mean * 0.12, 0.0, 25.0)), 3)
             mfcc9 = round(float(np.clip(np.mean(voice_spectral_12[6:10]) - baseline_mean * 0.08, 0.0, 25.0)), 3)
@@ -386,6 +405,39 @@ class SessionState:
             "Baseline em calibração"
         )
 
+        # -----------------------------------------------------------------
+        # Motor de DISSONÂNCIAS EVIDENTES: cada marcador real é confrontado
+        # com sua métrica base (banda mín/máx). Quando DUAS OU MAIS ultrapassam
+        # simultaneamente, o evento é sinalizado para a listagem detalhada.
+        # -----------------------------------------------------------------
+        voice_real = bool(real and "zcr" in real)
+        dissonance_snapshot = {
+            "voice_real": voice_real,
+            "baseline_locked": self.baseline_locked,
+            "jitter": jitter,
+            "shimmer": shimmer,
+            "f0_mean": float(self.latest_f0_mean),
+            "f0_var": float(self.latest_f0_std),
+            "baseline_f0": float(self.baseline_f0_real),
+            "loudness_dbfs": loudness_dbfs,
+            "baseline_loudness": self.baseline_loudness_real if self.baseline_loudness_real else None,
+            "zcr": zcr_value,
+            "baseline_zcr": float(self.baseline_zcr_real),
+            "mfcc7_delta_delta": mfcc7_delta_delta,
+            "mfcc9_delta_delta": mfcc9_delta_delta,
+            "dna_autonomic_flooding": dna_flooding,
+            "dna_dissociative_shutdown": dna_shutdown,
+            "dna_somatoaffective_dissonance": dna_somato,
+            "zone_deviations": [float(d) for d in global_deviations],
+            "ipm_score": float(ipm_score),
+        }
+        dissonance_event = froid_dissonance.evaluate(dissonance_snapshot)
+        # Zona de maior desvio, para rótulo do registro na listagem.
+        peak_zone = max(perception_zones, key=lambda z: abs(z["deviation_score"]))
+        dissonance_event["peak_zone"] = peak_zone["zone"]
+        dissonance_event["peak_zone_tema"] = peak_zone["tema"]
+        dissonance_event["coherence_status"] = coherence_status
+
         return {
             "session_id": self.session_id,
             "timestamp_ms": int(time.time() * 1000),
@@ -398,6 +450,7 @@ class SessionState:
             },
             "perception_zones": perception_zones,
             "realtime_alerts": alerts,
+            "dissonance_event": dissonance_event,
             "dr_value": dr_value,
             "audio_meta": {
                 "words_per_window": words_this_window,

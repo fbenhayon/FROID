@@ -107,6 +107,29 @@ export interface SessionReportRecord {
     zone: number;
     report: string;
   }>;
+  // Dissonâncias evidentes (>= 2 marcadores fora da métrica base ao mesmo tempo).
+  evidentDissonances?: Array<{
+    id: string;
+    timestamp: string;
+    elapsedSeconds: number;
+    count: number;
+    categories: string[];
+    markers: Array<{
+      key: string;
+      label: string;
+      category: string;
+      value: number;
+      band: [number | null, number | null];
+      direction: string;
+      severity: number;
+      unit: string;
+      interpretation: string;
+    }>;
+    summary: string;
+    peakZone?: number;
+    peakZoneTema?: string;
+    source: string;
+  }>;
   transcript: string;
   transcriptionQuality?: {
     successfulSegments: number;

@@ -101,6 +101,31 @@ export interface AcousticBiomarkers {
   impacto_preditivo?: string;
 }
 
+export interface EvidentMarker {
+  key: string;
+  label: string;
+  category: string;
+  value: number;
+  band: [number | null, number | null];
+  direction: "acima" | "abaixo" | string;
+  severity: number;
+  unit: string;
+  interpretation: string;
+}
+
+export interface DissonanceEvent {
+  evident_count: number;
+  is_multi_dissonance: boolean;
+  min_simultaneous: number;
+  categories: string[];
+  evident_markers: EvidentMarker[];
+  summary: string;
+  voice_features_source: "real_pcm" | "mock" | string;
+  peak_zone?: number;
+  peak_zone_tema?: string;
+  coherence_status?: string;
+}
+
 export interface FroidPayload {
   session_id: string;
   timestamp_ms: number;
@@ -110,6 +135,7 @@ export interface FroidPayload {
   global_energy: { cor_plot: FroidColor; descricao: string };
   perception_zones: PerceptionZone[];
   realtime_alerts: string[];
+  dissonance_event?: DissonanceEvent;
   audio_meta?: AcousticBiomarkers & Record<string, unknown>;
 }
 
