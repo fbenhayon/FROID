@@ -21,6 +21,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 from froid_core import SessionState, MockBiometricStream
 import froid_f0
+import froid_voice
 from froid_metrics_engine import calculate_report_metrics
 from tenant_access import (
     AccessContext,
@@ -5042,12 +5043,16 @@ async def submit_acoustic_f0(session_id: str, request: Request):
 
     state: SessionState = entry["state"]
     signal = froid_f0.pcm16_bytes_to_float(pcm_bytes)
-    f0_mean, f0_std, voiced_ratio = froid_f0.estimate_f0_series(signal, sample_rate)
-    state.update_f0(f0_mean, f0_std, voiced_ratio)
+    # Buffer rolante (~3s) dá resolução às bandas de modulação lentas; todos os
+    # biomarcadores vocais reais são extraídos dele e injetados na sessão.
+    buffer = state.ingest_pcm(signal, sample_rate)
+    features = froid_voice.extract_voice_features(buffer, sample_rate)
+    state.update_voice_features(features)
     return {
-        "f0_mean": f0_mean,
-        "f0_std": f0_std,
-        "voiced_ratio": voiced_ratio,
+        "f0_mean": features.get("f0_mean", 0.0),
+        "f0_voiced_ratio": features.get("f0_voiced_ratio", 0.0),
+        "markers_computed": len(features),
+        "source": "real_pcm",
         "sample_rate": sample_rate,
     }
 

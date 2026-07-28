@@ -87,6 +87,14 @@ class SessionState:
     latest_f0_std: float = 0.0
     latest_f0_voiced_ratio: float = 0.0
     f0_updated_at: float = 0.0
+    # Biomarcadores vocais REAIS (froid_voice) medidos do PCM do navegador, e o
+    # buffer rolante de PCM usado para as bandas de modulação lentas.
+    latest_voice_features: Optional[dict] = None
+    voice_features_updated_at: float = 0.0
+    pcm_buffer: Optional[np.ndarray] = None
+    pcm_sample_rate: int = 16000
+    baseline_mfcc7_real: float = 0.0
+    baseline_mfcc9_real: float = 0.0
 
     def update_f0(self, f0_mean: float, f0_std: float, voiced_ratio: float) -> None:
         # Só substitui por uma medida vozeada; silêncio/ruído (f0<=0) preserva
@@ -97,8 +105,40 @@ class SessionState:
             self.latest_f0_voiced_ratio = float(voiced_ratio)
             self.f0_updated_at = time.time()
 
+    def ingest_pcm(self, signal: np.ndarray, sample_rate: int, keep_seconds: float = 3.0) -> np.ndarray:
+        """Acumula PCM num buffer rolante (últimos keep_seconds) para dar
+        resolução às bandas de modulação lentas. Retorna o buffer atual."""
+        self.pcm_sample_rate = int(sample_rate)
+        incoming = np.asarray(signal, dtype=np.float64)
+        if self.pcm_buffer is None or self.pcm_buffer.size == 0:
+            self.pcm_buffer = incoming
+        else:
+            self.pcm_buffer = np.concatenate([self.pcm_buffer, incoming])
+        max_samples = int(keep_seconds * sample_rate)
+        if self.pcm_buffer.size > max_samples:
+            self.pcm_buffer = self.pcm_buffer[-max_samples:]
+        return self.pcm_buffer
+
+    def update_voice_features(self, features: Optional[dict]) -> None:
+        """Registra o conjunto de biomarcadores vocais reais e sincroniza a F0."""
+        if not features:
+            return
+        self.latest_voice_features = features
+        self.voice_features_updated_at = time.time()
+        self.update_f0(
+            float(features.get("f0_mean") or 0.0),
+            float(features.get("f0_var") or 0.0),
+            float(features.get("f0_voiced_ratio") or 0.0),
+        )
+
     def process_tick(self, voice_spectral_12, facs_dissonance_flags, facs_details):
         self.tick_count += 1
+        # Se há biomarcadores vocais REAIS medidos do PCM do paciente, o vetor
+        # espectral de 12 bandas real substitui o simulado — passando a
+        # alimentar as Zonas, o IPM, o IDM e a colorimetria com a voz de fato.
+        real = self.latest_voice_features
+        if real and isinstance(real.get("voice_spectral_12"), (list, tuple)) and len(real["voice_spectral_12"]) == 12:
+            voice_spectral_12 = np.asarray(real["voice_spectral_12"], dtype=np.float64)
         if not self.baseline_locked:
             self.baseline_buffer.append(voice_spectral_12.copy())
             if len(self.baseline_buffer) >= 60:
@@ -260,8 +300,18 @@ class SessionState:
         # DR = Dynamic Repouso = média das 12 baselines
         dr_value = round(float(np.mean(self.baseline_energy)), 3)
         baseline_mean = float(np.mean(self.baseline_energy))
-        mfcc7 = round(float(np.clip(np.mean(voice_spectral_12[4:8]) - baseline_mean * 0.12, 0.0, 25.0)), 3)
-        mfcc9 = round(float(np.clip(np.mean(voice_spectral_12[6:10]) - baseline_mean * 0.08, 0.0, 25.0)), 3)
+        if real and "mfcc7" in real:
+            # MFCC reais (coeficientes cepstrais medidos do PCM). Os deltas e o
+            # alerta espástico passam a refletir a voz de fato.
+            mfcc7 = round(float(real.get("mfcc7") or 0.0), 4)
+            mfcc9 = round(float(real.get("mfcc9") or 0.0), 4)
+            if not self.baseline_locked:
+                a = 0.1
+                self.baseline_mfcc7_real = (1 - a) * self.baseline_mfcc7_real + a * mfcc7 if self.baseline_mfcc7_real else mfcc7
+                self.baseline_mfcc9_real = (1 - a) * self.baseline_mfcc9_real + a * mfcc9 if self.baseline_mfcc9_real else mfcc9
+        else:
+            mfcc7 = round(float(np.clip(np.mean(voice_spectral_12[4:8]) - baseline_mean * 0.12, 0.0, 25.0)), 3)
+            mfcc9 = round(float(np.clip(np.mean(voice_spectral_12[6:10]) - baseline_mean * 0.08, 0.0, 25.0)), 3)
         mfcc7_delta = round(float(mfcc7 - (self.previous_mfcc7 if self.previous_mfcc7 is not None else mfcc7)), 4)
         mfcc9_delta = round(float(mfcc9 - (self.previous_mfcc9 if self.previous_mfcc9 is not None else mfcc9)), 4)
         mfcc7_delta_delta = round(float(mfcc7_delta - self.previous_delta_mfcc7), 4)
@@ -279,14 +329,33 @@ class SessionState:
         subharmonic_12_20 = round(float(np.clip((np.mean(voice_spectral_12[8:12]) * 0.65) + (np.std(voice_spectral_12) * 0.15), 0.0, 25.0)), 3)
         subharmonic_20_40 = round(float(np.clip((np.mean(voice_spectral_12[1:4]) * 0.55) + (np.std(voice_spectral_12) * 0.12), 0.0, 25.0)), 3)
         energy_85_165 = round(float(np.clip((np.mean(voice_spectral_12[0:3]) * 0.7) + (np.std(voice_spectral_12) * 0.2), 0.0, 25.0)), 3)
-        spectral_delta = round(float(np.clip(np.mean(voice_spectral_12[0:2]) / 25.0, 0.0, 1.0)), 3)
-        spectral_theta = round(float(np.clip(np.mean(voice_spectral_12[2:4]) / 25.0, 0.0, 1.0)), 3)
-        spectral_alpha = round(float(np.clip(np.mean(voice_spectral_12[4:6]) / 25.0, 0.0, 1.0)), 3)
-        spectral_beta = round(float(np.clip(np.mean(voice_spectral_12[6:9]) / 25.0, 0.0, 1.0)), 3)
-        spectral_gamma = round(float(np.clip(np.mean(voice_spectral_12[9:12]) / 25.0, 0.0, 1.0)), 3)
+        if real and "mod_delta" in real:
+            # Bandas neuroacústicas REAIS = espectro de MODULAÇÃO do envelope
+            # (0.5-80 Hz), a interpretação física correta de "modulação vocal".
+            spectral_delta = round(float(np.clip(real.get("mod_delta") or 0.0, 0.0, 1.0)), 3)
+            spectral_theta = round(float(np.clip(real.get("mod_theta") or 0.0, 0.0, 1.0)), 3)
+            spectral_alpha = round(float(np.clip(real.get("mod_alpha") or 0.0, 0.0, 1.0)), 3)
+            spectral_beta = round(float(np.clip(real.get("mod_beta") or 0.0, 0.0, 1.0)), 3)
+            spectral_gamma = round(float(np.clip(real.get("mod_gamma") or 0.0, 0.0, 1.0)), 3)
+        else:
+            spectral_delta = round(float(np.clip(np.mean(voice_spectral_12[0:2]) / 25.0, 0.0, 1.0)), 3)
+            spectral_theta = round(float(np.clip(np.mean(voice_spectral_12[2:4]) / 25.0, 0.0, 1.0)), 3)
+            spectral_alpha = round(float(np.clip(np.mean(voice_spectral_12[4:6]) / 25.0, 0.0, 1.0)), 3)
+            spectral_beta = round(float(np.clip(np.mean(voice_spectral_12[6:9]) / 25.0, 0.0, 1.0)), 3)
+            spectral_gamma = round(float(np.clip(np.mean(voice_spectral_12[9:12]) / 25.0, 0.0, 1.0)), 3)
         spectral_index = round(float(np.clip(np.mean([spectral_delta, spectral_theta, spectral_alpha, spectral_beta, spectral_gamma]), 0.0, 1.0)), 3)
-        jitter = round(float(np.clip(np.std(voice_spectral_12) / max(1.0, np.mean(voice_spectral_12)), 0.0, 2.0)), 3)
-        shimmer = round(float(np.clip(np.mean(np.abs(np.diff(voice_spectral_12))) / max(1.0, np.mean(voice_spectral_12)), 0.0, 2.0)), 3)
+        if real and "zcr" in real:
+            # Jitter e shimmer REAIS (perturbação de período e de amplitude
+            # ciclo-a-ciclo) e ZCR real, medidos da forma de onda.
+            jitter = round(float(np.clip(real.get("jitter") or 0.0, 0.0, 2.0)), 4)
+            shimmer = round(float(np.clip(real.get("shimmer") or 0.0, 0.0, 2.0)), 4)
+            zcr_value = round(float(real.get("zcr") or 0.0), 5)
+            loudness_dbfs = round(float(real.get("loudness_dbfs") or -120.0), 2)
+        else:
+            jitter = round(float(np.clip(np.std(voice_spectral_12) / max(1.0, np.mean(voice_spectral_12)), 0.0, 2.0)), 3)
+            shimmer = round(float(np.clip(np.mean(np.abs(np.diff(voice_spectral_12))) / max(1.0, np.mean(voice_spectral_12)), 0.0, 2.0)), 3)
+            zcr_value = None
+            loudness_dbfs = None
         base_subharmonic_5_12 = float(np.clip((np.mean(self.baseline_energy[4:8]) * 0.7) + (np.std(self.baseline_energy) * 0.2), 0.0, 25.0))
         base_subharmonic_12_20 = float(np.clip((np.mean(self.baseline_energy[8:12]) * 0.65) + (np.std(self.baseline_energy) * 0.15), 0.0, 25.0))
         base_subharmonic_20_40 = float(np.clip((np.mean(self.baseline_energy[1:4]) * 0.55) + (np.std(self.baseline_energy) * 0.12), 0.0, 25.0))
@@ -352,8 +421,12 @@ class SessionState:
                 "f0_var": round(self.latest_f0_std, 2),
                 "f0_voiced_ratio": round(self.latest_f0_voiced_ratio, 3),
                 "f0_source": "yin_pcm" if self.latest_f0_mean > 0 else "pending_audio",
-                "baseline_mfcc7": round(float(np.clip(baseline_mean * 0.12, 0.0, 25.0)), 3),
-                "baseline_mfcc9": round(float(np.clip(baseline_mean * 0.08, 0.0, 25.0)), 3),
+                "baseline_mfcc7": round(self.baseline_mfcc7_real, 4)
+                if (real and "mfcc7" in real and self.baseline_mfcc7_real)
+                else round(float(np.clip(baseline_mean * 0.12, 0.0, 25.0)), 3),
+                "baseline_mfcc9": round(self.baseline_mfcc9_real, 4)
+                if (real and "mfcc7" in real and self.baseline_mfcc9_real)
+                else round(float(np.clip(baseline_mean * 0.08, 0.0, 25.0)), 3),
                 "spectral_delta_0_4hz": spectral_delta,
                 "spectral_theta_4_8hz": spectral_theta,
                 "spectral_alpha_8_12hz": spectral_alpha,
@@ -378,6 +451,9 @@ class SessionState:
                 "shimmer": shimmer,
                 "jitter_proxy_index": jitter,
                 "shimmer_proxy_index": shimmer,
+                "zcr": zcr_value,
+                "loudness_dbfs": loudness_dbfs,
+                "voice_features_source": "real_pcm" if (real and "zcr" in real) else "mock",
                 "jitter_unit": "internal_proxy_0_2_spectral_dispersion",
                 "shimmer_unit": "internal_proxy_0_2_spectral_step_variation",
                 "spectral_band_context": "voice_modulation_not_eeg",

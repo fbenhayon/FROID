@@ -76,6 +76,10 @@ export interface AcousticBiomarkers {
   mfcc9_delta_delta_spastic_alert?: boolean;
   f0_mean?: number;
   f0_var?: number;
+  f0_voiced_ratio?: number;
+  f0_source?: string;
+  loudness_dbfs?: number;
+  voice_features_source?: "real_pcm" | "mock" | string;
   zcr?: number;
   jitter_proxy_index?: number;
   shimmer_proxy_index?: number;
