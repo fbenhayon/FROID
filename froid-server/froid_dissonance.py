@@ -252,6 +252,15 @@ def _ipm_hyper(snap):
     return (snap.get("ipm_score"), None, 80.0)
 
 
+def _facial_contradiction(snap):
+    # Contradição facial-vocal REAL (FACS): a assinatura de dissonância do
+    # FROID — o rosto mascarando/contradizendo o afeto. Só conta com face real
+    # (blendshapes medidos). Qualquer dissonância facial real (>= 1) é evidente.
+    if not snap.get("facial_real"):
+        return None
+    return (float(snap.get("facial_dissonance_count") or 0), None, 0.0)
+
+
 MARKER_SPECS: List[MarkerSpec] = [
     MarkerSpec("jitter", "Jitter (perturbação de período)", "Perturbação vocal", "proxy",
                "—", "instabilidade glótica / tensão laríngea", _jitter),
@@ -279,6 +288,8 @@ MARKER_SPECS: List[MarkerSpec] = [
                "—", "zona em faixa vermelha (desvio extremo)", _zone_extreme),
     MarkerSpec("ipm_hyper", "Hiperativação multimodal (IPM)", "Potência multimodal", "0-100",
                "—", "ativação difusa por todas as zonas", _ipm_hyper),
+    MarkerSpec("facial_contradiction", "Contradição facial-vocal (FACS)", "Dissonância facial", "AUs",
+               "—", "o rosto mascara/contradiz o afeto (Unidades de Ação reais)", _facial_contradiction),
 ]
 
 # Limiar de co-ocorrência: nº mínimo de dissonâncias evidentes simultâneas para

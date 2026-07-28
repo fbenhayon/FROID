@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 import froid_dissonance
+import froid_facs
 
 class FroidColor(str, Enum):
     BRANCO = "BRANCO"
@@ -103,6 +104,13 @@ class SessionState:
     baseline_f0_real: float = 0.0
     baseline_loudness_real: float = 0.0
     baseline_zcr_real: float = 0.0
+    # Marcações FACIAIS REAIS (froid_facs): AUs e dissonâncias faciais derivadas
+    # dos blendshapes medidos pelo navegador. None = ainda sem face real (o tick
+    # recai no modo simulado explícito).
+    latest_facial_aus: Optional[dict] = None
+    latest_facs_flags: Optional[dict] = None
+    latest_facs_details: Optional[dict] = None
+    facial_updated_at: float = 0.0
 
     def update_f0(self, f0_mean: float, f0_std: float, voiced_ratio: float) -> None:
         # Só substitui por uma medida vozeada; silêncio/ruído (f0<=0) preserva
@@ -139,6 +147,19 @@ class SessionState:
             float(features.get("f0_voiced_ratio") or 0.0),
         )
 
+    def update_facial_features(self, blendshapes: Optional[dict]) -> None:
+        """Recebe blendshapes faciais reais do navegador e deriva AUs +
+        dissonâncias faciais (froid_facs), armazenando-as para o próximo tick."""
+        if not blendshapes:
+            return
+        result = froid_facs.process_facial_frame(blendshapes)
+        if not result.get("action_units"):
+            return
+        self.latest_facial_aus = result["action_units"]
+        self.latest_facs_flags = result["flags"]
+        self.latest_facs_details = result["details"]
+        self.facial_updated_at = time.time()
+
     def process_tick(self, voice_spectral_12, facs_dissonance_flags, facs_details):
         self.tick_count += 1
         # Se há biomarcadores vocais REAIS medidos do PCM do paciente, o vetor
@@ -147,6 +168,14 @@ class SessionState:
         real = self.latest_voice_features
         if real and isinstance(real.get("voice_spectral_12"), (list, tuple)) and len(real["voice_spectral_12"]) == 12:
             voice_spectral_12 = np.asarray(real["voice_spectral_12"], dtype=np.float64)
+        # Se há marcações FACIAIS REAIS (blendshapes do navegador -> AUs FACS),
+        # elas substituem as flags/detalhes simulados recebidos — passando a
+        # reger as dissonâncias faciais, os multiplicadores e os alertas.
+        facs_source = "mock"
+        if self.latest_facs_flags is not None and self.latest_facs_details is not None:
+            facs_dissonance_flags = self.latest_facs_flags
+            facs_details = self.latest_facs_details
+            facs_source = "real_facs"
         if not self.baseline_locked:
             self.baseline_buffer.append(voice_spectral_12.copy())
             if len(self.baseline_buffer) >= 60:
@@ -430,6 +459,14 @@ class SessionState:
             "dna_somatoaffective_dissonance": dna_somato,
             "zone_deviations": [float(d) for d in global_deviations],
             "ipm_score": float(ipm_score),
+            # Contradição facial-vocal REAL (só conta quando vinda de blendshapes
+            # medidos; o mock não alimenta a métrica base de dissonância facial).
+            "facial_real": facs_source == "real_facs",
+            "facial_dissonance_count": (
+                sum(1 for f in facs_dissonance_flags.values() if f)
+                if facs_source == "real_facs"
+                else 0
+            ),
         }
         dissonance_event = froid_dissonance.evaluate(dissonance_snapshot)
         # Zona de maior desvio, para rótulo do registro na listagem.
@@ -507,6 +544,8 @@ class SessionState:
                 "zcr": zcr_value,
                 "loudness_dbfs": loudness_dbfs,
                 "voice_features_source": "real_pcm" if (real and "zcr" in real) else "mock",
+                "facs_source": facs_source,
+                "facial_action_units": self.latest_facial_aus if facs_source == "real_facs" else None,
                 "jitter_unit": "internal_proxy_0_2_spectral_dispersion",
                 "shimmer_unit": "internal_proxy_0_2_spectral_step_variation",
                 "spectral_band_context": "voice_modulation_not_eeg",

@@ -16,6 +16,7 @@ import {
 } from "../lib/webrtc";
 import { normalizeSessionLocale, patientCopy, type SessionLocale } from "../lib/localization";
 import { startF0Capture } from "../lib/froid-acoustic";
+import { startFaceCapture } from "../lib/froid-face";
 
 type JoinState = "checking" | "joined" | "blocked";
 type MediaState = "idle" | "requesting" | "active" | "failed";
@@ -30,6 +31,8 @@ export const PatientSessionPage: React.FC = () => {
   const streamRef = useRef<MediaStream | null>(null);
   // Para a captura de PCM do microfone (análise de F0 real).
   const f0StopRef = useRef<null | (() => void)>(null);
+  // Para a captura facial (blendshapes -> AUs FACS reais).
+  const faceStopRef = useRef<null | (() => void)>(null);
   const rtcSignalRef = useRef<WebSocket | null>(null);
   const rtcPeerRef = useRef<RTCPeerConnection | null>(null);
   const rtcRemoteStreamRef = useRef<MediaStream | null>(null);
@@ -120,6 +123,12 @@ export const PatientSessionPage: React.FC = () => {
         /* noop */
       }
       f0StopRef.current = null;
+      try {
+        faceStopRef.current?.();
+      } catch {
+        /* noop */
+      }
+      faceStopRef.current = null;
       streamRef.current?.getTracks().forEach((track) => track.stop());
     };
   }, [inviteToken, sessionId]);
@@ -498,6 +507,25 @@ export const PatientSessionPage: React.FC = () => {
         })
           .then((stop) => {
             if (streamRef.current === stream) f0StopRef.current = stop;
+            else stop();
+          })
+          .catch(() => undefined);
+      }
+      // Captura facial real (blendshapes -> AUs FACS). Aditiva e tolerante a
+      // falhas: se o modelo não carregar, o servidor mantém o modo simulado.
+      if (hasVideo && sessionId) {
+        try {
+          faceStopRef.current?.();
+        } catch {
+          /* noop */
+        }
+        faceStopRef.current = null;
+        startFaceCapture(stream, {
+          endpoint: apiUrl(`/api/froid/${sessionId}/facial-aus`),
+          invite: inviteToken,
+        })
+          .then((stop) => {
+            if (streamRef.current === stream) faceStopRef.current = stop;
             else stop();
           })
           .catch(() => undefined);

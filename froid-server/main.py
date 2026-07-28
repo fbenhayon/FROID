@@ -5056,6 +5056,58 @@ async def submit_acoustic_f0(session_id: str, request: Request):
         "sample_rate": sample_rate,
     }
 
+
+@app.post("/api/froid/{session_id}/facial-aus")
+async def submit_facial_aus(session_id: str, request: Request):
+    """Recebe os coeficientes de blendshape faciais (MediaPipe FaceLandmarker /
+    ARKit) medidos pelo navegador e deriva, no servidor, as Unidades de Ação
+    (FACS) reais e as dissonâncias faciais — substituindo as marcações
+    simuladas. Mesma autenticação do endpoint acústico (paciente por convite
+    aceito ou profissional dono da sessão)."""
+    body = await request.json()
+    invite = str(body.get("invite") or request.query_params.get("invite") or "")
+    professional = _current_user_from_request(request)
+    invite_record = SESSION_INVITES.get(invite) if invite else None
+    patient_authorized = bool(
+        invite_record
+        and invite_record.get("status") == "accepted"
+        and str(invite_record.get("session_id") or "") == session_id
+    )
+    professional_authorized = bool(
+        professional
+        and session_id
+        and _normalize_email(SESSION_OWNERS.get(session_id) or "")
+        == _normalize_email(professional.get("email") or "")
+    )
+    if not patient_authorized and not professional_authorized:
+        raise HTTPException(status_code=401, detail="acesso facial não autorizado")
+
+    entry = manager.active_sessions.get(session_id)
+    if not entry:
+        return {"status": "session_inactive", "facs_source": "none"}
+
+    blendshapes = body.get("blendshapes")
+    if not isinstance(blendshapes, dict) or not blendshapes:
+        raise HTTPException(status_code=400, detail="blendshapes ausentes")
+    # Teto defensivo: o padrão ARKit expõe 52 formas; aceitamos folga.
+    if len(blendshapes) > 128:
+        raise HTTPException(status_code=413, detail="blendshapes em excesso")
+    sanitized: dict = {}
+    for name, value in blendshapes.items():
+        try:
+            sanitized[str(name)[:48]] = float(value)
+        except (TypeError, ValueError):
+            continue
+
+    state: SessionState = entry["state"]
+    state.update_facial_features(sanitized)
+    return {
+        "facs_source": "real_facs" if state.latest_facial_aus else "none",
+        "action_units": state.latest_facial_aus or {},
+        "active_zones": [z for z, f in (state.latest_facs_flags or {}).items() if f],
+    }
+
+
 @app.websocket("/ws/fusion/{session_id}")
 async def websocket_fusion(websocket: WebSocket, session_id: str):
     token = str(websocket.query_params.get("token") or "")

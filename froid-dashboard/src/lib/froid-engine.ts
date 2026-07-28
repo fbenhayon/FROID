@@ -80,6 +80,8 @@ export interface AcousticBiomarkers {
   f0_source?: string;
   loudness_dbfs?: number;
   voice_features_source?: "real_pcm" | "mock" | string;
+  facs_source?: "real_facs" | "mock" | string;
+  facial_action_units?: Record<string, number> | null;
   zcr?: number;
   jitter_proxy_index?: number;
   shimmer_proxy_index?: number;

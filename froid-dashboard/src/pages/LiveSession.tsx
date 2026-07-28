@@ -5501,7 +5501,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                             >
                               {entry.source === "real_pcm"
                                 ? "voz real"
-                                : "simulado"}
+                                : "voz simulada"}
                             </span>
                           </div>
                           {entry.peakZone && (
