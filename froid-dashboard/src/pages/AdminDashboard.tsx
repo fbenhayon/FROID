@@ -247,7 +247,7 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
                 <button
                   key={patient.id}
                   type="button"
-                  onClick={() => nav(`/patients/${encodeURIComponent(patient.id)}`)}
+                  onClick={() => nav(`/admin/patient/${encodeURIComponent(patient.id)}`)}
                   title="Abrir perfil deste paciente"
                   className="rounded border border-slate-800 bg-slate-950 p-3 text-left text-xs transition-colors hover:border-cyan-800 hover:bg-cyan-950/20"
                 >

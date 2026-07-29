@@ -13,6 +13,7 @@ const History = lazy(() => import("./pages/History").then((module) => ({ default
 const Settings = lazy(() => import("./pages/Settings").then((module) => ({ default: module.Settings })));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard").then((module) => ({ default: module.AdminDashboard })));
 const AdminProfessionalDetail = lazy(() => import("./pages/AdminProfessionalDetail").then((module) => ({ default: module.AdminProfessionalDetail })));
+const AdminPatientDetail = lazy(() => import("./pages/AdminPatientDetail").then((module) => ({ default: module.AdminPatientDetail })));
 const SessionReport = lazy(() => import("./pages/SessionReport").then((module) => ({ default: module.SessionReport })));
 const PatientDetail = lazy(() => import("./pages/PatientDetail").then((module) => ({ default: module.PatientDetail })));
 const NewPatient = lazy(() => import("./pages/NewPatient").then((module) => ({ default: module.NewPatient })));
@@ -300,6 +301,10 @@ function App() {
         <Route
           path="/admin/professional/:professionalEmail"
           element={clinicalElement(<AdminProfessionalDetail user={user} />)}
+        />
+        <Route
+          path="/admin/patient/:patientId"
+          element={clinicalElement(<AdminPatientDetail user={user} />)}
         />
         </Routes>
       </Suspense>

@@ -5829,6 +5829,85 @@ async def admin_professional_detail(professional_email: str, request: Request):
     }
 
 
+@app.get("/api/admin/patients/{patient_id}")
+async def admin_patient_detail(patient_id: str, request: Request):
+    """Perfil TRANSVERSAL do paciente para o administrador: reúne os relatórios
+    do paciente de TODOS os profissionais (a página do profissional é escopada
+    ao dono; esta não). Somente leitura."""
+    _require_admin_user(request)
+    pid = unquote(patient_id)
+    patient = PATIENTS.get(pid) if isinstance(PATIENTS.get(pid), dict) else None
+
+    reports = []
+    for report in _load_session_reports().values():
+        if not isinstance(report, dict):
+            continue
+        rp = report.get("patient") if isinstance(report.get("patient"), dict) else {}
+        rid = str(rp.get("id") or report.get("patientId") or "")
+        if rid != str(pid):
+            continue
+        reports.append(_report_for_api(_enrich_report_patient(report)))
+    reports.sort(
+        key=lambda report: str(report.get("createdAt") or report.get("created_at") or ""),
+        reverse=True,
+    )
+
+    if patient is None and not reports:
+        raise HTTPException(status_code=404, detail="paciente não encontrado")
+
+    _record_admin_audit_event(
+        request,
+        action="admin_open_patient",
+        target=str(pid),
+        detail={"reports": len(reports)},
+    )
+
+    # Identidade consolidada (preferindo o cadastro; caindo no relatório).
+    latest_rp = (reports[0].get("patient") if reports else {}) or {}
+    identity = {
+        "id": str(pid),
+        "name": (patient or {}).get("name") or latest_rp.get("name") or "Paciente sem nome",
+        "email": (patient or {}).get("email") or latest_rp.get("email") or "",
+        "phone": (patient or {}).get("phone") or latest_rp.get("phone") or "",
+        "created_at": (patient or {}).get("created_at") or "",
+        "updated_at": (patient or {}).get("updated_at") or "",
+    }
+
+    professionals: Dict[str, dict] = {}
+    report_rows = []
+    for report in reports[:200]:
+        owner = _report_owner_email(report)
+        owner_profile = PROFESSIONAL_PROFILES.get(owner) if isinstance(PROFESSIONAL_PROFILES.get(owner), dict) else {}
+        owner_name = (owner_profile or {}).get("owner_name") or (owner_profile or {}).get("organization_name") or owner
+        if owner:
+            professionals[owner] = {"email": owner, "name": owner_name}
+        session_average = report.get("sessionAverage") if isinstance(report.get("sessionAverage"), dict) else {}
+        report_rows.append(
+            {
+                "session_id": report.get("sessionId") or report.get("session_id") or "",
+                "created_at": report.get("createdAt") or report.get("created_at") or "",
+                "professional_email": owner,
+                "professional_name": owner_name,
+                "ipm": session_average.get("ipmAvg"),
+                "idm": session_average.get("idmAvg"),
+                "dominant_zone": session_average.get("dominantZone"),
+                "coherence": session_average.get("coherenceStatus") or "",
+                "theme": session_average.get("theme") or session_average.get("dominantTheme") or "",
+                "summary": ((report.get("sessionSummary") or {}) if isinstance(report.get("sessionSummary"), dict) else {}).get("summary") or "",
+            }
+        )
+
+    return {
+        "patient": identity,
+        "summary": {
+            "reports": len(reports),
+            "professionals": len(professionals),
+        },
+        "professionals": list(professionals.values()),
+        "reports": report_rows,
+    }
+
+
 @app.post("/api/admin/professionals/{professional_email}/access-approval")
 async def admin_professional_access_approval(professional_email: str, request: Request):
     admin = _require_admin_user(request)
