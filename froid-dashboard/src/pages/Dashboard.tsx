@@ -605,12 +605,66 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
         </p>
       )}
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_460px]">
+      <div className="space-y-4">
         <div className="min-w-0 space-y-4">
 
+          {/* FROID Explica fixo no topo (coluna única). */}
+          <section className="sticky top-2 z-30 rounded-lg border border-cyan-900/70 bg-slate-900/95 p-3 shadow-lg shadow-slate-950/40 backdrop-blur">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="min-w-0">
+                <h2 className="text-sm font-bold text-slate-100">FROID Explica</h2>
+                <p className="mt-0.5 truncate text-[11px] text-slate-400">
+                  {selectedGroup
+                    ? tr("Contexto carregado a partir do paciente selecionado.")
+                    : tr("Passe o mouse sobre um paciente para carregar o contexto.")}
+                </p>
+              </div>
+              <button
+                onClick={() => nav("/settings")}
+                className="shrink-0 rounded-lg border border-cyan-800 bg-cyan-950 px-3 py-1.5 text-[11px] font-bold text-cyan-100 hover:bg-cyan-900"
+              >
+                {tr("Meus prompts")}
+              </button>
+            </div>
+            {selectedGroup ? (
+              <div className="mt-2 max-h-72 overflow-y-auto rounded-lg border border-slate-700 bg-slate-950 px-2 pb-2 pr-1">
+                <AIInsights
+                  responseLocale={defaultSessionLocale}
+                  zones={selectedGroup.latestReport.sessionAverage.zones || []}
+                  ipmScore={selectedGroup.latestReport.sessionAverage.ipmAvg}
+                  coherenceStatus={
+                    selectedGroup.latestReport.sessionAverage.coherenceStatus
+                  }
+                  baselineEstablished
+                  sessionId={selectedGroup.latestReport.sessionId}
+                  extraContext={{
+                    ...froidExplicaOperationalContext,
+                    patient: selectedGroup.patient,
+                    latest_report_average: selectedGroup.latestReport.sessionAverage,
+                    latest_report_baseline: selectedGroup.latestReport.baseline,
+                    last_three_sessions: selectedGroup.reports.slice(0, 3).map((report) => ({
+                      session_id: report.sessionId,
+                      average: report.sessionAverage,
+                      result: sessionResultText(report, 120),
+                      payment_status: paymentStatusForReport(report),
+                    })),
+                  }}
+                  controlsSticky
+                  rootClassName="border-0 bg-transparent text-slate-100"
+                  messagesClassName="min-h-32 max-h-56 bg-slate-800/80 text-slate-200"
+                />
+              </div>
+            ) : (
+              <p className="mt-2 rounded-lg border border-slate-700 bg-slate-950 p-3 text-[11px] leading-relaxed text-slate-400">
+                Selecione um paciente abaixo para habilitar perguntas ao FROID
+                Explica com contexto clínico longitudinal.
+              </p>
+            )}
+          </section>
 
-      <section className="overflow-x-auto rounded-lg border border-slate-800 bg-slate-900 p-3 shadow-sm">
-        <div className="flex min-w-max items-center gap-5 text-[11px]">
+
+      <section className="rounded-lg border border-slate-800 bg-slate-900 p-3 shadow-sm">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[11px] leading-relaxed">
           <strong className="text-sm text-slate-100">{tr("Resumo profissional")}</strong>
           <span><b className="text-slate-500">{tr("Pacientes")}:</b> {portfolio.totalPatients}</span>
           <span><b className="text-slate-500">{tr("Devido")}:</b> <em className="not-italic text-cyan-200">{receivablesSummary?.total_due_brl || "R$ 0,00"}</em></span>
@@ -927,62 +981,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
         })}
       </section>
         </div>
-
-        <aside className="space-y-4 xl:sticky xl:top-4 xl:self-start">
-
-          <section className="rounded-lg border border-slate-800 bg-slate-900 p-4 shadow-sm">
-            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h2 className="text-sm font-bold text-slate-100">FROID Explica</h2>
-                <p className="mt-0.5 text-[11px] text-slate-400">
-                  {selectedGroup
-                    ? tr("Contexto carregado a partir do paciente selecionado.")
-                    : tr("Passe o mouse sobre um paciente para carregar o contexto.")}
-                </p>
-              </div>
-              <button
-                onClick={() => nav("/settings")}
-                className="rounded-lg border border-cyan-800 bg-cyan-950 px-3 py-1.5 text-[11px] font-bold text-cyan-100 hover:bg-cyan-900"
-              >
-                {tr("Meus prompts")}
-              </button>
-            </div>
-            {selectedGroup ? (
-              <div className="max-h-[680px] overflow-y-auto rounded-lg border border-slate-700 bg-slate-950 px-2 pb-2 pr-1">
-                <AIInsights
-                  responseLocale={defaultSessionLocale}
-                  zones={selectedGroup.latestReport.sessionAverage.zones || []}
-                  ipmScore={selectedGroup.latestReport.sessionAverage.ipmAvg}
-                  coherenceStatus={
-                    selectedGroup.latestReport.sessionAverage.coherenceStatus
-                  }
-                  baselineEstablished
-                  sessionId={selectedGroup.latestReport.sessionId}
-                  extraContext={{
-                    ...froidExplicaOperationalContext,
-                    patient: selectedGroup.patient,
-                    latest_report_average: selectedGroup.latestReport.sessionAverage,
-                    latest_report_baseline: selectedGroup.latestReport.baseline,
-                    last_three_sessions: selectedGroup.reports.slice(0, 3).map((report) => ({
-                      session_id: report.sessionId,
-                      average: report.sessionAverage,
-                      result: sessionResultText(report, 120),
-                      payment_status: paymentStatusForReport(report),
-                    })),
-                  }}
-                  controlsSticky
-                  rootClassName="border-0 bg-transparent text-slate-100"
-                  messagesClassName="min-h-48 max-h-72 bg-slate-800/80 text-slate-200"
-                />
-              </div>
-            ) : (
-              <div className="rounded-lg border border-slate-700 bg-slate-950 p-4 text-xs leading-relaxed text-slate-400">
-                Selecione um paciente na coluna principal para habilitar perguntas
-                ao FROID Explica com contexto clínico longitudinal.
-              </div>
-            )}
-          </section>
-        </aside>
       </div>
 
       </main>

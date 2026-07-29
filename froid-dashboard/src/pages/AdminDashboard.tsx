@@ -93,6 +93,40 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
           </p>
         )}
 
+        {Number(summary.pending_professional_approvals) > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-500 bg-amber-950/60 px-4 py-3">
+            <div className="flex items-center gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-lg">
+                ⚠️
+              </span>
+              <div>
+                <p className="text-sm font-black text-amber-100">
+                  {summary.pending_professional_approvals}{" "}
+                  {Number(summary.pending_professional_approvals) === 1
+                    ? "novo profissional aguardando aprovação"
+                    : "novos profissionais aguardando aprovação"}
+                </p>
+                <p className="text-[11px] text-amber-200/80">
+                  Solicitações de acesso pendentes de análise. Clique para revisar
+                  o cadastro e aprovar ou suspender.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                const first = professionals.find(
+                  (row: any) => row.manual_approval_status === "pending",
+                );
+                if (first)
+                  nav(`/admin/professional/${encodeURIComponent(first.email)}`);
+              }}
+              className="rounded-lg bg-amber-500 px-4 py-2 text-xs font-black text-amber-950 hover:bg-amber-400"
+            >
+              Revisar solicitações
+            </button>
+          </div>
+        )}
+
         <section className="grid gap-3 md:grid-cols-5">
           {[
             ["Profissionais", summary.professionals],
@@ -128,10 +162,15 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
         </section>
 
         <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-          <h2 className="text-sm font-black text-slate-100">Profissionais</h2>
-          <div className="mt-3 overflow-x-auto">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-black text-slate-100">Profissionais</h2>
+            <span className="text-[10px] text-slate-500">
+              {professionals.length} no total · clique para abrir o perfil
+            </span>
+          </div>
+          <div className="mt-3 max-h-[420px] overflow-auto rounded border border-slate-800">
             <table className="min-w-max table-auto text-left text-[10px] leading-tight">
-              <thead className="text-[9px] uppercase text-slate-500">
+              <thead className="sticky top-0 z-10 bg-slate-900 text-[9px] uppercase text-slate-500">
                 <tr>
                   {[
                     "Profissional",
@@ -196,17 +235,35 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
         </section>
 
         <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-          <h2 className="text-sm font-black text-slate-100">Pacientes cadastrados</h2>
-          <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-            {patients.slice(0, 60).map((patient: any) => (
-              <div key={patient.id} className="rounded border border-slate-800 bg-slate-950 p-3 text-xs">
-                <p className="font-black text-slate-100">{patient.name}</p>
-                <p className="mt-1 text-slate-500">{patient.email || patient.phone || patient.id}</p>
-                <p className="mt-2 font-bold text-cyan-200">
-                  {patient.sessions_count} sessões registradas
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-black text-slate-100">Pacientes cadastrados</h2>
+            <span className="text-[10px] text-slate-500">
+              {patients.length} no total · clique para abrir o perfil
+            </span>
+          </div>
+          <div className="mt-3 max-h-[420px] overflow-y-auto rounded border border-slate-800 p-1">
+            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+              {patients.map((patient: any) => (
+                <button
+                  key={patient.id}
+                  type="button"
+                  onClick={() => nav(`/patients/${encodeURIComponent(patient.id)}`)}
+                  title="Abrir perfil deste paciente"
+                  className="rounded border border-slate-800 bg-slate-950 p-3 text-left text-xs transition-colors hover:border-cyan-800 hover:bg-cyan-950/20"
+                >
+                  <p className="font-black text-slate-100">{patient.name}</p>
+                  <p className="mt-1 text-slate-500">{patient.email || patient.phone || patient.id}</p>
+                  <p className="mt-2 font-bold text-cyan-200">
+                    {patient.sessions_count} sessões registradas
+                  </p>
+                </button>
+              ))}
+              {patients.length === 0 && (
+                <p className="col-span-full py-6 text-center text-xs text-slate-500">
+                  Nenhum paciente cadastrado ainda.
                 </p>
-              </div>
-            ))}
+              )}
+            </div>
           </div>
         </section>
       </main>
