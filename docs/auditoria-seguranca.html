@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>FROID — Auditoria de Segurança e Integridade</title>
+<style>
+  :root{--ink:#0f172a;--muted:#475569;--line:#cbd5e1;--accent:#0e7490;--p0:#b91c1c;--p1:#b45309;--p2:#0e7490;--ok:#047857;--soft:#f8fafc;}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:"Segoe UI",Arial,Helvetica,sans-serif;color:var(--ink);background:#f1f5f9;line-height:1.5;font-size:12px;}
+  .page{max-width:210mm;margin:14px auto;padding:16mm 16mm;background:#fff;box-shadow:0 2px 14px rgba(15,23,42,.14);}
+  header{border-bottom:2px solid var(--accent);padding-bottom:10px;margin-bottom:14px;}
+  .kicker{margin:0 0 3px;font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--accent);}
+  h1{margin:0;font-size:20px;}
+  .meta{margin-top:4px;font-size:9.5px;color:var(--muted);}
+  h2{font-size:14px;color:var(--accent);border-bottom:1px solid var(--line);padding-bottom:4px;margin:20px 0 10px;}
+  h3{font-size:12.5px;margin:14px 0 5px;}
+  p{margin:6px 0;}
+  ul{margin:6px 0;padding-left:18px;}
+  li{margin:3px 0;}
+  code{font-family:Consolas,"Courier New",monospace;background:#f1f5f9;padding:0 3px;border-radius:3px;font-size:11px;}
+  .finding{border:1px solid var(--line);border-left-width:5px;border-radius:5px;padding:9px 12px;margin:9px 0;break-inside:avoid;}
+  .p0{border-left-color:var(--p0);} .p1{border-left-color:var(--p1);} .p2{border-left-color:var(--p2);}
+  .tag{display:inline-block;font-size:8.5px;font-weight:800;letter-spacing:1px;text-transform:uppercase;padding:1px 6px;border-radius:10px;color:#fff;}
+  .tag.p0{background:var(--p0);} .tag.p1{background:var(--p1);} .tag.p2{background:var(--p2);}
+  .finding h3{margin:4px 0 4px;display:flex;gap:8px;align-items:center;}
+  .lbl{font-weight:800;color:var(--muted);}
+  .box{background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:10px 12px;margin:10px 0;}
+  table{width:100%;border-collapse:collapse;margin:8px 0;font-size:11px;}
+  th,td{border:1px solid var(--line);padding:5px 7px;text-align:left;vertical-align:top;}
+  th{background:var(--soft);font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);}
+  .ok{color:var(--ok);font-weight:700;}
+  footer{margin-top:18px;padding-top:8px;border-top:1px solid var(--line);font-size:9px;color:var(--muted);}
+  @media print{body{background:#fff;}.page{margin:0;box-shadow:none;padding:12mm;}@page{size:A4;margin:10mm;}}
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <p class="kicker">Segurança da Informação · Relatório de Auditoria</p>
+    <h1>FROID — Auditoria de Segurança e Integridade</h1>
+    <p class="meta">Classificação: interno · v1.0 · Escopo: aplicação (backend FastAPI, frontend React), configuração de deploy (Docker Compose, Caddy) e avaliação do servidor Hetzner.</p>
+  </header>
+
+  <h2>1. Sumário executivo</h2>
+  <p>A base de segurança do FROID é <strong>sólida para o estágio atual</strong>: criptografia autenticada, tokens opacos, hashing forte de senha, validação de SQL gerado por IA, anonimização com k-anonimato e trilhas de auditoria. A auditoria não encontrou vulnerabilidades críticas de execução (sem <code>eval</code>/<code>exec</code>/<code>subprocess</code>/<code>pickle</code>/<code>shell</code>, sem TLS desabilitado).</p>
+  <p>As oportunidades concentram-se em <strong>endurecimento de perímetro e de infraestrutura</strong> (cabeçalhos HTTP, exposição de portas, contêiner como root, dependências não fixadas, limitação de taxa) e em <strong>capacidade/integridade sob carga</strong> do servidor único Hetzner (processamento de sinais bloqueando o event loop, worker único). Nenhuma medida abaixo foi aplicada — este documento é diagnóstico e proposta.</p>
+  <p><em>Limitação de escopo:</em> não houve acesso SSH ao servidor. A avaliação do Hetzner deriva da configuração versionada e da arquitetura; itens marcados <strong>[verificar ao vivo]</strong> exigem checagem no servidor.</p>
+
+  <h2>2. Controles já instalados (confirmados no código)</h2>
+  <table>
+    <tr><th>Domínio</th><th>Controle</th></tr>
+    <tr><td>Criptografia em trânsito</td><td class="ok">TLS/HTTPS automático na borda Caddy</td></tr>
+    <tr><td>Criptografia em repouso</td><td class="ok">Fernet (AES-128-CBC + HMAC-SHA256) para tokens e textos clínicos; rotação via <code>MultiFernet</code></td></tr>
+    <tr><td>Senhas</td><td class="ok">PBKDF2-HMAC-SHA256, 120.000 iterações, com salt; comparação em tempo constante (<code>secrets.compare_digest</code>)</td></tr>
+    <tr><td>Sessão</td><td class="ok">Tokens opacos aleatórios (<code>secrets.token_urlsafe(32)</code>) com expiração (TTL 8h)</td></tr>
+    <tr><td>Autenticação Google</td><td class="ok">Validação de <code>aud</code> e <code>email_verified</code> no tokeninfo</td></tr>
+    <tr><td>Autorização</td><td class="ok">Controle por titularidade de relatório; isolamento multi-tenant; painel admin restrito</td></tr>
+    <tr><td>Analytics/IA</td><td class="ok">Conexão DuckDB <code>read_only</code> + validador de SQL (allowlist SELECT/WITH, sem <code>;</code>, tabelas restritas)</td></tr>
+    <tr><td>Privacidade</td><td class="ok">k-anonimato (coortes ≥ 50), pseudonimização, portal de direitos do titular</td></tr>
+    <tr><td>Abuso</td><td class="ok">Rate limit no login do portal do paciente (5 tentativas / 15 min)</td></tr>
+  </table>
+
+  <h2>3. Achados e medidas complementares propostas</h2>
+
+  <div class="finding p0">
+    <h3><span class="tag p0">P0</span> Cabeçalhos de segurança HTTP ausentes na borda</h3>
+    <p><span class="lbl">Evidência:</span> o <code>Caddyfile</code> não define HSTS, CSP, <code>X-Content-Type-Options</code>, <code>X-Frame-Options</code>/<code>frame-ancestors</code>, <code>Referrer-Policy</code> nem <code>Permissions-Policy</code>.</p>
+    <p><span class="lbl">Risco:</span> exposição a clickjacking, sniffing de MIME, vazamento de referer e ausência de forçamento de HTTPS no navegador.</p>
+    <p><span class="lbl">Medida:</span> adicionar bloco <code>header</code> no Caddy com <code>Strict-Transport-Security</code> (max-age longo + preload), <code>Content-Security-Policy</code> (ajustada ao SPA e ao CDN do MediaPipe), <code>X-Content-Type-Options: nosniff</code>, <code>Referrer-Policy: strict-origin-when-cross-origin</code>, <code>X-Frame-Options: DENY</code> e <code>Permissions-Policy</code> liberando apenas câmera/microfone. Ganho imediato, baixo risco.</p>
+  </div>
+
+  <div class="finding p0">
+    <h3><span class="tag p0">P0</span> Portas do backend e do frontend publicadas no host</h3>
+    <p><span class="lbl">Evidência:</span> <code>docker-compose.yml</code> publica <code>8000:8000</code> (backend) e <code>5173:80</code> (frontend) no host.</p>
+    <p><span class="lbl">Risco:</span> se o firewall do Hetzner não bloquear essas portas, o backend fica acessível <strong>diretamente por IP</strong>, contornando o TLS e os cabeçalhos do Caddy. <strong>[verificar ao vivo]</strong></p>
+    <p><span class="lbl">Medida:</span> remover as portas publicadas (o Caddy alcança os serviços pela rede interna do Compose) ou vinculá-las a <code>127.0.0.1</code>; e configurar o <strong>Hetzner Cloud Firewall</strong> permitindo apenas 80, 443 e 22 (SSH restrito por IP).</p>
+  </div>
+
+  <div class="finding p0">
+    <h3><span class="tag p0">P0</span> Contêiner do backend executa como root</h3>
+    <p><span class="lbl">Evidência:</span> <code>froid-server/Dockerfile</code> não define <code>USER</code>; o processo roda como root.</p>
+    <p><span class="lbl">Risco:</span> uma eventual falha de execução tem privilégio máximo dentro do contêiner, facilitando escalonamento.</p>
+    <p><span class="lbl">Medida:</span> criar usuário não-privilegiado (<code>USER app</code>), sistema de arquivos somente-leitura onde possível, <code>cap_drop: [ALL]</code>, <code>security_opt: [no-new-privileges:true]</code> e <code>read_only: true</code> com <code>tmpfs</code> para escrita temporária.</p>
+  </div>
+
+  <div class="finding p0">
+    <h3><span class="tag p0">P0</span> Dependências não fixadas (risco de cadeia de suprimentos)</h3>
+    <p><span class="lbl">Evidência:</span> em <code>requirements.txt</code>, <code>httpx</code>, <code>openai</code>, <code>google-genai</code>, <code>duckdb</code>, <code>chromadb</code>, <code>psycopg</code> e <code>cryptography</code> usam <code>&gt;=</code> (não fixadas). Cada rebuild pode puxar versões novas — inclusive comprometidas.</p>
+    <p><span class="lbl">Medida:</span> fixar versões exatas (idealmente com hashes / <code>pip-compile</code>), habilitar verificação automática (<code>pip-audit</code>/Dependabot) e revisar atualizações antes do deploy. Espelhar no frontend com <code>npm ci</code> + lockfile e <code>npm audit</code>.</p>
+  </div>
+
+  <div class="finding p1">
+    <h3><span class="tag p1">P1</span> Limitação de taxa restrita a um único endpoint</h3>
+    <p><span class="lbl">Evidência:</span> há rate limit apenas no login do portal do paciente. Login profissional, aceite de convite e os endpoints de ingestão (<code>/acoustic-f0</code>, <code>/facial-aus</code>) não têm limite dedicado.</p>
+    <p><span class="lbl">Medida:</span> aplicar limitação de taxa no perímetro (Caddy) e/ou na aplicação, com foco em autenticação (mitigação de força bruta e credential stuffing) e nos endpoints de escrita de alto volume. Padronizar o estado de limite (hoje em memória) em store compartilhado quando houver mais de um worker.</p>
+  </div>
+
+  <div class="finding p1">
+    <h3><span class="tag p1">P1</span> Limites de corpo e timeouts de requisição</h3>
+    <p><span class="lbl">Evidência:</span> há tetos pontuais (PCM 500&nbsp;KB, blendshapes ≤ 128), mas não um limite global de corpo nem timeouts na borda.</p>
+    <p><span class="lbl">Medida:</span> definir <code>request_body { max_size }</code> e timeouts no Caddy; limites globais de payload na aplicação para conter exaustão de memória e DoS por corpo grande.</p>
+  </div>
+
+  <div class="finding p1">
+    <h3><span class="tag p1">P1</span> Higiene de segredos</h3>
+    <p><span class="lbl">Evidência:</span> <code>froid-dashboard/.env</code> está versionado (contém IP do servidor e URL <code>http://</code>). Em produção o código já força origem HTTPS (mitigado), mas o arquivo não deveria estar no Git. Segredos de servidor chegam via variáveis de ambiente do Compose.</p>
+    <p><span class="lbl">Medida:</span> remover <code>froid-dashboard/.env</code> do versionamento; garantir permissão <code>600</code> no <code>.env</code> do servidor; migrar para <em>Docker secrets</em>/cofre; documentar runbook de <strong>rotação das chaves Fernet</strong> (token e clínica) e de recuperação.</p>
+  </div>
+
+  <div class="finding p1">
+    <h3><span class="tag p1">P1</span> Backups verificáveis e recuperação</h3>
+    <p><span class="lbl">Evidência:</span> a política pública menciona backups criptografados; o volume <code>./data</code> guarda <code>session_reports.json</code>, <code>identity_state.json</code> e o DuckDB. Não há rotina de backup versionada. <strong>[verificar ao vivo]</strong></p>
+    <p><span class="lbl">Medida:</span> automatizar backup criptografado off-site (ex.: Hetzner Storage Box) de <code>./data</code> e do Postgres, com <strong>teste de restauração</strong> periódico e retenção definida. Cifrar o volume em repouso (LUKS).</p>
+  </div>
+
+  <div class="finding p2">
+    <h3><span class="tag p2">P2</span> CORS amplo e estado de sessão em memória</h3>
+    <p><span class="lbl">Evidência:</span> <code>allow_methods=["*"]</code>, <code>allow_headers=["*"]</code> com <code>allow_credentials=True</code> (origens já restritas por allowlist — risco baixo). Tokens de sessão e limites vivem em dicionários em memória (perdidos em restart; não compartilhados entre workers).</p>
+    <p><span class="lbl">Medida:</span> restringir métodos/headers ao efetivamente usado; ao escalar, migrar sessão/limite para store compartilhado (ex.: Redis).</p>
+  </div>
+
+  <h2>4. Avaliação do servidor Hetzner (capacidade e integridade)</h2>
+
+  <div class="finding p0">
+    <h3><span class="tag p0">P0</span> Processamento de sinais bloqueia o event loop · worker único</h3>
+    <p><span class="lbl">Evidência:</span> o endpoint <code>/api/froid/{id}/acoustic-f0</code> chama <code>froid_voice.extract_voice_features()</code> (YIN + FFT + Hilbert + MFCC) <strong>de forma síncrona</strong>, ao contrário das chamadas de IA que já usam <code>asyncio.to_thread</code>. O contêiner sobe o uvicorn com <strong>um único worker</strong>.</p>
+    <p><span class="lbl">Risco:</span> cada janela de ~1&nbsp;s por paciente executa DSP pesada no mesmo thread do event loop, causando <strong>jitter no laço de tick</strong> e latência crescente com sessões concorrentes — degrada a análise em tempo real (integridade funcional) muito antes de saturar CPU/RAM.</p>
+    <p><span class="lbl">Medida:</span> (a) mover a DSP para thread pool (<code>await asyncio.to_thread(...)</code>), como já é feito com o LLM; (b) rodar múltiplos workers (uvicorn/gunicorn = nº de núcleos) e dimensionar a VM Hetzner por <em>núcleos</em>, não só por RAM; (c) definir uma meta de sessões simultâneas e validar com teste de carga.</p>
+  </div>
+
+  <div class="finding p1">
+    <h3><span class="tag p1">P1</span> Servidor único: ponto único de falha e limites de recurso</h3>
+    <p><span class="lbl">Evidência:</span> Compose com <code>restart: unless-stopped</code> e logs rotacionados (bom), porém sem <code>healthcheck</code> para backend/frontend/edge (só Postgres) e sem limites de CPU/memória por contêiner. Toda a stack roda em uma única VM.</p>
+    <p><span class="lbl">Medida:</span> adicionar <code>healthcheck</code> a todos os serviços; definir <code>limits</code> de CPU/memória por contêiner (impede que um serviço asfixie os demais); planejar retomada/redundância (snapshot da VM + runbook de recriação) e monitoramento com alerta (CPU, memória, disco, uptime).</p>
+  </div>
+
+  <div class="finding p1">
+    <h3><span class="tag p1">P1</span> Endurecimento do sistema operacional</h3>
+    <p><span class="lbl">[verificar ao vivo]</span> Recomenda-se confirmar/aplicar no host: <strong>Hetzner Cloud Firewall</strong> (só 80/443/22); SSH <strong>somente por chave</strong> (sem senha) e restrito por IP; <code>fail2ban</code>; atualizações de segurança automáticas (<code>unattended-upgrades</code>); Docker Engine atualizado; e monitoramento de disco (os JSON e o DuckDB crescem com o uso).</p>
+  </div>
+
+  <h2>5. Roteiro sugerido (priorizado)</h2>
+  <table>
+    <tr><th>Prazo</th><th>Ações</th></tr>
+    <tr><td><strong>Imediato (P0)</strong></td><td>Cabeçalhos de segurança no Caddy · fechar portas 8000/5173 + Cloud Firewall · contêiner não-root · fixar dependências · mover DSP para thread pool + múltiplos workers.</td></tr>
+    <tr><td><strong>Curto prazo (P1)</strong></td><td>Rate limit em auth e ingestão · limites de corpo/timeout · higiene de segredos e rotação de chaves · backups off-site com teste de restauração · healthchecks + limites de recurso + monitoramento.</td></tr>
+    <tr><td><strong>Contínuo (P2)</strong></td><td>Restringir CORS ao uso real · plano de escala (store compartilhado) · testes de carga recorrentes · revisão de dependências (pip-audit/Dependabot).</td></tr>
+  </table>
+
+  <footer>
+    FROID · Auditoria de segurança e integridade — diagnóstico e proposta. Itens marcados <strong>[verificar ao vivo]</strong> dependem de checagem no servidor. Nenhuma alteração foi aplicada por este documento.
+  </footer>
+</div>
+</body>
+</html>
