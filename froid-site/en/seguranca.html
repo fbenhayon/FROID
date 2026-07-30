@@ -120,6 +120,16 @@
         <p>As with any health SaaS, security is split: FROID is responsible for the platform infrastructure (encryption, backups, application access control); the contracting clinic/professional is responsible for managing their team's access and for the consent obtained from the patient.</p>
         <h4>Relevant technical stack</h4>
         <p>FastAPI backend with DuckDB persistence for aggregated analytics; report ownership control via <code>_can_access_report()</code> and <code>_report_owner_email()</code>; anonymous session hashing via <code>_anonymous_session_hash()</code> before any statistical aggregation.</p>
+        <h4>Platform and infrastructure hardening</h4>
+        <ul>
+          <li><strong>Encryption:</strong> TLS at the edge; at rest, authenticated <em>Fernet</em> encryption (AES-128-CBC + HMAC-SHA256) with key rotation via <code>MultiFernet</code>; passwords with <code>PBKDF2-HMAC-SHA256</code> (120,000 iterations + salt).</li>
+          <li><strong>Security headers:</strong> HSTS with <em>preload</em>, Content-Security-Policy, <code>X-Content-Type-Options</code>, <code>X-Frame-Options: DENY</code>, Referrer-Policy and Permissions-Policy (grants camera/microphone only).</li>
+          <li><strong>Reduced network surface:</strong> internal services not published on the public interface; all access goes through Caddy over TLS; firewall allowing only 80/443 and restricted SSH.</li>
+          <li><strong>Unprivileged containers:</strong> non-root process, <code>no-new-privileges</code>, dropped <em>Linux capabilities</em> (<code>cap_drop: ALL</code>) and a process limit.</li>
+          <li><strong>Application defense:</strong> validation of AI-generated SQL (allowlist <code>SELECT</code>/<code>WITH</code>, <code>read_only</code> connection, restricted tables); rate limiting on authentication and ingestion; body limits and timeouts at the edge.</li>
+          <li><strong>Real-time integrity:</strong> signal processing (F0/MFCC/envelope) runs in a <em>thread pool</em> so it never blocks the analysis loop under concurrent sessions.</li>
+          <li><strong>Operations:</strong> pinned dependencies for reproducible builds; per-service <em>healthchecks</em>; encrypted off-site backups with restore testing.</li>
+        </ul>
       </div>
     </div>
   </div>

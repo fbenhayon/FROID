@@ -120,6 +120,16 @@
         <p>Como em qualquer SaaS de saúde, a segurança se divide: o FROID é responsável pela infraestrutura da plataforma (criptografia, backups, controle de acesso à aplicação); a clínica/profissional contratante é responsável pela gestão de acesso de sua equipe e pelo consentimento obtido do paciente.</p>
         <h4>Stack técnico relevante</h4>
         <p>Backend FastAPI com persistência em DuckDB para analytics agregado; controle de titularidade de relatório via <code>_can_access_report()</code> e <code>_report_owner_email()</code>; hashing de sessão anônima via <code>_anonymous_session_hash()</code> antes de qualquer agregação estatística.</p>
+        <h4>Endurecimento de plataforma e infraestrutura</h4>
+        <ul>
+          <li><strong>Criptografia:</strong> TLS na borda; em repouso, criptografia autenticada <em>Fernet</em> (AES-128-CBC + HMAC-SHA256) com rotação de chaves via <code>MultiFernet</code>; senhas com <code>PBKDF2-HMAC-SHA256</code> (120.000 iterações + salt).</li>
+          <li><strong>Cabeçalhos de segurança:</strong> HSTS com <em>preload</em>, Content-Security-Policy, <code>X-Content-Type-Options</code>, <code>X-Frame-Options: DENY</code>, Referrer-Policy e Permissions-Policy (libera apenas câmera/microfone).</li>
+          <li><strong>Superfície de rede reduzida:</strong> serviços internos não publicados na interface pública; todo acesso passa pelo Caddy sob TLS; firewall permitindo apenas 80/443 e SSH restrito.</li>
+          <li><strong>Contêineres sem privilégios:</strong> processo não-root, <code>no-new-privileges</code>, <em>Linux capabilities</em> removidas (<code>cap_drop: ALL</code>) e limite de processos.</li>
+          <li><strong>Defesa de aplicação:</strong> validação do SQL gerado por IA (allowlist <code>SELECT</code>/<code>WITH</code>, conexão <code>read_only</code>, tabelas restritas); limitação de taxa em autenticação e ingestão; limites de corpo e <em>timeouts</em> na borda.</li>
+          <li><strong>Integridade em tempo real:</strong> o processamento de sinais (F0/MFCC/envelope) roda em <em>thread pool</em> para não bloquear o laço de análise sob sessões concorrentes.</li>
+          <li><strong>Operação:</strong> dependências fixadas para builds reproduzíveis; <em>healthchecks</em> por serviço; backups criptografados off-site com teste de restauração.</li>
+        </ul>
       </div>
     </div>
   </div>

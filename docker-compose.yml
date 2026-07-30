@@ -12,6 +12,8 @@ services:
     depends_on:
       - froid-frontend
       - froid-backend
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
     logging:
       driver: local
@@ -20,8 +22,21 @@ services:
         max-file: "10"
   froid-backend:
     build: ./froid-server
+    # Porta vinculada só ao loopback: o acesso externo passa obrigatoriamente
+    # pelo Caddy (TLS + cabeçalhos). Não fica exposta na interface pública.
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 512
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4).status==200 else 1)"]
+      interval: 30s
+      timeout: 6s
+      retries: 5
+      start_period: 40s
     environment:
       - GOOGLE_CLIENT_ID=109290160674-cbmk7j15patqk0679joi43lr2ndm5fal.apps.googleusercontent.com
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
@@ -111,8 +126,18 @@ services:
       context: ./froid-dashboard
       args:
         - VITE_GOOGLE_CLIENT_ID=${GOOGLE_AUTH_CLIENT_ID:-109290160674-cbmk7j15patqk0679joi43lr2ndm5fal.apps.googleusercontent.com}
+    # Servido internamente ao Caddy; vinculado só ao loopback no host.
     ports:
-      - "5173:80"
+      - "127.0.0.1:5173:80"
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:80/"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     restart: unless-stopped
     logging:
       driver: local

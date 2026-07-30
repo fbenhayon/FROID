@@ -26,3 +26,4 @@ backups/postgres/*.sql
 # Python virtualenvs
 froid-server/.venv/
 .venv/
+froid-dashboard/.env

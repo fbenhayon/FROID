@@ -78,9 +78,10 @@ app.add_middleware(
         if origin.strip()
     ],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Requested-With"],
+    expose_headers=["Content-Disposition"],
+    max_age=600,
 )
 
 
@@ -278,6 +279,41 @@ FROID_SESSION_TOKEN_TTL_SECONDS = max(
 )
 PATIENT_PORTAL_SESSIONS: Dict[str, dict] = {}
 PATIENT_LOGIN_ATTEMPTS: Dict[str, list[float]] = {}
+
+# Baldes genéricos de limitação de taxa (em memória, por processo). Suficiente
+# para o servidor único atual; ao escalar para múltiplos workers deve migrar
+# para store compartilhado (ver auditoria de segurança).
+RATE_LIMIT_BUCKETS: Dict[str, Dict[str, list[float]]] = {}
+
+
+def _rate_limit_guard(
+    bucket: str, key: str, max_hits: int, window_seconds: float, message: str
+) -> None:
+    """Levanta HTTP 429 se `key` exceder `max_hits` em `window_seconds`.
+
+    Mitiga força bruta em autenticação e enxurradas nos endpoints de ingestão.
+    """
+    import time as _time
+
+    now = _time.time()
+    store = RATE_LIMIT_BUCKETS.setdefault(bucket, {})
+    recent = [t for t in store.get(key, []) if t >= now - window_seconds]
+    if len(recent) >= max_hits:
+        raise HTTPException(status_code=429, detail=message)
+    recent.append(now)
+    store[key] = recent
+    # Poda oportunista para o balde não crescer indefinidamente.
+    if len(store) > 4096:
+        for k in [k for k, v in store.items() if not v or v[-1] < now - window_seconds]:
+            store.pop(k, None)
+
+
+def _client_ip(request: Request) -> str:
+    """IP do cliente considerando o proxy Caddy (X-Forwarded-For)."""
+    forwarded = request.headers.get("x-forwarded-for", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
 FROID_PATIENT_SESSION_TTL_SECONDS = max(
     900, int(os.getenv("FROID_PATIENT_SESSION_TTL_SECONDS", "7200") or "7200")
 )
@@ -5018,6 +5054,13 @@ async def submit_acoustic_f0(session_id: str, request: Request):
     if not patient_authorized and not professional_authorized:
         raise HTTPException(status_code=401, detail="acesso acústico não autorizado")
 
+    # Guarda de enxurrada: uso legítimo envia ~1 janela/s; teto bem acima disso
+    # (240/min) apenas bloqueia flood sem afetar a captura normal.
+    _rate_limit_guard(
+        "acoustic", session_id or _client_ip(request), 240, 60.0,
+        "Taxa de envio acústico excedida.",
+    )
+
     entry = manager.active_sessions.get(session_id)
     if not entry:
         # A sessão de análise do profissional ainda não está ativa; o cliente
@@ -5046,7 +5089,13 @@ async def submit_acoustic_f0(session_id: str, request: Request):
     # Buffer rolante (~3s) dá resolução às bandas de modulação lentas; todos os
     # biomarcadores vocais reais são extraídos dele e injetados na sessão.
     buffer = state.ingest_pcm(signal, sample_rate)
-    features = froid_voice.extract_voice_features(buffer, sample_rate)
+    # A DSP (YIN + FFT + Hilbert + MFCC) é pesada; roda em thread pool para NÃO
+    # bloquear o event loop — mantendo o laço de tick fluido com várias sessões
+    # simultâneas. numpy libera o GIL nas operações vetoriais, então paraleliza
+    # de fato entre núcleos.
+    features = await asyncio.to_thread(
+        froid_voice.extract_voice_features, buffer, sample_rate
+    )
     state.update_voice_features(features)
     return {
         "f0_mean": features.get("f0_mean", 0.0),
@@ -5081,6 +5130,12 @@ async def submit_facial_aus(session_id: str, request: Request):
     )
     if not patient_authorized and not professional_authorized:
         raise HTTPException(status_code=401, detail="acesso facial não autorizado")
+
+    # Uso legítimo envia ~3 quadros/s; teto de 600/min bloqueia apenas flood.
+    _rate_limit_guard(
+        "facial", session_id or _client_ip(request), 600, 60.0,
+        "Taxa de envio facial excedida.",
+    )
 
     entry = manager.active_sessions.get(session_id)
     if not entry:
@@ -5967,6 +6022,11 @@ async def get_session_invite(token: str):
 
 @app.post("/api/session-invites/{token}/accept")
 async def accept_session_invite(token: str, request: Request):
+    # Limita tentativas por IP para conter varredura de tokens de convite.
+    _rate_limit_guard(
+        "invite_accept", _client_ip(request), 30, 900.0,
+        "Muitas tentativas. Aguarde alguns minutos e tente novamente.",
+    )
     invite = SESSION_INVITES.get(token)
     if not invite:
         raise HTTPException(status_code=404, detail="Convite não encontrado")
@@ -6732,6 +6792,11 @@ def auth_config():
 
 @app.post("/api/auth/google")
 async def auth_google(request: Request):
+    # Mitigação de força bruta/credential stuffing na autenticação profissional.
+    _rate_limit_guard(
+        "auth_pro", _client_ip(request), 15, 900.0,
+        "Muitas tentativas de login. Aguarde alguns minutos e tente novamente.",
+    )
     body = await request.json()
     credential = body.get("credential") or body.get("id_token") or body.get("token")
     if credential:

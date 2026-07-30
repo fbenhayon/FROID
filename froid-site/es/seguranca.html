@@ -120,6 +120,16 @@
         <p>Como en cualquier SaaS de salud, la seguridad se divide: FROID es responsable de la infraestructura de la plataforma (cifrado, copias de seguridad, control de acceso a la aplicación); la clínica/profesional contratante es responsable de la gestión del acceso de su equipo y del consentimiento obtenido del paciente.</p>
         <h4>Pila técnica relevante</h4>
         <p>Backend FastAPI con persistencia en DuckDB para analítica agregada; control de titularidad de informes vía <code>_can_access_report()</code> y <code>_report_owner_email()</code>; hash de sesión anónima vía <code>_anonymous_session_hash()</code> antes de cualquier agregación estadística.</p>
+        <h4>Endurecimiento de plataforma e infraestructura</h4>
+        <ul>
+          <li><strong>Cifrado:</strong> TLS en el borde; en reposo, cifrado autenticado <em>Fernet</em> (AES-128-CBC + HMAC-SHA256) con rotación de claves vía <code>MultiFernet</code>; contraseñas con <code>PBKDF2-HMAC-SHA256</code> (120.000 iteraciones + salt).</li>
+          <li><strong>Cabeceras de seguridad:</strong> HSTS con <em>preload</em>, Content-Security-Policy, <code>X-Content-Type-Options</code>, <code>X-Frame-Options: DENY</code>, Referrer-Policy y Permissions-Policy (concede solo cámara/micrófono).</li>
+          <li><strong>Superficie de red reducida:</strong> los servicios internos no se publican en la interfaz pública; todo el acceso pasa por Caddy sobre TLS; firewall que permite solo 80/443 y SSH restringido.</li>
+          <li><strong>Contenedores sin privilegios:</strong> proceso no-root, <code>no-new-privileges</code>, <em>Linux capabilities</em> eliminadas (<code>cap_drop: ALL</code>) y límite de procesos.</li>
+          <li><strong>Defensa de aplicación:</strong> validación del SQL generado por IA (allowlist <code>SELECT</code>/<code>WITH</code>, conexión <code>read_only</code>, tablas restringidas); limitación de tasa en autenticación e ingesta; límites de cuerpo y <em>timeouts</em> en el borde.</li>
+          <li><strong>Integridad en tiempo real:</strong> el procesamiento de señales (F0/MFCC/envolvente) se ejecuta en un <em>thread pool</em> para no bloquear el bucle de análisis con sesiones concurrentes.</li>
+          <li><strong>Operación:</strong> dependencias fijadas para builds reproducibles; <em>healthchecks</em> por servicio; copias de seguridad cifradas off-site con prueba de restauración.</li>
+        </ul>
       </div>
     </div>
   </div>

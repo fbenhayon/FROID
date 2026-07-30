@@ -1,6 +1,31 @@
 froid.com.br, www.froid.com.br {
     encode gzip
 
+    # Limite global de corpo de requisição (defesa contra exaustão de memória e
+    # DoS por payload grande). Os endpoints de ingestão têm tetos próprios menores.
+    request_body {
+        max_size 12MB
+    }
+
+    # Cabeçalhos de segurança aplicados a todas as respostas.
+    header {
+        # Força HTTPS no navegador por 2 anos, incluindo subdomínios.
+        Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+        # Bloqueia sniffing de MIME.
+        X-Content-Type-Options "nosniff"
+        # Impede enquadramento do site (clickjacking).
+        X-Frame-Options "DENY"
+        # Não vaza a URL de origem para terceiros.
+        Referrer-Policy "strict-origin-when-cross-origin"
+        # Libera apenas câmera/microfone (necessários à sessão), nega o resto.
+        Permissions-Policy "camera=(self), microphone=(self), geolocation=(), payment=()"
+        # Política de conteúdo: permite o próprio site, o CDN do MediaPipe (FACS)
+        # e os modelos; bloqueia enquadramento por terceiros.
+        Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://accounts.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss: https://cdn.jsdelivr.net https://storage.googleapis.com; media-src 'self' blob:; worker-src 'self' blob:; frame-src https://accounts.google.com; frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
+        # Remove o cabeçalho que revela o servidor.
+        -Server
+    }
+
     handle /api/* {
         reverse_proxy froid-backend:8000
     }

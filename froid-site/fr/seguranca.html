@@ -120,6 +120,16 @@
         <p>Comme pour tout SaaS de santé, la sécurité se répartit ainsi : FROID est responsable de l'infrastructure de la plateforme (chiffrement, sauvegardes, contrôle d'accès à l'application) ; la clinique/le professionnel souscripteur est responsable de la gestion de l'accès de son équipe et du consentement obtenu du patient.</p>
         <h4>Pile technique pertinente</h4>
         <p>Backend FastAPI avec persistance DuckDB pour l'analytique agrégée ; contrôle de propriété des rapports via <code>_can_access_report()</code> et <code>_report_owner_email()</code> ; hachage de séance anonyme via <code>_anonymous_session_hash()</code> avant toute agrégation statistique.</p>
+        <h4>Durcissement de la plateforme et de l'infrastructure</h4>
+        <ul>
+          <li><strong>Chiffrement :</strong> TLS en périphérie ; au repos, chiffrement authentifié <em>Fernet</em> (AES-128-CBC + HMAC-SHA256) avec rotation des clés via <code>MultiFernet</code> ; mots de passe avec <code>PBKDF2-HMAC-SHA256</code> (120 000 itérations + sel).</li>
+          <li><strong>En-têtes de sécurité :</strong> HSTS avec <em>preload</em>, Content-Security-Policy, <code>X-Content-Type-Options</code>, <code>X-Frame-Options : DENY</code>, Referrer-Policy et Permissions-Policy (n'autorise que caméra/microphone).</li>
+          <li><strong>Surface réseau réduite :</strong> les services internes ne sont pas publiés sur l'interface publique ; tout accès passe par Caddy en TLS ; pare-feu n'autorisant que 80/443 et SSH restreint.</li>
+          <li><strong>Conteneurs sans privilèges :</strong> processus non-root, <code>no-new-privileges</code>, <em>capabilities Linux</em> supprimées (<code>cap_drop : ALL</code>) et limite de processus.</li>
+          <li><strong>Défense applicative :</strong> validation du SQL généré par l'IA (liste blanche <code>SELECT</code>/<code>WITH</code>, connexion <code>read_only</code>, tables restreintes) ; limitation de débit sur l'authentification et l'ingestion ; limites de corps et <em>timeouts</em> en périphérie.</li>
+          <li><strong>Intégrité en temps réel :</strong> le traitement du signal (F0/MFCC/enveloppe) s'exécute dans un <em>thread pool</em> pour ne jamais bloquer la boucle d'analyse lors de séances simultanées.</li>
+          <li><strong>Exploitation :</strong> dépendances figées pour des builds reproductibles ; <em>healthchecks</em> par service ; sauvegardes chiffrées hors site avec test de restauration.</li>
+        </ul>
       </div>
     </div>
   </div>
