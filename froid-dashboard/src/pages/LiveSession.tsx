@@ -5163,35 +5163,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           </div>
         )}
 
-        <div className="rounded-xl border border-cyan-800 bg-cyan-950 p-3 text-[10px] text-cyan-100 shadow-sm">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <div>
-              <p className="font-bold uppercase tracking-wider">
-                Corte semântico da sessão
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => void closeSemanticCut("manual")}
-              className="shrink-0 rounded bg-cyan-700 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white hover:bg-cyan-800 disabled:cursor-not-allowed disabled:bg-cyan-200"
-              disabled={semanticCutElapsed < 10 || semanticCutClosingRef.current}
-              title="Fecha manualmente o corte atual e gera resumo IA do período."
-            >
-              Fechar corte
-            </button>
-          </div>
-          <div className="flex items-center justify-between font-mono text-[10px] text-cyan-200">
-            <span>Atual {formatCutClock(semanticCutElapsed)}</span>
-            <span>Auto em {formatCutClock(semanticCutRemaining)}</span>
-          </div>
-          <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-cyan-900">
-            <div
-              className="h-full rounded-full bg-cyan-600 transition-all duration-1000"
-              style={{ width: `${semanticCutProgress}%` }}
-            />
-          </div>
-        </div>
-
         {state.phase === "CALIBRATING" && (
           <div className="shrink-0 rounded-lg border border-blue-800 bg-blue-950 p-3 text-xs text-blue-100">
             <p className="font-bold">Fase de Repouso Ativa</p>
@@ -5307,12 +5278,51 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           )}
         </div>
 
-        <AudioTranscription
-          audioMeta={displayAudio}
-          conversationSummaries={conversationSummaries}
-          section="summary"
-          locale={reportLocale}
-        />
+        <section className="shrink-0 overflow-hidden rounded-xl border border-cyan-800 bg-slate-950 shadow-sm">
+          <div className="bg-cyan-950 p-3 text-[10px] text-cyan-100">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <div>
+                <p className="font-black uppercase tracking-wider">
+                  <FroidTooltip content={tooltipText(reportLocale, SIMPLIFIED_CUT_TOOLTIP)} width={360}>
+                    <span className="cursor-help underline decoration-cyan-700 underline-offset-2">
+                      Corte semântico + Resumo da Fala IA
+                    </span>
+                  </FroidTooltip>
+                </p>
+                <p className="mt-0.5 text-[9px] text-cyan-300">
+                  Fechamento do corte e síntese complementar
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void closeSemanticCut("manual")}
+                className="shrink-0 rounded bg-cyan-700 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white hover:bg-cyan-800 disabled:cursor-not-allowed disabled:bg-cyan-200"
+                disabled={semanticCutElapsed < 10 || semanticCutClosingRef.current}
+                title="Fecha manualmente o corte atual e gera resumo IA do período."
+              >
+                Fechar corte
+              </button>
+            </div>
+            <div className="flex items-center justify-between font-mono text-[10px] text-cyan-200">
+              <span>Atual {formatCutClock(semanticCutElapsed)}</span>
+              <span>Auto em {formatCutClock(semanticCutRemaining)}</span>
+            </div>
+            <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-cyan-900">
+              <div
+                className="h-full rounded-full bg-cyan-600 transition-all duration-1000"
+                style={{ width: `${semanticCutProgress}%` }}
+              />
+            </div>
+          </div>
+          <div className="p-2">
+            <AudioTranscription
+              audioMeta={displayAudio}
+              conversationSummaries={conversationSummaries}
+              section="summary"
+              locale={reportLocale}
+            />
+          </div>
+        </section>
 
         <div className="min-h-[320px] flex-1 overflow-hidden rounded-xl border border-slate-700 bg-slate-950 p-2">
           <AIInsights
