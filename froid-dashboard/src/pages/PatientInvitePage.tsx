@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { apiUrl } from "../lib/api";
 import { LgpdNotice } from "../components/legal/LgpdNotice";
+import { SecurityAssurance } from "../components/legal/SecurityAssurance";
 import { normalizeSessionLocale, patientCopy, type SessionLocale } from "../lib/localization";
 
 type PaymentMode = "package" | "single";
@@ -337,6 +338,10 @@ export const PatientInvitePage: React.FC = () => {
               )}
             </div>
           </div>
+        )}
+
+        {!accepted && (
+          <SecurityAssurance audience="patient" locale={uiLocale} className="mb-5" />
         )}
 
         {accepted ? (

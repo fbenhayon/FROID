@@ -8,6 +8,7 @@ import { apiUrl, publicAppUrl } from "../lib/api";
 const TESTING_MINIMAL_ONBOARDING = true;
 import type { FroidUser } from "../App";
 import { LgpdNotice } from "../components/legal/LgpdNotice";
+import { SecurityAssurance } from "../components/legal/SecurityAssurance";
 import {
   acceptanceFor,
   legalJurisdiction,
@@ -1013,6 +1014,9 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
                 placeholder="Observações cadastrais relevantes..."
                 className="mt-4 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200 outline-none focus:border-cyan-500"
               />
+              <div className="mt-4">
+                <SecurityAssurance audience="professional" locale="pt-BR" />
+              </div>
               <div className="mt-4">
                 <LgpdNotice audience="professional" />
               </div>
