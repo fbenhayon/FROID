@@ -2336,6 +2336,10 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const elapsedSecondsRef = useRef(0);
   const reportSavedRef = useRef(false);
   const wsRef = useRef<WebSocket | null>(null);
+  // Instante da última mensagem recebida no WS de análise — usado pelo
+  // watchdog que detecta conexão "zumbi" (socket parece aberto mas parou de
+  // entregar payloads; a queda de rede às vezes não dispara onclose).
+  const wsLastMessageAtRef = useRef<number>(0);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -4382,7 +4386,10 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         ws = socket;
         wsRef.current = socket;
         socket.onopen = () => {
-          if (wsRef.current === socket) dispatch({ type: "WS_OPEN" });
+          if (wsRef.current === socket) {
+            dispatch({ type: "WS_OPEN" });
+            wsLastMessageAtRef.current = Date.now();
+          }
         };
         socket.onclose = () => {
           if (wsRef.current === socket) {
@@ -4398,6 +4405,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         };
         socket.onmessage = (event) => {
           if (cancelled) return;
+          wsLastMessageAtRef.current = Date.now();
           try {
             const data: FroidPayload = JSON.parse(event.data);
             const elapsedSeconds = elapsedSecondsRef.current;
@@ -4437,8 +4445,28 @@ function LiveSessionInner({ user }: LiveSessionProps) {
 
     scheduleConnect(0);
 
+    // Watchdog: o tick do servidor é ~1/s. Se o socket "parece" aberto mas
+    // nenhuma mensagem chega há muito tempo (ex.: queda de rede que não
+    // dispara onclose, deixando uma conexão zumbi), força o fechamento para
+    // acionar a reconexão — em vez do painel ficar congelado em silêncio.
+    const WATCHDOG_TIMEOUT_MS = 8000;
+    const watchdog = window.setInterval(() => {
+      if (cancelled || !ws) return;
+      if (ws.readyState !== WebSocket.OPEN) return;
+      const silentFor = Date.now() - wsLastMessageAtRef.current;
+      if (silentFor > WATCHDOG_TIMEOUT_MS) {
+        console.warn(
+          `FROID: WS de análise sem dados há ${Math.round(silentFor / 1000)}s — forçando reconexão.`,
+        );
+        try {
+          ws.close();
+        } catch {}
+      }
+    }, 2000);
+
     return () => {
       cancelled = true;
+      window.clearInterval(watchdog);
       if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
       if (wsRef.current === ws) wsRef.current = null;
       try {

@@ -66,6 +66,7 @@ LOGGER = logging.getLogger("froid.persistence")
 # five-item request tuple. Audit events are ordinary structured messages, so
 # they must use the general server logger instead.
 AUDIT_LOGGER = logging.getLogger("uvicorn.error")
+STREAM_LOGGER = logging.getLogger("froid.stream")
 
 app.add_middleware(
     CORSMiddleware,
@@ -5019,14 +5020,26 @@ async def _verify_google_credential(credential: str) -> dict:
 
 
 async def froid_stream_loop(session_id: str, connection_id: str):
+    """Laço de tick da sessão (1/s): calcula o payload multimodal e o envia ao
+    profissional. Uma exceção num único tick (ex.: dado de borda inesperado de
+    um marcador real) NÃO PODE encerrar o laço para o resto da sessão — sem
+    isolamento, o IPM e os biomarcadores ficam congelados em silêncio até o
+    fim do encontro, sem sinal algum para o profissional. Cada tick é isolado:
+    uma falha é registrada e o laço segue para o próximo segundo."""
     entry = manager.active_sessions.get(session_id)
     if not entry: return
     state: SessionState = entry["state"]
     while manager.is_current(session_id, connection_id):
-        voice_12 = MockBiometricStream.generate_voice_spectral()
-        facs_flags, facs_details = MockBiometricStream.generate_facs_dissonance()
-        payload = state.process_tick(voice_12, facs_flags, facs_details)
-        await manager.broadcast_payload(session_id, payload)
+        try:
+            voice_12 = MockBiometricStream.generate_voice_spectral()
+            facs_flags, facs_details = MockBiometricStream.generate_facs_dissonance()
+            payload = state.process_tick(voice_12, facs_flags, facs_details)
+            await manager.broadcast_payload(session_id, payload)
+        except Exception:
+            STREAM_LOGGER.exception(
+                "froid_stream_loop: tick falhou (session_id=%s) — seguindo para o próximo tick",
+                session_id,
+            )
         await asyncio.sleep(1.0)
 
 
