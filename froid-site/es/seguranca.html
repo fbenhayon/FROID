@@ -120,7 +120,6 @@
         <p>Como en cualquier SaaS de salud, la seguridad se divide: FROID es responsable de la infraestructura de la plataforma (cifrado, copias de seguridad, control de acceso a la aplicación); la clínica/profesional contratante es responsable de la gestión del acceso de su equipo y del consentimiento obtenido del paciente.</p>
         <h4>Pila técnica relevante</h4>
         <p>Backend FastAPI con persistencia en DuckDB para analítica agregada; control de titularidad de informes vía <code>_can_access_report()</code> y <code>_report_owner_email()</code>; hash de sesión anónima vía <code>_anonymous_session_hash()</code> antes de cualquier agregación estadística.</p>
-        <div class="ref">Esta sección describe controles técnicos ya auditados en el código; no constituye un dictamen jurídico. Consulte a su DPO/asesoría legal para el cumplimiento formal de la LGPD y del derecho local aplicable.</div>
       </div>
     </div>
   </div>

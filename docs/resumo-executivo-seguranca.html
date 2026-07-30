@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>FROID — Resumo Executivo de Segurança da Informação</title>
+<style>
+  :root {
+    --ink: #0f172a;
+    --muted: #475569;
+    --line: #cbd5e1;
+    --accent: #0e7490;
+    --accent-soft: #ecfeff;
+    --ok: #047857;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+    color: var(--ink);
+    background: #f1f5f9;
+    line-height: 1.42;
+    font-size: 10.2px;
+  }
+  .page {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 12px auto;
+    padding: 14mm 15mm;
+    background: #fff;
+    box-shadow: 0 2px 14px rgba(15,23,42,0.14);
+  }
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    border-bottom: 2px solid var(--accent);
+    padding-bottom: 8px;
+  }
+  header h1 { margin: 0; font-size: 17px; letter-spacing: -0.2px; }
+  header .kicker {
+    margin: 0 0 2px; font-size: 8.5px; font-weight: 800;
+    letter-spacing: 2px; text-transform: uppercase; color: var(--accent);
+  }
+  header .meta { text-align: right; font-size: 8.5px; color: var(--muted); }
+  .lead {
+    margin: 10px 0 12px; font-size: 10.5px; color: var(--muted);
+  }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px 14px; }
+  .card {
+    border: 1px solid var(--line); border-radius: 6px; padding: 9px 11px;
+    break-inside: avoid;
+  }
+  .card h2 {
+    margin: 0 0 5px; font-size: 10.5px; color: var(--accent);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .card h2 .n {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 16px; height: 16px; border-radius: 50%; background: var(--accent);
+    color: #fff; font-size: 9px; font-weight: 800; flex: none;
+  }
+  ul { margin: 0; padding-left: 0; list-style: none; }
+  li { position: relative; padding-left: 13px; margin: 3px 0; }
+  li::before {
+    content: "✓"; position: absolute; left: 0; top: 0;
+    color: var(--ok); font-weight: 800; font-size: 9px;
+  }
+  code {
+    font-family: "Consolas", "Courier New", monospace;
+    background: #f1f5f9; padding: 0 3px; border-radius: 3px; font-size: 8.8px;
+  }
+  .full { grid-column: 1 / -1; }
+  .shared { background: var(--accent-soft); border-color: #a5f3fc; }
+  .shared .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .shared strong { color: var(--accent); }
+  footer {
+    margin-top: 12px; padding-top: 7px; border-top: 1px solid var(--line);
+    font-size: 8.2px; color: var(--muted);
+    display: flex; justify-content: space-between; gap: 12px;
+  }
+  @media print {
+    body { background: #fff; font-size: 9.6px; }
+    .page { margin: 0; box-shadow: none; width: auto; min-height: auto; padding: 10mm 12mm; }
+    @page { size: A4; margin: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div>
+      <p class="kicker">Segurança da Informação · Documento executivo</p>
+      <h1>FROID — Controles Técnicos e Organizacionais de Proteção de Dados</h1>
+    </div>
+    <div class="meta">
+      Frequency Recognition of Internal Dynamics<br />
+      Classificação: interno · v1.0
+    </div>
+  </header>
+
+  <p class="lead">
+    O FROID processa dados pessoais sensíveis de saúde (voz, expressão facial,
+    biomarcadores acústicos, transcrições e relatórios clínicos). A proteção
+    desses dados é tratada como requisito de arquitetura. Este documento
+    consolida os controles efetivamente implementados na plataforma.
+  </p>
+
+  <div class="grid">
+    <div class="card">
+      <h2><span class="n">1</span> Criptografia</h2>
+      <ul>
+        <li><strong>Em trânsito:</strong> TLS 1.2+/HTTPS em toda a comunicação cliente–servidor (terminação na borda Caddy, certificados renovados automaticamente).</li>
+        <li><strong>Em repouso:</strong> criptografia autenticada <em>Fernet</em> (AES-128 em modo CBC + HMAC-SHA256) para tokens OAuth e conteúdos clínicos sensíveis (transcrições e relatórios).</li>
+        <li><strong>Rotação de chaves</strong> via <code>MultiFernet</code>, sem reprocessar a base — decifra com chave antiga e recifra com a vigente.</li>
+        <li><strong>Senhas:</strong> derivação <code>PBKDF2-HMAC-SHA256</code>, 120.000 iterações, com <em>salt</em> — nunca armazenadas em texto claro.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">2</span> Controle de acesso e isolamento</h2>
+      <ul>
+        <li><strong>Autorização por titularidade</strong> do relatório: cada profissional acessa apenas os próprios pacientes (<code>_can_access_report()</code>).</li>
+        <li><strong>Isolamento multi-tenant</strong> entre clínicas/organizações.</li>
+        <li><strong>Tokens de sessão com expiração</strong> (TTL padrão de 8&nbsp;horas, configurável).</li>
+        <li><strong>Portal do paciente</strong> com autenticação independente da conta do profissional.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">3</span> Auditoria e rastreabilidade</h2>
+      <ul>
+        <li>Trilha de auditoria de <strong>acesso, alteração, exportação e negativa de acesso</strong> a relatórios e dados de pacientes.</li>
+        <li>Cada evento é <strong>vinculado à conta</strong> que executou a ação.</li>
+        <li>Auditoria dedicada de <strong>conexões em tempo real</strong> (WebSocket) e de <strong>ações administrativas</strong>.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">4</span> Privacidade e LGPD</h2>
+      <ul>
+        <li><strong>Consentimento explícito</strong> (TCLE) coletado antes do tratamento e <strong>revogável</strong> a qualquer momento.</li>
+        <li><strong>Portal de direitos do titular:</strong> confirmação, acesso, correção, portabilidade e eliminação, com respostas registradas de forma protegida.</li>
+        <li>Princípios de <strong>finalidade, necessidade e minimização</strong> embutidos no fluxo de dados.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">5</span> Anonimização e analytics</h2>
+      <ul>
+        <li><strong>Pseudonimização</strong> das bases populacionais (hash de sessão anônima antes de qualquer agregação).</li>
+        <li><strong>k-anonimato:</strong> consultas agregadas exigem coortes ≥ 50; grupos menores são bloqueados por governança.</li>
+        <li>Métricas, IPM/IDM, biomarcadores e dissonâncias são <strong>apoio clínico</strong> — não substituem diagnóstico nem julgamento profissional.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">6</span> Infraestrutura e continuidade</h2>
+      <ul>
+        <li>Backend <strong>FastAPI</strong> em contêineres isolados; analytics agregado em <strong>DuckDB</strong>.</li>
+        <li><strong>Backups criptografados</strong> e verificados periodicamente.</li>
+        <li>Hospedagem europeia (Estônia); eventual transferência internacional protegida por <strong>mecanismos contratuais e técnicos</strong> aplicáveis.</li>
+      </ul>
+    </div>
+
+    <div class="card shared full">
+      <h2><span class="n">7</span> Modelo de responsabilidade compartilhada</h2>
+      <div class="cols">
+        <div>
+          <strong>Plataforma FROID</strong>
+          <ul>
+            <li>Criptografia, backups e segurança da infraestrutura.</li>
+            <li>Controle de acesso da aplicação, auditoria e anonimização das bases agregadas.</li>
+          </ul>
+        </div>
+        <div>
+          <strong>Clínica / profissional contratante</strong>
+          <ul>
+            <li>Gestão de acesso da própria equipe.</li>
+            <li>Obtenção e guarda dos consentimentos válidos dos pacientes e finalidade clínica do uso.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <span>FROID · Frequency Recognition of Internal Dynamics — resumo executivo de segurança da informação.</span>
+    <span>Base legal: LGPD (Lei 13.709/2018).</span>
+  </footer>
+</div>
+</body>
+</html>
