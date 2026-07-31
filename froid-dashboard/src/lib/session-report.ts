@@ -127,6 +127,7 @@ export interface SessionReportRecord {
     }>;
     summary: string;
     severity?: number;
+    isMulti?: boolean;
     peakZone?: number;
     peakZoneTema?: string;
     source: string;

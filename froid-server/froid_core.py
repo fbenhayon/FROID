@@ -116,9 +116,10 @@ class SessionState:
     latest_facs_flags: Optional[dict] = None
     latest_facs_details: Optional[dict] = None
     facial_updated_at: float = 0.0
-    # Histórico da condição de dissonância múltipla (últimos ticks) para a
-    # confirmação temporal — evita alertar sobre pico de um único tick.
-    dissonance_multi_history: List[bool] = field(default_factory=list)
+    # Histórico da condição de dissonância evidente (>= 1 marcador fora da
+    # métrica base, últimos ticks) para a confirmação temporal — evita
+    # alertar sobre pico de um único tick.
+    dissonance_history: List[bool] = field(default_factory=list)
 
     def update_f0(self, f0_mean: float, f0_std: float, voiced_ratio: float) -> None:
         # Só substitui por uma medida vozeada; silêncio/ruído (f0<=0) preserva
@@ -491,16 +492,18 @@ class SessionState:
             ),
         }
         dissonance_event = froid_dissonance.evaluate(dissonance_snapshot)
-        # Confirmação temporal: só é "confirmada" a dissonância múltipla que se
-        # sustenta em 2 dos últimos 3 ticks (ver froid_dissonance.confirm).
-        self.dissonance_multi_history.append(bool(dissonance_event["is_multi_dissonance"]))
-        if len(self.dissonance_multi_history) > froid_dissonance.CONFIRM_WINDOW:
-            self.dissonance_multi_history.pop(0)
+        # Confirmação temporal: só é "confirmada" a dissonância evidente (>= 1
+        # marcador) que se sustenta em 2 dos últimos 3 ticks — is_multi_dissonance
+        # (2+ marcadores em 2+ categorias) continua calculado à parte, como
+        # destaque de maior confiança, não como critério de registro.
+        self.dissonance_history.append(bool(dissonance_event["has_dissonance"]))
+        if len(self.dissonance_history) > froid_dissonance.CONFIRM_WINDOW:
+            self.dissonance_history.pop(0)
         dissonance_event["confirmed"] = bool(
-            dissonance_event["is_multi_dissonance"]
-            and froid_dissonance.confirm(self.dissonance_multi_history)
+            dissonance_event["has_dissonance"]
+            and froid_dissonance.confirm(self.dissonance_history)
         )
-        dissonance_event["sustained_ticks"] = int(sum(self.dissonance_multi_history))
+        dissonance_event["sustained_ticks"] = int(sum(self.dissonance_history))
         # Zona de maior desvio, para rótulo do registro na listagem.
         peak_zone = max(perception_zones, key=lambda z: abs(z["deviation_score"]))
         dissonance_event["peak_zone"] = peak_zone["zone"]

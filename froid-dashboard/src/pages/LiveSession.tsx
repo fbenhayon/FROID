@@ -2287,6 +2287,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       markers: EvidentMarker[];
       summary: string;
       severity?: number;
+      isMulti?: boolean;
       peakZone?: number;
       peakZoneTema?: string;
       source: string;
@@ -4817,17 +4818,18 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     setDissonanceLog((prev) => [...prev, ...nextEntries].slice(-18));
   }, [confirmedDissonanceZones, displayAudio, state.elapsedSeconds]);
 
-  // Captura, AO VIVO, as dissonâncias EVIDENTES múltiplas emitidas pelo motor
-  // do backend (>= 2 marcadores ultrapassando a métrica base no mesmo tick).
-  // Só estas — as co-ocorrências — entram na listagem detalhada com scroll.
+  // Captura, AO VIVO, TODA dissonância evidente emitida pelo motor do backend
+  // (>= 1 marcador ultrapassando a métrica base). Quando >= 2 marcadores em
+  // >= 2 categorias ocorrem juntos, o evento também vem marcado como
+  // is_multi_dissonance — destacado na listagem, não é mais o critério de entrada.
   useEffect(() => {
     const event = (raw as any)?.dissonance_event as DissonanceEvent | undefined;
-    // Confirmação temporal: registra só a dissonância múltipla sustentada
-    // (>= 2 dos últimos 3 ticks). Para payloads antigos sem o campo, recai no
-    // sinal instantâneo. Sem múltipla ativa, zera a assinatura para que um novo
+    // Confirmação temporal: registra só a dissonância sustentada (>= 2 dos
+    // últimos 3 ticks). Para payloads antigos sem o campo, recai no sinal
+    // instantâneo. Sem dissonância ativa, zera a assinatura para que um novo
     // episódio (mesmo com os mesmos marcadores) volte a ser registrado.
     const confirmed = event
-      ? (event.confirmed ?? event.is_multi_dissonance)
+      ? (event.confirmed ?? event.has_dissonance ?? event.is_multi_dissonance)
       : false;
     if (!event || !confirmed) {
       lastMultiDissonanceSig.current = "";
@@ -4855,6 +4857,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         markers,
         summary: event.summary || "",
         severity: typeof event.severity === "number" ? event.severity : undefined,
+        isMulti: Boolean(event.is_multi_dissonance),
         peakZone: event.peak_zone,
         peakZoneTema: event.peak_zone_tema,
         source: event.voice_features_source || "mock",
@@ -5443,11 +5446,13 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                   <div className="mb-2 flex items-center justify-between">
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-wider text-red-200">
-                        Dissonâncias Evidentes (2+ marcadores)
+                        Dissonâncias Evidentes
                       </p>
                       <p className="text-[9px] text-red-300/70">
-                        Ocorrências com dois ou mais marcadores fora da métrica
-                        base simultaneamente
+                        Cada marcador fora da métrica base é registrado com
+                        valor, limiar e interpretação. Ocorrências com 2+
+                        marcadores em 2+ categorias são destacadas como
+                        múltiplas.
                       </p>
                     </div>
                     <span className="shrink-0 rounded-full bg-red-800/60 px-2 py-0.5 text-[9px] font-bold text-red-100">
@@ -5464,9 +5469,15 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                           className="rounded border border-red-800/70 bg-red-950/40 p-2 text-[10px] text-slate-200"
                         >
                           <div className="flex items-center justify-between gap-2">
-                            <span className="font-bold text-red-100">
-                              {entry.count} marcadores ·{" "}
-                              {entry.categories.length} categorias
+                            <span className="flex items-center gap-1.5 font-bold text-red-100">
+                              {entry.isMulti && (
+                                <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-white">
+                                  múltipla
+                                </span>
+                              )}
+                              {entry.count} marcador{entry.count === 1 ? "" : "es"} ·{" "}
+                              {entry.categories.length} categoria
+                              {entry.categories.length === 1 ? "" : "s"}
                             </span>
                             <span className="flex items-center gap-1.5">
                               {typeof entry.severity === "number" && (

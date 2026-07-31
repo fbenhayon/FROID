@@ -1,6 +1,9 @@
 """Motor de dissonâncias evidentes: cada marcador real tem uma métrica base
-(banda mín/máx); só quando DUAS OU MAIS ultrapassam simultaneamente o evento é
-sinalizado (is_multi_dissonance) para a listagem detalhada."""
+(banda mín/máx). TODA dissonância evidente (>= 1 marcador fora da banda) é
+registrada (has_dissonance), com resumo detalhado. Quando DUAS OU MAIS
+ocorrem em categorias distintas e simultaneamente, o evento também é marcado
+como is_multi_dissonance — um destaque de maior confiança, não o critério de
+registro."""
 import math
 import unittest
 
@@ -29,7 +32,7 @@ def neutral_tick(state: SessionState):
 
 
 class DissonanceEngineUnitTests(unittest.TestCase):
-    def test_single_breach_is_not_multi(self):
+    def test_single_breach_registered_but_not_multi(self):
         snap = {
             "voice_real": True,
             "baseline_locked": True,
@@ -53,7 +56,11 @@ class DissonanceEngineUnitTests(unittest.TestCase):
         ev = froid_dissonance.evaluate(snap)
         self.assertEqual(ev["evident_count"], 1)
         self.assertFalse(ev["is_multi_dissonance"])
-        self.assertEqual(ev["summary"], "")
+        # Decisão de produto: TODA dissonância evidente é registrada, mesmo
+        # isolada — o resumo individual descreve o marcador, valor e limiar.
+        self.assertTrue(ev["has_dissonance"])
+        self.assertIn("Jitter", ev["summary"])
+        self.assertIn("instabilidade glótica", ev["summary"])
 
     def test_same_category_pair_not_multi(self):
         # Jitter e shimmer são AMBOS "Perturbação vocal" (correlacionados):
@@ -219,12 +226,12 @@ class TemporalConfirmationTests(unittest.TestCase):
         state.baseline_energy = np.ones(12) * 5.0
         flags = {z: False for z in range(1, 13)}
         details = {z: None for z in range(1, 13)}
-        # Um tick com desequilíbrio extremo em 2 categorias.
+        # Um único tick com desequilíbrio extremo de zona.
         spike = np.ones(12) * 5.0
         spike[0] = 40.0  # zona extrema
         ev = state.process_tick(spike, flags, details)["dissonance_event"]
-        if ev["is_multi_dissonance"]:
-            self.assertFalse(ev["confirmed"])  # 1 tick não confirma
+        self.assertTrue(ev["has_dissonance"])  # registrado (>= 1 marcador)
+        self.assertFalse(ev["confirmed"])  # mas 1 tick isolado não confirma
 
 
 class DissonanceSessionIntegrationTests(unittest.TestCase):
