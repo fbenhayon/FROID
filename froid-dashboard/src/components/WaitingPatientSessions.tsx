@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiUrl } from "../lib/api";
 import { dashboardText, loadSessionLanguagePreferences } from "../lib/localization";
@@ -30,6 +30,28 @@ export function WaitingPatientSessions() {
   const [sessions, setSessions] = useState<WaitingSession[]>([]);
   const locale = loadSessionLanguagePreferences().spokenLanguage;
   const tr = (text: string) => dashboardText(locale, text);
+  // Sessões já direcionadas automaticamente — evita redirecionar de novo o
+  // mesmo paciente (ex.: se o profissional voltar ao dashboard depois).
+  const redirectedIdsRef = useRef<Set<string>>(new Set());
+  const autoRedirectTimerRef = useRef<number | null>(null);
+
+  const openSession = useCallback(
+    (session: WaitingSession) => {
+      rememberSessionPatient(session.session_id, {
+        id: session.patient_id,
+        name: session.patient_name || "Paciente",
+        email: session.patient_email,
+        phone: session.patient_phone,
+        sessionMode: session.session_mode || "remote",
+        captureProfile:
+          session.session_mode === "presential_mobile"
+            ? "patient_mobile"
+            : "patient_external_media",
+      });
+      navigate(`/session/${session.session_id}`);
+    },
+    [navigate],
+  );
 
   const refresh = useCallback(async () => {
     const token = localStorage.getItem("froid_token") || "";
@@ -43,11 +65,27 @@ export function WaitingPatientSessions() {
       });
       if (!response.ok) return;
       const payload = await response.json();
-      setSessions(Array.isArray(payload?.waiting) ? payload.waiting : []);
+      const nextSessions: WaitingSession[] = Array.isArray(payload?.waiting)
+        ? payload.waiting
+        : [];
+      setSessions(nextSessions);
+      // O paciente já está conectado na sala (patient_connected) quando esta
+      // lista o inclui — direciona automaticamente o profissional para a
+      // sessão, sem exigir clique manual em "Atender".
+      const toRedirect = nextSessions.find(
+        (session) => !redirectedIdsRef.current.has(session.session_id),
+      );
+      if (toRedirect && autoRedirectTimerRef.current === null) {
+        redirectedIdsRef.current.add(toRedirect.session_id);
+        autoRedirectTimerRef.current = window.setTimeout(() => {
+          autoRedirectTimerRef.current = null;
+          openSession(toRedirect);
+        }, 800);
+      }
     } catch {
       // A sinalização pode se reconectar; a próxima consulta atualiza o estado.
     }
-  }, []);
+  }, [openSession]);
 
   useEffect(() => {
     void refresh();
@@ -57,25 +95,14 @@ export function WaitingPatientSessions() {
     return () => {
       window.clearInterval(intervalId);
       window.removeEventListener("focus", handleFocus);
+      if (autoRedirectTimerRef.current !== null) {
+        window.clearTimeout(autoRedirectTimerRef.current);
+        autoRedirectTimerRef.current = null;
+      }
     };
   }, [refresh]);
 
   if (!sessions.length) return null;
-
-  const openSession = (session: WaitingSession) => {
-    rememberSessionPatient(session.session_id, {
-      id: session.patient_id,
-      name: session.patient_name || "Paciente",
-      email: session.patient_email,
-      phone: session.patient_phone,
-      sessionMode: session.session_mode || "remote",
-      captureProfile:
-        session.session_mode === "presential_mobile"
-          ? "patient_mobile"
-          : "patient_external_media",
-    });
-    navigate(`/session/${session.session_id}`);
-  };
 
   return (
     <section
@@ -91,7 +118,7 @@ export function WaitingPatientSessions() {
               : `${sessions.length} ${tr("Pacientes aguardando atendimento")}`}
           </h2>
           <p className="mt-0.5 text-xs text-emerald-100">
-            {tr("Retome a sala original sem criar outro convite.")}
+            {tr("Você será direcionado automaticamente. Use os botões para escolher outro paciente ou entrar antes do redirecionamento.")}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

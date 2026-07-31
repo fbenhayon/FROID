@@ -75,6 +75,10 @@ export const NewPatient: React.FC = () => {
   const [error, setError] = useState("");
   const [invite, setInvite] = useState<InviteResult | null>(null);
   const [patientActivity, setPatientActivity] = useState("");
+  // Confirmação visual de que o clique em "Copiar" realmente copiou o
+  // conteúdo — sem isso, não havia certeza de que o botão foi acionado.
+  const [copiedKey, setCopiedKey] = useState<"message" | "link" | null>(null);
+  const copiedTimerRef = useRef<number | null>(null);
   const eventCursorRef = useRef<number | null>(null);
   const redirectingRef = useRef(false);
   const inviteBaseUrl = useMemo(() => publicAppUrl(), []);
@@ -110,13 +114,34 @@ export const NewPatient: React.FC = () => {
     });
   };
 
-  const copyText = async (text: string) => {
+  const copyText = async (text: string): Promise<boolean> => {
     try {
-      await navigator.clipboard?.writeText(text);
+      if (!navigator.clipboard?.writeText) throw new Error("clipboard indisponível");
+      await navigator.clipboard.writeText(text);
+      return true;
     } catch {
       window.prompt("Copie o conteúdo abaixo:", text);
+      return false;
     }
   };
+
+  const handleCopy = async (key: "message" | "link", text: string) => {
+    const success = await copyText(text);
+    if (copiedTimerRef.current !== null) window.clearTimeout(copiedTimerRef.current);
+    if (success) {
+      setCopiedKey(key);
+      copiedTimerRef.current = window.setTimeout(() => {
+        setCopiedKey(null);
+        copiedTimerRef.current = null;
+      }, 2200);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (copiedTimerRef.current !== null) window.clearTimeout(copiedTimerRef.current);
+    };
+  }, []);
 
   const createInvite = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -441,16 +466,24 @@ export const NewPatient: React.FC = () => {
               </p>
               <div className="flex flex-wrap gap-2">
                 <button
-                  onClick={() => copyText(invite.whatsapp_message)}
-                  className="rounded border border-blue-800 bg-slate-900 px-2 py-1 font-bold text-blue-200 hover:bg-blue-900"
+                  onClick={() => void handleCopy("message", invite.whatsapp_message)}
+                  className={`rounded border px-2 py-1 font-bold transition-colors ${
+                    copiedKey === "message"
+                      ? "border-emerald-500 bg-emerald-900 text-emerald-100"
+                      : "border-blue-800 bg-slate-900 text-blue-200 hover:bg-blue-900"
+                  }`}
                 >
-                  Copiar mensagem
+                  {copiedKey === "message" ? "✓ Copiado!" : "Copiar mensagem"}
                 </button>
                 <button
-                  onClick={() => copyText(invite.invite_url)}
-                  className="rounded border border-blue-800 bg-slate-900 px-2 py-1 font-bold text-blue-200 hover:bg-blue-900"
+                  onClick={() => void handleCopy("link", invite.invite_url)}
+                  className={`rounded border px-2 py-1 font-bold transition-colors ${
+                    copiedKey === "link"
+                      ? "border-emerald-500 bg-emerald-900 text-emerald-100"
+                      : "border-blue-800 bg-slate-900 text-blue-200 hover:bg-blue-900"
+                  }`}
                 >
-                  Copiar link
+                  {copiedKey === "link" ? "✓ Copiado!" : "Copiar link"}
                 </button>
                 <button
                   onClick={() => navigate(`/session/${invite.session_id}`)}

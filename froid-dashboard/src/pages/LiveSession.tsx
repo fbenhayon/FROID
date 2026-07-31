@@ -4753,6 +4753,14 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const endSession = useCallback(async () => {
     if (reportSavedRef.current) return;
     reportSavedRef.current = true;
+    // Sinal explícito e deliberado de fim de sessão ao paciente (distinto do
+    // "peer-left" passivo, que também dispara em blips transitórios de rede) —
+    // habilita o encaminhamento do paciente à área restrita dele.
+    if (rtcSignalRef.current?.readyState === WebSocket.OPEN) {
+      try {
+        rtcSignalRef.current.send(JSON.stringify({ type: "session-ended" }));
+      } catch {}
+    }
     const report = createSessionReport();
     try {
       await archiveSessionReport(report);

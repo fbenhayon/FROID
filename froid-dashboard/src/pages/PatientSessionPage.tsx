@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { apiUrl, wsUrl } from "../lib/api";
 import {
   activateRtcRelayFallback,
@@ -22,6 +22,7 @@ type JoinState = "checking" | "joined" | "blocked";
 type MediaState = "idle" | "requesting" | "active" | "failed";
 
 export const PatientSessionPage: React.FC = () => {
+  const navigate = useNavigate();
   const { sessionId = "" } = useParams<{ sessionId: string }>();
   const [searchParams] = useSearchParams();
   const inviteToken = searchParams.get("invite") || "";
@@ -48,6 +49,10 @@ export const PatientSessionPage: React.FC = () => {
   const [remoteProfessionalVideoOn, setRemoteProfessionalVideoOn] = useState(false);
   const [patientName, setPatientName] = useState("");
   const [error, setError] = useState("");
+  // Fim deliberado da consulta (sinal explícito do profissional, distinto de
+  // uma queda de rede transitória) — habilita o encaminhamento do paciente à
+  // área restrita dele.
+  const [sessionEnded, setSessionEnded] = useState(false);
   const [uiLocale, setUiLocale] = useState<SessionLocale>(() =>
     normalizeSessionLocale(typeof navigator === "undefined" ? "" : navigator.language),
   );
@@ -367,6 +372,26 @@ export const PatientSessionPage: React.FC = () => {
         setCallStatus("Profissional saiu da chamada.");
         if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
         if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
+      } else if (data.type === "session-ended") {
+        // Encerramento deliberado pelo profissional: libera câmera/microfone e
+        // as capturas de análise, e habilita o encaminhamento à área do paciente.
+        try {
+          f0StopRef.current?.();
+        } catch {}
+        f0StopRef.current = null;
+        try {
+          faceStopRef.current?.();
+        } catch {}
+        faceStopRef.current = null;
+        streamRef.current?.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+        if (videoRef.current) videoRef.current.srcObject = null;
+        if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+        if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
+        setRemoteProfessionalOn(false);
+        setRemoteProfessionalVideoOn(false);
+        setCallStatus("Sessão encerrada pelo profissional.");
+        setSessionEnded(true);
       }
     };
 
@@ -543,6 +568,33 @@ export const PatientSessionPage: React.FC = () => {
       : joinState === "joined"
         ? copy.connected
         : copy.blocked;
+
+  if (sessionEnded) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4 py-8 text-slate-100">
+        <div className="w-full max-w-md rounded-xl border border-emerald-800 bg-slate-900 p-6 text-center shadow-lg">
+          <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-cyan-300">
+            FROID
+          </p>
+          <h1 className="mt-2 text-xl font-bold text-slate-100">
+            Sessão encerrada
+          </h1>
+          <p className="mt-2 text-sm leading-relaxed text-slate-400">
+            Sua consulta foi encerrada pelo profissional. Você pode acompanhar
+            os resultados e o histórico das suas sessões na sua área do
+            paciente, quando quiser.
+          </p>
+          <button
+            type="button"
+            onClick={() => navigate("/paciente")}
+            className="mt-5 inline-flex w-full items-center justify-center rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-800"
+          >
+            Ir para minha área do paciente
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 px-4 py-8 text-slate-100">
