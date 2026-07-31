@@ -268,6 +268,26 @@ class DissonanceSessionIntegrationTests(unittest.TestCase):
         # Voz limpa e periódica não deve gerar dissonância múltipla.
         self.assertFalse(ev["is_multi_dissonance"])
 
+    def test_all_markers_present_regardless_of_breach(self):
+        # all_markers deve trazer TODOS os marcadores avaliáveis (dentro ou
+        # fora da banda) — não só os que romperam a métrica base.
+        state = SessionState(session_id="s")
+        buf = state.ingest_pcm(pcm16_bytes_to_float(glottal_pcm(150.0, 3.0)), SR)
+        state.update_voice_features(froid_voice.extract_voice_features(buf, SR))
+        ev = neutral_tick(state)["dissonance_event"]
+        all_markers = ev["all_markers"]
+        self.assertGreater(len(all_markers), 0)
+        keys = {m["key"] for m in all_markers}
+        self.assertIn("jitter", keys)
+        self.assertIn("shimmer", keys)
+        for m in all_markers:
+            self.assertIn("value", m)
+            self.assertIn("band", m)
+            self.assertIn("breached", m)
+            self.assertIsInstance(m["breached"], bool)
+        # Voz saudável -> nenhum marcador de voz deveria estar rompido.
+        self.assertFalse(any(m["breached"] for m in all_markers if m["key"] in {"jitter", "shimmer"}))
+
 
 if __name__ == "__main__":
     unittest.main()

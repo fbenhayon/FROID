@@ -115,6 +115,45 @@ class MarkerSpec:
             interpretation=self.interpret_high if direction == "acima" else self.interpret_low,
         )
 
+    def read(self, snap: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Leitura SEMPRE presente (marcador dentro ou fora da banda) — usada
+        para exibir o valor atual de cada índice, independente de ter
+        rompido ou não a métrica base. Retorna None só quando o marcador não
+        é avaliável neste tick (ex.: voz real ausente, baseline não travada)."""
+        resolved = self.resolver(snap)
+        if resolved is None:
+            return None
+        value, low, high = resolved
+        if value is None:
+            return None
+        value = float(value)
+        breached = False
+        direction = "dentro"
+        severity = 0.0
+        interpretation = "—"
+        if high is not None and value > high:
+            breached, direction = True, "acima"
+            span = abs(high) if abs(high) > EPS else 1.0
+            severity = max(0.0, min(1.0, (value - high) / span))
+            interpretation = self.interpret_high
+        elif low is not None and value < low:
+            breached, direction = True, "abaixo"
+            span = abs(low) if abs(low) > EPS else 1.0
+            severity = max(0.0, min(1.0, (low - value) / span))
+            interpretation = self.interpret_low
+        return {
+            "key": self.key,
+            "label": self.label,
+            "category": self.category,
+            "value": round(value, 4),
+            "band": [low, high],
+            "unit": self.unit,
+            "breached": breached,
+            "direction": direction,
+            "severity": round(severity, 3),
+            "interpretation": interpretation,
+        }
+
 
 def _voice_real(snap: Dict[str, Any]) -> bool:
     return bool(snap.get("voice_real"))
@@ -322,6 +361,22 @@ CONFIRM_WINDOW = 3
 CONFIRM_MIN = 2
 
 
+def read_all(snapshot: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Leitura de TODOS os marcadores avaliáveis neste tick (dentro ou fora da
+    banda) — usada para exibir o valor atual de cada índice com destaque
+    visual quando ultrapassa a métrica base, independente de contar para o
+    campo de dissonâncias (que exige o registro de fato de uma ocorrência)."""
+    readings: List[Dict[str, Any]] = []
+    for spec in MARKER_SPECS:
+        try:
+            r = spec.read(snapshot)
+        except Exception:
+            r = None
+        if r is not None:
+            readings.append(r)
+    return readings
+
+
 def evaluate(snapshot: Dict[str, Any]) -> Dict[str, Any]:
     """Avalia todos os marcadores contra suas métricas base num tick.
 
@@ -386,6 +441,10 @@ def evaluate(snapshot: Dict[str, Any]) -> Dict[str, Any]:
         "mean_severity": mean_severity,
         "categories": categories,
         "evident_markers": [b.to_dict() for b in breaches],
+        # TODOS os marcadores avaliáveis neste tick (dentro ou fora da banda) —
+        # alimenta painéis que exibem o valor atual de cada índice com destaque
+        # visual ao ultrapassar o limiar, sem exigir uma "ocorrência" registrada.
+        "all_markers": read_all(snapshot),
         "summary": summary,
         "voice_features_source": "real_pcm" if _voice_real(snapshot) else "mock",
     }
