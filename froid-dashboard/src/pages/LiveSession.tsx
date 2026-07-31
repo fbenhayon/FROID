@@ -116,9 +116,6 @@ const SIMPLIFIED_METRIC_TOOLTIPS: Record<string, string> = {
     "Índice de dissonância somatoafetiva, usado para cruzar expressão vocal, tensão e marcadores corporais inferidos.",
 };
 
-const SIMPLIFIED_CUT_TOOLTIP =
-  "O corte organiza a sessão em janelas analisáveis. A cada fechamento, o FROID consolida tema, resumo da fala, métricas vocais, indicadores bioacústicos e dissonâncias relevantes.";
-
 interface AggData {
   zones: PerceptionZone[];
   ipm: number;
@@ -4949,9 +4946,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         <header className="shrink-0 overflow-x-auto border-b border-slate-800 bg-slate-900 px-3 py-2">
           <div className="flex min-w-max items-center gap-3 whitespace-nowrap">
             <h1 className="text-sm font-black">Sessão Simplificada</h1>
-            <span className="text-[9px] text-slate-400">
-              Sessão {sessionId?.slice(0, 8) || "--"} · vídeo · corte semântico · resumo · métricas · FROID Explica
-            </span>
             <span className="rounded border border-cyan-800 bg-cyan-950 px-2 py-1 text-[9px] font-black text-cyan-100">
               Voz {SESSION_LOCALES[spokenLanguage].shortLabel} · relatório {SESSION_LOCALES[reportLocale].shortLabel}
             </span>
@@ -5059,50 +5053,18 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           </section>
 
           <div className="flex min-h-0 flex-col gap-2 overflow-y-auto">
-            <section className="shrink-0 overflow-hidden rounded-xl border border-cyan-800 bg-slate-950 shadow-sm">
-              <div className="bg-cyan-950 p-3 text-[10px] text-cyan-100">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <div>
-                    <p className="font-black uppercase tracking-wider">
-                      <FroidTooltip content={tooltipText(reportLocale, SIMPLIFIED_CUT_TOOLTIP)} width={360}>
-                        <span className="cursor-help underline decoration-cyan-700 underline-offset-2">
-                          Corte semântico + Resumo da Fala IA
-                        </span>
-                      </FroidTooltip>
-                    </p>
-                    <p className="mt-0.5 text-[9px] text-cyan-300">
-                      Fechamento do corte e síntese complementar
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => void closeSemanticCut("manual")}
-                    className="shrink-0 rounded bg-cyan-700 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white hover:bg-cyan-800 disabled:cursor-not-allowed disabled:bg-cyan-200"
-                    disabled={semanticCutElapsed < 10 || semanticCutClosingRef.current}
-                    title="Fecha manualmente o corte atual e gera resumo IA do período."
-                  >
-                    Fechar corte
-                  </button>
-                </div>
-                <div className="flex items-center justify-between font-mono text-[10px] text-cyan-200">
-                  <span>Atual {formatCutClock(semanticCutElapsed)}</span>
-                  <span>Auto em {formatCutClock(semanticCutRemaining)}</span>
-                </div>
-                <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-cyan-900">
-                  <div
-                    className="h-full rounded-full bg-cyan-600 transition-all duration-1000"
-                    style={{ width: `${semanticCutProgress}%` }}
-                  />
-                </div>
-              </div>
-              <div className="p-2">
-                <AudioTranscription
-                  audioMeta={displayAudio}
-                  conversationSummaries={conversationSummaries}
-                  section="summary"
-                  locale={reportLocale}
-                />
-              </div>
+            <section className="shrink-0 overflow-hidden rounded-xl border border-cyan-800 bg-slate-950 p-2 shadow-sm">
+              <AudioTranscription
+                audioMeta={displayAudio}
+                conversationSummaries={conversationSummaries}
+                section="summary"
+                locale={reportLocale}
+                cutElapsedLabel={formatCutClock(semanticCutElapsed)}
+                cutRemainingLabel={formatCutClock(semanticCutRemaining)}
+                cutProgress={semanticCutProgress}
+                onCloseCut={() => void closeSemanticCut("manual")}
+                closeCutDisabled={semanticCutElapsed < 10 || semanticCutClosingRef.current}
+              />
             </section>
 
             <section className="min-h-[320px] flex-1 overflow-hidden rounded-xl border border-slate-700 bg-slate-950 p-2">
@@ -5306,50 +5268,18 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           )}
         </div>
 
-        <section className="shrink-0 overflow-hidden rounded-xl border border-cyan-800 bg-slate-950 shadow-sm">
-          <div className="bg-cyan-950 p-3 text-[10px] text-cyan-100">
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <div>
-                <p className="font-black uppercase tracking-wider">
-                  <FroidTooltip content={tooltipText(reportLocale, SIMPLIFIED_CUT_TOOLTIP)} width={360}>
-                    <span className="cursor-help underline decoration-cyan-700 underline-offset-2">
-                      Corte semântico + Resumo da Fala IA
-                    </span>
-                  </FroidTooltip>
-                </p>
-                <p className="mt-0.5 text-[9px] text-cyan-300">
-                  Fechamento do corte e síntese complementar
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => void closeSemanticCut("manual")}
-                className="shrink-0 rounded bg-cyan-700 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white hover:bg-cyan-800 disabled:cursor-not-allowed disabled:bg-cyan-200"
-                disabled={semanticCutElapsed < 10 || semanticCutClosingRef.current}
-                title="Fecha manualmente o corte atual e gera resumo IA do período."
-              >
-                Fechar corte
-              </button>
-            </div>
-            <div className="flex items-center justify-between font-mono text-[10px] text-cyan-200">
-              <span>Atual {formatCutClock(semanticCutElapsed)}</span>
-              <span>Auto em {formatCutClock(semanticCutRemaining)}</span>
-            </div>
-            <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-cyan-900">
-              <div
-                className="h-full rounded-full bg-cyan-600 transition-all duration-1000"
-                style={{ width: `${semanticCutProgress}%` }}
-              />
-            </div>
-          </div>
-          <div className="p-2">
-            <AudioTranscription
-              audioMeta={displayAudio}
-              conversationSummaries={conversationSummaries}
-              section="summary"
-              locale={reportLocale}
-            />
-          </div>
+        <section className="shrink-0 overflow-hidden rounded-xl border border-cyan-800 bg-slate-950 p-2 shadow-sm">
+          <AudioTranscription
+            audioMeta={displayAudio}
+            conversationSummaries={conversationSummaries}
+            section="summary"
+            locale={reportLocale}
+            cutElapsedLabel={formatCutClock(semanticCutElapsed)}
+            cutRemainingLabel={formatCutClock(semanticCutRemaining)}
+            cutProgress={semanticCutProgress}
+            onCloseCut={() => void closeSemanticCut("manual")}
+            closeCutDisabled={semanticCutElapsed < 10 || semanticCutClosingRef.current}
+          />
         </section>
 
         <div className="min-h-[320px] flex-1 overflow-hidden rounded-xl border border-slate-700 bg-slate-950 p-2">

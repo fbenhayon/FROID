@@ -22,6 +22,14 @@ interface Props {
   conversationSummaries?: ConversationSummary[];
   section?: "all" | "summary" | "biomarkers";
   locale?: SessionLocale;
+  // Controle do corte semântico, exibido junto ao título "Resumo da Fala IA"
+  // (barra de tempo acima, botão compacto ao lado do título). Opcional: sem
+  // esses props o cabeçalho de corte simplesmente não é renderizado.
+  cutElapsedLabel?: string;
+  cutRemainingLabel?: string;
+  cutProgress?: number;
+  onCloseCut?: () => void;
+  closeCutDisabled?: boolean;
 }
 
 const biomarkerTooltips: Record<string, string> = {
@@ -102,7 +110,13 @@ export const AudioTranscription: React.FC<Props> = ({
   conversationSummaries = [],
   section = "all",
   locale = normalizeSessionLocale(undefined),
+  cutElapsedLabel,
+  cutRemainingLabel,
+  cutProgress,
+  onCloseCut,
+  closeCutDisabled,
 }) => {
+  const showCutControl = Boolean(onCloseCut && cutElapsedLabel && cutRemainingLabel);
   const ui = {
     "pt-BR": { summary: "Resumo da Fala IA", waiting: "Aguardando fechamento do primeiro bloco de 10 minutos.", biomarkers: "Biomarcadores vocais", comparison: "Comparação vocal por indicador", chart: "Gráfico Comparativo MFCC7 x MFCC9", magnitude: "Magnitude relativa | coeficiente bruto à direita" },
     "en-US": { summary: "AI Speech Summary", waiting: "Waiting for the first 10-minute block to close.", biomarkers: "Voice biomarkers", comparison: "Voice comparison by indicator", chart: "MFCC7 vs MFCC9 Comparison", magnitude: "Relative magnitude | raw coefficient on the right" },
@@ -190,8 +204,35 @@ export const AudioTranscription: React.FC<Props> = ({
     <div className="w-full space-y-2 rounded-xl border border-slate-700 bg-slate-950 p-2 text-slate-100 shadow-sm">
       {section !== "biomarkers" && (
       <div className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-2">
+        {showCutControl && (
+          <div className="mb-1.5">
+            <div className="flex items-center justify-between font-mono text-[9px] text-cyan-300">
+              <span>Atual {cutElapsedLabel}</span>
+              <span>Auto em {cutRemainingLabel}</span>
+            </div>
+            <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-cyan-950">
+              <div
+                className="h-full rounded-full bg-cyan-600 transition-all duration-1000"
+                style={{ width: `${Math.max(0, Math.min(100, cutProgress ?? 0))}%` }}
+              />
+            </div>
+          </div>
+        )}
         <div className="flex items-center justify-between gap-2 text-[9px] font-bold uppercase tracking-wider text-slate-300">
-          <span>{ui.summary}</span>
+          <div className="flex items-center gap-1.5">
+            <span>{ui.summary}</span>
+            {showCutControl && (
+              <button
+                type="button"
+                onClick={onCloseCut}
+                disabled={closeCutDisabled}
+                title="Fecha manualmente o corte atual e gera resumo IA do período."
+                className="rounded bg-emerald-700 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
+              >
+                Fechar corte
+              </button>
+            )}
+          </div>
           <div className="flex items-center gap-1">
             <span className={`rounded px-1.5 py-0.5 text-[8px] ${sttClass}`}>
               {sttLabel}
