@@ -268,6 +268,24 @@ class DissonanceSessionIntegrationTests(unittest.TestCase):
         # Voz limpa e periódica não deve gerar dissonância múltipla.
         self.assertFalse(ev["is_multi_dissonance"])
 
+    def test_baseline_waits_for_real_voice(self):
+        # Regressão: a baseline NÃO pode travar sobre o vetor simulado. Se o
+        # áudio real entra depois de 60 ticks (cenário comum), travar antes
+        # faria todos os desvios de zona, IPM e IDM comparar voz real contra
+        # uma referência falsa.
+        state = SessionState(session_id="s")
+        for _ in range(90):
+            payload = neutral_tick(state)
+        self.assertFalse(state.baseline_locked)
+        self.assertEqual(payload["audio_meta"]["baseline_progress"], 0)
+
+        buf = state.ingest_pcm(pcm16_bytes_to_float(glottal_pcm(150.0, 3.0)), SR)
+        state.update_voice_features(froid_voice.extract_voice_features(buf, SR))
+        for _ in range(60):
+            payload = neutral_tick(state)
+        self.assertTrue(state.baseline_locked)
+        self.assertEqual(payload["audio_meta"]["baseline_progress"], 60)
+
     def test_all_markers_present_regardless_of_breach(self):
         # all_markers deve trazer TODOS os marcadores avaliáveis (dentro ou
         # fora da banda) — não só os que romperam a métrica base.

@@ -185,15 +185,25 @@ class SessionState:
             facs_dissonance_flags = self.latest_facs_flags
             facs_details = self.latest_facs_details
             facs_source = "real_facs"
+        # A baseline só é construída com VOZ REAL. Antes, o buffer acumulava
+        # também o vetor simulado e travava após 60 ticks independentemente —
+        # se o áudio real do paciente entrasse depois disso (cenário comum), a
+        # baseline ficava congelada sobre dados simulados e TODOS os desvios de
+        # zona, o IPM e o IDM passavam a comparar voz real contra referência
+        # falsa. Sem voz real, a baseline permanece provisória e destravada.
+        has_real_voice = bool(real and "voice_spectral_12" in real)
         if not self.baseline_locked:
-            self.baseline_buffer.append(voice_spectral_12.copy())
-            if len(self.baseline_buffer) >= 60:
-                stacked = np.stack(self.baseline_buffer)
-                self.baseline_energy = np.mean(stacked, axis=0)
-                self.baseline_locked = True
-            else:
-                partial = np.mean(np.stack(self.baseline_buffer), axis=0) if self.baseline_buffer else np.ones(12) * 5.0
-                self.baseline_energy = partial
+            if has_real_voice:
+                self.baseline_buffer.append(voice_spectral_12.copy())
+                if len(self.baseline_buffer) >= 60:
+                    stacked = np.stack(self.baseline_buffer)
+                    self.baseline_energy = np.mean(stacked, axis=0)
+                    self.baseline_locked = True
+                else:
+                    self.baseline_energy = np.mean(np.stack(self.baseline_buffer), axis=0)
+            elif self.baseline_energy is None:
+                # Referência provisória enquanto não há voz real medida.
+                self.baseline_energy = np.ones(12) * 5.0
 
         if self.baseline_energy is None:
             self.baseline_energy = np.ones(12) * 5.0
@@ -587,6 +597,11 @@ class SessionState:
                 "speech_rate_proxy": speech_rate_proxy,
                 "clinical_insight": clinical_insight,
                 "baseline_locked": self.baseline_locked,
+                # Progresso real da calibração (0-60 ticks COM voz real). Torna
+                # visível que a baseline avança só quando há voz medida — sem
+                # isso, uma sessão sem áudio parecia "calibrando" para sempre.
+                "baseline_progress": len(self.baseline_buffer),
+                "baseline_target": 60,
             },
             "commitment_models": commitment_output,
         }

@@ -32,22 +32,40 @@ DEFAULT_THRESHOLD = 0.12
 
 
 def _difference_function(x: np.ndarray, tau_max: int) -> np.ndarray:
-    """d(tau) = sum_j (x[j] - x[j+tau])^2, para tau em [0, tau_max]."""
+    """d(tau) = sum_j (x[j] - x[j+tau])^2, para tau em [0, tau_max].
+
+    Formulação equivalente via autocorrelação (padrão na literatura do YIN):
+        d(tau) = S[n-tau] + (S[n] - S[tau]) - 2*r(tau)
+    onde S é a soma cumulativa de x^2 e r a autocorrelação, obtida por FFT.
+    Substitui o laço O(n*tau_max) por O(n log n) — o mesmo resultado, muito
+    mais rápido (esta função é o ponto mais quente da análise de voz, chamada
+    ~150x por janela no cálculo de jitter/shimmer).
+    """
     n = x.size
-    d = np.zeros(tau_max + 1, dtype=np.float64)
-    for tau in range(1, tau_max + 1):
-        diff = x[: n - tau] - x[tau:]
-        d[tau] = float(np.dot(diff, diff))
-    return d
+    # Autocorrelação linear via FFT (zero-padding para evitar wrap-around).
+    size = 1
+    while size < 2 * n:
+        size *= 2
+    spec = np.fft.rfft(x, n=size)
+    corr = np.fft.irfft(spec * np.conjugate(spec), n=size)[: tau_max + 1]
+
+    power = np.concatenate(([0.0], np.cumsum(x * x)))
+    taus = np.arange(tau_max + 1)
+    d = power[n - taus] + (power[n] - power[taus]) - 2.0 * corr
+    d[0] = 0.0
+    # Erros de arredondamento da FFT podem gerar valores levemente negativos.
+    return np.maximum(d, 0.0)
 
 
 def _cumulative_mean_normalized(d: np.ndarray) -> np.ndarray:
     """d'(tau): função de diferença com média cumulativa normalizada (YIN)."""
     dprime = np.ones_like(d)
-    running_sum = 0.0
-    for tau in range(1, d.size):
-        running_sum += d[tau]
-        dprime[tau] = d[tau] * tau / running_sum if running_sum > 0 else 1.0
+    if d.size > 1:
+        taus = np.arange(1, d.size)
+        running = np.cumsum(d[1:])
+        with np.errstate(divide="ignore", invalid="ignore"):
+            values = np.where(running > 0, d[1:] * taus / running, 1.0)
+        dprime[1:] = values
     return dprime
 
 
@@ -146,20 +164,55 @@ def estimate_f0_series(
         f0 = estimate_f0_frame(x, sample_rate, fmin, fmax, threshold)
         return (f0, 0.0, 1.0 if f0 > 0 else 0.0)
 
-    voiced: list[float] = []
-    total = 0
-    for start in range(0, x.size - frame_len + 1, hop_len):
-        total += 1
-        f0 = estimate_f0_frame(x[start : start + frame_len], sample_rate, fmin, fmax, threshold)
-        if f0 > 0.0:
-            voiced.append(f0)
-    if not voiced:
+    f0_per_frame, _ = frame_f0_series(
+        x, sample_rate, fmin, fmax, threshold, frame_ms, hop_ms
+    )
+    total = f0_per_frame.size
+    arr = f0_per_frame[f0_per_frame > 0.0]
+    if arr.size == 0:
         return 0.0, 0.0, 0.0
-    arr = np.asarray(voiced, dtype=np.float64)
     f0_mean = float(np.median(arr))
     f0_std = float(np.std(arr)) if arr.size > 1 else 0.0
-    voiced_ratio = float(len(voiced) / total) if total else 0.0
+    voiced_ratio = float(arr.size / total) if total else 0.0
     return round(f0_mean, 2), round(f0_std, 2), round(voiced_ratio, 3)
+
+
+def frame_f0_series(
+    signal: np.ndarray,
+    sample_rate: float,
+    fmin: float = DEFAULT_FMIN,
+    fmax: float = DEFAULT_FMAX,
+    threshold: float = DEFAULT_THRESHOLD,
+    frame_ms: float = 40.0,
+    hop_ms: float = 20.0,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Passagem ÚNICA de F0 por quadro, retornando (f0_por_quadro, rms_por_quadro).
+
+    Antes, estimate_f0_series e jitter_shimmer percorriam o sinal com os
+    MESMOS parâmetros (40ms/20ms), estimando F0 duas vezes sobre os mesmos
+    quadros. Esta função concentra a passagem; ambos os consumidores a
+    reaproveitam. F0 = 0.0 marca quadro não-vozeado.
+    """
+    x = np.asarray(signal, dtype=np.float64)
+    frame_len = max(4, int(round(sample_rate * frame_ms / 1000.0)))
+    hop_len = max(1, int(round(sample_rate * hop_ms / 1000.0)))
+    if x.size < frame_len:
+        f0 = estimate_f0_frame(x, sample_rate, fmin, fmax, threshold)
+        rms = float(np.sqrt(np.mean(x ** 2))) if x.size else 0.0
+        return np.asarray([f0], dtype=np.float64), np.asarray([rms], dtype=np.float64)
+
+    n_frames = 1 + (x.size - frame_len) // hop_len
+    frames = np.lib.stride_tricks.as_strided(
+        x,
+        shape=(n_frames, frame_len),
+        strides=(x.strides[0] * hop_len, x.strides[0]),
+        writeable=False,
+    )
+    f0_values = np.empty(n_frames, dtype=np.float64)
+    for i in range(n_frames):
+        f0_values[i] = estimate_f0_frame(frames[i], sample_rate, fmin, fmax, threshold)
+    rms_values = np.sqrt(np.mean(frames ** 2, axis=1))
+    return f0_values, rms_values
 
 
 def pcm16_bytes_to_float(pcm_bytes: bytes) -> np.ndarray:

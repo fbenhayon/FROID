@@ -5,6 +5,7 @@ import unittest
 
 import numpy as np
 
+import froid_f0
 import froid_voice
 
 
@@ -14,6 +15,13 @@ SR = 16000
 def sine(freq, sec=1.0, amp=1.0):
     t = np.arange(int(SR * sec)) / SR
     return amp * np.sin(2 * math.pi * freq * t)
+
+
+def glottal(f0, sec=1.0):
+    """Pulso glotal sintético (soma harmônica) — mais próximo da voz real."""
+    t = np.arange(int(SR * sec)) / SR
+    sig = sum((1.0 / k) * np.sin(2 * math.pi * f0 * k * t) for k in range(1, 13))
+    return sig / np.max(np.abs(sig))
 
 
 def am_signal(carrier, mod_hz, sec=2.0, depth=0.6):
@@ -75,6 +83,63 @@ class VoiceFeatureTests(unittest.TestCase):
         j_vib, _ = froid_voice.jitter_shimmer(vibrato, SR)
         j_flat, _ = froid_voice.jitter_shimmer(sine(150.0, 1.0), SR)
         self.assertGreater(j_vib, j_flat)
+
+
+class VectorizationEquivalenceTests(unittest.TestCase):
+    """As otimizações de desempenho (matriz DCT em cache + framing vetorizado,
+    e YIN por autocorrelação via FFT) devem ser NUMERICAMENTE equivalentes às
+    formulações diretas — desempenho jamais pode custar acurácia clínica."""
+
+    def test_mfcc_matches_reference_loop(self):
+        signal = glottal(150.0, 1.0)
+        emphasized = np.append(signal[0], signal[1:] - 0.97 * signal[:-1])
+        frame_len, hop, n_filters, n_mfcc = 400, 160, 26, 13
+        n_fft = 512
+        fb = froid_voice._mel_filterbank(n_filters, n_fft, SR)
+        window = np.hamming(frame_len)
+        coeffs = []
+        for start in range(0, emphasized.size - frame_len + 1, hop):
+            frame = emphasized[start : start + frame_len] * window
+            spec = np.fft.rfft(frame, n=n_fft)
+            power = (spec.real ** 2 + spec.imag ** 2) / n_fft
+            log_mel = np.log(fb @ power + froid_voice.EPS)
+            k = np.arange(n_filters)
+            coeffs.append(
+                [np.sum(log_mel * np.cos(np.pi * i * (2 * k + 1) / (2 * n_filters)))
+                 for i in range(n_mfcc)]
+            )
+        reference = np.mean(np.asarray(coeffs), axis=0)
+        np.testing.assert_allclose(
+            froid_voice._mfcc_mean(signal, SR), reference, atol=1e-9
+        )
+
+    def test_yin_difference_matches_direct_formula(self):
+        rng = np.random.default_rng(11)
+        for _ in range(4):
+            n = int(rng.integers(400, 1000))
+            t = np.arange(n) / SR
+            x = np.sin(2 * math.pi * rng.uniform(80, 300) * t)
+            x = x - x.mean()
+            tau_max = min(n - 1, 266)
+            direct = np.zeros(tau_max + 1)
+            for tau in range(1, tau_max + 1):
+                diff = x[: n - tau] - x[tau:]
+                direct[tau] = float(np.dot(diff, diff))
+            fast = froid_f0._difference_function(x, tau_max)
+            scale = max(1e-12, float(np.max(np.abs(direct))))
+            self.assertLess(float(np.max(np.abs(direct - fast))) / scale, 1e-9)
+
+    def test_single_pass_f0_matches_series_summary(self):
+        # frame_f0_series (passagem única) deve reproduzir o resumo de
+        # estimate_f0_series, que agora a consome.
+        signal = glottal(180.0, 1.0)
+        f0_mean, f0_std, voiced_ratio = froid_f0.estimate_f0_series(signal, SR)
+        frames, _ = froid_f0.frame_f0_series(signal, SR)
+        voiced = frames[frames > 0.0]
+        self.assertAlmostEqual(f0_mean, round(float(np.median(voiced)), 2), places=2)
+        self.assertAlmostEqual(
+            voiced_ratio, round(float(voiced.size / frames.size), 3), places=3
+        )
 
 
 if __name__ == "__main__":

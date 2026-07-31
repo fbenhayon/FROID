@@ -187,6 +187,11 @@ const DISSONANCE_MFCC_DELTA_THRESHOLD = 0.35;
 const DISSONANCE_DNA_THRESHOLD = 0.18;
 const DISSONANCE_IPM_DELTA_THRESHOLD = 3.0;
 const IPM_HISTORY_LIMIT = 1200;
+// Tolerância de silêncio do paciente: o fluxo de áudio RTP é amostrado a cada
+// 2s, então uma pausa natural na fala zera o delta de bytes. Manter a trilha
+// válida por 20s após o último fluxo observado evita que silêncio clínico —
+// que é dado, não ausência de sinal — descarte as métricas do tick.
+const PATIENT_AUDIO_GRACE_MS = 20_000;
 const CLINICAL_MICRO_WINDOW_SECONDS = 60;
 // Teto de caracteres da transcrição enviada ao FROID Explica por consulta,
 // preservando o trecho mais recente sem estourar o contexto do modelo.
@@ -2415,6 +2420,12 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const attributedSpeakerRef = useRef<SpeakerRole>("DR");
   const forcedLocalSegmentSpeakerRef = useRef<SpeakerRole | null>(null);
   const remotePatientOnRef = useRef(false);
+  // Último instante em que se observou fluxo RTP de áudio do paciente. O
+  // detector compara bytes entre amostras de 2s, então SILÊNCIO CLÍNICO (uma
+  // pausa natural do paciente) zera o delta e derrubava remotePatientOn — o
+  // que descartava as métricas do tick. Silêncio não é desconexão: mantemos a
+  // trilha válida por PATIENT_AUDIO_GRACE_MS após o último fluxo observado.
+  const lastPatientAudioMsRef = useRef(0);
   const directLocalMetricsActiveRef = useRef(false);
   const speakerIdModeRef = useRef<SpeakerIdMode>(speakerIdMode);
   const drVoiceSignatureRef = useRef<VoiceSignature | null>(drVoiceSignature);
@@ -2529,6 +2540,15 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   useEffect(() => {
     remotePatientOnRef.current = remotePatientOn;
   }, [remotePatientOn]);
+
+  // Trilha do paciente considerada válida: fluxo de áudio agora OU dentro da
+  // janela de tolerância desde o último fluxo (silêncio clínico não invalida a
+  // trilha). Usado pelos dois gates de métricas — payload do servidor e IPM local.
+  const patientTrackUsable = useCallback(() => {
+    if (remotePatientOnRef.current) return true;
+    const last = lastPatientAudioMsRef.current;
+    return last > 0 && Date.now() - last <= PATIENT_AUDIO_GRACE_MS;
+  }, []);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -3098,6 +3118,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         previousFlowStats = current;
         if (!inbound) return;
         const { audioFlowing, videoFlowing } = inbound;
+        if (audioFlowing) lastPatientAudioMsRef.current = Date.now();
         setRemotePatientOn(audioFlowing);
         setRemotePatientVideoOn(videoFlowing);
         const route = current.candidateType
@@ -3406,7 +3427,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             metrics.voicePresence,
           );
           const shouldFeedLocalIpm =
-            remotePatientOnRef.current ||
+            patientTrackUsable() ||
             attributedSpeakerRef.current === "PC" ||
             directLocalMetricsActiveRef.current;
           const localIpm = computeLocalIpmFromBioacoustics(metrics, dnaMetrics);
@@ -4408,7 +4429,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             const data: FroidPayload = JSON.parse(event.data);
             const elapsedSeconds = elapsedSecondsRef.current;
             const shouldUseForMetrics =
-              remotePatientOnRef.current ||
+              patientTrackUsable() ||
               attributedSpeakerRef.current === "PC" ||
               directLocalMetricsActiveRef.current;
             if (!shouldUseForMetrics) {
@@ -4474,12 +4495,17 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   }, [sessionId]);
 
   useEffect(() => {
+    // Agrega a cada 3s sobre os frames acumulados desde a última agregação.
+    // Antes rodava a cada 10s enquanto o buffer guardava só 6 frames (6s), o
+    // que DESCARTAVA os frames mais antigos de cada janela e adicionava até
+    // 10s de atraso à apresentação. Com 3s, nenhum frame é perdido (buffer de
+    // 6 comporta a janela) e a latência do painel cai para ~1/3.
     const id = setInterval(() => {
       if (frameBuffer.current.length === 0) return;
       const agg = aggregatePayloads([...frameBuffer.current]);
       dispatch({ type: "AGGREGATE", agg });
       frameBuffer.current = [];
-    }, 10000); /* agrega a cada 10s usando média dos últimos 3s (6 frames) */
+    }, 3000);
     return () => clearInterval(id);
   }, []);
 

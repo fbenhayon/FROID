@@ -103,38 +103,75 @@ def _mel_filterbank(n_filters: int, n_fft: int, sr: float) -> np.ndarray:
     return fb
 
 
+def _dct2_matrix(n_in: int, n_out: int) -> np.ndarray:
+    """Matriz da DCT-II (n_out x n_in). Depende só das dimensões, então é
+    calculada uma vez e reaproveitada (ver _DCT_CACHE)."""
+    k = np.arange(n_in)
+    i = np.arange(n_out).reshape(-1, 1)
+    return np.cos(np.pi * i * (2 * k + 1) / (2 * n_in))
+
+
+# Caches de matrizes que dependem apenas dos parâmetros (não do sinal). Sem
+# eles, a matriz DCT era reconstruída a cada quadro — ~100 mil cossenos
+# redundantes por segundo de áudio, por paciente.
+_DCT_CACHE: Dict[tuple, np.ndarray] = {}
+_MEL_CACHE: Dict[tuple, np.ndarray] = {}
+
+
 def _dct2(x: np.ndarray, n_out: int) -> np.ndarray:
-    n = x.size
-    k = np.arange(n)
-    out = np.zeros(n_out)
-    for i in range(n_out):
-        out[i] = np.sum(x * np.cos(np.pi * i * (2 * k + 1) / (2 * n)))
-    return out
+    """DCT-II de um vetor (mantida para compatibilidade e testes)."""
+    key = (int(x.size), int(n_out))
+    matrix = _DCT_CACHE.get(key)
+    if matrix is None:
+        matrix = _dct2_matrix(int(x.size), int(n_out))
+        _DCT_CACHE[key] = matrix
+    return matrix @ x
 
 
 def _mfcc_mean(signal: np.ndarray, sr: float, n_mfcc: int = 13, n_filters: int = 26) -> np.ndarray:
-    """MFCC médio da janela (framing 25ms/10ms, pré-ênfase, Mel, log, DCT-II)."""
+    """MFCC médio da janela (framing 25ms/10ms, pré-ênfase, Mel, log, DCT-II).
+
+    Totalmente vetorizado: o framing usa stride tricks e a FFT/DCT rodam em
+    lote sobre todos os quadros. Matematicamente idêntico ao laço quadro a
+    quadro anterior, porém muito mais rápido — relevante porque roda a cada
+    ~1s por paciente e antes bloqueava tempo de CPU proporcional à janela.
+    """
     if signal.size < int(0.025 * sr):
         return np.zeros(n_mfcc)
     emphasized = np.append(signal[0], signal[1:] - 0.97 * signal[:-1])
     frame_len = max(8, int(round(0.025 * sr)))
     hop = max(1, int(round(0.010 * sr)))
+    n_frames = 1 + (emphasized.size - frame_len) // hop
+    if n_frames < 1:
+        return np.zeros(n_mfcc)
     n_fft = 1
     while n_fft < frame_len:
         n_fft *= 2
-    fb = _mel_filterbank(n_filters, n_fft, sr)
-    window = np.hamming(frame_len)
-    coeffs = []
-    for start in range(0, emphasized.size - frame_len + 1, hop):
-        frame = emphasized[start : start + frame_len] * window
-        spec = np.fft.rfft(frame, n=n_fft)
-        power = (spec.real ** 2 + spec.imag ** 2) / n_fft
-        mel_energy = np.dot(fb, power)
-        log_mel = np.log(mel_energy + EPS)
-        coeffs.append(_dct2(log_mel, n_mfcc))
-    if not coeffs:
-        return np.zeros(n_mfcc)
-    return np.mean(np.asarray(coeffs), axis=0)
+
+    mel_key = (int(n_filters), int(n_fft), float(sr))
+    fb = _MEL_CACHE.get(mel_key)
+    if fb is None:
+        fb = _mel_filterbank(n_filters, n_fft, sr)
+        _MEL_CACHE[mel_key] = fb
+
+    # Framing sem cópia (visão com stride) + janela de Hamming.
+    frames = np.lib.stride_tricks.as_strided(
+        emphasized,
+        shape=(n_frames, frame_len),
+        strides=(emphasized.strides[0] * hop, emphasized.strides[0]),
+        writeable=False,
+    ) * np.hamming(frame_len)
+
+    spec = np.fft.rfft(frames, n=n_fft, axis=1)
+    power = (spec.real ** 2 + spec.imag ** 2) / n_fft
+    log_mel = np.log(power @ fb.T + EPS)
+
+    dct_key = (int(n_filters), int(n_mfcc))
+    dct_matrix = _DCT_CACHE.get(dct_key)
+    if dct_matrix is None:
+        dct_matrix = _dct2_matrix(int(n_filters), int(n_mfcc))
+        _DCT_CACHE[dct_key] = dct_matrix
+    return np.mean(log_mel @ dct_matrix.T, axis=0)
 
 
 def extract_voice_features(signal: np.ndarray, sample_rate: float) -> Dict[str, float]:
@@ -148,11 +185,19 @@ def extract_voice_features(signal: np.ndarray, sample_rate: float) -> Dict[str, 
     if not np.any(x):
         return features
 
-    # F0, jitter e shimmer (por quadro).
-    f0_mean, f0_std, voiced_ratio = froid_f0.estimate_f0_series(x, sample_rate)
-    features["f0_mean"] = f0_mean
-    features["f0_var"] = f0_std
-    features["f0_voiced_ratio"] = voiced_ratio
+    # Passagem ÚNICA de F0 por quadro — alimenta tanto o resumo de F0 quanto
+    # o jitter/shimmer (que antes refaziam a mesma estimativa por quadro).
+    f0_frames, rms_frames = froid_f0.frame_f0_series(x, sample_rate)
+    voiced_mask = f0_frames > 0.0
+    voiced_f0 = f0_frames[voiced_mask]
+    if voiced_f0.size:
+        features["f0_mean"] = round(float(np.median(voiced_f0)), 2)
+        features["f0_var"] = round(float(np.std(voiced_f0)) if voiced_f0.size > 1 else 0.0, 2)
+        features["f0_voiced_ratio"] = round(float(voiced_f0.size / f0_frames.size), 3)
+    else:
+        features["f0_mean"] = 0.0
+        features["f0_var"] = 0.0
+        features["f0_voiced_ratio"] = 0.0
 
     # ZCR — taxa de cruzamento por zero (real).
     signs = np.sign(x)
@@ -196,28 +241,42 @@ def extract_voice_features(signal: np.ndarray, sample_rate: float) -> Dict[str, 
     features["mfcc7"] = round(float(mfcc[7]) if mfcc.size > 7 else 0.0, 4)
     features["mfcc9"] = round(float(mfcc[9]) if mfcc.size > 9 else 0.0, 4)
 
-    # Jitter e shimmer (perturbação ciclo-a-ciclo de período e amplitude).
-    jitter, shimmer = jitter_shimmer(x, sample_rate)
+    # Jitter e shimmer, calculados sobre os MESMOS quadros já estimados acima
+    # (sem refazer a passagem de F0, que é o trecho mais caro da análise).
+    periods = 1.0 / voiced_f0 if voiced_f0.size else np.zeros(0)
+    amplitudes = rms_frames[voiced_mask] if voiced_f0.size else np.zeros(0)
+    jitter, shimmer = _perturbation(periods, amplitudes)
     features["jitter"] = jitter
     features["shimmer"] = shimmer
 
     return features
 
 
+def _perturbation(periods: np.ndarray, amplitudes: np.ndarray) -> tuple[float, float]:
+    """Jitter (perturbação relativa do período) e shimmer (da amplitude)."""
+    jitter = 0.0
+    shimmer = 0.0
+    if periods.size >= 2:
+        jitter = float(np.mean(np.abs(np.diff(periods))) / (np.mean(periods) + EPS))
+    if amplitudes.size >= 2:
+        shimmer = float(np.mean(np.abs(np.diff(amplitudes))) / (np.mean(amplitudes) + EPS))
+    return round(jitter, 5), round(shimmer, 5)
+
+
 def voiced_frame_series(signal: np.ndarray, sample_rate: float, frame_ms: float = 40.0, hop_ms: float = 20.0):
-    """Séries por quadro de F0 (período) e amplitude RMS, para jitter/shimmer."""
-    x = np.asarray(signal, dtype=np.float64)
-    frame_len = max(4, int(round(sample_rate * frame_ms / 1000.0)))
-    hop = max(1, int(round(sample_rate * hop_ms / 1000.0)))
-    periods = []
-    amplitudes = []
-    for start in range(0, x.size - frame_len + 1, hop):
-        frame = x[start : start + frame_len]
-        f0 = froid_f0.estimate_f0_frame(frame, sample_rate)
-        if f0 > 0.0:
-            periods.append(1.0 / f0)
-            amplitudes.append(float(np.sqrt(np.mean(frame ** 2))))
-    return np.asarray(periods), np.asarray(amplitudes)
+    """Séries por quadro de F0 (período) e amplitude RMS, para jitter/shimmer.
+
+    Reaproveita a passagem única de froid_f0.frame_f0_series — antes esta
+    função reestimava a F0 sobre exatamente os mesmos quadros já percorridos
+    por estimate_f0_series, duplicando o trabalho mais caro da análise.
+    """
+    f0_values, rms_values = froid_f0.frame_f0_series(
+        signal, sample_rate, frame_ms=frame_ms, hop_ms=hop_ms
+    )
+    voiced = f0_values > 0.0
+    periods = 1.0 / f0_values[voiced] if np.any(voiced) else np.zeros(0)
+    amplitudes = rms_values[voiced] if np.any(voiced) else np.zeros(0)
+    return periods, amplitudes
 
 
 def jitter_shimmer(signal: np.ndarray, sample_rate: float) -> tuple[float, float]:
@@ -227,10 +286,4 @@ def jitter_shimmer(signal: np.ndarray, sample_rate: float) -> tuple[float, float
     porém agora derivados da voz REAL, não de ruído simulado.
     """
     periods, amplitudes = voiced_frame_series(signal, sample_rate)
-    jitter = 0.0
-    shimmer = 0.0
-    if periods.size >= 2:
-        jitter = float(np.mean(np.abs(np.diff(periods))) / (np.mean(periods) + EPS))
-    if amplitudes.size >= 2:
-        shimmer = float(np.mean(np.abs(np.diff(amplitudes))) / (np.mean(amplitudes) + EPS))
-    return round(jitter, 5), round(shimmer, 5)
+    return _perturbation(periods, amplitudes)

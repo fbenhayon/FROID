@@ -112,34 +112,52 @@ export async function startF0Capture(
       Math.round(sampleRate * (opts.windowSeconds ?? 1.0)),
     );
 
-    const flush = async () => {
+    // Envio SERIALIZADO: o servidor concatena cada janela num buffer rolante,
+    // então a ordem importa. Sem esta fila, uma oscilação de rede poderia
+    // fazer janelas chegarem fora de ordem e corromper a análise temporal
+    // (F0/MFCC/envelope calculados sobre um sinal remontado errado).
+    let sendChain: Promise<void> = Promise.resolve();
+    let pendingSends = 0;
+
+    const flush = () => {
       if (!buffer.length) return;
       const frame = Float32Array.from(buffer);
       buffer = [];
+      // Descarta a janela se houver acúmulo (rede muito lenta): manter o
+      // tempo real é preferível a processar áudio obsoleto em atraso crescente.
+      if (pendingSends >= 3) return;
+      pendingSends += 1;
       const pcmBase64 = floatToBase64Int16(frame);
-      try {
-        await fetch(opts.endpoint, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(opts.token ? { Authorization: `Bearer ${opts.token}` } : {}),
-          },
-          body: JSON.stringify({
-            pcm_base64: pcmBase64,
-            sample_rate: sampleRate,
-            invite: opts.invite || "",
-          }),
+      sendChain = sendChain
+        .then(async () => {
+          if (stopped) return;
+          try {
+            await fetch(opts.endpoint, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                ...(opts.token ? { Authorization: `Bearer ${opts.token}` } : {}),
+              },
+              body: JSON.stringify({
+                pcm_base64: pcmBase64,
+                sample_rate: sampleRate,
+                invite: opts.invite || "",
+              }),
+            });
+          } catch {
+            /* falha transitória de rede é ignorada */
+          }
+        })
+        .finally(() => {
+          pendingSends -= 1;
         });
-      } catch {
-        /* falha transitória de rede é ignorada */
-      }
     };
 
     node.port.onmessage = (event: MessageEvent) => {
       if (stopped) return;
       const chunk = event.data as Float32Array;
       for (let i = 0; i < chunk.length; i += 1) buffer.push(chunk[i]);
-      if (buffer.length >= windowSamples) void flush();
+      if (buffer.length >= windowSamples) flush();
     };
 
     // Um AudioWorkletNode só processa quando alcança o destino do grafo.
