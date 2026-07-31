@@ -72,7 +72,8 @@ class PatientMobileWebRtcTests(unittest.TestCase):
         self.assertIn("patientRemoteAudioTrackIdRef", self.professional_session)
         self.assertIn("resetPatientAudioPipeline", self.professional_session)
         self.assertIn("track.onended", self.professional_session)
-        self.assertEqual(self.professional_session.count("Ouvir paciente"), 2)
+        # Um botão por layout do profissional (Detalhada, Índices, Simplificada).
+        self.assertEqual(self.professional_session.count("Ouvir paciente"), 3)
         self.assertIn("unlockPatientAudio", self.professional_session)
 
     def test_muted_remote_tracks_are_not_reported_as_active(self):

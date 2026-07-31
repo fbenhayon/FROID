@@ -109,10 +109,13 @@ export interface EvidentMarker {
   category: string;
   value: number;
   band: [number | null, number | null];
-  direction: "acima" | "abaixo" | string;
+  direction: "acima" | "abaixo" | "dentro" | string;
   severity: number;
   unit: string;
   interpretation: string;
+  // Presente em all_markers (leitura de todos, dentro ou fora da banda);
+  // ausente em evident_markers, onde a ruptura já é implícita (sempre true).
+  breached?: boolean;
 }
 
 export interface DissonanceEvent {
@@ -129,6 +132,9 @@ export interface DissonanceEvent {
   mean_severity?: number;
   categories: string[];
   evident_markers: EvidentMarker[];
+  // Leitura de TODOS os marcadores avaliáveis (dentro ou fora da banda) —
+  // alimenta painéis que exibem o valor atual de cada índice.
+  all_markers?: EvidentMarker[];
   summary: string;
   voice_features_source: "real_pcm" | "mock" | string;
   peak_zone?: number;

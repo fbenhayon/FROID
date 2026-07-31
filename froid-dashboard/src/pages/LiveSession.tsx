@@ -2301,9 +2301,9 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const [conversationSummaries, setConversationSummaries] = useState<
     ConversationSummary[]
   >([]);
-  const [sessionLayout, setSessionLayout] = useState<"detailed" | "simplified">(
-    "detailed",
-  );
+  const [sessionLayout, setSessionLayout] = useState<
+    "detailed" | "simplified" | "indices"
+  >("detailed");
   const [clinicalUpdateMode, setClinicalUpdateMode] = useState<ClinicalUpdateMode>(
     loadClinicalUpdateMode,
   );
@@ -4564,6 +4564,13 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const confirmedDissonanceZones = (Array.isArray(displayZones) ? displayZones : []).filter(
     (zone) => hasConfirmedDissonanceEvidence(zone, displayAudio),
   );
+  // Leitura de TODOS os índices com métrica base definida (rompida ou não) —
+  // alimenta o layout "Sessão Detalhada · Índices" (Coluna 1).
+  const allMarkerReadings: EvidentMarker[] = Array.isArray(
+    (raw as any)?.dissonance_event?.all_markers,
+  )
+    ? (raw as any).dissonance_event.all_markers
+    : [];
   const semanticCutElapsed = Math.max(0, state.elapsedSeconds - semanticCutStartSecond);
   const semanticCutWindowSeconds = TRANSCRIPT_SUMMARY_WINDOW_MS / 1000;
   const semanticCutProgress = Math.min(
@@ -4906,20 +4913,118 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   }
 
   const layoutSelector = (
-    <button
-      type="button"
-      onClick={() =>
-        setSessionLayout((current) =>
-          current === "detailed" ? "simplified" : "detailed",
-        )
+    <select
+      value={sessionLayout}
+      onChange={(event) =>
+        setSessionLayout(event.target.value as "detailed" | "simplified" | "indices")
       }
-      className="w-full rounded-lg border border-blue-700 bg-blue-950 px-3 py-2 text-[9px] font-black uppercase tracking-wide text-blue-100 transition-colors hover:bg-blue-900"
+      aria-label="Layout da sessão"
+      className="w-full rounded-lg border border-blue-700 bg-blue-950 px-3 py-2 text-[9px] font-black uppercase tracking-wide text-blue-100 outline-none transition-colors hover:bg-blue-900"
     >
-      {sessionLayout === "detailed"
-        ? "Abrir Sessão Simplificada"
-        : "Voltar à Sessão Detalhada"}
-    </button>
+      <option value="detailed">Sessão Detalhada</option>
+      <option value="indices">Sessão Detalhada · Índices</option>
+      <option value="simplified">Sessão Simplificada</option>
+    </select>
   );
+
+  // Painel "Dissonâncias Evidentes" — extraído para ser reutilizado tanto na
+  // Coluna 3 do layout Detalhado quanto na Coluna 2 do layout de Índices.
+  function renderEvidentDissonancePanel() {
+    if (multiDissonanceLog.length === 0) return null;
+    return (
+      <div className="mt-3 rounded-lg border border-red-700/70 bg-red-950/30 p-2">
+        <div className="mb-2 flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-red-200">
+              Dissonâncias Evidentes
+            </p>
+            <p className="text-[9px] text-red-300/70">
+              Cada marcador fora da métrica base é registrado com valor,
+              limiar e interpretação. Ocorrências com 2+ marcadores em 2+
+              categorias são destacadas como múltiplas.
+            </p>
+          </div>
+          <span className="shrink-0 rounded-full bg-red-800/60 px-2 py-0.5 text-[9px] font-bold text-red-100">
+            {multiDissonanceLog.length}
+          </span>
+        </div>
+        <div className="max-h-56 space-y-1.5 overflow-y-auto pr-1">
+          {multiDissonanceLog
+            .slice()
+            .reverse()
+            .map((entry) => (
+              <div
+                key={entry.id}
+                className="rounded border border-red-800/70 bg-red-950/40 p-2 text-[10px] text-slate-200"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5 font-bold text-red-100">
+                    {entry.isMulti && (
+                      <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-white">
+                        múltipla
+                      </span>
+                    )}
+                    {entry.count} marcador{entry.count === 1 ? "" : "es"} ·{" "}
+                    {entry.categories.length} categoria
+                    {entry.categories.length === 1 ? "" : "s"}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    {typeof entry.severity === "number" && (
+                      <span className="rounded bg-red-800/60 px-1.5 py-0.5 text-[8px] font-bold text-red-100">
+                        int. {Math.round(entry.severity * 100)}%
+                      </span>
+                    )}
+                    <span className="text-[9px] text-slate-400">
+                      {entry.elapsedSeconds}s
+                    </span>
+                  </span>
+                </div>
+                <div className="mt-0.5 flex items-center justify-between gap-2">
+                  <p className="text-[9px] text-slate-400">{entry.timestamp}</p>
+                  <span
+                    className={`rounded px-1.5 py-0.5 text-[8px] font-bold uppercase ${
+                      entry.source === "real_pcm"
+                        ? "bg-emerald-900/60 text-emerald-200"
+                        : "bg-slate-700/60 text-slate-300"
+                    }`}
+                  >
+                    {entry.source === "real_pcm" ? "voz real" : "voz simulada"}
+                  </span>
+                </div>
+                {entry.peakZone && (
+                  <p className="mt-0.5 text-[9px] text-red-300/80">
+                    Zona de maior desvio: {entry.peakZone}
+                    {entry.peakZoneTema ? ` — ${entry.peakZoneTema}` : ""}
+                  </p>
+                )}
+                <div className="mt-1 space-y-1">
+                  {entry.markers.map((m, mi) => (
+                    <div
+                      key={`${entry.id}-${m.key}-${mi}`}
+                      className="rounded border border-red-900/50 bg-black/20 px-1.5 py-1"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold text-red-100">
+                          {m.label}
+                        </span>
+                        <span className="text-[8px] uppercase text-slate-400">
+                          {m.category}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-[9px] text-slate-300">
+                        Valor {Number(m.value).toFixed(3)} {m.direction} do
+                        limiar {m.direction === "acima" ? m.band[1] : m.band[0]}{" "}
+                        · {m.interpretation}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+        </div>
+      </div>
+    );
+  }
 
   const clinicalStabilizationControl = (
     <div className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-[9px] text-slate-200">
@@ -5095,6 +5200,219 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             </section>
           </div>
         </main>
+      </div>
+    );
+  }
+
+  if (sessionLayout === "indices") {
+    return (
+      <div className="grid h-screen min-w-[1500px] grid-cols-[minmax(200px,15%)_minmax(680px,49%)_minmax(500px,36%)] overflow-x-auto overflow-y-hidden bg-slate-950 text-slate-100">
+        {/* COLUNA 1 — mínima: índices com métrica base, valor ao lado, um embaixo do outro */}
+        <div className="order-1 min-w-0 flex flex-col gap-2 overflow-y-auto border-x border-slate-800 bg-slate-950 p-2 text-slate-100">
+          <div className="flex min-w-max items-center justify-between gap-2 overflow-x-auto">
+            <h1 className="text-[11px] font-bold text-slate-100">
+              Índices
+            </h1>
+            <button
+              onClick={endSession}
+              className="rounded bg-red-600 px-2 py-1 text-[9px] font-bold text-white hover:bg-red-700"
+            >
+              Encerrar
+            </button>
+          </div>
+
+          {layoutSelector}
+
+          <SessionTimer startTime={state.sessionStart} onEndSession={endSession} />
+
+          <div className="flex-1 min-h-0 space-y-1 overflow-y-auto">
+            {allMarkerReadings.length === 0 && (
+              <p className="rounded border border-slate-800 bg-slate-900 p-2 text-[9px] leading-snug text-slate-500">
+                Aguardando marcadores com métrica base avaliável (voz real
+                e/ou face real ativas).
+              </p>
+            )}
+            {allMarkerReadings.map((m) => (
+              <div
+                key={m.key}
+                title={`${m.category} · ${m.interpretation}`}
+                className={`rounded border px-1.5 py-1 transition-colors ${
+                  m.breached
+                    ? "border-red-600 bg-red-900/60"
+                    : "border-slate-800 bg-slate-900"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-1.5">
+                  <span
+                    className={`truncate text-[9px] font-bold ${
+                      m.breached ? "text-red-100" : "text-slate-300"
+                    }`}
+                  >
+                    {m.label}
+                  </span>
+                  <span
+                    className={`shrink-0 font-mono text-[10px] font-black ${
+                      m.breached ? "text-red-100" : "text-cyan-200"
+                    }`}
+                  >
+                    {Number.isFinite(m.value) ? m.value.toFixed(3) : "--"}
+                  </span>
+                </div>
+                <p
+                  className={`mt-0.5 truncate text-[8px] ${
+                    m.breached ? "text-red-300/80" : "text-slate-500"
+                  }`}
+                >
+                  {m.category} · limiar{" "}
+                  {(m.direction === "acima" ? m.band[1] : m.band[0]) ?? "—"}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* COLUNA 2 — vídeo + resumo/corte + FROID Explica (reduzido) + dissonâncias */}
+        <div className="order-2 min-w-0 flex flex-col gap-2 overflow-y-auto bg-slate-950 p-2 shadow-inner">
+          <div className="relative flex min-h-[280px] flex-[0.8] items-center justify-center overflow-hidden rounded-xl border border-slate-700 bg-slate-900">
+            <MediaStatus
+              cameraOn={state.cameraOn}
+              micOn={state.micOn}
+              simulated={!state.cameraOn}
+            />
+            <video
+              ref={remoteVideoRef}
+              autoPlay
+              muted
+              playsInline
+              className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${
+                remotePatientVideoOn ? "opacity-100" : "opacity-0"
+              }`}
+            />
+            <audio ref={remoteAudioRef} autoPlay className="hidden" />
+            <video
+              ref={videoRef}
+              autoPlay
+              muted
+              playsInline
+              className={`absolute scale-x-[-1] object-cover transition-all duration-500 ${
+                remotePatientVideoOn
+                  ? "bottom-3 right-3 z-20 h-24 w-36 rounded-lg border border-white/40 shadow-lg"
+                  : "inset-0 h-full w-full"
+              } ${state.cameraOn ? "opacity-100" : "opacity-0"}`}
+            />
+            <div
+              className={`absolute left-3 top-3 z-20 rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wide backdrop-blur ${
+                remotePatientVideoOn
+                  ? "bg-emerald-500/90 text-white"
+                  : "bg-slate-950/70 text-slate-200"
+              }`}
+            >
+              {rtcStatus}
+            </div>
+            {remotePatientOn && !isPresentialMobileSession && (
+              <button
+                type="button"
+                onClick={() => void unlockPatientAudio()}
+                className="absolute right-3 top-3 z-30 rounded-full border border-blue-300/60 bg-blue-700 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-white shadow hover:bg-blue-600"
+              >
+                Ouvir paciente
+              </button>
+            )}
+            {!state.cameraOn && <SimulatedCamera />}
+            {(state.camError || !state.micOn) && (
+              <div className="absolute bottom-3 left-3 right-3 z-20 rounded-lg border border-amber-300/50 bg-slate-950/75 px-3 py-2 text-[10px] font-semibold text-amber-100 backdrop-blur-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="min-w-0 flex-1">
+                    {state.camError || "Áudio aguardando permissão do navegador."}
+                  </span>
+                  {!state.micOn && (
+                    <button
+                      type="button"
+                      onClick={() => void activateMedia()}
+                      className="shrink-0 rounded bg-amber-400 px-2 py-1 text-[10px] font-black text-slate-950 hover:bg-amber-300"
+                    >
+                      Ativar áudio
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <section className="shrink-0 overflow-hidden rounded-xl border border-cyan-800 bg-slate-950 p-2 shadow-sm">
+            <AudioTranscription
+              audioMeta={displayAudio}
+              conversationSummaries={conversationSummaries}
+              section="summary"
+              locale={reportLocale}
+              cutElapsedLabel={formatCutClock(semanticCutElapsed)}
+              cutRemainingLabel={formatCutClock(semanticCutRemaining)}
+              cutProgress={semanticCutProgress}
+              onCloseCut={() => void closeSemanticCut("manual")}
+              closeCutDisabled={semanticCutElapsed < 10 || semanticCutClosingRef.current}
+            />
+          </section>
+
+          {/* FROID Explica — reduzido para abrir espaço às dissonâncias */}
+          <div className="min-h-[150px] max-h-[220px] shrink-0 overflow-hidden rounded-xl border border-slate-700 bg-slate-950 p-2">
+            <AIInsights
+              responseLocale={reportLocale}
+              zones={displayZones}
+              ipmScore={displayIpm}
+              coherenceStatus={displayCoherence}
+              baselineEstablished={state.phase === "LIVE"}
+              sessionId={sessionId || ""}
+              getLiveContext={getFroidExplicaContext}
+              onConversationChange={handleFroidExplicaConversation}
+              controlsSticky
+              rootClassName="h-full border-0 bg-transparent p-0 text-slate-100"
+              messagesClassName="min-h-[90px] bg-slate-800/80 text-slate-200"
+            />
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-slate-700 bg-slate-950 p-2">
+            {renderEvidentDissonancePanel()}
+            {multiDissonanceLog.length === 0 && (
+              <p className="p-2 text-[10px] leading-relaxed text-slate-500">
+                Nenhuma dissonância evidente confirmada neste instante.
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* COLUNA 3 — apenas IPM e Mapa Zonal, aproveitando o espaço da Coluna 1 */}
+        <div className="order-3 grid min-w-0 grid-rows-2 gap-2 overflow-hidden bg-slate-950 p-3">
+          {raw ? (
+            <>
+              <div className="min-h-0 overflow-hidden">
+                <IPMLineChart
+                  data={state.ipmHistory}
+                  current={liveIpm}
+                  baseline={state.baselineIPM || undefined}
+                  locale={reportLocale}
+                />
+              </div>
+
+              <div className="min-h-0 overflow-hidden rounded-xl border border-slate-800 bg-slate-900 p-1">
+                <MapaZonalFroid
+                  className="h-full"
+                  zones={displayZones}
+                  baselineIpm={state.baselineIPM}
+                  drValue={displayDrValue}
+                  isCalibrating={state.phase === "CALIBRATING"}
+                  locale={reportLocale}
+                />
+              </div>
+            </>
+          ) : (
+            <div className="row-span-2 flex items-center justify-center text-sm text-slate-400">
+              <div className="text-center">
+                <div className="mb-2 mx-auto h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
+                Aguardando pacote multimodal FROID...
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     );
   }
@@ -5449,109 +5767,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                     );
                   })}
 
-              {multiDissonanceLog.length > 0 && (
-                <div className="mt-3 rounded-lg border border-red-700/70 bg-red-950/30 p-2">
-                  <div className="mb-2 flex items-center justify-between">
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-red-200">
-                        Dissonâncias Evidentes
-                      </p>
-                      <p className="text-[9px] text-red-300/70">
-                        Cada marcador fora da métrica base é registrado com
-                        valor, limiar e interpretação. Ocorrências com 2+
-                        marcadores em 2+ categorias são destacadas como
-                        múltiplas.
-                      </p>
-                    </div>
-                    <span className="shrink-0 rounded-full bg-red-800/60 px-2 py-0.5 text-[9px] font-bold text-red-100">
-                      {multiDissonanceLog.length}
-                    </span>
-                  </div>
-                  <div className="max-h-56 space-y-1.5 overflow-y-auto pr-1">
-                    {multiDissonanceLog
-                      .slice()
-                      .reverse()
-                      .map((entry) => (
-                        <div
-                          key={entry.id}
-                          className="rounded border border-red-800/70 bg-red-950/40 p-2 text-[10px] text-slate-200"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="flex items-center gap-1.5 font-bold text-red-100">
-                              {entry.isMulti && (
-                                <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-white">
-                                  múltipla
-                                </span>
-                              )}
-                              {entry.count} marcador{entry.count === 1 ? "" : "es"} ·{" "}
-                              {entry.categories.length} categoria
-                              {entry.categories.length === 1 ? "" : "s"}
-                            </span>
-                            <span className="flex items-center gap-1.5">
-                              {typeof entry.severity === "number" && (
-                                <span className="rounded bg-red-800/60 px-1.5 py-0.5 text-[8px] font-bold text-red-100">
-                                  int. {Math.round(entry.severity * 100)}%
-                                </span>
-                              )}
-                              <span className="text-[9px] text-slate-400">
-                                {entry.elapsedSeconds}s
-                              </span>
-                            </span>
-                          </div>
-                          <div className="mt-0.5 flex items-center justify-between gap-2">
-                            <p className="text-[9px] text-slate-400">
-                              {entry.timestamp}
-                            </p>
-                            <span
-                              className={`rounded px-1.5 py-0.5 text-[8px] font-bold uppercase ${
-                                entry.source === "real_pcm"
-                                  ? "bg-emerald-900/60 text-emerald-200"
-                                  : "bg-slate-700/60 text-slate-300"
-                              }`}
-                            >
-                              {entry.source === "real_pcm"
-                                ? "voz real"
-                                : "voz simulada"}
-                            </span>
-                          </div>
-                          {entry.peakZone && (
-                            <p className="mt-0.5 text-[9px] text-red-300/80">
-                              Zona de maior desvio: {entry.peakZone}
-                              {entry.peakZoneTema
-                                ? ` — ${entry.peakZoneTema}`
-                                : ""}
-                            </p>
-                          )}
-                          <div className="mt-1 space-y-1">
-                            {entry.markers.map((m, mi) => (
-                              <div
-                                key={`${entry.id}-${m.key}-${mi}`}
-                                className="rounded border border-red-900/50 bg-black/20 px-1.5 py-1"
-                              >
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className="font-semibold text-red-100">
-                                    {m.label}
-                                  </span>
-                                  <span className="text-[8px] uppercase text-slate-400">
-                                    {m.category}
-                                  </span>
-                                </div>
-                                <p className="mt-0.5 text-[9px] text-slate-300">
-                                  Valor {Number(m.value).toFixed(3)} {m.direction}{" "}
-                                  do limiar{" "}
-                                  {m.direction === "acima"
-                                    ? m.band[1]
-                                    : m.band[0]}{" "}
-                                  · {m.interpretation}
-                                </p>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              )}
+              {renderEvidentDissonancePanel()}
 
               {dissonanceLog.length > 0 && (
                 <div className="mt-3 rounded-lg border border-slate-700 bg-slate-900 p-2">
