@@ -243,6 +243,13 @@ export const PatientSessionPage: React.FC = () => {
 
     let previousFlowStats: RtcMediaFlowStats | null = null;
     let stalledOutboundChecks = 0;
+    // Contador SEPARADO para a mídia de ENTRADA (do profissional). Antes só a
+    // saída do paciente escalava para o relay TURN — se a saída funcionasse
+    // (rota srflx/srflx direta, comum em NAT de operadora móvel) mas a
+    // entrada nunca chegasse (NAT simétrico costuma ser assimétrico entre os
+    // dois sentidos), a sessão ficava para sempre em "aguardando a mídia
+    // dele", sem nenhum caminho de recuperação.
+    let stalledInboundChecks = 0;
     const monitorPatientOutboundMedia = async () => {
       if (peer.connectionState === "closed") return;
       const current = await readRtcMediaFlowStats(peer).catch(() => null);
@@ -257,12 +264,40 @@ export const PatientSessionPage: React.FC = () => {
       const route = current.candidateType
         ? ` · rota ${current.candidateType}`
         : "";
+      const inboundStalled = !inbound.audioFlowing && !inbound.videoFlowing;
+      if (peer.connectionState === "connected") {
+        if (inboundStalled) {
+          stalledInboundChecks += 1;
+        } else {
+          stalledInboundChecks = 0;
+        }
+      }
+      const escalateToRelay = (reason: string) => {
+        stalledOutboundChecks = 0;
+        stalledInboundChecks = 0;
+        const relayActivated = activateRtcRelayFallback(peer);
+        if (relayActivated) {
+          peer.restartIce();
+          setCallStatus(`${reason} Ativando o relay TURN protegido...`);
+          sendSignal({ type: "renegotiate-request" });
+          return;
+        }
+        setMediaState("failed");
+        setError(
+          "A chamada conectou sem transmitir câmera e microfone. Toque em Ativar câmera e microfone para reconstruir a conexão.",
+        );
+        sendSignal({ type: "renegotiate-request" });
+      };
       if (outbound.audioFlowing && outbound.videoFlowing) {
         stalledOutboundChecks = 0;
+        if (inboundStalled && stalledInboundChecks >= 3) {
+          escalateToRelay("Enviando normalmente, mas a mídia do profissional nunca chegou;");
+          return;
+        }
         setCallStatus(
           inbound.audioFlowing && inbound.videoFlowing
             ? `Áudio e vídeo fluindo nos dois sentidos${route}.`
-            : `Transmitindo ao profissional; aguardando a mídia dele${route}.`,
+            : `Transmitindo ao profissional; aguardando a mídia dele (${stalledInboundChecks}/3)${route}.`,
         );
         return;
       }
@@ -288,19 +323,7 @@ export const PatientSessionPage: React.FC = () => {
         `Conexão ativa, mas mídia sem saída (${stalledOutboundChecks}/3)${route}.`,
       );
       if (stalledOutboundChecks < 3) return;
-      stalledOutboundChecks = 0;
-      const relayActivated = activateRtcRelayFallback(peer);
-      if (relayActivated) {
-        peer.restartIce();
-        setCallStatus("Rota direta sem mídia; ativando o relay TURN protegido...");
-        sendSignal({ type: "renegotiate-request" });
-        return;
-      }
-      setMediaState("failed");
-      setError(
-        "A chamada conectou sem transmitir câmera e microfone. Toque em Ativar câmera e microfone para reconstruir a conexão.",
-      );
-      sendSignal({ type: "renegotiate-request" });
+      escalateToRelay("Rota direta sem mídia;");
     };
     if (rtcMediaHealthTimerRef.current) {
       window.clearInterval(rtcMediaHealthTimerRef.current);
