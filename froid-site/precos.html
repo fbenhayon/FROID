@@ -29,6 +29,10 @@
   .hab-table .ok { color:#22c55e; font-weight:800; }
   .hab-table .no { color:#64748b; }
   .hab-table .grp td { background:#0f172a; color:#93c5fd; font-weight:700; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em; }
+  .hab-link { color:inherit; text-decoration:none; border-bottom:1px dotted #64748b; transition:color .15s, border-color .15s; }
+  .hab-link:hover, .hab-link:focus { color:#93c5fd; border-bottom-color:#93c5fd; }
+  .hab-link::after { content:"›"; margin-left:6px; color:#64748b; font-weight:700; }
+  .hab-link:hover::after, .hab-link:focus::after { color:#93c5fd; }
 </style>
 </head>
 <body>
@@ -138,7 +142,7 @@
   <div class="container">
     <p class="section-kicker">Comparação</p>
     <h2 class="section-title">As habilidades de cada plano</h2>
-    <p class="section-lead">A base clínica é generosa em todos os planos — a diferença está na organização: quantos usuários, quais papéis e que nível de supervisão e auditoria a sua operação precisa.</p>
+    <p class="section-lead">A base clínica é generosa em todos os planos — a diferença está na organização: quantos usuários, quais papéis e que nível de supervisão e auditoria a sua operação precisa. <strong>Clique em qualquer habilidade</strong> para ver a explicação detalhada de como ela funciona.</p>
 
     <div class="hab-wrap">
       <table class="hab-table">
@@ -147,38 +151,38 @@
         </thead>
         <tbody>
           <tr class="grp"><td colspan="4">Sessão e captura</td></tr>
-          <tr><td>Sessão com vídeo</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Captura da fala do paciente e do profissional</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Transcrição integral da sessão</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Cortes semânticos temporais</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Resumo da fala por IA</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>FROID Explica</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Layout Simplificado</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Layout Detalhado</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Relatório completo da sessão</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="profissionais.html#sessao">Sessão com vídeo</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="tecnologia.html#extracao-acustica">Captura da fala do paciente e do profissional</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="tecnologia.html#extracao-acustica">Transcrição integral da sessão</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="tecnologia.html#estabilizacao">Cortes semânticos temporais</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="froid-explica.html">Resumo da fala por IA</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="froid-explica.html">FROID Explica</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="profissionais.html#sessao">Layout Simplificado</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="profissionais.html#sessao">Layout Detalhado</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="profissionais.html#relatorios">Relatório completo da sessão</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
           <tr class="grp"><td colspan="4">Métricas e indicadores</td></tr>
-          <tr><td>IPM e IDM</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Zonas emocionais e tom predominante</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Palavras por minuto e dissonâncias</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Bandas neuroacústicas</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Sub-harmônicos</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>MFCC7 × MFCC9</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Jitter e Shimmer proxy</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Biomarcadores vocais</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Indicadores de riscos clínicos</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="tecnologia.html#ipm-idm">IPM e IDM</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="tecnologia.html#zonas">Zonas emocionais e tom predominante</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="tecnologia.html#facs">Palavras por minuto e dissonâncias</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="ciencia.html#evidencia">Bandas neuroacústicas</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="ciencia.html#evidencia">Sub-harmônicos</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="tecnologia.html#extracao-acustica">MFCC7 × MFCC9</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="tecnologia.html#extracao-acustica">Jitter e Shimmer proxy</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="tecnologia.html#extracao-acustica">Biomarcadores vocais</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="ciencia.html#evidencia">Indicadores de riscos clínicos</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
           <tr class="grp"><td colspan="4">Pacientes e integração</td></tr>
-          <tr><td>Histórico de pacientes e sessões</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Portal e consentimento do paciente</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Integração com Google Agenda</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Isolamento organizacional dos dados</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="profissionais.html#relatorios">Histórico de pacientes e sessões</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="index.html#paciente">Portal e consentimento do paciente</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="profissionais.html#sessao">Integração com Google Agenda</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="seguranca.html#caminho">Isolamento organizacional dos dados</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
           <tr class="grp"><td colspan="4">Organização e equipe</td></tr>
-          <tr><td>Gestão de membros da organização</td><td>1 usuário</td><td>Até 10</td><td>Até 35</td></tr>
-          <tr><td>Papéis organizacionais</td><td>Individual</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Gestão multiprofissional</td><td class="no">—</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Supervisão clínica</td><td class="no">—</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Atribuição de pacientes à equipe</td><td class="no">—</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Auditoria organizacional avançada</td><td class="no">—</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Créditos compartilhados pela equipe</td><td class="no">—</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="profissionais.html#equipe">Gestão de membros da organização</a></td><td>1 usuário</td><td>Até 10</td><td>Até 35</td></tr>
+          <tr><td><a class="hab-link" href="profissionais.html#equipe">Papéis organizacionais</a></td><td>Individual</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="profissionais.html#equipe">Gestão multiprofissional</a></td><td class="no">—</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="profissionais.html#equipe">Supervisão clínica</a></td><td class="no">—</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="profissionais.html#equipe">Atribuição de pacientes à equipe</a></td><td class="no">—</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="seguranca.html#protecao">Auditoria organizacional avançada</a></td><td class="no">—</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="#creditos">Créditos compartilhados pela equipe</a></td><td class="no">—</td><td class="ok">✓</td><td class="ok">✓</td></tr>
           <tr><td>Acesso prioritário a novos recursos</td><td class="no">—</td><td class="no">—</td><td class="ok">✓</td></tr>
         </tbody>
       </table>
@@ -187,7 +191,7 @@
   </div>
 </section>
 
-<section class="block">
+<section class="block" id="creditos">
   <div class="container">
     <p class="section-kicker">Como funcionam os créditos</p>
     <h2 class="section-title">Pacotes de créditos, regras claras</h2>

@@ -29,6 +29,10 @@
   .hab-table .ok { color:#22c55e; font-weight:800; }
   .hab-table .no { color:#64748b; }
   .hab-table .grp td { background:#0f172a; color:#93c5fd; font-weight:700; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em; }
+  .hab-link { color:inherit; text-decoration:none; border-bottom:1px dotted #64748b; transition:color .15s, border-color .15s; }
+  .hab-link:hover, .hab-link:focus { color:#93c5fd; border-bottom-color:#93c5fd; }
+  .hab-link::after { content:"›"; margin-left:6px; color:#64748b; font-weight:700; }
+  .hab-link:hover::after, .hab-link:focus::after { color:#93c5fd; }
 </style>
 </head>
 <body>
@@ -138,7 +142,7 @@
   <div class="container">
     <p class="section-kicker">Comparison</p>
     <h2 class="section-title">What each plan includes</h2>
-    <p class="section-lead">The clinical foundation is generous across every plan — the difference lies in the organization: how many users, which roles, and what level of supervision and auditing your operation needs.</p>
+    <p class="section-lead">The clinical foundation is generous across every plan — the difference lies in the organization: how many users, which roles, and what level of supervision and auditing your operation needs. <strong>Click any capability</strong> to see a detailed explanation of how it works.</p>
 
     <div class="hab-wrap">
       <table class="hab-table">
@@ -147,38 +151,38 @@
         </thead>
         <tbody>
           <tr class="grp"><td colspan="4">Session &amp; capture</td></tr>
-          <tr><td>Session with video</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Patient and professional speech capture</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Full session transcript</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Semantic time segments</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>AI speech summary</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>FROID Explains</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Simplified layout</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Detailed layout</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Full session report</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="profissionais.html#sessao">Session with video</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="tecnologia.html#extracao-acustica">Patient and professional speech capture</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="tecnologia.html#extracao-acustica">Full session transcript</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="tecnologia.html#estabilizacao">Semantic time segments</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="froid-explica.html">AI speech summary</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="froid-explica.html">FROID Explains</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="profissionais.html#sessao">Simplified layout</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="profissionais.html#sessao">Detailed layout</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="profissionais.html#relatorios">Full session report</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
           <tr class="grp"><td colspan="4">Metrics &amp; indicators</td></tr>
-          <tr><td>IPM and IDM</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Emotional zones and predominant tone</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Words per minute and dissonances</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Neuroacoustic bands</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Sub-harmonics</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>MFCC7 × MFCC9</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Jitter and Shimmer proxy</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Vocal biomarkers</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Clinical risk indicators</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="tecnologia.html#ipm-idm">IPM and IDM</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="tecnologia.html#zonas">Emotional zones and predominant tone</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="tecnologia.html#facs">Words per minute and dissonances</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="ciencia.html#evidencia">Neuroacoustic bands</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="ciencia.html#evidencia">Sub-harmonics</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="tecnologia.html#extracao-acustica">MFCC7 × MFCC9</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="tecnologia.html#extracao-acustica">Jitter and Shimmer proxy</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="tecnologia.html#extracao-acustica">Vocal biomarkers</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="ciencia.html#evidencia">Clinical risk indicators</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
           <tr class="grp"><td colspan="4">Patients &amp; integration</td></tr>
-          <tr><td>Patient and session history</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Patient portal and consent</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Google Calendar integration</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Organizational data isolation</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="profissionais.html#relatorios">Patient and session history</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="index.html#paciente">Patient portal and consent</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="profissionais.html#sessao">Google Calendar integration</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="seguranca.html#caminho">Organizational data isolation</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
           <tr class="grp"><td colspan="4">Organization &amp; team</td></tr>
-          <tr><td>Organization member management</td><td>1 user</td><td>Up to 10</td><td>Up to 35</td></tr>
-          <tr><td>Organizational roles</td><td>Individual</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Multi-professional management</td><td class="no">—</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Clinical supervision</td><td class="no">—</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Team patient assignment</td><td class="no">—</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Advanced organizational auditing</td><td class="no">—</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Team-shared credits</td><td class="no">—</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="profissionais.html#equipe">Organization member management</a></td><td>1 user</td><td>Up to 10</td><td>Up to 35</td></tr>
+          <tr><td><a class="hab-link" href="profissionais.html#equipe">Organizational roles</a></td><td>Individual</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="profissionais.html#equipe">Multi-professional management</a></td><td class="no">—</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="profissionais.html#equipe">Clinical supervision</a></td><td class="no">—</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="profissionais.html#equipe">Team patient assignment</a></td><td class="no">—</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="seguranca.html#protecao">Advanced organizational auditing</a></td><td class="no">—</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+          <tr><td><a class="hab-link" href="#creditos">Team-shared credits</a></td><td class="no">—</td><td class="ok">✓</td><td class="ok">✓</td></tr>
           <tr><td>Priority access to new features</td><td class="no">—</td><td class="no">—</td><td class="ok">✓</td></tr>
         </tbody>
       </table>
@@ -187,7 +191,7 @@
   </div>
 </section>
 
-<section class="block">
+<section class="block" id="creditos">
   <div class="container">
     <p class="section-kicker">How credits work</p>
     <h2 class="section-title">Credit packages, clear rules</h2>
