@@ -41,12 +41,14 @@ export const ClinicManagement: React.FC<Props> = ({ user }) => {
   const [savingId, setSavingId] = useState("");
   const [quotaDrafts, setQuotaDrafts] = useState<Record<string, string>>({});
   const [inviteEmail, setInviteEmail] = useState("");
+  const [invitePhone, setInvitePhone] = useState("");
   const [inviteRole, setInviteRole] = useState("professional");
   const [inviting, setInviting] = useState(false);
   // O servidor devolve o token uma unica vez; guardamos em memoria apenas para
   // o gestor copiar e enviar por canal seguro. Nunca persistimos.
   const [invitation, setInvitation] = useState<{
     email: string;
+    phone: string;
     token: string;
     hours: number;
   } | null>(null);
@@ -67,6 +69,21 @@ export const ClinicManagement: React.FC<Props> = ({ user }) => {
     [activeOrganization],
   );
   const isManager = roles.some((role) => MANAGER_ROLES.has(role));
+
+  // Mensagem pronta para o WhatsApp. O código viaja no corpo da mensagem
+  // porque é assim que o profissional o recebe; por isso o aviso de canal
+  // seguro na tela continua valendo.
+  const whatsappUrl = useMemo(() => {
+    if (!invitation) return "";
+    const clinicName = activeOrganization?.organization_name || "nossa clínica";
+    const message =
+      `Olá! Você foi convidado(a) para integrar a equipe de ${clinicName} no FROID.\n\n` +
+      `1) Acesse ${window.location.origin}/app/#/login e entre (ou crie sua conta) com o e-mail ${invitation.email}.\n` +
+      `2) Informe este código de convite:\n\n${invitation.token}\n\n` +
+      `O código vale por ${invitation.hours} horas e é de uso único. Não o repasse a terceiros.`;
+    const digits = invitation.phone.replace(/\D/g, "");
+    return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
+  }, [invitation, activeOrganization]);
 
   const loadReport = useCallback(async () => {
     if (!organizationId) {
@@ -174,10 +191,12 @@ export const ClinicManagement: React.FC<Props> = ({ user }) => {
       }
       setInvitation({
         email,
+        phone: invitePhone.trim(),
         token: String(payload?.invitation_token || ""),
         hours: Number(payload?.expires_in_hours || 72),
       });
       setInviteEmail("");
+      setInvitePhone("");
       await loadReport();
     } catch (error: any) {
       setMessage(error?.message || "Falha ao convidar o profissional.");
@@ -304,6 +323,16 @@ export const ClinicManagement: React.FC<Props> = ({ user }) => {
                       className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-normal normal-case tracking-normal text-slate-100 placeholder:text-slate-600"
                     />
                   </label>
+                  <label className="min-w-[170px] text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                    WhatsApp (opcional)
+                    <input
+                      type="tel"
+                      value={invitePhone}
+                      onChange={(event) => setInvitePhone(event.target.value)}
+                      placeholder="5511988887777"
+                      className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-normal normal-case tracking-normal text-slate-100 placeholder:text-slate-600"
+                    />
+                  </label>
                   <label className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
                     Papel
                     <select
@@ -353,6 +382,14 @@ export const ClinicManagement: React.FC<Props> = ({ user }) => {
                       >
                         {copied ? "Copiado" : "Copiar código"}
                       </button>
+                      <a
+                        href={whatsappUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="shrink-0 rounded border border-emerald-600 bg-emerald-900/60 px-3 py-1.5 text-[10px] font-black text-emerald-100 hover:bg-emerald-900"
+                      >
+                        Enviar por WhatsApp
+                      </a>
                       <button
                         type="button"
                         onClick={() => setInvitation(null)}
