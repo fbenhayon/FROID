@@ -1938,6 +1938,12 @@ def _professional_access_status(email: str) -> dict:
         and remaining_sessions > 0
         and approval_ready
     )
+    # Sessoes entregues sem credito disponivel. O atendimento nunca e bloqueado
+    # nem o registro clinico descartado por questao de credito: a pendencia fica
+    # registrada e e avisada a cada acesso para o administrador acertar.
+    pending_settlement = max(
+        0, _local_int((profile or {}).get("pending_settlement_count"))
+    )
     return {
         "has_profile": has_profile,
         "lgpd_acknowledged": lgpd_acknowledged,
@@ -1947,6 +1953,14 @@ def _professional_access_status(email: str) -> dict:
         "total_sessions": total_sessions,
         "used_sessions": used_sessions,
         "remaining_sessions": remaining_sessions,
+        "pending_settlement_count": pending_settlement,
+        "settlement_pending": pending_settlement > 0,
+        "settlement_warning": (
+            f"{pending_settlement} sessão(ões) realizada(s) sem crédito disponível "
+            "aguardam acerto do administrador."
+            if pending_settlement
+            else ""
+        ),
         "admin": _is_admin_email(owner_email),
         "cpf_required": not bool(professional_cpf),
         "manual_approval_required": FROID_PROFESSIONAL_APPROVAL_REQUIRED,
@@ -1956,6 +1970,36 @@ def _professional_access_status(email: str) -> dict:
         ),
         "manual_approval_ready": approval_ready,
     }
+
+
+def _register_pending_settlement(email: str, session_id: str, profile: dict) -> dict:
+    """Contabiliza uma sessao entregue sem credito, para acerto posterior.
+
+    Nunca levanta erro: o relatorio clinico e o atendimento tem precedencia
+    sobre a cobranca. A divida fica explicita no status de acesso.
+    """
+    pending = profile.get("pending_settlement_session_ids")
+    pending = pending if isinstance(pending, list) else []
+    if session_id not in {str(item) for item in pending}:
+        pending = [*pending, session_id]
+    consumed = profile.get("consumed_session_ids")
+    consumed = consumed if isinstance(consumed, list) else []
+    if session_id not in {str(item) for item in consumed}:
+        consumed = [*consumed, session_id]
+    profile["pending_settlement_session_ids"] = pending[-500:]
+    profile["pending_settlement_count"] = len(pending)
+    profile["consumed_session_ids"] = consumed[-500:]
+    profile["used_sessions"] = max(0, _local_int(profile.get("used_sessions"))) + 1
+    profile["remaining_sessions"] = 0
+    profile["last_session_consumed_at"] = _utc_now_iso()
+    PROFESSIONAL_PROFILES[email] = profile
+    _save_identity_state()
+    LOGGER.warning(
+        "Sessão %s entregue sem crédito disponível para %s; pendente de acerto.",
+        session_id,
+        email,
+    )
+    return _professional_access_status(email)
 
 
 def _consume_professional_session_credit(owner_email: str, session_id: str) -> dict:
@@ -1972,7 +2016,10 @@ def _consume_professional_session_credit(owner_email: str, session_id: str) -> d
         return _professional_access_status(email)
 
     if max(0, _local_int(profile.get("remaining_sessions"))) <= 0:
-        raise HTTPException(status_code=402, detail="créditos de sessão insuficientes")
+        # Esgotamento nao pode custar o registro clinico nem interromper o
+        # atendimento: a sessao e contabilizada como pendente de acerto e o
+        # aviso acompanha cada acesso ate o administrador resolver.
+        return _register_pending_settlement(email, session_id, profile)
 
     total_sessions = max(0, _local_int(profile.get("total_sessions")))
     used_sessions = max(0, _local_int(profile.get("used_sessions"))) + 1
@@ -2052,7 +2099,20 @@ def _consume_session_credit(
     except Exception as exc:
         message = str(exc).lower()
         if "insufficient" in message:
-            raise HTTPException(status_code=402, detail="créditos da organização insuficientes")
+            # Pool da organizacao zerado: entrega a sessao, registra a pendencia
+            # e avisa. O saldo compartilhado permanece em zero (nunca negativo),
+            # preservando a invariante provada da carteira.
+            profile = PROFESSIONAL_PROFILES.get(_normalize_email(owner_email))
+            status = (
+                _register_pending_settlement(
+                    _normalize_email(owner_email), session_id, profile
+                )
+                if isinstance(profile, dict)
+                else {"settlement_pending": True, "pending_settlement_count": 1}
+            )
+            status["shared_credit_mode"] = "enforce"
+            status["organization_pool_exhausted"] = True
+            return status
         if "not active" in message:
             raise HTTPException(status_code=409, detail="carteira compartilhada ainda não ativada")
         LOGGER.exception("Shared wallet consumption failed")
@@ -8768,17 +8828,15 @@ async def save_session_report(request: Request):
             else _professional_access_status(owner_email)
         )
     except HTTPException:
-        if is_new_report:
-            reports.pop(session_id, None)
-            _save_session_reports(reports)
-            if context:
-                try:
-                    TENANT_STORE.mark_mirrored_report_deleted(
-                        organization_id=context.organization_id,
-                        session_id=session_id,
-                    )
-                except Exception:
-                    LOGGER.exception("Unable to roll back mirrored session report")
+        # O registro clinico NUNCA e descartado por falha de cobranca ou de
+        # infraestrutura. Antes, um 402/503 aqui apagava o relatorio de uma
+        # sessao ja realizada; agora ele permanece salvo e a falha e sinalizada
+        # para acerto posterior. A idempotencia por session_id garante que uma
+        # nova tentativa do cliente nao cobre a sessao duas vezes.
+        LOGGER.exception(
+            "Falha ao consumir crédito da sessão %s; relatório clínico preservado.",
+            session_id,
+        )
         raise
     _record_tenant_success(
         context,
