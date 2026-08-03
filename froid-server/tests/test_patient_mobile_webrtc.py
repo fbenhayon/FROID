@@ -97,6 +97,24 @@ class PatientMobileWebRtcTests(unittest.TestCase):
         self.assertIn("shouldReconnectRtcSignaling", self.patient_session)
         self.assertIn("shouldReconnectRtcSignaling", self.professional_session)
 
+    def test_mobile_patient_does_not_escalate_relay_on_expected_one_way_media(self):
+        # No modo presencial com celular o profissional nunca envia mídia de
+        # volta (recvonly do lado dele); sem essa ciência, o monitor de
+        # entrada do paciente tratava a ausência perpétua de mídia do
+        # profissional como falha, forçando relay TURN + restartIce em loop.
+        self.assertIn(
+            'const isPresentialMobile = sessionMode === "presential_mobile"',
+            self.patient_session,
+        )
+        self.assertIn(
+            "const inboundStalled = !isPresentialMobile",
+            self.patient_session,
+        )
+        self.assertIn(
+            'setSessionMode(data?.session_mode === "presential_mobile" ? "presential_mobile" : "remote")',
+            self.patient_session,
+        )
+
     def test_reduced_patient_registration_keeps_password_and_single_consent(self):
         # Fase de testes: cadastro reduzido, mas a senha (e confirmacao) segue
         # obrigatoria no novo cadastro, alem da senha do paciente recorrente.

@@ -53,6 +53,13 @@ export const PatientSessionPage: React.FC = () => {
   // uma queda de rede transitória) — habilita o encaminhamento do paciente à
   // área restrita dele.
   const [sessionEnded, setSessionEnded] = useState(false);
+  // Presencial com celular: o dispositivo do paciente é a captura dedicada
+  // (câmera/microfone voltados a ele); o profissional deliberadamente não
+  // envia mídia de volta (transceptores recvonly no lado dele). Sem essa
+  // distinção, o monitor de fluxo de entrada trata a ausência perpétua de
+  // mídia do profissional como falha e força relay TURN + restartIce em
+  // loop — dando a impressão de trilhas de áudio/vídeo embaralhadas.
+  const [sessionMode, setSessionMode] = useState<"remote" | "presential_mobile">("remote");
   const [uiLocale, setUiLocale] = useState<SessionLocale>(() =>
     normalizeSessionLocale(typeof navigator === "undefined" ? "" : navigator.language),
   );
@@ -108,6 +115,7 @@ export const PatientSessionPage: React.FC = () => {
       .then((data) => {
         if (!active) return;
         setPatientName(String(data?.patient_name || ""));
+        setSessionMode(data?.session_mode === "presential_mobile" ? "presential_mobile" : "remote");
         const nextLocale = normalizeSessionLocale(data?.patient_ui_locale, uiLocale);
         setUiLocale(nextLocale);
         document.documentElement.lang = nextLocale;
@@ -165,6 +173,10 @@ export const PatientSessionPage: React.FC = () => {
       setCallStatus("WebRTC indisponível neste navegador.");
       return;
     }
+    // Presencial com celular: o profissional nunca envia áudio/vídeo de
+    // volta (recvonly do lado dele) — a ausência de mídia de entrada aqui é
+    // o comportamento esperado e permanente, não uma falha a corrigir.
+    const isPresentialMobile = sessionMode === "presential_mobile";
 
     const localConferenceStream = createConferenceStream(localSource);
     if (!localConferenceStream.getTracks().length) {
@@ -223,7 +235,9 @@ export const PatientSessionPage: React.FC = () => {
       setCallStatus(
         media.audio || media.video
           ? "Trilhas do profissional negociadas; validando fluxo real..."
-          : "Conectado, aguardando mídia do profissional.",
+          : isPresentialMobile
+            ? "Conectado. Este celular está transmitindo para o profissional."
+            : "Conectado, aguardando mídia do profissional.",
       );
     };
 
@@ -264,7 +278,9 @@ export const PatientSessionPage: React.FC = () => {
       const route = current.candidateType
         ? ` · rota ${current.candidateType}`
         : "";
-      const inboundStalled = !inbound.audioFlowing && !inbound.videoFlowing;
+      const inboundStalled = !isPresentialMobile
+        && !inbound.audioFlowing
+        && !inbound.videoFlowing;
       if (peer.connectionState === "connected") {
         if (inboundStalled) {
           stalledInboundChecks += 1;
@@ -295,9 +311,11 @@ export const PatientSessionPage: React.FC = () => {
           return;
         }
         setCallStatus(
-          inbound.audioFlowing && inbound.videoFlowing
-            ? `Áudio e vídeo fluindo nos dois sentidos${route}.`
-            : `Transmitindo ao profissional; aguardando a mídia dele (${stalledInboundChecks}/3)${route}.`,
+          isPresentialMobile
+            ? `Transmitindo áudio e vídeo para o profissional${route}.`
+            : inbound.audioFlowing && inbound.videoFlowing
+              ? `Áudio e vídeo fluindo nos dois sentidos${route}.`
+              : `Transmitindo ao profissional; aguardando a mídia dele (${stalledInboundChecks}/3)${route}.`,
         );
         return;
       }
