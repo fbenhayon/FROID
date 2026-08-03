@@ -40,6 +40,17 @@ export const ClinicManagement: React.FC<Props> = ({ user }) => {
   const [unavailable, setUnavailable] = useState("");
   const [savingId, setSavingId] = useState("");
   const [quotaDrafts, setQuotaDrafts] = useState<Record<string, string>>({});
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState("professional");
+  const [inviting, setInviting] = useState(false);
+  // O servidor devolve o token uma unica vez; guardamos em memoria apenas para
+  // o gestor copiar e enviar por canal seguro. Nunca persistimos.
+  const [invitation, setInvitation] = useState<{
+    email: string;
+    token: string;
+    hours: number;
+  } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const activeOrganization = useMemo(() => {
     const organizations = user?.organizations || [];
@@ -135,6 +146,43 @@ export const ClinicManagement: React.FC<Props> = ({ user }) => {
       setMessage(error?.message || "Falha ao salvar a cota.");
     } finally {
       setSavingId("");
+    }
+  };
+
+  const sendInvite = async () => {
+    const email = inviteEmail.trim().toLowerCase();
+    if (!email || !email.includes("@")) {
+      setMessage("Informe um e-mail válido para convidar o profissional.");
+      return;
+    }
+    setInviting(true);
+    setMessage("");
+    setInvitation(null);
+    setCopied(false);
+    try {
+      const response = await fetch(
+        apiUrl(`/api/organizations/${encodeURIComponent(organizationId)}/members/invitations`),
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeaders() },
+          body: JSON.stringify({ email, roles: [inviteRole], expires_hours: 72 }),
+        },
+      );
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.detail || "Não foi possível gerar o convite.");
+      }
+      setInvitation({
+        email,
+        token: String(payload?.invitation_token || ""),
+        hours: Number(payload?.expires_in_hours || 72),
+      });
+      setInviteEmail("");
+      await loadReport();
+    } catch (error: any) {
+      setMessage(error?.message || "Falha ao convidar o profissional.");
+    } finally {
+      setInviting(false);
     }
   };
 
@@ -234,6 +282,89 @@ export const ClinicManagement: React.FC<Props> = ({ user }) => {
                 </p>
               </div>
             </section>
+
+            {isManager && (
+              <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+                <h2 className="text-sm font-black text-slate-100">
+                  Convidar profissional para a clínica
+                </h2>
+                <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+                  O profissional precisa ter (ou criar) uma conta FROID com o
+                  mesmo e-mail. Ao aceitar o convite, ele passa a consumir do
+                  saldo compartilhado desta clínica.
+                </p>
+                <div className="mt-3 flex flex-wrap items-end gap-2">
+                  <label className="flex-1 min-w-[220px] text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                    E-mail do profissional
+                    <input
+                      type="email"
+                      value={inviteEmail}
+                      onChange={(event) => setInviteEmail(event.target.value)}
+                      placeholder="profissional@clinica.com.br"
+                      className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-normal normal-case tracking-normal text-slate-100 placeholder:text-slate-600"
+                    />
+                  </label>
+                  <label className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                    Papel
+                    <select
+                      value={inviteRole}
+                      onChange={(event) => setInviteRole(event.target.value)}
+                      className="mt-1 block rounded border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-normal normal-case tracking-normal text-slate-100"
+                    >
+                      <option value="professional">Profissional</option>
+                      <option value="supervisor">Supervisor</option>
+                      <option value="administrator">Administrador</option>
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    disabled={inviting}
+                    onClick={() => void sendInvite()}
+                    className="rounded-lg bg-cyan-700 px-4 py-2 text-xs font-bold text-white hover:bg-cyan-800 disabled:opacity-40"
+                  >
+                    {inviting ? "Gerando..." : "Gerar convite"}
+                  </button>
+                </div>
+
+                {invitation && (
+                  <div className="mt-3 rounded-lg border border-amber-700 bg-amber-950/40 p-3">
+                    <p className="text-[11px] font-black text-amber-100">
+                      Convite gerado para {invitation.email} · válido por{" "}
+                      {invitation.hours}h
+                    </p>
+                    <p className="mt-1 text-[10px] leading-relaxed text-amber-200/90">
+                      Este código aparece <strong>uma única vez</strong> e não
+                      poderá ser recuperado. Envie-o ao profissional por um canal
+                      seguro — quem tiver o código entra na sua clínica.
+                    </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <code className="min-w-0 flex-1 break-all rounded border border-amber-800 bg-slate-950 px-2 py-1.5 font-mono text-[10px] text-amber-100">
+                        {invitation.token}
+                      </code>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void navigator.clipboard
+                            ?.writeText(invitation.token)
+                            .then(() => setCopied(true))
+                            .catch(() => setCopied(false));
+                        }}
+                        className="shrink-0 rounded border border-amber-600 bg-amber-900/60 px-3 py-1.5 text-[10px] font-black text-amber-100 hover:bg-amber-900"
+                      >
+                        {copied ? "Copiado" : "Copiar código"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setInvitation(null)}
+                        className="shrink-0 rounded border border-slate-700 px-3 py-1.5 text-[10px] font-bold text-slate-300 hover:bg-slate-800"
+                      >
+                        Já enviei
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </section>
+            )}
 
             <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">
               <h2 className="text-sm font-black text-slate-100">

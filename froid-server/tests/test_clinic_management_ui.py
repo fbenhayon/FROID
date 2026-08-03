@@ -55,6 +55,28 @@ class ClinicManagementUiTests(unittest.TestCase):
         self.assertIn("/report-visibility", self.page)
         self.assertIn("/quota", self.page)
 
+    def test_invite_is_offered_only_to_managers(self):
+        self.assertIn("members/invitations", self.page)
+        self.assertIn("{isManager && (", self.page)
+
+    def test_invitation_token_is_presented_as_single_use_and_not_persisted(self):
+        """O servidor emite o token uma vez; a tela nao pode dar a entender que da para recuperar."""
+        self.assertIn("uma única vez", self.page)
+        self.assertIn("canal seguro", self.page)
+        self.assertIn("Copiar código", self.page)
+        # Nunca gravar o token em armazenamento do navegador.
+        self.assertNotIn("localStorage.setItem", self.page)
+        self.assertNotIn("sessionStorage", self.page)
+
+    def test_owner_role_is_not_offered_in_the_invite_form(self):
+        """Convidar outro proprietario e recusado pelo servidor; nao oferecer."""
+        anchor = self.page.index('<select\n                      value={inviteRole}')
+        block = self.page[anchor : anchor + 600]
+        self.assertIn('value="professional"', block)
+        self.assertIn('value="supervisor"', block)
+        self.assertIn('value="administrator"', block)
+        self.assertNotIn('value="owner"', block)
+
     def test_empty_quota_field_means_free_pool(self):
         """Cota vazia precisa enviar null, nao zero - zero bloquearia o profissional."""
         self.assertIn('const quota = trimmed === "" ? null : Number(trimmed);', self.page)
