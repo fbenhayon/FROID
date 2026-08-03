@@ -93,7 +93,17 @@ def decide(
     resource_organization_id: str = "",
     assigned: bool = False,
     owns_resource: bool = False,
+    clinic_wide_reports: bool = False,
 ) -> AccessDecision:
+    """Decide um acesso.
+
+    ``clinic_wide_reports`` reflete a politica da organizacao (item de
+    configuracao do gestor). Quando ligada, um profissional da clinica alcanca
+    pacientes e relatorios de colegas da MESMA organizacao, para analise
+    conjunta de conduta. O padrao e desligado, e a checagem de organizacao
+    acima continua valendo em qualquer caso - a politica amplia o alcance
+    dentro da clinica, nunca entre clinicas.
+    """
     if context is None:
         return AccessDecision(False, "missing_context")
     if context.status != "active":
@@ -107,18 +117,31 @@ def decide(
 
     if permission == "patients.read" and (
         "patients.read_all" in permissions
-        or ("patients.read_assigned" in permissions and assigned)
+        or (
+            "patients.read_assigned" in permissions
+            and (assigned or clinic_wide_reports)
+        )
     ):
-        return AccessDecision(True, "patient_scope")
+        return AccessDecision(
+            True,
+            "clinic_wide_policy"
+            if (clinic_wide_reports and not assigned)
+            else "patient_scope",
+        )
 
     if permission == "reports.read" and (
         "reports.read_all" in permissions
         or (
             "reports.read_assigned" in permissions
-            and (assigned or owns_resource)
+            and (assigned or owns_resource or clinic_wide_reports)
         )
     ):
-        return AccessDecision(True, "report_scope")
+        return AccessDecision(
+            True,
+            "clinic_wide_policy"
+            if (clinic_wide_reports and not (assigned or owns_resource))
+            else "report_scope",
+        )
 
     if permission == "reports.update" and (
         "reports.delete" in permissions

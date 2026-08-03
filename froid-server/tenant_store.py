@@ -1175,6 +1175,66 @@ class TenantStore:
                 ).fetchone()
         return {"balance": int(row[0]), "activated": bool(row[1])}
 
+    def report_visibility(self, *, organization_id: str, membership_id: str) -> str:
+        """Politica vigente de visibilidade de relatorios da organizacao.
+
+        Devolve 'restricted' (padrao seguro) sempre que a informacao nao puder
+        ser lida - nunca 'clinic_wide' por omissao, para que uma falha de
+        leitura jamais amplie o acesso a dado sensivel de saude.
+        """
+        if not self.enabled or not self.runtime_database_url:
+            return "restricted"
+        try:
+            with self._connect(runtime=True) as connection:
+                with connection.transaction():
+                    connection.execute(
+                        "SELECT set_config('app.organization_id', %s, true)",
+                        (organization_id,),
+                    )
+                    connection.execute(
+                        "SELECT set_config('app.membership_id', %s, true)",
+                        (membership_id,),
+                    )
+                    row = connection.execute(
+                        "SELECT report_visibility FROM organizations WHERE id=%s",
+                        (organization_id,),
+                    ).fetchone()
+        except Exception:
+            return "restricted"
+        if not row or str(row[0]) != "clinic_wide":
+            return "restricted"
+        return "clinic_wide"
+
+    def set_report_visibility(
+        self,
+        *,
+        organization_id: str,
+        membership_id: str,
+        actor_user_id: str,
+        visibility: str,
+    ) -> dict:
+        """Define a politica de visibilidade (owner/administrator da clinica)."""
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                connection.execute(
+                    "SELECT set_config('app.organization_id', %s, true)",
+                    (organization_id,),
+                )
+                connection.execute(
+                    "SELECT set_config('app.membership_id', %s, true)",
+                    (membership_id,),
+                )
+                row = connection.execute(
+                    """
+                    SELECT report_visibility, changed
+                    FROM froid_set_report_visibility(%s,%s,%s,%s)
+                    """,
+                    (organization_id, membership_id, actor_user_id, visibility),
+                ).fetchone()
+        return {"report_visibility": str(row[0]), "changed": bool(row[1])}
+
     def set_member_quota(
         self,
         *,
@@ -1282,6 +1342,10 @@ class TenantStore:
                     "WHERE organization_id=%s",
                     (organization_id,),
                 ).fetchone()
+                visibility_row = connection.execute(
+                    "SELECT report_visibility FROM organizations WHERE id=%s",
+                    (organization_id,),
+                ).fetchone()
                 members = connection.execute(
                     """
                     SELECT
@@ -1343,6 +1407,11 @@ class TenantStore:
             "pool_balance": int(wallet[0]),
             "pool_authority": wallet[1],
             "pool_updated_at": wallet[2],
+            "report_visibility": (
+                "clinic_wide"
+                if visibility_row and str(visibility_row[0]) == "clinic_wide"
+                else "restricted"
+            ),
             "sessions_used_total": int(consumed_total[0] if consumed_total else 0),
             "professionals": professionals,
         }

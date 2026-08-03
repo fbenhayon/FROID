@@ -7381,6 +7381,51 @@ async def set_organization_member_quota(
     return {"status": "ok", **result}
 
 
+@app.put("/api/organizations/{organization_id}/report-visibility")
+async def set_organization_report_visibility(organization_id: str, request: Request):
+    """Define quem, dentro da clínica, enxerga os relatórios dos pacientes.
+
+    ``restricted`` (padrão): supervisor/gestor veem a clínica inteira; o
+    profissional vê apenas o paciente atribuído a ele.
+    ``clinic_wide``: todos os profissionais da clínica veem os relatórios da
+    clínica, para análise conjunta de conduta.
+
+    Prerrogativa do gestor (``credits.manage`` = owner/administrator). Amplia o
+    acesso a dado sensível de saúde, então fica registrado em auditoria.
+    """
+    context = _require_tenant_management_context(
+        request, organization_id, "credits.manage"
+    )
+    body = await request.json()
+    visibility = str(body.get("report_visibility") or "").strip().lower()
+    if visibility not in {"restricted", "clinic_wide"}:
+        raise HTTPException(
+            status_code=400,
+            detail="report_visibility deve ser 'restricted' ou 'clinic_wide'",
+        )
+    try:
+        result = TENANT_STORE.set_report_visibility(
+            organization_id=organization_id,
+            membership_id=context.membership_id,
+            actor_user_id=context.user_id,
+            visibility=visibility,
+        )
+    except Exception as exc:
+        if "role cannot manage report visibility" in str(exc).lower():
+            raise HTTPException(status_code=403, detail="perfil não pode alterar a visibilidade")
+        LOGGER.exception("Unable to set report visibility")
+        raise HTTPException(status_code=503, detail="falha ao definir a visibilidade")
+    TENANT_STORE.record_access_audit(
+        organization_id=organization_id,
+        actor_user_id=context.user_id,
+        action="report_visibility.set",
+        resource_type="organization",
+        resource_id=organization_id,
+        metadata=result,
+    )
+    return {"status": "ok", **result}
+
+
 @app.get("/api/organizations/{organization_id}/audit-events")
 async def list_organization_audit_events(
     organization_id: str, request: Request, limit: int = 100
@@ -8851,6 +8896,17 @@ def _accessible_session_reports(
         if effective_mode == "enforce" and context
         else set()
     )
+    # Politica definida pelo gestor da clinica. Falha de leitura devolve
+    # 'restricted', entao um problema de infraestrutura nunca amplia acesso.
+    clinic_wide_reports = bool(
+        effective_mode == "enforce"
+        and context
+        and TENANT_STORE.report_visibility(
+            organization_id=context.organization_id,
+            membership_id=context.membership_id,
+        )
+        == "clinic_wide"
+    )
     reports = [
         report
         for report in _load_session_reports(
@@ -8876,6 +8932,7 @@ def _accessible_session_reports(
                         report.get("sessionId") or report.get("session_id") or ""
                     ) in assigned_report_ids,
                     owns_resource=_can_access_report(report, owner_email),
+                    clinic_wide_reports=clinic_wide_reports,
                 ).allowed
             )
         )
