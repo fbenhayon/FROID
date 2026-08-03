@@ -1175,6 +1175,58 @@ class TenantStore:
                 ).fetchone()
         return {"balance": int(row[0]), "activated": bool(row[1])}
 
+    def set_member_quota(
+        self,
+        *,
+        organization_id: str,
+        membership_id: str,
+        actor_user_id: str,
+        target_membership_id: str,
+        quota_sessions: Optional[int],
+    ) -> dict:
+        """Define, ajusta ou remove a cota individual de um profissional.
+
+        ``quota_sessions=None`` remove a cota e devolve o profissional ao pool
+        livre. A autorizacao (owner/administrator) e conferida dentro da funcao
+        SECURITY DEFINER, junto do contexto de organizacao/membership.
+        """
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        quota = None if quota_sessions is None else max(0, int(quota_sessions))
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                connection.execute(
+                    "SELECT set_config('app.organization_id', %s, true)",
+                    (organization_id,),
+                )
+                connection.execute(
+                    "SELECT set_config('app.membership_id', %s, true)",
+                    (membership_id,),
+                )
+                row = connection.execute(
+                    """
+                    SELECT quota_sessions, consumed_sessions, removed
+                    FROM froid_set_member_quota(%s,%s,%s,%s,%s)
+                    """,
+                    (
+                        organization_id,
+                        membership_id,
+                        actor_user_id,
+                        target_membership_id,
+                        quota,
+                    ),
+                ).fetchone()
+        removed = bool(row[2])
+        return {
+            "membership_id": target_membership_id,
+            "removed": removed,
+            "quota_sessions": None if removed else int(row[0]),
+            "consumed_sessions": None if removed else int(row[1]),
+            "quota_remaining": (
+                None if removed else max(0, int(row[0]) - int(row[1]))
+            ),
+        }
+
     def wallet_status(self, *, organization_id: str, membership_id: str) -> dict:
         if not self.enabled or not self.runtime_database_url:
             raise RuntimeError("dual persistence and runtime role are required")

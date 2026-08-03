@@ -7308,6 +7308,79 @@ async def activate_organization_wallet(organization_id: str, request: Request):
     return {"status": "ok", **result}
 
 
+@app.get("/api/organizations/{organization_id}/usage")
+async def get_organization_usage(organization_id: str, request: Request):
+    """Relatório consolidado da clínica para o gestor.
+
+    Exige ``reports.read_all`` (owner/administrator/supervisor): o relatório
+    expõe o consumo e a carteira de pacientes de TODA a equipe, então um
+    profissional comum não pode lê-lo.
+    """
+    context = _require_tenant_management_context(
+        request, organization_id, "reports.read_all"
+    )
+    try:
+        report = TENANT_STORE.organization_usage_report(
+            organization_id=organization_id,
+            membership_id=context.membership_id,
+        )
+    except ValueError:
+        raise HTTPException(status_code=404, detail="carteira organizacional não encontrada")
+    except Exception:
+        LOGGER.exception("Unable to build organization usage report")
+        raise HTTPException(status_code=503, detail="relatório organizacional indisponível")
+    _record_tenant_success(context, "usage.read", "organization", organization_id)
+    return report
+
+
+@app.put("/api/organizations/{organization_id}/members/{target_membership_id}/quota")
+async def set_organization_member_quota(
+    organization_id: str, target_membership_id: str, request: Request
+):
+    """Define ou remove a cota individual de um profissional.
+
+    Corpo: ``{"quota_sessions": 20}`` para definir; ``{"quota_sessions": null}``
+    para remover e devolver o profissional ao pool livre.
+    """
+    context = _require_tenant_management_context(
+        request, organization_id, "credits.manage"
+    )
+    body = await request.json()
+    if "quota_sessions" not in body:
+        raise HTTPException(status_code=400, detail="quota_sessions obrigatório")
+    raw_quota = body.get("quota_sessions")
+    quota = None
+    if raw_quota is not None:
+        quota = _local_int(raw_quota)
+        if quota < 0:
+            raise HTTPException(status_code=400, detail="cota não pode ser negativa")
+    try:
+        result = TENANT_STORE.set_member_quota(
+            organization_id=organization_id,
+            membership_id=context.membership_id,
+            actor_user_id=context.user_id,
+            target_membership_id=target_membership_id,
+            quota_sessions=quota,
+        )
+    except Exception as exc:
+        message = str(exc).lower()
+        if "target membership not in organization" in message:
+            raise HTTPException(status_code=404, detail="profissional não pertence à organização")
+        if "role cannot manage member quotas" in message:
+            raise HTTPException(status_code=403, detail="perfil não pode gerenciar cotas")
+        LOGGER.exception("Unable to set member quota")
+        raise HTTPException(status_code=503, detail="falha ao definir cota do profissional")
+    TENANT_STORE.record_access_audit(
+        organization_id=organization_id,
+        actor_user_id=context.user_id,
+        action="member_quota.remove" if result["removed"] else "member_quota.set",
+        resource_type="organization_member_quota",
+        resource_id=target_membership_id,
+        metadata=result,
+    )
+    return {"status": "ok", **result}
+
+
 @app.get("/api/organizations/{organization_id}/audit-events")
 async def list_organization_audit_events(
     organization_id: str, request: Request, limit: int = 100
