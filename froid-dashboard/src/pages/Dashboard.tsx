@@ -733,12 +733,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
           </div>
           <button
             onClick={() => openPatientRegistration()}
+            title={tr(
+              "Paciente e profissional em locais diferentes. O paciente entra pelo celular ou computador, com áudio e vídeo funcionando nos dois sentidos, incluindo o botão \"Ouvir paciente\".",
+            )}
             className="rounded-lg bg-cyan-700 px-3 py-2 text-xs font-bold text-white hover:bg-cyan-800"
           >
             {tr("Sessão Remota")}
           </button>
           <button
             onClick={() => startPresentialSession()}
+            title={tr(
+              "Ambos juntos na mesma sala, usando só o dispositivo do profissional: a câmera e o microfone dele capturam o paciente diretamente, sem chamada nem áudio reproduzido.",
+            )}
             className="rounded-lg border border-emerald-700 bg-emerald-950 px-3 py-2 text-xs font-bold text-emerald-100 hover:bg-emerald-900"
           >
             {tr("Presencial")}
@@ -816,12 +822,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                       group.key,
                     )
                   }
+                  title={tr(
+                    "Paciente e profissional em locais diferentes. O paciente entra pelo celular ou computador, com áudio e vídeo funcionando nos dois sentidos, incluindo o botão \"Ouvir paciente\".",
+                  )}
                   className="rounded-lg bg-cyan-700 px-3 py-2 text-xs font-bold text-white hover:bg-cyan-800"
                 >
                   {tr("Sessão Remota")}
                 </button>
                 <button
                   onClick={() => startPresentialSession(group)}
+                  title={tr(
+                    "Ambos juntos na mesma sala, usando só o dispositivo do profissional: a câmera e o microfone dele capturam o paciente diretamente, sem chamada nem áudio reproduzido.",
+                  )}
                   className="rounded-lg border border-emerald-700 bg-emerald-950 px-3 py-2 text-xs font-bold text-emerald-100 hover:bg-emerald-900"
                 >
                   {tr("Presencial")}
