@@ -11,6 +11,7 @@ const ProfessionalDashboardSummary = lazy(() => import("./pages/ProfessionalDash
 const LiveSession = lazy(() => import("./pages/LiveSession").then((module) => ({ default: module.LiveSession })));
 const History = lazy(() => import("./pages/History").then((module) => ({ default: module.History })));
 const Settings = lazy(() => import("./pages/Settings").then((module) => ({ default: module.Settings })));
+const ClinicManagement = lazy(() => import("./pages/ClinicManagement").then((module) => ({ default: module.ClinicManagement })));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard").then((module) => ({ default: module.AdminDashboard })));
 const AdminProfessionalDetail = lazy(() => import("./pages/AdminProfessionalDetail").then((module) => ({ default: module.AdminProfessionalDetail })));
 const AdminPatientDetail = lazy(() => import("./pages/AdminPatientDetail").then((module) => ({ default: module.AdminPatientDetail })));
@@ -265,6 +266,10 @@ function App() {
         <Route
           path="/dashboard/resumido"
           element={clinicalElement(<ProfessionalDashboardSummary user={user} onLogout={logout} />)}
+        />
+        <Route
+          path="/clinica"
+          element={clinicalElement(<ClinicManagement user={user} />)}
         />
         <Route
           path="/session/:sessionId"

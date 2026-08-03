@@ -245,6 +245,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   const eventCursorRef = useRef<number | null>(null);
   const redirectingRef = useRef(false);
   const professionalName = user?.name || user?.email || "Profissional";
+  // Só quem tem papel de gestão numa clínica multiprofissional vê a área de
+  // gestão; profissional autônomo não tem o que gerenciar ali.
+  const isClinicManager = useMemo(() => {
+    const organizations = user?.organizations || [];
+    const active =
+      organizations.find(
+        (organization: any) =>
+          organization.organization_id === user?.active_organization_id,
+      ) || organizations[0];
+    return (active?.roles || []).some((role: string) =>
+      ["owner", "administrator", "supervisor"].includes(String(role).toLowerCase()),
+    );
+  }, [user]);
   const tr = (text: string) => dashboardText(defaultSessionLocale, text);
 
   const updateDefaultSessionLocale = (locale: SessionLocale) => {
@@ -587,6 +600,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                 className="rounded-lg border border-cyan-800 bg-cyan-950 px-3 py-2 text-xs font-bold text-cyan-100 hover:bg-cyan-900"
               >
                 Admin
+              </button>
+            )}
+            {isClinicManager && (
+              <button
+                onClick={() => nav("/clinica")}
+                title={tr("Saldo compartilhado, uso por profissional, cotas e visibilidade dos relatórios da clínica.")}
+                className="rounded-lg border border-emerald-800 bg-emerald-950 px-3 py-2 text-xs font-bold text-emerald-100 hover:bg-emerald-900"
+              >
+                {tr("Gestão da clínica")}
               </button>
             )}
             <button
