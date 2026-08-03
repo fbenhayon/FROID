@@ -745,9 +745,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
           </button>
           <button
             onClick={() => startPresentialMobileSession()}
+            title={tr(
+              "Ambos juntos na mesma sala; o celular do paciente funciona como câmera dedicada e o áudio dele não é reproduzido (evita eco). Não use se o paciente estiver remoto.",
+            )}
             className="rounded-lg border border-violet-700 bg-violet-950 px-3 py-2 text-xs font-bold text-violet-100 hover:bg-violet-900"
           >
-            {tr("Celular")}
+            {tr("Presencial · Celular")}
           </button>
         </div>
         </div>
@@ -825,9 +828,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                 </button>
                 <button
                   onClick={() => startPresentialMobileSession(group)}
+                  title={tr(
+                    "Ambos juntos na mesma sala; o celular do paciente funciona como câmera dedicada e o áudio dele não é reproduzido (evita eco). Não use se o paciente estiver remoto.",
+                  )}
                   className="rounded-lg border border-violet-700 bg-violet-950 px-3 py-2 text-xs font-bold text-violet-100 hover:bg-violet-900"
                 >
-                  {tr("Celular")}
+                  {tr("Presencial · Celular")}
                 </button>
                 <button
                   onClick={() => {
