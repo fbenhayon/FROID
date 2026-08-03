@@ -1202,6 +1202,99 @@ class TenantStore:
             "authority": row[2], "updated_at": row[3],
         }
 
+    def organization_usage_report(
+        self, *, organization_id: str, membership_id: str
+    ) -> dict:
+        """Relatorio consolidado da clinica: saldo, uso e pacientes por profissional.
+
+        Responde as tres perguntas do gestor num unico lugar: quanto sobrou para
+        a clinica, quanto cada profissional consumiu, e quantos pacientes cada um
+        atende. O consumo por profissional vem do ``credit_ledger``, que atribui
+        cada debito ao seu ator - e a unica fonte fiel, porque os contadores
+        legados por profissional viram mera projecao do saldo compartilhado.
+        """
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                connection.execute(
+                    "SELECT set_config('app.organization_id', %s, true)",
+                    (organization_id,),
+                )
+                connection.execute(
+                    "SELECT set_config('app.membership_id', %s, true)",
+                    (membership_id,),
+                )
+                wallet = connection.execute(
+                    "SELECT balance, authority, updated_at FROM organization_wallets "
+                    "WHERE organization_id=%s",
+                    (organization_id,),
+                ).fetchone()
+                members = connection.execute(
+                    """
+                    SELECT
+                        membership.id,
+                        user_account.email,
+                        coalesce(
+                            string_agg(DISTINCT membership_role.role, ',' ORDER BY membership_role.role),
+                            ''
+                        ) AS roles,
+                        (SELECT count(*) FROM credit_ledger ledger
+                          WHERE ledger.organization_id = membership.organization_id
+                            AND ledger.event_type = 'consumption'
+                            AND ledger.actor_user_id = membership.user_id) AS sessions_used,
+                        (SELECT count(DISTINCT assignment.patient_id)
+                           FROM patient_assignments assignment
+                          WHERE assignment.organization_id = membership.organization_id
+                            AND assignment.membership_id = membership.id) AS patients,
+                        quota.quota_sessions,
+                        quota.consumed_sessions
+                    FROM organization_memberships membership
+                    JOIN users user_account ON user_account.id = membership.user_id
+                    LEFT JOIN membership_roles membership_role
+                           ON membership_role.membership_id = membership.id
+                    LEFT JOIN organization_member_quotas quota
+                           ON quota.organization_id = membership.organization_id
+                          AND quota.membership_id = membership.id
+                    WHERE membership.organization_id = %s
+                      AND membership.status = 'active'
+                    GROUP BY membership.id, membership.organization_id, membership.user_id,
+                             user_account.email, quota.quota_sessions, quota.consumed_sessions
+                    ORDER BY user_account.email
+                    """,
+                    (organization_id,),
+                ).fetchall()
+                consumed_total = connection.execute(
+                    "SELECT count(*) FROM credit_ledger WHERE organization_id=%s "
+                    "AND event_type='consumption'",
+                    (organization_id,),
+                ).fetchone()
+        if not wallet:
+            raise ValueError("wallet_not_found")
+        professionals = [
+            {
+                "membership_id": str(row[0]),
+                "email": row[1],
+                "roles": [role for role in str(row[2] or "").split(",") if role],
+                "sessions_used": int(row[3] or 0),
+                "patients": int(row[4] or 0),
+                "quota_sessions": None if row[5] is None else int(row[5]),
+                "quota_consumed": None if row[6] is None else int(row[6]),
+                "quota_remaining": (
+                    None if row[5] is None else max(0, int(row[5]) - int(row[6] or 0))
+                ),
+            }
+            for row in members
+        ]
+        return {
+            "organization_id": organization_id,
+            "pool_balance": int(wallet[0]),
+            "pool_authority": wallet[1],
+            "pool_updated_at": wallet[2],
+            "sessions_used_total": int(consumed_total[0] if consumed_total else 0),
+            "professionals": professionals,
+        }
+
     def subscription_status(
         self, *, organization_id: str, membership_id: str
     ) -> Optional[dict]:
