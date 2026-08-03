@@ -5090,7 +5090,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   }
 
   const clinicalStabilizationControl = (
-    <div className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-[9px] text-slate-200">
+    <div className="flex flex-wrap items-center gap-1.5 text-[9px] text-slate-200">
       <strong className="uppercase tracking-wide text-cyan-200">Gráficos:</strong>
       <select
         value={clinicalUpdateMode}
@@ -5484,12 +5484,11 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     <div className="grid h-screen min-w-[1620px] grid-cols-[minmax(500px,28%)_minmax(620px,44%)_minmax(500px,28%)] overflow-x-auto overflow-y-hidden bg-slate-950 text-slate-100">
       {/* COLUNA 1 — 30% */}
       <div className="order-1 min-w-0 flex flex-col gap-2 overflow-y-auto border-x border-slate-800 bg-slate-950 p-2 text-slate-100">
-        <div className="flex min-w-max items-center justify-between gap-2 overflow-x-auto">
+        <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-base font-bold text-slate-100">
             Sessão Detalhada
           </h1>
-          {clinicalStabilizationControl}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="rounded border border-cyan-800 bg-cyan-950 px-2 py-0.5 text-[9px] font-black text-cyan-100">
               {SESSION_LOCALES[spokenLanguage].shortLabel} → {SESSION_LOCALES[reportLocale].shortLabel}
             </span>
@@ -5505,6 +5504,10 @@ function LiveSessionInner({ user }: LiveSessionProps) {
               Encerrar
             </button>
           </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {clinicalStabilizationControl}
         </div>
 
         {layoutSelector}
