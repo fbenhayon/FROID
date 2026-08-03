@@ -208,6 +208,15 @@ FROID_PROFESSIONAL_APPROVAL_REQUIRED = os.getenv(
 FROID_ALLOW_LOCAL_BILLING_FALLBACK = os.getenv(
     "FROID_ALLOW_LOCAL_BILLING_FALLBACK", "false"
 ).lower() in {"1", "true", "yes", "on"}
+# Teto de sessoes entregues sem credito (pendentes de acerto). Ao atingi-lo, o
+# profissional/clinica nao inicia novas sessoes ate o administrador regularizar.
+# A sessao ja realizada nunca e recusada nem descartada por causa deste limite.
+try:
+    FROID_MAX_PENDING_SETTLEMENTS = max(
+        1, int(os.getenv("FROID_MAX_PENDING_SETTLEMENTS", "10"))
+    )
+except ValueError:
+    FROID_MAX_PENDING_SETTLEMENTS = 10
 FROID_LEGAL_ACCEPTANCE_REQUIRED = os.getenv(
     "FROID_LEGAL_ACCEPTANCE_REQUIRED", "false"
 ).lower() in {"1", "true", "yes", "on"}
@@ -1944,6 +1953,10 @@ def _professional_access_status(email: str) -> dict:
     pending_settlement = max(
         0, _local_int((profile or {}).get("pending_settlement_count"))
     )
+    settlement_blocked = pending_settlement >= FROID_MAX_PENDING_SETTLEMENTS
+    if settlement_blocked:
+        # Bloqueia o INICIO de novas sessoes; nunca a gravacao de uma ja feita.
+        access_ready = False
     return {
         "has_profile": has_profile,
         "lgpd_acknowledged": lgpd_acknowledged,
@@ -1954,10 +1967,20 @@ def _professional_access_status(email: str) -> dict:
         "used_sessions": used_sessions,
         "remaining_sessions": remaining_sessions,
         "pending_settlement_count": pending_settlement,
+        "pending_settlement_limit": FROID_MAX_PENDING_SETTLEMENTS,
         "settlement_pending": pending_settlement > 0,
+        "settlement_blocked": settlement_blocked,
         "settlement_warning": (
-            f"{pending_settlement} sessão(ões) realizada(s) sem crédito disponível "
-            "aguardam acerto do administrador."
+            (
+                f"Limite de {FROID_MAX_PENDING_SETTLEMENTS} sessões em aberto atingido. "
+                "Renove o plano para liberar novas sessões; as pendentes serão "
+                "creditadas automaticamente ao FROID na renovação."
+            )
+            if settlement_blocked
+            else (
+                f"{pending_settlement} de {FROID_MAX_PENDING_SETTLEMENTS} sessão(ões) "
+                "realizada(s) sem crédito disponível aguardam acerto."
+            )
             if pending_settlement
             else ""
         ),
@@ -1970,6 +1993,49 @@ def _professional_access_status(email: str) -> dict:
         ),
         "manual_approval_ready": approval_ready,
     }
+
+
+def _settle_pending_sessions(profile: dict, already_deducted: bool) -> int:
+    """Credita ao FROID as sessões em aberto assim que o plano é renovado.
+
+    ``already_deducted`` distingue os dois caminhos de compra:
+
+    * Troca de plano recalcula ``remaining = total - used``. Como
+      ``_register_pending_settlement`` já incrementou ``used_sessions`` quando
+      entregou a sessão sem crédito, essa conta **já** desconta as pendentes —
+      descontar de novo cobraria a mesma sessão duas vezes. Aqui só limpamos.
+    * Compra avulsa soma ``remaining += total``, partindo de zero, e portanto
+      não desconta nada; nesse caso a quitação sai dos créditos novos.
+
+    Devolve quantas sessões foram quitadas.
+    """
+    pending = profile.get("pending_settlement_session_ids")
+    pending = pending if isinstance(pending, list) else []
+    if not pending:
+        profile["pending_settlement_count"] = 0
+        return 0
+    settled = len(pending)
+    if not already_deducted:
+        remaining = max(0, _local_int(profile.get("remaining_sessions")))
+        settled = min(settled, remaining)
+        if settled <= 0:
+            profile["pending_settlement_count"] = len(pending)
+            return 0
+        profile["remaining_sessions"] = remaining - settled
+    profile["pending_settlement_session_ids"] = pending[settled:]
+    profile["pending_settlement_count"] = len(pending) - settled
+    history = profile.get("settlement_history")
+    history = history if isinstance(history, list) else []
+    history.append(
+        {
+            "settled_sessions": settled,
+            "settled_session_ids": pending[:settled],
+            "charged_against_new_credits": not already_deducted,
+            "settled_at": _utc_now_iso(),
+        }
+    )
+    profile["settlement_history"] = history[-200:]
+    return settled
 
 
 def _register_pending_settlement(email: str, session_id: str, profile: dict) -> dict:
@@ -4116,6 +4182,8 @@ def _apply_session_credit_purchase(
             0,
             _local_int(profile.get("remaining_sessions")) + total_sessions,
         )
+        # Sessoes entregues sem credito sao cobradas destes creditos novos.
+        settled_sessions = _settle_pending_sessions(profile, already_deducted=False)
     else:
         profile["contracted_sessions"] = contracted_sessions
         profile["bonus_sessions"] = bonus_sessions
@@ -4124,6 +4192,8 @@ def _apply_session_credit_purchase(
             0,
             total_sessions - max(0, _local_int(profile.get("used_sessions"))),
         )
+        # (total - usadas) ja desconta as pendentes: so registra a quitacao.
+        settled_sessions = _settle_pending_sessions(profile, already_deducted=True)
     profile["selected_plan"] = plan_id
     profile["session_unit_amount_cents"] = max(0, _local_int(unit_amount_cents))
     profile["package_total_cents"] = max(0, _local_int(package_total_cents))
@@ -4140,6 +4210,7 @@ def _apply_session_credit_purchase(
             "package_total_cents": max(0, _local_int(package_total_cents)),
             "status": status,
             "checkout_session_id": checkout_session_id,
+            "settled_pending_sessions": settled_sessions,
             "created_at": _utc_now_iso(),
         }
     )
