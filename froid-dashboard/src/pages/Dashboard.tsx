@@ -10,6 +10,7 @@ import {
   fmt,
   fmtDelta,
   formatDateTime,
+  matchesPatientSearch,
   mergeReports,
   patientAdvancedSignal,
   paymentStatusForReport,
@@ -231,6 +232,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   const nav = useNavigate();
   const [patientActivity, setPatientActivity] = useState("");
   const [selectedPatientKey, setSelectedPatientKey] = useState("");
+  const [patientSearch, setPatientSearch] = useState("");
   const [receivables, setReceivables] = useState<ReceivableRow[]>([]);
   const [receivablesSummary, setReceivablesSummary] = useState<ReceivablesSummary | null>(null);
   const [professionalProfile, setProfessionalProfile] = useState<ProfessionalProfile | null>(null);
@@ -323,6 +325,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   }, []);
 
   const patientGroups = useMemo(() => buildPatientGroups(reports), [reports]);
+  const visiblePatientGroups = useMemo(
+    () => patientGroups.filter((group) => matchesPatientSearch(group, patientSearch)),
+    [patientGroups, patientSearch],
+  );
   const portfolio = useMemo(
     () => professionalPortfolioSummary(patientGroups),
     [patientGroups],
@@ -538,12 +544,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <header className="border-b border-slate-800 bg-slate-950 px-6 py-4">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-300">
               {tr("Dashboard Profissional")}
             </p>
             <h1 className="mt-1 text-xl font-bold text-slate-100">{professionalName}</h1>
+          </div>
+          <div className="w-full max-w-xs shrink-0 sm:w-64">
+            <input
+              type="search"
+              value={patientSearch}
+              onChange={(event) => setPatientSearch(event.target.value)}
+              placeholder={tr("Buscar paciente...")}
+              aria-label={tr("Buscar paciente")}
+              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:border-cyan-600 focus:outline-none"
+            />
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
             {Array.isArray(user?.organizations) && user.organizations.length > 1 && (
@@ -738,14 +754,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
       </section>
 
       <section className="space-y-4">
-        {patientGroups.length === 0 && (
+        {visiblePatientGroups.length === 0 && (
           <div className="rounded-lg border border-slate-800 bg-slate-900 p-4 text-xs text-slate-400">
-            Nenhum paciente com relatório encontrado. Finalize uma sessão para
-            alimentar o dashboard profissional.
+            {patientGroups.length === 0
+              ? "Nenhum paciente com relatório encontrado. Finalize uma sessão para alimentar o dashboard profissional."
+              : tr("Nenhum paciente encontrado para esta busca.")}
           </div>
         )}
 
-        {patientGroups.map((group) => {
+        {visiblePatientGroups.map((group) => {
           const signal = patientAdvancedSignal(group);
           const averageSnapshot = patientAverageSnapshot(group.reports);
           const priorityClass =

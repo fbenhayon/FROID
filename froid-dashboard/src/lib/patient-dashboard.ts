@@ -48,6 +48,54 @@ export interface ProfessionalPortfolioSummary {
   reviewCount: number;
 }
 
+const SEARCH_ACCENT_MAP: Record<string, string> = {
+  a: "aàáâãä",
+  e: "eèéêë",
+  i: "iìíîï",
+  o: "oòóôõö",
+  u: "uùúûü",
+  c: "cç",
+  n: "nñ",
+};
+const SEARCH_ACCENT_PATTERN = new RegExp(
+  Object.values(SEARCH_ACCENT_MAP).map((chars) => `[${chars.slice(1)}]`).join("|"),
+  "g",
+);
+
+export function normalizeSearchText(value: string) {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(SEARCH_ACCENT_PATTERN, (char) => {
+      const base = Object.keys(SEARCH_ACCENT_MAP).find((key) =>
+        SEARCH_ACCENT_MAP[key].includes(char),
+      );
+      return base || char;
+    });
+}
+
+export function matchesPatientSearch(
+  group: PatientDashboardGroup,
+  query: string,
+) {
+  const queryTokens = normalizeSearchText(query).split(/\s+/).filter(Boolean);
+  if (!queryTokens.length) return true;
+  const haystack = normalizeSearchText(
+    [
+      group.patient.name,
+      group.patient.email,
+      group.patient.phone,
+      group.patient.document,
+    ]
+      .filter(Boolean)
+      .join(" "),
+  );
+  // Cada palavra digitada precisa aparecer em algum lugar (não necessariamente
+  // contígua), para achar "Ana Souza" mesmo quando o nome completo é "Ana
+  // Cecília Souza".
+  return queryTokens.every((token) => haystack.includes(token));
+}
+
 export function fmt(value: number | null | undefined, digits = 2) {
   if (value === null || value === undefined || !Number.isFinite(value)) return "--";
   return Number(value).toFixed(digits);

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { FroidUser } from "../App";
 import { apiUrl } from "../lib/api";
+import { normalizeSearchText } from "../lib/patient-dashboard";
 
 interface Props {
   user?: FroidUser | null;
@@ -14,6 +15,7 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
   const [data, setData] = useState<any>(null);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
+  const [patientSearch, setPatientSearch] = useState("");
 
   const isFabio = adminEmails.has(String(user?.email || "").toLowerCase());
 
@@ -65,6 +67,21 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
   const summary = data?.summary || {};
   const professionals = Array.isArray(data?.professionals) ? data.professionals : [];
   const patients = Array.isArray(data?.patients) ? data.patients : [];
+  const normalizedPatientSearch = normalizeSearchText(patientSearch);
+  const patientSearchTokens = normalizedPatientSearch.split(/\s+/).filter(Boolean);
+  const visiblePatients = patientSearchTokens.length
+    ? patients.filter((patient: any) => {
+        const haystack = normalizeSearchText(
+          [patient.name, patient.email, patient.phone, patient.id]
+            .filter(Boolean)
+            .join(" "),
+        );
+        // Cada palavra digitada precisa aparecer em algum lugar (não
+        // necessariamente contígua), para achar "Ana Souza" mesmo quando o
+        // nome completo é "Ana Cecília Souza".
+        return patientSearchTokens.every((token) => haystack.includes(token));
+      })
+    : patients;
 
   return (
     <div className="min-h-screen bg-slate-950 p-6 text-slate-100">
@@ -78,6 +95,16 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
             <p className="mt-1 text-xs text-slate-400">
               Profissionais, pacientes, sessões, convites e informativos financeiros totais.
             </p>
+          </div>
+          <div className="w-full max-w-xs shrink-0 sm:w-64">
+            <input
+              type="search"
+              value={patientSearch}
+              onChange={(event) => setPatientSearch(event.target.value)}
+              placeholder="Buscar paciente..."
+              aria-label="Buscar paciente"
+              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:border-cyan-600 focus:outline-none"
+            />
           </div>
           <button
             onClick={() => nav("/dashboard")}
@@ -238,12 +265,14 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-black text-slate-100">Pacientes cadastrados</h2>
             <span className="text-[10px] text-slate-500">
-              {patients.length} no total · clique para abrir o perfil
+              {normalizedPatientSearch
+                ? `${visiblePatients.length} de ${patients.length} · clique para abrir o perfil`
+                : `${patients.length} no total · clique para abrir o perfil`}
             </span>
           </div>
           <div className="mt-3 max-h-[420px] overflow-y-auto rounded border border-slate-800 p-1">
             <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-              {patients.map((patient: any) => (
+              {visiblePatients.map((patient: any) => (
                 <button
                   key={patient.id}
                   type="button"
@@ -258,9 +287,11 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
                   </p>
                 </button>
               ))}
-              {patients.length === 0 && (
+              {visiblePatients.length === 0 && (
                 <p className="col-span-full py-6 text-center text-xs text-slate-500">
-                  Nenhum paciente cadastrado ainda.
+                  {patients.length === 0
+                    ? "Nenhum paciente cadastrado ainda."
+                    : "Nenhum paciente encontrado para esta busca."}
                 </p>
               )}
             </div>

@@ -7,6 +7,7 @@ import { apiUrl } from "../lib/api";
 import {
   buildPatientGroups,
   fmt,
+  matchesPatientSearch,
   mergeReports,
   patientAdvancedSignal,
   professionalPortfolioSummary,
@@ -38,6 +39,7 @@ export const ProfessionalDashboardSummary: React.FC<Props> = ({ user, onLogout }
   const [financial, setFinancial] = useState<FinancialSummary | null>(null);
   const [patientFinancials, setPatientFinancials] = useState<PatientFinancialRow[]>([]);
   const [selectedKey, setSelectedKey] = useState("");
+  const [patientSearch, setPatientSearch] = useState("");
   const locale = loadSessionLanguagePreferences().spokenLanguage;
   const tr = (text: string) => dashboardText(locale, text);
   const token = localStorage.getItem("froid_token") || "";
@@ -67,18 +69,32 @@ export const ProfessionalDashboardSummary: React.FC<Props> = ({ user, onLogout }
   }, []);
 
   const groups = useMemo(() => buildPatientGroups(reports), [reports]);
+  const visibleGroups = useMemo(
+    () => groups.filter((group) => matchesPatientSearch(group, patientSearch)),
+    [groups, patientSearch],
+  );
   const portfolio = useMemo(() => professionalPortfolioSummary(groups), [groups]);
   const selected = groups.find((group) => group.key === selectedKey) || groups[0];
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <header className="border-b border-slate-800 px-6 py-4">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-300">
               {tr("Dashboard Profissional Resumido")}
             </p>
             <h1 className="mt-1 text-xl font-bold">{user?.name || user?.email || "Profissional"}</h1>
+          </div>
+          <div className="w-full max-w-xs shrink-0 sm:w-64">
+            <input
+              type="search"
+              value={patientSearch}
+              onChange={(event) => setPatientSearch(event.target.value)}
+              placeholder={tr("Buscar paciente...")}
+              aria-label={tr("Buscar paciente")}
+              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:border-cyan-600 focus:outline-none"
+            />
           </div>
           <div className="flex gap-2">
             <button onClick={() => nav("/dashboard")} className="rounded border border-cyan-800 bg-cyan-950 px-3 py-2 text-xs font-bold text-cyan-100">{tr("Dashboard detalhado")}</button>
@@ -132,7 +148,16 @@ export const ProfessionalDashboardSummary: React.FC<Props> = ({ user, onLogout }
                   <tr>{["Paciente", "Sessões", "Tom", "IPM", "IDM", "P/min", "MFCC7", "MFCC9", "Jitter", "Shimmer", "Prioridade", "Devido", "Recebido", "Pendente"].map((label) => <th key={label} className="whitespace-nowrap px-2 py-2">{tr(label)}</th>)}</tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
-                  {groups.map((group) => {
+                  {visibleGroups.length === 0 && (
+                    <tr>
+                      <td colSpan={14} className="px-2 py-4 text-center text-[11px] text-slate-500">
+                        {groups.length === 0
+                          ? tr("Nenhum paciente com relatório disponível.")
+                          : tr("Nenhum paciente encontrado para esta busca.")}
+                      </td>
+                    </tr>
+                  )}
+                  {visibleGroups.map((group) => {
                     const signal = patientAdvancedSignal(group);
                     const financialKeys = new Set([
                       group.key,
