@@ -80,6 +80,26 @@ export function loadRtcConfiguration(
   return request;
 }
 
+export type ScreenWakeLock = { release: () => Promise<void> };
+
+// Numa sessão celular-para-celular (paciente e profissional usando o
+// próprio telefone), o bloqueio automático de tela suspende a captura de
+// câmera/microfone e trava os laços de análise em tempo real — sem aviso
+// nenhum na interface. Pedimos o wake lock enquanto a mídia está ativa; a
+// API o libera sozinha quando a aba perde foco, então cada chamador deve
+// tentar readquirir no "visibilitychange" enquanto a sessão seguir ativa.
+export async function requestScreenWakeLock(): Promise<ScreenWakeLock | null> {
+  const nav = navigator as Navigator & {
+    wakeLock?: { request: (type: "screen") => Promise<ScreenWakeLock> };
+  };
+  if (!nav.wakeLock?.request) return null;
+  try {
+    return await nav.wakeLock.request("screen");
+  } catch {
+    return null;
+  }
+}
+
 export function createConferenceStream(source: MediaStream) {
   const stream = new MediaStream();
   const audioTrack = source

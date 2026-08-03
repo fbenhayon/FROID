@@ -31,8 +31,10 @@ import {
   evaluateInboundFlow,
   loadRtcConfiguration,
   readRtcMediaFlowStats,
+  requestScreenWakeLock,
   shouldReconnectRtcSignaling,
   type RtcMediaFlowStats,
+  type ScreenWakeLock,
 } from "../lib/webrtc";
 import {
   MetricSnapshot,
@@ -2308,7 +2310,15 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   >([]);
   const [sessionLayout, setSessionLayout] = useState<
     "detailed" | "simplified" | "indices"
-  >("detailed");
+  >(() =>
+    // As layouts "Detalhada" e "Índices" exigem grades com largura mínima
+    // fixa (1620px/1500px) pensadas para monitor de consultório; abertas
+    // num celular do profissional (sessão celular-para-celular) ficariam
+    // ilegíveis por padrão. "Simplificada" é a única responsiva de fato.
+    typeof window !== "undefined" && window.innerWidth < 1024
+      ? "simplified"
+      : "detailed",
+  );
   const [clinicalUpdateMode, setClinicalUpdateMode] = useState<ClinicalUpdateMode>(
     loadClinicalUpdateMode,
   );
@@ -2347,6 +2357,10 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
+  // Numa sessão pelo próprio celular do profissional, o bloqueio automático
+  // de tela pausa a captura de câmera/microfone sem aviso nenhum na
+  // interface. Mantemos a tela acordada enquanto a mídia estiver ativa.
+  const wakeLockRef = useRef<ScreenWakeLock | null>(null);
   const rtcSignalRef = useRef<WebSocket | null>(null);
   const rtcPeerRef = useRef<RTCPeerConnection | null>(null);
   const rtcRemoteStreamRef = useRef<MediaStream | null>(null);
@@ -2572,6 +2586,22 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     });
     return () => window.cancelAnimationFrame(frame);
   }, [sessionLayout]);
+
+  useEffect(() => {
+    // O wake lock é liberado automaticamente pelo navegador quando a aba
+    // perde visibilidade (troca de app no celular, por exemplo); ao voltar,
+    // se a mídia ainda estiver ativa, pedimos de volta.
+    const reacquireWakeLock = () => {
+      if (document.visibilityState !== "visible") return;
+      if (!state.cameraOn && !state.micOn) return;
+      if (wakeLockRef.current) return;
+      requestScreenWakeLock().then((lock) => {
+        wakeLockRef.current = lock;
+      });
+    };
+    document.addEventListener("visibilitychange", reacquireWakeLock);
+    return () => document.removeEventListener("visibilitychange", reacquireWakeLock);
+  }, [state.cameraOn, state.micOn]);
 
   useEffect(() => {
     speakerIdModeRef.current = speakerIdMode;
@@ -3602,6 +3632,8 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     mediaStreamRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
     if (reportStatus) refreshMediaStatus(null);
+    void wakeLockRef.current?.release().catch(() => undefined);
+    wakeLockRef.current = null;
   }, [cleanupRtcCall, refreshMediaStatus, stopRawBioacousticPipeline, stopVoiceIdentification]);
 
   const summarizeTranscriptRange = useCallback(
@@ -4335,6 +4367,11 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       setRtcStatus("Sessão presencial: captura local ativa.");
     } else {
       void startProfessionalRtcCall(stream);
+    }
+    if (cameraOn || micOn) {
+      requestScreenWakeLock().then((lock) => {
+        wakeLockRef.current = lock;
+      });
     }
   }, [
     cleanupRtcCall,
@@ -5127,8 +5164,8 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           </div>
         </div>
 
-        <main className="grid min-h-0 flex-1 grid-cols-[minmax(0,3fr)_minmax(360px,2fr)] gap-2 overflow-hidden p-2">
-          <section className="relative flex min-h-0 items-center justify-center overflow-hidden rounded-xl border border-slate-700 bg-slate-900">
+        <main className="grid min-h-0 flex-1 grid-cols-1 gap-2 overflow-y-auto p-2 lg:grid-cols-[minmax(0,3fr)_minmax(360px,2fr)] lg:overflow-hidden">
+          <section className="relative flex aspect-video min-h-[220px] shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-700 bg-slate-900 lg:aspect-auto lg:h-full lg:min-h-0 lg:shrink">
             <MediaStatus
               cameraOn={state.cameraOn}
               micOn={state.micOn}
@@ -5194,7 +5231,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             )}
           </section>
 
-          <div className="flex min-h-0 flex-col gap-2 overflow-y-auto">
+          <div className="flex min-h-0 flex-col gap-2 lg:overflow-y-auto">
             <section className="shrink-0 overflow-hidden rounded-xl border border-cyan-800 bg-slate-950 p-2 shadow-sm">
               <AudioTranscription
                 audioMeta={displayAudio}

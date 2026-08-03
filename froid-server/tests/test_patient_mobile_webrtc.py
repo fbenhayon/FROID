@@ -115,6 +115,26 @@ class PatientMobileWebRtcTests(unittest.TestCase):
             self.patient_session,
         )
 
+    def test_professional_phone_gets_responsive_layout_and_wake_lock(self):
+        # Sessão celular-para-celular: o profissional pode abrir o próprio
+        # dashboard no celular. As grades "Detalhada"/"Índices" exigem
+        # largura mínima de monitor (1620px/1500px); em telas estreitas o
+        # layout precisa cair sozinho para a "Simplificada" responsiva, e a
+        # tela não pode bloquear sozinha no meio da captura de câmera/mic.
+        self.assertIn(
+            "window.innerWidth < 1024",
+            self.professional_session,
+        )
+        self.assertIn(
+            "grid-cols-1 gap-2 overflow-y-auto p-2 lg:grid-cols-[minmax(0,3fr)_minmax(360px,2fr)]",
+            self.professional_session,
+        )
+        self.assertIn("requestScreenWakeLock", self.professional_session)
+        self.assertIn("requestScreenWakeLock", self.patient_session)
+        self.assertIn("export async function requestScreenWakeLock", self.webrtc)
+        self.assertIn("visibilitychange", self.professional_session)
+        self.assertIn("visibilitychange", self.patient_session)
+
     def test_reduced_patient_registration_keeps_password_and_single_consent(self):
         # Fase de testes: cadastro reduzido, mas a senha (e confirmacao) segue
         # obrigatoria no novo cadastro, alem da senha do paciente recorrente.

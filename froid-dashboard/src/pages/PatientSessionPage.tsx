@@ -11,8 +11,10 @@ import {
   evaluateOutboundFlow,
   loadRtcConfiguration,
   readRtcMediaFlowStats,
+  requestScreenWakeLock,
   shouldReconnectRtcSignaling,
   type RtcMediaFlowStats,
+  type ScreenWakeLock,
 } from "../lib/webrtc";
 import { normalizeSessionLocale, patientCopy, type SessionLocale } from "../lib/localization";
 import { startF0Capture } from "../lib/froid-acoustic";
@@ -30,6 +32,9 @@ export const PatientSessionPage: React.FC = () => {
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  // Bloqueio automático de tela pausa a captura de câmera/microfone do
+  // celular sem aviso na interface; mantemos a tela acordada com a mídia ativa.
+  const wakeLockRef = useRef<ScreenWakeLock | null>(null);
   // Para a captura de PCM do microfone (análise de F0 real).
   const f0StopRef = useRef<null | (() => void)>(null);
   // Para a captura facial (blendshapes -> AUs FACS reais).
@@ -143,8 +148,26 @@ export const PatientSessionPage: React.FC = () => {
       }
       faceStopRef.current = null;
       streamRef.current?.getTracks().forEach((track) => track.stop());
+      void wakeLockRef.current?.release().catch(() => undefined);
+      wakeLockRef.current = null;
     };
   }, [inviteToken, sessionId]);
+
+  useEffect(() => {
+    // O wake lock é liberado automaticamente pelo navegador quando a aba
+    // perde visibilidade; ao voltar, se a mídia ainda estiver ativa,
+    // pedimos de volta para o celular não travar a captura no meio da sessão.
+    const reacquireWakeLock = () => {
+      if (document.visibilityState !== "visible") return;
+      if (mediaState !== "active") return;
+      if (wakeLockRef.current) return;
+      requestScreenWakeLock().then((lock) => {
+        wakeLockRef.current = lock;
+      });
+    };
+    document.addEventListener("visibilitychange", reacquireWakeLock);
+    return () => document.removeEventListener("visibilitychange", reacquireWakeLock);
+  }, [mediaState]);
 
   const replaceOutgoingTracks = async (localConferenceStream: MediaStream) => {
     const peer = rtcPeerRef.current;
@@ -426,6 +449,8 @@ export const PatientSessionPage: React.FC = () => {
         faceStopRef.current = null;
         streamRef.current?.getTracks().forEach((track) => track.stop());
         streamRef.current = null;
+        void wakeLockRef.current?.release().catch(() => undefined);
+        wakeLockRef.current = null;
         if (videoRef.current) videoRef.current.srcObject = null;
         if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
         if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
@@ -558,6 +583,11 @@ export const PatientSessionPage: React.FC = () => {
         );
       }
       setMediaState(hasAudio && hasVideo ? "active" : "failed");
+      if (hasAudio || hasVideo) {
+        requestScreenWakeLock().then((lock) => {
+          wakeLockRef.current = lock;
+        });
+      }
       // Captura o microfone cru (pré-Opus) para o cálculo de F0 real no
       // backend. Aditivo e tolerante a falhas; não interfere na chamada.
       if (hasAudio && sessionId) {
