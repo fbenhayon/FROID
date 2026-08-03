@@ -12,6 +12,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import threading
 from typing import Any, Dict, Iterable, Optional
 import uuid
@@ -1558,9 +1559,95 @@ class TenantStore:
             "applied": bool(row[2]),
         }
 
+    def _contribute_legacy_balance(
+        self,
+        cursor,
+        organization_id: str,
+        user_id: str,
+        balance: int,
+        metadata: Optional[dict] = None,
+    ) -> int:
+        """Soma o saldo individual de um profissional ao pool da organizacao.
+
+        Quando varios profissionais partilham a mesma organizacao (clinica com
+        CNPJ), cada um contribui com o proprio saldo remanescente e o pool passa
+        a valer a SOMA. A versao anterior escrevia ``balance=EXCLUDED.balance``,
+        o que sobrescrevia: numa clinica de 4 profissionais o pool terminaria
+        valendo o saldo do ultimo da iteracao, destruindo os demais creditos.
+
+        Idempotente por profissional: a contribuicao e registrada no
+        ``credit_ledger`` com a chave ``legacy-opening-v1:<user_id>``, entao
+        reexecutar o backfill nao soma duas vezes.
+
+        So atua enquanto a carteira esta em ``authority='legacy'``. Depois da
+        ativacao o saldo compartilhado e a autoridade e nao pode ser remexido
+        por uma migracao.
+
+        Devolve o saldo do pool apos a contribuicao (ou o atual, se inerte).
+        """
+        idempotency_key = f"legacy-opening-v1:{user_id}"
+        cursor.execute(
+            "SELECT 1 FROM credit_ledger WHERE organization_id=%s AND idempotency_key=%s",
+            (organization_id, idempotency_key),
+        )
+        already_contributed = cursor.fetchone() is not None
+
+        cursor.execute(
+            "INSERT INTO organization_wallets (organization_id, balance) "
+            "VALUES (%s,0) ON CONFLICT (organization_id) DO NOTHING",
+            (organization_id,),
+        )
+        cursor.execute(
+            "SELECT balance, authority FROM organization_wallets "
+            "WHERE organization_id=%s FOR UPDATE",
+            (organization_id,),
+        )
+        row = cursor.fetchone()
+        current_balance = safe_int(row[0]) if row else 0
+        authority = str(row[1]) if row else "legacy"
+        if already_contributed or authority != "legacy":
+            return current_balance
+
+        contribution = max(0, safe_int(balance))
+        new_balance = current_balance + contribution
+        cursor.execute(
+            "UPDATE organization_wallets SET balance=%s, updated_at=now() "
+            "WHERE organization_id=%s",
+            (new_balance, organization_id),
+        )
+        cursor.execute(
+            """
+            INSERT INTO credit_ledger
+                (id, organization_id, delta, balance_after, event_type,
+                 idempotency_key, actor_user_id, metadata)
+            VALUES (%s,%s,%s,%s,'migration_opening',%s,%s,%s::jsonb)
+            """,
+            (
+                stable_uuid("credit", organization_id, idempotency_key),
+                organization_id,
+                contribution,
+                new_balance,
+                idempotency_key,
+                user_id,
+                _json(metadata or {}),
+            ),
+        )
+        return new_balance
+
     def _organization_for_email(self, cursor, email: str, profile: dict) -> dict:
         owner_email = normalize_email(email) or "legacy-unassigned@froid.local"
-        organization_id = stable_uuid("organization", owner_email)
+        account_type_raw = str(profile.get("account_type") or "individual").lower()
+        # Clinica: a organizacao e derivada do CNPJ, para que todos os
+        # profissionais do mesmo CNPJ caiam na MESMA organizacao e partilhem um
+        # unico pool de creditos. Profissional autonomo continua derivando do
+        # e-mail (uma organizacao propria), preservando quem ja opera hoje.
+        clinic_document = re.sub(
+            r"\D", "", str(profile.get("organization_document") or "")
+        )
+        if account_type_raw == "organization" and clinic_document:
+            organization_id = stable_uuid("organization", "cnpj", clinic_document)
+        else:
+            organization_id = stable_uuid("organization", owner_email)
         user_id = stable_uuid("user", owner_email)
         membership_id = stable_uuid("membership", organization_id, user_id)
         account_type = str(profile.get("account_type") or "individual").lower()
@@ -1843,42 +1930,16 @@ class TenantStore:
 
         for email, profile in owners.items():
             ref = owner_refs[email]
-            balance = max(0, safe_int(profile.get("remaining_sessions")))
-            cursor.execute(
-                """
-                INSERT INTO organization_wallets (organization_id, balance)
-                VALUES (%s,%s) ON CONFLICT (organization_id) DO UPDATE SET
-                    balance=CASE WHEN organization_wallets.authority='legacy'
-                        THEN EXCLUDED.balance ELSE organization_wallets.balance END,
-                    updated_at=CASE WHEN organization_wallets.authority='legacy'
-                        THEN now() ELSE organization_wallets.updated_at END
-                """,
-                (ref["organization_id"], balance),
-            )
-            cursor.execute(
-                """
-                INSERT INTO credit_ledger
-                    (id, organization_id, delta, balance_after, event_type,
-                     idempotency_key, actor_user_id, metadata)
-                VALUES (%s,%s,%s,%s,'migration_opening','legacy-opening-v1',%s,%s::jsonb)
-                ON CONFLICT (organization_id, idempotency_key) DO UPDATE SET
-                    delta=EXCLUDED.delta, balance_after=EXCLUDED.balance_after,
-                    actor_user_id=EXCLUDED.actor_user_id, metadata=EXCLUDED.metadata
-                WHERE EXISTS (
-                    SELECT 1 FROM organization_wallets wallet
-                    WHERE wallet.organization_id=EXCLUDED.organization_id
-                      AND wallet.authority='legacy'
-                )
-                """,
-                (
-                    stable_uuid("credit", ref["organization_id"], "legacy-opening-v1"),
-                    ref["organization_id"],
-                    balance,
-                    balance,
-                    ref["user_id"],
-                    _json({"total_sessions": safe_int(profile.get("total_sessions")),
-                           "used_sessions": safe_int(profile.get("used_sessions"))}),
-                ),
+            self._contribute_legacy_balance(
+                cursor,
+                organization_id=ref["organization_id"],
+                user_id=ref["user_id"],
+                balance=max(0, safe_int(profile.get("remaining_sessions"))),
+                metadata={
+                    "owner_email": email,
+                    "total_sessions": safe_int(profile.get("total_sessions")),
+                    "used_sessions": safe_int(profile.get("used_sessions")),
+                },
             )
 
         for consent in state.get("consent_ledger") or []:

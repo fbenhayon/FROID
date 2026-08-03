@@ -40,8 +40,21 @@ class SharedCreditWalletTests(unittest.TestCase):
         self.assertIn("wallet.authority<>'shared'", self.safety_sql)
 
     def test_legacy_backfill_cannot_overwrite_shared_balance(self):
-        self.assertGreaterEqual(
-            self.store_source.count("organization_wallets.authority='legacy'"), 2
+        # A guarda deixou de ser um CASE WHEN inline no ON CONFLICT e passou a
+        # ser explicita em _contribute_legacy_balance, que le a autoridade sob
+        # FOR UPDATE e desiste se a carteira ja foi ativada. O comportamento e
+        # exercitado de verdade em test_legacy_balance_consolidation.
+        self.assertIn("def _contribute_legacy_balance(", self.store_source)
+        self.assertIn('authority != "legacy"', self.store_source)
+        self.assertIn("FOR UPDATE", self.store_source)
+
+    def test_legacy_backfill_sums_balances_instead_of_overwriting(self):
+        """Numa clinica, cada profissional soma seu saldo ao pool compartilhado."""
+        self.assertIn("current_balance + contribution", self.store_source)
+        self.assertIn('f"legacy-opening-v1:{user_id}"', self.store_source)
+        self.assertNotIn(
+            "balance=CASE WHEN organization_wallets.authority='legacy'",
+            self.store_source,
         )
 
     def test_billing_fallback_is_opt_in_and_bonus_is_server_calculated(self):
