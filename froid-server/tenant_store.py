@@ -1858,7 +1858,8 @@ class TenantStore:
         clinic_document = re.sub(
             r"\D", "", str(profile.get("organization_document") or "")
         )
-        if account_type_raw == "organization" and clinic_document:
+        is_clinic = bool(account_type_raw == "organization" and clinic_document)
+        if is_clinic:
             organization_id = stable_uuid("organization", "cnpj", clinic_document)
         else:
             organization_id = stable_uuid("organization", owner_email)
@@ -1890,7 +1891,13 @@ class TenantStore:
                 organization_name,
                 organization_name,
                 organization_document,
-                owner_email,
+                # Clinica com CNPJ nao tem "dono legado" unico: ela e
+                # compartilhada por varios profissionais. Alem de semanticamente
+                # errado, gravar o e-mail aqui colide com o indice unico
+                # organizations_legacy_owner_unique quando um autonomo (que ja
+                # tem organizacao propria com esse e-mail) depois se formaliza
+                # como clinica - o backfill quebraria com UniqueViolation.
+                None if is_clinic else owner_email,
                 parse_timestamp(profile.get("created_at")),
                 now,
             ),
