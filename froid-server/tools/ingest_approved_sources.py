@@ -12,8 +12,12 @@ import argparse
 import hashlib
 import os
 import re
+import sys
 from pathlib import Path
 
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import explica_embeddings  # noqa: E402
 
 REPO_APPROVED_DIR = Path(__file__).resolve().parents[1] / "knowledge" / "approved"
 VOLUME_APPROVED_DIR = Path("/data/froid_sources/curated/approved")
@@ -118,6 +122,10 @@ def main() -> None:
     parser.add_argument("--words-per-chunk", type=int, default=DEFAULT_WORDS_PER_CHUNK)
     parser.add_argument("--overlap", type=int, default=DEFAULT_OVERLAP)
     parser.add_argument("--reset", action="store_true", help="Apaga a collection antes de reindexar.")
+    parser.add_argument("--embedding", default="auto", choices=["auto", "openai", "local"],
+                        help="Modelo de embedding. Trocar exige --reset.")
+    parser.add_argument("--exclude", action="append", default=[],
+                        help="Ignora arquivos cujo nome contenha este texto. Pode repetir.")
     args = parser.parse_args()
 
     fontes = [Path(p) for p in (args.approved or [])] or default_sources()
@@ -139,15 +147,22 @@ def main() -> None:
             client.delete_collection(args.collection)
         except Exception:
             pass
-    collection = client.get_or_create_collection(name=args.collection)
+    collection, modelo = explica_embeddings.collection_for(
+        client, args.collection, args.embedding
+    )
+    print(f"Embedding: {modelo}")
 
     # (raiz, arquivo) para que o identificador estavel continue derivando do
     # caminho relativo a sua propria pasta approved.
     md_files: list[tuple[Path, Path]] = []
     vistos: set[str] = set()
     duplicados = 0
+    ignorados_por_filtro = 0
     for raiz in fontes:
         for path in sorted(raiz.rglob("*.md")):
+            if any(termo.lower() in path.name.lower() for termo in args.exclude):
+                ignorados_por_filtro += 1
+                continue
             if path.name in vistos:
                 # Mesmo nome nas duas fontes: vale a primeira, que e o
                 # repositorio — a versao revisada em code review.
@@ -157,6 +172,8 @@ def main() -> None:
             md_files.append((raiz, path))
     if duplicados:
         print(f"Ignorados por nome repetido entre as fontes: {duplicados}")
+    if ignorados_por_filtro:
+        print(f"Ignorados por --exclude: {ignorados_por_filtro}")
 
     total_chunks = 0
     total_files = 0

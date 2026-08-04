@@ -9,6 +9,7 @@ existia para o usuario.
 """
 
 import importlib.util
+import os
 from pathlib import Path
 import unittest
 
@@ -108,6 +109,51 @@ class ChunkSizeTests(unittest.TestCase):
         # perde a identidade e vira paragrafo solto.
         source = TOOL.read_text(encoding="utf-8")
         self.assertIn('f"{title}. {area}. {chunk}"', source)
+
+
+class EmbeddingModelTests(unittest.TestCase):
+    """Indexacao e consulta precisam usar o mesmo modelo.
+
+    Vetores de modelos diferentes nao sao comparaveis, e o erro nao aparece
+    como falha: aparece como busca que devolve qualquer coisa. Por isso a
+    escolha vive num modulo so, usado pelas duas ferramentas.
+    """
+
+    def setUp(self):
+        import explica_embeddings
+
+        self.mod = explica_embeddings
+        self.chave_original = os.environ.get("OPENAI_API_KEY")
+
+    def tearDown(self):
+        if self.chave_original is None:
+            os.environ.pop("OPENAI_API_KEY", None)
+        else:
+            os.environ["OPENAI_API_KEY"] = self.chave_original
+
+    def test_prefers_the_multilingual_model_when_the_key_exists(self):
+        # all-MiniLM-L6-v2 e treinado em ingles; toda pergunta real do FROID
+        # chega em portugues, muitas vezes coloquial.
+        os.environ["OPENAI_API_KEY"] = "chave-de-teste"
+        self.assertEqual(self.mod.resolve_mode("auto"), "openai")
+
+    def test_falls_back_to_local_without_a_key(self):
+        os.environ.pop("OPENAI_API_KEY", None)
+        self.assertEqual(self.mod.resolve_mode("auto"), "local")
+
+    def test_explicit_openai_without_a_key_fails_loudly(self):
+        os.environ.pop("OPENAI_API_KEY", None)
+        with self.assertRaises(SystemExit):
+            self.mod.resolve_mode("openai")
+
+    def test_invalid_mode_fails_closed(self):
+        with self.assertRaises(ValueError):
+            self.mod.resolve_mode("gemini")
+
+    def test_both_tools_resolve_the_model_through_the_same_module(self):
+        for nome in ("ingest_approved_sources.py", "verify_explica_retrieval.py"):
+            source = (SERVER_DIR / "tools" / nome).read_text(encoding="utf-8")
+            self.assertIn("explica_embeddings.collection_for", source, nome)
 
 
 class Nr1NoteTests(unittest.TestCase):

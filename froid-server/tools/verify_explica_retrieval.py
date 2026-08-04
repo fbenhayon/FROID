@@ -23,6 +23,10 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import explica_embeddings  # noqa: E402
 
 # Pergunta -> trecho do nome do arquivo que deveria responde-la.
 #
@@ -54,15 +58,26 @@ def main() -> int:
     parser.add_argument(
         "--collection", default=os.getenv("FROID_CHROMA_COLLECTION", "froid_clinical_knowledge")
     )
+    parser.add_argument(
+        "--embedding", default="auto", choices=["auto", "openai", "local"],
+        help="Precisa ser o mesmo usado na indexacao.",
+    )
     args = parser.parse_args()
 
     import chromadb
 
-    collection = chromadb.PersistentClient(path=args.chroma_path).get_collection(
-        args.collection
+    # O mesmo modelo da indexacao, obrigatoriamente: vetores de modelos
+    # diferentes nao sao comparaveis, e o erro nao aparece como falha — aparece
+    # como busca que devolve qualquer coisa.
+    collection, modelo = explica_embeddings.collection_for(
+        chromadb.PersistentClient(path=args.chroma_path),
+        args.collection,
+        args.embedding,
+        create=False,
     )
     total = collection.count()
     print(f"Collection: {args.collection} ({total} trechos)")
+    print(f"Embedding: {modelo}")
     print(f"Acerto = documento esperado entre os {args.top} primeiros.\n")
 
     acertos = 0
