@@ -34,9 +34,9 @@ interface Props {
 
 const biomarkerTooltips: Record<string, string> = {
   mfcc7:
-    "MFCC7 indica componentes espectrais associados a valência negativa e risco depressivo quando se eleva em fala emocionalmente negativa.",
+    "MFCC7: coeficiente cepstral do envelope espectral. O FROID acompanha sua elevacao durante fala de valencia negativa. A literatura associa esse padrao a lentificacao psicomotora. Associacao descrita na literatura em nivel de grupo; nao constitui inferencia sobre este paciente.",
   mfcc9:
-    "MFCC9 é acompanhado em fala neutra; quedas ou desvios podem sugerir tensão autonômica latente e ansiedade somática.",
+    "MFCC9: coeficiente cepstral acompanhado em fala neutra, contra a referencia do proprio paciente. Quedas sustentadas sao descritas na literatura como correlato acustico de tensao laringea. Associacao descrita na literatura em nivel de grupo; nao constitui inferencia sobre este paciente.",
   jitter:
     "Jitter no FROID é um índice proxy interno normalizado, derivado de ZCR escalado, útil para observar instabilidade vocal relativa. Não equivale diretamente ao jitter percentual normativo de Praat.",
   shimmer:

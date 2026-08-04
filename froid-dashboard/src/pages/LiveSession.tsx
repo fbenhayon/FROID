@@ -109,9 +109,9 @@ const SIMPLIFIED_METRIC_TOOLTIPS: Record<string, string> = {
   "DNA VOCAL":
     "Componente de tensão vocal basal usado para compor riscos, dissonâncias e estado de ativação.",
   "DNA FLOOD":
-    "Indicador composto de flooding autonômico, sugerindo sobrecarga ou intensificação fisiológica relevante.",
+    "Indicador composto de elevacao multimodal simultanea: varios canais medidos sobem juntos na mesma janela.",
   "DNA SHUTDOWN":
-    "Indicador composto de retraimento ou desligamento dissociativo, quando a assinatura bioacústica sugere queda defensiva.",
+    "Indicador composto de queda multimodal sustentada: varios canais medidos caem juntos, com reducao de coerencia entre eles.",
   "DNA NEURO":
     "Índice de ressonância neurogênica estimado por combinações sub-harmônicas e estabilidade vocal.",
   "DNA SOMATO":

@@ -139,7 +139,7 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta, locale = "
     const items: Omit<SubharmonicMetric, "color">[] = [
       {
         id: "nuclear_infrasound",
-        label: "Infrassom Nuclear",
+        label: "Infrassom nuclear: energia medida na faixa de 5 a 12 Hz da envoltoria vocal. Valores altos indicam elevacao dessa banda contra a referencia do paciente. Nao mede atividade do sistema nervoso autonomo nem conteudo nao verbalizado.",
         band: "5-12 Hz | Tremor SNA profundo",
         value: tremor5_12,
         source: acoustic5_12 !== null ? "acústico" : "proxy",
@@ -171,7 +171,7 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta, locale = "
         value: flooding,
         source: hasAcoustic ? "acústico" : "proxy",
         tooltip:
-          "Flooding Autonômico: colisão entre a energia de 5–12 Hz e a tensão vocal basal, indicando sobrecarga neurofisiológica ativa. Sugere que o paciente pode estar sendo inundado por ativação — considere regular o ritmo da sessão.",
+          "Elevacao multimodal simultanea: coincidencia entre a energia de 5 a 12 Hz e a tensao vocal basal na mesma janela. Mede co-ocorrencia entre canais, nao estado interno, e nao indica conduta.",
       },
       {
         id: "shutdown",
@@ -180,7 +180,7 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta, locale = "
         value: shutdown,
         source: hasAcoustic ? "acústico" : "proxy",
         tooltip:
-          "Shutdown Dissociativo: queda energética com redução de coerência, sugerindo supressão defensiva, embotamento ou retraimento autonômico. É o oposto do flooding — o paciente pode estar se desconectando.",
+          "Queda multimodal sustentada: reducao simultanea de energia expressiva e de coerencia entre canais, contra a linha de base do paciente. E o inverso do padrao de elevacao simultanea.",
       },
       {
         id: "neurogenic",
@@ -198,7 +198,7 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta, locale = "
         value: somatoaffective,
         source: "proxy",
         tooltip:
-          "Dissonância Somatoafetiva: contraste entre a calma verbal aparente e a tensão sub-harmônica, indicando possível conflito corpo-fala — o que é dito não coincide com o que o corpo sinaliza.",
+          "Divergencia entre canais: contraste entre a calma medida na fala e a tensao medida na faixa sub-harmonica, na mesma janela. Mede divergencia entre canais, nao conteudo reprimido.",
       },
     ];
 

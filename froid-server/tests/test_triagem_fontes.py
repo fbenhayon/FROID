@@ -160,6 +160,29 @@ class ImplementacaoProprietariaTests(unittest.TestCase):
         ):
             self.assertIn("implementacao_proprietaria", self.categorias(texto), texto)
 
+    def test_formula_e_equacao_sozinhas_nao_bloqueiam_artigo_publicado(self):
+        # Rodando contra os 149 arquivos reais, dois papers publicados caíram
+        # em "implementacao proprietaria" porque usam as palavras "formula" e
+        # "equacao" — o que qualquer artigo tecnico faz.
+        for texto in (
+            "We derive the equation for the action unit intensity below.",
+            "A formula geral do coeficiente cepstral e apresentada na secao 3.",
+            "Demystifying mental health by decoding facial action unit "
+            "sequences: the equation is given in Appendix B.",
+        ):
+            self.assertNotIn(
+                "implementacao_proprietaria", self.categorias(texto), texto
+            )
+
+    def test_formula_do_indice_proprietario_continua_bloqueada(self):
+        for texto in (
+            "a formula do IPM soma as bandas normalizadas",
+            "a equacao do IDM pondera as doze zonas",
+        ):
+            self.assertIn(
+                "implementacao_proprietaria", self.categorias(texto), texto
+            )
+
     def test_implementacao_bloqueia_antes_de_qualquer_liberacao(self):
         indexar, motivo = self.tool.propor(
             "paper.md",

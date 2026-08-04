@@ -24,17 +24,33 @@ type RiskItem = {
   source: string;
 };
 
-const TOOLTIP_TEXT = {
-  depression:
-    "Risco de Depressão (Depression Risk): deriva diretamente da predição matemática da escala PHQ-9. O algoritmo isola o biomarcador MFCC7 durante a verbalização de conteúdos com valência semântica negativa. Quando este coeficiente se eleva junto a marcadores de retardo psicomotor, como ZCR, pausas prolongadas e menor variação de F0, o percentual de risco depressivo escala.",
-  anxiety:
-    'Risco de Ansiedade Somática (Anxiety Risk): espelha subescalas de ansiedade e somatização da HAMD. O sistema busca o coeficiente MFCC9 em discurso "neutro"; quedas nos valores acústicos sugerem tensão autônoma latente nas pregas vocais, elevando o risco.',
-  mania:
-    'Ativação de Mania (Mania Activation): baseada em preditores vocais da YMRS. Monitora pitch/F0 elevado, loudness, taxa acelerada de fala e fluxo espectral mais incisivo ("sharper voice").',
-  stress:
-    "Estresse Cognitivo (Stress Cognitive): reflete workload contínuo. É estimado por F0 sustentado, ZCR e índices proxy internos de Jitter/Shimmer alterados, sem equivaler diretamente a medidas normativas em % ou dB.",
-  autonomic:
-    "Risco de Dissociação e Trauma: deriva do cruzamento entre infrassom vocal e FACS. Energia sub-harmônica de 5 a 12 Hz, AU15/AU20 e tensão vocal em 85-165 Hz elevam o alerta para flooding, sobrecarga autonômica ou retraumatização.",
+// Padrões de sinal, não condições clínicas.
+//
+// Estes cinco itens exibiam percentuais para "Depressão", "Ansiedade
+// somática", "Ativação de mania" e "Dissociação / trauma", cada um crachado
+// com o nome de um instrumento validado — PHQ-9, HAMD, YMRS. O FROID não
+// aplica nenhum desses questionários e não foi validado contra nenhum deles: o
+// cálculo é composição de pressão zonal com constantes ajustadas à mão. A
+// procedência declarada não correspondia à implementação, e exibir o nome de
+// um instrumento de terceiros empresta uma credibilidade que não pode ser
+// conferida.
+//
+// A literatura por trás das associações é real e continua citada — agora no
+// lugar certo: como associação observada em nível de grupo, e não como
+// inferência sobre a pessoa na tela. A função de indicação para o profissional
+// não se perde. Ele lê o padrão medido e forma a hipótese, que é o que o
+// registro dele exige de qualquer forma.
+//
+// Ver knowledge/approved/Notas_tecnicas_FROID/FROID_Fronteira_Medida_Interpretacao.md
+const RESSALVA =
+  "Associação observada em nível de grupo na literatura; não constitui inferência sobre este paciente. A leitura clínica é do profissional.";
+
+export const TOOLTIP_TEXT = {
+  depression: `Lentificação psicomotora vocal: composto de MFCC7, ZCR, pausas e variação de F0, lido contra a linha de base deste paciente. O componente sobe quando o MFCC7 se eleva durante fala de valência negativa junto a fala mais lenta, pausas mais longas e menor variação de altura. A literatura associa esse padrão acústico à lentificação psicomotora descrita em quadros depressivos. ${RESSALVA}`,
+  anxiety: `Tensão laríngea sustentada: acompanha o coeficiente MFCC9 em fala neutra, contra a referência do próprio paciente. Quedas sustentadas nesse coeficiente são descritas na literatura como correlato acústico de tensão na musculatura laríngea. ${RESSALVA}`,
+  mania: `Ativação prosódica: composto de F0, loudness e taxa de fala, com fluxo espectral mais incisivo. Mede elevação simultânea de altura, intensidade e velocidade em relação à linha de base deste paciente. ${RESSALVA}`,
+  stress: `Esforço vocal sustentado: composto de F0 sustentado, ZCR e os índices proxy de jitter e shimmer. Descreve carga articulatória contínua. Os índices são estimativas por quadros e não equivalem a medidas normativas de laboratório em % ou dB.`,
+  autonomic: `Assinatura sub-harmônica com retração facial: cruzamento entre energia sub-harmônica de 5 a 12 Hz, as Unidades de Ação AU15 e AU20 e tensão vocal na faixa de 85 a 165 Hz. Mede co-ocorrência entre canais, não estado interno. ${RESSALVA}`,
 };
 
 const clamp = (value: number, min = 0, max = 100) =>
@@ -203,8 +219,8 @@ export const RiskChart: React.FC<Props> = ({
     const definitions = [
       {
         id: "depression",
-        label: "Depressão",
-        scale: "PHQ-9",
+        label: "Lentificação psicomotora vocal",
+        scale: "MFCC7 + ZCR + pausas + F0",
         pct: Math.max(depressionProxy, depressionSpectral ?? 0) + (maskedDepression ? 8 : 0),
         tooltip:
           depressionSpectral !== null
@@ -214,8 +230,8 @@ export const RiskChart: React.FC<Props> = ({
       },
       {
         id: "anxiety",
-        label: "Ansiedade somática",
-        scale: "HAMD",
+        label: "Tensão laríngea sustentada",
+        scale: "MFCC9 em fala neutra",
         pct: Math.max(anxietyProxy, anxietySpectral ?? 0) + (maskedDepression ? 8 : 0),
         tooltip:
           anxietySpectral !== null
@@ -225,27 +241,27 @@ export const RiskChart: React.FC<Props> = ({
       },
       {
         id: "mania",
-        label: "Ativação de mania",
-        scale: "YMRS",
+        label: "Ativação prosódica",
+        scale: "F0 + loudness + taxa",
         pct: ipmLoad * 1.2 + zonePressure(arr, [2, 7]) * 0.55 + peakLoad * 0.35,
         tooltip: TOOLTIP_TEXT.mania,
         source: "proxy",
       },
       {
         id: "stress",
-        label: "Estresse cognitivo",
-        scale: "Workload",
+        label: "Esforço vocal sustentado",
+        scale: "F0 + ZCR + jitter/shimmer",
         pct: stressProxy + (maskedDepression ? 10 : 0),
         tooltip:
           maskedDepression && hasSpectralBiopsy
-            ? `${TOOLTIP_TEXT.stress} Risco dual ativo: MFCC7 elevado com MFCC9 em queda durante valência negativa.`
+            ? `${TOOLTIP_TEXT.stress} Padrão duplo ativo: MFCC7 elevado com MFCC9 em queda durante fala de valência negativa.`
             : TOOLTIP_TEXT.stress,
         source: maskedDepression ? "bioacústico" : "proxy",
       },
       {
         id: "autonomic",
-        label: "Dissociação / trauma",
-        scale: "SNA",
+        label: "Assinatura sub-harmônica",
+        scale: "5-12 Hz + AU15/AU20",
         pct:
           Math.max(traumaRaw, dissociationRaw) +
           Math.min(traumaRaw, dissociationRaw) * 0.25,
@@ -285,11 +301,11 @@ export const RiskChart: React.FC<Props> = ({
           width={360}
           content={
             <div>
-              <p className="font-bold text-slate-100">{tooltipText(locale, "Riscos clínicos")}</p>
+              <p className="font-bold text-slate-100">{tooltipText(locale, "Padrões de sinal")}</p>
               <p className="mt-1">
                 {tooltipText(
                   locale,
-                  "Estimativa relativa de cinco padrões de risco (depressão, ansiedade somática, mania, estresse cognitivo e dissociação/trauma) a partir do cruzamento entre voz, face e zonas. Cada barra é apoio à escuta, não um diagnóstico — passe o mouse em cada risco para ver a base de cálculo e a escala de referência.",
+                  "Participação relativa de cinco padrões acústicos e faciais medidos, a partir do cruzamento entre voz, face e zonas, sempre contra a linha de base deste paciente. Nenhuma barra nomeia condição clínica nem constitui diagnóstico: passe o mouse em cada padrão para ver quais sinais o compõem e o que a literatura associa a ele.",
                 )}
               </p>
             </div>
@@ -297,7 +313,7 @@ export const RiskChart: React.FC<Props> = ({
         >
           <div className="min-w-0 cursor-help">
             <h3 className="text-[12px] font-black text-slate-100">
-              Riscos clínicos
+              Padrões de sinal
             </h3>
             <p className="truncate text-[9px] font-medium text-slate-400">
               Resumo percentual por categoria
@@ -311,11 +327,11 @@ export const RiskChart: React.FC<Props> = ({
           width={300}
           content={
             <div>
-              <p className="font-bold text-slate-100">{tooltipText(locale, "Índice geral de risco")}</p>
+              <p className="font-bold text-slate-100">{tooltipText(locale, "Intensidade agregada")}</p>
               <p className="mt-1">
                 {tooltipText(
                   locale,
-                  "Média da participação relativa das cinco categorias. Dá uma leitura rápida da carga de risco global do momento; para conduta, observe qual categoria específica está elevada.",
+                  "Média da participação relativa dos cinco padrões. Dá uma leitura rápida da carga de sinal do momento; para detalhar, observe qual padrão específico está elevado.",
                 )}
               </p>
             </div>

@@ -134,7 +134,7 @@ const METRIC_TOOLTIPS: Record<string, string> = {
   "Delta 0.5-4Hz": "Modulação lenta do envelope vocal, associada a carga vegetativa basal.",
   "Theta 4-8Hz": "Faixa de modulação lenta relacionada a flutuação afetiva e organização narrativa.",
   "Alpha 8-12Hz": "Faixa intermediária de estabilização autônoma e transição rítmica.",
-  "Beta 12-30Hz": "Faixa de ativação rápida ligada a tensão cognitiva, vigilância e mobilização autônoma.",
+  "Beta 12-30Hz": "Beta (12-30 Hz): energia nessa faixa de modulacao da envoltoria vocal. Nao corresponde a ritmo cortical de EEG — a homonimia e coincidencia de nomenclatura de faixa. Picos indicam elevacao contra a referencia do paciente. Associacao descrita na literatura em nivel de grupo; nao constitui inferencia sobre este paciente.",
   "Gama 30-80Hz": "Faixa alta de energia espectral, interpretada como tensão fina, aspereza ou descarga rápida.",
   "Ind. espectral": "Índice ponderado das bandas Delta, Theta, Alpha, Beta e Gama.",
   "DMFCC7": "Derivada temporal do MFCC7, comparando a janela atual com a anterior.",

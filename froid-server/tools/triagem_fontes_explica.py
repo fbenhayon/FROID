@@ -54,7 +54,11 @@ import tools.ingest_approved_sources as ingest  # noqa: E402
 # O peso de cada banda no somatorio do IPM so ajuda quem quer copiar.
 IMPLEMENTACAO = [
     r"\bpesos?\s+propriet[aá]ri", r"coeficiente[s]?\s+(de|do|da)\s+pondera",
-    r"\bf[oó]rmula\b", r"\bequa[cç][aã]o\b", r"limiar de (detec|corte|dispar)",
+    # "formula" e "equacao" sozinhas bloqueavam artigo publicado: qualquer
+    # paper tecnico usa as duas palavras. Exigem o objeto proprietario.
+    r"f[oó]rmula (do|da|de) (ipm|idm|froid|[ií]ndice|zona|dissonanc)",
+    r"equa[cç][aã]o (do|da|de) (ipm|idm|froid|[ií]ndice|zona|dissonanc)",
+    r"limiar de (detec|corte|dispar)",
     r"threshold de", r"hiperpar[aâ]metro", r"\bpseudoc[oó]digo\b",
     r"matriz de transi[cç][aã]o", r"\bnormaliza[cç][aã]o\s+(interna|propriet)",
     r"peso[s]? (adotado|atribu[ií]do)", r"multiplicad[oa]\s+por\s+0[.,]",

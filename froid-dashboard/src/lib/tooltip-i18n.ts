@@ -263,24 +263,6 @@ const TOOLTIP_I18N: Record<string, TooltipTranslations> = {
       "es-ES":
         "Componente de tensión vocal basal usado para componer riesgos, disonancias y estado de activación.",
     },
-  "Indicador composto de flooding autonômico, sugerindo sobrecarga ou intensificação fisiológica relevante.":
-    {
-      "en-US":
-        "Composite indicator of autonomic flooding, suggesting overload or relevant physiological intensification.",
-      "fr-FR":
-        "Indicateur composite de débordement autonome (flooding), suggérant une surcharge ou une intensification physiologique notable.",
-      "es-ES":
-        "Indicador compuesto de flooding autonómico, sugiriendo sobrecarga o intensificación fisiológica relevante.",
-    },
-  "Indicador composto de retraimento ou desligamento dissociativo, quando a assinatura bioacústica sugere queda defensiva.":
-    {
-      "en-US":
-        "Composite indicator of withdrawal or dissociative shutdown, when the bioacoustic signature suggests a defensive drop.",
-      "fr-FR":
-        "Indicateur composite de retrait ou de désactivation dissociative, lorsque la signature bioacoustique suggère une chute défensive.",
-      "es-ES":
-        "Indicador compuesto de retraimiento o apagado disociativo, cuando la firma bioacústica sugiere una caída defensiva.",
-    },
   "Índice de ressonância neurogênica estimado por combinações sub-harmônicas e estabilidade vocal.":
     {
       "en-US":
@@ -315,24 +297,6 @@ const TOOLTIP_I18N: Record<string, TooltipTranslations> = {
     },
 
   // ----- Painel de transcrição: biomarcadores -----
-  "MFCC7 indica componentes espectrais associados a valência negativa e risco depressivo quando se eleva em fala emocionalmente negativa.":
-    {
-      "en-US":
-        "MFCC7 reflects spectral components associated with negative valence and depressive risk when it rises during emotionally negative speech.",
-      "fr-FR":
-        "Le MFCC7 traduit des composantes spectrales associées à une valence négative et à un risque dépressif lorsqu'il s'élève dans un discours émotionnellement négatif.",
-      "es-ES":
-        "El MFCC7 refleja componentes espectrales asociados a valencia negativa y riesgo depresivo cuando se eleva en habla emocionalmente negativa.",
-    },
-  "MFCC9 é acompanhado em fala neutra; quedas ou desvios podem sugerir tensão autonômica latente e ansiedade somática.":
-    {
-      "en-US":
-        "MFCC9 is tracked in neutral speech; drops or deviations may suggest latent autonomic tension and somatic anxiety.",
-      "fr-FR":
-        "Le MFCC9 est suivi dans la parole neutre ; des baisses ou des écarts peuvent suggérer une tension autonome latente et une anxiété somatique.",
-      "es-ES":
-        "El MFCC9 se acompaña en habla neutra; caídas o desvíos pueden sugerir tensión autonómica latente y ansiedad somática.",
-    },
   "Jitter no FROID é um índice proxy interno normalizado, derivado de ZCR escalado, útil para observar instabilidade vocal relativa. Não equivale diretamente ao jitter percentual normativo de Praat.":
     {
       "en-US":
@@ -802,15 +766,6 @@ const TOOLTIP_I18N: Record<string, TooltipTranslations> = {
       "es-ES":
         "Alpha (8–12 Hz): banda de estabilización moduladora entre los ritmos lentos y la respuesta autónoma más activa. Sirve de referencia de equilibrio entre relajación y activación.",
     },
-  "Beta (12–30 Hz): ativação rápida associada a tensão cognitiva, vigilância, pressão articulatória e mobilização autônoma. Picos acompanham momentos de alerta, esforço ou ansiedade.":
-    {
-      "en-US":
-        "Beta (12–30 Hz): fast activation associated with cognitive tension, vigilance, articulatory pressure and autonomic mobilization. Peaks accompany moments of alertness, effort or anxiety.",
-      "fr-FR":
-        "Bêta (12–30 Hz) : activation rapide associée à la tension cognitive, à la vigilance, à la pression articulatoire et à la mobilisation autonome. Les pics accompagnent les moments d'alerte, d'effort ou d'anxiété.",
-      "es-ES":
-        "Beta (12–30 Hz): activación rápida asociada a tensión cognitiva, vigilancia, presión articulatoria y movilización autónoma. Los picos acompañan momentos de alerta, esfuerzo o ansiedad.",
-    },
   "Gama (30–80 Hz): energia espectral de alta frequência, interpretada com cautela como indicador de descarga fina, tensão e aspereza vocal. É a banda mais exploratória — leia sempre junto às demais.":
     {
       "en-US":
@@ -853,29 +808,11 @@ const TOOLTIP_I18N: Record<string, TooltipTranslations> = {
     "fr-FR": "ΔMFCC7 — vitesse du MFCC7",
     "es-ES": "ΔMFCC7 — velocidad del MFCC7",
   },
-  "Primeira derivada (taxa de variação) do coeficiente cepstral MFCC7. É o marcador que o FROID isola na fala de valência negativa: quando se eleva, contribui para o risco depressivo.":
-    {
-      "en-US":
-        "First derivative (rate of change) of the MFCC7 cepstral coefficient. It is the marker FROID isolates in negative-valence speech: when it rises, it contributes to depressive risk.",
-      "fr-FR":
-        "Dérivée première (taux de variation) du coefficient cepstral MFCC7. C'est le marqueur que FROID isole dans la parole à valence négative : lorsqu'il s'élève, il contribue au risque dépressif.",
-      "es-ES":
-        "Primera derivada (tasa de variación) del coeficiente cepstral MFCC7. Es el marcador que FROID aísla en el habla de valencia negativa: cuando se eleva, contribuye al riesgo depresivo.",
-    },
   "ΔMFCC9 — velocidade do MFCC9": {
     "en-US": "ΔMFCC9 — MFCC9 velocity",
     "fr-FR": "ΔMFCC9 — vitesse du MFCC9",
     "es-ES": "ΔMFCC9 — velocidad del MFCC9",
   },
-  "Primeira derivada do coeficiente cepstral MFCC9. Quedas em discurso neutro sugerem tensão autônoma latente nas pregas vocais, associada à ansiedade somática.":
-    {
-      "en-US":
-        "First derivative of the MFCC9 cepstral coefficient. Drops in neutral speech suggest latent autonomic tension in the vocal folds, associated with somatic anxiety.",
-      "fr-FR":
-        "Dérivée première du coefficient cepstral MFCC9. Des baisses dans un discours neutre suggèrent une tension autonome latente dans les plis vocaux, associée à l'anxiété somatique.",
-      "es-ES":
-        "Primera derivada del coeficiente cepstral MFCC9. Caídas en discurso neutro sugieren tensión autónoma latente en los pliegues vocales, asociada a la ansiedad somática.",
-    },
   "ΔΔMFCC7 — aceleração do MFCC7": {
     "en-US": "ΔΔMFCC7 — MFCC7 acceleration",
     "fr-FR": "ΔΔMFCC7 — accélération du MFCC7",
@@ -895,26 +832,8 @@ const TOOLTIP_I18N: Record<string, TooltipTranslations> = {
     "fr-FR": "ΔΔMFCC9 — accélération du MFCC9",
     "es-ES": "ΔΔMFCC9 — aceleración del MFCC9",
   },
-  "Segunda derivada do MFCC9: mede a rapidez com que a tensão vocal latente muda ao longo da fala, complementando a leitura de ansiedade somática.":
-    {
-      "en-US":
-        "Second derivative of MFCC9: measures how quickly the latent vocal tension changes over speech, complementing the reading of somatic anxiety.",
-      "fr-FR":
-        "Dérivée seconde du MFCC9 : mesure la rapidité avec laquelle la tension vocale latente change au fil de la parole, complétant la lecture de l'anxiété somatique.",
-      "es-ES":
-        "Segunda derivada del MFCC9: mide la rapidez con que la tensión vocal latente cambia a lo largo del habla, complementando la lectura de ansiedad somática.",
-    },
 
   // ----- Sub-harmônicos (gráfico) -----
-  "Infrassom Nuclear: leitura da faixa 5–12 Hz, associada a tremor profundo do Sistema Nervoso Autônomo e à ativação inconsciente. Valores altos sinalizam mobilização autonômica ainda não verbalizada.":
-    {
-      "en-US":
-        "Nuclear Infrasound: reading of the 5–12 Hz band, associated with deep tremor of the Autonomic Nervous System and unconscious activation. High values signal autonomic mobilization not yet verbalized.",
-      "fr-FR":
-        "Infrason nucléaire : lecture de la bande 5–12 Hz, associée à un tremblement profond du système nerveux autonome et à une activation inconsciente. Des valeurs élevées signalent une mobilisation autonome pas encore verbalisée.",
-      "es-ES":
-        "Infrasonido Nuclear: lectura de la banda 5–12 Hz, asociada a temblor profundo del Sistema Nervioso Autónomo y a la activación inconsciente. Valores altos señalan movilización autonómica aún no verbalizada.",
-    },
   "Modulação Límbica: faixa 12–20 Hz, usada para estimar a reatividade afetiva e a variação autônoma ligada a estados emocionais. Acompanha a intensidade da resposta emocional em curso.":
     {
       "en-US":
@@ -933,24 +852,6 @@ const TOOLTIP_I18N: Record<string, TooltipTranslations> = {
       "es-ES":
         "Tensión Vocal Basal: banda 85–165 Hz, relacionada con rigidez laríngea, hipercontrol vocal y esfuerzo de sostén. Sube cuando el paciente contiene o controla excesivamente el habla.",
     },
-  "Flooding Autonômico: colisão entre a energia de 5–12 Hz e a tensão vocal basal, indicando sobrecarga neurofisiológica ativa. Sugere que o paciente pode estar sendo inundado por ativação — considere regular o ritmo da sessão.":
-    {
-      "en-US":
-        "Autonomic Flooding: collision between the 5–12 Hz energy and the basal vocal tension, indicating active neurophysiological overload. It suggests the patient may be flooded by activation — consider regulating the session's pace.",
-      "fr-FR":
-        "Débordement autonome : collision entre l'énergie 5–12 Hz et la tension vocale basale, indiquant une surcharge neurophysiologique active. Cela suggère que le patient peut être submergé par l'activation — envisagez de réguler le rythme de la séance.",
-      "es-ES":
-        "Flooding Autonómico: colisión entre la energía de 5–12 Hz y la tensión vocal basal, indicando sobrecarga neurofisiológica activa. Sugiere que el paciente puede estar siendo inundado por activación — considere regular el ritmo de la sesión.",
-    },
-  "Shutdown Dissociativo: queda energética com redução de coerência, sugerindo supressão defensiva, embotamento ou retraimento autonômico. É o oposto do flooding — o paciente pode estar se desconectando.":
-    {
-      "en-US":
-        "Dissociative Shutdown: energy drop with reduced coherence, suggesting defensive suppression, blunting or autonomic withdrawal. It is the opposite of flooding — the patient may be disconnecting.",
-      "fr-FR":
-        "Désactivation dissociative : chute d'énergie avec réduction de la cohérence, suggérant une suppression défensive, un émoussement ou un retrait autonome. C'est l'inverse du débordement — le patient peut être en train de se déconnecter.",
-      "es-ES":
-        "Shutdown Disociativo: caída energética con reducción de coherencia, sugiriendo supresión defensiva, embotamiento o retraimiento autonómico. Es lo opuesto al flooding — el paciente puede estar desconectándose.",
-    },
   "Ressonância Neurogênica: faixa 20–40 Hz, associada a descarga vegetativa, regulação autônoma e reorganização neurofisiológica. Tende a acompanhar momentos de reprocessamento e alívio.":
     {
       "en-US":
@@ -959,15 +860,6 @@ const TOOLTIP_I18N: Record<string, TooltipTranslations> = {
         "Résonance neurogène : bande 20–40 Hz, associée à la décharge végétative, à la régulation autonome et à la réorganisation neurophysiologique. Elle tend à accompagner les moments de retraitement et de soulagement.",
       "es-ES":
         "Resonancia Neurogénica: banda 20–40 Hz, asociada a descarga vegetativa, regulación autónoma y reorganización neurofisiológica. Tiende a acompañar momentos de reprocesamiento y alivio.",
-    },
-  "Dissonância Somatoafetiva: contraste entre a calma verbal aparente e a tensão sub-harmônica, indicando possível conflito corpo-fala — o que é dito não coincide com o que o corpo sinaliza.":
-    {
-      "en-US":
-        "Somatoaffective Dissonance: contrast between apparent verbal calm and sub-harmonic tension, indicating a possible body-speech conflict — what is said does not match what the body signals.",
-      "fr-FR":
-        "Dissonance somato-affective : contraste entre le calme verbal apparent et la tension sous-harmonique, indiquant un possible conflit corps-parole — ce qui est dit ne coïncide pas avec ce que le corps signale.",
-      "es-ES":
-        "Disonancia Somatoafectiva: contraste entre la calma verbal aparente y la tensión subarmónica, indicando un posible conflicto cuerpo-habla — lo que se dice no coincide con lo que el cuerpo señala.",
     },
   "Sub-harmônicos vocais": {
     "en-US": "Vocal sub-harmonics",
@@ -999,79 +891,16 @@ const TOOLTIP_I18N: Record<string, TooltipTranslations> = {
     },
 
   // ----- Riscos clínicos (gráfico) -----
-  "Risco de Depressão (Depression Risk): deriva diretamente da predição matemática da escala PHQ-9. O algoritmo isola o biomarcador MFCC7 durante a verbalização de conteúdos com valência semântica negativa. Quando este coeficiente se eleva junto a marcadores de retardo psicomotor, como ZCR, pausas prolongadas e menor variação de F0, o percentual de risco depressivo escala.":
-    {
-      "en-US":
-        "Depression Risk: derives directly from the mathematical prediction of the PHQ-9 scale. The algorithm isolates the MFCC7 biomarker during the verbalization of content with negative semantic valence. When this coefficient rises together with markers of psychomotor slowing, such as ZCR, prolonged pauses and reduced F0 variation, the depressive-risk percentage scales up.",
-      "fr-FR":
-        "Risque de dépression (Depression Risk) : découle directement de la prédiction mathématique de l'échelle PHQ-9. L'algorithme isole le biomarqueur MFCC7 pendant la verbalisation de contenus à valence sémantique négative. Lorsque ce coefficient s'élève avec des marqueurs de ralentissement psychomoteur, comme le ZCR, des pauses prolongées et une moindre variation de F0, le pourcentage de risque dépressif augmente.",
-      "es-ES":
-        "Riesgo de Depresión (Depression Risk): deriva directamente de la predicción matemática de la escala PHQ-9. El algoritmo aísla el biomarcador MFCC7 durante la verbalización de contenidos con valencia semántica negativa. Cuando este coeficiente se eleva junto a marcadores de retardo psicomotor, como ZCR, pausas prolongadas y menor variación de F0, el porcentaje de riesgo depresivo escala.",
-    },
-  'Risco de Ansiedade Somática (Anxiety Risk): espelha subescalas de ansiedade e somatização da HAMD. O sistema busca o coeficiente MFCC9 em discurso "neutro"; quedas nos valores acústicos sugerem tensão autônoma latente nas pregas vocais, elevando o risco.':
-    {
-      "en-US":
-        'Somatic Anxiety Risk: mirrors the anxiety and somatization subscales of the HAMD. The system looks for the MFCC9 coefficient in "neutral" speech; drops in the acoustic values suggest latent autonomic tension in the vocal folds, raising the risk.',
-      "fr-FR":
-        "Risque d'anxiété somatique (Anxiety Risk) : reflète les sous-échelles d'anxiété et de somatisation de la HAMD. Le système recherche le coefficient MFCC9 dans un discours « neutre » ; des baisses des valeurs acoustiques suggèrent une tension autonome latente dans les plis vocaux, augmentant le risque.",
-      "es-ES":
-        'Riesgo de Ansiedad Somática (Anxiety Risk): refleja las subescalas de ansiedad y somatización de la HAMD. El sistema busca el coeficiente MFCC9 en discurso "neutro"; caídas en los valores acústicos sugieren tensión autónoma latente en los pliegues vocales, elevando el riesgo.',
-    },
-  'Ativação de Mania (Mania Activation): baseada em preditores vocais da YMRS. Monitora pitch/F0 elevado, loudness, taxa acelerada de fala e fluxo espectral mais incisivo ("sharper voice").':
-    {
-      "en-US":
-        'Mania Activation: based on vocal predictors of the YMRS. It monitors elevated pitch/F0, loudness, accelerated speech rate and a sharper spectral flux ("sharper voice").',
-      "fr-FR":
-        "Activation maniaque (Mania Activation) : basée sur des prédicteurs vocaux de la YMRS. Elle surveille un pitch/F0 élevé, l'intensité (loudness), un débit de parole accéléré et un flux spectral plus incisif (« sharper voice »).",
-      "es-ES":
-        'Activación de Manía (Mania Activation): basada en predictores vocales de la YMRS. Monitorea pitch/F0 elevado, loudness, tasa acelerada de habla y flujo espectral más incisivo ("sharper voice").',
-    },
-  "Estresse Cognitivo (Stress Cognitive): reflete workload contínuo. É estimado por F0 sustentado, ZCR e índices proxy internos de Jitter/Shimmer alterados, sem equivaler diretamente a medidas normativas em % ou dB.":
-    {
-      "en-US":
-        "Cognitive Stress (Stress Cognitive): reflects continuous workload. It is estimated from sustained F0, ZCR and altered internal Jitter/Shimmer proxy indices, without directly corresponding to normative measures in % or dB.",
-      "fr-FR":
-        "Stress cognitif (Stress Cognitive) : reflète une charge de travail continue. Il est estimé à partir d'un F0 soutenu, du ZCR et d'indices proxy internes de Jitter/Shimmer altérés, sans correspondre directement à des mesures normatives en % ou dB.",
-      "es-ES":
-        "Estrés Cognitivo (Stress Cognitive): refleja workload continuo. Se estima por F0 sostenido, ZCR e índices proxy internos de Jitter/Shimmer alterados, sin equivaler directamente a medidas normativas en % o dB.",
-    },
-  "Risco de Dissociação e Trauma: deriva do cruzamento entre infrassom vocal e FACS. Energia sub-harmônica de 5 a 12 Hz, AU15/AU20 e tensão vocal em 85-165 Hz elevam o alerta para flooding, sobrecarga autonômica ou retraumatização.":
-    {
-      "en-US":
-        "Dissociation and Trauma Risk: derives from the cross-reference between vocal infrasound and FACS. Sub-harmonic energy of 5 to 12 Hz, AU15/AU20 and vocal tension at 85-165 Hz raise the alert for flooding, autonomic overload or retraumatization.",
-      "fr-FR":
-        "Risque de dissociation et de trauma : découle du recoupement entre l'infrason vocal et le FACS. L'énergie sous-harmonique de 5 à 12 Hz, les AU15/AU20 et la tension vocale à 85-165 Hz augmentent l'alerte de débordement, de surcharge autonome ou de retraumatisation.",
-      "es-ES":
-        "Riesgo de Disociación y Trauma: deriva del cruce entre infrasonido vocal y FACS. Energía subarmónica de 5 a 12 Hz, AU15/AU20 y tensión vocal en 85-165 Hz elevan la alerta de flooding, sobrecarga autonómica o retraumatización.",
-    },
   "Riscos clínicos": {
     "en-US": "Clinical risks",
     "fr-FR": "Risques cliniques",
     "es-ES": "Riesgos clínicos",
   },
-  "Estimativa relativa de cinco padrões de risco (depressão, ansiedade somática, mania, estresse cognitivo e dissociação/trauma) a partir do cruzamento entre voz, face e zonas. Cada barra é apoio à escuta, não um diagnóstico — passe o mouse em cada risco para ver a base de cálculo e a escala de referência.":
-    {
-      "en-US":
-        "Relative estimate of five risk patterns (depression, somatic anxiety, mania, cognitive stress and dissociation/trauma) from the cross-reference of voice, face and zones. Each bar is listening support, not a diagnosis — hover over each risk to see the basis of calculation and the reference scale.",
-      "fr-FR":
-        "Estimation relative de cinq schémas de risque (dépression, anxiété somatique, manie, stress cognitif et dissociation/trauma) à partir du recoupement entre voix, visage et zones. Chaque barre est un appui à l'écoute, non un diagnostic — survolez chaque risque pour voir la base de calcul et l'échelle de référence.",
-      "es-ES":
-        "Estimación relativa de cinco patrones de riesgo (depresión, ansiedad somática, manía, estrés cognitivo y disociación/trauma) a partir del cruce entre voz, rostro y zonas. Cada barra es apoyo a la escucha, no un diagnóstico — pasa el ratón por cada riesgo para ver la base de cálculo y la escala de referencia.",
-    },
   "Índice geral de risco": {
     "en-US": "Overall risk index",
     "fr-FR": "Indice global de risque",
     "es-ES": "Índice general de riesgo",
   },
-  "Média da participação relativa das cinco categorias. Dá uma leitura rápida da carga de risco global do momento; para conduta, observe qual categoria específica está elevada.":
-    {
-      "en-US":
-        "Average of the relative share of the five categories. It gives a quick read of the overall risk load of the moment; for clinical decisions, note which specific category is elevated.",
-      "fr-FR":
-        "Moyenne de la part relative des cinq catégories. Elle donne une lecture rapide de la charge de risque globale du moment ; pour la conduite, observez quelle catégorie spécifique est élevée.",
-      "es-ES":
-        "Media de la participación relativa de las cinco categorías. Da una lectura rápida de la carga de riesgo global del momento; para la conducta, observa qué categoría específica está elevada.",
-    },
 
   // ----- Mapa Zonal: ajuda do IDM -----
   "O Índice de Desvio Multimodal (IDM) é uma métrica central na arquitetura diagnóstica do sistema FROID, projetada para medir a direção e o grau de desequilíbrio da energia de um paciente nas 12 zonas específicas de percepção psíquica. Maiores detalhes Pergunte ao FROID.":
@@ -1085,113 +914,302 @@ const TOOLTIP_I18N: Record<string, TooltipTranslations> = {
     },
 
   // ----- Mapa Zonal: descrições clínicas das 12 zonas -----
-  "Quando o FROID aponta sobrecarga na Zona 1, o paciente apresenta a percepção de não ser reconhecido, manifestando-se por meio de padrões de negação, evasão e desconfiança. A desvalorização frequentemente surge disfarçada ou através da baixa autoestima. Diretriz Clínica: estimular a transição para a autovalidação, ajudando o paciente a confiar na própria percepção como base segura.":
+  "Lentificação psicomotora vocal: composto de MFCC7, ZCR, pausas e variação de F0, lido contra a linha de base deste paciente. O componente sobe quando o MFCC7 se eleva durante fala de valência negativa junto a fala mais lenta, pausas mais longas e menor variação de altura. A literatura associa esse padrão acústico à lentificação psicomotora descrita em quadros depressivos. Associação observada em nível de grupo na literatura; não constitui inferência sobre este paciente. A leitura clínica é do profissional.":
     {
       "en-US":
-        "When FROID flags overload in Zone 1, the patient shows the perception of not being recognized, manifesting through patterns of denial, evasion and distrust. Devaluation often appears disguised or through low self-esteem. Clinical guideline: encourage the transition to self-validation, helping the patient trust their own perception as a safe base.",
+        "Vocal psychomotor slowing: a composite of MFCC7, ZCR, pauses and F0 variation, read against the patient own baseline. The component rises when MFCC7 increases during negative-valence speech alongside slower speech, longer pauses and reduced pitch variation. The literature associates this acoustic pattern with the psychomotor slowing described in depressive states. Association observed at group level in the literature; it is not an inference about this patient. The clinical reading belongs to the professional.",
       "fr-FR":
-        "Lorsque FROID signale une surcharge dans la Zone 1, le patient présente la perception de ne pas être reconnu, se manifestant par des schémas de déni, d'évitement et de méfiance. La dévalorisation apparaît souvent déguisée ou à travers une faible estime de soi. Directive clinique : encourager la transition vers l'auto-validation, en aidant le patient à faire confiance à sa propre perception comme base sûre.",
+        "Ralentissement psychomoteur vocal : composite de MFCC7, ZCR, pauses et variation de F0, lu par rapport à la ligne de base du patient. La composante augmente lorsque le MFCC7 s’élève pendant un discours à valence négative, avec une parole plus lente, des pauses plus longues et une moindre variation de hauteur. La littérature associe ce motif acoustique au ralentissement psychomoteur décrit dans les états dépressifs. Association observée au niveau du groupe dans la littérature ; elle ne constitue pas une inférence sur ce patient. La lecture clinique appartient au professionnel.",
       "es-ES":
-        "Cuando FROID señala sobrecarga en la Zona 1, el paciente presenta la percepción de no ser reconocido, manifestándose mediante patrones de negación, evasión y desconfianza. La desvalorización suele surgir disfrazada o a través de la baja autoestima. Directriz clínica: estimular la transición hacia la autovalidación, ayudando al paciente a confiar en su propia percepción como base segura.",
+        "Enlentecimiento psicomotor vocal: compuesto de MFCC7, ZCR, pausas y variación de F0, leído contra la línea de base del propio paciente. El componente sube cuando el MFCC7 se eleva durante habla de valencia negativa junto a habla más lenta, pausas más largas y menor variación de tono. La literatura asocia este patrón acústico al enlentecimiento psicomotor descrito en cuadros depresivos. Asociación observada a nivel de grupo en la literatura; no constituye inferencia sobre este paciente. La lectura clínica es del profesional.",
     },
-  "Acionada quando o paciente fica aprisionado em circuitos lógicos e repetitivos que não conseguem filtrar pensamentos improdutivos. O FROID rastreia esse estresse subconsciente, muitas vezes ligado a medos ou dúvidas. Diretriz Clínica: abordar a fadiga mental e guiar o cérebro à liberação deste padrão, restaurando a criatividade autêntica.":
+  "Tensão laríngea sustentada: acompanha o coeficiente MFCC9 em fala neutra, contra a referência do próprio paciente. Quedas sustentadas nesse coeficiente são descritas na literatura como correlato acústico de tensão na musculatura laríngea. Associação observada em nível de grupo na literatura; não constitui inferência sobre este paciente. A leitura clínica é do profissional.":
     {
       "en-US":
-        "Triggered when the patient is trapped in logical, repetitive loops that cannot filter unproductive thoughts. FROID tracks this subconscious stress, often tied to fears or doubts. Clinical guideline: address mental fatigue and guide the brain to release this pattern, restoring authentic creativity.",
+        "Sustained laryngeal tension: tracks the MFCC9 coefficient in neutral speech against the patient own reference. Sustained drops in this coefficient are described in the literature as an acoustic correlate of tension in the laryngeal musculature. Association observed at group level in the literature; it is not an inference about this patient. The clinical reading belongs to the professional.",
       "fr-FR":
-        "Déclenchée lorsque le patient est prisonnier de circuits logiques et répétitifs incapables de filtrer les pensées improductives. FROID suit ce stress subconscient, souvent lié à des peurs ou des doutes. Directive clinique : traiter la fatigue mentale et guider le cerveau vers la libération de ce schéma, en restaurant une créativité authentique.",
+        "Tension laryngée soutenue : suit le coefficient MFCC9 dans un discours neutre, par rapport à la référence du patient. Des baisses soutenues de ce coefficient sont décrites dans la littérature comme un corrélat acoustique de la tension de la musculature laryngée. Association observée au niveau du groupe dans la littérature ; elle ne constitue pas une inférence sur ce patient. La lecture clinique appartient au professionnel.",
       "es-ES":
-        "Activada cuando el paciente queda atrapado en circuitos lógicos y repetitivos que no logran filtrar pensamientos improductivos. FROID rastrea este estrés subconsciente, muchas veces ligado a miedos o dudas. Directriz clínica: abordar la fatiga mental y guiar al cerebro a liberar este patrón, restaurando la creatividad auténtica.",
+        "Tensión laríngea sostenida: sigue el coeficiente MFCC9 en habla neutra, contra la referencia del propio paciente. Caídas sostenidas en este coeficiente se describen en la literatura como correlato acústico de tensión en la musculatura laríngea. Asociación observada a nivel de grupo en la literatura; no constituye inferencia sobre este paciente. La lectura clínica es del profesional.",
     },
-  "O motor do FROID detecta pensamentos excessivamente ancorados em eventos passados, rotulados como fracassos e perdas. A IA denuncia baixos níveis de energia global na voz. Diretriz Clínica: visar o desligamento de experiências traumáticas, conduzindo o indivíduo para autoaceitação e permanência no presente.":
+  "Ativação prosódica: composto de F0, loudness e taxa de fala, com fluxo espectral mais incisivo. Mede elevação simultânea de altura, intensidade e velocidade em relação à linha de base deste paciente. Associação observada em nível de grupo na literatura; não constitui inferência sobre este paciente. A leitura clínica é do profissional.":
     {
       "en-US":
-        "FROID's engine detects thoughts excessively anchored in past events, labeled as failures and losses. The AI reveals low levels of overall energy in the voice. Clinical guideline: aim at disengaging from traumatic experiences, leading the individual toward self-acceptance and staying in the present.",
+        "Prosodic activation: a composite of F0, loudness and speech rate, with sharper spectral flux. It measures simultaneous rises in pitch, intensity and speed relative to this patient baseline. Association observed at group level in the literature; it is not an inference about this patient. The clinical reading belongs to the professional.",
       "fr-FR":
-        "Le moteur de FROID détecte des pensées excessivement ancrées dans des événements passés, étiquetés comme des échecs et des pertes. L'IA révèle de faibles niveaux d'énergie globale dans la voix. Directive clinique : viser le détachement des expériences traumatiques, conduisant l'individu vers l'auto-acceptation et le maintien dans le présent.",
+        "Activation prosodique : composite de F0, d’intensité sonore et de débit de parole, avec un flux spectral plus incisif. Elle mesure l’élévation simultanée de la hauteur, de l’intensité et de la vitesse par rapport à la ligne de base du patient. Association observée au niveau du groupe dans la littérature ; elle ne constitue pas une inférence sur ce patient. La lecture clinique appartient au professionnel.",
       "es-ES":
-        "El motor de FROID detecta pensamientos excesivamente anclados en eventos pasados, etiquetados como fracasos y pérdidas. La IA revela bajos niveles de energía global en la voz. Directriz clínica: apuntar al desapego de experiencias traumáticas, conduciendo al individuo hacia la autoaceptación y la permanencia en el presente.",
+        "Activación prosódica: compuesto de F0, loudness y tasa de habla, con flujo espectral más incisivo. Mide la elevación simultánea de tono, intensidad y velocidad respecto a la línea de base de este paciente. Asociación observada a nivel de grupo en la literatura; no constituye inferencia sobre este paciente. La lectura clínica es del profesional.",
     },
-  "O FROID flagra essa zona quando o paciente parece excessivamente racional, distante, ou relata dificuldade em acessar sentimentos. Pode haver tensão em pescoço e garganta decorrente do medo de rejeição. Diretriz Clínica: reverter o embotamento e restaurar a consciência emocional.":
+  "Esforço vocal sustentado: composto de F0 sustentado, ZCR e os índices proxy de jitter e shimmer. Descreve carga articulatória contínua. Os índices são estimativas por quadros e não equivalem a medidas normativas de laboratório em % ou dB.":
     {
       "en-US":
-        "FROID flags this zone when the patient seems excessively rational, distant, or reports difficulty accessing feelings. There may be tension in the neck and throat arising from fear of rejection. Clinical guideline: reverse the blunting and restore emotional awareness.",
+        "Sustained vocal effort: a composite of sustained F0, ZCR and the proxy jitter and shimmer indices. It describes continuous articulatory load. The indices are frame-based estimates and are not equivalent to normative laboratory measurements in % or dB.",
       "fr-FR":
-        "FROID repère cette zone lorsque le patient semble excessivement rationnel, distant, ou signale une difficulté à accéder à ses sentiments. Il peut y avoir une tension dans le cou et la gorge due à la peur du rejet. Directive clinique : inverser l'émoussement et restaurer la conscience émotionnelle.",
+        "Effort vocal soutenu : composite de F0 soutenue, de ZCR et des indices proxy de jitter et de shimmer. Il décrit une charge articulatoire continue. Les indices sont des estimations par trames et n’équivalent pas à des mesures normatives de laboratoire en % ou dB.",
       "es-ES":
-        "FROID detecta esta zona cuando el paciente parece excesivamente racional, distante, o refiere dificultad para acceder a los sentimientos. Puede haber tensión en cuello y garganta derivada del miedo al rechazo. Directriz clínica: revertir el embotamiento y restaurar la conciencia emocional.",
+        "Esfuerzo vocal sostenido: compuesto de F0 sostenida, ZCR y los índices proxy de jitter y shimmer. Describe carga articulatoria continua. Los índices son estimaciones por cuadros y no equivalen a medidas normativas de laboratorio en % o dB.",
     },
-  "O sistema capta tensões geradas pela falta de compaixão consigo mesmo, revelando foco excessivo em defeitos e falhas, geralmente desencadeado por experiências de rejeição. Diretriz Clínica: romper o ciclo de não se sentir amado, construindo perdão e autoamor.":
+  "Assinatura sub-harmônica com retração facial: cruzamento entre energia sub-harmônica de 5 a 12 Hz, as Unidades de Ação AU15 e AU20 e tensão vocal na faixa de 85 a 165 Hz. Mede co-ocorrência entre canais, não estado interno. Associação observada em nível de grupo na literatura; não constitui inferência sobre este paciente. A leitura clínica é do profissional.":
     {
       "en-US":
-        "The system captures tensions generated by the lack of self-compassion, revealing excessive focus on flaws and failures, usually triggered by experiences of rejection. Clinical guideline: break the cycle of not feeling loved, building forgiveness and self-love.",
+        "Sub-harmonic signature with facial retraction: a cross-reference between sub-harmonic energy from 5 to 12 Hz, Action Units AU15 and AU20, and vocal tension in the 85 to 165 Hz range. It measures co-occurrence across channels, not internal state. Association observed at group level in the literature; it is not an inference about this patient. The clinical reading belongs to the professional.",
       "fr-FR":
-        "Le système capte les tensions générées par le manque de compassion envers soi-même, révélant une focalisation excessive sur les défauts et les échecs, généralement déclenchée par des expériences de rejet. Directive clinique : rompre le cycle du sentiment de ne pas être aimé, en construisant le pardon et l'amour de soi.",
+        "Signature sous-harmonique avec rétraction faciale : croisement entre l’énergie sous-harmonique de 5 à 12 Hz, les Unités d’Action AU15 et AU20 et la tension vocale dans la plage de 85 à 165 Hz. Elle mesure la co-occurrence entre canaux, et non un état interne. Association observée au niveau du groupe dans la littérature ; elle ne constitue pas une inférence sur ce patient. La lecture clinique appartient au professionnel.",
       "es-ES":
-        "El sistema capta tensiones generadas por la falta de compasión hacia uno mismo, revelando un foco excesivo en defectos y fallas, generalmente desencadenado por experiencias de rechazo. Directriz clínica: romper el ciclo de no sentirse amado, construyendo perdón y amor propio.",
+        "Firma subarmónica con retracción facial: cruce entre energía subarmónica de 5 a 12 Hz, las Unidades de Acción AU15 y AU20 y tensión vocal en la franja de 85 a 165 Hz. Mide co-ocurrencia entre canales, no estado interno. Asociación observada a nivel de grupo en la literatura; no constituye inferencia sobre este paciente. La lectura clínica es del profesional.",
     },
-  "O FROID alerta para padrões onde o paciente baseia vínculos em julgamentos, expectativas rígidas e controle. Essa zona esconde sentimentos de insuficiência e insegurança. Diretriz Clínica: trabalhar a desconstrução das exigências transacionais, movendo a psique em direção à tolerância e ao amor incondicional.":
+  "Padrões de sinal":
     {
       "en-US":
-        "FROID warns of patterns where the patient bases bonds on judgments, rigid expectations and control. This zone hides feelings of insufficiency and insecurity. Clinical guideline: work on deconstructing transactional demands, moving the psyche toward tolerance and unconditional love.",
+        "Signal patterns",
       "fr-FR":
-        "FROID alerte sur des schémas où le patient fonde ses liens sur des jugements, des attentes rigides et le contrôle. Cette zone cache des sentiments d'insuffisance et d'insécurité. Directive clinique : travailler la déconstruction des exigences transactionnelles, en orientant la psyché vers la tolérance et l'amour inconditionnel.",
+        "Motifs de signal",
       "es-ES":
-        "FROID alerta sobre patrones donde el paciente basa los vínculos en juicios, expectativas rígidas y control. Esta zona esconde sentimientos de insuficiencia e inseguridad. Directriz clínica: trabajar la deconstrucción de las exigencias transaccionales, moviendo la psique hacia la tolerancia y el amor incondicional.",
+        "Patrones de señal",
     },
-  "O monitoramento indica a raiva como mecanismo de defesa para encobrir sofrimento, traição ou perda. Quando crônica, causa intensa tensão muscular captável no rosto e na voz. Diretriz Clínica: alcançar aceitação da mudança para cessar a reação defensiva perpétua.":
+  "Intensidade agregada":
     {
       "en-US":
-        "Monitoring indicates anger as a defense mechanism to cover up suffering, betrayal or loss. When chronic, it causes intense muscular tension detectable in the face and voice. Clinical guideline: reach acceptance of change to stop the perpetual defensive reaction.",
+        "Aggregate intensity",
       "fr-FR":
-        "Le monitorage indique la colère comme mécanisme de défense pour masquer la souffrance, la trahison ou la perte. Chronique, elle provoque une tension musculaire intense perceptible sur le visage et dans la voix. Directive clinique : atteindre l'acceptation du changement pour cesser la réaction défensive perpétuelle.",
+        "Intensité agrégée",
       "es-ES":
-        "El monitoreo indica la ira como mecanismo de defensa para encubrir sufrimiento, traición o pérdida. Cuando es crónica, causa intensa tensión muscular perceptible en el rostro y la voz. Directriz clínica: alcanzar la aceptación del cambio para cesar la reacción defensiva perpetua.",
+        "Intensidad agregada",
     },
-  "Sinalizada quando o indivíduo exibe acústica de vitimização, sentindo que a vida lhe acontece. O medo pode estar enraizado em críticas severas ou punições passadas. Diretriz Clínica: guiar a transição da paralisia passiva para empoderamento e responsabilização.":
+  "Participação relativa de cinco padrões acústicos e faciais medidos, a partir do cruzamento entre voz, face e zonas, sempre contra a linha de base deste paciente. Nenhuma barra nomeia condição clínica nem constitui diagnóstico: passe o mouse em cada padrão para ver quais sinais o compõem e o que a literatura associa a ele.":
     {
       "en-US":
-        "Signaled when the individual displays an acoustics of victimization, feeling that life happens to them. The fear may be rooted in severe criticism or past punishments. Clinical guideline: guide the transition from passive paralysis to empowerment and taking responsibility.",
+        "Relative share of five measured acoustic and facial patterns, from the cross-reference among voice, face and zones, always against the patient own baseline. No bar names a clinical condition and none constitutes a diagnosis: hover over each pattern to see which signals compose it and what the literature associates with it.",
       "fr-FR":
-        "Signalée lorsque l'individu présente une acoustique de victimisation, ayant le sentiment que la vie lui arrive. La peur peut être ancrée dans des critiques sévères ou des punitions passées. Directive clinique : guider la transition de la paralysie passive vers l'autonomisation et la responsabilisation.",
+        "Part relative de cinq motifs acoustiques et faciaux mesurés, issus du croisement entre la voix, le visage et les zones, toujours par rapport à la ligne de base du patient. Aucune barre ne nomme une condition clinique ni ne constitue un diagnostic : survolez chaque motif pour voir quels signaux le composent et ce que la littérature y associe.",
       "es-ES":
-        "Señalada cuando el individuo exhibe una acústica de victimización, sintiendo que la vida le sucede. El miedo puede estar enraizado en críticas severas o castigos pasados. Directriz clínica: guiar la transición de la parálisis pasiva hacia el empoderamiento y la responsabilización.",
+        "Participación relativa de cinco patrones acústicos y faciales medidos, a partir del cruce entre voz, rostro y zonas, siempre contra la línea de base de este paciente. Ninguna barra nombra condición clínica ni constituye diagnóstico: pase el ratón por cada patrón para ver qué señales lo componen y qué asocia la literatura.",
     },
-  "Uma das dissonâncias mais rastreáveis. Ocorre quando sentimentos são negados repetidamente, criando dificuldade de comunicação ou timidez excessiva. Sintomas físicos podem aparecer na mandíbula. Diretriz Clínica: estimular a comunicação de sentimentos e necessidades de forma clara e respeitosa.":
+  "Média da participação relativa dos cinco padrões. Dá uma leitura rápida da carga de sinal do momento; para detalhar, observe qual padrão específico está elevado.":
     {
       "en-US":
-        "One of the most trackable dissonances. It occurs when feelings are repeatedly denied, creating communication difficulty or excessive shyness. Physical symptoms may appear in the jaw. Clinical guideline: encourage the communication of feelings and needs in a clear and respectful way.",
+        "Average relative share of the five patterns. It gives a quick reading of the signal load at the moment; to detail it, look at which specific pattern is elevated.",
       "fr-FR":
-        "L'une des dissonances les plus traçables. Elle survient lorsque les sentiments sont niés à répétition, créant une difficulté de communication ou une timidité excessive. Des symptômes physiques peuvent apparaître à la mâchoire. Directive clinique : encourager la communication des sentiments et des besoins de manière claire et respectueuse.",
+        "Moyenne de la part relative des cinq motifs. Elle donne une lecture rapide de la charge de signal du moment ; pour détailler, regardez quel motif précis est élevé.",
       "es-ES":
-        "Una de las disonancias más rastreables. Ocurre cuando los sentimientos son negados repetidamente, creando dificultad de comunicación o timidez excesiva. Pueden aparecer síntomas físicos en la mandíbula. Directriz clínica: estimular la comunicación de sentimientos y necesidades de forma clara y respetuosa.",
+        "Media de la participación relativa de los cinco patrones. Da una lectura rápida de la carga de señal del momento; para detallar, observe qué patrón específico está elevado.",
     },
-  "O sistema revela a síndrome do impostor: a conclusão inconsciente de que não se merece amor ou sucesso. Gera autossabotagem e desconforto diante de conquistas. Diretriz Clínica: ensinar a aceitação de virtudes e limitações sem cobrança por perfeição.":
+  "Zona 1 — Reconhecimento. Agrega sinais vocais, faciais e semanticos associados no modelo FROID a reconhecimento e validacao. Desvio sustentado indica concentracao do sinal nesta regiao, sempre contra a linha de base do proprio paciente. O tema da zona e uma dimensao do modelo FROID, nao uma conclusao sobre a pessoa. A leitura clinica e do profissional.":
     {
       "en-US":
-        "The system reveals impostor syndrome: the unconscious conclusion that one does not deserve love or success. It generates self-sabotage and discomfort in the face of achievements. Clinical guideline: teach the acceptance of virtues and limitations without demanding perfection.",
+        "Zone 1 — Recognition. It aggregates vocal, facial and semantic signals associated in the FROID model with recognition and validation. A sustained deviation indicates concentration of the signal in this region, always against the patient own baseline. The zone theme is a dimension of the FROID model, not a conclusion about the person. The clinical reading belongs to the professional.",
       "fr-FR":
-        "Le système révèle le syndrome de l'imposteur : la conclusion inconsciente de ne pas mériter l'amour ou le succès. Il engendre l'auto-sabotage et un malaise face aux réussites. Directive clinique : enseigner l'acceptation des vertus et des limites sans exigence de perfection.",
+        "Zone 1 — Reconnaissance. Elle agrege des signaux vocaux, faciaux et semantiques associes dans le modele FROID a la reconnaissance et la validation. Un ecart soutenu indique une concentration du signal dans cette region, toujours par rapport a la ligne de base du patient. Le theme de la zone est une dimension du modele FROID, et non une conclusion sur la personne. La lecture clinique appartient au professionnel.",
       "es-ES":
-        "El sistema revela el síndrome del impostor: la conclusión inconsciente de que uno no merece amor o éxito. Genera autosabotaje e incomodidad ante los logros. Directriz clínica: enseñar la aceptación de virtudes y limitaciones sin exigencia de perfección.",
+        "Zona 1 — Reconocimiento. Agrega senales vocales, faciales y semanticas asociadas en el modelo FROID a reconocimiento y validacion. Una desviacion sostenida indica concentracion de la senal en esta region, siempre contra la linea de base del propio paciente. El tema de la zona es una dimension del modelo FROID, no una conclusion sobre la persona. La lectura clinica es del profesional.",
     },
-  "O FROID mapeia a inflexibilidade cognitiva. O paciente formula regras mentais absolutas para se proteger da incerteza, restringindo adaptações e criatividade. Diretriz Clínica: atuar na dissolução dogmática, conduzindo à tolerância à ambiguidade, curiosidade e perspectivas inovadoras.":
+  "Zona 2 — Ruminacao. Agrega sinais vocais, faciais e semanticos associados no modelo FROID a circuitos repetitivos de pensamento e fadiga mental. Desvio sustentado indica concentracao do sinal nesta regiao, sempre contra a linha de base do proprio paciente. O tema da zona e uma dimensao do modelo FROID, nao uma conclusao sobre a pessoa. A leitura clinica e do profissional.":
     {
       "en-US":
-        "FROID maps cognitive inflexibility. The patient formulates absolute mental rules to protect against uncertainty, restricting adaptation and creativity. Clinical guideline: work on dissolving dogmatism, leading to tolerance of ambiguity, curiosity and innovative perspectives.",
+        "Zone 2 — Rumination. It aggregates vocal, facial and semantic signals associated in the FROID model with repetitive thought loops and mental fatigue. A sustained deviation indicates concentration of the signal in this region, always against the patient own baseline. The zone theme is a dimension of the FROID model, not a conclusion about the person. The clinical reading belongs to the professional.",
       "fr-FR":
-        "FROID cartographie l'inflexibilité cognitive. Le patient formule des règles mentales absolues pour se protéger de l'incertitude, restreignant l'adaptation et la créativité. Directive clinique : agir sur la dissolution du dogmatisme, menant à la tolérance à l'ambiguïté, à la curiosité et à des perspectives innovantes.",
+        "Zone 2 — Rumination. Elle agrege des signaux vocaux, faciaux et semantiques associes dans le modele FROID a des boucles de pensee repetitives et une fatigue mentale. Un ecart soutenu indique une concentration du signal dans cette region, toujours par rapport a la ligne de base du patient. Le theme de la zone est une dimension du modele FROID, et non une conclusion sur la personne. La lecture clinique appartient au professionnel.",
       "es-ES":
-        "FROID mapea la inflexibilidad cognitiva. El paciente formula reglas mentales absolutas para protegerse de la incertidumbre, restringiendo la adaptación y la creatividad. Directriz clínica: actuar en la disolución del dogmatismo, conduciendo a la tolerancia a la ambigüedad, la curiosidad y perspectivas innovadoras.",
+        "Zona 2 — Rumiacion. Agrega senales vocales, faciales y semanticas asociadas en el modelo FROID a circuitos repetitivos de pensamiento y fatiga mental. Una desviacion sostenida indica concentracion de la senal en esta region, siempre contra la linea de base del propio paciente. El tema de la zona es una dimension del modelo FROID, no una conclusion sobre la persona. La lectura clinica es del profesional.",
     },
-  "O núcleo da detecção. Ocorre incompatibilidade entre o desejo consciente e a crença subconsciente limitante. Gera indecisão, fadiga mental massiva e estagnação sistêmica. Diretriz Clínica: focar no alinhamento psíquico absoluto, criando congruência entre pensamento, crença, emoção e ação.":
+  "Zona 3 — Ancoragem no passado. Agrega sinais vocais, faciais e semanticos associados no modelo FROID a conteudo verbal ancorado em eventos passados. Desvio sustentado indica concentracao do sinal nesta regiao, sempre contra a linha de base do proprio paciente. O tema da zona e uma dimensao do modelo FROID, nao uma conclusao sobre a pessoa. A leitura clinica e do profissional.":
     {
       "en-US":
-        "The core of the detection. An incompatibility occurs between the conscious desire and the limiting subconscious belief. It generates indecision, massive mental fatigue and systemic stagnation. Clinical guideline: focus on absolute psychic alignment, creating congruence among thought, belief, emotion and action.",
+        "Zone 3 — Anchoring in the past. It aggregates vocal, facial and semantic signals associated in the FROID model with verbal content anchored in past events. A sustained deviation indicates concentration of the signal in this region, always against the patient own baseline. The zone theme is a dimension of the FROID model, not a conclusion about the person. The clinical reading belongs to the professional.",
       "fr-FR":
-        "Le noyau de la détection. Une incompatibilité survient entre le désir conscient et la croyance subconsciente limitante. Elle engendre indécision, fatigue mentale massive et stagnation systémique. Directive clinique : se concentrer sur l'alignement psychique absolu, en créant une congruence entre pensée, croyance, émotion et action.",
+        "Zone 3 — Ancrage dans le passe. Elle agrege des signaux vocaux, faciaux et semantiques associes dans le modele FROID a un contenu verbal ancre dans des evenements passes. Un ecart soutenu indique une concentration du signal dans cette region, toujours par rapport a la ligne de base du patient. Le theme de la zone est une dimension du modele FROID, et non une conclusion sur la personne. La lecture clinique appartient au professionnel.",
       "es-ES":
-        "El núcleo de la detección. Ocurre una incompatibilidad entre el deseo consciente y la creencia subconsciente limitante. Genera indecisión, fatiga mental masiva y estancamiento sistémico. Directriz clínica: enfocarse en el alineamiento psíquico absoluto, creando congruencia entre pensamiento, creencia, emoción y acción.",
+        "Zona 3 — Anclaje en el pasado. Agrega senales vocales, faciales y semanticas asociadas en el modelo FROID a contenido verbal anclado en eventos pasados. Una desviacion sostenida indica concentracion de la senal en esta region, siempre contra la linea de base del propio paciente. El tema de la zona es una dimension del modelo FROID, no una conclusion sobre la persona. La lectura clinica es del profesional.",
+    },
+  "Zona 4 — Distanciamento afetivo. Agrega sinais vocais, faciais e semanticos associados no modelo FROID a distanciamento entre relato e expressao afetiva. Desvio sustentado indica concentracao do sinal nesta regiao, sempre contra a linha de base do proprio paciente. O tema da zona e uma dimensao do modelo FROID, nao uma conclusao sobre a pessoa. A leitura clinica e do profissional.":
+    {
+      "en-US":
+        "Zone 4 — Affective distancing. It aggregates vocal, facial and semantic signals associated in the FROID model with distance between report and affective expression. A sustained deviation indicates concentration of the signal in this region, always against the patient own baseline. The zone theme is a dimension of the FROID model, not a conclusion about the person. The clinical reading belongs to the professional.",
+      "fr-FR":
+        "Zone 4 — Distanciation affective. Elle agrege des signaux vocaux, faciaux et semantiques associes dans le modele FROID a une distance entre le recit et l'expression affective. Un ecart soutenu indique une concentration du signal dans cette region, toujours par rapport a la ligne de base du patient. Le theme de la zone est une dimension du modele FROID, et non une conclusion sur la personne. La lecture clinique appartient au professionnel.",
+      "es-ES":
+        "Zona 4 — Distanciamiento afectivo. Agrega senales vocales, faciales y semanticas asociadas en el modelo FROID a distancia entre el relato y la expresion afectiva. Una desviacion sostenida indica concentracion de la senal en esta region, siempre contra la linea de base del propio paciente. El tema de la zona es una dimension del modelo FROID, no una conclusion sobre la persona. La lectura clinica es del profesional.",
+    },
+  "Zona 5 — Autocritica. Agrega sinais vocais, faciais e semanticos associados no modelo FROID a foco verbal em falhas e defeitos proprios. Desvio sustentado indica concentracao do sinal nesta regiao, sempre contra a linha de base do proprio paciente. O tema da zona e uma dimensao do modelo FROID, nao uma conclusao sobre a pessoa. A leitura clinica e do profissional.":
+    {
+      "en-US":
+        "Zone 5 — Self-criticism. It aggregates vocal, facial and semantic signals associated in the FROID model with verbal focus on one's own flaws. A sustained deviation indicates concentration of the signal in this region, always against the patient own baseline. The zone theme is a dimension of the FROID model, not a conclusion about the person. The clinical reading belongs to the professional.",
+      "fr-FR":
+        "Zone 5 — Autocritique. Elle agrege des signaux vocaux, faciaux et semantiques associes dans le modele FROID a une focalisation verbale sur ses propres defauts. Un ecart soutenu indique une concentration du signal dans cette region, toujours par rapport a la ligne de base du patient. Le theme de la zone est une dimension du modele FROID, et non une conclusion sur la personne. La lecture clinique appartient au professionnel.",
+      "es-ES":
+        "Zona 5 — Autocritica. Agrega senales vocales, faciales y semanticas asociadas en el modelo FROID a foco verbal en los propios defectos. Una desviacion sostenida indica concentracion de la senal en esta region, siempre contra la linea de base del propio paciente. El tema de la zona es una dimension del modelo FROID, no una conclusion sobre la persona. La lectura clinica es del profesional.",
+    },
+  "Zona 6 — Vinculo condicional. Agrega sinais vocais, faciais e semanticos associados no modelo FROID a exigencia e controle na descricao de vinculos. Desvio sustentado indica concentracao do sinal nesta regiao, sempre contra a linha de base do proprio paciente. O tema da zona e uma dimensao do modelo FROID, nao uma conclusao sobre a pessoa. A leitura clinica e do profissional.":
+    {
+      "en-US":
+        "Zone 6 — Conditional bonding. It aggregates vocal, facial and semantic signals associated in the FROID model with demand and control in describing bonds. A sustained deviation indicates concentration of the signal in this region, always against the patient own baseline. The zone theme is a dimension of the FROID model, not a conclusion about the person. The clinical reading belongs to the professional.",
+      "fr-FR":
+        "Zone 6 — Lien conditionnel. Elle agrege des signaux vocaux, faciaux et semantiques associes dans le modele FROID a de l'exigence et du controle dans la description des liens. Un ecart soutenu indique une concentration du signal dans cette region, toujours par rapport a la ligne de base du patient. Le theme de la zone est une dimension du modele FROID, et non une conclusion sur la personne. La lecture clinique appartient au professionnel.",
+      "es-ES":
+        "Zona 6 — Vinculo condicional. Agrega senales vocales, faciales y semanticas asociadas en el modelo FROID a exigencia y control al describir vinculos. Una desviacion sostenida indica concentracion de la senal en esta region, siempre contra la linea de base del propio paciente. El tema de la zona es una dimension del modelo FROID, no una conclusion sobre la persona. La lectura clinica es del profesional.",
+    },
+  "Zona 7 — Raiva defensiva. Agrega sinais vocais, faciais e semanticos associados no modelo FROID a irritacao sustentada com tensao muscular captavel. Desvio sustentado indica concentracao do sinal nesta regiao, sempre contra a linha de base do proprio paciente. O tema da zona e uma dimensao do modelo FROID, nao uma conclusao sobre a pessoa. A leitura clinica e do profissional.":
+    {
+      "en-US":
+        "Zone 7 — Defensive anger. It aggregates vocal, facial and semantic signals associated in the FROID model with sustained irritation with detectable muscular tension. A sustained deviation indicates concentration of the signal in this region, always against the patient own baseline. The zone theme is a dimension of the FROID model, not a conclusion about the person. The clinical reading belongs to the professional.",
+      "fr-FR":
+        "Zone 7 — Colere defensive. Elle agrege des signaux vocaux, faciaux et semantiques associes dans le modele FROID a une irritation soutenue avec tension musculaire detectable. Un ecart soutenu indique une concentration du signal dans cette region, toujours par rapport a la ligne de base du patient. Le theme de la zone est une dimension du modele FROID, et non une conclusion sur la personne. La lecture clinique appartient au professionnel.",
+      "es-ES":
+        "Zona 7 — Ira defensiva. Agrega senales vocales, faciales y semanticas asociadas en el modelo FROID a irritacion sostenida con tension muscular captable. Una desviacion sostenida indica concentracion de la senal en esta region, siempre contra la linea de base del propio paciente. El tema de la zona es una dimension del modelo FROID, no una conclusion sobre la persona. La lectura clinica es del profesional.",
+    },
+  "Zona 8 — Passividade. Agrega sinais vocais, faciais e semanticos associados no modelo FROID a posicao passiva diante dos proprios eventos. Desvio sustentado indica concentracao do sinal nesta regiao, sempre contra a linha de base do proprio paciente. O tema da zona e uma dimensao do modelo FROID, nao uma conclusao sobre a pessoa. A leitura clinica e do profissional.":
+    {
+      "en-US":
+        "Zone 8 — Passivity. It aggregates vocal, facial and semantic signals associated in the FROID model with a passive stance towards one's own events. A sustained deviation indicates concentration of the signal in this region, always against the patient own baseline. The zone theme is a dimension of the FROID model, not a conclusion about the person. The clinical reading belongs to the professional.",
+      "fr-FR":
+        "Zone 8 — Passivite. Elle agrege des signaux vocaux, faciaux et semantiques associes dans le modele FROID a une posture passive face a ses propres evenements. Un ecart soutenu indique une concentration du signal dans cette region, toujours par rapport a la ligne de base du patient. Le theme de la zone est une dimension du modele FROID, et non une conclusion sur la personne. La lecture clinique appartient au professionnel.",
+      "es-ES":
+        "Zona 8 — Pasividad. Agrega senales vocales, faciales y semanticas asociadas en el modelo FROID a posicion pasiva ante los propios eventos. Una desviacion sostenida indica concentracion de la senal en esta region, siempre contra la linea de base del propio paciente. El tema de la zona es una dimension del modelo FROID, no una conclusion sobre la persona. La lectura clinica es del profesional.",
+    },
+  "Zona 9 — Negacao de sentimentos. Agrega sinais vocais, faciais e semanticos associados no modelo FROID a supressao verbal do que a expressao sinaliza. Desvio sustentado indica concentracao do sinal nesta regiao, sempre contra a linha de base do proprio paciente. O tema da zona e uma dimensao do modelo FROID, nao uma conclusao sobre a pessoa. A leitura clinica e do profissional.":
+    {
+      "en-US":
+        "Zone 9 — Suppression of feelings. It aggregates vocal, facial and semantic signals associated in the FROID model with verbal suppression of what the expression signals. A sustained deviation indicates concentration of the signal in this region, always against the patient own baseline. The zone theme is a dimension of the FROID model, not a conclusion about the person. The clinical reading belongs to the professional.",
+      "fr-FR":
+        "Zone 9 — Suppression des sentiments. Elle agrege des signaux vocaux, faciaux et semantiques associes dans le modele FROID a la suppression verbale de ce que l'expression signale. Un ecart soutenu indique une concentration du signal dans cette region, toujours par rapport a la ligne de base du patient. Le theme de la zone est une dimension du modele FROID, et non une conclusion sur la personne. La lecture clinique appartient au professionnel.",
+      "es-ES":
+        "Zona 9 — Negacion de sentimientos. Agrega senales vocales, faciales y semanticas asociadas en el modelo FROID a supresion verbal de lo que la expresion senala. Una desviacion sostenida indica concentracion de la senal en esta region, siempre contra la linea de base del propio paciente. El tema de la zona es una dimension del modelo FROID, no una conclusion sobre la persona. La lectura clinica es del profesional.",
+    },
+  "Zona 10 — Merecimento. Agrega sinais vocais, faciais e semanticos associados no modelo FROID a desqualificacao do proprio merecimento. Desvio sustentado indica concentracao do sinal nesta regiao, sempre contra a linha de base do proprio paciente. O tema da zona e uma dimensao do modelo FROID, nao uma conclusao sobre a pessoa. A leitura clinica e do profissional.":
+    {
+      "en-US":
+        "Zone 10 — Deservingness. It aggregates vocal, facial and semantic signals associated in the FROID model with disqualification of one's own deservingness. A sustained deviation indicates concentration of the signal in this region, always against the patient own baseline. The zone theme is a dimension of the FROID model, not a conclusion about the person. The clinical reading belongs to the professional.",
+      "fr-FR":
+        "Zone 10 — Merite. Elle agrege des signaux vocaux, faciaux et semantiques associes dans le modele FROID a la disqualification de son propre merite. Un ecart soutenu indique une concentration du signal dans cette region, toujours par rapport a la ligne de base du patient. Le theme de la zone est une dimension du modele FROID, et non une conclusion sur la personne. La lecture clinique appartient au professionnel.",
+      "es-ES":
+        "Zona 10 — Merecimiento. Agrega senales vocales, faciales y semanticas asociadas en el modelo FROID a descalificacion del propio merecimiento. Una desviacion sostenida indica concentracion de la senal en esta region, siempre contra la linea de base del propio paciente. El tema de la zona es una dimension del modelo FROID, no una conclusion sobre la persona. La lectura clinica es del profesional.",
+    },
+  "Zona 11 — Rigidez cognitiva. Agrega sinais vocais, faciais e semanticos associados no modelo FROID a regras absolutas e baixa tolerancia a ambiguidade. Desvio sustentado indica concentracao do sinal nesta regiao, sempre contra a linha de base do proprio paciente. O tema da zona e uma dimensao do modelo FROID, nao uma conclusao sobre a pessoa. A leitura clinica e do profissional.":
+    {
+      "en-US":
+        "Zone 11 — Cognitive rigidity. It aggregates vocal, facial and semantic signals associated in the FROID model with absolute rules and low tolerance for ambiguity. A sustained deviation indicates concentration of the signal in this region, always against the patient own baseline. The zone theme is a dimension of the FROID model, not a conclusion about the person. The clinical reading belongs to the professional.",
+      "fr-FR":
+        "Zone 11 — Rigidite cognitive. Elle agrege des signaux vocaux, faciaux et semantiques associes dans le modele FROID a des regles absolues et une faible tolerance a l'ambiguite. Un ecart soutenu indique une concentration du signal dans cette region, toujours par rapport a la ligne de base du patient. Le theme de la zone est une dimension du modele FROID, et non une conclusion sur la personne. La lecture clinique appartient au professionnel.",
+      "es-ES":
+        "Zona 11 — Rigidez cognitiva. Agrega senales vocales, faciales y semanticas asociadas en el modelo FROID a reglas absolutas y baja tolerancia a la ambiguedad. Una desviacion sostenida indica concentracion de la senal en esta region, siempre contra la linea de base del propio paciente. El tema de la zona es una dimension del modelo FROID, no una conclusion sobre la persona. La lectura clinica es del profesional.",
+    },
+  "Zona 12 — Incongruencia desejo-crenca. Agrega sinais vocais, faciais e semanticos associados no modelo FROID a divergencia entre o desejo declarado e a crenca expressa. Desvio sustentado indica concentracao do sinal nesta regiao, sempre contra a linha de base do proprio paciente. O tema da zona e uma dimensao do modelo FROID, nao uma conclusao sobre a pessoa. A leitura clinica e do profissional.":
+    {
+      "en-US":
+        "Zone 12 — Desire-belief incongruence. It aggregates vocal, facial and semantic signals associated in the FROID model with divergence between stated desire and expressed belief. A sustained deviation indicates concentration of the signal in this region, always against the patient own baseline. The zone theme is a dimension of the FROID model, not a conclusion about the person. The clinical reading belongs to the professional.",
+      "fr-FR":
+        "Zone 12 — Incongruence desir-croyance. Elle agrege des signaux vocaux, faciaux et semantiques associes dans le modele FROID a une divergence entre le desir declare et la croyance exprimee. Un ecart soutenu indique une concentration du signal dans cette region, toujours par rapport a la ligne de base du patient. Le theme de la zone est une dimension du modele FROID, et non une conclusion sur la personne. La lecture clinique appartient au professionnel.",
+      "es-ES":
+        "Zona 12 — Incongruencia deseo-creencia. Agrega senales vocales, faciales y semanticas asociadas en el modelo FROID a divergencia entre el deseo declarado y la creencia expresada. Una desviacion sostenida indica concentracion de la senal en esta region, siempre contra la linea de base del propio paciente. El tema de la zona es una dimension del modelo FROID, no una conclusion sobre la persona. La lectura clinica es del profesional.",
+    },
+  "Infrassom nuclear: energia medida na faixa de 5 a 12 Hz da envoltoria vocal. Valores altos indicam elevacao dessa banda contra a referencia do paciente. Nao mede atividade do sistema nervoso autonomo nem conteudo nao verbalizado.":
+    {
+      "en-US":
+        "Nuclear infrasound: energy measured in the 5 to 12 Hz band of the vocal envelope. High values indicate a rise in this band against the patient reference. It does not measure autonomic nervous system activity nor unverbalised content.",
+      "fr-FR":
+        "Infrason nucleaire : energie mesuree dans la bande de 5 a 12 Hz de l'enveloppe vocale. Des valeurs elevees indiquent une hausse de cette bande par rapport a la reference du patient. Elle ne mesure ni l'activite du systeme nerveux autonome ni un contenu non verbalise.",
+      "es-ES":
+        "Infrasonido nuclear: energia medida en la banda de 5 a 12 Hz de la envolvente vocal. Valores altos indican elevacion de esa banda contra la referencia del paciente. No mide actividad del sistema nervioso autonomo ni contenido no verbalizado.",
+    },
+  "Elevacao multimodal simultanea: coincidencia entre a energia de 5 a 12 Hz e a tensao vocal basal na mesma janela. Mede co-ocorrencia entre canais, nao estado interno, e nao indica conduta.":
+    {
+      "en-US":
+        "Simultaneous multimodal rise: coincidence between the 5 to 12 Hz energy and basal vocal tension in the same window. It measures co-occurrence across channels, not internal state, and does not indicate any course of action.",
+      "fr-FR":
+        "Elevation multimodale simultanee : coincidence entre l'energie de 5 a 12 Hz et la tension vocale basale dans la meme fenetre. Elle mesure la co-occurrence entre canaux, et non un etat interne, et n'indique aucune conduite.",
+      "es-ES":
+        "Elevacion multimodal simultanea: coincidencia entre la energia de 5 a 12 Hz y la tension vocal basal en la misma ventana. Mide co-ocurrencia entre canales, no estado interno, y no indica conducta.",
+    },
+  "Queda multimodal sustentada: reducao simultanea de energia expressiva e de coerencia entre canais, contra a linha de base do paciente. E o inverso do padrao de elevacao simultanea.":
+    {
+      "en-US":
+        "Sustained multimodal drop: simultaneous reduction of expressive energy and of coherence across channels, against the patient baseline. It is the inverse of the simultaneous rise pattern.",
+      "fr-FR":
+        "Baisse multimodale soutenue : reduction simultanee de l'energie expressive et de la coherence entre canaux, par rapport a la ligne de base du patient. C'est l'inverse du motif d'elevation simultanee.",
+      "es-ES":
+        "Caida multimodal sostenida: reduccion simultanea de energia expresiva y de coherencia entre canales, contra la linea de base del paciente. Es el inverso del patron de elevacion simultanea.",
+    },
+  "Divergencia entre canais: contraste entre a calma medida na fala e a tensao medida na faixa sub-harmonica, na mesma janela. Mede divergencia entre canais, nao conteudo reprimido.":
+    {
+      "en-US":
+        "Divergence across channels: contrast between the calm measured in speech and the tension measured in the sub-harmonic band, within the same window. It measures divergence across channels, not repressed content.",
+      "fr-FR":
+        "Divergence entre canaux : contraste entre le calme mesure dans la parole et la tension mesuree dans la bande sous-harmonique, dans la meme fenetre. Elle mesure une divergence entre canaux, et non un contenu refoule.",
+      "es-ES":
+        "Divergencia entre canales: contraste entre la calma medida en el habla y la tension medida en la banda subarmonica, en la misma ventana. Mide divergencia entre canales, no contenido reprimido.",
+    },
+  "MFCC7: coeficiente cepstral do envelope espectral. O FROID acompanha sua elevacao durante fala de valencia negativa. A literatura associa esse padrao a lentificacao psicomotora. Associacao descrita na literatura em nivel de grupo; nao constitui inferencia sobre este paciente.":
+    {
+      "en-US":
+        "MFCC7: cepstral coefficient of the spectral envelope. FROID tracks its rise during negative-valence speech. The literature associates this pattern with psychomotor slowing. Association described in the literature at group level; it is not an inference about this patient.",
+      "fr-FR":
+        "MFCC7 : coefficient cepstral de l'enveloppe spectrale. FROID suit son elevation pendant un discours a valence negative. La litterature associe ce motif au ralentissement psychomoteur. Association decrite dans la litterature au niveau du groupe ; elle ne constitue pas une inference sur ce patient.",
+      "es-ES":
+        "MFCC7: coeficiente cepstral de la envolvente espectral. FROID sigue su elevacion durante habla de valencia negativa. La literatura asocia ese patron al enlentecimiento psicomotor. Asociacion descrita en la literatura a nivel de grupo; no constituye inferencia sobre este paciente.",
+    },
+  "MFCC9: coeficiente cepstral acompanhado em fala neutra, contra a referencia do proprio paciente. Quedas sustentadas sao descritas na literatura como correlato acustico de tensao laringea. Associacao descrita na literatura em nivel de grupo; nao constitui inferencia sobre este paciente.":
+    {
+      "en-US":
+        "MFCC9: cepstral coefficient tracked in neutral speech against the patient own reference. Sustained drops are described in the literature as an acoustic correlate of laryngeal tension. Association described in the literature at group level; it is not an inference about this patient.",
+      "fr-FR":
+        "MFCC9 : coefficient cepstral suivi dans un discours neutre, par rapport a la reference du patient. Des baisses soutenues sont decrites dans la litterature comme un correlat acoustique de la tension laryngee. Association decrite dans la litterature au niveau du groupe ; elle ne constitue pas une inference sur ce patient.",
+      "es-ES":
+        "MFCC9: coeficiente cepstral seguido en habla neutra, contra la referencia del propio paciente. Caidas sostenidas se describen en la literatura como correlato acustico de tension laringea. Asociacion descrita en la literatura a nivel de grupo; no constituye inferencia sobre este paciente.",
+    },
+  "Beta (12-30 Hz): energia nessa faixa de modulacao da envoltoria vocal. Nao corresponde a ritmo cortical de EEG — a homonimia e coincidencia de nomenclatura de faixa. Picos indicam elevacao contra a referencia do paciente. Associacao descrita na literatura em nivel de grupo; nao constitui inferencia sobre este paciente.":
+    {
+      "en-US":
+        "Beta (12-30 Hz): energy in this modulation band of the vocal envelope. It does not correspond to an EEG cortical rhythm; the shared name is a coincidence of frequency-band nomenclature. Peaks indicate a rise against the patient reference. Association described in the literature at group level; it is not an inference about this patient.",
+      "fr-FR":
+        "Beta (12-30 Hz) : energie dans cette bande de modulation de l'enveloppe vocale. Elle ne correspond pas a un rythme cortical d'EEG ; l'homonymie est une coincidence de nomenclature de bande. Les pics indiquent une hausse par rapport a la reference du patient. Association decrite dans la litterature au niveau du groupe ; elle ne constitue pas une inference sur ce patient.",
+      "es-ES":
+        "Beta (12-30 Hz): energia en esa banda de modulacion de la envolvente vocal. No corresponde a ritmo cortical de EEG; la homonimia es coincidencia de nomenclatura de banda. Los picos indican elevacion contra la referencia del paciente. Asociacion descrita en la literatura a nivel de grupo; no constituye inferencia sobre este paciente.",
+    },
+  "Indicador composto de elevacao multimodal simultanea: varios canais medidos sobem juntos na mesma janela.":
+    {
+      "en-US":
+        "Composite indicator of a simultaneous multimodal rise: several measured channels increase together within the same window.",
+      "fr-FR":
+        "Indicateur composite d'elevation multimodale simultanee : plusieurs canaux mesures augmentent ensemble dans la meme fenetre.",
+      "es-ES":
+        "Indicador compuesto de elevacion multimodal simultanea: varios canales medidos suben juntos en la misma ventana.",
+    },
+  "Indicador composto de queda multimodal sustentada: varios canais medidos caem juntos, com reducao de coerencia entre eles.":
+    {
+      "en-US":
+        "Composite indicator of a sustained multimodal drop: several measured channels fall together, with reduced coherence among them.",
+      "fr-FR":
+        "Indicateur composite de baisse multimodale soutenue : plusieurs canaux mesures diminuent ensemble, avec une coherence reduite entre eux.",
+      "es-ES":
+        "Indicador compuesto de caida multimodal sostenida: varios canales medidos caen juntos, con reduccion de coherencia entre ellos.",
+    },
+  "Primeira derivada do coeficiente cepstral MFCC7: a taxa de variacao do coeficiente ao longo do tempo. O FROID a acompanha em fala de valencia negativa. Associacao descrita na literatura em nivel de grupo; nao constitui inferencia sobre este paciente.":
+    {
+      "en-US":
+        "First derivative of the MFCC7 cepstral coefficient: the rate of change of the coefficient over time. FROID tracks it during negative-valence speech. Association described in the literature at group level; it is not an inference about this patient.",
+      "fr-FR":
+        "Derivee premiere du coefficient cepstral MFCC7 : le taux de variation du coefficient au cours du temps. FROID la suit dans un discours a valence negative. Association decrite dans la litterature au niveau du groupe ; elle ne constitue pas une inference sur ce patient.",
+      "es-ES":
+        "Primera derivada del coeficiente cepstral MFCC7: la tasa de variacion del coeficiente a lo largo del tiempo. FROID la sigue en habla de valencia negativa. Asociacion descrita en la literatura a nivel de grupo; no constituye inferencia sobre este paciente.",
+    },
+  "Primeira derivada do coeficiente cepstral MFCC9: taxa de variacao ao longo do tempo. Quedas em discurso neutro sao descritas na literatura como correlato de tensao laringea. Associacao descrita na literatura em nivel de grupo; nao constitui inferencia sobre este paciente.":
+    {
+      "en-US":
+        "First derivative of the MFCC9 cepstral coefficient: rate of change over time. Drops in neutral speech are described in the literature as a correlate of laryngeal tension. Association described in the literature at group level; it is not an inference about this patient.",
+      "fr-FR":
+        "Derivee premiere du coefficient cepstral MFCC9 : taux de variation au cours du temps. Les baisses dans un discours neutre sont decrites dans la litterature comme un correlat de la tension laryngee. Association decrite dans la litterature au niveau du groupe ; elle ne constitue pas une inference sur ce patient.",
+      "es-ES":
+        "Primera derivada del coeficiente cepstral MFCC9: tasa de variacion a lo largo del tiempo. Caidas en discurso neutro se describen en la literatura como correlato de tension laringea. Asociacion descrita en la literatura a nivel de grupo; no constituye inferencia sobre este paciente.",
+    },
+  "Segunda derivada do MFCC9: a aceleracao da variacao do coeficiente ao longo da fala. Descreve dinamica do sinal, e complementa a leitura da primeira derivada. Associacao descrita na literatura em nivel de grupo; nao constitui inferencia sobre este paciente.":
+    {
+      "en-US":
+        "Second derivative of MFCC9: the acceleration of the coefficient variation across speech. It describes signal dynamics and complements the first-derivative reading. Association described in the literature at group level; it is not an inference about this patient.",
+      "fr-FR":
+        "Derivee seconde du MFCC9 : l'acceleration de la variation du coefficient au fil de la parole. Elle decrit la dynamique du signal et complete la lecture de la derivee premiere. Association decrite dans la litterature au niveau du groupe ; elle ne constitue pas une inference sur ce patient.",
+      "es-ES":
+        "Segunda derivada del MFCC9: la aceleracion de la variacion del coeficiente a lo largo del habla. Describe dinamica de la senal y complementa la lectura de la primera derivada. Asociacion descrita en la literatura a nivel de grupo; no constituye inferencia sobre este paciente.",
     },
 };
 

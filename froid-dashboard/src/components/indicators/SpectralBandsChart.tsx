@@ -52,7 +52,7 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta, locale = "pt-BR
         value: read(audioMeta, "spectral_beta_12_30hz"),
         color: "#FBBF24",
         tooltip:
-          "Beta (12–30 Hz): ativação rápida associada a tensão cognitiva, vigilância, pressão articulatória e mobilização autônoma. Picos acompanham momentos de alerta, esforço ou ansiedade.",
+          "Beta (12-30 Hz): energia nessa faixa de modulacao da envoltoria vocal. Nao corresponde a ritmo cortical de EEG — a homonimia e coincidencia de nomenclatura de faixa. Picos indicam elevacao contra a referencia do paciente. Associacao descrita na literatura em nivel de grupo; nao constitui inferencia sobre este paciente.",
       },
       {
         label: "Gama",
@@ -170,7 +170,7 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta, locale = "pt-BR
               <p className="mt-1">
                 {tooltipText(
                   locale,
-                  "Primeira derivada (taxa de variação) do coeficiente cepstral MFCC7. É o marcador que o FROID isola na fala de valência negativa: quando se eleva, contribui para o risco depressivo.",
+                  "Primeira derivada do coeficiente cepstral MFCC7: a taxa de variacao do coeficiente ao longo do tempo. O FROID a acompanha em fala de valencia negativa. Associacao descrita na literatura em nivel de grupo; nao constitui inferencia sobre este paciente.",
                 )}
               </p>
             </div>
@@ -186,7 +186,7 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta, locale = "pt-BR
               <p className="mt-1">
                 {tooltipText(
                   locale,
-                  "Primeira derivada do coeficiente cepstral MFCC9. Quedas em discurso neutro sugerem tensão autônoma latente nas pregas vocais, associada à ansiedade somática.",
+                  "Primeira derivada do coeficiente cepstral MFCC9: taxa de variacao ao longo do tempo. Quedas em discurso neutro sao descritas na literatura como correlato de tensao laringea. Associacao descrita na literatura em nivel de grupo; nao constitui inferencia sobre este paciente.",
                 )}
               </p>
             </div>
@@ -218,7 +218,7 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta, locale = "pt-BR
               <p className="mt-1">
                 {tooltipText(
                   locale,
-                  "Segunda derivada do MFCC9: mede a rapidez com que a tensão vocal latente muda ao longo da fala, complementando a leitura de ansiedade somática.",
+                  "Segunda derivada do MFCC9: a aceleracao da variacao do coeficiente ao longo da fala. Descreve dinamica do sinal, e complementa a leitura da primeira derivada. Associacao descrita na literatura em nivel de grupo; nao constitui inferencia sobre este paciente.",
                 )}
               </p>
             </div>
