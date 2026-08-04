@@ -155,6 +155,28 @@ class EmbeddingModelTests(unittest.TestCase):
             source = (SERVER_DIR / "tools" / nome).read_text(encoding="utf-8")
             self.assertIn("explica_embeddings.collection_for", source, nome)
 
+    def test_the_live_explica_uses_the_same_model_as_the_index(self):
+        """O consumidor em producao tambem, e este e o mais critico.
+
+        main.py abria a collection sem informar o modelo, entao usava o padrao
+        da ChromaDB. Com o indice reconstruido em outra dimensao, a consulta
+        falha — e o except devolvia lista vazia sem registrar nada. O FROID
+        Explica passaria a responder sem consultar a base, em silencio, e o
+        sintoma seria apenas "as respostas pioraram".
+        """
+        main = (SERVER_DIR / "main.py").read_text(encoding="utf-8")
+        self.assertIn("explica_embeddings.collection_for", main)
+        self.assertNotIn(
+            "chroma_client.get_or_create_collection(\n            name=FROID_CHROMA_COLLECTION\n        )",
+            main,
+        )
+
+    def test_a_failed_knowledge_query_is_logged_not_swallowed(self):
+        main = (SERVER_DIR / "main.py").read_text(encoding="utf-8")
+        trecho = main[main.index("def _query_chroma_froid_knowledge"):]
+        trecho = trecho[: trecho.index("\n\n\n")]
+        self.assertIn("LOGGER.exception", trecho)
+
 
 class Nr1NoteTests(unittest.TestCase):
     """A nota do modulo NR-1 precisa existir e responder ao que promete."""

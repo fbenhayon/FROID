@@ -31,6 +31,7 @@ from tenant_access import (
     should_block,
 )
 from tenant_store import TenantStore, stable_uuid
+import explica_embeddings
 import nr1_compliance
 import nr1_effectiveness
 from subscriptions import (
@@ -938,8 +939,13 @@ def _query_chroma_froid_knowledge(query_text: str, limit: int = 4) -> Tuple[List
         from chromadb import PersistentClient
 
         chroma_client = PersistentClient(path=FROID_CHROMA_PATH)
-        collection = chroma_client.get_or_create_collection(
-            name=FROID_CHROMA_COLLECTION
+        # O MESMO modelo da indexação, obrigatoriamente. Sem isto a consulta
+        # usa o modelo padrão da ChromaDB e o vetor da pergunta sai com
+        # dimensão diferente da do índice — o erro cai no except abaixo e o
+        # FROID Explica passa a responder sem consultar a base, em silêncio,
+        # como se nada tivesse acontecido.
+        collection, _ = explica_embeddings.collection_for(
+            chroma_client, FROID_CHROMA_COLLECTION
         )
         results = collection.query(query_texts=[query_text], n_results=limit)
         documents = (results.get("documents") or [[]])[0] or []
@@ -950,6 +956,10 @@ def _query_chroma_froid_knowledge(query_text: str, limit: int = 4) -> Tuple[List
         ]
         return [str(document) for document in documents if document], citations
     except Exception:
+        # Registrado em vez de engolido: uma base de conhecimento que parou de
+        # responder é indistinguível de uma que não tinha resposta, e foi assim
+        # que uma troca de modelo derrubou a consulta sem ninguém perceber.
+        LOGGER.exception("FROID Explica nao conseguiu consultar a base de conhecimento")
         return [], []
 
 
