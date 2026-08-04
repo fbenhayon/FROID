@@ -85,6 +85,26 @@ class PilotSafetyTests(unittest.TestCase):
         # .invalid e reservado por RFC 2606 e nunca resolve.
         self.assertIn("@teste.invalid", SOURCE)
 
+    def test_schema_is_ensured_for_every_mode_including_destroy(self):
+        """A limpeza também depende de migration.
+
+        A 017 corrige o gatilho que impedia remover os critérios do GRO. Como
+        o schema só era aplicado em --create e --report, o --destroy continuava
+        batendo no gatilho antigo mesmo com o conserto publicado: a correção
+        existia e não chegava a quem precisava dela.
+        """
+        main = SOURCE[SOURCE.index("def main("):]
+        chamada = main.index("ensure_migrations()")
+        conexao = main.index("with connect()")
+        self.assertLess(
+            chamada, conexao,
+            "ensure_migrations deve rodar antes de abrir a transação do piloto",
+        )
+        self.assertNotIn(
+            "if args.create or args.report:", SOURCE,
+            "ensure_migrations não pode ser condicionada ao modo",
+        )
+
     def test_uses_a_fixed_namespace_so_removal_is_exact(self):
         self.assertIn("PILOT_NAMESPACE", SOURCE)
         self.assertIn("uuid.uuid5(PILOT_NAMESPACE", SOURCE)

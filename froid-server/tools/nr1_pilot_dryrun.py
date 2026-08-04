@@ -483,10 +483,15 @@ def main() -> int:
     if not (args.create or args.report or args.destroy):
         parser.error("escolha --create, --report ou --destroy")
 
-    if args.create or args.report:
-        # Fora da transação do piloto: aplicar migration dentro dela misturaria
-        # mudança de schema com dado de teste no mesmo rollback.
-        ensure_migrations()
+    # Vale para --destroy também, e a razão é concreta: a migration 017 corrige
+    # o gatilho que impedia remover os critérios do GRO. Como eu só aplicava o
+    # schema em --create e --report, a limpeza continuava batendo no gatilho
+    # antigo mesmo depois da correção publicada — o conserto existia e não
+    # chegava a quem precisava dele.
+    #
+    # Fora da transação do piloto de propósito: aplicar migration dentro dela
+    # misturaria mudança de schema com dado de teste no mesmo rollback.
+    ensure_migrations()
 
     with connect() as connection:
         with connection.transaction():
