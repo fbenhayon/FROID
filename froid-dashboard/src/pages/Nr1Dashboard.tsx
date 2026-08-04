@@ -241,6 +241,12 @@ export const Nr1Dashboard: React.FC<{ user: FroidUser | null }> = ({ user }) => 
           </div>
           <div className="flex flex-wrap gap-2">
             <button
+              onClick={() => nav("/nr1/aep")}
+              className="rounded border border-cyan-700 bg-cyan-950 px-4 py-2 text-xs font-black text-cyan-100 hover:bg-cyan-900"
+            >
+              AEP
+            </button>
+            <button
               onClick={() => nav("/nr1/eficacia")}
               className="rounded border border-cyan-700 bg-cyan-950 px-4 py-2 text-xs font-black text-cyan-100 hover:bg-cyan-900"
             >

@@ -268,6 +268,52 @@ class AepMigrationTests(unittest.TestCase):
         self.assertIn("'012_aep_and_effectiveness'", self.sql)
 
 
+class AepAuthoringTests(unittest.TestCase):
+    """Filling in and signing the document, not just holding its shape."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.main = (SERVER_DIR / "main.py").read_text(encoding="utf-8")
+        cls.store = (SERVER_DIR / "tenant_store.py").read_text(encoding="utf-8")
+
+    def test_editing_is_restricted_to_an_allow_list(self):
+        # A request body must never reach status, concluded_at or the tenant.
+        self.assertIn("NR1_AEP_EDITABLE_FIELDS", self.store)
+        for forbidden in ("status", "concluded_at", "organization_id"):
+            self.assertNotIn(
+                f'"{forbidden}",\n        "real_work_description"', self.store
+            )
+        self.assertIn("real_work_description", self.store)
+
+    def test_concluding_requires_substance_not_just_a_click(self):
+        # 1.5.7.2 wants a dated, signed document; an empty one signed is worse
+        # than none, because it is presented as evidence of diligence.
+        conclude = self.store[self.store.index("def nr1_conclude_aep"):]
+        conclude = conclude[: conclude.index("def nr1_list_aep")]
+        self.assertIn("btrim(real_work_description) <> ''", conclude)
+        self.assertIn("btrim(responsible_name) <> ''", conclude)
+        self.assertIn("FROM aep_evidence evidence", conclude)
+
+    def test_a_concluded_aep_can_no_longer_be_edited(self):
+        update = self.store[self.store.index("def nr1_update_aep"):]
+        update = update[: update.index("def nr1_conclude_aep")]
+        self.assertIn("status IN ('draft','in_progress')", update)
+
+    def test_first_edit_moves_the_document_out_of_draft(self):
+        self.assertIn(
+            "status=CASE WHEN status='draft' THEN 'in_progress' ELSE status END",
+            self.store,
+        )
+
+    def test_endpoints_exist_for_the_whole_lifecycle(self):
+        for route in (
+            '@app.get("/api/organizations/{organization_id}/nr1/aep")',
+            '@app.patch("/api/organizations/{organization_id}/nr1/aep/{aep_id}")',
+            '@app.post("/api/organizations/{organization_id}/nr1/aep/{aep_id}/conclude")',
+        ):
+            self.assertIn(route, self.main)
+
+
 class AuditHardeningTests(unittest.TestCase):
     """Findings from the general audit of the module."""
 

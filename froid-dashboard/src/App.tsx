@@ -29,6 +29,7 @@ const ProfessionalContractPage = lazy(() => import("./pages/LegalPages").then((m
 const OrganizationContractPage = lazy(() => import("./pages/LegalPages").then((module) => ({ default: module.OrganizationContractPage })));
 const PatientTclePage = lazy(() => import("./pages/LegalPages").then((module) => ({ default: module.PatientTclePage })));
 const FroidProfessionalsPage = lazy(() => import("./pages/FroidInstitutionalPages").then((module) => ({ default: module.FroidProfessionalsPage })));
+const Nr1Aep = lazy(() => import("./pages/Nr1Aep").then((module) => ({ default: module.Nr1Aep })));
 const Nr1Dashboard = lazy(() => import("./pages/Nr1Dashboard").then((module) => ({ default: module.Nr1Dashboard })));
 const Nr1Effectiveness = lazy(() => import("./pages/Nr1Effectiveness").then((module) => ({ default: module.Nr1Effectiveness })));
 const Nr1QuestionnairePage = lazy(() => import("./pages/Nr1QuestionnairePage").then((module) => ({ default: module.Nr1QuestionnairePage })));
@@ -316,6 +317,7 @@ function App() {
           element={clinicalElement(<PrivacyRequests user={user} />)}
         />
         <Route path="/nr1" element={clinicalElement(<Nr1Dashboard user={user} />)} />
+        <Route path="/nr1/aep" element={clinicalElement(<Nr1Aep user={user} />)} />
         <Route
           path="/nr1/eficacia"
           element={clinicalElement(<Nr1Effectiveness user={user} />)}

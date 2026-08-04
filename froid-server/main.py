@@ -7457,6 +7457,104 @@ async def add_nr1_aep_evidence(organization_id: str, aep_id: str, request: Reque
     return {"evidence_id": evidence_id, "aep_id": aep_id, "method": method}
 
 
+@app.get("/api/organizations/{organization_id}/nr1/aep")
+async def list_nr1_aep(organization_id: str, request: Request):
+    context = _require_enterprise_context(
+        request, organization_id, "nr1.aggregate.read"
+    )
+    try:
+        items = TENANT_STORE.nr1_list_aep(
+            organization_id=organization_id,
+            membership_id=context.membership_id,
+        )
+    except RuntimeError:
+        raise HTTPException(status_code=409, detail="módulo NR-1 requer persistência dual")
+    _record_tenant_success(
+        context, "nr1.aep.list", "aep_assessment", organization_id,
+        {"result_count": len(items)},
+    )
+    return {"assessments": items}
+
+
+@app.patch("/api/organizations/{organization_id}/nr1/aep/{aep_id}")
+async def update_nr1_aep(organization_id: str, aep_id: str, request: Request):
+    """Fill in the AEP while it is being conducted.
+
+    The body can only reach the descriptive fields. Status and the conclusion
+    date are not editable here: dating and signing the document is a separate,
+    audited act.
+    """
+    context = _require_enterprise_context(
+        request, organization_id, "nr1.inventory.manage"
+    )
+    body = await request.json()
+    fields = {
+        name: body[name]
+        for name in TENANT_STORE.NR1_AEP_EDITABLE_FIELDS
+        if name in body
+    }
+    aet_required = body.get("aet_required")
+    if aet_required is not None:
+        aet_required = bool(aet_required)
+    if not fields and aet_required is None:
+        raise HTTPException(status_code=400, detail="nenhum campo editável informado")
+    try:
+        updated = TENANT_STORE.nr1_update_aep(
+            organization_id=organization_id,
+            membership_id=context.membership_id,
+            aep_id=aep_id,
+            fields=fields,
+            aet_required=aet_required,
+        )
+    except RuntimeError:
+        raise HTTPException(status_code=409, detail="módulo NR-1 requer persistência dual")
+    except ValueError as exc:
+        if str(exc) == "no_editable_field":
+            raise HTTPException(status_code=400, detail="nenhum campo editável informado")
+        raise HTTPException(
+            status_code=409,
+            detail="AEP não encontrada ou já concluída — conclua uma nova revisão",
+        )
+    _record_tenant_success(
+        context, "nr1.aep.update", "aep_assessment", aep_id,
+        {"fields": sorted(fields)},
+    )
+    return updated
+
+
+@app.post("/api/organizations/{organization_id}/nr1/aep/{aep_id}/conclude")
+async def conclude_nr1_aep(organization_id: str, aep_id: str, request: Request):
+    """Date and sign the AEP.
+
+    Refused unless the real work is described, a responsible is named and at
+    least one piece of evidence was recorded. An undated, unsigned or unfounded
+    document is not evidence of diligence — it is the absence of it.
+    """
+    context = _require_enterprise_context(
+        request, organization_id, "nr1.inventory.manage"
+    )
+    try:
+        concluded = TENANT_STORE.nr1_conclude_aep(
+            organization_id=organization_id,
+            membership_id=context.membership_id,
+            aep_id=aep_id,
+        )
+    except RuntimeError:
+        raise HTTPException(status_code=409, detail="módulo NR-1 requer persistência dual")
+    except ValueError:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "para concluir, a AEP precisa da descrição do trabalho real, "
+                "de um responsável nomeado e de ao menos uma evidência"
+            ),
+        )
+    _record_tenant_success(
+        context, "nr1.aep.conclude", "aep_assessment", aep_id
+    )
+    return concluded
+
+
 @app.get("/api/organizations/{organization_id}/nr1/aep/{aep_id}")
 async def read_nr1_aep(organization_id: str, aep_id: str, request: Request):
     context = _require_enterprise_context(

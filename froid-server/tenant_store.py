@@ -2145,6 +2145,137 @@ class TenantStore:
                 )
         return evidence_id
 
+    # Fields the organization fills in while the AEP is being conducted. Kept
+    # as an explicit allow-list so a request body can never reach status,
+    # concluded_at or the organization: concluding is a separate act.
+    NR1_AEP_EDITABLE_FIELDS = (
+        "reference_period",
+        "real_work_description",
+        "exposure_duration",
+        "exposure_frequency",
+        "exposure_intensity",
+        "exposure_cofactors",
+        "health_indicators",
+        "absenteeism_notes",
+        "previous_assessments",
+        "responsible_name",
+        "responsible_qualification",
+        "aet_justification",
+    )
+
+    def nr1_update_aep(
+        self,
+        *,
+        organization_id: str,
+        membership_id: str,
+        aep_id: str,
+        fields: Dict[str, Any],
+        aet_required: Optional[bool] = None,
+    ) -> dict:
+        """Fill in the AEP. Refuses once concluded."""
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        assignments = []
+        values: list = []
+        for name in self.NR1_AEP_EDITABLE_FIELDS:
+            if name in fields:
+                assignments.append(f"{name}=%s")
+                values.append(str(fields.get(name) or ""))
+        if aet_required is not None:
+            assignments.append("aet_required=%s")
+            values.append(bool(aet_required))
+        if not assignments:
+            raise ValueError("no_editable_field")
+        assignments.append("status=CASE WHEN status='draft' THEN 'in_progress' ELSE status END")
+        assignments.append("updated_at=now()")
+        values.extend([aep_id, organization_id])
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                self._nr1_session(connection, organization_id, membership_id)
+                row = connection.execute(
+                    f"""
+                    UPDATE aep_assessments SET {", ".join(assignments)}
+                    WHERE id=%s AND organization_id=%s
+                      AND status IN ('draft','in_progress')
+                    RETURNING id, status
+                    """,
+                    tuple(values),
+                ).fetchone()
+        if not row:
+            raise ValueError("aep_not_editable")
+        return {"aep_id": str(row[0]), "status": row[1]}
+
+    def nr1_conclude_aep(
+        self, *, organization_id: str, membership_id: str, aep_id: str
+    ) -> dict:
+        """Date and sign the AEP (NR-1 1.5.7.2).
+
+        The database refuses to conclude without a named responsible, so an
+        unsigned document cannot be presented as evidence of diligence.
+        """
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                self._nr1_session(connection, organization_id, membership_id)
+                row = connection.execute(
+                    """
+                    UPDATE aep_assessments
+                    SET status='concluded', concluded_at=now(), updated_at=now()
+                    WHERE id=%s AND organization_id=%s
+                      AND status IN ('draft','in_progress')
+                      AND btrim(real_work_description) <> ''
+                      AND btrim(responsible_name) <> ''
+                      AND EXISTS (
+                          SELECT 1 FROM aep_evidence evidence
+                          WHERE evidence.aep_id = aep_assessments.id
+                      )
+                    RETURNING id, concluded_at
+                    """,
+                    (aep_id, organization_id),
+                ).fetchone()
+        if not row:
+            raise ValueError("aep_not_concludable")
+        return {
+            "aep_id": str(row[0]),
+            "status": "concluded",
+            "concluded_at": row[1],
+        }
+
+    def nr1_list_aep(
+        self, *, organization_id: str, membership_id: str
+    ) -> list[dict]:
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                self._nr1_session(connection, organization_id, membership_id)
+                rows = connection.execute(
+                    """
+                    SELECT aep.id, aep.unit_id, unit.name, aep.status,
+                           aep.reference_period, aep.opened_at, aep.concluded_at,
+                           (SELECT count(DISTINCT evidence.method)
+                              FROM aep_evidence evidence
+                             WHERE evidence.aep_id = aep.id)
+                    FROM aep_assessments aep
+                    LEFT JOIN organization_units unit ON unit.id = aep.unit_id
+                    WHERE aep.organization_id=%s
+                    ORDER BY aep.opened_at DESC
+                    """,
+                    (organization_id,),
+                ).fetchall()
+        return [
+            {
+                "aep_id": str(row[0]),
+                "unit_id": str(row[1]) if row[1] else None,
+                "unit_name": row[2], "status": row[3],
+                "reference_period": row[4],
+                "opened_at": row[5], "concluded_at": row[6],
+                "method_count": int(row[7] or 0),
+            }
+            for row in rows
+        ]
+
     def nr1_get_aep(
         self, *, organization_id: str, membership_id: str, aep_id: str
     ) -> Optional[dict]:
@@ -2160,7 +2291,9 @@ class TenantStore:
                            aep.exposure_duration, aep.exposure_frequency,
                            aep.exposure_intensity, aep.exposure_cofactors,
                            aep.responsible_name, aep.responsible_qualification,
-                           aep.aet_required, aep.opened_at, aep.concluded_at
+                           aep.aet_required, aep.opened_at, aep.concluded_at,
+                           aep.health_indicators, aep.absenteeism_notes,
+                           aep.previous_assessments, aep.aet_justification
                     FROM aep_assessments aep
                     LEFT JOIN organization_units unit ON unit.id = aep.unit_id
                     WHERE aep.organization_id=%s AND aep.id=%s
@@ -2191,6 +2324,12 @@ class TenantStore:
             "responsible_qualification": head[11],
             "aet_required": bool(head[12]),
             "opened_at": head[13], "concluded_at": head[14],
+            "preparation": {
+                "health_indicators": head[15],
+                "absenteeism_notes": head[16],
+                "previous_assessments": head[17],
+            },
+            "aet_justification": head[18],
             "evidence": [
                 {
                     "evidence_id": str(item[0]), "method": item[1],
