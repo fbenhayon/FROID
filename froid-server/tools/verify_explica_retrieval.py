@@ -62,6 +62,12 @@ def main() -> int:
         "--embedding", default="auto", choices=["auto", "openai", "local"],
         help="Precisa ser o mesmo usado na indexacao.",
     )
+    parser.add_argument(
+        "--simulate-exclude", action="append", default=[],
+        help="Descarta resultados destas fontes na hora de pontuar, sem "
+             "reindexar. Serve para medir o efeito de tirar um documento da "
+             "base antes de decidir tira-lo de verdade.",
+    )
     args = parser.parse_args()
 
     import chromadb
@@ -80,10 +86,23 @@ def main() -> int:
     print(f"Embedding: {modelo}")
     print(f"Acerto = documento esperado entre os {args.top} primeiros.\n")
 
+    if args.simulate_exclude:
+        print(f"Simulando remocao de: {', '.join(args.simulate_exclude)}\n")
+
+    def descartada(fonte: str) -> bool:
+        return any(
+            termo.lower() in fonte.lower() for termo in args.simulate_exclude
+        )
+
     acertos = 0
     for pergunta, esperado in CASOS:
-        resultado = collection.query(query_texts=[pergunta], n_results=args.top)
+        # Busca mais fundo quando ha simulacao, para que sobrem candidatos
+        # depois do descarte e a comparacao continue sendo sobre as mesmas
+        # primeiras posicoes.
+        profundidade = args.top * 6 if args.simulate_exclude else args.top
+        resultado = collection.query(query_texts=[pergunta], n_results=profundidade)
         fontes = [m.get("source", "?") for m in resultado["metadatas"][0]]
+        fontes = [f for f in fontes if not descartada(f)][: args.top]
         posicao = next(
             (i + 1 for i, fonte in enumerate(fontes) if esperado.lower() in fonte.lower()),
             None,
