@@ -169,6 +169,100 @@ class ImplementacaoProprietariaTests(unittest.TestCase):
         self.assertIn("calcula", motivo)
 
 
+class AfirmacaoClinicaTests(unittest.TestCase):
+    """O risco que nao e segredo comercial.
+
+    A auditoria encontrou na base uma tabela cruzando IPM e IDM com
+    "Interpretacao Clinica" (dissociacao, somatizacao, luto agudo) e "Acao
+    Sugerida" (acolher, conter, investigar resistencias). Nao revelava peso
+    nem formula — o detector de segredo a liberaria — e era o arquivo mais
+    perigoso da base.
+    """
+
+    def setUp(self):
+        self.tool = load()
+
+    def categorias(self, texto: str) -> list[str]:
+        return sorted(self.tool.classificar(texto)["achados"])
+
+    def test_construto_atribuido_a_metrica_e_bloqueado(self):
+        for texto in (
+            "IDM negativo profundo: paciente parece calmo, mas ha conflito "
+            "profundo reprimido (somatizacao).",
+            "IPM baixo com queda brusca indica dissociacao ou shutdown.",
+            "Dissociacao evidente quando a zona 7 entra em faixa vermelha.",
+            "A dissonancia facial-vocal revela afeto reprimido.",
+        ):
+            self.assertIn("afirmacao_clinica", self.categorias(texto), texto)
+
+    def test_prescricao_de_conduta_e_bloqueada(self):
+        for texto in (
+            "Acao Sugerida: conter, acolher a emocao, reduzir a ativacao.",
+            "Interpretacao Clinica do quadro observado na sessao.",
+            "Recomenda-se acompanhar a evolucao comparando baseline e cortes.",
+        ):
+            self.assertIn("afirmacao_clinica", self.categorias(texto), texto)
+
+    def test_literatura_sobre_os_mesmos_construtos_nao_e_bloqueada(self):
+        # Um artigo serio de psicopatologia fala de dissociacao e somatizacao o
+        # tempo todo. Bloquear isso empobreceria a base exatamente na area em
+        # que o FROID precisa ser forte. O que distingue e a PROXIMIDADE de uma
+        # metrica do produto — o sistema atribuindo o construto a uma leitura.
+        for texto in (
+            "Dissociative symptoms are prevalent in patients with borderline "
+            "personality disorder, according to the reviewed literature.",
+            "A somatizacao e um fenomeno descrito extensamente na literatura "
+            "psicanalitica e psiquiatrica desde o inicio do seculo XX.",
+            "Psychomotor retardation has been associated with major depressive "
+            "disorder in several acoustic studies.",
+        ):
+            self.assertNotIn("afirmacao_clinica", self.categorias(texto), texto)
+
+    def test_a_medida_descrita_como_medida_nao_e_bloqueada(self):
+        # O texto que as fichas tecnicas usam precisa passar. Se o proprio
+        # padrao correto for bloqueado, a categoria e inutil.
+        for texto in (
+            "O IPM e um indice composto da intensidade global de ativacao, "
+            "lido contra a linha de base do proprio paciente.",
+            "A zona 7 apresentou desvio de 2,4 desvios-padrao em relacao a "
+            "referencia do paciente, sustentado por tres janelas.",
+            "A dissonancia facial-vocal conta eventos de divergencia entre "
+            "canais medidos na mesma janela de tempo.",
+        ):
+            self.assertNotIn("afirmacao_clinica", self.categorias(texto), texto)
+
+    def test_a_frase_que_nega_o_construto_nao_e_bloqueada(self):
+        # Estas sao as secoes "O que nao afirma" das fichas tecnicas — o texto
+        # que existe justamente para impedir a afirmacao clinica. A primeira
+        # versao da categoria reprovava as proprias fichas do FROID.
+        for texto in (
+            "IPM baixo nao e embotamento, shutdown nem dissociacao.",
+            "Dissonancia nao e mentira, disfarce nem repressao.",
+            "A dissonancia nao e indicador de dissociacao ou somatizacao.",
+            "Desvio extremo de zona nunca significa conflito profundo.",
+            "Reducao de taxa verbal nao e retardo psicomotor.",
+            "O IDM nao infere conteudo reprimido a partir de ausencia de sinal.",
+        ):
+            self.assertNotIn("afirmacao_clinica", self.categorias(texto), texto)
+
+    def test_a_negacao_nao_serve_de_escudo_para_a_afirmacao_seguinte(self):
+        # A guarda le uma janela curta. Uma negacao solta paragrafos antes nao
+        # pode liberar uma afirmacao adiante.
+        texto = (
+            "O FROID nao substitui avaliacao clinica. " + ("Texto neutro. " * 20)
+            + "IPM baixo indica dissociacao e shutdown do paciente."
+        )
+        self.assertIn("afirmacao_clinica", self.categorias(texto))
+
+    def test_afirmacao_clinica_bloqueia_antes_do_segredo(self):
+        indexar, motivo = self.tool.propor(
+            "IDM vs IPM.md",
+            {"achados": {"afirmacao_clinica": ["x"]}, "sinais_literatura": 9},
+        )
+        self.assertFalse(indexar)
+        self.assertIn("clinica", motivo)
+
+
 class PosturaTests(unittest.TestCase):
     """Na duvida, nao indexa."""
 

@@ -60,7 +60,40 @@ IMPLEMENTACAO = [
     r"peso[s]? (adotado|atribu[ií]do)", r"multiplicad[oa]\s+por\s+0[.,]",
 ]
 
+# O risco que nao e segredo comercial, e e maior que ele.
+#
+# Um documento pode nao revelar peso nem formula nenhuma e ainda assim ser o
+# arquivo mais perigoso da base. Encontrado em auditoria: uma tabela que
+# cruzava IPM e IDM com "Interpretacao Clinica" (dissociacao, somatizacao,
+# luto agudo) e "Acao Sugerida" (acolher, conter, investigar resistencias).
+#
+# Isso e a definicao operacional de instrumento de avaliacao psicologica:
+# parte de uma medida, infere construto e prescreve conduta. Servido pelo
+# Explica a qualquer usuario, e o FROID afirmando sobre a pessoa o que so o
+# profissional habilitado pode afirmar.
+#
+# A deteccao e por PROXIMIDADE, de proposito. "Dissociacao" sozinha aparece em
+# qualquer artigo serio de psicopatologia e nao e problema nenhum. O problema
+# e "dissociacao" a poucas palavras de uma metrica do FROID — isso e o produto
+# atribuindo o construto a uma leitura.
+_INDICE = r"(ipm|idm|zona\s*\d{1,2}|dissonanc\w*|escore\s+froid|indice\s+froid)"
+_CONSTRUTO = (
+    r"(dissocia\w*|somatiza\w*|somatiz\w*|repress\w*|reprimid\w*|"
+    r"embotamento|achatamento afetivo|luto agudo|crise depressiva|"
+    r"shutdown|flooding|inunda[cç][aã]o auton[oô]mica|"
+    r"conflito profundo|resist[eê]ncia passiva|espasti\w*)"
+)
+AFIRMACAO_CLINICA = [
+    rf"{_INDICE}[^.\n]{{0,160}}{_CONSTRUTO}",
+    rf"{_CONSTRUTO}[^.\n]{{0,160}}{_INDICE}",
+    # Rotulos de coluna/secao que so existem quando o material mapeia medida
+    # para conduta. Literatura descreve; material de produto prescreve.
+    r"a[cç][aã]o sugerida", r"conduta sugerida", r"interpreta[cç][aã]o cl[ií]nica",
+    r"recomenda-se (acompanhar|investigar|conter|estimular|acolher)",
+]
+
 INDICIOS = {
+    "afirmacao_clinica": AFIRMACAO_CLINICA,
     "implementacao_proprietaria": IMPLEMENTACAO,
     "financeiro": [
         r"\bebitda\b", r"\bcusto total\b",
@@ -120,12 +153,36 @@ SINAIS_LITERATURA = [
 ]
 
 
+# A frase que NEGA o construto e o oposto do risco — e era bloqueada junto.
+#
+# A primeira versao desta categoria reprovou as proprias fichas tecnicas do
+# FROID, porque a secao "O que nao afirma" de cada uma escreve exatamente
+# "IPM baixo nao e embotamento, shutdown nem dissociacao". Para o regex, isso
+# e indistinguivel da afirmacao que ele deveria pegar.
+#
+# Um detector que reprova o texto correto treina quem o usa a ignora-lo, e ai
+# ele deixa de proteger. A negacao precisa ser lida.
+NEGACAO = re.compile(
+    r"n[aã]o\s+(e|é|indica|significa|afirma|detecta|infere|tem|constitui|"
+    r"deve|diz|produz|s[aã]o|possui|autoriza|substitui|equivale|revela|"
+    r"implica|distingue|mede)\b|\bnunca\b|\bnem\b|\bsem\s+afirmar\b"
+)
+
+
+def _negado(baixo: str, inicio: int, fim: int) -> bool:
+    """A ocorrencia esta dentro de uma frase que nega o construto?"""
+    janela = baixo[max(0, inicio - 90) : fim + 40]
+    return bool(NEGACAO.search(janela))
+
+
 def classificar(texto: str) -> dict:
     baixo = texto.lower()
     achados: dict[str, list[str]] = {}
     for categoria, padroes in INDICIOS.items():
         for padrao in padroes:
             for m in re.finditer(padrao, baixo):
+                if categoria == "afirmacao_clinica" and _negado(baixo, m.start(), m.end()):
+                    continue
                 inicio = max(0, m.start() - 70)
                 trecho = " ".join(texto[inicio : m.end() + 70].split())
                 achados.setdefault(categoria, [])
@@ -138,6 +195,11 @@ def classificar(texto: str) -> dict:
 def propor(nome: str, analise: dict) -> tuple[bool, str]:
     """Proposta de indexacao. Na duvida, nao indexa."""
     achados = analise["achados"]
+    if "afirmacao_clinica" in achados:
+        # Antes do segredo comercial: vazar algoritmo custa mercado, afirmar
+        # sobre a pessoa custa o enquadramento do produto e, no limite, o
+        # paciente.
+        return False, "afirmacao clinica — infere construto ou prescreve conduta"
     if "credencial" in achados:
         return False, "credencial exposta"
     if "implementacao_proprietaria" in achados:

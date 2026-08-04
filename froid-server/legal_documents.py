@@ -13,7 +13,10 @@ import os
 from typing import Any
 
 
-LEGAL_DOCUMENT_VERSION = "2026-07-21.br-pf-v1"
+# Mudança material: a versão sobe e todo profissional volta a aceitar. Alterar
+# limites clínicos sem subir a versão deixaria aceites antigos provando um
+# texto que não é mais o vigente — exatamente o que o hash existe para impedir.
+LEGAL_DOCUMENT_VERSION = "2026-08-04.br-pf-v2"
 
 
 def _supplier() -> dict[str, str | bool]:
@@ -32,7 +35,37 @@ COMMON_LIMITS = (
     "O FROID oferece indicadores, transcrições e conteúdo de inteligência artificial "
     "como apoio à atividade de profissional habilitado. Não realiza diagnóstico autônomo, "
     "não prescreve tratamento, não substitui avaliação clínica e não deve ser o único "
-    "fundamento de decisão clínica, jurídica, laboral, securitária ou emergencial."
+    "fundamento de decisão clínica, jurídica, laboral, securitária ou emergencial. "
+    "Os indicadores do FROID são medidas de sinal acústico e visual, lidas contra a "
+    "linha de base do próprio paciente. Não constituem teste psicológico, não são "
+    "instrumento psicométrico validado, não produzem escore normativo comparável a "
+    "outras pessoas e não inferem, por si, estado mental, quadro clínico ou construto "
+    "psicológico."
+)
+
+
+# A fronteira entre medir e interpretar, dita ao profissional no momento em que
+# ele assina — e não escondida numa nota técnica que ele nunca vai ler.
+#
+# Duas coisas distintas moram nesta cláusula, e ambas são condição do acesso:
+# a interpretação é dele (o que mantém o FROID como instrumentação e não como
+# instrumento de avaliação psicológica), e o material aprofundado que ele
+# recebe é confidencial (o que preserva o capital intelectual sem precisar
+# sonegar ao clínico o que ele precisa para confiar na medida).
+INTERPRETATION_BOUNDARY = (
+    "O FROID entrega medida; a interpretação é do profissional. O licenciado reconhece "
+    "que os índices, marcadores e gráficos do FROID descrevem propriedades medidas da voz "
+    "e da expressão facial em relação à linha de base do próprio paciente, e que a "
+    "atribuição de significado clínico a essas medidas é ato privativo seu, praticado sob "
+    "sua responsabilidade técnica e seu registro profissional. O licenciado se obriga a "
+    "não apresentar, transcrever ou citar saída do FROID como resultado de teste "
+    "psicológico, laudo, parecer, triagem diagnóstica ou conclusão sobre estado mental, "
+    "em prontuário, documento, perícia ou comunicação a terceiros. Documentação técnica "
+    "aprofundada eventualmente disponibilizada ao licenciado — incluindo parâmetros, "
+    "critérios de composição, limiares e resultados de validação — é confidencial, "
+    "destina-se exclusivamente ao uso próprio do licenciado e não pode ser reproduzida, "
+    "publicada ou transferida a terceiros sem autorização escrita, obrigação que subsiste "
+    "ao término deste contrato."
 )
 
 
@@ -69,6 +102,7 @@ DOCUMENT_TEMPLATES: dict[str, dict[str, Any]] = {
         "sections": [
             ["Partes e contratação", "O fornecedor é {supplier_identity}. O licenciado é o profissional identificado no cadastro. Pacote, quantidade de sessões, moeda e preço são os exibidos e confirmados na ordem eletrônica vinculada a este contrato."],
             ["Responsabilidade profissional", "O licenciado mantém responsabilidade técnica, ética e jurídica por atendimento, diagnóstico, documentos e conduta. Deve revisar transcrições, métricas, alertas e respostas de IA antes de utilizá-los no prontuário ou na tomada de decisão."],
+            ["Natureza da medida e responsabilidade pela interpretação", INTERPRETATION_BOUNDARY],
             ["Pacientes e dados", "O profissional deve fornecer informação clara ao paciente, usar a plataforma dentro de sua habilitação e garantir base legal e autorizações adequadas. O FROID preservará a fala e o contexto registrados conforme as autorizações, a finalidade clínica e as regras de retenção aplicáveis."],
             ["Cobrança", "Cada compra corresponde à ordem apresentada antes do Stripe. A recarga automática somente existe quando escolhida separadamente; pode ser desativada para compras futuras, sem alterar recargas já processadas legitimamente."],
             ["Cancelamento e suporte", "Pedidos de cancelamento, cobrança e suporte serão tratados pelo contato informado. Reembolsos e direito de arrependimento observarão a legislação aplicável e a situação concreta da utilização do serviço."],
@@ -82,6 +116,7 @@ DOCUMENT_TEMPLATES: dict[str, dict[str, Any]] = {
             ["Partes e poderes", "O fornecedor é {supplier_identity}. A contratante é a pessoa jurídica identificada no cadastro, representada por pessoa que declara possuir poderes para contratar. As condições comerciais são as confirmadas na ordem eletrônica."],
             ["Governança", "A organização administra proprietários, administradores, supervisores, profissionais e auditores. Deve conceder acesso mínimo necessário, desligar usuários sem demora e definir formalmente responsabilidade técnica, custódia de prontuários e vínculo dos pacientes."],
             ["Dados e instruções", "A clínica define as finalidades clínicas e orienta o tratamento realizado em seu contexto. O FROID executa operações técnicas contratadas e atua como controlador apenas para finalidades próprias, como cadastro, segurança, faturamento, suporte e defesa de direitos."],
+            ["Natureza da medida e responsabilidade pela interpretação", INTERPRETATION_BOUNDARY + " A contratante se obriga a vincular seus profissionais, colaboradores e prepostos a estas mesmas condições, respondendo por sua observância."],
             ["Isolamento e incidentes", "O FROID aplica segregação lógica, RLS, auditoria e controles de acesso. A clínica deve comunicar erros de permissão e cooperar na resposta a incidentes e solicitações de titulares."],
             ["Entrada, desligamento e exportação", "A organização responde pelo ciclo de vida de seus membros. O desligamento remove novos acessos sem apagar automaticamente prontuários sujeitos à custódia institucional, obrigações legais ou solicitações em análise."],
             ["Cobrança e limites", "Pacote, sessões, moeda, preço e recursos são os apresentados na ordem. Recarga automática é opcional. " + COMMON_LIMITS],
