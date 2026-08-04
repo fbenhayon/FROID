@@ -73,6 +73,102 @@ class FalsoPositivoTests(unittest.TestCase):
         self.assertIn("credencial", self.categorias("senha: 12345678"))
 
 
+class FalsoPositivoDaBaseRealTests(unittest.TestCase):
+    """Frases exatas que a triagem marcou errado na base de producao.
+
+    Cada uma bloquearia literatura publica. Ficam aqui verbatim porque texto
+    inventado por mim nao teria produzido nenhuma delas — foi preciso rodar
+    contra os 142 arquivos reais para descobrir.
+    """
+
+    def setUp(self):
+        self.tool = load()
+
+    def categorias(self, texto: str) -> list[str]:
+        return sorted(self.tool.classificar(texto)["achados"])
+
+    def test_valoracao_de_expressao_facial_nao_e_valuation_de_empresa(self):
+        texto = (
+            "Neural evidence for cultural differences in the valuation of "
+            "positive facial expressions. Soc. Cogn. Affect. Neurosci."
+        )
+        self.assertNotIn("financeiro", self.categorias(texto))
+
+    def test_valuation_de_empresa_continua_sendo_detectado(self):
+        for texto in (
+            "valuation da empresa estimado em R$ 12 milhoes",
+            "rodada pre-money de R$ 4 milhoes",
+        ):
+            self.assertIn("financeiro", self.categorias(texto), texto)
+
+    def test_rodape_do_google_patents_nao_e_estrategia_juridica(self):
+        texto = (
+            "including priority claims, publications, legal status, "
+            "reassignments, and litigation. Google has not performed a legal "
+            "analysis and makes no representation."
+        )
+        self.assertNotIn("juridico_interno", self.categorias(texto))
+
+    def test_estrategia_juridica_de_verdade_continua_sendo_detectada(self):
+        for texto in (
+            "a estrategia de litigio prevista para o caso",
+            "provisao para contingencia trabalhista de R$ 200 mil",
+        ):
+            self.assertIn("juridico_interno", self.categorias(texto), texto)
+
+    def test_processo_concorrente_nao_e_analise_de_mercado(self):
+        texto = "o pipeline executa dois processos concorrentes na mesma GPU."
+        self.assertNotIn("rota_de_produto", self.categorias(texto))
+
+    def test_analise_de_mercado_continua_sendo_detectada(self):
+        self.assertIn(
+            "rota_de_produto",
+            self.categorias("analise dos concorrentes diretos no segmento"),
+        )
+
+
+class ImplementacaoProprietariaTests(unittest.TestCase):
+    """A fronteira entre interpretar e calcular.
+
+    A triagem inicial encontrou 48 documentos "Arquitetura FROID_*" e nao tinha
+    rotulo para eles: nao sao financeiros nem roadmap, sao a propriedade
+    intelectual central. Excluir tudo que fala do FROID mataria o produto — o
+    Explica existe para explicar o FROID. Excluir nada entrega o algoritmo.
+    """
+
+    def setUp(self):
+        self.tool = load()
+
+    def categorias(self, texto: str) -> list[str]:
+        return sorted(self.tool.classificar(texto)["achados"])
+
+    def test_o_que_ajuda_a_interpretar_nao_e_bloqueado(self):
+        for texto in (
+            "IPM alto com fala lenta sugere retardo psicomotor; confirme com a escuta.",
+            "A zona 7 indica ambivalencia entre o dito e o expresso.",
+            "Dissonancia e quando fala e face apontam para lados diferentes.",
+            "O painel compara sempre contra a linha de base do proprio paciente.",
+        ):
+            self.assertEqual(self.categorias(texto), [], texto)
+
+    def test_o_que_revela_o_calculo_e_bloqueado(self):
+        for texto in (
+            "Pesos proprietarios adotados: minuto -4: 10%, minuto -3: 15%.",
+            "A formula do IPM soma as bandas normalizadas por ponderacao.",
+            "O limiar de deteccao de dissonancia foi fixado empiricamente.",
+            "Matriz de transicao entre as 12 zonas, com os coeficientes de ponderacao.",
+        ):
+            self.assertIn("implementacao_proprietaria", self.categorias(texto), texto)
+
+    def test_implementacao_bloqueia_antes_de_qualquer_liberacao(self):
+        indexar, motivo = self.tool.propor(
+            "paper.md",
+            {"achados": {"implementacao_proprietaria": ["x"]}, "sinais_literatura": 9},
+        )
+        self.assertFalse(indexar)
+        self.assertIn("calcula", motivo)
+
+
 class PosturaTests(unittest.TestCase):
     """Na duvida, nao indexa."""
 

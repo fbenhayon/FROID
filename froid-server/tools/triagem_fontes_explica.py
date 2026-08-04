@@ -38,9 +38,37 @@ import tools.ingest_approved_sources as ingest  # noqa: E402
 # Cada categoria e um risco distinto, e a gravidade nao e a mesma. Dinheiro e
 # rota de produto sao segredo comercial; credencial e incidente de seguranca;
 # literatura cientifica publicada nao e segredo de ninguem.
+# A categoria que faltava, e a mais valiosa de todas.
+#
+# A triagem inicial encontrou 48 documentos "Arquitetura FROID_*" — matriz das
+# 12 zonas, arquitetura matematica do IDM, coeficiente MFCC9, motor bioacustico
+# — e nao tinha rotulo para eles. Nao sao financeiros nem roadmap: sao a
+# propriedade intelectual central, o que um concorrente precisaria para
+# reproduzir o produto.
+#
+# A fronteira nao e "fala do FROID ou nao". E:
+#   manter  -> o que o clinico precisa para INTERPRETAR a leitura
+#   excluir -> como o sistema CALCULA a leitura
+#
+# "IPM alto com fala lenta sugere retardo psicomotor" ajuda quem atende.
+# O peso de cada banda no somatorio do IPM so ajuda quem quer copiar.
+IMPLEMENTACAO = [
+    r"\bpesos?\s+propriet[aá]ri", r"coeficiente[s]?\s+(de|do|da)\s+pondera",
+    r"\bf[oó]rmula\b", r"\bequa[cç][aã]o\b", r"limiar de (detec|corte|dispar)",
+    r"threshold de", r"hiperpar[aâ]metro", r"\bpseudoc[oó]digo\b",
+    r"matriz de transi[cç][aã]o", r"\bnormaliza[cç][aã]o\s+(interna|propriet)",
+    r"peso[s]? (adotado|atribu[ií]do)", r"multiplicad[oa]\s+por\s+0[.,]",
+]
+
 INDICIOS = {
+    "implementacao_proprietaria": IMPLEMENTACAO,
     "financeiro": [
-        r"\bebitda\b", r"\bvaluation\b", r"\bcusto total\b",
+        r"\bebitda\b", r"\bcusto total\b",
+        # "valuation" sozinho pega "the valuation of positive facial
+        # expressions" — valoracao de expressao, termo da psicologia. Exige
+        # contexto de empresa.
+        r"(pre|post)-?money", r"valuation (da|do|de) (empresa|companhia|neg[oó]cio)",
+        r"valuation de (r\$|us\$|\d)",
         # "margem" sozinho pega "margem de erro", que e estatistica e nao
         # dinheiro. Exige o qualificador financeiro.
         r"margem (de lucro|bruta|l[ií]quida|de contribui[cç][aã]o|operacional)",
@@ -54,7 +82,10 @@ INDICIOS = {
         r"pr[oó]ximas a[cç][oõ]es", r"\broadmap\b", r"\bbacklog\b",
         r"fase [2-9] \(", r"lan[cç]amento previsto", r"ainda n[aã]o implementad",
         r"em desenvolvimento", r"planejado para", r"vantagem competitiva",
-        r"\bconcorrente[s]?\b",
+        # "concorrente" aparece em texto tecnico ("processo concorrente").
+        # Exige o sentido de mercado.
+        r"(nossos?|principais|an[aá]lise d[eo]s?) concorrente",
+        r"concorrente[s]? (direto|indireto|de mercado)",
     ],
     "credencial": [
         # Exige atribuicao de valor: a palavra solta aparece em qualquer texto
@@ -65,7 +96,12 @@ INDICIOS = {
     ],
     "juridico_interno": [
         r"estrat[eé]gia de defesa", r"parecer interno", r"risco jur[ií]dico",
-        r"conting[eê]ncia", r"provis[aã]o para", r"litig",
+        r"conting[eê]ncia (jur[ií]dica|trabalhista|fiscal)",
+        r"provis[aã]o para (perdas|conting)",
+        # "litig" sozinho pega "reassignments, and litigation" — rodape padrao
+        # do Google Patents em qualquer patente publica.
+        r"(risco|estrat[eé]gia|provis[aã]o|hist[oó]rico) de lit[ií]gio",
+        r"litig[ií]?os? em curso",
     ],
     "infra_interna": [
         # Endereco IP de verdade: quatro octetos validos, e nao pode fazer
@@ -104,6 +140,8 @@ def propor(nome: str, analise: dict) -> tuple[bool, str]:
     achados = analise["achados"]
     if "credencial" in achados:
         return False, "credencial exposta"
+    if "implementacao_proprietaria" in achados:
+        return False, "implementacao proprietaria — como o sistema calcula"
     if "financeiro" in achados:
         return False, "material financeiro interno"
     if "rota_de_produto" in achados:
