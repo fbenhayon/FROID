@@ -126,6 +126,12 @@ def main() -> None:
                         help="Modelo de embedding. Trocar exige --reset.")
     parser.add_argument("--exclude", action="append", default=[],
                         help="Ignora arquivos cujo nome contenha este texto. Pode repetir.")
+    parser.add_argument(
+        "--manifesto", type=Path,
+        help="Indexa SOMENTE as fontes marcadas indexar=true no manifesto "
+             "gerado por triagem_fontes_explica.py. Fonte ausente do "
+             "manifesto nao entra: o padrao e nao indexar.",
+    )
     args = parser.parse_args()
 
     fontes = [Path(p) for p in (args.approved or [])] or default_sources()
@@ -157,9 +163,26 @@ def main() -> None:
     md_files: list[tuple[Path, Path]] = []
     vistos: set[str] = set()
     duplicados = 0
+    permitidos: set[str] | None = None
+    if args.manifesto:
+        import json
+
+        dados = json.loads(args.manifesto.read_text(encoding="utf-8"))
+        permitidos = {
+            nome for nome, item in dados.items() if item.get("indexar") is True
+        }
+        print(
+            f"Manifesto: {args.manifesto} — {len(permitidos)} de {len(dados)} "
+            f"fontes liberadas. O que nao estiver marcado nao entra."
+        )
+
     ignorados_por_filtro = 0
+    ignorados_por_manifesto = 0
     for raiz in fontes:
         for path in sorted(raiz.rglob("*.md")):
+            if permitidos is not None and path.name not in permitidos:
+                ignorados_por_manifesto += 1
+                continue
             if any(termo.lower() in path.name.lower() for termo in args.exclude):
                 ignorados_por_filtro += 1
                 continue
@@ -174,6 +197,8 @@ def main() -> None:
         print(f"Ignorados por nome repetido entre as fontes: {duplicados}")
     if ignorados_por_filtro:
         print(f"Ignorados por --exclude: {ignorados_por_filtro}")
+    if ignorados_por_manifesto:
+        print(f"Nao liberados pelo manifesto: {ignorados_por_manifesto}")
 
     total_chunks = 0
     total_files = 0
