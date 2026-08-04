@@ -13,7 +13,7 @@ import json
 import os
 from pathlib import Path
 import threading
-from typing import Any, Dict, Iterable, Optional
+from typing import Any, Dict, Iterable, Optional, Sequence
 import uuid
 
 
@@ -297,7 +297,8 @@ class TenantStore:
                            membership.id, user_account.id, membership.status,
                            coalesce(array_agg(role.role) FILTER (
                                WHERE role.role IS NOT NULL
-                           ), ARRAY[]::text[])
+                           ), ARRAY[]::text[]),
+                           organization.organization_type
                     FROM users user_account
                     JOIN organization_memberships membership
                       ON membership.user_id = user_account.id
@@ -310,7 +311,8 @@ class TenantStore:
                       AND membership.status = 'active'
                       AND organization.status = 'active'
                     GROUP BY organization.id, organization.display_name,
-                             membership.id, user_account.id, membership.status
+                             membership.id, user_account.id, membership.status,
+                             organization.organization_type
                     ORDER BY organization.display_name, organization.id
                     """,
                     (normalized_email,),
@@ -323,6 +325,7 @@ class TenantStore:
                         "user_id": str(row[3]),
                         "status": row[4],
                         "roles": sorted(row[5] or []),
+                        "organization_type": row[6] or "clinic",
                     }
                     for row in cursor.fetchall()
                 ]
@@ -1492,6 +1495,634 @@ class TenantStore:
                         "UPDATE organization_subscriptions SET last_recharge_status=%s,updated_at=now() WHERE organization_id=%s",
                         (status, row[0]),
                     )
+
+    # ------------------------------------------------------------------
+    # NR-1 psychosocial compliance (Portaria MTE 1.419/2024)
+    #
+    # Every method here runs through the restricted runtime role. That is not a
+    # style choice: the runtime role has no SELECT on assessment_responses, so
+    # even a mistake in this file cannot read an individual answer back.
+    # ------------------------------------------------------------------
+    def _nr1_session(self, connection, organization_id: str, membership_id: str) -> None:
+        connection.execute(
+            "SELECT set_config('app.organization_id', %s, true)", (organization_id,)
+        )
+        connection.execute(
+            "SELECT set_config('app.membership_id', %s, true)", (membership_id,)
+        )
+
+    def nr1_create_campaign(
+        self,
+        *,
+        organization_id: str,
+        membership_id: str,
+        instrument_id: str,
+        title: str,
+        opens_at,
+        closes_at,
+        unit_id: Optional[str] = None,
+        reference_period: str = "",
+        target_headcount: int = 0,
+        purpose_notice: str = "",
+        support_channel_label: str = "",
+        support_channel_detail: str = "",
+    ) -> dict:
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        campaign_id = str(uuid.uuid4())
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                self._nr1_session(connection, organization_id, membership_id)
+                connection.execute(
+                    """
+                    INSERT INTO assessment_campaigns
+                        (id, organization_id, instrument_id, unit_id, title,
+                         reference_period, target_headcount, opens_at, closes_at,
+                         status, created_by_membership_id, purpose_notice,
+                         support_channel_label, support_channel_detail)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,'draft',%s,%s,%s,%s)
+                    """,
+                    (
+                        campaign_id, organization_id, instrument_id, unit_id,
+                        title, reference_period, max(0, int(target_headcount)),
+                        opens_at, closes_at, membership_id, purpose_notice,
+                        support_channel_label, support_channel_detail,
+                    ),
+                )
+        return {"campaign_id": campaign_id, "status": "draft"}
+
+    def nr1_open_campaign(
+        self, *, organization_id: str, membership_id: str, campaign_id: str
+    ) -> dict:
+        """Open collection. The database refuses without a support channel."""
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                self._nr1_session(connection, organization_id, membership_id)
+                row = connection.execute(
+                    """
+                    UPDATE assessment_campaigns
+                    SET status='open', updated_at=now()
+                    WHERE id=%s AND organization_id=%s AND status='draft'
+                    RETURNING id
+                    """,
+                    (campaign_id, organization_id),
+                ).fetchone()
+        if not row:
+            raise ValueError("campaign_not_draft")
+        return {"campaign_id": campaign_id, "status": "open"}
+
+    def nr1_close_campaign(
+        self, *, organization_id: str, membership_id: str, campaign_id: str
+    ) -> dict:
+        """Close collection. Only a closed campaign yields an aggregate.
+
+        The cohort has to stop moving before any result is served, otherwise it
+        can be differenced one respondent at a time.
+        """
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                self._nr1_session(connection, organization_id, membership_id)
+                row = connection.execute(
+                    """
+                    UPDATE assessment_campaigns
+                    SET status='closed', closed_at=now(),
+                        closed_by_membership_id=%s, updated_at=now()
+                    WHERE id=%s AND organization_id=%s AND status='open'
+                    RETURNING id
+                    """,
+                    (membership_id, campaign_id, organization_id),
+                ).fetchone()
+        if not row:
+            raise ValueError("campaign_not_open")
+        return {"campaign_id": campaign_id, "status": "closed"}
+
+    def nr1_list_campaigns(
+        self, *, organization_id: str, membership_id: str
+    ) -> list[dict]:
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                self._nr1_session(connection, organization_id, membership_id)
+                rows = connection.execute(
+                    """
+                    SELECT campaign.id, campaign.title, campaign.status,
+                           campaign.opens_at, campaign.closes_at,
+                           campaign.unit_id, unit.name, campaign.target_headcount,
+                           campaign.reference_period
+                    FROM assessment_campaigns campaign
+                    LEFT JOIN organization_units unit ON unit.id = campaign.unit_id
+                    WHERE campaign.organization_id = %s
+                    ORDER BY campaign.opens_at DESC
+                    """,
+                    (organization_id,),
+                ).fetchall()
+        return [
+            {
+                "campaign_id": str(row[0]), "title": row[1], "status": row[2],
+                "opens_at": row[3], "closes_at": row[4],
+                "unit_id": str(row[5]) if row[5] else None,
+                "unit_name": row[6], "target_headcount": int(row[7]),
+                "reference_period": row[8],
+            }
+            for row in rows
+        ]
+
+    def nr1_submit_response(
+        self, *, token_hash: str, answers: Dict[str, int]
+    ) -> bool:
+        """Record one questionnaire submission against an invitation token.
+
+        Takes no organization or membership: the respondent is an employee with
+        no FROID login, and the single-use token is the authorization. All the
+        validation lives in froid_nr1_submit_response so the rules cannot drift
+        between callers. Returns only whether it was accepted — never anything
+        about what was answered.
+        """
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        if not answers:
+            raise ValueError("empty_submission")
+        payload = json.dumps({str(k): int(v) for k, v in answers.items()})
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                row = connection.execute(
+                    "SELECT froid_nr1_submit_response(%s, %s::jsonb)",
+                    (token_hash, payload),
+                ).fetchone()
+        return bool(row[0]) if row else False
+
+    def nr1_create_invitations(
+        self,
+        *,
+        organization_id: str,
+        membership_id: str,
+        campaign_id: str,
+        subjects: Sequence[dict],
+    ) -> int:
+        """Register invitations from a list of {pseudonym, token_hash, unit_id}.
+
+        The caller hashes both values before they get here: neither the payroll
+        number nor the raw token is ever written to the database.
+        """
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        if not subjects:
+            return 0
+        created = 0
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                self._nr1_session(connection, organization_id, membership_id)
+                for subject in subjects:
+                    connection.execute(
+                        """
+                        INSERT INTO assessment_invitations
+                            (id, organization_id, campaign_id, unit_id,
+                             subject_pseudonym, token_hash)
+                        VALUES (%s,%s,%s,%s,%s,%s)
+                        ON CONFLICT (campaign_id, subject_pseudonym) DO NOTHING
+                        """,
+                        (
+                            str(uuid.uuid4()), organization_id, campaign_id,
+                            subject.get("unit_id"), subject["pseudonym"],
+                            subject["token_hash"],
+                        ),
+                    )
+                    created += 1
+        return created
+
+    def nr1_questionnaire_for_token(self, *, token_hash: str) -> Optional[dict]:
+        """Render payload for one invitation. No tenant session: the token is it."""
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                row = connection.execute(
+                    "SELECT froid_nr1_questionnaire(%s)", (token_hash,)
+                ).fetchone()
+        payload = row[0] if row else None
+        return payload if isinstance(payload, dict) else None
+
+    def nr1_campaign_progress(
+        self, *, organization_id: str, membership_id: str, campaign_id: str
+    ) -> dict:
+        """Adhesion and status, without touching what anyone answered.
+
+        Deliberately readable while the campaign is open: the organization needs
+        to chase participation, and a count leaks nothing. The results do not
+        follow until the campaign closes.
+        """
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                self._nr1_session(connection, organization_id, membership_id)
+                row = connection.execute(
+                    """
+                    SELECT campaign.status, campaign.target_headcount,
+                           (SELECT count(*) FROM assessment_invitations invitation
+                             WHERE invitation.campaign_id = campaign.id
+                               AND invitation.status = 'responded'),
+                           (SELECT count(*) FROM assessment_invitations invitation
+                             WHERE invitation.campaign_id = campaign.id)
+                    FROM assessment_campaigns campaign
+                    WHERE campaign.id=%s AND campaign.organization_id=%s
+                    """,
+                    (campaign_id, organization_id),
+                ).fetchone()
+        if not row:
+            raise ValueError("campaign_not_found")
+        invited = int(row[3] or 0)
+        answered = int(row[2] or 0)
+        return {
+            "status": row[0],
+            "target_headcount": int(row[1] or 0),
+            "responses": answered,
+            "invited": invited,
+            "response_rate": round(answered / invited, 3) if invited else 0.0,
+        }
+
+    def nr1_dimension_scores(
+        self, *, organization_id: str, membership_id: str, campaign_id: str
+    ) -> list[dict]:
+        """Aggregate a campaign through the k-clamped SECURITY DEFINER function.
+
+        Returns an empty list when either floor is unmet — the function itself
+        decides that, so no caller can talk its way past it.
+        """
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                self._nr1_session(connection, organization_id, membership_id)
+                rows = connection.execute(
+                    """
+                    SELECT unit_id, dimension_id, nr1_factor, polarity,
+                           cut_favorable, cut_critical, cohort_size, mean_score,
+                           critical_ratio, score_stddev, consequences,
+                           measure_efficacy, exposed_workers
+                    FROM froid_nr1_dimension_scores(%s)
+                    """,
+                    (campaign_id,),
+                ).fetchall()
+        return [
+            {
+                "unit_id": str(row[0]) if row[0] else None,
+                "dimension_id": str(row[1]),
+                "nr1_factor": row[2],
+                "polarity": row[3],
+                "cut_favorable": float(row[4]),
+                "cut_critical": float(row[5]),
+                "cohort_size": int(row[6]),
+                "mean_score": float(row[7]),
+                "critical_ratio": float(row[8]),
+                "score_stddev": float(row[9] or 0.0),
+                "consequences": tuple(row[10] or ("transtorno_mental",)),
+                "measure_efficacy": row[11] or "none",
+                "exposed_workers": int(row[12] or 0),
+            }
+            for row in rows
+        ]
+
+    def nr1_active_criteria(
+        self, *, organization_id: str, membership_id: str
+    ) -> Optional[dict]:
+        """Latest published critérios do GRO (1.5.4.4.2.2), if any."""
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                self._nr1_session(connection, organization_id, membership_id)
+                row = connection.execute(
+                    """
+                    SELECT id, version, severity_scale, probability_scale,
+                           risk_matrix, consequence_magnitudes,
+                           review_interval_months, has_certified_sst_system
+                    FROM gro_risk_criteria
+                    WHERE organization_id=%s AND published_at IS NOT NULL
+                    ORDER BY version DESC LIMIT 1
+                    """,
+                    (organization_id,),
+                ).fetchone()
+        if not row:
+            return None
+        return {
+            "criteria_id": str(row[0]), "version": int(row[1]),
+            "severity_scale": row[2], "probability_scale": row[3],
+            "risk_matrix": row[4], "consequence_magnitudes": row[5],
+            "review_interval_months": int(row[6]),
+            "has_certified_sst_system": bool(row[7]),
+            "source": "organization",
+        }
+
+    def nr1_publish_criteria(
+        self,
+        *,
+        organization_id: str,
+        membership_id: str,
+        document: Dict[str, Any],
+        review_interval_months: int = 24,
+        has_certified_sst_system: bool = False,
+    ) -> dict:
+        """Publish a new immutable version of the critérios do GRO."""
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        criteria_id = str(uuid.uuid4())
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                self._nr1_session(connection, organization_id, membership_id)
+                row = connection.execute(
+                    "SELECT coalesce(max(version),0)+1 FROM gro_risk_criteria "
+                    "WHERE organization_id=%s",
+                    (organization_id,),
+                ).fetchone()
+                version = int(row[0] if row else 1)
+                connection.execute(
+                    """
+                    INSERT INTO gro_risk_criteria
+                        (id, organization_id, version, severity_scale,
+                         probability_scale, risk_matrix, classification_rules,
+                         decision_rules, consequence_magnitudes,
+                         review_interval_months, has_certified_sst_system,
+                         published_at, published_by_membership_id)
+                    VALUES (%s,%s,%s,%s::jsonb,%s::jsonb,%s::jsonb,%s::jsonb,
+                            %s::jsonb,%s::jsonb,%s,%s,now(),%s)
+                    """,
+                    (
+                        criteria_id, organization_id, version,
+                        json.dumps(document.get("severity_scale") or {}),
+                        json.dumps(document.get("probability_scale") or {}),
+                        json.dumps(document.get("risk_matrix") or {}),
+                        json.dumps(document.get("classification_rules") or {}),
+                        json.dumps(document.get("decision_rules") or {}),
+                        json.dumps(document.get("consequence_magnitudes") or {}),
+                        max(1, min(36, int(review_interval_months))),
+                        bool(has_certified_sst_system),
+                        membership_id,
+                    ),
+                )
+        return {"criteria_id": criteria_id, "version": version}
+
+    def nr1_create_aep(
+        self,
+        *,
+        organization_id: str,
+        membership_id: str,
+        unit_id: str,
+        reference_period: str = "",
+        criteria_id: Optional[str] = None,
+    ) -> dict:
+        """Open an Avaliação Ergonômica Preliminar for one evaluation unit."""
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        aep_id = str(uuid.uuid4())
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                self._nr1_session(connection, organization_id, membership_id)
+                connection.execute(
+                    """
+                    INSERT INTO aep_assessments
+                        (id, organization_id, unit_id, criteria_id,
+                         reference_period, status, responsible_membership_id)
+                    VALUES (%s,%s,%s,%s,%s,'draft',%s)
+                    """,
+                    (
+                        aep_id, organization_id, unit_id, criteria_id,
+                        reference_period, membership_id,
+                    ),
+                )
+        return {"aep_id": aep_id, "status": "draft"}
+
+    def nr1_add_aep_evidence(
+        self,
+        *,
+        organization_id: str,
+        membership_id: str,
+        aep_id: str,
+        method: str,
+        collected_on,
+        summary: str,
+        collected_by: str = "",
+        campaign_id: Optional[str] = None,
+        evidence_reference: str = "",
+    ) -> str:
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        evidence_id = str(uuid.uuid4())
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                self._nr1_session(connection, organization_id, membership_id)
+                connection.execute(
+                    """
+                    INSERT INTO aep_evidence
+                        (id, organization_id, aep_id, method, campaign_id,
+                         collected_on, collected_by, summary, evidence_reference)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    """,
+                    (
+                        evidence_id, organization_id, aep_id, method, campaign_id,
+                        collected_on, collected_by, summary, evidence_reference,
+                    ),
+                )
+        return evidence_id
+
+    def nr1_get_aep(
+        self, *, organization_id: str, membership_id: str, aep_id: str
+    ) -> Optional[dict]:
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                self._nr1_session(connection, organization_id, membership_id)
+                head = connection.execute(
+                    """
+                    SELECT aep.id, aep.unit_id, unit.name, aep.status,
+                           aep.reference_period, aep.real_work_description,
+                           aep.exposure_duration, aep.exposure_frequency,
+                           aep.exposure_intensity, aep.exposure_cofactors,
+                           aep.responsible_name, aep.responsible_qualification,
+                           aep.aet_required, aep.opened_at, aep.concluded_at
+                    FROM aep_assessments aep
+                    LEFT JOIN organization_units unit ON unit.id = aep.unit_id
+                    WHERE aep.organization_id=%s AND aep.id=%s
+                    """,
+                    (organization_id, aep_id),
+                ).fetchone()
+                if not head:
+                    return None
+                evidence = connection.execute(
+                    """
+                    SELECT id, method, collected_on, collected_by, summary,
+                           evidence_reference, campaign_id
+                    FROM aep_evidence
+                    WHERE aep_id=%s ORDER BY collected_on
+                    """,
+                    (aep_id,),
+                ).fetchall()
+        return {
+            "aep_id": str(head[0]),
+            "unit_id": str(head[1]), "unit_name": head[2],
+            "status": head[3], "reference_period": head[4],
+            "real_work_description": head[5],
+            "exposure": {
+                "duration": head[6], "frequency": head[7],
+                "intensity": head[8], "cofactors": head[9],
+            },
+            "responsible_name": head[10],
+            "responsible_qualification": head[11],
+            "aet_required": bool(head[12]),
+            "opened_at": head[13], "concluded_at": head[14],
+            "evidence": [
+                {
+                    "evidence_id": str(item[0]), "method": item[1],
+                    "collected_on": item[2], "collected_by": item[3],
+                    "summary": item[4], "evidence_reference": item[5],
+                    "campaign_id": str(item[6]) if item[6] else None,
+                }
+                for item in evidence
+            ],
+        }
+
+    def nr1_store_effectiveness(
+        self,
+        *,
+        organization_id: str,
+        membership_id: str,
+        baseline_campaign_id: str,
+        followup_campaign_id: str,
+        verdicts: Sequence[dict],
+    ) -> int:
+        """Persist measured effectiveness, so the next cycle reads a fact."""
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        if not verdicts:
+            return 0
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                self._nr1_session(connection, organization_id, membership_id)
+                for verdict in verdicts:
+                    connection.execute(
+                        """
+                        INSERT INTO measure_effectiveness_reviews
+                            (id, organization_id, unit_id, dimension_id,
+                             baseline_campaign_id, followup_campaign_id,
+                             baseline_cohort, followup_cohort, baseline_mean,
+                             followup_mean, effect_size, verdict,
+                             measure_efficacy, requires_correction, rationale)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                        ON CONFLICT (followup_campaign_id, unit_id, dimension_id)
+                        DO UPDATE SET
+                            effect_size=EXCLUDED.effect_size,
+                            verdict=EXCLUDED.verdict,
+                            measure_efficacy=EXCLUDED.measure_efficacy,
+                            requires_correction=EXCLUDED.requires_correction,
+                            rationale=EXCLUDED.rationale,
+                            reviewed_at=now()
+                        """,
+                        (
+                            str(uuid.uuid4()), organization_id,
+                            verdict.get("unit_id"), verdict["dimension_id"],
+                            baseline_campaign_id, followup_campaign_id,
+                            int(verdict["baseline_cohort"]),
+                            int(verdict["followup_cohort"]),
+                            float(verdict["baseline_mean"]),
+                            float(verdict["followup_mean"]),
+                            float(verdict["effect_size"]),
+                            verdict["verdict"], verdict["measure_efficacy"],
+                            bool(verdict["requires_correction"]),
+                            verdict.get("rationale", ""),
+                        ),
+                    )
+        return len(verdicts)
+
+    def nr1_store_inventory(
+        self,
+        *,
+        organization_id: str,
+        membership_id: str,
+        campaign_id: str,
+        graded_rows: Sequence[dict],
+    ) -> int:
+        """Persist the graded risk inventory that feeds the PGR."""
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        if not graded_rows:
+            return 0
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                self._nr1_session(connection, organization_id, membership_id)
+                for row in graded_rows:
+                    connection.execute(
+                        """
+                        INSERT INTO psychosocial_risk_inventory
+                            (id, organization_id, campaign_id, unit_id, dimension_id,
+                             nr1_factor, cohort_size, mean_score, severity,
+                             probability, risk_level, rationale)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                        ON CONFLICT (campaign_id, unit_id, dimension_id)
+                        DO UPDATE SET
+                            cohort_size=EXCLUDED.cohort_size,
+                            mean_score=EXCLUDED.mean_score,
+                            severity=EXCLUDED.severity,
+                            probability=EXCLUDED.probability,
+                            risk_level=EXCLUDED.risk_level,
+                            rationale=EXCLUDED.rationale,
+                            generated_at=now()
+                        """,
+                        (
+                            str(uuid.uuid4()), organization_id, campaign_id,
+                            row.get("unit_id"), row["dimension_id"],
+                            row["nr1_factor"], int(row["cohort_size"]),
+                            float(row["mean_score"]), int(row["severity"]),
+                            int(row["probability"]), row["risk_level"],
+                            row.get("rationale", ""),
+                        ),
+                    )
+        return len(graded_rows)
+
+    def nr1_list_inventory(
+        self, *, organization_id: str, membership_id: str, campaign_id: str
+    ) -> list[dict]:
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                self._nr1_session(connection, organization_id, membership_id)
+                rows = connection.execute(
+                    """
+                    SELECT inventory.id, inventory.unit_id, unit.name,
+                           inventory.dimension_id, dimension.title,
+                           inventory.nr1_factor, inventory.cohort_size,
+                           inventory.mean_score, inventory.severity,
+                           inventory.probability, inventory.risk_level,
+                           inventory.rationale, inventory.generated_at
+                    FROM psychosocial_risk_inventory inventory
+                    JOIN assessment_dimensions dimension
+                      ON dimension.id = inventory.dimension_id
+                    LEFT JOIN organization_units unit ON unit.id = inventory.unit_id
+                    WHERE inventory.organization_id = %s
+                      AND inventory.campaign_id = %s
+                    ORDER BY inventory.severity * inventory.probability DESC
+                    """,
+                    (organization_id, campaign_id),
+                ).fetchall()
+        return [
+            {
+                "inventory_id": str(row[0]),
+                "unit_id": str(row[1]) if row[1] else None,
+                "unit_name": row[2],
+                "dimension_id": str(row[3]), "dimension_title": row[4],
+                "nr1_factor": row[5], "cohort_size": int(row[6]),
+                "mean_score": float(row[7]), "severity": int(row[8]),
+                "probability": int(row[9]), "risk_level": row[10],
+                "rationale": row[11], "generated_at": row[12],
+            }
+            for row in rows
+        ]
 
     def mark_mirrored_report_deleted(
         self, *, organization_id: str, session_id: str

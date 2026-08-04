@@ -1,0 +1,336 @@
+from pathlib import Path
+import sys
+import unittest
+
+
+SERVER_DIR = Path(__file__).resolve().parents[1]
+if str(SERVER_DIR) not in sys.path:
+    sys.path.insert(0, str(SERVER_DIR))
+
+from nr1_compliance import (  # noqa: E402
+    DEFAULT_CRITERIA,
+    MIN_COHORT_CUT,
+    DimensionScore,
+    GradationCriteria,
+    criteria_for_scale,
+    grade,
+    risk_level,
+)
+from nr1_effectiveness import (  # noqa: E402
+    compare,
+    compare_campaigns,
+    efficacy_index,
+    measures_requiring_correction,
+)
+
+
+def score(**overrides):
+    base = dict(
+        dimension_id="dimension-a",
+        nr1_factor="workload_demand",
+        polarity="risk",
+        cut_favorable=2.0,
+        cut_critical=4.0,
+        cohort_size=60,
+        mean_score=3.0,
+        critical_ratio=0.10,
+        unit_id="unit-a",
+        score_stddev=0.80,
+    )
+    base.update(overrides)
+    return DimensionScore(**base)
+
+
+class ConfigurableCriteriaTests(unittest.TestCase):
+    """1.5.4.4.2.2 makes the gradations the organization's, not ours."""
+
+    def test_default_matrix_is_five_by_five(self):
+        self.assertEqual(DEFAULT_CRITERIA.severity_max, 5)
+        self.assertEqual(DEFAULT_CRITERIA.probability_max, 5)
+        self.assertEqual(risk_level(1, 1), "low")
+        self.assertEqual(risk_level(5, 5), "critical")
+
+    def test_client_matrix_of_another_shape_is_supported(self):
+        # The Manual requires every risk type in a PGR to share the same
+        # gradations, so a client on 3x3 must keep 3x3.
+        three = criteria_for_scale(3, 3)
+        self.assertEqual(three.severity_max, 3)
+        self.assertEqual(len(three.exposure_bands), 2)
+        self.assertEqual(risk_level(1, 1, three), "low")
+        self.assertEqual(risk_level(3, 3, three), "critical")
+
+    def test_rescaled_magnitudes_stay_inside_the_scale(self):
+        three = criteria_for_scale(3, 3)
+        for name, magnitude in three.consequence_magnitudes.items():
+            self.assertTrue(1 <= magnitude <= 3, f"{name} escaped the 1..3 scale")
+
+    def test_document_round_trip_preserves_the_gradation(self):
+        document = DEFAULT_CRITERIA.as_document()
+        restored = GradationCriteria.from_document({**document, "version": 3})
+        self.assertEqual(restored.risk_bands, DEFAULT_CRITERIA.risk_bands)
+        self.assertEqual(restored.exposure_bands, DEFAULT_CRITERIA.exposure_bands)
+        self.assertEqual(restored.version, 3)
+
+    def test_document_states_the_normative_basis_of_each_axis(self):
+        document = DEFAULT_CRITERIA.as_document()
+        self.assertIn("1.5.4.4.4", document["severity_scale"]["basis"])
+        self.assertIn("1.5.4.4.5.3", document["probability_scale"]["basis"])
+
+    def test_inconsistent_criteria_fail_closed(self):
+        with self.assertRaises(ValueError):  # bands do not match the scale
+            GradationCriteria(
+                consequence_magnitudes={"transtorno_mental": 4},
+                exposure_bands=(0.5,),
+                efficacy_reductions=dict(DEFAULT_CRITERIA.efficacy_reductions),
+                risk_bands=(4, 8, 15),
+            )
+        with self.assertRaises(ValueError):  # bands out of order
+            GradationCriteria(
+                consequence_magnitudes={"transtorno_mental": 4},
+                exposure_bands=(0.2, 0.4, 0.6, 0.8),
+                efficacy_reductions=dict(DEFAULT_CRITERIA.efficacy_reductions),
+                risk_bands=(4, 8, 15),
+            )
+        with self.assertRaises(ValueError):  # magnitude beyond the scale
+            GradationCriteria(
+                consequence_magnitudes={"transtorno_mental": 9},
+                exposure_bands=DEFAULT_CRITERIA.exposure_bands,
+                efficacy_reductions=dict(DEFAULT_CRITERIA.efficacy_reductions),
+                risk_bands=(4, 8, 15),
+            )
+
+    def test_grading_reports_which_criteria_produced_it(self):
+        criteria = GradationCriteria.from_document(
+            {**DEFAULT_CRITERIA.as_document(), "version": 5}
+        )
+        graded = grade(score(mean_score=3.9, critical_ratio=0.5), criteria)
+        self.assertEqual(graded.criteria_version, 5)
+        self.assertIn("Criterios v5", graded.rationale)
+
+
+class EffectivenessTests(unittest.TestCase):
+    """The differentiator: measured, not asserted."""
+
+    def test_a_real_improvement_is_called_effective(self):
+        verdict = compare(score(mean_score=3.9), score(mean_score=3.0))
+        self.assertGreater(verdict.effect_size, 0)
+        self.assertEqual(verdict.verdict, "effective")
+        self.assertEqual(verdict.measure_efficacy, "effective")
+        self.assertFalse(verdict.requires_correction)
+
+    def test_change_smaller_than_the_noise_is_not_success(self):
+        # An improvement the statistics cannot support is exactly what an
+        # opposing expert takes apart.
+        verdict = compare(score(mean_score=3.90), score(mean_score=3.88))
+        self.assertEqual(verdict.verdict, "no_change")
+        self.assertEqual(verdict.measure_efficacy, "insufficient")
+        self.assertTrue(verdict.requires_correction)
+
+    def test_deterioration_is_flagged_for_correction(self):
+        verdict = compare(score(mean_score=3.0), score(mean_score=3.8))
+        self.assertLess(verdict.effect_size, 0)
+        self.assertEqual(verdict.verdict, "worsened")
+        self.assertEqual(verdict.measure_efficacy, "none")
+        self.assertTrue(verdict.requires_correction)
+        self.assertTrue(verdict.triggers_review)
+        self.assertIn("1.5.5.3.2.1", verdict.rationale)
+
+    def test_protective_dimension_improves_upwards(self):
+        # On a resource dimension a higher mean is better, so the sign of the
+        # improvement has to flip.
+        protective = dict(polarity="protective", cut_favorable=4.0, cut_critical=2.0)
+        verdict = compare(
+            score(mean_score=2.2, **protective),
+            score(mean_score=3.4, **protective),
+        )
+        self.assertGreater(verdict.effect_size, 0)
+        self.assertIn(verdict.verdict, ("effective", "eliminated"))
+
+    def test_a_suppressed_cohort_yields_no_verdict(self):
+        verdict = compare(
+            score(cohort_size=MIN_COHORT_CUT - 1, mean_score=3.9),
+            score(mean_score=2.0),
+        )
+        self.assertEqual(verdict.verdict, "inconclusive")
+        self.assertEqual(verdict.measure_efficacy, "none")
+        self.assertFalse(verdict.requires_correction)
+
+    def test_comparison_requires_the_same_unit_and_dimension(self):
+        with self.assertRaises(ValueError):
+            compare(score(), score(dimension_id="other"))
+        with self.assertRaises(ValueError):
+            compare(score(), score(unit_id="other"))
+
+    def test_zero_dispersion_falls_back_to_normalised_exposure(self):
+        verdict = compare(
+            score(mean_score=4.0, score_stddev=0.0),
+            score(mean_score=2.0, score_stddev=0.0),
+        )
+        self.assertGreater(verdict.effect_size, 0)
+        self.assertNotEqual(verdict.verdict, "inconclusive")
+
+    def test_unpaired_rows_are_skipped_not_guessed(self):
+        verdicts = compare_campaigns(
+            [score(dimension_id="a")],
+            [score(dimension_id="a", mean_score=2.5),
+             score(dimension_id="b", mean_score=2.5)],
+        )
+        self.assertEqual([item.dimension_id for item in verdicts], ["a"])
+
+    def test_index_feeds_the_next_probability_calculation(self):
+        verdicts = compare_campaigns(
+            [score(mean_score=3.9)], [score(mean_score=3.0)]
+        )
+        index = efficacy_index(verdicts)
+        self.assertEqual(index[("unit-a", "dimension-a")], "effective")
+
+    def test_failed_measures_are_listed_for_correction(self):
+        verdicts = compare_campaigns(
+            [score(dimension_id="worked", mean_score=3.9),
+             score(dimension_id="failed", mean_score=3.0)],
+            [score(dimension_id="worked", mean_score=3.0),
+             score(dimension_id="failed", mean_score=3.8)],
+        )
+        failing = measures_requiring_correction(verdicts)
+        self.assertEqual([item.dimension_id for item in failing], ["failed"])
+
+    def test_measured_efficacy_lowers_the_next_probability(self):
+        # This is the loop the norm describes: efficacy is measured, then it
+        # enters the probability of the following cycle.
+        exposed = dict(mean_score=4.0, critical_ratio=0.9)
+        before = grade(score(measure_efficacy="none", **exposed))
+        after = grade(score(measure_efficacy="effective", **exposed))
+        self.assertLess(after.probability, before.probability)
+        self.assertEqual(after.severity, before.severity)
+
+
+class AepMigrationTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.sql = (
+            SERVER_DIR / "migrations" / "012_aep_and_effectiveness.sql"
+        ).read_text(encoding="utf-8")
+
+    def test_aep_describes_the_real_work(self):
+        # NR-17 asks for the activity as performed, not the prescribed task.
+        self.assertIn("CREATE TABLE IF NOT EXISTS aep_assessments", self.sql)
+        self.assertIn("real_work_description", self.sql)
+
+    def test_aep_characterises_the_exposure(self):
+        for field in (
+            "exposure_duration", "exposure_frequency",
+            "exposure_intensity", "exposure_cofactors",
+        ):
+            self.assertIn(field, self.sql)
+
+    def test_aep_records_the_preparation_data_the_guide_requires(self):
+        for field in ("health_indicators", "absenteeism_notes", "previous_assessments"):
+            self.assertIn(field, self.sql)
+
+    def test_every_method_of_the_guide_is_a_first_class_evidence_type(self):
+        for method in (
+            "activity_observation", "worker_dialogue", "questionnaire",
+            "workshop", "focus_group", "document_analysis", "cipa_manifestation",
+        ):
+            self.assertIn(method, self.sql)
+
+    def test_a_concluded_aep_must_name_a_responsible(self):
+        self.assertIn("status <> 'concluded' OR responsible_name <> ''", self.sql)
+
+    def test_aet_escalation_is_modelled(self):
+        # The AEP is the initial approach; NR-17 17.3.2 may require an AET.
+        self.assertIn("aet_required", self.sql)
+
+    def test_inventory_links_back_to_the_aep(self):
+        # 1.5.7.3.2 "h": os resultados da avaliação de ergonomia da NR-17.
+        self.assertIn("ADD COLUMN IF NOT EXISTS aep_id", self.sql)
+
+    def test_aggregate_now_reports_dispersion(self):
+        # Without it, no comparison can tell a real change from noise.
+        self.assertIn("score_stddev numeric", self.sql)
+        self.assertIn("stddev_samp(scored.subject_score)", self.sql)
+
+    def test_effectiveness_is_stored_with_its_evidence(self):
+        self.assertIn("CREATE TABLE IF NOT EXISTS measure_effectiveness_reviews", self.sql)
+        for column in (
+            "baseline_cohort", "followup_cohort", "effect_size",
+            "requires_correction",
+        ):
+            self.assertIn(column, self.sql)
+
+    def test_probability_reads_measured_efficacy_not_a_stored_guess(self):
+        self.assertIn("FROM measure_effectiveness_reviews review", self.sql)
+
+    def test_effectiveness_cannot_compare_a_campaign_with_itself(self):
+        self.assertIn("baseline_campaign_id <> followup_campaign_id", self.sql)
+
+    def test_migration_registers_itself(self):
+        self.assertIn("'012_aep_and_effectiveness'", self.sql)
+
+
+class AuditHardeningTests(unittest.TestCase):
+    """Findings from the general audit of the module."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.sql = (
+            SERVER_DIR / "migrations" / "014_nr1_audit_hardening.sql"
+        ).read_text(encoding="utf-8")
+        cls.main = (SERVER_DIR / "main.py").read_text(encoding="utf-8")
+        cls.store = (SERVER_DIR / "tenant_store.py").read_text(encoding="utf-8")
+
+    def test_open_campaign_yields_no_aggregate(self):
+        # A cohort that is still growing can be differenced one respondent at a
+        # time; the floor alone does not protect whoever answers last.
+        self.assertIn("IF campaign_status <> 'closed' THEN", self.sql)
+
+    def test_runtime_role_loses_all_access_to_raw_answers(self):
+        # froid_nr1_submit_response is SECURITY DEFINER and writes as owner, so
+        # the runtime role never needed INSERT.
+        self.assertIn("REVOKE ALL ON assessment_responses FROM froid_runtime", self.sql)
+        self.assertIn(
+            "REVOKE ALL ON assessment_response_items FROM froid_runtime", self.sql
+        )
+
+    def test_prior_efficacy_cannot_come_from_a_later_cycle(self):
+        # Otherwise a later review would retroactively regrade an earlier
+        # campaign.
+        self.assertIn("prior.closes_at <= campaign_opens", self.sql)
+
+    def test_organization_wide_campaign_keeps_the_headcount_priority(self):
+        # Zero here would switch off 1.5.5.2.1.1 exactly where most workers are
+        # affected.
+        self.assertIn("campaign_headcount", self.sql)
+        self.assertIn("GREATEST(", self.sql)
+
+    def test_effectiveness_review_is_not_a_get(self):
+        # It records the verdict that the next cycle grades against, so it is an
+        # act rather than a lookup.
+        self.assertIn(
+            '@app.post("/api/organizations/{organization_id}/nr1/effectiveness")',
+            self.main,
+        )
+        self.assertNotIn(
+            '@app.get("/api/organizations/{organization_id}/nr1/effectiveness")',
+            self.main,
+        )
+
+    def test_closing_a_campaign_is_recorded(self):
+        self.assertIn("closed_at timestamptz", self.sql)
+        self.assertIn("def nr1_close_campaign", self.store)
+        self.assertIn("nr1.campaign.close", self.main)
+
+    def test_progress_is_readable_while_results_are_not(self):
+        # Adhesion can be chased during collection; a count leaks nothing.
+        self.assertIn("def nr1_campaign_progress", self.store)
+        self.assertIn("response_rate", self.store)
+
+    def test_panel_explains_an_open_campaign_instead_of_going_silent(self):
+        self.assertIn("A coleta ainda está aberta", self.main)
+
+    def test_migration_registers_itself(self):
+        self.assertIn("'014_nr1_audit_hardening'", self.sql)
+
+
+if __name__ == "__main__":
+    unittest.main()
