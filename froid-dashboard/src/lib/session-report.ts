@@ -236,8 +236,6 @@ export interface MetricsAnalysis {
     populated_windows: number;
     mean_coverage: number | null;
     mean_confidence: number | null;
-    last_risk: number | null;
-    max_risk: number | null;
     last_dissonance: number | null;
     max_dissonance: number | null;
     data_status: string;
@@ -266,7 +264,6 @@ export interface MetricsAnalysis {
     ipm: number | null;
     idm: number | null;
     words_per_minute: number | null;
-    clinical_risk: number | null;
     facial_vocal_dissonance: number | null;
     quality: string;
   }>;

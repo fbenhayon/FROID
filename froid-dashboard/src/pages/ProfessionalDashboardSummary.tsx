@@ -114,7 +114,7 @@ export const ProfessionalDashboardSummary: React.FC<Props> = ({ user, onLogout }
             <span>{tr("Devido")}: <b className="text-cyan-200">{financial?.total_due_brl || "R$ 0,00"}</b></span>
             <span>{tr("Recebido")}: <b className="text-emerald-200">{financial?.total_received_brl || "R$ 0,00"}</b></span>
             <span>{tr("Pendente")}: <b className="text-amber-100">{financial?.total_pending_brl || "R$ 0,00"}</b></span>
-            <span>{tr("Carga média")}: <b>{Math.round(portfolio.meanClinicalLoad)}/100</b></span>
+            <span>{tr("Carga média")}: <b>{Math.round(portfolio.meanSignalLoad)}/100</b></span>
             <span>{tr("Continuidade")}: <b>{Math.round(portfolio.meanContinuity)}/100</b></span>
             <span>{tr("Para revisão")}: <b>{portfolio.reviewCount}</b></span>
           </div>

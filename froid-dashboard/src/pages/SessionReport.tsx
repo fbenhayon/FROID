@@ -129,10 +129,8 @@ const METRIC_TOOLTIPS: Record<string, string> = {
   idm: "Índice de Desvio Multimodal no motor estatístico.",
   words_per_minute: "Velocidade média de fala em palavras por minuto.",
   facial_vocal_dissonance: "Dissonância entre expressão facial e trilha vocal.",
-  clinical_risk: "Risco clínico agregado calculado pelo motor FROID.",
   "Palavras/min": "Velocidade média de fala em palavras por minuto.",
   Dissonancia: "Dissonância entre expressão facial e trilha vocal.",
-  "Risco clínico": "Risco clínico agregado calculado pelo motor FROID.",
   "Delta 0.5-4Hz": "Modulação lenta do envelope vocal, associada a carga vegetativa basal.",
   "Theta 4-8Hz": "Faixa de modulação lenta relacionada a flutuação afetiva e organização narrativa.",
   "Alpha 8-12Hz": "Faixa intermediária de estabilização autônoma e transição rítmica.",
@@ -491,7 +489,6 @@ const METRIC_SUMMARY_KEYS = [
   "mfcc9_delta_delta",
   "words_per_minute",
   "facial_vocal_dissonance",
-  "clinical_risk",
 ];
 
 function metricLabel(analysis: MetricsAnalysis | null, key: string) {

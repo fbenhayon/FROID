@@ -186,7 +186,7 @@ export const PatientDetail: React.FC = () => {
       total_analyses: group.totalAnalyses,
       dominant_zone: group.dominantZone,
       recurrent_emotion: group.recurrentEmotion,
-      clinical_risk: group.clinicalRisk,
+      dissonance_events: group.dissonanceCount,
       clinical_note: group.clinicalNote,
     },
     latest_report_baseline: latest.baseline,
@@ -331,9 +331,9 @@ export const PatientDetail: React.FC = () => {
                 detail="FACS - Análise Facial"
               />
               <Indicator
-                label="Risco Clínico"
-                value={group.clinicalRisk}
-                detail={group.riskTypes}
+                label="Dissonâncias"
+                value={String(group.dissonanceCount)}
+                detail="Eventos facial-vocal confirmados"
               />
             </div>
             <div className="mt-4 rounded-lg border border-amber-600 bg-amber-950/40 px-3 py-3">
@@ -345,7 +345,7 @@ export const PatientDetail: React.FC = () => {
               </p>
             </div>
             <div className="mt-4 grid gap-3 md:grid-cols-5">
-              <PatientScoreBar label="Carga clínica" value={signal.clinicalLoad} color="#f97316" />
+              <PatientScoreBar label="Carga de sinal" value={signal.signalLoad} color="#f97316" />
               <PatientScoreBar label="Comunicação" value={signal.communication} color="#0ea5e9" />
               <PatientScoreBar label="Continuidade" value={signal.continuity} color="#22c55e" />
               <PatientScoreBar label="Insight" value={signal.insight} color="#8b5cf6" />
@@ -644,7 +644,7 @@ export const PatientDetail: React.FC = () => {
                 <strong>Nota clinica:</strong> {group.clinicalNote}
               </p>
               <p>
-                <strong>Risco:</strong> {group.clinicalRisk}
+                <strong>Dissonancias:</strong> {group.dissonanceCount} evento(s) confirmado(s)
               </p>
               <p>
                 <strong>Predominancia:</strong>{" "}
@@ -687,7 +687,7 @@ export const PatientDetail: React.FC = () => {
           <section className="rounded-lg border border-slate-800 bg-slate-900 p-3">
             <h2 className="text-sm font-bold text-slate-100">{tr("Indicadores de seguimento")}</h2>
             <div className="mt-2 space-y-2">
-              <PatientScoreBar label="Carga clínica" value={signal.clinicalLoad} color="#f97316" />
+              <PatientScoreBar label="Carga de sinal" value={signal.signalLoad} color="#f97316" />
               <PatientScoreBar label="Comunicação" value={signal.communication} color="#0ea5e9" />
               <PatientScoreBar label="Continuidade" value={signal.continuity} color="#22c55e" />
               <PatientScoreBar label="Insight" value={signal.insight} color="#8b5cf6" />

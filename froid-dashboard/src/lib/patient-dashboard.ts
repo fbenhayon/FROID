@@ -17,9 +17,8 @@ export interface PatientDashboardGroup {
   totalAnalyses: number;
   dominantZone: number | null;
   recurrentEmotion: string;
-  clinicalRisk: string;
+  dissonanceCount: number;
   facsSummary: string;
-  riskTypes: string;
   clinicalNote: string;
 }
 
@@ -28,7 +27,7 @@ export interface PatientAdvancedSignal {
   priority: "ALTA PRIORIDADE" | "REVISAR" | "OBSERVAR" | "ROTINA" | "DADOS INSUFICIENTES";
   action: string;
   attentionIndex: number;
-  clinicalLoad: number;
+  signalLoad: number;
   communication: number;
   continuity: number;
   insight: number;
@@ -41,7 +40,7 @@ export interface PatientAdvancedSignal {
 export interface ProfessionalPortfolioSummary {
   totalPatients: number;
   meanAttention: number;
-  meanClinicalLoad: number;
+  meanSignalLoad: number;
   meanCommunication: number;
   meanContinuity: number;
   meanInsight: number;
@@ -250,14 +249,25 @@ function qualityFromReport(report: SessionReportRecord) {
   );
 }
 
+// A mesma partição de antes, descrita pelo que ela é.
+//
+// Os rótulos anteriores — "SOFRIMENTO ATIVO", "EMBOTAMENTO / DEFESA",
+// "FLUXO SAUDAVEL" — nomeavam estado clínico do paciente a partir de duas
+// medidas. Nenhum corte muda aqui: as mesmas faixas de IPM e IDM produzem as
+// mesmas seis categorias. O que muda é que a categoria passa a dizer o que
+// o sinal fez, em vez de concluir sobre a pessoa.
+//
+// É mais informativo assim: "ENERGIA ALTA + DESVIO NEGATIVO" diz ao clínico
+// o que as métricas fizeram; "SOFRIMENTO ATIVO" dizia a ele uma conclusão que
+// é dele, não do software.
 function stateFromMetrics(ipm: number, idm: number, quality: number) {
   if (quality < 45) return "DADOS INSUFICIENTES";
-  if (ipm <= 35 && idm <= -0.65) return "BAIXA ENERGIA + NEGATIVO";
-  if (ipm >= 55 && idm <= -0.45) return "SOFRIMENTO ATIVO";
-  if (ipm <= 35 && idm < 0.15) return "EMBOTAMENTO / DEFESA";
-  if (ipm >= 55 && idm >= 0.15) return "FLUXO SAUDAVEL";
-  if (idm >= 0.35) return "ADAPTATIVO";
-  return "ATENÇÃO";
+  if (ipm <= 35 && idm <= -0.65) return "ENERGIA BAIXA + DESVIO MUITO NEGATIVO";
+  if (ipm >= 55 && idm <= -0.45) return "ENERGIA ALTA + DESVIO NEGATIVO";
+  if (ipm <= 35 && idm < 0.15) return "ENERGIA BAIXA + DESVIO NEUTRO";
+  if (ipm >= 55 && idm >= 0.15) return "ENERGIA ALTA + DESVIO POSITIVO";
+  if (idm >= 0.35) return "DESVIO POSITIVO";
+  return "PADRÃO INTERMEDIÁRIO";
 }
 
 function qualityLabel(score: number) {
@@ -278,11 +288,10 @@ export function patientAdvancedSignal(group: PatientDashboardGroup): PatientAdva
   const lastRecent = recent[0]?.sessionAverage.ipmAvg ?? ipmRecent;
   const ipmTrend = lastRecent - firstRecent;
   const dataQuality = average(recent.map(qualityFromReport), qualityFromReport(latest));
-  const maxRisk = Math.max(
-    0,
-    ...recent.map((report) => report.metricsAnalysis?.dashboard.max_risk || 0),
-    ...recent.map((report) => (report.sessionAverage.dissonanceCount || 0) * 18),
-  );
+  // Antes este máximo combinava dashboard.max_risk — o escore "Risco clínico"
+  // que saiu do motor — com a carga de dissonância. Restou a segunda, que é a
+  // única das duas que era medida.
+  const maxDissonanceLoad = Math.max(0, ...recent.map(dissonanceLoad));
   const dissonance = average(
     recent.map((report) => report.sessionAverage.dissonanceCount || 0),
     0,
@@ -290,12 +299,12 @@ export function patientAdvancedSignal(group: PatientDashboardGroup): PatientAdva
   const negativeDirection = clamp(-idmRecent, 0, 1) * 100;
   const lowEnergyNegative =
     (clamp(35 - ipmRecent, 0, 35) / 35) * clamp(-idmRecent, 0, 1) * 100;
-  const clinicalLoad = clamp(
+  const signalLoad = clamp(
     ipmRecent * 0.22 +
       negativeDirection * 0.34 +
       lowEnergyNegative * 0.22 +
       dissonance * 4 +
-      maxRisk * 0.18 +
+      maxDissonanceLoad * 0.18 +
       clamp(75 - dataQuality, 0, 75) * 0.24,
     0,
     100,
@@ -324,14 +333,14 @@ export function patientAdvancedSignal(group: PatientDashboardGroup): PatientAdva
     communication * 0.24 +
       continuity * 0.16 +
       dataQuality * 0.22 +
-      clamp(100 - Math.abs(clinicalLoad - 58), 0, 100) * 0.28 +
+      clamp(100 - Math.abs(signalLoad - 58), 0, 100) * 0.28 +
       clamp(Math.abs(ipmTrend) * 4, 0, 20) -
       clamp(-idmRecent, 0, 1) * 18,
     0,
     100,
   );
   const attentionIndex = clamp(
-    clinicalLoad * 0.38 +
+    signalLoad * 0.38 +
       (100 - communication) * 0.18 +
       (100 - continuity) * 0.18 +
       (100 - dataQuality) * 0.13 +
@@ -366,7 +375,7 @@ export function patientAdvancedSignal(group: PatientDashboardGroup): PatientAdva
     priority,
     action,
     attentionIndex,
-    clinicalLoad,
+    signalLoad,
     communication,
     continuity,
     insight,
@@ -384,7 +393,7 @@ export function professionalPortfolioSummary(
   return {
     totalPatients: groups.length,
     meanAttention: average(signals.map((signal) => signal.attentionIndex), 0),
-    meanClinicalLoad: average(signals.map((signal) => signal.clinicalLoad), 0),
+    meanSignalLoad: average(signals.map((signal) => signal.signalLoad), 0),
     meanCommunication: average(signals.map((signal) => signal.communication), 0),
     meanContinuity: average(signals.map((signal) => signal.continuity), 0),
     meanInsight: average(signals.map((signal) => signal.insight), 0),
@@ -410,16 +419,17 @@ function mostFrequent<T extends string | number>(values: T[]): T | null {
   return selected;
 }
 
-function riskScore(report: SessionReportRecord) {
-  const risk = report.metricsAnalysis?.dashboard.max_risk;
-  if (typeof risk === "number" && Number.isFinite(risk)) return risk;
+// Carga de dissonância registrada na sessão, normalizada em 0-100.
+//
+// Aqui existia riskScore(), que lia dashboard.max_risk — o escore "Risco
+// clínico" que saiu do motor — e riskLabel(), que o cortava em Alto/Moderado/
+// Baixo. Classificar uma pessoa em faixa de risco é triagem, e triagem é ato
+// privativo de profissional habilitado.
+//
+// O que sobra é o que sempre foi medido de fato: quantos eventos de
+// dissonância facial-vocal foram confirmados. É contagem, não julgamento.
+function dissonanceLoad(report: SessionReportRecord) {
   return Math.min(100, (report.sessionAverage.dissonanceCount || 0) * 18);
-}
-
-function riskLabel(score: number) {
-  if (score >= 70) return "Alto";
-  if (score >= 40) return "Moderado";
-  return "Baixo";
 }
 
 function totalAnalysisWindows(report: SessionReportRecord) {
@@ -428,19 +438,29 @@ function totalAnalysisWindows(report: SessionReportRecord) {
   return (report.tenMinuteCuts || []).filter((cut) => (cut.sampleCount || 0) > 0).length;
 }
 
-function buildClinicalNote(
+// Resumo de medida, não parecer.
+//
+// A versão anterior escrevia, ao lado do nome do paciente, "risco clínico
+// alto" — inferência sobre a pessoa, assinada pelo software. O fecho
+// ("compare baseline, média e cortes") não é conduta clínica e sim instrução
+// de leitura da ferramenta, então permanece.
+function buildMeasurementNote(
   patientName: string,
   dominantZone: number | null,
   recurrentEmotion: string,
-  clinicalRisk: string,
+  dissonanceCount: number,
   sessionCount: number,
 ) {
-  const zoneText = dominantZone ? `zona ${dominantZone}` : "zona ainda indefinida";
+  const zoneText = dominantZone ? `zona ${dominantZone}` : "zona predominante ainda indefinida";
   const emotionText =
     recurrentEmotion && recurrentEmotion !== "--"
-      ? `com tom recorrente ${recurrentEmotion.toLowerCase()}`
-      : "com tom recorrente ainda em consolidacao";
-  return `${patientName} apresenta padrão longitudinal baseado em ${sessionCount} sessão(oes), com predominância de ${zoneText}, ${emotionText} e risco clínico ${clinicalRisk.toLowerCase()}. Recomenda-se acompanhar a evolução comparando baseline, média da sessão e cortes de 10 minutos.`;
+      ? `, tom recorrente ${recurrentEmotion.toLowerCase()}`
+      : "";
+  const dissonanceText =
+    dissonanceCount > 0
+      ? `${dissonanceCount} evento(s) de dissonância facial-vocal confirmado(s)`
+      : "nenhum evento de dissonância facial-vocal confirmado";
+  return `${patientName}: ${sessionCount} sessão(ões) analisada(s), ${zoneText}${emotionText}. ${dissonanceText}. Compare a linha de base, a média da sessão e os cortes de 10 minutos para acompanhar a evolução.`;
 }
 
 export function buildPatientGroups(reports: SessionReportRecord[]): PatientDashboardGroup[] {
@@ -471,8 +491,6 @@ export function buildPatientGroups(reports: SessionReportRecord[]): PatientDashb
             .map((report) => report.sessionAverage?.emotionalTone || report.baseline?.emotionalTone || "")
             .filter(Boolean),
         ) || "--";
-      const maxRisk = Math.max(0, ...sorted.map(riskScore));
-      const clinicalRisk = riskLabel(maxRisk);
       const dissonanceCount = sorted.reduce(
         (sum, report) => sum + (report.dissonances?.length || report.sessionAverage.dissonanceCount || 0),
         0,
@@ -494,17 +512,16 @@ export function buildPatientGroups(reports: SessionReportRecord[]): PatientDashb
         totalAnalyses,
         dominantZone,
         recurrentEmotion,
-        clinicalRisk,
+        dissonanceCount,
         facsSummary:
           dissonanceCount > 0
             ? `${dissonanceCount} dissonância(s) facial-vocal registrada(s)`
-            : "Sem dissonância facial-vocal crítica",
-        riskTypes: "Depressao / Mania / Estresse",
-        clinicalNote: buildClinicalNote(
+            : "Sem dissonância facial-vocal registrada",
+        clinicalNote: buildMeasurementNote(
           patientName,
           dominantZone,
           recurrentEmotion,
-          clinicalRisk,
+          dissonanceCount,
           sorted.length,
         ),
       };

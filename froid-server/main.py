@@ -1730,10 +1730,10 @@ async def _query_froid_analytics(payload: FroidExplicaQuery) -> FroidExplicaResp
         "professional_word_count INTEGER, intervention_category VARCHAR, patient_response VARCHAR, "
         "ipm_delta_from_baseline DOUBLE, idm_delta_from_baseline DOUBLE, "
         "dissonance_delta_from_baseline DOUBLE, ipm_delta_previous_cut DOUBLE, "
-        "idm_delta_previous_cut DOUBLE, dissonance_delta_previous_cut DOUBLE, risk_score DOUBLE, "
+        "idm_delta_previous_cut DOUBLE, dissonance_delta_previous_cut DOUBLE, "
         "quality_confidence DOUBLE, stt_model VARCHAR, llm_model VARCHAR, algorithm_version VARCHAR, "
         "audio_quality VARCHAR, theme_predominant VARCHAR, relevant_dissonances VARCHAR, "
-        "aggregated_clinical_risk DOUBLE, ipm_delta_after_intervention DOUBLE, "
+        "ipm_delta_after_intervention DOUBLE, "
         "idm_delta_after_intervention DOUBLE, dissonance_delta_after_intervention DOUBLE, "
         "dominant_zone_shift VARCHAR, emotional_tone_shift VARCHAR, cadence_shift VARCHAR, "
         "semantic_coherence_shift VARCHAR, biomarker_snapshot_json VARCHAR, subharmonic_snapshot_json VARCHAR, "
@@ -2939,7 +2939,6 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 ipm_delta_previous_cut DOUBLE,
                 idm_delta_previous_cut DOUBLE,
                 dissonance_delta_previous_cut DOUBLE,
-                risk_score DOUBLE,
                 quality_confidence DOUBLE,
                 stt_model VARCHAR,
                 llm_model VARCHAR,
@@ -2947,7 +2946,6 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 audio_quality VARCHAR,
                 theme_predominant VARCHAR,
                 relevant_dissonances VARCHAR,
-                aggregated_clinical_risk DOUBLE,
                 ipm_delta_after_intervention DOUBLE,
                 idm_delta_after_intervention DOUBLE,
                 dissonance_delta_after_intervention DOUBLE,
@@ -2992,7 +2990,6 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 "ipm_delta_previous_cut": "DOUBLE",
                 "idm_delta_previous_cut": "DOUBLE",
                 "dissonance_delta_previous_cut": "DOUBLE",
-                "risk_score": "DOUBLE",
                 "quality_confidence": "DOUBLE",
                 "stt_model": "VARCHAR",
                 "llm_model": "VARCHAR",
@@ -3000,7 +2997,6 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 "audio_quality": "VARCHAR",
                 "theme_predominant": "VARCHAR",
                 "relevant_dissonances": "VARCHAR",
-                "aggregated_clinical_risk": "DOUBLE",
                 "ipm_delta_after_intervention": "DOUBLE",
                 "idm_delta_after_intervention": "DOUBLE",
                 "dissonance_delta_after_intervention": "DOUBLE",
@@ -3254,9 +3250,9 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                     patient_word_count, professional_word_count, intervention_category,
                     patient_response, ipm_delta_from_baseline, idm_delta_from_baseline,
                     dissonance_delta_from_baseline, ipm_delta_previous_cut,
-                    idm_delta_previous_cut, dissonance_delta_previous_cut, risk_score,
+                    idm_delta_previous_cut, dissonance_delta_previous_cut,
                     quality_confidence, stt_model, llm_model, algorithm_version, audio_quality
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 [
                     session_hash,
@@ -3308,7 +3304,6 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                     _safe_float(cut.get("ipmAvg")) - previous_ipm,
                     _safe_float(cut.get("idmAvg")) - previous_idm,
                     _safe_float(cut.get("dissonanceCount")) - previous_dissonance,
-                    _safe_float((report.get("metricsAnalysis") or {}).get("dashboard", {}).get("max_risk")),
                     _cut_confidence(cut),
                     _safe_technical_id(cut_context.get("stt_model") or cut_context.get("sttModel") or OPENAI_TRANSCRIBE_MODEL, OPENAI_TRANSCRIBE_MODEL),
                     _safe_technical_id(cut_context.get("llm_model") or cut_context.get("llmModel") or FROID_EXPLICA_MODEL, FROID_EXPLICA_MODEL),
@@ -3410,7 +3405,6 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                     "mfcc9_delta": cut.get("mfcc9Delta"),
                     "mfcc7_delta_delta": cut.get("mfcc7DeltaDelta"),
                     "mfcc9_delta_delta": cut.get("mfcc9DeltaDelta"),
-                    "risk_score": _safe_float((report.get("metricsAnalysis") or {}).get("dashboard", {}).get("max_risk")),
                     "quality_confidence": _cut_confidence(cut),
                 },
                 "deltas": {
@@ -3441,7 +3435,7 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                     cut_hash = ?, duration_seconds = ?, relative_position = ?,
                     speech_density = ?, patient_professional_word_ratio = ?,
                     theme_predominant = ?, relevant_dissonances = ?,
-                    aggregated_clinical_risk = ?, ipm_delta_after_intervention = ?,
+                    ipm_delta_after_intervention = ?,
                     idm_delta_after_intervention = ?, dissonance_delta_after_intervention = ?,
                     dominant_zone_shift = ?, emotional_tone_shift = ?, cadence_shift = ?,
                     semantic_coherence_shift = ?, biomarker_snapshot_json = ?,
@@ -3461,7 +3455,6 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                     patient_professional_word_ratio,
                     _anonymous_category(cut_context.get("theme_predominant") or cut_context.get("themePredominant") or cut.get("theme") or ""),
                     "",
-                    _safe_float(cut_context.get("aggregated_clinical_risk") or cut_context.get("aggregatedClinicalRisk") or (report.get("metricsAnalysis") or {}).get("dashboard", {}).get("max_risk")),
                     _safe_float(cut_context.get("ipm_delta_after_intervention") or cut_context.get("ipmDeltaAfterIntervention")),
                     _safe_float(cut_context.get("idm_delta_after_intervention") or cut_context.get("idmDeltaAfterIntervention")),
                     _safe_float(cut_context.get("dissonance_delta_after_intervention") or cut_context.get("dissonanceDeltaAfterIntervention")),

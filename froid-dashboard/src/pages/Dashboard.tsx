@@ -390,13 +390,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
           state: signal.state,
           action: signal.action,
           attention_index: Number(signal.attentionIndex.toFixed(1)),
-          clinical_load: Number(signal.clinicalLoad.toFixed(1)),
+          signal_load: Number(signal.signalLoad.toFixed(1)),
           communication: Number(signal.communication.toFixed(1)),
           continuity: Number(signal.continuity.toFixed(1)),
           insight: Number(signal.insight.toFixed(1)),
           dominant_zone: group.dominantZone,
           recurrent_emotion: group.recurrentEmotion,
-          clinical_risk: group.clinicalRisk,
+          dissonance_events: group.dissonanceCount,
         };
       }),
       selected_patient: selectedGroup
@@ -414,8 +414,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
             attention_index: selectedSignal
               ? Number(selectedSignal.attentionIndex.toFixed(1))
               : null,
-            clinical_load: selectedSignal
-              ? Number(selectedSignal.clinicalLoad.toFixed(1))
+            signal_load: selectedSignal
+              ? Number(selectedSignal.signalLoad.toFixed(1))
               : null,
             communication: selectedSignal
               ? Number(selectedSignal.communication.toFixed(1))
@@ -428,7 +428,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
               : null,
             dominant_zone: selectedGroup.dominantZone,
             recurrent_emotion: selectedGroup.recurrentEmotion,
-            clinical_risk: selectedGroup.clinicalRisk,
+            dissonance_events: selectedGroup.dissonanceCount,
           }
         : null,
     };
@@ -714,7 +714,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
           <span><b className="text-slate-500">{tr("Devido")}:</b> <em className="not-italic text-cyan-200">{receivablesSummary?.total_due_brl || "R$ 0,00"}</em></span>
           <span><b className="text-slate-500">{tr("Recebido")}:</b> <em className="not-italic text-emerald-200">{receivablesSummary?.total_received_brl || "R$ 0,00"}</em></span>
           <span><b className="text-slate-500">{tr("Pendente")}:</b> <em className="not-italic text-amber-100">{receivablesSummary?.total_pending_brl || "R$ 0,00"}</em></span>
-          <span><b className="text-slate-500">{tr("Carga")}:</b> {scoreText(portfolio.meanClinicalLoad)}</span>
+          <span><b className="text-slate-500">{tr("Carga")}:</b> {scoreText(portfolio.meanSignalLoad)}</span>
           <span><b className="text-slate-500">{tr("Comunicação")}:</b> {scoreText(portfolio.meanCommunication)}</span>
           <span><b className="text-slate-500">{tr("Continuidade")}:</b> {scoreText(portfolio.meanContinuity)}</span>
           <span><b className="text-slate-500">{tr("Para revisão")}:</b> {portfolio.reviewCount}</span>
@@ -895,7 +895,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
               </p>
               <div className="grid gap-2 md:grid-cols-5">
                 <ScoreBar label="Atenção" value={signal.attentionIndex} color="#ef4444" locale={defaultSessionLocale} />
-                <ScoreBar label="Carga" value={signal.clinicalLoad} color="#f97316" locale={defaultSessionLocale} />
+                <ScoreBar label="Carga" value={signal.signalLoad} color="#f97316" locale={defaultSessionLocale} />
                 <ScoreBar label="Comunicação" value={signal.communication} color="#0ea5e9" locale={defaultSessionLocale} />
                 <ScoreBar label="Continuidade" value={signal.continuity} color="#22c55e" locale={defaultSessionLocale} />
                 <ScoreBar label="Insight" value={signal.insight} color="#8b5cf6" locale={defaultSessionLocale} />

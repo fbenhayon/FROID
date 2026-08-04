@@ -34,8 +34,27 @@ METRICS: tuple[dict[str, str], ...] = (
         "unit": "eventos",
         "category": "Indices FROID",
     },
-    {"key": "clinical_risk", "label": "Risco clinico", "unit": "0-100", "category": "Triagem"},
 )
+
+# Aqui existia "clinical_risk" — escore 0-100 rotulado "Risco clinico", na
+# categoria "Triagem".
+#
+# Nenhuma das outras metricas desta lista afirma sobre a pessoa: F0 e uma
+# frequencia, jitter e uma perturbacao de periodo, dissonancia e uma contagem
+# de eventos. "Risco clinico" era de outra natureza — um construto expresso em
+# numero. E numero nao vira medida por ser numerico; vira medida por ter
+# referente fisico.
+#
+# Um escore de risco, cortado em Alto/Moderado/Baixo e escrito ao lado do nome
+# do paciente, e triagem: infere estado e classifica a pessoa. Isso e ato
+# privativo de profissional habilitado, e contradizia os proprios limites
+# clinicos que o contrato do FROID ja declarava.
+#
+# O que ele resumia continua inteiro e mais util decomposto: os deltas de IPM e
+# IDM contra a linha de base, a contagem de dissonancias, os desvios
+# espectrais. O clinico chega a hipotese; o FROID entrega a medida.
+#
+# Ver knowledge/approved/Notas_tecnicas_FROID/FROID_Fronteira_Medida_Interpretacao.md
 
 METRIC_KEYS = tuple(metric["key"] for metric in METRICS)
 
@@ -357,14 +376,11 @@ def _dashboard(session: Mapping[str, Any]) -> dict[str, Any]:
         for metric in window["metrics"].values()
         if metric.get("alert") in ("Alerta", "Critico", "Revisar qualidade", "Revisar confianca")
     ]
-    clinical_risk = session["summary"]["clinical_risk"]
     dissonance = session["summary"]["facial_vocal_dissonance"]
     return {
         "populated_windows": len(populated_windows),
         "mean_coverage": safe_mean(coverages),
         "mean_confidence": safe_mean(confidences),
-        "last_risk": clinical_risk.get("last"),
-        "max_risk": clinical_risk.get("max"),
         "last_dissonance": dissonance.get("last"),
         "max_dissonance": dissonance.get("max"),
         "data_status": "Revisar" if any(str(a).startswith("Revisar") for a in alerts) else "Adequado",
@@ -386,7 +402,6 @@ def _evolution(session: Mapping[str, Any]) -> list[dict[str, Any]]:
                 "ipm": window["metrics"]["ipm"]["mean"],
                 "idm": window["metrics"]["idm"]["mean"],
                 "words_per_minute": window["metrics"]["words_per_minute"]["mean"],
-                "clinical_risk": window["metrics"]["clinical_risk"]["mean"],
                 "facial_vocal_dissonance": window["metrics"]["facial_vocal_dissonance"]["mean"],
                 "quality": _window_quality(window),
             }
@@ -424,7 +439,6 @@ def compose_report(session: Mapping[str, Any]) -> str:
         "mfcc9_delta_delta",
         "words_per_minute",
         "facial_vocal_dissonance",
-        "clinical_risk",
     ):
         metric = next(item for item in METRICS if item["key"] == key)
         summary = session["summary"][key]
@@ -486,7 +500,6 @@ def _snapshot_metrics(snapshot: Mapping[str, Any]) -> dict[str, Any]:
         "loudness": _metric_value(None),
         "words_per_minute": _metric_value(snapshot.get("wordsPerMinute")),
         "facial_vocal_dissonance": _metric_value(snapshot.get("dissonanceCount")),
-        "clinical_risk": _metric_value(snapshot.get("clinicalRisk")),
     }
 
 

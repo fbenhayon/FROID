@@ -309,35 +309,50 @@ def _facial_contradiction(snap):
     return (float(snap.get("facial_dissonance_count") or 0), None, 0.0)
 
 
+# Cada marcador descreve o SINAL medido. Nenhum nomeia construto psicológico
+# nem afirma fisiologia que o sinal não sustenta.
+#
+# Os rótulos anteriores atravessavam essa linha: "Shutdown dissociativo",
+# "Inundação autonômica", "colapso parassimpático / dissociação", "achatamento
+# afetivo". O FROID não mede sistema nervoso autônomo — mede acústica — e
+# dissociação é construto que se estabelece em exame, por profissional.
+#
+# "Contração espástica involuntária das cordas vocais" era o pior: afirmação
+# fisiológica direta, verificável só por laringoscopia ou eletroglotografia, e
+# inferida aqui do cepstro.
+#
+# A informação entregue ao clínico é a mesma. O que sai é a aparência de que o
+# software sabe da pessoa mais do que pode saber. Ver a nota
+# FROID_Fronteira_Medida_Interpretacao.
 MARKER_SPECS: List[MarkerSpec] = [
     MarkerSpec("jitter", "Jitter (perturbação de período)", "Perturbação vocal", "proxy",
                "—", "instabilidade glótica / tensão laríngea", _jitter),
     MarkerSpec("shimmer", "Shimmer (perturbação de amplitude)", "Perturbação vocal", "proxy",
                "—", "irregularidade de amplitude / esforço vocal", _shimmer),
     MarkerSpec("f0_cv", "Variabilidade da F0 (prosódia)", "Prosódia", "CV",
-               "monotonia / achatamento afetivo", "instabilidade prosódica / agitação", _f0_cv),
+               "variabilidade prosódica reduzida", "variabilidade prosódica elevada", _f0_cv),
     MarkerSpec("f0_baseline_dev", "Desvio de F0 vs. baseline", "Prosódia", "ratio",
-               "hipofonação / retração", "tensão / hiperativação tonal", _f0_baseline_dev),
+               "F0 abaixo da referência do paciente", "F0 acima da referência do paciente", _f0_baseline_dev),
     MarkerSpec("loudness_dev", "Desvio de loudness vs. baseline", "Energia vocal", "dB",
-               "colapso de volume / embotamento", "surto de intensidade / agitação", _loudness_dev),
+               "queda de intensidade vs. referência", "elevação de intensidade vs. referência", _loudness_dev),
     MarkerSpec("zcr_dev", "Desvio de ZCR vs. baseline", "Timbre", "ratio",
-               "voz opaca / abafada", "voz soprosa-fricativa / tensão", _zcr_dev),
-    MarkerSpec("mfcc9_spastic", "Aceleração cepstral ΔΔMFCC9", "Contração espástica (SNS)", "|ΔΔ|",
-               "—", "contração espástica involuntária das cordas vocais", _mfcc9_spastic),
-    MarkerSpec("mfcc7_spastic", "Aceleração cepstral ΔΔMFCC7", "Instabilidade cepstral", "|ΔΔ|",
+               "timbre mais opaco / abafado", "timbre mais soproso-fricativo", _zcr_dev),
+    MarkerSpec("mfcc9_spastic", "Aceleração cepstral ΔΔMFCC9", "Dinâmica cepstral", "|ΔΔ|",
+               "—", "aceleração cepstral atípica", _mfcc9_spastic),
+    MarkerSpec("mfcc7_spastic", "Aceleração cepstral ΔΔMFCC7", "Dinâmica cepstral", "|ΔΔ|",
                "—", "instabilidade de timbre / formante", _mfcc7_spastic),
-    MarkerSpec("dna_flooding", "Inundação autonômica", "Sistema nervoso autônomo", "índice",
-               "—", "ativação simpática intensa (flooding)", _dna_flooding),
-    MarkerSpec("dna_shutdown", "Shutdown dissociativo", "Sistema nervoso autônomo", "índice",
-               "—", "colapso parassimpático / dissociação", _dna_shutdown),
-    MarkerSpec("dna_somato", "Dissonância somatoafetiva", "Integração somatoafetiva", "índice",
-               "—", "carga somática descolada da expressão", _dna_somato),
+    MarkerSpec("dna_flooding", "Ativação difusa multimodal", "Dinâmica multimodal", "índice",
+               "—", "elevação simultânea em múltiplos canais", _dna_flooding),
+    MarkerSpec("dna_shutdown", "Queda sustentada de energia expressiva", "Dinâmica multimodal", "índice",
+               "—", "queda simultânea em múltiplos canais", _dna_shutdown),
+    MarkerSpec("dna_somato", "Divergência entre canais de sinal", "Dinâmica multimodal", "índice",
+               "—", "canais medidos em direções distintas", _dna_somato),
     MarkerSpec("zone_extreme", "Desequilíbrio extremo de zona", "Colorimetria", "score",
                "—", "zona em faixa vermelha (desvio extremo)", _zone_extreme),
-    MarkerSpec("ipm_hyper", "Hiperativação multimodal (IPM)", "Potência multimodal", "0-100",
-               "—", "ativação difusa por todas as zonas", _ipm_hyper),
-    MarkerSpec("facial_contradiction", "Contradição facial-vocal (FACS)", "Dissonância facial", "AUs",
-               "—", "o rosto mascara/contradiz o afeto (Unidades de Ação reais)", _facial_contradiction),
+    MarkerSpec("ipm_hyper", "Elevação multimodal (IPM)", "Potência multimodal", "0-100",
+               "—", "elevação difusa por todas as zonas", _ipm_hyper),
+    MarkerSpec("facial_contradiction", "Divergência facial-vocal (FACS)", "Dissonância facial", "AUs",
+               "—", "Unidades de Ação divergem do canal vocal na janela", _facial_contradiction),
 ]
 
 # TODA dissonância evidente é registrada (>= 1 marcador fora da métrica base)
