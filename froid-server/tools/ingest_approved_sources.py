@@ -61,6 +61,21 @@ def title_from_markdown(path: Path, text: str) -> str:
     return path.stem.replace("_", " ").replace("-", " ").strip()[:180]
 
 
+# O modelo de embedding padrao da ChromaDB (all-MiniLM-L6-v2) trunca a entrada
+# em 256 tokens. Um trecho de 700 palavras vira cerca de mil tokens: tres
+# quartos dele nunca chegam a ser vetorizados, e a busca so enxerga o comeco.
+#
+# Foi por isso que uma nota indexada corretamente nao aparecia nem quando
+# consultada com uma frase literal sua: a frase estava depois do corte. E foi
+# por isso que um documento de 137 trechos dominava qualquer busca — ele nao
+# respondia melhor, apenas tinha 137 comecos.
+#
+# 150 palavras em portugues ficam com folga dentro do limite.
+MODEL_TOKEN_LIMIT = 256
+DEFAULT_WORDS_PER_CHUNK = 150
+DEFAULT_OVERLAP = 40
+
+
 def chunk_markdown(text: str, words_per_chunk: int, overlap: int) -> list[str]:
     clean = normalize_space(
         re.sub(r"```.*?```", " ", text, flags=re.DOTALL)
@@ -100,8 +115,8 @@ def main() -> None:
     )
     parser.add_argument("--chroma-path", type=Path, default=DEFAULT_CHROMA_PATH)
     parser.add_argument("--collection", default=DEFAULT_COLLECTION)
-    parser.add_argument("--words-per-chunk", type=int, default=700)
-    parser.add_argument("--overlap", type=int, default=100)
+    parser.add_argument("--words-per-chunk", type=int, default=DEFAULT_WORDS_PER_CHUNK)
+    parser.add_argument("--overlap", type=int, default=DEFAULT_OVERLAP)
     parser.add_argument("--reset", action="store_true", help="Apaga a collection antes de reindexar.")
     args = parser.parse_args()
 
@@ -153,6 +168,10 @@ def main() -> None:
             continue
         title = title_from_markdown(path, text)
         area = infer_area(path)
+        # O titulo entra no texto vetorizado. Sem isso, um trecho do meio do
+        # documento perde a identidade dele: fica um paragrafo solto, sem sinal
+        # de a que assunto pertence.
+        chunks = [f"{title}. {area}. {chunk}" for chunk in chunks]
         ids = [
             stable_id(path.relative_to(raiz), index, chunk)
             for index, chunk in enumerate(chunks)

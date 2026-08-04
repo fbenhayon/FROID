@@ -62,6 +62,54 @@ class SourceSelectionTests(unittest.TestCase):
         self.assertNotIn("path.relative_to(args.approved)", source)
 
 
+class ChunkSizeTests(unittest.TestCase):
+    """O trecho precisa caber no que o modelo consegue ler.
+
+    all-MiniLM-L6-v2 trunca em 256 tokens. Com trechos de 700 palavras, tres
+    quartos de cada pedaco nunca eram vetorizados — a busca so enxergava o
+    comeco. Uma nota indexada corretamente nao aparecia nem quando consultada
+    com uma frase literal sua, porque a frase estava depois do corte.
+    """
+
+    def setUp(self):
+        self.tool = load_tool()
+
+    def test_default_chunk_fits_the_model_window(self):
+        # Palavra em portugues rende mais de um token neste tokenizador; 150
+        # palavras ficam com folga dentro dos 256.
+        self.assertLessEqual(self.tool.DEFAULT_WORDS_PER_CHUNK, 180)
+        self.assertEqual(self.tool.MODEL_TOKEN_LIMIT, 256)
+
+    def test_overlap_is_smaller_than_the_chunk(self):
+        self.assertLess(self.tool.DEFAULT_OVERLAP, self.tool.DEFAULT_WORDS_PER_CHUNK)
+        self.assertGreater(self.tool.DEFAULT_OVERLAP, 0)
+
+    def test_no_chunk_exceeds_the_configured_size(self):
+        texto = " ".join(f"palavra{i}" for i in range(2000))
+        for chunk in self.tool.chunk_markdown(texto, 150, 40):
+            self.assertLessEqual(len(chunk.split()), 150)
+
+    def test_a_long_note_produces_many_retrievable_chunks(self):
+        texto = (APPROVED / "Notas_tecnicas_FROID" / "FROID_NR1_Riscos_Psicossociais.md").read_text(
+            encoding="utf-8"
+        )
+        antes = self.tool.chunk_markdown(texto, 700, 100)
+        depois = self.tool.chunk_markdown(
+            texto, self.tool.DEFAULT_WORDS_PER_CHUNK, self.tool.DEFAULT_OVERLAP
+        )
+        self.assertGreater(
+            len(depois), len(antes) * 3,
+            "o corte novo precisa produzir pontos de entrada suficientes para "
+            "que uma pergunta especifica encontre a resposta especifica",
+        )
+
+    def test_title_travels_with_the_chunk(self):
+        # Sem o titulo no texto vetorizado, um trecho do meio do documento
+        # perde a identidade e vira paragrafo solto.
+        source = TOOL.read_text(encoding="utf-8")
+        self.assertIn('f"{title}. {area}. {chunk}"', source)
+
+
 class Nr1NoteTests(unittest.TestCase):
     """A nota do modulo NR-1 precisa existir e responder ao que promete."""
 
