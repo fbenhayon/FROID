@@ -7651,6 +7651,10 @@ async def review_nr1_effectiveness(organization_id: str, request: Request):
             "baseline_mean": verdict.baseline_mean,
             "followup_mean": verdict.followup_mean,
             "effect_size": verdict.effect_size,
+            # A margem viaja junto com o efeito de propósito: sem ela, quem lê
+            # não distingue um resultado de um ruído.
+            "effect_margin": verdict.effect_margin,
+            "significant": verdict.significant,
             "verdict": verdict.verdict,
             "measure_efficacy": verdict.measure_efficacy,
             "requires_correction": verdict.requires_correction,

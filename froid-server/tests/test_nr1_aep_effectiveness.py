@@ -204,6 +204,84 @@ class EffectivenessTests(unittest.TestCase):
         self.assertEqual(after.severity, before.severity)
 
 
+class StatisticalHonestyTests(unittest.TestCase):
+    """Achados do piloto contra o banco real, em 04/08/2026.
+
+    O motor estava chamando ruído de resultado — nos dois sentidos — e enchendo
+    o plano de ação de obrigações inexistentes. Nenhum teste anterior pegou
+    porque todos usavam coortes grandes e diferenças limpas.
+    """
+
+    def small(self, mean, **overrides):
+        return score(cohort_size=22, mean_score=mean, score_stddev=0.46, **overrides)
+
+    def large(self, mean, **overrides):
+        return score(cohort_size=64, mean_score=mean, score_stddev=0.46, **overrides)
+
+    def test_margin_of_error_shrinks_as_the_cohort_grows(self):
+        from nr1_effectiveness import effect_margin
+
+        self.assertGreater(effect_margin(0.3, 22, 22), effect_margin(0.3, 64, 64))
+        self.assertGreater(effect_margin(0.3, 64, 64), effect_margin(0.3, 200, 200))
+
+    def test_small_effect_on_a_small_cohort_is_not_a_result(self):
+        # d=+0.28 com 22 pessoas: menor que o ruído da própria coorte.
+        verdict = compare(self.small(2.44), self.small(2.29))
+        self.assertEqual(verdict.verdict, "no_change")
+        self.assertFalse(verdict.significant)
+        self.assertIn("nao supera o ruido", verdict.rationale)
+
+    def test_the_same_effect_on_a_large_cohort_can_be_a_result(self):
+        # A mesma queda de 0,20 na média: indistinguível de ruído com 22
+        # pessoas, sustentável com 64. É o número de respostas que decide se
+        # há afirmação a fazer, não o tamanho da diferença isolado.
+        pequeno = compare(self.small(3.20), self.small(3.00))
+        grande = compare(self.large(3.20), self.large(3.00))
+        self.assertAlmostEqual(pequeno.effect_size, grande.effect_size, places=2)
+        self.assertEqual(pequeno.verdict, "no_change")
+        self.assertEqual(grande.verdict, "partial")
+
+    def test_noise_is_not_called_worsening_either(self):
+        # O rigor tem de valer nos dois sentidos: se melhora pequena não vira
+        # sucesso, piora pequena não vira piora.
+        verdict = compare(self.large(2.36), self.large(2.46))
+        self.assertEqual(verdict.verdict, "no_change")
+
+    def test_a_large_effect_still_reads_as_worsening(self):
+        verdict = compare(
+            self.large(1.85, cut_favorable=1.5, cut_critical=3.0),
+            self.large(3.17, cut_favorable=1.5, cut_critical=3.0),
+        )
+        self.assertEqual(verdict.verdict, "worsened")
+        self.assertTrue(verdict.significant)
+        self.assertTrue(verdict.requires_correction)
+
+    def test_stable_low_exposure_creates_no_obligation(self):
+        """Não havia medida a corrigir onde nunca houve risco a tratar.
+
+        O subitem 1.5.5.3.2.1 manda corrigir a medida cujo acompanhamento
+        mostrou ineficácia — o que pressupõe medida. Apontar uma dimensão
+        tranquila como falha enche o plano de ação de ruído e esconde o que
+        importa.
+        """
+        parado = compare(self.small(2.33, critical_ratio=0.02),
+                         self.small(2.33, critical_ratio=0.02))
+        self.assertEqual(parado.verdict, "no_change")
+        self.assertFalse(parado.requires_correction)
+        self.assertIn("nao havia medida associada", parado.rationale)
+
+    def test_stagnant_high_exposure_does_create_an_obligation(self):
+        parado = compare(
+            self.large(3.90, critical_ratio=0.5), self.large(3.88, critical_ratio=0.5)
+        )
+        self.assertEqual(parado.verdict, "no_change")
+        self.assertTrue(parado.requires_correction)
+
+    def test_the_rationale_always_states_the_margin(self):
+        verdict = compare(self.large(3.9), self.large(3.0))
+        self.assertIn("margem de erro", verdict.rationale)
+
+
 class AepMigrationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

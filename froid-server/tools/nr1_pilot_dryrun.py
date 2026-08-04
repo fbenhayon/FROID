@@ -408,8 +408,9 @@ def report(connection) -> None:
         nome = titulos.get(uuid.UUID(verdict.dimension_id), verdict.dimension_id)
         unidade = unidades.get(uuid.UUID(verdict.unit_id), "—") if verdict.unit_id else "—"
         marca = "!" if verdict.requires_correction else " "
-        print(f" {marca} d={verdict.effect_size:+.2f}  {verdict.verdict:12} "
-              f"{nome} · {unidade} · "
+        sig = "sig" if verdict.significant else "   "
+        print(f" {marca} d={verdict.effect_size:+.2f} ±{verdict.effect_margin:.2f} {sig}  "
+              f"{verdict.verdict:12} {nome} · {unidade} · "
               f"{verdict.baseline_mean:.2f} -> {verdict.followup_mean:.2f}")
     falhas = nr1_effectiveness.measures_requiring_correction(verdicts)
     print(f"\n  Medidas que exigem correção: {len(falhas)}")

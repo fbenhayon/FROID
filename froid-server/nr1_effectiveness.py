@@ -28,7 +28,12 @@ from dataclasses import dataclass
 from math import sqrt
 from typing import Dict, Iterable, List, Optional, Tuple
 
-from nr1_compliance import MIN_COHORT_CUT, DimensionScore, exposure_position
+from nr1_compliance import (
+    MIN_COHORT_CUT,
+    DimensionScore,
+    exposure_level,
+    exposure_position,
+)
 
 
 # Standardised mean difference bands. Cohen's conventions, used here as the
@@ -37,6 +42,16 @@ from nr1_compliance import MIN_COHORT_CUT, DimensionScore, exposure_position
 EFFECT_TRIVIAL = 0.20
 EFFECT_MODERATE = 0.50
 EFFECT_LARGE = 0.80
+
+# Um efeito só recebe direção depois de sobreviver ao ruído da própria coorte.
+# 1.96 é o valor crítico de 95%.
+CONFIDENCE_Z = 1.96
+
+# Abaixo deste nível de exigência não havia medida a corrigir: o subitem
+# 1.5.5.3.2.1 manda corrigir a medida cujo acompanhamento mostrou ineficácia,
+# e isso pressupõe que uma medida existia. Dimensão que já estava baixa e
+# continua baixa não gera obrigação nenhuma.
+CORRECTION_EXPOSURE_FLOOR = 3
 
 VERDICT_TO_EFFICACY = {
     "eliminated": "eliminated",
@@ -59,6 +74,10 @@ class EffectivenessVerdict:
     baseline_position: float
     followup_position: float
     effect_size: float
+    # Margem de erro do próprio efeito, dada o tamanho das duas coortes. Um
+    # efeito menor que ela não se distingue de zero.
+    effect_margin: float
+    significant: bool
     verdict: str
     measure_efficacy: str
     requires_correction: bool
@@ -104,6 +123,20 @@ def effect_size(baseline: DimensionScore, followup: DimensionScore) -> float:
     return delta / spread
 
 
+def effect_margin(effect: float, n1: int, n2: int) -> float:
+    """Margem de erro do efeito padronizado, a 95%.
+
+    Erro padrão aproximado do d de Cohen. Sem isto, um efeito de 0,22 medido em
+    22 pessoas seria anunciado como melhora — quando o ruído da própria coorte
+    é maior que ele. É a diferença entre medir e adivinhar, e é exatamente o
+    ponto onde uma perícia adversária desmonta um laudo.
+    """
+    if n1 < 2 or n2 < 2:
+        return float("inf")
+    variancia = ((n1 + n2) / (n1 * n2)) + ((effect ** 2) / (2 * (n1 + n2)))
+    return CONFIDENCE_Z * sqrt(max(0.0, variancia))
+
+
 def compare(
     baseline: DimensionScore, followup: DimensionScore
 ) -> EffectivenessVerdict:
@@ -129,6 +162,8 @@ def compare(
             baseline_position=position_before,
             followup_position=position_after,
             effect_size=0.0,
+            effect_margin=float("inf"),
+            significant=False,
             verdict="inconclusive",
             measure_efficacy=VERDICT_TO_EFFICACY["inconclusive"],
             requires_correction=False,
@@ -141,31 +176,55 @@ def compare(
         )
 
     effect = effect_size(baseline, followup)
+    margem = effect_margin(effect, baseline.cohort_size, followup.cohort_size)
+    # Um efeito menor que a própria margem de erro não recebe direção. Vale nos
+    # dois sentidos: nem melhora que a estatística não sustenta, nem piora.
+    significativo = abs(effect) > margem and abs(effect) >= EFFECT_TRIVIAL
 
-    if effect >= EFFECT_LARGE and position_after == 0.0:
+    if not significativo:
+        verdict = "no_change"
+    elif effect < 0:
+        verdict = "worsened"
+    elif effect >= EFFECT_LARGE and position_after == 0.0:
         verdict = "eliminated"
     elif effect >= EFFECT_MODERATE:
         verdict = "effective"
-    elif effect >= EFFECT_TRIVIAL:
-        verdict = "partial"
-    elif effect > -EFFECT_TRIVIAL:
-        verdict = "no_change"
     else:
-        verdict = "worsened"
+        verdict = "partial"
 
-    requires_correction = verdict in ("no_change", "worsened")
+    # Só se exige correção onde ainda há exposição a corrigir. Dimensão que já
+    # estava baixa e continua baixa nunca teve medida associada, e apontá-la
+    # como falha enche o plano de ação de ruído — escondendo o que importa.
+    exposicao_atual = exposure_level(followup)
+    requires_correction = (
+        verdict in ("no_change", "worsened")
+        and exposicao_atual >= CORRECTION_EXPOSURE_FLOOR
+    )
+
     rationale = (
         f"Linha de base n={baseline.cohort_size}, media {baseline.mean_score:.2f} "
         f"({position_before * 100:.0f}% de exposicao). Reavaliacao "
         f"n={followup.cohort_size}, media {followup.mean_score:.2f} "
-        f"({position_after * 100:.0f}%). Diferenca padronizada d={effect:+.2f}. "
+        f"({position_after * 100:.0f}%). Diferenca padronizada d={effect:+.2f}, "
+        f"margem de erro +/-{margem:.2f}. "
+        f"Exigencia da atividade na reavaliacao: nivel {exposicao_atual}. "
         f"Veredito: {verdict}."
     )
+    if not significativo and abs(effect) >= EFFECT_TRIVIAL:
+        rationale += (
+            " A variacao observada nao supera o ruido da coorte: com este "
+            "numero de respostas nao se afirma mudanca em nenhum sentido."
+        )
     if requires_correction:
         rationale += (
             " A medida nao demonstrou eficacia e deve ser corrigida "
             "(NR-1 1.5.5.3.2.1); a avaliacao de riscos deve ser revista "
             "(1.5.4.4.6 'c')."
+        )
+    elif verdict in ("no_change", "worsened"):
+        rationale += (
+            " Sem obrigacao de correcao: a exigencia da atividade permanece "
+            "baixa, entao nao havia medida associada a esta dimensao."
         )
 
     return EffectivenessVerdict(
@@ -178,6 +237,8 @@ def compare(
         baseline_position=position_before,
         followup_position=position_after,
         effect_size=round(effect, 3),
+        effect_margin=round(margem, 3),
+        significant=significativo,
         verdict=verdict,
         measure_efficacy=VERDICT_TO_EFFICACY[verdict],
         requires_correction=requires_correction,

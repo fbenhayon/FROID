@@ -19,6 +19,8 @@ type Review = {
   baseline_mean: number;
   followup_mean: number;
   effect_size: number;
+  effect_margin: number;
+  significant: boolean;
   verdict: string;
   measure_efficacy: string;
   requires_correction: boolean;
@@ -272,10 +274,18 @@ export const Nr1Effectiveness: React.FC<{ user: FroidUser | null }> = ({ user })
                       <p className="font-mono text-lg font-black text-white">
                         {review.effect_size > 0 ? "+" : ""}
                         {review.effect_size.toFixed(2)}
+                        <span className="ml-1 text-xs font-normal opacity-70">
+                          ±{review.effect_margin.toFixed(2)}
+                        </span>
                       </p>
                       <p className="text-[10px] uppercase tracking-wider opacity-70">
                         diferença padronizada
                       </p>
+                      {!review.significant && (
+                        <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          dentro do ruído
+                        </p>
+                      )}
                     </div>
                   </div>
                   <EffectBar value={review.effect_size} />
