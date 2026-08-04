@@ -245,8 +245,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   const eventCursorRef = useRef<number | null>(null);
   const redirectingRef = useRef(false);
   const professionalName = user?.name || user?.email || "Profissional";
-  // Só quem tem papel de gestão numa clínica multiprofissional vê a área de
-  // gestão; profissional autônomo não tem o que gerenciar ali.
+  // Só quem tem papel de gestão numa clínica REAL vê a área de gestão.
+  //
+  // No modo legado o backend sintetiza uma organização por profissional e lhe
+  // atribui "owner" — o que faria o botão aparecer para todo autônomo, levando
+  // a uma tela que só diz "não ativado". O próprio backend marca esses
+  // contextos com legacy_fallback, então usamos isso para não oferecer uma
+  // área que não existe para quem trabalha sozinho.
   const isClinicManager = useMemo(() => {
     const organizations = user?.organizations || [];
     const active =
@@ -254,7 +259,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
         (organization: any) =>
           organization.organization_id === user?.active_organization_id,
       ) || organizations[0];
-    return (active?.roles || []).some((role: string) =>
+    if (!active || (active as any).legacy_fallback) return false;
+    return (active.roles || []).some((role: string) =>
       ["owner", "administrator", "supervisor"].includes(String(role).toLowerCase()),
     );
   }, [user]);

@@ -83,5 +83,27 @@ class ClinicManagementUiTests(unittest.TestCase):
         self.assertIn("quota_sessions: quota === null ? null : Math.floor(quota)", self.page)
 
 
+class LegacyFallbackTests(unittest.TestCase):
+    """Autonomo nao pode ver uma area de gestao que nao existe para ele."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.dashboard = (DASHBOARD / "pages" / "Dashboard.tsx").read_text(
+            encoding="utf-8"
+        )
+        cls.backend = (
+            Path(__file__).resolve().parents[1] / "main.py"
+        ).read_text(encoding="utf-8")
+
+    def test_backend_marks_synthesized_solo_organizations(self):
+        self.assertIn('"legacy_fallback": True', self.backend)
+        # O modo legado atribui owner a todo profissional; sem a marca acima o
+        # botao de gestao apareceria para todos.
+        self.assertIn('"roles": ["owner", "professional"]', self.backend)
+
+    def test_dashboard_hides_management_for_legacy_fallback(self):
+        self.assertIn("legacy_fallback) return false", self.dashboard)
+
+
 if __name__ == "__main__":
     unittest.main()
