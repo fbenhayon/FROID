@@ -31,6 +31,8 @@ from tenant_access import (
     should_block,
 )
 from tenant_store import TenantStore, stable_uuid
+import nr1_compliance
+import nr1_effectiveness
 from subscriptions import (
     ACTIVE_SUBSCRIPTION_STATUSES,
     AUTO_REPLENISH_TERMS_VERSION,
@@ -4279,6 +4281,7 @@ def _legacy_tenant_context(email: str) -> dict:
         "user_id": str(user_id),
         "status": "active",
         "roles": ["owner", "professional"],
+        "organization_type": "legacy",
         "legacy_fallback": True,
     }
 
@@ -4378,6 +4381,7 @@ def _tenant_context_from_request(request: Request) -> Optional[AccessContext]:
         user_id=selected.get("user_id") or "",
         roles=selected.get("roles") or [],
         status=selected.get("status") or "",
+        organization_type=selected.get("organization_type") or "clinic",
     )
 
 
@@ -4564,6 +4568,7 @@ def _require_professional_websocket_access(user: dict) -> Optional[AccessContext
             user_id=selected.get("user_id") or "",
             roles=selected.get("roles") or [],
             status=selected.get("status") or "",
+            organization_type=selected.get("organization_type") or "clinic",
         )
         if isinstance(selected, dict)
         else None
@@ -7249,6 +7254,796 @@ async def delete_patient_assignment(
         metadata={"patient_id": patient_id},
     )
     return {"status": "revoked", "assignment_id": assignment_id}
+
+
+# ---------------------------------------------------------------------------
+# NR-1 psychosocial compliance (Portaria MTE 1.419/2024)
+#
+# The employer-facing surface. None of these routes can reach an individual
+# answer: the aggregate comes out of a k-clamped SQL function and the runtime
+# database role holds no SELECT on the raw answer tables.
+# ---------------------------------------------------------------------------
+def _require_enterprise_context(
+    request: Request, organization_id: str, permission: str
+) -> AccessContext:
+    context = _require_tenant_management_context(request, organization_id, permission)
+    if not context.is_enterprise:
+        raise HTTPException(
+            status_code=409,
+            detail="módulo NR-1 disponível apenas para organizações do tipo enterprise",
+        )
+    return context
+
+
+def _nr1_criteria_for(context: AccessContext) -> nr1_compliance.GradationCriteria:
+    """The organization's documented criteria, or the seeded default.
+
+    Subitem 1.5.4.4.2.2 makes the gradations the organization's own, and the
+    Manual requires the same ones across every risk type in the PGR — so a
+    client already running a 3x3 matrix keeps it, and FROID grades on that.
+    """
+    try:
+        document = TENANT_STORE.nr1_active_criteria(
+            organization_id=context.organization_id,
+            membership_id=context.membership_id,
+        )
+    except Exception:
+        LOGGER.exception("Unable to read NR-1 criteria; falling back to default")
+        return nr1_compliance.DEFAULT_CRITERIA
+    if not document:
+        return nr1_compliance.DEFAULT_CRITERIA
+    try:
+        return nr1_compliance.GradationCriteria.from_document(document)
+    except ValueError:
+        LOGGER.exception("Stored NR-1 criteria are invalid; falling back to default")
+        return nr1_compliance.DEFAULT_CRITERIA
+
+
+@app.get("/api/organizations/{organization_id}/nr1/criteria")
+async def read_nr1_criteria(organization_id: str, request: Request):
+    """Documento de critérios do GRO — the third mandatory PGR document."""
+    context = _require_enterprise_context(
+        request, organization_id, "nr1.aggregate.read"
+    )
+    criteria = _nr1_criteria_for(context)
+    return {
+        "published": criteria.source != "froid-default",
+        "version": criteria.version,
+        "source": criteria.source,
+        "document": criteria.as_document(),
+    }
+
+
+@app.post("/api/organizations/{organization_id}/nr1/criteria")
+async def publish_nr1_criteria(organization_id: str, request: Request):
+    """Publish an immutable version of the criteria.
+
+    Accepts a full document, or a matrix shape to rescale the FROID default onto
+    the gradations the organization already uses for its other risks.
+    """
+    context = _require_enterprise_context(
+        request, organization_id, "nr1.inventory.manage"
+    )
+    body = await request.json()
+    document = body.get("document")
+    if not isinstance(document, dict):
+        severity_max = _local_int(body.get("severity_levels")) or 5
+        probability_max = _local_int(body.get("probability_levels")) or 5
+        try:
+            document = nr1_compliance.criteria_for_scale(
+                severity_max, probability_max
+            ).as_document()
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+    else:
+        try:
+            nr1_compliance.GradationCriteria.from_document(document)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=f"critérios inválidos: {exc}")
+
+    document.setdefault("classification_rules", {
+        "basis": "NR-1 1.5.4.4.3",
+        "note": (
+            "Riscos classificados para determinar a necessidade de adoção ou "
+            "manutenção de medidas e a elaboração do plano de ação."
+        ),
+    })
+    document.setdefault("decision_rules", {
+        "priority": (
+            "Nível de risco, seguido do número de trabalhadores possivelmente "
+            "atingidos (NR-1 1.5.5.2.1.1)."
+        ),
+        "measure_hierarchy": list(nr1_compliance.MEASURE_HIERARCHY),
+        "effectiveness": (
+            "Eficácia aferida por comparação da unidade contra a própria linha "
+            "de base; medida sem eficácia demonstrada deve ser corrigida "
+            "(NR-1 1.5.5.3.2.1)."
+        ),
+    })
+
+    try:
+        published = TENANT_STORE.nr1_publish_criteria(
+            organization_id=organization_id,
+            membership_id=context.membership_id,
+            document=document,
+            review_interval_months=_local_int(body.get("review_interval_months")) or 24,
+            has_certified_sst_system=bool(body.get("has_certified_sst_system")),
+        )
+    except RuntimeError:
+        raise HTTPException(status_code=409, detail="módulo NR-1 requer persistência dual")
+    except Exception:
+        LOGGER.exception("Unable to publish NR-1 criteria")
+        raise HTTPException(status_code=400, detail="não foi possível publicar os critérios")
+
+    _record_tenant_success(
+        context, "nr1.criteria.publish", "gro_risk_criteria",
+        published["criteria_id"], {"version": published["version"]},
+    )
+    return published
+
+
+@app.post("/api/organizations/{organization_id}/nr1/aep")
+async def create_nr1_aep(organization_id: str, request: Request):
+    """Open an Avaliação Ergonômica Preliminar for one evaluation unit."""
+    context = _require_enterprise_context(
+        request, organization_id, "nr1.inventory.manage"
+    )
+    body = await request.json()
+    unit_id = str(body.get("unit_id") or "").strip()
+    if not unit_id:
+        raise HTTPException(status_code=400, detail="unidade de avaliação obrigatória")
+    try:
+        created = TENANT_STORE.nr1_create_aep(
+            organization_id=organization_id,
+            membership_id=context.membership_id,
+            unit_id=unit_id,
+            reference_period=str(body.get("reference_period") or "").strip(),
+            criteria_id=str(body.get("criteria_id") or "").strip() or None,
+        )
+    except RuntimeError:
+        raise HTTPException(status_code=409, detail="módulo NR-1 requer persistência dual")
+    except Exception:
+        LOGGER.exception("Unable to open AEP")
+        raise HTTPException(status_code=400, detail="não foi possível abrir a AEP")
+    _record_tenant_success(
+        context, "nr1.aep.create", "aep_assessment", created["aep_id"]
+    )
+    return created
+
+
+@app.post("/api/organizations/{organization_id}/nr1/aep/{aep_id}/evidence")
+async def add_nr1_aep_evidence(organization_id: str, aep_id: str, request: Request):
+    """Attach one piece of evidence, naming the method it came from.
+
+    A questionnaire never stands alone: the MTE is explicit that its results do
+    not by themselves prove risk management, so every AEP records which methods
+    grounded it.
+    """
+    context = _require_enterprise_context(
+        request, organization_id, "nr1.inventory.manage"
+    )
+    body = await request.json()
+    method = str(body.get("method") or "").strip()
+    allowed_methods = {
+        "activity_observation", "worker_dialogue", "questionnaire",
+        "workshop", "focus_group", "document_analysis", "cipa_manifestation",
+    }
+    if method not in allowed_methods:
+        raise HTTPException(status_code=400, detail="método de evidência inválido")
+    summary = str(body.get("summary") or "").strip()
+    collected_on = body.get("collected_on")
+    if not summary or not collected_on:
+        raise HTTPException(status_code=400, detail="data e descrição são obrigatórias")
+    try:
+        evidence_id = TENANT_STORE.nr1_add_aep_evidence(
+            organization_id=organization_id,
+            membership_id=context.membership_id,
+            aep_id=aep_id,
+            method=method,
+            collected_on=collected_on,
+            summary=summary,
+            collected_by=str(body.get("collected_by") or "").strip(),
+            campaign_id=str(body.get("campaign_id") or "").strip() or None,
+            evidence_reference=str(body.get("evidence_reference") or "").strip(),
+        )
+    except RuntimeError:
+        raise HTTPException(status_code=409, detail="módulo NR-1 requer persistência dual")
+    except Exception:
+        LOGGER.exception("Unable to record AEP evidence")
+        raise HTTPException(status_code=400, detail="não foi possível registrar a evidência")
+    _record_tenant_success(
+        context, "nr1.aep.evidence", "aep_assessment", aep_id, {"method": method}
+    )
+    return {"evidence_id": evidence_id, "aep_id": aep_id, "method": method}
+
+
+@app.get("/api/organizations/{organization_id}/nr1/aep/{aep_id}")
+async def read_nr1_aep(organization_id: str, aep_id: str, request: Request):
+    context = _require_enterprise_context(
+        request, organization_id, "nr1.aggregate.read"
+    )
+    try:
+        aep = TENANT_STORE.nr1_get_aep(
+            organization_id=organization_id,
+            membership_id=context.membership_id,
+            aep_id=aep_id,
+        )
+    except RuntimeError:
+        raise HTTPException(status_code=409, detail="módulo NR-1 requer persistência dual")
+    if aep is None:
+        raise HTTPException(status_code=404, detail="AEP não encontrada")
+    methods = {item["method"] for item in aep["evidence"]}
+    aep["method_count"] = len(methods)
+    # Surfaced rather than blocked: the norm does not forbid a single method,
+    # but an AEP resting only on a questionnaire is the exact shape the FAQ
+    # says does not prove risk management on its own.
+    aep["single_method_warning"] = (
+        methods == {"questionnaire"}
+        or (len(methods) == 1 and aep["status"] == "concluded")
+    )
+    _record_tenant_success(context, "nr1.aep.read", "aep_assessment", aep_id)
+    return aep
+
+
+@app.post("/api/organizations/{organization_id}/nr1/effectiveness")
+async def review_nr1_effectiveness(organization_id: str, request: Request):
+    """Did the prevention measures work? Measured, not asserted.
+
+    Compares a follow-up campaign against an earlier baseline for the same unit
+    and dimension. Feeds the eficácia term that 1.5.4.4.5.3 puts inside the
+    probability, and flags measures that 1.5.5.3.2.1 obliges correcting.
+
+    A POST because it records the review: the verdict becomes the efficacy the
+    next cycle grades against, so it is an act, not a lookup.
+    """
+    context = _require_enterprise_context(
+        request, organization_id, "nr1.aggregate.read"
+    )
+    body = await request.json()
+    baseline_id = str(body.get("baseline_campaign_id") or "").strip()
+    followup_id = str(body.get("followup_campaign_id") or "").strip()
+    if not baseline_id or not followup_id:
+        raise HTTPException(
+            status_code=400,
+            detail="baseline_campaign_id e followup_campaign_id são obrigatórios",
+        )
+    if baseline_id == followup_id:
+        raise HTTPException(
+            status_code=400, detail="a comparação exige duas campanhas distintas"
+        )
+    try:
+        baseline_rows = TENANT_STORE.nr1_dimension_scores(
+            organization_id=organization_id,
+            membership_id=context.membership_id,
+            campaign_id=baseline_id,
+        )
+        followup_rows = TENANT_STORE.nr1_dimension_scores(
+            organization_id=organization_id,
+            membership_id=context.membership_id,
+            campaign_id=followup_id,
+        )
+    except RuntimeError:
+        raise HTTPException(status_code=409, detail="módulo NR-1 requer persistência dual")
+    except Exception:
+        LOGGER.exception("Unable to compare NR-1 campaigns")
+        raise HTTPException(status_code=503, detail="comparação indisponível")
+
+    if not baseline_rows or not followup_rows:
+        return {
+            "baseline_campaign_id": baseline_id,
+            "followup_campaign_id": followup_id,
+            "comparable": False,
+            "reviews": [],
+            "notice": (
+                "Comparação indisponível: as duas campanhas precisam estar "
+                "encerradas e ter atingido o piso de coorte."
+            ),
+        }
+
+    verdicts = nr1_effectiveness.compare_campaigns(
+        (nr1_compliance.DimensionScore(**row) for row in baseline_rows),
+        (nr1_compliance.DimensionScore(**row) for row in followup_rows),
+    )
+    payload = [
+        {
+            "unit_id": verdict.unit_id,
+            "dimension_id": verdict.dimension_id,
+            "baseline_cohort": verdict.baseline_cohort,
+            "followup_cohort": verdict.followup_cohort,
+            "baseline_mean": verdict.baseline_mean,
+            "followup_mean": verdict.followup_mean,
+            "effect_size": verdict.effect_size,
+            "verdict": verdict.verdict,
+            "measure_efficacy": verdict.measure_efficacy,
+            "requires_correction": verdict.requires_correction,
+            "rationale": verdict.rationale,
+        }
+        for verdict in verdicts
+    ]
+
+    if payload and "nr1.inventory.manage" in context.permissions:
+        try:
+            TENANT_STORE.nr1_store_effectiveness(
+                organization_id=organization_id,
+                membership_id=context.membership_id,
+                baseline_campaign_id=baseline_id,
+                followup_campaign_id=followup_id,
+                verdicts=payload,
+            )
+        except Exception:
+            LOGGER.exception("Unable to persist NR-1 effectiveness review")
+
+    _record_tenant_success(
+        context, "nr1.effectiveness.review", "assessment_campaign", followup_id,
+        {"result_count": len(payload)},
+    )
+    return {
+        "baseline_campaign_id": baseline_id,
+        "followup_campaign_id": followup_id,
+        "comparable": True,
+        "notice": "",
+        "requires_correction": sum(
+            1 for item in payload if item["requires_correction"]
+        ),
+        "reviews": payload,
+    }
+
+
+@app.get("/api/organizations/{organization_id}/nr1/campaigns")
+async def list_nr1_campaigns(organization_id: str, request: Request):
+    context = _require_enterprise_context(
+        request, organization_id, "nr1.aggregate.read"
+    )
+    try:
+        campaigns = TENANT_STORE.nr1_list_campaigns(
+            organization_id=organization_id,
+            membership_id=context.membership_id,
+        )
+    except RuntimeError:
+        raise HTTPException(status_code=409, detail="módulo NR-1 requer persistência dual")
+    _record_tenant_success(
+        context, "nr1.campaign.list", "assessment_campaign", organization_id,
+        {"result_count": len(campaigns)},
+    )
+    return {"campaigns": campaigns}
+
+
+@app.post("/api/organizations/{organization_id}/nr1/campaigns")
+async def create_nr1_campaign(organization_id: str, request: Request):
+    context = _require_enterprise_context(
+        request, organization_id, "nr1.campaigns.manage"
+    )
+    body = await request.json()
+    instrument_id = str(body.get("instrument_id") or "").strip()
+    title = str(body.get("title") or "").strip()
+    opens_at = body.get("opens_at")
+    closes_at = body.get("closes_at")
+    if not instrument_id or not title or not opens_at or not closes_at:
+        raise HTTPException(
+            status_code=400,
+            detail="instrumento, título e janela de coleta são obrigatórios",
+        )
+    try:
+        created = TENANT_STORE.nr1_create_campaign(
+            organization_id=organization_id,
+            membership_id=context.membership_id,
+            instrument_id=instrument_id,
+            title=title,
+            opens_at=opens_at,
+            closes_at=closes_at,
+            unit_id=str(body.get("unit_id") or "").strip() or None,
+            reference_period=str(body.get("reference_period") or "").strip(),
+            target_headcount=_local_int(body.get("target_headcount")),
+            purpose_notice=str(body.get("purpose_notice") or "").strip(),
+            support_channel_label=str(body.get("support_channel_label") or "").strip(),
+            support_channel_detail=str(body.get("support_channel_detail") or "").strip(),
+        )
+    except RuntimeError:
+        raise HTTPException(status_code=409, detail="módulo NR-1 requer persistência dual")
+    except Exception:
+        LOGGER.exception("Unable to create NR-1 campaign")
+        raise HTTPException(status_code=400, detail="não foi possível criar a campanha")
+    _record_tenant_success(
+        context, "nr1.campaign.create", "assessment_campaign",
+        created["campaign_id"],
+    )
+    return created
+
+
+@app.post("/api/organizations/{organization_id}/nr1/campaigns/{campaign_id}/open")
+async def open_nr1_campaign(organization_id: str, campaign_id: str, request: Request):
+    """Start collection.
+
+    The database refuses to open a campaign without a support channel and a
+    purpose notice, so this cannot be shipped by accident.
+    """
+    context = _require_enterprise_context(
+        request, organization_id, "nr1.campaigns.manage"
+    )
+    try:
+        opened = TENANT_STORE.nr1_open_campaign(
+            organization_id=organization_id,
+            membership_id=context.membership_id,
+            campaign_id=campaign_id,
+        )
+    except RuntimeError:
+        raise HTTPException(status_code=409, detail="módulo NR-1 requer persistência dual")
+    except ValueError:
+        raise HTTPException(status_code=409, detail="campanha não está em rascunho")
+    except Exception as exc:
+        LOGGER.exception("Unable to open NR-1 campaign")
+        detail = str(exc)
+        if "canal de apoio" in detail or "aviso de finalidade" in detail:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "informe o aviso de finalidade e o canal de apoio ao "
+                    "colaborador antes de abrir a coleta"
+                ),
+            )
+        raise HTTPException(status_code=400, detail="não foi possível abrir a campanha")
+    _record_tenant_success(
+        context, "nr1.campaign.open", "assessment_campaign", campaign_id
+    )
+    return opened
+
+
+@app.post("/api/organizations/{organization_id}/nr1/campaigns/{campaign_id}/close")
+async def close_nr1_campaign(organization_id: str, campaign_id: str, request: Request):
+    """End collection, which is what makes the aggregate readable.
+
+    Results are withheld while a campaign is open on purpose: a cohort that is
+    still growing can be differenced one respondent at a time, and no cohort
+    floor protects against that.
+    """
+    context = _require_enterprise_context(
+        request, organization_id, "nr1.campaigns.manage"
+    )
+    try:
+        closed = TENANT_STORE.nr1_close_campaign(
+            organization_id=organization_id,
+            membership_id=context.membership_id,
+            campaign_id=campaign_id,
+        )
+    except RuntimeError:
+        raise HTTPException(status_code=409, detail="módulo NR-1 requer persistência dual")
+    except ValueError:
+        raise HTTPException(status_code=409, detail="campanha não está aberta")
+    _record_tenant_success(
+        context, "nr1.campaign.close", "assessment_campaign", campaign_id
+    )
+    return closed
+
+
+def _nr1_subject_pseudonym(organization_id: str, payroll_number: str) -> str:
+    """Salted pseudonym for one worker, scoped to the organization.
+
+    Keyed HMAC rather than a plain digest: without the server key nobody can
+    rebuild the table by hashing a payroll list they already hold.
+    """
+    if not FROID_DATAMART_PSEUDONYM_KEY:
+        raise RuntimeError("FROID_DATAMART_PSEUDONYM_KEY is required")
+    raw = f"nr1:{organization_id}:{str(payroll_number).strip().lower()}"
+    return hmac.new(
+        FROID_DATAMART_PSEUDONYM_KEY.encode("utf-8"),
+        raw.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+
+
+def _nr1_token_hash(token: str) -> str:
+    return hashlib.sha256(str(token or "").encode("utf-8")).hexdigest()
+
+
+@app.post("/api/organizations/{organization_id}/nr1/campaigns/{campaign_id}/invitations")
+async def create_nr1_invitations(
+    organization_id: str, campaign_id: str, request: Request
+):
+    """Turn a payroll list into single-use anonymous invitation links.
+
+    The response carries the raw tokens once, for distribution. They are not
+    recoverable afterwards: only their digest is stored.
+    """
+    context = _require_enterprise_context(
+        request, organization_id, "nr1.campaigns.manage"
+    )
+    body = await request.json()
+    subjects = body.get("subjects")
+    if not isinstance(subjects, list) or not subjects:
+        raise HTTPException(status_code=400, detail="lista de colaboradores obrigatória")
+    if len(subjects) > 5000:
+        raise HTTPException(status_code=400, detail="limite de 5000 convites por chamada")
+
+    prepared: list[dict] = []
+    links: list[dict] = []
+    try:
+        for subject in subjects:
+            payroll_number = str((subject or {}).get("payroll_number") or "").strip()
+            if not payroll_number:
+                raise HTTPException(status_code=400, detail="matrícula obrigatória")
+            token = secrets.token_urlsafe(32)
+            pseudonym = _nr1_subject_pseudonym(organization_id, payroll_number)
+            prepared.append(
+                {
+                    "pseudonym": pseudonym,
+                    "token_hash": _nr1_token_hash(token),
+                    "unit_id": str((subject or {}).get("unit_id") or "").strip() or None,
+                }
+            )
+            # Echoed back so the employer can dispatch the link, paired with the
+            # payroll number it already holds. FROID never stores the pairing.
+            links.append({"payroll_number": payroll_number, "token": token})
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail="chave de pseudonimização não configurada")
+
+    try:
+        created = TENANT_STORE.nr1_create_invitations(
+            organization_id=organization_id,
+            membership_id=context.membership_id,
+            campaign_id=campaign_id,
+            subjects=prepared,
+        )
+    except RuntimeError:
+        raise HTTPException(status_code=409, detail="módulo NR-1 requer persistência dual")
+    except Exception:
+        LOGGER.exception("Unable to create NR-1 invitations")
+        raise HTTPException(status_code=400, detail="não foi possível registrar os convites")
+
+    _record_tenant_success(
+        context, "nr1.invitation.create", "assessment_campaign", campaign_id,
+        {"result_count": created},
+    )
+    return {"campaign_id": campaign_id, "created": created, "links": links}
+
+
+@app.get("/api/nr1/questionnaire")
+async def read_nr1_questionnaire(request: Request):
+    """Fetch the form for one invitation token. No login, no tenant header.
+
+    Fails uniformly: an unknown token, a used one and a closed campaign all
+    return the same 404, so the endpoint cannot be used to probe who was
+    invited or who already answered.
+    """
+    token = str(request.query_params.get("token") or "").strip()
+    if not token:
+        raise HTTPException(status_code=400, detail="token obrigatório")
+    try:
+        payload = TENANT_STORE.nr1_questionnaire_for_token(
+            token_hash=_nr1_token_hash(token)
+        )
+    except RuntimeError:
+        raise HTTPException(status_code=409, detail="módulo NR-1 requer persistência dual")
+    except Exception:
+        LOGGER.exception("Unable to load NR-1 questionnaire")
+        raise HTTPException(status_code=503, detail="questionário indisponível")
+    if not payload:
+        raise HTTPException(
+            status_code=404, detail="convite indisponível ou fora da janela de coleta"
+        )
+    return payload
+
+
+@app.post("/api/nr1/responses")
+async def submit_nr1_response(request: Request):
+    """Anonymous questionnaire submission. No login, no tenant header.
+
+    Intentionally uniform in its failure mode: an expired token, a closed
+    campaign and an already-used token all return the same 409, so the endpoint
+    cannot be used to probe who was invited or who already answered.
+    """
+    body = await request.json()
+    token = str(body.get("token") or "").strip()
+    answers = body.get("answers")
+    if not token or not isinstance(answers, dict) or not answers:
+        raise HTTPException(status_code=400, detail="token e respostas são obrigatórios")
+    normalized: dict[str, int] = {}
+    for item_id, value in answers.items():
+        try:
+            normalized[str(item_id)] = int(value)
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="resposta inválida")
+    try:
+        accepted = TENANT_STORE.nr1_submit_response(
+            token_hash=_nr1_token_hash(token), answers=normalized
+        )
+    except RuntimeError:
+        raise HTTPException(status_code=409, detail="módulo NR-1 requer persistência dual")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="respostas inválidas")
+    except Exception:
+        LOGGER.exception("Unable to record NR-1 response")
+        raise HTTPException(status_code=503, detail="coleta indisponível")
+    if not accepted:
+        raise HTTPException(
+            status_code=409, detail="convite indisponível ou fora da janela de coleta"
+        )
+    return {"status": "recorded"}
+
+
+@app.get("/api/organizations/{organization_id}/nr1/campaigns/{campaign_id}/panel")
+async def read_nr1_panel(organization_id: str, campaign_id: str, request: Request):
+    """Aggregated psychosocial panel, or an explicit suppression notice."""
+    context = _require_enterprise_context(
+        request, organization_id, "nr1.aggregate.read"
+    )
+    try:
+        progress = TENANT_STORE.nr1_campaign_progress(
+            organization_id=organization_id,
+            membership_id=context.membership_id,
+            campaign_id=campaign_id,
+        )
+        rows = TENANT_STORE.nr1_dimension_scores(
+            organization_id=organization_id,
+            membership_id=context.membership_id,
+            campaign_id=campaign_id,
+        )
+    except RuntimeError:
+        raise HTTPException(status_code=409, detail="módulo NR-1 requer persistência dual")
+    except ValueError:
+        raise HTTPException(status_code=404, detail="campanha não encontrada")
+    except Exception:
+        LOGGER.exception("Unable to aggregate NR-1 campaign")
+        raise HTTPException(status_code=503, detail="painel NR-1 indisponível")
+
+    total = int(progress.get("responses") or 0)
+    if not rows:
+        # Distinguish the two reasons, otherwise an open campaign that already
+        # cleared the floor would report an empty notice and look broken.
+        if progress.get("status") != "closed":
+            notice = (
+                "A coleta ainda está aberta. Nenhum resultado é liberado "
+                "enquanto a coorte continua crescendo, porque quem observasse o "
+                "painel a cada nova resposta poderia deduzir a resposta "
+                "individual por diferença. Encerre a campanha para ver a "
+                "gradação."
+            )
+        else:
+            notice = nr1_compliance.suppression_notice(total) or (
+                "Nenhum recorte atingiu o piso mínimo de coorte."
+            )
+        _record_tenant_success(
+            context, "nr1.panel.suppressed", "assessment_campaign", campaign_id,
+            {"status": progress.get("status")},
+        )
+        return {
+            "campaign_id": campaign_id,
+            "reportable": False,
+            "risks": [],
+            "progress": progress,
+            "notice": notice,
+        }
+
+    criteria = _nr1_criteria_for(context)
+    graded = nr1_compliance.grade_all(
+        (nr1_compliance.DimensionScore(**row) for row in rows), criteria
+    )
+    _record_tenant_success(
+        context, "nr1.panel.read", "assessment_campaign", campaign_id,
+        {"result_count": len(graded)},
+    )
+    return {
+        "campaign_id": campaign_id,
+        "reportable": True,
+        "notice": "",
+        "progress": progress,
+        "risks": [
+            {
+                "dimension_id": risk.dimension_id,
+                "nr1_factor": risk.nr1_factor,
+                "unit_id": risk.unit_id,
+                "cohort_size": risk.cohort_size,
+                "mean_score": risk.mean_score,
+                "critical_ratio": risk.critical_ratio,
+                "exposure_level": risk.exposure_level,
+                "severity": risk.severity,
+                "probability": risk.probability,
+                "risk_level": risk.risk_level,
+                "consequence": risk.consequence,
+                "measure_efficacy": risk.measure_efficacy,
+                "exposed_workers": risk.exposed_workers,
+                "rationale": risk.rationale,
+            }
+            for risk in graded
+        ],
+    }
+
+
+@app.post("/api/organizations/{organization_id}/nr1/campaigns/{campaign_id}/inventory")
+async def generate_nr1_inventory(
+    organization_id: str, campaign_id: str, request: Request
+):
+    """Grade the campaign and persist the risk inventory that feeds the PGR."""
+    context = _require_enterprise_context(
+        request, organization_id, "nr1.inventory.manage"
+    )
+    try:
+        progress = TENANT_STORE.nr1_campaign_progress(
+            organization_id=organization_id,
+            membership_id=context.membership_id,
+            campaign_id=campaign_id,
+        )
+        rows = TENANT_STORE.nr1_dimension_scores(
+            organization_id=organization_id,
+            membership_id=context.membership_id,
+            campaign_id=campaign_id,
+        )
+    except RuntimeError:
+        raise HTTPException(status_code=409, detail="módulo NR-1 requer persistência dual")
+    except ValueError:
+        raise HTTPException(status_code=404, detail="campanha não encontrada")
+
+    total = int(progress.get("responses") or 0)
+    if not rows:
+        if progress.get("status") != "closed":
+            raise HTTPException(
+                status_code=409,
+                detail="encerre a coleta antes de gerar o inventário",
+            )
+        raise HTTPException(
+            status_code=409,
+            detail=nr1_compliance.suppression_notice(total)
+            or "campanha sem coorte suficiente para gerar inventário",
+        )
+
+    criteria = _nr1_criteria_for(context)
+    graded = nr1_compliance.grade_all(
+        (nr1_compliance.DimensionScore(**row) for row in rows), criteria
+    )
+    stored = TENANT_STORE.nr1_store_inventory(
+        organization_id=organization_id,
+        membership_id=context.membership_id,
+        campaign_id=campaign_id,
+        graded_rows=[
+            {
+                "unit_id": risk.unit_id,
+                "dimension_id": risk.dimension_id,
+                "nr1_factor": risk.nr1_factor,
+                "cohort_size": risk.cohort_size,
+                "mean_score": risk.mean_score,
+                "severity": risk.severity,
+                "probability": risk.probability,
+                "risk_level": risk.risk_level,
+                "rationale": risk.rationale,
+                # 1.5.7.3.2 "d", "e", "f" and "g"
+                "selected_consequence": risk.consequence,
+                "possible_harms": list(risk.consequences_considered),
+                "exposed_workers": risk.exposed_workers,
+                "measure_efficacy": risk.measure_efficacy,
+                "exposure_level": risk.exposure_level,
+                "risk_classification": risk.risk_level,
+            }
+            for risk in graded
+        ],
+    )
+    _record_tenant_success(
+        context, "nr1.inventory.generate", "assessment_campaign", campaign_id,
+        {"result_count": stored},
+    )
+    return {
+        "campaign_id": campaign_id,
+        "inventory_rows": stored,
+        "action_plan_seed": nr1_compliance.action_plan_seed(graded),
+    }
+
+
+@app.get("/api/organizations/{organization_id}/nr1/campaigns/{campaign_id}/inventory")
+async def list_nr1_inventory(organization_id: str, campaign_id: str, request: Request):
+    context = _require_enterprise_context(
+        request, organization_id, "nr1.aggregate.read"
+    )
+    try:
+        inventory = TENANT_STORE.nr1_list_inventory(
+            organization_id=organization_id,
+            membership_id=context.membership_id,
+            campaign_id=campaign_id,
+        )
+    except RuntimeError:
+        raise HTTPException(status_code=409, detail="módulo NR-1 requer persistência dual")
+    _record_tenant_success(
+        context, "nr1.inventory.read", "assessment_campaign", campaign_id,
+        {"result_count": len(inventory)},
+    )
+    return {"campaign_id": campaign_id, "inventory": inventory}
 
 
 @app.get("/api/organizations/{organization_id}/wallet")

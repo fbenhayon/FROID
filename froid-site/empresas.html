@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>NR-1 e Riscos Psicossociais para Empresas — FROID</title>
+<meta name="description" content="AEP psicossocial completa conforme a Portaria MTE nº 1.419/2024: identificação de perigos, gradação por severidade e probabilidade, inventário com os nove itens da NR-1 e prova medida da eficácia das medidas de prevenção." />
+<link rel="alternate" hreflang="pt-BR" href="https://www.froid.com.br/empresas.html" />
+<link rel="alternate" hreflang="x-default" href="https://www.froid.com.br/empresas.html" />
+<link rel="stylesheet" href="site-assets/style.css?v=7" />
+<style>
+  .stat-row { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; margin:36px auto 0; max-width:900px; }
+  @media (max-width:860px) { .stat-row { grid-template-columns:1fr; } }
+  .stat { border:1px solid var(--border); border-radius:var(--radius); background:rgba(15,23,42,0.6); padding:20px 18px; text-align:center; }
+  .stat .num { font-family:var(--font-serif); font-size:2rem; font-weight:700; color:#f8fafc; line-height:1.1; font-variant-numeric:tabular-nums; }
+  .stat .desc { font-size:0.86rem; color:var(--froid-cinza); margin-top:8px; }
+  .stat .src { font-size:0.72rem; color:#64748b; margin-top:10px; }
+
+  .risk-list { list-style:none; margin:0; padding:0; }
+  .risk-list li { position:relative; padding:9px 0 9px 26px; border-bottom:1px solid #1e2a44; font-size:0.94rem; }
+  .risk-list li:last-child { border-bottom:none; }
+  .risk-list li::before { content:"▸"; position:absolute; left:4px; color:var(--froid-azul); font-weight:800; }
+
+  .legal-card { border:1px solid var(--border); border-left:3px solid var(--froid-vermelho); border-radius:var(--radius); background:rgba(15,23,42,0.6); padding:20px 22px; margin:0 0 18px; }
+  .legal-card:last-child { margin-bottom:0; }
+  .legal-card h3 { margin:10px 0 8px; font-size:1.05rem; }
+  .legal-card p { margin:0; font-size:0.94rem; }
+
+  .cmp-wrap, .haz-wrap { overflow-x:auto; }
+  .cmp-table, .haz-table { width:100%; border-collapse:collapse; font-size:0.9rem; min-width:640px; }
+  .cmp-table th, .cmp-table td, .haz-table th, .haz-table td { padding:11px 14px; border-bottom:1px solid #334155; text-align:left; vertical-align:top; }
+  .cmp-table th, .haz-table th { background:#1e293b; color:#f8fafc; font-size:0.82rem; text-transform:uppercase; letter-spacing:0.05em; }
+  .cmp-table th:last-child { color:#93c5fd; }
+  .cmp-table td:first-child { font-weight:700; color:#f8fafc; width:20%; }
+  .cmp-table td.trad { color:var(--froid-cinza); }
+  .cmp-table td.froid { color:#e2e8f0; background:rgba(59,130,246,0.06); }
+  .haz-table td:last-child { color:var(--froid-cinza); font-size:0.86rem; }
+  .haz-table .grp td { background:#0f172a; color:#93c5fd; font-weight:700; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em; }
+
+  .norm-quote { border-left:3px solid var(--froid-azul); padding:2px 0 2px 16px; margin:0 0 22px; color:var(--froid-cinza); font-size:0.9rem; }
+  .norm-quote strong { color:#e2e8f0; }
+  .norm-ref { display:block; font-size:0.78rem; color:#64748b; margin-top:6px; }
+
+  .timeline { border-left:2px solid #1e2a44; margin:28px 0 0; padding:0 0 0 22px; list-style:none; }
+  .timeline li { position:relative; padding:0 0 22px; }
+  .timeline li::before { content:""; position:absolute; left:-28px; top:5px; width:10px; height:10px; border-radius:50%; background:var(--froid-azul); }
+  .timeline li.now::before { background:var(--froid-amarelo); box-shadow:0 0 10px var(--froid-amarelo); }
+  .timeline .when { font-weight:700; color:#f8fafc; font-size:0.92rem; }
+  .timeline .what { color:var(--froid-cinza); font-size:0.9rem; margin-top:3px; }
+
+  .trap { border:1px solid #7f1d1d; border-radius:var(--radius); background:rgba(69,10,10,0.35); padding:16px 18px; }
+  .trap h4 { margin:0 0 6px; font-size:0.95rem; color:#fecaca; }
+  .trap p { margin:0; font-size:0.88rem; color:rgba(248,250,252,0.75); }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="nav-row">
+    <a class="brand" href="index.html"><img class="brand-logo" src="site-assets/img/froid-logo.png" alt="FROID" /></a>
+    <nav class="nav-links">
+      <a href="index.html">Início</a>
+      <a href="ciencia.html">Ciência</a>
+      <a href="tecnologia.html">Tecnologia</a>
+      <a href="froid-explica.html">FROID Explica</a>
+      <a href="etica.html">Ética</a>
+      <a href="seguranca.html">Segurança</a>
+      <a href="profissionais.html">Profissionais</a>
+      <a href="empresas.html">Empresas</a>
+      <a href="precos.html">Preços</a>
+    </nav>
+    <div class="nav-actions">
+      <a class="btn btn-ghost" href="https://www.froid.com.br/app/#/login">Entrar no FROID</a>
+      <div class="lang-group" role="group" aria-label="Choose language"><span class="lang-pill lang-current">PT</span></div>
+    </div>
+  </div>
+</header>
+
+<section class="hero" style="padding:64px 0 56px;">
+  <div class="container">
+    <p class="section-kicker" style="color:#93c5fd;">FROID Compliance — NR-1</p>
+    <h1 style="font-size:2.1rem;">A NR-1 exige provar que a medida funcionou. Quase ninguém consegue.</h1>
+    <p class="lead">Desde 26 de maio de 2026, ao graduar o risco psicossocial a empresa precisa considerar a eficácia das medidas de prevenção que já implementou. O FROID entrega a AEP psicossocial completa — e mede essa eficácia comparando cada setor contra a própria linha de base dele, antes e depois.</p>
+    <div class="hero-actions">
+      <a class="btn btn-solid" href="sobre-contato.html">Agendar uma avaliação piloto</a>
+      <a class="btn btn-ghost" href="#eficacia">Como a eficácia é medida</a>
+      <a class="btn btn-ghost" href="#solucao">O que o FROID faz e o que não faz</a>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat">
+        <div class="num">546 mil</div>
+        <div class="desc">afastamentos por transtornos mentais no Brasil em 2025 — recorde histórico, alta superior a 15% sobre 2024.</div>
+        <div class="src">MTE / INSS</div>
+      </div>
+      <div class="stat">
+        <div class="num">8,35%</div>
+        <div class="desc">dos adoecimentos ocupacionais de 2022 foram transtornos mentais somados (CID F41, F32 e F43) — 2º lugar geral, atrás só da dorsalgia.</div>
+        <div class="src">Guia de Fatores de Riscos Psicossociais, MTE, 2025</div>
+      </div>
+      <div class="stat">
+        <div class="num">20 anos</div>
+        <div class="desc">é o prazo mínimo de guarda do histórico de atualizações do inventário de riscos.</div>
+        <div class="src">NR-1, subitem 1.5.7.3.3.1</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block">
+  <div class="container">
+    <p class="section-kicker">O retrato legal</p>
+    <h2 class="section-title">O que mudou, exatamente</h2>
+    <p class="section-lead">A Portaria MTE nº 1.419/2024 deu nova redação ao capítulo 1.5 da NR-1. A vigência, inicialmente prevista para 2025, foi prorrogada pela Portaria MTE nº 765/2025 para 26 de maio de 2026.</p>
+
+    <div class="norm-quote">
+      <p style="margin:0 0 8px;">“O gerenciamento de riscos ocupacionais deve abranger os riscos que decorrem dos agentes físicos, químicos, biológicos, riscos de acidentes e riscos relacionados aos fatores ergonômicos, <strong>incluindo os fatores de risco psicossociais relacionados ao trabalho</strong>.”</p>
+      <span class="norm-ref">NR-1, subitem 1.5.3.1.4, na redação da Portaria MTE nº 1.419/2024. Base normativa: art. 87, parágrafo único, II, da Constituição; art. 155 da CLT; art. 1º, VI, do Anexo I do Decreto nº 11.779/2023; Processo SEI/MTE nº 19966.111465/2023-18.</span>
+    </div>
+
+    <div class="grid-3">
+      <div class="card">
+        <span class="badge badge-proprietary">Mudança 1</span>
+        <h3>Inclusão expressa no GRO</h3>
+        <p>Os fatores psicossociais passam a integrar o inventário de riscos com a mesma formalidade das demais categorias. Não é uma obrigação nova e isolada: é a ampliação do escopo de um processo que já existia.</p>
+      </div>
+      <div class="card">
+        <span class="badge badge-proprietary">Mudança 2</span>
+        <h3>Integração com a NR-17</h3>
+        <p>A avaliação deve considerar as condições de trabalho nos termos da NR-17, e os fatores psicossociais se ligam diretamente à <strong>organização do trabalho</strong> — a primeira das cinco áreas da norma de ergonomia (subitem 1.5.3.2.1).</p>
+      </div>
+      <div class="card">
+        <span class="badge badge-proprietary">Mudança 3</span>
+        <h3>Probabilidade pela exigência</h3>
+        <p>Para fatores ergonômicos e psicossociais, a probabilidade considera <strong>as exigências da atividade de trabalho e a eficácia das medidas de prevenção implementadas</strong> — não os sintomas do trabalhador (subitem 1.5.4.4.5.3).</p>
+      </div>
+    </div>
+
+    <div class="disclaimer-box" style="margin-top:28px;">
+      <strong>O ponto que mais gera erro.</strong> O objeto da avaliação é a condição de trabalho, não a pessoa. O Guia do MTE é explícito: “Não se trata de verificar sintomas individuais ou sensação do que está ocorrendo no trabalhador, ou de medir algum sinal biológico, mas de se verificar as condições de trabalho a que ele está submetido.” E também: fatores psicossociais da vida pessoal, fora do trabalho, <strong>não entram</strong> no GRO da empresa.
+    </div>
+  </div>
+</section>
+
+<section class="block soft">
+  <div class="container">
+    <p class="section-kicker">Os perigos</p>
+    <h2 class="section-title">A listagem do Guia MTE 2025</h2>
+    <p class="section-lead">O Guia de informações sobre os Fatores de Riscos Psicossociais Relacionados ao Trabalho traz esta listagem de perigos e suas possíveis consequências. Ela é <strong>orientativa e não taxativa</strong>: a fiscalização avalia a coerência do processo de identificação, não a aderência literal à lista. Sua empresa pode incluir perigos próprios do setor e afastar os que não se aplicam, desde que documente a justificativa técnica.</p>
+
+    <div class="haz-wrap">
+      <table class="haz-table">
+        <thead>
+          <tr><th>Perigo (fator de risco psicossocial)</th><th>Possível lesão ou agravo</th></tr>
+        </thead>
+        <tbody>
+          <tr class="grp"><td colspan="2">Gestão e organização do trabalho</td></tr>
+          <tr><td>Má gestão de mudanças organizacionais</td><td>Transtorno mental; DORT</td></tr>
+          <tr><td>Baixa clareza de papel/função</td><td>Transtorno mental</td></tr>
+          <tr><td>Baixas recompensas e reconhecimento</td><td>Transtorno mental</td></tr>
+          <tr><td>Falta de suporte/apoio no trabalho</td><td>Transtorno mental</td></tr>
+          <tr><td>Baixo controle no trabalho / falta de autonomia</td><td>Transtorno mental; DORT</td></tr>
+          <tr><td>Baixa justiça organizacional</td><td>Transtorno mental</td></tr>
+          <tr class="grp"><td colspan="2">Carga e demanda</td></tr>
+          <tr><td>Excesso de demandas no trabalho (sobrecarga)</td><td>Transtorno mental; DORT</td></tr>
+          <tr><td>Baixa demanda no trabalho (subcarga)</td><td>Transtorno mental</td></tr>
+          <tr class="grp"><td colspan="2">Relacionamento e violência</td></tr>
+          <tr><td>Assédio de qualquer natureza no trabalho</td><td>Transtorno mental</td></tr>
+          <tr><td>Eventos violentos ou traumáticos</td><td>Transtorno mental</td></tr>
+          <tr><td>Más relações no local de trabalho</td><td>Transtorno mental</td></tr>
+          <tr class="grp"><td colspan="2">Ambiente e modalidade</td></tr>
+          <tr><td>Trabalho remoto e isolado</td><td>Transtorno mental; fadiga</td></tr>
+          <tr><td>Trabalho em condições de difícil comunicação</td><td>Transtorno mental</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:16px; font-size:0.86rem; color:var(--froid-cinza);">Trabalho remoto, híbrido e teletrabalho entram na avaliação. A empresa adapta a estratégia ao contexto — não exclui esses trabalhadores.</p>
+  </div>
+</section>
+
+<section class="block">
+  <div class="container">
+    <p class="section-kicker">O que a fiscalização pede</p>
+    <h2 class="section-title">Três documentos, e um deles quase sempre falta</h2>
+    <p class="section-lead">O PGR tem dois documentos mínimos no texto da norma — inventário e plano de ação — mas o Manual do GRO relaciona um terceiro, igualmente obrigatório: o documento de critérios. É o que a maioria das empresas descobre tarde.</p>
+
+    <div class="grid-3">
+      <div class="card">
+        <span class="badge badge-strong">Documento 1</span>
+        <h3>Inventário de riscos</h3>
+        <p>Nove informações mínimas (subitem 1.5.7.3.2): caracterização dos processos e ambientes; caracterização das atividades; descrição dos perigos com fontes e circunstâncias; possíveis lesões ou agravos; grupos de trabalhadores expostos; medidas de prevenção implementadas; caracterização da exposição; dados da avaliação de ergonomia da NR-17; e a avaliação dos riscos com a classificação.</p>
+      </div>
+      <div class="card">
+        <span class="badge badge-strong">Documento 2</span>
+        <h3>Plano de ação</h3>
+        <p>Medidas a introduzir, aprimorar ou manter, com <strong>cronograma, responsáveis, formas de acompanhamento e aferição de resultados</strong> (subitem 1.5.5.2.2). O número de trabalhadores possivelmente atingidos deve ser usado como critério para aumentar a prioridade da ação (1.5.5.2.1.1).</p>
+      </div>
+      <div class="card">
+        <span class="badge badge-moderate">Documento 3</span>
+        <h3>Critérios do GRO</h3>
+        <p>Detalhamento das gradações de severidade e de probabilidade, dos níveis de risco, dos critérios de classificação e de tomada de decisão (subitem 1.5.4.4.2.2). Sem ele, não há como demonstrar de onde saiu qualquer nota do inventário.</p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:20px;">
+      <h3 style="margin-top:0;">A AEP é obrigatória para todas as empresas</h3>
+      <p style="margin:0;">A Avaliação Ergonômica Preliminar, prevista na NR-17, é o método pelo qual a identificação de perigos e a avaliação de riscos psicossociais efetivamente acontecem. Ela é exigida de todas as organizações — <strong>inclusive das microempresas e empresas de pequeno porte de grau de risco 1 e 2 que estão dispensadas de elaborar o PGR</strong>. Estar dispensado do PGR não é estar dispensado do gerenciamento de riscos.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block soft">
+  <div class="container">
+    <p class="section-kicker">O custo da omissão</p>
+    <h2 class="section-title">O que está em jogo para quem não mapeia</h2>
+
+    <div class="legal-card">
+      <span class="badge badge-weak">Administrativo</span>
+      <h3>Autuação pela Inspeção do Trabalho</h3>
+      <p>A omissão na identificação, avaliação e controle dos riscos psicossociais caracteriza descumprimento da NR-1 e da NR-17, sujeitando a organização a autos de infração, notificações e exigência de adequação, nos termos do <strong>art. 201 da CLT</strong>. Conforme a NR-28, as multas se situam entre R$ 2.396,35 e R$ 6.708,08, e irregularidades graves podem levar a embargo ou interdição.</p>
+    </div>
+
+    <div class="legal-card">
+      <span class="badge badge-weak">Judicial</span>
+      <h3>Nexo concausal e inversão prática do ônus</h3>
+      <p>O TST reconhece que o <strong>nexo concausal</strong> — quando o trabalho não é a única causa, mas contribui para o agravamento de uma condição psíquica preexistente — é suficiente para configurar o dever de indenizar. Há precedentes de responsabilização civil do empregador em casos de Síndrome de Burnout, sobretudo diante da ausência de medidas preventivas adequadas. Na prática forense, ausência de documentação equivale a presunção desfavorável.</p>
+    </div>
+
+    <div class="legal-card">
+      <span class="badge badge-weak">Coletivo e regulatório</span>
+      <h3>MPT, CIPA e coerência com o eSocial</h3>
+      <p>Denúncias e surtos de absenteísmo por adoecimento mental acionam o Ministério Público do Trabalho, que pode instaurar Inquérito Civil, exigir TAC ou ajuizar Ação Civil Pública. Além disso, o PGR deve estar integrado aos eventos de SST do eSocial (S-2210, S-2220 e S-2240): <strong>a identificação de riscos psicossociais no inventário precisa ser coerente com o que a empresa envia ao governo, sob pena de autuação por inconsistência de dados</strong>.</p>
+    </div>
+
+    <p style="margin-top:20px; font-size:0.86rem; color:var(--froid-cinza);">Os enquadramentos acima são apresentados para contextualização, com base no texto da NR-1, no Guia e no Manual do MTE e em doutrina publicada. Não constituem parecer jurídico — a análise do caso concreto cabe à assessoria jurídica da sua organização.</p>
+  </div>
+</section>
+
+<section class="block">
+  <div class="container">
+    <p class="section-kicker">Prática jurídica</p>
+    <h2 class="section-title">As três perguntas que o juiz faz</h2>
+    <p class="section-lead">Um resumo útil de como a documentação é lida em juízo, atribuído ao juiz Otávio Calvet (TRT-1/RJ) e reproduzido em material da FIEG.</p>
+    <div class="grid-3">
+      <div class="card">
+        <h3>1. A empresa sabia?</h3>
+        <p>Conhecia os fatores de risco psicossocial? A existência de GRO e AEP demonstra que monitorava.</p>
+      </div>
+      <div class="card">
+        <h3>2. Deveria saber?</h3>
+        <p>Havia sinais evidentes — afastamentos, rotatividade alta, queixas, histórico de ações — que foram ignorados?</p>
+      </div>
+      <div class="card">
+        <h3>3. O que fez a respeito?</h3>
+        <p>A mais importante. Quais medidas concretas foram tomadas, e há evidência de implementação real, não apenas de planejamento?</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block soft" id="solucao">
+  <div class="container">
+    <p class="section-kicker">A solução FROID</p>
+    <h2 class="section-title">A AEP psicossocial, inteira, num lugar só</h2>
+    <p class="section-lead">A Avaliação Ergonômica Preliminar é o método pelo qual a identificação de perigos e a avaliação de riscos psicossociais acontecem, e é o primeiro documento que a fiscalização pede. O FROID é onde ela é conduzida, sustentada por evidências e datada.</p>
+
+    <div class="disclaimer-box" style="margin-bottom:28px;">
+      <strong>Com uma condição que a norma impõe e que nós fazemos questão de reforçar:</strong> questionário sozinho não comprova gestão de risco. A observação da atividade real e a conversa com o trabalhador continuam sendo feitas por gente. O que muda é que o sistema <strong>exige</strong> que elas estejam lá: cada evidência entra com o seu método declarado, e uma AEP apoiada só em questionário aparece sinalizada como tal, em vez de passar despercebida até a fiscalização. Quem responde pelo GRO segue sendo a organização.
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <span class="badge badge-strong">Documento da AEP</span>
+        <h3>Trabalho real, não tarefa prescrita</h3>
+        <p>Um documento por unidade de avaliação — atividade, posto, função, setor ou grupo de exposição — com a descrição de como o trabalho é de fato executado, a caracterização da exposição em duração, frequência, intensidade e cofatores, os dados de preparação (afastamentos, PCMSO, avaliações anteriores) e o responsável nomeado. Sem responsável nomeado, o sistema não deixa concluir.</p>
+      </div>
+      <div class="card">
+        <span class="badge badge-strong">Evidência com método</span>
+        <h3>Observação, diálogo, questionário, oficina</h3>
+        <p>Cada peça de evidência entra declarando de onde veio: observação da atividade, diálogo com o trabalhador, pesquisa padronizada, oficina, grupo focal, análise documental ou manifestação da CIPA. É exatamente o conjunto de caminhos que o Guia do MTE reconhece — e a prova de que a AEP não se apoiou numa fonte só.</p>
+      </div>
+      <div class="card">
+        <span class="badge badge-strong">Gradação conforme a norma</span>
+        <h3>Severidade e probabilidade pelos critérios certos</h3>
+        <p>A severidade vem da magnitude da possível lesão ou agravo, selecionando a consequência de maior magnitude quando há mais de uma (1.5.4.4.4.1). A probabilidade combina a exigência da atividade com a <strong>eficácia das medidas já implementadas</strong> (1.5.4.4.5.3). Medida ineficaz não reduz risco no papel: a norma manda corrigi-la.</p>
+      </div>
+      <div class="card">
+        <span class="badge badge-strong">Documento de critérios</span>
+        <h3>Gerado junto, não improvisado depois</h3>
+        <p>As gradações, a matriz e as regras de classificação e decisão ficam versionadas e imutáveis após publicadas, de modo que uma campanha sempre possa ser explicada pelos critérios vigentes quando foi aplicada. É o terceiro documento obrigatório, pronto.</p>
+      </div>
+      <div class="card">
+        <span class="badge badge-proprietary">LGPD</span>
+        <h3>Anonimato com piso técnico e coorte estável</h3>
+        <p>Uma campanha só libera resultado a partir de <strong>50 respostas concluídas</strong>, e cada recorte por unidade exige no mínimo <strong>10</strong>. Mais que isso: <strong>nenhum resultado sai enquanto a coleta está aberta</strong> — só depois de encerrada. Piso de coorte sozinho não protege quem responde por último, porque quem observa o painel a cada nova resposta deduz a resposta individual pela diferença. Durante a coleta a empresa acompanha só a adesão. Os pisos são aplicados dentro do banco, não na aplicação. Ver <a href="seguranca.html">Segurança</a> e <a href="etica.html">Ética</a>.</p>
+      </div>
+      <div class="card">
+        <span class="badge badge-moderate">Participação</span>
+        <h3>Registro de consulta e comunicação</h3>
+        <p>Atas da CIPA, listas de presença, consultas formais e a comunicação do inventário e do plano aos trabalhadores (subitem 1.5.3.3). A cartilha da Fecomércio-RS é direta: a ausência desses registros pode gerar presunção de omissão patronal.</p>
+      </div>
+      <div class="card">
+        <span class="badge badge-moderate">Ciclo</span>
+        <h3>Revisão e guarda no prazo</h3>
+        <p>Revisão a cada dois anos — até três para organizações com sistema de gestão de SST certificado — e também após implementação de medidas, mudanças, ineficácia, acidente ou doença, alteração legal ou solicitação justificada da CIPA. Histórico do inventário retido por 20 anos.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="eficacia">
+  <div class="container">
+    <p class="section-kicker">O diferencial</p>
+    <h2 class="section-title">Provar que a medida funcionou</h2>
+    <p class="section-lead">Esta é a parte da norma que quase ninguém consegue cumprir de verdade — e é onde o FROID faz algo que nenhuma pesquisa de clima faz.</p>
+
+    <div class="norm-quote">
+      <p style="margin:0 0 8px;">“Para a probabilidade de ocorrência das lesões ou agravos à saúde decorrentes de fatores ergonômicos, incluindo os fatores de riscos psicossociais relacionados ao trabalho, a avaliação de risco deve considerar as exigências da atividade de trabalho <strong>e a eficácia das medidas de prevenção implementadas</strong>.”</p>
+      <span class="norm-ref">NR-1, subitem 1.5.4.4.5.3</span>
+    </div>
+
+    <p class="section-lead" style="margin-bottom:28px;">Ou seja: o risco não cai porque a empresa fez alguma coisa. Ele cai se aquilo que a empresa fez funcionou. E o subitem 1.5.5.3.2.1 vai além — medida que o acompanhamento mostrar ineficaz <strong>deve ser corrigida</strong>. Na prática, quase toda empresa vai afirmar que a medida funcionou, e quase nenhuma vai conseguir demonstrar.</p>
+
+    <div class="grid-3">
+      <div class="card">
+        <span class="badge badge-strong">Como</span>
+        <h3>Cada setor contra ele mesmo</h3>
+        <p>A comparação é sempre do setor contra a própria linha de base dele, no mesmo instrumento, antes e depois da medida. Nunca contra uma média de mercado ou uma população genérica — que é o que torna a comparação contestável.</p>
+      </div>
+      <div class="card">
+        <span class="badge badge-strong">Com que rigor</span>
+        <h3>Diferença maior que o ruído</h3>
+        <p>O sistema calcula a dispersão das respostas e a diferença padronizada entre os dois momentos. Uma variação menor que o ruído natural da coorte é reportada como <strong>sem mudança</strong> — nunca como sucesso. Melhora que a estatística não sustenta é exatamente o que um perito adversário desmonta.</p>
+      </div>
+      <div class="card">
+        <span class="badge badge-weak">O que ninguém quer ver</span>
+        <h3>E quando não funcionou</h3>
+        <p>A medida é marcada como ineficaz, o risco não é reduzido no papel, e ela entra na lista do que a norma obriga a corrigir. É desconfortável — e é justamente esse desconforto documentado que responde à terceira pergunta do juiz.</p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:20px;">
+      <h3 style="margin-top:0;">O ciclo que a norma descreve, fechado</h3>
+      <p style="margin:0;">A eficácia medida num ciclo entra automaticamente no cálculo da probabilidade do ciclo seguinte. Não é campo de opinião preenchido por alguém: é número apurado, com o tamanho das duas coortes e a memória de cálculo guardados junto, de modo que qualquer auditor — ou perito — consiga reconstruir como se chegou àquele nível de risco.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block soft">
+  <div class="container">
+    <p class="section-kicker">Armadilhas</p>
+    <h2 class="section-title">Seis erros que geram passivo</h2>
+    <p class="section-lead">Todos documentados no FAQ do MTE e nos materiais de referência. Vale conferir contra o que sua empresa está prestes a fazer.</p>
+    <div class="grid-3">
+      <div class="trap">
+        <h4>Usar o exame médico no lugar da AEP</h4>
+        <p>O MTE respondeu que não: a avaliação médica periódica, mesmo sob sigilo, não substitui a identificação de perigos e avaliação de riscos. São instrumentos distintos.</p>
+      </div>
+      <div class="trap">
+        <h4>Pesquisa de clima do RH como único instrumento</h4>
+        <p>Pesquisa de clima ou satisfação não equivale à AEP. O resultado precisa ser tecnicamente analisado e integrado ao inventário.</p>
+      </div>
+      <div class="trap">
+        <h4>Só intervenção individual</h4>
+        <p>Mindfulness, resiliência e apoio psicológico como única medida não atendem à NR-1. A prioridade é modificar as <strong>condições</strong> e a organização do trabalho.</p>
+      </div>
+      <div class="trap">
+        <h4>Ignorar remotos e híbridos</h4>
+        <p>Teletrabalho também entra. A estratégia se adapta ao contexto; o trabalhador não sai da avaliação.</p>
+      </div>
+      <div class="trap">
+        <h4>Tratar os 90 dias como folga</h4>
+        <p>A dupla visita após 26/05/2026 é orientativa, não é isenção. Encerrado o período, a autuação é possível.</p>
+      </div>
+      <div class="trap">
+        <h4>PGR bonito que não reflete a realidade</h4>
+        <p>É pior do que não ter. O auditor vai ao local, observa as condições reais e entrevista os trabalhadores.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block">
+  <div class="container">
+    <p class="section-kicker">Comparação</p>
+    <h2 class="section-title">Gestão tradicional × Compliance FROID</h2>
+
+    <div class="cmp-wrap">
+      <table class="cmp-table">
+        <thead>
+          <tr>
+            <th>Aspecto de gestão</th>
+            <th>Abordagem tradicional reativa</th>
+            <th>Compliance corporativo FROID</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Identificação de perigos</td>
+            <td class="trad">Questionário aplicado uma vez, sem critérios documentados.</td>
+            <td class="froid">Caracterização contínua da exposição, com critérios versionados e memória de cálculo por risco.</td>
+          </tr>
+          <tr>
+            <td>Gradação do risco</td>
+            <td class="trad">Nota genérica de pesquisa de clima, sem severidade nem probabilidade separadas.</td>
+            <td class="froid">Severidade pela magnitude do agravo e probabilidade pela exigência da atividade discontada da eficácia das medidas, como manda o 1.5.4.4.5.3.</td>
+          </tr>
+          <tr>
+            <td>Documentação do PGR</td>
+            <td class="trad">Inventário sem os nove itens; documento de critérios inexistente.</td>
+            <td class="froid">Inventário estruturado nas alíneas “a” a “i” e documento de critérios gerado junto — prontos para integrar à AEP.</td>
+          </tr>
+          <tr>
+            <td>Segurança dos dados (LGPD)</td>
+            <td class="trad">Planilhas de RH vulneráveis a vazamento de informação sensível.</td>
+            <td class="froid">Row-Level Security estrito, processamento local e piso de coorte (50 por campanha, 10 por recorte) aplicado no banco.</td>
+          </tr>
+          <tr>
+            <td>Defesa judicial</td>
+            <td class="trad">Sem prova material de diligência, com a empresa frágil diante do nexo concausal.</td>
+            <td class="froid">Evidência datada das avaliações, dos critérios vigentes, das medidas implementadas e da sua eficácia aferida.</td>
+          </tr>
+          <tr>
+            <td>Prioridade de ação</td>
+            <td class="trad">Fila definida por percepção de urgência.</td>
+            <td class="froid">Ordenação por nível de risco e pelo número de trabalhadores possivelmente atingidos, conforme o 1.5.5.2.1.1.</td>
+          </tr>
+          <tr>
+            <td>Eficácia da medida</td>
+            <td class="trad">Afirmada no relatório. Sem linha de base, sem comparação e sem como provar.</td>
+            <td class="froid">Medida: cada setor contra a própria linha de base, com dispersão e diferença padronizada. Melhora dentro do ruído é reportada como sem mudança, e a medida entra para correção.</td>
+          </tr>
+          <tr>
+            <td>Documento da AEP</td>
+            <td class="trad">Ausente, ou substituído por pesquisa de clima e exame médico periódico.</td>
+            <td class="froid">Documento por unidade de avaliação, com trabalho real, evidência por método declarado e responsável nomeado — bloqueado para conclusão sem ele.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="block soft">
+  <div class="container">
+    <p class="section-kicker">Limites e responsabilidade</p>
+    <h2 class="section-title">O que o FROID Compliance é e o que não é</h2>
+    <div class="disclaimer-box" style="margin:0;">
+      <strong>O FROID Compliance é</strong> um instrumento de caracterização e documentação da exposição a fatores de risco psicossociais, desenhado para produzir a evidência agregada que a AEP e o inventário de riscos exigem.<br/><br/>
+      <strong>O FROID Compliance não é</strong> ferramenta de vigilância de colaboradores, não emite diagnóstico de saúde mental de indivíduos, não produz nota, ranking ou avaliação de desempenho de pessoas, não substitui a AEP, o SESMT, a CIPA, o médico do trabalho nem a assessoria jurídica, e não dispensa a organização de conduzir o GRO com profissional ou equipe de conhecimento técnico adequado. A norma não exige profissional específico nem impõe metodologia — mas exige coerência técnica, e a escolha precisa ser justificada e documentada.<br/><br/>
+      <strong>O empregador não lê a sessão clínica do colaborador.</strong> Quando o funcionário é atendido por um profissional da empresa, o registro dessa sessão fica sob sigilo do profissional responsável: nenhum papel do lado do empregador — proprietário, administrador, RH ou compliance — tem permissão de leitura sobre ele. Para o empregador, só existe o agregado. Rastreamento clínico individual não é, e não pode ser, o instrumento principal de gestão desses riscos.<br/><br/>
+      <strong>A participação do colaborador</strong> pressupõe informação prévia e transparente sobre a finalidade da coleta, nos mesmos termos descritos em <a href="etica.html">Ética</a>.
+    </div>
+  </div>
+</section>
+
+<section class="block">
+  <div class="container">
+    <p class="section-kicker">Linha do tempo</p>
+    <h2 class="section-title">Onde estamos</h2>
+    <ul class="timeline">
+      <li>
+        <div class="when">27 de agosto de 2024</div>
+        <div class="what">Portaria MTE nº 1.419 aprova a nova redação do capítulo 1.5 da NR-1, com vigência em 270 dias.</div>
+      </li>
+      <li>
+        <div class="when">15 de maio de 2025</div>
+        <div class="what">Portaria MTE nº 765 prorroga o início da vigência até 25 de maio de 2026.</div>
+      </li>
+      <li>
+        <div class="when">24 de abril de 2025</div>
+        <div class="what">MTE publica o Guia de informações sobre os Fatores de Riscos Psicossociais Relacionados ao Trabalho.</div>
+      </li>
+      <li class="now">
+        <div class="when">26 de maio de 2026 — em vigor</div>
+        <div class="what">Passa a valer a exigência. Inicia-se o período de dupla visita: 90 dias em que a fiscalização prioriza orientação, instrução e notificação, sem prejuízo de medidas administrativas nos casos aplicáveis.</div>
+      </li>
+      <li>
+        <div class="when">A partir de agosto de 2026</div>
+        <div class="what">Encerrado o período orientativo, constatado descumprimento, cabem as medidas administrativas incluindo autos de infração.</div>
+      </li>
+      <li>
+        <div class="when">A cada 2 anos</div>
+        <div class="what">Revisão obrigatória da avaliação de riscos — até 3 anos com sistema de gestão de SST certificado — ou antes, nas seis hipóteses do subitem 1.5.4.4.6.</div>
+      </li>
+    </ul>
+  </div>
+</section>
+
+<section class="block soft">
+  <div class="container">
+    <p class="section-kicker">Próximo passo</p>
+    <h2 class="section-title">Comece por uma unidade</h2>
+    <p class="section-lead">O próprio Guia do MTE sugere iniciar por um setor piloto — por exemplo, aquele com alto índice de afastamento por transtorno mental — desde que o processo alcance depois todas as atividades da empresa.</p>
+
+    <div class="grid-3">
+      <div class="card">
+        <h3>Avaliação piloto</h3>
+        <p>Uma unidade, critérios documentados desde o início e caracterização da exposição pronta para integrar à sua AEP.</p>
+        <a class="btn btn-solid" href="sobre-contato.html" style="margin-top:8px;">Falar com o time</a>
+      </div>
+      <div class="card">
+        <h3>Revisão técnica e de privacidade</h3>
+        <p>Para Jurídico, Compliance e Segurança da Informação: arquitetura, isolamento de dados, pisos de coorte e trilhas de auditoria.</p>
+        <a class="btn btn-ghost" href="seguranca.html" style="margin-top:8px;">Ver arquitetura</a>
+      </div>
+      <div class="card">
+        <h3>Proposta corporativa</h3>
+        <p>Escopo por número de colaboradores, estabelecimentos e periodicidade de medição.</p>
+        <a class="btn btn-ghost" href="precos.html" style="margin-top:8px;">Ver planos</a>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:24px;">
+      <h3 style="margin-top:0;">Fontes</h3>
+      <p style="margin:0; font-size:0.86rem; color:var(--froid-cinza);">Portaria MTE nº 1.419, de 27/08/2024 (DOU 28/08/2024), com a retificação de 30/07/2025 · Portaria MTE nº 765, de 15/05/2025 · NR-1, capítulo 1.5 e Anexo I · NR-17 · NR-28 · Guia de informações sobre os Fatores de Riscos Psicossociais Relacionados ao Trabalho (MTE, 2025) · Manual de interpretação e aplicação do capítulo 1.5 da NR-1 (MTE, 2026) · FAQ NR-1 (CGNOR/DSST/SIT) · Lei nº 14.457/2022 · Lei nº 14.831/2024 · Convenção nº 190 da OIT · ISO 45001:2018 e ISO 45003:2021 · OMS/OIT, <em>Mental health at work: policy brief</em>, 2022 · PINTO JR., A. R.; BOMFIM, V. Riscos psicossociais e saúde mental no trabalho. <em>Rev. TST</em>, v. 92, n. 1, 2026.</p>
+    </div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="foot-grid">
+      <div>
+        <h5>FROID</h5>
+        <p style="max-width:340px; color:rgba(248,250,252,0.55);">Frequency Recognition of Internal Dynamics. Ferramenta de apoio à escuta clínica — não substitui avaliação, diagnóstico ou julgamento profissional.</p>
+      </div>
+      <div>
+        <h5>Navegação</h5>
+        <ul>
+          <li><a href="index.html">Início</a></li>
+          <li><a href="ciencia.html">Ciência</a></li>
+          <li><a href="tecnologia.html">Tecnologia</a></li>
+          <li><a href="froid-explica.html">FROID Explica</a></li>
+          <li><a href="etica.html">Ética</a></li>
+          <li><a href="seguranca.html">Segurança</a></li>
+          <li><a href="profissionais.html">Profissionais</a></li>
+          <li><a href="empresas.html">Empresas</a></li>
+          <li><a href="precos.html">Preços</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Suporte</h5>
+        <ul>
+          <li><a href="faq.html">Perguntas Frequentes</a></li>
+          <li><a href="glossario.html">Glossário</a></li>
+          <li><a href="demonstracao.html">Demonstração</a></li>
+          <li><a href="sobre-contato.html">Sobre &amp; Contato</a></li>
+          <li><a href="termos.html">Termos de Uso</a></li>
+          <li><a href="privacidade.html">Política de Privacidade</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Acesso</h5>
+        <ul>
+          <li><a href="https://www.froid.com.br/app/#/login">Entrar no FROID</a></li>
+          <li><a href="https://www.froid.com.br/cadastro">Cadastrar no FROID</a></li>
+          <li><a href="https://www.froid.com.br/app/#/paciente">Portal do Paciente</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">© 2026 FROID. FROID é uma marca em processo de registro no INPI (Brasil), com pedido de proteção internacional em análise. Código, textos, modelos e identidade visual são protegidos por direitos autorais de Fábio de Assumpção Benhayon.</div>
+  </div>
+</footer>
+
+<script src="site-assets/script.js?v=3"></script>
+</body>
+</html>

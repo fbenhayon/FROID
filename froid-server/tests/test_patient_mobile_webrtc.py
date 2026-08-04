@@ -84,9 +84,15 @@ class PatientMobileWebRtcTests(unittest.TestCase):
         self.assertIn("reconectando...", self.professional_session)
 
     def test_connected_status_requires_actual_media_flow(self):
-        self.assertIn("monitorInboundPatientMedia", self.professional_session)
+        # The per-page monitors were extracted into the shared evaluators of
+        # lib/webrtc.ts, so this asserts the behaviour where it now lives: each
+        # side reads real RTP counters, decides flow from them, and still warns
+        # when the peer connection reports "connected" while nothing moves.
+        self.assertIn("readRtcMediaFlowStats", self.professional_session)
+        self.assertIn("evaluateInboundFlow", self.professional_session)
         self.assertIn("WebRTC conectado sem transportar mídia", self.professional_session)
-        self.assertIn("monitorPatientOutboundMedia", self.patient_session)
+        self.assertIn("readRtcMediaFlowStats", self.patient_session)
+        self.assertIn("evaluateOutboundFlow", self.patient_session)
         self.assertIn("mídia sem saída", self.patient_session)
         self.assertIn("candidateType", self.webrtc)
 

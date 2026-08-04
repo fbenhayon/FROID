@@ -29,6 +29,9 @@ const ProfessionalContractPage = lazy(() => import("./pages/LegalPages").then((m
 const OrganizationContractPage = lazy(() => import("./pages/LegalPages").then((module) => ({ default: module.OrganizationContractPage })));
 const PatientTclePage = lazy(() => import("./pages/LegalPages").then((module) => ({ default: module.PatientTclePage })));
 const FroidProfessionalsPage = lazy(() => import("./pages/FroidInstitutionalPages").then((module) => ({ default: module.FroidProfessionalsPage })));
+const Nr1Dashboard = lazy(() => import("./pages/Nr1Dashboard").then((module) => ({ default: module.Nr1Dashboard })));
+const Nr1Effectiveness = lazy(() => import("./pages/Nr1Effectiveness").then((module) => ({ default: module.Nr1Effectiveness })));
+const Nr1QuestionnairePage = lazy(() => import("./pages/Nr1QuestionnairePage").then((module) => ({ default: module.Nr1QuestionnairePage })));
 const FroidSciencePage = lazy(() => import("./pages/FroidInstitutionalPages").then((module) => ({ default: module.FroidSciencePage })));
 const FroidTechnologyPage = lazy(() => import("./pages/FroidInstitutionalPages").then((module) => ({ default: module.FroidTechnologyPage })));
 
@@ -83,6 +86,10 @@ function localDevUser(): FroidUser | null {
       email: stored.email || "dev@froid.local",
       name: stored.name || "Profissional FROID",
       provider: "local-dev",
+      // Carried through so organization-scoped screens (NR-1, LGPD) can be
+      // developed locally; without a tenant they render empty.
+      active_organization_id: stored.active_organization_id,
+      organizations: Array.isArray(stored.organizations) ? stored.organizations : undefined,
     };
   } catch {
     return {
@@ -108,16 +115,21 @@ function normalizeDirectPublicPath() {
     "/paciente": "/paciente",
     "/paciente/login": "/paciente",
     "/paciente/portal": "/paciente",
+    "/avaliacao": "/avaliacao",
     "/app/login": "/login",
     "/app/entrar": "/login",
     "/app/cadastro": "/access/register",
     "/app/paciente": "/paciente",
     "/app/paciente/login": "/paciente",
     "/app/paciente/portal": "/paciente",
+    "/app/avaliacao": "/avaliacao",
   };
   const target = directRoutes[window.location.pathname.toLowerCase()];
   if (!target) return;
-  window.history.replaceState(null, "", `/app/#${target}`);
+  // Keep the query string: the NR-1 questionnaire carries its single-use token
+  // there, and dropping it would turn a valid invitation into a dead link.
+  const search = window.location.search || "";
+  window.history.replaceState(null, "", `/app/#${target}${search}`);
 }
 
 function App() {
@@ -216,6 +228,10 @@ function App() {
           path="/paciente/sessao/:sessionId"
           element={<PatientSessionPage />}
         />
+        {/* Anonymous NR-1 questionnaire. Public on purpose: the worker has no
+            FROID login, and the single-use token in the link is the whole
+            authorization. */}
+        <Route path="/avaliacao" element={<Nr1QuestionnairePage />} />
         <Route path="/paciente" element={<PatientPortalPage />} />
         <Route path="/paciente/login" element={<PatientPortalPage />} />
         <Route path="/paciente/portal" element={<PatientPortalPage />} />
@@ -298,6 +314,11 @@ function App() {
         <Route
           path="/privacy-requests"
           element={clinicalElement(<PrivacyRequests user={user} />)}
+        />
+        <Route path="/nr1" element={clinicalElement(<Nr1Dashboard user={user} />)} />
+        <Route
+          path="/nr1/eficacia"
+          element={clinicalElement(<Nr1Effectiveness user={user} />)}
         />
         <Route
           path="/admin"

@@ -44,15 +44,27 @@ class WebRtcMediaTests(unittest.TestCase):
         self.assertIn('type: "renegotiate-request"', self.patient_source)
 
     def test_media_health_uses_real_rtp_bytes_and_frames(self):
+        # Health is judged by RTP counters that actually moved, never by the
+        # connection state alone. The counters are collected and compared in
+        # lib/webrtc.ts — the pages consume the verdict rather than reading the
+        # raw stats themselves, which is why the field names are asserted at
+        # their source and the pages are asserted on the call.
         self.assertIn("readRtcMediaFlowStats", self.webrtc_source)
         self.assertIn('report.type === "inbound-rtp"', self.webrtc_source)
         self.assertIn('report.type === "outbound-rtp"', self.webrtc_source)
         self.assertIn("framesDecoded", self.webrtc_source)
         self.assertIn("framesEncoded", self.webrtc_source)
-        self.assertIn("audioBytesReceived", self.professional_source)
-        self.assertIn("videoFramesDecoded", self.professional_source)
-        self.assertIn("audioBytesSent", self.patient_source)
-        self.assertIn("videoFramesEncoded", self.patient_source)
+        for field in (
+            "audioBytesReceived", "videoFramesDecoded",
+            "audioBytesSent", "videoFramesEncoded",
+        ):
+            self.assertIn(field, self.webrtc_source)
+        self.assertIn("evaluateInboundFlow", self.professional_source)
+        self.assertIn("evaluateOutboundFlow", self.patient_source)
+        # Both sides must actually pull fresh stats each cycle; comparing a
+        # cached sample against itself would report flow that stopped.
+        self.assertIn("readRtcMediaFlowStats(peer)", self.professional_source)
+        self.assertIn("readRtcMediaFlowStats(peer)", self.patient_source)
 
     def test_professional_fast_path_opens_camera_and_microphone_together(self):
         self.assertIn("const combinedStream = await navigator.mediaDevices.getUserMedia", self.professional_source)
