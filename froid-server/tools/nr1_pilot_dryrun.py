@@ -86,6 +86,27 @@ def connect():
     return psycopg.connect(dsn, connect_timeout=15)
 
 
+def ensure_migrations() -> None:
+    """Garante que o schema esteja em dia antes de qualquer coisa.
+
+    `ensure_schema()` é preguiçoso: no processo do servidor ele só dispara na
+    primeira operação de tenant, tipo um login. Depois de um deploy pode levar
+    horas até isso acontecer, e uma migration nova fica no limbo sem ninguém
+    perceber. Aqui a chamada é explícita, e é idempotente — o que já está
+    aplicado é ignorado.
+    """
+    from tenant_store import TenantStore
+
+    store = TenantStore.from_env()
+    if not store.enabled:
+        raise SystemExit(
+            "FROID_PERSISTENCE_MODE não está em 'dual'. O piloto precisa do "
+            "espelho em PostgreSQL ativo."
+        )
+    store.ensure_schema()
+    print("Schema conferido: migrations pendentes aplicadas.")
+
+
 def instrument_of(connection):
     row = connection.execute(
         """
@@ -96,9 +117,9 @@ def instrument_of(connection):
     ).fetchone()
     if not row:
         raise SystemExit(
-            "Instrumento FROID v1 não encontrado. A migration "
-            "015_nr1_instrument_froid_v1 ainda não foi aplicada: reinicie o "
-            "backend e tente de novo."
+            "Instrumento FROID v1 não encontrado mesmo após aplicar as "
+            "migrations. Verifique se 015_nr1_instrument_froid_v1.sql chegou "
+            "ao servidor: git log --oneline -1"
         )
     return {"id": row[0], "scale_min": int(row[1]), "scale_max": int(row[2])}
 
@@ -447,6 +468,11 @@ def main() -> int:
     args = parser.parse_args()
     if not (args.create or args.report or args.destroy):
         parser.error("escolha --create, --report ou --destroy")
+
+    if args.create or args.report:
+        # Fora da transação do piloto: aplicar migration dentro dela misturaria
+        # mudança de schema com dado de teste no mesmo rollback.
+        ensure_migrations()
 
     with connect() as connection:
         with connection.transaction():
