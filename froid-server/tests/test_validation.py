@@ -171,5 +171,80 @@ class MigrationTests(unittest.TestCase):
             self.assertIn(f"ALTER TABLE {tabela} ENABLE ROW LEVEL SECURITY", self.sql)
 
 
+class AmostraDeclaradaTests(unittest.TestCase):
+    """Parar quando o numero agrada e a forma mais comum de produzir um
+    resultado que nao se reproduz. A amostra alvo e declarada antes."""
+
+    def test_leitura_parcial_nao_sai_como_resultado(self):
+        xs, ys = amostra_correlacionada(V.TARGET_PAIRS - 1, 0.75)
+        r = V.evaluate(V.DECLARED_PAIRINGS[0], xs, ys)
+        self.assertFalse(r.is_final)
+        frase = V.evidence_statement(r)
+        self.assertIn("LEITURA PARCIAL", frase)
+        self.assertIn("Nao divulgar", frase)
+        self.assertNotIn("compativel com validade convergente", frase)
+
+    def test_amostra_alvo_atingida_libera_a_conclusao(self):
+        xs, ys = amostra_correlacionada(V.TARGET_PAIRS, 0.75)
+        r = V.evaluate(V.DECLARED_PAIRINGS[0], xs, ys)
+        self.assertTrue(r.is_final)
+        self.assertIn("compativel com validade convergente", V.evidence_statement(r))
+
+    def test_alvo_acima_do_piso_de_reporte(self):
+        self.assertGreater(V.TARGET_PAIRS, V.MIN_PAIRS)
+
+    def test_progresso_e_legivel(self):
+        xs, ys = amostra_correlacionada(35, 0.5)
+        self.assertEqual(
+            V.evaluate(V.DECLARED_PAIRINGS[0], xs, ys).progress,
+            f"35/{V.TARGET_PAIRS}",
+        )
+
+class TCLEPesquisaTests(unittest.TestCase):
+    """O consentimento de pesquisa nao pode se confundir com o clinico.
+
+    Um paciente que recusa pesquisa tem de receber o produto clinico inteiro.
+    Se a recusa custar atendimento, o consentimento deixa de ser livre — e um
+    consentimento nao livre nao vale nada, nem eticamente nem juridicamente.
+    """
+
+    def setUp(self):
+        import legal_documents
+
+        self.doc = legal_documents.DOCUMENT_TEMPLATES["research_tcle"]
+        self.texto = " ".join(corpo for _, corpo in self.doc["sections"]).lower()
+
+    def test_e_documento_proprio_e_nao_parte_do_tcle_clinico(self):
+        import legal_documents
+
+        self.assertNotIn(
+            "research_tcle", legal_documents.required_document_keys("professional")
+        )
+        self.assertNotIn(
+            "research_tcle", legal_documents.required_document_keys("organization")
+        )
+
+    def test_diz_que_recusar_nao_afeta_o_atendimento(self):
+        self.assertIn("recusar nao muda nada no seu atendimento",
+                      self.texto.replace("ã", "a").replace("é", "e"))
+
+    def test_preve_revogacao_e_o_que_acontece_com_o_ja_coletado(self):
+        self.assertIn("retirar sua participa", self.texto)
+        self.assertIn("eliminados da base do estudo", self.texto)
+        # Prometer desfazer o publicado seria promessa impossivel.
+        self.assertIn("nao podem ser desfeitos",
+                      self.texto.replace("ã", "a").replace("é", "e"))
+
+    def test_promete_divulgar_resultado_contrario_a_hipotese(self):
+        self.assertIn("inclusive se contrariarem", self.texto)
+
+    def test_declara_que_o_froid_nao_aplica_o_questionario(self):
+        self.assertIn("aplicado e interpretado pelo profissional", self.texto)
+
+    def test_nao_usa_fala_transcricao_nem_prontuario(self):
+        for termo in ("transcri", "prontuario"):
+            self.assertIn(termo, self.texto.replace("á", "a"))
+        self.assertIn("nao sao usados", self.texto.replace("ã", "a"))
+
 if __name__ == "__main__":
     unittest.main()

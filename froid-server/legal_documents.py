@@ -137,6 +137,23 @@ DOCUMENT_TEMPLATES: dict[str, dict[str, Any]] = {
 }
 
 
+DOCUMENT_TEMPLATES["research_tcle"] = {
+    "title": "TCLE — Participação no Estudo de Validade dos Indicadores FROID",
+    "audiences": ["patient"],
+    "sections": [
+        ["Convite e natureza da participação", "Você está sendo convidado a participar de um estudo que verifica se os indicadores do FROID guardam relação com questionários já validados na literatura, como o PHQ-9 e o GAD-7. Participar é opcional e é uma decisão separada do seu tratamento. Recusar não muda nada no seu atendimento, não altera o que o FROID faz na sua sessão e não é comunicado a ninguém além do registro desta recusa."],
+        ["Por que este estudo existe", "Os indicadores do FROID descrevem propriedades medidas da voz e da expressão facial. Eles ainda não foram comparados formalmente com instrumentos validados. Enquanto essa comparação não existir, a resposta honesta sobre a validade deles é que ela ainda não foi estabelecida. Este estudo produz essa comparação."],
+        ["O que acontece se você aceitar", "Em algumas sessões, o profissional aplicará um questionário breve, respondido por você, e registrará apenas a pontuação total. Essa pontuação será associada aos valores que o FROID mediu na mesma sessão. Não há procedimento adicional, exame, medicamento nem sessão extra. O questionário é aplicado e interpretado pelo profissional, não pelo FROID."],
+        ["Que dados são usados e como", "São usados: a pontuação total do questionário, os valores dos indicadores daquela sessão e informações técnicas de qualidade da captação. A análise trabalha apenas com os pares de números, sem identificação. Não são usados o conteúdo da sua fala, a transcrição, a gravação nem o seu prontuário."],
+        ["Riscos e benefícios", "O risco principal é o desconforto de responder perguntas sobre como você tem se sentido; você pode deixar qualquer pergunta em branco ou interromper. Não há benefício direto para você. O benefício esperado é coletivo: permitir que profissionais e pacientes saibam o que os indicadores do FROID de fato medem, ou que não medem o que se supunha."],
+        ["Revogação", "Você pode retirar sua participação a qualquer momento, sem justificar e sem qualquer efeito sobre o atendimento. Ao pedir a retirada, os seus pares de dados são eliminados da base do estudo. Resultados já publicados a partir de análises anteriores não podem ser desfeitos, e por isso este documento informa isso antes e não depois."],
+        ["Divulgação dos resultados", "Os resultados serão divulgados de forma agregada, sem qualquer identificação. Serão divulgados independentemente do que mostrarem, inclusive se contrariarem a hipótese do estudo. O tamanho da amostra e a direção esperada de cada relação foram definidos antes do início da coleta."],
+        ["Responsável e contato", "O responsável pelo estudo é {supplier_identity}. Dúvidas sobre a pesquisa, sobre seus dados ou sobre a retirada da participação podem ser dirigidas a esse contato ou ao profissional que o atende."],
+        ["Limites", COMMON_LIMITS],
+    ],
+}
+
+
 def public_legal_catalog() -> dict[str, Any]:
     supplier = _supplier()
     supplier_identity = (

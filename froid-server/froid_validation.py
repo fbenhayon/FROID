@@ -42,6 +42,19 @@ CONFIDENCE_Z = 1.96
 # rounding the doubt away.
 MIN_PAIRS = 30
 
+# The sample this study committed to before collecting anything.
+#
+# Declaring it up front is not bureaucracy: it is what stops optional stopping.
+# A team that checks the correlation every week and stops the day it looks good
+# has not measured the pattern, it has measured its own patience — the practice
+# inflates false positives badly, and it is the first thing a reviewer or an
+# opposing expert looks for.
+#
+# So the report distinguishes two things a coefficient can be: an interim
+# reading, honest but provisional, and the declared analysis at n = 70. Only
+# the second is the study's result.
+TARGET_PAIRS = 70
+
 # Cohen's conventions for correlation magnitude. Convergent validity is
 # customarily argued from the moderate band upwards.
 R_SMALL = 0.10
@@ -142,6 +155,20 @@ class ConvergenceResult:
     @property
     def reportable(self) -> bool:
         return self.verdict not in ("insufficient_sample", "unusable_sample")
+
+    @property
+    def is_final(self) -> bool:
+        """A amostra declarada foi atingida?
+
+        Antes disso, todo coeficiente e leitura parcial. Sustentar conclusao em
+        leitura parcial e parar de coletar quando o numero agrada — que e a
+        forma mais comum de produzir um resultado que nao se reproduz.
+        """
+        return self.n >= TARGET_PAIRS
+
+    @property
+    def progress(self) -> str:
+        return f"{self.n}/{TARGET_PAIRS}"
 
 
 def evaluate(
@@ -246,6 +273,14 @@ def evidence_statement(result: ConvergenceResult) -> str:
         f"{result.instrument} a r = {result.r:.2f} "
         f"(IC 95%: {baixo:.2f} a {alto:.2f})."
     )
+    if not result.is_final:
+        # Leitura parcial nunca sai como resultado, por melhor que esteja. E
+        # justamente quando esta boa que a tentacao de parar aparece.
+        return (
+            base + f" LEITURA PARCIAL: a analise declarada deste estudo e em "
+            f"{TARGET_PAIRS} pares e ainda ha {result.progress} coletados. "
+            f"Nao divulgar como resultado."
+        )
     if result.verdict in ("strong", "moderate"):
         return (
             base + " O resultado e compativel com validade convergente nesta "
