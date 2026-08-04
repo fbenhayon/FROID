@@ -225,21 +225,50 @@ class StatisticalHonestyTests(unittest.TestCase):
         self.assertGreater(effect_margin(0.3, 64, 64), effect_margin(0.3, 200, 200))
 
     def test_small_effect_on_a_small_cohort_is_not_a_result(self):
-        # d=+0.28 com 22 pessoas: menor que o ruído da própria coorte.
+        # d=+0.33 com 22 pessoas: o intervalo alcança o zero.
         verdict = compare(self.small(2.44), self.small(2.29))
         self.assertEqual(verdict.verdict, "no_change")
         self.assertFalse(verdict.significant)
-        self.assertIn("nao supera o ruido", verdict.rationale)
+        self.assertIn("intervalo alcanca o zero", verdict.rationale)
 
     def test_the_same_effect_on_a_large_cohort_can_be_a_result(self):
-        # A mesma queda de 0,20 na média: indistinguível de ruído com 22
+        # A mesma queda de 0,30 na média: indistinguível de ruído com 22
         # pessoas, sustentável com 64. É o número de respostas que decide se
         # há afirmação a fazer, não o tamanho da diferença isolado.
-        pequeno = compare(self.small(3.20), self.small(3.00))
-        grande = compare(self.large(3.20), self.large(3.00))
+        pequeno = compare(self.small(3.20), self.small(2.90))
+        grande = compare(self.large(3.20), self.large(2.90))
         self.assertAlmostEqual(pequeno.effect_size, grande.effect_size, places=2)
         self.assertEqual(pequeno.verdict, "no_change")
         self.assertEqual(grande.verdict, "partial")
+
+    def test_an_interval_that_touches_zero_is_never_a_success(self):
+        """O falso positivo que o piloto produziu, travado.
+
+        d=+0.60 com margem +/-0.60 dá o intervalo [0,00; 1,20]. Anunciar
+        "medida eficaz" a partir dele é afirmar mais do que o dado sustenta —
+        e foi o que aconteceu com uma melhora de assédio que eu nunca plantei,
+        surgida do ruído de uma coorte de 22.
+        """
+        verdict = compare(
+            self.small(2.50, cut_favorable=1.5, cut_critical=3.0),
+            self.small(2.14, cut_favorable=1.5, cut_critical=3.0),
+        )
+        self.assertGreater(verdict.effect_size, 0.5)
+        self.assertLess(verdict.effect_size - verdict.effect_margin, 0.20)
+        self.assertEqual(verdict.verdict, "no_change")
+
+    def test_verdict_reflects_the_magnitude_the_interval_supports(self):
+        # O ponto pode sugerir eficácia; vale o que o intervalo inteiro sustenta.
+        verdict = compare(self.large(3.90), self.large(3.00))
+        sustentada = verdict.effect_size - verdict.effect_margin
+        if sustentada >= 0.50:
+            self.assertEqual(verdict.verdict, "effective")
+        else:
+            self.assertEqual(verdict.verdict, "partial")
+
+    def test_rationale_states_the_interval(self):
+        verdict = compare(self.large(3.9), self.large(3.0))
+        self.assertIn("intervalo [", verdict.rationale)
 
     def test_noise_is_not_called_worsening_either(self):
         # O rigor tem de valer nos dois sentidos: se melhora pequena não vira

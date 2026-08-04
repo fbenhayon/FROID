@@ -281,9 +281,13 @@ export const Nr1Effectiveness: React.FC<{ user: FroidUser | null }> = ({ user })
                       <p className="text-[10px] uppercase tracking-wider opacity-70">
                         diferença padronizada
                       </p>
+                      <p className="mt-1 text-[10px] tracking-wider opacity-60">
+                        [{(review.effect_size - review.effect_margin).toFixed(2)};{" "}
+                        {(review.effect_size + review.effect_margin).toFixed(2)}]
+                      </p>
                       {!review.significant && (
                         <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                          dentro do ruído
+                          intervalo alcança o zero
                         </p>
                       )}
                     </div>

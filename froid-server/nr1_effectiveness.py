@@ -177,17 +177,25 @@ def compare(
 
     effect = effect_size(baseline, followup)
     margem = effect_margin(effect, baseline.cohort_size, followup.cohort_size)
-    # Um efeito menor que a própria margem de erro não recebe direção. Vale nos
-    # dois sentidos: nem melhora que a estatística não sustenta, nem piora.
-    significativo = abs(effect) > margem and abs(effect) >= EFFECT_TRIVIAL
+
+    # Classifica-se pelo limite CONSERVADOR do intervalo, não pelo ponto.
+    #
+    # Um efeito de +0,60 com margem de 0,60 tem intervalo [0,00; 1,20]: ele
+    # encosta no zero, e anunciar "medida eficaz" a partir dele é afirmar mais
+    # do que o dado sustenta. O piloto produziu exatamente esse caso — uma
+    # melhora de assédio que eu nunca plantei, surgida do ruído de uma coorte
+    # de 22 e promovida a resultado. Só se afirma a magnitude que o intervalo
+    # inteiro sustenta.
+    magnitude_sustentada = abs(effect) - margem
+    significativo = magnitude_sustentada >= EFFECT_TRIVIAL
 
     if not significativo:
         verdict = "no_change"
     elif effect < 0:
         verdict = "worsened"
-    elif effect >= EFFECT_LARGE and position_after == 0.0:
+    elif magnitude_sustentada >= EFFECT_LARGE and position_after == 0.0:
         verdict = "eliminated"
-    elif effect >= EFFECT_MODERATE:
+    elif magnitude_sustentada >= EFFECT_MODERATE:
         verdict = "effective"
     else:
         verdict = "partial"
@@ -206,14 +214,15 @@ def compare(
         f"({position_before * 100:.0f}% de exposicao). Reavaliacao "
         f"n={followup.cohort_size}, media {followup.mean_score:.2f} "
         f"({position_after * 100:.0f}%). Diferenca padronizada d={effect:+.2f}, "
-        f"margem de erro +/-{margem:.2f}. "
+        f"margem de erro +/-{margem:.2f}, intervalo "
+        f"[{effect - margem:+.2f}; {effect + margem:+.2f}]. "
         f"Exigencia da atividade na reavaliacao: nivel {exposicao_atual}. "
         f"Veredito: {verdict}."
     )
     if not significativo and abs(effect) >= EFFECT_TRIVIAL:
         rationale += (
-            " A variacao observada nao supera o ruido da coorte: com este "
-            "numero de respostas nao se afirma mudanca em nenhum sentido."
+            " O intervalo alcanca o zero: com este numero de respostas a "
+            "variacao observada nao se distingue de ruido, em nenhum sentido."
         )
     if requires_correction:
         rationale += (
