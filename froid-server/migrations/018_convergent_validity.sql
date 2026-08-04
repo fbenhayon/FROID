@@ -86,14 +86,14 @@ ALTER TABLE validation_observations ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS validation_admin_tenant ON validation_administrations;
 CREATE POLICY validation_admin_tenant ON validation_administrations
-    USING (organization_id = current_setting('froid.organization_id', TRUE)::uuid);
+    USING (organization_id = current_setting('app.organization_id', TRUE)::uuid);
 
 DROP POLICY IF EXISTS validation_obs_tenant ON validation_observations;
 CREATE POLICY validation_obs_tenant ON validation_observations
     USING (EXISTS (
         SELECT 1 FROM validation_administrations a
         WHERE a.id = validation_observations.administration_id
-          AND a.organization_id = current_setting('froid.organization_id', TRUE)::uuid
+          AND a.organization_id = current_setting('app.organization_id', TRUE)::uuid
     ));
 
 -- The pairs, already joined and already filtered for usable acquisition.

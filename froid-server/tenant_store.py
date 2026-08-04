@@ -3049,6 +3049,186 @@ class TenantStore:
             "audit_events": len([x for x in state.get("admin_audit_events") or [] if isinstance(x, dict)]),
         }
 
+    # ------------------------------------------------------------------
+    # Validade convergente.
+    #
+    # O profissional aplica o instrumento e registra o escore; o FROID guarda
+    # o par. Nenhum método aqui aplica ou pontua questionário — a fronteira
+    # que mantém o produto como instrumentação mora nessa ausência.
+    # ------------------------------------------------------------------
+
+    def validation_consent_state(
+        self, *, organization_id: str, membership_id: str, patient_id: str
+    ) -> dict:
+        """Concedido, revogado, ou nunca perguntado."""
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                self._nr1_session(connection, organization_id, membership_id)
+                row = connection.execute(
+                    "SELECT consent_version, granted_at, revoked_at "
+                    "FROM patient_research_consent WHERE patient_id=%s",
+                    (patient_id,),
+                ).fetchone()
+        if not row:
+            return {"state": "never_asked", "version": None, "at": None}
+        version, granted_at, revoked_at = row
+        if revoked_at is not None:
+            return {"state": "revoked", "version": version, "at": revoked_at.isoformat()}
+        return {"state": "granted", "version": version, "at": granted_at.isoformat()}
+
+    def validation_set_consent(
+        self, *, organization_id: str, membership_id: str, patient_id: str,
+        registered_by: str, granted: bool, consent_version: str,
+    ) -> dict:
+        """Registra a decisão. Revogar apaga os pares, não apenas os sinaliza."""
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        removidos = 0
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                self._nr1_session(connection, organization_id, membership_id)
+                if granted:
+                    connection.execute(
+                        "INSERT INTO patient_research_consent "
+                        "(patient_id, organization_id, consent_version, granted_at, "
+                        " revoked_at, registered_by) "
+                        "VALUES (%s, %s, %s, now(), NULL, %s) "
+                        "ON CONFLICT (patient_id) DO UPDATE SET "
+                        " consent_version=EXCLUDED.consent_version, granted_at=now(), "
+                        " revoked_at=NULL, registered_by=EXCLUDED.registered_by, "
+                        " updated_at=now()",
+                        (patient_id, organization_id, consent_version, registered_by),
+                    )
+                else:
+                    connection.execute(
+                        "INSERT INTO patient_research_consent "
+                        "(patient_id, organization_id, consent_version, granted_at, "
+                        " revoked_at, registered_by) "
+                        "VALUES (%s, %s, %s, NULL, now(), %s) "
+                        "ON CONFLICT (patient_id) DO NOTHING",
+                        (patient_id, organization_id, consent_version, registered_by),
+                    )
+                    row = connection.execute(
+                        "SELECT froid_revoke_research_consent(%s, %s)",
+                        (patient_id, registered_by),
+                    ).fetchone()
+                    removidos = int(row[0] or 0) if row else 0
+        return {"granted": granted, "removed_administrations": removidos}
+
+    def validation_record_administration(
+        self, *, organization_id: str, membership_id: str, patient_id: str,
+        instrument_code: str, total_score: float, administered_by: str,
+        administered_at: str, session_id: Optional[str], observations: list,
+    ) -> dict:
+        """Grava o escore e os padrões medidos na mesma janela.
+
+        Recusa se o consentimento não estiver ativo. A checagem está aqui, e
+        não apenas na tela, porque tela é a camada que se esquece.
+        """
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                self._nr1_session(connection, organization_id, membership_id)
+                ativo = connection.execute(
+                    "SELECT froid_research_consent_active(%s)", (patient_id,)
+                ).fetchone()
+                if not ativo or not ativo[0]:
+                    raise PermissionError("consentimento de pesquisa não está ativo")
+                versao = connection.execute(
+                    "SELECT consent_version FROM patient_research_consent "
+                    "WHERE patient_id=%s",
+                    (patient_id,),
+                ).fetchone()
+                row = connection.execute(
+                    "INSERT INTO validation_administrations "
+                    "(organization_id, patient_id, instrument_id, session_id, "
+                    " administered_at, total_score, administered_by, "
+                    " research_consent, consent_version) "
+                    "SELECT %s, %s, i.id, %s, %s, %s, %s, TRUE, %s "
+                    "FROM validation_instruments i WHERE i.code=%s RETURNING id",
+                    (organization_id, patient_id, session_id, administered_at,
+                     total_score, administered_by, versao[0] if versao else "",
+                     instrument_code),
+                ).fetchone()
+                if not row:
+                    raise ValueError(f"instrumento desconhecido: {instrument_code}")
+                administration_id = row[0]
+                for obs in observations or []:
+                    connection.execute(
+                        "INSERT INTO validation_observations "
+                        "(administration_id, pattern_key, pattern_value, coverage, "
+                        " confidence, window_seconds) VALUES (%s, %s, %s, %s, %s, %s) "
+                        "ON CONFLICT (administration_id, pattern_key) DO NOTHING",
+                        (administration_id, obs.get("pattern_key"),
+                         obs.get("pattern_value"), obs.get("coverage"),
+                         obs.get("confidence"), obs.get("window_seconds")),
+                    )
+        return {"administration_id": str(administration_id)}
+
+    def validation_patient_history(
+        self, *, organization_id: str, membership_id: str, patient_id: str
+    ) -> list:
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                self._nr1_session(connection, organization_id, membership_id)
+                linhas = connection.execute(
+                    "SELECT a.administered_at, i.code, a.total_score, i.score_max, "
+                    "       a.session_id, "
+                    "       (SELECT count(*) FROM validation_observations o "
+                    "         WHERE o.administration_id = a.id) "
+                    "FROM validation_administrations a "
+                    "JOIN validation_instruments i ON i.id = a.instrument_id "
+                    "WHERE a.patient_id=%s ORDER BY a.administered_at DESC",
+                    (patient_id,),
+                ).fetchall()
+        return [
+            {
+                "administered_at": r[0].isoformat(), "instrument": r[1],
+                "total_score": float(r[2]), "score_max": float(r[3]),
+                "session_id": r[4], "patterns": int(r[5]),
+            }
+            for r in linhas
+        ]
+
+    def validation_progress(
+        self, *, organization_id: str, membership_id: str
+    ) -> list:
+        """Quantos pares por hipótese. Sem coeficiente, de propósito."""
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                self._nr1_session(connection, organization_id, membership_id)
+                linhas = connection.execute(
+                    "SELECT pattern_key, instrument_code, pairs "
+                    "FROM froid_validation_progress()"
+                ).fetchall()
+        return [
+            {"pattern_key": r[0], "instrument": r[1], "pairs": int(r[2])}
+            for r in linhas
+        ]
+
+    def validation_pairs(
+        self, *, organization_id: str, membership_id: str,
+        pattern_key: str, instrument_code: str,
+    ) -> tuple:
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                self._nr1_session(connection, organization_id, membership_id)
+                linhas = connection.execute(
+                    "SELECT pattern_value, instrument_score "
+                    "FROM froid_validation_pairs(%s, %s)",
+                    (pattern_key, instrument_code),
+                ).fetchall()
+        return [float(r[0]) for r in linhas], [float(r[1]) for r in linhas]
+
 
 def read_json_object(path: str) -> dict:
     if not path or not os.path.exists(path):

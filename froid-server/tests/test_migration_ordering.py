@@ -103,5 +103,24 @@ class MigrationOrderingTests(unittest.TestCase):
             self.assertIn("COMMIT;", content, f"{path.name} sem COMMIT")
 
 
+class RLSSettingNameTests(unittest.TestCase):
+    """RLS que le a variavel errada nao falha: ela silencia tudo.
+
+    A migration 018 nasceu usando 'froid.organization_id' enquanto o
+    tenant_store define 'app.organization_id'. O efeito nao seria erro — seria
+    uma politica que nunca casa, e portanto uma tabela que parece vazia. Erro
+    silencioso em fronteira de tenant e a pior especie.
+    """
+
+    def test_todas_as_politicas_usam_o_mesmo_nome_de_variavel(self):
+        raiz = Path(__file__).resolve().parents[1] / "migrations"
+        erradas = []
+        for sql in sorted(raiz.glob("*.sql")):
+            texto = sql.read_text(encoding="utf-8")
+            for achado in re.findall(r"current_setting\('([a-z_.]+)'", texto):
+                if achado.startswith("froid."):
+                    erradas.append(f"{sql.name}: {achado}")
+        self.assertEqual(erradas, [], "use app.* como o tenant_store define")
+
 if __name__ == "__main__":
     unittest.main()

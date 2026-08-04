@@ -246,5 +246,45 @@ class TCLEPesquisaTests(unittest.TestCase):
             self.assertIn(termo, self.texto.replace("á", "a"))
         self.assertIn("nao sao usados", self.texto.replace("ã", "a"))
 
+class ConsentimentoRevogavelTests(unittest.TestCase):
+    """A promessa do TCLE precisa ser uma funcao, nao um paragrafo."""
+
+    def setUp(self):
+        self.sql = (
+            SERVER_DIR / "migrations" / "019_research_consent_state.sql"
+        ).read_text(encoding="utf-8")
+
+    def test_revogacao_apaga_os_pares_de_verdade(self):
+        self.assertIn("DELETE FROM validation_administrations", self.sql)
+        self.assertIn("froid_revoke_research_consent", self.sql)
+
+    def test_estado_nunca_e_concedido_e_revogado_ao_mesmo_tempo(self):
+        self.assertIn("patient_research_consent_state CHECK", self.sql)
+
+    def test_ausencia_de_registro_significa_nunca_perguntado(self):
+        # COALESCE para FALSE: sem linha, nao ha consentimento — e nao um
+        # default permissivo.
+        self.assertIn("COALESCE(", self.sql)
+        self.assertIn("FALSE", self.sql)
+
+    def test_progresso_nao_devolve_coeficiente_nem_identidade(self):
+        inicio = self.sql.index("CREATE OR REPLACE FUNCTION froid_validation_progress")
+        corpo = self.sql[inicio:]
+        self.assertNotIn("patient_id", corpo)
+        self.assertNotIn("total_score", corpo)
+        self.assertIn("count(*)", corpo)
+
+    def test_progresso_aplica_os_mesmos_pisos_de_qualidade(self):
+        inicio = self.sql.index("CREATE OR REPLACE FUNCTION froid_validation_progress")
+        corpo = self.sql[inicio:]
+        self.assertIn("o.coverage >= 0.80", corpo)
+        self.assertIn("o.confidence >= 0.70", corpo)
+
+    def test_rls_ativa_e_usa_a_variavel_do_tenant_store(self):
+        self.assertIn(
+            "ALTER TABLE patient_research_consent ENABLE ROW LEVEL SECURITY", self.sql
+        )
+        self.assertIn("current_setting('app.organization_id'", self.sql)
+
 if __name__ == "__main__":
     unittest.main()

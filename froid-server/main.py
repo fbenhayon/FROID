@@ -32,6 +32,7 @@ from tenant_access import (
 )
 from tenant_store import TenantStore, stable_uuid
 import explica_embeddings
+import froid_validation
 import nr1_compliance
 import nr1_effectiveness
 from subscriptions import (
@@ -7300,6 +7301,167 @@ def _nr1_criteria_for(context: AccessContext) -> nr1_compliance.GradationCriteri
     except ValueError:
         LOGGER.exception("Stored NR-1 criteria are invalid; falling back to default")
         return nr1_compliance.DEFAULT_CRITERIA
+
+
+# ----------------------------------------------------------------------
+# Validade convergente.
+#
+# O profissional aplica o instrumento e registra o escore; nenhum endpoint
+# aqui aplica ou pontua questionário. Essa ausência é o que mantém o FROID
+# como instrumentação e fora da definição de instrumento de avaliação
+# psicológica.
+# ----------------------------------------------------------------------
+
+
+@app.get("/api/organizations/{organization_id}/validation/consent/{patient_id}")
+async def read_research_consent(organization_id: str, patient_id: str, request: Request):
+    """Estado do consentimento de pesquisa deste paciente."""
+    context = _require_tenant_management_context(
+        request, organization_id, "patients.read_assigned"
+    )
+    return TENANT_STORE.validation_consent_state(
+        organization_id=context.organization_id,
+        membership_id=context.membership_id,
+        patient_id=patient_id,
+    )
+
+
+@app.post("/api/organizations/{organization_id}/validation/consent/{patient_id}")
+async def set_research_consent(organization_id: str, patient_id: str, request: Request):
+    """Registra ou revoga a participação.
+
+    Revogar não marca uma coluna: apaga os pares deste paciente da base do
+    estudo, que é o que o TCLE promete.
+    """
+    context = _require_tenant_management_context(
+        request, organization_id, "patients.manage"
+    )
+    body = await request.json()
+    granted = bool(body.get("granted"))
+    resultado = TENANT_STORE.validation_set_consent(
+        organization_id=context.organization_id,
+        membership_id=context.membership_id,
+        patient_id=patient_id,
+        registered_by=context.user_id,
+        granted=granted,
+        consent_version=LEGAL_DOCUMENT_VERSION,
+    )
+    return resultado
+
+
+@app.post("/api/organizations/{organization_id}/validation/administrations")
+async def record_validation_administration(organization_id: str, request: Request):
+    """Escore do instrumento aplicado pelo profissional, e os padrões da janela."""
+    context = _require_tenant_management_context(
+        request, organization_id, "reports.write"
+    )
+    body = await request.json()
+    patient_id = str(body.get("patient_id") or "")
+    if not patient_id:
+        raise HTTPException(status_code=400, detail="patient_id é obrigatório")
+    try:
+        score = float(body.get("total_score"))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="total_score inválido")
+    try:
+        return TENANT_STORE.validation_record_administration(
+            organization_id=context.organization_id,
+            membership_id=context.membership_id,
+            patient_id=patient_id,
+            instrument_code=str(body.get("instrument") or "PHQ-9"),
+            total_score=score,
+            administered_by=context.user_id,
+            administered_at=str(body.get("administered_at") or "")
+            or datetime.now(timezone.utc).isoformat(),
+            session_id=body.get("session_id"),
+            observations=list(body.get("observations") or []),
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.get("/api/organizations/{organization_id}/validation/patients/{patient_id}")
+async def read_validation_history(organization_id: str, patient_id: str, request: Request):
+    context = _require_tenant_management_context(
+        request, organization_id, "patients.read_assigned"
+    )
+    return {
+        "consent": TENANT_STORE.validation_consent_state(
+            organization_id=context.organization_id,
+            membership_id=context.membership_id,
+            patient_id=patient_id,
+        ),
+        "administrations": TENANT_STORE.validation_patient_history(
+            organization_id=context.organization_id,
+            membership_id=context.membership_id,
+            patient_id=patient_id,
+        ),
+    }
+
+
+@app.get("/api/organizations/{organization_id}/validation/progress")
+async def read_validation_progress(organization_id: str, request: Request):
+    """Progresso da coleta. Sem coeficiente, deliberadamente.
+
+    Correlação parcial numa tela de uso diário vira número que a pessoa
+    lembra e repete fora de contexto. Progresso não tem esse risco.
+    """
+    context = _require_tenant_management_context(
+        request, organization_id, "reports.read_assigned"
+    )
+    coletados = {
+        f"{item['pattern_key']}:{item['instrument']}": item["pairs"]
+        for item in TENANT_STORE.validation_progress(
+            organization_id=context.organization_id,
+            membership_id=context.membership_id,
+        )
+    }
+    return {
+        "target": froid_validation.TARGET_PAIRS,
+        "floor": froid_validation.MIN_PAIRS,
+        "hypotheses": [
+            {
+                "pattern_key": p.pattern_key,
+                "instrument": p.instrument,
+                "expected_direction": p.expected_direction,
+                "pairs": coletados.get(f"{p.pattern_key}:{p.instrument}", 0),
+            }
+            for p in froid_validation.DECLARED_PAIRINGS
+        ],
+    }
+
+
+@app.get("/api/organizations/{organization_id}/validation/report")
+async def read_validation_report(organization_id: str, request: Request):
+    """As três hipóteses avaliadas contra os pares coletados."""
+    context = _require_tenant_management_context(
+        request, organization_id, "reports.read_all"
+    )
+    saida = []
+    for pairing in froid_validation.DECLARED_PAIRINGS:
+        xs, ys = TENANT_STORE.validation_pairs(
+            organization_id=context.organization_id,
+            membership_id=context.membership_id,
+            pattern_key=pairing.pattern_key,
+            instrument_code=pairing.instrument,
+        )
+        resultado = froid_validation.evaluate(pairing, xs, ys)
+        saida.append({
+            "pattern_key": resultado.pattern_key,
+            "instrument": resultado.instrument,
+            "expected_direction": pairing.expected_direction,
+            "n": resultado.n,
+            "progress": resultado.progress,
+            "is_final": resultado.is_final,
+            "r": resultado.r,
+            "interval": resultado.interval,
+            "verdict": resultado.verdict,
+            "detail": resultado.detail,
+            "statement": froid_validation.evidence_statement(resultado),
+        })
+    return {"target": froid_validation.TARGET_PAIRS, "results": saida}
 
 
 @app.get("/api/organizations/{organization_id}/nr1/criteria")
