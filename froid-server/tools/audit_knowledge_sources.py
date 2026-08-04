@@ -71,6 +71,47 @@ TEMAS: dict[str, list[str]] = {
 }
 
 
+# Termos que nao deveriam existir numa base consultada por cliente. Nao sao
+# palavras proibidas: sao indicios de documento interno — plano financeiro,
+# material de captacao, estrutura de custo — que entrou na curadoria por
+# engano.
+#
+# Encontrado em auditoria: a base respondia "quanto custa uma sessao" com o
+# CUSTO interno por sessao, e nao com o preco. O produto entregava a propria
+# margem ao cliente que perguntasse.
+INDICIOS_CONFIDENCIAIS = [
+    "custo total", "custo por sessao", "custo / sessao", "custo/sessao",
+    "margem", "valuation", "investimento seed", "series a", "pre-series",
+    "captacao", "rodada", "burn", "runway", "cac", "ltv", "payback",
+    "early adopter", "break-even", "breakeven", "projecao de receita",
+    "faturamento projetado", "ebitda",
+]
+
+
+def escanear_confidencial(collection, limite: int) -> None:
+    """Procura na base indicios de material interno exposto ao cliente."""
+    print("\n\nINDICIOS DE MATERIAL INTERNO NA BASE")
+    print("Documento interno numa base consultada por cliente e vazamento,")
+    print("nao desatualizacao. Confira cada achado antes de decidir.\n")
+    achados: dict[str, set] = {}
+    for termo in INDICIOS_CONFIDENCIAIS:
+        resultado = collection.query(query_texts=[termo], n_results=limite)
+        for metadado, documento in zip(
+            resultado["metadatas"][0], resultado["documents"][0]
+        ):
+            texto = " ".join(str(documento).split()).lower()
+            if termo not in texto:
+                continue
+            fonte = metadado.get("source", "?")
+            achados.setdefault(fonte, set()).add(termo)
+    if not achados:
+        print("  Nenhum indicio encontrado.")
+        return
+    for fonte, termos in sorted(achados.items(), key=lambda x: -len(x[1])):
+        print(f"  {fonte[:62]}")
+        print(f"      termos: {', '.join(sorted(termos))}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tema", choices=sorted(TEMAS), action="append", default=[])
@@ -87,6 +128,10 @@ def main() -> int:
     parser.add_argument("--embedding", default="auto", choices=["auto", "openai", "local"])
     parser.add_argument(
         "--so-peso", action="store_true", help="mostra apenas o peso das fontes"
+    )
+    parser.add_argument(
+        "--confidencial", action="store_true",
+        help="procura indicios de material interno exposto na base",
     )
     args = parser.parse_args()
 
@@ -115,6 +160,10 @@ def main() -> int:
         alerta = "  <-- pesa demais" if fatia > 0.05 else ""
         print(f"  {quantos:5d} ({fatia * 100:4.1f}%)  {fonte[:66]}{alerta}")
     print(f"\n  ... e mais {sum(1 for q in contagem.values() if q < 20)} fontes menores")
+
+    if args.confidencial:
+        escanear_confidencial(collection, max(args.top, 8))
+        return 0
 
     if args.so_peso:
         return 0
