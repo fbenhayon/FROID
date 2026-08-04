@@ -153,6 +153,45 @@ class PilotScenarioTests(unittest.TestCase):
                     )
                     self.assertTrue(1 <= valor <= 5, f"{code} gerou {valor}")
 
+    def test_pseudonyms_are_unique_across_the_whole_population(self):
+        """O banco impõe um pseudônimo por pessoa por campanha.
+
+        A primeira versão do roteiro numerava a partir de zero em cada unidade
+        e colidia na segunda — simulava duas pessoas com o mesmo crachá. A
+        restrição do banco estava certa; o gerador é que estava errado.
+        """
+        gerados = [
+            self.tool.pseudonym_for(unit_id, indice)
+            for unit_id, total in self.tool.POPULATION.items()
+            for indice in range(total)
+        ]
+        self.assertEqual(
+            len(gerados), len(set(gerados)),
+            "pseudônimos colidem entre unidades da mesma campanha",
+        )
+
+    def test_pseudonym_is_deterministic(self):
+        unit = self.tool.UNIT_ATENDIMENTO
+        self.assertEqual(
+            self.tool.pseudonym_for(unit, 7), self.tool.pseudonym_for(unit, 7)
+        )
+
+    def test_ids_are_unique_across_units(self):
+        """Convite e resposta também derivam de (campanha, unidade, índice)."""
+        import uuid as uuid_module
+
+        vistos = set()
+        for campaign in (self.tool.CAMPAIGN_BASE, self.tool.CAMPAIGN_FOLLOW):
+            for unit_id, total in self.tool.POPULATION.items():
+                for indice in range(total):
+                    for prefixo in ("invite", "response"):
+                        gerado = uuid_module.uuid5(
+                            self.tool.PILOT_NAMESPACE,
+                            f"{prefixo}/{campaign}/{unit_id}/{indice}",
+                        )
+                        self.assertNotIn(gerado, vistos, f"{prefixo} duplicado")
+                        vistos.add(gerado)
+
     def test_population_crosses_both_cohort_floors(self):
         from nr1_compliance import MIN_COHORT_CUT, MIN_COHORT_TOTAL
 

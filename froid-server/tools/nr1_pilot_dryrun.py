@@ -282,6 +282,18 @@ def _json(value) -> str:
     return json.dumps(value)
 
 
+def pseudonym_for(unit_id: str, indice: int) -> str:
+    """Pseudônimo simulado, único por pessoa dentro da campanha.
+
+    O banco impõe UNIQUE (campaign_id, subject_pseudonym) justamente para
+    impedir que a mesma pessoa responda duas vezes. A primeira versão deste
+    roteiro numerava a partir de zero em cada unidade e colidia — ou seja,
+    simulava duas pessoas diferentes com o mesmo crachá. A restrição estava
+    certa; o gerador é que estava errado.
+    """
+    return f"piloto-{unit_id}-{indice:04d}"
+
+
 def _simulate_wave(connection, campaign_id, dimensions, wave) -> None:
     rng = random.Random(f"{campaign_id}|{wave}")
     for unit_id, total in POPULATION.items():
@@ -302,7 +314,8 @@ def _simulate_wave(connection, campaign_id, dimensions, wave) -> None:
                 """,
                 (
                     invitation_id, ORG_ID, campaign_id, unit_id,
-                    f"piloto-{indice}", f"piloto-token-{invitation_id}",
+                    pseudonym_for(unit_id, indice),
+                    f"piloto-token-{invitation_id}",
                 ),
             )
             connection.execute(
