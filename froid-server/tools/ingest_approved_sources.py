@@ -16,12 +16,35 @@ from pathlib import Path
 
 
 REPO_APPROVED_DIR = Path(__file__).resolve().parents[1] / "knowledge" / "approved"
+VOLUME_APPROVED_DIR = Path("/data/froid_sources/curated/approved")
 DEFAULT_APPROVED_DIR = Path(
     os.getenv(
         "FROID_APPROVED_KNOWLEDGE_DIR",
-        str(Path("/data/froid_sources/curated/approved") if Path("/data/froid_sources/curated/approved").exists() else REPO_APPROVED_DIR),
+        str(VOLUME_APPROVED_DIR if VOLUME_APPROVED_DIR.exists() else REPO_APPROVED_DIR),
     )
 )
+
+
+def default_sources() -> list[Path]:
+    """Pastas a indexar quando nenhuma e informada explicitamente.
+
+    Antes o script escolhia UMA: o volume, se existisse, senao o repositorio.
+    Na pratica isso descartava em silencio toda nota versionada em git, porque
+    em producao o volume existe. Uma nota podia ser escrita, revisada,
+    publicada e nunca chegar ao FROID Explica, sem erro nenhum — so nao
+    aparecia nas respostas.
+
+    Agora as duas sao indexadas. O volume guarda o material curado que nao
+    cabe no repositorio; o repositorio guarda as notas tecnicas revisadas em
+    code review. Ambas sao fonte legitima e nenhuma deve sumir por acidente.
+    """
+    override = os.getenv("FROID_APPROVED_KNOWLEDGE_DIR", "").strip()
+    if override:
+        return [Path(override)]
+    fontes = [REPO_APPROVED_DIR]
+    if VOLUME_APPROVED_DIR.exists():
+        fontes.append(VOLUME_APPROVED_DIR)
+    return [path for path in fontes if path.exists()]
 DEFAULT_CHROMA_PATH = Path(os.getenv("FROID_CHROMA_PATH", "/data/chroma_db"))
 DEFAULT_COLLECTION = os.getenv("FROID_CHROMA_COLLECTION", "froid_clinical_knowledge")
 
@@ -70,7 +93,11 @@ def infer_area(path: Path) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Ingestao das fontes aprovadas na ChromaDB.")
-    parser.add_argument("--approved", type=Path, default=DEFAULT_APPROVED_DIR)
+    parser.add_argument(
+        "--approved", type=Path, action="append", default=None,
+        help="Pasta approved a indexar. Pode repetir. Sem isto, indexa o "
+             "repositorio e o volume curado.",
+    )
     parser.add_argument("--chroma-path", type=Path, default=DEFAULT_CHROMA_PATH)
     parser.add_argument("--collection", default=DEFAULT_COLLECTION)
     parser.add_argument("--words-per-chunk", type=int, default=700)
@@ -78,8 +105,15 @@ def main() -> None:
     parser.add_argument("--reset", action="store_true", help="Apaga a collection antes de reindexar.")
     args = parser.parse_args()
 
-    if not args.approved.exists():
-        raise SystemExit(f"Pasta approved inexistente: {args.approved}")
+    fontes = [Path(p) for p in (args.approved or [])] or default_sources()
+    if not fontes:
+        raise SystemExit("Nenhuma pasta approved encontrada.")
+    for fonte in fontes:
+        if not fonte.exists():
+            raise SystemExit(f"Pasta approved inexistente: {fonte}")
+    print("Fontes:")
+    for fonte in fontes:
+        print(f"  {fonte} ({len(list(fonte.rglob('*.md')))} arquivos)")
 
     from chromadb import PersistentClient
 
@@ -92,18 +126,37 @@ def main() -> None:
             pass
     collection = client.get_or_create_collection(name=args.collection)
 
-    md_files = sorted(args.approved.rglob("*.md"))
+    # (raiz, arquivo) para que o identificador estavel continue derivando do
+    # caminho relativo a sua propria pasta approved.
+    md_files: list[tuple[Path, Path]] = []
+    vistos: set[str] = set()
+    duplicados = 0
+    for raiz in fontes:
+        for path in sorted(raiz.rglob("*.md")):
+            if path.name in vistos:
+                # Mesmo nome nas duas fontes: vale a primeira, que e o
+                # repositorio — a versao revisada em code review.
+                duplicados += 1
+                continue
+            vistos.add(path.name)
+            md_files.append((raiz, path))
+    if duplicados:
+        print(f"Ignorados por nome repetido entre as fontes: {duplicados}")
+
     total_chunks = 0
     total_files = 0
 
-    for path in md_files:
+    for raiz, path in md_files:
         text = path.read_text(encoding="utf-8", errors="ignore")
         chunks = chunk_markdown(text, args.words_per_chunk, args.overlap)
         if not chunks:
             continue
         title = title_from_markdown(path, text)
         area = infer_area(path)
-        ids = [stable_id(path.relative_to(args.approved), index, chunk) for index, chunk in enumerate(chunks)]
+        ids = [
+            stable_id(path.relative_to(raiz), index, chunk)
+            for index, chunk in enumerate(chunks)
+        ]
         metadatas = [
             {
                 "title": title,
