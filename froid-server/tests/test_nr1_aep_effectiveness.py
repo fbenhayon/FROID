@@ -7,6 +7,8 @@ SERVER_DIR = Path(__file__).resolve().parents[1]
 if str(SERVER_DIR) not in sys.path:
     sys.path.insert(0, str(SERVER_DIR))
 
+import nr1_compliance
+import nr1_effectiveness
 from nr1_compliance import (  # noqa: E402
     DEFAULT_CRITERIA,
     MIN_COHORT_CUT,
@@ -161,13 +163,36 @@ class EffectivenessTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             compare(score(), score(unit_id="other"))
 
-    def test_zero_dispersion_falls_back_to_normalised_exposure(self):
+    def test_sem_dispersao_nao_se_afirma_eficacia(self):
+        """Sem desvio-padrao nao existe efeito padronizado.
+
+        A versao anterior caia numa diferenca de posicoes normalizadas e a
+        comparava contra as bandas de Cohen. Sao escalas diferentes: aquele
+        numero vive em [-1, 1] e o d nao, e effect_margin aplicava a ele o erro
+        padrao do d, que so vale para uma diferenca padronizada. O veredito
+        passava a depender de o score_stddev ter sido gravado — acidente de
+        disponibilidade de dado, e nao propriedade da medida adotada.
+
+        Uma melhora enorme (4.0 -> 2.0) era anunciada como eficaz sem que
+        houvesse base para padronizar.
+        """
         verdict = compare(
             score(mean_score=4.0, score_stddev=0.0),
             score(mean_score=2.0, score_stddev=0.0),
         )
-        self.assertGreater(verdict.effect_size, 0)
+        self.assertEqual(verdict.verdict, "inconclusive")
+        self.assertFalse(verdict.significant)
+        self.assertFalse(verdict.requires_correction)
+        self.assertIn("dispersao", verdict.rationale)
+
+    def test_com_dispersao_a_mesma_melhora_e_avaliada(self):
+        # O contraste: o unico dado que muda e o desvio-padrao.
+        verdict = compare(
+            score(mean_score=4.0, score_stddev=0.8),
+            score(mean_score=2.0, score_stddev=0.8),
+        )
         self.assertNotEqual(verdict.verdict, "inconclusive")
+        self.assertGreater(verdict.effect_size, 0)
 
     def test_unpaired_rows_are_skipped_not_guessed(self):
         verdicts = compare_campaigns(
@@ -484,6 +509,112 @@ class AuditHardeningTests(unittest.TestCase):
     def test_migration_registers_itself(self):
         self.assertIn("'014_nr1_audit_hardening'", self.sql)
 
+
+class CriteriosDaOrganizacaoTests(unittest.TestCase):
+    """Os criterios documentados precisam chegar ate a comparacao.
+
+    A gradacao do inventario ja os honrava; a comparacao de eficacia nao. Uma
+    organizacao que publicou matriz 3x3 tinha o inventario graduado na propria
+    escala e a exigencia da atividade lida na escala padrao do FROID — e o
+    piso de correcao, fixo em 3, virava o TETO daquela escala, fazendo a
+    obrigacao de corrigir quase desaparecer justamente para quem tinha a regua
+    mais curta.
+    """
+
+    def test_piso_de_correcao_acompanha_a_escala(self):
+        self.assertEqual(nr1_effectiveness.correction_floor(), 3)
+        for escala, esperado in ((3, 2), (4, 3), (5, 3)):
+            criterios = nr1_compliance.criteria_for_scale(escala, escala)
+            self.assertEqual(
+                nr1_effectiveness.correction_floor(criterios), esperado, escala
+            )
+
+    def test_piso_nunca_excede_a_escala(self):
+        for escala in range(2, 11):
+            criterios = nr1_compliance.criteria_for_scale(escala, escala)
+            piso = nr1_effectiveness.correction_floor(criterios)
+            self.assertGreaterEqual(piso, 1, escala)
+            self.assertLessEqual(piso, escala, escala)
+
+    def test_compare_aceita_e_usa_os_criterios(self):
+        criterios = nr1_compliance.criteria_for_scale(3, 3)
+        verdict = compare(
+            score(mean_score=4.2, score_stddev=0.9),
+            score(mean_score=4.1, score_stddev=0.9),
+            criterios,
+        )
+        # Nao explode, e o parecer cita o nivel lido na escala da organizacao.
+        self.assertIn("nivel", verdict.rationale)
+
+    def test_endpoint_passa_os_criterios(self):
+        fonte = (SERVER_DIR / "main.py").read_text(encoding="utf-8")
+        i = fonte.index("nr1_effectiveness.compare_campaigns(")
+        self.assertIn("_nr1_criteria_for(context)", fonte[i:i + 400])
+
+
+class EficaciaConcordaComOParecerTests(unittest.TestCase):
+    """A eficacia registrada nao pode contradizer a propria justificativa."""
+
+    def test_sem_medida_associada_a_eficacia_e_none_e_nao_insuficiente(self):
+        # Dimensao que ja estava baixa e continua baixa: o texto diz que nao
+        # havia medida associada, entao rotula-la "insufficient" faria o
+        # inventario do ciclo seguinte ler "medida insuficiente" onde nenhuma
+        # medida existiu.
+        verdict = compare(
+            score(mean_score=1.2, score_stddev=0.5),
+            score(mean_score=1.25, score_stddev=0.5),
+        )
+        self.assertEqual(verdict.verdict, "no_change")
+        self.assertFalse(verdict.requires_correction)
+        self.assertEqual(verdict.measure_efficacy, "none")
+        self.assertIn("nao havia medida associada", verdict.rationale)
+
+    def test_com_exposicao_alta_o_no_change_continua_insuficiente(self):
+        verdict = compare(
+            score(mean_score=4.5, score_stddev=0.5),
+            score(mean_score=4.45, score_stddev=0.5),
+        )
+        self.assertEqual(verdict.verdict, "no_change")
+        self.assertTrue(verdict.requires_correction)
+        self.assertEqual(verdict.measure_efficacy, "insufficient")
+
+class EscalaDeRiscoTests(unittest.TestCase):
+    """Propriedade verificada em vez de suposta.
+
+    A auditoria suspeitou que os pisos fixos de criteria_for_scale
+    (max(2,...), max(3,...), max(4,...)) pudessem inverter ou colapsar as
+    bandas numa matriz pequena. Nao invertem. A verificacao ficou como teste
+    para que a suspeita nao precise ser refeita, e para que uma mudanca futura
+    nos pisos nao quebre a monotonicidade em silencio.
+    """
+
+    def test_bandas_sempre_estritamente_crescentes(self):
+        for escala in range(2, 11):
+            criterios = nr1_compliance.criteria_for_scale(escala, escala)
+            bandas = list(criterios.risk_bands)
+            self.assertEqual(bandas, sorted(set(bandas)), f"{escala}x{escala}")
+
+    def test_todos_os_niveis_alcancaveis_a_partir_de_3x3(self):
+        # Numa 2x2 ha apenas tres produtos possiveis para quatro niveis, entao
+        # um nivel fica inalcancavel por aritmetica e nao por defeito.
+        for escala in range(3, 9):
+            criterios = nr1_compliance.criteria_for_scale(escala, escala)
+            niveis = {
+                nr1_compliance.risk_level(s, p, criterios)
+                for s in range(1, escala + 1)
+                for p in range(1, escala + 1)
+            }
+            self.assertEqual(
+                niveis, set(nr1_compliance.RISK_LEVELS), f"{escala}x{escala}"
+            )
+
+    def test_o_pior_caso_e_sempre_critico_e_o_melhor_sempre_baixo(self):
+        for escala in range(2, 11):
+            criterios = nr1_compliance.criteria_for_scale(escala, escala)
+            self.assertEqual(
+                nr1_compliance.risk_level(escala, escala, criterios), "critical"
+            )
+            self.assertEqual(nr1_compliance.risk_level(1, 1, criterios), "low")
 
 if __name__ == "__main__":
     unittest.main()

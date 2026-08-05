@@ -7880,9 +7880,13 @@ async def review_nr1_effectiveness(organization_id: str, request: Request):
             ),
         }
 
+    # Os mesmos criterios que graduam o inventario decidem em que escala a
+    # exigencia da atividade e lida aqui. Sem passa-los, a comparacao usava a
+    # escala padrao do FROID mesmo para quem publicou uma matriz propria.
     verdicts = nr1_effectiveness.compare_campaigns(
         (nr1_compliance.DimensionScore(**row) for row in baseline_rows),
         (nr1_compliance.DimensionScore(**row) for row in followup_rows),
+        _nr1_criteria_for(context),
     )
     payload = [
         {

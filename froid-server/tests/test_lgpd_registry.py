@@ -78,5 +78,21 @@ class DocumentoParaRIPDTests(unittest.TestCase):
         self.assertTrue(doc["versao"])
 
 
+class CadastroImprimivelTests(unittest.TestCase):
+    """Cadastro que ninguem consegue imprimir nao serve ao RIPD.
+
+    Ele existia so no modulo, lido apenas pelos testes. A unica razao de o
+    cadastro existir e ser anexado ao Relatorio de Impacto, e para isso
+    precisava de uma saida.
+    """
+
+    def test_a_ferramenta_existe_e_le_o_cadastro(self):
+        fonte = (
+            Path(__file__).resolve().parents[1] / "tools" / "cadastro_lgpd.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("registry_as_document", fonte)
+        self.assertIn("AVISO_BASE_LEGAL_NR1", fonte)
+        self.assertIn("art. 38", fonte)
+
 if __name__ == "__main__":
     unittest.main()

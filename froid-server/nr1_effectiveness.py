@@ -25,12 +25,14 @@ statistics cannot support is exactly what an opposing expert takes apart.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import sqrt
+from math import ceil, sqrt
 from typing import Dict, Iterable, List, Optional, Tuple
 
 from nr1_compliance import (
+    DEFAULT_CRITERIA,
     MIN_COHORT_CUT,
     DimensionScore,
+    GradationCriteria,
     exposure_level,
     exposure_position,
 )
@@ -51,7 +53,23 @@ CONFIDENCE_Z = 1.96
 # 1.5.5.3.2.1 manda corrigir a medida cujo acompanhamento mostrou ineficácia,
 # e isso pressupõe que uma medida existia. Dimensão que já estava baixa e
 # continua baixa não gera obrigação nenhuma.
+#
+# O valor é o nível 3 da escala de cinco bandas do FROID. Numa organização que
+# publicou uma matriz 3x3, o nível 3 é o TETO — e exigir o teto faria a
+# obrigação de correção praticamente desaparecer para esse cliente. O piso
+# passa a ser proporcional à escala em uso.
 CORRECTION_EXPOSURE_FLOOR = 3
+_CORRECTION_FLOOR_RATIO = CORRECTION_EXPOSURE_FLOOR / 5
+
+
+def correction_floor(criteria: GradationCriteria = DEFAULT_CRITERIA) -> int:
+    """Nível de exigência a partir do qual havia medida a corrigir.
+
+    Preserva o comportamento da escala de cinco bandas e o traduz para a escala
+    que a organização documentou (1.5.4.4.2.2), em vez de aplicar um número
+    absoluto a uma régua diferente.
+    """
+    return max(1, min(criteria.probability_max, ceil(criteria.probability_max * _CORRECTION_FLOOR_RATIO)))
 
 VERDICT_TO_EFFICACY = {
     "eliminated": "eliminated",
@@ -112,15 +130,25 @@ def improvement_delta(
     return float(baseline.mean_score) - float(followup.mean_score)
 
 
-def effect_size(baseline: DimensionScore, followup: DimensionScore) -> float:
-    """Standardised improvement. Positive is better, negative is worse."""
+def effect_size(baseline: DimensionScore, followup: DimensionScore) -> Optional[float]:
+    """Standardised improvement. Positive is better, negative is worse.
+
+    Devolve None quando não há dispersão para padronizar por.
+
+    A versão anterior caía numa diferença de posições normalizadas, o que
+    parecia prudente e não era: aquele número vive em [-1, 1] e o d de Cohen
+    não, mas os dois eram comparados contra as MESMAS bandas de 0,20, 0,50 e
+    0,80. Pior, `effect_margin` aplicava a ele o erro padrão do d, que só vale
+    para uma diferença padronizada. O veredito passava a depender de o
+    `score_stddev` ter sido gravado — um acidente de disponibilidade de dado,
+    e não uma propriedade da medida adotada.
+
+    Sem dispersão não existe efeito padronizado. O honesto é dizer isso.
+    """
     spread = pooled_stddev(baseline, followup)
-    delta = improvement_delta(baseline, followup)
     if spread == 0.0:
-        # No dispersion recorded: fall back on the normalised exposure, which is
-        # always available, rather than claiming an infinite effect.
-        return exposure_position(baseline) - exposure_position(followup)
-    return delta / spread
+        return None
+    return improvement_delta(baseline, followup) / spread
 
 
 def effect_margin(effect: float, n1: int, n2: int) -> float:
@@ -138,9 +166,16 @@ def effect_margin(effect: float, n1: int, n2: int) -> float:
 
 
 def compare(
-    baseline: DimensionScore, followup: DimensionScore
+    baseline: DimensionScore,
+    followup: DimensionScore,
+    criteria: GradationCriteria = DEFAULT_CRITERIA,
 ) -> EffectivenessVerdict:
-    """Judge one dimension of one unit across two cycles."""
+    """Judge one dimension of one unit across two cycles.
+
+    `criteria` são os critérios documentados pela organização (1.5.4.4.2.2).
+    Eles decidem em que escala a exigência da atividade é lida, e portanto a
+    partir de que nível existia medida a corrigir.
+    """
     if baseline.dimension_id != followup.dimension_id:
         raise ValueError("effectiveness compares the same dimension over time")
     if baseline.unit_id != followup.unit_id:
@@ -149,9 +184,7 @@ def compare(
     position_before = exposure_position(baseline)
     position_after = exposure_position(followup)
 
-    # Both ends must clear the k floor. A follow-up with fewer respondents than
-    # the floor is not a smaller sample, it is a suppressed one.
-    if min(baseline.cohort_size, followup.cohort_size) < MIN_COHORT_CUT:
+    def inconclusivo(motivo: str) -> EffectivenessVerdict:
         return EffectivenessVerdict(
             unit_id=baseline.unit_id,
             dimension_id=baseline.dimension_id,
@@ -168,14 +201,30 @@ def compare(
             measure_efficacy=VERDICT_TO_EFFICACY["inconclusive"],
             requires_correction=False,
             triggers_review=False,
-            rationale=(
-                "Comparacao nao realizada: uma das coortes ficou abaixo do piso "
-                f"de {MIN_COHORT_CUT} respostas. Sem coorte suficiente nao se "
-                "afirma eficacia."
-            ),
+            rationale=motivo,
         )
 
-    effect = effect_size(baseline, followup)
+    # Both ends must clear the k floor. A follow-up with fewer respondents than
+    # the floor is not a smaller sample, it is a suppressed one.
+    if min(baseline.cohort_size, followup.cohort_size) < MIN_COHORT_CUT:
+        return inconclusivo(
+            "Comparacao nao realizada: uma das coortes ficou abaixo do piso "
+            f"de {MIN_COHORT_CUT} respostas. Sem coorte suficiente nao se "
+            "afirma eficacia."
+        )
+
+    efeito = effect_size(baseline, followup)
+    if efeito is None:
+        # Sem dispersao registrada nao ha como padronizar a diferenca. Inventar
+        # um numero em outra escala e compara-lo com as bandas de Cohen seria
+        # produzir um veredito que depende de o desvio-padrao ter sido gravado.
+        return inconclusivo(
+            "Comparacao nao realizada: nao ha dispersao registrada nas duas "
+            "coortes, entao a diferenca nao pode ser padronizada. Sem isso nao "
+            "se distingue mudanca de ruido, e nao se afirma eficacia."
+        )
+
+    effect = efeito
     margem = effect_margin(effect, baseline.cohort_size, followup.cohort_size)
 
     # Classifica-se pelo limite CONSERVADOR do intervalo, não pelo ponto.
@@ -203,11 +252,20 @@ def compare(
     # Só se exige correção onde ainda há exposição a corrigir. Dimensão que já
     # estava baixa e continua baixa nunca teve medida associada, e apontá-la
     # como falha enche o plano de ação de ruído — escondendo o que importa.
-    exposicao_atual = exposure_level(followup)
-    requires_correction = (
-        verdict in ("no_change", "worsened")
-        and exposicao_atual >= CORRECTION_EXPOSURE_FLOOR
-    )
+    exposicao_atual = exposure_level(followup, criteria)
+    piso = correction_floor(criteria)
+    havia_medida = exposicao_atual >= piso
+    requires_correction = verdict in ("no_change", "worsened") and havia_medida
+
+    # A eficácia registrada precisa concordar com o parecer.
+    #
+    # Antes, "no_change" virava sempre "insufficient" — inclusive na dimensão
+    # que nunca teve medida, cuja própria justificativa diz que não havia
+    # medida associada. O inventário do ciclo seguinte lia "medida
+    # insuficiente" onde o texto ao lado dizia que medida nenhuma existia.
+    eficacia = VERDICT_TO_EFFICACY[verdict]
+    if verdict == "no_change" and not havia_medida:
+        eficacia = "none"
 
     rationale = (
         f"Linha de base n={baseline.cohort_size}, media {baseline.mean_score:.2f} "
@@ -249,7 +307,7 @@ def compare(
         effect_margin=round(margem, 3),
         significant=significativo,
         verdict=verdict,
-        measure_efficacy=VERDICT_TO_EFFICACY[verdict],
+        measure_efficacy=eficacia,
         requires_correction=requires_correction,
         triggers_review=requires_correction,
         rationale=rationale,
@@ -263,6 +321,7 @@ def _key(score: DimensionScore) -> Tuple[Optional[str], str]:
 def compare_campaigns(
     baseline_scores: Iterable[DimensionScore],
     followup_scores: Iterable[DimensionScore],
+    criteria: GradationCriteria = DEFAULT_CRITERIA,
 ) -> List[EffectivenessVerdict]:
     """Compare two cycles, pairing on unit and dimension.
 
@@ -278,7 +337,7 @@ def compare_campaigns(
         baseline = baseline_index.get(_key(followup))
         if baseline is None:
             continue
-        verdicts.append(compare(baseline, followup))
+        verdicts.append(compare(baseline, followup, criteria))
     verdicts.sort(key=lambda item: item.effect_size)
     return verdicts
 
