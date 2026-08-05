@@ -33,6 +33,7 @@ from tenant_access import (
 from tenant_store import TenantStore, stable_uuid
 import explica_embeddings
 import froid_validation
+import lgpd_registry
 import nr1_compliance
 import nr1_effectiveness
 from subscriptions import (
@@ -7921,7 +7922,11 @@ async def create_nr1_campaign(organization_id: str, request: Request):
             unit_id=str(body.get("unit_id") or "").strip() or None,
             reference_period=str(body.get("reference_period") or "").strip(),
             target_headcount=_local_int(body.get("target_headcount")),
-            purpose_notice=str(body.get("purpose_notice") or "").strip(),
+            # A base legal entra na estrutura, nao no texto livre: o campo e
+            # preenchido por campanha, por gente diferente, sob pressa.
+            purpose_notice=lgpd_registry.compose_purpose_notice(
+                str(body.get("purpose_notice") or "")
+            ),
             support_channel_label=str(body.get("support_channel_label") or "").strip(),
             support_channel_detail=str(body.get("support_channel_detail") or "").strip(),
         )
