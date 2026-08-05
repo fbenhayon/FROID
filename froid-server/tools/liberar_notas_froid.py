@@ -50,6 +50,8 @@ LIBERADAS: dict[str, str] = {
         "Explica descrever o FROID inteiro pela metade corporativa.",
     "FROID_NR1_Riscos_Psicossociais.md":
         "Responde a pergunta do trabalhador: meu chefe ve o que eu respondi?",
+    "FROID_NR1_Contextualizacao_Papel_e_Celulose.md":
+        "Como adaptar o instrumento a um setor sem trocar o instrumento.",
     "FROID_Estabilizacao_Clinica_Da_Tela.md":
         "Por que a tela nao oscila a cada segundo. Sem o vetor de pesos.",
     "FROID_Bibliografia_Cientifica_Verificada.md":
