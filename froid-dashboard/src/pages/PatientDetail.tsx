@@ -23,6 +23,8 @@ import {
   SessionReportRecord,
 } from "../lib/session-report";
 import { dashboardText, loadSessionLanguagePreferences, normalizeSessionLocale } from "../lib/localization";
+import { ResearchConsentCard } from "../components/validation/ResearchConsentCard";
+import { activeOrganizationId } from "../lib/validation";
 
 type PatientFollowStatus = "active" | "inactive";
 
@@ -336,6 +338,15 @@ export const PatientDetail: React.FC = () => {
                 detail="Eventos facial-vocal confirmados"
               />
             </div>
+            {group.patient?.id && activeOrganizationId() && (
+              <div className="mt-4">
+                <ResearchConsentCard
+                  organizationId={activeOrganizationId()}
+                  patientId={group.patient.id}
+                  patientName={group.patient.name}
+                />
+              </div>
+            )}
             <div className="mt-4 rounded-lg border border-amber-600 bg-amber-950/40 px-3 py-3">
               <p className="text-[11px] font-black uppercase tracking-wide text-amber-100">
                 Nota Clínica

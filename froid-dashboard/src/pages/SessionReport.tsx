@@ -12,6 +12,8 @@ import {
 } from "../lib/session-report";
 import { dashboardText, loadSessionLanguagePreferences, normalizeSessionLocale, type SessionLocale } from "../lib/localization";
 import { tooltipText } from "../lib/tooltip-i18n";
+import { InstrumentScorePrompt } from "../components/validation/InstrumentScorePrompt";
+import { activeOrganizationId } from "../lib/validation";
 
 interface Props {
   user?: any;
@@ -780,6 +782,31 @@ export const SessionReport: React.FC<Props> = () => {
   return (
     <ReportLocaleContext.Provider value={locale}>
     <div className="min-h-screen bg-slate-950 text-slate-100">
+      {report.patient?.id && activeOrganizationId() && (
+        <div className="mx-auto max-w-7xl px-6 pt-4">
+          <InstrumentScorePrompt
+            organizationId={activeOrganizationId()}
+            patientId={report.patient.id}
+            sessionId={report.sessionId}
+            observations={[
+              {
+                pattern_key: "psychomotor_slowing",
+                pattern_value: report.sessionAverage?.wordsPerMinute ?? null,
+                coverage: report.metricsAnalysis?.dashboard?.mean_coverage ?? null,
+                confidence: report.metricsAnalysis?.dashboard?.mean_confidence ?? null,
+                window_seconds: report.durationSeconds,
+              },
+              {
+                pattern_key: "prosodic_activation",
+                pattern_value: report.sessionAverage?.ipmAvg ?? null,
+                coverage: report.metricsAnalysis?.dashboard?.mean_coverage ?? null,
+                confidence: report.metricsAnalysis?.dashboard?.mean_confidence ?? null,
+                window_seconds: report.durationSeconds,
+              },
+            ].filter((item) => item.pattern_value !== null)}
+          />
+        </div>
+      )}
       <header className="border-b border-slate-800 bg-slate-950 px-6 py-4">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
           <div>

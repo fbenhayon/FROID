@@ -32,6 +32,7 @@ const FroidProfessionalsPage = lazy(() => import("./pages/FroidInstitutionalPage
 const Nr1Aep = lazy(() => import("./pages/Nr1Aep").then((module) => ({ default: module.Nr1Aep })));
 const Nr1Dashboard = lazy(() => import("./pages/Nr1Dashboard").then((module) => ({ default: module.Nr1Dashboard })));
 const Nr1Effectiveness = lazy(() => import("./pages/Nr1Effectiveness").then((module) => ({ default: module.Nr1Effectiveness })));
+const ValidationStudy = lazy(() => import("./pages/ValidationStudy").then((module) => ({ default: module.ValidationStudy })));
 const Nr1QuestionnairePage = lazy(() => import("./pages/Nr1QuestionnairePage").then((module) => ({ default: module.Nr1QuestionnairePage })));
 const FroidSciencePage = lazy(() => import("./pages/FroidInstitutionalPages").then((module) => ({ default: module.FroidSciencePage })));
 const FroidTechnologyPage = lazy(() => import("./pages/FroidInstitutionalPages").then((module) => ({ default: module.FroidTechnologyPage })));
@@ -316,6 +317,7 @@ function App() {
           path="/privacy-requests"
           element={clinicalElement(<PrivacyRequests user={user} />)}
         />
+        <Route path="/validade" element={clinicalElement(<ValidationStudy user={user} />)} />
         <Route path="/nr1" element={clinicalElement(<Nr1Dashboard user={user} />)} />
         <Route path="/nr1/aep" element={clinicalElement(<Nr1Aep user={user} />)} />
         <Route

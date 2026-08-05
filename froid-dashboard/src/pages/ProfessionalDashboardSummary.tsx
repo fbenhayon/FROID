@@ -14,6 +14,8 @@ import {
 } from "../lib/patient-dashboard";
 import { loadSessionReports, SessionReportRecord } from "../lib/session-report";
 import { dashboardText, loadSessionLanguagePreferences } from "../lib/localization";
+import { ValidationProgressLine } from "../components/validation/ValidationProgressLine";
+import { activeOrganizationId } from "../lib/validation";
 
 type Props = { user?: FroidUser | null; onLogout?: () => void };
 type FinancialSummary = {
@@ -117,6 +119,9 @@ export const ProfessionalDashboardSummary: React.FC<Props> = ({ user, onLogout }
             <span>{tr("Carga média")}: <b>{Math.round(portfolio.meanSignalLoad)}/100</b></span>
             <span>{tr("Continuidade")}: <b>{Math.round(portfolio.meanContinuity)}/100</b></span>
             <span>{tr("Para revisão")}: <b>{portfolio.reviewCount}</b></span>
+          </div>
+          <div className="mt-3">
+            <ValidationProgressLine organizationId={activeOrganizationId()} />
           </div>
         </section>
 
