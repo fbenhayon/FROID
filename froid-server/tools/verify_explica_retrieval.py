@@ -44,6 +44,11 @@ CASOS: list[tuple[str, str]] = [
     ("quantas respostas sao necessarias para liberar o resultado", "NR1"),
     ("o questionario pergunta sobre a minha saude mental", "NR1"),
     ("o que e a AEP e por que ela e obrigatoria", "NR1"),
+    # Os dois casos abaixo nasceram de respostas erradas em producao: o
+    # Explica confundiu o produto clinico com o modulo NR-1, e descreveu o
+    # FROID inteiro pela metade corporativa.
+    ("o froid substitui o phq-9", "Dois_Produtos"),
+    ("qual a diferenca entre o froid da clinica e o da empresa", "Dois_Produtos"),
     ("como funciona a janela clinica de cinco minutos", "Estabilizacao"),
     ("por que a tela nao atualiza a cada segundo", "Estabilizacao"),
 ]

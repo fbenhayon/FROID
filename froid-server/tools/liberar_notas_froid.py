@@ -45,6 +45,9 @@ LIBERADAS: dict[str, str] = {
         "MFCC e bandas de modulacao, com a ressalva de que nao sao EEG.",
     "FROID_Ficha_Tecnica_Fluencia_e_Face.md":
         "Fluencia verbal e FACS, com os limites de captacao.",
+    "FROID_Dois_Produtos_Clinico_e_NR1.md":
+        "Desambigua produto clinico e modulo NR-1. A ausencia dela fez o "
+        "Explica descrever o FROID inteiro pela metade corporativa.",
     "FROID_NR1_Riscos_Psicossociais.md":
         "Responde a pergunta do trabalhador: meu chefe ve o que eu respondi?",
     "FROID_Estabilizacao_Clinica_Da_Tela.md":
