@@ -76,5 +76,22 @@ class TabelaDeLeadsTests(unittest.TestCase):
         self.assertIn("length(btrim(nome))", self.sql)
 
 
+class EsquemaSobDemandaTests(unittest.TestCase):
+    """O endpoint publico precisa poder criar a propria tabela.
+
+    As demais operacoes chegam ao tenant_store depois de autenticacao, que ja
+    garantiu o esquema. Esta nao: num deploy novo, a tabela so existiria
+    quando alguem da equipe logasse — e ate la o formulario devolveria 503 e
+    perderia os leads em silencio, porque ninguem investiga um formulario que
+    ninguem reclamou.
+    """
+
+    def test_register_marketing_lead_garante_o_esquema(self):
+        fonte = (SERVER_DIR / "tenant_store.py").read_text(encoding="utf-8")
+        i = fonte.index("def register_marketing_lead")
+        corpo = fonte[i:fonte.index("INSERT INTO marketing_leads", i)]
+        self.assertIn("self.ensure_schema()", corpo)
+
+
 if __name__ == "__main__":
     unittest.main()

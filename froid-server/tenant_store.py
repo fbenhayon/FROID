@@ -3063,6 +3063,12 @@ class TenantStore:
         """
         if not self.enabled or not self.runtime_database_url:
             raise RuntimeError("dual persistence and runtime role are required")
+        # As demais operacoes chegam aqui depois de autenticacao, que ja
+        # garantiu o esquema. Esta nao: o formulario e publico, e num deploy
+        # novo a tabela so existiria quando alguem da equipe logasse. Ate la o
+        # endpoint devolveria 503 e os leads se perderiam — em silencio, porque
+        # ninguem investiga um formulario que ninguem reclamou.
+        self.ensure_schema()
         with self._connect(runtime=True) as connection:
             with connection.transaction():
                 connection.execute(
