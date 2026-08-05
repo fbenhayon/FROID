@@ -100,6 +100,13 @@ a.lang-pill:hover { color: #fff; border-color: rgba(248,250,252,0.5); }
 .btn-ghost:hover { background: rgba(248,250,252,0.08); text-decoration: none; }
 .btn-solid { background: var(--froid-azul); color: #fff; }
 .btn-solid:hover { background: #2f6fe0; text-decoration: none; }
+/* Vermelho da paleta FROID, para a acao que o visitante deve tomar primeiro.
+   Usado nas chamadas da NR-1: o diagnostico de prontidao qualifica ou
+   desqualifica em dois minutos, e e a decisao mais util da pagina. */
+.btn-danger { background: var(--froid-vermelho); color: #fff; }
+.btn-danger:hover { background: #dc2626; text-decoration: none; }
+.btn-danger-ghost { color: var(--froid-vermelho); border-color: var(--froid-vermelho); }
+.btn-danger-ghost:hover { background: rgba(239,68,68,0.10); text-decoration: none; }
 
 /* ---------- Hero ---------- */
 .hero {
