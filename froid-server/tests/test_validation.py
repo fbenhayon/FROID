@@ -4,6 +4,7 @@ Every test here exists because the corresponding shortcut is the easy one to
 take when a number is needed for a slide.
 """
 
+import os
 import random
 import sys
 import unittest
@@ -321,6 +322,40 @@ class ConsentimentoRevogavelTests(unittest.TestCase):
             "ALTER TABLE patient_research_consent ENABLE ROW LEVEL SECURITY", self.sql
         )
         self.assertIn("current_setting('app.organization_id'", self.sql)
+
+class TravaDoComiteDeEticaTests(unittest.TestCase):
+    """Coleta antes do parecer nao e irregularidade abstrata: sao 70 pares que
+    nao valem, descobertos seis meses depois."""
+
+    def setUp(self):
+        self._antes = os.environ.get("FROID_RESEARCH_CAAE")
+
+    def tearDown(self):
+        if self._antes is None:
+            os.environ.pop("FROID_RESEARCH_CAAE", None)
+        else:
+            os.environ["FROID_RESEARCH_CAAE"] = self._antes
+
+    def test_sem_caae_a_coleta_esta_bloqueada(self):
+        os.environ.pop("FROID_RESEARCH_CAAE", None)
+        self.assertFalse(V.collection_allowed())
+        self.assertEqual(V.ethics_approval(), "")
+
+    def test_caae_em_branco_nao_libera(self):
+        os.environ["FROID_RESEARCH_CAAE"] = "   "
+        self.assertFalse(V.collection_allowed())
+
+    def test_com_caae_a_coleta_e_liberada(self):
+        os.environ["FROID_RESEARCH_CAAE"] = "12345678.9.0000.5678"
+        self.assertTrue(V.collection_allowed())
+        self.assertEqual(V.ethics_approval(), "12345678.9.0000.5678")
+
+    def test_os_dois_endpoints_de_escrita_consultam_a_trava(self):
+        fonte = (SERVER_DIR / "main.py").read_text(encoding="utf-8")
+        inicio = fonte.index("async def set_research_consent")
+        fim = fonte.index("async def read_validation_history")
+        trecho = fonte[inicio:fim]
+        self.assertEqual(trecho.count("collection_allowed()"), 2, trecho.count("x"))
 
 if __name__ == "__main__":
     unittest.main()

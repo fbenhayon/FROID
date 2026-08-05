@@ -3,6 +3,7 @@ import {
   Administration,
   ConsentInfo,
   INSTRUMENT,
+  collectionAllowed,
   fetchPatientValidation,
   setConsent,
 } from "../../lib/validation";
@@ -34,6 +35,7 @@ export const ResearchConsentCard: React.FC<Props> = ({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [confirming, setConfirming] = useState(false);
+  const [liberado, setLiberado] = useState(false);
 
   const load = useCallback(async () => {
     if (!organizationId || !patientId) return;
@@ -50,6 +52,16 @@ export const ResearchConsentCard: React.FC<Props> = ({
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    let cancelado = false;
+    collectionAllowed(organizationId).then((ok) => {
+      if (!cancelado) setLiberado(ok);
+    });
+    return () => {
+      cancelado = true;
+    };
+  }, [organizationId]);
 
   const decide = useCallback(
     async (granted: boolean) => {
@@ -122,7 +134,15 @@ export const ResearchConsentCard: React.FC<Props> = ({
       {error && <p className="mt-2 text-[11px] text-rose-300">{error}</p>}
 
       <div className="mt-3 flex flex-wrap gap-2">
-        {!ativo && (
+        {!ativo && !liberado && (
+          <p className="text-[11px] leading-relaxed text-amber-200">
+            A coleta ainda nao foi liberada: o parecer do Comite de Etica em
+            Pesquisa nao esta registrado. Aceite colhido antes da aprovacao
+            seria aceite para um estudo que ainda nao existe no formato
+            aprovado.
+          </p>
+        )}
+        {!ativo && liberado && (
           <button
             type="button"
             disabled={busy}

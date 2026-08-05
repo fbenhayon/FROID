@@ -181,9 +181,29 @@ export async function fetchProgress(organizationId: string) {
   );
   return (await readJson(response)) as {
     target: number;
+    pilot: number;
     floor: number;
+    /** Falso enquanto não houver parecer do CEP registrado. */
+    collection_allowed: boolean;
+    ethics_approval: string;
     hypotheses: Hypothesis[];
   };
+}
+
+/**
+ * A coleta está liberada pelo comitê de ética?
+ *
+ * As telas de coleta consultam isto antes de aparecer. Oferecer um campo que
+ * o backend vai recusar treina o profissional a ignorar mensagem de erro, e
+ * pior: sugere que a pesquisa já começou quando ela ainda não pode começar.
+ */
+export async function collectionAllowed(organizationId: string) {
+  try {
+    const data = await fetchProgress(organizationId);
+    return Boolean(data.collection_allowed);
+  } catch {
+    return false;
+  }
 }
 
 export async function fetchReport(organizationId: string) {

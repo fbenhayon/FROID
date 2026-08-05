@@ -7338,6 +7338,15 @@ async def set_research_consent(organization_id: str, patient_id: str, request: R
     )
     body = await request.json()
     granted = bool(body.get("granted"))
+    # Retirar sempre pode. Consentir, só depois do parecer do CEP: colher
+    # aceite antes da aprovação é colher aceite para um estudo que ainda não
+    # existe no formato aprovado.
+    if granted and not froid_validation.collection_allowed():
+        raise HTTPException(
+            status_code=409,
+            detail="coleta bloqueada: parecer do CEP ainda não registrado "
+                   "(FROID_RESEARCH_CAAE)",
+        )
     resultado = TENANT_STORE.validation_set_consent(
         organization_id=context.organization_id,
         membership_id=context.membership_id,
@@ -7355,6 +7364,12 @@ async def record_validation_administration(organization_id: str, request: Reques
     context = _require_tenant_management_context(
         request, organization_id, "reports.write"
     )
+    if not froid_validation.collection_allowed():
+        raise HTTPException(
+            status_code=409,
+            detail="coleta bloqueada: parecer do CEP ainda não registrado "
+                   "(FROID_RESEARCH_CAAE)",
+        )
     body = await request.json()
     patient_id = str(body.get("patient_id") or "")
     if not patient_id:
@@ -7420,7 +7435,12 @@ async def read_validation_progress(organization_id: str, request: Request):
     }
     return {
         "target": froid_validation.TARGET_PAIRS,
+        "pilot": froid_validation.PILOT_PAIRS,
         "floor": froid_validation.MIN_PAIRS,
+        # Sem parecer do CEP a tela some, em vez de oferecer o que o backend
+        # vai recusar.
+        "collection_allowed": froid_validation.collection_allowed(),
+        "ethics_approval": froid_validation.ethics_approval(),
         "hypotheses": [
             {
                 "pattern_key": p.pattern_key,

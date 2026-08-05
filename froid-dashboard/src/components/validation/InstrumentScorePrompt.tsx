@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import {
   INSTRUMENT,
   INSTRUMENT_MAX,
+  collectionAllowed,
   fetchConsent,
   recordAdministration,
 } from "../../lib/validation";
@@ -49,6 +50,13 @@ export const InstrumentScorePrompt: React.FC<Props> = ({
     (async () => {
       if (!organizationId || !patientId) return;
       try {
+        // Duas condicoes, nesta ordem: o comite liberou a coleta, e este
+        // paciente aceitou participar. Faltando qualquer uma, nao pergunta.
+        const liberado = await collectionAllowed(organizationId);
+        if (!liberado) {
+          if (!cancelado) setVisivel(false);
+          return;
+        }
         const consent = await fetchConsent(organizationId, patientId);
         if (!cancelado) setVisivel(consent.state === "granted");
       } catch {

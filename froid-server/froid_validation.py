@@ -36,6 +36,27 @@ from typing import Iterable, List, Optional, Sequence, Tuple
 
 CONFIDENCE_Z = 1.96
 
+
+def ethics_approval() -> str:
+    """O CAAE do parecer do CEP, ou vazio enquanto nao houver.
+
+    Pesquisa com seres humanos no Brasil exige aprovacao de Comite de Etica em
+    Pesquisa antes da coleta, e dado coletado antes do parecer nao pode ser
+    usado — nem no estudo, nem para publicar. O prejuizo de esquecer isso nao
+    e uma multa: e descobrir, seis meses depois, que os 70 pares nao valem.
+
+    Por isso a checagem e uma trava e nao um aviso. O modulo inteiro fica
+    dormente ate que FROID_RESEARCH_CAAE exista, e a tela nao oferece o que o
+    backend vai recusar.
+    """
+    import os
+
+    return os.getenv("FROID_RESEARCH_CAAE", "").strip()
+
+
+def collection_allowed() -> bool:
+    return bool(ethics_approval())
+
 # Below this, a correlation coefficient is an anecdote with decimals. Thirty
 # pairs is the conventional floor for reporting a validity coefficient at all;
 # the interval at n=30 is still wide, and the report says so rather than
