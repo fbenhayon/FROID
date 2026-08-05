@@ -1943,7 +1943,28 @@ class TenantStore:
                              WHERE invitation.campaign_id = campaign.id
                                AND invitation.status = 'responded'),
                            (SELECT count(*) FROM assessment_invitations invitation
-                             WHERE invitation.campaign_id = campaign.id)
+                             WHERE invitation.campaign_id = campaign.id),
+                           -- Respostas gravadas e respostas substantivas.
+                           --
+                           -- A submissao aceita o envio quando ao menos UM
+                           -- item e valido, o que e a decisao certa na hora de
+                           -- gravar: descartar o que a pessoa respondeu seria
+                           -- pior. Mas uma resposta de um item conta igual a
+                           -- uma de trinta e nove para o piso da campanha.
+                           --
+                           -- Por dimensao o dado ja esta protegido — quem nao
+                           -- respondeu nada de uma dimensao nao entra na
+                           -- coorte dela. O que faltava era enxergar a
+                           -- diferenca, para que uma campanha cheia de
+                           -- respostas parciais deixe de passar por uma
+                           -- campanha cheia.
+                           (SELECT count(*) FROM assessment_responses response
+                             WHERE response.campaign_id = campaign.id
+                               AND response.completed),
+                           (SELECT count(*) FROM assessment_responses response
+                             WHERE response.campaign_id = campaign.id
+                               AND response.completed
+                               AND froid_nr1_response_is_substantive(response.id))
                     FROM assessment_campaigns campaign
                     WHERE campaign.id=%s AND campaign.organization_id=%s
                     """,
@@ -1953,12 +1974,17 @@ class TenantStore:
             raise ValueError("campaign_not_found")
         invited = int(row[3] or 0)
         answered = int(row[2] or 0)
+        gravadas = int(row[4] or 0)
+        substantivas = int(row[5] or 0)
         return {
             "status": row[0],
             "target_headcount": int(row[1] or 0),
             "responses": answered,
             "invited": invited,
             "response_rate": round(answered / invited, 3) if invited else 0.0,
+            "recorded_responses": gravadas,
+            "substantive_responses": substantivas,
+            "partial_responses": max(0, gravadas - substantivas),
         }
 
     def nr1_dimension_scores(

@@ -53,8 +53,14 @@ export type ValidationResult = {
   statement: string;
 };
 
-/** Nome legível do padrão. Nenhum deles nomeia condição clínica. */
-export const PATTERN_LABELS: Record<string, string> = {
+/**
+ * Nome legível do padrão. Nenhum deles nomeia condição clínica.
+ *
+ * Não exportado de propósito: quem precisa do rótulo usa `patternLabel`, que
+ * tem fallback para a chave. Exportar o mapa convidaria a um acesso direto que
+ * quebra quando a chave não existe.
+ */
+const PATTERN_LABELS: Record<string, string> = {
   psychomotor_slowing: "Lentificação psicomotora vocal",
   prosodic_activation: "Ativação prosódica",
   laryngeal_tension: "Tensão laríngea sustentada",
