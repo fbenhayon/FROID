@@ -22,26 +22,17 @@ O processamento bruto permanece em alta frequencia para preservar acuracia tempo
 
 A camada visual estabilizada utiliza microjanelas tecnicas de 1 minuto. Cada microjanela consolida os sinais disponiveis naquele minuto, incluindo IPM, IDM, zonas, tom emocional, biomarcadores acusticos, bandas espectrais, sub-harmonicos, DNA bioacustico e dissonancias detectadas.
 
-## Matematica da janela padrao de 5 minutos
+## Como a janela padrao de 5 minutos se comporta
 
-Na janela clinica de 5 minutos, o resultado apresentado ao profissional e calculado por media ponderada temporal das ultimas cinco microjanelas de 1 minuto.
+Na janela clinica de 5 minutos, o valor apresentado ao profissional e uma media ponderada das ultimas cinco microjanelas de 1 minuto, e nao a leitura do instante.
 
-Pesos proprietarios adotados:
-
-- minuto -4: 10%
-- minuto -3: 15%
-- minuto -2: 20%
-- minuto -1: 25%
-- minuto atual: 30%
-
-Essa distribuicao estabiliza a tela, mas preserva maior sensibilidade ao estado mais recente do paciente.
+O que importa clinicamente e o formato da ponderacao: o minuto atual pesa mais que os anteriores, e o peso decai a cada minuto que se afasta. Isso produz uma tela que nao oscila a cada respiracao, mas que ainda se move quando o estado do paciente muda de fato. Os valores exatos dos pesos sao parametro proprietario e nao constam desta nota; o que o profissional precisa saber para ler a tela e a direcao do decaimento, nao o numero.
 
 ## Regras por metrica
 
 - IPM: media ponderada temporal das microjanelas.
 - IDM: media ponderada temporal preservando sinal e intensidade.
 - Zonas FROID: zona dominante por intensidade ponderada e persistencia relativa.
-- Riscos clinicos: media ponderada com preservacao de sinais criticos recentes.
 - Dissonancias: exibidas quando persistem acima do limiar em janela relevante; alertas criticos podem romper a estabilizacao visual.
 - MFCC7, MFCC9, ZCR, Jitter, Shimmer e sub-harmonicos: media ponderada temporal com manutencao interna dos picos no historico bruto.
 - Tom emocional: predominancia temporal ponderada, com preferencia ao estado mais recente quando houver empate.
