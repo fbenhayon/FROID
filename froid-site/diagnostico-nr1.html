@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Diagnóstico de prontidão NR-1 — FROID</title>
+<meta name="description" content="Descubra em dois minutos se a sua empresa tem tamanho e condições para uma avaliação de riscos psicossociais com resultado liberável, e o que falta preparar antes de começar." />
+<link rel="stylesheet" href="site-assets/style.css?v=7" />
+<style>
+  .calc { border:1px solid var(--border); border-radius:10px; padding:22px; background:#0b1524; }
+  .calc label { display:block; font-size:13px; font-weight:700; margin:16px 0 6px; }
+  .calc input, .calc select { width:100%; padding:10px 12px; border-radius:7px; border:1px solid var(--border); background:#060d18; color:var(--text); font-size:15px; }
+  .calc .linha { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:640px) { .calc .linha { grid-template-columns:1fr; } }
+  .veredito { border-radius:9px; padding:18px; margin-top:22px; line-height:1.7; display:none; }
+  .v-ok { border:1px solid #14532d; background:#08160e; }
+  .v-atencao { border:1px solid #78350f; background:#1a1006; }
+  .v-nao { border:1px solid #7f1d1d; background:#1a0a0a; }
+  .veredito h3 { margin:0 0 8px; font-size:1.05rem; }
+  .veredito ul { margin:10px 0 0 18px; }
+  .veredito li { margin:5px 0; }
+  .gate { border:1px solid var(--border); border-radius:10px; padding:20px; margin-top:26px; background:#0f1c2e; }
+  .muted-sm { font-size:12px; color:var(--text-dim); margin-top:10px; line-height:1.6; }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="nav-row">
+    <a class="brand" href="index.html"><img class="brand-logo" src="site-assets/img/froid-logo.png" alt="FROID" /></a>
+    <nav class="nav-links">
+      <a href="index.html">Início</a>
+      <a href="ciencia.html">Ciência</a>
+      <a href="tecnologia.html">Tecnologia</a>
+      <a href="etica.html">Ética</a>
+      <a href="seguranca.html">Segurança</a>
+      <a href="empresas.html">Empresas</a>
+      <a href="como-funciona-nr1.html">Como funciona</a>
+      <a href="precos.html">Preços</a>
+    </nav>
+    <div class="nav-actions">
+      <a class="btn btn-ghost" href="https://www.froid.com.br/app/#/login">Entrar no FROID</a>
+    </div>
+  </div>
+</header>
+
+<section class="hero" style="padding:52px 0 36px;">
+  <div class="container">
+    <p class="section-kicker" style="color:#93c5fd;">Diagnóstico de prontidão</p>
+    <h1 style="font-size:1.9rem;">A sua empresa consegue resultado liberável?</h1>
+    <p class="lead">Duas perguntas e o cálculo é feito aqui mesmo, no seu navegador. Se a resposta for não, é melhor saber agora — e há um caminho diferente para esse caso.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container" style="max-width:720px;">
+
+    <div class="calc">
+      <div class="linha">
+        <div>
+          <label for="pessoas">Pessoas na unidade a avaliar</label>
+          <input type="number" id="pessoas" min="1" placeholder="ex.: 180" />
+        </div>
+        <div>
+          <label for="setores">Em quantos setores quer ver o resultado separado</label>
+          <input type="number" id="setores" min="1" value="1" />
+        </div>
+      </div>
+      <label for="adesao">Adesão esperada</label>
+      <select id="adesao">
+        <option value="0.5">Conservadora — 50% (primeira campanha, sem comunicação prévia)</option>
+        <option value="0.65" selected>Realista — 65% (com apoio da liderança)</option>
+        <option value="0.8">Otimista — 80% (cultura já madura em pesquisas internas)</option>
+      </select>
+      <p style="margin-top:18px;">
+        <button class="btn btn-primary" type="button" onclick="calcular()">Calcular</button>
+      </p>
+    </div>
+
+    <div id="veredito" class="veredito"></div>
+
+    <div class="gate" id="gate" style="display:none;">
+      <h3 style="margin:0 0 6px; font-size:1.05rem;">Quer o material completo de preparação?</h3>
+      <p style="margin:0; font-size:14px; line-height:1.7;">Enviamos o checklist de prontidão, o modelo de inventário com os nove campos do subitem 1.5.7.3.2 e um modelo de plano de ação. São os documentos que a fiscalização pede.</p>
+      <form method="post" action="/api/leads/nr1" style="margin-top:16px;">
+        <div class="linha">
+          <div>
+            <label for="nome">Nome</label>
+            <input type="text" id="nome" name="nome" required />
+          </div>
+          <div>
+            <label for="email">E-mail corporativo</label>
+            <input type="email" id="email" name="email" required />
+          </div>
+        </div>
+        <div class="linha">
+          <div>
+            <label for="empresa">Empresa</label>
+            <input type="text" id="empresa" name="empresa" required />
+          </div>
+          <div>
+            <label for="cargo">Cargo</label>
+            <input type="text" id="cargo" name="cargo" />
+          </div>
+        </div>
+        <input type="hidden" id="contexto" name="contexto" />
+        <p style="margin-top:18px;">
+          <button class="btn btn-primary" type="submit">Receber o material</button>
+        </p>
+        <p class="muted-sm">Usamos seus dados apenas para enviar o material e falar sobre a NR-1. Não compartilhamos com terceiros. Você pode pedir a exclusão a qualquer momento — veja a <a href="privacidade.html">Política de Privacidade</a>.</p>
+      </form>
+    </div>
+
+    <h2 style="margin-top:44px;">Por que existe um piso</h2>
+    <p>O resultado só aparece quando há respondentes suficientes no recorte. Não é limitação técnica: é a garantia de anonimato. Num grupo de seis pessoas, saber a média já é quase saber quem respondeu o quê — e um trabalhador que suspeita disso responde o que é seguro, não o que é verdade. Aí a empresa paga por um retrato que não corresponde à realidade.</p>
+    <p>Pelo mesmo motivo, nada é liberado enquanto a coleta está aberta. Ver o painel com 30 respostas e depois com 31 revelaria a resposta da trigésima primeira pessoa.</p>
+
+    <h2 style="margin-top:36px;">Se a sua empresa não atinge o piso</h2>
+    <p>Microempresas e empresas de pequeno porte são dispensadas do PGR pela NR-1, mas <strong>não são dispensadas da Avaliação Ergonômica Preliminar</strong>. A AEP não depende de piso de respondentes e é obrigatória para toda organização com empregados. É o caminho correto nesse caso — e continua sendo entregue com inventário e plano de ação.</p>
+
+    <p style="margin-top:26px;"><a href="como-funciona-nr1.html">Ver o processo completo, etapa por etapa →</a></p>
+
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="container">
+    <p>FROID — Frequency Recognition of Internal Dynamics</p>
+    <p class="muted"><a href="privacidade.html">Privacidade</a> · <a href="termos.html">Termos</a> · <a href="empresas.html">Empresas</a></p>
+  </div>
+</footer>
+
+<script>
+// Os pisos vivem no backend (nr1_compliance.MIN_COHORT_TOTAL e MIN_COHORT_CUT).
+// Aqui eles sao apenas espelhados para a estimativa; a liberacao real e sempre
+// decidida em SQL, com os dados verdadeiros.
+var PISO_CAMPANHA = 50;
+var PISO_RECORTE = 10;
+
+function calcular() {
+  var pessoas = parseInt(document.getElementById('pessoas').value, 10);
+  var setores = parseInt(document.getElementById('setores').value, 10) || 1;
+  var adesao = parseFloat(document.getElementById('adesao').value);
+  var caixa = document.getElementById('veredito');
+
+  if (!pessoas || pessoas < 1) {
+    caixa.className = 'veredito v-atencao';
+    caixa.style.display = 'block';
+    caixa.innerHTML = '<h3>Informe quantas pessoas há na unidade.</h3>';
+    return;
+  }
+
+  var respondentes = Math.floor(pessoas * adesao);
+  var porSetor = Math.floor(respondentes / setores);
+  var campanhaOk = respondentes >= PISO_CAMPANHA;
+  // O recorte so existe se a campanha existir. Sem o piso da campanha, dizer
+  // que o setor esta "liberado" seria falso e daria esperanca errada a quem
+  // acabou de descobrir que nao tem porte.
+  var setorOk = campanhaOk && porSetor >= PISO_RECORTE;
+  var setoresPossiveis = Math.max(1, Math.floor(respondentes / PISO_RECORTE));
+
+  var html = '<h3>' + respondentes + ' respondentes estimados de ' + pessoas + ' pessoas</h3>';
+  html += '<ul>';
+  html += '<li>Resultado geral da campanha: <strong>' +
+    (campanhaOk ? 'liberado' : 'NÃO liberado') + '</strong> (piso de ' + PISO_CAMPANHA + ')</li>';
+  html += '<li>Resultado separado por setor: <strong>' +
+    (setorOk ? 'liberado' : 'NÃO liberado') + '</strong> — cerca de ' + porSetor +
+    ' por setor, piso de ' + PISO_RECORTE + '</li>';
+  html += '</ul>';
+
+  if (campanhaOk && setorOk) {
+    caixa.className = 'veredito v-ok';
+    html += '<p style="margin-top:12px;">A sua empresa tem tamanho para a avaliação completa, com resultado por setor. Com esse número de respondentes você consegue até <strong>' +
+      setoresPossiveis + ' recortes</strong> liberáveis.</p>';
+  } else if (campanhaOk && !setorOk) {
+    caixa.className = 'veredito v-atencao';
+    html += '<p style="margin-top:12px;">O resultado geral sai, mas a divisão em ' + setores +
+      ' setores deixa cada um pequeno demais. Agrupe em até <strong>' + setoresPossiveis +
+      ' recortes</strong>, ou aceite o resultado consolidado da unidade.</p>';
+  } else {
+    caixa.className = 'veredito v-nao';
+    html += '<p style="margin-top:12px;">Não haveria resultado liberável nesta unidade. Isso não impede a conformidade: o caminho é a <strong>AEP</strong>, obrigatória para toda organização com empregados e que não depende de piso de respondentes. Preferimos dizer isso antes de você contratar.</p>';
+  }
+
+  caixa.innerHTML = html;
+  caixa.style.display = 'block';
+  document.getElementById('contexto').value =
+    pessoas + ' pessoas | ' + setores + ' setores | adesao ' + adesao;
+  document.getElementById('gate').style.display = 'block';
+}
+</script>
+
+</body>
+</html>
