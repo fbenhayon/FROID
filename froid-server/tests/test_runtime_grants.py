@@ -35,17 +35,23 @@ SEM_ACESSO_DE_RUNTIME = {
     "schema_migrations",
 }
 
-# Divida herdada, listada em vez de escondida.
+# Escritas apenas pela conexao de OWNER, e por isso corretamente sem GRANT.
 #
-# Estas quatro sao anteriores a este teste e nao vieram da mudanca que o
-# motivou. Podem estar certas — migration_runs e escrita pelo papel de
-# migracao, e o webhook do Stripe provavelmente usa conexao administrativa —
-# mas ninguem verificou, e legal_acceptance_events e a que mais merece olhar,
-# porque o aceite dos termos acontece em tempo de execucao.
+# Estas quatro entraram na lista como divida herdada, com a suspeita de serem
+# defeito. Foram verificadas uma a uma, rastreando qual conexao escreve cada
+# uma: nenhuma passa pelo papel de runtime.
 #
-# Ficam nomeadas aqui para que encolher a lista seja possivel. Um conjunto
-# vazio de excecoes seria mais bonito e teria custado esconde-las.
-PENDENTE_DE_VERIFICACAO = {
+# E o resultado inverte a conclusao intuitiva. Conceder acesso de runtime a
+# elas nao teria corrigido nada — teria aberto escrita em deduplicacao de
+# webhook de pagamento, em contabilidade de migracao e no livro imutavel de
+# aceites legais. A ausencia de GRANT aqui e a decisao certa, e o teste
+# generico nao tinha como distinguir "faltou" de "nao deve ter".
+#
+# legal_acceptance_events era a mais suspeita, porque o aceite acontece em
+# tempo de execucao. Mas record_legal_acceptance usa _connect() sem
+# runtime=True, de proposito: evidencia legal imutavel nao se grava pelo papel
+# que atende requisicao web.
+ESCRITAS_PELO_OWNER = {
     "automatic_recharges",
     "legal_acceptance_events",
     "migration_runs",
@@ -124,7 +130,7 @@ class GrantsTests(unittest.TestCase):
             for t in criadas
             if t not in concedidas
             and t not in SEM_ACESSO_DE_RUNTIME
-            and t not in PENDENTE_DE_VERIFICACAO
+            and t not in ESCRITAS_PELO_OWNER
         )
         self.assertEqual(
             faltando, [],
@@ -133,13 +139,33 @@ class GrantsTests(unittest.TestCase):
         )
 
 
-    def test_a_divida_herdada_nao_cresce(self):
-        # A lista pode encolher; nao pode ganhar nome novo. Toda tabela criada
-        # daqui em diante declara seu acesso na propria migration.
-        self.assertEqual(len(PENDENTE_DE_VERIFICACAO), 4)
-        criadas = tabelas_criadas()
-        for tabela in PENDENTE_DE_VERIFICACAO:
-            self.assertIn(tabela, criadas, f"{tabela} nao existe mais; remova da lista")
+    def test_as_tabelas_de_owner_nao_ganham_acesso_de_runtime(self):
+        """A ausencia de GRANT aqui e decisao, e conceder seria regressao.
+
+        Dar escrita de runtime a estas quatro abriria deduplicacao de webhook
+        de pagamento, contabilidade de migracao e o livro imutavel de aceites
+        legais ao papel que atende requisicao web.
+        """
+        concedidas = tabelas_com_grant()
+        for tabela in ESCRITAS_PELO_OWNER:
+            self.assertNotIn(tabela, concedidas, tabela)
+
+    def test_o_codigo_confirma_que_sao_escritas_pelo_owner(self):
+        # A verificacao que resolveu a duvida, mantida executavel: se alguem
+        # mover uma destas escritas para uma conexao de runtime, o teste
+        # aponta antes que a falha de permissao apareca em producao.
+        fonte = (SERVER_DIR / "tenant_store.py").read_text(encoding="utf-8")
+        for tabela in ESCRITAS_PELO_OWNER:
+            for trecho in re.finditer(
+                rf"(INSERT INTO|UPDATE)\s+{tabela}", fonte
+            ):
+                antes = fonte[max(0, trecho.start() - 2500):trecho.start()]
+                metodo = antes.rfind("    def ")
+                corpo = antes[metodo:] if metodo >= 0 else antes
+                self.assertNotIn(
+                    "runtime=True", corpo,
+                    f"{tabela} passou a ser escrita pelo papel de runtime",
+                )
 
     def test_a_revogacao_das_respostas_cruas_continua_de_pe(self):
         """O runtime grava resposta e nao pode le-la de volta.

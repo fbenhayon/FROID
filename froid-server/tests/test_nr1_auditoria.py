@@ -101,5 +101,72 @@ class DiferenciacaoTests(unittest.TestCase):
         self.assertIn("IF campaign_status <> 'closed' THEN", sql)
 
 
+class PisoDaCampanhaTests(unittest.TestCase):
+    """O piso passa a contar respostas substantivas.
+
+    A migration 024 reproduz a funcao da 014 por copia, com uma unica
+    alteracao. Este teste confere que a copia continua sendo copia: se alguem
+    editar a 024 a mao e divergir da 014 em qualquer outro ponto, a diferenca
+    aparece aqui em vez de aparecer num painel que grada errado.
+    """
+
+    def setUp(self):
+        self.antiga = (MIGRATIONS / "014_nr1_audit_hardening.sql").read_text(
+            encoding="utf-8"
+        )
+        self.nova = (MIGRATIONS / "024_campaign_floor_substantive.sql").read_text(
+            encoding="utf-8"
+        )
+
+    def _corpo(self, texto: str) -> list:
+        ini = texto.index("CREATE OR REPLACE FUNCTION froid_nr1_dimension_scores")
+        fim = texto.index("$$;", texto.index("END;\n$$;", ini)) + 3
+        # Ignora comentarios: eles sao a parte que MUDA de proposito.
+        return [
+            linha.rstrip()
+            for linha in texto[ini:fim].splitlines()
+            if linha.strip() and not linha.strip().startswith("--")
+        ]
+
+    def test_a_unica_diferenca_e_o_contador_do_piso(self):
+        antiga = self._corpo(self.antiga)
+        nova = self._corpo(self.nova)
+        import difflib
+
+        diff = [
+            linha for linha in difflib.unified_diff(antiga, nova, lineterm="", n=0)
+            if linha.startswith(("+", "-")) and not linha.startswith(("+++", "---"))
+        ]
+        self.assertEqual(len(diff), 3, "\n".join(diff))
+        self.assertIn("AND response.completed;", diff[0])
+        self.assertIn("froid_nr1_response_is_substantive", "\n".join(diff))
+
+    def test_o_piso_usa_a_funcao_de_completude(self):
+        self.assertIn(
+            "AND froid_nr1_response_is_substantive(response.id);", self.nova
+        )
+
+    def test_a_funcao_continua_revogada_do_publico_e_concedida_ao_runtime(self):
+        # CREATE OR REPLACE nao preserva grants de uma definicao anterior de
+        # forma obvia; declarar de novo evita depender disso.
+        self.assertIn(
+            "REVOKE ALL ON FUNCTION froid_nr1_dimension_scores(uuid, integer) "
+            "FROM PUBLIC", self.nova
+        )
+        self.assertIn("GRANT EXECUTE ON FUNCTION froid_nr1_dimension_scores", self.nova)
+
+    def test_a_ordem_das_travas_e_preservada(self):
+        # Organizacao, associacao ativa, campanha encerrada, piso. Nessa ordem:
+        # trocar a ultima pelas primeiras vazaria a existencia da campanha.
+        corpo = self.nova
+        self.assertLess(
+            corpo.index("froid_current_organization_id()"),
+            corpo.index("campaign_status <> 'closed'"),
+        )
+        self.assertLess(
+            corpo.index("campaign_status <> 'closed'"),
+            corpo.index("campaign_total < froid_nr1_min_cohort_total()"),
+        )
+
 if __name__ == "__main__":
     unittest.main()
