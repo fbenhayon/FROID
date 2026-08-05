@@ -42,17 +42,27 @@ CONFIDENCE_Z = 1.96
 # rounding the doubt away.
 MIN_PAIRS = 30
 
-# The sample this study committed to before collecting anything.
+# Two stages, both declared before collecting anything.
 #
-# Declaring it up front is not bureaucracy: it is what stops optional stopping.
-# A team that checks the correlation every week and stops the day it looks good
-# has not measured the pattern, it has measured its own patience — the practice
-# inflates false positives badly, and it is the first thing a reviewer or an
-# opposing expert looks for.
+# Declaring them up front is not bureaucracy: it is what stops optional
+# stopping. A team that checks the correlation every week and stops the day it
+# looks good has not measured the pattern, it has measured its own patience.
+# A *planned* interim look is a different thing entirely, and it is legitimate
+# — which is why the pilot exists as a stage rather than as a temptation.
 #
-# So the report distinguishes two things a coefficient can be: an interim
-# reading, honest but provisional, and the declared analysis at n = 70. Only
-# the second is the study's result.
+# The arithmetic decides what each stage can buy. With a true correlation of
+# 0.50:
+#
+#   at n = 30 the 95% interval runs from about 0.17 to 0.73
+#   at n = 70 the 95% interval runs from about 0.30 to 0.66
+#
+# Because the verdict is taken from the conservative end, a genuinely good
+# r = 0.50 reports as "weak" at 30 and reaches "moderate" only at 70. Thirty
+# pairs therefore buy a pilot: enough to see whether the direction holds and
+# whether the effect is plausibly large enough to justify finishing. They do
+# not buy a validity claim, and the module says so rather than letting the
+# number be quoted as if they did.
+PILOT_PAIRS = 30
 TARGET_PAIRS = 70
 
 # Cohen's conventions for correlation magnitude. Convergent validity is
@@ -83,13 +93,33 @@ class Pairing:
 # The hypotheses, stated once and in the open. Each one is falsifiable: if the
 # observed correlation contradicts the declared direction, the report says the
 # evidence points against convergence.
+#
+# One instrument, on purpose. Two questionnaires per session is where adherence
+# dies, and the way it dies is worse than the burden: the professional skips
+# when the session ran long or the patient was in distress. Those sessions are
+# not a random subset — they are precisely the ones with the signal — so the
+# missingness biases the coefficient rather than merely shrinking the sample.
+#
+# The PHQ-9 also earns its place clinically and not only for the study: its
+# severity bands map onto treatment decisions in every major guideline, so the
+# professional gets something usable from each administration whether or not
+# the research ever concludes. An instrument that only serves the study is an
+# instrument that stops being applied by the third month.
 DECLARED_PAIRINGS: Tuple[Pairing, ...] = (
     # Vocal psychomotor slowing should rise with depressive severity.
     Pairing("psychomotor_slowing", "PHQ-9", +1),
-    # Sustained laryngeal tension should rise with anxiety severity.
-    Pairing("laryngeal_tension", "GAD-7", +1),
     # Prosodic activation should fall as depressive severity rises.
     Pairing("prosodic_activation", "PHQ-9", -1),
+)
+
+# Deferred to a second study, with its own instrument and its own sample.
+#
+# Moved out before any data existed, which is the only time hypotheses may be
+# changed without contaminating them. Recorded here rather than deleted so the
+# protocol shows what was set aside and when.
+STAGE_TWO_PAIRINGS: Tuple[Pairing, ...] = (
+    # Sustained laryngeal tension should rise with anxiety severity.
+    Pairing("laryngeal_tension", "GAD-7", +1),
 )
 
 
@@ -157,18 +187,32 @@ class ConvergenceResult:
         return self.verdict not in ("insufficient_sample", "unusable_sample")
 
     @property
-    def is_final(self) -> bool:
-        """A amostra declarada foi atingida?
+    def is_pilot(self) -> bool:
+        """O piloto fechou? Leitura planejada, nao resultado."""
+        return self.n >= PILOT_PAIRS
 
-        Antes disso, todo coeficiente e leitura parcial. Sustentar conclusao em
-        leitura parcial e parar de coletar quando o numero agrada — que e a
+    @property
+    def is_final(self) -> bool:
+        """A amostra confirmatoria foi atingida?
+
+        Antes disso, todo coeficiente e leitura provisoria. Sustentar conclusao
+        em leitura provisoria e parar de coletar quando o numero agrada — a
         forma mais comum de produzir um resultado que nao se reproduz.
         """
         return self.n >= TARGET_PAIRS
 
     @property
+    def stage(self) -> str:
+        if self.n >= TARGET_PAIRS:
+            return "confirmatorio"
+        if self.n >= PILOT_PAIRS:
+            return "piloto"
+        return "coleta"
+
+    @property
     def progress(self) -> str:
-        return f"{self.n}/{TARGET_PAIRS}"
+        alvo = TARGET_PAIRS if self.n >= PILOT_PAIRS else PILOT_PAIRS
+        return f"{self.n}/{alvo}"
 
 
 def evaluate(
@@ -274,11 +318,18 @@ def evidence_statement(result: ConvergenceResult) -> str:
         f"(IC 95%: {baixo:.2f} a {alto:.2f})."
     )
     if not result.is_final:
-        # Leitura parcial nunca sai como resultado, por melhor que esteja. E
-        # justamente quando esta boa que a tentacao de parar aparece.
+        # Leitura provisoria nunca sai como resultado, por melhor que esteja.
+        # E justamente quando esta boa que a tentacao de parar aparece.
+        if result.is_pilot:
+            return (
+                base + f" PILOTO ({result.progress}): leitura planejada, nao "
+                f"resultado. Em {PILOT_PAIRS} pares o intervalo e largo demais "
+                f"para sustentar afirmacao de validade — serve para decidir se "
+                f"vale concluir o estudo em {TARGET_PAIRS}. Nao divulgar."
+            )
         return (
-            base + f" LEITURA PARCIAL: a analise declarada deste estudo e em "
-            f"{TARGET_PAIRS} pares e ainda ha {result.progress} coletados. "
+            base + f" LEITURA PARCIAL: o piloto deste estudo fecha em "
+            f"{PILOT_PAIRS} pares e ha {result.progress} coletados. "
             f"Nao divulgar como resultado."
         )
     if result.verdict in ("strong", "moderate"):

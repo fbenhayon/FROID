@@ -171,34 +171,70 @@ class MigrationTests(unittest.TestCase):
             self.assertIn(f"ALTER TABLE {tabela} ENABLE ROW LEVEL SECURITY", self.sql)
 
 
-class AmostraDeclaradaTests(unittest.TestCase):
-    """Parar quando o numero agrada e a forma mais comum de produzir um
-    resultado que nao se reproduz. A amostra alvo e declarada antes."""
+class DoisEstagiosTests(unittest.TestCase):
+    """Piloto e estudo confirmatorio sao coisas diferentes, e a diferenca e
+    aritmetica: com r verdadeiro de 0,50 o limite conservador nao alcanca a
+    faixa moderada em 30 pares, e alcanca em 70."""
 
-    def test_leitura_parcial_nao_sai_como_resultado(self):
-        xs, ys = amostra_correlacionada(V.TARGET_PAIRS - 1, 0.75)
+    def test_piloto_nao_sai_como_resultado(self):
+        xs, ys = amostra_correlacionada(V.PILOT_PAIRS, 0.75)
         r = V.evaluate(V.DECLARED_PAIRINGS[0], xs, ys)
+        self.assertTrue(r.is_pilot)
         self.assertFalse(r.is_final)
+        self.assertEqual(r.stage, "piloto")
         frase = V.evidence_statement(r)
-        self.assertIn("LEITURA PARCIAL", frase)
+        self.assertIn("PILOTO", frase)
         self.assertIn("Nao divulgar", frase)
-        self.assertNotIn("compativel com validade convergente", frase)
 
-    def test_amostra_alvo_atingida_libera_a_conclusao(self):
+    def test_antes_do_piloto_o_alvo_exibido_e_o_piloto(self):
+        # Abaixo do piso nao sai coeficiente nenhum, e a tela precisa mostrar
+        # quanto falta para o marco seguinte — que e o piloto, nao os 70.
+        xs, ys = amostra_correlacionada(20, 0.5)
+        r = V.evaluate(V.DECLARED_PAIRINGS[0], xs, ys)
+        self.assertEqual(r.stage, "coleta")
+        self.assertEqual(r.progress, f"20/{V.PILOT_PAIRS}")
+        self.assertIsNone(r.r)
+
+    def test_amostra_confirmatoria_libera_a_conclusao(self):
         xs, ys = amostra_correlacionada(V.TARGET_PAIRS, 0.75)
         r = V.evaluate(V.DECLARED_PAIRINGS[0], xs, ys)
         self.assertTrue(r.is_final)
+        self.assertEqual(r.stage, "confirmatorio")
         self.assertIn("compativel com validade convergente", V.evidence_statement(r))
 
-    def test_alvo_acima_do_piso_de_reporte(self):
-        self.assertGreater(V.TARGET_PAIRS, V.MIN_PAIRS)
+    def test_o_intervalo_em_trinta_e_largo_demais_para_afirmar(self):
+        # A razao de existirem dois estagios, verificada e nao suposta.
+        largura_30 = V.fisher_interval(0.5, 30)
+        largura_70 = V.fisher_interval(0.5, 70)
+        self.assertLess(largura_30[0], V.R_MODERATE)
+        self.assertGreaterEqual(largura_70[0], V.R_MODERATE)
 
-    def test_progresso_e_legivel(self):
-        xs, ys = amostra_correlacionada(35, 0.5)
-        self.assertEqual(
-            V.evaluate(V.DECLARED_PAIRINGS[0], xs, ys).progress,
-            f"35/{V.TARGET_PAIRS}",
-        )
+    def test_estagios_em_ordem(self):
+        self.assertLess(V.MIN_PAIRS, V.TARGET_PAIRS)
+        self.assertLessEqual(V.MIN_PAIRS, V.PILOT_PAIRS)
+        self.assertLess(V.PILOT_PAIRS, V.TARGET_PAIRS)
+
+
+class UmInstrumentoSoTests(unittest.TestCase):
+    """Dois questionarios por sessao e onde a adesao morre — e ela morre de um
+    jeito pior que o incomodo: o profissional pula quando a sessao correu longa
+    ou o paciente estava mal, que sao justamente as sessoes com sinal."""
+
+    def test_todas_as_hipoteses_ativas_usam_o_mesmo_instrumento(self):
+        instrumentos = {p.instrument for p in V.DECLARED_PAIRINGS}
+        self.assertEqual(len(instrumentos), 1, instrumentos)
+        self.assertEqual(instrumentos, {"PHQ-9"})
+
+    def test_a_hipotese_adiada_esta_registrada_e_nao_apagada(self):
+        self.assertTrue(V.STAGE_TWO_PAIRINGS)
+        adiadas = {p.instrument for p in V.STAGE_TWO_PAIRINGS}
+        self.assertEqual(adiadas, {"GAD-7"})
+
+    def test_nenhuma_hipotese_aparece_nos_dois_estagios(self):
+        ativas = {(p.pattern_key, p.instrument) for p in V.DECLARED_PAIRINGS}
+        adiadas = {(p.pattern_key, p.instrument) for p in V.STAGE_TWO_PAIRINGS}
+        self.assertEqual(ativas & adiadas, set())
+
 
 class TCLEPesquisaTests(unittest.TestCase):
     """O consentimento de pesquisa nao pode se confundir com o clinico.
