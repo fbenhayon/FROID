@@ -7304,6 +7304,62 @@ def _nr1_criteria_for(context: AccessContext) -> nr1_compliance.GradationCriteri
         return nr1_compliance.DEFAULT_CRITERIA
 
 
+@app.post("/api/leads/nr1")
+async def register_nr1_lead(request: Request):
+    """Contato deixado no diagnóstico de prontidão do site.
+
+    Endpoint público, sem autenticação — e por isso com três cuidados.
+
+    Limite de taxa por IP, porque formulário aberto na internet é alvo de
+    robô antes de ser alvo de cliente.
+
+    Nada de dado sensível: aqui entram nome, e-mail corporativo, empresa,
+    cargo e o resultado da calculadora. O contexto vale mais do que parece
+    para o comercial — saber, antes de ligar, que aquele lead tem 40 pessoas
+    e portanto o caminho dele é a AEP evita uma conversa que terminaria em
+    frustração dos dois lados.
+
+    E o e-mail é chave única: quem volta ao site e recalcula atualiza a
+    própria visita em vez de virar duas pessoas na base.
+    """
+    _rate_limit_guard(
+        "leads", _client_ip(request), 5, 3600.0,
+        "Muitos envios deste endereço. Tente novamente mais tarde.",
+    )
+    body = await request.json()
+
+    def _texto(chave: str, limite: int) -> str:
+        return str(body.get(chave) or "").strip()[:limite]
+
+    nome = _texto("nome", 120)
+    email = _texto("email", 180)
+    empresa = _texto("empresa", 180)
+    if len(nome) < 2 or "@" not in email or not empresa:
+        raise HTTPException(
+            status_code=400, detail="nome, e-mail e empresa são obrigatórios"
+        )
+    if not TENANT_STORE.enabled:
+        # Sem persistência dual não há onde gravar. Devolver 200 fingindo que
+        # gravou perderia o lead em silêncio, que é pior que a falha visível.
+        raise HTTPException(status_code=503, detail="cadastro indisponível no momento")
+    try:
+        TENANT_STORE.register_marketing_lead(
+            nome=nome,
+            email=email,
+            empresa=empresa,
+            cargo=_texto("cargo", 120),
+            contexto=_texto("contexto", 300),
+            origem=_texto("origem", 60) or "diagnostico-nr1",
+        )
+    except Exception:
+        LOGGER.exception("Falha ao registrar lead do diagnóstico NR-1")
+        raise HTTPException(status_code=503, detail="cadastro indisponível no momento")
+    return {
+        "status": "ok",
+        "mensagem": "Recebemos seu contato. O material chega no seu e-mail.",
+    }
+
+
 # ----------------------------------------------------------------------
 # Validade convergente.
 #

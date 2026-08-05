@@ -82,7 +82,7 @@
     <div class="gate" id="gate" style="display:none;">
       <h3 style="margin:0 0 6px; font-size:1.05rem;">Quer o material completo de preparação?</h3>
       <p style="margin:0; font-size:14px; line-height:1.7;">Enviamos o checklist de prontidão, o modelo de inventário com os nove campos do subitem 1.5.7.3.2 e um modelo de plano de ação. São os documentos que a fiscalização pede.</p>
-      <form method="post" action="/api/leads/nr1" style="margin-top:16px;">
+      <form id="form-lead" method="post" action="/api/leads/nr1" style="margin-top:16px;" onsubmit="return enviarLead(event)">
         <div class="linha">
           <div>
             <label for="nome">Nome</label>
@@ -184,9 +184,76 @@ function calcular() {
 
   caixa.innerHTML = html;
   caixa.style.display = 'block';
-  document.getElementById('contexto').value =
-    pessoas + ' pessoas | ' + setores + ' setores | adesao ' + adesao;
-  document.getElementById('gate').style.display = 'block';
+  // Depois de um envio bem-sucedido o formulario e substituido pelo aviso de
+  // recebimento, e este campo deixa de existir. Recalcular nao pode quebrar a
+  // pagina por causa disso.
+  var contexto = document.getElementById('contexto');
+  if (contexto) {
+    contexto.value = pessoas + ' pessoas | ' + setores + ' setores | adesao ' +
+      adesao + ' | campanha ' + (campanhaOk ? 'ok' : 'abaixo do piso');
+    document.getElementById('gate').style.display = 'block';
+  }
+}
+
+// O envio precisa dizer o que aconteceu. Um formulario que recarrega a pagina
+// e some deixa a pessoa sem saber se funcionou — e ela reenvia, o que bate no
+// limite de taxa e produz um erro que ela entende ainda menos.
+function enviarLead(evento) {
+  evento.preventDefault();
+  var form = document.getElementById('form-lead');
+  var botao = form.querySelector('button[type=submit]');
+  var dados = {};
+  ['nome', 'email', 'empresa', 'cargo', 'contexto'].forEach(function (campo) {
+    var el = document.getElementById(campo);
+    if (el) dados[campo] = el.value;
+  });
+
+  botao.disabled = true;
+  botao.textContent = 'Enviando...';
+
+  fetch(form.action, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(dados)
+  })
+    .then(function (resposta) {
+      return resposta.json().then(function (corpo) {
+        return { ok: resposta.ok, corpo: corpo };
+      });
+    })
+    .then(function (r) {
+      var gate = document.getElementById('gate');
+      if (r.ok) {
+        gate.innerHTML =
+          '<h3 style="margin:0 0 6px; font-size:1.05rem;">Recebido</h3>' +
+          '<p style="margin:0; font-size:14px; line-height:1.7;">' +
+          (r.corpo.mensagem || 'O material chega no seu e-mail.') +
+          ' Enquanto isso, o processo completo está em ' +
+          '<a href="como-funciona-nr1.html">Como funciona</a>.</p>';
+      } else {
+        botao.disabled = false;
+        botao.textContent = 'Receber o material';
+        mostrarErroLead(r.corpo.detail || 'Não foi possível enviar agora.');
+      }
+    })
+    .catch(function () {
+      botao.disabled = false;
+      botao.textContent = 'Receber o material';
+      mostrarErroLead('Falha de conexão. Tente novamente em instantes.');
+    });
+
+  return false;
+}
+
+function mostrarErroLead(texto) {
+  var alvo = document.getElementById('erro-lead');
+  if (!alvo) {
+    alvo = document.createElement('p');
+    alvo.id = 'erro-lead';
+    alvo.style.cssText = 'color:#fca5a5; font-size:13px; margin-top:12px;';
+    document.getElementById('form-lead').appendChild(alvo);
+  }
+  alvo.textContent = texto;
 }
 </script>
 

@@ -3049,6 +3049,33 @@ class TenantStore:
             "audit_events": len([x for x in state.get("admin_audit_events") or [] if isinstance(x, dict)]),
         }
 
+    def register_marketing_lead(
+        self, *, nome: str, email: str, empresa: str,
+        cargo: str = "", contexto: str = "", origem: str = "diagnostico-nr1",
+    ) -> None:
+        """Grava o contato do diagnóstico de prontidão.
+
+        Sem sessão de tenant: o formulário é público e o lead ainda não
+        pertence a organização nenhuma. A tabela vive fora do RLS por isso, e
+        por isso mesmo não pode receber dado sensível — o comentário na
+        migration 021 é a única barreira contra alguém decidir guardar
+        resposta de questionário aqui um dia.
+        """
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                connection.execute(
+                    "INSERT INTO marketing_leads "
+                    "(nome, email, empresa, cargo, contexto, origem) "
+                    "VALUES (%s, %s, %s, %s, %s, %s) "
+                    "ON CONFLICT (lower(btrim(email))) DO UPDATE SET "
+                    " nome=EXCLUDED.nome, empresa=EXCLUDED.empresa, "
+                    " cargo=EXCLUDED.cargo, contexto=EXCLUDED.contexto, "
+                    " origem=EXCLUDED.origem, created_at=now(), opt_out_at=NULL",
+                    (nome, email, empresa, cargo, contexto, origem),
+                )
+
     # ------------------------------------------------------------------
     # Validade convergente.
     #
