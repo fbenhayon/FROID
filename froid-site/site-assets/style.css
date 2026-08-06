@@ -64,7 +64,8 @@ header.site-header {
 .nav-links a.ativo {
   font-style: italic; font-weight: 600; color: var(--froid-branco);
   text-decoration: underline; text-underline-offset: 5px;
-  text-decoration-color: #7dd3fc;
+  /* Ambar da paleta: mesmo destaque das chamadas e do bloco de aviso. */
+  text-decoration-color: #fcd34d; color: #fcd34d;
 }
 .nav-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .nav-actions .btn { padding: 8px 14px; font-size: 0.82rem; }
@@ -450,4 +451,23 @@ body.lightbox-lock { overflow: hidden; }
   .lightbox-overlay,
   .lightbox-close { transition: none; }
   .site-img.zoomable:hover { transform: none; }
+}
+
+
+/* ---------- Tabelas largas no celular ---------- */
+/* Sombra de borda + aviso, para que "cortado" vire "deslize para ver". */
+.zonas-wrap, .haz-wrap, .cmp-wrap, .hab-wrap {
+  position: relative;
+}
+@media (max-width: 760px) {
+  .zonas-wrap::after, .haz-wrap::after, .cmp-wrap::after, .hab-wrap::after {
+    content: ""; position: absolute; top: 0; right: 0; bottom: 0; width: 34px;
+    pointer-events: none; border-radius: 0 var(--radius) var(--radius) 0;
+    background: linear-gradient(to right, rgba(2,6,23,0), rgba(2,6,23,0.92));
+  }
+  .zonas-wrap::before, .haz-wrap::before, .cmp-wrap::before, .hab-wrap::before {
+    content: "Deslize para ver a tabela completa →";
+    display: block; font-size: 0.74rem; color: var(--froid-cinza);
+    margin-bottom: 6px; letter-spacing: 0.02em;
+  }
 }
