@@ -42,9 +42,9 @@ export const ProductChoice: React.FC<Props> = ({
 
   const escolher = (produto: FroidProduct) => {
     onChoose(produto);
-    if (produto === "clinical") {
-      navigate("/access/register", { replace: true });
-    }
+    navigate(produto === "clinical" ? "/access/register" : "/access/empresa", {
+      replace: true,
+    });
   };
 
   const primeiroNome = (user?.name || user?.email || "").split(/[\s@]/)[0];

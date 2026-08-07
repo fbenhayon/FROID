@@ -26,6 +26,7 @@ const PatientDetail = lazy(() => import("./pages/PatientDetail").then((module) =
 const NewPatient = lazy(() => import("./pages/NewPatient").then((module) => ({ default: module.NewPatient })));
 const ProfessionalOnboarding = lazy(() => import("./pages/ProfessionalOnboarding").then((module) => ({ default: module.ProfessionalOnboarding })));
 const ProductChoice = lazy(() => import("./pages/ProductChoice").then((module) => ({ default: module.ProductChoice })));
+const Nr1CompanyOnboarding = lazy(() => import("./pages/Nr1CompanyOnboarding").then((module) => ({ default: module.Nr1CompanyOnboarding })));
 const PatientInvitePage = lazy(() => import("./pages/PatientInvitePage").then((module) => ({ default: module.PatientInvitePage })));
 const PatientSessionPage = lazy(() => import("./pages/PatientSessionPage").then((module) => ({ default: module.PatientSessionPage })));
 const PatientPortalPage = lazy(() => import("./pages/PatientPortalPage").then((module) => ({ default: module.PatientPortalPage })));
@@ -341,6 +342,24 @@ function App() {
                 onChoose={chooseProduct}
                 onReset={resetProductChoice}
                 choice={productChoice}
+              />
+            ),
+          )}
+        />
+        <Route
+          path="/access/empresa"
+          element={protectedElement(
+            needsProductChoice(user, productChoice) ? (
+              // Sem escolher o produto não se sabe qual cadastro vale.
+              <Navigate to="/access/produto" replace />
+            ) : (
+              // Continua alcançável depois de concluído: a empresa volta aqui
+              // para acrescentar uma filial ou corrigir um efetivo, e por isso
+              // esta rota NÃO checa onboarding_required como as outras.
+              <Nr1CompanyOnboarding
+                user={user}
+                onUserChange={setUser}
+                onLogout={logout}
               />
             ),
           )}

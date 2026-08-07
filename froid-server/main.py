@@ -9186,7 +9186,14 @@ async def save_professional_profile(request: Request):
         raise HTTPException(status_code=400, detail="email profissional obrigatório")
 
     account_type = str(body.get("account_type") or "individual").strip().lower()
-    if account_type not in {"individual", "organization"}:
+    # "nr1_company" e a empresa CONTRATANTE da avaliacao NR-1, e nao uma
+    # variacao de clinica. A diferenca nao e de rotulo: ela decide o
+    # organization_type, e so 'enterprise' aciona o estreitamento que retira do
+    # empregador as permissoes clinicas identificadas. Cadastrada como
+    # "organization", a empresa viraria clinica e o dono dela guardaria
+    # patients.read_all e reports.read_all — a fronteira que o produto inteiro
+    # existe para sustentar.
+    if account_type not in {"individual", "organization", "nr1_company"}:
         raise HTTPException(status_code=400, detail="tipo de cadastro inválido")
 
     professionals = [

@@ -1,0 +1,500 @@
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+
+import type { FroidUser } from "../App";
+import { apiUrl } from "../lib/api";
+
+/**
+ * Cadastro guiado da empresa contratante do NR-1.
+ *
+ * Não é uma variação do cadastro de clínica. A empresa entra como
+ * `account_type: "nr1_company"`, que produz uma organização do tipo
+ * `enterprise` — e é só nesse tipo que o servidor retira dos papéis do
+ * empregador as permissões clínicas identificadas. Cadastrada como clínica, a
+ * empresa manteria acesso a prontuário, que é exatamente a fronteira que o
+ * produto existe para sustentar.
+ *
+ * A ordem dos passos segue a dependência real, não a estética: sem organização
+ * não há unidade; sem estabelecimento não há setor; sem setor não há recorte
+ * publicável. O piso de anonimato é avisado no passo em que o efetivo é
+ * digitado, e não no fim — descobrir que a unidade é pequena depois de montar
+ * tudo é a conversa ruim que a página de diagnóstico existe para evitar.
+ */
+
+const PISO_UNIDADE = 75;
+const CONTATO = "froid@froid.com.br";
+
+type Unidade = {
+  unit_id: string;
+  parent_unit_id: string | null;
+  unit_type: "site" | "sector" | "exposure_group";
+  name: string;
+  external_code: string;
+  headcount: number;
+  status: string;
+  child_count: number;
+};
+
+type Props = {
+  user: FroidUser | null;
+  onUserChange?: (user: FroidUser) => void;
+  onLogout?: () => void;
+};
+
+function token() {
+  return localStorage.getItem("froid_token") || "";
+}
+
+async function chamar(caminho: string, init?: RequestInit) {
+  const resposta = await fetch(apiUrl(caminho), {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token()}`,
+      ...(init?.headers || {}),
+    },
+  });
+  const texto = await resposta.text();
+  const corpo = texto ? JSON.parse(texto) : {};
+  if (!resposta.ok) {
+    throw new Error(corpo?.detail || `falha ${resposta.status}`);
+  }
+  return corpo;
+}
+
+const Passo: React.FC<{ numero: number; atual: number; titulo: string }> = ({
+  numero,
+  atual,
+  titulo,
+}) => (
+  <div className="flex items-center gap-2">
+    <span
+      className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-black ${
+        atual > numero
+          ? "bg-emerald-600 text-white"
+          : atual === numero
+            ? "bg-amber-500 text-amber-950"
+            : "bg-slate-700 text-slate-400"
+      }`}
+    >
+      {atual > numero ? "✓" : numero}
+    </span>
+    <span
+      className={`text-xs font-bold ${
+        atual === numero ? "text-amber-300" : "text-slate-400"
+      }`}
+    >
+      {titulo}
+    </span>
+  </div>
+);
+
+const Campo: React.FC<{
+  rotulo: string;
+  valor: string;
+  onChange: (v: string) => void;
+  obrigatorio?: boolean;
+  placeholder?: string;
+  tipo?: string;
+}> = ({ rotulo, valor, onChange, obrigatorio, placeholder, tipo = "text" }) => (
+  <label className="block">
+    <span className="text-xs font-black text-slate-300">
+      {rotulo}
+      {obrigatorio && <span className="ml-1 text-red-300">*</span>}
+    </span>
+    <input
+      type={tipo}
+      value={valor}
+      placeholder={placeholder}
+      onChange={(e) => onChange(e.target.value)}
+      className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-amber-500"
+    />
+  </label>
+);
+
+export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLogout }) => {
+  const [passo, setPasso] = useState(1);
+  const [erro, setErro] = useState("");
+  const [salvando, setSalvando] = useState(false);
+
+  const [razaoSocial, setRazaoSocial] = useState("");
+  const [nomeFantasia, setNomeFantasia] = useState("");
+  const [cnpj, setCnpj] = useState("");
+  const [responsavel, setResponsavel] = useState(user?.name || "");
+  const [cargo, setCargo] = useState("");
+  const [telefone, setTelefone] = useState("");
+
+  const [unidades, setUnidades] = useState<Unidade[]>([]);
+  const [novoSite, setNovoSite] = useState({ name: "", headcount: "", code: "" });
+  const [novoSetor, setNovoSetor] = useState({ name: "", headcount: "", parent: "" });
+
+  const organizationId = user?.active_organization_id || "";
+
+  const carregarUnidades = useCallback(async () => {
+    if (!organizationId) return;
+    try {
+      const dados = await chamar(`/api/organizations/${organizationId}/nr1/units`);
+      setUnidades(dados.units || []);
+    } catch (e) {
+      setErro(String((e as Error).message));
+    }
+  }, [organizationId]);
+
+  useEffect(() => {
+    if (passo >= 2) void carregarUnidades();
+  }, [passo, carregarUnidades]);
+
+  const estabelecimentos = useMemo(
+    () => unidades.filter((u) => u.unit_type === "site"),
+    [unidades],
+  );
+  const setores = useMemo(
+    () => unidades.filter((u) => u.unit_type === "sector"),
+    [unidades],
+  );
+
+  const salvarEmpresa = async () => {
+    setErro("");
+    if (!razaoSocial.trim() || !cnpj.trim() || !responsavel.trim()) {
+      setErro("Razão social, CNPJ e responsável são obrigatórios.");
+      return;
+    }
+    setSalvando(true);
+    try {
+      const dados = await chamar("/api/professional/profile", {
+        method: "POST",
+        body: JSON.stringify({
+          account_type: "nr1_company",
+          owner_name: responsavel.trim(),
+          organization_name: nomeFantasia.trim() || razaoSocial.trim(),
+          organization_legal_name: razaoSocial.trim(),
+          organization_document: cnpj.replace(/\D/g, ""),
+          profession: cargo.trim(),
+          phone: telefone.trim(),
+        }),
+      });
+      if (dados?.access_status && user && onUserChange) {
+        onUserChange({ ...user, access_status: dados.access_status });
+      }
+      setPasso(2);
+    } catch (e) {
+      setErro(String((e as Error).message));
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const criarUnidade = async (
+    tipo: "site" | "sector",
+    nome: string,
+    efetivo: string,
+    pai?: string,
+    codigo?: string,
+  ) => {
+    setErro("");
+    if (!nome.trim()) {
+      setErro("Informe o nome.");
+      return;
+    }
+    setSalvando(true);
+    try {
+      await chamar(`/api/organizations/${organizationId}/nr1/units`, {
+        method: "POST",
+        body: JSON.stringify({
+          unit_type: tipo,
+          name: nome.trim(),
+          headcount: Number(efetivo) || 0,
+          parent_unit_id: pai || null,
+          external_code: codigo || "",
+        }),
+      });
+      await carregarUnidades();
+      if (tipo === "site") setNovoSite({ name: "", headcount: "", code: "" });
+      else setNovoSetor({ name: "", headcount: "", parent: pai || "" });
+    } catch (e) {
+      setErro(String((e as Error).message));
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const arquivar = async (unitId: string) => {
+    setErro("");
+    try {
+      await chamar(`/api/organizations/${organizationId}/nr1/units/${unitId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "archived" }),
+      });
+      await carregarUnidades();
+    } catch (e) {
+      setErro(String((e as Error).message));
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-900 text-slate-100">
+      <header className="border-b border-slate-700 bg-slate-900">
+        <div className="mx-auto flex max-w-4xl items-center justify-between px-5 py-4">
+          <Link to="/" className="text-sm font-black tracking-[0.35em] text-amber-500">
+            FROID NR-1
+          </Link>
+          {onLogout && (
+            <button
+              type="button"
+              onClick={onLogout}
+              className="rounded-md bg-slate-950 px-3 py-2 text-xs font-black text-white"
+            >
+              Sair
+            </button>
+          )}
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-4xl px-5 py-8">
+        <div className="flex flex-wrap gap-4">
+          <Passo numero={1} atual={passo} titulo="A empresa" />
+          <Passo numero={2} atual={passo} titulo="Estabelecimentos" />
+          <Passo numero={3} atual={passo} titulo="Setores" />
+          <Passo numero={4} atual={passo} titulo="Conferência" />
+        </div>
+
+        {erro && (
+          <p className="mt-5 rounded-lg border border-red-800 bg-red-950/60 px-3 py-2 text-sm font-bold text-red-200">
+            {erro}
+          </p>
+        )}
+
+        {passo === 1 && (
+          <section className="mt-6">
+            <h1 className="text-2xl font-black">Quem é a empresa contratante</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
+              A avaliação é contratada pelo empregador e responde por um CNPJ.
+              Pessoas diferentes da mesma empresa que se cadastrarem com este
+              CNPJ passam a enxergar a mesma estrutura e as mesmas campanhas.
+            </p>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <Campo rotulo="Razão social" valor={razaoSocial} onChange={setRazaoSocial} obrigatorio />
+              <Campo rotulo="Nome fantasia" valor={nomeFantasia} onChange={setNomeFantasia} />
+              <Campo rotulo="CNPJ" valor={cnpj} onChange={setCnpj} obrigatorio placeholder="00.000.000/0001-00" />
+              <Campo rotulo="Telefone" valor={telefone} onChange={setTelefone} />
+              <Campo rotulo="Responsável pelo programa" valor={responsavel} onChange={setResponsavel} obrigatorio />
+              <Campo rotulo="Cargo" valor={cargo} onChange={setCargo} placeholder="SESMT, RH, segurança do trabalho..." />
+            </div>
+
+            <div className="mt-5 rounded-lg border border-amber-800 bg-amber-950/40 p-4 text-xs leading-5 text-amber-100">
+              <strong className="text-amber-200">O que este cadastro não dá acesso.</strong>{" "}
+              A empresa contratante recebe resultados agregados por unidade e por
+              dimensão. Não recebe resposta individual de trabalhador, não recebe
+              prontuário e não recebe dado clínico — a separação é estrutural, e
+              não uma configuração que se possa desligar depois.
+            </div>
+
+            <button
+              type="button"
+              disabled={salvando}
+              onClick={salvarEmpresa}
+              className="mt-5 rounded-lg bg-amber-500 px-5 py-3 text-sm font-black text-amber-950 hover:bg-amber-400 disabled:opacity-60"
+            >
+              {salvando ? "Salvando..." : "Continuar"}
+            </button>
+          </section>
+        )}
+
+        {passo === 2 && (
+          <section className="mt-6">
+            <h1 className="text-2xl font-black">Estabelecimentos</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
+              Estabelecimento é o endereço — a unidade que a NR-1 usa como
+              recorte de resultado, e sobre a qual incide a base do contrato.{" "}
+              <strong>Departamento no mesmo endereço não é estabelecimento</strong>;
+              ele entra como setor no passo seguinte.
+            </p>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-[1fr_140px_160px_auto]">
+              <Campo rotulo="Nome" valor={novoSite.name} onChange={(v) => setNovoSite({ ...novoSite, name: v })} placeholder="Matriz, Filial Campinas..." />
+              <Campo rotulo="Efetivo" valor={novoSite.headcount} onChange={(v) => setNovoSite({ ...novoSite, headcount: v })} tipo="number" />
+              <Campo rotulo="Código interno" valor={novoSite.code} onChange={(v) => setNovoSite({ ...novoSite, code: v })} />
+              <button
+                type="button"
+                disabled={salvando}
+                onClick={() => criarUnidade("site", novoSite.name, novoSite.headcount, undefined, novoSite.code)}
+                className="mt-5 h-10 rounded-lg bg-amber-500 px-4 text-sm font-black text-amber-950 hover:bg-amber-400 disabled:opacity-60"
+              >
+                Adicionar
+              </button>
+            </div>
+
+            <ul className="mt-5 space-y-2">
+              {estabelecimentos.map((site) => (
+                <li key={site.unit_id} className="rounded-lg border border-slate-700 bg-slate-950 p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-sm font-black">{site.name}</span>
+                    <span className="text-xs text-slate-400">
+                      {site.headcount} trabalhadores · {site.child_count} setor(es)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => arquivar(site.unit_id)}
+                      className="rounded-md border border-slate-600 px-2 py-1 text-[11px] font-bold text-slate-300"
+                    >
+                      Arquivar
+                    </button>
+                  </div>
+                  {site.headcount > 0 && site.headcount < PISO_UNIDADE && (
+                    <p className="mt-2 text-xs leading-5 text-amber-200">
+                      Abaixo de cerca de {PISO_UNIDADE} trabalhadores esta unidade
+                      não atinge o piso de anonimato, e a campanha dela não
+                      produz resultado liberável. Vale tratar isso agora — escreva
+                      para <a className="underline" href={`mailto:${CONTATO}`}>{CONTATO}</a>.
+                    </p>
+                  )}
+                </li>
+              ))}
+              {!estabelecimentos.length && (
+                <li className="text-sm text-slate-400">Nenhum estabelecimento cadastrado.</li>
+              )}
+            </ul>
+
+            <div className="mt-6 flex gap-3">
+              <button type="button" onClick={() => setPasso(1)} className="rounded-lg border border-slate-600 px-4 py-2 text-sm font-black">
+                Voltar
+              </button>
+              <button
+                type="button"
+                disabled={!estabelecimentos.length}
+                onClick={() => setPasso(3)}
+                className="rounded-lg bg-amber-500 px-5 py-2 text-sm font-black text-amber-950 disabled:opacity-50"
+              >
+                Continuar
+              </button>
+            </div>
+          </section>
+        )}
+
+        {passo === 3 && (
+          <section className="mt-6">
+            <h1 className="text-2xl font-black">Setores</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
+              O setor define o recorte que pode aparecer no relatório. Setor com
+              poucos respondentes é suprimido — não por falha, mas porque é
+              assim que o anonimato de quem respondeu se sustenta.
+            </p>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-[180px_1fr_120px_auto]">
+              <label className="block">
+                <span className="text-xs font-black text-slate-300">Estabelecimento<span className="ml-1 text-red-300">*</span></span>
+                <select
+                  value={novoSetor.parent}
+                  onChange={(e) => setNovoSetor({ ...novoSetor, parent: e.target.value })}
+                  className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100"
+                >
+                  <option value="">Selecione</option>
+                  {estabelecimentos.map((s) => (
+                    <option key={s.unit_id} value={s.unit_id}>{s.name}</option>
+                  ))}
+                </select>
+              </label>
+              <Campo rotulo="Nome do setor" valor={novoSetor.name} onChange={(v) => setNovoSetor({ ...novoSetor, name: v })} placeholder="Operações, Comercial..." />
+              <Campo rotulo="Efetivo" valor={novoSetor.headcount} onChange={(v) => setNovoSetor({ ...novoSetor, headcount: v })} tipo="number" />
+              <button
+                type="button"
+                disabled={salvando || !novoSetor.parent}
+                onClick={() => criarUnidade("sector", novoSetor.name, novoSetor.headcount, novoSetor.parent)}
+                className="mt-5 h-10 rounded-lg bg-amber-500 px-4 text-sm font-black text-amber-950 disabled:opacity-50"
+              >
+                Adicionar
+              </button>
+            </div>
+
+            <div className="mt-5 space-y-4">
+              {estabelecimentos.map((site) => {
+                const meus = setores.filter((s) => s.parent_unit_id === site.unit_id);
+                const somaSetores = meus.reduce((t, s) => t + s.headcount, 0);
+                return (
+                  <div key={site.unit_id} className="rounded-lg border border-slate-700 bg-slate-950 p-3">
+                    <p className="text-sm font-black">{site.name}</p>
+                    <ul className="mt-2 space-y-1">
+                      {meus.map((setor) => (
+                        <li key={setor.unit_id} className="flex items-center justify-between gap-2 text-sm">
+                          <span className="text-slate-200">{setor.name}</span>
+                          <span className="text-xs text-slate-400">{setor.headcount}</span>
+                          <button
+                            type="button"
+                            onClick={() => arquivar(setor.unit_id)}
+                            className="rounded-md border border-slate-600 px-2 py-0.5 text-[11px] font-bold text-slate-300"
+                          >
+                            Arquivar
+                          </button>
+                        </li>
+                      ))}
+                      {!meus.length && <li className="text-xs text-slate-500">Sem setores.</li>}
+                    </ul>
+                    {/* A soma dos setores não precisa bater com o efetivo do
+                        estabelecimento — há quem não pertença a nenhum setor
+                        mapeado. Mas divergência grande costuma ser digitação, e
+                        é melhor descobrir aqui do que na campanha. */}
+                    {site.headcount > 0 && somaSetores > site.headcount && (
+                      <p className="mt-2 text-xs text-amber-200">
+                        A soma dos setores ({somaSetores}) passou do efetivo do
+                        estabelecimento ({site.headcount}). Confira os números.
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="mt-6 flex gap-3">
+              <button type="button" onClick={() => setPasso(2)} className="rounded-lg border border-slate-600 px-4 py-2 text-sm font-black">
+                Voltar
+              </button>
+              <button type="button" onClick={() => setPasso(4)} className="rounded-lg bg-amber-500 px-5 py-2 text-sm font-black text-amber-950">
+                Continuar
+              </button>
+            </div>
+          </section>
+        )}
+
+        {passo === 4 && (
+          <section className="mt-6">
+            <h1 className="text-2xl font-black">Estrutura registrada</h1>
+            <div className="mt-4 rounded-lg border border-slate-700 bg-slate-950 p-4">
+              <p className="text-sm font-black text-slate-200">
+                {razaoSocial || "Empresa"} — {estabelecimentos.length} estabelecimento(s),{" "}
+                {setores.length} setor(es)
+              </p>
+              <p className="mt-1 text-xs text-slate-400">
+                Efetivo somado: {estabelecimentos.reduce((t, s) => t + s.headcount, 0)} trabalhadores
+              </p>
+            </div>
+
+            <div className="mt-5 rounded-lg border border-amber-800 bg-amber-950/40 p-4">
+              <p className="text-sm font-black text-amber-200">O que falta antes da primeira campanha</p>
+              <ul className="mt-2 space-y-1 text-xs leading-5 text-amber-100">
+                <li>• <strong>Canal de apoio ao trabalhador</strong> — o sistema recusa abrir campanha sem ele. Perguntar a alguém como ele está sem ter para onde encaminhá-lo é pior do que não perguntar.</li>
+                <li>• <strong>Critérios de gradação</strong> alinhados à matriz que a empresa já usa no PGR, porque a NR-1 exige coerência entre todos os riscos.</li>
+                <li>• <strong>Janela de coleta</strong> e o aviso de finalidade aos trabalhadores.</li>
+              </ul>
+              <p className="mt-3 text-xs leading-5 text-amber-100/80">
+                Essa configuração é conduzida com a nossa equipe. Escreva para{" "}
+                <a className="font-black text-amber-300 underline" href={`mailto:${CONTATO}`}>{CONTATO}</a>.
+              </p>
+            </div>
+
+            <div className="mt-6 flex flex-wrap gap-3">
+              <button type="button" onClick={() => setPasso(3)} className="rounded-lg border border-slate-600 px-4 py-2 text-sm font-black">
+                Ajustar estrutura
+              </button>
+              <Link to="/dashboard" className="rounded-lg bg-amber-500 px-5 py-2 text-sm font-black text-amber-950">
+                Ir para o painel
+              </Link>
+            </div>
+          </section>
+        )}
+      </main>
+    </div>
+  );
+};
+
+export default Nr1CompanyOnboarding;

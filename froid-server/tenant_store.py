@@ -2849,15 +2849,28 @@ class TenantStore:
         clinic_document = re.sub(
             r"\D", "", str(profile.get("organization_document") or "")
         )
+        # A empresa contratante do NR-1 tambem deriva do CNPJ: varias pessoas do
+        # mesmo empregador precisam cair na MESMA organizacao para enxergar a
+        # mesma estrutura e as mesmas campanhas.
+        is_nr1_company = bool(account_type_raw == "nr1_company" and clinic_document)
         is_clinic = bool(account_type_raw == "organization" and clinic_document)
-        if is_clinic:
+        if is_clinic or is_nr1_company:
             organization_id = stable_uuid("organization", "cnpj", clinic_document)
         else:
             organization_id = stable_uuid("organization", owner_email)
         user_id = stable_uuid("user", owner_email)
         membership_id = stable_uuid("membership", organization_id, user_id)
         account_type = str(profile.get("account_type") or "individual").lower()
-        organization_type = "clinic" if account_type == "organization" else "solo"
+        # 'enterprise' nao e cosmetico: e o unico valor que faz
+        # effective_role_permissions retirar as permissoes clinicas
+        # identificadas dos papeis do lado do empregador. Trocar este mapeamento
+        # devolve ao empregador o acesso ao prontuario.
+        if account_type == "nr1_company":
+            organization_type = "enterprise"
+        elif account_type == "organization":
+            organization_type = "clinic"
+        else:
+            organization_type = "solo"
         owner_name = str(profile.get("owner_name") or owner_email).strip()
         organization_name = str(profile.get("organization_name") or owner_name).strip()
         organization_document = str(profile.get("organization_document") or "").strip() or None
