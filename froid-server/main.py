@@ -8320,6 +8320,89 @@ async def submit_nr1_response(request: Request):
     return {"status": "recorded"}
 
 
+@app.get("/api/organizations/{organization_id}/nr1/units")
+async def list_nr1_units(organization_id: str, request: Request):
+    """Estrutura da empresa: estabelecimentos e os setores de cada um.
+
+    Precede tudo no modulo NR-1. Sem estabelecimento nao ha unidade de
+    resultado, e sem setor nao ha recorte publicavel — a campanha nem chega a
+    ser desenhavel.
+    """
+    context = _require_enterprise_context(request, organization_id, "nr1.unit.list")
+    unidades = TENANT_STORE.nr1_list_units(
+        organization_id=organization_id,
+        membership_id=context.membership_id,
+        include_archived=str(request.query_params.get("include_archived") or "")
+        .strip()
+        .lower()
+        in {"1", "true", "yes"},
+    )
+    estabelecimentos = [u for u in unidades if u["unit_type"] == "site"]
+    return {
+        "units": unidades,
+        "site_count": len(estabelecimentos),
+        "sector_count": len([u for u in unidades if u["unit_type"] == "sector"]),
+        # O piso de anonimato e propriedade da UNIDADE, nao da empresa: uma
+        # matriz grande nao salva a filial pequena. Devolver o efetivo por
+        # estabelecimento deixa a tela avisar antes de a campanha ser montada.
+        "headcount_by_site": {
+            site["unit_id"]: site["headcount"] for site in estabelecimentos
+        },
+    }
+
+
+@app.post("/api/organizations/{organization_id}/nr1/units", status_code=201)
+async def create_nr1_unit(organization_id: str, request: Request):
+    context = _require_enterprise_context(request, organization_id, "nr1.unit.manage")
+    body = await request.json()
+    try:
+        criada = TENANT_STORE.nr1_create_unit(
+            organization_id=organization_id,
+            membership_id=context.membership_id,
+            name=str(body.get("name") or ""),
+            unit_type=str(body.get("unit_type") or "sector"),
+            parent_unit_id=(str(body.get("parent_unit_id")).strip() or None)
+            if body.get("parent_unit_id")
+            else None,
+            external_code=str(body.get("external_code") or ""),
+            headcount=_local_int(body.get("headcount")),
+        )
+    except ValueError as exc:
+        # Regra de estrutura violada e erro do cliente, nao falha do servidor:
+        # setor sem estabelecimento, pai de outra organizacao, nome vazio.
+        raise HTTPException(status_code=400, detail=str(exc))
+    return criada
+
+
+@app.patch("/api/organizations/{organization_id}/nr1/units/{unit_id}")
+async def update_nr1_unit(organization_id: str, unit_id: str, request: Request):
+    """Renomeia, recontabiliza ou arquiva. Nao existe exclusao.
+
+    O inventario de riscos aponta para a unidade e precisa sobreviver vinte anos
+    (1.5.7.3.3.1). Apagar a linha deixaria o registro antigo sem referencia.
+    """
+    context = _require_enterprise_context(request, organization_id, "nr1.unit.manage")
+    body = await request.json()
+    campos = {
+        chave: body[chave]
+        for chave in ("name", "external_code", "headcount", "status")
+        if chave in body
+    }
+    if not campos:
+        raise HTTPException(status_code=400, detail="nada a atualizar")
+    if "headcount" in campos:
+        campos["headcount"] = _local_int(campos["headcount"])
+    try:
+        return TENANT_STORE.nr1_update_unit(
+            organization_id=organization_id,
+            membership_id=context.membership_id,
+            unit_id=unit_id,
+            **campos,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
 @app.get("/api/organizations/{organization_id}/nr1/campaigns/{campaign_id}/panel")
 async def read_nr1_panel(organization_id: str, campaign_id: str, request: Request):
     """Aggregated psychosocial panel, or an explicit suppression notice."""

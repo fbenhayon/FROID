@@ -1726,6 +1726,201 @@ class TenantStore:
             "SELECT set_config('app.membership_id', %s, true)", (membership_id,)
         )
 
+    # -- Estrutura da empresa -------------------------------------------------
+    #
+    # organization_units existia desde a migration 010 e so era LIDO: quatro
+    # LEFT JOIN e nenhuma insercao. Na pratica a estrutura de cada cliente
+    # entrava no banco a mao, e era por isso que o cadastro da empresa precisava
+    # ser "conduzido pela equipe".
+    #
+    # A hierarquia e de dois niveis por decisao da NR-1, nao por simplificacao:
+    # 'site' e o ESTABELECIMENTO, que define a unidade de resultado e a base da
+    # cobranca; 'sector' e o recorte dentro dele, que define quais coortes podem
+    # ser publicadas. Confundir os dois foi o mal-entendido comercial que a
+    # pagina de precos precisou desfazer por escrito.
+
+    UNIT_TYPES = ("site", "sector", "exposure_group")
+
+    def nr1_create_unit(
+        self,
+        *,
+        organization_id: str,
+        membership_id: str,
+        name: str,
+        unit_type: str = "sector",
+        parent_unit_id: Optional[str] = None,
+        external_code: str = "",
+        headcount: int = 0,
+    ) -> dict:
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        nome = str(name or "").strip()
+        if not nome:
+            raise ValueError("unidade sem nome")
+        if unit_type not in self.UNIT_TYPES:
+            raise ValueError(f"unit_type invalido: {unit_type!r}")
+        # Setor solto nao existe: ele so significa alguma coisa dentro de um
+        # estabelecimento, que e o que a norma chama de unidade.
+        if unit_type == "sector" and not parent_unit_id:
+            raise ValueError("setor exige o estabelecimento ao qual pertence")
+        if unit_type == "site" and parent_unit_id:
+            raise ValueError("estabelecimento nao pode ter unidade pai")
+        unit_id = str(uuid.uuid4())
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                self._nr1_session(connection, organization_id, membership_id)
+                if parent_unit_id:
+                    # O pai precisa ser da MESMA organizacao. A RLS ja filtra a
+                    # leitura, mas a checagem explicita transforma um vinculo
+                    # cruzado em erro aqui, e nao em linha orfa depois.
+                    pai = connection.execute(
+                        """
+                        SELECT unit_type FROM organization_units
+                        WHERE id = %s AND organization_id = %s
+                        """,
+                        (parent_unit_id, organization_id),
+                    ).fetchone()
+                    if not pai:
+                        raise ValueError("unidade pai inexistente nesta organizacao")
+                    if pai[0] != "site":
+                        raise ValueError("o pai de um setor precisa ser um estabelecimento")
+                connection.execute(
+                    """
+                    INSERT INTO organization_units
+                        (id, organization_id, parent_unit_id, unit_type, name,
+                         external_code, headcount)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s)
+                    """,
+                    (
+                        unit_id, organization_id, parent_unit_id, unit_type,
+                        nome, str(external_code or "").strip() or None,
+                        max(0, int(headcount)),
+                    ),
+                )
+        return {
+            "unit_id": unit_id,
+            "unit_type": unit_type,
+            "name": nome,
+            "parent_unit_id": parent_unit_id,
+            "headcount": max(0, int(headcount)),
+        }
+
+    def nr1_list_units(
+        self, *, organization_id: str, membership_id: str,
+        include_archived: bool = False,
+    ) -> list[dict]:
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                self._nr1_session(connection, organization_id, membership_id)
+                rows = connection.execute(
+                    """
+                    SELECT unit.id, unit.parent_unit_id, unit.unit_type,
+                           unit.name, unit.external_code, unit.headcount,
+                           unit.status,
+                           (SELECT count(*) FROM organization_units filho
+                             WHERE filho.parent_unit_id = unit.id
+                               AND filho.status = 'active') AS filhos
+                    FROM organization_units unit
+                    WHERE unit.organization_id = %s
+                      AND (%s OR unit.status = 'active')
+                    ORDER BY unit.unit_type DESC, unit.name
+                    """,
+                    (organization_id, include_archived),
+                ).fetchall()
+        return [
+            {
+                "unit_id": str(row[0]),
+                "parent_unit_id": str(row[1]) if row[1] else None,
+                "unit_type": row[2],
+                "name": row[3],
+                "external_code": row[4] or "",
+                "headcount": int(row[5]),
+                "status": row[6],
+                "child_count": int(row[7]),
+            }
+            for row in rows
+        ]
+
+    def nr1_update_unit(
+        self,
+        *,
+        organization_id: str,
+        membership_id: str,
+        unit_id: str,
+        name: Optional[str] = None,
+        external_code: Optional[str] = None,
+        headcount: Optional[int] = None,
+        status: Optional[str] = None,
+    ) -> dict:
+        """Renomeia, recontabiliza ou arquiva. Nunca apaga.
+
+        A NR-1 exige guardar o historico do inventario por vinte anos, e o
+        inventario aponta para a unidade. Apagar a linha deixaria o registro
+        antigo sem referencia — por isso 'archived' e a unica remocao possivel,
+        e por isso a propria migration usa ON DELETE RESTRICT.
+        """
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        if status is not None and status not in ("active", "archived"):
+            raise ValueError(f"status invalido: {status!r}")
+        campos: list[str] = []
+        valores: list = []
+        if name is not None:
+            nome = str(name).strip()
+            if not nome:
+                raise ValueError("unidade sem nome")
+            campos.append("name = %s")
+            valores.append(nome)
+        if external_code is not None:
+            campos.append("external_code = %s")
+            valores.append(str(external_code).strip() or None)
+        if headcount is not None:
+            campos.append("headcount = %s")
+            valores.append(max(0, int(headcount)))
+        if status is not None:
+            campos.append("status = %s")
+            valores.append(status)
+        if not campos:
+            raise ValueError("nada a atualizar")
+        campos.append("updated_at = now()")
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                self._nr1_session(connection, organization_id, membership_id)
+                if status == "archived":
+                    # Arquivar um estabelecimento com setores ativos deixaria os
+                    # setores pendurados num pai invisivel.
+                    ativos = connection.execute(
+                        """
+                        SELECT count(*) FROM organization_units
+                        WHERE parent_unit_id = %s AND status = 'active'
+                        """,
+                        (unit_id,),
+                    ).fetchone()
+                    if ativos and int(ativos[0]) > 0:
+                        raise ValueError(
+                            "arquive ou mova os setores antes do estabelecimento"
+                        )
+                linha = connection.execute(
+                    f"""
+                    UPDATE organization_units
+                       SET {", ".join(campos)}
+                     WHERE id = %s AND organization_id = %s
+                     RETURNING id, unit_type, name, headcount, status
+                    """,
+                    (*valores, unit_id, organization_id),
+                ).fetchone()
+        if not linha:
+            raise ValueError("unidade inexistente nesta organizacao")
+        return {
+            "unit_id": str(linha[0]),
+            "unit_type": linha[1],
+            "name": linha[2],
+            "headcount": int(linha[3]),
+            "status": linha[4],
+        }
+
     def nr1_create_campaign(
         self,
         *,

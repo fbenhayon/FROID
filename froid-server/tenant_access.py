@@ -55,6 +55,15 @@ ROLE_PERMISSIONS = {
         "reports.write", "reports.delete", "assignments.manage",
         "credits.read", "credits.manage", "audit.read",
         "privacy.read", "privacy.manage",
+        # Estrutura da empresa no modulo NR-1. Concedida aqui porque a politica
+        # de RLS de organization_units ja nomeia owner, administrator e
+        # compliance_manager: deixar a aplicacao mais restrita que o banco
+        # produz um 403 que o banco teria permitido, e a divergencia entre as
+        # duas camadas e o comeco de uma auditoria confusa.
+        #
+        # Quem cadastra a empresa logo depois do OAuth e o owner dela. Sem isto,
+        # o cadastro guiado nao sai do primeiro passo.
+        "nr1.unit.list", "nr1.unit.manage",
     }),
     "administrator": frozenset({
         "organization.read", "members.manage", "patients.read_all",
@@ -62,6 +71,7 @@ ROLE_PERMISSIONS = {
         "reports.delete", "assignments.manage", "credits.read",
         "credits.manage", "audit.read",
         "privacy.read", "privacy.manage",
+        "nr1.unit.list", "nr1.unit.manage",
     }),
     "supervisor": frozenset({
         "organization.read", "patients.read_all", "reports.read_all",
@@ -77,6 +87,7 @@ ROLE_PERMISSIONS = {
     # risk inventory and action plan. Reads no identified clinical record.
     "compliance_manager": frozenset({
         "organization.read",
+        "nr1.unit.list", "nr1.unit.manage",
         "nr1.campaigns.manage", "nr1.aggregate.read",
         "nr1.inventory.manage", "nr1.action_plan.manage",
         "audit.read",
@@ -86,6 +97,7 @@ ROLE_PERMISSIONS = {
     # active assignment.
     "occupational_health": frozenset({
         "organization.read",
+        "nr1.unit.list",
         "nr1.aggregate.read", "nr1.inventory.manage",
         "nr1.action_plan.manage",
         # Binds employee to professional. Deliberately the only enterprise-side
