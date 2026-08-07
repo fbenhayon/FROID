@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 400" role="img"
+     aria-labelledby="titulo-escuta desc-escuta">
+  <title id="titulo-escuta">Da fala ao sinal legível</title>
+  <desc id="desc-escuta">Uma onda de voz contínua atravessa uma camada de extração e chega ao profissional como um traçado organizado. A leitura final permanece com a pessoa, não com a máquina.</desc>
+
+  <defs>
+    <linearGradient id="fundo" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0b1220"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="ondaBruta" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.25"/>
+      <stop offset="55%" stop-color="#3b82f6" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#60a5fa" stop-opacity="0.4"/>
+    </linearGradient>
+    <radialGradient id="brilho" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.32"/>
+      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="suave" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="5"/>
+    </filter>
+  </defs>
+
+  <rect width="560" height="400" rx="14" fill="url(#fundo)"/>
+  <rect width="560" height="400" rx="14" fill="none" stroke="#1e293b"/>
+
+  <!-- Origem: a fala. Uma figura, não um ícone de microfone: o sinal vem de
+       alguém, e essa distinção é o produto inteiro. -->
+  <g transform="translate(74,200)">
+    <circle r="52" fill="url(#brilho)"/>
+    <circle r="17" cy="-16" fill="none" stroke="#93c5fd" stroke-width="2"/>
+    <path d="M-25 26 a25 25 0 0 1 50 0" fill="none" stroke="#93c5fd" stroke-width="2" stroke-linecap="round"/>
+  </g>
+  <text x="74" y="292" text-anchor="middle" font-family="Georgia, serif" font-size="13" fill="#94a3b8">quem fala</text>
+
+  <!-- Sinal bruto: contínuo, sem rótulo. -->
+  <path d="M118 200
+           C132 158, 146 242, 160 200
+           S188 142, 202 200
+           S230 254, 244 200
+           S272 166, 286 200"
+        fill="none" stroke="url(#ondaBruta)" stroke-width="3" stroke-linecap="round"/>
+  <path d="M118 200
+           C132 158, 146 242, 160 200
+           S188 142, 202 200
+           S230 254, 244 200
+           S272 166, 286 200"
+        fill="none" stroke="#3b82f6" stroke-width="7" stroke-linecap="round"
+        opacity="0.28" filter="url(#suave)"/>
+
+  <!-- Camada de extração: o que o FROID faz. Barras discretas — o sinal
+       contínuo passa a ser medida, e medida tem unidade. -->
+  <g transform="translate(300,130)">
+    <rect width="98" height="140" rx="10" fill="#111c33" stroke="#1e40af" stroke-opacity="0.55"/>
+    <g fill="#60a5fa">
+      <rect x="16" y="96" width="9" height="30" rx="3"/>
+      <rect x="31" y="72" width="9" height="54" rx="3"/>
+      <rect x="46" y="40" width="9" height="86" rx="3"/>
+      <rect x="61" y="82" width="9" height="44" rx="3"/>
+      <rect x="76" y="58" width="9" height="68" rx="3" fill="#eab308"/>
+    </g>
+    <line x1="10" y1="24" x2="88" y2="24" stroke="#1e40af" stroke-opacity="0.6" stroke-width="2"/>
+    <circle cx="18" cy="24" r="3" fill="#22c55e"/>
+  </g>
+  <text x="349" y="292" text-anchor="middle" font-family="Georgia, serif" font-size="13" fill="#94a3b8">o que se mede</text>
+
+  <!-- Entrega ao profissional: o traçado chega organizado, e a seta para na
+       pessoa. O FROID não fecha o círculo sozinho. -->
+  <path d="M410 200 h44" stroke="#334155" stroke-width="2" stroke-dasharray="5 5"/>
+  <path d="M448 194 l10 6 -10 6 z" fill="#334155"/>
+
+  <g transform="translate(494,200)">
+    <circle r="46" fill="url(#brilho)"/>
+    <circle r="15" cy="-15" fill="none" stroke="#f8fafc" stroke-width="2"/>
+    <path d="M-22 24 a22 22 0 0 1 44 0" fill="none" stroke="#f8fafc" stroke-width="2" stroke-linecap="round"/>
+  </g>
+  <text x="494" y="292" text-anchor="middle" font-family="Georgia, serif" font-size="13" fill="#94a3b8">quem interpreta</text>
+
+  <line x1="40" y1="330" x2="520" y2="330" stroke="#1e293b"/>
+  <text x="280" y="356" text-anchor="middle" font-family="Georgia, serif" font-size="14" fill="#cbd5e1">
+    O FROID mede o sinal.
+  </text>
+  <text x="280" y="378" text-anchor="middle" font-family="Georgia, serif" font-size="14" fill="#fcd34d">
+    A leitura continua sendo do profissional.
+  </text>
+</svg>
