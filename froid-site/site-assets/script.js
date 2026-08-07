@@ -81,6 +81,7 @@ var NAV_SECOES = {
   "como-funciona-nr1.html": [
     ["as-sete-etapas", "As sete etapas"],
     ["o-que-e-igual-em-toda-empresa-e-o-que-muda", "O que muda em cada empresa"],
+    ["quando-a-segunda-avaliacao-reprova", "E se a segunda avaliação reprovar?"],
     ["a-sua-empresa-tem-tamanho-para-isso", "A sua empresa tem tamanho?"]
   ],
   "precos.html": [

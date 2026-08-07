@@ -380,6 +380,174 @@ def aba_alavancas(wb: Workbook):
     return ws
 
 
+def aba_concorrencia(wb: Workbook):
+    """Cotacoes de concorrentes, para preencher a mao.
+
+    Sai VAZIA de proposito. Preencher com numero inventado seria pior do que
+    nao ter aba nenhuma: viraria referencia numa reuniao e ninguem lembraria
+    que a origem era um chute. As formulas ja estao prontas e comecam a
+    devolver resultado assim que houver dado real.
+    """
+    ws = wb.create_sheet("Concorrência")
+    ws.sheet_view.showGridLines = False
+
+    _titulo(ws, 1, "  Concorrência — preencher com cotações reais", 9)
+    ws.cell(row=2, column=1,
+            value="Nada aqui foi estimado. Preencha as células escuras com valores "
+                  "de propostas, tabelas públicas ou cotações recebidas — e anote a "
+                  "fonte e a data, porque preço sem procedência não sustenta "
+                  "argumento em reunião.").font = Font(italic=True, size=9, color=CINZA)
+
+    _titulo(ws, 4, "  Referência FROID (vem da aba Receita)", 9)
+    _rotulo(ws, 5, 1, "Efetivo simulado")
+    _formula(ws, 5, 2, "=Receita!B5", "0")
+    _rotulo(ws, 6, 1, "Anual FROID (com desconto)")
+    _formula(ws, 6, 2, "=Receita!B31", MOEDA0)
+    _rotulo(ws, 7, 1, "Implantação FROID")
+    _formula(ws, 7, 2, "=Receita!B17", MOEDA0)
+    _rotulo(ws, 8, 1, "Ano 1 FROID (anual + implantação)")
+    _formula(ws, 8, 2, "=Receita!B32", MOEDA0, destaque=True)
+    _rotulo(ws, 9, 1, "Campanhas/ano FROID")
+    _formula(ws, 9, 2, "=Receita!B35", "0")
+
+    _titulo(ws, 10, "  Cotações", 9)
+    nota = ws.cell(
+        row=11, column=1,
+        value="Preencha “Mensal recorrente” OU “Por campanha”, conforme o modelo da "
+              "cotação. Se os dois estiverem preenchidos, o cálculo usa o mensal. "
+              "“Campanhas/ano” em branco assume o mesmo número do FROID, para que a "
+              "comparação seja sobre o mesmo ciclo.")
+    nota.font = Font(italic=True, size=9, color=CINZA)
+    cabec = [
+        "Concorrente", "Modelo de cobrança", "Efetivo da cotação",
+        "Implantação (única)", "Mensal recorrente", "Por campanha",
+        "Campanhas/ano incluídas", "Prazo de entrega (dias)",
+        "Fonte e data da informação",
+    ]
+    for i, t in enumerate(cabec, start=1):
+        c = ws.cell(row=12, column=i, value=t)
+        c.font = Font(bold=True, color=BRANCO)
+        c.fill = PatternFill("solid", fgColor=AZUL_CLARO)
+        c.alignment = Alignment(wrap_text=True, horizontal="center", vertical="center")
+    ws.row_dimensions[12].height = 42
+
+    primeira, n_linhas = 13, 6
+    ultima = primeira + n_linhas - 1
+    for L in range(primeira, ultima + 1):
+        for col in range(1, 10):
+            fmt = MOEDA0 if col in (4, 5, 6) else ("0" if col in (3, 7, 8) else None)
+            _entrada(ws, L, col, None, fmt)
+
+    _titulo(ws, ultima + 2, "  Comparação — calculada a partir do que for preenchido", 9)
+    cab2 = [
+        "Concorrente", "Anual do concorrente", "Ano 1 do concorrente",
+        "Por trabalhador / ano", "Por campanha", "Ano 1 vs FROID (R$)",
+        "Ano 1 vs FROID (%)", "FROID está…", "",
+    ]
+    L0 = ultima + 3
+    for i, t in enumerate(cab2, start=1):
+        c = ws.cell(row=L0, column=i, value=t)
+        c.font = Font(bold=True, color=BRANCO)
+        c.fill = PatternFill("solid", fgColor=AZUL_CLARO)
+        c.alignment = Alignment(wrap_text=True, horizontal="center", vertical="center")
+    ws.row_dimensions[L0].height = 42
+
+    for i in range(n_linhas):
+        origem = primeira + i
+        L = L0 + 1 + i
+        _formula(ws, L, 1, f'=IF(A{origem}="","",A{origem})')
+        # Anual = 12 mensalidades OU campanhas x valor por campanha, conforme o
+        # modelo que a cotacao usar. Aceita os dois sem obrigar a escolher.
+        _formula(
+            ws, L, 2,
+            f'=IF(AND(E{origem}="",F{origem}=""),"",'
+            f'IF(E{origem}<>"",E{origem}*12,F{origem}*IF(G{origem}="",$B$9,G{origem})))',
+            MOEDA0)
+        _formula(ws, L, 3, f'=IF(B{L}="","",B{L}+IF(D{origem}="",0,D{origem}))', MOEDA0)
+        _formula(
+            ws, L, 4,
+            f'=IF(OR(B{L}="",C{origem}="",C{origem}=0),"",B{L}/C{origem})', MOEDA)
+        _formula(
+            ws, L, 5,
+            f'=IF(B{L}="","",B{L}/IF(G{origem}="",$B$9,G{origem}))', MOEDA0)
+        _formula(ws, L, 6, f'=IF(C{L}="","",$B$8-C{L})', MOEDA0)
+        _formula(ws, L, 7, f'=IF(OR(C{L}="",C{L}=0),"",$B$8/C{L}-1)', PCT)
+        _formula(
+            ws, L, 8,
+            f'=IF(G{L}="","",IF(G{L}>0.05,"mais caro",'
+            f'IF(G{L}<-0.05,"mais barato","equivalente")))', destaque=True)
+
+    aviso = ws.cell(
+        row=L0 + n_linhas + 2, column=1,
+        value="Cuidado ao comparar: quase nenhum concorrente entrega prova de "
+              "eficácia antes/depois nem piso de anonimato. Preço menor por um "
+              "escopo menor não é preço menor — é outro produto. A matriz abaixo "
+              "existe para não deixar isso passar.")
+    aviso.font = Font(italic=True, size=9, color=AMBAR_TEXTO)
+    aviso.fill = PatternFill("solid", fgColor=AMBAR)
+    ws.row_dimensions[L0 + n_linhas + 2].height = 32
+
+    L1 = L0 + n_linhas + 4
+    _titulo(ws, L1, "  O que cada um entrega (preencher: sim / não / parcial)", 9)
+    # Coluna 1 = capacidade, coluna 2 = FROID, colunas 3..8 = concorrentes.
+    # A linha de baixo puxa o nome digitado na tabela de cotacoes, para nao
+    # obrigar a redigitar e nao deixar as duas metades da aba divergirem.
+    for col, rotulo in [(1, "Capacidade"), (2, "FROID")]:
+        c = ws.cell(row=L1 + 1, column=col, value=rotulo)
+        c.font = Font(bold=True, color=BRANCO)
+        c.fill = PatternFill("solid", fgColor=AZUL_CLARO)
+        c.alignment = Alignment(horizontal="center")
+    for i in range(n_linhas):
+        c = ws.cell(row=L1 + 1, column=3 + i, value=f"Concorrente {i + 1}")
+        c.font = Font(bold=True, color=BRANCO)
+        c.fill = PatternFill("solid", fgColor=AZUL_CLARO)
+        c.alignment = Alignment(wrap_text=True, horizontal="center")
+        _formula(ws, L1 + 2, 3 + i, f'=IF(A{primeira + i}="","",A{primeira + i})')
+    ws.cell(row=L1 + 2, column=1, value="(nome da cotação)").font = Font(
+        italic=True, size=9, color=CINZA)
+
+    capacidades = [
+        ("Inventário com os nove campos (1.5.7.3.2)", "sim"),
+        ("AEP psicossocial", "sim"),
+        ("Gradação por severidade × probabilidade (1.5.4.4.4)", "sim"),
+        ("Probabilidade desconta eficácia medida (1.5.4.4.5.3)", "sim"),
+        ("Prova de eficácia antes/depois, setor contra si mesmo", "sim"),
+        ("Medida ineficaz não reduz risco no papel (1.5.5.3.2.1)", "sim"),
+        ("Piso de anonimato por recorte", "sim"),
+        ("Resultado só após encerrar a campanha", "sim"),
+        ("Recusa abrir campanha sem canal de apoio", "sim"),
+        ("Critérios de gradação alinhados ao PGR da empresa", "sim"),
+        ("Guarda do histórico por 20 anos (1.5.7.3.3.1)", "sim"),
+        ("Painel próprio, sem planilha intermediária", "sim"),
+        ("Base legal declarada (obrigação legal, não consentimento)", "sim"),
+        ("Não entrega resposta individual a ninguém", "sim"),
+    ]
+    for j, (nome, froid) in enumerate(capacidades):
+        L = L1 + 3 + j
+        c = ws.cell(row=L, column=1, value=nome)
+        c.font = Font(size=10)
+        c.border = BORDA
+        c.alignment = Alignment(wrap_text=True)
+        v = ws.cell(row=L, column=2, value=froid)
+        v.font = Font(bold=True, color=AMBAR_TEXTO)
+        v.fill = PatternFill("solid", fgColor=AMBAR)
+        v.alignment = Alignment(horizontal="center")
+        v.border = BORDA
+        for i in range(n_linhas):
+            _entrada(ws, L, 3 + i, None)
+
+    ws.cell(row=L1 + 3 + len(capacidades) + 1, column=1,
+            value="A coluna FROID reflete o que está implementado no produto hoje. "
+                  "Se alguma linha deixar de ser verdade, corrija aqui antes de usar "
+                  "a matriz com um cliente.").font = Font(italic=True, size=9, color=CINZA)
+
+    larguras = [(1, 46), (2, 22), (3, 18), (4, 18), (5, 18), (6, 16), (7, 18),
+                (8, 18), (9, 30)]
+    for col, larg in larguras:
+        ws.column_dimensions[get_column_letter(col)].width = larg
+    return ws
+
+
 def aba_leia(wb: Workbook):
     ws = wb.active
     ws.title = "Leia primeiro"
@@ -414,6 +582,16 @@ def aba_leia(wb: Workbook):
         ("n", "Compara a tabela vigente com cenários de reajuste. Não altera nada: "
               "é só para decidir."),
         ("", ""),
+        ("h", "Concorrência"),
+        ("n", "Sai VAZIA de propósito — nenhum valor foi estimado. Preencha com "
+              "cotações reais e anote fonte e data: preço sem procedência não "
+              "sustenta argumento em reunião."),
+        ("n", "Aceita cobrança mensal ou por campanha, e calcula sozinha anual, "
+              "ano 1, custo por trabalhador e a diferença contra o FROID."),
+        ("n", "Embaixo há a matriz de capacidades. Ela existe porque preço menor "
+              "por escopo menor não é preço menor — é outro produto, e a "
+              "diferença precisa aparecer na mesma tela."),
+        ("", ""),
         ("a", "O que esta planilha NÃO faz: não estima custo, não tem margem e não "
               "conhece preço de concorrente. É receita bruta. Enquanto o custo de "
               "operar uma campanha não estiver medido, ela mostra quanto entra — "
@@ -447,6 +625,7 @@ def main() -> int:
     aba_cenarios(wb)
     aba_anonimato(wb)
     aba_alavancas(wb)
+    aba_concorrencia(wb)
     wb.save(destino)
     print(f"planilha gerada: {destino.resolve()}")
     return 0
