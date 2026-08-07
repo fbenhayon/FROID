@@ -7,7 +7,7 @@
 <meta name="description" content="O roteiro completo de uma implantação NR-1 no FROID: cadastro, campanha anônima, coleta, inventário com os nove itens, AEP, plano de ação e a prova medida da eficácia seis meses depois." />
 <link rel="alternate" hreflang="pt-BR" href="https://www.froid.com.br/como-funciona-nr1.html" />
 <link rel="alternate" hreflang="x-default" href="https://www.froid.com.br/como-funciona-nr1.html" />
-<link rel="stylesheet" href="site-assets/style.css?v=13" />
+<link rel="stylesheet" href="site-assets/style.css?v=14" />
 <style>
   .fase { border-left:3px solid #1e3a5f; padding:0 0 28px 22px; margin-left:6px; position:relative; }
   .fase:last-child { padding-bottom:0; }
@@ -26,6 +26,12 @@
   .norma { border-left:3px solid var(--froid-azul); padding:2px 0 2px 16px; margin:18px 0; }
   .norma p { margin:0; color:#e2e8f0; font-size:0.95rem; line-height:1.65; font-style:italic; }
   .norma .fonte { display:block; font-size:12px; color:#64748b; margin-top:6px; font-style:normal; font-weight:700; }
+  /* O oitavo item não é uma oitava etapa: é o desvio de quando o ciclo não
+     fecha. Marcado em âmbar e com a linha tracejada para que ninguém o conte
+     como parte do caminho normal. */
+  .fase-ciclo { border-left-style:dashed; border-left-color:#92400e; }
+  .fase-ciclo::before { background:#fcd34d; }
+  .fase-ciclo .quando { color:#fcd34d; }
 </style>
 </head>
 <body>
@@ -67,7 +73,10 @@
       <strong>Antes de tudo, um esclarecimento que evita mal-entendido:</strong> no módulo NR-1 <em>não existe sessão</em>. Ninguém é entrevistado, ninguém liga a câmera e nenhum profissional do FROID entra na sua empresa. O trabalhador recebe um link, responde a um questionário anônimo em cerca de dez minutos, e pronto. A análise de voz e face é o outro produto do FROID, usado por profissionais de saúde no atendimento clínico — e o empregador nunca tem acesso a ele.
     </div>
 
-    <h2 id="as-sete-etapas">As sete etapas</h2>
+    <!-- O id continua "as-sete-etapas" de proposito: ja esta publicado, no menu
+         suspenso e em links externos. Trocar o id quebraria essas entradas para
+         ganhar nada — o titulo visivel e que precisava acompanhar o oitavo item. -->
+    <h2 id="as-sete-etapas">As sete etapas — e o desvio quando o ciclo não fecha</h2>
 
     <div style="margin-top:24px;">
 
@@ -121,6 +130,13 @@
         <h3>A prova de eficácia</h3>
         <p>Nova campanha, mesmo instrumento, mesmo setor. O FROID compara os dois momentos e diz se a medida funcionou — com o tamanho do efeito e o intervalo de confiança, não com uma seta verde.</p>
         <p><strong>E diz “sem mudança” quando os dados não sustentam melhora</strong>, mesmo quando o número bruto parece bom. Um ganho que a estatística não sustenta é exatamente o que um perito da parte contrária desmonta.</p>
+      </div>
+
+      <div class="fase fase-ciclo">
+        <span class="quando">Se reprovar</span>
+        <h3>A medida não funcionou — e a norma já diz o que fazer</h3>
+        <p>Acontece, e não é fracasso do fornecedor. A NR-1 prevê a situação: medida cujo acompanhamento indicar ineficácia <strong>deve ser corrigida</strong> (subitem 1.5.5.3.2.1), o risco <strong>não</strong> baixa na gradação enquanto não houver resultado, e a revisão da avaliação é antecipada. O ciclo recomeça, um degrau acima na ordem de prioridade das medidas.</p>
+        <p style="margin-top:12px;"><a class="btn btn-amber-ghost" href="#quando-a-segunda-avaliacao-reprova">Ver o procedimento completo, subitem por subitem</a></p>
       </div>
 
     </div>
@@ -287,6 +303,6 @@
   </div>
 </footer>
 
-<script src="site-assets/script.js?v=13"></script>
+<script src="site-assets/script.js?v=14"></script>
 </body>
 </html>
