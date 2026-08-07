@@ -2,11 +2,14 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { apiUrl, publicAppUrl } from "../lib/api";
 
-// Fase de testes iniciais: exibe apenas o cadastro reduzido (Nome, E-mail,
-// Telefone celular e Número da licença médica). Os demais campos permanecem
-// no código e voltam ao layout ao definir esta flag como false.
-const TESTING_MINIMAL_ONBOARDING = true;
+// Cadastro reduzido (Nome, E-mail, Telefone celular e licença) usado durante os
+// testes iniciais. Desligado: o cadastro completo distingue Pessoa Física de
+// Pessoa Jurídica, exige CPF/CNPJ e endereço, e vincula o contrato correto.
+// Ligar esta flag de novo derruba a diferenciação e o CPF — não é um atalho de
+// conveniência, é uma regressão de cadastro.
+const TESTING_MINIMAL_ONBOARDING = false;
 import type { FroidUser } from "../App";
+import { CollapsibleDisclosure } from "../components/legal/CollapsibleDisclosure";
 import { LgpdNotice } from "../components/legal/LgpdNotice";
 import { SecurityAssurance } from "../components/legal/SecurityAssurance";
 import {
@@ -530,6 +533,10 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
             ["Celular", "mobile", fields.mobile],
             ["E-mail", "email", fields.email],
             ["CPF", "cpf", fields.cpf],
+            // Quem interpreta o sinal responde por um conselho. Na pessoa
+            // jurídica o registro é de cada profissional da equipe, não da
+            // entidade — por isso a exigência vale só aqui.
+            ["Registro profissional", "professionalRegistry", fields.professionalRegistry],
           ];
     const addressFields: Array<[string, string, string]> = TESTING_MINIMAL_ONBOARDING
       ? []
@@ -864,7 +871,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
                 <Section title="Dados fiscais para fatura e recibo">
                   <Field label={accountType === "organization" ? "Atividade principal" : "Profissao"} name="profession" value={fields.profession} onChange={updateField} placeholder="Psicologa(o), Medica(o) Psiquiatra..." />
                   <Field label="Conselho profissional" name="professionalCouncil" value={fields.professionalCouncil} onChange={updateField} placeholder="CRP, CRM..." />
-                  <Field label="Registro profissional" name="professionalRegistry" value={fields.professionalRegistry} onChange={updateField} placeholder="Número do CRP/CRM" />
+                  <Field label="Registro profissional" name="professionalRegistry" value={fields.professionalRegistry} onChange={updateField} placeholder="Número do CRP/CRM" required={accountType === "individual"} />
                   <Field label="Descrição padrão do serviço" name="receiptServiceDescription" value={fields.receiptServiceDescription} onChange={updateField} placeholder="Sessão de psicoterapia individual, consulta psiquiátrica..." />
                   <Field label="Local de emissão" name="receiptCity" value={fields.receiptCity} onChange={updateField} placeholder="Cidade/UF" />
                   <Field label="Observação fiscal padrão" name="receiptFiscalObservation" value={fields.receiptFiscalObservation} onChange={updateField} placeholder="Referência Receita Saúde/NFS-e quando aplicável" />
@@ -1014,11 +1021,19 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
                 placeholder="Observações cadastrais relevantes..."
                 className="mt-4 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200 outline-none focus:border-cyan-500"
               />
-              <div className="mt-4">
-                <SecurityAssurance audience="professional" locale="pt-BR" />
-              </div>
-              <div className="mt-4">
-                <LgpdNotice audience="professional" />
+              <div className="mt-4 space-y-2">
+                <CollapsibleDisclosure
+                  title="Como protegemos as informações da sua operação"
+                  summary="Controles técnicos aplicados na plataforma: criptografia, restrição por titularidade, trilha de auditoria e anonimização."
+                >
+                  <SecurityAssurance audience="professional" locale="pt-BR" />
+                </CollapsibleDisclosure>
+                <CollapsibleDisclosure
+                  title="Aviso LGPD — dados sensíveis de saúde e responsabilidade profissional"
+                  summary="Quais dados são tratados, com que finalidade, direitos do titular e os limites do que o FROID entrega."
+                >
+                  <LgpdNotice audience="professional" />
+                </CollapsibleDisclosure>
               </div>
               <p className={`mt-4 rounded-lg border p-3 text-xs font-bold leading-5 ${
                 legalCatalog?.acceptance_required

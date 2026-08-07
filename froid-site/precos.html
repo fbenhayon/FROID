@@ -10,7 +10,7 @@
 <link rel="alternate" hreflang="fr" href="https://www.froid.com.br/fr/precos.html" />
 <link rel="alternate" hreflang="es" href="https://www.froid.com.br/es/precos.html" />
 <link rel="alternate" hreflang="x-default" href="https://www.froid.com.br/precos.html" />
-<link rel="stylesheet" href="site-assets/style.css?v=10" />
+<link rel="stylesheet" href="site-assets/style.css?v=11" />
 <style>
   .plan-card h3 { margin-bottom:2px; }
   .plan-tag { font-size:0.78rem; color:var(--froid-azul); font-weight:700; text-transform:uppercase; letter-spacing:0.06em; }
@@ -33,6 +33,14 @@
   .hab-link:hover, .hab-link:focus { color:#93c5fd; border-bottom-color:#93c5fd; }
   .hab-link::after { content:"›"; margin-left:6px; color:#64748b; font-weight:700; }
   .hab-link:hover::after, .hab-link:focus::after { color:#93c5fd; }
+  .pioneiro { display:flex; align-items:flex-start; gap:16px; flex-wrap:wrap; margin-top:26px; border:1px solid #92400e; background:#451a03; border-radius:12px; padding:16px 18px; }
+  .pioneiro-selo { flex-shrink:0; background:#fcd34d; color:#451a03; font-weight:800; font-size:0.95rem; border-radius:8px; padding:8px 14px; white-space:nowrap; }
+  .pioneiro p { margin:0; font-size:0.92rem; line-height:1.55; color:#fde68a; flex:1; min-width:260px; }
+  .pioneiro strong { color:#fcd34d; }
+  .nr1-faixas { width:100%; border-collapse:collapse; font-size:0.9rem; min-width:420px; }
+  .nr1-faixas th, .nr1-faixas td { padding:9px 12px; border-bottom:1px solid #334155; text-align:left; }
+  .nr1-faixas td:last-child, .nr1-faixas th:last-child { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .nr1-faixas th { background:#1e293b; color:#f8fafc; font-size:0.82rem; text-transform:uppercase; letter-spacing:0.05em; }
 </style>
 </head>
 <body>
@@ -64,10 +72,15 @@
     <p class="section-kicker" style="color:#93c5fd;">Preços</p>
     <h1 style="font-size:2.1rem;">Um plano para cada estágio da prática clínica</h1>
     <p class="lead">Do profissional autônomo à rede de clínicas — modelo de créditos por sessão, sem surpresas na fatura.</p>
+
+    <div class="pioneiro">
+      <span class="pioneiro-selo">15% de desconto</span>
+      <p><strong>Condição de pioneiro, até 31 de dezembro.</strong> Quem contratar até essa data recebe 15% de desconto sobre o valor do plano escolhido — vale tanto para os pacotes de sessões quanto para o plano NR-1 empresarial. Depois de 31 de dezembro a condição se encerra e os valores passam a ser os de tabela.</p>
+    </div>
   </div>
 </section>
 
-<section class="block">
+<section class="block" id="planos">
   <div class="container">
     <p class="section-kicker">Planos</p>
     <h2 class="section-title">PRO, PLUS e MASTER — créditos por sessão, sem letra miúda</h2>
@@ -121,8 +134,7 @@
         <span class="plan-tag">Escala e redes</span>
         <h3>FROID MASTER</h3>
         <p style="font-size:0.92rem;">O plano de escala: para redes e operações maiores, com todas as habilidades do FROID habilitadas e acesso prioritário aos novos recursos à medida que são lançados.</p>
-        <div class="pack"><span class="qtd">25 sessões <span style="display:block; font-size:0.75rem; color:var(--froid-cinza); font-weight:500;">pacote de entrada/piloto</span></span><span class="valor">R$ 20,00<span class="unit">valor simbólico de lançamento</span></span></div>
-        <div class="pack" style="border-style:dashed;"><span class="qtd" style="color:var(--froid-cinza);">Pacotes de volume</span><span class="valor" style="color:var(--froid-cinza); font-weight:600;">em breve</span></div>
+        <div class="pack"><span class="qtd">200 sessões</span><span class="valor">R$ 4.888,00<span class="unit">valor unitário de referência: R$ 24,44</span></span></div>
         <ul class="plan-list">
           <li>Tudo do PRO e do PLUS</li>
           <li>Até 35 usuários</li>
@@ -140,7 +152,7 @@
   </div>
 </section>
 
-<section class="block soft">
+<section class="block soft" id="comparacao">
   <div class="container">
     <p class="section-kicker">Comparação</p>
     <h2 class="section-title">As habilidades de cada plano</h2>
@@ -226,7 +238,55 @@
   </div>
 </section>
 
-<section class="block soft">
+<section class="block soft" id="nr1">
+  <div class="container">
+    <p class="section-kicker">Outro produto</p>
+    <h2 class="section-title">FROID NR-1 — avaliação de riscos psicossociais para empresas</h2>
+    <p class="section-lead">Produto distinto dos pacotes de sessões acima. O NR-1 atende o empregador que precisa cumprir a <strong>Portaria MTE nº 1.419/2024</strong>, em vigor desde 26 de maio de 2026: avalia <strong>condições de trabalho</strong>, de forma anônima e agregada. Não avalia indivíduos, não produz diagnóstico e não entrega dado clínico ao empregador.</p>
+
+    <div class="grid-3">
+      <div class="card">
+        <h3>📐 Preço que acompanha o efetivo</h3>
+        <p style="font-size:0.92rem;">Sem degraus por faixa. Crescer de 300 para 301 trabalhadores não muda de plano nem reprecifica o contrato — as faixas são cumulativas, como uma tarifa.</p>
+      </div>
+      <div class="card">
+        <h3>🔒 Anonimato com piso</h3>
+        <p style="font-size:0.92rem;">Nenhum recorte é publicado abaixo do piso de participantes, e o resultado só é liberado depois que a campanha encerra. Abaixo de cerca de 75 trabalhadores na unidade, a campanha não produz resultado liberável.</p>
+      </div>
+      <div class="card">
+        <h3>⚖️ Base legal do empregador</h3>
+        <p style="font-size:0.92rem;">O tratamento tem por base o cumprimento de <strong>obrigação legal</strong> (LGPD, art. 7º, II e art. 11, II, “a”) — e não o consentimento do trabalhador, que a relação de hierarquia comprometeria.</p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:28px;">
+      <h3>Faixas de preço</h3>
+      <div class="hab-wrap" style="margin-top:12px;">
+        <table class="nr1-faixas">
+          <tr><th>Componente</th><th>Valor</th></tr>
+          <tr><td>Base da plataforma, por unidade</td><td>R$ 1.200 / mês</td></tr>
+          <tr><td>De 1 a 100 trabalhadores</td><td>R$ 9,00 / trabalhador / mês</td></tr>
+          <tr><td>De 101 a 300</td><td>R$ 7,00 / trabalhador / mês</td></tr>
+          <tr><td>De 301 a 1.000</td><td>R$ 5,00 / trabalhador / mês</td></tr>
+          <tr><td>Acima de 1.000</td><td>R$ 3,00 / trabalhador / mês</td></tr>
+        </table>
+      </div>
+      <p style="font-size:0.85rem; color:var(--froid-cinza); margin-top:10px;">As faixas são cumulativas: uma empresa com 300 trabalhadores paga R$ 9 pelos 100 primeiros e R$ 7 pelos 200 seguintes. O <a class="hab-link" href="proposta-nr1.html">simulador da proposta</a> calcula o valor do seu efetivo.</p>
+    </div>
+
+    <div class="hero-actions" style="margin-top:28px;">
+      <a class="btn btn-solid" href="diagnostico-nr1.html">Descobrir se a minha empresa se enquadra</a>
+      <a class="btn btn-ghost" href="como-funciona-nr1.html">Ver como funciona</a>
+      <a class="btn btn-ghost" href="proposta-nr1.html">Montar uma proposta</a>
+    </div>
+
+    <div class="disclaimer-box" style="margin-top:28px;">
+      <strong>O que o empregador recebe:</strong> resultados por unidade e por dimensão, sempre agregados. O FROID não entrega, nem ao empregador nem a terceiros, resposta individual de trabalhador — a separação é estrutural, não uma configuração que se possa desligar.
+    </div>
+  </div>
+</section>
+
+<section class="block" id="antes-de-decidir">
   <div class="container">
     <p class="section-kicker">Antes de decidir</p>
     <h2 class="section-title">Ainda avaliando?</h2>
@@ -285,6 +345,6 @@
   </div>
 </footer>
 
-<script src="site-assets/script.js?v=4"></script>
+<script src="site-assets/script.js?v=11"></script>
 </body>
 </html>
