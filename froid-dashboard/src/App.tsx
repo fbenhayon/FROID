@@ -69,6 +69,16 @@ export type FroidUser = {
     manual_approval_status?: "pending" | "approved" | "rejected" | "suspended";
     manual_approval_pending?: boolean;
     manual_approval_ready?: boolean;
+    /** Sessões de cortesia do cadastro. `on_trial` é falso assim que houver
+     *  qualquer compra — inclusive se o saldo comprado zerar depois, porque a
+     *  partir dali vale a regra do cliente pagante. */
+    on_trial?: boolean;
+    trial_sessions?: number;
+    trial_used?: number;
+    trial_remaining?: number;
+    trial_exhausted?: boolean;
+    trial_notice?: string;
+    trial_contact_email?: string;
   };
 };
 

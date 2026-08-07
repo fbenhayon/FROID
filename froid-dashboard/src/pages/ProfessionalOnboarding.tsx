@@ -798,6 +798,39 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
           <p className="mt-3 rounded-lg border border-cyan-800 bg-cyan-950/60 px-3 py-2 text-xs font-semibold text-cyan-100">
             Os campos marcados com <span className="font-black text-red-300">*</span>, os aceites jurídicos vigentes e a seleção de um pacote são obrigatórios.
           </p>
+
+          {/* Quem esgotou a cortesia chega aqui pelo bloqueio, e não por
+              escolha. Sem dizer o motivo, a tela parece um erro: a pessoa já
+              tinha se cadastrado e de repente está no cadastro de novo. */}
+          {accessStatus?.trial_exhausted && (
+            <div className="mt-4 rounded-lg border border-amber-700 bg-amber-950/60 p-4">
+              <p className="text-sm font-black text-amber-200">
+                Suas {accessStatus.trial_sessions ?? 5} sessões de cortesia foram utilizadas
+              </p>
+              <p className="mt-2 text-xs leading-5 text-amber-100">
+                O que já foi atendido continua registrado e acessível — nada se
+                perde. Para iniciar novas sessões, escolha um dos pacotes ao
+                lado.
+              </p>
+              <p className="mt-2 text-xs leading-5 text-amber-100/80">
+                Outras configurações podem ser consultadas por{" "}
+                <a
+                  className="font-black text-amber-300 underline"
+                  href={`mailto:${accessStatus.trial_contact_email || "froid@froid.com.br"}`}
+                >
+                  {accessStatus.trial_contact_email || "froid@froid.com.br"}
+                </a>
+                .
+              </p>
+            </div>
+          )}
+
+          {accessStatus?.on_trial && !accessStatus.trial_exhausted && (
+            <p className="mt-4 rounded-lg border border-emerald-800 bg-emerald-950/50 px-3 py-2 text-xs font-bold text-emerald-100">
+              Você tem {accessStatus.trial_remaining} de{" "}
+              {accessStatus.trial_sessions} sessões de cortesia disponíveis.
+            </p>
+          )}
         </div>
 
         <form noValidate onSubmit={saveAndCheckout} className="grid gap-5 xl:grid-cols-[1fr_360px]">

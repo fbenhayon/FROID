@@ -213,6 +213,25 @@ FROID_PROFESSIONAL_APPROVAL_REQUIRED = os.getenv(
 FROID_ALLOW_LOCAL_BILLING_FALLBACK = os.getenv(
     "FROID_ALLOW_LOCAL_BILLING_FALLBACK", "false"
 ).lower() in {"1", "true", "yes", "on"}
+# Sessoes de cortesia concedidas no cadastro, para o profissional ou a clinica
+# conhecer o produto antes de contratar. Ao esgotar, o acesso volta a seleccao
+# de pacotes.
+#
+# A concessao acontece UMA vez, na criacao do perfil. Regravar o cadastro nao
+# renova nada: total_sessions e sempre lido do perfil existente.
+#
+# Cortesia nao acumula pendencia. Um cliente pagante que fica sem saldo tem a
+# sessao entregue e registrada como pendente de acerto — promessa publicada em
+# precos.html e que continua valendo para ele. Quem ainda nao comprou nada nao
+# tem com o que acertar depois, entao o teste para no numero combinado em vez de
+# virar credito nao cobravel.
+try:
+    FROID_TRIAL_SESSIONS = max(0, int(os.getenv("FROID_TRIAL_SESSIONS", "5")))
+except ValueError:
+    FROID_TRIAL_SESSIONS = 5
+FROID_TRIAL_PLAN_ID = "trial-froid"
+FROID_TRIAL_CONTACT_EMAIL = "froid@froid.com.br"
+
 # Teto de sessoes entregues sem credito (pendentes de acerto). Ao atingi-lo, o
 # profissional/clinica nao inicia novas sessoes ate o administrador regularizar.
 # A sessao ja realizada nunca e recusada nem descartada por causa deste limite.
@@ -1920,6 +1939,61 @@ if CALENDAR_TOKEN_MIGRATION_REQUIRED:
     _save_identity_state()
 
 
+def _trial_state(profile: Optional[dict]) -> dict:
+    """Onde a conta esta no periodo de cortesia.
+
+    Conta "em cortesia" e a que recebeu as sessoes de teste e NUNCA comprou.
+    Assim que houver uma compra registrada, ela deixa de estar em cortesia para
+    sempre — inclusive se o saldo comprado zerar depois. E a partir dai vale a
+    regra do cliente pagante: sessao entregue vira pendencia de acerto, nunca
+    recusa.
+    """
+    vazio = {
+        "on_trial": False,
+        "trial_sessions": 0,
+        "trial_used": 0,
+        "trial_remaining": 0,
+        "trial_exhausted": False,
+    }
+    if not isinstance(profile, dict):
+        return vazio
+    concedidas = max(0, _local_int(profile.get("trial_sessions")))
+    if concedidas <= 0:
+        return vazio
+    compras = profile.get("session_credit_purchases")
+    if isinstance(compras, list) and compras:
+        return vazio
+    usadas = max(0, _local_int(profile.get("used_sessions")))
+    restantes = max(0, concedidas - usadas)
+    return {
+        "on_trial": True,
+        "trial_sessions": concedidas,
+        "trial_used": min(usadas, concedidas),
+        "trial_remaining": restantes,
+        "trial_exhausted": restantes <= 0,
+    }
+
+
+def _trial_blocks_new_session(email: str) -> bool:
+    """Se a cortesia acabou e nada foi comprado, nao se inicia outra sessao.
+
+    Esta e a UNICA recusa nova do modulo, e ela vale so para conta que nunca
+    comprou. Nao alcanca o salvamento de relatorio — /api/session-reports nao
+    passa por portao nenhum de assinatura, de proposito, para que uma sessao ja
+    atendida nunca seja descartada.
+    """
+    estado = _trial_state(PROFESSIONAL_PROFILES.get(_normalize_email(email)))
+    return bool(estado["on_trial"] and estado["trial_exhausted"])
+
+
+def _trial_block_detail() -> str:
+    return (
+        f"As {FROID_TRIAL_SESSIONS} sessões de cortesia foram utilizadas. "
+        "Escolha um pacote para continuar. Outras configurações podem ser "
+        f"tratadas por {FROID_TRIAL_CONTACT_EMAIL}."
+    )
+
+
 def _professional_access_status(email: str) -> dict:
     owner_email = _normalize_email(email)
     profile = PROFESSIONAL_PROFILES.get(owner_email) if owner_email else None
@@ -1971,6 +2045,12 @@ def _professional_access_status(email: str) -> dict:
     if settlement_blocked:
         # Bloqueia o INICIO de novas sessoes; nunca a gravacao de uma ja feita.
         access_ready = False
+    trial = _trial_state(profile)
+    if trial["trial_exhausted"]:
+        # Mesmo efeito: o painel devolve a pessoa para a selecao de pacotes.
+        # access_ready ja seria falso por remaining_sessions == 0; declarar aqui
+        # deixa a razao explicita para quem for ler este trecho depois.
+        access_ready = False
     return {
         "has_profile": has_profile,
         "lgpd_acknowledged": lgpd_acknowledged,
@@ -1996,6 +2076,21 @@ def _professional_access_status(email: str) -> dict:
                 "realizada(s) sem crédito disponível aguardam acerto."
             )
             if pending_settlement
+            else ""
+        ),
+        **trial,
+        "trial_contact_email": FROID_TRIAL_CONTACT_EMAIL,
+        "trial_notice": (
+            (
+                f"As {trial['trial_sessions']} sessões de cortesia foram "
+                "utilizadas. Escolha um pacote para continuar."
+            )
+            if trial["trial_exhausted"]
+            else (
+                f"{trial['trial_remaining']} de {trial['trial_sessions']} "
+                "sessões de cortesia disponíveis."
+            )
+            if trial["on_trial"]
             else ""
         ),
         "admin": _is_admin_email(owner_email),
@@ -5553,6 +5648,12 @@ def readiness():
 def create_session(request: Request):
     user = _require_current_user(request)
     context = _require_professional_feature_access(request)
+    # O outro ponto de inicio: aqui a sessao passa a existir e ganha dono.
+    # Bloquear nos dois — aqui e em /api/session-invites — cobre a sessao
+    # presencial e a remota sem alcancar reconexao de socket (que reaproveita um
+    # session_id ja criado) nem o salvamento do relatorio.
+    if _trial_blocks_new_session(user.get("email") or ""):
+        raise HTTPException(status_code=402, detail=_trial_block_detail())
     session_id = str(uuid.uuid4())
     SESSION_OWNERS[session_id] = _normalize_email(user.get("email") or "")
     if context:
@@ -5564,6 +5665,13 @@ def create_session(request: Request):
 async def create_session_invite(request: Request):
     current_user = _require_current_user(request)
     context = _require_professional_feature_access(request)
+    # Ponto de inicio explicito de uma sessao. O bloqueio da cortesia vive aqui,
+    # e nao dentro de _require_professional_feature_access, porque aquele portao
+    # e compartilhado por dezoito endpoints — entre eles /api/session-summary,
+    # que roda no FIM do atendimento. Bloquear la derrubaria sessao em
+    # andamento, que e exatamente o que este item nao pode fazer.
+    if _trial_blocks_new_session(current_user.get("email") or ""):
+        raise HTTPException(status_code=402, detail=_trial_block_detail())
     body = await request.json()
     professional_email = _normalize_email(current_user.get("email") or "")
     patient_name = str(body.get("patient_name") or "").strip()
@@ -9071,6 +9179,15 @@ async def save_professional_profile(request: Request):
         else []
     )
     total_sessions = max(0, _local_int(existing.get("total_sessions")))
+    # Cortesia so na criacao. `existing` vazio significa cadastro novo — e e por
+    # isso que quem ja esta cadastrado em producao nao ganha credito retroativo.
+    trial_granted_at = str(existing.get("trial_granted_at") or "")
+    trial_sessions = max(0, _local_int(existing.get("trial_sessions")))
+    conceder_cortesia = not existing and FROID_TRIAL_SESSIONS > 0
+    if conceder_cortesia:
+        trial_sessions = FROID_TRIAL_SESSIONS
+        trial_granted_at = now
+        total_sessions = FROID_TRIAL_SESSIONS
     profile = {
         "id": existing.get("id") or f"prof-{uuid.uuid4().hex[:12]}",
         "owner_email": owner_email,
@@ -9091,16 +9208,32 @@ async def save_professional_profile(request: Request):
         "monthly_consultations": max(
             0, min(100_000, _local_int(body.get("monthly_consultations")))
         ),
-        "selected_plan": str(existing.get("selected_plan") or "").strip(),
+        "selected_plan": (
+            FROID_TRIAL_PLAN_ID
+            if conceder_cortesia
+            else str(existing.get("selected_plan") or "").strip()
+        ),
         "contracted_sessions": max(0, _local_int(existing.get("contracted_sessions"))),
         "bonus_sessions": max(0, _local_int(existing.get("bonus_sessions"))),
+        # Cortesia fica em campo proprio, separada de contratadas e de bonus:
+        # é o que permite distinguir "nunca comprou" de "comprou e acabou", e
+        # essa distincao decide se o excedente vira pendencia ou bloqueio.
+        "trial_sessions": trial_sessions,
+        "trial_granted_at": trial_granted_at,
         "total_sessions": total_sessions,
         "used_sessions": existing_used_sessions,
         "remaining_sessions": max(0, total_sessions - existing_used_sessions),
         "consumed_session_ids": existing_consumed_sessions[-500:],
         "session_unit_amount_cents": max(0, _local_int(existing.get("session_unit_amount_cents"))),
         "package_total_cents": max(0, _local_int(existing.get("package_total_cents"))),
-        "payment_status": existing.get("payment_status") or "not_started",
+        "payment_status": (
+            # "trialing" ja e aceito por access_ready e por
+            # ACTIVE_SUBSCRIPTION_STATUSES: a cortesia entra pela porta que ja
+            # existia, sem afrouxar nenhum portao.
+            "trialing"
+            if conceder_cortesia
+            else existing.get("payment_status") or "not_started"
+        ),
         "access_approval_status": approval_status,
         "access_approval_requested_at": (
             existing.get("access_approval_requested_at") or now
