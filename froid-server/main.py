@@ -8320,6 +8320,26 @@ async def submit_nr1_response(request: Request):
     return {"status": "recorded"}
 
 
+def _require_nr1_persistence() -> None:
+    """Falha com uma frase util quando o modulo NR-1 nao esta ligado.
+
+    O tenant_store levanta RuntimeError quando FROID_PERSISTENCE_MODE nao e
+    'dual' ou quando falta o papel de runtime. Sem esta traducao, quem esta
+    cadastrando a empresa recebe um 500 mudo no meio do formulario e nao tem
+    como saber que o problema e de configuracao do servidor, e nao do que
+    digitou.
+    """
+    if not TENANT_STORE.enabled or not TENANT_STORE.runtime_database_url:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "modulo NR-1 indisponivel: requer FROID_PERSISTENCE_MODE=dual, "
+                "FROID_DATABASE_URL e FROID_RUNTIME_DATABASE_URL configurados "
+                "no servidor."
+            ),
+        )
+
+
 @app.get("/api/organizations/{organization_id}/nr1/units")
 async def list_nr1_units(organization_id: str, request: Request):
     """Estrutura da empresa: estabelecimentos e os setores de cada um.
@@ -8329,6 +8349,7 @@ async def list_nr1_units(organization_id: str, request: Request):
     ser desenhavel.
     """
     context = _require_enterprise_context(request, organization_id, "nr1.unit.list")
+    _require_nr1_persistence()
     unidades = TENANT_STORE.nr1_list_units(
         organization_id=organization_id,
         membership_id=context.membership_id,
@@ -8354,6 +8375,7 @@ async def list_nr1_units(organization_id: str, request: Request):
 @app.post("/api/organizations/{organization_id}/nr1/units", status_code=201)
 async def create_nr1_unit(organization_id: str, request: Request):
     context = _require_enterprise_context(request, organization_id, "nr1.unit.manage")
+    _require_nr1_persistence()
     body = await request.json()
     try:
         criada = TENANT_STORE.nr1_create_unit(
@@ -8382,6 +8404,7 @@ async def update_nr1_unit(organization_id: str, unit_id: str, request: Request):
     (1.5.7.3.3.1). Apagar a linha deixaria o registro antigo sem referencia.
     """
     context = _require_enterprise_context(request, organization_id, "nr1.unit.manage")
+    _require_nr1_persistence()
     body = await request.json()
     campos = {
         chave: body[chave]
