@@ -38,15 +38,31 @@ MAIN_SOURCE = (SERVER_DIR / "main.py").read_text(encoding="utf-8")
 class OnboardingRequirementsTests(unittest.TestCase):
     """O formulario nao pode pedir CNPJ de pessoa fisica."""
 
-    def test_reduced_onboarding_in_force_asks_neither_cpf_nor_cnpj(self):
-        """Fase de testes: 4 campos, com registro profissional no lugar do CPF."""
-        self.assertIn("const TESTING_MINIMAL_ONBOARDING = true;", ONBOARDING)
+    def test_reduced_onboarding_is_off(self):
+        """O cadastro reduzido saiu de circulacao.
+
+        Este teste ja afirmou o contrario: travava a flag em true, porque a
+        fase de testes pedia so quatro campos. Um cliente concluiu, vendo a
+        tela, que o FROID nao distinguia profissional de empresa — a
+        diferenciacao existia e estava escondida por esta constante. Agora o
+        invariante e o oposto, e por isso ele mora aqui.
+        """
+        self.assertIn("const TESTING_MINIMAL_ONBOARDING = false;", ONBOARDING)
+
+    def test_reduced_branch_would_never_ask_cnpj_of_a_natural_person(self):
+        """A regra vale mesmo com o ramo reduzido desligado.
+
+        O codigo do ramo continua no arquivo. Se alguem religar a flag, ele
+        volta a valer — entao continua sendo verificado.
+        """
         anchor = ONBOARDING.index("TESTING_MINIMAL_ONBOARDING\n      ? [")
-        block = ONBOARDING[anchor : anchor + 380]
+        # Ate o ramo seguinte do ternario, e nao por N caracteres: cortar por
+        # tamanho ja reprovou codigo correto neste repositorio.
+        end = ONBOARDING.index("accountType === \"organization\"", anchor)
+        block = ONBOARDING[anchor:end]
         for field in ("fullName", "mobile", "email", "professionalRegistry"):
             self.assertIn(field, block)
         self.assertNotIn("cnpj", block.lower())
-        self.assertNotIn('"cpf"', block)
 
     def test_full_individual_form_asks_cpf_and_never_cnpj(self):
         """Com a flag desligada, pessoa fisica passa a exigir CPF - nunca CNPJ."""

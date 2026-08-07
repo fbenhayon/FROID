@@ -305,10 +305,14 @@ def aba_anonimato(wb: Workbook):
              destaque=True)
 
     ws.cell(row=total + 2, column=1,
-            value="O menor departamento é quem manda. Um setor de 20 pessoas precisa "
-                  "de metade dele respondendo para existir no relatório — e é sobre "
-                  "esse setor que o cliente vai perguntar na reunião.").font = Font(
+            value="O menor departamento é quem manda: leia a coluna “Adesão mínima "
+                  "para publicar” de baixo para cima. Ela não é o piso dividido pelo "
+                  "efetivo — embute também a completude, porque resposta que não "
+                  "cobre metade das dimensões não conta. É por isso que a exigência "
+                  "do setor pequeno é maior do que a conta de cabeça sugere, e é "
+                  "sobre esse setor que o cliente vai perguntar na reunião.").font = Font(
         italic=True, size=9, color=AMBAR_TEXTO)
+    ws.row_dimensions[total + 2].height = 46
 
     ws.cell(row=total + 4, column=1,
             value="Recorte suprimido não é falha do FROID: é o piso de anonimato "
