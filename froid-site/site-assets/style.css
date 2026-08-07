@@ -101,6 +101,14 @@ header.site-header {
    branco não atrapalha, ficar encoberto sim. */
 [id] { scroll-margin-top: 108px; }
 
+/* Tabela de faixas do FROID NR-1. Vive aqui, e não no <style> de uma página,
+   porque as faixas aparecem na página do produto e na proposta — dois lugares
+   que precisam mostrar exatamente o mesmo número. */
+.nr1-faixas { width: 100%; border-collapse: collapse; font-size: 0.9rem; min-width: 420px; }
+.nr1-faixas th, .nr1-faixas td { padding: 9px 12px; border-bottom: 1px solid #334155; text-align: left; }
+.nr1-faixas td:last-child, .nr1-faixas th:last-child { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.nr1-faixas th { background: #1e293b; color: #f8fafc; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.05em; }
+
 .nav-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .nav-actions .btn { padding: 8px 14px; font-size: 0.82rem; }
 /* Seletor de idioma no header — grupo de pills PT/EN/FR/... antes dos botões de acesso */

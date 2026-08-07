@@ -64,6 +64,7 @@ var NAV_SECOES = {
     ["proximo-passo", "Próximo passo"]
   ],
   "empresas.html": [
+    ["precos-nr1", "Preços do FROID NR-1"],
     ["o-retrato-legal", "O retrato legal"],
     ["os-perigos", "Os perigos"],
     ["o-que-a-fiscalizacao-pede", "O que a fiscalização pede"],
@@ -86,7 +87,7 @@ var NAV_SECOES = {
     ["planos", "Planos PRO, PLUS e MASTER"],
     ["comparacao", "Comparação de habilidades"],
     ["creditos", "Como funcionam os créditos"],
-    ["nr1", "FROID NR-1 para empresas"],
+    ["nr1", "Precisa cumprir a NR-1?"],
     ["antes-de-decidir", "Antes de decidir"]
   ],
   "diagnostico-nr1.html": [
