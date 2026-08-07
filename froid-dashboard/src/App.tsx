@@ -5,6 +5,12 @@ import { LoginPage } from "./pages/LoginPage";
 import { HomePage } from "./pages/HomePage";
 import { apiUrl } from "./lib/api";
 import { rememberProfessionalEmail } from "./lib/professional-prompts";
+import {
+  clearProductChoice,
+  readProductChoice,
+  saveProductChoice,
+  type FroidProduct,
+} from "./lib/product-choice";
 
 const Dashboard = lazy(() => import("./pages/Dashboard").then((module) => ({ default: module.Dashboard })));
 const ProfessionalDashboardSummary = lazy(() => import("./pages/ProfessionalDashboardSummary").then((module) => ({ default: module.ProfessionalDashboardSummary })));
@@ -19,6 +25,7 @@ const SessionReport = lazy(() => import("./pages/SessionReport").then((module) =
 const PatientDetail = lazy(() => import("./pages/PatientDetail").then((module) => ({ default: module.PatientDetail })));
 const NewPatient = lazy(() => import("./pages/NewPatient").then((module) => ({ default: module.NewPatient })));
 const ProfessionalOnboarding = lazy(() => import("./pages/ProfessionalOnboarding").then((module) => ({ default: module.ProfessionalOnboarding })));
+const ProductChoice = lazy(() => import("./pages/ProductChoice").then((module) => ({ default: module.ProductChoice })));
 const PatientInvitePage = lazy(() => import("./pages/PatientInvitePage").then((module) => ({ default: module.PatientInvitePage })));
 const PatientSessionPage = lazy(() => import("./pages/PatientSessionPage").then((module) => ({ default: module.PatientSessionPage })));
 const PatientPortalPage = lazy(() => import("./pages/PatientPortalPage").then((module) => ({ default: module.PatientPortalPage })));
@@ -69,8 +76,31 @@ function onboardingRequired(user: FroidUser | null) {
   return Boolean(user?.access_status?.onboarding_required);
 }
 
-function defaultAuthenticatedPath(user: FroidUser | null) {
-  return onboardingRequired(user) ? "/access/register" : "/dashboard";
+/** Quem ainda vai se cadastrar precisa dizer para qual produto, antes do
+ *  formulário — os dois cadastros pedem coisas diferentes. Quem já escolheu
+ *  segue direto, para não reperguntar a cada recarga da página.
+ *
+ *  A escolha entra por parâmetro, e não é lida do armazenamento aqui dentro,
+ *  por um motivo que custou uma sessão de depuração: os `element` das rotas são
+ *  calculados no render do App, que está ACIMA do HashRouter e portanto não
+ *  re-renderiza quando a navegação acontece. Lendo o localStorage aqui, o
+ *  elemento de /access/register congelava com o valor do primeiro render — e
+ *  devolvia para a escolha para sempre, deixando o cadastro clínico
+ *  inalcançável. Sendo estado do React, a mudança re-renderiza o App e as rotas
+ *  recalculam. */
+function needsProductChoice(
+  user: FroidUser | null,
+  choice: FroidProduct | null,
+) {
+  return onboardingRequired(user) && choice === null;
+}
+
+function defaultAuthenticatedPath(
+  user: FroidUser | null,
+  choice: FroidProduct | null,
+) {
+  if (!onboardingRequired(user)) return "/dashboard";
+  return needsProductChoice(user, choice) ? "/access/produto" : "/access/register";
 }
 
 function localDevUser(): FroidUser | null {
@@ -92,6 +122,11 @@ function localDevUser(): FroidUser | null {
       // developed locally; without a tenant they render empty.
       active_organization_id: stored.active_organization_id,
       organizations: Array.isArray(stored.organizations) ? stored.organizations : undefined,
+      // Idem para o estado de acesso: sem ele, onboarding_required nunca chega
+      // ao roteador e as telas de cadastro ficam inalcançáveis em
+      // desenvolvimento — que foi como a escolha de produto quase passou sem
+      // ninguém conseguir vê-la rodando.
+      access_status: stored.access_status,
     };
   } catch {
     return {
@@ -173,6 +208,22 @@ function App() {
 
   const isAuthenticated = useMemo(() => !!user, [user]);
 
+  // Espelho em estado do que está gravado no navegador. Ver o comentário de
+  // needsProductChoice: precisa ser estado para as rotas recalcularem.
+  const [productChoice, setProductChoice] = useState<FroidProduct | null>(
+    () => readProductChoice(),
+  );
+
+  const chooseProduct = (product: FroidProduct) => {
+    saveProductChoice(product);
+    setProductChoice(product);
+  };
+
+  const resetProductChoice = () => {
+    clearProductChoice();
+    setProductChoice(null);
+  };
+
   const logout = () => {
     const token = localStorage.getItem("froid_token") || "";
     if (token && token !== "dev-local") {
@@ -183,6 +234,10 @@ function App() {
     }
     localStorage.removeItem("froid_token");
     localStorage.removeItem("froid_user");
+    // A escolha de produto é do navegador, não da conta. Sem limpar aqui, quem
+    // entrasse depois nesta mesma máquina herdaria a escolha de quem saiu e
+    // pularia a tela — caindo no formulário do produto errado.
+    resetProductChoice();
     setUser(null);
     window.location.hash = "#/login";
   };
@@ -208,7 +263,10 @@ function App() {
   const clinicalElement = (element: ReactNode) =>
     protectedElement(
       onboardingRequired(user) ? (
-        <Navigate to="/access/register" replace />
+        <Navigate
+          to={needsProductChoice(user, productChoice) ? "/access/produto" : "/access/register"}
+          replace
+        />
       ) : (
         element
       ),
@@ -253,17 +311,39 @@ function App() {
           path="/login"
           element={
             isAuthenticated ? (
-              <Navigate to={defaultAuthenticatedPath(user)} replace />
+              <Navigate to={defaultAuthenticatedPath(user, productChoice)} replace />
             ) : (
               <LoginPage onLogin={setUser} afterLoginPath="/dashboard" />
             )
           }
         />
         <Route
+          path="/access/produto"
+          element={protectedElement(
+            !onboardingRequired(user) ? (
+              // Quem já concluiu o cadastro não volta a escolher produto: a
+              // conta dele já existe com um tipo definido.
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <ProductChoice
+                user={user}
+                onLogout={logout}
+                onChoose={chooseProduct}
+                onReset={resetProductChoice}
+                choice={productChoice}
+              />
+            ),
+          )}
+        />
+        <Route
           path="/access/register"
           element={protectedElement(
             !onboardingRequired(user) ? (
               <Navigate to="/dashboard" replace />
+            ) : needsProductChoice(user, productChoice) ? (
+              // Chegar direto na ficha clínica por link antigo ou favorito não
+              // pode pular a escolha — é ela que decide quais campos valem.
+              <Navigate to="/access/produto" replace />
             ) : (
               <ProfessionalOnboarding user={user} onUserChange={setUser} />
             ),
