@@ -128,7 +128,13 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
   const [novoSite, setNovoSite] = useState({ name: "", headcount: "", code: "" });
   const [novoSetor, setNovoSetor] = useState({ name: "", headcount: "", parent: "" });
 
-  const organizationId = user?.active_organization_id || "";
+  // A organização nasce no passo 1, e o usuário recém-criado não tem
+  // active_organization_id em lugar nenhum. O id chega na resposta do próprio
+  // salvamento; sem guardá-lo aqui, a chamada do passo 2 sairia com a URL
+  // truncada em /api/organizations//nr1/units.
+  const [organizationId, setOrganizationId] = useState(
+    user?.active_organization_id || "",
+  );
 
   const carregarUnidades = useCallback(async () => {
     if (!organizationId) return;
@@ -173,8 +179,25 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
           phone: telefone.trim(),
         }),
       });
-      if (dados?.access_status && user && onUserChange) {
-        onUserChange({ ...user, access_status: dados.access_status });
+      const orgId = String(dados?.organization_id || "");
+      if (!orgId) {
+        // Falhar aqui com uma frase e melhor do que seguir para o passo 2 e
+        // receber 404 numa URL truncada, que nao diz nada a quem esta
+        // cadastrando.
+        setErro(
+          "A empresa foi salva, mas o servidor não devolveu o identificador da " +
+            "organização. Recarregue a página; se persistir, escreva para " +
+            `${CONTATO}.`,
+        );
+        return;
+      }
+      setOrganizationId(orgId);
+      if (user && onUserChange) {
+        onUserChange({
+          ...user,
+          active_organization_id: orgId,
+          access_status: dados?.access_status ?? user.access_status,
+        });
       }
       setPasso(2);
     } catch (e) {

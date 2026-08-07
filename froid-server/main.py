@@ -9370,7 +9370,21 @@ async def save_professional_profile(request: Request):
         )
     PROFESSIONAL_PROFILES[owner_email] = profile
     _save_identity_state()
-    return {"status": "ok", "profile": profile, "access_status": _professional_access_status(owner_email)}
+    # A organizacao acaba de ser provisionada a partir deste perfil, e quem
+    # chamou ainda nao sabe o id dela. Sem devolve-lo aqui, o cadastro guiado da
+    # empresa monta a proxima chamada como /api/organizations//nr1/units e
+    # quebra no passo seguinte — o usuario recem-criado nao tem
+    # active_organization_id em lugar nenhum.
+    contextos = _tenant_contexts_for_email(owner_email)
+    return {
+        "status": "ok",
+        "profile": profile,
+        "access_status": _professional_access_status(owner_email),
+        "organizations": contextos,
+        "organization_id": (
+            str(contextos[0].get("organization_id") or "") if contextos else ""
+        ),
+    }
 
 
 @app.get("/api/subscriptions/plans")
