@@ -1075,6 +1075,44 @@ export const SessionReport: React.FC<Props> = () => {
 
           {sections.summaries && (
             <section className="rounded-lg border border-slate-700 bg-slate-900 p-4">
+              {/* A conversa com o FROID Explica ja vinha sendo anexada ao
+                  registro no encerramento, e nunca era mostrada aqui — que e
+                  justamente onde o profissional escreve o relatorio descritivo
+                  e precisa reler o que perguntou durante o atendimento. */}
+              {!!(report.froidExplicaConversation || []).length && (
+                <details className="mb-4 rounded-lg border border-cyan-900 bg-cyan-950/30">
+                  <summary className="cursor-pointer list-none p-3 text-sm font-bold text-cyan-100">
+                    FROID Explica nesta sessão —{" "}
+                    {(report.froidExplicaConversation || []).length} mensagem(ns)
+                    <span className="ml-2 text-[11px] font-normal text-cyan-300 underline">
+                      abrir
+                    </span>
+                  </summary>
+                  <div className="space-y-2 p-3 pt-0">
+                    {(report.froidExplicaConversation || []).map((mensagem, indice) => (
+                      <div
+                        key={`${indice}-${mensagem.role}`}
+                        className={`rounded border p-2 text-xs leading-5 ${
+                          mensagem.role === "user"
+                            ? "border-slate-700 bg-slate-950 text-slate-300"
+                            : "border-cyan-900 bg-cyan-950/40 text-cyan-50"
+                        }`}
+                      >
+                        <span className="mb-1 block text-[10px] font-black uppercase tracking-widest text-slate-400">
+                          {mensagem.role === "user" ? "Você perguntou" : "FROID Explica"}
+                        </span>
+                        {mensagem.content}
+                      </div>
+                    ))}
+                  </div>
+                  <p className="px-3 pb-3 text-[11px] leading-5 text-slate-400">
+                    Apoio à redação do relatório. O que o FROID Explica respondeu
+                    não é conduta nem diagnóstico — a interpretação e a decisão
+                    continuam sendo do profissional.
+                  </p>
+                </details>
+              )}
+
               <h2 className="mb-3 text-sm font-bold text-slate-100">
                 <HelpTitle title="Temas e Resumos por Cortes" />
               </h2>

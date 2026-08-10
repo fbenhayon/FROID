@@ -62,6 +62,15 @@ interface Props {
   getLiveContext?: () => Record<string, unknown> | undefined;
   /** Espelha a conversa (para anexar à ficha da sessão no encerramento). */
   onConversationChange?: (messages: Array<{ role: string; content: string }>) => void;
+  /**
+   * Conversa já ocorrida nesta sessão, para retomar depois de uma remontagem.
+   *
+   * Trocar de layout desmonta este painel e o estado local se perdia junto: o
+   * profissional voltava para o Detalhado e a conversa com o FROID Explica
+   * tinha sumido, justamente quando ele precisa dela para escrever o relatório.
+   * O pai já guardava tudo num ref para anexar à ficha; faltava devolver.
+   */
+  initialMessages?: Array<{ role: string; content: string }>;
   controlsSticky?: boolean;
   rootClassName?: string;
   messagesClassName?: string;
@@ -162,6 +171,7 @@ export const AIInsights: React.FC<Props> = ({
   extraContext = {},
   getLiveContext,
   onConversationChange,
+  initialMessages,
   controlsSticky = false,
   rootClassName = "",
   messagesClassName = "",
@@ -173,7 +183,22 @@ export const AIInsights: React.FC<Props> = ({
     "fr-FR": { ready: "FROID Explica est prêt.", you: "Vous", blocked: "Requête bloquée par les contrôles de gouvernance des données.", native: "Prompts FROID Explica", mine: "Mes prompts", select: "Sélectionnez un prompt...", selectMine: "Sélectionnez l’un de mes prompts...", none: "Aucun prompt personnel enregistré", placeholder: "Posez une question à FROID Explica...", send: "Envoyer" },
     "es-ES": { ready: "FROID Explica está listo.", you: "Usted", blocked: "Consulta bloqueada por los controles de gobernanza de datos.", native: "Prompts de FROID Explica", mine: "Mis prompts", select: "Seleccione un prompt...", selectMine: "Seleccione uno de mis prompts...", none: "No hay prompts personales registrados", placeholder: "Pregunte a FROID Explica...", send: "Enviar" },
   }[responseLocale];
-  const [messages, setMessages] = useState<Message[]>([]);
+  // Semeado UMA vez, no primeiro render. Como função e não valor: passar o
+  // array direto refaria o trabalho a cada render, e usar um efeito para
+  // preencher depois faria a conversa piscar vazia antes de aparecer.
+  const [messages, setMessages] = useState<Message[]>(() =>
+    (initialMessages || [])
+      .filter(
+        (item) =>
+          item
+          && (item.role === "user" || item.role === "assistant")
+          && typeof item.content === "string",
+      )
+      .map((item) => ({
+        role: item.role as Message["role"],
+        content: item.content,
+      })),
+  );
   useEffect(() => {
     // Só espelha quando há conteúdo, para uma remontagem (troca de layout) com
     // estado vazio não apagar a conversa já capturada para a ficha.

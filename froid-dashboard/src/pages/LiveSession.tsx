@@ -5256,6 +5256,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                 sessionId={sessionId || ""}
                 getLiveContext={getFroidExplicaContext}
                 onConversationChange={handleFroidExplicaConversation}
+                initialMessages={froidExplicaConversationRef.current}
                 controlsSticky
                 rootClassName="h-full border-0 bg-transparent p-0 text-slate-100"
                 messagesClassName="min-h-[190px] bg-slate-800/80 text-slate-200"
@@ -5427,6 +5428,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
               sessionId={sessionId || ""}
               getLiveContext={getFroidExplicaContext}
               onConversationChange={handleFroidExplicaConversation}
+              initialMessages={froidExplicaConversationRef.current}
               controlsSticky
               rootClassName="h-full border-0 bg-transparent p-0 text-slate-100"
               messagesClassName="min-h-[90px] bg-slate-800/80 text-slate-200"
@@ -5687,6 +5689,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             sessionId={sessionId || ""}
             getLiveContext={getFroidExplicaContext}
             onConversationChange={handleFroidExplicaConversation}
+            initialMessages={froidExplicaConversationRef.current}
             controlsSticky
             rootClassName="h-full border-0 bg-transparent p-0 text-slate-100"
             messagesClassName="min-h-[190px] bg-slate-800/80 text-slate-200"
