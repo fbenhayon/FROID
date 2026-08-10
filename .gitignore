@@ -27,3 +27,6 @@ backups/postgres/*.sql
 froid-server/.venv/
 .venv/
 froid-dashboard/.env
+
+# Despejos de diff salvos em arquivo por acidente de shell.
+diff_*.txt
