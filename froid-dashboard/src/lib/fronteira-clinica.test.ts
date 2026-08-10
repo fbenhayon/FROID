@@ -68,3 +68,89 @@ describe("fronteira clinica em todo o frontend", () => {
     expect(achados).toEqual([]);
   });
 });
+
+/**
+ * A trava acima procura FRASES. Isso não bastou.
+ *
+ * Um relatório de produção trouxe, no texto que o profissional lê, "Mitigar
+ * validando a fala sem confrontar bruscamente" e "Mitigar pausando confronto
+ * direto". É prescrição de conduta, da mesma família de "acolha a emoção" — e
+ * passou porque usa outras palavras. Sete blocos assim conviviam com um teste
+ * escrito para impedi-los.
+ *
+ * Procurar frase pega o que já aconteceu. Procurar PADRÃO pega a próxima
+ * redação. É a diferença entre uma trava e um histórico.
+ */
+
+/** Verbo de conduta dirigido a quem conduz a sessão, seguido de gerúndio ou
+ *  infinitivo — "Mitigar validando", "Facilitar aceitação", "Reduzir demanda". */
+const CONDUTA = new RegExp(
+  "\\b(mitigar|facilitar|estimular|acolher|conter|desacelerar|pausar|reduzir|"
+  + "diminuir|restaurar|confrontar|investigar|validar|orientar)\\s+"
+  + "(?:a |o |as |os )?[a-zà-ú]+(?:ndo|ção|cao|ao|encia|ência)\\b",
+  "i",
+);
+
+/** Rótulos que nomeiam a PESSOA, e não o sinal medido. */
+const ROTULO_DE_PESSOA = [
+  "sorriso falso", "falsa calma", "tristeza mascarada", "raiva contida",
+  "desprezo unilateral", "shutdown psíquico", "shutdown psiquico",
+  "retraumatizacao", "retraumatização",
+];
+
+/** Onde a regra vale sem exceção: o que chega ao paciente. */
+const SUPERFICIE_DO_PACIENTE = [
+  "dissonance-patient-view.ts",
+  "PatientPortalPage.tsx",
+  "PatientSessionPage.tsx",
+];
+
+describe("o que chega ao paciente nao prescreve nem rotula", () => {
+  const arquivos = arquivosFonte("src").filter((caminho) =>
+    SUPERFICIE_DO_PACIENTE.some((nome) => caminho.endsWith(nome)),
+  );
+
+  it("as superficies do paciente existem", () => {
+    // Se um arquivo for renomeado e sair da lista, o teste passaria vazio e
+    // ninguem notaria a cobertura evaporando.
+    expect(arquivos.length).toBeGreaterThanOrEqual(SUPERFICIE_DO_PACIENTE.length);
+  });
+
+  it("nao prescreve conduta", () => {
+    const achados: string[] = [];
+    for (const arquivo of arquivos) {
+      const conteudo = readFileSync(arquivo, "utf-8");
+      // Comentario explicando a regra pode citar o padrao; texto de produto nao.
+      const semComentarios = conteudo
+        .replace(/\/\*[\s\S]*?\*\//g, " ")
+        .replace(/^\s*\/\/.*$/gm, " ");
+      const m = semComentarios.match(CONDUTA);
+      if (m) achados.push(`${arquivo}: "${m[0]}"`);
+    }
+    expect(achados).toEqual([]);
+  });
+
+  it("nao rotula a pessoa", () => {
+    const achados: string[] = [];
+    for (const arquivo of arquivos) {
+      const linhas = readFileSync(arquivo, "utf-8")
+        .replace(/\/\*[\s\S]*?\*\//g, " ")
+        .split(/\r?\n/);
+      linhas.forEach((linha, indice) => {
+        const baixo = linha.toLowerCase();
+        if (baixo.trim().startsWith("//")) return;
+        // O módulo de tradução PRECISA citar o título técnico como chave de
+        // correspondência. A linha da chave é isenta; qualquer outra, não —
+        // e é essa distinção, e não a frase inteira, que separa "traduzir de"
+        // de "dizer ao paciente".
+        if (baixo.trim().startsWith("professionaltitle:")) return;
+        for (const termo of ROTULO_DE_PESSOA) {
+          if (baixo.includes(termo)) {
+            achados.push(`${arquivo}:${indice + 1}: "${termo}"`);
+          }
+        }
+      });
+    }
+    expect(achados).toEqual([]);
+  });
+});
