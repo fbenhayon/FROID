@@ -360,7 +360,6 @@ SESSION_ORGANIZATIONS: Dict[str, str] = {}
 CONSENT_LEDGER: list[dict] = []
 PATIENT_SESSION_ENTRIES: Dict[str, list[dict]] = {}
 SESSION_EVENTS: list[dict] = []
-ADMIN_AUDIT_EVENTS: list[dict] = []
 SESSION_EVENT_COUNTER = 0
 GOOGLE_CALENDAR_CONNECTIONS: Dict[str, dict] = {}
 GOOGLE_CALENDAR_OAUTH_STATES: Dict[str, dict] = {}
@@ -423,7 +422,6 @@ def _load_identity_state() -> None:
     global CONSENT_LEDGER
     global PATIENT_SESSION_ENTRIES
     global SESSION_EVENTS
-    global ADMIN_AUDIT_EVENTS
     global SESSION_EVENT_COUNTER
     global GOOGLE_CALENDAR_CONNECTIONS
     global CALENDAR_TOKEN_MIGRATION_REQUIRED
@@ -506,9 +504,7 @@ def _load_identity_state() -> None:
     if isinstance(raw_events, list):
         SESSION_EVENTS = [item for item in raw_events if isinstance(item, dict)][-500:]
 
-    raw_admin_events = state.get("admin_audit_events")
-    if isinstance(raw_admin_events, list):
-        ADMIN_AUDIT_EVENTS = [item for item in raw_admin_events if isinstance(item, dict)][-1000:]
+    # ADMIN_AUDIT_EVENTS is now stored in PostgreSQL; not loaded into memory.
 
     max_event_id = max(
         [_local_int(event.get("id")) for event in SESSION_EVENTS if isinstance(event, dict)]
@@ -575,7 +571,6 @@ def _identity_state_snapshot() -> dict:
         "consent_ledger": CONSENT_LEDGER[-2000:],
         "patient_session_entries": PATIENT_SESSION_ENTRIES,
         "session_events": SESSION_EVENTS[-500:],
-        "admin_audit_events": ADMIN_AUDIT_EVENTS[-1000:],
         "session_event_counter": SESSION_EVENT_COUNTER,
         "google_calendar_connections": calendar_connections,
     }
@@ -4917,22 +4912,36 @@ def _require_admin_user(request: Request) -> dict:
 
 
 def _record_admin_audit_event(request: Request, action: str, target: str, detail: Optional[dict] = None) -> None:
-    user = _current_user_from_request(request) or {}
-    ADMIN_AUDIT_EVENTS.append(
-        {
-            "id": str(uuid.uuid4()),
-            "action": action,
-            "admin_email": _normalize_email(user.get("email") or ""),
-            "target": target,
-            "detail": detail or {},
-            "created_at": _utc_now_iso(),
-            "remote_addr": request.client.host if request.client else "",
-            "user_agent": request.headers.get("user-agent", ""),
-        }
+    user = _current_user_from_request(request)
+    if not user:
+        # If no user, we cannot record an audit event due to NOT NULL constraints.
+        # In practice, this function should only be called from authenticated endpoints.
+        return
+    actor_user_id = user.get("id")
+    # Determine organization_id: prefer active_organization_id, else first organization.
+    organization_id = user.get("active_organization_id")
+    if not organization_id:
+        orgs = user.get("organizations") or []
+        if orgs:
+            organization_id = orgs[0].get("organization_id")
+    # If still none, we cannot insert due to NOT NULL constraint; skip.
+    if not organization_id:
+        return
+    # Prepare metadata: include the original detail and admin_email for reference.
+    metadata = {
+        "detail": detail or {},
+        "admin_email": _normalize_email(user.get("email") or ""),
+    }
+    TENANT_STORE.record_access_audit(
+        organization_id=organization_id,
+        actor_user_id=actor_user_id,
+        action=action,
+        target=target,
+        outcome="success",
+        ip_address=request.client.host if request.client else "",
+        user_agent=request.headers.get("user-agent", ""),
+        metadata=metadata,
     )
-    if len(ADMIN_AUDIT_EVENTS) > 1000:
-        del ADMIN_AUDIT_EVENTS[: len(ADMIN_AUDIT_EVENTS) - 1000]
-    _save_identity_state()
 
 
 def _calendar_connection_public(connection: Optional[dict]) -> dict:

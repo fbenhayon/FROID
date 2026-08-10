@@ -649,11 +649,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
         </p>
       )}
 
-      <div className="space-y-4">
-        <div className="min-w-0 space-y-4">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_460px]">
+        <div className="contents">
 
           {/* FROID Explica fixo no topo (coluna única). */}
-          <section className="sticky top-2 z-30 rounded-lg border border-cyan-900/70 bg-slate-900/95 p-3 shadow-lg shadow-slate-950/40 backdrop-blur">
+          <section className="sticky top-2 z-30 rounded-lg border border-cyan-900/70 bg-slate-900/95 p-3 shadow-lg shadow-slate-950/40 backdrop-blur xl:col-start-2 xl:row-span-3 xl:row-start-1 xl:self-start">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="min-w-0">
                 <h2 className="text-sm font-bold text-slate-100">FROID Explica</h2>

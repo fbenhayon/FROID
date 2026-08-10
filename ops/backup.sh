@@ -27,8 +27,9 @@ fi
 
 mkdir -p "$OUT_DIR"
 
-# 1) Estado de aplicação (relatórios, identidade, DuckDB, Chroma).
+# 1) Estado de aplicação (relatórios, identidade, DuckDB, Chroma, uploads).
 if [ -d "$DATA_DIR" ]; then
+  echo "Copiando dados de aplicação..."
   cp -a "$DATA_DIR" "$TMP/data"
 fi
 

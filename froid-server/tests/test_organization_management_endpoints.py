@@ -72,6 +72,9 @@ class EndpointAuthorizationTests(unittest.TestCase):
             self.assertIn("reports.read_all", ROLE_PERMISSIONS[role])
             self.assertIn("credits.manage", ROLE_PERMISSIONS[role])
 
+    def test_identity_snapshot_does_not_serialize_legacy_admin_audit_state(self):
+        self.assertNotIn('"admin_audit_events": ADMIN_AUDIT_EVENTS[-1000:]', MAIN_SOURCE)
+
     def test_quota_changes_are_audited(self):
         anchor = MAIN_SOURCE.index(
             '"/api/organizations/{organization_id}/members/{target_membership_id}/quota"'
