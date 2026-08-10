@@ -2308,6 +2308,15 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const [conversationSummaries, setConversationSummaries] = useState<
     ConversationSummary[]
   >([]);
+  // Espelho em ref dos cortes.
+  //
+  // createSessionReport monta o relatório lendo sessionSamplesRef e
+  // transcriptSegmentsRef — refs, porque precisa do valor DAQUELE instante, e
+  // não do que o React já tinha renderizado. Os cortes eram a única peça que
+  // vinha do estado, e por isso um corte fechado no mesmo tique do
+  // encerramento não entrava no relatório: a atualização de estado só chega no
+  // render seguinte, que nunca acontece porque a sessão acabou.
+  const conversationSummariesRef = useRef<ConversationSummary[]>([]);
   const [sessionLayout, setSessionLayout] = useState<
     "detailed" | "simplified" | "indices"
   >(() =>
@@ -3663,11 +3672,13 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         .trim();
 
       const commitSummary = (entry: ConversationSummary) => {
-        setConversationSummaries((prev) =>
-          [...prev.filter((item) => item.id !== entry.id), entry].sort(
-            (a, b) => b.startMinute - a.startMinute,
-          ),
-        );
+        // O ref primeiro, e de forma sincrona: quem encerra a sessao precisa
+        // enxergar este corte imediatamente, sem esperar o proximo render.
+        conversationSummariesRef.current = [
+          ...conversationSummariesRef.current.filter((item) => item.id !== entry.id),
+          entry,
+        ].sort((a, b) => b.startMinute - a.startMinute);
+        setConversationSummaries(conversationSummariesRef.current);
       };
 
 
@@ -3732,7 +3743,21 @@ function LiveSessionInner({ user }: LiveSessionProps) {
 
   const closeSemanticCut = useCallback(
     async (trigger: "automatico_10min" | "manual" | "final") => {
-      if (semanticCutClosingRef.current) return;
+      if (semanticCutClosingRef.current) {
+        // Um corte automático pode estar em voo justamente quando o
+        // profissional clica em encerrar. Desistir aqui devolveria o defeito
+        // que este corte final existe para fechar, então o "final" ESPERA a
+        // vez dele em vez de sair calado.
+        if (trigger !== "final") return;
+        const limite = Date.now() + 15000;
+        while (semanticCutClosingRef.current && Date.now() < limite) {
+          await new Promise((resolve) => setTimeout(resolve, 120));
+        }
+        // Se mesmo assim não liberou, segue: o corte em voo vai gravar o
+        // trecho dele, e travar o encerramento seria pior do que um corte a
+        // menos.
+        if (semanticCutClosingRef.current) return;
+      }
       const endSecond = Math.max(
         elapsedSecondsRef.current || state.elapsedSeconds,
         semanticCutStartSecondRef.current,
@@ -3741,6 +3766,12 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       const duration = endSecond - startSecond;
 
       if (trigger === "manual" && duration < 10) {
+        return;
+      }
+      // Sem trecho residual não há o que fechar: um corte de duração zero
+      // entraria no relatório como "sem fala transcrita" e sujaria a linha do
+      // tempo. Só vale quando sobrou tempo desde o último corte.
+      if (trigger === "final" && duration < 1) {
         return;
       }
 
@@ -4724,7 +4755,9 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       samples,
       transcriptSegmentsRef.current,
       durationSeconds,
-      conversationSummaries,
+      // Do ref, e não do estado: o corte final é fechado no mesmo tique do
+      // encerramento e precisa estar aqui.
+      conversationSummariesRef.current,
     );
     const anonymizedContext = buildAnonymizedContext(
       sessionId || "default",
@@ -4766,9 +4799,12 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       sessionAverage,
       tenMinuteCuts,
       clinicalNotes: [],
-      conversationSummaries,
+      conversationSummaries: conversationSummariesRef.current,
       froidExplicaConversation: froidExplicaConversationRef.current,
-      sessionSummary: buildSessionSummary(conversationSummaries, summarySourceTranscript),
+      sessionSummary: buildSessionSummary(
+        conversationSummariesRef.current,
+        summarySourceTranscript,
+      ),
       dissonances: dissonanceLog,
       evidentDissonances: multiDissonanceLog,
       transcript: summarySourceTranscript,
@@ -4831,6 +4867,26 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         rtcSignalRef.current.send(JSON.stringify({ type: "session-ended" }));
       } catch {}
     }
+
+    // Corte final, obrigatório, antes de montar o relatório.
+    //
+    // O corte automático fecha a cada dez minutos. O trecho falado DEPOIS do
+    // último corte automático nunca era fechado: o gatilho "final" existia no
+    // tipo e no relatório, e nada o chamava. Numa sessão de 50 minutos isso
+    // descartava os últimos dez; numa de 8 minutos, a sessão inteira. Conteúdo
+    // clínico perdido em silêncio, sem erro na tela.
+    //
+    // O try/catch não é decoração. Se a sumarização falhar — rede, provedor
+    // fora do ar —, a sessão TEM de fechar assim mesmo: o relatório carrega a
+    // transcrição completa em `transcript`, e perder o corte é ruim, mas perder
+    // o atendimento inteiro por causa dele seria pior. É a mesma regra que já
+    // vale para crédito: sessão realizada nunca é recusada nem descartada.
+    try {
+      await closeSemanticCut("final");
+    } catch (error) {
+      console.error("Corte final falhou; a sessão será arquivada assim mesmo.", error);
+    }
+
     const report = createSessionReport();
     try {
       await archiveSessionReport(report);
@@ -4848,7 +4904,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       } catch {}
     dispatch({ type: "END_SESSION" });
     navigate(`/session/${report.sessionId}/report`, { replace: true });
-  }, [archiveSessionReport, createSessionReport, navigate]);
+  }, [archiveSessionReport, closeSemanticCut, createSessionReport, navigate]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
