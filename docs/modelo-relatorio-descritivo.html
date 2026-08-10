@@ -1,0 +1,211 @@
+<meta charset="utf-8">
+<title>Relatório Descritivo FROID — modelo</title>
+<style>
+  /* Paleta: navy do site (--froid-preto #0F172A) como primária, e o azul aço
+     que o Fábio indicou como secundária. Impressão em A4 com margem estreita. */
+  :root{
+    --navy:#0F172A; --aco:#20539E; --fundo:#F8F9FA; --linha:#E5E7EB;
+    --texto:#212529; --rotulo:#6C757D; --zebra:#F9F9F9;
+    --verde:#15803D; --ambar:#B45309; --vermelho:#B91C1C;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#525659;padding:24px;
+       font-family:Inter,Roboto,"Open Sans",Helvetica,Arial,sans-serif}
+  .folha{width:210mm;min-height:297mm;margin:0 auto 24px;background:#fff;
+         padding:16mm 15mm;color:var(--texto);font-size:10pt;line-height:1.5;
+         box-shadow:0 6px 28px rgba(0,0,0,.45)}
+  @media print{body{background:#fff;padding:0}.folha{box-shadow:none;margin:0}}
+
+  .tags{display:flex;gap:6px;margin-bottom:14px}
+  .tag{background:var(--fundo);border:1px solid var(--linha);color:var(--rotulo);
+       font-size:7.5pt;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+       padding:4px 9px;border-radius:4px}
+  .tag.destaque{background:var(--navy);border-color:var(--navy);color:#fff}
+
+  h1{margin:0;color:var(--navy);font-size:23pt;font-weight:800;letter-spacing:.01em;
+     text-transform:uppercase;line-height:1.15}
+  .sub{margin:6px 0 0;color:var(--rotulo);font-size:10pt}
+
+  .meta{display:grid;grid-template-columns:1fr 1fr;gap:0;margin:16px 0 0;
+        background:var(--fundo);border:1px solid var(--linha);border-radius:6px;overflow:hidden}
+  .meta>div{padding:10px 14px}
+  .meta>div+div{border-left:1px solid var(--linha)}
+  .meta dt{color:var(--rotulo);font-size:7.5pt;font-weight:700;letter-spacing:.08em;
+           text-transform:uppercase;margin-top:7px}
+  .meta dt:first-child{margin-top:0}
+  .meta dd{margin:2px 0 0;font-size:9.5pt;font-weight:600}
+
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0 0}
+  .kpi{background:var(--fundo);border:1px solid var(--linha);border-radius:6px;
+       padding:11px 12px;text-align:center}
+  .kpi .n{color:var(--navy);font-size:21pt;font-weight:800;line-height:1}
+  .kpi .n small{font-size:11pt;font-weight:700}
+  .kpi .d{color:var(--rotulo);font-size:7.5pt;margin-top:5px;text-transform:uppercase;
+          letter-spacing:.05em;font-weight:600}
+  .kpi.alerta .n{color:var(--ambar)}
+
+  section{margin-top:22px}
+  .cab{display:flex;align-items:baseline;gap:10px;border-bottom:1px solid var(--linha);
+       padding-bottom:6px;margin-bottom:11px}
+  .cab .num{color:var(--aco);font-size:16pt;font-weight:800;letter-spacing:.02em}
+  .cab h2{margin:0;color:var(--navy);font-size:13pt;font-weight:700;
+          text-transform:uppercase;letter-spacing:.03em}
+  h3{color:var(--aco);font-size:11pt;font-weight:700;margin:14px 0 4px}
+  p{margin:0 0 8px}
+
+  table{width:100%;border-collapse:collapse;font-size:9pt;margin-top:6px}
+  thead th{background:var(--navy);color:#fff;text-transform:uppercase;font-size:7.5pt;
+           letter-spacing:.06em;padding:7px 9px;text-align:left}
+  thead th.n{text-align:right}
+  tbody td{padding:6px 9px;border-bottom:1px solid var(--linha)}
+  tbody td.n{text-align:right;font-variant-numeric:tabular-nums}
+  tbody tr:nth-child(even){background:var(--zebra)}
+  .pill{display:inline-block;padding:1px 7px;border-radius:9px;font-size:7.5pt;font-weight:700}
+  .ok{background:#DCFCE7;color:var(--verde)} .at{background:#FEF3C7;color:var(--ambar)}
+  .cr{background:#FEE2E2;color:var(--vermelho)}
+
+  .fase{display:flex;gap:11px;margin-bottom:9px;break-inside:avoid}
+  .fase .badge{flex:0 0 62px;background:var(--aco);color:#fff;border-radius:5px;
+               padding:7px 4px;text-align:center;font-size:7.5pt;font-weight:800;
+               text-transform:uppercase;letter-spacing:.04em;height:fit-content}
+  .fase .badge b{display:block;font-size:11pt}
+  .fase .corpo{flex:1}
+  .fase .corpo b{color:var(--navy);font-size:10pt}
+  .fase .corpo p{margin:2px 0 0;font-size:9pt;color:#374151}
+
+  .nota{background:var(--fundo);border-left:3px solid var(--aco);padding:10px 13px;
+        border-radius:0 5px 5px 0;font-size:9pt;margin-top:10px}
+  .limite{background:#FFFBEB;border:1px solid #FCD34D;border-radius:6px;
+          padding:11px 13px;font-size:8.5pt;color:#78350F;margin-top:12px}
+  .assin{margin-top:26px;padding-top:12px;border-top:1px solid var(--linha)}
+  .linha-assin{margin-top:34px;border-top:1px solid #9CA3AF;width:62%;padding-top:5px;
+               font-size:8.5pt;color:var(--rotulo)}
+  footer{margin-top:20px;padding-top:9px;border-top:1px solid var(--linha);
+         display:flex;justify-content:space-between;color:var(--rotulo);font-size:7.5pt}
+</style>
+
+<div class="folha">
+  <div class="tags">
+    <span class="tag destaque">Relatório descritivo</span>
+    <span class="tag">Documento clínico</span>
+    <span class="tag">Confidencial</span>
+  </div>
+
+  <h1>FROID — Frequency Recognition<br>of Internal Dynamics</h1>
+  <p class="sub">Relatório descritivo de sessão · registro de apoio à escuta clínica</p>
+
+  <div class="meta">
+    <div>
+      <dt>Profissional</dt><dd>Dra. [nome do profissional]</dd>
+      <dt>Registro</dt><dd>CRP 00/00000</dd>
+      <dt>Data da sessão</dt><dd>10 de agosto de 2026 · 18h20</dd>
+    </div>
+    <div>
+      <dt>Paciente</dt><dd>[nome do paciente]</dd>
+      <dt>Identificador da sessão</dt><dd>ses-4f2a91c7</dd>
+      <dt>Duração</dt><dd>52 min 14 s</dd>
+    </div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="n">68<small>/100</small></div><div class="d">IPM médio</div></div>
+    <div class="kpi"><div class="n">+0,42</div><div class="d">IDM médio</div></div>
+    <div class="kpi"><div class="n">6</div><div class="d">Cortes semânticos</div></div>
+    <div class="kpi alerta"><div class="n">3</div><div class="d">Dissonâncias evidentes</div></div>
+  </div>
+
+  <section>
+    <div class="cab"><span class="num">01</span><h2>Síntese da sessão</h2></div>
+    <h3>Eixo predominante</h3>
+    <p>[tema dominante calculado a partir dos cortes]</p>
+    <h3>Progressão</h3>
+    <p>[resumo gerado da sessão: como os temas evoluíram ao longo dos cortes,
+      da abertura ao encerramento]</p>
+    <div class="nota"><b>Linha de base:</b> estabelecida nos primeiros 60 segundos.
+      Todos os índices deste relatório são lidos contra essa referência da própria
+      sessão — não contra média populacional.</div>
+  </section>
+
+  <section>
+    <div class="cab"><span class="num">02</span><h2>Índices por corte</h2></div>
+    <table>
+      <thead><tr>
+        <th>Corte</th><th>Intervalo</th><th>Tema</th>
+        <th class="n">IPM</th><th class="n">IDM</th><th>Zona</th>
+      </tr></thead>
+      <tbody>
+        <tr><td>1</td><td>00:00 – 10:00</td><td>[tema]</td><td class="n">54</td><td class="n">+0,11</td><td><span class="pill ok">Estável</span></td></tr>
+        <tr><td>2</td><td>10:00 – 20:00</td><td>[tema]</td><td class="n">71</td><td class="n">+0,48</td><td><span class="pill at">Atenção</span></td></tr>
+        <tr><td>3</td><td>20:00 – 30:00</td><td>[tema]</td><td class="n">83</td><td class="n">+0,77</td><td><span class="pill cr">Revisar</span></td></tr>
+        <tr><td>4</td><td>30:00 – 40:00</td><td>[tema]</td><td class="n">66</td><td class="n">+0,31</td><td><span class="pill at">Atenção</span></td></tr>
+        <tr><td>5</td><td>40:00 – 50:00</td><td>[tema]</td><td class="n">58</td><td class="n">+0,19</td><td><span class="pill ok">Estável</span></td></tr>
+        <tr><td>6</td><td>50:00 – 52:14</td><td>[tema]</td><td class="n">61</td><td class="n">+0,24</td><td><span class="pill ok">Estável</span></td></tr>
+      </tbody>
+    </table>
+    <p style="font-size:8pt;color:var(--rotulo);margin-top:6px">
+      O corte 6 é o corte final, fechado no encerramento — cobre o trecho posterior
+      ao último corte automático.</p>
+  </section>
+
+  <section>
+    <div class="cab"><span class="num">03</span><h2>Cortes semânticos</h2></div>
+    <div class="fase"><div class="badge">Corte<b>1</b></div><div class="corpo">
+      <b>[título do corte] · 00:00 – 10:00</b>
+      <p>[resumo do que foi falado neste intervalo]</p></div></div>
+    <div class="fase"><div class="badge">Corte<b>2</b></div><div class="corpo">
+      <b>[título do corte] · 10:00 – 20:00</b>
+      <p>[resumo do que foi falado neste intervalo]</p></div></div>
+    <div class="fase"><div class="badge">Corte<b>3</b></div><div class="corpo">
+      <b>[título do corte] · 20:00 – 30:00</b>
+      <p>[resumo do que foi falado neste intervalo]</p></div></div>
+  </section>
+
+  <footer><span>FROID · Frequency Recognition of Internal Dynamics</span><span>Página 1 / 2</span></footer>
+</div>
+
+<div class="folha">
+  <section style="margin-top:0">
+    <div class="cab"><span class="num">04</span><h2>Sinais observados</h2></div>
+    <table>
+      <thead><tr><th>Momento</th><th>Zona</th><th>Observação do sinal</th></tr></thead>
+      <tbody>
+        <tr><td>12:04</td><td>Zona 3</td><td>[descrição do sinal medido]</td></tr>
+        <tr><td>24:37</td><td>Zona 7</td><td>[descrição do sinal medido]</td></tr>
+        <tr><td>31:12</td><td>Zona 5</td><td>[descrição do sinal medido]</td></tr>
+      </tbody>
+    </table>
+    <div class="limite"><b>O que estes sinais são, e o que não são.</b>
+      As observações acima descrevem medidas de fala e expressão facial em relação
+      à linha de base desta sessão. Não constituem diagnóstico, não classificam a
+      pessoa em faixa de risco e não substituem avaliação, conduta ou julgamento
+      do profissional habilitado.</div>
+  </section>
+
+  <section>
+    <div class="cab"><span class="num">05</span><h2>Consultas ao FROID Explica</h2></div>
+    <div class="nota" style="border-left-color:var(--rotulo)">
+      <b>Perguntado:</b> [pergunta do profissional durante a sessão]<br><br>
+      <b>Resposta:</b> [resposta do FROID Explica]</div>
+    <p style="font-size:8pt;color:var(--rotulo);margin-top:8px">
+      Apoio à redação deste relatório. O que o FROID Explica respondeu não é
+      conduta nem diagnóstico.</p>
+  </section>
+
+  <section>
+    <div class="cab"><span class="num">06</span><h2>Relatório descritivo</h2></div>
+    <p style="color:var(--rotulo);font-size:9pt">Campo redigido pelo profissional.</p>
+    <div style="border:1px solid var(--linha);border-radius:5px;min-height:150px;
+                padding:12px;background:#fff;margin-top:6px">
+      <p style="color:#9CA3AF;font-style:italic">[texto do relatório descritivo]</p>
+    </div>
+
+    <div class="assin">
+      <div class="linha-assin">
+        Assinatura do profissional responsável<br>
+        <b style="color:var(--texto)">Dra. [nome]</b> · CRP 00/00000
+      </div>
+    </div>
+  </section>
+
+  <footer><span>FROID · Documento clínico confidencial · froid@froid.com.br</span><span>Página 2 / 2</span></footer>
+</div>
