@@ -232,11 +232,44 @@ def decide(
     ):
         return AccessDecision(True, "report_owner")
 
+    # Distingue "este papel nao tem a permissao" de "este papel PERDEU a
+    # permissao porque le prontuario dentro de uma organizacao enterprise".
+    # As duas negam; so a segunda bloqueia em qualquer modo, e por isso precisa
+    # de um motivo proprio em vez de cair no generico.
+    if (
+        context.is_enterprise
+        and permission in CLINICAL_IDENTIFIED_PERMISSIONS
+        and any(
+            permission in ROLE_PERMISSIONS.get(role, frozenset())
+            for role in context.roles
+            if role in EMPLOYER_SIDE_ROLES
+        )
+    ):
+        return AccessDecision(False, "employer_clinical_boundary")
+
     return AccessDecision(False, "permission_denied")
+
+
+# Negacoes que bloqueiam em QUALQUER modo, inclusive 'off' e 'observe'.
+#
+# O modo existe para permitir ligar a autorizacao multi-organizacao em etapas,
+# observando o que ela negaria antes de negar de fato. Isso e razoavel para
+# regra de produto. Nao e razoavel para a fronteira que separa o empregador do
+# prontuario: numa organizacao 'enterprise', as permissoes clinicas sao
+# retiradas dos papeis do lado do empregador porque a NR-1 obriga a empresa a
+# mapear risco psicossocial e NAO lhe da o direito de ler a sessao de um
+# empregado.
+#
+# Em 'observe' essa negacao virava 'observed_denial' e o acesso passava. Ou
+# seja: a fronteira mais importante do produto dependia de uma variavel de
+# ambiente estar no valor certo. Agora ela nao depende.
+UNCONDITIONAL_DENIAL_REASONS = frozenset({"employer_clinical_boundary"})
 
 
 def should_block(mode: str, decision: AccessDecision) -> bool:
     normalized_mode = str(mode or "off").strip().lower()
     if normalized_mode not in VALID_MODES:
         raise ValueError("Authorization mode must be off, observe or enforce")
+    if not decision.allowed and decision.reason in UNCONDITIONAL_DENIAL_REASONS:
+        return True
     return normalized_mode == "enforce" and not decision.allowed
