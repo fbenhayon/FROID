@@ -76,6 +76,12 @@ class SessionState:
     baseline_locked: bool = False
     baseline_energy: Optional[np.ndarray] = None
     mapper: FROIDColorimetryMapper = field(default_factory=FROIDColorimetryMapper)
+    # Ativação (média dos desvios absolutos das 12 zonas) medida DURANTE a
+    # calibração. Guarda o centro e a dispersão do repouso desta pessoa nesta
+    # sessão, para o IPM ser lido contra a régua dela e não contra uma constante.
+    baseline_activation: List[float] = field(default_factory=list)
+    activation_center: float = 0.0
+    activation_scale: float = 0.0
     last_alert_signature: str = ""
     tick_count: int = 0
     word_windows: List[int] = field(default_factory=list)  # palavras por janela de 1s
@@ -169,6 +175,50 @@ class SessionState:
         self.latest_facs_details = result["details"]
         self.facial_updated_at = time.time()
 
+    # Piso da dispersão, em unidades de desvio relativo. Uma calibração quase
+    # sem variação produziria escala perto de zero, e qualquer respiração
+    # depois disso saturaria o índice em 0 ou 100. Dois por cento é o menor
+    # movimento que ainda vale como referência de repouso.
+    ACTIVATION_SCALE_FLOOR = 0.02
+    # Quantos ticks de calibração bastam para uma referência confiável. Abaixo
+    # disso a mediana ainda dança demais.
+    ACTIVATION_MIN_SAMPLES = 12
+    # Ganho da sigmoide sobre o logaritmo da razão de ativação. Com 1.2, dobrar
+    # a ativação do repouso leva o índice a ~69, quadruplicar a ~84 e reduzir à
+    # metade a ~31 — a amplitude inteira fica em uso sem que a fala comum já
+    # encoste no teto.
+    ACTIVATION_GAIN = 1.2
+
+    def _update_activation_reference(self, activation: float) -> None:
+        """Aprende o centro e a dispersão do repouso desta sessão.
+
+        Só coleta enquanto a linha de base não está travada — depois disso a
+        régua fica fixa, senão o índice se readaptaria ao próprio movimento e
+        voltaria a parecer inerte por outro caminho: uma ativação sustentada
+        viraria o novo "normal" e o desvio desapareceria.
+        """
+        if self.baseline_locked and self.activation_scale > 0.0:
+            return
+        if not np.isfinite(activation):
+            return
+        self.baseline_activation.append(float(activation))
+        # Limite defensivo: calibração não deveria passar de algumas centenas de
+        # ticks, e uma lista sem teto vira vazamento numa sessão longa que nunca
+        # trave a linha de base.
+        if len(self.baseline_activation) > 600:
+            self.baseline_activation = self.baseline_activation[-600:]
+        if len(self.baseline_activation) < self.ACTIVATION_MIN_SAMPLES:
+            return
+        amostras = np.asarray(self.baseline_activation, dtype=np.float64)
+        centro = float(np.median(amostras))
+        # Desvio absoluto mediano, escalado para equivaler a um desvio-padrão em
+        # distribuição normal. Mediana e MAD em vez de média e desvio-padrão
+        # porque um pigarro ou uma batida de porta durante a calibração
+        # deslocaria a régua da sessão inteira.
+        mad = float(np.median(np.abs(amostras - centro))) * 1.4826
+        self.activation_center = centro
+        self.activation_scale = max(mad, self.ACTIVATION_SCALE_FLOOR)
+
     def process_tick(self, voice_spectral_12, facs_dissonance_flags, facs_details):
         self.tick_count += 1
         # Se há biomarcadores vocais REAIS medidos do PCM do paciente, o vetor
@@ -241,15 +291,46 @@ class SessionState:
                     has_critical_dissonance = True
 
         mean_abs_dev = np.mean(np.abs(global_deviations))
-        # IPM (Índice de Potência Multimodal): sigmoide logística da ativação,
-        # substituindo o mapa linear que travava o índice em [50, 100]. Centrada
-        # em ativação = 1.0, ocupa toda a faixa 0-100: repouso tende a valores
-        # baixos, ativação típica ~50 e hiperativação satura em 100.
-        # Forma: 100 * sigma(k * (A - A0)), A0 = 1.0, k = 1.5.
         ipm_activation = float(mean_abs_dev)
-        ipm_score = float(
-            np.clip(100.0 / (1.0 + np.exp(-1.5 * (ipm_activation - 1.0))), 0.0, 100.0)
-        )
+
+        # IPM (Índice de Potência Multimodal): sigmoide logística da ativação,
+        # padronizada contra a linha de base DESTA sessão.
+        #
+        # Duas versões anteriores travaram, cada uma numa ponta: o mapa linear
+        # prendia o índice em [50, 100], e a sigmoide que o substituiu foi
+        # centrada em ativação = 1.0 — o que significa "cada zona desviando 100%
+        # da linha de base, em média". Isso é evento extremo, não ativação
+        # típica: medido, o índice ficava entre 19 e 25 com amplitude de 1 a 9
+        # pontos numa escala de 100. A barra inerte.
+        #
+        # A causa é a mesma nas duas: um centro FIXO para uma grandeza cuja
+        # escala depende da pessoa, do microfone e do ambiente. Aqui o centro e a
+        # dispersão vêm da calibração da própria sessão — a mesma disciplina da
+        # prova de eficácia do NR-1, onde cada setor é comparado consigo mesmo.
+        #
+        # z = k * ln(A / centro), e IPM = 100 * sigma(z).
+        #
+        # A razão logarítmica, e não a diferença padronizada. Minha primeira
+        # tentativa dividiu pela DISPERSÃO do repouso — que mede o tremor do
+        # sinal parado, não a faixa que a pessoa percorre falando. Medida, ela
+        # saturava em 100 já na fala calma: trocar barra inerte embaixo por
+        # barra inerte no topo não é correção.
+        #
+        # A razão contra o próprio repouso é a grandeza certa: "esta pessoa está
+        # com o dobro da ativação dela em silêncio" quer dizer a mesma coisa em
+        # qualquer microfone e em qualquer sala. O logaritmo torna a leitura
+        # simétrica — metade da ativação afasta de 50 tanto quanto o dobro.
+        self._update_activation_reference(ipm_activation)
+        centro = float(self.activation_center)
+        if centro <= self.ACTIVATION_SCALE_FLOOR:
+            # Sem repouso medido ainda, ou repouso praticamente nulo. Sem régua
+            # não se padroniza: o índice fica no meio, declaradamente neutro, em
+            # vez de fingir precisão.
+            ipm_score = 50.0
+        else:
+            razao = max(ipm_activation, 1e-6) / centro
+            z = self.ACTIVATION_GAIN * float(np.log(razao))
+            ipm_score = float(np.clip(100.0 / (1.0 + np.exp(-z)), 0.0, 100.0))
         # IDM escalar (a "bússola"): média COM SINAL dos desvios das 12 zonas.
         # Positivo = energia acima da baseline (hiperativação); negativo =
         # abaixo (hipoativação). Preserva a direção que o valor absoluto perdia.
