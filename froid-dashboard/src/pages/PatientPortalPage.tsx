@@ -1117,7 +1117,14 @@ export const PatientPortalPage: React.FC = () => {
                             Cortes e resumos
                           </p>
                           <div className="mt-2 space-y-2">
-                            {(report.conversationSummaries || []).map((cut) => (
+                            {/* Ordenado do primeiro corte para o último. A
+                                lista vinha na ordem em que o array chegou, sem
+                                garantia nenhuma — e é justamente aqui, na área
+                                do paciente, que a sequência da conversa
+                                importa para ele reconstruir a sessão. */}
+                            {[...(report.conversationSummaries || [])]
+                              .sort((a, b) => a.startMinute - b.startMinute)
+                              .map((cut) => (
                               <div key={cut.id} className="rounded border border-slate-800 bg-slate-950 p-2 text-xs">
                                 <p className="font-black text-slate-100">
                                   {cut.startMinute}-{cut.endMinute}min | {cut.theme || "Tema não definido"}

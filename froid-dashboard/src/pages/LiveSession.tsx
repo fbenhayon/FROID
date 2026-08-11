@@ -3677,7 +3677,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         conversationSummariesRef.current = [
           ...conversationSummariesRef.current.filter((item) => item.id !== entry.id),
           entry,
-        ].sort((a, b) => b.startMinute - a.startMinute);
+        ].sort((a, b) => a.startMinute - b.startMinute);
         setConversationSummaries(conversationSummariesRef.current);
       };
 

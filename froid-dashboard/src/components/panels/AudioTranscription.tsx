@@ -196,8 +196,18 @@ export const AudioTranscription: React.FC<Props> = ({
     { key: "mfcc9", label: "MFCC9", value: mfcc9, color: "#8b5cf6" },
   ];
   const perturbationMax = Math.max(jitter, shimmer, 0.01);
+  // Do PRIMEIRO corte para o último. A lista vinha invertida, e ler a sessão
+  // de trás para frente obriga o profissional a reconstruir a ordem de cabeça
+  // justamente quando ele está acompanhando a conversa em tempo real.
   const orderedSummaries = [...conversationSummaries].sort(
-    (a, b) => b.startMinute - a.startMinute,
+    (a, b) => a.startMinute - b.startMinute,
+  );
+  // Extensão da sessão até agora, para posicionar cada corte na régua. Usa o
+  // maior fim registrado: sem isso a barra precisaria da duração total, que
+  // este painel não recebe.
+  const spanMinutes = Math.max(
+    1,
+    ...orderedSummaries.map((item) => item.endMinute || 0),
   );
 
   return (
@@ -266,9 +276,28 @@ export const AudioTranscription: React.FC<Props> = ({
                   {limitWords(item.theme, 6)}
                 </strong>
               </div>
-              <p className="mt-0.5 text-[10px] leading-snug text-slate-300">
-                {limitWords(item.summary, 80)}
-              </p>
+              {/* Régua do corte no lugar do texto.
+                  A transcrição saiu daqui de propósito: durante a sessão ela
+                  competia com a escuta, e o que o profissional precisa de
+                  relance é ONDE o corte está e QUAL o tema — não reler o que
+                  acabou de ouvir. O texto continua inteiro no Relatório da
+                  Consulta, que é onde ele serve. */}
+              <div
+                className="mt-1 h-1 w-full overflow-hidden rounded-full bg-slate-800"
+                role="img"
+                aria-label={`Corte de ${item.startMinute} a ${item.endMinute} minutos`}
+              >
+                <div
+                  className="h-full rounded-full bg-cyan-700"
+                  style={{
+                    marginLeft: `${(item.startMinute / spanMinutes) * 100}%`,
+                    width: `${Math.max(
+                      2,
+                      ((item.endMinute - item.startMinute) / spanMinutes) * 100,
+                    )}%`,
+                  }}
+                />
+              </div>
             </div>
           ))}
         </div>

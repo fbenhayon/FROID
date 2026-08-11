@@ -1126,7 +1126,8 @@ export const SessionReport: React.FC<Props> = () => {
                   .sort((a, b) => {
                     const aStart = a.startSecond ?? a.startMinute * 60;
                     const bStart = b.startSecond ?? b.startMinute * 60;
-                    return bStart - aStart;
+                    // Do primeiro corte para o ultimo, como a sessao aconteceu.
+                    return aStart - bStart;
                   })
                   .map((item) => {
                     const cut = findCutForSummary(item, report.tenMinuteCuts);
