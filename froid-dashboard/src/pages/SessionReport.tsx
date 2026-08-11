@@ -14,6 +14,11 @@ import { dashboardText, loadSessionLanguagePreferences, normalizeSessionLocale, 
 import { tooltipText } from "../lib/tooltip-i18n";
 import { InstrumentScorePrompt } from "../components/validation/InstrumentScorePrompt";
 import { activeOrganizationId } from "../lib/validation";
+import {
+  buildReport,
+  openPrintable,
+  type ReportAudience,
+} from "../lib/report-pdf";
 
 interface Props {
   user?: any;
@@ -673,6 +678,51 @@ export const SessionReport: React.FC<Props> = () => {
   const [metricsError, setMetricsError] = useState("");
   const [sections, setSections] = useState(DEFAULT_SECTIONS);
   const [descriptiveReport, setDescriptiveReport] = useState("");
+  // Texto que o sistema pré-compôs. Guardado para saber se o profissional
+  // chegou a escrever: enquanto o campo for idêntico ao gerado, o PDF fica
+  // travado. Um documento assinado com texto de máquina é pior do que documento
+  // nenhum — quem assina responde pelo que está escrito.
+  const [autoDescriptive, setAutoDescriptive] = useState("");
+  const descriptiveEdited =
+    descriptiveReport.trim().length > 0
+    && descriptiveReport.trim() !== autoDescriptive.trim();
+  const [pdfAviso, setPdfAviso] = useState("");
+
+  const gerarPdf = (audience: ReportAudience) => {
+    setPdfAviso("");
+    if (!report) return;
+    // O perfil vive no cadastro; aqui só se lê o que já existe. Nome ausente
+    // não impede o documento — o gerador cai no título neutro.
+    let perfil: Record<string, string> = {};
+    try {
+      perfil = JSON.parse(localStorage.getItem("froid_professional_profile") || "{}") || {};
+    } catch {
+      perfil = {};
+    }
+    const html = buildReport(
+      audience,
+      report,
+      {
+        clinicName: String(perfil.organization_name || perfil.trade_name || ""),
+        professionalName: String(
+          perfil.owner_name || report.professional?.name || report.professionalEmail || "",
+        ),
+        professionalRegistry: String(perfil.professional_registry || ""),
+        contactEmail: String(
+          perfil.email || report.professional?.email || report.professionalEmail || "",
+        ),
+      },
+      descriptiveReport,
+    );
+    if (!openPrintable(html)) {
+      // Sem este aviso o profissional clica e nada acontece: o bloqueio de
+      // pop-up é silencioso, e ele conclui que o botão está quebrado.
+      setPdfAviso(
+        "O navegador bloqueou a janela de impressão. Autorize pop-ups para este "
+        + "endereço e tente de novo.",
+      );
+    }
+  };
   const locale = normalizeSessionLocale(
     report?.reportLocale,
     loadSessionLanguagePreferences().reportLocale,
@@ -750,7 +800,9 @@ export const SessionReport: React.FC<Props> = () => {
 
   useEffect(() => {
     if (!report || descriptiveReport.trim()) return;
-    setDescriptiveReport(buildDescriptiveReportText(report, derivedSessionSummary(report)));
+    const gerado = buildDescriptiveReportText(report, derivedSessionSummary(report));
+    setAutoDescriptive(gerado);
+    setDescriptiveReport(gerado);
   }, [descriptiveReport, report]);
 
   if (!report) {
@@ -1258,13 +1310,46 @@ export const SessionReport: React.FC<Props> = () => {
               <h2 className="text-sm font-bold text-slate-100">
                 <HelpTitle title="Relatório Descritivo" />
               </h2>
+              <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => gerarPdf("professional")}
+                disabled={!descriptiveEdited}
+                title={
+                  descriptiveEdited
+                    ? "Gera o documento do profissional para impressão ou PDF."
+                    : "Escreva o relatório com as suas palavras antes de gerar o documento."
+                }
+                className="rounded border border-cyan-700 bg-cyan-950 px-2 py-1 text-[10px] font-bold text-cyan-100 hover:bg-cyan-900 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                PDF profissional
+              </button>
+              <button
+                onClick={() => gerarPdf("patient")}
+                title="Gera o documento que o paciente recebe, sem rótulo técnico."
+                className="rounded border border-amber-700 bg-amber-950 px-2 py-1 text-[10px] font-bold text-amber-100 hover:bg-amber-900"
+              >
+                PDF paciente
+              </button>
               <button
                 onClick={() => navigator.clipboard?.writeText(descriptiveReport)}
                 className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-[10px] font-bold text-slate-300 hover:bg-slate-900"
               >
                 Copiar
               </button>
+              </div>
             </div>
+            {!descriptiveEdited && (
+              <p className="mb-2 rounded border border-amber-800 bg-amber-950/50 px-2 py-1.5 text-[10px] leading-4 text-amber-100">
+                O texto abaixo foi composto pelo sistema. Reescreva-o com as suas
+                palavras para liberar o documento do profissional — quem assina
+                responde pelo que está escrito.
+              </p>
+            )}
+            {pdfAviso && (
+              <p className="mb-2 rounded border border-red-800 bg-red-950/60 px-2 py-1.5 text-[10px] text-red-200">
+                {pdfAviso}
+              </p>
+            )}
             <textarea
               value={descriptiveReport}
               onChange={(event) => setDescriptiveReport(event.target.value)}
