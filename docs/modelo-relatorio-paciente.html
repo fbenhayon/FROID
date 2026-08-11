@@ -5,7 +5,7 @@
      azul aço como secundária. A4, pronto para Ctrl+P → Salvar como PDF.
      Dados reais da sessão froid-mskjo5sv22uz (08/08/2026). */
   :root{
-    --navy:#0F172A; --aco:#20539E; --fundo:#F8F9FA; --linha:#E5E7EB;
+    --navy:#0F172A; --froid-azul:#3B82F6; --aco:#3B82F6; --fundo:#F8F9FA; --linha:#E5E7EB;
     --texto:#212529; --rotulo:#6C757D; --zebra:#F9F9F9;
   }
   *{box-sizing:border-box}
@@ -57,12 +57,35 @@
   tbody td b{color:var(--navy)}
   .zona-desc{color:var(--rotulo);font-size:8pt;display:block;margin-top:2px}
 
+  /* Blocos de trecho, no mesmo desenho do relatório do profissional. O tema e
+     o resumo vêm primeiro: é o que faz o paciente reconhecer o momento. A zona
+     e os números entram depois, como contexto do que já foi reconhecido. */
+  .fase{display:flex;gap:10px;margin-bottom:10px;break-inside:avoid}
+  .fase .badge{flex:0 0 66px;background:var(--froid-azul);color:#fff;border-radius:5px;
+               padding:6px 4px;text-align:center;font-size:7pt;font-weight:800;
+               text-transform:uppercase;height:fit-content}
+  .fase .badge b{display:block;font-size:10pt}
+  .fase .corpo{flex:1}
+  .fase .corpo>b{color:var(--navy);font-size:9.5pt}
+  .fase .corpo p{margin:3px 0 0;font-size:8.5pt;line-height:1.55;color:#374151}
+  .fase .zona{margin-top:6px;background:var(--fundo);border-left:2px solid var(--froid-azul);
+              padding:6px 9px;border-radius:0 4px 4px 0;font-size:8pt;color:#374151}
+  .fase .zona b{color:var(--navy)}
+  .fase .numeros{margin-top:4px;font-size:7.5pt;color:var(--rotulo);
+                 letter-spacing:.02em}
+
   .sinal{border:1px solid var(--linha);border-left:3px solid var(--aco);
          border-radius:0 6px 6px 0;padding:11px 13px;margin-bottom:9px;break-inside:avoid}
   .sinal .quando{color:var(--rotulo);font-size:7pt;font-weight:700;
                  letter-spacing:.08em;text-transform:uppercase}
   .sinal h3{margin:3px 0 5px;color:var(--navy);font-size:10pt;font-weight:700}
   .sinal p{margin:0;font-size:8.5pt;line-height:1.58}
+  /* O assunto vem ANTES da descrição do sinal. Sem ele, o paciente lê um
+     movimento facial descolado de qualquer memória; com ele, reconhece o
+     momento e pode retomá-lo com o profissional. */
+  .sinal .assunto{background:var(--fundo);border-radius:4px;padding:7px 9px;
+                  margin:0 0 7px;font-size:8pt;line-height:1.5;color:#374151}
+  .sinal .assunto b{color:var(--navy)}
 
   .glossario{background:var(--fundo);border:1px solid var(--linha);border-radius:6px;
              padding:11px 13px;margin-top:10px;font-size:8.5pt}
@@ -70,13 +93,25 @@
   .glossario div{margin-top:5px}
   .glossario div:first-of-type{margin-top:7px}
 
-  .limite{background:#FFFBEB;border:1px solid #FCD34D;border-radius:6px;
-          padding:11px 13px;font-size:8.5pt;color:#78350F;margin-top:12px;line-height:1.55}
+  .limite{background:#451A03;border:1px solid #92400E;border-radius:6px;
+          padding:11px 13px;font-size:8.5pt;color:#FDE68A;margin-top:12px;line-height:1.55}
+  .limite b{color:#FCD34D}
   footer{margin-top:18px;padding-top:8px;border-top:1px solid var(--linha);
          display:flex;justify-content:space-between;color:var(--rotulo);font-size:7pt}
+
+  /* Identidade FROID: faixa da marca no topo de cada folha. Navy do site com
+     um fio do azul do site embaixo — o mesmo par que o header do website usa. */
+  .folha{position:relative}
+  .folha::before{content:"";position:absolute;top:0;left:0;right:0;height:5mm;
+                 background:linear-gradient(90deg,#0F172A 0%,#0F172A 72%,#3B82F6 100%)}
+  .folha{padding-top:22mm}
+  .marca-topo{position:absolute;top:1.4mm;left:14mm;color:#F8FAFC;font-size:7pt;
+              font-weight:800;letter-spacing:.34em;text-transform:uppercase}
+  .marca-topo span{color:#3B82F6}
 </style>
 
 <div class="folha">
+  <div class="marca-topo">FR<span>OID</span></div>
   <div class="tags">
     <span class="tag destaque">Relatório da sessão</span>
     <span class="tag">Documento pessoal</span>
@@ -118,44 +153,49 @@
 
   <section>
     <div class="cab"><span class="num">02</span><h2>Percurso da sessão</h2></div>
-    <table>
-      <thead><tr>
-        <th>Trecho</th><th>Zona predominante</th><th class="n">Ritmo da fala</th><th>Tom</th>
-      </tr></thead>
-      <tbody>
-        <tr>
-          <td><b>00 – 10 min</b></td>
-          <td><b>Zona 6 — Amor Condicional ↔ Incondicional</b>
-            <span class="zona-desc">Observa se o vínculo apareceu atrelado a
-              condições ou sustentado sem elas.</span></td>
-          <td class="n">11,5 pal./min</td><td>neutro</td>
-        </tr>
-        <tr>
-          <td><b>10 – 20 min</b></td>
-          <td><b>Zona 6 — Amor Condicional ↔ Incondicional</b>
-            <span class="zona-desc">Mesma zona, com deslocamento do tom ao longo
-              do trecho.</span></td>
-          <td class="n">10,9 pal./min</td><td>alegre</td>
-        </tr>
-        <tr>
-          <td><b>20 – 30 min</b></td>
-          <td><b>Zona 6 — Amor Condicional ↔ Incondicional</b>
-            <span class="zona-desc">Ritmo de fala mais lento que nos trechos
-              anteriores.</span></td>
-          <td class="n">7,2 pal./min</td><td>neutro</td>
-        </tr>
-        <tr>
-          <td><b>30 – 38 min</b></td>
-          <td><b>[trecho final]</b>
-            <span class="zona-desc">Cobre o tempo entre o último registro
-              automático e o fim da sessão.</span></td>
-          <td class="n">—</td><td>—</td>
-        </tr>
-      </tbody>
-    </table>
-    <p style="font-size:8pt;color:var(--rotulo);margin-top:6px">
+
+    <div class="fase"><div class="badge">Trecho<b>1</b></div><div class="corpo">
+      <b>00 – 10 min · [tema deste trecho]</b>
+      <p>[breve resumo do que estava sendo conversado]</p>
+      <div class="zona"><b>Zona 6 — Amor Condicional ↔ Amor Incondicional.</b>
+        Observa se o vínculo apareceu atrelado a condições ou sustentado sem
+        elas.</div>
+      <div class="numeros">Ritmo da fala 11,5 palavras/min · tom neutro</div>
+    </div></div>
+
+    <div class="fase"><div class="badge">Trecho<b>2</b></div><div class="corpo">
+      <b>10 – 20 min · Exploração de novas possibilidades</b>
+      <p>A conversa girou em torno de abertura a mudanças e da ideia de
+        prosperidade, com afirmações repetidas sobre escolher e receber. Também
+        apareceram crenças limitantes e a busca por alternativas além das
+        soluções já conhecidas.</p>
+      <div class="zona"><b>Zona 6 — Amor Condicional ↔ Amor Incondicional.</b>
+        Observa se o vínculo apareceu atrelado a condições ou sustentado sem
+        elas.</div>
+      <div class="numeros">Ritmo da fala 10,9 palavras/min · tom alegre</div>
+    </div></div>
+
+    <div class="fase"><div class="badge">Trecho<b>3</b></div><div class="corpo">
+      <b>20 – 30 min · [tema deste trecho]</b>
+      <p>[breve resumo do que estava sendo conversado]</p>
+      <div class="zona"><b>Zona 6 — Amor Condicional ↔ Amor Incondicional.</b>
+        Observa se o vínculo apareceu atrelado a condições ou sustentado sem
+        elas.</div>
+      <div class="numeros">Ritmo da fala 7,2 palavras/min · tom neutro</div>
+    </div></div>
+
+    <div class="fase"><div class="badge">Trecho<b>4</b></div><div class="corpo">
+      <b>30 – 38 min · [tema deste trecho]</b>
+      <p>[breve resumo do que estava sendo conversado]</p>
+      <div class="zona">[zona predominante deste trecho]</div>
+      <div class="numeros">[ritmo da fala e tom]</div>
+    </div></div>
+
+    <p style="font-size:8pt;color:var(--rotulo);margin-top:4px">
       O ritmo da fala partiu de 5,0 palavras por minuto na medição inicial e
-      variou entre 7 e 12 ao longo da conversa.</p>
+      variou entre 7 e 12 ao longo da conversa. Os temas acima ajudam a
+      localizar o assunto de cada momento — vale relê-los antes da próxima
+      sessão.</p>
   </section>
 
   <section>
@@ -188,6 +228,7 @@
 </div>
 
 <div class="folha">
+  <div class="marca-topo">FR<span>OID</span></div>
   <section style="margin-top:0">
     <div class="cab"><span class="num">04</span><h2>Sinais registrados</h2></div>
     <p>Momentos em que a leitura registrou combinações que valem ser retomadas
@@ -195,8 +236,11 @@
       interpretação depende do que estava sendo conversado.</p>
 
     <div class="sinal">
-      <span class="quando">16 min 56 s · Zona 7</span>
+      <span class="quando">16 min 56 s · trecho 2 · Zona 7</span>
       <h3>Sorriso na boca sem o movimento ao redor dos olhos</h3>
+      <div class="assunto"><b>O que estava sendo conversado:</b> Exploração de
+        novas possibilidades — abertura a mudanças, afirmações sobre escolher e
+        receber, e as crenças que limitam esse movimento.</div>
       <p>A leitura facial registrou o movimento que levanta os cantos da boca
         (AU12) sem o movimento que enruga o canto dos olhos (AU6). São dois
         músculos diferentes: o primeiro é voluntário, o segundo costuma
@@ -206,8 +250,10 @@
     </div>
 
     <div class="sinal">
-      <span class="quando">22 min 03 s · Zona 7</span>
+      <span class="quando">22 min 03 s · trecho 3 · Zona 7</span>
       <h3>Sorriso na boca sem o movimento ao redor dos olhos</h3>
+      <div class="assunto"><b>O que estava sendo conversado:</b> [tema do
+        trecho] — [breve resumo do assunto naquele momento].</div>
       <p>O mesmo padrão apareceu novamente cerca de cinco minutos depois. A
         repetição é registrada porque ajuda a localizar o assunto em que ela
         aconteceu — e essa localização é justamente o que vale conversar na

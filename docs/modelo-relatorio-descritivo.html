@@ -8,7 +8,7 @@
      Preenchido com a sessão real froid-mskjo5sv22uz (08/08/2026) para o modelo
      ser conferido contra número de verdade, e não contra invenção. */
   :root{
-    --navy:#0F172A; --aco:#20539E; --fundo:#F8F9FA; --linha:#E5E7EB;
+    --navy:#0F172A; --froid-azul:#3B82F6; --aco:#3B82F6; --fundo:#F8F9FA; --linha:#E5E7EB;
     --texto:#212529; --rotulo:#6C757D; --zebra:#F9F9F9;
     --verde:#15803D; --ambar:#B45309; --vermelho:#B91C1C;
   }
@@ -81,23 +81,54 @@
 
   .nota{background:var(--fundo);border-left:3px solid var(--aco);padding:9px 12px;
         border-radius:0 5px 5px 0;font-size:8.5pt;margin-top:9px}
-  .limite{background:#FFFBEB;border:1px solid #FCD34D;border-radius:6px;
-          padding:10px 12px;font-size:8pt;color:#78350F;margin-top:11px}
+  .limite{background:#451A03;border:1px solid #92400E;border-radius:6px;
+          padding:10px 12px;font-size:8pt;color:#FDE68A;margin-top:11px}
   .linha-assin{margin-top:32px;border-top:1px solid #9CA3AF;width:62%;padding-top:5px;
                font-size:8pt;color:var(--rotulo)}
+  .limite b{color:#FCD34D}
   footer{margin-top:18px;padding-top:8px;border-top:1px solid var(--linha);
          display:flex;justify-content:space-between;color:var(--rotulo);font-size:7pt}
+
+  /* Citação de abertura, dirigida a quem executa o trabalho. Sorteada a cada
+     documento, como as aberturas do relatório do paciente. */
+  .epigrafe{margin:15px 0 0;background:var(--navy);color:#E2E8F0;
+            border-radius:6px;padding:14px 18px;position:relative}
+  .epigrafe .aspas{position:absolute;left:9px;top:2px;color:var(--froid-azul);
+                   font-size:30pt;font-weight:800;line-height:1;opacity:.55}
+  .epigrafe p{margin:0 0 5px;padding-left:16px;font-size:10pt;line-height:1.55;
+              font-style:italic;color:#F1F5F9}
+  .epigrafe .autor{padding-left:16px;font-size:7.5pt;font-weight:700;
+                   letter-spacing:.1em;text-transform:uppercase;color:var(--froid-azul)}
+  .epigrafe .fonte{padding-left:16px;font-size:7pt;color:#94A3B8;margin-top:2px}
+
+  /* Identidade FROID: faixa da marca no topo de cada folha. Navy do site com
+     um fio do azul do site embaixo — o mesmo par que o header do website usa. */
+  .folha{position:relative}
+  .folha::before{content:"";position:absolute;top:0;left:0;right:0;height:5mm;
+                 background:linear-gradient(90deg,#0F172A 0%,#0F172A 72%,#3B82F6 100%)}
+  .folha{padding-top:22mm}
+  .marca-topo{position:absolute;top:1.4mm;left:14mm;color:#F8FAFC;font-size:7pt;
+              font-weight:800;letter-spacing:.34em;text-transform:uppercase}
+  .marca-topo span{color:#3B82F6}
 </style>
 
 <div class="folha">
+  <div class="marca-topo">FR<span>OID</span></div>
   <div class="tags">
     <span class="tag destaque">Relatório descritivo</span>
     <span class="tag">Documento clínico</span>
     <span class="tag">Confidencial</span>
   </div>
 
-  <h1>FROID — Frequency Recognition<br>of Internal Dynamics</h1>
+  <h1>[Nome da clínica ou do profissional]</h1>
   <p class="sub">Relatório descritivo de sessão · registro de apoio à escuta clínica</p>
+
+  <div class="epigrafe">
+    <span class="aspas">“</span>
+    <p>Sabemos o que somos, mas não o que podemos ser.</p>
+    <div class="autor">William Shakespeare</div>
+    <div class="fonte">Hamlet, ato IV, cena V</div>
+  </div>
 
   <div class="meta">
     <div>
@@ -186,6 +217,7 @@
 </div>
 
 <div class="folha">
+  <div class="marca-topo">FR<span>OID</span></div>
   <section style="margin-top:0">
     <div class="cab"><span class="num">04</span><h2>Cortes semânticos</h2></div>
 
