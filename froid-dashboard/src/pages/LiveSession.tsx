@@ -21,6 +21,12 @@ import {
   EvidentMarker,
 } from "../lib/froid-engine";
 import { getAUDetails, ZONE_CLINICAL_DESCRIPTIONS } from "../lib/froid-data";
+import {
+  STATUS_CLASSES,
+  countOutOfBounds,
+  statusLabel,
+  withBounds,
+} from "../lib/metric-bounds";
 import { apiUrl, wsUrl } from "../lib/api";
 import {
   activateRtcRelayFallback,
@@ -4728,6 +4734,13 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     ["DNA SOMATO", formatMetricValue(simplifiedSnapshot.dnaSomatoaffectiveDissonance, 3)],
   ];
 
+  // As metricas da tabela cruzadas com os limites do servidor. Deriva da
+  // MESMA lista do layout Simplificado de proposito: dois catalogos
+  // divergiriam na primeira metrica nova.
+  const metricasComLimite = withBounds(simplifiedMetricEntries, allMarkerReadings);
+  const metricasForaDaFaixa = countOutOfBounds(metricasComLimite);
+
+
   const createSessionReport = useCallback((): SessionReportRecord => {
     const durationSeconds = Math.max(1, elapsedSecondsRef.current || state.elapsedSeconds);
     const samples = sessionSamplesRef.current.length
@@ -5345,49 +5358,49 @@ function LiveSessionInner({ user }: LiveSessionProps) {
 
           <SessionTimer startTime={state.sessionStart} onEndSession={endSession} />
 
-          <div className="flex-1 min-h-0 space-y-1 overflow-y-auto">
-            {allMarkerReadings.length === 0 && (
-              <p className="rounded border border-slate-800 bg-slate-900 p-2 text-[9px] leading-snug text-slate-500">
-                Aguardando marcadores com métrica base avaliável (voz real
-                e/ou face real ativas).
-              </p>
-            )}
-            {allMarkerReadings.map((m) => (
-              <div
-                key={m.key}
-                title={`${m.category} · ${m.interpretation}`}
-                className={`rounded border px-1.5 py-1 transition-colors ${
-                  m.breached
-                    ? "border-red-600 bg-red-900/60"
-                    : "border-slate-800 bg-slate-900"
-                }`}
-              >
-                <div className="flex items-center justify-between gap-1.5">
-                  <span
-                    className={`truncate text-[9px] font-bold ${
-                      m.breached ? "text-red-100" : "text-slate-300"
-                    }`}
-                  >
+          {/* Grade de indices: TODAS as metricas do layout Simplificado, com a
+              situacao de cada uma contra os limites que o servidor calcula.
+
+              Antes, este painel mostrava so os marcadores COM metrica base, e o
+              Simplificado mostrava todas em faixa rolante sem cor nenhuma. Quem
+              quisesse o conjunto inteiro com indicacao de ruptura alternava
+              entre os dois layouts e comparava de cabeca.
+
+              Grade de duas colunas em vez de lista: cabe sem rolagem, que era o
+              pedido. `content-start` impede as celulas de esticarem para
+              preencher a altura quando ha poucas metricas. */}
+          <div className="shrink-0 pb-1">
+            <div className="flex items-center justify-between px-0.5 pb-1">
+              <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">
+                Índices
+              </span>
+              {metricasForaDaFaixa > 0 && (
+                <span className="rounded bg-red-950 px-1.5 py-0.5 text-[8px] font-black text-red-200">
+                  {metricasForaDaFaixa} fora da faixa
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="flex-1 min-h-0 grid grid-cols-2 content-start gap-1 overflow-y-auto">
+            {metricasComLimite.map((m) => {
+              const cor = STATUS_CLASSES[m.status];
+              return (
+                <div
+                  key={m.label}
+                  title={`${statusLabel(m.status)}${
+                    m.band ? ` · faixa ${m.band[0] ?? "—"} a ${m.band[1] ?? "—"}` : ""
+                  }${m.interpretation ? ` · ${m.interpretation}` : ""}`}
+                  className={`rounded border px-1.5 py-1 transition-colors ${cor.box}`}
+                >
+                  <span className={`block truncate text-[8px] font-bold uppercase tracking-wide ${cor.label}`}>
                     {m.label}
                   </span>
-                  <span
-                    className={`shrink-0 font-mono text-[10px] font-black ${
-                      m.breached ? "text-red-100" : "text-cyan-200"
-                    }`}
-                  >
-                    {Number.isFinite(m.value) ? m.value.toFixed(3) : "--"}
+                  <span className={`block truncate font-mono text-[10px] font-black ${cor.value}`}>
+                    {m.value}
                   </span>
                 </div>
-                <p
-                  className={`mt-0.5 truncate text-[8px] ${
-                    m.breached ? "text-red-300/80" : "text-slate-500"
-                  }`}
-                >
-                  {m.category} · limiar{" "}
-                  {(m.direction === "acima" ? m.band[1] : m.band[0]) ?? "—"}
-                </p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
