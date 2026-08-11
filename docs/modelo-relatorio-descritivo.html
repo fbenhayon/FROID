@@ -86,6 +86,22 @@
   .linha-assin{margin-top:32px;border-top:1px solid #9CA3AF;width:62%;padding-top:5px;
                font-size:8pt;color:var(--rotulo)}
   .limite b{color:#FCD34D}
+
+  /* Dissonâncias, versão do PROFISSIONAL: texto técnico integral, com a
+     sugestão de conduta. Só aqui — o relatório do paciente traz a mesma
+     ocorrência descrita como sinal medido, sem rótulo e sem conduta. */
+  .disso{border:1px solid #7F1D1D;border-left:3px solid #B91C1C;
+         background:#FEF2F2;border-radius:0 6px 6px 0;padding:11px 13px;
+         margin-bottom:10px;break-inside:avoid}
+  .disso-cab{display:flex;justify-content:space-between;align-items:baseline;
+             gap:10px;margin-bottom:4px}
+  .disso-zona{color:#7F1D1D;font-size:7pt;font-weight:800;letter-spacing:.08em;
+              text-transform:uppercase}
+  .disso-idm{color:#B91C1C;font-size:7pt;font-weight:700}
+  .disso>b{color:var(--navy);font-size:9.5pt}
+  .disso p{margin:5px 0 0;font-size:8pt;line-height:1.5;color:#450A0A}
+  .disso .disso-acao{margin-top:7px;padding-top:6px;border-top:1px solid #FCA5A5;
+                     color:#7F1D1D}
   footer{margin-top:18px;padding-top:8px;border-top:1px solid var(--linha);
          display:flex;justify-content:space-between;color:var(--rotulo);font-size:7pt}
 
@@ -245,13 +261,47 @@
 
   <section>
     <div class="cab"><span class="num">05</span><h2>Sinais observados</h2></div>
-    <table>
-      <thead><tr><th>Momento</th><th>Zona</th><th>Observação do sinal</th></tr></thead>
-      <tbody>
-        <tr><td>16:56</td><td>Zona 7</td><td>Sorriso sem marcador de Duchenne (AU12 sem AU6); IDM relevante acima do limiar</td></tr>
-        <tr><td>22:03</td><td>Zona 7</td><td>Sorriso sem marcador de Duchenne (AU12 sem AU6); IDM relevante acima do limiar</td></tr>
-      </tbody>
-    </table>
+    <div class="disso">
+      <div class="disso-cab">
+        <span class="disso-zona">Zona 7 · 16 min 56 s</span>
+        <span class="disso-idm">IDM 2,07 · relevante</span>
+      </div>
+      <b>Sorriso falso / falsa calma</b>
+      <p>AU12 sem AU6 indica sorriso voluntário sem marcador Duchenne; com o IDM
+        também elevado, o motor interpreta possível máscara social cobrindo
+        tensão interna. AUs ativas: AU12, AU23, AU24 — a leitura exige coerência
+        temporal entre neutral, onset e apex para reduzir falso positivo.
+        Zona 7 (Raiva vs. Aceitação da Mudança).</p>
+      <p><b>Divergências:</b> MFCC7 6,71 contra baseline 0,60 (delta 6,11).
+        MFCC9 7,06 contra baseline 0,40 (delta 6,66), sugerindo tensão autônoma
+        latente quando cruza discurso neutro ou controlado. Aceleração cepstral
+        ΔΔMFCC9 = 4,87 acima do limiar 1,8. Sub-harmônicos 5–12 Hz acima da
+        métrica (0,62). Flooding autonômico acima da métrica (0,38).
+        Shutdown/dissociação acima da métrica (0,31). Dissonância somatoafetiva
+        acima da métrica (0,35). Ressonância neurogênica acima da métrica (0,26).
+        Jitter proxy elevado (0,48). Shimmer proxy elevado (0,47). IPM divergiu
+        da baseline inicial em 3,5 pontos.</p>
+      <p class="disso-acao"><b>Sugestão técnica ao profissional:</b> Mitigar
+        validando a fala sem confrontar bruscamente, investigando com perguntas
+        abertas a diferença entre calma relatada e carga corporal observada.</p>
+    </div>
+
+    <div class="disso">
+      <div class="disso-cab">
+        <span class="disso-zona">Zona 7 · 22 min 03 s</span>
+        <span class="disso-idm">IDM 1,60 · relevante</span>
+      </div>
+      <b>Sorriso falso / falsa calma</b>
+      <p>Mesmo padrão do registro anterior, cinco minutos depois. AUs ativas:
+        AU12, AU23, AU24.</p>
+      <p><b>Divergências:</b> MFCC7 5,53 contra baseline 0,60 (delta 4,93).
+        MFCC9 5,72 contra baseline 0,40 (delta 5,32). Sub-harmônicos 5–12 Hz
+        acima da métrica (0,35). Flooding autonômico acima da métrica (0,19).
+        Shutdown/dissociação acima da métrica (0,20).</p>
+      <p class="disso-acao"><b>Sugestão técnica ao profissional:</b> Mitigar
+        validando a fala sem confrontar bruscamente, investigando com perguntas
+        abertas a diferença entre calma relatada e carga corporal observada.</p>
+    </div>
     <div class="limite"><b>O que estes sinais são, e o que não são.</b>
       As observações acima descrevem medidas de fala e de expressão facial em
       relação à linha de base desta sessão. Não constituem diagnóstico, não

@@ -105,6 +105,56 @@ const SUPERFICIE_DO_PACIENTE = [
   "PatientSessionPage.tsx",
 ];
 
+/**
+ * O modelo do relatorio do paciente vive em docs/ e vai virar o gerador. Ele
+ * fica FORA de src/, entao nenhuma das varreduras acima o alcanca — e e
+ * justamente o arquivo que sai da plataforma impresso e assinado.
+ *
+ * O modelo do PROFISSIONAL nao entra aqui de proposito: ele carrega o texto
+ * tecnico integral, com rotulo e conduta, porque foi isso que ficou decidido.
+ */
+describe("o modelo do relatorio do paciente", () => {
+  const MODELO = join(
+    __dirname, "..", "..", "..", "docs", "modelo-relatorio-paciente.html",
+  );
+
+  const conteudo = (() => {
+    try {
+      return readFileSync(MODELO, "utf-8");
+    } catch {
+      return "";
+    }
+  })();
+
+  it("o arquivo existe", () => {
+    // Renomear o modelo sem atualizar aqui faria a cobertura evaporar em
+    // silencio, que e como este tipo de trava morre.
+    expect(conteudo.length).toBeGreaterThan(500);
+  });
+
+  it("nao carrega rotulo que nomeia a pessoa", () => {
+    const semComentario = conteudo.replace(/<!--[\s\S]*?-->/g, " ").toLowerCase();
+    const achados = ROTULO_DE_PESSOA.filter((t) => semComentario.includes(t));
+    expect(achados).toEqual([]);
+  });
+
+  it("nao prescreve conduta", () => {
+    const semComentario = conteudo
+      .replace(/<!--[\s\S]*?-->/g, " ")
+      .replace(/\/\*[\s\S]*?\*\//g, " ");
+    const m = semComentario.match(CONDUTA);
+    expect(m ? m[0] : null).toBeNull();
+  });
+
+  it("declara por escrito que nao e diagnostico", () => {
+    expect(/n[ãa]o [ée] um diagn[óo]stico/i.test(conteudo)).toBe(true);
+  });
+
+  it("aponta o paciente de volta ao profissional", () => {
+    expect(/n[ãa]o substitui o seu profissional/i.test(conteudo)).toBe(true);
+  });
+});
+
 describe("o que chega ao paciente nao prescreve nem rotula", () => {
   const arquivos = arquivosFonte("src").filter((caminho) =>
     SUPERFICIE_DO_PACIENTE.some((nome) => caminho.endsWith(nome)),
