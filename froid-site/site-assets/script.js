@@ -139,10 +139,30 @@ document.addEventListener("DOMContentLoaded", function () {
     var idioma = (document.documentElement.getAttribute("lang") || "pt").toLowerCase();
     if (idioma.indexOf("pt") !== 0) return;
 
-    // Só monta com apontador fino. No toque, o primeiro toque abriria o menu em
-    // vez de navegar, e a pessoa perderia o link principal — que é justamente
+    // Só monta onde existe hover. No toque puro o primeiro toque abriria o menu
+    // em vez de navegar, e a pessoa perderia o link principal — que é justamente
     // o comportamento que irrita em menu suspenso no celular.
-    if (!window.matchMedia || !window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
+    //
+    // A pergunta certa é "existe hover neste aparelho?", e não "o apontador
+    // PRIMÁRIO faz hover?". As consultas hover/pointer descrevem só o apontador
+    // que o sistema elegeu como principal: num notebook com tela sensível ao
+    // toque e mouse ligado, o Windows costuma eleger o toque, e a versão
+    // anterior desta linha — (hover: hover) and (pointer: fine) — devolvia
+    // false e desligava o menu para quem estava com o mouse na mão. Foi assim
+    // que o menu sumiu no PC. As variantes any-* olham TODOS os mecanismos de
+    // entrada disponíveis, que é o que interessa para um menu de hover.
+    //
+    // O teste é por OU, e não por E, de propósito: basta um dos dois indicar
+    // presença de mouse. Numa máquina híbrida os navegadores divergem sobre
+    // qual das duas consultas responde primeiro, e exigir as duas juntas
+    // reintroduziria o mesmo defeito por outro caminho.
+    //
+    // Celular continua de fora: sem mouse, any-hover é none E any-pointer é
+    // coarse, então as duas falham e o menu não monta.
+    if (!window.matchMedia) return;
+    var temMouse = window.matchMedia("(any-hover: hover)").matches ||
+                   window.matchMedia("(any-pointer: fine)").matches;
+    if (!temMouse) return;
 
     Array.prototype.forEach.call(nav.querySelectorAll("a"), function (link) {
       var alvoPagina = (link.getAttribute("href") || "").toLowerCase().split("#")[0];
