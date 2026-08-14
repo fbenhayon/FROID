@@ -139,30 +139,26 @@ document.addEventListener("DOMContentLoaded", function () {
     var idioma = (document.documentElement.getAttribute("lang") || "pt").toLowerCase();
     if (idioma.indexOf("pt") !== 0) return;
 
-    // Só monta onde existe hover. No toque puro o primeiro toque abriria o menu
-    // em vez de navegar, e a pessoa perderia o link principal — que é justamente
-    // o comportamento que irrita em menu suspenso no celular.
+    // NÃO PERGUNTE AO NAVEGADOR SE EXISTE MOUSE. Aqui havia uma trava de media
+    // query, em duas versões, e as duas desligaram o menu para quem tinha mouse:
     //
-    // A pergunta certa é "existe hover neste aparelho?", e não "o apontador
-    // PRIMÁRIO faz hover?". As consultas hover/pointer descrevem só o apontador
-    // que o sistema elegeu como principal: num notebook com tela sensível ao
-    // toque e mouse ligado, o Windows costuma eleger o toque, e a versão
-    // anterior desta linha — (hover: hover) and (pointer: fine) — devolvia
-    // false e desligava o menu para quem estava com o mouse na mão. Foi assim
-    // que o menu sumiu no PC. As variantes any-* olham TODOS os mecanismos de
-    // entrada disponíveis, que é o que interessa para um menu de hover.
+    //   (hover: hover) and (pointer: fine)      → descreve só o apontador que o
+    //     sistema elegeu como principal. Num notebook com tela sensível ao toque
+    //     o Windows elege o toque, e isso dava false com o mouse em uso.
+    //   (any-hover: hover) or (any-pointer: fine) → deveria olhar todos os
+    //     dispositivos, mas na máquina que reportou o defeito as duas também
+    //     vêm false, com mouse e teclado externos ligados. Medido no aparelho.
     //
-    // O teste é por OU, e não por E, de propósito: basta um dos dois indicar
-    // presença de mouse. Numa máquina híbrida os navegadores divergem sobre
-    // qual das duas consultas responde primeiro, e exigir as duas juntas
-    // reintroduziria o mesmo defeito por outro caminho.
+    // A declaração de capacidade do navegador é, portanto, não confiável nesta
+    // classe de máquina. E ela nem é necessária: quem abre a lista é o :hover do
+    // CSS, que responde ao movimento real do ponteiro e não ao que as media
+    // queries afirmam. O papel deste bloco é só CONSTRUIR o menu — construir a
+    // mais não estraga nada, não construir estraga tudo.
     //
-    // Celular continua de fora: sem mouse, any-hover é none E any-pointer é
-    // coarse, então as duas falham e o menu não monta.
-    if (!window.matchMedia) return;
-    var temMouse = window.matchMedia("(any-hover: hover)").matches ||
-                   window.matchMedia("(any-pointer: fine)").matches;
-    if (!temMouse) return;
+    // No toque o link segue navegando: nada aqui chama preventDefault, então o
+    // toque no link do header navega como sempre. O que pode acontecer é a lista
+    // piscar durante a navegação, porque o toque também aciona o :hover. É
+    // cosmético, e é o preço de não excluir quem tem mouse.
 
     Array.prototype.forEach.call(nav.querySelectorAll("a"), function (link) {
       var alvoPagina = (link.getAttribute("href") || "").toLowerCase().split("#")[0];
