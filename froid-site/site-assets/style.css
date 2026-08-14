@@ -67,6 +67,48 @@ header.site-header {
   /* Ambar da paleta: mesmo destaque das chamadas e do bloco de aviso. */
   text-decoration-color: #fcd34d; color: #fcd34d;
 }
+/* Menu suspenso com as seções da página, montado pelo script.js.
+   O <span class="nav-item"> é criado em volta do link; sem JS o link continua
+   funcionando exatamente como antes. */
+.nav-item { position: relative; display: inline-flex; }
+.nav-drop {
+  position: absolute; top: 100%; left: -12px; z-index: 60;
+  min-width: 232px; padding: 6px;
+  /* Faixa transparente no topo para o ponteiro atravessar do link até o menu
+     sem passar por um vão — sem ela o menu pisca e fecha no meio do caminho. */
+  margin-top: 0; border-top: 10px solid transparent; background-clip: padding-box;
+  background: rgba(2, 6, 23, 0.98);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  box-shadow: 0 14px 34px rgba(0,0,0,0.5);
+  opacity: 0; visibility: hidden; transform: translateY(-4px);
+  transition: opacity .14s ease, transform .14s ease, visibility .14s;
+}
+.nav-item:hover .nav-drop, .nav-item.aberto .nav-drop {
+  opacity: 1; visibility: visible; transform: translateY(0);
+}
+.nav-drop a {
+  display: block; padding: 7px 11px; border-radius: 7px;
+  font-size: 0.82rem; font-weight: 500; white-space: normal;
+  color: rgba(248,250,252,0.82); line-height: 1.35;
+}
+.nav-drop a:hover, .nav-drop a:focus-visible {
+  background: rgba(148,163,184,0.14); color: #fcd34d; text-decoration: none;
+}
+/* Uma seção alvo não pode ficar embaixo do header fixo ao chegar pela âncora.
+   O header muda de altura conforme os links quebram em duas linhas — chega a
+   88px em telas médias. A folga é calculada para o pior caso: sobrar espaço em
+   branco não atrapalha, ficar encoberto sim. */
+[id] { scroll-margin-top: 108px; }
+
+/* Tabela de faixas do FROID NR-1. Vive aqui, e não no <style> de uma página,
+   porque as faixas aparecem na página do produto e na proposta — dois lugares
+   que precisam mostrar exatamente o mesmo número. */
+.nr1-faixas { width: 100%; border-collapse: collapse; font-size: 0.9rem; min-width: 420px; }
+.nr1-faixas th, .nr1-faixas td { padding: 9px 12px; border-bottom: 1px solid #334155; text-align: left; }
+.nr1-faixas td:last-child, .nr1-faixas th:last-child { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.nr1-faixas th { background: #1e293b; color: #f8fafc; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.05em; }
+
 .nav-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .nav-actions .btn { padding: 8px 14px; font-size: 0.82rem; }
 /* Seletor de idioma no header — grupo de pills PT/EN/FR/... antes dos botões de acesso */

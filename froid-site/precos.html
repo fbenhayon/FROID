@@ -10,7 +10,7 @@
 <link rel="alternate" hreflang="fr" href="https://www.froid.com.br/fr/precos.html" />
 <link rel="alternate" hreflang="es" href="https://www.froid.com.br/es/precos.html" />
 <link rel="alternate" hreflang="x-default" href="https://www.froid.com.br/precos.html" />
-<link rel="stylesheet" href="site-assets/style.css?v=10" />
+<link rel="stylesheet" href="site-assets/style.css?v=14" />
 <style>
   .plan-card h3 { margin-bottom:2px; }
   .plan-tag { font-size:0.78rem; color:var(--froid-azul); font-weight:700; text-transform:uppercase; letter-spacing:0.06em; }
@@ -33,6 +33,10 @@
   .hab-link:hover, .hab-link:focus { color:#93c5fd; border-bottom-color:#93c5fd; }
   .hab-link::after { content:"›"; margin-left:6px; color:#64748b; font-weight:700; }
   .hab-link:hover::after, .hab-link:focus::after { color:#93c5fd; }
+  .pioneiro { display:flex; align-items:flex-start; gap:16px; flex-wrap:wrap; margin-top:26px; border:1px solid #92400e; background:#451a03; border-radius:12px; padding:16px 18px; }
+  .pioneiro-selo { flex-shrink:0; background:#fcd34d; color:#451a03; font-weight:800; font-size:0.95rem; border-radius:8px; padding:8px 14px; white-space:nowrap; }
+  .pioneiro p { margin:0; font-size:0.92rem; line-height:1.55; color:#fde68a; flex:1; min-width:260px; }
+  .pioneiro strong { color:#fcd34d; }
 </style>
 </head>
 <body>
@@ -48,7 +52,7 @@
       <a href="etica.html">Ética</a>
       <a href="seguranca.html">Segurança</a>
       <a href="profissionais.html">Profissionais</a>
-      <a href="empresas.html">Empresas</a>
+      <a href="empresas.html">FROID NR-1</a>
       <a href="como-funciona-nr1.html">Como funciona</a>
       <a href="precos.html">Preços</a>
     </nav>
@@ -64,10 +68,15 @@
     <p class="section-kicker" style="color:#93c5fd;">Preços</p>
     <h1 style="font-size:2.1rem;">Um plano para cada estágio da prática clínica</h1>
     <p class="lead">Do profissional autônomo à rede de clínicas — modelo de créditos por sessão, sem surpresas na fatura.</p>
+
+    <div class="pioneiro">
+      <span class="pioneiro-selo">15% de desconto</span>
+      <p><strong>Condição de pioneiro, até 31 de dezembro.</strong> Quem contratar até essa data recebe 15% de desconto sobre o valor do plano escolhido — vale tanto para os pacotes de sessões quanto para o plano NR-1 empresarial. Depois de 31 de dezembro a condição se encerra e os valores passam a ser os de tabela.</p>
+    </div>
   </div>
 </section>
 
-<section class="block">
+<section class="block" id="planos">
   <div class="container">
     <p class="section-kicker">Planos</p>
     <h2 class="section-title">PRO, PLUS e MASTER — créditos por sessão, sem letra miúda</h2>
@@ -121,8 +130,7 @@
         <span class="plan-tag">Escala e redes</span>
         <h3>FROID MASTER</h3>
         <p style="font-size:0.92rem;">O plano de escala: para redes e operações maiores, com todas as habilidades do FROID habilitadas e acesso prioritário aos novos recursos à medida que são lançados.</p>
-        <div class="pack"><span class="qtd">25 sessões <span style="display:block; font-size:0.75rem; color:var(--froid-cinza); font-weight:500;">pacote de entrada/piloto</span></span><span class="valor">R$ 20,00<span class="unit">valor simbólico de lançamento</span></span></div>
-        <div class="pack" style="border-style:dashed;"><span class="qtd" style="color:var(--froid-cinza);">Pacotes de volume</span><span class="valor" style="color:var(--froid-cinza); font-weight:600;">em breve</span></div>
+        <div class="pack"><span class="qtd">200 sessões</span><span class="valor">R$ 4.888,00<span class="unit">valor unitário de referência: R$ 24,44</span></span></div>
         <ul class="plan-list">
           <li>Tudo do PRO e do PLUS</li>
           <li>Até 35 usuários</li>
@@ -140,7 +148,7 @@
   </div>
 </section>
 
-<section class="block soft">
+<section class="block soft" id="comparacao">
   <div class="container">
     <p class="section-kicker">Comparação</p>
     <h2 class="section-title">As habilidades de cada plano</h2>
@@ -226,7 +234,19 @@
   </div>
 </section>
 
-<section class="block soft">
+<section class="block soft" id="nr1">
+  <div class="container">
+    <p class="section-kicker">Outro produto</p>
+    <h2 class="section-title">Sua empresa precisa cumprir a NR-1?</h2>
+    <p class="section-lead">O FROID NR-1 é um produto distinto dos pacotes de sessões acima: avalia <strong>condições de trabalho</strong>, de forma anônima e agregada, para o empregador obrigado pela Portaria MTE nº 1.419/2024. Preços, faixas por efetivo e o que a empresa recebe estão na página do produto.</p>
+    <div class="hero-actions">
+      <a class="btn btn-solid" href="empresas.html#precos-nr1">Ver preços do FROID NR-1</a>
+      <a class="btn btn-ghost" href="diagnostico-nr1.html">Checar o enquadramento da minha empresa</a>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="antes-de-decidir">
   <div class="container">
     <p class="section-kicker">Antes de decidir</p>
     <h2 class="section-title">Ainda avaliando?</h2>
@@ -256,7 +276,7 @@
           <li><a href="etica.html">Ética</a></li>
           <li><a href="seguranca.html">Segurança</a></li>
           <li><a href="profissionais.html">Profissionais</a></li>
-          <li><a href="empresas.html">Empresas</a></li>
+          <li><a href="empresas.html">FROID NR-1</a></li>
           <li><a href="como-funciona-nr1.html">Como funciona</a></li>
           <li><a href="precos.html">Preços</a></li>
         </ul>
@@ -285,6 +305,6 @@
   </div>
 </footer>
 
-<script src="site-assets/script.js?v=4"></script>
+<script src="site-assets/script.js?v=14"></script>
 </body>
 </html>
