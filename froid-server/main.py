@@ -2518,6 +2518,37 @@ def _patient_identity_from_report(report: dict) -> dict:
     )
 
 
+def _patient_record_for_report(report: dict) -> Optional[dict]:
+    """Cadastro do paciente a que um relatório pertence, se houver.
+
+    Um relatório pode existir sem cadastro correspondente — sessão avulsa, ou
+    paciente que nunca aceitou o convite. Quem chama precisa tratar o None: a
+    ausência de cadastro não é erro, é um estado normal do produto.
+    """
+    enriched = _enrich_report_patient(dict(report or {}))
+    patient = enriched.get("patient") if isinstance(enriched.get("patient"), dict) else {}
+
+    patient_id = str(patient.get("id") or enriched.get("patientId") or "").strip()
+    if patient_id and isinstance(PATIENTS.get(patient_id), dict):
+        return PATIENTS[patient_id]
+
+    document = _digits_only(patient.get("document") or enriched.get("patientDocument") or "")
+    if document:
+        found = _find_registered_patient_by_document(document)
+        if found:
+            return found
+
+    contact_key = _patient_contact_key(
+        _normalize_email(patient.get("email") or ""),
+        _digits_only(patient.get("phone") or ""),
+    )
+    if contact_key:
+        mapped = PATIENTS_BY_CONTACT.get(contact_key)
+        if mapped and isinstance(PATIENTS.get(mapped), dict):
+            return PATIENTS[mapped]
+    return None
+
+
 def _find_registered_patient_by_document(document: str) -> Optional[dict]:
     normalized_document = _digits_only(document)
     if not normalized_document:
@@ -2559,33 +2590,151 @@ def _patient_session_matches_report(report: dict, patient_session: dict) -> bool
     )
 
 
-def _sanitize_report_for_patient(report: dict) -> dict:
+# Blocos de conteúdo que o profissional pode marcar ou desmarcar no documento do
+# paciente. A chave é a mesma do relatório, então a seleção age no lugar onde o
+# dado realmente está — não há uma segunda lista para sair de sincronia.
+#
+# O que NÃO está aqui é deliberado: id, sessionId, createdAt, durationSeconds,
+# patient, professional, professionalEmail e transcriptRetention identificam o
+# documento e a quem ele pertence. Sem eles o paciente teria um relatório que não
+# diz de quem é, de quando é, nem quem o assina — e a retenção de transcrição é
+# informação que a LGPD manda estar disponível ao titular.
+PATIENT_REPORT_ITEMS: tuple[tuple[str, str], ...] = (
+    ("sessionAverage", "Índices da sessão"),
+    ("baseline", "Calibração da linha de base"),
+    ("sessionSummary", "Resumo da sessão"),
+    ("tenMinuteCuts", "Cortes de 10 minutos"),
+    ("conversationSummaries", "Resumos da conversa"),
+    ("dissonances", "Dissonâncias"),
+    ("clinicalNotes", "Relatório descritivo do profissional"),
+    ("metricsAnalysis", "Análise das métricas"),
+)
+
+PATIENT_REPORT_ITEM_KEYS: tuple[str, ...] = tuple(key for key, _ in PATIENT_REPORT_ITEMS)
+
+# Chaves que entram sempre, independentemente do checklist.
+PATIENT_REPORT_ALWAYS: tuple[str, ...] = (
+    "id",
+    "sessionId",
+    "createdAt",
+    "durationSeconds",
+    "patient",
+    "professional",
+    "professionalEmail",
+    "transcriptRetention",
+    "metricsAnalysisError",
+)
+
+
+def _normalize_patient_report_items(value) -> list[str]:
+    """Filtra a seleção contra a lista conhecida, preservando a ordem canônica.
+
+    Vem do cliente, então nada aqui confia na entrada: chave desconhecida é
+    descartada em silêncio em vez de virar campo extra no documento.
+    """
+    if not isinstance(value, (list, tuple, set)):
+        return []
+    chosen = {str(item) for item in value}
+    return [key for key in PATIENT_REPORT_ITEM_KEYS if key in chosen]
+
+
+def _patient_results_enabled(patient: dict | None) -> bool:
+    """O paciente pode ver sessões e relatórios na área dele?
+
+    Decisão do profissional, tomada no convite e alterável depois. A ausência do
+    campo significa cadastro anterior a este controle: mantém o acesso que já
+    tinha, porque tirar acesso em silêncio de quem já via seria pior do que o
+    contrário. O padrão para convite NOVO é definido na criação, não aqui.
+    """
+    if not isinstance(patient, dict):
+        return False
+    value = patient.get("portal_results_enabled")
+    if value is None:
+        return True
+    return bool(value)
+
+
+def _report_patient_release(report: dict) -> dict:
+    """Estado de liberação do relatório para o paciente.
+
+    Relatório sem o campo é anterior a este controle e conta como liberado com
+    todos os itens — mesma razão da função acima.
+    """
+    raw = report.get("patientRelease") if isinstance(report, dict) else None
+    if not isinstance(raw, dict):
+        return {
+            "released": True,
+            "items": list(PATIENT_REPORT_ITEM_KEYS),
+            "releasedAt": "",
+            "releasedBy": "",
+            "legacy": True,
+        }
+    items = _normalize_patient_report_items(raw.get("items"))
+    return {
+        "released": bool(raw.get("released")),
+        "items": items,
+        "releasedAt": str(raw.get("releasedAt") or ""),
+        "releasedBy": str(raw.get("releasedBy") or ""),
+        "legacy": False,
+    }
+
+
+def _sanitize_report_for_patient(report: dict, items: list[str] | None = None) -> dict:
     enriched = _enrich_report_patient(dict(report or {}))
-    allowed_keys = [
-        "id",
-        "sessionId",
-        "createdAt",
-        "durationSeconds",
-        "patient",
-        "professional",
-        "professionalEmail",
-        "baseline",
-        "sessionAverage",
-        "tenMinuteCuts",
-        "conversationSummaries",
-        "sessionSummary",
-        "dissonances",
-        "clinicalNotes",
-        "transcriptRetention",
-        "metricsAnalysis",
-        "metricsAnalysisError",
-    ]
+    selected = (
+        list(PATIENT_REPORT_ITEM_KEYS)
+        if items is None
+        else _normalize_patient_report_items(items)
+    )
+    allowed_keys = list(PATIENT_REPORT_ALWAYS) + selected
     sanitized = {key: enriched.get(key) for key in allowed_keys if key in enriched}
     sanitized["patient"] = _patient_identity_from_report(enriched)
+    sanitized["patientReportItems"] = selected
     return sanitized
 
 
 def _reports_for_patient_session(patient_session: dict) -> list[dict]:
+    """Relatórios que o PACIENTE pode ver.
+
+    Dois portões, e os dois vivem aqui no servidor e não na tela: a permissão do
+    paciente e a liberação daquela sessão específica. Item não selecionado não é
+    escondido no cliente — ele não sai daqui.
+    """
+    patient_id = str(patient_session.get("id") or "") if isinstance(patient_session, dict) else ""
+    patient = PATIENTS.get(patient_id) if patient_id else None
+    if not _patient_results_enabled(patient):
+        return []
+
+    reports = []
+    for report in _load_session_reports().values():
+        if not isinstance(report, dict):
+            continue
+        if not _patient_session_matches_report(report, patient_session):
+            continue
+        release = _report_patient_release(report)
+        if not release["released"]:
+            continue
+        reports.append(_sanitize_report_for_patient(report, release["items"]))
+
+    reports.sort(
+        key=lambda report: str(report.get("createdAt") or report.get("created_at") or ""),
+        reverse=True,
+    )
+    return reports
+
+
+def _reports_for_patient_privacy_export(patient_session: dict) -> list[dict]:
+    """Relatórios do titular para a exportação LGPD — SEM os dois portões.
+
+    Portabilidade é direito do titular sobre o dado dele, e não uma vista de
+    produto que o profissional configura. A permissão de acesso aos resultados e
+    a liberação por sessão governam o que aparece na ÁREA do paciente; nenhuma
+    das duas pode reduzir o que ele leva embora quando exerce o direito.
+
+    Sem esta função a exportação passaria por _reports_for_patient_session e um
+    paciente com o acesso desligado exportaria zero sessões — o que seria um
+    defeito de conformidade, não uma decisão de produto.
+    """
     reports = [
         _sanitize_report_for_patient(report)
         for report in _load_session_reports().values()
@@ -5737,11 +5886,19 @@ async def create_session_invite(request: Request):
     package_total_cents = (
         session_value_cents * package_sessions if payment_mode == "package" else session_value_cents
     )
+    # Decisão do profissional, tomada no convite: este paciente poderá ver as
+    # próprias sessões e relatórios na área dele? O padrão de um convite NOVO é
+    # negativo — liberar dado clínico ao paciente é ato do profissional, e ato
+    # não se pratica por omissão. Cadastros anteriores a este controle seguem
+    # como estão; quem trata disso é _patient_results_enabled.
+    patient_results_enabled = bool(body.get("patient_results_enabled"))
+
     invite = {
         "id": str(uuid.uuid4()),
         "token": token,
         "session_id": session_id,
         "session_mode": session_mode,
+        "patient_results_enabled": patient_results_enabled,
         "spoken_language": spoken_language,
         "analysis_language": analysis_language,
         "report_locale": report_locale,
@@ -6390,6 +6547,15 @@ async def accept_session_invite(token: str, request: Request):
             "lgpd_consent_at": now,
             "consent_preferences": consent,
             "consent_updated_at": now,
+            # Escolha feita pelo profissional ao criar o convite. Num cadastro
+            # que já existe, a escolha anterior prevalece: um convite novo para
+            # um paciente conhecido não deve reabrir nem fechar o acesso dele
+            # sem que alguém decida isso explicitamente na ficha.
+            "portal_results_enabled": (
+                PATIENTS.get(patient_id, {}).get("portal_results_enabled")
+                if patient_id in PATIENTS
+                else bool(invite.get("patient_results_enabled"))
+            ),
         }
         _set_patient_password(patient, password)
         PATIENTS[patient_id] = patient
@@ -6866,7 +7032,8 @@ async def patient_portal_privacy_export(request: Request):
     patient_session = _require_current_patient(request)
     patient_id = str(patient_session.get("id") or "")
     identity_document = _digits_only(patient_session.get("document") or "")
-    reports = _reports_for_patient_session(patient_session)
+    # Exportação de titular: caminho próprio, sem os portões da área do paciente.
+    reports = _reports_for_patient_privacy_export(patient_session)
     consents = [
         {
             "version": item.get("version"),
@@ -10511,6 +10678,138 @@ async def add_session_clinical_note(
         metadata={"clinical_note_id": note["id"]},
     )
     return {"status": "created", "note": note}
+
+
+@app.put("/api/session-reports/{session_id}/patient-release")
+async def set_session_report_patient_release(session_id: str, request: Request):
+    """Libera ou retém, para o paciente, o relatório de UMA sessão.
+
+    Nada chega ao paciente sem este ato. O profissional compõe o documento
+    marcando os blocos que entram e libera; enquanto não liberar, a sessão não
+    aparece na área dele. Revogar é o mesmo endpoint com released=false — e o
+    relatório some da área na hora, porque o portão é lido a cada requisição e
+    não gravado numa cópia.
+
+    O documento do PROFISSIONAL não passa por aqui: ele sai sempre completo.
+    Este endpoint só descreve o que o paciente recebe.
+    """
+    user = _require_current_user(request)
+    owner_email = _normalize_email(user.get("email") or "")
+    reports = _load_session_reports()
+    report = reports.get(session_id)
+    if not isinstance(report, dict):
+        raise HTTPException(status_code=404, detail="Relatório não encontrado")
+    context = _authorize_tenant_request(
+        request,
+        "reports.update",
+        resource_type="session_report",
+        resource_id=session_id,
+        resource_organization_id=_report_organization_id(report),
+        owns_resource=_can_access_report(report, owner_email),
+    )
+
+    body = await request.json()
+    released = bool(body.get("released"))
+    items = _normalize_patient_report_items(body.get("items"))
+    if released and not items:
+        raise HTTPException(
+            status_code=400,
+            detail="Selecione ao menos um item para compor o relatório do paciente",
+        )
+
+    now = datetime.now(timezone.utc).isoformat()
+    report["patientRelease"] = {
+        "released": released,
+        "items": items,
+        "releasedAt": now if released else "",
+        "releasedBy": owner_email if released else "",
+    }
+    reports[session_id] = report
+    _save_session_reports(reports)
+    _record_tenant_success(
+        context,
+        "report.patient_release.update" if released else "report.patient_release.revoke",
+        "session_report",
+        session_id,
+        metadata={"released": released, "items": items},
+    )
+    return {"status": "ok", "patientRelease": report["patientRelease"]}
+
+
+@app.put("/api/patients/{patient_id}/results-access")
+async def set_patient_results_access(patient_id: str, request: Request):
+    """Liga ou desliga o acesso do paciente aos próprios resultados.
+
+    Mesma decisão tomada no convite, disponível depois na ficha — porque a
+    escolha muda com o caso clínico, e obrigar o profissional a acertar no ato
+    do convite transformaria uma decisão reversível em definitiva.
+
+    DESLIGAR NÃO FECHA O PORTAL. O paciente continua entrando, vendo os próprios
+    dados cadastrais e exercendo os direitos de titular; o que ele deixa de ver
+    são sessões e relatórios. Fechar o portal inteiro removeria o canal pelo qual
+    a LGPD é atendida, e isso não é escolha de produto.
+    """
+    user = _require_current_user(request)
+    _require_professional_feature_access(request)
+    owner_email = _normalize_email(user.get("email") or "")
+
+    patient = PATIENTS.get(patient_id)
+    if not isinstance(patient, dict):
+        raise HTTPException(status_code=404, detail="Paciente não encontrado")
+
+    # Vínculo: só mexe na ficha quem atendeu este paciente. Sem esta checagem,
+    # qualquer profissional autenticado alteraria o acesso de qualquer paciente
+    # da base pelo id.
+    linked = any(
+        _normalize_email(invite.get("professional_email") or "") == owner_email
+        and str(invite.get("patient_id") or "") == patient_id
+        for invite in SESSION_INVITES.values()
+    ) or any(
+        isinstance(report, dict)
+        and _can_access_report(report, owner_email)
+        and (_patient_record_for_report(report) or {}).get("id") == patient_id
+        for report in _load_session_reports().values()
+    )
+    if not linked:
+        raise HTTPException(status_code=403, detail="Paciente não vinculado a este profissional")
+
+    body = await request.json()
+    enabled = bool(body.get("enabled"))
+    patient["portal_results_enabled"] = enabled
+    patient["updated_at"] = datetime.now(timezone.utc).isoformat()
+    PATIENTS[patient_id] = patient
+    _persist_state()
+    return {"status": "ok", "patient_id": patient_id, "portal_results_enabled": enabled}
+
+
+@app.get("/api/session-reports/{session_id}/patient-release")
+async def get_session_report_patient_release(session_id: str, request: Request):
+    """Estado de liberação da sessão, e o catálogo de itens que a tela desenha.
+
+    O catálogo vem do servidor de propósito: é a mesma tupla que filtra o
+    documento, então a tela não pode oferecer um item que o filtro desconhece.
+    """
+    user = _require_current_user(request)
+    owner_email = _normalize_email(user.get("email") or "")
+    reports = _load_session_reports()
+    report = reports.get(session_id)
+    if not isinstance(report, dict):
+        raise HTTPException(status_code=404, detail="Relatório não encontrado")
+    _authorize_tenant_request(
+        request,
+        "reports.read",
+        resource_type="session_report",
+        resource_id=session_id,
+        resource_organization_id=_report_organization_id(report),
+        owns_resource=_can_access_report(report, owner_email),
+    )
+    patient = _patient_record_for_report(report)
+    return {
+        "patientRelease": _report_patient_release(report),
+        "catalog": [{"key": key, "label": label} for key, label in PATIENT_REPORT_ITEMS],
+        "patientResultsEnabled": _patient_results_enabled(patient),
+        "patientId": str((patient or {}).get("id") or ""),
+    }
 
 
 @app.get("/api/session-reports/{session_id}/metrics")
