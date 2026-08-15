@@ -6822,10 +6822,17 @@ async def patient_portal_update_password(
 async def patient_portal_reports(request: Request):
     patient_session = _require_current_patient(request)
     reports = _reports_for_patient_session(patient_session)
+    # A lista vazia tem duas causas muito diferentes — ainda não há sessão, ou o
+    # profissional não habilitou o acesso — e sem este campo a área diria
+    # "nenhum resultado localizado" nos dois casos. Para quem teve sessão e não
+    # vê nada, essa frase é simplesmente falsa.
+    patient_id = str(patient_session.get("id") or "")
+    results_enabled = _patient_results_enabled(PATIENTS.get(patient_id) if patient_id else None)
     return {
         "patient": _patient_public_identity(patient_session),
         "reports": reports,
         "total": len(reports),
+        "resultsEnabled": results_enabled,
     }
 
 

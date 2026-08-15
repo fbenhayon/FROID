@@ -8,6 +8,7 @@ import {
 } from "../lib/patient-dashboard";
 import type { PatientIdentity, SessionReportRecord } from "../lib/session-report";
 import { formatDuration } from "../lib/session-report";
+import { buildReport, openPrintable } from "../lib/report-pdf";
 
 const PATIENT_TOKEN_KEY = "froid_patient_token";
 const PATIENT_USER_KEY = "froid_patient_user";
@@ -16,6 +17,7 @@ type PatientPortalResponse = {
   patient: PatientIdentity;
   reports: SessionReportRecord[];
   total: number;
+  resultsEnabled?: boolean;
 };
 
 type PrivacyRequest = {
@@ -82,19 +84,30 @@ function metricValue(snapshot: SessionReportRecord["sessionAverage"] | undefined
   return cell?.value || "--";
 }
 
-function savePatientDownload(report: SessionReportRecord) {
-  const sessionId = report.sessionId || report.id || "sessão";
-  const blob = new Blob([JSON.stringify(report, null, 2)], {
-    type: "application/json;charset=utf-8",
+/** Abre o relatório do paciente para leitura, impressão ou salvamento em PDF.
+ *
+ *  Antes daqui saía o JSON bruto do relatório. Um arquivo de chaves e números é
+ *  o oposto do que este documento existe para ser: o paciente recebe os sinais
+ *  descritos como medida, em linguagem que ele lê, e um .json não é isso para
+ *  ninguém — é dado de máquina entregue como se fosse informação.
+ *
+ *  O documento é o mesmo que o profissional vê no botão "PDF paciente", gerado
+ *  pelo mesmo report-pdf.ts. Não há duas versões do documento do paciente para
+ *  divergirem entre a tela dele e a do profissional.
+ *
+ *  Os blocos que o profissional não marcou já não vieram do servidor, então o
+ *  gerador simplesmente não os encontra — a seleção não é reaplicada aqui, e
+ *  não há como a tela mostrar algo que o filtro do servidor removeu.
+ *
+ *  A identidade sai do próprio relatório: o portal do paciente não tem, e não
+ *  deve ter, o cadastro do profissional em armazenamento local.
+ */
+function abrirRelatorioDoPaciente(report: SessionReportRecord): boolean {
+  const html = buildReport("patient", report, {
+    professionalName: String(report.professional?.name || report.professionalEmail || ""),
+    contactEmail: String(report.professional?.email || report.professionalEmail || ""),
   });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `froid-resultado-${sessionId}.json`;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(url);
+  return openPrintable(html);
 }
 
 function saveAllPatientDownloads(patient: PatientIdentity | null, reports: SessionReportRecord[]) {
@@ -124,6 +137,11 @@ export const PatientPortalPage: React.FC = () => {
   });
   const [patient, setPatient] = useState<PatientIdentity | null>(() => readStoredPatient());
   const [reports, setReports] = useState<SessionReportRecord[]>([]);
+  const [downloadAviso, setDownloadAviso] = useState("");
+  // O profissional habilitou este paciente a ver os resultados? Sem isto a área
+  // não consegue distinguir "ainda não houve sessão" de "há sessões, mas o
+  // acesso está desligado" — e diria a primeira frase nos dois casos.
+  const [resultsEnabled, setResultsEnabled] = useState(true);
   const [loginForm, setLoginForm] = useState({ document: "", password: "" });
   const [passwordForm, setPasswordForm] = useState({
     current_password: "",
@@ -283,6 +301,7 @@ export const PatientPortalPage: React.FC = () => {
       if (!response.ok) throw new Error((data as any)?.detail || "Não foi possível carregar os resultados.");
       applyPatient(data.patient || null);
       setReports(Array.isArray(data.reports) ? data.reports : []);
+      setResultsEnabled(data.resultsEnabled !== false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao carregar o portal do paciente.");
       setReports([]);
@@ -1011,9 +1030,27 @@ export const PatientPortalPage: React.FC = () => {
             {loading && <span className="text-xs font-bold text-cyan-300">Carregando...</span>}
           </div>
 
+          {downloadAviso && (
+            <div className="mt-3 rounded border border-amber-800 bg-amber-950/40 p-3 text-xs font-bold text-amber-200">
+              {downloadAviso}
+            </div>
+          )}
+
           {!reports.length ? (
             <div className="mt-4 rounded border border-slate-700 bg-slate-950 p-4 text-sm text-slate-300">
-              Nenhum resultado de sessão finalizada foi localizado para este cadastro.
+              {resultsEnabled ? (
+                <>
+                  Nenhum relatório foi disponibilizado até agora. Cada relatório é
+                  revisado e liberado pelo seu profissional antes de aparecer aqui.
+                </>
+              ) : (
+                <>
+                  Seu profissional ainda não habilitou a exibição dos resultados das
+                  sessões nesta área. Isso não afeta os seus direitos sobre os seus
+                  dados: você continua podendo consultá-los e solicitar a exportação
+                  pelo Portal LGPD, acima.
+                </>
+              )}
             </div>
           ) : (
             <div className="mt-4 space-y-3">
@@ -1046,10 +1083,21 @@ export const PatientPortalPage: React.FC = () => {
                         </button>
                         <button
                           type="button"
-                          onClick={() => savePatientDownload(report)}
+                          onClick={() => {
+                            // O bloqueio de pop-up é silencioso: sem este aviso
+                            // o paciente clica, nada acontece, e ele conclui que
+                            // o relatório dele não existe.
+                            setDownloadAviso(
+                              abrirRelatorioDoPaciente(report)
+                                ? ""
+                                : "O navegador bloqueou a janela do relatório. "
+                                  + "Autorize pop-ups para este endereço e tente de novo.",
+                            );
+                          }}
+                          title="Abre o relatório para leitura, impressão ou salvamento em PDF."
                           className="rounded bg-cyan-700 px-3 py-2 text-[11px] font-black text-white hover:bg-cyan-600"
                         >
-                          Baixar
+                          Baixar relatório
                         </button>
                       </div>
                     </div>
