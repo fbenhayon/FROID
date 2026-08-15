@@ -71,6 +71,12 @@ export const NewPatient: React.FC = () => {
   const [languages, setLanguages] = useState<SessionLanguagePreferences>(
     loadSessionLanguagePreferences,
   );
+  // Este paciente poderá ver as próprias sessões na área dele? Decisão do
+  // profissional. Nasce desligado de propósito: liberar dado clínico ao
+  // paciente é ato, e ato não se pratica por omissão. Alterável depois na ficha
+  // — ligar aqui não libera nada sozinho, cada relatório ainda passa pela
+  // composição e liberação na tela do Relatório da Sessão.
+  const [patientResultsEnabled, setPatientResultsEnabled] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
   const [invite, setInvite] = useState<InviteResult | null>(null);
@@ -164,6 +170,7 @@ export const NewPatient: React.FC = () => {
           package_sessions: Number(form.package_sessions || 0),
           session_value: form.session_value,
           session_mode: isPatientMobileCapture ? "presential_mobile" : "remote",
+          patient_results_enabled: patientResultsEnabled,
           patient_ui_locale: languages.patientUiLocale,
           spoken_language: languages.spokenLanguage,
           analysis_language: languages.analysisLanguage,
@@ -419,6 +426,29 @@ export const NewPatient: React.FC = () => {
                 />
               </label>
             )}
+            {/* Acesso do paciente aos próprios resultados. Fica no convite
+                porque é onde o profissional decide o enquadramento do caso, e
+                não escondido numa tela de configuração. */}
+            <div className="md:col-span-2 rounded-lg border border-slate-700 bg-slate-950 p-3">
+              <label className="flex cursor-pointer items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={patientResultsEnabled}
+                  onChange={(event) => setPatientResultsEnabled(event.target.checked)}
+                  className="mt-1 h-4 w-4 shrink-0 accent-cyan-500"
+                />
+                <span>
+                  <span className="text-xs font-black text-white">
+                    Habilitar o paciente a ver os resultados na área dele
+                  </span>
+                  <span className="mt-1 block text-[11px] font-normal leading-4 text-slate-400">
+                    {patientResultsEnabled
+                      ? "O paciente poderá abrir e baixar os relatórios que você liberar. Ligar aqui não libera nada sozinho: cada sessão ainda passa pela composição e pelo botão de liberar, no Relatório da Sessão."
+                      : "O paciente entra na área dele, vê os próprios dados cadastrais e exerce os direitos de titular, mas não vê sessões nem relatórios. Você pode mudar isso depois, na ficha dele."}
+                  </span>
+                </span>
+              </label>
+            </div>
             <div className="md:col-span-2">
               <button
                 type="submit"
