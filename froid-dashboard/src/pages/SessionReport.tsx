@@ -688,6 +688,96 @@ export const SessionReport: React.FC<Props> = () => {
     && descriptiveReport.trim() !== autoDescriptive.trim();
   const [pdfAviso, setPdfAviso] = useState("");
 
+  // ---------- Composição do documento do paciente ----------
+  // Separado de `sections`, que governa o que o PROFISSIONAL vê e imprime. Aqui
+  // se decide o que o PACIENTE recebe na área dele — outra audiência, outra
+  // decisão. O catálogo vem do servidor: é a mesma lista que filtra o payload,
+  // então a tela não consegue oferecer um item que o filtro desconhece.
+  const [releaseCatalog, setReleaseCatalog] = useState<{ key: string; label: string }[]>([]);
+  const [releaseItems, setReleaseItems] = useState<string[]>([]);
+  const [releaseState, setReleaseState] = useState<{
+    released: boolean;
+    releasedAt: string;
+    legacy: boolean;
+  }>({ released: false, releasedAt: "", legacy: false });
+  const [patientResultsEnabled, setPatientResultsEnabled] = useState(true);
+  const [releaseSaving, setReleaseSaving] = useState(false);
+  const [releaseAviso, setReleaseAviso] = useState("");
+
+  useEffect(() => {
+    if (!sessionId) return;
+    const token = localStorage.getItem("froid_token") || "";
+    let active = true;
+    fetch(apiUrl(`/api/session-reports/${sessionId}/patient-release`), {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (!active || !data) return;
+        setReleaseCatalog(Array.isArray(data.catalog) ? data.catalog : []);
+        const release = data.patientRelease || {};
+        setReleaseState({
+          released: Boolean(release.released),
+          releasedAt: String(release.releasedAt || ""),
+          legacy: Boolean(release.legacy),
+        });
+        // Sessão ainda não composta abre com tudo marcado: desmarcar o que não
+        // cabe é mais rápido do que marcar oito itens do zero, e o profissional
+        // ainda precisa clicar em liberar para que qualquer coisa saia daqui.
+        const items = Array.isArray(release.items) ? release.items : [];
+        setReleaseItems(
+          items.length
+            ? items
+            : (Array.isArray(data.catalog) ? data.catalog : []).map(
+                (item: { key: string }) => item.key,
+              ),
+        );
+        setPatientResultsEnabled(data.patientResultsEnabled !== false);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [sessionId]);
+
+  const toggleReleaseItem = (key: string) =>
+    setReleaseItems((prev) =>
+      prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key],
+    );
+
+  const salvarLiberacao = async (released: boolean) => {
+    if (!sessionId) return;
+    setReleaseSaving(true);
+    setReleaseAviso("");
+    try {
+      const token = localStorage.getItem("froid_token") || "";
+      const response = await fetch(
+        apiUrl(`/api/session-reports/${sessionId}/patient-release`),
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ released, items: releaseItems }),
+        },
+      );
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.detail || "Não foi possível salvar.");
+      const release = data.patientRelease || {};
+      setReleaseState({
+        released: Boolean(release.released),
+        releasedAt: String(release.releasedAt || ""),
+        legacy: false,
+      });
+      setReleaseAviso(released ? "Relatório liberado ao paciente." : "Liberação revogada.");
+    } catch (err) {
+      setReleaseAviso(err instanceof Error ? err.message : "Falha ao salvar a liberação.");
+    } finally {
+      setReleaseSaving(false);
+    }
+  };
+
   const gerarPdf = (audience: ReportAudience) => {
     setPdfAviso("");
     if (!report) return;
@@ -1338,6 +1428,91 @@ export const SessionReport: React.FC<Props> = () => {
               </button>
               </div>
             </div>
+
+            {/* Composição e liberação do documento do paciente. Fica aqui, e não
+                numa tela à parte, porque é a mesma decisão que o profissional
+                está tomando ao redigir: o que este paciente deve ler. */}
+            <div className="mb-3 rounded-lg border border-amber-900/60 bg-amber-950/20 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-xs font-black text-amber-100">
+                  O que o paciente recebe na área dele
+                </h3>
+                <span
+                  className={
+                    releaseState.released
+                      ? "rounded-full bg-emerald-900/60 px-2 py-0.5 text-[10px] font-black text-emerald-200"
+                      : "rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-black text-slate-300"
+                  }
+                >
+                  {releaseState.released ? "Liberado" : "Retido"}
+                </span>
+              </div>
+
+              {!patientResultsEnabled && (
+                <p className="mt-2 rounded border border-amber-800 bg-amber-950/50 p-2 text-[11px] leading-4 text-amber-200">
+                  Este paciente está com o acesso aos resultados desligado na ficha.
+                  Liberar aqui deixa o relatório pronto, mas ele só aparecerá para o
+                  paciente quando o acesso for habilitado.
+                </p>
+              )}
+
+              <p className="mt-2 text-[11px] leading-4 text-slate-400">
+                Marque os blocos que entram no documento do paciente. O documento do
+                profissional não depende desta escolha — ele sai sempre completo.
+              </p>
+
+              <div className="mt-2 grid gap-1 sm:grid-cols-2">
+                {releaseCatalog.map((item) => (
+                  <label
+                    key={item.key}
+                    className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 hover:bg-slate-900/60"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={releaseItems.includes(item.key)}
+                      onChange={() => toggleReleaseItem(item.key)}
+                      className="h-3.5 w-3.5 shrink-0 accent-amber-500"
+                    />
+                    <span className="text-[11px] font-bold text-slate-200">{item.label}</span>
+                  </label>
+                ))}
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => salvarLiberacao(true)}
+                  disabled={releaseSaving || !releaseItems.length}
+                  title={
+                    releaseItems.length
+                      ? "Publica o relatório na área do paciente, com os blocos marcados."
+                      : "Marque ao menos um bloco para compor o relatório."
+                  }
+                  className="rounded border border-emerald-700 bg-emerald-950 px-2 py-1 text-[10px] font-bold text-emerald-100 hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {releaseState.released ? "Atualizar liberação" : "Liberar ao paciente"}
+                </button>
+                {releaseState.released && (
+                  <button
+                    onClick={() => salvarLiberacao(false)}
+                    disabled={releaseSaving}
+                    title="Retira o relatório da área do paciente imediatamente."
+                    className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-[10px] font-bold text-slate-300 hover:bg-slate-900 disabled:opacity-40"
+                  >
+                    Revogar
+                  </button>
+                )}
+                {releaseState.legacy && !releaseSaving && (
+                  <span className="text-[10px] font-bold text-slate-400">
+                    Sessão anterior a este controle: visível ao paciente por
+                    compatibilidade.
+                  </span>
+                )}
+                {releaseAviso && (
+                  <span className="text-[10px] font-bold text-amber-200">{releaseAviso}</span>
+                )}
+              </div>
+            </div>
+
             {!descriptiveEdited && (
               <p className="mb-2 rounded border border-amber-800 bg-amber-950/50 px-2 py-1.5 text-[10px] leading-4 text-amber-100">
                 O texto abaixo foi composto pelo sistema. Reescreva-o com as suas
