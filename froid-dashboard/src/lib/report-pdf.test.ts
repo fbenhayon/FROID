@@ -170,13 +170,42 @@ describe("os dois documentos", () => {
       expect(html.startsWith("<!doctype html>")).toBe(true);
       expect(html.trimEnd().endsWith("</html>")).toBe(true);
       expect(html).toContain("size:A4");
-      expect((html.match(/class="folha"/g) || []).length).toBe(2);
+      // O número de folhas deixou de ser fixo: seções de comprimento variável
+      // — cortes, sinais — são repartidas para que nenhuma folha passe de A4.
+      // O que se afirma agora é mais forte que "são duas": é que a numeração
+      // impressa bate com a quantidade real de folhas.
+      const folhas = (html.match(/class="folha"/g) || []).length;
+      expect(folhas).toBeGreaterThanOrEqual(2);
+      for (let n = 1; n <= folhas; n += 1) {
+        expect(html).toContain(`Página ${n} de ${folhas}`);
+      }
+      expect(html).not.toContain(`Página ${folhas + 1} de`);
     }
   });
 
-  it("carregam a faixa da marca em cada folha", () => {
+  it("carregam cabeçalho e rodapé em cada folha", () => {
     for (const html of [paciente, profissional]) {
-      expect((html.match(/marca-topo/g) || []).length).toBeGreaterThanOrEqual(3);
+      const folhas = (html.match(/class="folha"/g) || []).length;
+      expect((html.match(/class="cabecalho"/g) || []).length).toBe(folhas);
+      expect((html.match(/<footer>/g) || []).length).toBe(folhas);
+    }
+  });
+
+  it("nomeiam o profissional no cabeçalho e no rodapé de cada folha", () => {
+    // Folha que se separou da pilha precisa dizer de quem é.
+    for (const html of [paciente, profissional]) {
+      const folhas = (html.match(/class="folha"/g) || []).length;
+      expect((html.match(/class="prof"/g) || []).length).toBe(folhas);
+      expect((html.match(/class="quem"/g) || []).length).toBe(folhas);
+    }
+  });
+
+  it("mandam imprimir com as cores", () => {
+    // Sem print-color-adjust o navegador descarta fundo ao imprimir, e a cor
+    // aqui carrega significado: verde, âmbar e vermelho por métrica.
+    for (const html of [paciente, profissional]) {
+      expect(html).toContain("print-color-adjust:exact");
+      expect(html).toContain("-webkit-print-color-adjust:exact");
     }
   });
 

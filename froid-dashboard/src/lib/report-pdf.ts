@@ -157,8 +157,35 @@ tbody tr:nth-child(even){background:var(--zebra)}
         font-size:8.5pt;color:#FDE68A;margin-top:12px;line-height:1.55}
 .limite b{color:#FCD34D}
 footer{margin-top:18px;padding-top:8px;border-top:1px solid var(--linha);
-       display:flex;justify-content:space-between;color:var(--rotulo);font-size:7pt}
-@media print{.folha{margin:0}@page{size:A4;margin:0}}
+       display:flex;justify-content:space-between;gap:12px;color:var(--rotulo);font-size:7pt}
+footer .quem{font-weight:700;color:var(--navy)}
+/* Cabeçalho repetido em toda folha: marca à esquerda, profissional à direita.
+   Fica sobre a faixa colorida, por isso o texto é claro. */
+.cabecalho{position:absolute;top:1.4mm;left:14mm;right:14mm;display:flex;
+           justify-content:space-between;align-items:baseline;font-size:7pt;
+           font-weight:800;letter-spacing:.34em;color:#F8FAFC}
+.cabecalho .marca span{color:#3B82F6}
+.cabecalho .prof{letter-spacing:.04em;font-weight:600;color:#CBD5E1;
+                 max-width:60%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* IMPRESSÃO
+   print-color-adjust é o que decide se este documento sai colorido ou em
+   branco. Por padrão o navegador descarta cor de fundo ao imprimir — some a
+   faixa do topo, somem os cabeçalhos navy das tabelas e somem os selos de
+   alerta, que passam a ser texto cinza sobre branco. Num relatório em que a
+   cor CARREGA significado (verde/âmbar/vermelho por métrica), perder o fundo
+   não é perder estética: é perder informação. */
+@media print{
+  html,body{background:#fff}
+  body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .folha{margin:0;box-shadow:none;page-break-after:always}
+  .folha:last-child{page-break-after:auto}
+  section{break-inside:auto}
+  .fase,.disso,.sinal,tr{break-inside:avoid}
+  thead{display:table-header-group}
+}
+@page{size:A4;margin:0}
 `;
 
 const EXTRA_PROFISSIONAL = `
@@ -235,11 +262,65 @@ function metaBlock(report: SessionReportRecord, id: ReportIdentity, mostraPacien
     </div></div>`;
 }
 
-function pagina(conteudo: string, rodapeEsq: string, n: number, total: number): string {
-  return `<div class="folha"><div class="marca-topo">FR<span>OID</span></div>`
+/** Reparte blocos de comprimento variável em folhas.
+ *
+ *  Sessão longa gera muitos cortes e muitos sinais, e o número deles não é
+ *  conhecido de antemão. Enfiar tudo numa folha de altura fixa foi exatamente o
+ *  defeito medido aqui: com seis cortes a folha 1 do paciente ia a 302,6 mm
+ *  contra os 297 mm do A4, e o excesso vazava para uma segunda folha impressa
+ *  que o rodapé não contava — "Página 1 de 2" saindo em três folhas de papel.
+ *
+ *  O limite por folha é conservador de propósito. Errar para menos gera uma
+ *  folha com espaço sobrando, que ninguém percebe; errar para mais gera
+ *  conteúdo cortado e numeração mentirosa.
+ */
+function repartir<T>(itens: T[], porFolha: number): T[][] {
+  if (itens.length <= porFolha) return [itens];
+  const grupos: T[][] = [];
+  for (let i = 0; i < itens.length; i += porFolha) grupos.push(itens.slice(i, i + porFolha));
+  return grupos;
+}
+
+/** Uma folha A4, com cabeçalho e rodapé repetidos.
+ *
+ *  O nome do profissional aparece nos dois: no cabeçalho porque uma folha solta
+ *  que se separou do documento precisa dizer de quem é, e no rodapé junto do
+ *  número da página, que é onde se procura ao remontar uma pilha impressa.
+ */
+function pagina(
+  conteudo: string,
+  rodapeEsq: string,
+  n: number,
+  total: number,
+  quem = "",
+): string {
+  return `<div class="folha">`
+    + `<div class="cabecalho">`
+    + `<span class="marca">FR<span>OID</span></span>`
+    + (quem ? `<span class="prof">${escapeHtml(quem)}</span>` : "")
+    + `</div>`
     + conteudo
-    + `<footer><span>${escapeHtml(rodapeEsq)}</span>`
-    + `<span>Página ${n} / ${total}</span></footer></div>`;
+    + `<footer>`
+    + `<span>${quem ? `<span class="quem">${escapeHtml(quem)}</span> · ` : ""}${escapeHtml(rodapeEsq)}</span>`
+    + `<span>Página ${n} de ${total}</span>`
+    + `</footer></div>`;
+}
+
+/** Monta o documento a partir das folhas, numerando pelo total real.
+ *
+ *  Antes o total era escrito à mão — "1 / 2", "2 / 2" — e continuou dizendo 2
+ *  quando o documento passou a ter três folhas. Número de página errado num
+ *  documento clínico impresso é pior do que número nenhum: quem remonta a pilha
+ *  confia nele e conclui que está faltando folha.
+ */
+function montarFolhas(
+  paginas: { conteudo: string; rodape: string }[],
+  quem: string,
+): string {
+  const total = paginas.length;
+  return paginas
+    .map((p, i) => pagina(p.conteudo, p.rodape, i + 1, total, quem))
+    .join("");
 }
 
 /** Documento do PROFISSIONAL. */
@@ -411,7 +492,12 @@ export function buildProfessionalReport(
       <div class="kpi"><div class="n">${cortes.length}</div><div class="d">Cortes</div></div>
       <div class="kpi"><div class="n">${(report.dissonances || []).length}</div><div class="d">Dissonâncias</div></div>
     </div>
-    ${secaoSintese(report)}
+    ${secaoSintese(report)}`;
+
+  // As tabelas ganham folha própria. Antes elas vinham na capa, e a capa já
+  // carrega epígrafe, identificação e os quatro KPIs — com as três seções novas
+  // ali junto, a folha 1 passava de A4 e o conteúdo transbordava.
+  const tabelas = `
     ${secaoEstatistica(report)}
     ${secaoIndicesPorCorte(report)}`;
 
@@ -420,14 +506,26 @@ export function buildProfessionalReport(
       <p>${escapeHtml(d.report)}</p></div>`).join("")
     || `<p>Nenhuma dissonância registrada nesta sessão.</p>`;
 
+  // Cinco cortes por folha. O bloco do profissional é mais compacto que o do
+  // paciente — sem o quadro de zona —, por isso o limite é um pouco maior.
+  const gruposCortes = repartir(cortes, 5);
+  const folhasCortes = cortes.length
+    ? gruposCortes.map((grupo, g) => `
+      <section style="margin-top:0"><div class="cab"><span class="num">04</span>
+        <h2>Cortes semânticos${gruposCortes.length > 1 ? ` (${g + 1}/${gruposCortes.length})` : ""}</h2></div>
+        ${grupo.map((c) => {
+          const i = cortes.indexOf(c);
+          return `<div class="fase"><div class="badge">Corte<b>${i + 1}</b></div>
+            <div class="corpo"><b>${escapeHtml(cutRange(c))} · ${escapeHtml(c.theme || "Sem tema definido")}</b>
+            <p>${escapeHtml(summaryOrFallback(c.summary))}</p></div></div>`;
+        }).join("")}
+      </section>`)
+    : [`<section style="margin-top:0"><div class="cab"><span class="num">04</span>
+        <h2>Cortes semânticos</h2></div>
+        <p>Nenhum corte registrado nesta sessão.</p></section>`];
+
   const segunda = `
-    <section style="margin-top:0"><div class="cab"><span class="num">04</span><h2>Cortes semânticos</h2></div>
-      ${cortes.map((c, i) => `<div class="fase"><div class="badge">Corte<b>${i + 1}</b></div>
-        <div class="corpo"><b>${escapeHtml(cutRange(c))} · ${escapeHtml(c.theme || "Sem tema definido")}</b>
-        <p>${escapeHtml(summaryOrFallback(c.summary))}</p></div></div>`).join("")
-        || `<p>Nenhum corte registrado nesta sessão.</p>`}
-    </section>
-    <section><div class="cab"><span class="num">05</span><h2>Sinais observados</h2></div>
+    <section style="margin-top:0"><div class="cab"><span class="num">05</span><h2>Sinais observados</h2></div>
       ${dissonancias}
       <div class="limite"><b>O que estes sinais são, e o que não são.</b>
         Descrevem medidas de fala e expressão facial contra a linha de base desta
@@ -443,9 +541,17 @@ export function buildProfessionalReport(
     </section>`;
 
   const rodape = `${tituloDocumento(id)} · Documento clínico confidencial`;
+  const rodapeFim = `${rodape}${id.contactEmail ? ` · ${id.contactEmail}` : ""}`;
   return head(`Relatório descritivo — ${report.sessionId}`, EXTRA_PROFISSIONAL)
-    + pagina(capa, rodape, 1, 2)
-    + pagina(segunda, `${rodape}${id.contactEmail ? ` · ${id.contactEmail}` : ""}`, 2, 2)
+    + montarFolhas(
+      [
+        { conteudo: capa, rodape },
+        { conteudo: tabelas, rodape },
+        ...folhasCortes.map((conteudo) => ({ conteudo, rodape })),
+        { conteudo: segunda, rodape: rodapeFim },
+      ],
+      id.professionalName,
+    )
     + `</body></html>`;
 }
 
@@ -480,12 +586,26 @@ export function buildPatientReport(
       <p>Os números descrevem movimento, não julgamento. Um valor mais alto não é
         pior, e um mais baixo não é melhor.</p>
     </section>
-    <section><div class="cab"><span class="num">02</span><h2>Percurso da sessão</h2></div>
-      ${cortes.map((c, i) => `<div class="fase"><div class="badge">Trecho<b>${i + 1}</b></div>
-        <div class="corpo"><b>${escapeHtml(cutRange(c))} · ${escapeHtml(c.theme || "Sem tema definido")}</b>
-        <p>${escapeHtml(summaryOrFallback(c.summary))}</p></div></div>`).join("")
-        || `<p>Nenhum trecho registrado nesta sessão.</p>`}
-    </section>`;
+  `;
+
+  // Quatro trechos por folha. Cada bloco leva intervalo, tema e resumo, e é o
+  // resumo que varia — por isso o limite fica abaixo do que caberia no melhor
+  // caso.
+  const gruposCortes = repartir(cortes, 4);
+  const folhasPercurso = cortes.length
+    ? gruposCortes.map((grupo, g) => `
+      <section style="margin-top:0"><div class="cab"><span class="num">02</span>
+        <h2>Percurso da sessão${gruposCortes.length > 1 ? ` (${g + 1}/${gruposCortes.length})` : ""}</h2></div>
+        ${grupo.map((c) => {
+          const i = cortes.indexOf(c);
+          return `<div class="fase"><div class="badge">Trecho<b>${i + 1}</b></div>
+            <div class="corpo"><b>${escapeHtml(cutRange(c))} · ${escapeHtml(c.theme || "Sem tema definido")}</b>
+            <p>${escapeHtml(summaryOrFallback(c.summary))}</p></div></div>`;
+        }).join("")}
+      </section>`)
+    : [`<section style="margin-top:0"><div class="cab"><span class="num">02</span>
+        <h2>Percurso da sessão</h2></div>
+        <p>Nenhum trecho registrado nesta sessão.</p></section>`];
 
   const blocosSinais = sinais.map((item) => `
     <div class="sinal"><span class="quando">${escapeHtml(formatClock(item.registro.elapsedSeconds))}</span>
@@ -526,9 +646,16 @@ export function buildPatientReport(
     </section>`;
 
   const rodape = `${tituloDocumento(id)} · Documento pessoal e confidencial`;
+  const rodapeFim = `${rodape}${id.contactEmail ? ` · ${id.contactEmail}` : ""}`;
   return head(`Relatório da sessão — ${report.sessionId}`, EXTRA_PACIENTE)
-    + pagina(capa, rodape, 1, 2)
-    + pagina(segunda, `${rodape}${id.contactEmail ? ` · ${id.contactEmail}` : ""}`, 2, 2)
+    + montarFolhas(
+      [
+        { conteudo: capa, rodape },
+        ...folhasPercurso.map((conteudo) => ({ conteudo, rodape })),
+        { conteudo: segunda, rodape: rodapeFim },
+      ],
+      id.professionalName,
+    )
     + `</body></html>`;
 }
 
