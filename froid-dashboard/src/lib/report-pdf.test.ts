@@ -135,8 +135,14 @@ describe("documento do profissional", () => {
   });
 
   it("escapa a marcação do nome", () => {
-    expect(html).not.toContain("<script>");
+    // O documento passou a carregar um <script> legítimo — o paginador —, então
+    // "não existe <script> no HTML" deixou de servir como prova. O que se
+    // afirma agora é o que de fato importa: o nome injetado aparece escapado, e
+    // não aparece cru em lugar nenhum, nem no corpo nem na configuração que vai
+    // serializada para dentro do script.
     expect(html).toContain("&lt;script&gt;");
+    expect(html).not.toContain("<script>alert");
+    expect(html).not.toContain("<script>Dra");
   });
 
   it("avisa quando o relatório não foi redigido", () => {
@@ -170,33 +176,44 @@ describe("os dois documentos", () => {
       expect(html.startsWith("<!doctype html>")).toBe(true);
       expect(html.trimEnd().endsWith("</html>")).toBe(true);
       expect(html).toContain("size:A4");
-      // O número de folhas deixou de ser fixo: seções de comprimento variável
-      // — cortes, sinais — são repartidas para que nenhuma folha passe de A4.
-      // O que se afirma agora é mais forte que "são duas": é que a numeração
-      // impressa bate com a quantidade real de folhas.
-      const folhas = (html.match(/class="folha"/g) || []).length;
-      expect(folhas).toBeGreaterThanOrEqual(2);
-      for (let n = 1; n <= folhas; n += 1) {
-        expect(html).toContain(`Página ${n} de ${folhas}`);
-      }
-      expect(html).not.toContain(`Página ${folhas + 1} de`);
+      // As folhas deixaram de existir no HTML estático: elas são criadas no
+      // navegador, pelo paginador, que mede a altura real de cada bloco antes
+      // de decidir onde a página acaba. Contar blocos nunca funcionaria, porque
+      // a altura de um bloco depende do texto da sessão — e foi assim que
+      // apareceram as meias páginas em branco.
+      //
+      // O que este teste pode afirmar sobre o HTML estático é que o material da
+      // paginação está todo lá. Que as folhas cabem em A4, que nenhuma corta
+      // conteúdo e que a numeração fecha só se verifica com layout de verdade,
+      // e isso é medido no Chromium, fora da suíte.
+      expect(html).toContain('id="fluxo"');
+      expect((html.match(/class="bloco"/g) || []).length).toBeGreaterThanOrEqual(4);
+      expect(html).toContain("function paginador");
     }
   });
 
-  it("carregam cabeçalho e rodapé em cada folha", () => {
-    for (const html of [paciente, profissional]) {
-      const folhas = (html.match(/class="folha"/g) || []).length;
-      expect((html.match(/class="cabecalho"/g) || []).length).toBe(folhas);
-      expect((html.match(/<footer>/g) || []).length).toBe(folhas);
-    }
-  });
-
-  it("nomeiam o profissional no cabeçalho e no rodapé de cada folha", () => {
+  it("levam a faixa e o nome do profissional para toda folha", () => {
+    // O cabeçalho é um molde: o paginador o repete em cada folha que cria.
     // Folha que se separou da pilha precisa dizer de quem é.
     for (const html of [paciente, profissional]) {
-      const folhas = (html.match(/class="folha"/g) || []).length;
-      expect((html.match(/class="prof"/g) || []).length).toBe(folhas);
-      expect((html.match(/class="quem"/g) || []).length).toBe(folhas);
+      expect(html).toContain('class=\\"cabecalho\\"');
+      expect(html).toContain('class=\\"faixa\\"');
+      expect(html).toContain('class=\\"prof\\"');
+    }
+  });
+
+  it("esperam a faixa carregar antes de medir", () => {
+    // Medir com a imagem ainda sem decodificar fazia sobrar espaço aparente, e
+    // o excesso era cortado quando ela aparecia.
+    for (const html of [paciente, profissional]) {
+      expect(html).toContain("pre.onload = paginar");
+      expect(html).toContain("pre.onerror = paginar");
+    }
+  });
+
+  it("conferem de novo depois de montar, e empurram o que sobrou", () => {
+    for (const html of [paciente, profissional]) {
+      expect(html).toContain("guarda++ < 100");
     }
   });
 

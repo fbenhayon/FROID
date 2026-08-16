@@ -18,3 +18,18 @@ declare module "*.html?raw" {
   const content: string;
   export default content;
 }
+
+/** Imagens. Viram data URI na build via assetsInlineLimit (vite.config.mjs)
+ *  quando o nome casa com relatorio-logo; as demais seguem o padrao do Vite. */
+declare module "*.jpeg" {
+  const src: string;
+  export default src;
+}
+declare module "*.jpg" {
+  const src: string;
+  export default src;
+}
+declare module "*.png" {
+  const src: string;
+  export default src;
+}
