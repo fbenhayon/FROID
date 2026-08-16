@@ -146,6 +146,11 @@ export interface SessionReportRecord {
   analysisLanguage?: SessionLocale;
   reportLocale?: SessionLocale;
   transcriptRetention?: "disabled_summary_only" | "enabled";
+  /** Texto redigido pelo profissional, gravado no ato da liberação ao paciente.
+   *  Sem isto a cópia que o paciente baixa no portal sairia com a seção
+   *  "Anotações do seu profissional" vazia: o texto vive no estado da tela do
+   *  profissional, e o portal não tem acesso a ele. */
+  patientNotes?: string;
   anonymizedContext?: {
     schemaVersion: string;
     spokenLanguage?: SessionLocale;

@@ -2667,6 +2667,7 @@ def _report_patient_release(report: dict) -> dict:
             "items": list(PATIENT_REPORT_ITEM_KEYS),
             "releasedAt": "",
             "releasedBy": "",
+            "notes": "",
             "legacy": True,
         }
     items = _normalize_patient_report_items(raw.get("items"))
@@ -2675,6 +2676,7 @@ def _report_patient_release(report: dict) -> dict:
         "items": items,
         "releasedAt": str(raw.get("releasedAt") or ""),
         "releasedBy": str(raw.get("releasedBy") or ""),
+        "notes": str(raw.get("notes") or ""),
         "legacy": False,
     }
 
@@ -2714,7 +2716,11 @@ def _reports_for_patient_session(patient_session: dict) -> list[dict]:
         release = _report_patient_release(report)
         if not release["released"]:
             continue
-        reports.append(_sanitize_report_for_patient(report, release["items"]))
+        sanitized = _sanitize_report_for_patient(report, release["items"])
+        # Texto congelado na liberação. Vai como patientNotes e não como o campo
+        # do profissional, para deixar explícito que é a versão liberada.
+        sanitized["patientNotes"] = release["notes"]
+        reports.append(sanitized)
 
     reports.sort(
         key=lambda report: str(report.get("createdAt") or report.get("created_at") or ""),
@@ -10725,11 +10731,18 @@ async def set_session_report_patient_release(session_id: str, request: Request):
         )
 
     now = datetime.now(timezone.utc).isoformat()
+    # O texto redigido vive no estado da tela do profissional e não era gravado
+    # em lugar nenhum. Sem congelá-lo aqui, a cópia que o paciente baixa no
+    # portal sairia com a seção "Anotações do seu profissional" em branco — o
+    # portal não tem, e não deve ter, acesso à área de trabalho do profissional.
+    # Congelado no ato da liberação, e não lido depois: o paciente recebe o
+    # texto que foi liberado, não uma versão que mudou desde então.
     report["patientRelease"] = {
         "released": released,
         "items": items,
         "releasedAt": now if released else "",
         "releasedBy": owner_email if released else "",
+        "notes": _safe_str(body.get("descriptiveText"), 20000) if released else "",
     }
     reports[session_id] = report
     _save_session_reports(reports)

@@ -101,8 +101,9 @@ export function summaryOrFallback(text: unknown): string {
 }
 
 const BASE_CSS = `
-:root{--navy:#0F172A;--azul:#3B82F6;--fundo:#F8F9FA;--linha:#E5E7EB;
-      --texto:#212529;--rotulo:#6C757D;--zebra:#F9F9F9}
+:root{--navy:#0F172A;--azul:#3B82F6;--aco:#3B82F6;--fundo:#F8F9FA;--linha:#E5E7EB;
+      --texto:#212529;--rotulo:#6C757D;--zebra:#F9F9F9;
+      --verde:#15803D;--ambar:#B45309;--vermelho:#B91C1C}
 *{box-sizing:border-box}
 body{margin:0;font-family:Inter,Roboto,"Open Sans",Helvetica,Arial,sans-serif;
      color:var(--texto);font-size:9.5pt;line-height:1.5}
@@ -176,6 +177,14 @@ const EXTRA_PROFISSIONAL = `
           font-size:9pt;white-space:pre-wrap}
 .assin{margin-top:32px;border-top:1px solid #9CA3AF;width:62%;padding-top:5px;
        font-size:8pt;color:var(--rotulo)}
+/* Selo de alerta e caixa de nota — copiados do modelo aprovado
+   (docs/modelo-relatorio-descritivo.html). As tabelas já vêm do CSS base. */
+.pill{display:inline-block;padding:1px 7px;border-radius:9px;font-size:7pt;font-weight:700}
+.ok{background:#DCFCE7;color:var(--verde)} .at{background:#FEF3C7;color:var(--ambar)}
+.cr{background:#FEE2E2;color:var(--vermelho)}
+.nota{background:var(--fundo);border-left:3px solid var(--aco);padding:9px 12px;
+      border-radius:0 5px 5px 0;font-size:8.5pt;margin-top:9px}
+.cobertura{font-size:7.5pt;color:var(--rotulo);margin-top:5px}
 `;
 
 const EXTRA_PACIENTE = `
@@ -234,6 +243,148 @@ function pagina(conteudo: string, rodapeEsq: string, n: number, total: number): 
 }
 
 /** Documento do PROFISSIONAL. */
+/** Percentual com sinal, como o modelo escreve: "0,5%", "−15,4%", "—". */
+function pct(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(Number(value))) return "—";
+  const n = Number(value) * 100;
+  return `${n < 0 ? "−" : ""}${Math.abs(n).toFixed(1).replace(".", ",")}%`;
+}
+
+/** Selo de alerta. Três estados, e a ausência de alerta também é informação —
+ *  uma célula vazia deixaria o leitor sem saber se foi medido. */
+function selo(alerts: string[] | undefined): string {
+  const lista = Array.isArray(alerts) ? alerts : [];
+  if (!lista.length) return `<span class="pill ok">Sem alerta</span>`;
+  const critico = lista.some((a) => String(a).toLowerCase().includes("crit"));
+  return critico
+    ? `<span class="pill cr">${escapeHtml(lista.join(" · "))}</span>`
+    : `<span class="pill at">${escapeHtml(lista.join(" · "))}</span>`;
+}
+
+/** 01 — Síntese da sessão: zona predominante, progressão e a nota de linha de base.
+ *
+ *  A nota não é decorativa. Sem ela o leitor pode tomar os índices como valores
+ *  absolutos comparáveis entre pessoas, que é exatamente a leitura que o produto
+ *  recusa: tudo aqui é lido contra a linha de base da própria sessão.
+ */
+function secaoSintese(report: SessionReportRecord): string {
+  const media = (report.sessionAverage || {}) as unknown as Record<string, unknown>;
+  const base = (report.baseline || {}) as unknown as Record<string, unknown>;
+  const cortes = orderedCuts(report);
+
+  const zona = media.dominantZone ?? base.dominantZone;
+  const tons = cortes.map((c) => String((c as unknown as Record<string, unknown>).emotionalTone || "")).filter(Boolean);
+  const tonsUnicos = Array.from(new Set(tons));
+  const ritmos = cortes
+    .map((c) => (c as unknown as Record<string, unknown>).wordsPerMinute)
+    .filter((v) => Number.isFinite(Number(v)))
+    .map((v) => num(v, 1));
+
+  const temas = cortes.map((c) => String((c as unknown as Record<string, unknown>).theme || "")).filter(Boolean);
+  const progressao = temas.length
+    ? `A sequência dos cortes indica substância central organizada em torno de ${escapeHtml(temas.join("; "))}.`
+    : "Não há cortes com tema registrado nesta sessão.";
+
+  const linhaIndices = [
+    Number.isFinite(Number(media.ipmAvg)) ? `IPM médio ${num(media.ipmAvg, 1)}` : "",
+    Number.isFinite(Number(media.idmAvg)) ? `IDM médio ${num(media.idmAvg, 2)}` : "",
+    ritmos.length ? `ritmo de fala ${ritmos.join(" → ")} palavras por minuto` : "",
+  ].filter(Boolean).join(" · ");
+
+  const notaBase = [
+    Number.isFinite(Number(base.ipmAvg)) ? `IPM ${num(base.ipmAvg, 2)}` : "",
+    Number.isFinite(Number(base.idmAvg)) ? `IDM ${num(base.idmAvg, 2)}` : "",
+    base.dominantZone !== undefined && base.dominantZone !== null ? `Zona ${escapeHtml(base.dominantZone)}` : "",
+    Number.isFinite(Number(base.wordsPerMinute)) ? `${num(base.wordsPerMinute, 1)} palavras/min` : "",
+  ].filter(Boolean).join(" · ");
+
+  return `<section><div class="cab"><span class="num">01</span><h2>Síntese da sessão</h2></div>
+    <h3>Zona predominante</h3>
+    <p>${zona === undefined || zona === null || zona === "" ? "Zona predominante não registrada." : `Zona ${escapeHtml(zona)}.`}${
+      tonsUnicos.length ? ` Tom ${escapeHtml(tonsUnicos.join(", "))}.` : ""
+    }</p>
+    <h3>Progressão</h3>
+    <p>${progressao}</p>
+    ${linhaIndices ? `<p>${escapeHtml(linhaIndices)}.</p>` : ""}
+    <div class="nota"><b>Linha de base:</b> estabelecida nos primeiros 60 segundos${
+      notaBase ? ` (${escapeHtml(notaBase)})` : ""
+    }. Todos os índices deste relatório são lidos contra essa referência da própria
+      sessão — nunca contra média populacional.</div>
+  </section>`;
+}
+
+/** 02 — Leitura estatística: a tabela de métricas contra a linha de base. */
+function secaoEstatistica(report: SessionReportRecord): string {
+  const analise = report.metricsAnalysis;
+  if (!analise || !Array.isArray(analise.metrics) || !analise.metrics.length) {
+    return `<section><div class="cab"><span class="num">02</span><h2>Leitura estatística</h2></div>
+      <p>${escapeHtml(
+        report.metricsAnalysisError
+          || "A análise estatística não está disponível para esta sessão.",
+      )}</p></section>`;
+  }
+
+  const linhas = analise.metrics.map((m) => {
+    const s = analise.summary?.[m.key] || ({} as Record<string, never>);
+    return `<tr><td>${escapeHtml(m.label || m.key)}</td>
+      <td class="n">${num(s.baseline, 2)}</td>
+      <td class="n">${num(s.session_mean, 2)}</td>
+      <td class="n">${num(s.last, 2)}</td>
+      <td class="n">${pct(s.delta_last)}</td>
+      <td>${selo(s.alerts)}</td></tr>`;
+  }).join("");
+
+  const d = analise.dashboard || ({} as Record<string, never>);
+  const cobertura = [
+    d.mean_coverage === null || d.mean_coverage === undefined ? "" : `Cobertura média ${pct(d.mean_coverage)}`,
+    d.mean_confidence === null || d.mean_confidence === undefined ? "" : `confiança média ${pct(d.mean_confidence)}`,
+    // Concordância: "1 alertas" num documento assinado lê como descuido.
+    `${Number(d.alerts_count || 0)} ${Number(d.alerts_count || 0) === 1 ? "alerta" : "alertas"}`,
+    `${Number(d.critical_alerts || 0)} ${Number(d.critical_alerts || 0) === 1 ? "crítico" : "críticos"}`,
+  ].filter(Boolean).join(" · ");
+
+  return `<section><div class="cab"><span class="num">02</span><h2>Leitura estatística</h2></div>
+    <table>
+      <thead><tr>
+        <th>Métrica</th><th class="n">Baseline</th><th class="n">Média</th>
+        <th class="n">Último corte</th><th class="n">Delta</th><th>Alerta</th>
+      </tr></thead>
+      <tbody>${linhas}</tbody>
+    </table>
+    ${cobertura ? `<p class="cobertura">${escapeHtml(cobertura)}.</p>` : ""}
+  </section>`;
+}
+
+/** 03 — Índices por corte: uma linha por corte, com o que variou entre eles. */
+function secaoIndicesPorCorte(report: SessionReportRecord): string {
+  const cortes = orderedCuts(report);
+  if (!cortes.length) {
+    return `<section><div class="cab"><span class="num">03</span><h2>Índices por corte</h2></div>
+      <p>Nenhum corte registrado nesta sessão.</p></section>`;
+  }
+
+  const linhas = cortes.map((c, i) => {
+    const r = c as unknown as Record<string, unknown>;
+    return `<tr><td>${i + 1}</td><td>${escapeHtml(cutRange(c))}</td>
+      <td class="n">${num(r.ipmAvg, 1)}</td>
+      <td class="n">${num(r.idmAvg, 2)}</td>
+      <td>${r.dominantZone === null || r.dominantZone === undefined ? "—" : `Zona ${escapeHtml(r.dominantZone)}`}</td>
+      <td>${escapeHtml(r.emotionalTone || "—")}</td>
+      <td class="n">${num(r.wordsPerMinute, 1)}</td>
+      <td class="n">${Number(r.dissonanceCount || 0)}</td></tr>`;
+  }).join("");
+
+  return `<section><div class="cab"><span class="num">03</span><h2>Índices por corte</h2></div>
+    <table>
+      <thead><tr>
+        <th>Corte</th><th>Intervalo</th><th class="n">IPM</th><th class="n">IDM</th>
+        <th>Zona</th><th>Tom</th><th class="n">Pal./min</th><th class="n">Disson.</th>
+      </tr></thead>
+      <tbody>${linhas}</tbody>
+    </table>
+  </section>`;
+}
+
 export function buildProfessionalReport(
   report: SessionReportRecord,
   identity?: Partial<ReportIdentity>,
@@ -260,12 +411,9 @@ export function buildProfessionalReport(
       <div class="kpi"><div class="n">${cortes.length}</div><div class="d">Cortes</div></div>
       <div class="kpi"><div class="n">${(report.dissonances || []).length}</div><div class="d">Dissonâncias</div></div>
     </div>
-    <section><div class="cab"><span class="num">01</span><h2>Cortes da sessão</h2></div>
-      ${cortes.map((c, i) => `<div class="fase"><div class="badge">Corte<b>${i + 1}</b></div>
-        <div class="corpo"><b>${escapeHtml(cutRange(c))} · ${escapeHtml(c.theme || "Sem tema definido")}</b>
-        <p>${escapeHtml(summaryOrFallback(c.summary))}</p></div></div>`).join("")
-        || `<p>Nenhum corte registrado nesta sessão.</p>`}
-    </section>`;
+    ${secaoSintese(report)}
+    ${secaoEstatistica(report)}
+    ${secaoIndicesPorCorte(report)}`;
 
   const dissonancias = (report.dissonances || []).map((d) => `
     <div class="disso"><div class="disso-cab">Zona ${escapeHtml(d.zone)} · ${escapeHtml(formatClock(d.elapsedSeconds))}</div>
@@ -273,7 +421,13 @@ export function buildProfessionalReport(
     || `<p>Nenhuma dissonância registrada nesta sessão.</p>`;
 
   const segunda = `
-    <section style="margin-top:0"><div class="cab"><span class="num">02</span><h2>Dissonâncias registradas</h2></div>
+    <section style="margin-top:0"><div class="cab"><span class="num">04</span><h2>Cortes semânticos</h2></div>
+      ${cortes.map((c, i) => `<div class="fase"><div class="badge">Corte<b>${i + 1}</b></div>
+        <div class="corpo"><b>${escapeHtml(cutRange(c))} · ${escapeHtml(c.theme || "Sem tema definido")}</b>
+        <p>${escapeHtml(summaryOrFallback(c.summary))}</p></div></div>`).join("")
+        || `<p>Nenhum corte registrado nesta sessão.</p>`}
+    </section>
+    <section><div class="cab"><span class="num">05</span><h2>Sinais observados</h2></div>
       ${dissonancias}
       <div class="limite"><b>O que estes sinais são, e o que não são.</b>
         Descrevem medidas de fala e expressão facial contra a linha de base desta
@@ -281,7 +435,7 @@ export function buildProfessionalReport(
         risco e não substituem avaliação, conduta ou julgamento do profissional
         habilitado.</div>
     </section>
-    <section><div class="cab"><span class="num">03</span><h2>Relatório descritivo</h2></div>
+    <section><div class="cab"><span class="num">06</span><h2>Relatório descritivo</h2></div>
       <div class="redigido">${escapeHtml(descriptiveText) || "<i>Não redigido.</i>"}</div>
       <div class="assin">Assinatura do profissional responsável<br>
         <b style="color:#212529">${escapeHtml(id.professionalName || "--")}</b>
@@ -300,6 +454,7 @@ export function buildPatientReport(
   report: SessionReportRecord,
   identity?: Partial<ReportIdentity>,
   seed?: number,
+  descriptiveText = "",
 ): string {
   const id = identityOf(identity);
   const cortes = orderedCuts(report);
@@ -347,7 +502,18 @@ export function buildPatientReport(
           musculares do rosto, usados internacionalmente. Nomear o movimento não
           interpreta a intenção.</div></div>` : ""}
     </section>
-    <section><div class="cab"><span class="num">04</span><h2>O que este documento não é</h2></div>
+    <section><div class="cab"><span class="num">04</span><h2>Anotações do seu profissional</h2></div>
+      <div style="border:1px solid var(--linha);border-radius:5px;min-height:130px;
+                  padding:12px;font-size:9pt;white-space:pre-wrap">${
+        escapeHtml(descriptiveText)
+        // Caixa vazia num documento entregue ao paciente parece defeito de
+        // impressão. Dizer que não houve anotação é informação; um retângulo
+        // em branco não é.
+        || `<p style="color:#9CA3AF;font-style:italic;margin:0">Seu profissional não
+             registrou anotações para esta sessão.</p>`
+      }</div>
+    </section>
+    <section><div class="cab"><span class="num">05</span><h2>O que este documento não é</h2></div>
       <div class="limite">
         <p style="margin:0 0 7px"><b>Não é um diagnóstico.</b> O FROID mede sinais de
           fala e de expressão facial. Medir um sinal não é identificar uma condição.</p>
@@ -374,7 +540,10 @@ export function buildReport(
   seed?: number,
 ): string {
   return audience === "patient"
-    ? buildPatientReport(report, identity, seed)
+    // O texto redigido entra nos DOIS documentos: no do profissional como a
+    // seção 06, no do paciente como a seção 04 do modelo aprovado. É a mesma
+    // palavra dele, e é ela que liga um documento ao outro.
+    ? buildPatientReport(report, identity, seed, descriptiveText || String(report.patientNotes || ""))
     : buildProfessionalReport(report, identity, descriptiveText, seed);
 }
 

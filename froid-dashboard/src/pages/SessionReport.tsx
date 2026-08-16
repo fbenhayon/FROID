@@ -759,7 +759,9 @@ export const SessionReport: React.FC<Props> = () => {
             "Content-Type": "application/json",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
-          body: JSON.stringify({ released, items: releaseItems }),
+          // O texto vai junto e fica congelado na liberação: é ele que preenche
+          // "Anotações do seu profissional" na cópia que o paciente baixa.
+          body: JSON.stringify({ released, items: releaseItems, descriptiveText: descriptiveReport }),
         },
       );
       const data = await response.json();
