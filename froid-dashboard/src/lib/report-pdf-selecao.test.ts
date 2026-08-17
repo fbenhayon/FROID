@@ -25,14 +25,16 @@ const SECAO_DE: Record<string, string> = {
   dissonances: "Sinais registrados",
   metricsAnalysis: "Medidas detalhadas",
   clinicalNotes: "Observações registradas durante a sessão",
+  professionalNotes: "Anotações do seu profissional",
 };
 
-/** Seções que não estão no catálogo e não podem sumir. */
-const SEMPRE = [
-  "Como ler este documento",
-  "Anotações do seu profissional",
-  "O que este documento não é",
-];
+/** A ÚNICA seção travada. O produto se define por esta fronteira, e o risco que
+ *  ela cobre não é o profissional decidir retirá-la — é retirá-la por descuido. */
+const SEMPRE = ["O que este documento não é"];
+
+/** Itens que levam medida. "Como ler este documento" só entra com algum deles:
+ *  num documento só de texto ela explicaria números que não estão lá. */
+const COM_MEDIDA = ["baseline", "sessionAverage", "conversationSummaries", "tenMinuteCuts", "metricsAnalysis"];
 
 const RELATORIO = {
   sessionId: "sel",
@@ -118,21 +120,39 @@ describe("a seleção governa o documento do paciente", () => {
   });
 
   it("com um único item, o documento tem esse e mais nada do catálogo", () => {
-    const html = doc(["dissonances"]);
-    const lista = titulos(html).join(" | ");
+    const lista = titulos(doc(["dissonances"])).join(" | ");
     expect(lista).toContain("Sinais registrados");
     expect(lista).not.toContain("A sessão no conjunto");
     expect(lista).not.toContain("Medidas detalhadas");
     expect(lista).not.toContain("Percurso da sessão");
+    // Só texto: nem a chave de leitura dos números entra.
+    expect(lista).not.toContain("Como ler este documento");
+    // Duas seções: o sinal e a advertência.
+    expect(titulos(doc(["dissonances"])).length).toBe(2);
   });
 
-  it("o que não está no catálogo permanece em qualquer combinação", () => {
-    // A advertência e a palavra do profissional não são opcionais: um relatório
-    // clínico entregue ao paciente sem elas não deveria existir.
-    for (const itens of [[], ["baseline"], PATIENT_ITEM_KEYS.slice()]) {
+  it("a advertência entra em QUALQUER combinação, inclusive nenhuma", () => {
+    for (const itens of [[], ["baseline"], ["professionalNotes"], PATIENT_ITEM_KEYS.slice()]) {
       const lista = titulos(doc(itens as string[])).join(" | ");
-      for (const fixa of SEMPRE) expect(lista, fixa).toContain(fixa);
+      for (const fixa of SEMPRE) expect(lista, `${fixa} com [${itens}]`).toContain(fixa);
     }
+  });
+
+  it("\"Como ler\" entra com medida e sai sem ela", () => {
+    for (const chave of COM_MEDIDA) {
+      expect(titulos(doc([chave])).join(" | "), chave).toContain("Como ler este documento");
+    }
+    for (const chave of PATIENT_ITEM_KEYS.filter((k) => COM_MEDIDA.indexOf(k) < 0)) {
+      expect(titulos(doc([chave])).join(" | "), chave).not.toContain("Como ler este documento");
+    }
+    expect(titulos(doc([])).join(" | ")).not.toContain("Como ler este documento");
+  });
+
+  it("a palavra do profissional virou item, e desmarcá-la tira a seção", () => {
+    // Sem texto redigido a seção imprimia uma caixa dizendo que não havia nada,
+    // o que é pior do que não imprimir. Mandar só as medidas é decisão clínica.
+    expect(titulos(doc(["professionalNotes"])).join(" | ")).toContain("Anotações do seu profissional");
+    expect(titulos(doc(["dissonances"])).join(" | ")).not.toContain("Anotações do seu profissional");
   });
 
   it("numera corridamente, sem buracos, com qualquer seleção", () => {

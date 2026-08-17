@@ -2640,7 +2640,26 @@ PATIENT_REPORT_ITEMS: tuple[tuple[str, str], ...] = (
     ("dissonances", "Sinais registrados"),
     ("metricsAnalysis", "Medidas detalhadas"),
     ("clinicalNotes", "Observações registradas durante a sessão"),
+    ("professionalNotes", "Anotações do seu profissional (o texto que você redigiu)"),
 )
+
+# O QUE NÃO ESTÁ NO CATÁLOGO, e por quê.
+#
+# Uma única seção fica fora e é sempre entregue: "O que este documento não é" —
+# não é diagnóstico, não é avaliação sobre quem a pessoa é, não substitui o
+# profissional. O produto inteiro se define por essa fronteira, e o risco que ela
+# cobre não é o profissional decidir retirá-la: é retirá-la por descuido, num dia
+# corrido. Torná-la opcional abriria caminho para o sistema produzir exatamente o
+# documento que ele nega ser.
+#
+# "Como ler este documento" também fica fora, mas é CONDICIONAL: só entra quando
+# o documento leva alguma medida, porque é dela que a seção fala. Num documento
+# só de texto ela explicaria números que não estão lá.
+#
+# "Anotações do seu profissional" ESTAVA fora e voltou para o catálogo. Ser a
+# palavra do profissional justifica a seção existir, não ser obrigatória — e sem
+# texto redigido ela imprimia uma caixa dizendo que não havia nada, o que é pior
+# do que não imprimir. Mandar só as medidas, sem recado, é decisão clínica.
 
 PATIENT_REPORT_ITEM_KEYS: tuple[str, ...] = tuple(key for key, _ in PATIENT_REPORT_ITEMS)
 
@@ -2750,8 +2769,11 @@ def _reports_for_patient_session(patient_session: dict) -> list[dict]:
             continue
         sanitized = _sanitize_report_for_patient(report, release["items"])
         # Texto congelado na liberação. Vai como patientNotes e não como o campo
-        # do profissional, para deixar explícito que é a versão liberada.
-        sanitized["patientNotes"] = release["notes"]
+        # do profissional, para deixar explícito que é a versão liberada — e só
+        # vai se o item correspondente estiver marcado, como qualquer outro.
+        sanitized["patientNotes"] = (
+            release["notes"] if "professionalNotes" in release["items"] else ""
+        )
         reports.append(sanitized)
 
     reports.sort(

@@ -44,7 +44,22 @@ export const PATIENT_ITEM_KEYS = [
   "dissonances",
   "metricsAnalysis",
   "clinicalNotes",
+  "professionalNotes",
 ] as const;
+
+/** Itens que levam MEDIDA ao documento — número, tabela, comparação.
+ *
+ *  "Como ler este documento" existe para dar a régua desses números: os 60 s de
+ *  calibração, a comparação com a própria pessoa e nunca com média populacional.
+ *  Num documento composto só de texto ela explicaria números que não estão lá,
+ *  e vira ruído. Por isso ela é condicional, e esta é a condição. */
+const ITENS_COM_MEDIDA = [
+  "baseline",
+  "sessionAverage",
+  "conversationSummaries", // cada trecho leva ritmo, tom e zona
+  "tenMinuteCuts",
+  "metricsAnalysis",
+];
 
 export type ReportIdentity = {
   /** Nome da clínica ou do profissional. Vai no título dos dois documentos. */
@@ -185,6 +200,7 @@ tbody tr:nth-child(even){background:var(--zebra)}
 .fase .badge b{display:block;font-size:10pt}
 .fase .corpo{flex:1}.fase .corpo>b{color:var(--navy);font-size:9.5pt}
 .fase .corpo p{margin:3px 0 0;font-size:8.5pt;color:#374151}
+.fase .numeros{margin-top:4px;font-size:7.5pt;color:var(--rotulo);letter-spacing:.02em}
 .fase .zona{margin-top:6px;background:var(--fundo);border-left:2px solid var(--azul);
             padding:6px 9px;border-radius:0 4px 4px 0;font-size:8pt}
 .limite{background:#451A03;border:1px solid #92400E;border-radius:6px;padding:11px 13px;
@@ -813,6 +829,7 @@ export function buildPatientReport(
     || PATIENT_ITEM_KEYS.slice()
   );
   const tem = (chave: string) => selecionados.indexOf(chave) >= 0;
+  const levaMedida = ITENS_COM_MEDIDA.some((chave) => tem(chave));
 
   // Sinal sem tradução escrita é OMITIDO. Cair no texto do profissional seria o
   // acidente que dissonance-patient-view existe para impedir.
@@ -838,14 +855,14 @@ export function buildPatientReport(
     <p class="sub">Percepção clínica aumentada · FROID</p>
     <div class="abertura">${escapeHtml(pickIntro(seed))}</div>
     ${metaBlock(report, id, false)}
-    <section>${cab("Como ler este documento")}
+    ${levaMedida ? `<section>${cab("Como ler este documento")}
       <p>Durante a sessão, o FROID acompanha a <b>fala</b> e a <b>expressão do rosto</b>.
         Nos primeiros 60 segundos ele mede a sua referência daquele dia. Tudo o que
         vem depois é comparado <b>com você mesmo</b>, nunca com uma média de outras
         pessoas.</p>
       <p>Os números descrevem movimento, não julgamento. Um valor mais alto não é
         pior, e um mais baixo não é melhor.</p>
-    </section>
+    </section>` : ""}
   `;
 
   const blocos: string[] = [capa];
@@ -894,9 +911,19 @@ export function buildPatientReport(
     blocos.push(`<section>${cab("Percurso da sessão")}</section>`);
     if (cortes.length) {
       cortes.forEach((c, i) => {
+        const r = c as unknown as Record<string, unknown>;
+        // A linha de números do modelo aprovado, que faltava aqui: ritmo e tom
+        // do trecho. É por causa dela que o percurso conta como seção COM
+        // medida — e é o "todas as informações do item" que foi pedido.
+        const numeros = [
+          Number.isFinite(Number(r.wordsPerMinute)) ? `Ritmo da fala ${num(r.wordsPerMinute, 1)} palavras/min` : "",
+          r.emotionalTone ? `tom ${escapeHtml(r.emotionalTone)}` : "",
+          r.dominantZone === null || r.dominantZone === undefined ? "" : `zona ${escapeHtml(r.dominantZone)}`,
+        ].filter(Boolean).join(" · ");
         blocos.push(`<div class="fase"><div class="badge">Trecho<b>${i + 1}</b></div>
           <div class="corpo"><b>${escapeHtml(cutRange(c))} · ${escapeHtml(c.theme || "Sem tema definido")}</b>
-          <p>${escapeHtml(summaryOrFallback(c.summary))}</p></div></div>`);
+          <p>${escapeHtml(summaryOrFallback(c.summary))}</p>
+          ${numeros ? `<div class="numeros">${numeros}</div>` : ""}</div></div>`);
       });
     } else {
       blocos.push(`<p>Nenhum trecho registrado nesta sessão.</p>`);
@@ -970,20 +997,27 @@ export function buildPatientReport(
     }
   }
 
-  // ---- a palavra do profissional, e os limites: sempre ----
-  // Nenhuma das duas está no catálogo, e é deliberado. A primeira é a mensagem
-  // que ele escreveu para esta pessoa; a segunda é a advertência que impede o
-  // documento de ser lido como diagnóstico. Um relatório clínico entregue ao
-  // paciente sem ela não deveria existir.
-  blocos.push(`<section>${cab("Anotações do seu profissional")}
-    <div style="border:1px solid var(--linha);border-radius:5px;min-height:130px;
-                padding:12px;font-size:9pt;white-space:pre-wrap">${
-      escapeHtml(descriptiveText)
-      || `<p style="color:#9CA3AF;font-style:italic;margin:0">Seu profissional não
-           registrou anotações para esta sessão.</p>`
-    }</div>
-  </section>`);
+  // ---- professionalNotes: a palavra do profissional ----
+  // Voltou para o catálogo. Ser a mensagem dele justifica a seção existir, não
+  // ser obrigatória — e sem texto redigido ela imprimia uma caixa dizendo que
+  // não havia nada, o que é pior do que não imprimir. Mandar só as medidas, sem
+  // recado, é decisão clínica e agora é dele.
+  if (tem("professionalNotes")) {
+    blocos.push(`<section>${cab("Anotações do seu profissional")}
+      <div style="border:1px solid var(--linha);border-radius:5px;min-height:130px;
+                  padding:12px;font-size:9pt;white-space:pre-wrap">${
+        escapeHtml(descriptiveText)
+        || `<p style="color:#9CA3AF;font-style:italic;margin:0">Seu profissional não
+             registrou anotações para esta sessão.</p>`
+      }</div>
+    </section>`);
+  }
 
+  // ---- os limites: SEMPRE, e é a única seção travada ----
+  // Não é diagnóstico, não é avaliação sobre quem a pessoa é, não substitui o
+  // profissional. O produto inteiro se define por essa fronteira. O risco que
+  // esta seção cobre não é o profissional decidir retirá-la — é retirá-la por
+  // descuido, e o sistema deixar.
   blocos.push(`<section>${cab("O que este documento não é")}
     <div class="limite">
       <p style="margin:0 0 7px"><b>Não é um diagnóstico.</b> O FROID mede sinais de

@@ -131,7 +131,10 @@ describe("documento do paciente", () => {
   // aqui. Sem amarrar a seleção, o teste diria que o documento "tem cinco
   // seções", o que deixou de ser verdade por decisão de produto e não por
   // defeito.
-  const SELECAO_DO_MODELO = ["conversationSummaries", "dissonances"];
+  // O modelo tem "Anotações do seu profissional", que passou a ser item do
+  // catálogo, e "Como ler este documento", que entra porque o percurso leva
+  // ritmo e tom em cada trecho.
+  const SELECAO_DO_MODELO = ["conversationSummaries", "dissonances", "professionalNotes"];
   const html = buildReport(
     "patient", SESSAO, {}, "Texto redigido pelo profissional.", undefined, SELECAO_DO_MODELO,
   );
