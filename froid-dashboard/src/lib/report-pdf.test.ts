@@ -217,6 +217,20 @@ describe("os dois documentos", () => {
     }
   });
 
+  it("partem tabela em vez de saltar a folha inteira", () => {
+    // Tabela indivisível deixava até um terço de página em branco antes dela.
+    // A continuação herda o thead e a largura medida das colunas — sem isso a
+    // segunda parte é uma parede de números com as colunas fora de registro.
+    for (const html of [paciente, profissional]) {
+      expect(html).toContain("function partirTabela");
+      expect(html).toContain("tabCont.style.tableLayout");
+      expect(html).toContain("continuação da tabela anterior");
+      // A continuação começa em folha nova: devolvê-la à folha cheia fazia a
+      // tabela partir de novo, até sair uma linha por tabelinha.
+      expect(html).toContain("corpo = novaFolha();");
+    }
+  });
+
   it("mandam imprimir com as cores", () => {
     // Sem print-color-adjust o navegador descarta fundo ao imprimir, e a cor
     // aqui carrega significado: verde, âmbar e vermelho por métrica.

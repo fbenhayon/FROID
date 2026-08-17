@@ -219,6 +219,8 @@ const EXTRA_PROFISSIONAL = `
 .nota{background:var(--fundo);border-left:3px solid var(--aco);padding:9px 12px;
       border-radius:0 5px 5px 0;font-size:8.5pt;margin-top:9px}
 .cobertura{font-size:7.5pt;color:var(--rotulo);margin-top:5px}
+.continua{font-size:7pt;color:var(--rotulo);margin:0 0 3px;font-style:italic;
+          text-transform:uppercase;letter-spacing:.06em}
 `;
 
 const EXTRA_PACIENTE = `
@@ -345,13 +347,77 @@ function paginador(cfg: { cabecalho: string; rodape: string; rodapeFim: string; 
         + '<div class="conteudo"></div>'
         + '<footer><span class="esq">' + cfg.rodapeFim
         + '</span><span class="dir">Página 00 de 00</span></footer>';
-      ancora.insertBefore(folha, fluxo);
+      // O #fluxo é a âncora enquanto existe; na passagem de acerto ele já foi
+      // removido, e aí a folha nova vai para o fim — que é onde ela pertence,
+      // porque só se cria folha nova a partir da última.
+      if (fluxo!.parentNode === ancora) ancora.insertBefore(folha, fluxo);
+      else ancora.appendChild(folha);
       folhas.push(folha);
       return folha.querySelector(".conteudo") as HTMLElement;
     }
     function corpoDe(i: number) {
       return folhas[i].querySelector(".conteudo") as HTMLElement;
     }
+    /** Parte a tabela do bloco que acabou de estourar a folha.
+     *
+     *  Sem isto uma tabela cabe inteira ou salta para a folha seguinte, e o
+     *  vão que ela deixa atrás pode ser um terço de página. Aqui as linhas do
+     *  fim voltam para um bloco de continuação, que herda o MESMO thead — sem
+     *  ele a continuação seria uma parede de números sem dizer o que é cada
+     *  coluna, o que é pior do que o vão.
+     *
+     *  Devolve o bloco de continuação, ou null quando não há o que partir:
+     *  bloco sem tabela, ou tabela que já está na última linha.
+     */
+    function partirTabela(bloco: Element): Element | null {
+      var tabela = bloco.querySelector("table");
+      if (!tabela) return null;
+      var tbody = tabela.tBodies[0];
+      if (!tbody || tbody.rows.length < 2) return null;
+
+      var removidas: HTMLTableRowElement[] = [];
+      // Deixa ao menos uma linha para trás: cabeçalho de tabela seguido de nada
+      // não é tabela, é enfeite.
+      while (cheio(bloco.parentElement as HTMLElement) && tbody.rows.length > 1) {
+        removidas.unshift(tbody.rows[tbody.rows.length - 1]);
+        tbody.deleteRow(tbody.rows.length - 1);
+      }
+      if (!removidas.length) return null;
+
+      var cont = document.createElement("div");
+      cont.className = "bloco";
+      // Diz que é continuação. Sem isso a folha seguinte abre com uma tabela
+      // sem título, e o leitor não sabe se é a mesma ou outra.
+      var aviso = document.createElement("p");
+      aviso.className = "continua";
+      aviso.textContent = "continuação da tabela anterior";
+      cont.appendChild(aviso);
+      var tabCont = tabela.cloneNode(false) as HTMLTableElement;
+      if (tabela.tHead) {
+        var chefe = tabela.tHead.cloneNode(true) as HTMLTableSectionElement;
+        // Copia a largura MEDIDA de cada coluna e fixa o layout. Sem isso cada
+        // parte da tabela se auto-dimensiona pelo próprio conteúdo, e as
+        // colunas dançam de uma folha para a outra — o leitor perde a referência
+        // do que está lendo.
+        var origem = tabela.tHead.rows[0];
+        var destino = chefe.rows[0];
+        if (origem && destino) {
+          for (var col = 0; col < destino.cells.length; col++) {
+            if (origem.cells[col]) {
+              destino.cells[col].style.width = origem.cells[col].offsetWidth + "px";
+            }
+          }
+          tabCont.style.tableLayout = "fixed";
+        }
+        tabCont.appendChild(chefe);
+      }
+      var tbCont = document.createElement("tbody");
+      for (var r = 0; r < removidas.length; r++) tbCont.appendChild(removidas[r]);
+      tabCont.appendChild(tbCont);
+      cont.appendChild(tabCont);
+      return cont;
+    }
+
     function cheio(c: HTMLElement) {
       // overflow:hidden nunca reporta scrollHeight abaixo de clientHeight, então
       // a folga tem de ser POSITIVA. Com folga negativa o teste dá verdadeiro
@@ -362,7 +428,22 @@ function paginador(cfg: { cabecalho: string; rodape: string; rodapeFim: string; 
     var corpo = novaFolha();
     for (var i = 0; i < blocos.length; i++) {
       corpo.appendChild(blocos[i]);
-      if (cheio(corpo) && corpo.children.length > 1) {
+      if (!cheio(corpo)) continue;
+
+      // Tabela é o primeiro recurso: partir custa menos vão do que mover.
+      var cont = partirTabela(blocos[i]);
+      if (cont) {
+        blocos.splice(i + 1, 0, cont);
+        // Folha nova para a continuação. Devolvê-la à folha atual, que acabou de
+        // encher, fazia a tabela partir outra vez — e outra — até sair uma
+        // linha por tabelinha, cada uma com o seu cabeçalho.
+        corpo = novaFolha();
+        continue;
+      }
+      // Não é tabela: o bloco inteiro vai para a folha seguinte. Só não vai se
+      // for o único da folha — nesse caso ele fica e transborda, que é melhor
+      // do que entrar em laço.
+      if (corpo.children.length > 1) {
         corpo.removeChild(blocos[i]);
         corpo = novaFolha();
         corpo.appendChild(blocos[i]);
@@ -378,10 +459,16 @@ function paginador(cfg: { cabecalho: string; rodape: string; rodapeFim: string; 
     for (var f = 0; f < folhas.length; f++) {
       var guarda = 0;
       while (cheio(corpoDe(f)) && corpoDe(f).children.length > 1 && guarda++ < 100) {
-        var sobra = corpoDe(f).lastElementChild!;
+        var ultimo = corpoDe(f).lastElementChild!;
         if (f === folhas.length - 1) novaFolha();
         var seguinte = corpoDe(f + 1);
-        seguinte.insertBefore(sobra, seguinte.firstChild);
+        // Aqui também: parte a tabela antes de empurrar o bloco todo.
+        var resto = partirTabela(ultimo);
+        if (resto) {
+          seguinte.insertBefore(resto, seguinte.firstChild);
+          continue;
+        }
+        seguinte.insertBefore(ultimo, seguinte.firstChild);
       }
     }
 
@@ -434,8 +521,20 @@ function secaoSintese(report: SessionReportRecord): string {
     .map((v) => num(v, 1));
 
   const temas = cortes.map((c) => String((c as unknown as Record<string, unknown>).theme || "")).filter(Boolean);
+  // Enumerar todos os temas era duplamente ruim: uma sessão longa produzia um
+  // parágrafo com vinte e quatro itens separados por ponto e vírgula, ilegível,
+  // e o bloco crescia além da folha inteira. Os primeiros seis dizem a
+  // direção; o resto está listado corte a corte na seção 04, com intervalo e
+  // resumo, que é onde se procura o detalhe.
+  const TEMAS_NA_SINTESE = 6;
+  const temasMostrados = temas.slice(0, TEMAS_NA_SINTESE);
+  const restantes = temas.length - temasMostrados.length;
   const progressao = temas.length
-    ? `A sequência dos cortes indica substância central organizada em torno de ${escapeHtml(temas.join("; "))}.`
+    ? `A sequência dos cortes indica substância central organizada em torno de `
+      + `${escapeHtml(temasMostrados.join("; "))}`
+      + (restantes > 0
+        ? `, e outros ${restantes} ${restantes === 1 ? "tema" : "temas"} detalhados na seção 04.`
+        : ".")
     : "Não há cortes com tema registrado nesta sessão.";
 
   const linhaIndices = [
@@ -467,14 +566,14 @@ function secaoSintese(report: SessionReportRecord): string {
 }
 
 /** 02 — Leitura estatística: a tabela de métricas contra a linha de base. */
-function secaoEstatistica(report: SessionReportRecord): string {
+function secaoEstatistica(report: SessionReportRecord): string[] {
   const analise = report.metricsAnalysis;
   if (!analise || !Array.isArray(analise.metrics) || !analise.metrics.length) {
-    return `<section><div class="cab"><span class="num">02</span><h2>Leitura estatística</h2></div>
+    return [`<section><div class="cab"><span class="num">02</span><h2>Leitura estatística</h2></div>
       <p>${escapeHtml(
         report.metricsAnalysisError
           || "A análise estatística não está disponível para esta sessão.",
-      )}</p></section>`;
+      )}</p></section>`];
   }
 
   const linhas = analise.metrics.map((m) => {
@@ -496,16 +595,22 @@ function secaoEstatistica(report: SessionReportRecord): string {
     `${Number(d.critical_alerts || 0)} ${Number(d.critical_alerts || 0) === 1 ? "crítico" : "críticos"}`,
   ].filter(Boolean).join(" · ");
 
-  return `<section><div class="cab"><span class="num">02</span><h2>Leitura estatística</h2></div>
-    <table>
-      <thead><tr>
-        <th>Métrica</th><th class="n">Baseline</th><th class="n">Média</th>
-        <th class="n">Último corte</th><th class="n">Delta</th><th>Alerta</th>
-      </tr></thead>
-      <tbody>${linhas}</tbody>
-    </table>
-    ${cobertura ? `<p class="cobertura">${escapeHtml(cobertura)}.</p>` : ""}
-  </section>`;
+  // Dois blocos, e a separação tem razão: a tabela pode ser partida entre
+  // folhas, e a linha de cobertura resume TODAS as linhas. Se ela viesse dentro
+  // do mesmo bloco, ficaria na folha da primeira metade, resumindo números que
+  // só aparecem na folha seguinte.
+  return [
+    `<section><div class="cab"><span class="num">02</span><h2>Leitura estatística</h2></div>
+      <table>
+        <thead><tr>
+          <th>Métrica</th><th class="n">Baseline</th><th class="n">Média</th>
+          <th class="n">Último corte</th><th class="n">Delta</th><th>Alerta</th>
+        </tr></thead>
+        <tbody>${linhas}</tbody>
+      </table>
+    </section>`,
+    ...(cobertura ? [`<p class="cobertura">${escapeHtml(cobertura)}.</p>`] : []),
+  ];
 }
 
 /** 03 — Índices por corte: uma linha por corte, com o que variou entre eles. */
@@ -564,9 +669,14 @@ export function buildProfessionalReport(
       <div class="kpi"><div class="n">${cortes.length}</div><div class="d">Cortes</div></div>
       <div class="kpi"><div class="n">${(report.dissonances || []).length}</div><div class="d">Dissonâncias</div></div>
     </div>
-    ${secaoSintese(report)}`;
+  `;
 
-  const tabelas = [secaoEstatistica(report), secaoIndicesPorCorte(report)];
+  // A síntese é bloco próprio: junto da capa, numa sessão longa, o conjunto
+  // passava da folha inteira e o excedente era cortado — bloco que não cabe
+  // sozinho não tem para onde ir.
+  const sintese = secaoSintese(report);
+
+  const tabelas = [...secaoEstatistica(report), secaoIndicesPorCorte(report)];
 
   // O cabeçalho da seção vai num bloco, e cada corte no seu. O paginador
   // preenche a folha até o papel acabar; se a seção não couber inteira, ela
@@ -612,7 +722,7 @@ export function buildProfessionalReport(
   const rodapeFim = `${rodape}${id.contactEmail ? ` · ${id.contactEmail}` : ""}`;
   return head(`Relatório descritivo — ${report.sessionId}`, EXTRA_PROFISSIONAL)
     + documento(
-      [capa, ...tabelas, ...blocoCortes, ...blocoSinais, ...blocoDescritivo],
+      [capa, sintese, ...tabelas, ...blocoCortes, ...blocoSinais, ...blocoDescritivo],
       rodape, rodapeFim, id.professionalName,
     )
     + `</body></html>`;
