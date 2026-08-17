@@ -200,6 +200,9 @@ tbody tr:nth-child(even){background:var(--zebra)}
 .fase .badge b{display:block;font-size:10pt}
 .fase .corpo{flex:1}.fase .corpo>b{color:var(--navy);font-size:9.5pt}
 .fase .corpo p{margin:3px 0 0;font-size:8.5pt;color:#374151}
+/* Parágrafo de texto livre: cada um é um bloco para o paginador, então a
+   margem entre eles vive aqui e não em margin-bottom acumulado. */
+.corrido{margin:0 0 8px;font-size:9pt;line-height:1.6;white-space:pre-wrap}
 .fase .numeros{margin-top:4px;font-size:7.5pt;color:var(--rotulo);letter-spacing:.02em}
 .fase .zona{margin-top:6px;background:var(--fundo);border-left:2px solid var(--azul);
             padding:6px 9px;border-radius:0 4px 4px 0;font-size:8pt}
@@ -481,6 +484,70 @@ function paginador(cfg: { cabecalho: string; rodape: string; rodapeFim: string; 
       return cont;
     }
 
+    /** Última rede contra corte: um bloco que não cabe nem sozinho e tem filhos
+     *  devolve os últimos filhos para um bloco de continuação.
+     *
+     *  Serve para texto que passa de uma folha inteira. O caso comum já não
+     *  chega aqui — texto livre entra como um bloco por parágrafo —, mas um
+     *  parágrafo único gigantesco, colado de outro sistema, chegaria. Sem isto
+     *  ele seria cortado por overflow:hidden, em silêncio.
+     */
+    function partirTexto(bloco: Element): Element | null {
+      var alvo = bloco.parentElement as HTMLElement;
+
+      // Caso comum: vários filhos. Devolve os últimos.
+      if (bloco.children.length > 1) {
+        var removidos: Element[] = [];
+        while (cheio(alvo) && bloco.children.length > 1) {
+          removidos.unshift(bloco.removeChild(bloco.lastElementChild!));
+        }
+        if (removidos.length) {
+          var cont = document.createElement("div");
+          cont.className = "bloco";
+          for (var k = 0; k < removidos.length; k++) cont.appendChild(removidos[k]);
+          return cont;
+        }
+        return null;
+      }
+
+      // UM parágrafo maior que a folha inteira. Acontece com texto colado de
+      // outro sistema, sem linha em branco: 900 palavras num bloco só. Não há
+      // filho para mover, então parte por PALAVRA. Sem isto o excesso é cortado
+      // por overflow:hidden e o paciente recebe a anotação truncada no meio de
+      // uma frase, sem nada indicando que falta texto.
+      var alvoP = bloco.children.length === 1 ? bloco.firstElementChild! : bloco;
+
+      // SÓ PARÁGRAFO DE TEXTO PURO. Escrever textContent num elemento com
+      // estrutura dentro apaga a marcação: foi assim que o bloco da advertência
+      // saiu como texto corrido, sem a caixa âmbar, sem o título e truncado no
+      // meio de uma frase. Se há filho elemento, este não é um parágrafo — é uma
+      // seção, e seção não se parte por palavra.
+      if (alvoP.children.length > 0) return null;
+
+      var palavras = String(alvoP.textContent || "").split(/\s+/).filter(Boolean);
+      if (palavras.length < 20) return null;
+
+      var sobra: string[] = [];
+      var guarda = 0;
+      // Passo de 5% por vez: palavra a palavra seriam centenas de reflows.
+      var passo = Math.max(1, Math.floor(palavras.length / 20));
+      while (cheio(alvo) && palavras.length > 10 && guarda++ < 200) {
+        for (var t = 0; t < passo && palavras.length > 10; t++) {
+          sobra.unshift(palavras.pop() as string);
+        }
+        alvoP.textContent = palavras.join(" ");
+      }
+      if (!sobra.length) return null;
+
+      var contP = document.createElement("div");
+      contP.className = "bloco";
+      var par = document.createElement("p");
+      par.className = alvoP.className || "corrido";
+      par.textContent = sobra.join(" ");
+      contP.appendChild(par);
+      return contP;
+    }
+
     function cheio(c: HTMLElement) {
       // overflow:hidden nunca reporta scrollHeight abaixo de clientHeight, então
       // a folga tem de ser POSITIVA. Com folga negativa o teste dá verdadeiro
@@ -494,7 +561,7 @@ function paginador(cfg: { cabecalho: string; rodape: string; rodapeFim: string; 
       if (!cheio(corpo)) continue;
 
       // Tabela é o primeiro recurso: partir custa menos vão do que mover.
-      var cont = partirTabela(blocos[i]);
+      var cont = partirTabela(blocos[i]) || partirTexto(blocos[i]);
       if (cont) {
         blocos.splice(i + 1, 0, cont);
         // Folha nova para a continuação. Devolvê-la à folha atual, que acabou de
@@ -526,7 +593,7 @@ function paginador(cfg: { cabecalho: string; rodape: string; rodapeFim: string; 
         if (f === folhas.length - 1) novaFolha();
         var seguinte = corpoDe(f + 1);
         // Aqui também: parte a tabela antes de empurrar o bloco todo.
-        var resto = partirTabela(ultimo);
+        var resto = partirTabela(ultimo) || partirTexto(ultimo);
         if (resto) {
           seguinte.insertBefore(resto, seguinte.firstChild);
           continue;
@@ -552,6 +619,25 @@ function paginador(cfg: { cabecalho: string; rodape: string; rodapeFim: string; 
     (window as unknown as Record<string, unknown>).__froidPaginado = true;
     window.setTimeout(function () { window.print(); }, 60);
   }
+}
+
+/** Quebra texto livre em blocos de parágrafo, um por bloco.
+ *
+ *  Texto do profissional entrava como UM bloco só, e bloco é indivisível para o
+ *  paginador: ele não descia para preencher o espaço livre da folha anterior, e
+ *  quando passava de uma folha o excesso era CORTADO — medido em 154% de
+ *  ocupação, mais da metade da anotação perdida em silêncio. Texto tem de fluir
+ *  como texto flui.
+ *
+ *  Separa por linha em branco, que é como se escreve parágrafo. Quebra simples
+ *  dentro do parágrafo é preservada pelo white-space do CSS.
+ */
+function blocosDeTexto(texto: string): string[] {
+  return String(texto || "")
+    .split(/\n\s*\n/)
+    .map((par) => par.trim())
+    .filter(Boolean)
+    .map((par) => `<p class="corrido">${escapeHtml(par)}</p>`);
 }
 
 /** Percentual com sinal, como o modelo escreve: "0,5%", "−15,4%", "—". */
@@ -901,9 +987,10 @@ export function buildPatientReport(
   if (tem("sessionSummary")) {
     const resumo = (report.sessionSummary || {}) as unknown as Record<string, unknown>;
     const texto = String(resumo.text || resumo.summary || resumo.theme || "").trim();
-    blocos.push(`<section>${cab("Resumo da sessão")}
-      <p>${texto ? escapeHtml(texto) : "Não houve resumo registrado para esta sessão."}</p>
-    </section>`);
+    const paragrafos = blocosDeTexto(texto);
+    blocos.push(`<section>${cab("Resumo da sessão")}</section>`);
+    if (paragrafos.length) paragrafos.forEach((par) => blocos.push(par));
+    else blocos.push(`<p class="corrido">Não houve resumo registrado para esta sessão.</p>`);
   }
 
   // ---- conversationSummaries: o percurso, trecho a trecho ----
@@ -1003,14 +1090,18 @@ export function buildPatientReport(
   // não havia nada, o que é pior do que não imprimir. Mandar só as medidas, sem
   // recado, é decisão clínica e agora é dele.
   if (tem("professionalNotes")) {
-    blocos.push(`<section>${cab("Anotações do seu profissional")}
-      <div style="border:1px solid var(--linha);border-radius:5px;min-height:130px;
-                  padding:12px;font-size:9pt;white-space:pre-wrap">${
-        escapeHtml(descriptiveText)
-        || `<p style="color:#9CA3AF;font-style:italic;margin:0">Seu profissional não
-             registrou anotações para esta sessão.</p>`
-      }</div>
-    </section>`);
+    const paragrafos = blocosDeTexto(descriptiveText);
+    blocos.push(`<section>${cab("Anotações do seu profissional")}</section>`);
+    if (paragrafos.length) {
+      // A caixa de altura fixa saiu. Ela existia no modelo para mostrar onde o
+      // texto entraria; com texto real ela só criava uma moldura que não
+      // atravessa folha, e era ela que empurrava a seção inteira para a folha
+      // seguinte deixando a anterior pela metade.
+      paragrafos.forEach((par) => blocos.push(par));
+    } else {
+      blocos.push(`<p class="corrido" style="color:#9CA3AF;font-style:italic">Seu
+        profissional não registrou anotações para esta sessão.</p>`);
+    }
   }
 
   // ---- os limites: SEMPRE, e é a única seção travada ----

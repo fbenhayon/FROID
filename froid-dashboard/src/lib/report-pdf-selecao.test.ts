@@ -148,6 +148,28 @@ describe("a seleção governa o documento do paciente", () => {
     expect(titulos(doc([])).join(" | ")).not.toContain("Como ler este documento");
   });
 
+  it("texto livre sai em um bloco por parágrafo, para poder fluir", () => {
+    // Como bloco único, a anotação não descia para preencher o espaço livre da
+    // folha anterior E era cortada quando passava de uma folha: medido em 154%
+    // de ocupação, mais da metade do texto perdida em silêncio.
+    const html = buildReport(
+      "patient", RELATORIO, IDENT, "Primeiro parágrafo.\n\nSegundo.\n\nTerceiro.", 0,
+      ["professionalNotes"],
+    );
+    expect((html.match(/class="corrido"/g) || []).length).toBe(3);
+    // E não sobrou a caixa de altura fixa, que era o que empurrava a seção
+    // inteira para a folha seguinte.
+    expect(html).not.toContain("min-height:130px");
+  });
+
+  it("o paginador não parte por palavra um elemento com estrutura dentro", () => {
+    // Escrever textContent num elemento estruturado apaga a marcação: a caixa
+    // da advertência saiu como texto corrido, sem título e truncada no meio de
+    // uma frase, porque a partição por palavra a tratou como parágrafo.
+    const html = doc(PATIENT_ITEM_KEYS.slice());
+    expect(html).toContain("if (alvoP.children.length > 0) return null;");
+  });
+
   it("a palavra do profissional virou item, e desmarcá-la tira a seção", () => {
     // Sem texto redigido a seção imprimia uma caixa dizendo que não havia nada,
     // o que é pior do que não imprimir. Mandar só as medidas é decisão clínica.
