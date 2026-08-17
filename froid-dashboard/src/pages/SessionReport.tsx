@@ -805,6 +805,11 @@ export const SessionReport: React.FC<Props> = () => {
         ),
       },
       descriptiveReport,
+      undefined,
+      // A seleção do checklist governa o documento do paciente. Sem passá-la
+      // aqui, o "PDF paciente" saía do registro completo e marcar ou desmarcar
+      // não mudava nada — que foi o defeito reportado em uso.
+      audience === "patient" ? releaseItems : undefined,
     );
     if (!openPrintable(html)) {
       // Sem este aviso o profissional clica e nada acontece: o bloqueio de

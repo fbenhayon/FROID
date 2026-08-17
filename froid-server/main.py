@@ -2624,15 +2624,22 @@ def _patient_session_matches_report(report: dict, patient_session: dict) -> bool
 # documento e a quem ele pertence. Sem eles o paciente teria um relatório que não
 # diz de quem é, de quando é, nem quem o assina — e a retenção de transcrição é
 # informação que a LGPD manda estar disponível ao titular.
+# A ORDEM AQUI É A ORDEM DAS SEÇÕES NO DOCUMENTO, e o rótulo é o que o
+# profissional lê no checklist. Espelhada em PATIENT_ITEM_KEYS, no gerador do
+# painel — se as duas divergirem, o profissional marca numa ordem e o documento
+# sai em outra.
+#
+# Os rótulos descrevem o que o PACIENTE vai ver, e não o nome técnico do campo:
+# quem marca precisa saber o que está entregando.
 PATIENT_REPORT_ITEMS: tuple[tuple[str, str], ...] = (
-    ("sessionAverage", "Índices da sessão"),
-    ("baseline", "Calibração da linha de base"),
+    ("baseline", "A referência do dia (calibração de 60 s)"),
+    ("sessionAverage", "A sessão no conjunto (índices médios)"),
     ("sessionSummary", "Resumo da sessão"),
-    ("tenMinuteCuts", "Cortes de 10 minutos"),
-    ("conversationSummaries", "Resumos da conversa"),
-    ("dissonances", "Dissonâncias"),
-    ("clinicalNotes", "Relatório descritivo do profissional"),
-    ("metricsAnalysis", "Análise das métricas"),
+    ("conversationSummaries", "Percurso da sessão, trecho a trecho"),
+    ("tenMinuteCuts", "Medidas a cada dez minutos"),
+    ("dissonances", "Sinais registrados"),
+    ("metricsAnalysis", "Medidas detalhadas"),
+    ("clinicalNotes", "Observações registradas durante a sessão"),
 )
 
 PATIENT_REPORT_ITEM_KEYS: tuple[str, ...] = tuple(key for key, _ in PATIENT_REPORT_ITEMS)

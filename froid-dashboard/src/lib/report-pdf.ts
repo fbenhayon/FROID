@@ -27,6 +27,25 @@ import FAIXA from "../assets/relatorio-logo.jpeg";
 
 export type ReportAudience = "professional" | "patient";
 
+/** Chaves dos blocos que o profissional pode marcar para o documento do paciente.
+ *
+ *  Espelha PATIENT_REPORT_ITEMS em froid-server/main.py, e a ordem é a mesma —
+ *  é ela que define a ordem das seções no documento. O catálogo com os rótulos
+ *  continua vindo do servidor para a tela desenhar; aqui só as chaves, porque o
+ *  gerador precisa delas para decidir o que entra mesmo quando roda sem rede,
+ *  a partir de um registro já liberado.
+ */
+export const PATIENT_ITEM_KEYS = [
+  "baseline",
+  "sessionAverage",
+  "sessionSummary",
+  "conversationSummaries",
+  "tenMinuteCuts",
+  "dissonances",
+  "metricsAnalysis",
+  "clinicalNotes",
+] as const;
+
 export type ReportIdentity = {
   /** Nome da clínica ou do profissional. Vai no título dos dois documentos. */
   clinicName: string;
@@ -770,15 +789,47 @@ export function buildPatientReport(
   identity?: Partial<ReportIdentity>,
   seed?: number,
   descriptiveText = "",
+  itens?: string[],
 ): string {
   const id = identityOf(identity);
   const cortes = orderedCuts(report);
+
+  // A SELEÇÃO DO PROFISSIONAL GOVERNA O CONTEÚDO.
+  //
+  // Antes ela não chegava aqui: o filtro existia no servidor, para o que a área
+  // do paciente recebe, mas o botão "PDF paciente" na tela do profissional
+  // montava do registro completo. Resultado — marcar e desmarcar não mudava
+  // nada no documento, que foi exatamente o que se viu em uso.
+  //
+  // Sem lista explícita, cai em patientReportItems, que é o que o servidor
+  // gravou na liberação. Sem nenhum dos dois, entra tudo: um documento aberto
+  // sem contexto de liberação não deve esconder o que o profissional nunca
+  // pediu para esconder.
+  const selecionados = (
+    itens
+    || (Array.isArray((report as unknown as Record<string, unknown>).patientReportItems)
+      ? ((report as unknown as Record<string, unknown>).patientReportItems as string[])
+      : null)
+    || PATIENT_ITEM_KEYS.slice()
+  );
+  const tem = (chave: string) => selecionados.indexOf(chave) >= 0;
 
   // Sinal sem tradução escrita é OMITIDO. Cair no texto do profissional seria o
   // acidente que dissonance-patient-view existe para impedir.
   const sinais = (report.dissonances || [])
     .map((d) => ({ registro: d, visao: patientViewFor(String((d as never as Record<string, string>).title || d.report || "")) }))
     .filter((item) => item.visao !== null);
+
+  const media = (report.sessionAverage || {}) as unknown as Record<string, unknown>;
+  const base = (report.baseline || {}) as unknown as Record<string, unknown>;
+
+  // Numeração corrida, atribuída na ordem em que as seções realmente entram.
+  // Fixar 01..05 quebraria o documento assim que uma seção fosse desmarcada:
+  // sairia "01, 03, 05", que lê como se faltassem páginas.
+  let n = 0;
+  const numero = () => String(++n).padStart(2, "0");
+  const cab = (titulo: string) =>
+    `<div class="cab"><span class="num">${numero()}</span><h2>${escapeHtml(titulo)}</h2></div>`;
 
   const capa = `
     <div class="tags"><span class="tag destaque">Relatório da sessão</span>
@@ -787,7 +838,7 @@ export function buildPatientReport(
     <p class="sub">Percepção clínica aumentada · FROID</p>
     <div class="abertura">${escapeHtml(pickIntro(seed))}</div>
     ${metaBlock(report, id, false)}
-    <section><div class="cab"><span class="num">01</span><h2>Como ler este documento</h2></div>
+    <section>${cab("Como ler este documento")}
       <p>Durante a sessão, o FROID acompanha a <b>fala</b> e a <b>expressão do rosto</b>.
         Nos primeiros 60 segundos ele mede a sua referência daquele dia. Tudo o que
         vem depois é comparado <b>com você mesmo</b>, nunca com uma média de outras
@@ -797,70 +848,158 @@ export function buildPatientReport(
     </section>
   `;
 
-  const blocoPercurso = [
-    `<section><div class="cab"><span class="num">02</span><h2>Percurso da sessão</h2></div></section>`,
-    ...(cortes.length
-      ? cortes.map((c, i) => `<div class="fase"><div class="badge">Trecho<b>${i + 1}</b></div>
+  const blocos: string[] = [capa];
+
+  // ---- baseline: a referência do dia ----
+  if (tem("baseline")) {
+    const linhas = [
+      Number.isFinite(Number(base.ipmAvg)) ? `energia da fala ${num(base.ipmAvg, 1)}` : "",
+      Number.isFinite(Number(base.wordsPerMinute)) ? `ritmo ${num(base.wordsPerMinute, 1)} palavras por minuto` : "",
+      base.dominantZone === undefined || base.dominantZone === null ? "" : `zona ${escapeHtml(base.dominantZone)}`,
+    ].filter(Boolean);
+    blocos.push(`<section>${cab("A sua referência deste dia")}
+      <p>Nos primeiros 60 segundos da sessão o sistema mediu como a sua fala e o seu
+        rosto estavam naquele momento. É esta a régua usada no resto do documento.</p>
+      ${linhas.length ? `<div class="fase"><div class="corpo"><p>${escapeHtml(linhas.join(" · "))}.</p></div></div>` : "<p>Não houve calibração registrada nesta sessão.</p>"}
+    </section>`);
+  }
+
+  // ---- sessionAverage: como a sessão ficou, no conjunto ----
+  if (tem("sessionAverage")) {
+    const linhas = [
+      Number.isFinite(Number(media.ipmAvg)) ? ["Energia da fala", num(media.ipmAvg, 1), num(base.ipmAvg, 1)] : null,
+      Number.isFinite(Number(media.idmAvg)) ? ["Variação entre fala e rosto", num(media.idmAvg, 2), num(base.idmAvg, 2)] : null,
+      Number.isFinite(Number(media.wordsPerMinute)) ? ["Ritmo da fala", num(media.wordsPerMinute, 1), num(base.wordsPerMinute, 1)] : null,
+    ].filter(Boolean) as string[][];
+    blocos.push(`<section>${cab("A sessão no conjunto")}
+      ${linhas.length ? `<table>
+        <thead><tr><th>Medida</th><th class="n">Na sessão</th><th class="n">Sua referência</th></tr></thead>
+        <tbody>${linhas.map((l) => `<tr><td>${escapeHtml(l[0])}</td><td class="n">${l[1]}</td><td class="n">${l[2]}</td></tr>`).join("")}</tbody>
+      </table>` : "<p>Não há medidas de conjunto registradas nesta sessão.</p>"}
+      ${media.emotionalTone ? `<p style="margin-top:7px">Tom predominante ao longo da conversa: ${escapeHtml(media.emotionalTone)}.</p>` : ""}
+    </section>`);
+  }
+
+  // ---- sessionSummary: o resumo ----
+  if (tem("sessionSummary")) {
+    const resumo = (report.sessionSummary || {}) as unknown as Record<string, unknown>;
+    const texto = String(resumo.text || resumo.summary || resumo.theme || "").trim();
+    blocos.push(`<section>${cab("Resumo da sessão")}
+      <p>${texto ? escapeHtml(texto) : "Não houve resumo registrado para esta sessão."}</p>
+    </section>`);
+  }
+
+  // ---- conversationSummaries: o percurso, trecho a trecho ----
+  if (tem("conversationSummaries")) {
+    blocos.push(`<section>${cab("Percurso da sessão")}</section>`);
+    if (cortes.length) {
+      cortes.forEach((c, i) => {
+        blocos.push(`<div class="fase"><div class="badge">Trecho<b>${i + 1}</b></div>
           <div class="corpo"><b>${escapeHtml(cutRange(c))} · ${escapeHtml(c.theme || "Sem tema definido")}</b>
-          <p>${escapeHtml(summaryOrFallback(c.summary))}</p></div></div>`)
-      : [`<p>Nenhum trecho registrado nesta sessão.</p>`]),
-  ];
+          <p>${escapeHtml(summaryOrFallback(c.summary))}</p></div></div>`);
+      });
+    } else {
+      blocos.push(`<p>Nenhum trecho registrado nesta sessão.</p>`);
+    }
+  }
 
-  const blocoSinaisPac = [
-    `<section><div class="cab"><span class="num">03</span><h2>Sinais registrados</h2></div></section>`,
-    ...(sinais.length
-      ? sinais.map((item) => `
-        <div class="sinal"><span class="quando">${escapeHtml(formatClock(item.registro.elapsedSeconds))}</span>
+  // ---- tenMinuteCuts: as medidas a cada dez minutos ----
+  if (tem("tenMinuteCuts")) {
+    const janelas = (report.tenMinuteCuts || []) as unknown as Record<string, unknown>[];
+    blocos.push(`<section>${cab("Medidas a cada dez minutos")}
+      ${janelas.length ? `<table>
+        <thead><tr><th>Intervalo</th><th class="n">Energia da fala</th><th class="n">Ritmo</th><th>Tom</th></tr></thead>
+        <tbody>${janelas.map((j) => `<tr>
+          <td>${escapeHtml(j.label || "—")}</td>
+          <td class="n">${num(j.ipmAvg, 1)}</td>
+          <td class="n">${num(j.wordsPerMinute, 1)}</td>
+          <td>${escapeHtml(j.emotionalTone || "—")}</td></tr>`).join("")}</tbody>
+      </table>` : "<p>Não há janelas de dez minutos registradas nesta sessão.</p>"}
+    </section>`);
+  }
+
+  // ---- dissonances: os sinais, já traduzidos ----
+  if (tem("dissonances")) {
+    blocos.push(`<section>${cab("Sinais registrados")}</section>`);
+    if (sinais.length) {
+      sinais.forEach((item) => {
+        blocos.push(`<div class="sinal"><span class="quando">${escapeHtml(formatClock(item.registro.elapsedSeconds))}</span>
           <h3>${escapeHtml(item.visao!.title)}</h3>
-          <p>${escapeHtml(item.visao!.description)}</p></div>`)
-      : [`<p>Nenhum sinal registrado nesta sessão.</p>`]),
-    ...(sinais.length
-      ? [`<div class="glossario"><b>Os códigos que aparecem acima</b>
-          <div><b>AU6</b> — elevação da bochecha: o movimento que enruga o canto dos olhos.</div>
-          <div><b>AU12</b> — elevação do canto da boca: o movimento que levanta os cantos dos lábios.</div>
-          <div style="margin-top:8px;color:#6C757D">São nomes técnicos de movimentos
-            musculares do rosto, usados internacionalmente. Nomear o movimento não
-            interpreta a intenção.</div></div>`]
-      : []),
-  ];
+          <p>${escapeHtml(item.visao!.description)}</p></div>`);
+      });
+      blocos.push(`<div class="glossario"><b>Os códigos que aparecem acima</b>
+        <div><b>AU6</b> — elevação da bochecha: o movimento que enruga o canto dos olhos.</div>
+        <div><b>AU12</b> — elevação do canto da boca: o movimento que levanta os cantos dos lábios.</div>
+        <div style="margin-top:8px;color:#6C757D">São nomes técnicos de movimentos
+          musculares do rosto, usados internacionalmente. Nomear o movimento não
+          interpreta a intenção.</div></div>`);
+    } else {
+      blocos.push(`<p>Nenhum sinal registrado nesta sessão.</p>`);
+    }
+  }
 
-  const blocoAnotacoes = [
-    `<section><div class="cab"><span class="num">04</span><h2>Anotações do seu profissional</h2></div>
-      <div style="border:1px solid var(--linha);border-radius:5px;min-height:130px;
-                  padding:12px;font-size:9pt;white-space:pre-wrap">${
-        escapeHtml(descriptiveText)
-        // Caixa vazia num documento entregue ao paciente parece defeito de
-        // impressão. Dizer que não houve anotação é informação; um retângulo
-        // em branco não é.
-        || `<p style="color:#9CA3AF;font-style:italic;margin:0">Seu profissional não
-             registrou anotações para esta sessão.</p>`
-      }</div>
-    </section>`,
-  ];
+  // ---- metricsAnalysis: as medidas detalhadas ----
+  if (tem("metricsAnalysis")) {
+    const analise = report.metricsAnalysis;
+    const metricas = analise && Array.isArray(analise.metrics) ? analise.metrics : [];
+    blocos.push(`<section>${cab("Medidas detalhadas")}
+      <p>Cada linha compara uma medida da sessão com a sua própria referência do
+        dia. São descrições de movimento, e não notas.</p>
+      ${metricas.length ? `<table>
+        <thead><tr><th>Medida</th><th class="n">Sua referência</th><th class="n">Média na sessão</th></tr></thead>
+        <tbody>${metricas.map((m) => {
+          const s = analise!.summary?.[m.key] || ({} as Record<string, never>);
+          return `<tr><td>${escapeHtml(m.label || m.key)}</td>
+            <td class="n">${num(s.baseline, 2)}</td>
+            <td class="n">${num(s.session_mean, 2)}</td></tr>`;
+        }).join("")}</tbody>
+      </table>` : "<p>Não há medidas detalhadas registradas nesta sessão.</p>"}
+    </section>`);
+  }
 
-  // O bloco dos limites nunca se parte: são três frases que se sustentam juntas,
-  // e meia advertência no fim de uma folha é pior do que advertência nenhuma.
-  const blocoLimites = [
-    `<section><div class="cab"><span class="num">05</span><h2>O que este documento não é</h2></div>
-      <div class="limite">
-        <p style="margin:0 0 7px"><b>Não é um diagnóstico.</b> O FROID mede sinais de
-          fala e de expressão facial. Medir um sinal não é identificar uma condição.</p>
-        <p style="margin:0 0 7px"><b>Não é uma avaliação sobre quem você é.</b> Os
-          registros descrevem uma conversa específica, em um dia específico,
-          comparada com a sua própria referência daquele dia.</p>
-        <p style="margin:0"><b>Não substitui o seu profissional.</b> Quem interpreta,
-          contextualiza e conduz é ele. Leve as suas dúvidas para a próxima sessão.</p>
-      </div>
-    </section>`,
-  ];
+  // ---- clinicalNotes: observações registradas durante a sessão ----
+  if (tem("clinicalNotes")) {
+    const notas = (report.clinicalNotes || []) as unknown as Record<string, unknown>[];
+    blocos.push(`<section>${cab("Observações registradas durante a sessão")}</section>`);
+    if (notas.length) {
+      notas.forEach((nota) => {
+        blocos.push(`<div class="fase"><div class="corpo"><p>${escapeHtml(nota.text)}</p></div></div>`);
+      });
+    } else {
+      blocos.push(`<p>Não houve observações registradas durante esta sessão.</p>`);
+    }
+  }
+
+  // ---- a palavra do profissional, e os limites: sempre ----
+  // Nenhuma das duas está no catálogo, e é deliberado. A primeira é a mensagem
+  // que ele escreveu para esta pessoa; a segunda é a advertência que impede o
+  // documento de ser lido como diagnóstico. Um relatório clínico entregue ao
+  // paciente sem ela não deveria existir.
+  blocos.push(`<section>${cab("Anotações do seu profissional")}
+    <div style="border:1px solid var(--linha);border-radius:5px;min-height:130px;
+                padding:12px;font-size:9pt;white-space:pre-wrap">${
+      escapeHtml(descriptiveText)
+      || `<p style="color:#9CA3AF;font-style:italic;margin:0">Seu profissional não
+           registrou anotações para esta sessão.</p>`
+    }</div>
+  </section>`);
+
+  blocos.push(`<section>${cab("O que este documento não é")}
+    <div class="limite">
+      <p style="margin:0 0 7px"><b>Não é um diagnóstico.</b> O FROID mede sinais de
+        fala e de expressão facial. Medir um sinal não é identificar uma condição.</p>
+      <p style="margin:0 0 7px"><b>Não é uma avaliação sobre quem você é.</b> Os
+        registros descrevem uma conversa específica, em um dia específico,
+        comparada com a sua própria referência daquele dia.</p>
+      <p style="margin:0"><b>Não substitui o seu profissional.</b> Quem interpreta,
+        contextualiza e conduz é ele. Leve as suas dúvidas para a próxima sessão.</p>
+    </div>
+  </section>`);
 
   const rodape = `${tituloDocumento(id)} · Documento pessoal e confidencial`;
   const rodapeFim = `${rodape}${id.contactEmail ? ` · ${id.contactEmail}` : ""}`;
   return head(`Relatório da sessão — ${report.sessionId}`, EXTRA_PACIENTE)
-    + documento(
-      [capa, ...blocoPercurso, ...blocoSinaisPac, ...blocoAnotacoes, ...blocoLimites],
-      rodape, rodapeFim, id.professionalName,
-    )
+    + documento(blocos, rodape, rodapeFim, id.professionalName)
     + `</body></html>`;
 }
 
@@ -870,12 +1009,19 @@ export function buildReport(
   identity?: Partial<ReportIdentity>,
   descriptiveText = "",
   seed?: number,
+  /** Blocos escolhidos para o documento do PACIENTE. Ignorado no do profissional,
+   *  que sai sempre completo. */
+  itensDoPaciente?: string[],
 ): string {
   return audience === "patient"
     // O texto redigido entra nos DOIS documentos: no do profissional como a
     // seção 06, no do paciente como a seção 04 do modelo aprovado. É a mesma
     // palavra dele, e é ela que liga um documento ao outro.
-    ? buildPatientReport(report, identity, seed, descriptiveText || String(report.patientNotes || ""))
+    ? buildPatientReport(
+      report, identity, seed,
+      descriptiveText || String(report.patientNotes || ""),
+      itensDoPaciente,
+    )
     : buildProfessionalReport(report, identity, descriptiveText, seed);
 }
 

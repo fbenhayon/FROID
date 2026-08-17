@@ -124,9 +124,19 @@ describe("documento do profissional", () => {
 });
 
 describe("documento do paciente", () => {
-  const html = buildReport("patient", SESSAO, {}, "Texto redigido pelo profissional.");
+  // O modelo aprovado corresponde a UMA seleção: percurso e sinais, mais as três
+  // seções que não são opcionais. O documento passou a ser dirigido pelo
+  // checklist do profissional — cada item marcado acrescenta a sua seção —,
+  // então reproduzir o modelo é reproduzir essa seleção, e é isso que se afirma
+  // aqui. Sem amarrar a seleção, o teste diria que o documento "tem cinco
+  // seções", o que deixou de ser verdade por decisão de produto e não por
+  // defeito.
+  const SELECAO_DO_MODELO = ["conversationSummaries", "dissonances"];
+  const html = buildReport(
+    "patient", SESSAO, {}, "Texto redigido pelo profissional.", undefined, SELECAO_DO_MODELO,
+  );
 
-  it("emite as cinco seções do modelo, na ordem", () => {
+  it("com a seleção do modelo, emite as cinco seções dele, na ordem", () => {
     expect(titulos(html)).toEqual(SECOES_PACIENTE);
   });
 
