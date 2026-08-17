@@ -121,8 +121,10 @@ body{margin:0;font-family:Inter,Roboto,"Open Sans",Helvetica,Arial,sans-serif;
 .conteudo{flex:1;min-height:0;overflow:hidden;padding-top:9mm}
 .bloco{break-inside:avoid}
 /* Faixa da marca, sangrando até as bordas laterais da folha. */
-.cabecalho{margin:0 -14mm;position:relative;flex:0 0 auto}
-.cabecalho .faixa{display:block;width:100%;height:auto}
+/* A altura vem do paginador, calculada da proporção real da imagem — ver a
+   regra que ele injeta. Aqui fica só o que não depende dela. */
+.cabecalho{margin:0 -14mm;position:relative;flex:0 0 auto;
+           background-repeat:no-repeat;background-size:100% 100%}
 .cabecalho .prof{position:absolute;right:14mm;bottom:3mm;font-size:7.5pt;
                  font-weight:700;letter-spacing:.04em;color:#E2E8F0;
                  max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
@@ -294,9 +296,12 @@ function documento(
   rodapeFim: string,
   quem: string,
 ): string {
+  // A faixa NÃO vai como <img> por folha. Ia: e num documento de 35 folhas isso
+  // colocava 35 cópias do mesmo data URI de 92 KB dentro do documento, que a
+  // impressão depois precisa rasterizar uma por uma. Agora ela é fundo de
+  // .cabecalho, declarado UMA vez numa regra de estilo que o paginador insere.
   const cabecalho =
     `<div class="cabecalho">`
-    + `<img class="faixa" src="${FAIXA}" alt="FROID">`
     + (quem ? `<span class="prof">${escapeHtml(quem)}</span>` : "")
     + `</div>`;
 
@@ -326,10 +331,29 @@ function paginador(cfg: { cabecalho: string; rodape: string; rodapeFim: string; 
   pre.src = cfg.faixa;
   if (pre.complete) paginar();
 
+  /** Regra única da faixa, com a altura tirada da proporção real da imagem.
+   *
+   *  Calcular em vez de fixar deixa a faixa correta se o arquivo for trocado
+   *  por outro de proporção diferente — e é justamente o arquivo que o dono do
+   *  produto troca sem mexer em código.
+   */
+  function instalarFaixa() {
+    var mm = pre.naturalWidth ? (210 * pre.naturalHeight) / pre.naturalWidth : 15;
+    var est = document.createElement("style");
+    est.textContent = ".cabecalho{height:" + (Math.round(mm * 100) / 100) + "mm"
+      + (pre.naturalWidth ? ';background-image:url("' + cfg.faixa + '")' : "")
+      + "}";
+    document.head.appendChild(est);
+  }
+
   var jaRodou = false;
   function paginar() {
     if (jaRodou) return;
     jaRodou = true;
+
+    // A faixa entra ANTES de medir: ela define a altura do cabeçalho, e medir
+    // sem ela faria sobrar espaço aparente em toda folha.
+    instalarFaixa();
 
     var fluxo = document.getElementById("fluxo");
     if (!fluxo) return;
@@ -339,6 +363,10 @@ function paginador(cfg: { cabecalho: string; rodape: string; rodapeFim: string; 
 
     var folhas: HTMLElement[] = [];
     function novaFolha() {
+      // Teto de segurança. Nenhum documento clínico real chega perto disto; se
+      // chegar, é defeito, e defeito não pode travar a máquina de quem está em
+      // atendimento. Melhor documento truncado do que aba morta.
+      if (folhas.length >= 300) return corpoDe(folhas.length - 1);
       var folha = document.createElement("div");
       folha.className = "folha";
       // O rodapé nasce com o texto MAIS LONGO dos dois, e não vazio: numerar
@@ -480,6 +508,14 @@ function paginador(cfg: { cabecalho: string; rodape: string; rodapeFim: string; 
       if (g !== folhas.length - 1) esq.innerHTML = cfg.rodape;
       dir.textContent = "Página " + (g + 1) + " de " + folhas.length;
     }
+
+    // A IMPRESSÃO SÓ AGORA. Antes ela era disparada por um temporizador de
+    // 350 ms em openPrintable, e este paginador é assíncrono: espera a imagem
+    // carregar e só então remonta o documento. Num documento longo o diálogo de
+    // impressão abria com a remontagem em curso — imprimir enquanto o DOM muda
+    // sob o motor de layout é como o sistema travava.
+    (window as unknown as Record<string, unknown>).__froidPaginado = true;
+    window.setTimeout(function () { window.print(); }, 60);
   }
 }
 
@@ -857,8 +893,18 @@ export function openPrintable(html: string): boolean {
   janela.document.write(html);
   janela.document.close();
   janela.focus();
-  // O atraso deixa o layout assentar antes do diálogo; sem ele, o Chrome
-  // ocasionalmente imprime a primeira página em branco.
-  window.setTimeout(() => janela.print(), 350);
+  // QUEM IMPRIME É O PAGINADOR, quando termina. Aqui havia um print() em 350 ms,
+  // de quando o documento saía pronto do gerador. Com a paginação medida — que
+  // espera a imagem e remonta o documento — o diálogo passou a abrir com a
+  // remontagem em curso, e imprimir enquanto o DOM muda sob o motor de layout
+  // travava a aba num documento longo.
+  //
+  // O temporizador longo abaixo é só rede: se o script não rodar, por erro ou
+  // por política de conteúdo, o documento ainda vai para a impressora em vez de
+  // ficar aberto sem fazer nada.
+  window.setTimeout(() => {
+    const w = janela as unknown as Record<string, unknown>;
+    if (!w.__froidPaginado) janela.print();
+  }, 5000);
   return true;
 }

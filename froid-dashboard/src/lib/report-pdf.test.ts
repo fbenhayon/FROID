@@ -197,8 +197,9 @@ describe("os dois documentos", () => {
     // Folha que se separou da pilha precisa dizer de quem é.
     for (const html of [paciente, profissional]) {
       expect(html).toContain('class=\\"cabecalho\\"');
-      expect(html).toContain('class=\\"faixa\\"');
       expect(html).toContain('class=\\"prof\\"');
+      // A faixa NÃO é mais <img> dentro do molde: seria uma cópia por folha.
+      expect(html).not.toContain("<img");
     }
   });
 
@@ -214,6 +215,38 @@ describe("os dois documentos", () => {
   it("conferem de novo depois de montar, e empurram o que sobrou", () => {
     for (const html of [paciente, profissional]) {
       expect(html).toContain("guarda++ < 100");
+    }
+  });
+
+  it("imprimem quando a paginação termina, e não num temporizador", () => {
+    // Foi assim que o sistema travou: openPrintable chamava print() em 350 ms,
+    // e a paginação — que espera a imagem e remonta o documento — ainda estava
+    // em curso. Imprimir com o DOM mudando sob o motor de layout wedgeia a aba.
+    for (const html of [paciente, profissional]) {
+      expect(html).toContain("__froidPaginado");
+      expect(html).toContain("window.print()");
+    }
+  });
+
+  it("carregam UMA referência à faixa, não uma por folha", () => {
+    // Como <img> por folha, um documento de 34 folhas levava 34 cópias do mesmo
+    // data URI de 92 KB, que a impressão rasteriza uma por uma. Agora a imagem
+    // aparece uma vez, na configuração, e o paginador a instala como fundo numa
+    // regra única.
+    //
+    // O teste conta REFERÊNCIAS e não data URIs: na build o import vira base64,
+    // mas na suíte o Vite entrega um caminho. O que importa — uma só — vale nos
+    // dois casos.
+    for (const html of [paciente, profissional]) {
+      expect((html.match(/relatorio-logo/g) || []).length).toBe(1);
+      expect(html).toContain("instalarFaixa");
+      expect(html).toContain("background-image:url(");
+    }
+  });
+
+  it("tem teto de folhas, para defeito não travar a maquina de quem atende", () => {
+    for (const html of [paciente, profissional]) {
+      expect(html).toContain("folhas.length >= 300");
     }
   });
 
