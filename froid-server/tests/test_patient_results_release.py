@@ -112,9 +112,27 @@ class PatientResultsReleaseTests(unittest.TestCase):
     # ---------- quem pode mexer ----------
 
     def test_alterar_permissao_exige_vinculo_com_o_paciente(self):
+        # A checagem saiu de dentro do endpoint e virou funcao, porque a leitura
+        # do estado precisa da mesma prova que a escrita.
         trecho = self.backend.split("set_patient_results_access")[1][:2600]
-        self.assertIn("linked = any(", trecho)
+        self.assertIn("_professional_linked_to_patient(owner_email, patient_id)", trecho)
         self.assertIn("Paciente não vinculado a este profissional", trecho)
+
+    def test_ler_permissao_exige_o_mesmo_vinculo(self):
+        # Ler tambem revela: quem nao atende o paciente nao fica sabendo se ele
+        # ve os resultados.
+        trecho = self.backend.split("get_patient_results_access")[1][:1600]
+        self.assertIn("_professional_linked_to_patient(owner_email, patient_id)", trecho)
+        self.assertIn("Paciente não vinculado a este profissional", trecho)
+
+    def test_vinculo_vale_por_convite_ou_por_relatorio(self):
+        corpo = _funcao(self.backend, "_professional_linked_to_patient")
+        self.assertIn("SESSION_INVITES.values()", corpo)
+        self.assertIn("_can_access_report(report, owner_email)", corpo)
+        # Sem email ou sem id nao ha vinculo — evita que string vazia case com
+        # campo vazio de um cadastro incompleto.
+        self.assertIn("if not owner_email or not patient_id:", corpo)
+        self.assertIn("return False", corpo)
 
     def test_liberacao_passa_pela_autorizacao_de_relatorio(self):
         trecho = self.backend.split("set_session_report_patient_release")[1][:1600]

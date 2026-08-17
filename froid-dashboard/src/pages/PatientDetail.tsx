@@ -24,6 +24,7 @@ import {
 } from "../lib/session-report";
 import { dashboardText, loadSessionLanguagePreferences, normalizeSessionLocale } from "../lib/localization";
 import { ResearchConsentCard } from "../components/validation/ResearchConsentCard";
+import { PatientResultsAccessCard } from "../components/patient/PatientResultsAccessCard";
 import { activeOrganizationId } from "../lib/validation";
 
 type PatientFollowStatus = "active" | "inactive";
@@ -338,6 +339,18 @@ export const PatientDetail: React.FC = () => {
                 detail="Eventos facial-vocal confirmados"
               />
             </div>
+            {group.patient?.id && (
+              <div className="mt-4">
+                {/* A chave do acesso aos resultados. Fica na ficha porque a
+                    decisão muda com o caso clínico, e no convite ela é tomada
+                    uma vez só. Não depende de organização: vale para o
+                    profissional solo também. */}
+                <PatientResultsAccessCard
+                  patientId={group.patient.id}
+                  patientName={group.patient.name}
+                />
+              </div>
+            )}
             {group.patient?.id && activeOrganizationId() && (
               <div className="mt-4">
                 <ResearchConsentCard

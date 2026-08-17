@@ -2549,6 +2549,31 @@ def _patient_record_for_report(report: dict) -> Optional[dict]:
     return None
 
 
+def _professional_linked_to_patient(owner_email: str, patient_id: str) -> bool:
+    """Este profissional atendeu este paciente?
+
+    Sem esta checagem qualquer profissional autenticado leria e alteraria o
+    acesso de qualquer paciente da base, bastando o id. Vale convite emitido por
+    ele, ou relatório que ele possa acessar.
+    """
+    if not owner_email or not patient_id:
+        return False
+    for invite in SESSION_INVITES.values():
+        if (
+            _normalize_email(invite.get("professional_email") or "") == owner_email
+            and str(invite.get("patient_id") or "") == patient_id
+        ):
+            return True
+    for report in _load_session_reports().values():
+        if not isinstance(report, dict):
+            continue
+        if not _can_access_report(report, owner_email):
+            continue
+        if (_patient_record_for_report(report) or {}).get("id") == patient_id:
+            return True
+    return False
+
+
 def _find_registered_patient_by_document(document: str) -> Optional[dict]:
     normalized_document = _digits_only(document)
     if not normalized_document:
@@ -10756,6 +10781,31 @@ async def set_session_report_patient_release(session_id: str, request: Request):
     return {"status": "ok", "patientRelease": report["patientRelease"]}
 
 
+@app.get("/api/patients/{patient_id}/results-access")
+async def get_patient_results_access(patient_id: str, request: Request):
+    """Estado atual da permissão, para a ficha do paciente desenhar a chave.
+
+    Existe separado do PUT porque a ficha precisa saber o estado ANTES de o
+    profissional mexer em nada — uma chave que nasce sempre no mesmo lugar,
+    independente do que está gravado, mente sobre o que está valendo.
+    """
+    user = _require_current_user(request)
+    _require_professional_feature_access(request)
+    owner_email = _normalize_email(user.get("email") or "")
+    patient = PATIENTS.get(patient_id)
+    if not isinstance(patient, dict):
+        raise HTTPException(status_code=404, detail="Paciente não encontrado")
+    if not _professional_linked_to_patient(owner_email, patient_id):
+        raise HTTPException(status_code=403, detail="Paciente não vinculado a este profissional")
+    return {
+        "patient_id": patient_id,
+        "portal_results_enabled": _patient_results_enabled(patient),
+        # Quem nunca teve o campo definido conta como habilitado, por
+        # compatibilidade. A ficha diz isso em vez de deixar parecer escolha.
+        "explicit": patient.get("portal_results_enabled") is not None,
+    }
+
+
 @app.put("/api/patients/{patient_id}/results-access")
 async def set_patient_results_access(patient_id: str, request: Request):
     """Liga ou desliga o acesso do paciente aos próprios resultados.
@@ -10777,20 +10827,7 @@ async def set_patient_results_access(patient_id: str, request: Request):
     if not isinstance(patient, dict):
         raise HTTPException(status_code=404, detail="Paciente não encontrado")
 
-    # Vínculo: só mexe na ficha quem atendeu este paciente. Sem esta checagem,
-    # qualquer profissional autenticado alteraria o acesso de qualquer paciente
-    # da base pelo id.
-    linked = any(
-        _normalize_email(invite.get("professional_email") or "") == owner_email
-        and str(invite.get("patient_id") or "") == patient_id
-        for invite in SESSION_INVITES.values()
-    ) or any(
-        isinstance(report, dict)
-        and _can_access_report(report, owner_email)
-        and (_patient_record_for_report(report) or {}).get("id") == patient_id
-        for report in _load_session_reports().values()
-    )
-    if not linked:
+    if not _professional_linked_to_patient(owner_email, patient_id):
         raise HTTPException(status_code=403, detail="Paciente não vinculado a este profissional")
 
     body = await request.json()
