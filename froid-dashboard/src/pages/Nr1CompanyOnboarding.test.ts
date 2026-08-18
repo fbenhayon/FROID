@@ -20,6 +20,10 @@ const PAGINA = readFileSync(join(__dirname, "Nr1CompanyOnboarding.tsx"), "utf-8"
 const PAGINA_CORRIDA = PAGINA.replace(/\s+/g, " ");
 const APP = readFileSync(join(__dirname, "..", "App.tsx"), "utf-8");
 const ESCOLHA = readFileSync(join(__dirname, "ProductChoice.tsx"), "utf-8");
+const ROTAS = readFileSync(
+  join(__dirname, "..", "lib", "product-choice.ts"),
+  "utf-8",
+);
 
 describe("a empresa não pode virar clínica", () => {
   it("envia account_type nr1_company", () => {
@@ -41,7 +45,20 @@ describe("a empresa não pode virar clínica", () => {
 
 describe("o caminho até a tela", () => {
   it("a escolha NR-1 leva ao cadastro da empresa", () => {
-    expect(ESCOLHA).toContain('"/access/empresa"');
+    // O destino saiu da tela e virou pathForProduct, para que a rota do NR-1
+    // seja a MESMA em todo lugar que decide para onde mandar quem ainda está
+    // se cadastrando. Antes o App mandava todo mundo para /access/register, e
+    // a empresa reaparecia no formulário clínico.
+    expect(ESCOLHA).toContain("pathForProduct(produto)");
+    expect(ROTAS).toContain('return product === "nr1" ? "/access/empresa"');
+  });
+
+  it("a empresa NR-1 vira account_type nr1_company na origem da escolha", () => {
+    // É este mapa que decide o organization_type no servidor. Trocar "nr1"
+    // para "organization" aqui criaria uma clínica com os dados da empresa.
+    expect(ROTAS).toContain('nr1: "nr1_company"');
+    expect(ROTAS).toContain('clinic: "organization"');
+    expect(ROTAS).toContain('individual: "individual"');
   });
 
   it("quem não escolheu produto não entra direto", () => {

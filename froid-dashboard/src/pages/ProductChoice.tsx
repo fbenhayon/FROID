@@ -2,21 +2,28 @@ import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import type { FroidUser } from "../App";
-import type { FroidProduct } from "../lib/product-choice";
+import { pathForProduct, type FroidProduct } from "../lib/product-choice";
 
 /**
- * Escolha do produto, logo depois da autenticação.
+ * Quem você é — a única pergunta de identidade do cadastro.
  *
  * Antes desta tela o Google devolvia a pessoa direto para a ficha cadastral
  * clínica, qualquer que fosse a intenção dela. Um empregador que veio contratar
  * a avaliação NR-1 caía num formulário que pede conselho profissional e plano
  * de sessões — e concluía, com razão, que o produto não era para ele.
  *
- * Os dois produtos não são variações de um mesmo cadastro: um trata dado
- * clínico de paciente, o outro avalia condições de trabalho de forma anônima e
- * jamais entrega dado individual ao empregador. Misturar os dois num único
- * fluxo é o que produz a confusão que a fronteira do produto existe para
- * impedir.
+ * Depois disso a tela passou a perguntar o produto, mas ainda em duas partes:
+ * quem escolhesse "clínico" reencontrava, no meio do formulário, um par de
+ * botões "pessoa física / pessoa jurídica" que era o que realmente virava
+ * account_type. Agora as três respostas estão lado a lado, antes de a pessoa
+ * digitar qualquer coisa.
+ *
+ * As três não são variações de um mesmo cadastro. Autônomo e clínica tratam
+ * dado clínico identificado; a empresa NR-1 avalia condições de trabalho de
+ * forma anônima e jamais recebe dado individual. Essa terceira coluna vira
+ * organization_type 'enterprise' no servidor, e é só esse valor que retira do
+ * empregador as permissões clínicas — o que também explica por que ela não
+ * pode ser trocada depois por um simples reenvio do formulário.
  */
 
 type Props = {
@@ -42,9 +49,7 @@ export const ProductChoice: React.FC<Props> = ({
 
   const escolher = (produto: FroidProduct) => {
     onChoose(produto);
-    navigate(produto === "clinical" ? "/access/register" : "/access/empresa", {
-      replace: true,
-    });
+    navigate(pathForProduct(produto), { replace: true });
   };
 
   const primeiroNome = (user?.name || user?.email || "").split(/[\s@]/)[0];
@@ -73,50 +78,69 @@ export const ProductChoice: React.FC<Props> = ({
           Passo 1 de 2
         </p>
         <h1 className="mt-2 text-3xl font-black">
-          {primeiroNome ? `Bem-vindo, ${primeiroNome}. ` : ""}O que você veio contratar?
+          {primeiroNome ? `Bem-vindo, ${primeiroNome}. ` : ""}Quem vai usar o FROID?
         </h1>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-          O FROID tem dois produtos distintos, com cadastros diferentes porque as
-          necessidades são diferentes. Escolha abaixo e o cadastro seguinte já vem
-          com os campos certos.
+          Uma pergunta só, e o cadastro seguinte já vem com os campos certos.
+          Não há uma segunda escolha escondida no meio do formulário.
         </p>
 
         {choice !== "nr1" && (
-          <div className="mt-8 grid gap-5 md:grid-cols-2">
+          <div className="mt-8 grid gap-5 md:grid-cols-3">
             <section className="flex flex-col rounded-xl border border-slate-700 bg-slate-950 p-6">
               <span className="text-[11px] font-black uppercase tracking-widest text-cyan-300">
-                Para quem atende pacientes
+                Atendo pacientes
               </span>
-              <h2 className="mt-2 text-xl font-black">Sessões clínicas</h2>
+              <h2 className="mt-2 text-xl font-black">Profissional autônomo</h2>
               <p className="mt-3 text-sm leading-6 text-slate-300">
-                Análise multimodal durante a sessão, métricas de fala e face,
-                relatórios e FROID Explica. Você compra créditos por sessão.
+                Você atende em nome próprio e compra créditos por sessão.
               </p>
-              <ul className="mt-4 space-y-2 text-sm text-slate-300">
-                <li>• Profissional autônomo ou clínica com equipe</li>
-                <li>• Exige registro em conselho (CRP, CRM)</li>
-                <li>• Trata dado clínico de paciente, com consentimento</li>
+              <ul className="mt-4 flex-1 space-y-2 text-sm text-slate-300">
+                <li>• Cadastro no CPF, com registro em conselho (CRP, CRM)</li>
+                <li>• Sua própria base de pacientes e relatórios</li>
+                <li>• Créditos e faturamento individuais</li>
               </ul>
               <button
                 type="button"
-                onClick={() => escolher("clinical")}
+                onClick={() => escolher("individual")}
                 className="mt-6 rounded-lg bg-cyan-600 px-4 py-3 text-sm font-black text-white hover:bg-cyan-500"
               >
-                Quero contratar sessões
+                Sou profissional autônomo
+              </button>
+            </section>
+
+            <section className="flex flex-col rounded-xl border border-slate-700 bg-slate-950 p-6">
+              <span className="text-[11px] font-black uppercase tracking-widest text-cyan-300">
+                Atendemos pacientes
+              </span>
+              <h2 className="mt-2 text-xl font-black">Clínica</h2>
+              <p className="mt-3 text-sm leading-6 text-slate-300">
+                Uma equipe atendendo sob o mesmo CNPJ, com créditos partilhados.
+              </p>
+              <ul className="mt-4 flex-1 space-y-2 text-sm text-slate-300">
+                <li>• Cadastro no CNPJ, com representante legal</li>
+                <li>• Profissionais da mesma clínica na mesma organização</li>
+                <li>• Um pool de créditos para a equipe inteira</li>
+              </ul>
+              <button
+                type="button"
+                onClick={() => escolher("clinic")}
+                className="mt-6 rounded-lg bg-cyan-600 px-4 py-3 text-sm font-black text-white hover:bg-cyan-500"
+              >
+                Somos uma clínica
               </button>
             </section>
 
             <section className="flex flex-col rounded-xl border border-amber-800 bg-amber-950/30 p-6">
               <span className="text-[11px] font-black uppercase tracking-widest text-amber-300">
-                Para empregadores
+                Somos o empregador
               </span>
               <h2 className="mt-2 text-xl font-black">Plano NR-1 empresarial</h2>
               <p className="mt-3 text-sm leading-6 text-slate-300">
                 Avaliação de riscos psicossociais conforme a Portaria MTE nº
-                1.419/2024. Campanha anônima, resultado agregado por setor e os
-                documentos que a norma exige.
+                1.419/2024, com resultado agregado por setor.
               </p>
-              <ul className="mt-4 space-y-2 text-sm text-slate-300">
+              <ul className="mt-4 flex-1 space-y-2 text-sm text-slate-300">
                 <li>• Cadastro da empresa: unidades, setores e efetivo</li>
                 <li>• Não avalia indivíduos e não produz diagnóstico</li>
                 <li>• O empregador nunca recebe resposta individual</li>
@@ -126,7 +150,7 @@ export const ProductChoice: React.FC<Props> = ({
                 onClick={() => escolher("nr1")}
                 className="mt-6 rounded-lg bg-amber-500 px-4 py-3 text-sm font-black text-amber-950 hover:bg-amber-400"
               >
-                Quero o plano NR-1
+                Somos uma empresa
               </button>
             </section>
           </div>
@@ -198,9 +222,10 @@ export const ProductChoice: React.FC<Props> = ({
         )}
 
         <p className="mt-8 max-w-3xl text-xs leading-5 text-slate-400">
-          Escolheu errado? Dá para voltar: a escolha define apenas quais campos o
-          cadastro pede, e pode ser refeita antes de concluir. Configurações fora
-          do padrão são tratadas por{" "}
+          Trocar entre profissional autônomo e clínica é livre enquanto o
+          cadastro não estiver concluído. Já a troca entre cadastro clínico e
+          empresa NR-1 muda quem pode ler prontuário: uma vez criada, ela só é
+          desfeita por{" "}
           <a className="underline" href={`mailto:${CONTATO_EMPRESAS}`}>
             {CONTATO_EMPRESAS}
           </a>

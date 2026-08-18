@@ -9,6 +9,7 @@ import { apiUrl, publicAppUrl } from "../lib/api";
 // conveniência, é uma regressão de cadastro.
 const TESTING_MINIMAL_ONBOARDING = false;
 import type { FroidUser } from "../App";
+import type { FroidProduct } from "../lib/product-choice";
 import { CollapsibleDisclosure } from "../components/legal/CollapsibleDisclosure";
 import { LgpdNotice } from "../components/legal/LgpdNotice";
 import { SecurityAssurance } from "../components/legal/SecurityAssurance";
@@ -59,6 +60,11 @@ type ValidationIssue = {
 interface Props {
   user: FroidUser | null;
   onUserChange: (user: FroidUser | null) => void;
+  /** Quem a pessoa disse que é, na tela anterior. É daqui que sai o
+   *  account_type — o par de botões "pessoa física / pessoa jurídica" que
+   *  existia no meio deste formulário era uma segunda pergunta sobre a mesma
+   *  coisa, e quem chegava até ela já tinha respondido. */
+  choice?: FroidProduct | null;
 }
 
 const emptyFields: Record<string, string> = {
@@ -206,9 +212,18 @@ const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title
   </section>
 );
 
-export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) => {
+export const ProfessionalOnboarding: React.FC<Props> = ({
+  user,
+  onUserChange,
+  choice = null,
+}) => {
   const navigate = useNavigate();
-  const [accountType, setAccountType] = useState<"individual" | "organization">("individual");
+  // "nr1" nunca chega aqui (a rota desvia para /access/empresa); o fallback
+  // para individual só existe para o caso de a escolha ter sido perdida com o
+  // armazenamento do navegador bloqueado.
+  const [accountType, setAccountType] = useState<"individual" | "organization">(
+    choice === "clinic" ? "organization" : "individual",
+  );
   const [fields, setFields] = useState<Record<string, string>>({
     ...emptyFields,
     email: user?.email || "",
@@ -845,17 +860,24 @@ export const ProfessionalOnboarding: React.FC<Props> = ({ user, onUserChange }) 
               </Section>
             ) : (
               <>
+                {/* Só mostra o que já foi decidido na tela anterior. O par de
+                    botões que ficava aqui era uma segunda pergunta sobre a
+                    mesma coisa — e, por estar no meio do formulário, era comum
+                    passar batido e o cadastro sair com o tipo errado. */}
                 <section className="rounded-lg border border-slate-700 bg-slate-900 p-4 shadow-sm">
                   <span className="text-[11px] font-black uppercase text-slate-400">Tipo de cadastro</span>
-                  <div className="mt-2 flex flex-wrap gap-3 text-sm font-bold">
-                    <label className="flex items-center gap-2">
-                      <input type="radio" checked={accountType === "individual"} onChange={() => { setAccountType("individual"); setContractAccepted(false); }} />
-                      Pessoa Física
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input type="radio" checked={accountType === "organization"} onChange={() => { setAccountType("organization"); setContractAccepted(false); }} />
-                      Pessoa Juridica
-                    </label>
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm font-bold text-slate-100">
+                      {accountType === "organization"
+                        ? "Clínica (pessoa jurídica, cadastro no CNPJ)"
+                        : "Profissional autônomo (pessoa física, cadastro no CPF)"}
+                    </p>
+                    <Link
+                      to="/access/produto"
+                      className="rounded-md border border-slate-600 px-3 py-1.5 text-xs font-black text-slate-200 hover:border-cyan-500 hover:text-cyan-300"
+                    >
+                      Trocar
+                    </Link>
                   </div>
                 </section>
 

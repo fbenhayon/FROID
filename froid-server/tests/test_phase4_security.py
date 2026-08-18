@@ -37,7 +37,24 @@ class Phase4SecurityTests(unittest.TestCase):
     def test_development_auth_is_fail_closed(self):
         self.assertIn('os.getenv("GOOGLE_AUTH_DEV_FALLBACK", "false")', self.main_source)
         self.assertIn("if FROID_LOCAL_AUTH_PASSWORD and FROID_LOCAL_AUTH_EMAILS", self.main_source)
-        self.assertIn("raise HTTPException(status_code=403, detail=\"login local desabilitado\")", self.main_source)
+        # Sem lista local configurada o caminho continua levantando, nunca
+        # devolvendo usuario. A mensagem deixou de ser "login local
+        # desabilitado" quando o cadastro por senha entrou: aquele texto so
+        # aparecia para quem NAO tinha credencial no cofre, entao respondia se
+        # um e-mail existe ou nao no FROID. Agora e a mesma recusa do login com
+        # senha errada, e a propriedade testada aqui e a de sempre — o ramo sem
+        # configuracao levanta excecao.
+        local_login = self.main_source[
+            self.main_source.index("def _verify_local_login(") : self.main_source.index(
+                "async def _verify_google_credential("
+            )
+        ]
+        fecho = local_login[
+            local_login.index("    else:") : local_login.index("\n\n    return {")
+        ]
+        self.assertIn("raise HTTPException", fecho)
+        self.assertIn('detail="E-mail ou senha inválidos"', fecho)
+        self.assertNotIn("return", fecho)
 
     def test_clinical_routes_require_commercial_access_gate(self):
         for route in (

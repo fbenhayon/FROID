@@ -34,6 +34,47 @@ def stable_uuid(kind: str, *parts: Any) -> uuid.UUID:
     return uuid.uuid5(NAMESPACE, f"{kind}|{normalized}")
 
 
+def organization_id_for_profile(
+    owner_email: str, account_type: str, organization_document=None
+) -> str:
+    """Organizacao a que este perfil pertence.
+
+    Clinica: derivada do CNPJ, para que todos os profissionais do mesmo CNPJ
+    caiam na MESMA organizacao e partilhem um unico pool de creditos. A empresa
+    contratante do NR-1 tambem deriva do CNPJ, porque varias pessoas do mesmo
+    empregador precisam enxergar a mesma estrutura e as mesmas campanhas.
+    Profissional autonomo continua derivando do e-mail (organizacao propria),
+    preservando quem ja opera hoje.
+
+    Publica e fora da transacao de gravacao de proposito: quem valida a
+    transicao de tipo precisa saber QUAL organizacao seria tocada antes de
+    tocar nela, e recalcular isso por fora seria duas verdades sobre a mesma
+    coisa — exatamente como uma delas fica velha sem ninguem notar.
+    """
+    normalizado = normalize_email(owner_email) or "legacy-unassigned@froid.local"
+    tipo = str(account_type or "individual").lower()
+    documento = re.sub(r"\D", "", str(organization_document or ""))
+    if documento and tipo in {"organization", "nr1_company"}:
+        return stable_uuid("organization", "cnpj", documento)
+    return stable_uuid("organization", normalizado)
+
+
+def organization_type_for_account(account_type: str) -> str:
+    """Mapa account_type -> organization_type.
+
+    'enterprise' nao e cosmetico: e o unico valor que faz
+    effective_role_permissions retirar as permissoes clinicas identificadas dos
+    papeis do lado do empregador. Trocar este mapeamento devolve ao empregador
+    o acesso ao prontuario.
+    """
+    tipo = str(account_type or "individual").lower()
+    if tipo == "nr1_company":
+        return "enterprise"
+    if tipo == "organization":
+        return "clinic"
+    return "solo"
+
+
 def safe_int(value: Any) -> int:
     try:
         return int(value or 0)
@@ -281,6 +322,28 @@ class TenantStore:
             else:
                 apply_migrations(connection)
             self._schema_ready = True
+
+    def organization_type(self, organization_id) -> str:
+        """Tipo ja gravado desta organizacao, ou string vazia se ela nao existe.
+
+        Existe para uma pergunta so: a organizacao que este cadastro vai tocar
+        ja e 'enterprise'? Um cadastro que a rebaixasse para 'clinic' devolveria
+        ao empregador as permissoes clinicas identificadas que
+        effective_role_permissions retira — e o upsert de organizacoes faz
+        ON CONFLICT DO UPDATE do organization_type, entao sem esta pergunta a
+        troca passa despercebida.
+        """
+        if not self.enabled or not organization_id:
+            return ""
+        with self._connect() as connection:
+            self.ensure_schema(connection)
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT organization_type FROM organizations WHERE id = %s",
+                    (str(organization_id),),
+                )
+                row = cursor.fetchone()
+        return str((row or [""])[0] or "")
 
     def access_contexts(self, email: str) -> list[dict]:
         """Return active organization memberships for an authenticated email."""
@@ -2842,22 +2905,9 @@ class TenantStore:
     def _organization_for_email(self, cursor, email: str, profile: dict) -> dict:
         owner_email = normalize_email(email) or "legacy-unassigned@froid.local"
         account_type_raw = str(profile.get("account_type") or "individual").lower()
-        # Clinica: a organizacao e derivada do CNPJ, para que todos os
-        # profissionais do mesmo CNPJ caiam na MESMA organizacao e partilhem um
-        # unico pool de creditos. Profissional autonomo continua derivando do
-        # e-mail (uma organizacao propria), preservando quem ja opera hoje.
-        clinic_document = re.sub(
-            r"\D", "", str(profile.get("organization_document") or "")
+        organization_id = organization_id_for_profile(
+            owner_email, account_type_raw, profile.get("organization_document")
         )
-        # A empresa contratante do NR-1 tambem deriva do CNPJ: varias pessoas do
-        # mesmo empregador precisam cair na MESMA organizacao para enxergar a
-        # mesma estrutura e as mesmas campanhas.
-        is_nr1_company = bool(account_type_raw == "nr1_company" and clinic_document)
-        is_clinic = bool(account_type_raw == "organization" and clinic_document)
-        if is_clinic or is_nr1_company:
-            organization_id = stable_uuid("organization", "cnpj", clinic_document)
-        else:
-            organization_id = stable_uuid("organization", owner_email)
         user_id = stable_uuid("user", owner_email)
         membership_id = stable_uuid("membership", organization_id, user_id)
         account_type = str(profile.get("account_type") or "individual").lower()
@@ -2865,12 +2915,7 @@ class TenantStore:
         # effective_role_permissions retirar as permissoes clinicas
         # identificadas dos papeis do lado do empregador. Trocar este mapeamento
         # devolve ao empregador o acesso ao prontuario.
-        if account_type == "nr1_company":
-            organization_type = "enterprise"
-        elif account_type == "organization":
-            organization_type = "clinic"
-        else:
-            organization_type = "solo"
+        organization_type = organization_type_for_account(account_type)
         owner_name = str(profile.get("owner_name") or owner_email).strip()
         organization_name = str(profile.get("organization_name") or owner_name).strip()
         organization_document = str(profile.get("organization_document") or "").strip() or None

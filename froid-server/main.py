@@ -21,6 +21,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 from froid_core import SessionState, MockBiometricStream
 import froid_f0
+import froid_mailer
 import froid_voice
 from froid_metrics_engine import calculate_report_metrics
 from tenant_access import (
@@ -30,7 +31,12 @@ from tenant_access import (
     decide,
     should_block,
 )
-from tenant_store import TenantStore, stable_uuid
+from tenant_store import (
+    TenantStore,
+    organization_id_for_profile as tenant_organization_id_for_profile,
+    organization_type_for_account as tenant_organization_type_for_account,
+    stable_uuid,
+)
 import explica_embeddings
 import froid_validation
 import lgpd_registry
@@ -210,6 +216,25 @@ FROID_SUBSCRIPTIONS_REQUIRED = os.getenv(
 FROID_PROFESSIONAL_APPROVAL_REQUIRED = os.getenv(
     "FROID_PROFESSIONAL_APPROVAL_REQUIRED", "false"
 ).lower() in {"1", "true", "yes", "on"}
+# Cadastro proprio (sem Google). Desligar aqui fecha /api/auth/register sem
+# derrubar quem ja tem senha: o login continua valendo.
+FROID_REGISTRATION_ENABLED = os.getenv(
+    "FROID_REGISTRATION_ENABLED", "true"
+).lower() in {"1", "true", "yes", "on"}
+# Piso de 6 por decisao de produto: cadastro curto perde menos gente na porta.
+# O que sustenta a credencial nao e o comprimento e sim o resto do conjunto —
+# e-mail verificado antes de a conta valer, PBKDF2 com 120k iteracoes, limite
+# de 10 tentativas por e-mail a cada 15 min e exigencia de letra e numero, que
+# tira do caminho justamente "123456" e "senha".
+FROID_PASSWORD_MIN_LENGTH = max(
+    6, int(os.getenv("FROID_PASSWORD_MIN_LENGTH", "6") or "6")
+)
+FROID_EMAIL_VERIFICATION_TTL_SECONDS = max(
+    900, int(os.getenv("FROID_EMAIL_VERIFICATION_TTL_SECONDS", "86400") or "86400")
+)
+FROID_PASSWORD_RESET_TTL_SECONDS = max(
+    300, int(os.getenv("FROID_PASSWORD_RESET_TTL_SECONDS", "3600") or "3600")
+)
 FROID_ALLOW_LOCAL_BILLING_FALLBACK = os.getenv(
     "FROID_ALLOW_LOCAL_BILLING_FALLBACK", "false"
 ).lower() in {"1", "true", "yes", "on"}
@@ -352,6 +377,11 @@ FROID_PATIENT_SESSION_TTL_SECONDS = max(
     900, int(os.getenv("FROID_PATIENT_SESSION_TTL_SECONDS", "7200") or "7200")
 )
 PROFESSIONAL_PROFILES: Dict[str, dict] = {}
+# Cofre de credenciais de quem NAO entra pelo Google. Fica separado do
+# perfil de proposito: o perfil e cadastro comercial e clinico, e some
+# quando a pessoa refaz o onboarding; a credencial e identidade e nao pode
+# ser reescrita por um POST de formulario.
+PROFESSIONAL_CREDENTIALS: Dict[str, dict] = {}
 PATIENTS: Dict[str, dict] = {}
 PATIENTS_BY_CONTACT: Dict[str, str] = {}
 SESSION_INVITES: Dict[str, dict] = {}
@@ -414,6 +444,7 @@ def _rebuild_patient_contact_index(
 
 def _load_identity_state() -> None:
     global PROFESSIONAL_PROFILES
+    global PROFESSIONAL_CREDENTIALS
     global PATIENTS
     global PATIENTS_BY_CONTACT
     global SESSION_INVITES
@@ -442,6 +473,14 @@ def _load_identity_state() -> None:
             _local_normalize_email(email): profile
             for email, profile in raw_profiles.items()
             if _local_normalize_email(email) and isinstance(profile, dict)
+        }
+
+    raw_credentials = state.get("professional_credentials")
+    if isinstance(raw_credentials, dict):
+        PROFESSIONAL_CREDENTIALS = {
+            _local_normalize_email(email): credential
+            for email, credential in raw_credentials.items()
+            if _local_normalize_email(email) and isinstance(credential, dict)
         }
 
     raw_patients = state.get("patients")
@@ -563,6 +602,7 @@ def _identity_state_snapshot() -> dict:
         "schema_version": "froid-identity-state-v1",
         "saved_at": datetime.now(timezone.utc).isoformat(),
         "professional_profiles": PROFESSIONAL_PROFILES,
+        "professional_credentials": PROFESSIONAL_CREDENTIALS,
         "patients": PATIENTS,
         "patients_by_contact": PATIENTS_BY_CONTACT,
         "session_invites": SESSION_INVITES,
@@ -5398,6 +5438,152 @@ async def _transcribe_with_openai(
     return fallback_text, ""
 
 
+def _password_policy_error(password: str) -> str:
+    """Devolve a queixa a mostrar, ou string vazia se a senha serve."""
+    senha = str(password or "")
+    if len(senha) < FROID_PASSWORD_MIN_LENGTH:
+        return (
+            f"A senha precisa ter no mínimo {FROID_PASSWORD_MIN_LENGTH} caracteres"
+        )
+    if len(senha) > 256:
+        return "A senha excede o limite de 256 caracteres"
+    if not any(ch.isalpha() for ch in senha) or not any(ch.isdigit() for ch in senha):
+        return "A senha precisa combinar letras e números"
+    return ""
+
+
+def _set_professional_password(credential: dict, password: str) -> None:
+    salt = secrets.token_hex(16)
+    credential["password_salt"] = salt
+    credential["password_hash"] = _password_hash(password, salt)
+    credential["password_set_at"] = _utc_now_iso()
+
+
+def _verify_professional_password(credential: dict, password: str) -> bool:
+    if not isinstance(credential, dict):
+        return False
+    salt = str(credential.get("password_salt") or "")
+    expected = str(credential.get("password_hash") or "")
+    if not salt or not expected or not password:
+        return False
+    return secrets.compare_digest(_password_hash(password, salt), expected)
+
+
+def _credential_token_hash(token: str) -> str:
+    return hashlib.sha256(str(token or "").encode("utf-8")).hexdigest()
+
+
+def _issue_credential_token(credential: dict, kind: str, ttl_seconds: int) -> str:
+    """Emite token de uso único e guarda apenas o hash.
+
+    O estado de identidade é persistido em disco e espelhado no Postgres. Um
+    token de verificação em claro nesse arquivo valeria tanto quanto a senha:
+    quem lesse o backup entraria como a pessoa.
+    """
+    token = secrets.token_urlsafe(32)
+    credential[f"{kind}_token_hash"] = _credential_token_hash(token)
+    credential[f"{kind}_expires_ts"] = (
+        datetime.now(timezone.utc).timestamp() + ttl_seconds
+    )
+    credential[f"{kind}_sent_at"] = _utc_now_iso()
+    return token
+
+
+def _consume_credential_token(kind: str, token: str) -> Optional[dict]:
+    """Localiza a credencial dona do token e o queima na mesma passagem.
+
+    Queima antes de checar a validade: um token expirado não sobrevive à
+    tentativa de uso, e não há como ficar tentando o mesmo valor até a virada
+    de algum relógio.
+    """
+    if not token:
+        return None
+    token_hash = _credential_token_hash(token)
+    agora = datetime.now(timezone.utc).timestamp()
+    for credential in PROFESSIONAL_CREDENTIALS.values():
+        armazenado = str(credential.get(f"{kind}_token_hash") or "")
+        if not armazenado or not secrets.compare_digest(armazenado, token_hash):
+            continue
+        expira = credential.get(f"{kind}_expires_ts")
+        credential.pop(f"{kind}_token_hash", None)
+        credential.pop(f"{kind}_expires_ts", None)
+        try:
+            valido = float(expira) >= agora
+        except (TypeError, ValueError):
+            valido = False
+        return credential if valido else None
+    return None
+
+
+def _revoke_professional_sessions(email: str) -> None:
+    """Derruba toda sessão viva daquele e-mail (troca ou reset de senha)."""
+    alvo = _normalize_email(email)
+    if not alvo:
+        return
+    for token, session_user in list(SESSION_USERS.items()):
+        if _normalize_email((session_user or {}).get("email") or "") == alvo:
+            SESSION_USERS.pop(token, None)
+
+
+def _public_app_link(hash_path: str) -> str:
+    base = os.getenv("FROID_PUBLIC_URL", "http://localhost:5173").rstrip("/")
+    if not base.endswith("/app"):
+        base = f"{base}/app"
+    return f"{base}/#{hash_path}"
+
+
+async def _deliver_credential_email(
+    to_address: str, subject: str, text_body: str, html_body: str
+) -> None:
+    try:
+        await asyncio.to_thread(
+            froid_mailer.send_email, to_address, subject, text_body, html_body
+        )
+    except froid_mailer.MailerError:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Não foi possível enviar o e-mail agora. "
+                "Tente novamente em alguns minutos."
+            ),
+        )
+
+
+def _credential_email_bodies(titulo: str, chamada: str, link: str, validade: str):
+    """Corpo texto e HTML das mensagens de credencial.
+
+    Sempre em duas partes: cliente que bloqueia HTML precisa conseguir ler o
+    link, senão a verificação vira um beco sem saída para quem usa leitor de
+    tela ou webmail corporativo restrito.
+    """
+    texto = f"""{titulo}
+
+{chamada}
+
+{link}
+
+O link vale por {validade} e só pode ser usado uma vez.
+Se não foi você quem pediu, ignore esta mensagem: nada acontece enquanto o
+link não for aberto.
+
+FROID"""
+    html = (
+        "<div style='font-family:system-ui,sans-serif;line-height:1.6;color:#0f172a'>"
+        "<p style='letter-spacing:.3em;font-weight:900;color:#0e7490'>FROID</p>"
+        f"<h1 style='font-size:20px'>{titulo}</h1>"
+        f"<p>{chamada}</p>"
+        f"<p><a href='{link}' style='display:inline-block;background:#0891b2;"
+        "color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;"
+        "font-weight:700'>Abrir link seguro</a></p>"
+        f"<p style='font-size:13px;color:#475569'>O link vale por {validade} e "
+        "só pode ser usado uma vez. Se não foi você quem pediu, ignore esta "
+        "mensagem.</p>"
+        f"<p style='font-size:12px;color:#64748b;word-break:break-all'>{link}</p>"
+        "</div>"
+    )
+    return texto, html
+
+
 def _issue_session(user: dict):
     token = secrets.token_urlsafe(32)
     session_user = dict(user or {})
@@ -5424,13 +5610,37 @@ def _verify_local_login(body: dict) -> dict:
     if not email:
         raise HTTPException(status_code=400, detail="email obrigatório")
 
+    # Conta real com senha vem primeiro: o formulário de e-mail e senha da tela
+    # de login continua apontando para cá, e quem se cadastrou sem Google
+    # precisa entrar por ele. A lista local de desenvolvimento segue existindo
+    # como fallback, nunca como atalho por cima de uma credencial real.
+    credencial = PROFESSIONAL_CREDENTIALS.get(email)
+    if isinstance(credencial, dict) and credencial.get("password_hash"):
+        if not _verify_professional_password(credencial, password):
+            raise HTTPException(status_code=401, detail="E-mail ou senha inválidos")
+        if not credencial.get("email_verified"):
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    "Confirme seu e-mail antes de entrar. "
+                    "Verifique a caixa de entrada ou peça um novo link."
+                ),
+            )
+        credencial["last_auth_at"] = _utc_now_iso()
+        _save_identity_state()
+        return {
+            "email": email,
+            "provider": "password",
+            "name": str(credencial.get("name") or "") or email.split("@", 1)[0],
+        }
+
     if FROID_LOCAL_AUTH_PASSWORD and FROID_LOCAL_AUTH_EMAILS:
         if not secrets.compare_digest(password, FROID_LOCAL_AUTH_PASSWORD):
             raise HTTPException(status_code=401, detail="senha inválida")
         if FROID_LOCAL_AUTH_EMAILS and email not in FROID_LOCAL_AUTH_EMAILS:
             raise HTTPException(status_code=403, detail="email não autorizado")
     else:
-        raise HTTPException(status_code=403, detail="login local desabilitado")
+        raise HTTPException(status_code=401, detail="E-mail ou senha inválidos")
 
     return {
         "email": email,
@@ -7293,6 +7503,16 @@ def auth_config():
             (FROID_LOCAL_AUTH_PASSWORD and FROID_LOCAL_AUTH_EMAILS)
             or GOOGLE_AUTH_DEV_FALLBACK
         ),
+        # A tela de login precisa saber se pode oferecer "criar conta". Sem
+        # entrega de e-mail configurada o cadastro não se completa, então o
+        # botão não deve aparecer prometendo o que o servidor não cumpre.
+        "registration_enabled": bool(
+            FROID_REGISTRATION_ENABLED
+            and (froid_mailer.mailer_enabled() or froid_mailer.dev_echo_enabled())
+        ),
+        "password_login_enabled": True,
+        "password_min_length": FROID_PASSWORD_MIN_LENGTH,
+        "email_delivery_configured": froid_mailer.mailer_enabled(),
     }
 
 @app.post("/api/auth/google")
@@ -7316,6 +7536,347 @@ async def auth_google_dev(request: Request):
         raise HTTPException(status_code=404, detail="rota de desenvolvimento desabilitada")
     body = await request.json()
     return _issue_session(_verify_local_login(body))
+
+def _valid_email_shape(email: str) -> bool:
+    """Checagem de forma, não de existência. Quem prova o endereço é o e-mail
+    de verificação — validar demais aqui só rejeitaria endereço legítimo."""
+    valor = _normalize_email(email)
+    if not valor or len(valor) > 320 or valor.count("@") != 1:
+        return False
+    local, _, dominio = valor.partition("@")
+    if not local or not dominio or "." not in dominio:
+        return False
+    return " " not in valor and ".." not in valor
+
+
+async def _send_verification_email(credential: dict) -> str:
+    """Envia o convite de verificação. Devolve o link apenas no modo de
+    desenvolvimento sem SMTP; em produção devolve string vazia."""
+    token = _issue_credential_token(
+        credential, "verification", FROID_EMAIL_VERIFICATION_TTL_SECONDS
+    )
+    link = _public_app_link("/verificar-email?token=" + quote(token, safe=""))
+    horas = max(1, FROID_EMAIL_VERIFICATION_TTL_SECONDS // 3600)
+    assunto = "Confirme seu e-mail no FROID"
+    texto, html = _credential_email_bodies(
+        assunto,
+        (
+            "Você criou um acesso profissional no FROID. Confirme este endereço "
+            "para continuar o cadastro e escolher o produto."
+        ),
+        link,
+        "{} hora(s)".format(horas),
+    )
+    if froid_mailer.dev_echo_enabled():
+        LOGGER.warning("FROID_SMTP_DEV_ECHO ativo: link de verificação não enviado")
+        return link
+    await _deliver_credential_email(
+        str(credential.get("email") or ""), assunto, texto, html
+    )
+    return ""
+
+
+async def _send_password_reset_email(credential: dict) -> str:
+    token = _issue_credential_token(
+        credential, "reset", FROID_PASSWORD_RESET_TTL_SECONDS
+    )
+    link = _public_app_link("/recuperar-senha?token=" + quote(token, safe=""))
+    minutos = max(5, FROID_PASSWORD_RESET_TTL_SECONDS // 60)
+    assunto = "Definir nova senha no FROID"
+    texto, html = _credential_email_bodies(
+        assunto,
+        "Recebemos um pedido para redefinir a senha do seu acesso profissional.",
+        link,
+        "{} minuto(s)".format(minutos),
+    )
+    if froid_mailer.dev_echo_enabled():
+        LOGGER.warning("FROID_SMTP_DEV_ECHO ativo: link de recuperação não enviado")
+        return link
+    await _deliver_credential_email(
+        str(credential.get("email") or ""), assunto, texto, html
+    )
+    return ""
+
+
+@app.post("/api/auth/register")
+async def auth_register(request: Request):
+    """Cadastro de profissional ou empresa sem conta Google.
+
+    A resposta é sempre a mesma, exista ou não a conta. Um cadastro que
+    respondesse "e-mail já usado" viraria consulta pública de quem atende pelo
+    FROID — e a clientela de um psicólogo não é informação de domínio público.
+    Quem já tem conta verificada recebe, no lugar do convite, o caminho de
+    recuperação de senha.
+    """
+    if not FROID_REGISTRATION_ENABLED:
+        raise HTTPException(status_code=404, detail="cadastro próprio desabilitado")
+    _rate_limit_guard(
+        "auth_register", _client_ip(request), 10, 3600.0,
+        "Muitas tentativas de cadastro. Tente novamente em uma hora.",
+    )
+    body = await request.json()
+    email = _normalize_email(body.get("email") or "")
+    if not _valid_email_shape(email):
+        raise HTTPException(status_code=400, detail="Informe um e-mail válido")
+    password = str(body.get("password") or "")
+    confirm = str(body.get("password_confirm") or password)
+    if password != confirm:
+        raise HTTPException(status_code=400, detail="A confirmação da senha não confere")
+    queixa = _password_policy_error(password)
+    if queixa:
+        raise HTTPException(status_code=400, detail=queixa)
+    nome = str(body.get("name") or "").strip()[:300] or email.split("@", 1)[0]
+
+    _rate_limit_guard(
+        "auth_register_email", email, 5, 3600.0,
+        "Muitas tentativas de cadastro para este e-mail. Tente novamente em uma hora.",
+    )
+
+    agora = _utc_now_iso()
+    existente = PROFESSIONAL_CREDENTIALS.get(email)
+    resposta = {"status": "verification_sent"}
+
+    if isinstance(existente, dict) and existente.get("email_verified"):
+        # Conta existe e o endereço já foi provado. Trocar a senha aqui seria
+        # sequestro de conta por formulário público: o caminho legítimo é a
+        # recuperação, que também passa pela caixa de entrada.
+        link = await _send_password_reset_email(existente)
+        _save_identity_state()
+        LOGGER.info(
+            json.dumps(
+                {
+                    "event": "froid.professional_register",
+                    "outcome": "already_registered",
+                    "remote_addr": _client_ip(request),
+                },
+                ensure_ascii=False,
+            )
+        )
+        if link:
+            resposta["dev_link"] = link
+        return resposta
+
+    credencial = existente if isinstance(existente, dict) else {
+        "email": email,
+        "created_at": agora,
+        "email_verified": False,
+    }
+    credencial["email"] = email
+    credencial["name"] = nome
+    credencial["provider"] = "password"
+    credencial["updated_at"] = agora
+    _set_professional_password(credencial, password)
+    PROFESSIONAL_CREDENTIALS[email] = credencial
+    link = await _send_verification_email(credencial)
+    _save_identity_state()
+    LOGGER.info(
+        json.dumps(
+            {
+                "event": "froid.professional_register",
+                "outcome": "verification_sent",
+                "remote_addr": _client_ip(request),
+            },
+            ensure_ascii=False,
+        )
+    )
+    if link:
+        resposta["dev_link"] = link
+    return resposta
+
+
+@app.post("/api/auth/resend-verification")
+async def auth_resend_verification(request: Request):
+    """Reenvia a verificação. Resposta uniforme, pelo mesmo motivo do cadastro."""
+    _rate_limit_guard(
+        "auth_resend", _client_ip(request), 10, 3600.0,
+        "Muitos reenvios. Tente novamente em uma hora.",
+    )
+    body = await request.json()
+    email = _normalize_email(body.get("email") or "")
+    resposta = {"status": "verification_sent"}
+    if not _valid_email_shape(email):
+        return resposta
+    _rate_limit_guard(
+        "auth_resend_email", email, 5, 3600.0,
+        "Muitos reenvios para este e-mail. Tente novamente em uma hora.",
+    )
+    credencial = PROFESSIONAL_CREDENTIALS.get(email)
+    if not isinstance(credencial, dict) or credencial.get("email_verified"):
+        return resposta
+    link = await _send_verification_email(credencial)
+    _save_identity_state()
+    if link:
+        resposta["dev_link"] = link
+    return resposta
+
+
+@app.post("/api/auth/verify-email")
+async def auth_verify_email(request: Request):
+    """Queima o token e já devolve a sessão.
+
+    Abrir o link prova o controle da caixa de entrada, que é exatamente o que o
+    Google provava antes. Pedir a senha de novo aqui não acrescentaria
+    segurança nenhuma e só perderia gente no meio do caminho.
+    """
+    _rate_limit_guard(
+        "auth_verify", _client_ip(request), 30, 900.0,
+        "Muitas tentativas. Aguarde alguns minutos e tente novamente.",
+    )
+    body = await request.json()
+    token = str(body.get("token") or "").strip()
+    credencial = _consume_credential_token("verification", token)
+    if not isinstance(credencial, dict):
+        _save_identity_state()
+        raise HTTPException(
+            status_code=400,
+            detail="Link de verificação inválido ou expirado. Peça um novo e-mail.",
+        )
+    credencial["email_verified"] = True
+    credencial["email_verified_at"] = _utc_now_iso()
+    credencial["updated_at"] = _utc_now_iso()
+    _save_identity_state()
+    LOGGER.info(
+        json.dumps(
+            {
+                "event": "froid.professional_email_verified",
+                "remote_addr": _client_ip(request),
+            },
+            ensure_ascii=False,
+        )
+    )
+    return _issue_session(
+        {
+            "email": str(credencial.get("email") or ""),
+            "name": str(credencial.get("name") or ""),
+            "provider": "password",
+        }
+    )
+
+
+@app.post("/api/auth/login")
+async def auth_password_login(request: Request):
+    """Login por senha de quem se cadastrou sem Google."""
+    _rate_limit_guard(
+        "auth_pro", _client_ip(request), 15, 900.0,
+        "Muitas tentativas de login. Aguarde alguns minutos e tente novamente.",
+    )
+    body = await request.json()
+    email = _normalize_email(body.get("email") or "")
+    password = str(body.get("password") or "")
+    if not email or not password:
+        raise HTTPException(status_code=400, detail="Informe e-mail e senha")
+    _rate_limit_guard(
+        "auth_pro_email", email, 10, 900.0,
+        "Muitas tentativas para este e-mail. Aguarde alguns minutos.",
+    )
+    credencial = PROFESSIONAL_CREDENTIALS.get(email)
+    if not isinstance(credencial, dict) or not _verify_professional_password(
+        credencial, password
+    ):
+        raise HTTPException(status_code=401, detail="E-mail ou senha inválidos")
+    if not credencial.get("email_verified"):
+        # Só chega aqui quem já acertou a senha, então não há vazamento: é a
+        # dona da conta e precisa saber por que não entra.
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Confirme seu e-mail antes de entrar. "
+                "Verifique a caixa de entrada ou peça um novo link."
+            ),
+        )
+    credencial["last_auth_at"] = _utc_now_iso()
+    _save_identity_state()
+    return _issue_session(
+        {
+            "email": email,
+            "name": str(credencial.get("name") or ""),
+            "provider": "password",
+        }
+    )
+
+
+@app.post("/api/auth/password-reset")
+async def auth_password_reset_request(request: Request):
+    """Pede o link de nova senha. Resposta uniforme."""
+    _rate_limit_guard(
+        "auth_reset", _client_ip(request), 10, 3600.0,
+        "Muitos pedidos de recuperação. Tente novamente em uma hora.",
+    )
+    body = await request.json()
+    email = _normalize_email(body.get("email") or "")
+    resposta = {"status": "reset_sent"}
+    if not _valid_email_shape(email):
+        return resposta
+    _rate_limit_guard(
+        "auth_reset_email", email, 5, 3600.0,
+        "Muitos pedidos para este e-mail. Tente novamente em uma hora.",
+    )
+    credencial = PROFESSIONAL_CREDENTIALS.get(email)
+    if not isinstance(credencial, dict):
+        return resposta
+    link = await _send_password_reset_email(credencial)
+    _save_identity_state()
+    if link:
+        resposta["dev_link"] = link
+    return resposta
+
+
+@app.post("/api/auth/password-reset/confirm")
+async def auth_password_reset_confirm(request: Request):
+    """Consome o token e grava a nova senha.
+
+    Derruba todas as sessões vivas daquele e-mail: se a recuperação foi pedida
+    porque alguém entrou na conta, deixar a sessão do invasor de pé anularia o
+    efeito de trocar a senha.
+    """
+    _rate_limit_guard(
+        "auth_reset_confirm", _client_ip(request), 30, 900.0,
+        "Muitas tentativas. Aguarde alguns minutos e tente novamente.",
+    )
+    body = await request.json()
+    token = str(body.get("token") or "").strip()
+    password = str(body.get("password") or "")
+    confirm = str(body.get("password_confirm") or password)
+    if password != confirm:
+        raise HTTPException(status_code=400, detail="A confirmação da senha não confere")
+    queixa = _password_policy_error(password)
+    if queixa:
+        raise HTTPException(status_code=400, detail=queixa)
+    credencial = _consume_credential_token("reset", token)
+    if not isinstance(credencial, dict):
+        _save_identity_state()
+        raise HTTPException(
+            status_code=400,
+            detail="Link de recuperação inválido ou expirado. Peça um novo e-mail.",
+        )
+    email = _normalize_email(credencial.get("email") or "")
+    _set_professional_password(credencial, password)
+    # Abrir o link de recuperação prova a caixa de entrada tanto quanto o de
+    # verificação: quem redefiniu a senha por e-mail está verificado.
+    credencial["email_verified"] = True
+    credencial["email_verified_at"] = (
+        credencial.get("email_verified_at") or _utc_now_iso()
+    )
+    credencial["updated_at"] = _utc_now_iso()
+    _revoke_professional_sessions(email)
+    _save_identity_state()
+    LOGGER.info(
+        json.dumps(
+            {
+                "event": "froid.professional_password_reset",
+                "remote_addr": _client_ip(request),
+            },
+            ensure_ascii=False,
+        )
+    )
+    return _issue_session(
+        {
+            "email": email,
+            "name": str(credencial.get("name") or ""),
+            "provider": "password",
+        }
+    )
+
 
 @app.get("/api/auth/me")
 async def auth_me(request: Request):
@@ -9440,6 +10001,76 @@ async def renew_professional_legal_acceptances(request: Request):
     return {"status": "accepted", "legal_acceptances": legal_acceptances}
 
 
+def _assert_account_type_transition(
+    owner_email: str, account_type: str, organization_document: str
+) -> None:
+    """Impede que uma organizacao atravesse a fronteira do 'enterprise'.
+
+    Empresa NR-1 e clinica com o MESMO CNPJ resolvem para o MESMO
+    organization_id, e o upsert de organizacoes faz ON CONFLICT DO UPDATE do
+    organization_type. Sem esta trava, reenviar o perfil com account_type
+    trocado rebaixa a organizacao de 'enterprise' para 'clinic' — e o dono do
+    lado do empregador recupera patients.read_all e reports.read_all sobre a
+    empresa inteira. O painel nao oferece esse caminho, mas a rota e uma API
+    publica autenticada: a barreira nao pode ser o roteador do navegador.
+
+    Subir de clinica para empresa e igualmente recusado. Nao e simetrico por
+    elegancia: uma clinica que virasse 'enterprise' perderia o acesso clinico
+    dos proprios profissionais, quebrando o atendimento em vez de vazar dado.
+    Os dois sentidos exigem decisao administrativa, nao um POST de formulario.
+    """
+    alvo = tenant_organization_type_for_account(account_type)
+
+    # Verdade local, sempre disponivel: o proprio perfil ja gravado. Vale
+    # inclusive com o Postgres desligado, que e o caso de instalacao pequena.
+    perfil = PROFESSIONAL_PROFILES.get(_normalize_email(owner_email))
+    if isinstance(perfil, dict) and perfil.get("account_type"):
+        anterior = tenant_organization_type_for_account(perfil.get("account_type"))
+        if (anterior == "enterprise") != (alvo == "enterprise"):
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Este cadastro já existe como "
+                    + ("empresa contratante do NR-1" if anterior == "enterprise"
+                       else "cadastro clínico")
+                    + ". A troca entre empresa e clínica muda quem pode ler "
+                    "prontuário e exige atendimento do suporte FROID."
+                ),
+            )
+
+    # Verdade compartilhada: a organizacao do CNPJ pode ter sido criada por
+    # OUTRA pessoa. Sem esta segunda pergunta, um cadastro novo com o CNPJ de
+    # uma empresa NR-1 existente a rebaixaria para clinica.
+    if not TENANT_STORE.enabled:
+        return
+    organizacao = tenant_organization_id_for_profile(
+        owner_email, account_type, organization_document
+    )
+    try:
+        atual = TENANT_STORE.organization_type(organizacao)
+    except Exception:
+        LOGGER.exception("Unable to read organization type for transition guard")
+        # Falha fechada: sem conseguir conferir o tipo vigente, nao se grava um
+        # cadastro que pode atravessar a fronteira.
+        raise HTTPException(
+            status_code=503,
+            detail="Não foi possível validar o tipo da organização agora.",
+        )
+    if not atual or atual == "legacy":
+        return
+    if (atual == "enterprise") != (alvo == "enterprise"):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Já existe uma organização com este CNPJ cadastrada como "
+                + ("empresa contratante do NR-1" if atual == "enterprise"
+                   else "cadastro clínico")
+                + ". A troca entre empresa e clínica muda quem pode ler "
+                "prontuário e exige atendimento do suporte FROID."
+            ),
+        )
+
+
 @app.post("/api/professional/profile")
 async def save_professional_profile(request: Request):
     user = _current_user_from_request(request)
@@ -9461,6 +10092,9 @@ async def save_professional_profile(request: Request):
     # existe para sustentar.
     if account_type not in {"individual", "organization", "nr1_company"}:
         raise HTTPException(status_code=400, detail="tipo de cadastro inválido")
+    _assert_account_type_transition(
+        owner_email, account_type, body.get("organization_document")
+    )
 
     professionals = [
         {

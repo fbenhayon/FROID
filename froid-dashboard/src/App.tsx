@@ -7,6 +7,7 @@ import { apiUrl } from "./lib/api";
 import { rememberProfessionalEmail } from "./lib/professional-prompts";
 import {
   clearProductChoice,
+  pathForProduct,
   readProductChoice,
   saveProductChoice,
   type FroidProduct,
@@ -26,6 +27,8 @@ const PatientDetail = lazy(() => import("./pages/PatientDetail").then((module) =
 const NewPatient = lazy(() => import("./pages/NewPatient").then((module) => ({ default: module.NewPatient })));
 const ProfessionalOnboarding = lazy(() => import("./pages/ProfessionalOnboarding").then((module) => ({ default: module.ProfessionalOnboarding })));
 const ProductChoice = lazy(() => import("./pages/ProductChoice").then((module) => ({ default: module.ProductChoice })));
+const VerifyEmailPage = lazy(() => import("./pages/AccountAccessPages").then((module) => ({ default: module.VerifyEmailPage })));
+const PasswordResetPage = lazy(() => import("./pages/AccountAccessPages").then((module) => ({ default: module.PasswordResetPage })));
 const Nr1CompanyOnboarding = lazy(() => import("./pages/Nr1CompanyOnboarding").then((module) => ({ default: module.Nr1CompanyOnboarding })));
 const PatientInvitePage = lazy(() => import("./pages/PatientInvitePage").then((module) => ({ default: module.PatientInvitePage })));
 const PatientSessionPage = lazy(() => import("./pages/PatientSessionPage").then((module) => ({ default: module.PatientSessionPage })));
@@ -111,7 +114,12 @@ function defaultAuthenticatedPath(
   choice: FroidProduct | null,
 ) {
   if (!onboardingRequired(user)) return "/dashboard";
-  return needsProductChoice(user, choice) ? "/access/produto" : "/access/register";
+  if (needsProductChoice(user, choice)) return "/access/produto";
+  // Respeitar a escolha aqui não é detalhe: mandar todo mundo para
+  // /access/register fazia a empresa NR-1 que voltasse no meio do cadastro
+  // reaparecer no formulário clínico, que pede CRP e plano de sessões — a
+  // mesma confusão que a tela de escolha existe para acabar.
+  return pathForProduct(choice as FroidProduct);
 }
 
 function localDevUser(): FroidUser | null {
@@ -274,10 +282,7 @@ function App() {
   const clinicalElement = (element: ReactNode) =>
     protectedElement(
       onboardingRequired(user) ? (
-        <Navigate
-          to={needsProductChoice(user, productChoice) ? "/access/produto" : "/access/register"}
-          replace
-        />
+        <Navigate to={defaultAuthenticatedPath(user, productChoice)} replace />
       ) : (
         element
       ),
@@ -328,6 +333,27 @@ function App() {
             )
           }
         />
+        {/* Acesso de quem não tem conta Google. Público de propósito: são
+            exatamente as telas de quem ainda não tem sessão para proteger. A
+            verificação e a recuperação valem mesmo com alguém já logado — é
+            comum abrir o link do e-mail na janela onde outra conta está
+            aberta, e a sessão nova simplesmente substitui a anterior.
+
+            /registrar é a MESMA tela de /login, aberta na aba de cadastro: o
+            link antigo continua valendo e quem chega por ele não cai numa
+            página separada de onde teria que voltar para entrar. */}
+        <Route
+          path="/registrar"
+          element={
+            isAuthenticated ? (
+              <Navigate to={defaultAuthenticatedPath(user, productChoice)} replace />
+            ) : (
+              <LoginPage onLogin={setUser} afterLoginPath="/dashboard" initialMode="criar" />
+            )
+          }
+        />
+        <Route path="/verificar-email" element={<VerifyEmailPage onLogin={setUser} />} />
+        <Route path="/recuperar-senha" element={<PasswordResetPage onLogin={setUser} />} />
         <Route
           path="/access/produto"
           element={protectedElement(
@@ -373,8 +399,16 @@ function App() {
               // Chegar direto na ficha clínica por link antigo ou favorito não
               // pode pular a escolha — é ela que decide quais campos valem.
               <Navigate to="/access/produto" replace />
+            ) : productChoice === "nr1" ? (
+              // Escolheu empresa e caiu aqui por link antigo: o formulário
+              // clínico pede CRP e plano de sessões, que não é o cadastro dela.
+              <Navigate to="/access/empresa" replace />
             ) : (
-              <ProfessionalOnboarding user={user} onUserChange={setUser} />
+              <ProfessionalOnboarding
+                user={user}
+                onUserChange={setUser}
+                choice={productChoice}
+              />
             ),
           )}
         />
