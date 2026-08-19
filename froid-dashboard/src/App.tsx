@@ -61,6 +61,12 @@ export type FroidUser = {
   }>;
   access_status?: {
     has_profile?: boolean;
+    /** Tipo já gravado no servidor. Vazio enquanto não há perfil. É ele que
+     *  diz se a escolha de produto ainda está em aberto: a travessia entre
+     *  cadastro clínico e empresa NR-1 é recusada pelo backend, e a tela
+     *  precisa saber disso antes de deixar alguém preencher um formulário
+     *  inteiro. */
+    account_type?: "individual" | "organization" | "nr1_company" | "";
     lgpd_acknowledged?: boolean;
     selected_plan?: string;
     payment_status?: string;

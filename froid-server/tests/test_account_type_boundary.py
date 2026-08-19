@@ -119,6 +119,31 @@ class TravaDeTransicaoTests(unittest.TestCase):
         # proprio cadastro.
         self.assertIn('if not atual or atual == "legacy":', self.trava)
 
+    def test_a_tela_de_escolha_recusa_antes_do_formulario(self):
+        """A recusa tem de aparecer na escolha, nao 15 campos depois.
+
+        A trava do servidor continua sendo a ultima linha; o que este teste
+        cobre e o aviso chegar cedo. Sem ele, a pessoa escolhe "empresa",
+        preenche unidades, setores e efetivo, e so leva o "nao" ao salvar.
+        """
+        escolha = (
+            ROOT / "froid-dashboard" / "src" / "pages" / "ProductChoice.tsx"
+        ).read_text(encoding="utf-8")
+        # A tela le o tipo vigente que o backend passou a devolver.
+        self.assertIn("user?.access_status?.account_type", escolha)
+        # E espelha a regra do servidor: o que bloqueia e cruzar o enterprise,
+        # nao trocar entre autonomo e clinica.
+        self.assertIn('tipoVigente === "nr1_company"', escolha)
+        self.assertIn(
+            'tipoVigente === "individual" || tipoVigente === "organization"', escolha
+        )
+        self.assertIn('produto === "nr1" ? jaEhClinico : jaEhEmpresa', escolha)
+
+    def test_backend_entrega_o_tipo_para_a_tela(self):
+        inicio = self.backend.index('        "has_profile": has_profile,')
+        estado = self.backend[inicio : self.backend.index('"selected_plan"', inicio)]
+        self.assertIn('"account_type": account_type if has_profile else ""', estado)
+
     def test_derivacao_do_id_tem_uma_fonte_so(self):
         # A trava precisa saber QUAL organizacao seria tocada. Recalcular isso
         # por fora criaria duas verdades sobre a mesma coisa.

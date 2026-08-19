@@ -2088,6 +2088,12 @@ def _professional_access_status(email: str) -> dict:
         access_ready = False
     return {
         "has_profile": has_profile,
+        # O tipo ja escolhido viaja com o estado de acesso para que a tela de
+        # escolha saiba, ANTES do formulario, que a travessia clinico<->empresa
+        # sera recusada. Sem isto a pessoa preenche o cadastro guiado inteiro e
+        # so leva o "nao" no fim, com o trabalho ja feito. Vazio quando ainda
+        # nao ha perfil.
+        "account_type": account_type if has_profile else "",
         "lgpd_acknowledged": lgpd_acknowledged,
         "selected_plan": selected_plan,
         "payment_status": payment_status or ("pending_checkout" if selected_plan else "not_started"),

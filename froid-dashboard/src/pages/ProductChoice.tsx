@@ -54,6 +54,42 @@ export const ProductChoice: React.FC<Props> = ({
 
   const primeiroNome = (user?.name || user?.email || "").split(/[\s@]/)[0];
 
+  // Espelha exatamente a regra do servidor (_assert_account_type_transition):
+  // o que é recusado é atravessar a fronteira do 'enterprise'. Entre autônomo
+  // e clínica a troca continua livre, porque nenhum dos dois é enterprise.
+  //
+  // Isto existe porque a recusa chegava tarde demais: a pessoa escolhia
+  // "empresa", preenchia unidades, setores e efetivo, e só levava o "não" ao
+  // salvar — com todo o trabalho já feito.
+  const tipoVigente = user?.access_status?.account_type || "";
+  const jaEhEmpresa = tipoVigente === "nr1_company";
+  const jaEhClinico = tipoVigente === "individual" || tipoVigente === "organization";
+  const bloqueado = (produto: FroidProduct) =>
+    produto === "nr1" ? jaEhClinico : jaEhEmpresa;
+
+  const acao = (produto: FroidProduct, rotulo: string, classe: string) =>
+    bloqueado(produto) ? (
+      <div className="mt-6 rounded-lg border border-slate-700 bg-slate-900/80 p-3">
+        <p className="text-xs font-black uppercase tracking-wider text-slate-400">
+          Indisponível para esta conta
+        </p>
+        <p className="mt-1 text-xs leading-5 text-slate-400">
+          {jaEhEmpresa
+            ? "Esta conta já está cadastrada como empresa contratante do NR-1."
+            : "Esta conta já tem cadastro clínico."}{" "}
+          Trocar entre os dois muda quem pode ler prontuário e passa por{" "}
+          <a className="underline" href={`mailto:${CONTATO_EMPRESAS}`}>
+            {CONTATO_EMPRESAS}
+          </a>
+          .
+        </p>
+      </div>
+    ) : (
+      <button type="button" onClick={() => escolher(produto)} className={classe}>
+        {rotulo}
+      </button>
+    );
+
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100">
       <header className="border-b border-slate-700 bg-slate-900">
@@ -100,13 +136,11 @@ export const ProductChoice: React.FC<Props> = ({
                 <li>• Sua própria base de pacientes e relatórios</li>
                 <li>• Créditos e faturamento individuais</li>
               </ul>
-              <button
-                type="button"
-                onClick={() => escolher("individual")}
-                className="mt-6 rounded-lg bg-cyan-600 px-4 py-3 text-sm font-black text-white hover:bg-cyan-500"
-              >
-                Sou profissional autônomo
-              </button>
+              {acao(
+                "individual",
+                "Sou profissional autônomo",
+                "mt-6 rounded-lg bg-cyan-600 px-4 py-3 text-sm font-black text-white hover:bg-cyan-500",
+              )}
             </section>
 
             <section className="flex flex-col rounded-xl border border-slate-700 bg-slate-950 p-6">
@@ -122,13 +156,11 @@ export const ProductChoice: React.FC<Props> = ({
                 <li>• Profissionais da mesma clínica na mesma organização</li>
                 <li>• Um pool de créditos para a equipe inteira</li>
               </ul>
-              <button
-                type="button"
-                onClick={() => escolher("clinic")}
-                className="mt-6 rounded-lg bg-cyan-600 px-4 py-3 text-sm font-black text-white hover:bg-cyan-500"
-              >
-                Somos uma clínica
-              </button>
+              {acao(
+                "clinic",
+                "Somos uma clínica",
+                "mt-6 rounded-lg bg-cyan-600 px-4 py-3 text-sm font-black text-white hover:bg-cyan-500",
+              )}
             </section>
 
             <section className="flex flex-col rounded-xl border border-amber-800 bg-amber-950/30 p-6">
@@ -145,13 +177,11 @@ export const ProductChoice: React.FC<Props> = ({
                 <li>• Não avalia indivíduos e não produz diagnóstico</li>
                 <li>• O empregador nunca recebe resposta individual</li>
               </ul>
-              <button
-                type="button"
-                onClick={() => escolher("nr1")}
-                className="mt-6 rounded-lg bg-amber-500 px-4 py-3 text-sm font-black text-amber-950 hover:bg-amber-400"
-              >
-                Somos uma empresa
-              </button>
+              {acao(
+                "nr1",
+                "Somos uma empresa",
+                "mt-6 rounded-lg bg-amber-500 px-4 py-3 text-sm font-black text-amber-950 hover:bg-amber-400",
+              )}
             </section>
           </div>
         )}
