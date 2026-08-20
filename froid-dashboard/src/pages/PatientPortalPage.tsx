@@ -557,7 +557,7 @@ export const PatientPortalPage: React.FC = () => {
             <p className="mt-3 text-sm leading-6 text-slate-300">
               O FROID disponibiliza ao paciente uma area própria para consultar os resultados
               das sessões finalizadas, conferir dados pessoais e baixar os registros autorizados.
-              O acesso exige CPF/documento e senha criados no cadastro LGPD para proteger suas informações.
+              O acesso exige CPF ou e-mail, com a senha criada no cadastro LGPD, para proteger suas informações.
             </p>
             <div className="mt-5 grid gap-3 text-xs text-slate-300 sm:grid-cols-3">
               {[
@@ -576,14 +576,17 @@ export const PatientPortalPage: React.FC = () => {
           <form onSubmit={login} className="rounded-lg border border-slate-800 bg-slate-900 p-5">
             <h2 className="text-base font-black text-white">Login do paciente</h2>
             <p className="mt-1 text-xs text-slate-400">
-              Informe CPF/documento e senha cadastrados no aceite do convite.
+              Use o CPF ou o e-mail informado no aceite do convite, com a senha
+              que você criou lá.
             </p>
             <label className="mt-4 block text-xs font-bold text-slate-300">
-              CPF ou documento
+              CPF ou e-mail
               <input
                 value={loginForm.document}
                 onChange={(event) => setLoginForm((prev) => ({ ...prev, document: event.target.value }))}
                 required
+                autoComplete="username"
+                placeholder="000.000.000-00 ou seu@email.com"
                 className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-cyan-400"
               />
             </label>

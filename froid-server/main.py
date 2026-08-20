@@ -768,7 +768,11 @@ class FroidExplicaResponse(BaseModel):
 
 
 class PatientPortalLoginRequest(BaseModel):
+    # Aceita CPF OU e-mail no mesmo campo. O aceite do convite deixou de exigir
+    # CPF, e sem esta alternativa quem entrou sem informar documento nunca mais
+    # consegue voltar ao portal.
     document: str = ""
+    email: str = ""
     password: str = ""
 
 
@@ -6956,17 +6960,26 @@ async def join_patient_session(session_id: str, request: Request):
 
 @app.post("/api/patient-auth/login")
 async def patient_portal_login(payload: PatientPortalLoginRequest, request: Request):
-    document = _digits_only(payload.document or "")
+    # CPF ou e-mail no mesmo campo. A presença do "@" decide como interpretar:
+    # aplicar _digits_only num e-mail extrairia digitos avulsos do texto e
+    # consultaria um documento que ninguem digitou.
+    identificador = str(payload.document or payload.email or "").strip()
     password = str(payload.password or "")
-    if not document or not password:
+    if "@" in identificador:
+        document = ""
+        email = _normalize_email(identificador)
+    else:
+        document = _digits_only(identificador)
+        email = ""
+    if (not document and not email) or not password:
         raise HTTPException(
             status_code=400,
-            detail="Informe CPF/documento e senha para acessar o portal do paciente",
+            detail="Informe CPF ou e-mail e a senha para acessar o portal do paciente",
         )
     now = datetime.now(timezone.utc).timestamp()
     remote_reference = request.client.host if request.client else "unknown"
     attempt_key = hashlib.sha256(
-        f"{remote_reference}:{document}".encode("utf-8")
+        f"{remote_reference}:{document or email}".encode("utf-8")
     ).hexdigest()
     recent_attempts = [
         attempt for attempt in PATIENT_LOGIN_ATTEMPTS.get(attempt_key, [])
@@ -6979,11 +6992,19 @@ async def patient_portal_login(payload: PatientPortalLoginRequest, request: Requ
         )
     recent_attempts.append(now)
     PATIENT_LOGIN_ATTEMPTS[attempt_key] = recent_attempts
-    patient = _find_registered_patient_by_document(document)
-    if not patient:
-        raise HTTPException(status_code=401, detail="Paciente não localizado com o CPF/documento informado")
-    if not _verify_patient_password(patient, password):
-        raise HTTPException(status_code=401, detail="CPF/documento ou senha inválido")
+    patient = (
+        _find_registered_patient_by_document(document)
+        if document
+        else _find_registered_patient_by_email(email)
+    )
+    # Recusa uniforme: identificador inexistente e senha errada respondem igual.
+    # Duas mensagens distintas transformavam a rota em consulta de quem e
+    # paciente no FROID — e "este CPF esta em tratamento" e justamente o tipo de
+    # informacao que nao pode ser confirmada a um estranho.
+    if not patient or not _verify_patient_password(patient, password):
+        raise HTTPException(
+            status_code=401, detail="CPF/e-mail ou senha inválido"
+        )
     PATIENT_LOGIN_ATTEMPTS.pop(attempt_key, None)
     patient["last_auth_at"] = _utc_now_iso()
     patient["last_auth_provider"] = "password"
