@@ -3,6 +3,11 @@ import { Link } from "react-router-dom";
 
 import type { FroidUser } from "../App";
 import { apiUrl } from "../lib/api";
+import {
+  exigeCenso,
+  exigidoNoRecorte,
+  PISO_CAMPANHA,
+} from "../lib/nr1-representatividade";
 
 /**
  * Cadastro guiado da empresa contratante do NR-1.
@@ -21,7 +26,29 @@ import { apiUrl } from "../lib/api";
  * tudo é a conversa ruim que a página de diagnóstico existe para evitar.
  */
 
-const PISO_UNIDADE = 75;
+// O aviso de porte deixou de ser uma constante. Havia um `PISO_UNIDADE = 75`
+// aqui, herdado de quando o unico portao era o de anonimato (50 respostas com
+// adesao de ~65%). Desde a migration 025 vale tambem o portao de
+// representatividade, e ele depende do efetivo: abaixo de 98 pessoas a amostra
+// necessaria alcanca o quadro inteiro e a unidade so publica em censo. Manter
+// os 75 fazia a tela prometer resultado que o banco ia suprimir.
+function avisoDeRecorte(efetivo: number): string | null {
+  const exigido = exigidoNoRecorte(efetivo);
+  if (exigido === null || efetivo <= 0) return null;
+  if (exigeCenso(efetivo)) {
+    return (
+      `Uma unidade de ${efetivo} trabalhadores só publica recorte próprio em ` +
+      `censo: as ${efetivo} precisam responder. Abaixo de 98 pessoas a amostra ` +
+      "necessária para falar pelo efetivo alcança o quadro inteiro — é onde o " +
+      "Guia MTE indica diálogo e observação da atividade no lugar do questionário."
+    );
+  }
+  return (
+    `Uma unidade de ${efetivo} trabalhadores precisa de ${exigido} respostas ` +
+    "substantivas para publicar recorte próprio."
+  );
+}
+
 const CONTATO = "froid@froid.com.br";
 
 type Unidade = {
@@ -364,12 +391,20 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
                       Arquivar
                     </button>
                   </div>
-                  {site.headcount > 0 && site.headcount < PISO_UNIDADE && (
+                  {avisoDeRecorte(site.headcount) && (
                     <p className="mt-2 text-xs leading-5 text-amber-200">
-                      Abaixo de cerca de {PISO_UNIDADE} trabalhadores esta unidade
-                      não atinge o piso de anonimato, e a campanha dela não
-                      produz resultado liberável. Vale tratar isso agora — escreva
-                      para <a className="underline" href={`mailto:${CONTATO}`}>{CONTATO}</a>.
+                      {avisoDeRecorte(site.headcount)}
+                      {site.headcount < PISO_CAMPANHA && (
+                        <>
+                          {" "}Com menos de {PISO_CAMPANHA} trabalhadores nenhuma
+                          campanha desta unidade produz resultado liberável — o
+                          piso de anonimato é absoluto. O caminho é a{" "}
+                          <strong>AEP</strong>, obrigatória para toda organização
+                          com empregados e que não depende de piso.
+                        </>
+                      )}{" "}
+                      Vale tratar isso agora — escreva para{" "}
+                      <a className="underline" href={`mailto:${CONTATO}`}>{CONTATO}</a>.
                     </p>
                   )}
                 </li>

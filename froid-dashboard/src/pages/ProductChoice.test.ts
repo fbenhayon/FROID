@@ -116,7 +116,16 @@ describe("a tela separa os dois produtos sem confundir a fronteira", () => {
     expect(PAGINA).toMatch(/n[aã]o produz diagn[oó]stico/i);
   });
 
-  it("avisa do piso de anonimato antes de agendar", () => {
-    expect(PAGINA).toMatch(/piso de anonimato/i);
+  it("avisa dos dois pisos antes de agendar", () => {
+    expect(PAGINA).toMatch(/anonimato/i);
+    expect(PAGINA).toMatch(/representatividade/i);
+  });
+
+  it("oferece o cadastro guiado em vez de terminar em e-mail", () => {
+    // O painel do NR-1 só oferecia "escreva para froid@froid.com.br". Era resto
+    // de quando /access/empresa ainda não existia: entregue depois, nunca foi
+    // ligado aqui, e quem escolhia empresa ficava sem próximo passo.
+    expect(PAGINA).toContain('to="/access/empresa"');
+    expect(PAGINA).toMatch(/Continuar o cadastro da empresa/);
   });
 });

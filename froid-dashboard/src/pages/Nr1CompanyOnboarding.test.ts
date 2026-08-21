@@ -89,9 +89,25 @@ describe("a estrutura é ensinada enquanto é preenchida", () => {
     expect(PAGINA_CORRIDA).toMatch(/n[aã]o é estabelecimento/i);
   });
 
-  it("avisa do piso de anonimato no momento em que o efetivo é digitado", () => {
-    expect(PAGINA).toContain("PISO_UNIDADE");
-    expect(PAGINA_CORRIDA).toMatch(/n[aã]o atinge o piso de anonimato/i);
+  it("avisa dos dois portões no momento em que o efetivo é digitado", () => {
+    // Havia um PISO_UNIDADE = 75 fixo aqui, herdado de quando o único portão
+    // era o de anonimato. Desde a migration 025 a exigência depende do efetivo,
+    // então o aviso tem de ser derivado do mesmo espelho que o resto do painel
+    // usa — número fixo voltaria a prometer o que o banco vai suprimir.
+    // A checagem e pela DECLARACAO, nao pela palavra: o comentario que
+    // explica por que a constante saiu precisa poder cita-la pelo nome.
+    expect(PAGINA).not.toMatch(/const PISO_UNIDADE\s*=/);
+    expect(PAGINA).toContain("nr1-representatividade");
+    expect(PAGINA).toContain("exigidoNoRecorte");
+    expect(PAGINA_CORRIDA).toMatch(/recorte pr[oó]prio/i);
+    expect(PAGINA_CORRIDA).toMatch(/censo/i);
+  });
+
+  it("nomeia a AEP quando a unidade não alcança nem o piso absoluto", () => {
+    // Abaixo de 50 nenhuma campanha publica, por mais adesão que haja. Dizer só
+    // "não dá" deixa a empresa sem caminho de conformidade — e ela tem um.
+    expect(PAGINA).toContain("PISO_CAMPANHA");
+    expect(PAGINA_CORRIDA).toMatch(/AEP/);
   });
 
   it("explica que setor suprimido não é falha", () => {

@@ -118,7 +118,9 @@
     <p>O resultado só aparece quando há respondentes suficientes no recorte. Não é limitação técnica: é a garantia de anonimato. Num grupo de seis pessoas, saber a média já é quase saber quem respondeu o quê — e um trabalhador que suspeita disso responde o que é seguro, não o que é verdade. Aí a empresa paga por um retrato que não corresponde à realidade.</p>
     <p>Pelo mesmo motivo, nada é liberado enquanto a coleta está aberta. Ver o painel com 30 respostas e depois com 31 revelaria a resposta da trigésima primeira pessoa.</p>
 
-    <h2 style="margin-top:36px;" id="se-a-sua-empresa-nao-atinge-o-piso">Se a sua empresa não atinge o piso</h2>
+        <p>Existe um segundo piso, de natureza diferente. O primeiro protege o <strong>anonimato</strong>: coorte pequena demais deixa deduzir quem respondeu o quê. O segundo protege a <strong>representatividade</strong>: uma empresa de 3.000 pessoas com 50 respostas preserva o anonimato perfeitamente e mesmo assim produziria um inventário sobre 1,7% do quadro. O número exigido não é escolha nossa — é o tamanho de amostra para proporção com correção de população finita, a 95% de confiança e margem de 5 pontos, que entra no documento de critérios como fundamentação verificável. Quando a amostra necessária passa de 80% do grupo, ela deixa de economizar respostas e vira censo: é o que acontece abaixo de 98 pessoas.</p>
+
+<h2 style="margin-top:36px;" id="se-a-sua-empresa-nao-atinge-o-piso">Se a sua empresa não atinge o piso</h2>
     <p>Microempresas e empresas de pequeno porte são dispensadas do PGR pela NR-1, mas <strong>não são dispensadas da Avaliação Ergonômica Preliminar</strong>. A AEP não depende de piso de respondentes e é obrigatória para toda organização com empregados. É o caminho correto nesse caso — e continua sendo entregue com inventário e plano de ação.</p>
 
     <p style="margin-top:26px;"><a href="como-funciona-nr1.html">Ver o processo completo, etapa por etapa →</a></p>
@@ -179,6 +181,34 @@
 var PISO_CAMPANHA = 50;
 var PISO_RECORTE = 10;
 
+// Portao de representatividade (migration 025 / nr1_compliance.required_sample).
+// Sao DOIS portoes e ambos valem sempre: os pisos acima protegem anonimato,
+// este protege suficiencia tecnica. Espelhar so os primeiros fazia a pagina
+// prometer resultado a quem o SQL vai suprimir — que e o oposto do que ela
+// existe para fazer.
+var AMOSTRA_Z = 1.96;
+var AMOSTRA_MARGEM = 0.05;
+var AMOSTRA_CORTE_CENSO = 0.80;
+
+function amostraNecessaria(pop) {
+  if (!pop || pop <= 0) { return null; }
+  var n0 = (AMOSTRA_Z * AMOSTRA_Z) * 0.25 / (AMOSTRA_MARGEM * AMOSTRA_MARGEM);
+  var corrigido = n0 / (1 + (n0 - 1) / pop);
+  // A transicao para censo e decidida sobre o valor continuo, antes do teto —
+  // igual ao Python e ao SQL. Comparar o inteiro ja arredondado faz a
+  // exigencia oscilar em torno do corte.
+  if (corrigido > AMOSTRA_CORTE_CENSO * pop) { return pop; }
+  return Math.min(pop, Math.ceil(Math.round(corrigido * 1e9) / 1e9));
+}
+
+function exigidoNaCampanha(pop) {
+  return Math.max(PISO_CAMPANHA, amostraNecessaria(pop) || 0);
+}
+
+function exigidoNoRecorte(pop) {
+  return Math.max(PISO_RECORTE, amostraNecessaria(pop) || 0);
+}
+
 function calcular() {
   var pessoas = parseInt(document.getElementById('pessoas').value, 10);
   var setores = parseInt(document.getElementById('setores').value, 10) || 1;
@@ -194,20 +224,35 @@ function calcular() {
 
   var respondentes = Math.floor(pessoas * adesao);
   var porSetor = Math.floor(respondentes / setores);
-  var campanhaOk = respondentes >= PISO_CAMPANHA;
+  var pessoasPorSetor = Math.floor(pessoas / setores);
+  var exigeCampanha = exigidoNaCampanha(pessoas);
+  var exigeSetor = exigidoNoRecorte(pessoasPorSetor);
+  var campanhaOk = respondentes >= exigeCampanha;
   // O recorte so existe se a campanha existir. Sem o piso da campanha, dizer
   // que o setor esta "liberado" seria falso e daria esperanca errada a quem
   // acabou de descobrir que nao tem porte.
-  var setorOk = campanhaOk && porSetor >= PISO_RECORTE;
-  var setoresPossiveis = Math.max(1, Math.floor(respondentes / PISO_RECORTE));
+  var setorOk = campanhaOk && porSetor >= exigeSetor;
+
+  // Quantos recortes cabem: o maior k em que cada setor de pessoas/k ainda
+  // recebe respostas suficientes para o proprio efetivo. Dividir respondentes
+  // pelo piso de 10 respondia a pergunta antiga, quando o unico portao era
+  // absoluto; hoje o denominador do recorte e o efetivo daquele setor.
+  var setoresPossiveis = 0;
+  for (var k = 1; k <= setores || k <= 50; k++) {
+    var sPop = Math.floor(pessoas / k);
+    if (sPop < PISO_RECORTE) { break; }
+    if (Math.floor(respondentes / k) >= exigidoNoRecorte(sPop)) { setoresPossiveis = k; }
+  }
 
   var html = '<h3>' + respondentes + ' respondentes estimados de ' + pessoas + ' pessoas</h3>';
   html += '<ul>';
   html += '<li>Resultado geral da campanha: <strong>' +
-    (campanhaOk ? 'liberado' : 'NÃO liberado') + '</strong> (piso de ' + PISO_CAMPANHA + ')</li>';
+    (campanhaOk ? 'liberado' : 'NÃO liberado') + '</strong> — exige ' + exigeCampanha +
+    ' respostas (anonimato: ' + PISO_CAMPANHA + '; representatividade: ' +
+    amostraNecessaria(pessoas) + ')</li>';
   html += '<li>Resultado separado por setor: <strong>' +
     (setorOk ? 'liberado' : 'NÃO liberado') + '</strong> — cerca de ' + porSetor +
-    ' por setor, piso de ' + PISO_RECORTE + '</li>';
+    ' respostas por setor de ' + pessoasPorSetor + ' pessoas, que exige ' + exigeSetor + '</li>';
   html += '</ul>';
 
   if (campanhaOk && setorOk) {
@@ -216,9 +261,13 @@ function calcular() {
       setoresPossiveis + ' recortes</strong> liberáveis.</p>';
   } else if (campanhaOk && !setorOk) {
     caixa.className = 'veredito v-atencao';
-    html += '<p style="margin-top:12px;">O resultado geral sai, mas a divisão em ' + setores +
-      ' setores deixa cada um pequeno demais. Agrupe em até <strong>' + setoresPossiveis +
-      ' recortes</strong>, ou aceite o resultado consolidado da unidade.</p>';
+    if (setoresPossiveis > 1) {
+      html += '<p style="margin-top:12px;">O resultado geral sai, mas a divisão em ' + setores +
+        ' setores deixa cada um pequeno demais para falar pelo próprio efetivo. Agrupe em até <strong>' +
+        setoresPossiveis + ' recortes</strong>, ou aceite o resultado consolidado da unidade.</p>';
+    } else {
+      html += '<p style="margin-top:12px;">O resultado geral sai, mas <strong>nenhuma divisão por setor</strong> se sustenta neste tamanho: um setor só é publicado quando as respostas dele representam o efetivo daquele setor, e abaixo de 98 pessoas isso significa respondê-lo por inteiro. O caminho é o resultado consolidado da unidade — que continua servindo de insumo à AEP e ao inventário.</p>';
+    }
   } else {
     caixa.className = 'veredito v-nao';
     html += '<p style="margin-top:12px;">Não haveria resultado liberável nesta unidade. Isso não impede a conformidade: o caminho é a <strong>AEP</strong>, obrigatória para toda organização com empregados e que não depende de piso de respondentes. Preferimos dizer isso antes de você contratar.</p>';

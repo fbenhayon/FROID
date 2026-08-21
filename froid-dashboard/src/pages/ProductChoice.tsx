@@ -192,7 +192,7 @@ export const ProductChoice: React.FC<Props> = ({
               Plano NR-1 empresarial
             </span>
             <h2 className="mt-2 text-xl font-black">
-              O cadastro da empresa é conduzido pela nossa equipe
+              O cadastro da empresa tem uma ordem própria
             </h2>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
               O cadastro NR-1 não é um formulário que se preenche sozinho: antes
@@ -204,11 +204,30 @@ export const ProductChoice: React.FC<Props> = ({
               não perguntar.
             </p>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
-              Registramos a sua escolha. Escreva para{" "}
+              A tela seguinte conduz essa ordem: primeiro a organização, depois
+              os estabelecimentos com o efetivo de cada um, e só então os
+              setores. É a dependência real — sem estabelecimento não há setor,
+              e sem setor não há recorte publicável.
+            </p>
+
+            {/* Este painel dizia apenas "escreva para o nosso e-mail" e não
+                oferecia saída nenhuma. Era resto de quando o cadastro guiado
+                ainda não existia: /access/empresa foi entregue depois e nunca
+                foi ligado aqui, então quem escolhia "empresa" e voltasse a esta
+                tela ficava sem próximo passo. */}
+            <Link
+              to="/access/empresa"
+              className="mt-5 inline-block rounded-lg bg-amber-500 px-5 py-3 text-sm font-black text-amber-950 hover:bg-amber-400"
+            >
+              Continuar o cadastro da empresa
+            </Link>
+
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400">
+              Prefere que a gente conduza junto? Escreva para{" "}
               <a className="font-black text-amber-300 underline" href={`mailto:${CONTATO_EMPRESAS}`}>
                 {CONTATO_EMPRESAS}
-              </a>{" "}
-              e conduzimos a configuração com você.
+              </a>
+              .
             </p>
 
             <div className="mt-5 rounded-lg border border-amber-900 bg-amber-950/50 p-4">
@@ -216,10 +235,12 @@ export const ProductChoice: React.FC<Props> = ({
                 Antes da reunião, vale checar uma coisa
               </p>
               <p className="mt-2 text-sm leading-6 text-slate-300">
-                Abaixo de cerca de 75 trabalhadores por unidade a campanha não
-                atinge o piso de anonimato e não produz resultado liberável. O
-                diagnóstico responde isso em dois minutos — e diz não quando é
-                não.
+                São dois pisos e ambos valem sempre: anonimato (50 respostas)
+                e representatividade (a amostra que fala pelo efetivo declarado).
+                Abaixo de 98 trabalhadores a unidade exige censo — todos
+                respondendo. Com adesão realista de 65%, o porte que produz
+                resultado liberável começa perto de 210 pessoas. O diagnóstico
+                responde isso em dois minutos — e diz não quando é não.
               </p>
               <a
                 className="mt-3 inline-block rounded-lg bg-amber-500 px-4 py-2 text-sm font-black text-amber-950 hover:bg-amber-400"
