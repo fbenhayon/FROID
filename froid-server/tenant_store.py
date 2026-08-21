@@ -2222,8 +2222,16 @@ class TenantStore:
                            (SELECT count(*) FROM assessment_responses response
                              WHERE response.campaign_id = campaign.id
                                AND response.completed
-                               AND froid_nr1_response_is_substantive(response.id))
+                               AND froid_nr1_response_is_substantive(response.id)),
+                           -- Tolerancia de amostra vigente para esta campanha.
+                           -- Nula quando nao ha criterios vinculados, e nesse
+                           -- caso quem le aplica o padrao da plataforma.
+                           criteria.sampling_margin_of_error,
+                           criteria.sampling_confidence_z,
+                           criteria.census_threshold_ratio
                     FROM assessment_campaigns campaign
+                    LEFT JOIN gro_risk_criteria criteria
+                      ON criteria.id = campaign.criteria_id
                     WHERE campaign.id=%s AND campaign.organization_id=%s
                     """,
                     (campaign_id, organization_id),
@@ -2243,6 +2251,11 @@ class TenantStore:
             "recorded_responses": gravadas,
             "substantive_responses": substantivas,
             "partial_responses": max(0, gravadas - substantivas),
+            # Parametros do Portao A, para que a camada HTTP possa explicar a
+            # supressao com os numeros que o banco de fato aplicou.
+            "sampling_margin_of_error": float(row[6]) if row[6] is not None else None,
+            "sampling_confidence_z": float(row[7]) if row[7] is not None else None,
+            "census_threshold_ratio": float(row[8]) if row[8] is not None else None,
         }
 
     def nr1_dimension_scores(

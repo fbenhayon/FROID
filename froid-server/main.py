@@ -8219,6 +8219,42 @@ def _require_enterprise_context(
     return context
 
 
+def _nr1_representativeness(progress: dict) -> nr1_compliance.Representativeness:
+    """O Portão A tal como o banco o aplicou, para poder explicá-lo.
+
+    Os parâmetros vêm dos critérios vinculados à campanha. Quando ela não tem
+    critérios, o progresso devolve nulo e vale o padrão da plataforma — a mesma
+    resolução que froid_nr1_required_sample faz por coalesce, e é de propósito
+    que os dois lados decidam igual: quem lê a tela e quem lê o SQL precisam
+    chegar ao mesmo número.
+    """
+    overrides = {
+        "margin_of_error": progress.get("sampling_margin_of_error"),
+        "confidence_z": progress.get("sampling_confidence_z"),
+        "census_threshold": progress.get("census_threshold_ratio"),
+    }
+    return nr1_compliance.representativeness(
+        int(progress.get("target_headcount") or 0),
+        int(progress.get("substantive_responses") or 0),
+        **{name: float(value) for name, value in overrides.items() if value is not None},
+    )
+
+
+def _nr1_representativeness_payload(
+    verdict: nr1_compliance.Representativeness,
+) -> dict:
+    """O veredito em forma serializável, para a tela dizer quanto falta."""
+    return {
+        "population": verdict.population,
+        "achieved": verdict.achieved,
+        "required": verdict.required,
+        "mode": verdict.mode,
+        "met": verdict.met,
+        "confidence": round(verdict.confidence, 4),
+        "margin_of_error": verdict.margin_of_error,
+    }
+
+
 def _nr1_criteria_for(context: AccessContext) -> nr1_compliance.GradationCriteria:
     """The organization's documented criteria, or the seeded default.
 
@@ -8964,6 +9000,15 @@ async def open_nr1_campaign(organization_id: str, campaign_id: str, request: Req
     except Exception as exc:
         LOGGER.exception("Unable to open NR-1 campaign")
         detail = str(exc)
+        if "efetivo de trabalhadores" in detail:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "informe o efetivo de trabalhadores do período de "
+                    "referência antes de abrir a coleta: é ele que define "
+                    "quantas respostas tornam o resultado representativo"
+                ),
+            )
         if "canal de apoio" in detail or "aviso de finalidade" in detail:
             raise HTTPException(
                 status_code=400,
@@ -9282,9 +9327,15 @@ async def read_nr1_panel(organization_id: str, campaign_id: str, request: Reques
         LOGGER.exception("Unable to aggregate NR-1 campaign")
         raise HTTPException(status_code=503, detail="painel NR-1 indisponível")
 
-    total = int(progress.get("responses") or 0)
+    # O piso que o banco aplica conta respostas substantivas, não convites
+    # respondidos. Explicar a supressão pelo número errado manda o gestor
+    # perseguir uma meta que já foi atingida.
+    total = int(
+        progress.get("substantive_responses", progress.get("responses") or 0) or 0
+    )
+    verdict = _nr1_representativeness(progress)
     if not rows:
-        # Distinguish the two reasons, otherwise an open campaign that already
+        # Distinguish the reasons, otherwise an open campaign that already
         # cleared the floor would report an empty notice and look broken.
         if progress.get("status") != "closed":
             notice = (
@@ -9295,8 +9346,13 @@ async def read_nr1_panel(organization_id: str, campaign_id: str, request: Reques
                 "gradação."
             )
         else:
-            notice = nr1_compliance.suppression_notice(total) or (
-                "Nenhum recorte atingiu o piso mínimo de coorte."
+            # Ordem deliberada: o piso de anonimato vem primeiro porque não se
+            # negocia — enquanto ele não cair, discutir tamanho de amostra é
+            # conversa sobre o portão errado.
+            notice = (
+                nr1_compliance.suppression_notice(total)
+                or nr1_compliance.representativeness_notice(verdict)
+                or "Nenhum recorte atingiu o piso mínimo de coorte."
             )
         _record_tenant_success(
             context, "nr1.panel.suppressed", "assessment_campaign", campaign_id,
@@ -9307,6 +9363,7 @@ async def read_nr1_panel(organization_id: str, campaign_id: str, request: Reques
             "reportable": False,
             "risks": [],
             "progress": progress,
+            "representativeness": _nr1_representativeness_payload(verdict),
             "notice": notice,
         }
 
@@ -9323,6 +9380,7 @@ async def read_nr1_panel(organization_id: str, campaign_id: str, request: Reques
         "reportable": True,
         "notice": "",
         "progress": progress,
+        "representativeness": _nr1_representativeness_payload(verdict),
         "risks": [
             {
                 "dimension_id": risk.dimension_id,
@@ -9369,7 +9427,9 @@ async def generate_nr1_inventory(
     except ValueError:
         raise HTTPException(status_code=404, detail="campanha não encontrada")
 
-    total = int(progress.get("responses") or 0)
+    total = int(
+        progress.get("substantive_responses", progress.get("responses") or 0) or 0
+    )
     if not rows:
         if progress.get("status") != "closed":
             raise HTTPException(
@@ -9379,6 +9439,9 @@ async def generate_nr1_inventory(
         raise HTTPException(
             status_code=409,
             detail=nr1_compliance.suppression_notice(total)
+            or nr1_compliance.representativeness_notice(
+                _nr1_representativeness(progress)
+            )
             or "campanha sem coorte suficiente para gerar inventário",
         )
 

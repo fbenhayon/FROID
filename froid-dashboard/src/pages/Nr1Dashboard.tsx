@@ -38,6 +38,19 @@ type Progress = {
   responses: number;
   invited: number;
   response_rate: number;
+  substantive_responses?: number;
+};
+
+// Portão A. Distinto do piso de anonimato: este pergunta se a coorte fala pelo
+// efetivo, aquele se ela é grande o bastante para ninguém ser reidentificado.
+type Representativeness = {
+  population: number;
+  achieved: number;
+  required: number | null;
+  mode: "sample" | "census" | "undeclared";
+  met: boolean;
+  confidence: number;
+  margin_of_error: number;
 };
 
 type Panel = {
@@ -45,6 +58,7 @@ type Panel = {
   reportable: boolean;
   notice: string;
   progress?: Progress;
+  representativeness?: Representativeness;
   risks: Risk[];
 };
 
@@ -75,6 +89,48 @@ const EFFICACY_LABEL: Record<string, string> = {
   partial: "eficácia parcial",
   effective: "medida eficaz",
   eliminated: "perigo eliminado",
+};
+
+/** Quanto falta para a coorte falar pelo efetivo.
+ *
+ * Separado da linha de convites logo acima de propósito. As duas contam
+ * respostas e é fácil confundi-las, mas a de cima mede adesão de quem foi
+ * convidado e esta mede representação do quadro — uma campanha pode ter 92% de
+ * adesão e mesmo assim não representar nada, se só 60 de 3.000 pessoas foram
+ * convidadas.
+ */
+const RepresentativenessLine: React.FC<{
+  verdict?: Representativeness;
+}> = ({ verdict }) => {
+  if (!verdict) return null;
+  if (verdict.mode === "undeclared") {
+    return (
+      <p className="mt-1 text-xs font-bold text-amber-100/90">
+        Efetivo de trabalhadores não declarado nesta campanha.
+      </p>
+    );
+  }
+  const required = verdict.required ?? 0;
+  const share = required > 0 ? Math.min(1, verdict.achieved / required) : 0;
+  return (
+    <div className="mt-2">
+      <p className="text-xs font-bold text-amber-100/90">
+        {verdict.mode === "census" ? "Censo exigido" : "Amostra exigida"}:{" "}
+        {verdict.achieved} de {required} respostas substantivas · efetivo{" "}
+        {verdict.population}
+        {verdict.mode === "sample" &&
+          ` · ${Math.round(verdict.confidence * 100)}% de confiança, margem de ${Math.round(
+            verdict.margin_of_error * 100,
+          )} pontos`}
+      </p>
+      <div className="mt-1 h-1 w-full overflow-hidden rounded bg-amber-950">
+        <div
+          className={`h-full ${verdict.met ? "bg-emerald-500" : "bg-amber-500"}`}
+          style={{ width: `${Math.round(share * 100)}%` }}
+        />
+      </div>
+    </div>
+  );
 };
 
 export const Nr1Dashboard: React.FC<{ user: FroidUser | null }> = ({ user }) => {
@@ -359,6 +415,7 @@ export const Nr1Dashboard: React.FC<{ user: FroidUser | null }> = ({ user }) => 
                       {panel.progress.invited > 0 &&
                         ` (${Math.round(panel.progress.response_rate * 100)}%)`}
                     </p>
+                    <RepresentativenessLine verdict={panel.representativeness} />
                     {panel.progress.status === "open" && (
                       <button
                         onClick={() => void closeCampaign()}
@@ -389,6 +446,25 @@ export const Nr1Dashboard: React.FC<{ user: FroidUser | null }> = ({ user }) => 
                   Ordenado por nível de risco e, em empate, pelo número de
                   trabalhadores possivelmente atingidos (NR-1 1.5.5.2.1.1).
                 </p>
+                {/* A base amostral fica à vista no painel liberado, e não só
+                    quando ele é recusado: é ela que o auditor pergunta ao ler o
+                    inventário, e é a frase que o responsável técnico repete. */}
+                {panel.representativeness &&
+                  panel.representativeness.mode !== "undeclared" && (
+                    <p className="mt-1 text-[11px] text-slate-500">
+                      Base:{" "}
+                      {panel.representativeness.achieved} respostas substantivas
+                      sobre um efetivo de {panel.representativeness.population}
+                      {panel.representativeness.mode === "census"
+                        ? " (censo)"
+                        : ` (amostra mínima de ${panel.representativeness.required}, ${Math.round(
+                            panel.representativeness.confidence * 100,
+                          )}% de confiança, margem de ${Math.round(
+                            panel.representativeness.margin_of_error * 100,
+                          )} pontos)`}
+                      .
+                    </p>
+                  )}
 
                 <div className="mt-4 space-y-3">
                   {panel.risks.map((risk) => (

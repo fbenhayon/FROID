@@ -31,7 +31,9 @@ able to keep it. DEFAULT_CRITERIA is only what a new organization starts from.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, replace
+from statistics import NormalDist
 from typing import Any, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 
@@ -40,6 +42,13 @@ from typing import Any, Iterable, List, Mapping, Optional, Sequence, Tuple
 # suppression without a round trip, not to decide it.
 MIN_COHORT_TOTAL = 50
 MIN_COHORT_CUT = 10
+
+# Mirrors froid_nr1_sampling_* in migrations/025, same arrangement: SQL decides,
+# these explain. z for 95% confidence, ±5 percentage points, and the share of
+# the population above which sampling stops making sense and becomes a census.
+CONFIDENCE_Z = 1.96
+MARGIN_OF_ERROR = 0.05
+CENSUS_THRESHOLD = 0.80
 
 VALID_POLARITIES = frozenset({"risk", "protective"})
 
@@ -224,6 +233,165 @@ def criteria_for_scale(severity_max: int, probability_max: int) -> GradationCrit
         severity_max=severity_max,
         probability_max=probability_max,
         source=f"froid-default-{severity_max}x{probability_max}",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Portão A — representatividade.
+#
+# Separado do piso de anonimato de propósito. Os dois contam respostas e recusam
+# o resultado, mas respondem a perguntas diferentes: MIN_COHORT_* impede que a
+# coorte seja pequena o bastante para reidentificar quem respondeu; o piso
+# abaixo impede que ela seja pequena demais para *falar pelo efetivo*. Uma
+# empresa de 3.000 pessoas com 50 respostas passava no primeiro e gerava
+# inventário sobre 1,7% do quadro.
+#
+# O número não é nosso, e é o ponto: é o tamanho de amostra com correção para
+# população finita. Isso o torna citável no documento de critérios que
+# 1.5.4.4.2.2 exige e afasta a alegação de amostragem por conveniência. E ele
+# escala sozinho na direção que o Guia MTE indica — questionário serve empresa
+# grande; em grupo pequeno a fórmula converge para censo, que é justamente onde
+# o Guia manda usar diálogo e observação da atividade em vez de formulário.
+#
+# A norma não fixa taxa nenhuma: a escolha do método é da organização. O que a
+# fiscalização cobra é suficiência técnica e coerência — por isso os parâmetros
+# abaixo são dado em gro_risk_criteria, versionado junto com o resto dos
+# critérios, e não constante de código.
+# ---------------------------------------------------------------------------
+
+
+def required_sample(
+    population: int,
+    *,
+    margin_of_error: float = MARGIN_OF_ERROR,
+    confidence_z: float = CONFIDENCE_Z,
+    census_threshold: float = CENSUS_THRESHOLD,
+) -> Optional[int]:
+    """Respostas substantivas necessárias para uma coorte falar por `population`.
+
+    Amostra para proporção com correção de população finita, em p=0,5 — a
+    proporção de maior variância, e portanto a exigência conservadora qualquer
+    que seja o resultado que o questionário venha a medir.
+
+    Devolve None quando o efetivo não foi declarado. Sem denominador não existe
+    "amostra suficiente", e devolver zero faria do efetivo não declarado o
+    caminho mais curto para desligar o portão.
+    """
+    if population is None or population <= 0:
+        return None
+    if not 0.0 < margin_of_error < 1.0:
+        raise ValueError("margin_of_error must sit between 0 and 1")
+    if confidence_z <= 0:
+        raise ValueError("confidence_z must be positive")
+    if not 0.0 < census_threshold <= 1.0:
+        raise ValueError("census_threshold must sit between 0 and 1")
+    unlimited = (confidence_z ** 2) * 0.25 / (margin_of_error ** 2)
+    corrected = unlimited / (1.0 + (unlimited - 1.0) / population)
+    # A transição para censo é decidida sobre o valor contínuo, antes do teto.
+    # Comparando o inteiro já arredondado, o arredondamento empurra populações
+    # logo acima do corte para o outro lado e a exigência oscila: 100 pessoas
+    # pedindo amostra de 80, 101 pedindo censo de 101, 102 pedindo amostra de
+    # novo. Quem tivesse 101 no quadro pagaria por declarar uma pessoa a mais.
+    if corrected > census_threshold * population:
+        return population
+    # O arredondamento antes do teto existe para que 80.0000000001, que é ruído
+    # de ponto flutuante e não exigência, não vire 81 respostas.
+    return min(population, math.ceil(round(corrected, 9)))
+
+
+@dataclass(frozen=True)
+class Representativeness:
+    """Por que uma campanha fechada ainda não vira inventário."""
+
+    population: int
+    achieved: int
+    required: Optional[int]
+    # "sample" | "census" | "undeclared"
+    mode: str
+    met: bool
+    # Carregados junto porque o aviso ao gestor cita a tolerância, e citar 95%
+    # quando a organização configurou outra coisa seria informação errada num
+    # texto que acompanha documento de fiscalização.
+    margin_of_error: float = MARGIN_OF_ERROR
+    confidence_z: float = CONFIDENCE_Z
+
+    @property
+    def confidence(self) -> float:
+        """Confiança bilateral correspondente a `confidence_z`, em 0..1."""
+        return max(0.0, min(1.0, 2.0 * NormalDist().cdf(self.confidence_z) - 1.0))
+
+
+def representativeness(
+    population: int,
+    achieved: int,
+    *,
+    margin_of_error: float = MARGIN_OF_ERROR,
+    confidence_z: float = CONFIDENCE_Z,
+    census_threshold: float = CENSUS_THRESHOLD,
+) -> Representativeness:
+    """Espelha o veredito do Portão A para que a tela possa explicá-lo.
+
+    A decisão continua sendo do SQL: esta função existe para dizer ao gestor
+    quantas respostas ainda faltam, não para liberar resultado.
+    """
+    declared = max(0, int(population or 0))
+    required = required_sample(
+        declared,
+        margin_of_error=margin_of_error,
+        confidence_z=confidence_z,
+        census_threshold=census_threshold,
+    )
+    if required is None:
+        mode = "undeclared"
+    elif required >= declared:
+        mode = "census"
+    else:
+        mode = "sample"
+    return Representativeness(
+        population=declared,
+        achieved=max(0, int(achieved or 0)),
+        required=required,
+        mode=mode,
+        met=required is not None and int(achieved or 0) >= required,
+        margin_of_error=margin_of_error,
+        confidence_z=confidence_z,
+    )
+
+
+def representativeness_notice(verdict: Representativeness) -> str:
+    """Explica um painel retido por representatividade, não por anonimato.
+
+    São dois avisos porque são duas causas, e confundi-las manda o gestor
+    perseguir o número errado: quem lê "faltam respostas para o piso de 50"
+    numa campanha que já tem 200 e precisa de 341 conclui que o sistema está
+    quebrado.
+    """
+    if verdict.met:
+        return ""
+    if verdict.mode == "undeclared":
+        return (
+            "O efetivo de trabalhadores desta campanha não foi declarado. Sem "
+            "ele não há como afirmar que as respostas representam o quadro, e "
+            "inventário sobre população desconhecida não se sustenta diante da "
+            "fiscalização. Informe o efetivo do período de referência."
+        )
+    confianca = round(verdict.confidence * 100)
+    margem = round(verdict.margin_of_error * 100)
+    if verdict.mode == "census":
+        return (
+            f"Para um efetivo de {verdict.population} trabalhadores, a amostra "
+            f"necessária a {confianca}% de confiança alcança praticamente todo "
+            "o quadro — esta campanha exige censo, ou seja, as "
+            f"{verdict.population} respostas. Há {verdict.achieved}. Em grupos "
+            "deste tamanho o Guia MTE indica diálogo e observação da atividade "
+            "como caminho mais adequado que o questionário."
+        )
+    return (
+        f"Esta campanha reuniu {verdict.achieved} respostas substantivas e "
+        f"precisa de {verdict.required} para representar um efetivo de "
+        f"{verdict.population} trabalhadores a {confianca}% de confiança, com "
+        f"margem de {margem} pontos. Abaixo disso o resultado descreve quem "
+        "respondeu, e não o trabalho da organização."
     )
 
 
