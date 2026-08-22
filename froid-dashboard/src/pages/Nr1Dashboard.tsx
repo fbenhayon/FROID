@@ -303,6 +303,13 @@ export const Nr1Dashboard: React.FC<{ user: FroidUser | null }> = ({ user }) => 
               AEP
             </button>
             <button
+              onClick={() => nav("/nr1/plano-de-acao")}
+              title="Plano de acao: o segundo documento obrigatorio do PGR (NR-1 1.5.7.1 'b')."
+              className="rounded border border-amber-700 bg-amber-950 px-4 py-2 text-xs font-black text-amber-100 hover:bg-amber-900"
+            >
+              Plano de ação
+            </button>
+            <button
               onClick={() => nav("/nr1/eficacia")}
               className="rounded border border-cyan-700 bg-cyan-950 px-4 py-2 text-xs font-black text-cyan-100 hover:bg-cyan-900"
             >

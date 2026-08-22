@@ -1,0 +1,277 @@
+"""O plano de acao como documento, e nao como rascunho de resposta HTTP.
+
+1.5.7.1 lista DOIS documentos minimos do PGR: inventario de riscos e plano de
+acao. O FROID gravava o primeiro e nao o segundo — action_plan_seed() devolvia um
+rascunho no corpo da resposta e ele evaporava. A tabela existia desde a migration
+010, com RLS, com grants ao froid_runtime e com permissao propria em
+tenant_access.py, e nunca recebeu um INSERT.
+
+Estes testes cobrem tres coisas distintas, e a distincao importa:
+
+  1. Que a migration 026 declara cada exigencia da norma como restricao de banco.
+     E ali que a garantia vive: nenhum caminho de codigo contorna um CHECK.
+  2. Que a camada Python nao reintroduz por engano o que a 026 impede, e que a
+     mensagem de erro devolvida ao gestor diz QUAL exigencia foi tocada.
+  3. Que os campos de 1.5.7.3.2 calculados no endpoint chegam ao INSERT — eram
+     calculados e descartados, e o inventario ia para o auditor pela metade.
+
+O comportamento real das restricoes contra um Postgres de verdade esta em
+tests/test_nr1_plano_de_acao_postgres.py, que pula sem banco configurado.
+"""
+
+import re
+import sys
+import unittest
+from pathlib import Path
+
+SERVER_DIR = Path(__file__).resolve().parents[1]
+if str(SERVER_DIR) not in sys.path:
+    sys.path.insert(0, str(SERVER_DIR))
+
+import nr1_compliance  # noqa: E402
+
+MIGRATIONS = SERVER_DIR / "migrations"
+MIGRACAO = (MIGRATIONS / "026_action_plan_documento.sql").read_text(encoding="utf-8")
+MAIN = (SERVER_DIR / "main.py").read_text(encoding="utf-8")
+STORE = (SERVER_DIR / "tenant_store.py").read_text(encoding="utf-8")
+ACCESS = (SERVER_DIR / "tenant_access.py").read_text(encoding="utf-8")
+
+
+class ExigenciasViramRestricaoDeBanco(unittest.TestCase):
+    """Cada linha da norma que o documento tem de cumprir, como CHECK.
+
+    Validacao em Python e conselho; CHECK e regra. A diferenca aparece no dia em
+    que alguem escreve um script de migracao de dados, um endpoint novo, ou um
+    UPDATE manual em producao para "resolver rapido".
+    """
+
+    def test_concluir_exige_data_de_implementacao(self):
+        # 1.5.5.3.1: a implementacao deve ser REGISTRADA. Medida concluida sem
+        # data e afirmacao sem registro.
+        self.assertIn("psychosocial_action_plan_done_needs_implementation", MIGRACAO)
+        self.assertIn(
+            "CHECK (status <> 'done' OR implemented_at IS NOT NULL)", MIGRACAO
+        )
+
+    def test_concluir_exige_responsavel_e_prazo(self):
+        # 1.5.5.2.2: cronograma COM RESPONSAVEIS.
+        self.assertIn("psychosocial_action_plan_done_needs_schedule", MIGRACAO)
+        self.assertIn("responsible_membership_id IS NOT NULL", MIGRACAO)
+        self.assertIn("due_date IS NOT NULL", MIGRACAO)
+
+    def test_concluir_exige_acompanhamento_e_afericao(self):
+        # 1.5.5.2.2 pede as duas: como se verifica que a medida esta de pe, e
+        # como se mede se ela produziu efeito. Sem a segunda nao ha o que
+        # comparar no ciclo seguinte e a prova de eficacia deixa de existir.
+        self.assertIn("psychosocial_action_plan_done_needs_monitoring", MIGRACAO)
+        self.assertIn("btrim(monitoring_method) <> ''", MIGRACAO)
+        self.assertIn("btrim(result_measurement) <> ''", MIGRACAO)
+
+    def test_cancelar_exige_justificativa(self):
+        self.assertIn("psychosocial_action_plan_cancel_needs_reason", MIGRACAO)
+        self.assertIn("status <> 'cancelled' OR btrim(evidence) <> ''", MIGRACAO)
+
+    def test_eficacia_so_depois_de_implementar(self):
+        # 1.5.4.4.5.3 usa a eficacia para calcular a probabilidade do risco. Um
+        # veredito dado antes da implementacao rebaixa o risco no inventario com
+        # dado que nao existe.
+        self.assertIn(
+            "psychosocial_action_plan_efficacy_after_implementation", MIGRACAO
+        )
+        self.assertIn("effectiveness IS NULL", MIGRACAO)
+
+    def test_a_data_de_implementacao_nao_pode_ser_apagada(self):
+        # E a unica forma de fazer a obrigacao de reavaliar risco residual
+        # desaparecer sem deixar rastro.
+        self.assertIn("froid_nr1_action_plan_guard", MIGRACAO)
+        self.assertIn(
+            "a data de implementacao registrada nao pode ser apagada", MIGRACAO
+        )
+        self.assertIn("1.5.5.3.1", MIGRACAO)
+
+    def test_uma_medida_nao_muda_de_risco(self):
+        self.assertIn("NEW.inventory_id <> OLD.inventory_id", MIGRACAO)
+
+    def test_as_restricoes_sao_not_valid(self):
+        """Migration que quebra o primeiro login e pior que restricao tardia.
+
+        A tabela nunca recebeu escrita da aplicacao, mas pode ter linha de piloto
+        inserida a mao. NOT VALID aplica a regra ao futuro sem reprovar o
+        passado, e ensure_schema() roda no primeiro login do tenant.
+        """
+        restricoes = re.findall(
+            r"ADD CONSTRAINT (psychosocial_action_plan_\w+)", MIGRACAO
+        )
+        # plan_action_check e a unica validada: a coluna acabou de nascer com
+        # DEFAULT valido, entao nao ha linha antiga que possa reprova-la.
+        esperadas_not_valid = [
+            nome for nome in restricoes if nome != "psychosocial_action_plan_plan_action_check"
+        ]
+        self.assertGreaterEqual(len(esperadas_not_valid), 6)
+        for nome in esperadas_not_valid:
+            with self.subTest(restricao=nome):
+                trecho = MIGRACAO[MIGRACAO.index(f"ADD CONSTRAINT {nome}"):]
+                trecho = trecho[: trecho.index(";")]
+                self.assertIn("NOT VALID", trecho)
+
+
+class GatilhoDaAlineaA(unittest.TestCase):
+    """1.5.4.4.6 "a": apos implementar, reavaliar o risco residual.
+
+    Nao ha prazo na norma porque nao ha data — o gatilho e um EVENTO. Este e o
+    ponto em que o produto faz o que planilha nenhuma faz: a obrigacao nasce
+    sozinha no instante da implementacao.
+    """
+
+    def test_a_implementacao_marca_a_revisao_de_risco_residual(self):
+        self.assertIn("froid_nr1_flag_residual_risk_review", MIGRACAO)
+        self.assertIn("review_trigger = 'residual_risk'", MIGRACAO)
+        self.assertIn("AFTER INSERT OR UPDATE OF implemented_at", MIGRACAO)
+
+    def test_a_revisao_residual_antecipa_a_programada_e_nunca_a_adia(self):
+        # LEAST entre o teto programado (24 ou 36 meses) e a data desta
+        # implementacao. Usar o maior faria implementar uma medida ADIAR a
+        # revisao, que e o oposto do que a alinea "a" determina.
+        trecho = MIGRACAO[MIGRACAO.index("froid_nr1_flag_residual_risk_review"):]
+        trecho = trecho[: trecho.index("$residual$;")]
+        self.assertIn("LEAST(", trecho)
+        self.assertNotIn("GREATEST(", trecho)
+
+    def test_regerar_o_inventario_nao_apaga_uma_revisao_ja_devida(self):
+        # A obrigacao nasceu de um evento que aconteceu. Regerar o inventario e
+        # rotina; apagar a pendencia por causa dela seria perder o registro.
+        self.assertIn("WHEN psychosocial_risk_inventory.review_trigger", STORE)
+        self.assertIn("= 'residual_risk' THEN 'residual_risk'", STORE)
+
+    def test_o_teto_de_revisao_e_gravado_na_geracao_do_inventario(self):
+        self.assertIn("make_interval(months => %s)", STORE)
+        self.assertIn("'scheduled'", STORE)
+        self.assertIn("_nr1_review_interval_months", MAIN)
+
+
+class OsNoveCamposDeixamDeSerDescartados(unittest.TestCase):
+    """Regressao: o endpoint calculava e o store jogava fora.
+
+    generate_nr1_inventory montava selected_consequence, possible_harms,
+    exposed_workers, measure_efficacy, exposure_level e risk_classification — e o
+    INSERT de nr1_store_inventory nao listava nenhuma dessas colunas. O
+    inventario ia para o auditor com as alineas "d", "e", "f" e "g" de 1.5.7.3.2
+    vazias.
+    """
+
+    def test_o_insert_persiste_o_que_o_endpoint_calcula(self):
+        trecho = STORE[STORE.index("INSERT INTO psychosocial_risk_inventory"):]
+        trecho = trecho[: trecho.index("ON CONFLICT")]
+        for coluna in (
+            "possible_harms", "selected_consequence", "exposed_workers",
+            "measure_efficacy", "exposure_level", "risk_classification",
+        ):
+            with self.subTest(coluna=coluna):
+                self.assertIn(coluna, trecho)
+
+    def test_o_inventario_guarda_os_criterios_que_o_produziram(self):
+        # gro_risk_criteria e imutavel depois de publicado justamente para que um
+        # inventario continue explicavel pela regua que o gerou.
+        self.assertIn("campanha.criteria_id", STORE)
+
+
+class TresVerbosDeUmCincoCincoDoisUm(unittest.TestCase):
+    """1.5.5.2.1: medidas a serem introduzidas, aprimoradas ou mantidas."""
+
+    def test_o_python_e_o_banco_concordam_sobre_os_tres(self):
+        self.assertEqual(
+            set(nr1_compliance.PLAN_ACTIONS),
+            {"introduce", "improve", "maintain"},
+        )
+        self.assertIn("plan_action IN ('introduce', 'improve', 'maintain')", MIGRACAO)
+
+    def test_a_regra_esta_documentada_no_documento_de_criterios(self):
+        # Regra aplicada num lugar e declarada noutro diverge com o tempo.
+        documento = nr1_compliance.DEFAULT_CRITERIA.as_document()
+        self.assertIn("measure_hierarchy", documento["decision_rules"])
+
+
+class SuperficieDaApi(unittest.TestCase):
+    def test_as_quatro_rotas_existem(self):
+        for rota in (
+            'get("/api/organizations/{organization_id}/nr1/campaigns/{campaign_id}/action-plan")',
+            'post("/api/organizations/{organization_id}/nr1/campaigns/{campaign_id}/action-plan")',
+            'post("/api/organizations/{organization_id}/nr1/action-plan/items"',
+            'patch("/api/organizations/{organization_id}/nr1/action-plan/items/{item_id}")',
+        ):
+            with self.subTest(rota=rota):
+                self.assertIn(rota, MAIN)
+
+    def test_escrever_o_plano_exige_a_permissao_que_ja_existia(self):
+        # nr1.action_plan.manage estava declarada em tenant_access.py desde
+        # sempre, concedida a compliance_manager e occupational_health, e nao era
+        # usada em endpoint nenhum.
+        self.assertIn('"nr1.action_plan.manage"', ACCESS)
+        self.assertGreaterEqual(MAIN.count('"nr1.action_plan.manage"'), 3)
+
+    def test_a_leitura_do_plano_nao_exige_permissao_de_escrita(self):
+        # Auditor e owner leem o documento sem poder alterar. A politica de RLS
+        # da 010 ja separa os dois; o endpoint tem de refletir isso.
+        trecho = MAIN[MAIN.index("async def list_nr1_action_plan"):]
+        trecho = trecho[: trecho.index("@app.post")]
+        self.assertIn('"nr1.aggregate.read"', trecho)
+        self.assertNotIn("nr1.action_plan.manage", trecho)
+
+    def test_nao_existe_rota_que_apague_medida(self):
+        # Apagar reescreve a historia do que foi feito; cancelar a preserva, e a
+        # 026 exige justificativa para cancelar.
+        self.assertNotIn("delete(\"/api/organizations/{organization_id}/nr1/action-plan", MAIN)
+
+    def test_implementacao_no_futuro_e_recusada(self):
+        self.assertIn("não se registra implementação no futuro", MAIN)
+
+    def test_toda_restricao_da_migration_tem_mensagem_para_o_gestor(self):
+        """"violates check constraint" nao ensina ninguem a preencher o documento.
+
+        Se alguem acrescentar um CHECK na tabela sem escrever a frase que explica
+        qual exigencia foi tocada, este teste reprova — e a frase e mais barata
+        de escrever agora que de descobrir num suporte.
+        """
+        declaradas = set(
+            re.findall(r"ADD CONSTRAINT (psychosocial_action_plan_\w+)", MIGRACAO)
+        )
+        traduzidas = set(
+            re.findall(r'"(psychosocial_action_plan_\w+)":', MAIN)
+        )
+        self.assertEqual(
+            declaradas - traduzidas, set(),
+            "CHECK sem mensagem em _ACTION_PLAN_CONSTRAINT_MESSAGES",
+        )
+
+
+class FronteiraClinicaIntacta(unittest.TestCase):
+    """O plano de acao nao pode virar porta para dado de pessoa."""
+
+    def test_nenhuma_consulta_do_plano_faz_join_com_users(self):
+        # Nao ha GRANT SELECT em users para o froid_runtime, e as consultas que
+        # resolvem nome de pessoa neste arquivo correm pela conexao
+        # administrativa. Um JOIN aqui aplicaria limpo em desenvolvimento e
+        # falharia por permissao no primeiro uso em producao.
+        trecho = STORE[STORE.index("def nr1_generate_action_plan"):]
+        trecho = trecho[: trecho.index("def mark_mirrored_report_deleted")]
+        self.assertNotIn("JOIN users", trecho)
+        self.assertNotIn("users.email", trecho)
+        self.assertNotIn("display_name", trecho)
+
+    def test_o_plano_nao_expoe_resposta_individual(self):
+        trecho = STORE[STORE.index("def nr1_list_action_plan"):]
+        trecho = trecho[: trecho.index("def nr1_update_action_plan_item")]
+        self.assertNotIn("assessment_responses", trecho)
+        self.assertNotIn("assessment_response_items", trecho)
+
+    def test_a_lista_branca_impede_coluna_vinda_do_corpo_da_requisicao(self):
+        self.assertIn("ACTION_PLAN_UPDATABLE", STORE)
+        trecho = STORE[STORE.index("ACTION_PLAN_UPDATABLE = {"):]
+        trecho = trecho[: trecho.index("}")]
+        self.assertNotIn("organization_id", trecho)
+        self.assertNotIn("inventory_id", trecho)
+        self.assertNotIn("id", re.findall(r'"(\w+)"', trecho))
+
+
+if __name__ == "__main__":
+    unittest.main()

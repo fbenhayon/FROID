@@ -205,7 +205,29 @@ class CohortSuppressionTests(unittest.TestCase):
 
 
 class ActionPlanTests(unittest.TestCase):
-    def test_low_risk_does_not_seed_a_measure(self):
+    def test_low_risk_without_any_measure_seeds_nothing(self):
+        """Nada a introduzir (o nivel e toleravel) e nada a manter."""
+        seeds = action_plan_seed(
+            grade_all([
+                score(
+                    mean_score=2.0,
+                    critical_ratio=0.0,
+                    consequences=("fadiga",),
+                    measure_efficacy="none",
+                )
+            ])
+        )
+        self.assertEqual(seeds, [])
+
+    def test_low_risk_with_an_effective_measure_seeds_maintenance(self):
+        """1.5.5.2.1 fala em medidas mantidas, nao so introduzidas.
+
+        Risco baixo COM medida eficaz nao exige medida nova, mas exige manter a
+        existente e acompanha-la — o Quadro 5 do Manual do GRO e explicito
+        ("manter o monitoramento para assegurar que os controles sejam
+        mantidos"). Um plano que omite essa linha sugere que nada foi feito
+        naquele risco, quando foi.
+        """
         seeds = action_plan_seed(
             grade_all([
                 score(
@@ -216,7 +238,52 @@ class ActionPlanTests(unittest.TestCase):
                 )
             ])
         )
-        self.assertEqual(seeds, [])
+        self.assertEqual(len(seeds), 1)
+        self.assertEqual(seeds[0]["plan_action"], "maintain")
+        self.assertEqual(seeds[0]["measure_type"], "monitoring")
+
+    def test_measure_shown_ineffective_is_improved_even_at_low_risk(self):
+        """1.5.5.3.2.1 nao abre excecao por nivel.
+
+        'insufficient' significa medida implementada e MEDIDA como ineficaz. A
+        norma manda corrigi-la. Deixa-la de pe porque o risco resultante ficou
+        baixo e o caso em que uma medida que nao funciona envelhece como se
+        fosse prova de diligencia.
+        """
+        seeds = action_plan_seed(
+            grade_all([
+                score(
+                    mean_score=2.0,
+                    critical_ratio=0.0,
+                    consequences=("fadiga",),
+                    measure_efficacy="insufficient",
+                )
+            ])
+        )
+        self.assertEqual(len(seeds), 1)
+        self.assertEqual(seeds[0]["plan_action"], "improve")
+
+    def test_existing_measure_that_did_not_suffice_is_improved(self):
+        seeds = action_plan_seed(
+            grade_all([
+                score(
+                    mean_score=4.0,
+                    critical_ratio=0.90,
+                    measure_efficacy="partial",
+                )
+            ])
+        )
+        self.assertEqual(len(seeds), 1)
+        self.assertEqual(seeds[0]["plan_action"], "improve")
+
+    def test_risk_without_measure_is_introduced_and_ranked(self):
+        seeds = action_plan_seed(
+            grade_all([score(mean_score=4.0, critical_ratio=0.90)])
+        )
+        self.assertEqual(len(seeds), 1)
+        self.assertEqual(seeds[0]["plan_action"], "introduce")
+        # 1.5.5.2.1.1: a ordem do documento nao pode depender de quem o abre.
+        self.assertEqual(seeds[0]["priority_rank"], 1)
 
     def test_critical_risk_seeds_elimination_at_the_top_of_the_hierarchy(self):
         seeds = action_plan_seed(

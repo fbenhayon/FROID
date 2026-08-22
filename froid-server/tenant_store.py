@@ -851,6 +851,40 @@ class TenantStore:
                     for row in cursor.fetchall()
                 ]
 
+    def nr1_list_responsibles(self, organization_id: str) -> list[dict]:
+        """Quem pode ser nomeado responsável por uma medida do plano de ação.
+
+        1.5.5.2.2 exige responsável para cada medida, e quem preenche o plano é o
+        `compliance_manager` — que não tem `members.manage` e portanto não
+        consegue listar membros pela rota administrativa. Sem esta consulta o
+        campo de responsável seria um UUID digitado à mão, e o resultado
+        previsível é plano com responsável em branco.
+
+        Devolve o mínimo: identificação da associação e o nome de exibição.
+        Nenhum e-mail, nenhum papel, nenhum dado clínico — é a lista de quem
+        pode assinar uma medida, não um diretório de pessoal.
+        """
+        if not self.enabled:
+            return []
+        with self._connect() as connection:
+            self.ensure_schema(connection)
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT membership.id, user_account.display_name
+                    FROM organization_memberships membership
+                    JOIN users user_account ON user_account.id = membership.user_id
+                    WHERE membership.organization_id = %s
+                      AND membership.status = 'active'
+                    ORDER BY user_account.display_name
+                    """,
+                    (organization_id,),
+                )
+                return [
+                    {"membership_id": str(row[0]), "display_name": row[1] or ""}
+                    for row in cursor.fetchall()
+                ]
+
     def create_member_invitation(
         self,
         *,
@@ -2697,12 +2731,26 @@ class TenantStore:
         membership_id: str,
         campaign_id: str,
         graded_rows: Sequence[dict],
+        review_interval_months: int = 24,
     ) -> int:
-        """Persist the graded risk inventory that feeds the PGR."""
+        """Persist the graded risk inventory that feeds the PGR.
+
+        Seis campos de 1.5.7.3.2 vinham calculados do endpoint e eram
+        descartados aqui: o INSERT nao os listava. O inventario era gravado com
+        as alineas "d", "e", "f" e "g" vazias — justamente as que descrevem o
+        agravo possivel, quem esta exposto, que medida ja existe e como e a
+        exposicao. Um auditor lendo aquilo via um inventario pela metade.
+
+        `review_due_at` recebe o teto de 1.5.4.4.6: dois anos, ou tres quando a
+        organizacao tem sistema de gestao de SST certificado (1.5.4.4.6.1). E
+        teto, nao cadencia — a alinea "a" antecipa esta data assim que uma medida
+        do plano for implementada, e quem faz isso e o gatilho da migration 026.
+        """
         if not self.enabled or not self.runtime_database_url:
             raise RuntimeError("dual persistence and runtime role are required")
         if not graded_rows:
             return 0
+        meses = max(1, min(36, int(review_interval_months or 24)))
         with self._connect(runtime=True) as connection:
             with connection.transaction():
                 self._nr1_session(connection, organization_id, membership_id)
@@ -2712,8 +2760,21 @@ class TenantStore:
                         INSERT INTO psychosocial_risk_inventory
                             (id, organization_id, campaign_id, unit_id, dimension_id,
                              nr1_factor, cohort_size, mean_score, severity,
-                             probability, risk_level, rationale)
-                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                             probability, risk_level, rationale,
+                             possible_harms, selected_consequence, exposed_workers,
+                             measure_efficacy, exposure_level, risk_classification,
+                             review_due_at, review_trigger, criteria_id)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
+                                %s,%s,%s,%s,%s,%s,
+                                now() + make_interval(months => %s), 'scheduled',
+                                -- Os critérios em vigor quando a campanha rodou,
+                                -- e não os de hoje: gro_risk_criteria é imutável
+                                -- depois de publicado justamente para que um
+                                -- inventário continue explicável pela régua que
+                                -- o produziu.
+                                (SELECT campanha.criteria_id
+                                   FROM assessment_campaigns campanha
+                                  WHERE campanha.id = %s))
                         ON CONFLICT (campaign_id, unit_id, dimension_id)
                         DO UPDATE SET
                             cohort_size=EXCLUDED.cohort_size,
@@ -2722,6 +2783,25 @@ class TenantStore:
                             probability=EXCLUDED.probability,
                             risk_level=EXCLUDED.risk_level,
                             rationale=EXCLUDED.rationale,
+                            possible_harms=EXCLUDED.possible_harms,
+                            selected_consequence=EXCLUDED.selected_consequence,
+                            exposed_workers=EXCLUDED.exposed_workers,
+                            measure_efficacy=EXCLUDED.measure_efficacy,
+                            exposure_level=EXCLUDED.exposure_level,
+                            risk_classification=EXCLUDED.risk_classification,
+                            -- Regerar o inventario NAO apaga uma revisao ja
+                            -- devida por risco residual: a obrigacao da alinea
+                            -- "a" nasceu de um evento que aconteceu, e o teto
+                            -- programado nunca a adia.
+                            review_due_at=LEAST(
+                                psychosocial_risk_inventory.review_due_at,
+                                EXCLUDED.review_due_at
+                            ),
+                            review_trigger=CASE
+                                WHEN psychosocial_risk_inventory.review_trigger
+                                     = 'residual_risk' THEN 'residual_risk'
+                                ELSE EXCLUDED.review_trigger
+                            END,
                             generated_at=now()
                         """,
                         (
@@ -2731,6 +2811,13 @@ class TenantStore:
                             float(row["mean_score"]), int(row["severity"]),
                             int(row["probability"]), row["risk_level"],
                             row.get("rationale", ""),
+                            list(row.get("possible_harms") or []),
+                            row.get("selected_consequence", ""),
+                            max(0, int(row.get("exposed_workers") or 0)),
+                            row.get("measure_efficacy", "none"),
+                            row.get("exposure_level"),
+                            row.get("risk_classification", row["risk_level"]),
+                            meses, campaign_id,
                         ),
                     )
         return len(graded_rows)
@@ -2774,6 +2861,247 @@ class TenantStore:
             }
             for row in rows
         ]
+
+    # -- Plano de ação (1.5.7.1 "b") ------------------------------------------
+    #
+    # O segundo documento obrigatório do PGR. A tabela existia desde a migration
+    # 010, com RLS, com grants e com permissão própria em tenant_access.py — e
+    # nunca recebeu um INSERT: action_plan_seed() devolvia um rascunho na
+    # resposta da API e ele evaporava. Estes três métodos são a camada que
+    # faltava.
+    #
+    # Nenhuma consulta aqui faz JOIN com `users` de propósito. Não há
+    # `GRANT SELECT ... users TO froid_runtime` em nenhuma migration, e as
+    # consultas que resolvem nome de pessoa neste arquivo correm pela conexão
+    # administrativa. Um JOIN aqui aplicaria limpo em desenvolvimento e falharia
+    # por permissão no primeiro uso em produção, longe do deploy que o causou —
+    # que é exatamente como este projeto já se queimou antes. O responsável sai
+    # daqui como membership_id; quem precisa do nome o resolve por fora.
+
+    ACTION_PLAN_UPDATABLE = {
+        "measure", "measure_type", "plan_action", "responsible_membership_id",
+        "due_date", "status", "evidence", "monitoring_method",
+        "result_measurement", "implemented_at", "effectiveness",
+        "effectiveness_reviewed_at",
+    }
+
+    def nr1_generate_action_plan(
+        self,
+        *,
+        organization_id: str,
+        membership_id: str,
+        campaign_id: str,
+        seed_rows: Sequence[dict],
+        criteria_id: Optional[str] = None,
+    ) -> int:
+        """Abre as linhas de plano que faltam para os riscos deste inventário.
+
+        Idempotente por construção: só cria linha para risco que ainda não tem
+        nenhuma medida viva. Regerar depois de a empresa ter preenchido o plano
+        não sobrescreve nada — e regerar depois de todas as medidas de um risco
+        terem sido canceladas cria um rascunho novo, porque risco cuja única
+        medida foi cancelada é risco sem medida, e a norma não aceita isso.
+
+        A NR-1 permite mais de uma medida por risco; esta função só garante a
+        primeira. As demais entram por nr1_add_action_plan_item().
+        """
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        if not seed_rows:
+            return 0
+        criadas = 0
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                self._nr1_session(connection, organization_id, membership_id)
+                for row in seed_rows:
+                    cursor = connection.execute(
+                        """
+                        INSERT INTO psychosocial_action_plan
+                            (id, organization_id, inventory_id, campaign_id,
+                             criteria_id, measure, measure_type, plan_action,
+                             status, exposed_workers, priority_rank)
+                        SELECT %s, %s, inventory.id, %s, %s, '', %s, %s,
+                               'planned', %s, %s
+                        FROM psychosocial_risk_inventory inventory
+                        WHERE inventory.organization_id = %s
+                          AND inventory.campaign_id = %s
+                          AND inventory.dimension_id = %s
+                          AND inventory.unit_id IS NOT DISTINCT FROM %s
+                          AND NOT EXISTS (
+                              SELECT 1 FROM psychosocial_action_plan viva
+                              WHERE viva.inventory_id = inventory.id
+                                AND viva.status <> 'cancelled'
+                          )
+                        """,
+                        (
+                            str(uuid.uuid4()), organization_id, campaign_id,
+                            criteria_id, row["measure_type"], row["plan_action"],
+                            max(0, int(row.get("exposed_workers") or 0)),
+                            row.get("priority_rank"),
+                            organization_id, campaign_id, row["dimension_id"],
+                            row.get("unit_id"),
+                        ),
+                    )
+                    criadas += int(getattr(cursor, "rowcount", 0) or 0)
+        return criadas
+
+    def nr1_add_action_plan_item(
+        self,
+        *,
+        organization_id: str,
+        membership_id: str,
+        inventory_id: str,
+        measure: str,
+        measure_type: str,
+        plan_action: str = "introduce",
+    ) -> str:
+        """Acrescenta uma segunda (ou terceira) medida ao mesmo risco.
+
+        1.5.5.2.1 não limita o plano a uma medida por risco, e a hierarquia de
+        1.5.5.1.2 frequentemente exige combinar: uma coletiva mais uma
+        administrativa enquanto a primeira não fica de pé.
+        """
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        item_id = str(uuid.uuid4())
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                self._nr1_session(connection, organization_id, membership_id)
+                cursor = connection.execute(
+                    """
+                    INSERT INTO psychosocial_action_plan
+                        (id, organization_id, inventory_id, campaign_id,
+                         criteria_id, measure, measure_type, plan_action,
+                         status, exposed_workers, priority_rank)
+                    SELECT %s, %s, inventory.id, inventory.campaign_id,
+                           inventory.criteria_id, %s, %s, %s, 'planned',
+                           inventory.exposed_workers, NULL
+                    FROM psychosocial_risk_inventory inventory
+                    WHERE inventory.id = %s
+                      AND inventory.organization_id = %s
+                    """,
+                    (
+                        item_id, organization_id, measure, measure_type,
+                        plan_action, inventory_id, organization_id,
+                    ),
+                )
+                if int(getattr(cursor, "rowcount", 0) or 0) == 0:
+                    raise ValueError("inventory_not_found")
+        return item_id
+
+    def nr1_list_action_plan(
+        self, *, organization_id: str, membership_id: str, campaign_id: str
+    ) -> list[dict]:
+        """O plano de ação como documento: por risco, na ordem de prioridade."""
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                self._nr1_session(connection, organization_id, membership_id)
+                rows = connection.execute(
+                    """
+                    SELECT plano.id, plano.inventory_id, plano.plan_action,
+                           plano.measure, plano.measure_type,
+                           plano.responsible_membership_id, plano.due_date,
+                           plano.status, plano.evidence, plano.monitoring_method,
+                           plano.result_measurement, plano.implemented_at,
+                           plano.effectiveness_reviewed_at, plano.effectiveness,
+                           plano.exposed_workers, plano.priority_rank,
+                           plano.created_at, plano.updated_at,
+                           inventory.unit_id, unit.name, inventory.dimension_id,
+                           dimension.title, inventory.nr1_factor,
+                           inventory.risk_level, inventory.severity,
+                           inventory.probability, inventory.review_due_at,
+                           inventory.review_trigger
+                    FROM psychosocial_action_plan plano
+                    JOIN psychosocial_risk_inventory inventory
+                      ON inventory.id = plano.inventory_id
+                    JOIN assessment_dimensions dimension
+                      ON dimension.id = inventory.dimension_id
+                    LEFT JOIN organization_units unit ON unit.id = inventory.unit_id
+                    WHERE plano.organization_id = %s
+                      AND inventory.campaign_id = %s
+                    ORDER BY coalesce(plano.priority_rank, 2147483647),
+                             inventory.severity * inventory.probability DESC,
+                             plano.created_at
+                    """,
+                    (organization_id, campaign_id),
+                ).fetchall()
+        return [
+            {
+                "item_id": str(row[0]),
+                "inventory_id": str(row[1]),
+                "plan_action": row[2],
+                "measure": row[3],
+                "measure_type": row[4],
+                "responsible_membership_id": str(row[5]) if row[5] else None,
+                "due_date": row[6],
+                "status": row[7],
+                "evidence": row[8],
+                "monitoring_method": row[9],
+                "result_measurement": row[10],
+                "implemented_at": row[11],
+                "effectiveness_reviewed_at": row[12],
+                "effectiveness": row[13],
+                "exposed_workers": int(row[14] or 0),
+                "priority_rank": int(row[15]) if row[15] is not None else None,
+                "created_at": row[16],
+                "updated_at": row[17],
+                "unit_id": str(row[18]) if row[18] else None,
+                "unit_name": row[19],
+                "dimension_id": str(row[20]),
+                "dimension_title": row[21],
+                "nr1_factor": row[22],
+                "risk_level": row[23],
+                "severity": int(row[24]),
+                "probability": int(row[25]),
+                # 1.5.4.4.6: por que e desde quando a reavaliação está devida.
+                "review_due_at": row[26],
+                "review_trigger": row[27],
+            }
+            for row in rows
+        ]
+
+    def nr1_update_action_plan_item(
+        self,
+        *,
+        organization_id: str,
+        membership_id: str,
+        item_id: str,
+        fields: Dict[str, Any],
+    ) -> dict:
+        """Atualiza uma medida do plano.
+
+        A lista branca não é higiene genérica: sem ela o nome da coluna viria do
+        corpo da requisição. E as regras de integridade que importam não estão
+        aqui — estão em CHECK e trigger na migration 026, onde nenhum caminho de
+        código as contorna. Aqui só se recusa cedo o que dá para recusar cedo,
+        com mensagem melhor que a do banco.
+        """
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        alteracoes = {
+            chave: valor
+            for chave, valor in (fields or {}).items()
+            if chave in self.ACTION_PLAN_UPDATABLE
+        }
+        if not alteracoes:
+            raise ValueError("no_updatable_fields")
+        atribuicoes = ", ".join(f"{chave}=%s" for chave in alteracoes)
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                self._nr1_session(connection, organization_id, membership_id)
+                cursor = connection.execute(
+                    f"""
+                    UPDATE psychosocial_action_plan
+                       SET {atribuicoes}
+                     WHERE id=%s AND organization_id=%s
+                    """,
+                    (*alteracoes.values(), item_id, organization_id),
+                )
+                if int(getattr(cursor, "rowcount", 0) or 0) == 0:
+                    raise ValueError("action_plan_item_not_found")
+        return {"item_id": item_id, "updated_fields": sorted(alteracoes)}
 
     def mark_mirrored_report_deleted(
         self, *, organization_id: str, session_id: str

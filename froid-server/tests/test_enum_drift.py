@@ -109,6 +109,14 @@ class Nr1EnumDriftTests(unittest.TestCase):
             last_check_for("polarity"), set(nr1_compliance.VALID_POLARITIES)
         )
 
+    def test_plan_action_matches(self):
+        # 1.5.5.2.1 nomeia tres destinos: introduzir, aprimorar, manter. Se o
+        # banco e o Python discordarem sobre quais sao, o seed grava um valor
+        # que o CHECK recusa — e a falha aparece na geracao do documento.
+        self.assertEqual(
+            last_check_for("plan_action"), set(nr1_compliance.PLAN_ACTIONS)
+        )
+
 
 class ReportVisibilityDriftTests(unittest.TestCase):
     """A política de visibilidade decide quem lê relatório clínico de quem."""
@@ -134,6 +142,7 @@ class DriftGuardCoverageTests(unittest.TestCase):
         cobertas = {
             "role", "organization_type", "risk_level", "nr1_factor",
             "measure_efficacy", "measure_type", "polarity", "report_visibility",
+            "plan_action",
         }
         todas = set(re.findall(r"CHECK\s*\(\s*([a-z_]+)\s+IN\s*\(", all_sql()))
         # Colunas de estado interno não têm par em Python e não sofrem drift.

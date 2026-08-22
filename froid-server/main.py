@@ -1,6 +1,6 @@
 import asyncio
 import base64
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 import hashlib
 import hmac
 import io
@@ -8279,6 +8279,27 @@ def _nr1_criteria_for(context: AccessContext) -> nr1_compliance.GradationCriteri
         return nr1_compliance.DEFAULT_CRITERIA
 
 
+def _nr1_review_interval_months(context: AccessContext) -> int:
+    """O teto de revisão que 1.5.4.4.6 impõe a esta organização.
+
+    Dois anos, ou até três quando ela tem sistema de gestão de SST certificado
+    (1.5.4.4.6.1) — o Manual do GRO cita a ISO 45001:2018 como exemplo. O banco
+    já impede esticar sem a certificação, por CHECK em gro_risk_criteria; aqui
+    só se lê o que ficou publicado.
+    """
+    try:
+        document = TENANT_STORE.nr1_active_criteria(
+            organization_id=context.organization_id,
+            membership_id=context.membership_id,
+        )
+    except Exception:
+        LOGGER.exception("Unable to read NR-1 review interval; falling back to 24")
+        return 24
+    if not document:
+        return 24
+    return max(1, min(36, int(document.get("review_interval_months") or 24)))
+
+
 @app.post("/api/leads/nr1")
 async def register_nr1_lead(request: Request):
     """Contato deixado no diagnóstico de prontidão do site.
@@ -9474,15 +9495,37 @@ async def generate_nr1_inventory(
             }
             for risk in graded
         ],
+        review_interval_months=_nr1_review_interval_months(context),
     )
+
+    # Os dois documentos obrigatórios do PGR (1.5.7.1) nascem juntos. Gerar o
+    # inventário e deixar o plano para depois é o estado em que a empresa fica
+    # com metade do exigido — que foi exatamente o estado do produto até aqui,
+    # porque o rascunho voltava na resposta e não era gravado em lugar nenhum.
+    seed = nr1_compliance.action_plan_seed(graded)
+    try:
+        plan_rows = TENANT_STORE.nr1_generate_action_plan(
+            organization_id=organization_id,
+            membership_id=context.membership_id,
+            campaign_id=campaign_id,
+            seed_rows=seed,
+        )
+    except Exception:
+        # O inventário já foi gravado e vale por si. Falhar a resposta inteira
+        # aqui faria a empresa perder o documento que deu certo por causa do que
+        # ainda pode ser refeito pelo endpoint de plano.
+        LOGGER.exception("Inventory stored but action plan seeding failed")
+        plan_rows = 0
+
     _record_tenant_success(
         context, "nr1.inventory.generate", "assessment_campaign", campaign_id,
-        {"result_count": stored},
+        {"result_count": stored, "action_plan_rows": plan_rows},
     )
     return {
         "campaign_id": campaign_id,
         "inventory_rows": stored,
-        "action_plan_seed": nr1_compliance.action_plan_seed(graded),
+        "action_plan_rows": plan_rows,
+        "action_plan_seed": seed,
     }
 
 
@@ -9504,6 +9547,403 @@ async def list_nr1_inventory(organization_id: str, campaign_id: str, request: Re
         {"result_count": len(inventory)},
     )
     return {"campaign_id": campaign_id, "inventory": inventory}
+
+
+# ---------------------------------------------------------------------------
+# Plano de ação — o segundo documento obrigatório do PGR (1.5.7.1 "b").
+#
+# Até aqui o FROID entregava um dos dois. action_plan_seed() devolvia um
+# rascunho no corpo da resposta de geração do inventário e ele evaporava: não
+# havia rota que escrevesse psychosocial_action_plan, embora a tabela, as
+# políticas de RLS, os grants ao froid_runtime e a permissão
+# nr1.action_plan.manage existissem desde a migration 010.
+# ---------------------------------------------------------------------------
+
+_ACTION_PLAN_STATUSES = frozenset({"planned", "in_progress", "done", "cancelled"})
+
+# As CHECK da migration 026 foram escritas para o gestor ler, mas o psycopg
+# entrega a mensagem do Postgres embrulhada em ruído. O mapa traduz o nome da
+# restrição violada na frase que explica QUAL exigência da norma foi tocada —
+# porque "violates check constraint" não ensina ninguém a preencher o documento.
+_ACTION_PLAN_CONSTRAINT_MESSAGES = {
+    "psychosocial_action_plan_done_needs_implementation": (
+        "medida não pode ser concluída sem a data em que foi implementada "
+        "(NR-1 1.5.5.3.1)"
+    ),
+    "psychosocial_action_plan_done_needs_schedule": (
+        "medida não pode ser concluída sem responsável e sem prazo "
+        "(NR-1 1.5.5.2.2)"
+    ),
+    "psychosocial_action_plan_done_needs_monitoring": (
+        "medida não pode ser concluída sem forma de acompanhamento e de "
+        "aferição de resultados (NR-1 1.5.5.2.2)"
+    ),
+    "psychosocial_action_plan_measure_not_blank": (
+        "descreva a medida antes de tirá-la do rascunho"
+    ),
+    "psychosocial_action_plan_cancel_needs_reason": (
+        "cancelar uma medida planejada para um risco identificado exige "
+        "justificativa escrita; sem ela o cancelamento é indistinguível de "
+        "esquecimento"
+    ),
+    "psychosocial_action_plan_efficacy_after_implementation": (
+        "não se julga a eficácia de medida que ainda não foi implementada — a "
+        "eficácia entra no cálculo da probabilidade do risco (NR-1 1.5.4.4.5.3)"
+    ),
+    "psychosocial_action_plan_review_pairs_with_verdict": (
+        "o veredito de eficácia e a data da revisão andam juntos"
+    ),
+    "psychosocial_action_plan_plan_action_check": (
+        "a medida é introduzida, aprimorada ou mantida (NR-1 1.5.5.2.1)"
+    ),
+}
+
+
+def _nr1_constraint_message(exc: Exception) -> str:
+    texto = str(exc)
+    for nome, mensagem in _ACTION_PLAN_CONSTRAINT_MESSAGES.items():
+        if nome in texto:
+            return mensagem
+    if "nao pode ser apagada" in texto:
+        return (
+            "a data de implementação registrada não pode ser apagada "
+            "(NR-1 1.5.5.3.1)"
+        )
+    if "nao muda de risco" in texto:
+        return "uma medida não muda de risco; cancele esta e abra outra no risco correto"
+    return "não foi possível atualizar a medida"
+
+
+def _nr1_parse_date(valor: Any, rotulo: str):
+    if valor in (None, ""):
+        return None
+    try:
+        return date.fromisoformat(str(valor).strip()[:10])
+    except ValueError:
+        raise HTTPException(
+            status_code=400, detail=f"{rotulo} em formato inválido; use AAAA-MM-DD"
+        )
+
+
+def _nr1_parse_datetime(valor: Any, rotulo: str):
+    """Aceita data ou data-hora, e assume UTC quando o fuso não vem.
+
+    Um cronograma preenchido por gestor chega com 'AAAA-MM-DD' na maior parte
+    das vezes; recusar isso seria fazer o documento depender do formato em vez do
+    fato.
+    """
+    if valor in (None, ""):
+        return None
+    texto = str(valor).strip().replace("Z", "+00:00")
+    try:
+        quando = datetime.fromisoformat(texto)
+    except ValueError:
+        try:
+            quando = datetime.combine(
+                date.fromisoformat(texto[:10]), datetime.min.time()
+            )
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"{rotulo} em formato inválido")
+    if quando.tzinfo is None:
+        quando = quando.replace(tzinfo=timezone.utc)
+    return quando
+
+
+def _nr1_action_plan_summary(itens: List[dict]) -> dict:
+    """O que um gestor precisa ver antes de abrir o documento inteiro.
+
+    `overdue` conta medida com prazo vencido que ainda não foi implementada — é
+    a métrica que a fiscalização transforma em pergunta, porque o prazo foi a
+    própria organização que escreveu (1.5.5.2.2).
+
+    `awaiting_residual_review` conta medida implementada cuja reavaliação de
+    risco residual ainda não foi feita. É a alínea "a" de 1.5.4.4.6 em aberto: a
+    obrigação nasceu no dia da implementação e segue pendente.
+    """
+    hoje = datetime.now(timezone.utc).date()
+    por_status: Dict[str, int] = {status: 0 for status in sorted(_ACTION_PLAN_STATUSES)}
+    vencidas = 0
+    aguardando_residual = 0
+    for item in itens:
+        status = str(item.get("status") or "planned")
+        por_status[status] = por_status.get(status, 0) + 1
+        prazo = item.get("due_date")
+        if (
+            prazo is not None
+            and item.get("implemented_at") is None
+            and status not in ("done", "cancelled")
+            and prazo < hoje
+        ):
+            vencidas += 1
+        if item.get("implemented_at") is not None and item.get("effectiveness") is None:
+            aguardando_residual += 1
+    return {
+        "total": len(itens),
+        "by_status": por_status,
+        "overdue": vencidas,
+        "awaiting_residual_review": aguardando_residual,
+    }
+
+
+def _nr1_seed_rows_for_campaign(
+    context, organization_id: str, campaign_id: str
+) -> List[dict]:
+    """Rascunhos de medida derivados do inventário desta campanha.
+
+    Reaproveita a mesma agregação que o painel usa, e portanto os mesmos dois
+    portões: se a coorte não libera resultado, não há inventário e não há plano.
+    """
+    rows = TENANT_STORE.nr1_dimension_scores(
+        organization_id=organization_id,
+        membership_id=context.membership_id,
+        campaign_id=campaign_id,
+    )
+    if not rows:
+        return []
+    criteria = _nr1_criteria_for(context)
+    graded = nr1_compliance.grade_all(
+        (nr1_compliance.DimensionScore(**row) for row in rows), criteria
+    )
+    return nr1_compliance.action_plan_seed(graded)
+
+
+@app.get("/api/organizations/{organization_id}/nr1/campaigns/{campaign_id}/action-plan")
+async def list_nr1_action_plan(organization_id: str, campaign_id: str, request: Request):
+    """O plano de ação como documento, na ordem de prioridade de 1.5.5.2.1.1."""
+    context = _require_enterprise_context(
+        request, organization_id, "nr1.aggregate.read"
+    )
+    try:
+        itens = TENANT_STORE.nr1_list_action_plan(
+            organization_id=organization_id,
+            membership_id=context.membership_id,
+            campaign_id=campaign_id,
+        )
+    except RuntimeError:
+        raise HTTPException(status_code=409, detail="módulo NR-1 requer persistência dual")
+    _record_tenant_success(
+        context, "nr1.action_plan.read", "assessment_campaign", campaign_id,
+        {"result_count": len(itens)},
+    )
+    return {
+        "campaign_id": campaign_id,
+        "action_plan": itens,
+        "summary": _nr1_action_plan_summary(itens),
+    }
+
+
+@app.post("/api/organizations/{organization_id}/nr1/campaigns/{campaign_id}/action-plan")
+async def generate_nr1_action_plan(
+    organization_id: str, campaign_id: str, request: Request
+):
+    """Abre as linhas de plano que faltam para os riscos já inventariados.
+
+    Idempotente: só cria medida para risco que ainda não tem nenhuma viva, então
+    chamar de novo depois de a empresa ter preenchido o plano não sobrescreve
+    trabalho feito.
+    """
+    context = _require_enterprise_context(
+        request, organization_id, "nr1.action_plan.manage"
+    )
+    try:
+        seed = _nr1_seed_rows_for_campaign(context, organization_id, campaign_id)
+        if not seed:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "não há inventário liberado para esta campanha; gere o "
+                    "inventário antes do plano de ação"
+                ),
+            )
+        criadas = TENANT_STORE.nr1_generate_action_plan(
+            organization_id=organization_id,
+            membership_id=context.membership_id,
+            campaign_id=campaign_id,
+            seed_rows=seed,
+        )
+    except HTTPException:
+        raise
+    except RuntimeError:
+        raise HTTPException(status_code=409, detail="módulo NR-1 requer persistência dual")
+    except Exception:
+        LOGGER.exception("Unable to generate NR-1 action plan")
+        raise HTTPException(status_code=400, detail="não foi possível gerar o plano de ação")
+    _record_tenant_success(
+        context, "nr1.action_plan.generate", "assessment_campaign", campaign_id,
+        {"result_count": criadas},
+    )
+    return {"campaign_id": campaign_id, "created": criadas, "seeded_risks": len(seed)}
+
+
+@app.get("/api/organizations/{organization_id}/nr1/responsibles")
+async def list_nr1_responsibles(organization_id: str, request: Request):
+    """Quem pode ser nomeado responsável por uma medida (NR-1 1.5.5.2.2).
+
+    Rota própria porque quem preenche o plano é o `compliance_manager`, que não
+    tem `members.manage` e portanto não alcança a listagem administrativa de
+    membros. Devolve o mínimo — identificação da associação e nome de exibição —
+    e nada mais: é a lista de quem pode assinar uma medida, não um diretório.
+    """
+    context = _require_enterprise_context(
+        request, organization_id, "nr1.action_plan.manage"
+    )
+    try:
+        pessoas = TENANT_STORE.nr1_list_responsibles(organization_id)
+    except Exception:
+        LOGGER.exception("Unable to list NR-1 responsibles")
+        raise HTTPException(status_code=400, detail="não foi possível listar os responsáveis")
+    _record_tenant_success(
+        context, "nr1.action_plan.responsibles", "organization", organization_id,
+        {"result_count": len(pessoas)},
+    )
+    return {"responsibles": pessoas}
+
+
+@app.post("/api/organizations/{organization_id}/nr1/action-plan/items", status_code=201)
+async def add_nr1_action_plan_item(organization_id: str, request: Request):
+    """Segunda medida para o mesmo risco.
+
+    A hierarquia de 1.5.5.1.2 frequentemente exige combinar: uma medida coletiva
+    e, enquanto ela não fica de pé, uma administrativa em caráter complementar. A
+    norma não limita o plano a uma medida por risco.
+    """
+    context = _require_enterprise_context(
+        request, organization_id, "nr1.action_plan.manage"
+    )
+    body = await request.json()
+    inventory_id = str(body.get("inventory_id") or "").strip()
+    measure = str(body.get("measure") or "").strip()
+    measure_type = str(body.get("measure_type") or "").strip()
+    plan_action = str(body.get("plan_action") or "introduce").strip()
+    if not inventory_id or not measure:
+        raise HTTPException(status_code=400, detail="risco e descrição da medida são obrigatórios")
+    if measure_type not in nr1_compliance.MEASURE_HIERARCHY:
+        raise HTTPException(status_code=400, detail="tipo de medida fora da hierarquia da NR-1")
+    if plan_action not in nr1_compliance.PLAN_ACTIONS:
+        raise HTTPException(
+            status_code=400,
+            detail="a medida é introduzida, aprimorada ou mantida (NR-1 1.5.5.2.1)",
+        )
+    try:
+        item_id = TENANT_STORE.nr1_add_action_plan_item(
+            organization_id=organization_id,
+            membership_id=context.membership_id,
+            inventory_id=inventory_id,
+            measure=measure[:4000],
+            measure_type=measure_type,
+            plan_action=plan_action,
+        )
+    except ValueError:
+        raise HTTPException(status_code=404, detail="risco não encontrado no inventário")
+    except RuntimeError:
+        raise HTTPException(status_code=409, detail="módulo NR-1 requer persistência dual")
+    except Exception:
+        LOGGER.exception("Unable to add NR-1 action plan item")
+        raise HTTPException(status_code=400, detail="não foi possível acrescentar a medida")
+    _record_tenant_success(
+        context, "nr1.action_plan.item.create", "psychosocial_action_plan", item_id,
+        {"measure_type": measure_type, "plan_action": plan_action},
+    )
+    return {"item_id": item_id, "inventory_id": inventory_id}
+
+
+@app.patch("/api/organizations/{organization_id}/nr1/action-plan/items/{item_id}")
+async def update_nr1_action_plan_item(
+    organization_id: str, item_id: str, request: Request
+):
+    """Preenche o cronograma, registra a implementação e o veredito de eficácia.
+
+    As garantias que importam não estão aqui: estão em CHECK e trigger na
+    migration 026, onde nenhum caminho de código as contorna — concluir sem data
+    de implementação, sem responsável, sem prazo ou sem forma de aferição é
+    recusado pelo banco, e a data de implementação registrada não pode ser
+    apagada. O que se faz aqui é recusar cedo, com mensagem melhor.
+    """
+    context = _require_enterprise_context(
+        request, organization_id, "nr1.action_plan.manage"
+    )
+    body = await request.json()
+    campos: Dict[str, Any] = {}
+
+    if "measure" in body:
+        campos["measure"] = str(body.get("measure") or "")[:4000]
+    if "measure_type" in body:
+        valor = str(body.get("measure_type") or "").strip()
+        if valor not in nr1_compliance.MEASURE_HIERARCHY:
+            raise HTTPException(status_code=400, detail="tipo de medida fora da hierarquia da NR-1")
+        campos["measure_type"] = valor
+    if "plan_action" in body:
+        valor = str(body.get("plan_action") or "").strip()
+        if valor not in nr1_compliance.PLAN_ACTIONS:
+            raise HTTPException(
+                status_code=400,
+                detail="a medida é introduzida, aprimorada ou mantida (NR-1 1.5.5.2.1)",
+            )
+        campos["plan_action"] = valor
+    if "status" in body:
+        valor = str(body.get("status") or "").strip()
+        if valor not in _ACTION_PLAN_STATUSES:
+            raise HTTPException(status_code=400, detail="situação da medida inválida")
+        campos["status"] = valor
+    if "responsible_membership_id" in body:
+        valor = body.get("responsible_membership_id")
+        campos["responsible_membership_id"] = str(valor).strip() or None if valor else None
+    for texto in ("evidence", "monitoring_method", "result_measurement"):
+        if texto in body:
+            campos[texto] = str(body.get(texto) or "")[:4000]
+    if "due_date" in body:
+        campos["due_date"] = _nr1_parse_date(body.get("due_date"), "prazo")
+    if "implemented_at" in body:
+        quando = _nr1_parse_datetime(body.get("implemented_at"), "data de implementação")
+        if quando is not None and quando > datetime.now(timezone.utc):
+            raise HTTPException(
+                status_code=400,
+                detail="não se registra implementação no futuro; o registro é de fato ocorrido (NR-1 1.5.5.3.1)",
+            )
+        campos["implemented_at"] = quando
+    if "effectiveness" in body:
+        valor = body.get("effectiveness")
+        if valor is not None:
+            valor = str(valor).strip()
+            if valor not in nr1_compliance.VALID_EFFICACY:
+                raise HTTPException(status_code=400, detail="veredito de eficácia inválido")
+        campos["effectiveness"] = valor
+        # Veredito e data andam juntos: o banco recusa um sem o outro, e deixar
+        # o cliente descobrir isso por erro de constraint seria pior.
+        if "effectiveness_reviewed_at" not in body:
+            campos["effectiveness_reviewed_at"] = (
+                datetime.now(timezone.utc) if valor else None
+            )
+    if "effectiveness_reviewed_at" in body:
+        campos["effectiveness_reviewed_at"] = _nr1_parse_datetime(
+            body.get("effectiveness_reviewed_at"), "data da revisão de eficácia"
+        )
+
+    if not campos:
+        raise HTTPException(status_code=400, detail="nada a atualizar")
+    try:
+        resultado = TENANT_STORE.nr1_update_action_plan_item(
+            organization_id=organization_id,
+            membership_id=context.membership_id,
+            item_id=item_id,
+            fields=campos,
+        )
+    except ValueError as exc:
+        if str(exc) == "action_plan_item_not_found":
+            raise HTTPException(status_code=404, detail="medida não encontrada")
+        raise HTTPException(status_code=400, detail=str(exc))
+    except RuntimeError:
+        raise HTTPException(status_code=409, detail="módulo NR-1 requer persistência dual")
+    except Exception as exc:
+        # As mensagens das CHECK da 026 são escritas para o gestor ler; repassar
+        # a do banco ajuda mais que "não foi possível atualizar".
+        LOGGER.exception("Unable to update NR-1 action plan item")
+        raise HTTPException(status_code=400, detail=_nr1_constraint_message(exc))
+    _record_tenant_success(
+        context, "nr1.action_plan.item.update", "psychosocial_action_plan", item_id,
+        {"fields": resultado.get("updated_fields")},
+    )
+    return resultado
 
 
 @app.get("/api/organizations/{organization_id}/wallet")

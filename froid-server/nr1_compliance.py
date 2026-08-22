@@ -768,16 +768,59 @@ def suggested_measure_type(risk: GradedRisk) -> str:
     return suggested_measure_type_for_level(risk.risk_level)
 
 
+# 1.5.5.2.1 nomeia TRÊS destinos possíveis para uma medida no plano de ação:
+# introduzida, aprimorada ou mantida. Guardar só o texto da medida perde a
+# informação de qual dos três o inventário determinou — e é justamente essa
+# informação que distingue "não fizemos nada" de "já havia medida e ela segue".
+PLAN_ACTIONS = ("introduce", "improve", "maintain")
+
+
+def plan_action_for(risk: GradedRisk) -> Optional[str]:
+    """Qual dos três verbos de 1.5.5.2.1 este risco determina, ou nenhum.
+
+    A regra sai da combinação entre o nível de risco e a eficácia da medida já
+    implementada, que são exatamente os dois eixos que 1.5.4.4.5.3 manda
+    considerar:
+
+    - Sem medida implementada e risco acima de baixo -> **introduzir**.
+    - Sem medida implementada e risco baixo -> nada. Não há o que introduzir
+      (o nível é tolerável) nem o que manter (não existe medida).
+    - Medida implementada cujo acompanhamento indicou ineficácia -> **aprimorar**,
+      qualquer que seja o nível resultante. 1.5.5.3.2.1 é categórico: medida que
+      se mostrou ineficaz *deve* ser corrigida. Deixá-la de pé porque o risco
+      ficou baixo é o caso em que uma medida que não funciona envelhece como se
+      fosse prova de diligência.
+    - Medida implementada e risco baixo -> **manter**, com acompanhamento. O
+      Quadro 5 do Manual do GRO: "nenhum controle adicional necessário; manter o
+      monitoramento para assegurar que os controles sejam mantidos".
+    - Medida implementada e risco ainda acima de baixo -> **aprimorar**. A medida
+      existe e não bastou.
+    """
+    if risk.measure_efficacy == "none":
+        return None if risk.risk_level == "low" else "introduce"
+    if risk.measure_efficacy == "insufficient":
+        return "improve"
+    if risk.risk_level == "low":
+        return "maintain"
+    return "improve"
+
+
 def action_plan_seed(graded: Sequence[GradedRisk]) -> List[dict]:
     """Draft plano de ação rows for every risk that NR-1 obliges acting on.
 
     Only a skeleton: 1.5.5.2.2 requires cronograma, responsáveis and formas de
     acompanhamento e aferição de resultados, and those are the organization's to
     fill in — a measure nobody owns is what an auditor treats as no measure.
+
+    `graded` chega já ordenado por action_priority(), então a posição na lista é
+    a prioridade — e 1.5.5.2.1.1 manda que o número de trabalhadores atingidos
+    entre nessa conta, o que action_priority() faz. O rank é gravado para que a
+    ordem do documento não dependa de quem o abre.
     """
     seeds: List[dict] = []
     for risk in graded:
-        if risk.risk_level == "low":
+        plan_action = plan_action_for(risk)
+        if plan_action is None:
             continue
         seeds.append(
             {
@@ -788,12 +831,15 @@ def action_plan_seed(graded: Sequence[GradedRisk]) -> List[dict]:
                 "severity": risk.severity,
                 "probability": risk.probability,
                 "exposed_workers": risk.exposed_workers,
+                "plan_action": plan_action,
                 "measure_type": suggested_measure_type(risk),
                 "measure": "",
                 "responsible_membership_id": None,
                 "due_date": None,
                 "monitoring_method": "",
+                "result_measurement": "",
                 "status": "planned",
+                "priority_rank": len(seeds) + 1,
             }
         )
     return seeds
