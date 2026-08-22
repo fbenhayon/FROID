@@ -175,6 +175,109 @@ class GradationCriteria:
                 "levels": list(RISK_LEVELS),
             },
             "consequence_magnitudes": dict(self.consequence_magnitudes),
+            # 1.5.4.4.2.2 exige QUATRO coisas no documento: gradacoes de
+            # severidade, gradacoes de probabilidade, niveis de risco e os
+            # criterios de classificacao e de tomada de decisao. As duas
+            # ultimas tinham coluna NOT NULL em gro_risk_criteria e eram
+            # gravadas vazias — o documento que a fiscalizacao le chegava pela
+            # metade.
+            "classification_rules": {
+                "basis": (
+                    "classificacao dos riscos para identificar a necessidade de "
+                    "adocao ou manutencao de medidas de prevencao e elaboracao "
+                    "do plano de acao (NR-1 1.5.4.4.3)"
+                ),
+                "levels": {
+                    "low": "risco tolerado; manter as medidas existentes e o monitoramento",
+                    "moderate": "exige medida; entra no plano de acao",
+                    "high": "exige medida; prioridade sobre os moderados",
+                    "critical": "exige medida; prioridade maxima",
+                },
+                "priority_tiebreaker": (
+                    "entre riscos de mesma classificacao, o numero de "
+                    "trabalhadores possivelmente atingidos aumenta a prioridade "
+                    "de acao (NR-1 1.5.5.2.1.1)"
+                ),
+                "cohort_floors": {
+                    "campaign_min_responses": MIN_COHORT_TOTAL,
+                    "cut_min_responses": MIN_COHORT_CUT,
+                    "representativeness": (
+                        "amostra para proporcao com correcao de populacao finita, "
+                        f"a {round((2 * NormalDist().cdf(CONFIDENCE_Z) - 1) * 100)}% de confianca e margem de "
+                        f"{round(MARGIN_OF_ERROR * 100)} pontos, em p=0,5; acima de "
+                        f"{round(CENSUS_THRESHOLD * 100)}% da populacao a amostra vira censo"
+                    ),
+                    "origin": (
+                        "ESCOLHA METODOLOGICA DESTA ORGANIZACAO, NAO EXIGENCIA "
+                        "NORMATIVA. A NR-1 nao prescreve taxa de resposta nem "
+                        "piso de coorte. Os pisos existem para sustentar a "
+                        "suficiencia tecnica que 1.5.4.4.2.1 cobra (ferramenta "
+                        "adequada ao risco em avaliacao) e para impedir "
+                        "reidentificacao do trabalhador, e por isso ficam "
+                        "declarados aqui em vez de apresentados como obrigacao legal."
+                    ),
+                },
+            },
+            "decision_rules": {
+                "measure_hierarchy": {
+                    "order": list(MEASURE_HIERARCHY),
+                    "basis": "NR-1 1.5.3.2 'a', 1.4.1 'g' e 1.5.5.1.2",
+                    "declared_divergence": (
+                        "A hierarquia de 1.5.5.1.2 termina em equipamento de "
+                        "protecao individual. Esta organizacao NAO adota o degrau "
+                        "de EPI para fatores de risco psicossociais, por dois "
+                        "motivos declarados: nao existe equipamento de protecao "
+                        "individual contra a forma como o trabalho e organizado, "
+                        "e o Guia MTE 2025 orienta preferir intervencoes que "
+                        "modifiquem as condicoes da organizacao do trabalho as "
+                        "intervencoes pessoais ou comportamentais. No lugar do "
+                        "EPI, o ultimo degrau e o acompanhamento planejado do "
+                        "desempenho da medida, previsto em 1.5.5.3.2. A "
+                        "'substituicao' listada acima consta do Manual do GRO "
+                        "como parte da eliminacao do perigo, e nao do texto do "
+                        "subitem. A divergencia esta escrita aqui de proposito: "
+                        "quem comparar este documento com 1.5.5.1.2 encontra a "
+                        "justificativa no mesmo lugar em que encontra a diferenca."
+                    ),
+                },
+                "measure_by_level": {
+                    level: suggested_measure_type_for_level(level)
+                    for level in RISK_LEVELS
+                },
+                "action_deadline": (
+                    "A NR-1 nao fixa prazo para implementar a medida: 1.5.5.2.2 "
+                    "exige cronograma com responsaveis, formas de acompanhamento "
+                    "e afericao de resultados. O prazo de cada nivel de risco e "
+                    "definido por esta organizacao no plano de acao e passa a ser "
+                    "o criterio contra o qual o proprio desempenho e medido."
+                ),
+                "review": {
+                    "interval_months_default": 24,
+                    "interval_months_with_certified_sst_system": 36,
+                    "basis": "NR-1 1.5.4.4.6 e 1.5.4.4.6.1",
+                    "immediate_triggers": [
+                        "a) apos implementacao das medidas, para avaliacao de riscos residuais",
+                        "b) apos inovacoes e modificacoes que impliquem novos riscos",
+                        "c) quando identificadas inadequacoes, insuficiencia ou ineficacia das medidas",
+                        "d) na ocorrencia de acidentes ou doencas relacionadas ao trabalho",
+                        "e) quando houver mudanca nos requisitos legais aplicaveis",
+                        "f) apos solicitacao justificada dos trabalhadores ou da CIPA",
+                    ],
+                    "note": (
+                        "O prazo de dois anos e teto, nao cadencia. A alinea 'a' "
+                        "dispara pela implementacao da medida, e nao por data: "
+                        "assim que a organizacao age, nasce a obrigacao de "
+                        "reavaliar o risco residual."
+                    ),
+                },
+                "ineffective_measure": (
+                    "Medida cujo acompanhamento indique ineficacia deve ser "
+                    "corrigida (NR-1 1.5.5.3.2.1). Nesta organizacao a ineficacia "
+                    "e apurada comparando cada recorte contra a propria linha de "
+                    "base, pelo limite conservador do intervalo de confianca do "
+                    "tamanho de efeito — nunca pelo valor central."
+                ),
+            },
         }
 
 
@@ -644,15 +747,25 @@ MEASURE_HIERARCHY = (
 )
 
 
-def suggested_measure_type(risk: GradedRisk) -> str:
-    """A starting point for the action plan, never a substitute for it."""
-    if risk.risk_level == "critical":
+def suggested_measure_type_for_level(risk_level: str) -> str:
+    """Degrau da hierarquia que cada nivel de risco puxa como ponto de partida.
+
+    Separado de suggested_measure_type() porque o documento de criterios de
+    1.5.4.4.2.2 precisa DECLARAR esta regra, e uma regra declarada num lugar e
+    aplicada noutro e a forma mais confiavel de as duas divergirem.
+    """
+    if risk_level == "critical":
         return "elimination"
-    if risk.risk_level == "high":
+    if risk_level == "high":
         return "collective"
-    if risk.risk_level == "moderate":
+    if risk_level == "moderate":
         return "administrative"
     return "monitoring"
+
+
+def suggested_measure_type(risk: GradedRisk) -> str:
+    """A starting point for the action plan, never a substitute for it."""
+    return suggested_measure_type_for_level(risk.risk_level)
 
 
 def action_plan_seed(graded: Sequence[GradedRisk]) -> List[dict]:

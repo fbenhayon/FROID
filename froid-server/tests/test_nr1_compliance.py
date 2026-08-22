@@ -7,6 +7,7 @@ SERVER_DIR = Path(__file__).resolve().parents[1]
 if str(SERVER_DIR) not in sys.path:
     sys.path.insert(0, str(SERVER_DIR))
 
+import nr1_compliance  # noqa: E402
 from nr1_compliance import (  # noqa: E402
     MIN_COHORT_CUT,
     MIN_COHORT_TOTAL,
@@ -504,3 +505,81 @@ class PgrDocumentationMigrationTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DocumentoDeCriteriosTests(unittest.TestCase):
+    """1.5.4.4.2.2 pede quatro coisas, e duas chegavam vazias.
+
+    gro_risk_criteria tem classification_rules e decision_rules como colunas NOT
+    NULL, e as_document() nao as preenchia: o INSERT gravava '{}' nas duas. O
+    documento que a fiscalizacao le — o terceiro documento obrigatorio do PGR —
+    chegava pela metade, e a metade que faltava era justamente a que explica
+    COMO a organizacao decide.
+    """
+
+    def setUp(self):
+        self.doc = nr1_compliance.DEFAULT_CRITERIA.as_document()
+
+    def test_as_quatro_exigencias_do_subitem_estao_no_documento(self):
+        for chave in (
+            "severity_scale",        # gradacoes de severidade
+            "probability_scale",     # gradacoes de probabilidade
+            "risk_matrix",           # niveis de risco
+            "classification_rules",  # criterios de classificacao
+            "decision_rules",        # criterios de tomada de decisao
+        ):
+            with self.subTest(chave=chave):
+                self.assertIn(chave, self.doc)
+                self.assertTrue(self.doc[chave], f"{chave} nao pode ir vazio")
+
+    def test_a_divergencia_do_epi_e_declarada_e_nao_escondida(self):
+        """A hierarquia de 1.5.5.1.2 termina em EPI; a nossa nao.
+
+        Nao adotar o degrau de EPI no psicossocial e defensavel — nao existe
+        equipamento de protecao individual contra organizacao do trabalho. O que
+        nao e defensavel e um auditor descobrir a diferenca comparando o
+        documento com o texto e nao achar a justificativa no mesmo lugar.
+        """
+        hierarquia = self.doc["decision_rules"]["measure_hierarchy"]
+        self.assertNotIn("epi", [d.lower() for d in hierarquia["order"]])
+        divergencia = hierarquia["declared_divergence"]
+        self.assertIn("1.5.5.1.2", divergencia)
+        self.assertRegex(divergencia, r"protecao individual")
+        self.assertIn("1.5.5.3.2", divergencia)
+
+    def test_os_pisos_nao_sao_apresentados_como_exigencia_da_norma(self):
+        """A NR-1 nao prescreve taxa de resposta nem piso de coorte."""
+        origem = self.doc["classification_rules"]["cohort_floors"]["origin"]
+        self.assertIn("NAO EXIGENCIA NORMATIVA", origem)
+        self.assertRegex(origem, r"nao prescreve")
+
+    def test_a_regra_de_medida_por_nivel_e_a_mesma_que_o_codigo_aplica(self):
+        """Regra declarada num lugar e aplicada noutro diverge com o tempo."""
+        declarada = self.doc["decision_rules"]["measure_by_level"]
+        for nivel in nr1_compliance.RISK_LEVELS:
+            with self.subTest(nivel=nivel):
+                self.assertEqual(
+                    declarada[nivel],
+                    nr1_compliance.suggested_measure_type_for_level(nivel),
+                )
+
+    def test_os_seis_gatilhos_de_revisao_estao_no_documento(self):
+        revisao = self.doc["decision_rules"]["review"]
+        self.assertEqual(len(revisao["immediate_triggers"]), 6)
+        self.assertEqual(revisao["interval_months_default"], 24)
+        self.assertEqual(revisao["interval_months_with_certified_sst_system"], 36)
+        # O prazo de dois anos e teto, nao cadencia — e a alinea "a" dispara
+        # pela implementacao da medida, nao por data.
+        self.assertIn("teto", revisao["note"])
+
+    def test_o_documento_diz_que_a_norma_nao_fixa_prazo_de_implementacao(self):
+        prazo = self.doc["decision_rules"]["action_deadline"]
+        self.assertIn("1.5.5.2.2", prazo)
+        self.assertRegex(prazo, r"nao fixa prazo")
+
+    def test_o_documento_sobrevive_a_reescala_para_outra_matriz(self):
+        """Cliente com matriz 3x3 recebe o mesmo documento, na escala dele."""
+        doc = nr1_compliance.criteria_for_scale(3, 3).as_document()
+        self.assertEqual(doc["risk_matrix"]["type"], "3x3")
+        self.assertTrue(doc["classification_rules"])
+        self.assertTrue(doc["decision_rules"])

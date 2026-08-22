@@ -16,26 +16,16 @@ no Diário Oficial da União**, não estas cópias.
 |---|---|---|
 | `primarias/` | texto da norma e publicações oficiais do MTE | **sim** |
 | `secundarias/` | doutrina e material de entidades | com atribuição, como interpretação |
-| `nao-citavel/` | conversas com IA e material promocional | **não** — ver aviso abaixo |
 
-**Aviso sobre `nao-citavel/`.** São dois arquivos que estavam no mesmo lote e
-foram separados de propósito, porque contêm afirmações que o produto NÃO
-sustenta:
-
-- `ia-guia-compliance-aep-com-erros.md` diz que o FROID capta *"biomarcadores de
-  estresse no onboarding"* por fonação e face de colaborador. **Isso contradiz a
-  decisão de produto de 04/08/2026:** a coleta corporativa é só questionário
-  online, justamente para não existir sessão de voz/face de trabalhador a pedido
-  do empregador. O mesmo arquivo promete *"mitigar em até 90% os riscos de
-  passivos trabalhistas"* — número sem qualquer base.
-- `chatgpt-2026-conversa-exploratoria.md` é a conversa que originou o módulo.
-  Vale como registro histórico; propõe *"avaliação de todos os colaboradores na
-  admissão"* e *"mapa de risco por colaborador"*, que são exatamente o que a
-  norma proíbe (o objeto é a condição de trabalho, não a pessoa) e o que o
-  produto foi construído para impedir.
-
-Copiar qualquer um dos dois para uma proposta comercial cria passivo. Ficam aqui
-porque apagar fonte é pior que rotulá-la.
+**O que foi deliberadamente deixado de fora.** No mesmo lote vieram dois
+documentos — uma conversa exploratória com IA e um material promocional — que
+afirmavam o que o FROID **não faz**: captação de biomarcadores de voz e face de
+colaborador no onboarding corporativo, "mitigação de até 90% dos passivos
+trabalhistas" e mapa de risco por colaborador. As três coisas contrariam a
+decisão de produto de 04/08/2026 e, as duas últimas, a própria norma — cujo
+objeto é a condição de trabalho, nunca a pessoa. Foram removidos do repositório
+em 22/08/2026 a pedido do Fábio, para que ninguém os copie para uma proposta por
+engano. Os originais seguem fora do projeto, em `~/Desktop/lei nr-1/`.
 
 ## Onde cada exigência está implementada
 
