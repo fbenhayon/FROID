@@ -343,3 +343,73 @@ class OQueOCadastroDaEmpresaConcede(unittest.TestCase):
         )
         self.assertIn("patients.read_assigned", permissoes)
         self.assertNotIn("professional", tenant_access.EMPLOYER_SIDE_ROLES)
+
+
+class OCadastroDaEmpresaConsegueTerminar(unittest.TestCase):
+    """O cadastro da empresa NR-1 nunca completou uma vez sequer.
+
+    Cinco condicoes do produto CLINICO eram aplicadas ao cadastro da empresa, e
+    as cinco falhavam para ela por definicao:
+
+      CPF de conferencia   — a empresa responde por CNPJ, nao por pessoa
+      plano selecionado    — ela nao compra pacote de sessoes
+      pagamento do pacote  — idem
+      credito de sessao    — idem
+      contrato profissional — ela nao presta servico clinico
+
+    A primeira barrava no POST do perfil. As quatro seguintes mantinham
+    `onboarding_required` verdadeiro para sempre, e o painel NR-1 devolvia a
+    empresa toda vez que ela tentava entrar.
+    """
+
+    def test_a_chave_da_empresa_e_o_cnpj_e_nao_um_cpf(self):
+        trecho = MAIN[MAIN.index('if account_type == "nr1_company":'):]
+        trecho = trecho[: trecho.index("legal_acceptances = ")]
+        self.assertIn("organization_document", trecho)
+        self.assertIn("14", trecho)
+        # O responsavel pelo programa e registrado por nome e cargo (1.5.7.2),
+        # nao por documento de identidade.
+        self.assertIn("professional_cpf = \"\"", trecho)
+
+    def test_o_cadastro_clinico_continua_exigindo_cpf(self):
+        # A correcao nao pode afrouxar o outro produto.
+        self.assertIn(
+            "CPF obrigatório como chave de conferência do profissional", MAIN
+        )
+
+    def test_a_empresa_nao_precisa_de_plano_pagamento_nem_credito(self):
+        trecho = MAIN[MAIN.index("is_nr1_company = account_type =="):]
+        trecho = trecho[: trecho.index("    else:")]
+        self.assertIn("organization_document", trecho)
+        self.assertIn("lgpd_acknowledged", trecho)
+        for clinico in ("selected_plan", "payment_status", "remaining_sessions"):
+            with self.subTest(campo=clinico):
+                self.assertNotIn(clinico, trecho)
+
+    def test_o_clinico_continua_precisando_de_tudo_isso(self):
+        trecho = MAIN[MAIN.index("is_nr1_company = account_type =="):]
+        trecho = trecho[trecho.index("    else:"):]
+        trecho = trecho[: trecho.index("# Sessoes entregues")]
+        for clinico in ("selected_plan", "payment_status", "remaining_sessions",
+                        "professional_cpf"):
+            with self.subTest(campo=clinico):
+                self.assertIn(clinico, trecho)
+
+    def test_a_empresa_nao_assina_contrato_de_profissional(self):
+        """Aceite de contrato que nao se aplica e registro juridico falso.
+
+        Os dois contratos do catalogo declaram audiencia — "professional" e
+        "organization" — e nenhuma delas e o empregador que contrata a avaliacao.
+        """
+        import legal_documents
+
+        chaves = legal_documents.required_document_keys("nr1_company")
+        self.assertEqual(chaves, ["terms", "privacy"])
+        self.assertIn(
+            "professional_contract",
+            legal_documents.required_document_keys("individual"),
+        )
+        self.assertIn(
+            "organization_contract",
+            legal_documents.required_document_keys("organization"),
+        )

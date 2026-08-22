@@ -77,9 +77,39 @@ class OnboardingRequirementsTests(unittest.TestCase):
         preamble = ONBOARDING[max(0, anchor - 400) : anchor]
         self.assertIn('accountType === "organization"', preamble)
 
-    def test_backend_never_demands_cnpj_to_release_access(self):
-        self.assertIn('"cpf_required": not bool(professional_cpf)', MAIN_SOURCE)
+    def test_backend_never_demands_cnpj_from_a_clinical_account(self):
+        """A trava nasceu de um defeito: o cadastro clinico pedia CNPJ.
+
+        Ela conferia isso por texto — exigia a frase exata
+        `"cpf_required": not bool(professional_cpf)`. Guardava o certo pelo
+        motivo errado, e reprovou codigo correto quando a empresa contratante do
+        NR-1 passou a existir: ELA responde por CNPJ, e nao por pessoa. Pedir
+        CPF de quem preenche o formulario da empresa seria coletar dado pessoal
+        sem finalidade.
+
+        A invariante real: a exigencia de CNPJ existe apenas para 'nr1_company'.
+        Autonomo e clinica continuam identificados por CPF.
+        """
+        self.assertIn("professional_cpf", MAIN_SOURCE)
         self.assertNotIn("cnpj_required", MAIN_SOURCE)
+
+        # A unica exigencia de documento de empresa esta presa ao tipo NR-1.
+        exigencia = MAIN_SOURCE.index("company_document_required")
+        contexto = MAIN_SOURCE[exigencia - 400 : exigencia + 200]
+        self.assertIn("is_nr1_company", contexto)
+
+        # E o caminho clinico continua exigindo CPF, com a mesma mensagem.
+        self.assertIn(
+            "CPF obrigatório como chave de conferência do profissional",
+            MAIN_SOURCE,
+        )
+        cpf_exigido = MAIN_SOURCE.index(
+            "CPF obrigatório como chave de conferência do profissional"
+        )
+        # A exigencia de CPF vive no ramo 'else', ou seja, fora do nr1_company.
+        ramo = MAIN_SOURCE[cpf_exigido - 700 : cpf_exigido]
+        self.assertIn("else:", ramo)
+        self.assertIn('account_type == "nr1_company"', ramo)
 
 
 @unittest.skipUnless(

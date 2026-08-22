@@ -151,6 +151,12 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
   const [cnpj, setCnpj] = useState("");
   const [responsavel, setResponsavel] = useState(user?.name || "");
   const [cargo, setCargo] = useState("");
+  // O empregador e controlador do dado agregado, e a base legal do
+  // tratamento e obrigacao legal (LGPD art. 7o II e art. 11 II "a"), nao
+  // consentimento do trabalhador — que a relacao de hierarquia
+  // comprometeria. Reconhecer isso e ato dele, e por isso e uma caixa que
+  // ele marca, e nao um campo que o formulario preenche sozinho.
+  const [reconhece, setReconhece] = useState(false);
   const [telefone, setTelefone] = useState("");
 
   const [unidades, setUnidades] = useState<Unidade[]>([]);
@@ -204,6 +210,16 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
       setErro("Razão social, CNPJ e responsável são obrigatórios.");
       return;
     }
+    if (cnpj.replace(/\D/g, "").length !== 14) {
+      setErro("O CNPJ precisa ter 14 dígitos.");
+      return;
+    }
+    if (!reconhece) {
+      setErro(
+        "É preciso reconhecer o tratamento de dados antes de concluir o cadastro.",
+      );
+      return;
+    }
     setSalvando(true);
     try {
       const dados = await chamar("/api/professional/profile", {
@@ -216,6 +232,8 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
           organization_document: cnpj.replace(/\D/g, ""),
           profession: cargo.trim(),
           phone: telefone.trim(),
+          lgpd_acknowledged: true,
+          lgpd_acknowledged_at: new Date().toISOString(),
         }),
       });
       const orgId = String(dados?.organization_id || "");
@@ -351,6 +369,41 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
               prontuário e não recebe dado clínico — a separação é estrutural, e
               não uma configuração que se possa desligar depois.
             </div>
+
+            <label className="mt-4 flex items-start gap-3 rounded-lg border border-slate-700 bg-slate-950 p-4">
+              <input
+                type="checkbox"
+                checked={reconhece}
+                onChange={(e) => setReconhece(e.target.checked)}
+                className="mt-1 h-4 w-4"
+              />
+              <span className="text-xs leading-5 text-slate-300">
+                Reconheço que a avaliação trata dados de trabalhadores de forma
+                anônima e agregada, com base no{" "}
+                <strong>cumprimento de obrigação legal</strong> (LGPD, art. 7º,
+                II, e art. 11, II, “a”) — e não no consentimento do trabalhador,
+                que a relação de hierarquia comprometeria. Declaro estar de
+                acordo com os{" "}
+                <a
+                  className="underline"
+                  href="https://www.froid.com.br/termos.html"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Termos de Uso
+                </a>{" "}
+                e com a{" "}
+                <a
+                  className="underline"
+                  href="https://www.froid.com.br/privacidade.html"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Política de Privacidade
+                </a>
+                .
+              </span>
+            </label>
 
             <button
               type="button"

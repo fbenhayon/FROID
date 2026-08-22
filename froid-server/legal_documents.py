@@ -191,5 +191,17 @@ def public_legal_catalog() -> dict[str, Any]:
 
 
 def required_document_keys(account_type: str) -> list[str]:
+    # A empresa contratante do NR-1 nao assina contrato de profissional nem de
+    # clinica: ela nao presta servico clinico e nao trata prontuario. Os dois
+    # contratos do catalogo tem audiencia declarada ("professional" e
+    # "organization"), e nenhuma delas e o empregador. Fazer o empregador
+    # declarar aceite de um contrato profissional produziria registro juridico
+    # falso — pior que nao coletar. Termos e privacidade valem para qualquer um
+    # que use a plataforma, e esses continuam.
+    #
+    # Quando existir um contrato empresarial de avaliacao NR-1 no catalogo, ele
+    # entra aqui.
+    if account_type == "nr1_company":
+        return ["terms", "privacy"]
     contract = "organization_contract" if account_type == "organization" else "professional_contract"
     return ["terms", "privacy", contract]

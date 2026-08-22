@@ -2065,15 +2065,45 @@ def _professional_access_status(email: str) -> dict:
     approval_ready = approval_status == "approved" or (
         not FROID_PROFESSIONAL_APPROVAL_REQUIRED and approval_status == "pending"
     )
-    access_ready = (
-        has_profile
-        and lgpd_acknowledged
-        and bool(selected_plan)
-        and bool(professional_cpf)
-        and payment_status in {"paid", "active", "trialing"}
-        and remaining_sessions > 0
-        and approval_ready
+    # "Pronto para usar" significa coisas diferentes para produtos diferentes, e
+    # aplicar a régua do clínico à empresa mantinha o cadastro NR-1 preso em
+    # onboarding para sempre.
+    #
+    # O produto clínico é vendido por pacote de sessões: sem plano escolhido, sem
+    # pagamento e sem crédito restante não há o que liberar, porque cada sessão
+    # consome um crédito.
+    #
+    # A empresa contratante do NR-1 não compra sessão nenhuma. Ela contrata a
+    # avaliação de riscos psicossociais, cujo preço acompanha o efetivo e corre
+    # por contrato, não por consumo. Exigir dela plano, pagamento de pacote e
+    # crédito de sessão é exigir o que o produto dela não tem — e o efeito era
+    # concreto: `onboarding_required` nunca ficava falso, e a empresa era
+    # devolvida do painel NR-1 toda vez que tentava entrar.
+    #
+    # O que faz sentido exigir dela: existir, ter declarado o CNPJ que responde
+    # pela avaliação, ter reconhecido o tratamento de dados, e ter passado pela
+    # aprovação quando ela é exigida.
+    is_nr1_company = account_type == "nr1_company"
+    organization_document = _local_digits_only(
+        (profile or {}).get("organization_document")
     )
+    if is_nr1_company:
+        access_ready = (
+            has_profile
+            and lgpd_acknowledged
+            and len(organization_document) == 14
+            and approval_ready
+        )
+    else:
+        access_ready = (
+            has_profile
+            and lgpd_acknowledged
+            and bool(selected_plan)
+            and bool(professional_cpf)
+            and payment_status in {"paid", "active", "trialing"}
+            and remaining_sessions > 0
+            and approval_ready
+        )
     # Sessoes entregues sem credito disponivel. O atendimento nunca e bloqueado
     # nem o registro clinico descartado por questao de credito: a pendencia fica
     # registrada e e avisada a cada acesso para o administrador acertar.
@@ -2139,7 +2169,11 @@ def _professional_access_status(email: str) -> dict:
             else ""
         ),
         "admin": _is_admin_email(owner_email),
-        "cpf_required": not bool(professional_cpf),
+        # A empresa NR-1 nao tem CPF a informar: a chave dela e o CNPJ, e
+        # pedi-lo seria coletar dado pessoal sem finalidade.
+        "cpf_required": not is_nr1_company and not bool(professional_cpf),
+        "company_document_required": is_nr1_company
+        and len(organization_document) != 14,
         "manual_approval_required": FROID_PROFESSIONAL_APPROVAL_REQUIRED,
         "manual_approval_status": approval_status,
         "manual_approval_pending": (
@@ -10669,13 +10703,32 @@ async def save_professional_profile(request: Request):
         )[:100]
         if isinstance(item, dict)
     ]
-    professional_cpf = _digits_only(
-        profile_fields.get("legalRepresentativeCpf")
-        if account_type == "organization"
-        else profile_fields.get("cpf") or body.get("document") or ""
-    )
-    if not professional_cpf:
-        raise HTTPException(status_code=400, detail="CPF obrigatório como chave de conferência do profissional")
+    # A chave de conferência depende de QUEM se cadastra, e confundir as duas
+    # travava o cadastro da empresa no primeiro passo.
+    #
+    # Profissional autônomo e clínica são identificados por uma pessoa: o CPF do
+    # profissional ou o do representante legal. A empresa contratante do NR-1
+    # não é — ela responde por um CNPJ, e é o CNPJ que amarra o cadastro à
+    # organização que a fiscalização vai auditar. Pedir o CPF de quem preenche o
+    # formulário seria coletar dado pessoal sem finalidade: o responsável pelo
+    # programa é registrado pelo nome e pelo cargo, como 1.5.7.2 pede, e não por
+    # documento de identidade.
+    if account_type == "nr1_company":
+        company_document = _digits_only(body.get("organization_document") or "")
+        if len(company_document) != 14:
+            raise HTTPException(
+                status_code=400,
+                detail="CNPJ da empresa contratante é obrigatório e deve ter 14 dígitos",
+            )
+        professional_cpf = ""
+    else:
+        professional_cpf = _digits_only(
+            profile_fields.get("legalRepresentativeCpf")
+            if account_type == "organization"
+            else profile_fields.get("cpf") or body.get("document") or ""
+        )
+        if not professional_cpf:
+            raise HTTPException(status_code=400, detail="CPF obrigatório como chave de conferência do profissional")
 
     legal_acceptances = _validated_legal_acceptances(
         body.get("legal_acceptances"),
