@@ -100,9 +100,22 @@ class PilotSafetyTests(unittest.TestCase):
             chamada, conexao,
             "ensure_migrations deve rodar antes de abrir a transação do piloto",
         )
-        self.assertNotIn(
-            "if args.create or args.report:", SOURCE,
-            "ensure_migrations não pode ser condicionada ao modo",
+        # A trava era por texto — proibia a frase "if args.create or
+        # args.report:" em qualquer lugar do arquivo. Guardava o certo pelo
+        # motivo errado: qualquer código novo que use essa condição para outra
+        # coisa reprova, e foi o que aconteceu quando `--grant` passou a decidir
+        # se o relatório sai. A invariante real é a chamada estar no corpo de
+        # main() e não dentro de um `if` — verificável pela indentação.
+        linhas = [
+            linha for linha in main.splitlines()
+            if linha.strip() == "ensure_migrations()"
+        ]
+        self.assertEqual(len(linhas), 1, "ensure_migrations deve ser chamada uma vez")
+        recuo = len(linhas[0]) - len(linhas[0].lstrip())
+        self.assertEqual(
+            recuo, 4,
+            "ensure_migrations não pode ser condicionada ao modo: recuo maior "
+            "que 4 significa que ela está dentro de um if",
         )
 
     def test_uses_a_fixed_namespace_so_removal_is_exact(self):

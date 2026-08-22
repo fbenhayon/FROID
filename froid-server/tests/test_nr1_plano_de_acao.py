@@ -275,3 +275,71 @@ class FronteiraClinicaIntacta(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class OQueOCadastroDaEmpresaConcede(unittest.TestCase):
+    """O dono de uma empresa NR-1 nao pode receber papel clinico.
+
+    O cadastro concedia ("owner", "professional") a qualquer conta, inclusive a
+    nr1_company. 'professional' NAO esta em EMPLOYER_SIDE_ROLES, entao ele
+    conserva patients.read_assigned, reports.read_assigned e reports.write mesmo
+    numa organizacao 'enterprise': o estreitamento que retira as permissoes
+    clinicas so alcanca os papeis do lado do empregador, e o dono carregava os
+    dois, escapando por cima dele.
+
+    E o mesmo defeito bloqueava a operacao: com 'owner' o dono so tinha
+    nr1.unit.*, e nao conseguia abrir campanha, gerar inventario nem preencher o
+    plano do produto que acabara de contratar.
+    """
+
+    def test_empresa_recebe_compliance_manager_e_nao_professional(self):
+        trecho = STORE[STORE.index("papeis = ("):]
+        trecho = trecho[: trecho.index("for role in papeis")]
+        self.assertIn('("owner", "compliance_manager")', trecho)
+        self.assertIn('organization_type == "enterprise"', trecho)
+        self.assertIn('("owner", "professional")', trecho)
+
+    def test_o_papel_clinico_e_removido_de_quem_ja_o_tinha(self):
+        # Preventivo nao basta: quem se cadastrou antes ja tem a linha gravada.
+        self.assertIn("DELETE FROM membership_roles", STORE)
+        self.assertIn("AND role='professional'", STORE)
+
+    def test_compliance_manager_alcanca_o_modulo_inteiro(self):
+        import tenant_access
+
+        permissoes = tenant_access.effective_role_permissions(
+            "compliance_manager", "enterprise"
+        )
+        for necessaria in (
+            "nr1.unit.manage", "nr1.campaigns.manage", "nr1.aggregate.read",
+            "nr1.inventory.manage", "nr1.action_plan.manage",
+        ):
+            with self.subTest(permissao=necessaria):
+                self.assertIn(necessaria, permissoes)
+
+    def test_compliance_manager_nao_le_prontuario(self):
+        import tenant_access
+
+        permissoes = tenant_access.effective_role_permissions(
+            "compliance_manager", "enterprise"
+        )
+        vazamento = permissoes & tenant_access.CLINICAL_IDENTIFIED_PERMISSIONS
+        self.assertEqual(vazamento, frozenset())
+        # E nao pode se autoatribuir um colaborador para ler pelo escopo de
+        # profissional: 'assignments.manage' fica fora de proposito.
+        self.assertNotIn("assignments.manage", permissoes)
+
+    def test_professional_em_org_enterprise_ainda_e_clinico(self):
+        """O papel continua existindo, e e assim que tem de ser.
+
+        O colaborador e paciente de um profissional da empresa. O que nao pode e
+        o EMPREGADOR carregar esse papel — a fronteira depende de serem pessoas
+        distintas, e por isso o clinico entra por convite.
+        """
+        import tenant_access
+
+        permissoes = tenant_access.effective_role_permissions(
+            "professional", "enterprise"
+        )
+        self.assertIn("patients.read_assigned", permissoes)
+        self.assertNotIn("professional", tenant_access.EMPLOYER_SIDE_ROLES)

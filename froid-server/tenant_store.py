@@ -3313,13 +3313,55 @@ class TenantStore:
             """,
             (membership_id, organization_id, user_id, now, now, now),
         )
-        for role in ("owner", "professional"):
+        # O segundo papel depende do tipo de organizacao, e a diferenca nao e
+        # cosmetica.
+        #
+        # Numa organizacao clinica o dono e o profissional: 'professional' e o
+        # papel que lhe da o proprio consultorio.
+        #
+        # Numa organizacao 'enterprise' o dono e o EMPREGADOR. Dar-lhe
+        # 'professional' devolve pela porta dos fundos exatamente o que o modulo
+        # inteiro existe para impedir: 'professional' NAO esta em
+        # EMPLOYER_SIDE_ROLES, entao ele conserva patients.read_assigned,
+        # reports.read_assigned e reports.write mesmo numa org enterprise. O
+        # estreitamento que retira as permissoes clinicas so alcanca os papeis do
+        # lado do empregador — e o dono, carregando os dois, escapava por cima
+        # dele.
+        #
+        # 'compliance_manager' e o papel desenhado para isso ("runs the NR-1
+        # programme for the employer: campaigns, aggregated panel, risk inventory
+        # and action plan. Reads no identified clinical record"). E resolve de
+        # quebra um segundo problema: o dono de uma empresa NR-1 so tinha
+        # nr1.unit.* e nao conseguia abrir campanha, gerar inventario nem
+        # preencher o plano de acao do produto que acabara de contratar.
+        #
+        # Se a empresa tiver de fato um clinico atendendo colaboradores, ele
+        # entra por convite com papel 'professional' — que e o desenho, porque a
+        # fronteira depende de serem pessoas distintas.
+        papeis = (
+            ("owner", "compliance_manager")
+            if organization_type == "enterprise"
+            else ("owner", "professional")
+        )
+        for role in papeis:
             cursor.execute(
                 """
                 INSERT INTO membership_roles (membership_id, role)
                 VALUES (%s, %s) ON CONFLICT DO NOTHING
                 """,
                 (membership_id, role),
+            )
+        if organization_type == "enterprise":
+            # Corretivo, e nao apenas preventivo: quem se cadastrou como empresa
+            # antes desta mudanca ja tem 'professional' gravado, e deixa-lo e
+            # manter o buraco aberto para o unico tipo de organizacao onde ele
+            # importa.
+            cursor.execute(
+                """
+                DELETE FROM membership_roles
+                WHERE membership_id=%s AND role='professional'
+                """,
+                (membership_id,),
             )
         return {
             "organization_id": organization_id,

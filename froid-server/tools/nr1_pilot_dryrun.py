@@ -463,6 +463,16 @@ def destroy(connection) -> None:
     connection.execute("DELETE FROM assessment_campaigns WHERE organization_id=%s", (ORG_ID,))
     connection.execute("DELETE FROM gro_risk_criteria WHERE organization_id=%s", (ORG_ID,))
     connection.execute("DELETE FROM organization_units WHERE organization_id=%s", (ORG_ID,))
+    # Associacoes concedidas por --grant a contas reais. A conta em si nunca
+    # e tocada: ela existia antes do piloto e continua existindo depois.
+    connection.execute(
+        "DELETE FROM membership_roles WHERE membership_id IN ("
+        "SELECT id FROM organization_memberships WHERE organization_id=%s)",
+        (ORG_ID,),
+    )
+    connection.execute(
+        "DELETE FROM organization_memberships WHERE organization_id=%s", (ORG_ID,)
+    )
     connection.execute("DELETE FROM membership_roles WHERE membership_id=%s", (MEMBERSHIP_ID,))
     connection.execute("DELETE FROM organization_memberships WHERE id=%s", (MEMBERSHIP_ID,))
     connection.execute(
@@ -474,14 +484,76 @@ def destroy(connection) -> None:
     print("Piloto removido. Nenhum resíduo permanece.")
 
 
+def grant_access(connection, email: str) -> None:
+    """Dá a uma conta real acesso de leitura e gestão à empresa do piloto.
+
+    Sem isto o piloto prova o motor e não prova nada na tela: os dados existem
+    ligados a um usuário fictício que ninguém consegue autenticar. Para conferir
+    painel, inventário e plano de ação COM OS OLHOS — que é o que decide se o
+    produto está pronto para vender — é preciso que uma conta de verdade enxergue
+    a organização de teste.
+
+    O papel concedido é `compliance_manager`: é ele que roda o programa NR-1 do
+    lado do empregador e é ele que, por desenho, NÃO lê registro clínico
+    identificado. Conceder `professional` aqui devolveria pela porta dos fundos
+    exatamente o que o módulo existe para impedir.
+
+    `--destroy` remove esta associação junto com o resto. A conta em si nunca é
+    tocada: ela já existia antes e continua existindo depois.
+    """
+    alvo = (email or "").strip().lower()
+    if not alvo:
+        raise SystemExit("informe o e-mail da conta que vai acompanhar o piloto")
+    linha = connection.execute(
+        "SELECT id FROM users WHERE lower(email) = %s", (alvo,)
+    ).fetchone()
+    if not linha:
+        raise SystemExit(
+            f"nenhuma conta com o e-mail {alvo}. Faça login uma vez no FROID "
+            "com essa conta antes de rodar este comando."
+        )
+    user_id = str(linha[0])
+    membership_id = str(uuid.uuid5(PILOT_NAMESPACE, f"membership/{alvo}"))
+    connection.execute(
+        """
+        INSERT INTO organization_memberships
+            (id, organization_id, user_id, status, joined_at)
+        VALUES (%s,%s,%s,'active',now())
+        ON CONFLICT (organization_id, user_id) DO UPDATE
+            SET status='active', revoked_at=NULL, updated_at=now()
+        """,
+        (membership_id, ORG_ID, user_id),
+    )
+    real = connection.execute(
+        "SELECT id FROM organization_memberships WHERE organization_id=%s AND user_id=%s",
+        (ORG_ID, user_id),
+    ).fetchone()[0]
+    connection.execute(
+        "INSERT INTO membership_roles (membership_id, role) VALUES (%s,'compliance_manager') "
+        "ON CONFLICT DO NOTHING",
+        (str(real),),
+    )
+    print(f"{BOLD}Acesso concedido a {alvo}{RESET}")
+    print(
+        "  Entre no FROID com essa conta, troque para a organização "
+        "'Piloto NR-1' e abra o painel NR-1."
+    )
+    print("  Papel: compliance_manager (não lê prontuário, por desenho).")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--create", action="store_true", help="monta a empresa teste")
     parser.add_argument("--report", action="store_true", help="imprime a análise")
     parser.add_argument("--destroy", action="store_true", help="remove tudo")
+    parser.add_argument(
+        "--grant",
+        metavar="EMAIL",
+        help="da a uma conta real acesso a empresa do piloto, para conferir na tela",
+    )
     args = parser.parse_args()
-    if not (args.create or args.report or args.destroy):
-        parser.error("escolha --create, --report ou --destroy")
+    if not (args.create or args.report or args.destroy or args.grant):
+        parser.error("escolha --create, --report, --grant ou --destroy")
 
     # Vale para --destroy também, e a razão é concreta: a migration 017 corrige
     # o gatilho que impedia remover os critérios do GRO. Como eu só aplicava o
@@ -500,7 +572,10 @@ def main() -> int:
                 return 0
             if args.create:
                 create(connection)
-            report(connection)
+            if args.grant:
+                grant_access(connection, args.grant)
+            if args.create or args.report:
+                report(connection)
     return 0
 
 
