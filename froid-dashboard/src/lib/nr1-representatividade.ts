@@ -73,3 +73,25 @@ export function exigeCenso(efetivo: number): boolean {
   const amostra = amostraNecessaria(efetivo);
   return amostra !== null && amostra >= efetivo;
 }
+
+/**
+ * Que caminho de conformidade o porte declarado sustenta.
+ *
+ * Não é uma escala de qualidade: os três são conformes. É que a NR-1 não
+ * prescreve metodologia, e o questionário só descreve a exposição quando há
+ * coorte para isso. Abaixo do piso absoluto de 50 nenhuma campanha publica —
+ * por mais adesão que haja, porque esse piso protege anonimato e não olha para
+ * o tamanho da empresa. Entre 50 e 97 publica, mas só em censo, e participação
+ * é voluntária. De 98 em diante a amostra passa a economizar respostas.
+ *
+ * Em todos eles a AEP continua obrigatória: o MTE é explícito que questionário
+ * não comprova gestão de risco isoladamente, e ME/EPP dispensadas de PGR não
+ * são dispensadas da AEP. O que muda é se a campanha entra como insumo dela ou
+ * se a AEP caminha sozinha.
+ */
+export type CaminhoDoPorte = "aep" | "censo" | "campanha";
+
+export function caminhoDoPorte(efetivo: number): CaminhoDoPorte {
+  if (!Number.isFinite(efetivo) || efetivo < PISO_CAMPANHA) return "aep";
+  return exigeCenso(efetivo) ? "censo" : "campanha";
+}

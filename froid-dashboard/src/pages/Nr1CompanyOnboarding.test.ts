@@ -143,3 +143,89 @@ describe("arquivar, nunca excluir", () => {
     expect(PAGINA).not.toContain('method: "DELETE"');
   });
 });
+
+describe("o passo final não assume campanha", () => {
+  /**
+   * Uma empresa de 30 pessoas montava a estrutura inteira e recebia, no fim,
+   * uma lista do que faltava "antes da primeira campanha" — campanha que nunca
+   * ia publicar nada, porque o piso de 50 respostas é absoluto e não depende de
+   * adesão. A AEP, que é o caminho dela e é obrigatória para ela, não aparecia
+   * em lugar nenhum. O passo 4 passou a bifurcar pelo porte declarado.
+   */
+
+  it("deriva o caminho do efetivo somado, e não de constante", () => {
+    expect(PAGINA).toContain("caminhoDoPorte");
+    expect(PAGINA).toContain("const efetivoTotal");
+    expect(PAGINA).toContain('caminho === "aep"');
+    expect(PAGINA).toContain('caminho === "censo"');
+    expect(PAGINA).toContain('caminho === "campanha"');
+  });
+
+  it("abaixo do piso absoluto oferece a AEP como caminho, não como consolo", () => {
+    expect(PAGINA_CORRIDA).toMatch(/O caminho desta empresa é a AEP/);
+    expect(PAGINA).toContain('to="/nr1/aep"');
+    expect(PAGINA_CORRIDA).toMatch(/Abrir a AEP desta empresa/);
+  });
+
+  it("diz por que adesão não resolve, em vez de só negar", () => {
+    // Sem o "não depende de adesão" a empresa conclui que basta insistir com o
+    // pessoal — e insiste, e não fecha, e descobre tarde.
+    expect(PAGINA_CORRIDA).toMatch(/não depende de adesão/i);
+  });
+
+  it("nomeia a dispensa de PGR sem estendê-la à AEP", () => {
+    // ME/EPP são dispensadas do PGR e NÃO da AEP. Confundir os dois é o erro
+    // que faria a empresa pequena achar que não deve nada.
+    expect(PAGINA_CORRIDA).toMatch(/dispensadas do PGR/);
+    expect(PAGINA_CORRIDA).toMatch(/obrigatória para toda organização/i);
+  });
+
+  it("na faixa de censo mostra o número exigido, não um adjetivo", () => {
+    expect(PAGINA).toContain("exigidoNaCampanha(efetivoTotal)");
+    expect(PAGINA_CORRIDA).toMatch(/uma única recusa suspende o inventário/i);
+  });
+
+  it("mantém a AEP obrigatória também para quem tem porte de campanha", () => {
+    // O questionário caracteriza a exposição; não comprova a gestão sozinho.
+    expect(PAGINA).toContain('caminho !== "aep"');
+    expect(PAGINA_CORRIDA).toMatch(/Em qualquer porte a .{0,80}AEP/);
+  });
+});
+
+describe("a empresa consegue chegar ao próprio produto", () => {
+  /**
+   * A rota /nr1 existia desde sempre e NENHUMA tela apontava para ela. A
+   * empresa terminava o cadastro, clicava em "ir para o painel", caía no painel
+   * clínico — que pede sessões, pacientes e créditos — e o produto que ela
+   * contratou só era alcançável digitando a URL na barra.
+   */
+
+  const PAINEL = readFileSync(join(__dirname, "Dashboard.tsx"), "utf-8");
+
+  it("o painel principal oferece entrada para o NR-1 a quem é empresa", () => {
+    expect(PAINEL).toContain("isEmpresaNr1");
+    expect(PAINEL).toContain('=== "nr1_company"');
+    expect(PAINEL).toContain('nav("/nr1")');
+  });
+
+  it("a entrada é condicional, e não aparece para profissional clínico", () => {
+    // Um autônomo vendo "Conformidade NR-1" no cabeçalho concluiria que
+    // contratou algo que não contratou.
+    expect(PAINEL).toMatch(/\{isEmpresaNr1 && \(/);
+  });
+
+  it("o passo final leva ao produto, não ao painel clínico", () => {
+    expect(PAGINA).toContain('caminho === "aep" ? "/nr1/aep" : "/nr1"');
+    expect(PAGINA_CORRIDA).not.toMatch(/to="\/dashboard" className="rounded-lg bg-amber-500/);
+  });
+
+  it("/dashboard não devolve a empresa ao formulário clínico", () => {
+    // onboardingRequired + /access/register fixo mandava a empresa NR-1 para a
+    // ficha que pede CRP e plano de sessões. defaultAuthenticatedPath respeita
+    // a escolha de produto.
+    const rota = APP.slice(APP.indexOf('path="/dashboard"'));
+    const bloco = rota.slice(0, rota.indexOf("/>"));
+    expect(bloco).not.toContain('to="/access/register"');
+    expect(bloco).toContain("defaultAuthenticatedPath(user, productChoice)");
+  });
+});

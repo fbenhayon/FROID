@@ -423,7 +423,11 @@ function App() {
           element={
             protectedElement(
               onboardingRequired(user) ? (
-                <Navigate to="/access/register" replace />
+                // Era um /access/register fixo, que manda a empresa NR-1 para o
+                // formulario clinico — o que pede CRP e plano de sessoes e nao e
+                // o cadastro dela. defaultAuthenticatedPath ja respeita a
+                // escolha de produto e leva a /access/empresa.
+                <Navigate to={defaultAuthenticatedPath(user, productChoice)} replace />
               ) : (
                 <Dashboard user={user} onLogout={logout} />
               ),

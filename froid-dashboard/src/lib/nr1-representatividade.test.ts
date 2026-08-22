@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   amostraNecessaria,
+  caminhoDoPorte,
   exigeCenso,
   exigidoNaCampanha,
   exigidoNoRecorte,
@@ -103,5 +104,47 @@ describe("os dois portões compostos", () => {
     expect(exigidoNaCampanha(3000)).toBe(341);
     expect(exigidoNaCampanha(3000)).toBeGreaterThan(PISO_CAMPANHA);
     expect(exigidoNoRecorte(300)).toBe(169);
+  });
+});
+
+describe("caminho de conformidade por porte", () => {
+  it("abaixo do piso absoluto nenhuma campanha publica, por mais adesão que haja", () => {
+    // 49 pessoas respondendo TODAS dão 49 respostas, e o piso de anonimato pede
+    // 50. Não é questão de adesão: é aritmética, e por isso o caminho é outro.
+    for (const n of [1, 10, 30, 49]) {
+      expect(caminhoDoPorte(n)).toBe("aep");
+    }
+    expect(caminhoDoPorte(0)).toBe("aep");
+  });
+
+  it("entre o piso absoluto e a fronteira da amostra, exige censo", () => {
+    for (const n of [50, 60, 80, 97]) {
+      expect(caminhoDoPorte(n)).toBe("censo");
+      expect(exigidoNaCampanha(n)).toBe(n);
+    }
+  });
+
+  it("de 98 em diante a amostra economiza respostas", () => {
+    expect(caminhoDoPorte(98)).toBe("campanha");
+    expect(exigidoNaCampanha(98)).toBeLessThan(98);
+    expect(caminhoDoPorte(3000)).toBe("campanha");
+  });
+
+  it("as três faixas cobrem tudo e não se sobrepõem", () => {
+    const vistos = new Set<string>();
+    let anterior = caminhoDoPorte(1);
+    vistos.add(anterior);
+    for (let n = 2; n <= 4000; n++) {
+      const atual = caminhoDoPorte(n);
+      if (atual !== anterior) {
+        // Cada faixa aparece uma vez só: a sequência é aep → censo → campanha,
+        // sem voltar. Oscilar aqui significaria empresa vizinha em caminho
+        // diferente por uma pessoa a mais no quadro.
+        expect(vistos.has(atual)).toBe(false);
+        vistos.add(atual);
+        anterior = atual;
+      }
+    }
+    expect([...vistos]).toEqual(["aep", "censo", "campanha"]);
   });
 });

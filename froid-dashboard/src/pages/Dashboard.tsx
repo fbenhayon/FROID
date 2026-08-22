@@ -264,6 +264,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
       ["owner", "administrator", "supervisor"].includes(String(role).toLowerCase()),
     );
   }, [user]);
+  // A empresa contratante do NR-1 cai aqui depois do cadastro e nao tinha como
+  // chegar ao proprio produto: nenhuma tela do painel apontava para /nr1, e a
+  // rota so era alcancavel digitando a URL. O painel clinico e a casa errada
+  // para ela, mas redirecionar seria pior — o painel NR-1 nao tem sair nem
+  // administrativo, e ela ficaria sem saida.
+  const isEmpresaNr1 =
+    String(user?.access_status?.account_type || "") === "nr1_company";
   const tr = (text: string) => dashboardText(defaultSessionLocale, text);
 
   const updateDefaultSessionLocale = (locale: SessionLocale) => {
@@ -615,6 +622,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                 className="rounded-lg border border-emerald-800 bg-emerald-950 px-3 py-2 text-xs font-bold text-emerald-100 hover:bg-emerald-900"
               >
                 {tr("Gestão da clínica")}
+              </button>
+            )}
+            {isEmpresaNr1 && (
+              <button
+                onClick={() => nav("/nr1")}
+                title="Painel de conformidade NR-1: campanhas, inventario de risco, AEP e eficacia das medidas."
+                className="rounded-lg border border-amber-700 bg-amber-950 px-3 py-2 text-xs font-bold text-amber-100 hover:bg-amber-900"
+              >
+                Conformidade NR-1
               </button>
             )}
             <button

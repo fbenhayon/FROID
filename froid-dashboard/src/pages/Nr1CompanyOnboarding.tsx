@@ -4,7 +4,9 @@ import { Link } from "react-router-dom";
 import type { FroidUser } from "../App";
 import { apiUrl } from "../lib/api";
 import {
+  caminhoDoPorte,
   exigeCenso,
+  exigidoNaCampanha,
   exigidoNoRecorte,
   PISO_CAMPANHA,
 } from "../lib/nr1-representatividade";
@@ -185,6 +187,16 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
     () => unidades.filter((u) => u.unit_type === "sector"),
     [unidades],
   );
+  const efetivoTotal = useMemo(
+    () => estabelecimentos.reduce((total, site) => total + site.headcount, 0),
+    [estabelecimentos],
+  );
+  // Qual caminho de conformidade este porte sustenta. O passo final deixou de
+  // assumir campanha: uma empresa de 30 pessoas montava a estrutura inteira e
+  // recebia uma lista do que faltava "antes da primeira campanha" que nunca
+  // ia publicar nada. A AEP, que atende essa empresa e e obrigatoria para ela,
+  // nao era sequer mencionada.
+  const caminho = caminhoDoPorte(efetivoTotal);
 
   const salvarEmpresa = async () => {
     setErro("");
@@ -523,29 +535,115 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
                 {setores.length} setor(es)
               </p>
               <p className="mt-1 text-xs text-slate-400">
-                Efetivo somado: {estabelecimentos.reduce((t, s) => t + s.headcount, 0)} trabalhadores
+                Efetivo somado: {efetivoTotal} trabalhadores
               </p>
             </div>
 
-            <div className="mt-5 rounded-lg border border-amber-800 bg-amber-950/40 p-4">
-              <p className="text-sm font-black text-amber-200">O que falta antes da primeira campanha</p>
-              <ul className="mt-2 space-y-1 text-xs leading-5 text-amber-100">
-                <li>• <strong>Canal de apoio ao trabalhador</strong> — o sistema recusa abrir campanha sem ele. Perguntar a alguém como ele está sem ter para onde encaminhá-lo é pior do que não perguntar.</li>
-                <li>• <strong>Critérios de gradação</strong> alinhados à matriz que a empresa já usa no PGR, porque a NR-1 exige coerência entre todos os riscos.</li>
-                <li>• <strong>Janela de coleta</strong> e o aviso de finalidade aos trabalhadores.</li>
-              </ul>
-              <p className="mt-3 text-xs leading-5 text-amber-100/80">
-                Essa configuração é conduzida com a nossa equipe. Escreva para{" "}
-                <a className="font-black text-amber-300 underline" href={`mailto:${CONTATO}`}>{CONTATO}</a>.
+            {caminho === "aep" && (
+              <div className="mt-5 rounded-lg border border-cyan-800 bg-cyan-950/40 p-4">
+                <p className="text-sm font-black text-cyan-200">
+                  O caminho desta empresa é a AEP, e não a campanha
+                </p>
+                <p className="mt-2 text-xs leading-5 text-cyan-100">
+                  Com {efetivoTotal} trabalhadores nenhuma campanha produz
+                  resultado liberável — e isso não depende de adesão. O piso de{" "}
+                  {PISO_CAMPANHA} respostas protege o anonimato e é absoluto:
+                  numa coorte menor que isso, saber a média já é quase saber quem
+                  respondeu o quê. Um trabalhador que suspeita disso responde o
+                  que é seguro, não o que é verdade, e a empresa paga por um
+                  retrato que não corresponde à realidade.
+                </p>
+                <p className="mt-2 text-xs leading-5 text-cyan-100">
+                  Isso não reduz a sua conformidade em nada. A{" "}
+                  <strong>Avaliação Ergonômica Preliminar</strong> é obrigatória
+                  para toda organização com empregados — inclusive as
+                  microempresas e empresas de pequeno porte dispensadas do PGR —
+                  e não depende de piso de respondentes. Para um grupo deste
+                  tamanho o Guia MTE indica justamente diálogo com os
+                  trabalhadores e observação da atividade em vez de formulário, e
+                  é isso que a AEP registra, com o método nomeado em cada
+                  evidência.
+                </p>
+                <Link
+                  to="/nr1/aep"
+                  className="mt-4 inline-block rounded-lg bg-cyan-500 px-5 py-2.5 text-sm font-black text-cyan-950 hover:bg-cyan-400"
+                >
+                  Abrir a AEP desta empresa
+                </Link>
+              </div>
+            )}
+
+            {caminho === "censo" && (
+              <div className="mt-5 rounded-lg border border-amber-800 bg-amber-950/40 p-4">
+                <p className="text-sm font-black text-amber-200">
+                  Com {efetivoTotal} trabalhadores, a campanha exige censo
+                </p>
+                <p className="mt-2 text-xs leading-5 text-amber-100">
+                  São dois pisos. O de anonimato pede {PISO_CAMPANHA} respostas.
+                  O de representatividade pede a amostra que fala pelo efetivo — e
+                  abaixo de 98 pessoas essa amostra alcança o quadro inteiro:{" "}
+                  {exigidoNaCampanha(efetivoTotal)} de {efetivoTotal}. Como
+                  responder é voluntário, uma única recusa suspende o inventário.
+                </p>
+                <p className="mt-2 text-xs leading-5 text-amber-100">
+                  A campanha continua disponível, e vale se a adesão for
+                  garantida. Mas a <strong>AEP</strong> não depende de piso, é
+                  obrigatória de todo modo e pode correr em paralelo — comece por
+                  ela para não ficar sem documento se a coleta não fechar.
+                </p>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <Link
+                    to="/nr1/aep"
+                    className="rounded-lg bg-cyan-500 px-5 py-2.5 text-sm font-black text-cyan-950 hover:bg-cyan-400"
+                  >
+                    Abrir a AEP desta empresa
+                  </Link>
+                  <a
+                    className="rounded-lg border border-amber-700 px-4 py-2.5 text-sm font-black text-amber-200"
+                    href={`mailto:${CONTATO}`}
+                  >
+                    Configurar a campanha com a equipe
+                  </a>
+                </div>
+              </div>
+            )}
+
+            {caminho === "campanha" && (
+              <div className="mt-5 rounded-lg border border-amber-800 bg-amber-950/40 p-4">
+                <p className="text-sm font-black text-amber-200">O que falta antes da primeira campanha</p>
+                <ul className="mt-2 space-y-1 text-xs leading-5 text-amber-100">
+                  <li>• <strong>Canal de apoio ao trabalhador</strong> — o sistema recusa abrir campanha sem ele. Perguntar a alguém como ele está sem ter para onde encaminhá-lo é pior do que não perguntar.</li>
+                  <li>• <strong>Critérios de gradação</strong> alinhados à matriz que a empresa já usa no PGR, porque a NR-1 exige coerência entre todos os riscos.</li>
+                  <li>• <strong>Janela de coleta</strong> e o aviso de finalidade aos trabalhadores.</li>
+                  <li>• <strong>Efetivo do período de referência</strong> — a campanha não abre sem ele, porque sem denominador não há amostra suficiente. Com {efetivoTotal} trabalhadores ela precisará de {exigidoNaCampanha(efetivoTotal)} respostas substantivas.</li>
+                </ul>
+                <p className="mt-3 text-xs leading-5 text-amber-100/80">
+                  Essa configuração é conduzida com a nossa equipe. Escreva para{" "}
+                  <a className="font-black text-amber-300 underline" href={`mailto:${CONTATO}`}>{CONTATO}</a>.
+                </p>
+              </div>
+            )}
+
+            {/* A AEP nao e alternativa da campanha: e o documento que a recebe.
+                O MTE e explicito que questionario nao comprova gestao de risco
+                isoladamente — ele caracteriza a exposicao e entra como insumo. */}
+            {caminho !== "aep" && (
+              <p className="mt-3 text-xs leading-5 text-slate-400">
+                Em qualquer porte a <Link className="underline" to="/nr1/aep">AEP</Link>{" "}
+                continua obrigatória: o questionário caracteriza a exposição, não
+                comprova sozinho a gestão do risco.
               </p>
-            </div>
+            )}
 
             <div className="mt-6 flex flex-wrap gap-3">
               <button type="button" onClick={() => setPasso(3)} className="rounded-lg border border-slate-600 px-4 py-2 text-sm font-black">
                 Ajustar estrutura
               </button>
-              <Link to="/dashboard" className="rounded-lg bg-amber-500 px-5 py-2 text-sm font-black text-amber-950">
-                Ir para o painel
+              <Link
+                to={caminho === "aep" ? "/nr1/aep" : "/nr1"}
+                className="rounded-lg bg-amber-500 px-5 py-2 text-sm font-black text-amber-950"
+              >
+                {caminho === "aep" ? "Ir para a AEP" : "Ir para o painel NR-1"}
               </Link>
             </div>
           </section>
