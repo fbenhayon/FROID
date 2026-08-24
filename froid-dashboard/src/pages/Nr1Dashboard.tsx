@@ -298,13 +298,14 @@ export const Nr1Dashboard: React.FC<{ user: FroidUser | null }> = ({ user }) => 
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => nav("/nr1/aep")}
+              title="Avaliação Ergonômica Preliminar: o método da NR-17 pelo qual a identificação de perigos e a avaliação de riscos psicossociais efetivamente acontecem. Obrigatória para toda organização, inclusive as dispensadas do PGR."
               className="rounded border border-cyan-700 bg-cyan-950 px-4 py-2 text-xs font-black text-cyan-100 hover:bg-cyan-900"
             >
               AEP
             </button>
             <button
               onClick={() => nav("/nr1/plano-de-acao")}
-              title="Plano de acao: o segundo documento obrigatorio do PGR (NR-1 1.5.7.1 'b')."
+              title="Plano de ação: o segundo documento obrigatório do Programa de Gerenciamento de Riscos (PGR), conforme NR-1, subitem 1.5.7.1 'b'."
               className="rounded border border-amber-700 bg-amber-950 px-4 py-2 text-xs font-black text-amber-100 hover:bg-amber-900"
             >
               Plano de ação
@@ -328,7 +329,7 @@ export const Nr1Dashboard: React.FC<{ user: FroidUser | null }> = ({ user }) => 
           <p className="mt-4 rounded border border-amber-900 bg-amber-950/60 p-3 text-xs font-bold text-amber-200">
             Critérios do GRO ainda não publicados. A gradação está usando o padrão
             FROID — publique os critérios da sua organização para que o
-            inventário use as mesmas gradações do resto do PGR.
+            inventário use as mesmas gradações do resto do Programa de Gerenciamento de Riscos (PGR).
           </p>
         )}
         {criteriaPublished && criteriaVersion !== null && (

@@ -5090,7 +5090,34 @@ def _require_tenant_management_context(
         resource_organization_id=str(organization_id or ""),
     )
     if not decision.allowed or context is None:
-        raise HTTPException(status_code=403, detail="permissão organizacional insuficiente")
+        # "permissão organizacional insuficiente" é verdade e não ensina nada.
+        # Quem recebe essa frase não sabe se está na organização errada, com o
+        # papel errado, com a associação suspensa, ou se o produto não existe
+        # para aquele tipo de organização — e todas as quatro produzem
+        # exatamente o mesmo texto. Um administrador clicando nos links do NR-1
+        # recebia isso em todos eles, sem nenhum caminho para descobrir por quê.
+        #
+        # O que vai abaixo é sobre a PRÓPRIA associação de quem pediu: o papel
+        # que ele tem e o tipo da organização em que está. Não é vazamento —
+        # ele já é essa pessoa. O que continua fora é qualquer informação sobre
+        # organização de terceiro.
+        if context is None:
+            detalhe = (
+                "sua conta não tem associação ativa com esta organização. "
+                "Se você trocou de organização há pouco, recarregue a página."
+            )
+        else:
+            papeis = ", ".join(sorted(context.roles)) or "nenhum papel atribuído"
+            detalhe = (
+                f"esta ação exige a permissão '{permission}', que nenhum dos "
+                f"seus papéis nesta organização carrega. Seus papéis aqui: "
+                f"{papeis}. Tipo da organização: {context.organization_type}. "
+                f"Motivo técnico: {decision.reason}."
+            )
+        raise HTTPException(
+            status_code=403,
+            detail=f"permissão organizacional insuficiente — {detalhe}",
+        )
     subscription = _require_active_subscription_for_context(context)
     if subscription is None:
         subscription = TENANT_STORE.subscription_status(

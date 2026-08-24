@@ -307,11 +307,11 @@ export const Nr1Aep: React.FC<{ user: FroidUser | null }> = ({ user }) => {
               NR-17 · Avaliação Ergonômica Preliminar
             </p>
             <h1 className="mt-2 text-2xl font-black text-white">
-              AEP psicossocial
+              Avaliação Ergonômica Preliminar (AEP) psicossocial
             </h1>
             <p className="mt-2 max-w-3xl text-sm text-slate-400">
               É o documento que a fiscalização pede primeiro, e é obrigatório
-              para toda organização — inclusive as dispensadas do PGR. Descreve o
+              para toda organização — inclusive as dispensadas do Programa de Gerenciamento de Riscos (PGR). Descreve o
               trabalho como ele é executado, não como está prescrito.
             </p>
           </div>

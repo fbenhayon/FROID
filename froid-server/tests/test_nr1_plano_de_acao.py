@@ -658,3 +658,49 @@ class AdminVemDoServidor(unittest.TestCase):
         trecho = trecho[: trecho.index("</button>")]
         self.assertIn("red", trecho)
         self.assertIn("emerald", trecho)
+
+
+class SiglasSeExplicam(unittest.TestCase):
+    """AEP, GRO, PGR nao fazem parte do vocabulario de RH nem de diretoria.
+
+    A plateia do modulo corporativo nao e a do produto clinico. Uma tela que diz
+    "gerar a AEP" a quem nunca viu a sigla transfere ao leitor o trabalho de
+    descobrir do que se trata — e, numa apresentacao comercial, quem nao entende
+    nao pergunta: conclui que o produto nao e para ele.
+    """
+
+    PAINEL = SERVER_DIR.parent / "froid-dashboard" / "src"
+
+    def _fonte(self, caminho):
+        return (self.PAINEL / caminho).read_text(encoding="utf-8")
+
+    def test_o_glossario_cobre_as_siglas_usadas_nas_telas(self):
+        glossario = self._fonte("lib/nr1-glossario.ts")
+        for sigla in ("AEP", "AET", "GRO", "PGR", "CIPA", "SESMT", "PCMSO",
+                      "LGPD", "DPO", "MTE", "CAT", "DORT", "EPI", "TCLE"):
+            with self.subTest(sigla=sigla):
+                self.assertIn(f'{sigla}: {{' if sigla.isalpha() else sigla, glossario)
+
+    def test_a_primeira_aparicao_de_cada_tela_e_por_extenso(self):
+        """Em celular nao ha como passar o mouse sobre uma sigla."""
+        self.assertIn(
+            "Avaliação Ergonômica Preliminar (AEP) psicossocial",
+            self._fonte("pages/Nr1Aep.tsx"),
+        )
+        self.assertIn(
+            "Programa de Gerenciamento de Riscos (PGR)",
+            self._fonte("pages/Nr1ActionPlan.tsx"),
+        )
+
+    def test_o_botao_de_sigla_curta_carrega_a_explicacao(self):
+        # No cabecalho o espaco e curto e a sigla fica; a explicacao vai no
+        # title, que e onde o navegador e o leitor de tela a procuram.
+        painel = self._fonte("pages/Nr1Dashboard.tsx")
+        self.assertIn("Avaliação Ergonômica Preliminar: o método da NR-17", painel)
+
+    def test_o_componente_usa_abbr_e_nao_um_span_qualquer(self):
+        # <abbr> e o elemento que existe para isto: leitor de tela anuncia a
+        # expansao, e o sublinhado pontilhado sinaliza que ha algo a revelar.
+        componente = self._fonte("components/Sigla.tsx")
+        self.assertIn("<abbr", componente)
+        self.assertIn("decoration-dotted", componente)

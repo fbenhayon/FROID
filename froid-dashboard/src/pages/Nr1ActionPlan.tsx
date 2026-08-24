@@ -320,7 +320,7 @@ export const Nr1ActionPlan: React.FC<{ user: FroidUser | null }> = ({ user }) =>
             </p>
             <h1 className="mt-2 text-2xl font-black text-white">Plano de ação</h1>
             <p className="mt-2 max-w-3xl text-sm text-slate-400">
-              O segundo dos dois documentos obrigatórios do PGR. Indica as
+              O segundo dos dois documentos obrigatórios do Programa de Gerenciamento de Riscos (PGR). Indica as
               medidas a serem <strong>introduzidas, aprimoradas ou mantidas</strong>,
               cada uma com cronograma, responsável, forma de acompanhamento e
               forma de aferição de resultados — os quatro que 1.5.5.2.2 exige e
