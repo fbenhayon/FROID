@@ -4,6 +4,11 @@ import { Link } from "react-router-dom";
 import type { FroidUser } from "../App";
 import { apiUrl } from "../lib/api";
 import {
+  acceptanceFor,
+  loadLegalCatalog,
+  type LegalCatalog,
+} from "../lib/legal";
+import {
   caminhoDoPorte,
   exigeCenso,
   exigidoNaCampanha,
@@ -164,6 +169,13 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
   // ele marca, e nao um campo que o formulario preenche sozinho.
   const [reconhece, setReconhece] = useState(false);
   const [aguardandoLiberacao, setAguardandoLiberacao] = useState(false);
+  // O contrato do NR-1 e um documento proprio, com objeto proprio. Ate
+  // 22/08/2026 a empresa nao assinava nada — required_document_keys devolvia
+  // o contrato de PROFISSIONAL para ela, o que teria produzido registro
+  // juridico falso se o aceite estivesse ligado.
+  const [catalogo, setCatalogo] = useState<LegalCatalog | null>(null);
+  const [contratoAberto, setContratoAberto] = useState(false);
+  const [contratoAceito, setContratoAceito] = useState(false);
   const [telefone, setTelefone] = useState("");
 
   const [unidades, setUnidades] = useState<Unidade[]>([]);
@@ -213,6 +225,16 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
   // nao era sequer mencionada.
   const caminho = caminhoDoPorte(efetivoTotal);
 
+  useEffect(() => {
+    loadLegalCatalog("BR")
+      .then(setCatalogo)
+      // Catalogo indisponivel nao derruba o cadastro: o servidor decide se o
+      // aceite e obrigatorio, e recusa sozinho se for.
+      .catch(() => setCatalogo(null));
+  }, []);
+
+  const contrato = catalogo?.documents?.nr1_company_contract || null;
+
   const salvarEmpresa = async () => {
     setErro("");
     if (!razaoSocial.trim() || !cnpj.trim() || !responsavel.trim()) {
@@ -229,6 +251,10 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
       );
       return;
     }
+    if (catalogo?.acceptance_required && !contratoAceito) {
+      setErro("É preciso aceitar o contrato de prestação de serviço para continuar.");
+      return;
+    }
     setSalvando(true);
     try {
       const dados = await chamar("/api/professional/profile", {
@@ -243,6 +269,15 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
           phone: telefone.trim(),
           lgpd_acknowledged: true,
           lgpd_acknowledged_at: new Date().toISOString(),
+          legal_jurisdiction: "BR",
+          legal_acceptances:
+            catalogo && contrato
+              ? {
+                  terms: acceptanceFor(catalogo.documents.terms, contratoAceito),
+                  privacy: acceptanceFor(catalogo.documents.privacy, reconhece),
+                  nr1_company_contract: acceptanceFor(contrato, contratoAceito),
+                }
+              : {},
         }),
       });
       const orgId = String(dados?.organization_id || "");
@@ -442,6 +477,57 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
                 .
               </span>
             </label>
+
+            {contrato && (
+              <div className="mt-4 rounded-lg border border-slate-700 bg-slate-950 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-black text-slate-200">{contrato.title}</p>
+                  <button
+                    type="button"
+                    onClick={() => setContratoAberto((v) => !v)}
+                    className="text-xs font-black text-cyan-300 underline"
+                  >
+                    {contratoAberto ? "Fechar" : "Ler o contrato"}
+                  </button>
+                </div>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Versão {contrato.version} · impressão digital {contrato.sha256.slice(0, 12)}
+                </p>
+                {contratoAberto && (
+                  <div className="mt-3 max-h-80 overflow-y-auto rounded border border-slate-800 bg-slate-900 p-3">
+                    {contrato.sections.map((secao) => (
+                      <div key={secao.heading} className="mb-3 last:mb-0">
+                        <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+                          {secao.heading}
+                        </p>
+                        <p className="mt-1 text-xs leading-5 text-slate-300">{secao.body}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <label className="mt-3 flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={contratoAceito}
+                    onChange={(e) => setContratoAceito(e.target.checked)}
+                    className="mt-1 h-4 w-4"
+                  />
+                  <span className="text-xs leading-5 text-slate-300">
+                    Li e aceito o <strong>{contrato.title}</strong> e os{" "}
+                    <a
+                      className="underline"
+                      href="https://www.froid.com.br/termos.html"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Termos de Uso
+                    </a>
+                    , em nome da pessoa jurídica identificada acima, declarando
+                    possuir poderes para contratar.
+                  </span>
+                </label>
+              </div>
+            )}
 
             <button
               type="button"

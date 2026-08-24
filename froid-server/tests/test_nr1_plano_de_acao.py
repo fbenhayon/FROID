@@ -404,7 +404,14 @@ class OCadastroDaEmpresaConsegueTerminar(unittest.TestCase):
         import legal_documents
 
         chaves = legal_documents.required_document_keys("nr1_company")
-        self.assertEqual(chaves, ["terms", "privacy"])
+        # Termos e privacidade valem para qualquer um; o terceiro documento e o
+        # contrato DELA, criado em 22/08/2026. O que nao pode aparecer aqui e
+        # contrato de profissional ou de clinica.
+        self.assertIn("terms", chaves)
+        self.assertIn("privacy", chaves)
+        self.assertIn("nr1_company_contract", chaves)
+        self.assertNotIn("professional_contract", chaves)
+        self.assertNotIn("organization_contract", chaves)
         self.assertIn(
             "professional_contract",
             legal_documents.required_document_keys("individual"),
@@ -442,3 +449,110 @@ class LiberacaoPendenteFalaComQuemLe(unittest.TestCase):
         # "voce preencheu errado", e manda a pessoa reler o formulario atras de
         # um erro que nao esta la.
         self.assertIn('"approval_pending": True', MAIN)
+
+
+class CadaServicoTemOContratoDele(unittest.TestCase):
+    """O objeto de cada servico, dito no contrato dele.
+
+    Os dois produtos tratam de coisas incompativeis: o Psique olha para UMA
+    PESSOA, com as autorizacoes dela e sob responsabilidade de profissional
+    habilitado; o NR-1 olha para o TRABALHO, de forma anonima e agregada, e nao
+    pode chegar perto de pessoa nenhuma. Um contrato que nao diz qual dos dois
+    esta sendo contratado deixa a fronteira depender de quem le.
+
+    E ate 22/08/2026 a empresa nao assinava contrato nenhum:
+    required_document_keys devolvia o contrato de PROFISSIONAL para ela.
+    """
+
+    def setUp(self):
+        import legal_documents
+
+        self.legal = legal_documents
+        self.catalogo = legal_documents.public_legal_catalog()
+
+    def test_a_empresa_assina_o_contrato_dela(self):
+        chaves = self.legal.required_document_keys("nr1_company")
+        self.assertIn("nr1_company_contract", chaves)
+        self.assertNotIn("professional_contract", chaves)
+        self.assertNotIn("organization_contract", chaves)
+
+    def test_o_contrato_do_nr1_existe_no_catalogo(self):
+        documento = self.catalogo["documents"].get("nr1_company_contract")
+        self.assertIsNotNone(documento)
+        self.assertEqual(documento["audiences"], ["nr1_company"])
+        self.assertTrue(documento["sha256"])
+
+    def test_o_objeto_do_nr1_diz_que_avalia_trabalho_e_nao_pessoa(self):
+        objeto = self.legal.OBJETO_NR1
+        self.assertIn("CONDIÇÃO DE TRABALHO", objeto)
+        self.assertIn("nunca a pessoa do trabalhador", objeto)
+        self.assertIn("1.419/2024", objeto)
+
+    def test_o_objeto_do_nr1_nao_promete_assumir_o_GRO_da_empresa(self):
+        """O Manual e explicito: a responsabilidade final e sempre da organizacao.
+
+        Um contrato que sugerisse o contrario venderia uma isencao que nao existe
+        — e que a fiscalizacao desmonta na primeira pergunta.
+        """
+        objeto = self.legal.OBJETO_NR1
+        self.assertIn("responsabilidade pelo GRO", objeto)
+        self.assertRegex(objeto, r"responsabilidade pelo GRO.*é da contratante")
+
+    def test_o_objeto_do_psique_exclui_avaliacao_a_pedido_do_empregador(self):
+        objeto = self.legal.OBJETO_PSIQUE
+        self.assertIn("FROID Psique", objeto)
+        self.assertRegex(objeto, r"NÃO abrange")
+        self.assertIn("a pedido de empregador", objeto)
+        self.assertIn("triagem admissional", objeto)
+
+    def test_os_dois_contratos_clinicos_declaram_o_objeto(self):
+        for chave in ("professional_contract", "organization_contract"):
+            with self.subTest(documento=chave):
+                titulos = [
+                    secao["heading"]
+                    for secao in self.catalogo["documents"][chave]["sections"]
+                ]
+                self.assertEqual(titulos[0], "Objeto e finalidade")
+
+    def test_o_contrato_do_nr1_nomeia_a_fronteira_como_estrutural(self):
+        secoes = {
+            secao["heading"]: secao["body"]
+            for secao in self.catalogo["documents"]["nr1_company_contract"]["sections"]
+        }
+        fronteira = secoes["O que a contratante NÃO recebe, e não pode obter por outro caminho"]
+        for proibido in ("resposta individual", "prontuário", "dado clínico"):
+            with self.subTest(item=proibido):
+                self.assertIn(proibido, fronteira)
+        self.assertIn("não é uma configuração que se possa desligar", fronteira)
+
+    def test_o_contrato_do_nr1_declara_a_base_legal_correta(self):
+        secoes = {
+            secao["heading"]: secao["body"]
+            for secao in self.catalogo["documents"]["nr1_company_contract"]["sections"]
+        }
+        base = secoes["Base legal e papéis no tratamento de dados"]
+        self.assertIn("art. 7º, II", base)
+        self.assertIn("art. 11, II", base)
+        # E nao o consentimento do trabalhador, que a hierarquia comprometeria.
+        self.assertIn("não o consentimento do trabalhador", base)
+
+    def test_o_contrato_admite_que_os_pisos_sao_escolha_nossa(self):
+        secoes = {
+            secao["heading"]: secao["body"]
+            for secao in self.catalogo["documents"]["nr1_company_contract"]["sections"]
+        }
+        pisos = secoes["Pisos de coorte e supressão de resultado"]
+        self.assertIn("não exigência da NR-1", pisos)
+        self.assertIn("não prescreve taxa de resposta", pisos)
+
+    def test_a_versao_subiu_porque_os_contratos_clinicos_mudaram(self):
+        # Regra do proprio arquivo: mudanca material sobe a versao, senao aceites
+        # antigos provariam um texto que nao e mais o vigente.
+        self.assertNotEqual(self.legal.LEGAL_DOCUMENT_VERSION, "2026-08-04.br-pf-v2")
+
+    def test_cada_documento_tem_hash_proprio(self):
+        hashes = {
+            chave: documento["sha256"]
+            for chave, documento in self.catalogo["documents"].items()
+        }
+        self.assertEqual(len(set(hashes.values())), len(hashes))
