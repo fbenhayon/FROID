@@ -4829,9 +4829,25 @@ async def security_audit_middleware(request: Request, call_next):
             and not approval.get("manual_approval_ready")
         ):
             status_code = 403
+            # A mensagem precisa dizer a verdade para QUEM a lê. Uma empresa que
+            # acabou de se cadastrar para contratar a avaliação NR-1 recebia
+            # "acesso profissional aguardando aprovação" — palavra errada, e
+            # nenhuma indicação do que fazer a seguir. Ela não é profissional,
+            # não pediu acesso clínico, e o que está pendente é a liberação
+            # comercial do contrato.
             response = JSONResponse(
                 status_code=403,
-                content={"detail": "acesso profissional aguardando aprovação FROID"},
+                content={
+                    "detail": (
+                        "cadastro da empresa recebido. A liberação para operar o "
+                        "módulo NR-1 é feita pela equipe FROID — escreva para "
+                        "froid@froid.com.br para concluir a contratação."
+                        if approval.get("account_type") == "nr1_company"
+                        else "acesso profissional aguardando aprovação FROID"
+                    ),
+                    "approval_pending": True,
+                    "account_type": approval.get("account_type") or "",
+                },
             )
             response.headers["x-request-id"] = request_id
             return response

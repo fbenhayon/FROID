@@ -413,3 +413,32 @@ class OCadastroDaEmpresaConsegueTerminar(unittest.TestCase):
             "organization_contract",
             legal_documents.required_document_keys("organization"),
         )
+
+
+class LiberacaoPendenteFalaComQuemLe(unittest.TestCase):
+    """"acesso profissional aguardando aprovacao" dito a uma empresa.
+
+    A middleware bloqueia toda rota /api/ fora de uma lista de excecoes enquanto
+    a aprovacao manual nao sai. /api/professional/profile esta na lista, entao o
+    passo 1 do cadastro da empresa passava; /nr1/units nao esta, e o passo 2
+    devolvia uma frase que fala de "acesso profissional" a quem acabou de
+    cadastrar um CNPJ — e nao dizia o que fazer a seguir.
+
+    O portao esta certo e fica: a avaliacao e servico contratado, e a liberacao e
+    o ponto em que o FROID confirma a contratacao. O que estava errado era a
+    palavra e a ausencia de saida.
+    """
+
+    def test_a_mensagem_muda_conforme_quem_esta_bloqueado(self):
+        trecho = MAIN[MAIN.index('content={\n                    "detail": ('):]
+        trecho = trecho[: trecho.index("},")]
+        self.assertIn("cadastro da empresa recebido", trecho)
+        self.assertIn('== "nr1_company"', trecho)
+        # E o caminho clinico continua com a frase dele.
+        self.assertIn("acesso profissional aguardando aprovação FROID", trecho)
+
+    def test_a_resposta_diz_que_e_liberacao_pendente_e_nao_erro_de_dado(self):
+        # Sem esse sinal a tela nao consegue distinguir "falta liberar" de
+        # "voce preencheu errado", e manda a pessoa reler o formulario atras de
+        # um erro que nao esta la.
+        self.assertIn('"approval_pending": True', MAIN)

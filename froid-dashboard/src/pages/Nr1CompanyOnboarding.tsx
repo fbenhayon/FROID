@@ -86,7 +86,13 @@ async function chamar(caminho: string, init?: RequestInit) {
   const texto = await resposta.text();
   const corpo = texto ? JSON.parse(texto) : {};
   if (!resposta.ok) {
-    throw new Error(corpo?.detail || `falha ${resposta.status}`);
+    const erro = new Error(corpo?.detail || `falha ${resposta.status}`);
+    // A liberacao pendente nao e uma falha do preenchimento: e um passo
+    // comercial que falta. Tratar as duas do mesmo jeito faz a pessoa reler o
+    // formulario atras de um erro que nao esta la.
+    (erro as Error & { aguardandoLiberacao?: boolean }).aguardandoLiberacao =
+      resposta.status === 403 && Boolean(corpo?.approval_pending);
+    throw erro;
   }
   return corpo;
 }
@@ -157,6 +163,7 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
   // comprometeria. Reconhecer isso e ato dele, e por isso e uma caixa que
   // ele marca, e nao um campo que o formulario preenche sozinho.
   const [reconhece, setReconhece] = useState(false);
+  const [aguardandoLiberacao, setAguardandoLiberacao] = useState(false);
   const [telefone, setTelefone] = useState("");
 
   const [unidades, setUnidades] = useState<Unidade[]>([]);
@@ -177,7 +184,9 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
       const dados = await chamar(`/api/organizations/${organizationId}/nr1/units`);
       setUnidades(dados.units || []);
     } catch (e) {
-      setErro(String((e as Error).message));
+      const falha = e as Error & { aguardandoLiberacao?: boolean };
+      if (falha.aguardandoLiberacao) setAguardandoLiberacao(true);
+      setErro(String(falha.message));
     }
   }, [organizationId]);
 
@@ -258,7 +267,9 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
       }
       setPasso(2);
     } catch (e) {
-      setErro(String((e as Error).message));
+      const falha = e as Error & { aguardandoLiberacao?: boolean };
+      if (falha.aguardandoLiberacao) setAguardandoLiberacao(true);
+      setErro(String(falha.message));
     } finally {
       setSalvando(false);
     }
@@ -292,7 +303,9 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
       if (tipo === "site") setNovoSite({ name: "", headcount: "", code: "" });
       else setNovoSetor({ name: "", headcount: "", parent: pai || "" });
     } catch (e) {
-      setErro(String((e as Error).message));
+      const falha = e as Error & { aguardandoLiberacao?: boolean };
+      if (falha.aguardandoLiberacao) setAguardandoLiberacao(true);
+      setErro(String(falha.message));
     } finally {
       setSalvando(false);
     }
@@ -307,7 +320,9 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
       });
       await carregarUnidades();
     } catch (e) {
-      setErro(String((e as Error).message));
+      const falha = e as Error & { aguardandoLiberacao?: boolean };
+      if (falha.aguardandoLiberacao) setAguardandoLiberacao(true);
+      setErro(String(falha.message));
     }
   };
 
@@ -338,10 +353,33 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
           <Passo numero={4} atual={passo} titulo="Conferência" />
         </div>
 
-        {erro && (
-          <p className="mt-5 rounded-lg border border-red-800 bg-red-950/60 px-3 py-2 text-sm font-bold text-red-200">
-            {erro}
-          </p>
+        {aguardandoLiberacao ? (
+          <section className="mt-5 rounded-lg border border-amber-700 bg-amber-950/40 p-5">
+            <p className="text-sm font-black text-amber-200">
+              Cadastro recebido. Falta a liberação da equipe FROID.
+            </p>
+            <p className="mt-2 text-sm leading-6 text-amber-100">
+              O que você preencheu até aqui está salvo. A avaliação de riscos
+              psicossociais é um serviço contratado, e a liberação para operar o
+              módulo — abrir campanha, gerar inventário e plano de ação — é o
+              passo em que a contratação se confirma. Não é uma checagem do que
+              você digitou.
+            </p>
+            <p className="mt-3 text-sm leading-6 text-amber-100">
+              Escreva para{" "}
+              <a className="font-black text-amber-300 underline" href={`mailto:${CONTATO}`}>
+                {CONTATO}
+              </a>{" "}
+              informando o CNPJ cadastrado. Assim que a liberação sair, volte a
+              esta página e o cadastro continua de onde parou.
+            </p>
+          </section>
+        ) : (
+          erro && (
+            <p className="mt-5 rounded-lg border border-red-800 bg-red-950/60 px-3 py-2 text-sm font-bold text-red-200">
+              {erro}
+            </p>
+          )
         )}
 
         {passo === 1 && (
