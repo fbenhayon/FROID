@@ -198,11 +198,16 @@ class DoisPortoesIndependentes(unittest.TestCase):
     """O erro mais provavel de quem mexer nisto e fundir os dois pisos."""
 
     def test_anonimato_reprova_onde_representatividade_aprova(self):
-        # Setor de 15 pessoas: censo alcancado, mas coorte pequena demais para
-        # nao reidentificar quem respondeu.
-        veredito = representativeness(15, 15)
+        # Setor de 9 pessoas: censo alcancado, e ainda assim coorte pequena
+        # demais para nao reidentificar quem respondeu.
+        #
+        # Este teste usava 15 e parou de valer quando a migration 027 baixou o
+        # piso de campanha para esse numero. A propriedade que ele existe para
+        # provar nao mudou — os dois portoes reprovam por motivos diferentes —
+        # mas o exemplo tinha de descer junto com o piso.
+        veredito = representativeness(9, 9)
         self.assertTrue(veredito.met)
-        self.assertFalse(campaign_is_reportable(15))
+        self.assertFalse(campaign_is_reportable(9))
 
     def test_representatividade_reprova_onde_anonimato_aprova(self):
         # Empresa de 3.000 com 200 respostas: folgado no anonimato, longe da
@@ -211,9 +216,47 @@ class DoisPortoesIndependentes(unittest.TestCase):
         self.assertFalse(representativeness(3000, 200).met)
 
     def test_pisos_de_anonimato_seguem_absolutos(self):
-        # Nenhum dos dois pode passar a depender do efetivo declarado.
-        self.assertEqual(MIN_COHORT_TOTAL, 50)
+        """Nenhum dos dois pode passar a depender do efetivo declarado.
+
+        Este teste fixava os valores 50 e 10 e, com isso, transformava qualquer
+        revisao de politica em falha de teste — inclusive uma revisao correta.
+        O que ele precisa guardar nao e o numero: e que o portao de anonimato
+        conte cabecas e so, sem consultar o quadro da empresa. Piso que varia
+        com o efetivo declarado deixa de ser piso de anonimato e vira uma
+        segunda copia, pior, do portao de representatividade.
+        """
+        for respostas in (0, 1, 9, 14, 15, 40, 3000):
+            with self.subTest(respostas=respostas):
+                self.assertEqual(
+                    campaign_is_reportable(respostas), respostas >= MIN_COHORT_TOTAL
+                )
+
+    def test_o_piso_que_protege_pessoa_nao_se_moveu(self):
+        """MIN_COHORT_CUT e o unico dos dois que decide tamanho de coorte.
+
+        A migration 027 baixou o piso de CAMPANHA, que diz quanta resposta o
+        conjunto precisa somar. O piso de RECORTE decide quao pequeno pode ser
+        um grupo publicado, que e o numero de que depende a reidentificacao, e
+        continua em 10. Confundir os dois foi o que manteve empresas de 10 a 49
+        trabalhadores fora do modulo sem que isso protegesse ninguem.
+        """
         self.assertEqual(MIN_COHORT_CUT, 10)
+        self.assertGreaterEqual(MIN_COHORT_TOTAL, MIN_COHORT_CUT)
+
+    def test_o_piso_novo_nao_dispensa_a_representatividade(self):
+        """Uma campanha rala em empresa grande continua sem publicar.
+
+        O piso de 15 e o que abre a porta das empresas pequenas. Se ele tambem
+        passasse a valer como suficiencia, uma empresa de 3.000 pessoas com 15
+        respostas geraria inventario sobre 0,5% do quadro — que e exatamente o
+        buraco que a migration 025 fechou.
+        """
+        self.assertTrue(campaign_is_reportable(15))
+        self.assertFalse(representativeness(3000, 15).met)
+        self.assertFalse(representativeness(200, 15).met)
+        # E na faixa que a 027 abriu, o censo continua sendo a exigencia.
+        self.assertTrue(representativeness(15, 15).met)
+        self.assertFalse(representativeness(15, 14).met)
 
 
 class EspelhoDoSql(unittest.TestCase):
@@ -252,6 +295,94 @@ class EspelhoDoSql(unittest.TestCase):
         # required_total NULL precisa reprovar explicitamente: "total < NULL" e
         # NULL, e um IF que nao dispara deixaria a campanha passar.
         self.assertIn("IF required_total IS NULL OR campaign_total < required_total", self.sql)
+
+
+class OPisoDeCampanhaDesce(unittest.TestCase):
+    """migration 027: de 50 para 15, e nada mais se move.
+
+    A faixa de 10 a 49 trabalhadores era a unica em que o piso de 50 ainda tinha
+    efeito, e ali ele nao protegia ninguem: a amostra exigida nesse tamanho ja e
+    o censo, entao a representatividade sozinha ja pedia todo mundo. O que o
+    piso acrescentava era impossibilidade aritmetica — uma empresa de 30 pessoas
+    nunca reune 50 respostas, ainda que todas respondam.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.sql = (
+            SERVER_DIR / "migrations" / "027_campaign_floor_fifteen.sql"
+        ).read_text(encoding="utf-8")
+        # So o que o banco executa. Uma migration cujo cabecalho explica por que
+        # NAO mexe em representatividade cita a funcao pelo nome — e um teste
+        # que lesse a prosa concluiria o contrario do que ela afirma.
+        cls.executavel = "\n".join(
+            linha
+            for linha in cls.sql.splitlines()
+            if not linha.lstrip().startswith("--")
+        )
+
+    def test_a_migration_redefine_apenas_o_piso_de_campanha(self):
+        self.assertIn("froid_nr1_min_cohort_total() RETURNS integer", self.executavel)
+        self.assertIn("SELECT 15", self.executavel)
+        # O piso de recorte nao pode ser tocado aqui: e ele que decide o tamanho
+        # minimo de um grupo publicado, que e o numero de que a reidentificacao
+        # depende. Redefini-lo junto seria o erro silencioso desta mudanca.
+        self.assertNotIn(
+            "CREATE OR REPLACE FUNCTION froid_nr1_min_cohort_cut", self.executavel
+        )
+        self.assertNotIn("froid_nr1_required_sample", self.executavel)
+        self.assertNotIn("froid_nr1_dimension_scores", self.executavel)
+
+    def test_a_migration_recusa_piso_de_campanha_abaixo_do_de_recorte(self):
+        """Incoerencia que liberaria campanha que nenhum recorte pode publicar.
+
+        A verificacao roda na migration, e nao em tempo de consulta: quem editar
+        um dos dois numeros descobre no deploy, e nao servindo resultado torto.
+        """
+        self.assertIn("RAISE EXCEPTION", self.sql)
+        self.assertIn(
+            "froid_nr1_min_cohort_total() < froid_nr1_min_cohort_cut()", self.sql
+        )
+
+    def test_a_faixa_aberta_entra_por_censo_e_nao_por_desconto(self):
+        """De 15 a 49 a exigencia continua sendo todo mundo.
+
+        O que a reducao concede e o direito de tentar. Confundir isso com um
+        desconto na amostra e o mal-entendido que a proposta comercial precisa
+        evitar, porque nessa faixa uma unica recusa suspende o inventario.
+        """
+        for efetivo in (15, 20, 30, 49):
+            with self.subTest(efetivo=efetivo):
+                self.assertEqual(required_sample(efetivo), efetivo)
+                self.assertTrue(campaign_is_reportable(efetivo))
+                self.assertFalse(representativeness(efetivo, efetivo - 1).met)
+
+    def test_abaixo_de_quinze_nenhuma_campanha_publica(self):
+        for respostas in (0, 1, 9, 14):
+            with self.subTest(respostas=respostas):
+                self.assertFalse(campaign_is_reportable(respostas))
+
+    def test_a_ordem_importou_e_a_faixa_veio_antes(self):
+        """A reducao so e segura porque a proporcao ja sai em faixa.
+
+        Se o painel voltasse a publicar critical_ratio exato ao lado do tamanho
+        da coorte, uma multiplicacao devolveria a contagem de pessoas — e numa
+        empresa de 15 isso esta a um passo de um nome. Este teste amarra as duas
+        mudancas para que desfazer a faixa quebre o piso junto.
+        """
+        import nr1_compliance
+
+        self.assertTrue(hasattr(nr1_compliance, "critical_ratio_band"))
+        painel = (SERVER_DIR / "main.py").read_text(encoding="utf-8")
+        self.assertNotIn('"critical_ratio":', painel)
+        # Em qualquer coorte a partir do piso de recorte, nenhuma e uma pessoa
+        # continuam indistinguiveis.
+        for n in range(MIN_COHORT_CUT, MIN_COHORT_TOTAL + 40):
+            with self.subTest(coorte=n):
+                self.assertEqual(
+                    nr1_compliance.critical_ratio_band(0 / n)["label"],
+                    nr1_compliance.critical_ratio_band(1 / n)["label"],
+                )
 
 
 if __name__ == "__main__":

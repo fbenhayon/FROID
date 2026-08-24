@@ -37,10 +37,23 @@ from statistics import NormalDist
 from typing import Any, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 
-# Mirrors froid_nr1_min_cohort_total() / froid_nr1_min_cohort_cut() in
-# migrations/010. SQL is the authority — these exist so the API can explain a
-# suppression without a round trip, not to decide it.
-MIN_COHORT_TOTAL = 50
+# Mirrors froid_nr1_min_cohort_total() / froid_nr1_min_cohort_cut(). SQL is the
+# authority — these exist so the API can explain a suppression without a round
+# trip, not to decide it. O piso de recorte vem de migrations/010; o de campanha
+# foi redefinido em migrations/027 e a definicao que vale e a ultima.
+#
+# Os dois protegem coisas diferentes, e confundi-los foi o erro que 027 desfez.
+# MIN_COHORT_CUT protege PESSOA: e ele que decide o tamanho minimo de cada
+# coorte publicada, e por isso nao se move. MIN_COHORT_TOTAL diz quanta resposta
+# a campanha precisa somar antes de qualquer coisa ser liberada — e desde que a
+# migration 025 acrescentou o portao de representatividade, era ele, e nao este
+# piso, que barrava campanha rala em empresa grande.
+#
+# Em 50, este piso tinha uma unica faixa de efeito restante: empresas de 10 a 49
+# trabalhadores, onde a amostra exigida ja e o censo. Ali ele nao acrescentava
+# protecao, acrescentava impossibilidade — uma empresa de 30 pessoas nunca reune
+# 50 respostas, ainda que todas respondam.
+MIN_COHORT_TOTAL = 15
 MIN_COHORT_CUT = 10
 
 # Mirrors froid_nr1_sampling_* in migrations/025, same arrangement: SQL decides,

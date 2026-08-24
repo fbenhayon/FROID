@@ -5,9 +5,10 @@ A diferenca importa: o Fabio precisa mexer no efetivo, na base e nas faixas e
 ver o resultado mudar. Uma planilha com valores fixos seria um relatorio.
 
 Alem da receita, a planilha responde a pergunta que o preco nao responde: com
-quantas respostas cada recorte por setor sai publicado. Os pisos vem do banco
-(migrations/010 e 023) e estao replicados aqui como constantes documentadas —
-se mudarem la, mudam aqui.
+quantas respostas cada recorte por setor sai publicado. Os pisos vem do banco e
+sao IMPORTADOS de nr1_compliance, nao copiados: este arquivo ja carregou uma
+copia de 50 que sobreviveu a migration 027 e teria posto numero errado numa
+planilha de proposta comercial.
 
 Uso:  python tools/simulador_nr1.py [caminho_de_saida.xlsx]
 """
@@ -21,12 +22,18 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
-# Pisos de anonimato, espelhados do banco.
-# froid_nr1_min_cohort_total()      -> migrations/010_nr1_psychosocial_compliance.sql
+# Pisos de anonimato. Importados, e nao copiados: nr1_compliance ja espelha o
+# banco e e testado contra ele, entao uma terceira copia aqui so acrescentaria
+# um lugar a mais para divergir sem ninguem notar.
+#
+# froid_nr1_min_cohort_total()      -> migrations/027_campaign_floor_fifteen.sql
 # froid_nr1_min_cohort_cut()        -> migrations/010_nr1_psychosocial_compliance.sql
 # froid_nr1_min_response_coverage() -> migrations/023_response_completeness.sql
-PISO_CAMPANHA = 50
-PISO_RECORTE = 10
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from nr1_compliance import MIN_COHORT_CUT, MIN_COHORT_TOTAL  # noqa: E402
+
+PISO_CAMPANHA = MIN_COHORT_TOTAL
+PISO_RECORTE = MIN_COHORT_CUT
 COBERTURA_MINIMA = 0.50
 
 AZUL = "1E293B"
@@ -211,7 +218,9 @@ def aba_cenarios(wb: Workbook):
         c.fill = PatternFill("solid", fgColor=AZUL_CLARO)
         c.alignment = Alignment(wrap_text=True, horizontal="center")
 
-    efetivos = [50, 75, 100, 150, 200, 300, 500, 750, 1000, 1500, 3000, 5000]
+    # A faixa de 15 a 49 entrou com a migration 027 e e mercado novo: sao as
+    # empresas que ficavam de fora por aritmetica, nao por criterio.
+    efetivos = [15, 25, 40, 50, 75, 100, 150, 200, 300, 500, 750, 1000, 1500, 3000, 5000]
     for i, n in enumerate(efetivos):
         L = 5 + i
         _entrada(ws, L, 1, n)

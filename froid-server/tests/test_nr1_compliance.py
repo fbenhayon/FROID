@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import sys
 import unittest
 
@@ -448,8 +449,30 @@ class Nr1MigrationTests(unittest.TestCase):
         self.assertIn("campaign_total < froid_nr1_min_cohort_total()", self.sql)
 
     def test_python_floors_mirror_the_sql_ones(self):
-        self.assertIn(f"SELECT {MIN_COHORT_TOTAL} $$", self.sql)
-        self.assertIn(f"SELECT {MIN_COHORT_CUT} $$", self.sql)
+        """A definicao que vale e a ULTIMA, e nao a que estava aqui em 010.
+
+        Este teste lia so a migration 010 e teria continuado verde depois que a
+        027 redefiniu o piso de campanha — verde afirmando um numero que o banco
+        nao usa mais. Um espelho que so olha para a primeira versao do original
+        e um espelho que mente com confianca.
+        """
+        migracoes = sorted((SERVER_DIR / "migrations").glob("*.sql"))
+        for funcao, esperado in (
+            ("froid_nr1_min_cohort_total", MIN_COHORT_TOTAL),
+            ("froid_nr1_min_cohort_cut", MIN_COHORT_CUT),
+        ):
+            ultima = None
+            for arquivo in migracoes:
+                achado = re.findall(
+                    rf"FUNCTION {funcao}\(\) RETURNS integer\s*"
+                    rf"LANGUAGE sql IMMUTABLE AS \$\$ SELECT (\d+) \$\$",
+                    arquivo.read_text(encoding="utf-8"),
+                )
+                if achado:
+                    ultima = int(achado[-1])
+            with self.subTest(funcao=funcao):
+                self.assertIsNotNone(ultima, f"{funcao} nao definida em migration alguma")
+                self.assertEqual(ultima, esperado)
 
     def test_anonymous_submission_validates_the_campaign_window(self):
         submit = self.sql[self.sql.index("froid_nr1_submit_response("):]

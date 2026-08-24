@@ -121,5 +121,57 @@ class EspelhoDoPainel(unittest.TestCase):
         self.assertRegex(self.ts, r"populacao\s*<=\s*0.*\n?.*return null")
 
 
+class NenhumEspelhoFicouDeFora(unittest.TestCase):
+    """O quarto espelho existia e este arquivo nao olhava para ele.
+
+    tools/simulador_nr1.py carregava a propria copia do piso de campanha e
+    sobreviveu a migration 027 sem quebrar teste nenhum — ou seja, teria posto
+    o numero antigo numa planilha de PROPOSTA COMERCIAL, que e o pior lugar
+    possivel para um numero desatualizado sair.
+
+    A correcao foi fazer o simulador importar de nr1_compliance. Este teste
+    guarda os dois lados: que ele importa, e que ninguem reintroduza uma copia.
+    """
+
+    def test_o_simulador_importa_os_pisos_em_vez_de_copia_los(self):
+        fonte = (SERVER_DIR / "tools" / "simulador_nr1.py").read_text(encoding="utf-8")
+        self.assertIn(
+            "from nr1_compliance import MIN_COHORT_CUT, MIN_COHORT_TOTAL", fonte
+        )
+        self.assertIn("PISO_CAMPANHA = MIN_COHORT_TOTAL", fonte)
+        self.assertIn("PISO_RECORTE = MIN_COHORT_CUT", fonte)
+        self.assertNotRegex(fonte, r"PISO_CAMPANHA\s*=\s*\d")
+        self.assertNotRegex(fonte, r"PISO_RECORTE\s*=\s*\d")
+
+    def test_todo_espelho_conhecido_esta_coberto_por_este_arquivo(self):
+        """Lista explicita, para a proxima copia ser uma decisao e nao um acaso.
+
+        Quem criar um quinto espelho e nao o acrescentar aqui esta escolhendo
+        deixa-lo divergir. O teste nao impede — nada impede — mas faz a escolha
+        aparecer em vez de acontecer sozinha.
+        """
+        cobertos = {DIAGNOSTICO, ESPELHO_TS, SERVER_DIR / "tools" / "simulador_nr1.py"}
+        for caminho in cobertos:
+            with self.subTest(espelho=caminho.name):
+                self.assertTrue(caminho.exists(), f"{caminho} sumiu")
+
+        suspeitos = set()
+        for raiz, padrao in (
+            (REPO / "froid-site", "*.html"),
+            (REPO / "froid-dashboard" / "src", "*.ts"),
+            (SERVER_DIR / "tools", "*.py"),
+        ):
+            for arquivo in raiz.rglob(padrao):
+                texto = arquivo.read_text(encoding="utf-8", errors="ignore")
+                if re.search(r"PISO_CAMPANHA\s*=\s*\d", texto):
+                    suspeitos.add(arquivo)
+        self.assertEqual(
+            suspeitos - cobertos,
+            set(),
+            "espelho do piso fora da lista coberta: "
+            f"{[str(p) for p in suspeitos - cobertos]}",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

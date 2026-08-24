@@ -14,8 +14,17 @@
 // ainda não há organização de onde lê-los. O aviso é estimativa; quem decide é
 // o banco.
 
-/** Pisos de anonimato (froid_nr1_min_cohort_total / _cut, migration 010). */
-export const PISO_CAMPANHA = 50;
+/**
+ * Pisos de anonimato. O de recorte vem da migration 010; o de campanha foi
+ * redefinido na 027 e vale a última definição.
+ *
+ * Eles não protegem a mesma coisa. PISO_RECORTE protege pessoa: é ele que
+ * decide o tamanho mínimo de cada coorte publicada, e por isso não se move.
+ * PISO_CAMPANHA diz quanta resposta a campanha precisa somar — e desde que a
+ * representatividade entrou, era ela, não este piso, que barrava campanha
+ * rala em empresa grande.
+ */
+export const PISO_CAMPANHA = 15;
 export const PISO_RECORTE = 10;
 
 /** Parâmetros de amostragem padrão da plataforma (migration 025). */
@@ -79,10 +88,12 @@ export function exigeCenso(efetivo: number): boolean {
  *
  * Não é uma escala de qualidade: os três são conformes. É que a NR-1 não
  * prescreve metodologia, e o questionário só descreve a exposição quando há
- * coorte para isso. Abaixo do piso absoluto de 50 nenhuma campanha publica —
- * por mais adesão que haja, porque esse piso protege anonimato e não olha para
- * o tamanho da empresa. Entre 50 e 97 publica, mas só em censo, e participação
- * é voluntária. De 98 em diante a amostra passa a economizar respostas.
+ * coorte para isso. Abaixo de 15 respostas nenhuma campanha publica, por mais
+ * adesão que haja. De 15 a 97 publica, mas só em censo: nesse tamanho a fórmula
+ * de amostra pede todo mundo, então falta uma resposta e o recorte não sai — e
+ * responder continua sendo voluntário, o que faz do censo uma meta e não uma
+ * garantia. De 98 em diante a amostra passa a economizar respostas, e a partir
+ * dali sobra folga entre quem responde e quem precisa responder.
  *
  * Em todos eles a AEP continua obrigatória: o MTE é explícito que questionário
  * não comprova gestão de risco isoladamente, e ME/EPP dispensadas de PGR não

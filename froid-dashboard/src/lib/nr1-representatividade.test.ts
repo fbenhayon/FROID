@@ -109,17 +109,31 @@ describe("os dois portões compostos", () => {
 
 describe("caminho de conformidade por porte", () => {
   it("abaixo do piso absoluto nenhuma campanha publica, por mais adesão que haja", () => {
-    // 49 pessoas respondendo TODAS dão 49 respostas, e o piso de anonimato pede
-    // 50. Não é questão de adesão: é aritmética, e por isso o caminho é outro.
-    for (const n of [1, 10, 30, 49]) {
+    // 14 pessoas respondendo TODAS dão 14 respostas, e o piso de anonimato pede
+    // 15. Não é questão de adesão: é aritmética, e por isso o caminho é outro.
+    //
+    // Esta lista ia até 49 e encolheu quando a migration 027 baixou o piso.
+    // Empresas de 15 a 49 estavam nesta situação por confusão entre dois pisos
+    // que protegem coisas diferentes, não porque a coorte fosse pequena demais.
+    for (const n of [1, 9, 14]) {
       expect(caminhoDoPorte(n)).toBe("aep");
     }
     expect(caminhoDoPorte(0)).toBe("aep");
   });
 
   it("entre o piso absoluto e a fronteira da amostra, exige censo", () => {
-    for (const n of [50, 60, 80, 97]) {
+    for (const n of [15, 20, 30, 49, 50, 60, 80, 97]) {
       expect(caminhoDoPorte(n)).toBe("censo");
+      expect(exigidoNaCampanha(n)).toBe(n);
+    }
+  });
+
+  it("a faixa que a 027 abriu entra por censo, e não por amostra", () => {
+    // O que a redução do piso concede é o direito de tentar, não um desconto na
+    // exigência: de 15 a 49 continua sendo todo mundo. É a frase que precisa
+    // estar na proposta comercial, porque uma recusa suspende o inventário.
+    for (const n of [15, 25, 40, 49]) {
+      expect(exigeCenso(n)).toBe(true);
       expect(exigidoNaCampanha(n)).toBe(n);
     }
   });

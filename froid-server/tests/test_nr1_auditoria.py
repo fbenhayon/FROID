@@ -21,9 +21,15 @@ class CompletudeDaRespostaTests(unittest.TestCase):
 
     froid_nr1_submit_response aceita o envio quando ao menos UM item e valido —
     decisao certa na hora de gravar, porque descartar o que a pessoa respondeu
-    seria pior. Mas essa resposta conta como respondente inteiro para o piso de
-    cinquenta da campanha, e o piso deixaria de significar "cinquenta pessoas
-    avaliaram este trabalho".
+    seria pior. Mas essa resposta contaria como respondente inteiro para o piso
+    da campanha, e o piso deixaria de significar "tantas pessoas avaliaram este
+    trabalho".
+
+    Isso passou a pesar MAIS depois da migration 027. Com o piso em 50, uma
+    resposta de um item so distorcia 2% do exigido; com o piso em 15, distorce
+    quase 7%, e numa empresa pequena e mais facil que varias respostas sejam
+    abandonadas no meio. O criterio de cobertura, escrito quando o piso era 50,
+    e o que sustenta o piso de 15.
 
     Por dimensao o dado ja estava protegido: o agrupamento e por resposta e
     dimensao, entao quem nao respondeu nada de uma dimensao nao entra na coorte
