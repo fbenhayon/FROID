@@ -704,3 +704,114 @@ class SiglasSeExplicam(unittest.TestCase):
         componente = self._fonte("components/Sigla.tsx")
         self.assertIn("<abbr", componente)
         self.assertIn("decoration-dotted", componente)
+
+
+class AProporcaoSaiEmFaixa(unittest.TestCase):
+    """O painel publicava o tamanho da coorte E a proporcao exata.
+
+    Multiplicar um pelo outro devolvia a CONTAGEM DE PESSOAS na faixa critica.
+    Numa coorte de 15, uma proporcao de 0,067 e exatamente uma pessoa — e numa
+    empresa desse tamanho, onde a chefia conhece todo mundo, "exatamente uma
+    pessoa" esta a um passo de um nome.
+
+    Esta e a mudanca que precisa vir ANTES de qualquer reducao do piso de
+    coorte: baixar o piso sem ela abriria o mercado das empresas pequenas
+    entregando contagem de cabecas ao empregador.
+    """
+
+    def test_nenhuma_e_uma_pessoa_caem_na_mesma_faixa(self):
+        """A propriedade que faz a faixa proteger alguma coisa.
+
+        Se 0 e 1 caissem em faixas diferentes, ainda seria possivel CONFIRMAR
+        que existe alguem na faixa critica — que e justamente a informacao que
+        aponta para uma pessoa.
+        """
+        for n in range(nr1_compliance.MIN_COHORT_CUT, 400):
+            with self.subTest(coorte=n):
+                self.assertEqual(
+                    nr1_compliance.critical_ratio_band(0 / n)["label"],
+                    nr1_compliance.critical_ratio_band(1 / n)["label"],
+                )
+
+    def test_nenhuma_faixa_permite_recuperar_uma_contagem(self):
+        """Faixa que contem uma unica contagem possivel nao e faixa."""
+        for n in range(nr1_compliance.MIN_COHORT_CUT, 60):
+            contagens_por_faixa = {}
+            for k in range(n + 1):
+                rotulo = nr1_compliance.critical_ratio_band(k / n)["label"]
+                contagens_por_faixa.setdefault(rotulo, []).append(k)
+            for rotulo, contagens in contagens_por_faixa.items():
+                with self.subTest(coorte=n, faixa=rotulo):
+                    self.assertGreaterEqual(len(contagens), 2)
+
+    def test_nenhuma_resposta_da_api_carrega_a_proporcao_exata(self):
+        """Trava do arquivo inteiro, nao do endpoint que eu conhecia.
+
+        Escrever este teste olhando so o painel deixaria a porta aberta para o
+        proximo endpoint: quem adicionasse uma exportacao, um comparativo ou um
+        relatorio novo copiaria o dicionario de campos e reabriria a inversao
+        sem que nada reclamasse.
+        """
+        emissoes = re.findall(r'"critical_ratio"\s*:', MAIN)
+        self.assertEqual(emissoes, [], "algum payload voltou a publicar a proporcao exata")
+        self.assertIn("critical_ratio_band", MAIN)
+
+    def test_a_faixa_e_o_unico_caminho_de_saida_da_proporcao(self):
+        """A proporcao exata pode circular DENTRO do servidor — e precisa.
+
+        O que nao pode e atravessar a fronteira da API. Este teste fixa onde
+        fica essa fronteira: nr1_compliance calcula com o valor exato, e a unica
+        funcao autorizada a converte-lo em algo publicavel e critical_ratio_band.
+        """
+        fonte = (SERVER_DIR / "nr1_compliance.py").read_text(encoding="utf-8")
+        self.assertIn("critical_ratio=float(score.critical_ratio)", fonte)
+        self.assertIn("spread = max(0.0, min(1.0, float(score.critical_ratio)))", fonte)
+
+    def test_a_justificativa_gravada_tambem_sai_em_faixa(self):
+        """A justificativa e GRAVADA no inventario e e o texto do auditor.
+
+        Citar ali a proporcao exata anularia a faixa do painel: bastaria abrir o
+        documento para recuperar a contagem.
+        """
+        fonte = (SERVER_DIR / "nr1_compliance.py").read_text(encoding="utf-8")
+        self.assertNotIn("score.critical_ratio * 100", fonte)
+        self.assertIn("critical_ratio_band(score.critical_ratio)['label']", fonte)
+
+    def test_a_gradacao_continua_usando_o_valor_exato(self):
+        """A faixa e controle de DIVULGACAO, nao de calculo.
+
+        Arredondar antes de graduar degradaria a avaliacao de risco: duas
+        coortes com proporcoes distintas dentro da mesma faixa passariam a
+        receber o mesmo nivel de exigencia, e o nivel de risco junto.
+        """
+        def score(ratio):
+            return nr1_compliance.DimensionScore(
+                dimension_id="d", nr1_factor="work_organization", polarity="risk",
+                cut_favorable=2.0, cut_critical=4.0, cohort_size=50,
+                mean_score=3.0, critical_ratio=ratio,
+            )
+        # 0,05 e 0,19 estao na MESMA faixa publicada e produzem exigencias
+        # diferentes, porque o calculo nao passa pela faixa.
+        mesma_faixa = (
+            nr1_compliance.critical_ratio_band(0.05)["label"]
+            == nr1_compliance.critical_ratio_band(0.19)["label"]
+        )
+        self.assertTrue(mesma_faixa)
+        combinado_baixo = nr1_compliance.exposure_level(score(0.05))
+        combinado_alto = nr1_compliance.exposure_level(score(0.95))
+        self.assertNotEqual(combinado_baixo, combinado_alto)
+
+    def test_as_faixas_nao_sao_configuraveis_pelo_cliente(self):
+        """Controle de privacidade que o cliente afrouxa nao e controle."""
+        fonte = (SERVER_DIR / "nr1_compliance.py").read_text(encoding="utf-8")
+        assinatura = fonte[fonte.index("def critical_ratio_band"):]
+        assinatura = assinatura[: assinatura.index(":\n")]
+        self.assertNotIn("criteria", assinatura)
+        self.assertNotIn("margin", assinatura)
+
+    def test_o_documento_de_criterios_declara_o_controle(self):
+        documento = nr1_compliance.DEFAULT_CRITERIA.as_document()
+        controle = documento["classification_rules"]["cohort_floors"]["disclosure_control"]
+        self.assertIn("faixas de 20 pontos", controle)
+        self.assertIn("nao configuraveis", controle)
+        self.assertIn("valor exato, que nao sai do banco", controle)

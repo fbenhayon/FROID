@@ -52,6 +52,48 @@ CENSUS_THRESHOLD = 0.80
 
 VALID_POLARITIES = frozenset({"risk", "protective"})
 
+
+# ---------------------------------------------------------------------------
+# Controle de divulgação: a proporção sai em faixa, nunca em número exato.
+#
+# O painel publica o tamanho da coorte exato. Publicando junto a proporção com
+# três casas, quem lê multiplica uma pela outra e recupera a CONTAGEM DE
+# PESSOAS: numa coorte de 15, uma proporção de 0,067 significa exatamente uma
+# pessoa na faixa crítica — e numa empresa desse tamanho, onde a chefia conhece
+# todo mundo, "exatamente uma pessoa" está a um passo de um nome.
+#
+# A faixa quebra essa inversão. As bandas são de 20 pontos e a primeira começa
+# em zero de propósito: assim ela contém 0 e 1 pessoa em qualquer coorte a
+# partir do piso de 10 (1/10 = 0,10, que cai dentro da primeira faixa). Sem essa
+# propriedade a faixa não protege nada — ainda seria possível CONFIRMAR que
+# existe alguém na faixa crítica, que é a informação que aponta.
+#
+# São fixas, e não parâmetro de gro_risk_criteria. Controle de privacidade que o
+# cliente pode afrouxar não é controle: um cliente com matriz fina afrouxaria a
+# própria proteção sem perceber que era isso que estava fazendo.
+CRITICAL_RATIO_BANDS: Tuple[Tuple[float, float, str], ...] = (
+    (0.00, 0.20, "até 20% da coorte"),
+    (0.20, 0.40, "de 20% a 40% da coorte"),
+    (0.40, 0.60, "de 40% a 60% da coorte"),
+    (0.60, 0.80, "de 60% a 80% da coorte"),
+    (0.80, 1.01, "80% ou mais da coorte"),
+)
+
+
+def critical_ratio_band(ratio: float) -> dict:
+    """A faixa publicável de uma proporção, sem a proporção.
+
+    Devolve os limites e o rótulo. Os limites vão junto porque a tela precisa
+    ordenar e colorir, e o rótulo porque é o que a pessoa lê — mas nenhum dos
+    dois permite recuperar quantas pessoas estão ali.
+    """
+    valor = max(0.0, min(1.0, float(ratio or 0.0)))
+    for lower, upper, label in CRITICAL_RATIO_BANDS:
+        if valor < upper:
+            return {"lower": lower, "upper": min(1.0, upper), "label": label}
+    lower, upper, label = CRITICAL_RATIO_BANDS[-1]
+    return {"lower": lower, "upper": 1.0, "label": label}
+
 NR1_FACTORS = (
     "work_organization",
     "workload_demand",
@@ -206,6 +248,21 @@ class GradationCriteria:
                         f"a {round((2 * NormalDist().cdf(CONFIDENCE_Z) - 1) * 100)}% de confianca e margem de "
                         f"{round(MARGIN_OF_ERROR * 100)} pontos, em p=0,5; acima de "
                         f"{round(CENSUS_THRESHOLD * 100)}% da populacao a amostra vira censo"
+                    ),
+                    "disclosure_control": (
+                        "A proporcao da coorte na faixa critica e publicada em "
+                        "faixas de 20 pontos, nunca como valor exato. O tamanho "
+                        "da coorte e publicado exato, e sem essa medida a "
+                        "multiplicacao de um pelo outro devolveria a contagem de "
+                        "pessoas: numa coorte de 15, a proporcao 0,067 seria "
+                        "exatamente uma pessoa. A primeira faixa comeca em zero "
+                        "para conter tanto nenhuma quanto uma pessoa em qualquer "
+                        "coorte a partir do piso, de modo que nao se possa "
+                        "sequer confirmar que existe alguem na faixa critica. As "
+                        "faixas sao fixas e nao configuraveis: controle de "
+                        "privacidade que o cliente pode afrouxar nao e controle. "
+                        "A gradacao do risco continua sendo calculada sobre o "
+                        "valor exato, que nao sai do banco."
                     ),
                     "origin": (
                         "ESCOLHA METODOLOGICA DESTA ORGANIZACAO, NAO EXIGENCIA "
@@ -667,7 +724,10 @@ def grade(
         f"Exigencia da atividade nivel {demand_level} (media {score.mean_score:.2f}, "
         f"{position * 100:.0f}% do intervalo entre o corte favoravel "
         f"{score.cut_favorable:.2f} e o critico {score.cut_critical:.2f}; "
-        f"{score.critical_ratio * 100:.0f}% da coorte na faixa critica). "
+        # A justificativa e GRAVADA no inventario e e o texto que o auditor le.
+        # Citar aqui a proporcao exata anularia a faixa do painel: bastaria abrir
+        # o documento para recuperar a contagem de pessoas.
+        f"{critical_ratio_band(score.critical_ratio)['label']} na faixa critica). "
         f"Eficacia das medidas implementadas: {score.measure_efficacy} -> "
         f"probabilidade {probability}. Consequencia de maior magnitude: "
         f"{consequence} -> severidade {severity}. Nivel de risco: {level}."

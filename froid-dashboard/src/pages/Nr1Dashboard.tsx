@@ -21,7 +21,10 @@ type Risk = {
   unit_id: string | null;
   cohort_size: number;
   mean_score: number;
-  critical_ratio: number;
+  /** A proporção sai em faixa, e a exata não sai. Publicar o tamanho da
+   *  coorte junto da proporção exata devolvia a contagem de pessoas na
+   *  faixa crítica: numa coorte de 15, 0,067 é exatamente uma pessoa. */
+  critical_ratio_band?: { lower: number; upper: number; label: string };
   exposure_level: number;
   severity: number;
   probability: number;
@@ -495,6 +498,11 @@ export const Nr1Dashboard: React.FC<{ user: FroidUser | null }> = ({ user }) => 
                         </div>
                         <div className="text-right text-[11px] opacity-90">
                           <p>coorte n={risk.cohort_size}</p>
+                          {risk.critical_ratio_band && (
+                            <p title="A proporção é publicada em faixa para que o tamanho da coorte não permita recuperar quantas pessoas estão nela.">
+                              faixa crítica: {risk.critical_ratio_band.label}
+                            </p>
+                          )}
                           <p>{risk.exposed_workers} expostos</p>
                         </div>
                       </div>

@@ -9485,8 +9485,20 @@ async def read_nr1_panel(organization_id: str, campaign_id: str, request: Reques
                 "nr1_factor": risk.nr1_factor,
                 "unit_id": risk.unit_id,
                 "cohort_size": risk.cohort_size,
-                "mean_score": risk.mean_score,
-                "critical_ratio": risk.critical_ratio,
+                # Uma casa decimal numa escala de 1 a 5. As três que vinham do
+                # SQL eram precisão falsa e ampliavam a superfície de
+                # diferenciação entre ciclos sem informar nada a mais.
+                "mean_score": round(risk.mean_score, 1),
+                # A proporção sai em FAIXA, e a exata não sai.
+                #
+                # O tamanho da coorte é publicado exato — e tem de ser, porque é
+                # o que sustenta a leitura do resultado. Publicando junto a
+                # proporção com três casas, uma multiplicação devolvia a
+                # contagem de pessoas na faixa crítica. Numa coorte de 15, 0,067
+                # é exatamente uma pessoa.
+                "critical_ratio_band": nr1_compliance.critical_ratio_band(
+                    risk.critical_ratio
+                ),
                 "exposure_level": risk.exposure_level,
                 "severity": risk.severity,
                 "probability": risk.probability,
