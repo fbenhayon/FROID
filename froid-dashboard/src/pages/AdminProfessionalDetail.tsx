@@ -7,7 +7,14 @@ interface Props {
   user?: FroidUser | null;
 }
 
-const adminEmails = new Set(["fbenhayon@gmail.com"]);
+// Quem e administrador e decisao do servidor, nao do pacote do navegador.
+//
+// Esta lista estava fixa em TRES arquivos, com um unico endereco. O efeito
+// pratico: o Fabio entrou com fbenhayon@froid.com.br e recebeu "acesso
+// restrito" nas tres telas de admin, sem que nada no sistema explicasse por
+// que — o backend ja le FROID_ADMIN_EMAILS e ja devolve access_status.admin,
+// e o painel ignorava as duas coisas. Acrescentar um administrador exigiria
+// build novo do painel em vez de uma variavel de ambiente.
 
 function fmtDate(value?: string) {
   if (!value) return "--";
@@ -23,7 +30,7 @@ export const AdminProfessionalDetail: React.FC<Props> = ({ user }) => {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [approvalLoading, setApprovalLoading] = useState(false);
-  const isFabio = adminEmails.has(String(user?.email || "").toLowerCase());
+  const isFabio = Boolean(user?.access_status?.admin);
 
   useEffect(() => {
     const loadDetail = async () => {
@@ -188,13 +195,24 @@ export const AdminProfessionalDetail: React.FC<Props> = ({ user }) => {
                     ? "Suspenso"
                     : "Aguardando aprovação"}
               </span>
+              {/* Aprovar e suspender tinham exatamente a mesma cor. Um
+                  botão ciano dizia "Aprovar acesso" e, um clique depois, o
+                  mesmo botão ciano dizia "Suspender acesso" — a ação
+                  destrutiva com a aparência da construtiva, no mesmo lugar
+                  da tela. Quem clicasse duas vezes por dúvida derrubava o
+                  acesso de um cliente sem perceber que tinha mudado de
+                  verbo. */}
               <button
                 type="button"
                 disabled={approvalLoading}
                 onClick={() => void changeApproval(
                   status.manual_approval_status === "approved" ? "suspended" : "approved",
                 )}
-                className="rounded-lg border border-cyan-700 bg-cyan-950 px-3 py-2 text-xs font-black text-cyan-100 hover:bg-cyan-900 disabled:cursor-wait disabled:opacity-50"
+                className={`rounded-lg border px-3 py-2 text-xs font-black disabled:cursor-wait disabled:opacity-50 ${
+                  status.manual_approval_status === "approved"
+                    ? "border-red-700 bg-red-950 text-red-100 hover:bg-red-900"
+                    : "border-emerald-600 bg-emerald-700 text-white hover:bg-emerald-600"
+                }`}
               >
                 {approvalLoading
                   ? "Processando..."

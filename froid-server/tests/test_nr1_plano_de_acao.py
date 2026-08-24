@@ -556,3 +556,105 @@ class CadaServicoTemOContratoDele(unittest.TestCase):
             for chave, documento in self.catalogo["documents"].items()
         }
         self.assertEqual(len(set(hashes.values())), len(hashes))
+
+
+class SinergiaEntreOsDoisProdutos(unittest.TestCase):
+    """Os dois servicos cooperam por finalidade, e nunca por dado.
+
+    A primeira redacao do objeto dizia que "os dois servicos nao se comunicam",
+    o que era verdade sobre DADO e falso sobre PRODUTO — e lido por um cliente
+    soava como se contratar os dois fosse proibido. Isso jogava fora a unica
+    articulacao que a norma nao so permite como exige: a campanha do NR-1 nao
+    abre sem canal de apoio ao trabalhador declarado (trigger da migration 013),
+    e todo cliente do NR-1 precisa nomear um.
+    """
+
+    def setUp(self):
+        import legal_documents
+
+        self.legal = legal_documents
+        self.catalogo = legal_documents.public_legal_catalog()
+        self.nr1 = {
+            secao["heading"]: secao["body"]
+            for secao in self.catalogo["documents"]["nr1_company_contract"]["sections"]
+        }
+
+    def test_o_psique_pode_ser_o_canal_de_apoio(self):
+        objeto = self.legal.OBJETO_PSIQUE
+        self.assertIn("canal de apoio ao trabalhador", objeto)
+        self.assertIn("articulação é de finalidade, nunca de", objeto)
+
+    def test_o_contrato_do_nr1_descreve_a_articulacao(self):
+        clausula = self.nr1["Canal de apoio e articulação com o FROID Psique"]
+        self.assertIn("FROID Psique", clausula)
+        # O que a empresa NAO recebe por essa porta.
+        for vedado in ("identificação de quem procurou", "prontuário",
+                       "quantidade de sessões por pessoa"):
+            with self.subTest(item=vedado):
+                self.assertIn(vedado, clausula)
+
+    def test_a_eficacia_do_canal_e_medida_no_trabalho_e_nao_nas_pessoas(self):
+        """A unica afirmacao causal que o FROID pode fazer.
+
+        Se o canal virou medida do plano, a campanha seguinte mostra se a
+        CONDICAO DE TRABALHO daquele recorte melhorou. Medir a evolucao clinica
+        de quem foi atendido seria devolver ao empregador exatamente o que a
+        fronteira existe para impedir — e ainda seria afirmacao causal errada.
+        """
+        clausula = self.nr1["Canal de apoio e articulação com o FROID Psique"]
+        self.assertIn("aferida pela campanha seguinte", clausula)
+        self.assertIn("nunca sobre a evolução clínica", clausula)
+
+    def test_a_procura_pelo_canal_e_ato_do_trabalhador(self):
+        # Encaminhamento disparado pela resposta individual seria triagem
+        # individual, que e o que o Guia MTE afasta como objeto do processo.
+        clausula = self.nr1["Canal de apoio e articulação com o FROID Psique"]
+        self.assertIn("procura pelo canal é ato do trabalhador", clausula)
+
+
+class AdminVemDoServidor(unittest.TestCase):
+    """Quem e administrador nao pode estar fixo no pacote do navegador.
+
+    A lista estava escrita em TRES telas, com um unico endereco. O Fabio entrou
+    com fbenhayon@froid.com.br e recebeu "acesso restrito" nas tres, sem que nada
+    explicasse por que — enquanto o backend ja lia FROID_ADMIN_EMAILS e ja
+    devolvia access_status.admin. Acrescentar um administrador exigiria build do
+    painel em vez de uma variavel de ambiente.
+    """
+
+    TELAS = ("AdminDashboard.tsx", "AdminPatientDetail.tsx", "AdminProfessionalDetail.tsx")
+
+    def _fonte(self, nome):
+        caminho = SERVER_DIR.parent / "froid-dashboard" / "src" / "pages" / nome
+        return caminho.read_text(encoding="utf-8")
+
+    def test_nenhuma_tela_carrega_lista_fixa_de_administrador(self):
+        for nome in self.TELAS:
+            with self.subTest(tela=nome):
+                fonte = self._fonte(nome)
+                self.assertNotIn("adminEmails", fonte)
+                self.assertNotIn("fbenhayon@gmail.com", fonte)
+
+    def test_as_tres_telas_perguntam_ao_servidor(self):
+        for nome in self.TELAS:
+            with self.subTest(tela=nome):
+                self.assertIn(
+                    "Boolean(user?.access_status?.admin)", self._fonte(nome)
+                )
+
+    def test_o_servidor_deriva_o_admin_de_variavel_de_ambiente(self):
+        self.assertIn('os.getenv("FROID_ADMIN_EMAILS"', MAIN)
+        self.assertIn('"admin": _is_admin_email(owner_email)', MAIN)
+
+    def test_aprovar_e_suspender_nao_tem_a_mesma_cor(self):
+        """Acao destrutiva com a aparencia da construtiva, no mesmo lugar.
+
+        O botao trocava o verbo e mantinha o ciano. Quem clicasse duas vezes por
+        duvida derrubava o acesso de um cliente sem perceber que tinha mudado de
+        acao.
+        """
+        fonte = self._fonte("AdminProfessionalDetail.tsx")
+        trecho = fonte[fonte.index("disabled={approvalLoading}"):]
+        trecho = trecho[: trecho.index("</button>")]
+        self.assertIn("red", trecho)
+        self.assertIn("emerald", trecho)

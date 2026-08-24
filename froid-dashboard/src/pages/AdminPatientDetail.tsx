@@ -7,7 +7,14 @@ interface Props {
   user?: FroidUser | null;
 }
 
-const adminEmails = new Set(["fbenhayon@gmail.com"]);
+// Quem e administrador e decisao do servidor, nao do pacote do navegador.
+//
+// Esta lista estava fixa em TRES arquivos, com um unico endereco. O efeito
+// pratico: o Fabio entrou com fbenhayon@froid.com.br e recebeu "acesso
+// restrito" nas tres telas de admin, sem que nada no sistema explicasse por
+// que — o backend ja le FROID_ADMIN_EMAILS e ja devolve access_status.admin,
+// e o painel ignorava as duas coisas. Acrescentar um administrador exigiria
+// build novo do painel em vez de uma variavel de ambiente.
 
 function fmtDate(value?: string) {
   if (!value) return "--";
@@ -27,7 +34,7 @@ export const AdminPatientDetail: React.FC<Props> = ({ user }) => {
   const [data, setData] = useState<any>(null);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
-  const isFabio = adminEmails.has(String(user?.email || "").toLowerCase());
+  const isFabio = Boolean(user?.access_status?.admin);
 
   useEffect(() => {
     const loadDetail = async () => {
