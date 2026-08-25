@@ -6773,6 +6773,18 @@ async def admin_professional_access_approval(professional_email: str, request: R
         profile["access_approved_at"] = now
         profile["access_approved_by"] = _normalize_email(admin.get("email") or "")
     PROFESSIONAL_PROFILES[email] = profile
+    # Sem isto a aprovacao vivia SO em memoria.
+    #
+    # Este era o unico endpoint administrativo que muta perfil, e o unico que
+    # nao persistia. O efeito e cruel de diagnosticar: aprovar funciona, a tela
+    # muda, o cliente entra — e no proximo `docker compose up` do backend a
+    # aprovacao desaparece e ele volta para "aguardando liberacao" sem que nada
+    # tenha sido desfeito por ninguem. Num dia de deploy, aprovar e reconstruir
+    # o container produz exatamente o sintoma de "o botao nao fez nada".
+    #
+    # E como o espelho do PostgreSQL roda dentro de _save_identity_state, a
+    # aprovacao tambem nunca chegava ao banco onde o modulo NR-1 vive.
+    _save_identity_state()
     _record_admin_audit_event(
         request,
         action="admin_professional_access_approval",

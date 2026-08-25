@@ -123,6 +123,15 @@ function defaultAuthenticatedPath(
   choice: FroidProduct | null,
 ) {
   if (!onboardingRequired(user)) return "/dashboard";
+  // O operador da plataforma vai para onde ele tem o que fazer.
+  //
+  // Um administrador que nunca comprou plano de sessões para si mesmo tem
+  // `onboarding_required` verdadeiro para sempre, e caía na escolha de produto
+  // a cada login — uma tela onde as duas portas estão fechadas para ele: a
+  // opção de empresa aparece indisponível porque a conta já é clínica, e a
+  // clínica o levaria a comprar um plano que ele não quer. Ficava rodando em
+  // círculo, e clicar em "Dashboard" o trazia de volta para cá.
+  if (user?.access_status?.admin) return "/admin";
   if (needsProductChoice(user, choice)) return "/access/produto";
   // Respeitar a escolha aqui não é detalhe: mandar todo mundo para
   // /access/register fazia a empresa NR-1 que voltasse no meio do cadastro

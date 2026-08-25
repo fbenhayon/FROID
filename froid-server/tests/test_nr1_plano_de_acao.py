@@ -1227,3 +1227,67 @@ class OAprovadorAlcancaOAdministrativo(unittest.TestCase):
         trecho = MAIN[MAIN.index("def _is_admin_email"):]
         trecho = trecho[: trecho.index("\n\n\n")] if "\n\n\n" in trecho else trecho[:400]
         self.assertIn("FROID_ADMIN_EMAILS", trecho)
+
+
+class AAprovacaoSobreviveAoRestart(unittest.TestCase):
+    """A aprovacao vivia so em memoria, e sumia no proximo deploy.
+
+    admin_professional_access_approval era o UNICO endpoint administrativo que
+    muta perfil, e o unico que nao chamava _save_identity_state(). O efeito e
+    cruel de diagnosticar: aprovar funciona, a tela muda, o cliente entra — e no
+    proximo `docker compose up` do backend a aprovacao desaparece, sem que
+    ninguem tenha desfeito nada.
+
+    Num dia de deploy, aprovar e reconstruir o container produz exatamente o
+    sintoma de "o botao nao fez nada".
+
+    E como o espelho do PostgreSQL roda DENTRO de _save_identity_state, a
+    aprovacao tambem nunca chegava ao banco onde o modulo NR-1 vive — entao a
+    empresa aprovada continuaria sem organizacao do lado que importa.
+    """
+
+    def test_o_endpoint_de_aprovacao_persiste(self):
+        trecho = MAIN[MAIN.index("async def admin_professional_access_approval"):]
+        trecho = trecho[: trecho.index("@app.")]
+        self.assertIn("_save_identity_state()", trecho)
+
+    def test_todo_endpoint_administrativo_que_muta_perfil_persiste(self):
+        """A trava da classe inteira, e nao so deste endpoint."""
+        import ast
+
+        arvore = ast.parse(MAIN)
+        for no in ast.walk(arvore):
+            if not isinstance(no, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            if not no.name.startswith("admin_"):
+                continue
+            corpo = ast.get_source_segment(MAIN, no) or ""
+            muta = "PROFESSIONAL_PROFILES[" in corpo
+            if not muta:
+                continue
+            with self.subTest(endpoint=no.name):
+                self.assertIn(
+                    "_save_identity_state()",
+                    corpo,
+                    f"{no.name} altera perfil e nao persiste: a mudanca some no "
+                    "proximo restart e nunca chega ao PostgreSQL",
+                )
+
+    def test_o_admin_sem_plano_nao_cai_mais_na_escolha_de_produto(self):
+        """Ele nao tem o que escolher ali, e nao pode escolher nada.
+
+        A opcao de empresa aparece indisponivel porque a conta ja e clinica, e a
+        clinica o levaria a comprar um plano de sessoes que ele nao quer. Era um
+        circulo: entrar, cair na escolha, digitar /admin na barra, clicar em
+        Dashboard e voltar para a escolha.
+        """
+        app = (
+            SERVER_DIR.parent / "froid-dashboard" / "src" / "App.tsx"
+        ).read_text(encoding="utf-8")
+        rota = app[app.index("function defaultAuthenticatedPath"):]
+        rota = rota[: rota.index("\n}")]
+        self.assertIn('if (user?.access_status?.admin) return "/admin";', rota)
+        # E a checagem do admin vem ANTES da escolha de produto, senao nunca roda.
+        self.assertLess(
+            rota.index("access_status?.admin"), rota.index("needsProductChoice")
+        )
