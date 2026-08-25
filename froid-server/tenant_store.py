@@ -52,11 +52,31 @@ def organization_id_for_profile(
     coisa — exatamente como uma delas fica velha sem ninguem notar.
     """
     normalizado = normalize_email(owner_email) or "legacy-unassigned@froid.local"
-    tipo = str(account_type or "individual").lower()
     documento = re.sub(r"\D", "", str(organization_document or ""))
-    if documento and tipo in {"organization", "nr1_company"}:
+    if organization_derives_from_cnpj(account_type, organization_document):
         return stable_uuid("organization", "cnpj", documento)
     return stable_uuid("organization", normalizado)
+
+
+def organization_derives_from_cnpj(account_type: str, organization_document=None) -> bool:
+    """A organizacao deste perfil vem do CNPJ, e portanto e compartilhada.
+
+    Clinica: varios profissionais do mesmo CNPJ. Empresa NR-1: varias pessoas
+    do mesmo empregador. Nos dois casos a organizacao nao tem "dono legado"
+    unico, e reivindicar o e-mail do titular em legacy_owner_email colide com o
+    indice organizations_legacy_owner_unique assim que a mesma pessoa tiver
+    tambem organizacao propria — o autonomo que depois se formaliza como
+    clinica, ou o profissional que tambem cadastra a empresa dele no NR-1.
+
+    Existe para que a condicao nao seja escrita em dois lugares.
+    organization_id_for_profile decide DE ONDE vem o id; quem grava a linha
+    precisa da mesma resposta para decidir se reivindica o e-mail. Ja houve uma
+    copia dessa regra, ela foi removida de um lado so, e o que sobrou foi um
+    NameError vivo em producao (ver o teste que veio junto com esta funcao).
+    """
+    documento = re.sub(r"\D", "", str(organization_document or ""))
+    tipo = str(account_type or "individual").lower()
+    return bool(documento) and tipo in {"organization", "nr1_company"}
 
 
 def organization_type_for_account(account_type: str) -> str:
@@ -3281,13 +3301,19 @@ class TenantStore:
                 organization_name,
                 organization_name,
                 organization_document,
-                # Clinica com CNPJ nao tem "dono legado" unico: ela e
-                # compartilhada por varios profissionais. Alem de semanticamente
+                # Organizacao derivada do CNPJ nao tem "dono legado" unico: a
+                # clinica e compartilhada por varios profissionais, a empresa
+                # NR-1 por varias pessoas do empregador. Alem de semanticamente
                 # errado, gravar o e-mail aqui colide com o indice unico
-                # organizations_legacy_owner_unique quando um autonomo (que ja
-                # tem organizacao propria com esse e-mail) depois se formaliza
-                # como clinica - o backfill quebraria com UniqueViolation.
-                None if is_clinic else owner_email,
+                # organizations_legacy_owner_unique quando a mesma pessoa tem
+                # tambem organizacao propria - o autonomo que depois se
+                # formaliza como clinica, ou o profissional que cadastra a
+                # empresa dele no NR-1 - e o backfill quebra com UniqueViolation.
+                None
+                if organization_derives_from_cnpj(
+                    account_type_raw, profile.get("organization_document")
+                )
+                else owner_email,
                 parse_timestamp(profile.get("created_at")),
                 now,
             ),

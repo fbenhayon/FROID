@@ -12136,7 +12136,11 @@ async def set_patient_results_access(patient_id: str, request: Request):
     patient["portal_results_enabled"] = enabled
     patient["updated_at"] = datetime.now(timezone.utc).isoformat()
     PATIENTS[patient_id] = patient
-    _persist_state()
+    # _persist_state() nao existe e nunca existiu: a chamada entrou assim e o
+    # endpoint respondia 500 depois de ja ter mudado PATIENTS em memoria. O
+    # profissional via erro, a liberacao valia ate o proximo restart, e o
+    # paciente do outro lado nao entendia por que o acesso ia e voltava.
+    _save_identity_state()
     return {"status": "ok", "patient_id": patient_id, "portal_results_enabled": enabled}
 
 
