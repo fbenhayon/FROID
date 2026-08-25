@@ -1098,3 +1098,76 @@ class OsTermosSeSepararamDeVerdade(unittest.TestCase):
                 self.assertIn(
                     f'path="{caminho}"', app, f"{caminho} nao tem Route em App.tsx"
                 )
+
+
+class ATelaMostraOQueAPessoaAssina(unittest.TestCase):
+    """Aceite de documento diferente do que a tela exibe nao vale nada.
+
+    Ate 25/08/2026 o cadastro mostrava o contrato e, ao lado da caixa de aceite,
+    um link para froid.com.br/termos.html — a pagina ESTATICA do site. Depois da
+    separacao dos termos, a pessoa passou a aceitar `terms_nr1` no envio e a ler
+    outro documento na tela.
+
+    Numa tela que produz efeito juridico isso e mais grave que um link quebrado:
+    e a primeira coisa que a outra parte usa para sustentar que nao leu o que
+    aceitou. E o link estatico nem sequer carrega versao ou hash, que sao a
+    prova de QUAL texto estava no ar naquele instante.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.pagina = (
+            SERVER_DIR.parent
+            / "froid-dashboard"
+            / "src"
+            / "pages"
+            / "Nr1CompanyOnboarding.tsx"
+        ).read_text(encoding="utf-8")
+
+    def test_a_tela_nao_manda_mais_para_a_pagina_estatica_do_site(self):
+        """Mira no href, e nao na string.
+
+        O comentario que explica a correcao cita o endereco antigo — e deve
+        citar, porque e o que faz a proxima pessoa entender por que o link nao
+        volta. Banir a string inteira transformaria a explicacao em defeito.
+        """
+        hrefs = re.findall(r'href="([^"]+)"', self.pagina)
+        for endereco in hrefs:
+            with self.subTest(href=endereco):
+                self.assertNotIn("froid.com.br/termos", endereco)
+                self.assertNotIn("froid.com.br/privacidade", endereco)
+
+    def test_a_tela_exibe_os_documentos_que_o_envio_registra(self):
+        """Uma fonte so para as duas coisas: a lista da audiencia.
+
+        Exibir de uma lista e enviar de outra e como o defeito nasceu.
+        """
+        self.assertIn('documentosDaAudiencia(catalogo, "nr1_company")', self.pagina)
+        self.assertIn("paraAceitar", self.pagina)
+        self.assertIn("legal_acceptances", self.pagina)
+
+    def test_cada_documento_aparece_com_versao_e_impressao_digital(self):
+        """E o que transforma o aceite em prova.
+
+        Versao diz qual rotulo estava no ar; hash diz qual TEXTO. Sem os dois na
+        tela, a pessoa aceita um titulo.
+        """
+        self.assertIn("doc.version", self.pagina)
+        self.assertIn("doc.sha256.slice(0, 12)", self.pagina)
+        self.assertIn("doc.sections.length", self.pagina)
+
+    def test_a_privacidade_tem_aceite_proprio_e_nao_entra_no_bolo(self):
+        """Reconhecer tratamento de dados e contratar servico sao dois atos.
+
+        Juntar os dois num clique enfraquece os dois: o aceite do contrato fica
+        contaminado por uma declaracao de ciencia, e a declaracao de ciencia
+        deixa de ser um ato deliberado do controlador.
+        """
+        self.assertIn('([chave]) => chave !== "privacy"', self.pagina)
+        self.assertIn('chave === "privacy" ? reconhece : contratoAceito', self.pagina)
+
+    def test_o_texto_de_cada_documento_e_legivel_na_propria_tela(self):
+        """Sem depender de abrir outra aba, que e onde a leitura se perde."""
+        self.assertIn("documentoAberto === chave", self.pagina)
+        self.assertIn("secao.heading", self.pagina)
+        self.assertIn("secao.body", self.pagina)

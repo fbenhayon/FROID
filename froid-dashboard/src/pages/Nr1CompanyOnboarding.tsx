@@ -175,7 +175,10 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
   // o contrato de PROFISSIONAL para ela, o que teria produzido registro
   // juridico falso se o aceite estivesse ligado.
   const [catalogo, setCatalogo] = useState<LegalCatalog | null>(null);
-  const [contratoAberto, setContratoAberto] = useState(false);
+  // Qual documento está aberto para leitura, por chave. Era um booleano
+  // quando havia um documento só; agora são dois — contrato e termos —
+  // e abrir um fecha o outro, que é o que se espera de uma sanfona.
+  const [documentoAberto, setDocumentoAberto] = useState("");
   const [contratoAceito, setContratoAceito] = useState(false);
   const [telefone, setTelefone] = useState("");
 
@@ -234,7 +237,12 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
       .catch(() => setCatalogo(null));
   }, []);
 
-  const contrato = catalogo?.documents?.nr1_company_contract || null;
+  // Os documentos que esta audiência aceita, menos a privacidade, que tem
+  // caixa própria mais acima — reconhecer tratamento de dados e contratar
+  // um serviço são dois atos, e juntá-los num só clique enfraquece os dois.
+  const paraAceitar = documentosDaAudiencia(catalogo, "nr1_company").filter(
+    ([chave]) => chave !== "privacy",
+  );
 
   const salvarEmpresa = async () => {
     setErro("");
@@ -466,19 +474,15 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
                 <strong>cumprimento de obrigação legal</strong> (LGPD, art. 7º,
                 II, e art. 11, II, “a”) — e não no consentimento do trabalhador,
                 que a relação de hierarquia comprometeria. Declaro estar de
-                acordo com os{" "}
+                acordo com a{" "}
+                {/* Só a privacidade: esta caixa é sobre tratamento de dados, e
+                    os Termos de Uso aparecem logo abaixo, no bloco de
+                    documentos, com versão e impressão digital. Citá-los aqui
+                    duplicava o aceite e mandava para a página estática do site,
+                    que não é o documento que o cadastro registra. */}
                 <a
                   className="underline"
-                  href="https://www.froid.com.br/termos.html"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Termos de Uso
-                </a>{" "}
-                e com a{" "}
-                <a
-                  className="underline"
-                  href="https://www.froid.com.br/privacidade.html"
+                  href="#/privacidade"
                   target="_blank"
                   rel="noreferrer"
                 >
@@ -488,34 +492,53 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
               </span>
             </label>
 
-            {contrato && (
+            {/* Os documentos que a pessoa está de fato aceitando, cada um com
+                versão e impressão digital, e cada um legível aqui mesmo.
+
+                Até 25/08/2026 esta tela mostrava só o contrato e, ao lado do
+                aceite, um link para froid.com.br/termos.html — a página
+                ESTÁTICA do site. Depois que os termos se separaram, a pessoa
+                passava a aceitar `terms_nr1` no envio e a ler outro documento
+                na tela. Numa tela que produz efeito jurídico, mostrar documento
+                diferente do que se aceita é o defeito que anula o aceite. */}
+            {paraAceitar.length > 0 && (
               <div className="mt-4 rounded-lg border border-slate-700 bg-slate-950 p-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-xs font-black text-slate-200">{contrato.title}</p>
-                  <button
-                    type="button"
-                    onClick={() => setContratoAberto((v) => !v)}
-                    className="text-xs font-black text-cyan-300 underline"
-                  >
-                    {contratoAberto ? "Fechar" : "Ler o contrato"}
-                  </button>
-                </div>
-                <p className="mt-1 text-[11px] text-slate-500">
-                  Versão {contrato.version} · impressão digital {contrato.sha256.slice(0, 12)}
+                <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+                  Documentos desta contratação
                 </p>
-                {contratoAberto && (
-                  <div className="mt-3 max-h-80 overflow-y-auto rounded border border-slate-800 bg-slate-900 p-3">
-                    {contrato.sections.map((secao) => (
-                      <div key={secao.heading} className="mb-3 last:mb-0">
-                        <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
-                          {secao.heading}
-                        </p>
-                        <p className="mt-1 text-xs leading-5 text-slate-300">{secao.body}</p>
+                {paraAceitar.map(([chave, doc]) => (
+                  <div key={chave} className="mt-3 border-t border-slate-800 pt-3 first:mt-2 first:border-0 first:pt-0">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-xs font-black text-slate-200">{doc.title}</p>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setDocumentoAberto((atual) => (atual === chave ? "" : chave))
+                        }
+                        className="text-xs font-black text-cyan-300 underline"
+                      >
+                        {documentoAberto === chave ? "Fechar" : "Ler"}
+                      </button>
+                    </div>
+                    <p className="mt-1 text-[11px] text-slate-500">
+                      {doc.sections.length} cláusulas · versão {doc.version} ·
+                      impressão digital {doc.sha256.slice(0, 12)}
+                    </p>
+                    {documentoAberto === chave && (
+                      <div className="mt-3 max-h-80 overflow-y-auto rounded border border-slate-800 bg-slate-900 p-3">
+                        {doc.sections.map((secao) => (
+                          <div key={secao.heading} className="mb-3 last:mb-0">
+                            <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+                              {secao.heading}
+                            </p>
+                            <p className="mt-1 text-xs leading-5 text-slate-300">{secao.body}</p>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </div>
-                )}
-                <label className="mt-3 flex items-start gap-3">
+                ))}
+                <label className="mt-4 flex items-start gap-3 border-t border-slate-800 pt-3">
                   <input
                     type="checkbox"
                     checked={contratoAceito}
@@ -523,17 +546,8 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
                     className="mt-1 h-4 w-4"
                   />
                   <span className="text-xs leading-5 text-slate-300">
-                    Li e aceito o <strong>{contrato.title}</strong> e os{" "}
-                    <a
-                      className="underline"
-                      href="https://www.froid.com.br/termos.html"
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Termos de Uso
-                    </a>
-                    , em nome da pessoa jurídica identificada acima, declarando
-                    possuir poderes para contratar.
+                    Li e aceito os documentos acima, em nome da pessoa jurídica
+                    identificada, declarando possuir poderes para contratar.
                   </span>
                 </label>
               </div>
