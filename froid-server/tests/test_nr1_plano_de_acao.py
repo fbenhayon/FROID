@@ -1311,3 +1311,46 @@ class AAprovacaoSobreviveAoRestart(unittest.TestCase):
                 self.assertNotRegex(
                     fonte, r'onboarding_required\s*\?\s*"/access/produto"'
                 )
+
+
+class OAdministrativoNaoEBecoSemSaida(unittest.TestCase):
+    """Botao que muda a URL e nao muda a tela e pior que botao ausente.
+
+    O cabecalho do Administrativo oferecia "Dashboard". Para o administrador da
+    plataforma que nunca comprou plano de sessoes para si mesmo, /dashboard esta
+    atras do onboarding clinico e devolve para /admin — entao o botao trocava a
+    URL e a tela continuava a mesma. Quem clica duas vezes conclui que o sistema
+    travou.
+
+    E como ele era o unico caminho oferecido para fora da tela, o administrador
+    ficava sem saida nenhuma.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.pagina = (
+            SERVER_DIR.parent
+            / "froid-dashboard"
+            / "src"
+            / "pages"
+            / "AdminDashboard.tsx"
+        ).read_text(encoding="utf-8")
+
+    def test_o_botao_so_aparece_quando_leva_a_algum_lugar(self):
+        self.assertIn("destinoDoDashboard", self.pagina)
+        self.assertIn('destinoDoDashboard !== "/admin" && (', self.pagina)
+
+    def test_o_destino_vem_da_mesma_regra_do_roteamento(self):
+        """Perguntar a regra, e nao adivinhar de novo.
+
+        Reimplementar aqui a condicao seria a QUINTA copia da mesma decisao, e
+        as quatro anteriores custaram o dia inteiro.
+        """
+        self.assertIn(
+            "defaultAuthenticatedPath(user, readProductChoice())", self.pagina
+        )
+
+    def test_existe_saida_da_tela(self):
+        self.assertIn("const sair = ", self.pagina)
+        self.assertIn("froid_token", self.pagina)
+        self.assertIn("clearProductChoice()", self.pagina)

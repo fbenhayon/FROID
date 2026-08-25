@@ -3,6 +3,11 @@ import { useNavigate } from "react-router-dom";
 import type { FroidUser } from "../App";
 import { apiUrl } from "../lib/api";
 import { normalizeSearchText } from "../lib/patient-dashboard";
+import {
+  clearProductChoice,
+  defaultAuthenticatedPath,
+  readProductChoice,
+} from "../lib/product-choice";
 
 interface Props {
   user?: FroidUser | null;
@@ -18,6 +23,25 @@ interface Props {
 // build novo do painel em vez de uma variavel de ambiente.
 
 export const AdminDashboard: React.FC<Props> = ({ user }) => {
+  // Para onde o "Dashboard" levaria de fato, pela mesma regra do roteamento.
+  // Se for de volta para ca, o botao nao existe.
+  const destinoDoDashboard = defaultAuthenticatedPath(user, readProductChoice());
+  // Sem esta saida o administrador sem cadastro clinico concluido ficava sem
+  // nenhum caminho para fora desta tela.
+  const sair = () => {
+    const token = localStorage.getItem("froid_token") || "";
+    if (token && token !== "dev-local") {
+      void fetch(apiUrl("/api/auth/logout"), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => undefined);
+    }
+    localStorage.removeItem("froid_token");
+    localStorage.removeItem("froid_user");
+    clearProductChoice();
+    window.location.hash = "#/";
+    window.location.reload();
+  };
   const nav = useNavigate();
   const [data, setData] = useState<any>(null);
   const [message, setMessage] = useState("");
@@ -113,11 +137,25 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
               className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:border-cyan-600 focus:outline-none"
             />
           </div>
+          {/* O botao so aparece quando LEVA a algum lugar.
+              /dashboard esta atras do onboarding clinico, e o administrador da
+              plataforma que nunca comprou plano de sessoes para si mesmo e
+              devolvido de la para ca — o botao virava um beco: clicava, a URL
+              mudava, e a tela era a mesma. Perguntar antes de oferecer e mais
+              honesto que oferecer e devolver. */}
+          {destinoDoDashboard !== "/admin" && (
+            <button
+              onClick={() => nav(destinoDoDashboard)}
+              className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-slate-800"
+            >
+              Dashboard
+            </button>
+          )}
           <button
-            onClick={() => nav("/dashboard")}
+            onClick={sair}
             className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-slate-800"
           >
-            Dashboard
+            Sair
           </button>
         </header>
 
