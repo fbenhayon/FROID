@@ -1171,3 +1171,59 @@ class ATelaMostraOQueAPessoaAssina(unittest.TestCase):
         self.assertIn("documentoAberto === chave", self.pagina)
         self.assertIn("secao.heading", self.pagina)
         self.assertIn("secao.body", self.pagina)
+
+
+class OAprovadorAlcancaOAdministrativo(unittest.TestCase):
+    """A trava que prendia justamente quem destrava os outros.
+
+    /admin estava atras de `clinicalElement`, que devolve para a escolha de
+    produto quando `onboarding_required` e verdadeiro. E `access_ready` do lado
+    clinico exige plano selecionado, pagamento e saldo de sessoes — coisas que o
+    operador da plataforma nunca comprou para si mesmo.
+
+    O resultado era circular e sem saida: ele caia na tela de escolha, onde a
+    opcao de empresa aparece indisponivel porque a conta ja tem cadastro
+    clinico, e a opcao clinica o levaria a comprar um plano que nao quer. Nao
+    conseguia aprovar ninguem — e aprovacao e o passo que libera todo cadastro
+    de empresa.
+
+    Aprovar cadastro e funcao de operador da plataforma. Nao tem relacao com ter
+    credito de sessao, e amarrar as duas coisas travou o unico que podia
+    destravar.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.app = (
+            SERVER_DIR.parent / "froid-dashboard" / "src" / "App.tsx"
+        ).read_text(encoding="utf-8")
+
+    def test_as_telas_de_admin_nao_dependem_do_onboarding_clinico(self):
+        for tela in ("AdminDashboard", "AdminProfessionalDetail", "AdminPatientDetail"):
+            with self.subTest(tela=tela):
+                self.assertIn(f"adminElement(<{tela} user={{user}} />)", self.app)
+                self.assertNotIn(f"clinicalElement(<{tela} user={{user}} />)", self.app)
+
+    def test_o_guarda_novo_exige_a_marca_de_admin(self):
+        """Mais restritivo que antes para quem NAO e admin.
+
+        clinicalElement deixava passar qualquer conta com onboarding concluido,
+        e a propria tela decidia o que mostrar. Agora a rota so abre com a marca
+        explicita.
+        """
+        guarda = self.app[self.app.index("const adminElement ="):]
+        guarda = guarda[: guarda.index("return (")]
+        self.assertIn("user?.access_status?.admin", guarda)
+        self.assertIn("Navigate", guarda)
+
+    def test_quem_decide_de_verdade_continua_sendo_o_servidor(self):
+        """Guarda de rota e navegacao, nao autorizacao.
+
+        Se fosse so o front, bastaria editar o localStorage para virar admin.
+        O backend confere o e-mail contra FROID_ADMIN_EMAILS em cada requisicao.
+        """
+        self.assertIn("_is_admin_email", MAIN)
+        self.assertIn("FROID_ADMIN_EMAILS", MAIN)
+        trecho = MAIN[MAIN.index("def _is_admin_email"):]
+        trecho = trecho[: trecho.index("\n\n\n")] if "\n\n\n" in trecho else trecho[:400]
+        self.assertIn("FROID_ADMIN_EMAILS", trecho)

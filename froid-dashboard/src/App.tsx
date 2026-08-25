@@ -297,6 +297,35 @@ function App() {
       ),
     );
 
+  /**
+   * As telas de administração da plataforma, que NÃO dependem do onboarding.
+   *
+   * Estavam atrás de `clinicalElement`, e a consequência era circular: o
+   * administrador que nunca comprou plano de sessões para si mesmo tem
+   * `onboarding_required` verdadeiro — porque `access_ready` do lado clínico
+   * exige plano, pagamento e saldo — e era devolvido para a tela de escolha de
+   * produto toda vez que tentava abrir /admin. Ali ele também não podia fazer
+   * nada: a conta já tem cadastro clínico, então a opção de empresa aparece
+   * indisponível. Ficava sem saída, e sem poder aprovar ninguém.
+   *
+   * Aprovar cadastro é função de operador da plataforma. Não tem relação com
+   * ter comprado crédito de sessão, e amarrar as duas coisas travou justamente
+   * quem destrava os outros.
+   *
+   * Mais restritivo que antes para quem não é admin: exige a marca explícita,
+   * em vez de deixar passar qualquer conta com onboarding concluído. Quem
+   * decide de verdade continua sendo o servidor, que confere o e-mail contra
+   * FROID_ADMIN_EMAILS em cada requisição — aqui é só navegação.
+   */
+  const adminElement = (element: ReactNode) =>
+    protectedElement(
+      user?.access_status?.admin ? (
+        element
+      ) : (
+        <Navigate to={defaultAuthenticatedPath(user, productChoice)} replace />
+      ),
+    );
+
   return (
     <HashRouter>
       <AgendaReminderBanner enabled={isAuthenticated && !onboardingRequired(user)} />
@@ -485,15 +514,15 @@ function App() {
         />
         <Route
           path="/admin"
-          element={clinicalElement(<AdminDashboard user={user} />)}
+          element={adminElement(<AdminDashboard user={user} />)}
         />
         <Route
           path="/admin/professional/:professionalEmail"
-          element={clinicalElement(<AdminProfessionalDetail user={user} />)}
+          element={adminElement(<AdminProfessionalDetail user={user} />)}
         />
         <Route
           path="/admin/patient/:patientId"
-          element={clinicalElement(<AdminPatientDetail user={user} />)}
+          element={adminElement(<AdminPatientDetail user={user} />)}
         />
         </Routes>
       </Suspense>
