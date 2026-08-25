@@ -68,4 +68,9 @@ export function PrivacyPage() { return <LegalDocumentPage documentKey="privacy" 
 export function TermsPage() { return <LegalDocumentPage documentKey="terms" />; }
 export function ProfessionalContractPage() { return <LegalDocumentPage documentKey="professional_contract" />; }
 export function OrganizationContractPage() { return <LegalDocumentPage documentKey="organization_contract" />; }
+// As duas páginas do lado da empresa. `legalRouteByKey` já apontava para
+// /contrato-nr1 desde 22/08/2026 e a rota nunca existiu: o link do contrato no
+// cadastro dava 404, e daria na frente do cliente.
+export function Nr1TermsPage() { return <LegalDocumentPage documentKey="terms_nr1" />; }
+export function Nr1ContractPage() { return <LegalDocumentPage documentKey="nr1_company_contract" />; }
 export function PatientTclePage() { return <LegalDocumentPage documentKey="patient_tcle" />; }

@@ -5,6 +5,7 @@ import type { FroidUser } from "../App";
 import { apiUrl } from "../lib/api";
 import {
   acceptanceFor,
+  documentosDaAudiencia,
   loadLegalCatalog,
   type LegalCatalog,
 } from "../lib/legal";
@@ -270,14 +271,23 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
           lgpd_acknowledged: true,
           lgpd_acknowledged_at: new Date().toISOString(),
           legal_jurisdiction: "BR",
-          legal_acceptances:
-            catalogo && contrato
-              ? {
-                  terms: acceptanceFor(catalogo.documents.terms, contratoAceito),
-                  privacy: acceptanceFor(catalogo.documents.privacy, reconhece),
-                  nr1_company_contract: acceptanceFor(contrato, contratoAceito),
-                }
-              : {},
+          // Os documentos vêm do catálogo pela AUDIÊNCIA, e não fixados aqui.
+          //
+          // Fixá-los quebrou uma vez: em 25/08/2026 os termos se separaram em
+          // "terms" (Psique) e "terms_nr1", e esta tela continuaria registrando
+          // aceite dos termos do produto clínico. O servidor exige `terms_nr1`,
+          // não receberia, e o cadastro responderia "sucesso" sem liberar o
+          // acesso — que é o defeito mais caro de diagnosticar, porque parece
+          // problema de permissão e está a três camadas de distância.
+          //
+          // A privacidade tem aceite próprio (`reconhece`); os demais seguem o
+          // aceite do contrato, que é o que a pessoa marca na tela.
+          legal_acceptances: Object.fromEntries(
+            documentosDaAudiencia(catalogo, "nr1_company").map(([chave, doc]) => [
+              chave,
+              acceptanceFor(doc, chave === "privacy" ? reconhece : contratoAceito),
+            ]),
+          ),
         }),
       });
       const orgId = String(dados?.organization_id || "");

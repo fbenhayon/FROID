@@ -404,14 +404,47 @@ class OCadastroDaEmpresaConsegueTerminar(unittest.TestCase):
         import legal_documents
 
         chaves = legal_documents.required_document_keys("nr1_company")
-        # Termos e privacidade valem para qualquer um; o terceiro documento e o
-        # contrato DELA, criado em 22/08/2026. O que nao pode aparecer aqui e
-        # contrato de profissional ou de clinica.
-        self.assertIn("terms", chaves)
+        # Desde 25/08/2026 nem os TERMOS sao os mesmos: "terms" fala de gravacao
+        # de sessao, transcricao, prontuario e habilitacao profissional, e nada
+        # disso alcanca quem so vai abrir campanha.
+        self.assertIn("terms_nr1", chaves)
         self.assertIn("privacy", chaves)
         self.assertIn("nr1_company_contract", chaves)
-        self.assertNotIn("professional_contract", chaves)
-        self.assertNotIn("organization_contract", chaves)
+        for clinico in ("terms", "professional_contract", "organization_contract"):
+            with self.subTest(documento=clinico):
+                self.assertNotIn(clinico, chaves)
+
+    def test_todo_documento_exigido_declara_a_audiencia_de_quem_o_assina(self):
+        """A trava que teria pego dois defeitos que ficaram meses no ar.
+
+        "terms" declarava audiencias professional, organization e patient — e
+        NAO nr1_company — enquanto required_document_keys obrigava a empresa a
+        aceita-lo. Ela assinava um documento que dizia, no proprio corpo, nao
+        ser para ela. A politica de privacidade tinha o mesmo defeito.
+
+        Aceite de documento inaplicavel nao protege ninguem: dilui o que e
+        aplicavel e da ao advogado da outra parte a primeira frase para
+        sustentar que o aceite foi generico.
+        """
+        import legal_documents
+
+        catalogo = legal_documents.public_legal_catalog()["documents"]
+        # O tipo de conta e a audiencia declarada nao usam o mesmo vocabulario:
+        # 'individual' cria um profissional, e e assim que o catalogo o nomeia.
+        audiencia_de = {
+            "individual": "professional",
+            "organization": "organization",
+            "nr1_company": "nr1_company",
+        }
+        for tipo, audiencia in audiencia_de.items():
+            for chave in legal_documents.required_document_keys(tipo):
+                with self.subTest(conta=tipo, documento=chave):
+                    self.assertIn(
+                        audiencia,
+                        catalogo[chave]["audiences"],
+                        f"{tipo} e obrigado a aceitar {chave}, que nao declara "
+                        f"a audiencia {audiencia}",
+                    )
         self.assertIn(
             "professional_contract",
             legal_documents.required_document_keys("individual"),
@@ -961,3 +994,107 @@ class AProporcaoSaiEmFaixa(unittest.TestCase):
         self.assertIn("faixas de 20 pontos", controle)
         self.assertIn("nao configuraveis", controle)
         self.assertIn("valor exato, que nao sai do banco", controle)
+
+
+class OsTermosSeSepararamDeVerdade(unittest.TestCase):
+    """Separacao que so troca o titulo nao separa nada.
+
+    Ate 25/08/2026 havia um documento de termos so, e ele pedia ao psicologo
+    autonomo que aceitasse piso de coorte e inventario de riscos, e ao gestor de
+    RH que aceitasse regras de gravacao de sessao e habilitacao profissional.
+    Aceite de clausula inaplicavel nao protege: dilui o que e aplicavel e da a
+    outra parte a primeira frase para sustentar que o aceite foi generico.
+    """
+
+    def setUp(self):
+        import legal_documents
+
+        self.legal = legal_documents
+        self.catalogo = legal_documents.public_legal_catalog()["documents"]
+        self.psique = " ".join(
+            s["body"] for s in self.catalogo["terms"]["sections"]
+        )
+        self.nr1 = " ".join(
+            s["body"] for s in self.catalogo["terms_nr1"]["sections"]
+        )
+
+    def test_os_termos_do_psique_nao_falam_do_mundo_da_empresa(self):
+        for estranho in ("piso de coorte", "inventário de riscos", "PGR", "NR-1"):
+            with self.subTest(termo=estranho):
+                self.assertNotIn(estranho, self.psique)
+
+    def test_os_termos_do_nr1_nao_impoem_obrigacao_clinica_a_empresa(self):
+        """A empresa nao grava sessao, nao transcreve e nao tem CRP.
+
+        `prontuario` e `diagnostico` APARECEM no texto do NR-1, e devem: estao
+        na lista do que a contratante nao recebe. O que nao pode aparecer e
+        obrigacao clinica dirigida a ela.
+        """
+        for estranho in ("gravação", "transcrição", "habilitação profissional"):
+            with self.subTest(termo=estranho):
+                self.assertNotIn(estranho, self.nr1)
+        # E o que TEM de aparecer, justamente como vedacao.
+        self.assertIn("não receberá", self.nr1)
+        self.assertIn("prontuário", self.nr1)
+
+    def test_cada_termo_declara_a_audiencia_dele(self):
+        self.assertNotIn("nr1_company", self.catalogo["terms"]["audiences"])
+        self.assertEqual(self.catalogo["terms_nr1"]["audiences"], ["nr1_company"])
+
+    def test_os_dois_preservam_a_responsabilidade_propria_do_froid(self):
+        """Prioridade 4 do parecer, e a que mais protege a CONTRATANTE.
+
+        Um contrato que joga tudo no cliente parece bom para o fornecedor e e
+        ruim: transforma cada erro tecnico nosso numa discussao sobre se o
+        contrato valia, em vez de numa correcao.
+        """
+        self.assertIn("não exclui a responsabilidade própria do FROID", self.psique)
+        self.assertIn("não exclui a responsabilidade própria do FROID", self.nr1)
+
+    def test_o_nr1_carrega_a_frase_que_o_produto_agora_cumpre(self):
+        """Ausencia de evidencia nao e ausencia de risco.
+
+        Deixou de ser promessa em 25/08/2026: a migration 028 fez o recorte
+        reprovado virar linha declarada no painel e no inventario, com o portao
+        que reprovou e o caminho indicado.
+        """
+        self.assertIn("não equivale a ausência de risco", self.nr1)
+        self.assertIn("classificado como insuficiente", self.nr1)
+        import nr1_compliance
+
+        self.assertEqual(nr1_compliance.UNCLASSIFIABLE_LEVEL, "insuficiente")
+
+    def test_a_prova_do_aceite_promete_o_hash_porque_nos_ja_guardamos_o_hash(self):
+        """Os termos que o assessor mandou listavam so a VERSAO aceita.
+
+        O produto ja guarda o sha256 do texto e o confere na revalidacao, que e
+        evidencia mais forte: versao prova qual rotulo estava no ar, hash prova
+        qual TEXTO a pessoa aceitou. Prometer menos do que se entrega, num
+        documento probatorio, e desperdicar a prova que existe.
+        """
+        for texto in (self.psique, self.nr1):
+            with self.subTest():
+                self.assertIn("resumo criptográfico", texto)
+        # E o hash existe mesmo, por documento.
+        for chave, documento in self.catalogo.items():
+            with self.subTest(documento=chave):
+                self.assertEqual(len(documento["sha256"]), 64)
+
+    def test_todo_documento_do_catalogo_tem_rota_para_ser_lido(self):
+        """Link de contrato que da 404 na frente do cliente.
+
+        legalRouteByKey apontava para /contrato-nr1 desde 22/08/2026 e a rota
+        nunca foi registrada em App.tsx: quem clicasse no contrato durante o
+        cadastro caia numa pagina em branco.
+        """
+        painel = SERVER_DIR.parent / "froid-dashboard" / "src"
+        rotas = (painel / "lib" / "legal.ts").read_text(encoding="utf-8")
+        app = (painel / "App.tsx").read_text(encoding="utf-8")
+        mapeadas = re.findall(r'^\s+(\w+): "(/[\w-]+)",$', rotas, re.MULTILINE)
+        self.assertTrue(mapeadas, "nenhuma rota legal encontrada em legal.ts")
+        for chave, caminho in mapeadas:
+            with self.subTest(documento=chave):
+                self.assertIn(chave, self.catalogo, f"{chave} nao existe no catalogo")
+                self.assertIn(
+                    f'path="{caminho}"', app, f"{caminho} nao tem Route em App.tsx"
+                )

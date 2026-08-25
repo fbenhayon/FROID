@@ -65,8 +65,35 @@ export function acceptanceFor(document: LegalDocument, accepted: boolean) {
 export const legalRouteByKey: Record<string, string> = {
   privacy: "/privacidade",
   terms: "/termos",
+  terms_nr1: "/termos-nr1",
   professional_contract: "/contrato-profissional",
   organization_contract: "/contrato-clinica",
   patient_tcle: "/tcle-paciente",
   nr1_company_contract: "/contrato-nr1",
 };
+
+/**
+ * Os documentos que ESTA audiência precisa aceitar, lidos do catálogo.
+ *
+ * Existe porque a tela do cadastro fixava as chaves no código — `terms`,
+ * `privacy`, `nr1_company_contract` — e em 25/08/2026 os termos se separaram em
+ * dois. A empresa passaria a registrar aceite dos termos do FROID Psique, nunca
+ * aceitaria os dela, e o acesso não liberaria: o servidor exige `terms_nr1` e
+ * receberia `terms`. Cadastro que responde "sucesso" e não abre é o pior tipo
+ * de defeito, porque parece problema de permissão.
+ *
+ * Derivar da audiência declarada resolve a classe inteira: documento novo com a
+ * audiência certa entra sozinho, e documento que não é daquela audiência não
+ * entra nunca. É a mesma regra que o servidor aplica em required_document_keys,
+ * lida do lado de cá em vez de reescrita — e o servidor continua sendo quem
+ * decide, porque é ele que recusa o acesso se faltar alguma.
+ */
+export function documentosDaAudiencia(
+  catalogo: { documents?: Record<string, LegalDocument> } | null | undefined,
+  audiencia: string,
+): [string, LegalDocument][] {
+  const documentos = catalogo?.documents ?? {};
+  return Object.entries(documentos).filter(([, doc]) =>
+    (doc.audiences ?? []).includes(audiencia),
+  );
+}
