@@ -16,6 +16,7 @@ no Diário Oficial da União**, não estas cópias.
 |---|---|---|
 | `primarias/` | texto da norma e publicações oficiais do MTE | **sim** |
 | `secundarias/` | doutrina e material de entidades | com atribuição, como interpretação |
+| `pareceres/` | parecer da nossa assessoria jurídica sobre documentos nossos | **não** — é opinião sobre o nosso contrato, não norma |
 
 **O que foi deliberadamente deixado de fora.** No mesmo lote vieram dois
 documentos — uma conversa exploratória com IA e um material promocional — que
@@ -47,6 +48,32 @@ engano. Os originais seguem fora do projeto, em `~/Desktop/lei nr-1/`.
 | 1.5.5.3.2.1 | corrigir medida comprovadamente ineficaz | `requires_correction` (012) |
 | 1.5.7.3.2 a–i | nove campos do inventário | `psychosocial_risk_inventory` (011) |
 | 1.5.7.3.3.1 | histórico por 20 anos | `retain_until` + trigger que recusa DELETE |
+
+## O que a norma exige e o produto ainda NÃO cobre
+
+Levantado em 25/08/2026, relendo o texto integral contra o código. Não são
+defeitos: são etapas que a norma prevê e que o FROID nunca modelou. Cada uma é
+também uma etapa de serviço que hoje não é vendida.
+
+| subitem | o que exige | estado |
+|---|---|---|
+| **1.5.4.2** | **levantamento preliminar de perigos e riscos** — etapa ANTERIOR à identificação, obrigatória antes do início do funcionamento, para atividades existentes e a cada mudança de processo | **não existe** |
+| 1.5.4.2.1.1 b | identificar *risco ocupacional evidente* e adotar medida **imediata** | não existe |
+| 1.5.4.2.1.3 | risco evidente sem medida imediata possível → medida no plano de ação **e** risco no inventário | não existe |
+| **1.5.3.1.1.1** | **PGR por estabelecimento**, podendo ser por unidade operacional, setor ou atividade | parcial — `unit_type='site'` existe e `assessment_campaigns.unit_id` permite recortar, mas o produto trata o documento como sendo da organização |
+| **1.5.4.3.2** | identificação deve abordar **perigos externos previsíveis** — situações fora dos limites do estabelecimento, não controladas pela organização | **não existe** — e em varejo isto é assalto, violência de terceiros e de público, que são perigos psicossociais de primeira ordem |
+| 1.5.5.1.1 c | adotar medida quando houver **evidência de associação** entre lesões/agravos e os riscos identificados | não existe |
+| **1.5.5.5** | **análise de acidentes e doenças** relacionados ao trabalho, documentada, considerando organização do trabalho e dados epidemiológicos, e fornecendo evidência para revisar as medidas | **não existe** |
+| 1.5.7.2 | documentos do PGR **datados e assinados** | não existe (exportação do PGR pendente) |
+| **1.5.8** | **GRO na prestação de serviços a terceiros** — o PGR da contratante inclui as contratadas que atuam nas dependências dela, ou usa os programas delas; a contratada fornece inventário e plano de ação; risco de interação é definido em conjunto sob coordenação da contratante | **não existe** |
+| 1.5.6 | preparação e resposta a emergências | fora de escopo, e deve continuar fora — não é psicossocial |
+
+**Por que 1.5.8 é a maior delas comercialmente.** Uma administradora que atende
+redes de supermercado tem, em cada loja, terceirizados de limpeza, segurança,
+reposição e logística. O PGR da contratante precisa alcançá-los, e a alternativa
+que a norma dá — usar o programa da contratada — exige que a contratada **entregue
+inventário e plano de ação**. São duas vendas na mesma porta, e nenhuma delas
+existe hoje no produto.
 
 **Ressalva sobre a hierarquia (1.5.5.1.2).** A norma manda priorizar proteção
 coletiva e, quando ela não bastar, seguir: (a) medidas administrativas ou de

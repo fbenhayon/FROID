@@ -519,31 +519,122 @@ class CadaServicoTemOContratoDele(unittest.TestCase):
             secao["heading"]: secao["body"]
             for secao in self.catalogo["documents"]["nr1_company_contract"]["sections"]
         }
-        fronteira = secoes["O que a contratante NÃO recebe, e não pode obter por outro caminho"]
-        for proibido in ("resposta individual", "prontuário", "dado clínico"):
+        fronteira = secoes["Dados não disponibilizados à contratante"]
+        for proibido in ("respostas individualizadas", "prontuário", "diagnóstico clínico"):
             with self.subTest(item=proibido):
                 self.assertIn(proibido, fronteira)
-        self.assertIn("não é uma configuração que se possa desligar", fronteira)
+        # A vedacao vale sobre a COLETA DO FROID, e nao sobre o mundo.
+        self.assertIn("relacionado à coleta FROID", fronteira)
+
+    def test_a_vedacao_nao_e_mais_absoluta_e_isso_foi_de_proposito(self):
+        """"não pode obter por outro caminho" era promessa que nao nos cabia.
+
+        O parecer de 25/08/2026 apontou que a redacao antiga contradizia outras
+        obrigacoes do proprio empregador: ele PODE receber dado individual de
+        trabalhador por relato espontaneo, denuncia de assedio, investigacao de
+        acidente, processo trabalhista, ordem judicial ou atendimento
+        ocupacional. Prometer que ele nao pode obter "por outro caminho" era
+        assumir contratualmente algo que nao esta sob nosso controle — e que,
+        se cumprido ao pe da letra, atrapalharia a apuracao de um assedio.
+
+        O que continua absoluto e o que de fato controlamos: a vinculacao entre
+        identidade e resposta nao sai do FROID por funcionalidade, exportacao,
+        integracao, suporte ou cruzamento.
+        """
+        secoes = {
+            secao["heading"]: secao["body"]
+            for secao in self.catalogo["documents"]["nr1_company_contract"]["sections"]
+        }
+        fronteira = secoes["Dados não disponibilizados à contratante"]
+        self.assertNotIn("não pode obter por outro caminho", fronteira)
+        self.assertIn("investigação de acidente", fronteira)
+        self.assertIn("ordem de autoridade competente", fronteira)
+
+    def test_o_contrato_nao_promete_arquitetura_que_nao_podemos_garantir(self):
+        """"as tabelas não são legíveis pela aplicação" virava garantia de arquitetura.
+
+        Bastaria uma rotina de manutencao, um backup, um subprocessador ou um
+        console de banco alcancar o dado para a frase se revelar falsa — e uma
+        afirmacao tecnica falsa num contrato e pior que nenhuma afirmacao.
+        Trocada por obrigacoes verificaveis, e por uma ressalva explicita de que
+        acesso tecnico excepcional do fornecedor existe e e controlado.
+        """
+        todas = " ".join(
+            secao["body"]
+            for secao in self.catalogo["documents"]["nr1_company_contract"]["sections"]
+        )
+        self.assertNotIn("não são legíveis pela aplicação", todas)
+        self.assertIn("privilégio mínimo", todas)
+        self.assertIn("não será interpretada como declaração de inexistência", todas)
 
     def test_o_contrato_do_nr1_declara_a_base_legal_correta(self):
         secoes = {
             secao["heading"]: secao["body"]
             for secao in self.catalogo["documents"]["nr1_company_contract"]["sections"]
         }
-        base = secoes["Base legal e papéis no tratamento de dados"]
+        base = secoes["Proteção de dados pessoais: papéis e bases legais"]
+        # A citacao agora e CONDICIONAL, como o parecer pediu: art. 7 para dado
+        # comum, art. 11 so quando houver dado sensivel e ele for indispensavel.
+        # Invocar os dois em bloco afirmava que a coleta trata dado sensivel
+        # sempre, que e o oposto do que o produto sustenta.
         self.assertIn("art. 7º, II", base)
-        self.assertIn("art. 11, II", base)
-        # E nao o consentimento do trabalhador, que a hierarquia comprometeria.
-        self.assertIn("não o consentimento do trabalhador", base)
+        self.assertIn("art. 11, II, alínea a", base)
+        self.assertIn("Sempre que a coleta se restringir a dados pessoais comuns", base)
+        self.assertIn("não no consentimento do trabalhador", base)
+        self.assertIn("que a relação de hierarquia comprometeria", base)
+        # E a razao de a distincao existir: quem decide a natureza do dado e a
+        # pergunta que foi feita, nao o rotulo que o contrato deu a ela.
+        self.assertIn("conteúdo real das perguntas", base)
 
     def test_o_contrato_admite_que_os_pisos_sao_escolha_nossa(self):
         secoes = {
             secao["heading"]: secao["body"]
             for secao in self.catalogo["documents"]["nr1_company_contract"]["sections"]
         }
-        pisos = secoes["Pisos de coorte e supressão de resultado"]
-        self.assertIn("não exigência da NR-1", pisos)
-        self.assertIn("não prescreve taxa de resposta", pisos)
+        pisos = secoes["Pisos de coorte, agregação e supressão"]
+        self.assertIn("critérios metodológicos e de proteção definidos pelo FORNECEDOR", pisos)
+        self.assertIn("não serão apresentados como tamanho mínimo de coorte", pisos)
+
+    def test_o_contrato_separa_as_duas_finalidades_dos_pisos(self):
+        """Anonimato e representatividade sao problemas diferentes.
+
+        O parecer foi explicito: um piso de 5, 7 ou 10 pessoas pode reduzir o
+        risco de identificacao sem que a amostra seja representativa. Apresentar
+        os dois como se fossem a mesma coisa e o erro que faz um perito derrubar
+        a defesa inteira — e e por isso que o documento de criterios declara
+        qual piso serve a qual finalidade.
+        """
+        secoes = {
+            secao["heading"]: secao["body"]
+            for secao in self.catalogo["documents"]["nr1_company_contract"]["sections"]
+        }
+        pisos = secoes["Pisos de coorte, agregação e supressão"]
+        self.assertIn("reduzir o risco de identificação ou reidentificação", pisos)
+        self.assertIn("suficiência metodológica mínima", pisos)
+        self.assertIn("distinguir essas finalidades", pisos)
+
+    def test_ausencia_de_dado_nao_vira_ausencia_de_risco(self):
+        """A frase que muda o produto, e nao so o contrato.
+
+        Hoje o painel devolve vazio quando o piso nao e atingido, e vazio se le
+        como "nao ha risco aqui". O contrato agora proibe isso expressamente e
+        cria a terceira saida: declarar o recorte insuficiente para
+        classificacao. Suprimir e ocultar; declarar insuficiente e documentar.
+        """
+        secoes = {
+            secao["heading"]: secao["body"]
+            for secao in self.catalogo["documents"]["nr1_company_contract"]["sections"]
+        }
+        pisos = secoes["Pisos de coorte, agregação e supressão"]
+        self.assertIn("declarado insuficiente para classificação", pisos)
+        self.assertIn(
+            "Não será criada artificialmente conclusão sobre ausência ou baixo nível de risco",
+            pisos,
+        )
+        inconclusivo = secoes["Resultado inconclusivo não é ausência de risco"]
+        self.assertIn(
+            "não será automaticamente interpretada como inexistência de risco", inconclusivo
+        )
 
     def test_a_versao_subiu_porque_os_contratos_clinicos_mudaram(self):
         # Regra do proprio arquivo: mudanca material sobe a versao, senao aceites
@@ -585,31 +676,86 @@ class SinergiaEntreOsDoisProdutos(unittest.TestCase):
         self.assertIn("articulação é de finalidade, nunca de", objeto)
 
     def test_o_contrato_do_nr1_descreve_a_articulacao(self):
-        clausula = self.nr1["Canal de apoio e articulação com o FROID Psique"]
+        clausula = self.nr1["FROID Psique e serviços assistenciais"]
         self.assertIn("FROID Psique", clausula)
+        self.assertIn("instrumento próprio", clausula)
         # O que a empresa NAO recebe por essa porta.
-        for vedado in ("identificação de quem procurou", "prontuário",
-                       "quantidade de sessões por pessoa"):
+        for vedado in ("prontuário", "conteúdo de sessão", "diagnóstico individual"):
             with self.subTest(item=vedado):
                 self.assertIn(vedado, clausula)
 
-    def test_a_eficacia_do_canal_e_medida_no_trabalho_e_nao_nas_pessoas(self):
-        """A unica afirmacao causal que o FROID pode fazer.
+    def test_o_froid_nao_pode_empurrar_o_proprio_psique(self):
+        """Item 15 do parecer, acatado em 25/08/2026.
 
-        Se o canal virou medida do plano, a campanha seguinte mostra se a
-        CONDICAO DE TRABALHO daquele recorte melhorou. Medir a evolucao clinica
-        de quem foi atendido seria devolver ao empregador exatamente o que a
-        fronteira existe para impedir — e ainda seria afirmacao causal errada.
+        A hierarquia de 1.5.5.1.2 manda agir sobre a fonte. Sobrecarga, meta
+        impossivel, subdimensionamento e jornada excessiva nao se "tratam"
+        oferecendo psicoterapia a quem adoeceu por causa delas — e um algoritmo
+        que recomendasse o servico assistencial do proprio fornecedor diante de
+        um problema de organizacao do trabalho seria indefensavel em pericia,
+        porque a recomendacao teria motivo comercial e nao tecnico.
+
+        A regra nao fecha o funil do Psique: o canal de apoio continua sendo
+        requisito de abertura de campanha, e a contratante pode escolher o
+        Psique para esse papel. O que ela impede e o FROID escolher por ela.
         """
-        clausula = self.nr1["Canal de apoio e articulação com o FROID Psique"]
-        self.assertIn("aferida pela campanha seguinte", clausula)
-        self.assertIn("nunca sobre a evolução clínica", clausula)
+        clausula = self.nr1["FROID Psique e serviços assistenciais"]
+        self.assertIn("não poderá favorecer serviço assistencial do próprio FORNECEDOR", clausula)
+        self.assertIn("em detrimento de medida organizacional mais adequada", clausula)
+        # E a contrapartida: escolher o Psique como canal continua permitido.
+        self.assertIn("salvo se expressamente escolhido pela contratante", clausula)
+
+        plano = self.nr1["Plano de ação e medidas de prevenção"]
+        self.assertIn(
+            "Medidas individuais de acolhimento, orientação ou assistência não serão tratadas "
+            "como substitutas automáticas de correções organizacionais",
+            plano,
+        )
+
+    def test_a_eficacia_deixou_de_ser_afirmada_so_pela_campanha_seguinte(self):
+        """O contrato dizia "é aferida pela campanha seguinte". Categorico demais.
+
+        1.5.5.3.2 exige acompanhamento PLANEJADO do desempenho: verificacao da
+        execucao, inspecoes, monitoramento quando aplicavel e participacao dos
+        trabalhadores e da CIPA. A campanha seguinte e uma dessas evidencias, e
+        prometer que ela basta transferia para o FROID uma afirmacao que a norma
+        atribui ao conjunto do acompanhamento.
+
+        Comercialmente a mudanca tambem e boa: acompanhamento continuo e servico
+        recorrente, enquanto "espere dois anos" e uma venda a cada dois anos.
+        """
+        clausula = self.nr1["Acompanhamento, risco residual e eficácia"]
+        self.assertIn("uma das evidências", clausula)
+        self.assertIn("não constitui necessariamente o único ou suficiente meio", clausula)
+        # E o risco residual nao espera o proximo ciclo.
+        self.assertIn("não deverá ser automaticamente postergada", clausula)
+        # Resultado ruim continua saindo.
+        self.assertIn("não condicionará a emissão", clausula)
 
     def test_a_procura_pelo_canal_e_ato_do_trabalhador(self):
         # Encaminhamento disparado pela resposta individual seria triagem
         # individual, que e o que o Guia MTE afasta como objeto do processo.
-        clausula = self.nr1["Canal de apoio e articulação com o FROID Psique"]
-        self.assertIn("procura pelo canal é ato do trabalhador", clausula)
+        clausula = self.nr1["FROID Psique e serviços assistenciais"]
+        self.assertIn("a procura será ato do trabalhador", clausula)
+        self.assertIn(
+            "informações clínicas não serão reutilizadas para classificar individualmente",
+            clausula,
+        )
+
+    def test_o_canal_deixou_de_ser_justificado_por_uma_frase_que_nos_contradizia(self):
+        """"perguntar a alguém como ele está" descrevia outro produto.
+
+        O FROID NR-1 nao pergunta como o trabalhador esta — pergunta sobre a
+        condicao de trabalho. A justificativa antiga do canal de apoio afirmava
+        o contrario e, num contrato, uma frase dessas e a primeira coisa que a
+        parte adversa cita para dizer que o instrumento faz avaliacao clinica.
+        """
+        canal = self.nr1["Canal de apoio ao trabalhador"]
+        self.assertNotIn("como ele está", canal)
+        self.assertIn("revelar ou provocar relatos de sofrimento", canal)
+        # E o canal continua sendo escolha metodologica nossa, nao exigencia da norma.
+        self.assertIn("não será apresentada como obrigação autônoma", canal)
+        # Canal individual nao substitui medida sobre a organizacao do trabalho.
+        self.assertIn("não substitui medidas destinadas a eliminar", canal)
 
 
 class AdminVemDoServidor(unittest.TestCase):
