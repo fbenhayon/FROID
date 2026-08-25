@@ -1406,3 +1406,62 @@ class ORaizDoPainelNaoServeSiteVelho(unittest.TestCase):
         sair = sair[: sair.index("};")]
         self.assertIn('window.location.hash = "#/login"', sair)
         self.assertNotIn('window.location.hash = "#/";', sair)
+
+
+class ODocumentoJuridicoSaiDaTela(unittest.TestCase):
+    """O documento so termina o trabalho quando chega ao juridico do cliente.
+
+    E isso acontece em papel ou PDF, nao na tela. Duas coisas faltavam: uma
+    saida — a pessoa abria o contrato durante o cadastro e ficava presa, porque
+    o unico caminho era o logotipo, que a tirava do fluxo e fazia perder o
+    formulario preenchido — e uma forma de imprimir que nao gastasse tinta com
+    menu e nao devolvesse texto claro sobre fundo escuro.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.pagina = (
+            SERVER_DIR.parent
+            / "froid-dashboard"
+            / "src"
+            / "pages"
+            / "LegalPages.tsx"
+        ).read_text(encoding="utf-8")
+
+    def test_existe_saida_da_tela_do_documento(self):
+        self.assertIn("← Voltar", self.pagina)
+        self.assertIn("window.history.back()", self.pagina)
+
+    def test_a_saida_respeita_de_onde_a_pessoa_veio(self):
+        """Destino fixo faria quem estava no meio do cadastro perder o formulario."""
+        volta = self.pagina[self.pagina.index("function voltar()"):]
+        volta = volta[: volta.index("\n}")]
+        self.assertIn("window.history.length > 1", volta)
+
+    def test_a_navegacao_inclui_os_documentos_do_nr1(self):
+        """Existiam desde 22/08 e a barra so listava os clinicos."""
+        self.assertIn('href="#/termos-nr1"', self.pagina)
+        self.assertIn('href="#/contrato-nr1"', self.pagina)
+
+    def test_a_impressao_esconde_o_que_nao_e_documento(self):
+        self.assertIn("@media print", self.pagina)
+        self.assertIn("froid-nao-imprime", self.pagina)
+        self.assertIn("size: A4", self.pagina)
+
+    def test_a_clausula_nao_parte_entre_paginas(self):
+        """Clausula partida e onde a citacao erra o numero."""
+        self.assertIn("break-inside: avoid", self.pagina)
+        self.assertIn("froid-clausula", self.pagina)
+
+    def test_o_hash_sai_inteiro_no_papel_e_abreviado_na_tela(self):
+        """Meia impressao digital nao confere nada.
+
+        Na tela o hash e referencia visual; no documento levado ao juridico do
+        cliente ele e a prova, e e la que a conferencia acontece.
+        """
+        self.assertIn("document.sha256.slice(0, 16)", self.pagina)
+        self.assertIn("SHA-256 {document.sha256}", self.pagina)
+
+    def test_ha_botao_de_impressao(self):
+        self.assertIn("window.print()", self.pagina)
+        self.assertIn("Imprimir / salvar em PDF", self.pagina)
