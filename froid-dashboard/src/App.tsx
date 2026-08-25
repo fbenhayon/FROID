@@ -2,7 +2,6 @@ import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { lazy, Suspense, useEffect, useMemo, useState, type ReactNode } from "react";
 import { AgendaReminderBanner } from "./components/panels/AgendaReminderBanner";
 import { LoginPage } from "./pages/LoginPage";
-import { HomePage } from "./pages/HomePage";
 import { apiUrl } from "./lib/api";
 import { rememberProfessionalEmail } from "./lib/professional-prompts";
 import {
@@ -315,9 +314,24 @@ function App() {
         <Route path="/paciente" element={<PatientPortalPage />} />
         <Route path="/paciente/login" element={<PatientPortalPage />} />
         <Route path="/paciente/portal" element={<PatientPortalPage />} />
+        {/* A raiz do painel NAO e uma pagina institucional.
+            Ela renderizava HomePage, que embute uma copia congelada de
+            froid-site/index.html: a do site foi revista em 21/08/2026 e a copia
+            e de 04/08 — dezessete dias de diferenca, servidas lado a lado no
+            mesmo dominio. Ninguem linkava para ca; chegava-se por acidente, e
+            era exatamente o que acontecia ao sair do Administrativo.
+
+            O site institucional vive em froid-site/ e e servido na raiz do
+            dominio, com git pull. Quem cai em /app/#/ quer o produto. */}
         <Route
           path="/"
-          element={<HomePage />}
+          element={
+            isAuthenticated ? (
+              <Navigate to={defaultAuthenticatedPath(user, productChoice)} replace />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
         />
         <Route path="/privacidade" element={<PrivacyPage />} />
         <Route path="/termos" element={<TermsPage />} />

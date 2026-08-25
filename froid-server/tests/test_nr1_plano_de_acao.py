@@ -1354,3 +1354,55 @@ class OAdministrativoNaoEBecoSemSaida(unittest.TestCase):
         self.assertIn("const sair = ", self.pagina)
         self.assertIn("froid_token", self.pagina)
         self.assertIn("clearProductChoice()", self.pagina)
+
+
+class ORaizDoPainelNaoServeSiteVelho(unittest.TestCase):
+    """Duas paginas iniciais no mesmo dominio, e uma delas congelada.
+
+    /app/#/ renderizava HomePage, que embute uma COPIA de froid-site/index.html
+    dentro do bundle do painel. A do site foi revista em 21/08/2026; a copia era
+    de 04/08 — dezessete dias de diferenca, servidas lado a lado.
+
+    O site institucional entra com git pull e a copia so muda em rebuild do
+    painel, entao a distancia entre as duas so cresce. Ninguem linkava para la:
+    chegava-se por acidente — foi exatamente o que aconteceu ao sair do
+    Administrativo, e podia acontecer na frente de um cliente.
+
+    Quem abre /app/ quer o produto.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        painel = SERVER_DIR.parent / "froid-dashboard" / "src"
+        cls.app = (painel / "App.tsx").read_text(encoding="utf-8")
+        cls.admin = (painel / "pages" / "AdminDashboard.tsx").read_text(encoding="utf-8")
+
+    def _rota_raiz(self) -> str:
+        """O elemento inteiro da rota, e nao ate o primeiro `/>`.
+
+        O primeiro `/>` de dentro pertence ao <Navigate>, entao cortar ali
+        deixava metade da rota de fora e o teste passava sem ver o que
+        precisava ver.
+        """
+        inicio = self.app.index('path="/"')
+        fim = self.app.index('path="/privacidade"', inicio)
+        return self.app[inicio:fim]
+
+    def test_a_raiz_do_painel_redireciona_em_vez_de_renderizar(self):
+        rota = self._rota_raiz()
+        self.assertIn("Navigate", rota)
+        self.assertNotIn("HomePage", rota)
+
+    def test_a_raiz_respeita_quem_ja_esta_autenticado(self):
+        """Mandar quem esta logado para /login seria expulsar da propria sessao."""
+        rota = self._rota_raiz()
+        self.assertIn("isAuthenticated", rota)
+        self.assertIn("defaultAuthenticatedPath", rota)
+        self.assertIn('to="/login"', rota)
+
+    def test_sair_do_administrativo_vai_para_o_login(self):
+        """E nao para a raiz, que era como se caia no site congelado."""
+        sair = self.admin[self.admin.index("const sair = "):]
+        sair = sair[: sair.index("};")]
+        self.assertIn('window.location.hash = "#/login"', sair)
+        self.assertNotIn('window.location.hash = "#/";', sair)

@@ -39,7 +39,10 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
     localStorage.removeItem("froid_token");
     localStorage.removeItem("froid_user");
     clearProductChoice();
-    window.location.hash = "#/";
+    // #/login, e nao #/ — a raiz do painel renderizava uma COPIA congelada do
+    // site institucional, 17 dias mais velha que o site de verdade. Sair pela
+    // porta dos fundos e cair num site desatualizado e pior que nao ter porta.
+    window.location.hash = "#/login";
     window.location.reload();
   };
   const nav = useNavigate();
