@@ -7,7 +7,9 @@ import { apiUrl } from "./lib/api";
 import { rememberProfessionalEmail } from "./lib/professional-prompts";
 import {
   clearProductChoice,
-  pathForProduct,
+  defaultAuthenticatedPath,
+  needsProductChoice,
+  onboardingRequired,
   readProductChoice,
   saveProductChoice,
   type FroidProduct,
@@ -94,51 +96,6 @@ export type FroidUser = {
     trial_contact_email?: string;
   };
 };
-
-function onboardingRequired(user: FroidUser | null) {
-  return Boolean(user?.access_status?.onboarding_required);
-}
-
-/** Quem ainda vai se cadastrar precisa dizer para qual produto, antes do
- *  formulário — os dois cadastros pedem coisas diferentes. Quem já escolheu
- *  segue direto, para não reperguntar a cada recarga da página.
- *
- *  A escolha entra por parâmetro, e não é lida do armazenamento aqui dentro,
- *  por um motivo que custou uma sessão de depuração: os `element` das rotas são
- *  calculados no render do App, que está ACIMA do HashRouter e portanto não
- *  re-renderiza quando a navegação acontece. Lendo o localStorage aqui, o
- *  elemento de /access/register congelava com o valor do primeiro render — e
- *  devolvia para a escolha para sempre, deixando o cadastro clínico
- *  inalcançável. Sendo estado do React, a mudança re-renderiza o App e as rotas
- *  recalculam. */
-function needsProductChoice(
-  user: FroidUser | null,
-  choice: FroidProduct | null,
-) {
-  return onboardingRequired(user) && choice === null;
-}
-
-function defaultAuthenticatedPath(
-  user: FroidUser | null,
-  choice: FroidProduct | null,
-) {
-  if (!onboardingRequired(user)) return "/dashboard";
-  // O operador da plataforma vai para onde ele tem o que fazer.
-  //
-  // Um administrador que nunca comprou plano de sessões para si mesmo tem
-  // `onboarding_required` verdadeiro para sempre, e caía na escolha de produto
-  // a cada login — uma tela onde as duas portas estão fechadas para ele: a
-  // opção de empresa aparece indisponível porque a conta já é clínica, e a
-  // clínica o levaria a comprar um plano que ele não quer. Ficava rodando em
-  // círculo, e clicar em "Dashboard" o trazia de volta para cá.
-  if (user?.access_status?.admin) return "/admin";
-  if (needsProductChoice(user, choice)) return "/access/produto";
-  // Respeitar a escolha aqui não é detalhe: mandar todo mundo para
-  // /access/register fazia a empresa NR-1 que voltasse no meio do cadastro
-  // reaparecer no formulário clínico, que pede CRP e plano de sessões — a
-  // mesma confusão que a tela de escolha existe para acabar.
-  return pathForProduct(choice as FroidProduct);
-}
 
 function localDevUser(): FroidUser | null {
   if (typeof window === "undefined") return null;

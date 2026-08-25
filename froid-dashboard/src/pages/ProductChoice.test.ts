@@ -38,9 +38,40 @@ describe("a escolha decide rota, então precisa ser estado", () => {
   });
 
   it("as funções de rota recebem a escolha por parâmetro", () => {
-    // Assinatura com dois parametros: usuario e escolha.
-    expect(APP).toMatch(/function needsProductChoice\(\s*user: FroidUser \| null,\s*choice: FroidProduct \| null,?\s*\)/);
-    expect(APP).toMatch(/function defaultAuthenticatedPath\(\s*user: FroidUser \| null,\s*choice: FroidProduct \| null,?\s*\)/);
+    // Elas mudaram de casa em 25/08/2026: viviam no App e havia mais DUAS
+    // cópias abreviadas da mesma decisão, em LoginPage e AccountAccessPages.
+    // Quando a regra ganhou a exceção do administrador, ela entrou só na cópia
+    // do App — e o admin continuou caindo na escolha de produto a cada login,
+    // fazendo a correção parecer que não tinha funcionado.
+    //
+    // O que este teste guarda continua sendo o mesmo: a escolha entra por
+    // PARÂMETRO. Ler o armazenamento dentro da função foi o defeito que
+    // congelava as rotas no valor do primeiro render.
+    const LIB = readFileSync(
+      join(__dirname, "..", "lib", "product-choice.ts"),
+      "utf-8",
+    );
+    expect(LIB).toMatch(
+      /function needsProductChoice\(\s*user: UsuarioRoteavel,\s*choice: FroidProduct \| null,?\s*\)/,
+    );
+    expect(LIB).toMatch(
+      /function defaultAuthenticatedPath\(\s*user: UsuarioRoteavel,\s*choice: FroidProduct \| null,?\s*\)/,
+    );
+    // E nenhuma delas lê o armazenamento por dentro.
+    const corpo = LIB.slice(LIB.indexOf("export function defaultAuthenticatedPath"));
+    expect(corpo).not.toContain("readProductChoice()");
+  });
+
+  it("existe uma única decisão de destino após autenticar", () => {
+    // Três cópias foi o que produziu o defeito. Quem precisa do destino importa
+    // a função; ninguém reescreve a condição.
+    for (const arquivo of ["LoginPage.tsx", "AccountAccessPages.tsx"]) {
+      const fonte = readFileSync(join(__dirname, arquivo), "utf-8");
+      expect(fonte).toContain("defaultAuthenticatedPath(");
+      expect(fonte).not.toMatch(
+        /onboarding_required\s*\?\s*"\/access\/produto"/,
+      );
+    }
   });
 
   it("nenhuma decisão de rota lê o armazenamento durante o render", () => {

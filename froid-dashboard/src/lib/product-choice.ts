@@ -89,3 +89,59 @@ export function clearProductChoice(): void {
     /* idem */
   }
 }
+
+/**
+ * Para onde uma pessoa autenticada vai. Uma regra, um lugar.
+ *
+ * Estava escrita em TRÊS: `defaultAuthenticatedPath` no App, e mais duas cópias
+ * abreviadas em LoginPage e AccountAccessPages, cada uma decidindo sozinha que
+ * `onboarding_required` significa "vá escolher um produto". Em 25/08/2026 a
+ * regra ganhou uma exceção — o administrador da plataforma vai para /admin,
+ * porque na escolha de produto as duas portas estão fechadas para ele — e a
+ * exceção entrou só na cópia do App. O administrador continuou caindo na tela
+ * de escolha a cada login, e a correção parecia não ter funcionado.
+ *
+ * O tipo é estrutural de propósito: `FroidUser` mora no App, e importá-lo aqui
+ * criaria ciclo com quem chama. O que esta função precisa saber é só isto.
+ */
+export type UsuarioRoteavel = {
+  access_status?: {
+    onboarding_required?: boolean;
+    admin?: boolean;
+  };
+} | null | undefined;
+
+export function onboardingRequired(user: UsuarioRoteavel): boolean {
+  return Boolean(user?.access_status?.onboarding_required);
+}
+
+/** Quem ainda vai se cadastrar precisa dizer para qual produto, antes do
+ *  formulário — os dois cadastros pedem coisas diferentes. Quem já escolheu
+ *  segue direto, para não reperguntar a cada recarga da página. */
+export function needsProductChoice(
+  user: UsuarioRoteavel,
+  choice: FroidProduct | null,
+): boolean {
+  return onboardingRequired(user) && choice === null;
+}
+
+export function defaultAuthenticatedPath(
+  user: UsuarioRoteavel,
+  choice: FroidProduct | null,
+): string {
+  if (!onboardingRequired(user)) return "/dashboard";
+  // O operador da plataforma vai para onde ele tem o que fazer.
+  //
+  // Um administrador que nunca comprou plano de sessões para si mesmo tem
+  // `onboarding_required` verdadeiro para sempre. Na escolha de produto as duas
+  // portas estão fechadas para ele: a opção de empresa aparece indisponível
+  // porque a conta já é clínica, e a clínica o levaria a comprar um plano que
+  // ele não quer. Ficava em círculo, sem conseguir aprovar ninguém — e aprovar
+  // é o passo que libera todo cadastro de empresa.
+  if (user?.access_status?.admin) return "/admin";
+  if (needsProductChoice(user, choice)) return "/access/produto";
+  // Respeitar a escolha aqui não é detalhe: mandar todo mundo para
+  // /access/register fazia a empresa NR-1 que voltasse no meio do cadastro
+  // reaparecer no formulário clínico, que pede CRP e plano de sessões.
+  return pathForProduct(choice as FroidProduct);
+}

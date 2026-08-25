@@ -4,6 +4,10 @@ import type { FroidUser } from "../App";
 import { apiUrl } from "../lib/api";
 import { rememberProfessionalEmail } from "../lib/professional-prompts";
 import {
+  defaultAuthenticatedPath,
+  readProductChoice,
+} from "../lib/product-choice";
+import {
   AccessCard,
   LinkDeDesenvolvimento,
   botaoClasse,
@@ -102,10 +106,15 @@ export const LoginPage: React.FC<Props> = ({
       localStorage.setItem("froid_token", data.token);
       rememberProfessionalEmail(data.user?.email);
       onLogin(data.user);
-      const target = data.user?.access_status?.onboarding_required
-        ? "/access/produto"
-        : afterLoginPath;
-      navigate(target, { replace: true });
+      // A regra de destino mora em product-choice, e nao aqui. Esta copia
+      // decidia sozinha que `onboarding_required` significa "va escolher um
+      // produto", e por isso o administrador da plataforma continuava caindo na
+      // tela de escolha mesmo depois de a excecao dele existir no App.
+      const destino = defaultAuthenticatedPath(data.user, readProductChoice());
+      navigate(
+        destino === "/dashboard" ? afterLoginPath : destino,
+        { replace: true },
+      );
     } catch (err: any) {
       setError(err.message || "Falha no login");
     } finally {

@@ -1281,13 +1281,33 @@ class AAprovacaoSobreviveAoRestart(unittest.TestCase):
         circulo: entrar, cair na escolha, digitar /admin na barra, clicar em
         Dashboard e voltar para a escolha.
         """
-        app = (
-            SERVER_DIR.parent / "froid-dashboard" / "src" / "App.tsx"
-        ).read_text(encoding="utf-8")
-        rota = app[app.index("function defaultAuthenticatedPath"):]
+        painel = SERVER_DIR.parent / "froid-dashboard" / "src"
+        lib = (painel / "lib" / "product-choice.ts").read_text(encoding="utf-8")
+        rota = lib[lib.index("export function defaultAuthenticatedPath"):]
         rota = rota[: rota.index("\n}")]
         self.assertIn('if (user?.access_status?.admin) return "/admin";', rota)
         # E a checagem do admin vem ANTES da escolha de produto, senao nunca roda.
         self.assertLess(
             rota.index("access_status?.admin"), rota.index("needsProductChoice")
         )
+
+    def test_a_decisao_de_destino_mora_num_lugar_so(self):
+        """Tres copias da mesma regra, e a excecao entrou so numa.
+
+        A regra estava escrita em `defaultAuthenticatedPath` no App e mais duas
+        vezes, abreviada, em LoginPage e AccountAccessPages — cada uma decidindo
+        sozinha que `onboarding_required` significa "va escolher um produto".
+
+        Quando a excecao do administrador entrou, ela entrou so na copia do App.
+        O login continuou mandando o admin para a escolha de produto, e a
+        correcao parecia nao ter funcionado: era a copia errada que decidia.
+        """
+        painel = SERVER_DIR.parent / "froid-dashboard" / "src"
+        for arquivo in ("pages/LoginPage.tsx", "pages/AccountAccessPages.tsx", "App.tsx"):
+            fonte = (painel / arquivo).read_text(encoding="utf-8")
+            with self.subTest(arquivo=arquivo):
+                self.assertIn("defaultAuthenticatedPath", fonte)
+                # Nenhuma reescreve a condicao.
+                self.assertNotRegex(
+                    fonte, r'onboarding_required\s*\?\s*"/access/produto"'
+                )

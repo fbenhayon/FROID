@@ -5,6 +5,10 @@ import type { FroidUser } from "../App";
 import { apiUrl } from "../lib/api";
 import { rememberProfessionalEmail } from "../lib/professional-prompts";
 import {
+  defaultAuthenticatedPath,
+  readProductChoice,
+} from "../lib/product-choice";
+import {
   AccessCard,
   LinkDeDesenvolvimento,
   botaoClasse,
@@ -32,7 +36,7 @@ function useEntrarComSessao(onLogin: (user: FroidUser) => void) {
     rememberProfessionalEmail(data.user?.email);
     onLogin(data.user);
     navigate(
-      data.user?.access_status?.onboarding_required ? "/access/produto" : "/dashboard",
+      defaultAuthenticatedPath(data.user, readProductChoice()),
       { replace: true },
     );
   };
