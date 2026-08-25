@@ -85,9 +85,24 @@ class OrganizationTypeDriftTests(unittest.TestCase):
 
 class Nr1EnumDriftTests(unittest.TestCase):
     def test_risk_levels_match(self):
+        """A coluna aceita os niveis de risco MAIS a declaracao de insuficiencia.
+
+        `insuficiente` nao entra em RISK_LEVELS de proposito, e a distincao e o
+        ponto todo da migration 028: ele nao e um nivel de risco, e a afirmacao
+        de que nao houve evidencia para determinar um. Se entrasse na tupla,
+        passaria a circular por toda funcao que percorre niveis — matriz de
+        gradacao, ordenacao de prioridade, sugestao de medida — e em algum
+        desses lugares "insuficiente" acabaria comparado com "low" como se
+        fossem graus da mesma escala.
+
+        A coluna precisa aceitar os dois porque guarda as duas coisas; o Python
+        precisa mante-los separados porque so uma delas e gradavel.
+        """
         self.assertEqual(
-            last_check_for("risk_level"), set(nr1_compliance.RISK_LEVELS)
+            last_check_for("risk_level"),
+            set(nr1_compliance.RISK_LEVELS) | {nr1_compliance.UNCLASSIFIABLE_LEVEL},
         )
+        self.assertNotIn(nr1_compliance.UNCLASSIFIABLE_LEVEL, nr1_compliance.RISK_LEVELS)
 
     def test_nr1_factors_match(self):
         self.assertEqual(

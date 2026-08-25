@@ -806,6 +806,142 @@ def suppression_notice(total_completed_responses: int) -> str:
     )
 
 
+# ---------------------------------------------------------------------------
+# Recorte que nao pode ser classificado: declarado, e nao omitido.
+#
+# Suprimir e ocultar; declarar insuficiente e documentar. Ate 25/08/2026 o
+# produto so fazia a primeira, e painel vazio nao e neutro — o cliente le
+# "nao ha risco aqui", que e exatamente a conclusao que a ausencia de dado nao
+# autoriza. O contrato passou a proibir isso em duas clausulas, e a norma diz o
+# mesmo por outro caminho: 1.5.7.3.1 manda consolidar no inventario os dados da
+# identificacao de perigos, e nao apenas os riscos que couberam numa
+# classificacao.
+#
+# Cada portao tem remedio diferente, e por isso cada um tem texto proprio. Dizer
+# so "insuficiente" faria a empresa perseguir adesao onde adesao nao resolve.
+UNCLASSIFIABLE_LEVEL = "insuficiente"
+
+SUPPRESSION_GATES: Tuple[str, ...] = (
+    "anonimato",
+    "representatividade",
+    "efetivo_nao_declarado",
+    "campanha_abaixo_do_piso",
+)
+
+_NAO_E_AUSENCIA_DE_RISCO = (
+    "Este resultado NAO significa ausencia de risco: significa que as evidencias "
+    "reunidas nao bastam para classificar este recorte. A obrigacao de gerenciar "
+    "o risco psicossocial permanece integral."
+)
+
+
+def escalation_note(
+    gate: str,
+    *,
+    required_responses: Optional[int] = None,
+    declared_headcount: Optional[int] = None,
+) -> str:
+    """O que a organizacao deve fazer com um recorte que nao classificou.
+
+    Texto destinado ao documento que a fiscalizacao le, entao nomeia o subitem
+    que sustenta cada caminho. Nao cita contagem de respostas do recorte — o
+    numero esta abaixo do piso por definicao, e publica-lo aqui devolveria pela
+    porta dos fundos a coorte que o piso recusou mostrar no painel.
+    """
+    if gate == "anonimato":
+        return (
+            "Recorte abaixo do piso de coorte que protege o anonimato. Nenhuma "
+            "adesao adicional o publica enquanto o grupo for menor que esse piso, "
+            "porque o piso olha o tamanho do grupo e nao a taxa de resposta. "
+            "Caminho indicado: avaliar este grupo pela Avaliacao Ergonomica "
+            "Preliminar, com dialogo com os trabalhadores e observacao da "
+            "atividade — metodos que o Guia MTE indica justamente para grupo "
+            "pequeno e que nao dependem de piso de respondentes. "
+            + _NAO_E_AUSENCIA_DE_RISCO
+        )
+    if gate == "representatividade":
+        exigencia = ""
+        if required_responses and declared_headcount:
+            exigencia = (
+                f" Para o efetivo declarado de {declared_headcount} trabalhadores, "
+                f"a amostra necessaria e de {required_responses} respostas "
+                "substantivas."
+            )
+        return (
+            "A coorte reunida atingiu o piso de anonimato, mas ainda nao fala "
+            "pelo efetivo declarado deste recorte." + exigencia + " Diferente do "
+            "caso anterior, este recorte publica se a adesao subir: cabe reforcar "
+            "a participacao, nos termos de 1.5.3.3, e reabrir a coleta. "
+            + _NAO_E_AUSENCIA_DE_RISCO
+        )
+    if gate == "efetivo_nao_declarado":
+        return (
+            "Recorte sem efetivo declarado para o periodo de referencia. Sem "
+            "denominador nao ha o que representar, e qualquer resultado seria "
+            "sobre uma populacao desconhecida. Caminho indicado: declarar o "
+            "efetivo deste recorte, o que publica o resultado ou o reprova com "
+            "fundamento verificavel. " + _NAO_E_AUSENCIA_DE_RISCO
+        )
+    if gate == "campanha_abaixo_do_piso":
+        return (
+            "A campanha inteira nao atingiu os pisos exigidos, entao nenhum "
+            "recorte dela e publicavel e nao ha quebra por unidade a apresentar. "
+            "Caminho indicado: reforcar a participacao e reabrir a coleta, ou "
+            "avaliar por Avaliacao Ergonomica Preliminar quando o porte da "
+            "organizacao nao sustentar coorte. " + _NAO_E_AUSENCIA_DE_RISCO
+        )
+    raise ValueError(f"portao de supressao desconhecido: {gate!r}")
+
+
+@dataclass(frozen=True)
+class UnclassifiableFinding:
+    """Um recorte que foi avaliado, nao pode ser classificado, e fica registrado.
+
+    Espelha GradedRisk no que o inventario precisa, e deliberadamente NAO tem
+    cohort_size, mean_score, severity nem probability: a restricao
+    psychosocial_risk_inventory_classificada_ou_declarada exige que esses quatro
+    sejam nulos aqui. Linha pela metade e a que um auditor le como risco baixo.
+    """
+
+    unit_id: Optional[str]
+    dimension_id: str
+    nr1_factor: str
+    gate: str
+    required_responses: Optional[int]
+    declared_headcount: Optional[int]
+    criteria_version: str
+    risk_level: str = UNCLASSIFIABLE_LEVEL
+
+    @property
+    def escalation(self) -> str:
+        return escalation_note(
+            self.gate,
+            required_responses=self.required_responses,
+            declared_headcount=self.declared_headcount,
+        )
+
+
+def unclassifiable_findings(
+    rows: Iterable[Mapping[str, Any]], criteria: "GradationCriteria"
+) -> List[UnclassifiableFinding]:
+    """Converte o veredito do banco em achado declaravel, na ordem estavel."""
+    achados = [
+        UnclassifiableFinding(
+            unit_id=row.get("unit_id"),
+            dimension_id=str(row["dimension_id"]),
+            nr1_factor=str(row.get("nr1_factor") or ""),
+            gate=str(row["gate"]),
+            required_responses=row.get("required_responses"),
+            declared_headcount=row.get("declared_headcount"),
+            criteria_version=criteria.version,
+        )
+        for row in rows
+    ]
+    # Ordem estavel para que o documento nao mude de ordem entre duas geracoes
+    # do mesmo ciclo, o que numa pericia parece adulteracao.
+    return sorted(achados, key=lambda a: (a.unit_id or "", a.nr1_factor, a.dimension_id))
+
+
 # Order of priority for prevention measures, following item 1.4.1 "g" and
 # subitem 1.5.5.1.2. EPI is absent on purpose: there is no personal protective
 # equipment against how work is organized, and the Guia MTE is explicit that

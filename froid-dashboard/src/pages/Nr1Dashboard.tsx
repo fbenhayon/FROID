@@ -56,6 +56,29 @@ type Representativeness = {
   margin_of_error: number;
 };
 
+/**
+ * Recorte que os portões reprovaram.
+ *
+ * Não tem coorte, média, severidade nem probabilidade — e a ausência é
+ * deliberada, não um campo que faltou preencher: publicar o tamanho de um
+ * recorte reprovado devolveria exatamente a coorte pequena que o piso existe
+ * para proteger.
+ *
+ * `escalation` é o que a organização deve fazer, e muda conforme o portão: onde
+ * o problema é tamanho de grupo, adesão não resolve e o caminho é a AEP; onde é
+ * representatividade, subir a adesão publica o recorte.
+ */
+type Declared = {
+  unit_id: string | null;
+  dimension_id: string | null;
+  nr1_factor: string | null;
+  risk_level: string;
+  gate: string;
+  required_responses: number | null;
+  declared_headcount: number | null;
+  escalation: string;
+};
+
 type Panel = {
   campaign_id: string;
   reportable: boolean;
@@ -63,6 +86,15 @@ type Panel = {
   progress?: Progress;
   representativeness?: Representativeness;
   risks: Risk[];
+  /** Existe nos dois casos: quando nada passou e quando parte passou. */
+  declared?: Declared[];
+};
+
+const GATE_LABEL: Record<string, string> = {
+  anonimato: "Grupo pequeno demais para publicar",
+  representatividade: "Adesão insuficiente para falar pelo efetivo",
+  efetivo_nao_declarado: "Efetivo não declarado",
+  campanha_abaixo_do_piso: "Campanha inteira abaixo do piso",
 };
 
 const FACTOR_LABEL: Record<string, string> = {
@@ -102,6 +134,66 @@ const EFFICACY_LABEL: Record<string, string> = {
  * adesão e mesmo assim não representar nada, se só 60 de 3.000 pessoas foram
  * convidadas.
  */
+/**
+ * Os recortes que não puderam ser classificados, declarados na tela.
+ *
+ * Existe porque painel vazio não é neutro: quem abre e não vê nada conclui que
+ * não há risco ali — e essa é exatamente a conclusão que a ausência de dado não
+ * autoriza. Um painel que mostra três setores e cala sobre o quarto afirma,
+ * pelo silêncio, que o quarto está bem.
+ *
+ * A cor é âmbar de propósito, e não vermelha nem verde: não é risco alto e não
+ * é risco baixo — é ausência de avaliação, que é uma terceira coisa e precisa
+ * parecer uma terceira coisa.
+ */
+const DeclaredFindings: React.FC<{
+  achados?: Declared[];
+  titulo?: string;
+}> = ({ achados, titulo = "Recortes sem avaliação conclusiva" }) => {
+  if (!achados || achados.length === 0) return null;
+  return (
+    <div className="mt-4 rounded-lg border border-amber-900 bg-amber-950/30 p-4">
+      <h3 className="text-xs font-black uppercase tracking-wide text-amber-200">
+        {titulo} · {achados.length}
+      </h3>
+      <p className="mt-1 text-[11px] leading-4 text-amber-100/70">
+        Estes recortes entram no inventário como declarados insuficientes para
+        classificação. Isso <strong>não</strong> significa ausência de risco: a
+        obrigação de gerenciá-lo permanece integral.
+      </p>
+      <ul className="mt-3 space-y-3">
+        {achados.map((achado, indice) => (
+          <li
+            key={`${achado.unit_id ?? "org"}-${achado.dimension_id ?? indice}`}
+            className="rounded border border-amber-900/70 bg-amber-950/40 p-3"
+          >
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <span className="text-xs font-black text-amber-100">
+                {achado.nr1_factor
+                  ? FACTOR_LABEL[achado.nr1_factor] ?? achado.nr1_factor
+                  : "Campanha inteira"}
+              </span>
+              <span className="text-[11px] font-bold text-amber-300">
+                {GATE_LABEL[achado.gate] ?? achado.gate}
+              </span>
+            </div>
+            {achado.required_responses !== null &&
+              achado.declared_headcount !== null && (
+                <p className="mt-1 text-[11px] text-amber-100/70">
+                  Amostra necessária: {achado.required_responses} respostas para
+                  um efetivo declarado de {achado.declared_headcount}.
+                </p>
+              )}
+            <p className="mt-2 text-[11px] leading-5 text-amber-100/90">
+              {achado.escalation}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
 const RepresentativenessLine: React.FC<{
   verdict?: Representativeness;
 }> = ({ verdict }) => {
@@ -438,6 +530,7 @@ export const Nr1Dashboard: React.FC<{ user: FroidUser | null }> = ({ user }) => 
                     )}
                   </>
                 )}
+                <DeclaredFindings achados={panel.declared} />
               </div>
             ) : (
               <>
@@ -523,6 +616,10 @@ export const Nr1Dashboard: React.FC<{ user: FroidUser | null }> = ({ user }) => 
                     </article>
                   ))}
                 </div>
+                {/* Depois dos riscos classificados, e não antes: o que foi
+                    avaliado vem primeiro. Mas vem — campanha que publica parte
+                    dos recortes precisa dizer o que houve com o resto. */}
+                <DeclaredFindings achados={panel.declared} />
               </>
             )}
           </section>

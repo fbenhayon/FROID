@@ -79,6 +79,18 @@ def organization_derives_from_cnpj(account_type: str, organization_document=None
     return bool(documento) and tipo in {"organization", "nr1_company"}
 
 
+def _ou_nulo(valor, conversor):
+    """Converte, ou preserva o nulo — nunca inventa zero.
+
+    O inventario passou a aceitar linha declarada insuficiente, em que coorte,
+    media, severidade e probabilidade sao NULL por exigencia de restricao. Um
+    int(None) aqui estouraria; um int(valor or 0) seria pior, porque gravaria
+    zero e um auditor leria "coorte de zero pessoa" ou "severidade zero" como se
+    fossem medidas, e nao ausencia de medida.
+    """
+    return None if valor is None else conversor(valor)
+
+
 def organization_type_for_account(account_type: str) -> str:
     """Mapa account_type -> organization_type.
 
@@ -2354,6 +2366,47 @@ class TenantStore:
             for row in rows
         ]
 
+    def nr1_unclassifiable_cohorts(
+        self, *, organization_id: str, membership_id: str, campaign_id: str
+    ) -> list[dict]:
+        """Os recortes que os portoes reprovaram, e QUAL portao reprovou cada um.
+
+        Complemento exato de nr1_dimension_scores: aquele devolve o que passou,
+        este devolve o que nao passou. Existe porque suprimir e ocultar e
+        declarar insuficiente e documentar, e ate 25/08/2026 o produto so sabia
+        fazer a primeira coisa.
+
+        Nao devolve contagem de resposta do recorte reprovado — o numero esta
+        abaixo do piso por definicao, e traze-lo para ca seria publicar pela
+        porta dos fundos a coorte que o piso recusou mostrar no painel. Devolve
+        o portao, porque o remedio depende dele, e a amostra exigida, que sai do
+        efetivo que a propria contratante declarou.
+        """
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                self._nr1_session(connection, organization_id, membership_id)
+                rows = connection.execute(
+                    """
+                    SELECT unit_id, dimension_id, nr1_factor, gate,
+                           required_responses, declared_headcount
+                    FROM froid_nr1_unclassifiable_cohorts(%s)
+                    """,
+                    (campaign_id,),
+                ).fetchall()
+        return [
+            {
+                "unit_id": str(row[0]) if row[0] else None,
+                "dimension_id": str(row[1]),
+                "nr1_factor": row[2],
+                "gate": row[3],
+                "required_responses": int(row[4]) if row[4] is not None else None,
+                "declared_headcount": int(row[5]) if row[5] is not None else None,
+            }
+            for row in rows
+        ]
+
     def nr1_active_criteria(
         self, *, organization_id: str, membership_id: str
     ) -> Optional[dict]:
@@ -2783,9 +2836,10 @@ class TenantStore:
                              probability, risk_level, rationale,
                              possible_harms, selected_consequence, exposed_workers,
                              measure_efficacy, exposure_level, risk_classification,
+                             suppression_gate, escalation_note,
                              review_due_at, review_trigger, criteria_id)
                         VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
-                                %s,%s,%s,%s,%s,%s,
+                                %s,%s,%s,%s,%s,%s,%s,%s,
                                 now() + make_interval(months => %s), 'scheduled',
                                 -- Os critérios em vigor quando a campanha rodou,
                                 -- e não os de hoje: gro_risk_criteria é imutável
@@ -2809,6 +2863,8 @@ class TenantStore:
                             measure_efficacy=EXCLUDED.measure_efficacy,
                             exposure_level=EXCLUDED.exposure_level,
                             risk_classification=EXCLUDED.risk_classification,
+                            suppression_gate=EXCLUDED.suppression_gate,
+                            escalation_note=EXCLUDED.escalation_note,
                             -- Regerar o inventario NAO apaga uma revisao ja
                             -- devida por risco residual: a obrigacao da alinea
                             -- "a" nasceu de um evento que aconteceu, e o teto
@@ -2827,9 +2883,17 @@ class TenantStore:
                         (
                             str(uuid.uuid4()), organization_id, campaign_id,
                             row.get("unit_id"), row["dimension_id"],
-                            row["nr1_factor"], int(row["cohort_size"]),
-                            float(row["mean_score"]), int(row["severity"]),
-                            int(row["probability"]), row["risk_level"],
+                            row["nr1_factor"],
+                            # Os quatro numeros sao None na linha declarada
+                            # insuficiente, e a restricao de banco exige que
+                            # sejam. Converter com int() um None estouraria aqui
+                            # — e estourar e melhor que gravar zero, que um
+                            # auditor leria como coorte de zero pessoa avaliada.
+                            _ou_nulo(row.get("cohort_size"), int),
+                            _ou_nulo(row.get("mean_score"), float),
+                            _ou_nulo(row.get("severity"), int),
+                            _ou_nulo(row.get("probability"), int),
+                            row["risk_level"],
                             row.get("rationale", ""),
                             list(row.get("possible_harms") or []),
                             row.get("selected_consequence", ""),
@@ -2837,6 +2901,8 @@ class TenantStore:
                             row.get("measure_efficacy", "none"),
                             row.get("exposure_level"),
                             row.get("risk_classification", row["risk_level"]),
+                            row.get("suppression_gate"),
+                            row.get("escalation_note", ""),
                             meses, campaign_id,
                         ),
                     )
@@ -2857,14 +2923,21 @@ class TenantStore:
                            inventory.nr1_factor, inventory.cohort_size,
                            inventory.mean_score, inventory.severity,
                            inventory.probability, inventory.risk_level,
-                           inventory.rationale, inventory.generated_at
+                           inventory.rationale, inventory.generated_at,
+                           inventory.suppression_gate, inventory.escalation_note
                     FROM psychosocial_risk_inventory inventory
                     JOIN assessment_dimensions dimension
                       ON dimension.id = inventory.dimension_id
                     LEFT JOIN organization_units unit ON unit.id = inventory.unit_id
                     WHERE inventory.organization_id = %s
                       AND inventory.campaign_id = %s
+                    -- NULLS LAST porque a linha declarada insuficiente tem
+                    -- severidade e probabilidade nulas, e em DESC o Postgres
+                    -- poe NULL primeiro: sem isto os recortes que NAO foram
+                    -- avaliados apareceriam acima dos riscos criticos.
                     ORDER BY inventory.severity * inventory.probability DESC
+                             NULLS LAST,
+                             inventory.nr1_factor
                     """,
                     (organization_id, campaign_id),
                 ).fetchall()
@@ -2874,10 +2947,18 @@ class TenantStore:
                 "unit_id": str(row[1]) if row[1] else None,
                 "unit_name": row[2],
                 "dimension_id": str(row[3]), "dimension_title": row[4],
-                "nr1_factor": row[5], "cohort_size": int(row[6]),
-                "mean_score": float(row[7]), "severity": int(row[8]),
-                "probability": int(row[9]), "risk_level": row[10],
+                "nr1_factor": row[5],
+                # Nulo preservado, nunca convertido em zero: a linha declarada
+                # insuficiente NAO tem coorte, media, severidade nem
+                # probabilidade, e zero seria lido como medida que deu zero.
+                "cohort_size": _ou_nulo(row[6], int),
+                "mean_score": _ou_nulo(row[7], float),
+                "severity": _ou_nulo(row[8], int),
+                "probability": _ou_nulo(row[9], int),
+                "risk_level": row[10],
                 "rationale": row[11], "generated_at": row[12],
+                "suppression_gate": row[13],
+                "escalation_note": row[14] or "",
             }
             for row in rows
         ]

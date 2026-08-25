@@ -9400,6 +9400,80 @@ async def update_nr1_unit(organization_id: str, unit_id: str, request: Request):
         raise HTTPException(status_code=400, detail=str(exc))
 
 
+def _nr1_declared_findings(
+    context: AccessContext,
+    campaign_id: str,
+    criteria,
+    progress: dict,
+    total: int,
+) -> list[dict]:
+    """Recortes que os portões reprovaram, prontos para o painel e o inventário.
+
+    Suprimir é ocultar; declarar insuficiente é documentar. A diferença não é
+    de redação: painel vazio é lido pelo cliente como "não há risco aqui", que é
+    exatamente a conclusão que a ausência de dado não autoriza — e o contrato
+    revisado em 25/08/2026 passou a proibi-la expressamente.
+
+    Devolve lista vazia enquanto a coleta está aberta: ali nada foi reprovado
+    ainda, e declarar insuficiência de uma campanha em andamento seria afirmar
+    sobre um resultado que ainda não existe.
+    """
+    if progress.get("status") != "closed":
+        return []
+    try:
+        rows = TENANT_STORE.nr1_unclassifiable_cohorts(
+            organization_id=context.organization_id,
+            membership_id=context.membership_id,
+            campaign_id=campaign_id,
+        )
+    except Exception:
+        # Falhar aqui não pode derrubar o painel de quem TEM resultado: a
+        # declaração é acréscimo, e o agregado é o serviço.
+        LOGGER.exception("Unable to read unclassifiable NR-1 cohorts")
+        return []
+    achados = nr1_compliance.unclassifiable_findings(rows, criteria)
+    return [
+        {
+            "unit_id": achado.unit_id,
+            "dimension_id": achado.dimension_id,
+            "nr1_factor": achado.nr1_factor,
+            "risk_level": achado.risk_level,
+            "gate": achado.gate,
+            # A amostra exigida sai do efetivo que a própria contratante
+            # declarou. O que NÃO sai daqui é quantas respostas o recorte
+            # reunido tem: esse número está abaixo do piso por definição.
+            "required_responses": achado.required_responses,
+            "declared_headcount": achado.declared_headcount,
+            "escalation": achado.escalation,
+        }
+        for achado in achados
+    ]
+
+
+def _nr1_campaign_level_declaration(progress: dict) -> list[dict]:
+    """A insuficiência do conjunto, quando não há quebra por recorte a mostrar.
+
+    Abaixo do piso da campanha o SQL não devolve verdito por unidade — numa
+    campanha minúscula, dizer quais unidades apareceram revelaria quais tiveram
+    ao menos uma resposta. A declaração existe mesmo assim, porque o que não
+    pode acontecer é a tela não dizer nada.
+    """
+    if progress.get("status") != "closed":
+        return []
+    return [
+        {
+            "unit_id": None,
+            "dimension_id": None,
+            "nr1_factor": None,
+            "risk_level": nr1_compliance.UNCLASSIFIABLE_LEVEL,
+            "gate": "campanha_abaixo_do_piso",
+            "required_responses": None,
+            "declared_headcount": None,
+            "escalation": nr1_compliance.escalation_note("campanha_abaixo_do_piso"),
+        }
+    ]
+
+
 @app.get("/api/organizations/{organization_id}/nr1/campaigns/{campaign_id}/panel")
 async def read_nr1_panel(organization_id: str, campaign_id: str, request: Request):
     """Aggregated psychosocial panel, or an explicit suppression notice."""
@@ -9432,6 +9506,14 @@ async def read_nr1_panel(organization_id: str, campaign_id: str, request: Reques
         progress.get("substantive_responses", progress.get("responses") or 0) or 0
     )
     verdict = _nr1_representativeness(progress)
+    criteria = _nr1_criteria_for(context)
+    # Os recortes que os portões reprovaram. Vêm ANTES da bifurcação porque
+    # existem nos dois casos: quando nada passou e quando parte passou. Um
+    # painel que mostra três setores e cala sobre o quarto afirma, pelo
+    # silêncio, que o quarto está bem.
+    declarados = _nr1_declared_findings(
+        context, campaign_id, criteria, progress, total
+    )
     if not rows:
         # Distinguish the reasons, otherwise an open campaign that already
         # cleared the floor would report an empty notice and look broken.
@@ -9460,12 +9542,17 @@ async def read_nr1_panel(organization_id: str, campaign_id: str, request: Reques
             "campaign_id": campaign_id,
             "reportable": False,
             "risks": [],
+            # Nada classificado não é o mesmo que nada a dizer. Quando nem a
+            # campanha atinge o piso, froid_nr1_unclassifiable_cohorts não
+            # devolve quebra por unidade — de propósito, porque numa campanha
+            # minúscula isso revelaria quais unidades tiveram ao menos uma
+            # resposta — e a insuficiência declarada é a do conjunto.
+            "declared": declarados or _nr1_campaign_level_declaration(progress),
             "progress": progress,
             "representativeness": _nr1_representativeness_payload(verdict),
             "notice": notice,
         }
 
-    criteria = _nr1_criteria_for(context)
     graded = nr1_compliance.grade_all(
         (nr1_compliance.DimensionScore(**row) for row in rows), criteria
     )
@@ -9479,6 +9566,11 @@ async def read_nr1_panel(organization_id: str, campaign_id: str, request: Reques
         "notice": "",
         "progress": progress,
         "representativeness": _nr1_representativeness_payload(verdict),
+        # Campanha que publica parte dos recortes precisa dizer o que aconteceu
+        # com o resto. Sem isto o painel mostra os setores que foram bem e cala
+        # sobre os que não formaram coorte — e um setor ausente da tela é lido
+        # como setor sem problema.
+        "declared": declarados,
         "risks": [
             {
                 "dimension_id": risk.dimension_id,
@@ -9540,22 +9632,55 @@ async def generate_nr1_inventory(
     total = int(
         progress.get("substantive_responses", progress.get("responses") or 0) or 0
     )
-    if not rows:
-        if progress.get("status") != "closed":
-            raise HTTPException(
-                status_code=409,
-                detail="encerre a coleta antes de gerar o inventário",
-            )
+    # Coleta aberta continua sendo 409, e por outro motivo: não é insuficiência
+    # de evidência, é resultado que ainda não existe. Gerar inventário de
+    # campanha em andamento congelaria uma foto que a próxima resposta muda.
+    if progress.get("status") != "closed":
         raise HTTPException(
             status_code=409,
-            detail=nr1_compliance.suppression_notice(total)
-            or nr1_compliance.representativeness_notice(
-                _nr1_representativeness(progress)
-            )
-            or "campanha sem coorte suficiente para gerar inventário",
+            detail="encerre a coleta antes de gerar o inventário",
         )
 
     criteria = _nr1_criteria_for(context)
+    # Campanha encerrada SEMPRE gera documento, mesmo sem nada classificado.
+    #
+    # Até 25/08/2026 esta função devolvia 409 quando nenhum recorte passava nos
+    # portões: a empresa pagava o ciclo e não recebia documento nenhum, e ficava
+    # sem nada para mostrar a uma fiscalização que continua cobrando dela. Pior,
+    # a ausência de documento era lida como ausência de risco.
+    #
+    # 1.5.7.3.1 manda consolidar no inventário os dados da identificação de
+    # perigos e das avaliações — não apenas os riscos que couberam numa
+    # classificação. E 1.5.4.2.1.3 é explícito ao mandar registrar no inventário
+    # o risco cuja medida não pôde ser adotada de imediato.
+    declarados = _nr1_declared_findings(
+        context, campaign_id, criteria, progress, total
+    )
+    if not rows and not declarados:
+        declarados = _nr1_campaign_level_declaration(progress)
+        # A declaração de campanha não tem dimensão nem unidade, e o inventário
+        # exige as duas. Ela vive na resposta e no aviso, não como linha.
+        declarados_para_gravar: list[dict] = []
+    else:
+        declarados_para_gravar = [
+            {
+                "unit_id": achado["unit_id"],
+                "dimension_id": achado["dimension_id"],
+                "nr1_factor": achado["nr1_factor"],
+                "cohort_size": None,
+                "mean_score": None,
+                "severity": None,
+                "probability": None,
+                "risk_level": nr1_compliance.UNCLASSIFIABLE_LEVEL,
+                "risk_classification": nr1_compliance.UNCLASSIFIABLE_LEVEL,
+                "rationale": achado["escalation"],
+                "suppression_gate": achado["gate"],
+                "escalation_note": achado["escalation"],
+                "exposed_workers": achado["declared_headcount"] or 0,
+            }
+            for achado in declarados
+        ]
+
     graded = nr1_compliance.grade_all(
         (nr1_compliance.DimensionScore(**row) for row in rows), criteria
     )
@@ -9583,7 +9708,12 @@ async def generate_nr1_inventory(
                 "risk_classification": risk.risk_level,
             }
             for risk in graded
-        ],
+        ]
+        # As linhas declaradas entram no MESMO documento, e não num anexo.
+        # Separá-las produziria um inventário que parece completo e uma folha à
+        # parte que ninguém abre — que é exatamente como se perde a informação
+        # de que um setor não foi avaliado.
+        + declarados_para_gravar,
         review_interval_months=_nr1_review_interval_months(context),
     )
 
@@ -9613,6 +9743,12 @@ async def generate_nr1_inventory(
     return {
         "campaign_id": campaign_id,
         "inventory_rows": stored,
+        # Quantas linhas do inventário são declaração de insuficiência, e não
+        # classificação. Separadas na RESPOSTA — nunca no documento — para que a
+        # tela possa dizer "12 riscos classificados, 3 recortes sem coorte" em
+        # vez de anunciar 15 riscos avaliados, que seria falso.
+        "declared_rows": len(declarados_para_gravar),
+        "declared": declarados,
         "action_plan_rows": plan_rows,
         "action_plan_seed": seed,
     }
