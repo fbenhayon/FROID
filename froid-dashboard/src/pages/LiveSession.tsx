@@ -3022,8 +3022,38 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         if (offerWatchdogTimer) window.clearTimeout(offerWatchdogTimer);
         offerWatchdogTimer = null;
       };
-      const makeOffer = async () => {
-        if (rtcMakingOfferRef.current || peer.signalingState !== "stable") return;
+      // `forcar` desfaz uma oferta pendente antes de refazer, e existe por um
+      // impasse real observado em consulta (26/08/2026):
+      //
+      //   1. o paciente cai; o peer do profissional vai para `failed`
+      //   2. o tratamento de `failed` chama makeOffer, que fica em
+      //      `have-local-offer` — e essa oferta vai para uma sala VAZIA
+      //   3. o paciente volta; o servidor manda `peer-joined`
+      //   4. o profissional chama makeOffer... que desiste em silencio,
+      //      porque `signalingState !== "stable"`
+      //
+      // Os dois ficavam esperando: "Reconectando midia do paciente..." de um
+      // lado, "Aguardando chamada do profissional..." do outro. A guarda de
+      // estado esta certa para evitar colisao de ofertas; o que faltava era
+      // distinguir a oferta que ainda pode ser respondida daquela que foi
+      // entregue a ninguem. Quando o par ACABA de entrar, a pendente e sempre
+      // do segundo tipo.
+      // Leitura fresca do estado. Ler `peer.signalingState` direto depois do
+      // rollback faz o TypeScript reprovar: ele estreitou o tipo na condicao
+      // anterior e conclui que a comparacao e impossivel. E impossivel para o
+      // compilador, nao para o runtime — o rollback muda o estado justamente
+      // entre as duas leituras.
+      const estadoDaSinalizacao = (): RTCSignalingState => peer.signalingState;
+      const makeOffer = async (forcar = false) => {
+        if (rtcMakingOfferRef.current) return;
+        if (estadoDaSinalizacao() !== "stable") {
+          if (!forcar || estadoDaSinalizacao() !== "have-local-offer") return;
+          clearOfferWatchdog();
+          await peer
+            .setLocalDescription({ type: "rollback" })
+            .catch(() => undefined);
+          if (estadoDaSinalizacao() !== "stable") return;
+        }
         rtcMakingOfferRef.current = true;
         try {
           const offer = await peer.createOffer();
@@ -3250,9 +3280,13 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       const handleSignal = async (event: MessageEvent) => {
         const data = JSON.parse(String(event.data || "{}"));
         if (data.type === "signal-ready" && data.peer_connected) {
-          await makeOffer();
+          await makeOffer(true);
         } else if (data.type === "peer-joined") {
-          await makeOffer();
+          // O par ACABOU de entrar: qualquer oferta pendente foi para a sala
+          // vazia e nunca sera respondida. Forcar aqui e o que desfaz o
+          // impasse — sem isso, quem reentra fica esperando uma chamada que o
+          // outro lado ja desistiu de refazer.
+          await makeOffer(true);
         } else if (data.type === "answer" && data.answer) {
           if (peer.signalingState !== "have-local-offer") return;
           clearOfferWatchdog();
@@ -3260,7 +3294,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           await flushIceQueue();
         } else if (data.type === "renegotiate-request") {
           peer.restartIce();
-          await makeOffer();
+          await makeOffer(true);
         } else if (data.type === "ice" && data.candidate) {
           if (peer.remoteDescription) {
             await peer.addIceCandidate(data.candidate).catch(() => undefined);

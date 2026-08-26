@@ -78,8 +78,86 @@ describe("a oferta para de sair para uma sala vazia", () => {
   });
 
   it("peer-joined continua sendo o gatilho da oferta", () => {
+    // A chamada ganhou o argumento `true` logo depois desta trava nascer: quem
+    // acaba de entrar tem prioridade sobre uma oferta que foi para a sala
+    // vazia. O que importa aqui é que peer-joined OFERTE — a forma da chamada
+    // é detalhe, e travar a grafia reprovaria a correção seguinte.
     expect(PROFISSIONAL).toContain('data.type === "peer-joined"');
     const i = PROFISSIONAL.indexOf('data.type === "peer-joined"');
-    expect(PROFISSIONAL.slice(i, i + 200)).toContain("makeOffer()");
+    expect(PROFISSIONAL.slice(i, i + 400)).toMatch(/makeOffer\(/);
+  });
+});
+
+/**
+ * O impasse da oferta órfã.
+ *
+ * Observado na mesma consulta, logo depois do peer-waiting. A sequência:
+ *
+ *   1. o paciente cai; o peer do profissional vai para `failed`
+ *   2. o tratamento de `failed` chama makeOffer, que fica em `have-local-offer`
+ *      — e essa oferta vai para uma sala VAZIA
+ *   3. o paciente volta; o servidor manda `peer-joined`
+ *   4. o profissional chama makeOffer... e desiste em silêncio, porque
+ *      `signalingState !== "stable"`
+ *
+ * Resultado: "Reconectando mídia do paciente..." de um lado e "Aguardando
+ * chamada do profissional..." do outro, os dois esperando o outro, para
+ * sempre.
+ *
+ * A guarda de estado está certa — ela evita colisão de ofertas. O que faltava
+ * era distinguir a oferta que ainda pode ser respondida daquela que foi
+ * entregue a ninguém. Quando o par ACABA de entrar, a pendente é sempre do
+ * segundo tipo.
+ */
+describe("oferta pendente não pode travar quem acabou de entrar", () => {
+  it("makeOffer aceita forçar", () => {
+    expect(PROFISSIONAL).toContain("const makeOffer = async (forcar = false)");
+  });
+
+  it("forçar desfaz a oferta pendente com rollback", () => {
+    const i = PROFISSIONAL.indexOf("const makeOffer = async (forcar = false)");
+    const trecho = PROFISSIONAL.slice(i, i + 900);
+    expect(trecho).toContain('setLocalDescription({ type: "rollback" })');
+    expect(trecho).toContain('!== "have-local-offer"');
+  });
+
+  it("só força quando pedido — a guarda continua valendo por padrão", () => {
+    // Sem a guarda, duas ofertas simultâneas colidem. O padrão continua sendo
+    // desistir; forçar é a exceção de quem sabe que a sala mudou.
+    const i = PROFISSIONAL.indexOf("const makeOffer = async (forcar = false)");
+    expect(PROFISSIONAL.slice(i, i + 400)).toContain("if (!forcar");
+  });
+
+  it("peer-joined força a oferta", () => {
+    const i = PROFISSIONAL.indexOf('data.type === "peer-joined"');
+    expect(PROFISSIONAL.slice(i, i + 400)).toContain("makeOffer(true)");
+  });
+
+  it("renegotiate-request força a oferta", () => {
+    const i = PROFISSIONAL.indexOf('data.type === "renegotiate-request"');
+    expect(PROFISSIONAL.slice(i, i + 200)).toContain("makeOffer(true)");
+  });
+});
+
+describe("o paciente deixa de ser passivo", () => {
+  it("trata signal-ready e peer-joined", () => {
+    // Ele tratava offer, ice, peer-left e session-ended, e mais nada. As duas
+    // mensagens que dizem "o profissional está aí" passavam batidas.
+    expect(PACIENTE).toContain('data.type === "signal-ready"');
+    expect(PACIENTE).toContain('data.type === "peer-joined"');
+  });
+
+  it("pede a chamada quando o profissional já está na sala", () => {
+    // Quem sabe que acabou de entrar é o paciente. Pedir daqui é o que tira os
+    // dois do impasse quando o peer-joined do outro lado se perde.
+    const i = PACIENTE.indexOf('data.type === "signal-ready"');
+    const trecho = PACIENTE.slice(i, i + 700);
+    expect(trecho).toContain('sendSignal({ type: "renegotiate-request" })');
+    expect(trecho).toContain("peer_connected");
+  });
+
+  it("não pede nada quando está sozinho na sala", () => {
+    const i = PACIENTE.indexOf('data.type === "signal-ready"');
+    expect(PACIENTE.slice(i, i + 700)).toMatch(/Aguardando chamada do profissional/);
   });
 });

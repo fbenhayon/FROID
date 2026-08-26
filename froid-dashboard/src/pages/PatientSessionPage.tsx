@@ -412,6 +412,27 @@ export const PatientSessionPage: React.FC = () => {
     let reconnectAttempt = 0;
     const handleSignal = async (event: MessageEvent) => {
       const data = JSON.parse(String(event.data || "{}"));
+      // O paciente era inteiramente PASSIVO: tratava `offer`, `ice`,
+      // `peer-left` e `session-ended`, e mais nada. Nao tratava `signal-ready`
+      // nem `peer-joined` — as duas mensagens que dizem "o profissional esta
+      // ai". Ele abria o socket, escrevia "Aguardando chamada do
+      // profissional..." e esperava, sem nunca poder pedir a chamada.
+      //
+      // Isso importa porque o profissional pode estar com uma oferta pendente
+      // que foi para a sala vazia enquanto o paciente estava fora. Quem sabe
+      // que acabou de entrar e o paciente; pedir a renegociacao daqui e o que
+      // tira os dois do impasse quando o `peer-joined` do outro lado se perde.
+      if (data.type === "signal-ready" || data.type === "peer-joined") {
+        const profissionalPresente =
+          data.type === "peer-joined" || Boolean(data.peer_connected);
+        if (profissionalPresente) {
+          sendSignal({ type: "renegotiate-request" });
+          setCallStatus("Conectando com o profissional...");
+        } else {
+          setCallStatus("Aguardando chamada do profissional...");
+        }
+        return;
+      }
       if (data.type === "offer" && data.offer) {
         if (peer.signalingState !== "stable") return;
         await peer.setRemoteDescription(data.offer);
