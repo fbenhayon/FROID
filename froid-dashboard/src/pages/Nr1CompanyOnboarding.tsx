@@ -307,7 +307,30 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
       );
       return;
     }
-    if (catalogo?.acceptance_required && !contratoAceito) {
+    // O aceite e exigido SEMPRE nesta tela, e nao so quando
+    // FROID_LEGAL_ACCEPTANCE_REQUIRED esta ligado no servidor.
+    //
+    // Aquela variavel e global e vale `false` por padrao — ela governa tambem
+    // o cadastro clinico e o TCLE do paciente, onde o aceite pode ser
+    // dispensavel conforme a jurisdicao. Aqui nao pode: este formulario
+    // CONTRATA um servico pago de conformidade. Concluir a contratacao sem
+    // prova de aceite produz exatamente o cenario que o comprovante existe
+    // para evitar — e foi o que aconteceu no primeiro cadastro real, que
+    // respondeu sucesso e deixou o livro de aceites vazio.
+    //
+    // O servidor grava o aceite valido mesmo com a exigencia desligada
+    // (_validated_legal_acceptances registra o que e valido em qualquer caso),
+    // entao basta a tela nao deixar passar sem ele.
+    if (!paraAceitar.length) {
+      setErro(
+        "Os documentos desta contratação não puderam ser carregados, e sem " +
+          "eles não há o que aceitar. Recarregue a página; se persistir, " +
+          `escreva para ${CONTATO} — o cadastro não foi concluído de propósito, ` +
+          "para não registrar contratação sem aceite.",
+      );
+      return;
+    }
+    if (!contratoAceito) {
       setErro("É preciso aceitar o contrato de prestação de serviço para continuar.");
       return;
     }

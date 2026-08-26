@@ -261,3 +261,21 @@ describe("a empresa já cadastrada não pode cair num beco", () => {
     expect(PAGINA).toContain("Registrar aceite e continuar");
   });
 });
+
+describe("contratar sem prova de aceite não pode acontecer", () => {
+  // Descoberto em 26/08/2026: FROID_LEGAL_ACCEPTANCE_REQUIRED vale `false` em
+  // produção, e o primeiro cadastro real respondeu sucesso com o livro de
+  // aceites vazio. A variável é global — governa também o TCLE do paciente,
+  // onde a dispensa pode ser legítima. Nesta tela não é: aqui se CONTRATA.
+  it("não condiciona o aceite à variável global do servidor", () => {
+    expect(PAGINA).not.toContain("catalogo?.acceptance_required && !contratoAceito");
+    expect(PAGINA_CORRIDA).toMatch(/if \(!contratoAceito\) \{/);
+  });
+
+  it("recusa concluir quando os documentos não carregaram", () => {
+    // Sem catálogo não há caixa de aceite na tela. Deixar passar registraria
+    // contratação sem aceite justamente no caso em que ninguém perceberia.
+    expect(PAGINA).toContain("if (!paraAceitar.length)");
+    expect(PAGINA_CORRIDA).toMatch(/não foi concluído de propósito/);
+  });
+});
