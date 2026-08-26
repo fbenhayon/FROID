@@ -9,6 +9,7 @@ import logging
 import os
 import re
 import secrets
+import socket
 import threading
 import time
 import unicodedata
@@ -146,6 +147,16 @@ FROID_ANALYTICS_MAX_SUPPRESSION_RATIO = min(
 FROID_DATAMART_PSEUDONYM_KEY = os.getenv(
     "FROID_DATAMART_PSEUDONYM_KEY", ""
 ).strip()
+# Minimo de 32 bytes, a mesma regua que FROID_LEGAL_AUDIT_HMAC_KEY sempre teve.
+#
+# A inconsistencia era real e tinha consequencia: qualquer string nao-vazia
+# passava por "configurada", e esta chave e a que sustenta o anonimato do
+# trabalhador no NR-1 — e o HMAC da matricula. Chave curta se reconstroi por
+# forca bruta a partir da folha de pagamento que o empregador ja tem, e ai o
+# pseudonimo deixa de pseudonimizar. "Existe" nao era resposta suficiente.
+FROID_DATAMART_PSEUDONYM_KEY_FORTE = (
+    len(FROID_DATAMART_PSEUDONYM_KEY.encode("utf-8")) >= 32
+)
 FROID_TURN_URLS = [
     url.strip()
     for url in os.getenv("FROID_TURN_URLS", "").split(",")
@@ -162,6 +173,109 @@ FROID_ICE_TRANSPORT_POLICY = os.getenv(
 if FROID_ICE_TRANSPORT_POLICY not in {"all", "relay"}:
     FROID_ICE_TRANSPORT_POLICY = "all"
 FROID_REQUIRE_TURN = os.getenv("FROID_REQUIRE_TURN", "false").strip().lower() == "true"
+FROID_TURN_PROBE_TTL_SECONDS = max(
+    10, min(600, int(os.getenv("FROID_TURN_PROBE_TTL_SECONDS", "60") or "60"))
+)
+# Resultado da ultima sonda: (momento, alcancavel, detalhe).
+_TURN_PROBE_CACHE: tuple[float, bool, str] = (0.0, False, "ainda nao sondado")
+
+
+def _turn_endpoints() -> list[tuple[str, int]]:
+    """Host e porta de cada URL de TURN configurada.
+
+    `turn:200.0.0.1:3478?transport=udp` -> ("200.0.0.1", 3478). Aceita tambem
+    a forma sem porta, que por RFC vale 3478.
+    """
+    destinos: list[tuple[str, int]] = []
+    for url in FROID_TURN_URLS:
+        corpo = url.split(":", 1)[1] if ":" in url else url
+        corpo = corpo.split("?", 1)[0]
+        if corpo.count(":") == 1:
+            host, _, porta = corpo.partition(":")
+        else:
+            host, porta = corpo, "3478"
+        host = host.strip("[]").strip()
+        try:
+            destinos.append((host, int(porta)))
+        except ValueError:
+            continue
+    return destinos
+
+
+def _probe_turn_once(host: str, porta: int, timeout: float = 1.5) -> bool:
+    """Pergunta ao servidor TURN se ele esta vivo, e espera a resposta.
+
+    STUN Binding Request cru: 20 bytes de cabecalho, sem autenticacao. O
+    coturn responde a isso mesmo com `use-auth-secret` ligado — autenticacao so
+    e exigida para alocar relay, nao para o binding. Se nada volta, ninguem
+    atende naquela porta.
+
+    Existe porque `turn_configured` conferia apenas se as variaveis estavam
+    preenchidas. Numa consulta real, elas estavam — e o contêiner do coturn
+    nunca havia subido, porque o servico tem `profiles: ["webrtc"]` no compose
+    e nao entra em `docker compose up` comum. A checagem dizia "configurado" e
+    a chamada nao conectava; nada no sistema ligava as duas coisas.
+    """
+    transacao = secrets.token_bytes(12)
+    # tipo=0x0001 (Binding Request), comprimento=0, magic cookie, transacao.
+    # Escrito em hexadecimal de proposito: literal de byte com escapes e
+    # exatamente o que se corrompe quando este arquivo e editado por
+    # script — e foi o que aconteceu ao escrever esta funcao, no mesmo dia
+    # em que a varredura de bytes de controle nasceu. bytes.fromhex nao tem
+    # escape nenhum, entao nao ha o que corromper.
+    #   0001 = Binding Request | 0000 = comprimento | 2112a442 = magic cookie
+    pedido = bytes.fromhex("00010000" "2112a442") + transacao
+    sock = None
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.settimeout(timeout)
+        sock.sendto(pedido, (host, porta))
+        resposta, _ = sock.recvfrom(1024)
+        # 0x0101 = Binding Success. Conferir a transacao impede aceitar
+        # pacote perdido de outra conversa como se fosse resposta nossa.
+        return (
+            len(resposta) >= 20
+            and resposta[0:2] == bytes.fromhex("0101")
+            and resposta[8:20] == transacao
+        )
+    except Exception:
+        return False
+    finally:
+        if sock is not None:
+            try:
+                sock.close()
+            except Exception:
+                pass
+
+
+def turn_reachable() -> tuple[bool, str]:
+    """O TURN responde? Com cache curto, para nao sondar a cada /health."""
+    global _TURN_PROBE_CACHE
+    if not FROID_TURN_URLS or not FROID_TURN_SECRET:
+        return False, "TURN nao configurado"
+    agora = time.time()
+    quando, alcancavel, detalhe = _TURN_PROBE_CACHE
+    if agora - quando < FROID_TURN_PROBE_TTL_SECONDS:
+        return alcancavel, detalhe
+    destinos = _turn_endpoints()
+    if not destinos:
+        _TURN_PROBE_CACHE = (agora, False, "nenhuma URL de TURN interpretavel")
+        return _TURN_PROBE_CACHE[1], _TURN_PROBE_CACHE[2]
+    respondendo = [f"{h}:{p}" for h, p in destinos if _probe_turn_once(h, p)]
+    if respondendo:
+        _TURN_PROBE_CACHE = (agora, True, f"responde: {', '.join(respondendo)}")
+    else:
+        alvos = ", ".join(f"{h}:{p}" for h, p in destinos)
+        _TURN_PROBE_CACHE = (
+            agora,
+            False,
+            f"nenhum servidor TURN respondeu ao STUN binding em {alvos} — "
+            "o contêiner do relay pode não estar no ar (o serviço froid-turn "
+            "tem profiles:[webrtc] e não sobe em 'docker compose up' comum), "
+            "ou as portas 3478/udp e 49160-49200/udp podem estar fechadas",
+        )
+    return _TURN_PROBE_CACHE[1], _TURN_PROBE_CACHE[2]
+
 FROID_SESSION_REPORTS_PATH = os.getenv(
     "FROID_SESSION_REPORTS_PATH",
     "/data/session_reports.json",
@@ -6107,6 +6221,19 @@ def legal_documents(jurisdiction: str = "BR"):
     }
 
 
+def _midia_turn() -> tuple[bool, str]:
+    """A sonda, blindada: /health nunca pode cair por causa dela.
+
+    Health que quebra quando a checagem quebra e pior que health incompleto —
+    quem o consulta perde a informacao toda, inclusive a que estava boa.
+    """
+    try:
+        return turn_reachable()
+    except Exception:
+        LOGGER.exception("Unable to probe TURN")
+        return False, "falha ao sondar o TURN"
+
+
 @app.get("/health")
 def health():
     return {
@@ -6118,7 +6245,15 @@ def health():
             FROID_TENANT_ENFORCEMENT_ORGANIZATIONS
         ),
         "media": {
+            # `turn_configured` responde "as variaveis estao preenchidas".
+            # `turn_reachable` responde "alguem atende naquela porta". Sao
+            # perguntas diferentes, e por muito tempo so a primeira era feita:
+            # numa consulta real as variaveis estavam certas, o contêiner do
+            # relay nunca havia subido, e nada no sistema ligava as duas
+            # coisas. Quem le /health precisa das duas respostas.
             "turn_configured": bool(FROID_TURN_URLS and FROID_TURN_SECRET),
+            "turn_reachable": _midia_turn()[0],
+            "turn_detail": _midia_turn()[1],
             "ice_transport_policy": FROID_ICE_TRANSPORT_POLICY,
         },
     }
@@ -6133,7 +6268,11 @@ def readiness():
     )
     security_checks = {
         "clinical_record_encryption_configured": bool(CLINICAL_TEXT_CIPHER),
-        "datamart_pseudonym_key_configured": bool(FROID_DATAMART_PSEUDONYM_KEY),
+        # Era `bool(...)`: qualquer string nao-vazia passava. E esta a chave
+        # que sustenta o anonimato do trabalhador no NR-1 — o HMAC da
+        # matricula. Chave curta se reconstroi por forca bruta a partir da
+        # folha de pagamento que o empregador ja tem.
+        "datamart_pseudonym_key_configured": FROID_DATAMART_PSEUDONYM_KEY_FORTE,
         "google_token_encryption_configured": (
             bool(TOKEN_CIPHER) if _calendar_configured() else True
         ),
@@ -6141,6 +6280,13 @@ def readiness():
             bool(FROID_TURN_URLS and FROID_TURN_SECRET)
             if FROID_REQUIRE_TURN
             else True
+        ),
+        # A checagem que muda o veredito. Com FROID_REQUIRE_TURN ligado, o
+        # servidor declara que a chamada DEPENDE do relay — e entao "as
+        # variaveis estao preenchidas" nao e resposta: o que decide se a
+        # sessao conecta e o relay atender.
+        "rtc_relay_reachable": (
+            _midia_turn()[0] if FROID_REQUIRE_TURN else True
         ),
     }
     billing_checks = {
