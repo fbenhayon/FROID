@@ -157,7 +157,7 @@ class GrantsTests(unittest.TestCase):
         fonte = (SERVER_DIR / "tenant_store.py").read_text(encoding="utf-8")
         for tabela in ESCRITAS_PELO_OWNER:
             for trecho in re.finditer(
-                rf"(INSERT INTO|UPDATE)\s+{tabela}", fonte
+                rf"(INSERT INTO|UPDATE)\s+{tabela}(?![A-Za-z0-9_])", fonte
             ):
                 antes = fonte[max(0, trecho.start() - 2500):trecho.start()]
                 metodo = antes.rfind("    def ")

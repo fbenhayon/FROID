@@ -30,6 +30,7 @@ import {
 import { apiUrl, wsUrl } from "../lib/api";
 import {
   activateRtcRelayFallback,
+  motivoDaRecusaDeSinalizacao,
   adoptRemoteTrack,
   attachRemoteMedia,
   configureConferenceSender,
@@ -3301,6 +3302,13 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           } else {
             rtcIceQueueRef.current.push(data.candidate);
           }
+        } else if (data.type === "error") {
+          // O servidor emite isto e ninguem lia. Ate agora so acontece com
+          // papel invalido na URL, que e defeito de programacao — mas
+          // mensagem de erro que se perde e como o `peer-waiting` comecou.
+          setRtcStatus(
+            `A sala recusou a conexão: ${String(data.detail || "motivo não informado")}.`,
+          );
         } else if (data.type === "peer-waiting") {
           // O servidor responde isto quando a oferta chega e o socket do
           // paciente NAO esta na sala. Ele sempre respondeu; nenhum cliente
@@ -3362,7 +3370,10 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         socket.onclose = (event) => {
           if (rtcClosingRef.current || peer.connectionState === "closed") return;
           if (!shouldReconnectRtcSignaling(event.code, reconnectAttempt, peer.connectionState)) {
-            setRtcStatus("Sinalização indisponível. Atualize a sessão para reconectar.");
+            // Era uma frase so para quatro causas diferentes, e nenhuma delas
+            // se resolvia com "atualize a sessao". Quem le esta com um
+            // paciente esperando: a frase precisa carregar a acao.
+            setRtcStatus(motivoDaRecusaDeSinalizacao(event.code));
             return;
           }
           const delay = Math.min(4_000, 500 * 2 ** reconnectAttempt);

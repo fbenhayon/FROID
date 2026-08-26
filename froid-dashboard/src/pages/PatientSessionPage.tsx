@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { apiUrl, wsUrl } from "../lib/api";
 import {
   activateRtcRelayFallback,
+  motivoDaRecusaDeSinalizacao,
   adoptRemoteTrack,
   attachRemoteMedia,
   configureConferenceSender,
@@ -422,6 +423,12 @@ export const PatientSessionPage: React.FC = () => {
       // que foi para a sala vazia enquanto o paciente estava fora. Quem sabe
       // que acabou de entrar e o paciente; pedir a renegociacao daqui e o que
       // tira os dois do impasse quando o `peer-joined` do outro lado se perde.
+      if (data.type === "error") {
+        setError(
+          `A sala recusou a conexão: ${String(data.detail || "motivo não informado")}.`,
+        );
+        return;
+      }
       if (data.type === "signal-ready" || data.type === "peer-joined") {
         const profissionalPresente =
           data.type === "peer-joined" || Boolean(data.peer_connected);
@@ -514,7 +521,11 @@ export const PatientSessionPage: React.FC = () => {
       socket.onclose = (event) => {
         if (rtcClosingRef.current || peer.connectionState === "closed") return;
         if (!shouldReconnectRtcSignaling(event.code, reconnectAttempt, peer.connectionState)) {
-          setCallStatus("Não foi possível manter a conexão. Atualize o link da sessão.");
+          // O paciente e quem tem menos como descobrir sozinho o que houve:
+          // nao tem painel, nao tem suporte, e frequentemente esta no celular.
+          // A frase precisa dizer o que ELE pode fazer.
+          setCallStatus(motivoDaRecusaDeSinalizacao(event.code));
+          setError(motivoDaRecusaDeSinalizacao(event.code));
           return;
         }
         const delay = Math.min(4_000, 500 * 2 ** reconnectAttempt);

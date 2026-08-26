@@ -20,8 +20,44 @@ type CachedRtcConfiguration = {
 
 const rtcConfigurationPromises = new Map<string, CachedRtcConfiguration>();
 
-const TERMINAL_SIGNALING_CLOSE_CODES = new Set([1008, 4000, 4401, 4402, 4403]);
+// 1013 faltava, e a ausencia tinha efeito: o servidor fecha com ele quando o
+// acesso do profissional falha por motivo nao-financeiro, e o cliente
+// reconectava oito vezes contra uma recusa deterministica — mostrando
+// "Reconectando..." o tempo todo, que e a mensagem errada para uma porta
+// fechada.
+const TERMINAL_SIGNALING_CLOSE_CODES = new Set([
+  1008, 1013, 4000, 4401, 4402, 4403,
+]);
 const MAX_INITIAL_SIGNALING_RECONNECTS = 8;
+
+/**
+ * O que dizer a quem esta na tela quando a sinalizacao e recusada.
+ *
+ * As quatro recusas produziam a MESMA frase: "Sinalizacao indisponivel.
+ * Atualize a sessao para reconectar." Atualizar nao resolve nenhuma das
+ * quatro, e quem esta lendo e um profissional com um paciente esperando —
+ * ou o paciente, sozinho, sem ninguem a quem perguntar.
+ *
+ * Cada codigo tem uma acao diferente, e e a acao que a frase precisa carregar.
+ */
+export function motivoDaRecusaDeSinalizacao(closeCode: number): string {
+  switch (closeCode) {
+    case 4401:
+      return "Esta sessão pertence a outra conta. Verifique se você entrou com o mesmo login que a criou.";
+    case 4402:
+      return "Sua conta está sem saldo de sessões. Reponha o saldo para iniciar o atendimento.";
+    case 4403:
+      return "Este convite não é válido para esta sessão, ou a janela de acesso já passou. Peça um novo link ao profissional.";
+    case 1008:
+      return "O link de acesso está malformado. Peça um novo link ao profissional.";
+    case 1013:
+      return "Seu acesso profissional está indisponível no momento. Se o cadastro estiver pendente de liberação, é isso que falta.";
+    case 4000:
+      return "Esta sessão foi aberta em outra aba ou dispositivo. Continue por lá, ou feche a outra e recarregue aqui.";
+    default:
+      return "Não foi possível manter a conexão da chamada. Recarregue a página para tentar de novo.";
+  }
+}
 
 export function shouldReconnectRtcSignaling(
   closeCode: number,
