@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { FroidUser } from "../App";
 import { apiUrl } from "../lib/api";
+import { GlossarioDeSiglas, Sigla } from "../lib/siglas";
 
 type Campaign = {
   campaign_id: string;
@@ -450,14 +451,17 @@ export const Nr1Dashboard: React.FC<{ user: FroidUser | null }> = ({ user }) => 
 
         {!criteriaPublished && (
           <p className="mt-4 rounded border border-amber-900 bg-amber-950/60 p-3 text-xs font-bold text-amber-200">
-            Critérios do GRO ainda não publicados. A gradação está usando o padrão
-            FROID — publique os critérios da sua organização para que o
-            inventário use as mesmas gradações do resto do Programa de Gerenciamento de Riscos (PGR).
+            Critérios do <Sigla nome="GRO" /> ainda não publicados. A gradação
+            está usando o padrão FROID, que é válido e ancorado na{" "}
+            <Sigla nome="NR-1" curta /> — alinhá-los à matriz que a sua
+            organização já usa no resto do <Sigla nome="PGR" /> é opcional e
+            pode ser feito depois, sem refazer avaliação nenhuma.
           </p>
         )}
         {criteriaPublished && criteriaVersion !== null && (
           <p className="mt-4 text-[11px] text-slate-500">
-            Gradação pelos critérios do GRO da organização, versão {criteriaVersion}.
+            Gradação pelos critérios do <Sigla nome="GRO" curta /> da
+            organização, versão {criteriaVersion}.
           </p>
         )}
 
@@ -652,6 +656,8 @@ export const Nr1Dashboard: React.FC<{ user: FroidUser | null }> = ({ user }) => 
             )}
           </section>
         </div>
+
+        <GlossarioDeSiglas termos={["NR-1", "GRO", "PGR", "AEP"]} />
       </main>
     </div>
   );

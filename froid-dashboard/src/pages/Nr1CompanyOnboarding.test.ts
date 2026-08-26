@@ -110,23 +110,80 @@ describe("a estrutura é ensinada enquanto é preenchida", () => {
     expect(PAGINA_CORRIDA).toMatch(/AEP/);
   });
 
-  it("explica que setor suprimido não é falha", () => {
-    expect(PAGINA_CORRIDA).toMatch(/suprimido/i);
+  it("explica que setor sem recorte não é falha", () => {
+    // "Suprimido" era o verbo do banco, não o do cliente: quem lê entende
+    // punição. O que precisa continuar dito é a razão (anonimato) e o que NÃO
+    // se perde (a resposta continua contando para o resultado da empresa).
+    expect(PAGINA_CORRIDA).toMatch(/n[aã]o por falha/i);
+    expect(PAGINA_CORRIDA).toMatch(/anonimato de quem respondeu/i);
+    expect(PAGINA_CORRIDA).toMatch(/contando para o resultado da empresa/i);
   });
 
   it("avisa quando a soma dos setores passa do efetivo da unidade", () => {
     expect(PAGINA).toContain("somaSetores > site.headcount");
   });
-});
 
-describe("o que falta antes da campanha aparece na conferência", () => {
-  it("nomeia o canal de apoio como bloqueante", () => {
-    expect(PAGINA_CORRIDA).toMatch(/canal de apoio/i);
-    expect(PAGINA_CORRIDA).toMatch(/recusa abrir campanha/i);
+  it("diz no cadastro que o setor pequeno não terá recorte, e o que fazer", () => {
+    // Descobrir isso no fim da coleta é tarde: a estrutura já foi montada, as
+    // pessoas já responderam, e a única correção possível — redesenhar o
+    // agrupamento — não cabe mais.
+    expect(PAGINA).toContain("PISO_RECORTE");
+    expect(PAGINA).toContain("const pequenos");
+    expect(PAGINA_CORRIDA).toMatch(/sem recorte pr[oó]prio/i);
+    expect(PAGINA_CORRIDA).toMatch(/um único setor/i);
   });
 
-  it("nomeia os critérios de gradação e a coerência com o PGR", () => {
-    expect(PAGINA_CORRIDA).toMatch(/crit[eé]rios de grada[çc][aã]o/i);
+  it("faz a conta antes de sugerir a fusão", () => {
+    // Sugerir "junte os pequenos" sem somar produz o pior conselho possível:
+    // três setores de 3 continuam sem recorte depois de fundidos, e a empresa
+    // refez a estrutura à toa.
+    expect(PAGINA).toContain("somaPequenos");
+    expect(PAGINA_CORRIDA).toMatch(/Mesmo somados chegam a apenas/);
+  });
+
+  it("condiciona a fusão à semelhança do trabalho", () => {
+    // A ressalva não é retórica. A NR-1 avalia condição de trabalho, e a coorte
+    // só significa alguma coisa se as pessoas dentro dela estiverem expostas ao
+    // mesmo. Sem esta frase o conselho vira instrução para diluir risco: o
+    // grupo menor desaparece dentro do maior e a média não descreve nenhum dos
+    // dois. Se alguém remover isto, este teste é o que barra.
+    expect(PAGINA_CORRIDA).toMatch(/trabalho semelhante/i);
+    expect(PAGINA_CORRIDA).toMatch(/n[aã]o descreve nenhum dos dois/i);
+  });
+});
+
+describe("a conferência entrega a próxima tela, não uma lista de pendências", () => {
+  /**
+   * Esta caixa já foi uma lista intitulada "o que falta antes da primeira
+   * campanha" terminada num `mailto:`. Nada faltava — os itens eram os campos
+   * da tela seguinte — e o cliente lia que havia sido barrado. Cadastro que
+   * termina pedindo para o cliente escrever um e-mail não termina.
+   */
+
+  it("nomeia o canal de apoio e diz que é ele que libera a coleta", () => {
+    expect(PAGINA_CORRIDA).toMatch(/canal de apoio/i);
+    expect(PAGINA_CORRIDA).toMatch(/deixar a coleta abrir/i);
+  });
+
+  it("não oferece e-mail como caminho para configurar a campanha", () => {
+    // O `mailto:` continua legítimo onde é suporte (cadastro pendente de
+    // liberação). O que não pode voltar é ele ser a saída de um passo que a
+    // própria tela seguinte resolve.
+    const conferencia = PAGINA_CORRIDA.slice(
+      PAGINA_CORRIDA.indexOf('caminho === "campanha"'),
+    );
+    expect(conferencia).toContain('to="/nr1/campanha"');
+    expect(conferencia.slice(0, conferencia.indexOf('to="/nr1/campanha"')))
+      .not.toContain("mailto");
+  });
+
+  it("apresenta os critérios padrão como válidos, e o alinhamento como opcional", () => {
+    // Dizer "critérios de gradação" numa lista de pendências fazia o cliente
+    // acreditar que o inventário não sairia sem um documento que ele não tem.
+    // Sai: o padrão FROID é ancorado na norma, e alinhá-lo à matriz do PGR da
+    // empresa é refinamento posterior.
+    expect(PAGINA_CORRIDA).toMatch(/crit[eé]rios padr[aã]o FROID/i);
+    expect(PAGINA_CORRIDA).toMatch(/opcional/i);
     expect(PAGINA_CORRIDA).toMatch(/PGR/);
   });
 
@@ -162,7 +219,10 @@ describe("o passo final não assume campanha", () => {
   });
 
   it("abaixo do piso absoluto oferece a AEP como caminho, não como consolo", () => {
-    expect(PAGINA_CORRIDA).toMatch(/O caminho desta empresa é a AEP/);
+    // `.{0,80}` porque a sigla sai por <Sigla>, que insere marcação entre as
+    // palavras: travar a frase literal reprovaria a expansão da sigla, que é
+    // exatamente o que se quer poder fazer.
+    expect(PAGINA_CORRIDA).toMatch(/O caminho desta empresa é a.{0,80}AEP/);
     expect(PAGINA).toContain('to="/nr1/aep"');
     expect(PAGINA_CORRIDA).toMatch(/Abrir a AEP desta empresa/);
   });
@@ -176,7 +236,7 @@ describe("o passo final não assume campanha", () => {
   it("nomeia a dispensa de PGR sem estendê-la à AEP", () => {
     // ME/EPP são dispensadas do PGR e NÃO da AEP. Confundir os dois é o erro
     // que faria a empresa pequena achar que não deve nada.
-    expect(PAGINA_CORRIDA).toMatch(/dispensadas do PGR/);
+    expect(PAGINA_CORRIDA).toMatch(/dispensadas do.{0,80}PGR/);
     expect(PAGINA_CORRIDA).toMatch(/obrigatória para toda organização/i);
   });
 
@@ -188,7 +248,7 @@ describe("o passo final não assume campanha", () => {
   it("mantém a AEP obrigatória também para quem tem porte de campanha", () => {
     // O questionário caracteriza a exposição; não comprova a gestão sozinho.
     expect(PAGINA).toContain('caminho !== "aep"');
-    expect(PAGINA_CORRIDA).toMatch(/Em qualquer porte a .{0,80}AEP/);
+    expect(PAGINA_CORRIDA).toMatch(/Em qualquer porte a.{0,80}AEP/);
   });
 });
 

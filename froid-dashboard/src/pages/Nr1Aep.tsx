@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { FroidUser } from "../App";
 import { apiUrl } from "../lib/api";
+import { GlossarioDeSiglas } from "../lib/siglas";
 
 type AepSummary = {
   aep_id: string;
@@ -60,7 +61,7 @@ const METHODS: Array<{ value: string; label: string }> = [
   { value: "workshop", label: "Oficina" },
   { value: "focus_group", label: "Grupo focal" },
   { value: "document_analysis", label: "Análise documental" },
-  { value: "cipa_manifestation", label: "Manifestação da CIPA" },
+  { value: "cipa_manifestation", label: "Manifestação da CIPA (Comissão Interna de Prevenção de Acidentes e de Assédio)" },
 ];
 
 const METHOD_LABEL = Object.fromEntries(
@@ -103,7 +104,10 @@ const TEXT_FIELDS: Array<{
   {
     field: "health_indicators",
     label: "Preparação — indicadores de saúde",
-    hint: "PCMSO, CAT, afastamentos considerados antes de iniciar.",
+    hint:
+      "PCMSO (Programa de Controle Médico de Saúde Ocupacional), CAT " +
+      "(Comunicação de Acidente de Trabalho), afastamentos considerados antes " +
+      "de iniciar.",
     rows: 3,
   },
   { field: "absenteeism_notes", label: "Preparação — absenteísmo", rows: 2 },
@@ -304,7 +308,7 @@ export const Nr1Aep: React.FC<{ user: FroidUser | null }> = ({ user }) => {
         <header className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-cyan-300">
-              NR-17 · Avaliação Ergonômica Preliminar
+              NR-17 (Ergonomia) · Avaliação Ergonômica Preliminar
             </p>
             <h1 className="mt-2 text-2xl font-black text-white">
               Avaliação Ergonômica Preliminar (AEP) psicossocial
@@ -628,6 +632,8 @@ export const Nr1Aep: React.FC<{ user: FroidUser | null }> = ({ user }) => {
             )}
           </section>
         </div>
+
+        <GlossarioDeSiglas termos={["NR-1", "NR-17", "AEP", "AET", "PGR", "PCMSO", "CAT", "CIPA", "MTE"]} />
       </main>
     </div>
   );

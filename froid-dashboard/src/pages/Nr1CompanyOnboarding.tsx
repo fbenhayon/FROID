@@ -15,7 +15,9 @@ import {
   exigidoNaCampanha,
   exigidoNoRecorte,
   PISO_CAMPANHA,
+  PISO_RECORTE,
 } from "../lib/nr1-representatividade";
+import { GlossarioDeSiglas, Sigla } from "../lib/siglas";
 
 /**
  * Cadastro guiado da empresa contratante do NR-1.
@@ -509,9 +511,10 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
           <section className="mt-6">
             <h1 className="text-2xl font-black">Quem é a empresa contratante</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
-              A avaliação é contratada pelo empregador e responde por um CNPJ.
-              Pessoas diferentes da mesma empresa que se cadastrarem com este
-              CNPJ passam a enxergar a mesma estrutura e as mesmas campanhas.
+              A avaliação é contratada pelo empregador e responde por um{" "}
+              <Sigla nome="CNPJ" />. Pessoas diferentes da mesma empresa que se
+              cadastrarem com este CNPJ passam a enxergar a mesma estrutura e as
+              mesmas campanhas.
             </p>
 
             <div className="mt-5 grid gap-4 md:grid-cols-2">
@@ -541,8 +544,11 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
               <span className="text-xs leading-5 text-slate-300">
                 Reconheço que a avaliação trata dados de trabalhadores de forma
                 anônima e agregada, com base no{" "}
-                <strong>cumprimento de obrigação legal</strong> (LGPD, art. 7º,
-                II, e art. 11, II, “a”) — e não no consentimento do trabalhador,
+                <strong>cumprimento de obrigação legal</strong> (<Sigla
+                  nome="LGPD"
+                />
+                , art. 7º, II, e art. 11, II, “a”) — e não no consentimento do
+                trabalhador,
                 que a relação de hierarquia comprometeria. Declaro estar de
                 acordo com a{" "}
                 {/* Só a privacidade: esta caixa é sobre tratamento de dados, e
@@ -663,8 +669,9 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
           <section className="mt-6">
             <h1 className="text-2xl font-black">Estabelecimentos</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
-              Estabelecimento é o endereço — a unidade que a NR-1 usa como
-              recorte de resultado, e sobre a qual incide a base do contrato.{" "}
+              Estabelecimento é o endereço — a unidade que a{" "}
+              <Sigla nome="NR-1" /> usa como recorte de resultado, e sobre a
+              qual incide a base do contrato.{" "}
               <strong>Departamento no mesmo endereço não é estabelecimento</strong>;
               ele entra como setor no passo seguinte.
             </p>
@@ -707,12 +714,17 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
                           {" "}Com menos de {PISO_CAMPANHA} trabalhadores nenhuma
                           campanha desta unidade produz resultado liberável — o
                           piso de anonimato é absoluto. O caminho é a{" "}
-                          <strong>AEP</strong>, obrigatória para toda organização
-                          com empregados e que não depende de piso.
+                          <strong>
+                            <Sigla nome="AEP" />
+                          </strong>
+                          , obrigatória para toda organização com empregados e
+                          que não depende de piso.
                         </>
                       )}{" "}
-                      Vale tratar isso agora — escreva para{" "}
-                      <a className="underline" href={`mailto:${CONTATO}`}>{CONTATO}</a>.
+                      <Link className="font-black underline" to="/nr1/aep">
+                        Abrir a AEP desta unidade
+                      </Link>
+                      .
                     </p>
                   )}
                 </li>
@@ -742,9 +754,12 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
           <section className="mt-6">
             <h1 className="text-2xl font-black">Setores</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
-              O setor define o recorte que pode aparecer no relatório. Setor com
-              poucos respondentes é suprimido — não por falha, mas porque é
-              assim que o anonimato de quem respondeu se sustenta.
+              O setor define o recorte que pode aparecer no relatório. Abaixo de{" "}
+              <strong>{PISO_RECORTE} pessoas</strong> o setor não ganha recorte
+              próprio — não por falha, mas porque é assim que o anonimato de quem
+              respondeu se sustenta. As pessoas continuam respondendo e contando
+              para o resultado da empresa; o que não sai é o retrato daquele
+              setor isolado.
             </p>
 
             <div className="mt-5 grid gap-3 md:grid-cols-[180px_1fr_120px_auto]">
@@ -777,13 +792,32 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
               {estabelecimentos.map((site) => {
                 const meus = setores.filter((s) => s.parent_unit_id === site.unit_id);
                 const somaSetores = meus.reduce((t, s) => t + s.headcount, 0);
+                // Os setores que não alcançam o piso de anonimato, e quanto
+                // somariam juntos. É a informação que decide o que fazer: se a
+                // soma passa do piso, agrupar resolve; se não passa, agrupar
+                // entre eles não resolve e insistir só adia a descoberta.
+                const pequenos = meus.filter(
+                  (s) => s.headcount > 0 && s.headcount < PISO_RECORTE,
+                );
+                const somaPequenos = pequenos.reduce((t, s) => t + s.headcount, 0);
+                const maiorDoSite = meus.reduce(
+                  (maior, s) => (s.headcount > (maior?.headcount ?? 0) ? s : maior),
+                  null as (typeof meus)[number] | null,
+                );
                 return (
                   <div key={site.unit_id} className="rounded-lg border border-slate-700 bg-slate-950 p-3">
                     <p className="text-sm font-black">{site.name}</p>
                     <ul className="mt-2 space-y-1">
                       {meus.map((setor) => (
                         <li key={setor.unit_id} className="flex items-center justify-between gap-2 text-sm">
-                          <span className="text-slate-200">{setor.name}</span>
+                          <span className="text-slate-200">
+                            {setor.name}
+                            {setor.headcount > 0 && setor.headcount < PISO_RECORTE && (
+                              <span className="ml-2 rounded bg-amber-950 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-300">
+                                sem recorte próprio
+                              </span>
+                            )}
+                          </span>
                           <span className="text-xs text-slate-400">{setor.headcount}</span>
                           <button
                             type="button"
@@ -796,6 +830,71 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
                       ))}
                       {!meus.length && <li className="text-xs text-slate-500">Sem setores.</li>}
                     </ul>
+
+                    {/* Dito no cadastro, e não no fim da coleta.
+                        Um setor de 4 pessoas nunca vai publicar recorte, e
+                        descobrir isso com o painel aberto na frente do cliente
+                        é a pior hora possível. Aqui ainda dá para redesenhar a
+                        estrutura, que é a única coisa que resolve. */}
+                    {pequenos.length > 0 && (
+                      <div className="mt-3 rounded border border-amber-900 bg-amber-950/40 p-3 text-xs leading-5 text-amber-100">
+                        <p className="font-black text-amber-200">
+                          {pequenos.length === 1
+                            ? "1 setor abaixo do piso de anonimato"
+                            : `${pequenos.length} setores abaixo do piso de anonimato`}
+                        </p>
+                        <p className="mt-1">
+                          {pequenos
+                            .map((s) => `${s.name} (${s.headcount})`)
+                            .join(", ")}{" "}
+                          — abaixo de {PISO_RECORTE} pessoas nenhum deles publica
+                          retrato próprio, por mais que respondam.
+                        </p>
+                        {pequenos.length > 1 && somaPequenos >= PISO_RECORTE ? (
+                          <p className="mt-2">
+                            Somados, chegam a <strong>{somaPequenos}</strong> — o
+                            bastante para um recorte. Se essas pessoas fizerem
+                            trabalho semelhante, cadastre-as como{" "}
+                            <strong>um único setor</strong> (arquive os pequenos e
+                            crie o agrupado) e o relatório passa a falar delas.
+                          </p>
+                        ) : pequenos.length > 1 ? (
+                          <p className="mt-2">
+                            Mesmo somados chegam a apenas{" "}
+                            <strong>{somaPequenos}</strong>, ainda abaixo de{" "}
+                            {PISO_RECORTE}. Agrupá-los entre si não resolve
+                            {maiorDoSite && maiorDoSite.headcount >= PISO_RECORTE
+                              ? `; o caminho é incorporá-los a “${maiorDoSite.name}”, se o trabalho for compatível.`
+                              : "; neste tamanho o recorte por setor não existe, e o retrato sai no nível do estabelecimento."}
+                          </p>
+                        ) : (
+                          <p className="mt-2">
+                            Para ganhar recorte próprio ele precisaria de{" "}
+                            {PISO_RECORTE - pequenos[0].headcount} pessoa(s) a
+                            mais. A alternativa é agrupá-lo a um setor vizinho de
+                            trabalho semelhante
+                            {maiorDoSite && maiorDoSite.unit_id !== pequenos[0].unit_id
+                              ? ` — “${maiorDoSite.name}”, por exemplo.`
+                              : "."}
+                          </p>
+                        )}
+                        {/* A ressalva que impede o conselho de virar defeito.
+                            A NR-1 avalia condição de trabalho, e a coorte só
+                            significa alguma coisa se as pessoas dentro dela
+                            estiverem expostas ao mesmo. Juntar a limpeza com o
+                            call center para "chegar a dez" produz uma média que
+                            não descreve nenhum dos dois — e o risco do grupo
+                            menor desaparece dentro do maior, que é exatamente o
+                            oposto do que o agrupamento deveria conseguir. */}
+                        <p className="mt-2 text-amber-100/75">
+                          Agrupe apenas quem faz trabalho semelhante, sob as
+                          mesmas condições e a mesma chefia. Juntar setores
+                          diferentes só para alcançar o piso produz uma média que
+                          não descreve nenhum dos dois, e some com o risco do
+                          grupo menor dentro do maior.
+                        </p>
+                      </div>
+                    )}
                     {/* A soma dos setores não precisa bater com o efetivo do
                         estabelecimento — há quem não pertença a nenhum setor
                         mapeado. Mas divergência grande costuma ser digitação, e
@@ -838,7 +937,8 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
             {caminho === "aep" && (
               <div className="mt-5 rounded-lg border border-cyan-800 bg-cyan-950/40 p-4">
                 <p className="text-sm font-black text-cyan-200">
-                  O caminho desta empresa é a AEP, e não a campanha
+                  O caminho desta empresa é a <Sigla nome="AEP" />, e não a
+                  campanha
                 </p>
                 <p className="mt-2 text-xs leading-5 text-cyan-100">
                   Com {efetivoTotal} trabalhadores nenhuma campanha produz
@@ -853,9 +953,10 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
                   Isso não reduz a sua conformidade em nada. A{" "}
                   <strong>Avaliação Ergonômica Preliminar</strong> é obrigatória
                   para toda organização com empregados — inclusive as
-                  microempresas e empresas de pequeno porte dispensadas do PGR —
-                  e não depende de piso de respondentes. Para um grupo deste
-                  tamanho o Guia MTE indica justamente diálogo com os
+                  microempresas e empresas de pequeno porte dispensadas do{" "}
+                  <Sigla nome="PGR" /> — e não depende de piso de respondentes.
+                  Para um grupo deste tamanho o Guia do <Sigla nome="MTE" />{" "}
+                  indica justamente diálogo com os
                   trabalhadores e observação da atividade em vez de formulário, e
                   é isso que a AEP registra, com o método nomeado em cada
                   evidência.
@@ -883,7 +984,11 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
                 </p>
                 <p className="mt-2 text-xs leading-5 text-amber-100">
                   A campanha continua disponível, e vale se a adesão for
-                  garantida. Mas a <strong>AEP</strong> não depende de piso, é
+                  garantida. Mas a{" "}
+                  <strong>
+                    <Sigla nome="AEP" />
+                  </strong>{" "}
+                  não depende de piso, é
                   obrigatória de todo modo e pode correr em paralelo — comece por
                   ela para não ficar sem documento se a coleta não fechar.
                 </p>
@@ -894,29 +999,69 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
                   >
                     Abrir a AEP desta empresa
                   </Link>
-                  <a
-                    className="rounded-lg border border-amber-700 px-4 py-2.5 text-sm font-black text-amber-200"
-                    href={`mailto:${CONTATO}`}
+                  <Link
+                    className="rounded-lg border border-amber-700 px-4 py-2.5 text-sm font-black text-amber-200 hover:bg-amber-900/40"
+                    to="/nr1/campanha"
                   >
-                    Configurar a campanha com a equipe
-                  </a>
+                    Criar a campanha mesmo assim
+                  </Link>
                 </div>
               </div>
             )}
 
+            {/* Esta caixa dizia "o que FALTA antes da primeira campanha" e
+                terminava num endereço de e-mail. Duas coisas erradas ao mesmo
+                tempo: nada faltava — a estrutura estava completa e o cadastro,
+                concluído —, e os quatro itens listados não são pendências, são
+                os campos da tela seguinte. Quem lia entendia que havia sido
+                barrado, e a única saída oferecida era escrever para o
+                fornecedor e esperar. Um cadastro que termina pedindo para o
+                cliente mandar um e-mail não terminou. */}
             {caminho === "campanha" && (
-              <div className="mt-5 rounded-lg border border-amber-800 bg-amber-950/40 p-4">
-                <p className="text-sm font-black text-amber-200">O que falta antes da primeira campanha</p>
-                <ul className="mt-2 space-y-1 text-xs leading-5 text-amber-100">
-                  <li>• <strong>Canal de apoio ao trabalhador</strong> — o sistema recusa abrir campanha sem ele. Perguntar a alguém como ele está sem ter para onde encaminhá-lo é pior do que não perguntar.</li>
-                  <li>• <strong>Critérios de gradação</strong> alinhados à matriz que a empresa já usa no PGR, porque a NR-1 exige coerência entre todos os riscos.</li>
-                  <li>• <strong>Janela de coleta</strong> e o aviso de finalidade aos trabalhadores.</li>
-                  <li>• <strong>Efetivo do período de referência</strong> — a campanha não abre sem ele, porque sem denominador não há amostra suficiente. Com {efetivoTotal} trabalhadores ela precisará de {exigidoNaCampanha(efetivoTotal)} respostas substantivas.</li>
-                </ul>
-                <p className="mt-3 text-xs leading-5 text-amber-100/80">
-                  Essa configuração é conduzida com a nossa equipe. Escreva para{" "}
-                  <a className="font-black text-amber-300 underline" href={`mailto:${CONTATO}`}>{CONTATO}</a>.
+              <div className="mt-5 rounded-lg border border-emerald-800 bg-emerald-950/40 p-4">
+                <p className="text-sm font-black text-emerald-200">
+                  Estrutura completa. A próxima tela cria a campanha.
                 </p>
+                <p className="mt-2 text-xs leading-5 text-emerald-100">
+                  Com {efetivoTotal} trabalhadores, a campanha da organização
+                  inteira publica com{" "}
+                  <strong>
+                    {exigidoNaCampanha(efetivoTotal)} respostas substantivas
+                  </strong>
+                  . É lá que se informa, tudo na mesma página:
+                </p>
+                <ul className="mt-2 space-y-1 text-xs leading-5 text-emerald-100">
+                  <li>
+                    • <strong>Canal de apoio ao trabalhador</strong> — nome e
+                    como acessar. É o único campo que o banco de dados exige
+                    para deixar a coleta abrir: perguntar a alguém como ele está
+                    sem ter para onde encaminhá-lo é pior do que não perguntar.
+                  </li>
+                  <li>
+                    • <strong>Janela de coleta</strong> — quando abre e quando
+                    fecha — e o <strong>aviso de finalidade</strong> que os
+                    trabalhadores leem antes da primeira pergunta.
+                  </li>
+                  <li>
+                    • <strong>Efetivo do período de referência</strong> — vem
+                    preenchido com os {efetivoTotal} desta estrutura e pode ser
+                    corrigido.
+                  </li>
+                </ul>
+                <p className="mt-3 text-xs leading-5 text-emerald-100/80">
+                  A gradação sai pelos critérios padrão FROID, ancorados na{" "}
+                  <Sigla nome="NR-1" curta /> e no Guia do{" "}
+                  <Sigla nome="MTE" curta />, e o inventário já é válido assim.
+                  Alinhá-los à matriz que a empresa usa no resto do{" "}
+                  <Sigla nome="PGR" /> é opcional e se faz depois, sem refazer
+                  nada.
+                </p>
+                <Link
+                  to="/nr1/campanha"
+                  className="mt-4 inline-block rounded-lg bg-emerald-500 px-5 py-2.5 text-sm font-black text-emerald-950 hover:bg-emerald-400"
+                >
+                  Criar a primeira campanha
+                </Link>
               </div>
             )}
 
@@ -925,7 +1070,10 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
                 isoladamente — ele caracteriza a exposicao e entra como insumo. */}
             {caminho !== "aep" && (
               <p className="mt-3 text-xs leading-5 text-slate-400">
-                Em qualquer porte a <Link className="underline" to="/nr1/aep">AEP</Link>{" "}
+                Em qualquer porte a{" "}
+                <Link className="underline" to="/nr1/aep">
+                  <Sigla nome="AEP" />
+                </Link>{" "}
                 continua obrigatória: o questionário caracteriza a exposição, não
                 comprova sozinho a gestão do risco.
               </p>
@@ -942,6 +1090,10 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
                 {caminho === "aep" ? "Ir para a AEP" : "Ir para o painel NR-1"}
               </Link>
             </div>
+
+            <GlossarioDeSiglas
+              termos={["NR-1", "PGR", "AEP", "MTE", "LGPD", "CNPJ"]}
+            />
           </section>
         )}
       </main>

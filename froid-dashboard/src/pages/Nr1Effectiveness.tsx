@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { FroidUser } from "../App";
 import { apiUrl } from "../lib/api";
+import { GlossarioDeSiglas } from "../lib/siglas";
 
 type Campaign = {
   campaign_id: string;
@@ -161,7 +162,7 @@ export const Nr1Effectiveness: React.FC<{ user: FroidUser | null }> = ({ user })
         <header className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-cyan-300">
-              NR-1 · Subitem 1.5.4.4.5.3
+              NR-1 (Norma Regulamentadora nº 1) · Subitem 1.5.4.4.5.3
             </p>
             <h1 className="mt-2 text-2xl font-black text-white">
               Eficácia das medidas de prevenção
@@ -312,6 +313,8 @@ export const Nr1Effectiveness: React.FC<{ user: FroidUser | null }> = ({ user })
             </section>
           </>
         )}
+
+        <GlossarioDeSiglas termos={["NR-1", "PGR"]} />
       </main>
     </div>
   );

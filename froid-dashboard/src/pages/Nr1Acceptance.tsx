@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 
 import type { FroidUser } from "../App";
 import { apiUrl } from "../lib/api";
+import { GlossarioDeSiglas } from "../lib/siglas";
 
 /**
  * Comprovante de aceite: documento diferente do contrato.
@@ -378,6 +379,13 @@ export const Nr1Acceptance: React.FC<Props> = ({ user }) => {
             {dados?.supplier?.contact_email || "froid@froid.com.br"}.
           </p>
         </section>
+
+        {/* Fora da impressão: o comprovante impresso é um documento jurídico e
+            não carrega glossário. Na tela ele carrega, porque quem confere o
+            documento não é necessariamente quem o assinou. */}
+        <div className="froid-nao-imprime">
+          <GlossarioDeSiglas termos={["NR-1", "CNPJ", "CPF"]} />
+        </div>
       </main>
     </div>
   );

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { FroidUser } from "../App";
 import { apiUrl } from "../lib/api";
+import { GlossarioDeSiglas } from "../lib/siglas";
 
 /**
  * Plano de ação — o segundo documento obrigatório do PGR (NR-1, 1.5.7.1 "b").
@@ -316,7 +317,7 @@ export const Nr1ActionPlan: React.FC<{ user: FroidUser | null }> = ({ user }) =>
         <header className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-cyan-300">
-              NR-1 · 1.5.7.1 "b"
+              NR-1 (Norma Regulamentadora nº 1) · 1.5.7.1 "b"
             </p>
             <h1 className="mt-2 text-2xl font-black text-white">Plano de ação</h1>
             <p className="mt-2 max-w-3xl text-sm text-slate-400">
@@ -712,6 +713,8 @@ export const Nr1ActionPlan: React.FC<{ user: FroidUser | null }> = ({ user }) =>
             );
           })}
         </section>
+
+        <GlossarioDeSiglas termos={["NR-1", "PGR", "AEP"]} />
       </main>
     </div>
   );

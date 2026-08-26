@@ -9,7 +9,9 @@ import {
   exigidoNaCampanha,
   exigidoNoRecorte,
   PISO_CAMPANHA,
+  PISO_RECORTE,
 } from "../lib/nr1-representatividade";
+import { GlossarioDeSiglas, Sigla } from "../lib/siglas";
 
 /**
  * Campanha e convites: a camada que faltava entre a estrutura da empresa e o
@@ -174,6 +176,40 @@ export function montarCsv(convites: Convite[]): string {
   return `﻿${linhas.join("\r\n")}\r\n`;
 }
 
+/**
+ * `datetime-local` exige 'AAAA-MM-DDTHH:mm' em hora LOCAL.
+ *
+ * `toISOString()` devolveria UTC e adiantaria a janela em três horas no
+ * Brasil — a coleta abriria antes do horário que a tela mostra.
+ */
+function paraCampoLocal(data: Date): string {
+  const doisDigitos = (n: number) => String(n).padStart(2, "0");
+  return (
+    `${data.getFullYear()}-${doisDigitos(data.getMonth() + 1)}-` +
+    `${doisDigitos(data.getDate())}T${doisDigitos(data.getHours())}:` +
+    `${doisDigitos(data.getMinutes())}`
+  );
+}
+
+/**
+ * Janela sugerida: começa hoje às 8h, fecha em duas semanas às 18h.
+ *
+ * Não é conveniência. O seletor de data do navegador deixa a HORA em branco
+ * quando a pessoa escolhe só o dia, e um `datetime-local` sem hora vale string
+ * VAZIA — a tela mostra "29/08/2026 --:--" e o campo, para o código, está em
+ * branco. Quem preencheu tudo o que via recebia "a janela de coleta é
+ * obrigatória" sem nada para corrigir. Nascer preenchido elimina o estado em
+ * que o campo parece cheio e está vazio.
+ */
+function janelaPadrao(): { abre: string; fecha: string } {
+  const abre = new Date();
+  abre.setHours(8, 0, 0, 0);
+  const fecha = new Date(abre);
+  fecha.setDate(fecha.getDate() + 14);
+  fecha.setHours(18, 0, 0, 0);
+  return { abre: paraCampoLocal(abre), fecha: paraCampoLocal(fecha) };
+}
+
 export const Nr1Campaign: React.FC<Props> = ({ user }) => {
   const organizationId = String(user?.active_organization_id || "");
 
@@ -191,8 +227,9 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
   const [unidadeId, setUnidadeId] = useState("");
   const [periodo, setPeriodo] = useState("");
   const [efetivo, setEfetivo] = useState("");
-  const [abreEm, setAbreEm] = useState("");
-  const [fechaEm, setFechaEm] = useState("");
+  const [janela] = useState(janelaPadrao);
+  const [abreEm, setAbreEm] = useState(janela.abre);
+  const [fechaEm, setFechaEm] = useState(janela.fecha);
   const [finalidade, setFinalidade] = useState("");
   const [canalRotulo, setCanalRotulo] = useState("");
   const [canalDetalhe, setCanalDetalhe] = useState("");
@@ -246,8 +283,30 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
   const criar = async () => {
     setErro("");
     setAviso("");
-    if (!instrumentoId || !titulo.trim() || !abreEm || !fechaEm) {
-      setErro("Instrumento, título e a janela de coleta são obrigatórios.");
+    // Um erro por campo, nomeando o campo. A mensagem única ("instrumento,
+    // título e janela são obrigatórios") era verdadeira e inútil: ela não diz
+    // QUAL dos três, e no caso mais comum — hora em branco num campo que
+    // mostra a data — o operador olha para um formulário que lhe parece
+    // completo e não tem o que corrigir.
+    if (!instrumentoId) {
+      setErro(
+        "Escolha o instrumento. Se a lista estiver vazia, nenhum questionário " +
+          "está publicado no catálogo e a campanha não tem o que aplicar.",
+      );
+      return;
+    }
+    if (!titulo.trim()) {
+      setErro("Dê um título à campanha: é por ele que ela aparece no painel.");
+      return;
+    }
+    if (!abreEm || !fechaEm) {
+      const faltando = !abreEm ? "Abertura da coleta" : "Fechamento da coleta";
+      setErro(
+        `O campo “${faltando}” precisa de data E hora. O seletor do navegador ` +
+          "deixa a hora em branco (--:--) quando só o dia é escolhido, e sem a " +
+          "hora o campo inteiro conta como vazio — clique sobre --:-- e informe " +
+          "a hora.",
+      );
       return;
     }
     if (new Date(fechaEm).getTime() <= new Date(abreEm).getTime()) {
@@ -559,7 +618,7 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
               valor={periodo}
               onChange={setPeriodo}
               placeholder="2026"
-              dica="O período do PGR a que esta avaliação se refere."
+              dica="O período do PGR (Programa de Gerenciamento de Riscos) a que esta avaliação se refere."
             />
 
             <Campo
@@ -601,7 +660,7 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
                   resultado — o piso de anonimato de {PISO_CAMPANHA} respostas é
                   absoluto. O caminho é a{" "}
                   <Link className="font-black underline" to="/nr1/aep">
-                    AEP
+                    <Sigla nome="AEP" />
                   </Link>
                   , obrigatória de todo modo e sem piso.
                 </>
@@ -610,7 +669,8 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
                   Com {efetivoNumero} trabalhadores esta campanha só publica em{" "}
                   <strong>censo</strong>: {exigidoAgora} de {efetivoNumero}{" "}
                   respostas substantivas. Como responder é voluntário, uma única
-                  recusa suspende o inventário — a AEP deve correr em paralelo.
+                  recusa suspende o inventário — a <Sigla nome="AEP" /> deve
+                  correr em paralelo.
                 </>
               ) : (
                 <>
@@ -636,11 +696,18 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
               <ul className="mt-2 space-y-1">
                 {estabelecimentos.map((site) => {
                   const exigido = exigidoNoRecorte(site.headcount);
+                  // Exigir mais respostas do que existem pessoas não é "censo",
+                  // é impossibilidade — e a tela dizia "só em censo (10 de 9)",
+                  // que soa como meta apertada quando na verdade nenhuma adesão
+                  // resolve. Acontece sempre que o efetivo é menor que o piso
+                  // de anonimato: ali o portão que barra é o do anonimato, e o
+                  // remédio não é insistir na coleta, é a AEP.
+                  const impossivel = exigido === null || exigido > site.headcount;
                   return (
                     <li key={site.unit_id}>
                       <strong>{site.name}</strong> ({site.headcount}):{" "}
-                      {exigido === null
-                        ? "abaixo do piso de coorte — não publica recorte próprio em nenhuma hipótese."
+                      {impossivel
+                        ? `abaixo do piso de anonimato (${PISO_RECORTE} respostas) — não publica recorte próprio em nenhuma hipótese, por mais adesão que haja.`
                         : exigeCenso(site.headcount)
                           ? `só em censo (${exigido} de ${site.headcount}).`
                           : `${exigido} respostas.`}
@@ -671,9 +738,11 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
                 className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
               />
               <span className="mt-1 block text-[11px] leading-4 text-slate-500">
-                Aparece antes da primeira pergunta. A base legal (LGPD art. 7º II
-                e art. 11 II “a”) é acrescentada pelo servidor — não precisa ser
-                digitada, e digitá-la errado seria pior.
+                Aparece antes da primeira pergunta. A base legal (<Sigla
+                  nome="LGPD"
+                />{" "}
+                art. 7º II e art. 11 II “a”) é acrescentada pelo servidor — não
+                precisa ser digitada, e digitá-la errado seria pior.
               </span>
             </label>
 
@@ -873,6 +942,8 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
             </>
           )}
         </section>
+
+        <GlossarioDeSiglas termos={["NR-1", "PGR", "AEP", "LGPD"]} />
       </main>
     </div>
   );
