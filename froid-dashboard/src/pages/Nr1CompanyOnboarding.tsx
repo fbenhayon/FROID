@@ -194,6 +194,53 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
     user?.active_organization_id || "",
   );
 
+  // A empresa JA cadastrada precisava redigitar tudo para chegar aos
+  // estabelecimentos, e isso e um beco.
+  //
+  // `setPasso(2)` so acontecia dentro de `salvarEmpresa`, e os campos do passo
+  // 1 nasciam vazios. Quem voltasse para acrescentar uma filial — que e
+  // exatamente o motivo pelo qual esta rota continua alcancavel — caia num
+  // formulario em branco cuja unica saida para a frente era reescrever razao
+  // social, CNPJ e responsavel. Na frente de um cliente, redigitar o CNPJ dele
+  // para conseguir cadastrar a filial e o momento em que o produto parece
+  // frageil.
+  const [jaCadastrada, setJaCadastrada] = useState(false);
+
+  useEffect(() => {
+    let ativo = true;
+    chamar("/api/professional/profile")
+      .then((dados) => {
+        if (!ativo) return;
+        const perfil = dados?.profile;
+        if (!perfil || String(perfil.account_type || "") !== "nr1_company") return;
+        setJaCadastrada(true);
+        setRazaoSocial((v) => v || String(perfil.organization_legal_name || ""));
+        setNomeFantasia((v) => v || String(perfil.organization_name || ""));
+        setCnpj((v) => v || String(perfil.organization_document || ""));
+        setResponsavel((v) => v || String(perfil.owner_name || ""));
+        setCargo((v) => v || String(perfil.profession || ""));
+        setTelefone((v) => v || String(perfil.phone || ""));
+        // O reconhecimento de tratamento de dados e fato ja registrado, e
+        // remarca-lo a cada visita seria pedir duas vezes a mesma declaracao.
+        if (perfil.lgpd_acknowledged) setReconhece(true);
+        // `contratoAceito` NUNCA e pre-marcado. Ele nao descreve um fato
+        // gravado: e o ato que a pessoa esta praticando agora, e marca-lo por
+        // ela e assinar no lugar dela.
+        if (!organizationId) {
+          const primeira = Array.isArray(dados?.organizations)
+            ? dados.organizations[0]
+            : null;
+          if (primeira?.organization_id) setOrganizationId(String(primeira.organization_id));
+        }
+      })
+      // Perfil indisponivel nao trava o cadastro novo, que e o caminho em que
+      // ele legitimamente nao existe.
+      .catch(() => undefined);
+    return () => {
+      ativo = false;
+    };
+  }, [organizationId]);
+
   const carregarUnidades = useCallback(async () => {
     if (!organizationId) return;
     try {
@@ -553,14 +600,39 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
               </div>
             )}
 
-            <button
-              type="button"
-              disabled={salvando}
-              onClick={salvarEmpresa}
-              className="mt-5 rounded-lg bg-amber-500 px-5 py-3 text-sm font-black text-amber-950 hover:bg-amber-400 disabled:opacity-60"
-            >
-              {salvando ? "Salvando..." : "Continuar"}
-            </button>
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                disabled={salvando}
+                onClick={salvarEmpresa}
+                className="rounded-lg bg-amber-500 px-5 py-3 text-sm font-black text-amber-950 hover:bg-amber-400 disabled:opacity-60"
+              >
+                {salvando
+                  ? "Salvando..."
+                  : jaCadastrada
+                    ? "Registrar aceite e continuar"
+                    : "Continuar"}
+              </button>
+              {jaCadastrada && organizationId && (
+                <button
+                  type="button"
+                  onClick={() => setPasso(2)}
+                  className="rounded-lg border border-slate-600 px-4 py-3 text-sm font-black text-slate-200 hover:bg-slate-800"
+                >
+                  Ir direto aos estabelecimentos →
+                </button>
+              )}
+            </div>
+            {jaCadastrada && (
+              <p className="mt-3 max-w-2xl text-xs leading-5 text-slate-400">
+                Esta empresa já está cadastrada, e os campos acima vieram do que
+                está gravado. Use <strong>“Ir direto aos estabelecimentos”</strong>{" "}
+                para acrescentar uma filial ou corrigir um efetivo sem tocar no
+                cadastro. O botão da esquerda salva de novo — e é ele que{" "}
+                <strong>registra o aceite dos documentos</strong>, com a data e a
+                impressão digital de hoje.
+              </p>
+            )}
           </section>
         )}
 

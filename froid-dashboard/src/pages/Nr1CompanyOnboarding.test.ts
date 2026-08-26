@@ -229,3 +229,35 @@ describe("a empresa consegue chegar ao próprio produto", () => {
     expect(bloco).toContain("defaultAuthenticatedPath(user, productChoice)");
   });
 });
+
+describe("a empresa já cadastrada não pode cair num beco", () => {
+  // O defeito: `setPasso(2)` só acontecia dentro de `salvarEmpresa`, e os
+  // campos do passo 1 nasciam vazios. Quem voltasse para acrescentar uma
+  // filial — o motivo pelo qual esta rota continua alcançável — precisava
+  // redigitar razão social, CNPJ e responsável para conseguir passar.
+  it("carrega o perfil gravado e preenche os campos", () => {
+    expect(PAGINA).toContain('chamar("/api/professional/profile")');
+    expect(PAGINA).toContain("setJaCadastrada(true)");
+    expect(PAGINA).toContain("perfil.organization_document");
+  });
+
+  it("oferece caminho direto aos estabelecimentos", () => {
+    expect(PAGINA).toContain("Ir direto aos estabelecimentos");
+    expect(PAGINA_CORRIDA).toMatch(/jaCadastrada && organizationId/);
+  });
+
+  it("nunca pré-marca o aceite do contrato", () => {
+    // `reconhece` descreve um fato já gravado e pode voltar marcado. O aceite
+    // do contrato não: ele é o ato que a pessoa está praticando agora, e
+    // marcá-lo por ela é assinar no lugar dela.
+    expect(PAGINA).toContain("if (perfil.lgpd_acknowledged) setReconhece(true)");
+    expect(PAGINA).not.toMatch(/setContratoAceito\(true\)/);
+  });
+
+  it("diz que salvar de novo é o que registra o aceite", () => {
+    // É este o caminho da reunião: a empresa já existe, e o que falta é o
+    // aceite dos documentos com a data de hoje.
+    expect(PAGINA_CORRIDA).toMatch(/registra o aceite dos documentos/i);
+    expect(PAGINA).toContain("Registrar aceite e continuar");
+  });
+});
