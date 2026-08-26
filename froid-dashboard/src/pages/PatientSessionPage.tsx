@@ -54,6 +54,12 @@ export const PatientSessionPage: React.FC = () => {
   const [remoteProfessionalOn, setRemoteProfessionalOn] = useState(false);
   const [remoteProfessionalVideoOn, setRemoteProfessionalVideoOn] = useState(false);
   const [patientName, setPatientName] = useState("");
+  // Quantas vezes ESTE convite ja foi aberto. O servidor sempre devolveu
+  // `join_count` e ninguem lia. Quando e maior que um, quase sempre significa
+  // que a sessao esta aberta em outro aparelho ou em outra aba — e o servidor
+  // guarda um socket por papel, entao o aparelho que entrar por ultimo
+  // desconecta o anterior. Dizer isso ANTES vale mais do que explicar depois.
+  const [aberturasAnteriores, setAberturasAnteriores] = useState(0);
   const [error, setError] = useState("");
   // Fim deliberado da consulta (sinal explícito do profissional, distinto de
   // uma queda de rede transitória) — habilita o encaminhamento do paciente à
@@ -121,6 +127,7 @@ export const PatientSessionPage: React.FC = () => {
       .then((data) => {
         if (!active) return;
         setPatientName(String(data?.patient_name || ""));
+        setAberturasAnteriores(Math.max(0, Number(data?.join_count || 1) - 1));
         setSessionMode(data?.session_mode === "presential_mobile" ? "presential_mobile" : "remote");
         const nextLocale = normalizeSessionLocale(data?.patient_ui_locale, uiLocale);
         setUiLocale(nextLocale);
@@ -804,6 +811,46 @@ export const PatientSessionPage: React.FC = () => {
                   : copy.enableMedia}
             </button>
           </div>
+
+          {/* O QUE VAI ACONTECER, dito antes de acontecer.
+              A tela pedia um toque num botao e nao explicava nada: nem que o
+              navegador ia pedir permissao, nem que sem ela a sessao nao
+              comeca, nem que depois disso nao ha mais nada a fazer. Quem nao
+              sabe o que esperar interpreta a espera como defeito, fecha a
+              pagina e reabre — e reabrir e justamente o que desconecta. */}
+          {mediaState !== "active" && (
+            <section className="mt-4 rounded-lg border border-cyan-900/60 bg-cyan-950/30 p-4">
+              <p className="text-xs font-black uppercase tracking-wide text-cyan-200">
+                {copy.howItWorksTitle}
+              </p>
+              <ol className="mt-3 space-y-2 text-xs leading-5 text-slate-200">
+                <li className="flex gap-2">
+                  <span className="font-black text-cyan-300">1.</span>
+                  <span>{copy.howItWorksStep1}</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="font-black text-cyan-300">2.</span>
+                  <span>{copy.howItWorksStep2}</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="font-black text-cyan-300">3.</span>
+                  <span>{copy.howItWorksStep3}</span>
+                </li>
+              </ol>
+              <p className="mt-3 border-t border-cyan-900/60 pt-3 text-xs leading-5 text-cyan-100">
+                {copy.howItWorksOneDevice}
+              </p>
+            </section>
+          )}
+
+          {/* Aviso de reabertura. Nao bloqueia — o paciente pode ter fechado o
+              outro aparelho legitimamente, e travar a entrada de quem tem
+              direito a ela seria pior que o problema. */}
+          {aberturasAnteriores > 0 && mediaState !== "active" && (
+            <p className="mt-4 rounded-md border border-amber-800/60 bg-amber-950/40 px-3 py-2 text-xs leading-5 text-amber-100">
+              {copy.alreadyOpenElsewhere}
+            </p>
+          )}
 
           {error && (
             <p className="mt-4 rounded-md border border-red-900/50 bg-red-950/50 px-3 py-2 text-xs font-semibold text-red-200">

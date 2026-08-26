@@ -2346,6 +2346,8 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   // proposito: aquele descreve a negociacao WebRTC, este descreve a pessoa. Um
   // nao pode sobrescrever o outro.
   const [presencaDoPaciente, setPresencaDoPaciente] = useState("");
+  // Acumula entre as voltas do polling: cada volta so traz os eventos novos.
+  const aberturasRef = useRef(0);
   const [remotePatientOn, setRemotePatientOn] = useState(false);
   const [remotePatientVideoOn, setRemotePatientVideoOn] = useState(false);
   const [attributedSpeaker, setAttributedSpeaker] = useState<SpeakerRole>("DR");
@@ -2524,8 +2526,27 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         const desta = eventos.filter(
           (evento) => String(evento.session_id || "") === sessionId,
         );
-        const ultimo = desta.filter((evento) => FRASES[String(evento.type)]).pop();
-        if (ultimo && ativo) setPresencaDoPaciente(FRASES[String(ultimo.type)]);
+        const relevantes = desta.filter((evento) => FRASES[String(evento.type)]);
+        const ultimo = relevantes.pop();
+        // Cada `patient_joined` e uma abertura do link. Mais de uma quase
+        // sempre significa aparelho ou aba a mais — e o servidor guarda UM
+        // socket por papel, entao quem entra por ultimo desconecta o anterior.
+        // Sem este aviso o profissional via a chamada cair e nao tinha como
+        // saber que a causa estava do outro lado, num segundo aparelho.
+        const entradas = desta.filter(
+          (evento) => String(evento.type) === "patient_joined",
+        ).length;
+        if (entradas > 0) {
+          aberturasRef.current += entradas;
+        }
+        if (ultimo && ativo) {
+          const base = FRASES[String(ultimo.type)];
+          setPresencaDoPaciente(
+            aberturasRef.current > 1
+              ? `${base} (abriu o link ${aberturasRef.current} vezes — se estiver aberto em outro aparelho, peça para fechar lá)`
+              : base,
+          );
+        }
       } catch {
         // Presença é informação auxiliar: falha ao buscá-la nunca pode
         // atrapalhar a sessão que está acontecendo.

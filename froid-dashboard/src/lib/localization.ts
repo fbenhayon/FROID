@@ -386,6 +386,14 @@ type PatientCopy = {
   enableMedia: string;
   enablingMedia: string;
   mediaActive: string;
+  // Instrucoes de conexao. Obrigatorias no tipo de proposito: idioma que
+  // ficasse sem elas mostraria a tela muda que motivou a mudanca.
+  howItWorksTitle: string;
+  howItWorksStep1: string;
+  howItWorksStep2: string;
+  howItWorksStep3: string;
+  howItWorksOneDevice: string;
+  alreadyOpenElsewhere: string;
   mediaPermission: string;
   pilotNotice: string;
   accountLocated: string;
@@ -431,6 +439,18 @@ const PATIENT_COPY: Record<SessionLocale, PatientCopy> = {
     connected: "Paciente conectado",
     blocked: "Entrada bloqueada",
     enableMedia: "Ativar áudio e vídeo",
+    howItWorksTitle:
+      "Como esta sessão vai começar",
+    howItWorksStep1:
+      "Toque no botão de ativar áudio e vídeo, abaixo.",
+    howItWorksStep2:
+      "O navegador vai pedir permissão para usar sua câmera e seu microfone. Toque em Permitir — sem isso a sessão não começa.",
+    howItWorksStep3:
+      "Pronto. O profissional aparece sozinho, em alguns segundos. Você não precisa fazer mais nada.",
+    howItWorksOneDevice:
+      "Use um aparelho só, e mantenha esta página aberta e visível. Se você abrir o mesmo link no celular e no computador, um dos dois é desconectado.",
+    alreadyOpenElsewhere:
+      "Você já abriu esta sessão antes. Se ela ainda estiver aberta em outro aparelho ou em outra aba, feche lá antes de continuar aqui.",
     enablingMedia: "Ativando...",
     mediaActive: "Áudio e vídeo ativos",
     mediaPermission: "Câmera e microfone aguardando permissão.",
@@ -490,6 +510,18 @@ const PATIENT_COPY: Record<SessionLocale, PatientCopy> = {
     connected: "Patient connected",
     blocked: "Entry blocked",
     enableMedia: "Enable audio and video",
+    howItWorksTitle:
+      "How this session will start",
+    howItWorksStep1:
+      "Tap the enable audio and video button below.",
+    howItWorksStep2:
+      "Your browser will ask permission to use your camera and microphone. Tap Allow — the session cannot start without it.",
+    howItWorksStep3:
+      "That is all. The professional appears on their own within a few seconds. You do not need to do anything else.",
+    howItWorksOneDevice:
+      "Use a single device, and keep this page open and visible. If you open the same link on a phone and a computer, one of them gets disconnected.",
+    alreadyOpenElsewhere:
+      "You have opened this session before. If it is still open on another device or tab, close it there before continuing here.",
     enablingMedia: "Enabling...",
     mediaActive: "Audio and video active",
     mediaPermission: "Camera and microphone are awaiting permission.",
@@ -549,6 +581,18 @@ const PATIENT_COPY: Record<SessionLocale, PatientCopy> = {
     connected: "Patient connecté",
     blocked: "Accès bloqué",
     enableMedia: "Activer l’audio et la vidéo",
+    howItWorksTitle:
+      "Comment cette séance va commencer",
+    howItWorksStep1:
+      "Appuyez sur le bouton d activation audio et vidéo, ci-dessous.",
+    howItWorksStep2:
+      "Votre navigateur demandera l autorisation d utiliser votre caméra et votre micro. Appuyez sur Autoriser — sans cela, la séance ne peut pas commencer.",
+    howItWorksStep3:
+      "C est tout. Le professionnel apparaît de lui-même en quelques secondes. Vous n avez rien d autre à faire.",
+    howItWorksOneDevice:
+      "Utilisez un seul appareil et gardez cette page ouverte et visible. Si vous ouvrez le même lien sur téléphone et sur ordinateur, l un des deux sera déconnecté.",
+    alreadyOpenElsewhere:
+      "Vous avez déjà ouvert cette séance. Si elle est encore ouverte sur un autre appareil ou onglet, fermez-la là-bas avant de continuer ici.",
     enablingMedia: "Activation...",
     mediaActive: "Audio et vidéo actifs",
     mediaPermission: "La caméra et le microphone attendent votre autorisation.",
@@ -608,6 +652,18 @@ const PATIENT_COPY: Record<SessionLocale, PatientCopy> = {
     connected: "Paciente conectado",
     blocked: "Acceso bloqueado",
     enableMedia: "Activar audio y vídeo",
+    howItWorksTitle:
+      "Cómo va a empezar esta sesión",
+    howItWorksStep1:
+      "Toque el botón de activar audio y vídeo, abajo.",
+    howItWorksStep2:
+      "El navegador pedirá permiso para usar su cámara y su micrófono. Toque Permitir — sin eso la sesión no puede empezar.",
+    howItWorksStep3:
+      "Listo. El profesional aparece solo en unos segundos. No necesita hacer nada más.",
+    howItWorksOneDevice:
+      "Use un solo dispositivo y mantenga esta página abierta y visible. Si abre el mismo enlace en el móvil y en el ordenador, uno de los dos se desconecta.",
+    alreadyOpenElsewhere:
+      "Ya abrió esta sesión antes. Si sigue abierta en otro dispositivo o pestaña, ciérrela allí antes de continuar aquí.",
     enablingMedia: "Activando...",
     mediaActive: "Audio y vídeo activos",
     mediaPermission: "La cámara y el micrófono esperan su autorización.",
