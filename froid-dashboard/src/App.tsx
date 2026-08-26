@@ -132,45 +132,9 @@ function localDevUser(): FroidUser | null {
   }
 }
 
-function normalizeDirectPublicPath() {
-  if (typeof window === "undefined") return;
-  if (window.location.hash) return;
-  const directRoutes: Record<string, string> = {
-    "/login": "/login",
-    "/entrar": "/login",
-    "/cadastro": "/access/register",
-    "/access/register": "/access/register",
-    "/privacidade": "/privacidade",
-    "/politica-de-privacidade": "/privacidade",
-    "/termos": "/termos",
-    "/termos-de-uso": "/termos",
-    "/paciente": "/paciente",
-    "/paciente/login": "/paciente",
-    "/paciente/portal": "/paciente",
-    "/avaliacao": "/avaliacao",
-    "/app/login": "/login",
-    "/app/entrar": "/login",
-    "/app/cadastro": "/access/register",
-    "/app/paciente": "/paciente",
-    "/app/paciente/login": "/paciente",
-    "/app/paciente/portal": "/paciente",
-    "/app/avaliacao": "/avaliacao",
-  };
-  const target = directRoutes[window.location.pathname.toLowerCase()];
-  if (!target) return;
-  // Keep the query string: the NR-1 questionnaire carries its single-use token
-  // there, and dropping it would turn a valid invitation into a dead link.
-  const search = window.location.search || "";
-  window.history.replaceState(null, "", `/app/#${target}${search}`);
-}
-
 function App() {
   const [user, setUser] = useState<FroidUser | null>(null);
   const [checkingSession, setCheckingSession] = useState(true);
-
-  useEffect(() => {
-    normalizeDirectPublicPath();
-  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem("froid_token");

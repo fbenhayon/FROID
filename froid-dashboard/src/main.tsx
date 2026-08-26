@@ -1,7 +1,17 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
+import { normalizarEntradaDireta } from './lib/entrada-direta'
 import './index.css'
+
+// ANTES do createRoot, e nao de dentro de um efeito do App.
+//
+// O HashRouter e construido durante o primeiro render e, sem `#` na URL,
+// assume "/" — que redireciona para o login e escreve `#/login`. Qualquer
+// normalizacao que rode depois disso encontra a URL ja decidida. Foi assim que
+// o convite do NR-1 chegava ao trabalhador como tela de login, com o token
+// pendurado na barra de enderecos e nenhuma mensagem de erro.
+normalizarEntradaDireta()
 
 const CHUNK_RECOVERY_KEY = 'froid_chunk_recovery'
 const CHUNK_RECOVERY_WINDOW_MS = 15_000
