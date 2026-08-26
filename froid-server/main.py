@@ -45,6 +45,7 @@ import nr1_effectiveness
 from subscriptions import (
     ACTIVE_SUBSCRIPTION_STATUSES,
     AUTO_REPLENISH_TERMS_VERSION,
+    PAID_SESSION_STATUSES,
     SESSION_PACKAGES,
     SUPPORTED_BILLING_CURRENCIES,
     SUBSCRIPTION_PLANS,
@@ -2100,7 +2101,7 @@ def _professional_access_status(email: str) -> dict:
             and lgpd_acknowledged
             and bool(selected_plan)
             and bool(professional_cpf)
-            and payment_status in {"paid", "active", "trialing"}
+            and payment_status in PAID_SESSION_STATUSES
             and remaining_sessions > 0
             and approval_ready
         )

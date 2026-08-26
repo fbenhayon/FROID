@@ -1314,16 +1314,26 @@ class AAprovacaoSobreviveAoRestart(unittest.TestCase):
 
 
 class OAdministrativoNaoEBecoSemSaida(unittest.TestCase):
-    """Botao que muda a URL e nao muda a tela e pior que botao ausente.
+    """A tela nao pode ter o "Sair" como unico caminho para fora.
 
-    O cabecalho do Administrativo oferecia "Dashboard". Para o administrador da
+    O defeito veio em duas camadas, e a correcao da primeira criou a segunda.
+
+    PRIMEIRA. O cabecalho oferecia "Dashboard". Para o administrador da
     plataforma que nunca comprou plano de sessoes para si mesmo, /dashboard esta
-    atras do onboarding clinico e devolve para /admin — entao o botao trocava a
-    URL e a tela continuava a mesma. Quem clica duas vezes conclui que o sistema
-    travou.
+    atras do onboarding clinico e devolve para /admin — o botao trocava a URL e
+    a tela continuava a mesma. Quem clica duas vezes conclui que travou.
 
-    E como ele era o unico caminho oferecido para fora da tela, o administrador
-    ficava sem saida nenhuma.
+    SEGUNDA. A correcao escondeu o botao quando ele nao levaria a lugar nenhum.
+    Honesto, e pior: sobrava UM botao no cabecalho, e era o "Sair". Em
+    26/08/2026 o titular precisou atender um paciente, entrou como
+    administrador e a unica saida oferecida encerrava a sessao.
+
+    Botao escondido nao informa — some, e a pessoa conclui que nao ha caminho.
+    A tela agora diz QUAL e a pendencia, oferece a porta que a resolve, e mantem
+    aberta a porta do NR-1, que nao depende do onboarding clinico.
+
+    Estes testes descrevem a segunda correcao. Nao restaurar a condicao
+    `destinoDoDashboard !== "/admin" && (` — foi ela o beco.
     """
 
     @classmethod
@@ -1336,9 +1346,39 @@ class OAdministrativoNaoEBecoSemSaida(unittest.TestCase):
             / "AdminDashboard.tsx"
         ).read_text(encoding="utf-8")
 
-    def test_o_botao_so_aparece_quando_leva_a_algum_lugar(self):
+    def test_o_botao_do_dashboard_so_leva_a_lugar_alcancavel(self):
+        """A primeira correcao continua de pe: nada de botao que nao leva."""
         self.assertIn("destinoDoDashboard", self.pagina)
-        self.assertIn('destinoDoDashboard !== "/admin" && (', self.pagina)
+        self.assertIn('destinoDoDashboard !== "/admin" ?', self.pagina)
+
+    def test_quando_nao_leva_a_tela_oferece_a_porta_que_resolve(self):
+        """O lugar da segunda correcao: informar em vez de sumir."""
+        self.assertIn("pendenciaDoAdministrador", self.pagina)
+        self.assertIn("nav(pendencia.destino)", self.pagina)
+        self.assertIn("pendencia?.rotulo", self.pagina)
+
+    def test_a_pendencia_e_explicada_na_tela(self):
+        """title de botao nao e explicacao: some junto com o botao."""
+        corrida = " ".join(self.pagina.split())
+        self.assertIn("O painel de atendimento", corrida)
+
+    def test_o_nr1_fica_sempre_alcancavel_daqui(self):
+        """A porta que nao depende do onboarding clinico.
+
+        A empresa contratante do NR-1 vive fora daquele fluxo. E ela que
+        impede que a unica saida da tela seja encerrar a sessao — que era o
+        estado em que a tela estava num dia de atendimento.
+        """
+        self.assertIn('nav("/nr1")', self.pagina)
+
+    def test_nao_oferece_porta_que_nao_resolve(self):
+        """Aprovacao pendente nao tem botao, de proposito.
+
+        Oferecer caminho para quem so pode esperar manda a pessoa procurar
+        solucao onde nao ha.
+        """
+        self.assertIn("manual_approval_pending", self.pagina)
+        self.assertIn('rotulo: ""', self.pagina)
 
     def test_o_destino_vem_da_mesma_regra_do_roteamento(self):
         """Perguntar a regra, e nao adivinhar de novo.

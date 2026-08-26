@@ -10,6 +10,24 @@ from typing import Any
 
 
 ACTIVE_SUBSCRIPTION_STATUSES = {"active", "trialing"}
+# Os status de pagamento que significam "o credito de sessao FOI aplicado".
+#
+# Existe porque essa lista estava escrita a mao dentro de access_ready como
+# {"paid", "active", "trialing"} e deixava de fora os dois status que o proprio
+# servidor grava quando aplica credito sem passar pelo Stripe:
+# `local_applied` (pacote com valor, aplicado localmente) e `paid_local`
+# (pacote de valor zero). Os dois saem da MESMA funcao que credita as sessoes.
+#
+# O efeito era uma contradicao, e nao uma protecao: as sessoes creditadas por
+# esse caminho sao consumiveis — o titular gastou 25 de 27 — mas o portao de
+# acesso lia o status e devolvia a pessoa para o cadastro. Credito que se gasta
+# e acesso que nao abre nao podem conviver; ou o credito nao vale, ou vale.
+#
+# Quem de fato protege contra credito indevido e
+# FROID_ALLOW_LOCAL_BILLING_FALLBACK, que vale `false` por padrao e decide se
+# o caminho local pode ser usado. Essa e a trava; esta lista so descreve o que
+# ja aconteceu.
+PAID_SESSION_STATUSES = {"paid", "active", "trialing", "paid_local", "local_applied"}
 SUPPORTED_BILLING_CURRENCIES = ("brl", "usd", "eur", "cny")
 AUTO_REPLENISH_TERMS_VERSION = "2026-07-17.multicurrency-v1"
 # Prices are intentionally not stored here. Stripe price IDs are supplied through

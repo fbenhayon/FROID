@@ -172,10 +172,21 @@ class ConcessaoTests(unittest.TestCase):
     def test_entra_pelo_estado_que_o_portao_ja_aceitava(self):
         # "trialing" ja consta de access_ready e de
         # ACTIVE_SUBSCRIPTION_STATUSES: nenhum portao foi afrouxado.
-        self.assertIn('"trialing"', FONTE)
+        #
+        # A lista deixou de ser literal em 26/08/2026 e virou
+        # PAID_SESSION_STATUSES, porque escrita a mao ela divergiu de quem
+        # grava: os status `local_applied` e `paid_local`, gravados pelo
+        # proprio servidor ao creditar sessao sem Stripe, ficavam de fora — e
+        # a conta consumia credito sem conseguir abrir o painel.
+        #
+        # Conferir o VALOR em vez do texto e mais forte: sobrevive a
+        # reformatacao e reprova de verdade se alguem tirar "trialing".
+        from subscriptions import PAID_SESSION_STATUSES
+
+        self.assertIn("trialing", PAID_SESSION_STATUSES)
         i = FONTE.index("access_ready = (")
         self.assertIn(
-            'payment_status in {"paid", "active", "trialing"}',
+            "payment_status in PAID_SESSION_STATUSES",
             FONTE[i:i + 400],
         )
 
