@@ -161,3 +161,74 @@ describe("o paciente deixa de ser passivo", () => {
     expect(PACIENTE.slice(i, i + 700)).toMatch(/Aguardando chamada do profissional/);
   });
 });
+
+/**
+ * A invisibilidade que definiu o incidente.
+ *
+ * O paciente precisa TOCAR "Ativar câmera e microfone" e conceder permissão
+ * antes que o socket de sinalização abra — `startPatientRtc` só é chamado
+ * dentro de `activateMedia`, depois do `getUserMedia`. Durante todo esse tempo
+ * o profissional lê "Aguardando paciente..." e não consegue distinguir quatro
+ * situações que pedem ações opostas: o paciente não abriu o link; abriu e não
+ * tocou o botão; tocou e está olhando o pedido de permissão; negou a permissão.
+ *
+ * Em três das quatro a ação certa é falar com o paciente, não esperar.
+ *
+ * O servidor já sabia: registra `invite_opened`, `invite_accepted` e
+ * `patient_joined`, e publica em /api/session-events. Dashboard.tsx consome há
+ * meses. A tela da sessão — único lugar onde a informação decide algo — não
+ * consumia.
+ */
+describe("o profissional enxerga onde o paciente está", () => {
+  it("a tela da sessão consome os eventos de presença", () => {
+    expect(PROFISSIONAL).toContain("/api/session-events?after=");
+  });
+
+  it("distingue os três passos do paciente", () => {
+    const corrido = PROFISSIONAL.replace(/\s+/g, " ");
+    expect(corrido).toMatch(/abriu o link do convite/i);
+    expect(corrido).toMatch(/confirmou o cadastro/i);
+    expect(corrido).toMatch(/liberar c[âa]mera e microfone no pr[óo]prio aparelho/i);
+  });
+
+  it("filtra pelos eventos DESTA sessão", () => {
+    // O profissional pode ter outros convites abertos. Presença de outro
+    // paciente nesta tela seria pior que silêncio.
+    expect(PROFISSIONAL).toContain("String(evento.session_id || \"\") === sessionId");
+  });
+
+  it("a presença não sobrescreve o estado da negociação", () => {
+    // São duas máquinas diferentes: rtcStatus descreve o WebRTC, presença
+    // descreve a pessoa. Misturá-las cria corrida entre quem escreve por último.
+    expect(PROFISSIONAL).toContain("setPresencaDoPaciente");
+    const i = PROFISSIONAL.indexOf("const perguntar = async ()");
+    const j = PROFISSIONAL.indexOf("window.setInterval(perguntar", i);
+    expect(PROFISSIONAL.slice(i, j)).not.toContain("setRtcStatus");
+  });
+
+  it("para de perguntar quando a mídia chega", () => {
+    // A partir daí quem descreve a sessão é o próprio vídeo.
+    const i = PROFISSIONAL.indexOf("/api/session-events?after=");
+    const inicio = PROFISSIONAL.lastIndexOf("useEffect(() => {", i);
+    expect(PROFISSIONAL.slice(inicio, i)).toContain(
+      "if (remotePatientOn || remotePatientVideoOn) return;",
+    );
+  });
+
+  it("falha ao buscar presença não atrapalha a sessão", () => {
+    const i = PROFISSIONAL.indexOf("const perguntar = async ()");
+    const j = PROFISSIONAL.indexOf("void perguntar()", i);
+    expect(PROFISSIONAL.slice(i, j)).toContain("} catch {");
+  });
+});
+
+describe("a credencial de TURN sai do caminho crítico", () => {
+  it("o paciente busca a configuração ao entrar, não ao tocar o botão", () => {
+    // Buscar em activateMedia deixa a requisição correndo junto com o pedido
+    // de permissão, que é o trecho lento. Buscar na montagem faz o
+    // RTCPeerConnection nascer com a configuração já em cache.
+    const i = PACIENTE.indexOf('joinState !== "joined"');
+    expect(i).toBeGreaterThan(-1);
+    expect(PACIENTE.slice(i, i + 260)).toContain("loadRtcConfiguration");
+  });
+});

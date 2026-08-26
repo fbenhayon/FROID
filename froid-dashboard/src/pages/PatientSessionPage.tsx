@@ -154,6 +154,24 @@ export const PatientSessionPage: React.FC = () => {
     };
   }, [inviteToken, sessionId]);
 
+  // Credencial de TURN buscada assim que a pagina entra na sessao, e nao no
+  // toque do botao.
+  //
+  // `activateMedia` ja disparava isto, mas so quando a pessoa toca "Ativar
+  // camera e microfone" — e a partir dali corre em paralelo com o pedido de
+  // permissao, que e o trecho lento. Buscar na montagem tira a requisicao do
+  // caminho critico por inteiro: quando a permissao e concedida, a
+  // configuracao ja esta em cache (`loadRtcConfiguration` memoriza por sessao
+  // ate a credencial expirar) e o RTCPeerConnection nasce na hora.
+  //
+  // Custo de errar: uma requisicao a mais para quem abre o link e desiste.
+  // Custo de nao fazer: uma ida ao servidor no exato momento em que o
+  // profissional esta olhando para "Aguardando paciente...".
+  useEffect(() => {
+    if (joinState !== "joined" || !sessionId || !inviteToken) return;
+    void loadRtcConfiguration({ sessionId, inviteToken });
+  }, [joinState, sessionId, inviteToken]);
+
   useEffect(() => {
     // O wake lock é liberado automaticamente pelo navegador quando a aba
     // perde visibilidade; ao voltar, se a mídia ainda estiver ativa,

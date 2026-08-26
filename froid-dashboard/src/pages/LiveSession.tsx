@@ -2342,6 +2342,10 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     useState<ClinicalPresentationSnapshot | null>(null);
   const [semanticCutStartSecond, setSemanticCutStartSecond] = useState(0);
   const [rtcStatus, setRtcStatus] = useState("Aguardando paciente");
+  // Onde o paciente esta ANTES de existir conexao. Separado de `rtcStatus` de
+  // proposito: aquele descreve a negociacao WebRTC, este descreve a pessoa. Um
+  // nao pode sobrescrever o outro.
+  const [presencaDoPaciente, setPresencaDoPaciente] = useState("");
   const [remotePatientOn, setRemotePatientOn] = useState(false);
   const [remotePatientVideoOn, setRemotePatientVideoOn] = useState(false);
   const [attributedSpeaker, setAttributedSpeaker] = useState<SpeakerRole>("DR");
@@ -2466,6 +2470,74 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const latestIpmRef = useRef(50);
   const lastLocalIpmDispatchMsRef = useRef(0);
   const lastCriticalClinicalRefreshSecondRef = useRef(0);
+
+  // ONDE O PACIENTE ESTA, antes de existir qualquer conexao.
+  //
+  // O servidor ja registra os quatro passos do paciente — invite_opened,
+  // invite_accepted, patient_joined — e ja os publica em /api/session-events.
+  // Dashboard.tsx e NewPatient.tsx consomem isso ha meses. Esta tela, que e o
+  // unico lugar onde a informacao decide alguma coisa, nao consumia.
+  //
+  // O efeito apareceu numa consulta real: o profissional via "Aguardando
+  // paciente..." e nao tinha como distinguir quatro situacoes completamente
+  // diferentes — o paciente nao abriu o link; abriu e nao tocou "Ativar camera
+  // e microfone"; tocou e esta olhando o pedido de permissao do navegador; ou
+  // negou a permissao. Nas quatro a tela dizia a mesma coisa, e em tres delas
+  // a acao certa era falar com o paciente, nao esperar.
+  //
+  // Estado SEPARADO de `rtcStatus` por decisao: aquele descreve a negociacao
+  // WebRTC e tem maquina propria; este descreve a pessoa. Misturar os dois
+  // faria uma corrida entre quem escreve por ultimo.
+  useEffect(() => {
+    if (!sessionId) return;
+    const token = localStorage.getItem("froid_token") || "";
+    if (!token) return;
+    // Para de perguntar assim que a midia do paciente chega: dai em diante
+    // quem descreve a sessao e o proprio video.
+    if (remotePatientOn || remotePatientVideoOn) return;
+    let ativo = true;
+    let cursor = 0;
+    const FRASES: Record<string, string> = {
+      invite_opened: "O paciente abriu o link do convite.",
+      invite_accepted: "O paciente confirmou o cadastro e os consentimentos.",
+      patient_joined:
+        "O paciente está na sala. Falta ele liberar câmera e microfone no próprio aparelho.",
+    };
+    const perguntar = async () => {
+      try {
+        const resposta = await fetch(
+          apiUrl(`/api/session-events?after=${cursor}`),
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        if (!resposta.ok || !ativo) return;
+        const dados = await resposta.json();
+        const eventos: Array<Record<string, unknown>> = Array.isArray(dados?.events)
+          ? dados.events
+          : [];
+        cursor = Math.max(
+          cursor,
+          Number(dados?.latest_id || 0),
+          ...eventos.map((evento) => Number(evento.id || 0)),
+        );
+        // Só os desta sessão: o profissional pode ter outros convites abertos,
+        // e presença de outro paciente nesta tela seria pior que silêncio.
+        const desta = eventos.filter(
+          (evento) => String(evento.session_id || "") === sessionId,
+        );
+        const ultimo = desta.filter((evento) => FRASES[String(evento.type)]).pop();
+        if (ultimo && ativo) setPresencaDoPaciente(FRASES[String(ultimo.type)]);
+      } catch {
+        // Presença é informação auxiliar: falha ao buscá-la nunca pode
+        // atrapalhar a sessão que está acontecendo.
+      }
+    };
+    void perguntar();
+    const relogio = window.setInterval(perguntar, 3_000);
+    return () => {
+      ativo = false;
+      window.clearInterval(relogio);
+    };
+  }, [sessionId, remotePatientOn, remotePatientVideoOn]);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -5336,6 +5408,11 @@ function LiveSessionInner({ user }: LiveSessionProps) {
               }`}
             >
               {rtcStatus}
+              {presencaDoPaciente && !remotePatientVideoOn && (
+                <span className="ml-2 font-normal normal-case tracking-normal opacity-90">
+                  · {presencaDoPaciente}
+                </span>
+              )}
             </div>
             {remotePatientOn && !isPresentialMobileSession && (
               <button
@@ -5508,6 +5585,11 @@ function LiveSessionInner({ user }: LiveSessionProps) {
               }`}
             >
               {rtcStatus}
+              {presencaDoPaciente && !remotePatientVideoOn && (
+                <span className="ml-2 font-normal normal-case tracking-normal opacity-90">
+                  · {presencaDoPaciente}
+                </span>
+              )}
             </div>
             {remotePatientOn && !isPresentialMobileSession && (
               <button
@@ -5770,6 +5852,11 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             }`}
           >
             {rtcStatus}
+            {presencaDoPaciente && !remotePatientVideoOn && (
+              <span className="ml-2 font-normal normal-case tracking-normal opacity-90">
+                · {presencaDoPaciente}
+              </span>
+            )}
           </div>
           {remotePatientOn && !isPresentialMobileSession && (
             <button
