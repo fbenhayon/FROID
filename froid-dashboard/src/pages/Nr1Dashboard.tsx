@@ -398,6 +398,34 @@ export const Nr1Dashboard: React.FC<{ user: FroidUser | null }> = ({ user }) => 
             >
               AEP
             </button>
+            {/* Faltava a porta de volta para a estrutura.
+                /access/empresa foi feita para continuar alcancavel depois do
+                cadastro — "a empresa volta aqui para acrescentar uma filial ou
+                corrigir um efetivo" — e nenhuma tela apontava para ela. O
+                unico link vivo estava na escolha de produto, que so aparece
+                para quem AINDA NAO se cadastrou. Na pratica, quem terminava o
+                cadastro nao tinha mais como cadastrar unidade nenhuma. */}
+            <button
+              onClick={() => nav("/access/empresa")}
+              title="Estabelecimentos e setores: a estrutura sobre a qual os recortes do relatorio sao calculados."
+              className="rounded border border-slate-700 px-4 py-2 text-xs font-black text-slate-200 hover:bg-slate-900"
+            >
+              Estrutura da empresa
+            </button>
+            <button
+              onClick={() => nav("/nr1/campanha")}
+              title="Criar a campanha, abrir a coleta e emitir os convites de cada trabalhador."
+              className="rounded border border-emerald-700 bg-emerald-950 px-4 py-2 text-xs font-black text-emerald-100 hover:bg-emerald-900"
+            >
+              Campanha e convites
+            </button>
+            <button
+              onClick={() => nav("/nr1/comprovante")}
+              title="Comprovante de aceite: quem contratou, quando, e a integra dos documentos com a impressao digital de cada um."
+              className="rounded border border-slate-700 px-4 py-2 text-xs font-black text-slate-200 hover:bg-slate-900"
+            >
+              Comprovante de aceite
+            </button>
             <button
               onClick={() => nav("/nr1/plano-de-acao")}
               title="Plano de ação: o segundo documento obrigatório do Programa de Gerenciamento de Riscos (PGR), conforme NR-1, subitem 1.5.7.1 'b'."

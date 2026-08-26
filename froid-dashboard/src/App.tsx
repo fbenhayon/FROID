@@ -44,6 +44,8 @@ const Nr1ContractPage = lazy(() => import("./pages/LegalPages").then((module) =>
 const PatientTclePage = lazy(() => import("./pages/LegalPages").then((module) => ({ default: module.PatientTclePage })));
 const FroidProfessionalsPage = lazy(() => import("./pages/FroidInstitutionalPages").then((module) => ({ default: module.FroidProfessionalsPage })));
 const Nr1Aep = lazy(() => import("./pages/Nr1Aep").then((module) => ({ default: module.Nr1Aep })));
+const Nr1Acceptance = lazy(() => import("./pages/Nr1Acceptance").then((module) => ({ default: module.Nr1Acceptance })));
+const Nr1Campaign = lazy(() => import("./pages/Nr1Campaign").then((module) => ({ default: module.Nr1Campaign })));
 const Nr1ActionPlan = lazy(() => import("./pages/Nr1ActionPlan").then((module) => ({ default: module.Nr1ActionPlan })));
 const Nr1Dashboard = lazy(() => import("./pages/Nr1Dashboard").then((module) => ({ default: module.Nr1Dashboard })));
 const Nr1Effectiveness = lazy(() => import("./pages/Nr1Effectiveness").then((module) => ({ default: module.Nr1Effectiveness })));
@@ -487,6 +489,13 @@ function App() {
         <Route path="/validade" element={clinicalElement(<ValidationStudy user={user} />)} />
         <Route path="/nr1" element={clinicalElement(<Nr1Dashboard user={user} />)} />
         <Route path="/nr1/aep" element={clinicalElement(<Nr1Aep user={user} />)} />
+        {/* A camada que faltava entre a estrutura e o painel: criar
+            campanha, abrir a coleta e emitir convites. Os tres endpoints
+            existiam desde a migration 010 sem nenhuma tela chamando. */}
+        <Route path="/nr1/campanha" element={clinicalElement(<Nr1Campaign user={user} />)} />
+        {/* Prova da contratacao, e nao do texto: o contrato prova o que
+            foi assinado, o comprovante prova quem assinou e quando. */}
+        <Route path="/nr1/comprovante" element={clinicalElement(<Nr1Acceptance user={user} />)} />
         <Route path="/nr1/plano-de-acao" element={clinicalElement(<Nr1ActionPlan user={user} />)} />
         <Route
           path="/nr1/eficacia"

@@ -633,6 +633,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                 Conformidade NR-1
               </button>
             )}
+            {/* Mesmo defeito que o de cima, um passo antes: a empresa chegava
+                ao painel NR-1 e nao tinha como voltar a cadastrar unidade. A
+                rota /access/empresa nunca deixou de existir; o que faltava era
+                alguem apontar para ela depois do cadastro concluido. */}
+            {isEmpresaNr1 && (
+              <button
+                onClick={() => nav("/access/empresa")}
+                title="Estabelecimentos e setores da empresa: acrescentar filial, criar setor, corrigir efetivo."
+                className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-slate-800"
+              >
+                Estrutura da empresa
+              </button>
+            )}
             <button
               onClick={() => nav("/dashboard/resumido")}
               className="rounded-lg border border-violet-800 bg-violet-950 px-3 py-2 text-xs font-bold text-violet-100 hover:bg-violet-900"

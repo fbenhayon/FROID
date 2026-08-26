@@ -2050,6 +2050,107 @@ class TenantStore:
             "status": linha[4],
         }
 
+    def nr1_list_instruments(self) -> list[dict]:
+        """Os instrumentos publicados, para a tela de campanha escolher um.
+
+        Existe porque o `instrument_id` era a unica coisa que a criacao de
+        campanha exigia e nenhuma rota devolvia. A alternativa era fixar o UUID
+        no front — e o modulo ja tem quatro copias espelhadas de parametros que
+        so o banco decide, com o historico de uma delas sobreviver a uma
+        migration em silencio. Publicada a versao 1.1, uma copia fixa
+        continuaria abrindo campanha na 1.0 sem ninguem notar.
+
+        Catalogo global de proposito: `assessment_instruments` nao tem
+        organization_id nem RLS, e o GRANT SELECT ao froid_runtime e da
+        migration 010. Nao ha o que vazar entre organizacoes aqui — o
+        instrumento e o mesmo para todas.
+        """
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        with self._connect(runtime=True) as connection:
+            linhas = connection.execute(
+                """
+                SELECT id, code, version, title, language,
+                       scale_min, scale_max, scale_labels, source_reference,
+                       published_at
+                  FROM assessment_instruments
+                 WHERE status = 'published'
+                 ORDER BY code, version DESC
+                """
+            ).fetchall()
+        return [
+            {
+                "instrument_id": str(linha[0]),
+                "code": linha[1],
+                "version": linha[2],
+                "title": linha[3],
+                "language": linha[4],
+                "scale_min": int(linha[5]),
+                "scale_max": int(linha[6]),
+                "scale_labels": linha[7] or [],
+                "source_reference": linha[8] or "",
+                "published_at": linha[9].isoformat() if linha[9] else "",
+            }
+            for linha in linhas
+        ]
+
+    def list_legal_acceptances(
+        self, *, subject_reference_hash: str, organization_id: str = ""
+    ) -> list[dict]:
+        """As aceitacoes registradas para UM sujeito, para o comprovante.
+
+        Le pela conexao do dono, e nao pela de runtime, porque a migration 009
+        REVOKE ALL de `legal_acceptance_events` para froid_runtime: prova
+        juridica nao passa pelo papel que atende requisicao.
+
+        **Filtra pelo sujeito, nao pela organizacao.** Duas razoes. A primeira e
+        que o comprovante responde "quem aceitou o que", e o sujeito e a
+        identidade do ato — a organizacao e contexto. A segunda e concreta: ate
+        agora o cadastro gravava aqui a organizacao derivada do E-MAIL, enquanto
+        a empresa NR-1 vive na organizacao derivada do CNPJ. Filtrar por
+        organizacao devolveria vazio justamente para o caso que motivou esta
+        funcao. A gravacao foi corrigida; a tabela e append-only, entao as
+        linhas antigas continuam com o id velho e precisam ser encontradas.
+
+        `organization_id` fica como filtro OPCIONAL, para quando se quiser
+        exatamente o que foi aceito sob uma organizacao.
+        """
+        if not self.enabled:
+            return []
+        alvo = str(subject_reference_hash or "").strip()
+        if not alvo:
+            return []
+        clausulas = ["subject_reference_hash = %s"]
+        valores: list = [alvo]
+        if organization_id:
+            clausulas.append("organization_id = %s")
+            valores.append(organization_id)
+        with self._connect() as connection:
+            self.ensure_schema(connection)
+            linhas = connection.execute(
+                f"""
+                SELECT document_key, document_version, document_sha256,
+                       acceptance_context, accepted_at, organization_id,
+                       subject_kind
+                  FROM legal_acceptance_events
+                 WHERE {" AND ".join(clausulas)}
+                 ORDER BY accepted_at ASC
+                """,
+                tuple(valores),
+            ).fetchall()
+        return [
+            {
+                "document_key": linha[0],
+                "document_version": linha[1],
+                "document_sha256": linha[2],
+                "acceptance_context": linha[3],
+                "accepted_at": linha[4].isoformat() if linha[4] else "",
+                "organization_id": str(linha[5]) if linha[5] else "",
+                "subject_kind": linha[6],
+            }
+            for linha in linhas
+        ]
+
     def nr1_create_campaign(
         self,
         *,

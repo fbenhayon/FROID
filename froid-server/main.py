@@ -4364,7 +4364,23 @@ def _record_legal_documents(
 ) -> None:
     subject_hash = _legal_hmac(subject_reference)
     if not subject_hash:
-        return
+        # `_legal_hmac` devolve vazio quando FROID_LEGAL_AUDIT_HMAC_KEY tem
+        # menos de 32 bytes. Sair em silencio aqui gravava o cadastro com
+        # sucesso e o aceite em lugar nenhum: a pessoa marca a caixa, a tela
+        # confirma, e nao existe prova de que marcou. E o defeito que so
+        # aparece quando alguem pede o comprovante — meses depois, e do lado
+        # errado de uma discussao.
+        #
+        # /ready ja publica `legal_audit_hmac_configured`; o que faltava era o
+        # caminho de gravacao recusar em vez de seguir.
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "registro de aceite indisponivel: FROID_LEGAL_AUDIT_HMAC_KEY "
+                "precisa ter ao menos 32 bytes no servidor. O cadastro nao foi "
+                "concluido para nao produzir contratacao sem prova de aceite."
+            ),
+        )
     fingerprint = _legal_request_fingerprint(request)
     for key, acceptance in acceptances.items():
         TENANT_STORE.record_legal_acceptance(
@@ -9326,6 +9342,89 @@ def _require_nr1_persistence() -> None:
         )
 
 
+@app.get("/api/organizations/{organization_id}/nr1/instruments")
+async def list_nr1_instruments(organization_id: str, request: Request):
+    """Os instrumentos publicados que uma campanha pode usar.
+
+    A criacao de campanha sempre exigiu `instrument_id` e nenhuma rota o
+    devolvia — na pratica, so era possivel criar campanha com o UUID em maos.
+    A tela ficava impossivel de construir sem fixar o id no front, que e a
+    quinta copia espelhada de um parametro que so o banco decide.
+
+    Escopo de organizacao na URL apesar de o catalogo ser global: quem pergunta
+    precisa ser membro de uma organizacao enterprise, e e o mesmo contexto que
+    a tela ja tem em maos. Nao ha dado de terceiro aqui — o instrumento e o
+    mesmo para todas as empresas.
+    """
+    _require_enterprise_context(request, organization_id, "nr1.unit.list")
+    _require_nr1_persistence()
+    try:
+        instrumentos = TENANT_STORE.nr1_list_instruments()
+    except RuntimeError:
+        raise HTTPException(status_code=409, detail="módulo NR-1 requer persistência dual")
+    except Exception:
+        LOGGER.exception("Unable to list NR-1 instruments")
+        raise HTTPException(status_code=503, detail="catálogo de instrumentos indisponível")
+    return {"instruments": instrumentos}
+
+
+@app.get("/api/organizations/{organization_id}/legal-acceptances")
+async def list_organization_legal_acceptances(organization_id: str, request: Request):
+    """O que ESTA pessoa aceitou, com versao, impressao digital e data.
+
+    A materia-prima do comprovante de aceite, que e um documento diferente do
+    contrato: o contrato prova o texto, o comprovante prova a contratacao
+    daquele texto por aquela pessoa naquela data.
+
+    Devolve as aceitacoes do proprio solicitante, nao as da organizacao
+    inteira. Nao e limitacao: o comprovante e a prova de um ato, e o ato tem um
+    autor. Listar as de terceiros exporia quem mais da empresa se cadastrou —
+    dado que nenhuma tela precisa e que ninguem pediu.
+    """
+    user = _require_current_user(request)
+    context = _require_tenant_management_context(
+        request, organization_id, "organization.read"
+    )
+    email = _normalize_email(user.get("email") or "")
+    assinatura = _legal_hmac(email)
+    # O catalogo nao e parametrizado por jurisdicao: `public_legal_catalog()`
+    # devolve os textos, e so `acceptance_required` varia por pais. Passar
+    # jurisdicao aqui seria inventar uma assinatura que a funcao nao tem.
+    catalogo = public_legal_catalog()
+    if not assinatura:
+        # Sem chave nao ha o que procurar, e dizer "nenhum aceite" seria mentir
+        # por omissao: a diferenca entre "nunca aceitou" e "nao consigo
+        # verificar" e a diferenca inteira num documento de prova.
+        return {
+            "ledger_configured": False,
+            "acceptances": [],
+            "organization_id": context.organization_id,
+            "subject_email": email,
+            "documents": catalogo.get("documents", {}),
+            "supplier": catalogo.get("supplier", {}),
+        }
+    try:
+        registros = TENANT_STORE.list_legal_acceptances(
+            subject_reference_hash=assinatura
+        )
+    except Exception:
+        LOGGER.exception("Unable to list legal acceptances")
+        raise HTTPException(status_code=503, detail="registro de aceites indisponível")
+    return {
+        "ledger_configured": True,
+        "acceptances": registros,
+        "organization_id": context.organization_id,
+        "subject_email": email,
+        # O catalogo vigente viaja junto para que o comprovante possa imprimir
+        # a INTEGRA do que foi aceito, e nao so a referencia. Cabe a tela
+        # comparar o sha256 registrado com o do catalogo: divergiu, o texto
+        # vigente nao e o texto aceito, e o comprovante precisa dizer isso em
+        # vez de imprimir o texto de hoje sob a data de ontem.
+        "documents": catalogo.get("documents", {}),
+        "supplier": catalogo.get("supplier", {}),
+    }
+
+
 @app.get("/api/organizations/{organization_id}/nr1/units")
 async def list_nr1_units(organization_id: str, request: Request):
     """Estrutura da empresa: estabelecimentos e os setores de cada um.
@@ -11023,11 +11122,27 @@ async def save_professional_profile(request: Request):
         "updated_at": now,
     }
     if legal_acceptances:
+        # A organizacao gravada aqui precisa ser a MESMA em que o cadastro vai
+        # viver, e nao era.
+        #
+        # `stable_uuid("organization", owner_email)` deriva do e-mail, que e a
+        # regra do profissional autonomo. Clinica e empresa NR-1 derivam do
+        # CNPJ (organization_id_for_profile), porque varias pessoas do mesmo
+        # CNPJ compartilham a organizacao. O efeito era que o aceite da empresa
+        # ficava arquivado sob um id que nao corresponde a nenhuma organizacao
+        # dela: qualquer leitura por organizacao devolvia vazio, e o contrato
+        # aceito parecia nao ter sido aceito.
+        #
+        # Nao ha correcao retroativa possivel — legal_acceptance_events e
+        # append-only por trigger, e assim deve continuar. Por isso o
+        # comprovante procura pelo SUJEITO, que sempre esteve certo.
         _record_legal_documents(
             request=request,
             subject_reference=owner_email,
             subject_kind=("organization" if account_type == "organization" else "professional"),
-            organization_id=str(stable_uuid("organization", owner_email)),
+            organization_id=tenant_organization_id_for_profile(
+                owner_email, account_type, body.get("organization_document")
+            ),
             acceptances=legal_acceptances,
             context="professional_onboarding",
         )
