@@ -426,6 +426,13 @@ export const PatientSessionPage: React.FC = () => {
         } else {
           rtcIceQueueRef.current.push(data.candidate);
         }
+      } else if (data.type === "peer-waiting") {
+        // Mesma mensagem, outro lado: o profissional ainda nao entrou na sala.
+        // Dizer isso evita a espera silenciosa que fazia o paciente desistir
+        // achando que o link estava quebrado.
+        setCallStatus(
+          "O profissional ainda não entrou na sala. Deixe esta página aberta: a chamada começa sozinha assim que ele entrar.",
+        );
       } else if (data.type === "peer-left") {
         remoteStream.getTracks().forEach((track) => {
           track.stop();

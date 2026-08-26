@@ -3267,6 +3267,28 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           } else {
             rtcIceQueueRef.current.push(data.candidate);
           }
+        } else if (data.type === "peer-waiting") {
+          // O servidor responde isto quando a oferta chega e o socket do
+          // paciente NAO esta na sala. Ele sempre respondeu; nenhum cliente
+          // nunca leu.
+          //
+          // O efeito no consultorio: a tela ficava em "Chamando paciente..."
+          // indefinidamente, com o watchdog reofertando a cada 8 segundos,
+          // enquanto o servidor repetia a cada volta que nao havia ninguem
+          // para receber. O profissional esperava uma conexao que nao tinha
+          // como acontecer, sem nada na tela que o dissesse — aconteceu numa
+          // consulta real em 26/08/2026.
+          //
+          // Parar o watchdog aqui e parte da correcao: reofertar para uma sala
+          // vazia nao aproxima a conexao, so mantem a mentira na tela. A
+          // proxima oferta sai quando chegar `peer-joined`, que e o evento que
+          // significa que existe alguem do outro lado.
+          clearOfferWatchdog();
+          setRemotePatientOn(false);
+          setRemotePatientVideoOn(false);
+          setRtcStatus(
+            "O paciente não está na sala. Peça que ele abra novamente o link do convite — a chamada conecta sozinha assim que ele entrar.",
+          );
         } else if (data.type === "peer-left") {
           remoteStream.getTracks().forEach((track) => {
             track.stop();
