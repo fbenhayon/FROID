@@ -13,6 +13,63 @@ interface Props {
   user?: FroidUser | null;
 }
 
+/**
+ * Por que o painel clinico nao esta alcancavel, e para onde ir resolver.
+ *
+ * O administrador da plataforma nao compra pacote de sessoes para si mesmo,
+ * entao `onboarding_required` fica verdadeiro para sempre e
+ * `defaultAuthenticatedPath` o devolve para /admin. O commit anterior tratou
+ * isso escondendo o botao "Dashboard" quando ele nao levaria a lugar nenhum —
+ * o que era honesto e produziu um beco PIOR: sobrava um botao so na tela, e
+ * era o "Sair". Quem precisasse atender um paciente encerrava a sessao.
+ *
+ * Botao escondido nao informa. O certo e dizer o que falta e oferecer a porta
+ * que resolve — que existe, e nunca esteve atras do onboarding.
+ */
+export function pendenciaDoAdministrador(
+  user?: FroidUser | null,
+): { motivo: string; destino: string; rotulo: string } | null {
+  const acesso = user?.access_status;
+  if (!acesso || !acesso.onboarding_required) return null;
+  if (acesso.manual_approval_pending) {
+    return {
+      motivo: "Seu cadastro clínico está aguardando aprovação.",
+      destino: "/admin",
+      rotulo: "",
+    };
+  }
+  if (!acesso.has_profile) {
+    return {
+      motivo: "Você ainda não tem cadastro clínico nesta conta.",
+      destino: "/access/produto",
+      rotulo: "Concluir meu cadastro",
+    };
+  }
+  if (!acesso.selected_plan) {
+    return {
+      motivo:
+        "Seu cadastro clínico não tem plano de sessões escolhido, e é o saldo " +
+        "de sessões que libera o painel de atendimento.",
+      destino: "/access/register",
+      rotulo: "Escolher plano de sessões",
+    };
+  }
+  if ((acesso.remaining_sessions ?? 0) <= 0) {
+    return {
+      motivo:
+        "Seu cadastro clínico está sem saldo de sessões, e o painel de " +
+        "atendimento depende dele.",
+      destino: "/access/register",
+      rotulo: "Repor saldo de sessões",
+    };
+  }
+  return {
+    motivo: "Seu cadastro clínico tem pendências.",
+    destino: "/access/register",
+    rotulo: "Revisar meu cadastro",
+  };
+}
+
 // Quem e administrador e decisao do servidor, nao do pacote do navegador.
 //
 // Esta lista estava fixa em TRES arquivos, com um unico endereco. O efeito
@@ -26,6 +83,10 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
   // Para onde o "Dashboard" levaria de fato, pela mesma regra do roteamento.
   // Se for de volta para ca, o botao nao existe.
   const destinoDoDashboard = defaultAuthenticatedPath(user, readProductChoice());
+  // Quando o destino volta para ca, o painel clinico esta atras de alguma
+  // pendencia. Em vez de esconder o botao, dizemos qual e e para onde ir.
+  const pendencia =
+    destinoDoDashboard === "/admin" ? pendenciaDoAdministrador(user) : null;
   // Sem esta saida o administrador sem cadastro clinico concluido ficava sem
   // nenhum caminho para fora desta tela.
   const sair = () => {
@@ -146,14 +207,35 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
               devolvido de la para ca — o botao virava um beco: clicava, a URL
               mudava, e a tela era a mesma. Perguntar antes de oferecer e mais
               honesto que oferecer e devolver. */}
-          {destinoDoDashboard !== "/admin" && (
+          {destinoDoDashboard !== "/admin" ? (
             <button
               onClick={() => nav(destinoDoDashboard)}
-              className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-slate-800"
+              className="rounded-lg border border-cyan-700 bg-cyan-950 px-3 py-2 text-xs font-bold text-cyan-100 hover:bg-cyan-900"
             >
               Dashboard
             </button>
+          ) : (
+            pendencia?.rotulo && (
+              <button
+                onClick={() => nav(pendencia.destino)}
+                title={pendencia.motivo}
+                className="rounded-lg border border-cyan-700 bg-cyan-950 px-3 py-2 text-xs font-bold text-cyan-100 hover:bg-cyan-900"
+              >
+                {pendencia.rotulo}
+              </button>
+            )
           )}
+          {/* A empresa NR-1 do administrador nao passa pelo onboarding
+              clinico, entao esta porta continua aberta mesmo quando a outra
+              nao esta. Num dia de atendimento ou de reuniao, e ela que evita
+              que a unica saida da tela seja encerrar a sessao. */}
+          <button
+            onClick={() => nav("/nr1")}
+            title="Painel de conformidade NR-1"
+            className="rounded-lg border border-amber-700 bg-amber-950 px-3 py-2 text-xs font-bold text-amber-100 hover:bg-amber-900"
+          >
+            NR-1
+          </button>
           <button
             onClick={sair}
             className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-slate-800"
@@ -161,6 +243,18 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
             Sair
           </button>
         </header>
+
+        {pendencia && (
+          <p className="rounded-lg border border-cyan-800 bg-cyan-950/40 px-3 py-3 text-xs leading-5 text-cyan-100">
+            <strong className="text-cyan-200">
+              O painel de atendimento não está acessível nesta conta.
+            </strong>{" "}
+            {pendencia.motivo}{" "}
+            {pendencia.rotulo
+              ? "Use o botão acima para resolver — e note que administrar a plataforma e atender pacientes são coisas separadas: uma não depende da outra."
+              : "Nada a fazer aqui: assim que a aprovação sair, o painel aparece."}
+          </p>
+        )}
 
         {message && (
           <p className="rounded-lg border border-amber-700 bg-amber-950/40 px-3 py-2 text-xs font-bold text-amber-100">
