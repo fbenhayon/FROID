@@ -352,6 +352,18 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
       );
       return;
     }
+    // O periodo de referencia vai para o CABECALHO do inventario, e um
+    // documento de conformidade que nao diz a que periodo se refere e a
+    // primeira coisa que um auditor devolve. O servidor aceita vazio; a
+    // campanha nao aceita edicao. Entao a hora de exigir e esta.
+    if (!periodo.trim()) {
+      setErro(
+        "Informe o período de referência (por exemplo, 2026). Ele vai para o " +
+          "cabeçalho do inventário, e a campanha não aceita edição depois de " +
+          "criada.",
+      );
+      return;
+    }
     // O servidor aceita finalidade vazia: ele anexa a base legal e a campanha
     // abre. O resultado e um aviso correto e mudo — o trabalhador le o artigo
     // da LGPD e nenhuma palavra da empresa dele. E campanha nao tem edicao:
@@ -732,6 +744,7 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
               rotulo="Período de referência"
               valor={periodo}
               onChange={setPeriodo}
+              obrigatorio
               placeholder="2026"
               dica="O período do PGR (Programa de Gerenciamento de Riscos) a que esta avaliação se refere."
             />

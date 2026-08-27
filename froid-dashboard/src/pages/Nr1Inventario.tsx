@@ -145,7 +145,9 @@ export const Nr1Inventario: React.FC<Props> = ({ user }) => {
   const [selecionada, setSelecionada] = useState(campanhaUrl);
   const [documento, setDocumento] = useState<Documento | null>(null);
   const [erro, setErro] = useState("");
+  const [aviso, setAviso] = useState("");
   const [carregando, setCarregando] = useState(false);
+  const [gerando, setGerando] = useState(false);
 
   const cabecalhos = useMemo(
     () => ({
@@ -204,6 +206,47 @@ export const Nr1Inventario: React.FC<Props> = ({ user }) => {
     [cabecalhos, organizationId],
   );
 
+  /** Gera (ou regera) o documento desta campanha.
+   *
+   *  Existe tambem no painel, e existir nas duas telas nao e duplicacao
+   *  descuidada: esta se chama "Inventario", e quem chega nela para ler o
+   *  documento espera poder produzi-lo aqui. Mandar a pessoa de volta ao painel
+   *  para gerar e voltar para ler e um vai-e-vem que a tela pode poupar.
+   *
+   *  Regerar e seguro: o INSERT usa ON CONFLICT e atualiza a linha existente,
+   *  preservando revisao ja devida por risco residual. */
+  const gerar = async () => {
+    if (!selecionada) return;
+    setGerando(true);
+    setErro("");
+    setAviso("");
+    try {
+      const resposta = await fetch(
+        apiUrl(
+          `/api/organizations/${organizationId}/nr1/campaigns/${selecionada}/inventory`,
+        ),
+        { method: "POST", headers: cabecalhos },
+      );
+      const corpo = await resposta.json();
+      if (!resposta.ok) {
+        throw new Error(corpo?.detail || "não foi possível gerar o inventário");
+      }
+      const classificadas =
+        Number(corpo.inventory_rows || 0) - Number(corpo.declared_rows || 0);
+      setAviso(
+        classificadas > 0
+          ? `Documento gerado: ${classificadas} risco(s) classificado(s).`
+          : "Documento gerado. Nenhum recorte pôde ser classificado, e a " +
+              "insuficiência está declarada abaixo.",
+      );
+      await carregarDocumento(selecionada);
+    } catch (e) {
+      setErro(String((e as Error).message));
+    } finally {
+      setGerando(false);
+    }
+  };
+
   useEffect(() => {
     void carregarCampanhas();
   }, [carregarCampanhas]);
@@ -236,6 +279,16 @@ export const Nr1Inventario: React.FC<Props> = ({ user }) => {
             </h1>
           </div>
           <div className="flex flex-wrap gap-2">
+            {documento?.campaign?.status === "closed" && (
+              <button
+                type="button"
+                onClick={gerar}
+                disabled={gerando}
+                className="rounded bg-emerald-500 px-4 py-2 text-xs font-black text-emerald-950 hover:bg-emerald-400 disabled:opacity-60"
+              >
+                {gerando ? "Gerando..." : "Gerar / atualizar inventário"}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => window.print()}
@@ -272,6 +325,11 @@ export const Nr1Inventario: React.FC<Props> = ({ user }) => {
           {erro && (
             <p className="mt-3 rounded border border-red-900 bg-red-950 p-3 text-xs font-bold text-red-200">
               {erro}
+            </p>
+          )}
+          {aviso && (
+            <p className="mt-3 rounded border border-emerald-900 bg-emerald-950 p-3 text-xs font-bold text-emerald-200">
+              {aviso}
             </p>
           )}
           {carregando && (

@@ -144,3 +144,40 @@ describe("o inventário é gerável quando nada foi classificado", () => {
     expect(PAINEL.split("void generateInventory()").length - 1).toBe(1);
   });
 });
+
+describe("a tela do inventário se basta", () => {
+  /**
+   * Quem abre uma tela chamada "Inventário" para ler o documento espera poder
+   * produzi-lo ali. Mandar a pessoa ao painel para gerar e voltar para ler é um
+   * vai-e-vem que a tela pode poupar — e foi o que aconteceu no teste real.
+   */
+
+  it("gera o documento sem sair da tela", () => {
+    expect(PAGINA).toContain("const gerar = async");
+    expect(PAGINA).toContain('method: "POST"');
+  });
+
+  it("so oferece gerar para campanha encerrada", () => {
+    // Durante a coleta o servidor recusa. Oferecer o botão seria prometer o
+    // que ele nega.
+    expect(PAGINA).toContain('documento?.campaign?.status === "closed"');
+  });
+
+  it("recarrega o documento depois de gerar", () => {
+    // Gerar e continuar mostrando a versão anterior faria o operador concluir
+    // que a geração não funcionou.
+    const trecho = PAGINA.slice(PAGINA.indexOf("const gerar = async"));
+    expect(trecho.slice(0, 1800)).toContain("carregarDocumento(selecionada)");
+  });
+});
+
+describe("o cabeçalho do documento não nasce incompleto", () => {
+  it("o período de referência é exigido na criação da campanha", () => {
+    // Ele vai para o cabeçalho do inventário, e a campanha não aceita edição:
+    // deixado em branco, o documento sai dizendo "—" no campo que um auditor
+    // procura primeiro.
+    const CAMPANHA = readFileSync(join(__dirname, "Nr1Campaign.tsx"), "utf-8");
+    expect(CAMPANHA).toContain("!periodo.trim()");
+    expect(CAMPANHA).toContain("cabeçalho do inventário");
+  });
+});
