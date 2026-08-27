@@ -247,9 +247,48 @@ def main() -> int:
         print(f"Collection: {args.collection}")
         print(f"Embedding:  {modelo}")
         print(f"Trechos:    {colecao.count()}")
-        amostra = colecao.get(limit=5, include=["metadatas"])
-        for metadado in amostra.get("metadatas") or []:
-            print(f"  - {metadado.get('title')} [{metadado.get('classe')}]")
+
+        # Histograma por classe, e nao uma amostra de cinco linhas.
+        #
+        # A amostra saiu cinco vezes do mesmo arquivo e nao respondia a unica
+        # pergunta que importa — "esta tudo la?". Uma indexacao sem o texto da
+        # lei passou despercebida exatamente assim: o total parecia razoavel e
+        # ninguem tinha como ver o que faltava.
+        tudo = colecao.get(include=["metadatas"])
+        contagem: dict[str, int] = {}
+        arquivos: dict[str, set] = {}
+        for metadado in tudo.get("metadatas") or []:
+            classe = str((metadado or {}).get("classe") or "?")
+            contagem[classe] = contagem.get(classe, 0) + 1
+            arquivos.setdefault(classe, set()).add(
+                str((metadado or {}).get("source") or "?")
+            )
+        print()
+        print("Por classe de fonte:")
+        for classe in ("norma", "interpretacao", "contrato", "nota-froid"):
+            quantos = contagem.get(classe, 0)
+            marca = "  " if quantos else "!!"
+            print(
+                f"{marca} {classe:14} {quantos:4} trechos, "
+                f"{len(arquivos.get(classe, ()))} fonte(s)"
+            )
+        for classe, quantos in sorted(contagem.items()):
+            if classe not in ("norma", "interpretacao", "contrato", "nota-froid"):
+                print(f"   {classe:14} {quantos:4} trechos")
+
+        if not contagem.get("norma"):
+            for linha in (
+                "",
+                "!! SEM TEXTO DE NORMA no indice.",
+                "   O acervo respondera sobre a lei citando a nossa",
+                "   documentacao, e nao o texto dela.",
+                "   Rode: docker compose up -d --force-recreate froid-backend",
+                "   e reindexe com --reset.",
+            ):
+                print(linha)
+            return 1
+        print()
+        print("Acervo completo.")
         return 0
 
     arquivos = fontes(args.secundarias)

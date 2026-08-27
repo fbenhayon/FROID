@@ -263,3 +263,26 @@ class OAcervoNaoSobeSemANorma(unittest.TestCase):
             SERVER.parent / "docker-compose.yml", encoding="utf-8"
         ).read()
         self.assertIn("./docs/normas:/normas:ro", compose)
+
+
+class OConferirRespondeSeEstaCompleto(unittest.TestCase):
+    """--conferir precisa responder a unica pergunta que importa.
+
+    A versao anterior imprimia o total e uma amostra de cinco linhas, que
+    saiu cinco vezes do mesmo arquivo. Com ela na tela, um indice sem o texto
+    da lei parecia saudavel: o total era razoavel e nao havia como ver o que
+    faltava. Agora ele conta por classe de fonte e sai com codigo 1 quando
+    falta norma.
+    """
+
+    def test_conta_por_classe_de_fonte(self):
+        codigo = _codigo(INDEXADOR, "main")
+        self.assertIn("Por classe de fonte", codigo)
+        for classe in ("norma", "interpretacao", "contrato", "nota-froid"):
+            self.assertIn(f'"{classe}"', codigo)
+
+    def test_sai_com_erro_quando_falta_norma(self):
+        # Codigo de saida importa: e o que um script de deploy consegue ler.
+        codigo = _codigo(INDEXADOR, "main")
+        self.assertIn("SEM TEXTO DE NORMA", codigo)
+        self.assertIn("return 1", codigo)
