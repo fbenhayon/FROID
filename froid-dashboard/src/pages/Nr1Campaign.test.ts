@@ -178,3 +178,50 @@ describe("a fronteira continua de pé nesta tela", () => {
     expect(PAGINA_CORRIDA).toMatch(/nunca o par|n[aã]o guarda o par/i);
   });
 });
+
+describe("o ciclo da campanha se fecha pela tela", () => {
+  /**
+   * Encerrar era o quarto caso do mesmo padrão deste módulo: a rota existia no
+   * servidor desde a migration 010 e nenhuma tela a chamava.
+   *
+   * E aqui a ausência era pior do que um botão faltando. O painel só serve
+   * agregado de campanha ENCERRADA — durante a coleta, de propósito, só a
+   * adesão é legível. Sem botão de encerrar, o resultado inteiro do módulo
+   * ficava inalcançável pela interface: nem painel, nem inventário, nem plano
+   * de ação. Quem operasse o produto teria de fechar a campanha por chamada
+   * direta à API, que é exatamente o que a existência desta tela nega.
+   */
+
+  it("chama a rota de encerramento", () => {
+    expect(PAGINA).toContain("/close");
+    expect(PAGINA).toContain("const fechar");
+  });
+
+  it("oferece o botão para campanha em coleta, e não só para rascunho", () => {
+    // O `status === "draft"` sozinho era a condição de todo o bloco de ações:
+    // campanha aberta não tinha ação nenhuma disponível.
+    expect(PAGINA).toContain('campanha.status === "open"');
+    expect(PAGINA_CORRIDA).toMatch(/Encerrar coleta/);
+  });
+
+  it("exige confirmação em dois passos", () => {
+    // Encerrar é definitivo: não existe rota que devolva uma campanha
+    // encerrada ao estado aberto, e os links pendentes morrem junto.
+    expect(PAGINA).toContain("confirmandoFecho");
+    expect(PAGINA_CORRIDA).toMatch(/Confirmar encerramento/);
+    expect(PAGINA_CORRIDA).toMatch(/n[aã]o tem volta/i);
+  });
+
+  it("diz o que se ganha e o que se perde ao encerrar", () => {
+    expect(PAGINA_CORRIDA).toMatch(/perde a chance/i);
+    expect(PAGINA_CORRIDA).toMatch(/invent[aá]rio/i);
+  });
+
+  it("não mostra o enum do banco para o cliente", () => {
+    // "DRAFT" ao lado de uma campanha que já custou dinheiro, numa tela que a
+    // empresa abre na frente da diretoria dela.
+    expect(PAGINA).toContain("ESTADO_DA_CAMPANHA");
+    expect(PAGINA_CORRIDA).toMatch(/draft: "Rascunho"/);
+    expect(PAGINA_CORRIDA).toMatch(/closed: "Encerrada"/);
+  });
+});

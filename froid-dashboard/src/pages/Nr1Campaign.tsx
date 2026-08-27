@@ -36,6 +36,18 @@ import { GlossarioDeSiglas, Sigla } from "../lib/siglas";
 
 const CONTATO = "froid@froid.com.br";
 
+/** O estado da campanha em portugues.
+ *
+ *  O enum do banco vazava cru para a tela — DRAFT, OPEN, CLOSED — numa pagina
+ *  que a empresa contratante abre na frente da diretoria dela. "OPEN" ainda se
+ *  adivinha; "DRAFT" ao lado de uma campanha que ja custou dinheiro, nao. */
+const ESTADO_DA_CAMPANHA: Record<string, string> = {
+  draft: "Rascunho",
+  open: "Em coleta",
+  closed: "Encerrada",
+  cancelled: "Cancelada",
+};
+
 type Unidade = {
   unit_id: string;
   parent_unit_id: string | null;
@@ -239,6 +251,8 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
   const [convites, setConvites] = useState<Convite[]>([]);
   // Matriculas que o servidor ignorou por ja terem convite nesta campanha.
   const [jaConvidados, setJaConvidados] = useState<string[]>([]);
+  // Encerrar nao tem volta, entao pede um segundo clique deliberado.
+  const [confirmandoFecho, setConfirmandoFecho] = useState<string | null>(null);
   const [listaReemissao, setListaReemissao] = useState("");
   const [semConvitePendente, setSemConvitePendente] = useState<string[]>([]);
 
@@ -384,6 +398,40 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
       setAviso("Coleta aberta. Os convites já podem ser distribuídos.");
       await carregar();
       setSelecionada({ ...campanha, status: "open" });
+    } catch (e) {
+      setErro(String((e as Error).message));
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  /** Encerra a coleta — e é o encerramento que torna o resultado legível.
+   *
+   *  A rota existe no servidor desde a migration 010 e nenhuma tela a chamava.
+   *  O efeito era pior do que um botão faltando: o painel só serve agregado de
+   *  campanha encerrada, então o resultado inteiro do módulo ficava
+   *  inalcançável pela interface. Quem operasse o produto teria de fechar a
+   *  campanha por chamada direta à API.
+   *
+   *  Encerrar é definitivo — não há rota que devolva uma campanha encerrada ao
+   *  estado aberto —, e por isso a confirmação em dois passos. */
+  const fechar = async (campanha: Campanha) => {
+    setErro("");
+    setAviso("");
+    setSalvando(true);
+    try {
+      await chamar(
+        `/api/organizations/${organizationId}/nr1/campaigns/${campanha.campaign_id}/close`,
+        organizationId,
+        { method: "POST" },
+      );
+      setConfirmandoFecho(null);
+      setAviso(
+        "Coleta encerrada. O resultado agregado passa a ser legível no painel " +
+          "de conformidade, e o inventário já pode ser gerado.",
+      );
+      await carregar();
+      setSelecionada({ ...campanha, status: "closed" });
     } catch (e) {
       setErro(String((e as Error).message));
     } finally {
@@ -828,7 +876,15 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
         </section>
 
         <section className="mt-5 rounded-lg border border-slate-800 bg-slate-900 p-5">
-          <h2 className="text-sm font-black text-white">2. Abrir a coleta</h2>
+          <h2 className="text-sm font-black text-white">
+            2. Abrir e encerrar a coleta
+          </h2>
+          <p className="mt-1 text-[11px] leading-4 text-slate-500">
+            São dois atos, e o segundo é o que libera o resultado. Enquanto a
+            coleta está aberta o painel só mostra adesão: uma coorte que ainda
+            cresce pode ser deduzida uma resposta por vez, e nenhum piso protege
+            disso.
+          </p>
           <div className="mt-3 space-y-2">
             {campanhas.map((campanha) => (
               <div
@@ -847,8 +903,10 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
                   >
                     {campanha.title}
                   </button>
+                  {/* O estado saia cru — DRAFT, OPEN, CLOSED — numa tela que a
+                      empresa contratante abre na frente da diretoria dela. */}
                   <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                    {campanha.status}
+                    {ESTADO_DA_CAMPANHA[campanha.status] || campanha.status}
                   </span>
                   {campanha.status === "draft" && (
                     <button
@@ -860,7 +918,48 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
                       Abrir coleta
                     </button>
                   )}
+                  {/* Encerrar nao tinha botao em lugar nenhum. A rota existe no
+                      servidor desde a migration 010 e nenhuma tela a chamava —
+                      entao o resultado, que so aparece com a campanha
+                      encerrada, era inalcancavel pela interface. */}
+                  {campanha.status === "open" &&
+                    (confirmandoFecho === campanha.campaign_id ? (
+                      <span className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={salvando}
+                          onClick={() => fechar(campanha)}
+                          className="rounded bg-red-500 px-3 py-1.5 text-[11px] font-black text-red-950 hover:bg-red-400 disabled:opacity-60"
+                        >
+                          {salvando ? "Encerrando..." : "Confirmar encerramento"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmandoFecho(null)}
+                          className="rounded border border-slate-600 px-3 py-1.5 text-[11px] font-black text-slate-300"
+                        >
+                          Cancelar
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={salvando}
+                        onClick={() => setConfirmandoFecho(campanha.campaign_id)}
+                        className="rounded border border-amber-700 px-3 py-1.5 text-[11px] font-black text-amber-200 hover:bg-amber-900/40 disabled:opacity-60"
+                      >
+                        Encerrar coleta
+                      </button>
+                    ))}
                 </div>
+                {confirmandoFecho === campanha.campaign_id && (
+                  <p className="mt-2 rounded border border-red-900 bg-red-950/50 p-2 text-[11px] leading-4 text-red-100">
+                    <strong>Encerrar não tem volta.</strong> A campanha não
+                    reabre, e quem ainda não respondeu perde a chance — os links
+                    pendentes param de funcionar. Em troca, é o encerramento que
+                    torna o resultado legível e permite gerar o inventário.
+                  </p>
+                )}
               </div>
             ))}
             {!campanhas.length && (
