@@ -1056,11 +1056,18 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
                   <Sigla nome="PGR" /> é opcional e se faz depois, sem refazer
                   nada.
                 </p>
+                {/* "Criar a primeira campanha" era mentira a partir da
+                    segunda: esta tela nao consulta campanhas — ela e o cadastro
+                    da estrutura — e a empresa volta aqui para acrescentar filial
+                    ou corrigir efetivo muito depois de ter campanha rodando.
+                    Buscar o estado so para escolher o rotulo acrescentaria uma
+                    requisicao e um modo de falha a uma tela que nao precisa de
+                    nenhum dos dois. O rotulo neutro e verdadeiro nos dois casos. */}
                 <Link
                   to="/nr1/campanha"
                   className="mt-4 inline-block rounded-lg bg-emerald-500 px-5 py-2.5 text-sm font-black text-emerald-950 hover:bg-emerald-400"
                 >
-                  Criar a primeira campanha
+                  Ir para Campanha e convites
                 </Link>
               </div>
             )}
