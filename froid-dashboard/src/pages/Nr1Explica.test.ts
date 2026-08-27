@@ -213,3 +213,51 @@ describe("a tela e alcancavel", () => {
     expect(PAINEL).toContain('nav("/nr1/explica")');
   });
 });
+
+describe("o verbete contratual aponta, e nao reescreve", () => {
+  /**
+   * O contrato e os Termos sao documentos versionados, e o comprovante de
+   * aceite prova QUAL texto foi aceito pelo sha256. Um verbete que reescrevesse
+   * a clausula criaria uma segunda narrativa da mesma obrigacao, sem versao e
+   * sem digital — e quando as duas divergissem, o cliente teria agido pela
+   * parafrase enquanto o livro prova o outro texto.
+   *
+   * Por isso todo verbete contratual carrega destino, e o destino e o
+   * documento vigente dentro do sistema.
+   */
+
+  const contratuais = VERBETES.filter((v) => v.tema === "contrato");
+
+  it("existe um tema de contrato com verbetes", () => {
+    expect(contratuais.length).toBeGreaterThanOrEqual(6);
+  });
+
+  it("todo verbete contratual leva ao documento vigente", () => {
+    for (const verbete of contratuais) {
+      expect(verbete.destino, `${verbete.id} sem destino`).toBeTruthy();
+      expect(
+        ["/contrato-nr1", "/termos-nr1", "/nr1/comprovante"],
+        `${verbete.id} aponta para fora dos documentos`,
+      ).toContain(verbete.destino!.para);
+    }
+  });
+
+  it("os destinos existem como rota", () => {
+    for (const rota of ["/contrato-nr1", "/termos-nr1", "/nr1/comprovante"]) {
+      expect(APP).toContain(`path="${rota}"`);
+    }
+  });
+
+  it("nao promete preco, prazo nem escopo", () => {
+    // Variam por contrato e vivem na proposta comercial. Resposta estatica
+    // aqui viraria promessa errada em algum contrato.
+    const tudo = contratuais.flatMap((v) => v.resposta).join(" ");
+    expect(tudo).not.toMatch(/R\$\s?\d/);
+    expect(tudo).not.toMatch(/\b\d+\s*(dias|meses)\s*de\s*(prazo|garantia)/i);
+  });
+
+  it("diz que o texto que vale e o do documento", () => {
+    const tudo = contratuais.flatMap((v) => v.resposta).join(" ").toLowerCase();
+    expect(tudo).toContain("o texto que vale");
+  });
+});

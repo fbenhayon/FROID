@@ -25,6 +25,7 @@
 
 export type TemaExplica =
   | "lei"
+  | "contrato"
   | "obrigacoes"
   | "porte"
   | "operacao"
@@ -42,6 +43,16 @@ export type VerbeteExplica = {
   referencia?: string;
   /** Termos que não aparecem na pergunta mas que alguém digitaria. */
   chaves?: string[];
+  /** Para onde o leitor deve ir para ler o texto que vale.
+   *
+   *  Existe por causa dos verbetes contratuais. O contrato é versionado e tem
+   *  impressão digital, e o comprovante de aceite prova QUAL texto foi aceito
+   *  pelo sha256. Um verbete que reescrevesse a cláusula criaria uma segunda
+   *  narrativa da mesma obrigação, sem versão e sem digital — e quando as duas
+   *  divergissem, o cliente teria agido pela paráfrase enquanto o livro prova o
+   *  outro texto. Aqui o verbete diz onde está e o que a seção trata; o texto
+   *  que vale é o do documento. */
+  destino?: { rotulo: string; para: string };
 };
 
 export const TEMAS: Array<{ id: TemaExplica; titulo: string; resumo: string }> = [
@@ -49,6 +60,12 @@ export const TEMAS: Array<{ id: TemaExplica; titulo: string; resumo: string }> =
     id: "lei",
     titulo: "A lei",
     resumo: "O que mudou, desde quando vale e o que acontece se não cumprir.",
+  },
+  {
+    id: "contrato",
+    titulo: "Contrato e contratação",
+    resumo:
+      "Onde está o texto que vale, o que o FROID assume e o que não assume.",
   },
   {
     id: "obrigacoes",
@@ -142,6 +159,108 @@ export const VERBETES: VerbeteExplica[] = [
     ],
     referencia: "Guia de Fatores de Riscos Psicossociais (MTE, 2025)",
     chaves: ["objeto", "pessoa", "sintoma", "diagnóstico"],
+  },
+
+  // ------------------------------------------------------------ contrato
+  //
+  // Regra destes verbetes: eles APONTAM, nao reescrevem. Nenhum deles enuncia
+  // uma obrigacao com palavras proprias — dizem qual documento trata do
+  // assunto, o nome da secao, e mandam ler o texto vigente. O motivo esta no
+  // comentario de `destino`, e resume-se a isto: o comprovante de aceite prova
+  // um sha256, e paragrafo nosso que divirja do texto assinado nao vira
+  // esclarecimento, vira divergencia entre duas versoes da mesma obrigacao.
+  {
+    id: "onde-esta-o-contrato",
+    tema: "contrato",
+    pergunta: "Onde leio o contrato e os termos de uso?",
+    resposta: [
+      "Os dois textos ficam no próprio sistema, sempre na versão vigente, e podem ser abertos e impressos a qualquer momento — o Contrato de Prestação de Serviço FROID NR-1 e os Termos de Uso FROID NR-1.",
+      "Cada documento tem versão e impressão digital (sha256). É essa digital que o comprovante de aceite registra, e é por isso que ler o documento no sistema é diferente de ler um resumo dele: o resumo não tem digital.",
+    ],
+    destino: { rotulo: "Abrir o contrato vigente", para: "/contrato-nr1" },
+    chaves: ["contrato", "termos", "cláusula", "assinar", "documento"],
+  },
+  {
+    id: "prova-do-aceite",
+    tema: "contrato",
+    pergunta: "Como provo o que foi aceito, e por quem?",
+    resposta: [
+      "Pelo comprovante de aceite, que é um documento diferente do contrato: o contrato prova o texto, o comprovante prova a contratação daquele texto por aquela pessoa naquela data.",
+      "Ele registra quem aceitou, quando, e a impressão digital de cada documento aceito. E compara a digital registrada com a do texto vigente — se elas divergirem, ele diz isso, em vez de imprimir o texto de hoje sob a data de ontem.",
+      "A busca é pelo sujeito que aceitou, e não pela organização, porque o aceite é o ato de uma pessoa.",
+    ],
+    destino: { rotulo: "Abrir o comprovante de aceite", para: "/nr1/comprovante" },
+    chaves: ["comprovante", "aceite", "assinatura", "prova", "sha256"],
+  },
+  {
+    id: "responsabilidade-nao-transfere",
+    tema: "contrato",
+    pergunta: "Contratando o FROID, a responsabilidade legal passa a ser de vocês?",
+    resposta: [
+      "Não, e o contrato trata disso na seção “Instrumento dentro do GRO, e o que não se transfere”. A contratação não transfere ao fornecedor a responsabilidade legal da empresa pelo gerenciamento de riscos.",
+      "As decisões que continuam sendo da empresa estão listadas lá: aprovar as medidas de prevenção, implementá-las, alocar recursos, integrar com os demais riscos ocupacionais, assinar os documentos sob responsabilidade dela e cumprir as obrigações que não estejam no escopo contratado.",
+      "Leia a seção antes de responder a um auditor com base neste resumo — o texto que vale é o do contrato.",
+    ],
+    destino: { rotulo: "Ler a seção no contrato", para: "/contrato-nr1" },
+    chaves: ["responsabilidade", "transfere", "culpa", "quem responde"],
+  },
+  {
+    id: "o-que-o-froid-responde",
+    tema: "contrato",
+    pergunta: "E o FROID, responde por quê?",
+    resposta: [
+      "O contrato tem seção própria para isso — “Responsabilidade própria do fornecedor” —, e ela existe porque a permanência da responsabilidade regulatória da empresa não pode ser lida como ausência de responsabilidade nossa.",
+      "Ela trata do funcionamento das funcionalidades fornecidas, da integridade dos cálculos, da aplicação dos critérios metodológicos declarados, da geração dos documentos contratados, das obrigações de segurança e confidencialidade, e da correção de erro técnico imputável ao serviço.",
+      "Há o limite recíproco na mesma seção: conclusão incorreta decorrente de informação falsa, incompleta ou desatualizada cadastrada pela empresa não é erro do fornecedor.",
+    ],
+    destino: { rotulo: "Ler a seção no contrato", para: "/contrato-nr1" },
+    chaves: ["garantia", "erro", "responsabilidade do fornecedor", "SLA"],
+  },
+  {
+    id: "prevalencia-documentos",
+    tema: "contrato",
+    pergunta: "Se a proposta comercial e o contrato disserem coisas diferentes, o que vale?",
+    resposta: [
+      "O contrato resolve isso expressamente, na seção “Partes e documentos integrantes”: prevalece o contrato quanto às obrigações jurídicas gerais; a proposta comercial quanto a preço, prazo, quantidade de trabalhadores, estabelecimentos e escopo adicional; e os documentos metodológicos quanto aos critérios técnicos declarados.",
+      "Por isso preço, prazo e escopo não são respondidos nesta tela: eles variam por contrato e vivem na proposta comercial.",
+    ],
+    destino: { rotulo: "Ler a seção no contrato", para: "/contrato-nr1" },
+    chaves: ["preço", "proposta", "escopo", "prazo", "divergência", "quanto custa"],
+  },
+  {
+    id: "questionario-nao-certifica",
+    tema: "contrato",
+    pergunta: "O contrato promete que a empresa ficará em conformidade?",
+    resposta: [
+      "Não, e isso está escrito — não é omissão. A seção “Questionário como fonte de evidência, e métodos complementares” diz que o questionário, isoladamente, não será apresentado como prova automática e universal de cumprimento integral do GRO, do PGR, da NR-1 ou da NR-17.",
+      "Um fornecedor que prometesse conformidade automática estaria prometendo o que não pode entregar, e a promessa seria a primeira coisa a cair numa fiscalização.",
+      "O contrato prevê o oposto: gatilhos de aprofundamento — adesão insuficiente, evidência inconclusiva, indícios de violência ou assédio, entre outros — em que o próprio serviço indica que é preciso ir além do questionário.",
+    ],
+    destino: { rotulo: "Ler a seção no contrato", para: "/contrato-nr1" },
+    chaves: ["conformidade", "garantia", "certificado", "promessa", "certifica"],
+  },
+  {
+    id: "ausencia-de-evidencia",
+    tema: "contrato",
+    pergunta: "O contrato trata do caso em que a coleta não fecha?",
+    resposta: [
+      "Trata, na seção “Ausência de evidência não é ausência de risco”, dos Termos de Uso.",
+      "Ela estabelece que o resultado pode ser registrado como conclusivo, inconclusivo, insuficiente, não publicável por proteção de coorte ou sujeito a aprofundamento — e que o registro indica qual dessas situações se aplica, de modo que a não publicação nunca seja lida como avaliação favorável.",
+      "É a contrapartida contratual do que o sistema faz: o recorte reprovado vira linha declarada insuficiente dentro do inventário, e não some dele.",
+    ],
+    destino: { rotulo: "Ler nos Termos de Uso", para: "/termos-nr1" },
+    chaves: ["insuficiente", "não fechou", "adesão baixa", "sem resultado"],
+  },
+  {
+    id: "trabalhador-nao-e-parte",
+    tema: "contrato",
+    pergunta: "O trabalhador que responde vira parte do contrato?",
+    resposta: [
+      "Não. Os Termos definem três figuras distintas: a contratante, que é a pessoa jurídica empregadora; o usuário autorizado, que é quem a empresa autoriza a operar o sistema; e o trabalhador participante, que é quem é convidado a responder.",
+      "O texto é explícito em que o trabalhador não se torna contratante, administrador nem aderente às condições comerciais por responder à coleta — a participação dele é acompanhada de informação própria sobre finalidade, privacidade, voluntariedade e proteção das respostas.",
+    ],
+    destino: { rotulo: "Ler nos Termos de Uso", para: "/termos-nr1" },
+    chaves: ["trabalhador", "parte", "adere", "aceite do trabalhador"],
   },
 
   // -------------------------------------------------------- obrigações

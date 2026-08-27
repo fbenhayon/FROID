@@ -108,6 +108,17 @@ const Cartao: React.FC<{
             {verbete.referencia}
           </p>
         )}
+        {/* O verbete contratual aponta para o documento em vez de reescreve-lo.
+            Sem este link ele seria uma parafrase solta de clausula — e e
+            justamente isso que ele existe para nao ser. */}
+        {verbete.destino && (
+          <Link
+            to={verbete.destino.para}
+            className="mt-3 inline-block rounded border border-cyan-700 bg-cyan-950 px-3 py-1 text-[11px] font-black text-cyan-100 hover:bg-cyan-900"
+          >
+            {verbete.destino.rotulo} →
+          </Link>
+        )}
         <button
           type="button"
           onClick={() => {
