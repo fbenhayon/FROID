@@ -49,6 +49,7 @@ const Nr1Campaign = lazy(() => import("./pages/Nr1Campaign").then((module) => ({
 const Nr1ActionPlan = lazy(() => import("./pages/Nr1ActionPlan").then((module) => ({ default: module.Nr1ActionPlan })));
 const Nr1Dashboard = lazy(() => import("./pages/Nr1Dashboard").then((module) => ({ default: module.Nr1Dashboard })));
 const Nr1Effectiveness = lazy(() => import("./pages/Nr1Effectiveness").then((module) => ({ default: module.Nr1Effectiveness })));
+const Nr1Explica = lazy(() => import("./pages/Nr1Explica").then((module) => ({ default: module.Nr1Explica })));
 const ValidationStudy = lazy(() => import("./pages/ValidationStudy").then((module) => ({ default: module.ValidationStudy })));
 const Nr1QuestionnairePage = lazy(() => import("./pages/Nr1QuestionnairePage").then((module) => ({ default: module.Nr1QuestionnairePage })));
 const FroidSciencePage = lazy(() => import("./pages/FroidInstitutionalPages").then((module) => ({ default: module.FroidSciencePage })));
@@ -461,6 +462,7 @@ function App() {
             foi assinado, o comprovante prova quem assinou e quando. */}
         <Route path="/nr1/comprovante" element={clinicalElement(<Nr1Acceptance user={user} />)} />
         <Route path="/nr1/plano-de-acao" element={clinicalElement(<Nr1ActionPlan user={user} />)} />
+        <Route path="/nr1/explica" element={clinicalElement(<Nr1Explica user={user} />)} />
         <Route
           path="/nr1/eficacia"
           element={clinicalElement(<Nr1Effectiveness user={user} />)}

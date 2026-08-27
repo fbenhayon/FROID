@@ -420,6 +420,16 @@ export const Nr1Dashboard: React.FC<{ user: FroidUser | null }> = ({ user }) => 
             >
               Campanha e convites
             </button>
+            {/* A duvida sobre a norma chega no meio da operacao, e nao numa
+                sessao de estudo. Por isso o acesso fica aqui, ao lado dos
+                botoes que a produzem, e nao num menu de ajuda. */}
+            <button
+              onClick={() => nav("/nr1/explica")}
+              title="Perguntas sobre a norma, sobre a metodologia e sobre como ler o resultado — com a fonte normativa."
+              className="rounded border border-cyan-700 bg-cyan-950 px-4 py-2 text-xs font-black text-cyan-100 hover:bg-cyan-900"
+            >
+              FROID Explica NR-1
+            </button>
             <button
               onClick={() => nav("/nr1/comprovante")}
               title="Comprovante de aceite: quem contratou, quando, e a integra dos documentos com a impressao digital de cada um."
