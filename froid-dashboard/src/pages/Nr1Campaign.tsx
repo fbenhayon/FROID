@@ -239,6 +239,8 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
   const [convites, setConvites] = useState<Convite[]>([]);
   // Matriculas que o servidor ignorou por ja terem convite nesta campanha.
   const [jaConvidados, setJaConvidados] = useState<string[]>([]);
+  const [listaReemissao, setListaReemissao] = useState("");
+  const [semConvitePendente, setSemConvitePendente] = useState<string[]>([]);
 
   const carregar = useCallback(async () => {
     if (!organizationId) return;
@@ -467,15 +469,56 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
     }
   };
 
+  /** Troca o link de quem perdeu o dele. Destrutivo por natureza: o link
+   *  anterior morre. Por isso e acao separada, com lista propria — nao um
+   *  segundo clique no mesmo botao de emitir. */
+  const reemitir = async () => {
+    setErro("");
+    setAviso("");
+    if (!selecionada) return;
+    const matriculas = listaReemissao
+      .split(/\r?\n/)
+      // Aceita a linha inteira colada da planilha: só a matrícula importa aqui,
+      // porque a reemissão preserva o setor gravado na emissão original.
+      .map((linha) => linha.split(/[;,\t]/)[0].trim())
+      .filter(Boolean);
+    if (!matriculas.length) {
+      setErro("Cole as matrículas que precisam de link novo.");
+      return;
+    }
+    setSalvando(true);
+    try {
+      const resposta = await chamar(
+        `/api/organizations/${organizationId}/nr1/campaigns/${selecionada.campaign_id}/invitations/reissue`,
+        organizationId,
+        { method: "POST", body: JSON.stringify({ payroll_numbers: matriculas }) },
+      );
+      setConvites(resposta.links || []);
+      setJaConvidados([]);
+      setSemConvitePendente(resposta.sem_convite_pendente || []);
+      setAviso(
+        `${resposta.reissued} convite(s) reemitido(s). O link anterior dessas ` +
+          "pessoas parou de funcionar agora — baixe o arquivo e distribua.",
+      );
+    } catch (e) {
+      setErro(String((e as Error).message));
+    } finally {
+      setSalvando(false);
+    }
+  };
+
   const baixarCsv = () => {
     const blob = new Blob([montarCsv(convites)], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const ancora = document.createElement("a");
     ancora.href = url;
+    // O aviso vai no NOME do arquivo, nao dentro dele: dentro quebraria a
+    // planilha, e no nome ele sobrevive ao download, ao anexo de e-mail e a
+    // pasta compartilhada onde o arquivo costuma ficar esquecido.
     ancora.download = `convites-${(selecionada?.title || "campanha")
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "")}.csv`;
+      .replace(/^-|-$/g, "")}-APAGAR-APOS-DISTRIBUIR.csv`;
     document.body.appendChild(ancora);
     ancora.click();
     document.body.removeChild(ancora);
@@ -916,6 +959,19 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
                     link. Saindo desta tela sem baixar o arquivo, a única saída é
                     reemitir — o que invalida os já distribuídos.
                   </p>
+                  {/* O unico ponto do sistema em que matricula e link convivem.
+                      Nao e descuido: sem esse par ninguem consegue entregar o
+                      convite a pessoa certa. Mas ele existe so nesta tela e
+                      nesse arquivo, e enquanto o arquivo existir alguem pode
+                      abrir cada link e ver qual recusa — descobrindo QUEM
+                      respondeu. O controle nao e tecnico, e de guarda. */}
+                  <p className="mt-2 rounded border border-amber-800 bg-amber-950/50 p-2 text-xs leading-5 text-amber-100">
+                    <strong>Apague o arquivo depois de distribuir.</strong> Ele é
+                    o único lugar onde matrícula e link aparecem juntos — o FROID
+                    nunca guarda esse par. Enquanto ele existir, quem o tiver
+                    consegue descobrir <em>quem</em> já respondeu (não o que
+                    respondeu, que ninguém consegue). Distribuiu, apagou.
+                  </p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button
                       type="button"
@@ -957,6 +1013,49 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
                   </div>
                 </div>
               )}
+
+              {/* Reemissao: acao separada, e nao um segundo clique no botao de
+                  emitir. O efeito e destrutivo — o link anterior morre — e
+                  precisa de um gesto proprio para nao acontecer por engano no
+                  meio da distribuicao normal. */}
+              <div className="mt-6 rounded-lg border border-slate-700 bg-slate-950 p-4">
+                <p className="text-xs font-black text-slate-200">
+                  Alguém perdeu o link?
+                </p>
+                <p className="mt-1 text-[11px] leading-4 text-slate-400">
+                  Cole as matrículas, uma por linha. Cada uma recebe um link
+                  novo, e <strong>o link anterior dela para de funcionar</strong>.
+                  O setor atribuído na emissão original é mantido. Quem já
+                  respondeu não recebe link novo — responder duas vezes contaria
+                  a mesma pessoa duas vezes na coorte.
+                </p>
+                <textarea
+                  value={listaReemissao}
+                  onChange={(e) => setListaReemissao(e.target.value)}
+                  rows={3}
+                  placeholder={"1042\n1043"}
+                  className="mt-2 w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 font-mono text-xs text-slate-100 outline-none focus:border-cyan-500"
+                />
+                {semConvitePendente.length > 0 && (
+                  <p className="mt-2 rounded border border-amber-900 bg-amber-950/60 p-2 text-[11px] leading-4 text-amber-100">
+                    Sem convite pendente nesta campanha:{" "}
+                    {semConvitePendente.slice(0, 12).join(", ")}
+                    {semConvitePendente.length > 12 && " …"}. Não recebem link
+                    novo. A tela não diz o motivo de propósito — pode ser que a
+                    pessoa já tenha respondido, pode ser que nunca tenha sido
+                    convidada, e distinguir os dois entregaria a quem tem esta
+                    lista a relação de quem respondeu.
+                  </p>
+                )}
+                <button
+                  type="button"
+                  disabled={salvando || !listaReemissao.trim()}
+                  onClick={reemitir}
+                  className="mt-3 rounded-lg border border-amber-700 px-4 py-2 text-xs font-black text-amber-200 hover:bg-amber-900/40 disabled:opacity-50"
+                >
+                  {salvando ? "Reemitindo..." : "Reemitir convite"}
+                </button>
+              </div>
             </>
           )}
         </section>

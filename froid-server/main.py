@@ -9436,6 +9436,103 @@ async def create_nr1_invitations(
     }
 
 
+@app.post(
+    "/api/organizations/{organization_id}/nr1/campaigns/{campaign_id}/invitations/reissue"
+)
+async def reissue_nr1_invitations(
+    organization_id: str, campaign_id: str, request: Request
+):
+    """Emite um link novo para quem perdeu o dele, e só para quem não respondeu.
+
+    Rota separada da emissão, e não uma opção dela, porque o efeito é
+    destrutivo: o link anterior para de funcionar no instante em que o novo é
+    gravado. Isso precisa ser um ato deliberado, com nome próprio na trilha de
+    auditoria, e não uma caixa marcada por engano no meio do fluxo normal.
+
+    Quem já respondeu não recebe link novo, e a recusa é do banco, não daqui.
+
+    **O que esta rota revela, dito de propósito.** Quem opera o RH já tem o
+    pareamento matrícula-link no CSV que baixou, e já podia descobrir quem
+    respondeu abrindo cada link e vendo qual recusa. Esta rota não cria esse
+    conhecimento — mas torna barato obtê-lo em lote, e isso é diferença real.
+    As contenções são três: o lote é limitado, toda reemissão vira evento de
+    auditoria com autor e contagem, e a resposta não diz POR QUE alguém não foi
+    reemitido. "Sem convite pendente" cobre tanto quem já respondeu quanto quem
+    nunca foi convidado — o servidor não afirma qual dos dois.
+    """
+    context = _require_enterprise_context(
+        request, organization_id, "nr1.campaigns.manage"
+    )
+    body = await request.json()
+    matriculas = body.get("payroll_numbers")
+    if not isinstance(matriculas, list) or not matriculas:
+        raise HTTPException(status_code=400, detail="lista de matrículas obrigatória")
+    if len(matriculas) > 50:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "limite de 50 matrículas por reemissão: reemitir em massa é "
+                "redistribuir a campanha inteira, e isso é campanha nova"
+            ),
+        )
+
+    prepared: list[dict] = []
+    links: list[dict] = []
+    try:
+        for entrada in matriculas:
+            payroll_number = str(entrada or "").strip()
+            if not payroll_number:
+                raise HTTPException(status_code=400, detail="matrícula obrigatória")
+            token = secrets.token_urlsafe(32)
+            pseudonym = _nr1_subject_pseudonym(organization_id, payroll_number)
+            prepared.append(
+                {"pseudonym": pseudonym, "token_hash": _nr1_token_hash(token)}
+            )
+            links.append(
+                {
+                    "payroll_number": payroll_number,
+                    "token": token,
+                    "pseudonym": pseudonym,
+                }
+            )
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail="chave de pseudonimização não configurada")
+
+    try:
+        reemitidos = TENANT_STORE.nr1_reissue_invitations(
+            organization_id=organization_id,
+            membership_id=context.membership_id,
+            campaign_id=campaign_id,
+            subjects=prepared,
+        )
+    except RuntimeError:
+        raise HTTPException(status_code=409, detail="módulo NR-1 requer persistência dual")
+    except Exception:
+        LOGGER.exception("Unable to reissue NR-1 invitations")
+        raise HTTPException(status_code=400, detail="não foi possível reemitir os convites")
+
+    trocados = set(reemitidos)
+    emitidos = [
+        {"payroll_number": link["payroll_number"], "token": link["token"]}
+        for link in links
+        if link["pseudonym"] in trocados
+    ]
+    sem_convite = [
+        link["payroll_number"] for link in links if link["pseudonym"] not in trocados
+    ]
+
+    _record_tenant_success(
+        context, "nr1.invitation.reissue", "assessment_campaign", campaign_id,
+        {"result_count": len(emitidos)},
+    )
+    return {
+        "campaign_id": campaign_id,
+        "reissued": len(emitidos),
+        "links": emitidos,
+        "sem_convite_pendente": sem_convite,
+    }
+
+
 @app.get("/api/nr1/questionnaire")
 async def read_nr1_questionnaire(request: Request):
     """Fetch the form for one invitation token. No login, no tenant header.

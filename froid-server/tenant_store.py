@@ -2349,6 +2349,67 @@ class TenantStore:
                         criados.append(str(linha[0]))
         return criados
 
+    def nr1_reissue_invitations(
+        self,
+        *,
+        organization_id: str,
+        membership_id: str,
+        campaign_id: str,
+        subjects: Sequence[dict],
+    ) -> list[str]:
+        """Troca o token de um convite que ainda nao foi respondido.
+
+        Existe porque numa campanha de centenas de pessoas alguem apaga a
+        mensagem antes de responder, e ate aqui nao havia saida: o servidor
+        guarda so o digest do link, e uma segunda emissao para a mesma
+        matricula esbarra no UNIQUE (campaign_id, subject_pseudonym). A unica
+        alternativa era recriar a campanha inteira.
+
+        Atualiza a linha EXISTENTE em vez de revogar e inserir outra. Nao e
+        economia de codigo:
+
+        - a chave unica e por (campanha, pseudonimo), entao uma segunda linha
+          para a mesma pessoa nao caberia sem migration;
+        - `invited` conta linhas de convite. Duas linhas por pessoa inflariam o
+          denominador da adesao — a campanha pareceria ter mais convidados do
+          que gente, e a taxa cairia sozinha a cada reemissao.
+
+        O token antigo morre no instante em que o digest e substituido, e isso
+        e o comportamento pretendido: quem reemite esta declarando que o link
+        anterior se perdeu.
+
+        `status = 'pending'` no WHERE e a trava que importa. Quem ja respondeu
+        nao recebe link novo — senao a mesma pessoa responderia duas vezes e a
+        coorte contaria dois. Nao ha excecao a isso, nem para administrador.
+        """
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        if not subjects:
+            return []
+        reemitidos: list[str] = []
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                self._nr1_session(connection, organization_id, membership_id)
+                for subject in subjects:
+                    linha = connection.execute(
+                        """
+                        UPDATE assessment_invitations
+                           SET token_hash = %s, invited_at = now()
+                         WHERE campaign_id = %s
+                           AND organization_id = %s
+                           AND subject_pseudonym = %s
+                           AND status = 'pending'
+                        RETURNING subject_pseudonym
+                        """,
+                        (
+                            subject["token_hash"], campaign_id, organization_id,
+                            subject["pseudonym"],
+                        ),
+                    ).fetchone()
+                    if linha:
+                        reemitidos.append(str(linha[0]))
+        return reemitidos
+
     def nr1_questionnaire_for_token(self, *, token_hash: str) -> Optional[dict]:
         """Render payload for one invitation. No tenant session: the token is it."""
         if not self.enabled or not self.runtime_database_url:
@@ -2381,8 +2442,12 @@ class TenantStore:
                            (SELECT count(*) FROM assessment_invitations invitation
                              WHERE invitation.campaign_id = campaign.id
                                AND invitation.status = 'responded'),
+                           -- Convite revogado nao e convidado: contá-lo
+                           -- infla o denominador da adesao e faz a taxa cair
+                           -- sozinha a cada correcao de distribuicao.
                            (SELECT count(*) FROM assessment_invitations invitation
-                             WHERE invitation.campaign_id = campaign.id),
+                             WHERE invitation.campaign_id = campaign.id
+                               AND invitation.status <> 'revoked'),
                            -- Respostas gravadas e respostas substantivas.
                            --
                            -- A submissao aceita o envio quando ao menos UM
