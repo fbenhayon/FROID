@@ -294,6 +294,15 @@ export const Nr1Dashboard: React.FC<{ user: FroidUser | null }> = ({ user }) => 
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [panel, setPanel] = useState<Panel | null>(null);
+  // Organizacoes desta conta, para poder trocar sem sair do modulo.
+  //
+  // A rota /api/auth/active-organization existe, e a ferramenta de piloto ja
+  // dava acesso de uma conta real a uma organizacao de demonstracao — mas
+  // nenhuma tela do NR-1 oferecia a troca, entao o acesso concedido nao tinha
+  // como ser usado. Mesmo padrao: a peca existia e faltava quem a chamasse.
+  const [organizacoes, setOrganizacoes] = useState<
+    Array<{ organization_id: string; display_name?: string; legal_name?: string }>
+  >([]);
   const [criteriaVersion, setCriteriaVersion] = useState<number | null>(null);
   const [criteriaPublished, setCriteriaPublished] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -328,6 +337,30 @@ export const Nr1Dashboard: React.FC<{ user: FroidUser | null }> = ({ user }) => 
       setLoading(false);
     }
   }, [headers, organizationId]);
+
+  const loadOrganizacoes = useCallback(async () => {
+    try {
+      const response = await fetch(apiUrl("/api/organizations"), { headers });
+      if (!response.ok) return;
+      const data = await response.json();
+      setOrganizacoes(Array.isArray(data.organizations) ? data.organizations : []);
+    } catch {
+      // Sem a lista a tela funciona igual, com uma organização só.
+    }
+  }, [headers]);
+
+  const trocarOrganizacao = async (organizationId: string) => {
+    if (!organizationId || organizationId === organizationId) return;
+    const response = await fetch(apiUrl("/api/auth/active-organization"), {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ organization_id: organizationId }),
+    });
+    // Recarregar em vez de re-buscar tudo: a organização ativa atravessa todas
+    // as telas do módulo, e meia troca — painel novo, cabeçalho velho — é pior
+    // do que a pausa de um reload.
+    if (response.ok) window.location.reload();
+  };
 
   const loadCriteria = useCallback(async () => {
     if (!organizationId) return;
@@ -375,7 +408,8 @@ export const Nr1Dashboard: React.FC<{ user: FroidUser | null }> = ({ user }) => 
   useEffect(() => {
     void loadCampaigns();
     void loadCriteria();
-  }, [loadCampaigns, loadCriteria]);
+    void loadOrganizacoes();
+  }, [loadCampaigns, loadCriteria, loadOrganizacoes]);
 
   const generateInventory = async () => {
     if (!selectedId) return;
@@ -466,6 +500,29 @@ export const Nr1Dashboard: React.FC<{ user: FroidUser | null }> = ({ user }) => 
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            {organizacoes.length > 1 && (
+              <label className="flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-wide text-slate-500">
+                  Organização
+                </span>
+                <select
+                  value={organizationId}
+                  onChange={(e) => void trocarOrganizacao(e.target.value)}
+                  className="rounded border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-black text-slate-100"
+                >
+                  {organizacoes.map((organizacao) => (
+                    <option
+                      key={organizacao.organization_id}
+                      value={organizacao.organization_id}
+                    >
+                      {organizacao.display_name ||
+                        organizacao.legal_name ||
+                        organizacao.organization_id}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <button
               onClick={() => nav("/nr1/aep")}
               title="Avaliação Ergonômica Preliminar: o método da NR-17 pelo qual a identificação de perigos e a avaliação de riscos psicossociais efetivamente acontecem. Obrigatória para toda organização, inclusive as dispensadas do PGR."
