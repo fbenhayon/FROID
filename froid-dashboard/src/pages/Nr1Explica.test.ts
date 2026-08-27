@@ -23,6 +23,15 @@ import {
  */
 
 const PAGINA = readFileSync(join(__dirname, "Nr1Explica.tsx"), "utf-8");
+/**
+ * A pagina sem comentarios.
+ *
+ * Necessario para as asseroes negativas: o cabecalho da tela EXPLICA por que
+ * ela nao usa /api/froid-explica/query, citando a rota pelo nome — e e assim
+ * que deve continuar. Um teste que procurasse a string no texto inteiro
+ * estaria proibindo a explicacao em vez da chamada.
+ */
+const CODIGO = PAGINA.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 const APP = readFileSync(join(__dirname, "..", "App.tsx"), "utf-8");
 const PAINEL = readFileSync(join(__dirname, "Nr1Dashboard.tsx"), "utf-8");
 
@@ -136,13 +145,38 @@ describe("a tela nao se apresenta como parecer", () => {
 });
 
 describe("a fronteira clinica continua de pe nesta tela", () => {
-  it("nao consulta o acervo do FROID Explica clinico", () => {
-    // Uma tela do lado do empregador que chamasse /api/froid-explica/query
-    // atravessaria a separacao que o produto existe para sustentar — aquele
-    // endpoint injeta resumo da carteira de pacientes em pergunta comparativa.
-    expect(PAGINA).not.toContain("froid-explica/query");
-    expect(PAGINA).not.toContain("apiUrl");
-    expect(PAGINA).not.toContain("fetch(");
+  /**
+   * A tela consulta o servidor — a pergunta aberta existe. O que ela nao pode
+   * fazer e consultar o acervo CLINICO: `/api/froid-explica/query` exige
+   * aprovacao profissional e injeta resumo da carteira de pacientes em
+   * pergunta comparativa. A rota do NR-1 le uma collection separada.
+   *
+   * A trava nao e sobre haver rede. E sobre qual porta.
+   */
+
+  it("nao chama a rota do FROID Explica clinico", () => {
+    expect(CODIGO).not.toContain("froid-explica/query");
+    expect(CODIGO).not.toContain("/api/copilot/query");
+  });
+
+  it("chama a rota corporativa, escopada na organizacao", () => {
+    expect(PAGINA).toContain("/nr1/explica");
+    expect(PAGINA).toContain("X-FROID-Organization-ID");
+  });
+
+  it("nao envia contexto de sessao nem de paciente", () => {
+    // O corpo da requisicao carrega uma pergunta em texto e nada mais. Nao ha
+    // parametro por onde dado clinico possa chegar ao acervo corporativo.
+    expect(CODIGO).toContain("JSON.stringify({ pergunta: texto })");
+    expect(CODIGO).not.toContain("patient_id");
+    expect(CODIGO).not.toContain("portfolio");
+  });
+
+  it("continua util quando a consulta aberta falha", () => {
+    // Tela de duvida que quebra na frente do cliente e pior do que tela que
+    // responde menos.
+    expect(PAGINA).toContain("continuam valendo");
+    expect(PAGINA).toContain("acervo_nao_indexado");
   });
 });
 

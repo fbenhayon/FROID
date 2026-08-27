@@ -39,6 +39,7 @@ from tenant_store import (
     stable_uuid,
 )
 import explica_embeddings
+import nr1_explica
 import froid_validation
 import lgpd_registry
 import nr1_compliance
@@ -9530,6 +9531,72 @@ async def reissue_nr1_invitations(
         "reissued": len(emitidos),
         "links": emitidos,
         "sem_convite_pendente": sem_convite,
+    }
+
+
+@app.post("/api/organizations/{organization_id}/nr1/explica")
+async def nr1_explica_query(organization_id: str, request: Request):
+    """Pergunta aberta sobre a NR-1, respondida a partir do acervo corporativo.
+
+    Rota SEPARADA de `/api/froid-explica/query`, e a separacao e a fronteira do
+    produto, nao arrumacao de codigo. Aquela rota exige aprovacao profissional
+    e assinatura, e injeta resumo da carteira de pacientes quando a pergunta e
+    comparativa. Reaproveita-la para o empregador levaria dado clinico para o
+    lado errado da fronteira por um caminho que ninguem estaria olhando.
+
+    Aqui a autorizacao e a mesma do painel agregado — quem pode ler o resultado
+    da propria organizacao pode perguntar sobre a norma que o produziu — e o
+    acervo consultado e uma collection propria, sem material clinico dentro.
+
+    Quando nao ha acervo indexado ou o modelo nao responde, devolve
+    `disponivel: false` em vez de erro: a tela tem conteudo curado proprio e
+    continua respondendo sem esta rota. Uma tela de duvida que quebra na frente
+    do cliente e pior do que uma tela que responde menos.
+    """
+    context = _require_enterprise_context(
+        request, organization_id, "nr1.aggregate.read"
+    )
+    body = await request.json()
+    pergunta = str(body.get("pergunta") or body.get("query_text") or "").strip()
+    if not pergunta:
+        raise HTTPException(status_code=400, detail="pergunta obrigatória")
+    if len(pergunta) > 800:
+        raise HTTPException(
+            status_code=400,
+            detail="pergunta muito longa: resuma em uma ou duas frases",
+        )
+
+    trechos, prompt = nr1_explica.preparar(pergunta)
+    if not trechos:
+        # Acervo ausente nao e falha do usuario nem do servidor: e estado
+        # conhecido, e a tela sabe o que fazer com ele.
+        return {
+            "disponivel": False,
+            "motivo": "acervo_nao_indexado",
+            "resposta": "",
+            "citacoes": [],
+        }
+
+    texto, motor = await _generate_froid_explain_text(
+        nr1_explica.INSTRUCAO, prompt, temperature=0.1, max_tokens=800
+    )
+    if not texto:
+        return {
+            "disponivel": False,
+            "motivo": "gerador_indisponivel",
+            "resposta": "",
+            "citacoes": nr1_explica.citacoes(trechos),
+        }
+
+    _record_tenant_success(
+        context, "nr1.explica.query", "assessment_campaign", organization_id,
+        {"result_count": len(trechos)},
+    )
+    return {
+        "disponivel": True,
+        "resposta": texto,
+        "citacoes": nr1_explica.citacoes(trechos),
+        "motor": motor,
     }
 
 

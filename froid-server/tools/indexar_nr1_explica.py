@@ -1,0 +1,236 @@
+#!/usr/bin/env python3
+"""Indexa o acervo do FROID Explica NR-1 numa collection SEPARADA.
+
+Por que separada, e nao um filtro sobre a collection clinica:
+
+  O produto inteiro se sustenta numa fronteira — o empregador nunca alcanca o
+  material clinico, e o profissional de saude nunca precisa do corporativo.
+  Filtro e uma condicao que alguem pode esquecer de aplicar numa consulta nova;
+  collection separada e uma condicao que nao existe para ser esquecida. Se a
+  busca do NR-1 abrir a collection errada, ela nao encontra nada — em vez de
+  encontrar o que nao devia.
+
+O que entra:
+
+  * as notas tecnicas do FROID sobre NR-1 (knowledge/approved/.../FROID_NR1_*)
+  * as fontes primarias em docs/normas/primarias — texto da norma e publicacoes
+    oficiais do MTE, que sao citaveis ao cliente e ao auditor
+  * opcionalmente as secundarias, com --secundarias, que sao doutrina e
+    material de entidade: citaveis com atribuicao, como interpretacao
+
+O que NUNCA entra, e o script recusa:
+
+  * docs/normas/pareceres — parecer da nossa assessoria juridica sobre os
+    NOSSOS contratos. E opiniao sobre documento nosso, nao norma, e citar isso
+    a um cliente seria apresentar como fonte externa aquilo que nos encomendamos
+  * qualquer nota clinica do FROID
+
+Uso, de dentro do conteiner do backend:
+
+    python tools/indexar_nr1_explica.py --reset
+    python tools/indexar_nr1_explica.py --conferir
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import sys
+from pathlib import Path
+
+TOOLS_DIR = Path(__file__).resolve().parent
+SERVER_DIR = TOOLS_DIR.parent
+REPO_DIR = SERVER_DIR.parent
+for caminho in (str(SERVER_DIR), str(TOOLS_DIR)):
+    if caminho not in sys.path:
+        sys.path.insert(0, caminho)
+
+import explica_embeddings  # noqa: E402
+
+# A parte trabalhosa — dividir o markdown em trechos que caibam no modelo,
+# derivar titulo e gerar identificador estavel — ja existe e ja foi ajustada
+# depois de um defeito real de truncamento. Reimplementar aqui produziria uma
+# segunda versao para divergir da primeira.
+from ingest_approved_sources import (  # noqa: E402
+    chunk_markdown,
+    stable_id,
+    title_from_markdown,
+)
+
+COLLECTION_NR1 = os.getenv("FROID_NR1_CHROMA_COLLECTION", "froid_nr1_knowledge")
+COLLECTION_CLINICA = os.getenv(
+    "FROID_CHROMA_COLLECTION", "froid_clinical_knowledge"
+)
+CHROMA_PATH = Path(os.getenv("FROID_CHROMA_PATH", "/data/chroma_db"))
+
+NOTAS_FROID = SERVER_DIR / "knowledge" / "approved" / "Notas_tecnicas_FROID"
+NORMAS = REPO_DIR / "docs" / "normas"
+
+PALAVRAS_POR_TRECHO = 150
+SOBREPOSICAO = 40
+
+
+def fontes(incluir_secundarias: bool) -> list[tuple[Path, str]]:
+    """(arquivo, classe de citabilidade), na ordem de confianca.
+
+    A classe viaja com o trecho ate a resposta. Sem ela o modelo trata "o que a
+    norma diz" e "o que uma consultoria escreveu sobre a norma" como a mesma
+    coisa — e a diferenca entre as duas e exatamente o que um auditor cobra.
+    """
+    encontrados: list[tuple[Path, str]] = []
+
+    for arquivo in sorted(NOTAS_FROID.glob("FROID_NR1_*.md")):
+        encontrados.append((arquivo, "nota-froid"))
+
+    primarias = NORMAS / "primarias"
+    if primarias.exists():
+        for arquivo in sorted(primarias.glob("*.md")):
+            encontrados.append((arquivo, "norma"))
+
+    if incluir_secundarias:
+        secundarias = NORMAS / "secundarias"
+        if secundarias.exists():
+            for arquivo in sorted(secundarias.glob("*.md")):
+                encontrados.append((arquivo, "interpretacao"))
+
+    return encontrados
+
+
+def recusar_o_que_nao_pode_entrar(arquivos: list[tuple[Path, str]]) -> None:
+    """Trava explicita, e nao confianca no glob acima.
+
+    O glob pode ser afrouxado por alguem que queira "indexar tudo de normas".
+    Esta funcao existe para que essa mudanca falhe em vez de passar.
+    """
+    for arquivo, _ in arquivos:
+        partes = {parte.lower() for parte in arquivo.parts}
+        if "pareceres" in partes:
+            raise SystemExit(
+                f"RECUSADO: {arquivo} esta em pareceres/. Parecer da nossa "
+                "assessoria sobre os nossos contratos nao e fonte citavel ao "
+                "cliente."
+            )
+        if arquivo.parent == NOTAS_FROID and not arquivo.name.startswith(
+            "FROID_NR1_"
+        ):
+            raise SystemExit(
+                f"RECUSADO: {arquivo} e nota clinica. O acervo do NR-1 nao "
+                "mistura os dois produtos."
+            )
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--chroma-path", type=Path, default=CHROMA_PATH)
+    parser.add_argument("--collection", default=COLLECTION_NR1)
+    parser.add_argument(
+        "--reset", action="store_true",
+        help="Apaga a collection antes de reindexar. Necessario ao trocar o "
+             "modelo de embedding.",
+    )
+    parser.add_argument(
+        "--secundarias", action="store_true",
+        help="Inclui doutrina e material de entidade, marcados como "
+             "interpretacao.",
+    )
+    parser.add_argument(
+        "--embedding", default="auto", choices=["auto", "openai", "local"],
+    )
+    parser.add_argument(
+        "--conferir", action="store_true",
+        help="So relata o que ha na collection, sem escrever nada.",
+    )
+    args = parser.parse_args()
+
+    if args.collection == COLLECTION_CLINICA:
+        raise SystemExit(
+            "RECUSADO: a collection do NR-1 nao pode ser a mesma da trilha "
+            f"clinica ({COLLECTION_CLINICA}). A separacao e a fronteira."
+        )
+
+    from chromadb import PersistentClient
+
+    args.chroma_path.mkdir(parents=True, exist_ok=True)
+    client = PersistentClient(path=str(args.chroma_path))
+
+    if args.conferir:
+        try:
+            colecao, modelo = explica_embeddings.collection_for(
+                client, args.collection, args.embedding, create=False
+            )
+        except Exception as erro:
+            print(f"Collection {args.collection} ainda nao existe: {erro}")
+            return 1
+        print(f"Collection: {args.collection}")
+        print(f"Embedding:  {modelo}")
+        print(f"Trechos:    {colecao.count()}")
+        amostra = colecao.get(limit=5, include=["metadatas"])
+        for metadado in amostra.get("metadatas") or []:
+            print(f"  - {metadado.get('title')} [{metadado.get('classe')}]")
+        return 0
+
+    arquivos = fontes(args.secundarias)
+    if not arquivos:
+        raise SystemExit("Nenhuma fonte encontrada para indexar.")
+    recusar_o_que_nao_pode_entrar(arquivos)
+
+    print(f"ChromaDB:   {args.chroma_path}")
+    print(f"Collection: {args.collection}")
+    print("Fontes:")
+    for arquivo, classe in arquivos:
+        print(f"  [{classe:14}] {arquivo.name}")
+
+    if args.reset:
+        try:
+            client.delete_collection(args.collection)
+            print("Collection anterior apagada.")
+        except Exception:
+            pass
+
+    colecao, modelo = explica_embeddings.collection_for(
+        client, args.collection, args.embedding
+    )
+    print(f"Embedding:  {modelo}")
+
+    ids: list[str] = []
+    documentos: list[str] = []
+    metadados: list[dict] = []
+
+    for arquivo, classe in arquivos:
+        texto = arquivo.read_text(encoding="utf-8", errors="ignore")
+        titulo = title_from_markdown(arquivo, texto)
+        trechos = chunk_markdown(texto, PALAVRAS_POR_TRECHO, SOBREPOSICAO)
+        for indice, trecho in enumerate(trechos):
+            ids.append(stable_id(arquivo, indice, trecho))
+            documentos.append(trecho)
+            metadados.append(
+                {
+                    "title": titulo,
+                    "source": arquivo.name,
+                    "classe": classe,
+                    "modulo": "nr1",
+                }
+            )
+        print(f"  {arquivo.name}: {len(trechos)} trechos")
+
+    if not documentos:
+        raise SystemExit("Nada a indexar.")
+
+    # Em lotes: a API de embedding tem limite de tamanho de requisicao, e uma
+    # falha no meio de um upsert unico deixaria a collection pela metade sem
+    # dizer onde parou.
+    LOTE = 100
+    for inicio in range(0, len(documentos), LOTE):
+        colecao.upsert(
+            ids=ids[inicio : inicio + LOTE],
+            documents=documentos[inicio : inicio + LOTE],
+            metadatas=metadados[inicio : inicio + LOTE],
+        )
+        print(f"  indexados {min(inicio + LOTE, len(documentos))}/{len(documentos)}")
+
+    print(f"\nPronto: {colecao.count()} trechos em {args.collection}.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

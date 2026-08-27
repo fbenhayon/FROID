@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import type { FroidUser } from "../App";
+import { apiUrl } from "../lib/api";
 import {
   TEMAS,
   VERBETES,
@@ -28,23 +29,24 @@ import { GlossarioDeSiglas } from "../lib/siglas";
  *    falhar no pior momento. Aqui a resposta e a mesma sempre, foi revisada, e
  *    funciona sem rede.
  *
- * 2. **Nenhuma chamada ao servidor.** Consequencia da primeira, e tambem
- *    garantia de fronteira: uma tela do lado do empregador que consultasse o
- *    acervo do FROID Explica clinico atravessaria exatamente a separacao que o
- *    produto existe para sustentar. O acervo clinico e do profissional de
- *    saude; este conteudo e do empregador. Eles nao se encontram.
+ * 2. **A pergunta aberta usa rota propria, nunca a clinica.**
+ *    `/api/froid-explica/query` exige aprovacao profissional e injeta resumo
+ *    da carteira de pacientes em pergunta comparativa. Reaproveita-la aqui
+ *    levaria dado clinico para o lado errado da fronteira por um caminho que
+ *    ninguem estaria olhando. A rota do NR-1 consulta uma collection separada,
+ *    sem material clinico dentro.
  *
- * A camada generativa continua fazendo sentido para a pergunta que ninguem
- * previu. Quando existir, sera endpoint proprio, isolado, e esta tela sera o
- * conteudo canonico dela.
+ * As duas camadas convivem: a busca curada responde sempre, inclusive sem
+ * rede; a pergunta aberta cobre o que ninguem previu, e quando ela nao esta
+ * disponivel a tela diz isso e continua util.
  */
 
 type Props = { user: FroidUser | null };
 
-/** Normaliza para busca: sem acento, sem maiuscula.
- *
- *  Quem digita com pressa nao acentua. Sem isto, procurar "inventario" nao
- *  acha "inventário" — e a tela parece nao saber o que ela sabe. */
+/** Quebra de paragrafo na resposta gerada, construida por escape: classe
+ *  literal com quebra de linha dentro nao sobrevive a edicao. */
+const PARAGRAFOS = new RegExp("\n{2,}");
+
 const COMBINANTES = new RegExp("[\u0300-\u036f]", "g");
 
 export function normalizar(texto: string): string {
@@ -128,10 +130,60 @@ const Cartao: React.FC<{
   </article>
 );
 
+type RespostaAberta = {
+  disponivel: boolean;
+  motivo?: string;
+  resposta: string;
+  citacoes: string[];
+  motor?: string;
+};
+
 export const Nr1Explica: React.FC<Props> = ({ user }) => {
   const [busca, setBusca] = useState("");
   const [tema, setTema] = useState<TemaExplica | "todos">("todos");
   const [abertos, setAbertos] = useState<Record<string, boolean>>({});
+  const [pergunta, setPergunta] = useState("");
+  const [pensando, setPensando] = useState(false);
+  const [aberta, setAberta] = useState<RespostaAberta | null>(null);
+  const [erroAberta, setErroAberta] = useState("");
+
+  const organizationId = String(user?.active_organization_id || "");
+
+  /** A pergunta que a busca curada nao cobriu.
+   *
+   *  Falha aqui nunca derruba a tela: o conteudo curado abaixo continua
+   *  respondendo, e a mensagem diz isso em vez de mostrar um erro tecnico a
+   *  quem esta no meio de uma reuniao. */
+  const perguntar = async () => {
+    const texto = pergunta.trim();
+    if (!texto || !organizationId) return;
+    setPensando(true);
+    setErroAberta("");
+    setAberta(null);
+    try {
+      const resposta = await fetch(
+        apiUrl(`/api/organizations/${organizationId}/nr1/explica`),
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${window.localStorage.getItem("froid_token") || ""}`,
+            "X-FROID-Organization-ID": organizationId,
+          },
+          body: JSON.stringify({ pergunta: texto }),
+        },
+      );
+      const corpo = await resposta.json();
+      if (!resposta.ok) {
+        throw new Error(corpo?.detail || "não foi possível consultar agora");
+      }
+      setAberta(corpo as RespostaAberta);
+    } catch (e) {
+      setErroAberta(String((e as Error).message));
+    } finally {
+      setPensando(false);
+    }
+  };
 
   const encontrados = useMemo(
     () =>
@@ -224,6 +276,76 @@ export const Nr1Explica: React.FC<Props> = ({ user }) => {
             ))}
           </div>
         </div>
+
+        {/* Pergunta aberta. Fica DEPOIS da busca curada de proposito: o
+            caminho mais confiavel e o primeiro que se oferece, e este e o
+            recurso para quando aquele nao cobriu. */}
+        <section className="mt-6 rounded-lg border border-slate-800 bg-slate-900 p-4">
+          <p className="text-xs font-black text-slate-200">
+            Não achou? Pergunte com suas palavras.
+          </p>
+          <p className="mt-1 text-[11px] leading-4 text-slate-500">
+            A resposta é montada a partir do texto da norma, das publicações
+            oficiais do Ministério do Trabalho e Emprego e da documentação do
+            FROID — e cita quais delas usou. Nenhum dado de pessoa alguma entra
+            nesta consulta.
+          </p>
+          <textarea
+            value={pergunta}
+            onChange={(e) => setPergunta(e.target.value)}
+            rows={2}
+            placeholder="Exemplo: a empresa precisa reavaliar depois de implementar uma medida?"
+            className="mt-2 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none placeholder:italic placeholder:text-slate-600 focus:border-cyan-500"
+          />
+          <button
+            type="button"
+            disabled={pensando || !pergunta.trim()}
+            onClick={perguntar}
+            className="mt-2 rounded-lg bg-cyan-500 px-4 py-2 text-xs font-black text-cyan-950 hover:bg-cyan-400 disabled:opacity-50"
+          >
+            {pensando ? "Consultando o acervo..." : "Perguntar"}
+          </button>
+
+          {erroAberta && (
+            <p className="mt-3 rounded border border-amber-900 bg-amber-950/50 p-3 text-[11px] leading-4 text-amber-100">
+              Não foi possível consultar agora ({erroAberta}). As respostas
+              revisadas abaixo continuam valendo e não dependem desta consulta.
+            </p>
+          )}
+
+          {aberta && !aberta.disponivel && (
+            <p className="mt-3 rounded border border-amber-900 bg-amber-950/50 p-3 text-[11px] leading-4 text-amber-100">
+              {aberta.motivo === "acervo_nao_indexado"
+                ? "O acervo ainda não foi indexado neste servidor. As respostas revisadas abaixo continuam valendo."
+                : "A consulta aberta está indisponível no momento. As respostas revisadas abaixo continuam valendo."}
+            </p>
+          )}
+
+          {aberta && aberta.disponivel && (
+            <div className="mt-3 rounded-lg border border-cyan-900 bg-cyan-950/30 p-4">
+              {aberta.resposta.split(PARAGRAFOS).map((paragrafo, indice) => (
+                <p
+                  key={indice}
+                  className="mt-2 whitespace-pre-line text-xs leading-6 text-slate-200 first:mt-0"
+                >
+                  {paragrafo}
+                </p>
+              ))}
+              {aberta.citacoes.length > 0 && (
+                <p className="mt-3 border-t border-cyan-900 pt-2 text-[11px] leading-4 text-slate-400">
+                  <span className="font-black text-slate-300">Consultado:</span>{" "}
+                  {aberta.citacoes.join(" · ")}
+                </p>
+              )}
+              {/* O limite dito junto da resposta, e nao so no rodape: quem le
+                  uma resposta gerada precisa saber que ela e gerada. */}
+              <p className="mt-2 text-[11px] leading-4 text-slate-500">
+                Resposta montada a partir das fontes acima. Confira o trecho
+                citado antes de usá-la em documento oficial.
+              </p>
+            </div>
+          )}
+        </section>
 
         {!encontrados.length && (
           <div className="mt-6 rounded-lg border border-amber-900 bg-amber-950/40 p-4 text-xs leading-5 text-amber-100">
