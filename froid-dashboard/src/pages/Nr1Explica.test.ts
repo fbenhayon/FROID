@@ -333,3 +333,44 @@ describe("o painel manda para a resposta certa", () => {
     expect(PAGINA).toContain("verbeteAlvo ? { [verbeteAlvo]: true } : {}");
   });
 });
+
+describe("a troca de organizacao troca de organizacao", () => {
+  /**
+   * Dois defeitos na mesma funcao, e os dois silenciosos: o seletor mudava na
+   * tela e nada acontecia. Quem caisse numa organizacao ficava preso nela.
+   *
+   * 1. a guarda comparava o parametro com ele mesmo — `organizationId ===
+   *    organizationId` — e era sempre verdadeira, entao a funcao retornava
+   *    antes de fazer qualquer coisa;
+   * 2. o corpo da requisicao enviava a organizacao ATUAL, e nao a de destino.
+   *
+   * O segundo teria sobrado se so o primeiro fosse corrigido.
+   */
+
+  const funcao = (() => {
+    const inicio = PAINEL.indexOf("const trocarOrganizacao");
+    return inicio >= 0 ? PAINEL.slice(inicio, inicio + 1400) : "";
+  })();
+  // Sem comentarios, para as asserçoes negativas.
+  //
+  // O comentario dentro da funcao explica o defeito antigo citando a
+  // comparacao errada pelo nome — e e assim que ele deve continuar. Terceira
+  // vez que este repositorio tropeça nisso: teste que le o texto do arquivo
+  // acaba proibindo a explicacao em vez do codigo.
+  const codigoDaFuncao = funcao
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "");
+
+  it("o parametro nao tem o mesmo nome da organizacao ativa", () => {
+    expect(codigoDaFuncao).toContain("async (destino: string)");
+    expect(codigoDaFuncao).not.toContain("organizationId === organizationId");
+  });
+
+  it("envia o destino ao servidor, e nao a organizacao atual", () => {
+    expect(codigoDaFuncao).toContain("organization_id: destino");
+  });
+
+  it("ainda evita recarregar quando ja se esta na organizacao escolhida", () => {
+    expect(codigoDaFuncao).toContain("destino === organizationId");
+  });
+});

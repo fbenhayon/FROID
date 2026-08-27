@@ -357,12 +357,22 @@ export const Nr1Dashboard: React.FC<{ user: FroidUser | null }> = ({ user }) => 
     }
   }, [headers]);
 
-  const trocarOrganizacao = async (organizationId: string) => {
-    if (!organizationId || organizationId === organizationId) return;
+  const trocarOrganizacao = async (destino: string) => {
+    // O parametro tinha o mesmo nome da organizacao ativa, e a guarda virou
+    // `organizationId === organizationId` — sempre verdadeira. A funcao
+    // retornava antes de fazer qualquer coisa, e quem caisse numa organizacao
+    // ficava preso nela: o seletor mudava na tela e nada acontecia.
+    //
+    // Nome diferente para coisa diferente. A comparacao existe para nao
+    // recarregar a pagina a toa quando a pessoa reescolhe o que ja esta ativo.
+    if (!destino || destino === organizationId) return;
     const response = await fetch(apiUrl("/api/auth/active-organization"), {
       method: "POST",
       headers,
-      body: JSON.stringify({ organization_id: organizationId }),
+      // O DESTINO, e nao a organizacao atual. Enviar a atual pedia ao servidor
+      // para trocar para onde ja se estava — o segundo defeito da mesma
+      // funcao, e o que teria sobrado se a guarda fosse a unica corrigida.
+      body: JSON.stringify({ organization_id: destino }),
     });
     // Recarregar em vez de re-buscar tudo: a organização ativa atravessa todas
     // as telas do módulo, e meia troca — painel novo, cabeçalho velho — é pior
