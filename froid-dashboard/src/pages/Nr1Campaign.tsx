@@ -133,12 +133,18 @@ const Campo: React.FC<{
       {rotulo}
       {obrigatorio && <span className="ml-1 text-red-300">*</span>}
     </span>
+    {/* Placeholder em italico e apagado, e nao no mesmo tom do texto digitado.
+        Duas vezes no mesmo teste alguem leu exemplo como conteudo: uma no
+        aviso de finalidade, que foi gravado VAZIO numa campanha que nao aceita
+        edicao, e outra na reemissao, onde as matriculas de exemplo foram
+        tomadas por uma lista de quem faltava responder. Campo que parece
+        preenchido e o mesmo defeito da hora em branco no seletor de data. */}
     <input
       type={tipo}
       value={valor}
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
-      className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
+      className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none placeholder:italic placeholder:text-slate-600 focus:border-cyan-500"
     />
     {dica && <span className="mt-1 block text-[11px] leading-4 text-slate-500">{dica}</span>}
   </label>
@@ -343,6 +349,20 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
       setErro(
         "O canal de apoio ao trabalhador é obrigatório. Perguntar a alguém " +
           "como ele está sem ter para onde encaminhá-lo é pior do que não perguntar.",
+      );
+      return;
+    }
+    // O servidor aceita finalidade vazia: ele anexa a base legal e a campanha
+    // abre. O resultado e um aviso correto e mudo — o trabalhador le o artigo
+    // da LGPD e nenhuma palavra da empresa dele. E campanha nao tem edicao:
+    // gravada vazia, fica vazia para sempre. A trava e de tela porque a
+    // exigencia e de qualidade do aviso, nao de validade juridica.
+    if (!finalidade.trim()) {
+      setErro(
+        "Escreva o aviso de finalidade. Sem ele o trabalhador lê apenas a base " +
+          "legal, sem uma palavra da empresa sobre por que está sendo " +
+          "perguntado — e é esse texto que sustenta a adesão. A campanha não " +
+          "aceita edição depois de criada.",
       );
       return;
     }
@@ -824,13 +844,14 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
             <label className="block">
               <span className="text-xs font-black text-slate-300">
                 Aviso de finalidade aos trabalhadores
+                <span className="ml-1 text-red-300">*</span>
               </span>
               <textarea
                 value={finalidade}
                 onChange={(e) => setFinalidade(e.target.value)}
                 rows={3}
                 placeholder="Por que a empresa está perguntando, o que será feito com o resultado e o que não será."
-                className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
+                className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none placeholder:italic placeholder:text-slate-600 focus:border-cyan-500"
               />
               <span className="mt-1 block text-[11px] leading-4 text-slate-500">
                 Aparece antes da primeira pergunta. A base legal (<Sigla
