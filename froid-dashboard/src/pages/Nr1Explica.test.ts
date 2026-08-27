@@ -261,3 +261,54 @@ describe("o verbete contratual aponta, e nao reescreve", () => {
     expect(tudo).toContain("o texto que vale");
   });
 });
+
+describe("o painel manda para a resposta certa", () => {
+  /**
+   * O recorte declarado insuficiente diz o caminho — "avaliar pela AEP",
+   * "reforcar a participacao" — e ate aqui o leitor tinha de sair do painel e
+   * procurar sozinho o que aquilo significava. Quem le aquela linha ja tem a
+   * pergunta formada.
+   *
+   * O link e POR PORTAO porque os remedios sao opostos: onde o problema e
+   * tamanho de grupo, adesao nao resolve; onde e representatividade, resolve.
+   * Um "saiba mais" generico mandaria metade dos leitores para o conselho
+   * errado.
+   */
+
+  it("cada portao aponta para um verbete que existe", () => {
+    const mapa = PAINEL.match(/const VERBETE_DO_PORTAO[^}]+}/s)?.[0] || "";
+    expect(mapa).toBeTruthy();
+    const ids = [...mapa.matchAll(/"([a-z-]+)",?\n/g)].map((m) => m[1]);
+    expect(ids.length).toBeGreaterThanOrEqual(3);
+    for (const id of ids) {
+      expect(
+        VERBETES.some((v) => v.id === id),
+        `portao aponta para verbete inexistente: ${id}`,
+      ).toBe(true);
+    }
+  });
+
+  it("os quatro portoes conhecidos estao cobertos", () => {
+    for (const portao of [
+      "anonimato",
+      "representatividade",
+      "efetivo_nao_declarado",
+      "campanha_abaixo_do_piso",
+    ]) {
+      expect(PAINEL).toContain(`${portao}:`);
+    }
+  });
+
+  it("so oferece a AEP onde adesao nao resolve", () => {
+    // Oferecer AEP no portao de representatividade mandaria a empresa
+    // abandonar uma coleta que publicaria com mais adesao.
+    const conjunto = PAINEL.match(/const PORTAO_PEDE_AEP[^;]+;/s)?.[0] || "";
+    expect(conjunto).toContain("anonimato");
+    expect(conjunto).not.toContain("representatividade");
+  });
+
+  it("a tela abre apontada quando recebe ?verbete=", () => {
+    expect(PAGINA).toContain('parametros.get("verbete")');
+    expect(PAGINA).toContain("verbeteAlvo ? { [verbeteAlvo]: true } : {}");
+  });
+});

@@ -828,10 +828,19 @@ SUPPRESSION_GATES: Tuple[str, ...] = (
     "campanha_abaixo_do_piso",
 )
 
+# Com acento, e isto nao e preciosismo tipografico.
+#
+# Este texto tem dois leitores: o cliente, no painel, e o auditor, no
+# inventario. Documento de conformidade escrito sem acento passa a impressao de
+# rascunho — e a frase abaixo e justamente a que precisa ser levada a serio,
+# porque e ela que impede a leitura "nao publicou, entao esta tudo bem".
+#
+# O resto do modulo continua sem acento por seguranca de codificacao. Aqui nao:
+# o que sai para a tela e para o documento vai com a lingua certa.
 _NAO_E_AUSENCIA_DE_RISCO = (
-    "Este resultado NAO significa ausencia de risco: significa que as evidencias "
-    "reunidas nao bastam para classificar este recorte. A obrigacao de gerenciar "
-    "o risco psicossocial permanece integral."
+    "Este resultado NÃO significa ausência de risco: significa que as "
+    "evidências reunidas não bastam para classificar este recorte. A obrigação "
+    "de gerenciar o risco psicossocial permanece integral."
 )
 
 
@@ -851,44 +860,45 @@ def escalation_note(
     if gate == "anonimato":
         return (
             "Recorte abaixo do piso de coorte que protege o anonimato. Nenhuma "
-            "adesao adicional o publica enquanto o grupo for menor que esse piso, "
-            "porque o piso olha o tamanho do grupo e nao a taxa de resposta. "
-            "Caminho indicado: avaliar este grupo pela Avaliacao Ergonomica "
-            "Preliminar, com dialogo com os trabalhadores e observacao da "
-            "atividade — metodos que o Guia MTE indica justamente para grupo "
-            "pequeno e que nao dependem de piso de respondentes. "
-            + _NAO_E_AUSENCIA_DE_RISCO
+            "adesão adicional o publica enquanto o grupo for menor que esse "
+            "piso, porque o piso olha o tamanho do grupo e não a taxa de "
+            "resposta. Caminho indicado: avaliar este grupo pela Avaliação "
+            "Ergonômica Preliminar, com diálogo com os trabalhadores e "
+            "observação da atividade — métodos que o Guia do MTE indica "
+            "justamente para grupo pequeno e que não dependem de piso de "
+            "respondentes. " + _NAO_E_AUSENCIA_DE_RISCO
         )
     if gate == "representatividade":
         exigencia = ""
         if required_responses and declared_headcount:
             exigencia = (
-                f" Para o efetivo declarado de {declared_headcount} trabalhadores, "
-                f"a amostra necessaria e de {required_responses} respostas "
-                "substantivas."
+                f" Para o efetivo declarado de {declared_headcount} "
+                f"trabalhadores, a amostra necessária é de {required_responses} "
+                "respostas substantivas."
             )
         return (
-            "A coorte reunida atingiu o piso de anonimato, mas ainda nao fala "
-            "pelo efetivo declarado deste recorte." + exigencia + " Diferente do "
-            "caso anterior, este recorte publica se a adesao subir: cabe reforcar "
-            "a participacao, nos termos de 1.5.3.3, e reabrir a coleta. "
-            + _NAO_E_AUSENCIA_DE_RISCO
+            "A coorte reunida atingiu o piso de anonimato, mas ainda não fala "
+            "pelo efetivo declarado deste recorte." + exigencia + " Diferente "
+            "do caso anterior, este recorte publica se a adesão subir: cabe "
+            "reforçar a participação, nos termos do subitem 1.5.3.3, e reabrir "
+            "a coleta. " + _NAO_E_AUSENCIA_DE_RISCO
         )
     if gate == "efetivo_nao_declarado":
         return (
-            "Recorte sem efetivo declarado para o periodo de referencia. Sem "
-            "denominador nao ha o que representar, e qualquer resultado seria "
-            "sobre uma populacao desconhecida. Caminho indicado: declarar o "
+            "Recorte sem efetivo declarado para o período de referência. Sem "
+            "denominador não há o que representar, e qualquer resultado seria "
+            "sobre uma população desconhecida. Caminho indicado: declarar o "
             "efetivo deste recorte, o que publica o resultado ou o reprova com "
-            "fundamento verificavel. " + _NAO_E_AUSENCIA_DE_RISCO
+            "fundamento verificável. " + _NAO_E_AUSENCIA_DE_RISCO
         )
     if gate == "campanha_abaixo_do_piso":
         return (
-            "A campanha inteira nao atingiu os pisos exigidos, entao nenhum "
-            "recorte dela e publicavel e nao ha quebra por unidade a apresentar. "
-            "Caminho indicado: reforcar a participacao e reabrir a coleta, ou "
-            "avaliar por Avaliacao Ergonomica Preliminar quando o porte da "
-            "organizacao nao sustentar coorte. " + _NAO_E_AUSENCIA_DE_RISCO
+            "A campanha inteira não atingiu os pisos exigidos, então nenhum "
+            "recorte dela é publicável e não há quebra por unidade a "
+            "apresentar. Caminho indicado: reforçar a participação e reabrir a "
+            "coleta, ou avaliar pela Avaliação Ergonômica Preliminar quando o "
+            "porte da organização não sustentar coorte. "
+            + _NAO_E_AUSENCIA_DE_RISCO
         )
     raise ValueError(f"portao de supressao desconhecido: {gate!r}")
 

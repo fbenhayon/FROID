@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import type { FroidUser } from "../App";
 import { apiUrl } from "../lib/api";
 import { GlossarioDeSiglas, Sigla } from "../lib/siglas";
@@ -90,6 +90,26 @@ type Panel = {
   /** Existe nos dois casos: quando nada passou e quando parte passou. */
   declared?: Declared[];
 };
+
+/** Para qual resposta do FROID Explica cada portão manda.
+ *
+ *  Os remédios são opostos e confundi-los custa um ciclo inteiro: onde o
+ *  problema é tamanho de grupo, adesão não resolve; onde é representatividade,
+ *  resolve. Por isso o link é por portão, e não um "saiba mais" genérico.
+ */
+const VERBETE_DO_PORTAO: Record<string, string> = {
+  anonimato: "setor-pequeno",
+  representatividade: "quantas-respostas",
+  efetivo_nao_declarado: "quantas-respostas",
+  campanha_abaixo_do_piso: "recorte-declarado",
+};
+
+/** Portões cujo caminho indicado passa pela AEP.
+ *
+ *  Nestes, insistir na coleta é gastar um ciclo no caminho errado: o grupo não
+ *  publica por tamanho, e tamanho não muda com adesão.
+ */
+const PORTAO_PEDE_AEP = new Set(["anonimato", "campanha_abaixo_do_piso"]);
 
 const GATE_LABEL: Record<string, string> = {
   anonimato: "Grupo pequeno demais para publicar",
@@ -188,6 +208,30 @@ const DeclaredFindings: React.FC<{
             <p className="mt-2 text-[11px] leading-5 text-amber-100/90">
               {achado.escalation}
             </p>
+            {/* O caminho indicado vira link.
+                A nota diz "avaliar pela Avaliação Ergonômica Preliminar" ou
+                "reforçar a participação" — e ate aqui o leitor tinha de sair
+                daqui e procurar sozinho o que aquilo significa. Quem le esta
+                linha ja tem a pergunta formada; o link e a resposta a um
+                clique, apontada no verbete certo para AQUELE portao. */}
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Link
+                to={`/nr1/explica?verbete=${
+                  VERBETE_DO_PORTAO[achado.gate] || "recorte-declarado"
+                }`}
+                className="rounded border border-amber-700 px-2 py-1 text-[10px] font-black text-amber-200 hover:bg-amber-900/50"
+              >
+                Entender este resultado
+              </Link>
+              {PORTAO_PEDE_AEP.has(achado.gate) && (
+                <Link
+                  to="/nr1/aep"
+                  className="rounded border border-cyan-700 bg-cyan-950 px-2 py-1 text-[10px] font-black text-cyan-100 hover:bg-cyan-900"
+                >
+                  Abrir a AEP
+                </Link>
+              )}
+            </div>
           </li>
         ))}
       </ul>

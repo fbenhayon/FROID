@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
 import type { FroidUser } from "../App";
 import { apiUrl } from "../lib/api";
@@ -150,9 +150,21 @@ type RespostaAberta = {
 };
 
 export const Nr1Explica: React.FC<Props> = ({ user }) => {
-  const [busca, setBusca] = useState("");
+  // A tela pode ser aberta apontada.
+  //
+  // O painel de conformidade manda para ca a partir de um recorte declarado
+  // insuficiente, e quem chega assim ja tem a pergunta formada: por que este
+  // recorte nao publicou. Cair na lista inteira e obriga-lo a procurar de novo
+  // uma pergunta que ele acabou de fazer.
+  const [parametros] = useSearchParams();
+  const verbeteAlvo = parametros.get("verbete") || "";
+  const buscaInicial = parametros.get("busca") || "";
+
+  const [busca, setBusca] = useState(buscaInicial);
   const [tema, setTema] = useState<TemaExplica | "todos">("todos");
-  const [abertos, setAbertos] = useState<Record<string, boolean>>({});
+  const [abertos, setAbertos] = useState<Record<string, boolean>>(
+    verbeteAlvo ? { [verbeteAlvo]: true } : {},
+  );
   const [pergunta, setPergunta] = useState("");
   const [pensando, setPensando] = useState(false);
   const [aberta, setAberta] = useState<RespostaAberta | null>(null);
@@ -196,14 +208,18 @@ export const Nr1Explica: React.FC<Props> = ({ user }) => {
     }
   };
 
-  const encontrados = useMemo(
-    () =>
-      VERBETES.filter(
-        (verbete) =>
-          (tema === "todos" || verbete.tema === tema) && combina(verbete, busca),
-      ),
-    [busca, tema],
-  );
+  const encontrados = useMemo(() => {
+    const filtrados = VERBETES.filter(
+      (verbete) =>
+        (tema === "todos" || verbete.tema === tema) && combina(verbete, busca),
+    );
+    if (!verbeteAlvo) return filtrados;
+    // O verbete apontado sobe para o topo em vez de esconder os demais: quem
+    // veio do painel costuma ter a pergunta seguinte logo ali.
+    const alvo = filtrados.filter((verbete) => verbete.id === verbeteAlvo);
+    const resto = filtrados.filter((verbete) => verbete.id !== verbeteAlvo);
+    return [...alvo, ...resto];
+  }, [busca, tema, verbeteAlvo]);
 
   const porTema = useMemo(() => {
     const mapa = new Map<TemaExplica, VerbeteExplica[]>();

@@ -38,6 +38,22 @@ MAIN = (SERVER_DIR / "main.py").read_text(encoding="utf-8")
 STORE = (SERVER_DIR / "tenant_store.py").read_text(encoding="utf-8")
 
 
+
+def _sem_acento(texto: str) -> str:
+    """O texto sem sinais diacriticos, para comparar intencao e nao ortografia.
+
+    As notas de escalonamento passaram a ser escritas com acento em 27/08/2026:
+    elas sao lidas pelo cliente no painel e pelo auditor no inventario, e
+    documento de conformidade sem acento passa impressao de rascunho. As
+    asserçoes abaixo prendem O QUE a nota diz, e nao como ela e grafada — senao
+    corrigir a lingua quebraria o teste que protege o sentido.
+    """
+    import unicodedata
+
+    decomposto = unicodedata.normalize("NFD", texto)
+    return "".join(c for c in decomposto if not unicodedata.combining(c))
+
+
 class OTextoDeclaradoNaoVazaEIndicaOCaminho(unittest.TestCase):
     def test_nenhuma_nota_cita_contagem_de_resposta_do_recorte(self):
         """O numero esta abaixo do piso por definicao.
@@ -57,8 +73,8 @@ class OTextoDeclaradoNaoVazaEIndicaOCaminho(unittest.TestCase):
         nota = nr1_compliance.escalation_note(
             "representatividade", required_responses=20, declared_headcount=20
         )
-        self.assertIn("20 trabalhadores", nota)
-        self.assertIn("20 respostas substantivas", nota)
+        self.assertIn("20 trabalhadores", _sem_acento(nota))
+        self.assertIn("20 respostas substantivas", _sem_acento(nota))
 
     def test_cada_portao_indica_o_remedio_que_de_fato_resolve(self):
         """Dizer so "insuficiente" faz a empresa perseguir adesao onde adesao nao resolve.
@@ -69,21 +85,21 @@ class OTextoDeclaradoNaoVazaEIndicaOCaminho(unittest.TestCase):
         cliente que recebe o errado gasta um ciclo inteiro no caminho errado.
         """
         anonimato = nr1_compliance.escalation_note("anonimato")
-        self.assertIn("Nenhuma adesao adicional o publica", anonimato)
-        self.assertIn("Avaliacao Ergonomica Preliminar", anonimato)
+        self.assertIn("Nenhuma adesao adicional o publica", _sem_acento(anonimato))
+        self.assertIn("Avaliacao Ergonomica Preliminar", _sem_acento(anonimato))
 
         representatividade = nr1_compliance.escalation_note("representatividade")
-        self.assertIn("publica se a adesao subir", representatividade)
+        self.assertIn("publica se a adesao subir", _sem_acento(representatividade))
         self.assertIn("1.5.3.3", representatividade)
 
         efetivo = nr1_compliance.escalation_note("efetivo_nao_declarado")
-        self.assertIn("declarar o efetivo", efetivo)
+        self.assertIn("declarar o efetivo", _sem_acento(efetivo))
 
     def test_toda_nota_nega_a_leitura_de_ausencia_de_risco(self):
         for portao in nr1_compliance.SUPPRESSION_GATES:
             with self.subTest(portao=portao):
                 nota = nr1_compliance.escalation_note(portao)
-                self.assertIn("NAO significa ausencia de risco", nota)
+                self.assertIn("NAO significa ausencia de risco", _sem_acento(nota))
                 self.assertIn("permanece integral", nota)
 
     def test_portao_desconhecido_estoura_em_vez_de_devolver_texto_vazio(self):
