@@ -393,9 +393,25 @@ export const Nr1Dashboard: React.FC<{ user: FroidUser | null }> = ({ user }) => 
       if (!response.ok) {
         throw new Error(data?.detail || "Não foi possível gerar o inventário.");
       }
+      // "Gerado com 0 linhas" e verdadeiro e ilegivel: quem le conclui que
+      // algo falhou. Quando nada pode ser classificado o documento existe
+      // assim mesmo, com a declaracao de insuficiencia — e e isso que a
+      // mensagem precisa dizer, porque e esse o entregavel.
+      const classificadas =
+        Number(data.inventory_rows || 0) - Number(data.declared_rows || 0);
+      const declaradas =
+        Number(data.declared_rows || 0) + (data.declared || []).length;
       setMessage(
-        `Inventário gerado com ${data.inventory_rows} linhas. ` +
-          `${(data.action_plan_seed || []).length} medidas sugeridas para o plano de ação.`,
+        classificadas > 0
+          ? `Inventário gerado: ${classificadas} risco(s) classificado(s)` +
+              (declaradas
+                ? `, ${declaradas} recorte(s) declarado(s) insuficiente(s)`
+                : "") +
+              `. ${(data.action_plan_seed || []).length} medida(s) sugerida(s) ` +
+              "para o plano de ação."
+          : "Inventário gerado. Nenhum recorte pôde ser classificado, e o " +
+              "documento registra isso de forma declarada — não em branco. " +
+              "Abra o inventário para ler e imprimir.",
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao gerar o inventário.");
@@ -481,6 +497,13 @@ export const Nr1Dashboard: React.FC<{ user: FroidUser | null }> = ({ user }) => 
             {/* A duvida sobre a norma chega no meio da operacao, e nao numa
                 sessao de estudo. Por isso o acesso fica aqui, ao lado dos
                 botoes que a produzem, e nao num menu de ajuda. */}
+            <button
+              onClick={() => nav("/nr1/inventario")}
+              title="O inventário de riscos gerado a partir da campanha encerrada, pronto para imprimir."
+              className="rounded border border-slate-700 px-4 py-2 text-xs font-black text-slate-200 hover:bg-slate-900"
+            >
+              Inventário
+            </button>
             <button
               onClick={() => nav("/nr1/explica")}
               title="Perguntas sobre a norma, sobre a metodologia e sobre como ler o resultado — com a fonte normativa."

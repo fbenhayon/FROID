@@ -348,8 +348,14 @@ class ATelaMostraOQueNaoFoiAvaliado(unittest.TestCase):
 
     def test_desenha_nos_dois_ramos_do_painel(self):
         """Um painel que mostra tres setores e cala sobre o quarto afirma que o
-        quarto esta bem."""
-        self.assertEqual(self.pagina.count("<DeclaredFindings achados={panel.declared}"), 2)
+        quarto esta bem.
+
+        Conferido sobre o componente e o dado que ele recebe, e nao sobre a
+        formatacao da linha: acrescentar uma prop quebra a linha em varias, e um
+        teste que exigia a chamada numa linha so reprovava por indentacao.
+        """
+        self.assertEqual(self.pagina.count("<DeclaredFindings"), 2)
+        self.assertEqual(self.pagina.count("achados={panel.declared}"), 2)
 
     def test_a_tela_nao_pede_coorte_do_recorte_reprovado(self):
         """O tipo nao tem o campo, e nao pode ganhar um por descuido."""

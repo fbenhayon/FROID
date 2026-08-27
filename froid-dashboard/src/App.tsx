@@ -50,6 +50,7 @@ const Nr1ActionPlan = lazy(() => import("./pages/Nr1ActionPlan").then((module) =
 const Nr1Dashboard = lazy(() => import("./pages/Nr1Dashboard").then((module) => ({ default: module.Nr1Dashboard })));
 const Nr1Effectiveness = lazy(() => import("./pages/Nr1Effectiveness").then((module) => ({ default: module.Nr1Effectiveness })));
 const Nr1Explica = lazy(() => import("./pages/Nr1Explica").then((module) => ({ default: module.Nr1Explica })));
+const Nr1Inventario = lazy(() => import("./pages/Nr1Inventario").then((module) => ({ default: module.Nr1Inventario })));
 const ValidationStudy = lazy(() => import("./pages/ValidationStudy").then((module) => ({ default: module.ValidationStudy })));
 const Nr1QuestionnairePage = lazy(() => import("./pages/Nr1QuestionnairePage").then((module) => ({ default: module.Nr1QuestionnairePage })));
 const FroidSciencePage = lazy(() => import("./pages/FroidInstitutionalPages").then((module) => ({ default: module.FroidSciencePage })));
@@ -463,6 +464,7 @@ function App() {
         <Route path="/nr1/comprovante" element={clinicalElement(<Nr1Acceptance user={user} />)} />
         <Route path="/nr1/plano-de-acao" element={clinicalElement(<Nr1ActionPlan user={user} />)} />
         <Route path="/nr1/explica" element={clinicalElement(<Nr1Explica user={user} />)} />
+        <Route path="/nr1/inventario" element={clinicalElement(<Nr1Inventario user={user} />)} />
         <Route
           path="/nr1/eficacia"
           element={clinicalElement(<Nr1Effectiveness user={user} />)}

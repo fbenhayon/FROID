@@ -9903,6 +9903,33 @@ def _nr1_declared_findings(
     ]
 
 
+def _nr1_campaign_header(context: AccessContext, campaign_id: str) -> dict:
+    """Título, período e janela da campanha, para o cabeçalho do documento.
+
+    Vem da lista de campanhas porque o progresso só conta adesão. Falha aqui
+    devolve dicionário vazio em vez de derrubar a leitura do inventário: o
+    documento vale sem o cabeçalho completo, e não vale sem as linhas.
+    """
+    try:
+        campanhas = TENANT_STORE.nr1_list_campaigns(
+            organization_id=context.organization_id,
+            membership_id=context.membership_id,
+        )
+    except Exception:
+        LOGGER.exception("Unable to read campaign header for inventory")
+        return {}
+    for campanha in campanhas:
+        if str(campanha.get("campaign_id")) == str(campaign_id):
+            return {
+                "title": campanha.get("title"),
+                "reference_period": campanha.get("reference_period"),
+                "opens_at": campanha.get("opens_at"),
+                "closes_at": campanha.get("closes_at"),
+                "unit_name": campanha.get("unit_name"),
+            }
+    return {}
+
+
 def _nr1_campaign_level_declaration(progress: dict) -> list[dict]:
     """A insuficiência do conjunto, quando não há quebra por recorte a mostrar.
 
@@ -10218,13 +10245,57 @@ async def list_nr1_inventory(organization_id: str, campaign_id: str, request: Re
             membership_id=context.membership_id,
             campaign_id=campaign_id,
         )
+        progress = TENANT_STORE.nr1_campaign_progress(
+            organization_id=organization_id,
+            membership_id=context.membership_id,
+            campaign_id=campaign_id,
+        )
     except RuntimeError:
         raise HTTPException(status_code=409, detail="módulo NR-1 requer persistência dual")
+    except ValueError:
+        raise HTTPException(status_code=404, detail="campanha não encontrada")
+
+    # A declaração da campanha inteira não é linha do inventário, e não pode
+    # ser: `dimension_id` é NOT NULL, e insuficiência do conjunto não tem
+    # dimensão. Mas ela precisa chegar a quem lê o documento — senão a campanha
+    # que não fechou produz uma folha em branco, que é exatamente a leitura
+    # ("não há risco aqui") que este módulo inteiro existe para impedir.
+    #
+    # Vai ao lado das linhas, e não no lugar delas: quando há classificação, as
+    # duas coisas convivem.
+    declaracao_da_campanha = (
+        _nr1_campaign_level_declaration(progress) if not inventory else []
+    )
+
+    criteria = _nr1_criteria_for(context)
     _record_tenant_success(
         context, "nr1.inventory.read", "assessment_campaign", campaign_id,
         {"result_count": len(inventory)},
     )
-    return {"campaign_id": campaign_id, "inventory": inventory}
+    return {
+        "campaign_id": campaign_id,
+        "inventory": inventory,
+        "declared_campaign": declaracao_da_campanha,
+        # O cabeçalho que um documento de conformidade precisa ter para ser
+        # lido fora da tela: quem, quando, sobre quantos, e sob qual régua.
+        "campaign": {
+            "status": progress.get("status"),
+            "target_headcount": progress.get("target_headcount"),
+            "responses": progress.get("responses"),
+            "substantive_responses": progress.get("substantive_responses"),
+            "invited": progress.get("invited"),
+            # Título, período e janela vivem na campanha, não no progresso —
+            # que só conta adesão. Sem eles o documento sai sem saber a que
+            # período de referência se refere, que é a primeira coisa que um
+            # auditor procura.
+            **_nr1_campaign_header(context, campaign_id),
+        },
+        "criteria": {
+            "version": criteria.version,
+            "source": criteria.source,
+            "published": criteria.source != "froid-default",
+        },
+    }
 
 
 # ---------------------------------------------------------------------------
