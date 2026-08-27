@@ -181,15 +181,18 @@ describe("a fronteira continua de pé nesta tela", () => {
 
 describe("o ciclo da campanha se fecha pela tela", () => {
   /**
-   * Encerrar era o quarto caso do mesmo padrão deste módulo: a rota existia no
-   * servidor desde a migration 010 e nenhuma tela a chamava.
+   * Encerrar já existia — no PAINEL, e só lá.
    *
-   * E aqui a ausência era pior do que um botão faltando. O painel só serve
-   * agregado de campanha ENCERRADA — durante a coleta, de propósito, só a
-   * adesão é legível. Sem botão de encerrar, o resultado inteiro do módulo
-   * ficava inalcançável pela interface: nem painel, nem inventário, nem plano
-   * de ação. Quem operasse o produto teria de fechar a campanha por chamada
-   * direta à API, que é exatamente o que a existência desta tela nega.
+   * E lá o botão aparece no fim de um caminho: selecionar a campanha, esperar
+   * o painel carregar, cair no bloco de resultado suprimido. Quem está nesta
+   * tela está no começo do caminho — criando a campanha, abrindo a coleta,
+   * emitindo convites — e é aqui que ele procura como terminar. Não achou, e
+   * concluiu que não existia.
+   *
+   * O que torna isso mais do que conveniência: o painel só serve agregado de
+   * campanha ENCERRADA. Durante a coleta, de propósito, só a adesão é legível.
+   * Então o passo que libera resultado, inventário e plano de ação morava
+   * exclusivamente na tela que só faz sentido depois dele.
    */
 
   it("chama a rota de encerramento", () => {

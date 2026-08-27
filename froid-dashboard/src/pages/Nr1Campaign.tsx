@@ -407,11 +407,11 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
 
   /** Encerra a coleta — e é o encerramento que torna o resultado legível.
    *
-   *  A rota existe no servidor desde a migration 010 e nenhuma tela a chamava.
-   *  O efeito era pior do que um botão faltando: o painel só serve agregado de
-   *  campanha encerrada, então o resultado inteiro do módulo ficava
-   *  inalcançável pela interface. Quem operasse o produto teria de fechar a
-   *  campanha por chamada direta à API.
+   *  Não é o único lugar: `Nr1Dashboard` já encerrava. Mas lá o botão só
+   *  aparece depois de selecionar uma campanha, carregar o painel dela e cair
+   *  no bloco de resultado suprimido — três passos, no fim de um caminho que
+   *  quem está montando a campanha ainda não percorreu. Aqui está a tela do
+   *  ciclo (criar → abrir → convidar), e faltava justamente como termina.
    *
    *  Encerrar é definitivo — não há rota que devolva uma campanha encerrada ao
    *  estado aberto —, e por isso a confirmação em dois passos. */
@@ -918,10 +918,9 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
                       Abrir coleta
                     </button>
                   )}
-                  {/* Encerrar nao tinha botao em lugar nenhum. A rota existe no
-                      servidor desde a migration 010 e nenhuma tela a chamava —
-                      entao o resultado, que so aparece com a campanha
-                      encerrada, era inalcancavel pela interface. */}
+                  {/* Encerrar existia so no painel, e la depois de selecionar
+                      a campanha e carregar o resultado dela. Nesta tela — a do
+                      ciclo: criar, abrir, convidar — o ciclo nao fechava. */}
                   {campanha.status === "open" &&
                     (confirmandoFecho === campanha.campaign_id ? (
                       <span className="flex flex-wrap items-center gap-2">
