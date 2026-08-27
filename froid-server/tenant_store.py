@@ -3110,11 +3110,21 @@ class TenantStore:
                            inventory.mean_score, inventory.severity,
                            inventory.probability, inventory.risk_level,
                            inventory.rationale, inventory.generated_at,
-                           inventory.suppression_gate, inventory.escalation_note
+                           inventory.suppression_gate, inventory.escalation_note,
+                           -- O ESTABELECIMENTO do setor, e nao so o setor.
+                           --
+                           -- "Assedio · Auditoria" nao diz nada a uma empresa
+                           -- com onze enderecos, e varias delas repetem o nome
+                           -- do setor em cada filial. O documento que a
+                           -- fiscalizacao le precisa dizer ONDE, senao a medida
+                           -- corretiva nao tem destino.
+                           estabelecimento.name
                     FROM psychosocial_risk_inventory inventory
                     JOIN assessment_dimensions dimension
                       ON dimension.id = inventory.dimension_id
                     LEFT JOIN organization_units unit ON unit.id = inventory.unit_id
+                    LEFT JOIN organization_units estabelecimento
+                      ON estabelecimento.id = unit.parent_unit_id
                     WHERE inventory.organization_id = %s
                       AND inventory.campaign_id = %s
                     -- NULLS LAST porque a linha declarada insuficiente tem
@@ -3145,6 +3155,7 @@ class TenantStore:
                 "rationale": row[11], "generated_at": row[12],
                 "suppression_gate": row[13],
                 "escalation_note": row[14] or "",
+                "site_name": row[15],
             }
             for row in rows
         ]
@@ -3299,13 +3310,19 @@ class TenantStore:
                            dimension.title, inventory.nr1_factor,
                            inventory.risk_level, inventory.severity,
                            inventory.probability, inventory.review_due_at,
-                           inventory.review_trigger
+                           inventory.review_trigger,
+                           -- O estabelecimento do setor. Sem ele a medida
+                           -- corretiva nao tem destino numa empresa com varios
+                           -- enderecos que repetem o nome do setor.
+                           estabelecimento.name
                     FROM psychosocial_action_plan plano
                     JOIN psychosocial_risk_inventory inventory
                       ON inventory.id = plano.inventory_id
                     JOIN assessment_dimensions dimension
                       ON dimension.id = inventory.dimension_id
                     LEFT JOIN organization_units unit ON unit.id = inventory.unit_id
+                    LEFT JOIN organization_units estabelecimento
+                      ON estabelecimento.id = unit.parent_unit_id
                     WHERE plano.organization_id = %s
                       AND inventory.campaign_id = %s
                     ORDER BY coalesce(plano.priority_rank, 2147483647),
@@ -3345,6 +3362,7 @@ class TenantStore:
                 # 1.5.4.4.6: por que e desde quando a reavaliação está devida.
                 "review_due_at": row[26],
                 "review_trigger": row[27],
+                "site_name": row[28],
             }
             for row in rows
         ]

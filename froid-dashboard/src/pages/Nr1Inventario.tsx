@@ -30,6 +30,7 @@ type LinhaInventario = {
   inventory_id: string;
   unit_id: string | null;
   unit_name: string | null;
+  site_name?: string | null;
   dimension_id: string;
   dimension_title: string;
   nr1_factor: string;
@@ -413,7 +414,13 @@ export const Nr1Inventario: React.FC<Props> = ({ user }) => {
                       </div>
                       <p className="mt-1 text-[11px] opacity-80">
                         {FATOR[linha.nr1_factor] || linha.nr1_factor}
-                        {linha.unit_name ? ` · ${linha.unit_name}` : ""}
+                        {linha.unit_name
+                          ? ` · ${
+                              linha.site_name
+                                ? `${linha.site_name} / ${linha.unit_name}`
+                                : linha.unit_name
+                            }`
+                          : ""}
                         {linha.severity && linha.probability
                           ? ` · severidade ${linha.severity} × probabilidade ${linha.probability}`
                           : ""}
@@ -450,7 +457,13 @@ export const Nr1Inventario: React.FC<Props> = ({ user }) => {
                       <div className="flex flex-wrap items-baseline justify-between gap-2">
                         <span className="text-sm font-black text-amber-100">
                           {linha.dimension_title}
-                          {linha.unit_name ? ` · ${linha.unit_name}` : ""}
+                          {linha.unit_name
+                            ? ` · ${
+                                linha.site_name
+                                  ? `${linha.site_name} / ${linha.unit_name}`
+                                  : linha.unit_name
+                              }`
+                            : ""}
                         </span>
                         <span className="text-[11px] font-bold text-amber-300">
                           {PORTAO[linha.suppression_gate || ""] ||

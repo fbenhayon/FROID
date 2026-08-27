@@ -46,6 +46,7 @@ type PlanItem = {
   priority_rank: number | null;
   unit_id: string | null;
   unit_name: string | null;
+  site_name?: string | null;
   dimension_id: string;
   dimension_title: string;
   nr1_factor: string;
@@ -489,7 +490,13 @@ export const Nr1ActionPlan: React.FC<{ user: FroidUser | null }> = ({ user }) =>
                   </span>
                   <span className="text-xs text-slate-400">
                     {FACTOR_LABEL[item.nr1_factor] || item.nr1_factor}
-                    {item.unit_name ? ` · ${item.unit_name}` : " · organização"}
+                    {item.unit_name
+                      ? ` · ${
+                          item.site_name
+                            ? `${item.site_name} / ${item.unit_name}`
+                            : item.unit_name
+                        }`
+                      : " · organização inteira"}
                     {` · ${item.exposed_workers} trabalhador(es) possivelmente atingido(s)`}
                   </span>
                 </div>
