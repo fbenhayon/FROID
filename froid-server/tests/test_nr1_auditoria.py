@@ -62,9 +62,17 @@ class CompletudeDaRespostaTests(unittest.TestCase):
         # reprovava codigo correto.
         fim = fonte.index("    def ", inicio + 10)
         trecho = fonte[inicio:fim]
-        self.assertIn("froid_nr1_response_is_substantive", trecho)
+        # A contagem nao pode ser feita AQUI: o papel de runtime nao le
+        # assessment_responses desde a migration 014, e contar direto derrubou
+        # o painel inteiro em producao. Ela sai pela funcao SECURITY DEFINER da
+        # 029 — e e dentro dela que mora o filtro de resposta substantiva.
+        self.assertIn("froid_nr1_campaign_response_counts", trecho)
         self.assertIn("partial_responses", trecho)
         self.assertIn("substantive_responses", trecho)
+        contagem = (MIGRATIONS / "029_progresso_sem_ler_resposta.sql").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("froid_nr1_response_is_substantive", contagem)
 
     def test_as_funcoes_novas_tem_grant_e_revoke(self):
         self.assertIn("REVOKE ALL ON FUNCTION froid_nr1_min_response_coverage", self.sql)

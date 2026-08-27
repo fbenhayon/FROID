@@ -880,7 +880,9 @@ class SiglasSeExplicam(unittest.TestCase):
     def test_o_componente_usa_abbr_e_nao_um_span_qualquer(self):
         # <abbr> e o elemento que existe para isto: leitor de tela anuncia a
         # expansao, e o sublinhado pontilhado sinaliza que ha algo a revelar.
-        componente = self._fonte("components/Sigla.tsx")
+        # O componente mudou de casa em b3c66f1 (components/Sigla.tsx virou
+        # lib/siglas.tsx) e este teste ficou apontando para o arquivo apagado.
+        componente = self._fonte("lib/siglas.tsx")
         self.assertIn("<abbr", componente)
         self.assertIn("decoration-dotted", componente)
 

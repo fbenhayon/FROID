@@ -2462,13 +2462,16 @@ class TenantStore:
                            -- diferenca, para que uma campanha cheia de
                            -- respostas parciais deixe de passar por uma
                            -- campanha cheia.
-                           (SELECT count(*) FROM assessment_responses response
-                             WHERE response.campaign_id = campaign.id
-                               AND response.completed),
-                           (SELECT count(*) FROM assessment_responses response
-                             WHERE response.campaign_id = campaign.id
-                               AND response.completed
-                               AND froid_nr1_response_is_substantive(response.id)),
+                           --
+                           -- As duas contagens saem de funcao SECURITY
+                           -- DEFINER, e nao de subselect: o papel de runtime
+                           -- nao tem — e nao deve ter — SELECT em
+                           -- assessment_responses. Contar aqui direto derrubou
+                           -- todo painel NR-1 em producao com
+                           -- InsufficientPrivilege, sem que a suite acusasse,
+                           -- porque ela roda como owner. Ver migration 029.
+                           contagem.recorded,
+                           contagem.substantive,
                            -- Tolerancia de amostra vigente para esta campanha.
                            -- Nula quando nao ha criterios vinculados, e nesse
                            -- caso quem le aplica o padrao da plataforma.
@@ -2478,6 +2481,9 @@ class TenantStore:
                     FROM assessment_campaigns campaign
                     LEFT JOIN gro_risk_criteria criteria
                       ON criteria.id = campaign.criteria_id
+                    LEFT JOIN LATERAL
+                      froid_nr1_campaign_response_counts(campaign.id) contagem
+                      ON TRUE
                     WHERE campaign.id=%s AND campaign.organization_id=%s
                     """,
                     (campaign_id, organization_id),

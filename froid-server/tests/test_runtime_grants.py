@@ -192,6 +192,31 @@ class GrantsTests(unittest.TestCase):
             texto.index("GRANT INSERT ON assessment_responses"),
         )
 
+    def test_o_codigo_de_runtime_nao_consulta_a_tabela_revogada(self):
+        """A revogacao no banco so vira defeito quando o codigo a ignora.
+
+        E foi o que aconteceu: nr1_campaign_progress passou a contar respostas
+        com dois subselects diretos em assessment_responses. A suite continuou
+        verde — ela abre a conexao de OWNER, que enxerga tudo — e producao,
+        que roda pelo papel de runtime, devolveu 503 em TODO painel NR-1 com
+        "permission denied for table assessment_responses". O sintoma ficou a
+        tres camadas do erro: a empresa via "painel NR-1 indisponivel" e nao
+        conseguia gerar o inventario, que chama o mesmo progresso.
+
+        Este teste e estatico de proposito. Um teste de integracao so acusaria
+        isto rodando como froid_runtime contra um Postgres real, que e
+        exatamente a configuracao que a suite nao tem.
+        """
+        codigo = (SERVER_DIR / "tenant_store.py").read_text(encoding="utf-8")
+        for tabela in ("assessment_responses", "assessment_response_items"):
+            for verbo in ("FROM", "JOIN", "UPDATE", "INTO"):
+                self.assertNotIn(
+                    f"{verbo} {tabela}", codigo,
+                    f"tenant_store consulta {tabela} direto, e o papel de "
+                    f"runtime nao tem acesso a ela desde a migration 014. "
+                    f"O agregado precisa sair por funcao SECURITY DEFINER.",
+                )
+
     def test_purga_so_acontece_pela_funcao(self):
         # DELETE direto em assessment_responses contornaria as duas travas da
         # purga: campanha encerrada e inventario consolidado.
