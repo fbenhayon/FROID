@@ -108,6 +108,9 @@ export type UsuarioRoteavel = {
   access_status?: {
     onboarding_required?: boolean;
     admin?: boolean;
+    /** Decide a casa da conta depois do cadastro: `nr1_company` vai para o
+     *  painel de conformidade, e nao para o painel clinico. */
+    account_type?: string;
   };
 } | null | undefined;
 
@@ -125,11 +128,26 @@ export function needsProductChoice(
   return onboardingRequired(user) && choice === null;
 }
 
+/** Para onde vai a conta que ja terminou o cadastro.
+ *
+ *  Mandava todo mundo para /dashboard, que e o painel CLINICO — entao a
+ *  empresa contratante do NR-1 entrava e via "Saldo: 5 sessoes", "Meus
+ *  Pacientes", "Gestao da clinica" e o FROID Explica clinico. Alem de inutil
+ *  para ela, e a tela que mais contradiz o que o produto promete: o
+ *  empregador nao tem, e nao pode ter, pacientes.
+ *
+ *  O tipo da conta e decidido no cadastro e gravado no servidor: `nr1_company`
+ *  produz organizacao `enterprise`, e a casa dela e o painel de conformidade.
+ */
+export function homeDoProduto(user: UsuarioRoteavel): string {
+  return user?.access_status?.account_type === "nr1_company" ? "/nr1" : "/dashboard";
+}
+
 export function defaultAuthenticatedPath(
   user: UsuarioRoteavel,
   choice: FroidProduct | null,
 ): string {
-  if (!onboardingRequired(user)) return "/dashboard";
+  if (!onboardingRequired(user)) return homeDoProduto(user);
   // O operador da plataforma vai para onde ele tem o que fazer.
   //
   // Um administrador que nunca comprou plano de sessões para si mesmo tem
