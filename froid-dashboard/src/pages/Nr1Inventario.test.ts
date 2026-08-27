@@ -98,3 +98,49 @@ describe("o que sai do papel", () => {
     expect(PAGINA).toContain("break-inside: avoid");
   });
 });
+
+describe("a impressão sai legível", () => {
+  /**
+   * A primeira versão limpava `.froid-doc` e seus filhos. O fundo escuro mora
+   * no <div> que ENVOLVE a página, fora do documento — e com o navegador
+   * configurado para imprimir cor de fundo a folha saiu um borrão preto com o
+   * texto quase invisível.
+   */
+
+  it("zera o fundo a partir de body, e nao so do documento", () => {
+    const impressao = PAGINA.slice(
+      PAGINA.indexOf("@media print"),
+      PAGINA.indexOf("froid-so-impresso { display: none; }"),
+    );
+    expect(impressao).toContain("body *");
+    expect(impressao).toContain("background: transparent !important");
+    expect(impressao).toContain("background-image: none !important");
+    expect(impressao).toContain("color: #000 !important");
+  });
+});
+
+describe("o inventário é gerável quando nada foi classificado", () => {
+  /**
+   * O botão morava dentro do ramo `reportable`: a empresa cuja coleta não
+   * fechou — a que MAIS precisa do documento declarado — era exatamente a que
+   * não conseguia gerá-lo pela tela. O servidor entrega desde a migration 028.
+   */
+
+  it("o botao esta fora do ramo de resultado liberado", () => {
+    const antesDosRamos = PAINEL.slice(0, PAINEL.indexOf("!panel.reportable ?"));
+    expect(antesDosRamos).toContain("generateInventory()");
+  });
+
+  it("aparece para campanha encerrada, e nao durante a coleta", () => {
+    // Durante a coleta o servidor recusa por outro motivo: não é evidência
+    // insuficiente, é resultado que ainda não existe.
+    expect(PAINEL).toContain('panel.progress?.status === "closed"');
+  });
+
+  it("ha um unico botao de gerar, e nao dois", () => {
+    // Duplicar o botao nos dois ramos faria a mesma acao aparecer duas vezes
+    // na tela quando a campanha classifica risco — e a segunda seria a que
+    // ninguem manteria atualizada.
+    expect(PAINEL.split("void generateInventory()").length - 1).toBe(1);
+  });
+});

@@ -617,6 +617,45 @@ export const Nr1Dashboard: React.FC<{ user: FroidUser | null }> = ({ user }) => 
           </section>
 
           <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+            {/* Gerar o inventario vale para campanha encerrada, e nao so para a
+                que classificou risco.
+                O botao morava dentro do ramo `reportable` — entao a empresa que
+                MAIS precisa do documento, aquela cuja coleta nao fechou, era
+                exatamente a que nao conseguia gera-lo pela tela. O servidor
+                entrega desde a migration 028: o inventario sai com as linhas
+                declaradas insuficientes, e e o unico entregavel daquele ciclo.
+                Durante a coleta o botao nao aparece, porque ali o servidor
+                recusa por outro motivo: nao e evidencia insuficiente, e
+                resultado que ainda nao existe. */}
+            {panel && panel.progress?.status === "closed" && (
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
+                <div>
+                  <h2 className="text-sm font-black text-white">
+                    Documentos desta campanha
+                  </h2>
+                  <p className="mt-1 text-[11px] leading-4 text-slate-500">
+                    O inventário sai mesmo quando nenhum recorte pôde ser
+                    classificado — com a insuficiência declarada, e não em
+                    branco.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => void generateInventory()}
+                    disabled={loading}
+                    className="rounded bg-cyan-600 px-4 py-2 text-xs font-black text-white disabled:opacity-50"
+                  >
+                    Gerar inventário
+                  </button>
+                  <button
+                    onClick={() => nav(`/nr1/inventario?campanha=${selectedId}`)}
+                    className="rounded border border-slate-700 px-4 py-2 text-xs font-black text-slate-200 hover:bg-slate-900"
+                  >
+                    Abrir e imprimir
+                  </button>
+                </div>
+              </div>
+            )}
             {!selected ? (
               <p className="text-sm text-slate-400">
                 Selecione uma campanha para ver a gradação de risco.
@@ -664,13 +703,6 @@ export const Nr1Dashboard: React.FC<{ user: FroidUser | null }> = ({ user }) => 
                   <h2 className="text-sm font-black text-white">
                     Gradação de risco · {panel.risks.length} perigos
                   </h2>
-                  <button
-                    onClick={() => void generateInventory()}
-                    disabled={loading}
-                    className="rounded bg-cyan-600 px-4 py-2 text-xs font-black text-white disabled:opacity-50"
-                  >
-                    Gerar inventário
-                  </button>
                 </div>
                 <p className="mt-1 text-[11px] text-slate-500">
                   Ordenado por nível de risco e, em empate, pelo número de

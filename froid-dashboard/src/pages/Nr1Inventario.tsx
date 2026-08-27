@@ -105,11 +105,23 @@ const CSS_IMPRESSAO = `
 @media print {
   @page { size: A4; margin: 16mm 14mm; }
   html, body { background: #fff !important; }
-  .froid-nao-imprime { display: none !important; }
-  .froid-doc, .froid-doc * {
-    background: transparent !important; color: #000 !important;
-    border-color: #999 !important; box-shadow: none !important;
+  /* Tudo, e nao so o documento.
+     A primeira versao limpava .froid-doc e seus filhos — mas o fundo escuro
+     mora no <div> que ENVOLVE a pagina inteira, fora do documento. Com o
+     navegador configurado para imprimir cor de fundo, a folha saia um borrao
+     preto com texto quase invisivel. Zerar a partir de body alcanca o
+     invólucro, os cartoes de risco e as tarjas de nivel, que tambem tem fundo
+     proprio. */
+  body * {
+    background: transparent !important;
+    background-image: none !important;
+    color: #000 !important;
+    border-color: #999 !important;
+    box-shadow: none !important;
   }
+  .froid-nao-imprime { display: none !important; }
+  /* O documento perde a moldura de tela: na folha ele JA e a folha. */
+  .froid-doc { border: none !important; padding: 0 !important; }
   .froid-linha { break-inside: avoid; page-break-inside: avoid; }
   .froid-so-impresso { display: block !important; }
 }
