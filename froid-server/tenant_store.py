@@ -2303,37 +2303,51 @@ class TenantStore:
         membership_id: str,
         campaign_id: str,
         subjects: Sequence[dict],
-    ) -> int:
+    ) -> list[str]:
         """Register invitations from a list of {pseudonym, token_hash, unit_id}.
 
         The caller hashes both values before they get here: neither the payroll
         number nor the raw token is ever written to the database.
+
+        Devolve os pseudonimos EFETIVAMENTE gravados, e nao uma contagem.
+
+        A diferenca importa porque `ON CONFLICT DO NOTHING` nao levanta erro:
+        quem ja tinha convite nesta campanha e simplesmente ignorado. A versao
+        anterior contava `created += 1` a cada iteracao, entao devolvia o
+        tamanho da lista enviada — e a tela exibia um link para cada linha,
+        inclusive para as ignoradas. Esse link nunca existiu no banco: a pessoa
+        que o recebesse leria "convite indisponivel", e nao havia como saber
+        quais dos links da planilha estavam mortos.
         """
         if not self.enabled or not self.runtime_database_url:
             raise RuntimeError("dual persistence and runtime role are required")
         if not subjects:
-            return 0
-        created = 0
+            return []
+        criados: list[str] = []
         with self._connect(runtime=True) as connection:
             with connection.transaction():
                 self._nr1_session(connection, organization_id, membership_id)
                 for subject in subjects:
-                    connection.execute(
+                    linha = connection.execute(
                         """
                         INSERT INTO assessment_invitations
                             (id, organization_id, campaign_id, unit_id,
                              subject_pseudonym, token_hash)
                         VALUES (%s,%s,%s,%s,%s,%s)
                         ON CONFLICT (campaign_id, subject_pseudonym) DO NOTHING
+                        RETURNING subject_pseudonym
                         """,
                         (
                             str(uuid.uuid4()), organization_id, campaign_id,
                             subject.get("unit_id"), subject["pseudonym"],
                             subject["token_hash"],
                         ),
-                    )
-                    created += 1
-        return created
+                    ).fetchone()
+                    # Sem RETURNING nao ha como distinguir gravado de ignorado:
+                    # o ON CONFLICT devolve sucesso nos dois casos.
+                    if linha:
+                        criados.append(str(linha[0]))
+        return criados
 
     def nr1_questionnaire_for_token(self, *, token_hash: str) -> Optional[dict]:
         """Render payload for one invitation. No tenant session: the token is it."""

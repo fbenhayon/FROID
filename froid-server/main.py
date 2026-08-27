@@ -9381,12 +9381,18 @@ async def create_nr1_invitations(
             )
             # Echoed back so the employer can dispatch the link, paired with the
             # payroll number it already holds. FROID never stores the pairing.
-            links.append({"payroll_number": payroll_number, "token": token})
+            links.append(
+                {
+                    "payroll_number": payroll_number,
+                    "token": token,
+                    "pseudonym": pseudonym,
+                }
+            )
     except RuntimeError:
         raise HTTPException(status_code=503, detail="chave de pseudonimização não configurada")
 
     try:
-        created = TENANT_STORE.nr1_create_invitations(
+        criados = TENANT_STORE.nr1_create_invitations(
             organization_id=organization_id,
             membership_id=context.membership_id,
             campaign_id=campaign_id,
@@ -9398,11 +9404,36 @@ async def create_nr1_invitations(
         LOGGER.exception("Unable to create NR-1 invitations")
         raise HTTPException(status_code=400, detail="não foi possível registrar os convites")
 
+    # Só devolve o link do convite que existe.
+    #
+    # Quem já tinha convite nesta campanha é ignorado pelo ON CONFLICT, e o
+    # token recém-gerado para ele nunca chegou ao banco. Devolvê-lo junto dos
+    # demais entregava ao RH uma planilha com links mortos indistinguíveis dos
+    # vivos — e o trabalhador que recebesse um deles leria "convite
+    # indisponível" sem que ninguém soubesse por quê.
+    gravados = set(criados)
+    emitidos = [
+        {"payroll_number": link["payroll_number"], "token": link["token"]}
+        for link in links
+        if link["pseudonym"] in gravados
+    ]
+    ja_convidados = [
+        link["payroll_number"] for link in links if link["pseudonym"] not in gravados
+    ]
+
     _record_tenant_success(
         context, "nr1.invitation.create", "assessment_campaign", campaign_id,
-        {"result_count": created},
+        {"result_count": len(emitidos)},
     )
-    return {"campaign_id": campaign_id, "created": created, "links": links}
+    return {
+        "campaign_id": campaign_id,
+        "created": len(emitidos),
+        "links": emitidos,
+        # A matrícula volta porque foi o empregador quem a enviou: ele precisa
+        # saber quem já tinha convite para não ficar esperando resposta de quem
+        # nunca recebeu link novo.
+        "already_invited": ja_convidados,
+    }
 
 
 @app.get("/api/nr1/questionnaire")

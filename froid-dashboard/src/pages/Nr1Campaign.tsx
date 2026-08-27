@@ -78,9 +78,10 @@ function token() {
 
 /** A base publica do link que o trabalhador abre.
  *
- *  `/avaliacao` e rota direta: `normalizeDirectPublicPath` a reescreve para
- *  `/app/#/avaliacao` preservando a query, justamente para que o token
- *  sobreviva. Distribuir o link com hash funcionaria, mas passa por filtro de
+ *  `/avaliacao` e rota direta: `normalizarEntradaDireta` (lib/entrada-direta)
+ *  a reescreve para `/app/#/avaliacao` preservando a query, justamente para
+ *  que o token sobreviva — e roda ANTES de o React montar, senao o roteador
+ *  chega primeiro e manda o trabalhador para o login. Distribuir o link com hash funcionaria, mas passa por filtro de
  *  e-mail corporativo bem pior — e sao centenas de caixas de entrada. */
 export function linkDoConvite(t: string): string {
   const origem =
@@ -236,6 +237,8 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
 
   const [lista, setLista] = useState("");
   const [convites, setConvites] = useState<Convite[]>([]);
+  // Matriculas que o servidor ignorou por ja terem convite nesta campanha.
+  const [jaConvidados, setJaConvidados] = useState<string[]>([]);
 
   const carregar = useCallback(async () => {
     if (!organizationId) return;
@@ -452,6 +455,7 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
         },
       );
       setConvites(resposta.links || []);
+      setJaConvidados(resposta.already_invited || []);
       setAviso(
         `${resposta.created} convite(s) emitido(s). Baixe o arquivo agora: ` +
           "os links não são recuperáveis depois que esta tela sair.",
@@ -867,6 +871,20 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
                   {setoresNaoEncontrados.length > 8 && " …"}. Essas pessoas entram
                   sem setor — respondem e contam para a campanha, mas não formam
                   recorte próprio.
+                </p>
+              )}
+
+              {jaConvidados.length > 0 && (
+                <p className="mt-2 rounded border border-amber-900 bg-amber-950/60 p-2 text-[11px] leading-4 text-amber-100">
+                  <strong>
+                    {jaConvidados.length} matrícula(s) já tinham convite nesta
+                    campanha e não receberam link novo:
+                  </strong>{" "}
+                  {jaConvidados.slice(0, 12).join(", ")}
+                  {jaConvidados.length > 12 && " …"}. O convite original continua
+                  valendo, com o setor que foi atribuído na emissão dele — reemitir
+                  invalidaria o link que a pessoa já tem. Para trocar o setor de
+                  quem já foi convidado, a saída é uma campanha nova.
                 </p>
               )}
 
