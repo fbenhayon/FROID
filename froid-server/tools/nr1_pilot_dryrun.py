@@ -44,7 +44,17 @@ import nr1_effectiveness  # noqa: E402
 # remoção é exata e não depende de o operador lembrar de nada.
 PILOT_NAMESPACE = uuid.UUID("f01d0000-0000-4000-8000-000000000001")
 ORG_ID = str(uuid.uuid5(PILOT_NAMESPACE, "organization"))
-ORG_LEGAL_NAME = "EMPRESA TESTE FROID — PILOTO NR-1 (REMOVER)"
+ORG_LEGAL_NAME = "FROID NR-1 Piloto 01"
+ORG_DISPLAY_NAME = "FROID NR-1 Piloto 01"
+
+# O nome ja foi outro, e a remocao confere o nome antes de apagar.
+#
+# `destroy` exige `legal_name = ORG_LEGAL_NAME` como trava: e o que impede o
+# script de apagar uma organizacao real que por acaso tivesse o mesmo id. Mas
+# renomear a constante sem lembrar disso deixaria orfa qualquer organizacao
+# criada com o nome anterior — o --destroy nao a encontraria, e o piloto ficaria
+# no banco para sempre, com nome de demonstracao, na lista de um cliente.
+NOMES_ANTERIORES = ("EMPRESA TESTE FROID — PILOTO NR-1 (REMOVER)",)
 # A agregação exige vínculo ativo (froid_membership_is_active), então o piloto
 # precisa de um usuário e um vínculo próprios. São criados com e-mail que não
 # existe e removidos no --destroy. É a única incursão fora das tabelas do NR-1.
@@ -185,9 +195,15 @@ def create(connection) -> None:
         """
         INSERT INTO organizations (id, organization_type, legal_name, display_name, status)
         VALUES (%s, 'enterprise', %s, %s, 'active')
-        ON CONFLICT (id) DO UPDATE SET organization_type='enterprise'
+        -- Renomear a constante tem de renomear a organizacao ja criada:
+        -- senao a primeira execucao fixa o nome e as seguintes so parecem
+        -- funcionar.
+        ON CONFLICT (id) DO UPDATE SET
+            organization_type='enterprise',
+            legal_name=EXCLUDED.legal_name,
+            display_name=EXCLUDED.display_name
         """,
-        (ORG_ID, ORG_LEGAL_NAME, "Empresa Teste FROID"),
+        (ORG_ID, ORG_LEGAL_NAME, ORG_DISPLAY_NAME),
     )
     connection.execute(
         """
@@ -479,7 +495,8 @@ def destroy(connection) -> None:
         "DELETE FROM users WHERE id=%s AND email=%s", (PILOT_USER_ID, PILOT_USER_EMAIL)
     )
     connection.execute(
-        "DELETE FROM organizations WHERE id=%s AND legal_name=%s", (ORG_ID, ORG_LEGAL_NAME)
+        "DELETE FROM organizations WHERE id=%s AND legal_name = ANY(%s)",
+        (ORG_ID, [ORG_LEGAL_NAME, *NOMES_ANTERIORES]),
     )
     print("Piloto removido. Nenhum resíduo permanece.")
 

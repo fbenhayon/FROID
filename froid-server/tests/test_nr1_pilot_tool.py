@@ -236,3 +236,32 @@ class PilotScenarioTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ORenomearNaoDeixaPilotoOrfao(unittest.TestCase):
+    """Renomear a organizacao do piloto sem cuidar da remocao a deixa no banco.
+
+    `destroy` confere o nome antes de apagar — e a trava e certa: e o que
+    impede o script de remover uma organizacao real que por acaso tivesse o
+    mesmo id. Mas trocar a constante sozinha faria o --destroy nao encontrar a
+    organizacao criada com o nome anterior, e ela ficaria para sempre no banco,
+    com nome de demonstracao, aparecendo na lista de alguem.
+
+    Apurado em 27/08/2026, ao renomear para "FROID NR-1 Piloto 01".
+    """
+
+    def setUp(self):
+        self.fonte = SOURCE
+
+    def test_a_remocao_aceita_os_nomes_anteriores(self):
+        self.assertIn("NOMES_ANTERIORES", self.fonte)
+        self.assertIn("legal_name = ANY(%s)", self.fonte)
+
+    def test_a_criacao_renomeia_organizacao_ja_existente(self):
+        # Sem isto a primeira execucao fixa o nome e as seguintes so parecem
+        # funcionar: o ON CONFLICT antigo so atualizava organization_type.
+        self.assertIn("legal_name=EXCLUDED.legal_name", self.fonte)
+        self.assertIn("display_name=EXCLUDED.display_name", self.fonte)
+
+    def test_o_nome_atual_nao_esta_vazio(self):
+        self.assertIn('ORG_LEGAL_NAME = "FROID NR-1 Piloto 01"', self.fonte)
