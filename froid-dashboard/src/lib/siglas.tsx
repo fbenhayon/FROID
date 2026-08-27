@@ -1,20 +1,18 @@
-// Nenhuma sigla chega ao cliente sozinha.
+// Como uma sigla aparece na tela. O QUE ela significa mora em nr1-glossario.
 //
-// O leitor destas telas é o empresário e o técnico de segurança do trabalho da
-// empresa contratante, não quem escreveu a norma. "O período do PGR a que esta
-// avaliação se refere" é uma frase que só informa quem já sabe o que é PGR — e
-// para quem não sabe ela não é neutra, é intimidante: a pessoa está prestes a
-// assinar um serviço cujo vocabulário não domina.
+// Este arquivo nasceu com um dicionário próprio, e foi um erro: `nr1-glossario`
+// já existia, mais completo e com nota explicativa por verbete. Ele não foi
+// encontrado porque não tinha nenhum importador — o mesmo padrão que este
+// módulo já produziu quatro vezes (desenho pronto, camada que ninguém chama), e
+// que agora produziu uma consequência nova: em vez de a peça ficar parada, uma
+// segunda foi construída ao lado dela.
 //
-// A regra desta base de código passa a ser: sigla visível ao usuário sai por
-// <Sigla>, nunca digitada solta no texto. Isso garante que a denominação
-// completa exista em UM lugar (se o nome oficial mudar, muda aqui) e que
-// nenhuma tela invente uma expansão diferente da vizinha.
+// Duas definições da mesma sigla divergem sozinhas. A daqui foi removida.
 //
-// Três formas de apresentação, e cada uma resolve um problema diferente:
+// Três formas de apresentação, cada uma para um problema:
 //
 //   <Sigla nome="PGR" />          PGR (Programa de Gerenciamento de Riscos)
-//   <Sigla nome="PGR" curta />    PGR — com a denominação no title, para as
+//   <Sigla nome="PGR" curta />    PGR — com a descrição no title, para as
 //                                 repetições dentro do mesmo parágrafo, onde
 //                                 expandir de novo faria o texto ilegível
 //   <GlossarioDeSiglas termos={[...]} />  a lista ao pé da tela
@@ -25,46 +23,26 @@
 
 import React from "react";
 
-export const SIGLAS: Record<string, string> = {
-  "NR-1": "Norma Regulamentadora nº 1 — Disposições Gerais e Gerenciamento de Riscos Ocupacionais",
-  "NR-17": "Norma Regulamentadora nº 17 — Ergonomia",
-  PGR: "Programa de Gerenciamento de Riscos",
-  GRO: "Gerenciamento de Riscos Ocupacionais",
-  AEP: "Avaliação Ergonômica Preliminar",
-  AET: "Análise Ergonômica do Trabalho",
-  PCMSO: "Programa de Controle Médico de Saúde Ocupacional",
-  CIPA: "Comissão Interna de Prevenção de Acidentes e de Assédio",
-  SST: "Segurança e Saúde no Trabalho",
-  MTE: "Ministério do Trabalho e Emprego",
-  LGPD: "Lei Geral de Proteção de Dados Pessoais (Lei nº 13.709/2018)",
-  CNPJ: "Cadastro Nacional da Pessoa Jurídica",
-  CPF: "Cadastro de Pessoas Físicas",
-  "ME/EPP": "Microempresa e Empresa de Pequeno Porte",
-  eSocial:
-    "Sistema de Escrituração Digital das Obrigações Fiscais, Previdenciárias e Trabalhistas",
-  CAT: "Comunicação de Acidente de Trabalho",
-  ISO: "Organização Internacional de Normalização",
-  CFP: "Conselho Federal de Psicologia",
-  MPT: "Ministério Público do Trabalho",
-};
+import { descricao, porExtenso, SIGLAS } from "./nr1-glossario";
+
+export { SIGLAS } from "./nr1-glossario";
 
 type SiglaProps = {
   nome: string;
-  /** Repetição: mostra só a sigla, com a denominação no atributo `title`. */
+  /** Repetição: mostra só a sigla, com a descrição no atributo `title`. */
   curta?: boolean;
   className?: string;
 };
 
 /** Uma sigla e o que ela quer dizer. */
 export const Sigla: React.FC<SiglaProps> = ({ nome, curta, className }) => {
-  const denominacao = SIGLAS[nome];
   // Sigla ausente do dicionário sai crua em vez de sair "undefined" na tela.
   // É defeito de programação, não do usuário, e ele não deve pagar por ele.
-  if (!denominacao) return <>{nome}</>;
+  if (!SIGLAS[nome]) return <>{nome}</>;
   if (curta) {
     return (
       <abbr
-        title={denominacao}
+        title={descricao(nome)}
         className={
           className ??
           "cursor-help underline decoration-dotted underline-offset-2"
@@ -74,9 +52,13 @@ export const Sigla: React.FC<SiglaProps> = ({ nome, curta, className }) => {
       </abbr>
     );
   }
+  // `porExtenso` devolve "Programa de Gerenciamento de Riscos (PGR)"; aqui a
+  // ordem é a inversa porque o texto ao redor já foi escrito com a sigla no
+  // lugar do sujeito da frase — trocar a ordem obrigaria a reescrever cada
+  // ocorrência nas telas.
   return (
     <span className={className}>
-      {nome} <span className="opacity-90">({denominacao})</span>
+      {nome} <span className="opacity-90">({SIGLAS[nome].nome})</span>
     </span>
   );
 };
@@ -102,10 +84,12 @@ export const GlossarioDeSiglas: React.FC<{
         {conhecidos.map((termo) => (
           <div key={termo} className="text-[11px] leading-4 text-slate-400">
             <dt className="inline font-black text-slate-300">{termo}</dt>
-            <dd className="inline"> — {SIGLAS[termo]}</dd>
+            <dd className="inline"> — {descricao(termo)}</dd>
           </div>
         ))}
       </dl>
     </section>
   );
 };
+
+export { porExtenso };

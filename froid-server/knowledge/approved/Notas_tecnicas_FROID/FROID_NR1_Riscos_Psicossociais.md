@@ -44,11 +44,59 @@ Se o painel pudesse ser consultado durante a coleta, bastaria observar o resulta
 
 Durante a coleta a empresa acompanha apenas a adesao, ou seja, quantas pessoas ja responderam. Um numero de participantes nao revela conteudo de resposta.
 
-## Pisos de coorte
+## Os dois portoes
 
-Uma campanha so libera resultado a partir de 50 respostas concluidas. Cada recorte por unidade ou setor exige no minimo 10; abaixo disso o recorte e suprimido.
+Sao dois, protegem coisas diferentes, e os dois valem sempre.
 
-Os pisos sao aplicados dentro do banco de dados e nao na aplicacao: nenhuma chamada consegue baixa-los. As tabelas com as respostas brutas nao possuem politica de leitura, e o papel de execucao do sistema nao tem acesso a elas. A unica saida e uma funcao de agregacao que ja aplica os pisos.
+**Portao do anonimato.** Uma campanha so libera resultado a partir de 15
+respostas substantivas. Cada recorte por unidade ou setor exige no minimo 10.
+Sao numeros absolutos: nao dependem do tamanho da empresa, e nao se movem.
+Protegem a PESSOA — abaixo desse tamanho, saber a media do grupo ja e quase
+saber o que cada um respondeu.
+
+**Portao da representatividade.** A coorte precisa ser grande o bastante para
+falar pelo efetivo declarado. E amostra para proporcao com correcao de
+populacao finita, a 95% de confianca, margem de 5 pontos, em p=0,5 — a
+proporcao de maior variancia, e portanto a exigencia conservadora qualquer que
+seja o resultado medido. Protege a AFIRMACAO: sem ele o relatorio descreveria
+quem respondeu, e nao o trabalho da organizacao.
+
+Consequencia que surpreende, e que precisa ser dita antes da venda: **abaixo de
+98 pessoas a amostra exigida alcanca o quadro inteiro**, ou seja, o recorte so
+publica em censo. Um estabelecimento de 28 pessoas precisa das 28. Como
+responder e voluntario, uma unica recusa suspende aquele recorte — e nao a
+campanha, que continua valendo pelo total da organizacao.
+
+Uma resposta so conta para o portao se cobrir ao menos metade das dimensoes do
+instrumento. Cinquenta respostas de uma pergunta cada nao sao cinquenta
+pessoas avaliando o trabalho: sao cinquenta requisicoes.
+
+Os pisos sao aplicados dentro do banco de dados e nao na aplicacao: nenhuma
+chamada consegue baixa-los. As tabelas com as respostas brutas nao possuem
+politica de leitura, e o papel de execucao do sistema nao tem acesso a elas. A
+unica saida e uma funcao de agregacao que ja aplica os pisos.
+
+## Recorte reprovado nao some do relatorio
+
+Suprimir e ocultar; declarar insuficiente e documentar.
+
+O recorte que nao vence um dos portoes entra no MESMO inventario como linha
+declarada insuficiente, nomeando qual portao falhou e qual o caminho de
+remedio. Nunca em anexo, nunca omitido.
+
+A razao e de leitura, nao de completude: painel vazio e lido como "nao ha risco
+aqui", que e exatamente a unica conclusao que a ausencia de dado nunca
+autoriza. Uma empresa que pagou o ciclo e recebeu documento nenhum fica sem o
+que mostrar a uma fiscalizacao que continua cobrando dela.
+
+A linha declarada NAO traz a contagem de respostas daquele recorte — esse
+numero esta abaixo do piso por definicao, e publica-lo desfaria o piso. Traz o
+portao, porque o remedio depende dele: reprovado no anonimato, nenhuma adesao
+resolve e o caminho e a AEP; reprovado na representatividade, subir a adesao
+publica o recorte.
+
+Recorte declarado tambem nao semeia medida no plano de acao. O plano segue a
+CLASSIFICACAO do risco (subitem 1.5.5.2.1), e ali nao houve classificacao.
 
 ## Por que o FROID as vezes se recusa a dizer que melhorou
 

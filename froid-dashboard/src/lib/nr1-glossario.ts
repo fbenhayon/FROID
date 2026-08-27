@@ -93,6 +93,22 @@ export const SIGLAS: Record<string, { nome: string; nota?: string }> = {
   eSocial: {
     nome: "Sistema de Escrituração Digital das Obrigações Fiscais, Previdenciárias e Trabalhistas",
   },
+  SST: { nome: "Segurança e Saúde no Trabalho" },
+  ISO: {
+    nome: "Organização Internacional de Normalização",
+    nota:
+      "A ISO 45003:2021 trata de saúde psicológica no trabalho e é uma das " +
+      "âncoras do instrumento FROID.",
+  },
+  CFP: { nome: "Conselho Federal de Psicologia" },
+  MPT: {
+    nome: "Ministério Público do Trabalho",
+    nota:
+      "Pode instaurar inquérito civil, exigir Termo de Ajustamento de Conduta " +
+      "ou ajuizar ação civil pública.",
+  },
+  TAC: { nome: "Termo de Ajustamento de Conduta" },
+  CLT: { nome: "Consolidação das Leis do Trabalho" },
 };
 
 /** "Avaliação Ergonômica Preliminar (AEP)", para a primeira aparição. */
