@@ -74,7 +74,27 @@ COLLECTION_CLINICA = os.getenv(
 CHROMA_PATH = Path(os.getenv("FROID_CHROMA_PATH", "/data/chroma_db"))
 
 NOTAS_FROID = SERVER_DIR / "knowledge" / "approved" / "Notas_tecnicas_FROID"
-NORMAS = REPO_DIR / "docs" / "normas"
+
+
+def _pasta_das_normas() -> Path:
+    """Onde esta o texto das normas, no conteiner ou no repositorio.
+
+    No conteiner o backend e construido com contexto ./froid-server e nao
+    alcanca a raiz do repositorio: docs/normas so existe ali por ponto de
+    montagem (/normas, definido no docker-compose). Fora do conteiner, vale o
+    caminho do repositorio.
+    """
+    candidatos = [
+        Path(os.getenv("FROID_NORMAS_DIR", "").strip() or "/normas"),
+        REPO_DIR / "docs" / "normas",
+    ]
+    for caminho in candidatos:
+        if (caminho / "primarias").is_dir():
+            return caminho
+    return candidatos[-1]
+
+
+NORMAS = _pasta_das_normas()
 
 PALAVRAS_POR_TRECHO = 150
 SOBREPOSICAO = 40
@@ -192,6 +212,11 @@ def main() -> int:
         help="Deixa de fora os documentos contratuais vigentes.",
     )
     parser.add_argument(
+        "--sem-normas", action="store_true",
+        help="Indexa mesmo sem o texto das normas. Use apenas sabendo que o "
+             "acervo respondera sobre a lei citando a nossa documentacao.",
+    )
+    parser.add_argument(
         "--embedding", default="auto", choices=["auto", "openai", "local"],
     )
     parser.add_argument(
@@ -232,8 +257,32 @@ def main() -> int:
         raise SystemExit("Nenhuma fonte encontrada para indexar.")
     recusar_o_que_nao_pode_entrar(arquivos)
 
+    # A ausencia do texto da norma NAO pode passar como sucesso.
+    #
+    # Na primeira indexacao em producao o script rodou, imprimiu "Pronto: 163
+    # trechos" e indexou tudo MENOS as normas — porque o conteiner nao
+    # enxergava docs/normas. Um acervo de NR-1 sem o texto da NR-1 responde a
+    # tudo citando a nossa propria documentacao, que e exatamente a fonte que
+    # um auditor nao aceita. Falha em silencio de novo, nao.
+    normativas = [par for par in arquivos if par[1] == "norma"]
+    if not normativas and not args.sem_normas:
+        raise SystemExit(
+            "\n".join(
+                [
+                    f"RECUSADO: nenhuma fonte normativa encontrada em {NORMAS}.",
+                    "  Dentro do conteiner, docs/normas precisa estar montado",
+                    "  em /normas (ver docker-compose.yml). Depois de atualizar",
+                    "  o compose, rode: docker compose up -d froid-backend",
+                    "  Para indexar mesmo assim, use --sem-normas — mas entenda",
+                    "  o que isso significa: o acervo respondera sobre a lei",
+                    "  citando a nossa documentacao, e nao o texto dela.",
+                ]
+            )
+        )
+
     print(f"ChromaDB:   {args.chroma_path}")
     print(f"Collection: {args.collection}")
+    print(f"Normas em:  {NORMAS} ({'encontrada' if (NORMAS / 'primarias').is_dir() else 'AUSENTE'})")
     print("Fontes:")
     for arquivo, classe in arquivos:
         print(f"  [{classe:14}] {arquivo.name}")

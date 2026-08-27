@@ -112,6 +112,14 @@ services:
       - FROID_SHARED_CREDITS_ORGANIZATIONS=${FROID_SHARED_CREDITS_ORGANIZATIONS:-}
     volumes:
       - ./data:/data
+      # Texto das normas, somente leitura.
+      #
+      # O Dockerfile do backend tem contexto ./froid-server e nao alcanca a
+      # raiz do repositorio, entao docs/normas nao entra na imagem. Sem este
+      # ponto de montagem o indexador do FROID Explica NR-1 roda com sucesso e
+      # indexa TUDO menos o texto da norma — que e justamente a fonte citavel
+      # ao auditor. Aconteceu uma vez, em silencio.
+      - ./docs/normas:/normas:ro
     networks:
       - default
       - froid-data

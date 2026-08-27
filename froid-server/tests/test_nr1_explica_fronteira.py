@@ -225,3 +225,41 @@ class OContratoEntraCitado(unittest.TestCase):
             classe="contrato",
         )
         self.assertIn("documento contratual vigente", trecho.rotulo)
+
+
+class OAcervoNaoSobeSemANorma(unittest.TestCase):
+    """A primeira indexacao em producao passou sem o texto da lei.
+
+    O script rodou, imprimiu "Pronto: 163 trechos" e indexou tudo MENOS as
+    normas — porque o Dockerfile do backend tem contexto ./froid-server e nao
+    alcanca docs/normas na raiz do repositorio. Sucesso pela metade, em
+    silencio, no mesmo padrao que este modulo ja produziu quatro vezes.
+
+    Um acervo de NR-1 sem o texto da NR-1 responde a tudo citando a nossa
+    propria documentacao — que e exatamente a fonte que um auditor nao aceita.
+    """
+
+    def test_o_indexador_recusa_indexar_sem_fonte_normativa(self):
+        codigo = _codigo(INDEXADOR, "main")
+        self.assertIn("normativas", codigo)
+        self.assertIn("RECUSADO", codigo)
+        self.assertIn("sem_normas", codigo)
+
+    def test_o_indexador_procura_as_normas_no_ponto_de_montagem(self):
+        # Dentro do conteiner docs/normas so existe montado; fora dele, vale o
+        # caminho do repositorio. Procurar so um dos dois quebra num ambiente.
+        codigo = _codigo(INDEXADOR, "_pasta_das_normas")
+        self.assertIn("/normas", codigo)
+        self.assertIn("REPO_DIR", codigo)
+
+    def test_o_indexador_diz_onde_procurou(self):
+        # Diagnostico impresso vale mais do que suposicao: foi a ausencia da
+        # linha que fez a falha passar despercebida.
+        codigo = _codigo(INDEXADOR, "main")
+        self.assertIn("Normas em:", codigo)
+
+    def test_o_compose_monta_as_normas_no_backend(self):
+        compose = io.open(
+            SERVER.parent / "docker-compose.yml", encoding="utf-8"
+        ).read()
+        self.assertIn("./docs/normas:/normas:ro", compose)
