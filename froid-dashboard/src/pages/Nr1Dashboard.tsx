@@ -300,8 +300,16 @@ export const Nr1Dashboard: React.FC<{ user: FroidUser | null }> = ({ user }) => 
   // dava acesso de uma conta real a uma organizacao de demonstracao — mas
   // nenhuma tela do NR-1 oferecia a troca, entao o acesso concedido nao tinha
   // como ser usado. Mesmo padrao: a peca existia e faltava quem a chamasse.
+  // `organization_name` e o nome do campo que o servidor devolve — nao
+  // `display_name`, que e como a tabela o chama. Ler o campo errado nao quebra
+  // nada visivelmente: o seletor apenas mostra o UUID, e quem olha conclui que
+  // a tela esta com defeito sem saber qual.
   const [organizacoes, setOrganizacoes] = useState<
-    Array<{ organization_id: string; display_name?: string; legal_name?: string }>
+    Array<{
+      organization_id: string;
+      organization_name?: string;
+      organization_type?: string;
+    }>
   >([]);
   const [criteriaVersion, setCriteriaVersion] = useState<number | null>(null);
   const [criteriaPublished, setCriteriaPublished] = useState(true);
@@ -515,8 +523,7 @@ export const Nr1Dashboard: React.FC<{ user: FroidUser | null }> = ({ user }) => 
                       key={organizacao.organization_id}
                       value={organizacao.organization_id}
                     >
-                      {organizacao.display_name ||
-                        organizacao.legal_name ||
+                      {organizacao.organization_name ||
                         organizacao.organization_id}
                     </option>
                   ))}
