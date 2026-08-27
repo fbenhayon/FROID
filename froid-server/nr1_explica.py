@@ -49,6 +49,8 @@ class Trecho:
             return f"{self.titulo} (fonte normativa)"
         if self.classe == "interpretacao":
             return f"{self.titulo} (interpretação de terceiros)"
+        if self.classe == "contrato":
+            return f"{self.titulo} (documento contratual vigente)"
         return f"{self.titulo} (documentação FROID)"
 
 
@@ -126,7 +128,21 @@ INSTRUCAO = (
     "6. Portugues do Brasil, direto, sem jargao desnecessario. Expanda toda "
     "sigla na primeira vez que ela aparecer.\n"
     "7. Numero de piso, de amostra ou de prazo so pode ser dito se aparecer "
-    "nos trechos. Nao calcule de cabeca."
+    "nos trechos. Nao calcule de cabeca.\n"
+    "8. TRECHO MARCADO COMO 'contrato' TEM REGRA PROPRIA, e ela e a mais "
+    "importante desta lista. Esse texto e clausula de documento vigente, com "
+    "versao e impressao digital, e o comprovante de aceite prova qual digital "
+    "foi aceita. Voce NAO reescreve clausula com palavras proprias: reproduza "
+    "o trecho pertinente ENTRE ASPAS, nomeie o documento e a secao de onde ele "
+    "saiu, e diga que o texto que vale e o do documento vigente no sistema. Se "
+    "a pergunta pedir interpretacao — o que acontece se, tenho direito a, "
+    "posso exigir —, responda o que a clausula diz, entre aspas, e encaminhe a "
+    "analise do caso concreto a assessoria juridica da empresa. Parafrase de "
+    "clausula feita pelo proprio fornecedor vira uma segunda versao da mesma "
+    "obrigacao, e e a versao que nao tem digital.\n"
+    "9. Preco, prazo comercial, quantidade contratada e escopo adicional vivem "
+    "na proposta comercial, nao aqui. O proprio contrato manda a proposta "
+    "prevalecer sobre esses pontos. Se perguntarem, diga isso e nao estime."
 )
 
 

@@ -169,3 +169,59 @@ class ARotaCorporativaNaoUsaOPortaoClinico(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class OContratoEntraCitado(unittest.TestCase):
+    """O acervo conhece os documentos contratuais, e sabe como usa-los.
+
+    Deixa-los de fora parecia prudente e nao era: a pergunta contratual chega
+    na reuniao, e "nao encontrei" sobre o proprio contrato e pior do que
+    responder. O que nao pode e o modelo REESCREVER clausula — o comprovante de
+    aceite prova um sha256, e parafrase do fornecedor sobre as proprias
+    obrigacoes vira uma segunda versao da mesma coisa, sem digital.
+
+    A protecao migrou de "nao indexar" para "indexar e mandar citar".
+    """
+
+    def test_os_documentos_contratuais_entram_no_indice(self):
+        self.assertIn("CHAVES_CONTRATUAIS", INDEXADOR)
+        for chave in ("terms_nr1", "nr1_company_contract", "privacy"):
+            self.assertIn(chave, INDEXADOR)
+
+    def test_o_contrato_do_outro_produto_fica_de_fora(self):
+        # professional_contract e organization_contract sao da trilha clinica.
+        self.assertNotIn("professional_contract", INDEXADOR)
+        self.assertNotIn("organization_contract", INDEXADOR)
+
+    def test_o_texto_vem_da_fonte_canonica_e_nao_de_copia(self):
+        # Copia envelheceria sozinha, e o comprovante prova a digital do texto
+        # vigente. Cada trecho carrega versao e sha256 do documento.
+        codigo = _codigo(INDEXADOR, "trechos_contratuais")
+        self.assertIn("public_legal_catalog", codigo)
+        self.assertIn("sha256", codigo)
+        self.assertIn("versao", codigo)
+
+    def test_a_clausula_e_indexada_inteira(self):
+        # Uma secao por trecho: clausula cortada no meio afirma metade de uma
+        # condicao, e a metade que sobra costuma ser a que favorece quem citou.
+        codigo = _codigo(INDEXADOR, "trechos_contratuais")
+        self.assertIn("sections", codigo)
+        self.assertNotIn("chunk_markdown", codigo)
+
+    def test_a_instrucao_manda_citar_e_nao_parafrasear(self):
+        instrucao = nr1_explica.INSTRUCAO
+        self.assertIn("'contrato'", instrucao)
+        self.assertIn("ENTRE ASPAS", instrucao)
+        self.assertIn("assessoria juridica", instrucao)
+
+    def test_a_instrucao_recusa_estimar_preco_e_prazo(self):
+        instrucao = nr1_explica.INSTRUCAO.lower()
+        self.assertIn("proposta comercial", instrucao)
+        self.assertIn("nao estime", instrucao)
+
+    def test_a_citacao_declara_que_e_documento_contratual(self):
+        trecho = nr1_explica.Trecho(
+            texto="x", titulo="Contrato — Objeto", fonte="nr1_company_contract",
+            classe="contrato",
+        )
+        self.assertIn("documento contratual vigente", trecho.rotulo)

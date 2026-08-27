@@ -15,8 +15,17 @@ O que entra:
   * as notas tecnicas do FROID sobre NR-1 (knowledge/approved/.../FROID_NR1_*)
   * as fontes primarias em docs/normas/primarias — texto da norma e publicacoes
     oficiais do MTE, que sao citaveis ao cliente e ao auditor
-  * opcionalmente as secundarias, com --secundarias, que sao doutrina e
-    material de entidade: citaveis com atribuicao, como interpretacao
+  * as secundarias — doutrina e material de entidade, citaveis com atribuicao,
+    como interpretacao. Sai com --sem-secundarias
+  * os DOCUMENTOS CONTRATUAIS vigentes: Termos de Uso NR-1, Contrato de
+    Prestacao de Servico NR-1 e Politica de Privacidade
+
+    Eles nao sao lidos de arquivo: sao renderizados de `legal_documents`, a
+    mesma fonte que a tela do contrato e o comprovante de aceite usam. Indexar
+    uma copia deles seria criar um texto paralelo que envelhece sozinho — e o
+    comprovante prova um sha256, entao divergencia entre a copia e o vigente
+    nao seria detalhe. Cada trecho carrega a versao e a digital do documento
+    de onde saiu.
 
 O que NUNCA entra, e o script recusa:
 
@@ -34,6 +43,7 @@ Uso, de dentro do conteiner do backend:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import os
 import sys
 from pathlib import Path
@@ -96,6 +106,48 @@ def fontes(incluir_secundarias: bool) -> list[tuple[Path, str]]:
     return encontrados
 
 
+# Documentos contratuais que o acervo do NR-1 pode conhecer. A politica de
+# privacidade entra porque metade das perguntas de compliance e sobre
+# tratamento de dado; os contratos de profissional e de clinica NAO entram,
+# porque sao do outro produto.
+CHAVES_CONTRATUAIS = ("terms_nr1", "nr1_company_contract", "privacy")
+
+
+def trechos_contratuais() -> list[dict]:
+    """Secoes dos documentos vigentes, prontas para indexar.
+
+    Uma secao por trecho, e nao o documento inteiro fatiado por contagem de
+    palavras: clausula tem comeco e fim, e cortar no meio produziria um trecho
+    que afirma metade de uma condicao. O titulo carrega o nome da secao para
+    que a resposta possa dizer ONDE esta, que e o que o leitor precisa para
+    conferir.
+    """
+    import legal_documents
+
+    catalogo = legal_documents.public_legal_catalog()
+    documentos = catalogo.get("documents") or {}
+    encontrados: list[dict] = []
+    for chave in CHAVES_CONTRATUAIS:
+        documento = documentos.get(chave)
+        if not documento:
+            print(f"  aviso: documento {chave} ausente do catalogo")
+            continue
+        for secao in documento.get("sections") or []:
+            corpo = str(secao.get("body") or "").strip()
+            if len(corpo) < 80:
+                continue
+            encontrados.append(
+                {
+                    "texto": corpo,
+                    "titulo": f"{documento['title']} — {secao.get('heading')}",
+                    "fonte": chave,
+                    "versao": str(documento.get("version") or ""),
+                    "sha256": str(documento.get("sha256") or "")[:16],
+                }
+            )
+    return encontrados
+
+
 def recusar_o_que_nao_pode_entrar(arquivos: list[tuple[Path, str]]) -> None:
     """Trava explicita, e nao confianca no glob acima.
 
@@ -129,9 +181,15 @@ def main() -> int:
              "modelo de embedding.",
     )
     parser.add_argument(
-        "--secundarias", action="store_true",
-        help="Inclui doutrina e material de entidade, marcados como "
-             "interpretacao.",
+        "--sem-secundarias", dest="secundarias", action="store_false",
+        default=True,
+        help="Deixa de fora doutrina e material de entidade. O padrao e "
+             "inclui-los, marcados como interpretacao.",
+    )
+    parser.add_argument(
+        "--sem-contratos", dest="contratos", action="store_false",
+        default=True,
+        help="Deixa de fora os documentos contratuais vigentes.",
     )
     parser.add_argument(
         "--embedding", default="auto", choices=["auto", "openai", "local"],
@@ -212,6 +270,27 @@ def main() -> int:
                 }
             )
         print(f"  {arquivo.name}: {len(trechos)} trechos")
+
+    if args.contratos:
+        contratuais = trechos_contratuais()
+        print(f"  [contrato      ] {len(contratuais)} secoes dos documentos vigentes")
+        for indice, secao in enumerate(contratuais):
+            # O id deriva do titulo da secao e da digital do documento: quando o
+            # documento muda de versao, o id muda e o trecho antigo nao fica
+            # convivendo com o novo dentro do indice.
+            bruto = f"contrato:{secao['fonte']}:{secao['sha256']}:{indice}"
+            ids.append(hashlib.sha256(bruto.encode("utf-8")).hexdigest())
+            documentos.append(secao["texto"])
+            metadados.append(
+                {
+                    "title": secao["titulo"],
+                    "source": secao["fonte"],
+                    "classe": "contrato",
+                    "modulo": "nr1",
+                    "versao": secao["versao"],
+                    "sha256": secao["sha256"],
+                }
+            )
 
     if not documentos:
         raise SystemExit("Nada a indexar.")
