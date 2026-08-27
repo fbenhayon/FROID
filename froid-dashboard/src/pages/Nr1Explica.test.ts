@@ -299,12 +299,33 @@ describe("o painel manda para a resposta certa", () => {
     }
   });
 
-  it("so oferece a AEP onde adesao nao resolve", () => {
-    // Oferecer AEP no portao de representatividade mandaria a empresa
-    // abandonar uma coleta que publicaria com mais adesao.
-    const conjunto = PAINEL.match(/const PORTAO_PEDE_AEP[^;]+;/s)?.[0] || "";
-    expect(conjunto).toContain("anonimato");
-    expect(conjunto).not.toContain("representatividade");
+  it("cada portao tem verbete PROPRIO, e nao uma resposta parecida", () => {
+    // O primeiro mapa apontava para verbetes vizinhos — "meu setor tem 6
+    // pessoas" para quem olhava um resultado suprimido. A pessoa chegava numa
+    // resposta que tratava de outro momento do fluxo e concluia que a tela nao
+    // sabia responder. Verbete de portao e escrito para a pergunta feita
+    // OLHANDO a linha do painel.
+    const mapa = PAINEL.match(/const VERBETE_DO_PORTAO[^}]+}/s)?.[0] || "";
+    const ids = [...mapa.matchAll(/"(painel-[a-z-]+)"/g)].map((m) => m[1]);
+    expect(ids.length).toBe(4);
+    expect(new Set(ids).size).toBe(4);
+    for (const id of ids) {
+      const verbete = VERBETES.find((v) => v.id === id);
+      expect(verbete, `verbete ${id} nao existe`).toBeTruthy();
+      expect(verbete!.pergunta).toContain("O painel diz");
+    }
+  });
+
+  it("so oferece a AEP onde ela e mesmo o caminho", () => {
+    // Anonimato: sempre, porque tamanho de grupo nao muda com adesao.
+    // Campanha inteira: so quando o porte nao sustenta coorte — oferecer AEP a
+    // uma empresa de 258 pessoas que teve adesao baixa e manda-la abandonar
+    // uma campanha que publicaria, e custa um ciclo inteiro.
+    const inicio = PAINEL.indexOf("function ofereceAep");
+    const funcao = inicio >= 0 ? PAINEL.slice(inicio, inicio + 400) : "";
+    expect(funcao).toContain('portao === "anonimato"');
+    expect(funcao).toContain("PISO_CAMPANHA");
+    expect(funcao).not.toContain('"representatividade"');
   });
 
   it("a tela abre apontada quando recebe ?verbete=", () => {

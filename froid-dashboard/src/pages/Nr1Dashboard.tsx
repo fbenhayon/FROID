@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { FroidUser } from "../App";
 import { apiUrl } from "../lib/api";
+import { PISO_CAMPANHA } from "../lib/nr1-representatividade";
 import { GlossarioDeSiglas, Sigla } from "../lib/siglas";
 
 type Campaign = {
@@ -98,18 +99,29 @@ type Panel = {
  *  resolve. Por isso o link é por portão, e não um "saiba mais" genérico.
  */
 const VERBETE_DO_PORTAO: Record<string, string> = {
-  anonimato: "setor-pequeno",
-  representatividade: "quantas-respostas",
-  efetivo_nao_declarado: "quantas-respostas",
-  campanha_abaixo_do_piso: "recorte-declarado",
+  anonimato: "painel-grupo-pequeno",
+  representatividade: "painel-adesao-insuficiente",
+  efetivo_nao_declarado: "painel-efetivo-nao-declarado",
+  campanha_abaixo_do_piso: "painel-campanha-abaixo-do-piso",
 };
 
-/** Portões cujo caminho indicado passa pela AEP.
+/** Quando oferecer a AEP como caminho, em vez de insistir na coleta.
  *
- *  Nestes, insistir na coleta é gastar um ciclo no caminho errado: o grupo não
- *  publica por tamanho, e tamanho não muda com adesão.
+ *  No portão de anonimato, sempre: o grupo não publica por TAMANHO, e tamanho
+ *  não muda com adesão.
+ *
+ *  No portão da campanha inteira, só quando o porte não sustenta coorte.
+ *  Oferecer a AEP a uma empresa de 258 pessoas que apenas teve adesão baixa
+ *  seria mandá-la abandonar uma campanha que publicaria — e é o erro mais caro
+ *  que esta tela pode induzir, porque custa um ciclo inteiro.
  */
-const PORTAO_PEDE_AEP = new Set(["anonimato", "campanha_abaixo_do_piso"]);
+function ofereceAep(portao: string, efetivo: number): boolean {
+  if (portao === "anonimato") return true;
+  if (portao === "campanha_abaixo_do_piso") {
+    return efetivo > 0 && efetivo < PISO_CAMPANHA;
+  }
+  return false;
+}
 
 const GATE_LABEL: Record<string, string> = {
   anonimato: "Grupo pequeno demais para publicar",
@@ -170,7 +182,9 @@ const EFFICACY_LABEL: Record<string, string> = {
 const DeclaredFindings: React.FC<{
   achados?: Declared[];
   titulo?: string;
-}> = ({ achados, titulo = "Recortes sem avaliação conclusiva" }) => {
+  /** Efetivo declarado da campanha, para decidir se a AEP e mesmo o caminho. */
+  efetivo?: number;
+}> = ({ achados, titulo = "Recortes sem avaliação conclusiva", efetivo = 0 }) => {
   if (!achados || achados.length === 0) return null;
   return (
     <div className="mt-4 rounded-lg border border-amber-900 bg-amber-950/30 p-4">
@@ -223,7 +237,7 @@ const DeclaredFindings: React.FC<{
               >
                 Entender este resultado
               </Link>
-              {PORTAO_PEDE_AEP.has(achado.gate) && (
+              {ofereceAep(achado.gate, efetivo) && (
                 <Link
                   to="/nr1/aep"
                   className="rounded border border-cyan-700 bg-cyan-950 px-2 py-1 text-[10px] font-black text-cyan-100 hover:bg-cyan-900"
@@ -616,7 +630,10 @@ export const Nr1Dashboard: React.FC<{ user: FroidUser | null }> = ({ user }) => 
                     )}
                   </>
                 )}
-                <DeclaredFindings achados={panel.declared} />
+                <DeclaredFindings
+                  achados={panel.declared}
+                  efetivo={panel.progress?.target_headcount || 0}
+                />
               </div>
             ) : (
               <>
@@ -705,7 +722,10 @@ export const Nr1Dashboard: React.FC<{ user: FroidUser | null }> = ({ user }) => 
                 {/* Depois dos riscos classificados, e não antes: o que foi
                     avaliado vem primeiro. Mas vem — campanha que publica parte
                     dos recortes precisa dizer o que houve com o resto. */}
-                <DeclaredFindings achados={panel.declared} />
+                <DeclaredFindings
+                  achados={panel.declared}
+                  efetivo={panel.progress?.target_headcount || 0}
+                />
               </>
             )}
           </section>

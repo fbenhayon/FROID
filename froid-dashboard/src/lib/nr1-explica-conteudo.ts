@@ -572,6 +572,78 @@ export const VERBETES: VerbeteExplica[] = [
     ],
     chaves: ["insuficiente", "suprimido", "vazio", "declarado", "sem resultado"],
   },
+  // Os quatro portões, escritos como a pergunta é feita: olhando a linha no
+  // painel, com o cliente do lado. O painel liga cada achado ao seu verbete —
+  // e o link é por portão porque os remédios são opostos. Mandar quem falhou
+  // por tamanho de grupo para o conselho de "aumentar a adesão" custa um ciclo
+  // inteiro no caminho errado.
+  {
+    id: "painel-campanha-abaixo-do-piso",
+    tema: "resultado",
+    pergunta: "O painel diz “Campanha inteira abaixo do piso”. O que isso quer dizer?",
+    resposta: [
+      "A campanha encerrou sem reunir as respostas substantivas que o efetivo declarado exige, então nenhum recorte dela pode ser publicado — nem por setor, nem por estabelecimento, nem o total.",
+      "Não é falha do sistema nem erro de cadastro: é a coleta que não alcançou o tamanho necessário para o resultado dizer algo sobre a organização em vez de dizer algo sobre quem respondeu.",
+      "O que fazer depende do porte. Com efetivo suficiente para sustentar coorte, o caminho é reforçar a participação e rodar uma campanha nova — a encerrada não reabre. Comunicação interna, apoio da liderança e prazo maior são o que move esse número; a comunicação do levantamento aos trabalhadores é, aliás, exigência da própria norma. Abaixo de 15 pessoas nenhuma campanha publica, e aí o caminho é a Avaliação Ergonômica Preliminar.",
+      "O que isso NÃO significa: ausência de risco. A obrigação de gerenciar o risco psicossocial permanece integral, e é por isso que essa linha entra no inventário em vez de sumir dele.",
+    ],
+    referencia: "NR-1, subitem 1.5.3.3 (comunicação aos trabalhadores)",
+    chaves: [
+      "campanha inteira",
+      "abaixo do piso",
+      "suprimido",
+      "não publicou",
+      "resultado suprimido",
+    ],
+  },
+  {
+    id: "painel-grupo-pequeno",
+    tema: "resultado",
+    pergunta: "O painel diz “Grupo pequeno demais para publicar”. Como resolvo?",
+    resposta: [
+      "Insistir na coleta não resolve, e essa é a informação mais importante desta resposta. O piso que barrou olha o TAMANHO DO GRUPO, não a taxa de resposta: mesmo que todo mundo daquele recorte responda, ele continua pequeno demais para publicar sem expor quem respondeu.",
+      "Há dois caminhos reais. O primeiro é de estrutura: agrupar aquele recorte com outro de trabalho semelhante, sob as mesmas condições e a mesma chefia — e só nessa condição, porque juntar grupos diferentes produz uma média que não descreve nenhum dos dois e faz o risco do menor desaparecer dentro do maior.",
+      "O segundo é a Avaliação Ergonômica Preliminar, que não depende de piso de respondentes. Para grupo pequeno o Guia do MTE indica justamente diálogo com os trabalhadores e observação da atividade, em vez de formulário — e é isso que a AEP registra, com o método nomeado em cada evidência.",
+      "O recorte continua no inventário como declarado insuficiente, com o portão e o caminho. Ele não desaparece do documento.",
+    ],
+    chaves: [
+      "grupo pequeno",
+      "piso de coorte",
+      "anonimato",
+      "não publica",
+      "poucas pessoas",
+    ],
+  },
+  {
+    id: "painel-adesao-insuficiente",
+    tema: "resultado",
+    pergunta: "O painel diz “Adesão insuficiente para falar pelo efetivo”. E agora?",
+    resposta: [
+      "Este é o caso em que insistir RESOLVE — e é o oposto do anterior, por isso vale ler os dois com atenção.",
+      "O grupo é grande o bastante para proteger o anonimato, mas a quantidade de respostas ainda não fala pelo efetivo declarado daquele recorte. O painel mostra o número exato que falta: amostra exigida contra respostas substantivas obtidas.",
+      "O caminho é reforçar a participação e rodar nova coleta. O que move esse número é comunicação: dizer por que a empresa está perguntando, deixar claro que o empregador não lê resposta individual, dar tempo dentro do expediente para responder, e ter a liderança pedindo em vez de o RH cobrando.",
+      "Vale conferir também se a lista de convites cobriu todo mundo daquele recorte — adesão alta sobre poucos convidados não representa o quadro.",
+    ],
+    referencia: "NR-1, subitem 1.5.3.3",
+    chaves: [
+      "adesão",
+      "representatividade",
+      "poucas respostas",
+      "amostra",
+      "participação",
+    ],
+  },
+  {
+    id: "painel-efetivo-nao-declarado",
+    tema: "resultado",
+    pergunta: "O painel diz “Efetivo não declarado”. O que faltou?",
+    resposta: [
+      "Faltou o denominador. Sem saber quantas pessoas aquele recorte tem, não há como dizer se as respostas obtidas falam por ele — qualquer resultado seria sobre uma população desconhecida.",
+      "O efetivo é informado na criação da campanha, no campo “Efetivo do período de referência”, e não é editável depois: a correção é uma campanha nova com o número certo.",
+      "Vale a pena acertar, porque declarar o efetivo tem dois desfechos e os dois são úteis: ou o recorte publica, ou ele é reprovado com fundamento verificável — que é exatamente o que um auditor aceita ler.",
+    ],
+    chaves: ["efetivo", "denominador", "não declarado", "quantidade de trabalhadores"],
+  },
   {
     id: "inventario-sem-dado",
     tema: "resultado",
