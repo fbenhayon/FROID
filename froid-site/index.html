@@ -23,7 +23,7 @@
   <div class="nav-row">
     <a class="brand" href="index.html"><img class="brand-logo" src="site-assets/img/froid-logo.png" alt="FROID" /></a>
     <nav class="nav-links">
-      <a href="index.html">Home</a>
+      <a href="index.html">FROID Psique</a>
       <a href="ciencia.html">Ciência</a>
       <a href="tecnologia.html">Tecnologia</a>
       <a href="froid-explica.html">FROID Explica</a>
@@ -93,6 +93,14 @@
       </div>
     </div>
 
+    <div class="card" style="margin-top:26px; border-left:3px solid var(--froid-azul);">
+      <span class="badge badge-proprietary">Data-Froid · validação em curso</span>
+      <h3 style="margin-top:10px;">Estes dois índices serão validados pelo Data-Froid, sessão após sessão</h3>
+      <p>O IPM e o IDM são hoje <strong>heurística de produto</strong> — a forma FROID de organizar sinais que a literatura estuda há décadas. O que os transforma em medida é o acúmulo: cada sessão realizada alimenta o <strong>Data-Froid</strong>, a base anônima e agregada do FROID, e é contra ela que os dois índices vão sendo testados ao longo do tempo.</p>
+      <p style="margin-top:10px;">É por isso que a base existe e é anônima por construção: consultas analíticas exigem coortes de no mínimo <em>k</em> = 50 registros, aplicado no backend — abaixo disso a consulta é recusada. A validação empírica não depende de identificar ninguém, e não deve.</p>
+      <p style="font-size:0.85rem; color:var(--froid-cinza); margin-top:12px;">Enquanto essa validação não estiver concluída, tratamos os índices pelo que eles são — e dizemos isso em <a href="#transparencia">O que é ciência publicada e o que é metodologia própria</a>.</p>
+    </div>
+
     <img class="site-img" style="margin-top:40px;" src="site-assets/img/home-visao-geral.png" alt="Visão geral do painel do FROID: indicadores médios, últimas sessões e resultados por corte." />
 
     <div class="nerds-wrapper">
@@ -111,31 +119,30 @@ subharmonic_energy_5_12hz, energy_85_165hz, dna_facial_multiplier</div>
   </div>
 </section>
 
-<section class="block soft" id="transparencia">
+<section class="block soft" id="o-diferencial">
   <div class="container">
-    <p class="section-kicker">Transparência</p>
-    <h2 class="section-title">O que é ciência publicada e o que é metodologia própria</h2>
-    <p class="section-lead">Diferente da maioria das ferramentas do setor, o FROID separa explicitamente as duas camadas — e convida você a conferir cada uma.</p>
-    <div class="grid-2">
+    <p class="section-kicker">O diferencial</p>
+    <h2 class="section-title">FROID Explica: a inteligência que conversa com você</h2>
+    <p class="section-lead">Um assistente LLM-RAG que responde, em linguagem clínica, tudo sobre a leitura da sessão — e cruza a sua carteira de pacientes com o Data-Froid anônimo global. Vem com 22 prompts prontos e você ainda cria os seus.</p>
+    <div class="grid-3">
       <div class="card">
-        <h3>Com base em literatura revisada por pares</h3>
-        <p>F0, MFCC, jitter/shimmer e dinâmica de Unidades de Ação como sinais associados a estados afetivos e retardo psicomotor têm décadas de pesquisa publicada por trás — <a href="ciencia.html">veja as referências</a>.</p>
+        <span class="badge badge-strong">Conhecimento</span>
+        <h3>Explica a leitura</h3>
+        <p>"O que significa esta dissonância?", "o que o IPM sugere?" — respostas fundamentadas sobre métricas já calculadas.</p>
       </div>
       <div class="card">
-        <h3>Framework interpretativo proprietário FROID</h3>
-        <p>As 12 Zonas de Percepção, o Multiplicador Facial de Dissonância e os índices IPM/IDM são a forma FROID de organizar esses sinais visualmente. Não são achados de estudos clínicos publicados — são heurística de produto, e tratamos isso como tal.</p>
+        <span class="badge badge-proprietary">Data-Froid</span>
+        <h3>Compara com o mundo</h3>
+        <p>"Este paciente está acima da média em risco?", "casos mais parecidos (top 5)?" — força estatística de milhares de sessões anônimas.</p>
+      </div>
+      <div class="card">
+        <span class="badge badge-moderate">Prompts próprios</span>
+        <h3>Do seu jeito</h3>
+        <p>Crie prompts na sua área de configurações — e, com o tempo, valide empiricamente IPM, IDM e as demais métricas.</p>
       </div>
     </div>
-
-    <div class="nerds-wrapper">
-      <button class="nerds-toggle" data-target="nerds-home" data-label-closed="Só para Nerds" data-label-open="Fechar detalhes técnicos" aria-expanded="false">Só para Nerds</button>
-      <div class="nerds-panel" id="nerds-home">
-        <h4>Por que separamos "ciência" de "framework proprietário"?</h4>
-        <p>Porque misturar as duas coisas sem aviso é o tipo de coisa que engana clínicos e prejudica pacientes. Qualquer alegação de diagnóstico automatizado é falsa — o FROID é ferramenta de apoio, não instrumento diagnóstico validado.</p>
-        <h4>Origem das 12 Zonas</h4>
-        <p>A estrutura de 12 zonas mapeadas a notas da escala cromática é uma transposição inspirada em tecnologia comercial de biofeedback de voz, adaptada pela equipe FROID como interface de visualização — não é neurociência publicada.</p>
-        <div class="ref">Ver bibliografia completa em <a href="ciencia.html">Ciência</a>.</div>
-      </div>
+    <div style="margin-top:24px;">
+      <a class="btn btn-solid" href="froid-explica.html">Conhecer o FROID Explica</a>
     </div>
   </div>
 </section>
@@ -171,35 +178,7 @@ subharmonic_energy_5_12hz, energy_85_165hz, dna_facial_multiplier</div>
   </div>
 </section>
 
-<section class="block soft" id="o-diferencial">
-  <div class="container">
-    <p class="section-kicker">O diferencial</p>
-    <h2 class="section-title">FROID Explica: a inteligência que conversa com você</h2>
-    <p class="section-lead">Um assistente LLM-RAG que responde, em linguagem clínica, tudo sobre a leitura da sessão — e cruza a sua carteira de pacientes com o Data-Froid anônimo global. Vem com 22 prompts prontos e você ainda cria os seus.</p>
-    <div class="grid-3">
-      <div class="card">
-        <span class="badge badge-strong">Conhecimento</span>
-        <h3>Explica a leitura</h3>
-        <p>"O que significa esta dissonância?", "o que o IPM sugere?" — respostas fundamentadas sobre métricas já calculadas.</p>
-      </div>
-      <div class="card">
-        <span class="badge badge-proprietary">Data-Froid</span>
-        <h3>Compara com o mundo</h3>
-        <p>"Este paciente está acima da média em risco?", "casos mais parecidos (top 5)?" — força estatística de milhares de sessões anônimas.</p>
-      </div>
-      <div class="card">
-        <span class="badge badge-moderate">Prompts próprios</span>
-        <h3>Do seu jeito</h3>
-        <p>Crie prompts na sua área de configurações — e, com o tempo, valide empiricamente IPM, IDM e as demais métricas.</p>
-      </div>
-    </div>
-    <div style="margin-top:24px;">
-      <a class="btn btn-solid" href="froid-explica.html">Conhecer o FROID Explica</a>
-    </div>
-  </div>
-</section>
-
-<section class="block" id="paciente">
+<section class="block soft" id="paciente">
   <div class="container">
     <p class="section-kicker">Transparência · LGPD</p>
     <h2 class="section-title">Portal do Paciente: os dados são seus</h2>
@@ -237,6 +216,35 @@ subharmonic_energy_5_12hz, energy_85_165hz, dna_facial_multiplier</div>
       <a class="btn btn-solid" href="https://www.froid.com.br/app/#/paciente">Acessar o Portal do Paciente</a>
       <a class="btn btn-ghost" href="seguranca.html" style="margin-left:10px;">Segurança &amp; LGPD</a>
       <a class="btn btn-ghost" href="privacidade.html" style="margin-left:10px;">Política de Privacidade</a>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="transparencia">
+  <div class="container">
+    <p class="section-kicker">Transparência</p>
+    <h2 class="section-title">O que é ciência publicada e o que é metodologia própria</h2>
+    <p class="section-lead">Diferente da maioria das ferramentas do setor, o FROID separa explicitamente as duas camadas — e convida você a conferir cada uma.</p>
+    <div class="grid-2">
+      <div class="card">
+        <h3>Com base em literatura revisada por pares</h3>
+        <p>F0, MFCC, jitter/shimmer e dinâmica de Unidades de Ação como sinais associados a estados afetivos e retardo psicomotor têm décadas de pesquisa publicada por trás — <a href="ciencia.html">veja as referências</a>.</p>
+      </div>
+      <div class="card">
+        <h3>Framework interpretativo proprietário FROID</h3>
+        <p>As 12 Zonas de Percepção, o Multiplicador Facial de Dissonância e os índices IPM/IDM são a forma FROID de organizar esses sinais visualmente. Não são achados de estudos clínicos publicados — são heurística de produto, e tratamos isso como tal.</p>
+      </div>
+    </div>
+
+    <div class="nerds-wrapper">
+      <button class="nerds-toggle" data-target="nerds-home" data-label-closed="Só para Nerds" data-label-open="Fechar detalhes técnicos" aria-expanded="false">Só para Nerds</button>
+      <div class="nerds-panel" id="nerds-home">
+        <h4>Por que separamos "ciência" de "framework proprietário"?</h4>
+        <p>Porque misturar as duas coisas sem aviso é o tipo de coisa que engana clínicos e prejudica pacientes. Qualquer alegação de diagnóstico automatizado é falsa — o FROID é ferramenta de apoio, não instrumento diagnóstico validado.</p>
+        <h4>Origem das 12 Zonas</h4>
+        <p>A estrutura de 12 zonas mapeadas a notas da escala cromática é uma transposição inspirada em tecnologia comercial de biofeedback de voz, adaptada pela equipe FROID como interface de visualização — não é neurociência publicada.</p>
+        <div class="ref">Ver bibliografia completa em <a href="ciencia.html">Ciência</a>.</div>
+      </div>
     </div>
   </div>
 </section>
