@@ -16,6 +16,22 @@
   // e serve este site — este redirect devolve o utilizador ao painel em /app/.
   if (location.hash.indexOf("#/") === 0) { location.replace("/app/" + location.hash); }
 </script>
+<style>
+  /* A visao do Data-Froid: uma frase que precisa respirar, e a ressalva
+     imediatamente abaixo dela para que a ambicao nao seja lida como medida. */
+  .visao-froid {
+    border:1px solid var(--border); border-left:4px solid var(--froid-azul);
+    border-radius:var(--radius);
+    background:linear-gradient(180deg, rgba(59,130,246,0.10), rgba(15,23,42,0.55));
+    padding:34px 32px; margin:26px 0 0;
+  }
+  .visao-froid .frase {
+    font-family:var(--font-serif); font-size:clamp(1.22rem, 2.6vw, 1.7rem);
+    line-height:1.34; color:#f8fafc; margin:0; text-wrap:balance;
+  }
+  .visao-froid .frase em { color:#93c5fd; font-style:normal; }
+  .visao-froid .rodape { margin:16px 0 0; font-size:0.88rem; color:var(--froid-cinza); }
+</style>
 </head>
 <body>
 
@@ -94,11 +110,9 @@
     </div>
 
     <div class="card" style="margin-top:26px; border-left:3px solid var(--froid-azul);">
-      <span class="badge badge-proprietary">Data-Froid · validação em curso</span>
+      <span class="badge badge-proprietary">Data-Froid</span>
       <h3 style="margin-top:10px;">Estes dois índices serão validados pelo Data-Froid, sessão após sessão</h3>
-      <p>O IPM e o IDM são hoje <strong>heurística de produto</strong> — a forma FROID de organizar sinais que a literatura estuda há décadas. O que os transforma em medida é o acúmulo: cada sessão realizada alimenta o <strong>Data-Froid</strong>, a base anônima e agregada do FROID, e é contra ela que os dois índices vão sendo testados ao longo do tempo.</p>
-      <p style="margin-top:10px;">É por isso que a base existe e é anônima por construção: consultas analíticas exigem coortes de no mínimo <em>k</em> = 50 registros, aplicado no backend — abaixo disso a consulta é recusada. A validação empírica não depende de identificar ninguém, e não deve.</p>
-      <p style="font-size:0.85rem; color:var(--froid-cinza); margin-top:12px;">Enquanto essa validação não estiver concluída, tratamos os índices pelo que eles são — e dizemos isso em <a href="#transparencia">O que é ciência publicada e o que é metodologia própria</a>.</p>
+      <p>O IPM e o IDM são hoje <strong>heurística de produto</strong>. O que os transforma em medida é o acúmulo: cada sessão realizada alimenta a base anônima do FROID, e é contra ela que os dois vão sendo testados ao longo do tempo. <a href="#data-froid">O que é o Data-Froid, e onde ele quer chegar →</a></p>
     </div>
 
     <img class="site-img" style="margin-top:40px;" src="site-assets/img/home-visao-geral.png" alt="Visão geral do painel do FROID: indicadores médios, últimas sessões e resultados por corte." />
@@ -119,7 +133,42 @@ subharmonic_energy_5_12hz, energy_85_165hz, dna_facial_multiplier</div>
   </div>
 </section>
 
-<section class="block soft" id="o-diferencial">
+<section class="block soft" id="data-froid">
+  <div class="container">
+    <p class="section-kicker">Data-Froid</p>
+    <h2 class="section-title">Cada sessão torna a próxima leitura melhor</h2>
+    <p class="section-lead">O IPM e o IDM não nascem provados. O que os transforma em medida é o acúmulo — e esse acúmulo tem nome, tem regra de anonimato, e tem um destino declarado.</p>
+
+    <div class="visao-froid">
+      <p class="frase">O Data-Froid é construído para se tornar, ao longo do tempo, <em>a maior base de informações psíquicas do planeta</em> — e para que esse acervo sirva a quem procura a própria saúde mental.</p>
+      <p class="rodape">É uma ambição declarada, não um estado atual. Está escrita aqui pelo mesmo motivo que esta página separa ciência publicada de metodologia própria: quem diz para onde vai pode ser cobrado pelo caminho.</p>
+    </div>
+
+    <div class="grid-3" style="margin-top:26px;">
+      <div class="card">
+        <span class="badge badge-proprietary">Validação</span>
+        <h3>Os índices sendo testados</h3>
+        <p>IPM e IDM são hoje heurística de produto — a forma FROID de organizar sinais que a literatura estuda há décadas. Cada sessão realizada alimenta a base, e é contra ela que os dois vão sendo testados: a distribuição real, os casos que se parecem, o que se repete e o que não se sustenta.</p>
+      </div>
+      <div class="card">
+        <span class="badge badge-strong">Anonimato</span>
+        <h3>Grande porque é anônima, não apesar disso</h3>
+        <p>Consultas analíticas exigem coortes de no mínimo <em>k</em> = 50 registros, aplicado no backend — abaixo desse limiar a consulta é recusada. Uma base dessa escala só é defensável assim, e o piso não é caixa marcada numa tela: é regra de servidor.</p>
+      </div>
+      <div class="card">
+        <span class="badge badge-strong">O retorno</span>
+        <h3>O que volta para quem usa</h3>
+        <p>A leitura de uma sessão deixa de ser um número solto e passa a ter contra o que se comparar. É o que permite perguntar se este paciente está acima da média de risco, quais casos se parecem com o dele, e o que tem funcionado em perfis semelhantes.</p>
+      </div>
+    </div>
+
+    <div class="disclaimer-box" style="margin-top:24px;">
+      <strong>O que a base não é.</strong> O Data-Froid não guarda identificação de paciente, não é vendido e não alimenta terceiros. Existe para dois fins: validar as métricas que o FROID publica, e devolver contexto a quem está em sessão. E como ele cresce com o uso, o compromisso de anonimato precisa valer desde o primeiro registro — não a partir do dia em que a base ficar grande.
+    </div>
+  </div>
+</section>
+
+<section class="block" id="o-diferencial">
   <div class="container">
     <p class="section-kicker">O diferencial</p>
     <h2 class="section-title">FROID Explica: a inteligência que conversa com você</h2>
@@ -147,7 +196,7 @@ subharmonic_energy_5_12hz, energy_85_165hz, dna_facial_multiplier</div>
   </div>
 </section>
 
-<section class="block" id="para-quem-e">
+<section class="block soft" id="para-quem-e">
   <div class="container">
     <p class="section-kicker">Para quem é</p>
     <h2 class="section-title">Pensado para a rotina clínica real</h2>
@@ -178,7 +227,7 @@ subharmonic_energy_5_12hz, energy_85_165hz, dna_facial_multiplier</div>
   </div>
 </section>
 
-<section class="block soft" id="paciente">
+<section class="block" id="paciente">
   <div class="container">
     <p class="section-kicker">Transparência · LGPD</p>
     <h2 class="section-title">Portal do Paciente: os dados são seus</h2>
@@ -220,7 +269,7 @@ subharmonic_energy_5_12hz, energy_85_165hz, dna_facial_multiplier</div>
   </div>
 </section>
 
-<section class="block" id="transparencia">
+<section class="block soft" id="transparencia">
   <div class="container">
     <p class="section-kicker">Transparência</p>
     <h2 class="section-title">O que é ciência publicada e o que é metodologia própria</h2>
