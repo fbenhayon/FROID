@@ -1,4 +1,4 @@
-# Roteiro — reunião TATICCA, 28/08/2026, 9h
+# Roteiro — reunião TATICCA, 28/08/2026, 11h
 
 Objetivo declarado: sair com contrato assinado e com a lista de `matrícula;setor`.
 Objetivo real, e maior: abrir a conversa de canal para os 400+ clientes da carteira.
@@ -216,3 +216,16 @@ E marque a segunda conversa, a do canal, com data.
   o argumento de eficácia.
 
 Tenha o PDF do inventário salvo no desktop **antes** de sair de casa.
+
+---
+
+## Antes de sair (saída às 10:10)
+
+- [ ] `cd /root/froid-project && git pull` — publica o bloco de preço da
+      condução da AEP no site
+- [ ] Salvar o PDF do inventário do Piloto no desktop
+- [ ] Imprimir duas vias da proposta e uma do modelo da carteira, **sem o anexo
+      8**, que é uso interno
+- [ ] Preencher os quatro `[a definir]` da proposta: marca do canal,
+      faturamento, forma de pagamento e vigência
+- [ ] Abrir as três abas e conferir a troca de organização funcionando
