@@ -5,9 +5,9 @@
 **Data:** 28 de agosto de 2026
 **Validade desta proposta:** 30 dias
 
-> **Antes de enviar, decidir:** o valor da condução da AEP em campo (item 7.2), o
-> percentual de canal (item 8) e a forma de pagamento. Todo o resto está
-> calculado.
+> **Antes de enviar, decidir:** a marca do canal e a forma de faturamento (item
+> 8), a forma de pagamento e a vigência (item 9). Preço, dimensionamento e
+> condução da AEP estão calculados.
 
 ---
 
@@ -101,6 +101,124 @@ a fonte citada em cada resposta.
 tabelas correspondentes não possuem política de leitura e o papel de execução do
 sistema não tem permissão sobre elas. O FROID não recebe nome de trabalhador.
 Nenhum resultado é liberado com a coleta aberta.
+
+
+### 4.1 As vantagens, uma a uma — e do que cada uma protege
+
+O item acima diz o que a TATICCA recebe. Este diz por que cada peça existe.
+Todas são verificáveis: nenhuma depende de acreditar na nossa palavra.
+
+**a) O que protege o documento diante da fiscalização e da perícia**
+
+1. **Recorte declarado insuficiente.** O recorte que não vence o piso não some
+   do relatório: entra no mesmo inventário, nomeando o portão que barrou e o
+   caminho de remédio. Painel vazio é lido como “não há risco aqui”, que é a
+   única conclusão que a ausência de dado nunca autoriza.
+2. **A trava que impede o meio-termo.** Uma linha do inventário ou tem os quatro
+   números — coorte, média, severidade e probabilidade — e nenhum portão, ou tem
+   portão e nota com os quatro nulos. O banco recusa o estado intermediário,
+   porque linha pela metade é a que um auditor lê como risco baixo.
+3. **Prova de eficácia que se recusa a afirmar.** A classificação usa o limite
+   conservador do intervalo de confiança, nunca o valor central: só se afirma a
+   magnitude que o intervalo inteiro sustenta. Numa validação com 26 recortes
+   liberados, 24 saíram como *sem mudança* — inclusive quatro que, pelo número
+   central, pareceriam melhora. Fornecedor que só reporta melhora não está
+   medindo, e é exatamente aí que uma perícia adversária desmonta um laudo.
+4. **Critérios versionados e imutáveis.** O documento de critérios de cada ciclo
+   fica congelado com ele. Ninguém reescreve a régua depois de conhecer o
+   resultado — e é a primeira coisa que uma perícia procura.
+5. **Memória de cálculo guardada.** O tamanho das duas coortes, o intervalo e a
+   conta ficam junto do resultado, de modo que um auditor ou perito reconstrua
+   como se chegou àquele nível de risco.
+6. **Prioridade pela norma, não por percepção.** A fila do plano de ação é
+   ordenada por nível de risco e pelo número de trabalhadores possivelmente
+   atingidos, nos termos do subitem 1.5.5.2.1.1.
+7. **Plano de ação que não conclui pela metade.** Cronograma, responsável, forma
+   de acompanhamento e forma de aferição são exigidos por medida — o sistema não
+   deixa concluir sem os quatro.
+8. **Reavaliação disparada sozinha.** Implementada a medida, a revisão do risco
+   residual é marcada automaticamente. O ciclo que a norma descreve fecha sem
+   depender de alguém lembrar.
+9. **Documento pronto para entregar.** Inventário imprimível em A4, com período
+   de referência, efetivo declarado, respostas substantivas e sob qual régua o
+   risco foi graduado.
+
+**b) O que protege a qualidade do dado — e portanto o retrato da empresa**
+
+10. **Dois pisos, aplicados no banco e não na tela.** O de anonimato (15 na
+    campanha, 10 por recorte) e o de representatividade (a amostra que fala pelo
+    efetivo declarado). Não são validação de interface que alguém contorne.
+11. **Resposta substantiva.** Clique vazio não conta: só entra no denominador
+    quem cobriu ao menos metade das dimensões do instrumento. Sem isso, a
+    adesão vira número inflado e o retrato, ficção.
+12. **Nada é liberado com a coleta aberta.** Não há resultado parcial que
+    pressione a comunicação interna a “melhorar o número” durante a campanha.
+13. **Convite de uso único.** O link vale uma vez. A reemissão para quem perdeu
+    não duplica resposta nem cria um segundo voto.
+14. **Canal de apoio obrigatório.** O banco recusa abrir a coleta sem um canal
+    de apoio declarado. Perguntar sobre sofrimento sem oferecer para onde ir é
+    a falha ética que mais rápido destrói a adesão do ciclo seguinte.
+15. **Aviso de finalidade escrito pela contratante**, obrigatório, com base legal
+    declarada.
+
+**c) O que protege a pessoa — e a empresa junto com ela**
+
+16. **A fronteira é estrutural, e demonstrável em trinta segundos.** As tabelas
+    de resposta individual não têm política de leitura, e o papel de execução do
+    sistema não tem permissão sobre elas: a única saída do banco é uma função de
+    agregação que já aplica os pisos. Não é configuração que alguém afrouxe.
+    **Podemos demonstrar ao vivo, na reunião**, entrando com a conta da empresa e
+    tentando abrir o painel clínico.
+17. **Nome de trabalhador não existe no banco.** Não é política de retenção: não
+    há campo. A TATICCA fornece a matrícula; o sistema guarda um pseudônimo
+    criptográfico dela e o resumo do link, **nunca o par entre os dois**.
+18. **Base legal correta.** O tratamento se apoia no cumprimento de obrigação
+    legal do empregador, não no consentimento do trabalhador — que a relação de
+    hierarquia comprometeria, e que é o vício mais comum nesse tipo de coleta.
+19. **As respostas individuais podem ser purgadas.** A norma exige vinte anos do
+    inventário, não das respostas que o produziram. Depois de consolidado, o
+    dado individual não responde nenhuma pergunta que o agregado não responda —
+    e há ferramenta própria para eliminá-lo.
+20. **Isolamento por organização.** Cada empresa é uma organização separada. Na
+    operação de canal, a TATICCA não acessa resposta individual de trabalhador
+    de cliente algum, nem de si mesma.
+21. **Verificado em execução, não só no desenho.** Uma rotina própria confere as
+    concessões do papel de execução contra o que deveriam ser e falha a subida do
+    sistema se divergirem — porque desenho correto que ninguém verifica apodrece
+    na primeira alteração distraída.
+
+**d) O que protege a operação e o orçamento**
+
+22. **O ciclo é operado pela TATICCA, do início ao fim.** Cadastro da estrutura,
+    campanha, convites, encerramento, inventário, plano de ação e documentos —
+    sem planilha paralela e sem depender de nós a cada passo. É o que torna
+    viável operar a carteira, e não só o ciclo próprio.
+23. **FROID Explica NR-1 incluído, sem cobrança adicional e sem limite de
+    consultas.** São 57 respostas revisadas em oito temas, mais consulta aberta a
+    um acervo de 661 trechos com o texto integral do capítulo 1.5, o Guia e o
+    Manual do MTE. Cita a fonte, distingue norma de interpretação, e as respostas
+    revisadas funcionam sem rede — inclusive na frente de um auditor.
+    Um dos oito temas são **as perguntas do trabalhador**, com a resposta pronta
+    para o RH repassar. Isso não é conforto: adesão é a variável que decide se a
+    campanha publica, e ela se decide na conversa de corredor.
+24. **Preço sem degraus.** As faixas são cumulativas, como tarifa. Crescer de 300
+    para 301 trabalhadores não muda de plano nem reprecifica o contrato.
+25. **Comprovante de aceite.** O contrato prova o texto; o comprovante prova a
+    contratação daquele texto, por aquela pessoa, naquela data, com a impressão
+    digital de cada documento. Se o texto vigente divergir do aceito, o
+    comprovante diz isso em vez de imprimir o de hoje sob a data de ontem.
+26. **Escopo deliberadamente limitado.** Não emitimos laudo, não assinamos PGR e
+    não substituímos SESMT. Não é limitação de capacidade: é a decisão de desenho
+    que permite à TATICCA ser canal em vez de concorrente.
+27. **A ressalva vem antes do contrato.** O item 3.1 diz, por escrito e antes da
+    assinatura, que nenhum dos 11 endereços publica recorte próprio. É a promessa
+    que costuma quebrar no fim do ciclo, com o dinheiro já pago — e preferimos
+    perder a venda a fazê-la.
+
+> **Como comparar com outro fornecedor.** Publicamos em
+> froid.com.br/empresas#perguntas-fornecedor cinco perguntas de resposta difícil,
+> com a nossa resposta ao lado. Sugerimos fazê-las a todos os fornecedores que
+> aparecerem — inclusive a nós.
 
 ---
 

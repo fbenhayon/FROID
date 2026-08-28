@@ -67,6 +67,67 @@ revisão do risco residual disparada pela implementação de cada medida.
 **Base de consulta.** O texto integral do capítulo 1.5, o Guia e o Manual do MTE
 disponíveis para consulta, com a fonte citada em cada resposta.
 
+
+### 3.1 Por que isso é diferente do que costuma ser oferecido
+
+**1. O setor que não alcançar o mínimo de respostas continua no relatório.**
+Não como anexo, não omitido: entra no mesmo inventário como linha declarada
+insuficiente, dizendo qual portão barrou, qual o caminho, e que aquilo **não**
+significa ausência de risco. Relatório com um setor faltando afirma, pelo
+silêncio, que aquele setor está bem — e é a única conclusão que a falta de dado
+nunca autoriza.
+
+**2. Quando a medida não funcionar, o relatório vai dizer.** A eficácia é medida
+comparando cada setor contra a própria linha de base dele, e a classificação usa
+o limite conservador do intervalo. Se o resultado ficar dentro da margem de erro,
+o veredito é *sem mudança* — mesmo que a média tenha melhorado. Fornecedor que só
+reporta melhora não está medindo.
+
+**3. Ninguém da sua empresa vê a resposta de uma pessoa.** Não é uma permissão
+que alguém possa afrouxar: as tabelas de resposta individual não têm política de
+leitura, e a única saída do banco é uma função que já aplica os pisos de grupo.
+Podemos demonstrar ao vivo.
+
+**4. Não entregamos nome de trabalhador — nem existe campo para ele.** Você
+fornece a matrícula; o sistema guarda um código criptográfico dela, nunca o par
+entre o código e o link.
+
+**5. O plano de ação não fecha pela metade.** Cronograma, responsável, forma de
+acompanhamento e forma de aferição são exigidos em cada medida. Implementada a
+medida, a reavaliação do risco é marcada sozinha.
+
+**6. O critério não muda depois do resultado.** O documento de critérios de cada
+ciclo fica congelado com ele — e é a primeira coisa que uma perícia procura.
+
+**7. Resposta vazia não conta.** Só entra na conta quem respondeu ao menos metade
+das dimensões. Sem isso, a adesão vira número inflado e o retrato, ficção.
+
+**8. Nada é divulgado enquanto a coleta está aberta.** Não existe resultado
+parcial que pressione a comunicação interna a “melhorar o número” no meio do
+caminho.
+
+**9. Toda campanha exige um canal de apoio declarado** — o sistema recusa abrir a
+coleta sem ele. Perguntar sobre sofrimento sem dizer para onde ir é a falha que
+mais rápido destrói a participação no ciclo seguinte.
+
+**10. Você opera o ciclo, não depende de nós a cada passo.** Cadastro, campanha,
+convites, encerramento e documentos ficam na sua mão.
+
+**11. Base de consulta incluída, sem cobrança adicional.** O FROID Explica NR-1
+responde sobre a norma, o contrato e a operação, citando a fonte — inclusive as
+perguntas que o trabalhador faz, com a resposta pronta para o RH repassar.
+
+**12. O preço não tem degraus.** As faixas são cumulativas, como tarifa: crescer
+de 300 para 301 trabalhadores não muda de plano nem reprecifica o contrato.
+
+**13. A ressalva vem antes do contrato, não depois da coleta.** Se pelo porte da
+sua empresa algum recorte não puder publicar, isso está dito nesta proposta — no
+item 5 — e não descoberto no fim do ciclo com o valor já pago.
+
+> **Como comparar.** Publicamos em froid.com.br/empresas#perguntas-fornecedor
+> cinco perguntas de resposta difícil, com a nossa resposta ao lado. Faça-as a
+> todos os fornecedores que aparecerem, inclusive a nós.
+
 ---
 
 ## 4. O que a sua empresa nunca vai ver, e por quê
