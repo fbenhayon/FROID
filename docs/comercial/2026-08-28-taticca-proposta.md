@@ -134,40 +134,51 @@ comunicação interna, apoio da liderança e tempo concedido dentro do expedient
 
 ## 7. Investimento
 
-O preço é por trabalhador, por mês, com faixas cumulativas decrescentes. **Não há
-taxa de plataforma, nem cobrança por estabelecimento** — o valor acompanha o
-efetivo e nada mais.
+Tabela publicada em froid.com.br/empresas#precos-nr1, sem exceção.
 
-| Faixa | Por trabalhador / mês |
+| Componente | Valor |
 |---|---:|
-| 1 a 300 trabalhadores | R$ 16,70 |
-| 301 a 1.000 | R$ 11,90 |
-| Acima de 1.000 | R$ 8,10 |
+| Base da plataforma, por unidade | R$ 1.200,00 / mês |
+| De 1 a 100 trabalhadores | R$ 9,00 / trabalhador / mês |
+| De 101 a 300 | R$ 7,00 / trabalhador / mês |
+| De 301 a 1.000 | R$ 5,00 / trabalhador / mês |
+| Acima de 1.000 | R$ 3,00 / trabalhador / mês |
 
-As faixas são cumulativas: uma empresa de 500 trabalhadores paga R$ 16,70 pelos
-300 primeiros e R$ 11,90 pelos 200 seguintes.
+As faixas são cumulativas e incidem sobre o efetivo total. A base é por unidade —
+estabelecimento, não departamento: cinco setores no mesmo endereço são uma base,
+não cinco.
 
 ### 7.1 Aplicação à TATICCA
 
-| | |
-|---|---:|
-| Efetivo do período de referência | 263 trabalhadores |
-| Preço por trabalhador / mês | R$ 16,70 |
-| **Mensal de tabela** | **R$ 4.392,10** |
-| Anual de tabela | R$ 52.705,20 |
+| Componente | Cálculo | Valor |
+|---|---|---:|
+| Base da plataforma | 11 estabelecimentos × R$ 1.200,00 | R$ 13.200,00 |
+| Faixa de 1 a 100 | 100 × R$ 9,00 | R$ 900,00 |
+| Faixa de 101 a 263 | 163 × R$ 7,00 | R$ 1.141,00 |
+| **Mensal de tabela** | | **R$ 15.241,00** |
+| Anual de tabela | | R$ 182.892,00 |
 
-Os 11 estabelecimentos **não alteram o preço**. A avaliação é da organização, e é
-assim que ela é cobrada.
+### 7.2 O que a base por estabelecimento remunera
 
-### 7.2 Três formas de contratar
+Cada um dos 11 endereços é uma **unidade de avaliação** e recebe entrega própria:
+estrutura cadastrada com seus setores, convites emitidos e distribuídos por
+unidade, **documento de AEP próprio** com as evidências do que se observa naquele
+endereço, e linha própria no inventário — classificada onde a coorte permite, e
+declarada com o portão e o caminho de remédio onde não permite.
+
+O que a unidade pequena não produz é *recorte estatístico publicável* (item 3.1).
+Isso é uma propriedade do tamanho do grupo, não uma redução da entrega — e é
+exatamente a informação que a norma exige registrar em vez de omitir.
+
+### 7.3 Três formas de contratar
 
 Todas cobrem o escopo integral do item 4.
 
 | Modelo | Valor | Por trabalhador / mês | O que inclui |
 |---|---:|---:|---|
-| **Anual** — recomendado | **R$ 43.921,00 / ano**<br>R$ 3.660,08 / mês | R$ 13,92 | doze meses pagos como dez; os ciclos do ano, painel permanente, reavaliação por medida implementada e comparação de eficácia |
-| **Mensal**, sem prazo | **R$ 3.733,28 / mês**<br>com pioneiro | R$ 14,19 | o mesmo escopo, cancelável a qualquer momento |
-| **Ciclo fechado** | **R$ 22.399,71**<br>com pioneiro | — | uma campanha completa com os três documentos do PGR; **sem** painel permanente nem comparação entre ciclos |
+| **Anual** — recomendado | **R$ 152.410,00 / ano**<br>R$ 12.700,83 / mês | R$ 48,29 | doze meses pagos como dez; os ciclos do ano, painel permanente, reavaliação por medida implementada e comparação de eficácia |
+| **Mensal**, sem prazo | **R$ 12.954,85 / mês**<br>com pioneiro | R$ 49,26 | o mesmo escopo, cancelável a qualquer momento |
+| **Ciclo fechado** | **R$ 77.729,10**<br>com pioneiro | — | uma campanha completa com os três documentos do PGR; **sem** painel permanente nem comparação entre ciclos |
 
 **Os descontos não são cumulativos.** A condição de pioneiro — 15% para
 contratação até 31 de dezembro de 2026 — aplica-se ao mensal e ao ciclo fechado.
@@ -177,17 +188,6 @@ O anual já carrega o próprio desconto, de dois meses.
 1.5.4.4.5.3 e é o nosso diferencial — e ela só existe comparando ciclos. Campanha
 avulsa entrega um retrato; a assinatura entrega evidência de gestão. O anual é
 também o menor custo por trabalhador entre os três.
-
-#### Referência para outros portes
-
-| Efetivo | Mensal de tabela | Anual de tabela | Por trabalhador / mês |
-|---:|---:|---:|---:|
-| 50 | R$ 835,00 | R$ 10.020,00 | R$ 16,70 |
-| 100 | R$ 1.670,00 | R$ 20.040,00 | R$ 16,70 |
-| 263 | R$ 4.392,10 | R$ 52.705,20 | R$ 16,70 |
-| 500 | R$ 7.390,00 | R$ 88.680,00 | R$ 14,78 |
-| 1.000 | R$ 13.340,00 | R$ 160.080,00 | R$ 13,34 |
-| 3.000 | R$ 29.540,00 | R$ 354.480,00 | R$ 9,85 |
 
 #### Item adicional — condução da AEP em campo
 
@@ -206,9 +206,7 @@ ao que o diálogo e os documentos já mostram; em operação industrial, logíst
 de atendimento presencial, a visita é necessária.
 
 **Sugestão para a TATICCA:** matriz de São Paulo presencial e os dez demais
-endereços em modalidade remota — **R$ 18.900,00**. A atividade é administrativa
-em todos eles, e visitar Aripuanã e Alta Floresta para observar trabalho de
-escritório acrescentaria custo de deslocamento sem acrescentar evidência.
+endereços em modalidade remota — **R$ 18.900,00**.
 
 ---
 
@@ -224,7 +222,7 @@ Aplicável à carteira de clientes da TATICCA, e não ao ciclo da própria TATIC
 | Isolamento | Cada cliente é uma organização isolada. A TATICCA não acessa resposta individual de trabalhador algum |
 | Faturamento | `[a definir]` — direto ao cliente final com repasse, ou à TATICCA com revenda |
 | Piloto | O ciclo dos 263 trabalhadores da TATICCA serve como caso e como treinamento da equipe |
-| Ordem de grandeza | 400 clientes com 100 trabalhadores em média somam R$ 8.016.000,00/ano de tabela. A 40%, são R$ 3.206.400,00/ano para a TATICCA — recorrente, porque a obrigação se repete a cada ciclo |
+| Ordem de grandeza | 400 clientes com 100 trabalhadores em um endereço somam R$ 10.080.000,00/ano de tabela. A 40%, são R$ 4.032.000,00/ano para a TATICCA — recorrente, porque a obrigação se repete a cada ciclo |
 
 **Posicionamento.** O escopo do FROID é deliberadamente limitado ao psicossocial e
 entregue na escala de gradação que o cliente já usa no resto do PGR. Não emitimos
