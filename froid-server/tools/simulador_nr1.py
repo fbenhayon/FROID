@@ -116,19 +116,27 @@ def aba_receita(wb: Workbook):
     for col in (1, 2, 3):
         ws.cell(row=10, column=col).fill = PatternFill("solid", fgColor=AZUL_CLARO)
 
-    _rotulo(ws, 11, 1, "Base por unidade / mês")
-    _entrada(ws, 11, 2, 1200, MOEDA)
+    # A base por unidade saiu da tabela em 27/08/2026.
+    #
+    # Ela cobrava por estabelecimento numa empresa cujos estabelecimentos, quase
+    # sempre, nao publicam recorte proprio — com 23 pessoas por endereco a
+    # amostra exigida vira censo. O cliente pagava onze bases por onze unidades
+    # que o proprio produto declara insuficientes, e essa conta nao se defende
+    # numa mesa. A linha continua aqui, zerada, porque a planilha soma a celula:
+    # apaga-la exigiria mexer nas formulas de todas as abas.
+    _rotulo(ws, 11, 1, "Base por unidade / mês", "removida da tabela — manter zero")
+    _entrada(ws, 11, 2, 0, MOEDA)
     _rotulo(ws, 12, 1, "Faixa 1 — por trabalhador / mês")
-    _entrada(ws, 12, 2, 9.0, MOEDA)
-    _entrada(ws, 12, 3, 100)
+    _entrada(ws, 12, 2, 16.70, MOEDA)
+    _entrada(ws, 12, 3, 300)
     _rotulo(ws, 13, 1, "Faixa 2 — por trabalhador / mês")
-    _entrada(ws, 13, 2, 7.0, MOEDA)
-    _entrada(ws, 13, 3, 300)
+    _entrada(ws, 13, 2, 11.90, MOEDA)
+    _entrada(ws, 13, 3, 1000)
     _rotulo(ws, 14, 1, "Faixa 3 — por trabalhador / mês")
-    _entrada(ws, 14, 2, 5.0, MOEDA)
-    _entrada(ws, 14, 3, 1000)
-    _rotulo(ws, 15, 1, "Faixa 4 — por trabalhador / mês")
-    _entrada(ws, 15, 2, 3.0, MOEDA)
+    _entrada(ws, 14, 2, 8.10, MOEDA)
+    ws.cell(row=14, column=3, value="acima").font = Font(italic=True, color=CINZA)
+    _rotulo(ws, 15, 1, "Faixa 4 — não utilizada", "a tabela tem tres faixas")
+    _entrada(ws, 15, 2, 8.10, MOEDA)
     ws.cell(row=15, column=3, value="acima").font = Font(italic=True, color=CINZA)
 
     _rotulo(ws, 17, 1, "Implantação (cobrança única)",
