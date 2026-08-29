@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import type { FroidUser } from "../App";
 import { apiUrl } from "../lib/api";
 import { GlossarioDeSiglas } from "../lib/siglas";
+import { Nr1ExplicaPainel } from "../components/nr1/Nr1ExplicaPainel";
 
 /**
  * Plano de ação — o segundo documento obrigatório do PGR (NR-1, 1.5.7.1 "b").
@@ -314,7 +315,8 @@ export const Nr1ActionPlan: React.FC<{ user: FroidUser | null }> = ({ user }) =>
 
   return (
     <div className="min-h-screen bg-slate-950 px-4 py-6 text-slate-100">
-      <main className="mx-auto max-w-7xl">
+      <div className="mx-auto grid w-full max-w-[104rem] items-start gap-4 px-3 xl:grid-cols-[minmax(0,1fr)_400px]">
+      <main className="w-full min-w-0 ">
         <header className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-cyan-300">
@@ -733,6 +735,12 @@ export const Nr1ActionPlan: React.FC<{ user: FroidUser | null }> = ({ user }) =>
 
         <GlossarioDeSiglas termos={["NR-1", "PGR", "AEP"]} />
       </main>
+      <Nr1ExplicaPainel
+        organizationId={organizationId}
+        verbeteSugerido="plano-de-acao"
+        contexto="Plano de ação"
+      />
+      </div>
     </div>
   );
 };

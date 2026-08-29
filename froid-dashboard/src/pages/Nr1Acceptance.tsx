@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import type { FroidUser } from "../App";
 import { apiUrl } from "../lib/api";
 import { GlossarioDeSiglas } from "../lib/siglas";
+import { Nr1ExplicaPainel } from "../components/nr1/Nr1ExplicaPainel";
 
 /**
  * Comprovante de aceite: documento diferente do contrato.
@@ -213,7 +214,8 @@ export const Nr1Acceptance: React.FC<Props> = ({ user }) => {
         </div>
       </header>
 
-      <main className="mx-auto max-w-4xl px-5 py-10">
+      <div className="mx-auto grid w-full max-w-[104rem] items-start gap-4 px-3 xl:grid-cols-[minmax(0,1fr)_400px]">
+      <main className="w-full min-w-0 px-5 py-10">
         {erro && (
           <p className="froid-nao-imprime mb-6 rounded border border-red-800 bg-red-950 p-4 text-sm text-red-100">
             {erro}
@@ -397,6 +399,12 @@ export const Nr1Acceptance: React.FC<Props> = ({ user }) => {
           <GlossarioDeSiglas termos={["NR-1", "CNPJ", "CPF"]} />
         </div>
       </main>
+      <Nr1ExplicaPainel
+        organizationId={organizationId}
+        verbeteSugerido="prova-do-aceite"
+        contexto="Comprovante de aceite"
+      />
+      </div>
     </div>
   );
 };

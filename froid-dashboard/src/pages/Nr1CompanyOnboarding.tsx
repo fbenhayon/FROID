@@ -18,6 +18,7 @@ import {
   PISO_RECORTE,
 } from "../lib/nr1-representatividade";
 import { GlossarioDeSiglas, Sigla } from "../lib/siglas";
+import { Nr1ExplicaPainel } from "../components/nr1/Nr1ExplicaPainel";
 
 /**
  * Cadastro guiado da empresa contratante do NR-1.
@@ -484,7 +485,8 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
         </div>
       </header>
 
-      <main className="mx-auto max-w-4xl px-5 py-8">
+      <div className="mx-auto grid w-full max-w-[104rem] items-start gap-4 px-3 xl:grid-cols-[minmax(0,1fr)_400px]">
+      <main className="w-full min-w-0 px-5 py-8">
         <div className="flex flex-wrap gap-4">
           <Passo numero={1} atual={passo} titulo="A empresa" />
           <Passo numero={2} atual={passo} titulo="Estabelecimentos" />
@@ -1118,6 +1120,12 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
           </section>
         )}
       </main>
+      <Nr1ExplicaPainel
+        organizationId={organizationId}
+        verbeteSugerido="setor-pequeno"
+        contexto="Estrutura da empresa"
+      />
+      </div>
     </div>
   );
 };

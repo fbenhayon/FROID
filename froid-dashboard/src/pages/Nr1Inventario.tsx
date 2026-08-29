@@ -4,6 +4,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import type { FroidUser } from "../App";
 import { apiUrl } from "../lib/api";
 import { GlossarioDeSiglas, Sigla } from "../lib/siglas";
+import { Nr1ExplicaPainel } from "../components/nr1/Nr1ExplicaPainel";
 
 /**
  * O inventário de riscos, na tela e no papel.
@@ -269,7 +270,8 @@ export const Nr1Inventario: React.FC<Props> = ({ user }) => {
   return (
     <div className="min-h-screen bg-slate-950 px-4 py-6 text-slate-100">
       <style>{CSS_IMPRESSAO}</style>
-      <main className="mx-auto max-w-5xl">
+      <div className="mx-auto grid w-full max-w-[104rem] items-start gap-4 px-3 xl:grid-cols-[minmax(0,1fr)_400px]">
+      <main className="w-full min-w-0 ">
         <div className="froid-nao-imprime flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-cyan-300">
@@ -537,6 +539,12 @@ export const Nr1Inventario: React.FC<Props> = ({ user }) => {
           <GlossarioDeSiglas termos={["NR-1", "PGR", "GRO", "AEP", "MTE"]} />
         </div>
       </main>
+      <Nr1ExplicaPainel
+        organizationId={organizationId}
+        verbeteSugerido="recorte-declarado"
+        contexto="Inventário"
+      />
+      </div>
     </div>
   );
 };
