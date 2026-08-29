@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 import type { FroidUser } from "../App";
@@ -9,6 +9,21 @@ import {
   type TemaExplica,
   type VerbeteExplica,
 } from "../lib/nr1-explica-conteudo";
+import {
+  acrescentaAoHistorico,
+  chaveHistorico,
+  chavePrompts,
+  grava,
+  jaSalvo,
+  ler,
+  novoId,
+  removePrompt,
+  salvaPrompt,
+  tituloDoPrompt,
+  type ItemHistorico,
+  type PromptSalvo,
+  type RespostaAberta,
+} from "../lib/nr1-explica-sessao";
 import { GlossarioDeSiglas } from "../lib/siglas";
 
 /**
@@ -141,12 +156,16 @@ const Cartao: React.FC<{
   </article>
 );
 
-type RespostaAberta = {
-  disponivel: boolean;
-  motivo?: string;
-  resposta: string;
-  citacoes: string[];
-  motor?: string;
+/** Hora do item do historico. Sem data: o historico e de uma sessao so. */
+const horaDe = (iso: string): string => {
+  try {
+    return new Date(iso).toLocaleTimeString("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return "";
+  }
 };
 
 export const Nr1Explica: React.FC<Props> = ({ user }) => {
@@ -165,12 +184,48 @@ export const Nr1Explica: React.FC<Props> = ({ user }) => {
   const [abertos, setAbertos] = useState<Record<string, boolean>>(
     verbeteAlvo ? { [verbeteAlvo]: true } : {},
   );
+  const organizationId = String(user?.active_organization_id || "");
+
   const [pergunta, setPergunta] = useState("");
   const [pensando, setPensando] = useState(false);
-  const [aberta, setAberta] = useState<RespostaAberta | null>(null);
   const [erroAberta, setErroAberta] = useState("");
 
-  const organizationId = String(user?.active_organization_id || "");
+  // O historico e o rastro do acesso de hoje; os prompts sao biblioteca. Guarda
+  // diferente, deposito diferente — ver lib/nr1-explica-sessao.
+  const [historico, setHistorico] = useState<ItemHistorico[]>(() =>
+    ler<ItemHistorico[]>(
+      globalThis.sessionStorage,
+      chaveHistorico(organizationId),
+      [],
+    ),
+  );
+  const [prompts, setPrompts] = useState<PromptSalvo[]>(() =>
+    ler<PromptSalvo[]>(
+      globalThis.localStorage,
+      chavePrompts(organizationId),
+      [],
+    ),
+  );
+
+  useEffect(() => {
+    grava(
+      globalThis.sessionStorage,
+      chaveHistorico(organizationId),
+      historico,
+    );
+  }, [historico, organizationId]);
+
+  useEffect(() => {
+    grava(globalThis.localStorage, chavePrompts(organizationId), prompts);
+  }, [prompts, organizationId]);
+
+  const salvarPromptAtual = () => {
+    const texto = pergunta.trim();
+    if (!texto) return;
+    setPrompts((atual) =>
+      salvaPrompt(atual, { id: novoId(), titulo: tituloDoPrompt(texto), texto }),
+    );
+  };
 
   /** A pergunta que a busca curada nao cobriu.
    *
@@ -182,7 +237,6 @@ export const Nr1Explica: React.FC<Props> = ({ user }) => {
     if (!texto || !organizationId) return;
     setPensando(true);
     setErroAberta("");
-    setAberta(null);
     try {
       const resposta = await fetch(
         apiUrl(`/api/organizations/${organizationId}/nr1/explica`),
@@ -200,9 +254,30 @@ export const Nr1Explica: React.FC<Props> = ({ user }) => {
       if (!resposta.ok) {
         throw new Error(corpo?.detail || "não foi possível consultar agora");
       }
-      setAberta(corpo as RespostaAberta);
+      setHistorico((atual) =>
+        acrescentaAoHistorico(atual, {
+          id: novoId(),
+          pergunta: texto,
+          quando: new Date().toISOString(),
+          resposta: corpo as RespostaAberta,
+        }),
+      );
+      // Limpa o campo, e nao a resposta: a pergunta acabou de entrar no
+      // historico logo abaixo, entao nada se perde ao esvaziar.
+      setPergunta("");
     } catch (e) {
-      setErroAberta(String((e as Error).message));
+      const motivo = String((e as Error).message);
+      setErroAberta(motivo);
+      // A pergunta que falhou tambem entra. Perde-la era o defeito.
+      setHistorico((atual) =>
+        acrescentaAoHistorico(atual, {
+          id: novoId(),
+          pergunta: texto,
+          quando: new Date().toISOString(),
+          resposta: null,
+          erro: motivo,
+        }),
+      );
     } finally {
       setPensando(false);
     }
@@ -320,18 +395,70 @@ export const Nr1Explica: React.FC<Props> = ({ user }) => {
           <textarea
             value={pergunta}
             onChange={(e) => setPergunta(e.target.value)}
-            rows={2}
+            rows={4}
             placeholder="Exemplo: a empresa precisa reavaliar depois de implementar uma medida?"
-            className="mt-2 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none placeholder:italic placeholder:text-slate-600 focus:border-cyan-500"
+            className="mt-2 max-h-56 w-full resize-y overflow-y-auto rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm leading-6 text-slate-100 outline-none placeholder:italic placeholder:text-slate-600 focus:border-cyan-500"
           />
-          <button
-            type="button"
-            disabled={pensando || !pergunta.trim()}
-            onClick={perguntar}
-            className="mt-2 rounded-lg bg-cyan-500 px-4 py-2 text-xs font-black text-cyan-950 hover:bg-cyan-400 disabled:opacity-50"
-          >
-            {pensando ? "Consultando o acervo..." : "Perguntar"}
-          </button>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              disabled={pensando || !pergunta.trim()}
+              onClick={perguntar}
+              className="rounded-lg bg-cyan-500 px-4 py-2 text-xs font-black text-cyan-950 hover:bg-cyan-400 disabled:opacity-50"
+            >
+              {pensando ? "Consultando o acervo..." : "Perguntar"}
+            </button>
+            <button
+              type="button"
+              disabled={!pergunta.trim() || jaSalvo(prompts, pergunta)}
+              onClick={salvarPromptAtual}
+              title="Guarda esta formulação para reutilizar no próximo ciclo."
+              className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-black text-slate-300 hover:bg-slate-800 disabled:opacity-40"
+            >
+              {jaSalvo(prompts, pergunta)
+                ? "Já está em meus prompts"
+                : "Salvar em meus prompts"}
+            </button>
+          </div>
+
+          {/* Meus prompts. Fica junto do campo porque e atalho de escrita, e
+              nao resultado — quem volta ao ciclo seguinte reusa a formulacao
+              que funcionou em vez de reescreve-la de memoria. */}
+          {prompts.length > 0 && (
+            <div className="mt-3">
+              <p className="text-[10px] font-black uppercase tracking-wide text-slate-500">
+                Meus prompts
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {prompts.map((salvo) => (
+                  <span
+                    key={salvo.id}
+                    className="inline-flex items-center gap-1 rounded-full border border-slate-700 bg-slate-950 py-1 pl-3 pr-1 text-[11px] text-slate-300"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setPergunta(salvo.texto)}
+                      title={salvo.texto}
+                      className="font-black hover:text-cyan-300"
+                    >
+                      {salvo.titulo}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPrompts((atual) => removePrompt(atual, salvo.id))
+                      }
+                      aria-label={`Remover ${salvo.titulo}`}
+                      title="Remover de meus prompts"
+                      className="rounded-full px-2 text-slate-500 hover:bg-slate-800 hover:text-slate-200"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
           {erroAberta && (
             <p className="mt-3 rounded border border-amber-900 bg-amber-950/50 p-3 text-[11px] leading-4 text-amber-100">
@@ -340,36 +467,106 @@ export const Nr1Explica: React.FC<Props> = ({ user }) => {
             </p>
           )}
 
-          {aberta && !aberta.disponivel && (
-            <p className="mt-3 rounded border border-amber-900 bg-amber-950/50 p-3 text-[11px] leading-4 text-amber-100">
-              {aberta.motivo === "acervo_nao_indexado"
-                ? "O acervo ainda não foi indexado neste servidor. As respostas revisadas abaixo continuam valendo."
-                : "A consulta aberta está indisponível no momento. As respostas revisadas abaixo continuam valendo."}
-            </p>
-          )}
-
-          {aberta && aberta.disponivel && (
-            <div className="mt-3 rounded-lg border border-cyan-900 bg-cyan-950/30 p-4">
-              {aberta.resposta.split(PARAGRAFOS).map((paragrafo, indice) => (
-                <p
-                  key={indice}
-                  className="mt-2 whitespace-pre-line text-xs leading-6 text-slate-200 first:mt-0"
+          {/* O historico do acesso.
+              A tela apagava a resposta anterior a cada nova pergunta. Quem
+              comparava duas, ou ia copiar a que acabara de receber, perdia. */}
+          {historico.length > 0 && (
+            <div className="mt-4 border-t border-slate-800 pt-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[10px] font-black uppercase tracking-wide text-slate-500">
+                  Nesta sessão — {historico.length}{" "}
+                  {historico.length === 1 ? "pergunta" : "perguntas"}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setHistorico([])}
+                  title="Apaga o histórico desta sessão. Os prompts salvos permanecem."
+                  className="rounded border border-slate-700 px-2 py-1 text-[10px] font-black text-slate-400 hover:bg-slate-800"
                 >
-                  {paragrafo}
-                </p>
-              ))}
-              {aberta.citacoes.length > 0 && (
-                <p className="mt-3 border-t border-cyan-900 pt-2 text-[11px] leading-4 text-slate-400">
-                  <span className="font-black text-slate-300">Consultado:</span>{" "}
-                  {aberta.citacoes.join(" · ")}
-                </p>
-              )}
-              {/* O limite dito junto da resposta, e nao so no rodape: quem le
-                  uma resposta gerada precisa saber que ela e gerada. */}
-              <p className="mt-2 text-[11px] leading-4 text-slate-500">
-                Resposta montada a partir das fontes acima. Confira o trecho
-                citado antes de usá-la em documento oficial.
-              </p>
+                  Limpar histórico
+                </button>
+              </div>
+
+              <div className="mt-3 max-h-[34rem] space-y-3 overflow-y-auto pr-1">
+                {historico.map((item) => (
+                  <article
+                    key={item.id}
+                    className="rounded-lg border border-slate-800 bg-slate-950 p-3"
+                  >
+                    <div className="flex items-baseline justify-between gap-3">
+                      <p className="text-xs font-black text-slate-200">
+                        {item.pergunta}
+                      </p>
+                      <span className="shrink-0 text-[10px] text-slate-600">
+                        {horaDe(item.quando)}
+                      </span>
+                    </div>
+
+                    {item.erro && (
+                      <p className="mt-2 rounded border border-amber-900 bg-amber-950/50 p-2 text-[11px] leading-4 text-amber-100">
+                        Não foi possível consultar ({item.erro}).
+                      </p>
+                    )}
+
+                    {item.resposta && !item.resposta.disponivel && (
+                      <p className="mt-2 rounded border border-amber-900 bg-amber-950/50 p-2 text-[11px] leading-4 text-amber-100">
+                        {item.resposta.motivo === "acervo_nao_indexado"
+                          ? "O acervo ainda não foi indexado neste servidor. As respostas revisadas abaixo continuam valendo."
+                          : "A consulta aberta está indisponível no momento. As respostas revisadas abaixo continuam valendo."}
+                      </p>
+                    )}
+
+                    {item.resposta && item.resposta.disponivel && (
+                      <div className="mt-2 rounded-lg border border-cyan-900 bg-cyan-950/30 p-3">
+                        {item.resposta.resposta
+                          .split(PARAGRAFOS)
+                          .map((paragrafo, indice) => (
+                            <p
+                              key={indice}
+                              className="mt-2 whitespace-pre-line text-xs leading-6 text-slate-200 first:mt-0"
+                            >
+                              {paragrafo}
+                            </p>
+                          ))}
+                        {item.resposta.citacoes.length > 0 && (
+                          <p className="mt-3 border-t border-cyan-900 pt-2 text-[11px] leading-4 text-slate-400">
+                            <span className="font-black text-slate-300">
+                              Consultado:
+                            </span>{" "}
+                            {item.resposta.citacoes.join(" · ")}
+                          </p>
+                        )}
+                        {/* O limite dito junto da resposta, e nao so no rodape:
+                            quem le uma resposta gerada precisa saber que ela e
+                            gerada. */}
+                        <p className="mt-2 text-[11px] leading-4 text-slate-500">
+                          Resposta montada a partir das fontes acima. Confira o
+                          trecho citado antes de usá-la em documento oficial.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const texto = [
+                              item.pergunta,
+                              "",
+                              item.resposta?.resposta || "",
+                              item.resposta?.citacoes.length
+                                ? `\nConsultado: ${item.resposta.citacoes.join(" · ")}`
+                                : "",
+                            ]
+                              .join("\n")
+                              .trim();
+                            void navigator.clipboard?.writeText(texto);
+                          }}
+                          className="mt-3 rounded border border-slate-700 px-3 py-1 text-[11px] font-black text-slate-300 hover:bg-slate-800"
+                        >
+                          Copiar resposta
+                        </button>
+                      </div>
+                    )}
+                  </article>
+                ))}
+              </div>
             </div>
           )}
         </section>

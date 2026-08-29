@@ -331,13 +331,15 @@ export const Nr1ActionPlan: React.FC<{ user: FroidUser | null }> = ({ user }) =>
           </div>
           <div className="flex flex-wrap gap-2">
             {/* Como o plano e montado, e os quatro campos exigidos. */}
-            <button
-              onClick={() => nav("/nr1/explica?verbete=plano-de-acao")}
-              title="Perguntas sobre a norma, sobre a metodologia e sobre como ler o resultado — com a fonte normativa."
-              className="rounded border border-cyan-700 bg-cyan-950 px-4 py-2 text-xs font-black text-cyan-100 hover:bg-cyan-900"
-            >
-              FROID Explica NR-1
-            </button>
+            <div className="flex items-center border-l border-slate-800 pl-3">
+              <button
+                onClick={() => nav("/nr1/explica?verbete=plano-de-acao")}
+                title="Perguntas sobre a norma, sobre a metodologia e sobre como ler o resultado — com a fonte normativa."
+                className="rounded border border-cyan-700 bg-cyan-950 px-4 py-2 text-xs font-black text-cyan-100 hover:bg-cyan-900"
+              >
+                FROID Explica NR-1
+              </button>
+            </div>
             <button
               onClick={() => nav("/nr1")}
               className="rounded border border-slate-700 px-4 py-2 text-xs font-black hover:bg-slate-900"

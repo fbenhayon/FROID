@@ -230,6 +230,7 @@ describe("as telas de trabalho alcancam o Explica", () => {
     ["Nr1Effectiveness.tsx", "eficacia"],
     ["Nr1Aep.tsx", "questionario-basta"],
     ["Nr1Acceptance.tsx", "prova-do-aceite"],
+    ["Nr1CompanyOnboarding.tsx", "setor-pequeno"],
   ];
 
   it.each(TELAS)("%s aponta para o Explica", (arquivo, verbete) => {

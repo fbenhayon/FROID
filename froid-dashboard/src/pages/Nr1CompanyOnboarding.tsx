@@ -458,15 +458,29 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
           <Link to="/" className="text-sm font-black tracking-[0.35em] text-amber-500">
             FROID NR-1
           </Link>
-          {onLogout && (
-            <button
-              type="button"
-              onClick={onLogout}
-              className="rounded-md bg-slate-950 px-3 py-2 text-xs font-black text-white"
-            >
-              Sair
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            {/* Estrutura da empresa e onde nasce a duvida sobre setor pequeno
+                demais para publicar recorte proprio. O verbete responde antes
+                de a pessoa cadastrar errado e descobrir no fim do ciclo. */}
+            <div className="flex items-center border-l border-slate-800 pl-3">
+              <Link
+                to="/nr1/explica?verbete=setor-pequeno"
+                title="Perguntas sobre a norma, sobre a metodologia e sobre como ler o resultado — com a fonte normativa."
+                className="rounded border border-cyan-700 bg-cyan-950 px-4 py-2 text-xs font-black text-cyan-100 hover:bg-cyan-900"
+              >
+                FROID Explica NR-1
+              </Link>
+            </div>
+            {onLogout && (
+              <button
+                type="button"
+                onClick={onLogout}
+                className="rounded-md bg-slate-950 px-3 py-2 text-xs font-black text-white"
+              >
+                Sair
+              </button>
+            )}
+          </div>
         </div>
       </header>
 

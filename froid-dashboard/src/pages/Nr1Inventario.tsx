@@ -298,13 +298,15 @@ export const Nr1Inventario: React.FC<Props> = ({ user }) => {
               Imprimir / salvar em PDF
             </button>
             {/* A duvida desta tela e a linha que nao publicou. */}
-            <Link
-              to="/nr1/explica?verbete=recorte-declarado"
-              title="Perguntas sobre a norma, sobre a metodologia e sobre como ler o resultado — com a fonte normativa."
-              className="rounded border border-cyan-700 bg-cyan-950 px-4 py-2 text-xs font-black text-cyan-100 hover:bg-cyan-900"
-            >
-              FROID Explica NR-1
-            </Link>
+            <div className="flex items-center border-l border-slate-800 pl-3">
+              <Link
+                to="/nr1/explica?verbete=recorte-declarado"
+                title="Perguntas sobre a norma, sobre a metodologia e sobre como ler o resultado — com a fonte normativa."
+                className="rounded border border-cyan-700 bg-cyan-950 px-4 py-2 text-xs font-black text-cyan-100 hover:bg-cyan-900"
+              >
+                FROID Explica NR-1
+              </Link>
+            </div>
             <Link
               to="/nr1"
               className="rounded border border-slate-700 px-4 py-2 text-xs font-black text-slate-200 hover:bg-slate-900"

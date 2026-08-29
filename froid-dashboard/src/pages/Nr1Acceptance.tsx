@@ -184,13 +184,15 @@ export const Nr1Acceptance: React.FC<Props> = ({ user }) => {
         <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-3 px-5 py-4">
           <div className="flex items-center gap-3">
             {/* O que o comprovante prova. */}
-            <Link
-              to="/nr1/explica?verbete=prova-do-aceite"
-              title="Perguntas sobre a norma, sobre a metodologia e sobre como ler o resultado — com a fonte normativa."
-              className="rounded border border-cyan-700 bg-cyan-950 px-4 py-2 text-xs font-black text-cyan-100 hover:bg-cyan-900"
-            >
-              FROID Explica NR-1
-            </Link>
+            <div className="flex items-center border-l border-slate-800 pl-3">
+              <Link
+                to="/nr1/explica?verbete=prova-do-aceite"
+                title="Perguntas sobre a norma, sobre a metodologia e sobre como ler o resultado — com a fonte normativa."
+                className="rounded border border-cyan-700 bg-cyan-950 px-4 py-2 text-xs font-black text-cyan-100 hover:bg-cyan-900"
+              >
+                FROID Explica NR-1
+              </Link>
+            </div>
             <Link
               to="/nr1"
               className="rounded border border-slate-700 px-3 py-1.5 text-xs font-black text-slate-200 hover:bg-slate-800"
