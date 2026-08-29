@@ -214,6 +214,36 @@ describe("a tela e alcancavel", () => {
   });
 });
 
+describe("as telas de trabalho alcancam o Explica", () => {
+  /**
+   * O botao existia so no painel. Quem estava no Inventario ou no Plano de
+   * acao -- onde a duvida sobre a norma de fato aparece -- tinha de voltar
+   * para chegar nele, e numa demonstracao isso apareceu como falta.
+   *
+   * Cada tela aponta para o verbete dela: mandar o operador procurar na lista
+   * e devolver a ele o trabalho que a tela deveria fazer.
+   */
+  const TELAS: Array<[string, string]> = [
+    ["Nr1Inventario.tsx", "recorte-declarado"],
+    ["Nr1ActionPlan.tsx", "plano-de-acao"],
+    ["Nr1Campaign.tsx", "ordem-dos-atos"],
+    ["Nr1Effectiveness.tsx", "eficacia"],
+    ["Nr1Aep.tsx", "questionario-basta"],
+    ["Nr1Acceptance.tsx", "prova-do-aceite"],
+  ];
+
+  it.each(TELAS)("%s aponta para o Explica", (arquivo, verbete) => {
+    const fonte = readFileSync(join(__dirname, arquivo), "utf-8");
+    expect(fonte).toContain(`/nr1/explica?verbete=${verbete}`);
+  });
+
+  it("todo verbete apontado existe", () => {
+    for (const [, verbete] of TELAS) {
+      expect(VERBETES.some((v) => v.id === verbete)).toBe(true);
+    }
+  });
+});
+
 describe("o verbete contratual aponta, e nao reescreve", () => {
   /**
    * O contrato e os Termos sao documentos versionados, e o comprovante de

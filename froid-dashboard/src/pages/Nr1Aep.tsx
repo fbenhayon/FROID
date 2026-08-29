@@ -319,6 +319,14 @@ export const Nr1Aep: React.FC<{ user: FroidUser | null }> = ({ user }) => {
               trabalho como ele é executado, não como está prescrito.
             </p>
           </div>
+          {/* Por que o questionario sozinho nao cumpre a norma. */}
+          <button
+            onClick={() => nav("/nr1/explica?verbete=questionario-basta")}
+            title="Perguntas sobre a norma, sobre a metodologia e sobre como ler o resultado — com a fonte normativa."
+            className="rounded border border-cyan-700 bg-cyan-950 px-4 py-2 text-xs font-black text-cyan-100 hover:bg-cyan-900"
+          >
+            FROID Explica NR-1
+          </button>
           <button
             onClick={() => nav("/nr1")}
             className="rounded border border-slate-700 px-4 py-2 text-xs font-black hover:bg-slate-900"

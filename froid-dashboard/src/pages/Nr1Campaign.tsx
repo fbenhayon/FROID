@@ -656,6 +656,14 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
             >
               Estrutura da empresa
             </Link>
+            {/* A sequencia inteira, e o que nao tem volta. */}
+            <Link
+              to="/nr1/explica?verbete=ordem-dos-atos"
+              title="Perguntas sobre a norma, sobre a metodologia e sobre como ler o resultado — com a fonte normativa."
+              className="rounded border border-cyan-700 bg-cyan-950 px-4 py-2 text-xs font-black text-cyan-100 hover:bg-cyan-900"
+            >
+              FROID Explica NR-1
+            </Link>
             <Link
               to="/nr1"
               className="rounded border border-cyan-700 bg-cyan-950 px-4 py-2 text-xs font-black text-cyan-100 hover:bg-cyan-900"
