@@ -506,6 +506,39 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
     return Array.from(repetidas);
   }, [linhasInterpretadas]);
 
+  /** Como a lista colada se distribui pelos setores.
+   *
+   *  Existe para que o aviso aconteca ANTES da emissao. O setor vai gravado no
+   *  convite; depois de emitido, corrigir exige campanha nova. */
+  const porSetor = useMemo(() => {
+    const contagem = new Map<string, number>();
+    for (const linha of linhasInterpretadas) {
+      if (!linha.unit_id) continue;
+      contagem.set(linha.unit_id, (contagem.get(linha.unit_id) || 0) + 1);
+    }
+    return Array.from(contagem.entries())
+      .map(([unitId, pessoas]) => ({
+        unitId,
+        pessoas,
+        nome: setores.find((s) => s.unit_id === unitId)?.name || unitId,
+      }))
+      .sort((a, b) => a.pessoas - b.pessoas);
+  }, [linhasInterpretadas, setores]);
+
+  const setoresAbaixoDoPiso = useMemo(
+    () => porSetor.filter((s) => s.pessoas < PISO_RECORTE),
+    [porSetor],
+  );
+
+  /** Matricula sem setor declarado. Conta para a campanha e nao forma recorte —
+   *  o que e diferente de setor digitado errado, que e engano. */
+  const semSetor = useMemo(
+    () =>
+      linhasInterpretadas.filter((l) => !l.unit_id && !l.setorNaoEncontrado)
+        .length,
+    [linhasInterpretadas],
+  );
+
   const gerarConvites = async () => {
     setErro("");
     setAviso("");
@@ -1022,10 +1055,102 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
               <p className="mt-2 text-xs leading-5 text-slate-400">
                 Campanha selecionada:{" "}
                 <strong className="text-slate-200">{selecionada.title}</strong> (
-                {selecionada.status}). Uma matrícula por linha. Para atribuir o
-                setor, use <code className="text-cyan-300">matrícula;setor</code> —
-                o setor é casado pelo nome ou pelo código interno cadastrado.
+                {selecionada.status}).
               </p>
+
+              <ol className="mt-3 list-decimal space-y-1.5 pl-5 text-xs leading-5 text-slate-400">
+                <li>
+                  Cole a lista de <strong className="text-slate-200">matrículas</strong>,
+                  uma por linha. <strong className="text-slate-200">Nunca nomes</strong> —
+                  não existe campo para nome de trabalhador no sistema.
+                </li>
+                <li>
+                  Para atribuir o setor, escreva{" "}
+                  <code className="text-cyan-300">matrícula;setor</code>. O setor é
+                  casado pelo nome ou pelo código interno cadastrado em{" "}
+                  <Link className="text-cyan-300 underline" to="/access/empresa">
+                    Estrutura da empresa
+                  </Link>
+                  . Sem setor, a pessoa responde e conta para a campanha.
+                </li>
+                <li>
+                  Confira a distribuição que aparece abaixo do campo, e só então
+                  emita. O sistema mostra quantas pessoas caem em cada setor.
+                </li>
+                <li>
+                  Baixe o arquivo de links na hora. Eles aparecem{" "}
+                  <strong className="text-slate-200">uma única vez</strong>.
+                </li>
+              </ol>
+
+              {/* O aviso vem antes do campo, e nao depois do erro. */}
+              <p className="mt-3 rounded border border-amber-800 bg-amber-950/40 p-2.5 text-[11px] leading-4 text-amber-100">
+                <strong>O setor é gravado no convite e não muda depois.</strong>{" "}
+                Reemitir invalidaria o link que a pessoa já tem, então corrigir o
+                setor de alguém já convidado exige campanha nova. Decida o
+                agrupamento agora.
+              </p>
+
+              <details className="mt-3 rounded border border-slate-800 bg-slate-950">
+                <summary className="cursor-pointer px-3 py-2 text-[11px] font-black text-cyan-300">
+                  Como agrupar endereços e setores — boas práticas
+                </summary>
+                <div className="space-y-3 border-t border-slate-800 px-3 py-3 text-[11px] leading-5 text-slate-400">
+                  <p>
+                    <strong className="text-slate-200">
+                      Endereço e setor não são a mesma coisa.
+                    </strong>{" "}
+                    O estabelecimento é a unidade de avaliação: recebe documento
+                    de <Sigla nome="AEP" curta /> próprio e linha própria no
+                    inventário. O setor é o recorte dentro dele. Cadastrar um
+                    endereço a mais muda a entrega; um setor a mais muda só o
+                    detalhamento do relatório.
+                  </p>
+                  <p>
+                    <strong className="text-slate-200">
+                      {PISO_RECORTE} é o número que decide.
+                    </strong>{" "}
+                    Setor com menos de {PISO_RECORTE} respostas não publica
+                    recorte próprio em hipótese nenhuma — o piso olha o tamanho
+                    do grupo, não a taxa de adesão. Insistir na comunicação
+                    interna não resolve este caso.
+                  </p>
+                  <p>
+                    <strong className="text-slate-200">
+                      Agrupe por exposição semelhante, nunca para bater o número.
+                    </strong>{" "}
+                    O instrumento mede condições de trabalho. Juntar atendimento
+                    com logística porque cada um tem seis pessoas produz uma
+                    média de doze que não descreve nem um nem outro — e um plano
+                    de ação endereçado a um setor que não existe na prática. Um
+                    recorte declarado insuficiente é honesto; um recorte
+                    publicado sobre um agrupamento artificial é pior que não ter.
+                  </p>
+                  <p>
+                    <strong className="text-slate-200">
+                      O que agrupa bem se parece com isto:
+                    </strong>{" "}
+                    mesma chefia imediata, mesma jornada, mesma natureza de
+                    tarefa, mesma pressão de prazo. Dois turnos da mesma operação
+                    agrupam bem. Dois departamentos que só compartilham o andar,
+                    não.
+                  </p>
+                  <p>
+                    <strong className="text-slate-200">
+                      Na dúvida sobre o setor de alguém, deixe em branco.
+                    </strong>{" "}
+                    A pessoa responde e entra no total da campanha; só não forma
+                    recorte. Chutar o setor contamina dois recortes de uma vez —
+                    o que recebeu quem não era dele, e o que perdeu quem era.
+                  </p>
+                  <p>
+                    <strong className="text-slate-200">A ordem que funciona:</strong>{" "}
+                    cadastrar a estrutura, conferir o tamanho de cada setor,
+                    juntar o que for pequeno <em>e</em> semelhante, e só então
+                    emitir.
+                  </p>
+                </div>
+              </details>
 
               <textarea
                 value={lista}
@@ -1050,6 +1175,60 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
                   </>
                 )}
               </div>
+
+              {porSetor.length > 0 && (
+                <div className="mt-3 rounded border border-slate-800 bg-slate-950 p-3">
+                  <p className="text-[11px] font-black text-slate-300">
+                    Como esta lista se distribui pelos setores
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {porSetor.map((setor) => (
+                      <span
+                        key={setor.unitId}
+                        title={
+                          setor.pessoas < PISO_RECORTE
+                            ? `Abaixo do piso de ${PISO_RECORTE}: não publicará recorte próprio.`
+                            : "Alcança o piso, se a adesão acompanhar."
+                        }
+                        className={`rounded-full px-2.5 py-1 text-[10px] font-black ${
+                          setor.pessoas < PISO_RECORTE
+                            ? "border border-amber-800 bg-amber-950/60 text-amber-100"
+                            : "border border-slate-700 text-slate-300"
+                        }`}
+                      >
+                        {setor.nome} · {setor.pessoas}
+                      </span>
+                    ))}
+                    {semSetor > 0 && (
+                      <span className="rounded-full border border-slate-700 px-2.5 py-1 text-[10px] font-black text-slate-500">
+                        sem setor · {semSetor}
+                      </span>
+                    )}
+                  </div>
+
+                  {setoresAbaixoDoPiso.length > 0 && (
+                    <p className="mt-2 rounded border border-amber-900 bg-amber-950/50 p-2 text-[11px] leading-4 text-amber-100">
+                      <strong>
+                        {setoresAbaixoDoPiso.length} setor(es) abaixo de{" "}
+                        {PISO_RECORTE} pessoas
+                      </strong>{" "}
+                      não publicarão recorte próprio — entram no inventário como
+                      linha declarada insuficiente, com o portão e o caminho de
+                      remédio. Se algum deles for semelhante a outro em condição
+                      de trabalho, agrupar agora resolve. Se não for, o correto é
+                      deixar como está.
+                    </p>
+                  )}
+
+                  {/* Convidado nao e respondente, e confundir os dois faz a
+                      pessoa achar que resolveu quando nao resolveu. */}
+                  <p className="mt-2 text-[10px] leading-4 text-slate-600">
+                    Estes são convidados, não respostas. O piso de {PISO_RECORTE}{" "}
+                    conta respostas substantivas: um setor com exatamente{" "}
+                    {PISO_RECORTE} convidados só publica se todos responderem.
+                  </p>
+                </div>
+              )}
 
               {setoresNaoEncontrados.length > 0 && (
                 <p className="mt-2 rounded border border-amber-900 bg-amber-950/60 p-2 text-[11px] leading-4 text-amber-100">
