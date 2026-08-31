@@ -203,3 +203,50 @@ paginas: 65 | ancoras de menu: 90 | FALHAS: 0
 ### Defeitos abertos
 
 Nenhum na lista verificável. Escopo aberto inalterado.
+
+---
+
+## Rodada 5 — 31/08/2026
+
+**Escopo:** `index`, bloco da visão do Data-Froid — reformulação aprovada pelo Fábio.
+
+### O que estava errado na ordem anterior
+
+O bloco afirmava grande, justificava, e recuava — "é ambição, não estado atual" no fim.
+Esse padrão soa como quem se corrige. E a frase em destaque era a única parte contestável
+do conjunto, enquanto o argumento realmente forte — ninguém captura o que se passa dentro
+da sessão — estava enterrado no terceiro parágrafo.
+
+Havia ainda redundância: dois parágrafos explicavam "por que não existe", um afirmando
+falta de meio técnico e o outro dizendo qual.
+
+### A ordem nova
+
+Constatar o vazio → explicar por que ele existia → mostrar o que caiu → declarar o que se
+constrói → dizer o que rende. A ambição chega no fim, já sustentada, e por isso não precisa
+de desculpa.
+
+### Alterações do Fábio nesta rodada
+
+1. **"engenharia" no lugar de "arquitetura"** — "O bloqueio nunca foi de vontade: era de
+   engenharia."
+2. A frase "o processamento deixar de precisar viajar" foi substituída. **O texto de
+   substituição não veio na mensagem** — o campo ficou em branco. Escrevi *"O que mudou foi
+   a engenharia permitir que o sinal seja processado onde ele nasce"*, que casa com a
+   escolha do item 1. **Pendente de confirmação.**
+3. **"a formação de uma base gigante de informações psíquicas globais"** no lugar de "a
+   maior base de informações psíquicas do planeta". Menos superfície de ataque, mesma
+   ambição. A cláusula "e a primeira construída sem que ninguém precise entregar o próprio
+   paciente" foi preservada.
+4. **A sinergia entra no fecho:** validação e repertório juntos produzem "o efeito que
+   contraria a aritmética: aquele em que 1 + 1 = 3".
+
+### Verificação da rodada
+
+```
+paginas: 65 | ancoras: 90 | FALHAS: 0
+```
+
+### Defeitos abertos
+
+Um item pendente de confirmação: a frase do item 2 acima. Escopo aberto inalterado.
