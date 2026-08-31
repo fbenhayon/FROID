@@ -83,12 +83,9 @@ var NAV_SECOES = {
   "empresas.html": [
     ["indice", "Como a página se organiza"],
     ["o-retrato-legal", "O que mudou na norma"],
-    ["linha-do-tempo", "As datas, e a que já venceu"],
     ["o-que-a-fiscalizacao-pede", "Os três documentos"],
     ["o-custo-da-omissao", "O custo da omissão"],
-    ["pratica-juridica", "As três perguntas do juiz"],
     ["armadilhas", "Seis erros que geram passivo"],
-    ["os-perigos", "A listagem do Guia MTE"],
     ["solucao", "A AEP psicossocial"],
     ["a-plataforma", "A plataforma"],
     ["eficacia", "Provar que a medida funcionou"],
@@ -101,6 +98,7 @@ var NAV_SECOES = {
   ],
   "como-funciona-nr1.html": [
     ["as-sete-etapas", "As sete etapas"],
+    ["os-perigos", "A listagem do Guia MTE"],
     ["o-que-e-igual-em-toda-empresa-e-o-que-muda", "O que muda em cada empresa"],
     ["quando-a-segunda-avaliacao-reprova", "E se a segunda avaliação reprovar?"],
     ["a-sua-empresa-tem-tamanho-para-isso", "A sua empresa tem tamanho?"]

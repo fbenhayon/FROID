@@ -32,6 +32,13 @@
   .fase-ciclo { border-left-style:dashed; border-left-color:#92400e; }
   .fase-ciclo::before { background:#fcd34d; }
   .fase-ciclo .quando { color:#fcd34d; }
+
+  .haz-wrap { overflow-x:auto; }
+  .haz-table { width:100%; border-collapse:collapse; font-size:0.9rem; min-width:600px; }
+  .haz-table th, .haz-table td { padding:11px 14px; border-bottom:1px solid #334155; text-align:left; vertical-align:top; }
+  .haz-table th { background:#1e293b; color:#f8fafc; font-size:0.82rem; text-transform:uppercase; letter-spacing:0.05em; }
+  .haz-table td:last-child { color:var(--froid-cinza); font-size:0.86rem; }
+  .haz-table .grp td { background:#0f172a; color:#93c5fd; font-weight:700; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em; }
 </style>
 </head>
 <body>
@@ -142,6 +149,40 @@
 
     </div>
 
+    <!-- Veio de empresas.html. E referencia operacional -- o que precisa ser
+         mapeado -- e quem decide comprar nao le a tabela inteira; quem vai
+         operar, sim. La ela travava a leitura logo depois do "o que mudou". -->
+    <h2 style="margin-top:48px;" id="os-perigos">A listagem do Guia MTE 2025</h2>
+    <p style="margin-top:12px;">O Guia de informações sobre os Fatores de Riscos Psicossociais Relacionados ao Trabalho traz esta listagem de perigos e suas possíveis consequências. Ela é <strong>orientativa e não taxativa</strong>: a fiscalização avalia a coerência do processo de identificação, não a aderência literal à lista. Sua empresa pode incluir perigos próprios do setor e afastar os que não se aplicam, desde que documente a justificativa técnica.</p>
+    <div style="margin-top:20px;"><div class="haz-wrap">
+      <table class="haz-table">
+        <thead>
+          <tr><th>Perigo (fator de risco psicossocial)</th><th>Possível lesão ou agravo</th></tr>
+        </thead>
+        <tbody>
+          <tr class="grp"><td colspan="2">Gestão e organização do trabalho</td></tr>
+          <tr><td>Má gestão de mudanças organizacionais</td><td>Transtorno mental; DORT</td></tr>
+          <tr><td>Baixa clareza de papel/função</td><td>Transtorno mental</td></tr>
+          <tr><td>Baixas recompensas e reconhecimento</td><td>Transtorno mental</td></tr>
+          <tr><td>Falta de suporte/apoio no trabalho</td><td>Transtorno mental</td></tr>
+          <tr><td>Baixo controle no trabalho / falta de autonomia</td><td>Transtorno mental; DORT</td></tr>
+          <tr><td>Baixa justiça organizacional</td><td>Transtorno mental</td></tr>
+          <tr class="grp"><td colspan="2">Carga e demanda</td></tr>
+          <tr><td>Excesso de demandas no trabalho (sobrecarga)</td><td>Transtorno mental; DORT</td></tr>
+          <tr><td>Baixa demanda no trabalho (subcarga)</td><td>Transtorno mental</td></tr>
+          <tr class="grp"><td colspan="2">Relacionamento e violência</td></tr>
+          <tr><td>Assédio de qualquer natureza no trabalho</td><td>Transtorno mental</td></tr>
+          <tr><td>Eventos violentos ou traumáticos</td><td>Transtorno mental</td></tr>
+          <tr><td>Más relações no local de trabalho</td><td>Transtorno mental</td></tr>
+          <tr class="grp"><td colspan="2">Ambiente e modalidade</td></tr>
+          <tr><td>Trabalho remoto e isolado</td><td>Transtorno mental; fadiga</td></tr>
+          <tr><td>Trabalho em condições de difícil comunicação</td><td>Transtorno mental</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:16px; font-size:0.86rem; color:var(--froid-cinza);">Trabalho remoto, híbrido e teletrabalho entram na avaliação. A empresa adapta a estratégia ao contexto — não exclui esses trabalhadores.</p>
+    </div>
+
     <h2 style="margin-top:48px;" id="o-que-e-igual-em-toda-empresa-e-o-que-muda">O que é igual em toda empresa, e o que muda</h2>
     <table class="comp">
       <tr><th>Igual para todos</th><th>Muda em cada empresa</th></tr>
@@ -245,7 +286,8 @@
     <p style="font-size:13px; color:var(--froid-cinza); margin-top:16px;">Os subitens acima são citados a partir do texto da NR-1 com as alterações da Portaria MTE nº 1.419/2024. Esta página descreve o procedimento previsto na norma e não constitui parecer jurídico: a análise do caso concreto cabe à assessoria jurídica da organização.</p>
 
     <h2 style="margin-top:44px;" id="a-sua-empresa-tem-tamanho-para-isso">A sua empresa tem tamanho para isso?</h2>
-    <p>O resultado só é liberado acima de um piso de respondentes, e é por isso que empresas pequenas às vezes não conseguem resultado por setor. Vale descobrir antes de contratar, não depois.</p>
+    <p style="margin-top:14px; font-size:0.9rem;">Os dois portões que decidem isso — o de anonimato e o de representatividade — estão explicados por inteiro em <a href="empresas.html#dado-insuficiente">Quando o dado não basta</a>, inclusive o que acontece com o recorte que não os vence.</p>
+        <p>O resultado só é liberado acima de um piso de respondentes, e é por isso que empresas pequenas às vezes não conseguem resultado por setor. Vale descobrir antes de contratar, não depois.</p>
     <p>Microempresas e empresas de pequeno porte são dispensadas do PGR, mas <strong>não são dispensadas da AEP</strong> — e a AEP não depende de piso nenhum.</p>
     <p style="margin-top:20px;">
       <a class="btn btn-amber" href="diagnostico-nr1.html">Verificar prontidão da minha empresa</a>
