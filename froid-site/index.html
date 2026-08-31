@@ -36,10 +36,13 @@
      conclusao, e lida em bloco corrido some no meio das outras. */
   .hero-quote__lede { font-style:italic; color:#93c5fd; font-size:1.02rem; margin:0 0 14px; }
   /* Caixa ambar da casa, a mesma do disclaimer-box, com a serifada do hero. */
-  .hero-quote__fecho { font-family:var(--font-serif); font-size:clamp(1.08rem,2.3vw,1.4rem);
-                       line-height:1.45; text-wrap:balance; margin:22px auto 0; max-width:44rem;
+  /* A caixa abraca a frase em vez de a frase se ajustar a caixa: width
+     fit-content com teto, e sem quebra forcada. */
+  .hero-quote__fecho { font-family:var(--font-serif); font-weight:700;
+                       font-size:clamp(1.02rem,2vw,1.28rem); line-height:1.4;
+                       margin:20px auto 0; width:fit-content; max-width:100%;
                        background:#451a03; border:1px solid #92400e; border-radius:var(--radius);
-                       color:#fde68a; padding:20px 26px; }
+                       color:#fde68a; padding:12px 22px; text-wrap:balance; }
 </style>
 </head>
 <body>
