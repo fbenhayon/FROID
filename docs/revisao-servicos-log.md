@@ -100,3 +100,49 @@ Nenhum na lista verificável. Seguem como trabalho de escopo aberto, inalterados
 rodada 1: `profissionais.html` (relatórios, composição customizada e área do paciente —
 bloqueado por telas não levantadas e capturas inexistentes), `seguranca.html` e
 `etica.html` (ainda não lidas), e os espelhos `en/es/fr`.
+
+---
+
+## Rodada 3 — 31/08/2026
+
+**Escopo:** `index` e `profissionais` — elevação do Data-Froid.
+
+Pedido do Fábio: o Data-Froid é um dos resultados de maior impacto no tratamento da saúde
+mental, porque não existe estrutura capaz de captar e organizar as questões da psique.
+
+### A calibragem, e por que ela fortalece
+
+O pedido literal — *"não existe no planeta nenhuma estrutura"* — é **falsificável**.
+Existem registros psiquiátricos nacionais, coortes de pesquisa e bases de prontuário
+eletrônico, algumas com décadas de dados. Um pesquisador ou um conselheiro derruba a frase
+em segundos, e leva junto a credibilidade do resto da página.
+
+A afirmação **específica** é verdadeira e mais forte: essas bases registram o que acontece
+**em volta** da sessão — diagnóstico, prescrição, desfecho. Nenhuma captura o que se passa
+**dentro** dela: o que a voz revelou, o que a face confessou, o que o clínico observou e o
+que fez a respeito. Essa camada nunca foi estruturada em escala, e a razão é técnica —
+exigia sinal multimodal em sessão real, sem interromper o atendimento e sem identificar
+ninguém.
+
+Escrever assim demonstra conhecimento do campo em vez de ignorá-lo, e a afirmação deixa de
+ser contestável.
+
+### O que mudou
+
+| # | Página | Mudança |
+|---|---|---|
+| 10 | `index` | O bloco da visão passa a explicar **por que esse acervo não existe ainda** — o argumento que faltava para a afirmação se sustentar |
+| 11 | `index` | O lead da seção nomeia o alcance: não uma ferramenta melhor, mas um tipo de conhecimento que não existia |
+| 12 | `index` | O hero passa a ter caminho para `#data-froid`. Era a única seção da página sem porta de entrada no topo |
+| 13 | `profissionais` | O mesmo argumento, na voz de quem atende: cada sessão acrescenta uma linha ao acervo e recebe de volta o que ele acumulou |
+
+### Verificação da rodada
+
+```
+paginas: 65 | ancoras de menu: 90 | FALHAS: 0
+```
+
+### Defeitos abertos
+
+Nenhum na lista verificável. Escopo aberto inalterado: `profissionais` (relatórios e área
+do paciente), `seguranca` e `etica`, espelhos `en/es/fr`.
