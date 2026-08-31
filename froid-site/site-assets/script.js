@@ -130,8 +130,7 @@ var NAV_SECOES = {
   ],
   "sobre-contato.html": [
     ["quem-faz-o-froid", "Quem faz o FROID"],
-    ["governanca-clinica", "Governança clínica"],
-    ["fale-com-o-time", "Fale com o time"]
+    ["fale-com-o-time", "Contato"]
   ],
   "demonstracao.html": [
     ["framework-proprietario-froid", "Framework proprietário"],

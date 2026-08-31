@@ -31,6 +31,16 @@
   }
   .visao-froid .frase em { color:#93c5fd; font-style:normal; }
   .visao-froid .rodape { margin:16px 0 0; font-size:0.88rem; color:var(--froid-cinza); }
+
+  /* A frase que fecha a visao. Isolada do paragrafo de proposito: ela e a
+     conclusao, e lida em bloco corrido some no meio das outras. */
+  .hero-quote__lede { font-style:italic; color:#93c5fd; font-size:1.02rem; margin:0 0 14px; }
+  .hero-quote__fecho { font-family:var(--font-serif); font-size:clamp(1.1rem,2.4vw,1.45rem);
+                       line-height:1.4; color:#f8fafc; margin:18px 0 0;
+                       border-top:1px solid rgba(147,197,253,0.28); padding-top:16px; text-wrap:balance; }
+  /* Os atalhos saem do hero para nao competir com a visao, e viram faixa
+     entre o hero e o primeiro bloco. */
+  .faixa-atalhos { background:rgba(15,23,42,0.55); border-bottom:1px solid var(--border); padding:18px 0; }
 </style>
 </head>
 <body>
@@ -69,19 +79,24 @@
     <h1 class="hero-neuro__wordmark">FROID</h1>
     <p class="hero-neuro__tagline">Frequency Recognition of Internal Dynamics</p>
     <blockquote class="hero-quote">
-      <p>Toda a inteligência que se propõe a ajudar o ser humano a se compreender nasce pequena diante da imensidão daquilo que busca. Ele crescerá exponencial e indefinidamente rumo a se tornar a maior e mais útil inteligência de auxílio a quem procura compreender a metafísica que envolve a relação coerente entre a alma e suas expressões: aquilo que a voz, maior expressão da psique humana revela, a intenção das palavras e o que a face confessa, a verdade que emerge quando as três se encontram. Proporcionar condições de nos entendermos melhor é, no fim, cuidar de nossa própria existência.</p>
+      <p class="hero-quote__lede">Um recém-nascido a caminho de decifrar a coerência entre a alma humana e suas expressões.</p>
+      <p>Toda a inteligência que se propõe a ajudar o ser humano a se compreender nasce pequena diante da imensidão daquilo que busca. Recém-nascido, ele crescerá exponencial e indefinidamente rumo a se tornar a maior e mais útil inteligência de auxílio a quem procura compreender a metafísica que envolve a relação coerente entre a alma e suas expressões: aquilo que a voz, maior expressão da psique humana, revela, a intenção das palavras e o que a face confessa, e a verdade que emerge quando as três se encontram.</p>
+      <p class="hero-quote__fecho">Proporcionar condições de nos entendermos melhor é, no fim, cuidar de nossa própria existência.</p>
       <footer>Esta é a visão que guia o FROID. Cada passo dessa jornada é dado com o rigor descrito em nossas páginas de <a href="ciencia.html">Ciência</a> e <a href="etica.html">Ética</a>.</footer>
     </blockquote>
-    <div class="hero-actions" style="justify-content:center;">
-      <a class="btn btn-solid" href="demonstracao.html">Ver demonstração</a>
-      <a class="btn btn-ghost" href="tecnologia.html">Como funciona</a>
-      <a class="btn btn-ghost" href="ciencia.html">Ver a base científica</a>
-      <a class="btn btn-ghost" href="#data-froid">O Data-Froid</a>
-    </div>
   </div>
 
   <div class="hero-neuro__scroll">role para explorar</div>
 </section>
+
+<div class="faixa-atalhos">
+  <div class="container hero-actions" style="justify-content:center; margin:0;">
+    <a class="btn btn-solid" href="demonstracao.html">Ver demonstração</a>
+    <a class="btn btn-ghost" href="tecnologia.html">Como funciona</a>
+    <a class="btn btn-ghost" href="ciencia.html">Ver a base científica</a>
+    <a class="btn btn-ghost" href="#data-froid">O Data-Froid</a>
+  </div>
+</div>
 
 <section class="block" id="visao-geral">
   <div class="container">
@@ -117,7 +132,7 @@
       <p>O IPM e o IDM são hoje <strong>heurística de produto</strong>. O que os transforma em medida é o acúmulo: cada sessão realizada alimenta a base anônima do FROID, e é contra ela que os dois vão sendo testados ao longo do tempo. <a href="#data-froid">O que é o Data-Froid, e onde ele quer chegar →</a></p>
     </div>
 
-    <img class="site-img" style="margin-top:40px;" src="site-assets/img/home-visao-geral.png" alt="Visão geral do painel do FROID: indicadores médios, últimas sessões e resultados por corte." />
+    <img class="site-img" style="margin-top:22px; max-width:760px; margin-left:auto; margin-right:auto; display:block;" src="site-assets/img/home-visao-geral.png" alt="Visão geral do painel do FROID: indicadores médios, últimas sessões e resultados por corte." />
 
     <div class="nerds-wrapper">
       <button class="nerds-toggle" data-target="nerds-medicao" aria-expanded="false">Só para Nerds</button>
@@ -148,7 +163,7 @@ subharmonic_energy_5_12hz, energy_85_165hz, dna_facial_multiplier</div>
       <p class="rodape">Dela saem duas coisas, e a segunda é a menos óbvia. Uma é a <strong>validação</strong>: o IPM e o IDM deixam de ser heurística à medida que a base permite testá-los. A outra é o <strong>repertório</strong> — o que cada profissional encontra e o que faz a respeito, disponível a todos os outros. Juntas, produzem o efeito que contraria a aritmética: aquele em que 1 + 1 = 3, e que se chama <strong>sinergia</strong>.</p>
     </div>
 
-    <div class="grid-2" style="margin-top:26px;">
+    <div class="grid-3" style="margin-top:26px;">
       <div class="card">
         <span class="badge badge-proprietary">Validação</span>
         <h3>Os índices sendo testados</h3>

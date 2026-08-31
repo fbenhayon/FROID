@@ -349,3 +349,36 @@ paginas: 65 | ancoras de menu: 92 | FALHAS: 0
 
 Nenhum na lista verificável. A proposta do painel *Só para Nerds* foi **superada** por esta
 divisão e sai da lista. Segue pendente a frase do item 2 da rodada 5.
+
+---
+
+## Rodada 8 — 31/08/2026
+
+**Escopo:** `sobre-contato` e `index` — sete ajustes pedidos pelo Fábio.
+
+| # | Página | O que mudou |
+|---|---|---|
+| 1 | `sobre-contato` | Um único endereço, o de suporte técnico. Saíram `vendas@` e `contato@`; os dois cartões — sessões clínicas e avaliação NR-1 — continuam, agora como referência de caminho e não de e-mail |
+| 2 | `sobre-contato` | Seção `#governanca-clinica` omitida |
+| 3 | `sobre-contato` / `index` | O manifesto era duplicata do hero. Removido da página de contato; o hero da index absorveu o que só existia lá — o enquadramento do "recém-nascido" |
+| 4 | `index` | A frase "Proporcionar condições de nos entendermos melhor…" saiu do corpo do parágrafo e passou a fechar em destaque, com serifada maior e separada por filete |
+| 5 | `index` | Os quatro atalhos saíram do hero e viraram faixa própria entre o hero e o primeiro bloco — a visão deixa de competir com botões |
+| 6 | `index` | A imagem da visão geral limitada a 760 px e com o espaço acima reduzido de 40 para 22 px: a seção passa a ler como bloco único |
+| 7 | `index` | **O buraco do Data-Froid tinha causa**: três cartões numa grade de dois deixavam um órfão sozinho na segunda linha. Grade corrigida para três colunas |
+
+### O defeito 7, e por que ele apareceu
+
+A grade virou `grid-2` na rodada 2, quando havia **quatro** cartões e o arranjo 2×2 era o
+certo. Na rodada 7 dois cartões redundantes viraram um, e a grade não acompanhou. É o mesmo
+padrão do `NAV_SECOES`: estrutura que depende de contagem e não é revista quando a contagem
+muda.
+
+### Verificação da rodada
+
+```
+paginas: 65 | ancoras: 91 | FALHAS: 0
+```
+
+### Defeitos abertos
+
+Nenhum na lista verificável. Segue pendente a frase do item 2 da rodada 5.
