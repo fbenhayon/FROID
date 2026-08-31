@@ -17,10 +17,11 @@
 var NAV_SECOES = {
   "index.html": [
     ["visao-geral", "Visão geral"],
-    ["transparencia", "Transparência"],
-    ["para-quem-e", "Para quem é"],
+    ["data-froid", "Data-Froid"],
     ["o-diferencial", "O diferencial"],
-    ["paciente", "Transparência · LGPD"]
+    ["para-quem-e", "Para quem é"],
+    ["paciente", "Portal do Paciente"],
+    ["transparencia", "Transparência"]
   ],
   "ciencia.html": [
     ["evidencia", "Explorador de evidências"],
@@ -56,10 +57,11 @@ var NAV_SECOES = {
     ["conformidade", "Conformidade"]
   ],
   "profissionais.html": [
-    ["sessao", "Na prática"],
-    ["financeiro", "Financeiro"],
-    ["relatorios", "Relatórios"],
-    ["equipe", "Colaboração"],
+    ["sessao", "Antes, durante e depois"],
+    ["financeiro", "Controle financeiro"],
+    ["relatorios", "Relatórios de pacientes"],
+    ["data-froid", "Data-Froid"],
+    ["equipe", "Compartilhamento entre profissionais"],
     ["seguranca-e-responsabilidade", "Segurança e responsabilidade"],
     ["proximo-passo", "Próximo passo"]
   ],
