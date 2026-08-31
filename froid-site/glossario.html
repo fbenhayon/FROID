@@ -59,14 +59,14 @@
   <div class="container">
     <p class="section-kicker" style="color:#93c5fd;">Glossário</p>
     <h1 style="font-size:2.1rem;">Os termos do FROID em linguagem clara</h1>
-    <p class="lead">Uma referência rápida para clínicos e curiosos técnicos. Onde um termo é ciência consolidada, dizemos; onde é framework proprietário FROID, também.</p>
+    <p class="lead">Uma referência rápida para clínicos, curiosos técnicos e quem opera o módulo psicossocial. Onde um termo é ciência consolidada, dizemos; onde é framework proprietário FROID, também.</p>
   </div>
 </section>
 
 <section class="block">
   <div class="container">
     <div class="gloss-controls">
-      <input type="text" id="glossSearch" class="gloss-search" placeholder="Buscar termo (ex.: IPM, MFCC, Action Unit)…" aria-label="Buscar termo no glossário" />
+      <input type="text" id="glossSearch" class="gloss-search" placeholder="Buscar termo (ex.: IPM, MFCC, AEP, piso de anonimato)…" aria-label="Buscar termo no glossário" />
     </div>
 
     <dl class="gloss-list" id="glossList">
@@ -94,6 +94,26 @@
       <div class="gloss-item"><span class="cat">Arquitetura</span><dt>Edge AI (Processamento de Borda)</dt><dd>O áudio e o vídeo são processados localmente, no computador do consultório, sem enviar arquivos biométricos brutos para a nuvem.</dd></div>
       <div class="gloss-item"><span class="cat">Privacidade</span><dt>k-anonymity (k ≥ 50)</dt><dd>Técnica que garante que cada registro anônimo seja indistinguível de pelo menos outros 49, tornando inviável reidentificar um paciente no Data-Froid.</dd></div>
       <div class="gloss-item"><span class="cat">Pesquisa</span><dt>Data-Froid Anônimo</dt><dd>Repositório de dados de sessão desidentificados usado para auditar viés e validar estatisticamente as heurísticas do FROID em larga escala.</dd></div>
+    
+      <div class="gloss-item"><span class="cat">Norma</span><dt>ISO 45003:2021</dt><dd>Primeira norma internacional dedicada à gestão de riscos psicossociais no trabalho. É norma de <strong>diretrizes</strong>, não de requisitos: orienta o que gerenciar dentro de um sistema baseado na ISO 45001, e não fornece instrumento de medição. Por ser diretriz, <strong>não comporta certificação acreditada</strong> — fornecedor que anuncia “certificação ISO 45003” está vendendo o que não existe.</dd></div>
+      <div class="gloss-item"><span class="cat">Norma</span><dt>ISO 45001:2018</dt><dd>Norma de requisitos para sistema de gestão de saúde e segurança do trabalho, essa sim certificável. A ISO 45003 é a camada psicossocial de um sistema baseado nela.</dd></div>
+      <div class="gloss-item"><span class="cat">Norma</span><dt>NR-1 — Norma Regulamentadora nº 1</dt><dd>Estabelece as disposições gerais e o Gerenciamento de Riscos Ocupacionais. A Portaria MTE nº 1.419/2024 incluiu expressamente os fatores de risco psicossociais no inventário de riscos; a vigência começou em 26 de maio de 2026.</dd></div>
+      <div class="gloss-item"><span class="cat">Norma</span><dt>NR-17 — Ergonomia</dt><dd>Norma da qual vêm a AEP e a AET. O item 17.3.2 lista as situações em que a AEP não basta e a AET passa a ser exigida.</dd></div>
+      <div class="gloss-item"><span class="cat">Documento</span><dt>GRO — Gerenciamento de Riscos Ocupacionais</dt><dd>O processo; o PGR é o programa que o documenta.</dd></div>
+      <div class="gloss-item"><span class="cat">Documento</span><dt>PGR — Programa de Gerenciamento de Riscos</dt><dd>Tem dois documentos mínimos no texto da norma — inventário de riscos e plano de ação — e o Manual do MTE relaciona o documento de critérios como igualmente exigível.</dd></div>
+      <div class="gloss-item"><span class="cat">Documento</span><dt>Inventário de riscos</dt><dd>Consolida os dados da identificação de perigos e das avaliações, com as nove informações mínimas do subitem 1.5.7.3.2. Guarda mínima de vinte anos.</dd></div>
+      <div class="gloss-item"><span class="cat">Documento</span><dt>Plano de ação</dt><dd>Cada medida com cronograma, responsável, forma de acompanhamento e forma de aferição — os quatro atributos exigidos, sem os quais o FROID não deixa concluir.</dd></div>
+      <div class="gloss-item"><span class="cat">Documento</span><dt>Documento de critérios do GRO</dt><dd>Registra sob qual régua o risco foi graduado. É o que quase toda empresa descobre tarde que falta — e o primeiro que uma perícia procura, porque critério escrito depois do resultado não vale.</dd></div>
+      <div class="gloss-item"><span class="cat">Método</span><dt>AEP — Avaliação Ergonômica Preliminar</dt><dd>Abordagem inicial de identificação de perigos e avaliação de riscos, prevista na NR-17. Obrigatória inclusive para empresas dispensadas do PGR, e não depende de piso de respondentes.</dd></div>
+      <div class="gloss-item"><span class="cat">Método</span><dt>AET — Análise Ergonômica do Trabalho</dt><dd>Análise aprofundada, exigida nas situações do item 17.3.2 da NR-17 — quando a AEP não é suficiente.</dd></div>
+      <div class="gloss-item"><span class="cat">Método</span><dt>Piso de anonimato</dt><dd>Quinze respostas substantivas na campanha e dez por recorte. São números absolutos: abaixo deles, saber a média do grupo é quase saber o que cada um respondeu. <strong>Nenhuma adesão adicional resolve</strong> — o piso olha o tamanho do grupo, não a taxa de resposta.</dd></div>
+      <div class="gloss-item"><span class="cat">Método</span><dt>Piso de representatividade</dt><dd>A coorte precisa falar pelo efetivo declarado: amostra para proporção com correção de população finita, a 95% de confiança e margem de 5 pontos. Diferente do piso de anonimato, <strong>este a adesão resolve</strong> — e o painel mostra quanto falta.</dd></div>
+      <div class="gloss-item"><span class="cat">Método</span><dt>Censo</dt><dd>Quando a amostra exigida passa de 80% do grupo, ela deixa de economizar respostas e alcança o quadro inteiro. É o que acontece abaixo de 98 pessoas — e aí uma única recusa suspende o recorte.</dd></div>
+      <div class="gloss-item"><span class="cat">Método</span><dt>Resposta substantiva</dt><dd>Só entra na contagem quem cobriu ao menos metade das dimensões do instrumento. Sem isso, clique vazio infla a adesão e o retrato vira ficção.</dd></div>
+      <div class="gloss-item"><span class="cat">Método</span><dt>Recorte declarado insuficiente</dt><dd>O recorte que não vence um dos pisos não some do relatório: entra no mesmo inventário nomeando o portão que barrou, o caminho de remédio, e afirmando expressamente que aquilo não significa ausência de risco. Suprimir é ocultar; declarar insuficiente é documentar.</dd></div>
+      <div class="gloss-item"><span class="cat">Método</span><dt>Eficácia da medida</dt><dd>Comparação de cada unidade contra a própria linha de base, no mesmo instrumento, antes e depois. A classificação usa o <strong>limite conservador do intervalo</strong> de confiança: só se afirma a magnitude que o intervalo inteiro sustenta. Melhora dentro do ruído é reportada como sem mudança.</dd></div>
+      <div class="gloss-item"><span class="cat">Privacidade</span><dt>Pseudônimo criptográfico da matrícula</dt><dd>A empresa fornece a matrícula; o sistema guarda um resumo criptográfico dela e o resumo do convite, <strong>nunca o par entre os dois</strong>. Não existe campo para nome de trabalhador.</dd></div>
+      <div class="gloss-item"><span class="cat">Privacidade</span><dt>Fronteira clínica</dt><dd>O empregador não acessa resposta individual, e isso não é configuração de permissão: as tabelas de resposta não têm política de leitura, e a única saída do banco é uma função de agregação que já aplicou os pisos.</dd></div>
     </dl>
     <p class="gloss-empty" id="glossEmpty">Nenhum termo encontrado. Tente outra palavra.</p>
   </div>
