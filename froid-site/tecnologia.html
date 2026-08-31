@@ -156,7 +156,32 @@ score  > 3.0 → VERMELHO</div>
   </div>
 </section>
 
-<section class="block" id="ipm-idm">
+<section class="block" id="data-froid-engenharia">
+  <div class="container">
+    <p class="section-kicker">Etapa 5 · O que valida a medida</p>
+    <h2 class="section-title">Por que este acervo não era possível, e o que mudou</h2>
+    <p class="section-lead">Os dois índices da próxima seção só deixam de ser heurística se houver massa contra a qual testá-los. Essa massa nunca existiu — e a razão é de engenharia, não de interesse.</p>
+
+    <div class="grid-2">
+      <div class="card">
+        <span class="badge badge-weak">O bloqueio</span>
+        <h3>O único caminho disponível era inaceitável</h3>
+        <p>Até pouco tempo atrás, estruturar em escala o que se passa <em>dentro</em> de uma sessão exigiria gravar e centralizar áudio e vídeo de milhares de atendimentos. É exatamente o que torna a empreitada inviável — ética, jurídica e clinicamente. <strong>O bloqueio nunca foi de vontade: era de engenharia.</strong></p>
+      </div>
+      <div class="card">
+        <span class="badge badge-strong">O que caiu</span>
+        <h3>O sinal é processado onde ele nasce</h3>
+        <p>A extração acústica roda no navegador do próprio profissional — FFT via Web Audio API, sem dependência de processamento de sinal no servidor. O rastreamento facial roda localmente, quadro a quadro. <strong>Para a base sobe o indicador, nunca a gravação.</strong> Escala e sigilo deixaram de ser incompatíveis, e é por isso que o acervo pode existir agora.</p>
+      </div>
+    </div>
+
+    <div class="disclaimer-box" style="margin-top:24px;">
+      <strong>É esta inversão que autoriza a seção seguinte.</strong> Sem uma base contra a qual comparar, o IPM e o IDM permaneceriam o que hoje declaramos que são: heurística de produto, qualificada e honesta, mas não medida validada. O que os transforma em medida é o acúmulo — e o acúmulo só é defensável se o sinal bruto nunca sair do equipamento de quem atende. Ver <a href="index.html#data-froid">o Data-Froid</a> e o enquadramento em <a href="ciencia.html#data-froid-ciencia">Ciência</a>.
+    </div>
+  </div>
+</section>
+
+<section class="block soft" id="ipm-idm">
   <div class="container">
     <p class="section-kicker">Etapa 5 · Framework proprietário</p>
     <h2 class="section-title">Os índices de síntese: IPM e IDM</h2>
@@ -197,7 +222,7 @@ M_fac(t) = 1.0 + 1.5 · [ AU12 · (1 − AU6) · Conf_apex ]   (teto = 2.5)</div
   </div>
 </section>
 
-<section class="block soft" id="estabilizacao">
+<section class="block" id="estabilizacao">
   <div class="container">
     <p class="section-kicker">Etapa 6 · Framework proprietário</p>
     <h2 class="section-title">Estabilização Clínica da Tela</h2>

@@ -25,6 +25,7 @@ var NAV_SECOES = {
   ],
   "ciencia.html": [
     ["evidencia", "Explorador de evidências"],
+    ["data-froid-ciencia", "O que o Data-Froid prova, e o que não"],
     ["bibliografia", "Metodologia de verificação"]
   ],
   "tecnologia.html": [
@@ -32,6 +33,7 @@ var NAV_SECOES = {
     ["extracao-acustica", "Extração acústica"],
     ["facs", "Dinâmica facial (FACS)"],
     ["zonas", "As 12 Zonas de Percepção"],
+    ["data-froid-engenharia", "Por que o acervo não era possível"],
     ["ipm-idm", "Os índices IPM e IDM"],
     ["estabilizacao", "Estabilização clínica da tela"]
   ],

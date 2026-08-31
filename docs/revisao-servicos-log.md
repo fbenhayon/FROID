@@ -302,3 +302,50 @@ paginas: 65 | ancoras: 90 | FALHAS: 0
 
 Nenhum na lista verificável. Segue pendente de decisão a proposta acima sobre o peso da
 seção, e a frase do item 2 da rodada 5. Escopo aberto inalterado.
+
+---
+
+## Rodada 7 — 31/08/2026
+
+**Escopo:** `index`, `ciencia`, `tecnologia` — divisão do Data-Froid por página.
+
+Proposta do Fábio, melhor que a minha: em vez de esconder o aprofundamento num painel,
+distribuir cada pedaço para a página cuja pergunta ele responde. Cada argumento passa a
+morar onde o leitor já está fazendo aquela pergunta.
+
+### A divisão
+
+| Página | O que recebeu | Por quê |
+|---|---|---|
+| `tecnologia#data-froid-engenharia` | O bloqueio e o que caiu: gravar e centralizar era o único caminho e é inaceitável; o sinal passou a ser processado onde nasce | Fica **acima de `#ipm-idm`**, porque é o que autoriza os dois índices a deixarem de ser heurística |
+| `ciencia#data-froid-ciencia` | O que a base permite provar — e o que ela **não** prova: volume não substitui desenho experimental, é observacional, sem controle, com viés de quem procura atendimento | É a página que separa ciência publicada de metodologia própria; o Data-Froid pertence hoje à segunda coluna |
+| `index#data-froid` | A constatação, a ambição e o que rende — com ponteiros para as outras duas | Continua a porta de entrada, sem carregar o argumento inteiro |
+
+### Redução obtida
+
+`index#data-froid` caiu de **782 para 607 palavras** e de quatro cartões para três. Dois
+diziam a mesma coisa — "O acervo" e "O retorno" ambos descreviam o que volta ao
+profissional — e viraram um. O cartão de validação passou a apontar para Ciência em vez de
+explicar.
+
+### O que a divisão trouxe de novo, e não existia
+
+A seção de Ciência obrigou a escrever o que **nenhuma das versões anteriores dizia**: que
+uma base grande não é ensaio clínico. É observacional, não estabelece causalidade, não tem
+grupo de controle, e carrega o viés de quem procura atendimento e de quem escolhe esta
+ferramenta. O que ela oferece é evidência de convergência e hipótese qualificada — o insumo
+de uma validação, não a validação.
+
+Sem essa ressalva, a promessa de "validar o IPM e o IDM" seria maior do que o método
+sustenta. A divisão por página forçou a precisão que o texto único escondia.
+
+### Verificação da rodada
+
+```
+paginas: 65 | ancoras de menu: 92 | FALHAS: 0
+```
+
+### Defeitos abertos
+
+Nenhum na lista verificável. A proposta do painel *Só para Nerds* foi **superada** por esta
+divisão e sai da lista. Segue pendente a frase do item 2 da rodada 5.
