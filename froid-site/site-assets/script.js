@@ -18,8 +18,8 @@ var NAV_SECOES = {
   "index.html": [
     ["visao-geral", "Visão geral"],
     ["data-froid", "Data-Froid"],
-    ["o-diferencial", "O diferencial"],
     ["para-quem-e", "Para quem é"],
+    ["o-diferencial", "O diferencial"],
     ["paciente", "Portal do Paciente"],
     ["transparencia", "Transparência"]
   ],

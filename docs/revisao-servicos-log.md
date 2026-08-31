@@ -250,3 +250,55 @@ paginas: 65 | ancoras: 90 | FALHAS: 0
 ### Defeitos abertos
 
 Um item pendente de confirmação: a frase do item 2 acima. Escopo aberto inalterado.
+
+---
+
+## Rodada 6 — 31/08/2026
+
+**Escopo:** ordem das seções de `index`.
+
+O Fábio pediu o Data-Froid como segundo item. **Já estava** — desde a rodada 2. A leitura
+dele era do site publicado, ainda sem o pull.
+
+### O achado real: peso, não ordem
+
+| Seção | Palavras |
+|---|---:|
+| visão-geral | 391 |
+| **data-froid** | **782** |
+| o-diferencial | 124 |
+| para-quem-é | 163 |
+| paciente | 242 |
+| transparência | 206 |
+
+O Data-Froid tem o dobro da maior e seis vezes a menor. Cresceu assim em quatro rodadas
+seguidas — cada acréscimo defensável, o conjunto desproporcional. O efeito aparece na
+transição: 782 palavras de acervo e filosofia seguidas de 124 sobre o Explica.
+
+### O que mudou
+
+ (163 palavras) subiu para logo depois do Data-Froid. É curta, aterrissa o
+leitor depois do bloco longo, e responde a pergunta que ele carrega desde o começo. O
+Explica vem em seguida, com o leitor já situado. Ritmo: longo → curto → curto.
+
+Ordem final: visão-geral · data-froid · para-quem-é · o-diferencial · paciente ·
+transparência.
+
+### Proposta pendente de decisão
+
+O peso do Data-Froid continua desproporcional. **Não removi nada** — a decisão é do Fábio.
+A saída que preserva todo o conteúdo é a convenção que o próprio site já usa: deixar visíveis
+a constatação, a causa e o que se constrói, e mover o aprofundamento — o parágrafo da
+engenharia e o detalhe do processamento local — para um painel *Só para Nerds*. Nada se
+perde e a página recupera equilíbrio.
+
+### Verificação
+
+```
+paginas: 65 | ancoras: 90 | FALHAS: 0
+```
+
+### Defeitos abertos
+
+Nenhum na lista verificável. Segue pendente de decisão a proposta acima sobre o peso da
+seção, e a frase do item 2 da rodada 5. Escopo aberto inalterado.
