@@ -35,12 +35,11 @@
   /* A frase que fecha a visao. Isolada do paragrafo de proposito: ela e a
      conclusao, e lida em bloco corrido some no meio das outras. */
   .hero-quote__lede { font-style:italic; color:#93c5fd; font-size:1.02rem; margin:0 0 14px; }
-  .hero-quote__fecho { font-family:var(--font-serif); font-size:clamp(1.1rem,2.4vw,1.45rem);
-                       line-height:1.4; color:#f8fafc; margin:18px 0 0;
-                       border-top:1px solid rgba(147,197,253,0.28); padding-top:16px; text-wrap:balance; }
-  /* Os atalhos saem do hero para nao competir com a visao, e viram faixa
-     entre o hero e o primeiro bloco. */
-  .faixa-atalhos { background:rgba(15,23,42,0.55); border-bottom:1px solid var(--border); padding:18px 0; }
+  /* Caixa ambar da casa, a mesma do disclaimer-box, com a serifada do hero. */
+  .hero-quote__fecho { font-family:var(--font-serif); font-size:clamp(1.08rem,2.3vw,1.4rem);
+                       line-height:1.45; text-wrap:balance; margin:22px auto 0; max-width:44rem;
+                       background:#451a03; border:1px solid #92400e; border-radius:var(--radius);
+                       color:#fde68a; padding:20px 26px; }
 </style>
 </head>
 <body>
@@ -88,15 +87,6 @@
 
   <div class="hero-neuro__scroll">role para explorar</div>
 </section>
-
-<div class="faixa-atalhos">
-  <div class="container hero-actions" style="justify-content:center; margin:0;">
-    <a class="btn btn-solid" href="demonstracao.html">Ver demonstração</a>
-    <a class="btn btn-ghost" href="tecnologia.html">Como funciona</a>
-    <a class="btn btn-ghost" href="ciencia.html">Ver a base científica</a>
-    <a class="btn btn-ghost" href="#data-froid">O Data-Froid</a>
-  </div>
-</div>
 
 <section class="block" id="visao-geral">
   <div class="container">
@@ -319,6 +309,25 @@ subharmonic_energy_5_12hz, energy_85_165hz, dna_facial_multiplier</div>
         <p>A estrutura de 12 zonas mapeadas a notas da escala cromática é uma transposição inspirada em tecnologia comercial de biofeedback de voz, adaptada pela equipe FROID como interface de visualização — não é neurociência publicada.</p>
         <div class="ref">Ver bibliografia completa em <a href="ciencia.html">Ciência</a>.</div>
       </div>
+    </div>
+  </div>
+</section>
+
+
+<section class="block" id="explore">
+  <div class="container">
+    <p class="section-kicker">Por onde seguir</p>
+    <h2 class="section-title">Quatro caminhos, conforme a sua pergunta</h2>
+    <p class="section-lead">Esta página apresenta o FROID Psique. Cada um dos caminhos abaixo responde a uma pergunta diferente sobre ele — e o último é o que temos de mais ambicioso.</p>
+    <div class="hero-actions" style="justify-content:center; margin-top:24px;">
+      <a class="btn btn-solid" href="demonstracao.html">Ver demonstração</a>
+      <a class="btn btn-ghost" href="tecnologia.html">Como funciona</a>
+      <a class="btn btn-ghost" href="ciencia.html">Ver a base científica</a>
+      <a class="btn btn-amber" href="#data-froid">O Data-Froid</a>
+    </div>
+    <div class="hero-actions" style="justify-content:center; margin-top:14px;">
+      <a class="btn btn-ghost" href="profissionais.html">Sou profissional de saúde</a>
+      <a class="btn btn-ghost" href="iso-45003.html">Represento uma empresa</a>
     </div>
   </div>
 </section>

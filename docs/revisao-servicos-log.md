@@ -382,3 +382,38 @@ paginas: 65 | ancoras: 91 | FALHAS: 0
 ### Defeitos abertos
 
 Nenhum na lista verificável. Segue pendente a frase do item 2 da rodada 5.
+
+---
+
+## Rodada 9 — 31/08/2026
+
+**Escopo:** `index` — a citação em caixa âmbar e o destino dos atalhos.
+
+### O que mudou
+
+**A citação de fecho foi para a caixa âmbar da casa** — mesma paleta do `disclaimer-box`
+(`#451a03` sobre borda `#92400e`, texto `#fde68a`), com a serifada do hero preservada. É o
+padrão que o site já usa para o que precisa ser lido devagar.
+
+**Os atalhos viraram o fecho da página, e isso corrigiu uma lacuna** que nenhuma das
+rodadas anteriores tinha notado: `index.html` **não tinha seção de encerramento**. Ela
+terminava na ressalva de transparência — o parágrafo mais cauteloso do site — e não dizia
+para onde ir. Todas as outras páginas de descritivo têm `#proximo-passo`; a principal não
+tinha.
+
+A seção `#explore` acrescenta ainda dois caminhos que não existiam em lugar nenhum da
+página: *sou profissional de saúde* e *represento uma empresa*. Quem chega pela index e é
+comprador corporativo não tinha nenhuma porta para o outro produto.
+
+**O Data-Froid ganhou o botão âmbar** entre os quatro, para não competir em igualdade com
+os demais — é o que o Fábio identifica como o de maior alcance.
+
+### Verificação da rodada
+
+```
+paginas: 65 | ancoras: 92 | FALHAS: 0
+```
+
+### Defeitos abertos
+
+Nenhum na lista verificável. Segue pendente a frase do item 2 da rodada 5.

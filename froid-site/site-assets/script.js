@@ -21,7 +21,8 @@ var NAV_SECOES = {
     ["para-quem-e", "Para quem é"],
     ["o-diferencial", "O diferencial"],
     ["paciente", "Portal do Paciente"],
-    ["transparencia", "Transparência"]
+    ["transparencia", "Transparência"],
+    ["explore", "Por onde seguir"]
   ],
   "ciencia.html": [
     ["evidencia", "Explorador de evidências"],
