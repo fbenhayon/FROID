@@ -29,6 +29,18 @@
   .literal p:last-of-type { margin-bottom:0; }
   .literal .fonte { display:block; font-style:normal; font-size:0.78rem; color:#64748b; margin-top:12px; border-top:1px dashed #2a3a5c; padding-top:9px; }
 
+  /* Indice da pagina. Duplicado de empresas.html de proposito: sao sete linhas
+     de layout, sem numero de negocio dentro, e mover para o style.css
+     compartilhado obrigaria a virar o ?v= das 65 paginas. */
+  .indice { padding:6px 22px; }
+  .indice-linha { display:flex; gap:16px; align-items:flex-start; padding:16px 0; border-bottom:1px solid #1e2a44; }
+  .indice-linha:last-child { border-bottom:none; }
+  .indice-num { flex:none; width:26px; height:26px; border-radius:50%; background:var(--froid-azul); color:#0b1220;
+                font-weight:800; font-size:0.82rem; display:flex; align-items:center; justify-content:center; margin-top:2px; }
+  .indice-linha strong { color:#f8fafc; }
+  .indice-linha > div { font-size:0.92rem; color:var(--froid-cinza); }
+  .indice-linha p { margin:6px 0 0; font-size:0.86rem; }
+
   .crono { border-left:2px solid #1e2a44; margin:20px 0 0; padding:0 0 0 22px; list-style:none; }
   .crono li { position:relative; padding:0 0 18px; }
   .crono li::before { content:""; position:absolute; left:-28px; top:5px; width:10px; height:10px; border-radius:50%; background:var(--froid-azul); }
@@ -95,7 +107,59 @@
 </div>
 </section>
 
-<section class="block" id="o-que-e">
+<section class="block" id="indice">
+  <div class="container">
+    <p class="section-kicker">Como esta página está organizada</p>
+    <h2 class="section-title">Seis leituras, nesta ordem</h2>
+    <p class="section-lead">O argumento é encadeado: cada seção depende da anterior. Mas se o seu tempo é curto, a terceira é a que decide.</p>
+    <div class="card indice">
+      <div class="indice-linha">
+        <span class="indice-num">1</span>
+        <div>
+          <strong><a href="#o-que-e">O que a ISO 45003 é, com precisão</a></strong>
+          <p>A norma citada corretamente — diretriz dentro de um sistema ISO 45001 — e as duas limitações que definem o espaço: não é certificável, e não é instrumento de avaliação.</p>
+        </div>
+      </div>
+      <div class="indice-linha">
+        <span class="indice-num">2</span>
+        <div>
+          <strong><a href="#lastro">O critério que decide numa perícia</a></strong>
+          <p>O Guia do Ministério do Trabalho e Emprego cita a ISO 45003 e escreve o critério para aceitar uma ferramenta: lastro de instituição nacional ou internacional. Citações literais.</p>
+        </div>
+      </div>
+      <div class="indice-linha">
+        <span class="indice-num">3</span>
+        <div>
+          <strong><a href="#documental">Dever de conduta × dever documental</a></strong>
+          <p>Por que o método endureceu no Brasil, e por que isso importa fora dele. Com a cronologia global desde 1986, quando OIT e OMS nomearam o campo.</p>
+        </div>
+      </div>
+      <div class="indice-linha">
+        <span class="indice-num">4</span>
+        <div>
+          <strong><a href="#ja-tem-45001">Se a sua empresa já tem ISO 45001</a></strong>
+          <p>O custo de troca de framework é zero: a 45003 é, por definição da ISO, a camada psicossocial de um sistema que a companhia já opera certificado.</p>
+        </div>
+      </div>
+      <div class="indice-linha">
+        <span class="indice-num">5</span>
+        <div>
+          <strong><a href="#limites">O que não afirmamos</a></strong>
+          <p>Não somos certificados pela ISO — e ninguém é, nesta norma. Questionário isolado não comprova gestão. E os documentos gerados seguem a estrutura brasileira.</p>
+        </div>
+      </div>
+      <div class="indice-linha">
+        <span class="indice-num">6</span>
+        <div>
+          <strong><a href="#proximo">Comece por uma unidade</a></strong>
+          <p>Um endereço, critérios documentados desde o primeiro dia. Se o método se sustenta ali, escala; se não, você descobriu barato.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block soft" id="o-que-e">
   <div class="container">
     <p class="section-kicker">O referencial</p>
     <h2 class="section-title">O que a ISO 45003 é, com precisão</h2>
@@ -124,7 +188,7 @@
   </div>
 </section>
 
-<section class="block soft" id="lastro">
+<section class="block" id="lastro">
   <div class="container">
     <p class="section-kicker">O argumento que decide</p>
     <h2 class="section-title">O próprio regulador brasileiro aponta para a ISO — e escreve o critério para aceitar uma ferramenta</h2>
@@ -151,7 +215,7 @@
   </div>
 </section>
 
-<section class="block" id="documental">
+<section class="block soft" id="documental">
   <div class="container">
     <p class="section-kicker">Por que o método endureceu no Brasil</p>
     <h2 class="section-title">O Brasil não foi a primeira jurisdição a exigir. Foi a que tornou documental.</h2>
@@ -222,7 +286,7 @@
   </div>
 </section>
 
-<section class="block soft" id="ja-tem-45001">
+<section class="block" id="ja-tem-45001">
   <div class="container">
     <p class="section-kicker">Para quem já tem sistema de gestão</p>
     <h2 class="section-title">Não pedimos que você adote um framework novo</h2>
@@ -252,7 +316,7 @@
   </div>
 </section>
 
-<section class="block" id="limites">
+<section class="block soft" id="limites">
   <div class="container">
     <p class="section-kicker">Limites</p>
     <h2 class="section-title">O que não afirmamos</h2>
@@ -265,7 +329,7 @@
   </div>
 </section>
 
-<section class="block soft" id="proximo">
+<section class="block" id="proximo">
   <div class="container">
     <p class="section-kicker">Próximo passo</p>
     <h2 class="section-title">Comece por uma unidade</h2>
