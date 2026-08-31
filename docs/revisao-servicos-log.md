@@ -146,3 +146,60 @@ paginas: 65 | ancoras de menu: 90 | FALHAS: 0
 
 Nenhum na lista verificável. Escopo aberto inalterado: `profissionais` (relatórios e área
 do paciente), `seguranca` e `etica`, espelhos `en/es/fr`.
+
+---
+
+## Rodada 4 — 31/08/2026
+
+**Escopo:** `index` e `profissionais` — o destravamento técnico e o repertório.
+
+Pedido do Fábio: dizer que a estruturação em escala não era possível por falta de recursos
+tecnológicos, e que o FROID oferece ao profissional recursos extras — caminhos e opções
+vindos de milhares de sessões, percepção de padrões, novas possibilidades de abordagem.
+
+### O argumento que fechou o raciocínio
+
+A rodada 3 dizia que o acervo não existia, e por quê em termos gerais. Faltava a causa
+técnica, e ela é o melhor argumento dos três:
+
+Até pouco tempo atrás, estruturar isso em escala exigiria **gravar e centralizar** áudio e
+vídeo de milhares de atendimentos — precisamente o que torna a empreitada inaceitável,
+ética e juridicamente. **O bloqueio nunca foi de interesse; foi de arquitetura.** O que
+mudou é o processamento não precisar mais viajar: a extração acústica roda no navegador do
+profissional, o rastreamento facial roda localmente, e para a base sobe o indicador, nunca
+o sinal bruto.
+
+É essa inversão que torna escala e sigilo compatíveis pela primeira vez. Sem ela, a
+ambição do Data-Froid seria a mesma que qualquer um poderia declarar — e ninguém poderia
+cumprir sem violar o paciente.
+
+### O que mudou
+
+| # | Página | Mudança |
+|---|---|---|
+| 14 | `index` | A causa técnica do vazio: gravar e centralizar era o único caminho, e é inaceitável. O processamento local removeu o bloqueio |
+| 15 | `index` | O cartão do acervo passa a dizer o que volta ao profissional: padrões que consultório isolado não tem massa para enxergar |
+| 16 | `profissionais` | O mesmo argumento na voz de quem atende, com a ressalva "você sabe disso melhor que ninguém" |
+| 17 | `profissionais` | Cartão novo — repertório, não prescrição. A decisão clínica continua inteira com o profissional; o que muda é o tamanho do repertório de onde ela sai |
+
+### Ressalva mantida em ambas as páginas
+
+O FROID **não decide conduta**. O acervo devolve opção posta na mesa, nunca recomendação.
+É a fronteira que separa apoio à decisão de substituição do julgamento clínico, e ela
+precisa aparecer no mesmo parágrafo em que se promete repertório.
+
+### Origem das afirmações
+
+`index.html`, painel técnico: *"FFT executada no navegador via Web Audio API (não há
+dependência de DSP no backend)"* e *"Vídeo processado localmente a 30+ FPS para os 468
+pontos faciais"*. O processamento local é fato declarado do produto, não promessa nova.
+
+### Verificação da rodada
+
+```
+paginas: 65 | ancoras de menu: 90 | FALHAS: 0
+```
+
+### Defeitos abertos
+
+Nenhum na lista verificável. Escopo aberto inalterado.
