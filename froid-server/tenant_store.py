@@ -520,7 +520,7 @@ class TenantStore:
                     """
                     UPDATE organization_memberships
                     SET status = %s,
-                        revoked_at = CASE WHEN %s = 'revoked' THEN now() ELSE NULL END,
+                        revoked_at = CASE WHEN %s::text = 'revoked' THEN now() ELSE NULL END,
                         updated_at = now()
                     WHERE id = %s
                     """,
@@ -559,8 +559,8 @@ class TenantStore:
                       ON membership.user_id = user_account.id
                     LEFT JOIN organizations organization
                       ON organization.id = membership.organization_id
-                    WHERE (%s = '' OR lower(user_account.email) = %s)
-                      AND (%s = '' OR organization.id::text = %s)
+                    WHERE (%s::text = '' OR lower(user_account.email) = %s::text)
+                      AND (%s::text = '' OR organization.id::text = %s::text)
                     ORDER BY user_account.email, organization.display_name
                     """,
                     (alvo, alvo, organizacao, organizacao),

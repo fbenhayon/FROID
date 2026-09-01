@@ -39,6 +39,26 @@ type Resultado = {
   usuarios_afetados?: number;
 };
 
+/** Lê a resposta sem presumir JSON.
+ *
+ *  Um 500 do servidor devolve "Internal Server Error" em texto puro. Chamar
+ *  `.json()` nele produz "Unexpected token 'I'", que esconde o erro de verdade
+ *  e manda o operador caçar o problema no lugar errado. */
+async function lerResposta(resposta: Response): Promise<{ ok: boolean; dados: any; motivo: string }> {
+  const bruto = await resposta.text();
+  let dados: any = null;
+  try {
+    dados = bruto ? JSON.parse(bruto) : null;
+  } catch {
+    dados = null;
+  }
+  if (resposta.ok) return { ok: true, dados, motivo: "" };
+  const motivo =
+    (dados && (dados.detail || dados.message)) ||
+    (bruto ? bruto.slice(0, 300) : `erro ${resposta.status}`);
+  return { ok: false, dados, motivo: `${resposta.status} — ${motivo}` };
+}
+
 const cabecalhos = () => ({
   "Content-Type": "application/json",
   Authorization: `Bearer ${window.localStorage.getItem("froid_token") || ""}`,
@@ -80,10 +100,10 @@ export const ControleDeAcesso: React.FC = () => {
       const resposta = await fetch(apiUrl(`/api/admin/access?${parametro}`), {
         headers: cabecalhos(),
       });
-      const corpo = await resposta.json();
-      if (!resposta.ok) throw new Error(corpo?.detail || "consulta falhou");
-      setLinhas(corpo.linhas || []);
-      if (!(corpo.linhas || []).length) setAviso("Nada encontrado para este alvo.");
+      const { ok, dados, motivo } = await lerResposta(resposta);
+      if (!ok) throw new Error(motivo);
+      setLinhas(dados?.linhas || []);
+      if (!(dados?.linhas || []).length) setAviso("Nada encontrado para este alvo.");
     } catch (e) {
       setErro(String((e as Error).message));
       setLinhas(null);
@@ -107,10 +127,9 @@ export const ControleDeAcesso: React.FC = () => {
         headers: cabecalhos(),
         body: JSON.stringify(corpo),
       });
-      const dados: Resultado = await resposta.json();
-      if (!resposta.ok) {
-        throw new Error((dados as { detail?: string })?.detail || "operação falhou");
-      }
+      const { ok, dados: retorno, motivo } = await lerResposta(resposta);
+      if (!ok) throw new Error(motivo);
+      const dados: Resultado = retorno || {};
       const alvos = dados.atingidos ?? 0;
       setAviso(
         `Feito: ${dados.anterior} → ${dados.atual}. ` +
@@ -209,8 +228,9 @@ export const ControleDeAcesso: React.FC = () => {
                           )
                         }
                         className="rounded border border-amber-700 bg-amber-950 px-3 py-1.5 text-[11px] font-black text-amber-100 hover:bg-amber-900"
+                       title="Estado atual do vínculo: ativo"
                       >
-                        Revogar este vínculo
+                        Ativo · revogar este vínculo
                       </button>
                     ) : (
                       <button
@@ -227,8 +247,9 @@ export const ControleDeAcesso: React.FC = () => {
                           )
                         }
                         className="rounded border border-emerald-700 bg-emerald-950 px-3 py-1.5 text-[11px] font-black text-emerald-100 hover:bg-emerald-900"
+                       title="Estado atual do vínculo: sem acesso"
                       >
-                        Restaurar este vínculo
+                        {linha.vinculo_status === "revoked" ? "Revogado" : linha.vinculo_status} · restaurar
                       </button>
                     )}
 
@@ -245,8 +266,9 @@ export const ControleDeAcesso: React.FC = () => {
                           )
                         }
                         className="rounded border border-slate-700 px-3 py-1.5 text-[11px] font-black text-slate-300 hover:bg-slate-800"
+                       title="Estado atual da organização: ativa"
                       >
-                        Suspender a organização
+                        Ativa · suspender a organização
                       </button>
                     ) : (
                       <button
@@ -259,8 +281,9 @@ export const ControleDeAcesso: React.FC = () => {
                           )
                         }
                         className="rounded border border-emerald-700 bg-emerald-950 px-3 py-1.5 text-[11px] font-black text-emerald-100 hover:bg-emerald-900"
+                       title="Estado atual da organização: sem acesso"
                       >
-                        Reativar a organização
+                        {linha.organizacao_status === "suspended" ? "Suspensa" : linha.organizacao_status} · reativar
                       </button>
                     )}
                   </div>
@@ -297,8 +320,9 @@ export const ControleDeAcesso: React.FC = () => {
                     )
                   }
                   className="rounded border border-red-800 bg-red-950 px-3 py-1.5 text-[11px] font-black text-red-100 hover:bg-red-900"
+                 title="Estado atual da conta: ativa"
                 >
-                  Desabilitar a conta
+                  Ativa · desabilitar a conta
                 </button>
               ) : (
                 <button
@@ -311,8 +335,9 @@ export const ControleDeAcesso: React.FC = () => {
                     )
                   }
                   className="rounded border border-emerald-700 bg-emerald-950 px-3 py-1.5 text-[11px] font-black text-emerald-100 hover:bg-emerald-900"
+                 title="Estado atual da conta: desabilitada"
                 >
-                  Reabilitar a conta
+                  Desabilitada · reabilitar
                 </button>
               )}
             </div>
