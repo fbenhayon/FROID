@@ -424,6 +424,7 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
                 <tr className="text-[10px] uppercase tracking-wide text-slate-500">
                   <th className="border-b border-slate-800 px-3 py-2 text-left font-black">Paciente</th>
                   <th className="border-b border-slate-800 px-3 py-2 text-left font-black">Contato</th>
+                  <th className="border-b border-slate-800 px-3 py-2 text-left font-black">Atendido por</th>
                   <th className="border-b border-slate-800 px-3 py-2 text-right font-black">Sessões</th>
                 </tr>
               </thead>
@@ -439,6 +440,17 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
                   <td className="px-3 py-2 text-slate-500">
                     {patient.email || patient.phone || patient.id}
                   </td>
+                  {/* Um paciente pode ser atendido por mais de um profissional:
+                      encaminhamento, segunda opinião, troca de terapeuta. */}
+                  <td className="px-3 py-2 text-slate-300">
+                    {(patient.professionals || []).length === 0 ? (
+                      <span className="text-slate-600">—</span>
+                    ) : (
+                      (patient.professionals || [])
+                        .map((p: any) => p.name || p.email)
+                        .join(" · ")
+                    )}
+                  </td>
                   <td className="px-3 py-2 text-right font-bold tabular-nums text-cyan-200">
                     {patient.sessions_count}
                   </td>
@@ -446,7 +458,7 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
               ))}
               {visiblePatients.length === 0 && (
                 <tr>
-                  <td colSpan={3} className="py-6 text-center text-xs text-slate-500">
+                  <td colSpan={4} className="py-6 text-center text-xs text-slate-500">
                     {patients.length === 0
                       ? "Nenhum paciente cadastrado ainda."
                       : "Nenhum paciente encontrado para esta busca."}

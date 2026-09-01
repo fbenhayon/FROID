@@ -6768,6 +6768,28 @@ async def admin_overview(request: Request):
             for report in reports
             if str((report.get("patient") or {}).get("id") or report.get("patientId") or "") == str(patient_id)
         ]
+        # Quem atende este paciente, deduzido dos relatorios que existem sobre
+        # ele. Um paciente pode ser atendido por mais de um profissional --
+        # encaminhamento, segunda opiniao, troca de terapeuta -- e a lista
+        # administrativa nao mostrava nenhum deles.
+        atendentes = []
+        for email_atendente in sorted(
+            {
+                _report_owner_email(report)
+                for report in patient_reports
+                if _report_owner_email(report)
+            }
+        ):
+            perfil = PROFESSIONAL_PROFILES.get(email_atendente) or {}
+            atendentes.append(
+                {
+                    "email": email_atendente,
+                    "name": perfil.get("owner_name")
+                    or perfil.get("organization_name")
+                    or email_atendente,
+                }
+            )
+
         patient_rows.append(
             {
                 "id": patient_id,
@@ -6775,6 +6797,7 @@ async def admin_overview(request: Request):
                 "email": patient.get("email") or "",
                 "phone": patient.get("phone") or "",
                 "sessions_count": len(patient_reports),
+                "professionals": atendentes,
                 "created_at": patient.get("created_at") or "",
                 "updated_at": patient.get("updated_at") or "",
             }
