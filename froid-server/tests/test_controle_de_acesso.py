@@ -105,6 +105,33 @@ class TestMensagemEFalsosPositivos:
         assert "except Exception" in corpo
         assert corpo.index("except Exception") < corpo.index("if revogado")
 
+    def test_contexto_sintetico_nao_conta_como_acesso(self):
+        """O defeito que passou pelo teste anterior e apareceu no uso real.
+
+        `_tenant_contexts_for_email` fabrica um `_legacy_tenant_context` quando
+        o banco nao devolve contexto nenhum -- que e exatamente o estado de uma
+        conta com todos os vinculos revogados. A primeira versao da guarda
+        checava so se a lista estava vazia, entao via a organizacao sintetica e
+        liberava. A conta revogada entrava, e caia num painel sem permissao
+        para nada.
+
+        A guarda tem de olhar se ha contexto REAL, e o sintetico se identifica
+        sozinho com `legacy_fallback`.
+        """
+        corpo = trecho(MAIN, "def _guard_acesso_revogado", "def _issue_session")
+        assert "legacy_fallback" in corpo
+        assert 'contexto.get("legacy_fallback")' in corpo
+
+    def test_a_guarda_nao_confia_na_lista_estar_cheia(self):
+        corpo = trecho(MAIN, "def _guard_acesso_revogado", "def _issue_session")
+        # A checagem ingenua -- lista nao vazia libera -- e o que deixou passar.
+        ingenua = 'if session_user.get("organizations"):' + chr(10) + "        return"
+        assert ingenua not in corpo
+
+    def test_o_fallback_legacy_se_identifica(self):
+        corpo = trecho(MAIN, "def _legacy_tenant_context", "def _tenant_contexts_for_email")
+        assert '"legacy_fallback": True' in corpo
+
     def test_administrador_nao_se_tranca_para_fora(self):
         corpo = trecho(MAIN, "def admin_set_user_access", "@app.post")
         assert "email == ator" in corpo

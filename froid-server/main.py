@@ -5860,9 +5860,26 @@ def _guard_acesso_revogado(session_user: dict) -> None:
     autenticava normalmente e caía numa tela sem organização alguma, que ela
     leria como defeito do sistema e não como decisão de quem opera.
     """
-    if session_user.get("organizations"):
-        return
     if not TENANT_STORE.enabled:
+        return
+    # Lista de organizacoes nao basta como prova de acesso, e foi assim que a
+    # primeira versao desta guarda deixou passar uma conta revogada.
+    #
+    # `_tenant_contexts_for_email` FABRICA um contexto quando o banco nao
+    # devolve nenhum -- o `_legacy_tenant_context`, criado por compatibilidade
+    # com contas anteriores a migracao multi-tenant. E banco sem contexto e
+    # exatamente o que uma revogacao produz. Resultado: revogar todos os
+    # vinculos fazia aparecer uma organizacao sintetica, a guarda via lista
+    # cheia e liberava, e a pessoa entrava num painel sem permissao para nada.
+    #
+    # Entao o que libera e contexto REAL, vindo do banco. O sintetico se
+    # identifica sozinho com `legacy_fallback`.
+    reais = [
+        contexto
+        for contexto in (session_user.get("organizations") or [])
+        if isinstance(contexto, dict) and not contexto.get("legacy_fallback")
+    ]
+    if reais:
         return
     try:
         revogado = TENANT_STORE.access_was_revoked(session_user.get("email") or "")
