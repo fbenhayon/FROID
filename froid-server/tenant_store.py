@@ -377,6 +377,208 @@ class TenantStore:
                 row = cursor.fetchone()
         return str((row or [""])[0] or "")
 
+    # ------------------------------------------------------------------
+    # Controle administrativo de acesso.
+    #
+    # Tres alavancas, e a escolha entre elas importa:
+    #
+    #   usuario     -> a PESSOA perde acesso a tudo. Para quem saiu da empresa,
+    #                  ou conta comprometida.
+    #   organizacao -> a EMPRESA inteira e suspensa, com todos os usuarios dela.
+    #                  E a alavanca da inadimplencia.
+    #   vinculo     -> a pessoa perde acesso AQUELA organizacao e mantem as
+    #                  demais. Para retirar acesso de teste, ou tirar alguem de
+    #                  um cliente sem tira-lo dos outros.
+    #
+    # Toda operacao atinge UMA linha, e isso e verificado e nao presumido. O
+    # esquema ja garante unicidade -- indice unico em lower(email), chave
+    # primaria da organizacao, UNIQUE(organization_id, user_id) no vinculo -- e
+    # ainda assim conferimos o rowcount. Operacao administrativa que atinge dois
+    # alvos por engano e pior que operacao que falha, porque ninguem procura o
+    # segundo alvo.
+    # ------------------------------------------------------------------
+
+    ESTADOS_USUARIO = ("active", "invited", "disabled")
+    ESTADOS_ORGANIZACAO = ("active", "suspended", "archived")
+    ESTADOS_VINCULO = ("active", "invited", "suspended", "revoked")
+
+    def _um_alvo_apenas(self, cursor) -> None:
+        if cursor.rowcount > 1:
+            raise RuntimeError(
+                "operacao administrativa atingiria %d registros; abortada"
+                % cursor.rowcount
+            )
+
+    def set_user_status(self, email: str, status: str, *, ator: str = "") -> dict:
+        """Desabilita ou reabilita UMA pessoa. Nada e apagado."""
+        if status not in self.ESTADOS_USUARIO:
+            raise ValueError("estado de usuario invalido: %s" % status)
+        alvo = normalize_email(email)
+        if not self.enabled or not alvo:
+            return {"encontrado": False}
+        with self._connect() as connection:
+            self.ensure_schema(connection)
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT id, status FROM users WHERE lower(email) = %s",
+                    (alvo,),
+                )
+                row = cursor.fetchone()
+                if not row:
+                    return {"encontrado": False}
+                anterior = str(row[1])
+                cursor.execute(
+                    "UPDATE users SET status = %s, updated_at = now() WHERE id = %s",
+                    (status, row[0]),
+                )
+                self._um_alvo_apenas(cursor)
+                connection.commit()
+        return {
+            "encontrado": True,
+            "alvo": alvo,
+            "anterior": anterior,
+            "atual": status,
+            "atingidos": 1,
+            "ator": normalize_email(ator),
+        }
+
+    def set_organization_status(
+        self, organization_id: str, status: str, *, ator: str = ""
+    ) -> dict:
+        """Suspende ou reativa UMA organizacao, com todos os usuarios dela."""
+        if status not in self.ESTADOS_ORGANIZACAO:
+            raise ValueError("estado de organizacao invalido: %s" % status)
+        if not self.enabled or not organization_id:
+            return {"encontrado": False}
+        with self._connect() as connection:
+            self.ensure_schema(connection)
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT id, display_name, status FROM organizations WHERE id = %s",
+                    (str(organization_id),),
+                )
+                row = cursor.fetchone()
+                if not row:
+                    return {"encontrado": False}
+                anterior = str(row[2])
+                cursor.execute(
+                    "UPDATE organizations SET status = %s, updated_at = now() WHERE id = %s",
+                    (status, row[0]),
+                )
+                self._um_alvo_apenas(cursor)
+                cursor.execute(
+                    "SELECT count(*) FROM organization_memberships "
+                    "WHERE organization_id = %s AND status = 'active'",
+                    (row[0],),
+                )
+                afetados = int((cursor.fetchone() or [0])[0] or 0)
+                connection.commit()
+        return {
+            "encontrado": True,
+            "alvo": str(organization_id),
+            "nome": row[1],
+            "anterior": anterior,
+            "atual": status,
+            "atingidos": 1,
+            "usuarios_afetados": afetados,
+            "ator": normalize_email(ator),
+        }
+
+    def set_membership_status(
+        self, email: str, organization_id: str, status: str, *, ator: str = ""
+    ) -> dict:
+        """Revoga ou restaura o vinculo de UMA pessoa com UMA organizacao.
+
+        E a mais cirurgica das tres: as demais organizacoes da mesma pessoa
+        ficam intactas.
+        """
+        if status not in self.ESTADOS_VINCULO:
+            raise ValueError("estado de vinculo invalido: %s" % status)
+        alvo = normalize_email(email)
+        if not self.enabled or not alvo or not organization_id:
+            return {"encontrado": False}
+        with self._connect() as connection:
+            self.ensure_schema(connection)
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT membership.id, membership.status, organization.display_name
+                    FROM organization_memberships membership
+                    JOIN users user_account ON user_account.id = membership.user_id
+                    JOIN organizations organization
+                      ON organization.id = membership.organization_id
+                    WHERE lower(user_account.email) = %s
+                      AND membership.organization_id = %s
+                    """,
+                    (alvo, str(organization_id)),
+                )
+                row = cursor.fetchone()
+                if not row:
+                    return {"encontrado": False}
+                anterior = str(row[1])
+                cursor.execute(
+                    """
+                    UPDATE organization_memberships
+                    SET status = %s,
+                        revoked_at = CASE WHEN %s = 'revoked' THEN now() ELSE NULL END,
+                        updated_at = now()
+                    WHERE id = %s
+                    """,
+                    (status, status, row[0]),
+                )
+                self._um_alvo_apenas(cursor)
+                connection.commit()
+        return {
+            "encontrado": True,
+            "alvo": alvo,
+            "organizacao": str(organization_id),
+            "nome": row[2],
+            "anterior": anterior,
+            "atual": status,
+            "atingidos": 1,
+            "ator": normalize_email(ator),
+        }
+
+    def access_snapshot(self, email: str = "", organization_id: str = "") -> dict:
+        """O estado atual, para conferir ANTES e DEPOIS de mexer."""
+        if not self.enabled:
+            return {"disponivel": False, "linhas": []}
+        alvo = normalize_email(email)
+        organizacao = str(organization_id or "")
+        with self._connect() as connection:
+            self.ensure_schema(connection)
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT user_account.email, user_account.status,
+                           organization.id, organization.display_name,
+                           organization.status, membership.status,
+                           membership.revoked_at
+                    FROM users user_account
+                    LEFT JOIN organization_memberships membership
+                      ON membership.user_id = user_account.id
+                    LEFT JOIN organizations organization
+                      ON organization.id = membership.organization_id
+                    WHERE (%s = '' OR lower(user_account.email) = %s)
+                      AND (%s = '' OR organization.id::text = %s)
+                    ORDER BY user_account.email, organization.display_name
+                    """,
+                    (alvo, alvo, organizacao, organizacao),
+                )
+                linhas = [
+                    {
+                        "email": r[0],
+                        "usuario_status": r[1],
+                        "organization_id": str(r[2]) if r[2] else "",
+                        "organizacao": r[3] or "",
+                        "organizacao_status": r[4] or "",
+                        "vinculo_status": r[5] or "",
+                        "revogado_em": r[6].isoformat() if r[6] else "",
+                    }
+                    for r in cursor.fetchall()
+                ]
+        return {"disponivel": True, "linhas": linhas}
+
     def access_was_revoked(self, email: str) -> bool:
         """Este e-mail já teve acesso a alguma organização, e não tem mais?
 

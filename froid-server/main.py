@@ -5803,6 +5803,45 @@ FROID"""
     return texto, html
 
 
+def _expirar_sessoes_de(email: str) -> int:
+    """Derruba as sessoes em memoria de um e-mail.
+
+    Sem isto, quem ja estava logado continuaria com o token valido ate o TTL.
+    O dado ja estaria protegido -- `_tenant_context_from_request` reconsulta o
+    Postgres a cada requisicao -- mas a pessoa veria telas vazias em vez da
+    mensagem, que e exatamente o que se quis evitar.
+    """
+    alvo = _normalize_email(email)
+    if not alvo:
+        return 0
+    tokens = [
+        token
+        for token, sessao in SESSION_USERS.items()
+        if isinstance(sessao, dict) and _normalize_email(sessao.get("email") or "") == alvo
+    ]
+    for token in tokens:
+        SESSION_USERS.pop(token, None)
+    return len(tokens)
+
+
+def _expirar_sessoes_da_organizacao(organization_id: str) -> int:
+    """Derruba as sessoes de quem tem vinculo com a organizacao."""
+    alvo = str(organization_id or "").strip()
+    if not alvo:
+        return 0
+    tokens = []
+    for token, sessao in SESSION_USERS.items():
+        if not isinstance(sessao, dict):
+            continue
+        for contexto in sessao.get("organizations") or []:
+            if isinstance(contexto, dict) and str(contexto.get("organization_id") or "") == alvo:
+                tokens.append(token)
+                break
+    for token in tokens:
+        SESSION_USERS.pop(token, None)
+    return len(tokens)
+
+
 ACESSO_REVOGADO = (
     "Acesso restrito, entre em contato com froid@froid.com.br "
     "para maiores detalhes"
@@ -6999,6 +7038,152 @@ async def admin_professional_access_approval(professional_email: str, request: R
         "access_status": _professional_access_status(email),
     }
 
+
+# ---------------------------------------------------------------------------
+# Controle administrativo de acesso.
+#
+# Tres alavancas separadas de proposito, porque a escolha errada causa dano
+# colateral: desabilitar a PESSOA quando se queria tirar o acesso dela a UM
+# cliente derruba o acesso dela a todos os outros. O endpoint nao adivinha qual
+# alavanca o operador quis; ele exige que a alavanca seja nomeada na URL.
+#
+# Toda operacao devolve `atingidos`, e o store recusa qualquer coisa acima de
+# um. E toda operacao entra na trilha de auditoria com quem fez e o que mudou.
+# ---------------------------------------------------------------------------
+
+
+def _exigir_store_ativo() -> None:
+    if not TENANT_STORE.enabled:
+        raise HTTPException(
+            status_code=503,
+            detail="controle de acesso indisponivel: armazenamento multi-tenant desligado",
+        )
+
+
+@app.get("/api/admin/access")
+async def admin_access_snapshot(request: Request):
+    """Estado atual de um e-mail ou de uma organizacao. Consulte ANTES de mexer."""
+    _require_admin_user(request)
+    _exigir_store_ativo()
+    email = _normalize_email(request.query_params.get("email") or "")
+    organization_id = str(request.query_params.get("organization_id") or "").strip()
+    if not email and not organization_id:
+        raise HTTPException(
+            status_code=400, detail="informe email ou organization_id"
+        )
+    return TENANT_STORE.access_snapshot(email=email, organization_id=organization_id)
+
+
+@app.post("/api/admin/access/user")
+async def admin_set_user_access(request: Request):
+    """Desabilita ou reabilita UMA pessoa, em todas as organizacoes dela."""
+    admin = _require_admin_user(request)
+    _exigir_store_ativo()
+    body = await request.json()
+    email = _normalize_email(body.get("email") or "")
+    status = str(body.get("status") or "").strip().lower()
+    if not email:
+        raise HTTPException(status_code=400, detail="email obrigatorio")
+    if status not in TENANT_STORE.ESTADOS_USUARIO:
+        raise HTTPException(status_code=400, detail="estado invalido para usuario")
+    ator = _normalize_email(admin.get("email") or "")
+    if email == ator and status != "active":
+        # Sem isto o administrador se tranca para fora e nao ha como voltar
+        # pela interface -- so por SQL no servidor.
+        raise HTTPException(
+            status_code=400, detail="um administrador nao pode desabilitar a propria conta"
+        )
+    try:
+        resultado = TENANT_STORE.set_user_status(email, status, ator=ator)
+    except (ValueError, RuntimeError) as erro:
+        raise HTTPException(status_code=400, detail=str(erro))
+    if not resultado.get("encontrado"):
+        raise HTTPException(status_code=404, detail="usuario nao encontrado")
+    _expirar_sessoes_de(email)
+    _record_admin_audit_event(
+        request,
+        action="admin_set_user_access",
+        target=email,
+        detail={"anterior": resultado.get("anterior"), "atual": status},
+    )
+    return resultado
+
+
+@app.post("/api/admin/access/organization")
+async def admin_set_organization_access(request: Request):
+    """Suspende ou reativa UMA organizacao, com todos os usuarios dela."""
+    admin = _require_admin_user(request)
+    _exigir_store_ativo()
+    body = await request.json()
+    organization_id = str(body.get("organization_id") or "").strip()
+    status = str(body.get("status") or "").strip().lower()
+    if not organization_id:
+        raise HTTPException(status_code=400, detail="organization_id obrigatorio")
+    if status not in TENANT_STORE.ESTADOS_ORGANIZACAO:
+        raise HTTPException(status_code=400, detail="estado invalido para organizacao")
+    try:
+        resultado = TENANT_STORE.set_organization_status(
+            organization_id, status, ator=_normalize_email(admin.get("email") or "")
+        )
+    except (ValueError, RuntimeError) as erro:
+        raise HTTPException(status_code=400, detail=str(erro))
+    if not resultado.get("encontrado"):
+        raise HTTPException(status_code=404, detail="organizacao nao encontrada")
+    _expirar_sessoes_da_organizacao(organization_id)
+    _record_admin_audit_event(
+        request,
+        action="admin_set_organization_access",
+        target=organization_id,
+        detail={
+            "nome": resultado.get("nome"),
+            "anterior": resultado.get("anterior"),
+            "atual": status,
+            "usuarios_afetados": resultado.get("usuarios_afetados"),
+        },
+    )
+    return resultado
+
+
+@app.post("/api/admin/access/membership")
+async def admin_set_membership_access(request: Request):
+    """Revoga ou restaura o vinculo de UMA pessoa com UMA organizacao.
+
+    E a alavanca cirurgica: as demais organizacoes da mesma pessoa ficam
+    intactas. E a certa para retirar um acesso de teste.
+    """
+    admin = _require_admin_user(request)
+    _exigir_store_ativo()
+    body = await request.json()
+    email = _normalize_email(body.get("email") or "")
+    organization_id = str(body.get("organization_id") or "").strip()
+    status = str(body.get("status") or "").strip().lower()
+    if not email or not organization_id:
+        raise HTTPException(
+            status_code=400, detail="email e organization_id obrigatorios"
+        )
+    if status not in TENANT_STORE.ESTADOS_VINCULO:
+        raise HTTPException(status_code=400, detail="estado invalido para vinculo")
+    try:
+        resultado = TENANT_STORE.set_membership_status(
+            email, organization_id, status,
+            ator=_normalize_email(admin.get("email") or ""),
+        )
+    except (ValueError, RuntimeError) as erro:
+        raise HTTPException(status_code=400, detail=str(erro))
+    if not resultado.get("encontrado"):
+        raise HTTPException(status_code=404, detail="vinculo nao encontrado")
+    _expirar_sessoes_de(email)
+    _record_admin_audit_event(
+        request,
+        action="admin_set_membership_access",
+        target="%s@%s" % (email, organization_id),
+        detail={
+            "organizacao": resultado.get("nome"),
+            "anterior": resultado.get("anterior"),
+            "atual": status,
+        },
+    )
+    return resultado
 
 @app.get("/api/session-invites/{token}")
 async def get_session_invite(token: str):
@@ -8201,6 +8386,12 @@ async def auth_me(request: Request):
         raise HTTPException(status_code=401, detail="não autenticado")
     user = dict(user)
     user = _attach_tenant_contexts(user)
+    # A guarda vive aqui e no login, e nao em cada rota: esta e a chamada que o
+    # front faz a cada carregamento de pagina, entao a revogacao aparece como
+    # mensagem no proximo carregamento em vez de virar tela vazia. O dado em si
+    # ja esta protegido antes disto — `_tenant_context_from_request` reconsulta
+    # o Postgres a cada requisicao e os chamadores recusam sem contexto.
+    _guard_acesso_revogado(user)
     user["access_status"] = _effective_professional_access_status(user)
     SESSION_USERS[token] = user
     return {key: value for key, value in user.items() if not key.startswith("_")}
@@ -8231,6 +8422,7 @@ async def set_active_organization(request: Request):
         if isinstance(item, dict)
     ):
         raise HTTPException(status_code=403, detail="organização não pertence ao usuário")
+    _guard_acesso_revogado(enriched)
     enriched["active_organization_id"] = organization_id
     SESSION_USERS[token] = enriched
     return {"status": "ok", "active_organization_id": organization_id}
