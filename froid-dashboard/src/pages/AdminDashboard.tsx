@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import type { FroidUser } from "../App";
 import { apiUrl } from "../lib/api";
 import { normalizeSearchText } from "../lib/patient-dashboard";
+import { ControleDeAcesso } from "../components/admin/ControleDeAcesso";
 import {
   clearProductChoice,
   defaultAuthenticatedPath,
@@ -402,6 +403,8 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
             </table>
           </div>
         </section>
+
+        <ControleDeAcesso />
 
         <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">
           <div className="flex items-center justify-between">
