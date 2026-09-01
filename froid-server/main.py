@@ -5803,11 +5803,45 @@ FROID"""
     return texto, html
 
 
+ACESSO_REVOGADO = (
+    "Acesso restrito, entre em contato com froid@froid.com.br "
+    "para maiores detalhes"
+)
+
+
+def _guard_acesso_revogado(session_user: dict) -> None:
+    """Recusa a sessão de quem teve acesso e perdeu.
+
+    A checagem é deliberadamente estreita. Lista de organizações vazia NÃO
+    basta: o profissional autônomo entra pelo cadastro próprio e nunca teve
+    vínculo, e recusá-lo trancaria a maior parte do produto clínico para fora.
+
+    Só se recusa quem tem vínculo registrado e nenhum ativo — revogado,
+    suspenso, conta desabilitada ou organização suspensa. Sem isto, essa pessoa
+    autenticava normalmente e caía numa tela sem organização alguma, que ela
+    leria como defeito do sistema e não como decisão de quem opera.
+    """
+    if session_user.get("organizations"):
+        return
+    if not TENANT_STORE.enabled:
+        return
+    try:
+        revogado = TENANT_STORE.access_was_revoked(session_user.get("email") or "")
+    except Exception:
+        # Banco indisponível não pode virar bloqueio de quem tem acesso
+        # legítimo. Falha aberta aqui, porque o dado continua protegido pelas
+        # políticas de leitura — a sessão sozinha não abre nada.
+        return
+    if revogado:
+        raise HTTPException(status_code=403, detail=ACESSO_REVOGADO)
+
+
 def _issue_session(user: dict):
     token = secrets.token_urlsafe(32)
     session_user = dict(user or {})
     session_user["email"] = _normalize_email(session_user.get("email") or "")
     session_user = _attach_tenant_contexts(session_user)
+    _guard_acesso_revogado(session_user)
     session_user["access_status"] = _effective_professional_access_status(session_user)
     session_user["_session_expires_at"] = (
         datetime.now(timezone.utc).timestamp() + FROID_SESSION_TOKEN_TTL_SECONDS

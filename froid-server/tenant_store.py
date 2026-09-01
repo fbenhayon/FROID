@@ -377,6 +377,52 @@ class TenantStore:
                 row = cursor.fetchone()
         return str((row or [""])[0] or "")
 
+    def access_was_revoked(self, email: str) -> bool:
+        """Este e-mail já teve acesso a alguma organização, e não tem mais?
+
+        Existe para separar dois casos que `access_contexts` devolve iguais —
+        lista vazia:
+
+          - quem NUNCA teve vínculo. É o profissional autônomo, que autentica
+            pelo cadastro próprio e não pertence a organização nenhuma. Precisa
+            entrar normalmente.
+          - quem TEVE e perdeu, por revogação, suspensão, conta desabilitada ou
+            organização suspensa. Esse precisa de recusa com mensagem, e não de
+            uma tela vazia que ele leria como defeito.
+
+        Sem esta distinção, bloquear "quem não tem organização" trancaria para
+        fora todos os autônomos — que são a maior parte do produto clínico.
+        """
+        if not self.enabled:
+            return False
+        normalized_email = normalize_email(email)
+        if not normalized_email:
+            return False
+        with self._connect() as connection:
+            self.ensure_schema(connection)
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT
+                      count(*) FILTER (
+                        WHERE membership.status = 'active'
+                          AND user_account.status = 'active'
+                          AND organization.status = 'active'
+                      ) AS ativos,
+                      count(*) AS total
+                    FROM users user_account
+                    JOIN organization_memberships membership
+                      ON membership.user_id = user_account.id
+                    JOIN organizations organization
+                      ON organization.id = membership.organization_id
+                    WHERE lower(user_account.email) = %s
+                    """,
+                    (normalized_email,),
+                )
+                row = cursor.fetchone() or (0, 0)
+        ativos, total = int(row[0] or 0), int(row[1] or 0)
+        return total > 0 and ativos == 0
+
     def access_contexts(self, email: str) -> list[dict]:
         """Return active organization memberships for an authenticated email."""
         if not self.enabled:
