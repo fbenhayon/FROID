@@ -228,9 +228,8 @@ export const ControleDeAcesso: React.FC = () => {
                           )
                         }
                         className="rounded border border-amber-700 bg-amber-950 px-3 py-1.5 text-[11px] font-black text-amber-100 hover:bg-amber-900"
-                       title="Estado atual do vínculo: ativo"
                       >
-                        Ativo · revogar este vínculo
+                        Revogar
                       </button>
                     ) : (
                       <button
@@ -247,9 +246,8 @@ export const ControleDeAcesso: React.FC = () => {
                           )
                         }
                         className="rounded border border-emerald-700 bg-emerald-950 px-3 py-1.5 text-[11px] font-black text-emerald-100 hover:bg-emerald-900"
-                       title="Estado atual do vínculo: sem acesso"
                       >
-                        {linha.vinculo_status === "revoked" ? "Revogado" : linha.vinculo_status} · restaurar
+                        Restaurar
                       </button>
                     )}
 
@@ -266,9 +264,8 @@ export const ControleDeAcesso: React.FC = () => {
                           )
                         }
                         className="rounded border border-slate-700 px-3 py-1.5 text-[11px] font-black text-slate-300 hover:bg-slate-800"
-                       title="Estado atual da organização: ativa"
                       >
-                        Ativa · suspender a organização
+                        Suspender a organização
                       </button>
                     ) : (
                       <button
@@ -281,9 +278,8 @@ export const ControleDeAcesso: React.FC = () => {
                           )
                         }
                         className="rounded border border-emerald-700 bg-emerald-950 px-3 py-1.5 text-[11px] font-black text-emerald-100 hover:bg-emerald-900"
-                       title="Estado atual da organização: sem acesso"
                       >
-                        {linha.organizacao_status === "suspended" ? "Suspensa" : linha.organizacao_status} · reativar
+                        Reativar a organização
                       </button>
                     )}
                   </div>
@@ -320,9 +316,8 @@ export const ControleDeAcesso: React.FC = () => {
                     )
                   }
                   className="rounded border border-red-800 bg-red-950 px-3 py-1.5 text-[11px] font-black text-red-100 hover:bg-red-900"
-                 title="Estado atual da conta: ativa"
                 >
-                  Ativa · desabilitar a conta
+                  Desabilitar a conta
                 </button>
               ) : (
                 <button
@@ -335,9 +330,8 @@ export const ControleDeAcesso: React.FC = () => {
                     )
                   }
                   className="rounded border border-emerald-700 bg-emerald-950 px-3 py-1.5 text-[11px] font-black text-emerald-100 hover:bg-emerald-900"
-                 title="Estado atual da conta: desabilitada"
                 >
-                  Desabilitada · reabilitar
+                  Reabilitar a conta
                 </button>
               )}
             </div>

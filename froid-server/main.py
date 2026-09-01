@@ -7071,7 +7071,20 @@ async def admin_access_snapshot(request: Request):
         raise HTTPException(
             status_code=400, detail="informe email ou organization_id"
         )
-    return TENANT_STORE.access_snapshot(email=email, organization_id=organization_id)
+    try:
+        return TENANT_STORE.access_snapshot(
+            email=email, organization_id=organization_id
+        )
+    except Exception as erro:
+        # Endpoint administrativo: expor a causa aqui e seguro e necessario.
+        # 500 generico numa tela que bloqueia acesso de cliente deixa o
+        # operador adivinhando, e adivinhar nesta tela custa caro.
+        logging.exception("falha no snapshot de acesso")
+        raise HTTPException(
+            status_code=500,
+            detail="consulta de acesso falhou: %s: %s"
+            % (type(erro).__name__, erro),
+        )
 
 
 @app.post("/api/admin/access/user")
@@ -7097,6 +7110,12 @@ async def admin_set_user_access(request: Request):
         resultado = TENANT_STORE.set_user_status(email, status, ator=ator)
     except (ValueError, RuntimeError) as erro:
         raise HTTPException(status_code=400, detail=str(erro))
+    except Exception as erro:
+        logging.exception("falha na operacao de acesso")
+        raise HTTPException(
+            status_code=500,
+            detail="operacao de acesso falhou: %s: %s" % (type(erro).__name__, erro),
+        )
     if not resultado.get("encontrado"):
         raise HTTPException(status_code=404, detail="usuario nao encontrado")
     _expirar_sessoes_de(email)
@@ -7127,6 +7146,12 @@ async def admin_set_organization_access(request: Request):
         )
     except (ValueError, RuntimeError) as erro:
         raise HTTPException(status_code=400, detail=str(erro))
+    except Exception as erro:
+        logging.exception("falha na operacao de acesso")
+        raise HTTPException(
+            status_code=500,
+            detail="operacao de acesso falhou: %s: %s" % (type(erro).__name__, erro),
+        )
     if not resultado.get("encontrado"):
         raise HTTPException(status_code=404, detail="organizacao nao encontrada")
     _expirar_sessoes_da_organizacao(organization_id)
@@ -7170,6 +7195,12 @@ async def admin_set_membership_access(request: Request):
         )
     except (ValueError, RuntimeError) as erro:
         raise HTTPException(status_code=400, detail=str(erro))
+    except Exception as erro:
+        logging.exception("falha na operacao de acesso")
+        raise HTTPException(
+            status_code=500,
+            detail="operacao de acesso falhou: %s: %s" % (type(erro).__name__, erro),
+        )
     if not resultado.get("encontrado"):
         raise HTTPException(status_code=404, detail="vinculo nao encontrado")
     _expirar_sessoes_de(email)

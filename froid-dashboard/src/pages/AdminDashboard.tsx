@@ -415,31 +415,46 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
                 : `${patients.length} no total · clique para abrir o perfil`}
             </span>
           </div>
-          <div className="mt-3 max-h-[420px] overflow-y-auto rounded border border-slate-800 p-1">
-            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+          {/* Listagem, e nao grade de cartoes: com muitos pacientes a grade de
+              tres colunas obriga a varrer em ziguezague. Em lista o olho desce
+              reto, e o cabecalho fica fixo enquanto se rola. */}
+          <div className="mt-3 max-h-[420px] overflow-y-auto rounded border border-slate-800">
+            <table className="w-full border-collapse text-xs">
+              <thead className="sticky top-0 z-10 bg-slate-900">
+                <tr className="text-[10px] uppercase tracking-wide text-slate-500">
+                  <th className="border-b border-slate-800 px-3 py-2 text-left font-black">Paciente</th>
+                  <th className="border-b border-slate-800 px-3 py-2 text-left font-black">Contato</th>
+                  <th className="border-b border-slate-800 px-3 py-2 text-right font-black">Sessões</th>
+                </tr>
+              </thead>
+              <tbody>
               {visiblePatients.map((patient: any) => (
-                <button
+                <tr
                   key={patient.id}
-                  type="button"
                   onClick={() => nav(`/admin/patient/${encodeURIComponent(patient.id)}`)}
                   title="Abrir perfil deste paciente"
-                  className="rounded border border-slate-800 bg-slate-950 p-3 text-left text-xs transition-colors hover:border-cyan-800 hover:bg-cyan-950/20"
+                  className="cursor-pointer border-b border-slate-800/60 transition-colors hover:bg-cyan-950/20"
                 >
-                  <p className="font-black text-slate-100">{patient.name}</p>
-                  <p className="mt-1 text-slate-500">{patient.email || patient.phone || patient.id}</p>
-                  <p className="mt-2 font-bold text-cyan-200">
-                    {patient.sessions_count} sessões registradas
-                  </p>
-                </button>
+                  <td className="px-3 py-2 font-black text-slate-100">{patient.name}</td>
+                  <td className="px-3 py-2 text-slate-500">
+                    {patient.email || patient.phone || patient.id}
+                  </td>
+                  <td className="px-3 py-2 text-right font-bold tabular-nums text-cyan-200">
+                    {patient.sessions_count}
+                  </td>
+                </tr>
               ))}
               {visiblePatients.length === 0 && (
-                <p className="col-span-full py-6 text-center text-xs text-slate-500">
-                  {patients.length === 0
-                    ? "Nenhum paciente cadastrado ainda."
-                    : "Nenhum paciente encontrado para esta busca."}
-                </p>
+                <tr>
+                  <td colSpan={3} className="py-6 text-center text-xs text-slate-500">
+                    {patients.length === 0
+                      ? "Nenhum paciente cadastrado ainda."
+                      : "Nenhum paciente encontrado para esta busca."}
+                  </td>
+                </tr>
               )}
-            </div>
+              </tbody>
+            </table>
           </div>
         </section>
       </main>
