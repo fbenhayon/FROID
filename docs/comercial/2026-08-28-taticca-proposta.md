@@ -1,4 +1,4 @@
-# Proposta comercial — FROID NR-1
+# Proposta comercial — FROID Psicossocial
 
 **Para:** TATICCA Auditores Independentes
 **De:** FROID
@@ -30,7 +30,7 @@ jurídico.*
 
 ## 2. Objeto
 
-Prestação do serviço **FROID NR-1**, instrumento técnico documentado de
+Prestação do serviço **FROID Psicossocial**, instrumento técnico documentado de
 identificação de perigos, caracterização da exposição, avaliação e classificação
 dos fatores de risco psicossociais relacionados ao trabalho, destinado a integrar
 as etapas pertinentes da Avaliação Ergonômica Preliminar (AEP) e a apoiar a
@@ -78,6 +78,29 @@ exatamente a promessa que costuma quebrar no fim do ciclo.
 ancoradas nos perigos do Guia MTE 2025 e na ISO 45003:2021, 39 itens, cerca de 7
 minutos. Convites individuais anônimos, com canal de apoio ao trabalhador
 obrigatório e aviso de finalidade com base legal declarada.
+
+### O lastro do instrumento, e por que isso é perguntado em perícia
+
+O Guia de Fatores de Riscos Psicossociais do Ministério do Trabalho e Emprego declara que
+**o MTE não define nem sugere metodologia** — a escolha da ferramenta é da organização. E
+estabelece duas condições para essa escolha: a ferramenta precisa ser adequada ao risco em
+avaliação, pelo subitem 1.5.4.4.2.1 da NR-1, e precisa estar cientificamente fundamentada,
+isto é, ter *"estudo científico ou um órgão ou instituição de SST, nacional ou
+internacional, que lhe dê embasamento e suporte"*.
+
+Numa fiscalização ou numa perícia, portanto, a pergunta não será *"vocês usaram uma
+ferramenta?"*. Será **"com base em quê vocês escolheram essa ferramenta?"** — e o critério
+está publicado, o que significa que o auditor fiscal já o tem em mãos.
+
+O instrumento do FROID Psicossocial é ancorado na **ISO 45003:2021**, primeira norma
+internacional dedicada à gestão de riscos psicossociais, que o próprio Guia do MTE cita
+três vezes — duas no corpo e uma na bibliografia formal. É o lastro que o critério exige,
+e é verificável.
+
+*Ressalva que fazemos por princípio:* a ISO 45003 é norma de **diretrizes**, não de
+requisitos. Não comporta certificação acreditada, e não somos certificados nela — ninguém
+é. Estar ancorado nela significa que o instrumento se apoia no referencial internacional
+que o regulador brasileiro reconhece, não que exista selo.
 
 **Os três documentos do PGR.** Inventário de riscos com as nove informações
 mínimas do subitem 1.5.7.3.2; plano de ação com cronograma, responsável, forma de
@@ -358,8 +381,8 @@ e solicitação justificada da CIPA.
 
 - **Pagamento:** `[a definir]`
 - **Vigência contratual:** `[a definir]`
-- **Documentos integrantes:** Contrato de Prestação de Serviço FROID NR-1, Termos
-  de Uso FROID NR-1 e esta proposta comercial. Em caso de divergência prevalece o
+- **Documentos integrantes:** Contrato de Prestação de Serviço FROID Psicossocial, Termos
+  de Uso FROID Psicossocial e esta proposta comercial. Em caso de divergência prevalece o
   contrato quanto às obrigações jurídicas gerais e a proposta quanto a preço,
   prazo, quantidade de trabalhadores, estabelecimentos e escopo adicional.
 - **Aceite:** registrado no sistema com data, autor e impressão digital (SHA-256)

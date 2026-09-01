@@ -1,7 +1,7 @@
 # Proposta — Avaliação de riscos psicossociais (NR-1)
 
 **Para:** `[razão social do cliente]`
-**De:** TATICCA Auditores Independentes, com a plataforma FROID NR-1
+**De:** TATICCA Auditores Independentes, com a plataforma FROID Psicossocial
 **Data:** `[data]` · **Validade:** 30 dias
 
 > **Modelo para uso da TATICCA com a carteira.** Preencher os campos entre
@@ -50,6 +50,29 @@ como igualmente obrigatório.
 perigos do Guia MTE 2025 e na ISO 45003:2021 — 39 itens, cerca de 7 minutos.
 Convites individuais anônimos, canal de apoio ao trabalhador obrigatório e aviso
 de finalidade com base legal declarada.
+
+### O lastro do instrumento, e por que isso é perguntado em perícia
+
+O Guia de Fatores de Riscos Psicossociais do Ministério do Trabalho e Emprego declara que
+**o MTE não define nem sugere metodologia** — a escolha da ferramenta é da organização. E
+estabelece duas condições para essa escolha: a ferramenta precisa ser adequada ao risco em
+avaliação, pelo subitem 1.5.4.4.2.1 da NR-1, e precisa estar cientificamente fundamentada,
+isto é, ter *"estudo científico ou um órgão ou instituição de SST, nacional ou
+internacional, que lhe dê embasamento e suporte"*.
+
+Numa fiscalização ou numa perícia, portanto, a pergunta não será *"vocês usaram uma
+ferramenta?"*. Será **"com base em quê vocês escolheram essa ferramenta?"** — e o critério
+está publicado, o que significa que o auditor fiscal já o tem em mãos.
+
+O instrumento do FROID Psicossocial é ancorado na **ISO 45003:2021**, primeira norma
+internacional dedicada à gestão de riscos psicossociais, que o próprio Guia do MTE cita
+três vezes — duas no corpo e uma na bibliografia formal. É o lastro que o critério exige,
+e é verificável.
+
+*Ressalva que fazemos por princípio:* a ISO 45003 é norma de **diretrizes**, não de
+requisitos. Não comporta certificação acreditada, e não somos certificados nela — ninguém
+é. Estar ancorado nela significa que o instrumento se apoia no referencial internacional
+que o regulador brasileiro reconhece, não que exista selo.
 
 **Os três documentos do PGR.** Inventário com as nove informações mínimas; plano
 de ação com cronograma, responsável, forma de acompanhamento e forma de aferição
@@ -283,4 +306,4 @@ implementação e a assinatura dos documentos permanecem da organização.
 ---
 
 `[TATICCA Auditores Independentes]` · `[contato]`
-Plataforma FROID NR-1 · froid@froid.com.br
+Plataforma FROID Psicossocial · froid@froid.com.br
