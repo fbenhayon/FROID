@@ -423,8 +423,27 @@ class SessionState:
         elif alert_sig:
             self.last_alert_signature = alert_sig
 
-        # Transcrição simulada (placeholder para gpt-realtime-whisper)
-        emotional_tone = np.random.choice(["neutro", "ansioso", "triste", "irritado", "alegre", "suprimido"])
+        # O TOM NAO E APURADO. Nao ha algoritmo para ele.
+        #
+        # Ate 02/09/2026 esta linha era um np.random.choice entre seis rotulos,
+        # SEM CONDICAO NENHUMA — nao era o modo simulado, era sempre, inclusive
+        # com audio real. O valor sorteado chegava ao painel do profissional, ao
+        # relatorio, a AREA DO PROPRIO PACIENTE, ao acervo anonimizado do
+        # Data-Froid e ao prompt da IA que redige os resumos.
+        #
+        # Um dado de seis faces apresentado como leitura clinica. O comentario
+        # ao lado ja admitia "placeholder", mas placeholder que chega a tela sem
+        # rotulo deixa de ser placeholder e vira afirmacao.
+        #
+        # Categorizar tom exigiria fundir ritmo de fala, semantica do que foi
+        # dito e energia da voz sob um criterio definido e defensavel. Esse
+        # criterio nao existe no FROID hoje, e inventa-lo aqui seria trocar um
+        # numero aleatorio por um numero arbitrario — pior, porque o segundo
+        # parece fundamentado.
+        #
+        # Vazio ate existir. Campo sem medida se declara vazio.
+        emotional_tone = ""
+        tom_para_amostra = "neutro"
         snippets = {
             "neutro": ["Estou pensando sobre isso...", "Não sei exatamente como me sinto.", "É complicado explicar."],
             "ansioso": ["Sinto que algo vai dar errado...", "Não consigo parar de pensar nisso.", "Meu peito aperta quando lembro."],
@@ -433,7 +452,9 @@ class SessionState:
             "alegre": ["Tive uma boa notícia essa semana.", "Estou me sentindo mais leve.", "Consegui resolver algo importante."],
             "suprimido": ["Está tudo bem.", "Não tem nada demais.", "Prefiro não falar sobre isso agora."],
         }
-        transcription_snippet = np.random.choice(snippets.get(emotional_tone, snippets["neutro"]))
+        # A frase de amostra e do gerador simulado e nunca foi leitura de nada;
+        # segue com um tom neutro fixo, ja que o campo real agora e vazio.
+        transcription_snippet = np.random.choice(snippets.get(tom_para_amostra, snippets["neutro"]))
         total_words = sum(self.word_windows) + np.random.randint(0, 20)
 
         # DR = Dynamic Repouso = média das 12 baselines

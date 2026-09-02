@@ -1824,9 +1824,11 @@ function buildMetricSnapshot(
     dominantZone: dominant?.zone || null,
     dominantTheme: dominant?.tema || "Sem zona dominante",
     coherenceStatus: aggregate.coherence || "NEUTRO",
+    // Sem `|| "neutro"`: o padrao transformava campo NAO APURADO numa
+    // afirmacao de que o tom era neutro — exatamente a fabricacao que a
+    // remocao do sorteio veio acabar. Vazio sobe vazio, e a tela mostra "--".
     emotionalTone:
-      String(audioMetas.find((meta) => meta.emotional_tone)?.emotional_tone || "") ||
-      "neutro",
+      String(audioMetas.find((meta) => meta.emotional_tone)?.emotional_tone || ""),
     wordsPerMinute: rounded(wordCount / minutes, 1) || 0,
     theme: inferThemeFromTranscript(transcript),
     dissonanceCount: zones.filter(isReportableDissonance).length,
@@ -2247,8 +2249,15 @@ function buildAnonymizedContext(
         dissonanceDeltaAfterIntervention: rounded(nextReference.dissonanceCount - cut.dissonanceCount, 3),
         dominantZoneShift:
           previousCut && previousCut.dominantZone !== cut.dominantZone ? "mudanca_zona" : "sem_mudanca_zona",
+        // "sem_mudanca_tom" com os dois campos vazios seria AFIRMAR que o tom
+        // nao mudou — sobre algo que nao foi apurado. Duas ausencias iguais
+        // nao sao uma constancia observada.
         emotionalToneShift:
-          previousCut && previousCut.emotionalTone !== cut.emotionalTone ? "mudanca_tom" : "sem_mudanca_tom",
+          !previousCut?.emotionalTone || !cut.emotionalTone
+            ? "nao_apurado"
+            : previousCut.emotionalTone !== cut.emotionalTone
+              ? "mudanca_tom"
+              : "sem_mudanca_tom",
         cadenceShift: deltaDirection(cut.wordsPerMinute - reference.wordsPerMinute, 5),
         responseIpmDirection: deltaDirection(nextReference.ipmAvg - cut.ipmAvg, 0.5),
         responseIdmDirection: deltaDirection(nextReference.idmAvg - cut.idmAvg, 0.05),
