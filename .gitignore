@@ -30,3 +30,6 @@ froid-dashboard/.env
 
 # Despejos de diff salvos em arquivo por acidente de shell.
 diff_*.txt
+
+# Arquivos de trava do Word. Meu `git add -A` varreu um destes em 02/09/2026.
+~$*

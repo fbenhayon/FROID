@@ -12,7 +12,6 @@ import {
 } from "../lib/session-report";
 import { dashboardText, loadSessionLanguagePreferences, normalizeSessionLocale, type SessionLocale } from "../lib/localization";
 import { tooltipText } from "../lib/tooltip-i18n";
-import { CorrecoesDoRelatorio } from "../components/report/CorrecoesDoRelatorio";
 import { InstrumentScorePrompt } from "../components/validation/InstrumentScorePrompt";
 import { activeOrganizationId } from "../lib/validation";
 import {
@@ -1100,11 +1099,6 @@ export const SessionReport: React.FC<Props> = () => {
   const activeMetricsAnalysis = metricsAnalysis || report.metricsAnalysis || null;
   const sessionSummary = derivedSessionSummary(report);
 
-  // Estado local para a correcao recem-registrada aparecer sem recarregar a
-  // pagina. A fonte continua sendo o relatorio gravado.
-  const [correcoes, setCorrecoes] = React.useState(report.correcoes || []);
-  React.useEffect(() => setCorrecoes(report.correcoes || []), [report.correcoes]);
-
   // A procedência decide se este par entra no estudo de validade convergente.
   //
   // Uma sessão analisada sobre voz simulada produz um IPM que o sistema
@@ -1249,16 +1243,6 @@ export const SessionReport: React.FC<Props> = () => {
               </div>
             </div>
           </section>
-
-          {/* Acima da procedencia e de tudo mais: uma correcao que aparece
-              depois do texto corrigido chega tarde — a leitura clinica ja
-              aconteceu. */}
-          <CorrecoesDoRelatorio
-            sessionId={report.sessionId}
-            correcoes={correcoes}
-            podeRegistrar
-            onRegistrada={(nova) => setCorrecoes((atuais) => [...atuais, nova])}
-          />
 
           <ProcedenciaDoRelatorio procedencia={report.procedenciaDosDados} />
 
