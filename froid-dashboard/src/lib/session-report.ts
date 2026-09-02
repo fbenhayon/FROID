@@ -7,6 +7,54 @@ export interface ClinicalNote {
   timestamp: number;
 }
 
+/** Uma correcao do que o FROID escreveu, na palavra de quem estava la.
+ *
+ *  Nasceu de um caso real: em 02/09/2026 um paciente leu o relatorio da propria
+ *  sessao e apontou quatro erros — uma cidade trocada, uma inferencia afetiva
+ *  que ninguem disse, um trecho incoerente e uma palavra faltando. Nenhum era
+ *  de indice acustico; todos vieram da transcricao ou do resumo gerado.
+ *
+ *  `ClinicalNote` nao servia: texto livre, sem alvo, sem autor e sem
+ *  precedencia. A correcao ficaria num campo geral, sem apontar o trecho errado,
+ *  e quem abrisse o relatorio leria o erro primeiro.
+ *
+ *  O original nunca e reescrito. Apagar o erro apagaria junto a auditoria e o
+ *  par (o que o FROID disse / o que era verdade) — que e o material mais proximo
+ *  de um gabarito que existira antes de haver coleta rotulada. */
+export type OrigemDaCorrecao = "profissional" | "paciente";
+
+/** O tipo separa erros com causas tecnicas distintas — a taxonomia saiu dos
+ *  quatro casos reais, nao de uma lista imaginada:
+ *
+ *  - `transcricao_incorreta`: o STT ouviu errado ou deixou cair uma palavra;
+ *  - `inferencia_indevida`: o resumo AFIRMOU algo que ninguem disse (o mais
+ *    grave: e o sistema inventando conteudo afetivo);
+ *  - `fato_incorreto`: um detalhe factual trocado;
+ *  - `trecho_incoerente`: o texto nao faz sentido como esta. */
+export type TipoDeErroNoRelatorio =
+  | "transcricao_incorreta"
+  | "inferencia_indevida"
+  | "fato_incorreto"
+  | "trecho_incoerente";
+
+export interface CorrecaoDeRelatorio {
+  id: string;
+  criadoEm: string;
+  /** De quem veio o apontamento. Paciente e profissional sao evidencias de
+   *  naturezas diferentes, e misturar as duas apagaria o que as torna uteis. */
+  origem: OrigemDaCorrecao;
+  tipo: TipoDeErroNoRelatorio;
+  secao: string;
+  corteId?: string;
+  /** O texto tal como o FROID produziu. Fica para o erro continuar auditavel. */
+  trechoOriginal: string;
+  /** O que e correto, na palavra de quem corrigiu. */
+  correcao: string;
+  observacao?: string;
+  /** Quem REGISTROU — pode nao ser de quem veio o apontamento. */
+  registradoPor?: string;
+}
+
 export interface PatientIdentity {
   id?: string;
   name?: string;
@@ -84,6 +132,8 @@ export interface SessionReportRecord {
   sessionAverage: MetricSnapshot;
   tenMinuteCuts: MetricSnapshot[];
   clinicalNotes: ClinicalNote[];
+  /** Ausente em relatorios anteriores a 02/09/2026. */
+  correcoes?: CorrecaoDeRelatorio[];
   conversationSummaries: Array<{
     id: string;
     startSecond?: number;

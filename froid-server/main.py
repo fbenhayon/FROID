@@ -922,6 +922,48 @@ class ClinicalNoteCreate(BaseModel):
     text: str = Field(min_length=1, max_length=4000)
 
 
+class CorrecaoCreate(BaseModel):
+    """Uma correcao do que o FROID escreveu, na palavra de quem estava la.
+
+    Existe por um caso real de 02/09/2026. O paciente leu o relatorio da propria
+    sessao e apontou quatro erros: uma cidade trocada, uma inferencia afetiva que
+    ninguem disse ("saudade da esposa e criancas" — a familia esta junta), um
+    trecho incoerente e uma palavra faltando. Nenhum deles era de indice
+    acustico: todos vieram da transcricao ou do resumo gerado.
+
+    Nao havia onde registrar isso. `clinicalNotes` e texto livre sem alvo, sem
+    autor e sem precedencia — a correcao ficaria num campo de observacao geral,
+    sem apontar para o trecho errado, e quem lesse o relatorio depois leria o
+    erro primeiro.
+
+    E o aviso de LGPD do proprio produto ja promete ao paciente a "correcao de
+    dados incompletos, inexatos ou desatualizados". A promessa existia; o
+    mecanismo, nao.
+
+    A ORIGEM e obrigatoria e nao e detalhe: o que o paciente relata sobre si e o
+    que o profissional observa sao evidencias de naturezas diferentes, e mistura-
+    las apagaria justamente a distincao que torna as duas uteis.
+    """
+
+    # Quem corrige. Nunca inferido: o profissional registra, mas declara de quem
+    # veio o apontamento.
+    origem: str = Field(pattern="^(profissional|paciente)$")
+    # Que tipo de erro. A taxonomia saiu dos quatro casos reais do Bruno, e
+    # separa o que tem causas tecnicas distintas: palavra mal ouvida pelo STT,
+    # afirmacao inventada pelo resumo, fato trocado, trecho sem sentido.
+    tipo: str = Field(
+        pattern="^(transcricao_incorreta|inferencia_indevida|fato_incorreto|trecho_incoerente)$"
+    )
+    # O texto TAL COMO O FROID PRODUZIU. Guardado para que a correcao possa ser
+    # localizada depois, e para que o erro continue auditavel.
+    trecho_original: str = Field(min_length=1, max_length=2000)
+    # O que e correto, na palavra de quem corrigiu.
+    correcao: str = Field(min_length=1, max_length=2000)
+    secao: str = Field(default="resumo_de_corte", max_length=60)
+    corte_id: str = Field(default="", max_length=120)
+    observacao: str = Field(default="", max_length=2000)
+
+
 class DataSubjectRequestCreate(BaseModel):
     request_type: str
     organization_id: str = ""
@@ -13018,6 +13060,68 @@ async def add_session_clinical_note(
         metadata={"clinical_note_id": note["id"]},
     )
     return {"status": "created", "note": note}
+
+
+@app.post("/api/session-reports/{session_id}/correcoes", status_code=201)
+async def add_session_correction(
+    session_id: str, payload: CorrecaoCreate, request: Request
+):
+    """Registra uma correcao sem reescrever o relatorio.
+
+    O original NAO e alterado, e isso e deliberado. Reescrever apagaria o erro,
+    e com ele tres coisas: a auditoria de o que o sistema afirmou, a evidencia
+    de que a correcao foi necessaria, e o par (o que o FROID disse / o que era
+    verdade) — que e o material mais proximo de um gabarito que o FROID tera
+    antes de existir coleta rotulada.
+
+    A correcao tem PRECEDENCIA de leitura: a tela mostra as duas, com a correcao
+    valendo. Preservar nao e o mesmo que continuar afirmando.
+    """
+    user = _require_current_user(request)
+    owner_email = _normalize_email(user.get("email") or "")
+    reports = _load_session_reports()
+    report = reports.get(session_id)
+    if not isinstance(report, dict):
+        raise HTTPException(status_code=404, detail="Relatório não encontrado")
+    context = _authorize_tenant_request(
+        request,
+        "reports.update",
+        resource_type="session_report",
+        resource_id=session_id,
+        resource_organization_id=_report_organization_id(report),
+        owns_resource=_can_access_report(report, owner_email),
+    )
+    trecho = payload.trecho_original.strip()
+    texto = payload.correcao.strip()
+    if not trecho or not texto:
+        raise HTTPException(status_code=400, detail="Trecho e correção são obrigatórios")
+    correcao = {
+        "id": str(uuid.uuid4()),
+        "criadoEm": _utc_now_iso(),
+        "origem": payload.origem,
+        "tipo": payload.tipo,
+        "secao": payload.secao or "resumo_de_corte",
+        "corteId": payload.corte_id or "",
+        "trechoOriginal": trecho,
+        "correcao": texto,
+        "observacao": payload.observacao.strip(),
+        # Quem REGISTROU, que pode nao ser de quem veio o apontamento — por isso
+        # este campo e `origem` sao dois.
+        "registradoPor": owner_email,
+    }
+    correcoes = list(report.get("correcoes") or [])
+    correcoes.append(correcao)
+    report["correcoes"] = correcoes[-500:]
+    reports[session_id] = report
+    _save_session_reports(reports)
+    _record_tenant_success(
+        context,
+        "report.correction.create",
+        "session_report",
+        session_id,
+        metadata={"correction_id": correcao["id"], "origem": payload.origem, "tipo": payload.tipo},
+    )
+    return {"status": "created", "correcao": correcao}
 
 
 @app.put("/api/session-reports/{session_id}/patient-release")
