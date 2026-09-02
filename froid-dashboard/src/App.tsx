@@ -1,4 +1,5 @@
 import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AvisoSemSaldo } from "./components/AvisoSemSaldo";
 import { lazy, Suspense, useEffect, useMemo, useState, type ReactNode } from "react";
 import { AgendaReminderBanner } from "./components/panels/AgendaReminderBanner";
 import { LoginPage } from "./pages/LoginPage";
@@ -6,6 +7,7 @@ import { apiUrl } from "./lib/api";
 import { rememberProfessionalEmail } from "./lib/professional-prompts";
 import {
   clearProductChoice,
+  bloqueadoPorSaldo,
   defaultAuthenticatedPath,
   needsProductChoice,
   onboardingRequired,
@@ -82,6 +84,10 @@ export type FroidUser = {
     total_sessions?: number;
     used_sessions?: number;
     remaining_sessions?: number;
+    /** Sessoes ja realizadas com acerto pendente. Acima do teto, o
+     *  inicio de novas sessoes fica bloqueado — e o motivo precisa
+     *  chegar a tela, nao so ao roteador. */
+    pending_settlement_count?: number;
     admin?: boolean;
     manual_approval_required?: boolean;
     manual_approval_status?: "pending" | "approved" | "rejected" | "suspended";
@@ -404,7 +410,25 @@ function App() {
           path="/dashboard"
           element={
             protectedElement(
-              onboardingRequired(user) ? (
+              bloqueadoPorSaldo(user) ? (
+                // Quem ficou sem sessao NAO e redirecionado: recebe o aviso
+                // aqui, com a causa e a saida.
+                //
+                // Redirecionar era o que prendia — `onboarding_required` fica
+                // verdadeiro quando o saldo zera, o roteador mandava para
+                // /admin quando a conta e administradora, e /admin nao vende
+                // sessao. A pessoa caia numa tela sem relacao com o problema e
+                // sem nenhuma explicacao, e toda tentativa de voltar era
+                // devolvida para la.
+                <AvisoSemSaldo
+                  restam={user?.access_status?.remaining_sessions ?? 0}
+                  usadas={user?.access_status?.used_sessions}
+                  total={user?.access_status?.total_sessions}
+                  pendencias={user?.access_status?.pending_settlement_count ?? 0}
+                  avaliacaoEsgotada={Boolean(user?.access_status?.trial_exhausted)}
+                  admin={Boolean(user?.access_status?.admin)}
+                />
+              ) : onboardingRequired(user) ? (
                 // Era um /access/register fixo, que manda a empresa NR-1 para o
                 // formulario clinico — o que pede CRP e plano de sessoes e nao e
                 // o cadastro dela. defaultAuthenticatedPath ja respeita a

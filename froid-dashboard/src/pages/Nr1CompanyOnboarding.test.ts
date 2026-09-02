@@ -283,8 +283,12 @@ describe("a empresa consegue chegar ao próprio produto", () => {
     // onboardingRequired + /access/register fixo mandava a empresa NR-1 para a
     // ficha que pede CRP e plano de sessões. defaultAuthenticatedPath respeita
     // a escolha de produto.
+    // O recorte vai ate a PROXIMA rota, e nao ate o primeiro "/>": desde que
+    // /dashboard passou a renderizar <AvisoSemSaldo />, que e auto-fechado, o
+    // limite antigo cortava o bloco antes do trecho que importa.
     const rota = APP.slice(APP.indexOf('path="/dashboard"'));
-    const bloco = rota.slice(0, rota.indexOf("/>"));
+    const proxima = rota.indexOf('path="', 20);
+    const bloco = rota.slice(0, proxima > 0 ? proxima : rota.length);
     expect(bloco).not.toContain('to="/access/register"');
     expect(bloco).toContain("defaultAuthenticatedPath(user, productChoice)");
   });

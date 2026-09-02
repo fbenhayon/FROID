@@ -111,8 +111,35 @@ export type UsuarioRoteavel = {
     /** Decide a casa da conta depois do cadastro: `nr1_company` vai para o
      *  painel de conformidade, e nao para o painel clinico. */
     account_type?: string;
+    /** Os campos abaixo separam "ainda não se cadastrou" de "acabou o saldo".
+     *  Os dois produzem `onboarding_required`, e mandam a pessoa para lugares
+     *  diferentes — confundi-los foi o que prendeu o Fábio em /admin. */
+    has_profile?: boolean;
+    remaining_sessions?: number;
+    total_sessions?: number;
+    used_sessions?: number;
+    pending_settlement_count?: number;
+    trial_exhausted?: boolean;
   };
 } | null | undefined;
+
+/** O acesso parou por saldo, e não por cadastro incompleto?
+ *
+ *  A diferença decide o que a pessoa vê. Quem nunca preencheu o cadastro
+ *  precisa do formulário; quem já é cliente e ficou sem sessão precisa saber
+ *  disso — e hoje era mandado para uma tela sem relação com o problema, sem
+ *  nenhuma explicação.
+ *
+ *  Exige `has_profile`: sem perfil não há saldo que possa ter acabado, e o
+ *  caminho certo continua sendo o cadastro. */
+export function bloqueadoPorSaldo(user: UsuarioRoteavel): boolean {
+  const acesso = user?.access_status;
+  if (!acesso?.onboarding_required) return false;
+  if (!acesso.has_profile) return false;
+  if ((acesso.pending_settlement_count ?? 0) > 0) return true;
+  if (acesso.trial_exhausted) return true;
+  return (acesso.remaining_sessions ?? 0) <= 0;
+}
 
 export function onboardingRequired(user: UsuarioRoteavel): boolean {
   return Boolean(user?.access_status?.onboarding_required);
