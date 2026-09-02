@@ -51,12 +51,12 @@ Sao dois, protegem coisas diferentes, e os dois valem sempre.
 **Portao do anonimato.** Uma campanha so libera resultado a partir de 15
 respostas substantivas. Cada recorte por unidade ou setor exige no minimo 10.
 Sao numeros absolutos: nao dependem do tamanho da empresa, e nao se movem.
-Protegem a PESSOA — abaixo desse tamanho, saber a media do grupo ja e quase
+Protegem a PESSOA - abaixo desse tamanho, saber a media do grupo ja e quase
 saber o que cada um respondeu.
 
 **Portao da representatividade.** A coorte precisa ser grande o bastante para
 falar pelo efetivo declarado. E amostra para proporcao com correcao de
-populacao finita, a 95% de confianca, margem de 5 pontos, em p=0,5 — a
+populacao finita, a 95% de confianca, margem de 5 pontos, em p=0,5 - a
 proporcao de maior variancia, e portanto a exigencia conservadora qualquer que
 seja o resultado medido. Protege a AFIRMACAO: sem ele o relatorio descreveria
 quem respondeu, e nao o trabalho da organizacao.
@@ -64,7 +64,7 @@ quem respondeu, e nao o trabalho da organizacao.
 Consequencia que surpreende, e que precisa ser dita antes da venda: **abaixo de
 98 pessoas a amostra exigida alcanca o quadro inteiro**, ou seja, o recorte so
 publica em censo. Um estabelecimento de 28 pessoas precisa das 28. Como
-responder e voluntario, uma unica recusa suspende aquele recorte — e nao a
+responder e voluntario, uma unica recusa suspende aquele recorte - e nao a
 campanha, que continua valendo pelo total da organizacao.
 
 Uma resposta so conta para o portao se cobrir ao menos metade das dimensoes do
@@ -89,7 +89,7 @@ aqui", que e exatamente a unica conclusao que a ausencia de dado nunca
 autoriza. Uma empresa que pagou o ciclo e recebeu documento nenhum fica sem o
 que mostrar a uma fiscalizacao que continua cobrando dela.
 
-A linha declarada NAO traz a contagem de respostas daquele recorte — esse
+A linha declarada NAO traz a contagem de respostas daquele recorte - esse
 numero esta abaixo do piso por definicao, e publica-lo desfaria o piso. Traz o
 portao, porque o remedio depende dele: reprovado no anonimato, nenhuma adesao
 resolve e o caminho e a AEP; reprovado na representatividade, subir a adesao

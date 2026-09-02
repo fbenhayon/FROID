@@ -1099,11 +1099,50 @@ export const SessionReport: React.FC<Props> = () => {
   const activeMetricsAnalysis = metricsAnalysis || report.metricsAnalysis || null;
   const sessionSummary = derivedSessionSummary(report);
 
+  // A procedência decide se este par entra no estudo de validade convergente.
+  //
+  // Uma sessão analisada sobre voz simulada produz um IPM que o sistema
+  // inventou. Pareado com um PHQ-9 verdadeiro, ele fabrica evidência: sai um
+  // coeficiente, um intervalo e um gráfico, e nada por trás. Os filtros
+  // antigos não pegavam isso — dado gerado tem cobertura e confiança
+  // excelentes, justamente porque é gerado limpo.
+  //
+  // O piso espelha `migrations/030_procedencia_na_validade.sql`, que é a
+  // fonte: quem decide a inclusão é a função de pares no banco. Aqui ele serve
+  // só para avisar antes, em vez de o profissional descobrir que o par foi
+  // descartado meses depois.
+  const PISO_DE_PROCEDENCIA = 0.8;
+  const procedencia = report.procedenciaDosDados;
+  const fracaoDeVozMedida =
+    procedencia && procedencia.amostras > 0
+      ? procedencia.amostrasComVozReal / procedencia.amostras
+      : null;
+  const parEntraNoEstudo =
+    fracaoDeVozMedida !== null && fracaoDeVozMedida >= PISO_DE_PROCEDENCIA;
+
   return (
     <ReportLocaleContext.Provider value={locale}>
     <div className="min-h-screen bg-slate-950 text-slate-100">
       {report.patient?.id && activeOrganizationId() && (
         <div className="mx-auto max-w-7xl px-6 pt-4">
+          {!parEntraNoEstudo && (
+            <div className="mb-3 rounded-lg border border-amber-700 bg-amber-950/40 p-3">
+              <p className="text-[10px] font-black uppercase tracking-wider text-amber-400">
+                Este par não entra no estudo de validade
+              </p>
+              <p className="mt-1 text-xs leading-5 text-amber-100/90">
+                {fracaoDeVozMedida === null
+                  ? "Esta sessão não registrou a procedência dos dados, e procedência desconhecida fica de fora do estudo."
+                  : `Apenas ${Math.round(fracaoDeVozMedida * 100)}% das amostras desta sessão foram medidas sobre a voz real do paciente.`}{" "}
+                O lado FROID do par seria um número gerado, e pareá-lo com um
+                escore verdadeiro fabricaria evidência.
+              </p>
+              <p className="mt-1 text-[11px] leading-4 text-amber-100/70">
+                Registrar o escore continua valendo clinicamente — o PHQ-9 é
+                útil por si. Só o pareamento com os padrões é que fica de fora.
+              </p>
+            </div>
+          )}
           <InstrumentScorePrompt
             organizationId={activeOrganizationId()}
             patientId={report.patient.id}
@@ -1115,6 +1154,7 @@ export const SessionReport: React.FC<Props> = () => {
                 coverage: report.metricsAnalysis?.dashboard?.mean_coverage ?? null,
                 confidence: report.metricsAnalysis?.dashboard?.mean_confidence ?? null,
                 window_seconds: report.durationSeconds,
+                voice_measured_ratio: fracaoDeVozMedida,
               },
               {
                 pattern_key: "prosodic_activation",
@@ -1122,6 +1162,7 @@ export const SessionReport: React.FC<Props> = () => {
                 coverage: report.metricsAnalysis?.dashboard?.mean_coverage ?? null,
                 confidence: report.metricsAnalysis?.dashboard?.mean_confidence ?? null,
                 window_seconds: report.durationSeconds,
+                voice_measured_ratio: fracaoDeVozMedida,
               },
             ].filter((item) => item.pattern_value !== null)}
           />

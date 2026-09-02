@@ -8961,6 +8961,34 @@ async def set_research_consent(organization_id: str, patient_id: str, request: R
     return resultado
 
 
+def _observacoes_com_procedencia(observations) -> list:
+    """Normaliza a procedência de cada observação antes de gravar.
+
+    A fração de voz medida vem da tela, e a tela pode omiti-la: relatório
+    antigo não a registrava, e cliente desatualizado não a envia. Omitida, ela
+    fica NULL — e `froid_validation_pairs` exclui NULL de propósito, porque
+    procedência desconhecida é a dúvida inteira, não um detalhe ausente.
+
+    Valor fora de 0..1 é dado corrompido, não um extremo legítimo: vira NULL
+    em vez de ser truncado, para não inventar uma procedência que ninguém
+    mediu.
+    """
+    normalizadas = []
+    for obs in list(observations or []):
+        if not isinstance(obs, dict):
+            continue
+        copia = dict(obs)
+        try:
+            fracao = float(copia.get("voice_measured_ratio"))
+        except (TypeError, ValueError):
+            fracao = None
+        copia["voice_measured_ratio"] = (
+            fracao if fracao is not None and 0.0 <= fracao <= 1.0 else None
+        )
+        normalizadas.append(copia)
+    return normalizadas
+
+
 @app.post("/api/organizations/{organization_id}/validation/administrations")
 async def record_validation_administration(organization_id: str, request: Request):
     """Escore do instrumento aplicado pelo profissional, e os padrões da janela."""
@@ -8992,7 +9020,7 @@ async def record_validation_administration(organization_id: str, request: Reques
             administered_at=str(body.get("administered_at") or "")
             or datetime.now(timezone.utc).isoformat(),
             session_id=body.get("session_id"),
-            observations=list(body.get("observations") or []),
+            observations=_observacoes_com_procedencia(body.get("observations")),
         )
     except PermissionError as exc:
         raise HTTPException(status_code=409, detail=str(exc))

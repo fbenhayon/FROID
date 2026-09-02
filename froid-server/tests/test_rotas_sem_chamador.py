@@ -50,6 +50,19 @@ SEM_CHAMADOR_POR_DESENHO = {
     "/api/insights": "proxy interno de IA, chamado pelo backend",
     "/api/knowledge": "ingestao operada por ferramenta em tools/",
     "/api/copilot/query": "assistente operado por ferramenta interna",
+    # Chamadas por caminho MONTADO, que a varredura nao enxerga.
+    #
+    # ControleDeAcesso.tsx faz `apiUrl(`/api/admin/access/${rota}`)`, com
+    # `rota` em {membership, organization, user}. As tres sao chamadas de
+    # verdade — o controle foi testado em producao em 02/09/2026 — mas o
+    # detector procura o caminho literal e um template nao produz literal.
+    #
+    # Sao declaradas aqui e nao na divida conhecida porque nao falta tela:
+    # a tela existe e funciona. O que falta e o detector saber ler template,
+    # e ensina-lo a isso deixaria a varredura frouxa para os casos reais.
+    "/api/admin/access/membership": "chamada por caminho montado em ControleDeAcesso.tsx",
+    "/api/admin/access/organization": "chamada por caminho montado em ControleDeAcesso.tsx",
+    "/api/admin/access/user": "chamada por caminho montado em ControleDeAcesso.tsx",
     # CODIGO MORTO, declarado. A sessao nasce de POST /api/session-invites,
     # que e quem grava SESSION_OWNERS. /session/create faz a mesma coisa e
     # ninguem o chama desde que o painel passou a gerar o id no cliente.
@@ -95,6 +108,13 @@ def _fonte_do_frontend() -> str:
             continue
         for caminho in raiz.rglob("*"):
             if not caminho.is_file():
+                continue
+            # Arquivo de teste NAO e chamador. Sem esta linha a varredura se
+            # contradiz: `expect(CODIGO).not.toContain("/api/copilot/query")` —
+            # uma assercao de que a rota nao e chamada — contava como prova de
+            # que ela e chamada, e a rota orfa desaparecia da lista por causa
+            # do teste que denuncia a orfandade.
+            if caminho.name.endswith((".test.ts", ".test.tsx")):
                 continue
             if caminho.suffix not in {".ts", ".tsx", ".html"}:
                 continue

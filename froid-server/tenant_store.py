@@ -4414,11 +4414,13 @@ class TenantStore:
                     connection.execute(
                         "INSERT INTO validation_observations "
                         "(administration_id, pattern_key, pattern_value, coverage, "
-                        " confidence, window_seconds) VALUES (%s, %s, %s, %s, %s, %s) "
+                        " confidence, window_seconds, voice_measured_ratio) "
+                        "VALUES (%s, %s, %s, %s, %s, %s, %s) "
                         "ON CONFLICT (administration_id, pattern_key) DO NOTHING",
                         (administration_id, obs.get("pattern_key"),
                          obs.get("pattern_value"), obs.get("coverage"),
-                         obs.get("confidence"), obs.get("window_seconds")),
+                         obs.get("confidence"), obs.get("window_seconds"),
+                         obs.get("voice_measured_ratio")),
                     )
         return {"administration_id": str(administration_id)}
 
