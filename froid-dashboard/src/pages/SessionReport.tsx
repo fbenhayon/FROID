@@ -705,6 +705,77 @@ const PainelEvolucao: React.FC<{ serie: SerieEvolucao; rotulos: string[] }> = ({
   );
 };
 
+/** A base probatória do relatório, dita antes dos números.
+ *
+ *  Vem antes de propósito. Quem lê um índice acústico precisa saber, antes de
+ *  interpretá-lo, se ele foi medido ou gerado — depois já é tarde, a leitura
+ *  clínica já aconteceu.
+ */
+const ProcedenciaDoRelatorio: React.FC<{
+  procedencia?: SessionReportRecord["procedenciaDosDados"];
+}> = ({ procedencia }) => {
+  if (!procedencia) {
+    // Relatórios anteriores a 02/09/2026 não gravavam isso. Dizer "não sei" é
+    // a única leitura honesta: nem afirma que foi medido, nem que não foi.
+    return (
+      <section className="rounded-lg border border-slate-700 bg-slate-900 p-3">
+        <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+          Procedência dos dados
+        </p>
+        <p className="mt-1 text-xs text-slate-400">
+          Este relatório é anterior ao registro de procedência. Não é possível
+          afirmar, a partir dele, se os índices acústicos foram medidos sobre a
+          voz do paciente ou gerados pelo modo de simulação.
+        </p>
+      </section>
+    );
+  }
+
+  const { amostras, amostrasComVozReal, amostrasComFaceReal } = procedencia;
+  const proporcao = amostras > 0 ? amostrasComVozReal / amostras : 0;
+  const pct = (parte: number) =>
+    amostras > 0 ? Math.round((parte / amostras) * 100) : 0;
+
+  const nenhuma = amostrasComVozReal === 0;
+  const parcial = !nenhuma && proporcao < 0.8;
+
+  const cor = nenhuma
+    ? "border-red-700 bg-red-950/50"
+    : parcial
+      ? "border-amber-700 bg-amber-950/40"
+      : "border-emerald-800 bg-emerald-950/30";
+
+  return (
+    <section className={`rounded-lg border p-3 ${cor}`}>
+      <p className="text-[10px] font-black uppercase tracking-wider text-slate-200">
+        Procedência dos dados
+      </p>
+      {nenhuma ? (
+        <p className="mt-1 text-xs font-bold leading-5 text-red-100">
+          Os índices acústicos deste relatório <strong>não foram medidos</strong>.
+          Nenhuma das {amostras} amostras da sessão recebeu voz real do paciente —
+          o motor operou em modo de simulação. F0, ZCR, MFCC e os índices
+          derivados deles não descrevem esta pessoa e não devem ser lidos como
+          achado clínico.
+        </p>
+      ) : (
+        <p className="mt-1 text-xs leading-5 text-slate-200">
+          {amostrasComVozReal} de {amostras} amostras ({pct(amostrasComVozReal)}%)
+          foram medidas sobre a voz real do paciente
+          {parcial
+            ? " — o restante veio do modo de simulação, e os índices representam uma mistura das duas fontes."
+            : "."}
+        </p>
+      )}
+      <p className="mt-1 text-[11px] leading-4 text-slate-400">
+        Leitura facial real em {amostrasComFaceReal} de {amostras} amostras (
+        {pct(amostrasComFaceReal)}%). A transcrição, os resumos e o registro da
+        sessão não dependem desta origem e permanecem válidos.
+      </p>
+    </section>
+  );
+};
+
 const EvolutionChart: React.FC<{ analysis: MetricsAnalysis }> = ({ analysis }) => {
   const rows = analysis.evolution || [];
 
@@ -1131,6 +1202,8 @@ export const SessionReport: React.FC<Props> = () => {
               </div>
             </div>
           </section>
+
+          <ProcedenciaDoRelatorio procedencia={report.procedenciaDosDados} />
 
           {sections.evolution && activeMetricsAnalysis && (
             <section className="rounded-lg border border-slate-700 bg-slate-900 p-4">

@@ -127,3 +127,51 @@ describe("voz simulada é dita na tela, não deduzida", () => {
     expect(PROFISSIONAL.match(/<AvisoVozSimulada /g)?.length).toBe(2);
   });
 });
+
+describe("o relatório declara a própria base probatória", () => {
+  const RELATORIO = ler("pages", "SessionReport.tsx");
+  const TIPO = ler("lib", "session-report.ts");
+
+  /**
+   * O que faltava: um relatório construído inteiramente sobre voz simulada era
+   * indistinguível de um relatório clínico legítimo. Nenhum campo dizia que os
+   * números tinham sido gerados em vez de medidos — nem para quem assina, nem
+   * para quem recebe o documento depois.
+   */
+
+  it("a procedência é gravada no registro, amostra a amostra", () => {
+    expect(TIPO).toContain("export interface ProcedenciaDosDados");
+    expect(TIPO).toContain("amostrasComVozReal");
+    expect(PROFISSIONAL).toContain("procedenciaDosDados: {");
+    expect(PROFISSIONAL).toContain('=== "real_pcm"');
+  });
+
+  it("uma proporção, não um sim/não — sessão mista existe", () => {
+    // Uma sessão pode ter os primeiros minutos simulados e o resto medido.
+    // Reduzir isso a um booleano apagaria a diferença que importa.
+    expect(RELATORIO).toContain("amostrasComVozReal / amostras");
+    expect(RELATORIO).toContain("parcial");
+  });
+
+  it("zero amostras reais é dito com todas as letras", () => {
+    expect(RELATORIO).toContain("não foram medidos");
+    expect(RELATORIO).toContain("não devem ser lidos como");
+  });
+
+  it("relatório antigo diz «não sei», e não «foi medido»", () => {
+    // Nem afirma que foi medido, nem que não foi: os anteriores a 02/09/2026
+    // simplesmente não gravavam a origem.
+    expect(RELATORIO).toContain("anterior ao registro de procedência");
+  });
+
+  it("a procedência vem ANTES dos números", () => {
+    // Depois já é tarde: a leitura clínica do índice já aconteceu.
+    expect(RELATORIO.indexOf("<ProcedenciaDoRelatorio")).toBeLessThan(
+      RELATORIO.indexOf("{sections.evolution && activeMetricsAnalysis && ("),
+    );
+  });
+
+  it("diz o que continua válido, para não parecer perda total", () => {
+    expect(RELATORIO).toContain("não dependem desta origem e permanecem válidos");
+  });
+});

@@ -226,7 +226,27 @@ export interface SessionReportRecord {
     }>;
   };
   metricsAnalysis?: MetricsAnalysis;
+  /** Ausente em relatórios anteriores a 02/09/2026 — ver ProcedenciaDosDados. */
+  procedenciaDosDados?: ProcedenciaDosDados;
   metricsAnalysisError?: string;
+}
+
+/** De onde vieram os dados que sustentam os índices deste relatório.
+ *
+ *  Existe por um incidente de 02/09/2026: uma sessão de 24 minutos foi
+ *  analisada inteira sobre voz SIMULADA, e o relatório resultante era
+ *  indistinguível de um relatório clínico legítimo. Nenhum campo dizia que os
+ *  números tinham sido gerados em vez de medidos.
+ *
+ *  Um documento que não declara a própria base probatória não pode ser lido
+ *  com segurança — nem por quem o assina, nem por quem o recebe depois. */
+export interface ProcedenciaDosDados {
+  /** Total de amostras colhidas na sessão. */
+  amostras: number;
+  /** Quantas tinham voz REAL do paciente (PCM medido, não gerado). */
+  amostrasComVozReal: number;
+  /** Quantas tinham leitura facial REAL (blendshapes -> AUs FACS). */
+  amostrasComFaceReal: number;
 }
 
 export interface MetricsAnalysis {

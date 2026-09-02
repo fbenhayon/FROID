@@ -5083,6 +5083,20 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       dissonances: dissonanceLog,
       evidentDissonances: multiDissonanceLog,
       transcript: summarySourceTranscript,
+      // A base probatoria do documento, contada amostra a amostra. O motor
+      // declara a origem em cada leitura; aqui ela para de se perder.
+      procedenciaDosDados: {
+        amostras: samples.length,
+        amostrasComVozReal: samples.filter(
+          (amostra) =>
+            (amostra.payload as any)?.dissonance_event?.voice_features_source
+            === "real_pcm",
+        ).length,
+        amostrasComFaceReal: samples.filter(
+          (amostra) =>
+            (amostra.payload as any)?.dissonance_event?.facs_source === "real_facs",
+        ).length,
+      },
       transcriptionQuality: {
         successfulSegments: transcriptionStats.successfulSegments,
         emptySegments: transcriptionStats.emptySegments,
