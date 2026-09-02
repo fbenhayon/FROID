@@ -26,6 +26,7 @@ var NAV_SECOES = {
   ],
   "ciencia.html": [
     ["evidencia", "Explorador de evidências"],
+    ["percepcao-do-paciente", "A percepção do paciente sobre a própria expressão"],
     ["data-froid-ciencia", "O que o Data-Froid prova, e o que não"],
     ["bibliografia", "Metodologia de verificação"]
   ],
