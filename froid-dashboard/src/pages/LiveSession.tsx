@@ -4,6 +4,7 @@ interface LiveSessionProps {
   user?: any;
 }
 import { useParams, useNavigate } from "react-router-dom";
+import { observarConexao, registrarEnvio, relatorioRtc } from "../lib/diagnostico-rtc";
 import MapaZonalFroid from "../components/charts/MapaZonalFroid";
 import { IPMLineChart } from "../components/indicators/IPMLineChart";
 import { RiskChart } from "../components/indicators/RiskChart";
@@ -3057,6 +3058,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       const peer = new RTCPeerConnection(
         await loadRtcConfiguration({ sessionId, professionalToken: token }),
       );
+      observarConexao(peer, "profissional");
       const remoteStream = new MediaStream();
       rtcPeerRef.current = peer;
       rtcRemoteStreamRef.current = remoteStream;
@@ -3069,6 +3071,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           const sender = peer.addTrack(track, localConferenceStream);
           void configureConferenceSender(sender);
         });
+      registrarEnvio(peer);
       }
 
       const sendSignal = (payload: Record<string, unknown>) => {
@@ -5877,6 +5880,25 @@ function LiveSessionInner({ user }: LiveSessionProps) {
               <span className="ml-2 font-normal normal-case tracking-normal opacity-90">
                 · {presencaDoPaciente}
               </span>
+            )}
+            {/* Aparece só quando a mídia do paciente não chegou — que é
+                exatamente quando alguém precisa saber o porquê. Copia o
+                histórico da negociação para colar num chamado. */}
+            {!remotePatientVideoOn && !remotePatientOn && (
+              <button
+                type="button"
+                onClick={() => {
+                  const texto = relatorioRtc();
+                  void navigator.clipboard?.writeText(texto);
+                  window.alert(
+                    "Diagnóstico copiado. Cole no chamado:" + texto.slice(0, 1200),
+                  );
+                }}
+                title="Copia o histórico da conexão para enviar ao suporte"
+                className="ml-2 rounded-full bg-slate-800/90 px-2 py-0.5 text-[9px] font-black normal-case tracking-normal text-slate-200 hover:bg-slate-700"
+              >
+                copiar diagnóstico
+              </button>
             )}
           </div>
           {remotePatientOn && !isPresentialMobileSession && (
