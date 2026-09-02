@@ -89,12 +89,70 @@ dicionário, sem lista de tipos permitidos. **Só o frontend precisa de rebuild.
 Testes: `lib/freio-renegociacao.test.ts` (13), incluindo a regressão direta —
 cem falhas em um segundo produzem **uma** renegociação, não cem.
 
-## A ressalva — leia antes de considerar encerrado
+## A causa de origem: o rollback
 
-O laço está morto. **A falha que disparou a primeira volta ainda não foi vista.**
-Ela era descartada; agora é gravada.
+O diagnóstico da segunda tentativa trouxe a frase que faltava, dos dois lados:
 
-Se a chamada não subir de novo, o caminho deixou de ser adivinhação: abra o
-diagnóstico da chamada no painel. Ele agora traz os dois lados, e a linha que
-interessa começa com `FALHOU em`. É ela que diz o que o navegador recusou —
-a informação que faltou durante toda esta investigação.
+```
+seu lado      The order of m-lines in answer doesn't match order in offer
+lado paciente The order of m-lines in subsequent offer doesn't match order
+              from previous offer/answer
+```
+
+E o log flagrou o instante, às 11:54:54, tudo dentro do mesmo segundo:
+
+```
+have-local-offer     ← oferta A
+stable               ← ROLLBACK
+have-local-offer     ← oferta B
+FALHOU ... the order of m-lines in answer doesn't match order in offer
+```
+
+`makeOffer(true)` desfazia a oferta pendente com `setLocalDescription({type:
+"rollback"})` antes de criar outra. A resposta do paciente era da oferta A e
+chegou quando o local já era a oferta B. O navegador recusou.
+
+O estrago não parou aí. O peer do paciente **já havia negociado** com a ordem
+antiga — o log dele mostra `CHEGOU mídia: audio`, `CHEGOU mídia: video`,
+`ICE: checking`, `conexão: connecting`. A chamada estava subindo. A partir do
+desalinhamento, ele passou a recusar **toda** oferta seguinte: seis recusas
+idênticas até `failed`. A ordem das m-lines de um peer negociado não muda mais,
+e nenhuma renegociação conserta isso.
+
+Duas camadas, então:
+
+- **origem** — o rollback, que embaralhava a ordem entre uma oferta e a seguinte;
+- **amplificador** — o laço de renegociação, que respondia a um erro
+  irrecuperável repetindo a operação que acabara de falhar.
+
+## O que mudou na segunda rodada
+
+| Onde | Mudança |
+|---|---|
+| `LiveSession.tsx` | **O rollback saiu do código.** Forçar uma oferta agora *reenvia a pendente*: ela continua válida, e reenviar não reordena nada. O cão de guarda de 8 s também reenvia |
+| `LiveSession.tsx` / `PatientSessionPage.tsx` | Cada oferta leva `seq`; a resposta devolve o número; resposta de oferta superada é **descartada**, não aplicada |
+| `lib/webrtc.ts` | `eDesalinhamentoDeMlines` reconhece o erro pelo nome |
+| ambos | Ao detectá-lo, o peer é **reconstruído do zero** — com teto de 2, para a recuperação não virar o laço que veio resolver |
+
+O impasse que o rollback resolvia (uma oferta entregue à sala vazia) continua
+resolvido: a sala agora tem alguém, então a mesma oferta serve.
+
+## O que este incidente ensinou sobre os testes
+
+`sinalizacao-par-ausente.test.ts` **exigia** o rollback — a linha
+`expect(trecho).toContain('setLocalDescription({ type: "rollback" })')`. O teste
+tinha congelado o mecanismo em vez da garantia, e por isso protegia o defeito.
+
+Foi reescrito para exigir o que de fato importa: quem acaba de entrar não pode
+ficar travado por uma oferta entregue à sala vazia. O meio ficou livre.
+
+## Se acontecer de novo
+
+Abra o diagnóstico da chamada. Ele traz os dois lados, separados por
+`--- daqui para baixo, o relatorio do PACIENTE ---`. As três linhas que decidem:
+
+- `NEGOCIADO:` — se disser `NAO envia`, `recvonly` ou `nenhum transceptor`, o
+  problema é configuração de trilha, não rede;
+- `FALHOU em` — a mensagem literal do navegador;
+- `ICE:` — se nunca chegar a `checking`, a conexão está sendo reiniciada antes
+  de tentar.

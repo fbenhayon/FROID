@@ -6,11 +6,13 @@ import {
   registrarEnvio,
   registrarFalha,
   registrarNegociacao,
+  registrarRtc,
   relatorioRtc,
 } from "../lib/diagnostico-rtc";
 import {
   activateRtcRelayFallback,
   criarFreioDeRenegociacao,
+  eDesalinhamentoDeMlines,
   motivoDaRecusaDeSinalizacao,
   adoptRemoteTrack,
   attachRemoteMedia,
@@ -52,6 +54,8 @@ export const PatientSessionPage: React.FC = () => {
   const rtcPeerRef = useRef<RTCPeerConnection | null>(null);
   const rtcRemoteStreamRef = useRef<MediaStream | null>(null);
   const rtcIceQueueRef = useRef<RTCIceCandidateInit[]>([]);
+  // Sobrevive a reconstrucao do peer, porque e ela que este numero conta.
+  const reconstrucoesRtcRef = useRef(0);
   const rtcReconnectTimerRef = useRef<number | null>(null);
   const rtcDisconnectTimerRef = useRef<number | null>(null);
   const rtcMediaHealthTimerRef = useRef<number | null>(null);
@@ -435,6 +439,7 @@ export const PatientSessionPage: React.FC = () => {
     peer.onconnectionstatechange = () => {
       if (peer.connectionState === "connected") {
         freioRenegociacao.liberar();
+        reconstrucoesRtcRef.current = 0;
         registrarNegociacao(peer);
         if (rtcDisconnectTimerRef.current) {
           window.clearTimeout(rtcDisconnectTimerRef.current);
@@ -505,7 +510,10 @@ export const PatientSessionPage: React.FC = () => {
         await flushIceQueue();
         const answer = await peer.createAnswer();
         await peer.setLocalDescription(answer);
-        sendSignal({ type: "answer", answer: peer.localDescription });
+        // Devolve o numero da oferta: e assim que o profissional distingue
+        // esta resposta de uma resposta atrasada, que ele agora descarta em
+        // vez de aplicar contra a oferta seguinte.
+        sendSignal({ type: "answer", answer: peer.localDescription, seq: data.seq });
         setCallStatus("Respondendo ao profissional...");
       } else if (data.type === "ice" && data.candidate) {
         if (peer.remoteDescription) {
@@ -583,6 +591,24 @@ export const PatientSessionPage: React.FC = () => {
             // O erro era descartado aqui, e com ele a unica informacao que
             // dizia por que a chamada nao subia.
             registrarFalha("tratar sinal recebido", erro);
+            if (eDesalinhamentoDeMlines(erro)) {
+              // Seis vezes seguidas, em 02/09/2026, este erro foi respondido
+              // com um pedido de renegociacao — que so podia falhar igual,
+              // porque a ordem das m-lines de um peer negociado nao muda mais.
+              if (reconstrucoesRtcRef.current >= 2) {
+                registrarRtc("desalinhamento persistente — parei de reconstruir");
+                setCallStatus(
+                  "Não foi possível estabelecer a chamada. Recarregue a página.",
+                );
+                enviarDiagnostico();
+                return;
+              }
+              reconstrucoesRtcRef.current += 1;
+              registrarRtc("reconstruindo a conexao do zero");
+              setCallStatus("Refazendo a conexão da chamada...");
+              void startPatientRtc(localSource);
+              return;
+            }
             if (freioRenegociacao.permite()) {
               setCallStatus("Sincronizando novamente a chamada...");
               sendSignal({ type: "renegotiate-request" });

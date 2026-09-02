@@ -69,6 +69,19 @@ export function shouldReconnectRtcSignaling(
     || reconnectAttempt < MAX_INITIAL_SIGNALING_RECONNECTS;
 }
 
+/** O erro que NAO se recupera renegociando.
+ *
+ *  Quando um peer ja negociou, a ordem das m-lines dele fica fixa. Uma oferta
+ *  com ordem diferente e recusada — e toda oferta seguinte tambem sera. O log
+ *  de 02/09/2026 mostra seis recusas identicas no paciente ate `failed`, cada
+ *  uma respondida com um pedido de renegociacao que so podia falhar igual.
+ *
+ *  Renegociar nao resolve nada aqui. A unica saida e jogar o peer fora e
+ *  comecar de novo — e por isso este caso precisa ser reconhecido pelo nome. */
+export function eDesalinhamentoDeMlines(erro: unknown): boolean {
+  return erro instanceof Error && /m-lines/i.test(erro.message);
+}
+
 /** Freio da renegociacao.
  *
  *  Uma renegociacao existe para tirar a chamada de um impasse. Quando ela

@@ -8,7 +8,7 @@ import {
   registrarNegociacao,
   relatorioRtc,
 } from "./diagnostico-rtc";
-import { criarFreioDeRenegociacao } from "./webrtc";
+import { criarFreioDeRenegociacao, eDesalinhamentoDeMlines } from "./webrtc";
 
 /**
  * O defeito, vivido em 02/09/2026 numa consulta real:
@@ -203,6 +203,90 @@ describe("o relatório diz se as DUAS trilhas subiram, nos DOIS sentidos", () =>
     (arquivo) => {
       const fonte = readFileSync(join(__dirname, "..", "pages", arquivo), "utf-8");
       expect(fonte).toContain("registrarEnvio(peer)");
+    },
+  );
+});
+
+describe("o rollback saiu — era ele que embaralhava as m-lines", () => {
+  /**
+   * A causa raiz, lida no log de uma sessão real em 02/09/2026:
+   *
+   *   11:54:54  have-local-offer        ← oferta A
+   *   11:54:54  stable                  ← ROLLBACK
+   *   11:54:54  have-local-offer        ← oferta B
+   *   11:54:55  FALHOU ... the order of m-lines in answer doesn't match
+   *
+   * A resposta do paciente era da oferta A e chegou na oferta B. O navegador
+   * recusou. Pior: o peer do paciente já havia negociado com a ordem antiga, e
+   * passou a recusar TODA oferta seguinte — seis recusas idênticas até
+   * `failed`, cada uma respondida com um pedido de renegociação que só podia
+   * falhar do mesmo jeito.
+   */
+  const fonte = (arquivo: string) =>
+    readFileSync(join(__dirname, "..", "pages", arquivo), "utf-8");
+
+  it.each(["LiveSession.tsx", "PatientSessionPage.tsx"])(
+    "%s não faz rollback em lugar nenhum",
+    (arquivo) => {
+      expect(fonte(arquivo)).not.toContain('type: "rollback"');
+    },
+  );
+
+  it("a oferta forçada REENVIA a pendente em vez de refazer", () => {
+    // O impasse original — uma oferta entregue à sala vazia — se resolve sem
+    // rollback: a sala agora tem alguém, então a mesma oferta serve.
+    expect(fonte("LiveSession.tsx")).toContain("reenviarOfertaPendente()");
+  });
+
+  it("o cão de guarda também reenvia, em vez de refazer", () => {
+    const texto = fonte("LiveSession.tsx");
+    const i = texto.indexOf("offerWatchdogTimer = window.setTimeout");
+    expect(texto.slice(i, i + 400)).toContain("reenviarOfertaPendente()");
+  });
+
+  it("cada oferta leva número, e a resposta o devolve", () => {
+    expect(fonte("LiveSession.tsx")).toContain("seq: ofertaSeq");
+    expect(fonte("PatientSessionPage.tsx")).toContain("seq: data.seq");
+  });
+
+  it("resposta de oferta superada é descartada, não aplicada", () => {
+    // Aplicá-la era exatamente o que produzia o desalinhamento.
+    expect(fonte("LiveSession.tsx")).toContain("data.seq !== ofertaSeq");
+  });
+});
+
+describe("o desalinhamento de m-lines é reconhecido pelo nome", () => {
+  it("reconhece as duas mensagens reais do incidente", () => {
+    // Copiadas literalmente do log de 02/09/2026, uma de cada lado.
+    const doProfissional = new Error(
+      "Failed to execute 'setRemoteDescription' on 'RTCPeerConnection': "
+      + "Failed to set remote answer sdp: The order of m-lines in answer "
+      + "doesn't match order in offer. Rejecting answer.",
+    );
+    const doPaciente = new Error(
+      "Failed to execute 'setRemoteDescription' on 'RTCPeerConnection': "
+      + "Failed to set remote offer sdp: The order of m-lines in subsequent "
+      + "offer doesn't match order from previous offer/answer.",
+    );
+    expect(eDesalinhamentoDeMlines(doProfissional)).toBe(true);
+    expect(eDesalinhamentoDeMlines(doPaciente)).toBe(true);
+  });
+
+  it("não confunde com outros erros — reconstruir sem motivo derruba a chamada", () => {
+    expect(eDesalinhamentoDeMlines(new Error("Failed to set remote answer sdp: Called in wrong state"))).toBe(false);
+    expect(eDesalinhamentoDeMlines(new Error("ICE failed"))).toBe(false);
+    expect(eDesalinhamentoDeMlines("m-lines")).toBe(false);
+    expect(eDesalinhamentoDeMlines(null)).toBe(false);
+  });
+
+  it.each(["LiveSession.tsx", "PatientSessionPage.tsx"])(
+    "%s reconstrói o peer em vez de renegociar, e com teto",
+    (arquivo) => {
+      const texto = readFileSync(join(__dirname, "..", "pages", arquivo), "utf-8");
+      expect(texto).toContain("eDesalinhamentoDeMlines(erro)");
+      // Sem teto, a reconstrução vira o laço que ela veio resolver.
+      expect(texto).toContain("reconstrucoesRtcRef.current >= 2");
+      expect(texto).toContain("reconstrucoesRtcRef.current = 0");
     },
   );
 });

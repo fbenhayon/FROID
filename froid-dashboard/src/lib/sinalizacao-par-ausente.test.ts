@@ -114,11 +114,23 @@ describe("oferta pendente não pode travar quem acabou de entrar", () => {
     expect(PROFISSIONAL).toContain("const makeOffer = async (forcar = false)");
   });
 
-  it("forçar desfaz a oferta pendente com rollback", () => {
+  it("forçar REENVIA a oferta pendente — antes ela era desfeita com rollback", () => {
+    // Este teste exigia o rollback, e o rollback era o defeito.
+    //
+    // Em 02/09/2026 o log mostrou rollback e oferta nova no mesmo segundo; a
+    // resposta do paciente, feita para a oferta anterior, chegou depois e foi
+    // recusada por desalinhamento de m-lines. O peer do paciente, já negociado
+    // com a ordem antiga, passou a recusar toda oferta seguinte.
+    //
+    // A garantia que este teste protege continua a mesma — quem acaba de
+    // entrar não pode ficar travado por uma oferta entregue à sala vazia. O
+    // que mudou foi o meio: reenviar a mesma oferta, que continua válida e não
+    // reordena nada, em vez de refazê-la.
     const i = PROFISSIONAL.indexOf("const makeOffer = async (forcar = false)");
-    const trecho = PROFISSIONAL.slice(i, i + 900);
-    expect(trecho).toContain('setLocalDescription({ type: "rollback" })');
+    const trecho = PROFISSIONAL.slice(i, i + 1_600);
+    expect(trecho).toContain("reenviarOfertaPendente()");
     expect(trecho).toContain('!== "have-local-offer"');
+    expect(trecho).not.toContain('type: "rollback"');
   });
 
   it("só força quando pedido — a guarda continua valendo por padrão", () => {

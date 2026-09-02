@@ -10,6 +10,7 @@ import {
   registrarEnvio,
   registrarNegociacao,
   registrarFalha,
+  registrarRtc,
   relatorioRtc,
 } from "../lib/diagnostico-rtc";
 import MapaZonalFroid from "../components/charts/MapaZonalFroid";
@@ -38,6 +39,7 @@ import {
 import { apiUrl, wsUrl } from "../lib/api";
 import {
   criarFreioDeRenegociacao,
+  eDesalinhamentoDeMlines,
   activateRtcRelayFallback,
   motivoDaRecusaDeSinalizacao,
   adoptRemoteTrack,
@@ -2397,6 +2399,8 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const rtcRemoteStreamRef = useRef<MediaStream | null>(null);
   const rtcIceQueueRef = useRef<RTCIceCandidateInit[]>([]);
   const rtcMakingOfferRef = useRef(false);
+  // Sobrevive a reconstrucao do peer, porque e ela que este numero conta.
+  const reconstrucoesRtcRef = useRef(0);
   const rtcReconnectTimerRef = useRef<number | null>(null);
   const rtcDisconnectTimerRef = useRef<number | null>(null);
   const rtcMediaHealthTimerRef = useRef<number | null>(null);
@@ -3148,31 +3152,53 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       // distinguir a oferta que ainda pode ser respondida daquela que foi
       // entregue a ninguem. Quando o par ACABA de entrar, a pendente e sempre
       // do segundo tipo.
-      // Leitura fresca do estado. Ler `peer.signalingState` direto depois do
-      // rollback faz o TypeScript reprovar: ele estreitou o tipo na condicao
-      // anterior e conclui que a comparacao e impossivel. E impossivel para o
-      // compilador, nao para o runtime — o rollback muda o estado justamente
-      // entre as duas leituras.
+      // Leitura fresca do estado, por uma limitacao do compilador: lido
+      // direto, `peer.signalingState` ja foi estreitado pela condicao anterior
+      // e o TypeScript conclui que a segunda comparacao e impossivel. Ela nao
+      // e: o estado muda entre as duas leituras. (O motivo original citava o
+      // rollback; ele saiu do codigo em 02/09/2026 por embaralhar as m-lines,
+      // mas a limitacao de tipo continua.)
       const estadoDaSinalizacao = (): RTCSignalingState => peer.signalingState;
+      // Cada oferta leva um numero, e a resposta traz o numero de volta. A
+      // resposta de uma oferta ja superada e descartada em vez de aplicada —
+      // aplicar era o que produzia o desalinhamento de m-lines.
+      let ofertaSeq = 0;
+      const reenviarOfertaPendente = () => {
+        const pendente = peer.localDescription;
+        if (!pendente) return false;
+        sendSignal({ type: "offer", offer: pendente, seq: ofertaSeq });
+        return true;
+      };
       const makeOffer = async (forcar = false) => {
         if (rtcMakingOfferRef.current) return;
         if (estadoDaSinalizacao() !== "stable") {
           if (!forcar || estadoDaSinalizacao() !== "have-local-offer") return;
+          // Aqui havia um rollback, e era ELE que quebrava a chamada.
+          //
+          // 02/09/2026, no log: rollback e oferta nova no mesmo segundo. A
+          // resposta do paciente — feita para a oferta anterior — chegou
+          // depois, e o navegador recusou com "the order of m-lines in answer
+          // doesn't match order in offer". O peer do paciente, ja negociado
+          // com a ordem antiga, passou a recusar TODA oferta seguinte.
+          //
+          // O impasse que o rollback tentava resolver (uma oferta entregue a
+          // sala vazia) se resolve sem ele: a sala agora tem alguem, entao
+          // basta reenviar a MESMA oferta. Ela continua valida, e reenviar nao
+          // reordena coisa nenhuma.
           clearOfferWatchdog();
-          await peer
-            .setLocalDescription({ type: "rollback" })
-            .catch(() => undefined);
-          if (estadoDaSinalizacao() !== "stable") return;
+          reenviarOfertaPendente();
+          return;
         }
         rtcMakingOfferRef.current = true;
         try {
           const offer = await peer.createOffer();
           await peer.setLocalDescription(offer);
-          sendSignal({ type: "offer", offer: peer.localDescription });
+          ofertaSeq += 1;
+          sendSignal({ type: "offer", offer: peer.localDescription, seq: ofertaSeq });
           setRtcStatus("Chamando paciente...");
-          // Sem resposta dentro do prazo, a conexão ficaria presa em
-          // have-local-offer e nenhum caminho de recuperação conseguiria
-          // reofertar; o rollback devolve o estado stable e tenta de novo.
+          // Sem resposta dentro do prazo a conexão ficaria presa em
+          // have-local-offer. Reenviar a MESMA oferta e o caminho de volta;
+          // refazer com rollback era o que embaralhava as m-lines.
           clearOfferWatchdog();
           offerWatchdogTimer = window.setTimeout(() => {
             offerWatchdogTimer = null;
@@ -3180,10 +3206,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
               peer.signalingState !== "have-local-offer"
               || peer.connectionState === "closed"
             ) return;
-            void peer
-              .setLocalDescription({ type: "rollback" })
-              .catch(() => undefined)
-              .then(() => makeOffer());
+            reenviarOfertaPendente();
           }, 8_000);
         } finally {
           rtcMakingOfferRef.current = false;
@@ -3362,6 +3385,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       peer.onconnectionstatechange = () => {
         if (peer.connectionState === "connected") {
           freioRenegociacao.liberar();
+          reconstrucoesRtcRef.current = 0;
           registrarNegociacao(peer);
           if (rtcDisconnectTimerRef.current) {
             window.clearTimeout(rtcDisconnectTimerRef.current);
@@ -3401,6 +3425,12 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           await makeOffer(true);
         } else if (data.type === "answer" && data.answer) {
           if (peer.signalingState !== "have-local-offer") return;
+          if (typeof data.seq === "number" && data.seq !== ofertaSeq) {
+            registrarRtc(
+              `resposta atrasada descartada (era da oferta ${data.seq}, atual ${ofertaSeq})`,
+            );
+            return;
+          }
           clearOfferWatchdog();
           await peer.setRemoteDescription(data.answer);
           await flushIceQueue();
@@ -3494,6 +3524,20 @@ function LiveSessionInner({ user }: LiveSessionProps) {
               // O erro era descartado aqui, e com ele a unica informacao que
               // dizia por que a chamada nao subia.
               registrarFalha("tratar sinal recebido", erro);
+              if (eDesalinhamentoDeMlines(erro)) {
+                if (reconstrucoesRtcRef.current >= 2) {
+                  registrarRtc("desalinhamento persistente — parei de reconstruir");
+                  setRtcStatus(
+                    "Não foi possível estabelecer a chamada. Recarregue a página.",
+                  );
+                  return;
+                }
+                reconstrucoesRtcRef.current += 1;
+                registrarRtc("reconstruindo a conexao do zero");
+                setRtcStatus("Refazendo a conexão da chamada...");
+                void startProfessionalRtcCall(localSource);
+                return;
+              }
               if (!freioRenegociacao.permite()) {
                 if (freioRenegociacao.esgotado()) {
                   sendSignal({ type: "pedir-diagnostico" });
