@@ -28,7 +28,7 @@ import {
   type ScreenWakeLock,
 } from "../lib/webrtc";
 import { normalizeSessionLocale, patientCopy, type SessionLocale } from "../lib/localization";
-import { startF0Capture } from "../lib/froid-acoustic";
+import { STATUS_CAPTURA_TEXTO, startF0Capture } from "../lib/froid-acoustic";
 import { startFaceCapture } from "../lib/froid-face";
 
 type JoinState = "checking" | "joined" | "blocked";
@@ -736,9 +736,24 @@ export const PatientSessionPage: React.FC = () => {
           wakeLockRef.current = lock;
         });
       }
+      // A captura acustica NAO pode depender de `!muted` num instante unico.
+      // Uma trilha local de microfone reporta `muted` por um momento logo apos
+      // o getUserMedia, e a janela em que este codigo roda e exatamente essa.
+      // Quando calhava de coincidir, a captura nunca ligava, nunca tentava de
+      // novo, e a sessao inteira era analisada sobre dados SIMULADOS sem que
+      // ninguem soubesse — foi o que aconteceu em 02/09/2026.
+      //
+      // Para capturar basta a trilha existir e estar viva: o `muted`
+      // transitorio se resolve sozinho e o worklet lida com silencio. O
+      // criterio estrito continua valendo para a mensagem de permissao, que e
+      // outra pergunta.
+      const temTrilhaDeAudio = stream
+        .getAudioTracks()
+        .some((track) => track.readyState === "live");
+
       // Captura o microfone cru (pré-Opus) para o cálculo de F0 real no
       // backend. Aditivo e tolerante a falhas; não interfere na chamada.
-      if (hasAudio && sessionId) {
+      if (temTrilhaDeAudio && sessionId) {
         try {
           f0StopRef.current?.();
         } catch {
@@ -748,6 +763,18 @@ export const PatientSessionPage: React.FC = () => {
         startF0Capture(stream, {
           endpoint: apiUrl(`/api/froid/${sessionId}/acoustic-f0`),
           invite: inviteToken,
+          onStatus: (status, detalhe) => {
+            registrarRtc(
+              `analise acustica: ${STATUS_CAPTURA_TEXTO[status]}`
+              + (detalhe ? ` (${detalhe})` : ""),
+            );
+            // Quem precisa saber disso e o profissional, e ele esta do outro
+            // lado da sinalizacao. O paciente nao tem como reportar sozinho.
+            const canal = rtcSignalRef.current;
+            if (canal?.readyState === WebSocket.OPEN) {
+              canal.send(JSON.stringify({ type: "acustica", status }));
+            }
+          },
         })
           .then((stop) => {
             if (streamRef.current === stream) f0StopRef.current = stop;

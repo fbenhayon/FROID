@@ -3,8 +3,15 @@
 // não depende de decodificador no servidor. Envia janelas de ~1s de PCM
 // (Int16 mono, na taxa do AudioContext) ao backend, que mede a F0 real por YIN.
 //
-// É aditivo e tolerante a falhas: qualquer erro (permissão, CSP de worklet,
-// rede) apenas interrompe silenciosamente a captura sem afetar a sessão.
+// É aditivo e tolerante a falhas: nenhum erro aqui pode derrubar a chamada.
+//
+// Mas "tolerante a falhas" nao pode significar "silencioso". Em 02/09/2026 uma
+// sessao de 24 minutos rodou inteira com o motor em modo SIMULADO — F0 0.00,
+// ZCR 0.000, derivadas zeradas — e ninguem foi avisado: o `catch` engolia a
+// causa e devolvia uma funcao de parada vazia, indistinguivel de sucesso.
+//
+// Agora cada caminho de falha se anuncia por `onStatus`. A captura continua
+// sem poder quebrar a sessao; o que ela nao pode mais e fracassar em segredo.
 
 const WORKLET_CODE = `
 class FroidPcmTap extends AudioWorkletProcessor {
@@ -20,11 +27,36 @@ class FroidPcmTap extends AudioWorkletProcessor {
 registerProcessor('froid-pcm-tap', FroidPcmTap);
 `;
 
+/** O que a captura tem a dizer sobre si mesma.
+ *
+ *  `enviando` e o unico estado que significa "a analise clinica esta sobre voz
+ *  real". Todos os outros significam que o motor esta trabalhando com dados
+ *  simulados, e quem conduz a sessao precisa saber disso. */
+export type StatusCaptura =
+  | "sem-audio"
+  | "sem-suporte"
+  | "aguardando-gesto"
+  | "enviando"
+  | "sessao-inativa"
+  | "erro";
+
+export const STATUS_CAPTURA_TEXTO: Record<StatusCaptura, string> = {
+  "sem-audio": "nenhuma trilha de microfone disponivel para analise",
+  "sem-suporte": "navegador sem AudioWorklet — analise acustica indisponivel",
+  "aguardando-gesto":
+    "o navegador suspendeu o audio ate um toque na tela; a analise comeca no primeiro clique",
+  enviando: "enviando audio real para analise",
+  "sessao-inativa": "o painel do profissional ainda nao abriu a analise",
+  erro: "falha ao iniciar a captura de audio",
+};
+
 export interface F0CaptureOptions {
   endpoint: string; // URL completa do POST (apiUrl('/api/froid/<id>/acoustic-f0'))
   invite?: string;
   token?: string;
   windowSeconds?: number; // janela enviada por requisição (padrão 1.0s)
+  /** Chamado a cada MUDANCA de estado — nunca repete o mesmo status. */
+  onStatus?: (status: StatusCaptura, detalhe?: string) => void;
 }
 
 function floatToBase64Int16(frame: Float32Array): string {
@@ -53,11 +85,30 @@ export async function startF0Capture(
   stream: MediaStream,
   opts: F0CaptureOptions,
 ): Promise<() => void> {
+  // So avisa quando o estado MUDA: um aviso por janela de 1s viraria ruido e
+  // esconderia justamente a transicao que importa.
+  let ultimoStatus: StatusCaptura | null = null;
+  const avisar = (status: StatusCaptura, detalhe?: string) => {
+    if (status === ultimoStatus) return;
+    ultimoStatus = status;
+    try {
+      opts.onStatus?.(status, detalhe);
+    } catch {
+      /* quem observa nunca pode derrubar quem e observado */
+    }
+  };
+
   const audioTracks = stream.getAudioTracks();
-  if (typeof window === "undefined" || !audioTracks.length) return () => {};
+  if (typeof window === "undefined" || !audioTracks.length) {
+    avisar("sem-audio");
+    return () => {};
+  }
   const AudioCtx: typeof AudioContext | undefined =
     (window as any).AudioContext || (window as any).webkitAudioContext;
-  if (!AudioCtx) return () => {};
+  if (!AudioCtx) {
+    avisar("sem-suporte");
+    return () => {};
+  }
 
   let stopped = false;
   let ctx: AudioContext | null = null;
@@ -66,8 +117,12 @@ export async function startF0Capture(
   let sink: GainNode | null = null;
   let buffer: number[] = [];
 
+  let soltarGesto: (() => void) | null = null;
+
   const stop = () => {
     stopped = true;
+    soltarGesto?.();
+    soltarGesto = null;
     try {
       if (node) node.port.onmessage = null;
       node?.disconnect();
@@ -89,8 +144,33 @@ export async function startF0Capture(
       try {
         await ctx.resume();
       } catch {
-        /* alguns navegadores exigem gesto do usuário; segue mesmo assim */
+        /* alguns navegadores exigem gesto do usuário */
       }
+    }
+    // Um AudioContext suspenso nao processa NADA — o worklet nunca roda e
+    // nenhum PCM sobe. Antes isso passava batido: "segue mesmo assim" seguia
+    // para lugar nenhum, e a sessao inteira ia a dados simulados. Agora o
+    // primeiro toque na tela liga a captura, e ate la o estado e declarado.
+    if (ctx.state !== "running") {
+      avisar("aguardando-gesto");
+      const contexto = ctx;
+      const retomar = () => {
+        void contexto
+          .resume()
+          .then(() => {
+            if (contexto.state === "running") soltarGesto?.();
+          })
+          .catch(() => undefined);
+      };
+      soltarGesto = () => {
+        document.removeEventListener("pointerdown", retomar);
+        document.removeEventListener("keydown", retomar);
+        document.removeEventListener("touchstart", retomar);
+        soltarGesto = null;
+      };
+      document.addEventListener("pointerdown", retomar);
+      document.addEventListener("keydown", retomar);
+      document.addEventListener("touchstart", retomar);
     }
     source = ctx.createMediaStreamSource(new MediaStream([audioTracks[0]]));
 
@@ -132,7 +212,7 @@ export async function startF0Capture(
         .then(async () => {
           if (stopped) return;
           try {
-            await fetch(opts.endpoint, {
+            const resposta = await fetch(opts.endpoint, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
@@ -144,6 +224,13 @@ export async function startF0Capture(
                 invite: opts.invite || "",
               }),
             });
+            // O servidor responde 200 com `session_inactive` quando o painel do
+            // profissional ainda nao abriu a analise. Era um sucesso aparente
+            // que nao produzia medida nenhuma.
+            const corpo = await resposta.json().catch(() => null);
+            if (!resposta.ok) avisar("erro", `HTTP ${resposta.status}`);
+            else if (corpo && corpo.status === "session_inactive") avisar("sessao-inativa");
+            else avisar("enviando");
           } catch {
             /* falha transitória de rede é ignorada */
           }
@@ -167,7 +254,8 @@ export async function startF0Capture(
     source.connect(node);
     node.connect(sink);
     sink.connect(ctx.destination);
-  } catch {
+  } catch (erro) {
+    avisar("erro", erro instanceof Error ? erro.message : undefined);
     stop();
     return () => {};
   }

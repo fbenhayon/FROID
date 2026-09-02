@@ -19,6 +19,7 @@ import { RiskChart } from "../components/indicators/RiskChart";
 import { SpectralBandsChart } from "../components/indicators/SpectralBandsChart";
 import { SubharmonicChart } from "../components/indicators/SubharmonicChart";
 import { MediaStatus } from "../components/indicators/MediaStatus";
+import { AvisoVozSimulada } from "../components/indicators/AvisoVozSimulada";
 import { SessionTimer } from "../components/indicators/SessionTimer";
 import { AIInsights } from "../components/panels/AIInsights";
 import { AudioTranscription } from "../components/panels/AudioTranscription";
@@ -2401,6 +2402,9 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const rtcMakingOfferRef = useRef(false);
   // Sobrevive a reconstrucao do peer, porque e ela que este numero conta.
   const reconstrucoesRtcRef = useRef(0);
+  // Por que a analise acustica nao esta recebendo voz real, na palavra do
+  // proprio navegador do paciente. Vazio quando esta tudo certo.
+  const [motivoAcustico, setMotivoAcustico] = useState("");
   const rtcReconnectTimerRef = useRef<number | null>(null);
   const rtcDisconnectTimerRef = useRef<number | null>(null);
   const rtcMediaHealthTimerRef = useRef<number | null>(null);
@@ -3452,6 +3456,10 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           }
           peer.restartIce();
           await makeOffer(true);
+        } else if (data.type === "acustica") {
+          const status = String(data.status || "");
+          registrarRtc(`analise acustica no paciente: ${status}`);
+          setMotivoAcustico(status === "enviando" ? "" : status);
         } else if (data.type === "diagnostico" && data.texto) {
           // O relatorio do outro lado, que ate agora nunca atravessou.
           incorporarRelatorioRemoto(String(data.texto));
@@ -4920,6 +4928,11 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   )
     ? (raw as any).dissonance_event.all_markers
     : [];
+  // A origem e autoridade do MOTOR, nao do navegador: e ela que diz o que de
+  // fato entrou no calculo. O relato do paciente so explica o porque.
+  const origemDaVoz = String(
+    (raw as any)?.dissonance_event?.voice_features_source || "",
+  );
   const semanticCutElapsed = Math.max(0, state.elapsedSeconds - semanticCutStartSecond);
   const semanticCutWindowSeconds = TRANSCRIPT_SUMMARY_WINDOW_MS / 1000;
   const semanticCutProgress = Math.min(
@@ -5612,6 +5625,8 @@ function LiveSessionInner({ user }: LiveSessionProps) {
 
           <SessionTimer startTime={state.sessionStart} onEndSession={endSession} />
 
+          <AvisoVozSimulada origem={origemDaVoz} motivo={motivoAcustico} />
+
           {/* Grade de indices: TODAS as metricas do layout Simplificado, com a
               situacao de cada uma contra os limites que o servidor calcula.
 
@@ -5841,6 +5856,8 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         </div>
 
         {layoutSelector}
+
+        <AvisoVozSimulada origem={origemDaVoz} motivo={motivoAcustico} />
 
         <SessionTimer
           startTime={state.sessionStart}
