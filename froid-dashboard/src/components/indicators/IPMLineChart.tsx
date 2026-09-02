@@ -18,6 +18,43 @@ const IPM_ROLE_TEXT =
 const clamp = (value: number, min = 0, max = 100) =>
   Math.min(Math.max(Number.isFinite(value) ? value : 0, min), max);
 
+/** A janela vertical que o gráfico mostra.
+ *
+ *  O eixo era fixo em 0–100. Numa sessão real o IPM vive entre 50 e 54, então
+ *  a linha ocupava 4% da altura e parecia reta — não dava para ler variação
+ *  nenhuma, que é justamente o que o gráfico existe para mostrar.
+ *
+ *  Aqui a janela acompanha os dados, com três garantias:
+ *
+ *  - amplitude mínima (`VAO_MINIMO`), para que ruído de meio ponto não vire
+ *    uma montanha e sugira instabilidade que não existe;
+ *  - folga proporcional, para a linha não encostar nas bordas;
+ *  - os rótulos do eixo continuam sendo o valor REAL de IPM, e a faixa visível
+ *    é escrita no cabeçalho. Zoom que não se declara é gráfico que mente.
+ */
+const VAO_MINIMO = 10;
+
+export function janelaVertical(values: number[]): { min: number; max: number } {
+  if (!values.length) return { min: 0, max: 100 };
+  const menor = Math.min(...values);
+  const maior = Math.max(...values);
+  const centro = (menor + maior) / 2;
+  const vao = Math.max(VAO_MINIMO, (maior - menor) * 1.8);
+  let min = centro - vao / 2;
+  let max = centro + vao / 2;
+  // Empurra para dentro de 0–100 sem encolher a janela: deslizar preserva a
+  // amplitude, enquanto cortar achataria a leitura de novo.
+  if (min < 0) {
+    max = Math.min(100, max - min);
+    min = 0;
+  }
+  if (max > 100) {
+    min = Math.max(0, min - (max - 100));
+    max = 100;
+  }
+  return { min, max };
+}
+
 const polarBands = [
   { from: 0, to: 25, color: "#1686c7", label: "Adaptativo" },
   { from: 25, to: 55, color: "#06a743", label: "Fluxo saudavel" },
@@ -35,14 +72,16 @@ export const IPMLineChart: React.FC<Props> = ({ data, current, baseline, locale 
   const chartW = viewW - padLeft - padRight;
   const chartH = viewH - padTop - padBot;
 
-  const { pathD, areaD, pts, values } = useMemo(() => {
+  const { pathD, areaD, pts, values, janela } = useMemo(() => {
     const values = Array.isArray(data)
       ? data.filter((v) => typeof v === "number" && Number.isFinite(v))
       : [];
     const n = values.length;
 
+    const janela = janelaVertical(values);
+
     if (n === 0) {
-      return { pathD: "", areaD: "", pts: [] as number[][], values };
+      return { pathD: "", areaD: "", pts: [] as number[][], values, janela };
     }
 
     const smoothed = values.map((_, index) => {
@@ -53,9 +92,14 @@ export const IPMLineChart: React.FC<Props> = ({ data, current, baseline, locale 
     });
 
     const step = n > 1 ? chartW / (n - 1) : 0;
+    const alturaNaJanela = (value: number) => {
+      const amplitude = Math.max(1e-6, janela.max - janela.min);
+      const proporcao = (clamp(value) - janela.min) / amplitude;
+      return padTop + (1 - Math.min(1, Math.max(0, proporcao))) * chartH;
+    };
     const points = smoothed.map((value, index) => [
       padLeft + index * step,
-      padTop + (1 - clamp(value) / 100) * chartH,
+      alturaNaJanela(value),
     ]);
 
     let d = `M ${points[0][0]},${points[0][1]}`;
@@ -77,8 +121,22 @@ export const IPMLineChart: React.FC<Props> = ({ data, current, baseline, locale 
       areaD: `${d} L ${last[0]},${viewH - padBot} L ${points[0][0]},${viewH - padBot} Z`,
       pts: points,
       values,
+      janela,
     };
   }, [chartH, chartW, data]);
+
+  // Mesma conversão usada fora do useMemo: faixas, marcas e baseline precisam
+  // pousar na mesma régua da linha, senão o gráfico se contradiz.
+  const yDoValor = (value: number) => {
+    const amplitude = Math.max(1e-6, janela.max - janela.min);
+    const proporcao = (value - janela.min) / amplitude;
+    return padTop + (1 - Math.min(1, Math.max(0, proporcao))) * chartH;
+  };
+  // Cinco marcas dentro da janela, arredondadas — o eixo continua falando em
+  // IPM real, não em percentual de tela.
+  const marcas = Array.from({ length: 5 }, (_, i) =>
+    Number((janela.min + ((janela.max - janela.min) * i) / 4).toFixed(1)),
+  );
 
   const hasBaseline = typeof baseline === "number" && Number.isFinite(baseline);
   const baselineValue = hasBaseline ? clamp(baseline) : null;
@@ -153,8 +211,11 @@ export const IPMLineChart: React.FC<Props> = ({ data, current, baseline, locale 
 
       <div className="min-h-0 flex-1">
         <div className="relative h-full min-h-0 rounded-lg border border-slate-700 bg-slate-900 p-1.5">
+          {/* Zoom que nao se declara e grafico que mente: a faixa visivel fica
+              escrita, para ninguem confundir amplitude de tela com amplitude
+              de IPM. */}
           <div className="absolute right-3 top-2 z-10 text-[9px] font-black uppercase text-slate-400">
-            escala IPM
+            escala IPM {janela.min.toFixed(0)}–{janela.max.toFixed(0)}
           </div>
           <FroidTooltip
             content={
@@ -180,52 +241,58 @@ export const IPMLineChart: React.FC<Props> = ({ data, current, baseline, locale 
               </linearGradient>
             </defs>
 
-            {polarBands.map((band) => {
-              const yTop = padTop + (1 - band.to / 100) * chartH;
-              const yBottom = padTop + (1 - band.from / 100) * chartH;
-              return (
-                <g key={band.label}>
-                  <rect
-                    x={padLeft}
-                    y={yTop}
-                    width={chartW}
-                    height={Math.max(1, yBottom - yTop)}
-                    fill={band.color}
-                    opacity={0.98}
-                  />
-                  <text
-                    x={padLeft + 8}
-                    y={yBottom - 8}
-                    className="fill-white text-[9px] font-black uppercase"
-                    opacity={0.92}
-                  >
-                    {band.label}
-                  </text>
-                </g>
-              );
-            })}
+            {polarBands
+              .filter((band) => band.to > janela.min && band.from < janela.max)
+              .map((band) => {
+                const yTop = yDoValor(Math.min(band.to, janela.max));
+                const yBottom = yDoValor(Math.max(band.from, janela.min));
+                const altura = Math.max(1, yBottom - yTop);
+                return (
+                  <g key={band.label}>
+                    <rect
+                      x={padLeft}
+                      y={yTop}
+                      width={chartW}
+                      height={altura}
+                      fill={band.color}
+                      opacity={0.98}
+                    />
+                    {/* O rótulo só cabe se a faixa visível tiver altura para
+                        ele; espremido, viraria borrão sobre a linha. */}
+                    {altura > 16 && (
+                      <text
+                        x={padLeft + 8}
+                        y={yBottom - 6}
+                        className="fill-white text-[9px] font-black uppercase"
+                        opacity={0.92}
+                      >
+                        {band.label}
+                      </text>
+                    )}
+                  </g>
+                );
+              })}
 
-            {[0, 25, 50, 75, 100].map((tick) => {
-              const y = padTop + (1 - tick / 100) * chartH;
+            {marcas.map((tick, indice) => {
+              const y = yDoValor(tick);
               return (
-                <g key={tick}>
+                <g key={`${tick}-${indice}`}>
                   <line
                     x1={padLeft}
                     x2={viewW - padRight}
                     y1={y}
                     y2={y}
                     stroke="#ffffff"
-                    strokeDasharray={tick === 50 ? "5 4" : "0"}
-                    strokeOpacity={tick === 50 ? 0.72 : 0.34}
-                    strokeWidth={tick === 50 ? 1.4 : 1}
+                    strokeOpacity={0.34}
+                    strokeWidth={1}
                   />
                   <text
-                    x={padLeft - 8}
-                    y={y + 4}
-                    textAnchor="end"
-                    className="fill-slate-300 font-mono text-[10px] font-bold"
+                    x={padLeft + 4}
+                    y={y - 3}
+                    className="fill-white font-mono text-[10px] font-bold"
+                    opacity={0.85}
                   >
-                    {tick}
+                    {tick.toFixed(1)}
                   </text>
                 </g>
               );
@@ -235,8 +302,8 @@ export const IPMLineChart: React.FC<Props> = ({ data, current, baseline, locale 
               <line
                 x1={padLeft}
                 x2={viewW - padRight}
-                y1={padTop + (1 - baselineValue / 100) * chartH}
-                y2={padTop + (1 - baselineValue / 100) * chartH}
+                y1={yDoValor(baselineValue)}
+                y2={yDoValor(baselineValue)}
                 stroke="#ffffff"
                 strokeDasharray="6 4"
                 strokeWidth={1.6}

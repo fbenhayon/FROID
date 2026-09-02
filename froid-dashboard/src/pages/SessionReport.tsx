@@ -148,7 +148,68 @@ const METRIC_TOOLTIPS: Record<string, string> = {
   "DMFCC9": "Derivada temporal do MFCC9, comparando a janela atual com a anterior.",
   "DDMFCC7": "Aceleração cepstral do MFCC7, usada para detectar mudanças abruptas no marcador.",
   "DDMFCC9": "Aceleração cepstral do MFCC9, usada para detectar mudanças abruptas no marcador.",
+  // Chaves do motor estatístico usadas na tabela de evolução. Faltavam, e a
+  // tabela inteira caía no texto genérico — ver `descricaoDaMetrica`.
+  spectral_beta:
+    "Energia na faixa 12-30 Hz da modulação da envoltória vocal. Não corresponde a ritmo cortical de EEG: a homonímia é coincidência de nomenclatura de faixa.",
+  spectral_gamma:
+    "Energia na faixa alta do espectro de modulação, lida como tensão fina, aspereza ou descarga rápida.",
+  spectral_band_index:
+    "Índice ponderado das bandas Delta, Theta, Alpha, Beta e Gama num único número.",
+  mfcc7_delta:
+    "Derivada temporal do MFCC7: quanto o marcador mudou entre a janela atual e a anterior.",
+  mfcc9_delta_delta:
+    "Aceleração cepstral do MFCC9: mudanças abruptas no marcador, e não seu nível.",
+  Dissonância: "Dissonância entre expressão facial e trilha vocal.",
 };
+
+/**
+ * Encontra a descrição de uma métrica pelo rótulo OU pela chave.
+ *
+ * A busca era `METRIC_TOOLTIPS[label]`, casamento exato. Dois problemas reais,
+ * que o Fábio viu em 02/09/2026 como "o tooltip não informa a descrição":
+ *
+ * 1. A tabela de evolução passa o rótulo do SERVIDOR ("Elevação multimodal
+ *    (IPM)", "Desvio de ZCR vs. baseline"), que nunca esteve neste dicionário —
+ *    então TODAS as linhas dela caíam no texto genérico.
+ * 2. "Dissonância" existia como "Dissonancia": um acento separava a métrica da
+ *    sua descrição.
+ *
+ * Aqui a busca tenta o rótulo, depois o rótulo normalizado (sem acento, caixa
+ * ou pontuação), depois a chave, depois a chave normalizada. Normalizar resolve
+ * a classe inteira do problema 2; aceitar a chave resolve o 1.
+ */
+const INDICE_NORMALIZADO: Record<string, string> = (() => {
+  const indice: Record<string, string> = {};
+  for (const [chave, texto] of Object.entries(METRIC_TOOLTIPS)) {
+    const normal = chave
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "");
+    if (normal && !indice[normal]) indice[normal] = texto;
+  }
+  return indice;
+})();
+
+export function descricaoDaMetrica(rotulo: string, chave?: string): string {
+  const normalizar = (texto: string) =>
+    String(texto || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "");
+  const candidatos = [
+    METRIC_TOOLTIPS[rotulo],
+    INDICE_NORMALIZADO[normalizar(rotulo)],
+    chave ? METRIC_TOOLTIPS[chave] : undefined,
+    chave ? INDICE_NORMALIZADO[normalizar(chave)] : undefined,
+  ];
+  const achado = candidatos.find((texto) => typeof texto === "string" && texto.length > 0);
+  // Sem descrição, dizer isso é melhor do que "Métrica FROID." — que ocupava o
+  // lugar da explicação e fazia parecer que a explicação era aquela.
+  return achado || "Esta métrica ainda não tem descrição cadastrada.";
+}
 
 // Locale do relatório disponibilizado aos rótulos de ajuda sem precisar
 // passar prop em cada um dos ~14 pontos de uso.
@@ -176,7 +237,7 @@ const HelpTitle: React.FC<{ title: string; className?: string }> = ({
   );
 };
 
-const HelpMetric: React.FC<{ label: string }> = ({ label }) => {
+const HelpMetric: React.FC<{ label: string; chave?: string }> = ({ label, chave }) => {
   const locale = React.useContext(ReportLocaleContext);
   return (
     <FroidTooltip
@@ -184,7 +245,7 @@ const HelpMetric: React.FC<{ label: string }> = ({ label }) => {
       content={
         <div>
           <p className="font-bold text-slate-100">{label}</p>
-          <p className="mt-1">{tooltipText(locale, METRIC_TOOLTIPS[label] || "Métrica FROID.")}</p>
+          <p className="mt-1">{tooltipText(locale, descricaoDaMetrica(label, chave))}</p>
         </div>
       }
     >
@@ -278,21 +339,6 @@ function derivedSessionSummary(report: SessionReportRecord) {
       "Resumo geral indisponível para esta sessão.",
     generatedAt: report.sessionSummary?.generatedAt || report.createdAt,
   };
-}
-
-function norm(value: number | null | undefined, baseline: number | null | undefined) {
-  if (
-    value === null ||
-    value === undefined ||
-    baseline === null ||
-    baseline === undefined ||
-    !Number.isFinite(value) ||
-    !Number.isFinite(baseline) ||
-    Number(baseline) === 0
-  ) {
-    return null;
-  }
-  return (Number(value) / Number(baseline)) * 100;
 }
 
 function metricRows(snapshot: MetricSnapshot) {
@@ -502,64 +548,165 @@ function metricLabel(analysis: MetricsAnalysis | null, key: string) {
   return analysis?.metrics.find((metric) => metric.key === key)?.label || key;
 }
 
+/** Evolução por índice, em painéis separados — um por grandeza.
+ *
+ *  Antes eram quatro séries num eixo só, normalizadas para base 100 contra o
+ *  baseline. Normalizar não resolve escalas incomensuráveis quando o baseline é
+ *  minúsculo: com IDM em 0.01 e dissonância em 0, uma variação irrelevante em
+ *  valor absoluto vira centenas de pontos percentuais, o eixo se estica para
+ *  acomodá-la, e IPM e palavras/min viram duas retas coladas no meio. Era o que
+ *  o Fábio descreveu — impossível avaliar a escala.
+ *
+ *  Escala logarítmica não serve aqui: a dissonância vale 0 em sessões inteiras,
+ *  e log(0) não existe. Painéis separados resolvem sem truque nenhum — cada
+ *  índice na sua própria régua, com os valores REAIS escritos, e nenhuma
+ *  comparação visual falsa entre grandezas que não se comparam.
+ *
+ *  E uma série sem leitura passa a DIZER isso, em vez de desenhar uma linha
+ *  reta no zero. Uma reta no zero parece medida — e uma medida ausente que
+ *  parece medida é a pior das duas.
+ */
+
+type SerieEvolucao = {
+  key: string;
+  label: string;
+  color: string;
+  valores: Array<number | null>;
+  baseline: number | null;
+  casas: number;
+};
+
+const PainelEvolucao: React.FC<{ serie: SerieEvolucao; rotulos: string[] }> = ({
+  serie,
+  rotulos,
+}) => {
+  const validos = serie.valores.filter(
+    (v): v is number => typeof v === "number" && Number.isFinite(v),
+  );
+
+  if (!validos.length) {
+    return (
+      <div className="rounded-lg border border-slate-700 bg-slate-950 p-3">
+        <div className="flex items-baseline justify-between gap-2">
+          <HelpMetric label={serie.label} chave={serie.key} />
+          <span className="text-[10px] text-slate-500">sem leitura</span>
+        </div>
+        <p className="mt-2 text-[10px] italic leading-4 text-slate-500">
+          Nenhum corte deste período produziu valor para este índice. O gráfico
+          fica vazio de propósito: uma linha no zero pareceria medição.
+        </p>
+      </div>
+    );
+  }
+
+  const menor = Math.min(...validos);
+  const maior = Math.max(...validos);
+  const semVariacao = maior - menor < 1e-9;
+  // Folga de 15% para a linha não encostar nas bordas; série constante ganha
+  // uma janela artificial para não virar divisão por zero.
+  const folga = semVariacao ? Math.max(1, Math.abs(maior) * 0.1) : (maior - menor) * 0.15;
+  const min = menor - folga;
+  const max = maior + folga;
+
+  const W = 300;
+  const H = 64;
+  const x = (i: number) =>
+    serie.valores.length <= 1 ? W / 2 : (i / (serie.valores.length - 1)) * W;
+  const y = (v: number) => H - ((v - min) / Math.max(1e-9, max - min)) * H;
+
+  const pontos = serie.valores
+    .map((v, i) =>
+      v === null || v === undefined || !Number.isFinite(v)
+        ? null
+        : `${x(i).toFixed(1)},${y(v).toFixed(1)}`,
+    )
+    .filter(Boolean)
+    .join(" ");
+
+  const atual = validos[validos.length - 1];
+  const base = serie.baseline;
+  const temBase = typeof base === "number" && Number.isFinite(base);
+  const delta = temBase ? atual - (base as number) : null;
+
+  return (
+    <div className="rounded-lg border border-slate-700 bg-slate-950 p-3">
+      <div className="flex items-baseline justify-between gap-2">
+        <HelpMetric label={serie.label} chave={serie.key} />
+        <span className="font-mono text-[13px] font-black" style={{ color: serie.color }}>
+          {atual.toFixed(serie.casas)}
+        </span>
+      </div>
+
+      <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-[9px] text-slate-400">
+        <span>
+          baseline{" "}
+          <strong className="font-mono text-slate-200">
+            {temBase ? (base as number).toFixed(serie.casas) : "--"}
+          </strong>
+        </span>
+        {delta !== null && (
+          <span>
+            delta{" "}
+            <strong
+              className={`font-mono ${delta > 0 ? "text-amber-300" : delta < 0 ? "text-cyan-300" : "text-slate-300"}`}
+            >
+              {delta > 0 ? "+" : ""}
+              {delta.toFixed(serie.casas)}
+            </strong>
+          </span>
+        )}
+        <span>
+          faixa{" "}
+          <strong className="font-mono text-slate-200">
+            {menor.toFixed(serie.casas)} a {maior.toFixed(serie.casas)}
+          </strong>
+        </span>
+      </div>
+
+      <svg viewBox={`0 0 ${W} ${H}`} className="mt-2 h-16 w-full" preserveAspectRatio="none">
+        {temBase && (base as number) >= min && (base as number) <= max && (
+          <line
+            x1={0}
+            x2={W}
+            y1={y(base as number)}
+            y2={y(base as number)}
+            stroke="#64748b"
+            strokeDasharray="4 4"
+            strokeWidth={1}
+          />
+        )}
+        <polyline
+          points={pontos}
+          fill="none"
+          stroke={serie.color}
+          strokeWidth={2.5}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          vectorEffect="non-scaling-stroke"
+        />
+        {serie.valores.map((v, i) =>
+          v === null || v === undefined || !Number.isFinite(v) ? null : (
+            <circle key={i} cx={x(i)} cy={y(v)} r={2.5} fill={serie.color} />
+          ),
+        )}
+      </svg>
+
+      <div className="mt-1 flex justify-between text-[8px] text-slate-500">
+        <span>{rotulos[0]}</span>
+        <span>{rotulos[rotulos.length - 1]}</span>
+      </div>
+
+      {semVariacao && (
+        <p className="mt-1 text-[9px] italic text-slate-500">
+          Sem variação entre os cortes.
+        </p>
+      )}
+    </div>
+  );
+};
+
 const EvolutionChart: React.FC<{ analysis: MetricsAnalysis }> = ({ analysis }) => {
   const rows = analysis.evolution || [];
-  const series = [
-    {
-      key: "ipm",
-      label: "IPM",
-      color: "#2563eb",
-      values: rows.map((row) => norm(row.ipm, analysis.summary.ipm?.baseline)),
-    },
-    {
-      key: "idm",
-      label: "IDM",
-      color: "#16a34a",
-      values: rows.map((row) => norm(row.idm, analysis.summary.idm?.baseline)),
-    },
-    {
-      key: "words_per_minute",
-      label: "Palavras/min",
-      color: "#d97706",
-      values: rows.map((row) =>
-        norm(row.words_per_minute, analysis.summary.words_per_minute?.baseline),
-      ),
-    },
-    {
-      key: "facial_vocal_dissonance",
-      label: "Dissonância",
-      color: "#dc2626",
-      values: rows.map((row) =>
-        norm(
-          row.facial_vocal_dissonance,
-          analysis.summary.facial_vocal_dissonance?.baseline,
-        ),
-      ),
-    },
-  ];
-  const values = series.flatMap((item) =>
-    item.values.filter((value): value is number => Number.isFinite(value)),
-  );
-  const min = Math.min(80, ...values);
-  const max = Math.max(120, ...values);
-  const width = 640;
-  const height = 220;
-  const pad = { left: 42, right: 18, top: 20, bottom: 42 };
-  const plotW = width - pad.left - pad.right;
-  const plotH = height - pad.top - pad.bottom;
-  const x = (index: number) =>
-    pad.left + (rows.length <= 1 ? plotW / 2 : (index / (rows.length - 1)) * plotW);
-  const y = (value: number) =>
-    pad.top + ((max - value) / Math.max(1, max - min)) * plotH;
-  const points = (valuesForSeries: Array<number | null>) =>
-    valuesForSeries
-      .map((value, index) =>
-        value === null || value === undefined || !Number.isFinite(value)
-          ? null
-          : `${x(index).toFixed(1)},${y(value).toFixed(1)}`,
-      )
-      .filter(Boolean)
-      .join(" ");
 
   if (!rows.length) {
     return (
@@ -569,99 +716,52 @@ const EvolutionChart: React.FC<{ analysis: MetricsAnalysis }> = ({ analysis }) =
     );
   }
 
+  const rotulos = rows.map((row) =>
+    Number.isFinite(row.start_min) && Number.isFinite(row.end_min)
+      ? `${row.start_min}-${row.end_min}m`
+      : row.label,
+  );
+
+  const series: SerieEvolucao[] = [
+    {
+      key: "ipm",
+      label: "IPM",
+      color: "#60a5fa",
+      valores: rows.map((row) => row.ipm ?? null),
+      baseline: analysis.summary.ipm?.baseline ?? null,
+      casas: 1,
+    },
+    {
+      key: "idm",
+      label: "IDM",
+      color: "#4ade80",
+      valores: rows.map((row) => row.idm ?? null),
+      baseline: analysis.summary.idm?.baseline ?? null,
+      casas: 2,
+    },
+    {
+      key: "words_per_minute",
+      label: "Palavras/min",
+      color: "#fbbf24",
+      valores: rows.map((row) => row.words_per_minute ?? null),
+      baseline: analysis.summary.words_per_minute?.baseline ?? null,
+      casas: 0,
+    },
+    {
+      key: "facial_vocal_dissonance",
+      label: "Dissonância",
+      color: "#f87171",
+      valores: rows.map((row) => row.facial_vocal_dissonance ?? null),
+      baseline: analysis.summary.facial_vocal_dissonance?.baseline ?? null,
+      casas: 2,
+    },
+  ];
+
   return (
-    <div className="rounded-lg border border-slate-700 bg-slate-950 p-3">
-      <div className="mb-2 flex flex-wrap items-center gap-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">
-        {series.map((item) => (
-          <span key={item.key} className="inline-flex items-center gap-1">
-            <span
-              className="h-2 w-2 rounded-full"
-              style={{ backgroundColor: item.color }}
-            />
-            {item.label}
-          </span>
-        ))}
-      </div>
-      <svg viewBox={`0 0 ${width} ${height}`} className="h-64 w-full">
-        {rows.map((row, index) => (
-          <g key={`x-grid-${row.label}-${index}`}>
-            <line
-              x1={x(index)}
-              x2={x(index)}
-              y1={pad.top}
-              y2={height - pad.bottom}
-              stroke="#e2e8f0"
-              strokeDasharray="2 4"
-            />
-            <line
-              x1={x(index)}
-              x2={x(index)}
-              y1={height - pad.bottom}
-              y2={height - pad.bottom + 5}
-              stroke="#94a3b8"
-            />
-          </g>
-        ))}
-        <line
-          x1={pad.left}
-          x2={width - pad.right}
-          y1={height - pad.bottom}
-          y2={height - pad.bottom}
-          stroke="#94a3b8"
-        />
-        {[min, 100, max].map((tick) => (
-          <g key={tick}>
-            <line
-              x1={pad.left}
-              x2={width - pad.right}
-              y1={y(tick)}
-              y2={y(tick)}
-              stroke={tick === 100 ? "#94a3b8" : "#e2e8f0"}
-              strokeDasharray={tick === 100 ? "4 4" : "0"}
-            />
-            <text x={8} y={y(tick) + 4} fontSize="10" fill="#64748b">
-              {tick.toFixed(0)}
-            </text>
-          </g>
-        ))}
-        {series.map((item) => (
-          <g key={item.key}>
-            <polyline
-              points={points(item.values)}
-              fill="none"
-              stroke={item.color}
-              strokeWidth="3"
-              strokeLinejoin="round"
-              strokeLinecap="round"
-            />
-            {item.values.map((value, index) =>
-              value === null || value === undefined || !Number.isFinite(value) ? null : (
-                <circle
-                  key={`${item.key}-${index}`}
-                  cx={x(index)}
-                  cy={y(value)}
-                  r="3.5"
-                  fill={item.color}
-                />
-              ),
-            )}
-          </g>
-        ))}
-        {rows.map((row, index) => (
-          <text
-            key={row.label}
-            x={x(index)}
-            y={height - 16}
-            textAnchor="middle"
-            fontSize="9"
-            fill="#64748b"
-          >
-            {Number.isFinite(row.start_min) && Number.isFinite(row.end_min)
-              ? `${row.start_min}-${row.end_min}m`
-              : row.label}
-          </text>
-        ))}
-      </svg>
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      {series.map((serie) => (
+        <PainelEvolucao key={serie.key} serie={serie} rotulos={rotulos} />
+      ))}
     </div>
   );
 };
@@ -1136,7 +1236,10 @@ export const SessionReport: React.FC<Props> = () => {
                       return (
                         <tr key={key}>
                           <td className="py-2 font-bold text-slate-300">
-                            <HelpMetric label={metricLabel(activeMetricsAnalysis, key)} />
+                            <HelpMetric
+                              label={metricLabel(activeMetricsAnalysis, key)}
+                              chave={key}
+                            />
                           </td>
                           <td>{fmt(summary.baseline, 2)}</td>
                           <td>{fmt(summary.session_mean, 2)}</td>
