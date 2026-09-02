@@ -5649,6 +5649,22 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                 </span>
               )}
             </div>
+            {/* As cores existiam e ninguem sabia le-las. Acima e abaixo pedem
+                leituras opostas, e a distincao so serve se estiver dita. */}
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 px-0.5 text-[7px] font-bold uppercase tracking-wide text-slate-500">
+              <span className="flex items-center gap-1">
+                <span className="inline-block h-1.5 w-1.5 rounded-sm border border-red-600 bg-red-950" />
+                acima do limite
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="inline-block h-1.5 w-1.5 rounded-sm border border-amber-600 bg-amber-950" />
+                abaixo do limite
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="inline-block h-1.5 w-1.5 rounded-sm border border-slate-800 bg-slate-900" />
+                dentro / sem regua
+              </span>
+            </div>
           </div>
           <div className="flex-1 min-h-0 grid grid-cols-2 content-start gap-1 overflow-y-auto">
             {metricasComLimite.map((m) => {
