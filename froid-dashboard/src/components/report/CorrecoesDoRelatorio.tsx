@@ -22,6 +22,7 @@
 import React, { useState } from "react";
 
 import { apiUrl } from "../../lib/api";
+import { ehDefeitoDoSistema } from "../../lib/session-report";
 import type {
   CorrecaoDeRelatorio,
   OrigemDaCorrecao,
@@ -33,16 +34,72 @@ const TIPO_LABEL: Record<TipoDeErroNoRelatorio, string> = {
   inferencia_indevida: "Inferência indevida",
   fato_incorreto: "Fato incorreto",
   trecho_incoerente: "Trecho incoerente",
+  leitura_contestada: "Leitura contestada",
 };
 
-// A inferência indevida é destacada em vermelho porque é a única em que o
-// sistema AFIRMOU algo que ninguém disse. As outras três são erro de captação;
-// esta é conteúdo inventado, e num relatório clínico isso pesa diferente.
+// A inferência indevida é destacada em vermelho porque é a única DOS DEFEITOS
+// em que o sistema afirmou algo que ninguém disse. As outras são erro de
+// captação; esta é conteúdo inventado, e num relatório clínico isso pesa
+// diferente.
+//
+// A leitura contestada não usa cor de alerta, e isso é deliberado: ela não é
+// falha. Pintá-la de vermelho junto com os defeitos empurraria o resumo para
+// uma neutralidade que não provoca nada — e provocar é o que ele existe para
+// fazer.
 const TIPO_COR: Record<TipoDeErroNoRelatorio, string> = {
   inferencia_indevida: "border-red-700 bg-red-950/40 text-red-200",
   transcricao_incorreta: "border-slate-700 bg-slate-900 text-slate-300",
   fato_incorreto: "border-amber-700 bg-amber-950/30 text-amber-200",
   trecho_incoerente: "border-slate-700 bg-slate-900 text-slate-300",
+  leitura_contestada: "border-sky-800 bg-sky-950/30 text-sky-200",
+};
+
+/** Um apontamento. As palavras mudam conforme ele seja defeito ou leitura:
+ *  o paciente não "corrige" uma leitura — ele oferece a dele, e chamar isso de
+ *  correção decidiria, na tipografia, uma questão que é clínica. */
+const Item: React.FC<{ item: CorrecaoDeRelatorio }> = ({ item }) => {
+  const defeito = ehDefeitoDoSistema(item.tipo);
+  return (
+    <li className={`rounded border p-3 ${TIPO_COR[item.tipo] || TIPO_COR.fato_incorreto}`}>
+      <div className="flex flex-wrap items-center gap-2 text-[9px] font-black uppercase tracking-wide">
+        <span>{TIPO_LABEL[item.tipo] || item.tipo}</span>
+        <span className="opacity-60">·</span>
+        <span className="opacity-80">
+          apontado {item.origem === "paciente" ? "pelo paciente" : "pelo profissional"}
+        </span>
+      </div>
+
+      <p className="mt-2 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+        {defeito ? "O FROID escreveu" : "Leitura do FROID"}
+      </p>
+      <p
+        className={`text-xs leading-5 text-slate-400 ${
+          defeito ? "line-through decoration-slate-600" : ""
+        }`}
+      >
+        {item.trechoOriginal}
+      </p>
+
+      <p
+        className={`mt-2 text-[10px] font-bold uppercase tracking-wide ${
+          defeito ? "text-emerald-400" : "text-sky-300"
+        }`}
+      >
+        {defeito
+          ? "Correto"
+          : item.origem === "paciente"
+            ? "O que o paciente diz"
+            : "O que o profissional diz"}
+      </p>
+      <p className="text-sm font-bold leading-5 text-slate-100">{item.correcao}</p>
+
+      {item.observacao && (
+        <p className="mt-2 border-t border-white/10 pt-2 text-[11px] leading-4 text-slate-400">
+          {item.observacao}
+        </p>
+      )}
+    </li>
+  );
 };
 
 type Props = {
@@ -69,6 +126,10 @@ export const CorrecoesDoRelatorio: React.FC<Props> = ({
   const [erro, setErro] = useState("");
 
   const lista = correcoes || [];
+  // Duas listas, não uma filtrada na hora de exibir: o profissional precisa
+  // ver a taxa de defeito real sem que a dissonância produtiva a infle.
+  const defeitos = lista.filter((c) => ehDefeitoDoSistema(c.tipo));
+  const leituras = lista.filter((c) => !ehDefeitoDoSistema(c.tipo));
 
   const registrar = async (evento: React.FormEvent) => {
     evento.preventDefault();
@@ -130,6 +191,7 @@ export const CorrecoesDoRelatorio: React.FC<Props> = ({
           </p>
           <p className="mt-0.5 text-[11px] text-slate-500">
             O texto original é preservado; a correção tem precedência de leitura.
+            Discordância de leitura entra separada — não é defeito.
           </p>
         </div>
         {podeRegistrar && (
@@ -149,43 +211,34 @@ export const CorrecoesDoRelatorio: React.FC<Props> = ({
         </p>
       )}
 
-      {lista.length > 0 && (
-        <ul className="mt-3 space-y-2">
-          {lista.map((item) => (
-            <li
-              key={item.id}
-              className={`rounded border p-3 ${TIPO_COR[item.tipo] || TIPO_COR.fato_incorreto}`}
-            >
-              <div className="flex flex-wrap items-center gap-2 text-[9px] font-black uppercase tracking-wide">
-                <span>{TIPO_LABEL[item.tipo] || item.tipo}</span>
-                <span className="opacity-60">·</span>
-                <span className="opacity-80">
-                  apontado {item.origem === "paciente" ? "pelo paciente" : "pelo profissional"}
-                </span>
-              </div>
+      {defeitos.length > 0 && (
+        <>
+          <p className="mt-4 text-[10px] font-black uppercase tracking-wider text-slate-500">
+            O que o sistema errou
+          </p>
+          <ul className="mt-1.5 space-y-2">
+            {defeitos.map((item) => (
+              <Item key={item.id} item={item} />
+            ))}
+          </ul>
+        </>
+      )}
 
-              <p className="mt-2 text-[10px] font-bold uppercase tracking-wide text-slate-500">
-                O FROID escreveu
-              </p>
-              <p className="text-xs leading-5 text-slate-400 line-through decoration-slate-600">
-                {item.trechoOriginal}
-              </p>
-
-              <p className="mt-2 text-[10px] font-bold uppercase tracking-wide text-emerald-400">
-                Correto
-              </p>
-              <p className="text-sm font-bold leading-5 text-slate-100">
-                {item.correcao}
-              </p>
-
-              {item.observacao && (
-                <p className="mt-2 border-t border-white/10 pt-2 text-[11px] leading-4 text-slate-400">
-                  {item.observacao}
-                </p>
-              )}
-            </li>
-          ))}
-        </ul>
+      {leituras.length > 0 && (
+        <>
+          <p className="mt-4 text-[10px] font-black uppercase tracking-wider text-sky-400">
+            Leituras contestadas — material de sessão
+          </p>
+          <p className="mb-1.5 text-[11px] leading-4 text-slate-400">
+            O paciente discorda destas leituras, e elas estavam ancoradas no que
+            ele disse. Não são falha: são ponto de retorno ao assunto.
+          </p>
+          <ul className="space-y-2">
+            {leituras.map((item) => (
+              <Item key={item.id} item={item} />
+            ))}
+          </ul>
+        </>
       )}
 
       {aberto && podeRegistrar && (
@@ -213,6 +266,9 @@ export const CorrecoesDoRelatorio: React.FC<Props> = ({
                 <option value="inferencia_indevida">Inferência indevida</option>
                 <option value="transcricao_incorreta">Transcrição incorreta</option>
                 <option value="trecho_incoerente">Trecho incoerente</option>
+                <option value="leitura_contestada">
+                  Leitura contestada (não é erro)
+                </option>
               </select>
             </label>
           </div>
@@ -220,14 +276,22 @@ export const CorrecoesDoRelatorio: React.FC<Props> = ({
           <textarea
             value={trecho}
             onChange={(e) => setTrecho(e.target.value)}
-            placeholder="Cole aqui o trecho exatamente como o FROID escreveu"
+            placeholder={
+              tipo === "leitura_contestada"
+                ? "Cole a leitura do FROID que está sendo contestada"
+                : "Cole aqui o trecho exatamente como o FROID escreveu"
+            }
             rows={2}
             className="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-slate-100"
           />
           <textarea
             value={correcao}
             onChange={(e) => setCorrecao(e.target.value)}
-            placeholder="O que é correto"
+            placeholder={
+              tipo === "leitura_contestada"
+                ? "O que a pessoa diz sobre isso"
+                : "O que é correto"
+            }
             rows={2}
             className="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-slate-100"
           />

@@ -948,11 +948,28 @@ class CorrecaoCreate(BaseModel):
     # Quem corrige. Nunca inferido: o profissional registra, mas declara de quem
     # veio o apontamento.
     origem: str = Field(pattern="^(profissional|paciente)$")
-    # Que tipo de erro. A taxonomia saiu dos quatro casos reais do Bruno, e
-    # separa o que tem causas tecnicas distintas: palavra mal ouvida pelo STT,
-    # afirmacao inventada pelo resumo, fato trocado, trecho sem sentido.
+    # Que tipo de apontamento. Os quatro primeiros sao DEFEITO — causas
+    # tecnicas distintas: palavra mal ouvida pelo STT, afirmacao inventada pelo
+    # resumo, fato trocado, trecho sem sentido.
+    #
+    # O quinto NAO e defeito, e por isso precisa existir separado.
+    #
+    # O resumo do corte tem uma funcao clinica alem de registrar: dizer em
+    # poucas palavras a substancia do que foi tratado, de um jeito que produza
+    # um ponto de dissonancia entre paciente e profissional e traga os dois de
+    # volta ao assunto. Quando o paciente discorda de uma LEITURA que estava
+    # ancorada no que ele de fato disse, isso e o mecanismo funcionando —
+    # material de sessao, nao falha de sistema.
+    #
+    # Misturar os dois teria dois custos. Contaria dissonancia produtiva como
+    # erro, empurrando o resumo para uma neutralidade que nao provoca nada. E
+    # esconderia a taxa de defeito real atras dela.
+    #
+    # A fronteira e factual, nao de gosto: se o trecho afirma algo que nao foi
+    # dito, e defeito. Se oferece uma leitura do que FOI dito, e leitura.
     tipo: str = Field(
-        pattern="^(transcricao_incorreta|inferencia_indevida|fato_incorreto|trecho_incoerente)$"
+        pattern="^(transcricao_incorreta|inferencia_indevida|fato_incorreto"
+                "|trecho_incoerente|leitura_contestada)$"
     )
     # O texto TAL COMO O FROID PRODUZIU. Guardado para que a correcao possa ser
     # localizada depois, e para que o erro continue auditavel.

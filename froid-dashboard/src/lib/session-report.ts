@@ -23,19 +23,44 @@ export interface ClinicalNote {
  *  de um gabarito que existira antes de haver coleta rotulada. */
 export type OrigemDaCorrecao = "profissional" | "paciente";
 
-/** O tipo separa erros com causas tecnicas distintas — a taxonomia saiu dos
- *  quatro casos reais, nao de uma lista imaginada:
+/** Quatro defeitos e uma leitura. A distincao entre eles nao e cosmetica.
+ *
+ *  DEFEITOS — o sistema errou, e a taxonomia saiu de casos reais, nao de uma
+ *  lista imaginada:
  *
  *  - `transcricao_incorreta`: o STT ouviu errado ou deixou cair uma palavra;
  *  - `inferencia_indevida`: o resumo AFIRMOU algo que ninguem disse (o mais
- *    grave: e o sistema inventando conteudo afetivo);
+ *    grave dos quatro: e o sistema inventando conteudo);
  *  - `fato_incorreto`: um detalhe factual trocado;
- *  - `trecho_incoerente`: o texto nao faz sentido como esta. */
+ *  - `trecho_incoerente`: o texto nao faz sentido como esta.
+ *
+ *  LEITURA — o sistema nao errou:
+ *
+ *  - `leitura_contestada`: o paciente discorda de uma leitura que ESTAVA
+ *    ancorada no que ele disse.
+ *
+ *  O resumo do corte existe para dizer em poucas palavras a substancia do que
+ *  foi tratado, de um jeito que produza um ponto de dissonancia entre paciente
+ *  e profissional e traga os dois de volta ao assunto. Quando isso acontece, e
+ *  o mecanismo funcionando — material de sessao, nao falha.
+ *
+ *  Mas dissonancia so tem valor clinico se o paciente NAO puder descarta-la
+ *  como defeito. Um erro factual nao e uma versao mais forte de dissonancia:
+ *  ele ensina que o relatorio nao e confiavel, e a proxima discordancia
+ *  legitima e descartada junto. Fidelidade e pre-condicao da friccao, nao o
+ *  oposto dela — e por isso os cinco tipos nao podem viver no mesmo balde. */
 export type TipoDeErroNoRelatorio =
   | "transcricao_incorreta"
   | "inferencia_indevida"
   | "fato_incorreto"
-  | "trecho_incoerente";
+  | "trecho_incoerente"
+  | "leitura_contestada";
+
+/** A fronteira e factual, nao de gosto: se o trecho AFIRMA algo que nao foi
+ *  dito, e defeito; se OFERECE uma leitura do que foi dito, e leitura. */
+export function ehDefeitoDoSistema(tipo: TipoDeErroNoRelatorio): boolean {
+  return tipo !== "leitura_contestada";
+}
 
 export interface CorrecaoDeRelatorio {
   id: string;

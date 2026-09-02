@@ -133,5 +133,61 @@ class RespostaNaoJsonNaoQuebraATela(unittest.TestCase):
         self.assertIn("await resposta.text()", COMPONENTE)
 
 
+class DissonanciaProdutivaNaoEDefeito(unittest.TestCase):
+    """O resumo do corte nao existe so para registrar.
+
+    Ele deve dizer em poucas palavras a substancia do que foi tratado, de um
+    jeito que produza um ponto de dissonancia entre paciente e profissional e
+    traga os dois de volta ao assunto. Quando o paciente discorda de uma LEITURA
+    ancorada no que ele de fato disse, isso e o mecanismo funcionando.
+
+    Mas dissonancia so tem valor clinico se o paciente NAO puder descarta-la
+    como defeito. Um erro factual — "saudade da esposa e criancas" quando a
+    familia esta junta — nao e uma versao mais forte de dissonancia: ele ensina
+    que o relatorio nao e confiavel, e a proxima discordancia legitima e
+    descartada junto.
+
+    Fidelidade e pre-condicao da friccao, nao o oposto dela. Por isso os cinco
+    tipos nao podem viver no mesmo balde.
+    """
+
+    def test_o_quinto_tipo_existe_nas_duas_pontas(self):
+        self.assertIn("leitura_contestada", MAIN)
+        self.assertIn("leitura_contestada", TIPOS)
+
+    def test_a_fronteira_e_uma_funcao_e_nao_espalhada_pelo_codigo(self):
+        # Num lugar so: espalhar a regra por `if tipo === ...` faria as duas
+        # nocoes divergirem na primeira vez que alguem acrescentasse um tipo.
+        self.assertIn("export function ehDefeitoDoSistema", TIPOS)
+        self.assertIn('return tipo !== "leitura_contestada"', TIPOS)
+
+    def test_a_tela_separa_as_duas_listas(self):
+        self.assertIn("ehDefeitoDoSistema(c.tipo)", COMPONENTE)
+        self.assertIn("O que o sistema errou", COMPONENTE)
+        self.assertIn("Leituras contestadas", COMPONENTE)
+
+    def test_leitura_contestada_NAO_usa_cor_de_alerta(self):
+        """Pinta-la de vermelho junto com os defeitos empurraria o resumo para
+        uma neutralidade que nao provoca nada — e provocar e o que ele existe
+        para fazer."""
+        i = COMPONENTE.index("const TIPO_COR")
+        bloco = COMPONENTE[i : COMPONENTE.index("};", i)]
+        linha = [l for l in bloco.splitlines() if "leitura_contestada" in l]
+        self.assertTrue(linha)
+        self.assertNotIn("red-", linha[0])
+        self.assertNotIn("amber-", linha[0])
+
+    def test_o_paciente_NAO_corrige_uma_leitura(self):
+        """Chamar a versao dele de "correto" decidiria, na tipografia, uma
+        questao que e clinica: numa leitura contestada existem duas leituras,
+        nao uma certa e uma errada."""
+        self.assertIn('"O que o paciente diz"', COMPONENTE)
+        self.assertIn('defeito ? "O FROID escreveu" : "Leitura do FROID"', COMPONENTE)
+
+    def test_so_o_defeito_e_riscado(self):
+        # Riscar a leitura do FROID afirmaria que ela esta errada, e ela nao esta.
+        self.assertIn('defeito ? "line-through decoration-slate-600" : ""', COMPONENTE)
+
+
 if __name__ == "__main__":
     unittest.main()
