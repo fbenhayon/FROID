@@ -16,7 +16,7 @@
 
 export type EventoRtc = { hora: string; texto: string };
 
-const LIMITE = 200;
+const LIMITE = 400;
 
 let linhas: EventoRtc[] = [];
 
@@ -79,6 +79,35 @@ export function observarConexao(peer: RTCPeerConnection, papel: string): RTCPeer
   });
 
   return peer;
+}
+
+/** Registra a falha REAL, com a mensagem que o navegador deu.
+ *
+ *  Existe por um defeito caro: os dois lados tratavam o erro da sinalização
+ *  com `.catch(() => { pedir renegociação })`. O erro era descartado sem nunca
+ *  ser lido, e a renegociação refazia exatamente a operação que tinha acabado
+ *  de falhar. Deu num laço de duas voltas por segundo — e numa investigação
+ *  inteira, de oito hipóteses, sem jamais ver a frase que dizia o motivo. */
+export function registrarFalha(contexto: string, erro: unknown): void {
+  const detalhe =
+    erro instanceof Error
+      ? `${erro.name}: ${erro.message}`
+      : String(erro ?? "sem detalhe");
+  registrarRtc(`FALHOU em ${contexto} — ${detalhe}`);
+}
+
+/** Incorpora ao nosso relatório o relatório do outro lado.
+ *
+ *  O paciente não tem painel, não tem botão de suporte e muitas vezes está num
+ *  computador que não é dele. Pedir que abra o console do navegador é pedir
+ *  demais. As linhas dele chegam pela própria sinalização e entram aqui
+ *  marcadas, para que o profissional veja os dois lados numa tela só. */
+export function incorporarRelatorioRemoto(texto: string): void {
+  const vindas = String(texto || "").split(/\r?\n/).filter(Boolean).slice(-80);
+  if (!vindas.length) return;
+  registrarRtc("--- daqui para baixo, o relatorio do PACIENTE ---");
+  vindas.forEach((linha) => linhas.push({ hora: "paciente", texto: linha }));
+  if (linhas.length > LIMITE) linhas = linhas.slice(-LIMITE);
 }
 
 /** Descreve o que está sendo enviado — a pergunta "eu estou transmitindo?".

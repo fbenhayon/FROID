@@ -2,7 +2,13 @@ import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { apiUrl, wsUrl } from "../lib/api";
 import {
+  observarConexao,
+  registrarFalha,
+  relatorioRtc,
+} from "../lib/diagnostico-rtc";
+import {
   activateRtcRelayFallback,
+  criarFreioDeRenegociacao,
   motivoDaRecusaDeSinalizacao,
   adoptRemoteTrack,
   attachRemoteMedia,
@@ -244,9 +250,13 @@ export const PatientSessionPage: React.FC = () => {
     cleanupRtc();
     rtcClosingRef.current = false;
 
-    const peer = new RTCPeerConnection(
-      await loadRtcConfiguration({ sessionId, inviteToken }),
+    const peer = observarConexao(
+      new RTCPeerConnection(await loadRtcConfiguration({ sessionId, inviteToken })),
+      "paciente",
     );
+    // Sem freio, a recuperacao de erro vira o proprio erro: ver
+    // `criarFreioDeRenegociacao` em lib/webrtc.ts.
+    const freioRenegociacao = criarFreioDeRenegociacao();
     const remoteStream = new MediaStream();
     rtcPeerRef.current = peer;
     rtcRemoteStreamRef.current = remoteStream;
@@ -261,6 +271,17 @@ export const PatientSessionPage: React.FC = () => {
       if (socket?.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify(payload));
       }
+    };
+
+    // O que o paciente sabe, so ele sabe — e ele nao tem console, nao tem
+    // painel e nao tem suporte. O relatorio viaja pela propria sinalizacao ate
+    // o profissional, que tem onde ler. Uma vez por conta propria; sempre que
+    // o profissional pedir.
+    let diagnosticoEnviado = false;
+    const enviarDiagnostico = (pedidoPeloProfissional = false) => {
+      if (diagnosticoEnviado && !pedidoPeloProfissional) return;
+      diagnosticoEnviado = true;
+      sendSignal({ type: "diagnostico", texto: relatorioRtc() });
     };
 
     const flushIceQueue = async () => {
@@ -408,6 +429,7 @@ export const PatientSessionPage: React.FC = () => {
 
     peer.onconnectionstatechange = () => {
       if (peer.connectionState === "connected") {
+        freioRenegociacao.liberar();
         if (rtcDisconnectTimerRef.current) {
           window.clearTimeout(rtcDisconnectTimerRef.current);
           rtcDisconnectTimerRef.current = null;
@@ -454,12 +476,18 @@ export const PatientSessionPage: React.FC = () => {
         );
         return;
       }
+      if (data.type === "pedir-diagnostico") {
+        enviarDiagnostico(true);
+        return;
+      }
       if (data.type === "signal-ready" || data.type === "peer-joined") {
         const profissionalPresente =
           data.type === "peer-joined" || Boolean(data.peer_connected);
         if (profissionalPresente) {
-          sendSignal({ type: "renegotiate-request" });
-          setCallStatus("Conectando com o profissional...");
+          if (freioRenegociacao.permite()) {
+            sendSignal({ type: "renegotiate-request" });
+            setCallStatus("Conectando com o profissional...");
+          }
         } else {
           setCallStatus("Aguardando chamada do profissional...");
         }
@@ -522,6 +550,7 @@ export const PatientSessionPage: React.FC = () => {
     };
 
     let signalQueue: Promise<void> = Promise.resolve();
+    let aberturaEstavel: number | null = null;
     const connectSignaling = () => {
       if (rtcClosingRef.current || peer.connectionState === "closed") return;
       const socket = new WebSocket(
@@ -531,19 +560,41 @@ export const PatientSessionPage: React.FC = () => {
       );
       rtcSignalRef.current = socket;
       socket.onopen = () => {
-        reconnectAttempt = 0;
+        // Zerar o contador aqui na hora anulava o limite de tentativas: um
+        // socket que abre e fecha em seguida reabre PARA SEMPRE, de meio em
+        // meio segundo, porque cada abertura apagava o historico de fracasso.
+        // So conta como sucesso o socket que se sustenta.
+        aberturaEstavel = window.setTimeout(() => {
+          aberturaEstavel = null;
+          reconnectAttempt = 0;
+        }, 5_000);
         setCallStatus("Aguardando chamada do profissional...");
       };
       socket.onmessage = (event) => {
         signalQueue = signalQueue
           .then(() => handleSignal(event))
-          .catch(() => {
-            setCallStatus("Sincronizando novamente a chamada...");
-            sendSignal({ type: "renegotiate-request" });
+          .catch((erro) => {
+            // O erro era descartado aqui, e com ele a unica informacao que
+            // dizia por que a chamada nao subia.
+            registrarFalha("tratar sinal recebido", erro);
+            if (freioRenegociacao.permite()) {
+              setCallStatus("Sincronizando novamente a chamada...");
+              sendSignal({ type: "renegotiate-request" });
+              return;
+            }
+            if (freioRenegociacao.esgotado()) {
+              setCallStatus(
+                "Nao foi possivel estabelecer audio e video. O profissional ja "
+                + "recebeu os detalhes tecnicos desta tentativa.",
+              );
+              enviarDiagnostico();
+            }
           });
       };
       socket.onerror = () => socket.close();
       socket.onclose = (event) => {
+        if (aberturaEstavel) window.clearTimeout(aberturaEstavel);
+        aberturaEstavel = null;
         if (rtcClosingRef.current || peer.connectionState === "closed") return;
         if (!shouldReconnectRtcSignaling(event.code, reconnectAttempt, peer.connectionState)) {
           // O paciente e quem tem menos como descobrir sozinho o que houve:

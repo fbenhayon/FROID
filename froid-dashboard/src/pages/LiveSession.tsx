@@ -4,7 +4,13 @@ interface LiveSessionProps {
   user?: any;
 }
 import { useParams, useNavigate } from "react-router-dom";
-import { observarConexao, registrarEnvio, relatorioRtc } from "../lib/diagnostico-rtc";
+import {
+  incorporarRelatorioRemoto,
+  observarConexao,
+  registrarEnvio,
+  registrarFalha,
+  relatorioRtc,
+} from "../lib/diagnostico-rtc";
 import MapaZonalFroid from "../components/charts/MapaZonalFroid";
 import { IPMLineChart } from "../components/indicators/IPMLineChart";
 import { RiskChart } from "../components/indicators/RiskChart";
@@ -30,6 +36,7 @@ import {
 } from "../lib/metric-bounds";
 import { apiUrl, wsUrl } from "../lib/api";
 import {
+  criarFreioDeRenegociacao,
   activateRtcRelayFallback,
   motivoDaRecusaDeSinalizacao,
   adoptRemoteTrack,
@@ -3059,6 +3066,9 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         await loadRtcConfiguration({ sessionId, professionalToken: token }),
       );
       observarConexao(peer, "profissional");
+      // Sem freio, a recuperacao de erro vira o proprio erro: ver
+      // `criarFreioDeRenegociacao` em lib/webrtc.ts.
+      const freioRenegociacao = criarFreioDeRenegociacao();
       const remoteStream = new MediaStream();
       rtcPeerRef.current = peer;
       rtcRemoteStreamRef.current = remoteStream;
@@ -3348,6 +3358,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
 
       peer.onconnectionstatechange = () => {
         if (peer.connectionState === "connected") {
+          freioRenegociacao.liberar();
           if (rtcDisconnectTimerRef.current) {
             window.clearTimeout(rtcDisconnectTimerRef.current);
             rtcDisconnectTimerRef.current = null;
@@ -3390,8 +3401,25 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           await peer.setRemoteDescription(data.answer);
           await flushIceQueue();
         } else if (data.type === "renegotiate-request") {
+          // O pedido do paciente chegava aqui sem limite nenhum. Quando a
+          // oferta seguinte falhava do lado dele, ele pedia de novo, e o par
+          // girava na velocidade da rede — enquanto o ICE, que precisa de
+          // segundos, era reiniciado antes de tentar uma unica vez.
+          if (!freioRenegociacao.permite()) {
+            if (freioRenegociacao.esgotado()) {
+              setRtcStatus(
+                "O paciente pediu para refazer a chamada varias vezes sem sucesso. "
+                + "Abra o diagnostico da chamada para ver o motivo.",
+              );
+              sendSignal({ type: "pedir-diagnostico" });
+            }
+            return;
+          }
           peer.restartIce();
           await makeOffer(true);
+        } else if (data.type === "diagnostico" && data.texto) {
+          // O relatorio do outro lado, que ate agora nunca atravessou.
+          incorporarRelatorioRemoto(String(data.texto));
         } else if (data.type === "ice" && data.candidate) {
           if (peer.remoteDescription) {
             await peer.addIceCandidate(data.candidate).catch(() => undefined);
@@ -3457,7 +3485,16 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         socket.onmessage = (event) => {
           signalQueue = signalQueue
             .then(() => handleSignal(event))
-            .catch(() => {
+            .catch((erro) => {
+              // O erro era descartado aqui, e com ele a unica informacao que
+              // dizia por que a chamada nao subia.
+              registrarFalha("tratar sinal recebido", erro);
+              if (!freioRenegociacao.permite()) {
+                if (freioRenegociacao.esgotado()) {
+                  sendSignal({ type: "pedir-diagnostico" });
+                }
+                return;
+              }
               setRtcStatus("Sincronizando novamente áudio e vídeo do paciente...");
               if (peer.signalingState === "stable") void makeOffer();
             });

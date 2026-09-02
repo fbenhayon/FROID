@@ -69,6 +69,46 @@ export function shouldReconnectRtcSignaling(
     || reconnectAttempt < MAX_INITIAL_SIGNALING_RECONNECTS;
 }
 
+/** Freio da renegociacao.
+ *
+ *  Uma renegociacao existe para tirar a chamada de um impasse. Quando ela
+ *  falha, pedir de novo IMEDIATAMENTE refaz a operacao que acabou de falhar, e
+ *  os dois lados entram em livelock: em 02/09/2026 uma sessao real ficou presa
+ *  em `stable -> have-local-offer -> stable`, duas voltas por segundo, sem que
+ *  o ICE chegasse UMA unica vez a `checking`. Negociar leva segundos; o laco
+ *  nao dava milissegundos.
+ *
+ *  O freio guarda o espacamento minimo e quantas tentativas restam. Quando
+ *  acabam, a resposta certa e parar e dizer o que houve — continuar girando
+ *  gasta a sessao inteira e nao produz informacao nenhuma. */
+export function criarFreioDeRenegociacao({ intervaloMs = 2_000, maximo = 4 } = {}) {
+  let ultima = 0;
+  let usadas = 0;
+  return {
+    /** Autoriza uma tentativa, ou nega — por estar cedo demais ou esgotada. */
+    permite(): boolean {
+      const agora = Date.now();
+      // Uma chamada que passou um bom tempo sem renegociar nao esta em laco:
+      // e um problema novo, e merece a cota inteira de volta.
+      if (ultima && agora - ultima > 30_000) usadas = 0;
+      if (usadas >= maximo) return false;
+      if (ultima && agora - ultima < intervaloMs) return false;
+      ultima = agora;
+      usadas += 1;
+      return true;
+    },
+    /** Distingue "cedo demais" de "desisti": so o segundo merece aviso. */
+    esgotado(): boolean {
+      return usadas >= maximo;
+    },
+    /** A conexao subiu: o que veio antes nao conta mais. */
+    liberar(): void {
+      usadas = 0;
+      ultima = 0;
+    },
+  };
+}
+
 export function loadRtcConfiguration(
   access: RtcConfigurationAccess,
 ): Promise<RTCConfiguration> {

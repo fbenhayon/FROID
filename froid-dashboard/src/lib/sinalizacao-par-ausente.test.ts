@@ -133,9 +133,17 @@ describe("oferta pendente não pode travar quem acabou de entrar", () => {
     expect(PROFISSIONAL.slice(i, i + 400)).toContain("makeOffer(true)");
   });
 
-  it("renegotiate-request força a oferta", () => {
+  it("renegotiate-request força a oferta — mas passando pelo freio", () => {
+    // O recorte vai ate o proximo ramo em vez de contar caracteres: o bloco
+    // cresceu quando o freio entrou, e um numero magico quebra a cada
+    // comentario acrescentado sem que nada de fato tenha regredido.
     const i = PROFISSIONAL.indexOf('data.type === "renegotiate-request"');
-    expect(PROFISSIONAL.slice(i, i + 200)).toContain("makeOffer(true)");
+    const fim = PROFISSIONAL.indexOf("} else if (data.type", i);
+    const ramo = PROFISSIONAL.slice(i, fim > 0 ? fim : i + 900);
+    expect(ramo).toContain("makeOffer(true)");
+    // O laço de 02/09/2026: sem limite, cada pedido virava outra oferta, e o
+    // ICE era reiniciado antes de chegar a `checking` uma única vez.
+    expect(ramo).toContain("freioRenegociacao.permite()");
   });
 });
 
