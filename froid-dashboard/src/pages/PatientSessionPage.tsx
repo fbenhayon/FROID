@@ -3,7 +3,9 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { apiUrl, wsUrl } from "../lib/api";
 import {
   observarConexao,
+  registrarEnvio,
   registrarFalha,
+  registrarNegociacao,
   relatorioRtc,
 } from "../lib/diagnostico-rtc";
 import {
@@ -265,6 +267,9 @@ export const PatientSessionPage: React.FC = () => {
       const sender = peer.addTrack(track, localConferenceStream);
       void configureConferenceSender(sender);
     });
+    // O que o paciente envia nunca era registrado: no relatorio, o lado
+    // dele aparecia sem trilha alguma, e isso e indistinguivel de falha.
+    registrarEnvio(peer);
 
     const sendSignal = (payload: Record<string, unknown>) => {
       const socket = rtcSignalRef.current;
@@ -430,6 +435,7 @@ export const PatientSessionPage: React.FC = () => {
     peer.onconnectionstatechange = () => {
       if (peer.connectionState === "connected") {
         freioRenegociacao.liberar();
+        registrarNegociacao(peer);
         if (rtcDisconnectTimerRef.current) {
           window.clearTimeout(rtcDisconnectTimerRef.current);
           rtcDisconnectTimerRef.current = null;
@@ -587,6 +593,7 @@ export const PatientSessionPage: React.FC = () => {
                 "Nao foi possivel estabelecer audio e video. O profissional ja "
                 + "recebeu os detalhes tecnicos desta tentativa.",
               );
+              registrarNegociacao(peer);
               enviarDiagnostico();
             }
           });

@@ -3,6 +3,11 @@ import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import {
+  limparDiagnosticoRtc,
+  registrarNegociacao,
+  relatorioRtc,
+} from "./diagnostico-rtc";
 import { criarFreioDeRenegociacao } from "./webrtc";
 
 /**
@@ -121,4 +126,83 @@ describe("o erro da sinalização não é mais descartado", () => {
     expect(ler("PatientSessionPage.tsx")).toContain('type: "diagnostico"');
     expect(ler("LiveSession.tsx")).toContain("incorporarRelatorioRemoto(");
   });
+});
+
+describe("o relatório diz se as DUAS trilhas subiram, nos DOIS sentidos", () => {
+  /**
+   * A pergunta do Fábio em 02/09/2026: "isso engloba as duas trilhas, uma do
+   * paciente e outra do profissional?". O desenho engloba — mas o diagnóstico
+   * não sabia dizer. Ele registrava o que CHEGAVA (`ontrack`), e o que chega
+   * é justamente o que falta quando a chamada falha.
+   *
+   * A resposta vive nos transceptores, e só fica definitiva depois que a
+   * resposta SDP é aplicada: antes disso `currentDirection` é nulo.
+   */
+  const transceptor = (
+    kind: string,
+    currentDirection: string | null,
+    { envia = true, recebe = true, mudo = false } = {},
+  ) =>
+    ({
+      currentDirection,
+      sender: { track: envia ? { kind } : null },
+      receiver: { track: recebe ? { kind, muted: mudo } : null },
+    }) as never;
+
+  const peerFalso = (transceptores: unknown[]) =>
+    ({ getTransceivers: () => transceptores }) as never;
+
+  beforeEach(() => limparDiagnosticoRtc());
+
+  it("uma chamada saudável mostra áudio E vídeo em sendrecv", () => {
+    registrarNegociacao(
+      peerFalso([
+        transceptor("audio", "sendrecv"),
+        transceptor("video", "sendrecv"),
+      ]),
+    );
+    const relatorio = relatorioRtc();
+    expect(relatorio).toContain("audio sendrecv");
+    expect(relatorio).toContain("video sendrecv");
+    expect(relatorio).not.toContain("NAO envia");
+    expect(relatorio).not.toContain("NAO recebe");
+  });
+
+  it("vídeo que ficou só de recepção aparece como tal", () => {
+    // O caso que era invisível: negociar `recvonly` por engano de um lado
+    // produz exatamente o sintoma de rede — sem nunca ser rede.
+    registrarNegociacao(
+      peerFalso([transceptor("video", "recvonly", { envia: false })]),
+    );
+    expect(relatorioRtc()).toContain("video recvonly — NAO envia");
+  });
+
+  it("trilha ainda muda é distinguida de trilha ausente", () => {
+    // Uma trilha remota nasce muda e só desmuta quando o primeiro pacote
+    // chega. Confundir as duas leva a investigar permissão de câmera quando o
+    // problema é transporte.
+    registrarNegociacao(peerFalso([transceptor("audio", "sendrecv", { mudo: true })]));
+    expect(relatorioRtc()).toContain("recebe (ainda mudo)");
+  });
+
+  it("negociação vazia é dita com todas as letras", () => {
+    registrarNegociacao(peerFalso([]));
+    expect(relatorioRtc()).toContain("nenhum transceptor");
+  });
+
+  it.each(["LiveSession.tsx", "PatientSessionPage.tsx"])(
+    "%s tira o retrato quando a conexão sobe e quando o freio desiste",
+    (arquivo) => {
+      const fonte = readFileSync(join(__dirname, "..", "pages", arquivo), "utf-8");
+      expect(fonte.match(/registrarNegociacao\(peer\)/g)?.length).toBe(2);
+    },
+  );
+
+  it.each(["LiveSession.tsx", "PatientSessionPage.tsx"])(
+    "%s registra o que ESTE lado está enviando",
+    (arquivo) => {
+      const fonte = readFileSync(join(__dirname, "..", "pages", arquivo), "utf-8");
+      expect(fonte).toContain("registrarEnvio(peer)");
+    },
+  );
 });

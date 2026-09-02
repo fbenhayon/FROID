@@ -81,6 +81,33 @@ export function observarConexao(peer: RTCPeerConnection, papel: string): RTCPeer
   return peer;
 }
 
+/** O retrato da negociação: quantas trilhas, de que tipo, em que sentido.
+ *
+ *  É a resposta à pergunta "as duas trilhas, nos dois sentidos, subiram?" — e
+ *  ela não vive em nenhum estado do React nem no `ontrack`. Vive nos
+ *  transceptores, e só fica definitiva DEPOIS que a resposta é aplicada:
+ *  antes disso, `currentDirection` é nulo e qualquer leitura mente.
+ *
+ *  Sem isto, um lado que negocia só áudio, ou que negocia vídeo em `recvonly`
+ *  por engano, é indistinguível de um problema de rede. */
+export function registrarNegociacao(peer: RTCPeerConnection): void {
+  const partes = peer.getTransceivers().map((t) => {
+    const tipo = t.sender.track?.kind || t.receiver.track?.kind || "?";
+    const envio = t.sender.track ? "envia" : "NAO envia";
+    const recepcao = !t.receiver.track
+      ? "NAO recebe"
+      : t.receiver.track.muted
+        ? "recebe (ainda mudo)"
+        : "recebe";
+    return `${tipo} ${t.currentDirection || "sem direcao"} — ${envio}, ${recepcao}`;
+  });
+  registrarRtc(
+    partes.length
+      ? `NEGOCIADO: ${partes.join(" ; ")}`
+      : "NEGOCIADO: nenhum transceptor — nao ha o que transportar",
+  );
+}
+
 /** Registra a falha REAL, com a mensagem que o navegador deu.
  *
  *  Existe por um defeito caro: os dois lados tratavam o erro da sinalização

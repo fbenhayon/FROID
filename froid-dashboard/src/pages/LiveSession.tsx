@@ -8,6 +8,7 @@ import {
   incorporarRelatorioRemoto,
   observarConexao,
   registrarEnvio,
+  registrarNegociacao,
   registrarFalha,
   relatorioRtc,
 } from "../lib/diagnostico-rtc";
@@ -3081,8 +3082,10 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           const sender = peer.addTrack(track, localConferenceStream);
           void configureConferenceSender(sender);
         });
-      registrarEnvio(peer);
       }
+      // Fora do `else` de proposito: em sessao presencial-movel o profissional
+      // so recebe, e saber que ele NAO envia e informacao — nao silencio.
+      registrarEnvio(peer);
 
       const sendSignal = (payload: Record<string, unknown>) => {
         const socket = rtcSignalRef.current;
@@ -3359,6 +3362,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       peer.onconnectionstatechange = () => {
         if (peer.connectionState === "connected") {
           freioRenegociacao.liberar();
+          registrarNegociacao(peer);
           if (rtcDisconnectTimerRef.current) {
             window.clearTimeout(rtcDisconnectTimerRef.current);
             rtcDisconnectTimerRef.current = null;
@@ -3411,6 +3415,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                 "O paciente pediu para refazer a chamada varias vezes sem sucesso. "
                 + "Abra o diagnostico da chamada para ver o motivo.",
               );
+              registrarNegociacao(peer);
               sendSignal({ type: "pedir-diagnostico" });
             }
             return;
