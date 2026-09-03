@@ -152,5 +152,46 @@ class TresDefeitosInequivocos(unittest.TestCase):
         self.assertIn("estabilidade_de_jitter", CORE)
 
 
+class SubHarmonicosMedidos(unittest.TestCase):
+    """As tres bandas de modulacao passam a vir da MEDIDA, nao de formula propria.
+
+    `froid_voice.extract_voice_features` sempre calculou 5-12, 12-20 e 20-40 Hz
+    de verdade — energia do espectro de modulacao do envelope, normalizada pela
+    energia total. Elas nunca tiveram leitor: o motor preferia media ponderada
+    de fatias do vetor de 12 bandas, com pesos (0.7, 0.65, 0.55) e somas de
+    desvio padrao sem procedencia.
+
+    E a fatia da banda ALTA usava os indices mais BAIXOS do vetor: 20-40 Hz
+    calculado a partir das bandas mais graves.
+    """
+
+    def test_o_valor_vem_da_medida(self):
+        self.assertIn('subharmonic_5_12 = _pct("sub_5_12")', CORE)
+        self.assertIn('subharmonic_20_40 = _pct("sub_20_40")', CORE)
+        self.assertIn('energy_85_165 = round(float(real.get("energy_85_165")', CORE)
+
+    def test_a_formula_propria_saiu(self):
+        self.assertNotIn("np.mean(voice_spectral_12[4:8]) * 0.7", CORE)
+        self.assertNotIn("np.mean(voice_spectral_12[1:4]) * 0.55", CORE)
+
+    def test_a_escala_e_declarada_e_legivel(self):
+        """Percentual da energia de modulacao: "8,3% da modulacao esta em
+        5-12 Hz" se le sozinho. O 0-25 anterior nao tinha unidade nenhuma."""
+        self.assertIn('"subharmonic_unit": "percent_of_modulation_energy"', CORE)
+        self.assertIn("* 100.0", CORE)
+
+    def test_a_baseline_usa_a_MESMA_regua(self):
+        """Os indices DNA sao desvio relativo — (valor - base) / base. Comparar
+        medida nova contra baseline derivada do proxy antigo misturaria duas
+        reguas dentro da mesma divisao, e o resultado nao significaria nada."""
+        self.assertIn("baseline_sub_5_12_real", CORE)
+        self.assertIn("base_subharmonic_5_12 = self.baseline_sub_5_12_real or subharmonic_5_12", CORE)
+
+    def test_sem_baseline_o_desvio_e_zero_e_nao_inventado(self):
+        # `or valor_atual` faz a primeira leitura ter desvio nulo, em vez de
+        # desvio contra uma referencia que ainda nao existe.
+        self.assertIn("or subharmonic_12_20", CORE)
+
+
 if __name__ == "__main__":
     unittest.main()

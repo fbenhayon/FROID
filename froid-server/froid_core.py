@@ -114,6 +114,14 @@ class SessionState:
     baseline_f0_real: float = 0.0
     baseline_loudness_real: float = 0.0
     baseline_zcr_real: float = 0.0
+    # Baselines das bandas de modulacao MEDIDAS (percentual da energia total de
+    # modulacao). Existem porque os indices DNA sao desvio RELATIVO contra a
+    # referencia — e comparar valor medido contra baseline derivada de proxy
+    # misturaria duas reguas na mesma divisao.
+    baseline_sub_5_12_real: float = 0.0
+    baseline_sub_12_20_real: float = 0.0
+    baseline_sub_20_40_real: float = 0.0
+    baseline_energy_85_165_real: float = 0.0
     # Calibração PRÓPRIA das baselines de voz real (F0/loudness/ZCR/MFCC),
     # independente da baseline espectral: o microfone do paciente pode entrar
     # depois dos 60s iniciais; sem contador próprio, essas baselines ficariam
@@ -697,6 +705,25 @@ class SessionState:
                 rzcr = float(real.get("zcr") or 0.0)
                 if rzcr > 0.0:
                     self.baseline_zcr_real = (1 - a) * self.baseline_zcr_real + a * rzcr if self.baseline_zcr_real else rzcr
+                # Bandas de modulacao medidas, em PERCENTUAL da energia total.
+                for chave, campo in (
+                    ("sub_5_12", "baseline_sub_5_12_real"),
+                    ("sub_12_20", "baseline_sub_12_20_real"),
+                    ("sub_20_40", "baseline_sub_20_40_real"),
+                ):
+                    bruto = real.get(chave)
+                    if bruto is not None:
+                        pct = float(bruto) * 100.0
+                        atual = getattr(self, campo)
+                        setattr(self, campo, (1 - a) * atual + a * pct if atual else pct)
+                r85 = real.get("energy_85_165")
+                if r85 is not None:
+                    r85 = float(r85)
+                    self.baseline_energy_85_165_real = (
+                        (1 - a) * self.baseline_energy_85_165_real + a * r85
+                        if self.baseline_energy_85_165_real
+                        else r85
+                    )
                 self.real_voice_baseline_ticks += 1
         else:
             mfcc7 = round(float(np.clip(np.mean(voice_spectral_12[4:8]) - baseline_mean * 0.12, 0.0, 25.0)), 3)
@@ -732,10 +759,32 @@ class SessionState:
         # vocais por ativação do sistema nervoso simpático.
         mfcc9_spastic_threshold = 1.8
         mfcc9_spastic_alert = bool(abs(mfcc9_delta_delta) > mfcc9_spastic_threshold)
-        subharmonic_5_12 = round(float(np.clip((np.mean(voice_spectral_12[4:8]) * 0.7) + (np.std(voice_spectral_12) * 0.2), 0.0, 25.0)), 3)
-        subharmonic_12_20 = round(float(np.clip((np.mean(voice_spectral_12[8:12]) * 0.65) + (np.std(voice_spectral_12) * 0.15), 0.0, 25.0)), 3)
-        subharmonic_20_40 = round(float(np.clip((np.mean(voice_spectral_12[1:4]) * 0.55) + (np.std(voice_spectral_12) * 0.12), 0.0, 25.0)), 3)
-        energy_85_165 = round(float(np.clip((np.mean(voice_spectral_12[0:3]) * 0.7) + (np.std(voice_spectral_12) * 0.2), 0.0, 25.0)), 3)
+        # SUB-HARMONICOS MEDIDOS, nao mais derivados por formula propria.
+        #
+        # `froid_voice.extract_voice_features` sempre calculou estas tres bandas
+        # de verdade — energia do espectro de MODULACAO do envelope nas faixas
+        # 5-12, 12-20 e 20-40 Hz, normalizada pela energia total. Elas nunca
+        # tiveram leitor: o motor preferia uma media ponderada de fatias do
+        # vetor de 12 bandas, com pesos (0.7, 0.65, 0.55) e somas de desvio
+        # padrao que nao vieram de lugar nenhum.
+        #
+        # Pior, a fatia da banda ALTA usava os indices mais BAIXOS
+        # (`voice_spectral_12[1:4]`) — 20-40 Hz calculado a partir das bandas
+        # mais graves do vetor.
+        #
+        # ESCALA: percentual da energia total de modulacao (0-100%). E de leitura
+        # imediata — "8,3% da modulacao esta na faixa 5-12 Hz" — e dimensional-
+        # mente honesta, ao contrario do 0-25 anterior, que nao tinha unidade.
+        # Os indices DNA nao mudam de significado: sao desvio RELATIVO contra a
+        # baseline, e ambas passam a viver na mesma regua nova.
+        def _pct(chave: str) -> float:
+            bruto = real.get(chave)
+            return round(float(bruto) * 100.0, 3) if bruto is not None else 0.0
+
+        subharmonic_5_12 = _pct("sub_5_12")
+        subharmonic_12_20 = _pct("sub_12_20")
+        subharmonic_20_40 = _pct("sub_20_40")
+        energy_85_165 = round(float(real.get("energy_85_165") or 0.0), 6)
         if real and "mod_delta" in real:
             # Bandas neuroacústicas REAIS = espectro de MODULAÇÃO do envelope
             # (0.5-80 Hz), a interpretação física correta de "modulação vocal".
@@ -768,10 +817,14 @@ class SessionState:
             shimmer = round(float(np.clip(np.mean(np.abs(np.diff(voice_spectral_12))) / max(1.0, np.mean(voice_spectral_12)), 0.0, 2.0)), 3)
             zcr_value = None
             loudness_dbfs = None
-        base_subharmonic_5_12 = float(np.clip((np.mean(self.baseline_energy[4:8]) * 0.7) + (np.std(self.baseline_energy) * 0.2), 0.0, 25.0))
-        base_subharmonic_12_20 = float(np.clip((np.mean(self.baseline_energy[8:12]) * 0.65) + (np.std(self.baseline_energy) * 0.15), 0.0, 25.0))
-        base_subharmonic_20_40 = float(np.clip((np.mean(self.baseline_energy[1:4]) * 0.55) + (np.std(self.baseline_energy) * 0.12), 0.0, 25.0))
-        base_energy_85_165 = float(np.clip((np.mean(self.baseline_energy[0:3]) * 0.7) + (np.std(self.baseline_energy) * 0.2), 0.0, 25.0))
+        # As baselines acompanham a mesma regua das medidas. Enquanto a EMA nao
+        # tiver o primeiro valor, ela vale o proprio valor atual — o que zera o
+        # desvio em vez de inventar um. Desvio contra referencia inexistente
+        # seria numero sem significado.
+        base_subharmonic_5_12 = self.baseline_sub_5_12_real or subharmonic_5_12
+        base_subharmonic_12_20 = self.baseline_sub_12_20_real or subharmonic_12_20
+        base_subharmonic_20_40 = self.baseline_sub_20_40_real or subharmonic_20_40
+        base_energy_85_165 = self.baseline_energy_85_165_real or energy_85_165
         eps = 1e-9
         dna_infrasound = float(np.clip((subharmonic_5_12 - base_subharmonic_5_12) / (base_subharmonic_5_12 + eps), 0.0, 1.0))
         current_limbic_ratio = subharmonic_12_20 / (subharmonic_5_12 + subharmonic_12_20 + eps)
@@ -944,6 +997,11 @@ class SessionState:
                 "facial_action_units": self.latest_facial_aus if facs_source == "real_facs" else None,
                 "jitter_unit": "internal_proxy_0_2_spectral_dispersion",
                 "shimmer_unit": "internal_proxy_0_2_spectral_step_variation",
+                # A unidade viaja com o numero: sem ela, 8.3 podia ser o proxy
+                # antigo (escala 0-25 sem unidade) ou o percentual novo, e nada
+                # na tela distinguiria os dois.
+                "subharmonic_unit": "percent_of_modulation_energy",
+                "energy_85_165_unit": "spectral_band_power_absolute",
                 "spectral_band_context": "voice_modulation_not_eeg",
                 "speech_rate_proxy": speech_rate_proxy,
                 "clinical_insight": clinical_insight,
