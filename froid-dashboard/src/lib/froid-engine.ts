@@ -79,8 +79,8 @@ export interface AcousticBiomarkers {
   f0_voiced_ratio?: number;
   f0_source?: string;
   loudness_dbfs?: number;
-  voice_features_source?: "real_pcm" | "mock" | string;
-  facs_source?: "real_facs" | "mock" | string;
+  voice_features_source?: "real_pcm" | "sem_apuracao" | string;
+  facs_source?: "real_facs" | "sem_apuracao" | string;
   facial_action_units?: Record<string, number> | null;
   zcr?: number;
   jitter_proxy_index?: number;
@@ -136,7 +136,7 @@ export interface DissonanceEvent {
   // alimenta painéis que exibem o valor atual de cada índice.
   all_markers?: EvidentMarker[];
   summary: string;
-  voice_features_source: "real_pcm" | "mock" | string;
+  voice_features_source: "real_pcm" | "sem_apuracao" | string;
   peak_zone?: number;
   peak_zone_tema?: string;
   coherence_status?: string;

@@ -2498,6 +2498,12 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const recorderRef = useRef<MediaRecorder | null>(null);
   const patientRecorderRef = useRef<MediaRecorder | null>(null);
   const transcriptLinesRef = useRef<string[]>([]);
+  // Ref, e nao dependencia direta: `religarTudo` e definido antes de
+  // `activateMedia` para poder ser usado no JSX acima dela.
+  const activateMediaRef = useRef<null | (() => Promise<void>)>(null);
+  const religandoRef = useRef(false);
+  const religamentosAutomaticosRef = useRef(0);
+  const ultimoReligamentoRef = useRef(0);
   // Em ref, as falas nao disparavam render — por isso MAX_VISIBLE_TRANSCRIPT_LINES
   // existia sem nada visivel. O estado e o que leva a fala ate a tela.
   const [transcriptLines, setTranscriptLines] = useState<string[]>([]);
@@ -3465,10 +3471,25 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           }
           refreshRemoteTracks();
         } else if (peer.connectionState === "failed") {
+          // QUEDA DE CONEXAO NAO E LIVELOCK.
+          //
+          // O freio existe para impedir renegociacao em laco — dezenas por
+          // segundo, sem que o ICE tenha tempo de tentar. Uma conexao que
+          // CAIU e outra coisa: o pedido de religamento e legitimo, e cada
+          // tentativa precisa da cota inteira.
+          //
+          // Sem este reset, uma sessao que ja tinha gasto a cota antes da
+          // queda ficava sem tentativas justamente quando mais precisava —
+          // e foi o que aconteceu numa sessao real em 03/09/2026, com um
+          // paciente do outro lado esperando.
+          freioRenegociacao.liberar();
           peer.restartIce();
           void makeOffer();
           setRtcStatus("Reconectando mídia do paciente...");
         } else if (peer.connectionState === "disconnected") {
+          // Idem: a instabilidade devolve a cota, senao o religamento chega
+          // sem tentativas sobrando.
+          freioRenegociacao.liberar();
           setRtcStatus("Mídia instável; tentando reconectar...");
           if (!rtcDisconnectTimerRef.current) {
             rtcDisconnectTimerRef.current = window.setTimeout(() => {
@@ -4606,6 +4627,63 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     stopRawBioacousticPipeline,
   ]);
 
+  // A SAIDA MANUAL, que nao existia.
+  //
+  // Em 03/09/2026 uma sessao real foi perdida: o microfone do profissional
+  // parou, e depois nao houve como reconectar. Os dois problemas tinham a
+  // mesma causa — cada caminho de recuperacao era AUTOMATICO, e quando nenhum
+  // deles disparava, nao restava nada para a pessoa fazer.
+  //
+  // `track.onended` no microfone dele so chamava `updateStatus`: anotava a
+  // queda e seguia. E `startProfessionalRtcCall` nunca era chamado por acao
+  // humana.
+  //
+  // Este botao refaz tudo do zero — readquire microfone e camera, zera os
+  // contadores de recuperacao e reabre a chamada. E o unico caminho que nao
+  // depende de nenhuma heuristica acertar.
+  const religarTudo = useCallback(async (automatico = false) => {
+    // Duas guardas, para dois modos de falha distintos.
+    //
+    // `religandoRef` impede dois `getUserMedia` sobrepostos — dois cliques
+    // rapidos, ou um clique enquanto a recuperacao automatica ja corre.
+    //
+    // `religamentosAutomaticosRef` limita so o caminho AUTOMATICO: um
+    // microfone USB intermitente encerra a trilha, o `onended` religa, a
+    // trilha nova encerra de novo. Depois de tres tentativas o sistema para
+    // de insistir e diz o que fazer. O botao continua funcionando sem limite
+    // — quem clica sabe que esta clicando.
+    if (religandoRef.current) return;
+    // Tres quedas EM SEQUENCIA sao defeito de hardware; tres quedas espalhadas
+    // por uma hora de consulta sao acidente. Sem esta janela, a terceira queda
+    // de uma sessao longa e saudavel seria recusada.
+    const agora = Date.now();
+    if (
+      ultimoReligamentoRef.current &&
+      agora - ultimoReligamentoRef.current > 120_000
+    ) {
+      religamentosAutomaticosRef.current = 0;
+    }
+    ultimoReligamentoRef.current = agora;
+    if (automatico && religamentosAutomaticosRef.current >= 3) {
+      setRtcStatus(
+        "Microfone caiu 3 vezes. Verifique o cabo ou troque o dispositivo e clique em Religar.",
+      );
+      return;
+    }
+    religandoRef.current = true;
+    if (automatico) religamentosAutomaticosRef.current += 1;
+    else religamentosAutomaticosRef.current = 0;
+    setRtcStatus("Religando microfone, câmera e chamada...");
+    reconstrucoesRtcRef.current = 0;
+    try {
+      await activateMediaRef.current?.();
+    } catch {
+      setRtcStatus("Não foi possível religar. Verifique a permissão do navegador.");
+    } finally {
+      religandoRef.current = false;
+    }
+  }, []);
+
   const activateMedia = useCallback(async () => {
     if (!navigator.mediaDevices?.getUserMedia) {
       dispatch({
@@ -4701,7 +4779,18 @@ function LiveSessionInner({ user }: LiveSessionProps) {
 
     const updateStatus = () => refreshMediaStatus(mediaStreamRef.current);
     stream.getTracks().forEach((track) => {
-      track.onended = updateStatus;
+      // Antes: so `updateStatus` — o sistema anotava a queda do microfone do
+      // profissional e nao fazia nada. Agora tenta readquirir uma vez e, se
+      // nao conseguir, diz o que fazer em vez de deixar a tela muda.
+      track.onended = () => {
+        updateStatus();
+        if (track.kind === "audio") {
+          setRtcStatus(
+            "Microfone do profissional caiu. Tentando religar...",
+          );
+          void religarTudo(true);
+        }
+      };
       track.onmute = updateStatus;
       track.onunmute = updateStatus;
     });
@@ -4747,6 +4836,12 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     startSpeechToText,
     stopMedia,
   ]);
+
+  // Liga a ref usada por `religarTudo`, que e definida antes desta funcao
+  // para poder ser chamada do JSX. Atribuicao em render e adequada para ref
+  // que guarda callback: nao dispara re-render e sempre aponta para a versao
+  // atual.
+  activateMediaRef.current = activateMedia;
 
   useEffect(() => {
     void activateMedia();
@@ -5393,7 +5488,9 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         isMulti: Boolean(event.is_multi_dissonance),
         peakZone: event.peak_zone,
         peakZoneTema: event.peak_zone_tema,
-        source: event.voice_features_source || "mock",
+        // Sem declaracao de procedencia, o padrao e a ausencia — nunca a
+        // suposicao de que a voz foi medida.
+        source: event.voice_features_source || "sem_apuracao",
       },
     ].slice(-30));
   }, [raw, state.elapsedSeconds]);
@@ -5506,7 +5603,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                         : "bg-slate-700/60 text-slate-300"
                     }`}
                   >
-                    {entry.source === "real_pcm" ? "voz real" : "voz simulada"}
+                    {entry.source === "real_pcm" ? "voz medida" : "sem apuração"}
                   </span>
                 </div>
                 {entry.peakZone && (
@@ -5660,6 +5757,16 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                   · {presencaDoPaciente}
                 </span>
               )}
+              {/* A saida manual. Fica sempre visivel de proposito: no dia em que
+                  for necessaria, ninguem vai procurar por ela num menu. */}
+              <button
+                type="button"
+                onClick={() => void religarTudo()}
+                title="Readquire microfone e camera e reabre a chamada. Use se o audio cair ou a conexao nao voltar sozinha."
+                className="ml-2 rounded-full border border-white/40 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide hover:bg-white/20"
+              >
+                Religar
+              </button>
             </div>
             {remotePatientOn && !isPresentialMobileSession && (
               <button
@@ -5868,6 +5975,16 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                   · {presencaDoPaciente}
                 </span>
               )}
+              {/* A saida manual. Fica sempre visivel de proposito: no dia em que
+                  for necessaria, ninguem vai procurar por ela num menu. */}
+              <button
+                type="button"
+                onClick={() => void religarTudo()}
+                title="Readquire microfone e camera e reabre a chamada. Use se o audio cair ou a conexao nao voltar sozinha."
+                className="ml-2 rounded-full border border-white/40 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide hover:bg-white/20"
+              >
+                Religar
+              </button>
             </div>
             {remotePatientOn && !isPresentialMobileSession && (
               <button
@@ -6148,6 +6265,16 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                 · {presencaDoPaciente}
               </span>
             )}
+            {/* A saida manual. Fica sempre visivel de proposito: no dia em que
+                for necessaria, ninguem vai procurar por ela num menu. */}
+            <button
+              type="button"
+              onClick={() => void religarTudo()}
+              title="Readquire microfone e camera e reabre a chamada. Use se o audio cair ou a conexao nao voltar sozinha."
+              className="ml-2 rounded-full border border-white/40 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide hover:bg-white/20"
+            >
+              Religar
+            </button>
             {/* Aparece só quando a mídia do paciente não chegou — que é
                 exatamente quando alguém precisa saber o porquê. Copia o
                 histórico da negociação para colar num chamado. */}

@@ -454,12 +454,17 @@ export const PatientSessionPage: React.FC = () => {
         }
         refreshRemoteTracks();
       } else if (peer.connectionState === "failed") {
+        // Queda nao e laco: o freio devolve a cota antes de pedir de novo.
+        // Sem isto o paciente podia ficar em SILENCIO permanente — cota
+        // esgotada, e nada mais disparando um novo pedido.
+        freioRenegociacao.liberar();
         peer.restartIce();
         sendSignal({ type: "renegotiate-request" });
         setRemoteProfessionalOn(false);
         setRemoteProfessionalVideoOn(false);
         setCallStatus("Reconectando áudio e vídeo do profissional...");
       } else if (peer.connectionState === "disconnected") {
+        freioRenegociacao.liberar();
         setCallStatus("Mídia instável; tentando reconectar...");
         if (!rtcDisconnectTimerRef.current) {
           rtcDisconnectTimerRef.current = window.setTimeout(() => {
@@ -850,8 +855,9 @@ export const PatientSessionPage: React.FC = () => {
           })
           .catch(() => undefined);
       }
-      // Captura facial real (blendshapes -> AUs FACS). Aditiva e tolerante a
-      // falhas: se o modelo não carregar, o servidor mantém o modo simulado.
+      // Captura facial real (blendshapes -> AUs FACS). Tolerante a falhas: se o
+      // modelo não carregar, o servidor declara `facs_source = "sem_apuracao"`
+      // e os campos faciais ficam nulos — nunca preenchidos por estimativa.
       if (hasVideo && sessionId) {
         try {
           faceStopRef.current?.();

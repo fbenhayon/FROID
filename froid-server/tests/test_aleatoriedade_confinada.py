@@ -39,6 +39,18 @@ if str(SERVER_DIR) not in sys.path:
 
 CORE_PATH = SERVER_DIR / "froid_core.py"
 CORE = CORE_PATH.read_text(encoding="utf-8")
+# Mesmo texto com todo espaco em branco colapsado. Duas vezes hoje uma
+# assercao de string literal caiu por reformatacao do codigo que ela
+# vigia, sem nada da garantia ter mudado: aqui se verifica a condicao,
+# nao onde a linha quebrou.
+CORE_LINEAR = " ".join(CORE.split())
+# So o codigo, sem comentario nenhum: o historico dos defeitos antigos cita
+# valores que nao devem mais ser emitidos, e apagar esse historico para o
+# teste passar seria trocar a memoria pela conveniencia.
+CORE_SEM_COMENTARIO = chr(10).join(
+    linha for linha in CORE.splitlines()
+    if not linha.lstrip().startswith("#")
+)
 
 # NAO HA MAIS LUGAR LEGITIMO PARA SORTEAR.
 #
@@ -141,7 +153,22 @@ class ProcedenciaDizAVerdade(unittest.TestCase):
     'aleatorio': sem eles, quem le nao tem como saber em qual dos dois esta."""
 
     def test_o_motor_declara_a_origem_da_voz(self):
-        self.assertIn('"voice_features_source": "real_pcm" if', CORE)
+        # Sem casar formatacao: o campo existe, e o unico caminho para
+        # "real_pcm" passa por features medidas.
+        self.assertIn('"voice_features_source"', CORE)
+        # A condicao, nao a formatacao: o unico caminho para "real_pcm"
+        # passa por features de voz MEDIDAS.
+        self.assertIn('"real_pcm" if (real and "zcr" in real)', CORE_LINEAR)
+
+    def test_a_ausencia_nao_se_chama_simulacao(self):
+        """`"mock"` prometia um gerador que nao existe mais. O valor negativo
+        tem de ser a ausencia declarada, porque e o que a tela vai escrever.
+
+        Verifica o CODIGO, nao os comentarios: a linha 542 cita "mock" para
+        registrar o defeito antigo, e esse registro tem de sobreviver. O que
+        nao pode e o motor EMITIR a palavra."""
+        self.assertNotIn('"mock"', CORE_SEM_COMENTARIO)
+        self.assertIn('"sem_apuracao"', CORE)
 
     def test_o_motor_declara_a_origem_da_f0(self):
         self.assertIn('"f0_source": "yin_pcm" if', CORE)

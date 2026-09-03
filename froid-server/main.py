@@ -3722,8 +3722,23 @@ def _append_anonymous_datamart_row(report: dict) -> None:
             transcript = _transcript_for_range(report, start_second, end_second)
             patient_text = _speaker_text(transcript, "PC")
             professional_text = _speaker_text(transcript, "DR.")
-            if not patient_text and not professional_text:
-                patient_text = transcript
+            # ATRIBUICAO NAO SE PRESUME.
+            #
+            # Aqui havia `patient_text = transcript` quando nenhum prefixo era
+            # reconhecido: toda a fala do corte, dos DOIS lados, era carimbada
+            # como do paciente. Isso alimenta o acervo anonimo — a contagem de
+            # palavras por falante, a categoria da intervencao do profissional
+            # e a resposta do paciente saem daqui.
+            #
+            # E o acervo existe justamente para distinguir o que o profissional
+            # propos do que o paciente encontrou. Atribuir ao paciente uma fala
+            # de origem desconhecida nao e um arredondamento: e inverter o dado
+            # que da sentido a pergunta, e o erro fica gravado em milhares de
+            # linhas sem ninguem poder audita-lo depois.
+            #
+            # Sem prefixo, a fala fica NAO ATRIBUIDA. O corte entra no acervo
+            # com as metricas que tem e sem inventar de quem era a voz.
+            atribuicao_desconhecida = not patient_text and not professional_text
             patient_word_count = _word_count(patient_text)
             professional_word_count = _word_count(professional_text)
             duration_seconds = max(1, end_second - start_second)
@@ -3746,10 +3761,17 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 maybe_cut_context = (context.get("cuts") or [])[index]
                 if isinstance(maybe_cut_context, dict):
                     cut_context = maybe_cut_context
+            # Sem saber de quem era a fala, nao se classifica a intervencao: o
+            # classificador le o texto do PROFISSIONAL, e texto de origem
+            # desconhecida nao e texto do profissional.
             intervention_category = _anonymous_category(
                 cut_context.get("intervention_category")
                 or cut_context.get("interventionCategory")
-                or _infer_intervention_category(professional_text),
+                or (
+                    "sem_atribuicao_de_falante"
+                    if atribuicao_desconhecida
+                    else _infer_intervention_category(professional_text)
+                ),
                 "intervencao_geral",
             )
             patient_response = _anonymous_category(

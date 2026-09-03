@@ -44,6 +44,11 @@ PAINEL_DIR = SERVER_DIR.parent / "froid-dashboard" / "src"
 PACIENTE = (PAINEL_DIR / "pages" / "PatientSessionPage.tsx").read_text(encoding="utf-8")
 PROFISSIONAL = (PAINEL_DIR / "pages" / "LiveSession.tsx").read_text(encoding="utf-8")
 CORE = (SERVER_DIR / "froid_core.py").read_text(encoding="utf-8")
+# Mesmo texto com todo espaco em branco colapsado. Duas vezes hoje uma
+# assercao de string literal caiu por reformatacao do codigo que ela
+# vigia, sem nada da garantia ter mudado: aqui se verifica a condicao,
+# nao onde a linha quebrou.
+CORE_LINEAR = " ".join(CORE.split())
 
 
 class AAnaliseUsaMicrofoneCru(unittest.TestCase):
@@ -103,7 +108,8 @@ class OMotorContinuaDeclarandoAOrigem(unittest.TestCase):
     sairem, as telas voltam a nao ter como perguntar."""
 
     def test_origem_da_voz(self):
-        self.assertIn('"voice_features_source": "real_pcm" if', CORE)
+        self.assertIn('"voice_features_source"', CORE)
+        self.assertIn('"real_pcm" if (real and "zcr" in real)', CORE_LINEAR)
 
     def test_origem_da_face(self):
         self.assertIn('"facs_source": facs_source', CORE)

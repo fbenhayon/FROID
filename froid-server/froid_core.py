@@ -154,8 +154,8 @@ class SessionState:
     # zeradas e os marcadores relativos jamais avaliariam.
     real_voice_baseline_ticks: int = 0
     # Marcações FACIAIS REAIS (froid_facs): AUs e dissonâncias faciais derivadas
-    # dos blendshapes medidos pelo navegador. None = ainda sem face real (o tick
-    # recai no modo simulado explícito).
+    # dos blendshapes medidos pelo navegador. None = ainda sem face medida, e o
+    # tick sai com `facs_source = "sem_apuracao"` e campos faciais nulos.
     latest_facial_aus: Optional[dict] = None
     latest_facs_flags: Optional[dict] = None
     latest_facs_details: Optional[dict] = None
@@ -1106,7 +1106,13 @@ class SessionState:
                 "shimmer_proxy_index": shimmer,
                 "zcr": zcr_value,
                 "loudness_dbfs": loudness_dbfs,
-                "voice_features_source": "real_pcm" if (real and "zcr" in real) else "mock",
+                # "mock" nao existe mais como procedencia: o gerador foi
+                # removido, e o que resta quando nao ha voz medida nao e
+                # simulacao — e ausencia. Este era o ultimo ponto do motor que
+                # ainda declarava a palavra antiga.
+                "voice_features_source": (
+                    "real_pcm" if (real and "zcr" in real) else "sem_apuracao"
+                ),
                 "facs_source": facs_source,
                 "facial_action_units": self.latest_facial_aus if facs_source == "real_facs" else None,
                 "jitter_unit": "internal_proxy_0_2_spectral_dispersion",

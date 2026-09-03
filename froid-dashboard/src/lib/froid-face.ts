@@ -1,13 +1,15 @@
 // Captura FACIAL real do FROID: computa, no navegador, os coeficientes de
 // blendshape faciais (MediaPipe FaceLandmarker / ARKit, 52 formas) a partir do
 // vídeo do paciente e os envia ao backend, que os converte em Unidades de Ação
-// (FACS) reais e em dissonâncias faciais — substituindo as marcações simuladas.
+// (FACS) reais e em dissonâncias faciais.
 //
-// É aditivo e TOLERANTE A FALHAS: se o modelo não carregar (rede/CSP), se não
-// houver vídeo, ou se o navegador não suportar, a captura apenas não inicia,
-// sem afetar a sessão — o servidor então mantém o modo simulado, sinalizado
-// como tal (facs_source = "mock"). O modelo é carregado por import dinâmico de
-// URL (externo ao bundle), evitando nova dependência de build.
+// É TOLERANTE A FALHAS, mas não silencioso: se o modelo não carregar (rede/CSP),
+// se não houver vídeo, ou se o navegador não suportar, a captura não inicia e o
+// servidor declara `facs_source = "sem_apuracao"` — os campos faciais ficam
+// nulos, e a tela e o relatório dizem que não houve apuração. NÃO existe mais
+// modo simulado: o gerador foi removido em 03/09/2026, e a ausência de medida
+// nunca vira número. O modelo é carregado por import dinâmico de URL (externo
+// ao bundle), evitando nova dependência de build.
 
 // Versão fixada do MediaPipe Tasks Vision (pode ser sobrescrita via opções).
 const DEFAULT_VISION_MODULE =
