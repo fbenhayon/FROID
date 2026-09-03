@@ -105,6 +105,14 @@ export interface SessionReportRecord {
     timestamp: string;
     elapsedSeconds: number;
     zone: number;
+    /** Titulo tecnico do sinal, chave da traducao para o paciente.
+     *
+     *  Ausente ate 02/09/2026, e a ausencia tinha consequencia: `patientViewFor`
+     *  busca por chave exata, entao sem ele a traducao nunca casava e a secao
+     *  de sinais do documento do paciente saia sempre vazia. Opcional porque
+     *  relatorios antigos nao o tem — e sem ele o sinal e OMITIDO, nunca
+     *  substituido pelo texto do profissional. */
+    title?: string;
     report: string;
   }>;
   // Dissonâncias evidentes (>= 2 marcadores fora da métrica base ao mesmo tempo).

@@ -5247,6 +5247,17 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           zone: z.zone,
           score,
           severity: dissonanceSeverity(z),
+          // O TITULO precisa ser gravado separado do texto.
+          //
+          // `report-pdf.ts` chama patientViewFor(d.title || d.report) para
+          // traduzir o sinal antes de mostrar ao paciente. Mas `title` nunca
+          // foi persistido: o tipo so tinha id/timestamp/elapsedSeconds/zone/
+          // report. A busca e por chave EXATA, entao ela recebia o paragrafo
+          // inteiro, nunca casava, e o `.filter(visao !== null)` apagava tudo.
+          // Resultado: a secao de sinais do PDF do paciente sempre saiu VAZIA,
+          // enquanto a tela do portal — que nao usa a salvaguarda — mostrava o
+          // texto do profissional inteiro.
+          title: classifyDissonance(z, displayAudio).title,
           report: buildDissonanceReportText(
             z,
             displayAudio,
@@ -5268,6 +5279,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           timestamp: new Date().toLocaleString("pt-BR"),
           elapsedSeconds: state.elapsedSeconds,
           zone: entry.zone,
+          title: entry.title,
           report: entry.report,
         };
       })

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiUrl } from "../lib/api";
+import { patientViewFor } from "../lib/dissonance-patient-view";
 import {
   fmt,
   formatDateTime,
@@ -1192,11 +1193,35 @@ export const PatientPortalPage: React.FC = () => {
                           <p className="text-[10px] font-bold uppercase text-slate-400">Dissonâncias</p>
                           {(report.dissonances || []).length ? (
                             <ul className="mt-2 space-y-2 text-xs text-slate-300">
-                              {report.dissonances.map((item) => (
-                                <li key={item.id} className="rounded border border-slate-800 bg-slate-950 p-2">
-                                  {item.report}
-                                </li>
-                              ))}
+                              {report.dissonances.map((item) => {
+                                // NUNCA `item.report` aqui.
+                                //
+                                // Aquele texto e escrito para o profissional e
+                                // inclui o rotulo tecnico do sinal e a linha
+                                // "Sugestao tecnica ao profissional: ...".
+                                // Dito ao paciente, sozinho, sobre si mesmo,
+                                // vira veredito sem juiz — e era exatamente
+                                // isso que esta tela fazia.
+                                //
+                                // Sinal sem traducao escrita e OMITIDO. Cair no
+                                // texto do profissional e o acidente que
+                                // `dissonance-patient-view` existe para impedir.
+                                const visao = patientViewFor(item.title || "");
+                                if (!visao) return null;
+                                return (
+                                  <li
+                                    key={item.id}
+                                    className="rounded border border-slate-800 bg-slate-950 p-2"
+                                  >
+                                    <p className="font-bold text-slate-200">
+                                      {visao.title}
+                                    </p>
+                                    <p className="mt-1 leading-5">
+                                      {visao.description}
+                                    </p>
+                                  </li>
+                                );
+                              })}
                             </ul>
                           ) : (
                             <p className="mt-2 text-xs text-slate-400">
