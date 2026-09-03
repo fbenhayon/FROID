@@ -31,12 +31,16 @@ const EXPLICACAO: Record<string, string> = {
     "O navegador do paciente suspendeu o áudio até um toque na tela. Peça a ele que clique em qualquer ponto da página.",
   "sessao-inativa":
     "O áudio está subindo, mas a análise deste painel ainda não estava aberta quando ele começou.",
+  sem_apuracao:
+    "O motor não recebeu áudio medido do paciente nesta janela.",
   erro: "A captura de áudio do paciente falhou ao iniciar.",
 };
 
 export const AvisoVozSimulada: React.FC<Props> = ({ origem, motivo }) => {
   // Enquanto a origem não chega, não há o que afirmar — e afirmar cedo demais
   // faria o aviso piscar no início de toda sessão saudável.
+  // `sem_apuracao` e o novo valor que o motor emite quando nao mede nada.
+  // O antigo era "mock", e ele nao existe mais: o gerador foi removido.
   if (!origem || origem === "real_pcm") return null;
 
   const explicacao = motivo ? EXPLICACAO[motivo] : "";
@@ -44,11 +48,12 @@ export const AvisoVozSimulada: React.FC<Props> = ({ origem, motivo }) => {
   return (
     <div className="shrink-0 rounded-lg border border-amber-600 bg-amber-950/50 px-2.5 py-2">
       <p className="text-[9px] font-black uppercase tracking-wider text-amber-400">
-        Voz simulada — não use para leitura clínica
+        Sem capacidade de apuração
       </p>
       <p className="mt-1 text-[10px] leading-4 text-amber-100/90">
-        O áudio real do paciente não chegou ao motor. Os índices acústicos
-        exibidos abaixo são <strong>gerados</strong>, não medidos.
+        O áudio do paciente não chegou ao motor nesta janela. Os índices
+        acústicos <strong>não foram apurados</strong> — e, desde 02/09/2026,
+        também não são gerados: onde não há medida, o campo fica vazio.
       </p>
       {explicacao && (
         <p className="mt-1 border-t border-amber-800/60 pt-1 text-[10px] leading-4 text-amber-100/75">

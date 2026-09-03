@@ -23,7 +23,7 @@ class F0SessionIntegrationTests(unittest.TestCase):
         voice = np.clip(np.array([5.0] * 12), 0.5, 25.0)
         flags = {z: False for z in range(1, 13)}
         details = {z: None for z in range(1, 13)}
-        return state.process_tick(voice, flags, details)
+        return state.process_tick()
 
     def test_real_f0_flows_into_tick_payload(self):
         state = SessionState(session_id="s")
@@ -44,11 +44,28 @@ class F0SessionIntegrationTests(unittest.TestCase):
         state.update_f0(0.0, 0.0, 0.0)
         self.assertEqual(state.latest_f0_mean, before)
 
-    def test_pending_source_before_any_audio(self):
+    def test_sem_audio_algum_a_ausencia_e_declarada(self):
+        """Era `f0_source == "pending_audio"`, que dizia "ainda vai chegar".
+
+        A distincao passou a importar: sem espectro medido o tick inteiro nao e
+        apurado, e chamar isso de "pendente" sugeriria que os demais campos
+        valiam enquanto se espera. Nao valiam — eram gerados.
+        """
         state = SessionState(session_id="s")
-        audio = self._neutral_tick(state)["audio_meta"]
-        self.assertEqual(audio["f0_mean"], 0.0)
-        self.assertEqual(audio["f0_source"], "pending_audio")
+        payload = self._neutral_tick(state)
+        self.assertFalse(payload["apuracao_disponivel"])
+        self.assertEqual(payload["audio_meta"]["f0_mean"], 0.0)
+        self.assertEqual(payload["audio_meta"]["f0_source"], "sem_apuracao")
+
+    def test_F0_medida_sobrevive_a_falta_de_espectro(self):
+        """A regra corta dos DOIS lados: descartar medida existente seria
+        inventar ausencia. A F0 chega por endpoint proprio."""
+        state = SessionState(session_id="s")
+        state.update_f0(172.0, 4.0, 0.8)
+        payload = self._neutral_tick(state)
+        self.assertFalse(payload["apuracao_disponivel"])
+        self.assertEqual(payload["audio_meta"]["f0_source"], "yin_pcm")
+        self.assertAlmostEqual(payload["audio_meta"]["f0_mean"], 172.0, places=1)
 
 
 if __name__ == "__main__":

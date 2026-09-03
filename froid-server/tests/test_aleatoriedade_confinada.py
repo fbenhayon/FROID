@@ -40,25 +40,21 @@ if str(SERVER_DIR) not in sys.path:
 CORE_PATH = SERVER_DIR / "froid_core.py"
 CORE = CORE_PATH.read_text(encoding="utf-8")
 
-# Onde sortear e legitimo: o gerador de reserva, que so roda sem PCM real.
-CLASSE_DE_FALLBACK = "MockBiometricStream"
+# NAO HA MAIS LUGAR LEGITIMO PARA SORTEAR.
+#
+# Ate 02/09/2026 este arquivo tolerava np.random dentro de MockBiometricStream,
+# o gerador de reserva. A determinacao do dono do produto encerrou a tolerancia:
+# proibido simular, e sem capacidade de apuracao o sistema INFORMA que nao ha.
+# O gerador foi removido inteiro; o motor agora devolve `_payload_sem_apuracao`.
 
 
-def _linhas_com_random_fora_do_fallback():
-    """Linhas de CODIGO (nao comentario) que sorteiam fora do fallback.
+def _linhas_com_random():
+    """Linhas de CODIGO (nao comentario) que sorteiam, em qualquer lugar.
 
-    Usa a arvore sintatica em vez de grep: comentario que MENCIONA np.random
-    para explicar sua propria remocao nao pode contar como uso — e este arquivo
-    tem tres deles, de proposito.
+    Arvore sintatica, nao grep: este arquivo tem tres comentarios que MENCIONAM
+    np.random para explicar a propria remocao, e comentario nao e uso.
     """
     arvore = ast.parse(CORE)
-    permitido = set()
-    for no in ast.walk(arvore):
-        if isinstance(no, ast.ClassDef) and no.name == CLASSE_DE_FALLBACK:
-            for interno in ast.walk(no):
-                if hasattr(interno, "lineno"):
-                    permitido.add(interno.lineno)
-
     suspeitas = []
     for no in ast.walk(arvore):
         if not isinstance(no, ast.Attribute):
@@ -66,30 +62,55 @@ def _linhas_com_random_fora_do_fallback():
         origem = getattr(no.value, "id", None) or getattr(
             getattr(no.value, "value", None), "id", None
         )
-        alvo = getattr(no.value, "attr", None)
-        if origem == "np" and alvo == "random":
-            if no.lineno not in permitido:
-                suspeitas.append((no.lineno, no.attr))
+        if origem == "np" and getattr(no.value, "attr", None) == "random":
+            suspeitas.append((no.lineno, no.attr))
     return suspeitas
 
 
-class AleatoriedadeConfinada(unittest.TestCase):
-    def test_nenhum_sorteio_fora_do_gerador_de_reserva(self):
-        suspeitas = _linhas_com_random_fora_do_fallback()
+class NadaEhSimulado(unittest.TestCase):
+    def test_o_motor_nao_sorteia_em_lugar_nenhum(self):
+        suspeitas = _linhas_com_random()
         self.assertEqual(
             suspeitas,
             [],
-            "np.random fora de "
-            + CLASSE_DE_FALLBACK
-            + ": "
+            "np.random no motor: "
             + ", ".join(f"linha {l} (np.random.{f})" for l, f in suspeitas),
         )
 
-    def test_o_gerador_de_reserva_continua_existindo(self):
-        """O teste acima passaria trivialmente se o fallback sumisse — e sem ele
-        uma sessao sem audio quebraria em vez de degradar."""
-        self.assertIn(f"class {CLASSE_DE_FALLBACK}", CORE)
-        self.assertIn("np.random.normal", CORE)
+    def test_o_gerador_foi_REMOVIDO_e_nao_apenas_desligado(self):
+        """Codigo que sabe inventar numero plausivel e arma carregada em cima
+        da mesa: um `if` invertido por engano o religa inteiro."""
+        self.assertNotIn("class MockBiometricStream", CORE)
+        self.assertNotIn("def generate_voice_spectral", CORE)
+        self.assertNotIn("def generate_facs_dissonance", CORE)
+
+    def test_sem_medida_o_motor_DECLARA_a_ausencia(self):
+        self.assertIn("_payload_sem_apuracao", CORE)
+        self.assertIn('"apuracao_disponivel": False', CORE)
+        self.assertIn('"coherence_status": "SEM_APURACAO"', CORE)
+
+    def test_o_portao_barra_ANTES_de_calcular(self):
+        """Se o retorno viesse depois, os 98 campos ja teriam sido derivados de
+        ruido antes de alguem perguntar se havia medida.
+
+        Mede por POSICAO relativa, nao por janela de caracteres: a primeira
+        versao contava 1500 chars a partir de `def process_tick` e quebrou
+        quando a docstring do metodo cresceu — falso alarme sobre codigo
+        correto, que e o tipo de teste que se aprende a ignorar.
+        """
+        inicio = CORE.index("def process_tick")
+        portao = CORE.index("if not tem_voz_medida:", inicio)
+        # A primeira linha que de fato calcula algo sobre o espectro.
+        calculo = CORE.index("self.baseline_buffer.append", inicio)
+        self.assertLess(portao, calculo, "o portao ficou DEPOIS do calculo")
+        self.assertIn(
+            "return self._payload_sem_apuracao(",
+            CORE[portao : portao + 900],
+        )
+
+    def test_sem_face_as_flags_sao_vazias_e_nao_sorteadas(self):
+        self.assertIn('facs_source = "sem_apuracao"', CORE)
+        self.assertIn("facs_dissonance_flags = {i: False for i in range(1, 13)}", CORE)
 
 
 class OServidorNaoInventaPalavras(unittest.TestCase):

@@ -1,6 +1,8 @@
-"""Integração dos biomarcadores vocais reais no tick da sessão: com features
-reais injetadas, o payload passa a refletir a voz medida (voice_features_source
-= real_pcm), e sem elas mantém o modo simulado."""
+"""Integração dos biomarcadores vocais reais no tick da sessão.
+
+Com features reais injetadas, o payload reflete a voz medida
+(voice_features_source = real_pcm). SEM elas, desde 02/09/2026, o motor não
+simula mais: declara `sem_apuracao` e devolve os campos nulos."""
 import math
 import unittest
 
@@ -25,7 +27,7 @@ def neutral_tick(state: SessionState):
     voice = np.ones(12) * 5.0
     flags = {z: False for z in range(1, 13)}
     details = {z: None for z in range(1, 13)}
-    return state.process_tick(voice, flags, details)
+    return state.process_tick()
 
 
 class VoiceSessionIntegrationTests(unittest.TestCase):
@@ -42,11 +44,20 @@ class VoiceSessionIntegrationTests(unittest.TestCase):
         self.assertIsNotNone(audio["loudness_dbfs"])
         self.assertLess(audio["loudness_dbfs"], 0.0)
 
-    def test_mock_mode_without_features(self):
+    def test_sem_features_o_motor_DECLARA_ausencia(self):
+        """Este teste exigia `voice_features_source == "mock"`.
+
+        Ele congelava o comportamento que a determinacao de 02/09/2026 proibiu:
+        sem PCM medido, o motor gerava o espectro por ruido gaussiano e
+        publicava 98 campos derivados dele. Agora nao gera — declara.
+        """
         state = SessionState(session_id="s")
-        audio = neutral_tick(state)["audio_meta"]
-        self.assertEqual(audio["voice_features_source"], "mock")
-        self.assertIsNone(audio["zcr"])
+        payload = neutral_tick(state)
+        self.assertFalse(payload["apuracao_disponivel"])
+        self.assertEqual(payload["audio_meta"]["voice_features_source"], "sem_apuracao")
+        self.assertIsNone(payload["ipm_score"])
+        self.assertIsNone(payload["audio_meta"]["zcr"])
+        self.assertEqual(payload["perception_zones"], [])
 
     def test_real_voice_spectral_drives_zones(self):
         state = SessionState(session_id="s")

@@ -28,7 +28,7 @@ def neutral_tick(state: SessionState):
     voice = np.ones(12) * 5.0
     flags = {z: False for z in range(1, 13)}
     details = {z: None for z in range(1, 13)}
-    return state.process_tick(voice, flags, details)
+    return state.process_tick()
 
 
 class DissonanceEngineUnitTests(unittest.TestCase):
@@ -226,10 +226,13 @@ class TemporalConfirmationTests(unittest.TestCase):
         state.baseline_energy = np.ones(12) * 5.0
         flags = {z: False for z in range(1, 13)}
         details = {z: None for z in range(1, 13)}
-        # Um único tick com desequilíbrio extremo de zona.
-        spike = np.ones(12) * 5.0
+        # O pico entra como MEDIDA, pelo mesmo caminho da produção. Antes ele
+        # era passado direto para process_tick — porta que foi fechada junto com
+        # a simulação: o motor só lê o que foi medido e guardado no estado.
+        spike = [5.0] * 12
         spike[0] = 40.0  # zona extrema
-        ev = state.process_tick(spike, flags, details)["dissonance_event"]
+        state.update_voice_features({"voice_spectral_12": spike})
+        ev = state.process_tick()["dissonance_event"]
         self.assertTrue(ev["has_dissonance"])  # registrado (>= 1 marcador)
         self.assertFalse(ev["confirmed"])  # mas 1 tick isolado não confirma
 
@@ -237,6 +240,9 @@ class TemporalConfirmationTests(unittest.TestCase):
 class DissonanceSessionIntegrationTests(unittest.TestCase):
     def test_tick_payload_includes_event(self):
         state = SessionState(session_id="s")
+        # Com voz medida — sem ela o tick declara ausência, e um evento de
+        # dissonância exige o espectro que o define.
+        state.update_voice_features({"voice_spectral_12": [5.0] * 12})
         payload = neutral_tick(state)
         self.assertIn("dissonance_event", payload)
         ev = payload["dissonance_event"]

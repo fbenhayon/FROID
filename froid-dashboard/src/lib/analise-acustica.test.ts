@@ -108,8 +108,20 @@ describe("voz simulada é dita na tela, não deduzida", () => {
   });
 
   it("o aviso diz o que NÃO vale, com nome", () => {
+    // A redação mudou em 02/09/2026 e a mudança é substantiva, não cosmética:
+    // antes o aviso dizia "voz simulada", porque havia simulação. O gerador
+    // foi removido, então a situação real deixou de ser "gerado" e passou a
+    // ser AUSENTE — e as duas palavras não são sinônimas para quem lê um
+    // relatório clínico.
     expect(AVISO).toContain("F0, ZCR, MFCC");
-    expect(AVISO).toContain("não use para leitura clínica");
+    expect(AVISO).toContain("Sem capacidade de apuração");
+    expect(AVISO).toContain("não foram apurados");
+  });
+
+  it("o aviso NÃO promete mais que os índices foram gerados", () => {
+    // Dizer "gerados" agora seria falso: nada e gerado. Ver a remocao de
+    // MockBiometricStream em froid_core.py.
+    expect(AVISO).not.toContain("são <strong>gerados</strong>");
   });
 
   it("o aviso diz o que continua válido — senão parece perda total", () => {

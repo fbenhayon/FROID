@@ -145,7 +145,15 @@ export interface DissonanceEvent {
 export interface FroidPayload {
   session_id: string;
   timestamp_ms: number;
-  ipm_score: number;
+  /** Falso quando o motor nao teve o que medir nesta janela.
+   *
+   *  Determinacao de 02/09/2026: proibido simular. Antes, o laco preenchia a
+   *  ausencia com ruido gerado e publicava os 98 campos como se fossem medida.
+   *  Agora o tick declara que nao houve apuracao, e os campos vem nulos. */
+  apuracao_disponivel?: boolean;
+  motivo_sem_apuracao?: string;
+  /** Nulo quando nao houve apuracao. */
+  ipm_score: number | null;
   idm_score?: number;
   coherence_status: string;
   global_energy: { cor_plot: FroidColor; descricao: string };

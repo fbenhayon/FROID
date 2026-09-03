@@ -223,22 +223,212 @@ class SessionState:
         self.activation_center = centro
         self.activation_scale = max(mad, self.ACTIVATION_SCALE_FLOOR)
 
-    def process_tick(self, voice_spectral_12, facs_dissonance_flags, facs_details):
+    def _payload_sem_apuracao(self, motivo: str, face_medida: bool = False) -> dict:
+        """O tick que nao mediu o espectro, dizendo isso — e sem perder o que MEDIU.
+
+        Determinacao do dono do produto em 02/09/2026, e ela e absoluta:
+        proibido simular. Quando nao ha capacidade de apuracao, o sistema
+        INFORMA que nao ha — nunca supoe, nunca inventa.
+
+        Quase tudo o que este motor publica deriva do vetor espectral de 12
+        bandas: as Zonas, o IPM, o IDM, os MFCC, as bandas de modulacao, os
+        sub-harmonicos e os indices DNA. Sem PCM real nao existe esse vetor, e
+        ate hoje o laco preenchia a lacuna com ruido gaussiano de picos
+        sorteados. Cada numero publicado depois disso era consequencia de um
+        sorteio.
+
+        Mas a regra corta dos DOIS lados. F0 e as AUs faciais chegam por
+        caminhos proprios e podem estar medidas mesmo sem espectro; descarta-las
+        seria inventar ausencia, que e o mesmo pecado com o sinal trocado. Elas
+        saem preenchidas, e o resto sai NULO.
+
+        O conjunto de chaves e o MESMO do payload normal. Um consumidor que le
+        `audio_meta["f0_mean"]` nao pode quebrar so porque nao houve apuracao —
+        e foi exatamente assim que quatro testes de integracao quebraram quando
+        a primeira versao deste metodo devolveu um dicionario menor.
+        """
+        f0_medida = self.latest_f0_mean > 0.0
+        return {
+            "session_id": self.session_id,
+            "timestamp_ms": int(time.time() * 1000),
+            "apuracao_disponivel": False,
+            "motivo_sem_apuracao": motivo,
+            "ipm_score": None,
+            "idm_score": None,
+            "coherence_status": "SEM_APURACAO",
+            "global_energy": {
+                "cor_plot": "CINZA",
+                "descricao": "Sem capacidade de apuracao",
+            },
+            "perception_zones": [],
+            "realtime_alerts": [],
+            # As chaves acompanham o evento real (`evident_markers`, nao
+            # `markers`), pelo mesmo motivo de sempre: quem consome nao deve
+            # descobrir a ausencia por KeyError.
+            "dissonance_event": {
+                "has_dissonance": False,
+                "evident_count": 0,
+                "categories": [],
+                "evident_markers": [],
+                "all_markers": [],
+                "summary": "",
+                "severity": 0.0,
+                "mean_severity": 0.0,
+                "voice_features_source": "sem_apuracao",
+                "facs_source": "real_facs" if face_medida else "sem_apuracao",
+            },
+            "audio_meta": {
+                "voice_real": False,
+                # A face PODE ter sido medida sem voz. Apagar isso violaria a
+                # regra na outra direcao: apurar e nao informar.
+                "facial_real": face_medida,
+                "voice_features_source": "sem_apuracao",
+                "facs_source": "real_facs" if face_medida else "sem_apuracao",
+                "f0_source": "yin_pcm" if f0_medida else "sem_apuracao",
+                "baseline_locked": self.baseline_locked,
+                "emotional_tone": "",
+                "transcription_snippet": "",
+                # F0 chega por endpoint proprio e sobrevive a ausencia do
+                # espectro.
+                "f0_mean": round(self.latest_f0_mean, 2) if f0_medida else 0.0,
+                "f0_var": round(self.latest_f0_std, 2) if f0_medida else 0.0,
+                "f0_voiced_ratio": round(self.latest_f0_voiced_ratio, 3) if f0_medida else 0.0,
+                "facial_action_units": self.latest_facial_aus if face_medida else None,
+                "jitter_unit": "internal_proxy_0_2_spectral_dispersion",
+                "shimmer_unit": "internal_proxy_0_2_spectral_step_variation",
+                "spectral_band_context": "voice_modulation_not_eeg",
+                "baseline_progress": len(self.baseline_buffer),
+                "baseline_target": 60,
+                "dna_baseline_locked": self.baseline_locked,
+                "mfcc9_delta_delta_spastic_threshold": None,
+                "zone": None,
+                "tema": None,
+                "deviation_score": None,
+                "facial_dissonance_detected": None,
+                "dissonance_details": None,
+                "model_id": None,
+                "title": None,
+                "zones": None,
+                "theme": None,
+                "neutro": None,
+                "ansioso": None,
+                "triste": None,
+                "irritado": None,
+                "alegre": None,
+                "suprimido": None,
+                "voice_baseline_ready": None,
+                "jitter": None,
+                "shimmer": None,
+                "baseline_f0": None,
+                "loudness_dbfs": None,
+                "baseline_loudness": None,
+                "zcr": None,
+                "baseline_zcr": None,
+                "mfcc7_delta_delta": None,
+                "mfcc9_delta_delta": None,
+                "dna_autonomic_flooding": None,
+                "dna_dissociative_shutdown": None,
+                "dna_somatoaffective_dissonance": None,
+                "zone_deviations": None,
+                "facial_dissonance_count": None,
+                "dr_value": None,
+                "words_per_window": None,
+                "words_per_minute_10m": None,
+                "total_words_session": None,
+                "session_theme": None,
+                "theme_minute_mark": None,
+                "bioacoustic_window_ms": None,
+                "mfcc7": None,
+                "mfcc9": None,
+                "mfcc7_delta": None,
+                "mfcc9_delta": None,
+                "mfcc9_delta_delta_spastic_alert": None,
+                "baseline_mfcc7": None,
+                "baseline_mfcc9": None,
+                "spectral_delta_0_4hz": None,
+                "spectral_theta_4_8hz": None,
+                "spectral_alpha_8_12hz": None,
+                "spectral_beta_12_30hz": None,
+                "spectral_gamma_30_80hz": None,
+                "spectral_band_index": None,
+                "subharmonic_energy_5_12hz": None,
+                "subharmonic_energy_12_20hz": None,
+                "subharmonic_energy_20_40hz": None,
+                "energy_85_165hz": None,
+                "dna_infrasound_nuclear": None,
+                "dna_limbic_modulation": None,
+                "dna_neurogenic_resonance": None,
+                "dna_vocal_basal_tension": None,
+                "dna_subharmonic_index": None,
+                "dna_facial_multiplier": None,
+                "jitter_proxy_index": None,
+                "shimmer_proxy_index": None,
+                "speech_rate_proxy": None,
+                "clinical_insight": None,
+            },
+        }
+
+    def process_tick(self):
+        """Um tick. Le SOMENTE o que foi medido e guardado neste estado.
+
+        Ate 02/09/2026 este metodo recebia o vetor espectral e as flags faciais
+        de fora, e o laco os preenchia com `MockBiometricStream`. Os tres
+        parametros ficaram mortos quando a simulacao foi proibida — e parametro
+        morto num metodo assim nao e so ruido: e a porta por onde alguem
+        reinjeta dado nao medido sem que nada acuse. Fechada.
+        """
         self.tick_count += 1
+        voice_spectral_12 = None
+        facs_dissonance_flags: dict = {}
+        facs_details: dict = {}
         # Se há biomarcadores vocais REAIS medidos do PCM do paciente, o vetor
         # espectral de 12 bandas real substitui o simulado — passando a
         # alimentar as Zonas, o IPM, o IDM e a colorimetria com a voz de fato.
         real = self.latest_voice_features
-        if real and isinstance(real.get("voice_spectral_12"), (list, tuple)) and len(real["voice_spectral_12"]) == 12:
-            voice_spectral_12 = np.asarray(real["voice_spectral_12"], dtype=np.float64)
+        tem_voz_medida = bool(
+            real
+            and isinstance(real.get("voice_spectral_12"), (list, tuple))
+            and len(real["voice_spectral_12"]) == 12
+        )
+        # PROIBIDO SIMULAR. Sem espectro medido nao ha o que derivar, e o
+        # honesto e dizer isso em vez de publicar 98 campos calculados sobre
+        # ruido sorteado.
+        if not tem_voz_medida:
+            # A face pode estar sendo medida agora. Nao ha zona sem voz — toda
+            # dissonancia facial-vocal e definida CONTRA a referencia vocal —
+            # mas dizer que a face nao foi apurada, quando foi, seria inventar
+            # ausencia. Uma coisa e nao medir; outra e medir e nao ter contra o
+            # que comparar.
+            face_medida = (
+                self.latest_facs_flags is not None
+                and self.latest_facs_details is not None
+            )
+            return self._payload_sem_apuracao(
+                "audio do paciente nao chegou ao motor nesta janela"
+                + (
+                    "; a leitura facial foi medida, mas a dissonancia "
+                    "facial-vocal exige referencia vocal"
+                    if face_medida
+                    else ""
+                ),
+                face_medida=face_medida,
+            )
+        voice_spectral_12 = np.asarray(real["voice_spectral_12"], dtype=np.float64)
         # Se há marcações FACIAIS REAIS (blendshapes do navegador -> AUs FACS),
         # elas substituem as flags/detalhes simulados recebidos — passando a
         # reger as dissonâncias faciais, os multiplicadores e os alertas.
-        facs_source = "mock"
+        # Sem captura facial nao se inventa dissonancia. Antes, `facs_source`
+        # ficava "mock" e as flags SORTEADAS do gerador regiam o multiplicador
+        # 2.5, o dna_flooding e o dna_somato — com texto clinico pronto que
+        # chegava a tela sem nenhuma marca de que fora gerado.
+        facs_source = "sem_apuracao"
         if self.latest_facs_flags is not None and self.latest_facs_details is not None:
             facs_dissonance_flags = self.latest_facs_flags
             facs_details = self.latest_facs_details
             facs_source = "real_facs"
+        else:
+            facs_dissonance_flags = {i: False for i in range(1, 13)}
+            facs_details = {i: None for i in range(1, 13)}
         # A baseline só é construída com VOZ REAL. Antes, o buffer acumulava
         # também o vetor simulado e travava após 60 ticks independentemente —
         # se o áudio real do paciente entrasse depois disso (cenário comum), a
@@ -767,31 +957,15 @@ class SessionState:
             "commitment_models": commitment_output,
         }
 
-class MockBiometricStream:
-    @staticmethod
-    def generate_voice_spectral():
-        base = np.array([4.2, 5.1, 4.8, 5.5, 4.0, 6.2, 5.0, 4.5, 5.8, 4.3, 5.2, 4.9])
-        noise = np.random.normal(0, 1.2, 12)
-        spike = np.zeros(12)
-        if np.random.random() < 0.15:
-            target = np.random.choice([6, 7, 11, 12])
-            spike[target - 1] = np.random.uniform(4.0, 10.0)
-        return np.clip(base + noise + spike, 0.5, 25.0)
-
-    @staticmethod
-    def generate_facs_dissonance():
-        flags = {i: False for i in range(1, 13)}
-        details = {i: None for i in range(1, 13)}
-        if np.random.random() < 0.10:
-            flags[7] = True
-            details[7] = {
-                "active_aus": ["AU12", "AU23", "AU24"],
-                "report": "Supressão de Aversão: Compressão labial severa cruzada com sorriso social falso."
-            }
-        elif np.random.random() < 0.08:
-            flags[12] = True
-            details[12] = {
-                "active_aus": ["AU4", "AU7"],
-                "report": "Conflito interno: Sobrancelhas contraídas com olhos semicerrados durante fala neutra."
-            }
-        return flags, details
+# O GERADOR SAIU DAQUI.
+#
+# `MockBiometricStream` produzia o vetor espectral de 12 bandas por ruido
+# gaussiano com picos sorteados, e a dissonancia facial por moeda viciada de
+# 10% e 8% — esta ultima com texto clinico ja escrito, que chegava a tela do
+# profissional sem nenhuma marca de origem.
+#
+# Determinacao do dono do produto em 02/09/2026: proibido simular. Quando nao
+# ha capacidade de apuracao, o sistema INFORMA que nao ha.
+#
+# A classe nao foi mantida nem sob bandeira: codigo que sabe inventar numero
+# plausivel e uma arma carregada em cima da mesa. Ver `_payload_sem_apuracao`.

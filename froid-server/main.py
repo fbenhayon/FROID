@@ -20,7 +20,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPExcept
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
-from froid_core import SessionState, MockBiometricStream
+from froid_core import SessionState
 import froid_f0
 import froid_mailer
 import froid_voice
@@ -6004,9 +6004,12 @@ async def froid_stream_loop(session_id: str, connection_id: str):
     state: SessionState = entry["state"]
     while manager.is_current(session_id, connection_id):
         try:
-            voice_12 = MockBiometricStream.generate_voice_spectral()
-            facs_flags, facs_details = MockBiometricStream.generate_facs_dissonance()
-            payload = state.process_tick(voice_12, facs_flags, facs_details)
+            # NADA E GERADO AQUI. O laco chamava dois geradores a cada
+            # segundo — ruido gaussiano para o espectro e moeda viciada para a
+            # dissonancia facial — e o motor so os descartava se houvesse
+            # medida real. Agora ele recebe vazio e, sem medida, declara que
+            # nao houve apuracao.
+            payload = state.process_tick()
             await manager.broadcast_payload(session_id, payload)
         except Exception:
             STREAM_LOGGER.exception(
