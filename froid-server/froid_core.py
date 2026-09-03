@@ -798,7 +798,8 @@ class SessionState:
         # Limiar da memória de cálculo: pico persistente na aceleração cepstral
         # (|ΔΔMFCC9| > 1.8) sinaliza contração espástica involuntária das cordas
         # vocais por ativação do sistema nervoso simpático.
-        mfcc9_spastic_threshold = 1.8
+        # Uma fonte so: ver LIMIAR_ESPASTICO_MFCC9 em froid_dissonance.
+        mfcc9_spastic_threshold = froid_dissonance.LIMIAR_ESPASTICO_MFCC9
         mfcc9_spastic_alert = bool(abs(mfcc9_delta_delta) > mfcc9_spastic_threshold)
         # SUB-HARMONICOS MEDIDOS, nao mais derivados por formula propria.
         #

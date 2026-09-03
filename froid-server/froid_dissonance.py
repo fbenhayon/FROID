@@ -155,6 +155,18 @@ class MarkerSpec:
         }
 
 
+# Limiar do alerta de contracao espastica (|DDMFCC9|).
+#
+# Estava escrito 1.8 em tres lugares — aqui, em froid_core e como valor de
+# queda no painel. Numero espelhado e numero que diverge: bastava alguem
+# calibrar um deles para o motor passar a alertar com um criterio e a tela a
+# explicar com outro, sem nada acusar.
+#
+# RESSALVA QUE IMPORTA: este valor e literal, sem fonte publicada. Consolida-lo
+# num lugar so nao o valida — apenas torna possivel revisa-lo de uma vez.
+LIMIAR_ESPASTICO_MFCC9 = 1.8
+
+
 def _voice_real(snap: Dict[str, Any]) -> bool:
     return bool(snap.get("voice_real"))
 
@@ -256,7 +268,7 @@ def _mfcc9_spastic(snap):
     # espástica involuntária das cordas vocais por ativação simpática.
     if not _voice_real(snap):
         return None
-    return (abs(float(snap.get("mfcc9_delta_delta") or 0.0)), None, 1.8)
+    return (abs(float(snap.get("mfcc9_delta_delta") or 0.0)), None, LIMIAR_ESPASTICO_MFCC9)
 
 
 def _mfcc7_spastic(snap):

@@ -467,8 +467,21 @@ def _metric_value(value: Any, *, confidence: float | None = None, samples: list[
         "value": parsed,
         "n_valid": len(samples or []) or (1 if parsed is not None else 0),
         "expected_samples": len(samples or []) or (1 if parsed is not None else 0),
-        "coverage": 1.0 if parsed is not None else None,
-        "confidence": confidence if confidence is not None else (0.90 if parsed is not None else None),
+        # COBERTURA E CONFIANCA NAO SAO INVENTADAS.
+        #
+        # Estas duas linhas fixavam 1.0 e 0.90 sempre que havia valor — ou seja,
+        # afirmavam cobertura TOTAL e confianca de 90% sem que nada tivesse
+        # medido nem uma nem outra. Com isso os portoes de qualidade logo acima
+        # (coverage_min 0.80, confidence_min 0.70) nunca podiam disparar: o
+        # numero inventado passava sempre.
+        #
+        # Sob a determinacao de 02/09/2026, valor nao apurado sai NULO. O portao
+        # ja trata None corretamente — ele so julga o que existe — entao a
+        # mudanca nao fecha nada que estivesse aberto; apenas para de afirmar o
+        # que ninguem verificou. Medir cobertura de verdade exige contar
+        # amostras esperadas contra recebidas, e isso ainda nao existe.
+        "coverage": None,
+        "confidence": confidence,
     }
     if samples:
         result["samples"] = samples
