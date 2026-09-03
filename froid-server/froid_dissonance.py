@@ -461,7 +461,13 @@ def evaluate(snapshot: Dict[str, Any]) -> Dict[str, Any]:
         # visual ao ultrapassar o limiar, sem exigir uma "ocorrência" registrada.
         "all_markers": read_all(snapshot),
         "summary": summary,
-        "voice_features_source": "real_pcm" if _voice_real(snapshot) else "mock",
+        "voice_features_source": "real_pcm" if _voice_real(snapshot) else "sem_apuracao",
+        # FALTAVA, e a falta tinha consequencia: o painel filtra
+        # `dissonance_event.facs_source === "real_facs"` para contar as amostras
+        # com face medida no relatorio. Como o evento so devolvia a origem da
+        # VOZ, `amostrasComFaceReal` era ZERO em todo relatorio gravado —
+        # inclusive nos que tinham face real o tempo inteiro.
+        "facs_source": "real_facs" if snapshot.get("facial_real") else "sem_apuracao",
     }
 
 

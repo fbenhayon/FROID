@@ -100,6 +100,26 @@ class SessionState:
     latest_f0_std: float = 0.0
     latest_f0_voiced_ratio: float = 0.0
     f0_updated_at: float = 0.0
+    # PRAZO DE VALIDADE DA MEDIDA.
+    #
+    # Os tres carimbos de tempo (f0, features de voz e face) eram gravados e
+    # NUNCA LIDOS. A consequencia, verificada: paciente muta o microfone no
+    # minuto 3 e `latest_voice_features` nunca e limpo — o motor segue
+    # publicando `real_pcm` sobre a ultima janela medida ate o fim da sessao, e
+    # cada tick e contado como voz real na procedencia do relatorio.
+    #
+    # Com a camera e pior. A flag facial congela, e a confirmacao temporal — que
+    # existe para matar pico isolado — se INVERTE: nada e mais "sustentado" que
+    # um valor parado. Sai dissonancia facial-vocal CONFIRMADA no registro
+    # clinico de um paciente cuja camera estava coberta.
+    #
+    # Os prazos saem da cadencia real de cada captura: o audio envia janelas de
+    # 1 s e a face roda a 3 Hz. Quatro segundos sao quatro janelas perdidas;
+    # dois segundos e meio sao mais de sete quadros faciais perdidos. Generosos
+    # o bastante para oscilacao de rede, curtos o bastante para que microfone
+    # mudo apareca como mudo.
+    VALIDADE_VOZ_S: float = 4.0
+    VALIDADE_FACE_S: float = 2.5
     # Biomarcadores vocais REAIS (froid_voice) medidos do PCM do navegador, e o
     # buffer rolante de PCM usado para as bandas de modulação lentas.
     latest_voice_features: Optional[dict] = None
@@ -392,6 +412,27 @@ class SessionState:
         # Se há biomarcadores vocais REAIS medidos do PCM do paciente, o vetor
         # espectral de 12 bandas real substitui o simulado — passando a
         # alimentar as Zonas, o IPM, o IDM e a colorimetria com a voz de fato.
+        agora = time.time()
+        # Medida vencida nao e medida. Ver VALIDADE_VOZ_S.
+        if (
+            self.latest_voice_features is not None
+            and agora - self.voice_features_updated_at > self.VALIDADE_VOZ_S
+        ):
+            self.latest_voice_features = None
+        if (
+            self.latest_facs_flags is not None
+            and agora - self.facial_updated_at > self.VALIDADE_FACE_S
+        ):
+            self.latest_facs_flags = None
+            self.latest_facs_details = None
+            self.latest_facial_aus = None
+        # A F0 tambem vence: sem isso, `f0_source` diria `yin_pcm` sobre um
+        # valor de minutos atras.
+        if self.latest_f0_mean > 0.0 and agora - self.f0_updated_at > self.VALIDADE_VOZ_S:
+            self.latest_f0_mean = 0.0
+            self.latest_f0_std = 0.0
+            self.latest_f0_voiced_ratio = 0.0
+
         real = self.latest_voice_features
         tem_voz_medida = bool(
             real

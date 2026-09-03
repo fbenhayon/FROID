@@ -21,7 +21,7 @@ import os
 import re
 import sys
 
-import pytest
+import unittest
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, RAIZ)
@@ -39,36 +39,40 @@ def trecho(fonte: str, inicio: str, fim: str) -> str:
 # 1. O alvo e unico
 # ---------------------------------------------------------------------------
 
-class TestAlvoUnico:
+class TestAlvoUnico(unittest.TestCase):
     """A exigencia central do Fábio: a restricao atinge uma pessoa, uma clinica
     ou uma empresa — e mais ninguem."""
 
-    @pytest.mark.parametrize(
-        "metodo",
-        ["set_user_status", "set_organization_status", "set_membership_status"],
-    )
-    def test_toda_alavanca_verifica_o_numero_de_atingidos(self, metodo):
-        corpo = trecho(STORE, "def %s" % metodo, "\n    def ")
-        assert "_um_alvo_apenas(cursor)" in corpo
+    def test_toda_alavanca_verifica_o_numero_de_atingidos(self):
+        # `pytest.mark.parametrize` virou subTest: este arquivo usava
+        # pytest enquanto o resto da suite usa unittest, e por isso nunca
+        # rodou na maquina de desenvolvimento — testes do controle de
+        # acesso, justamente. Teste que nao roda nao protege nada.
+        for metodo in ["set_user_status", "set_organization_status", "set_membership_status"]:
+            with self.subTest(metodo=metodo):
+                corpo = trecho(STORE, "def %s" % metodo, "\n    def ")
+                assert "_um_alvo_apenas(cursor)" in corpo
 
     def test_a_verificacao_aborta_acima_de_um(self):
         corpo = trecho(STORE, "def _um_alvo_apenas", "\n    def ")
         assert "cursor.rowcount > 1" in corpo
         assert "raise RuntimeError" in corpo
 
-    @pytest.mark.parametrize(
-        "metodo,chave",
-        [
+    def test_a_alteracao_usa_chave_primaria(self):
+        # `pytest.mark.parametrize` virou subTest: este arquivo usava
+        # pytest enquanto o resto da suite usa unittest, e por isso nunca
+        # rodou na maquina de desenvolvimento — testes do controle de
+        # acesso, justamente. Teste que nao roda nao protege nada.
+        for metodo, chave in [
             ("set_user_status", "WHERE id = %s"),
             ("set_organization_status", "WHERE id = %s"),
             ("set_membership_status", "WHERE id = %s"),
-        ],
-    )
-    def test_a_alteracao_usa_chave_primaria(self, metodo, chave):
-        # Atualizar por e-mail ou por nome abriria espaco para colisao. Todas
-        # as tres localizam primeiro e alteram pela chave.
-        corpo = trecho(STORE, "def %s" % metodo, "\n    def ")
-        assert chave in corpo
+        ]:
+            with self.subTest(metodo=metodo, chave=chave):
+                # Atualizar por e-mail ou por nome abriria espaco para colisao. Todas
+                # as tres localizam primeiro e alteram pela chave.
+                corpo = trecho(STORE, "def %s" % metodo, "\n    def ")
+                assert chave in corpo
 
     def test_o_vinculo_nao_derruba_as_demais_organizacoes(self):
         corpo = trecho(STORE, "def set_membership_status", "\n    def ")
@@ -86,7 +90,7 @@ class TestAlvoUnico:
 # 2 e 3. A mensagem, e quem nao pode ser bloqueado
 # ---------------------------------------------------------------------------
 
-class TestMensagemEFalsosPositivos:
+class TestMensagemEFalsosPositivos(unittest.TestCase):
     def test_a_mensagem_e_a_pedida(self):
         assert "Acesso restrito, entre em contato com froid@froid.com.br" in MAIN
         assert "para maiores detalhes" in MAIN
@@ -141,18 +145,20 @@ class TestMensagemEFalsosPositivos:
 # 4. Sessao ja aberta
 # ---------------------------------------------------------------------------
 
-class TestSessaoAberta:
-    @pytest.mark.parametrize(
-        "rota,expira",
-        [
+class TestSessaoAberta(unittest.TestCase):
+    def test_a_operacao_derruba_a_sessao_em_memoria(self):
+        # `pytest.mark.parametrize` virou subTest: este arquivo usava
+        # pytest enquanto o resto da suite usa unittest, e por isso nunca
+        # rodou na maquina de desenvolvimento — testes do controle de
+        # acesso, justamente. Teste que nao roda nao protege nada.
+        for rota, expira in [
             ("admin_set_user_access", "_expirar_sessoes_de"),
             ("admin_set_organization_access", "_expirar_sessoes_da_organizacao"),
             ("admin_set_membership_access", "_expirar_sessoes_de"),
-        ],
-    )
-    def test_a_operacao_derruba_a_sessao_em_memoria(self, rota, expira):
-        corpo = trecho(MAIN, "def %s" % rota, "return resultado")
-        assert expira in corpo
+        ]:
+            with self.subTest(rota=rota, expira=expira):
+                corpo = trecho(MAIN, "def %s" % rota, "return resultado")
+                assert expira in corpo
 
     def test_o_dado_ja_estava_protegido_por_requisicao(self):
         # A protecao do dado nao depende da expiracao de sessao: o contexto e
@@ -166,26 +172,31 @@ class TestSessaoAberta:
 # 5. Reversibilidade
 # ---------------------------------------------------------------------------
 
-class TestNadaEApagado:
-    @pytest.mark.parametrize(
-        "metodo", ["set_user_status", "set_organization_status", "set_membership_status"]
-    )
-    def test_a_alavanca_usa_update_e_nunca_delete(self, metodo):
-        corpo = trecho(STORE, "def %s" % metodo, "\n    def ")
-        assert "UPDATE" in corpo
-        assert "DELETE" not in corpo.upper()
+class TestNadaEApagado(unittest.TestCase):
+    def test_a_alavanca_usa_update_e_nunca_delete(self):
+        # `pytest.mark.parametrize` virou subTest: este arquivo usava
+        # pytest enquanto o resto da suite usa unittest, e por isso nunca
+        # rodou na maquina de desenvolvimento — testes do controle de
+        # acesso, justamente. Teste que nao roda nao protege nada.
+        for metodo in ["set_user_status", "set_organization_status", "set_membership_status"]:
+            with self.subTest(metodo=metodo):
+                corpo = trecho(STORE, "def %s" % metodo, "\n    def ")
+                assert "UPDATE" in corpo
+                assert "DELETE" not in corpo.upper()
 
-    @pytest.mark.parametrize(
-        "metodo,estado",
-        [
+    def test_o_estado_de_volta_existe(self):
+        # `pytest.mark.parametrize` virou subTest: este arquivo usava
+        # pytest enquanto o resto da suite usa unittest, e por isso nunca
+        # rodou na maquina de desenvolvimento — testes do controle de
+        # acesso, justamente. Teste que nao roda nao protege nada.
+        for metodo, estado in [
             ("ESTADOS_USUARIO", "active"),
             ("ESTADOS_ORGANIZACAO", "active"),
             ("ESTADOS_VINCULO", "active"),
-        ],
-    )
-    def test_o_estado_de_volta_existe(self, metodo, estado):
-        corpo = trecho(STORE, "%s = (" % metodo, ")")
-        assert '"%s"' % estado in corpo
+        ]:
+            with self.subTest(metodo=metodo, estado=estado):
+                corpo = trecho(STORE, "%s = (" % metodo, ")")
+                assert '"%s"' % estado in corpo
 
     def test_restaurar_vinculo_limpa_a_data_de_revogacao(self):
         corpo = trecho(STORE, "def set_membership_status", "\n    def ")
@@ -196,34 +207,44 @@ class TestNadaEApagado:
 # 6. Autorizacao e trilha
 # ---------------------------------------------------------------------------
 
-class TestAutorizacaoETrilha:
-    @pytest.mark.parametrize(
-        "rota",
-        ["admin_access_snapshot", "admin_set_user_access",
-         "admin_set_organization_access", "admin_set_membership_access"],
-    )
-    def test_so_administrador_opera(self, rota):
-        corpo = trecho(MAIN, "def %s" % rota, "\n@app.")
-        assert "_require_admin_user(request)" in corpo
+class TestAutorizacaoETrilha(unittest.TestCase):
+    def test_so_administrador_opera(self):
+        # `pytest.mark.parametrize` virou subTest: este arquivo usava
+        # pytest enquanto o resto da suite usa unittest, e por isso nunca
+        # rodou na maquina de desenvolvimento — testes do controle de
+        # acesso, justamente. Teste que nao roda nao protege nada.
+        for rota in ["admin_access_snapshot", "admin_set_user_access",
+         "admin_set_organization_access", "admin_set_membership_access"]:
+            with self.subTest(rota=rota):
+                corpo = trecho(MAIN, "def %s" % rota, "\n@app.")
+                assert "_require_admin_user(request)" in corpo
 
-    @pytest.mark.parametrize(
-        "rota",
-        ["admin_set_user_access", "admin_set_organization_access",
-         "admin_set_membership_access"],
-    )
-    def test_toda_mutacao_entra_na_trilha(self, rota):
-        corpo = trecho(MAIN, "def %s" % rota, "return resultado")
-        assert "_record_admin_audit_event" in corpo
+    def test_toda_mutacao_entra_na_trilha(self):
+        # `pytest.mark.parametrize` virou subTest: este arquivo usava
+        # pytest enquanto o resto da suite usa unittest, e por isso nunca
+        # rodou na maquina de desenvolvimento — testes do controle de
+        # acesso, justamente. Teste que nao roda nao protege nada.
+        for rota in ["admin_set_user_access", "admin_set_organization_access",
+         "admin_set_membership_access"]:
+            with self.subTest(rota=rota):
+                corpo = trecho(MAIN, "def %s" % rota, "return resultado")
+                assert "_record_admin_audit_event" in corpo
 
-    @pytest.mark.parametrize(
-        "rota",
-        ["admin_set_user_access", "admin_set_organization_access",
-         "admin_set_membership_access"],
-    )
-    def test_estado_invalido_e_recusado(self, rota):
-        corpo = trecho(MAIN, "def %s" % rota, "return resultado")
-        assert "status_code=400" in corpo
+    def test_estado_invalido_e_recusado(self):
+        # `pytest.mark.parametrize` virou subTest: este arquivo usava
+        # pytest enquanto o resto da suite usa unittest, e por isso nunca
+        # rodou na maquina de desenvolvimento — testes do controle de
+        # acesso, justamente. Teste que nao roda nao protege nada.
+        for rota in ["admin_set_user_access", "admin_set_organization_access",
+         "admin_set_membership_access"]:
+            with self.subTest(rota=rota):
+                corpo = trecho(MAIN, "def %s" % rota, "return resultado")
+                assert "status_code=400" in corpo
 
     def test_store_desligado_recusa_em_vez_de_fingir_sucesso(self):
         corpo = trecho(MAIN, "def _exigir_store_ativo", "@app.get")
         assert "status_code=503" in corpo
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -26,7 +26,7 @@ import io
 import os
 import sys
 
-import pytest
+import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -51,7 +51,7 @@ def _sem_comentarios(fonte: str) -> str:
     return ast.unparse(arvore)
 
 
-class TestAMensagem:
+class TestAMensagem(unittest.TestCase):
     def test_e_exatamente_a_que_o_fabio_pediu(self):
         assert "Acesso restrito, entre em contato com froid@froid.com.br" in MAIN
         assert "para maiores detalhes" in MAIN
@@ -64,7 +64,7 @@ class TestAMensagem:
         assert "ACESSO_REVOGADO" in corpo
 
 
-class TestAGuardaEChamada:
+class TestAGuardaEChamada(unittest.TestCase):
     def test_issue_session_chama_a_guarda(self):
         # Rota sem leitor é o padrão que este módulo já repetiu cinco vezes.
         corpo = MAIN[MAIN.index("def _issue_session") :][:900]
@@ -77,12 +77,20 @@ class TestAGuardaEChamada:
         assert corpo.index("_attach_tenant_contexts") < corpo.index("_guard_acesso_revogado")
 
 
-class TestQuemNaoPodeSerBloqueado:
+class TestQuemNaoPodeSerBloqueado(unittest.TestCase):
     def test_quem_tem_organizacao_ativa_passa_direto(self):
         corpo = _sem_comentarios(
             MAIN[MAIN.index("def _guard_acesso_revogado") : MAIN.index("def _issue_session")]
         )
-        assert 'session_user.get("organizations")' in corpo
+        # `ast.unparse` normaliza aspas para simples, entao asserção com aspas
+        # DUPLAS nunca casaria. Este teste nasceu quebrado e ninguém soube:
+        # o arquivo usava pytest enquanto a suíte usa unittest, e nunca rodou.
+        # Comparação insensível a aspas para não repetir a armadilha.
+        normalizado = corpo.replace('"', "'")
+        assert "session_user.get('organizations')" in normalizado
+        # E o que LIBERA precisa ser contexto real, não a lista crua: contexto
+        # sintético (`legacy_fallback`) foi como uma conta revogada passou.
+        assert "legacy_fallback" in normalizado
         assert "return" in corpo
 
     def test_o_autonomo_sem_vinculo_nenhum_nao_e_recusado(self):
@@ -102,24 +110,30 @@ class TestQuemNaoPodeSerBloqueado:
         assert "TENANT_STORE.enabled" in corpo
 
 
-class TestAConsultaOlhaOsTresEstados:
+class TestAConsultaOlhaOsTresEstados(unittest.TestCase):
     """Revogar o vínculo, desabilitar a conta e suspender a organização são
     três alavancas diferentes, e as três precisam produzir a mesma recusa."""
 
-    @pytest.mark.parametrize(
-        "condicao",
-        [
+    def test_o_filtro_de_ativos_cobre_a_alavanca(self):
+        # `pytest.mark.parametrize` virou subTest: este arquivo usava
+        # pytest enquanto o resto da suite usa unittest, e por isso nunca
+        # rodou na maquina de desenvolvimento — testes do controle de
+        # acesso, justamente. Teste que nao roda nao protege nada.
+        for condicao in [
             "membership.status = 'active'",
             "user_account.status = 'active'",
             "organization.status = 'active'",
-        ],
-    )
-    def test_o_filtro_de_ativos_cobre_a_alavanca(self, condicao):
-        corpo = STORE[STORE.index("def access_was_revoked") : STORE.index("def access_contexts")]
-        assert condicao in corpo
+        ]:
+            with self.subTest(condicao=condicao):
+                corpo = STORE[STORE.index("def access_was_revoked") : STORE.index("def access_contexts")]
+                assert condicao in corpo
 
     def test_conta_o_total_sem_filtrar(self):
         # O total precisa contar TODOS os vínculos, inclusive os revogados —
         # é ele que separa "nunca teve" de "teve e perdeu".
         corpo = STORE[STORE.index("def access_was_revoked") : STORE.index("def access_contexts")]
         assert "count(*) AS total" in corpo
+
+
+if __name__ == "__main__":
+    unittest.main()
