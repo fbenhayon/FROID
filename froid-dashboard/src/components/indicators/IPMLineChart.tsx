@@ -5,7 +5,8 @@ import type { SessionLocale } from "../../lib/localization";
 
 interface Props {
   data: number[];
-  current: number;
+  /** Nulo quando nao houve apuracao: o grafico nao desenha ponto atual. */
+  current: number | null;
   baseline?: number;
   locale?: SessionLocale;
 }
@@ -141,9 +142,14 @@ export const IPMLineChart: React.FC<Props> = ({ data, current, baseline, locale 
   const hasBaseline = typeof baseline === "number" && Number.isFinite(baseline);
   const baselineValue = hasBaseline ? clamp(baseline) : null;
   const baselineLabel = hasBaseline ? baseline.toFixed(1) : "--";
-  const currentValue = clamp(current);
-  const currentDelta = hasBaseline ? current - baseline : 0;
-  const deltaLabel = `${currentDelta > 0 ? "+" : ""}${currentDelta.toFixed(1)}`;
+  const semApuracao = current === null;
+  const currentValue = clamp(current ?? 0);
+  // Delta contra baseline exige as duas pontas medidas.
+  const currentDelta = hasBaseline && current !== null ? current - baseline : 0;
+  const deltaLabel =
+    semApuracao || !hasBaseline
+      ? "--"
+      : `${currentDelta > 0 ? "+" : ""}${currentDelta.toFixed(1)}`;
   const average =
     values.length > 0
       ? values.reduce((sum, value) => sum + value, 0) / values.length
@@ -201,7 +207,7 @@ export const IPMLineChart: React.FC<Props> = ({ data, current, baseline, locale 
             </span>
           </FroidTooltip>
           <span className="font-mono text-[18px] font-black leading-none text-emerald-400">
-            {currentValue.toFixed(1)}
+            {semApuracao ? "--" : currentValue.toFixed(1)}
           </span>
           <span className="font-mono text-[10px] font-black text-slate-300">
             delta {deltaLabel}

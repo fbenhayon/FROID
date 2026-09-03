@@ -6,7 +6,8 @@ import type { SessionLocale } from "../../lib/localization";
 
 interface Props {
   zones: PerceptionZone[];
-  ipmScore: number;
+  /** Nulo quando nao houve apuracao — ver o portao em LiveSession. */
+  ipmScore: number | null;
   coherenceStatus: string;
   baseline?: number | null;
   audioMeta?: (AcousticBiomarkers & Record<string, unknown>) | null;
@@ -158,12 +159,25 @@ export const RiskChart: React.FC<Props> = ({
       (z) => !!z.facial_dissonance_detected,
     ).length;
     const dissonanceLoad = clamp(dissonanceCount * 12, 0, 36);
-    const ipmLoad = clamp((ipmScore - 50) * 0.9, 0, 32);
+    // Sem IPM medido nao ha carga de IPM. Tratar null como 0 daria
+    // `clamp((0-50)*0.9, 0, 32)` = 0 por acidente, mas por caminho errado —
+    // e qualquer mudanca no clamp passaria a somar risco sobre nada.
+    const ipmLoad = ipmScore === null ? 0 : clamp((ipmScore - 50) * 0.9, 0, 32);
     const peakLoad = criticalPeak(arr);
     const offsetLoad = compensationLoad(arr);
     const isEmbotamento = coherenceStatus === "EMBOTAMENTO";
+    // Ausencia de medida NAO e alerta.
+    //
+    // A condicao era "qualquer coisa que nao seja NEUTRO nem COERENTE", e o
+    // motor passou a emitir "SEM_APURACAO" quando nao mede nada. Sem esta
+    // guarda, a falta de audio somava +12 ao risco e, com todo o resto nulo,
+    // virava 100% de "tensao laringea sustentada" — um alarme clinico
+    // fabricado justamente pela mudanca que veio acabar com a fabricacao.
+    const semApuracao = !coherenceStatus || coherenceStatus === "SEM_APURACAO";
     const isCoherenceAlert =
-      coherenceStatus !== "NEUTRO" && coherenceStatus !== "COERENTE";
+      !semApuracao
+      && coherenceStatus !== "NEUTRO"
+      && coherenceStatus !== "COERENTE";
     const valence = (
       readText(audioMeta, "substancia_semantica") ||
       readText(audioMeta, "semantic_valence") ||

@@ -553,12 +553,16 @@ function reducer(state: SessionState, action: Action): SessionState {
         return { ...state, baselineIPM: action.ipm, phase: "LIVE" };
       case "PAYLOAD": {
         const p = action.data || {};
+        // Tick sem apuracao NAO entra no historico.
+        //
+        // O `: 0` empilhava zero para cada janela sem medida, e zero e um valor
+        // legitimo de IPM — o grafico passava a mostrar uma queda a zero que
+        // ninguem observou, e a media da sessao a dividia por um denominador
+        // que incluia os ticks vazios.
+        const semApuracao = (p as { apuracao_disponivel?: boolean }).apuracao_disponivel === false;
         const nextHistory =
-          state.phase === "LIVE"
-            ? [
-                ...state.ipmHistory,
-                typeof p.ipm_score === "number" ? p.ipm_score : 0,
-              ].slice(-IPM_HISTORY_LIMIT)
+          state.phase === "LIVE" && !semApuracao && typeof p.ipm_score === "number"
+            ? [...state.ipmHistory, p.ipm_score].slice(-IPM_HISTORY_LIMIT)
             : state.ipmHistory;
         return { ...state, payload: p, ipmHistory: nextHistory };
       }
@@ -4878,12 +4882,35 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const clinicalPresentationActive =
     clinicalUpdateMode !== "realtime" && clinicalSnapshot;
   const presentationAgg = clinicalPresentationActive ? clinicalSnapshot.agg : agg;
-  const displayZones = presentationAgg?.zones || raw?.perception_zones || [];
-  const displayIpm = presentationAgg?.ipm ?? raw?.ipm_score ?? state.localIpm ?? 0;
+  // SEM APURACAO, OS GRAFICOS DERIVADOS NAO RECEBEM NADA.
+  //
+  // O motor passou a declarar a ausencia, e nenhuma tela consumia a declaracao:
+  // `apuracao_disponivel` existia so no tipo. O resultado seria pior que o
+  // estado anterior — cada consumidor tem o proprio valor de queda, e todos
+  // eles AFIRMAM. O RiskChart trata qualquer coerencia diferente de NEUTRO e
+  // COERENTE como alerta, entao "SEM_APURACAO" viraria uma barra cheia de
+  // "tensao laringea sustentada"; o SubharmonicChart cairia num proxy proprio
+  // e escreveria "Sistema Nervoso Autonomo estavel"; as bandas espectrais
+  // imprimiriam 0.0000; o Mapa Zonal desenharia doze zonas em equilibrio.
+  //
+  // Fome e melhor que mentira: sem medida eles recebem vazio e o aviso ocupa a
+  // tela.
+  const semApuracaoAgora =
+    (raw as { apuracao_disponivel?: boolean } | undefined)?.apuracao_disponivel === false;
+  const displayZones = semApuracaoAgora
+    ? []
+    : presentationAgg?.zones || raw?.perception_zones || [];
+  const displayIpm = semApuracaoAgora
+    ? null
+    : presentationAgg?.ipm ?? raw?.ipm_score ?? state.localIpm ?? 0;
   const displayDrValue = presentationAgg?.drValue ?? (raw as any)?.dr_value ?? null;
-  const displayCoherence = presentationAgg?.coherence || raw?.coherence_status || "NEUTRO";
+  // "NEUTRO" seria uma AFIRMACAO de coerencia neutra sobre nada medido. Vazio
+  // e o unico valor honesto, e os consumidores ja sabem tratar ausencia.
+  const displayCoherence = semApuracaoAgora
+    ? ""
+    : presentationAgg?.coherence || raw?.coherence_status || "NEUTRO";
   const displayAlerts = presentationAgg?.alerts || raw?.realtime_alerts || [];
-  const baseDisplayAudio = presentationAgg?.audioMeta ||
+  const baseDisplayAudio = semApuracaoAgora ? {} : presentationAgg?.audioMeta ||
     (raw as any)?.audio_meta || {
       words_per_window: 0,
       total_words_session: 0,
@@ -4921,7 +4948,11 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     ((raw as any)?.audio_meta as Record<string, unknown> | undefined) ||
     displayAudio;
   const liveZones = agg?.zones || raw?.perception_zones || displayZones;
-  const liveIpm = agg?.ipm ?? raw?.ipm_score ?? state.localIpm ?? displayIpm;
+  // Sem apuracao, `liveIpm` tambem e nulo: cair no IPM local aqui reintroduziria
+  // um numero na tela exatamente onde a medida falta.
+  const liveIpm = semApuracaoAgora
+    ? null
+    : agg?.ipm ?? raw?.ipm_score ?? state.localIpm ?? displayIpm;
   const clinicalWindowMinutes = clinicalModeToMinutes(clinicalUpdateMode);
   const clinicalNextUpdateSeconds =
     clinicalPresentationActive

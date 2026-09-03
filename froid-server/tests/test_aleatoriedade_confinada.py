@@ -145,5 +145,60 @@ class ProcedenciaDizAVerdade(unittest.TestCase):
         self.assertIn('"facs_source": facs_source', CORE)
 
 
+PAINEL_DIR = SERVER_DIR.parent / "froid-dashboard" / "src"
+SESSAO = (PAINEL_DIR / "pages" / "LiveSession.tsx").read_text(encoding="utf-8")
+RISCO = (PAINEL_DIR / "components" / "indicators" / "RiskChart.tsx").read_text(
+    encoding="utf-8"
+)
+
+
+class ATelaCONSOMEaDeclaracaoDeAusencia(unittest.TestCase):
+    """Declarar a ausencia sem ninguem ler e pior que nao declarar.
+
+    A re-auditoria de 03/09/2026 pegou isto antes do deploy: o motor passou a
+    emitir `apuracao_disponivel: False` e `coherence_status: "SEM_APURACAO"`, e
+    o painel nao consumia nem um nem outro — o campo existia so na declaracao
+    do tipo.
+
+    O efeito seria pior que o estado anterior, porque cada consumidor tem o
+    proprio valor de queda e todos eles AFIRMAM:
+
+      - RiskChart tratava qualquer coerencia diferente de NEUTRO e COERENTE
+        como alerta. "SEM_APURACAO" somaria +12 ao risco e, com todo o resto
+        nulo, viraria 100% de "tensao laringea sustentada" — alarme clinico
+        fabricado pela propria mudanca que veio acabar com a fabricacao.
+      - O historico do IPM empilhava zero por tick sem medida, e zero e um
+        valor legitimo de IPM: o grafico mostraria uma queda que ninguem viu.
+    """
+
+    def test_o_painel_LE_a_declaracao(self):
+        self.assertIn("apuracao_disponivel === false", SESSAO)
+        self.assertIn("semApuracaoAgora", SESSAO)
+
+    def test_ausencia_nao_entra_no_historico_do_ipm(self):
+        i = SESSAO.index("const nextHistory")
+        trecho = SESSAO[i - 400 : i + 300]
+        self.assertIn("semApuracao", trecho)
+        self.assertNotIn('typeof p.ipm_score === "number" ? p.ipm_score : 0', trecho)
+
+    def test_os_graficos_derivados_recebem_VAZIO(self):
+        self.assertIn("const displayZones = semApuracaoAgora", SESSAO)
+        self.assertIn("const displayIpm = semApuracaoAgora", SESSAO)
+        self.assertIn("semApuracaoAgora ? {} :", SESSAO)
+
+    def test_coerencia_vazia_em_vez_de_NEUTRO(self):
+        """"NEUTRO" seria uma afirmacao de coerencia neutra sobre nada medido."""
+        i = SESSAO.index("const displayCoherence")
+        self.assertIn("semApuracaoAgora", SESSAO[i : i + 200])
+
+    def test_ausencia_NAO_e_alerta_de_coerencia(self):
+        self.assertIn('coherenceStatus === "SEM_APURACAO"', RISCO)
+        i = RISCO.index("const isCoherenceAlert")
+        self.assertIn("!semApuracao", RISCO[i : i + 200])
+
+    def test_sem_ipm_nao_ha_carga_de_ipm(self):
+        self.assertIn("ipmScore === null ? 0 :", RISCO)
+
+
 if __name__ == "__main__":
     unittest.main()

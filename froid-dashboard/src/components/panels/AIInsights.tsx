@@ -49,7 +49,8 @@ interface Message {
 
 interface Props {
   zones: PerceptionZone[];
-  ipmScore: number;
+  /** Nulo quando nao houve apuracao — ver o portao em LiveSession. */
+  ipmScore: number | null;
   coherenceStatus: string;
   baselineEstablished: boolean;
   sessionId?: string;
