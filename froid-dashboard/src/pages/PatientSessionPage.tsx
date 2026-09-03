@@ -48,6 +48,9 @@ export const PatientSessionPage: React.FC = () => {
   const wakeLockRef = useRef<ScreenWakeLock | null>(null);
   // Para a captura de PCM do microfone (análise de F0 real).
   const f0StopRef = useRef<null | (() => void)>(null);
+  // A trilha crua e SEPARADA da trilha da chamada, e precisa ser parada junto:
+  // deixar um microfone aberto depois da sessao e falha de privacidade.
+  const analiseStreamRef = useRef<MediaStream | null>(null);
   // Para a captura facial (blendshapes -> AUs FACS reais).
   const faceStopRef = useRef<null | (() => void)>(null);
   const rtcSignalRef = useRef<WebSocket | null>(null);
@@ -161,6 +164,10 @@ export const PatientSessionPage: React.FC = () => {
         /* noop */
       }
       f0StopRef.current = null;
+      // A trilha crua e um SEGUNDO microfone aberto. Sair da pagina sem
+      // fecha-la deixaria a luz do microfone acesa depois da sessao.
+      analiseStreamRef.current?.getTracks().forEach((t) => t.stop());
+      analiseStreamRef.current = null;
       try {
         faceStopRef.current?.();
       } catch {
@@ -545,6 +552,8 @@ export const PatientSessionPage: React.FC = () => {
           f0StopRef.current?.();
         } catch {}
         f0StopRef.current = null;
+        analiseStreamRef.current?.getTracks().forEach((t) => t.stop());
+        analiseStreamRef.current = null;
         try {
           faceStopRef.current?.();
         } catch {}
@@ -751,6 +760,57 @@ export const PatientSessionPage: React.FC = () => {
         .getAudioTracks()
         .some((track) => track.readyState === "live");
 
+      // O AUDIO DA CHAMADA NAO SERVE PARA MEDIR.
+      //
+      // A chamada pede echoCancellation, noiseSuppression e autoGainControl —
+      // e faz certo: numa conversa voce quer os tres. Mas o mesmo stream
+      // alimentava a analise acustica, e cada um deles destroi uma medida:
+      //
+      //   autoGainControl   normaliza o ganho continuamente. `loudness_dbfs` e
+      //                     `rms` passam a medir o AGC, e SHIMMER e perturbacao
+      //                     de amplitude — exatamente o que o AGC suaviza.
+      //   noiseSuppression  e subtracao espectral: altera voice_spectral_12 (as
+      //                     12 Zonas), MFCC7/9, ZCR, sub-harmonicos e bandas.
+      //   echoCancellation  processa o sinal de novo.
+      //
+      // O cabecalho de froid-acoustic.ts sempre disse que capturava "PCM cru,
+      // a rota mais correta cientificamente". A intencao estava certa; a
+      // captacao, nao. Sobrava so a F0 relativamente intacta, porque o YIN mede
+      // periodicidade e ela resiste a ganho.
+      //
+      // Agora sao dois streams: o processado continua na chamada, e a analise
+      // pede um proprio com os tres desligados. Se o navegador nao honrar —
+      // acontece, e alguns dispositivos ignoram as constraints — a captura
+      // segue com o processado e DECLARA isso, em vez de degradar em silencio.
+      let streamDeAnalise: MediaStream | null = null;
+      let audioBruto = false;
+      if (temTrilhaDeAudio && sessionId) {
+        try {
+          streamDeAnalise = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: false,
+              noiseSuppression: false,
+              autoGainControl: false,
+            },
+            video: false,
+          });
+          // Pedir nao e obter: o navegador pode devolver a trilha com as
+          // constraints da captura ja aberta. `getSettings` diz o que de fato
+          // valeu, e e isso que vira procedencia.
+          const ajustes = streamDeAnalise.getAudioTracks()[0]?.getSettings?.() || {};
+          audioBruto =
+            ajustes.echoCancellation === false
+            && ajustes.noiseSuppression === false
+            && ajustes.autoGainControl === false;
+        } catch {
+          streamDeAnalise = null;
+        }
+        if (streamDeAnalise) {
+          analiseStreamRef.current?.getTracks().forEach((t) => t.stop());
+          analiseStreamRef.current = streamDeAnalise;
+        }
+      }
+
       // Captura o microfone cru (pré-Opus) para o cálculo de F0 real no
       // backend. Aditivo e tolerante a falhas; não interfere na chamada.
       if (temTrilhaDeAudio && sessionId) {
@@ -760,10 +820,18 @@ export const PatientSessionPage: React.FC = () => {
           /* noop */
         }
         f0StopRef.current = null;
-        startF0Capture(stream, {
+        startF0Capture(streamDeAnalise || stream, {
           endpoint: apiUrl(`/api/froid/${sessionId}/acoustic-f0`),
           invite: inviteToken,
           onStatus: (status, detalhe) => {
+            // A procedencia do SINAL viaja junto com o estado da captura: sem
+            // ela, "enviando" diria que esta tudo bem quando o que sobe pode
+            // ser audio tratado para conversa, nao para medida.
+            registrarRtc(
+              audioBruto
+                ? "sinal de analise: microfone CRU (sem AGC/supressao)"
+                : "sinal de analise: microfone PROCESSADO — medidas de amplitude e espectro ficam comprometidas",
+            );
             registrarRtc(
               `analise acustica: ${STATUS_CAPTURA_TEXTO[status]}`
               + (detalhe ? ` (${detalhe})` : ""),

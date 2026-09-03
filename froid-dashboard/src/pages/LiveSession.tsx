@@ -394,6 +394,25 @@ function dissonanceTechnicalFactors(
   currentIpm?: number | null,
   baselineIpm?: number | null,
 ) {
+  // PORTAO DE PROCEDENCIA.
+  //
+  // Todos os fatores abaixo derivam do sinal acustico — jitter, shimmer, os
+  // indices DNA, a aceleracao cepstral. Sem PCM real do paciente, o motor os
+  // calcula sobre um espectro GERADO, e esta funcao os transformava em prosa
+  // clinica afirmativa. A pior delas dizia "pico persistente compativel com
+  // contracao espastica involuntaria das cordas vocais por ativacao simpatica"
+  // — e sem audio ela dispara em cerca de um quarto dos ticks.
+  //
+  // O motor sempre declarou a origem em `voice_features_source`. Nenhuma tela
+  // consultava. Este e o portao que faltava: sem medida, o profissional le que
+  // nao ha medida, em vez de ler um achado que ninguem observou.
+  const vozMedida = audioMeta?.voice_features_source === "real_pcm";
+  if (audioMeta && !vozMedida) {
+    return [
+      "Sem áudio medido do paciente nesta janela: os índices acústicos foram "
+      + "gerados pelo modo de simulação e não sustentam leitura clínica.",
+    ];
+  }
   const aus = zone?.dissonance_details?.active_aus || [];
   const score = dissonanceScore(zone);
   const severity = dissonanceSeverity(zone).toLowerCase();
