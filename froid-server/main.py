@@ -2941,6 +2941,33 @@ def _sanitize_report_for_patient(report: dict, items: list[str] | None = None) -
     )
     allowed_keys = list(PATIENT_REPORT_ALWAYS) + selected
     sanitized = {key: enriched.get(key) for key in allowed_keys if key in enriched}
+    # O TEXTO DO PROFISSIONAL NAO SAI DAQUI.
+    #
+    # A copia acima levava `dissonances` INTEIRO, por referencia — e cada item
+    # carrega `report`, montado por buildDissonanceReportText, que concatena o
+    # rotulo tecnico ("Shutdown psiquico / dissociacao") e a linha literal
+    # "Sugestao tecnica ao profissional: ...".
+    #
+    # A tela do portal e o PDF ja passavam pela traducao de
+    # dissonance-patient-view. Faltava a rota: o botao "Baixar todos" serializa
+    # a resposta crua, e mesmo sem ele o texto ja chegava ao navegador do
+    # paciente no payload. Cortar na renderizacao nao resolve o que o servidor
+    # entrega.
+    #
+    # Fica so o que a traducao precisa para funcionar: `title` e a chave, e sem
+    # ela o sinal e OMITIDO no cliente.
+    if isinstance(sanitized.get("dissonances"), list):
+        sanitized["dissonances"] = [
+            {
+                "id": item.get("id"),
+                "timestamp": item.get("timestamp"),
+                "elapsedSeconds": item.get("elapsedSeconds"),
+                "zone": item.get("zone"),
+                "title": item.get("title"),
+            }
+            for item in sanitized["dissonances"]
+            if isinstance(item, dict)
+        ]
     sanitized["patient"] = _patient_identity_from_report(enriched)
     sanitized["patientReportItems"] = selected
     return sanitized

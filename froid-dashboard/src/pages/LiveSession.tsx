@@ -1649,6 +1649,21 @@ function buildClinicalPresentationSnapshot(
     if (value !== null) audioMeta[key] = rounded(value, 4);
   });
   const latestAudio = microAggs[microAggs.length - 1]?.agg.audioMeta || {};
+  // A PROCEDENCIA PRECISA ATRAVESSAR.
+  //
+  // O laco acima copia apenas valores NUMERICOS, e `voice_features_source` e
+  // string — ela nunca entrava no agregado. Consequencia: o portao criado hoje
+  // exige exatamente essa chave, entao no modo de apresentacao clinica TODA
+  // dissonancia confirmada recebia "os indices acusticos foram gerados pelo
+  // modo de simulacao". Duas falsidades numa frase — o audio pode ter sido
+  // medido, e o modo de simulacao foi deletado hoje — e ela nao ficava na
+  // tela: e gravada em dissonanceLog, indo para o relatorio e o PDF.
+  audioMeta.voice_features_source = latestString(
+    microAggs.map(({ agg }) => String(agg.audioMeta?.voice_features_source || "")),
+  ) || latestAudio.voice_features_source || "";
+  audioMeta.facs_source = latestString(
+    microAggs.map(({ agg }) => String(agg.audioMeta?.facs_source || "")),
+  ) || latestAudio.facs_source || "";
   audioMeta.emotional_tone = latestString(
     microAggs.map(({ agg }) => String(agg.audioMeta?.emotional_tone || "")),
   ) || latestAudio.emotional_tone || "";

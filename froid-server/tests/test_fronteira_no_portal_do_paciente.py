@@ -92,5 +92,50 @@ class ATraducaoContinuaCobrindoOsSinais(unittest.TestCase):
         self.assertNotIn("Sugestão técnica", TRADUCAO)
 
 
+MAIN = (SERVER_DIR / "main.py").read_text(encoding="utf-8")
+
+
+class OTextoDoProfissionalNaoSAIdoServidor(unittest.TestCase):
+    """Cortar na renderizacao nao resolve o que o servidor entrega.
+
+    A re-auditoria de 03/09/2026 achou o buraco que a correcao da vespera nao
+    fechou: a tela e o PDF passaram a usar a traducao, mas a ROTA continuava
+    mandando `dissonances` inteiro. O sanitizador copiava a chave por
+    referencia, e cada item carrega `report` — com o rotulo tecnico e a linha
+    "Sugestao tecnica ao profissional".
+
+    O botao "Baixar todos" serializa a resposta crua, e mesmo sem ele o texto ja
+    chegava ao navegador do paciente no payload da rota.
+    """
+
+    def test_o_sanitizador_reconstroi_a_dissonancia_campo_a_campo(self):
+        i = MAIN.index('sanitized["dissonances"] = [')
+        trecho = MAIN[i : i + 500]
+        self.assertIn('"title": item.get("title")', trecho)
+
+    def test_o_campo_report_NAO_atravessa(self):
+        i = MAIN.index('sanitized["dissonances"] = [')
+        trecho = MAIN[i : i + 500]
+        self.assertNotIn('"report"', trecho)
+
+
+class OPortaoNaoACUSAquemFoiMedido(unittest.TestCase):
+    """O portao criado ontem exige voice_features_source, e o agregado clinico
+    copiava so valores NUMERICOS — a chave e string e nunca atravessava.
+
+    Resultado: no modo de apresentacao clinica, TODA dissonancia confirmada
+    recebia "os indices acusticos foram gerados pelo modo de simulacao". Duas
+    falsidades numa frase: o audio pode ter sido medido, e o modo de simulacao
+    foi deletado. E a frase e gravada em dissonanceLog, indo para o relatorio.
+    """
+
+    def test_a_procedencia_atravessa_o_agregado(self):
+        painel = (
+            SERVER_DIR.parent / "froid-dashboard" / "src" / "pages" / "LiveSession.tsx"
+        ).read_text(encoding="utf-8")
+        self.assertIn("audioMeta.voice_features_source = latestString(", painel)
+        self.assertIn("audioMeta.facs_source = latestString(", painel)
+
+
 if __name__ == "__main__":
     unittest.main()
