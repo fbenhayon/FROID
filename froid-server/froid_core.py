@@ -365,8 +365,22 @@ class SessionState:
         else:
             coherence_status = "COERENTE"
 
-        # Simulação: palavras por janela clínica de 1 segundo.
-        words_this_window = int(np.random.poisson(2.4))
+        # O SERVIDOR NAO CONTA PALAVRAS, e nao tem como contar.
+        #
+        # Ate 02/09/2026 esta linha era `int(np.random.poisson(2.4))`: um
+        # sorteio a cada tick, incondicional, com ou sem audio. Dele saiam
+        # tambem words_per_minute_10m, total_words_session e speech_rate_proxy
+        # — quatro campos publicados a partir de um dado inventado.
+        #
+        # A transcricao acontece no NAVEGADOR, e e la que as palavras existem.
+        # O painel ja recalcula tudo isso do texto real antes de exibir, e o
+        # datamart grava a versao do painel. Nenhum dos quatro chegava a tela.
+        #
+        # Mas saida fabricada sem leitor e pior que saida errada com leitor:
+        # ninguem a corrige, e o proximo que a ligar num grafico recebe um
+        # numero inventado sem nenhum aviso. Zero e a leitura honesta de quem
+        # nao mede.
+        words_this_window = 0
         self.word_windows.append(words_this_window)
         # Manter últimas 600 janelas = ~10 minutos (1s * 600 = 600s)
         if len(self.word_windows) > 600:
@@ -454,8 +468,13 @@ class SessionState:
         }
         # A frase de amostra e do gerador simulado e nunca foi leitura de nada;
         # segue com um tom neutro fixo, ja que o campo real agora e vazio.
-        transcription_snippet = np.random.choice(snippets.get(tom_para_amostra, snippets["neutro"]))
-        total_words = sum(self.word_windows) + np.random.randint(0, 20)
+        # Vazio: a frase de amostra existia para povoar a tela antes de haver
+        # transcricao de verdade, e o painel ja a apaga ao receber. Sortear uma
+        # fala de paciente que ninguem disse nao tem uso legitimo restante.
+        transcription_snippet = ""
+        # Sem o `+ np.random.randint(0, 20)` que somava ate 19 palavras
+        # imaginarias por tick ao total da sessao.
+        total_words = sum(self.word_windows)
 
         # DR = Dynamic Repouso = média das 12 baselines
         dr_value = round(float(np.mean(self.baseline_energy)), 3)
