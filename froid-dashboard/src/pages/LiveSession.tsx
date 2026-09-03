@@ -379,6 +379,11 @@ function classifyDissonance(zone?: PerceptionZone | null, audioMeta?: Record<str
 }
 
 function formatMetricValue(value: unknown, digits = 2) {
+  // `Number(null)` e `Number("")` valem ZERO, nao NaN. Sem esta guarda, uma
+  // metrica que nunca foi medida aparecia como `0.000` — indistinguivel de uma
+  // medida que deu zero — e ainda era classificada contra os limites da faixa.
+  // Ausencia de medida nao e medida de ausencia.
+  if (value === null || value === undefined || value === "") return "--";
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed.toFixed(digits) : "--";
 }

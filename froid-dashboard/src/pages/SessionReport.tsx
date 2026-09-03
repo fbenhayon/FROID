@@ -788,8 +788,10 @@ const EvolutionChart: React.FC<{ analysis: MetricsAnalysis }> = ({ analysis }) =
   }
 
   const rotulos = rows.map((row) =>
+    // Arredondado: cortes nao caem em minuto exato, e sem isto o eixo escrevia
+    // "20-33.28333333333333m".
     Number.isFinite(row.start_min) && Number.isFinite(row.end_min)
-      ? `${row.start_min}-${row.end_min}m`
+      ? `${Math.round(row.start_min)}-${Math.round(row.end_min)}m`
       : row.label,
   );
 
@@ -1131,9 +1133,16 @@ export const SessionReport: React.FC<Props> = () => {
                 Este par não entra no estudo de validade
               </p>
               <p className="mt-1 text-xs leading-5 text-amber-100/90">
-                {fracaoDeVozMedida === null
+                {/* Tres estados, nao dois. `fracaoDeVozMedida` e nula tanto
+                    quando a procedencia NAO foi registrada quanto quando ela
+                    foi e nao houve amostra alguma — e dizer "nao registrou"
+                    no segundo caso contradizia o bloco de procedencia logo
+                    acima, que ja anunciava "nenhuma das 0 amostras". */}
+                {!procedencia
                   ? "Esta sessão não registrou a procedência dos dados, e procedência desconhecida fica de fora do estudo."
-                  : `Apenas ${Math.round(fracaoDeVozMedida * 100)}% das amostras desta sessão foram medidas sobre a voz real do paciente.`}{" "}
+                  : fracaoDeVozMedida === null
+                    ? "Esta sessão não produziu amostra nenhuma, então não há o que parear."
+                    : `Apenas ${Math.round(fracaoDeVozMedida * 100)}% das amostras desta sessão foram medidas sobre a voz real do paciente.`}{" "}
                 O lado FROID do par seria um número gerado, e pareá-lo com um
                 escore verdadeiro fabricaria evidência.
               </p>

@@ -47,8 +47,14 @@ class AppErrorBoundary extends React.Component<React.PropsWithChildren, AppError
 
   componentDidCatch(error: Error) {
     const message = String(error?.message || error)
+    // `Unable to preload CSS for ...` faltava, e essa string EXISTE no bundle
+    // construido. Sem ela, a falha mais comum de deploy — folha de estilo com
+    // hash antigo que o deploy acabou de apagar — nao era reconhecida como
+    // atualizacao de frontend, entao nao havia recarga nenhuma e o usuario
+    // ficava parado na tela de erro sem saber que bastava recarregar.
     const isFrontendUpdateError =
-      /dynamically imported module|failed to fetch.*module|importing a module script/i.test(message)
+      /dynamically imported module|failed to fetch.*module|importing a module script|unable to preload/i
+        .test(message)
     if (isFrontendUpdateError) reloadOnceAfterFrontendUpdate()
     console.error('FROID interface recovery', error)
   }

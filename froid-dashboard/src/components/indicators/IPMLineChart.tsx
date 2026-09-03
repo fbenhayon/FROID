@@ -161,7 +161,15 @@ export const IPMLineChart: React.FC<Props> = ({ data, current, baseline, locale 
     values.length >= 20 ? "Excelente" : values.length >= 6 ? "Boa" : "Aguardando";
   const timeline = polarBands
     .map((band) => {
-      const count = values.filter((value) => value >= band.from && value < band.to).length;
+      // A ultima faixa precisa incluir o proprio 100: `value < band.to` deixava
+      // IPM exatamente 100 fora de TODAS as faixas, e o clamp de
+      // `computeLocalIpmFromBioacoustics` produz esse valor de proposito num
+      // plato de fala forte. O tempo no topo da escala simplesmente sumia da
+      // contagem.
+      const noTopo = band.to === 100;
+      const count = values.filter(
+        (value) => value >= band.from && (noTopo ? value <= band.to : value < band.to),
+      ).length;
       return {
         ...band,
         count,
@@ -397,7 +405,13 @@ export const IPMLineChart: React.FC<Props> = ({ data, current, baseline, locale 
       </div>
 
       <div className="mt-1 flex shrink-0 overflow-hidden rounded-md border border-slate-700 bg-slate-900 text-[8px] font-black uppercase text-white">
-        {(timeline.length ? timeline : [{ ...polarBands[1], pct: 100, count: 0 }]).map(
+        {/* Sem amostra, a barra anunciava "Fluxo saudavel — 100%" enquanto o
+            grafico ao lado dizia "Aguardando serie temporal". Duas afirmacoes
+            opostas na mesma tela, e a verde e a que o olho acredita. */}
+        {(timeline.length
+          ? timeline
+          : [{ ...polarBands[1], color: "#475569", label: "Sem amostras", pct: 100, count: 0 }]
+        ).map(
           (segment) => (
             <div
               key={segment.label}
