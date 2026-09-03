@@ -1623,7 +1623,7 @@ function buildClinicalPresentationSnapshot(
   const latestAudio = microAggs[microAggs.length - 1]?.agg.audioMeta || {};
   audioMeta.emotional_tone = latestString(
     microAggs.map(({ agg }) => String(agg.audioMeta?.emotional_tone || "")),
-  ) || latestAudio.emotional_tone || "neutro";
+  ) || latestAudio.emotional_tone || "";
   audioMeta.clinical_presentation_mode = mode;
   audioMeta.clinical_presentation_window_seconds = windowSeconds;
   audioMeta.clinical_micro_window_seconds = CLINICAL_MICRO_WINDOW_SECONDS;
@@ -3871,7 +3871,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       words_per_window: words,
       total_words_session: stats.totalWords,
       words_per_minute_10m: words10m / minutes,
-      emotional_tone: (prev?.emotional_tone as string) || "neutro",
+      emotional_tone: (prev?.emotional_tone as string) || "",
       transcription_status: "ok",
       transcription_error: "",
     }));
@@ -4173,7 +4173,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
 
         setLiveTranscription((prev) => ({
           ...(prev || {}),
-          emotional_tone: (prev?.emotional_tone as string) || "neutro",
+          emotional_tone: (prev?.emotional_tone as string) || "",
           provider: data?.provider || "openai-gpt-4o-transcribe",
           transcription_status: data?.status || "ok",
           transcription_error: "",
@@ -4863,7 +4863,9 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     (raw as any)?.audio_meta || {
       words_per_window: 0,
       total_words_session: 0,
-      emotional_tone: "neutro",
+      // Vazio, nao "neutro": o estado inicial nao observou nada ainda, e
+      // dizer "neutro" seria uma leitura que ninguem fez.
+      emotional_tone: "",
       transcription_snippet: "",
       session_theme: "",
       theme_minute_mark: 0,

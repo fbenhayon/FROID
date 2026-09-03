@@ -79,5 +79,29 @@ class NaoRessuscitaNoPainel(unittest.TestCase):
         self.assertIn("nao_apurado", trecho)
 
 
+class NenhumLugarRessuscitaONeutro(unittest.TestCase):
+    """Ontem removi o sorteio no servidor e o `|| "neutro"` de UM lugar do
+    painel. Sobravam QUATRO — e cada um reconvertia o vazio numa afirmacao de
+    neutralidade.
+
+    Isso e pior que o sorteio original em um aspecto: campo preenchido nao
+    levanta suspeita. "neutro" na tela parece leitura; vazio parece o que e.
+    """
+
+    def test_nenhuma_LINHA_DE_CODIGO_fabrica_neutro(self):
+        suspeitas = []
+        for numero, linha in enumerate(PAINEL.splitlines(), 1):
+            despida = linha.strip()
+            if despida.startswith("//") or despida.startswith("*"):
+                continue  # comentario explicando a ausencia nao e a ausencia
+            if '"neutro"' in linha:
+                suspeitas.append(f"{numero}: {despida[:90]}")
+        self.assertEqual(suspeitas, [], "codigo ainda fabrica tom neutro")
+
+    def test_o_valor_de_queda_e_vazio(self):
+        self.assertIn('|| latestAudio.emotional_tone || ""', PAINEL)
+        self.assertIn('emotional_tone: (prev?.emotional_tone as string) || ""', PAINEL)
+
+
 if __name__ == "__main__":
     unittest.main()
