@@ -20,6 +20,8 @@ import { SpectralBandsChart } from "../components/indicators/SpectralBandsChart"
 import { SubharmonicChart } from "../components/indicators/SubharmonicChart";
 import { MediaStatus } from "../components/indicators/MediaStatus";
 import { AvisoVozSimulada } from "../components/indicators/AvisoVozSimulada";
+import { RecomendacoesDeUso } from "../components/indicators/RecomendacoesDeUso";
+import { TranscricaoAoVivo } from "../components/indicators/TranscricaoAoVivo";
 import { SessionTimer } from "../components/indicators/SessionTimer";
 import { AIInsights } from "../components/panels/AIInsights";
 import { AudioTranscription } from "../components/panels/AudioTranscription";
@@ -2496,6 +2498,9 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const recorderRef = useRef<MediaRecorder | null>(null);
   const patientRecorderRef = useRef<MediaRecorder | null>(null);
   const transcriptLinesRef = useRef<string[]>([]);
+  // Em ref, as falas nao disparavam render — por isso MAX_VISIBLE_TRANSCRIPT_LINES
+  // existia sem nada visivel. O estado e o que leva a fala ate a tela.
+  const [transcriptLines, setTranscriptLines] = useState<string[]>([]);
   const transcriptSegmentsRef = useRef<Array<{ elapsedSeconds: number; text: string }>>([]);
   const froidExplicaConversationRef = useRef<Array<{ role: string; content: string }>>([]);
   const semanticCutStartSecondRef = useRef(0);
@@ -3897,6 +3902,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       nextLines.push(line);
     }
     transcriptLinesRef.current = nextLines.slice(-MAX_VISIBLE_TRANSCRIPT_LINES);
+    setTranscriptLines(transcriptLinesRef.current);
 
     const words = countSpokenUnits(text, spokenLanguage);
     const now = Date.now();
@@ -5684,6 +5690,13 @@ function LiveSessionInner({ user }: LiveSessionProps) {
               </div>
             )}
           </section>
+10{/* Layout simplificado: usa <section>, e por isso ficou de fora da
+10    primeira passagem. A fala precisa estar nos TRES layouts — quem
+10    escolhe o simplificado e justamente quem quer menos ruido na tela,
+10    nao menos informacao sobre o que foi dito. */}
+10<div className="min-h-[140px]">
+10  <TranscricaoAoVivo linhas={transcriptLines} />
+10</div>
 
           <div className="flex min-h-0 flex-col gap-2 lg:overflow-y-auto">
             <section className="shrink-0 overflow-hidden rounded-xl border border-cyan-800 bg-slate-950 p-2 shadow-sm">
@@ -5742,6 +5755,12 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           {layoutSelector}
 
           <SessionTimer startTime={state.sessionStart} onEndSession={endSession} />
+
+          <RecomendacoesDeUso
+            modo={sessionPatient?.sessionMode || "remote"}
+            vozDoProfissionalCadastrada={Boolean(drVoiceSignature)}
+            sessionId={sessionId || ""}
+          />
 
           <AvisoVozSimulada origem={origemDaVoz} motivo={motivoAcustico} />
 
@@ -5879,6 +5898,11 @@ function LiveSessionInner({ user }: LiveSessionProps) {
               </div>
             )}
           </div>
+          {/* A fala, na ordem em que aconteceu. Ficava so num ref: havia ate um
+              MAX_VISIBLE_TRANSCRIPT_LINES, e nada renderizava. */}
+          <div className="min-h-[140px] flex-[0.5]">
+            <TranscricaoAoVivo linhas={transcriptLines} />
+          </div>
 
           <section className="shrink-0 overflow-hidden rounded-xl border border-cyan-800 bg-slate-950 p-2 shadow-sm">
             <AudioTranscription
@@ -5991,7 +6015,13 @@ function LiveSessionInner({ user }: LiveSessionProps) {
 
         {layoutSelector}
 
-        <AvisoVozSimulada origem={origemDaVoz} motivo={motivoAcustico} />
+        <RecomendacoesDeUso
+            modo={sessionPatient?.sessionMode || "remote"}
+            vozDoProfissionalCadastrada={Boolean(drVoiceSignature)}
+            sessionId={sessionId || ""}
+          />
+
+          <AvisoVozSimulada origem={origemDaVoz} motivo={motivoAcustico} />
 
         <SessionTimer
           startTime={state.sessionStart}
@@ -6166,6 +6196,11 @@ function LiveSessionInner({ user }: LiveSessionProps) {
               </div>
             </div>
           )}
+        </div>
+        {/* A fala, na ordem em que aconteceu. Ficava so num ref: havia ate um
+            MAX_VISIBLE_TRANSCRIPT_LINES, e nada renderizava. */}
+        <div className="min-h-[140px] flex-[0.5]">
+          <TranscricaoAoVivo linhas={transcriptLines} />
         </div>
 
         <section className="shrink-0 overflow-hidden rounded-xl border border-cyan-800 bg-slate-950 p-2 shadow-sm">

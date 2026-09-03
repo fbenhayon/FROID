@@ -96,6 +96,8 @@ const TITLE_TOOLTIPS: Record<string, string> = {
     "Cortes temporais da sessão, incluindo cortes manuais do profissional e cortes automáticos obrigatórios a cada 10 minutos após o último corte.",
   "Resumo geral da sessão":
     "Síntese analítica final da sessão, limitada a 300 palavras, com tema predominante de até 6 palavras.",
+  "Transcrição da sessão":
+    "Fala literal captada na sessão, em ordem cronológica, com o falante identificado por canal de áudio: DR para o profissional, PC para o paciente.",
   "Temas e Resumos por Cortes":
     "Resumo e métricas de cada corte temporal, alinhando tema, síntese semântica e marcadores multimodais do mesmo período.",
   "Observações do profissional":
@@ -547,6 +549,80 @@ const METRIC_SUMMARY_KEYS = [
 function metricLabel(analysis: MetricsAnalysis | null, key: string) {
   return analysis?.metrics.find((metric) => metric.key === key)?.label || key;
 }
+
+const PREFIXO_DE_FALA = /^(DR\.\s*-\s*|PC\s*-\s*|PAC\s*-\s*)/i;
+
+/** A fala da sessão, na ordem, com quem falou.
+ *
+ *  O sistema transcreve os dois canais separadamente e marca cada linha com
+ *  `DR. - ` ou `PC - ` desde sempre. O texto era gravado no relatório — e
+ *  nenhuma tela o mostrava, nem aqui nem no PDF. O profissional conduzia a
+ *  leitura do documento sem poder conferir o que o sistema ouviu.
+ *
+ *  Isso importa porque os erros que um paciente aponta num relatório são, na
+ *  maioria, da camada semântica: palavra trocada, frase incoerente, inferência
+ *  que ninguém disse. Sem a transcrição ao lado, não há como localizar se o
+ *  erro foi da escuta ou do resumo. */
+const TranscricaoDaSessao: React.FC<{ transcript?: string }> = ({ transcript }) => {
+  const linhas = String(transcript || "")
+    .split(/\r?\n/)
+    .map((linha) => linha.trim())
+    .filter(Boolean);
+
+  if (!linhas.length) return null;
+
+  return (
+    <section className="rounded-lg border border-slate-700 bg-slate-900 p-4">
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-sm font-bold text-slate-100">
+          <HelpTitle title="Transcrição da sessão" />
+        </h2>
+        <span className="flex items-center gap-3 text-[9px] font-bold uppercase tracking-wide">
+          <span className="flex items-center gap-1 text-sky-300">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-sky-400" />
+            DR profissional
+          </span>
+          <span className="flex items-center gap-1 text-emerald-300">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            PC paciente
+          </span>
+        </span>
+      </div>
+      <div className="max-h-96 space-y-1 overflow-y-auto pr-1">
+        {linhas.map((linha, indice) => {
+          const casa = linha.match(PREFIXO_DE_FALA);
+          const doProfissional = (casa?.[1] || "").toUpperCase().startsWith("DR");
+          const fala = linha.replace(PREFIXO_DE_FALA, "").trim();
+          if (!fala) return null;
+          return (
+            <div
+              key={`${indice}-${fala.slice(0, 24)}`}
+              className={`rounded border-l-2 px-2 py-1 ${
+                doProfissional
+                  ? "border-sky-500 bg-sky-950/30"
+                  : "border-emerald-500 bg-emerald-950/30"
+              }`}
+            >
+              <span
+                className={`mr-1.5 text-[9px] font-black uppercase ${
+                  doProfissional ? "text-sky-300" : "text-emerald-300"
+                }`}
+              >
+                {doProfissional ? "DR" : "PC"}
+              </span>
+              <span className="text-xs leading-5 text-slate-200">{fala}</span>
+            </div>
+          );
+        })}
+      </div>
+      <p className="mt-3 border-t border-slate-800 pt-2 text-[10px] leading-4 text-slate-500">
+        Ordem cronológica, como foi captada. Linha sem prefixo reconhecido é
+        apresentada como fala do paciente — a atribuição vem do canal de áudio,
+        não de suposição sobre o conteúdo.
+      </p>
+    </section>
+  );
+};
 
 /** Evolução por índice, em painéis separados — um por grandeza.
  *
@@ -1430,6 +1506,8 @@ export const SessionReport: React.FC<Props> = () => {
               })}
             />
           )}
+
+          <TranscricaoDaSessao transcript={report.transcript} />
 
           {sections.summaries && (
             <section className="rounded-lg border border-slate-700 bg-slate-900 p-4">
