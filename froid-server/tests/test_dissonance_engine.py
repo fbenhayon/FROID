@@ -231,7 +231,11 @@ class TemporalConfirmationTests(unittest.TestCase):
         # a simulação: o motor só lê o que foi medido e guardado no estado.
         spike = [5.0] * 12
         spike[0] = 40.0  # zona extrema
-        state.update_voice_features({"voice_spectral_12": spike})
+        # O portao passou a exigir VOZEAMENTO, nao so espectro: ruido de sala
+        # tinha 12 posicoes preenchidas e era carimbado como voz medida.
+        state.update_voice_features(
+            {"voice_spectral_12": spike, "f0_voiced_ratio": 0.75}
+        )
         ev = state.process_tick()["dissonance_event"]
         self.assertTrue(ev["has_dissonance"])  # registrado (>= 1 marcador)
         self.assertFalse(ev["confirmed"])  # mas 1 tick isolado não confirma
@@ -242,7 +246,9 @@ class DissonanceSessionIntegrationTests(unittest.TestCase):
         state = SessionState(session_id="s")
         # Com voz medida — sem ela o tick declara ausência, e um evento de
         # dissonância exige o espectro que o define.
-        state.update_voice_features({"voice_spectral_12": [5.0] * 12})
+        state.update_voice_features(
+            {"voice_spectral_12": [5.0] * 12, "f0_voiced_ratio": 0.75}
+        )
         payload = neutral_tick(state)
         self.assertIn("dissonance_event", payload)
         ev = payload["dissonance_event"]

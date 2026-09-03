@@ -120,6 +120,12 @@ class SessionState:
     # mudo apareca como mudo.
     VALIDADE_VOZ_S: float = 4.0
     VALIDADE_FACE_S: float = 2.5
+    # Piso de vozeamento para a janela contar como VOZ, e nao apenas como sinal.
+    #
+    # Mesmo valor que `froid_dissonance.py:217` ja usava para descartar janela
+    # com desvio ruidoso demais. Aplicado uma etapa antes, ele impede que ruido
+    # de sala calibre as baselines de repouso do paciente.
+    PISO_DE_VOZEAMENTO: float = 0.30
     # Biomarcadores vocais REAIS (froid_voice) medidos do PCM do navegador, e o
     # buffer rolante de PCM usado para as bandas de modulação lentas.
     latest_voice_features: Optional[dict] = None
@@ -290,6 +296,14 @@ class SessionState:
             },
             "perception_zones": [],
             "realtime_alerts": [],
+            # NO TOPO, como no payload medido — nao dentro de audio_meta.
+            #
+            # A primeira versao pos estas duas dentro de `audio_meta`, onde o
+            # payload normal nao as tem: chave movida, nao preservada. O painel
+            # entao nao as encontrava no lugar esperado e caia no proprio valor
+            # de queda, `?? 5.0`, imprimindo "DR 5.00" sobre nenhuma medida.
+            "dr_value": None,
+            "commitment_models": [],
             # As chaves acompanham o evento real (`evident_markers`, nao
             # `markers`), pelo mesmo motivo de sempre: quem consome nao deve
             # descobrir a ausencia por KeyError.
@@ -329,69 +343,68 @@ class SessionState:
                 "baseline_target": 60,
                 "dna_baseline_locked": self.baseline_locked,
                 "mfcc9_delta_delta_spastic_threshold": None,
-                "zone": None,
-                "tema": None,
-                "deviation_score": None,
-                "facial_dissonance_detected": None,
-                "dissonance_details": None,
-                "model_id": None,
-                "title": None,
-                "zones": None,
-                "theme": None,
-                "neutro": None,
-                "ansioso": None,
-                "triste": None,
-                "irritado": None,
-                "alegre": None,
-                "suprimido": None,
-                "voice_baseline_ready": None,
-                "jitter": None,
-                "shimmer": None,
-                "baseline_f0": None,
-                "loudness_dbfs": None,
-                "baseline_loudness": None,
-                "zcr": None,
-                "baseline_zcr": None,
-                "mfcc7_delta_delta": None,
-                "mfcc9_delta_delta": None,
-                "dna_autonomic_flooding": None,
-                "dna_dissociative_shutdown": None,
-                "dna_somatoaffective_dissonance": None,
-                "zone_deviations": None,
-                "facial_dissonance_count": None,
-                "dr_value": None,
-                "words_per_window": None,
-                "words_per_minute_10m": None,
-                "total_words_session": None,
-                "session_theme": None,
-                "theme_minute_mark": None,
-                "bioacoustic_window_ms": None,
-                "mfcc7": None,
-                "mfcc9": None,
-                "mfcc7_delta": None,
-                "mfcc9_delta": None,
-                "mfcc9_delta_delta_spastic_alert": None,
-                "baseline_mfcc7": None,
-                "baseline_mfcc9": None,
-                "spectral_delta_0_4hz": None,
-                "spectral_theta_4_8hz": None,
-                "spectral_alpha_8_12hz": None,
-                "spectral_beta_12_30hz": None,
-                "spectral_gamma_30_80hz": None,
-                "spectral_band_index": None,
-                "subharmonic_energy_5_12hz": None,
-                "subharmonic_energy_12_20hz": None,
-                "subharmonic_energy_20_40hz": None,
-                "energy_85_165hz": None,
-                "dna_infrasound_nuclear": None,
-                "dna_limbic_modulation": None,
-                "dna_neurogenic_resonance": None,
-                "dna_vocal_basal_tension": None,
-                "dna_subharmonic_index": None,
-                "dna_facial_multiplier": None,
-                "jitter_proxy_index": None,
-                "shimmer_proxy_index": None,
-                "speech_rate_proxy": None,
+                "zone": None,
+                "tema": None,
+                "deviation_score": None,
+                "facial_dissonance_detected": None,
+                "dissonance_details": None,
+                "model_id": None,
+                "title": None,
+                "zones": None,
+                "theme": None,
+                "neutro": None,
+                "ansioso": None,
+                "triste": None,
+                "irritado": None,
+                "alegre": None,
+                "suprimido": None,
+                "voice_baseline_ready": None,
+                "jitter": None,
+                "shimmer": None,
+                "baseline_f0": None,
+                "loudness_dbfs": None,
+                "baseline_loudness": None,
+                "zcr": None,
+                "baseline_zcr": None,
+                "mfcc7_delta_delta": None,
+                "mfcc9_delta_delta": None,
+                "dna_autonomic_flooding": None,
+                "dna_dissociative_shutdown": None,
+                "dna_somatoaffective_dissonance": None,
+                "zone_deviations": None,
+                "facial_dissonance_count": None,
+                "words_per_window": None,
+                "words_per_minute_10m": None,
+                "total_words_session": None,
+                "session_theme": None,
+                "theme_minute_mark": None,
+                "bioacoustic_window_ms": None,
+                "mfcc7": None,
+                "mfcc9": None,
+                "mfcc7_delta": None,
+                "mfcc9_delta": None,
+                "mfcc9_delta_delta_spastic_alert": None,
+                "baseline_mfcc7": None,
+                "baseline_mfcc9": None,
+                "spectral_delta_0_4hz": None,
+                "spectral_theta_4_8hz": None,
+                "spectral_alpha_8_12hz": None,
+                "spectral_beta_12_30hz": None,
+                "spectral_gamma_30_80hz": None,
+                "spectral_band_index": None,
+                "subharmonic_energy_5_12hz": None,
+                "subharmonic_energy_12_20hz": None,
+                "subharmonic_energy_20_40hz": None,
+                "energy_85_165hz": None,
+                "dna_infrasound_nuclear": None,
+                "dna_limbic_modulation": None,
+                "dna_neurogenic_resonance": None,
+                "dna_vocal_basal_tension": None,
+                "dna_subharmonic_index": None,
+                "dna_facial_multiplier": None,
+                "jitter_proxy_index": None,
+                "shimmer_proxy_index": None,
+                "speech_rate_proxy": None,
                 "clinical_insight": None,
             },
         }
@@ -434,11 +447,35 @@ class SessionState:
             self.latest_f0_voiced_ratio = 0.0
 
         real = self.latest_voice_features
-        tem_voz_medida = bool(
+        tem_espectro = bool(
             real
             and isinstance(real.get("voice_spectral_12"), (list, tuple))
             and len(real["voice_spectral_12"]) == 12
         )
+        # SINAL NAO E VOZ.
+        #
+        # O portao antigo aceitava qualquer janela com 12 posicoes preenchidas.
+        # `froid_voice.extract_voice_features` so desiste com menos de 8
+        # amostras ou silencio digital EXATO — uma janela de ruido de sala a
+        # -62 dBFS, com `f0_voiced_ratio` zero, sai com o dicionario completo e
+        # era carimbada como `real_pcm`.
+        #
+        # O estrago nao ficava no tick: as baselines de repouso eram calibradas
+        # nesse ruido, e o primeiro tick de fala de verdade disparava marcadores
+        # em varias categorias ao mesmo tempo — "dissonancia evidente multipla"
+        # fabricada por referencia errada, gravada no documento clinico. E os
+        # primeiros trinta segundos de consulta sao tipicamente o profissional
+        # falando, com o paciente em silencio.
+        #
+        # O criterio nao e inventado aqui: `froid_dissonance.py:217` ja descarta
+        # a janela com `f0_voiced_ratio < 0.30` por considerar o desvio ruidoso
+        # demais. Mesma regua, aplicada uma etapa antes.
+        vozeamento = float(
+            (real or {}).get("f0_voiced_ratio")
+            or self.latest_f0_voiced_ratio
+            or 0.0
+        )
+        tem_voz_medida = tem_espectro and vozeamento >= self.PISO_DE_VOZEAMENTO
         # PROIBIDO SIMULAR. Sem espectro medido nao ha o que derivar, e o
         # honesto e dizer isso em vez de publicar 98 campos calculados sobre
         # ruido sorteado.
@@ -452,8 +489,43 @@ class SessionState:
                 self.latest_facs_flags is not None
                 and self.latest_facs_details is not None
             )
+            # O QUE DEPENDE DE CONTINUIDADE NAO SOBREVIVE AO BURACO.
+            #
+            # O retorno antecipado pula, corretamente, todo o calculo — e com
+            # ele pula tambem as atualizacoes de estado no fim do tick. Tres
+            # delas presumem que o tick anterior foi o segundo anterior:
+            #
+            #   `dissonance_history` alimenta a confirmacao temporal. Parada
+            #   durante o buraco, ela guarda o que aconteceu ANTES dele, e uma
+            #   unica leitura nova, minutos depois, completaria um padrao
+            #   "sustentado" com valores de outro momento da consulta.
+            #
+            #   `previous_mfcc*` e a referencia das derivadas. Sem reset, a
+            #   primeira delta apos o buraco compara janelas separadas por
+            #   minutos e produz um pico que ninguem viveu — e picos de DDMFCC9
+            #   alimentam o alerta de contracao espastica.
+            #
+            #   `last_alert_signature` suprime alerta repetido. Congelada, ela
+            #   engoliria o primeiro alerta pos-buraco por parecer duplicata.
+            #
+            # A baseline NAO e zerada: ela foi construida sobre voz real e o
+            # silencio nao a invalida.
+            self.dissonance_history = []
+            self.previous_mfcc7 = None
+            self.previous_mfcc9 = None
+            self.previous_delta_mfcc7 = 0.0
+            self.previous_delta_mfcc9 = 0.0
+            self.previous_mfcc_source = ""
+            self.last_alert_signature = ""
+            if tem_espectro:
+                motivo = (
+                    "janela sem voz vozeada: sinal presente, mas abaixo do piso "
+                    "de vozeamento — ruido de sala nao e medida de voz"
+                )
+            else:
+                motivo = "audio do paciente nao chegou ao motor nesta janela"
             return self._payload_sem_apuracao(
-                "audio do paciente nao chegou ao motor nesta janela"
+                motivo
                 + (
                     "; a leitura facial foi medida, mas a dissonancia "
                     "facial-vocal exige referencia vocal"
@@ -1043,7 +1115,7 @@ class SessionState:
                 # antigo (escala 0-25 sem unidade) ou o percentual novo, e nada
                 # na tela distinguiria os dois.
                 "subharmonic_unit": "percent_of_modulation_energy",
-                "energy_85_165_unit": "spectral_band_power_absolute",
+                "energy_85_165_unit": "fraction_of_spectral_power",
                 "spectral_band_context": "voice_modulation_not_eeg",
                 "speech_rate_proxy": speech_rate_proxy,
                 "clinical_insight": clinical_insight,

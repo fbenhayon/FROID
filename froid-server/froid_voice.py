@@ -222,7 +222,25 @@ def extract_voice_features(signal: np.ndarray, sample_rate: float) -> Dict[str, 
     peak = float(np.max(zone_energy)) if np.max(zone_energy) > 0 else 1.0
     voice_spectral_12 = np.clip(0.5 + (zone_energy / peak) * 24.5, 0.5, 25.0)
     features["voice_spectral_12"] = [round(float(v), 4) for v in voice_spectral_12]
-    features["energy_85_165"] = round(_band_energy(freqs_hz, power, 85.0, 165.0), 6)
+    # FRACAO da energia espectral, nao potencia absoluta.
+    #
+    # Ate 03/09/2026 esta linha publicava a soma bruta da banda 85-165 Hz, sem
+    # denominador. Medido: o valor cresce LINEARMENTE com o comprimento do
+    # buffer (1 s, 2 s e 3 s dao ~1876, ~3518 e ~5276) e QUADRATICAMENTE com o
+    # ganho de entrada (1876 em ganho 1,0; 0,56 em ganho 0,01). Ou seja, ele
+    # media o microfone e o tamanho da janela, nao a voz — e nao era comparavel
+    # entre sessoes, entre aparelhos, nem consigo mesmo depois de uma troca de
+    # fone.
+    #
+    # Normalizada pela potencia total do espectro, a grandeza vira uma fracao:
+    # invariante a ganho e a duracao, e na mesma familia dos sub-harmonicos, que
+    # ja eram fracoes da energia de modulacao. `dna_vocal_basal_tension`, que a
+    # consome, e desvio RELATIVO contra baseline — nao muda de significado, e a
+    # baseline passa a viver na mesma regua.
+    total_espectral = float(np.sum(power)) + EPS
+    features["energy_85_165"] = round(
+        _band_energy(freqs_hz, power, 85.0, 165.0) / total_espectral, 6
+    )
 
     # Espectro de MODULAÇÃO do envelope -> bandas neuroacústicas e sub-harmônicos.
     envelope = _analytic_envelope(x)

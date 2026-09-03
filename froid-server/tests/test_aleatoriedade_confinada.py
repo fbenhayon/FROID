@@ -103,9 +103,14 @@ class NadaEhSimulado(unittest.TestCase):
         # A primeira linha que de fato calcula algo sobre o espectro.
         calculo = CORE.index("self.baseline_buffer.append", inicio)
         self.assertLess(portao, calculo, "o portao ficou DEPOIS do calculo")
+        # Ate o proximo `def`, nao numa janela de caracteres: e a SEGUNDA vez
+        # que uma janela fixa quebra este teste por crescimento de comentario.
+        # Sem "\n" no padrao: o arquivo usa CRLF e a busca por "\n    def "
+        # nao casaria. O def indentado basta como fronteira do metodo.
+        fim_do_metodo = CORE.index("    def ", portao)
         self.assertIn(
             "return self._payload_sem_apuracao(",
-            CORE[portao : portao + 900],
+            CORE[portao:fim_do_metodo],
         )
 
     def test_sem_face_as_flags_sao_vazias_e_nao_sorteadas(self):

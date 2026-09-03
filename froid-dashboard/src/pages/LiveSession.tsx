@@ -139,12 +139,16 @@ const SIMPLIFIED_METRIC_TOOLTIPS: Record<string, string> = {
 
 interface AggData {
   zones: PerceptionZone[];
-  ipm: number;
+  /** Nulo quando nenhum tick da janela teve apuração. */
+  ipm: number | null;
   coherence: string;
   globalColor: string;
   globalDesc: string;
   alerts: string[];
-  drValue: number;
+  /** Nulo enquanto não houver DR medido — `5.0` era um valor legítimo escrito
+   *  como estado inicial, e o consumidor não distinguia "não mediu" de "mediu
+   *  cinco". */
+  drValue: number | null;
   audioMeta: any;
   commitments: any[];
 }
@@ -1419,7 +1423,10 @@ function aggregatePayloads(payloads: FroidPayload[]): AggData {
       globalColor: "CINZA",
       globalDesc: "Aguardando...",
       alerts: [],
-      drValue: 5.0,
+      // `5.0` era um valor legitimo de DR escrito como estado inicial, e o
+      // consumidor nao tem como distinguir "ainda nao mediu" de "mediu 5".
+      // Nulo diz a verdade, e a tela ja sabe imprimir "--" para nao-numero.
+      drValue: null,
       audioMeta: {},
       commitments: [],
     };
@@ -1451,12 +1458,16 @@ function aggregatePayloads(payloads: FroidPayload[]): AggData {
   const allAlerts = payloads
     .flatMap((p) => p.realtime_alerts || [])
     .slice(0, 6);
-  const avgIpm =
-    payloads.reduce(
-      (s, p) => s + (typeof p.ipm_score === "number" ? p.ipm_score : 0),
-      0,
-    ) / payloads.length;
-  const dr = (last as any).dr_value ?? 5.0;
+  // Media so sobre os ticks que MEDIRAM. Somar zero por tick sem apuracao e
+  // dividir por todos punha as janelas vazias no denominador: a media caia
+  // proporcionalmente ao tempo sem audio, e ninguem veria a causa.
+  const ipmsMedidos = payloads
+    .map((p) => p.ipm_score)
+    .filter((v): v is number => typeof v === "number");
+  const avgIpm = ipmsMedidos.length
+    ? ipmsMedidos.reduce((s, v) => s + v, 0) / ipmsMedidos.length
+    : null;
+  const dr = (last as any).dr_value ?? null;
   return {
     zones: zones.sort((a, b) => a.zone - b.zone),
     ipm: avgIpm,
