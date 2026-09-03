@@ -87,6 +87,10 @@ class SessionState:
     word_windows: List[int] = field(default_factory=list)  # palavras por janela de 1s
     previous_mfcc7: Optional[float] = None
     previous_mfcc9: Optional[float] = None
+    # De que ramo veio o MFCC anterior: "real" (PCM medido) ou "proxy"
+    # (espectro gerado). Comparar janelas de ramos diferentes produz uma
+    # derivada sem significado — ver o bloco que zera a referencia na troca.
+    previous_mfcc_source: str = ""
     previous_delta_mfcc7: float = 0.0
     previous_delta_mfcc9: float = 0.0
     # F0 real, medida da forma de onda PCM enviada pelo navegador (froid_f0/YIN).
@@ -511,6 +515,24 @@ class SessionState:
         mfcc9_delta = round(float(mfcc9 - (self.previous_mfcc9 if self.previous_mfcc9 is not None else mfcc9)), 4)
         mfcc7_delta_delta = round(float(mfcc7_delta - self.previous_delta_mfcc7), 4)
         mfcc9_delta_delta = round(float(mfcc9_delta - self.previous_delta_mfcc9), 4)
+        # As derivadas comparam a janela atual com a anterior — e so fazem
+        # sentido se as duas vierem da MESMA fonte. Antes, `previous_*` era
+        # atualizado sempre, entao o primeiro tick com voz real subtraia MFCC
+        # medido de um proxy espectral GERADO: duas grandezas que nao se
+        # comparam, e o pico resultante alimentava o alerta de contracao
+        # espastica. Trocar de ramo agora zera a referencia em vez de produzir
+        # uma diferenca falsa.
+        _ramo = "real" if (real and "mfcc7" in real) else "proxy"
+        if _ramo != self.previous_mfcc_source:
+            self.previous_mfcc7 = None
+            self.previous_mfcc9 = None
+            # Nomes reais dos campos: `previous_delta_*`, e o padrao deles e
+            # 0.0, nao None. Zerar assim faz a primeira delta-delta apos a
+            # troca de ramo valer a propria delta, em vez de uma diferenca
+            # contra a derivada de outra fonte.
+            self.previous_delta_mfcc7 = 0.0
+            self.previous_delta_mfcc9 = 0.0
+        self.previous_mfcc_source = _ramo
         self.previous_mfcc7 = mfcc7
         self.previous_mfcc9 = mfcc9
         self.previous_delta_mfcc7 = mfcc7_delta
@@ -545,7 +567,12 @@ class SessionState:
             jitter = round(float(np.clip(real.get("jitter") or 0.0, 0.0, 2.0)), 4)
             shimmer = round(float(np.clip(real.get("shimmer") or 0.0, 0.0, 2.0)), 4)
             zcr_value = round(float(real.get("zcr") or 0.0), 5)
-            loudness_dbfs = round(float(real.get("loudness_dbfs") or -120.0), 2)
+            # `x or -120.0` e armadilha aqui: em Python `0.0 or -120.0` da
+            # -120.0, e 0 dBFS e o sinal MAIS ALTO possivel (fundo de escala).
+            # A guarda transformava o extremo superior no extremo inferior —
+            # silencio absoluto — exatamente no pico que mais interessa.
+            _loud = real.get("loudness_dbfs")
+            loudness_dbfs = round(float(_loud), 2) if _loud is not None else -120.0
         else:
             jitter = round(float(np.clip(np.std(voice_spectral_12) / max(1.0, np.mean(voice_spectral_12)), 0.0, 2.0)), 3)
             shimmer = round(float(np.clip(np.mean(np.abs(np.diff(voice_spectral_12))) / max(1.0, np.mean(voice_spectral_12)), 0.0, 2.0)), 3)
@@ -567,9 +594,22 @@ class SessionState:
             details and any(str(au).upper().replace("AU", "") in {"23", "24"} for au in details.get("active_aus", []))
             for details in facs_details.values()
         )
-        zcr_drop_ratio = float(np.clip(1.0 - (jitter / 2.0), 0.0, 1.0))
+        # O nome dizia ZCR e a formula usa JITTER — o ZCR real esta calculado
+        # logo acima e nunca entrou aqui. Renomeado para o que de fato faz, sem
+        # mudar o valor: trocar a formula mudaria a escala de
+        # dna_dissociative_shutdown e a comparabilidade com o que ja foi
+        # gravado, e essa e decisao clinica, nao de engenharia. Fica registrado
+        # como pergunta aberta: o pretendido era queda de ZCR ou estabilidade
+        # de jitter?
+        estabilidade_de_jitter = float(np.clip(1.0 - (jitter / 2.0), 0.0, 1.0))
         dna_flooding = float(np.clip((dna_infrasound * 0.55 + dna_basal * 0.45) * (facial_multiplier / 2.5), 0.0, 1.0))
-        dna_shutdown = float(np.clip(dna_infrasound * (1.0 - (ipm_score / 100.0)) * zcr_drop_ratio, 0.0, 1.0))
+        dna_shutdown = float(
+            np.clip(
+                dna_infrasound * (1.0 - (ipm_score / 100.0)) * estabilidade_de_jitter,
+                0.0,
+                1.0,
+            )
+        )
         dna_somato = float(np.clip(((dna_infrasound + dna_basal) / 2.0) * (1.0 + (facial_multiplier - 1.0) * (1.0 if au_suppression else 0.0)) / 2.5, 0.0, 1.0))
         dna_index = float(np.clip(np.mean([dna_infrasound, dna_limbic, dna_neurogenic, dna_basal, dna_flooding, dna_shutdown, dna_somato]), 0.0, 1.0))
         # Fonte única de velocidade de fala: alinhado ao WPM consolidado da

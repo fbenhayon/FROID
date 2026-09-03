@@ -109,5 +109,48 @@ class OMotorContinuaDeclarandoAOrigem(unittest.TestCase):
         self.assertIn('"facs_source": facs_source', CORE)
 
 
+class TresDefeitosInequivocos(unittest.TestCase):
+    """Achados da auditoria que nao dependem de decisao clinica para corrigir."""
+
+    def test_zero_dBFS_nao_vira_silencio(self):
+        """`x or -120.0` e armadilha: em Python `0.0 or -120.0` da -120.0.
+
+        E 0 dBFS e o sinal MAIS ALTO possivel — fundo de escala. A guarda
+        transformava o extremo superior no extremo inferior, justamente no pico
+        que mais interessa clinicamente.
+        """
+        self.assertNotIn('real.get("loudness_dbfs") or -120.0', CORE)
+        self.assertIn("if _loud is not None else -120.0", CORE)
+
+    def test_derivada_nao_cruza_ramos(self):
+        """Delta so tem sentido entre janelas da MESMA fonte.
+
+        `previous_*` era atualizado sempre, entao o primeiro tick com voz real
+        subtraia MFCC medido de um proxy espectral gerado — e o pico resultante
+        alimentava o alerta de contracao espastica.
+        """
+        self.assertIn("previous_mfcc_source", CORE)
+        self.assertIn('_ramo = "real" if (real and "mfcc7" in real) else "proxy"', CORE)
+        self.assertIn("if _ramo != self.previous_mfcc_source:", CORE)
+
+    def test_o_campo_de_ramo_e_declarado_no_dataclass(self):
+        """Atribuir atributo inexistente num dataclass sem slots CRIA o atributo
+        em silencio — o reset viraria no-op e ninguem perceberia."""
+        import dataclasses
+
+        import froid_core
+
+        campos = {f.name for f in dataclasses.fields(froid_core.SessionState)}
+        self.assertIn("previous_mfcc_source", campos)
+        self.assertIn("previous_delta_mfcc7", campos)
+
+    def test_o_nome_deixou_de_mentir(self):
+        """A variavel dizia ZCR e a formula usa JITTER. Renomear nao muda valor;
+        trocar a formula mudaria a escala de dna_dissociative_shutdown, e essa e
+        decisao clinica."""
+        self.assertNotIn("zcr_drop_ratio", CORE)
+        self.assertIn("estabilidade_de_jitter", CORE)
+
+
 if __name__ == "__main__":
     unittest.main()
