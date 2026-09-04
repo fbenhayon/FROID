@@ -290,6 +290,18 @@ function tituloDocumento(id: ReportIdentity): string {
   return id.clinicName || id.professionalName || "Relatório da sessão";
 }
 
+/** Título do documento do PACIENTE: o nome de quem o recebe.
+ *
+ *  A capa trazia a clínica ou o profissional, os mesmos que o bloco de
+ *  identificação logo abaixo já nomeia em "Profissional" e "Registro" — e o
+ *  destaque da folha ficava com quem não é o destinatário dela. Sem nome no
+ *  registro, cai no rótulo genérico: nunca no do profissional, que é
+ *  justamente o que este título deixou de ser. */
+function tituloDoPaciente(report: SessionReportRecord): string {
+  return String(report.patientName || report.patient?.name || "").trim()
+    || "Relatório da sessão";
+}
+
 function sessionDate(report: SessionReportRecord): string {
   const d = new Date(report.createdAt);
   return Number.isNaN(d.getTime())
@@ -937,7 +949,7 @@ export function buildPatientReport(
   const capa = `
     <div class="tags"><span class="tag destaque">Relatório da sessão</span>
       <span class="tag">Documento pessoal</span><span class="tag">Confidencial</span></div>
-    <h1>${escapeHtml(tituloDocumento(id))}</h1>
+    <h1>${escapeHtml(tituloDoPaciente(report))}</h1>
     <p class="sub">Percepção clínica aumentada · FROID</p>
     <div class="abertura">${escapeHtml(pickIntro(seed))}</div>
     ${metaBlock(report, id, false)}

@@ -102,14 +102,20 @@ describe("documento do paciente", () => {
     expect(/reconhecimento pessoal/i.test(html)).toBe(true);
   });
 
-  it("NÃO identifica o paciente pelo nome", () => {
-    // O documento é entregue ao próprio paciente; repetir o nome dele não
-    // acrescenta nada e cria mais uma cópia de dado pessoal circulando.
-    expect(html).not.toContain("Maria");
+  it("dá o título ao paciente, e não ao profissional", () => {
+    // Decisão revista. A capa trazia a clínica, e o bloco de identificação logo
+    // abaixo já nomeia "Profissional" e "Registro": o destaque da folha ficava
+    // com quem não é o destinatário do documento. Este documento também é
+    // gerado pelo profissional para entregar em mãos, e duas cópias impressas
+    // sem nome são indistinguíveis uma da outra.
+    expect(html).toContain("<h1>Maria");
+    // O nome entra pelo mesmo escape de todo campo livre: o do fixture carrega
+    // marcação de propósito.
+    expect(html).not.toContain("<script>alert(1)</script>");
   });
 
-  it("usa o nome da clínica como título", () => {
-    expect(html).toContain("Clínica Exemplo");
+  it("mantém a clínica identificando a origem no rodapé", () => {
+    expect(html).toContain("Clínica Exemplo · Documento pessoal e confidencial");
   });
 });
 
