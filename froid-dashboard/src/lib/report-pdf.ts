@@ -42,7 +42,6 @@ export const PATIENT_ITEM_KEYS = [
   "conversationSummaries",
   "tenMinuteCuts",
   "dissonances",
-  "metricsAnalysis",
   "clinicalNotes",
   "professionalNotes",
 ] as const;
@@ -58,7 +57,6 @@ const ITENS_COM_MEDIDA = [
   "sessionAverage",
   "conversationSummaries", // cada trecho leva ritmo, tom e zona
   "tenMinuteCuts",
-  "metricsAnalysis",
 ];
 
 export type ReportIdentity = {
@@ -102,6 +100,104 @@ export function formatDurationLong(totalSeconds: number): string {
 function num(value: unknown, digits = 2): string {
   const n = Number(value);
   return Number.isFinite(n) ? n.toFixed(digits).replace(".", ",") : "--";
+}
+
+/** O que se imprime quando NAO houve medida.
+ *
+ *  `0,00` era o que saia antes, e e a pior saida possivel: e finito, alinha na
+ *  coluna decimal e tem duas casas — tipograficamente indistinguivel de uma
+ *  medida real de zero. Num relatorio com vinte e uma linhas em `0,00`, o
+ *  paciente conclui uma de duas coisas: que ficou mudo por onze minutos, ou que
+ *  o aparelho nao funciona. A segunda e a correta, e e a pior das duas.
+ *
+ *  A ausencia chegava ate aqui como zero porque `_safe_float` no servidor tem
+ *  `default=0.0`: o motor de metricas devolve `None` com honestidade e a
+ *  gravacao converte. Aqui a distincao volta pela PROCEDENCIA, que e afirmacao
+ *  registrada — nao por adivinhar que zero significa ausencia, que seria trocar
+ *  uma suposicao por outra. */
+const NAO_MEDIDO = '<span class="ausente">não medido nesta sessão</span>';
+const NAO_REGISTRADO = '<span class="ausente">não registrado</span>';
+
+/** Numero que so aparece se houve apuracao.
+ *
+ *  `apurado`: `true` medido, `false` sem capacidade de apuracao, `null` para
+ *  relatorio anterior ao registro de procedencia — onde nao da para afirmar nem
+ *  uma coisa nem outra, e dizer "nao registrado" e a unica leitura honesta. */
+function medida(value: unknown, digits: number, apurado: boolean | null): string {
+  if (apurado === false) return NAO_MEDIDO;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return NAO_REGISTRADO;
+  return n.toFixed(digits).replace(".", ",");
+}
+
+/** So a TESE do resumo, para o documento do paciente.
+ *
+ *  `buildSessionSummary` monta o resumo em tres partes: a tese, a recomposicao
+ *  de todos os cortes, e uma frase de maquina sobre como o resumo deve ser
+ *  lido. Num relatorio real de 04/09/2026 a parte do meio reproduziu, palavra
+ *  por palavra, os tres cortes que a secao seguinte ja mostra — o paciente lia
+ *  a mesma conversa duas vezes seguidas, e a segunda em paragrafo corrido.
+ *
+ *  O corte e feito por um literal do NOSSO proprio gabarito, nao por heuristica
+ *  sobre texto de modelo: se o gabarito mudar, o `indexOf` falha, e a funcao
+ *  devolve o texto inteiro — que e o comportamento de hoje. Degrada para o
+ *  estado anterior em vez de degradar para vazio. */
+export function teseDaSessao(texto: string): string {
+  const marca = texto.indexOf("A sequência dos cortes indica");
+  if (marca <= 0) return texto;
+  return texto.slice(0, marca).trim();
+}
+
+/** A pergunta que fecha cada trecho.
+ *
+ *  Ela existe para causar o que o Fabio formulou: devolver o paciente ao
+ *  assunto antes da proxima sessao, em vez de lhe entregar uma conclusao
+ *  pronta. Por isso e pergunta e nao afirmacao, e por isso sai sempre de um
+ *  numero MEDIDO — quanto tempo o trecho ocupou, ou de quanto para quanto o
+ *  ritmo mudou.
+ *
+ *  Nenhuma delas interpreta o conteudo. "Voce estava ansioso aqui" seria
+ *  diagnostico tirado de um proxy; "a sua fala acelerou 36% aqui" e o registro
+ *  do que aconteceu, e a leitura fica com quem viveu a conversa. */
+function perguntaDoTrecho(dados: {
+  ritmo: number | null;
+  ritmoAnterior: number | null;
+  ehMaisLongo: boolean;
+  fatia: number;
+}): string {
+  const { ritmo, ritmoAnterior, ehMaisLongo, fatia } = dados;
+  const pct =
+    ritmo !== null && ritmoAnterior !== null && ritmoAnterior > 0
+      ? Math.round(((ritmo - ritmoAnterior) / ritmoAnterior) * 100)
+      : null;
+
+  // A mudanca de ritmo vem antes do tamanho: e a mais especifica das duas, e a
+  // que o paciente tem menos chance de ter percebido sozinho.
+  if (pct !== null && Math.abs(pct) >= 12) {
+    const verbo = pct > 0 ? "acelerou" : "desacelerou";
+    return `<p class="pergunta"><b>Para pensar:</b> aqui a sua fala ${verbo} de
+      ${num(ritmoAnterior, 0)} para ${num(ritmo, 0)} palavras por minuto.
+      Você percebeu essa mudança enquanto falava?</p>`;
+  }
+  if (ehMaisLongo && fatia > 0) {
+    return `<p class="pergunta"><b>Para pensar:</b> este foi o trecho mais longo
+      da conversa — ${fatia}% do tempo. O que faz este assunto ocupar tanto
+      espaço?</p>`;
+  }
+  return `<p class="pergunta"><b>Para pensar:</b> o que deste trecho você
+    gostaria de retomar na próxima sessão?</p>`;
+}
+
+/** Duracao de um corte pelo relogio real, e nao pelo minuto arredondado.
+ *
+ *  A diferenca nao e cosmetica: nesta sessao os rotulos redondos produziram
+ *  "0-4min" e "3-4min" para cortes de 3min37 e 12 SEGUNDOS, que assim parecem
+ *  do mesmo tamanho. */
+function cutSeconds(cut: Record<string, unknown>): number {
+  const inicio = Number(cut.startSecond ?? Number(cut.startMinute) * 60);
+  const fim = Number(cut.endSecond ?? Number(cut.endMinute) * 60);
+  if (!Number.isFinite(inicio) || !Number.isFinite(fim)) return 0;
+  return Math.max(0, fim - inicio);
 }
 
 /** Ordena do primeiro corte para o último, como o resto do produto. */
@@ -275,6 +371,16 @@ const EXTRA_PACIENTE = `
 .glossario{background:var(--fundo);border:1px solid var(--linha);border-radius:6px;
            padding:11px 13px;margin-top:10px;font-size:8.5pt}
 .glossario b{color:var(--azul)}
+.ausente{color:#9AA1A9;font-style:italic}
+.peso{border:1px solid var(--linha);border-left:3px solid var(--azul);
+      border-radius:0 6px 6px 0;padding:12px 14px;margin:11px 0;page-break-inside:avoid}
+.peso dt{color:var(--rotulo);font-size:7.5pt;font-weight:700;text-transform:uppercase;
+         letter-spacing:.04em;margin:0 0 2px}
+.peso dd{margin:0 0 10px;font-size:10pt;color:var(--navy)}
+.peso dd:last-child{margin-bottom:0}
+.pergunta{background:var(--fundo);border-radius:5px;padding:8px 10px;margin:8px 0 0;
+          font-size:8.5pt;color:var(--navy)}
+.pergunta b{color:var(--azul)}
 `;
 
 function head(titulo: string, extra: string): string {
@@ -312,7 +418,7 @@ function sessionDate(report: SessionReportRecord): string {
 function metaBlock(report: SessionReportRecord, id: ReportIdentity, mostraPaciente: boolean): string {
   return `<div class="meta"><div>
       <dt>Profissional</dt><dd>${escapeHtml(id.professionalName || "--")}</dd>
-      <dt>Registro</dt><dd>${escapeHtml(id.professionalRegistry || "--")}</dd>
+      ${id.professionalRegistry ? `<dt>Registro</dt><dd>${escapeHtml(id.professionalRegistry)}</dd>` : ""}
       <dt>Data da sessão</dt><dd>${escapeHtml(sessionDate(report))}</dd>
     </div><div>
       ${mostraPaciente
@@ -938,6 +1044,12 @@ export function buildPatientReport(
   const media = (report.sessionAverage || {}) as unknown as Record<string, unknown>;
   const base = (report.baseline || {}) as unknown as Record<string, unknown>;
 
+  // A procedência decide se um número existe ou se a sua ausência é que existe.
+  const proc = report.procedenciaDosDados;
+  const vozApurada: boolean | null = proc ? proc.amostrasComVozReal > 0 : null;
+  const faceApurada: boolean | null = proc ? proc.amostrasComFaceReal > 0 : null;
+  const semVoz = vozApurada === false;
+
   // Numeração corrida, atribuída na ordem em que as seções realmente entram.
   // Fixar 01..05 quebraria o documento assim que uma seção fosse desmarcada:
   // sairia "01, 03, 05", que lê como se faltassem páginas.
@@ -965,32 +1077,141 @@ export function buildPatientReport(
 
   const blocos: string[] = [capa];
 
+  // ---- o que mais pesou: as duas leituras que NAO dependem de medir ----
+  //
+  // Esta seção nasceu de um relatório real de 04/09/2026 em que a apuração
+  // acústica não aconteceu: vinte e uma linhas em `0,00`. Mesmo ali, duas
+  // coisas tinham sido medidas de verdade — quanto tempo cada assunto ocupou e
+  // em que velocidade a pessoa falava dentro de cada um. As duas saem da
+  // própria conversa, não do microfone, e as duas estavam no documento,
+  // repartidas entre duas tabelas em corpo 8, cercadas de zeros que as
+  // desmentiam.
+  //
+  // Ela vem antes de qualquer número de voz porque é o que sobra de pé quando
+  // tudo o mais falta — e porque é a leitura que o paciente consegue
+  // reconhecer sozinho, que é o ponto do documento.
+  if (tem("conversationSummaries") && cortes.length) {
+    const comTempo = cortes
+      .map((c) => {
+        const r = c as unknown as Record<string, unknown>;
+        return {
+          tema: String(c.theme || "Sem tema definido"),
+          segundos: cutSeconds(r),
+          ritmo: Number.isFinite(Number(r.wordsPerMinute)) ? Number(r.wordsPerMinute) : null,
+        };
+      })
+      .filter((c) => c.segundos > 0);
+    const total = comTempo.reduce((soma, c) => soma + c.segundos, 0);
+
+    const maisLongo = comTempo.reduce(
+      (maior, c) => (maior === null || c.segundos > maior.segundos ? c : maior),
+      null as (typeof comTempo)[number] | null,
+    );
+
+    // A maior variação de ritmo ENTRE trechos vizinhos. Comparar com a média da
+    // sessão diluiria justamente o que se quer mostrar: a virada.
+    let virada: { tema: string; de: number; para: number; pct: number } | null = null;
+    for (let i = 1; i < comTempo.length; i += 1) {
+      const antes = comTempo[i - 1].ritmo;
+      const agora = comTempo[i].ritmo;
+      if (antes === null || agora === null || antes <= 0) continue;
+      const pct = Math.round(((agora - antes) / antes) * 100);
+      if (Math.abs(pct) < 12) continue;
+      if (virada === null || Math.abs(pct) > Math.abs(virada.pct)) {
+        virada = { tema: comTempo[i].tema, de: antes, para: agora, pct };
+      }
+    }
+
+    const itens: string[] = [];
+    if (maisLongo && total > 0) {
+      const pct = Math.round((maisLongo.segundos / total) * 100);
+      itens.push(`<dt>O assunto que ocupou mais tempo</dt>
+        <dd>${escapeHtml(maisLongo.tema)} — ${escapeHtml(formatDurationLong(maisLongo.segundos))},
+        ${pct}% da conversa.</dd>`);
+    }
+    if (virada) {
+      itens.push(`<dt>Onde o seu ritmo de fala mais mudou</dt>
+        <dd>No trecho “${escapeHtml(virada.tema)}”, a sua fala passou de
+        ${num(virada.de, 0)} para ${num(virada.para, 0)} palavras por minuto —
+        ${Math.abs(virada.pct)}% mais ${virada.pct > 0 ? "rápida" : "lenta"} do que
+        no trecho anterior.</dd>`);
+    }
+
+    const coincidem = Boolean(maisLongo && virada && virada.tema === maisLongo.tema);
+    const pergunta = coincidem
+      ? `O assunto que tomou mais tempo é o mesmo em que a sua fala mudou de
+         velocidade. O que faz esse assunto ocupar tanto espaço?`
+      : maisLongo
+        ? `O que faz o assunto mais longo desta conversa ocupar tanto espaço?`
+        : `O que desta conversa você gostaria de retomar primeiro?`;
+
+    if (itens.length) {
+      blocos.push(`<section>${cab("O que mais pesou nesta conversa")}
+        <p>Duas coisas neste documento não dependem de medir a sua voz nem o seu
+          rosto: <b>quanto tempo cada assunto ocupou</b> e <b>em que velocidade
+          você falava dentro de cada um</b>. As duas saem da própria conversa, e
+          são as que se reconhecem numa leitura — por isso vêm primeiro.</p>
+        <dl class="peso">${itens.join("")}</dl>
+        <p><b>Por que o ritmo importa.</b> Ritmo de fala é quantas palavras você
+          diz por minuto. Não existe ritmo certo, e o número sozinho não diz
+          nada: pessoas diferentes falam em velocidades diferentes, e a mesma
+          pessoa fala diferente em dias diferentes. O que interessa é a
+          <b>mudança dentro da mesma conversa</b> — acelerar ou desacelerar ao
+          entrar num assunto é uma das formas mais diretas de mostrar que aquele
+          assunto tem peso, muitas vezes antes de a pessoa notar que tem.</p>
+        <p>Nada disso é interpretação. É o registro de que algo mudou naquele
+          ponto. O que a mudança significou só você pode dizer — e é exatamente
+          por isso que este documento chega antes da próxima sessão, e não
+          depois.</p>
+        <p class="pergunta"><b>Para levar à próxima sessão:</b> ${pergunta}</p>
+      </section>`);
+    }
+  }
+
   // ---- baseline: a referência do dia ----
   if (tem("baseline")) {
+    // `escapeHtml` saiu do join: a ausência agora é um <span>, e escapá-la
+    // imprimiria a marcação como texto na cara do paciente.
     const linhas = [
-      Number.isFinite(Number(base.ipmAvg)) ? `energia da fala ${num(base.ipmAvg, 1)}` : "",
-      Number.isFinite(Number(base.wordsPerMinute)) ? `ritmo ${num(base.wordsPerMinute, 1)} palavras por minuto` : "",
-      base.dominantZone === undefined || base.dominantZone === null ? "" : `zona ${escapeHtml(base.dominantZone)}`,
+      `energia da fala ${medida(base.ipmAvg, 1, vozApurada)}`,
+      Number.isFinite(Number(base.wordsPerMinute))
+        ? `ritmo ${num(base.wordsPerMinute, 1)} palavras por minuto`
+        : "",
+      base.dominantZone === undefined || base.dominantZone === null
+        ? ""
+        : `zona ${escapeHtml(base.dominantZone)}`,
     ].filter(Boolean);
     blocos.push(`<section>${cab("A sua referência deste dia")}
       <p>Nos primeiros 60 segundos da sessão o sistema mediu como a sua fala e o seu
         rosto estavam naquele momento. É esta a régua usada no resto do documento.</p>
-      ${linhas.length ? `<div class="fase"><div class="corpo"><p>${escapeHtml(linhas.join(" · "))}.</p></div></div>` : "<p>Não houve calibração registrada nesta sessão.</p>"}
+      ${linhas.length ? `<div class="fase"><div class="corpo"><p>${linhas.join(" · ")}.</p></div></div>` : "<p>Não houve calibração registrada nesta sessão.</p>"}
     </section>`);
   }
 
   // ---- sessionAverage: como a sessão ficou, no conjunto ----
   if (tem("sessionAverage")) {
-    const linhas = [
-      Number.isFinite(Number(media.ipmAvg)) ? ["Energia da fala", num(media.ipmAvg, 1), num(base.ipmAvg, 1)] : null,
-      Number.isFinite(Number(media.idmAvg)) ? ["Variação entre fala e rosto", num(media.idmAvg, 2), num(base.idmAvg, 2)] : null,
-      Number.isFinite(Number(media.wordsPerMinute)) ? ["Ritmo da fala", num(media.wordsPerMinute, 1), num(base.wordsPerMinute, 1)] : null,
-    ].filter(Boolean) as string[][];
+    // A linha entra SEMPRE, mesmo sem medida — some-la esconderia que houve
+    // tentativa. O que muda é o que a célula diz: número quando se mediu,
+    // "não medido" quando não.
+    const linhas: string[][] = [
+      ["Energia da fala", medida(media.ipmAvg, 1, vozApurada), medida(base.ipmAvg, 1, vozApurada)],
+      [
+        "Variação entre fala e rosto",
+        medida(media.idmAvg, 2, vozApurada === false || faceApurada === false ? false : vozApurada),
+        medida(base.idmAvg, 2, vozApurada === false || faceApurada === false ? false : vozApurada),
+      ],
+      ["Ritmo da fala", medida(media.wordsPerMinute, 1, true), medida(base.wordsPerMinute, 1, true)],
+    ];
     blocos.push(`<section>${cab("A sessão no conjunto")}
-      ${linhas.length ? `<table>
+      <table>
         <thead><tr><th>Medida</th><th class="n">Na sessão</th><th class="n">Sua referência</th></tr></thead>
         <tbody>${linhas.map((l) => `<tr><td>${escapeHtml(l[0])}</td><td class="n">${l[1]}</td><td class="n">${l[2]}</td></tr>`).join("")}</tbody>
-      </table>` : "<p>Não há medidas de conjunto registradas nesta sessão.</p>"}
+      </table>
+      ${semVoz ? `<p style="margin-top:8px">Nesta sessão o sistema <b>não conseguiu
+        medir a sua voz</b> — o áudio não chegou à análise acústica. Os campos
+        acima aparecem vazios por isso, e não porque o valor tenha sido zero. As
+        leituras de tempo e de ritmo desta conversa não dependem dessa medição e
+        continuam válidas.</p>` : ""}
       ${media.emotionalTone ? `<p style="margin-top:7px">Tom predominante ao longo da conversa: ${escapeHtml(media.emotionalTone)}.</p>` : ""}
     </section>`);
   }
@@ -998,7 +1219,7 @@ export function buildPatientReport(
   // ---- sessionSummary: o resumo ----
   if (tem("sessionSummary")) {
     const resumo = (report.sessionSummary || {}) as unknown as Record<string, unknown>;
-    const texto = String(resumo.text || resumo.summary || resumo.theme || "").trim();
+    const texto = teseDaSessao(String(resumo.text || resumo.summary || resumo.theme || "").trim());
     const paragrafos = blocosDeTexto(texto);
     blocos.push(`<section>${cab("Resumo da sessão")}</section>`);
     if (paragrafos.length) paragrafos.forEach((par) => blocos.push(par));
@@ -1009,6 +1230,12 @@ export function buildPatientReport(
   if (tem("conversationSummaries")) {
     blocos.push(`<section>${cab("Percurso da sessão")}</section>`);
     if (cortes.length) {
+      // O trecho mais longo e o ritmo do trecho anterior, para a pergunta
+      // abaixo sair do que foi MEDIDO e não de uma leitura do conteúdo.
+      const segundosPorTrecho = cortes.map((c) => cutSeconds(c as unknown as Record<string, unknown>));
+      const totalSegundos = segundosPorTrecho.reduce((a, b) => a + b, 0);
+      const indiceMaisLongo = segundosPorTrecho.indexOf(Math.max(...segundosPorTrecho));
+
       cortes.forEach((c, i) => {
         const r = c as unknown as Record<string, unknown>;
         // A linha de números do modelo aprovado, que faltava aqui: ritmo e tom
@@ -1022,25 +1249,47 @@ export function buildPatientReport(
         blocos.push(`<div class="fase"><div class="badge">Trecho<b>${i + 1}</b></div>
           <div class="corpo"><b>${escapeHtml(cutRange(c))} · ${escapeHtml(c.theme || "Sem tema definido")}</b>
           <p>${escapeHtml(summaryOrFallback(c.summary))}</p>
-          ${numeros ? `<div class="numeros">${numeros}</div>` : ""}</div></div>`);
+          ${numeros ? `<div class="numeros">${numeros}</div>` : ""}
+          ${perguntaDoTrecho({
+            ritmo: Number.isFinite(Number(r.wordsPerMinute)) ? Number(r.wordsPerMinute) : null,
+            ritmoAnterior: i > 0 && Number.isFinite(Number((cortes[i - 1] as unknown as Record<string, unknown>).wordsPerMinute))
+              ? Number((cortes[i - 1] as unknown as Record<string, unknown>).wordsPerMinute)
+              : null,
+            ehMaisLongo: i === indiceMaisLongo && totalSegundos > 0,
+            fatia: totalSegundos > 0 ? Math.round((segundosPorTrecho[i] / totalSegundos) * 100) : 0,
+          })}</div></div>`);
       });
     } else {
       blocos.push(`<p>Nenhum trecho registrado nesta sessão.</p>`);
     }
   }
 
-  // ---- tenMinuteCuts: as medidas a cada dez minutos ----
+  // ---- tenMinuteCuts: as medidas trecho a trecho ----
+  //
+  // O título dizia "a cada dez minutos" sobre cortes que o profissional fecha à
+  // mão: nesta sessão os três tinham 3min37, 12 SEGUNDOS e 7min47. Um título
+  // que descreve outra coisa é pior do que nenhum, porque o leitor confia nele.
+  //
+  // As colunas sem apuração também saem. Uma tabela de quatro colunas com duas
+  // vazias não informa que faltou medir — informa que o produto é vazio.
   if (tem("tenMinuteCuts")) {
     const janelas = (report.tenMinuteCuts || []) as unknown as Record<string, unknown>[];
-    blocos.push(`<section>${cab("Medidas a cada dez minutos")}
+    const temTom = janelas.some((j) => Boolean(j.emotionalTone));
+    const colunas = [
+      `<th>Trecho</th>`,
+      semVoz ? "" : `<th class="n">Energia da fala</th>`,
+      `<th class="n">Ritmo</th>`,
+      temTom ? `<th>Tom</th>` : "",
+    ].filter(Boolean).join("");
+    blocos.push(`<section>${cab("Medidas trecho a trecho")}
       ${janelas.length ? `<table>
-        <thead><tr><th>Intervalo</th><th class="n">Energia da fala</th><th class="n">Ritmo</th><th>Tom</th></tr></thead>
+        <thead><tr>${colunas}</tr></thead>
         <tbody>${janelas.map((j) => `<tr>
           <td>${escapeHtml(j.label || "—")}</td>
-          <td class="n">${num(j.ipmAvg, 1)}</td>
-          <td class="n">${num(j.wordsPerMinute, 1)}</td>
-          <td>${escapeHtml(j.emotionalTone || "—")}</td></tr>`).join("")}</tbody>
-      </table>` : "<p>Não há janelas de dez minutos registradas nesta sessão.</p>"}
+          ${semVoz ? "" : `<td class="n">${medida(j.ipmAvg, 1, vozApurada)}</td>`}
+          <td class="n">${medida(j.wordsPerMinute, 1, true)}</td>
+          ${temTom ? `<td>${escapeHtml(j.emotionalTone || "—")}</td>` : ""}</tr>`).join("")}</tbody>
+      </table>` : "<p>Não há trechos registrados nesta sessão.</p>"}
     </section>`);
   }
 
@@ -1064,24 +1313,16 @@ export function buildPatientReport(
     }
   }
 
-  // ---- metricsAnalysis: as medidas detalhadas ----
-  if (tem("metricsAnalysis")) {
-    const analise = report.metricsAnalysis;
-    const metricas = analise && Array.isArray(analise.metrics) ? analise.metrics : [];
-    blocos.push(`<section>${cab("Medidas detalhadas")}
-      <p>Cada linha compara uma medida da sessão com a sua própria referência do
-        dia. São descrições de movimento, e não notas.</p>
-      ${metricas.length ? `<table>
-        <thead><tr><th>Medida</th><th class="n">Sua referência</th><th class="n">Média na sessão</th></tr></thead>
-        <tbody>${metricas.map((m) => {
-          const s = analise!.summary?.[m.key] || ({} as Record<string, never>);
-          return `<tr><td>${escapeHtml(m.label || m.key)}</td>
-            <td class="n">${num(s.baseline, 2)}</td>
-            <td class="n">${num(s.session_mean, 2)}</td></tr>`;
-        }).join("")}</tbody>
-      </table>` : "<p>Não há medidas detalhadas registradas nesta sessão.</p>"}
-    </section>`);
-  }
+  // A tabela de medidas detalhadas SAIU do documento do paciente em 04/09/2026.
+  //
+  // Vinte e uma linhas — MFCC7, DDMFCC9, ZCR, jitter, shimmer — que não dizem
+  // nada a quem não é do ofício. E numa sessão sem apuração acústica todas
+  // saíam `0,00`, o que não é neutro: destrói a credibilidade das duas ou três
+  // leituras do documento que estavam corretas.
+  //
+  // Ela continua inteira no relatório do PROFISSIONAL, que é onde tem leitor.
+  // O documento do paciente é a pauta da próxima conversa, e pauta com vinte e
+  // uma linhas irrelevantes é pauta que não se lê.
 
   // ---- clinicalNotes: observações registradas durante a sessão ----
   if (tem("clinicalNotes")) {
@@ -1111,8 +1352,9 @@ export function buildPatientReport(
       // seguinte deixando a anterior pela metade.
       paragrafos.forEach((par) => blocos.push(par));
     } else {
-      blocos.push(`<p class="corrido" style="color:#9CA3AF;font-style:italic">Seu
-        profissional não registrou anotações para esta sessão.</p>`);
+      // A quebra de linha do código saía IMPRESSA: "Seu" numa linha, o resto
+      // recuado na seguinte. Dentro de template literal, o recuo é conteúdo.
+      blocos.push(`<p class="corrido" style="color:#9CA3AF;font-style:italic">Seu profissional não registrou anotações para esta sessão.</p>`);
     }
   }
 

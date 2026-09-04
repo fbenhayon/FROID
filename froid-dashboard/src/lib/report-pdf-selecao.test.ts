@@ -21,9 +21,8 @@ const SECAO_DE: Record<string, string> = {
   sessionAverage: "A sessão no conjunto",
   sessionSummary: "Resumo da sessão",
   conversationSummaries: "Percurso da sessão",
-  tenMinuteCuts: "Medidas a cada dez minutos",
+  tenMinuteCuts: "Medidas trecho a trecho",
   dissonances: "Sinais registrados",
-  metricsAnalysis: "Medidas detalhadas",
   clinicalNotes: "Observações registradas durante a sessão",
   professionalNotes: "Anotações do seu profissional",
 };
@@ -34,7 +33,9 @@ const SEMPRE = ["O que este documento não é"];
 
 /** Itens que levam medida. "Como ler este documento" só entra com algum deles:
  *  num documento só de texto ela explicaria números que não estão lá. */
-const COM_MEDIDA = ["baseline", "sessionAverage", "conversationSummaries", "tenMinuteCuts", "metricsAnalysis"];
+// "metricsAnalysis" saiu do catálogo do paciente em 04/09/2026 — a tabela de
+// MFCC e ZCR continua só no documento do profissional.
+const COM_MEDIDA = ["baseline", "sessionAverage", "conversationSummaries", "tenMinuteCuts"];
 
 const RELATORIO = {
   sessionId: "sel",
@@ -180,7 +181,7 @@ describe("a seleção governa o documento do paciente", () => {
   it("numera corridamente, sem buracos, com qualquer seleção", () => {
     // Numeração fixa produziria "01, 03, 05" ao desmarcar, que lê como se
     // faltassem páginas no documento impresso.
-    for (const itens of [[], ["dissonances"], ["baseline", "metricsAnalysis"], PATIENT_ITEM_KEYS.slice()]) {
+    for (const itens of [[], ["dissonances"], ["baseline", "sessionAverage"], PATIENT_ITEM_KEYS.slice()]) {
       const html = doc(itens as string[]);
       const nums = Array.from(html.matchAll(/<span class="num">(\d{2})<\/span>/g)).map((m) => Number(m[1]));
       expect(nums).toEqual(nums.map((_, i) => i + 1));

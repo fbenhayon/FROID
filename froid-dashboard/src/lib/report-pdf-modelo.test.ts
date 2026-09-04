@@ -25,6 +25,11 @@ const SECOES_PROFISSIONAL = [
 
 const SECOES_PACIENTE = [
   "Como ler este documento",
+  // Entrou em 04/09/2026: as duas leituras que não dependem de medir voz nem
+  // rosto — onde o tempo foi, e onde o ritmo mudou. Vem antes de tudo porque é
+  // o que sobra de pé quando a apuração acústica falha, e foi assim numa sessão
+  // real cujo relatório saiu com vinte e uma linhas em 0,00.
+  "O que mais pesou nesta conversa",
   "Percurso da sessão",
   "Sinais registrados",
   "Anotações do seu profissional",
@@ -139,7 +144,7 @@ describe("documento do paciente", () => {
     "patient", SESSAO, {}, "Texto redigido pelo profissional.", undefined, SELECAO_DO_MODELO,
   );
 
-  it("com a seleção do modelo, emite as cinco seções dele, na ordem", () => {
+  it("com a seleção do modelo, emite as seções dele, na ordem", () => {
     expect(titulos(html)).toEqual(SECOES_PACIENTE);
   });
 

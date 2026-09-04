@@ -132,11 +132,20 @@ describe("voz simulada é dita na tela, não deduzida", () => {
     // O relato do paciente explica o porquê; quem tem autoridade sobre o que
     // entrou no cálculo é o servidor.
     expect(PROFISSIONAL).toContain("voice_features_source");
-    expect(PROFISSIONAL).toContain("const origemDaVoz");
   });
 
-  it("o aviso aparece nos dois layouts, não só num", () => {
-    expect(PROFISSIONAL.match(/<AvisoVozSimulada /g)?.length).toBe(2);
+  it("o cartaz saiu da sessão, e a procedência ficou onde tem leitor", () => {
+    // Em 04/09/2026 o dono tirou o aviso da tela do atendimento: durante a
+    // consulta o profissional olha para o paciente, e um cartaz permanente vira
+    // ruído que se aprende a ignorar.
+    //
+    // A informação não sumiu — mudou de lugar. Ela vive no relatório, onde é
+    // lida com tempo: `ProcedenciaDoRelatorio` na tela e, desde 04/09/2026, no
+    // documento do paciente, que passa a dizer "não medido nesta sessão" em vez
+    // de imprimir 0,00.
+    expect(PROFISSIONAL).not.toContain("<AvisoVozSimulada ");
+    expect(ler("pages", "SessionReport.tsx")).toContain("ProcedenciaDoRelatorio");
+    expect(ler("lib", "report-pdf.ts")).toContain("não medido nesta sessão");
   });
 });
 

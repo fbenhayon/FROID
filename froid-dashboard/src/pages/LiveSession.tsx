@@ -2009,8 +2009,19 @@ function buildSessionSummary(
     6,
   );
   const cleanSource = source.replace(/\s+/g, " ").trim();
+  // A TESE saía como uma colagem de temas cortada em seis palavras: com três
+  // cortes, "Conexão e funcionamento do FROID Continuação" — que junta o
+  // primeiro tema ao começo do segundo e não é frase nenhuma. Com mais de um
+  // assunto, a sessão percorreu assuntos; ela não tem um eixo só, e dizer que
+  // tem é inventar uma unidade que a conversa não teve.
+  const temas = ordered.map((item) => String(item.theme || "").trim()).filter(Boolean);
+  const tese = temas.length === 1
+    ? `A sessão teve como eixo predominante ${temas[0]}.`
+    : temas.length > 1
+      ? `A sessão percorreu ${temas.length} assuntos: ${temas.join("; ")}.`
+      : `A sessão teve como eixo predominante ${theme}.`;
   const summary = cleanSource
-    ? `A sessão teve como eixo predominante ${theme}. A sequência dos cortes indica a seguinte progressão clínica e semântica: ${cleanSource}. Em conclusão, este resumo deve ser lido como síntese da substância verbal registrada nos cortes, servindo de base para comparar conteúdo, ritmo e deslocamentos temáticos com as métricas multimodais do relatório.`
+    ? `${tese} A sequência dos cortes indica a seguinte progressão clínica e semântica: ${cleanSource}. Em conclusão, este resumo deve ser lido como síntese da substância verbal registrada nos cortes, servindo de base para comparar conteúdo, ritmo e deslocamentos temáticos com as métricas multimodais do relatório.`
     : "";
   return {
     theme,

@@ -2851,9 +2851,13 @@ PATIENT_REPORT_ITEMS: tuple[tuple[str, str], ...] = (
     ("sessionAverage", "A sessão no conjunto (índices médios)"),
     ("sessionSummary", "Resumo da sessão"),
     ("conversationSummaries", "Percurso da sessão, trecho a trecho"),
-    ("tenMinuteCuts", "Medidas a cada dez minutos"),
+    ("tenMinuteCuts", "Medidas trecho a trecho"),
     ("dissonances", "Sinais registrados"),
-    ("metricsAnalysis", "Medidas detalhadas"),
+    # "metricsAnalysis" (Medidas detalhadas) saiu do catálogo em 04/09/2026.
+    # Vinte e uma linhas de MFCC, ZCR, jitter e shimmer que não dizem nada a
+    # quem não é do ofício — e numa sessão sem apuração acústica saíam todas em
+    # 0,00, derrubando junto a credibilidade das leituras que estavam certas.
+    # Continua inteira no relatório do profissional.
     ("clinicalNotes", "Observações registradas durante a sessão"),
     ("professionalNotes", "Anotações do seu profissional (o texto que você redigiu)"),
 )
