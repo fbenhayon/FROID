@@ -902,6 +902,21 @@ class PatientPasswordUpdate(BaseModel):
     password_confirm: str = Field(..., min_length=8, max_length=256)
 
 
+class PatientPasswordResetRequest(BaseModel):
+    # Mesmo campo do login: quem entrou pelo convite informando só o e-mail não
+    # tem CPF cadastrado, e quem informou CPF não lembra qual endereço usou.
+    document: str = ""
+    email: str = ""
+
+
+class PatientPasswordResetConfirm(BaseModel):
+    # Sem min_length no modelo: o comprimento é checado na rota para a pessoa
+    # receber a queixa em português, e não um 422 de validação de schema.
+    token: str = ""
+    password: str = ""
+    password_confirm: str = ""
+
+
 class PatientPortalProfileUpdate(BaseModel):
     name: str = ""
     phone: str = ""
@@ -7665,6 +7680,247 @@ async def patient_portal_logout(request: Request):
     return {"status": "ok"}
 
 
+# Nome do par de campos que o token de nova senha grava no cadastro do
+# paciente. Só o hash é guardado — o cadastro inteiro vai para o estado de
+# identidade em disco e para o Postgres, e um token em claro ali valeria tanto
+# quanto a senha.
+PATIENT_RESET_TOKEN_KIND = "patient_reset"
+
+
+def _consume_patient_reset_token(token: str) -> Optional[dict]:
+    """Localiza o paciente dono do token de nova senha e o queima na passagem.
+
+    Existe separado de `_consume_credential_token` porque aquele percorre
+    PROFESSIONAL_CREDENTIALS, e o paciente não tem cofre de credencial: a senha
+    dele mora no próprio cadastro. A queima vem antes da checagem de validade
+    pelo mesmo motivo da versão profissional — assim não há como ficar tentando
+    o mesmo valor até a virada de algum relógio.
+    """
+    if not token:
+        return None
+    token_hash = _credential_token_hash(token)
+    agora = datetime.now(timezone.utc).timestamp()
+    for patient in PATIENTS.values():
+        if not isinstance(patient, dict):
+            continue
+        armazenado = str(patient.get(f"{PATIENT_RESET_TOKEN_KIND}_token_hash") or "")
+        if not armazenado or not secrets.compare_digest(armazenado, token_hash):
+            continue
+        expira = patient.get(f"{PATIENT_RESET_TOKEN_KIND}_expires_ts")
+        patient.pop(f"{PATIENT_RESET_TOKEN_KIND}_token_hash", None)
+        patient.pop(f"{PATIENT_RESET_TOKEN_KIND}_expires_ts", None)
+        try:
+            valido = float(expira) >= agora
+        except (TypeError, ValueError):
+            valido = False
+        return patient if valido else None
+    return None
+
+
+def _revoke_patient_portal_sessions(patient_id: str) -> None:
+    """Derruba toda sessão viva daquele paciente no portal."""
+    alvo = str(patient_id or "")
+    if not alvo:
+        return
+    for session_token, active_session in list(PATIENT_PORTAL_SESSIONS.items()):
+        if str((active_session or {}).get("id") or "") == alvo:
+            PATIENT_PORTAL_SESSIONS.pop(session_token, None)
+
+
+async def _notify_patient_password_changed(patient: dict, origem: str) -> None:
+    """Avisa o titular, depois do fato, que a senha do portal mudou.
+
+    Este é o aviso que fecha o ciclo: quem recebe uma troca que não pediu
+    descobre no mesmo minuto, e não na próxima vez que tentar entrar. Sem ele,
+    um link de recuperação interceptado trocaria a senha em silêncio.
+
+    A senha já está gravada quando isto roda, então falha de SMTP não pode
+    virar erro na resposta — a pessoa leria "não foi possível" sobre uma troca
+    que aconteceu, e tentaria de novo com um token já queimado. O aviso não
+    leva link nem token: ele só informa, e quem precisa agir volta pela tela de
+    acesso.
+    """
+    destino = _normalize_email(patient.get("email") or "")
+    if not destino or not froid_mailer.mailer_enabled():
+        return
+    assunto = "Sua senha de acesso ao FROID foi alterada"
+    motivo = {
+        "email_reset": "por meio do link de nova senha enviado a este endereço",
+        "google_recovery": "depois de uma entrada pela conta Google vinculada",
+        "authenticated_change": "dentro do portal, com a sessão já aberta",
+    }.get(origem, "no portal do paciente")
+    texto = f"""{assunto}
+
+A senha de acesso ao portal do paciente foi alterada {motivo}.
+
+Se foi você, não é preciso fazer nada.
+
+Se não foi você, cadastre uma nova senha agora em "esqueceu a senha?", na
+tela de acesso do paciente, e avise o profissional que acompanha você. As
+sessões que estavam abertas neste cadastro já foram encerradas.
+
+FROID"""
+    html = (
+        "<div style='font-family:system-ui,sans-serif;line-height:1.6;color:#0f172a'>"
+        "<p style='letter-spacing:.3em;font-weight:900;color:#0e7490'>FROID</p>"
+        f"<h1 style='font-size:20px'>{assunto}</h1>"
+        f"<p>A senha de acesso ao portal do paciente foi alterada {motivo}.</p>"
+        "<p>Se foi você, não é preciso fazer nada.</p>"
+        "<p style='font-size:13px;color:#475569'>Se não foi você, cadastre uma "
+        "nova senha agora em \"esqueceu a senha?\", na tela de acesso do "
+        "paciente, e avise o profissional que acompanha você. As sessões que "
+        "estavam abertas neste cadastro já foram encerradas.</p>"
+        "</div>"
+    )
+    try:
+        await asyncio.to_thread(
+            froid_mailer.send_email, destino, assunto, texto, html
+        )
+    except froid_mailer.MailerError:
+        LOGGER.warning(
+            json.dumps(
+                {
+                    "event": "froid.patient_password_notice_failed",
+                    "patient_id": str(patient.get("id") or ""),
+                    "origin": origem,
+                },
+                ensure_ascii=False,
+            )
+        )
+
+
+async def _send_patient_password_reset_email(patient: dict) -> str:
+    """Envia o link de nova senha do portal do paciente.
+
+    Devolve o link apenas no modo de desenvolvimento sem SMTP; em produção
+    devolve string vazia, porque quem precisa dele é a caixa de entrada.
+    """
+    token = _issue_credential_token(
+        patient, PATIENT_RESET_TOKEN_KIND, FROID_PASSWORD_RESET_TTL_SECONDS
+    )
+    link = _public_app_link("/paciente/nova-senha?token=" + quote(token, safe=""))
+    minutos = max(5, FROID_PASSWORD_RESET_TTL_SECONDS // 60)
+    assunto = "Nova senha de acesso ao portal do paciente FROID"
+    texto, html = _credential_email_bodies(
+        assunto,
+        (
+            "Recebemos um pedido para cadastrar uma nova senha de acesso ao "
+            "portal do paciente no FROID."
+        ),
+        link,
+        "{} minuto(s)".format(minutos),
+    )
+    if froid_mailer.dev_echo_enabled():
+        LOGGER.warning(
+            "FROID_SMTP_DEV_ECHO ativo: link de nova senha do paciente não enviado"
+        )
+        return link
+    await _deliver_credential_email(
+        _normalize_email(patient.get("email") or ""), assunto, texto, html
+    )
+    return ""
+
+
+@app.post("/api/patient-auth/password-reset")
+async def patient_password_reset_request(
+    payload: PatientPasswordResetRequest, request: Request
+):
+    """Pede o link para cadastrar uma nova senha de acesso ao portal.
+
+    Resposta uniforme, exista ou não o cadastro. Uma recusa distinta faria da
+    rota uma consulta pública de quem é paciente no FROID — o mesmo motivo pelo
+    qual o login não separa "CPF inexistente" de "senha errada".
+
+    Até aqui a única saída para quem esquecia a senha era entrar pelo Google
+    com o mesmo endereço; quem não tem conta Google ficava sem porta.
+    """
+    _rate_limit_guard(
+        "patient_reset", _client_ip(request), 10, 3600.0,
+        "Muitos pedidos de nova senha. Tente novamente em uma hora.",
+    )
+    identificador = str(payload.document or payload.email or "").strip()
+    resposta = {"status": "reset_sent"}
+    if not identificador:
+        return resposta
+    _rate_limit_guard(
+        "patient_reset_id", identificador.lower(), 5, 3600.0,
+        "Muitos pedidos para este cadastro. Tente novamente em uma hora.",
+    )
+    # A presença do "@" decide como interpretar, igual ao login: aplicar
+    # _digits_only num e-mail extrairia dígitos avulsos de um texto e
+    # consultaria um documento que ninguém digitou.
+    if "@" in identificador:
+        patient = _find_registered_patient_by_email(_normalize_email(identificador))
+    else:
+        patient = _find_registered_patient_by_document(_digits_only(identificador))
+    # Sem e-mail no cadastro não há para onde mandar o link. O convite aceito
+    # só por telefone deixa esse caso existir, e ele responde como os outros.
+    if not isinstance(patient, dict) or not _normalize_email(patient.get("email") or ""):
+        return resposta
+    link = await _send_patient_password_reset_email(patient)
+    _save_identity_state()
+    if link:
+        resposta["dev_link"] = link
+    return resposta
+
+
+@app.post("/api/patient-auth/password-reset/confirm")
+async def patient_password_reset_confirm(
+    payload: PatientPasswordResetConfirm, request: Request
+):
+    """Queima o token e grava a nova senha do portal.
+
+    Derruba as sessões vivas do paciente: se o pedido nasceu porque alguém
+    entrou na conta, deixar a sessão do invasor de pé anularia a troca.
+    """
+    _rate_limit_guard(
+        "patient_reset_confirm", _client_ip(request), 30, 900.0,
+        "Muitas tentativas. Aguarde alguns minutos e tente novamente.",
+    )
+    password = str(payload.password or "")
+    confirm = str(payload.password_confirm or password)
+    if password != confirm:
+        raise HTTPException(
+            status_code=400, detail="A confirmação da senha não confere"
+        )
+    # Mesmo piso do aceite do convite. Exigir aqui mais do que lá recusaria uma
+    # senha que o próprio cadastro aceitou minutos antes.
+    if len(password) < 8 or len(password) > 256:
+        raise HTTPException(
+            status_code=400,
+            detail="A senha do paciente precisa ter entre 8 e 256 caracteres",
+        )
+    patient = _consume_patient_reset_token(str(payload.token or "").strip())
+    if not isinstance(patient, dict):
+        # O token pode ter sido queimado agora mesmo por estar vencido; o estado
+        # precisa registrar a queima mesmo com a requisição terminando em erro.
+        _save_identity_state()
+        raise HTTPException(
+            status_code=400,
+            detail="Link de nova senha inválido ou expirado. Peça outro na tela de acesso.",
+        )
+    patient_id = str(patient.get("id") or "")
+    _set_patient_password(patient, password)
+    patient["updated_at"] = _utc_now_iso()
+    patient["password_updated_via"] = "email_reset"
+    _revoke_patient_portal_sessions(patient_id)
+    _save_identity_state()
+    LOGGER.info(
+        json.dumps(
+            {
+                "event": "froid.patient_password_reset",
+                "patient_id": patient_id,
+                "remote_addr": _client_ip(request),
+            },
+            ensure_ascii=False,
+        )
+    )
+    await _notify_patient_password_changed(patient, "email_reset")
+    # Abrir o link prova a caixa de entrada: quem acabou de definir a senha
+    # entra direto, sem repetir CPF e senha na tela seguinte.
+    return _issue_patient_portal_session(patient, "password")
+
+
 @app.put("/api/patient-portal/password")
 async def patient_portal_update_password(
     payload: PatientPasswordUpdate, request: Request
@@ -7707,6 +7963,10 @@ async def patient_portal_update_password(
             ensure_ascii=False,
         )
     )
+    # O aviso vale para toda troca, e não só para a que vem por e-mail: um
+    # aviso que dispara em um caminho e cala no outro deixa justamente o
+    # caminho silencioso como o preferido de quem não deveria estar ali.
+    await _notify_patient_password_changed(patient, patient["password_updated_via"])
     return {"status": "ok"}
 
 

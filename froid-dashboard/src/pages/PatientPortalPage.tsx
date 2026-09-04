@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { apiUrl } from "../lib/api";
 import { patientViewFor } from "../lib/dissonance-patient-view";
 import {
@@ -610,15 +611,28 @@ export const PatientPortalPage: React.FC = () => {
             >
               {loading ? "Validando..." : "Entrar no portal"}
             </button>
+            {/* O divisor saiu de dentro da condição do Google. Enquanto ele
+                dependia da chave do Google, quem esquecia a senha num ambiente
+                sem essa chave não via saída nenhuma na tela. */}
+            <div className="my-4 flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
+              <span className="h-px flex-1 bg-slate-700" />
+              esqueceu a senha?
+              <span className="h-px flex-1 bg-slate-700" />
+            </div>
+            <Link
+              to="/paciente/nova-senha"
+              className="block rounded border border-cyan-800 bg-cyan-950/40 px-4 py-2 text-center text-sm font-black text-cyan-200 hover:bg-cyan-900/50"
+            >
+              Cadastrar nova senha de acesso
+            </Link>
+            <p className="mt-2 text-xs leading-5 text-slate-400">
+              Informe o CPF ou o e-mail do cadastro e enviaremos ao e-mail
+              registrado um link para criar outra senha.
+            </p>
             {googleClientId && (
               <>
-                <div className="my-4 flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
-                  <span className="h-px flex-1 bg-slate-700" />
-                  esqueceu a senha?
-                  <span className="h-px flex-1 bg-slate-700" />
-                </div>
-                <p className="mb-3 text-xs leading-5 text-slate-300">
-                  Entre com a conta Google que usa o mesmo e-mail cadastrado no FROID.
+                <p className="mb-3 mt-4 text-xs leading-5 text-slate-300">
+                  Ou entre com a conta Google que usa o mesmo e-mail cadastrado no FROID.
                   Depois você poderá criar uma nova senha.
                 </p>
                 <div className="rounded-lg bg-white p-2">

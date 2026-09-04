@@ -36,6 +36,7 @@ const Nr1CompanyOnboarding = lazy(() => import("./pages/Nr1CompanyOnboarding").t
 const PatientInvitePage = lazy(() => import("./pages/PatientInvitePage").then((module) => ({ default: module.PatientInvitePage })));
 const PatientSessionPage = lazy(() => import("./pages/PatientSessionPage").then((module) => ({ default: module.PatientSessionPage })));
 const PatientPortalPage = lazy(() => import("./pages/PatientPortalPage").then((module) => ({ default: module.PatientPortalPage })));
+const PatientPasswordResetPage = lazy(() => import("./pages/PatientPasswordResetPage").then((module) => ({ default: module.PatientPasswordResetPage })));
 const PrivacyRequests = lazy(() => import("./pages/PrivacyRequests").then((module) => ({ default: module.PrivacyRequests })));
 const PrivacyPage = lazy(() => import("./pages/LegalPages").then((module) => ({ default: module.PrivacyPage })));
 const TermsPage = lazy(() => import("./pages/LegalPages").then((module) => ({ default: module.TermsPage })));
@@ -288,6 +289,10 @@ function App() {
         <Route path="/paciente" element={<PatientPortalPage />} />
         <Route path="/paciente/login" element={<PatientPortalPage />} />
         <Route path="/paciente/portal" element={<PatientPortalPage />} />
+        {/* Publica de proposito, como a verificacao e a recuperacao do
+            profissional: quem chega aqui e justamente quem nao consegue
+            entrar. O token no link do e-mail e toda a autorizacao. */}
+        <Route path="/paciente/nova-senha" element={<PatientPasswordResetPage />} />
         {/* A raiz do painel NAO e uma pagina institucional.
             Ela renderizava HomePage, que embute uma copia congelada de
             froid-site/index.html: a do site foi revista em 21/08/2026 e a copia
