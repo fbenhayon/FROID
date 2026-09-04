@@ -19,9 +19,6 @@ import { RiskChart } from "../components/indicators/RiskChart";
 import { SpectralBandsChart } from "../components/indicators/SpectralBandsChart";
 import { SubharmonicChart } from "../components/indicators/SubharmonicChart";
 import { MediaStatus } from "../components/indicators/MediaStatus";
-import { AvisoVozSimulada } from "../components/indicators/AvisoVozSimulada";
-import { RecomendacoesDeUso } from "../components/indicators/RecomendacoesDeUso";
-import { TranscricaoAoVivo } from "../components/indicators/TranscricaoAoVivo";
 import { SessionTimer } from "../components/indicators/SessionTimer";
 import { AIInsights } from "../components/panels/AIInsights";
 import { AudioTranscription } from "../components/panels/AudioTranscription";
@@ -2467,9 +2464,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const rtcMakingOfferRef = useRef(false);
   // Sobrevive a reconstrucao do peer, porque e ela que este numero conta.
   const reconstrucoesRtcRef = useRef(0);
-  // Por que a analise acustica nao esta recebendo voz real, na palavra do
-  // proprio navegador do paciente. Vazio quando esta tudo certo.
-  const [motivoAcustico, setMotivoAcustico] = useState("");
   const rtcReconnectTimerRef = useRef<number | null>(null);
   const rtcDisconnectTimerRef = useRef<number | null>(null);
   const rtcMediaHealthTimerRef = useRef<number | null>(null);
@@ -2504,9 +2498,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const religandoRef = useRef(false);
   const religamentosAutomaticosRef = useRef(0);
   const ultimoReligamentoRef = useRef(0);
-  // Em ref, as falas nao disparavam render — por isso MAX_VISIBLE_TRANSCRIPT_LINES
-  // existia sem nada visivel. O estado e o que leva a fala ate a tela.
-  const [transcriptLines, setTranscriptLines] = useState<string[]>([]);
   const transcriptSegmentsRef = useRef<Array<{ elapsedSeconds: number; text: string }>>([]);
   const froidExplicaConversationRef = useRef<Array<{ role: string; content: string }>>([]);
   const semanticCutStartSecondRef = useRef(0);
@@ -3548,7 +3539,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         } else if (data.type === "acustica") {
           const status = String(data.status || "");
           registrarRtc(`analise acustica no paciente: ${status}`);
-          setMotivoAcustico(status === "enviando" ? "" : status);
         } else if (data.type === "diagnostico" && data.texto) {
           // O relatorio do outro lado, que ate agora nunca atravessou.
           incorporarRelatorioRemoto(String(data.texto));
@@ -3923,7 +3913,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       nextLines.push(line);
     }
     transcriptLinesRef.current = nextLines.slice(-MAX_VISIBLE_TRANSCRIPT_LINES);
-    setTranscriptLines(transcriptLinesRef.current);
 
     const words = countSpokenUnits(text, spokenLanguage);
     const now = Date.now();
@@ -5121,11 +5110,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   )
     ? (raw as any).dissonance_event.all_markers
     : [];
-  // A origem e autoridade do MOTOR, nao do navegador: e ela que diz o que de
-  // fato entrou no calculo. O relato do paciente so explica o porque.
-  const origemDaVoz = String(
-    (raw as any)?.dissonance_event?.voice_features_source || "",
-  );
   const semanticCutElapsed = Math.max(0, state.elapsedSeconds - semanticCutStartSecond);
   const semanticCutWindowSeconds = TRANSCRIPT_SUMMARY_WINDOW_MS / 1000;
   const semanticCutProgress = Math.min(
@@ -5797,13 +5781,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
               </div>
             )}
           </section>
-10{/* Layout simplificado: usa <section>, e por isso ficou de fora da
-10    primeira passagem. A fala precisa estar nos TRES layouts — quem
-10    escolhe o simplificado e justamente quem quer menos ruido na tela,
-10    nao menos informacao sobre o que foi dito. */}
-10<div className="min-h-[140px]">
-10  <TranscricaoAoVivo linhas={transcriptLines} />
-10</div>
 
           <div className="flex min-h-0 flex-col gap-2 lg:overflow-y-auto">
             <section className="shrink-0 overflow-hidden rounded-xl border border-cyan-800 bg-slate-950 p-2 shadow-sm">
@@ -5862,14 +5839,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           {layoutSelector}
 
           <SessionTimer startTime={state.sessionStart} onEndSession={endSession} />
-
-          <RecomendacoesDeUso
-            modo={sessionPatient?.sessionMode || "remote"}
-            vozDoProfissionalCadastrada={Boolean(drVoiceSignature)}
-            sessionId={sessionId || ""}
-          />
-
-          <AvisoVozSimulada origem={origemDaVoz} motivo={motivoAcustico} />
 
           {/* Grade de indices: TODAS as metricas do layout Simplificado, com a
               situacao de cada uma contra os limites que o servidor calcula.
@@ -5935,7 +5904,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
 
         {/* COLUNA 2 — vídeo + resumo/corte + FROID Explica (reduzido) + dissonâncias */}
         <div className="order-2 min-w-0 flex flex-col gap-2 overflow-y-auto bg-slate-950 p-2 shadow-inner">
-          <div className="relative flex min-h-[280px] flex-[0.8] items-center justify-center overflow-hidden rounded-xl border border-slate-700 bg-slate-900">
+          <div className="relative flex min-h-[280px] basis-1/2 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-700 bg-slate-900">
             <MediaStatus
               cameraOn={state.cameraOn}
               micOn={state.micOn}
@@ -6015,12 +5984,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
               </div>
             )}
           </div>
-          {/* A fala, na ordem em que aconteceu. Ficava so num ref: havia ate um
-              MAX_VISIBLE_TRANSCRIPT_LINES, e nada renderizava. */}
-          <div className="min-h-[140px] flex-[0.5]">
-            <TranscricaoAoVivo linhas={transcriptLines} />
-          </div>
-
           <section className="shrink-0 overflow-hidden rounded-xl border border-cyan-800 bg-slate-950 p-2 shadow-sm">
             <AudioTranscription
               audioMeta={displayAudio}
@@ -6132,14 +6095,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
 
         {layoutSelector}
 
-        <RecomendacoesDeUso
-            modo={sessionPatient?.sessionMode || "remote"}
-            vozDoProfissionalCadastrada={Boolean(drVoiceSignature)}
-            sessionId={sessionId || ""}
-          />
-
-          <AvisoVozSimulada origem={origemDaVoz} motivo={motivoAcustico} />
-
         <SessionTimer
           startTime={state.sessionStart}
           onEndSession={endSession}
@@ -6225,7 +6180,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       {/* COLUNA 2 — 34%: Vídeo (50%) + Mapa Zonal (50%) */}
       <div className="order-2 min-w-0 flex flex-col gap-2 overflow-y-auto bg-slate-950 p-2 shadow-inner">
         {/* Vídeo — 50% do espaço */}
-        <div className="relative flex min-h-[320px] flex-[0.9] items-center justify-center overflow-hidden rounded-xl border border-slate-700 bg-slate-900">
+        <div className="relative flex min-h-[320px] basis-1/2 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-700 bg-slate-900">
           <MediaStatus
             cameraOn={state.cameraOn}
             micOn={state.micOn}
@@ -6324,12 +6279,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             </div>
           )}
         </div>
-        {/* A fala, na ordem em que aconteceu. Ficava so num ref: havia ate um
-            MAX_VISIBLE_TRANSCRIPT_LINES, e nada renderizava. */}
-        <div className="min-h-[140px] flex-[0.5]">
-          <TranscricaoAoVivo linhas={transcriptLines} />
-        </div>
-
         <section className="shrink-0 overflow-hidden rounded-xl border border-cyan-800 bg-slate-950 p-2 shadow-sm">
           <AudioTranscription
             audioMeta={displayAudio}

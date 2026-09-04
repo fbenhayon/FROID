@@ -27,6 +27,10 @@ if str(SERVER_DIR) not in sys.path:
 REPO = SERVER_DIR.parent
 DIAGNOSTICO = REPO / "froid-site" / "diagnostico-nr1.html"
 ESPELHO_TS = REPO / "froid-dashboard" / "src" / "lib" / "nr1-representatividade.ts"
+# Os espelhos traduzidos. Cada edicao carrega a propria copia dos cinco numeros,
+# entao cada idioma e mais uma chance de o piso divergir em silencio. O glob e
+# deliberado: idioma novo entra coberto, sem ninguem precisar lembrar.
+TRADUCOES = sorted((REPO / "froid-site").glob("*/diagnostico-nr1.html"))
 
 from nr1_compliance import (  # noqa: E402
     CENSUS_THRESHOLD,
@@ -93,6 +97,59 @@ class ParametrosDaCalculadoraPublica(unittest.TestCase):
         self.assertNotRegex(self.html, r"7[05]\s*(trabalhadores|pessoas)")
 
 
+class EspelhosTraduzidos(unittest.TestCase):
+    """Ingles, espanhol e frances publicam a MESMA calculadora.
+
+    As tres edicoes nasceram em 04/09/2026 copiando o HTML portugues inteiro,
+    script incluido. Passaram a existir como espelho do piso sem que nenhum
+    teste olhasse para elas — e o unico sinal foi a lista de cobertura acusando
+    arquivo de fora, o que sozinho nao diz se o numero esta certo, so que
+    ninguem verificou.
+
+    Divergencia de numero entre idiomas e defeito. Diferenca de idioma nao e.
+    """
+
+    def test_existe_pelo_menos_um_espelho_traduzido(self):
+        """Se o glob parar de achar, o resto desta classe passa por vacuidade —
+        que e a forma mais silenciosa de um teste deixar de proteger."""
+        self.assertTrue(TRADUCOES, "nenhuma traducao de diagnostico-nr1.html")
+
+    def test_cada_idioma_repete_os_cinco_numeros_da_fonte(self):
+        for caminho in TRADUCOES:
+            html = caminho.read_text(encoding="utf-8")
+            with self.subTest(idioma=caminho.parent.name):
+                self.assertEqual(
+                    _numero(html, r"var PISO_CAMPANHA = ([0-9.]+);"), MIN_COHORT_TOTAL
+                )
+                self.assertEqual(
+                    _numero(html, r"var PISO_RECORTE = ([0-9.]+);"), MIN_COHORT_CUT
+                )
+                self.assertEqual(
+                    _numero(html, r"var AMOSTRA_Z = ([0-9.]+);"), CONFIDENCE_Z
+                )
+                self.assertEqual(
+                    _numero(html, r"var AMOSTRA_MARGEM = ([0-9.]+);"), MARGIN_OF_ERROR
+                )
+                self.assertEqual(
+                    _numero(html, r"var AMOSTRA_CORTE_CENSO = ([0-9.]+);"),
+                    CENSUS_THRESHOLD,
+                )
+
+    def test_a_decisao_de_censo_precede_o_teto_em_cada_idioma(self):
+        """O defeito de oscilacao foi corrigido uma vez, no portugues. A copia
+        podia ter sido feita de uma versao anterior a correcao."""
+        for caminho in TRADUCOES:
+            html = caminho.read_text(encoding="utf-8")
+            with self.subTest(idioma=caminho.parent.name):
+                trecho = html[html.index("function amostraNecessaria") :]
+                trecho = trecho[: trecho.index("function exigidoNaCampanha")]
+                self.assertLess(
+                    trecho.index("AMOSTRA_CORTE_CENSO * pop"),
+                    trecho.index("Math.ceil"),
+                    "o teto nao pode preceder a decisao de censo",
+                )
+
+
 class EspelhoDoPainel(unittest.TestCase):
     """froid-dashboard/src/lib/nr1-representatividade.ts espelha os mesmos."""
 
@@ -150,7 +207,12 @@ class NenhumEspelhoFicouDeFora(unittest.TestCase):
         deixa-lo divergir. O teste nao impede — nada impede — mas faz a escolha
         aparecer em vez de acontecer sozinha.
         """
-        cobertos = {DIAGNOSTICO, ESPELHO_TS, SERVER_DIR / "tools" / "simulador_nr1.py"}
+        cobertos = {
+            DIAGNOSTICO,
+            ESPELHO_TS,
+            SERVER_DIR / "tools" / "simulador_nr1.py",
+            *TRADUCOES,
+        }
         for caminho in cobertos:
             with self.subTest(espelho=caminho.name):
                 self.assertTrue(caminho.exists(), f"{caminho} sumiu")
