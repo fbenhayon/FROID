@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import json
+import re
 from pathlib import Path
 import sys
 import unittest
@@ -115,11 +116,54 @@ class Phase4SecurityTests(unittest.TestCase):
         self.assertIn('outcome="denied"', self.main_source)
 
     def test_anonymous_datamart_requires_anonymization_and_excludes_literal_speech(self):
+        """A garantia mudou em 04/09/2026, e a mudança está descrita aqui.
+
+        Até então: NENHUMA fala literal entrava no data mart, e este teste
+        travava isso exigindo as três strings vazias no INSERT.
+
+        A partir de agora existe um caminho para a fala do PROFISSIONAL entrar
+        desidentificada — porque é ela que carrega a técnica que outro
+        profissional vai consultar. O caminho vem com três travas, e são elas
+        que este teste passa a guardar:
+
+        1. Ele está DESLIGADO por padrão. Sem `FROID_DATAMART_FALA_PROFISSIONAL`
+           no ambiente, o acervo grava exatamente o que gravava antes.
+        2. O texto só chega à coluna passando por `desidentificar_fala`. O texto
+           cru continua proibido — que é o que as duas negativas abaixo travam,
+           e elas são as mesmas de antes.
+        3. A fala do PACIENTE continua fora em qualquer caso, ligada ou não a
+           chave. Não há caminho para ela.
+        """
         self.assertIn("FROID_DATAMART_PSEUDONYM_KEY", self.main_source)
         self.assertIn("ingestion_basis='post_anonymization'", self.main_source)
+
+        # Texto cru na coluna: proibido antes, proibido agora.
         self.assertNotIn("patientSummaryAnon\") or patient_text", self.main_source)
         self.assertNotIn("professionalSummaryAnon\") or professional_text", self.main_source)
-        self.assertIn('"",\n                    "",\n                    "",', self.main_source)
+
+        # A chave existe e o padrão é desligado.
+        self.assertIn('os.getenv("FROID_DATAMART_FALA_PROFISSIONAL", "0")', self.main_source)
+        self.assertIn("if FROID_DATAMART_FALA_PROFISSIONAL:", self.main_source)
+        self.assertIn('professional_summary_anon, motivo_deid = "", "desligado"', self.main_source)
+
+        # A única origem possível do texto é a desidentificação. Contar
+        # ocorrências seria frágil — o nome aparece no esquema, na evolução e no
+        # INSERT. O que importa é que toda ATRIBUIÇÃO venha de um dos dois
+        # lugares previstos, e nenhuma outra.
+        atribuicoes = re.findall(
+            r"professional_summary_anon(?:, \w+)? = (.+)", self.main_source
+        )
+        self.assertTrue(atribuicoes, "nenhuma atribuição encontrada")
+        for origem in atribuicoes:
+            self.assertTrue(
+                origem.startswith("desidentificar_fala(")
+                or origem.startswith('"", "desligado"'),
+                f"origem não prevista para a fala do profissional: {origem!r}",
+            )
+
+        # A fala do paciente não tem caminho nenhum.
+        self.assertIn('"",  # patient_summary_anon: a fala do paciente NAO entra.', self.main_source)
+        self.assertNotIn("patient_summary_anon = desidentificar", self.main_source)
 
     def test_subscription_tables_have_rls_and_idempotency(self):
         self.assertIn("ALTER TABLE organization_subscriptions ENABLE ROW LEVEL SECURITY", self.migration)

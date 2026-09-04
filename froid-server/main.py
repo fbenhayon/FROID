@@ -21,6 +21,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 from froid_core import SessionState
+from froid_deidentify import VERSAO_DEID, desidentificar_fala
 import froid_f0
 import froid_mailer
 import froid_voice
@@ -141,6 +142,25 @@ FROID_DUCKDB_PATH = os.getenv(
 )
 FROID_ALGORITHM_VERSION = os.getenv("FROID_ALGORITHM_VERSION", app.version)
 FROID_ANALYTICS_MIN_K = int(os.getenv("FROID_ANALYTICS_MIN_K", "50") or "50")
+
+# A fala do profissional no acervo: DESLIGADA por padrao, e por um motivo.
+#
+# "Nenhuma fala literal entra no data mart" era uma garantia de seguranca com
+# teste proprio — `test_anonymous_datamart_requires_anonymization_and_excludes_
+# literal_speech`. Trocar uma garantia dessas nao e coisa que se faca dentro de
+# uma tarefa: e decisao do dono, tomada de olhos abertos.
+#
+# Entao o caminho existe, esta testado, e nao roda. Com a chave desligada o
+# acervo grava exatamente o que gravava antes — string vazia — e o motivo fica
+# "desligado", que e diferente de "recusado" e diferente de "ninguem alimentou".
+#
+# Ligar isto significa aceitar que texto DESIDENTIFICADO, e nao anonimo, passa a
+# viver numa tabela compartilhada. Ver froid_deidentify para o que a limpeza faz
+# e, principalmente, para o que ela nao faz.
+FROID_DATAMART_FALA_PROFISSIONAL = (
+    os.getenv("FROID_DATAMART_FALA_PROFISSIONAL", "0").strip().lower()
+    in ("1", "true", "on", "sim")
+)
 FROID_ANALYTICS_MAX_SUPPRESSION_RATIO = min(
     0.10,
     max(0.0, float(os.getenv("FROID_ANALYTICS_MAX_SUPPRESSION_RATIO", "0.10") or "0.10")),
@@ -3219,28 +3239,69 @@ def _word_count(text: str) -> int:
     return len(re.findall(r"\b[\wÀ-ÿ]{2,}\b", str(text or ""), flags=re.UNICODE))
 
 
+def _sem_acento_simples(texto: str) -> str:
+    """Indicio escrito sem acento tem de casar com fala transcrita com acento."""
+    return "".join(
+        c for c in unicodedata.normalize("NFD", texto) if unicodedata.category(c) != "Mn"
+    )
+
+
+#: Taxonomia da intervencao, com o peso vindo da especificidade do indicio.
+#:
+#: A versao anterior contava indicios de peso igual e casava por SUBSTRING, o que
+#: produziu tres defeitos que se somavam:
+#:
+#:   - "?" no balde `pergunta_aberta`: toda fala terminada em interrogacao caia
+#:     ali. Como quase toda intervencao clinica contem uma pergunta, esse balde
+#:     engolia o acervo inteiro e a coluna deixava de discriminar qualquer coisa.
+#:   - substring sem fronteira: "como" casava dentro de "comodidade", "corpo"
+#:     dentro de "corporativo", "evita" dentro de "evitavel".
+#:   - empate resolvido pela ORDEM DA LISTA: com dois baldes em 1 ponto, vencia o
+#:     que estivesse escrito primeiro. `acolhimento` ganhava por ser o primeiro.
+#:
+#: Agora o peso e o numero de palavras do indicio — "sistema nervoso" vale 2 e
+#: "corpo" vale 1, porque a expressao de duas palavras e evidencia muito mais
+#: forte —, o casamento e por fronteira de palavra, e empate nao classifica.
+BALDES_DE_INTERVENCAO: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("acolhimento", ("estou aqui", "vamos com calma", "pode falar", "te escuto", "acolho")),
+    ("silencio_terapeutico", ("pausa", "silencio", "podemos esperar", "sem pressa")),
+    ("grounding_regulacao", ("respira", "aterrar", "grounding", "no corpo", "observe", "presenca")),
+    ("psicoeducacao", ("explicar", "psicoeduc", "entenda", "funciona assim", "sistema nervoso")),
+    ("reestruturacao_cognitiva", ("pensamento", "crenca", "evidencia", "outra leitura", "reinterpretar")),
+    ("validacao_emocional", ("faz sentido", "compreendo", "e natural sentir", "tem razao de sentir")),
+    ("pergunta_aberta", ("o que voce", "como voce", "o que aconteceria", "me conta", "e se voce")),
+    ("orientacao_pratica", ("tarefa", "exercicio", "praticar", "anotar", "ficou combinado")),
+    ("confrontacao_terapeutica", ("percebe", "contradicao", "esse padrao", "voce evita", "resistencia")),
+    ("encerramento_sintese", ("resumindo", "sintese", "encerrar", "proxima sessao", "combinamos")),
+)
+
+#: Piso de evidencia. Um indicio de uma palavra so nao classifica nada — e a
+#: unica coisa pior do que nao classificar e classificar errado, porque a linha
+#: entra no acervo com a mesma aparencia de uma classificada com certeza.
+PISO_DE_EVIDENCIA = 2
+
+
 def _infer_intervention_category(text: str) -> str:
-    clean = str(text or "").lower()
+    clean = _sem_acento_simples(str(text or "").lower())
     if not clean:
         return "nao_classificada"
-    buckets = [
-        ("acolhimento", ["estou aqui", "vamos com calma", "pode falar", "te escuto", "acolho"]),
-        ("silencio_terapeutico", ["pausa", "silencio", "podemos esperar", "sem pressa"]),
-        ("grounding_regulacao", ["respira", "aterrar", "grounding", "corpo", "observe", "presenca"]),
-        ("psicoeducacao", ["explicar", "psicoeduc", "entenda", "funciona", "modelo", "sistema nervoso"]),
-        ("reestruturacao_cognitiva", ["pensamento", "crenca", "evidencia", "alternativa", "reinterpretar"]),
-        ("validacao_emocional", ["faz sentido", "compreendo", "valido", "acolho", "natural sentir"]),
-        ("pergunta_aberta", ["como", "quando", "o que", "qual", "pode falar", "?"]),
-        ("orientacao_pratica", ["tarefa", "exercicio", "praticar", "anotar", "combinado"]),
-        ("confrontacao_terapeutica", ["percebe", "contradicao", "padrao", "evita", "resistencia"]),
-        ("encerramento_sintese", ["resumindo", "sintese", "encerrar", "proxima sessao", "combinamos"]),
-    ]
-    scores = [
-        (category, sum(1 for needle in needles if needle in clean))
-        for category, needles in buckets
-    ]
-    best = max(scores, key=lambda item: item[1])
-    return best[0] if best[1] > 0 else "intervencao_geral"
+
+    pontos: list[tuple[str, int]] = []
+    for categoria, indicios in BALDES_DE_INTERVENCAO:
+        total = 0
+        for indicio in indicios:
+            alvo = _sem_acento_simples(indicio)
+            if re.search(r"(?<![a-z])" + re.escape(alvo) + r"(?![a-z])", clean):
+                total += len(alvo.split())
+        pontos.append((categoria, total))
+
+    pontos.sort(key=lambda item: item[1], reverse=True)
+    melhor, segundo = pontos[0], pontos[1]
+    if melhor[1] < PISO_DE_EVIDENCIA or melhor[1] == segundo[1]:
+        # Empate nao classifica. Antes, a ordem da lista decidia — o que e um
+        # criterio, mas nao um criterio sobre o texto.
+        return "intervencao_geral"
+    return melhor[0]
 
 
 def _infer_patient_response(cut: dict, previous_cut: Optional[dict], baseline: dict) -> str:
@@ -3527,6 +3588,8 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 "cut_summary_anon": "VARCHAR",
                 "patient_summary_anon": "VARCHAR",
                 "professional_summary_anon": "VARCHAR",
+                "professional_deid_reason": "VARCHAR",
+                "professional_deid_version": "VARCHAR",
                 "patient_word_count": "INTEGER",
                 "professional_word_count": "INTEGER",
                 "intervention_category": "VARCHAR",
@@ -3760,6 +3823,21 @@ def _append_anonymous_datamart_row(report: dict) -> None:
             atribuicao_desconhecida = not patient_text and not professional_text
             patient_word_count = _word_count(patient_text)
             professional_word_count = _word_count(professional_text)
+            # A fala do PROFISSIONAL entra no acervo com a forma preservada e as
+            # referencias trocadas por marcador. A do paciente nao entra literal
+            # em forma nenhuma — a assimetria e deliberada e esta explicada em
+            # froid_deidentify.
+            #
+            # O motivo da recusa e gravado junto. Sem ele, acervo vazio fica
+            # indistinguivel de acervo que ninguem alimentou, e a diferenca entre
+            # "recusei 90% por ambiguidade" e "o pipeline nao roda" so apareceria
+            # quando alguem fosse consultar e nao achasse nada.
+            if FROID_DATAMART_FALA_PROFISSIONAL:
+                professional_summary_anon, motivo_deid = desidentificar_fala(
+                    professional_text
+                )
+            else:
+                professional_summary_anon, motivo_deid = "", "desligado"
             duration_seconds = max(1, end_second - start_second)
             relative_position = (
                 round(start_second / max(1, _safe_int(report.get("durationSeconds"))), 4)
@@ -3816,12 +3894,13 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                     spectral_band_index, mfcc7_delta, mfcc9_delta,
                     mfcc7_delta_delta, mfcc9_delta_delta, cut_trigger,
                     cut_summary_anon, patient_summary_anon, professional_summary_anon,
+                    professional_deid_reason, professional_deid_version,
                     patient_word_count, professional_word_count, intervention_category,
                     patient_response, ipm_delta_from_baseline, idm_delta_from_baseline,
                     dissonance_delta_from_baseline, ipm_delta_previous_cut,
                     idm_delta_previous_cut, dissonance_delta_previous_cut,
                     quality_confidence, stt_model, llm_model, algorithm_version, audio_quality
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 [
                     session_hash,
@@ -3860,9 +3939,11 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                     _safe_float(cut.get("mfcc7DeltaDelta")),
                     _safe_float(cut.get("mfcc9DeltaDelta")),
                     _anonymous_category(cut_context.get("cut_trigger") or cut_context.get("cutTrigger") or "automatico", "automatico"),
-                    "",
-                    "",
-                    "",
+                    "",  # cut_summary_anon: o tema ja carrega isso, categorizado.
+                    "",  # patient_summary_anon: a fala do paciente NAO entra.
+                    professional_summary_anon,
+                    motivo_deid,
+                    VERSAO_DEID,
                     patient_word_count,
                     professional_word_count,
                     intervention_category,
