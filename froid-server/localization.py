@@ -133,6 +133,26 @@ def summary_prompt(
         "and summary; the stored literal transcript must remain unchanged. Do not diagnose, invent "
         "facts, or add information that was not spoken. When content is "
         "limited, summarize only the material actually available. "
+        # Operar o instrumento nao e material clinico. Num relatorio real de
+        # 04/09/2026 um trecho inteiro virou o tema "Conexao e funcionamento do
+        # FROID", e o resumo relatou "problemas com graficos e a falta de
+        # apuracao de indices acusticos" — os defeitos do nosso produto, dentro
+        # do prontuario pessoal de um paciente.
+        "Stretches in which the participants are operating or discussing the recording tool "
+        "itself — connection, microphone, camera, charts, indices, software behaviour or its "
+        "defects — are NOT clinical material and must not be summarized as if they were. Leave "
+        "them out. If a stretch contains nothing else, say plainly that it held no clinical "
+        "material instead of describing the tool. "
+        # Quem falou e MEDIDA: vem do canal de audio, com rotulo fixo. Parentesco
+        # e papel sao CONTEUDO: vem do que foi dito. Num resumo real, "O filho,
+        # por outro lado, defende..." acertou por sorte — o sistema nao sabe quem
+        # e filho de quem, leu isso das palavras. O mesmo mecanismo, noutra
+        # sessao, atribui a fala do paciente a um terceiro que ele mencionou.
+        "Speakers are labelled in the transcript: lines starting with 'DR.' are the professional "
+        "and lines starting with 'PC' are the patient. Attribute every utterance by that label "
+        "only. Any kinship, profession or role between the people involved is something that was "
+        "SAID in the conversation, never something you know: refer to the two speakers as the "
+        "professional and the patient, and present any other relationship as reported speech. "
         f"Interval: {start_minute}-{end_minute} minutes.\n\nTranscript:\n{str(transcript or '').strip()}"
     )
 
@@ -141,5 +161,7 @@ def summary_system_prompt(output_locale: object) -> str:
     language = session_language(output_locale)
     return (
         "You summarize clinical conversations to support a qualified professional. Never diagnose "
-        f"or invent content. {language.summary_instruction}."
+        "or invent content. Never attribute an utterance to a speaker other than the one the "
+        "transcript labels, and never describe the recording tool as if it were clinical "
+        f"material. {language.summary_instruction}."
     )
