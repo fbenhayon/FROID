@@ -19,6 +19,7 @@ import { RiskChart } from "../components/indicators/RiskChart";
 import { SpectralBandsChart } from "../components/indicators/SpectralBandsChart";
 import { SubharmonicChart } from "../components/indicators/SubharmonicChart";
 import { MediaStatus } from "../components/indicators/MediaStatus";
+import { BotaoDeCorte } from "../components/indicators/BotaoDeCorte";
 import { SessionTimer } from "../components/indicators/SessionTimer";
 import { AIInsights } from "../components/panels/AIInsights";
 import { AudioTranscription } from "../components/panels/AudioTranscription";
@@ -1388,6 +1389,9 @@ const STT_CHUNK_MS = 7000;
 const MIN_STT_AUDIO_BYTES = 1200;
 const MAX_VISIBLE_TRANSCRIPT_LINES = 12;
 const TRANSCRIPT_SUMMARY_WINDOW_MS = 10 * 60 * 1000;
+// Piso do corte manual. Abaixo disso o trecho nao tem substancia para resumir,
+// e dois cortes colados produzem dois resumos que dizem a mesma coisa.
+const SEGUNDOS_MINIMOS_DE_CORTE = 10;
 const FROID_ALGORITHM_VERSION = "3.1.0-dashboard-bioacoustic-units";
 
 function speakerPrefix(speaker: SpeakerRole) {
@@ -4139,6 +4143,40 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     [state.elapsedSeconds, summarizeTranscriptRange],
   );
 
+  // Ctrl + Espaco fecha o corte sem tirar a mao do lugar nem os olhos do
+  // paciente. Escolhi essa combinacao entre as que o Fabio sugeriu porque e a
+  // unica alcancavel com uma mao so, sem olhar para o teclado.
+  //
+  // Tres guardas, cada uma por um motivo concreto:
+  //   - campo de texto em foco: espaco tem de continuar sendo espaco enquanto
+  //     ele digita a anotacao da sessao;
+  //   - `repeat`: tecla segurada abriria uma fila de cortes de um segundo;
+  //   - os mesmos 10 segundos e o mesmo `closing` do botao, para o atalho nunca
+  //     conseguir o que o clique nao consegue.
+  useEffect(() => {
+    const digitando = (alvo: EventTarget | null): boolean => {
+      const el = alvo as HTMLElement | null;
+      if (!el || !el.tagName) return false;
+      if (el.isContentEditable) return true;
+      return ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName);
+    };
+    const aoTeclar = (evento: KeyboardEvent) => {
+      if (!evento.ctrlKey || evento.code !== "Space") return;
+      if (evento.repeat || digitando(evento.target)) return;
+      evento.preventDefault();
+      const decorrido = Math.max(
+        0,
+        elapsedSecondsRef.current - semanticCutStartSecondRef.current,
+      );
+      if (decorrido < SEGUNDOS_MINIMOS_DE_CORTE || semanticCutClosingRef.current) {
+        return;
+      }
+      void closeSemanticCut("manual");
+    };
+    window.addEventListener("keydown", aoTeclar);
+    return () => window.removeEventListener("keydown", aoTeclar);
+  }, [closeSemanticCut]);
+
   const transcribeAudioBlob = useCallback(
     async (audioBlob: Blob, mimeType: string, speaker: SpeakerRole) => {
       if (!audioBlob || audioBlob.size < MIN_STT_AUDIO_BYTES) {
@@ -5702,6 +5740,10 @@ function LiveSessionInner({ user }: LiveSessionProps) {
 
         <main className="grid min-h-0 flex-1 grid-cols-1 gap-2 overflow-y-auto p-2 lg:grid-cols-[minmax(0,3fr)_minmax(360px,2fr)] lg:overflow-hidden">
           <section className="relative flex aspect-video min-h-[220px] shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-700 bg-slate-900 lg:aspect-auto lg:h-full lg:min-h-0 lg:shrink">
+            <BotaoDeCorte
+              onClick={() => void closeSemanticCut("manual")}
+              disabled={semanticCutElapsed < SEGUNDOS_MINIMOS_DE_CORTE || semanticCutClosingRef.current}
+            />
             <MediaStatus
               cameraOn={state.cameraOn}
               micOn={state.micOn}
@@ -5763,7 +5805,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             )}
             {!state.cameraOn && <SimulatedCamera />}
             {(state.camError || !state.micOn) && (
-              <div className="absolute bottom-3 left-3 right-3 z-20 rounded-lg border border-amber-300/50 bg-slate-950/75 px-3 py-2 text-[10px] font-semibold text-amber-100 backdrop-blur-sm">
+              <div className="absolute bottom-3 left-[1.6cm] right-3 z-20 rounded-lg border border-amber-300/50 bg-slate-950/75 px-3 py-2 text-[10px] font-semibold text-amber-100 backdrop-blur-sm">
                 <div className="flex items-center justify-between gap-3">
                   <span className="min-w-0 flex-1">
                     {state.camError || "Áudio aguardando permissão do navegador."}
@@ -5793,7 +5835,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                 cutRemainingLabel={formatCutClock(semanticCutRemaining)}
                 cutProgress={semanticCutProgress}
                 onCloseCut={() => void closeSemanticCut("manual")}
-                closeCutDisabled={semanticCutElapsed < 10 || semanticCutClosingRef.current}
+                closeCutDisabled={semanticCutElapsed < SEGUNDOS_MINIMOS_DE_CORTE || semanticCutClosingRef.current}
               />
             </section>
 
@@ -5905,6 +5947,10 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         {/* COLUNA 2 — vídeo + resumo/corte + FROID Explica (reduzido) + dissonâncias */}
         <div className="order-2 min-w-0 flex flex-col gap-2 overflow-y-auto bg-slate-950 p-2 shadow-inner">
           <div className="relative flex min-h-[280px] basis-1/2 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-700 bg-slate-900">
+            <BotaoDeCorte
+              onClick={() => void closeSemanticCut("manual")}
+              disabled={semanticCutElapsed < SEGUNDOS_MINIMOS_DE_CORTE || semanticCutClosingRef.current}
+            />
             <MediaStatus
               cameraOn={state.cameraOn}
               micOn={state.micOn}
@@ -5966,7 +6012,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             )}
             {!state.cameraOn && <SimulatedCamera />}
             {(state.camError || !state.micOn) && (
-              <div className="absolute bottom-3 left-3 right-3 z-20 rounded-lg border border-amber-300/50 bg-slate-950/75 px-3 py-2 text-[10px] font-semibold text-amber-100 backdrop-blur-sm">
+              <div className="absolute bottom-3 left-[1.6cm] right-3 z-20 rounded-lg border border-amber-300/50 bg-slate-950/75 px-3 py-2 text-[10px] font-semibold text-amber-100 backdrop-blur-sm">
                 <div className="flex items-center justify-between gap-3">
                   <span className="min-w-0 flex-1">
                     {state.camError || "Áudio aguardando permissão do navegador."}
@@ -5994,7 +6040,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
               cutRemainingLabel={formatCutClock(semanticCutRemaining)}
               cutProgress={semanticCutProgress}
               onCloseCut={() => void closeSemanticCut("manual")}
-              closeCutDisabled={semanticCutElapsed < 10 || semanticCutClosingRef.current}
+              closeCutDisabled={semanticCutElapsed < SEGUNDOS_MINIMOS_DE_CORTE || semanticCutClosingRef.current}
             />
           </section>
 
@@ -6181,6 +6227,10 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       <div className="order-2 min-w-0 flex flex-col gap-2 overflow-y-auto bg-slate-950 p-2 shadow-inner">
         {/* Vídeo — 50% do espaço */}
         <div className="relative flex min-h-[320px] basis-1/2 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-700 bg-slate-900">
+          <BotaoDeCorte
+            onClick={() => void closeSemanticCut("manual")}
+            disabled={semanticCutElapsed < SEGUNDOS_MINIMOS_DE_CORTE || semanticCutClosingRef.current}
+          />
           <MediaStatus
             cameraOn={state.cameraOn}
             micOn={state.micOn}
@@ -6261,7 +6311,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           )}
           {!state.cameraOn && <SimulatedCamera />}
           {(state.camError || !state.micOn) && (
-            <div className="absolute bottom-3 left-3 right-3 z-20 rounded-lg border border-amber-300/50 bg-slate-950/75 px-3 py-2 text-[10px] font-semibold text-amber-100 backdrop-blur-sm">
+            <div className="absolute bottom-3 left-[1.6cm] right-3 z-20 rounded-lg border border-amber-300/50 bg-slate-950/75 px-3 py-2 text-[10px] font-semibold text-amber-100 backdrop-blur-sm">
               <div className="flex items-center justify-between gap-3">
                 <span className="min-w-0 flex-1">
                   {state.camError || "Áudio aguardando permissão do navegador."}
@@ -6289,7 +6339,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             cutRemainingLabel={formatCutClock(semanticCutRemaining)}
             cutProgress={semanticCutProgress}
             onCloseCut={() => void closeSemanticCut("manual")}
-            closeCutDisabled={semanticCutElapsed < 10 || semanticCutClosingRef.current}
+            closeCutDisabled={semanticCutElapsed < SEGUNDOS_MINIMOS_DE_CORTE || semanticCutClosingRef.current}
           />
         </section>
 
