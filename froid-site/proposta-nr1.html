@@ -32,6 +32,10 @@
   .destaque { border-left:4px solid var(--destaque); background:#f0f9ff;
               padding:13px 16px; margin:16px 0; }
   ul { margin:8px 0 0 20px; } li { margin:4px 0; }
+  /* Linha de idiomas. So na tela: uma proposta impressa e um documento
+     unico num unico idioma, e link que nao se clica so acrescenta ruido. */
+  .idiomas { font-size:11px; color:var(--fraca); margin:0 0 18px; }
+  .idiomas a { color:var(--destaque); }
   .rodape { margin-top:40px; padding-top:14px; border-top:1px solid var(--linha);
             font-size:11px; color:var(--fraca); }
   @media print {
@@ -44,6 +48,8 @@
 </head>
 <body>
 <div class="folha">
+
+  <p class="idiomas nao-imprime">Idioma: <strong>PT</strong> · <a href="en/proposta-nr1.html">EN</a> · <a href="fr/proposta-nr1.html">FR</a> · <a href="es/proposta-nr1.html">ES</a></p>
 
   <p class="kicker">FROID Psicossocial</p>
   <h1>Proposta de contratação — Gestão de riscos psicossociais (NR-1)</h1>

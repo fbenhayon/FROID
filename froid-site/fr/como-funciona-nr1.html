@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Comment ça marche — le cycle du risque psychosocial, étape par étape</title>
+<meta name="description" content="Le parcours complet d'un déploiement FROID Psychosocial : paramétrage, campagne anonyme, collecte, inventaire des risques avec les neuf champs obligatoires, évaluation ergonomique préliminaire, plan d'action et la preuve mesurée de l'efficacité six mois plus tard." />
+<link rel="alternate" hreflang="fr" href="https://www.froid.com.br/fr/como-funciona-nr1.html" />
+<link rel="alternate" hreflang="pt-BR" href="https://www.froid.com.br/como-funciona-nr1.html" />
+<link rel="alternate" hreflang="en" href="https://www.froid.com.br/en/como-funciona-nr1.html" />
+<link rel="alternate" hreflang="es" href="https://www.froid.com.br/es/como-funciona-nr1.html" />
+<link rel="alternate" hreflang="x-default" href="https://www.froid.com.br/como-funciona-nr1.html" />
+<link rel="stylesheet" href="../site-assets/style.css?v=14" />
+<style>
+  .fase { border-left:3px solid #1e3a5f; padding:0 0 28px 22px; margin-left:6px; position:relative; }
+  .fase:last-child { padding-bottom:0; }
+  .fase::before { content:""; position:absolute; left:-8px; top:4px; width:13px; height:13px; border-radius:50%; background:#38bdf8; }
+  .fase h3 { margin:0 0 4px; font-size:1.05rem; }
+  .fase .quando { font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#7dd3fc; font-weight:800; }
+  .fase p { margin:8px 0 0; line-height:1.7; }
+  .trava { border:1px solid #7c2d12; background:#1c0f08; border-radius:8px; padding:14px 16px; margin-top:12px; }
+  .trava strong { color:#fdba74; }
+  table.comp { width:100%; border-collapse:collapse; margin-top:16px; }
+  table.comp th, table.comp td { border:1px solid var(--border); padding:10px 12px; text-align:left; font-size:14px; vertical-align:top; }
+  table.comp th { background:#0f1c2e; }
+  /* Citation littérale de la réglementation. Même langage visuel que le
+     .norm-quote utilisé sur empresas.html — le texte de la loi en retrait avec
+     sa source déclarée juste en dessous, pour que personne ne confonde ce que
+     la règle dit avec ce que FROID affirme. */
+  .norma { border-left:3px solid var(--froid-azul); padding:2px 0 2px 16px; margin:18px 0; }
+  .norma p { margin:0; color:#e2e8f0; font-size:0.95rem; line-height:1.65; font-style:italic; }
+  .norma .fonte { display:block; font-size:12px; color:#64748b; margin-top:6px; font-style:normal; font-weight:700; }
+  /* Le huitième élément n'est pas une huitième étape : c'est le détour lorsque
+     le cycle ne se referme pas. Marqué en ambre et en tirets pour que personne
+     ne le compte comme faisant partie du chemin normal. */
+  .fase-ciclo { border-left-style:dashed; border-left-color:#92400e; }
+  .fase-ciclo::before { background:#fcd34d; }
+  .fase-ciclo .quando { color:#fcd34d; }
+
+  .haz-wrap { overflow-x:auto; }
+  .haz-table { width:100%; border-collapse:collapse; font-size:0.9rem; min-width:600px; }
+  .haz-table th, .haz-table td { padding:11px 14px; border-bottom:1px solid #334155; text-align:left; vertical-align:top; }
+  .haz-table th { background:#1e293b; color:#f8fafc; font-size:0.82rem; text-transform:uppercase; letter-spacing:0.05em; }
+  .haz-table td:last-child { color:var(--froid-cinza); font-size:0.86rem; }
+  .haz-table .grp td { background:#0f172a; color:#93c5fd; font-weight:700; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em; }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="nav-row">
+    <a class="brand" href="index.html"><img class="brand-logo" src="../site-assets/img/froid-logo.png" alt="FROID" /></a>
+    <nav class="nav-links">
+      <a href="index.html">FROID Psique</a>
+      <a href="ciencia.html">Science</a>
+      <a href="tecnologia.html">Technologie</a>
+      <a href="froid-explica.html">FROID Explique</a>
+      <a href="etica.html">Éthique</a>
+      <a href="seguranca.html">Sécurité</a>
+      <a href="profissionais.html">Professionnels</a>
+      <a href="iso-45003.html">FROID Psychosocial</a>
+      <a href="empresas.html">Pour les Entreprises</a>
+      <a href="como-funciona-nr1.html">Comment ça marche</a>
+      <a href="precos.html">Tarifs</a>
+    </nav>
+    <div class="nav-actions">
+      <a class="btn btn-ghost" href="https://www.froid.com.br/app/#/login">Se connecter</a>
+      <div class="lang-group" role="group" aria-label="Choisir la langue"><a class="lang-pill" href="../como-funciona-nr1.html">PT</a><a class="lang-pill" href="../en/como-funciona-nr1.html">EN</a><span class="lang-pill lang-current">FR</span><a class="lang-pill" href="../es/como-funciona-nr1.html">ES</a></div>
+    </div>
+  </div>
+</header>
+
+<section class="hero" style="padding:56px 0 44px;">
+  <div class="container">
+    <p class="section-kicker" style="color:#93c5fd;">FROID Psychosocial — le cycle opérationnel</p>
+    <h1 style="font-size:2rem;">Comment ça marche, du paramétrage à la preuve d'efficacité</h1>
+    <p class="lead">Nous publions le parcours entier, sans inscription et sans rien garder pour nous. Le processus ci-dessous est ce qu'un régime de risque psychosocial impose — il n'y a aucun secret là-dedans. Ce qui est difficile, et que presque personne ne livre, c'est la dernière étape.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container" style="max-width:820px;">
+
+    <div class="disclaimer-box" style="margin-bottom:32px;">
+      <strong>D'abord, une précision qui évite un malentendu :</strong> dans le module psychosocial, <em>il n'y a pas de séance</em>. Personne n'est interviewé, personne n'allume de caméra et aucun professionnel de FROID n'entre dans votre entreprise. Le travailleur reçoit un lien, répond à un questionnaire anonyme en une dizaine de minutes, et c'est tout. L'analyse de la voix et du visage est l'autre produit de FROID, utilisé par des professionnels de santé en consultation clinique — et l'employeur n'y a jamais accès.
+    </div>
+
+    <!-- L'id reste « as-sete-etapas » à dessein : il est déjà publié, dans le
+         menu déroulant et dans des liens externes. Le changer casserait ces
+         entrées sans rien apporter — c'est le titre visible qui devait suivre
+         le huitième élément. -->
+    <h2 id="as-sete-etapas">Les sept étapes — et le détour quand le cycle ne se referme pas</h2>
+
+    <div style="margin-top:24px;">
+
+      <div class="fase">
+        <span class="quando">Semaine 1</span>
+        <h3>Paramétrage et structure</h3>
+        <p>L'entreprise dessine sa propre structure dans FROID : sites, services et effectifs de chacun. Ce n'est pas de la paperasse — cela détermine quelles ventilations de résultat seront possibles ensuite. Un service trop petit ne produira pas de résultat propre, et il vaut mieux le savoir maintenant.</p>
+      </div>
+
+      <div class="fase">
+        <span class="quando">Semaine 2</span>
+        <h3>Préparation de la campagne</h3>
+        <p>Ici interviennent les trois choses que seule votre entreprise possède : le <strong>canal d'appui réel</strong> — le numéro ou le service vers lequel un travailleur se tourne s'il ne va pas bien —, l'<strong>information sur la finalité</strong> et les <strong>critères de gradation</strong>. Si vous utilisez déjà une matrice 5×5 pour le risque chimique, FROID emploie la même pour le psychosocial, car un programme de gestion des risques doit rester cohérent entre tous les dangers qu'il couvre.</p>
+        <div class="trava">
+          <strong>Verrou :</strong> sans canal d'appui renseigné, le système refuse d'ouvrir la campagne. Demander à quelqu'un comment il va sans avoir où l'orienter est pire que de ne pas demander.
+        </div>
+      </div>
+
+      <div class="fase">
+        <span class="quando">Semaines 3 et 4</span>
+        <h3>Collecte</h3>
+        <p>Les travailleurs reçoivent un lien à usage unique, qui ne conserve pas l'identité de la personne. Il y a environ 39 questions sur les <em>conditions de travail</em> — charge, autonomie, clarté du rôle, soutien, harcèlement, isolement. Aucune question sur un symptôme, une humeur ou un diagnostic : l'instrument évalue l'environnement, pas la personne.</p>
+        <div class="trava">
+          <strong>Verrou :</strong> pendant toute la collecte, l'entreprise ne voit absolument rien — ni partiel, ni pourcentage par service. La raison est mathématique : si le tableau de bord affiche le résultat à 30 répondants puis à 31, l'écart entre les deux écrans révèle la réponse du trente-et-unième.
+        </div>
+      </div>
+
+      <div class="fase">
+        <span class="quando">Semaine 5</span>
+        <h3>Résultat</h3>
+        <p>La campagne se ferme et c'est seulement alors que le tableau de bord s'ouvre. L'entreprise voit, par exemple : <em>« Maintenance, 68 répondants, dimension Excès de demandes en risque élevé »</em>. Elle ne voit jamais une réponse individuelle, parce que la base de données n'autorise cette requête à personne — ni au dirigeant, ni à nous.</p>
+        <div class="trava">
+          <strong>Verrou :</strong> une ventilation comptant moins de répondants que le seuil n'apparaît tout simplement pas. L'anonymat l'emporte sur la curiosité, y compris quand cela frustre le client.
+        </div>
+      </div>
+
+      <div class="fase">
+        <span class="quando">Semaine 6</span>
+        <h3>Inventaire, évaluation ergonomique et plan d'action</h3>
+        <p>Voici ce que la loi exige réellement. L'inventaire des risques psychosociaux avec les neuf champs obligatoires, l'évaluation ergonomique préliminaire et le plan d'action : ce que l'entreprise fera pour chaque risque identifié, avec échéance et responsable. Ils sortent sous forme de documents qui entrent dans le programme de gestion des risques.</p>
+      </div>
+
+      <div class="fase">
+        <span class="quando">6 à 12 mois</span>
+        <h3>Mise en œuvre</h3>
+        <p>Les mesures appartiennent à l'entreprise. FROID conserve les critères enregistrés, les preuves et les dates — de sorte que, le jour où quelqu'un demande, il existe une piste et non un souvenir.</p>
+      </div>
+
+      <div class="fase">
+        <span class="quando">Ensuite</span>
+        <h3>La preuve d'efficacité</h3>
+        <p>Nouvelle campagne, même instrument, même service. FROID compare les deux moments et dit si la mesure a fonctionné — avec la taille d'effet et l'intervalle de confiance, pas avec une flèche verte.</p>
+        <p><strong>Et il dit « sans changement » quand les données ne soutiennent pas une amélioration</strong>, même quand le chiffre brut a l'air bon. Un gain que la statistique ne soutient pas est exactement ce qu'un expert adverse démonte.</p>
+      </div>
+
+      <div class="fase fase-ciclo">
+        <span class="quando">En cas d'échec</span>
+        <h3>La mesure n'a pas fonctionné — et la règle dit déjà quoi faire</h3>
+        <p>Cela arrive, et ce n'est pas un échec du fournisseur. La règle brésilienne prévoit la situation : une mesure dont le suivi indique l'inefficacité <strong>doit être corrigée</strong>, le risque <strong>ne</strong> baisse pas dans la gradation tant qu'il n'y a pas de résultat, et la révision de l'évaluation est avancée. Le cycle repart, un cran plus haut dans la hiérarchie des mesures.</p>
+        <p style="margin-top:12px;"><a class="btn btn-amber-ghost" href="#quando-a-segunda-avaliacao-reprova">Voir la procédure complète, clause par clause</a></p>
+      </div>
+
+    </div>
+
+    <!-- Repris de empresas.html. C'est une référence opérationnelle -- ce qui
+         doit être cartographié -- et celui qui décide d'acheter ne lit pas tout
+         le tableau ; celui qui va l'exploiter, si. Là-bas, il bloquait la
+         lecture juste après « ce qui a changé ». -->
+    <h2 style="margin-top:48px;" id="os-perigos">La liste des dangers du guide du régulateur (2025)</h2>
+    <p style="margin-top:12px;">Le Guide des facteurs de risques psychosociaux liés au travail du ministère du Travail brésilien publie cette liste de dangers et de leurs conséquences possibles. Elle est <strong>indicative et non limitative</strong> : le contrôle apprécie la cohérence du processus d'identification, non l'adhésion littérale à la liste. Votre entreprise peut ajouter des dangers propres à son secteur et écarter ceux qui ne s'appliquent pas, à condition de documenter la justification technique. Les catégories recoupent étroitement celles que décrit l'ISO 45003, ce qui rend la liste utile bien au-delà de la juridiction qui l'a publiée.</p>
+    <div style="margin-top:20px;"><div class="haz-wrap">
+      <table class="haz-table">
+        <thead>
+          <tr><th>Danger (facteur de risque psychosocial)</th><th>Lésion ou atteinte possible</th></tr>
+        </thead>
+        <tbody>
+          <tr class="grp"><td colspan="2">Management et organisation du travail</td></tr>
+          <tr><td>Mauvaise gestion des changements organisationnels</td><td>Trouble mental ; trouble musculo-squelettique</td></tr>
+          <tr><td>Faible clarté du rôle ou de la fonction</td><td>Trouble mental</td></tr>
+          <tr><td>Faibles récompenses et reconnaissance</td><td>Trouble mental</td></tr>
+          <tr><td>Manque de soutien au travail</td><td>Trouble mental</td></tr>
+          <tr><td>Faible contrôle sur le travail / manque d'autonomie</td><td>Trouble mental ; trouble musculo-squelettique</td></tr>
+          <tr><td>Faible justice organisationnelle</td><td>Trouble mental</td></tr>
+          <tr class="grp"><td colspan="2">Charge et demande</td></tr>
+          <tr><td>Excès de demandes au travail (surcharge)</td><td>Trouble mental ; trouble musculo-squelettique</td></tr>
+          <tr><td>Faible demande au travail (sous-charge)</td><td>Trouble mental</td></tr>
+          <tr class="grp"><td colspan="2">Relations et violence</td></tr>
+          <tr><td>Harcèlement de toute nature au travail</td><td>Trouble mental</td></tr>
+          <tr><td>Événements violents ou traumatiques</td><td>Trouble mental</td></tr>
+          <tr><td>Mauvaises relations sur le lieu de travail</td><td>Trouble mental</td></tr>
+          <tr class="grp"><td colspan="2">Environnement et modalité</td></tr>
+          <tr><td>Travail à distance et isolé</td><td>Trouble mental ; fatigue</td></tr>
+          <tr><td>Travail dans des conditions de communication difficile</td><td>Trouble mental</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:16px; font-size:0.86rem; color:var(--froid-cinza);">Le travail à distance, hybride et le télétravail entrent dans l'évaluation. L'entreprise adapte la stratégie au contexte — elle n'exclut pas ces travailleurs.</p>
+    </div>
+
+    <h2 style="margin-top:48px;" id="o-que-e-igual-em-toda-empresa-e-o-que-muda">Ce qui est identique dans toute entreprise, et ce qui change</h2>
+    <table class="comp">
+      <tr><th>Identique pour tous</th><th>Change dans chaque entreprise</th></tr>
+      <tr>
+        <td>Les 13 dimensions et les items de l'instrument</td>
+        <td>La structure des sites et des services</td>
+      </tr>
+      <tr>
+        <td>Le seuil minimal de répondants</td>
+        <td>Le canal d'appui, qui appartient à l'entreprise</td>
+      </tr>
+      <tr>
+        <td>Rien ne sort tant que la collecte est ouverte</td>
+        <td>Le contexte des questions par secteur économique</td>
+      </tr>
+      <tr>
+        <td>Les neuf champs de l'inventaire</td>
+        <td>La matrice de gradation, si vous en utilisez déjà une</td>
+      </tr>
+    </table>
+
+    <p style="margin-top:18px;">L'instrument ne change jamais d'un client à l'autre, et c'est délibéré. Si chaque entreprise avait le sien, rien ne serait comparable dans le temps ni entre cohortes — et la preuve d'efficacité, qui dépend de mesurer deux fois la même chose, cesserait d'exister.</p>
+
+    <h2 style="margin-top:48px;" id="quando-a-segunda-avaliacao-reprova">Et si la seconde évaluation échoue ?</h2>
+    <p>L'entreprise a mesuré, trouvé du risque, changé des processus, mesuré à nouveau — et l'indice reste mauvais. C'est la situation qui effraie le plus les acheteurs, et celle qui produit le plus souvent la mauvaise question : <em>« comment faire pour que le chiffre s'améliore ? »</em></p>
+    <p>La règle y répond déjà. Et la réponse n'est pas de se justifier : c'est de <strong>corriger la mesure</strong>.</p>
+
+    <div class="norma">
+      <p>« Les mesures de prévention doivent être corrigées lorsque les données obtenues lors du suivi indiquent une inefficacité de leur performance. »</p>
+      <span class="fonte">Règle brésilienne NR-1, clause 1.5.5.3.2.1 — traduit de l'original portugais</span>
+    </div>
+
+    <p>Cette clause n'est pas isolée — elle s'insère dans un engrenage que la règle referme entièrement :</p>
+
+    <table class="comp">
+      <tr>
+        <th style="width:22%;">Clause</th>
+        <th>Ce qu'elle impose</th>
+        <th style="width:34%;">Effet lorsque la seconde évaluation échoue</th>
+      </tr>
+      <tr>
+        <td><strong>1.5.4.4.5.3</strong></td>
+        <td>La probabilité doit tenir compte des exigences de l'activité <em>et de l'efficacité des mesures de prévention mises en œuvre</em>.</td>
+        <td>Le risque <strong>ne baisse pas</strong>. Il ne baisserait que si la mesure avait fonctionné — et elle n'a pas fonctionné. La gradation reste élevée.</td>
+      </tr>
+      <tr>
+        <td><strong>1.5.5.3.2</strong></td>
+        <td>La performance des mesures doit faire l'objet d'un suivi planifié.</td>
+        <td>Le suivi est obligatoire. C'est lui qui a révélé l'inefficacité — la seconde évaluation est la règle qui fonctionne, non l'inverse.</td>
+      </tr>
+      <tr>
+        <td><strong>1.5.5.3.2.1</strong></td>
+        <td>Une mesure dont le suivi indique l'inefficacité doit être corrigée.</td>
+        <td>Naît une <strong>obligation nouvelle</strong> : corriger. Répéter la même mesure sous un autre nom ne corrige rien.</td>
+      </tr>
+      <tr>
+        <td><strong>1.4.1, « g »</strong></td>
+        <td>Ordre de priorité des mesures : éliminer le facteur de risque ; mesures de protection collective ; mesures administratives ou d'organisation du travail ; et, en dernier, protection individuelle.</td>
+        <td>Corriger signifie normalement <strong>monter d'un cran</strong>. Si une formation a échoué (administrative), la réponse attendue n'est pas une autre formation — c'est de toucher à l'organisation du travail ou d'éliminer le facteur.</td>
+      </tr>
+      <tr>
+        <td><strong>1.5.5.2.2</strong></td>
+        <td>Les mesures doivent comporter un échéancier, des responsables, des modalités de suivi et de vérification des résultats.</td>
+        <td>La mesure corrigée entre dans un <strong>nouveau plan d'action</strong>, avec échéance et responsable nommé.</td>
+      </tr>
+      <tr>
+        <td><strong>1.5.5.2.1.1</strong></td>
+        <td>Le nombre de travailleurs possiblement atteints augmente la priorité de l'action.</td>
+        <td>Un risque qui a résisté à la première intervention et touche beaucoup de monde <strong>monte dans la file</strong>, il ne descend pas.</td>
+      </tr>
+      <tr>
+        <td><strong>1.5.4.4.6 « a » et « c »</strong></td>
+        <td>L'évaluation est un processus continu, révisé tous les deux ans — ou avant, entre autres hypothèses, après la mise en œuvre de mesures (risques résiduels) et lorsque des inadéquations, insuffisances ou inefficacités sont identifiées.</td>
+        <td>L'échec <strong>avance la révision obligatoire</strong>. Impossible d'attendre l'échéance biennale.</td>
+      </tr>
+      <tr>
+        <td><strong>1.5.7.3.2</strong> et <strong>1.5.7.3.3.1</strong></td>
+        <td>Inventaire des risques avec les neuf champs, et historique conservé pendant 20 ans.</td>
+        <td>La mesure qui a échoué et la correction adoptée <strong>restent consignées</strong>. C'est de la mémoire, et la mémoire est ce que lisent l'inspection et la justice.</td>
+      </tr>
+    </table>
+
+    <p style="margin-top:20px;">Dans l'ordre pratique, lorsque la seconde évaluation échoue :</p>
+    <ol style="line-height:1.85;">
+      <li><strong>Consigner l'inefficacité.</strong> Ne pas maquiller, ne pas reclasser, ne pas changer d'instrument pour obtenir un autre chiffre.</li>
+      <li><strong>Maintenir la gradation élevée.</strong> Le risque ne baisse pas par l'effort, il baisse par le résultat.</li>
+      <li><strong>Corriger la mesure en montant dans l'ordre de priorité.</strong></li>
+      <li><strong>Ouvrir un nouveau plan d'action</strong> avec échéancier, responsable et modalité de vérification.</li>
+      <li><strong>Reprioriser</strong> en tenant compte du nombre de travailleurs exposés.</li>
+      <li><strong>Avancer la révision de l'évaluation des risques.</strong></li>
+      <li><strong>Mesurer de nouveau.</strong> Le cycle ne se referme pas tant que la mesure n'a pas démontré d'effet.</li>
+    </ol>
+
+    <div class="trava">
+      <strong>Pourquoi c'est un avantage, et non un problème.</strong>
+      L'entreprise qui ne mesure pas peut affirmer que la mesure a fonctionné, et personne ne la conteste — jusqu'à un procès-verbal, une expertise ou une action civile. Celle qui mesure se retrouve avec un résultat inconfortable, mais aussi avec la preuve qu'elle a suivi, identifié la défaillance et corrigé. C'est exactement ce qu'exige la clause de suivi et ce que presque personne ne parvient à présenter.
+    </div>
+
+    <p style="margin-top:18px;">FROID traite cela dans le moteur de calcul, pas dans le texte du rapport : une mesure classée inefficace <strong>n'accorde aucune réduction</strong> de probabilité dans la gradation. Elle ne peut pas faire baisser le risque sur le papier tant qu'elle échoue en pratique. Et la direction d'un effet n'est déclarée qu'après avoir survécu au bruit de sa propre cohorte, avec un intervalle de confiance de 95 % — pour que « amélioré » veuille dire amélioré, et non variation d'échantillon.</p>
+
+    <p style="font-size:13px; color:var(--froid-cinza); margin-top:16px;">Les clauses ci-dessus sont citées à partir du texte de la règle brésilienne NR-1 telle que modifiée par l'arrêté MTE nº 1.419/2024, et traduites du portugais ; la rédaction qui fait foi est la portugaise. Cette page décrit la procédure prévue par cette règle et ne constitue pas un avis juridique : l'analyse du cas concret revient au conseil de l'organisation.</p>
+
+    <h2 style="margin-top:44px;" id="a-sua-empresa-tem-tamanho-para-isso">Votre entreprise a-t-elle la taille pour cela ?</h2>
+    <p style="margin-top:14px; font-size:0.9rem;">Les deux portes qui en décident — l'anonymat et la représentativité — sont expliquées en entier dans <a href="empresas.html#insuffisant">Quand la donnée ne suffit pas</a>, y compris ce qui arrive à une ventilation qui ne les franchit pas.</p>
+        <p>Le résultat n'est libéré qu'au-dessus d'un seuil de répondants, et c'est pourquoi les petites entreprises n'obtiennent parfois pas de résultat par service. Autant le découvrir avant de contracter, pas après.</p>
+    <p>Les micro et petites entreprises sont dispensées du programme complet de gestion des risques au Brésil, mais <strong>elles ne sont pas dispensées de l'évaluation ergonomique</strong> — et celle-ci ne dépend d'aucun seuil.</p>
+    <p style="margin-top:20px;">
+      <a class="btn btn-amber" href="diagnostico-nr1.html">Vérifier la maturité de mon entreprise</a>
+      <a class="btn btn-amber-ghost" href="froid-explica-nr1.html">Poser une question sur la règle</a>
+    </p>
+
+    <div class="disclaimer-box" style="margin-top:40px;">
+      <strong>Ce que FROID ne fait en aucun cas :</strong> il n'émet pas de diagnostic, ne classe pas un travailleur dans une tranche de risque, ne remet pas de réponse individuelle à l'employeur et n'est pas un instrument psychométrique validé. Il mesure des conditions de travail et produit les documents que la réglementation exige.
+    </div>
+
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="foot-grid">
+      <div>
+        <h5>FROID</h5>
+        <p style="max-width:340px; color:rgba(248,250,252,0.55);">Frequency Recognition of Internal Dynamics. Outil d'appui à l'écoute clinique — il ne remplace ni l'évaluation, ni le diagnostic, ni le jugement professionnel.</p>
+      </div>
+      <div>
+        <h5>Navigation</h5>
+        <ul>
+          <li><a href="index.html">FROID Psique</a></li>
+          <li><a href="ciencia.html">Science</a></li>
+          <li><a href="tecnologia.html">Technologie</a></li>
+          <li><a href="froid-explica.html">FROID Explique</a></li>
+          <li><a href="etica.html">Éthique</a></li>
+          <li><a href="seguranca.html">Sécurité</a></li>
+          <li><a href="profissionais.html">Professionnels</a></li>
+          <li><a href="iso-45003.html">FROID Psychosocial</a></li>
+          <li><a href="empresas.html">Pour les Entreprises</a></li>
+          <li><a href="como-funciona-nr1.html">Comment ça marche</a></li>
+          <li><a href="precos.html">Tarifs</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Assistance</h5>
+        <ul>
+          <li><a href="faq.html">Questions fréquentes</a></li>
+          <li><a href="glossario.html">Glossaire</a></li>
+          <li><a href="demonstracao.html">Démonstration</a></li>
+          <li><a href="sobre-contato.html">À propos &amp; Contact</a></li>
+          <li><a href="termos.html">Conditions d'utilisation</a></li>
+          <li><a href="privacidade.html">Politique de confidentialité</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Accès</h5>
+        <ul>
+          <li><a href="https://www.froid.com.br/app/#/login">Se connecter à FROID</a></li>
+          <li><a href="https://www.froid.com.br/cadastro">Créer un compte FROID</a></li>
+          <li><a href="https://www.froid.com.br/app/#/paciente">Portail du patient</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">© 2026 FROID. FROID est une marque en cours d'enregistrement auprès de l'INPI (Brésil), avec une demande de protection internationale à l'étude. Le code, les textes, les modèles et l'identité visuelle sont protégés par le droit d'auteur de Fábio de Assumpção Benhayon.</div>
+  </div>
+</footer>
+
+<script src="../site-assets/script.js?v=16"></script>
+</body>
+</html>

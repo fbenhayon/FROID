@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>FROID Psychosocial — l'instrument que l'ISO 45003 ne fournit pas</title>
+<meta name="description" content="L'ISO 45003:2021 est la référence mondiale pour la gestion des risques psychosociaux — et c'est une norme de lignes directrices : elle ne certifie pas et ne mesure pas. FROID Psychosocial est l'instrument qui met en œuvre ce référentiel, durci par la juridiction qui a transformé l'exigence en obligation documentaire." />
+<link rel="alternate" hreflang="fr" href="https://www.froid.com.br/fr/iso-45003.html" />
+<link rel="alternate" hreflang="pt-BR" href="https://www.froid.com.br/iso-45003.html" />
+<link rel="alternate" hreflang="en" href="https://www.froid.com.br/en/iso-45003.html" />
+<link rel="alternate" hreflang="es" href="https://www.froid.com.br/es/iso-45003.html" />
+<link rel="alternate" hreflang="x-default" href="https://www.froid.com.br/iso-45003.html" />
+<link rel="stylesheet" href="../site-assets/style.css?v=14" />
+<style>
+  .stat-row { display:grid; grid-template-columns:repeat(4,1fr); gap:20px; margin:36px auto 0; max-width:960px; }
+  @media (max-width:900px) { .stat-row { grid-template-columns:1fr 1fr; } }
+  @media (max-width:540px) { .stat-row { grid-template-columns:1fr; } }
+  .stat { border:1px solid var(--border); border-radius:var(--radius); background:rgba(15,23,42,0.6); padding:20px 18px; text-align:center; }
+  .stat .num { font-family:var(--font-serif); font-size:1.85rem; font-weight:700; color:#f8fafc; line-height:1.1; font-variant-numeric:tabular-nums; }
+  .stat .desc { font-size:0.85rem; color:var(--froid-cinza); margin-top:8px; }
+
+  .norm-quote { border-left:3px solid var(--froid-azul); padding:2px 0 2px 16px; margin:0 0 22px; color:var(--froid-cinza); font-size:0.9rem; }
+  .norm-quote strong { color:#e2e8f0; }
+  .norm-ref { display:block; font-size:0.78rem; color:#64748b; margin-top:6px; }
+
+  /* Citation littérale d'une source officielle. Distincte du reste parce que
+     sa valeur tient à être exactement ce que le document dit, et non notre
+     lecture de celui-ci. */
+  .literal { border:1px solid #1e3a5f; border-left:4px solid var(--froid-amarelo);
+             border-radius:var(--radius); background:rgba(15,23,42,0.75);
+             padding:18px 22px; margin:0 0 16px; }
+  .literal p { margin:0 0 10px; font-size:0.94rem; line-height:1.65; color:#e2e8f0; font-style:italic; }
+  .literal p:last-of-type { margin-bottom:0; }
+  .literal .fonte { display:block; font-style:normal; font-size:0.78rem; color:#64748b; margin-top:12px; border-top:1px dashed #2a3a5c; padding-top:9px; }
+
+  /* Sommaire de la page. Dupliqué depuis empresas.html à dessein : sept lignes
+     de mise en page, sans aucun chiffre métier, et le déplacer dans le
+     style.css partagé obligerait à changer le ?v= des 65 pages. */
+  .indice { padding:6px 22px; }
+  .indice-linha { display:flex; gap:16px; align-items:flex-start; padding:16px 0; border-bottom:1px solid #1e2a44; }
+  .indice-linha:last-child { border-bottom:none; }
+  .indice-num { flex:none; width:26px; height:26px; border-radius:50%; background:var(--froid-azul); color:#0b1220;
+                font-weight:800; font-size:0.82rem; display:flex; align-items:center; justify-content:center; margin-top:2px; }
+  .indice-linha strong { color:#f8fafc; }
+  .indice-linha > div { font-size:0.92rem; color:var(--froid-cinza); }
+  .indice-linha p { margin:6px 0 0; font-size:0.86rem; }
+
+  .crono { border-left:2px solid #1e2a44; margin:20px 0 0; padding:0 0 0 22px; list-style:none; }
+  .crono li { position:relative; padding:0 0 18px; }
+  .crono li::before { content:""; position:absolute; left:-28px; top:5px; width:10px; height:10px; border-radius:50%; background:var(--froid-azul); }
+  .crono li.marco::before { background:var(--froid-amarelo); box-shadow:0 0 10px var(--froid-amarelo); }
+  .crono .quando { font-weight:700; color:#f8fafc; font-size:0.9rem; }
+  .crono .oque { color:var(--froid-cinza); font-size:0.88rem; margin-top:3px; }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="nav-row">
+    <a class="brand" href="index.html"><img class="brand-logo" src="../site-assets/img/froid-logo.png" alt="FROID" /></a>
+    <nav class="nav-links">
+      <a href="index.html">FROID Psique</a>
+      <a href="ciencia.html">Science</a>
+      <a href="tecnologia.html">Technologie</a>
+      <a href="froid-explica.html">FROID Explique</a>
+      <a href="etica.html">Éthique</a>
+      <a href="seguranca.html">Sécurité</a>
+      <a href="profissionais.html">Professionnels</a>
+      <a href="iso-45003.html">FROID Psychosocial</a>
+      <a href="empresas.html">Pour les Entreprises</a>
+      <a href="como-funciona-nr1.html">Comment ça marche</a>
+      <a href="precos.html">Tarifs</a>
+    </nav>
+    <div class="nav-actions">
+      <a class="btn btn-ghost" href="https://www.froid.com.br/app/#/login">Se connecter</a>
+      <div class="lang-group" role="group" aria-label="Choisir la langue"><a class="lang-pill" href="../iso-45003.html">PT</a><a class="lang-pill" href="../en/iso-45003.html">EN</a><span class="lang-pill lang-current">FR</span><a class="lang-pill" href="../es/iso-45003.html">ES</a></div>
+    </div>
+  </div>
+</header>
+
+<section class="hero" style="padding:64px 0 56px;">
+<div class="container">
+  <p class="section-kicker" style="color:#93c5fd;">FROID Psychosocial — ancré dans l'ISO 45003:2021</p>
+  <h1 style="font-size:2.1rem;">La norme internationale existe depuis cinq ans. L'instrument qui l'exécute, non.</h1>
+  <p class="lead">L'ISO 45003:2021 est la première norme internationale consacrée à la gestion des risques psychosociaux, et elle fonctionne à l'intérieur d'un système fondé sur l'ISO 45001 — que la plupart des groupes industriels détiennent déjà, certifié et audité. Ce qu'elle ne fait <em>pas</em>, c'est mesurer. C'est une norme de lignes directrices : elle définit ce qu'il faut gérer et dans quel système, et s'arrête exactement là où l'opération commence. C'est ce vide que FROID Psychosocial occupe.</p>
+  <div class="hero-actions">
+    <a class="btn btn-solid" href="sobre-contato.html">Parler d'un pilote</a>
+    <a class="btn btn-ghost" href="#lastro">Le critère qui tranche lors d'un contrôle</a>
+    <a class="btn btn-ghost" href="#documental">Obligation de moyens vs. obligation documentaire</a>
+    <a class="btn btn-ghost" href="#ja-tem-45001">Si vous détenez déjà l'ISO 45001</a>
+  </div>
+
+  <div class="stat-row">
+    <div class="stat">
+      <div class="num">1986</div>
+      <div class="desc">l'année où l'OIT et l'OMS ont publié le rapport qui a nommé les facteurs psychosociaux au travail. La préoccupation a quarante ans.</div>
+    </div>
+    <div class="stat">
+      <div class="num">2021</div>
+      <div class="desc">publication de l'ISO 45003, comité technique ISO/TC 283. Première norme internationale consacrée au sujet.</div>
+    </div>
+    <div class="stat">
+      <div class="num">3×</div>
+      <div class="desc">le nombre de fois où le guide officiel du ministère du Travail brésilien cite l'ISO 45003 — deux fois dans le corps, une en bibliographie. Les régulateurs désignent la norme ; ils ne la remplacent pas.</div>
+    </div>
+    <div class="stat">
+      <div class="num">0</div>
+      <div class="desc">méthodologie que ce guide prescrit. Le choix de l'instrument revient à l'entreprise — et elle doit le justifier.</div>
+    </div>
+  </div>
+</div>
+</section>
+
+<section class="block" id="indice">
+  <div class="container">
+    <p class="section-kicker">Comment cette page est organisée</p>
+    <h2 class="section-title">Six lectures, dans cet ordre</h2>
+    <p class="section-lead">L'argument est enchaîné : chaque section s'appuie sur la précédente. Si votre temps est compté, c'est la troisième qui tranche.</p>
+    <div class="card indice">
+      <div class="indice-linha">
+        <span class="indice-num">1</span>
+        <div>
+          <strong><a href="#o-que-e">Ce qu'est l'ISO 45003, avec précision</a></strong>
+          <p>La norme citée correctement — lignes directrices à l'intérieur d'un système ISO 45001 — et les deux limites qui définissent l'espace : elle n'est pas certifiable, et ce n'est pas un instrument d'évaluation.</p>
+        </div>
+      </div>
+      <div class="indice-linha">
+        <span class="indice-num">2</span>
+        <div>
+          <strong><a href="#lastro">Le critère qui tranche lors d'un contrôle</a></strong>
+          <p>Là où un régulateur refuse de nommer une méthodologie, il écrit à la place le test d'acceptation d'un outil : fondement scientifique, ou appui d'une institution nationale ou internationale de SST. Cité littéralement.</p>
+        </div>
+      </div>
+      <div class="indice-linha">
+        <span class="indice-num">3</span>
+        <div>
+          <strong><a href="#documental">Obligation de moyens vs. obligation documentaire</a></strong>
+          <p>Pourquoi la méthode a été durcie sous un régime particulier, et pourquoi cela compte partout ailleurs. Avec la chronologie mondiale depuis 1986, quand l'OIT et l'OMS ont nommé le champ.</p>
+        </div>
+      </div>
+      <div class="indice-linha">
+        <span class="indice-num">4</span>
+        <div>
+          <strong><a href="#ja-tem-45001">Si vous détenez déjà l'ISO 45001</a></strong>
+          <p>Le coût de changement est nul : par définition de l'ISO elle-même, la 45003 est la couche psychosociale d'un système que l'entreprise exploite déjà, certifié.</p>
+        </div>
+      </div>
+      <div class="indice-linha">
+        <span class="indice-num">5</span>
+        <div>
+          <strong><a href="#limites">Ce que nous n'affirmons pas</a></strong>
+          <p>Nous ne sommes pas certifiés ISO — et personne ne l'est, sur cette norme. Un questionnaire seul ne prouve pas la gestion. Et les documents produits suivent la structure brésilienne.</p>
+        </div>
+      </div>
+      <div class="indice-linha">
+        <span class="indice-num">6</span>
+        <div>
+          <strong><a href="#proximo">Commencez par un site</a></strong>
+          <p>Un établissement, des critères documentés dès le premier jour. Si la méthode tient là, elle passe à l'échelle ; sinon, vous l'avez découvert à bas coût.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block soft" id="o-que-e">
+  <div class="container">
+    <p class="section-kicker">Le référentiel</p>
+    <h2 class="section-title">Ce qu'est l'ISO 45003, avec précision</h2>
+    <p class="section-lead">La précision compte ici, parce que presque tout le marché décrit cette norme de travers — et une description fausse est la première chose que repère un auditeur de système de management.</p>
+
+    <div class="literal">
+      <p>« This document gives guidelines for managing psychosocial risk within an occupational health and safety (OH&amp;S) management system based on ISO 45001. »</p>
+      <p>« This document is intended to be used together with ISO 45001, which contains requirements and guidance on planning, implementing, reviewing, evaluating and improving an OH&amp;S management system. »</p>
+      <span class="fonte">ISO 45003:2021 — <em>Occupational health and safety management — Psychological health and safety at work — Guidelines for managing psychosocial risks.</em> Comité ISO/TC 283, première édition, juin 2021. S'applique aux organisations de toutes tailles et de tous secteurs. Extraits reproduits dans leur langue d'origine, l'anglais.</span>
+    </div>
+
+    <div class="grid-2" style="margin-top:24px;">
+      <div class="card">
+        <span class="badge badge-weak">Limite 1</span>
+        <h3>Elle n'est pas certifiable, et qui prétend le contraire se trompe</h3>
+        <p>Étant une norme de <strong>lignes directrices</strong> et non d'exigences, l'ISO 45003 ne constitue pas un système accrédité et n'entre donc pas dans un périmètre de certification accréditée. Un fournisseur qui annonce une « certification ISO 45003 » vend quelque chose qui n'existe pas en ces termes — et c'est l'une des rares affirmations qu'un professionnel des systèmes de management démonte en quelques secondes.</p>
+        <p style="margin-top:10px;"><strong>Nous ne certifions pas non plus.</strong> Le dire fait partie du fait d'y être ancré honnêtement.</p>
+      </div>
+      <div class="card">
+        <span class="badge badge-weak">Limite 2</span>
+        <h3>Ce n'est pas un instrument d'évaluation</h3>
+        <p>L'ISO 45003 ne mesure pas, ne classe pas et ne produit pas d'inventaire des risques. Elle décrit des catégories de danger psychosocial et la façon de les gérer dans le système — et doit être combinée à une méthodologie d'évaluation qu'elle ne fournit pas elle-même.</p>
+        <p style="margin-top:10px;">Il existe donc une référence mondiale consolidée et un <strong>vide méthodologique en dessous</strong>. C'est ce vide, et non la norme, que FROID occupe. Nous ne sommes pas un cadre concurrent : nous sommes l'instrument qui met en œuvre le cadre qui fait déjà référence.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="lastro">
+  <div class="container">
+    <p class="section-kicker">L'argument qui tranche</p>
+    <h2 class="section-title">Un régulateur qui refuse de nommer une méthodologie écrit à la place le test d'acceptation d'un outil</h2>
+    <p class="section-lead">C'est le passage le plus important de cette page, et il est littéral. Le guide du ministère du Travail brésilien est cité parce qu'il énonce par écrit, le plus clairement, un test que les contrôles appliquent partout — et parce que ce même guide cite l'ISO 45003 deux fois dans le corps et une fois dans sa bibliographie formelle, aux côtés de l'ISO 45001:2018.</p>
+
+    <div class="literal">
+      <p>« S'agissant des outils d'évaluation/questionnaires/enquêtes, le MTE ne définit ni ne suggère aucune méthodologie spécifique. C'est une question que l'organisation, avec ses professionnels de SST, doit examiner et trancher. »</p>
+      <p>« Cet outil spécifique doit être adapté au risque ou à la circonstance évaluée. »</p>
+      <p>« En utilisant un outil spécifique, il faut vérifier s'il est scientifiquement fondé, c'est-à-dire s'il existe une étude scientifique ou <strong>un organisme ou une institution de SST, nationale ou internationale, qui lui donne fondement et appui</strong>. »</p>
+      <p>« Si un questionnaire quelconque est utilisé [...] il est très important de préserver l'<strong>anonymat</strong>, et de le garantir au travailleur. »</p>
+      <span class="fonte">Guide des facteurs de risques psychosociaux liés au travail — ministère du Travail et de l'Emploi, Brésil, 2025. Extraits littéraux traduits de l'original portugais ; la formulation qui fait foi est la portugaise, reproduite sur l'<a href="../iso-45003.html">édition portugaise de cette page</a>.</span>
+    </div>
+
+    <p class="section-lead" style="margin:22px 0;">Lisez la séquence attentivement. Le régulateur <strong>(1)</strong> refuse d'indiquer une méthodologie, laissant la charge du choix à l'entreprise ; <strong>(2)</strong> exige que l'outil soit adapté au risque ; et <strong>(3)</strong> exige l'appui d'un organisme ou d'une institution de santé et sécurité au travail, nationale ou internationale.</p>
+
+    <div class="norm-quote">
+      <p style="margin:0 0 8px;"><strong>L'ISO est littéralement cet organisme international, et l'ISO 45003 est littéralement cet appui.</strong> Y être ancré n'est pas un positionnement marketing — c'est satisfaire le critère qu'un régulateur a lui-même écrit pour accepter un instrument. Rien dans ce test n'est propre à un seul pays : un auditeur, où qu'il soit, pose la même question avec d'autres mots.</p>
+      <span class="norm-ref">Et le quatrième extrait boucle la boucle : le guide exige un anonymat garanti au travailleur, ce qu'une frontière imposée par la base de données livre — et ce qu'une promesse de politique interne ne livre pas.</span>
+    </div>
+
+    <div class="disclaimer-box">
+      <strong>La conséquence pratique, dite sans détour.</strong> Lors d'une inspection ou d'une expertise, la question ne sera pas « avez-vous utilisé un outil ? ». Elle sera <strong>« sur quelle base avez-vous choisi cet outil ? »</strong>. Qui ne peut nommer l'institution qui fonde l'instrument détient un document sans fondement — et là où le critère est publié, l'inspecteur l'a déjà en main.
+    </div>
+  </div>
+</section>
+
+<section class="block soft" id="documental">
+  <div class="container">
+    <p class="section-kicker">Pourquoi la méthode a été durcie</p>
+    <h2 class="section-title">Le Brésil n'a pas été la première juridiction à exiger. Il a été celle qui l'a rendu documentaire.</h2>
+    <p class="section-lead">La distinction n'est pas une fierté nationale — c'est l'explication technique de pourquoi un instrument construit là-bas arrive ailleurs avec de la marge.</p>
+
+    <p class="section-lead" style="margin-bottom:22px;">Plusieurs pays exigent une évaluation du risque psychosocial depuis plus de dix ans, par des voies différentes. Le trait distinctif du régime brésilien n'est pas la date : c'est la <strong>nature de l'exigence</strong>. Là où la plupart des régimes imposent une obligation de moyens — agir dans la mesure du raisonnablement praticable —, la règle brésilienne exige un <strong>artefact</strong>.</p>
+
+    <div class="grid-2">
+      <div class="card">
+        <span class="badge badge-moderate">Obligation de moyens</span>
+        <h3>Le modèle dominant</h3>
+        <p>L'obligation porte sur les moyens : identifier, maîtriser et réviser les risques psychosociaux dans la mesure du raisonnablement praticable. La défense, le jour venu, consiste à démontrer qu'on a agi raisonnablement. Ce qui est examiné, c'est la conduite.</p>
+      </div>
+      <div class="card">
+        <span class="badge badge-strong">Obligation documentaire</span>
+        <h3>Le modèle brésilien</h3>
+        <p>L'obligation porte sur un résultat documenté : un inventaire des risques avec neuf informations minimales, un plan d'action avec échéancier, responsable, modalité de suivi et modalité de vérification pour chaque mesure, un document consignant les critères de gestion des risques — et une clause imposant de tenir compte de l'efficacité des mesures déjà mises en œuvre pour graduer la probabilité. Ce qui est examiné, c'est le papier.</p>
+      </div>
+    </div>
+
+    <div class="norm-quote" style="margin-top:24px;">
+      <p style="margin:0 0 8px;"><strong>D'où l'asymétrie qui compte pour qui opère hors du Brésil.</strong> Un instrument conçu pour survivre à une expertise documentaire satisfait sans effort un régime d'obligation de moyens. L'inverse n'est pas vrai : qui n'a eu qu'à agir raisonnablement ne dispose pas, le jour de la mise en cause, de la trace de calcul, des critères versionnés et de la comparaison entre cycles qu'une exigence documentaire oblige à produire dès le premier jour.</p>
+      <span class="norm-ref">Nous n'avons pas été les premiers. Nous avons été les plus durs — et c'est la dureté, pas la date, qui voyage.</span>
+    </div>
+
+    <div class="nerds-wrapper">
+      <button class="nerds-toggle" data-target="nerds-cronologia" data-label-closed="Réservé aux passionnés" data-label-open="Fermer les détails techniques" aria-expanded="false">Réservé aux passionnés</button>
+      <div class="nerds-panel" id="nerds-cronologia">
+        <h4>Quarante ans de préoccupation, cinq ans de norme internationale</h4>
+        <p>Le sujet n'est né ni avec la règle brésilienne ni avec l'ISO 45003. La ligne ci-dessous soutient l'affirmation selon laquelle le Brésil n'a rien inauguré — et que ce qu'il a fait de distinct est autre chose.</p>
+        <ul class="crono">
+          <li class="marco">
+            <div class="quando">1986 — OIT et OMS</div>
+            <div class="oque">Publication de <em>Psychosocial factors at work: Recognition and control</em>, Occupational Safety and Health Series nº 56, issue de la neuvième session du Comité mixte OIT/OMS de la santé au travail. C'est le document qui nomme et organise le champ.</div>
+          </li>
+          <li>
+            <div class="quando">1989 — Union européenne</div>
+            <div class="oque">Directive-cadre 89/391/CEE : obligation générale de l'employeur d'évaluer <em>tous</em> les risques pour la sécurité et la santé. Les facteurs psychosociaux n'ont jamais été exclus de ce devoir — ce qui manquait, c'était la méthode, pas l'obligation.</div>
+          </li>
+          <li>
+            <div class="quando">2004 — Partenaires sociaux européens</div>
+            <div class="oque">Accord-cadre européen sur le stress au travail, qui fait passer le sujet de l'obligation générale à un instrument dédié.</div>
+          </li>
+          <li>
+            <div class="quando">2014 — Belgique</div>
+            <div class="oque">Loi du 28 février relative à la prévention des risques psychosociaux au travail, avec analyse des risques obligatoire.</div>
+          </li>
+          <li>
+            <div class="quando">2016 — Suède</div>
+            <div class="oque">Entrée en vigueur de l'AFS 2015:4, sur l'environnement de travail organisationnel et social — charge de travail, temps de travail et harcèlement comme matière réglementée.</div>
+          </li>
+          <li class="marco">
+            <div class="quando">2021 — ISO</div>
+            <div class="oque">Publication de l'ISO 45003, comité ISO/TC 283. Première norme internationale consacrée au sujet, et lignes directrices à l'intérieur d'un système ISO 45001.</div>
+          </li>
+          <li>
+            <div class="quando">2021 à 2024 — Australie</div>
+            <div class="oque">Code of Practice de Nouvelle-Galles du Sud (2021), amendements aux WHS Regulations avec des devoirs explicites d'identifier, maîtriser et réviser le risque psychosocial (2022), Code du Queensland en vigueur (avril 2023) et Code du Commonwealth (2024). Régime d'obligation de moyens : <em>so far as is reasonably practicable</em>.</div>
+          </li>
+          <li class="marco">
+            <div class="quando">2024 à 2026 — Brésil</div>
+            <div class="oque">L'arrêté MTE nº 1.419/2024 inscrit expressément les facteurs psychosociaux à l'inventaire des risques du programme de gestion des risques professionnels ; l'arrêté nº 765/2025 en reporte l'entrée en vigueur ; l'exigence s'applique au 26 mai 2026 et la période de double visite d'orientation s'achève le 24 août 2026. Régime documentaire.</div>
+          </li>
+        </ul>
+        <div class="ref">Les dates européennes et australiennes sont données à titre de contexte historique et doivent être confirmées auprès d'un conseil local avant tout usage dans un document formel. Les dates brésiliennes proviennent des arrêtés cités, qui font partie du corpus consultable de <a href="froid-explica-nr1.html">FROID Explique la règle brésilienne</a>.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="ja-tem-45001">
+  <div class="container">
+    <p class="section-kicker">Pour les entreprises qui exploitent déjà un système de management</p>
+    <h2 class="section-title">Nous ne vous demandons pas d'adopter un nouveau cadre</h2>
+    <p class="section-lead">C'est la différence entre une proposition qui exige une décision stratégique et une qui complète une structure déjà choisie.</p>
+
+    <div class="grid-3">
+      <div class="card">
+        <span class="badge badge-strong">Coût de changement</span>
+        <h3>Nul</h3>
+        <p>Par définition de l'ISO elle-même, la 45003 est la couche psychosociale d'un système fondé sur l'ISO 45001. Si votre groupe exploite déjà la 45001 certifiée et auditée, le référentiel n'est pas nouveau — c'est la part de celui-ci qui n'avait pas encore d'instrument.</p>
+      </div>
+      <div class="card">
+        <span class="badge badge-strong">Ce qui s'ajoute</span>
+        <h3>Le module manquant</h3>
+        <p>Un instrument ancré, des seuils appliqués dans la base de données, une gradation par gravité et probabilité, et une comparaison d'efficacité entre cycles. Il entre comme composant d'un système mature, non comme substitut.</p>
+      </div>
+      <div class="card">
+        <span class="badge badge-weak">Ce qui ne change pas</span>
+        <h3>Votre gouvernance SST</h3>
+        <p>Nous n'émettons pas d'expertise, nous ne signons pas votre programme de gestion des risques et nous ne remplaçons pas votre service de santé au travail. La responsabilité de la gestion des risques reste entièrement celle de l'organisation, et l'instrument existe pour l'éclairer — non pour l'assumer.</p>
+      </div>
+    </div>
+
+    <div class="disclaimer-box" style="margin-top:24px;">
+      <strong>L'argument en une ligne, à porter devant un conseil :</strong> la norme internationale existe déjà et n'est qu'une ligne directrice sans instrument ; l'exigence documentaire existe déjà et elle est brésilienne ; qui a résolu l'instrument sous l'exigence la plus dure détient la méthode qui sert des deux côtés. Le Brésil cesse d'être le marché et devient le laboratoire où la méthode a été éprouvée sous la pression la plus forte.
+    </div>
+  </div>
+</section>
+
+<section class="block soft" id="limites">
+  <div class="container">
+    <p class="section-kicker">Limites</p>
+    <h2 class="section-title">Ce que nous n'affirmons pas</h2>
+    <div class="disclaimer-box" style="margin:0;">
+      <strong>Nous ne sommes pas certifiés ISO, et personne ne l'est sur cette norme.</strong> L'ISO 45003 est une norme de lignes directrices et n'admet pas de certification accréditée. Y être ancré signifie que l'instrument s'appuie sur le référentiel international qu'un régulateur cite lui-même — non que nous détenions un label, un audit ou une accréditation auprès de l'ISO.<br/><br/>
+      <strong>Nous ne sommes pas l'ISO et nous ne la représentons pas.</strong> Les citations de cette page sont des extraits du domaine d'application public de la norme et du guide du ministère du Travail brésilien, reproduits pour identifier la source de l'ancrage.<br/><br/>
+      <strong>Un questionnaire seul ne prouve pas la gestion du risque</strong>, et nous le disons avant qu'on ne le demande. L'instrument caractérise l'exposition ; l'observation de l'activité et le dialogue avec le travailleur sont le fait de personnes, et une analyse ergonomique du travail reste la méthode exigée dans les situations que la réglementation locale lui réserve.<br/><br/>
+      <strong>Les documents produits suivent la structure de la réglementation brésilienne.</strong> Hors du Brésil, ce qui se transfère, ce sont l'instrument, les seuils, le moteur d'efficacité et la piste de preuve ; la mise en correspondance de la sortie avec le document exigé localement se définit par projet. Nous préférons le dire maintenant plutôt que de le découvrir ensemble plus tard.
+    </div>
+  </div>
+</section>
+
+<section class="block" id="proximo">
+  <div class="container">
+    <p class="section-kicker">Prochaine étape</p>
+    <h2 class="section-title">Commencez par un site</h2>
+    <p class="section-lead">Un établissement, des critères documentés dès le premier jour, et l'exposition caractérisée sous une forme que votre évaluation sait absorber. Si la méthode tient là, elle passe à l'échelle. Sinon, vous l'avez découvert à bas coût.</p>
+    <div class="hero-actions" style="margin-top:22px;">
+      <a class="btn btn-solid" href="sobre-contato.html">Parler d'un pilote</a>
+      <a class="btn btn-ghost" href="empresas.html">Ce que l'entreprise reçoit, et à quel prix</a>
+      <a class="btn btn-ghost" href="como-funciona-nr1.html">Le cycle, étape par étape</a>
+    </div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="foot-grid">
+      <div>
+        <h5>FROID</h5>
+        <p style="max-width:340px; color:rgba(248,250,252,0.55);">Frequency Recognition of Internal Dynamics. Outil d'appui à l'écoute clinique — il ne remplace ni l'évaluation, ni le diagnostic, ni le jugement professionnel.</p>
+      </div>
+      <div>
+        <h5>Navigation</h5>
+        <ul>
+          <li><a href="index.html">FROID Psique</a></li>
+          <li><a href="ciencia.html">Science</a></li>
+          <li><a href="tecnologia.html">Technologie</a></li>
+          <li><a href="froid-explica.html">FROID Explique</a></li>
+          <li><a href="etica.html">Éthique</a></li>
+          <li><a href="seguranca.html">Sécurité</a></li>
+          <li><a href="profissionais.html">Professionnels</a></li>
+          <li><a href="iso-45003.html">FROID Psychosocial</a></li>
+          <li><a href="empresas.html">Pour les Entreprises</a></li>
+          <li><a href="como-funciona-nr1.html">Comment ça marche</a></li>
+          <li><a href="precos.html">Tarifs</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Assistance</h5>
+        <ul>
+          <li><a href="faq.html">Questions fréquentes</a></li>
+          <li><a href="glossario.html">Glossaire</a></li>
+          <li><a href="demonstracao.html">Démonstration</a></li>
+          <li><a href="sobre-contato.html">À propos &amp; Contact</a></li>
+          <li><a href="termos.html">Conditions d'utilisation</a></li>
+          <li><a href="privacidade.html">Politique de confidentialité</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Accès</h5>
+        <ul>
+          <li><a href="https://www.froid.com.br/app/#/login">Se connecter à FROID</a></li>
+          <li><a href="https://www.froid.com.br/cadastro">Créer un compte FROID</a></li>
+          <li><a href="https://www.froid.com.br/app/#/paciente">Portail du patient</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">© 2026 FROID. FROID est une marque en cours d'enregistrement auprès de l'INPI (Brésil), avec une demande de protection internationale à l'étude. Le code, les textes, les modèles et l'identité visuelle sont protégés par le droit d'auteur de Fábio de Assumpção Benhayon.</div>
+  </div>
+</footer>
+
+<script src="../site-assets/script.js?v=16"></script>
+</body>
+</html>

@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Diagnostic de maturité pour une évaluation des risques psychosociaux — FROID</title>
+<meta name="description" content="Découvrez en deux minutes si votre entreprise a la taille et les conditions pour une évaluation des risques psychosociaux au résultat publiable, et ce qu'il reste à préparer avant de commencer." />
+<link rel="alternate" hreflang="fr" href="https://www.froid.com.br/fr/diagnostico-nr1.html" />
+<link rel="alternate" hreflang="pt-BR" href="https://www.froid.com.br/diagnostico-nr1.html" />
+<link rel="alternate" hreflang="en" href="https://www.froid.com.br/en/diagnostico-nr1.html" />
+<link rel="alternate" hreflang="es" href="https://www.froid.com.br/es/diagnostico-nr1.html" />
+<link rel="alternate" hreflang="x-default" href="https://www.froid.com.br/diagnostico-nr1.html" />
+<link rel="stylesheet" href="../site-assets/style.css?v=14" />
+<style>
+  .calc { border:1px solid var(--border); border-radius:10px; padding:22px; background:#0b1524; }
+  .calc label { display:block; font-size:13px; font-weight:700; margin:16px 0 6px; }
+  .calc input, .calc select { width:100%; padding:10px 12px; border-radius:7px; border:1px solid var(--border); background:#060d18; color:var(--text); font-size:15px; }
+  .calc .linha { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:640px) { .calc .linha { grid-template-columns:1fr; } }
+  .veredito { border-radius:9px; padding:18px; margin-top:22px; line-height:1.7; display:none; }
+  .v-ok { border:1px solid #14532d; background:#08160e; }
+  .v-atencao { border:1px solid #78350f; background:#1a1006; }
+  .v-nao { border:1px solid #7f1d1d; background:#1a0a0a; }
+  .veredito h3 { margin:0 0 8px; font-size:1.05rem; }
+  .veredito ul { margin:10px 0 0 18px; }
+  .veredito li { margin:5px 0; }
+  .gate { border:1px solid var(--border); border-radius:10px; padding:20px; margin-top:26px; background:#0f1c2e; }
+  .muted-sm { font-size:12px; color:var(--text-dim); margin-top:10px; line-height:1.6; }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="nav-row">
+    <a class="brand" href="index.html"><img class="brand-logo" src="../site-assets/img/froid-logo.png" alt="FROID" /></a>
+    <nav class="nav-links">
+      <a href="index.html">FROID Psique</a>
+      <a href="ciencia.html">Science</a>
+      <a href="tecnologia.html">Technologie</a>
+      <a href="froid-explica.html">FROID Explique</a>
+      <a href="etica.html">Éthique</a>
+      <a href="seguranca.html">Sécurité</a>
+      <a href="profissionais.html">Professionnels</a>
+      <a href="iso-45003.html">FROID Psychosocial</a>
+      <a href="empresas.html">Pour les Entreprises</a>
+      <a href="como-funciona-nr1.html">Comment ça marche</a>
+      <a href="precos.html">Tarifs</a>
+    </nav>
+    <div class="nav-actions">
+      <a class="btn btn-ghost" href="https://www.froid.com.br/app/#/login">Se connecter</a>
+      <div class="lang-group" role="group" aria-label="Choisir la langue"><a class="lang-pill" href="../diagnostico-nr1.html">PT</a><a class="lang-pill" href="../en/diagnostico-nr1.html">EN</a><span class="lang-pill lang-current">FR</span><a class="lang-pill" href="../es/diagnostico-nr1.html">ES</a></div>
+    </div>
+  </div>
+</header>
+
+<section class="hero" style="padding:52px 0 36px;">
+  <div class="container">
+    <p class="section-kicker" style="color:#93c5fd;">Diagnostic de maturité</p>
+    <h1 style="font-size:1.9rem;">Votre entreprise peut-elle obtenir un résultat publiable ?</h1>
+    <p class="lead">Deux questions, et le calcul se fait ici même, dans votre navigateur. Si la réponse est non, mieux vaut le savoir maintenant — et il existe un autre chemin pour ce cas.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container" style="max-width:720px;">
+
+    <div class="calc">
+      <div class="linha">
+        <div>
+          <label for="pessoas">Personnes sur le site à évaluer</label>
+          <input type="number" id="pessoas" min="1" placeholder="ex. : 180" />
+        </div>
+        <div>
+          <label for="setores">En combien de services voulez-vous voir le résultat ventilé</label>
+          <input type="number" id="setores" min="1" value="1" />
+        </div>
+      </div>
+      <label for="adesao">Participation attendue</label>
+      <select id="adesao">
+        <option value="0.5">Prudente — 50 % (première campagne, sans communication préalable)</option>
+        <option value="0.65" selected>Réaliste — 65 % (avec l'appui de la direction)</option>
+        <option value="0.8">Optimiste — 80 % (culture déjà habituée aux enquêtes internes)</option>
+      </select>
+      <p style="margin-top:18px;">
+        <button class="btn btn-solid" type="button" onclick="calcular()">Calculer</button>
+      </p>
+    </div>
+
+    <div id="veredito" class="veredito"></div>
+
+    <div class="gate" id="gate" style="display:none;">
+      <h3 style="margin:0 0 6px; font-size:1.05rem;">Vous voulez le dossier de préparation complet ?</h3>
+      <p style="margin:0; font-size:14px; line-height:1.7;">Nous envoyons la liste de vérification de maturité, le modèle d'inventaire avec les neuf champs obligatoires et un modèle de plan d'action. Ce sont les documents que l'inspection réclame.</p>
+      <form id="form-lead" method="post" action="/api/leads/nr1" style="margin-top:16px;" onsubmit="return enviarLead(event)">
+        <div class="linha">
+          <div>
+            <label for="nome">Nom</label>
+            <input type="text" id="nome" name="nome" required />
+          </div>
+          <div>
+            <label for="email">E-mail professionnel</label>
+            <input type="email" id="email" name="email" required />
+          </div>
+        </div>
+        <div class="linha">
+          <div>
+            <label for="empresa">Entreprise</label>
+            <input type="text" id="empresa" name="empresa" required />
+          </div>
+          <div>
+            <label for="cargo">Fonction</label>
+            <input type="text" id="cargo" name="cargo" />
+          </div>
+        </div>
+        <input type="hidden" id="contexto" name="contexto" />
+        <p style="margin-top:18px;">
+          <button class="btn btn-solid" type="submit">Recevoir le dossier</button>
+        </p>
+        <p class="muted-sm">Nous utilisons vos données uniquement pour envoyer le dossier et échanger sur l'évaluation des risques psychosociaux. Nous ne les partageons pas avec des tiers. Vous pouvez en demander la suppression à tout moment — voir la <a href="privacidade.html">Politique de confidentialité</a>.</p>
+      </form>
+    </div>
+
+    <h2 style="margin-top:44px;" id="por-que-existe-um-piso">Pourquoi il existe un seuil</h2>
+    <p>Le résultat n'apparaît que lorsqu'il y a assez de répondants dans la ventilation. Ce n'est pas une limite technique : c'est la garantie de l'anonymat. Dans un groupe de six personnes, connaître la moyenne revient presque à savoir qui a répondu quoi — et un travailleur qui s'en doute répond ce qui est sûr, pas ce qui est vrai. L'entreprise paie alors pour un portrait qui ne correspond pas à la réalité.</p>
+    <p>Pour la même raison, rien n'est libéré tant que la collecte est ouverte. Voir le tableau de bord à 30 réponses puis à 31 révélerait la réponse de la trente-et-unième personne.</p>
+
+        <p>Il existe un second seuil, de nature différente. Le premier protège l'<strong>anonymat</strong> : une cohorte trop petite laisse déduire qui a répondu quoi. Le second protège la <strong>représentativité</strong> : une entreprise de 3 000 personnes avec 50 réponses préserve parfaitement l'anonymat et produirait pourtant un inventaire portant sur 1,7 % de l'effectif. Le nombre exigé n'est pas notre choix — c'est la taille d'échantillon pour une proportion avec correction de population finie, à 95 % de confiance et 5 points de marge, qui entre dans le document de critères comme fondement vérifiable. Lorsque l'échantillon nécessaire dépasse 80 % du groupe, il cesse d'économiser des réponses et devient un recensement : c'est ce qui arrive en dessous de 98 personnes.</p>
+
+<h2 style="margin-top:36px;" id="se-a-sua-empresa-nao-atinge-o-piso">Si votre entreprise n'atteint pas le seuil</h2>
+    <p>Les micro et petites entreprises sont dispensées du programme complet de gestion des risques par la règle brésilienne, mais <strong>elles ne sont pas dispensées de l'évaluation ergonomique préliminaire</strong>. Celle-ci ne dépend d'aucun seuil de répondants et est obligatoire pour toute organisation employant du personnel. C'est le bon chemin dans ce cas — et elle continue d'être livrée avec inventaire et plan d'action.</p>
+
+    <p style="margin-top:26px;"><a href="como-funciona-nr1.html">Voir le processus complet, étape par étape →</a></p>
+
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="foot-grid">
+      <div>
+        <h5>FROID</h5>
+        <p style="max-width:340px; color:rgba(248,250,252,0.55);">Frequency Recognition of Internal Dynamics. Outil d'appui à l'écoute clinique — il ne remplace ni l'évaluation, ni le diagnostic, ni le jugement professionnel.</p>
+      </div>
+      <div>
+        <h5>Navigation</h5>
+        <ul>
+          <li><a href="index.html">FROID Psique</a></li>
+          <li><a href="ciencia.html">Science</a></li>
+          <li><a href="tecnologia.html">Technologie</a></li>
+          <li><a href="froid-explica.html">FROID Explique</a></li>
+          <li><a href="etica.html">Éthique</a></li>
+          <li><a href="seguranca.html">Sécurité</a></li>
+          <li><a href="profissionais.html">Professionnels</a></li>
+          <li><a href="iso-45003.html">FROID Psychosocial</a></li>
+          <li><a href="empresas.html">Pour les Entreprises</a></li>
+          <li><a href="como-funciona-nr1.html">Comment ça marche</a></li>
+          <li><a href="precos.html">Tarifs</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Assistance</h5>
+        <ul>
+          <li><a href="faq.html">Questions fréquentes</a></li>
+          <li><a href="glossario.html">Glossaire</a></li>
+          <li><a href="demonstracao.html">Démonstration</a></li>
+          <li><a href="sobre-contato.html">À propos &amp; Contact</a></li>
+          <li><a href="termos.html">Conditions d'utilisation</a></li>
+          <li><a href="privacidade.html">Politique de confidentialité</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Accès</h5>
+        <ul>
+          <li><a href="https://www.froid.com.br/app/#/login">Se connecter à FROID</a></li>
+          <li><a href="https://www.froid.com.br/cadastro">Créer un compte FROID</a></li>
+          <li><a href="https://www.froid.com.br/app/#/paciente">Portail du patient</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">© 2026 FROID. FROID est une marque en cours d'enregistrement auprès de l'INPI (Brésil), avec une demande de protection internationale à l'étude. Le code, les textes, les modèles et l'identité visuelle sont protégés par le droit d'auteur de Fábio de Assumpção Benhayon.</div>
+  </div>
+</footer>
+
+<script>
+// Les seuils vivent dans le backend (nr1_compliance.MIN_COHORT_TOTAL et
+// MIN_COHORT_CUT). Ici ils ne sont que reflétés pour l'estimation ; la
+// libération réelle est toujours décidée en SQL, avec les vraies données.
+var PISO_CAMPANHA = 15;
+var PISO_RECORTE = 10;
+
+// Porte de représentativité (migration 025 / nr1_compliance.required_sample).
+// Il y a DEUX portes et les deux valent toujours : les seuils ci-dessus
+// protègent l'anonymat, celle-ci protège la suffisance technique. Ne refléter
+// que les premiers faisait promettre à la page un résultat que le SQL allait
+// supprimer — l'inverse de ce pour quoi elle existe.
+var AMOSTRA_Z = 1.96;
+var AMOSTRA_MARGEM = 0.05;
+var AMOSTRA_CORTE_CENSO = 0.80;
+
+function amostraNecessaria(pop) {
+  if (!pop || pop <= 0) { return null; }
+  var n0 = (AMOSTRA_Z * AMOSTRA_Z) * 0.25 / (AMOSTRA_MARGEM * AMOSTRA_MARGEM);
+  var corrigido = n0 / (1 + (n0 - 1) / pop);
+  // Le passage au recensement est décidé sur la valeur continue, avant le
+  // plafond — comme en Python et en SQL. Comparer l'entier déjà arrondi fait
+  // osciller l'exigence autour du seuil.
+  if (corrigido > AMOSTRA_CORTE_CENSO * pop) { return pop; }
+  return Math.min(pop, Math.ceil(Math.round(corrigido * 1e9) / 1e9));
+}
+
+function exigidoNaCampanha(pop) {
+  return Math.max(PISO_CAMPANHA, amostraNecessaria(pop) || 0);
+}
+
+function exigidoNoRecorte(pop) {
+  return Math.max(PISO_RECORTE, amostraNecessaria(pop) || 0);
+}
+
+function calcular() {
+  var pessoas = parseInt(document.getElementById('pessoas').value, 10);
+  var setores = parseInt(document.getElementById('setores').value, 10) || 1;
+  var adesao = parseFloat(document.getElementById('adesao').value);
+  var caixa = document.getElementById('veredito');
+
+  if (!pessoas || pessoas < 1) {
+    caixa.className = 'veredito v-atencao';
+    caixa.style.display = 'block';
+    caixa.innerHTML = '<h3>Indiquez combien de personnes travaillent sur le site.</h3>';
+    return;
+  }
+
+  var respondentes = Math.floor(pessoas * adesao);
+  var porSetor = Math.floor(respondentes / setores);
+  var pessoasPorSetor = Math.floor(pessoas / setores);
+  var exigeCampanha = exigidoNaCampanha(pessoas);
+  var exigeSetor = exigidoNoRecorte(pessoasPorSetor);
+  var campanhaOk = respondentes >= exigeCampanha;
+  // La ventilation n'existe que si la campagne existe. Sans le seuil de la
+  // campagne, dire que le service est « libéré » serait faux et donnerait un
+  // faux espoir à qui vient de découvrir qu'il n'a pas la taille.
+  var setorOk = campanhaOk && porSetor >= exigeSetor;
+
+  // Combien de ventilations tiennent : le plus grand k pour lequel chaque
+  // service de personnes/k reçoit encore assez de réponses pour son propre
+  // effectif. Diviser les répondants par le seuil de 10 répondait à l'ancienne
+  // question, quand la seule porte était absolue ; aujourd'hui le dénominateur
+  // de la ventilation est l'effectif de ce service.
+  var setoresPossiveis = 0;
+  for (var k = 1; k <= setores || k <= 50; k++) {
+    var sPop = Math.floor(pessoas / k);
+    if (sPop < PISO_RECORTE) { break; }
+    if (Math.floor(respondentes / k) >= exigidoNoRecorte(sPop)) { setoresPossiveis = k; }
+  }
+
+  var html = '<h3>' + respondentes + ' répondants estimés sur ' + pessoas + ' personnes</h3>';
+  html += '<ul>';
+  html += '<li>Résultat général de la campagne : <strong>' +
+    (campanhaOk ? 'libéré' : 'NON libéré') + '</strong> — exige ' + exigeCampanha +
+    ' réponses (anonymat : ' + PISO_CAMPANHA + ' ; représentativité : ' +
+    amostraNecessaria(pessoas) + ')</li>';
+  html += '<li>Résultat ventilé par service : <strong>' +
+    (setorOk ? 'libéré' : 'NON libéré') + '</strong> — environ ' + porSetor +
+    ' réponses par service de ' + pessoasPorSetor + ' personnes, ce qui exige ' + exigeSetor + '</li>';
+  html += '</ul>';
+
+  if (campanhaOk && setorOk) {
+    caixa.className = 'veredito v-ok';
+    html += '<p style="margin-top:12px;">Votre entreprise a la taille pour l\'évaluation complète, avec un résultat par service. Avec ce nombre de répondants, vous pouvez obtenir jusqu\'à <strong>' +
+      setoresPossiveis + ' ventilations</strong> libérables.</p>';
+  } else if (campanhaOk && !setorOk) {
+    caixa.className = 'veredito v-atencao';
+    if (setoresPossiveis > 1) {
+      html += '<p style="margin-top:12px;">Le résultat général sort, mais la division en ' + setores +
+        ' services rend chacun trop petit pour parler de son propre effectif. Regroupez-les en <strong>' +
+        setoresPossiveis + ' ventilations</strong> au maximum, ou acceptez le résultat consolidé du site.</p>';
+    } else {
+      html += '<p style="margin-top:12px;">Le résultat général sort, mais <strong>aucune division par service</strong> ne tient à cette taille : un service n\'est publié que lorsque ses réponses représentent son effectif, et en dessous de 98 personnes cela signifie y répondre en entier. Le chemin est le résultat consolidé du site — qui continue d\'alimenter l\'évaluation ergonomique et l\'inventaire.</p>';
+    }
+  } else {
+    caixa.className = 'veredito v-nao';
+    html += '<p style="margin-top:12px;">Il n\'y aurait pas de résultat libérable sur ce site. Cela n\'empêche pas la conformité : le chemin est l\'<strong>évaluation ergonomique préliminaire</strong>, obligatoire pour toute organisation employant du personnel et qui ne dépend d\'aucun seuil de répondants. Nous préférons le dire avant que vous ne contractiez.</p>';
+  }
+
+  caixa.innerHTML = html;
+  caixa.style.display = 'block';
+  // Après un envoi réussi, le formulaire est remplacé par l'accusé de
+  // réception, et ce champ cesse d'exister. Recalculer ne doit pas casser la
+  // page à cause de cela.
+  var contexto = document.getElementById('contexto');
+  if (contexto) {
+    contexto.value = pessoas + ' personnes | ' + setores + ' services | participation ' +
+      adesao + ' | campagne ' + (campanhaOk ? 'ok' : 'sous le seuil');
+    document.getElementById('gate').style.display = 'block';
+  }
+}
+
+// L'envoi doit dire ce qui s'est passé. Un formulaire qui recharge la page et
+// disparaît laisse la personne sans savoir si cela a marché — et elle renvoie,
+// ce qui atteint la limite de débit et produit une erreur qu'elle comprend
+// encore moins.
+function enviarLead(evento) {
+  evento.preventDefault();
+  var form = document.getElementById('form-lead');
+  var botao = form.querySelector('button[type=submit]');
+  var dados = {};
+  ['nome', 'email', 'empresa', 'cargo', 'contexto'].forEach(function (campo) {
+    var el = document.getElementById(campo);
+    if (el) dados[campo] = el.value;
+  });
+
+  botao.disabled = true;
+  botao.textContent = 'Envoi en cours...';
+
+  fetch(form.action, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(dados)
+  })
+    .then(function (resposta) {
+      return resposta.json().then(function (corpo) {
+        return { ok: resposta.ok, corpo: corpo };
+      });
+    })
+    .then(function (r) {
+      var gate = document.getElementById('gate');
+      if (r.ok) {
+        gate.innerHTML =
+          '<h3 style="margin:0 0 6px; font-size:1.05rem;">Bien reçu</h3>' +
+          '<p style="margin:0; font-size:14px; line-height:1.7;">' +
+          (r.corpo.mensagem || 'Le dossier arrive dans votre boîte mail.') +
+          ' En attendant, le processus complet est dans ' +
+          '<a href="como-funciona-nr1.html">Comment ça marche</a>.</p>';
+      } else {
+        botao.disabled = false;
+        botao.textContent = 'Recevoir le dossier';
+        mostrarErroLead(r.corpo.detail || 'Impossible d\'envoyer pour le moment.');
+      }
+    })
+    .catch(function () {
+      botao.disabled = false;
+      botao.textContent = 'Recevoir le dossier';
+      mostrarErroLead('Échec de connexion. Réessayez dans un instant.');
+    });
+
+  return false;
+}
+
+function mostrarErroLead(texto) {
+  var alvo = document.getElementById('erro-lead');
+  if (!alvo) {
+    alvo = document.createElement('p');
+    alvo.id = 'erro-lead';
+    alvo.style.cssText = 'color:#fca5a5; font-size:13px; margin-top:12px;';
+    document.getElementById('form-lead').appendChild(alvo);
+  }
+  alvo.textContent = texto;
+}
+</script>
+
+<script src="../site-assets/script.js?v=16"></script>
+</body>
+</html>

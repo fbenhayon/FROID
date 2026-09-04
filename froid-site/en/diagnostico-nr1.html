@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Readiness check for a psychosocial risk assessment — FROID</title>
+<meta name="description" content="Find out in two minutes whether your company has the size and the conditions for a psychosocial risk assessment that produces a releasable result, and what is left to prepare before you start." />
+<link rel="alternate" hreflang="en" href="https://www.froid.com.br/en/diagnostico-nr1.html" />
+<link rel="alternate" hreflang="pt-BR" href="https://www.froid.com.br/diagnostico-nr1.html" />
+<link rel="alternate" hreflang="fr" href="https://www.froid.com.br/fr/diagnostico-nr1.html" />
+<link rel="alternate" hreflang="es" href="https://www.froid.com.br/es/diagnostico-nr1.html" />
+<link rel="alternate" hreflang="x-default" href="https://www.froid.com.br/diagnostico-nr1.html" />
+<link rel="stylesheet" href="../site-assets/style.css?v=14" />
+<style>
+  .calc { border:1px solid var(--border); border-radius:10px; padding:22px; background:#0b1524; }
+  .calc label { display:block; font-size:13px; font-weight:700; margin:16px 0 6px; }
+  .calc input, .calc select { width:100%; padding:10px 12px; border-radius:7px; border:1px solid var(--border); background:#060d18; color:var(--text); font-size:15px; }
+  .calc .linha { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:640px) { .calc .linha { grid-template-columns:1fr; } }
+  .veredito { border-radius:9px; padding:18px; margin-top:22px; line-height:1.7; display:none; }
+  .v-ok { border:1px solid #14532d; background:#08160e; }
+  .v-atencao { border:1px solid #78350f; background:#1a1006; }
+  .v-nao { border:1px solid #7f1d1d; background:#1a0a0a; }
+  .veredito h3 { margin:0 0 8px; font-size:1.05rem; }
+  .veredito ul { margin:10px 0 0 18px; }
+  .veredito li { margin:5px 0; }
+  .gate { border:1px solid var(--border); border-radius:10px; padding:20px; margin-top:26px; background:#0f1c2e; }
+  .muted-sm { font-size:12px; color:var(--text-dim); margin-top:10px; line-height:1.6; }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="nav-row">
+    <a class="brand" href="index.html"><img class="brand-logo" src="../site-assets/img/froid-logo.png" alt="FROID" /></a>
+    <nav class="nav-links">
+      <a href="index.html">FROID Psique</a>
+      <a href="ciencia.html">Science</a>
+      <a href="tecnologia.html">Technology</a>
+      <a href="froid-explica.html">FROID Explains</a>
+      <a href="etica.html">Ethics</a>
+      <a href="seguranca.html">Security</a>
+      <a href="profissionais.html">Professionals</a>
+      <a href="iso-45003.html">FROID Psychosocial</a>
+      <a href="empresas.html">For Employers</a>
+      <a href="como-funciona-nr1.html">How it works</a>
+      <a href="precos.html">Pricing</a>
+    </nav>
+    <div class="nav-actions">
+      <a class="btn btn-ghost" href="https://www.froid.com.br/app/#/login">Sign in</a>
+      <div class="lang-group" role="group" aria-label="Choose language"><a class="lang-pill" href="../diagnostico-nr1.html">PT</a><span class="lang-pill lang-current">EN</span><a class="lang-pill" href="../fr/diagnostico-nr1.html">FR</a><a class="lang-pill" href="../es/diagnostico-nr1.html">ES</a></div>
+    </div>
+  </div>
+</header>
+
+<section class="hero" style="padding:52px 0 36px;">
+  <div class="container">
+    <p class="section-kicker" style="color:#93c5fd;">Readiness check</p>
+    <h1 style="font-size:1.9rem;">Can your company get a releasable result?</h1>
+    <p class="lead">Two questions, and the calculation happens right here in your browser. If the answer is no, it is better to know now — and there is a different route for that case.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container" style="max-width:720px;">
+
+    <div class="calc">
+      <div class="linha">
+        <div>
+          <label for="pessoas">People at the site to be assessed</label>
+          <input type="number" id="pessoas" min="1" placeholder="e.g. 180" />
+        </div>
+        <div>
+          <label for="setores">How many departments you want the result broken down into</label>
+          <input type="number" id="setores" min="1" value="1" />
+        </div>
+      </div>
+      <label for="adesao">Expected participation</label>
+      <select id="adesao">
+        <option value="0.5">Conservative — 50% (first campaign, no prior communication)</option>
+        <option value="0.65" selected>Realistic — 65% (with leadership support)</option>
+        <option value="0.8">Optimistic — 80% (culture already used to internal surveys)</option>
+      </select>
+      <p style="margin-top:18px;">
+        <button class="btn btn-solid" type="button" onclick="calcular()">Calculate</button>
+      </p>
+    </div>
+
+    <div id="veredito" class="veredito"></div>
+
+    <div class="gate" id="gate" style="display:none;">
+      <h3 style="margin:0 0 6px; font-size:1.05rem;">Would you like the full preparation pack?</h3>
+      <p style="margin:0; font-size:14px; line-height:1.7;">We send the readiness checklist, the inventory template with the nine mandatory fields and an action plan template. These are the documents an inspection asks for.</p>
+      <form id="form-lead" method="post" action="/api/leads/nr1" style="margin-top:16px;" onsubmit="return enviarLead(event)">
+        <div class="linha">
+          <div>
+            <label for="nome">Name</label>
+            <input type="text" id="nome" name="nome" required />
+          </div>
+          <div>
+            <label for="email">Work e-mail</label>
+            <input type="email" id="email" name="email" required />
+          </div>
+        </div>
+        <div class="linha">
+          <div>
+            <label for="empresa">Company</label>
+            <input type="text" id="empresa" name="empresa" required />
+          </div>
+          <div>
+            <label for="cargo">Role</label>
+            <input type="text" id="cargo" name="cargo" />
+          </div>
+        </div>
+        <input type="hidden" id="contexto" name="contexto" />
+        <p style="margin-top:18px;">
+          <button class="btn btn-solid" type="submit">Send me the pack</button>
+        </p>
+        <p class="muted-sm">We use your details only to send the pack and to talk about psychosocial risk assessment. We do not share them with third parties. You can ask for deletion at any time — see the <a href="privacidade.html">Privacy Policy</a>.</p>
+      </form>
+    </div>
+
+    <h2 style="margin-top:44px;" id="por-que-existe-um-piso">Why there is a floor</h2>
+    <p>A result only appears when there are enough respondents in the breakdown. This is not a technical limitation: it is the guarantee of anonymity. In a group of six people, knowing the average is almost knowing who answered what — and a worker who suspects that answers what is safe, not what is true. At which point the company pays for a portrait that does not match reality.</p>
+    <p>For the same reason, nothing is released while collection is open. Seeing the dashboard at 30 answers and then at 31 would reveal the thirty-first person's answer.</p>
+
+        <p>There is a second floor, of a different nature. The first protects <strong>anonymity</strong>: a cohort that is too small lets you deduce who answered what. The second protects <strong>representativeness</strong>: a company of 3,000 people with 50 answers preserves anonymity perfectly and would still produce an inventory covering 1.7% of the workforce. The number required is not our choice — it is the sample size for a proportion with finite population correction, at 95% confidence and a 5-point margin, which goes into the criteria document as verifiable grounding. When the required sample exceeds 80% of the group it stops saving answers and becomes a census: that is what happens below 98 people.</p>
+
+<h2 style="margin-top:36px;" id="se-a-sua-empresa-nao-atinge-o-piso">If your company does not reach the floor</h2>
+    <p>Micro and small enterprises are exempt from the full risk-management programme under the Brazilian rule, but <strong>they are not exempt from the preliminary ergonomic assessment</strong>. That assessment does not depend on a respondent floor and is mandatory for every organisation with employees. It is the correct route in this case — and it is still delivered with an inventory and an action plan.</p>
+
+    <p style="margin-top:26px;"><a href="como-funciona-nr1.html">See the full process, step by step →</a></p>
+
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="foot-grid">
+      <div>
+        <h5>FROID</h5>
+        <p style="max-width:340px; color:rgba(248,250,252,0.55);">Frequency Recognition of Internal Dynamics. A support tool for clinical listening — it does not replace assessment, diagnosis or professional judgement.</p>
+      </div>
+      <div>
+        <h5>Navigation</h5>
+        <ul>
+          <li><a href="index.html">FROID Psique</a></li>
+          <li><a href="ciencia.html">Science</a></li>
+          <li><a href="tecnologia.html">Technology</a></li>
+          <li><a href="froid-explica.html">FROID Explains</a></li>
+          <li><a href="etica.html">Ethics</a></li>
+          <li><a href="seguranca.html">Security</a></li>
+          <li><a href="profissionais.html">Professionals</a></li>
+          <li><a href="iso-45003.html">FROID Psychosocial</a></li>
+          <li><a href="empresas.html">For Employers</a></li>
+          <li><a href="como-funciona-nr1.html">How it works</a></li>
+          <li><a href="precos.html">Pricing</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Support</h5>
+        <ul>
+          <li><a href="faq.html">FAQ</a></li>
+          <li><a href="glossario.html">Glossary</a></li>
+          <li><a href="demonstracao.html">Demonstration</a></li>
+          <li><a href="sobre-contato.html">About &amp; Contact</a></li>
+          <li><a href="termos.html">Terms of Use</a></li>
+          <li><a href="privacidade.html">Privacy Policy</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Access</h5>
+        <ul>
+          <li><a href="https://www.froid.com.br/app/#/login">Sign in to FROID</a></li>
+          <li><a href="https://www.froid.com.br/cadastro">Create a FROID account</a></li>
+          <li><a href="https://www.froid.com.br/app/#/paciente">Patient Portal</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">© 2026 FROID. FROID is a trademark pending registration with the INPI (Brazil), with an international protection application under review. Code, texts, models and visual identity are protected by the copyright of Fábio de Assumpção Benhayon.</div>
+  </div>
+</footer>
+
+<script>
+// The floors live in the backend (nr1_compliance.MIN_COHORT_TOTAL and
+// MIN_COHORT_CUT). Here they are only mirrored for the estimate; the real
+// release is always decided in SQL, with the true data.
+var PISO_CAMPANHA = 15;
+var PISO_RECORTE = 10;
+
+// Representativeness gate (migration 025 / nr1_compliance.required_sample).
+// There are TWO gates and both always apply: the floors above protect
+// anonymity, this one protects technical sufficiency. Mirroring only the first
+// ones made the page promise a result to someone the SQL is going to suppress —
+// the opposite of what it exists to do.
+var AMOSTRA_Z = 1.96;
+var AMOSTRA_MARGEM = 0.05;
+var AMOSTRA_CORTE_CENSO = 0.80;
+
+function amostraNecessaria(pop) {
+  if (!pop || pop <= 0) { return null; }
+  var n0 = (AMOSTRA_Z * AMOSTRA_Z) * 0.25 / (AMOSTRA_MARGEM * AMOSTRA_MARGEM);
+  var corrigido = n0 / (1 + (n0 - 1) / pop);
+  // The switch to a census is decided on the continuous value, before the
+  // ceiling — same as in Python and in SQL. Comparing the already-rounded
+  // integer makes the requirement oscillate around the cut-off.
+  if (corrigido > AMOSTRA_CORTE_CENSO * pop) { return pop; }
+  return Math.min(pop, Math.ceil(Math.round(corrigido * 1e9) / 1e9));
+}
+
+function exigidoNaCampanha(pop) {
+  return Math.max(PISO_CAMPANHA, amostraNecessaria(pop) || 0);
+}
+
+function exigidoNoRecorte(pop) {
+  return Math.max(PISO_RECORTE, amostraNecessaria(pop) || 0);
+}
+
+function calcular() {
+  var pessoas = parseInt(document.getElementById('pessoas').value, 10);
+  var setores = parseInt(document.getElementById('setores').value, 10) || 1;
+  var adesao = parseFloat(document.getElementById('adesao').value);
+  var caixa = document.getElementById('veredito');
+
+  if (!pessoas || pessoas < 1) {
+    caixa.className = 'veredito v-atencao';
+    caixa.style.display = 'block';
+    caixa.innerHTML = '<h3>Tell us how many people are at the site.</h3>';
+    return;
+  }
+
+  var respondentes = Math.floor(pessoas * adesao);
+  var porSetor = Math.floor(respondentes / setores);
+  var pessoasPorSetor = Math.floor(pessoas / setores);
+  var exigeCampanha = exigidoNaCampanha(pessoas);
+  var exigeSetor = exigidoNoRecorte(pessoasPorSetor);
+  var campanhaOk = respondentes >= exigeCampanha;
+  // The breakdown only exists if the campaign exists. Without the campaign
+  // floor, saying the department is "released" would be false and would give
+  // false hope to someone who has just discovered they lack the size.
+  var setorOk = campanhaOk && porSetor >= exigeSetor;
+
+  // How many breakdowns fit: the largest k in which each department of
+  // people/k still receives enough answers for its own headcount. Dividing
+  // respondents by the floor of 10 answered the old question, when the only
+  // gate was absolute; today the denominator of the breakdown is that
+  // department's headcount.
+  var setoresPossiveis = 0;
+  for (var k = 1; k <= setores || k <= 50; k++) {
+    var sPop = Math.floor(pessoas / k);
+    if (sPop < PISO_RECORTE) { break; }
+    if (Math.floor(respondentes / k) >= exigidoNoRecorte(sPop)) { setoresPossiveis = k; }
+  }
+
+  var html = '<h3>' + respondentes + ' estimated respondents out of ' + pessoas + ' people</h3>';
+  html += '<ul>';
+  html += '<li>Overall campaign result: <strong>' +
+    (campanhaOk ? 'released' : 'NOT released') + '</strong> — requires ' + exigeCampanha +
+    ' answers (anonymity: ' + PISO_CAMPANHA + '; representativeness: ' +
+    amostraNecessaria(pessoas) + ')</li>';
+  html += '<li>Result broken down by department: <strong>' +
+    (setorOk ? 'released' : 'NOT released') + '</strong> — about ' + porSetor +
+    ' answers per department of ' + pessoasPorSetor + ' people, which requires ' + exigeSetor + '</li>';
+  html += '</ul>';
+
+  if (campanhaOk && setorOk) {
+    caixa.className = 'veredito v-ok';
+    html += '<p style="margin-top:12px;">Your company has the size for the full assessment, with a result by department. With that number of respondents you can have up to <strong>' +
+      setoresPossiveis + ' breakdowns</strong> released.</p>';
+  } else if (campanhaOk && !setorOk) {
+    caixa.className = 'veredito v-atencao';
+    if (setoresPossiveis > 1) {
+      html += '<p style="margin-top:12px;">The overall result comes out, but splitting into ' + setores +
+        ' departments leaves each one too small to speak for its own headcount. Group them into at most <strong>' +
+        setoresPossiveis + ' breakdowns</strong>, or accept the consolidated result for the site.</p>';
+    } else {
+      html += '<p style="margin-top:12px;">The overall result comes out, but <strong>no split by department</strong> holds at this size: a department is only published when its answers represent that department\'s headcount, and below 98 people that means answering it in full. The route is the consolidated result for the site — which still feeds the ergonomic assessment and the inventory.</p>';
+    }
+  } else {
+    caixa.className = 'veredito v-nao';
+    html += '<p style="margin-top:12px;">There would be no releasable result at this site. That does not block compliance: the route is the <strong>preliminary ergonomic assessment</strong>, mandatory for every organisation with employees and not dependent on any respondent floor. We would rather say that before you sign.</p>';
+  }
+
+  caixa.innerHTML = html;
+  caixa.style.display = 'block';
+  // After a successful submission the form is replaced by the acknowledgement
+  // notice, and this field ceases to exist. Recalculating must not break the
+  // page because of that.
+  var contexto = document.getElementById('contexto');
+  if (contexto) {
+    contexto.value = pessoas + ' people | ' + setores + ' departments | participation ' +
+      adesao + ' | campaign ' + (campanhaOk ? 'ok' : 'below the floor');
+    document.getElementById('gate').style.display = 'block';
+  }
+}
+
+// The submission has to say what happened. A form that reloads the page and
+// disappears leaves the person not knowing whether it worked — and they resend,
+// which hits the rate limit and produces an error they understand even less.
+function enviarLead(evento) {
+  evento.preventDefault();
+  var form = document.getElementById('form-lead');
+  var botao = form.querySelector('button[type=submit]');
+  var dados = {};
+  ['nome', 'email', 'empresa', 'cargo', 'contexto'].forEach(function (campo) {
+    var el = document.getElementById(campo);
+    if (el) dados[campo] = el.value;
+  });
+
+  botao.disabled = true;
+  botao.textContent = 'Sending...';
+
+  fetch(form.action, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(dados)
+  })
+    .then(function (resposta) {
+      return resposta.json().then(function (corpo) {
+        return { ok: resposta.ok, corpo: corpo };
+      });
+    })
+    .then(function (r) {
+      var gate = document.getElementById('gate');
+      if (r.ok) {
+        gate.innerHTML =
+          '<h3 style="margin:0 0 6px; font-size:1.05rem;">Received</h3>' +
+          '<p style="margin:0; font-size:14px; line-height:1.7;">' +
+          (r.corpo.mensagem || 'The pack is on its way to your inbox.') +
+          ' In the meantime, the full process is in ' +
+          '<a href="como-funciona-nr1.html">How it works</a>.</p>';
+      } else {
+        botao.disabled = false;
+        botao.textContent = 'Send me the pack';
+        mostrarErroLead(r.corpo.detail || 'We could not send it right now.');
+      }
+    })
+    .catch(function () {
+      botao.disabled = false;
+      botao.textContent = 'Send me the pack';
+      mostrarErroLead('Connection failed. Try again in a moment.');
+    });
+
+  return false;
+}
+
+function mostrarErroLead(texto) {
+  var alvo = document.getElementById('erro-lead');
+  if (!alvo) {
+    alvo = document.createElement('p');
+    alvo.id = 'erro-lead';
+    alvo.style.cssText = 'color:#fca5a5; font-size:13px; margin-top:12px;';
+    document.getElementById('form-lead').appendChild(alvo);
+  }
+  alvo.textContent = texto;
+}
+</script>
+
+<script src="../site-assets/script.js?v=16"></script>
+</body>
+</html>
