@@ -44,6 +44,11 @@ services:
       - GOOGLE_CALENDAR_CLIENT_ID=${GOOGLE_CALENDAR_CLIENT_ID:-}
       - GOOGLE_CALENDAR_CLIENT_SECRET=${GOOGLE_CALENDAR_CLIENT_SECRET:-}
       - GOOGLE_AUTH_DEV_FALLBACK=${GOOGLE_AUTH_DEV_FALLBACK:-false}
+      # A fala do profissional, desidentificada, no acervo. Sem esta linha a
+      # variavel no .env nao chegaria ao contentor: o servico recebe lista
+      # explicita, e nao env_file — e o resultado seria ligar a chave e nada
+      # acontecer, sem erro nenhum.
+      - FROID_DATAMART_FALA_PROFISSIONAL=${FROID_DATAMART_FALA_PROFISSIONAL:-0}
       - FROID_ALLOWED_ORIGINS=${FROID_ALLOWED_ORIGINS:-https://www.froid.com.br,https://froid.com.br}
       - FROID_SESSION_TOKEN_TTL_SECONDS=${FROID_SESSION_TOKEN_TTL_SECONDS:-28800}
       - FROID_PUBLIC_URL=${FROID_PUBLIC_URL:-https://www.froid.com.br}

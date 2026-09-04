@@ -99,6 +99,44 @@ class NaDuvidaNaoSeGuardaNada(unittest.TestCase):
         self.assertEqual(texto, "")
         self.assertEqual(motivo, "inicio_ambiguo")
 
+    def test_UM_periodo_ambiguo_nao_derruba_os_outros(self):
+        """A regra do Fábio, em 04/09/2026: mesmo imperfeita, a desidentificação
+        tem de preservar o conteúdo da questão e da resposta — é isso que serve
+        a quem consulta o acervo depois.
+
+        A primeira versão descartava a fala inteira por causa de uma palavra
+        indecidível na abertura de uma frase. Três frases boas iam junto com a
+        duvidosa."""
+        texto, motivo = desidentificar_fala(
+            "Sugeri que ele reparasse na respiração antes de responder. "
+            "Sofia contou isso na semana passada. "
+            "Depois voltamos ao ponto que ele evitava."
+        )
+        self.assertEqual(motivo, "ok")
+        self.assertIn("Sugeri que ele reparasse", texto)
+        self.assertIn("Depois voltamos ao ponto", texto)
+        self.assertNotIn("Sofia", texto)
+
+    def test_o_corte_e_DITO_e_nao_escondido(self):
+        """Texto que parece completo e não é engana quem consulta. O marcador
+        avisa que houve corte ali."""
+        texto, _ = desidentificar_fala(
+            "Sugeri que ele reparasse na respiração antes de responder. "
+            "Sofia contou isso na semana passada. "
+            "Depois voltamos ao ponto que ele evitava."
+        )
+        self.assertIn("[OMITIDO]", texto)
+
+    def test_metade_em_buracos_nao_ensina_nada(self):
+        """Preservar conteúdo tem teto: registro mais buraco do que frase ocupa
+        uma linha do acervo parecendo que ensina alguma coisa."""
+        texto, motivo = desidentificar_fala(
+            "Sofia contou isso ontem. Marcos respondeu na hora. "
+            "Depois voltamos ao ponto que ele evitava."
+        )
+        self.assertEqual(texto, "")
+        self.assertIn(motivo, ("inicio_ambiguo", "referencial_demais"))
+
     def test_fala_curta_demais_nao_carrega_tecnica(self):
         self.assertEqual(desidentificar_fala("Sim, entendi.")[1], "curta_demais")
 

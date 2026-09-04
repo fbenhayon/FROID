@@ -164,6 +164,71 @@ def _abre_periodo(texto: str, inicio: int) -> bool:
     return anterior[-1] in _FIM_DE_PERIODO
 
 
+#: Fração de períodos que pode ser descartada antes de a fala inteira cair.
+#:
+#: Descartar o período ambíguo em vez da fala toda foi a decisão de 04/09/2026,
+#: e a razão é do Fábio: mesmo imperfeita, a desidentificação tem de preservar o
+#: conteúdo da questão e da resposta — é isso que serve a quem consulta o acervo
+#: depois. Uma palavra indecidível na abertura de uma frase não pode custar as
+#: outras cinco frases.
+#:
+#: Mas metade do registro em buracos não ensina técnica nenhuma, e ainda ocupa
+#: uma linha do acervo parecendo que ensina. Daí o teto.
+MAXIMO_DE_PERIODOS_DESCARTADOS = 0.5
+
+_SEPARA_PERIODO = re.compile(r"(?<=[.!?;])\s+")
+
+
+def _limpa_periodo(periodo: str) -> tuple[str, bool]:
+    """Devolve `(periodo_limpo, ambiguo)`.
+
+    `ambiguo` significa que o período abre com um token que pode tanto ser nome
+    quanto verbo. Nesse caso o período inteiro é descartado por quem chama: as
+    duas saídas possíveis aqui — apagar o verbo principal ou deixar passar um
+    nome — são ruins, e escolher entre elas seria supor.
+    """
+    primeiro = _TOKEN.search(periodo)
+    inicio = primeiro.start() if primeiro else -1
+    ambiguo = False
+
+    def _troca(match: re.Match[str]) -> str:
+        nonlocal ambiguo
+        token = match.group(0)
+        if _e_temporal(token):
+            return "[DATA]"
+        if not token[:1].isupper() or _e_comum(token):
+            return token
+        if match.start() == inicio:
+            if _tem_forma_de_verbo(token):
+                return token
+            ambiguo = True
+            return token
+        return "[NOME]"
+
+    return _TOKEN.sub(_troca, periodo), ambiguo
+
+
+def _sobrou_identificador(texto: str) -> bool:
+    """Segunda leitura, sobre o RESULTADO.
+
+    A primeira confia nas substituições; esta não confia em nada. Uma sobra
+    significa que a limpeza não entendeu a frase, e aí não há grau: a fala cai.
+    """
+    sem_marcadores = _MARCADOR.sub(" . ", texto)
+    if re.search(r"\d", sem_marcadores):
+        return True
+    if re.search(r"@|https?://", sem_marcadores, re.IGNORECASE):
+        return True
+    for achado in _TOKEN.finditer(sem_marcadores):
+        token = achado.group(0)
+        if not token[:1].isupper() or _e_comum(token):
+            continue
+        if _abre_periodo(sem_marcadores, achado.start()) and _tem_forma_de_verbo(token):
+            continue
+        return True
+    return False
+
+
 def desidentificar_fala(
     texto: str,
     limite: int = LIMITE_PADRAO,
@@ -171,7 +236,9 @@ def desidentificar_fala(
     """Prepara uma fala do profissional para o acervo compartilhado.
 
     Devolve `(texto_seguro, motivo)`. Vazio significa NÃO GUARDAR — nunca uma
-    versão parcial —, e o motivo diz por quê. Com texto, o motivo é "ok".
+    versão parcial da frase —, e o motivo diz por quê. Com texto, o motivo é
+    "ok"; períodos descartados por ambiguidade aparecem como `[OMITIDO]`, para
+    quem lê saber que houve corte em vez de ler um texto que parece completo.
     """
     bruto = re.sub(r"\s+", " ", str(texto or "")).strip()
     if not bruto:
@@ -185,49 +252,28 @@ def desidentificar_fala(
     for padrao, marcador in PADROES_ESTRUTURADOS:
         limpo = padrao.sub(marcador, limpo)
 
-    ambiguo = False
+    periodos = _SEPARA_PERIODO.split(limpo)
+    saida: list[str] = []
+    descartados = 0
+    for periodo in periodos:
+        tratado, ambiguo = _limpa_periodo(periodo)
+        if ambiguo or _sobrou_identificador(tratado):
+            descartados += 1
+            if not saida or saida[-1] != "[OMITIDO]":
+                saida.append("[OMITIDO]")
+            continue
+        saida.append(tratado)
 
-    def _troca(match: re.Match[str]) -> str:
-        nonlocal ambiguo
-        token = match.group(0)
-        if _e_temporal(token):
-            return "[DATA]"
-        if not token[:1].isupper():
-            return token
-        if _e_comum(token):
-            return token
-        if _abre_periodo(limpo, match.start()):
-            # Indecidível sem dicionário. Só passa com forma verbal; fora disso,
-            # a fala inteira cai — apagar o verbo principal seria pior.
-            if _tem_forma_de_verbo(token):
-                return token
-            ambiguo = True
-            return token
-        return "[NOME]"
+    if descartados >= max(1, len(periodos) * MAXIMO_DE_PERIODOS_DESCARTADOS):
+        return "", "inicio_ambiguo" if descartados == len(periodos) else "referencial_demais"
 
-    limpo = _TOKEN.sub(_troca, limpo)
-    if ambiguo:
+    limpo = " ".join(saida).strip()
+    if not limpo or limpo == "[OMITIDO]":
         return "", "inicio_ambiguo"
 
     marcadores = len(_MARCADOR.findall(limpo))
     if palavras_originais and marcadores / palavras_originais > TAXA_MAXIMA_DE_REDACAO:
         return "", "referencial_demais"
-
-    # Segunda leitura, sobre o RESULTADO. A primeira confia nas substituições;
-    # esta não confia em nada. Qualquer sobra derruba a fala inteira, porque uma
-    # sobra significa que a limpeza não entendeu a frase.
-    sem_marcadores = _MARCADOR.sub(" . ", limpo)
-    if re.search(r"\d", sem_marcadores):
-        return "", "sobrou_identificador"
-    if re.search(r"@|https?://", sem_marcadores, re.IGNORECASE):
-        return "", "sobrou_identificador"
-    for achado in _TOKEN.finditer(sem_marcadores):
-        token = achado.group(0)
-        if not token[:1].isupper() or _e_comum(token):
-            continue
-        if _abre_periodo(sem_marcadores, achado.start()) and _tem_forma_de_verbo(token):
-            continue
-        return "", "sobrou_identificador"
 
     if len(limpo) > limite:
         # Corta em fronteira de palavra: metade de um nome ainda é pedaço de
