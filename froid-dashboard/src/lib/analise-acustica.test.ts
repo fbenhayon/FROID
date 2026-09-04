@@ -11,7 +11,6 @@ const ler = (...partes: string[]) =>
 const ACUSTICA = ler("lib", "froid-acoustic.ts");
 const PACIENTE = ler("pages", "PatientSessionPage.tsx");
 const PROFISSIONAL = ler("pages", "LiveSession.tsx");
-const AVISO = ler("components", "indicators", "AvisoVozSimulada.tsx");
 
 /**
  * O defeito, vivido em 02/09/2026: uma sessão real de 24 minutos rodou inteira
@@ -101,33 +100,11 @@ describe("a captura liga mesmo com a trilha momentaneamente muda", () => {
   });
 });
 
-describe("voz simulada é dita na tela, não deduzida", () => {
-  it("o aviso silencia quando a voz é real", () => {
-    expect(AVISO).toContain('origem === "real_pcm"') ;
-    expect(AVISO).toContain("return null");
-  });
-
-  it("o aviso diz o que NÃO vale, com nome", () => {
-    // A redação mudou em 02/09/2026 e a mudança é substantiva, não cosmética:
-    // antes o aviso dizia "voz simulada", porque havia simulação. O gerador
-    // foi removido, então a situação real deixou de ser "gerado" e passou a
-    // ser AUSENTE — e as duas palavras não são sinônimas para quem lê um
-    // relatório clínico.
-    expect(AVISO).toContain("F0, ZCR, MFCC");
-    expect(AVISO).toContain("Sem capacidade de apuração");
-    expect(AVISO).toContain("não foram apurados");
-  });
-
-  it("o aviso NÃO promete mais que os índices foram gerados", () => {
-    // Dizer "gerados" agora seria falso: nada e gerado. Ver a remocao de
-    // MockBiometricStream em froid_core.py.
-    expect(AVISO).not.toContain("são <strong>gerados</strong>");
-  });
-
-  it("o aviso diz o que continua válido — senão parece perda total", () => {
-    expect(AVISO).toContain("transcrição");
-  });
-
+// A ausência de apuração deixou de ser um cartaz na sessão e passou a ser dita
+// onde é lida com tempo — no relatório. Os casos que liam AvisoVozSimulada.tsx
+// saíram junto com o componente em 04/09/2026: teste que guarda decisão revogada
+// passa, aparenta cobertura, e defende o que foi retirado.
+describe("a ausência de apuração é dita, não deduzida", () => {
   it("a origem vem do MOTOR, não do navegador", () => {
     // O relato do paciente explica o porquê; quem tem autoridade sobre o que
     // entrou no cálculo é o servidor.
