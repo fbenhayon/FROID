@@ -1,5 +1,5 @@
 ---
-name: rigor-de-engenharia
+name: skill-froid-master
 description: As regras de conduta e os padrões de defeito apurados no FROID, para escrever, revisar, auditar ou higienizar código deste e dos próximos sistemas. Use antes de mexer em qualquer caminho que produza número, texto ou decisão que alguém vá ler como verdade.
 ---
 
