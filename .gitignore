@@ -18,7 +18,18 @@ froid-dashboard/.env.local
 .vscode/
 *.log
 .codex-tmp/
-.claude/
+# .claude/ era ignorado por inteiro, e isso fazia o conhecimento do projeto
+# viver so na maquina de quem o escreveu: skills, comandos e o CLAUDE.md
+# sumiriam num clone novo. O que e credencial continua fora; o que e
+# conhecimento passa a ser versionado, revisavel e compartilhado.
+.claude/*
+!.claude/CLAUDE.md
+!.claude/skills/
+!.claude/commands/
+!.claude/agents/
+.claude/skills/**/__pycache__/
+.claude/settings.local.json
+.claude/launch.json
 .codex-backups/
 backups/postgres/*.dump
 backups/postgres/*.sql
