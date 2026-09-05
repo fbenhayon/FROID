@@ -1,6 +1,6 @@
 ---
 name: skill-froid-master
-description: As regras de conduta e os padrões de defeito apurados no FROID, para escrever, revisar, auditar ou higienizar código deste e dos próximos sistemas. Use antes de mexer em qualquer caminho que produza número, texto ou decisão que alguém vá ler como verdade.
+description: As regras de conduta e os padrões de defeito apurados no FROID, para escrever, revisar, auditar, higienizar ou entregar código deste e dos próximos sistemas. Use antes de mexer em qualquer caminho que produza número, texto ou decisão que alguém vá ler como verdade — e antes de montar commit, deploy ou qualquer entrega que alguém possa querer desfazer.
 ---
 
 # Rigor de engenharia — o que aprendemos apanhando
@@ -224,6 +224,55 @@ indistinguível de perda de funcionalidade.
   é bind mount e entra com `git pull`; `froid-frontend` e `froid-backend` são
   imagens e exigem `build`. Rebuild de backend derruba sessão ativa.
 
+### 5.1 Um commit, uma decisão reversível
+
+Em 04/09/2026 publiquei os dois mapas da face, corrigi vinte arquivos de
+afirmação sem origem no código e reorganizei o header do site — **tudo num
+commit só**. O dono perguntou o óbvio antes de aprovar: *"e se o layout não
+ficar adequado, dá para voltar?"* Não dava. Um `git revert` naquele commit
+levaria junto a página nova e as correções.
+
+O erro não foi de código. Foi entregar como um bloco duas decisões que o dono
+toma separadamente: **o conteúdo** e **a aparência**. Ele pode querer o
+primeiro e recusar o segundo, e o commit tem de permitir isso.
+
+**Antes de commitar, pergunte quais partes alguém pode querer desfazer
+sozinhas.** Os pares que quase sempre se separam:
+
+| Junto no trabalho | Separado no commit |
+|---|---|
+| conteúdo novo | layout/estilo que o acomoda |
+| correção do defeito | refatoração que veio a reboque |
+| funcionalidade | higienização que ela permitiu |
+| dado novo | mudança de fórmula que o consome |
+
+**Como dividir um commit que ainda não subiu:**
+
+1. `git tag _estado_final <sha>` — rede de segurança. Com a etiqueta, o commit
+   continua alcançável depois do reset; sem ela você depende do reflog.
+2. `git reset --mixed HEAD~1` — desfaz o commit e **preserva a árvore**.
+3. Reconstrua o estado intermediário **lendo a versão anterior do próprio git**
+   (`git show <base>:<caminho>`), nunca reescrevendo de memória. Reescrever de
+   memória reintroduz exatamente a divergência silenciosa da seção 2.7 — e aqui
+   eram oitenta arquivos.
+4. Commit A.
+5. `git checkout _estado_final -- <dir>` devolve o estado final byte a byte.
+6. **Confirme que a árvore voltou idêntica:**
+   `git diff --quiet _estado_final -- <dir>`. Sem essa conferência, o commit B
+   publica algo que nunca foi renderizado nem testado.
+7. Commit B, e `git tag -d _estado_final`.
+
+**Teste a reversão antes do push, não depois.** `git revert --no-commit <B>`,
+olhe o resultado, confirme com `git diff --quiet <A>` que a árvore bate, e
+`git revert --abort`. Dizer "dá para reverter" sem ter revertido é afirmação
+não verificada — o mesmo defeito que este documento inteiro combate. Na vez em
+que fiz isso não havia conflito nenhum; o valor não estava em achar problema,
+estava em poder prometer sem supor.
+
+**E diga o que a volta devolve.** Reverter restaura o estado anterior, não um
+melhor: naquele caso o header voltaria a quebrar em duas linhas, agora com um
+link a mais. Quem decide precisa saber disso antes de decidir.
+
 ---
 
 ## 6. Armadilhas desta casa
@@ -255,3 +304,4 @@ indistinguível de perda de funcionalidade.
 5. O teste afirma a **garantia** e falha quando deve? (seção 3)
 6. Este trabalho deixou **lixo** para trás? (seção 4)
 7. O que ficou **de fora**, e eu disse isso? (seção 5)
+8. Se uma parte disto não agradar, dá para desfazer **só ela**? (seção 5.1)
