@@ -32,7 +32,9 @@ export interface PatientAdvancedSignal {
   continuity: number;
   insight: number;
   dataQuality: number;
-  ipmTrend: number;
+  /** `null` quando nao ha duas sessoes com voz APURADA para comparar.
+   *  `fmtDelta` ja imprime "--" nesse caso. */
+  ipmTrend: number | null;
   idmRecent: number;
   qualityLabel: string;
 }
@@ -227,6 +229,23 @@ function average(values: Array<number | null | undefined>, fallback = 0) {
   return clean.reduce((sum, value) => sum + value, 0) / clean.length;
 }
 
+/** A energia da fala de um relatorio, ou `null` quando a voz nao foi apurada.
+ *
+ *  A procedencia e de SESSAO: `amostrasComVozReal` conta quantas amostras da
+ *  sessao inteira tinham PCM medido. Relatorio anterior ao registro de
+ *  procedencia nao afirma nada em nenhuma direcao — o valor passa como esta, que
+ *  e o comportamento de antes, em vez de acusar quem talvez tenha medido.
+ *
+ *  Mesmo criterio que o PDF do paciente e a gravacao no acervo ja usam. */
+function energiaVocalApurada(report: SessionReportRecord): number | null {
+  const bruto = report.sessionAverage?.ipmAvg;
+  if (typeof bruto !== "number" || !Number.isFinite(bruto)) return null;
+  const procedencia = report.procedenciaDosDados;
+  if (procedencia && procedencia.amostrasComVozReal <= 0) return null;
+  return bruto;
+}
+
+
 function qualityFromReport(report: SessionReportRecord) {
   const dashboard = report.metricsAnalysis?.dashboard;
   const confidence =
@@ -284,9 +303,31 @@ export function patientAdvancedSignal(group: PatientDashboardGroup): PatientAdva
   const latestAverage = latest.sessionAverage;
   const ipmRecent = average(recent.map((report) => report.sessionAverage.ipmAvg), latestAverage.ipmAvg);
   const idmRecent = average(recent.map((report) => report.sessionAverage.idmAvg), latestAverage.idmAvg);
-  const firstRecent = recent[recent.length - 1]?.sessionAverage.ipmAvg ?? ipmRecent;
-  const lastRecent = recent[0]?.sessionAverage.ipmAvg ?? ipmRecent;
-  const ipmTrend = lastRecent - firstRecent;
+  // A TENDENCIA SO COMPARA SESSOES EM QUE A VOZ FOI MEDIDA.
+  //
+  // `sessionAverage.ipmAvg` chega SEMPRE como numero: `LiveSession.tsx` faz
+  // `rounded(...) || 0`, entao uma sessao em que o audio nao chegou a analise
+  // acustica grava 0 — indistinguivel de energia medida igual a zero.
+  //
+  // O estrago aqui era pior do que uma media diluida. Se a sessao MAIS RECENTE
+  // fosse a do microfone falho, `lastRecent` valia 0 e a tendencia acusava uma
+  // queda de energia que nunca aconteceu — e ela vai direto para a tela do
+  // profissional, em `PatientDetail.tsx`, como "IPM tendencia".
+  //
+  // A distincao volta pela PROCEDENCIA, que e afirmacao registrada e nao
+  // adivinhacao: o relatorio declara quantas amostras tinham voz REAL, e o IPM
+  // deriva do vetor espectral, que exige PCM real. Zero amostras com voz e a
+  // afirmacao de que nao houve indice acustico naquela sessao.
+  //
+  // Sem duas sessoes medidas nao ha tendencia a calcular, e `null` e a saida
+  // honesta — `fmtDelta` ja a imprime como "--".
+  const energiasMedidas = recent
+    .map((report) => energiaVocalApurada(report))
+    .filter((valor): valor is number => valor !== null);
+  const ipmTrend =
+    energiasMedidas.length >= 2
+      ? energiasMedidas[0] - energiasMedidas[energiasMedidas.length - 1]
+      : null;
   const dataQuality = average(recent.map(qualityFromReport), qualityFromReport(latest));
   // Antes este máximo combinava dashboard.max_risk — o escore "Risco clínico"
   // que saiu do motor — com a carga de dissonância. Restou a segunda, que é a
@@ -334,7 +375,9 @@ export function patientAdvancedSignal(group: PatientDashboardGroup): PatientAdva
       continuity * 0.16 +
       dataQuality * 0.22 +
       clamp(100 - Math.abs(signalLoad - 58), 0, 100) * 0.28 +
-      clamp(Math.abs(ipmTrend) * 4, 0, 20) -
+      // Tendencia nao apurada contribui ZERO, e nao uma tendencia inventada:
+      // ausencia de medida nao pode virar bonus nem penalidade no composto.
+      clamp(Math.abs(ipmTrend ?? 0) * 4, 0, 20) -
       clamp(-idmRecent, 0, 1) * 18,
     0,
     100,

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   matchesPatientSearch,
   normalizeSearchText,
+  patientAdvancedSignal,
   type PatientDashboardGroup,
 } from "./patient-dashboard";
 
@@ -119,5 +120,71 @@ describe("fronteira entre medida e interpretacao", () => {
     // mudou. O que mudou e que elas dizem o que o sinal fez.
     expect(codigo).toContain("ENERGIA ALTA + DESVIO NEGATIVO");
     expect(codigo).toContain("ENERGIA BAIXA + DESVIO NEUTRO");
+  });
+});
+
+/** Uma sessao do historico, com a procedencia declarada.
+ *
+ *  `amostrasComVozReal: 0` e a afirmacao registrada de que o audio nao chegou a
+ *  analise acustica naquela sessao — nao uma suposicao tirada do valor. */
+function sessao(ipmAvg: number, amostrasComVozReal: number | null) {
+  return {
+    sessionAverage: { ipmAvg, idmAvg: 0.2, dissonanceCount: 1 },
+    ...(amostrasComVozReal === null
+      ? {}
+      : { procedenciaDosDados: { amostras: 60, amostrasComVozReal, amostrasComFaceReal: 60 } }),
+  } as never;
+}
+
+function grupoCom(reports: unknown[]): PatientDashboardGroup {
+  return {
+    reports,
+    latestReport: reports[0],
+    totalSessions: reports.length,
+    completedSessions: reports.length,
+    totalAnalyses: reports.length,
+  } as never as PatientDashboardGroup;
+}
+
+describe("tendencia de IPM sobre sessoes sem voz apurada", () => {
+  // O CASO: `sessionAverage.ipmAvg` chega sempre como numero, porque
+  // `LiveSession.tsx` faz `rounded(...) || 0`. Uma sessao em que o microfone nao
+  // chegou a analise acustica grava 0 — e, sendo a mais recente, produzia uma
+  // queda de energia que nunca aconteceu, impressa como "IPM tendencia" na tela
+  // do profissional.
+
+  it("nao acusa queda quando so uma sessao teve voz medida", () => {
+    const signal = patientAdvancedSignal(
+      grupoCom([sessao(0, 0), sessao(0, 0), sessao(60, 60)]),
+    );
+    // Antes, a sessao mais recente valia 0 e a tendencia saia -60: uma queda
+    // livre de energia impressa na tela do profissional, que era so o microfone
+    // que nao chegou a analise. Uma unica sessao medida nao sustenta tendencia.
+    expect(signal.ipmTrend).toBeNull();
+  });
+
+  it("calcula a tendencia apenas entre as sessoes medidas", () => {
+    const signal = patientAdvancedSignal(
+      grupoCom([sessao(0, 0), sessao(50, 60), sessao(60, 60)]),
+    );
+    // Compara 50 (mais recente medida) contra 60 (mais antiga medida), e ignora
+    // a sessao muda em vez de trata-la como energia zero.
+    expect(signal.ipmTrend).toBeCloseTo(-10, 5);
+  });
+
+  it("continua calculando quando todas as sessoes foram medidas", () => {
+    const signal = patientAdvancedSignal(
+      grupoCom([sessao(70, 60), sessao(60, 60), sessao(50, 60)]),
+    );
+    expect(signal.ipmTrend).toBeCloseTo(20, 5);
+  });
+
+  it("relatorio antigo, sem procedencia, nao e acusado de nao ter medido", () => {
+    // Sem afirmacao registrada nao se afirma nem se acusa: o valor passa como
+    // esta, que e o comportamento de antes do registro de procedencia existir.
+    const signal = patientAdvancedSignal(
+      grupoCom([sessao(70, null), sessao(50, null)]),
+    );
+    expect(signal.ipmTrend).toBeCloseTo(20, 5);
   });
 });
