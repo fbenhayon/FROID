@@ -16,3 +16,4 @@
 - [Espelhos de número](froid-espelhos-de-numero.md) — pisos e fórmulas copiados no site e nos documentos; o piso 50 ficou publicado semanas depois de virar 15
 - [Heredoc e barra invertida](froid-heredoc-barra-invertida.md) — `\` colapsa e quebra o arquivo gerado; usar chr(10)/chr(92) ou Write
 - [Acervo Data-Froid](froid-data-froid-corpus.md) — preservar a substância vale mais que recusar por precaução
+- [Capacidade facial afirmada](froid-facs-capacidade-afirmada.md) — 16 AUs e seis regras, sem onset/apex/offset; corrigido no site, pendente no painel
