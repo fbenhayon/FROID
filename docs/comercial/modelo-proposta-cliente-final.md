@@ -207,11 +207,11 @@ conclusão que a ausência de dado nunca autoriza.
 
 | Componente | Valor |
 |---|---:|
-| Base da plataforma, por unidade | R$ 500,00 / mês |
-| De 1 a 100 trabalhadores | R$ 15,00 / trabalhador / mês |
-| De 101 a 300 | R$ 12,50 / trabalhador / mês |
-| De 301 a 1.000 | R$ 9,30 / trabalhador / mês |
-| Acima de 1.000 | R$ 6,55 / trabalhador / mês |
+| Base da plataforma, por estabelecimento | R$ 500,00 / mês |
+| Faixa 1 — de 1 a 100 trabalhadores | R$ 15,00 / trabalhador / mês |
+| Faixa 2 — de 101 a 300 | R$ 12,50 / trabalhador / mês |
+| Faixa 3 — de 301 a 1.000 | R$ 9,30 / trabalhador / mês |
+| Faixa 4 — acima de 1.000 | R$ 6,55 / trabalhador / mês |
 
 As faixas são cumulativas e incidem sobre o efetivo total. A base é por unidade —
 estabelecimento, não departamento: cinco setores no mesmo endereço são uma base,

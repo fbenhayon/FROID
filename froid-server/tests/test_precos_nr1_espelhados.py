@@ -108,8 +108,8 @@ class TodaCopiaDoPrecoConfereComAFonte(unittest.TestCase):
     def test_a_base_por_unidade_e_a_mesma_em_toda_parte(self):
         """A base aparece com rotulo diferente em cada idioma; o numero, nao."""
         rotulos = re.compile(
-            r"(?:Base da plataforma, por unidade|Platform base, per site|"
-            r"Base de la plataforma, por sede|Base de la plateforme, par site)"
+            r"(?:Base da plataforma, por estabelecimento|Platform base, per establishment|"
+            r"Base de la plataforma, por establecimiento|Base de la plateforme, par établissement)"
             r"</td><td>([^<]*)</td>"
         )
         achados, divergentes = 0, []
@@ -140,10 +140,29 @@ class TodaCopiaDoPrecoConfereComAFonte(unittest.TestCase):
         mudar sem os textos mudarem juntos, a conta publicada deixa de fechar."""
         self.assertEqual((100, 300, 1000), LIMITES)
         pagina = (REPO / "froid-site" / "empresas.html").read_text(encoding="utf-8")
-        self.assertIn("De 1 a 100 trabalhadores", pagina)
-        self.assertIn("De 101 a 300", pagina)
-        self.assertIn("De 301 a 1.000", pagina)
-        self.assertIn("Acima de 1.000", pagina)
+        self.assertIn("Faixa 1 — de 1 a 100 trabalhadores", pagina)
+        self.assertIn("Faixa 2 — de 101 a 300", pagina)
+        self.assertIn("Faixa 3 — de 301 a 1.000", pagina)
+        self.assertIn("Faixa 4 — acima de 1.000", pagina)
+
+    def test_a_tabela_de_preco_nao_diz_unidade(self):
+        """"Unidade" tinha DOIS sentidos em `empresas.html`.
+
+        Na tabela de preco queria dizer estabelecimento; em "unidade de
+        avaliacao" (atividade, posto, funcao, setor, grupo de exposicao) quer
+        dizer outra coisa inteiramente — e as duas apareciam na mesma pagina.
+        Duas tabelas abaixo da de preco, a pagina ja escrevia "Valor por
+        estabelecimento", que e o termo do eSocial e da propria norma.
+
+        O sentido de "unidade de avaliacao" continua valido e nao e varrido
+        aqui: o que este teste proibe e a tabela de PRECO voltar a usa-lo.
+        """
+        pagina = (REPO / "froid-site" / "empresas.html").read_text(encoding="utf-8")
+        inicio = pagina.index('id="precos-nr1"')
+        fim = pagina.index('id="limites-e-responsabilidade"')
+        secao = pagina[inicio:fim]
+        self.assertIn("Base da plataforma, por estabelecimento", secao)
+        self.assertNotIn("por unidade</td>", secao)
 
 
 if __name__ == "__main__":
