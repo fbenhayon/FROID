@@ -149,6 +149,41 @@ var NAV_SECOES = {
   ]
 };
 
+/* Teclado dos menus do header, um só para os dois tipos (o submenu de seções,
+   montado aqui, e os menus de família, escritos no HTML). O ponteiro e o foco
+   já abrem pelo CSS; isto acrescenta seta para baixo, Escape e o par
+   aria-haspopup/aria-expanded. O link do rótulo NUNCA deixa de navegar: nada
+   chama preventDefault fora da seta. */
+function ligarTeclado(item, link, menu) {
+  link.setAttribute("aria-haspopup", "true");
+  link.setAttribute("aria-expanded", "false");
+
+  link.addEventListener("keydown", function (e) {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      item.classList.add("aberto");
+      link.setAttribute("aria-expanded", "true");
+      var primeiro = menu.querySelector("a");
+      if (primeiro) primeiro.focus();
+    }
+  });
+  item.addEventListener("focusout", function () {
+    window.setTimeout(function () {
+      if (!item.contains(document.activeElement)) {
+        item.classList.remove("aberto");
+        link.setAttribute("aria-expanded", "false");
+      }
+    }, 0);
+  });
+  menu.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") {
+      item.classList.remove("aberto");
+      link.setAttribute("aria-expanded", "false");
+      link.focus();
+    }
+  });
+}
+
 document.addEventListener("DOMContentLoaded", function () {
   // Destaca no header o link da página atual (itálico + sublinhado via CSS .ativo)
   var pagina = (location.pathname.split("/").pop() || "index.html").toLowerCase();
@@ -192,6 +227,12 @@ document.addEventListener("DOMContentLoaded", function () {
     // cosmético, e é o preço de não excluir quem tem mouse.
 
     Array.prototype.forEach.call(nav.querySelectorAll("a"), function (link) {
+      // Links que já vivem dentro de um menu de família (o rótulo e os filhos
+      // dele) não ganham submenu de seções: seria menu suspenso dentro de menu
+      // suspenso, e o de dentro abriria fora da tela. O submenu de seções fica
+      // com os links soltos da fileira — Ética, Segurança e Preços.
+      if (link.closest && link.closest(".nav-menu")) return;
+
       var alvoPagina = (link.getAttribute("href") || "").toLowerCase().split("#")[0];
       var secoes = NAV_SECOES[alvoPagina];
       if (!secoes || !secoes.length) return;
@@ -223,36 +264,20 @@ document.addEventListener("DOMContentLoaded", function () {
       if (!criados) return;
 
       item.appendChild(menu);
-      link.setAttribute("aria-haspopup", "true");
-      link.setAttribute("aria-expanded", "false");
-
-      // Teclado: o link continua navegando; a seta para baixo entra no menu.
-      link.addEventListener("keydown", function (e) {
-        if (e.key === "ArrowDown") {
-          e.preventDefault();
-          item.classList.add("aberto");
-          link.setAttribute("aria-expanded", "true");
-          var primeiro = menu.querySelector("a");
-          if (primeiro) primeiro.focus();
-        }
-      });
-      item.addEventListener("focusout", function () {
-        window.setTimeout(function () {
-          if (!item.contains(document.activeElement)) {
-            item.classList.remove("aberto");
-            link.setAttribute("aria-expanded", "false");
-          }
-        }, 0);
-      });
-      menu.addEventListener("keydown", function (e) {
-        if (e.key === "Escape") {
-          item.classList.remove("aberto");
-          link.setAttribute("aria-expanded", "false");
-          link.focus();
-        }
-      });
+      ligarTeclado(item, link, menu);
     });
   })();
+
+  // ---------- Menus de família do header (escritos no HTML) ----------
+  // Os filhos de cada produto e o grupo Ciência e Tecnologia já vêm no HTML
+  // dentro de um .nav-menu; o CSS abre no ponteiro e no foco. Aqui só se liga o
+  // teclado, com o mesmo comportamento do submenu de seções — uma função só,
+  // para os dois não divergirem.
+  document.querySelectorAll(".nav-menu").forEach(function (item) {
+    var link = item.querySelector(".nav-familia-rotulo");
+    var menu = item.querySelector(".nav-drop");
+    if (link && menu) ligarTeclado(item, link, menu);
+  });
 
   document.querySelectorAll(".nerds-toggle").forEach(function (btn) {
     btn.addEventListener("click", function () {

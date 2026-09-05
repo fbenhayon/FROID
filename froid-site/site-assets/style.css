@@ -77,6 +77,30 @@ header.site-header {
   margin-left: 4px; padding-left: 18px;
   border-left: 1px solid rgba(248,250,252,0.22);
 }
+
+/* Os filhos de cada família passaram a viver DENTRO do rótulo dela.
+
+   Motivo medido em 04/09/2026: com treze links a fileira somava 1473px em
+   português e 1614px em francês, contra 1072px úteis (container 1120 menos os
+   recuos de 24px). Quebrava em duas linhas em todos os idiomas — e já quebrava
+   antes de "Mapas da face" entrar. Em francês o menu sozinho não cabia.
+   Agora são seis itens na linha, e ela fecha com folga em pt/en/es/fr.
+
+   O rótulo continua sendo um LINK real para a visão geral daquele grupo, e a
+   visão geral é repetida como primeiro item do menu: quem toca no rótulo
+   navega, quem passa o ponteiro escolhe. Nenhum destino se perdeu. */
+.nav-menu { position: relative; display: inline-flex; align-items: center; }
+.nav-menu > .nav-familia-rotulo::after {
+  content: "\25BE"; font-size: 0.72em; margin-left: 5px; opacity: 0.7;
+}
+@media (min-width: 861px) {
+  /* :focus-within abre pelo teclado; o script.js cuida de seta e Escape. */
+  .nav-menu:hover > .nav-drop,
+  .nav-menu:focus-within > .nav-drop,
+  .nav-menu.aberto > .nav-drop {
+    opacity: 1; visibility: visible; transform: translateY(0);
+  }
+}
 .nav-links a.nav-familia-rotulo { font-weight: 700; color: var(--froid-branco); }
 .nav-links a.ativo {
   font-style: italic; font-weight: 600; color: var(--froid-branco);
@@ -113,9 +137,13 @@ header.site-header {
   background: rgba(148,163,184,0.14); color: #fcd34d; text-decoration: none;
 }
 /* Uma seção alvo não pode ficar embaixo do header fixo ao chegar pela âncora.
-   O header muda de altura conforme os links quebram em duas linhas — chega a
-   88px em telas médias. A folga é calculada para o pior caso: sobrar espaço em
-   branco não atrapalha, ficar encoberto sim. */
+
+   O valor nasceu do pior caso de quando os treze links quebravam em duas
+   linhas e o header chegava a 88px. Depois da reorganização em menus de
+   família a fileira fecha em uma linha só (~56px medidos), e os 108px viraram
+   folga. Ficam como estão de propósito: sobrar espaço em branco não atrapalha,
+   ficar encoberto sim — e a altura volta a crescer se alguém acrescentar um
+   item à fileira. */
 [id] { scroll-margin-top: 108px; }
 
 /* Tabela de faixas do FROID NR-1. Vive aqui, e não no <style> de uma página,
@@ -171,6 +199,41 @@ a.lang-pill:hover { color: #fff; border-color: rgba(248,250,252,0.5); }
   .nav-familia { flex-wrap: wrap; justify-content: center; gap: 10px; }
   .nav-familia + .nav-familia { margin-left: 0; padding-left: 12px; }
   .nav-links a { font-size: 0.82rem; }
+  /* No celular NÃO há menu suspenso: a lista da família entra na linha, e o
+     header volta a mostrar todos os destinos como antes. Esconder filho de
+     produto atrás de :hover num aparelho de toque deixaria Profissionais,
+     Para empresas e Como funciona sem caminho nenhum a partir do topo — o
+     header já empilha aqui, então o aperto que motivou o menu não existe.
+     Vale só para os menus de família (.nav-menu); o submenu de seções montado
+     pelo script.js continua com o comportamento de sempre. */
+  /* `display: contents` dissolve as duas caixas: o rótulo e os filhos passam a
+     ser irmãos diretos do .nav-familia e voltam a fluir numa fileira única que
+     quebra sozinha, como antes. A primeira tentativa mantinha as caixas e só
+     as tornava estáticas — aí o .nav-menu virava um item de flex indivisível,
+     largo demais para 400px: "Segurança" saía da tela e a página ganhava barra
+     de rolagem horizontal. Medido em 400px de largura. */
+  .nav-menu, .nav-menu > .nav-drop { display: contents; }
+  /* visibility é herdada: sem isto os filhos continuariam escondidos. */
+  .nav-menu > .nav-drop { visibility: visible; opacity: 1; transform: none; }
+  .nav-menu > .nav-familia-rotulo::after { content: none; }
+  .nav-menu > .nav-drop > a {
+    visibility: visible;
+    padding: 0; border-radius: 0; font-size: 0.82rem; white-space: nowrap;
+    color: rgba(248,250,252,0.85);
+  }
+  .nav-menu > .nav-drop > a:hover { background: none; color: var(--froid-branco); }
+  /* "Visão geral" repete o destino do rótulo. No suspenso ela é necessária
+     (quem abre o menu com o ponteiro não clica no rótulo); aqui, com tudo na
+     linha, seria um link duplicado ao lado do outro. */
+  .nav-menu > .nav-drop > .nav-drop-visao-geral { display: none; }
+  /* O submenu de SEÇÕES (montado pelo script.js dentro de .nav-item) é uma
+     caixa absoluta de 232px de largura mínima. Escondido por `visibility` ele
+     continua ocupando layout e transbordando para a direita: era a origem da
+     barra de rolagem horizontal no celular — medida em 400px de largura, a
+     página rolava até 614px, e o defeito é anterior a esta sessão. `display:
+     none` tira do layout. Nada se perde: no toque esse menu nunca chegou a
+     abrir, e cada seção continua alcançável rolando a página de destino. */
+  .nav-item > .nav-drop { display: none; }
   .nav-actions { width: 100%; justify-content: center; }
   .nav-actions .btn { flex: 1 1 0; max-width: 190px; text-align: center; padding: 9px 8px; font-size: 0.8rem; }
 }
