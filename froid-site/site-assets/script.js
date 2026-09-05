@@ -100,7 +100,7 @@ var NAV_SECOES = {
     ["perguntas-fornecedor", "Cinco perguntas ao fornecedor"],
     ["precos-nr1", "Quanto custa"],
     ["limites-e-responsabilidade", "Limites e responsabilidade"],
-    ["proximo-passo", "Comece por uma unidade"]
+    ["proximo-passo", "Comece por um estabelecimento"]
   ],
   "como-funciona-nr1.html": [
     ["as-sete-etapas", "As sete etapas"],
