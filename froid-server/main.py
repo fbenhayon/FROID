@@ -6,6 +6,7 @@ import hmac
 import io
 import json
 import logging
+import math
 import os
 import re
 import secrets
@@ -1820,34 +1821,50 @@ def _duckdb_connection():
 
 
 def _fallback_analytics_sql(query_text: str) -> Dict[str, str]:
+    """As consultas de queda, cada media acompanhada do seu proprio N.
+
+    O RISCO QUE ISTO FECHA: desde a v4 do acervo, coluna de medida nao apurada
+    e NULL, e `AVG()` ignora NULL. Sem o `COUNT(coluna)` ao lado, uma coorte de
+    100 sessoes das quais 30 nao tiveram voz medida responderia `n=100` com uma
+    media calculada sobre 70 — e nada na resposta acusaria. O `cohort_size` conta
+    sessoes; `n_<coluna>` conta quantas dessas sessoes de fato mediram aquilo.
+    As duas contagens divergirem e informacao clinica, nao ruido.
+    """
     query = _normalize_search_text(query_text)
     if "corte" in query or "10 minuto" in query or "janela" in query:
         result_sql = (
             "SELECT cut_label, COUNT(DISTINCT session_hash) AS sessoes, "
-            "AVG(ipm_avg) AS ipm_medio, AVG(idm_avg) AS idm_medio, "
+            "AVG(ipm_avg) AS ipm_medio, COUNT(ipm_avg) AS n_ipm, "
+            "AVG(idm_avg) AS idm_medio, COUNT(idm_avg) AS n_idm, "
             "AVG(words_per_minute) AS palavras_por_minuto_media, "
-            "AVG(dissonance_count) AS dissonancias_medias "
+            "COUNT(words_per_minute) AS n_palavras_por_minuto, "
+            "AVG(dissonance_count) AS dissonancias_medias, "
+            "COUNT(dissonance_count) AS n_dissonancias "
             "FROM anonymous_session_cuts GROUP BY cut_label ORDER BY cut_label"
         )
         cohort_sql = "SELECT COUNT(DISTINCT session_hash) AS cohort_size FROM anonymous_session_cuts"
     elif "zona" in query:
         result_sql = (
-            "SELECT dominant_zone, COUNT(*) AS sessoes, AVG(ipm_score) AS ipm_medio, "
-            "AVG(vocal_tension) AS tensao_vocal_media "
+            "SELECT dominant_zone, COUNT(*) AS sessoes, "
+            "AVG(ipm_score) AS ipm_medio, COUNT(ipm_score) AS n_ipm, "
+            "AVG(vocal_tension) AS tensao_vocal_media, COUNT(vocal_tension) AS n_tensao_vocal "
             "FROM anonymous_sessions GROUP BY dominant_zone ORDER BY sessoes DESC LIMIT 12"
         )
         cohort_sql = "SELECT COUNT(DISTINCT session_hash) AS cohort_size FROM anonymous_sessions"
     elif "medic" in query or "ssri" in query:
         result_sql = (
-            "SELECT ssri_medication, COUNT(*) AS sessoes, AVG(ipm_score) AS ipm_medio, "
-            "AVG(vocal_tension) AS tensao_vocal_media "
+            "SELECT ssri_medication, COUNT(*) AS sessoes, "
+            "AVG(ipm_score) AS ipm_medio, COUNT(ipm_score) AS n_ipm, "
+            "AVG(vocal_tension) AS tensao_vocal_media, COUNT(vocal_tension) AS n_tensao_vocal "
             "FROM anonymous_sessions GROUP BY ssri_medication ORDER BY sessoes DESC"
         )
         cohort_sql = "SELECT COUNT(DISTINCT session_hash) AS cohort_size FROM anonymous_sessions"
     else:
         result_sql = (
-            "SELECT age_bucket, gender, COUNT(*) AS sessoes, AVG(ipm_score) AS ipm_medio, "
-            "AVG(vocal_tension) AS tensao_vocal_media, AVG(session_duration) AS duracao_media "
+            "SELECT age_bucket, gender, COUNT(*) AS sessoes, "
+            "AVG(ipm_score) AS ipm_medio, COUNT(ipm_score) AS n_ipm, "
+            "AVG(vocal_tension) AS tensao_vocal_media, COUNT(vocal_tension) AS n_tensao_vocal, "
+            "AVG(session_duration) AS duracao_media "
             "FROM anonymous_sessions GROUP BY age_bucket, gender ORDER BY sessoes DESC LIMIT 20"
         )
         cohort_sql = "SELECT COUNT(DISTINCT session_hash) AS cohort_size FROM anonymous_sessions"
@@ -1875,13 +1892,27 @@ def _parse_analytics_sql_payload(text: str, query_text: str) -> Dict[str, str]:
     }
 
 
+SEM_APURACAO_NA_TABELA = "sem apuracao"
+
+
 def _format_query_table(columns: List[str], rows: List[tuple], limit: int = 50) -> str:
+    """A tabela que vai para o modelo narrador e para a tela.
+
+    `str(None)` imprimia o literal `None`, que nao diz nada a quem le e e
+    ambiguo para o modelo que resume o resultado logo em seguida. Desde a v4 do
+    acervo, NULL numa coluna de medida significa uma coisa so — nao houve
+    apuracao — e a celula passa a dizer isso.
+    """
     if not rows:
         return "Sem linhas retornadas."
     selected_rows = rows[:limit]
     lines = [" | ".join(columns)]
     for row in selected_rows:
-        lines.append(" | ".join(str(value) for value in row))
+        lines.append(
+            " | ".join(
+                SEM_APURACAO_NA_TABELA if value is None else str(value) for value in row
+            )
+        )
     return "\n".join(lines)
 
 
@@ -1951,6 +1982,25 @@ async def _query_froid_analytics(payload: FroidExplicaQuery) -> FroidExplicaResp
         "cut_context_json VARCHAR, previous_cut_context VARCHAR, next_cut_context VARCHAR, "
         "response_ipm_direction VARCHAR, response_idm_direction VARCHAR, response_dissonance_direction VARCHAR, "
         "metrics_version VARCHAR, weights_version VARCHAR, media_loss_events INTEGER. "
+        # SEM ESTE PARAGRAFO, O ACERVO HONESTO PRODUZ RESPOSTA DESONESTA.
+        #
+        # Ate a v3, ausencia de medida era gravada como 0.0 e entrava na media
+        # puxando-a para baixo. Desde a v4 e NULL, e `AVG()` ignora NULL — o que
+        # e correto e, sozinho, perigoso: a media passa a ser de um subconjunto
+        # que nao aparece em lugar nenhum da resposta. O modelo precisa saber
+        # disso para escrever o `COUNT` ao lado, senao devolve `n=100` sobre uma
+        # media de 70 e ninguem tem como perceber.
+        "IMPORTANTE — colunas de MEDIDA (ipm_score, ipm_avg, idm_avg, vocal_tension, "
+        "jitter, shimmer, f0_mean, zcr, mfcc*, spectral_*, subharmonic_*, os delta_* e "
+        "os baseline_*) podem ser NULL: NULL significa NAO APURADO nessa sessao ou corte, "
+        "nunca zero. AVG/SUM ignoram NULL silenciosamente, entao para TODA coluna de "
+        "medida agregada inclua tambem COUNT(<coluna>) AS n_<coluna>, para que o leitor "
+        "veja sobre quantos registros a media foi calculada. Nunca use "
+        "coalesce(<coluna de medida>, 0) nem IFNULL: isso reintroduz o zero que a v4 "
+        "eliminou. schema_version distingue as eras — linhas 'anonymous_datamart_v3' e "
+        "anteriores gravavam 0.0 por ausencia; filtre por "
+        "schema_version = 'anonymous_datamart_v4' quando a pergunta depender de medida "
+        "acustica. dominant_zone e baseline_zone valem 1..12 ou NULL. "
         "Retorne somente JSON valido com result_sql e cohort_sql. "
         "result_sql deve ser SELECT agregado, sem dados individuais. "
         "cohort_sql deve retornar COUNT(DISTINCT session_hash) AS cohort_size a partir da coorte consultada "
@@ -2010,7 +2060,12 @@ async def _query_froid_analytics(payload: FroidExplicaQuery) -> FroidExplicaResp
     table_text = _format_query_table(columns, rows)
     report_instruction = (
         "Voce e o estatistico medico do FROID. Analise somente dados agregados anonimizados. "
-        "Explique padroes, limites e implicacoes clinicas sem diagnosticar individuos."
+        "Explique padroes, limites e implicacoes clinicas sem diagnosticar individuos. "
+        "Celulas com 'sem apuracao' significam que a medida NAO foi feita — nao as leia "
+        "como zero nem as ignore em silencio. Quando houver coluna n_<medida> menor que o "
+        "numero de registros da coorte, diga sobre quantos registros a media foi de fato "
+        "calculada: uma media de 70 sessoes apresentada como sendo de 100 e o erro que "
+        "esta instrucao existe para impedir."
     )
     report_prompt = (
         f"Pergunta original: {payload.query_text}\n"
@@ -3084,10 +3139,96 @@ def _privacy_export_report(report: dict) -> dict:
 
 
 def _safe_float(value, default: float = 0.0) -> float:
+    """LAPIDE. Sem chamadores desde 04/09/2026, e de proposito.
+
+    Esta funcao converteu, por meses, ausencia de medida em `0.0` na gravacao do
+    acervo anonimo. Num relatorio real de 04/09/2026 o paciente recebeu vinte e
+    uma linhas em `0,00` — nenhuma delas uma medida de zero. As posicoes de
+    escrita que a usavam passaram a `_medida` / `_delta` / `_primeiro_presente`,
+    e `tests/test_ausencia_no_acervo.py` varre os quatro comandos para que ela
+    nao volte.
+
+    NAO REMOVA sem antes tratar duas coisas:
+
+    1. `tests/test_data_subject_rights.py` recorta `_privacy_export_report` pela
+       fronteira literal `"def _safe_float"`. Apagar esta definicao faz aquele
+       recorte engolir o resto do arquivo, e um teste de SEGURANCA passa a
+       afirmar outra coisa sem falhar.
+    2. Ela fica aqui tambem como aviso: `float(x)` com valor de queda numerico e
+       exatamente o defeito. Quem precisar de um conversor tolerante para
+       CONTAGEM use `_safe_int`; para MEDIDA, `_medida`, que nao tem queda.
+    """
     try:
         return float(value)
     except Exception:
         return default
+
+
+def _medida(value) -> Optional[float]:
+    """O que se grava quando pode nao ter havido medida.
+
+    Devolve o numero quando ele existe, e `None` quando nao existe. Sem valor
+    de queda, de proposito: `None` vira NULL no acervo, e NULL e a unica forma
+    de "nao apurado" que sobrevive a uma consulta — `AVG()` o ignora em vez de
+    puxar a media para baixo com zeros que ninguem mediu.
+
+    Num relatorio real de 04/09/2026 vinte e uma linhas sairam em `0,00` porque
+    `_safe_float` converteu os `None` que o motor devolveu com honestidade. A
+    apresentacao ja foi corrigida pela procedencia; esta funcao e a causa raiz.
+
+    ZERO MEDIDO CONTINUA ZERO. A distincao nao e "zero significa ausencia" —
+    isso seria adivinhar, e trocar uma suposicao por outra. E o proprio `None`
+    que chega do navegador, onde `averageNumeric` ja o produz quando nenhuma
+    amostra foi finita.
+    """
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        numero = float(value)
+    except (TypeError, ValueError):
+        return None
+    return numero if math.isfinite(numero) else None
+
+
+def _delta(atual, referencia) -> Optional[float]:
+    """Diferenca que so existe se os dois lados existirem.
+
+    Um delta sobre um operando ausente nao e zero: e incomputavel. Gravar zero
+    aqui afirmaria "nao mudou nada" sobre uma sessao em que nao se mediu nada —
+    a mesma mentira do `0,00`, agora com sinal.
+    """
+    a, b = _medida(atual), _medida(referencia)
+    if a is None or b is None:
+        return None
+    return a - b
+
+
+def _primeiro_presente(*valores) -> Optional[float]:
+    """O primeiro valor MEDIDO da lista, nao o primeiro valor verdadeiro.
+
+    `a or b or c` descarta um `a` medido igual a 0.0 e devolve `b` — o zero e
+    falsy. Ja aconteceu nesta casa (`0.0 or -120.0` devolvendo o fundo de
+    escala). Aqui a pergunta e "existe?", nao "e diferente de zero?".
+    """
+    for valor in valores:
+        numero = _medida(valor)
+        if numero is not None:
+            return numero
+    return None
+
+
+def _zona(value) -> Optional[int]:
+    """Zona de percepcao, ou NULL. Nunca zero.
+
+    As zonas do FROID sao 1..12. `_safe_int` devolvia 0 para ausencia, e o
+    `GROUP BY dominant_zone` do Data-FROID passava a ter um balde "0" — que le
+    como uma zona a mais e e, na verdade, "nao apurada".
+    """
+    numero = _medida(value)
+    if numero is None:
+        return None
+    inteiro = int(numero)
+    return inteiro if 1 <= inteiro <= 12 else None
 
 
 def _safe_int(value, default: int = 0) -> int:
@@ -3305,15 +3446,25 @@ def _infer_intervention_category(text: str) -> str:
 
 
 def _infer_patient_response(cut: dict, previous_cut: Optional[dict], baseline: dict) -> str:
-    ipm = _safe_float(cut.get("ipmAvg"))
-    dissonance = _safe_float(cut.get("dissonanceCount"))
-    reference_ipm = _safe_float((previous_cut or {}).get("ipmAvg"), _safe_float(baseline.get("ipmAvg")))
-    reference_dissonance = _safe_float(
-        (previous_cut or {}).get("dissonanceCount"),
-        _safe_float(baseline.get("dissonanceCount")),
+    """Como o paciente respondeu entre um corte e o anterior.
+
+    Sem os dois lados medidos nao ha resposta a classificar. Antes, os `None`
+    viravam 0.0 e a subtracao dava 0.0 — que cai em "estabilidade": o rotulo
+    mais tranquilizador do conjunto, afirmado sobre uma sessao em que nada foi
+    medido. Agora a ausencia tem rotulo proprio.
+    """
+    ipm = _medida(cut.get("ipmAvg"))
+    reference_ipm = _primeiro_presente(
+        (previous_cut or {}).get("ipmAvg"), baseline.get("ipmAvg")
     )
-    ipm_delta = ipm - reference_ipm
-    dissonance_delta = dissonance - reference_dissonance
+    dissonance = _medida(cut.get("dissonanceCount"))
+    reference_dissonance = _primeiro_presente(
+        (previous_cut or {}).get("dissonanceCount"), baseline.get("dissonanceCount")
+    )
+    ipm_delta = _delta(ipm, reference_ipm)
+    dissonance_delta = _delta(dissonance, reference_dissonance)
+    if ipm_delta is None or dissonance_delta is None:
+        return "nao_apurado"
     if ipm_delta <= -0.5 and dissonance_delta <= 0:
         return "melhora_regulacao"
     if ipm_delta >= 0.5 or dissonance_delta > 0:
@@ -3321,11 +3472,25 @@ def _infer_patient_response(cut: dict, previous_cut: Optional[dict], baseline: d
     return "estabilidade"
 
 
-def _cut_confidence(cut: dict) -> float:
-    sample_count = _safe_float(cut.get("sampleCount"))
-    duration = max(1.0, _safe_float(cut.get("endSecond")) - _safe_float(cut.get("startSecond")))
+def _cut_confidence(cut: dict) -> Optional[float]:
+    """Quanto do corte foi de fato coberto por amostra e por fala.
+
+    Devolve `None` quando nao ha do que calcular cobertura. Um corte sem
+    `sampleCount` produzia confianca 0.35 * (wpm/80) — um numero com tres casas
+    saido de nada, e que subia para a media da sessao como se fosse medida.
+    """
+    sample_count = _medida(cut.get("sampleCount"))
+    if sample_count is None:
+        return None
+    inicio, fim = _medida(cut.get("startSecond")), _medida(cut.get("endSecond"))
+    if inicio is None or fim is None:
+        return None
+    duration = max(1.0, fim - inicio)
     coverage = min(1.0, sample_count / max(1.0, duration / 10.0))
-    speech = min(1.0, _safe_float(cut.get("wordsPerMinute")) / 80.0)
+    # Ritmo de fala vem da transcricao do navegador e nao depende da apuracao
+    # acustica: ausente aqui significa que nao houve palavra contada, o que e
+    # uma medida de cobertura, nao uma lacuna.
+    speech = min(1.0, (_medida(cut.get("wordsPerMinute")) or 0.0) / 80.0)
     return round((coverage * 0.65) + (speech * 0.35), 3)
 
 
@@ -3651,16 +3816,26 @@ def _append_anonymous_datamart_row(report: dict) -> None:
         ten_minute_cuts = [
             cut for cut in (report.get("tenMinuteCuts") or []) if isinstance(cut, dict)
         ]
-        dominant_zone = average.get("dominantZone") or baseline.get("dominantZone")
-        vocal_tension = (
-            average.get("jitter")
-            or average.get("shimmer")
-            or average.get("subharmonic5_12")
-            or 0
+        # Zona dominante ausente e NULL, nao zona 0.
+        #
+        # `_safe_int` devolvia 0, e zona 0 nao existe — sao 1..12. O
+        # `GROUP BY dominant_zone` do Data-FROID ganhava um balde "0" que era
+        # ausencia disfarcada de zona.
+        dominant_zone = _primeiro_presente(
+            average.get("dominantZone"), baseline.get("dominantZone")
+        )
+        # Primeiro valor PRESENTE, nao primeiro valor verdadeiro: um jitter
+        # medido de 0.0 e falsy e a cadeia `or` o descartava, fazendo o campo
+        # passar a valer o shimmer sem nada acusar.
+        vocal_tension = _primeiro_presente(
+            average.get("jitter"),
+            average.get("shimmer"),
+            average.get("subharmonic5_12"),
         )
         cuts_confidence = [_cut_confidence(cut) for cut in ten_minute_cuts]
+        cuts_confidence = [c for c in cuts_confidence if c is not None]
         confidence_score = (
-            sum(cuts_confidence) / len(cuts_confidence) if cuts_confidence else 0.0
+            sum(cuts_confidence) / len(cuts_confidence) if cuts_confidence else None
         )
         audio_quality = _anonymous_category(
             context.get("audio_quality") or context.get("audioQuality") or "nao_informada",
@@ -3691,12 +3866,30 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 session_hash,
                 _anonymous_age_bucket(context.get("age_bucket") or context.get("ageBucket")),
                 _anonymous_category(context.get("gender") or "unknown", "unknown"),
-                _safe_float(average.get("ipmAvg")),
-                _safe_int(dominant_zone),
-                _safe_float(vocal_tension),
+                _medida(average.get("ipmAvg")),
+                _zona(dominant_zone),
+                vocal_tension,
                 _safe_bool(context.get("ssri_medication") or context.get("ssriMedication"), False),
                 _safe_int(report.get("durationSeconds")),
-                "anonymous_datamart_v3",
+                # v4 = ausencia grava NULL; ate v3 gravava 0.0.
+                #
+                # CUIDADO: ha TRES "v3" diferentes por perto, e eles nao andam
+                # juntos. Este e o `schema_version` da LINHA — o que mudou aqui.
+                # `data-froid-privacy-v3` e a versao do PORTAO de anonimizacao
+                # (`privacy_ingestion_audit`), inalterada. E
+                # `datamart_anonymous_v3.duckdb` e o nome do ARQUIVO do banco,
+                # tambem inalterado: mesmo banco, mesmas tabelas, so o conteudo
+                # da coluna mudou. Confundir os tres levaria alguem a migrar
+                # arquivo ou a afrouxar o portao para "acompanhar a versao".
+                #
+                # A troca de versao NAO e cosmetica: sem ela, linhas antigas com
+                # `0.0` por ausencia e linhas novas com NULL convivem no mesmo
+                # `AVG()` — e o resultado e pior que qualquer uma das duas eras,
+                # porque parte da coorte puxa a media para baixo e a outra parte
+                # nao, sem nada distinguir. Com a versao, toda consulta consegue
+                # separar. As linhas <= v3 nao sao recuperaveis: o valor de
+                # origem nunca entrou no acervo.
+                "anonymous_datamart_v4",
                 _safe_str(report.get("createdAt") or datetime.now(timezone.utc).isoformat(), 80),
                 _anonymous_category(context.get("session_modality") or context.get("sessionModality") or "unknown", "unknown"),
                 normalize_session_locale(context.get("spoken_language") or context.get("spokenLanguage") or report.get("spokenLanguage")),
@@ -3705,14 +3898,14 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 _anonymous_category(context.get("session_kind") or context.get("sessionKind") or "seguimento", "seguimento"),
                 _anonymous_category(context.get("treatment_phase") or context.get("treatmentPhase") or "nao_informada", "nao_informada"),
                 _safe_int(context.get("session_ordinal") or context.get("sessionOrdinal")),
-                _safe_float(context.get("interval_since_previous_days") or context.get("intervalSincePreviousDays")),
-                _safe_float(baseline.get("ipmAvg")),
-                _safe_float(baseline.get("idmAvg")),
-                _safe_int(baseline.get("dominantZone")),
+                _primeiro_presente(context.get("interval_since_previous_days"), context.get("intervalSincePreviousDays")),
+                _medida(baseline.get("ipmAvg")),
+                _medida(baseline.get("idmAvg")),
+                _zona(baseline.get("dominantZone")),
                 _anonymous_category(baseline.get("emotionalTone") or ""),
-                _safe_float(baseline.get("wordsPerMinute")),
-                _safe_float(average.get("idmAvg")),
-                _safe_float(average.get("wordsPerMinute")),
+                _medida(baseline.get("wordsPerMinute")),
+                _medida(average.get("idmAvg")),
+                _medida(average.get("wordsPerMinute")),
                 _safe_int(average.get("dissonanceCount")),
                 len(ten_minute_cuts),
                 len(report.get("clinicalNotes") or []),
@@ -3723,7 +3916,7 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 _safe_technical_id(context.get("algorithm_version") or context.get("algorithmVersion") or FROID_ALGORITHM_VERSION, FROID_ALGORITHM_VERSION, 80),
                 audio_quality,
                 _safe_int(context.get("media_interruptions") or context.get("mediaInterruptions")),
-                _safe_float(confidence_score),
+                confidence_score,
                 consent_research,
             ],
         )
@@ -3754,12 +3947,12 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                     "seguimento",
                 ),
                 _safe_int(context.get("previous_sessions_count") or context.get("previousSessionsCount")),
-                _safe_float(context.get("delta_ipm_from_session_baseline") or context.get("deltaIpmFromSessionBaseline")),
-                _safe_float(context.get("delta_idm_from_session_baseline") or context.get("deltaIdmFromSessionBaseline")),
-                _safe_float(context.get("delta_ipm_vs_last3") or context.get("deltaIpmVsLast3")),
-                _safe_float(context.get("delta_idm_vs_last3") or context.get("deltaIdmVsLast3")),
-                _safe_float(context.get("delta_ipm_vs_historical") or context.get("deltaIpmVsHistorical")),
-                _safe_float(context.get("delta_idm_vs_historical") or context.get("deltaIdmVsHistorical")),
+                _primeiro_presente(context.get("delta_ipm_from_session_baseline"), context.get("deltaIpmFromSessionBaseline")),
+                _primeiro_presente(context.get("delta_idm_from_session_baseline"), context.get("deltaIdmFromSessionBaseline")),
+                _primeiro_presente(context.get("delta_ipm_vs_last3"), context.get("deltaIpmVsLast3")),
+                _primeiro_presente(context.get("delta_idm_vs_last3"), context.get("deltaIdmVsLast3")),
+                _primeiro_presente(context.get("delta_ipm_vs_historical"), context.get("deltaIpmVsHistorical")),
+                _primeiro_presente(context.get("delta_idm_vs_historical"), context.get("deltaIdmVsHistorical")),
                 _anonymous_category(context.get("longitudinal_trend") or context.get("longitudinalTrend") or "nao_apurado", "nao_apurado"),
                 _anonymous_category(context.get("emotional_stability") or context.get("emotionalStability") or "nao_apurada", "nao_apurada"),
                 _safe_str(json.dumps(_anonymous_category_list(context.get("recurring_themes") or context.get("recurringThemes") or []), ensure_ascii=False), 1200),
@@ -3780,13 +3973,13 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 False,
                 False,
                 _safe_int(context.get("media_loss_events") or context.get("mediaLossEvents") or context.get("media_interruptions") or context.get("mediaInterruptions")),
-                _safe_float(average.get("spectralBeta12_30")),
-                _safe_float(average.get("spectralGamma30_80")),
-                _safe_float(average.get("spectralBandIndex")),
-                _safe_float(average.get("mfcc7Delta")),
-                _safe_float(average.get("mfcc9DeltaDelta")),
-                _safe_float(baseline.get("spectralBeta12_30")),
-                _safe_float(baseline.get("spectralGamma30_80")),
+                _medida(average.get("spectralBeta12_30")),
+                _medida(average.get("spectralGamma30_80")),
+                _medida(average.get("spectralBandIndex")),
+                _medida(average.get("mfcc7Delta")),
+                _medida(average.get("mfcc9DeltaDelta")),
+                _medida(baseline.get("spectralBeta12_30")),
+                _medida(baseline.get("spectralGamma30_80")),
                 session_hash,
             ],
         )
@@ -3875,12 +4068,32 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 cut_context.get("patient_response")
                 or cut_context.get("patientResponse")
                 or _infer_patient_response(cut, previous_cut, baseline),
-                "estabilidade",
+                # A queda deixa de ser "estabilidade": um rotulo recusado pelo
+                # sanitizador virava a afirmacao mais tranquilizadora do
+                # conjunto, sobre um corte do qual nao se sabia nada.
+                "nao_apurado",
             )
-            baseline_dissonance = _safe_float(baseline.get("dissonanceCount"))
-            previous_ipm = _safe_float((previous_cut or {}).get("ipmAvg"), _safe_float(baseline.get("ipmAvg")))
-            previous_idm = _safe_float((previous_cut or {}).get("idmAvg"), _safe_float(baseline.get("idmAvg")))
-            previous_dissonance = _safe_float((previous_cut or {}).get("dissonanceCount"), baseline_dissonance)
+            # As REFERENCIAS dos deltas, cada uma podendo nao existir.
+            #
+            # `previous_*` e o corte anterior quando ele existe, senao a linha de
+            # base; `None` quando nenhum dos dois foi medido. `_primeiro_presente`
+            # em vez de `or`: um corte anterior com dissonancia ZERO e uma
+            # referencia valida, e o `or` a descartava por ser falsy.
+            baseline_ipm_ref = _medida(baseline.get("ipmAvg"))
+            baseline_idm_ref = _medida(baseline.get("idmAvg"))
+            baseline_dissonance = _medida(baseline.get("dissonanceCount"))
+            cut_ipm = _medida(cut.get("ipmAvg"))
+            cut_idm = _medida(cut.get("idmAvg"))
+            cut_dissonance = _medida(cut.get("dissonanceCount"))
+            previous_ipm = _primeiro_presente(
+                (previous_cut or {}).get("ipmAvg"), baseline.get("ipmAvg")
+            )
+            previous_idm = _primeiro_presente(
+                (previous_cut or {}).get("idmAvg"), baseline.get("idmAvg")
+            )
+            previous_dissonance = _primeiro_presente(
+                (previous_cut or {}).get("dissonanceCount"), baseline.get("dissonanceCount")
+            )
             conn.execute(
                 """
                 INSERT INTO anonymous_session_cuts (
@@ -3909,35 +4122,35 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                     start_second,
                     end_second,
                     _safe_int(cut.get("sampleCount")),
-                    _safe_float(cut.get("ipmAvg")),
-                    _safe_float(cut.get("idmAvg")),
-                    _safe_int(cut.get("dominantZone")),
+                    cut_ipm,
+                    cut_idm,
+                    _zona(cut.get("dominantZone")),
                     _anonymous_category(cut.get("dominantTheme") or ""),
                     _anonymous_category(cut.get("coherenceStatus") or ""),
                     _anonymous_category(cut.get("emotionalTone") or ""),
-                    _safe_float(cut.get("wordsPerMinute")),
+                    _medida(cut.get("wordsPerMinute")),
                     _anonymous_category(cut.get("theme") or ""),
                     _safe_int(cut.get("dissonanceCount")),
-                    _safe_float(cut.get("mfcc7")),
-                    _safe_float(cut.get("mfcc9")),
-                    _safe_float(cut.get("f0Mean")),
-                    _safe_float(cut.get("zcr")),
-                    _safe_float(cut.get("jitter")),
-                    _safe_float(cut.get("shimmer")),
-                    _safe_float(cut.get("subharmonic5_12")),
-                    _safe_float(cut.get("subharmonic12_20")),
-                    _safe_float(cut.get("subharmonic20_40")),
-                    _safe_float(cut.get("vocalBasal85_165")),
-                    _safe_float(cut.get("spectralDelta0_4")),
-                    _safe_float(cut.get("spectralTheta4_8")),
-                    _safe_float(cut.get("spectralAlpha8_12")),
-                    _safe_float(cut.get("spectralBeta12_30")),
-                    _safe_float(cut.get("spectralGamma30_80")),
-                    _safe_float(cut.get("spectralBandIndex")),
-                    _safe_float(cut.get("mfcc7Delta")),
-                    _safe_float(cut.get("mfcc9Delta")),
-                    _safe_float(cut.get("mfcc7DeltaDelta")),
-                    _safe_float(cut.get("mfcc9DeltaDelta")),
+                    _medida(cut.get("mfcc7")),
+                    _medida(cut.get("mfcc9")),
+                    _medida(cut.get("f0Mean")),
+                    _medida(cut.get("zcr")),
+                    _medida(cut.get("jitter")),
+                    _medida(cut.get("shimmer")),
+                    _medida(cut.get("subharmonic5_12")),
+                    _medida(cut.get("subharmonic12_20")),
+                    _medida(cut.get("subharmonic20_40")),
+                    _medida(cut.get("vocalBasal85_165")),
+                    _medida(cut.get("spectralDelta0_4")),
+                    _medida(cut.get("spectralTheta4_8")),
+                    _medida(cut.get("spectralAlpha8_12")),
+                    _medida(cut.get("spectralBeta12_30")),
+                    _medida(cut.get("spectralGamma30_80")),
+                    _medida(cut.get("spectralBandIndex")),
+                    _medida(cut.get("mfcc7Delta")),
+                    _medida(cut.get("mfcc9Delta")),
+                    _medida(cut.get("mfcc7DeltaDelta")),
+                    _medida(cut.get("mfcc9DeltaDelta")),
                     _anonymous_category(cut_context.get("cut_trigger") or cut_context.get("cutTrigger") or "automatico", "automatico"),
                     "",  # cut_summary_anon: o tema ja carrega isso, categorizado.
                     "",  # patient_summary_anon: a fala do paciente NAO entra.
@@ -3948,12 +4161,12 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                     professional_word_count,
                     intervention_category,
                     patient_response,
-                    _safe_float(cut.get("ipmAvg")) - _safe_float(baseline.get("ipmAvg")),
-                    _safe_float(cut.get("idmAvg")) - _safe_float(baseline.get("idmAvg")),
-                    _safe_float(cut.get("dissonanceCount")) - baseline_dissonance,
-                    _safe_float(cut.get("ipmAvg")) - previous_ipm,
-                    _safe_float(cut.get("idmAvg")) - previous_idm,
-                    _safe_float(cut.get("dissonanceCount")) - previous_dissonance,
+                    _delta(cut_ipm, baseline_ipm_ref),
+                    _delta(cut_idm, baseline_idm_ref),
+                    _delta(cut_dissonance, baseline_dissonance),
+                    _delta(cut_ipm, previous_ipm),
+                    _delta(cut_idm, previous_idm),
+                    _delta(cut_dissonance, previous_dissonance),
                     _cut_confidence(cut),
                     _safe_technical_id(cut_context.get("stt_model") or cut_context.get("sttModel") or OPENAI_TRANSCRIBE_MODEL, OPENAI_TRANSCRIBE_MODEL),
                     _safe_technical_id(cut_context.get("llm_model") or cut_context.get("llmModel") or FROID_EXPLICA_MODEL, FROID_EXPLICA_MODEL),
@@ -4058,12 +4271,12 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                     "quality_confidence": _cut_confidence(cut),
                 },
                 "deltas": {
-                    "ipm_from_baseline": _safe_float(cut.get("ipmAvg")) - _safe_float(baseline.get("ipmAvg")),
-                    "idm_from_baseline": _safe_float(cut.get("idmAvg")) - _safe_float(baseline.get("idmAvg")),
-                    "dissonance_from_baseline": _safe_float(cut.get("dissonanceCount")) - baseline_dissonance,
-                    "ipm_previous_cut": _safe_float(cut.get("ipmAvg")) - previous_ipm,
-                    "idm_previous_cut": _safe_float(cut.get("idmAvg")) - previous_idm,
-                    "dissonance_previous_cut": _safe_float(cut.get("dissonanceCount")) - previous_dissonance,
+                    "ipm_from_baseline": _delta(cut_ipm, baseline_ipm_ref),
+                    "idm_from_baseline": _delta(cut_idm, baseline_idm_ref),
+                    "dissonance_from_baseline": _delta(cut_dissonance, baseline_dissonance),
+                    "ipm_previous_cut": _delta(cut_ipm, previous_ipm),
+                    "idm_previous_cut": _delta(cut_idm, previous_idm),
+                    "dissonance_previous_cut": _delta(cut_dissonance, previous_dissonance),
                 },
                 "bioacoustics": biomarker_snapshot,
                 "subharmonics": subharmonic_snapshot,
@@ -4105,9 +4318,9 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                     patient_professional_word_ratio,
                     _anonymous_category(cut_context.get("theme_predominant") or cut_context.get("themePredominant") or cut.get("theme") or ""),
                     "",
-                    _safe_float(cut_context.get("ipm_delta_after_intervention") or cut_context.get("ipmDeltaAfterIntervention")),
-                    _safe_float(cut_context.get("idm_delta_after_intervention") or cut_context.get("idmDeltaAfterIntervention")),
-                    _safe_float(cut_context.get("dissonance_delta_after_intervention") or cut_context.get("dissonanceDeltaAfterIntervention")),
+                    _primeiro_presente(cut_context.get("ipm_delta_after_intervention"), cut_context.get("ipmDeltaAfterIntervention")),
+                    _primeiro_presente(cut_context.get("idm_delta_after_intervention"), cut_context.get("idmDeltaAfterIntervention")),
+                    _primeiro_presente(cut_context.get("dissonance_delta_after_intervention"), cut_context.get("dissonanceDeltaAfterIntervention")),
                     _anonymous_category(cut_context.get("dominant_zone_shift") or cut_context.get("dominantZoneShift") or "nao_apurado", "nao_apurado"),
                     _anonymous_category(cut_context.get("emotional_tone_shift") or cut_context.get("emotionalToneShift") or "nao_apurado", "nao_apurado"),
                     _anonymous_category(cut_context.get("cadence_shift") or cut_context.get("cadenceShift") or "nao_apurado", "nao_apurado"),
@@ -4115,8 +4328,8 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                     _safe_str(json.dumps(biomarker_snapshot, ensure_ascii=False, sort_keys=True), 1200),
                     _safe_str(json.dumps(subharmonic_snapshot, ensure_ascii=False, sort_keys=True), 1200),
                     _safe_str(json.dumps(cut_context_vector, ensure_ascii=False, sort_keys=True), 6000),
-                    _safe_float(cut.get("jitter")),
-                    _safe_float(cut.get("shimmer")),
+                    _medida(cut.get("jitter")),
+                    _medida(cut.get("shimmer")),
                     "internal_proxy_0_1_zcr_scaled",
                     "internal_proxy_0_1_envelope_cv",
                     _safe_str(previous_context_label, 240),
