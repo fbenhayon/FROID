@@ -117,18 +117,18 @@ def aba_receita(wb: Workbook):
         ws.cell(row=10, column=col).fill = PatternFill("solid", fgColor=AZUL_CLARO)
 
     _rotulo(ws, 11, 1, "Base por unidade / mês")
-    _entrada(ws, 11, 2, 1200, MOEDA)
+    _entrada(ws, 11, 2, 500, MOEDA)
     _rotulo(ws, 12, 1, "Faixa 1 — por trabalhador / mês")
-    _entrada(ws, 12, 2, 9.0, MOEDA)
+    _entrada(ws, 12, 2, 15.0, MOEDA)
     _entrada(ws, 12, 3, 100)
     _rotulo(ws, 13, 1, "Faixa 2 — por trabalhador / mês")
-    _entrada(ws, 13, 2, 7.0, MOEDA)
+    _entrada(ws, 13, 2, 12.5, MOEDA)
     _entrada(ws, 13, 3, 300)
     _rotulo(ws, 14, 1, "Faixa 3 — por trabalhador / mês")
-    _entrada(ws, 14, 2, 5.0, MOEDA)
+    _entrada(ws, 14, 2, 9.3, MOEDA)
     _entrada(ws, 14, 3, 1000)
     _rotulo(ws, 15, 1, "Faixa 4 — por trabalhador / mês")
-    _entrada(ws, 15, 2, 3.0, MOEDA)
+    _entrada(ws, 15, 2, 6.55, MOEDA)
     ws.cell(row=15, column=3, value="acima").font = Font(italic=True, color=CINZA)
 
     _rotulo(ws, 17, 1, "Implantação (cobrança única)",
@@ -356,7 +356,7 @@ def aba_alavancas(wb: Workbook):
         c.alignment = Alignment(wrap_text=True, horizontal="center")
 
     cenarios = [
-        ("Vigente", 1200, 9.0, 7.0, 5.0, 3.0),
+        ("Vigente", 500, 15.0, 12.5, 9.3, 6.55),
         ("Base R$ 2.500", 2500, 9.0, 7.0, 5.0, 3.0),
         ("Base R$ 3.500", 3500, 9.0, 7.0, 5.0, 3.0),
         ("Faixas +25%", 1200, 11.25, 8.75, 6.25, 3.75),

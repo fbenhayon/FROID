@@ -81,6 +81,6 @@ clínico. Guardar em `site-assets/img/` com prefixo `nr1-`.
   conferir mojibake e balanceamento depois.
 - **Siglas.** Expansão na primeira aparição mais glossário ao pé, em todo texto
   novo.
-- **Preço.** A tabela vigente é a original — base de R$ 1.200/mês por unidade
+- **Preço.** A tabela vigente é a original — base de R$ 500/mês por unidade
   mais faixas de R$ 9 / 7 / 5 / 3. Foi alterada e revertida em 27/08; não
   ressuscitar a versão intermediária.
