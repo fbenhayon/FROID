@@ -10,7 +10,7 @@
 <link rel="alternate" hreflang="fr" href="https://www.froid.com.br/fr/" />
 <link rel="alternate" hreflang="es" href="https://www.froid.com.br/es/" />
 <link rel="alternate" hreflang="x-default" href="https://www.froid.com.br/" />
-<link rel="stylesheet" href="../site-assets/style.css?v=15" />
+<link rel="stylesheet" href="../site-assets/style.css?v=16" />
 <script>
   // El panel FROID usa HashRouter (/#/dashboard). Al actualizar, el servidor recibe «/»
   // y sirve este sitio — esta redirección lleva al usuario de vuelta al panel en /app/.
@@ -26,31 +26,88 @@
       <span class="nav-familia">
         <span class="nav-menu">
           <a class="nav-familia-rotulo ativo" href="index.html">FROID Psique</a>
-          <div class="nav-drop" role="menu">
-            <a class="nav-drop-visao-geral ativo" role="menuitem" href="index.html">Visión general</a>
-            <a role="menuitem" href="profissionais.html">Profesionales</a>
-            <a role="menuitem" href="froid-explica.html">FROID Explica</a>
+          <div class="nav-drop nav-drop-mega" role="menu">
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina nav-drop-visao-geral ativo" role="menuitem" href="index.html">Visión general</a>
+            <a class="nav-drop-secao" role="menuitem" href="index.html#paciente">Portal del Paciente: los datos son tuyos</a>
+          </div>
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina" role="menuitem" href="profissionais.html">Profesionales</a>
+            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#sessao">Una sesión con FROID: antes, durante y después</a>
+            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#relatorios">Análisis de informes de pacientes</a>
+            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#equipe">Compartir entre profesionales</a>
+          </div>
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina" role="menuitem" href="froid-explica.html">FROID Explica</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#prompts">22 prompts preconfigurados, listos para la sesión</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#datamart">El Data-Froid: la mayor base de percepción clínica anónima</a>
+          </div>
           </div>
         </span>
       </span>
       <span class="nav-familia">
         <span class="nav-menu">
           <a class="nav-familia-rotulo" href="iso-45003.html">FROID Psicosocial</a>
-          <div class="nav-drop" role="menu">
-            <a class="nav-drop-visao-geral" role="menuitem" href="iso-45003.html">Visión general (ISO 45003)</a>
-            <a role="menuitem" href="empresas.html">Para Empresas</a>
-            <a role="menuitem" href="como-funciona-nr1.html">Cómo funciona</a>
-            <a role="menuitem" href="froid-explica-nr1.html">FROID Explica NR-1</a>
+          <div class="nav-drop nav-drop-mega" role="menu">
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina nav-drop-visao-geral" role="menuitem" href="iso-45003.html">Visión general (ISO 45003)</a>
+            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#indice">Seis lecturas, en este orden</a>
+            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#o-que-e">Qué es la ISO 45003, con precisión</a>
+            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#lastro">Un regulador que se niega a nombrar una metodología escribe en su lugar la prueba para aceptar una herramienta</a>
+            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#documental">Brasil no fue la primera jurisdicción en exigir. Fue la que lo volvió documental.</a>
+            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#ja-tem-45001">No le pedimos que adopte un marco nuevo</a>
+            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#limites">Lo que no afirmamos</a>
+            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#proximo">Empiece por una unidad</a>
+          </div>
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina" role="menuitem" href="empresas.html">Para Empresas</a>
+            <a class="nav-drop-secao" role="menuitem" href="empresas.html#eficacia">Demostrar que la medida funcionó</a>
+          </div>
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina" role="menuitem" href="como-funciona-nr1.html">Cómo funciona</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#as-sete-etapas">Las siete etapas</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#os-perigos">El listado de peligros de la guía del regulador (2025)</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#o-que-e-igual-em-toda-empresa-e-o-que-muda">Qué es igual en toda empresa, y qué cambia</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#quando-a-segunda-avaliacao-reprova">Y si la segunda evaluación reprueba?</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#a-sua-empresa-tem-tamanho-para-isso">Su empresa tiene tamaño para esto?</a>
+          </div>
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina" role="menuitem" href="froid-explica-nr1.html">FROID Explica NR-1</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica-nr1.html#duas-camadas">Dos capas, porque fallan de maneras distintas</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica-nr1.html#temas">Ocho temas, y las preguntas como realmente aparecen</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica-nr1.html#trabalhador">RR. HH. no necesita improvisar la respuesta difícil</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica-nr1.html#acervo">Qué está indexado, y qué fue rechazado</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica-nr1.html#limites">Lo que FROID Explica no es</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica-nr1.html#proximo-passo">Está incluido. No es un módulo aparte.</a>
+          </div>
           </div>
         </span>
       </span>
       <span class="nav-familia">
         <span class="nav-menu">
           <a class="nav-familia-rotulo" href="ciencia.html">Ciencia y Tecnología</a>
-          <div class="nav-drop" role="menu">
-            <a class="nav-drop-visao-geral" role="menuitem" href="ciencia.html">Ciencia</a>
-            <a role="menuitem" href="tecnologia.html">Tecnología</a>
-            <a role="menuitem" href="mapas-faciais.html">Mapas del rostro</a>
+          <div class="nav-drop nav-drop-mega" role="menu">
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina nav-drop-visao-geral" role="menuitem" href="ciencia.html">Ciencia</a>
+            <a class="nav-drop-secao" role="menuitem" href="ciencia.html#evidencia">Depresión y retardo psicomotor</a>
+          </div>
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina" role="menuitem" href="tecnologia.html">Tecnología</a>
+            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#baseline">Calibración de la línea de base</a>
+            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#extracao-acustica">Extracción acústica continua</a>
+            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#facs">Dinámica facial</a>
+            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#zonas">Las 12 Zonas de Percepción</a>
+            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#ipm-idm">Los índices de síntesis: IPM e IDM</a>
+            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#estabilizacao">Estabilización Clínica de la Pantalla</a>
+          </div>
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina" role="menuitem" href="mapas-faciais.html">Mapas del rostro</a>
+            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#dois-mapas">Dos mapas, dos preguntas distintas</a>
+            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#vocabulario">Qué significa cada unidad de acción</a>
+            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#composicao">Cómo se combinan las unidades</a>
+            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#leitura">Del rostro a la lectura, sin etapa escondida</a>
+            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#limites">Lo que estos mapas no afirman</a>
+          </div>
           </div>
         </span>
         <a href="etica.html">Ética</a>

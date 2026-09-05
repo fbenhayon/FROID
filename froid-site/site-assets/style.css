@@ -51,6 +51,9 @@ header.site-header {
 .nav-row {
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px 24px; max-width: var(--maxw); margin: 0 auto;
+  /* Bloco de contenção dos menus de família: eles são largos demais para ficar
+     presos ao rótulo sem passar da borda da tela. Ver .nav-drop-mega. */
+  position: relative;
 }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.25rem; letter-spacing: 0.02em; color: var(--froid-branco); }
 .brand-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--froid-azul); box-shadow: 0 0 12px var(--froid-azul); }
@@ -89,7 +92,11 @@ header.site-header {
    O rótulo continua sendo um LINK real para a visão geral daquele grupo, e a
    visão geral é repetida como primeiro item do menu: quem toca no rótulo
    navega, quem passa o ponteiro escolhe. Nenhum destino se perdeu. */
-.nav-menu { position: relative; display: inline-flex; align-items: center; }
+/* `static` de propósito: o bloco de contenção do painel tem de ser a .nav-row,
+   não o rótulo. Com `relative` aqui, `max-width:100%` do painel virava a
+   largura do rótulo — medido: 100px de largura e 687px de altura, uma coluna
+   só e altíssima. */
+.nav-menu { position: static; display: inline-flex; align-items: center; }
 .nav-menu > .nav-familia-rotulo::after {
   content: "\25BE"; font-size: 0.72em; margin-left: 5px; opacity: 0.7;
 }
@@ -101,6 +108,46 @@ header.site-header {
     opacity: 1; visibility: visible; transform: translateY(0);
   }
 }
+
+/* Cada item do menu traz as SEÇÕES daquela página, uma coluna por página.
+
+   Os títulos das seções não são escritos aqui nem no script: são lidos do
+   cabeçalho de cada página, no idioma dela, quando o header é gerado. Assim o
+   menu não vira uma segunda cópia de texto para divergir em silêncio, e a
+   tradução não precisa de mapa próprio — ela mostra as seções que de fato
+   existem no arquivo dela, e só essas. Link para âncora inexistente é o
+   defeito que a revisão de links já encontrou uma vez. */
+/* O painel é ancorado à FAIXA do header, não ao rótulo.
+
+   Ancorado ao rótulo ele não cabia: medido a 1069px de viewport, o painel do
+   Psicossocial ia de x=182 a x=1102 e passava 33px da borda. Alinhar à direita
+   não resolvia — com o rótulo no meio da fileira, um painel de 920px estoura
+   de um lado ou do outro. Preso à faixa, ele começa na margem do container e
+   nunca ultrapassa a largura dela.
+
+   As regras levam `.nav-drop` junto no seletor de propósito: `.nav-drop` está
+   declarado depois neste arquivo, e sem o peso extra o `left: -12px` dele
+   vencia — foi exatamente o que aconteceu na primeira tentativa. */
+.nav-drop.nav-drop-mega {
+  left: 0; right: auto; width: max-content; max-width: 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(178px, max-content));
+  gap: 2px 14px; padding: 12px; min-width: 0;
+  /* Faixa transparente que cobre o recuo inferior da fileira: sem ela o
+     ponteiro perde o :hover no caminho do rótulo até o painel. */
+  border-top: 22px solid transparent; margin-top: -22px;
+}
+.nav-drop-col { display: flex; flex-direction: column; min-width: 0; }
+.nav-drop a.nav-drop-pagina {
+  font-weight: 700; color: var(--froid-branco);
+  padding: 7px 10px 5px; margin-bottom: 2px;
+  border-bottom: 1px solid rgba(248,250,252,0.10);
+}
+.nav-drop a.nav-drop-secao {
+  font-size: 0.76rem; font-weight: 400; line-height: 1.35;
+  padding: 4px 10px 4px 16px; color: rgba(248,250,252,0.58);
+}
+.nav-drop a.nav-drop-secao:hover { color: #fcd34d; }
 .nav-links a.nav-familia-rotulo { font-weight: 700; color: var(--froid-branco); }
 .nav-links a.ativo {
   font-style: italic; font-weight: 600; color: var(--froid-branco);
@@ -212,7 +259,12 @@ a.lang-pill:hover { color: #fff; border-color: rgba(248,250,252,0.5); }
      as tornava estáticas — aí o .nav-menu virava um item de flex indivisível,
      largo demais para 400px: "Segurança" saía da tela e a página ganhava barra
      de rolagem horizontal. Medido em 400px de largura. */
-  .nav-menu, .nav-menu > .nav-drop { display: contents; }
+  .nav-menu, .nav-menu > .nav-drop, .nav-drop-col { display: contents; }
+  /* As seções de cada página NÃO entram no header do celular: seriam mais de
+     trinta links a mais numa fileira que já ocupa cinco linhas. Aqui o menu
+     volta a ser o que era — o caminho para as páginas. */
+  .nav-drop a.nav-drop-secao { display: none; }
+  .nav-drop a.nav-drop-pagina { border-bottom: 0; margin-bottom: 0; }
   /* visibility é herdada: sem isto os filhos continuariam escondidos. */
   .nav-menu > .nav-drop { visibility: visible; opacity: 1; transform: none; }
   .nav-menu > .nav-familia-rotulo::after { content: none; }
@@ -225,7 +277,11 @@ a.lang-pill:hover { color: #fff; border-color: rgba(248,250,252,0.5); }
   /* "Visão geral" repete o destino do rótulo. No suspenso ela é necessária
      (quem abre o menu com o ponteiro não clica no rótulo); aqui, com tudo na
      linha, seria um link duplicado ao lado do outro. */
-  .nav-menu > .nav-drop > .nav-drop-visao-geral { display: none; }
+  /* Sem `>` de propósito: desde que cada página virou uma coluna, o link da
+     visão geral deixou de ser filho direto do painel. Com o seletor antigo a
+     regra passou a não casar com nada e "Visão geral" reapareceu no celular
+     ao lado do rótulo que leva ao mesmo lugar. */
+  .nav-menu .nav-drop-visao-geral { display: none; }
   /* O submenu de SEÇÕES (montado pelo script.js dentro de .nav-item) é uma
      caixa absoluta de 232px de largura mínima. Escondido por `visibility` ele
      continua ocupando layout e transbordando para a direita: era a origem da
