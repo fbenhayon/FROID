@@ -10,7 +10,7 @@
 <link rel="alternate" hreflang="fr" href="https://www.froid.com.br/fr/" />
 <link rel="alternate" hreflang="es" href="https://www.froid.com.br/es/" />
 <link rel="alternate" hreflang="x-default" href="https://www.froid.com.br/" />
-<link rel="stylesheet" href="../site-assets/style.css?v=14" />
+<link rel="stylesheet" href="../site-assets/style.css?v=15" />
 <script>
   // The FROID panel uses HashRouter (/#/dashboard). On refresh, the server receives "/"
   // and serves this site — this redirect sends the user back to the panel at /app/.
@@ -37,6 +37,7 @@
       <span class="nav-familia">
         <a href="ciencia.html">Science</a>
         <a href="tecnologia.html">Technology</a>
+        <a href="mapas-faciais.html">Facial maps</a>
         <a href="etica.html">Ethics</a>
         <a href="seguranca.html">Security</a>
         <a href="precos.html">Pricing</a>
@@ -92,7 +93,7 @@
       <div class="card">
         <span class="badge badge-moderate">Validated infrastructure</span>
         <h3>Facial dynamics</h3>
-        <p>Tracking of 468 facial landmarks and classification of Action Units (<abbr class="term" title="FACS: Facial Action Coding System, the gold standard for describing facial movements in objective units. See Glossary.">FACS</abbr>) with onset–apex–offset temporal modeling.</p>
+        <p>Fifty-two blendshape coefficients computed in the browser and converted into 16 Action Units (<abbr class="term" title="FACS: Facial Action Coding System, the gold standard for describing facial movements in objective units. See Glossary.">FACS</abbr>), cross-referenced through six dissonance combinations. No temporal modeling. <a href="mapas-faciais.html">See the two facial maps →</a></p>
       </div>
       <div class="card">
         <span class="badge badge-proprietary">FROID proprietary framework</span>
@@ -107,7 +108,7 @@
       <button class="nerds-toggle" data-target="nerds-medicao" aria-expanded="false">Nerds only</button>
       <div class="nerds-panel" id="nerds-medicao">
         <h4>Capture pipeline</h4>
-        <p>Audio at 48 kHz, Hamming windowing, FFT run in the browser via the Web Audio API (no DSP dependency on the Python backend — only FastAPI/DuckDB/LLMs for explanation and transcription). Video processed locally at 30+ FPS for the 468 facial landmarks.</p>
+        <p>Audio at 48 kHz, Hamming windowing, FFT run in the browser via the Web Audio API (no DSP dependency on the Python backend — only FastAPI/DuckDB/LLMs for explanation and transcription). Video processed locally, at about 3 facial readings per second — only the 52 coefficients reach the server, never image or video.</p>
         <h4>Real fields tracked per session</h4>
         <div class="formula">mfcc7, mfcc9, mfcc7_delta, mfcc9_delta, mfcc7_delta_delta, mfcc9_delta_delta,
 f0_mean, f0_var, zcr, jitter_proxy_index, shimmer_proxy_index,
@@ -261,6 +262,7 @@ subharmonic_energy_5_12hz, energy_85_165hz, dna_facial_multiplier</div>
         <ul>
           <li><a href="ciencia.html">Science</a></li>
           <li><a href="tecnologia.html">Technology</a></li>
+          <li><a href="mapas-faciais.html">Facial maps</a></li>
           <li><a href="froid-explica.html">FROID Explains</a></li>
           <li><a href="etica.html">Ethics</a></li>
           <li><a href="seguranca.html">Security</a></li>
@@ -295,6 +297,6 @@ subharmonic_energy_5_12hz, energy_85_165hz, dna_facial_multiplier</div>
   </div>
 </footer>
 
-<script src="../site-assets/script.js?v=16"></script>
+<script src="../site-assets/script.js?v=17"></script>
 </body>
 </html>

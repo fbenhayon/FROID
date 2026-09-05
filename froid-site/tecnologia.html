@@ -10,7 +10,7 @@
 <link rel="alternate" hreflang="fr" href="https://www.froid.com.br/fr/tecnologia.html" />
 <link rel="alternate" hreflang="es" href="https://www.froid.com.br/es/tecnologia.html" />
 <link rel="alternate" hreflang="x-default" href="https://www.froid.com.br/tecnologia.html" />
-<link rel="stylesheet" href="site-assets/style.css?v=14" />
+<link rel="stylesheet" href="site-assets/style.css?v=15" />
 </head>
 <body>
 
@@ -32,6 +32,7 @@
       <span class="nav-familia">
         <a href="ciencia.html">Ciência</a>
         <a class="ativo" href="tecnologia.html">Tecnologia</a>
+        <a href="mapas-faciais.html">Mapas da face</a>
         <a href="etica.html">Ética</a>
         <a href="seguranca.html">Segurança</a>
         <a href="precos.html">Preços</a>
@@ -72,7 +73,7 @@
       <button class="nerds-toggle" data-target="nerds-baseline" aria-expanded="false">Só para Nerds</button>
       <div class="nerds-panel" id="nerds-baseline">
         <h4>O que é travado na calibração</h4>
-        <p>F0 basal (média e desvio-padrão), densidade espectral de potência por banda (via FFT no navegador — Web Audio API, não há biblioteca de DSP no backend), ruído de fundo, e o estado inicial dos 468 pontos faciais rastreados.</p>
+        <p>F0 basal (média e desvio-padrão), densidade espectral de potência por banda (via FFT no navegador — Web Audio API, não há biblioteca de DSP no backend), e ruído de fundo. A calibração é <strong>vocal</strong>: não existe linha de base facial — as Unidades de Ação são avaliadas contra um limiar absoluto (0,30), não contra o repouso do próprio paciente.</p>
         <h4>Implementação real</h4>
         <p>Estado de sessão implementado como máquina de estados <code>CALIBRATING → LIVE → ENDED</code>, com ação <code>BASELINE_LOCK</code> disparando a trava dos valores de referência (<code>froid-dashboard/src/pages/LiveSession.tsx</code>).</p>
         <div class="ref">Fundamento conceitual de calibração individual em bioacústica: variabilidade inter-falante é amplamente documentada na literatura de biomarcadores vocais — ver <a href="ciencia.html">Ciência, Pilar 1</a>.</div>
@@ -117,10 +118,11 @@ jitter_unit / shimmer_unit: "internal_proxy_0_1_..."</div>
     <p class="section-kicker">Etapa 3</p>
     <h2 class="section-title">Dinâmica facial — FACS e Unidades de Ação</h2>
     <div class="grid-2">
-      <img class="site-img" src="site-assets/img/tec-facs-aus.png" alt="Mapa FACS das Unidades de Ação faciais rastreadas pelo FROID." />
+      <img class="site-img" src="site-assets/img/mapa-facs-unidades-acao.png" alt="Mapa completo das unidades de ação da face (FACS), com o músculo e o movimento de cada AU." />
       <div>
-        <p>468 pontos faciais são rastreados por visão computacional local, classificados em Unidades de Ação (AUs) segundo o Facial Action Coding System, o sistema descritivo de movimento facial desenvolvido por Paul Ekman e Wallace Friesen, com modelagem temporal de onset, apex e offset.</p>
-        <p>Quando uma configuração facial (ex.: AU12 sem AU6, ou AU23/AU24 sustentadas) coincide com um desvio acústico relevante numa zona, o sistema aplica um multiplicador de dissonância à leitura daquela zona.</p>
+        <p>O navegador do paciente computa 52 coeficientes de blendshape faciais (MediaPipe FaceLandmarker / ARKit) e os envia ao servidor, que os converte em intensidades de <strong>16 Unidades de Ação</strong> do Facial Action Coding System — o sistema descritivo de movimento facial de Paul Ekman e Wallace Friesen. Imagem e vídeo não saem do equipamento de quem atende. Não há modelagem temporal: cada leitura é avaliada isoladamente.</p>
+        <p>Uma AU conta como ativa a partir de 0,30. Quando as AUs ativas formam uma das <strong>seis combinações</strong> que o motor sabe ler (ex.: AU12 com AU23 ou AU24 — sorriso social sobre compressão labial), a zona correspondente recebe uma marca de dissonância facial, e o desvio acústico daquela zona passa a ser multiplicado por 2,5.</p>
+        <p><a href="mapas-faciais.html">Os dois mapas da face, o que cada AU significa e as seis combinações →</a></p>
       </div>
     </div>
 
@@ -129,9 +131,9 @@ jitter_unit / shimmer_unit: "internal_proxy_0_1_..."</div>
       <div class="nerds-panel" id="nerds-facs">
         <h4>Multiplicador Facial de Dissonância (M_fac)</h4>
         <div class="formula">dissonanceMultiplier = facialDissonanceFlag ? 2.5 : 1.0</div>
-        <p>Forma binária aplicada em produção quando o flag de dissonância facial dispara. O valor 2.5 é um parâmetro de produto FROID, não derivado de um estudo publicado — trate como heurística de engenharia calibrável, não como constante científica. A montagem completa do IDM (média das 12 zonas × M_fac) e a forma contínua do multiplicador estão na Etapa 5.</p>
+        <p>Forma binária aplicada em produção quando o flag de dissonância facial dispara. O valor 2.5 é um parâmetro de produto FROID, não derivado de um estudo publicado — trate como heurística de engenharia calibrável, não como constante científica. A montagem completa do IDM (média das 12 zonas, cada uma já com o seu M_fac) está na Etapa 5. Não existe forma contínua implementada.</p>
         <h4>Sobre o par AU6+AU12 ("sorriso de Duchenne")</h4>
-        <p>A hipótese clássica de que AU6 ausente indica sorriso forçado tem apoio parcial na literatura, mas também há pesquisa recente que a contesta diretamente, encontrando que AU6 se relaciona mais com intensidade do sorriso do que com autenticidade emocional. O FROID usa essa configuração como um entre vários fatores de dissonância, não como detector isolado de mentira.</p>
+        <p>A hipótese clássica de que AU6 ausente indica sorriso forçado tem apoio parcial na literatura, mas também há pesquisa recente que a contesta diretamente, encontrando que AU6 se relaciona mais com intensidade do sorriso do que com autenticidade emocional. O motor do FROID <strong>não implementa essa configuração</strong>: nenhuma das seis regras de composição testa a ausência de AU6. A supressão de aversão é detectada por AU12 junto de AU23 ou AU24 — ver <a href="mapas-faciais.html#composicao">as seis combinações</a>.</p>
         <div class="ref">Valstar &amp; Pantic (2012), Jiang et al. (2014), Gonzalez et al. (2015), Hamm et al. (2011) — infraestrutura de FACS+HMM. Ver contestação da hipótese de Duchenne em <a href="ciencia.html">Ciência, Pilar 4</a>.</div>
       </div>
     </div>
@@ -192,21 +194,21 @@ score  > 3.0 → VERMELHO</div>
   <div class="container">
     <p class="section-kicker">Etapa 5 · Framework proprietário</p>
     <h2 class="section-title">Os índices de síntese: IPM e IDM</h2>
-    <p class="section-lead">O cérebro humano não realiza Transformadas de Fourier nem rastreia 468 pontos faciais a 30 FPS enquanto sustenta a aliança terapêutica. O FROID resolve esse gargalo por redução de dimensionalidade: funde voz, face e semântica em dois vetores que rodam continuamente no painel de atendimento.</p>
+    <p class="section-lead">O cérebro humano não realiza Transformadas de Fourier nem contabiliza dezenas de coeficientes faciais por segundo enquanto sustenta a aliança terapêutica. O FROID resolve esse gargalo por redução de dimensionalidade: funde voz, face e semântica em dois vetores que rodam continuamente no painel de atendimento.</p>
 
     <div class="grid-2">
       <div class="card">
         <span class="badge badge-proprietary">Framework proprietário FROID</span>
         <h3>📈 Índice de Potência Multimodal (IPM)</h3>
         <p>O "velocímetro" da energia biológica da sessão — quantifica, numa escala de 0 a 100, a intensidade expressiva e a vitalidade psicomotora do paciente a cada segundo.</p>
-        <p>Combina a amplitude e a variabilidade de três canais: energia acústica e variabilidade de F0 (voz), amplitude e velocidade de contração das Unidades de Ação (face) e densidade de termos de alto impacto emocional detectados por NLP (semântica). Um fator de confiabilidade dinâmico por canal descarta variações espúrias, como uma tosse ou uma mudança abrupta de luz na sala.</p>
+        <p>É calculado sobre a <strong>média dos desvios absolutos das 12 Zonas</strong> — desvios de energia vocal contra a linha de base da própria sessão, já multiplicados por 2,5 nas zonas com dissonância facial. A face entra por esse multiplicador; não há canal semântico no IPM, nem medida de velocidade de contração das AUs.</p>
         <p style="font-size:0.92rem; color:var(--froid-cinza);"><strong>Leitura clínica:</strong> queda sustentada aponta letargia ou retardo motor depressivo; picos frequentes indicam hiperativação, agitação ansiosa ou aceleração de ideias.</p>
       </div>
       <div class="card">
         <span class="badge badge-proprietary">Framework proprietário FROID</span>
         <h3>🧭 Índice de Desvio Multimodal (IDM)</h3>
         <p>A "bússola" que aponta a direção e a coerência dessa energia — avalia se as reações do paciente são congruentes com o conteúdo abordado ou se há uma quebra de simetria que revele resistência, repressão ou somatização.</p>
-        <p>Compara as leituras instantâneas contra a linha de base individual travada nos primeiros 60 segundos. Quando o canal facial e o vocal se contradizem — conteúdo triste com infra-tremor vocal (5–12 Hz) mas sorriso apenas voluntário (AU12 sem AU6) — aplica o Multiplicador Facial de Dissonância, deslocando o índice para as cores de alerta.</p>
+        <p>Compara as leituras instantâneas contra a linha de base individual travada nos primeiros 60 segundos. Quando o canal facial e o vocal se contradizem — desvio acústico relevante numa zona onde o rosto disparou uma das seis regras de composição, por exemplo sorriso sobre lábios comprimidos (AU12 com AU23/AU24) — aplica o Multiplicador Facial de Dissonância àquela zona, deslocando o índice para as cores de alerta.</p>
         <p style="font-size:0.92rem; color:var(--froid-cinza);"><strong>Leitura clínica:</strong> localiza "pontos quentes" emocionais — revela a Dissonância Somatoafetiva (Falsa Calma), quando o estresse foi reprimido da face mas continua tensionando a laringe.</p>
       </div>
     </div>
@@ -215,14 +217,15 @@ score  > 3.0 → VERMELHO</div>
       <button class="nerds-toggle" data-target="nerds-indices" aria-expanded="false">Só para Nerds</button>
       <div class="nerds-panel" id="nerds-indices">
         <h4>Equação do IPM</h4>
-        <div class="formula">IPM(t) = 100 · σ( Σ wᵢ · rᵢ(t) · |zᵢ(t)| ),   i ∈ {Voz, Face, Sem}
-σ(x) = 1 / (1 + e⁻ˣ)</div>
-        <p>σ é a sigmoide que comprime o resultado em 0–100. |zᵢ(t)| é a magnitude do desvio padronizado (z-score) do canal contra a base de 60 s; rᵢ(t) ∈ [0,1] é a confiabilidade dinâmica do canal; wᵢ são os pesos calibrados por engenharia de fonação para equilibrar cada sensor.</p>
+        <div class="formula">A(t) = média das 12 zonas de |desvio_z(t)|      (desvio já com M_fac)
+z(t) = 1.2 · ln( A(t) / centro_da_sessão )
+IPM(t) = 100 · σ( z(t) ),   σ(x) = 1 / (1 + e⁻ˣ)</div>
+        <p>σ é a sigmoide que comprime o resultado em 0–100. O <em>centro</em> não é constante: é a ativação de repouso medida na calibração <strong>desta</strong> sessão, o que torna o índice comparável entre microfones e salas. Sem repouso medido (centro ≤ 0,02) o índice fica em 50, declaradamente neutro, em vez de fingir precisão. O ganho 1,2 é parâmetro de produto FROID.</p>
         <h4>Equação do IDM e penalização de dissonância</h4>
-        <div class="formula">IDM(t) = ( (1/12) Σ D_energia,z(t) ) × M_fac(t)
-D_energia,z = (E_z − E_baseline,z) / (E_baseline,z + ε),   ε = 1e-9
-M_fac(t) = 1.0 + 1.5 · [ AU12 · (1 − AU6) · Conf_apex ]   (teto = 2.5)</div>
-        <p>Em repouso ou congruência, M_fac = 1.0. No limiar máximo de dissonância (sorriso social puro, sem contração orbital, Conf_apex ≥ 0.75) o multiplicador atinge o teto de 2.5. A produção atual aplica a forma binária desse multiplicador (2.5 quando o flag de dissonância dispara, 1.0 caso contrário — ver Etapa 3); a expressão contínua acima é o modelo de referência. Implementado em <code>froid-engine.ts → calculateIDM()</code>.</p>
+        <div class="formula">D_energia,z = (E_z − E_baseline,z) / (E_baseline,z + ε),   ε = 1e-9
+M_fac,z     = 2.5 se há dissonância facial na zona z, senão 1.0
+IDM(t)      = (1/12) Σ [ D_energia,z(t) × M_fac,z(t) ]</div>
+        <p>O multiplicador é <strong>binário e por zona</strong>: 2.5 onde uma das seis regras faciais disparou, 1.0 nas demais. Não existe forma contínua, nem confiança de apex — o motor não modela fases temporais da expressão. Implementado em <code>froid-server/froid_core.py → calculate_multimodal_deviation()</code>, com espelho no painel em <code>froid-engine.ts → calculateIDM()</code>.</p>
         <p style="font-size:0.92rem; color:var(--froid-cinza);"><strong>Honestidade de engenharia:</strong> os pesos, os coeficientes de fusão e o próprio 2.5 são parâmetros de produto refinados em laboratório — hipóteses clínicas qualificadas, não constantes científicas publicadas. A validação populacional definitiva depende do Data-Froid anônimo (k-anonymity + hashes de via única). Ver enquadramento em <a href="ciencia.html">Ciência</a>.</p>
       </div>
     </div>
@@ -298,6 +301,7 @@ w = { minuto −4: 10%, minuto −3: 15%, minuto −2: 20%, minuto −1: 25%, mi
           <li><a href="index.html">FROID Psique</a></li>
           <li><a href="ciencia.html">Ciência</a></li>
           <li><a href="tecnologia.html">Tecnologia</a></li>
+          <li><a href="mapas-faciais.html">Mapas da face</a></li>
           <li><a href="froid-explica.html">FROID Explica</a></li>
           <li><a href="etica.html">Ética</a></li>
           <li><a href="seguranca.html">Segurança</a></li>
@@ -332,6 +336,6 @@ w = { minuto −4: 10%, minuto −3: 15%, minuto −2: 20%, minuto −1: 25%, mi
   </div>
 </footer>
 
-<script src="site-assets/script.js?v=16"></script>
+<script src="site-assets/script.js?v=17"></script>
 </body>
 </html>

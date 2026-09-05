@@ -10,7 +10,7 @@
 <link rel="alternate" hreflang="fr" href="https://www.froid.com.br/fr/" />
 <link rel="alternate" hreflang="es" href="https://www.froid.com.br/es/" />
 <link rel="alternate" hreflang="x-default" href="https://www.froid.com.br/" />
-<link rel="stylesheet" href="../site-assets/style.css?v=14" />
+<link rel="stylesheet" href="../site-assets/style.css?v=15" />
 <script>
   // Le panneau FROID utilise HashRouter (/#/dashboard). Lors d'une actualisation, le serveur reçoit « / »
   // et sert ce site — cette redirection ramène l'utilisateur au panneau sur /app/.
@@ -37,6 +37,7 @@
       <span class="nav-familia">
         <a href="ciencia.html">Science</a>
         <a href="tecnologia.html">Technologie</a>
+        <a href="mapas-faciais.html">Cartes du visage</a>
         <a href="etica.html">Éthique</a>
         <a href="seguranca.html">Sécurité</a>
         <a href="precos.html">Tarifs</a>
@@ -96,7 +97,7 @@
       <div class="card">
         <span class="badge badge-moderate">Infrastructure validée</span>
         <h3>Dynamique faciale</h3>
-        <p>Suivi de 468 points faciaux et classification des Unités d'Action (<abbr class="term" title="FACS : Facial Action Coding System, la référence pour décrire les mouvements faciaux en unités objectives. Voir le Glossaire.">FACS</abbr>) avec modélisation temporelle onset–apex–offset.</p>
+        <p>Cinquante-deux coefficients de blendshape calculés dans le navigateur et convertis en 16 Unités d'Action (<abbr class="term" title="FACS : Facial Action Coding System, la référence pour décrire les mouvements faciaux en unités objectives. Voir le Glossaire.">FACS</abbr>), croisées en six combinaisons de dissonance. Sans modélisation temporelle. <a href="mapas-faciais.html">Voir les deux cartes du visage →</a></p>
       </div>
       <div class="card">
         <span class="badge badge-proprietary">Cadre propriétaire FROID</span>
@@ -111,7 +112,7 @@
       <button class="nerds-toggle" data-target="nerds-medicao" aria-expanded="false">Réservé aux passionnés</button>
       <div class="nerds-panel" id="nerds-medicao">
         <h4>Pipeline de capture</h4>
-        <p>Audio à 48 kHz, fenêtrage de Hamming, FFT exécutée dans le navigateur via la Web Audio API (aucune dépendance DSP côté backend Python — uniquement FastAPI/DuckDB/LLM pour l'explication et la transcription). Vidéo traitée localement à 30+ FPS pour les 468 points faciaux.</p>
+        <p>Audio à 48 kHz, fenêtrage de Hamming, FFT exécutée dans le navigateur via la Web Audio API (aucune dépendance DSP côté backend Python — uniquement FastAPI/DuckDB/LLM pour l'explication et la transcription). Vidéo traitée localement, à environ 3 lectures faciales par seconde — seuls les 52 coefficients montent au serveur, jamais l'image ni la vidéo.</p>
         <h4>Champs réels suivis par séance</h4>
         <div class="formula">mfcc7, mfcc9, mfcc7_delta, mfcc9_delta, mfcc7_delta_delta, mfcc9_delta_delta,
 f0_mean, f0_var, zcr, jitter_proxy_index, shimmer_proxy_index,
@@ -265,6 +266,7 @@ subharmonic_energy_5_12hz, energy_85_165hz, dna_facial_multiplier</div>
         <ul>
           <li><a href="ciencia.html">Science</a></li>
           <li><a href="tecnologia.html">Technologie</a></li>
+          <li><a href="mapas-faciais.html">Cartes du visage</a></li>
           <li><a href="froid-explica.html">FROID Explique</a></li>
           <li><a href="etica.html">Éthique</a></li>
           <li><a href="seguranca.html">Sécurité</a></li>
@@ -299,6 +301,6 @@ subharmonic_energy_5_12hz, energy_85_165hz, dna_facial_multiplier</div>
   </div>
 </footer>
 
-<script src="../site-assets/script.js?v=16"></script>
+<script src="../site-assets/script.js?v=17"></script>
 </body>
 </html>

@@ -126,6 +126,22 @@ header.site-header {
 .nr1-faixas td:last-child, .nr1-faixas th:last-child { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .nr1-faixas th { background: #1e293b; color: #f8fafc; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.05em; }
 
+/* Tabelas dos mapas da face (mapas-faciais.html e as três traduções). Vivem
+   aqui, e não num <style> por página, porque as quatro precisam mostrar
+   exatamente a mesma lista de Unidades de Ação e as mesmas regras — quatro
+   cópias de CSS divergiriam em silêncio, como já divergiram os pisos de coorte. */
+.mapa-tabela-wrap { overflow-x: auto; margin: 20px 0 10px; }
+.mapa-tabela { width: 100%; border-collapse: collapse; font-size: 0.86rem; min-width: 660px; }
+.mapa-tabela th, .mapa-tabela td { padding: 9px 12px; border-bottom: 1px solid #334155; text-align: left; vertical-align: top; }
+.mapa-tabela th { background: #1e293b; color: #f8fafc; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.mapa-tabela td:first-child { font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--froid-branco); }
+.mapa-tabela .bs { font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; font-size: 0.78rem; color: var(--froid-cinza); }
+.mapa-tabela-nota { font-size: 0.8rem; color: var(--froid-cinza); margin: 0 0 8px; }
+
+/* Legenda sob cada mapa: diz o que a figura é antes de o leitor supor. */
+figure.mapa-fig { margin: 0 0 8px; }
+figure.mapa-fig figcaption { margin-top: 10px; font-size: 0.84rem; color: var(--froid-cinza); }
+
 .nav-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .nav-actions .btn { padding: 8px 14px; font-size: 0.82rem; }
 /* Seletor de idioma no header — grupo de pills PT/EN/FR/... antes dos botões de acesso */

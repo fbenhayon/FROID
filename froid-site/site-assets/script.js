@@ -134,6 +134,13 @@ var NAV_SECOES = {
     ["quem-faz-o-froid", "Quem faz o FROID"],
     ["fale-com-o-time", "Contato"]
   ],
+  "mapas-faciais.html": [
+    ["dois-mapas", "Dois mapas, duas perguntas"],
+    ["vocabulario", "O que cada AU significa"],
+    ["composicao", "Como as AUs se combinam"],
+    ["leitura", "Do rosto à leitura"],
+    ["limites", "O que os mapas não afirmam"]
+  ],
   "demonstracao.html": [
     ["framework-proprietario-froid", "Framework proprietário"],
     ["indices-em-tempo-real", "Índices em tempo real"],
