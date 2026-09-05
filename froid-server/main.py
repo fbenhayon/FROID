@@ -3445,7 +3445,9 @@ def _infer_intervention_category(text: str) -> str:
     return melhor[0]
 
 
-def _infer_patient_response(cut: dict, previous_cut: Optional[dict], baseline: dict) -> str:
+def _infer_patient_response(
+    cut: dict, previous_cut: Optional[dict], baseline: dict, *, voz_apurada: Optional[bool] = None
+) -> str:
     """Como o paciente respondeu entre um corte e o anterior.
 
     Sem os dois lados medidos nao ha resposta a classificar. Antes, os `None`
@@ -3453,9 +3455,13 @@ def _infer_patient_response(cut: dict, previous_cut: Optional[dict], baseline: d
     mais tranquilizador do conjunto, afirmado sobre uma sessao em que nada foi
     medido. Agora a ausencia tem rotulo proprio.
     """
-    ipm = _medida(cut.get("ipmAvg"))
-    reference_ipm = _primeiro_presente(
-        (previous_cut or {}).get("ipmAvg"), baseline.get("ipmAvg")
+    ipm = None if voz_apurada is False else _medida(cut.get("ipmAvg"))
+    reference_ipm = (
+        None
+        if voz_apurada is False
+        else _primeiro_presente(
+            (previous_cut or {}).get("ipmAvg"), baseline.get("ipmAvg")
+        )
     )
     dissonance = _medida(cut.get("dissonanceCount"))
     reference_dissonance = _primeiro_presente(
@@ -3816,6 +3822,58 @@ def _append_anonymous_datamart_row(report: dict) -> None:
         ten_minute_cuts = [
             cut for cut in (report.get("tenMinuteCuts") or []) if isinstance(cut, dict)
         ]
+        # A PROCEDENCIA, lida uma vez e usada em todo o resto.
+        #
+        # `ipmAvg` e `idmAvg` chegam do navegador ja zerados: `LiveSession.tsx`
+        # faz `rounded(...) || 0`, e o `rounded` devolvia `null` corretamente. Ou
+        # seja, para esses dois campos a ausencia morre ANTES do servidor, e aqui
+        # nao ha `None` para preservar.
+        #
+        # A distincao volta por AFIRMACAO REGISTRADA, nao por adivinhacao: o
+        # relatorio declara quantas amostras tinham voz REAL. Zero amostras com
+        # voz e a afirmacao de que nenhum indice acustico da sessao foi medido —
+        # e IPM e IDM derivam do vetor espectral, que exige PCM real. Inferir
+        # "zero significa ausencia" seria trocar uma suposicao por outra; ler a
+        # declaracao nao e.
+        #
+        # VERIFICADO em 05/09/2026, porque o portao APAGA numero que chega como
+        # numero: `froid_voice.extract_voice_features` tem um unico
+        # `return features`, com `zcr` e `voice_spectral_12` escritos no mesmo
+        # dicionario — nao existe caminho que produza o espectro sem o zcr. Logo
+        # `voice_features_source == "real_pcm"` se e somente se o IPM foi medido.
+        #
+        # `None` (relatorio anterior ao registro de procedencia) nao afirma nada
+        # em nenhuma direcao, e o valor passa como esta — a mesma postura do PDF.
+        #
+        # LIMITE DECLARADO: a procedencia e de SESSAO, nao de corte. Sessao com
+        # voz em parte dos cortes ainda grava zero nos cortes sem voz. So a
+        # correcao do `|| 0` no navegador resolve esse caso.
+        procedencia = report.get("procedenciaDosDados")
+        voz_apurada: Optional[bool] = None
+        if isinstance(procedencia, dict):
+            amostras_com_voz = _medida(procedencia.get("amostrasComVozReal"))
+            if amostras_com_voz is not None:
+                voz_apurada = amostras_com_voz > 0
+
+        def _acustico(value) -> Optional[float]:
+            """Indice que so existe se a voz tiver sido apurada."""
+            return None if voz_apurada is False else _medida(value)
+
+        def _contagem_acustica(value) -> Optional[int]:
+            """Contagem de dissonancias — que tambem depende da voz.
+
+            Um `0` aqui parecia contagem legitima e nao e. `isReportableDissonance`
+            exige `facial_dissonance_detected` E `|deviation_score| > 1.5`, e o
+            desvio de zona vem do vetor espectral. Sem voz apurada nenhuma zona
+            pode ser reportavel, entao o zero nao significa "nenhuma dissonancia
+            encontrada" e sim "nada foi avaliado" — a mesma mentira do `0,00`,
+            numa coluna inteira.
+            """
+            if voz_apurada is False:
+                return None
+            numero = _medida(value)
+            return None if numero is None else int(numero)
+
         # Zona dominante ausente e NULL, nao zona 0.
         #
         # `_safe_int` devolvia 0, e zona 0 nao existe — sao 1..12. O
@@ -3866,7 +3924,7 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 session_hash,
                 _anonymous_age_bucket(context.get("age_bucket") or context.get("ageBucket")),
                 _anonymous_category(context.get("gender") or "unknown", "unknown"),
-                _medida(average.get("ipmAvg")),
+                _acustico(average.get("ipmAvg")),
                 _zona(dominant_zone),
                 vocal_tension,
                 _safe_bool(context.get("ssri_medication") or context.get("ssriMedication"), False),
@@ -3899,14 +3957,14 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 _anonymous_category(context.get("treatment_phase") or context.get("treatmentPhase") or "nao_informada", "nao_informada"),
                 _safe_int(context.get("session_ordinal") or context.get("sessionOrdinal")),
                 _primeiro_presente(context.get("interval_since_previous_days"), context.get("intervalSincePreviousDays")),
-                _medida(baseline.get("ipmAvg")),
-                _medida(baseline.get("idmAvg")),
+                _acustico(baseline.get("ipmAvg")),
+                _acustico(baseline.get("idmAvg")),
                 _zona(baseline.get("dominantZone")),
                 _anonymous_category(baseline.get("emotionalTone") or ""),
                 _medida(baseline.get("wordsPerMinute")),
-                _medida(average.get("idmAvg")),
+                _acustico(average.get("idmAvg")),
                 _medida(average.get("wordsPerMinute")),
-                _safe_int(average.get("dissonanceCount")),
+                _contagem_acustica(average.get("dissonanceCount")),
                 len(ten_minute_cuts),
                 len(report.get("clinicalNotes") or []),
                 _anonymous_category(session_summary.get("theme") or average.get("theme") or ""),
@@ -4067,7 +4125,7 @@ def _append_anonymous_datamart_row(report: dict) -> None:
             patient_response = _anonymous_category(
                 cut_context.get("patient_response")
                 or cut_context.get("patientResponse")
-                or _infer_patient_response(cut, previous_cut, baseline),
+                or _infer_patient_response(cut, previous_cut, baseline, voz_apurada=voz_apurada),
                 # A queda deixa de ser "estabilidade": um rotulo recusado pelo
                 # sanitizador virava a afirmacao mais tranquilizadora do
                 # conjunto, sobre um corte do qual nao se sabia nada.
@@ -4079,20 +4137,28 @@ def _append_anonymous_datamart_row(report: dict) -> None:
             # base; `None` quando nenhum dos dois foi medido. `_primeiro_presente`
             # em vez de `or`: um corte anterior com dissonancia ZERO e uma
             # referencia valida, e o `or` a descartava por ser falsy.
-            baseline_ipm_ref = _medida(baseline.get("ipmAvg"))
-            baseline_idm_ref = _medida(baseline.get("idmAvg"))
-            baseline_dissonance = _medida(baseline.get("dissonanceCount"))
-            cut_ipm = _medida(cut.get("ipmAvg"))
-            cut_idm = _medida(cut.get("idmAvg"))
-            cut_dissonance = _medida(cut.get("dissonanceCount"))
-            previous_ipm = _primeiro_presente(
-                (previous_cut or {}).get("ipmAvg"), baseline.get("ipmAvg")
+            baseline_ipm_ref = _acustico(baseline.get("ipmAvg"))
+            baseline_idm_ref = _acustico(baseline.get("idmAvg"))
+            baseline_dissonance = _contagem_acustica(baseline.get("dissonanceCount"))
+            cut_ipm = _acustico(cut.get("ipmAvg"))
+            cut_idm = _acustico(cut.get("idmAvg"))
+            cut_dissonance = _contagem_acustica(cut.get("dissonanceCount"))
+            previous_ipm = (
+                None
+                if voz_apurada is False
+                else _primeiro_presente((previous_cut or {}).get("ipmAvg"), baseline.get("ipmAvg"))
             )
-            previous_idm = _primeiro_presente(
-                (previous_cut or {}).get("idmAvg"), baseline.get("idmAvg")
+            previous_idm = (
+                None
+                if voz_apurada is False
+                else _primeiro_presente((previous_cut or {}).get("idmAvg"), baseline.get("idmAvg"))
             )
-            previous_dissonance = _primeiro_presente(
-                (previous_cut or {}).get("dissonanceCount"), baseline.get("dissonanceCount")
+            previous_dissonance = (
+                None
+                if voz_apurada is False
+                else _primeiro_presente(
+                    (previous_cut or {}).get("dissonanceCount"), baseline.get("dissonanceCount")
+                )
             )
             conn.execute(
                 """
@@ -4130,7 +4196,7 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                     _anonymous_category(cut.get("emotionalTone") or ""),
                     _medida(cut.get("wordsPerMinute")),
                     _anonymous_category(cut.get("theme") or ""),
-                    _safe_int(cut.get("dissonanceCount")),
+                    _contagem_acustica(cut.get("dissonanceCount")),
                     _medida(cut.get("mfcc7")),
                     _medida(cut.get("mfcc9")),
                     _medida(cut.get("f0Mean")),

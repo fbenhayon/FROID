@@ -166,19 +166,29 @@ class RespostaDoPacienteNaoAfirmaEstabilidade(unittest.TestCase):
     se mediu nada.
     """
 
+    CORTE = {"ipmAvg": 0.0, "dissonanceCount": 0}
+    BASE = {"ipmAvg": 0.0, "dissonanceCount": 0}
+
+    def test_sem_voz_apurada_a_resposta_e_nao_apurado(self):
+        self.assertEqual(
+            "nao_apurado",
+            U._infer_patient_response(self.CORTE, None, self.BASE, voz_apurada=False),
+        )
+
     def test_sem_referencia_a_resposta_e_nao_apurado(self):
         self.assertEqual(
             "nao_apurado",
-            U._infer_patient_response({"ipmAvg": 40.0, "dissonanceCount": 2}, None, {}),
+            U._infer_patient_response({"ipmAvg": 40.0, "dissonanceCount": 2}, None, {}, voz_apurada=True),
         )
 
-    def test_com_referencia_classifica(self):
+    def test_com_voz_apurada_classifica(self):
         self.assertEqual(
             "melhora_regulacao",
             U._infer_patient_response(
                 {"ipmAvg": 40.0, "dissonanceCount": 1},
                 {"ipmAvg": 50.0, "dissonanceCount": 3},
                 {},
+                voz_apurada=True,
             ),
         )
         self.assertEqual(
@@ -187,16 +197,23 @@ class RespostaDoPacienteNaoAfirmaEstabilidade(unittest.TestCase):
                 {"ipmAvg": 60.0, "dissonanceCount": 4},
                 {"ipmAvg": 50.0, "dissonanceCount": 3},
                 {},
+                voz_apurada=True,
             ),
         )
 
-    def test_sem_variacao_a_resposta_e_estabilidade(self):
+    def test_relatorio_antigo_sem_procedencia_ainda_classifica(self):
+        """`voz_apurada=None` e relatorio anterior ao registro de procedencia.
+
+        Nao afirma que mediu nem acusa quem talvez tenha medido: o valor passa
+        como esta, que e o comportamento de antes.
+        """
         self.assertEqual(
             "estabilidade",
             U._infer_patient_response(
                 {"ipmAvg": 50.0, "dissonanceCount": 3},
                 {"ipmAvg": 50.0, "dissonanceCount": 3},
                 {},
+                voz_apurada=None,
             ),
         )
 

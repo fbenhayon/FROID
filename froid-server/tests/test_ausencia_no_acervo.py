@@ -115,10 +115,15 @@ class OAcervoNaoRecebeZeroPorAusencia(unittest.TestCase):
         `session_duration`, `media_loss_events` sao contagens de verdade e
         continuam com `_safe_int`. As de baixo nao sao:
 
+        `dissonance_count` so pode ser preenchida com voz apurada, porque
+        `isReportableDissonance` exige `|deviation_score| > 1.5` e o desvio de
+        zona vem do vetor espectral. Sem voz, o zero significa "nada foi
+        avaliado", nunca "nenhuma dissonancia".
+
         `dominant_zone` e `baseline_zone` valem 1..12. Zero nao e uma zona — era
         um balde a mais no `GROUP BY` do Data-FROID, feito de ausencia.
         """
-        proibidas = {"dominant_zone", "baseline_zone"}
+        proibidas = {"dissonance_count", "dominant_zone", "baseline_zone"}
         infratores = []
         for marcador, no in self.chamadas.items():
             if len(no.args) < 2 or not isinstance(no.args[1], ast.List):
