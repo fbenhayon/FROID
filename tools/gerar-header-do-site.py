@@ -238,6 +238,92 @@ def montar(idioma, pagina):
     return "\n".join(out)
 
 
+# --------------------------------------------------------------------------
+# Seletor de idioma e tags hreflang — mesma disciplina do menu: uma fonte só.
+#
+# Escritos a mão, saíam errados sem ninguém perceber: em empresas.html o
+# seletor tinha SÓ a pill PT, sem link nenhum para EN/FR/ES — quem chegasse
+# ali em português não tinha como trocar de idioma, e a página só declarava
+# 2 das 5 tags hreflang. O rótulo de acessibilidade em pt-BR também estava em
+# inglês ("Choose language") enquanto es e fr tinham o seu.
+# --------------------------------------------------------------------------
+
+SITE = "https://www.froid.com.br/"
+ORDEM = ["", "en", "fr", "es"]            # ordem das pills: PT EN FR ES
+SIGLA = {"": "PT", "en": "EN", "fr": "FR", "es": "ES"}
+ARIA = {
+    "": "Escolher idioma",
+    "en": "Choose language",
+    "fr": "Choisir la langue",
+    "es": "Elegir idioma",
+}
+
+LANG_GROUP = re.compile(r'<div class="lang-group"[^>]*>.*?</div>', re.S)
+HREFLANG = re.compile(
+    r'[ \t]*<link rel="alternate" hreflang="[^"]*" href="[^"]*" />\n', re.S)
+STYLESHEET = re.compile(r'[ \t]*<link rel="stylesheet"')
+
+
+def caminho_relativo(de_idioma, para_idioma, pagina):
+    """Href de uma pasta de idioma para a mesma página em outra."""
+    if de_idioma == para_idioma:
+        return pagina
+    subir = "../" if de_idioma else ""
+    return subir + (para_idioma + "/" if para_idioma else "") + pagina
+
+
+def bloco_idiomas(idioma, pagina):
+    partes = ['<div class="lang-group" role="group" aria-label="%s">' % ARIA[idioma]]
+    for outro in ORDEM:
+        if outro == idioma:
+            partes.append('<span class="lang-pill lang-current">%s</span>' % SIGLA[outro])
+        else:
+            partes.append('<a class="lang-pill" href="%s">%s</a>'
+                          % (caminho_relativo(idioma, outro, pagina), SIGLA[outro]))
+    partes.append("</div>")
+    return "".join(partes)
+
+
+def url_publica(idioma, pagina):
+    # index.html é servida pela URL do diretório; é a forma canônica e é a que
+    # o site já declarava. Manter, para não trocar URL canônica por descuido.
+    if pagina == "index.html":
+        return SITE + (idioma + "/" if idioma else "")
+    return SITE + (idioma + "/" if idioma else "") + pagina
+
+
+def bloco_hreflang(pagina):
+    linhas = []
+    for outro in ["", "en", "fr", "es"]:
+        sigla = "pt-BR" if not outro else outro
+        linhas.append('<link rel="alternate" hreflang="%s" href="%s" />'
+                      % (sigla, url_publica(outro, pagina)))
+    linhas.append('<link rel="alternate" hreflang="x-default" href="%s" />'
+                  % url_publica("", pagina))
+    return "\n".join(linhas) + "\n"
+
+
+def aplicar_hreflang(texto, pagina):
+    """Substitui o bloco existente; se não houver, insere antes do stylesheet."""
+    if 'name="robots" content="noindex"' in texto:
+        return texto                      # página fora do índice não declara alternativas
+    novo = bloco_hreflang(pagina)
+    if HREFLANG.search(texto):
+        primeiro = [True]
+
+        def troca(_m):
+            if primeiro[0]:
+                primeiro[0] = False
+                return novo
+            return ""
+
+        return HREFLANG.sub(troca, texto)
+    m = STYLESHEET.search(texto)
+    if not m:
+        return texto
+    return texto[:m.start()] + novo + texto[m.start():]
+
+
 CONFERIR = "--conferir" in sys.argv
 
 trocadas = 0
@@ -251,9 +337,12 @@ for idioma in IDIOMAS:
         if not os.path.isfile(caminho):
             continue
         texto = io.open(caminho, encoding="utf-8").read()
-        if not NAV.search(texto):
-            continue
-        novo = NAV.sub(lambda _m: montar(idioma, nome), texto, count=1)
+        novo = texto
+        if NAV.search(novo):
+            novo = NAV.sub(lambda _m: montar(idioma, nome), novo, count=1)
+        if LANG_GROUP.search(novo):
+            novo = LANG_GROUP.sub(lambda _m: bloco_idiomas(idioma, nome), novo, count=1)
+        novo = aplicar_hreflang(novo, nome)
         if novo == texto:
             continue
         if CONFERIR:
