@@ -803,15 +803,21 @@ _load_identity_state()
 # renomeadas: a chave aparece como `source` em /api/knowledge, e um nome de
 # campo tambem afirma.
 KNOWLEDGE_BASE = {
-    "froid_zonas": "As 12 Zonas de Percepcao FROID organizam padroes de desequilibrio facial-vocal e orientam a leitura clinica por temas, tensoes e dissonancias.",
-    "ipm_velocimetro": "O IPM indica a intensidade ou energia global da sessao. Ele funciona como velocimetro emocional e nao define sozinho a direcao do desequilibrio.",
-    "idm_direcao": "O IDM aponta a direcao do desequilibrio entre marcadores negativos e positivos, enquanto o IPM mede a energia global empregada.",
-    "mfcc7_depressao": "MFCC7 elevado durante conteudos semanticamente negativos, associado a pausas, menor variacao de F0 e retardo psicomotor, contribui para risco depressivo.",
-    "mfcc9_ansiedade": "MFCC9 em discurso neutro pode ter relacao inversa com ansiedade somatica; quedas acusticas podem indicar tensao autonoma latente.",
-    "shimmer_bioacustico": "Shimmer no FROID e atualmente um indice proxy interno normalizado da variacao relativa do envelope RMS, nao uma medida em dB. Deve ser interpretado contra baseline individual, cortes temporais, Jitter proxy, F0, ZCR, energia, pausas, tema semantico e dissonancias; isoladamente nao define estado emocional.",
-    "jitter_bioacustico": "Jitter no FROID e atualmente um indice proxy interno normalizado derivado de ZCR escalado, nao uma medida percentual normativa. Quando sustentado junto a Shimmer proxy, alteracoes de F0, pausas e tensao vocal, pode apoiar hipotese de instabilidade laringea ou carga autonomica.",
-    "f0_bioacustico": "F0 e a frequencia fundamental da voz. Elevacoes, quedas ou reducao de variabilidade devem ser comparadas ao baseline de 60 segundos e ao contexto semantico da fala.",
-    "zcr_bioacustico": "ZCR, taxa de cruzamento por zero, apoia leitura de aspereza, ruido, energia de alta frequencia e alteracoes acusticas quando combinado a MFCCs, F0, Jitter proxy e Shimmer proxy.",
+    "froid_zonas": "As 12 Zonas de Percepcao FROID sao particoes do espaco de sinal medido, derivadas de bandas do espectro vocal e dos sinais faciais. Cada zona tem um eixo de leitura (por exemplo, Zona 12: Crencas e Acoes Conflitantes vs. Congruentes), que e vocabulario clinico e nao categoria diagnostica. Nao existe zona boa ou ruim.",
+    "ipm_velocimetro": "O IPM mede a intensidade global da ativacao expressiva contra o REPOUSO DO PROPRIO PACIENTE medido na calibracao da sessao. IPM 50 significa ativacao igual ao repouso dele, nao um valor medio populacional. E magnitude sem direcao: a direcao vem do IDM.",
+    "idm_direcao": "O IDM e a media com sinal dos desvios das 12 zonas: positivo indica energia acima da linha de base, negativo abaixo. IDM proximo de zero pode ser equilibrio ou cancelamento entre zonas que se moveram em direcoes opostas, e por isso o mapa zonal completo e exibido ao lado do resumo.",
+    "mfcc7_cepstral": "MFCC7 e MFCC9 sao coeficientes cepstrais em escala mel que descrevem detalhe do envelope espectral, associado a configuracao do trato vocal e a estabilidade de timbre. Nao ha limiar de MFCC para condicao clinica alguma, e um coeficiente cepstral nao tem interpretacao absoluta util: le-se contra a linha de base do proprio paciente e em conjunto com pausas, F0 e cadencia.",
+    "mfcc9_cepstral": "Deltas e delta-deltas de MFCC descrevem dinamica — variacao e aceleracao do coeficiente. Aceleracao cepstral elevada e um fato de dinamica do sinal, descritivel como instabilidade de timbre ou de formante; chama-la de contracao espastica de corda vocal excede a medida, porque seria afirmacao fisiologica que exigiria verificacao instrumental direta.",
+    "shimmer_bioacustico": "Shimmer no FROID e a perturbacao relativa media da amplitude RMS entre quadros vozeados consecutivos (quadros de 40 ms, salto de 20 ms). Nao e shimmer em dB e nao se compara a limiar da literatura fonetica, porque a unidade de analise e o quadro e nao o ciclo glotal. Quando nao ha PCM real do paciente, o motor cai num ramo de substituicao, e o campo voice_features_source declara qual ramo produziu o numero.",
+    "jitter_bioacustico": "Jitter no FROID e a perturbacao relativa media do periodo entre quadros vozeados consecutivos, nao o jitter local ciclo a ciclo do Praat: limiares normativos daquela literatura nao se aplicam. Ganha sentido sustentado junto de Shimmer, alteracao de F0 e mudanca de cadencia, sempre contra a linha de base do proprio paciente.",
+    "f0_bioacustico": "F0 e a mediana da frequencia fundamental dos quadros vozeados. A variabilidade costuma informar mais que o valor: F0 estavel no mesmo patamar e achatamento prosodico, e F0 no mesmo patamar com variabilidade alta e outra coisa. F0 depende fortemente de sexo, idade e anatomia, entao comparacao entre pacientes nao tem sentido.",
+    "zcr_bioacustico": "ZCR e a taxa de cruzamento por zero da forma de onda. Sobe com conteudo de alta frequencia, e fricativas elevam ZCR por razao puramente fonetica. Alteracao isolada de ZCR, sem nenhum outro canal acompanhando, aponta microfone, ambiente ou supressao de ruido antes de apontar qualquer coisa sobre o paciente.",
+    "bandas_de_modulacao": "As bandas delta, theta, alpha, beta e gama do FROID sao fracoes da energia do espectro de MODULACAO da envoltoria da fala, e a homonimia com bandas de EEG e coincidencia de nomenclatura de faixa: o FROID nao mede atividade cerebral. Descrevem estrutura temporal da fala, e nao ha estudo publicado que estabeleca ponte entre elas e categoria diagnostica em saude mental.",
+    "sub_harmonicos": "As tres faixas sub-harmonicas (5-12, 12-20 e 20-40 Hz) sao percentuais da energia de modulacao da envoltoria, invariantes a ganho de microfone e a duracao da janela por serem fracoes. Descrevem estrutura temporal do sinal; nao medem tremor do sistema nervoso autonomo, e material antigo do FROID que afirme isso e remanescente a corrigir.",
+    "indices_dna": "Os indices com prefixo DNA sao desvios RELATIVOS contra a linha de base do paciente, limitados entre 0 e 1. O limite inferior importa na leitura: o indice nao pode ser negativo, e queda abaixo da base produz o mesmo 0 que estar exatamente na base. Os compostos que envolvem face (flooding e somatoafetivo) sao multiplicados por 2,5 quando ha dissonancia facial confirmada, o que significa que rosto fora de quadro derruba o indice sem que a voz tenha mudado.",
+    "facs_dissonancia_facial": "A dissonancia facial no FROID e a coocorrencia de Unidades de Acao incompativeis — por exemplo sorriso (AU12) sobre compressao labial (AU23/AU24). Seis das doze zonas tem regra facial propria, cada uma com sua assinatura de AUs. A regra descreve o padrao facial observado e nada alem dele: nao ha inferencia sobre historia de vida, sobrecarga fisiologica ou estado que nao tenha sido expresso.",
+    "procedencia_da_medida": "Todo indice do FROID declara a procedencia do que entrou no calculo: voice_features_source, f0_source e facs_source dizem se a leitura veio de PCM e face reais ou de ramo de substituicao. Indice em branco significa NAO MEDIDO, nunca zero, e nunca o ultimo valor conhecido.",
+    "fronteira_medida_interpretacao": "O FROID mede sinal acustico e visual. Nenhum indice tem norma populacional ou validade convergente estabelecida contra instrumento psicometrico, e o produto nao emite escore de risco nem classifica a pessoa. A medida e do sistema; a hipotese clinica e do profissional.",
     "ref_mfcc_davis_mermelstein": "Referencia cientifica: Davis e Mermelstein (1980) introduzem representacoes cepstrais em escala Mel para modelagem espectral da fala, fundamento conceitual dos MFCCs.",
     "ref_opensmile_eyben": "Referencia cientifica: Eyben, Wollmer e Schuller (2010) descrevem o openSMILE como toolkit para extracao de features acusticas em fala, musica e reconhecimento afetivo.",
     "ref_facs_ekman": "Referencia cientifica: Ekman, Friesen e Hager consolidam o Facial Action Coding System (FACS), base para codificacao de unidades de acao facial, intensidade e combinacoes expressivas.",
@@ -819,23 +825,37 @@ KNOWLEDGE_BASE = {
     "ref_phq9_kroenke": "Referencia cientifica: Kroenke, Spitzer e Williams (2001) validam o PHQ-9 como medida breve de gravidade depressiva.",
     "ref_hamilton_hamd": "Referencia cientifica: Hamilton (1960) estabelece escala clinica para depressao, incluindo sintomas somaticos, retardo e ansiedade.",
     "ref_ymrs_young": "Referencia cientifica: Young, Biggs, Ziegler e Meyer (1978) apresentam a Young Mania Rating Scale para avaliacao de severidade maniforme.",
-    "mania_ativacao": "A ativacao de mania acompanha pitch/F0 elevado, loudness, taxa acelerada de fala e fluxo espectral mais incisivo.",
-    "sub_harmonicos": "Sub-harmonicos vocais entre 5 e 12 Hz podem refletir tremores do sistema nervoso autonomo quando cruzados com FACS e tensao vocal basal.",
-    "facs_trauma": "A combinacao AU15, AU20, dor facial, angustia e tensao vocal pode sinalizar flooding, sobrecarga autonomica ou retraumatizacao.",
     "governanca_lgpd": "Benchmarks populacionais devem usar dados anonimizados e agregados. O FROID aplica k-anonimato minimo para reduzir risco de reidentificacao.",
 }
+
+# Aqui existia "mania_ativacao": "A ativacao de mania acompanha pitch/F0
+# elevado, loudness, taxa acelerada de fala e fluxo espectral mais incisivo."
+#
+# Lapide, e nao limpeza silenciosa. A frase era uma afirmacao clinica sem
+# citacao, recuperada como "Fonte interna FROID" e apresentada ao modelo com o
+# mesmo peso das referencias verificadas. O FROID nao mede mania, nao tem
+# estudo de validade convergente para nenhum indice e nao classifica a pessoa;
+# a escala validada para severidade maniforme continua na base, com autoria e
+# ano, em `ref_ymrs_young`. Nao a reintroduza sem fonte.
 
 
 KNOWLEDGE_SOURCE_LABELS = {
     "froid_zonas": "Fonte interna FROID: Zonas de Percepcao",
     "ipm_velocimetro": "Fonte interna FROID: IPM",
     "idm_direcao": "Fonte interna FROID: IDM",
-    "mfcc7_depressao": "Fonte interna FROID: MFCC7 e risco depressivo",
-    "mfcc9_ansiedade": "Fonte interna FROID: MFCC9 e ansiedade somatica",
+    "mfcc7_cepstral": "Fonte interna FROID: coeficientes cepstrais",
+    "mfcc9_cepstral": "Fonte interna FROID: dinamica cepstral (deltas)",
     "shimmer_bioacustico": "Fonte interna FROID: Shimmer bioacustico",
     "jitter_bioacustico": "Fonte interna FROID: Jitter bioacustico",
     "f0_bioacustico": "Fonte interna FROID: F0 bioacustico",
     "zcr_bioacustico": "Fonte interna FROID: ZCR bioacustico",
+    "bandas_de_modulacao": "Fonte interna FROID: bandas de modulacao vocal",
+    "sub_harmonicos": "Fonte interna FROID: faixas sub-harmonicas",
+    "indices_dna": "Fonte interna FROID: indices DNA",
+    "facs_dissonancia_facial": "Fonte interna FROID: dissonancia facial",
+    "procedencia_da_medida": "Fonte interna FROID: procedencia da medida",
+    "fronteira_medida_interpretacao": "Fonte interna FROID: fronteira medida/interpretacao",
+    "governanca_lgpd": "Fonte interna FROID: governanca e anonimizacao",
     "ref_mfcc_davis_mermelstein": "Referencia cientifica: Davis e Mermelstein (1980), MFCC",
     "ref_opensmile_eyben": "Referencia cientifica: Eyben, Wollmer e Schuller (2010), openSMILE",
     "ref_facs_ekman": "Referencia cientifica: Ekman, Friesen e Hager, FACS",
