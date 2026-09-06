@@ -50,14 +50,46 @@ class OSorteioSaiu(unittest.TestCase):
 
 
 class NaoVazaParaOTexto(unittest.TestCase):
-    def test_tom_vazio_nao_entra_no_prompt_da_IA(self):
-        """`is not None` deixava passar string vazia e escrevia ' | tom: '.
+    """A garantia, e nao o mecanismo que a implementava.
 
-        O prompt e o que a IA le para redigir o resumo da sessao. Um rotulo
-        sorteado ali nao ficava num campo discreto: virava prosa clinica.
-        """
+    Este teste exigia literalmente a presenca de `if tone else ''` em main.py —
+    a guarda da f-string que montava a resposta local por metrica. Em
+    06/09/2026 aquela cadeia de respostas escritas a mao foi substituida pelo
+    catalogo de `explica_clinico`, e a f-string deixou de existir: o teste caiu
+    defendendo um mecanismo removido, sobre uma garantia que ficou MAIS forte.
+
+    Reescrito para afirmar o que o paciente e o profissional precisam que seja
+    verdade: nenhum caminho de main.py escreve um tom, e a ficha do TOM declara
+    a ausencia de apuracao em vez de sugerir leitura.
+    """
+
+    def test_o_defeito_original_nao_volta(self):
+        # `is not None` deixava passar string vazia e escrevia ' | tom: '.
         self.assertNotIn("if tone is not None else ''", MAIN)
-        self.assertIn("if tone else ''", MAIN)
+
+    def test_main_nao_interpola_tom_em_texto_nenhum(self):
+        self.assertNotIn("tom:", MAIN)
+        self.assertFalse(
+            re.search(r"\btone\b", MAIN),
+            "voltou a existir uma variavel de tom no caminho de texto do servidor",
+        )
+
+    def test_a_ficha_do_tom_declara_que_nao_ha_apuracao(self):
+        import explica_clinico
+
+        ficha = explica_clinico.INDICE_POR_ROTULO["TOM"]
+        self.assertIn("SEM CAPACIDADE DE APURACAO", ficha.medida)
+        self.assertIn("ausencia declarada", ficha.leitura)
+
+    def test_o_glossario_nao_afirma_tom_quando_o_painel_mostra_traco(self):
+        import explica_clinico
+
+        texto = explica_clinico.glossario_do_painel(
+            "o que quer dizer TOM", {"panel_metrics": {"TOM": "--"}}
+        )
+        linha = next(l for l in texto.splitlines() if l.startswith("- Valor nesta sessao"))
+        self.assertIn("SEM APURACAO", linha)
+        self.assertNotIn("neutro", linha.lower())
 
 
 class NaoRessuscitaNoPainel(unittest.TestCase):

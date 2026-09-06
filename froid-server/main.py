@@ -40,6 +40,7 @@ from tenant_store import (
     organization_type_for_account as tenant_organization_type_for_account,
     stable_uuid,
 )
+import explica_clinico
 import explica_embeddings
 import nr1_explica
 import froid_validation
@@ -128,6 +129,10 @@ OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
 OPENAI_TRANSCRIBE_MODEL = os.getenv("OPENAI_TRANSCRIBE_MODEL", "gpt-4o-transcribe")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 FROID_EXPLICA_MODEL = os.getenv("FROID_EXPLICA_MODEL", "gemini-1.5-pro")
+# Teto de saida do FROID Explica clinico. O contrato de resposta em
+# `explica_clinico` pede seis blocos; 900 tokens truncavam o ultimo terco,
+# e o que se perdia era sempre o fim: o que derruba a leitura e o limite.
+FROID_EXPLICA_MAX_TOKENS = int(os.getenv("FROID_EXPLICA_MAX_TOKENS", "1800"))
 FROID_CHROMA_PATH = os.getenv("FROID_CHROMA_PATH", "/data/chroma_db")
 FROID_CHROMA_COLLECTION = os.getenv(
     "FROID_CHROMA_COLLECTION",
@@ -769,6 +774,34 @@ def _save_identity_state() -> None:
 
 _load_identity_state()
 
+# A BASE INTERNA DIZIA COISAS QUE O CODIGO NAO FAZ.
+#
+# Estas linhas sao recuperadas por similaridade e injetadas no prompt do FROID
+# Explica como "Fonte interna FROID". Revisadas em 06/09/2026 contra o que
+# `froid_voice.extract_voice_features` e `froid_core` de fato calculam, quatro
+# delas estavam erradas — e erradas de um jeito que o profissional nao teria
+# como perceber:
+#
+#   - jitter descrito como "derivado de ZCR escalado". Nao e, em ramo nenhum:
+#     no ramo real e perturbacao relativa do periodo entre quadros vozeados;
+#     no ramo de substituicao e desvio padrao sobre media do vetor espectral.
+#   - shimmer descrito como "variacao relativa do envelope RMS". Isso descreve
+#     o ramo de substituicao; no ramo real e perturbacao relativa da amplitude
+#     entre quadros vozeados.
+#   - sub-harmonicos apresentados como reflexo de "tremores do sistema nervoso
+#     autonomo", e a combinacao AU15/AU20 como sinal de "retraumatizacao".
+#     As duas afirmam fisiologia que o FROID nao mede, e as duas contradizem
+#     `knowledge/approved/.../FROID_Fronteira_Medida_Interpretacao.md`, que ja
+#     e documento aprovado.
+#
+# O efeito pratico era o pior possivel: o modelo recebia, no mesmo prompt, uma
+# fonte interna afirmando correlato clinico e uma instrucao proibindo
+# diagnosticar. Ele dividia a diferenca, e o que saia era a ressalva generica
+# que o profissional reclamou.
+#
+# As chaves que nomeavam um construto clinico ("mfcc7_depressao") foram
+# renomeadas: a chave aparece como `source` em /api/knowledge, e um nome de
+# campo tambem afirma.
 KNOWLEDGE_BASE = {
     "froid_zonas": "As 12 Zonas de Percepcao FROID organizam padroes de desequilibrio facial-vocal e orientam a leitura clinica por temas, tensoes e dissonancias.",
     "ipm_velocimetro": "O IPM indica a intensidade ou energia global da sessao. Ele funciona como velocimetro emocional e nao define sozinho a direcao do desequilibrio.",
@@ -1563,135 +1596,48 @@ def _classify_froid_explica_intent(query_text: str) -> str:
 
 
 def _fallback_froid_explica_result(query_text: str, context: Dict[str, Any]) -> str:
-    query = _normalize_search_text(query_text)
-    ipm = context.get("ipm_score", "--")
-    coherence = context.get("coherence_status", "--")
+    """A resposta quando nenhum modelo respondeu. Local, e agora do glossario.
+
+    O que existia aqui era uma cadeia de `if "mfcc7" in query` com cinco
+    metricas escritas a mao — as outras trinta caiam num aviso pedindo para
+    configurar chave de API. Pior, o texto daquelas cinco descrevia Jitter e
+    Shimmer como "indice proxy derivado de ZCR escalado": verdade no ramo de
+    substituicao, falso no ramo real, que e o que roda quando ha PCM do
+    paciente. O painel exibia a descricao errada da propria medida.
+
+    Agora a queda usa o mesmo catalogo do prompt. Trinta e cinco rotulos, uma
+    fonte, e a ficha que sai daqui e a mesma que o modelo teria recebido.
+    """
+    indices = explica_clinico.indices_citados(query_text)
+    zonas = explica_clinico.zonas_citadas(query_text)
+    if indices or zonas:
+        return (
+            "FROID Explica em modo local (nenhum modelo de linguagem respondeu; "
+            "a leitura abaixo vem do catalogo do painel, sem consulta cientifica).\n\n"
+            + explica_clinico.glossario_do_painel(query_text, context)
+        )
+
+    ipm = context.get("ipm_score")
+    coherence = context.get("coherence_status")
     dominant = context.get("dominant_zone") or {}
+    zone = dominant.get("zone") if isinstance(dominant, dict) else None
     zone_label = (
-        f"Zona {dominant.get('zone')} ({dominant.get('theme')})"
-        if isinstance(dominant, dict) and dominant.get("zone")
+        f"Zona {zone} ({explica_clinico.ZONAS.get(zone) or dominant.get('theme') or 'eixo nao informado'})"
+        if zone
         else "zona dominante ainda indefinida"
     )
-
-    def _metric_response(
-        metric_label: str,
-        value_names: set[str],
-        concept: str,
-        interpretation: str,
-        integration: str,
-        references: str,
-    ) -> str:
-        metric_value = _find_context_metric(context, value_names)
-        tone = _find_context_metric(
-            context,
-            {"tone", "emotional_tone", "baseline_tone", "tom"},
-        )
-        return (
-            f"Leitura local do {metric_label} na sessao atual.\n\n"
-            "1. Valor contextual\n"
-            f"- {metric_label}: {metric_value if metric_value is not None else '--'}"
-            f"{f' | tom: {tone}' if tone else ''}\n\n"
-            "2. O que a metrica representa\n"
-            f"- {concept}\n\n"
-            "3. Como interpretar no FROID\n"
-            f"- {interpretation}\n\n"
-            "4. Como incorporar na avaliacao clinica\n"
-            f"- {integration}\n\n"
-            "5. Limite clinico\n"
-            "- Use como marcador de apoio e nunca como conclusao isolada. A leitura deve ser "
-            "validada pela escuta, pelo contexto da fala, pelo baseline de 60 segundos, pelos "
-            "cortes temporais e pelo julgamento do profissional.\n\n"
-            "Referencias utilizadas\n"
-            f"- {references}\n"
-            "- Contexto da sessao atual enviado ao FROID Explica.\n"
-            "- Base local FROID de biomarcadores vocais."
-        )
-
-    if "mfcc7" in query:
-        mfcc7_value = _find_context_metric(
-            context,
-            {"mfcc7", "mfcc7_avg", "average_mfcc7", "mfcc7mean"},
-        )
-        mfcc9_value = _find_context_metric(
-            context,
-            {"mfcc9", "mfcc9_avg", "average_mfcc9", "mfcc9mean"},
-        )
-        tone = _find_context_metric(
-            context,
-            {"tone", "emotional_tone", "baseline_tone", "tom"},
-        )
-        return (
-            "Leitura local do MFCC7 na sessao atual.\n\n"
-            "1. Valor contextual\n"
-            f"- MFCC7: {mfcc7_value if mfcc7_value is not None else '--'}"
-            f"{f' | MFCC9: {mfcc9_value}' if mfcc9_value is not None else ''}"
-            f"{f' | tom: {tone}' if tone else ''}\n\n"
-            "2. O que a metrica representa\n"
-            "- MFCC7 e um coeficiente cepstral em escala Mel, associado a componentes espectrais "
-            "da voz. No FROID, ele e usado como biomarcador acustico de apoio, especialmente "
-            "quando aparece em fala de valencia semantica negativa.\n\n"
-            "3. Como interpretar no FROID\n"
-            "- O MFCC7 ganha relevancia quando se eleva junto de pausas prolongadas, menor "
-            "variacao de F0, alteracoes de ZCR, Jitter/Shimmer ou sinais de retardo/tensao vocal.\n\n"
-            "4. Como incorporar na avaliacao clinica\n"
-            "- Compare com o baseline de 60 segundos, com os cortes de 10 minutos, com o tema "
-            "do trecho e com as dissonancias registradas. Se o valor estiver sustentado, use-o "
-            "para formular perguntas clinicas mais cuidadosas sobre carga afetiva, perda, "
-            "desesperanca, inibicao emocional ou defesa.\n\n"
-            "5. Limite clinico\n"
-            "- Nao use o MFCC7 como conclusao isolada. Ele deve apoiar, e nao substituir, a "
-            "escuta e o julgamento profissional.\n\n"
-            "Referencias utilizadas\n"
-            "- Base local FROID: mfcc7_depressao.\n"
-            "- Contexto da sessao atual enviado ao FROID Explica.\n"
-            "- Referencia cientifica: Davis e Mermelstein (1980), MFCC."
-        )
-
-    if "shimmer" in query:
-        return _metric_response(
-            "Shimmer",
-            {"shimmer", "shimmer_avg", "average_shimmer", "shimmermean"},
-            "No dashboard atual, Shimmer e um indice proxy interno normalizado da variacao relativa do envelope RMS da voz do paciente. Ele nao deve ser lido como shimmer em dB.",
-            "Compare esse indice com o baseline individual e com os cortes posteriores. Ele se torna mais informativo quando aparece junto de Jitter proxy, alteracoes de F0, energia, pausas, ZCR, tensao vocal ou dissonancias faciais-vocais.",
-            "Use o Shimmer idx. para observar instabilidade relativa de energia vocal, esforco, tensao afetiva ou controle respiratorio/vocal. Para aplicar limiares normativos em dB, sera necessaria uma camada fisica especifica de extracao validada.",
-            "Base local FROID: shimmer_bioacustico; Referencia cientifica conceitual: Boersma e Weenink/Praat para shimmer fisico em analise acustica vocal.",
-        )
-
-    if "jitter" in query:
-        return _metric_response(
-            "Jitter",
-            {"jitter", "jitter_avg", "average_jitter", "jittermean"},
-            "No dashboard atual, Jitter e um indice proxy interno normalizado derivado da taxa de cruzamento por zero escalada. Ele nao deve ser lido como jitter percentual normativo.",
-            "No FROID, Jitter idx. ganha relevancia quando aparece sustentado com Shimmer idx., alteracoes de F0, pausas, tensao vocal, queda de fluidez ou mudanca de tom emocional.",
-            "Use o Jitter idx. como apoio para investigar instabilidade vocal relativa, carga autonomica possivel ou esforco de controle emocional, sempre relacionando com o conteudo verbal e com o baseline. Para aplicar limiares percentuais normativos, sera necessaria uma camada fisica especifica de extracao validada.",
-            "Base local FROID: jitter_bioacustico; Referencia cientifica conceitual: Boersma e Weenink/Praat para jitter fisico em analise acustica vocal.",
-        )
-
-    if "zcr" in query or "cruzamento por zero" in query:
-        return _metric_response(
-            "ZCR",
-            {"zcr", "zcr_avg", "average_zcr", "zcrmean"},
-            "ZCR e a taxa de cruzamento por zero do sinal acustico, usada para observar caracteristicas de ruido, aspereza e energia de alta frequencia.",
-            "No FROID, ZCR deve ser lido junto de MFCCs, F0, Jitter idx., Shimmer idx., pausas e intensidade. Alteracoes isoladas podem refletir artefato, microfone, fricativas ou mudanca real de qualidade vocal.",
-            "Use o ZCR para apoiar a leitura de tensao, aspereza vocal ou mudancas acusticas durante temas especificos, sempre conferindo qualidade do audio e contexto semantico.",
-            "Base local FROID: zcr_bioacustico; Referencia cientifica: Eyben, Wollmer e Schuller (2010), openSMILE/features acusticas.",
-        )
-
-    if "f0" in query or "frequencia fundamental" in query:
-        return _metric_response(
-            "F0",
-            {"f0", "f0_mean", "average_f0", "f0mean"},
-            "F0 e a frequencia fundamental da voz, relacionada ao pitch percebido e a dinamica de ativacao vocal.",
-            "No FROID, F0 e sua variabilidade devem ser comparados ao baseline individual. Elevacao, queda ou achatamento de variabilidade ganham sentido quando cruzados com energia, fala acelerada, pausas, tom e tema.",
-            "Use F0 para acompanhar ativacao, retardo, tensao ou reducao expressiva, sempre cruzando com IPM, IDM, biomarcadores acusticos e dissonancias.",
-            "Base local FROID: f0_bioacustico; Referencia cientifica: Boersma e Weenink/Praat para F0 e fonetica computacional.",
-        )
     return (
-        "FROID Explica em modo local. "
-        f"Pergunta recebida: {query_text}. "
-        f"Contexto atual: IPM {ipm}, coerencia {coherence}, {zone_label}. "
-        "Para resposta cientifica ancorada em RAG, configure GEMINI_API_KEY e/ou OPENAI_API_KEY "
-        "e carregue a base ChromaDB dos manuais FROID."
+        "FROID Explica em modo local: nenhum modelo de linguagem respondeu, e a "
+        "pergunta nao nomeia um indice do painel que eu possa explicar sem eles.\n\n"
+        "O que ha de contexto agora:\n"
+        f"- IPM: {ipm if ipm is not None else 'sem apuracao'}\n"
+        f"- Coerencia: {coherence or 'sem apuracao'}\n"
+        f"- {zone_label}\n\n"
+        "Para resposta ancorada na base cientifica, e preciso GEMINI_API_KEY ou "
+        "OPENAI_API_KEY configurada e a base ChromaDB dos manuais FROID carregada. "
+        "Perguntando pelo nome de um indice da tabela do painel (por exemplo "
+        "IND. ESPECTRAL, SUB-H 5-12, DNA FLOOD ou uma zona), a explicacao sai "
+        "mesmo sem modelo."
     )
 
 
@@ -1725,46 +1671,36 @@ async def _query_froid_knowledge(payload: FroidExplicaQuery) -> FroidExplicaResp
     session_transcript = _format_session_transcript(payload.context)
     portfolio_summary = _format_portfolio_summary(payload.context)
     conversation_history = _format_conversation_history(payload.conversation_history)
-    system_instruction = (
-        "Voce e o FROID Explica, uma inteligencia clinica de apoio ao profissional. "
-        f"{session_language(response_locale).summary_instruction}, de modo objetivo, sem diagnosticar e sem inventar. "
-        "Voce TEM acesso, nesta sessao, a transcricao do que foi falado, com a fala do "
-        "PACIENTE e do PROFISSIONAL separadas e identificadas (secao TRANSCRICAO), e aos "
-        "biomarcadores e metricas da sessao (secao CONTEXTO DA SESSAO). Quando o profissional "
-        "perguntar sobre o que foi dito, recomendacoes dadas, falas do paciente ou do "
-        "profissional, responda com base nessa transcricao, citando o trecho pertinente. "
-        "So diga que nao tem acesso se a secao TRANSCRICAO indicar que nenhuma fala foi "
-        "capturada. Avalie metricas e fala do paciente e do profissional de forma separada "
-        "quando solicitado. "
-        "Use estritamente o contexto cientifico disponivel, o contexto da sessao, a transcricao "
-        "e o historico conversacional. Se a pergunta for de seguimento, como 'quais fontes?', responda sobre "
-        "a resposta anterior, nao sobre um tema novo. Se o profissional disser 'essa metrica', "
-        "'esse resultado', 'isso', 'como integrar' ou expressao equivalente, identifique no "
-        "historico qual foi a ultima metrica ou tema discutido e continue exatamente desse ponto. "
-        "Nao substitua a metrica anterior por IPM, IDM ou zonas se o assunto anterior era MFCC7, "
-        "Shimmer, Jitter, F0, ZCR ou outro biomarcador especifico. Nao cite LGPD ou governanca se o assunto "
-        "anterior era biomarcador vocal, FACS, IPM, IDM ou outra metrica clinica. "
-        "Use documentos internos FROID apenas como contexto tecnico, sem lista-los espontaneamente "
-        "como referencias finais. Ao final, em 'Referencias utilizadas', liste somente referencias "
-        "cientificas/documentos cientificos diretamente relacionados ao tema. Nao inclua base "
-        "operacional, campos anonimizados, proximas acoes, familia/relacionamentos, dashboard, "
-        "contexto da sessao ou documentos internos nao cientificos nessa secao. Se nao houver "
-        "referencia cientifica relacionada ao tema perguntado, omita a secao de referencias. "
-        "Se as fontes forem insuficientes, diga claramente o que falta. "
+    # A instrucao e o prompt vivem em `explica_clinico`, e nao mais aqui.
+    #
+    # O que estava neste ponto era um paragrafo unico pedindo resposta
+    # "objetiva" e um prompt sem glossario. Faltavam as duas pontas: o modelo
+    # nao tinha como saber que `IND. ESPECTRAL` na tela e `spectral_band_index`
+    # no contexto, e nada exigia que a resposta trouxesse a formula, a regua e
+    # o caminho clinico. O resultado, medido em sessao real, foi "essa metrica
+    # nao esta mencionada nas informacoes disponiveis" sobre uma metrica que
+    # estava no proprio payload.
+    system_instruction = explica_clinico.instrucao(
+        session_language(response_locale).summary_instruction
     )
-    prompt = (
-        f"CONTEXTO CIENTIFICO FROID:\n{context_str or 'Base cientifica nao carregada.'}\n\n"
-        f"CONTEXTO DA SESSAO ATUAL (metricas e biomarcadores):\n{session_context}\n\n"
-        f"TRANSCRICAO DA SESSAO ATUAL:\n{session_transcript}\n\n"
-        + (f"{portfolio_summary}\n\n" if portfolio_summary else "")
-        + f"HISTORICO RECENTE DO FROID EXPLICA:\n{conversation_history}\n\n"
-        f"PERGUNTA DO PROFISSIONAL:\n{payload.query_text}"
+    prompt = explica_clinico.montar_prompt(
+        pergunta=payload.query_text,
+        contexto=payload.context,
+        contexto_cientifico=context_str,
+        contexto_da_sessao=session_context,
+        transcricao=session_transcript,
+        carteira=portfolio_summary,
+        historico=conversation_history,
     )
     text, engine = await _generate_froid_explain_text(
         system_instruction,
         prompt,
         temperature=0.1,
-        max_tokens=900,
+        # 900 nao cabia o contrato de resposta. Medido no proprio contrato:
+        # valor, formula, regua, o que abre, o que derruba e o limite nao
+        # entram em 900 tokens sem que o modelo corte justamente a parte que
+        # o profissional veio buscar.
+        max_tokens=FROID_EXPLICA_MAX_TOKENS,
     )
     if not text:
         text = _fallback_froid_explica_result(payload.query_text, payload.context)

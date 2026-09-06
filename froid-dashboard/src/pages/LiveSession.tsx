@@ -2710,6 +2710,24 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const ultimoReligamentoRef = useRef(0);
   const transcriptSegmentsRef = useRef<Array<{ elapsedSeconds: number; text: string }>>([]);
   const froidExplicaConversationRef = useRef<Array<{ role: string; content: string }>>([]);
+  /**
+   * A TABELA COMO ELA ESTA NA TELA, para o FROID Explica poder responder sobre
+   * ela.
+   *
+   * O profissional pergunta digitando o rotulo que esta lendo — "IND.
+   * ESPECTRAL", "SUB-H 5-12", "DNA FLOOD". Ate 06/09/2026 o contexto enviado
+   * levava so as chaves internas (`spectral_band_index`) e o ultimo tick, nao a
+   * media do corte; a resposta foi "essa metrica nao esta mencionada nas
+   * informacoes disponiveis" sobre um numero que estava na tela dele.
+   *
+   * Os pares rotulo/valor vao daqui exatamente como sao renderizados, "--"
+   * inclusive: o traco e a declaracao de ausencia do painel, e o servidor a
+   * traduz em "sem apuracao" em vez de inventar zero.
+   */
+  const painelExibidoRef = useRef<{
+    metricas: Array<[string, string]>;
+    marcadores: EvidentMarker[];
+  }>({ metricas: [], marcadores: [] });
   const semanticCutStartSecondRef = useRef(0);
   const semanticCutClosingRef = useRef(false);
   const manualCutCounterRef = useRef(0);
@@ -3308,9 +3326,17 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         biomarkers[key] = Number(value.toFixed(4));
       }
     });
+    const painel = painelExibidoRef.current;
     return {
       patient_id: sessionPatient?.id || "",
       patient_name: sessionPatient?.name || "",
+      // Os rotulos da tabela, com o valor exatamente como esta escrito na tela.
+      panel_metrics: Object.fromEntries(painel.metricas),
+      // As reguas que o servidor calcula por marcador (faixa, direcao, leitura).
+      // Existiam desde sempre em `dissonance_event.all_markers`, o painel ja as
+      // pintava, e o FROID Explica nunca as recebeu — sem elas ele so podia
+      // falar do numero, nunca de estar dentro ou fora da faixa DESTE paciente.
+      panel_markers: painel.marcadores,
       transcript_available: transcriptLines.length > 0,
       transcript_speaker_legend:
         "DR = profissional/terapeuta; PC ou PAC = paciente.",
@@ -5470,6 +5496,16 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     ["DNA NEURO", formatMetricValue(simplifiedSnapshot.dnaNeurogenicResonance, 3)],
     ["DNA SOMATO", formatMetricValue(simplifiedSnapshot.dnaSomatoaffectiveDissonance, 3)],
   ];
+
+  // O que o FROID Explica le quando o profissional pergunta pela tabela. Sai
+  // da MESMA lista renderizada, pela mesma razao acima: um segundo catalogo
+  // montado para o Explica divergiria da tela na primeira metrica nova, e a
+  // divergencia apareceria como o assistente citando um numero que nao esta
+  // escrito em lugar nenhum.
+  painelExibidoRef.current = {
+    metricas: simplifiedMetricEntries,
+    marcadores: allMarkerReadings,
+  };
 
   // As metricas da tabela cruzadas com os limites do servidor. Deriva da
   // MESMA lista do layout Simplificado de proposito: dois catalogos

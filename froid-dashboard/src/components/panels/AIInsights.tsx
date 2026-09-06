@@ -239,14 +239,24 @@ export const AIInsights: React.FC<Props> = ({
         Math.abs(b?.deviation_score || 0) - Math.abs(a?.deviation_score || 0),
     );
     const dominant = sorted[0] ? compactZone(sorted[0]) : null;
-    const dissonanceCount = safeZones.filter(
-      (zone) => zone?.facial_dissonance_detected,
-    ).length;
+    // Nulo quando nenhuma zona foi apurada: `0` afirmaria "procurei e nao
+    // achei dissonancia nenhuma" sobre uma janela em que nada foi procurado.
+    const dissonanceCount = safeZones.length
+      ? safeZones.filter((zone) => zone?.facial_dissonance_detected).length
+      : null;
 
     return {
       session_id: sessionId,
-      ipm_score: Number(ipmScore || 0),
-      coherence_status: coherenceStatus || "NEUTRO",
+      // Sem `|| 0`. O portao em LiveSession ja publica `null` quando nao ha
+      // apuracao, e era este operador que desfazia a declaracao um passo antes
+      // de sair do navegador: o FROID Explica recebia `ipm_score: 0` e passava
+      // a raciocinar sobre uma ativacao vocal nula que ninguem mediu. Nulo sobe
+      // nulo, e o glossario do servidor o le como "sem apuracao".
+      ipm_score: ipmScore ?? null,
+      // Idem: "NEUTRO" e um estado que o motor de fato emite durante a
+      // calibracao. Fabrica-lo aqui apagava a diferenca entre "o motor disse
+      // neutro" e "o painel nao recebeu coerencia nenhuma".
+      coherence_status: coherenceStatus || null,
       baseline_established: Boolean(baselineEstablished),
       dominant_zone: dominant,
       dissonance_count: dissonanceCount,
