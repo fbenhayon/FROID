@@ -799,6 +799,74 @@ const CameraDesligada: React.FC = () => {
   );
 };
 
+/** Quantos tiques seguidos sem leitura antes de avisar.
+ *
+ *  O laço do servidor publica um tique por segundo (`asyncio.sleep(1.0)` em
+ *  `froid_stream_loop`), então cinco tiques são cinco segundos. Não é um
+ *  limiar escolhido no escuro: abaixo disso o aviso piscaria a cada vez que o
+ *  paciente virasse a cabeça ou fizesse uma pausa, e um aviso que pisca deixa
+ *  de ser lido. Acima, o profissional perderia meia sessão antes de saber. */
+const TIQUES_ATE_AVISAR = 5;
+
+/**
+ * O aviso que faltava: a ausência de leitura não se anunciava.
+ *
+ * Até 06/09/2026 nada na tela dizia ao profissional que a captura parou. A
+ * procedência da face só era contabilizada NO FIM, ao montar o relatório, e a
+ * seção "Leitura FACS/AUs" do painel só aparece quando já existe leitura —
+ * ausência não produzia nenhum sinal. O estado da captura acústica que a
+ * página do paciente envia pela sinalização caía só no log de diagnóstico do
+ * WebRTC, que ninguém abre durante um atendimento.
+ *
+ * O resultado apareceu numa sessão real de 18 minutos: o PCM do paciente nunca
+ * chegou ao motor, o profissional conduziu a sessão inteira sem saber, e a
+ * descoberta veio no relatório — quando já não havia o que reprocessar. O dado
+ * viajava em `audio_meta` a cada segundo e nenhuma tela o lia.
+ *
+ * Fica sobre o vídeo de propósito: é onde o profissional olha, e é onde a
+ * correção acontece — enquadrar o rosto, reaproximar o aparelho, refazer a
+ * permissão.
+ */
+const AvisoDeApuracao: React.FC<{
+  semFace: boolean;
+  semVoz: boolean;
+  presencialSemCamera: boolean;
+}> = ({ semFace, semVoz, presencialSemCamera }) => {
+  if (presencialSemCamera) {
+    return (
+      <div className="absolute bottom-3 left-3 right-3 z-20 rounded-lg border border-slate-500/50 bg-slate-950/80 px-3 py-2 text-[10px] font-semibold leading-4 text-slate-300 backdrop-blur-sm">
+        Modo presencial: <strong>sem leitura facial</strong>. As AUs saem da
+        câmera do celular do paciente, e neste modo ele não abre a própria tela.
+        Para ter leitura facial, use “Presencial · Celular”.
+      </div>
+    );
+  }
+  if (!semFace && !semVoz) return null;
+  return (
+    <div className="absolute bottom-3 left-3 right-3 z-20 rounded-lg border border-red-400/60 bg-red-950/85 px-3 py-2 text-[10px] font-semibold leading-4 text-red-100 backdrop-blur-sm">
+      {semFace && (
+        <p className="m-0">
+          <strong>Leitura facial não está entrando.</strong> Confira o
+          enquadramento no celular do paciente: rosto inteiro e de frente —
+          testa, sobrancelhas, olhos e boca visíveis —, aparelho apoiado e luz
+          à frente, nunca atrás.
+        </p>
+      )}
+      {semVoz && (
+        <p className={semFace ? "m-0 mt-1" : "m-0"}>
+          <strong>Voz do paciente não está chegando à análise.</strong> Sem ela
+          não há apuração de F0, MFCC, sub-harmônicos nem dos índices derivados.
+          Confira a permissão de microfone na tela do paciente.
+        </p>
+      )}
+      <p className="m-0 mt-1 font-normal text-red-200/90">
+        O que não for captado agora não pode ser recuperado depois: não há
+        reprocessamento.
+      </p>
+    </div>
+  );
+};
+
 function selectAudioMimeType() {
   if (typeof MediaRecorder === "undefined") return "";
   const candidates = [
@@ -2465,6 +2533,10 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const isPresentialSession = sessionPatient?.sessionMode === "presential";
   const isPresentialMobileSession = sessionPatient?.sessionMode === "presential_mobile";
   const [state, dispatch] = useReducer(reducer, undefined, createInitialState);
+  // Tiques seguidos sem cada leitura. A procedência já viajava em `audio_meta`
+  // a cada segundo; o que faltava era alguém contá-la e mostrá-la.
+  const [tiquesSemFace, setTiquesSemFace] = useState(0);
+  const [tiquesSemVoz, setTiquesSemVoz] = useState(0);
   const [dissonanceLog, setDissonanceLog] = useState<
     Array<{
       id: string;
@@ -5014,6 +5086,31 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     }
   }, [state.elapsedSeconds, state.phase]);
 
+  // A procedência de cada tique, contada.
+  //
+  // O motor declara a origem em toda leitura — `facs_source: "real_facs"` só
+  // quando houve blendshape medido, `voice_features_source: "real_pcm"` só
+  // quando houve PCM. As duas chaves existem desde 02/09/2026 e nenhuma tela
+  // as consultava durante a sessão: a ausência não produzia sinal nenhum.
+  useEffect(() => {
+    const meta = (state.payload as any)?.audio_meta;
+    if (!meta) return;
+    setTiquesSemFace((n) => (meta.facs_source === "real_facs" ? 0 : n + 1));
+    setTiquesSemVoz((n) => (meta.voice_features_source === "real_pcm" ? 0 : n + 1));
+  }, [state.payload]);
+
+  // Só depois que a sessão está de pé: antes disso "sem leitura" é o estado
+  // esperado de quem ainda não conectou, e alarmar ali seria ruído.
+  const capturaEmCurso = state.phase === "LIVE" && (remotePatientOn || isPresentialSession);
+  const semFaceApurada =
+    capturaEmCurso && !isPresentialSession && tiquesSemFace >= TIQUES_ATE_AVISAR;
+  const semVozApurada = capturaEmCurso && tiquesSemVoz >= TIQUES_ATE_AVISAR;
+  // No presencial puro não existe página do paciente, logo não existe câmera
+  // dele: a ausência de leitura facial é estrutural do modo, e não uma falha a
+  // corrigir no meio do atendimento. Dizer isso uma vez, calmo, em vez de
+  // piscar um alarme que ninguém pode resolver ali.
+  const presencialSemCamera = capturaEmCurso && isPresentialSession;
+
   useEffect(() => {
     let ws: WebSocket | null = null;
     let cancelled = false;
@@ -5911,6 +6008,11 @@ function LiveSessionInner({ user }: LiveSessionProps) {
               </button>
             )}
             {!state.cameraOn && <CameraDesligada />}
+            <AvisoDeApuracao
+              semFace={semFaceApurada}
+              semVoz={semVozApurada}
+              presencialSemCamera={presencialSemCamera}
+            />
             {(state.camError || !state.micOn) && (
               <div className="absolute bottom-3 left-[1.6cm] right-3 z-20 rounded-lg border border-amber-300/50 bg-slate-950/75 px-3 py-2 text-[10px] font-semibold text-amber-100 backdrop-blur-sm">
                 <div className="flex items-center justify-between gap-3">
@@ -6118,6 +6220,11 @@ function LiveSessionInner({ user }: LiveSessionProps) {
               </button>
             )}
             {!state.cameraOn && <CameraDesligada />}
+            <AvisoDeApuracao
+              semFace={semFaceApurada}
+              semVoz={semVozApurada}
+              presencialSemCamera={presencialSemCamera}
+            />
             {(state.camError || !state.micOn) && (
               <div className="absolute bottom-3 left-[1.6cm] right-3 z-20 rounded-lg border border-amber-300/50 bg-slate-950/75 px-3 py-2 text-[10px] font-semibold text-amber-100 backdrop-blur-sm">
                 <div className="flex items-center justify-between gap-3">
@@ -6417,6 +6524,11 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             </button>
           )}
           {!state.cameraOn && <CameraDesligada />}
+          <AvisoDeApuracao
+            semFace={semFaceApurada}
+            semVoz={semVozApurada}
+            presencialSemCamera={presencialSemCamera}
+          />
           {(state.camError || !state.micOn) && (
             <div className="absolute bottom-3 left-[1.6cm] right-3 z-20 rounded-lg border border-amber-300/50 bg-slate-950/75 px-3 py-2 text-[10px] font-semibold text-amber-100 backdrop-blur-sm">
               <div className="flex items-center justify-between gap-3">

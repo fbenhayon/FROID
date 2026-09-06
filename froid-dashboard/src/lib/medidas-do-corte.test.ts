@@ -41,6 +41,22 @@ import {
 const DR = (s: number, texto: string) => ({ elapsedSeconds: s, text: `DR. - ${texto}` });
 const PC = (s: number, texto: string) => ({ elapsedSeconds: s, text: `PC - ${texto}` });
 
+/** O fonte SEM comentários, para asserção sobre comportamento.
+ *
+ *  Uma versão anterior deste arquivo reprovou código correto porque o
+ *  comentário que DOCUMENTA um defeito cita os mesmos nomes que a asserção
+ *  proíbe. Teste que confunde documentação com comportamento acusa justamente
+ *  quem se deu ao trabalho de explicar o defeito.
+ *
+ *  Definido uma vez: a segunda cópia foi escrita com escape quebrado e o
+ *  arquivo inteiro deixou de carregar — zero testes rodando, que é pior do que
+ *  um teste falhando, porque o placar não acusa.
+ */
+const BLOCO_DE_COMENTARIO = new RegExp("/\\*[\\s\\S]*?\\*/", "g");
+const LINHA_DE_COMENTARIO = new RegExp("(^|[^:])//[^\\n]*", "g");
+const semComentarios = (fonte: string) =>
+  fonte.replace(BLOCO_DE_COMENTARIO, " ").replace(LINHA_DE_COMENTARIO, "$1 ");
+
 describe("a transcrição do paciente exclui a fala do profissional", () => {
   it("descarta a linha do DR, em vez de tirar o prefixo dela", () => {
     const segmentos = [
@@ -169,14 +185,6 @@ describe("o construtor de cortes não fabrica zero", () => {
  */
 describe("a leitura facial vem só da câmera do paciente", () => {
   const raiz = join(__dirname, "..");
-  // Comentários fora: a primeira versão deste bloco reprovou o código correto,
-  // porque o comentário que DOCUMENTA o defeito cita os mesmos nomes que a
-  // asserção proíbe. Um teste que confunde documentação com comportamento
-  // acusa exatamente quem se deu ao trabalho de explicar o defeito.
-  const BLOCO = new RegExp("/\\*[\\s\\S]*?\\*/", "g");
-  const LINHA = new RegExp("(^|[^:])//[^\\n]*", "g");
-  const semComentarios = (fonte: string) =>
-    fonte.replace(BLOCO, " ").replace(LINHA, "$1 ");
   const LIVE = semComentarios(
     readFileSync(join(raiz, "pages", "LiveSession.tsx"), "utf-8"),
   );
@@ -202,5 +210,61 @@ describe("a leitura facial vem só da câmera do paciente", () => {
 
   it("nenhum canvas do painel vira MediaStream", () => {
     expect(LIVE).not.toContain("captureStream");
+  });
+});
+
+/**
+ * A ausência de leitura passa a se anunciar DURANTE a sessão.
+ *
+ * Antes, nada na tela dizia que a captura parou: a procedência da face só era
+ * contabilizada ao montar o relatório, a seção "Leitura FACS/AUs" do painel só
+ * aparece quando já existe leitura, e o estado da captura acústica que a
+ * página do paciente envia caía apenas no log de diagnóstico do WebRTC, que
+ * ninguém abre durante um atendimento.
+ *
+ * Numa sessão real de 18 minutos o PCM do paciente nunca chegou ao motor, o
+ * profissional conduziu tudo sem saber, e a descoberta veio no relatório —
+ * quando já não havia o que reprocessar. O dado viajava em `audio_meta` a cada
+ * segundo e nenhuma tela o lia. É o padrão desta casa: a peça existe, está
+ * correta, e nada a consome.
+ */
+describe("o painel avisa quando a leitura não está entrando", () => {
+  const LIVE = semComentarios(
+    readFileSync(join(__dirname, "..", "pages", "LiveSession.tsx"), "utf-8"),
+  );
+
+  it("lê a procedência que o motor já declarava a cada tique", () => {
+    expect(LIVE).toContain('meta.facs_source === "real_facs"');
+    expect(LIVE).toContain('meta.voice_features_source === "real_pcm"');
+  });
+
+  // Três layouts (detalhada, simplificada e a terceira). Um aviso que só existe
+  // num deles é indistinguível de aviso nenhum para quem usa outro.
+  //
+  // A âncora é o quadro de câmera desligada, que marca cada caixa de vídeo: se
+  // um quarto layout nascer com ele e sem o aviso, isto cai. Comparar contra o
+  // literal 3 não pegaria esse caso — travaria o número, não a garantia.
+  it("o aviso aparece em TODAS as telas de vídeo, e não só numa", () => {
+    const avisos = LIVE.split("<AvisoDeApuracao").length - 1;
+    const caixasDeVideo = LIVE.split("<CameraDesligada").length - 1;
+    expect(caixasDeVideo).toBeGreaterThan(0);
+    expect(avisos).toBe(caixasDeVideo);
+  });
+
+  it("não alarma antes da sessão estar de pé", () => {
+    expect(LIVE).toContain('state.phase === "LIVE"');
+    expect(LIVE).toContain("capturaEmCurso");
+  });
+
+  // No presencial puro não existe página do paciente, logo não existe câmera
+  // dele: a ausência é estrutural do modo, não uma falha corrigível ali.
+  it("no presencial puro explica o modo, em vez de alarmar", () => {
+    expect(LIVE).toContain("presencialSemCamera");
+    expect(LIVE).toContain("sem leitura facial");
+  });
+
+  it("tem limiar ancorado no tique de um segundo do servidor", () => {
+    expect(LIVE).toContain("TIQUES_ATE_AVISAR");
+    expect(LIVE).toMatch(/TIQUES_ATE_AVISAR\s*=\s*\d+/);
   });
 });
