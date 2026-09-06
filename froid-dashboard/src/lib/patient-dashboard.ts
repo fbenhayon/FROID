@@ -35,7 +35,10 @@ export interface PatientAdvancedSignal {
   /** `null` quando nao ha duas sessoes com voz APURADA para comparar.
    *  `fmtDelta` ja imprime "--" nesse caso. */
   ipmTrend: number | null;
-  idmRecent: number;
+  /** `null` quando nenhuma das sessoes recentes teve IDM apurado. Era
+   *  `number`, e o valor de queda vinha da sessao mais recente — que podia
+   *  ser a sessao sem audio. Chegava a tela como "IDM recente 0,00". */
+  idmRecent: number | null;
   qualityLabel: string;
 }
 
@@ -108,6 +111,21 @@ export function fmtDelta(value: number | null | undefined, digits = 2) {
   return `${sign}${Number(value).toFixed(digits)}`;
 }
 
+/** Diferença entre duas medidas — NULA se qualquer uma não foi apurada.
+ *
+ *  `a - b` trata `null` como zero: uma sessão sem apuração contra uma
+ *  baseline de IPM 47 produzia `-47`, uma queda dramática que ninguém mediu,
+ *  impressa por `fmtDelta` como "-47.0". Ausência menos medida é ausência.
+ *  `fmtDelta` já imprime "--" para nulo. */
+export function deltaMedido(
+  a: number | null | undefined,
+  b: number | null | undefined,
+): number | null {
+  if (typeof a !== "number" || !Number.isFinite(a)) return null;
+  if (typeof b !== "number" || !Number.isFinite(b)) return null;
+  return a - b;
+}
+
 export function limitWords(text: string, maxWords: number) {
   return String(text || "").trim().split(/\s+/).filter(Boolean).slice(0, maxWords).join(" ");
 }
@@ -161,7 +179,9 @@ export function sessionMetricCells(
     },
     { key: "tone", label: "Tom", value: snapshot.emotionalTone || "--" },
     { key: "wpm", label: "P/min", value: fmt(snapshot.wordsPerMinute, 0) },
-    { key: "dissonance", label: "Disso.", value: String(snapshot.dissonanceCount || 0) },
+    // `|| 0` imprimia "0" sobre corte sem apuracao — o mesmo defeito que o
+    // resto desta lista ja evita usando `fmt`, que imprime "--".
+    { key: "dissonance", label: "Disso.", value: fmt(snapshot.dissonanceCount, 0) },
     { key: "mfcc7", label: "MFCC7", value: fmt(snapshot.mfcc7, 2) },
     { key: "mfcc9", label: "MFCC9", value: fmt(snapshot.mfcc9, 2) },
     { key: "dmfcc7", label: "DMFCC7", value: fmt(snapshot.mfcc7Delta, 3) },
@@ -229,6 +249,20 @@ function average(values: Array<number | null | undefined>, fallback = 0) {
   return clean.reduce((sum, value) => sum + value, 0) / clean.length;
 }
 
+/** Média que devolve NULO quando nenhum dos valores foi apurado.
+ *
+ *  `average` exige um número de queda, e quem chamava passava o valor da
+ *  sessão mais recente — que podia ser a sessão sem áudio. Para um índice que
+ *  vai à tela como medida ("IDM recente", em PatientDetail), não existe número
+ *  de queda honesto: ou houve apuração, ou não houve. */
+function mediaApurada(values: Array<number | null | undefined>): number | null {
+  const clean = values.filter(
+    (value): value is number => typeof value === "number" && Number.isFinite(value),
+  );
+  if (!clean.length) return null;
+  return clean.reduce((sum, value) => sum + value, 0) / clean.length;
+}
+
 /** A energia da fala de um relatorio, ou `null` quando a voz nao foi apurada.
  *
  *  A procedencia e de SESSAO: `amostrasComVozReal` conta quantas amostras da
@@ -279,8 +313,17 @@ function qualityFromReport(report: SessionReportRecord) {
 // É mais informativo assim: "ENERGIA ALTA + DESVIO NEGATIVO" diz ao clínico
 // o que as métricas fizeram; "SOFRIMENTO ATIVO" dizia a ele uma conclusão que
 // é dele, não do software.
-function stateFromMetrics(ipm: number, idm: number, quality: number) {
+function stateFromMetrics(
+  ipm: number | null,
+  idm: number | null,
+  quality: number,
+) {
   if (quality < 45) return "DADOS INSUFICIENTES";
+  // Sem IPM ou IDM apurados nao se classifica estado nenhum. Os dois chegavam
+  // como numero SEMPRE, porque a origem fechava a lacuna com zero — e zero
+  // aqui casa com "ENERGIA BAIXA + DESVIO NEUTRO", um achado clinico
+  // afirmado sobre uma sessao em que nada foi medido.
+  if (ipm === null || idm === null) return "DADOS INSUFICIENTES";
   if (ipm <= 35 && idm <= -0.65) return "ENERGIA BAIXA + DESVIO MUITO NEGATIVO";
   if (ipm >= 55 && idm <= -0.45) return "ENERGIA ALTA + DESVIO NEGATIVO";
   if (ipm <= 35 && idm < 0.15) return "ENERGIA BAIXA + DESVIO NEUTRO";
@@ -300,9 +343,17 @@ export function patientAdvancedSignal(group: PatientDashboardGroup): PatientAdva
   const reports = group.reports || [];
   const recent = reports.slice(0, 3);
   const latest = group.latestReport;
-  const latestAverage = latest.sessionAverage;
-  const ipmRecent = average(recent.map((report) => report.sessionAverage.ipmAvg), latestAverage.ipmAvg);
-  const idmRecent = average(recent.map((report) => report.sessionAverage.idmAvg), latestAverage.idmAvg);
+  // Nulos quando NENHUMA das sessoes recentes teve apuracao acustica.
+  // O numero de queda era o valor da sessao mais recente — que podia ser
+  // justamente a sessao sem audio, gravada como 0 pelo `|| 0` da origem. Isso
+  // chegava a tela do profissional como "IDM recente 0,00".
+  const ipmRecent = mediaApurada(recent.map((report) => report.sessionAverage.ipmAvg));
+  const idmRecent = mediaApurada(recent.map((report) => report.sessionAverage.idmAvg));
+  // Peso do composto de triagem, e NAO uma medida publicada. Ausencia
+  // contribui zero — nem bonus nem penalidade —, o mesmo criterio ja aplicado
+  // a `ipmTrend` logo abaixo. O valor publicado continua nulo.
+  const ipmPeso = ipmRecent ?? 0;
+  const idmPeso = idmRecent ?? 0;
   // A TENDENCIA SO COMPARA SESSOES EM QUE A VOZ FOI MEDIDA.
   //
   // `sessionAverage.ipmAvg` chega SEMPRE como numero: `LiveSession.tsx` faz
@@ -337,11 +388,11 @@ export function patientAdvancedSignal(group: PatientDashboardGroup): PatientAdva
     recent.map((report) => report.sessionAverage.dissonanceCount || 0),
     0,
   );
-  const negativeDirection = clamp(-idmRecent, 0, 1) * 100;
+  const negativeDirection = clamp(-idmPeso, 0, 1) * 100;
   const lowEnergyNegative =
-    (clamp(35 - ipmRecent, 0, 35) / 35) * clamp(-idmRecent, 0, 1) * 100;
+    (clamp(35 - ipmPeso, 0, 35) / 35) * clamp(-idmPeso, 0, 1) * 100;
   const signalLoad = clamp(
-    ipmRecent * 0.22 +
+    ipmPeso * 0.22 +
       negativeDirection * 0.34 +
       lowEnergyNegative * 0.22 +
       dissonance * 4 +
@@ -378,7 +429,7 @@ export function patientAdvancedSignal(group: PatientDashboardGroup): PatientAdva
       // Tendencia nao apurada contribui ZERO, e nao uma tendencia inventada:
       // ausencia de medida nao pode virar bonus nem penalidade no composto.
       clamp(Math.abs(ipmTrend ?? 0) * 4, 0, 20) -
-      clamp(-idmRecent, 0, 1) * 18,
+      clamp(-idmPeso, 0, 1) * 18,
     0,
     100,
   );

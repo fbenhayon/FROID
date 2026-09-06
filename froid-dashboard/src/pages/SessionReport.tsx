@@ -275,7 +275,17 @@ function dominantReportTheme(report: SessionReportRecord) {
   return candidates[0] || "Tema em apuração";
 }
 
-function metricDeltaSentence(label: string, baseline: number, average: number, digits = 2) {
+function metricDeltaSentence(
+  label: string,
+  baseline: number | null,
+  average: number | null,
+  digits = 2,
+) {
+  // A guarda ja existia e ja fazia a coisa certa — devolver frase nenhuma.
+  // So nao podia ser alcancada: os dois argumentos chegavam sempre como
+  // numero, porque a origem fechava a ausencia com zero. Entao a frase saia
+  // afirmando "IPM permaneceu estavel (0.0 -> 0.0)" sobre o que nao foi medido.
+  if (baseline === null || average === null) return "";
   if (!Number.isFinite(baseline) || !Number.isFinite(average)) return "";
   const delta = average - baseline;
   const direction =
@@ -317,7 +327,8 @@ function derivedSessionSummary(report: SessionReportRecord) {
     report.sessionAverage.emotionalTone
       ? `tom predominante ${report.sessionAverage.emotionalTone}`
       : "",
-    Number.isFinite(report.sessionAverage.wordsPerMinute)
+    typeof report.sessionAverage.wordsPerMinute === "number"
+    && Number.isFinite(report.sessionAverage.wordsPerMinute)
       ? `${report.sessionAverage.wordsPerMinute.toFixed(1)} palavras/min em média`
       : "",
     report.sessionAverage.dissonanceCount
@@ -784,8 +795,19 @@ const PainelEvolucao: React.FC<{ serie: SerieEvolucao; rotulos: string[] }> = ({
 /** A base probatória do relatório, dita antes dos números.
  *
  *  Vem antes de propósito. Quem lê um índice acústico precisa saber, antes de
- *  interpretá-lo, se ele foi medido ou gerado — depois já é tarde, a leitura
- *  clínica já aconteceu.
+ *  interpretá-lo, se ele foi medido — depois já é tarde, a leitura clínica já
+ *  aconteceu.
+ *
+ *  O texto deste aviso dizia "o motor operou em modo de simulação". Era falso
+ *  desde 02/09/2026, quando a simulação foi removida: hoje o motor NÃO gera
+ *  nada sem PCM real — `_payload_sem_apuracao` publica `ipm_score: null`,
+ *  `idm_score: null` e zonas vazias, e declara `voice_features_source:
+ *  "sem_apuracao"`. Dizer a um leitor clínico que houve simulação num produto
+ *  onde simular é proibido é grave nos dois sentidos: descreve errado o que o
+ *  sistema fez, e sugere que ele fabrica dado quando o que ele fez foi
+ *  justamente recusar-se a fabricar. A ausência já era declarada com
+ *  honestidade; faltava o aviso dizer isso. Apurado em 06/09/2026, na sessão
+ *  froid-mtpuwdafchqj, num relatório real.
  */
 const ProcedenciaDoRelatorio: React.FC<{
   procedencia?: SessionReportRecord["procedenciaDosDados"];
@@ -801,7 +823,7 @@ const ProcedenciaDoRelatorio: React.FC<{
         <p className="mt-1 text-xs text-slate-400">
           Este relatório é anterior ao registro de procedência. Não é possível
           afirmar, a partir dele, se os índices acústicos foram medidos sobre a
-          voz do paciente ou gerados pelo modo de simulação.
+          voz do paciente.
         </p>
       </section>
     );
@@ -829,17 +851,19 @@ const ProcedenciaDoRelatorio: React.FC<{
       {nenhuma ? (
         <p className="mt-1 text-xs font-bold leading-5 text-red-100">
           Os índices acústicos deste relatório <strong>não foram medidos</strong>.
-          Nenhuma das {amostras} amostras da sessão recebeu voz real do paciente —
-          o motor operou em modo de simulação. F0, ZCR, MFCC e os índices
-          derivados deles não descrevem esta pessoa e não devem ser lidos como
-          achado clínico.
+          Nenhuma das {amostras} amostras da sessão recebeu voz real do paciente,
+          e sem ela não há apuração de F0, ZCR, MFCC nem dos índices derivados
+          deles. Os campos correspondentes saem vazios — vazio aqui significa não
+          medido — e quaisquer valores acústicos que apareçam neste documento{" "}
+          <strong>não descrevem esta pessoa e não devem ser lidos como achado
+          clínico</strong>.
         </p>
       ) : (
         <p className="mt-1 text-xs leading-5 text-slate-200">
           {amostrasComVozReal} de {amostras} amostras ({pct(amostrasComVozReal)}%)
           foram medidas sobre a voz real do paciente
           {parcial
-            ? " — o restante veio do modo de simulação, e os índices representam uma mistura das duas fontes."
+            ? " — nas demais não houve apuração acústica, e as médias desta sessão descrevem apenas o trecho medido."
             : "."}
         </p>
       )}

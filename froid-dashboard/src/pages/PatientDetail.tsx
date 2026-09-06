@@ -5,6 +5,7 @@ import { apiUrl } from "../lib/api";
 import {
   buildPatientGroups,
   fmt,
+  deltaMedido,
   fmtDelta,
   formatDateTime,
   mergeReports,
@@ -378,7 +379,7 @@ export const PatientDetail: React.FC = () => {
             <p className="mt-3 rounded-lg border border-blue-800 bg-blue-950 px-3 py-2 text-xs font-semibold text-blue-100">
               Linha comparativa: IPM {fmt(latest.baseline.ipmAvg, 1)} -&gt;{" "}
               {fmt(latest.sessionAverage.ipmAvg, 1)} (
-              {fmtDelta(latest.sessionAverage.ipmAvg - latest.baseline.ipmAvg, 1)})
+              {fmtDelta(deltaMedido(latest.sessionAverage.ipmAvg, latest.baseline.ipmAvg), 1)})
               {" | "}IDM {fmt(latest.baseline.idmAvg, 2)} -&gt;{" "}
               {fmt(latest.sessionAverage.idmAvg, 2)}
             </p>

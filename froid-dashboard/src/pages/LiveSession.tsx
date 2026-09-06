@@ -13,6 +13,10 @@ import {
   registrarRtc,
   relatorioRtc,
 } from "../lib/diagnostico-rtc";
+import {
+  menos,
+  palavrasPorMinutoDoPaciente,
+} from "../lib/medidas-do-corte";
 import MapaZonalFroid from "../components/charts/MapaZonalFroid";
 import { IPMLineChart } from "../components/indicators/IPMLineChart";
 import { RiskChart } from "../components/indicators/RiskChart";
@@ -194,7 +198,10 @@ type Action =
   | { type: "WS_OPEN" }
   | { type: "WS_CLOSE" }
   | { type: "TICK" }
-  | { type: "BASELINE_LOCK"; ipm: number }
+  // Nulo quando os 60 s de calibração não tiveram apuração nenhuma. O estado
+  // que recebe (`baselineIPM`) já era `number | null`; só a ação exigia número,
+  // e a exigência sumia atrás do `|| 0` que a origem aplicava.
+  | { type: "BASELINE_LOCK"; ipm: number | null }
   | { type: "PAYLOAD"; data: FroidPayload }
   | { type: "LOCAL_IPM"; ipm: number }
   | { type: "AGGREGATE"; agg: AggData }
@@ -413,8 +420,12 @@ function dissonanceTechnicalFactors(
   const vozMedida = audioMeta?.voice_features_source === "real_pcm";
   if (audioMeta && !vozMedida) {
     return [
-      "Sem áudio medido do paciente nesta janela: os índices acústicos foram "
-      + "gerados pelo modo de simulação e não sustentam leitura clínica.",
+      // Mesma frase falsa que estava no aviso do relatório, e sobrevivente da
+      // mesma limpeza: o motor não gera índice nenhum sem PCM real desde
+      // 02/09/2026 — ele declara `sem_apuracao` e publica nulo. Corrigir só a
+      // ocorrência que se vê é o defeito que esta casa já catalogou.
+      "Sem áudio medido do paciente nesta janela: não houve apuração acústica, "
+      + "e não há índice a interpretar aqui.",
     ];
   }
   const aus = zone?.dissonance_details?.active_aus || [];
@@ -683,7 +694,26 @@ class ErrorGuard extends React.Component<
   }
 }
 
-const SimulatedCamera: React.FC = () => {
+/**
+ * O quadro que aparece quando a câmera do PROFISSIONAL está desligada.
+ *
+ * Não alimenta análise nenhuma: é um `<canvas>` decorativo, nunca vira
+ * MediaStream (não há `captureStream` em lugar nenhum) e nada o lê. Fica na
+ * caixa de vídeo do próprio profissional.
+ *
+ * O texto, porém, dizia "FROID — Simulação Facial Ativa" e "Bioacústica
+ * sincronizada". Resto da era em que o motor simulava, apagada em 02/09/2026.
+ * Rótulo que afirma que uma simulação facial está rodando, dentro de um
+ * produto cuja regra é que simular é proibido, é pior que rótulo nenhum: quem
+ * lê acredita nele. E o que está acontecendo ali é o oposto — não há leitura
+ * facial nenhuma, porque a câmera está desligada.
+ *
+ * A leitura facial de verdade não passa por aqui em momento algum: as AUs FACS
+ * saem da câmera do PACIENTE, no dispositivo dele (`startFaceCapture` em
+ * `PatientSessionPage.tsx`), e chegam ao painel já medidas pelo servidor. Esta
+ * página nunca calcula nem envia blendshape.
+ */
+const CameraDesligada: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -704,11 +734,11 @@ const SimulatedCamera: React.FC = () => {
       }
       ctx!.fillStyle = "rgba(255,255,255,0.9)";
       ctx!.font = "bold 16px sans-serif";
-      ctx!.fillText("FROID — Simulação Facial Ativa", 20, 32);
+      ctx!.fillText("Sua câmera está desligada", 20, 32);
       ctx!.fillStyle = "rgba(160, 255, 200, 0.8)";
       ctx!.font = "12px sans-serif";
       ctx!.fillText(
-        `Bioacústica sincronizada | ${new Date().toLocaleTimeString("pt-BR")}`,
+        `A leitura facial usa a câmera do paciente | ${new Date().toLocaleTimeString("pt-BR")}`,
         20,
         56,
       );
@@ -1421,7 +1451,12 @@ function aggregatePayloads(payloads: FroidPayload[]): AggData {
   if (!payloads.length)
     return {
       zones: [],
-      ipm: 0,
+      // Nulo, e nao zero. O tipo desta chave sempre disse "nulo quando nenhum
+      // tick teve apuracao", e este ramo — janela sem nenhum tick — e o caso
+      // mais extremo disso. Escrito `0`, ele descia por `buildMetricSnapshot`
+      // e virava "IPM 0.00" no relatorio, ao lado do aviso de que nada foi
+      // medido. Zero e uma medida; ausencia nao e.
+      ipm: null,
       coherence: "NEUTRO",
       globalColor: "CINZA",
       globalDesc: "Aguardando...",
@@ -1845,11 +1880,23 @@ function buildMetricSnapshot(
       Math.abs(b?.deviation_score || 0) - Math.abs(a?.deviation_score || 0),
   )[0];
   const transcript = collectTranscript(transcriptSegments, startSecond, endSecond);
-  const minutes = Math.max(1 / 60, (endSecond - startSecond) / 60);
-  const wordCount = transcript
-    .replace(/^DR\.\s*-\s*|^PC\s*-\s*|^PAC\s*-\s*/gim, " ")
-    .split(/\s+/)
-    .filter(Boolean).length;
+  // PALAVRAS DO PACIENTE. Nao as da sala.
+  //
+  // Apurado em 06/09/2026, na sessao froid-mtpuwdafchqj. O PCM do paciente
+  // nunca chegou ao motor acustico — o relatorio declarou "nenhuma das 1077
+  // amostras recebeu voz real" — e mesmo assim "Palavras/min" publicava 92,4;
+  // 135,7; 134,9; 113,8. Nao eram numeros inventados: eram reais, e eram do
+  // PROFISSIONAL. A contagem tirava os prefixos `DR. -` e `PC -` e somava as
+  // duas falas numa metrica que o relatorio, o PDF do paciente e o Data-Froid
+  // leem como ritmo de fala DELE.
+  //
+  // Duas falas no mesmo numero nao e ruido: um profissional que fala rapido
+  // sobe o "ritmo do paciente" sem o paciente dizer uma palavra.
+  const patientWpm = palavrasPorMinutoDoPaciente(
+    transcriptSegments,
+    startSecond,
+    endSecond,
+  );
   const audioMetas = payloads.map((payload) => (payload as any).audio_meta || {});
   const audioAverage = (key: (typeof REPORT_AUDIO_KEYS)[number]) =>
     rounded(
@@ -1869,15 +1916,22 @@ function buildMetricSnapshot(
           (total, zone) => total + Number(zone.deviation_score || 0),
           0,
         ) / zones.length
-      : 0;
+      // Sem zona nao ha desequilibrio a medir. `0` dizia "equilibrio perfeito"
+      // sobre uma janela em que o motor nao apurou nada — e no relatorio saia
+      // "IDM 0.00 · faixa 0.00 a 0.00", que le como medida.
+      : null;
 
   return {
     label,
     startSecond,
     endSecond,
     sampleCount: payloads.length,
-    ipmAvg: rounded(aggregate.ipm, 2) || 0,
-    idmAvg: rounded(idmAvg, 3) || 0,
+    // Sem `|| 0`. O servidor ja publica `ipm_score: null` e `idm_score: null`
+    // quando nao ha apuracao — `_payload_sem_apuracao` foi escrito para isso —
+    // e eram estes dois operadores que desfaziam a declaracao, um passo antes
+    // da tela. Nulo sobe nulo, e `fmt` ja imprime "--".
+    ipmAvg: rounded(aggregate.ipm, 2),
+    idmAvg: rounded(idmAvg, 3),
     dominantZone: dominant?.zone || null,
     dominantTheme: dominant?.tema || "Sem zona dominante",
     coherenceStatus: aggregate.coherence || "NEUTRO",
@@ -1886,9 +1940,19 @@ function buildMetricSnapshot(
     // remocao do sorteio veio acabar. Vazio sobe vazio, e a tela mostra "--".
     emotionalTone:
       String(audioMetas.find((meta) => meta.emotional_tone)?.emotional_tone || ""),
-    wordsPerMinute: rounded(wordCount / minutes, 1) || 0,
+    // Nulo quando o paciente nao tem NENHUMA linha transcrita na janela.
+    //
+    // Zero ali seria uma afirmacao — "o paciente falou a zero palavras por
+    // minuto" — e nao ha como distinguir paciente calado de captura que nao
+    // rodou. Sem linha do PC, o que existe e ausencia de apuracao, e ela se
+    // declara. Havendo linha, a contagem e medida e vale inclusive baixa.
+    wordsPerMinute: patientWpm,
     theme: inferThemeFromTranscript(transcript),
-    dissonanceCount: zones.filter(isReportableDissonance).length,
+    // Idem: sem zona apurada nao ha o que contar. `0` afirmava "nenhuma
+    // dissonancia", que e coisa diferente de "nao foi possivel procurar".
+    dissonanceCount: zones.length
+      ? zones.filter(isReportableDissonance).length
+      : null,
     mfcc7: audioAverage("mfcc7"),
     mfcc9: audioAverage("mfcc9"),
     mfcc7Delta: audioAverage("mfcc7_delta"),
@@ -2075,18 +2139,26 @@ function inferPatientResponse(
   baseline: MetricSnapshot,
 ) {
   const reference = previousCut || baseline;
-  const ipmDelta = cut.ipmAvg - reference.ipmAvg;
-  const dissonanceDelta = cut.dissonanceCount - reference.dissonanceCount;
+  const ipmDelta = menos(cut.ipmAvg, reference.ipmAvg);
+  const dissonanceDelta = menos(cut.dissonanceCount, reference.dissonanceCount);
+  // Sem os dois deltas não se classifica resposta nenhuma. "estabilidade" era
+  // o que saía quando nada fora medido — e é uma AFIRMAÇÃO sobre o paciente:
+  // que ele não mudou. Duas ausências não são uma constância observada.
+  if (ipmDelta === null || dissonanceDelta === null) return "nao_apurado";
   if (ipmDelta <= -0.5 && dissonanceDelta <= 0) return "melhora_regulacao";
   if (ipmDelta >= 0.5 || dissonanceDelta > 0) return "aumento_ativacao";
   return "estabilidade";
 }
 
-function cutQualityConfidence(cut: MetricSnapshot) {
+function cutQualityConfidence(cut: MetricSnapshot): number | null {
   const duration = Math.max(1, cut.endSecond - cut.startSecond);
   const coverage = Math.min(1, cut.sampleCount / Math.max(1, duration / 10));
+  // Sem fala do paciente apurada não há o termo de fala, e uma confiança
+  // calculada só com a cobertura seria outro número com o mesmo nome. O campo
+  // se declara vazio — foi o que o painel já mostrou como "CONFIANÇA MÉDIA --".
+  if (cut.wordsPerMinute === null) return null;
   const speech = Math.min(1, cut.wordsPerMinute / 80);
-  return Math.round(((coverage * 0.65 + speech * 0.35) || 0) * 1000) / 1000;
+  return Math.round((coverage * 0.65 + speech * 0.35) * 1000) / 1000;
 }
 
 function samePatientReport(report: SessionReportRecord, patient?: { id?: string; name?: string; document?: string }) {
@@ -2153,7 +2225,18 @@ function deltaDirection(delta: number | null | undefined, threshold = 0.05) {
   return "estabilidade";
 }
 
-function aggregatedClinicalRisk(cut: MetricSnapshot) {
+function aggregatedClinicalRisk(cut: MetricSnapshot): number | null {
+  // Risco agregado sem NENHUMA parcela medida é ausência, e não risco zero.
+  //
+  // Os três `|| 0` faziam a soma valer 0.0 sobre um corte em que nada foi
+  // apurado, e o campo desce para o acervo anônimo do Data-Froid: uma pesquisa
+  // que cruzasse risco por coorte contaria essas linhas como pacientes sem
+  // risco. Zero é o achado mais tranquilizador que este campo pode dar, e era
+  // exatamente o que a ausência produzia.
+  const medidas = [cut.idmAvg, cut.dissonanceCount, cut.subharmonic5_12, cut.jitter];
+  if (!medidas.some((valor) => typeof valor === "number" && Number.isFinite(valor))) {
+    return null;
+  }
   const idm = Math.min(40, Math.abs(cut.idmAvg || 0) * 20);
   const dissonance = Math.min(35, (cut.dissonanceCount || 0) * 12);
   const vocal = Math.min(
@@ -2201,10 +2284,10 @@ function buildAnonymizedContext(
   const last3Idm = reportsMetricAverage(last3Reports, (report) => report.sessionAverage?.idmAvg);
   const historicalIpm = reportsMetricAverage(previousReports, (report) => report.sessionAverage?.ipmAvg);
   const historicalIdm = reportsMetricAverage(previousReports, (report) => report.sessionAverage?.idmAvg);
-  const deltaIpmVsLast3 = last3Ipm === null ? null : rounded(sessionAverage.ipmAvg - last3Ipm, 3);
-  const deltaIdmVsLast3 = last3Idm === null ? null : rounded(sessionAverage.idmAvg - last3Idm, 3);
-  const deltaIpmVsHistorical = historicalIpm === null ? null : rounded(sessionAverage.ipmAvg - historicalIpm, 3);
-  const deltaIdmVsHistorical = historicalIdm === null ? null : rounded(sessionAverage.idmAvg - historicalIdm, 3);
+  const deltaIpmVsLast3 = last3Ipm === null ? null : rounded(menos(sessionAverage.ipmAvg, last3Ipm), 3);
+  const deltaIdmVsLast3 = last3Idm === null ? null : rounded(menos(sessionAverage.idmAvg, last3Idm), 3);
+  const deltaIpmVsHistorical = historicalIpm === null ? null : rounded(menos(sessionAverage.ipmAvg, historicalIpm), 3);
+  const deltaIdmVsHistorical = historicalIdm === null ? null : rounded(menos(sessionAverage.idmAvg, historicalIdm), 3);
   const longitudinalTrend =
     deltaIdmVsLast3 === null
       ? "sem_historico"
@@ -2213,11 +2296,20 @@ function buildAnonymizedContext(
         : deltaIdmVsLast3 > 0.05
           ? "piora"
           : "estabilidade";
+  // "estável" era o veredito quando NADA fora medido: os `|| 0` faziam as duas
+  // dissonâncias empatarem em zero e o `|Δ IDM|` valer zero, satisfazendo as
+  // duas condições. O campo desce ao acervo anônimo, onde uma sessão sem
+  // apuração viraria evidência de estabilidade emocional.
+  const idmVariacao = menos(sessionAverage.idmAvg, baseline.idmAvg);
   const emotionalStability =
-    (sessionAverage.dissonanceCount || 0) <= (baseline.dissonanceCount || 0) &&
-    Math.abs(sessionAverage.idmAvg - baseline.idmAvg) < 0.25
-      ? "estável"
-      : "oscilante";
+    sessionAverage.dissonanceCount === null ||
+    baseline.dissonanceCount === null ||
+    idmVariacao === null
+      ? "nao_apurado"
+      : sessionAverage.dissonanceCount <= baseline.dissonanceCount &&
+          Math.abs(idmVariacao) < 0.25
+        ? "estável"
+        : "oscilante";
 
   return {
     schemaVersion: "anonymous_datamart_v3",
@@ -2257,8 +2349,8 @@ function buildAnonymizedContext(
     piiExcluded: true,
     rawAudioRetained: false,
     literalTranscriptRetained: false,
-    deltaIpmFromSessionBaseline: rounded(sessionAverage.ipmAvg - baseline.ipmAvg, 3),
-    deltaIdmFromSessionBaseline: rounded(sessionAverage.idmAvg - baseline.idmAvg, 3),
+    deltaIpmFromSessionBaseline: rounded(menos(sessionAverage.ipmAvg, baseline.ipmAvg), 3),
+    deltaIdmFromSessionBaseline: rounded(menos(sessionAverage.idmAvg, baseline.idmAvg), 3),
     deltaIpmVsLast3,
     deltaIdmVsLast3,
     deltaIpmVsHistorical,
@@ -2306,15 +2398,15 @@ function buildAnonymizedContext(
         qualityConfidence: cutQualityConfidence(cut),
         interventionCategory: inferInterventionCategory(drText),
         patientResponse: inferPatientResponse(cut, previousCut, baseline),
-        ipmDeltaFromBaseline: rounded(cut.ipmAvg - baseline.ipmAvg, 3),
-        idmDeltaFromBaseline: rounded(cut.idmAvg - baseline.idmAvg, 3),
-        dissonanceDeltaFromBaseline: rounded(cut.dissonanceCount - baseline.dissonanceCount, 3),
-        ipmDeltaPreviousCut: rounded(cut.ipmAvg - reference.ipmAvg, 3),
-        idmDeltaPreviousCut: rounded(cut.idmAvg - reference.idmAvg, 3),
-        dissonanceDeltaPreviousCut: rounded(cut.dissonanceCount - reference.dissonanceCount, 3),
-        ipmDeltaAfterIntervention: rounded(nextReference.ipmAvg - cut.ipmAvg, 3),
-        idmDeltaAfterIntervention: rounded(nextReference.idmAvg - cut.idmAvg, 3),
-        dissonanceDeltaAfterIntervention: rounded(nextReference.dissonanceCount - cut.dissonanceCount, 3),
+        ipmDeltaFromBaseline: rounded(menos(cut.ipmAvg, baseline.ipmAvg), 3),
+        idmDeltaFromBaseline: rounded(menos(cut.idmAvg, baseline.idmAvg), 3),
+        dissonanceDeltaFromBaseline: rounded(menos(cut.dissonanceCount, baseline.dissonanceCount), 3),
+        ipmDeltaPreviousCut: rounded(menos(cut.ipmAvg, reference.ipmAvg), 3),
+        idmDeltaPreviousCut: rounded(menos(cut.idmAvg, reference.idmAvg), 3),
+        dissonanceDeltaPreviousCut: rounded(menos(cut.dissonanceCount, reference.dissonanceCount), 3),
+        ipmDeltaAfterIntervention: rounded(menos(nextReference.ipmAvg, cut.ipmAvg), 3),
+        idmDeltaAfterIntervention: rounded(menos(nextReference.idmAvg, cut.idmAvg), 3),
+        dissonanceDeltaAfterIntervention: rounded(menos(nextReference.dissonanceCount, cut.dissonanceCount), 3),
         dominantZoneShift:
           previousCut && previousCut.dominantZone !== cut.dominantZone ? "mudanca_zona" : "sem_mudanca_zona",
         // "sem_mudanca_tom" com os dois campos vazios seria AFIRMAR que o tom
@@ -2326,18 +2418,22 @@ function buildAnonymizedContext(
             : previousCut.emotionalTone !== cut.emotionalTone
               ? "mudanca_tom"
               : "sem_mudanca_tom",
-        cadenceShift: deltaDirection(cut.wordsPerMinute - reference.wordsPerMinute, 5),
-        responseIpmDirection: deltaDirection(nextReference.ipmAvg - cut.ipmAvg, 0.5),
-        responseIdmDirection: deltaDirection(nextReference.idmAvg - cut.idmAvg, 0.05),
-        responseDissonanceDirection: deltaDirection(nextReference.dissonanceCount - cut.dissonanceCount, 0.5),
+        cadenceShift: deltaDirection(menos(cut.wordsPerMinute, reference.wordsPerMinute), 5),
+        responseIpmDirection: deltaDirection(menos(nextReference.ipmAvg, cut.ipmAvg), 0.5),
+        responseIdmDirection: deltaDirection(menos(nextReference.idmAvg, cut.idmAvg), 0.05),
+        responseDissonanceDirection: deltaDirection(menos(nextReference.dissonanceCount, cut.dissonanceCount), 0.5),
         semanticCoherenceShift:
           previousCut && previousCut.coherenceStatus !== cut.coherenceStatus
             ? "mudanca_coerencia"
             : "sem_mudanca_coerencia",
         relevantDissonances:
-          cut.dissonanceCount > 0
-            ? `dissonancias_relevantes_${cut.dissonanceCount}_zona_${cut.dominantZone || "nao_apurada"}`
-            : "sem_dissonancia_relevante",
+          // "sem_dissonancia_relevante" sobre corte não apurado é a afirmação
+          // de que se procurou e não se achou.
+          cut.dissonanceCount === null
+            ? "nao_apurado"
+            : cut.dissonanceCount > 0
+              ? `dissonancias_relevantes_${cut.dissonanceCount}_zona_${cut.dominantZone || "nao_apurada"}`
+              : "sem_dissonancia_relevante",
         aggregatedClinicalRisk: aggregatedClinicalRisk(cut),
         spectralDelta0_4: cut.spectralDelta0_4,
         spectralTheta4_8: cut.spectralTheta4_8,
@@ -5814,7 +5910,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                 Ouvir paciente
               </button>
             )}
-            {!state.cameraOn && <SimulatedCamera />}
+            {!state.cameraOn && <CameraDesligada />}
             {(state.camError || !state.micOn) && (
               <div className="absolute bottom-3 left-[1.6cm] right-3 z-20 rounded-lg border border-amber-300/50 bg-slate-950/75 px-3 py-2 text-[10px] font-semibold text-amber-100 backdrop-blur-sm">
                 <div className="flex items-center justify-between gap-3">
@@ -6021,7 +6117,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                 Ouvir paciente
               </button>
             )}
-            {!state.cameraOn && <SimulatedCamera />}
+            {!state.cameraOn && <CameraDesligada />}
             {(state.camError || !state.micOn) && (
               <div className="absolute bottom-3 left-[1.6cm] right-3 z-20 rounded-lg border border-amber-300/50 bg-slate-950/75 px-3 py-2 text-[10px] font-semibold text-amber-100 backdrop-blur-sm">
                 <div className="flex items-center justify-between gap-3">
@@ -6320,7 +6416,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
               Ouvir paciente
             </button>
           )}
-          {!state.cameraOn && <SimulatedCamera />}
+          {!state.cameraOn && <CameraDesligada />}
           {(state.camError || !state.micOn) && (
             <div className="absolute bottom-3 left-[1.6cm] right-3 z-20 rounded-lg border border-amber-300/50 bg-slate-950/75 px-3 py-2 text-[10px] font-semibold text-amber-100 backdrop-blur-sm">
               <div className="flex items-center justify-between gap-3">

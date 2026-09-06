@@ -26,15 +26,27 @@ export interface MetricSnapshot {
   startSecond: number;
   endSecond: number;
   sampleCount: number;
-  ipmAvg: number;
-  idmAvg: number;
+  /** Nulos quando NÃO FOI APURADO — nunca zero.
+   *
+   *  Eram `number`, e `buildMetricSnapshot` fechava a lacuna com `|| 0`. O
+   *  servidor já declarava a ausência (`ipm_score: null`, `idm_score: null`,
+   *  `perception_zones: []`) e o painel a desfazia um passo antes da tela: a
+   *  sessão froid-mtpuwdafchqj publicou "IPM 0.00", "IDM 0.00" e
+   *  "Dissonância 0.00" no mesmo relatório cujo aviso dizia que nenhuma das
+   *  1077 amostras recebeu voz real. `0,00` é tipograficamente indistinguível
+   *  de uma medida de zero — e num relatório clínico é lido como uma. */
+  ipmAvg: number | null;
+  idmAvg: number | null;
   dominantZone: number | null;
   dominantTheme: string;
   coherenceStatus: string;
   emotionalTone: string;
-  wordsPerMinute: number;
+  /** Nulo sem nenhuma fala do paciente transcrita na janela. Conta APENAS as
+   *  linhas do paciente: contava também as do profissional. */
+  wordsPerMinute: number | null;
   theme: string;
-  dissonanceCount: number;
+  /** Nulo quando não houve zona apurada — diferente de "nenhuma dissonância". */
+  dissonanceCount: number | null;
   mfcc7: number | null;
   mfcc9: number | null;
   mfcc7Delta?: number | null;
@@ -203,7 +215,10 @@ export interface SessionReportRecord {
       themePredominant?: string;
       patientSummaryAnon?: string;
       professionalSummaryAnon?: string;
-      qualityConfidence: number;
+      /** Nula sem fala do paciente apurada na janela. Era `number`, e a origem
+       *  entregava `0` — que num acervo de pesquisa lê como "corte de
+       *  qualidade zero", e não como corte que não pôde ser avaliado. */
+      qualityConfidence: number | null;
       interventionCategory: string;
       patientResponse: string;
       ipmDeltaFromBaseline?: number | null;
@@ -220,7 +235,10 @@ export interface SessionReportRecord {
       cadenceShift?: string;
       semanticCoherenceShift?: string;
       relevantDissonances?: string;
-      aggregatedClinicalRisk?: number;
+      /** Nulo quando nenhuma das parcelas foi apurada. Era `number`, e a
+       *  origem somava zeros: risco 0.0 e o achado mais tranquilizador que
+       *  este campo pode dar, e era o que a ausencia produzia. */
+      aggregatedClinicalRisk?: number | null;
       spectralDelta0_4?: number | null;
       spectralTheta4_8?: number | null;
       spectralAlpha8_12?: number | null;

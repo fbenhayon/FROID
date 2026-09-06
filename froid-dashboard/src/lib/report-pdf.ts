@@ -97,9 +97,27 @@ export function formatDurationLong(totalSeconds: number): string {
   return `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, "0")} s`;
 }
 
+/** Houve medida? `null` e `undefined` NÃO são medida.
+ *
+ *  `Number(null)` vale **zero**, e zero é finito. Então todo teste escrito como
+ *  `Number.isFinite(Number(x))` respondia "sim, tem medida" para um campo
+ *  ausente — e as onze ocorrências deste arquivo respondiam assim.
+ *
+ *  Enquanto `ipmAvg`, `idmAvg`, `wordsPerMinute` e `dissonanceCount` chegavam
+ *  sempre como número (a origem fechava a ausência com `|| 0`), a armadilha
+ *  ficava dormente: o zero vinha de lá, não daqui. Ao passar esses campos a
+ *  `number | null` — que é o certo, e é o que o servidor já grava — ela
+ *  acordaria toda de uma vez, e "0,0" voltaria a sair no documento do paciente
+ *  pela porta ao lado. Corrigido junto, e não depois.
+ */
+function houveMedida(value: unknown): boolean {
+  if (value === null || value === undefined) return false;
+  return Number.isFinite(Number(value));
+}
+
 function num(value: unknown, digits = 2): string {
-  const n = Number(value);
-  return Number.isFinite(n) ? n.toFixed(digits).replace(".", ",") : "--";
+  if (!houveMedida(value)) return "--";
+  return Number(value).toFixed(digits).replace(".", ",");
 }
 
 /** O que se imprime quando NAO houve medida.
@@ -125,6 +143,12 @@ const NAO_REGISTRADO = '<span class="ausente">não registrado</span>';
  *  uma coisa nem outra, e dizer "nao registrado" e a unica leitura honesta. */
 function medida(value: unknown, digits: number, apurado: boolean | null): string {
   if (apurado === false) return NAO_MEDIDO;
+  // Campo NULO é ausência declarada pela origem, e não valor ilegível: desde
+  // que o construtor de cortes parou de fechar a lacuna com zero, `null` aqui
+  // significa exatamente "não houve apuração nesta janela". Sem esta linha,
+  // `Number(null)` viraria `0` e imprimiria "0,0" — o `0,00` que este arquivo
+  // inteiro existe para não repetir, entrando pela porta ao lado.
+  if (value === null || value === undefined) return NAO_MEDIDO;
   const n = Number(value);
   if (!Number.isFinite(n)) return NAO_REGISTRADO;
   return n.toFixed(digits).replace(".", ",");
@@ -792,7 +816,10 @@ function secaoSintese(report: SessionReportRecord): string {
   const tonsUnicos = Array.from(new Set(tons));
   const ritmos = cortes
     .map((c) => (c as unknown as Record<string, unknown>).wordsPerMinute)
-    .filter((v) => Number.isFinite(Number(v)))
+    // Corte sem fala do paciente apurada sai da lista, em vez de entrar como
+    // "0,0" — a enumeração de ritmos passaria a incluir um valor que ninguém
+    // mediu, no meio de valores medidos, sem nada distinguindo os dois.
+    .filter(houveMedida)
     .map((v) => num(v, 1));
 
   const temas = cortes.map((c) => String((c as unknown as Record<string, unknown>).theme || "")).filter(Boolean);
@@ -813,16 +840,16 @@ function secaoSintese(report: SessionReportRecord): string {
     : "Não há cortes com tema registrado nesta sessão.";
 
   const linhaIndices = [
-    Number.isFinite(Number(media.ipmAvg)) ? `IPM médio ${num(media.ipmAvg, 1)}` : "",
-    Number.isFinite(Number(media.idmAvg)) ? `IDM médio ${num(media.idmAvg, 2)}` : "",
+    houveMedida(media.ipmAvg) ? `IPM médio ${num(media.ipmAvg, 1)}` : "",
+    houveMedida(media.idmAvg) ? `IDM médio ${num(media.idmAvg, 2)}` : "",
     ritmos.length ? `ritmo de fala ${ritmos.join(" → ")} palavras por minuto` : "",
   ].filter(Boolean).join(" · ");
 
   const notaBase = [
-    Number.isFinite(Number(base.ipmAvg)) ? `IPM ${num(base.ipmAvg, 2)}` : "",
-    Number.isFinite(Number(base.idmAvg)) ? `IDM ${num(base.idmAvg, 2)}` : "",
+    houveMedida(base.ipmAvg) ? `IPM ${num(base.ipmAvg, 2)}` : "",
+    houveMedida(base.idmAvg) ? `IDM ${num(base.idmAvg, 2)}` : "",
     base.dominantZone !== undefined && base.dominantZone !== null ? `Zona ${escapeHtml(base.dominantZone)}` : "",
-    Number.isFinite(Number(base.wordsPerMinute)) ? `${num(base.wordsPerMinute, 1)} palavras/min` : "",
+    houveMedida(base.wordsPerMinute) ? `${num(base.wordsPerMinute, 1)} palavras/min` : "",
   ].filter(Boolean).join(" · ");
 
   return `<section><div class="cab"><span class="num">01</span><h2>Síntese da sessão</h2></div>
@@ -1097,7 +1124,7 @@ export function buildPatientReport(
         return {
           tema: String(c.theme || "Sem tema definido"),
           segundos: cutSeconds(r),
-          ritmo: Number.isFinite(Number(r.wordsPerMinute)) ? Number(r.wordsPerMinute) : null,
+          ritmo: houveMedida(r.wordsPerMinute) ? Number(r.wordsPerMinute) : null,
         };
       })
       .filter((c) => c.segundos > 0);
@@ -1174,7 +1201,7 @@ export function buildPatientReport(
     // imprimiria a marcação como texto na cara do paciente.
     const linhas = [
       `energia da fala ${medida(base.ipmAvg, 1, vozApurada)}`,
-      Number.isFinite(Number(base.wordsPerMinute))
+      houveMedida(base.wordsPerMinute)
         ? `ritmo ${num(base.wordsPerMinute, 1)} palavras por minuto`
         : "",
       base.dominantZone === undefined || base.dominantZone === null
@@ -1242,7 +1269,7 @@ export function buildPatientReport(
         // do trecho. É por causa dela que o percurso conta como seção COM
         // medida — e é o "todas as informações do item" que foi pedido.
         const numeros = [
-          Number.isFinite(Number(r.wordsPerMinute)) ? `Ritmo da fala ${num(r.wordsPerMinute, 1)} palavras/min` : "",
+          houveMedida(r.wordsPerMinute) ? `Ritmo da fala ${num(r.wordsPerMinute, 1)} palavras/min` : "",
           r.emotionalTone ? `tom ${escapeHtml(r.emotionalTone)}` : "",
           r.dominantZone === null || r.dominantZone === undefined ? "" : `zona ${escapeHtml(r.dominantZone)}`,
         ].filter(Boolean).join(" · ");
@@ -1251,8 +1278,8 @@ export function buildPatientReport(
           <p>${escapeHtml(summaryOrFallback(c.summary))}</p>
           ${numeros ? `<div class="numeros">${numeros}</div>` : ""}
           ${perguntaDoTrecho({
-            ritmo: Number.isFinite(Number(r.wordsPerMinute)) ? Number(r.wordsPerMinute) : null,
-            ritmoAnterior: i > 0 && Number.isFinite(Number((cortes[i - 1] as unknown as Record<string, unknown>).wordsPerMinute))
+            ritmo: houveMedida(r.wordsPerMinute) ? Number(r.wordsPerMinute) : null,
+            ritmoAnterior: i > 0 && houveMedida((cortes[i - 1] as unknown as Record<string, unknown>).wordsPerMinute)
               ? Number((cortes[i - 1] as unknown as Record<string, unknown>).wordsPerMinute)
               : null,
             ehMaisLongo: i === indiceMaisLongo && totalSegundos > 0,

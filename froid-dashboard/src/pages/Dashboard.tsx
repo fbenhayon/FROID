@@ -7,6 +7,7 @@ import { tooltipText } from "../lib/tooltip-i18n";
 import { apiUrl } from "../lib/api";
 import {
   buildPatientGroups,
+  deltaMedido,
   fmt,
   fmtDelta,
   formatDateTime,
@@ -1049,8 +1050,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                 {fmt(group.latestReport.baseline.ipmAvg, 1)} -&gt;{" "}
                 {fmt(group.latestReport.sessionAverage.ipmAvg, 1)} (
                 {fmtDelta(
-                  group.latestReport.sessionAverage.ipmAvg -
+                  deltaMedido(
+                    group.latestReport.sessionAverage.ipmAvg,
                     group.latestReport.baseline.ipmAvg,
+                  ),
                   1,
                 )}
                 ) | IDM {fmt(group.latestReport.baseline.idmAvg, 2)} -&gt;{" "}

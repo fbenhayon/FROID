@@ -242,3 +242,58 @@ describe("o resumo não repete o percurso inteiro", () => {
     expect(html).not.toContain("Em conclusão, este resumo deve ser lido");
   });
 });
+
+/**
+ * `Number(null)` vale ZERO, e zero é finito.
+ *
+ * Enquanto `ipmAvg`, `idmAvg`, `wordsPerMinute` e `dissonanceCount` chegavam
+ * sempre como número — a origem em `buildMetricSnapshot` fechava a ausência com
+ * `|| 0` —, esta armadilha ficava dormente neste arquivo: o zero vinha de lá,
+ * não daqui. Em 06/09/2026 esses campos passaram a `number | null`, que é o que
+ * o servidor já grava (`_medida` devolve `None`), e a armadilha acordaria de
+ * uma vez: `num()` e `medida()` chamavam `Number(value)` sem perguntar se havia
+ * valor, então `null` voltaria a imprimir "0,0" — o mesmo `0,00` que este
+ * arquivo inteiro existe para não repetir, entrando pela porta ao lado.
+ *
+ * Um relatório com o campo NULO tem de sair igual ao que declara ausência. Se
+ * um dia sair "0,0", este teste cai.
+ */
+describe("campo nulo não vira zero no documento do paciente", () => {
+  const nulo = () => {
+    const base = relatorio(SEM_VOZ) as unknown as Record<string, any>;
+    // Como o construtor de cortes passa a entregar quando não houve apuração.
+    base.baseline = { ipmAvg: null, idmAvg: null, wordsPerMinute: null, dissonanceCount: null };
+    base.sessionAverage = { ipmAvg: null, idmAvg: null, wordsPerMinute: null, dissonanceCount: null };
+    base.tenMinuteCuts = [
+      { label: "0-10min", ipmAvg: null, idmAvg: null, wordsPerMinute: null, dissonanceCount: null },
+    ];
+    return base as unknown as SessionReportRecord;
+  };
+
+  const html = () => buildReport("patient", nulo(), IDENT, "", 0);
+
+  it("não imprime 0,0 nem 0,00 para campo ausente", () => {
+    const corpo = texto(html());
+    expect(corpo).not.toMatch(/>\s*0,0+\s*</);
+  });
+
+  it("diz que não foi medido", () => {
+    expect(html()).toContain("não medido nesta sessão");
+  });
+
+  // O "Ritmo da fala" é o caso decisivo: a chamada passa `apurado: true` fixo
+  // — a transcrição não depende da procedência do PCM —, então a única defesa
+  // contra o nulo está dentro de `medida`. Com o `Number(null)` antigo esta
+  // célula saía `<td class="n">0,0</td>`.
+  //
+  // A primeira versão desta asserção procurava a substring "0,0 palavras/min",
+  // e caiu sobre "130,0 palavras/min" — uma medida REAL do fixture. Substring
+  // sem fronteira é o defeito que esta casa já catalogou; aqui ele reprovou a
+  // correção certa. A asserção agora é sobre a célula, não sobre um pedaço de
+  // número solto.
+  it("a célula do ritmo diz não medido, em vez de 0,0", () => {
+    expect(texto(html())).toMatch(
+      /Ritmo da fala<\/td>\s*<td class="n"><span class="ausente">/,
+    );
+  });
+});
