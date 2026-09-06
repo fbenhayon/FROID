@@ -812,7 +812,7 @@ function patientMetricRows(snapshot: MetricSnapshot) {
     ["ZONAS", snapshot.dominantZone ? `Zona ${snapshot.dominantZone}` : "--"],
     ["Tom", snapshot.emotionalTone || "--"],
     ["P/min", fmt(snapshot.wordsPerMinute, 1)],
-    ["Disso.", String(snapshot.dissonanceCount || 0)],
+    ["Disso.", fmt(snapshot.dissonanceCount, 0)],
     ["MFCC7", fmt(snapshot.mfcc7, 3)],
     ["MFCC9", fmt(snapshot.mfcc9, 3)],
     ["DMFCC7", fmt(snapshot.mfcc7Delta, 4)],

@@ -75,6 +75,27 @@ export function palavrasPorMinutoDoPaciente(
   return Math.round((palavras / minutos) * 10) / 10;
 }
 
+/** A contribuição de uma medida AUSENTE para um escore composto: zero.
+ *
+ *  Não é o `|| 0` proibido, e a diferença é de destino. Um índice que vai à
+ *  tela ou ao relatório NUNCA pode nascer de ausência — `0,00` é lido como
+ *  medida de zero, e num documento clínico é uma afirmação sobre a pessoa.
+ *  Um escore composto de triagem é outra coisa: ele ordena a fila do
+ *  profissional, e uma parcela que não foi medida não deve virar bônus nem
+ *  penalidade. Zero é o neutro correto ali.
+ *
+ *  Existe como função NOMEADA de propósito. O padrão cru `campo || 0` está
+ *  proibido por teste que varre o diretório inteiro; esta é a única exceção, e
+ *  ela é greppável — qualquer um vê onde a ausência foi tratada como peso, e
+ *  por quê. Exceção invisível vira regra por descuido.
+ *
+ *  Quem chama isto tem a obrigação de garantir que o resultado NÃO é publicado
+ *  como medida: `aggregatedClinicalRisk` devolve nulo quando nenhuma parcela
+ *  foi apurada, e os escores de triagem carregam `dataQuality` ao lado. */
+export function pesoDeAusencia(valor: number | null | undefined): number {
+  return typeof valor === "number" && Number.isFinite(valor) ? valor : 0;
+}
+
 /** Diferença entre duas medidas — NULA se qualquer uma não foi apurada.
  *
  *  `a - b` em JavaScript trata `null` como zero, então um corte sem apuração

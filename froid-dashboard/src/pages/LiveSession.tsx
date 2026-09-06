@@ -16,6 +16,7 @@ import {
 import {
   menos,
   palavrasPorMinutoDoPaciente,
+  pesoDeAusencia,
 } from "../lib/medidas-do-corte";
 import MapaZonalFroid from "../components/charts/MapaZonalFroid";
 import { IPMLineChart } from "../components/indicators/IPMLineChart";
@@ -826,6 +827,11 @@ const TIQUES_ATE_AVISAR = 5;
  * Fica sobre o vídeo de propósito: é onde o profissional olha, e é onde a
  * correção acontece — enquadrar o rosto, reaproximar o aparelho, refazer a
  * permissão.
+ *
+ * Começa em `left-[1.6cm]`, e não em `left-3`: o canto inferior esquerdo é do
+ * botão CORTE. A primeira versão deste aviso usava a largura toda e o escondeu
+ * atrás de si — o mesmo incidente que o aviso de permissão de áudio já tinha
+ * causado, e que `test_botao_de_corte.py` guarda desde então. O teste pegou.
  */
 const AvisoDeApuracao: React.FC<{
   semFace: boolean;
@@ -834,7 +840,7 @@ const AvisoDeApuracao: React.FC<{
 }> = ({ semFace, semVoz, presencialSemCamera }) => {
   if (presencialSemCamera) {
     return (
-      <div className="absolute bottom-3 left-3 right-3 z-20 rounded-lg border border-slate-500/50 bg-slate-950/80 px-3 py-2 text-[10px] font-semibold leading-4 text-slate-300 backdrop-blur-sm">
+      <div className="absolute bottom-3 left-[1.6cm] right-3 z-20 rounded-lg border border-slate-500/50 bg-slate-950/80 px-3 py-2 text-[10px] font-semibold leading-4 text-slate-300 backdrop-blur-sm">
         Modo presencial: <strong>sem leitura facial</strong>. As AUs saem da
         câmera do celular do paciente, e neste modo ele não abre a própria tela.
         Para ter leitura facial, use “Presencial · Celular”.
@@ -843,7 +849,7 @@ const AvisoDeApuracao: React.FC<{
   }
   if (!semFace && !semVoz) return null;
   return (
-    <div className="absolute bottom-3 left-3 right-3 z-20 rounded-lg border border-red-400/60 bg-red-950/85 px-3 py-2 text-[10px] font-semibold leading-4 text-red-100 backdrop-blur-sm">
+    <div className="absolute bottom-3 left-[1.6cm] right-3 z-20 rounded-lg border border-red-400/60 bg-red-950/85 px-3 py-2 text-[10px] font-semibold leading-4 text-red-100 backdrop-blur-sm">
       {semFace && (
         <p className="m-0">
           <strong>Leitura facial não está entrando.</strong> Confira o
@@ -1822,7 +1828,12 @@ function buildClinicalPresentationSnapshot(
       endSecond,
       transcriptSegments,
     ),
-    ipmHistory: microAggs.map(({ agg }) => rounded(agg.ipm, 2) || 0),
+    // Janela sem apuração SAI da série, em vez de entrar como zero. `|| 0`
+    // desenhava uma queda a zero que ninguém observou, no meio de pontos
+    // medidos e sem nada distinguindo os dois.
+    ipmHistory: microAggs
+      .map(({ agg }) => rounded(agg.ipm, 2))
+      .filter((valor): valor is number => valor !== null),
   };
 }
 
@@ -2305,11 +2316,12 @@ function aggregatedClinicalRisk(cut: MetricSnapshot): number | null {
   if (!medidas.some((valor) => typeof valor === "number" && Number.isFinite(valor))) {
     return null;
   }
-  const idm = Math.min(40, Math.abs(cut.idmAvg || 0) * 20);
-  const dissonance = Math.min(35, (cut.dissonanceCount || 0) * 12);
+  const idm = Math.min(40, Math.abs(pesoDeAusencia(cut.idmAvg)) * 20);
+  const dissonance = Math.min(35, pesoDeAusencia(cut.dissonanceCount) * 12);
   const vocal = Math.min(
     25,
-    Math.max(0, cut.subharmonic5_12 || 0) * 15 + Math.max(0, cut.jitter || 0) * 12,
+    Math.max(0, pesoDeAusencia(cut.subharmonic5_12)) * 15
+      + Math.max(0, pesoDeAusencia(cut.jitter)) * 12,
   );
   return Math.round((idm + dissonance + vocal) * 10) / 10;
 }
@@ -4097,7 +4109,17 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     }
     transcriptLinesRef.current = nextLines.slice(-MAX_VISIBLE_TRANSCRIPT_LINES);
 
-    const words = countSpokenUnits(text, spokenLanguage);
+    // SEGUNDO contador de palavras, e o que alimenta o P/MIN AO VIVO.
+    //
+    // O primeiro — `buildMetricSnapshot`, que produz os cortes e o relatório —
+    // foi corrigido para contar só o paciente. Este aqui não era o mesmo
+    // código, e por isso sobreviveu: `appendTranscriptText` roda para os DOIS
+    // falantes, e somava a fala do profissional em `total_words_session` e em
+    // `words_per_minute_10m`, que é o número exibido na faixa de índices
+    // durante o atendimento.
+    //
+    // Corrigir o lugar que se vê não corrige a regra. Eram dois lugares.
+    const words = speaker === "DR" ? 0 : countSpokenUnits(text, spokenLanguage);
     const now = Date.now();
     const elapsedSeconds = Math.max(0, elapsedSecondsRef.current);
     transcriptSegmentsRef.current = [
@@ -5385,7 +5407,9 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     ["ZONAS", simplifiedSnapshot.dominantZone ? `Zona ${simplifiedSnapshot.dominantZone}` : "--"],
     ["TOM", simplifiedSnapshot.emotionalTone || "--"],
     ["P/MIN", formatMetricValue(simplifiedSnapshot.wordsPerMinute, 1)],
-    ["DISSO.", String(simplifiedSnapshot.dissonanceCount || 0)],
+    // `|| 0` imprimia "0" — "nenhuma dissonancia" — sobre janela sem
+    // apuracao. Sao coisas diferentes: uma e achado, a outra e ausencia.
+    ["DISSO.", formatMetricValue(simplifiedSnapshot.dissonanceCount, 0)],
     ["MFCC7", formatMetricValue(simplifiedSnapshot.mfcc7, 3)],
     ["MFCC9", formatMetricValue(simplifiedSnapshot.mfcc9, 3)],
     ["DMFCC7", formatMetricValue(simplifiedSnapshot.mfcc7Delta, 4)],

@@ -931,7 +931,7 @@ function secaoIndicesPorCorte(report: SessionReportRecord): string {
       <td>${r.dominantZone === null || r.dominantZone === undefined ? "—" : `Zona ${escapeHtml(r.dominantZone)}`}</td>
       <td>${escapeHtml(r.emotionalTone || "—")}</td>
       <td class="n">${num(r.wordsPerMinute, 1)}</td>
-      <td class="n">${Number(r.dissonanceCount || 0)}</td></tr>`;
+      <td class="n">${num(r.dissonanceCount, 0)}</td></tr>`;
   }).join("");
 
   return `<section><div class="cab"><span class="num">03</span><h2>Índices por corte</h2></div>

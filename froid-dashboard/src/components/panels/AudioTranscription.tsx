@@ -62,13 +62,31 @@ const classifyStability = (
 
 const StabilityBar: React.FC<{
   label: string;
-  value: number;
+  /** Nulo quando o biomarcador NAO foi medido. Zero e uma medida; ausencia
+   *  nao e. Com `?? 0` a barra saia vazia e o rotulo dizia "0.000", que num
+   *  painel clinico le como estabilidade perfeita. */
+  value: number | null;
   max: number;
   relativeMax: number;
   stable: number;
   warning: number;
   tooltip: string;
 }> = ({ label, value, max, relativeMax, stable, warning, tooltip }) => {
+  if (value === null) {
+    return (
+      <FroidTooltip content={<p>{tooltip}</p>} width={270} fullWidth>
+        <div className="w-full cursor-help rounded-lg border border-slate-800 bg-slate-950 p-2.5">
+          <div className="grid min-w-0 grid-cols-[12px_minmax(0,1fr)_auto] items-center gap-2">
+            <span className="h-5 w-3 rounded-sm bg-slate-700" />
+            <p className="truncate text-[10px] font-black text-slate-400">{label}</p>
+            <span className="text-right text-[9px] font-bold uppercase italic text-slate-500">
+              nao medido
+            </span>
+          </div>
+        </div>
+      </FroidTooltip>
+    );
+  }
   const percentage = Math.round(clamp(value / Math.max(max, 0.0001)) * 100);
   const relativePercentage = Math.max(
     3,
@@ -129,10 +147,17 @@ export const AudioTranscription: React.FC<Props> = ({
       ? (window as FroidAudioMetaWindow).__froidAudioMeta
       : undefined) ||
     {};
-  const mfcc7 = Number(audioMeta.mfcc7 ?? 0);
-  const mfcc9 = Number(audioMeta.mfcc9 ?? 0);
-  const jitter = Number(audioMeta.jitter ?? 0);
-  const shimmer = Number(audioMeta.shimmer ?? 0);
+  // `?? 0` publicava "0,0000" para biomarcador nao medido, no painel do
+  // profissional, ao lado dos que foram medidos e sem nada distinguindo os
+  // dois. Ausencia sobe como nula e a tela imprime tracos.
+  const numeroOuNulo = (valor: unknown): number | null =>
+    valor === null || valor === undefined || !Number.isFinite(Number(valor))
+      ? null
+      : Number(valor);
+  const mfcc7 = numeroOuNulo(audioMeta.mfcc7);
+  const mfcc9 = numeroOuNulo(audioMeta.mfcc9);
+  const jitter = numeroOuNulo(audioMeta.jitter);
+  const shimmer = numeroOuNulo(audioMeta.shimmer);
   const provider = String(audioMeta.provider || "");
   const transcriptionStatus = String(audioMeta.transcription_status || "");
   const bioacousticStatus = String(audioMeta.bioacoustic_status || "");
@@ -190,12 +215,12 @@ export const AudioTranscription: React.FC<Props> = ({
         : transcriptionStatus === "error"
           ? "bg-red-50 text-red-700"
           : "bg-slate-100 text-slate-500";
-  const mfccMagnitudeMax = Math.max(Math.abs(mfcc7), Math.abs(mfcc9), 0.01);
+  const mfccMagnitudeMax = Math.max(Math.abs(mfcc7 ?? 0), Math.abs(mfcc9 ?? 0), 0.01);
   const mfccItems = [
     { key: "mfcc7", label: "MFCC7", value: mfcc7, color: "#3b82f6" },
     { key: "mfcc9", label: "MFCC9", value: mfcc9, color: "#8b5cf6" },
   ];
-  const perturbationMax = Math.max(jitter, shimmer, 0.01);
+  const perturbationMax = Math.max(jitter ?? 0, shimmer ?? 0, 0.01);
   // Do PRIMEIRO corte para o último. A lista vinha invertida, e ler a sessão
   // de trás para frente obriga o profissional a reconstruir a ordem de cabeça
   // justamente quando ele está acompanhando a conversa em tempo real.
@@ -343,14 +368,16 @@ export const AudioTranscription: React.FC<Props> = ({
                       {item.label}
                     </span>
                     <span className="text-right font-mono text-[10px] font-black text-slate-100">
-                      {item.value.toFixed(2)}
+                      {item.value === null ? "--" : item.value.toFixed(2)}
                     </span>
                   </div>
                   <div className="ml-5 h-2.5 w-[calc(100%-1.25rem)] overflow-hidden rounded-full bg-slate-800">
                     <div
                       className="h-full rounded-full transition-all duration-700"
                       style={{
-                        width: `${Math.max(3, (Math.abs(item.value) / mfccMagnitudeMax) * 100)}%`,
+                        width: item.value === null
+                          ? "0%"
+                          : `${Math.max(3, (Math.abs(item.value) / mfccMagnitudeMax) * 100)}%`,
                         backgroundColor: item.color,
                       }}
                     />

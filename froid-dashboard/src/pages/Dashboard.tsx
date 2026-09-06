@@ -165,7 +165,17 @@ function patientAverageSnapshot(reports: SessionReportRecord[]): MetricSnapshot 
     idmAvg: averageNumeric(snapshots.map((snapshot) => snapshot.idmAvg), latest.idmAvg),
     dominantZone,
     wordsPerMinute: averageNumeric(snapshots.map((snapshot) => snapshot.wordsPerMinute), latest.wordsPerMinute),
-    dissonanceCount: Math.round(averageNumeric(snapshots.map((snapshot) => snapshot.dissonanceCount), latest.dissonanceCount || 0)),
+    // Sem nenhuma sessao com dissonancia apurada, a media e AUSENCIA, e nao
+    // zero: `|| 0` no valor de queda afirmava "nenhuma dissonancia" sobre
+    // um paciente cujo audio nunca chegou a analise.
+    dissonanceCount: (() => {
+      const medidas = snapshots
+        .map((snapshot) => snapshot.dissonanceCount)
+        .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
+      return medidas.length
+        ? Math.round(medidas.reduce((s, v) => s + v, 0) / medidas.length)
+        : null;
+    })(),
     mfcc7: averageNumeric(snapshots.map((snapshot) => snapshot.mfcc7), latest.mfcc7),
     mfcc9: averageNumeric(snapshots.map((snapshot) => snapshot.mfcc9), latest.mfcc9),
     mfcc7Delta: averageNumeric(snapshots.map((snapshot) => snapshot.mfcc7Delta), latest.mfcc7Delta),

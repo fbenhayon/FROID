@@ -5,6 +5,7 @@ import {
   PatientIdentity,
   SessionReportRecord,
 } from "./session-report";
+import { pesoDeAusencia } from "./medidas-do-corte";
 
 export interface PatientDashboardGroup {
   key: string;
@@ -385,7 +386,7 @@ export function patientAdvancedSignal(group: PatientDashboardGroup): PatientAdva
   // única das duas que era medida.
   const maxDissonanceLoad = Math.max(0, ...recent.map(dissonanceLoad));
   const dissonance = average(
-    recent.map((report) => report.sessionAverage.dissonanceCount || 0),
+    recent.map((report) => pesoDeAusencia(report.sessionAverage.dissonanceCount)),
     0,
   );
   const negativeDirection = clamp(-idmPeso, 0, 1) * 100;
@@ -523,7 +524,7 @@ function mostFrequent<T extends string | number>(values: T[]): T | null {
 // O que sobra é o que sempre foi medido de fato: quantos eventos de
 // dissonância facial-vocal foram confirmados. É contagem, não julgamento.
 function dissonanceLoad(report: SessionReportRecord) {
-  return Math.min(100, (report.sessionAverage.dissonanceCount || 0) * 18);
+  return Math.min(100, pesoDeAusencia(report.sessionAverage.dissonanceCount) * 18);
 }
 
 function totalAnalysisWindows(report: SessionReportRecord) {
@@ -586,7 +587,10 @@ export function buildPatientGroups(reports: SessionReportRecord[]): PatientDashb
             .filter(Boolean),
         ) || "--";
       const dissonanceCount = sorted.reduce(
-        (sum, report) => sum + (report.dissonances?.length || report.sessionAverage.dissonanceCount || 0),
+        (sum, report) =>
+          sum
+          + (report.dissonances?.length
+            || pesoDeAusencia(report.sessionAverage.dissonanceCount)),
         0,
       );
       const totalAnalyses = sorted.reduce(
