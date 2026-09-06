@@ -288,15 +288,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
     return token ? { Authorization: `Bearer ${token}` } : {};
   };
 
-  const selectOrganization = async (organizationId: string) => {
-    const response = await fetch(apiUrl("/api/auth/active-organization"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...authHeaders() },
-      body: JSON.stringify({ organization_id: organizationId }),
-    });
-    if (response.ok) window.location.reload();
-  };
-
   const loadReceivables = async () => {
     try {
       const response = await fetch(apiUrl("/api/professional/receivables"), {
@@ -587,21 +578,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
               className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:border-cyan-600 focus:outline-none"
             />
           </div>
+          {/* Aqui havia um seletor de organização ativa.
+              Retirado em 06/09/2026: escolher a empresa NR-1 nele não abria
+              nada do NR-1 — esta tela é o painel clínico e continua sendo —
+              e a troca estreitava as permissões da sessão (organization_type
+              'enterprise' retira as permissões clínicas identificadas). O
+              único efeito visível era os pacientes sumirem, sem explicação, e
+              o mesmo seletor era a única forma de desfazer.
+
+              A troca de contexto vive onde tem destino: em /admin, na lista
+              "Clientes NR-1", que troca a organização E abre /nr1; e no botão
+              "Dashboard" do painel NR-1, que faz o caminho de volta. */}
           <div className="flex flex-wrap items-center justify-end gap-2">
-            {Array.isArray(user?.organizations) && user.organizations.length > 1 && (
-              <select
-                value={user.active_organization_id || ""}
-                onChange={(event) => void selectOrganization(event.target.value)}
-                className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-100"
-                aria-label="Organização ativa"
-              >
-                {user.organizations.map((organization: any) => (
-                  <option key={organization.organization_id} value={organization.organization_id}>
-                    {organization.organization_name || organization.organization_id}
-                  </option>
-                ))}
-              </select>
-            )}
             {professionalProfile && (
               <span className="rounded-lg border border-emerald-800 bg-emerald-950 px-3 py-2 text-xs font-bold text-emerald-100">
                 Saldo: {professionalProfile.remaining_sessions ?? "--"} sessões

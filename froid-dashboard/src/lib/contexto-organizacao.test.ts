@@ -110,8 +110,29 @@ describe("como a organização aparece na tela", () => {
 });
 
 /**
- * As portas precisam existir de fato na tela. Sem isto, apagar a seção
- * deixaria a conta sem nenhum caminho para o painel NR-1 e nada acusaria.
+ * A regra, e não a ocorrência: o painel clínico não pode voltar a ganhar um
+ * seletor de organização. Varre o arquivo inteiro, para que a próxima cópia
+ * caia aqui sem ninguém precisar lembrar.
+ */
+describe("o painel clínico não troca de organização", () => {
+  const DASHBOARD = readFileSync(
+    join(__dirname, "..", "pages", "Dashboard.tsx"),
+    "utf-8",
+  );
+
+  it("não tem seletor de organização ativa", () => {
+    expect(DASHBOARD).not.toMatch(/aria-label=["']Organiza[çc][ãa]o ativa["']/i);
+  });
+
+  it("não chama a troca de organização ativa", () => {
+    expect(DASHBOARD).not.toContain("/api/auth/active-organization");
+  });
+});
+
+/**
+ * E o caminho de ida precisa continuar existindo em /admin: foi ele que
+ * substituiu o seletor removido. Sem esta asserção, apagar a seção deixaria a
+ * conta sem nenhuma porta para o painel NR-1 e o teste acima ainda passaria.
  */
 describe("a porta de entrada do NR-1 vive em /admin", () => {
   const ADMIN = readFileSync(
