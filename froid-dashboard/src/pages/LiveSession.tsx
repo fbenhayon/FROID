@@ -18,6 +18,10 @@ import {
   palavrasPorMinutoDoPaciente,
   pesoDeAusencia,
 } from "../lib/medidas-do-corte";
+import {
+  STATUS_CAPTURA_TEXTO,
+  type StatusCaptura,
+} from "../lib/froid-acoustic";
 import MapaZonalFroid from "../components/charts/MapaZonalFroid";
 import { IPMLineChart } from "../components/indicators/IPMLineChart";
 import { RiskChart } from "../components/indicators/RiskChart";
@@ -837,7 +841,10 @@ const AvisoDeApuracao: React.FC<{
   semFace: boolean;
   semVoz: boolean;
   presencialSemCamera: boolean;
-}> = ({ semFace, semVoz, presencialSemCamera }) => {
+  /** O motivo que o dispositivo do paciente relatou. Vazio quando ele nao
+   *  relatou nada — e ai o aviso diz o que conferir, sem inventar a causa. */
+  causaNoPaciente: string;
+}> = ({ semFace, semVoz, presencialSemCamera, causaNoPaciente }) => {
   if (presencialSemCamera) {
     return (
       <div className="absolute bottom-3 left-[1.6cm] right-3 z-20 rounded-lg border border-slate-500/50 bg-slate-950/80 px-3 py-2 text-[10px] font-semibold leading-4 text-slate-300 backdrop-blur-sm">
@@ -862,7 +869,13 @@ const AvisoDeApuracao: React.FC<{
         <p className={semFace ? "m-0 mt-1" : "m-0"}>
           <strong>Voz do paciente não está chegando à análise.</strong> Sem ela
           não há apuração de F0, MFCC, sub-harmônicos nem dos índices derivados.
-          Confira a permissão de microfone na tela do paciente.
+          {causaNoPaciente ? (
+            <>
+              {" "}No aparelho dele: <em>{causaNoPaciente}</em>.
+            </>
+          ) : (
+            " Confira a permissão de microfone na tela do paciente."
+          )}
         </p>
       )}
       <p className="m-0 mt-1 font-normal text-red-200/90">
@@ -2547,6 +2560,8 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const [state, dispatch] = useReducer(reducer, undefined, createInitialState);
   // Tiques seguidos sem cada leitura. A procedência já viajava em `audio_meta`
   // a cada segundo; o que faltava era alguém contá-la e mostrá-la.
+  // O motivo que o dispositivo do paciente relata pela sinalizacao.
+  const [causaAcusticaNoPaciente, setCausaAcusticaNoPaciente] = useState("");
   const [tiquesSemFace, setTiquesSemFace] = useState(0);
   const [tiquesSemVoz, setTiquesSemVoz] = useState(0);
   const [dissonanceLog, setDissonanceLog] = useState<
@@ -3733,7 +3748,24 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           await makeOffer(true);
         } else if (data.type === "acustica") {
           const status = String(data.status || "");
-          registrarRtc(`analise acustica no paciente: ${status}`);
+          const detalhe = String(data.detalhe || "");
+          registrarRtc(
+            `analise acustica no paciente: ${status}`
+            + (detalhe ? ` (${detalhe})` : ""),
+          );
+          // O MOTIVO, na tela, e nao so no log de diagnostico.
+          //
+          // O paciente ja relatava a causa exata — CSP recusando o worklet,
+          // contexto de audio suspenso, navegador sem suporte — e ela morria
+          // aqui, num log que ninguem abre durante um atendimento. Numa
+          // consulta de 06/09/2026 a analise ficou desligada a sessao inteira
+          // por bloqueio de CSP, e o painel so sabia dizer "nao esta chegando".
+          setCausaAcusticaNoPaciente(
+            status === "enviando"
+              ? ""
+              : `${STATUS_CAPTURA_TEXTO[status as StatusCaptura] || status}`
+                + (detalhe ? ` — ${detalhe}` : ""),
+          );
         } else if (data.type === "diagnostico" && data.texto) {
           // O relatorio do outro lado, que ate agora nunca atravessou.
           incorporarRelatorioRemoto(String(data.texto));
@@ -6036,6 +6068,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
               semFace={semFaceApurada}
               semVoz={semVozApurada}
               presencialSemCamera={presencialSemCamera}
+              causaNoPaciente={causaAcusticaNoPaciente}
             />
             {(state.camError || !state.micOn) && (
               <div className="absolute bottom-3 left-[1.6cm] right-3 z-20 rounded-lg border border-amber-300/50 bg-slate-950/75 px-3 py-2 text-[10px] font-semibold text-amber-100 backdrop-blur-sm">
@@ -6248,6 +6281,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
               semFace={semFaceApurada}
               semVoz={semVozApurada}
               presencialSemCamera={presencialSemCamera}
+              causaNoPaciente={causaAcusticaNoPaciente}
             />
             {(state.camError || !state.micOn) && (
               <div className="absolute bottom-3 left-[1.6cm] right-3 z-20 rounded-lg border border-amber-300/50 bg-slate-950/75 px-3 py-2 text-[10px] font-semibold text-amber-100 backdrop-blur-sm">
@@ -6552,6 +6586,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             semFace={semFaceApurada}
             semVoz={semVozApurada}
             presencialSemCamera={presencialSemCamera}
+            causaNoPaciente={causaAcusticaNoPaciente}
           />
           {(state.camError || !state.micOn) && (
             <div className="absolute bottom-3 left-[1.6cm] right-3 z-20 rounded-lg border border-amber-300/50 bg-slate-950/75 px-3 py-2 text-[10px] font-semibold text-amber-100 backdrop-blur-sm">

@@ -268,3 +268,51 @@ describe("o painel avisa quando a leitura não está entrando", () => {
     expect(LIVE).toMatch(/TIQUES_ATE_AVISAR\s*=\s*\d+/);
   });
 });
+
+/**
+ * Falha de captura nao pode ser silenciosa NA TELA DE QUEM PODE RESOLVE-LA.
+ *
+ * Apurado ao longo de uma consulta inteira, 06/09/2026. Tres defeitos da mesma
+ * familia — a mesma da CSP que desligou a analise acustica sem aviso:
+ *
+ *  1. `startF0Capture` reportava cada falha por `onStatus`, e o relato morria
+ *     no log de diagnostico do WebRTC. O PACIENTE, unico que pode tocar a tela
+ *     ou refazer a permissao, nao era informado de nada.
+ *  2. `attachTracks` faz `element.play().catch(() => undefined)`. Bloqueio de
+ *     reproducao automatica — que o navegador aplica a audio sem interacao, por
+ *     padrao — era engolido. O profissional tem "Ouvir paciente" para esse
+ *     caso; o paciente nao tinha equivalente e ficava sem ouvir sem saber por que.
+ *  3. O painel do profissional sabia dizer "nao esta chegando", e nao o motivo,
+ *     que o outro lado ja relatava pela sinalizacao.
+ */
+describe("a falha de captura chega a quem pode agir", () => {
+  const raiz2 = join(__dirname, "..");
+  const PAC = semComentarios(
+    readFileSync(join(raiz2, "pages", "PatientSessionPage.tsx"), "utf-8"),
+  );
+  const PAINEL = semComentarios(
+    readFileSync(join(raiz2, "pages", "LiveSession.tsx"), "utf-8"),
+  );
+
+  it("o status da captura acustica chega ao estado da tela do paciente", () => {
+    expect(PAC).toContain("setStatusAcustico");
+    expect(PAC).toContain("STATUS_CAPTURA_TEXTO");
+  });
+
+  it("o paciente tem como destravar o audio, e nao so o profissional", () => {
+    expect(PAC).toContain("destravarAudio");
+    expect(PAC).toContain("Toque para ouvir o profissional");
+  });
+
+  // `play()` rejeitado com trilha presente e bloqueio, nao ausencia de midia.
+  it("o bloqueio de reproducao e detectado, e nao engolido", () => {
+    expect(PAC).toContain("conferirReproducao");
+    expect(PAC).toContain("audio.paused");
+  });
+
+  it("o motivo atravessa a sinalizacao ate o painel", () => {
+    expect(PAC).toContain("detalhe: detalhe");
+    expect(PAINEL).toContain("setCausaAcusticaNoPaciente");
+    expect(PAINEL).toContain("causaNoPaciente");
+  });
+});

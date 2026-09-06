@@ -28,7 +28,11 @@ import {
   type ScreenWakeLock,
 } from "../lib/webrtc";
 import { normalizeSessionLocale, patientCopy, type SessionLocale } from "../lib/localization";
-import { STATUS_CAPTURA_TEXTO, startF0Capture } from "../lib/froid-acoustic";
+import {
+  STATUS_CAPTURA_TEXTO,
+  startF0Capture,
+  type StatusCaptura,
+} from "../lib/froid-acoustic";
 import { startFaceCapture } from "../lib/froid-face";
 
 type JoinState = "checking" | "joined" | "blocked";
@@ -87,6 +91,26 @@ export const PatientSessionPage: React.FC = () => {
   // mídia do profissional como falha e força relay TURN + restartIce em
   // loop — dando a impressão de trilhas de áudio/vídeo embaralhadas.
   const [sessionMode, setSessionMode] = useState<"remote" | "presential_mobile">("remote");
+  // O QUE A CAPTURA E A REPRODUCAO TEM A DIZER, NA TELA DE QUEM PODE AGIR.
+  //
+  // Apurado em 06/09/2026, ao longo de uma consulta inteira. Dois defeitos da
+  // MESMA familia, e a mesma familia do bloqueio de CSP que tinha acabado de
+  // desligar a analise acustica sem aviso:
+  //
+  //   - `startF0Capture` ja reportava cada falha por `onStatus`, e o relato
+  //     terminava no log de diagnostico do WebRTC — que ninguem abre durante um
+  //     atendimento. O paciente, unico que pode tocar a tela ou refazer a
+  //     permissao, nao era informado de nada.
+  //   - `attachTracks` faz `element.play().catch(() => undefined)`. Quando o
+  //     navegador bloqueia a reproducao automatica — e bloqueia audio sem
+  //     interacao, por padrao —, a rejeicao era engolida. O profissional tem o
+  //     botao "Ouvir paciente" para esse caso; o paciente nao tinha
+  //     equivalente, e ficava sem ouvir sem que nada dissesse por que.
+  //
+  // Os dois se resolvem com um toque na tela. O que faltava era pedir o toque.
+  const [statusAcustico, setStatusAcustico] = useState<StatusCaptura | "">("");
+  const [detalheAcustico, setDetalheAcustico] = useState("");
+  const [audioBloqueado, setAudioBloqueado] = useState(false);
   const [uiLocale, setUiLocale] = useState<SessionLocale>(() =>
     normalizeSessionLocale(typeof navigator === "undefined" ? "" : navigator.language),
   );
@@ -308,6 +332,19 @@ export const PatientSessionPage: React.FC = () => {
       }
     };
 
+    // O NAVEGADOR PODE RECUSAR A REPRODUCAO, E ISSO PRECISA APARECER.
+    //
+    // `attachRemoteMedia` chama `play()` e engole a rejeicao. Aqui perguntamos
+    // ao elemento se ele de fato esta tocando: `paused` verdadeiro com trilha
+    // presente e bloqueio de autoplay, nao ausencia de midia. Sem esta
+    // pergunta o paciente ficava sem ouvir o profissional e nada dizia por que
+    // — nem para ele, nem para o outro lado.
+    const conferirReproducao = () => {
+      const audio = remoteAudioRef.current;
+      const temTrilha = Boolean(audio?.srcObject);
+      setAudioBloqueado(Boolean(audio && temTrilha && audio.paused));
+    };
+
     const refreshRemoteTracks = () => {
       const media = attachRemoteMedia(
         remoteStream,
@@ -318,6 +355,9 @@ export const PatientSessionPage: React.FC = () => {
       // "ativo" é o monitor de fluxo real (getStats), nunca a negociação.
       if (!media.audio) setRemoteProfessionalOn(false);
       if (!media.video) setRemoteProfessionalVideoOn(false);
+      // Depois de anexar: o `play()` de `attachRemoteMedia` ja rodou, e o
+      // estado do elemento agora diz se ele foi aceito.
+      window.setTimeout(conferirReproducao, 250);
       setCallStatus(
         media.audio || media.video
           ? "Trilhas do profissional negociadas; validando fluxo real..."
@@ -829,6 +869,10 @@ export const PatientSessionPage: React.FC = () => {
           endpoint: apiUrl(`/api/froid/${sessionId}/acoustic-f0`),
           invite: inviteToken,
           onStatus: (status, detalhe) => {
+            // A tela do paciente primeiro: e ele quem pode tocar a tela,
+            // refazer a permissao ou trocar de navegador.
+            setStatusAcustico(status);
+            setDetalheAcustico(detalhe || "");
             // A procedencia do SINAL viaja junto com o estado da captura: sem
             // ela, "enviando" diria que esta tudo bem quando o que sobe pode
             // ser audio tratado para conversa, nao para medida.
@@ -845,7 +889,12 @@ export const PatientSessionPage: React.FC = () => {
             // lado da sinalizacao. O paciente nao tem como reportar sozinho.
             const canal = rtcSignalRef.current;
             if (canal?.readyState === WebSocket.OPEN) {
-              canal.send(JSON.stringify({ type: "acustica", status }));
+              // `detalhe` junto: sem ele o painel dizia "nao esta chegando" e
+              // o motivo — CSP recusando o worklet, contexto suspenso,
+              // navegador sem suporte — ficava so aqui.
+              canal.send(
+                JSON.stringify({ type: "acustica", status, detalhe: detalhe || "" }),
+              );
             }
           },
         })
@@ -880,6 +929,28 @@ export const PatientSessionPage: React.FC = () => {
       setMediaState("failed");
       setError("Não foi possível ativar câmera e microfone neste navegador.");
     }
+  };
+
+  /** Um toque resolve os DOIS bloqueios, e por isso eles moram no mesmo botao.
+   *
+   *  O navegador exige interacao do usuario para duas coisas independentes:
+   *  reproduzir audio que ele nao pediu, e retomar um AudioContext suspenso. O
+   *  primeiro faz o paciente ouvir o profissional; o segundo faz a captura
+   *  acustica voltar a enviar. Sao causas diferentes com a mesma cura, e pedir
+   *  dois toques ao paciente seria pedir um a mais. */
+  const destravarAudio = async () => {
+    const audio = remoteAudioRef.current;
+    if (audio) {
+      try {
+        await audio.play();
+        setAudioBloqueado(false);
+      } catch {
+        // Continua bloqueado: mantem o aviso em vez de fingir que resolveu.
+        setAudioBloqueado(true);
+      }
+    }
+    const video = remoteVideoRef.current;
+    if (video) await video.play().catch(() => undefined);
   };
 
   const statusText =
@@ -972,6 +1043,47 @@ export const PatientSessionPage: React.FC = () => {
             >
               {callStatus}
             </div>
+
+            {/* O QUE ESTA FALTANDO, PARA QUEM PODE RESOLVER.
+                A analise acustica e a reproducao do audio falhavam em
+                silencio: a primeira reportava so no log de diagnostico do
+                WebRTC, a segunda tinha a rejeicao do `play()` engolida. Nenhuma
+                das duas chegava a esta tela — que e a unica em que o toque que
+                as resolve pode acontecer. */}
+            {audioBloqueado && (
+              <button
+                type="button"
+                onClick={() => void destravarAudio()}
+                className="absolute bottom-3 left-3 right-3 z-30 rounded-lg border border-blue-300/70 bg-blue-700 px-3 py-2 text-xs font-black text-white shadow hover:bg-blue-600"
+              >
+                Toque para ouvir o profissional
+              </button>
+            )}
+            {!audioBloqueado
+              && statusAcustico !== ""
+              && statusAcustico !== "enviando" && (
+              <div
+                onClick={
+                  statusAcustico === "aguardando-gesto"
+                    ? () => void destravarAudio()
+                    : undefined
+                }
+                className={`absolute bottom-3 left-3 right-3 z-20 rounded-lg border px-3 py-2 text-[11px] font-semibold leading-4 backdrop-blur-sm ${
+                  statusAcustico === "aguardando-gesto"
+                    ? "cursor-pointer border-blue-300/70 bg-blue-900/85 text-blue-50"
+                    : "border-amber-300/60 bg-slate-950/85 text-amber-100"
+                }`}
+              >
+                {statusAcustico === "aguardando-gesto"
+                  ? "Toque na tela para iniciar a análise da sua voz."
+                  : `Análise da voz indisponível: ${STATUS_CAPTURA_TEXTO[statusAcustico]}`}
+                {detalheAcustico && statusAcustico !== "aguardando-gesto" ? (
+                  <span className="mt-1 block font-normal opacity-80">
+                    {detalheAcustico}
+                  </span>
+                ) : null}
+              </div>
+            )}
           </div>
 
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
