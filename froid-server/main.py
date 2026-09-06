@@ -4455,8 +4455,86 @@ def _attach_metrics_analysis(report: dict) -> dict:
 
 
 class ConnectionManager:
+    """O socket do profissional vai e volta. A MEDIDA da sessão, não.
+
+    Apurado em 06/09/2026, depois de uma sessão remota de 18 minutos em que o
+    profissional via e ouvia o paciente e NENHUM índice do servidor funcionava.
+
+    O defeito estava aqui: `connect` construía um `SessionState` NOVO a cada
+    conexão, e `disconnect` apagava a entrada inteira. O estado, porém, é onde
+    se acumula tudo o que o dispositivo do PACIENTE alimenta por endpoints
+    próprios — a F0 medida do PCM, os biomarcadores vocais, as AUs faciais, o
+    buffer rolante de áudio — e, sobretudo, a BASELINE, que exige 60 segundos
+    contínuos para travar.
+
+    O painel do profissional reconecta com facilidade: há um watchdog de 8
+    segundos que fecha o socket quando o tique não chega, mais qualquer
+    oscilação de rede ou aba em segundo plano. Cada reconexão zerava tudo. Se
+    ela acontecesse mais de uma vez por minuto — e acontecia —, a baseline
+    NUNCA travava, e a sessão inteira corria publicando "sem apuração" com o
+    paciente falando normalmente do outro lado.
+
+    A pista que fechou o diagnóstico: o gráfico de IPM do painel mostrava 93 a
+    100 enquanto o resto exibia 0%. Aquele número vem de
+    `computeLocalIpmFromBioacoustics`, calculado NO NAVEGADOR do profissional a
+    partir do áudio WebRTC do paciente — áudio real, presente o tempo todo. O
+    contraste entre os dois provava que o sinal chegava e que só o estado do
+    servidor estava vazio.
+
+    Agora o estado é indexado pela SESSÃO e sobrevive à troca de socket. O
+    portão continua onde estava: o estado só nasce quando o profissional abre a
+    sessão, então o dispositivo do paciente não cria estado sozinho.
+    """
+
+    # Sessão de atendimento tem teto de 55 minutos na interface. Seis horas dá
+    # folga para pausa, reabertura e relatório sem vazar memória para sempre.
+    TTL_DO_ESTADO_S = 6 * 3600
+
     def __init__(self):
         self.active_sessions: Dict[str, Dict] = {}
+        # session_id -> {"state": SessionState, "tocado_em": float}
+        self.session_states: Dict[str, Dict] = {}
+
+    def _descartar_estados_vencidos(self) -> None:
+        limite = time.time() - self.TTL_DO_ESTADO_S
+        vencidos = [
+            sid
+            for sid, registro in self.session_states.items()
+            if registro.get("tocado_em", 0) < limite and sid not in self.active_sessions
+        ]
+        for sid in vencidos:
+            self.session_states.pop(sid, None)
+
+    def _estado_da_sessao(self, session_id: str) -> SessionState:
+        registro = self.session_states.get(session_id)
+        if registro:
+            registro["tocado_em"] = time.time()
+            return registro["state"]
+        self._descartar_estados_vencidos()
+        state = SessionState(session_id=session_id)
+        self.session_states[session_id] = {"state": state, "tocado_em": time.time()}
+        return state
+
+    def state_for(self, session_id: str) -> Optional[SessionState]:
+        """O estado da sessão, exista socket aberto ou não.
+
+        É o que os endpoints acústico e facial precisam: durante a janela de
+        reconexão do painel — segundos, e várias vezes por sessão — o PCM que o
+        paciente continuava enviando era descartado, porque a busca era por
+        `active_sessions`. Aqui ele passa a ser absorvido.
+
+        Devolve `None` quando o profissional nunca abriu a sessão, que é a
+        recusa que já existia e continua valendo.
+        """
+        registro = self.session_states.get(session_id)
+        if not registro:
+            return None
+        registro["tocado_em"] = time.time()
+        return registro["state"]
+
+    def encerrar_sessao(self, session_id: str) -> None:
+        """Libera o estado quando a sessão termina de verdade (relatório salvo)."""
+        self.session_states.pop(session_id, None)
 
     async def connect(self, websocket: WebSocket, session_id: str) -> str:
         await websocket.accept()
@@ -4464,7 +4542,10 @@ class ConnectionManager:
         self.active_sessions[session_id] = {
             "connection_id": connection_id,
             "ws": websocket,
-            "state": SessionState(session_id=session_id),
+            # REAPROVEITA. Construir um `SessionState` novo aqui era o defeito:
+            # jogava fora a baseline e todos os marcadores que o dispositivo do
+            # paciente já tinha alimentado.
+            "state": self._estado_da_sessao(session_id),
         }
         return connection_id
 
@@ -4475,6 +4556,8 @@ class ConnectionManager:
     def disconnect(self, session_id: str, connection_id: str | None = None):
         entry = self.active_sessions.get(session_id)
         if entry and (connection_id is None or entry.get("connection_id") == connection_id):
+            # Sai o SOCKET. O estado da sessão fica, e é reencontrado na
+            # reconexão — que é justamente o que não acontecia.
             del self.active_sessions[session_id]
 
     async def broadcast_payload(self, session_id: str, payload: dict):
@@ -6478,10 +6561,16 @@ async def submit_acoustic_f0(session_id: str, request: Request):
         "Taxa de envio acústico excedida.",
     )
 
-    entry = manager.active_sessions.get(session_id)
-    if not entry:
-        # A sessão de análise do profissional ainda não está ativa; o cliente
-        # continua enviando e a F0 passa a valer quando ela abrir.
+    # Pelo ESTADO DA SESSÃO, e não pelo socket aberto.
+    #
+    # Buscar em `active_sessions` descartava todo o PCM que chegasse durante
+    # uma reconexão do painel — segundos, e várias vezes por sessão, porque o
+    # watchdog do navegador fecha o socket a cada 8 s sem tique. O paciente
+    # falava, o áudio subia, e o servidor jogava fora.
+    state = manager.state_for(session_id)
+    if state is None:
+        # A sessão de análise do profissional ainda não foi aberta nenhuma vez;
+        # o cliente continua enviando e a F0 passa a valer quando ela abrir.
         return {"status": "session_inactive", "f0_mean": 0.0}
 
     try:
@@ -6501,7 +6590,6 @@ async def submit_acoustic_f0(session_id: str, request: Request):
     if len(pcm_bytes) > 500_000:
         raise HTTPException(status_code=413, detail="quadro de áudio grande demais")
 
-    state: SessionState = entry["state"]
     signal = froid_f0.pcm16_bytes_to_float(pcm_bytes)
     # Buffer rolante (~3s) dá resolução às bandas de modulação lentas; todos os
     # biomarcadores vocais reais são extraídos dele e injetados na sessão.
@@ -6554,8 +6642,10 @@ async def submit_facial_aus(session_id: str, request: Request):
         "Taxa de envio facial excedida.",
     )
 
-    entry = manager.active_sessions.get(session_id)
-    if not entry:
+    # Idem: as AUs faciais que chegassem durante a reconexão do painel eram
+    # descartadas, e a leitura facial da sessão saía incompleta sem motivo.
+    state = manager.state_for(session_id)
+    if state is None:
         return {"status": "session_inactive", "facs_source": "none"}
 
     blendshapes = body.get("blendshapes")
@@ -6571,7 +6661,6 @@ async def submit_facial_aus(session_id: str, request: Request):
         except (TypeError, ValueError):
             continue
 
-    state: SessionState = entry["state"]
     state.update_facial_features(sanitized)
     return {
         "facs_source": "real_facs" if state.latest_facial_aus else "none",
