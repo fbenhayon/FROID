@@ -320,6 +320,67 @@ export const NewPatient: React.FC = () => {
                 profissional use microfone de lapela próprio para reduzir vazamento da
                 voz do DR na trilha do paciente.
               </p>
+
+              {/* O enquadramento é pré-condição da medida, e não uma preferência
+                  estética.
+                  A leitura FACS sai dos blendshapes que o MediaPipe extrai do vídeo
+                  DESTE aparelho — o celular do paciente é a única câmera analisada.
+                  Sem rosto detectado não há blendshape, o servidor declara
+                  `facs_source: "sem_apuracao"` e a sessão inteira sai sem leitura
+                  facial e sem nenhuma dissonância facial-vocal possível. Falha
+                  honesta, e irrecuperável depois: não há como reprocessar o que não
+                  foi capturado.
+                  O procedimento estava só na cabeça de quem montou o modo. Agora
+                  está na tela em que o convite é gerado, que é onde ele é lido. */}
+              <p className="mt-3 font-black uppercase tracking-wide">
+                Antes de iniciar — enquadramento e áudio
+              </p>
+              <ul className="mt-1 list-disc space-y-1 pl-4">
+                <li>
+                  <strong>Apoie o celular</strong> em suporte, tripé ou base fixa, na
+                  altura aproximada dos olhos do paciente. Na mão, a oscilação
+                  interrompe a detecção do rosto.
+                </li>
+                <li>
+                  <strong>Rosto inteiro e de frente</strong>, dentro do quadro: testa,
+                  sobrancelhas, olhos e boca visíveis ao mesmo tempo. As unidades de
+                  ação FACS dependem dessas regiões; rosto cortado ou de perfil não
+                  produz leitura.
+                </li>
+                <li>
+                  <strong>Luz na frente, nunca atrás.</strong> Janela ou luminária
+                  às costas do paciente deixa o rosto em contraluz e a detecção falha.
+                </li>
+                <li>
+                  <strong>Sem máscara, boné com aba baixa ou óculos escuros</strong>,
+                  e cabelo fora dos olhos e das sobrancelhas.
+                </li>
+                <li>
+                  <strong>O celular fica perto do paciente</strong> — é dele que sai a
+                  voz analisada. O áudio deste aparelho não é reproduzido na sala, de
+                  propósito, para não gerar eco.
+                </li>
+                <li>
+                  <strong>Confirme na tela do paciente</strong> que a câmera e o
+                  microfone foram liberados antes de começar. Se o navegador do celular
+                  bloquear qualquer um dos dois, a sessão corre sem aquela medida.
+                </li>
+              </ul>
+              {/* Só o que é verificável.
+                  A primeira versão desta frase dizia que "o painel informa durante
+                  a sessão qual leitura está entrando". É verdade para a acústica —
+                  a página do paciente manda o estado da captura pelo canal de
+                  sinalização e o painel o exibe —, mas NÃO para a facial: a
+                  procedência da face só é contabilizada no fim, ao montar o
+                  relatório, e durante a sessão a seção "Leitura FACS/AUs" só
+                  aparece quando já há leitura. Ausência não se anuncia. Prometer
+                  um aviso que não existe é o mesmo defeito que este trabalho
+                  inteiro está corrigindo. */}
+              <p className="mt-2 text-[11px] text-violet-200/90">
+                Confira o enquadramento na tela do celular antes de iniciar. O que
+                não for captado não pode ser recuperado depois: a sessão termina com
+                a leitura facial declarada como não apurada, e não há reprocessamento.
+              </p>
             </div>
           )}
           <form autoComplete="off" onSubmit={createInvite} className="mt-4 grid gap-3 md:grid-cols-2">
