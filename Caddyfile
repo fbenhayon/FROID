@@ -26,7 +26,27 @@ froid.com.br, www.froid.com.br {
         # mas a chamada cai em segundos por não alcançar o TURN/STUN).
         # worker-src inclui o CDN do MediaPipe (FACS), que carrega worker/wasm
         # de lá, não apenas de blob:.
-        Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://accounts.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss: turn: turns: stun: stuns: https://cdn.jsdelivr.net https://storage.googleapis.com; media-src 'self' blob:; worker-src 'self' blob: https://cdn.jsdelivr.net; frame-src https://accounts.google.com; frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
+        #
+        # `blob:` EM script-src É O QUE LIGA A ANÁLISE ACÚSTICA. Não é
+        # duplicata do `blob:` que já está em worker-src: o AudioWorklet —
+        # `ctx.audioWorklet.addModule(blobUrl)` em `froid-acoustic.ts`, que é
+        # como o PCM cru do paciente é capturado — é buscado sob **script-src**,
+        # enquanto worker-src governa Worker/SharedWorker/ServiceWorker. Sem
+        # ele o navegador do paciente recusava o módulo, `startF0Capture` caía
+        # no catch e devolvia uma função de parada vazia, e NENHUM byte de áudio
+        # subia. Em toda sessão, para todo paciente.
+        #
+        # Apurado em 06/09/2026, e a assimetria foi o que entregou a causa: a
+        # leitura FACIAL funcionava e a acústica não, saindo as duas da MESMA
+        # página do paciente, com a mesma autenticação, para o mesmo servidor.
+        # O MediaPipe carrega de https://cdn.jsdelivr.net, que está liberado; o
+        # worklet carrega de blob:, que não estava. Do lado do profissional o
+        # gráfico de IPM funcionava porque aquele caminho usa AnalyserNode, sem
+        # worklet — e foi esse contraste que localizou o defeito.
+        #
+        # Medido antes de mexer: `docker compose logs froid-backend | grep -c
+        # acoustic-f0` devolveu ZERO. O áudio nunca saiu do navegador.
+        Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://cdn.jsdelivr.net https://accounts.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss: turn: turns: stun: stuns: https://cdn.jsdelivr.net https://storage.googleapis.com; media-src 'self' blob:; worker-src 'self' blob: https://cdn.jsdelivr.net; frame-src https://accounts.google.com; frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
         # Remove o cabeçalho que revela o servidor.
         -Server
     }
