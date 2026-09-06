@@ -9,6 +9,12 @@ import {
   defaultAuthenticatedPath,
   readProductChoice,
 } from "../lib/product-choice";
+import {
+  irParaContexto,
+  nomeDaOrganizacao,
+  organizacaoClinica,
+  organizacoesNr1,
+} from "../lib/contexto-organizacao";
 
 interface Props {
   user?: FroidUser | null;
@@ -113,6 +119,39 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [patientSearch, setPatientSearch] = useState("");
 
+  // As empresas contratantes do NR-1 desta conta. Vêm do /api/auth/me, que já
+  // devolve organization_type por organização — não há chamada nova.
+  const clientesNr1 = organizacoesNr1(user);
+  const [erroDeContexto, setErroDeContexto] = useState("");
+  const abrirNr1 = async (organizationId: string) => {
+    setErroDeContexto("");
+    const erro = await irParaContexto(organizationId, "/nr1");
+    if (erro) setErroDeContexto(erro);
+  };
+
+  // O caminho de volta, simétrico ao de cima.
+  //
+  // Sem isto o laço ficava aberto: quem entrasse numa empresa NR-1 por esta
+  // tela voltava para o painel clínico com a organização 'enterprise' ainda
+  // ativa — e lá os pacientes não aparecem, porque a organização do empregador
+  // não carrega as permissões clínicas identificadas.
+  const organizacaoDoPsique = organizacaoClinica(user);
+  const irParaODashboard = async () => {
+    setErroDeContexto("");
+    if (
+      !organizacaoDoPsique ||
+      organizacaoDoPsique.organization_id === user?.active_organization_id
+    ) {
+      nav(destinoDoDashboard);
+      return;
+    }
+    const erro = await irParaContexto(
+      organizacaoDoPsique.organization_id,
+      destinoDoDashboard,
+    );
+    if (erro) setErroDeContexto(erro);
+  };
+
   const isFabio = Boolean(user?.access_status?.admin);
 
   useEffect(() => {
@@ -210,7 +249,7 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
               honesto que oferecer e devolver. */}
           {destinoDoDashboard !== "/admin" ? (
             <button
-              onClick={() => nav(destinoDoDashboard)}
+              onClick={() => void irParaODashboard()}
               className="rounded-lg border border-cyan-700 bg-cyan-950 px-3 py-2 text-xs font-bold text-cyan-100 hover:bg-cyan-900"
             >
               Dashboard
@@ -230,8 +269,20 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
               clinico, entao esta porta continua aberta mesmo quando a outra
               nao esta. Num dia de atendimento ou de reuniao, e ela que evita
               que a unica saida da tela seja encerrar a sessao. */}
+          {/* Leva a organização junto quando há uma.
+              O botão apenas navegava, e o painel NR-1 lê a organização ATIVA
+              da sessão: chegando lá com a organização clínica ativa, todo
+              endpoint do módulo responde 409 ("disponível apenas para
+              organizações do tipo enterprise") e a tela abre vazia. Funcionava
+              por acaso — só enquanto a sessão já estivesse na empresa. */}
           <button
-            onClick={() => nav("/nr1")}
+            onClick={() => {
+              if (clientesNr1.length > 0) {
+                void abrirNr1(clientesNr1[0].organization_id);
+              } else {
+                nav("/nr1");
+              }
+            }}
             title="Painel de conformidade NR-1"
             className="rounded-lg border border-amber-700 bg-amber-950 px-3 py-2 text-xs font-bold text-amber-100 hover:bg-amber-900"
           >
@@ -262,6 +313,79 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
             {message}
           </p>
         )}
+
+        {/* Clientes NR-1: a porta de entrada de cada empresa contratante.
+            O seletor de organização do painel clínico foi retirado — lá ele
+            não abria nada do NR-1, só estreitava as permissões e fazia os
+            pacientes sumirem da tela. A troca de contexto passa a acontecer
+            aqui, onde ela tem um destino: o painel de conformidade.
+
+            A lista é das empresas de que ESTA CONTA é membro, e não de todas
+            as empresas da plataforma: /api/auth/active-organization responde
+            403 sem vínculo, então listar mais seria oferecer link morto. Para
+            entrar numa empresa nova, o caminho é conceder o vínculo no
+            Controle de acesso, abaixo. */}
+        <section className="rounded-lg border border-amber-900/60 bg-slate-900 p-4">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-sm font-black text-amber-100">Clientes NR-1</h2>
+            <p className="text-[11px] text-slate-500">
+              Empresas contratantes vinculadas a esta conta. Abrir troca a
+              organização ativa da sessão.
+            </p>
+          </div>
+
+          {erroDeContexto && (
+            <p className="mt-3 rounded border border-red-900 bg-red-950 px-3 py-2 text-xs font-bold text-red-200">
+              {erroDeContexto}
+            </p>
+          )}
+
+          {clientesNr1.length === 0 ? (
+            <p className="mt-3 text-xs leading-5 text-slate-400">
+              Nenhuma empresa NR-1 vinculada a esta conta. O painel de
+              conformidade é escopado por organização do tipo{" "}
+              <code className="text-slate-300">enterprise</code>, e o acesso vem
+              do vínculo — não do papel de administrador. Use o Controle de
+              acesso para conceder o vínculo a esta conta na empresa desejada.
+            </p>
+          ) : (
+            <ul className="mt-3 space-y-2">
+              {clientesNr1.map((cliente) => {
+                const ativa =
+                  cliente.organization_id === user?.active_organization_id;
+                return (
+                  <li
+                    key={cliente.organization_id}
+                    className="flex flex-wrap items-center justify-between gap-3 rounded border border-slate-800 bg-slate-950 px-3 py-2"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-black text-slate-100">
+                        {nomeDaOrganizacao(cliente)}
+                        {ativa && (
+                          <span className="ml-2 rounded bg-emerald-950 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-emerald-300">
+                            contexto ativo
+                          </span>
+                        )}
+                      </p>
+                      <p className="truncate text-[10px] text-slate-500">
+                        {cliente.organization_id}
+                        {cliente.roles?.length
+                          ? ` · ${cliente.roles.join(", ")}`
+                          : ""}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => void abrirNr1(cliente.organization_id)}
+                      className="shrink-0 rounded border border-amber-700 bg-amber-950 px-3 py-2 text-xs font-black text-amber-100 hover:bg-amber-900"
+                    >
+                      Abrir painel NR-1
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
 
         {Number(summary.pending_professional_approvals) > 0 && (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-500 bg-amber-950/60 px-4 py-3">

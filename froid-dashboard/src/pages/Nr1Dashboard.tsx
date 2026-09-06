@@ -5,6 +5,11 @@ import { apiUrl } from "../lib/api";
 import { PISO_CAMPANHA } from "../lib/nr1-representatividade";
 import { GlossarioDeSiglas, Sigla } from "../lib/siglas";
 import { Nr1ExplicaPainel } from "../components/nr1/Nr1ExplicaPainel";
+import {
+  irParaContexto,
+  nomeDaOrganizacao,
+  organizacaoClinica,
+} from "../lib/contexto-organizacao";
 
 type Campaign = {
   campaign_id: string;
@@ -318,6 +323,23 @@ export const Nr1Dashboard: React.FC<{ user: FroidUser | null }> = ({ user }) => 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
+  // Para onde o botão "Dashboard" devolve o contexto da sessão.
+  const organizacaoDoPsique = organizacaoClinica(user);
+  const voltarAoPsique = async () => {
+    if (!organizacaoDoPsique) {
+      nav("/dashboard");
+      return;
+    }
+    setError("");
+    const erro = await irParaContexto(
+      organizacaoDoPsique.organization_id,
+      "/dashboard",
+    );
+    // Sem contexto restaurado o painel clínico abriria sem os pacientes. Dizer
+    // que a troca falhou é melhor que entregar a tela errada em silêncio.
+    if (erro) setError(erro);
+  };
+
   const headers = useMemo(() => {
     const token = window.localStorage.getItem("froid_token") || "";
     return {
@@ -609,11 +631,28 @@ export const Nr1Dashboard: React.FC<{ user: FroidUser | null }> = ({ user }) => 
             >
               Eficácia das medidas
             </button>
+            {/* A volta ao Psique leva o contexto junto.
+                Chamava-se "Voltar ao painel" e só mudava a URL. A organização
+                ativa continuava sendo a empresa NR-1, e o painel clínico
+                aberto sob organização 'enterprise' perde as permissões
+                clínicas identificadas: a pessoa chegava lá e os pacientes
+                dela tinham sumido, sem nada na tela explicando por quê.
+
+                Quando a conta não tem organização clínica — a empresa NR-1
+                pura — não há contexto a restaurar, e a navegação é a de
+                sempre. O botão continua existindo para ela de propósito: o
+                painel NR-1 não tem "Sair" nem "Administrativo", e sem esta
+                porta a única saída da tela seria fechar o navegador. */}
             <button
-              onClick={() => nav("/dashboard")}
-              className="rounded border border-slate-700 px-4 py-2 text-xs font-black hover:bg-slate-900"
+              onClick={() => void voltarAoPsique()}
+              title={
+                organizacaoDoPsique
+                  ? `Painel clínico FROID Psique, no contexto de ${nomeDaOrganizacao(organizacaoDoPsique)}.`
+                  : "Painel clínico FROID Psique."
+              }
+              className="rounded border border-cyan-700 bg-cyan-950 px-4 py-2 text-xs font-black text-cyan-100 hover:bg-cyan-900"
             >
-              Voltar ao painel
+              Dashboard
             </button>
           </div>
         </header>
