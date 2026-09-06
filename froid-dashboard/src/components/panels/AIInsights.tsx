@@ -8,29 +8,45 @@ import {
 } from "../../lib/professional-prompts";
 import { normalizeSessionLocale, type SessionLocale } from "../../lib/localization";
 
+/**
+ * Os atalhos são a primeira pergunta que o profissional faz, e três deles
+ * pediam coisa que o FROID não tem.
+ *
+ * - "acima ou abaixo da média em riscos clínicos" e "padrões de risco
+ *   identificados na base populacional": não existe escore de risco. Ele
+ *   existiu, chamava-se `clinical_risk`, e foi retirado do motor de métricas
+ *   porque cortar um construto em Alto/Moderado/Baixo ao lado do nome do
+ *   paciente é triagem — ato privativo de profissional habilitado. O botão
+ *   sobreviveu à remoção e continuava prometendo o que a coluna não tem.
+ * - "Predição de resposta terapêutica": não há modelo preditivo, em lugar
+ *   nenhum do produto.
+ * - "Velocidade de melhora": melhora não é medida. O acervo anônimo guarda
+ *   IPM, IDM, zona, dissonâncias e cadência — nenhuma delas é desfecho.
+ *
+ * Botão que promete o que não existe produz exatamente a resposta esquiva de
+ * que o profissional reclamou, e a culpa parece do assistente. Os que ficaram
+ * são perguntas que o sistema responde com medida na mão.
+ */
 const PRESETS = [
-  { text: "Como este paciente se compara a média populacional em Zonas FROID?" },
-  { text: "Identificar padrões atipicos comparados a base de dados" },
-  { text: "Este paciente está acima ou abaixo da média em riscos clínicos?" },
-  { text: "Progresso nas últimas sessões versus populacao" },
-  { text: "Velocidade de melhora comparada a casos similares" },
-  { text: "Perfil vocal facial similar a quais condições na base?" },
-  { text: "Casos mais parecidos com este paciente top 5" },
-  { text: "Intervencoes mais eficazes para perfis similares" },
-  { text: "Predição de resposta terapêutica baseada em casos analogos" },
-  { text: "Alertas: padrões de risco identificados na base populacional" },
-  { text: "Explique a leitura clínica das zonas dominantes desta sessão" },
-  { text: "O que o IPM atual sugere sobre a energia emocional do paciente?" },
-  { text: "Como interpretar as dissonâncias faciais-vocais observadas?" },
-  { text: "Quais marcadores bioacústicos merecem atenção neste momento?" },
-  { text: "Este paciente se compara com a base populacional anonima?" },
-  { text: "Quais padrões aparecem em casos similares na base anonima?" },
-  { text: "Explique a diferença entre IPM e IDM para esta sessão" },
-  { text: "Que perguntas clínicas podem aprofundar esta leitura?" },
+  // Leitura dos índices desta sessão, ancorada no que o painel mostra.
+  { text: "Explique a diferença entre IPM e IDM nesta sessão e o que o par indica" },
+  { text: "O IPM está acima ou abaixo do repouso deste paciente, e o que isso muda?" },
+  { text: "Explique a zona dominante desta sessão: eixo, magnitude e persistência" },
+  { text: "Quais índices saíram da faixa deste paciente e em que direção?" },
+  { text: "Quais dissonâncias faciais foram confirmadas e quais AUs dispararam?" },
+  { text: "Como interpretar os biomarcadores acústicos deste corte?" },
+  { text: "O que na captação pode estar distorcendo esta leitura?" },
+  { text: "Quais índices desta sessão estão sem apuração, e por quê?" },
+  // Leitura da conversa, que o Explica recebe transcrita e com fala separada.
   { text: "Explique o resumo geral da sessão e seus cortes de 10 minutos" },
-  { text: "Quais mudanças ocorreram entre baseline e média da sessão?" },
-  { text: "Quais dissonâncias registradas exigem maior atenção clínica?" },
-  { text: "Como interpretar os biomarcadores acústicos desta sessão?" },
+  { text: "Que perguntas clínicas as medidas desta sessão habilitam?" },
+  { text: "O que mudou entre a linha de base e a média da sessão?" },
+  { text: "Em que trecho da fala os índices se moveram mais?" },
+  // Comparação populacional: só o que o acervo anônimo de fato guarda.
+  { text: "Como este paciente se compara à base anônima em Zonas FROID?" },
+  { text: "Como o IPM médio deste paciente se compara ao da base anônima?" },
+  { text: "Quantas sessões da base anônima sustentam essa comparação?" },
+  { text: "Quais padrões de dissonância aparecem em casos similares na base anônima?" },
 ];
 
 interface FroidExplicaResponse {

@@ -1553,65 +1553,89 @@ def _find_context_metric(context: Any, names: set[str]) -> Any:
     return None
 
 
+# Marcadores de intencao. Casados com FRONTEIRA de palavra e sobre texto sem
+# acento — ver `explica_clinico.normalizar_pergunta`.
+#
+# Mencionar a base anonima, a coorte ou o percentil e declaracao EXPLICITA de
+# intencao; citar o nome de uma metrica e apenas o assunto.
+_MARCADORES_ANALYTICS = (
+    "base anonima",
+    "base anonimizada",
+    "base populacional",
+    "data mart",
+    "benchmark",
+    "populacional",
+    "populacao",
+    "coorte",
+    "percentil",
+    "demografico",
+    "casos similares",
+    "pacientes similares",
+    "comparar com outros pacientes",
+    "comparacao com outros pacientes",
+    "comparar com a populacao",
+    "comparacao populacional",
+    "estatistica populacional",
+    "estatisticas populacionais",
+)
+
+_MARCADORES_DE_SESSAO = (
+    "sessao atual",
+    "desta sessao",
+    "da sessao",
+    "nesta sessao",
+    "media da sessao",
+    "media das metricas",
+    "metricas da sessao",
+    "corte atual",
+    "neste corte",
+    "deste corte",
+    "baseline",
+    "ipm",
+    "idm",
+    "mfcc",
+    "mfcc7",
+    "mfcc9",
+    "f0",
+    "zcr",
+    "jitter",
+    "shimmer",
+    "sub harmonico",
+    "biomarcador",
+    "biomarcadores",
+    "dissonancia",
+    "dissonancias",
+    "zona dominante",
+    "tom",
+    "palavras por minuto",
+)
+
+
 def _classify_froid_explica_intent(query_text: str) -> str:
-    query = _normalize_search_text(query_text)
+    """Qual motor responde: o acervo clinico ou o acervo anonimo agregado.
 
-    current_session_markers = {
-        "sessao atual",
-        "desta sessao",
-        "da sessao",
-        "nesta sessao",
-        "media da sessao",
-        "media das metricas",
-        "metricas da sessao",
-        "corte atual",
-        "neste corte",
-        "deste corte",
-        "baseline",
-        "ipm",
-        "idm",
-        "mfcc",
-        "mfcc7",
-        "mfcc9",
-        "f0",
-        "zcr",
-        "jitter",
-        "shimmer",
-        "sub-harmonico",
-        "sub harmonico",
-        "biomarcador",
-        "biomarcadores",
-        "dissonancia",
-        "dissonancias",
-        "zona dominante",
-        "tom",
-        "palavras por minuto",
-    }
-    if any(marker in query for marker in current_session_markers):
-        return "knowledge"
+    DOIS DEFEITOS MORAVAM AQUI, e os dois mandavam a pergunta para o motor
+    errado sem nada na resposta indicando a troca.
 
-    explicit_analytics_markers = {
-        "base anonima",
-        "base anonimizada",
-        "base populacional",
-        "data mart",
-        "benchmark",
-        "populacional",
-        "populacao",
-        "coorte",
-        "percentil",
-        "demografico",
-        "casos similares",
-        "pacientes similares",
-        "comparar com outros pacientes",
-        "comparacao com outros pacientes",
-        "comparar com a populacao",
-        "comparacao populacional",
-        "estatistica populacional",
-        "estatisticas populacionais",
-    }
-    if any(marker in query for marker in explicit_analytics_markers):
+    1. A ORDEM. Os marcadores de sessao vinham primeiro, e um deles e a string
+       "ipm" — de modo que "como o IPM medio deste paciente se compara ao da
+       BASE ANONIMA?" era classificada como pergunta de sessao antes de a base
+       anonima ser sequer considerada.
+    2. O ACENTO. A comparacao usava `_normalize_search_text`, que baixa a caixa
+       e colapsa espaco mas NAO tira acento. "base anônima", como o
+       profissional escreve, nunca casava com o marcador "base anonima"; nem
+       "desta sessão" com "desta sessao". Metade desta tabela era decorativa.
+
+    Marcador curto ("ipm", "f0", "tom") casa com fronteira de palavra: "tom"
+    dentro de *sintomas* ja seria o mesmo defeito de substring que "como"
+    dentro de *comodidade*.
+    """
+    query = explica_clinico.normalizar_pergunta(query_text)
+
+    if any(explica_clinico.contem_termo(query, m) for m in _MARCADORES_ANALYTICS):
         return "analytics"
+    if any(explica_clinico.contem_termo(query, m) for m in _MARCADORES_DE_SESSAO):
+        return "knowledge"
     return "knowledge"
 
 
