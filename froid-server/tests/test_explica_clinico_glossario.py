@@ -344,10 +344,64 @@ class AsRestricoesProibemODefeitoObservado(unittest.TestCase):
         self.assertIn("nunca zero", instrucao)
 
     def test_a_instrucao_pede_o_que_a_medida_abre(self):
-        # A reclamacao era profundidade, e o contrato e onde ela e exigida.
+        """A profundidade continua exigida — em prosa, nao em secoes.
+
+        A primeira versao deste teste exigia os titulos "O QUE ISSO ABRE" e
+        "O QUE DERRUBARIA A LEITURA" no contrato. Foi ma ideia: o contrato
+        listava seis titulos em caixa alta e o modelo os reproduziu como
+        cabecalhos, produzindo respostas de quatro telas. Em 07/09/2026 o
+        profissional pediu metade do tamanho, e os titulos sairam.
+
+        O que se afirma agora e a exigencia, nao o formato dela: a resposta tem
+        de dizer o que fazer com a medida e o detalhe da formula que muda a
+        leitura.
+        """
         instrucao = _sem_quebra(explica_clinico.instrucao())
-        self.assertIn("O QUE ISSO ABRE", instrucao)
-        self.assertIn("O QUE DERRUBARIA A LEITURA", instrucao)
+        self.assertIn("o que fazer com isso agora", instrucao)
+        self.assertIn("cruzamento concreto", instrucao)
+        self.assertIn("detalhe da formula que muda a leitura", instrucao)
+
+    def test_a_instrucao_limita_o_tamanho_da_resposta(self):
+        """A reclamacao literal: "ninguem vai ler mais de duas consultas"."""
+        instrucao = _sem_quebra(explica_clinico.instrucao())
+        self.assertIn("No maximo 150 palavras", instrucao)
+        self.assertIn("sem titulo de secao", instrucao)
+
+    def test_a_instrucao_proibe_reproduzir_os_campos_da_ficha(self):
+        # O modelo transformava os nomes dos campos do glossario em cabecalhos,
+        # e a resposta virava a ficha inteira recitada.
+        instrucao = _sem_quebra(explica_clinico.instrucao())
+        self.assertIn("MATERIA-PRIMA, nao roteiro", instrucao)
+
+    def test_a_ausencia_de_valor_nao_abre_a_resposta(self):
+        """Toda resposta comecava igual: "O valor do X nao foi enviado".
+
+        Duas consultas seguidas abrindo com a mesma frase enterram o que foi
+        perguntado. A falta continua sendo dita — no fim, em meia frase.
+        """
+        instrucao = _sem_quebra(explica_clinico.instrucao())
+        self.assertIn("VALOR AUSENTE NAO ABRE A RESPOSTA", instrucao)
+        self.assertIn("registre a falta em meia frase NO FIM", instrucao)
+
+    def test_o_teto_do_compose_e_o_mesmo_do_codigo(self):
+        """Espelho de numero (padrao 2.7), e este espelho manda mais que a fonte.
+
+        Com a variavel ausente do .env, `${FROID_EXPLICA_MAX_TOKENS:-600}` faz
+        o compose ENVIAR 600 ao contentor, e o `os.getenv(..., "600")` do
+        codigo nunca decide nada. Divergir aqui nao daria erro: daria um teto
+        silenciosamente diferente do que o codigo declara.
+        """
+        compose = _ler(RAIZ / "docker-compose.yml")
+        do_compose = re.search(
+            r"FROID_EXPLICA_MAX_TOKENS=\$\{FROID_EXPLICA_MAX_TOKENS:-(\d+)\}", compose
+        )
+        do_codigo = re.search(
+            r'FROID_EXPLICA_MAX_TOKENS = int\(os\.getenv\("FROID_EXPLICA_MAX_TOKENS", "(\d+)"\)\)',
+            MAIN,
+        )
+        self.assertIsNotNone(do_compose, "a linha sumiu do docker-compose.yml")
+        self.assertIsNotNone(do_codigo, "o padrao sumiu de main.py")
+        self.assertEqual(do_compose.group(1), do_codigo.group(1))
 
     def test_a_instrucao_respeita_o_idioma_pedido(self):
         self.assertIn("Respond in American English", explica_clinico.instrucao("Respond in American English"))

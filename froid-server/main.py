@@ -129,10 +129,14 @@ OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
 OPENAI_TRANSCRIBE_MODEL = os.getenv("OPENAI_TRANSCRIBE_MODEL", "gpt-4o-transcribe")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 FROID_EXPLICA_MODEL = os.getenv("FROID_EXPLICA_MODEL", "gemini-1.5-pro")
-# Teto de saida do FROID Explica clinico. O contrato de resposta em
-# `explica_clinico` pede seis blocos; 900 tokens truncavam o ultimo terco,
-# e o que se perdia era sempre o fim: o que derruba a leitura e o limite.
-FROID_EXPLICA_MAX_TOKENS = int(os.getenv("FROID_EXPLICA_MAX_TOKENS", "1800"))
+# Teto de saida do FROID Explica clinico.
+#
+# Subiu para 1800 quando o contrato de resposta pedia seis blocos, e voltou
+# para 600 quando o contrato virou "no maximo 150 palavras": o profissional
+# reclamou, com razao, que ninguem faz duas consultas se cada uma ocupa quatro
+# telas. Quem encurta e o contrato; o teto e so o freio do pior caso, com
+# folga de sobra para nao truncar frase no meio.
+FROID_EXPLICA_MAX_TOKENS = int(os.getenv("FROID_EXPLICA_MAX_TOKENS", "600"))
 FROID_CHROMA_PATH = os.getenv("FROID_CHROMA_PATH", "/data/chroma_db")
 FROID_CHROMA_COLLECTION = os.getenv(
     "FROID_CHROMA_COLLECTION",

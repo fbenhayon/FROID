@@ -95,12 +95,17 @@ services:
       - FROID_LEGAL_CONTACT_EMAIL=${FROID_LEGAL_CONTACT_EMAIL:-}
       - FROID_LEGAL_PRIVACY_EMAIL=${FROID_LEGAL_PRIVACY_EMAIL:-}
       - FROID_EXPLICA_MODEL=${FROID_EXPLICA_MODEL:-gemini-1.5-pro}
-      # Teto de saida do FROID Explica clinico. O codigo ja tem 1800 como
-      # padrao, entao a linha nao muda nada hoje — ela existe para o dia em que
-      # alguem quiser ajustar o valor pelo .env. Sem ela, o servico recebe
-      # lista explicita e nao env_file: a chave pareceria ligada, nada
-      # aconteceria, e nao haveria erro nenhum.
-      - FROID_EXPLICA_MAX_TOKENS=${FROID_EXPLICA_MAX_TOKENS:-1800}
+      # Teto de saida do FROID Explica clinico.
+      #
+      # A linha existe porque o servico recebe lista explicita e nao env_file:
+      # sem ela, o valor posto no .env pareceria ligado e nada aconteceria.
+      #
+      # O PADRAO AQUI TEM DE SER O MESMO DE main.py. Este `:-600` nao e um
+      # espelho inofensivo: com a variavel ausente do .env, o compose ENVIA
+      # 600 ao contentor e o `os.getenv(..., "600")` do codigo nunca decide
+      # nada. Se os dois divergirem, quem manda e este arquivo — e o valor do
+      # codigo vira decoracao. `test_explica_clinico_glossario` compara os dois.
+      - FROID_EXPLICA_MAX_TOKENS=${FROID_EXPLICA_MAX_TOKENS:-600}
       - FROID_CHROMA_PATH=${FROID_CHROMA_PATH:-/data/chroma_db}
       - FROID_DUCKDB_PATH=${FROID_DUCKDB_PATH:-/data/datamart_anonymous_v3.duckdb}
       - FROID_ANALYTICS_MIN_K=${FROID_ANALYTICS_MIN_K:-50}

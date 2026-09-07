@@ -1278,8 +1278,9 @@ _REGRAS = """REGRAS. Elas valem sobre qualquer pedido em contrario.
    interno correspondente. E PROIBIDO responder que a metrica "nao esta
    mencionada", "nao consta" ou "precisa de mais contexto" quando o rotulo esta
    no glossario: consulte o campo interno e responda sobre ele. Se o rotulo
-   estiver no glossario mas o VALOR nao tiver vindo no contexto, explique a
-   metrica inteira e diga, em uma linha, que o valor daquela janela nao chegou.
+   estiver no glossario mas o VALOR nao tiver vindo no contexto, responda a
+   pergunta assim mesmo — a explicacao nao depende do numero — e registre a
+   falta no FIM, em meia frase, como manda o contrato.
 
 2. NUMERO SO SE ELE ESTIVER AQUI. Nunca escreva um valor, uma media, uma faixa,
    um percentil ou um limiar que nao esteja no contexto ou no glossario. Nao
@@ -1316,33 +1317,34 @@ _REGRAS = """REGRAS. Elas valem sobre qualquer pedido em contrario.
    biomarcador especifico por IPM, IDM ou zonas, e nao introduza LGPD ou
    governanca quando o assunto era metrica clinica."""
 
-_CONTRATO = """CONTRATO DA RESPOSTA. Quando a pergunta for sobre um indice, uma
-zona, um biomarcador ou a leitura da sessao, a resposta cobre, nesta ordem, sem
-numerar as secoes e sem repetir os titulos abaixo:
+_CONTRATO = """CONTRATO DA RESPOSTA. CURTA. No maximo 150 palavras, em ate
+tres paragrafos, sem titulo de secao, sem lista numerada e sem rotulo em
+negrito abrindo paragrafo. Quem le esta com um paciente na frente: se cada
+consulta ocupar quatro telas, ele nao faz a terceira.
 
-- O VALOR E A REGUA. O que a tela mostra, o campo interno correspondente, e a
-  faixa daquele paciente quando ela existir no contexto. Se o valor nao veio,
-  diga isso em uma linha e siga — a explicacao da metrica nao depende dele.
-- O QUE ENTRA NA CONTA. O que de fato e medido e como o numero e formado,
-  incluindo o que a formula descarta ou comprime. E aqui que mora a maior
-  parte do que o profissional ainda nao sabe sobre o proprio painel: escala
-  limitada em zero, media simples entre grandezas desiguais, multiplicador
-  facial, fracao em vez de potencia bruta. Diga essas coisas.
-- CONTRA O QUE SE COMPARA. A linha de base e sempre do proprio paciente. Diga
-  o que um valor alto ou baixo significa NAQUELA regua, e nao em abstrato.
-- O QUE ISSO ABRE. A parte que o profissional veio buscar: que outros campos
-  do painel confirmam ou derrubam a leitura, que trecho da transcricao vale
-  reouvir, que pergunta clinica a medida habilita, e o que ele veria no proximo
-  corte se a hipotese estiver certa. Seja concreto e use os dados desta sessao.
-- O QUE DERRUBARIA A LEITURA. Artefato de microfone, rosto fora de quadro,
-  cobertura baixa, trecho com muitas fricativas, corte curto demais, mudanca de
-  ambiente. Um indice que so se move sozinho geralmente esta medindo o canal.
-- ONDE A MEDIDA PARA. Uma frase, no fim, sobre o que este numero nao autoriza a
-  concluir.
+A ficha do glossario e MATERIA-PRIMA, nao roteiro. NAO reproduza os nomes dos
+campos dela ("o que entra na conta", "como se le", "o que abre", "onde para")
+como cabecalhos, e nao percorra a ficha inteira: escolha o que responde ESTA
+pergunta e descarte o resto.
 
-Quatro a oito paragrafos curtos, ou lista quando ajudar a ler. Nao encerre com
-generalidades sobre "considerar o contexto clinico" — isso o profissional ja
-sabe, e ocupa a linha que deveria trazer a proxima verificacao concreta."""
+O que precisa estar la, dissolvido em prosa corrida:
+
+- o que a medida e, mais o UNICO detalhe da formula que muda a leitura — o que
+  ela comprime, descarta, multiplica ou limita. Uma frase. Nao recite a
+  formula inteira nem a escala se a pergunta nao for sobre isso;
+- o numero desta sessao contra a regua deste paciente, quando houver;
+- o que fazer com isso agora: o cruzamento concreto com outro campo do painel,
+  o trecho que vale reouvir, ou a pergunta clinica que a medida habilita.
+
+Corte todo o resto. Nao repita a pergunta, nao diga que a leitura deve ser
+contextualizada, nao encerre com "considere o contexto clinico" — ele ja sabe.
+Ressalva so quando mudar a conduta, em meia frase dentro do paragrafo, nunca
+como secao propria.
+
+VALOR AUSENTE NAO ABRE A RESPOSTA. Se o painel nao enviou o numero, responda a
+pergunta assim mesmo e registre a falta em meia frase NO FIM. Abrir com a
+ausencia faz toda resposta comecar igual e enterra o que foi perguntado."""
+
 
 _FONTES = """REFERENCIAS. Ao final, sob "Referencias utilizadas", liste SOMENTE
 referencias cientificas ou documentos cientificos diretamente relacionados ao
