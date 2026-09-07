@@ -3332,6 +3332,10 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       patient_name: sessionPatient?.name || "",
       // Os rotulos da tabela, com o valor exatamente como esta escrito na tela.
       panel_metrics: Object.fromEntries(painel.metricas),
+      // De QUE recorte sao esses numeros. As telas de relatorio enviam a media
+      // da sessao inteira; aqui e o corte aberto. Sem dizer qual, o assistente
+      // falaria de "esta sessao" sobre a media de um corte de tres minutos.
+      panel_metrics_window: "corte atual da sessao ao vivo",
       // As reguas que o servidor calcula por marcador (faixa, direcao, leitura).
       // Existiam desde sempre em `dissonance_event.all_markers`, o painel ja as
       // pintava, e o FROID Explica nunca as recebeu — sem elas ele so podia

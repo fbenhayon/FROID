@@ -27,6 +27,7 @@ import { dashboardText, loadSessionLanguagePreferences, normalizeSessionLocale }
 import { ResearchConsentCard } from "../components/validation/ResearchConsentCard";
 import { PatientResultsAccessCard } from "../components/patient/PatientResultsAccessCard";
 import { activeOrganizationId } from "../lib/validation";
+import { contextoDaTabela } from "../lib/painel-para-o-explica";
 
 type PatientFollowStatus = "active" | "inactive";
 
@@ -196,6 +197,10 @@ export const PatientDetail: React.FC = () => {
     latest_report_baseline: latest.baseline,
     latest_report_average: latest.sessionAverage,
     latest_report_cuts: latest.tenMinuteCuts,
+    // A tabela da ultima sessao, no vocabulario que o servidor conhece. Sem
+    // ela o FROID Explica respondia "o valor nao foi enviado pelo painel"
+    // sobre numeros impressos na mesma tela.
+    ...contextoDaTabela(latest.sessionAverage, "media da ultima sessao deste paciente"),
   };
   const signal = patientAdvancedSignal(group);
   const sessionTableColSpan = patientMetricRows(latest.sessionAverage).length + 4;

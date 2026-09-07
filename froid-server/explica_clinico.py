@@ -999,6 +999,18 @@ def _buscar_valor(contexto: Mapping[str, Any], chave: str) -> Tuple[bool, Any]:
     return False, None
 
 
+def _janela_da_tabela(contexto: Mapping[str, Any]) -> str:
+    """De QUE recorte sao os numeros da tabela enviada.
+
+    A sessao ao vivo manda o corte aberto; o relatorio manda a media da sessao
+    inteira; a ficha do paciente manda a media da ultima sessao. Sao tres
+    grandezas diferentes sob os mesmos rotulos, e sem dizer qual o assistente
+    falaria de "esta sessao" sobre a media de um corte de tres minutos.
+    """
+    janela = str(contexto.get("panel_metrics_window") or "").strip()
+    return janela or "recorte nao declarado pelo painel"
+
+
 def _valor_da_tela(contexto: Mapping[str, Any], indice: Indice) -> Optional[str]:
     """O valor exatamente como o painel o renderizou, quando ele veio.
 
@@ -1020,7 +1032,7 @@ def _valor_da_tela(contexto: Mapping[str, Any], indice: Indice) -> Optional[str]
     bruto = str(tabela.get(indice.rotulo) or "").strip()
     if not bruto or bruto == "--":
         return _SEM_APURACAO
-    return f"{bruto} — como esta escrito na tela agora (media do corte atual)"
+    return f"{bruto} (na tela: {_janela_da_tabela(contexto)})"
 
 
 def _detalhe_da_zona(valor: Mapping[str, Any]) -> str:

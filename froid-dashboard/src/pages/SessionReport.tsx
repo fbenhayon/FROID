@@ -12,6 +12,7 @@ import {
 } from "../lib/session-report";
 import { dashboardText, loadSessionLanguagePreferences, normalizeSessionLocale, type SessionLocale } from "../lib/localization";
 import { tooltipText } from "../lib/tooltip-i18n";
+import { contextoDaTabela } from "../lib/painel-para-o-explica";
 import { InstrumentScorePrompt } from "../components/validation/InstrumentScorePrompt";
 import { activeOrganizationId } from "../lib/validation";
 import {
@@ -1157,6 +1158,13 @@ export const SessionReport: React.FC<Props> = () => {
       report_metrics_analysis: metricsAnalysis,
       report_notes_count: report.clinicalNotes.length,
       report_summaries: report.conversationSummaries,
+      // A TABELA DE METRICAS, no vocabulario que o servidor conhece.
+      //
+      // Ate 07/09/2026 esta tela mandava ao FROID Explica o relatorio inteiro
+      // MENOS a tabela, e a pergunta "qual a utilidade do MFCC7" era respondida
+      // com "o valor nao foi enviado pelo painel" — sobre um numero impresso
+      // tres centimetros acima da caixa de pergunta.
+      ...contextoDaTabela(report.sessionAverage, "media da sessao inteira"),
       // Transcrição arquivada, no mesmo formato que o backend consome, para o
       // FROID Explica responder sobre falas e recomendações após a sessão.
       patient_id: report.patient?.id || (report as Record<string, any>).patientId || "",
