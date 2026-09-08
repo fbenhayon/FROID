@@ -151,6 +151,51 @@ pela regra, não pela ocorrência que você viu.
 
 ---
 
+### 2.9 Espelhos de nome — e uma busca que casa por nome
+
+Irmã da 2.7, e mais difícil de ver: ali era o mesmo **número** copiado em
+vários lugares; aqui é a mesma **coisa** chamada por nomes diferentes, com
+alguém procurando por nome.
+
+**O caso, 07/09/2026.** O FROID Explica recebeu a tabela de métricas do painel
+e passou a casar cada pergunta pelo **rótulo que o profissional lê na tela**.
+Só que cada tela escreve o rótulo do seu jeito:
+
+| Sessão ao vivo | Relatório | Ficha do paciente |
+|---|---|---|
+| `TOM` | `Tom` | `Tom` |
+| `JITTER` | `Jitter idx.` | `Jitter idx.` |
+| `DELTA` | `Delta 0.5-4Hz` | — |
+| `IND. ESPECTRAL` | `Ind. espectral` | `Ind. espectral` |
+
+Mandar o dialeto local de cada tela faria a busca não encontrar nada — e o
+sintoma não seria um erro: seria o assistente respondendo **"o valor não foi
+enviado pelo painel"** sobre um número impresso três centímetros acima da
+caixa de pergunta. Exatamente o defeito que aquele trabalho tinha ido corrigir,
+de volta, agora num lugar onde ninguém procuraria.
+
+**A saída** foi um produtor único — `lib/painel-para-o-explica.ts` — que emite
+os rótulos **canônicos**, e um teste que confronta rótulo, campo de origem e
+casas decimais contra a tabela que a tela ao vivo renderiza. As tabelas
+visíveis de cada tela continuam exatamente como estavam: o vocabulário
+compartilhado é o do **consumidor**, não o da tela.
+
+**Regra:** onde um consumidor casa por NOME — glossário, de-para, dicionário
+de tooltip, alias, chave de tradução, coluna de junção —, o nome tem **uma**
+fonte, e quem publica converte para ela. Renomear na tela é livre; renomear no
+contrato não.
+
+**Como caçar:** liste os nomes que cada produtor emite e os que o consumidor
+espera, e compare os dois conjuntos **por igualdade**, não por olhar. Onde a
+correspondência for por semelhança de texto — normalização de acento, caixa ou
+separador —, ela já é um palpite: `SUB-H` não vira `subharmonic` por
+normalização nenhuma, e casar por parecido erra em silêncio e aponta a métrica
+errada. Prefira a tabela explícita, e faça a falta de correspondência **aparecer**
+(no FROID a métrica sem régua sai declarada "sem faixa avaliável", nunca pintada
+como se estivesse dentro dela).
+
+---
+
 ## 3. Testes que valem alguma coisa
 
 - **Afirme a garantia, não o mecanismo.** Um teste exigia literalmente o
