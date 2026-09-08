@@ -182,6 +182,17 @@
 </header>
 
 <section class="hero-neuro">
+  <div class="home-intro">
+    <p class="section-kicker">FROID · Dois produtos, objetivos distintos</p>
+    <h2>Escuta clínica.<br><span>Condições de trabalho.</span></h2>
+    <p>O FROID Psique apoia profissionais no atendimento de pacientes. O FROID Psicossocial organiza a avaliação coletiva das condições de trabalho. Escolha o percurso adequado ao seu objetivo.</p>
+    <div class="hero-actions">
+      <a class="btn btn-solid" href="profissionais.html">Conhecer o FROID Psique →</a>
+      <a class="btn btn-ghost" href="como-funciona-nr1.html">Conhecer o FROID Psicossocial</a>
+      <a class="btn btn-ghost" href="#paciente">Sou paciente</a>
+    </div>
+  </div>
+
   <!-- Arte do hero (froid-hero.png), em fluxo. Trocável por outra imagem em site-assets/img/. -->
   <div class="hero-neuro__art" aria-hidden="true">
     <img class="hero-neuro__img" src="site-assets/img/froid-hero.png?v=2" alt="" />
@@ -205,11 +216,11 @@
 <section class="block" id="visao-geral">
   <div class="container">
     <p class="section-kicker">Visão geral</p>
-    <h2 class="section-title">O que o FROID mede durante a sessão</h2>
-    <p class="section-lead">Três camadas de sinal, processadas em tempo real e sempre comparadas contra uma calibração individual de 60 segundos no início de cada sessão.</p>
+    <h2 class="section-title">FROID Psique: o que acompanha a sessão</h2>
+    <p class="section-lead">O Psique reúne sinais acústicos, movimentos faciais e interpretação de apoio. A calibração inicial estabelece a referência da sessão quando há sinal suficiente; ausência de apuração não é resultado zero.</p>
 
     <div class="disclaimer-box" style="margin-bottom:28px;">
-      <strong>Posicionamento FROID:</strong> o FROID é uma ferramenta de <strong>Inteligência Clínica Aumentada</strong> — a categoria de sistemas que ampliam a percepção do profissional sem substituir seu julgamento. O posicionamento do FROID baseia-se na premissa de que não se realiza diagnósticos autônomos. A responsabilidade e a soberania do laudo clínico permanecem integralmente com o profissional. O FROID atua estritamente como um coprocessador de sinais neuromusculares e biofisiológicos involuntários, captando micro-vazamentos emocionais que escapam à percepção visual ou auditiva humana subjetiva.
+      <strong>Posicionamento FROID:</strong> o FROID é uma ferramenta de <strong>Inteligência Clínica Aumentada</strong> — a categoria de sistemas que ampliam a percepção do profissional sem substituir seu julgamento. O posicionamento do FROID baseia-se na premissa de que não se realizam diagnósticos autônomos. A responsabilidade e a soberania do laudo clínico permanecem integralmente com o profissional. O FROID organiza sinais de voz e movimentos faciais para apoiar a observação. A interpretação desses sinais exige contexto e não comprova emoção, intenção ou veracidade da fala.
     </div>
 
     <div class="grid-3">
@@ -232,8 +243,8 @@
 
     <div class="card" style="margin-top:26px; border-left:3px solid var(--froid-azul);">
       <span class="badge badge-proprietary">Data-Froid</span>
-      <h3 style="margin-top:10px;">Estes dois índices serão validados pelo Data-Froid, sessão após sessão</h3>
-      <p>O IPM e o IDM são hoje <strong>heurística de produto</strong>. O que os transforma em medida é o acúmulo: cada sessão realizada alimenta a base anônima do FROID, e é contra ela que os dois vão sendo testados ao longo do tempo. <a href="#data-froid">O que é o Data-Froid, e onde ele quer chegar →</a></p>
+      <h3 style="margin-top:10px;">Data-Froid: uma base para investigar os índices</h3>
+      <p>O IPM e o IDM são hoje <strong>heurísticas de produto</strong>. Registros elegíveis, com autorização para pesquisa anônima e tratamento de privacidade, podem contribuir para investigar esses índices. Acumular registros não equivale a validá-los clinicamente. <a href="#data-froid">Conheça o Data-Froid e seus limites →</a></p>
     </div>
 
     <img class="site-img" style="margin-top:22px; max-width:760px; margin-left:auto; margin-right:auto; display:block;" src="site-assets/img/home-visao-geral.png" alt="Visão geral do painel do FROID: indicadores médios, últimas sessões e resultados por corte." />
@@ -242,7 +253,7 @@
       <button class="nerds-toggle" data-target="nerds-medicao" aria-expanded="false">Só para Nerds</button>
       <div class="nerds-panel" id="nerds-medicao">
         <h4>Pipeline de captura</h4>
-        <p>Áudio a 48 kHz, janelamento de Hamming, FFT executada no navegador via Web Audio API (não há dependência de DSP no backend Python — apenas FastAPI/DuckDB/LLMs para explicação e transcrição). Vídeo processado localmente, a cerca de 3 leituras faciais por segundo — só os 52 coeficientes sobem ao servidor, nunca imagem ou vídeo.</p>
+        <p>A análise facial ocorre no navegador. A captura acústica envia áudio PCM ao processamento do servidor, e segmentos de áudio podem seguir para transcrição especializada. Os resultados dependem de sinal efetivamente recebido; uma medida sem apuração não é preenchida com valor padrão. Veja o <a href="seguranca.html">caminho dos dados</a>.</p>
         <h4>Campos reais rastreados por sessão</h4>
         <div class="formula">mfcc7, mfcc9, mfcc7_delta, mfcc9_delta, mfcc7_delta_delta, mfcc9_delta_delta,
 f0_mean, f0_var, zcr, jitter_proxy_index, shimmer_proxy_index,
@@ -257,14 +268,14 @@ subharmonic_energy_5_12hz, energy_85_165hz, dna_facial_multiplier</div>
 <section class="block soft" id="data-froid">
   <div class="container">
     <p class="section-kicker">Data-Froid</p>
-    <h2 class="section-title">Cada sessão torna a próxima leitura melhor</h2>
-    <p class="section-lead">O IPM e o IDM não nascem provados. O que os transforma em medida é o acúmulo — e esse acúmulo tem nome, tem regra de anonimato, e tem um destino declarado. É, provavelmente, o resultado de maior alcance de tudo o que o FROID constrói: não uma ferramenta melhor, mas <strong>um tipo de conhecimento que ainda não existia</strong>.</p>
+    <h2 class="section-title">Data-Froid: contexto para pesquisa e consulta</h2>
+    <p class="section-lead">O Data-Froid é a camada de consulta a dados agregados do Psique. Seu objetivo é apoiar a investigação de padrões e das heurísticas do produto. O resultado de cada consulta depende dos registros disponíveis, da apuração das medidas e das regras de privacidade.</p>
 
     <div class="visao-froid">
-      <p class="frase">Nenhuma base de dados do mundo registra o que se passa <em>dentro</em> de uma sessão de saúde mental. É essa camada que o Data-Froid constrói.</p>
-      <p class="rodape">Registros psiquiátricos nacionais, coortes de pesquisa e bases de prontuário existem há décadas, e todos guardam o que acontece <em>em volta</em> da sessão: o diagnóstico atribuído, a medicação prescrita, o desfecho administrativo. O que a voz revelou, o que a face confessou, o que o clínico observou e o que ele fez a respeito — isso nunca foi estruturado em escala. E não foi por desinteresse: <strong>o bloqueio nunca foi de vontade, era de engenharia</strong>, e caiu quando o sinal passou a ser processado onde nasce. <a href="tecnologia.html#data-froid-engenharia">Como isso se tornou possível</a>.</p>
-      <p class="rodape">É essa camada que o Data-Froid acumula, sessão após sessão: <strong>a formação de uma base gigante de informações psíquicas globais</strong> — e a primeira construída sem que ninguém precise entregar o próprio paciente. Ambição declarada, não estado atual, escrita aqui pelo mesmo motivo que esta página separa ciência publicada de metodologia própria: quem diz para onde vai pode ser cobrado pelo caminho. <a href="ciencia.html#data-froid-ciencia">O que ela pode e não pode provar</a>.</p>
-      <p class="rodape">Dela saem duas coisas, e a segunda é a menos óbvia. Uma é a <strong>validação</strong>: o IPM e o IDM deixam de ser heurística à medida que a base permite testá-los. A outra é o <strong>repertório</strong> — o que cada profissional encontra e o que faz a respeito, disponível a todos os outros. Juntas, produzem o efeito que contraria a aritmética: aquele em que 1 + 1 = 3, e que se chama <strong>sinergia</strong>.</p>
+      <p class="frase">A proposta do Data-Froid é organizar indicadores e resumos tratados para pesquisa sobre o que acontece durante a sessão clínica.</p>
+      <p class="rodape">O prontuário identificado e a base de consulta agregada têm finalidades diferentes. A captura da sessão pode envolver processamento no navegador e no servidor; a transcrição pode usar um provedor especializado. Isso não transforma gravações nem prontuários em material de consulta pública. <a href="seguranca.html">Entenda o caminho dos dados</a>.</p>
+      <p class="rodape">A ambição é ampliar o repertório de pesquisa preservando a privacidade. O volume atual de registros e a abrangência geográfica não estão apurados nesta página. <a href="ciencia.html#data-froid-ciencia">O que a base pode e não pode provar</a>.</p>
+      <p class="rodape">As consultas podem oferecer associações observacionais e hipóteses para investigação. Não demonstram, por si, eficácia terapêutica ou causalidade e não produzem uma prescrição individual.</p>
     </div>
 
     <div class="grid-3" style="margin-top:26px;">
@@ -276,15 +287,12 @@ subharmonic_energy_5_12hz, energy_85_165hz, dna_facial_multiplier</div>
       <div class="card">
         <span class="badge badge-strong">Anonimato</span>
         <h3>Grande porque é anônima, não apesar disso</h3>
-        <p>Consultas analíticas exigem coortes de no mínimo <em>k</em> = 50 registros, aplicado no backend — abaixo desse limiar a consulta é recusada. Uma base dessa escala só é defensável assim, e o piso não é caixa marcada numa tela: é regra de servidor.</p>
+        <p>Consultas analíticas exigem coortes acima do limite de privacidade configurado no servidor, aplicado no backend — sem superar esse limite a consulta é recusada. Uma base dessa escala só é defensável assim, e o piso não é caixa marcada numa tela: é regra de servidor.</p>
       </div>
       <div class="card">
         <span class="badge badge-proprietary">O acervo</span>
         <h3>O que um profissional aprende com todos os outros</h3>
-        <p>Um clínico aprende com os próprios casos, e leva anos. A base permite perguntar o que
-        aconteceu em <strong>casos parecidos com este</strong>, atendidos por outras pessoas: se este
-        paciente está acima da média de risco para o perfil dele, que caminhos foram tentados, e o que
-        se associou a melhora. É repertório, não prescrição — o FROID não decide conduta.</p>
+        <p>Consulte padrões de medidas em grupos de sessões elegíveis. A base não fornece prontuários individuais, escore de risco clínico ou previsão de resposta terapêutica. Uma comparação só é útil quando há dados apurados suficientes para a pergunta.</p>
         <p style="margin-top:10px;">Nenhuma dessas consultas devolve um caso: devolve o padrão de um
         grupo, e só acima do piso de coorte. O que atravessa consultórios é o aprendizado, nunca a
         pessoa. <a href="profissionais.html#data-froid">O que isso muda no consultório</a>.</p>
@@ -319,7 +327,7 @@ subharmonic_energy_5_12hz, energy_85_165hz, dna_facial_multiplier</div>
       <button class="nerds-toggle" data-target="nerds-arquitetura" aria-expanded="false">Só para Nerds</button>
       <div class="nerds-panel" id="nerds-arquitetura">
         <h4>Arquitetura do sistema</h4>
-        <p>Frontend em React + Vite + TypeScript (<code>froid-dashboard</code>), backend FastAPI com DuckDB para analytics anônimo e ChromaDB para RAG do assistente "FROID Explica" (<code>froid-server</code>). Transcrição via GPT-4o-transcribe; explicações via Gemini 1.5 Pro/GPT-4o — sempre sobre métricas já calculadas, nunca gerando os valores acústicos.</p>
+        <p>O painel organiza captura, indicadores e relatórios. O servidor processa medidas acústicas, controla o acesso e atende consultas de conhecimento e dados agregados. Transcrição e explicação podem depender de provedores configurados; a IA de linguagem não substitui a medição acústica.</p>
         <h4>Segurança de acesso</h4>
         <p>Controle de acesso profissional por sessão, com consumo de crédito por atendimento e vínculo de titularidade por relatório (<code>_can_access_report</code>, <code>_professional_access_status</code>).</p>
         <div class="ref">Mais sobre segurança e conformidade em <a href="seguranca.html">Segurança</a>.</div>
@@ -331,7 +339,7 @@ subharmonic_energy_5_12hz, energy_85_165hz, dna_facial_multiplier</div>
   <div class="container">
     <p class="section-kicker">O diferencial</p>
     <h2 class="section-title">FROID Explica: a inteligência que conversa com você</h2>
-    <p class="section-lead">Um assistente LLM-RAG que responde, em linguagem clínica, tudo sobre a leitura da sessão — e cruza a sua carteira de pacientes com o Data-Froid anônimo global. Vem com 22 prompts prontos e você ainda cria os seus.</p>
+    <p class="section-lead">O FROID Explica ajuda a interpretar o contexto enviado pela tela e permite perguntas ao Data-Froid agregado. A biblioteca de perguntas e os prompts próprios facilitam a consulta; a existência de uma pergunta não garante que haja dados suficientes para respondê-la.</p>
     <div class="grid-3">
       <div class="card">
         <span class="badge badge-strong">Conhecimento</span>
@@ -340,13 +348,13 @@ subharmonic_energy_5_12hz, energy_85_165hz, dna_facial_multiplier</div>
       </div>
       <div class="card">
         <span class="badge badge-proprietary">Data-Froid</span>
-        <h3>Compara com o mundo</h3>
-        <p>"Este paciente está acima da média em risco?", "casos mais parecidos (top 5)?" — força estatística de milhares de sessões anônimas.</p>
+        <h3>Consulta dados agregados</h3>
+        <p>Pergunte por padrões nas medidas disponíveis. Se a base estiver indisponível ou a coorte não superar o limite de privacidade, a consulta não entrega uma comparação populacional.</p>
       </div>
       <div class="card">
         <span class="badge badge-moderate">Prompts próprios</span>
         <h3>Do seu jeito</h3>
-        <p>Crie prompts na sua área de configurações — e, com o tempo, valide empiricamente IPM, IDM e as demais métricas.</p>
+        <p>Crie perguntas recorrentes em Configurações. Os prompts pessoais ficam no navegador utilizado, separados pelo e-mail do profissional.</p>
       </div>
     </div>
     <div style="margin-top:24px;">
@@ -360,12 +368,12 @@ subharmonic_energy_5_12hz, energy_85_165hz, dna_facial_multiplier</div>
   <div class="container">
     <p class="section-kicker">Transparência · LGPD</p>
     <h2 class="section-title">Portal do Paciente: os dados são seus</h2>
-    <p class="section-lead">Por lei, o paciente é o proprietário das suas informações. O FROID leva isso a sério: um portal próprio, com login separado do profissional, onde o paciente vê e gerencia tudo o que é seu.</p>
+    <p class="section-lead">O paciente tem um acesso próprio para consultar seus dados e autorizações. Os documentos de sessão aparecem após revisão e liberação pelo profissional, com os itens selecionados para essa finalidade.</p>
 
     <div class="grid-3">
       <div class="card">
         <h3>👁️ Veja suas sessões</h3>
-        <p>Resultados das sessões finalizadas: métricas principais, linha de base, cortes/resumos e dissonâncias — a mesma leitura que apoia o seu profissional, agora nas suas mãos.</p>
+        <p>Consulte os documentos liberados pelo profissional. Se uma sessão ainda não aparecer, confirme com ele se a revisão e a liberação já foram concluídas.</p>
       </div>
       <div class="card">
         <h3>🗂️ Gerencie seus dados</h3>
@@ -373,7 +381,7 @@ subharmonic_energy_5_12hz, energy_85_165hz, dna_facial_multiplier</div>
       </div>
       <div class="card">
         <h3>⬇️ Leve com você</h3>
-        <p>Baixe o resultado de cada sessão individualmente ou todos os resultados em um único arquivo — portabilidade real, sem pedidos nem espera.</p>
+        <p>Baixe os registros autorizados disponíveis no portal. A área do paciente não é uma cópia automática da área de trabalho clínica.</p>
       </div>
     </div>
 
@@ -383,7 +391,7 @@ subharmonic_energy_5_12hz, energy_85_165hz, dna_facial_multiplier</div>
       <ul style="margin-top:10px; line-height:1.7;">
         <li>Conexão criptografada (HTTPS/TLS) em toda a sessão — áudio, vídeo e dados trafegam protegidos.</li>
         <li>Transcrições, relatórios e credenciais guardados de forma cifrada, com criptografia autenticada (AES + HMAC) e rotação de chaves.</li>
-        <li>Acesso restrito à titularidade: apenas o seu profissional acessa os seus dados, com trilha de auditoria de cada acesso.</li>
+        <li>Acesso condicionado aos vínculos e às permissões da organização clínica, com auditoria. O acesso empresarial do Psicossocial não dá acesso a prontuários.</li>
         <li>Análise somente com o seu consentimento explícito (TCLE/LGPD), revogável a qualquer momento.</li>
         <li>Estatísticas coletivas usam apenas dados anonimizados e agregados — nunca identificam você.</li>
         <li>Senhas protegidas por hashing (PBKDF2-SHA256), nunca armazenadas em texto legível.</li>
@@ -431,8 +439,8 @@ subharmonic_energy_5_12hz, energy_85_165hz, dna_facial_multiplier</div>
 <section class="block" id="explore">
   <div class="container">
     <p class="section-kicker">Por onde seguir</p>
-    <h2 class="section-title">Quatro caminhos, conforme a sua pergunta</h2>
-    <p class="section-lead">Esta página apresenta o FROID Psique. Cada um dos caminhos abaixo responde a uma pergunta diferente sobre ele — e o último é o que temos de mais ambicioso.</p>
+    <h2 class="section-title">Escolha seu próximo passo</h2>
+    <p class="section-lead">Para atendimento clínico, explore o Psique e seu guia profissional. Para avaliação coletiva do trabalho, siga o percurso do Psicossocial. Pacientes usam o portal próprio; trabalhadores participam pelo convite da campanha.</p>
     <div class="hero-actions" style="justify-content:center; margin-top:24px;">
       <a class="btn btn-solid" href="demonstracao.html">Ver demonstração</a>
       <a class="btn btn-ghost" href="tecnologia.html">Como funciona</a>

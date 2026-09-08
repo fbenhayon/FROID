@@ -4,59 +4,14 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>FROID Explique — l'intelligence clinique de FROID</title>
-<meta name="description" content="FROID Explique est l'assistant LLM-RAG de FROID : répond sur les capacités de la plateforme, propose 22 prompts préconfigurés, permet des prompts personnalisés et croise votre portefeuille de patients avec le Data-Froid anonyme pour valider les métriques IPM, IDM et propriétaires dans le temps." />
+<meta name="description" content="Exemples adaptés aux fonctionnalités actuelles. Les réponses dépendent du contexte, des mesures et de la disponibilité de la base. Il n’existe pas de modèle validé de prédiction thérapeutique individuelle. Les segments automatiques, manuels et finaux peuvent avoir des durées différentes." />
 <link rel="alternate" hreflang="pt-BR" href="https://www.froid.com.br/froid-explica.html" />
 <link rel="alternate" hreflang="en" href="https://www.froid.com.br/en/froid-explica.html" />
 <link rel="alternate" hreflang="fr" href="https://www.froid.com.br/fr/froid-explica.html" />
 <link rel="alternate" hreflang="es" href="https://www.froid.com.br/es/froid-explica.html" />
 <link rel="alternate" hreflang="x-default" href="https://www.froid.com.br/froid-explica.html" />
 <link rel="stylesheet" href="../site-assets/style.css?v=16" />
-<style>
-  /* Zone vidéo réservée (16:9) */
-  .video-frame {
-    position:relative; width:100%; max-width:920px; margin:8px auto 0; aspect-ratio:16/9;
-    border-radius:var(--radius); border:2px dashed var(--froid-cinza);
-    background:repeating-linear-gradient(45deg,#eef1f7,#eef1f7 10px,#f7f8fb 10px,#f7f8fb 20px);
-    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;
-    color:var(--froid-cinza); text-align:center; padding:24px;
-  }
-  .video-frame .play {
-    width:74px; height:74px; border-radius:50%; background:var(--froid-azul);
-    display:flex; align-items:center; justify-content:center; box-shadow:0 8px 24px rgba(59,130,246,.35);
-  }
-  .video-frame .cap { font-size:0.9rem; font-weight:700; letter-spacing:.02em; }
-  .video-frame .sub { font-size:0.82rem; }
 
-  /* Cartes de mode */
-  .mode-card { position:relative; overflow:hidden; }
-  .mode-card .tag { position:absolute; top:16px; right:16px; }
-
-  /* Listes de prompts */
-  .prompt-cols { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
-  @media (max-width:820px){ .prompt-cols { grid-template-columns:1fr; } }
-  .prompt-group { background:#1e293b; border:1px solid #334155; border-radius:var(--radius); padding:22px 24px; }
-  .prompt-group h3 { margin:0 0 4px; }
-  .prompt-group .desc { color:var(--froid-cinza); font-size:0.88rem; margin:0 0 14px; }
-  .prompt-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:9px; counter-reset:pl; }
-  .prompt-list li { display:flex; gap:10px; align-items:flex-start; font-size:0.93rem; line-height:1.5; }
-  .prompt-list li::before {
-    counter-increment:pl; content:counter(pl);
-    flex:0 0 auto; width:22px; height:22px; border-radius:6px; background:var(--paper-soft);
-    border:1px solid var(--border); color:var(--froid-azul); font-size:0.72rem; font-weight:800;
-    display:flex; align-items:center; justify-content:center; margin-top:1px;
-  }
-  .prompt-list.analytics li::before { color:#3730a3; background:#e0e7ff; border-color:#c7d2fe; }
-
-  /* Statistiques du Data-Froid */
-  .dm-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin:8px 0 4px; }
-  @media (max-width:760px){ .dm-stats { grid-template-columns:1fr 1fr; } }
-  .dm-stat { background:#0a1226; border:1px solid #2a3a5c; border-radius:12px; padding:18px 16px; text-align:center; }
-  .dm-stat .n { font-size:1.7rem; font-weight:800; color:#7dd3fc; font-variant-numeric:tabular-nums; }
-  .dm-stat .l { font-size:0.76rem; color:#9fb0d1; margin-top:2px; }
-  .dm-panel { background:radial-gradient(ellipse at top,#0c1330,#05070f); color:#dbe4ff; border-radius:18px; padding:34px; }
-  .dm-panel h2 { color:#fff; }
-  .dm-panel .section-lead { color:rgba(219,228,255,.72); }
-</style>
 </head>
 <body>
 
@@ -80,7 +35,7 @@
           </div>
           <div class="nav-drop-col">
             <a class="nav-drop-pagina ativo" role="menuitem" href="froid-explica.html">FROID Explique</a>
-            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#prompts">22 prompts préconfigurés, prêts pour la séance</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#prompts">prompts préconfigurés, prêts pour la séance</a>
             <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#datamart">Le Data-Froid</a>
           </div>
           </div>
@@ -167,9 +122,9 @@
   <div class="container">
     <p class="section-kicker" style="color:#93c5fd;">Le différenciateur FROID</p>
     <h1 style="font-size:2.3rem;">FROID Explique : l'intelligence qui connaît FROID <em>et</em> votre pratique</h1>
-    <p class="lead">Un assistant IA à génération augmentée par récupération (LLM-RAG) qui répond, en langage clinique, à tout ce dont le professionnel a besoin pour explorer les capacités de la plateforme pendant la séance — et qui croise votre portefeuille de patients avec le Data-Froid anonyme mondial.</p>
+    <p>Data-Froid permet des requêtes agrégées sur des enregistrements admissibles. Le volume actuel n’est pas mesuré sur cette page. La base ne fournit pas les dossiers cliniques individuels d’autres personnes. Une mesure absente n’est pas zéro ; les requêtes dépendent de la base et du seuil de cohorte du serveur.</p>
     <div class="hero-actions">
-      <a class="btn btn-solid" href="#prompts">Voir les 22 prompts</a>
+      <a class="btn btn-solid" href="#prompts">Voir les prompts</a>
       <a class="btn btn-ghost" href="#datamart">Découvrir le Data-Froid</a>
     </div>
   </div>
@@ -203,13 +158,13 @@
       <div class="card mode-card">
         <span class="badge badge-proprietary tag">Analytique · Data-Froid</span>
         <h3>Compare avec la base populationnelle</h3>
-        <p>Requêtes analytiques sur le Data-Froid anonyme : « ce patient est-il au-dessus de la moyenne en risque ? », « cas les plus similaires (top 5) », « interventions les plus efficaces pour des profils similaires ». L'intelligence de votre portefeuille rencontre l'intelligence de milliers de séances — sans DCP.</p>
+        <p>Data-Froid permet des requêtes agrégées sur des enregistrements admissibles. Le volume actuel n’est pas mesuré sur cette page. La base ne fournit pas les dossiers cliniques individuels d’autres personnes. Une mesure absente n’est pas zéro ; les requêtes dépendent de la base et du seuil de cohorte du serveur.</p>
       </div>
     </div>
     <div class="card" style="margin-top:24px;">
       <span class="badge badge-proprietary">Cadre propriétaire FROID</span>
       <h3>Ce que Explique voit : l'état consolidé de l'écran</h3>
-      <p>Chaque requête à FROID Explique reçoit l'<strong>état consolidé affiché à l'écran</strong> — la fenêtre clinique glissante de la <a href="tecnologia.html">Stabilisation Clinique de l'Écran</a> (par défaut : 5 minutes, moyenne pondérée temporelle) — avec accès aux données brutes récentes si nécessaire. Ainsi, la réponse de l'IA porte sur exactement ce que le professionnel voit, sans écart entre l'écran et l'analyse.</p>
+      <p>Data-Froid permet des requêtes agrégées sur des enregistrements admissibles. Le volume actuel n’est pas mesuré sur cette page. La base ne fournit pas les dossiers cliniques individuels d’autres personnes. Une mesure absente n’est pas zéro ; les requêtes dépendent de la base et du seuil de cohorte du serveur.</p>
       <p style="font-size:0.9rem; color:var(--froid-cinza);">Cette définition, comme d'autres algorithmes propriétaires, est documentée dans des références internes consultées par le moteur RAG — ex. : <code>FROID_Estabilizacao_Clinica_Da_Tela.md</code>, qui enregistre la métrique, les mathématiques des poids et le raisonnement clinique du module.</p>
     </div>
     <p style="margin-top:18px; font-size:0.9rem; color:var(--froid-cinza);">Moteur de langage fondé sur des modèles de dernière génération (ex. : Gemini / GPT-4o), avec vérification de sécurité à chaque réponse. Détails d'architecture dans <a href="tecnologia.html">Technologie</a> et confidentialité dans <a href="seguranca.html">Sécurité</a>.</p>
@@ -219,9 +174,9 @@
 <!-- INTELLIGENCE DU PORTEFEUILLE -->
 <section class="block">
   <div class="container">
-    <p class="section-kicker">Intelligence du portefeuille</p>
+    <p>Data-Froid permet des requêtes agrégées sur des enregistrements admissibles. Le volume actuel n’est pas mesuré sur cette page. La base ne fournit pas les dossiers cliniques individuels d’autres personnes. Une mesure absente n’est pas zéro ; les requêtes dépendent de la base et du seuil de cohorte du serveur.</p>
     <h2 class="section-title">De la lecture d'une séance à la conduite qui distingue votre cabinet</h2>
-    <p class="section-lead">FROID Explique ne se limite pas à expliquer une séance isolée. Pendant et après la consultation, il lit la transcription — avec la parole du patient et du professionnel séparées —, les biomarqueurs et l'historique, et croise ce matériel avec votre portefeuille. C'est là que naît la différence : <strong>des associations que personne ne ferait à la main, des schémas qui n'émergent que lorsqu'on regarde l'ensemble, et la base pour élaborer votre propre conduite clinique.</strong></p>
+    <p>Data-Froid permet des requêtes agrégées sur des enregistrements admissibles. Le volume actuel n’est pas mesuré sur cette page. La base ne fournit pas les dossiers cliniques individuels d’autres personnes. Une mesure absente n’est pas zéro ; les requêtes dépendent de la base et du seuil de cohorte du serveur.</p>
     <div class="grid-3">
       <div class="card">
         <span class="badge badge-strong">Associations</span>
@@ -243,104 +198,23 @@
   </div>
 </section>
 
-<!-- 22 PROMPTS -->
-<section class="block" id="prompts">
-  <div class="container">
-    <p class="section-kicker">Bibliothèque de prompts</p>
-    <h2 class="section-title">22 prompts préconfigurés, prêts pour la séance</h2>
-    <p class="section-lead">Un clic dans le panneau déclenche l'un d'entre eux. La moitié lit la séance en profondeur ; l'autre moitié croise le patient avec la base populationnelle anonyme.</p>
-
-    <div class="prompt-cols">
-      <div class="prompt-group">
-        <h3>Lecture clinique de la séance</h3>
-        <p class="desc">Interprétation argumentée des indicateurs actuels (moteur de connaissance / RAG).</p>
-        <ol class="prompt-list">
-          <li>Expliquez la lecture clinique des zones dominantes de cette séance.</li>
-          <li>Que suggère l'IPM actuel sur l'énergie émotionnelle du patient ?</li>
-          <li>Comment interpréter les dissonances faciales-vocales observées ?</li>
-          <li>Quels marqueurs bioacoustiques méritent l'attention en ce moment ?</li>
-          <li>Expliquez la différence entre l'IPM et l'IDM pour cette séance.</li>
-          <li>Quelles questions cliniques pourraient approfondir cette lecture ?</li>
-          <li>Expliquez le résumé général de la séance et ses segments de 10 minutes.</li>
-          <li>Quels changements sont survenus entre la ligne de base et la moyenne de séance ?</li>
-          <li>Quelles dissonances enregistrées exigent une attention clinique accrue ?</li>
-          <li>Comment interpréter les biomarqueurs acoustiques de cette séance ?</li>
-        </ol>
-      </div>
-      <div class="prompt-group">
-        <h3>Comparaison avec le Data-Froid</h3>
-        <p class="desc">Croisement du patient avec la base populationnelle anonyme (moteur analytique).</p>
-        <ol class="prompt-list analytics">
-          <li>Comment ce patient se compare-t-il à la moyenne populationnelle en Zones FROID ?</li>
-          <li>Identifier les schémas atypiques comparés à la base de données.</li>
-          <li>Ce patient est-il au-dessus ou en dessous de sa propre ligne de base sur les motifs mesurés ?</li>
-          <li>Progrès des dernières séances par rapport à la population.</li>
-          <li>Vitesse d'amélioration comparée à des cas similaires.</li>
-          <li>Profil vocal-facial similaire à quelles conditions dans la base ?</li>
-          <li>Cas les plus similaires à ce patient (top 5).</li>
-          <li>Interventions les plus efficaces pour des profils similaires.</li>
-          <li>Prédiction de réponse thérapeutique fondée sur des cas analogues.</li>
-          <li>Alertes : schémas de risque identifiés dans la base populationnelle.</li>
-          <li>Ce patient se compare-t-il à la base populationnelle anonyme ?</li>
-          <li>Quels schémas apparaissent dans des cas similaires de la base anonyme ?</li>
-        </ol>
-      </div>
-    </div>
-  </div>
+<!-- PROMPTS -->
+<section class="block soft" id="prompts">
+<div class="container"><h2 class="section-title">Questions pour explorer FROID Explica</h2><p class="section-lead">Exemples adaptés aux fonctionnalités actuelles. Les réponses dépendent du contexte, des mesures et de la disponibilité de la base. Il n’existe pas de modèle validé de prédiction thérapeutique individuelle. Les segments automatiques, manuels et finaux peuvent avoir des durées différentes.</p><div class="card"><ul><li>Expliquez IPM et IDM dans cette séance.</li><li>Quelles mesures sont indisponibles dans ce segment ?</li><li>Que change la moyenne de séance par rapport à la référence initiale ?</li><li>Comment la capture peut-elle affecter l’interprétation ?</li><li>Combien de séances mesurées étayent la comparaison agrégée ?</li><li>Quels profils de dissonance apparaissent dans la base anonyme ?</li></ul></div></div>
 </section>
 
 <!-- PROMPTS PERSONNALISÉS -->
-<section class="block soft">
-  <div class="container">
-    <p class="section-kicker">Personnalisation</p>
-    <h2 class="section-title">Créez vos propres prompts</h2>
-    <div class="grid-2">
-      <div>
-        <p>Dans son espace de configuration, le professionnel enregistre ses propres prompts — des questions récurrentes de son approche, de son cadre théorique ou de sa patientèle spécifique. Ils restent sauvegardés sur son compte et accessibles en un clic, aux côtés des 22 prompts natifs.</p>
-        <p>Chaque prompt personnalisé peut interroger à la fois <strong>votre portefeuille de patients</strong> et le <strong>Data-Froid anonyme</strong> — combinant ce que vous seul savez de vos cas avec la puissance statistique de milliers de séances dans le monde. C'est ce croisement qui crée le grand différenciateur : plus le réseau grandit, plus vos questions obtiennent des réponses fondées empiriquement.</p>
-        <ul>
-          <li>Prompts personnels enregistrés par professionnel, dans l'espace de configuration</li>
-          <li>Accès à votre propre portefeuille + à la base populationnelle anonyme</li>
-          <li>Au fil du temps, ils valident empiriquement l'IPM, l'IDM et les autres métriques propriétaires</li>
-        </ul>
-      </div>
-      <div class="card">
-        <span class="badge badge-proprietary">Exemple de prompt personnalisé</span>
-        <h3 style="margin-top:10px;">« Mes patients avec une baisse d'IPM »</h3>
-        <p style="color:var(--froid-cinza);">« Parmi mes patients, lesquels ont eu une baisse soutenue de l'IPM lors des 3 dernières séances, et comment ce schéma se compare-t-il à des cas analogues dans le Data-Froid ? »</p>
-        <p style="font-size:0.86rem; color:var(--froid-cinza); margin-top:12px;">L'assistant combine la lecture de votre portefeuille avec la base anonyme et renvoie une réponse argumentée — la décision clinique reste la vôtre.</p>
-      </div>
-    </div>
-    <figure class="site-fig" style="margin-top:28px;">
-      <img class="site-img" src="../site-assets/img/explica-prompts-proprios.png" alt="Écran de configuration des prompts personnalisés du professionnel : champ de titre court, champ de prompt complet et bouton d'enregistrement." />
-      <figcaption>Espace de configuration : le professionnel crée et enregistre ses propres prompts, liés à son compte, aux côtés des 22 prompts natifs.</figcaption>
-    </figure>
-  </div>
+<section class="block" id="personalizacao">
+<div class="container"><h2 class="section-title">Prompts personnels dans le navigateur</h2><div class="card"><p>Dans les paramètres, enregistrez le titre et le texte d’une question. Les prompts personnels sont conservés dans le navigateur actuel, séparés par l’adresse du professionnel. Cette fonction n’offre pas de synchronisation confirmée entre appareils.</p></div></div>
 </section>
 
 <!-- DATA-FROID -->
-<section class="block" id="datamart">
-  <div class="container">
-    <div class="dm-panel">
-      <p class="section-kicker" style="color:#93c5fd;">La base qui apprend du monde</p>
-      <h2 class="section-title" style="color:#fff;">Le Data-Froid : la plus grande base de perception clinique anonyme</h2>
-      <p class="section-lead">Un référentiel croissant contenant la transcription et les signaux anonymisés de milliers de séances réalisées dans le monde entier — dépourvu de toute information personnelle (DCP) — conçu pour être exploré par des modèles à très grande échelle à la recherche de nouvelles pistes, métriques et associations cliniques.</p>
-
-      <div class="dm-stats">
-        <div class="dm-stat"><div class="n">Milliers</div><div class="l">de séances anonymisées</div></div>
-        <div class="dm-stat"><div class="n">k ≥ 50</div><div class="l">k-anonymat garanti</div></div>
-        <div class="dm-stat"><div class="n">0 DCP</div><div class="l">hachages à sens unique</div></div>
-        <div class="dm-stat"><div class="n">1,2 mille mds</div><div class="l">paramètres d'analyse</div></div>
-      </div>
-
-      <p style="margin-top:20px; color:rgba(219,228,255,.82);">À mesure que le réseau grandit, ce corpus est analysé par des intelligences dotées de plus de <strong>1,2 mille milliards de paramètres</strong>, capables de cartographier des associations qu'aucune séance isolée ne révélerait — et de convertir progressivement les heuristiques de l'IPM et de l'IDM en métriques statistiquement validées. C'est le moteur de validation populationnelle de FROID.</p>
-      <p style="margin-top:12px; font-size:0.9rem; color:rgba(219,228,255,.6);"><strong>Engagement d'honnêteté :</strong> le Data-Froid est le chemin vers la validation dans le temps, pas une preuve déjà établie. Aujourd'hui, l'IPM et l'IDM demeurent des paramètres d'ingénierie qualifiés ; la base grandit pour les prouver. Anonymisation et limites décrites dans <a href="etica.html" style="color:#93c5fd;">Éthique</a> et <a href="seguranca.html" style="color:#93c5fd;">Sécurité</a>.</p>
-    </div>
-  </div>
+<section class="block soft" id="datamart">
+<div class="container"><h2 class="section-title">Data-Froid : requêtes agrégées et limites explicites</h2><p class="section-lead">Data-Froid permet des requêtes agrégées sur des enregistrements admissibles. Le volume actuel n’est pas mesuré sur cette page. La base ne fournit pas les dossiers cliniques individuels d’autres personnes. Une mesure absente n’est pas zéro ; les requêtes dépendent de la base et du seuil de cohorte du serveur.</p><div class="disclaimer-box">IPM et IDM restent des heuristiques du produit. Une base observationnelle peut soutenir la recherche ; le volume des données et la taille du modèle ne prouvent ni validité clinique ni efficacité thérapeutique.</div></div>
 </section>
 
 <!-- CTA -->
-<section class="block soft">
+<section class="block">
   <div class="container">
     <h2 class="section-title">Explorez FROID Explique en pratique</h2>
     <p class="section-lead">Voyez la démonstration interactive ou échangez avec l'équipe au sujet d'un pilote.</p>

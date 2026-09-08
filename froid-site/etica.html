@@ -291,7 +291,7 @@
       <div class="card">
         <h3>Auditoria de viés via Data-Froid anônimo</h3>
         <p>Os pesos e thresholds do IPM e do IDM são apresentados honestamente como parâmetros de engenharia qualificados — heurísticas proprietárias, não verdades biológicas imutáveis. Sua validação usa o acúmulo de dados anonimizados para estudos de desvio demográfico (por exemplo, auditar se o padrão de transição do ΔΔMFCC9 se mantém entre faixas etárias e sotaques regionais do Brasil).</p>
-        <p style="font-size:0.9rem; color:var(--froid-cinza); margin-top:10px;">Consultas analíticas sobre o Data-Froid exigem coortes de no mínimo <em>k</em> = 50 registros (k-anonimato), aplicado tecnicamente no backend — abaixo desse limiar, a consulta é recusada. Isso reduz substancialmente, mas não elimina por completo, o risco de reidentificação. Ver arquitetura em <a href="seguranca.html">Segurança</a>.</p>
+        <p style="font-size:0.9rem; color:var(--froid-cinza); margin-top:10px;">Consultas analíticas sobre o Data-Froid exigem coortes acima do limite de privacidade configurado no servidor (k-anonimato), aplicado tecnicamente no backend — sem superar esse limite, a consulta é recusada. Isso reduz substancialmente, mas não elimina por completo, o risco de reidentificação. Ver arquitetura em <a href="seguranca.html">Segurança</a>.</p>
       </div>
     </div>
     <div class="disclaimer-box" style="margin-top:24px;">
