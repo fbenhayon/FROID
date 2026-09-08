@@ -25,6 +25,28 @@ legítimo:
 > Quando não existe a capacidade de apuração, informar "Sem Capacidade de
 > Apuração". Nunca jamais supor ou inventar absolutamente nada.
 
+Reafirmada pelo dono em 08/09/2026, com um verbo a mais:
+
+> não deve "supor, inventar ou chutar nada".
+
+Os três não são sinônimos, e a diferença importa porque cada um falha num
+lugar diferente do código:
+
+- **supor** — preencher o que não foi apurado. O default silencioso, o
+  `|| 0`, o carry-forward. É o mais fácil de achar: procure operador de
+  fallback em caminho de medida.
+- **inventar** — publicar como medida algo que não veio de medida nenhuma. O
+  `np.random.choice` de tom que rodava sempre, inclusive com áudio real
+  chegando, e os quatro campos derivados dele.
+- **chutar** — escolher número sem dado que o sustente: limiar, peso, faixa,
+  piso de coorte, teto de tokens. Se o dado ainda não existe, diga que não
+  existe e diga qual medição o produziria (§5).
+
+O corolário vale para os três: **não fazer nada disso não é o mesmo que
+recusar-se a responder.** A saída correta é declarar a ausência com o nome que
+ela tem e dizer o que faltou — "Sem Capacidade de Apuração", e não silêncio,
+não meia frase, não um número modesto para não ficar vazio.
+
 Na prática isto proíbe mais coisas do que parece:
 
 - `_safe_float(value, default=0.0)` — ausência vira zero na gravação, e `0,00`
