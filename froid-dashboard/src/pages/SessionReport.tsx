@@ -1308,7 +1308,7 @@ export const SessionReport: React.FC<Props> = () => {
         </div>
       </header>
 
-      <main className="mx-auto grid max-w-7xl items-start gap-4 p-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <main className="mx-auto grid max-w-7xl items-start gap-4 p-6 lg:grid-cols-[minmax(0,1fr)_460px]">
         <div className="min-w-0 space-y-4">
           <section className="rounded-lg border border-blue-800 bg-blue-950 p-4">
             <div className="mb-3">
@@ -1724,7 +1724,7 @@ export const SessionReport: React.FC<Props> = () => {
         </div>
 
         <aside className="min-w-0 space-y-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
-          <section className="min-h-[520px] rounded-lg border border-slate-700 bg-slate-900 p-3">
+          <section className="min-h-[680px] rounded-lg border border-slate-700 bg-slate-900 p-3">
             <AIInsights
               zones={report.sessionAverage.zones || []}
               ipmScore={report.sessionAverage.ipmAvg}
@@ -1734,7 +1734,7 @@ export const SessionReport: React.FC<Props> = () => {
               responseLocale={locale}
               extraContext={reportContext}
               controlsSticky
-              messagesClassName="min-h-[300px]"
+              messagesClassName="min-h-[460px]"
             />
           </section>
 

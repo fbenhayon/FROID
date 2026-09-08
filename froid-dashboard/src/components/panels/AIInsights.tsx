@@ -393,11 +393,22 @@ export const AIInsights: React.FC<Props> = ({
             key={`${message.role}-${index}`}
             className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
           >
+            {/*
+              A resposta e a pergunta pedem larguras e corpos diferentes.
+              Ate 08/09/2026 as duas eram `max-w-[92%] text-[11px] leading-snug`
+              — dentro de uma coluna de 360px isso dava ~330px de linha, com
+              onze pixels e entrelinha apertada, para um texto de tres
+              paragrafos que o profissional le com um paciente esperando. Ele
+              relatou o obvio: "os resultados estao dificeis de ler".
+
+              A pergunta continua curta e estreita, porque ela e sempre de uma
+              linha ou duas e o recuo a direita e o que separa quem falou.
+            */}
             <div
-              className={`max-w-[92%] rounded-xl px-3 py-2 text-[11px] leading-snug whitespace-pre-wrap ${
+              className={`rounded-xl px-3 py-2 whitespace-pre-wrap ${
                 message.role === "user"
-                  ? "rounded-br-none bg-blue-600 text-white"
-                  : "rounded-bl-none border border-slate-700 bg-slate-900 text-slate-200 shadow-sm"
+                  ? "max-w-[92%] rounded-br-none bg-blue-600 text-[11px] leading-snug text-white"
+                  : "w-full rounded-bl-none border border-slate-700 bg-slate-900 text-[13px] leading-relaxed text-slate-100 shadow-sm"
               }`}
             >
               <p className="mb-0.5 text-[9px] font-semibold opacity-80">

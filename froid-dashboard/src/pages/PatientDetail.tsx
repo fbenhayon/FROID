@@ -247,7 +247,7 @@ export const PatientDetail: React.FC = () => {
         </div>
       </header>
 
-      <main className="mx-auto grid max-w-7xl items-start gap-3 p-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <main className="mx-auto grid max-w-7xl items-start gap-3 p-4 lg:grid-cols-[minmax(0,1fr)_460px]">
         <div className="space-y-3">
           <section className="rounded-lg border border-blue-800 bg-blue-950 p-3">
             <div className="mb-3">
@@ -589,7 +589,7 @@ export const PatientDetail: React.FC = () => {
             </div>
           </section>
 
-          <section className="min-h-[360px] rounded-lg border border-slate-800 bg-slate-900 p-3">
+          <section className="min-h-[560px] rounded-lg border border-slate-800 bg-slate-900 p-3">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-bold text-slate-100">FROID Explica</h2>
@@ -613,7 +613,7 @@ export const PatientDetail: React.FC = () => {
               responseLocale={locale}
               extraContext={context}
               controlsSticky
-              messagesClassName="min-h-[190px]"
+              messagesClassName="min-h-[400px]"
             />
           </section>
 
