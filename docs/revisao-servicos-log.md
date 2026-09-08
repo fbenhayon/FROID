@@ -3,6 +3,31 @@
 Uma linha por rodada. A rodada encerra quando a lista de defeitos zera — não por
 autoavaliação. Ver `.claude/skills/revisar-servicos/SKILL.md`.
 
+## Rodada 10 — 07/09/2026 — percursos dos dois produtos
+
+**Fontes e escopo:** [revisão do site contra o código](revisao-site-produtos-2026-09-07.md).
+
+Defeitos fechados nesta rodada: entrada que privilegiava apenas o produto clínico;
+instruções incompletas de cadastro e liberação ao paciente; compartilhamento clínico
+descrito como não implementado; prompts locais anunciados como salvos na conta;
+lista antiga do Explica com previsão terapêutica e contagem divergente; tamanho
+de modelo e acervo sem apuração; captura descrita como exclusivamente local;
+cronograma de campanha apresentado como prazo universal; encerramento sem explicar
+irreversibilidade e portões; dispensa de PGR generalizada; simulação de índices e
+relatório fictício nas demonstrações; índice que ignorava IDs nos títulos.
+
+Verificação: `python docs/verificar-site.py` → 84 páginas, 7.291 links locais,
+98 âncoras do menu, 16 scripts embutidos, 0 falhas. Casos inválidos de tags e IDs
+duplicados foram rejeitados pelo verificador. Sintaxe de `navigation.js` e
+`git diff --check` passaram. Os 17 testes existentes de espelhos da calculadora
+e de preços NR-1 passaram, sem alteração de testes.
+
+O relatório associado delimita a revisão: produção, validação visual e revisão
+externa integral das alegações científicas e jurídicas não foram executadas.
+Termos e Privacidade mantêm o conteúdo anterior. O item histórico da rodada 5
+sobre processamento local foi tratado na descrição do caminho real de captura
+e transcrição, sem supor configuração de produção. Sem commit ou deploy.
+
 ---
 
 ## Rodada 1 — 31/08/2026
