@@ -208,6 +208,19 @@ indistinguível de perda de funcionalidade.
 
 ## 5. Conduta na entrega
 
+Determinacao do dono, 06/09/2026, depois de uma entrega que eu declarei
+pronta estando pela metade:
+
+> nunca jamais deixe pela metade ou mesmo inconcluido a finaliização de um procedimento. comentarios como "procedimento totalmente inadeguado e inaceitavel "E você está certo: eu não corrigi tudo. Deixa eu mostrar o que faltou."" são absolutamente inaceitaveis jamais deixe uma situaçao deploravel como essa acontecer novamente.
+
+Ela estava escrita no frontmatter deste arquivo, entre `description:` e o
+`---`. Ali ela nao chegava a lugar nenhum: o YAML leu a frase como uma
+TERCEIRA CHAVE do cabecalho — os dois-pontos dentro das aspas partiram a
+linha em chave e valor — e o corpo carregado na sessao nunca a continha.
+Instrucao no lugar errado e indistinguivel de instrucao dada, e essa e a
+propria falha que ela descreve. Movida para ca em 08/09/2026, sem alterar
+uma palavra.
+
 - **Trabalhe em grupos.** Tarefa grande dividida em frentes independentes, uma
   por vez. Acumular contextos diversos degrada a qualidade antes de degradar
   qualquer outra coisa. Quando um grupo pede uma sessão nova, diga isso.
