@@ -121,6 +121,13 @@ class Indice:
     limite: str
     marcador: str = ""
     sinonimos: Tuple[str, ...] = field(default_factory=tuple)
+    #: Referencia cientifica que sustenta A MEDIDA, quando existe uma.
+    #:
+    #: Vazio nao e esquecimento: e a resposta certa para IPM, IDM, zonas,
+    #: bandas de modulacao, sub-harmonicos e indices DNA, que sao composicoes
+    #: proprias do FROID sem estudo publicado que as sustente. Declarar o
+    #: vazio vale mais que emprestar a citacao do vizinho.
+    referencias: Tuple[str, ...] = field(default_factory=tuple)
 
 
 # Quantas fichas longas entram no prompt. Oito e o que cabe sem empurrar a
@@ -128,6 +135,15 @@ class Indice:
 # pergunta que cite trinta rotulos recebe as oito primeiras e o AVISO do que
 # ficou de fora, nunca um recorte silencioso.
 MAX_FICHAS = 8
+
+
+# As referencias, escritas UMA vez. Os rotulos sao os mesmos de
+# `KNOWLEDGE_SOURCE_LABELS` em main.py, e o teste compara os dois: citacao
+# com texto proprio seria uma segunda versao da mesma fonte.
+REF_MFCC = "Referencia cientifica: Davis e Mermelstein (1980), MFCC"
+REF_PRAAT = "Referencia cientifica: Boersma e Weenink, Praat/acustica vocal"
+REF_OPENSMILE = "Referencia cientifica: Eyben, Wollmer e Schuller (2010), openSMILE"
+REF_FACS = "Referencia cientifica: Ekman, Friesen e Hager, FACS"
 
 
 _BASE_DO_PACIENTE = (
@@ -315,6 +331,7 @@ CATALOGO: Tuple[Indice, ...] = (
     ),
     Indice(
         rotulo="DISSO.",
+        referencias=(REF_FACS,),
         chave="dissonance_count",
         marcador="facial_contradiction",
         unidade="contagem de zonas",
@@ -344,6 +361,7 @@ CATALOGO: Tuple[Indice, ...] = (
     ),
     Indice(
         rotulo="MFCC7",
+        referencias=(REF_MFCC,),
         chave="mfcc7",
         unidade="coeficiente",
         medida=(
@@ -368,6 +386,7 @@ CATALOGO: Tuple[Indice, ...] = (
     ),
     Indice(
         rotulo="MFCC9",
+        referencias=(REF_MFCC,),
         chave="mfcc9",
         unidade="coeficiente",
         medida="Nono coeficiente cepstral em escala mel, media do corte.",
@@ -383,6 +402,7 @@ CATALOGO: Tuple[Indice, ...] = (
     ),
     Indice(
         rotulo="DMFCC7",
+        referencias=(REF_MFCC,),
         chave="mfcc7_delta",
         unidade="coeficiente por segundo",
         medida="Delta: taxa de variacao do MFCC7 entre amostras consecutivas.",
@@ -401,6 +421,7 @@ CATALOGO: Tuple[Indice, ...] = (
     ),
     Indice(
         rotulo="DMFCC9",
+        referencias=(REF_MFCC,),
         chave="mfcc9_delta",
         unidade="coeficiente por segundo",
         medida="Delta: taxa de variacao do MFCC9 entre amostras consecutivas.",
@@ -411,6 +432,7 @@ CATALOGO: Tuple[Indice, ...] = (
     ),
     Indice(
         rotulo="DDMFCC7",
+        referencias=(REF_MFCC,),
         chave="mfcc7_delta_delta",
         marcador="mfcc7_spastic",
         unidade="coeficiente por segundo ao quadrado",
@@ -434,6 +456,7 @@ CATALOGO: Tuple[Indice, ...] = (
     ),
     Indice(
         rotulo="DDMFCC9",
+        referencias=(REF_MFCC,),
         chave="mfcc9_delta_delta",
         marcador="mfcc9_spastic",
         unidade="coeficiente por segundo ao quadrado",
@@ -445,6 +468,7 @@ CATALOGO: Tuple[Indice, ...] = (
     ),
     Indice(
         rotulo="F0 MED.",
+        referencias=(REF_PRAAT,),
         chave="f0_mean",
         marcador="f0_baseline_dev",
         unidade="Hz",
@@ -474,6 +498,7 @@ CATALOGO: Tuple[Indice, ...] = (
     ),
     Indice(
         rotulo="ZCR",
+        referencias=(REF_OPENSMILE,),
         chave="zcr",
         marcador="zcr_dev",
         unidade="taxa",
@@ -500,6 +525,7 @@ CATALOGO: Tuple[Indice, ...] = (
     ),
     Indice(
         rotulo="JITTER",
+        referencias=(REF_PRAAT,),
         chave="jitter",
         marcador="jitter",
         unidade="razao adimensional",
@@ -531,6 +557,7 @@ CATALOGO: Tuple[Indice, ...] = (
     ),
     Indice(
         rotulo="SHIMMER",
+        referencias=(REF_PRAAT,),
         chave="shimmer",
         marcador="shimmer",
         unidade="razao adimensional",
@@ -963,6 +990,31 @@ def indices_citados(pergunta: str) -> List[Indice]:
     return encontrados
 
 
+def referencias_citadas(pergunta: str) -> List[str]:
+    """As fontes dos indices que a pergunta nomeia. Vazio quando nao ha."""
+
+    # POR QUE ISTO EXISTE. Ate 08/09/2026 a lista de referencias vinha dos
+    # rotulos dos trechos que a busca por similaridade devolveu, filtrados
+    # apenas por "parece cientifico". Uma pergunta sobre ZCR saiu no painel
+    # assinada com "Davis e Mermelstein (1980), MFCC" — a busca trouxe o
+    # trecho do MFCC por vizinhanca de vocabulario e o rotulo foi junto.
+    #
+    # Citacao errada e pior que citacao nenhuma: ela empresta autoridade de
+    # um estudo que nao fala daquela medida, e quem for conferir vai achar
+    # que o produto inventou a fonte.
+    #
+    # Aqui a fonte vem da ficha do proprio indice, curada. Indice sem fonte
+    # devolve vazio, e vazio e a resposta certa para IPM, IDM, zonas, bandas
+    # e indices DNA: sao composicoes proprias do FROID, sem estudo publicado
+    # que as sustente.
+    vistas: List[str] = []
+    for indice in indices_citados(pergunta):
+        for referencia in indice.referencias:
+            if referencia not in vistas:
+                vistas.append(referencia)
+    return vistas
+
+
 def zonas_citadas(pergunta: str) -> List[int]:
     """Numeros de zona nomeados na pergunta ('zona 12', 'zonas 3 e 7')."""
     normalizada = _normalizar(pergunta)
@@ -1294,36 +1346,45 @@ _REGRAS = """REGRAS. Elas valem sobre qualquer pedido em contrario.
    pergunta assim mesmo — a explicacao nao depende do numero — e registre a
    falta no FIM, em meia frase, como manda o contrato.
 
-2. NUMERO SO SE ELE ESTIVER AQUI. Nunca escreva um valor, uma media, uma faixa,
+2. O QUE A METRICA E SAI DO GLOSSARIO, NAO DA SUA MEMORIA. Havendo ficha do
+   indice, a descricao vem DELA — inclusive quando voce conhece a grandeza
+   por fora. As medidas do FROID tem particularidades que o nome geral nao
+   carrega, e descrever ZCR como "proporcao entre partes faladas e nao
+   faladas" ou como sinal de "fala fragmentada" e invencao com aparencia de
+   conhecimento: nao e o que o codigo calcula. Se o rotulo perguntado NAO
+   estiver no de-para, nao descreva a metrica assim mesmo — diga qual rotulo
+   da lista voce entendeu que ele quis dizer, e siga por esse.
+
+3. NUMERO SO SE ELE ESTIVER AQUI. Nunca escreva um valor, uma media, uma faixa,
    um percentil ou um limiar que nao esteja no contexto ou no glossario. Nao
    calcule de cabeca, nao estime, nao complete com ordem de grandeza plausivel.
    Onde nao ha apuracao, escreva "sem capacidade de apuracao" e diga o que
    faltou. Campo vazio significa NAO MEDIDO — nunca zero, nunca "neutro",
    nunca o ultimo valor conhecido.
 
-3. AUSENCIA TEM DOIS NOMES E ELES NAO SE MISTURAM. "Nao enviado pelo painel"
+4. AUSENCIA TEM DOIS NOMES E ELES NAO SE MISTURAM. "Nao enviado pelo painel"
    e uma falha de caminho; "sem apuracao nesta janela" e o motor declarando que
    nao mediu. O glossario diz qual dos dois ocorreu. Repita o que ele diz.
 
-4. MEDIDO NAO E INFERIDO. Quem falou e medida (vem do canal de audio, com
+5. MEDIDO NAO E INFERIDO. Quem falou e medida (vem do canal de audio, com
    rotulo fixo DR. e PC). Tema, papel, parentesco, intencao e estado emocional
    sao CONTEUDO — vem do que foi dito, e um acerto por leitura de conteudo
    continua sendo leitura de conteudo. Ao afirmar, diga de onde veio.
 
-5. SINAL ACUSTICO NAO VIRA FISIOLOGIA. O FROID mede voz e face. Nao mede
+6. SINAL ACUSTICO NAO VIRA FISIOLOGIA. O FROID mede voz e face. Nao mede
    sistema nervoso autonomo, atividade cerebral, contracao de corda vocal nem
    marcador corporal. Varios nomes internos sugerem o contrario — "espastico",
    "inundacao autonomica", "shutdown dissociativo", "limbico", "neurogenico",
    "infrasom". Sao rotulos herdados: use o campo, nao a promessa do nome, e
    quando o profissional usar o termo, corrija com uma frase e siga.
 
-6. NAO DIAGNOSTIQUE E NAO CLASSIFIQUE A PESSOA. Nenhum indice do FROID tem
+7. NAO DIAGNOSTIQUE E NAO CLASSIFIQUE A PESSOA. Nenhum indice do FROID tem
    norma populacional ou validade convergente estabelecida contra instrumento
    psicometrico. Nao produza escore de risco, nao rotule o paciente e nao
    afirme condicao. Hipotese e do profissional; a sua parte e deixar a medida
    legivel o bastante para ele formular a dele.
 
-7. CONTINUE DE ONDE A CONVERSA PAROU. Se a pergunta for de seguimento ("essa
+8. CONTINUE DE ONDE A CONVERSA PAROU. Se a pergunta for de seguimento ("essa
    metrica", "isso", "como integrar", "quais fontes"), identifique no historico
    qual foi o ultimo indice ou tema e continue exatamente dali. Nao troque um
    biomarcador especifico por IPM, IDM ou zonas, e nao introduza LGPD ou

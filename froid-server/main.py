@@ -1514,10 +1514,22 @@ def _operational_fallback_result(query_text: str, context: Dict[str, Any]) -> Op
             {"patients_count", "patientscount", "total_patients", "pacientes_total"},
         )
         if active_count is not None:
+            # A linha do total sai da f-string aninhada de proposito. O que havia
+            # aqui era `f"{f'... {total_count}.\\n' if ... else ''}\n"`, e a barra
+            # dobrada imprimia a BARRA e o ENE na tela do profissional:
+            # "Total de pacientes no contexto atual: 2.\n". Visto em producao em
+            # 08/09/2026 — a mesma armadilha da secao 6 do rigor de engenharia,
+            # agora dentro de uma f-string em vez de um heredoc.
+            linha_total = (
+                f"- Total de pacientes no contexto atual: {total_count}.\n"
+                if total_count is not None
+                else ""
+            )
             return (
                 "1. Resultado disponível\n"
                 f"- Pacientes ativos identificados no contexto atual: {active_count}.\n"
-                f"{f'- Total de pacientes no contexto atual: {total_count}.\\n' if total_count is not None else ''}\n"
+                f"{linha_total}"
+                "\n"
                 "2. Como interpretar\n"
                 "- Este número vem do contexto operacional enviado pelo painel, não de uma fonte científica.\n\n"
                 "Referências utilizadas\n"
@@ -1691,9 +1703,29 @@ def _fallback_froid_explica_result(query_text: str, context: Dict[str, Any]) -> 
 
 async def _query_froid_knowledge(payload: FroidExplicaQuery) -> FroidExplicaResponse:
     response_locale = normalize_session_locale(payload.response_locale)
+    # A METRICA GANHA DO PORTAO ADMINISTRATIVO, e a ordem aqui e a decisao.
+    #
+    # 08/09/2026, relatado em producao: "para que serve o DMFCC7 e como essa
+    # metrica pode me ajudar [...] para ajudar MEUS PACIENTES" respondeu
+    # "Pacientes ativos identificados no contexto atual: 2". A pergunta nunca
+    # chegou ao acervo — `_is_operational_question` casa "meus pacientes", que
+    # ali era oracao subordinada, e este portao devolvia o texto administrativo
+    # antes de qualquer recuperacao. Mesma coisa com "o indice Gama".
+    #
+    # E o mesmo defeito de precedencia ja corrigido em
+    # `_classify_froid_explica_intent`, e a prova de que la eu corrigi o LUGAR e
+    # nao a REGRA (secao 2.8): eram dois portoes, e so um foi consertado.
+    #
+    # Nomear um indice do painel ou uma zona e declaracao de assunto; falar em
+    # "meus pacientes" no meio de uma frase nao e. O portao continua valendo
+    # para quem de fato pergunta pela carteira.
+    pergunta_sobre_metrica = bool(
+        explica_clinico.indices_citados(payload.query_text)
+        or explica_clinico.zonas_citadas(payload.query_text)
+    )
     operational_result = (
         _operational_fallback_result(payload.query_text, payload.context)
-        if response_locale == "pt-BR"
+        if response_locale == "pt-BR" and not pergunta_sobre_metrica
         else ""
     )
     if operational_result:
@@ -1710,7 +1742,22 @@ async def _query_froid_knowledge(payload: FroidExplicaQuery) -> FroidExplicaResp
     local_docs, local_citations = _query_local_froid_knowledge(retrieval_query)
     context_chunks = (chroma_docs + local_docs)[:8]
     context_labels = (chroma_citations + local_citations)[:8]
-    citations = _scientific_citations(context_labels)
+    # A FONTE VEM DA FICHA DO INDICE, e nao do que a busca por similaridade
+    # trouxe por perto. Uma pergunta sobre ZCR saiu no painel assinada com
+    # "Davis e Mermelstein (1980), MFCC" — o trecho do MFCC veio por
+    # vizinhanca de vocabulario e o rotulo foi junto, porque o filtro
+    # perguntava so "parece cientifico", nunca "e sobre isto". Citacao errada
+    # empresta autoridade de um estudo que nao fala daquela medida.
+    #
+    # Indice sem fonte devolve lista vazia, e a instrucao manda omitir a
+    # secao: IPM, IDM, zonas, bandas e indices DNA sao composicoes proprias
+    # do FROID, sem estudo publicado que as sustente.
+    referencias_da_ficha = explica_clinico.referencias_citadas(payload.query_text)
+    citations = (
+        referencias_da_ficha
+        if explica_clinico.indices_citados(payload.query_text)
+        else _scientific_citations(context_labels)
+    )
     context_str = "\n\n".join(
         f"[Fonte: {source}]\n{doc}"
         for source, doc in zip(context_labels, context_chunks)
