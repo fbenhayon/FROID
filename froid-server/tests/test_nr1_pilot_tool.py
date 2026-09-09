@@ -308,6 +308,27 @@ class DocumentoCompletoDoPiloto(unittest.TestCase):
         self.assertIn("implemented=False", fonte)
         self.assertNotIn("CAMPAIGN_FOLLOW, follow_graded, implemented=True", fonte)
 
+    def test_reexecucao_remove_somente_planos_antigos_do_piloto(self):
+        fonte = SOURCE[SOURCE.index("def complete_cycle("):SOURCE.index("def _json(")]
+        self.assertIn(
+            "DELETE FROM psychosocial_action_plan WHERE organization_id=%s",
+            fonte,
+        )
+        self.assertIn(
+            "DELETE FROM measure_effectiveness_reviews WHERE organization_id=%s",
+            fonte,
+        )
+        self.assertIn("(ORG_ID,)", fonte)
+
+    def test_eficacia_atualiza_apenas_a_medida_deterministica(self):
+        fonte = SOURCE[
+            SOURCE.index("def _store_effectiveness("):
+            SOURCE.index("def _store_action_plan(")
+        ]
+        self.assertIn('f"action/{CAMPAIGN_BASE}/', fonte)
+        self.assertIn("WHERE plan.id=%s AND plan.organization_id=%s", fonte)
+        self.assertNotIn("ORDER BY plan.created_at LIMIT 1", fonte)
+
     def test_sql_dos_documentos_recebe_todos_os_parametros(self):
         """Falha antes do servidor se qualquer INSERT tiver marcador sem valor."""
         class Connection:

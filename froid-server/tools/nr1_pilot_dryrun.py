@@ -494,6 +494,9 @@ def _store_effectiveness(connection, verdicts) -> None:
         review_id = pilot_id(
             f"effectiveness/{CAMPAIGN_FOLLOW}/{verdict.unit_id}/{verdict.dimension_id}"
         )
+        action_id = pilot_id(
+            f"action/{CAMPAIGN_BASE}/{verdict.unit_id}/{verdict.dimension_id}"
+        )
         connection.execute(
             """
             INSERT INTO measure_effectiveness_reviews
@@ -502,15 +505,8 @@ def _store_effectiveness(connection, verdicts) -> None:
                  followup_cohort, baseline_mean, followup_mean, effect_size,
                  verdict, measure_efficacy, requires_correction, rationale)
             VALUES (%s,%s,%s,%s,
-                    (SELECT plan.id
-                       FROM psychosocial_action_plan plan
-                       JOIN psychosocial_risk_inventory inventory
-                         ON inventory.id=plan.inventory_id
-                      WHERE plan.organization_id=%s
-                        AND plan.campaign_id=%s
-                        AND inventory.unit_id IS NOT DISTINCT FROM %s
-                        AND inventory.dimension_id=%s
-                      ORDER BY plan.created_at LIMIT 1),
+                    (SELECT plan.id FROM psychosocial_action_plan plan
+                      WHERE plan.id=%s AND plan.organization_id=%s),
                     %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             ON CONFLICT (followup_campaign_id, unit_id, dimension_id) DO UPDATE SET
                 baseline_cohort=EXCLUDED.baseline_cohort,
@@ -526,8 +522,8 @@ def _store_effectiveness(connection, verdicts) -> None:
             """,
             (
                 review_id, ORG_ID, verdict.unit_id, verdict.dimension_id,
-                ORG_ID, CAMPAIGN_BASE, verdict.unit_id, verdict.dimension_id,
-                CAMPAIGN_BASE, CAMPAIGN_FOLLOW, verdict.baseline_cohort,
+                action_id, ORG_ID, CAMPAIGN_BASE, CAMPAIGN_FOLLOW,
+                verdict.baseline_cohort,
                 verdict.followup_cohort, verdict.baseline_mean,
                 verdict.followup_mean, verdict.effect_size, verdict.verdict,
                 verdict.measure_efficacy, verdict.requires_correction,
@@ -539,17 +535,12 @@ def _store_effectiveness(connection, verdicts) -> None:
             UPDATE psychosocial_action_plan plan
                SET effectiveness=%s, effectiveness_reviewed_at=now(),
                    evidence=evidence || %s
-              FROM psychosocial_risk_inventory inventory
-             WHERE inventory.id=plan.inventory_id
-               AND plan.organization_id=%s
-               AND plan.campaign_id=%s
-               AND inventory.unit_id IS NOT DISTINCT FROM %s
-               AND inventory.dimension_id=%s
+             WHERE plan.id=%s AND plan.organization_id=%s
             """,
             (
                 verdict.measure_efficacy,
                 " Resultado da reavaliação simulada vinculado à medida.",
-                ORG_ID, CAMPAIGN_BASE, verdict.unit_id, verdict.dimension_id,
+                action_id, ORG_ID,
             ),
         )
 
@@ -620,6 +611,19 @@ def _store_action_plan(connection, campaign_id: str, graded, *, implemented: boo
 
 def complete_cycle(connection) -> None:
     """Fecha as camadas documentais do piloto sem tocar em dados reais."""
+    # Versões anteriores do piloto conseguiam gerar rascunhos aleatórios do
+    # plano pela API e deixá-los no mesmo inventário. Eles não podem receber um
+    # veredito: medida planejada ainda não foi implementada. Como esta
+    # organização é exclusiva do gerador, reconstruir somente os seus planos e
+    # revisões remove o estado antigo sem alcançar campanha real alguma.
+    connection.execute(
+        "DELETE FROM measure_effectiveness_reviews WHERE organization_id=%s",
+        (ORG_ID,),
+    )
+    connection.execute(
+        "DELETE FROM psychosocial_action_plan WHERE organization_id=%s",
+        (ORG_ID,),
+    )
     base_aep = _create_aep_documents(connection, CAMPAIGN_BASE, "baseline")
     follow_aep = _create_aep_documents(connection, CAMPAIGN_FOLLOW, "followup")
 
