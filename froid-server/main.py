@@ -397,9 +397,27 @@ FROID_ALLOW_LOCAL_BILLING_FALLBACK = os.getenv(
 # tem com o que acertar depois, entao o teste para no numero combinado em vez de
 # virar credito nao cobravel.
 try:
-    FROID_TRIAL_SESSIONS = max(0, int(os.getenv("FROID_TRIAL_SESSIONS", "5")))
+    FROID_TRIAL_SESSIONS = max(0, int(os.getenv("FROID_TRIAL_SESSIONS", "10")))
 except ValueError:
-    FROID_TRIAL_SESSIONS = 5
+    FROID_TRIAL_SESSIONS = 10
+# O PROGRAMA ESCALONADO ESTAVA ANUNCIADO E NAO ERA CUMPRIDO.
+#
+# `home.html` e `profissionais.html` (as paginas institucionais servidas dentro
+# do /app/) prometem "Primeiros 100 profissionais: 20 sessoes gratuitas" e
+# "Proximos 100 profissionais: 10 sessoes gratuitas" desde antes de existir
+# cortesia nenhuma no servidor. O servidor concedia 5 a todo mundo: o rotulo
+# prometia o dobro do que o produto entregava, e quem lia nao tinha como
+# perceber. Decisao do dono em 09/09/2026: cumprir o anuncio.
+#
+# A tabela e a FONTE do numero. As duas paginas sao espelhos dela, e
+# `tests/test_cortesia_escalonada.py` confronta o HTML com esta tupla — porque
+# numero copiado em prosa comercial diverge em silencio e vira argumento de
+# venda errado.
+#
+# Depois das vagas anunciadas vale FROID_TRIAL_SESSIONS. Com a variavel em 0 a
+# cortesia e desligada INTEIRA, tabela inclusive: e a chave que interrompe o
+# programa, e uma tabela que sobrevivesse a ela seria uma chave que nao desliga.
+FROID_TRIAL_TIERS: tuple[tuple[int, int], ...] = ((100, 20), (100, 10))
 FROID_TRIAL_PLAN_ID = "trial-froid"
 FROID_TRIAL_CONTACT_EMAIL = "froid@froid.com.br"
 
@@ -2215,6 +2233,60 @@ if CALENDAR_TOKEN_MIGRATION_REQUIRED:
     _save_identity_state()
 
 
+def _cadastro_clinico(account_type) -> bool:
+    """O cadastro consome sessao? So esses entram na fila da cortesia.
+
+    A empresa contratante do NR-1 nao compra sessao nenhuma: o produto dela
+    corre por contrato e o preco acompanha o efetivo. Ate 09/09/2026 ela
+    recebia o mesmo lote de cortesia dos clinicos, e o efeito era visivel — o
+    painel dela abria com "Saldo: 5 sessoes" de um produto que ela nao contratou
+    (foi a queixa apurada na conta da TATICCA), e cada empresa cadastrada
+    consumia uma vaga de uma promocao dirigida a profissionais e clinicas.
+    """
+    return str(account_type or "individual").lower() != "nr1_company"
+
+
+def _trial_sessions_for_position(position: int) -> int:
+    """Quantas sessoes de cortesia a vaga `position` recebe (1-based).
+
+    Le FROID_TRIAL_TIERS, que e a fonte do numero anunciado nas paginas
+    institucionais. Fora das vagas anunciadas vale FROID_TRIAL_SESSIONS.
+    """
+    if FROID_TRIAL_SESSIONS <= 0:
+        # A chave desliga o programa inteiro, tabela inclusive.
+        return 0
+    restante = max(1, _local_int(position) or 1)
+    for vagas, sessoes in FROID_TRIAL_TIERS:
+        if restante <= vagas:
+            return sessoes
+        restante -= vagas
+    return FROID_TRIAL_SESSIONS
+
+
+def _next_trial_position() -> int:
+    """A vaga do proximo cadastro clinico na fila da promocao.
+
+    Conta os cadastros clinicos que JA existem, inclusive os anteriores a este
+    programa: "os 100 primeiros profissionais" sao os primeiros da plataforma, e
+    nao os primeiros depois desta mudanca. Quem ja esta cadastrado nao recebe
+    credito retroativo — mas ocupa a vaga que de fato ocupou.
+
+    O maximo entre a contagem e a maior vaga ja gravada impede que a fila ande
+    para tras: perfil removido nao devolve vaga, e duas pessoas nunca recebem o
+    mesmo numero.
+    """
+    total = 0
+    maior = 0
+    for perfil in PROFESSIONAL_PROFILES.values():
+        if not isinstance(perfil, dict):
+            continue
+        if not _cadastro_clinico(perfil.get("account_type")):
+            continue
+        total += 1
+        maior = max(maior, max(0, _local_int(perfil.get("trial_position"))))
+    return max(total, maior) + 1
+
+
 def _trial_state(profile: Optional[dict]) -> dict:
     """Onde a conta esta no periodo de cortesia.
 
@@ -2230,6 +2302,7 @@ def _trial_state(profile: Optional[dict]) -> dict:
         "trial_used": 0,
         "trial_remaining": 0,
         "trial_exhausted": False,
+        "trial_position": 0,
     }
     if not isinstance(profile, dict):
         return vazio
@@ -2247,6 +2320,9 @@ def _trial_state(profile: Optional[dict]) -> dict:
         "trial_used": min(usadas, concedidas),
         "trial_remaining": restantes,
         "trial_exhausted": restantes <= 0,
+        # Viaja com o estado para que a tela possa dizer POR QUE o lote foi
+        # este, e para que o suporte confira a vaga sem abrir o arquivo.
+        "trial_position": max(0, _local_int(profile.get("trial_position"))),
     }
 
 
@@ -2262,9 +2338,21 @@ def _trial_blocks_new_session(email: str) -> bool:
     return bool(estado["on_trial"] and estado["trial_exhausted"])
 
 
-def _trial_block_detail() -> str:
+def _trial_block_detail(email: str) -> str:
+    """O aviso diz o lote QUE ESTA CONTA recebeu, e nao o padrao do servidor.
+
+    Com o programa escalonado o numero deixou de ser um so: o profissional da
+    vaga 40 recebeu 20 sessoes, o da vaga 150 recebeu 10. Ler a constante do
+    modulo aqui poria "As 10 sessoes de cortesia foram utilizadas" na tela de
+    quem tinha 20 — rotulo que descreve outra coisa, e o leitor confia nele.
+    """
+    estado = _trial_state(PROFESSIONAL_PROFILES.get(_normalize_email(email)))
+    concedidas = max(0, _local_int(estado.get("trial_sessions")))
+    # Sem lote conhecido a frase sai sem numero. Preencher com o padrao seria
+    # afirmar uma concessao que nao foi apurada.
+    quantas = f"As {concedidas} sessões" if concedidas else "As sessões"
     return (
-        f"As {FROID_TRIAL_SESSIONS} sessões de cortesia foram utilizadas. "
+        f"{quantas} de cortesia foram utilizadas. "
         "Escolha um pacote para continuar. Outras configurações podem ser "
         f"tratadas por {FROID_TRIAL_CONTACT_EMAIL}."
     )
@@ -7014,7 +7102,7 @@ def create_session(request: Request):
     # presencial e a remota sem alcancar reconexao de socket (que reaproveita um
     # session_id ja criado) nem o salvamento do relatorio.
     if _trial_blocks_new_session(user.get("email") or ""):
-        raise HTTPException(status_code=402, detail=_trial_block_detail())
+        raise HTTPException(status_code=402, detail=_trial_block_detail(user.get("email") or ""))
     session_id = str(uuid.uuid4())
     SESSION_OWNERS[session_id] = _normalize_email(user.get("email") or "")
     if context:
@@ -7032,7 +7120,7 @@ async def create_session_invite(request: Request):
     # que roda no FIM do atendimento. Bloquear la derrubaria sessao em
     # andamento, que e exatamente o que este item nao pode fazer.
     if _trial_blocks_new_session(current_user.get("email") or ""):
-        raise HTTPException(status_code=402, detail=_trial_block_detail())
+        raise HTTPException(status_code=402, detail=_trial_block_detail(current_user.get("email") or ""))
     body = await request.json()
     professional_email = _normalize_email(current_user.get("email") or "")
     patient_name = str(body.get("patient_name") or "").strip()
@@ -12651,11 +12739,22 @@ async def save_professional_profile(request: Request):
     # isso que quem ja esta cadastrado em producao nao ganha credito retroativo.
     trial_granted_at = str(existing.get("trial_granted_at") or "")
     trial_sessions = max(0, _local_int(existing.get("trial_sessions")))
-    conceder_cortesia = not existing and FROID_TRIAL_SESSIONS > 0
+    trial_position = max(0, _local_int(existing.get("trial_position")))
+    # A cortesia e do FROID Psique, e por isso a empresa NR-1 fica de fora:
+    # ver _cadastro_clinico.
+    conceder_cortesia = (
+        not existing
+        and FROID_TRIAL_SESSIONS > 0
+        and _cadastro_clinico(account_type)
+    )
     if conceder_cortesia:
-        trial_sessions = FROID_TRIAL_SESSIONS
+        # A vaga e gravada e nunca recalculada. Recalcular faria o mesmo perfil
+        # valer numeros diferentes conforme a base crescesse, e quem recebeu 20
+        # leria 10 na tela no mes seguinte.
+        trial_position = _next_trial_position()
+        trial_sessions = _trial_sessions_for_position(trial_position)
         trial_granted_at = now
-        total_sessions = FROID_TRIAL_SESSIONS
+        total_sessions = trial_sessions
     profile = {
         "id": existing.get("id") or f"prof-{uuid.uuid4().hex[:12]}",
         "owner_email": owner_email,
@@ -12688,6 +12787,9 @@ async def save_professional_profile(request: Request):
         # essa distincao decide se o excedente vira pendencia ou bloqueio.
         "trial_sessions": trial_sessions,
         "trial_granted_at": trial_granted_at,
+        # A vaga na fila da promocao, gravada uma vez. E o que permite auditar
+        # por que esta conta recebeu 20 e a seguinte recebeu 10.
+        "trial_position": trial_position,
         "total_sessions": total_sessions,
         "used_sessions": existing_used_sessions,
         "remaining_sessions": max(0, total_sessions - existing_used_sessions),

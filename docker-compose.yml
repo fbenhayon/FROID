@@ -69,6 +69,17 @@ services:
       - FROID_CLINICAL_RECORD_ENCRYPTION_KEYS=${FROID_CLINICAL_RECORD_ENCRYPTION_KEYS:-}
       - FROID_SUBSCRIPTIONS_REQUIRED=${FROID_SUBSCRIPTIONS_REQUIRED:-false}
       - FROID_PROFESSIONAL_APPROVAL_REQUIRED=${FROID_PROFESSIONAL_APPROVAL_REQUIRED:-false}
+      # Cortesia do FROID Psique concedida no cadastro clinico.
+      #
+      # A linha existe porque o servico recebe lista explicita e nao env_file:
+      # sem ela o valor posto no .env pareceria ligado e nada aconteceria.
+      #
+      # O PADRAO AQUI TEM DE SER O MESMO DE main.py. Com a variavel ausente do
+      # .env o compose ENVIA 10 ao contentor e o os.getenv(..., "10") do codigo
+      # nunca decide nada; se os dois divergirem quem manda e este arquivo.
+      # `test_cortesia_escalonada` compara os dois. Em 0 a cortesia e desligada
+      # inteira, promocao dos 100 primeiros inclusive.
+      - FROID_TRIAL_SESSIONS=${FROID_TRIAL_SESSIONS:-10}
       # Cadastro proprio (sem Google). Sem SMTP configurado o backend nao
       # oferece o botao "Criar acesso": o e-mail de verificacao e o que prova o
       # endereco, e prometer um cadastro que nunca chega na caixa de entrada e

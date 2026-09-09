@@ -102,6 +102,10 @@ export type FroidUser = {
     trial_used?: number;
     trial_remaining?: number;
     trial_exhausted?: boolean;
+    /** A vaga desta conta na fila da promoção dos 100 primeiros. Gravada uma
+     *  vez, nunca recalculada — é a resposta auditável a "por que esta conta
+     *  recebeu 20 e a seguinte 10?". Lida em AdminProfessionalDetail. */
+    trial_position?: number;
     trial_notice?: string;
     trial_contact_email?: string;
   };

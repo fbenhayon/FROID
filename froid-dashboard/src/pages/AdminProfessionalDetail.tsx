@@ -222,7 +222,7 @@ export const AdminProfessionalDetail: React.FC<Props> = ({ user }) => {
               </button>
             </div>
           </div>
-          <div className="mt-3 grid gap-2 text-xs md:grid-cols-3">
+          <div className="mt-3 grid gap-2 text-xs md:grid-cols-4">
             <div className="rounded border border-slate-800 bg-slate-950 p-3">
               <p className="font-black uppercase text-slate-500">Tipo</p>
               <p className="mt-1 font-bold text-slate-200">{profile.account_type || "--"}</p>
@@ -235,6 +235,18 @@ export const AdminProfessionalDetail: React.FC<Props> = ({ user }) => {
               <p className="font-black uppercase text-slate-500">Uso</p>
               <p className="mt-1 font-bold text-slate-200">
                 {status.used_sessions ?? 0}/{status.total_sessions ?? 0} sessões
+              </p>
+            </div>
+            {/* A resposta a "por que esta conta recebeu 20 e a seguinte 10?".
+                A vaga é gravada no cadastro e nunca recalculada; sem ela na
+                tela, a única forma de conferir seria abrir o arquivo de
+                estado no servidor. */}
+            <div className="rounded border border-slate-800 bg-slate-950 p-3">
+              <p className="font-black uppercase text-slate-500">Cortesia</p>
+              <p className="mt-1 font-bold text-slate-200">
+                {status.trial_sessions
+                  ? `${status.trial_sessions} sessões | vaga ${status.trial_position || "não registrada"}`
+                  : "não concedida"}
               </p>
             </div>
           </div>

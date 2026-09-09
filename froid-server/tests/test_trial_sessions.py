@@ -47,6 +47,10 @@ trial_state = _funcao("_trial_state")
 
 
 def perfil(**campos):
+    # O 5 aqui e FIXTURE, e nao o lote que o servidor concede. `_trial_state`
+    # e agnostico ao tamanho do lote — desde 09/09/2026 ele varia por vaga (20
+    # nas 100 primeiras, 10 depois). Quem confere o lote concedido e
+    # tests/test_cortesia_escalonada.py.
     base = {"trial_sessions": 5, "used_sessions": 0}
     base.update(campos)
     return base
@@ -151,9 +155,13 @@ class OndeOBloqueioPodeEstarTests(unittest.TestCase):
 
 class ConcessaoTests(unittest.TestCase):
     def test_a_cortesia_e_concedida_so_quando_nao_existe_perfil(self):
+        # Recorte ate o fim da ATRIBUICAO, e nao ate o fim da linha. Quando a
+        # promocao escalonada acrescentou condicoes (09/09/2026) a expressao
+        # passou a ocupar varias linhas, e o recorte antigo lia so o parentese
+        # de abertura: um teste reprovando sem que a garantia tivesse mudado.
         i = FONTE.index("conceder_cortesia = ")
-        linha = FONTE[i:FONTE.index("\n", i)]
-        self.assertIn("not existing", linha)
+        expressao = FONTE[i:FONTE.index("\n    if conceder_cortesia:", i)]
+        self.assertIn("not existing", expressao)
 
     def test_regravar_o_cadastro_nao_renova(self):
         # total_sessions sempre vem do perfil existente; a cortesia so o
@@ -191,9 +199,17 @@ class ConcessaoTests(unittest.TestCase):
         )
 
     def test_o_aviso_traz_o_canal_combinado(self):
+        # Recorte pelo parser, e nao por janela de N caracteres: a janela de
+        # 400 quebrou assim que a funcao ganhou docstring, sem nada ter
+        # mudado no que o teste defende.
         self.assertIn('FROID_TRIAL_CONTACT_EMAIL = "froid@froid.com.br"', FONTE)
-        i = FONTE.index("def _trial_block_detail")
-        self.assertIn("FROID_TRIAL_CONTACT_EMAIL", FONTE[i:i + 400])
+        alvo = next(
+            n for n in ARVORE.body
+            if isinstance(n, ast.FunctionDef) and n.name == "_trial_block_detail"
+        )
+        self.assertIn(
+            "FROID_TRIAL_CONTACT_EMAIL", ast.get_source_segment(FONTE, alvo)
+        )
 
 
 if __name__ == "__main__":

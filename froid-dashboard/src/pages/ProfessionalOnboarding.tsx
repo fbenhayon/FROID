@@ -819,8 +819,17 @@ export const ProfessionalOnboarding: React.FC<Props> = ({
               tinha se cadastrado e de repente está no cadastro de novo. */}
           {accessStatus?.trial_exhausted && (
             <div className="mt-4 rounded-lg border border-amber-700 bg-amber-950/60 p-4">
+              {/* O lote era escrito aqui como `?? 5`: uma cópia do número do
+                  servidor, num arquivo que não é atualizado quando ele muda.
+                  Com o programa escalonado (20 nas 100 primeiras vagas, 10
+                  depois) não existe mais UM número certo para esta frase, e o
+                  fallback diria a alguém que recebeu 20 que recebeu 5. Sem o
+                  valor do servidor a frase sai sem número — nunca com um
+                  número suposto. */}
               <p className="text-sm font-black text-amber-200">
-                Suas {accessStatus.trial_sessions ?? 5} sessões de cortesia foram utilizadas
+                {accessStatus.trial_sessions
+                  ? `Suas ${accessStatus.trial_sessions} sessões de cortesia foram utilizadas`
+                  : "Suas sessões de cortesia foram utilizadas"}
               </p>
               <p className="mt-2 text-xs leading-5 text-amber-100">
                 O que já foi atendido continua registrado e acessível — nada se
