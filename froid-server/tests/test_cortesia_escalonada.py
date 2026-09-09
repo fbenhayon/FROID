@@ -42,6 +42,19 @@ INSTITUCIONAIS = (
     ROOT / "froid-dashboard" / "src" / "pages" / "institutional" / "profissionais.html",
 )
 
+# O site publico (froid.com.br) nao dizia uma palavra sobre a promocao ate
+# 09/09/2026: ela so aparecia nas paginas servidas dentro do /app/, isto e,
+# para quem ja tinha entrado. Quem estava decidindo se entrava — exatamente o
+# publico da promocao — nao tinha como saber que ela existia.
+SITE = ROOT / "froid-site"
+ANUNCIAM = INSTITUCIONAIS + (SITE / "precos.html",)
+
+# A varredura cobre a PROXIMA copia sem ninguem precisar lembrar: qualquer
+# pagina do site, em qualquer idioma, que use a forma de afirmacao passa a ser
+# confrontada com a tabela. Um numero copiado para uma pagina nova e o defeito
+# original voltando por outra porta.
+VARREDURA = tuple(sorted(SITE.rglob("*.html"))) + INSTITUCIONAIS
+
 
 def _local_int(value):
     try:
@@ -173,7 +186,7 @@ class OTextoAnunciadoEOQueOServidorConcede(unittest.TestCase):
 
     def test_cada_pagina_anuncia_exatamente_as_faixas_da_tabela(self):
         esperado = [(str(vagas), str(sessoes)) for vagas, sessoes in TIERS]
-        for arquivo in INSTITUCIONAIS:
+        for arquivo in ANUNCIAM:
             texto = arquivo.read_text(encoding="utf-8")
             achados = [
                 (vagas, sessoes)
@@ -190,6 +203,49 @@ class OTextoAnunciadoEOQueOServidorConcede(unittest.TestCase):
                 f"{arquivo.name} anuncia {achados}, a tabela do servidor diz "
                 f"{esperado}",
             )
+
+    def test_nenhuma_outra_pagina_do_site_diverge(self):
+        """Quem copiar o numero para uma pagina nova cai aqui.
+
+        A pagina que nao fala do programa nao e cobrada; a que fala tem de
+        falar o que a tabela diz. E assim que a proxima copia — outro idioma,
+        outra landing — fica coberta sem ninguem precisar lembrar deste teste.
+        """
+        esperado = [(str(vagas), str(sessoes)) for vagas, sessoes in TIERS]
+        for arquivo in VARREDURA:
+            achados = [
+                (vagas, sessoes)
+                for _, vagas, sessoes in self.PADRAO.findall(
+                    arquivo.read_text(encoding="utf-8")
+                )
+            ]
+            if not achados:
+                continue
+            self.assertEqual(
+                achados,
+                esperado,
+                f"{arquivo.relative_to(ROOT)} anuncia {achados}, a tabela do "
+                f"servidor diz {esperado}",
+            )
+
+    def test_a_secao_do_site_tem_quem_a_aponte(self):
+        """Secao publicada que nenhum caminho leva ate la e secao que nao existe.
+
+        E o padrao mais frequente desta casa: a peca esta correta e ninguem a
+        consome. Aqui o consumo e um link — se o ponteiro sumir, a promocao
+        volta a depender de o visitante rolar a pagina de precos por acaso.
+        """
+        precos = (SITE / "precos.html").read_text(encoding="utf-8")
+        self.assertIn('id="cortesia"', precos)
+        apontam = [
+            arquivo.relative_to(ROOT)
+            for arquivo in sorted(SITE.rglob("*.html"))
+            if "precos.html#cortesia" in arquivo.read_text(encoding="utf-8")
+        ]
+        self.assertTrue(
+            apontam,
+            "nenhuma pagina do site aponta para precos.html#cortesia",
+        )
 
 
 class OPadraoDoCodigoEODoCompose(unittest.TestCase):
