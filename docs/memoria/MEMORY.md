@@ -15,6 +15,7 @@
 - [Acervo do FROID Explica NR-1](froid-explica-nr1-acervo.md) — collection própria, como reindexar e o que "completo" significa (661 trechos)
 - [Espelhos de número](froid-espelhos-de-numero.md) — pisos e fórmulas copiados no site e nos documentos; o piso 50 ficou publicado semanas depois de virar 15
 - [Heredoc e barra invertida](froid-heredoc-barra-invertida.md) — `\` colapsa e quebra o arquivo gerado; usar chr(10)/chr(92) ou Write
+- [Fim de linha por arquivo](froid-fim-de-linha-por-arquivo.md) — CRLF e LF convivem na arvore; script de edicao que nao normaliza casa zero ocorrencia
 - [Acervo Data-Froid](froid-data-froid-corpus.md) — preservar a substância vale mais que recusar por precaução
 - [Capacidade facial afirmada](froid-facs-capacidade-afirmada.md) — 16 AUs e seis regras, sem onset/apex/offset; corrigido no site, pendente no painel
 - [Sessões simultâneas](froid-sessoes-simultaneas.md) — o git reset de uma sessão apaga o trabalho não commitado da outra; commitar cedo
