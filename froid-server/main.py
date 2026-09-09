@@ -2337,7 +2337,15 @@ def _next_trial_position() -> int:
     for perfil in PROFESSIONAL_PROFILES.values():
         if not isinstance(perfil, dict):
             continue
-        if not _cadastro_clinico(perfil.get("account_type")):
+        # Pelos DOIS cadastros da conta, e nao so pelo primario.
+        #
+        # A empresa NR-1 que acrescenta o Psique tem `account_type` nao-clinico
+        # e um `second_account` clinico: lendo so o primario ela recebia a
+        # cortesia, gravava a vaga — e ficava invisivel para a fila, que
+        # devolveria o mesmo numero ao profissional seguinte. Duas contas com a
+        # mesma vaga tornam a promocao inauditavel, que e a unica coisa que a
+        # vaga existe para garantir.
+        if not any(_cadastro_clinico(t) for t in _tipos_de_cadastro(perfil)):
             continue
         total += 1
         maior = max(maior, max(0, _local_int(perfil.get("trial_position"))))

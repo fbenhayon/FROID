@@ -109,6 +109,7 @@ TIERS = _constante("FROID_TRIAL_TIERS")
 BASE = int(_padrao_do_getenv("FROID_TRIAL_SESSIONS"))
 cortesia_da_vaga = _funcao("_trial_sessions_for_position")
 cadastro_clinico = _funcao("_cadastro_clinico")
+tipos_de_cadastro = _funcao("_tipos_de_cadastro")
 
 
 class ATabelaEAFonteDoNumero(unittest.TestCase):
@@ -276,6 +277,7 @@ class AFilaNaoAndaParaTras(unittest.TestCase):
             extras={
                 "PROFESSIONAL_PROFILES": perfis,
                 "_cadastro_clinico": cadastro_clinico,
+                "_tipos_de_cadastro": tipos_de_cadastro,
             },
         )
         return proxima()
@@ -293,7 +295,26 @@ class AFilaNaoAndaParaTras(unittest.TestCase):
         perfis = {f"p{i}@x.com": {"account_type": "individual"} for i in range(30)}
         self.assertEqual(self._fila(perfis), 31)
 
-    def test_empresa_nr1_nao_ocupa_vaga(self):
+    def test_a_empresa_que_acrescentou_o_psique_OCUPA_a_vaga(self):
+        """Ela recebe a cortesia, entao tem de ocupar a vaga.
+
+        A fila lia so `account_type`. Uma conta cujo lado clinico e o SEGUNDO
+        cadastro recebia o lote, gravava a vaga — e ficava invisivel aqui, de
+        modo que o profissional seguinte receberia o MESMO numero. Duas contas
+        na mesma vaga tornam a promocao inauditavel, que e a unica coisa que a
+        vaga existe para garantir.
+        """
+        perfis = {
+            "a@x.com": {"account_type": "individual", "trial_position": 1},
+            "rh@empresa.com": {
+                "account_type": "nr1_company",
+                "trial_position": 2,
+                "second_account": {"account_type": "individual"},
+            },
+        }
+        self.assertEqual(self._fila(perfis), 3)
+
+    def test_empresa_nr1_sem_psique_nao_ocupa_vaga(self):
         perfis = {
             "a@x.com": {"account_type": "individual"},
             "rh@empresa.com": {"account_type": "nr1_company"},
