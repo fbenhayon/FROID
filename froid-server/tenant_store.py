@@ -2610,6 +2610,55 @@ class TenantStore:
             for row in rows
         ]
 
+    def nr1_cancel_campaign(
+        self, *, organization_id: str, membership_id: str, campaign_id: str
+    ) -> dict:
+        """Take an empty draft out of the way. Cancelling is not deleting.
+
+        The row stays, auditable, with everything it recorded; what changes is
+        that it stops competing for attention in every list. 'cancelled' has
+        been a valid campaign status since migration 010 and no code path ever
+        reached it — the state was foreseen and never wired.
+
+        Two guards, and neither is cosmetic:
+
+        - only 'draft'. An open campaign may already hold responses, and a
+          closed one is the evidence behind an inventory that the employer has
+          to keep for twenty years.
+        - only with zero invitations. A draft with invitations has links in the
+          wild; they do not open today, but they revive the moment the
+          collection opens. Cancelling would kill them silently, and the links
+          were shown once — nobody could reissue what they cannot list.
+
+        The NOT EXISTS runs under the same RLS policy that hides invitations
+        from roles outside NR1_INVITATION_READER_ROLES, which would make it
+        vacuously true. It is safe here only because reaching this method needs
+        'nr1.campaigns.manage', held by compliance_manager alone, which is in
+        that list — and there is a test tying the two together so a permission
+        grant cannot quietly break the guard.
+        """
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                self._nr1_session(connection, organization_id, membership_id)
+                row = connection.execute(
+                    """
+                    UPDATE assessment_campaigns
+                    SET status='cancelled', updated_at=now()
+                    WHERE id=%s AND organization_id=%s AND status='draft'
+                      AND NOT EXISTS (
+                          SELECT 1 FROM assessment_invitations invitation
+                          WHERE invitation.campaign_id = assessment_campaigns.id
+                      )
+                    RETURNING id
+                    """,
+                    (campaign_id, organization_id),
+                ).fetchone()
+        if not row:
+            raise ValueError("campaign_not_cancellable")
+        return {"campaign_id": campaign_id, "status": "cancelled"}
+
     def nr1_submit_response(
         self, *, token_hash: str, answers: Dict[str, int]
     ) -> bool:

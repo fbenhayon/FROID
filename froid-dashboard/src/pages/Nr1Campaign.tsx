@@ -321,6 +321,11 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
   const [jaConvidados, setJaConvidados] = useState<string[]>([]);
   // Encerrar nao tem volta, entao pede um segundo clique deliberado.
   const [confirmandoFecho, setConfirmandoFecho] = useState<string | null>(null);
+  // Cancelar tambem nao tem volta. E barato — o rascunho esta vazio —, mas o
+  // que se perde e o titulo: nao ha renomear nem reabrir.
+  const [confirmandoCancelamento, setConfirmandoCancelamento] = useState<
+    string | null
+  >(null);
   const [listaReemissao, setListaReemissao] = useState("");
   const [semConvitePendente, setSemConvitePendente] = useState<string[]>([]);
 
@@ -567,29 +572,73 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
     }
   };
 
+  /** As que ainda estao em jogo. Cancelada nao some — sai da frente. */
+  const campanhasVivas = useMemo(
+    () => campanhas.filter((c) => c.status !== "cancelled"),
+    [campanhas],
+  );
+  const canceladas = useMemo(
+    () => campanhas.filter((c) => c.status === "cancelled"),
+    [campanhas],
+  );
+
   /** Campanha ja existente com o titulo que esta sendo digitado. */
   const tituloJaExiste = useMemo(() => {
     const alvo = titulo.trim().toLowerCase();
     if (!alvo) return null;
-    return campanhas.find((c) => c.title.trim().toLowerCase() === alvo) || null;
-  }, [campanhas, titulo]);
+    return (
+      campanhasVivas.find((c) => c.title.trim().toLowerCase() === alvo) || null
+    );
+  }, [campanhasVivas, titulo]);
 
   /** Ha mais de uma campanha com o mesmo titulo na lista. */
   const haHomonimas = useMemo(() => {
     const vistos = new Set<string>();
-    for (const campanha of campanhas) {
+    for (const campanha of campanhasVivas) {
       const chave = campanha.title.trim().toLowerCase();
       if (vistos.has(chave)) return true;
       vistos.add(chave);
     }
     return false;
-  }, [campanhas]);
+  }, [campanhasVivas]);
 
   /** Campanhas em coleta ao mesmo tempo — cada uma com o proprio portao. */
   const emColeta = useMemo(
-    () => campanhas.filter((c) => c.status === "open"),
-    [campanhas],
+    () => campanhasVivas.filter((c) => c.status === "open"),
+    [campanhasVivas],
   );
+
+  /** Tira da lista um rascunho que nunca chegou a existir de verdade.
+   *
+   *  Cancelar NAO e excluir: a linha continua no banco e o FROID Explica
+   *  continua certo ao dizer que campanha nao se exclui — o inventario tem
+   *  guarda de vinte anos. O que o servidor aceita cancelar e so o rascunho
+   *  sem convite nenhum: esse nao sustenta inventario, nao tem resposta e nao
+   *  tem link distribuido. Os dois portoes ficam no SQL. */
+  const cancelar = async (campanha: Campanha) => {
+    setErro("");
+    setAviso("");
+    setSalvando(true);
+    try {
+      await chamar(
+        `/api/organizations/${organizationId}/nr1/campaigns/${campanha.campaign_id}/cancel`,
+        organizationId,
+        { method: "POST" },
+      );
+      setConfirmandoCancelamento(null);
+      setAviso(
+        `Campanha “${campanha.title}” cancelada. Ela sai da lista de trabalho ` +
+          "e continua registrada — cancelar não apaga nada.",
+      );
+      if (selecionada?.campaign_id === campanha.campaign_id) setSelecionada(null);
+      if (ultimaCriada?.campaign_id === campanha.campaign_id) setUltimaCriada(null);
+      await carregar();
+    } catch (e) {
+      setErro(String((e as Error).message));
+    } finally {
+      setSalvando(false);
+    }
+  };
 
   const linhasInterpretadas = useMemo(
     () =>
@@ -1192,7 +1241,7 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
           )}
 
           <div className="mt-3 space-y-2">
-            {campanhas.map((campanha) => (
+            {campanhasVivas.map((campanha) => (
               <div
                 key={campanha.campaign_id}
                 className={`rounded border p-3 ${
@@ -1224,6 +1273,42 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
                       Abrir coleta
                     </button>
                   )}
+                  {/* So no rascunho VAZIO, e so quando o servidor confirmou
+                      que ele esta vazio. Com a contagem ausente o botao nao
+                      aparece: oferecer uma acao que o servidor vai recusar e
+                      pior do que nao oferecer. */}
+                  {campanha.status === "draft" &&
+                    campanha.invitations === 0 &&
+                    (confirmandoCancelamento === campanha.campaign_id ? (
+                      <span className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={salvando}
+                          onClick={() => cancelar(campanha)}
+                          className="rounded bg-slate-500 px-3 py-1.5 text-[11px] font-black text-slate-950 hover:bg-slate-400 disabled:opacity-60"
+                        >
+                          {salvando ? "Cancelando..." : "Confirmar cancelamento"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmandoCancelamento(null)}
+                          className="rounded border border-slate-600 px-3 py-1.5 text-[11px] font-black text-slate-300"
+                        >
+                          Manter
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={salvando}
+                        onClick={() =>
+                          setConfirmandoCancelamento(campanha.campaign_id)
+                        }
+                        className="rounded border border-slate-600 px-3 py-1.5 text-[11px] font-black text-slate-400 hover:bg-slate-800 disabled:opacity-60"
+                      >
+                        Cancelar rascunho
+                      </button>
+                    ))}
                   {/* Encerrar existia so no painel, e la depois de selecionar
                       a campanha e carregar o resultado dela. Nesta tela — a do
                       ciclo: criar, abrir, convidar — o ciclo nao fechava. */}
@@ -1271,6 +1356,17 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
                       : `${campanha.invitations} convite(s) emitido(s) nesta campanha.`}
                   </p>
                 )}
+                {confirmandoCancelamento === campanha.campaign_id && (
+                  <p className="mt-2 rounded border border-slate-700 bg-slate-900 p-2 text-[11px] leading-4 text-slate-300">
+                    <strong>Cancelar não apaga.</strong> A campanha continua
+                    registrada e auditável; ela só sai da lista de trabalho e
+                    passa a aparecer recolhida no fim desta seção. Cabe aqui
+                    porque este rascunho não tem convite nenhum, não tem
+                    resposta e não sustenta inventário — nada depende dele. Não
+                    há como desfazer: o título fica ocupado e a campanha não
+                    volta a rascunho.
+                  </p>
+                )}
                 {confirmandoFecho === campanha.campaign_id && (
                   <p className="mt-2 rounded border border-red-900 bg-red-950/50 p-2 text-[11px] leading-4 text-red-100">
                     <strong>Encerrar não tem volta.</strong> A campanha não
@@ -1281,10 +1377,37 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
                 )}
               </div>
             ))}
-            {!campanhas.length && (
-              <p className="text-xs text-slate-500">Nenhuma campanha ainda.</p>
+            {!campanhasVivas.length && (
+              <p className="text-xs text-slate-500">
+                {campanhas.length
+                  ? "Nenhuma campanha ativa — só campanhas canceladas."
+                  : "Nenhuma campanha ainda."}
+              </p>
             )}
           </div>
+
+          {canceladas.length > 0 && (
+            <details className="mt-3 rounded border border-slate-800 bg-slate-950">
+              <summary className="cursor-pointer px-3 py-2 text-[11px] font-black text-slate-400">
+                {canceladas.length} campanha(s) cancelada(s)
+              </summary>
+              <div className="space-y-2 border-t border-slate-800 px-3 py-3">
+                {/* Recolhidas, nao apagadas: quem procura o que aconteceu com
+                    um titulo que sumiu precisa achar a resposta aqui. */}
+                {canceladas.map((campanha) => (
+                  <p
+                    key={campanha.campaign_id}
+                    className="text-[11px] leading-4 text-slate-500"
+                  >
+                    <strong className="text-slate-400">{campanha.title}</strong>
+                    <span className="block">
+                      {identificacaoDaCampanha(campanha)}
+                    </span>
+                  </p>
+                ))}
+              </div>
+            </details>
+          )}
         </section>
 
         <section className="mt-5 rounded-lg border border-slate-800 bg-slate-900 p-5">

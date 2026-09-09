@@ -10777,6 +10777,59 @@ async def close_nr1_campaign(organization_id: str, campaign_id: str, request: Re
     return closed
 
 
+@app.post("/api/organizations/{organization_id}/nr1/campaigns/{campaign_id}/cancel")
+async def cancel_nr1_campaign(organization_id: str, campaign_id: str, request: Request):
+    """Tira da frente um rascunho vazio. Cancelar nao e excluir.
+
+    Ate 09/09/2026 campanha criada por engano ficava para sempre. Nao havia
+    rota que a removesse, e o proprio FROID Explica responde "nao se exclui" —
+    doutrina correta, porque o inventario de riscos tem guarda de vinte anos e
+    apagar a campanha que o originou apagaria a evidencia que defende a
+    empresa. So que ela nao alcanca o caso que de fato acontece: o rascunho
+    duplicado, sem convite nenhum, sem resposta nenhuma e sem inventario
+    nenhum. Esse nao e evidencia de coisa alguma, e ficava competindo por
+    atencao numa lista onde a campanha errada ja custou convites emitidos no
+    lugar errado.
+
+    O estado 'cancelled' e valido em assessment_campaigns desde a migration
+    010, e nenhum caminho de codigo chegava nele: a saida estava desenhada no
+    banco e nao tinha camada acima (padrao 2.1). A linha continua no banco,
+    auditavel, com tudo o que registrou.
+
+    Os dois portoes ficam no SQL, nao aqui, para que nao dependam desta rota
+    ser a unica chamadora: so 'draft', e so com zero convites.
+    """
+    context = _require_enterprise_context(
+        request, organization_id, "nr1.campaigns.manage"
+    )
+    try:
+        cancelled = TENANT_STORE.nr1_cancel_campaign(
+            organization_id=organization_id,
+            membership_id=context.membership_id,
+            campaign_id=campaign_id,
+        )
+    except RuntimeError:
+        raise HTTPException(status_code=409, detail="módulo NR-1 requer persistência dual")
+    except ValueError:
+        # Uma recusa so, com os dois motivos, porque distinguir qual deles
+        # barrou exigiria uma segunda consulta a mesma tabela e a acao a tomar
+        # e a mesma nos dois casos.
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "só é possível cancelar campanha em rascunho e sem nenhum "
+                "convite emitido: campanha aberta pode já ter respostas, "
+                "campanha encerrada sustenta o inventário, e rascunho com "
+                "convite tem links distribuídos que voltariam a valer se a "
+                "coleta abrisse"
+            ),
+        )
+    _record_tenant_success(
+        context, "nr1.campaign.cancel", "assessment_campaign", campaign_id
+    )
+    return cancelled
+
+
 def _nr1_subject_pseudonym(organization_id: str, payroll_number: str) -> str:
     """Salted pseudonym for one worker, scoped to the organization.
 

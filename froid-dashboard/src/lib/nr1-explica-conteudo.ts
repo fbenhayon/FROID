@@ -529,7 +529,8 @@ export const VERBETES: VerbeteExplica[] = [
     resposta: [
       "Não se exclui. O inventário aponta para a unidade e precisa sobreviver vinte anos — apagar a linha deixaria o documento antigo referenciando algo que não existe mais.",
       "Unidade sai da estrutura por arquivamento, campanha encerra mas permanece no histórico, e o banco recusa a exclusão das linhas que o inventário referencia.",
-      "Campanha criada por engano não sai do sistema: campanha aberta pode já ter resposta e campanha encerrada é a evidência por trás do inventário. Duas campanhas parecidas convivem — o jeito de não se confundir é olhar a linha cinza embaixo do título, que traz período, abrangência, efetivo, janela e hora de criação.",
+      "Há um caso, e um só, em que a campanha sai da frente: o rascunho sem nenhum convite emitido. Ele não tem resposta, não sustenta inventário e nada aponta para ele — é quase sempre um clique repetido no botão de criar. Na tela de campanha ele traz o botão “Cancelar rascunho”, e cancelar não é apagar: a linha continua no banco, auditável, e passa a aparecer recolhida no fim da lista. Não há como desfazer.",
+      "Fora desse caso não há saída, e a razão é a mesma da guarda de vinte anos: campanha aberta pode já ter resposta, campanha encerrada é a evidência por trás do inventário. Campanha errada que já recebeu convite convive com a certa — o jeito de não se confundir é olhar a linha cinza embaixo do título, que traz período, abrangência, efetivo, janela e hora de criação.",
       "As respostas brutas são outra coisa: a norma exige vinte anos do inventário, não das respostas que o produziram. Há ferramenta própria para purgá-las depois da consolidação.",
     ],
     referencia: "Subitem 1.5.7.3.3.1",
@@ -539,6 +540,8 @@ export const VERBETES: VerbeteExplica[] = [
       "arquivar",
       "remover",
       "excluir",
+      "cancelar",
+      "rascunho",
       "duplicada",
       "repetida",
       "criei sem querer",
