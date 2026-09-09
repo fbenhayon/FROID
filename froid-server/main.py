@@ -5921,12 +5921,44 @@ def _require_admin_user(request: Request) -> dict:
     return user
 
 
-def _record_admin_audit_event(request: Request, action: str, target: str, detail: Optional[dict] = None) -> None:
+def _record_admin_audit_event(
+    request: Request,
+    action: str,
+    target: str,
+    detail: Optional[dict] = None,
+    *,
+    resource_type: str,
+) -> bool:
+    """Registra a operacao administrativa na trilha. Devolve se registrou.
+
+    Tres defeitos moravam nesta funcao, e o efeito dos tres era o mesmo: a tela
+    de controle de acesso devolvia "500 -- Internal Server Error", em texto
+    puro, DEPOIS de a operacao ja ter sido gravada e comitada no banco.
+
+    1. Os argumentos nao existiam. `record_access_audit` recebe `resource_type`
+       e `resource_id`; esta chamada mandava `target`, `ip_address` e
+       `user_agent`, e omitia `resource_type`, que e obrigatorio. TypeError na
+       primeira linha, em toda chamada. Onze outras chamadas no arquivo estao
+       certas -- esta, a unica que serve o painel administrativo, era a errada.
+    2. A excecao escapava do endpoint. Como a chamada fica FORA do try/except
+       que cobre a operacao, o operador via um 500 generico e concluia que a
+       suspensao nao tinha acontecido -- quando ela tinha. Estado real e estado
+       relatado em desacordo, na tela cuja unica funcao e mudar estado.
+    3. `resource_type` era adivinhado por ninguem: agora e obrigatorio e
+       nomeado em cada chamada, porque a trilha sem tipo de recurso nao permite
+       filtrar "quem mexeu em acesso" depois.
+
+    Falhar aqui nao pode desfazer nem mascarar a operacao, mas tambem nao pode
+    passar em silencio: a tela promete ao operador que "fica registrada na
+    trilha de auditoria". Entao a falha e registrada no log e devolvida a quem
+    chamou, para chegar a resposta.
+    """
     user = _current_user_from_request(request)
     if not user:
         # If no user, we cannot record an audit event due to NOT NULL constraints.
         # In practice, this function should only be called from authenticated endpoints.
-        return
+        logging.warning("auditoria administrativa nao registrada (%s): sem usuario", action)
+        return False
     actor_user_id = user.get("id")
     # Determine organization_id: prefer active_organization_id, else first organization.
     organization_id = user.get("active_organization_id")
@@ -5936,22 +5968,31 @@ def _record_admin_audit_event(request: Request, action: str, target: str, detail
             organization_id = orgs[0].get("organization_id")
     # If still none, we cannot insert due to NOT NULL constraint; skip.
     if not organization_id:
-        return
+        logging.warning(
+            "auditoria administrativa nao registrada (%s): admin sem organizacao", action
+        )
+        return False
     # Prepare metadata: include the original detail and admin_email for reference.
     metadata = {
         "detail": detail or {},
         "admin_email": _normalize_email(user.get("email") or ""),
     }
-    TENANT_STORE.record_access_audit(
-        organization_id=organization_id,
-        actor_user_id=actor_user_id,
-        action=action,
-        target=target,
-        outcome="success",
-        ip_address=request.client.host if request.client else "",
-        user_agent=request.headers.get("user-agent", ""),
-        metadata=metadata,
-    )
+    try:
+        TENANT_STORE.record_access_audit(
+            organization_id=organization_id,
+            actor_user_id=actor_user_id,
+            action=action,
+            resource_type=resource_type,
+            resource_id=target,
+            outcome="success",
+            ip_address=request.client.host if request.client else "",
+            user_agent=request.headers.get("user-agent", ""),
+            metadata=metadata,
+        )
+    except Exception:
+        logging.exception("auditoria administrativa nao registrada (%s)", action)
+        return False
+    return True
 
 
 def _calendar_connection_public(connection: Optional[dict]) -> dict:
@@ -7408,6 +7449,7 @@ async def admin_professional_detail(professional_email: str, request: Request):
         request,
         action="admin_open_professional",
         target=email,
+        resource_type="professional",
         detail={"profile_id": profile.get("id") or ""},
     )
 
@@ -7527,6 +7569,7 @@ async def admin_patient_detail(patient_id: str, request: Request):
         request,
         action="admin_open_patient",
         target=str(pid),
+        resource_type="patient",
         detail={"reports": len(reports)},
     )
 
@@ -7617,6 +7660,7 @@ async def admin_professional_access_approval(professional_email: str, request: R
         request,
         action="admin_professional_access_approval",
         target=email,
+        resource_type="professional",
         detail={
             "previous_status": previous_status,
             "new_status": next_status,
@@ -7710,12 +7754,17 @@ async def admin_set_user_access(request: Request):
     if not resultado.get("encontrado"):
         raise HTTPException(status_code=404, detail="usuario nao encontrado")
     _expirar_sessoes_de(email)
-    _record_admin_audit_event(
+    registrada = _record_admin_audit_event(
         request,
         action="admin_set_user_access",
         target=email,
+        resource_type="user",
         detail={"anterior": resultado.get("anterior"), "atual": status},
     )
+    # A tela promete ao operador que a operacao "fica registrada na trilha de
+    # auditoria". Quando o registro nao acontece, quem le a tela precisa saber:
+    # trilha incompleta que se parece com trilha completa e o pior dos dois.
+    resultado["auditoria"] = "registrada" if registrada else "nao registrada"
     return resultado
 
 
@@ -7746,10 +7795,11 @@ async def admin_set_organization_access(request: Request):
     if not resultado.get("encontrado"):
         raise HTTPException(status_code=404, detail="organizacao nao encontrada")
     _expirar_sessoes_da_organizacao(organization_id)
-    _record_admin_audit_event(
+    registrada = _record_admin_audit_event(
         request,
         action="admin_set_organization_access",
         target=organization_id,
+        resource_type="organization",
         detail={
             "nome": resultado.get("nome"),
             "anterior": resultado.get("anterior"),
@@ -7757,6 +7807,10 @@ async def admin_set_organization_access(request: Request):
             "usuarios_afetados": resultado.get("usuarios_afetados"),
         },
     )
+    # A tela promete ao operador que a operacao "fica registrada na trilha de
+    # auditoria". Quando o registro nao acontece, quem le a tela precisa saber:
+    # trilha incompleta que se parece com trilha completa e o pior dos dois.
+    resultado["auditoria"] = "registrada" if registrada else "nao registrada"
     return resultado
 
 
@@ -7795,16 +7849,21 @@ async def admin_set_membership_access(request: Request):
     if not resultado.get("encontrado"):
         raise HTTPException(status_code=404, detail="vinculo nao encontrado")
     _expirar_sessoes_de(email)
-    _record_admin_audit_event(
+    registrada = _record_admin_audit_event(
         request,
         action="admin_set_membership_access",
         target="%s@%s" % (email, organization_id),
+        resource_type="membership",
         detail={
             "organizacao": resultado.get("nome"),
             "anterior": resultado.get("anterior"),
             "atual": status,
         },
     )
+    # A tela promete ao operador que a operacao "fica registrada na trilha de
+    # auditoria". Quando o registro nao acontece, quem le a tela precisa saber:
+    # trilha incompleta que se parece com trilha completa e o pior dos dois.
+    resultado["auditoria"] = "registrada" if registrada else "nao registrada"
     return resultado
 
 @app.get("/api/session-invites/{token}")

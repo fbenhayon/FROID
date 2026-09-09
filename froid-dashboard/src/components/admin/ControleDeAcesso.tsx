@@ -37,6 +37,10 @@ type Resultado = {
   atual?: string;
   atingidos?: number;
   usuarios_afetados?: number;
+  /** "registrada" ou "nao registrada". A tela promete a trilha de auditoria no
+   *  rodapé; quando o servidor não conseguiu gravá-la, quem operou precisa
+   *  saber — trilha incompleta que se parece com completa é o pior dos dois. */
+  auditoria?: string;
 };
 
 /** Lê a resposta sem presumir JSON.
@@ -131,15 +135,26 @@ export const ControleDeAcesso: React.FC = () => {
       if (!ok) throw new Error(motivo);
       const dados: Resultado = retorno || {};
       const alvos = dados.atingidos ?? 0;
-      setAviso(
+      const confirmacaoFeita =
         `Feito: ${dados.anterior} → ${dados.atual}. ` +
-          `${alvos} registro alterado` +
-          (dados.usuarios_afetados
-            ? `, ${dados.usuarios_afetados} usuário(s) da organização afetado(s).`
-            : ".") +
-          " A sessão do alvo foi encerrada.",
-      );
+        `${alvos} registro alterado` +
+        (dados.usuarios_afetados
+          ? `, ${dados.usuarios_afetados} usuário(s) da organização afetado(s).`
+          : ".") +
+        " A sessão do alvo foi encerrada." +
+        (dados.auditoria === "nao registrada"
+          ? " ATENÇÃO: a operação foi aplicada, mas NÃO entrou na trilha de" +
+            " auditoria. Registre o que foi feito por fora e avise o suporte."
+          : "");
+      // A releitura vem ANTES da mensagem, de propósito.
+      //
+      // Era o contrário, e `consultar` começa limpando aviso e erro: a
+      // confirmação da operação era apagada no mesmo instante em que nascia, e
+      // nunca chegou a ser vista por ninguém. Restava só o selo mudando de cor
+      // — que confirma o estado novo, mas não diz quantos registros mudaram,
+      // nem que a sessão do alvo caiu, nem se a trilha foi gravada.
       await consultar();
+      setAviso(confirmacaoFeita);
     } catch (e) {
       setErro(String((e as Error).message));
     } finally {

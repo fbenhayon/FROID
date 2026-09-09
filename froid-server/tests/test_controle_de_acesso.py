@@ -16,6 +16,7 @@ asserções abaixo existe para o segundo caso.
 
 from __future__ import annotations
 
+import ast
 import io
 import os
 import re
@@ -244,6 +245,114 @@ class TestAutorizacaoETrilha(unittest.TestCase):
     def test_store_desligado_recusa_em_vez_de_fingir_sucesso(self):
         corpo = trecho(MAIN, "def _exigir_store_ativo", "@app.get")
         assert "status_code=503" in corpo
+
+
+# ---------------------------------------------------------------------------
+# 7. A chamada da trilha existe E e chamavel
+# ---------------------------------------------------------------------------
+
+class TestAssinaturaDaTrilha(unittest.TestCase):
+    """A trilha de auditoria era um `TypeError` esperando o operador clicar.
+
+    Apurado em 09/09/2026, na tela de controle de acesso com a conta da
+    TATICCA: suspender, revogar, restaurar e abrir um profissional devolviam
+    "500 -- Internal Server Error" em texto puro. O 500 nao vinha do banco. A
+    unica chamada de `record_access_audit` que serve o painel administrativo
+    passava `target`, `ip_address` e `user_agent` -- tres argumentos que a
+    assinatura nao tem -- e omitia `resource_type`, que e obrigatorio. As
+    outras onze chamadas do arquivo estavam certas.
+
+    O dano nao era so o erro: a chamada fica FORA do try/except que cobre a
+    operacao, entao a suspensao ja tinha sido gravada e comitada quando a
+    excecao subia. O operador lia "falhou" sobre uma operacao que funcionou.
+
+    `test_toda_mutacao_entra_na_trilha`, logo acima, passou o tempo inteiro:
+    ele afirma que a chamada APARECE no corpo da rota. Aparecer era verdade.
+    Este afirma a garantia que faltava -- que ela pode ser executada.
+
+    A conferencia varre o arquivo inteiro pela regra, e nao a ocorrencia que
+    foi encontrada: a proxima chamada divergente cai aqui sem ninguem precisar
+    lembrar. Le a assinatura do fonte, sem importar `tenant_store`, para que o
+    teste continue rodando onde `psycopg` nao esta instalado.
+    """
+
+    def _assinatura_do_store(self):
+        arvore = ast.parse(STORE)
+        for no in ast.walk(arvore):
+            if isinstance(no, ast.FunctionDef) and no.name == "record_access_audit":
+                args = no.args
+                nomes = [a.arg for a in args.args + args.kwonlyargs if a.arg != "self"]
+                sem_padrao = [
+                    a.arg
+                    for a, padrao in zip(args.kwonlyargs, args.kw_defaults)
+                    if padrao is None and a.arg != "self"
+                ]
+                posicionais = [a.arg for a in args.args if a.arg != "self"]
+                faltam = len(posicionais) - len(args.defaults)
+                sem_padrao += posicionais[:faltam]
+                return set(nomes), set(sem_padrao)
+        self.fail("record_access_audit nao encontrado em tenant_store.py")
+
+    def test_toda_chamada_bate_com_a_assinatura(self):
+        aceitos, obrigatorios = self._assinatura_do_store()
+        divergentes = []
+        for no in ast.walk(ast.parse(MAIN)):
+            if not isinstance(no, ast.Call):
+                continue
+            alvo = no.func
+            if not (isinstance(alvo, ast.Attribute) and alvo.attr == "record_access_audit"):
+                continue
+            usados = {palavra.arg for palavra in no.keywords if palavra.arg}
+            extras = usados - aceitos
+            faltando = obrigatorios - usados
+            if extras or faltando:
+                divergentes.append(
+                    "main.py:%d sobrando=%s faltando=%s"
+                    % (no.lineno, sorted(extras), sorted(faltando))
+                )
+        assert not divergentes, "chamadas que quebram em execucao: " + "; ".join(divergentes)
+
+    def test_a_conferencia_falha_quando_deve(self):
+        """Um teste que nunca pode falhar nao protege nada."""
+        aceitos, obrigatorios = self._assinatura_do_store()
+        quebrada = ast.parse(
+            "TENANT_STORE.record_access_audit(organization_id=x, target=y)"
+        )
+        chamada = quebrada.body[0].value
+        usados = {palavra.arg for palavra in chamada.keywords if palavra.arg}
+        assert usados - aceitos == {"target"}
+        assert "resource_type" in obrigatorios - usados
+
+    def test_falha_da_trilha_nao_vira_falha_da_operacao(self):
+        """A operacao ja foi comitada quando a trilha e escrita.
+
+        Deixar a excecao subir dali relata o oposto do que aconteceu: o
+        operador ve 500 e conclui que nao suspendeu ninguem, com a organizacao
+        ja suspensa no banco. E engolir a falha em silencio quebraria a
+        promessa impressa na propria tela. Entao: nao sobe, e aparece.
+        """
+        corpo = trecho(MAIN, "def _record_admin_audit_event", "\ndef _calendar")
+        assert "except Exception:" in corpo
+        assert "logging.exception" in corpo
+        assert "return False" in corpo
+        for rota in ["admin_set_user_access", "admin_set_organization_access",
+                     "admin_set_membership_access"]:
+            with self.subTest(rota=rota):
+                trilha = trecho(MAIN, "def %s" % rota, "return resultado")
+                assert "registrada = _record_admin_audit_event" in trilha
+                assert 'resultado["auditoria"]' in trilha
+
+    def test_origem_da_requisicao_deixa_de_ser_coluna_vazia(self):
+        """`ip_address` e `user_agent` existem na migration 001 e nunca eram
+        escritas: o unico chamador que as tinha em maos passava-as para uma
+        assinatura que nao as aceitava. Coluna sempre nula numa trilha e lida
+        como "nao havia origem", e a verdade era "ninguem escreveu"."""
+        corpo = trecho(STORE, "def record_access_audit", "\n    def ")
+        assert "ip_address" in corpo
+        assert "user_agent" in corpo
+        # `inet` recusa string vazia: sem virar NULL, o INSERT falha.
+        assert "%s::inet" in corpo
+        assert "or None" in corpo
 
 
 if __name__ == "__main__":

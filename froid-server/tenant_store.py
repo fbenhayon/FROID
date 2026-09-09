@@ -683,22 +683,39 @@ class TenantStore:
         resource_type: str,
         resource_id: str = "",
         outcome: str = "success",
+        ip_address: str = "",
+        user_agent: str = "",
         metadata: Optional[dict] = None,
     ) -> None:
+        """Grava um evento na trilha append-only.
+
+        `ip_address` e `user_agent` sao colunas de `audit_events` desde a
+        migration 001 e nunca eram preenchidas: o unico chamador que tinha os
+        dois valores em maos -- o painel administrativo -- os passava para uma
+        assinatura que nao os aceitava. Duas colunas sempre nulas numa trilha de
+        auditoria sao piores que ausentes, porque quem consulta le "nao havia
+        origem" onde a verdade era "ninguem escreveu".
+
+        `ip_address` e do tipo `inet`: string vazia NAO e um endereco valido e
+        faria o INSERT falhar. Vazio vira NULL, que e o que "sem origem
+        apurada" significa nesta coluna.
+        """
         if not self.enabled or not organization_id:
             return
+        origem = str(ip_address or "").strip() or None
         with self._connect() as connection:
             self.ensure_schema(connection)
             connection.execute(
                 """
                 INSERT INTO audit_events
                     (id, organization_id, actor_user_id, action, resource_type,
-                     resource_id, outcome, metadata)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s::jsonb)
+                     resource_id, outcome, ip_address, user_agent, metadata)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s::inet,%s,%s::jsonb)
                 """,
                 (
                     uuid.uuid4(), organization_id, actor_user_id or None, action,
                     resource_type, resource_id or None, outcome,
+                    origem, str(user_agent or "")[:500] or None,
                     _json(metadata or {}),
                 ),
             )
