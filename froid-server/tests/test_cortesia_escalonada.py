@@ -47,7 +47,19 @@ INSTITUCIONAIS = (
 # para quem ja tinha entrado. Quem estava decidindo se entrava — exatamente o
 # publico da promocao — nao tinha como saber que ela existia.
 SITE = ROOT / "froid-site"
-ANUNCIAM = INSTITUCIONAIS + (SITE / "precos.html",)
+
+# Decisao do dono em 09/09/2026, no dia em que a operacao comecou: a promocao
+# vale para todos os clientes, em todos os idiomas. Uma pagina de precos
+# traduzida que nao a anuncie deixa de ser traducao e vira oferta diferente —
+# por isso as quatro sao obrigatorias, e nao so a portuguesa.
+IDIOMAS = ("pt", "en", "es", "fr")
+PRECOS = {
+    "pt": SITE / "precos.html",
+    "en": SITE / "en" / "precos.html",
+    "es": SITE / "es" / "precos.html",
+    "fr": SITE / "fr" / "precos.html",
+}
+ANUNCIAM = INSTITUCIONAIS + tuple(PRECOS[idioma] for idioma in IDIOMAS)
 
 # A varredura cobre a PROXIMA copia sem ninguem precisar lembrar: qualquer
 # pagina do site, em qualquer idioma, que use a forma de afirmacao passa a ser
@@ -169,10 +181,38 @@ class OTextoAnunciadoEOQueOServidorConcede(unittest.TestCase):
     gratuitas", N e M tem de sair da tabela.
     """
 
-    PADRAO = re.compile(
-        r"(Primeiros|Próximos)\s+(\d+)\s+profissionais.*?(\d+)\s+sessões\s+gratuitas",
-        re.S,
+    # Uma forma de afirmacao por idioma. O numero na pagina traduzida e tao
+    # espelho quanto o da portuguesa: em 09/09/2026 a secao foi para en, es e
+    # fr, e sem estes padroes as tres copias nasceriam sem ninguem conferindo.
+    PADROES = (
+        re.compile(
+            r"(?:Primeiros|Próximos)\s+(\d+)\s+profissionais"
+            r".*?(\d+)\s+sessões\s+gratuitas",
+            re.S,
+        ),
+        re.compile(
+            r"(?:First|Next)\s+(\d+)\s+professionals.*?(\d+)\s+free\s+sessions",
+            re.S,
+        ),
+        re.compile(
+            r"(?:Primeros|Próximos)\s+(\d+)\s+profesionales"
+            r".*?(\d+)\s+sesiones\s+gratuitas",
+            re.S,
+        ),
+        re.compile(
+            r"Les\s+(\d+)\s+(?:premiers\s+)?professionnels(?:\s+suivants)?"
+            r".*?(\d+)\s+séances\s+gratuites",
+            re.S,
+        ),
     )
+
+    def _achados(self, texto):
+        """As faixas anunciadas, no idioma em que a pagina estiver escrita."""
+        for padrao in self.PADROES:
+            achados = padrao.findall(texto)
+            if achados:
+                return achados
+        return []
 
     def test_as_paginas_existem_e_sao_servidas(self):
         # Se um dia deixarem de ser importadas, o teste passa a defender um
@@ -187,21 +227,17 @@ class OTextoAnunciadoEOQueOServidorConcede(unittest.TestCase):
     def test_cada_pagina_anuncia_exatamente_as_faixas_da_tabela(self):
         esperado = [(str(vagas), str(sessoes)) for vagas, sessoes in TIERS]
         for arquivo in ANUNCIAM:
-            texto = arquivo.read_text(encoding="utf-8")
-            achados = [
-                (vagas, sessoes)
-                for _, vagas, sessoes in self.PADRAO.findall(texto)
-            ]
+            achados = self._achados(arquivo.read_text(encoding="utf-8"))
             self.assertTrue(
                 achados,
-                f"{arquivo.name} nao anuncia mais o programa — se ele foi "
+                f"{arquivo.relative_to(ROOT)} nao anuncia mais o programa — se ele foi "
                 "retirado de proposito, retire tambem este teste",
             )
             self.assertEqual(
                 achados,
                 esperado,
-                f"{arquivo.name} anuncia {achados}, a tabela do servidor diz "
-                f"{esperado}",
+                f"{arquivo.relative_to(ROOT)} anuncia {achados}, a tabela do "
+                f"servidor diz {esperado}",
             )
 
     def test_nenhuma_outra_pagina_do_site_diverge(self):
@@ -213,12 +249,7 @@ class OTextoAnunciadoEOQueOServidorConcede(unittest.TestCase):
         """
         esperado = [(str(vagas), str(sessoes)) for vagas, sessoes in TIERS]
         for arquivo in VARREDURA:
-            achados = [
-                (vagas, sessoes)
-                for _, vagas, sessoes in self.PADRAO.findall(
-                    arquivo.read_text(encoding="utf-8")
-                )
-            ]
+            achados = self._achados(arquivo.read_text(encoding="utf-8"))
             if not achados:
                 continue
             self.assertEqual(
@@ -228,24 +259,26 @@ class OTextoAnunciadoEOQueOServidorConcede(unittest.TestCase):
                 f"servidor diz {esperado}",
             )
 
-    def test_a_secao_do_site_tem_quem_a_aponte(self):
+    def test_a_secao_tem_quem_a_aponte_em_cada_idioma(self):
         """Secao publicada que nenhum caminho leva ate la e secao que nao existe.
 
         E o padrao mais frequente desta casa: a peca esta correta e ninguem a
-        consome. Aqui o consumo e um link — se o ponteiro sumir, a promocao
-        volta a depender de o visitante rolar a pagina de precos por acaso.
+        consome. Aqui o consumo e um link — sem ponteiro, a promocao depende de
+        o visitante rolar a pagina de precos por acaso. Vale por idioma: um
+        ponteiro so em portugues deixa tres publicos sem caminho.
         """
-        precos = (SITE / "precos.html").read_text(encoding="utf-8")
-        self.assertIn('id="cortesia"', precos)
-        apontam = [
-            arquivo.relative_to(ROOT)
-            for arquivo in sorted(SITE.rglob("*.html"))
-            if "precos.html#cortesia" in arquivo.read_text(encoding="utf-8")
-        ]
-        self.assertTrue(
-            apontam,
-            "nenhuma pagina do site aponta para precos.html#cortesia",
-        )
+        for idioma in IDIOMAS:
+            precos = PRECOS[idioma]
+            self.assertIn('id="cortesia"', precos.read_text(encoding="utf-8"), precos)
+            apontam = [
+                arquivo.name
+                for arquivo in sorted(precos.parent.glob("*.html"))
+                if "precos.html#cortesia" in arquivo.read_text(encoding="utf-8")
+            ]
+            self.assertTrue(
+                apontam,
+                f"nenhuma pagina de {idioma} aponta para precos.html#cortesia",
+            )
 
 
 class OPadraoDoCodigoEODoCompose(unittest.TestCase):
