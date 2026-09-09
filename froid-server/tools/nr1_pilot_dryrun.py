@@ -29,6 +29,7 @@ import os
 import random
 import sys
 import uuid
+from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -44,8 +45,8 @@ import nr1_effectiveness  # noqa: E402
 # remoção é exata e não depende de o operador lembrar de nada.
 PILOT_NAMESPACE = uuid.UUID("f01d0000-0000-4000-8000-000000000001")
 ORG_ID = str(uuid.uuid5(PILOT_NAMESPACE, "organization"))
-ORG_LEGAL_NAME = "FROID NR-1 Piloto 01"
-ORG_DISPLAY_NAME = "FROID NR-1 Piloto 01"
+ORG_LEGAL_NAME = "FROID NR-1 Piloto 01 — DADOS SIMULADOS"
+ORG_DISPLAY_NAME = "FROID NR-1 Piloto 01 — DADOS SIMULADOS"
 
 # O nome ja foi outro, e a remocao confere o nome antes de apagar.
 #
@@ -54,7 +55,10 @@ ORG_DISPLAY_NAME = "FROID NR-1 Piloto 01"
 # renomear a constante sem lembrar disso deixaria orfa qualquer organizacao
 # criada com o nome anterior — o --destroy nao a encontraria, e o piloto ficaria
 # no banco para sempre, com nome de demonstracao, na lista de um cliente.
-NOMES_ANTERIORES = ("EMPRESA TESTE FROID — PILOTO NR-1 (REMOVER)",)
+NOMES_ANTERIORES = (
+    "EMPRESA TESTE FROID — PILOTO NR-1 (REMOVER)",
+    "FROID NR-1 Piloto 01",
+)
 # A agregação exige vínculo ativo (froid_membership_is_active), então o piloto
 # precisa de um usuário e um vínculo próprios. São criados com e-mail que não
 # existe e removidos no --destroy. É a única incursão fora das tabelas do NR-1.
@@ -66,6 +70,11 @@ UNIT_LOGISTICA = str(uuid.uuid5(PILOT_NAMESPACE, "unit/logistica"))
 CRITERIA_ID = str(uuid.uuid5(PILOT_NAMESPACE, "criteria"))
 CAMPAIGN_BASE = str(uuid.uuid5(PILOT_NAMESPACE, "campaign/baseline"))
 CAMPAIGN_FOLLOW = str(uuid.uuid5(PILOT_NAMESPACE, "campaign/followup"))
+
+
+def pilot_id(name: str) -> str:
+    """Identificador estável para que completar o piloto seja idempotente."""
+    return str(uuid.uuid5(PILOT_NAMESPACE, name))
 
 INSTRUMENT_CODE = "froid-nr1-psicossocial"
 INSTRUMENT_VERSION = "1.0"
@@ -263,8 +272,8 @@ def create(connection) -> None:
 
     agora = datetime.now(timezone.utc)
     for campaign_id, titulo, wave, offset in (
-        (CAMPAIGN_BASE, "Piloto — linha de base", "baseline", 180),
-        (CAMPAIGN_FOLLOW, "Piloto — reavaliação", "followup", 30),
+        (CAMPAIGN_BASE, "FROID NR-1 Piloto 1 — linha de base", "baseline", 180),
+        (CAMPAIGN_FOLLOW, "FROID NR-1 Piloto 1 — reavaliação", "followup", 30),
     ):
         connection.execute(
             """
@@ -273,7 +282,13 @@ def create(connection) -> None:
                  status, criteria_id, target_headcount, purpose_notice,
                  support_channel_label, support_channel_detail)
             VALUES (%s,%s,%s,%s,%s,%s,'open',%s,%s,%s,%s,%s)
-            ON CONFLICT (id) DO NOTHING
+            ON CONFLICT (id) DO UPDATE SET
+                title=EXCLUDED.title,
+                criteria_id=EXCLUDED.criteria_id,
+                target_headcount=EXCLUDED.target_headcount,
+                purpose_notice=EXCLUDED.purpose_notice,
+                support_channel_label=EXCLUDED.support_channel_label,
+                support_channel_detail=EXCLUDED.support_channel_detail
             """,
             (
                 campaign_id, ORG_ID, instrument["id"], titulo,
@@ -290,6 +305,343 @@ def create(connection) -> None:
             (campaign_id,),
         )
         print(f"Campanha '{titulo}': respostas simuladas e coleta encerrada.")
+
+    complete_cycle(connection)
+
+
+def _aep_text(unit_name: str, wave: str) -> dict:
+    """Conteúdo demonstrativo, sempre rotulado para não parecer apuração real."""
+    ciclo = "linha de base" if wave == "baseline" else "reavaliação"
+    prefix = "DEMONSTRAÇÃO — DADOS SIMULADOS — SEM VALIDADE DOCUMENTAL."
+    return {
+        "reference_period": f"{prefix} Ciclo de {ciclo} do piloto.",
+        "real_work_description": (
+            f"{prefix} Cenário fictício da unidade {unit_name}: distribuição de "
+            "demandas, pausas, autonomia, apoio e situações de conflito descritas "
+            "somente para demonstrar o preenchimento da AEP."
+        ),
+        "exposure_duration": f"{prefix} Exposição simulada durante a jornada do cenário piloto.",
+        "exposure_frequency": f"{prefix} Frequência simulada recorrente no cenário piloto.",
+        "exposure_intensity": f"{prefix} Intensidade derivada exclusivamente das respostas simuladas.",
+        "exposure_cofactors": (
+            f"{prefix} Cofatores fictícios: variação de demanda, autonomia, apoio e conflito."
+        ),
+        "health_indicators": f"{prefix} Não foram usados indicadores clínicos nem dados de pessoas reais.",
+        "absenteeism_notes": f"{prefix} Absenteísmo não apurado; nenhum valor foi presumido.",
+        "previous_assessments": (
+            f"{prefix} " + (
+                "Não há avaliação anterior no cenário."
+                if wave == "baseline"
+                else "A linha de base simulada é a referência comparativa."
+            )
+        ),
+        "responsible_name": "DEMONSTRAÇÃO — responsável técnico não designado",
+        "responsible_qualification": "Dado simulado; substituir pelo responsável real antes de uso documental",
+        "aet_justification": (
+            f"{prefix} A necessidade de AET não foi decidida neste cenário; deve ser "
+            "avaliada pelo responsável real conforme os achados da atividade."
+        ),
+    }
+
+
+def _graded_payload(risk) -> dict:
+    row = asdict(risk)
+    row.update(
+        selected_consequence=risk.consequence,
+        possible_harms=list(risk.consequences_considered),
+        risk_classification=risk.risk_level,
+    )
+    return row
+
+
+def _store_inventory(connection, campaign_id: str, graded, aep_by_unit: dict) -> None:
+    """Grava o mesmo resultado calculado pelo motor e o liga à AEP do ciclo."""
+    for risk in graded:
+        row = _graded_payload(risk)
+        inventory_id = pilot_id(
+            f"inventory/{campaign_id}/{risk.unit_id}/{risk.dimension_id}"
+        )
+        connection.execute(
+            """
+            INSERT INTO psychosocial_risk_inventory
+                (id, organization_id, campaign_id, unit_id, dimension_id,
+                 nr1_factor, cohort_size, mean_score, severity, probability,
+                 risk_level, rationale, possible_harms, selected_consequence,
+                 exposed_workers, measure_efficacy, exposure_level,
+                 risk_classification, review_due_at, review_trigger,
+                 criteria_id, aep_id)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
+                    now() + interval '24 months','scheduled',%s,%s)
+            ON CONFLICT (campaign_id, unit_id, dimension_id) DO UPDATE SET
+                cohort_size=EXCLUDED.cohort_size,
+                mean_score=EXCLUDED.mean_score,
+                severity=EXCLUDED.severity,
+                probability=EXCLUDED.probability,
+                risk_level=EXCLUDED.risk_level,
+                rationale=EXCLUDED.rationale,
+                possible_harms=EXCLUDED.possible_harms,
+                selected_consequence=EXCLUDED.selected_consequence,
+                exposed_workers=EXCLUDED.exposed_workers,
+                measure_efficacy=EXCLUDED.measure_efficacy,
+                exposure_level=EXCLUDED.exposure_level,
+                risk_classification=EXCLUDED.risk_classification,
+                criteria_id=EXCLUDED.criteria_id,
+                aep_id=EXCLUDED.aep_id,
+                generated_at=now()
+            """,
+            (
+                inventory_id, ORG_ID, campaign_id, risk.unit_id,
+                risk.dimension_id, risk.nr1_factor, risk.cohort_size,
+                risk.mean_score, risk.severity, risk.probability,
+                risk.risk_level, risk.rationale, row["possible_harms"],
+                risk.consequence, risk.exposed_workers, risk.measure_efficacy,
+                risk.exposure_level, risk.risk_level, CRITERIA_ID,
+                aep_by_unit[risk.unit_id],
+            ),
+        )
+
+
+def _create_aep_documents(connection, campaign_id: str, wave: str) -> dict:
+    aep_by_unit = {}
+    unit_names = {
+        UNIT_ATENDIMENTO: "Atendimento ao cliente",
+        UNIT_LOGISTICA: "Logística",
+    }
+    for unit_id, unit_name in unit_names.items():
+        aep_id = pilot_id(f"aep/{campaign_id}/{unit_id}")
+        aep_by_unit[unit_id] = aep_id
+        fields = _aep_text(unit_name, wave)
+        connection.execute(
+            """
+            INSERT INTO aep_assessments
+                (id, organization_id, unit_id, criteria_id, reference_period,
+                 status, real_work_description, exposure_duration,
+                 exposure_frequency, exposure_intensity, exposure_cofactors,
+                 health_indicators, absenteeism_notes, previous_assessments,
+                 responsible_name, responsible_qualification,
+                 responsible_membership_id, aet_required, aet_justification,
+                 concluded_at)
+            VALUES (%s,%s,%s,%s,%s,'in_progress',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
+                    %s,false,%s,NULL)
+            ON CONFLICT (id) DO UPDATE SET
+                reference_period=EXCLUDED.reference_period,
+                status='in_progress',
+                real_work_description=EXCLUDED.real_work_description,
+                exposure_duration=EXCLUDED.exposure_duration,
+                exposure_frequency=EXCLUDED.exposure_frequency,
+                exposure_intensity=EXCLUDED.exposure_intensity,
+                exposure_cofactors=EXCLUDED.exposure_cofactors,
+                health_indicators=EXCLUDED.health_indicators,
+                absenteeism_notes=EXCLUDED.absenteeism_notes,
+                previous_assessments=EXCLUDED.previous_assessments,
+                responsible_name=EXCLUDED.responsible_name,
+                responsible_qualification=EXCLUDED.responsible_qualification,
+                aet_required=false,
+                aet_justification=EXCLUDED.aet_justification,
+                updated_at=now()
+            """,
+            (
+                aep_id, ORG_ID, unit_id, CRITERIA_ID,
+                fields["reference_period"], fields["real_work_description"],
+                fields["exposure_duration"], fields["exposure_frequency"],
+                fields["exposure_intensity"], fields["exposure_cofactors"],
+                fields["health_indicators"], fields["absenteeism_notes"],
+                fields["previous_assessments"], fields["responsible_name"],
+                fields["responsible_qualification"], MEMBERSHIP_ID,
+                fields["aet_justification"],
+            ),
+        )
+        for method, label in (
+            ("questionnaire", "resultados agregados da campanha simulada"),
+            ("activity_observation", "roteiro fictício de observação da atividade"),
+            ("worker_dialogue", "registro fictício de diálogo com trabalhadores"),
+            ("document_analysis", "registro de ausência de documentos reais no piloto"),
+        ):
+            evidence_id = pilot_id(f"aep-evidence/{aep_id}/{method}")
+            connection.execute(
+                """
+                INSERT INTO aep_evidence
+                    (id, organization_id, aep_id, method, campaign_id,
+                     collected_on, collected_by, summary, evidence_reference)
+                VALUES (%s,%s,%s,%s,%s,current_date,%s,%s,%s)
+                ON CONFLICT (id) DO UPDATE SET
+                    summary=EXCLUDED.summary,
+                    evidence_reference=EXCLUDED.evidence_reference
+                """,
+                (
+                    evidence_id, ORG_ID, aep_id, method, campaign_id,
+                    "Equipe demonstrativa FROID",
+                    "DEMONSTRAÇÃO — DADOS SIMULADOS — SEM VALIDADE DOCUMENTAL: " + label + ".",
+                    f"demo://{campaign_id}/{unit_id}/{method}",
+                ),
+            )
+        connection.execute(
+            """
+            UPDATE aep_assessments
+               SET status='concluded',
+                   concluded_at=coalesce(concluded_at, now()),
+                   updated_at=now()
+             WHERE id=%s AND organization_id=%s
+               AND EXISTS (SELECT 1 FROM aep_evidence WHERE aep_id=%s)
+            """,
+            (aep_id, ORG_ID, aep_id),
+        )
+    return aep_by_unit
+
+
+def _store_effectiveness(connection, verdicts) -> None:
+    for verdict in verdicts:
+        review_id = pilot_id(
+            f"effectiveness/{CAMPAIGN_FOLLOW}/{verdict.unit_id}/{verdict.dimension_id}"
+        )
+        connection.execute(
+            """
+            INSERT INTO measure_effectiveness_reviews
+                (id, organization_id, unit_id, dimension_id, action_plan_id,
+                 baseline_campaign_id, followup_campaign_id, baseline_cohort,
+                 followup_cohort, baseline_mean, followup_mean, effect_size,
+                 verdict, measure_efficacy, requires_correction, rationale)
+            VALUES (%s,%s,%s,%s,
+                    (SELECT plan.id
+                       FROM psychosocial_action_plan plan
+                       JOIN psychosocial_risk_inventory inventory
+                         ON inventory.id=plan.inventory_id
+                      WHERE plan.organization_id=%s
+                        AND plan.campaign_id=%s
+                        AND inventory.unit_id IS NOT DISTINCT FROM %s
+                        AND inventory.dimension_id=%s
+                      ORDER BY plan.created_at LIMIT 1),
+                    %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            ON CONFLICT (followup_campaign_id, unit_id, dimension_id) DO UPDATE SET
+                baseline_cohort=EXCLUDED.baseline_cohort,
+                followup_cohort=EXCLUDED.followup_cohort,
+                baseline_mean=EXCLUDED.baseline_mean,
+                followup_mean=EXCLUDED.followup_mean,
+                effect_size=EXCLUDED.effect_size,
+                verdict=EXCLUDED.verdict,
+                measure_efficacy=EXCLUDED.measure_efficacy,
+                requires_correction=EXCLUDED.requires_correction,
+                rationale=EXCLUDED.rationale,
+                reviewed_at=now()
+            """,
+            (
+                review_id, ORG_ID, verdict.unit_id, verdict.dimension_id,
+                ORG_ID, CAMPAIGN_BASE, verdict.unit_id, verdict.dimension_id,
+                CAMPAIGN_BASE, CAMPAIGN_FOLLOW, verdict.baseline_cohort,
+                verdict.followup_cohort, verdict.baseline_mean,
+                verdict.followup_mean, verdict.effect_size, verdict.verdict,
+                verdict.measure_efficacy, verdict.requires_correction,
+                "DEMONSTRAÇÃO — DADOS SIMULADOS. " + verdict.rationale,
+            ),
+        )
+        connection.execute(
+            """
+            UPDATE psychosocial_action_plan plan
+               SET effectiveness=%s, effectiveness_reviewed_at=now(),
+                   evidence=evidence || %s
+              FROM psychosocial_risk_inventory inventory
+             WHERE inventory.id=plan.inventory_id
+               AND plan.organization_id=%s
+               AND plan.campaign_id=%s
+               AND inventory.unit_id IS NOT DISTINCT FROM %s
+               AND inventory.dimension_id=%s
+            """,
+            (
+                verdict.measure_efficacy,
+                " Resultado da reavaliação simulada vinculado à medida.",
+                ORG_ID, CAMPAIGN_BASE, verdict.unit_id, verdict.dimension_id,
+            ),
+        )
+
+
+def _store_action_plan(connection, campaign_id: str, graded, *, implemented: bool) -> None:
+    for seed in nr1_compliance.action_plan_seed(graded):
+        item_id = pilot_id(
+            f"action/{campaign_id}/{seed['unit_id']}/{seed['dimension_id']}"
+        )
+        measure = (
+            "DEMONSTRAÇÃO — DADOS SIMULADOS — SEM VALIDADE DOCUMENTAL. "
+            f"Revisar a organização do trabalho relacionada a {seed['nr1_factor']}, "
+            "com participação dos trabalhadores, e registrar os ajustes adotados."
+        )
+        connection.execute(
+            """
+            INSERT INTO psychosocial_action_plan
+                (id, organization_id, inventory_id, campaign_id, criteria_id,
+                 measure, measure_type, plan_action, responsible_membership_id,
+                 due_date, status, evidence, monitoring_method,
+                 result_measurement, implemented_at, effectiveness_reviewed_at,
+                 effectiveness, exposed_workers, priority_rank)
+            SELECT %s,%s,inventory.id,%s,%s,%s,%s,%s,%s,
+                   current_date,%s,%s,%s,%s,%s,%s,%s,%s,%s
+              FROM psychosocial_risk_inventory inventory
+             WHERE inventory.organization_id=%s
+               AND inventory.campaign_id=%s
+               AND inventory.dimension_id=%s
+               AND inventory.unit_id IS NOT DISTINCT FROM %s
+            ON CONFLICT (id) DO UPDATE SET
+                measure=EXCLUDED.measure,
+                measure_type=EXCLUDED.measure_type,
+                plan_action=EXCLUDED.plan_action,
+                responsible_membership_id=EXCLUDED.responsible_membership_id,
+                due_date=EXCLUDED.due_date,
+                status=EXCLUDED.status,
+                evidence=EXCLUDED.evidence,
+                monitoring_method=EXCLUDED.monitoring_method,
+                result_measurement=EXCLUDED.result_measurement,
+                implemented_at=coalesce(
+                    psychosocial_action_plan.implemented_at,
+                    EXCLUDED.implemented_at
+                ),
+                effectiveness_reviewed_at=EXCLUDED.effectiveness_reviewed_at,
+                effectiveness=EXCLUDED.effectiveness,
+                exposed_workers=EXCLUDED.exposed_workers,
+                priority_rank=EXCLUDED.priority_rank
+            """,
+            (
+                item_id, ORG_ID, campaign_id, CRITERIA_ID, measure,
+                seed["measure_type"], seed["plan_action"], MEMBERSHIP_ID,
+                "done" if implemented else "planned",
+                (
+                    "DEMONSTRAÇÃO: registro fictício de implementação; não comprova ação real."
+                    if implemented
+                    else "DEMONSTRAÇÃO: medida proposta para o próximo giro; ainda não implementada."
+                ),
+                "DEMONSTRAÇÃO: acompanhamento por revisão do processo e participação.",
+                "Comparação agregada entre linha de base e reavaliação simuladas.",
+                datetime.now(timezone.utc) if implemented else None,
+                None,
+                None,
+                seed["exposed_workers"], seed["priority_rank"],
+                ORG_ID, campaign_id, seed["dimension_id"], seed["unit_id"],
+            ),
+        )
+
+
+def complete_cycle(connection) -> None:
+    """Fecha as camadas documentais do piloto sem tocar em dados reais."""
+    base_aep = _create_aep_documents(connection, CAMPAIGN_BASE, "baseline")
+    follow_aep = _create_aep_documents(connection, CAMPAIGN_FOLLOW, "followup")
+
+    base_scores = _scores(connection, CAMPAIGN_BASE)
+    follow_scores = _scores(connection, CAMPAIGN_FOLLOW)
+    base_graded = nr1_compliance.grade_all(base_scores)
+    _store_inventory(connection, CAMPAIGN_BASE, base_graded, base_aep)
+    _store_action_plan(connection, CAMPAIGN_BASE, base_graded, implemented=True)
+
+    verdicts = nr1_effectiveness.compare_campaigns(base_scores, follow_scores)
+    _store_effectiveness(connection, verdicts)
+    # A revisão gravada passa a compor a probabilidade do ciclo seguinte.
+    follow_graded = nr1_compliance.grade_all(_scores(connection, CAMPAIGN_FOLLOW))
+    _store_inventory(connection, CAMPAIGN_FOLLOW, follow_graded, follow_aep)
+    # A reavaliação fecha a apuração e abre, corretamente, as correções do
+    # próximo giro. Declará-las concluídas sem uma terceira medição seria
+    # transformar ausência de evidência em eficácia.
+    _store_action_plan(connection, CAMPAIGN_FOLLOW, follow_graded, implemented=False)
+    print(
+        "Ciclo documental demonstrativo concluído: AEP, evidências, inventários, "
+        "planos de ação e eficácia vinculados."
+    )
 
 
 def _json(value) -> str:
@@ -432,6 +784,60 @@ def report(connection) -> None:
     print(f"\n  Medidas que exigem correção: {len(falhas)}")
 
     print()
+    print(paint("ROAD MAP DOCUMENTAL DO PILOTO", BOLD))
+    counts = {
+        "campanhas encerradas": connection.execute(
+            "SELECT count(*) FROM assessment_campaigns "
+            "WHERE organization_id=%s AND status='closed'",
+            (ORG_ID,),
+        ).fetchone()[0],
+        "AEP concluídas": connection.execute(
+            "SELECT count(*) FROM aep_assessments "
+            "WHERE organization_id=%s AND status='concluded'",
+            (ORG_ID,),
+        ).fetchone()[0],
+        "evidências metodológicas": connection.execute(
+            "SELECT count(*) FROM aep_evidence WHERE organization_id=%s",
+            (ORG_ID,),
+        ).fetchone()[0],
+        "riscos no inventário": connection.execute(
+            "SELECT count(*) FROM psychosocial_risk_inventory WHERE organization_id=%s",
+            (ORG_ID,),
+        ).fetchone()[0],
+        "medidas no plano de ação": connection.execute(
+            "SELECT count(*) FROM psychosocial_action_plan WHERE organization_id=%s",
+            (ORG_ID,),
+        ).fetchone()[0],
+        "revisões de eficácia": connection.execute(
+            "SELECT count(*) FROM measure_effectiveness_reviews WHERE organization_id=%s",
+            (ORG_ID,),
+        ).fetchone()[0],
+    }
+    for label, count in counts.items():
+        print(f"  OK  {label}: {count}")
+
+    inventory_without_aep = connection.execute(
+        "SELECT count(*) FROM psychosocial_risk_inventory "
+        "WHERE organization_id=%s AND aep_id IS NULL",
+        (ORG_ID,),
+    ).fetchone()[0]
+    expected_reviews = len({(item.unit_id, item.dimension_id) for item in base})
+    incomplete = (
+        counts["campanhas encerradas"] != 2
+        or counts["AEP concluídas"] != len(POPULATION) * 2
+        or counts["evidências metodológicas"] != len(POPULATION) * 2 * 4
+        or counts["riscos no inventário"] == 0
+        or counts["medidas no plano de ação"] == 0
+        or counts["revisões de eficácia"] != expected_reviews
+        or inventory_without_aep != 0
+    )
+    print(f"  OK  vínculos inventário → AEP: {inventory_without_aep} pendente(s)")
+    if incomplete:
+        raise SystemExit(
+            "Piloto incompleto: execute --create novamente e confira os erros acima."
+        )
+
+    print()
     print(paint("CONFERÊNCIA DAS GARANTIAS", BOLD))
     aberta = connection.execute(
         "SELECT count(*) FROM froid_nr1_dimension_scores(%s)", (CAMPAIGN_BASE,)
@@ -566,7 +972,11 @@ def main() -> int:
     parser.add_argument(
         "--grant",
         metavar="EMAIL",
-        help="da a uma conta real acesso a empresa do piloto, para conferir na tela",
+        action="append",
+        help=(
+            "dá acesso à empresa do piloto; repita a opção para conceder a "
+            "mais de uma conta na mesma transação"
+        ),
     )
     args = parser.parse_args()
     if not (args.create or args.report or args.destroy or args.grant):
@@ -589,8 +999,8 @@ def main() -> int:
                 return 0
             if args.create:
                 create(connection)
-            if args.grant:
-                grant_access(connection, args.grant)
+            for email in args.grant or []:
+                grant_access(connection, email)
             if args.create or args.report:
                 report(connection)
     return 0
