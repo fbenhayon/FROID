@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import type { FroidUser } from "../App";
+import { EtapaNr1 } from "../components/nr1/EtapaNr1";
 import { apiUrl } from "../lib/api";
 import {
   caminhoDoPorte,
@@ -673,9 +674,7 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
       <main className="w-full min-w-0 ">
         <header className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-cyan-300">
-              NR-1 · Coleta
-            </p>
+            <EtapaNr1 user={user} etapa="NR-1 · Coleta" />
             <h1 className="mt-2 text-2xl font-black text-white">Campanha e convites</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
               A campanha define a janela e o denominador; o convite é o link

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { FroidUser } from "../App";
+import { EtapaNr1 } from "../components/nr1/EtapaNr1";
 import { apiUrl } from "../lib/api";
 import { GlossarioDeSiglas } from "../lib/siglas";
 import { Nr1ExplicaPainel } from "../components/nr1/Nr1ExplicaPainel";
@@ -309,9 +310,7 @@ export const Nr1Aep: React.FC<{ user: FroidUser | null }> = ({ user }) => {
       <main className="w-full min-w-0 ">
         <header className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-cyan-300">
-              NR-17 (Ergonomia) · Avaliação Ergonômica Preliminar
-            </p>
+            <EtapaNr1 user={user} etapa="NR-17 (Ergonomia) · Avaliação Ergonômica Preliminar" />
             <h1 className="mt-2 text-2xl font-black text-white">
               Avaliação Ergonômica Preliminar (AEP) psicossocial
             </h1>

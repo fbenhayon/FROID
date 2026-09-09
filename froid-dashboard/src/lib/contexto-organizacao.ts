@@ -22,6 +22,8 @@ export type OrganizacaoDoUsuario = {
 
 type ComOrganizacoes = {
   organizations?: Array<OrganizacaoDoUsuario | Record<string, unknown>>;
+  /** A organização em que a sessão está. Quem decide é o servidor. */
+  active_organization_id?: string;
 } | null | undefined;
 
 function lista(user: ComOrganizacoes): OrganizacaoDoUsuario[] {
@@ -69,6 +71,33 @@ export function organizacaoClinica(
 
 export function nomeDaOrganizacao(organizacao: OrganizacaoDoUsuario): string {
   return organizacao.organization_name || organizacao.organization_id;
+}
+
+/** A organização em que a sessão está — o CLIENTE cujo dado está na tela.
+ *
+ *  `active_organization_id` já chega normalizado: quando o id gravado na sessão
+ *  não corresponde a nenhum vínculo, `_attach_tenant_contexts` o troca pelo
+ *  primeiro contexto antes de responder. O mesmo fallback fica aqui porque a
+ *  regra é do servidor e esta função só a repete — não inventa uma segunda.
+ */
+export function organizacaoAtiva(
+  user: ComOrganizacoes,
+): OrganizacaoDoUsuario | null {
+  const todas = lista(user);
+  const ativa = String(user?.active_organization_id || "");
+  return todas.find((item) => item.organization_id === ativa) || todas[0] || null;
+}
+
+/** O nome do cliente, ou vazio quando ele não é conhecido.
+ *
+ *  Vazio DE PROPÓSITO: `nomeDaOrganizacao` cai no organization_id quando o nome
+ *  falta, e um UUID no lugar do nome do cliente é pior que o vazio — quem lê
+ *  conclui que a tela está com defeito e não tem como saber qual. É o mesmo
+ *  caso que o seletor de organização do painel já registrou.
+ */
+export function nomeDoClienteAtivo(user: ComOrganizacoes): string {
+  const organizacao = organizacaoAtiva(user);
+  return String(organizacao?.organization_name || "").trim();
 }
 
 /** Troca a organização ativa da sessão. Devolve o motivo quando não troca.

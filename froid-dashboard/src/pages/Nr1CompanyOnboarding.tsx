@@ -515,6 +515,15 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
 
       <div className="mx-auto grid w-full max-w-[104rem] items-start gap-4 px-3 xl:grid-cols-[minmax(0,1fr)_400px]">
       <main className="w-full min-w-0 px-5 py-8">
+        {/* De quem e este cadastro, ao lado da indicacao da etapa.
+            Aqui o nome vem do proprio formulario, e nao da organizacao ativa:
+            no primeiro passo a organizacao ainda nao existe. Enquanto nada foi
+            digitado nao se escreve nada. */}
+        {(nomeFantasia.trim() || razaoSocial.trim()) && (
+          <p className="mb-3 text-[11px] font-bold text-slate-300">
+            {nomeFantasia.trim() || razaoSocial.trim()}
+          </p>
+        )}
         <div className="flex flex-wrap gap-4">
           <Passo numero={1} atual={passo} titulo="A empresa" />
           <Passo numero={2} atual={passo} titulo="Estabelecimentos" />

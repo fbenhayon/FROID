@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 import type { FroidUser } from "../App";
+import { EtapaNr1 } from "../components/nr1/EtapaNr1";
 import { apiUrl } from "../lib/api";
 import {
   TEMAS,
@@ -314,9 +315,7 @@ export const Nr1Explica: React.FC<Props> = ({ user }) => {
       <main className="mx-auto max-w-4xl">
         <header className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-cyan-300">
-              FROID Explica · NR-1
-            </p>
+            <EtapaNr1 user={user} etapa="FROID Explica · NR-1" />
             <h1 className="mt-2 text-2xl font-black text-white">
               Perguntas sobre a norma e sobre a avaliação
             </h1>

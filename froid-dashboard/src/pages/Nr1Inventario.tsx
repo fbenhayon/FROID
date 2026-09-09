@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 import type { FroidUser } from "../App";
+import { EtapaNr1 } from "../components/nr1/EtapaNr1";
 import { apiUrl } from "../lib/api";
 import { GlossarioDeSiglas, Sigla } from "../lib/siglas";
 import { Nr1ExplicaPainel } from "../components/nr1/Nr1ExplicaPainel";
@@ -274,9 +275,7 @@ export const Nr1Inventario: React.FC<Props> = ({ user }) => {
       <main className="w-full min-w-0 ">
         <div className="froid-nao-imprime flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-cyan-300">
-              NR-1 · 1.5.7.3.2
-            </p>
+            <EtapaNr1 user={user} etapa="NR-1 · 1.5.7.3.2" />
             <h1 className="mt-2 text-2xl font-black text-white">
               Inventário de riscos psicossociais
             </h1>

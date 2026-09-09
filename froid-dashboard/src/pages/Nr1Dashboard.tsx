@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { FroidUser } from "../App";
+import { EtapaNr1 } from "../components/nr1/EtapaNr1";
 import { apiUrl } from "../lib/api";
 import { PISO_CAMPANHA } from "../lib/nr1-representatividade";
 import { GlossarioDeSiglas, Sigla } from "../lib/siglas";
@@ -543,9 +544,7 @@ export const Nr1Dashboard: React.FC<{
       <main className="w-full min-w-0 ">
         <header className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-cyan-300">
-              NR-1 · Riscos psicossociais
-            </p>
+            <EtapaNr1 user={user} etapa="NR-1 · Riscos psicossociais" />
             <h1 className="mt-2 text-2xl font-black text-white">
               Painel de conformidade
             </h1>

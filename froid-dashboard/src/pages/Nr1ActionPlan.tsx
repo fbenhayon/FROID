@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { FroidUser } from "../App";
+import { EtapaNr1 } from "../components/nr1/EtapaNr1";
 import { apiUrl } from "../lib/api";
 import { GlossarioDeSiglas } from "../lib/siglas";
 import { Nr1ExplicaPainel } from "../components/nr1/Nr1ExplicaPainel";
@@ -319,9 +320,10 @@ export const Nr1ActionPlan: React.FC<{ user: FroidUser | null }> = ({ user }) =>
       <main className="w-full min-w-0 ">
         <header className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-cyan-300">
-              NR-1 (Norma Regulamentadora nº 1) · 1.5.7.1 "b"
-            </p>
+            <EtapaNr1
+              user={user}
+              etapa={'NR-1 (Norma Regulamentadora nº 1) · 1.5.7.1 "b"'}
+            />
             <h1 className="mt-2 text-2xl font-black text-white">Plano de ação</h1>
             <p className="mt-2 max-w-3xl text-sm text-slate-400">
               O segundo dos dois documentos obrigatórios do Programa de Gerenciamento de Riscos (PGR). Indica as
