@@ -482,7 +482,14 @@ function App() {
           element={clinicalElement(<PrivacyRequests user={user} />)}
         />
         <Route path="/validade" element={clinicalElement(<ValidationStudy user={user} />)} />
-        <Route path="/nr1" element={clinicalElement(<Nr1Dashboard user={user} />)} />
+        {/* `onLogout` porque a empresa contratante do NR-1 não tem para onde
+            "voltar": ela não tem painel clínico, e a porta de saída do módulo
+            precisa ser a saída da sessão. Sem isto o botão a levava para
+            /dashboard — a tela de pacientes do produto que ela não comprou. */}
+        <Route
+          path="/nr1"
+          element={clinicalElement(<Nr1Dashboard user={user} onLogout={logout} />)}
+        />
         <Route path="/nr1/aep" element={clinicalElement(<Nr1Aep user={user} />)} />
         {/* A camada que faltava entre a estrutura e o painel: criar
             campanha, abrir a coleta e emitir convites. Os tres endpoints

@@ -293,7 +293,10 @@ const RepresentativenessLine: React.FC<{
   );
 };
 
-export const Nr1Dashboard: React.FC<{ user: FroidUser | null }> = ({ user }) => {
+export const Nr1Dashboard: React.FC<{
+  user: FroidUser | null;
+  onLogout: () => void;
+}> = ({ user, onLogout }) => {
   const nav = useNavigate();
   const organizationId =
     user?.active_organization_id || user?.organizations?.[0]?.organization_id || "";
@@ -324,10 +327,21 @@ export const Nr1Dashboard: React.FC<{ user: FroidUser | null }> = ({ user }) => 
   const [error, setError] = useState("");
 
   // Para onde o botão "Dashboard" devolve o contexto da sessão.
+  //
+  // Só existe painel clínico para quem TEM organização clínica. A empresa
+  // contratante do NR-1 não tem — todas as organizações dela são 'enterprise'
+  // — e para ela este botão não é uma volta, é uma porta para o produto
+  // errado. Quando isto é null, o cabeçalho renderiza "Sair" no lugar de
+  // "Dashboard"; o comentário do botão, lá embaixo, conta o caso.
   const organizacaoDoPsique = organizacaoClinica(user);
   const voltarAoPsique = async () => {
+    // O botão só é renderizado com organização clínica. A guarda continua aqui
+    // para o caso de alguém voltar a renderizá-lo sem ela — e o que ela NÃO
+    // faz é o ponto: nenhuma navegação crua para o painel clínico no escuro.
+    // Era isso que levava a empresa contratante ao painel de pacientes. Dizer
+    // que não há painel clínico é melhor que abrir o do produto errado.
     if (!organizacaoDoPsique) {
-      nav("/dashboard");
+      setError("Esta conta não tem painel clínico para voltar.");
       return;
     }
     setError("");
@@ -638,22 +652,39 @@ export const Nr1Dashboard: React.FC<{ user: FroidUser | null }> = ({ user }) => 
                 clínicas identificadas: a pessoa chegava lá e os pacientes
                 dela tinham sumido, sem nada na tela explicando por quê.
 
-                Quando a conta não tem organização clínica — a empresa NR-1
-                pura — não há contexto a restaurar, e a navegação é a de
-                sempre. O botão continua existindo para ela de propósito: o
-                painel NR-1 não tem "Sair" nem "Administrativo", e sem esta
-                porta a única saída da tela seria fechar o navegador. */}
-            <button
-              onClick={() => void voltarAoPsique()}
-              title={
-                organizacaoDoPsique
-                  ? `Painel clínico FROID Psique, no contexto de ${nomeDaOrganizacao(organizacaoDoPsique)}.`
-                  : "Painel clínico FROID Psique."
-              }
-              className="rounded border border-cyan-700 bg-cyan-950 px-4 py-2 text-xs font-black text-cyan-100 hover:bg-cyan-900"
-            >
-              Dashboard
-            </button>
+                O botão é de quem TEM os dois produtos. Para a empresa
+                contratante do NR-1 ele estava rotulado "Dashboard" e levava a
+                /dashboard, que é o painel CLÍNICO — "Saldo de sessões", "Meus
+                Pacientes", "Gestão da clínica". É exatamente o defeito que
+                `homeDoProduto` corrigiu no redirecionamento de login, apurado
+                em 27/08/2026 com a conta da TATICCA, e que este botão reabria
+                por dentro. Além de inútil para ela, é a tela que mais
+                contradiz o que o produto promete: o empregador não tem, e não
+                pode ter, pacientes — e numa demonstração comercial é a
+                primeira coisa que o cliente vê.
+
+                A necessidade que o botão atendia era outra, e continua
+                atendida: o painel NR-1 não tem "Administrativo", e sem uma
+                porta a única saída da tela seria fechar o navegador. Para quem
+                não tem painel clínico, a saída honesta do módulo é sair da
+                sessão. */}
+            {organizacaoDoPsique ? (
+              <button
+                onClick={() => void voltarAoPsique()}
+                title={`Painel clínico FROID Psique, no contexto de ${nomeDaOrganizacao(organizacaoDoPsique)}.`}
+                className="rounded border border-cyan-700 bg-cyan-950 px-4 py-2 text-xs font-black text-cyan-100 hover:bg-cyan-900"
+              >
+                Dashboard
+              </button>
+            ) : (
+              <button
+                onClick={onLogout}
+                title="Encerrar a sessão e voltar à tela de entrada."
+                className="rounded border border-slate-700 px-4 py-2 text-xs font-black text-slate-200 hover:bg-slate-900"
+              >
+                Sair
+              </button>
+            )}
           </div>
         </header>
 
