@@ -281,13 +281,42 @@ class DocumentoCompletoDoPiloto(unittest.TestCase):
         spec.loader.exec_module(self.tool)
 
     def test_toda_informacao_complementar_e_marcada_como_demonstracao(self):
-        campos = self.tool._aep_text("Unidade fictícia", "baseline")
-        for nome, valor in campos.items():
-            self.assertTrue(valor.strip(), f"campo AEP vazio: {nome}")
-            self.assertTrue(
-                "DEMONSTRA" in valor or "simulad" in valor.lower(),
-                f"campo AEP poderia ser lido como fato real: {nome}",
-            )
+        marcadores = (
+            "demonstra", "fictíci", "hipótese", "premissa", "simulad",
+            "hipotético", "cenográfico", "papel simulado", "decisão demonstrativa",
+            "histórico demonstrativo",
+        )
+        for unidade in (self.tool.UNIT_ATENDIMENTO, self.tool.UNIT_LOGISTICA):
+            for onda in ("baseline", "followup"):
+                campos = self.tool._aep_text(unidade, onda)
+                textos = []
+                for nome, valor in campos.items():
+                    if isinstance(valor, bool):
+                        continue
+                    self.assertTrue(valor.strip(), f"campo AEP vazio: {nome}")
+                    self.assertTrue(
+                        any(marcador in valor.lower() for marcador in marcadores),
+                        f"campo AEP poderia ser lido como fato real: {nome}",
+                    )
+                    textos.append(valor)
+                self.assertEqual(
+                    len(textos), len(set(textos)),
+                    f"a AEP de {unidade}/{onda} repete conteúdo entre campos",
+                )
+
+    def test_evidencias_contam_ocorrencias_diferentes(self):
+        textos = []
+        for unidade in (self.tool.UNIT_ATENDIMENTO, self.tool.UNIT_LOGISTICA):
+            for onda in ("baseline", "followup"):
+                evidence = self.tool._evidence_summaries(unidade, onda)
+                self.assertEqual(
+                    set(evidence),
+                    {"questionnaire", "activity_observation", "worker_dialogue", "document_analysis"},
+                )
+                textos.extend(evidence.values())
+        self.assertEqual(len(textos), len(set(textos)))
+        self.assertTrue(any("ameaça encenada" in texto for texto in textos))
+        self.assertTrue(any("clientes hostis" in texto for texto in textos))
 
     def test_ciclo_liga_as_duas_campanhas_a_documentos(self):
         fonte = SOURCE[SOURCE.index("def complete_cycle("):SOURCE.index("def _json(")]

@@ -271,75 +271,237 @@ def create(connection) -> None:
     )
 
     agora = datetime.now(timezone.utc)
-    for campaign_id, titulo, wave, offset in (
-        (CAMPAIGN_BASE, "FROID NR-1 Piloto 1 — linha de base", "baseline", 180),
-        (CAMPAIGN_FOLLOW, "FROID NR-1 Piloto 1 — reavaliação", "followup", 30),
+    for campaign_id, titulo, wave, inicio_ha, fim_ha in (
+        (CAMPAIGN_BASE, "FROID NR-1 Piloto 1 — linha de base", "baseline", 210, 180),
+        (CAMPAIGN_FOLLOW, "FROID NR-1 Piloto 1 — reavaliação", "followup", 30, 1),
     ):
+        abertura = agora - timedelta(days=inicio_ha)
+        encerramento = agora - timedelta(days=fim_ha)
+        periodo = (
+            f"Cenário demonstrativo: {abertura:%d/%m/%Y} a "
+            f"{encerramento:%d/%m/%Y}"
+        )
         connection.execute(
             """
             INSERT INTO assessment_campaigns
                 (id, organization_id, instrument_id, title, opens_at, closes_at,
                  status, criteria_id, target_headcount, purpose_notice,
-                 support_channel_label, support_channel_detail)
-            VALUES (%s,%s,%s,%s,%s,%s,'open',%s,%s,%s,%s,%s)
+                 support_channel_label, support_channel_detail, reference_period)
+            VALUES (%s,%s,%s,%s,%s,%s,'open',%s,%s,%s,%s,%s,%s)
             ON CONFLICT (id) DO UPDATE SET
                 title=EXCLUDED.title,
+                opens_at=EXCLUDED.opens_at,
+                closes_at=EXCLUDED.closes_at,
                 criteria_id=EXCLUDED.criteria_id,
                 target_headcount=EXCLUDED.target_headcount,
                 purpose_notice=EXCLUDED.purpose_notice,
                 support_channel_label=EXCLUDED.support_channel_label,
-                support_channel_detail=EXCLUDED.support_channel_detail
+                support_channel_detail=EXCLUDED.support_channel_detail,
+                reference_period=EXCLUDED.reference_period
             """,
             (
                 campaign_id, ORG_ID, instrument["id"], titulo,
-                agora - timedelta(days=offset), agora + timedelta(days=1),
+                abertura, encerramento,
                 CRITERIA_ID, sum(POPULATION.values()),
-                "Piloto técnico do módulo NR-1 com dados simulados.",
-                "Canal de apoio (piloto)",
-                "Nenhum contato real: esta é uma campanha de teste.",
+                "Demonstração do ciclo NR-1 com cenário empresarial inteiramente fictício.",
+                "Acolhimento demonstrativo",
+                "Em uma operação real, este campo informa o canal independente de apoio.",
+                periodo,
             ),
         )
         _simulate_wave(connection, campaign_id, dimensions, wave)
         connection.execute(
-            "UPDATE assessment_campaigns SET status='closed', closed_at=now() WHERE id=%s",
+            "UPDATE assessment_campaigns SET status='closed', closed_at=closes_at WHERE id=%s",
             (campaign_id,),
         )
         print(f"Campanha '{titulo}': respostas simuladas e coleta encerrada.")
 
-    complete_cycle(connection)
+    complete_cycle(connection, dimensions)
 
 
-def _aep_text(unit_name: str, wave: str) -> dict:
-    """Conteúdo demonstrativo, sempre rotulado para não parecer apuração real."""
-    ciclo = "linha de base" if wave == "baseline" else "reavaliação"
-    prefix = "DEMONSTRAÇÃO — DADOS SIMULADOS — SEM VALIDADE DOCUMENTAL."
+def _aep_text(unit_id: str, wave: str) -> dict:
+    """Quatro narrativas coerentes, todas reconhecíveis como cenário fictício."""
+    if unit_id not in POPULATION or wave not in {"baseline", "followup"}:
+        raise ValueError("unidade ou onda fora do cenário demonstrativo")
+    if unit_id == UNIT_ATENDIMENTO and wave == "baseline":
+        return {
+            "reference_period": "DEMONSTRAÇÃO — linha de base fictícia, sem validade documental.",
+            "real_work_description": (
+                "Cenário fictício: 64 atendentes alternam voz, chat e e-mail em filas "
+                "simultâneas. Em campanhas comerciais, a prioridade muda durante o "
+                "turno; metas de tempo, qualidade e retenção competem entre si, e pausas "
+                "são negociadas com a supervisão conforme o tamanho da fila."
+            ),
+            "exposure_duration": (
+                "Hipótese do piloto: blocos contínuos de atendimento ocupam a maior "
+                "parte da jornada, intercalados por pausas curtas e troca de canal."
+            ),
+            "exposure_frequency": (
+                "Premissa demonstrativa: picos aparecem diariamente na abertura, no "
+                "horário de almoço e após comunicações promocionais."
+            ),
+            "exposure_intensity": (
+                "Leitura simulada: sobrecarga elevada quando filas crescem e o atendente "
+                "precisa resolver a demanda sem autonomia para exceções."
+            ),
+            "exposure_cofactors": (
+                "Elementos fictícios do cenário: ruído da operação, mensagens "
+                "contraditórias, clientes hostis, monitoramento em tempo real e apoio "
+                "desigual entre supervisores."
+            ),
+            "health_indicators": (
+                "Indicadores demonstrativos sugerem relatos coletivos de tensão ao fim "
+                "do turno e dificuldade de recuperação após dias de pico; nenhum dado "
+                "clínico individual foi utilizado."
+            ),
+            "absenteeism_notes": (
+                "Padrão hipotético: ausências breves se concentram após campanhas de "
+                "alto volume. A demonstração não atribui causa nem informa quantidade real."
+            ),
+            "previous_assessments": (
+                "Histórico demonstrativo: primeira medição estruturada deste setor; não "
+                "há resultado anterior usado como substituto."
+            ),
+            "responsible_name": "DEMONSTRAÇÃO — Marina Lopes (personagem fictícia)",
+            "responsible_qualification": "Papel simulado: coordenação de SST da empresa-piloto",
+            "aet_required": True,
+            "aet_justification": (
+                "Decisão demonstrativa: aprofundar a análise de filas, metas concorrentes, "
+                "margem de decisão e recuperação entre atendimentos."
+            ),
+        }
+    if unit_id == UNIT_ATENDIMENTO:
+        return {
+            "reference_period": "DEMONSTRAÇÃO — reavaliação fictícia, sem validade documental.",
+            "real_work_description": (
+                "Cenário fictício de reavaliação: o roteamento passou a separar demandas "
+                "simples e complexas, reforços cobrem horários de pico e micro-pausas são "
+                "programadas. A carga caiu, mas o novo escalonamento de clientes agressivos "
+                "funciona de modo desigual e expõe parte da equipe a conflitos repetidos."
+            ),
+            "exposure_duration": (
+                "Hipótese pós-medida: os picos ficaram mais curtos, enquanto interações "
+                "hostis ainda podem ocupar todo o atendimento até a chegada da supervisão."
+            ),
+            "exposure_frequency": (
+                "Premissa da segunda onda: pressão por volume permanece diária; episódios "
+                "de desrespeito aparecem de forma intermitente e sem resposta uniforme."
+            ),
+            "exposure_intensity": (
+                "Leitura agregada simulada: melhora expressiva de excesso de demandas e "
+                "agravamento de assédio, combinação que exige medidas diferentes."
+            ),
+            "exposure_cofactors": (
+                "Cofatores hipotéticos: treinamento desigual de líderes, transferência "
+                "tardia de chamadas críticas e cobrança de retenção durante conflitos."
+            ),
+            "health_indicators": (
+                "Painel demonstrativo: diminuem referências coletivas a exaustão por fila, "
+                "enquanto aumentam pedidos de apoio após interação ofensiva."
+            ),
+            "absenteeism_notes": (
+                "Registro cenográfico: o padrão de ausências não permite conclusão; no "
+                "caso real, RH e PCMSO precisariam validar tendência e nexo."
+            ),
+            "previous_assessments": (
+                "Comparação demonstrativa: usa a linha de base fictícia da mesma unidade, "
+                "instrumento e recorte, preservando comparabilidade."
+            ),
+            "responsible_name": "DEMONSTRAÇÃO — Marina Lopes (personagem fictícia)",
+            "responsible_qualification": "Papel simulado: coordenação de SST da empresa-piloto",
+            "aet_required": True,
+            "aet_justification": (
+                "Decisão demonstrativa: manter o aprofundamento e observar o protocolo de "
+                "escalonamento, pois o risco crítico de assédio piorou na segunda onda."
+            ),
+        }
+    if wave == "baseline":
+        return {
+            "reference_period": "DEMONSTRAÇÃO — linha de base logística fictícia, sem validade documental.",
+            "real_work_description": (
+                "Cenário fictício: 22 trabalhadores recebem, separam e expedem pedidos, "
+                "com reprogramações urgentes no fechamento de carga. A passagem entre "
+                "turnos ocorre por rádio e quadro de doca, e motoristas aguardam liberação "
+                "em área compartilhada com a conferência."
+            ),
+            "exposure_duration": (
+                "Hipótese do piloto: alternância durante todo o turno entre separação "
+                "planejada e janelas curtas de carregamento."
+            ),
+            "exposure_frequency": (
+                "Premissa demonstrativa: urgências concentram-se no fim de cada janela de "
+                "expedição e nas trocas de turno."
+            ),
+            "exposure_intensity": (
+                "Leitura simulada: exigência moderada na rotina, com elevação súbita diante "
+                "de atraso, divergência de pedido ou bloqueio de doca."
+            ),
+            "exposure_cofactors": (
+                "Elementos fictícios: comunicação por canais paralelos, iluminação variável, "
+                "ruído, espera de terceiros e responsabilidade pouco clara por exceções."
+            ),
+            "health_indicators": (
+                "Indicadores demonstrativos mencionam fadiga no fechamento e tensão em "
+                "situações de divergência; não há prontuários ou diagnósticos no piloto."
+            ),
+            "absenteeism_notes": (
+                "Padrão hipotético: não foi formada tendência confiável de ausências; a "
+                "lacuna permanece declarada em vez de preenchida com zero."
+            ),
+            "previous_assessments": (
+                "Histórico demonstrativo: inspeções operacionais anteriores não continham "
+                "avaliação psicossocial comparável."
+            ),
+            "responsible_name": "DEMONSTRAÇÃO — Rafael Nunes (personagem fictício)",
+            "responsible_qualification": "Papel simulado: engenharia de segurança da empresa-piloto",
+            "aet_required": False,
+            "aet_justification": (
+                "Decisão demonstrativa inicial: acompanhar a atividade e reavaliar antes de "
+                "escalonar; nenhuma dispensa real de AET é produzida por este piloto."
+            ),
+        }
     return {
-        "reference_period": f"{prefix} Ciclo de {ciclo} do piloto.",
+        "reference_period": "DEMONSTRAÇÃO — reavaliação logística fictícia, sem validade documental.",
         "real_work_description": (
-            f"{prefix} Cenário fictício da unidade {unit_name}: distribuição de "
-            "demandas, pausas, autonomia, apoio e situações de conflito descritas "
-            "somente para demonstrar o preenchimento da AEP."
+            "Cenário fictício de reavaliação: o quadro de doca foi padronizado e a passagem "
+            "de turno ganhou conferência conjunta. Persistem reprogramações de última hora; "
+            "um episódio encenado de ameaça durante uma divergência de entrega revelou que "
+            "o protocolo de segurança e acolhimento ainda não está claro."
         ),
-        "exposure_duration": f"{prefix} Exposição simulada durante a jornada do cenário piloto.",
-        "exposure_frequency": f"{prefix} Frequência simulada recorrente no cenário piloto.",
-        "exposure_intensity": f"{prefix} Intensidade derivada exclusivamente das respostas simuladas.",
+        "exposure_duration": (
+            "Hipótese pós-medida: a pressão continua concentrada nas janelas de expedição; "
+            "incidentes críticos são curtos, mas podem produzir impacto prolongado."
+        ),
+        "exposure_frequency": (
+            "Premissa da segunda onda: reprogramações seguem semanais e conflitos são raros, "
+            "porém plausíveis no cenário operacional."
+        ),
+        "exposure_intensity": (
+            "Leitura agregada simulada: não há melhora estatisticamente demonstrável e a "
+            "dimensão de eventos violentos permanece em prioridade crítica."
+        ),
         "exposure_cofactors": (
-            f"{prefix} Cofatores fictícios: variação de demanda, autonomia, apoio e conflito."
+            "Cofatores hipotéticos: acesso de terceiros, espera em doca, rádio congestionado, "
+            "liderança fora do local e ausência de roteiro pós-incidente."
         ),
-        "health_indicators": f"{prefix} Não foram usados indicadores clínicos nem dados de pessoas reais.",
-        "absenteeism_notes": f"{prefix} Absenteísmo não apurado; nenhum valor foi presumido.",
+        "health_indicators": (
+            "Painel demonstrativo registra procura espontânea por orientação após o episódio "
+            "encenado; nenhuma informação identificada ou clínica integra o cenário."
+        ),
+        "absenteeism_notes": (
+            "Registro cenográfico: não se atribui ausência ao episódio; uma operação real "
+            "exigiria análise conjunta de RH, PCMSO e contexto de trabalho."
+        ),
         "previous_assessments": (
-            f"{prefix} " + (
-                "Não há avaliação anterior no cenário."
-                if wave == "baseline"
-                else "A linha de base simulada é a referência comparativa."
-            )
+            "Comparação demonstrativa: a linha de base logística fictícia é mantida como "
+            "referência, sem trocar recorte ou instrumento."
         ),
-        "responsible_name": "DEMONSTRAÇÃO — responsável técnico não designado",
-        "responsible_qualification": "Dado simulado; substituir pelo responsável real antes de uso documental",
+        "responsible_name": "DEMONSTRAÇÃO — Rafael Nunes (personagem fictício)",
+        "responsible_qualification": "Papel simulado: engenharia de segurança da empresa-piloto",
+        "aet_required": True,
         "aet_justification": (
-            f"{prefix} A necessidade de AET não foi decidida neste cenário; deve ser "
-            "avaliada pelo responsável real conforme os achados da atividade."
+            "Decisão demonstrativa: aprofundar a análise do trabalho em doca, resposta a "
+            "ameaças, suporte pós-incidente e coordenação com terceiros."
         ),
     }
 
@@ -352,6 +514,87 @@ def _graded_payload(risk) -> dict:
         risk_classification=risk.risk_level,
     )
     return row
+
+
+def _evidence_summaries(unit_id: str, wave: str) -> dict:
+    """Evidências cenográficas que se completam, em vez de repetir um aviso."""
+    if unit_id not in POPULATION or wave not in {"baseline", "followup"}:
+        raise ValueError("unidade ou onda fora do cenário demonstrativo")
+    if unit_id == UNIT_ATENDIMENTO and wave == "baseline":
+        return {
+            "questionnaire": (
+                "Questionário fictício com 64 respostas agregadas: maior exigência em "
+                "excesso de demandas e diferenças de apoio entre momentos do turno."
+            ),
+            "activity_observation": (
+                "Observação encenada do atendimento multicanal: troca frequente de tela, "
+                "fila visível, interrupções e negociação de pausas durante picos."
+            ),
+            "worker_dialogue": (
+                "Roda de conversa simulada: o grupo associa desgaste à combinação de metas "
+                "concorrentes, baixa autonomia para exceções e clientes hostis."
+            ),
+            "document_analysis": (
+                "Documentos cenográficos examinados: escala, roteiro de qualidade, regra de "
+                "pausas e fluxo de escalonamento; nenhum arquivo empresarial real foi usado."
+            ),
+        }
+    if unit_id == UNIT_ATENDIMENTO:
+        return {
+            "questionnaire": (
+                "Segunda onda fictícia com 64 respostas agregadas: queda consistente da "
+                "sobrecarga e aumento do risco relacionado a assédio."
+            ),
+            "activity_observation": (
+                "Revisita encenada: reforço nos picos e micro-pausas estão visíveis, mas "
+                "chamadas ofensivas nem sempre recebem apoio imediato da supervisão."
+            ),
+            "worker_dialogue": (
+                "Devolutiva simulada: a equipe reconhece melhora das filas e pede regra única "
+                "para interromper interação abusiva sem prejuízo da meta."
+            ),
+            "document_analysis": (
+                "Comparação cenográfica entre escalas e protocolos: o dimensionamento foi "
+                "revisto; o procedimento de proteção diante de agressões permanece incompleto."
+            ),
+        }
+    if wave == "baseline":
+        return {
+            "questionnaire": (
+                "Questionário fictício com 22 respostas agregadas: pressão em janelas de "
+                "expedição e fragilidade na comunicação de exceções."
+            ),
+            "activity_observation": (
+                "Percurso encenado da doca: rádio, quadro de carga e orientação verbal podem "
+                "divergir quando um pedido é reprogramado."
+            ),
+            "worker_dialogue": (
+                "Diálogo simulado de turno: conferentes e expedição relatam dúvida sobre quem "
+                "decide diante de atraso, avaria ou recusa de terceiros."
+            ),
+            "document_analysis": (
+                "Peças demonstrativas analisadas: passagem de turno, checklist de doca e "
+                "registro de ocorrência; nenhuma informação de empresa real foi anexada."
+            ),
+        }
+    return {
+        "questionnaire": (
+            "Segunda onda fictícia com 22 respostas agregadas: variação dentro do ruído e "
+            "prioridade crítica mantida para eventos violentos ou traumáticos."
+        ),
+        "activity_observation": (
+            "Simulação na doca: o quadro reduziu desencontros, mas uma ameaça encenada mostrou "
+            "demora para acionar liderança e retirar a equipe da exposição."
+        ),
+        "worker_dialogue": (
+            "Debriefing fictício: trabalhadores pedem canal de emergência, autoridade clara "
+            "para suspender a operação e acolhimento após incidente."
+        ),
+        "document_analysis": (
+            "Auditoria cenográfica: checklist operacional atualizado, sem fluxo completo de "
+            "resposta, comunicação e aprendizagem pós-incidente."
+        ),
+    }
 
 
 def _store_inventory(connection, campaign_id: str, graded, aep_by_unit: dict) -> None:
@@ -410,7 +653,10 @@ def _create_aep_documents(connection, campaign_id: str, wave: str) -> dict:
     for unit_id, unit_name in unit_names.items():
         aep_id = pilot_id(f"aep/{campaign_id}/{unit_id}")
         aep_by_unit[unit_id] = aep_id
-        fields = _aep_text(unit_name, wave)
+        fields = _aep_text(unit_id, wave)
+        evidence_date = (
+            datetime.now(timezone.utc) - timedelta(days=185 if wave == "baseline" else 2)
+        ).date()
         connection.execute(
             """
             INSERT INTO aep_assessments
@@ -422,7 +668,7 @@ def _create_aep_documents(connection, campaign_id: str, wave: str) -> dict:
                  responsible_membership_id, aet_required, aet_justification,
                  concluded_at)
             VALUES (%s,%s,%s,%s,%s,'in_progress',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
-                    %s,false,%s,NULL)
+                    %s,%s,%s,NULL)
             ON CONFLICT (id) DO UPDATE SET
                 reference_period=EXCLUDED.reference_period,
                 status='in_progress',
@@ -436,7 +682,7 @@ def _create_aep_documents(connection, campaign_id: str, wave: str) -> dict:
                 previous_assessments=EXCLUDED.previous_assessments,
                 responsible_name=EXCLUDED.responsible_name,
                 responsible_qualification=EXCLUDED.responsible_qualification,
-                aet_required=false,
+                aet_required=EXCLUDED.aet_required,
                 aet_justification=EXCLUDED.aet_justification,
                 updated_at=now()
             """,
@@ -448,30 +694,30 @@ def _create_aep_documents(connection, campaign_id: str, wave: str) -> dict:
                 fields["health_indicators"], fields["absenteeism_notes"],
                 fields["previous_assessments"], fields["responsible_name"],
                 fields["responsible_qualification"], MEMBERSHIP_ID,
+                fields["aet_required"],
                 fields["aet_justification"],
             ),
         )
-        for method, label in (
-            ("questionnaire", "resultados agregados da campanha simulada"),
-            ("activity_observation", "roteiro fictício de observação da atividade"),
-            ("worker_dialogue", "registro fictício de diálogo com trabalhadores"),
-            ("document_analysis", "registro de ausência de documentos reais no piloto"),
-        ):
+        evidence = _evidence_summaries(unit_id, wave)
+        for method, summary in evidence.items():
             evidence_id = pilot_id(f"aep-evidence/{aep_id}/{method}")
             connection.execute(
                 """
                 INSERT INTO aep_evidence
                     (id, organization_id, aep_id, method, campaign_id,
                      collected_on, collected_by, summary, evidence_reference)
-                VALUES (%s,%s,%s,%s,%s,current_date,%s,%s,%s)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 ON CONFLICT (id) DO UPDATE SET
+                    campaign_id=EXCLUDED.campaign_id,
+                    collected_on=EXCLUDED.collected_on,
+                    collected_by=EXCLUDED.collected_by,
                     summary=EXCLUDED.summary,
                     evidence_reference=EXCLUDED.evidence_reference
                 """,
                 (
-                    evidence_id, ORG_ID, aep_id, method, campaign_id,
-                    "Equipe demonstrativa FROID",
-                    "DEMONSTRAÇÃO — DADOS SIMULADOS — SEM VALIDADE DOCUMENTAL: " + label + ".",
+                    evidence_id, ORG_ID, aep_id, method, campaign_id, evidence_date,
+                    "Equipe FROID — exercício demonstrativo",
+                    summary,
                     f"demo://{campaign_id}/{unit_id}/{method}",
                 ),
             )
@@ -490,6 +736,14 @@ def _create_aep_documents(connection, campaign_id: str, wave: str) -> dict:
 
 
 def _store_effectiveness(connection, verdicts) -> None:
+    verdict_labels = {
+        "eliminated": "o cenário indica eliminação do perigo",
+        "effective": "a melhora supera o ruído e sustenta eficácia",
+        "partial": "há melhora parcial que ainda exige acompanhamento",
+        "no_change": "a variação não se distingue do ruído da coorte",
+        "worsened": "o cenário piorou e exige correção",
+        "inconclusive": "os dados do cenário não permitem concluir",
+    }
     for verdict in verdicts:
         review_id = pilot_id(
             f"effectiveness/{CAMPAIGN_FOLLOW}/{verdict.unit_id}/{verdict.dimension_id}"
@@ -527,7 +781,9 @@ def _store_effectiveness(connection, verdicts) -> None:
                 verdict.followup_cohort, verdict.baseline_mean,
                 verdict.followup_mean, verdict.effect_size, verdict.verdict,
                 verdict.measure_efficacy, verdict.requires_correction,
-                "DEMONSTRAÇÃO — DADOS SIMULADOS. " + verdict.rationale,
+                "Cenário demonstrativo: "
+                + verdict_labels.get(verdict.verdict, verdict.verdict)
+                + ". " + verdict.rationale,
             ),
         )
         connection.execute(
@@ -539,22 +795,93 @@ def _store_effectiveness(connection, verdicts) -> None:
             """,
             (
                 verdict.measure_efficacy,
-                " Resultado da reavaliação simulada vinculado à medida.",
+                " Reavaliação fictícia: "
+                + verdict_labels.get(verdict.verdict, verdict.verdict)
+                + ".",
                 action_id, ORG_ID,
             ),
         )
 
 
-def _store_action_plan(connection, campaign_id: str, graded, *, implemented: bool) -> None:
+def _action_plan_text(seed: dict, title: str, *, implemented: bool) -> dict:
+    unit = "atendimento multicanal" if seed["unit_id"] == UNIT_ATENDIMENTO else "operação logística"
+    action = {
+        "introduce": "Introduzir",
+        "improve": "Aprimorar",
+        "maintain": "Manter",
+    }.get(seed["plan_action"], "Revisar")
+    measures = {
+        "work_organization": (
+            f"{action} regras de prioridade, passagem de responsabilidade e autonomia "
+            f"para {title.lower()} na {unit}, com validação da equipe."
+        ),
+        "workload_demand": (
+            f"{action} o balanceamento de capacidade, filas, pausas e limites de trabalho "
+            f"simultâneo para reduzir {title.lower()} na {unit}."
+        ),
+        "harassment_violence": (
+            f"{action} protocolo de interrupção segura, escalonamento imediato, registro e "
+            f"acolhimento para situações de {title.lower()} na {unit}."
+        ),
+        "environment_modality": (
+            f"{action} condições de comunicação, suporte e coordenação relacionadas a "
+            f"{title.lower()} na {unit}."
+        ),
+    }
+    monitoring = {
+        "work_organization": "Revisão quinzenal do fluxo, das exceções e da passagem entre responsáveis.",
+        "workload_demand": "Painel semanal de filas, pausas adiadas, retrabalho e capacidade por turno.",
+        "harassment_violence": "Revisão mensal de ocorrências agregadas, tempo de resposta e acolhimento oferecido.",
+        "environment_modality": "Ronda mensal das condições de comunicação e consulta estruturada às equipes.",
+    }
+    evidence_done = {
+        "work_organization": "Registro cenográfico: fluxo redesenhado, líderes orientados e equipe consultada.",
+        "workload_demand": "Registro cenográfico: escala de pico, regra de pausas e limite de simultaneidade implantados.",
+        "harassment_violence": "Registro cenográfico: protocolo divulgado, liderança treinada e canal de acolhimento ensaiado.",
+        "environment_modality": "Registro cenográfico: canais e responsabilidades atualizados no roteiro operacional.",
+    }
+    deadline_days = {"critical": 15, "high": 30, "moderate": 60, "low": 90}
+    today = datetime.now(timezone.utc).date()
+    return {
+        "measure": "Cenário demonstrativo — " + measures[seed["nr1_factor"]],
+        "evidence": (
+            evidence_done[seed["nr1_factor"]]
+            if implemented
+            else "Pendência do exercício: pactuar a medida com liderança e trabalhadores antes da implementação."
+        ),
+        "monitoring": monitoring[seed["nr1_factor"]],
+        "measurement": (
+            f"Comparar o resultado agregado de {title} no mesmo recorte e instrumento; "
+            "mudança dentro da margem permanece sem eficácia demonstrada."
+        ),
+        "due_date": (
+            today - timedelta(days=150 - min(seed["priority_rank"], 20))
+            if implemented
+            else today + timedelta(days=deadline_days[seed["risk_level"]])
+        ),
+        "implemented_at": (
+            datetime.now(timezone.utc) - timedelta(days=120)
+            if implemented else None
+        ),
+        "created_at": (
+            datetime.now(timezone.utc) - timedelta(days=178)
+            if implemented
+            else datetime.now(timezone.utc) - timedelta(days=1)
+        ),
+    }
+
+
+def _store_action_plan(
+    connection, campaign_id: str, graded, *, implemented: bool,
+    dimension_titles: dict | None = None,
+) -> None:
+    titles = dimension_titles or {}
     for seed in nr1_compliance.action_plan_seed(graded):
         item_id = pilot_id(
             f"action/{campaign_id}/{seed['unit_id']}/{seed['dimension_id']}"
         )
-        measure = (
-            "DEMONSTRAÇÃO — DADOS SIMULADOS — SEM VALIDADE DOCUMENTAL. "
-            f"Revisar a organização do trabalho relacionada a {seed['nr1_factor']}, "
-            "com participação dos trabalhadores, e registrar os ajustes adotados."
-        )
+        title = titles.get(str(seed["dimension_id"]), seed["nr1_factor"].replace("_", " "))
+        content = _action_plan_text(seed, title, implemented=implemented)
         connection.execute(
             """
             INSERT INTO psychosocial_action_plan
@@ -562,9 +889,9 @@ def _store_action_plan(connection, campaign_id: str, graded, *, implemented: boo
                  measure, measure_type, plan_action, responsible_membership_id,
                  due_date, status, evidence, monitoring_method,
                  result_measurement, implemented_at, effectiveness_reviewed_at,
-                 effectiveness, exposed_workers, priority_rank)
+                 effectiveness, exposed_workers, priority_rank, created_at)
             SELECT %s,%s,inventory.id,%s,%s,%s,%s,%s,%s,
-                   current_date,%s,%s,%s,%s,%s,%s,%s,%s,%s
+                   %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s
               FROM psychosocial_risk_inventory inventory
              WHERE inventory.organization_id=%s
                AND inventory.campaign_id=%s
@@ -590,26 +917,22 @@ def _store_action_plan(connection, campaign_id: str, graded, *, implemented: boo
                 priority_rank=EXCLUDED.priority_rank
             """,
             (
-                item_id, ORG_ID, campaign_id, CRITERIA_ID, measure,
+                item_id, ORG_ID, campaign_id, CRITERIA_ID, content["measure"],
                 seed["measure_type"], seed["plan_action"], MEMBERSHIP_ID,
+                content["due_date"],
                 "done" if implemented else "planned",
-                (
-                    "DEMONSTRAÇÃO: registro fictício de implementação; não comprova ação real."
-                    if implemented
-                    else "DEMONSTRAÇÃO: medida proposta para o próximo giro; ainda não implementada."
-                ),
-                "DEMONSTRAÇÃO: acompanhamento por revisão do processo e participação.",
-                "Comparação agregada entre linha de base e reavaliação simuladas.",
-                datetime.now(timezone.utc) if implemented else None,
+                content["evidence"], content["monitoring"], content["measurement"],
+                content["implemented_at"],
                 None,
                 None,
                 seed["exposed_workers"], seed["priority_rank"],
+                content["created_at"],
                 ORG_ID, campaign_id, seed["dimension_id"], seed["unit_id"],
             ),
         )
 
 
-def complete_cycle(connection) -> None:
+def complete_cycle(connection, dimensions) -> None:
     """Fecha as camadas documentais do piloto sem tocar em dados reais."""
     # Versões anteriores do piloto conseguiam gerar rascunhos aleatórios do
     # plano pela API e deixá-los no mesmo inventário. Eles não podem receber um
@@ -629,9 +952,13 @@ def complete_cycle(connection) -> None:
 
     base_scores = _scores(connection, CAMPAIGN_BASE)
     follow_scores = _scores(connection, CAMPAIGN_FOLLOW)
+    dimension_titles = {str(item["id"]): item["title"] for item in dimensions}
     base_graded = nr1_compliance.grade_all(base_scores)
     _store_inventory(connection, CAMPAIGN_BASE, base_graded, base_aep)
-    _store_action_plan(connection, CAMPAIGN_BASE, base_graded, implemented=True)
+    _store_action_plan(
+        connection, CAMPAIGN_BASE, base_graded, implemented=True,
+        dimension_titles=dimension_titles,
+    )
 
     verdicts = nr1_effectiveness.compare_campaigns(base_scores, follow_scores)
     _store_effectiveness(connection, verdicts)
@@ -641,7 +968,10 @@ def complete_cycle(connection) -> None:
     # A reavaliação fecha a apuração e abre, corretamente, as correções do
     # próximo giro. Declará-las concluídas sem uma terceira medição seria
     # transformar ausência de evidência em eficácia.
-    _store_action_plan(connection, CAMPAIGN_FOLLOW, follow_graded, implemented=False)
+    _store_action_plan(
+        connection, CAMPAIGN_FOLLOW, follow_graded, implemented=False,
+        dimension_titles=dimension_titles,
+    )
     print(
         "Ciclo documental demonstrativo concluído: AEP, evidências, inventários, "
         "planos de ação e eficácia vinculados."
