@@ -309,7 +309,12 @@ describe("o painel manda para a resposta certa", () => {
   it("cada portao aponta para um verbete que existe", () => {
     const mapa = PAINEL.match(/const VERBETE_DO_PORTAO[^}]+}/s)?.[0] || "";
     expect(mapa).toBeTruthy();
-    const ids = [...mapa.matchAll(/"([a-z-]+)",?\n/g)].map((m) => m[1]);
+    // `\r?` porque o repositório é lido com CRLF no Windows: sem ele a captura
+    // devolvia lista VAZIA e o teste falhava aqui, na máquina de
+    // desenvolvimento, passando no Linux. Teste que depende do fim de linha da
+    // máquina não afirma nada sobre o código — e um suíte vermelho por este
+    // motivo esconde a próxima falha de verdade.
+    const ids = [...mapa.matchAll(/"([a-z-]+)",?\r?\n/g)].map((m) => m[1]);
     expect(ids.length).toBeGreaterThanOrEqual(3);
     for (const id of ids) {
       expect(
