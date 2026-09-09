@@ -166,6 +166,17 @@ const EFFICACY_LABEL: Record<string, string> = {
   eliminated: "perigo eliminado",
 };
 
+const ROADMAP_NR1 = [
+  { numero: "01", titulo: "Estruturar", detalhe: "estabelecimentos, setores e efetivos", rota: "/access/empresa" },
+  { numero: "02", titulo: "Preparar a AEP", detalhe: "atividade real, métodos e evidências", rota: "/nr1/aep" },
+  { numero: "03", titulo: "Coletar", detalhe: "campanha, convites e representatividade", rota: "/nr1/campanha" },
+  { numero: "04", titulo: "Apurar", detalhe: "encerrar a coleta e classificar riscos", rota: "/nr1" },
+  { numero: "05", titulo: "Documentar", detalhe: "inventário vinculado à AEP", rota: "/nr1/inventario" },
+  { numero: "06", titulo: "Agir", detalhe: "medidas, responsáveis, prazos e aferição", rota: "/nr1/plano-de-acao" },
+  { numero: "07", titulo: "Reavaliar", detalhe: "nova campanha após a implementação", rota: "/nr1/campanha" },
+  { numero: "08", titulo: "Comprovar eficácia", detalhe: "comparar ciclos e corrigir insuficiências", rota: "/nr1/eficacia" },
+] as const;
+
 /** Quanto falta para a coorte falar pelo efetivo.
  *
  * Separado da linha de convites logo acima de propósito. As duas contam
@@ -700,6 +711,48 @@ export const Nr1Dashboard: React.FC<{
             )}
           </div>
         </header>
+
+        <section
+          aria-labelledby="roadmap-nr1"
+          className="mt-5 rounded-xl border border-cyan-900/70 bg-slate-900/80 p-4"
+        >
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-300">
+                Fluxo completo
+              </p>
+              <h2 id="roadmap-nr1" className="mt-1 text-base font-black text-white">
+                Road map do ciclo NR-1 / ISO 45003
+              </h2>
+            </div>
+            <p className="max-w-xl text-[11px] leading-4 text-slate-400">
+              Cada resultado nasce da etapa anterior. A reavaliação fecha a
+              apuração e, quando uma medida não demonstra eficácia, abre a
+              correção do próximo giro.
+            </p>
+          </div>
+          <ol className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            {ROADMAP_NR1.map((passo) => (
+              <li key={passo.numero}>
+                <button
+                  type="button"
+                  onClick={() => nav(passo.rota)}
+                  className="group flex h-full w-full gap-3 rounded-lg border border-slate-800 bg-slate-950/80 p-3 text-left hover:border-cyan-700 hover:bg-cyan-950/30"
+                >
+                  <span className="text-xs font-black text-cyan-400">{passo.numero}</span>
+                  <span>
+                    <strong className="block text-xs text-white group-hover:text-cyan-100">
+                      {passo.titulo}
+                    </strong>
+                    <span className="mt-1 block text-[10px] leading-4 text-slate-500">
+                      {passo.detalhe}
+                    </span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ol>
+        </section>
 
         {!criteriaPublished && (
           <p className="mt-4 rounded border border-amber-900 bg-amber-950/60 p-3 text-xs font-bold text-amber-200">

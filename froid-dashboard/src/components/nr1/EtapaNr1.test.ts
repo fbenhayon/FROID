@@ -105,3 +105,12 @@ describe("o nome do cliente aparece em TODA tela do empregador", () => {
     expect(antes).toContain("nomeFantasia.trim() || razaoSocial.trim()");
   });
 });
+
+describe("organização demonstrativa", () => {
+  it("mantém o aviso explícito em todas as telas que usam o cabeçalho", () => {
+    const fonte = readFileSync(join(__dirname, "EtapaNr1.tsx"), "utf-8");
+    expect(fonte).toContain('includes("DADOS SIMULADOS")');
+    expect(fonte).toContain("Demonstração · dados simulados · sem validade documental");
+    expect(fonte).toContain('role="status"');
+  });
+});

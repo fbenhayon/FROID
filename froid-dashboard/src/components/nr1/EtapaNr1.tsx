@@ -24,18 +24,31 @@ export const EtapaNr1: React.FC<{
   etapa: React.ReactNode;
 }> = ({ user, etapa }) => {
   const cliente = nomeDoClienteAtivo(user);
+  const demonstracao = cliente
+    .toLocaleUpperCase("pt-BR")
+    .includes("DADOS SIMULADOS");
   return (
-    <p className="flex flex-wrap items-baseline gap-x-2 text-[10px] font-bold uppercase tracking-[0.24em] text-cyan-300">
-      <span>{etapa}</span>
-      {/* Sem nome conhecido não se escreve nada — ver `nomeDoClienteAtivo`.
-          E o nome sai fora do caixa-alta espaçado da etapa: razão social é
-          longa, e 0.24em de tracking a torna ilegível justamente no dado que
-          precisa ser conferido de relance. */}
-      {cliente && (
-        <span className="text-[11px] normal-case tracking-normal text-slate-300">
-          · {cliente}
-        </span>
+    <div>
+      <p className="flex flex-wrap items-baseline gap-x-2 text-[10px] font-bold uppercase tracking-[0.24em] text-cyan-300">
+        <span>{etapa}</span>
+        {/* Sem nome conhecido não se escreve nada — ver `nomeDoClienteAtivo`.
+            E o nome sai fora do caixa-alta espaçado da etapa: razão social é
+            longa, e 0.24em de tracking a torna ilegível justamente no dado que
+            precisa ser conferido de relance. */}
+        {cliente && (
+          <span className="text-[11px] normal-case tracking-normal text-slate-300">
+            · {cliente}
+          </span>
+        )}
+      </p>
+      {demonstracao && (
+        <p
+          role="status"
+          className="mt-2 inline-flex rounded border border-amber-500/70 bg-amber-950 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-amber-200"
+        >
+          Demonstração · dados simulados · sem validade documental
+        </p>
       )}
-    </p>
+    </div>
   );
 };
