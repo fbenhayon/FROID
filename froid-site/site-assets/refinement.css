@@ -1,3 +1,5 @@
+@import url('neural-backgrounds.css?v=1');
+
 /* Visual institucional: a paleta dos indicadores clínicos permanece no estilo base. */
 :root { --paper:#080b12; --paper-soft:#101621; --border:#273140; --radius:20px; --maxw:1240px; }
 html { scroll-behavior:smooth; scroll-padding-top:110px; }
