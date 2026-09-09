@@ -394,5 +394,17 @@ class DocumentoCompletoDoPiloto(unittest.TestCase):
     def test_varias_contas_recebem_acesso_na_mesma_transacao(self):
         main = SOURCE[SOURCE.index("def main("):]
         self.assertIn('action="append"', main)
+        self.assertLess(
+            main.index("validate_grant_accounts(connection"),
+            main.index("create(connection)"),
+        )
         self.assertIn("for email in args.grant or []", main)
         self.assertIn("grant_access(connection, email)", main)
+
+    def test_contas_ausentes_sao_validadas_em_lote(self):
+        fonte = SOURCE[
+            SOURCE.index("def validate_grant_accounts("):
+            SOURCE.index("def main(")
+        ]
+        self.assertIn("lower(email) = ANY(%s)", fonte)
+        self.assertIn("dado do piloto foi criado", fonte)

@@ -968,6 +968,32 @@ def grant_access(connection, email: str) -> None:
     print("  Papel: compliance_manager (não lê prontuário, por desenho).")
 
 
+def validate_grant_accounts(connection, emails) -> None:
+    """Recusa antes de criar o piloto quando qualquer conta ainda não existe.
+
+    A criação e os vínculos vivem na mesma transação e já eram revertidos em
+    caso de falha. Porém, stdout fica armazenado quando o script roda com
+    ``docker compose exec -T``: as mensagens de sucesso apareciam depois do
+    erro escrito em stderr e davam a impressão de concessão parcial. Validar a
+    lista inteira primeiro torna a ordem visível igual à ordem real.
+    """
+    requested = sorted({str(email or "").strip().lower() for email in emails if email})
+    if not requested:
+        return
+    rows = connection.execute(
+        "SELECT lower(email) FROM users WHERE lower(email) = ANY(%s)",
+        (requested,),
+    ).fetchall()
+    existing = {str(row[0]).strip().lower() for row in rows}
+    missing = [email for email in requested if email not in existing]
+    if missing:
+        raise SystemExit(
+            "conta(s) ainda não cadastrada(s) no FROID: " + ", ".join(missing)
+            + ". Faça login uma vez com cada conta e execute novamente; nenhum "
+            "dado do piloto foi criado."
+        )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--create", action="store_true", help="monta a empresa teste")
@@ -1001,6 +1027,7 @@ def main() -> int:
             if args.destroy:
                 destroy(connection)
                 return 0
+            validate_grant_accounts(connection, args.grant or [])
             if args.create:
                 create(connection)
             for email in args.grant or []:
