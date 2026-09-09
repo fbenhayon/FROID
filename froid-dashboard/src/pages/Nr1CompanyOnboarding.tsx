@@ -96,11 +96,16 @@ async function chamar(caminho: string, init?: RequestInit) {
   const corpo = texto ? JSON.parse(texto) : {};
   if (!resposta.ok) {
     const erro = new Error(corpo?.detail || `falha ${resposta.status}`);
-    // A liberacao pendente nao e uma falha do preenchimento: e um passo
-    // comercial que falta. Tratar as duas do mesmo jeito faz a pessoa reler o
-    // formulario atras de um erro que nao esta la.
-    (erro as Error & { aguardandoLiberacao?: boolean }).aguardandoLiberacao =
-      resposta.status === 403 && Boolean(corpo?.approval_pending);
+    // O corte de acesso nao e uma falha do preenchimento. Tratar os dois do
+    // mesmo jeito faz a pessoa reler o formulario atras de um erro que nao
+    // esta la.
+    //
+    // Ate 09/09/2026 este ramo se chamava "aguardando liberacao" e era o
+    // caminho NORMAL de toda empresa recem-cadastrada: o 403 vinha com
+    // `approval_pending`. A liberacao previa acabou; o 403 que restou vem com
+    // `access_blocked` e significa conta cortada.
+    (erro as Error & { acessoCortado?: boolean }).acessoCortado =
+      resposta.status === 403 && Boolean(corpo?.access_blocked);
     throw erro;
   }
   return corpo;
@@ -172,7 +177,7 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
   // comprometeria. Reconhecer isso e ato dele, e por isso e uma caixa que
   // ele marca, e nao um campo que o formulario preenche sozinho.
   const [reconhece, setReconhece] = useState(false);
-  const [aguardandoLiberacao, setAguardandoLiberacao] = useState(false);
+  const [acessoCortado, setAcessoCortado] = useState(false);
   // O contrato do NR-1 e um documento proprio, com objeto proprio. Ate
   // 22/08/2026 a empresa nao assinava nada — required_document_keys devolvia
   // o contrato de PROFISSIONAL para ela, o que teria produzido registro
@@ -250,8 +255,8 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
       const dados = await chamar(`/api/organizations/${organizationId}/nr1/units`);
       setUnidades(dados.units || []);
     } catch (e) {
-      const falha = e as Error & { aguardandoLiberacao?: boolean };
-      if (falha.aguardandoLiberacao) setAguardandoLiberacao(true);
+      const falha = e as Error & { acessoCortado?: boolean };
+      if (falha.acessoCortado) setAcessoCortado(true);
       setErro(String(falha.message));
     }
   }, [organizationId]);
@@ -393,8 +398,8 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
       }
       setPasso(2);
     } catch (e) {
-      const falha = e as Error & { aguardandoLiberacao?: boolean };
-      if (falha.aguardandoLiberacao) setAguardandoLiberacao(true);
+      const falha = e as Error & { acessoCortado?: boolean };
+      if (falha.acessoCortado) setAcessoCortado(true);
       setErro(String(falha.message));
     } finally {
       setSalvando(false);
@@ -429,8 +434,8 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
       if (tipo === "site") setNovoSite({ name: "", headcount: "", code: "" });
       else setNovoSetor({ name: "", headcount: "", parent: pai || "" });
     } catch (e) {
-      const falha = e as Error & { aguardandoLiberacao?: boolean };
-      if (falha.aguardandoLiberacao) setAguardandoLiberacao(true);
+      const falha = e as Error & { acessoCortado?: boolean };
+      if (falha.acessoCortado) setAcessoCortado(true);
       setErro(String(falha.message));
     } finally {
       setSalvando(false);
@@ -446,8 +451,8 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
       });
       await carregarUnidades();
     } catch (e) {
-      const falha = e as Error & { aguardandoLiberacao?: boolean };
-      if (falha.aguardandoLiberacao) setAguardandoLiberacao(true);
+      const falha = e as Error & { acessoCortado?: boolean };
+      if (falha.acessoCortado) setAcessoCortado(true);
       setErro(String(falha.message));
     }
   };
@@ -494,25 +499,24 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
           <Passo numero={4} atual={passo} titulo="Conferência" />
         </div>
 
-        {aguardandoLiberacao ? (
+        {acessoCortado ? (
           <section className="mt-5 rounded-lg border border-amber-700 bg-amber-950/40 p-5">
             <p className="text-sm font-black text-amber-200">
-              Cadastro recebido. Falta a liberação da equipe FROID.
+              O acesso desta conta está suspenso pelo FROID.
             </p>
             <p className="mt-2 text-sm leading-6 text-amber-100">
-              O que você preencheu até aqui está salvo. A avaliação de riscos
-              psicossociais é um serviço contratado, e a liberação para operar o
-              módulo — abrir campanha, gerar inventário e plano de ação — é o
-              passo em que a contratação se confirma. Não é uma checagem do que
-              você digitou.
+              O que você preencheu até aqui está salvo — suspensão não apaga
+              nada. Isto não é uma etapa do cadastro nem uma checagem do que
+              você digitou: cadastro concluído passa a operar o módulo sozinho.
+              É um corte feito manualmente sobre esta conta.
             </p>
             <p className="mt-3 text-sm leading-6 text-amber-100">
               Escreva para{" "}
               <a className="font-black text-amber-300 underline" href={`mailto:${CONTATO}`}>
                 {CONTATO}
               </a>{" "}
-              informando o CNPJ cadastrado. Assim que a liberação sair, volte a
-              esta página e o cadastro continua de onde parou.
+              informando o CNPJ cadastrado. Restabelecido o acesso, volte a esta
+              página e o cadastro continua de onde parou.
             </p>
           </section>
         ) : (

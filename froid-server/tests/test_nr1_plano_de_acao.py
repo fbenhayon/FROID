@@ -455,33 +455,45 @@ class OCadastroDaEmpresaConsegueTerminar(unittest.TestCase):
         )
 
 
-class LiberacaoPendenteFalaComQuemLe(unittest.TestCase):
-    """"acesso profissional aguardando aprovacao" dito a uma empresa.
+class OBloqueioFalaComQuemLe(unittest.TestCase):
+    """O 403 tem de dizer o que houve e o que fazer.
 
-    A middleware bloqueia toda rota /api/ fora de uma lista de excecoes enquanto
-    a aprovacao manual nao sai. /api/professional/profile esta na lista, entao o
-    passo 1 do cadastro da empresa passava; /nr1/units nao esta, e o passo 2
-    devolvia uma frase que fala de "acesso profissional" a quem acabou de
-    cadastrar um CNPJ — e nao dizia o que fazer a seguir.
+    ESTA CLASSE GUARDAVA A DECISAO CONTRARIA. Ate 09/09/2026 ela se chamava
+    `LiberacaoPendenteFalaComQuemLe` e defendia a frase "cadastro da empresa
+    recebido — a liberacao para operar o modulo NR-1 e feita pela equipe FROID",
+    porque a liberacao previa era o caminho normal de toda empresa nova.
 
-    O portao esta certo e fica: a avaliacao e servico contratado, e a liberacao e
-    o ponto em que o FROID confirma a contratacao. O que estava errado era a
-    palavra e a ausencia de saida.
+    A liberacao previa foi retirada pelo dono ao entrar a fase operacional. O
+    403 que sobrou nao e mais "espere": e "esta conta foi cortada". Dizer
+    "aguardando aprovacao" a quem foi suspenso manda a pessoa esperar uma coisa
+    que nao vai chegar sozinha.
+
+    O que continua valendo, e por isso a classe nao foi apagada: a resposta tem
+    de trazer um SINAL que a tela distinga de erro de preenchimento, e um canal.
+    Sem eles a pessoa rele o formulario atras de um erro que nao esta la — que
+    foi o defeito original.
     """
 
-    def test_a_mensagem_muda_conforme_quem_esta_bloqueado(self):
+    def _corpo_do_403(self) -> str:
         trecho = MAIN[MAIN.index('content={\n                    "detail": ('):]
-        trecho = trecho[: trecho.index("},")]
-        self.assertIn("cadastro da empresa recebido", trecho)
-        self.assertIn('== "nr1_company"', trecho)
-        # E o caminho clinico continua com a frase dele.
-        self.assertIn("acesso profissional aguardando aprovação FROID", trecho)
+        return trecho[: trecho.index("},")]
 
-    def test_a_resposta_diz_que_e_liberacao_pendente_e_nao_erro_de_dado(self):
-        # Sem esse sinal a tela nao consegue distinguir "falta liberar" de
-        # "voce preencheu errado", e manda a pessoa reler o formulario atras de
-        # um erro que nao esta la.
-        self.assertIn('"approval_pending": True', MAIN)
+    def test_a_mensagem_diz_o_que_houve_e_para_onde_ir(self):
+        trecho = self._corpo_do_403()
+        self.assertIn("acesso suspenso pelo FROID", trecho)
+        self.assertIn("cadastro recusado pelo FROID", trecho)
+        self.assertIn("FROID_TRIAL_CONTACT_EMAIL", trecho)
+
+    def test_ninguem_e_mandado_esperar_liberacao(self):
+        trecho = self._corpo_do_403()
+        self.assertNotIn("aguardando", trecho)
+        self.assertNotIn("liberação", trecho)
+
+    def test_a_resposta_traz_o_sinal_que_a_tela_distingue_de_erro_de_dado(self):
+        # Sem esse sinal a tela nao consegue separar "seu acesso foi cortado" de
+        # "voce preencheu errado".
+        self.assertIn('"access_blocked": True', MAIN)
+        self.assertIn('"access_block_status": approval.get("access_block_status")', MAIN)
 
 
 class CadaServicoTemOContratoDele(unittest.TestCase):
@@ -1374,12 +1386,14 @@ class OAdministrativoNaoEBecoSemSaida(unittest.TestCase):
         self.assertIn('nav("/nr1")', self.pagina)
 
     def test_nao_oferece_porta_que_nao_resolve(self):
-        """Aprovacao pendente nao tem botao, de proposito.
+        """Acesso cortado nao tem botao, de proposito.
 
-        Oferecer caminho para quem so pode esperar manda a pessoa procurar
-        solucao onde nao ha.
+        Oferecer caminho para quem nao pode resolver dali manda a pessoa
+        procurar solucao onde nao ha. Era "aprovacao pendente" ate 09/09/2026,
+        quando a liberacao previa acabou; o caso que sobrou e a suspensao
+        administrativa, e a regra de nao oferecer botao vale igual.
         """
-        self.assertIn("manual_approval_pending", self.pagina)
+        self.assertIn("access_blocked", self.pagina)
         self.assertIn('rotulo: ""', self.pagina)
 
     def test_o_destino_vem_da_mesma_regra_do_roteamento(self):

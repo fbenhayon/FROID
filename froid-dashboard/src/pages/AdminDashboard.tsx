@@ -38,9 +38,16 @@ export function pendenciaDoAdministrador(
 ): { motivo: string; destino: string; rotulo: string } | null {
   const acesso = user?.access_status;
   if (!acesso || !acesso.onboarding_required) return null;
-  if (acesso.manual_approval_pending) {
+  // Antes desta linha havia "seu cadastro está aguardando aprovação". A espera
+  // prévia acabou em 09/09/2026; o que restou é o corte administrativo, e ele
+  // continua sem botão que o resolva — oferecer uma porta que não resolve manda
+  // a pessoa procurar solução onde não há. O caminho real vai no motivo.
+  if (acesso.access_blocked) {
     return {
-      motivo: "Seu cadastro clínico está aguardando aprovação.",
+      motivo:
+        acesso.access_block_status === "suspended"
+          ? "Seu acesso está suspenso pelo FROID. Escreva para froid@froid.com.br para regularizar."
+          : "Seu cadastro foi recusado pelo FROID. Escreva para froid@froid.com.br.",
       destino: "/admin",
       rotulo: "",
     };
@@ -304,7 +311,7 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
             {pendencia.motivo}{" "}
             {pendencia.rotulo
               ? "Use o botão acima para resolver — e note que administrar a plataforma e atender pacientes são coisas separadas: uma não depende da outra."
-              : "Nada a fazer aqui: assim que a aprovação sair, o painel aparece."}
+              : "Não há botão porque não há passo que resolva daqui: o motivo acima diz por onde."}
           </p>
         )}
 
@@ -387,7 +394,7 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
           )}
         </section>
 
-        {Number(summary.pending_professional_approvals) > 0 && (
+        {Number(summary.blocked_professional_access) > 0 && (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-500 bg-amber-950/60 px-4 py-3">
             <div className="flex items-center gap-3">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-lg">
@@ -395,28 +402,28 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
               </span>
               <div>
                 <p className="text-sm font-black text-amber-100">
-                  {summary.pending_professional_approvals}{" "}
-                  {Number(summary.pending_professional_approvals) === 1
-                    ? "novo profissional aguardando aprovação"
-                    : "novos profissionais aguardando aprovação"}
+                  {summary.blocked_professional_access}{" "}
+                  {Number(summary.blocked_professional_access) === 1
+                    ? "acesso cortado por decisão administrativa"
+                    : "acessos cortados por decisão administrativa"}
                 </p>
                 <p className="text-[11px] text-amber-200/80">
-                  Solicitações de acesso pendentes de análise. Clique para revisar
-                  o cadastro e aprovar ou suspender.
+                  Não é fila de espera: cadastro concluído entra sozinho. Estes
+                  foram suspensos ou recusados aqui, e só voltam aqui.
                 </p>
               </div>
             </div>
             <button
               onClick={() => {
                 const first = professionals.find(
-                  (row: any) => row.manual_approval_status === "pending",
+                  (row: any) => row.access_blocked,
                 );
                 if (first)
                   nav(`/admin/professional/${encodeURIComponent(first.email)}`);
               }}
               className="rounded-lg bg-amber-500 px-4 py-2 text-xs font-black text-amber-950 hover:bg-amber-400"
             >
-              Revisar solicitações
+              Ver quem está cortado
             </button>
           </div>
         )}
@@ -502,17 +509,17 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
                     <td className="whitespace-nowrap border-l border-slate-700 px-2 py-1 text-slate-300">{row.payment_status || "--"}</td>
                     <td className="whitespace-nowrap border-l border-slate-700 px-2 py-1">
                       <span className={`rounded-full px-2 py-1 font-black uppercase ${
-                        row.manual_approval_status === "approved"
+                        !row.access_blocked
                           ? "bg-emerald-950 text-emerald-200"
-                          : row.manual_approval_status === "suspended"
+                          : row.access_block_status === "suspended"
                             ? "bg-red-950 text-red-200"
                             : "bg-amber-950 text-amber-100"
                       }`}>
-                        {row.manual_approval_status === "approved"
-                          ? "Aprovado"
-                          : row.manual_approval_status === "suspended"
+                        {!row.access_blocked
+                          ? "Ativo"
+                          : row.access_block_status === "suspended"
                             ? "Suspenso"
-                            : "Aguardando"}
+                            : "Recusado"}
                       </span>
                     </td>
                     <td className="whitespace-nowrap border-l border-slate-700 px-2 py-1 text-cyan-200">{row.used_sessions}/{row.total_sessions}</td>

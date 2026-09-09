@@ -68,7 +68,6 @@ services:
       - FROID_TOKEN_ENCRYPTION_KEYS=${FROID_TOKEN_ENCRYPTION_KEYS:-}
       - FROID_CLINICAL_RECORD_ENCRYPTION_KEYS=${FROID_CLINICAL_RECORD_ENCRYPTION_KEYS:-}
       - FROID_SUBSCRIPTIONS_REQUIRED=${FROID_SUBSCRIPTIONS_REQUIRED:-false}
-      - FROID_PROFESSIONAL_APPROVAL_REQUIRED=${FROID_PROFESSIONAL_APPROVAL_REQUIRED:-false}
       # Cortesia do FROID Psique concedida no cadastro clinico.
       #
       # A linha existe porque o servico recebe lista explicita e nao env_file:

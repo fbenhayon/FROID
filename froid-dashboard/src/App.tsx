@@ -90,10 +90,13 @@ export type FroidUser = {
      *  chegar a tela, nao so ao roteador. */
     pending_settlement_count?: number;
     admin?: boolean;
-    manual_approval_required?: boolean;
-    manual_approval_status?: "pending" | "approved" | "rejected" | "suspended";
-    manual_approval_pending?: boolean;
-    manual_approval_ready?: boolean;
+    /** O portão de acesso virou "suspensão apenas" em 09/09/2026: cadastro
+     *  concluído entra, e só uma decisão administrativa corta. Os quatro
+     *  campos `manual_approval_*` que viviam aqui descreviam a espera prévia,
+     *  que deixou de existir — mantê-los seria publicar um contrato que o
+     *  servidor não cumpre mais. */
+    access_blocked?: boolean;
+    access_block_status?: "" | "suspended" | "rejected";
     /** Sessões de cortesia do cadastro. `on_trial` é falso assim que houver
      *  qualquer compra — inclusive se o saldo comprado zerar depois, porque a
      *  partir dali vale a regra do cliente pagante. */

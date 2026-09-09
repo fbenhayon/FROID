@@ -57,13 +57,20 @@ describe("por que o painel clínico não está alcançável", () => {
     expect(p?.motivo).toMatch(/saldo/i);
   });
 
-  it("não oferece botão quando a pendência é aprovação — não há o que clicar", () => {
+  it("não oferece botão quando o acesso foi cortado — não há o que clicar", () => {
     // Oferecer uma porta que não resolve é pior que não oferecer: manda a
-    // pessoa procurar solução onde não há.
+    // pessoa procurar solução onde não há. Era "aprovação pendente" até
+    // 09/09/2026; a espera prévia acabou e o caso que sobrou é a suspensão.
     const p = pendenciaDoAdministrador(
-      usuario({ onboarding_required: true, manual_approval_pending: true }),
+      usuario({
+        onboarding_required: true,
+        access_blocked: true,
+        access_block_status: "suspended",
+      }),
     );
     expect(p?.rotulo).toBe("");
+    // E o motivo diz para onde ir, já que o botão não existe.
+    expect(p?.motivo).toMatch(/froid@froid\.com\.br/);
   });
 
   it("sempre devolve um motivo legível quando há pendência", () => {

@@ -74,7 +74,7 @@ export const AdminProfessionalDetail: React.FC<Props> = ({ user }) => {
         },
       );
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload?.detail || "Não foi possível alterar a aprovação.");
+      if (!response.ok) throw new Error(payload?.detail || "Não foi possível alterar o acesso.");
       setData((current: any) => ({
         ...current,
         profile: { ...(current?.profile || {}), access_approval_status: nextStatus },
@@ -82,7 +82,7 @@ export const AdminProfessionalDetail: React.FC<Props> = ({ user }) => {
       }));
       setMessage(nextStatus === "approved" ? "Acesso profissional aprovado." : "Acesso profissional suspenso.");
     } catch (error: any) {
-      setMessage(error?.message || "Falha ao alterar a aprovação.");
+      setMessage(error?.message || "Falha ao alterar o acesso.");
     } finally {
       setApprovalLoading(false);
     }
@@ -176,24 +176,25 @@ export const AdminProfessionalDetail: React.FC<Props> = ({ user }) => {
             <div>
               <h2 className="text-sm font-black text-slate-100">Cadastro, créditos e acesso</h2>
               <p className="mt-1 text-xs text-slate-400">
-                Aprovação manual durante a fase controlada de testes.
+                Cadastro concluído entra sozinho. Este botão é o corte, e ele
+                derruba o acesso na hora.
               </p>
             </div>
             <div className="flex items-center gap-2">
               <span
                 className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-wide ${
-                  status.manual_approval_status === "approved"
+                  !status.access_blocked
                     ? "border-emerald-700 bg-emerald-950 text-emerald-200"
-                    : status.manual_approval_status === "suspended"
+                    : status.access_block_status === "suspended"
                       ? "border-red-700 bg-red-950 text-red-200"
                       : "border-amber-700 bg-amber-950 text-amber-100"
                 }`}
               >
-                {status.manual_approval_status === "approved"
-                  ? "Aprovado"
-                  : status.manual_approval_status === "suspended"
+                {!status.access_blocked
+                  ? "Ativo"
+                  : status.access_block_status === "suspended"
                     ? "Suspenso"
-                    : "Aguardando aprovação"}
+                    : "Recusado"}
               </span>
               {/* Aprovar e suspender tinham exatamente a mesma cor. Um
                   botão ciano dizia "Aprovar acesso" e, um clique depois, o
@@ -206,19 +207,19 @@ export const AdminProfessionalDetail: React.FC<Props> = ({ user }) => {
                 type="button"
                 disabled={approvalLoading}
                 onClick={() => void changeApproval(
-                  status.manual_approval_status === "approved" ? "suspended" : "approved",
+                  status.access_blocked ? "approved" : "suspended",
                 )}
                 className={`rounded-lg border px-3 py-2 text-xs font-black disabled:cursor-wait disabled:opacity-50 ${
-                  status.manual_approval_status === "approved"
+                  !status.access_blocked
                     ? "border-red-700 bg-red-950 text-red-100 hover:bg-red-900"
                     : "border-emerald-600 bg-emerald-700 text-white hover:bg-emerald-600"
                 }`}
               >
                 {approvalLoading
                   ? "Processando..."
-                  : status.manual_approval_status === "approved"
-                    ? "Suspender acesso"
-                    : "Aprovar acesso"}
+                  : status.access_blocked
+                    ? "Restabelecer acesso"
+                    : "Suspender acesso"}
               </button>
             </div>
           </div>

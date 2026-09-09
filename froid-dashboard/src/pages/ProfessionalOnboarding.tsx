@@ -392,8 +392,11 @@ export const ProfessionalOnboarding: React.FC<Props> = ({
           localStorage.setItem("froid_user", JSON.stringify(refreshed));
           onUserChange(refreshed);
         }
-        if (refreshed?.access_status?.manual_approval_pending) {
-          setMessage("Pagamento confirmado. Seu cadastro aguarda aprovação manual do FROID.");
+        if (refreshed?.access_status?.access_blocked) {
+          setMessage(
+            "Pagamento confirmado, mas o acesso desta conta está suspenso pelo FROID. " +
+              "Escreva para froid@froid.com.br — o crédito está preservado.",
+          );
           return;
         }
         if (refreshed && !refreshed.access_status?.onboarding_required) {
@@ -479,7 +482,11 @@ export const ProfessionalOnboarding: React.FC<Props> = ({
     navigate("/login", { replace: true });
   };
 
-  const verifyManualApproval = async () => {
+  // Era `verifyManualApproval`, e verificava se a liberação prévia tinha saído.
+  // Ela acabou em 09/09/2026; o que sobrou para reconsultar é o corte
+  // administrativo, que o titular não desfaz sozinho mas precisa poder ver
+  // desfeito sem sair e entrar de novo.
+  const verifyAccess = async () => {
     const token = localStorage.getItem("froid_token") || "";
     if (!token) return;
     setLoading(true);
@@ -489,7 +496,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({
         headers: { Authorization: `Bearer ${token}` },
       });
       const refreshed = response.ok ? await response.json() : null;
-      if (!response.ok || !refreshed) throw new Error("Não foi possível verificar a aprovação.");
+      if (!response.ok || !refreshed) throw new Error("Não foi possível verificar o acesso.");
       setAccessStatus(refreshed.access_status);
       localStorage.setItem("froid_user", JSON.stringify(refreshed));
       onUserChange(refreshed);
@@ -497,9 +504,9 @@ export const ProfessionalOnboarding: React.FC<Props> = ({
         window.location.replace(`${publicAppUrl()}/#/dashboard`);
         return;
       }
-      setMessage("Seu cadastro continua aguardando aprovação manual do FROID.");
+      setMessage("O acesso desta conta continua suspenso pelo FROID.");
     } catch (verificationError: any) {
-      setError(verificationError?.message || "Falha ao verificar a aprovação.");
+      setError(verificationError?.message || "Falha ao verificar o acesso.");
     } finally {
       setLoading(false);
     }
@@ -729,24 +736,34 @@ export const ProfessionalOnboarding: React.FC<Props> = ({
     }
   };
 
-  if (
-    accessStatus?.manual_approval_pending
-    && ["paid", "active", "trialing"].includes(String(accessStatus.payment_status || ""))
-  ) {
+  // A condição era `manual_approval_pending` E uma lista de status de
+  // pagamento escrita à mão — `["paid","active","trialing"]`, que já nascia sem
+  // os dois status que o próprio servidor grava ao creditar sem Stripe. Nada
+  // disso importa mais: quem chega aqui foi CORTADO, e o motivo do corte não
+  // depende de ter pago.
+  if (accessStatus?.access_blocked) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 p-6 text-slate-100">
         <main className="w-full max-w-xl rounded-2xl border border-cyan-900 bg-slate-900 p-7 shadow-2xl">
-          <p className="text-xs font-black uppercase tracking-[0.3em] text-emerald-300">
-            Pagamento confirmado
+          <p className="text-xs font-black uppercase tracking-[0.3em] text-red-300">
+            Acesso suspenso
           </p>
-          <h1 className="mt-3 text-2xl font-black">Cadastro aguardando aprovação FROID</h1>
+          <h1 className="mt-3 text-2xl font-black">
+            {accessStatus.access_block_status === "suspended"
+              ? "Seu acesso está suspenso pelo FROID"
+              : "Este cadastro foi recusado pelo FROID"}
+          </h1>
           <p className="mt-3 text-sm leading-6 text-slate-300">
-            Seus dados e créditos estão preservados. Durante esta fase de testes, o acesso
-            operacional é liberado pessoalmente pelo responsável do FROID após a conferência
-            do cadastro.
+            Seus dados, relatórios e créditos estão preservados — suspensão não
+            apaga nada. O acesso volta pelo mesmo lugar em que foi cortado:
+            escreva para{" "}
+            <a className="font-black text-cyan-300 underline" href="mailto:froid@froid.com.br">
+              froid@froid.com.br
+            </a>
+            .
           </p>
           <p className="mt-4 rounded-lg border border-amber-800 bg-amber-950/40 px-4 py-3 text-sm font-bold text-amber-100">
-            Não realize outro pagamento. A compra já foi confirmada.
+            Não realize novo pagamento: pagar de novo não restabelece o acesso.
           </p>
           {message && <p className="mt-4 text-sm text-cyan-200">{message}</p>}
           {error && <p className="mt-4 text-sm font-bold text-red-300">{error}</p>}
@@ -754,10 +771,10 @@ export const ProfessionalOnboarding: React.FC<Props> = ({
             <button
               type="button"
               disabled={loading}
-              onClick={() => void verifyManualApproval()}
+              onClick={() => void verifyAccess()}
               className="rounded-lg bg-cyan-700 px-4 py-2 text-sm font-black text-white hover:bg-cyan-600 disabled:opacity-50"
             >
-              {loading ? "Verificando..." : "Verificar aprovação"}
+              {loading ? "Verificando..." : "Verificar acesso"}
             </button>
             <button
               type="button"

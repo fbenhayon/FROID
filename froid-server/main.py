@@ -359,9 +359,22 @@ STRIPE_SUBSCRIPTION_PRICE_IDS = {
 FROID_SUBSCRIPTIONS_REQUIRED = os.getenv(
     "FROID_SUBSCRIPTIONS_REQUIRED", "false"
 ).lower() in {"1", "true", "yes", "on"}
-FROID_PROFESSIONAL_APPROVAL_REQUIRED = os.getenv(
-    "FROID_PROFESSIONAL_APPROVAL_REQUIRED", "false"
-).lower() in {"1", "true", "yes", "on"}
+# LAPIDE: FROID_PROFESSIONAL_APPROVAL_REQUIRED, retirada em 09/09/2026.
+#
+# A chave punha todo cadastro novo em `access_approval_status="pending"` e o
+# deixava esperando a liberacao manual do FROID. Fazia sentido na fase
+# controlada de testes; na fase operacional ela e um cliente parado na porta
+# com o cartao na mao. Decisao do dono: cadastro concluido entra.
+#
+# O que NAO foi retirado, e nao pode ser: a suspensao. Um acesso concedido
+# continua podendo ser cortado por endpoint administrativo auditado, e os tres
+# portoes (middleware HTTP, feature access e websocket) continuam recusando
+# conta suspensa ou rejeitada. O que acabou foi a ESPERA PREVIA, nao o
+# controle.
+#
+# Nao reintroduza a chave sem reintroduzir junto a tela que diz a pessoa o que
+# ela esta esperando e ate quando. Foi a falta dessa tela — e nao o portao —
+# que produziu conta paga presa em /admin sem saida.
 # Cadastro proprio (sem Google). Desligar aqui fecha /api/auth/register sem
 # derrubar quem ja tem senha: o login continua valendo.
 FROID_REGISTRATION_ENABLED = os.getenv(
@@ -2381,15 +2394,32 @@ def _professional_access_status(email: str) -> dict:
         if (profile or {}).get("remaining_sessions") is not None
         else total_sessions - used_sessions,
     )
+    # O portao virou "suspensao apenas": quem se cadastrou entra; quem foi
+    # cortado por decisao administrativa, nao.
+    #
+    # "pending" e o estado dos cadastros gravados enquanto a liberacao previa
+    # existia. Le-los aqui como liberados e o que de fato solta essas contas,
+    # sem varrer nem reescrever a base — e por isso a conversao mora na leitura
+    # e nao numa migracao: nenhum dado precisa ser reescrito para a decisao
+    # valer, e voltar atras nao exige desfazer escrita nenhuma.
     approval_status = str(
-        (profile or {}).get("access_approval_status")
-        or ("approved" if profile else "pending")
+        (profile or {}).get("access_approval_status") or "approved"
     ).strip().lower()
-    if approval_status not in {"pending", "approved", "rejected", "suspended"}:
-        approval_status = "pending"
-    approval_ready = approval_status == "approved" or (
-        not FROID_PROFESSIONAL_APPROVAL_REQUIRED and approval_status == "pending"
-    )
+    if approval_status == "pending":
+        approval_status = "approved"
+    if approval_status not in {"approved", "rejected", "suspended"}:
+        # Valor que nenhum caminho de escrita produz: so o endpoint
+        # administrativo grava este campo, e ele valida contra conjunto
+        # fechado. Ausencia de suspensao explicita nao bloqueia — mas tambem
+        # nao passa em silencio, porque estado corrompido sem aviso e
+        # indistinguivel de estado integro.
+        LOGGER.warning(
+            "access_approval_status desconhecido em %s: %r — tratado como liberado",
+            owner_email,
+            approval_status,
+        )
+        approval_status = "approved"
+    access_allowed = approval_status == "approved"
     # "Pronto para usar" significa coisas diferentes para produtos diferentes, e
     # aplicar a régua do clínico à empresa mantinha o cadastro NR-1 preso em
     # onboarding para sempre.
@@ -2417,7 +2447,7 @@ def _professional_access_status(email: str) -> dict:
             has_profile
             and lgpd_acknowledged
             and len(organization_document) == 14
-            and approval_ready
+            and access_allowed
         )
     else:
         access_ready = (
@@ -2427,7 +2457,7 @@ def _professional_access_status(email: str) -> dict:
             and bool(professional_cpf)
             and payment_status in PAID_SESSION_STATUSES
             and remaining_sessions > 0
-            and approval_ready
+            and access_allowed
         )
     # Sessoes entregues sem credito disponivel. O atendimento nunca e bloqueado
     # nem o registro clinico descartado por questao de credito: a pendencia fica
@@ -2499,13 +2529,77 @@ def _professional_access_status(email: str) -> dict:
         "cpf_required": not is_nr1_company and not bool(professional_cpf),
         "company_document_required": is_nr1_company
         and len(organization_document) != 14,
-        "manual_approval_required": FROID_PROFESSIONAL_APPROVAL_REQUIRED,
-        "manual_approval_status": approval_status,
-        "manual_approval_pending": (
-            FROID_PROFESSIONAL_APPROVAL_REQUIRED and approval_status == "pending"
-        ),
-        "manual_approval_ready": approval_ready,
+        # Os nomes mudaram junto com a regra. `manual_approval_ready` passaria
+        # a afirmar que uma aprovacao manual esta pronta num sistema onde ela
+        # nao existe mais, e rotulo que descreve outra coisa e pior que rotulo
+        # nenhum: quem le confia nele.
+        #
+        # `access_blocked` responde a unica pergunta que sobrou — esta conta foi
+        # cortada? — e `access_block_status` diz por qual decisao.
+        "access_blocked": not access_allowed,
+        "access_block_status": "" if access_allowed else approval_status,
     }
+
+
+def _contas_bloqueadas() -> list[str]:
+    """As contas cortadas por decisao administrativa, como `email:motivo`.
+
+    Le o campo gravado em vez de chamar _professional_access_status por perfil:
+    aquela funcao registra aviso para valor desconhecido, e /api/ready pode ser
+    sondado em laco — um alerta legitimo repetido a cada segundo deixa de ser
+    alerta.
+    """
+    bloqueadas = []
+    for email, profile in PROFESSIONAL_PROFILES.items():
+        if not isinstance(profile, dict):
+            continue
+        gravado = str(profile.get("access_approval_status") or "").strip().lower()
+        if gravado in {"suspended", "rejected"}:
+            bloqueadas.append(f"{email}:{gravado}")
+    return sorted(bloqueadas)
+
+
+def _report_access_gate_state() -> None:
+    """Diz, no arranque, o que a mudanca do portao fez com a base que existia.
+
+    A liberacao previa acabou em 09/09/2026, e contas gravadas com "pending"
+    passaram a entrar sem que nenhum dado fosse reescrito. Transicao que nao
+    aparece em lugar nenhum e indistinguivel de transicao que nao aconteceu:
+    esta linha e o unico registro de que ela ocorreu, e de sobre quem.
+
+    A segunda metade importa mais que a primeira. "Ninguem mais espera" e lido
+    com facilidade como "ninguem mais esta bloqueado", e as contas suspensas
+    continuam fora — se elas nao forem ditas em voz alta aqui, a unica forma de
+    descobrir uma seria o cliente ligar reclamando.
+    """
+    esperando = sorted(
+        email
+        for email, profile in PROFESSIONAL_PROFILES.items()
+        if isinstance(profile, dict)
+        and str(profile.get("access_approval_status") or "").strip().lower() == "pending"
+    )
+    bloqueadas = _contas_bloqueadas()
+    LOGGER.info(
+        json.dumps(
+            {
+                "event": "froid.access_gate",
+                "gate": "suspension_only",
+                "profiles": len(PROFESSIONAL_PROFILES),
+                # Quem estava na fila de espera e entrou por esta mudanca.
+                "released_from_pending": len(esperando),
+                "released_accounts": esperando[:100],
+                # Quem continua fora, e por que. Nao e efeito colateral: e
+                # decisao administrativa que segue valendo.
+                "blocked": len(bloqueadas),
+                "blocked_accounts": bloqueadas[:100],
+            },
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+    )
+
+
+_report_access_gate_state()
 
 
 def _settle_pending_sessions(profile: dict, already_deducted: bool) -> int:
@@ -5588,26 +5682,28 @@ async def security_audit_middleware(request: Request, call_next):
             and request.url.path.startswith("/api/")
             and not _is_admin_email(user.get("email") or "")
             and not any(request.url.path.startswith(prefix) for prefix in approval_exempt)
-            and not approval.get("manual_approval_ready")
+            and approval.get("access_blocked")
         ):
             status_code = 403
-            # A mensagem precisa dizer a verdade para QUEM a lê. Uma empresa que
-            # acabou de se cadastrar para contratar a avaliação NR-1 recebia
-            # "acesso profissional aguardando aprovação" — palavra errada, e
-            # nenhuma indicação do que fazer a seguir. Ela não é profissional,
-            # não pediu acesso clínico, e o que está pendente é a liberação
-            # comercial do contrato.
+            # A mensagem diz o que aconteceu e o que fazer.
+            #
+            # Ate 09/09/2026 este 403 significava "espere a liberação" e era o
+            # caminho normal de todo cadastro novo. Não é mais: agora ele só
+            # ocorre sobre conta cortada por decisão administrativa, e dizer
+            # "aguardando aprovação" a quem foi suspenso manda a pessoa esperar
+            # uma coisa que não vai chegar sozinha.
             response = JSONResponse(
                 status_code=403,
                 content={
                     "detail": (
-                        "cadastro da empresa recebido. A liberação para operar o "
-                        "módulo NR-1 é feita pela equipe FROID — escreva para "
-                        "froid@froid.com.br para concluir a contratação."
-                        if approval.get("account_type") == "nr1_company"
-                        else "acesso profissional aguardando aprovação FROID"
+                        "acesso suspenso pelo FROID. Escreva para "
+                        f"{FROID_TRIAL_CONTACT_EMAIL} para regularizar."
+                        if approval.get("access_block_status") == "suspended"
+                        else "cadastro recusado pelo FROID. Escreva para "
+                        f"{FROID_TRIAL_CONTACT_EMAIL}."
                     ),
-                    "approval_pending": True,
+                    "access_blocked": True,
+                    "access_block_status": approval.get("access_block_status") or "",
                     "account_type": approval.get("account_type") or "",
                 },
             )
@@ -5696,11 +5792,11 @@ def _require_professional_feature_access(request: Request) -> Optional[AccessCon
     """Authenticate and apply the subscription gate to a professional feature."""
     user = _require_current_user(request)
     approval = _professional_access_status(user.get("email") or "")
-    if not approval.get("manual_approval_ready"):
+    if approval.get("access_blocked"):
         detail = (
             "acesso profissional suspenso pelo FROID"
-            if approval.get("manual_approval_status") == "suspended"
-            else "acesso profissional aguardando aprovação FROID"
+            if approval.get("access_block_status") == "suspended"
+            else "cadastro profissional recusado pelo FROID"
         )
         raise HTTPException(status_code=403, detail=detail)
     context = _tenant_context_from_request(request)
@@ -5711,10 +5807,10 @@ def _require_professional_feature_access(request: Request) -> Optional[AccessCon
 def _require_professional_websocket_access(user: dict) -> Optional[AccessContext]:
     """Apply the same fail-closed gate before accepting professional sockets."""
     approval = _professional_access_status(user.get("email") or "")
-    if not approval.get("manual_approval_ready"):
+    if approval.get("access_blocked"):
         raise HTTPException(
             status_code=403,
-            detail="acesso profissional aguardando aprovação FROID",
+            detail="acesso profissional suspenso pelo FROID",
         )
     contexts = _tenant_contexts_for_email(user.get("email") or "")
     active_id = str(user.get("active_organization_id") or "")
@@ -6285,7 +6381,7 @@ def _effective_professional_access_status(user: dict) -> dict:
         bool(legacy.get("has_profile"))
         and bool(legacy.get("lgpd_acknowledged"))
         and not bool(legacy.get("cpf_required"))
-        and bool(legacy.get("manual_approval_ready"))
+        and not legacy.get("access_blocked")
     )
     return {
         **legacy,
@@ -7067,7 +7163,11 @@ def readiness():
         "subscription_persistence_enabled": TENANT_STORE.enabled,
     }
     result["checks"]["subscriptions_required"] = FROID_SUBSCRIPTIONS_REQUIRED
-    result["professional_approval_required"] = FROID_PROFESSIONAL_APPROVAL_REQUIRED
+    # A liberacao previa acabou em 09/09/2026. Publicar aqui o portao que de
+    # fato existe evita que uma sonda continue vigiando uma chave retirada e
+    # conclua, do silencio, que esta tudo como antes.
+    result["professional_access_gate"] = "suspension_only"
+    result["blocked_professional_access"] = len(_contas_bloqueadas())
     result["checks"].update(security_checks)
     result["checks"].update(billing_checks)
     result["checks"]["legal_supplier_configured"] = (
@@ -7437,8 +7537,8 @@ async def admin_overview(request: Request):
                 "total_sessions": access.get("total_sessions", 0),
                 "used_sessions": access.get("used_sessions", 0),
                 "remaining_sessions": access.get("remaining_sessions", 0),
-                "manual_approval_status": access.get("manual_approval_status", "pending"),
-                "manual_approval_pending": access.get("manual_approval_pending", False),
+                "access_blocked": access.get("access_blocked", False),
+                "access_block_status": access.get("access_block_status", ""),
                 "reports_count": len(professional_reports),
                 "patients_count": len({
                     str((report.get("patient") or {}).get("id") or report.get("patientId") or report.get("patientName") or "")
@@ -7507,9 +7607,13 @@ async def admin_overview(request: Request):
     return {
         "summary": {
             "professionals": len(professional_rows),
-            "pending_professional_approvals": sum(
-                1 for row in professional_rows
-                if row.get("manual_approval_status") == "pending"
+            # Deixou de existir fila de aprovacao para o operador processar.
+            # O numero que sobrou e o que ele de fato precisa acompanhar: quantos
+            # acessos ELE cortou. Manter o contador antigo, sempre em zero,
+            # seria uma caixa vazia dizendo que nao ha nada a fazer sobre algo
+            # que ja nao existe.
+            "blocked_professional_access": sum(
+                1 for row in professional_rows if row.get("access_blocked")
             ),
             "patients": len(patient_rows),
             "session_reports": len(reports),
@@ -7717,8 +7821,11 @@ async def admin_professional_access_approval(professional_email: str, request: R
 
     body = await request.json()
     next_status = str(body.get("status") or "").strip().lower()
-    if next_status not in {"pending", "approved", "rejected", "suspended"}:
-        raise HTTPException(status_code=400, detail="status de aprovação inválido")
+    # "pending" saiu do conjunto porque deixou de bloquear: aceita-lo seria
+    # oferecer ao operador um botao que nao faz nada e que a tela apresentaria
+    # como se tivesse feito.
+    if next_status not in {"approved", "rejected", "suspended"}:
+        raise HTTPException(status_code=400, detail="status de acesso inválido")
     note = str(body.get("note") or "").strip()[:1000]
     previous_status = str(
         profile.get("access_approval_status") or "approved"
@@ -12721,13 +12828,12 @@ async def save_professional_profile(request: Request):
 
     now = datetime.now(timezone.utc).isoformat()
     existing = PROFESSIONAL_PROFILES.get(owner_email) or {}
+    # Cadastro concluido entra. O unico estado que sobrevive a regravacao do
+    # perfil e a suspensao — senao bastaria reenviar o formulario para desfazer
+    # um corte administrativo, e o botao "Suspender acesso" nao valeria nada.
     approval_status = str(existing.get("access_approval_status") or "").strip().lower()
-    if not approval_status:
-        approval_status = (
-            "approved"
-            if existing or not FROID_PROFESSIONAL_APPROVAL_REQUIRED
-            else "pending"
-        )
+    if approval_status not in {"suspended", "rejected"}:
+        approval_status = "approved"
     existing_used_sessions = max(0, _local_int(existing.get("used_sessions")))
     existing_consumed_sessions = (
         existing.get("consumed_session_ids")
