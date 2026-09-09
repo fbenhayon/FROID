@@ -236,8 +236,9 @@ export const ProductChoice: React.FC<Props> = ({
                 Antes da reunião, vale checar uma coisa
               </p>
               <p className="mt-2 text-sm leading-6 text-slate-300">
-                São dois pisos e ambos valem sempre: anonimato (50 respostas)
-                e representatividade (a amostra que fala pelo efetivo declarado).
+                São dois pisos e ambos valem sempre: anonimato (15 respostas
+                na campanha, 10 por recorte) e representatividade (a amostra que
+                fala pelo efetivo declarado).
                 Abaixo de 98 trabalhadores a unidade exige censo — todos
                 respondendo. Com adesão realista de 65%, o porte que produz
                 resultado liberável começa perto de 210 pessoas. O diagnóstico

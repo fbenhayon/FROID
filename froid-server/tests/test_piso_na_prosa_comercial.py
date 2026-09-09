@@ -40,6 +40,16 @@ if str(SERVER_DIR) not in sys.path:
 
 REPO = SERVER_DIR.parent
 SITE = REPO / "froid-site"
+# O painel tambem faz prosa comercial, e a varredura nao chegava ate ele.
+#
+# `ProductChoice.tsx` — a tela que a empresa ve ANTES de se cadastrar — afirmou
+# "anonimato (50 respostas)" por semanas depois de a migration 027 baixar o
+# piso para 15. Escapou duas vezes ao mesmo tempo: por escopo (a varredura so
+# lia froid-site) e por forma (o padrao exigia "na campanha", e a frase do
+# painel nao tinha essas duas palavras).
+#
+# Corrigir so a ocorrencia deixaria a proxima copia entrar pelo mesmo buraco.
+PAINEL = REPO / "froid-dashboard" / "src"
 
 from nr1_compliance import MIN_COHORT_CUT, MIN_COHORT_TOTAL  # noqa: E402
 
@@ -48,6 +58,10 @@ from nr1_compliance import MIN_COHORT_CUT, MIN_COHORT_TOTAL  # noqa: E402
 # se elas voltarem — e nao contra uma ideia geral de como alguem escreveria.
 AFIRMACOES_DO_PISO_DE_CAMPANHA = (
     r"anonimato\s*\(\s*(\d+)\s*respostas\s+na\s+campanha",
+    # Sem as palavras "na campanha": a forma que escapou no painel. Abrir o
+    # parentese logo depois de "anonimato" com um numero de respostas ja e
+    # afirmar o piso — nao ha leitura em que isso seja exemplo aritmetico.
+    r"anonimato\s*\(\s*(\d+)\s*respostas",
     r"anonimato\s+exige\s+(\d+)\s+respostas",
     r"a\s+partir\s+de\s+<strong>\s*(\d+)\s+respostas\s+conclu",
     r"piso\s+de\s+(\d+)\s+respostas",
@@ -61,7 +75,54 @@ AFIRMACOES_DO_PISO_DE_RECORTE = (
 
 
 def _paginas():
-    return sorted(SITE.rglob("*.html"))
+    """Tudo que fala com o publico: o site e as telas do painel.
+
+    O glob cobre a proxima copia sem ninguem precisar lembrar — que e a unica
+    forma de espelho de numero que funciona nesta casa.
+    """
+    arquivos = list(SITE.rglob("*.html"))
+    for extensao in ("*.tsx", "*.ts", "*.html"):
+        arquivos.extend(
+            caminho
+            for caminho in PAINEL.rglob(extensao)
+            # Teste que cita o numero errado de proposito, para provar que a
+            # varredura o pega, nao pode ser acusado por ela.
+            if ".test." not in caminho.name
+        )
+    return sorted(arquivos)
+
+
+def _texto_visivel(caminho) -> str:
+    """O que chega ao leitor, sem o que o autor anotou para o proximo dev.
+
+    A primeira execucao da varredura ampliada acusou `Nr1CompanyOnboarding.tsx`
+    por uma linha de COMENTARIO que conta a historia do numero: "havia um
+    PISO_UNIDADE = 75 aqui, herdado de quando o unico portao era o de anonimato
+    (50 respostas)". E registro de incidente, e e a parte que impede o defeito
+    de voltar — proibi-la seria proibir a memoria.
+
+    Falso positivo custa mais caro que o defeito, porque ensina a ignorar o
+    verificador. O que se confere e a prosa que a pessoa le.
+    """
+    texto = caminho.read_text(encoding="utf-8", errors="ignore")
+    if caminho.suffix == ".html":
+        return re.sub(r"<!--.*?-->", " ", texto, flags=re.S)
+    linhas = []
+    em_bloco = False
+    for linha in texto.split("\n"):
+        nua = linha.strip()
+        if em_bloco:
+            if "*/" in nua:
+                em_bloco = False
+            continue
+        if nua.startswith("//") or nua.startswith("*"):
+            continue
+        if nua.startswith("{/*") or nua.startswith("/*"):
+            if "*/" not in nua:
+                em_bloco = True
+            continue
+        linhas.append(linha)
+    return "\n".join(linhas)
 
 
 class OPisoAfirmadoEmProsa(unittest.TestCase):
@@ -70,7 +131,7 @@ class OPisoAfirmadoEmProsa(unittest.TestCase):
     def test_nenhuma_pagina_afirma_piso_de_campanha_errado(self):
         divergentes = []
         for pagina in _paginas():
-            texto = pagina.read_text(encoding="utf-8", errors="ignore")
+            texto = _texto_visivel(pagina)
             for padrao in AFIRMACOES_DO_PISO_DE_CAMPANHA:
                 for achado in re.finditer(padrao, texto, re.IGNORECASE):
                     valor = int(achado.group(1))
@@ -84,7 +145,7 @@ class OPisoAfirmadoEmProsa(unittest.TestCase):
     def test_nenhuma_pagina_afirma_piso_de_recorte_errado(self):
         divergentes = []
         for pagina in _paginas():
-            texto = pagina.read_text(encoding="utf-8", errors="ignore")
+            texto = _texto_visivel(pagina)
             for padrao in AFIRMACOES_DO_PISO_DE_RECORTE:
                 for achado in re.finditer(padrao, texto, re.IGNORECASE):
                     valor = int(achado.group(1))
