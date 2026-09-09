@@ -94,22 +94,50 @@ describe("a escolha decide rota, então precisa ser estado", () => {
 });
 
 describe("o portão do cadastro", () => {
+  // As duas fatias abaixo iam até N caracteres a partir do `path=`. As duas
+  // quebraram em 09/09/2026 por crescimento de COMENTÁRIO, sem que a garantia
+  // tivesse mudado — o mesmo defeito que já custou duas quebras no backend.
+  // Agora recortam até o fim do bloco da rota.
+  const rota = (caminho: string) => {
+    const inicio = APP.indexOf(`path="${caminho}"`);
+    const fim = APP.indexOf("        <Route", inicio);
+    return APP.slice(inicio, fim === -1 ? APP.length : fim);
+  };
+
   it("quem não escolheu não chega na ficha clínica por link direto", () => {
-    const rota = APP.slice(
-      APP.indexOf('path="/access/register"'),
-      APP.indexOf('path="/access/register"') + 700,
+    expect(rota("/access/register")).toContain(
+      "needsProductChoice(user, productChoice)",
     );
-    expect(rota).toContain("needsProductChoice(user, productChoice)");
-    expect(rota).toContain('<Navigate to="/access/produto" replace />');
+    expect(rota("/access/register")).toContain(
+      '<Navigate to="/access/produto" replace />',
+    );
   });
 
-  it("quem já concluiu o cadastro não volta a escolher produto", () => {
-    const rota = APP.slice(
-      APP.indexOf('path="/access/produto"'),
-      APP.indexOf('path="/access/produto"') + 500,
+  it("a ficha clínica continua alcançável para quem não tem o lado clínico", () => {
+    // É por ela que a empresa contratante do NR-1 acrescenta o FROID Psique.
+    // A conta dela tem `onboarding_required` falso — o NR-1 já está pronto — e
+    // a regra antiga (`!onboardingRequired` → /dashboard) a devolvia daqui sem
+    // que ela conseguisse se cadastrar nunca.
+    expect(rota("/access/register")).toContain('contaTemProduto(user, "individual")');
+    expect(rota("/access/register")).toContain('contaTemProduto(user, "clinic")');
+  });
+
+  it("quem já tem os dois produtos não volta a escolher, e vai para a casa certa", () => {
+    // Era "quem já concluiu o cadastro não volta", e essa regra deixava a
+    // única porta para acrescentar o segundo produto inalcançável.
+    //
+    // O destino também era `/dashboard` fixo — o painel CLÍNICO — para onde a
+    // empresa contratante do NR-1 não pode ser mandada.
+    expect(rota("/access/produto")).toContain("!onboardingRequired(user)");
+    expect(rota("/access/produto")).toContain(
+      "!produtoQuePodeSerAcrescentado(user)",
     );
-    expect(rota).toContain("!onboardingRequired(user)");
-    expect(rota).toContain('<Navigate to="/dashboard" replace />');
+    expect(rota("/access/produto")).toContain(
+      "<Navigate to={homeDoProduto(user)} replace />",
+    );
+    expect(rota("/access/produto")).not.toContain(
+      '<Navigate to="/dashboard" replace />',
+    );
   });
 
   it("o logout limpa a escolha", () => {

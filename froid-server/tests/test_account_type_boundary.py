@@ -76,10 +76,19 @@ class TravaDeTransicaoTests(unittest.TestCase):
     def setUpClass(cls):
         cls.backend = (SERVER_DIR / "main.py").read_text(encoding="utf-8")
         cls.store = (SERVER_DIR / "tenant_store.py").read_text(encoding="utf-8")
+        # Recorte ate a PROXIMA definicao, e nao ate a rota. Em 09/09/2026
+        # entrou uma segunda trava entre as duas — a do segundo produto — e o
+        # recorte antigo passou a ler as duas como se fossem uma: a contagem de
+        # 409 saltou de 2 para 5 sem que a trava desta classe tivesse mudado
+        # uma linha. Teste que mede o vizinho reprova por motivo errado.
         cls.trava = cls.backend[
             cls.backend.index("def _assert_account_type_transition(") : cls.backend.index(
-                '@app.post("/api/professional/profile")'
+                "def _assert_second_account_is_another_organization("
             )
+        ]
+        cls.trava_do_segundo = cls.backend[
+            cls.backend.index("def _assert_second_account_is_another_organization(") :
+            cls.backend.index("def _perfil_com_segundo_produto(")
         ]
 
     def test_a_rota_de_perfil_chama_a_trava_antes_de_gravar(self):
@@ -119,25 +128,93 @@ class TravaDeTransicaoTests(unittest.TestCase):
         # proprio cadastro.
         self.assertIn('if not atual or atual == "legacy":', self.trava)
 
-    def test_a_tela_de_escolha_recusa_antes_do_formulario(self):
-        """A recusa tem de aparecer na escolha, nao 15 campos depois.
+    def test_a_tela_de_escolha_oferece_acrescentar_em_vez_de_recusar(self):
+        """ESTE TESTE GUARDAVA A DECISAO CONTRARIA.
 
-        A trava do servidor continua sendo a ultima linha; o que este teste
-        cobre e o aviso chegar cedo. Sem ele, a pessoa escolhe "empresa",
-        preenche unidades, setores e efetivo, e so leva o "nao" ao salvar.
+        Ate 09/09/2026 ele exigia que a tela recusasse o outro produto ANTES do
+        formulario, e a recusa estava certa: o segundo produto exigiria
+        converter a organizacao existente, e converter devolve
+        `patients.read_all` ao lado do empregador.
+
+        O que mudou nao foi a fronteira, foi o mecanismo. O segundo produto e
+        uma SEGUNDA organizacao; a conversao continua recusada pelo servidor,
+        pela trava que as duas classes acima testam e que nao foi afrouxada.
+
+        O que a tela ainda tem de fazer cedo: dizer que sao duas organizacoes e
+        que a empresa precisa de CNPJ proprio. Sem isso a pessoa preenche o
+        cadastro inteiro com o CNPJ da clinica e leva o 409 no fim.
         """
         escolha = (
             ROOT / "froid-dashboard" / "src" / "pages" / "ProductChoice.tsx"
         ).read_text(encoding="utf-8")
-        # A tela le o tipo vigente que o backend passou a devolver.
-        self.assertIn("user?.access_status?.account_type", escolha)
-        # E espelha a regra do servidor: o que bloqueia e cruzar o enterprise,
-        # nao trocar entre autonomo e clinica.
-        self.assertIn('tipoVigente === "nr1_company"', escolha)
+        # A tela pergunta se a conta JA TEM o produto, e nao qual e o tipo dela.
+        self.assertIn("contaTemProduto(user, produto)", escolha)
+        self.assertIn("Você já usa este produto", escolha)
+        self.assertIn("Acrescentar", escolha)
+        # E continua avisando cedo o que o servidor recusa tarde.
+        self.assertIn("CNPJ próprio", escolha)
+        self.assertIn("duas organizações separadas", escolha)
+        # A recusa antiga nao pode ter sobrado como texto morto.
+        self.assertNotIn("Indisponível para esta conta", escolha)
+
+    def test_o_segundo_produto_exige_uma_segunda_organizacao(self):
+        """A trava que sustenta a funcionalidade inteira.
+
+        Empresa NR-1 e clinica com o MESMO CNPJ resolvem para o MESMO
+        organization_id (e o primeiro teste deste arquivo mede isso). Sem esta
+        pergunta, "acrescentar o NR-1" com o CNPJ da propria clinica nao criaria
+        um segundo cadastro: faria o upsert reescrever o organization_type do
+        unico que existe — que e exatamente a travessia que a trava vizinha
+        recusa, entrando pela porta nova.
+        """
         self.assertIn(
-            'tipoVigente === "individual" || tipoVigente === "organization"', escolha
+            "tenant_organization_id_for_profile(", self.trava_do_segundo
         )
-        self.assertIn('produto === "nr1" ? jaEhClinico : jaEhEmpresa', escolha)
+        self.assertIn("if id_primario == id_segundo:", self.trava_do_segundo)
+        self.assertIn("status_code=409", self.trava_do_segundo)
+
+    def test_o_segundo_produto_tambem_confere_a_organizacao_compartilhada(self):
+        # Mesma segunda pergunta da trava vizinha: o CNPJ pode ter sido
+        # cadastrado por OUTRA pessoa, e um cadastro novo nao pode atravessa-lo.
+        self.assertIn(
+            'TENANT_STORE.organization_type(id_segundo)', self.trava_do_segundo
+        )
+        self.assertIn(
+            '(atual == "enterprise") != (alvo == "enterprise")',
+            self.trava_do_segundo,
+        )
+
+    def test_o_segundo_produto_falha_fechado(self):
+        depois = self.trava_do_segundo[
+            self.trava_do_segundo.index("    except Exception:") :
+        ]
+        self.assertIn("status_code=503", depois)
+
+    def test_acrescentar_nunca_reescreve_o_cadastro_primario(self):
+        """O `account_type` do perfil nao e tocado no caminho de adicao.
+
+        Se fosse, a organizacao primaria mudaria de tipo no espelho e a trava
+        toda viraria decoracao — o perigo entraria por dentro, sem nunca passar
+        por `_assert_account_type_transition`.
+        """
+        montagem = self.backend[
+            self.backend.index("def _perfil_com_segundo_produto(") :
+            self.backend.index("    return perfil")
+        ]
+        self.assertIn("perfil = dict(existing)", montagem)
+        self.assertNotIn('perfil["account_type"]', montagem)
+        self.assertIn('perfil["second_account"]', montagem)
+
+    def test_a_rota_escolhe_entre_acrescentar_e_atualizar_no_lugar(self):
+        inicio = self.backend.index('@app.post("/api/professional/profile")')
+        rota = self.backend[
+            inicio : self.backend.index('@app.get("/api/subscriptions/plans")', inicio)
+        ]
+        # Atravessar a fronteira leva a trava do segundo produto; nao atravessar
+        # continua levando a trava da travessia, intacta.
+        self.assertIn("if acrescenta_produto:", rota)
+        self.assertIn("_assert_second_account_is_another_organization(", rota)
+        self.assertIn("_assert_account_type_transition(", rota)
 
     def test_backend_entrega_o_tipo_para_a_tela(self):
         inicio = self.backend.index('        "has_profile": has_profile,')

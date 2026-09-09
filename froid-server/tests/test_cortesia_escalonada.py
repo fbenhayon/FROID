@@ -227,12 +227,34 @@ class AEmpresaNr1FicaForaDaCortesia(unittest.TestCase):
 
     def test_a_concessao_exige_cadastro_clinico(self):
         inicio = FONTE.index("conceder_cortesia = ")
-        # Ate o fim da atribuicao, e nao ate o fim da linha: a condicao passou a
-        # ocupar varias linhas, e recortar por "\n" leria so o parentese.
+        # Ate o fim da atribuicao, e nao ate o fim da linha: a condicao ocupa
+        # varias linhas, e recortar por "\n" leria so o parentese.
         expressao = FONTE[inicio : FONTE.index("\n    if conceder_cortesia:", inicio)]
-        self.assertIn("not existing", expressao)
         self.assertIn("FROID_TRIAL_SESSIONS > 0", expressao)
         self.assertIn("_cadastro_clinico(account_type)", expressao)
+        # Era `not existing` — "so na criacao do perfil". Deixou de bastar em
+        # 09/09/2026, quando a empresa NR-1 passou a poder acrescentar o Psique:
+        # para ela o perfil JA existe, e a regra antiga a deixaria com o painel
+        # clinico aberto e zero sessao, sem nunca ter recebido a cortesia. A
+        # regra sempre foi "a primeira vez que a conta ganha o lado clinico".
+        self.assertIn("not ja_tinha_lado_clinico", expressao)
+
+    def test_a_cortesia_continua_valendo_uma_vez_so(self):
+        """A garantia que a condicao antiga protegia, dita pelo que a sustenta.
+
+        `ja_tinha_lado_clinico` le os tipos que a conta JA carrega. Nao existe
+        caminho que retire o lado clinico de uma conta, entao uma vez concedida
+        a cortesia a condicao nunca volta a ser verdadeira — regravar o cadastro
+        continua nao renovando nada.
+        """
+        inicio = FONTE.index("ja_tinha_lado_clinico = ")
+        linha = FONTE[inicio : FONTE.index("\n", inicio)]
+        self.assertIn("_tipos_de_cadastro(existing)", FONTE)
+        self.assertIn("_cadastro_clinico(t)", linha)
+        self.assertIn(
+            'total_sessions = max(0, _local_int(existing.get("total_sessions")))',
+            FONTE,
+        )
 
     def test_a_empresa_nao_entra_no_plano_de_cortesia_nem_em_trialing(self):
         """selected_plan e payment_status dependem de conceder_cortesia.

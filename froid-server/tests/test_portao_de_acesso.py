@@ -114,6 +114,8 @@ NS["_local_digits_only"] = _funcao("_local_digits_only", NS)
 NS["_local_int"] = _funcao("_local_int", NS)
 NS["_normalize_email"] = _funcao("_normalize_email", NS)
 NS["_cadastro_clinico"] = _funcao("_cadastro_clinico", NS)
+NS["_tipos_de_cadastro"] = _funcao("_tipos_de_cadastro", NS)
+NS["_documento_da_empresa_nr1"] = _funcao("_documento_da_empresa_nr1", NS)
 NS["_trial_state"] = _funcao("_trial_state", NS)
 estado_de_acesso = _funcao("_professional_access_status", NS)
 

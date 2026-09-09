@@ -677,13 +677,27 @@ export const Nr1Dashboard: React.FC<{
                 Dashboard
               </button>
             ) : (
-              <button
-                onClick={onLogout}
-                title="Encerrar a sessão e voltar à tela de entrada."
-                className="rounded border border-slate-700 px-4 py-2 text-xs font-black text-slate-200 hover:bg-slate-900"
-              >
-                Sair
-              </button>
+              <>
+                {/* A empresa que quiser o produto clínico passa a ter por onde.
+                    Não é o painel clínico dela — é o cadastro de um consultório
+                    PRÓPRIO, numa organização separada, porque o empregador não
+                    tem e não pode ter pacientes dentro da organização da
+                    empresa. Essa separação é o que sustenta a fronteira. */}
+                <button
+                  onClick={() => nav("/access/produto")}
+                  title="Cadastrar um consultório próprio no FROID Psique, em organização separada da empresa."
+                  className="rounded border border-cyan-800 bg-slate-900 px-4 py-2 text-xs font-black text-cyan-200 hover:bg-cyan-950"
+                >
+                  Adicionar FROID Psique
+                </button>
+                <button
+                  onClick={onLogout}
+                  title="Encerrar a sessão e voltar à tela de entrada."
+                  className="rounded border border-slate-700 px-4 py-2 text-xs font-black text-slate-200 hover:bg-slate-900"
+                >
+                  Sair
+                </button>
+              </>
             )}
           </div>
         </header>

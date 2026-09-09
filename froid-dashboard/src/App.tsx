@@ -8,9 +8,12 @@ import { rememberProfessionalEmail } from "./lib/professional-prompts";
 import {
   clearProductChoice,
   bloqueadoPorSaldo,
+  contaTemProduto,
   defaultAuthenticatedPath,
+  homeDoProduto,
   needsProductChoice,
   onboardingRequired,
+  produtoQuePodeSerAcrescentado,
   readProductChoice,
   saveProductChoice,
   type FroidProduct,
@@ -363,10 +366,16 @@ function App() {
         <Route
           path="/access/produto"
           element={protectedElement(
-            !onboardingRequired(user) ? (
-              // Quem já concluiu o cadastro não volta a escolher produto: a
-              // conta dele já existe com um tipo definido.
-              <Navigate to="/dashboard" replace />
+            !onboardingRequired(user) && !produtoQuePodeSerAcrescentado(user) ? (
+              // Quem já tem os DOIS produtos não volta a escolher: não há o que
+              // escolher. Era "quem já concluiu o cadastro não volta", e essa
+              // regra deixou esta tela — a única porta para acrescentar o
+              // segundo produto — inalcançável para toda conta concluída.
+              //
+              // O destino também mudou: era `/dashboard` fixo, o painel
+              // CLÍNICO, para onde a empresa contratante do NR-1 não deve ser
+              // mandada. `homeDoProduto` já sabe a casa de cada uma.
+              <Navigate to={homeDoProduto(user)} replace />
             ) : (
               <ProductChoice
                 user={user}
@@ -399,8 +408,15 @@ function App() {
         <Route
           path="/access/register"
           element={protectedElement(
-            !onboardingRequired(user) ? (
-              <Navigate to="/dashboard" replace />
+            // A ficha clínica continua alcançável para quem NÃO tem o lado
+            // clínico: é por ela que a empresa contratante do NR-1 acrescenta o
+            // FROID Psique. Sem esta condição a conta dela tem
+            // `onboarding_required` falso (o NR-1 já está pronto) e era
+            // devolvida daqui para o painel, sem nunca conseguir se cadastrar.
+            !onboardingRequired(user) &&
+            (contaTemProduto(user, "individual") ||
+              contaTemProduto(user, "clinic")) ? (
+              <Navigate to={homeDoProduto(user)} replace />
             ) : needsProductChoice(user, productChoice) ? (
               // Chegar direto na ficha clínica por link antigo ou favorito não
               // pode pular a escolha — é ela que decide quais campos valem.

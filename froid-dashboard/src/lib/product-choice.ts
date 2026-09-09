@@ -109,8 +109,13 @@ export type UsuarioRoteavel = {
     onboarding_required?: boolean;
     admin?: boolean;
     /** Decide a casa da conta depois do cadastro: `nr1_company` vai para o
-     *  painel de conformidade, e nao para o painel clinico. */
+     *  painel de conformidade, e nao para o painel clinico. Continua sendo o
+     *  cadastro PRIMÁRIO — aquele em que a conta nasceu. */
     account_type?: string;
+    /** Os cadastros que a conta carrega, primário primeiro. Desde 09/09/2026
+     *  um mesmo login pode ter os dois produtos, cada um numa organização
+     *  separada. Vazio para quem ainda não se cadastrou. */
+    account_types?: string[];
     /** Os campos abaixo separam "ainda não se cadastrou" de "acabou o saldo".
      *  Os dois produzem `onboarding_required`, e mandam a pessoa para lugares
      *  diferentes — confundi-los foi o que prendeu o Fábio em /admin. */
@@ -143,6 +148,45 @@ export function bloqueadoPorSaldo(user: UsuarioRoteavel): boolean {
 
 export function onboardingRequired(user: UsuarioRoteavel): boolean {
   return Boolean(user?.access_status?.onboarding_required);
+}
+
+/** Esta conta já tem este produto?
+ *
+ *  Antes havia só `account_type`, e a tela de escolha lia dele que o OUTRO
+ *  produto era "indisponível para esta conta" — para sempre. Era verdade
+ *  enquanto o segundo produto exigia converter a organização existente, o que
+ *  devolveria o prontuário ao empregador. Deixou de ser: o segundo produto é
+ *  uma segunda organização, e a resposta agora é "acrescentar".
+ *
+ *  Lê `account_types`, e cai em `account_type` quando o servidor ainda não
+ *  publica a lista — sessão gravada no navegador antes desta versão. */
+export function contaTemProduto(
+  user: UsuarioRoteavel,
+  product: FroidProduct,
+): boolean {
+  const acesso = user?.access_status;
+  const tipos =
+    Array.isArray(acesso?.account_types) && acesso.account_types.length
+      ? acesso.account_types
+      : acesso?.account_type
+        ? [acesso.account_type]
+        : [];
+  return tipos.some((tipo) => productForAccountType(tipo) === product);
+}
+
+/** O produto que a conta ainda não tem, quando ela já tem o outro.
+ *
+ *  Null quando a conta não tem cadastro nenhum (aí a pergunta é a original,
+ *  e não "acrescentar") ou quando já carrega os dois. */
+export function produtoQuePodeSerAcrescentado(
+  user: UsuarioRoteavel,
+): "clinical" | "nr1" | null {
+  const temClinico =
+    contaTemProduto(user, "individual") || contaTemProduto(user, "clinic");
+  const temNr1 = contaTemProduto(user, "nr1");
+  if (!temClinico && !temNr1) return null;
+  if (temClinico && temNr1) return null;
+  return temClinico ? "nr1" : "clinical";
 }
 
 /** Quem ainda vai se cadastrar precisa dizer para qual produto, antes do

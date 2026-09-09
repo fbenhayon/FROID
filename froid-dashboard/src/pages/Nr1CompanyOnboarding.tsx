@@ -220,11 +220,24 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
       .then((dados) => {
         if (!ativo) return;
         const perfil = dados?.profile;
-        if (!perfil || String(perfil.account_type || "") !== "nr1_company") return;
+        if (!perfil) return;
+        // A empresa pode ser o cadastro PRIMÁRIO desta conta ou o segundo,
+        // acrescentado por uma clínica que contratou a avaliação. Ler só
+        // `account_type` deixava a clínica sem pré-preenchimento nenhum: ela
+        // reabriria a tela e encontraria os campos vazios, como se o cadastro
+        // que acabou de fazer não existisse.
+        const segundo =
+          perfil.second_account &&
+          String(perfil.second_account.account_type || "") === "nr1_company"
+            ? perfil.second_account
+            : null;
+        const empresa =
+          String(perfil.account_type || "") === "nr1_company" ? perfil : segundo;
+        if (!empresa) return;
         setJaCadastrada(true);
-        setRazaoSocial((v) => v || String(perfil.organization_legal_name || ""));
-        setNomeFantasia((v) => v || String(perfil.organization_name || ""));
-        setCnpj((v) => v || String(perfil.organization_document || ""));
+        setRazaoSocial((v) => v || String(empresa.organization_legal_name || ""));
+        setNomeFantasia((v) => v || String(empresa.organization_name || ""));
+        setCnpj((v) => v || String(empresa.organization_document || ""));
         setResponsavel((v) => v || String(perfil.owner_name || ""));
         setCargo((v) => v || String(perfil.profession || ""));
         setTelefone((v) => v || String(perfil.phone || ""));
@@ -235,10 +248,20 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
         // gravado: e o ato que a pessoa esta praticando agora, e marca-lo por
         // ela e assinar no lugar dela.
         if (!organizationId) {
-          const primeira = Array.isArray(dados?.organizations)
-            ? dados.organizations[0]
-            : null;
-          if (primeira?.organization_id) setOrganizationId(String(primeira.organization_id));
+          // A organização da EMPRESA, e não a primeira da lista. Numa conta com
+          // os dois produtos a primeira pode ser a clínica, e
+          // `_require_enterprise_context` devolve 409 para ela — a tela
+          // quebraria no passo seguinte, sobre um cadastro recém-aceito.
+          const organizacoes = Array.isArray(dados?.organizations)
+            ? dados.organizations
+            : [];
+          const empresaNr1 =
+            organizacoes.find(
+              (item: any) => String(item?.organization_type || "") === "enterprise",
+            ) || null;
+          if (empresaNr1?.organization_id) {
+            setOrganizationId(String(empresaNr1.organization_id));
+          }
         }
       })
       // Perfil indisponivel nao trava o cadastro novo, que e o caminho em que

@@ -161,7 +161,11 @@ class ConcessaoTests(unittest.TestCase):
         # de abertura: um teste reprovando sem que a garantia tivesse mudado.
         i = FONTE.index("conceder_cortesia = ")
         expressao = FONTE[i:FONTE.index("\n    if conceder_cortesia:", i)]
-        self.assertIn("not existing", expressao)
+        # `not existing` virou `not ja_tinha_lado_clinico` em 09/09/2026, quando
+        # a empresa NR-1 passou a poder acrescentar o Psique. A garantia e a
+        # mesma — uma concessao por conta —, medida pelo que de fato a sustenta:
+        # nao ha caminho que retire o lado clinico de uma conta.
+        self.assertIn("not ja_tinha_lado_clinico", expressao)
 
     def test_regravar_o_cadastro_nao_renova(self):
         # total_sessions sempre vem do perfil existente; a cortesia so o
@@ -192,10 +196,13 @@ class ConcessaoTests(unittest.TestCase):
         from subscriptions import PAID_SESSION_STATUSES
 
         self.assertIn("trialing", PAID_SESSION_STATUSES)
-        i = FONTE.index("access_ready = (")
+        # `access_ready` deixou de ser um booleano so em 09/09/2026: virou um
+        # por produto, porque a conta passou a poder ter os dois. Quem confere o
+        # status de pagamento e o lado CLINICO — o NR-1 nao compra sessao.
+        i = FONTE.index("clinico_pronto = (")
         self.assertIn(
             "payment_status in PAID_SESSION_STATUSES",
-            FONTE[i:i + 400],
+            FONTE[i:FONTE.index("\n    )", i)],
         )
 
     def test_o_aviso_traz_o_canal_combinado(self):

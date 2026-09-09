@@ -2,7 +2,11 @@ import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import type { FroidUser } from "../App";
-import { pathForProduct, type FroidProduct } from "../lib/product-choice";
+import {
+  contaTemProduto,
+  pathForProduct,
+  type FroidProduct,
+} from "../lib/product-choice";
 
 /**
  * Quem você é — a única pergunta de identidade do cadastro.
@@ -54,39 +58,36 @@ export const ProductChoice: React.FC<Props> = ({
 
   const primeiroNome = (user?.name || user?.email || "").split(/[\s@]/)[0];
 
-  // Espelha exatamente a regra do servidor (_assert_account_type_transition):
-  // o que é recusado é atravessar a fronteira do 'enterprise'. Entre autônomo
-  // e clínica a troca continua livre, porque nenhum dos dois é enterprise.
+  // O outro produto deixou de ser "indisponível para esta conta".
   //
-  // Isto existe porque a recusa chegava tarde demais: a pessoa escolhia
-  // "empresa", preenchia unidades, setores e efetivo, e só levava o "não" ao
-  // salvar — com todo o trabalho já feito.
-  const tipoVigente = user?.access_status?.account_type || "";
-  const jaEhEmpresa = tipoVigente === "nr1_company";
-  const jaEhClinico = tipoVigente === "individual" || tipoVigente === "organization";
-  const bloqueado = (produto: FroidProduct) =>
-    produto === "nr1" ? jaEhClinico : jaEhEmpresa;
+  // Até 09/09/2026 esta tela dizia que a travessia clínico<->empresa só se
+  // fazia pelo suporte, e estava certa: o segundo produto exigiria converter a
+  // organização existente, e converter devolve `patients.read_all` ao lado do
+  // empregador. O que mudou não foi a fronteira — foi o mecanismo. O segundo
+  // produto agora é uma SEGUNDA organização, e a conversão continua recusada
+  // pelo servidor (`_assert_account_type_transition`, que não foi afrouxado).
+  //
+  // O que a tela ainda tem de dizer, e diz no cartão: as duas organizações são
+  // duas. A empresa contratante precisa de um CNPJ próprio, e o servidor
+  // devolve 409 se for o mesmo da clínica.
+  const jaTem = (produto: FroidProduct) => contaTemProduto(user, produto);
+  const jaTemAlgum =
+    jaTem("individual") || jaTem("clinic") || jaTem("nr1");
 
   const acao = (produto: FroidProduct, rotulo: string, classe: string) =>
-    bloqueado(produto) ? (
-      <div className="mt-6 rounded-lg border border-slate-700 bg-slate-900/80 p-3">
-        <p className="text-xs font-black uppercase tracking-wider text-slate-400">
-          Indisponível para esta conta
+    jaTem(produto) ? (
+      <div className="mt-6 rounded-lg border border-emerald-800 bg-emerald-950/40 p-3">
+        <p className="text-xs font-black uppercase tracking-wider text-emerald-300">
+          Você já usa este produto
         </p>
-        <p className="mt-1 text-xs leading-5 text-slate-400">
-          {jaEhEmpresa
-            ? "Esta conta já está cadastrada como empresa contratante do NR-1."
-            : "Esta conta já tem cadastro clínico."}{" "}
-          Trocar entre os dois muda quem pode ler prontuário e passa por{" "}
-          <a className="underline" href={`mailto:${CONTATO_EMPRESAS}`}>
-            {CONTATO_EMPRESAS}
-          </a>
-          .
+        <p className="mt-1 text-xs leading-5 text-emerald-100/80">
+          Esta conta já tem este cadastro. Para entrar nele, use o painel — não
+          é preciso cadastrar de novo.
         </p>
       </div>
     ) : (
       <button type="button" onClick={() => escolher(produto)} className={classe}>
-        {rotulo}
+        {jaTemAlgum ? `Acrescentar: ${rotulo.toLowerCase()}` : rotulo}
       </button>
     );
 
@@ -274,9 +275,13 @@ export const ProductChoice: React.FC<Props> = ({
 
         <p className="mt-8 max-w-3xl text-xs leading-5 text-slate-400">
           Trocar entre profissional autônomo e clínica é livre enquanto o
-          cadastro não estiver concluído. Já a troca entre cadastro clínico e
-          empresa NR-1 muda quem pode ler prontuário: uma vez criada, ela só é
-          desfeita por{" "}
+          cadastro não estiver concluído. Já o cadastro clínico e a empresa
+          NR-1 nunca viram um o outro: eles convivem como{" "}
+          <strong className="text-slate-300">duas organizações separadas</strong>{" "}
+          na mesma conta, porque é essa separação que impede o empregador de ler
+          prontuário. Por isso a empresa contratante precisa de um CNPJ próprio,
+          distinto do da clínica. Converter um cadastro no outro continua
+          passando por{" "}
           <a className="underline" href={`mailto:${CONTATO_EMPRESAS}`}>
             {CONTATO_EMPRESAS}
           </a>

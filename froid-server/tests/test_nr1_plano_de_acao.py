@@ -378,8 +378,12 @@ class OCadastroDaEmpresaConsegueTerminar(unittest.TestCase):
         )
 
     def test_a_empresa_nao_precisa_de_plano_pagamento_nem_credito(self):
-        trecho = MAIN[MAIN.index("is_nr1_company = account_type =="):]
-        trecho = trecho[: trecho.index("    else:")]
+        # As duas reguas eram um if/else sobre `is_nr1_company`. Desde
+        # 09/09/2026 sao duas expressoes independentes, porque a mesma conta
+        # pode carregar os dois produtos: uma clinica que contrata o NR-1 fica
+        # pronta na conformidade antes de comprar o primeiro pacote de sessoes.
+        inicio = MAIN.index("nr1_pronto = (")
+        trecho = MAIN[inicio : MAIN.index("\n    )", inicio)]
         self.assertIn("organization_document", trecho)
         self.assertIn("lgpd_acknowledged", trecho)
         for clinico in ("selected_plan", "payment_status", "remaining_sessions"):
@@ -387,9 +391,8 @@ class OCadastroDaEmpresaConsegueTerminar(unittest.TestCase):
                 self.assertNotIn(clinico, trecho)
 
     def test_o_clinico_continua_precisando_de_tudo_isso(self):
-        trecho = MAIN[MAIN.index("is_nr1_company = account_type =="):]
-        trecho = trecho[trecho.index("    else:"):]
-        trecho = trecho[: trecho.index("# Sessoes entregues")]
+        inicio = MAIN.index("clinico_pronto = (")
+        trecho = MAIN[inicio : MAIN.index("\n    )", inicio)]
         for clinico in ("selected_plan", "payment_status", "remaining_sessions",
                         "professional_cpf"):
             with self.subTest(campo=clinico):

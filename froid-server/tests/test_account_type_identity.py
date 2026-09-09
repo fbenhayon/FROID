@@ -93,10 +93,21 @@ class OnboardingRequirementsTests(unittest.TestCase):
         self.assertIn("professional_cpf", MAIN_SOURCE)
         self.assertNotIn("cnpj_required", MAIN_SOURCE)
 
-        # A unica exigencia de documento de empresa esta presa ao tipo NR-1.
-        exigencia = MAIN_SOURCE.index("company_document_required")
-        contexto = MAIN_SOURCE[exigencia - 400 : exigencia + 200]
-        self.assertIn("is_nr1_company", contexto)
+        # A unica exigencia de documento de empresa continua presa ao produto
+        # NR-1. O nome da condicao mudou em 09/09/2026 — `is_nr1_company` ("esta
+        # conta E uma empresa") virou `tem_produto_nr1` ("esta conta TEM o
+        # produto NR-1"), porque a mesma conta passou a poder carregar os dois.
+        # A invariante e a mesma: exigir CNPJ so de quem contratou o NR-1.
+        exigencia = MAIN_SOURCE.index('"company_document_required"')
+        contexto = MAIN_SOURCE[exigencia : exigencia + 200]
+        self.assertIn("tem_produto_nr1", contexto)
+        self.assertNotIn("is_nr1_company", MAIN_SOURCE)
+
+        # E a exigencia de CPF acompanha o lado CLINICO, que nem sempre e o
+        # cadastro primario: a empresa que acrescenta o Psique responde por CNPJ
+        # no NR-1 e por CPF no consultorio.
+        cpf = MAIN_SOURCE.index('"cpf_required"')
+        self.assertIn("tem_produto_clinico", MAIN_SOURCE[cpf : cpf + 200])
 
         # E o caminho clinico continua exigindo CPF, com a mesma mensagem.
         self.assertIn(

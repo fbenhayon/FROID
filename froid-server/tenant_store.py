@@ -91,6 +91,41 @@ def _ou_nulo(valor, conversor):
     return None if valor is None else conversor(valor)
 
 
+def profile_views(profile: dict) -> list[dict]:
+    """As organizacoes que este cadastro produz, primaria primeiro.
+
+    Desde 09/09/2026 um mesmo e-mail pode carregar os dois produtos, e cada um
+    e uma organizacao SEPARADA. Nao ha atalho aqui: converter a organizacao
+    existente em vez de criar a segunda devolveria patients.read_all ao lado do
+    empregador, que e a fronteira que o modulo NR-1 inteiro sustenta.
+
+    A vista do segundo cadastro reaproveita os campos do titular e substitui
+    apenas o que identifica a organizacao. `organization_document` vazio no
+    segundo cadastro clinico e deliberado: sem CNPJ o id sai do e-mail e produz
+    a organizacao 'solo' do proprio profissional, distinta da 'enterprise' do
+    empregador.
+    """
+    vistas = [profile]
+    segundo = profile.get("second_account") if isinstance(profile, dict) else None
+    if isinstance(segundo, dict):
+        tipo = str(segundo.get("account_type") or "").strip().lower()
+        if tipo in {"individual", "organization", "nr1_company"}:
+            vistas.append(
+                {
+                    **profile,
+                    "account_type": tipo,
+                    "organization_name": (
+                        segundo.get("organization_name")
+                        or profile.get("organization_name")
+                        or ""
+                    ),
+                    "organization_document": segundo.get("organization_document") or "",
+                    "second_account": None,
+                }
+            )
+    return vistas
+
+
 def organization_type_for_account(account_type: str) -> str:
     """Mapa account_type -> organization_type.
 
@@ -4022,10 +4057,30 @@ class TenantStore:
             )
             if email and email not in owners:
                 owners[email] = {"owner_email": email, "account_type": "individual"}
-        owner_refs = {
-            email: self._organization_for_email(cursor, email, profile)
-            for email, profile in owners.items()
-        }
+        # Um cadastro pode produzir DUAS organizacoes. Provisionar so a
+        # primeira deixaria o segundo produto sem organizacao, sem vinculo e sem
+        # papel — a peca existiria no perfil e nada a consumiria, que e o padrao
+        # de defeito mais frequente desta casa.
+        owner_refs = {}
+        for email, profile in owners.items():
+            vistas = profile_views(profile)
+            refs = [
+                self._organization_for_email(cursor, email, vista) for vista in vistas
+            ]
+            # O dado clinico — paciente, relatorio, convite — e escopado pelo
+            # ref do titular, e ele tem de apontar para a organizacao CLINICA.
+            # Numa conta que carrega os dois produtos, deixar o ref na
+            # 'enterprise' poria prontuario dentro da organizacao do empregador,
+            # que e exatamente o que nao pode existir.
+            owner_refs[email] = next(
+                (
+                    ref
+                    for ref, vista in zip(refs, vistas)
+                    if organization_type_for_account(vista.get("account_type"))
+                    != "enterprise"
+                ),
+                refs[0],
+            )
         fallback_email = normalize_email(os.getenv("FROID_LEGACY_REPORT_OWNER", ""))
         if not fallback_email or fallback_email not in owner_refs:
             fallback_email = next(iter(owner_refs), "legacy-unassigned@froid.local")

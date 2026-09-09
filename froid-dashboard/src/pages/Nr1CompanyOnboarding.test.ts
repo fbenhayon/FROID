@@ -302,7 +302,13 @@ describe("a empresa já cadastrada não pode cair num beco", () => {
   it("carrega o perfil gravado e preenche os campos", () => {
     expect(PAGINA).toContain('chamar("/api/professional/profile")');
     expect(PAGINA).toContain("setJaCadastrada(true)");
-    expect(PAGINA).toContain("perfil.organization_document");
+    // Era `perfil.organization_document`. A empresa passou a poder ser o
+    // cadastro PRIMÁRIO desta conta ou o SEGUNDO, acrescentado por uma clínica
+    // que contratou a avaliação — e ler só o primário deixava a clínica
+    // reabrindo a tela com todos os campos vazios, como se o cadastro que ela
+    // acabou de fazer não existisse.
+    expect(PAGINA).toContain("empresa.organization_document");
+    expect(PAGINA).toContain("perfil.second_account");
   });
 
   it("oferece caminho direto aos estabelecimentos", () => {

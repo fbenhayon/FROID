@@ -28,6 +28,10 @@ import {
   SessionReportRecord,
 } from "../lib/session-report";
 import {
+  irParaContexto,
+  organizacoesNr1,
+} from "../lib/contexto-organizacao";
+import {
   dashboardText,
   loadSessionLanguagePreferences,
   saveSessionLanguagePreferences,
@@ -280,8 +284,30 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   // rota so era alcancavel digitando a URL. O painel clinico e a casa errada
   // para ela, mas redirecionar seria pior — o painel NR-1 nao tem sair nem
   // administrativo, e ela ficaria sem saida.
-  const isEmpresaNr1 =
-    String(user?.access_status?.account_type || "") === "nr1_company";
+  //
+  // A condicao lia `account_type === "nr1_company"`, o cadastro PRIMARIO. Desde
+  // 09/09/2026 a mesma conta pode ter os dois produtos, e a clinica que
+  // contratou o NR-1 tem o primario clinico: a porta sumia justamente para quem
+  // acabara de contratar. A pergunta certa nao e sobre o rotulo do cadastro e
+  // sim sobre a organizacao — de qual empresa 'enterprise' esta conta e membro.
+  const empresasNr1 = useMemo(() => organizacoesNr1(user), [user]);
+  const isEmpresaNr1 = empresasNr1.length > 0;
+  const [erroContexto, setErroContexto] = useState("");
+
+  // Abre o painel NR-1 LEVANDO a organizacao junto.
+  //
+  // `nav("/nr1")` mudava so a URL: a organizacao ativa da sessao continuava
+  // sendo a clinica, e `_require_enterprise_context` devolve 409 para ela.
+  // Numa conta de um produto so isso nunca apareceu, porque a unica
+  // organizacao ja era a certa — e e o tipo de defeito que so nasce quando a
+  // segunda existe.
+  const abrirNr1 = async () => {
+    const empresa = empresasNr1[0];
+    if (!empresa) return;
+    setErroContexto("");
+    const erro = await irParaContexto(empresa.organization_id, "/nr1");
+    if (erro) setErroContexto(erro);
+  };
   const tr = (text: string) => dashboardText(defaultSessionLocale, text);
 
   const updateDefaultSessionLocale = (locale: SessionLocale) => {
@@ -625,7 +651,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
             )}
             {isEmpresaNr1 && (
               <button
-                onClick={() => nav("/nr1")}
+                onClick={() => void abrirNr1()}
                 title="Painel de conformidade NR-1: campanhas, inventario de risco, AEP e eficacia das medidas."
                 className="rounded-lg border border-amber-700 bg-amber-950 px-3 py-2 text-xs font-bold text-amber-100 hover:bg-amber-900"
               >
@@ -636,6 +662,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                 ao painel NR-1 e nao tinha como voltar a cadastrar unidade. A
                 rota /access/empresa nunca deixou de existir; o que faltava era
                 alguem apontar para ela depois do cadastro concluido. */}
+            {/* A porta de contratar o segundo produto.
+                Sem ela o mecanismo inteiro ficaria construído e inalcançável:
+                /access/produto é a única tela que oferece o cadastro da
+                empresa, e conta concluída nunca mais passava por lá. */}
+            {!isEmpresaNr1 && (
+              <button
+                onClick={() => nav("/access/produto")}
+                title="Avaliação de riscos psicossociais da NR-1 para uma empresa, com CNPJ próprio e organização separada da clínica."
+                className="rounded-lg border border-amber-800 bg-slate-900 px-3 py-2 text-xs font-bold text-amber-200 hover:bg-amber-950"
+              >
+                Contratar NR-1
+              </button>
+            )}
             {isEmpresaNr1 && (
               <button
                 onClick={() => nav("/access/empresa")}
@@ -668,6 +707,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
       </header>
 
       <main className="mx-auto max-w-7xl space-y-4 p-6">
+
+      {/* A troca de contexto pode falhar (403 sobre organizacao sem vinculo,
+          rede fora). Navegar assim mesmo levaria a pessoa a um painel NR-1
+          vazio, indistinguivel de "esta empresa nao tem nada". */}
+      {erroContexto && (
+        <p className="rounded-lg border border-amber-700 bg-amber-950 px-3 py-2 text-xs font-bold text-amber-100">
+          {erroContexto}
+        </p>
+      )}
 
       <WaitingPatientSessions />
 

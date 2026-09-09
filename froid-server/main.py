@@ -2246,6 +2246,50 @@ if CALENDAR_TOKEN_MIGRATION_REQUIRED:
     _save_identity_state()
 
 
+def _tipos_de_cadastro(profile) -> list[str]:
+    """Os cadastros que esta conta carrega. Um, ou dois.
+
+    Ate 09/09/2026 um e-mail valia UM produto: o `account_type` do perfil
+    decidia se a pessoa tinha o painel clinico ou o NR-1, e a travessia era
+    recusada com 409 — porque trocar o tipo da organizacao devolve
+    `patients.read_all` a quem esta do lado do empregador.
+
+    A recusa continua valendo, e nao foi afrouxada: ela protege a MESMA
+    organizacao, e e exatamente por isso que o segundo produto e uma SEGUNDA
+    organizacao, nunca a primeira convertida. `account_type` segue sendo o
+    cadastro em que a conta nasceu; `second_account` e o que veio depois.
+    """
+    if not isinstance(profile, dict):
+        return []
+    tipos = [str(profile.get("account_type") or "individual").strip().lower()]
+    segundo = profile.get("second_account")
+    if isinstance(segundo, dict):
+        tipo = str(segundo.get("account_type") or "").strip().lower()
+        if tipo in {"individual", "organization", "nr1_company"}:
+            tipos.append(tipo)
+    return tipos
+
+
+def _documento_da_empresa_nr1(profile) -> str:
+    """O CNPJ que responde pela avaliacao NR-1, no cadastro primario ou no segundo.
+
+    Uma fonte so: quem confere a prontidao do NR-1 e quem provisiona a
+    organizacao precisam da mesma resposta, e copia dessa decisao ja divergiu
+    em silencio neste repositorio.
+    """
+    if not isinstance(profile, dict):
+        return ""
+    if str(profile.get("account_type") or "").strip().lower() == "nr1_company":
+        return _local_digits_only(profile.get("organization_document"))
+    segundo = profile.get("second_account")
+    if (
+        isinstance(segundo, dict)
+        and str(segundo.get("account_type") or "").strip().lower() == "nr1_company"
+    ):
+        return _local_digits_only(segundo.get("organization_document"))
+    return ""
+
+
 def _cadastro_clinico(account_type) -> bool:
     """O cadastro consome sessao? So esses entram na fila da cortesia.
 
@@ -2380,9 +2424,14 @@ def _professional_access_status(email: str) -> dict:
     profile_fields = (profile or {}).get("profile_fields")
     profile_fields = profile_fields if isinstance(profile_fields, dict) else {}
     account_type = str((profile or {}).get("account_type") or "individual").lower()
+    tipos_de_cadastro = _tipos_de_cadastro(profile)
+    tipos_clinicos = [t for t in tipos_de_cadastro if t != "nr1_company"]
+    # A chave de conferencia sai do lado CLINICO da conta, que nem sempre e o
+    # cadastro primario: a empresa que acrescenta o Psique responde por CNPJ no
+    # NR-1 e por CPF no consultorio.
     professional_cpf = _local_digits_only(
         profile_fields.get("legalRepresentativeCpf")
-        if account_type == "organization"
+        if "organization" in tipos_clinicos
         else profile_fields.get("cpf") or (profile or {}).get("document")
     )
     payment_status = str((profile or {}).get("payment_status") or "").lower()
@@ -2438,27 +2487,33 @@ def _professional_access_status(email: str) -> dict:
     # O que faz sentido exigir dela: existir, ter declarado o CNPJ que responde
     # pela avaliação, ter reconhecido o tratamento de dados, e ter passado pela
     # aprovação quando ela é exigida.
-    is_nr1_company = account_type == "nr1_company"
-    organization_document = _local_digits_only(
-        (profile or {}).get("organization_document")
+    #
+    # E "pronto" deixou de ser UM booleano quando a mesma conta passou a poder
+    # carregar os dois produtos (09/09/2026). A clinica que contrata o NR-1 da
+    # propria empresa fica pronta no NR-1 antes de comprar o primeiro pacote de
+    # sessoes; com um `access_ready` unico ela seria devolvida do painel de
+    # conformidade por falta de credito CLINICO — a mesma regua trocada que
+    # este bloco inteiro existe para impedir, agora dentro de uma conta so.
+    tem_produto_nr1 = "nr1_company" in tipos_de_cadastro
+    tem_produto_clinico = bool(tipos_clinicos)
+    organization_document = _documento_da_empresa_nr1(profile)
+    nr1_pronto = (
+        tem_produto_nr1
+        and has_profile
+        and lgpd_acknowledged
+        and len(organization_document) == 14
+        and access_allowed
     )
-    if is_nr1_company:
-        access_ready = (
-            has_profile
-            and lgpd_acknowledged
-            and len(organization_document) == 14
-            and access_allowed
-        )
-    else:
-        access_ready = (
-            has_profile
-            and lgpd_acknowledged
-            and bool(selected_plan)
-            and bool(professional_cpf)
-            and payment_status in PAID_SESSION_STATUSES
-            and remaining_sessions > 0
-            and access_allowed
-        )
+    clinico_pronto = (
+        tem_produto_clinico
+        and has_profile
+        and lgpd_acknowledged
+        and bool(selected_plan)
+        and bool(professional_cpf)
+        and payment_status in PAID_SESSION_STATUSES
+        and remaining_sessions > 0
+        and access_allowed
+    )
     # Sessoes entregues sem credito disponivel. O atendimento nunca e bloqueado
     # nem o registro clinico descartado por questao de credito: a pendencia fica
     # registrada e e avisada a cada acesso para o administrador acertar.
@@ -2468,13 +2523,15 @@ def _professional_access_status(email: str) -> dict:
     settlement_blocked = pending_settlement >= FROID_MAX_PENDING_SETTLEMENTS
     if settlement_blocked:
         # Bloqueia o INICIO de novas sessoes; nunca a gravacao de uma ja feita.
-        access_ready = False
+        # E alcanca so o lado clinico: sessao e credito nao existem no NR-1, e
+        # fechar a conformidade por saldo de consultorio deixaria a empresa sem
+        # o inventario que a fiscalizacao cobra dela.
+        clinico_pronto = False
     trial = _trial_state(profile)
     if trial["trial_exhausted"]:
         # Mesmo efeito: o painel devolve a pessoa para a selecao de pacotes.
-        # access_ready ja seria falso por remaining_sessions == 0; declarar aqui
-        # deixa a razao explicita para quem for ler este trecho depois.
-        access_ready = False
+        clinico_pronto = False
+    access_ready = nr1_pronto or clinico_pronto
     return {
         "has_profile": has_profile,
         # O tipo ja escolhido viaja com o estado de acesso para que a tela de
@@ -2483,6 +2540,18 @@ def _professional_access_status(email: str) -> dict:
         # so leva o "nao" no fim, com o trabalho ja feito. Vazio quando ainda
         # nao ha perfil.
         "account_type": account_type if has_profile else "",
+        # Os dois cadastros que a conta carrega, primario primeiro. A tela de
+        # escolha le isto para saber se a outra porta e "acrescentar" ou "voce
+        # ja tem": antes ela conhecia so o primario e apresentava o outro
+        # produto como indisponivel para sempre.
+        "account_types": tipos_de_cadastro if has_profile else [],
+        # Prontidao por produto. `onboarding_required` continua significando
+        # "nao esta pronto para NADA", que e o que o roteador precisa; quem
+        # precisa saber QUAL dos dois abriu le daqui.
+        "products": {
+            "clinical": {"available": tem_produto_clinico, "ready": clinico_pronto},
+            "nr1": {"available": tem_produto_nr1, "ready": nr1_pronto},
+        },
         "lgpd_acknowledged": lgpd_acknowledged,
         "selected_plan": selected_plan,
         "payment_status": payment_status or ("pending_checkout" if selected_plan else "not_started"),
@@ -2526,8 +2595,8 @@ def _professional_access_status(email: str) -> dict:
         "admin": _is_admin_email(owner_email),
         # A empresa NR-1 nao tem CPF a informar: a chave dela e o CNPJ, e
         # pedi-lo seria coletar dado pessoal sem finalidade.
-        "cpf_required": not is_nr1_company and not bool(professional_cpf),
-        "company_document_required": is_nr1_company
+        "cpf_required": tem_produto_clinico and not bool(professional_cpf),
+        "company_document_required": tem_produto_nr1
         and len(organization_document) != 14,
         # Os nomes mudaram junto com a regra. `manual_approval_ready` passaria
         # a afirmar que uma aprovacao manual esta pronta num sistema onde ela
@@ -12725,6 +12794,153 @@ def _assert_account_type_transition(
         )
 
 
+def _assert_second_account_is_another_organization(
+    owner_email: str,
+    existing: dict,
+    account_type: str,
+    organization_document,
+) -> None:
+    """O segundo produto e uma SEGUNDA organizacao, e nunca a primeira convertida.
+
+    Aqui mora o perigo inteiro desta funcionalidade. Empresa NR-1 e clinica com
+    o MESMO CNPJ resolvem para o MESMO organization_id, e o upsert de
+    organizacoes faz ON CONFLICT DO UPDATE do organization_type — entao uma
+    clinica que "acrescentasse" o NR-1 com o proprio CNPJ nao ganharia um
+    segundo cadastro: rebaixaria (ou promoveria) o unico que tem, e os papeis do
+    lado do empregador recuperariam patients.read_all e reports.read_all sobre a
+    empresa inteira. E exatamente o que _assert_account_type_transition impede,
+    e continuaria impedindo — se este caminho nao existisse ao lado dele.
+
+    Por isso a primeira pergunta nao e sobre tipo, e sim sobre IDENTIDADE: as
+    duas organizacoes tem de ser duas. A empresa contratante precisa de um CNPJ
+    proprio, distinto do da clinica.
+    """
+    alvo = tenant_organization_type_for_account(account_type)
+    tipo_primario = str((existing or {}).get("account_type") or "").strip().lower()
+    documento_primario = (
+        str((existing or {}).get("organization_document") or "")
+        if tipo_primario != "individual"
+        else ""
+    )
+    id_primario = tenant_organization_id_for_profile(
+        owner_email, tipo_primario or "individual", documento_primario
+    )
+    id_segundo = tenant_organization_id_for_profile(
+        owner_email, account_type, organization_document
+    )
+    if id_primario == id_segundo:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Esta conta já tem um cadastro nesta mesma organização. A "
+                "empresa contratante do NR-1 e o cadastro clínico precisam de "
+                "organizações distintas — o mesmo CNPJ não pode ser as duas "
+                "coisas, porque isso mudaria quem pode ler prontuário."
+            ),
+        )
+
+    # Trocar o CNPJ do segundo cadastro criaria uma TERCEIRA organizacao e
+    # deixaria a pessoa com vinculo ativo na anterior, que o espelho nao revoga.
+    # Sem caminho de remocao, o conserto do erro de digitacao passa pelo
+    # suporte — e uma conta com tres organizacoes seria descoberta tarde.
+    segundo = (existing or {}).get("second_account")
+    if isinstance(segundo, dict):
+        anterior = _digits_only(segundo.get("organization_document") or "")
+        agora = _digits_only(organization_document or "")
+        if anterior and agora and anterior != agora:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Este cadastro já está vinculado a outro CNPJ. Trocar a "
+                    f"empresa exige atendimento do suporte FROID "
+                    f"({FROID_TRIAL_CONTACT_EMAIL})."
+                ),
+            )
+
+    # E a mesma segunda pergunta da trava da travessia: a organizacao do CNPJ
+    # pode ter sido criada por OUTRA pessoa, e um cadastro novo nao pode
+    # atravessa-la.
+    if not TENANT_STORE.enabled:
+        return
+    try:
+        atual = TENANT_STORE.organization_type(id_segundo)
+    except Exception:
+        LOGGER.exception("Unable to read organization type for second account")
+        # Falha fechada, pelo mesmo motivo da trava vizinha.
+        raise HTTPException(
+            status_code=503,
+            detail="Não foi possível validar o tipo da organização agora.",
+        )
+    if not atual or atual == "legacy":
+        return
+    if (atual == "enterprise") != (alvo == "enterprise"):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Já existe uma organização com este CNPJ cadastrada como "
+                + ("empresa contratante do NR-1" if atual == "enterprise"
+                   else "cadastro clínico")
+                + ". A troca entre empresa e clínica muda quem pode ler "
+                "prontuário e exige atendimento do suporte FROID."
+            ),
+        )
+
+
+def _perfil_com_segundo_produto(
+    existing: dict,
+    account_type: str,
+    body: dict,
+    legal_acceptances: dict,
+    profile_fields: dict,
+    professional_cpf: str,
+    now: str,
+) -> dict:
+    """Acrescenta um produto ao cadastro sem reescrever o que ja estava la.
+
+    O corpo que chega aqui descreve a organizacao NOVA: a empresa manda razao
+    social, CNPJ e responsavel; o cadastro clinico manda CPF e conselho. Aplicar
+    esse corpo por cima do perfil inteiro trocaria o nome, o telefone e o
+    documento do cadastro que ja existe pelos da outra ponta — e o cliente
+    descobriria pelo relatorio saindo com o nome errado.
+
+    Por isso so tres coisas mudam: a identidade da segunda organizacao, o
+    reconhecimento de tratamento de dados (que e do titular e vale para os dois)
+    e os aceites juridicos (que se somam, nunca se substituem).
+    """
+    perfil = dict(existing)
+    perfil["updated_at"] = now
+    anterior = perfil.get("second_account")
+    anterior = anterior if isinstance(anterior, dict) else {}
+    perfil["second_account"] = {
+        "account_type": account_type,
+        "organization_name": str(body.get("organization_name") or "").strip(),
+        "organization_legal_name": str(body.get("organization_legal_name") or "").strip(),
+        "organization_document": str(body.get("organization_document") or "").strip(),
+        "created_at": str(anterior.get("created_at") or now),
+    }
+    if body.get("lgpd_acknowledged"):
+        perfil["lgpd_acknowledged"] = True
+        perfil["lgpd_acknowledged_at"] = (
+            body.get("lgpd_acknowledged_at")
+            or perfil.get("lgpd_acknowledged_at")
+            or now
+        )
+    if legal_acceptances:
+        # Somados: o contrato do NR-1 nao revoga o do Psique, e vice-versa.
+        anteriores = perfil.get("legal_acceptances")
+        perfil["legal_acceptances"] = {
+            **(anteriores if isinstance(anteriores, dict) else {}),
+            **legal_acceptances,
+        }
+    if professional_cpf:
+        # A chave de conferencia do lado clinico chega junto com o lado clinico.
+        campos = perfil.get("profile_fields")
+        campos = dict(campos) if isinstance(campos, dict) else {}
+        campos.update({k: v for k, v in (profile_fields or {}).items() if v})
+        perfil["profile_fields"] = campos
+    return perfil
+
+
 @app.post("/api/professional/profile")
 async def save_professional_profile(request: Request):
     user = _current_user_from_request(request)
@@ -12746,9 +12962,29 @@ async def save_professional_profile(request: Request):
     # existe para sustentar.
     if account_type not in {"individual", "organization", "nr1_company"}:
         raise HTTPException(status_code=400, detail="tipo de cadastro inválido")
-    _assert_account_type_transition(
-        owner_email, account_type, body.get("organization_document")
-    )
+
+    # Atravessar a fronteira do 'enterprise' deixou de ser uma TROCA e passou a
+    # ser uma ADICAO (09/09/2026, decisao do dono para a fase operacional).
+    #
+    # A trava antiga devolvia 409 nos dois sentidos, e o motivo dela continua
+    # inteiro: reescrever o account_type do perfil rebaixaria a organizacao e
+    # devolveria o prontuario ao empregador. A saida nao foi afrouxar a trava —
+    # foi parar de reescrever. O cadastro primario fica como esta, e o produto
+    # novo vira uma SEGUNDA organizacao, com a trava vizinha garantindo que ela
+    # e mesmo outra.
+    existing = PROFESSIONAL_PROFILES.get(owner_email) or {}
+    tipo_primario = str(existing.get("account_type") or "").strip().lower()
+    acrescenta_produto = bool(tipo_primario) and (
+        tenant_organization_type_for_account(tipo_primario) == "enterprise"
+    ) != (tenant_organization_type_for_account(account_type) == "enterprise")
+    if acrescenta_produto:
+        _assert_second_account_is_another_organization(
+            owner_email, existing, account_type, body.get("organization_document")
+        )
+    else:
+        _assert_account_type_transition(
+            owner_email, account_type, body.get("organization_document")
+        )
 
     professionals = [
         {
@@ -12827,7 +13063,6 @@ async def save_professional_profile(request: Request):
     )
 
     now = datetime.now(timezone.utc).isoformat()
-    existing = PROFESSIONAL_PROFILES.get(owner_email) or {}
     # Cadastro concluido entra. O unico estado que sobrevive a regravacao do
     # perfil e a suspensao — senao bastaria reenviar o formulario para desfazer
     # um corte administrativo, e o botao "Suspender acesso" nao valeria nada.
@@ -12848,10 +13083,21 @@ async def save_professional_profile(request: Request):
     trial_position = max(0, _local_int(existing.get("trial_position")))
     # A cortesia e do FROID Psique, e por isso a empresa NR-1 fica de fora:
     # ver _cadastro_clinico.
+    #
+    # A condicao era `not existing` — "so na criacao do perfil". Deixou de
+    # bastar quando a empresa passou a poder acrescentar o Psique: para ela o
+    # perfil JA existe, e a regra antiga a deixaria com o painel clinico aberto
+    # e zero sessao, sem nunca ter recebido a cortesia que todo profissional
+    # novo recebe. A regra certa sempre foi "a primeira vez que esta conta ganha
+    # o lado clinico", e continua concedendo uma vez so: nao ha caminho que
+    # retire o lado clinico de uma conta, entao `ja_tinha_lado_clinico` nunca
+    # volta a ser falso.
+    tipos_existentes = _tipos_de_cadastro(existing) if existing else []
+    ja_tinha_lado_clinico = any(_cadastro_clinico(t) for t in tipos_existentes)
     conceder_cortesia = (
-        not existing
-        and FROID_TRIAL_SESSIONS > 0
+        FROID_TRIAL_SESSIONS > 0
         and _cadastro_clinico(account_type)
+        and not ja_tinha_lado_clinico
     )
     if conceder_cortesia:
         # A vaga e gravada e nunca recalculada. Recalcular faria o mesmo perfil
@@ -12947,6 +13193,31 @@ async def save_professional_profile(request: Request):
             acceptances=legal_acceptances,
             context="professional_onboarding",
         )
+    if acrescenta_produto:
+        # O corpo descreve a organizacao NOVA. Aplicar o dicionario montado
+        # acima trocaria nome, telefone e documento do cadastro que ja existe
+        # pelos da outra ponta.
+        profile = _perfil_com_segundo_produto(
+            existing,
+            account_type,
+            body,
+            legal_acceptances,
+            profile_fields,
+            professional_cpf,
+            now,
+        )
+        if conceder_cortesia:
+            # A empresa que acrescenta o Psique e um cliente clinico novo, e
+            # entra na mesma fila.
+            profile["trial_position"] = trial_position
+            profile["trial_sessions"] = trial_sessions
+            profile["trial_granted_at"] = trial_granted_at
+            profile["total_sessions"] = total_sessions
+            profile["remaining_sessions"] = max(
+                0, total_sessions - max(0, _local_int(profile.get("used_sessions")))
+            )
+            profile["selected_plan"] = FROID_TRIAL_PLAN_ID
+            profile["payment_status"] = "trialing"
     PROFESSIONAL_PROFILES[owner_email] = profile
     _save_identity_state()
     # A organizacao acaba de ser provisionada a partir deste perfil, e quem
@@ -12955,14 +13226,30 @@ async def save_professional_profile(request: Request):
     # quebra no passo seguinte — o usuario recem-criado nao tem
     # active_organization_id em lugar nenhum.
     contextos = _tenant_contexts_for_email(owner_email)
+    # Com duas organizacoes na conta, `contextos[0]` deixou de ser a resposta
+    # certa: o cadastro guiado da empresa monta a chamada seguinte como
+    # /api/organizations/<id>/nr1/units, e receber ali o id da CLINICA levaria a
+    # um 409 "modulo NR-1 disponivel apenas para organizacoes enterprise" —
+    # sobre um cadastro que acabou de ser aceito. Devolve-se a organizacao do
+    # produto que este POST gravou.
+    quer_enterprise = (
+        tenant_organization_type_for_account(account_type) == "enterprise"
+    )
+    escolhida = next(
+        (
+            contexto
+            for contexto in contextos
+            if (str(contexto.get("organization_type") or "") == "enterprise")
+            == quer_enterprise
+        ),
+        contextos[0] if contextos else {},
+    )
     return {
         "status": "ok",
         "profile": profile,
         "access_status": _professional_access_status(owner_email),
         "organizations": contextos,
-        "organization_id": (
-            str(contextos[0].get("organization_id") or "") if contextos else ""
-        ),
+        "organization_id": str(escolhida.get("organization_id") or ""),
     }
 
 
