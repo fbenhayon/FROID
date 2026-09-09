@@ -178,6 +178,20 @@ def _migration_is_applied(connection, version: str) -> bool:
     return bool(recorded and recorded[0])
 
 
+# Papeis que a policy assessment_invitations_manage (migration 010) autoriza a
+# ler a tabela de convites. E copia deliberada de uma regra que vive no SQL, e
+# copia diverge (secao 2.7 do rigor de engenharia) — por isso existe
+# `test_nr1_convites_contados`, que le a policy na migration e compara com esta
+# tupla. Sem o espelho, a alternativa seria contar convites sem saber se o zero
+# devolvido e ausencia de convite ou ausencia de permissao, e essas duas coisas
+# nao podem ser publicadas com o mesmo numero.
+NR1_INVITATION_READER_ROLES: tuple[str, ...] = (
+    "owner",
+    "administrator",
+    "compliance_manager",
+)
+
+
 class TenantStore:
     """Optional, rollback-safe mirror of legacy FROID state in PostgreSQL."""
 
@@ -2543,6 +2557,23 @@ class TenantStore:
     def nr1_list_campaigns(
         self, *, organization_id: str, membership_id: str
     ) -> list[dict]:
+        """Campaigns of one organization, with what tells two of them apart.
+
+        Two campaigns with the same title were indistinguishable on screen:
+        title and status, nothing else. On 09/09/2026 an operator created four
+        campaigns in two identical-title pairs and issued the invitations on
+        the wrong one. Campaigns accept no edit and no rename, so the screen has
+        to carry the distinguishing facts — reference period, scope, declared
+        headcount, window, creation time and how many invitations are already
+        out.
+
+        The invitation count is NULL, never 0, for a membership that cannot
+        read the table. Under the assessment_invitations RLS policy the count
+        would silently come back as zero for occupational_health, which lists
+        campaigns and sees no invitation row — and 'no invitation issued'
+        printed over a campaign in full collection is a fabricated measure, not
+        a missing one.
+        """
         if not self.enabled or not self.runtime_database_url:
             raise RuntimeError("dual persistence and runtime role are required")
         with self._connect(runtime=True) as connection:
@@ -2553,13 +2584,18 @@ class TenantStore:
                     SELECT campaign.id, campaign.title, campaign.status,
                            campaign.opens_at, campaign.closes_at,
                            campaign.unit_id, unit.name, campaign.target_headcount,
-                           campaign.reference_period
+                           campaign.reference_period, campaign.created_at,
+                           CASE WHEN froid_has_role(%s::text[]) THEN (
+                               SELECT count(*)
+                               FROM assessment_invitations invitation
+                               WHERE invitation.campaign_id = campaign.id
+                           ) END
                     FROM assessment_campaigns campaign
                     LEFT JOIN organization_units unit ON unit.id = campaign.unit_id
                     WHERE campaign.organization_id = %s
-                    ORDER BY campaign.opens_at DESC
+                    ORDER BY campaign.opens_at DESC, campaign.created_at DESC
                     """,
-                    (organization_id,),
+                    (list(NR1_INVITATION_READER_ROLES), organization_id),
                 ).fetchall()
         return [
             {
@@ -2568,6 +2604,8 @@ class TenantStore:
                 "unit_id": str(row[5]) if row[5] else None,
                 "unit_name": row[6], "target_headcount": int(row[7]),
                 "reference_period": row[8],
+                "created_at": row[9],
+                "invitations": None if row[10] is None else int(row[10]),
             }
             for row in rows
         ]

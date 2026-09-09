@@ -529,10 +529,20 @@ export const VERBETES: VerbeteExplica[] = [
     resposta: [
       "Não se exclui. O inventário aponta para a unidade e precisa sobreviver vinte anos — apagar a linha deixaria o documento antigo referenciando algo que não existe mais.",
       "Unidade sai da estrutura por arquivamento, campanha encerra mas permanece no histórico, e o banco recusa a exclusão das linhas que o inventário referencia.",
+      "Campanha criada por engano não sai do sistema: campanha aberta pode já ter resposta e campanha encerrada é a evidência por trás do inventário. Duas campanhas parecidas convivem — o jeito de não se confundir é olhar a linha cinza embaixo do título, que traz período, abrangência, efetivo, janela e hora de criação.",
       "As respostas brutas são outra coisa: a norma exige vinte anos do inventário, não das respostas que o produziram. Há ferramenta própria para purgá-las depois da consolidação.",
     ],
     referencia: "Subitem 1.5.7.3.3.1",
-    chaves: ["apagar", "deletar", "arquivar", "remover", "excluir"],
+    chaves: [
+      "apagar",
+      "deletar",
+      "arquivar",
+      "remover",
+      "excluir",
+      "duplicada",
+      "repetida",
+      "criei sem querer",
+    ],
   },
 
   // --------------------------------------------------------- resultado

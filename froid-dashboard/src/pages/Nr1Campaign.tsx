@@ -79,8 +79,61 @@ type Campanha = {
   opens_at?: string;
   closes_at?: string;
   unit_id?: string | null;
+  unit_name?: string | null;
+  reference_period?: string;
+  created_at?: string;
   target_headcount?: number;
+  /** Convites ja emitidos, ou ausente quando o papel nao pode conta-los.
+   *
+   *  Ausente NAO e zero. A politica de RLS da tabela de convites nomeia owner,
+   *  administrator e compliance_manager; `occupational_health` tambem lista
+   *  campanhas e nao enxerga convite nenhum. Se o servidor devolvesse 0 nesse
+   *  caso, a tela afirmaria "nenhum convite emitido" sobre uma campanha em
+   *  plena coleta. O servidor devolve nulo e esta tela nao escreve nada. */
+  invitations?: number | null;
 };
+
+/** Data e hora curtas, ou vazio quando o valor nao e uma data. */
+function dataCurta(iso?: string): string {
+  if (!iso) return "";
+  const data = new Date(iso);
+  return Number.isNaN(data.getTime()) ? "" : data.toLocaleDateString("pt-BR");
+}
+
+function dataHoraCurta(iso?: string): string {
+  if (!iso) return "";
+  const data = new Date(iso);
+  return Number.isNaN(data.getTime())
+    ? ""
+    : data.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+}
+
+/** O que distingue esta campanha de outra com o MESMO titulo.
+ *
+ *  A lista mostrava titulo e estado, e nada mais. Em 09/09/2026 um operador
+ *  criou quatro campanhas — dois pares de titulos identicos — e emitiu os
+ *  convites na errada. Nao havia como ele acertar: as duas linhas eram
+ *  identicas na tela, e campanha nao aceita edicao nem renomeacao.
+ *
+ *  Cada parte so entra quando existe. Escrever "periodo —" ou "0 trabalhadores"
+ *  para um campo ausente seria inventar o que nao foi apurado, e num painel de
+ *  conformidade o campo vazio inventado e indistinguivel do declarado. */
+function identificacaoDaCampanha(campanha: Campanha): string {
+  const partes: string[] = [];
+  if (campanha.reference_period) {
+    partes.push(`período ${campanha.reference_period}`);
+  }
+  partes.push(campanha.unit_name || "organização inteira");
+  if (campanha.target_headcount) {
+    partes.push(`${campanha.target_headcount} trabalhadores`);
+  }
+  const abre = dataCurta(campanha.opens_at);
+  const fecha = dataCurta(campanha.closes_at);
+  if (abre && fecha) partes.push(`coleta ${abre} a ${fecha}`);
+  const criada = dataHoraCurta(campanha.created_at);
+  if (criada) partes.push(`criada ${criada}`);
+  return partes.join(" · ");
+}
 
 type Convite = { payroll_number: string; token: string };
 
@@ -242,6 +295,13 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
   const [instrumentos, setInstrumentos] = useState<Instrumento[]>([]);
   const [campanhas, setCampanhas] = useState<Campanha[]>([]);
   const [selecionada, setSelecionada] = useState<Campanha | null>(null);
+  // A ultima campanha criada nesta visita. Existe para que a confirmacao
+  // apareca AO LADO do botao que a produziu — ver o comentario em `criar`.
+  const [ultimaCriada, setUltimaCriada] = useState<Campanha | null>(null);
+  // Emitir convite em rascunho produz link que nao abre. E um fluxo legitimo
+  // (preparar antes, abrir no dia), entao a tela avisa e pede ciencia em vez
+  // de proibir — mas nao deixa acontecer por distracao.
+  const [cienteRascunho, setCienteRascunho] = useState(false);
 
   const [instrumentoId, setInstrumentoId] = useState("");
   const [titulo, setTitulo] = useState("");
@@ -286,6 +346,13 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
   useEffect(() => {
     void carregar();
   }, [carregar]);
+
+  // Trocar de campanha zera a ciencia. Sem isso, marcar "emitir mesmo assim"
+  // numa campanha valeria para a proxima que fosse selecionada — que e
+  // exatamente o engano que a caixa existe para impedir.
+  useEffect(() => {
+    setCienteRascunho(false);
+  }, [selecionada?.campaign_id]);
 
   const estabelecimentos = useMemo(
     () => unidades.filter((u) => u.unit_type === "site"),
@@ -401,17 +468,44 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
           }),
         },
       );
-      setAviso(
-        "Campanha criada em rascunho. Ela ainda não coleta nada: abrir a " +
-          "coleta é um segundo ato, e é ele que começa a contar a janela.",
-      );
-      await carregar();
-      setSelecionada({
+      const nova: Campanha = {
         campaign_id: String(criada.campaign_id),
         title: titulo.trim(),
         status: "draft",
         target_headcount: efetivoNumero,
-      });
+        reference_period: periodo.trim(),
+        unit_name: unidadeId
+          ? estabelecimentos.find((site) => site.unit_id === unidadeId)?.name ||
+            null
+          : null,
+        opens_at: new Date(abreEm).toISOString(),
+        closes_at: new Date(fechaEm).toISOString(),
+        created_at: new Date().toISOString(),
+        invitations: 0,
+      };
+      setAviso(
+        "Campanha criada em rascunho. Ela ainda não coleta nada: abrir a " +
+          "coleta é um segundo ato, e é ele que começa a contar a janela.",
+      );
+      // Esse aviso aparece no TOPO da página, e o botão que o dispara está no
+      // fim de um formulário longo: quem clica não vê o aviso — vê o mesmo
+      // formulário, preenchido do jeito que estava. Em 09/09/2026 isso produziu
+      // QUATRO campanhas onde deviam existir duas, em dois pares de títulos
+      // idênticos: o operador clicou de novo porque nada na tela dizia que a
+      // primeira tinha sido criada. Campanha não tem edição nem remoção, então
+      // o clique repetido é permanente.
+      //
+      // Duas mudanças, e as duas são necessárias. A confirmação nasce ao lado
+      // do botão, com o que identifica a campanha. E o título — o único campo
+      // que a campanha seguinte precisa ter diferente — é esvaziado. Período,
+      // efetivo, abrangência, finalidade e canal continuam preenchidos de
+      // propósito: são propriedades da empresa e do ciclo, não desta campanha,
+      // e limpá-los faria a segunda campanha legítima custar o formulário
+      // inteiro de novo.
+      setUltimaCriada(nova);
+      setTitulo("");
+      await carregar();
+      setSelecionada(nova);
     } catch (e) {
       setErro(String((e as Error).message));
     } finally {
@@ -472,6 +566,30 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
       setSalvando(false);
     }
   };
+
+  /** Campanha ja existente com o titulo que esta sendo digitado. */
+  const tituloJaExiste = useMemo(() => {
+    const alvo = titulo.trim().toLowerCase();
+    if (!alvo) return null;
+    return campanhas.find((c) => c.title.trim().toLowerCase() === alvo) || null;
+  }, [campanhas, titulo]);
+
+  /** Ha mais de uma campanha com o mesmo titulo na lista. */
+  const haHomonimas = useMemo(() => {
+    const vistos = new Set<string>();
+    for (const campanha of campanhas) {
+      const chave = campanha.title.trim().toLowerCase();
+      if (vistos.has(chave)) return true;
+      vistos.add(chave);
+    }
+    return false;
+  }, [campanhas]);
+
+  /** Campanhas em coleta ao mesmo tempo — cada uma com o proprio portao. */
+  const emColeta = useMemo(
+    () => campanhas.filter((c) => c.status === "open"),
+    [campanhas],
+  );
 
   const linhasInterpretadas = useMemo(
     () =>
@@ -540,10 +658,67 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
     [linhasInterpretadas],
   );
 
+  /** Campanha em que convite emitido nunca vai funcionar.
+   *
+   *  Encerrada e cancelada nao voltam: `nr1_open_campaign` so aceita campanha
+   *  em rascunho, e nao existe outra rota que mude o estado de volta. O link
+   *  emitido aqui nasceria morto — e os links sao mostrados UMA vez, entao
+   *  quem emitisse no estado errado nem teria como conferir depois o que
+   *  distribuiu. Rascunho NAO entra nesta lista: ali o link revive quando a
+   *  coleta abre, e preparar antes e um fluxo legitimo. */
+  const emissaoImpossivel =
+    selecionada?.status === "closed" || selecionada?.status === "cancelled";
+
+  /** Respostas que a campanha selecionada precisa somar para publicar. */
+  const exigidoNaSelecionada = useMemo(
+    () => exigidoNaCampanha(Number(selecionada?.target_headcount) || 0),
+    [selecionada],
+  );
+
+  /** Convites que a campanha ja tinha, ou null quando o servidor nao contou.
+   *
+   *  Null e diferente de zero e a diferenca muda a conta: com null, o maximo
+   *  alcancavel considera apenas esta emissao, e o aviso diz isso em vez de
+   *  afirmar um total que ninguem apurou. */
+  const convitesJaEmitidos =
+    typeof selecionada?.invitations === "number" ? selecionada.invitations : null;
+
+  /** Teto de respostas que esta campanha ainda pode alcancar.
+   *
+   *  E um TETO, e generoso: supoe adesao de 100% e nao desconta matriculas
+   *  desta lista que ja tenham convite (o servidor as ignora). Se nem o teto
+   *  vence o portao, nenhuma adesao vence — que e exatamente o caso em que
+   *  vale avisar. */
+  const alcanceMaximo =
+    (convitesJaEmitidos || 0) + linhasInterpretadas.length;
+
+  const alcanceInsuficiente =
+    !!selecionada &&
+    exigidoNaSelecionada !== null &&
+    linhasInterpretadas.length > 0 &&
+    alcanceMaximo < exigidoNaSelecionada;
+
   const gerarConvites = async () => {
     setErro("");
     setAviso("");
     if (!selecionada) return;
+    if (emissaoImpossivel) {
+      setErro(
+        `A campanha “${selecionada.title}” está ` +
+          `${(ESTADO_DA_CAMPANHA[selecionada.status] || selecionada.status).toLowerCase()}` +
+          " e não volta a coletar — convite emitido nela nunca abriria. " +
+          "Selecione a campanha em coleta na seção 2, ou crie uma nova.",
+      );
+      return;
+    }
+    if (selecionada.status === "draft" && !cienteRascunho) {
+      setErro(
+        "Esta campanha ainda está em rascunho: o link emitido agora mostra " +
+          "“convite indisponível” até a coleta abrir. Marque a ciência acima " +
+          "para emitir mesmo assim, ou abra a coleta antes na seção 2.",
+      );
+      return;
+    }
     if (!linhasInterpretadas.length) {
       setErro("Cole a lista de matrículas primeiro.");
       return;
@@ -943,6 +1118,19 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
             </p>
           </div>
 
+          {tituloJaExiste && (
+            <p className="mt-4 rounded border border-amber-800 bg-amber-950/50 p-3 text-[11px] leading-4 text-amber-100">
+              <strong>Já existe uma campanha com este título</strong> —{" "}
+              {ESTADO_DA_CAMPANHA[tituloJaExiste.status] || tituloJaExiste.status}
+              , {identificacaoDaCampanha(tituloJaExiste)}. Criar outra com o
+              mesmo nome é permitido e às vezes é o certo (um novo período de
+              referência), mas as duas ficam parecidas em todas as telas
+              seguintes: só o que está escrito acima as distingue, e título de
+              campanha não se corrige depois. Se a intenção era continuar
+              aquela, ela está na seção 2 e não precisa ser recriada.
+            </p>
+          )}
+
           <button
             type="button"
             disabled={salvando}
@@ -951,6 +1139,21 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
           >
             {salvando ? "Salvando..." : "Criar campanha em rascunho"}
           </button>
+
+          {/* A confirmacao nasce AQUI, ao lado do botao. O aviso verde do topo
+              da pagina fica fora da tela para quem acabou de rolar ate o fim
+              deste formulario — e foi essa distancia que produziu campanhas
+              duplicadas em 09/09/2026. */}
+          {ultimaCriada && (
+            <p className="mt-3 rounded border border-emerald-800 bg-emerald-950/50 p-3 text-[11px] leading-4 text-emerald-100">
+              <strong>Criada:</strong> “{ultimaCriada.title}” —{" "}
+              {identificacaoDaCampanha(ultimaCriada)}. Ela está como{" "}
+              <strong>Rascunho</strong> na seção 2 abaixo, já selecionada, e
+              ainda não coleta nada: falta abrir a coleta. Clicar de novo no
+              botão acima cria uma <strong>segunda</strong> campanha, não abre
+              esta.
+            </p>
+          )}
         </section>
 
         <section className="mt-5 rounded-lg border border-slate-800 bg-slate-900 p-5">
@@ -963,6 +1166,31 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
             cresce pode ser deduzida uma resposta por vez, e nenhum piso protege
             disso.
           </p>
+          {haHomonimas && (
+            <p className="mt-3 rounded border border-amber-800 bg-amber-950/50 p-2.5 text-[11px] leading-4 text-amber-100">
+              <strong>Há campanhas com o mesmo título nesta lista.</strong> A
+              linha cinza abaixo de cada uma é o que as separa — período,
+              abrangência, efetivo declarado, janela de coleta e hora de
+              criação. Confira antes de selecionar: o convite é emitido na
+              campanha que estiver selecionada, e o link emitido na campanha
+              errada não pode ser transferido para a certa.
+            </p>
+          )}
+
+          {emColeta.length > 1 && (
+            <p className="mt-3 rounded border border-red-900 bg-red-950/60 p-2.5 text-[11px] leading-4 text-red-100">
+              <strong>
+                {emColeta.length} campanhas em coleta ao mesmo tempo.
+              </strong>{" "}
+              Cada uma é avaliada sozinha contra o efetivo que ela declarou, e
+              nenhuma enxerga as respostas da outra. Dividir os convidados entre
+              duas campanhas divide as respostas: duas metades não vencem o
+              portão que a coorte inteira venceria, e o resultado é que{" "}
+              <strong>nenhuma das duas publica</strong>. Se as duas cobrem o
+              mesmo grupo de trabalhadores, concentre os convites em uma só.
+            </p>
+          )}
+
           <div className="mt-3 space-y-2">
             {campanhas.map((campanha) => (
               <div
@@ -1029,6 +1257,20 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
                       </button>
                     ))}
                 </div>
+                {/* Titulo e estado nao bastavam para distinguir duas
+                    campanhas homonimas, e a tela nao oferecia nenhum outro
+                    dado — nem a data de criacao. */}
+                <p className="mt-1 text-[11px] leading-4 text-slate-500">
+                  {identificacaoDaCampanha(campanha)}
+                </p>
+                {/* Ausente nao e zero: ver o campo `invitations` no tipo. */}
+                {typeof campanha.invitations === "number" && (
+                  <p className="mt-0.5 text-[11px] font-bold leading-4 text-slate-400">
+                    {campanha.invitations === 0
+                      ? "Nenhum convite emitido nesta campanha."
+                      : `${campanha.invitations} convite(s) emitido(s) nesta campanha.`}
+                  </p>
+                )}
                 {confirmandoFecho === campanha.campaign_id && (
                   <p className="mt-2 rounded border border-red-900 bg-red-950/50 p-2 text-[11px] leading-4 text-red-100">
                     <strong>Encerrar não tem volta.</strong> A campanha não
@@ -1051,11 +1293,58 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
             <p className="mt-2 text-xs text-slate-500">Selecione uma campanha acima.</p>
           ) : (
             <>
+              {/* O estado saía CRU aqui — "(draft)" — enquanto a seção 2,
+                  logo acima, já escrevia "Rascunho". É o mesmo defeito que o
+                  comentário da seção 2 registra como corrigido, de volta na
+                  seção seguinte: naquela vez corrigiu-se o lugar, não a regra. */}
               <p className="mt-2 text-xs leading-5 text-slate-400">
                 Campanha selecionada:{" "}
-                <strong className="text-slate-200">{selecionada.title}</strong> (
-                {selecionada.status}).
+                <strong className="text-slate-200">{selecionada.title}</strong> —{" "}
+                {ESTADO_DA_CAMPANHA[selecionada.status] || selecionada.status}.
+                <span className="mt-0.5 block text-[11px] text-slate-500">
+                  {identificacaoDaCampanha(selecionada)}
+                </span>
               </p>
+
+              {emissaoImpossivel && (
+                <p className="mt-3 rounded border border-red-900 bg-red-950/60 p-2.5 text-[11px] leading-4 text-red-100">
+                  <strong>
+                    Esta campanha está{" "}
+                    {ESTADO_DA_CAMPANHA[selecionada.status] ||
+                      selecionada.status}
+                    , e convite emitido aqui nunca vai funcionar.
+                  </strong>{" "}
+                  Não existe caminho que reabra a coleta — a abertura só aceita
+                  campanha em rascunho —, então o link nasceria morto e seria
+                  mostrado uma única vez. Selecione na seção 2 a campanha em
+                  coleta, ou crie uma nova.
+                </p>
+              )}
+
+              {selecionada.status === "draft" && (
+                <div className="mt-3 rounded border border-amber-800 bg-amber-950/50 p-2.5 text-[11px] leading-4 text-amber-100">
+                  <strong>
+                    Esta campanha está em rascunho: a coleta ainda não abriu.
+                  </strong>{" "}
+                  Os links emitidos agora existem, mas mostram “convite
+                  indisponível” para o trabalhador até que a coleta seja aberta
+                  e a data de abertura chegue. Preparar os convites antes é
+                  legítimo — só não distribua ainda. Se a intenção era emitir
+                  numa campanha que já está coletando, ela é outra: selecione-a
+                  na seção 2.
+                  <label className="mt-2 flex items-start gap-2 font-bold text-amber-50">
+                    <input
+                      type="checkbox"
+                      checked={cienteRascunho}
+                      onChange={(e) => setCienteRascunho(e.target.checked)}
+                      className="mt-0.5"
+                    />
+                    <span>
+                      Entendi: quero emitir agora e abrir a coleta depois.
+                    </span>
+                  </label>
+                </div>
+              )}
 
               <ol className="mt-3 list-decimal space-y-1.5 pl-5 text-xs leading-5 text-slate-400">
                 <li>
@@ -1235,7 +1524,23 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
                   {setoresNaoEncontrados.slice(0, 8).join(", ")}
                   {setoresNaoEncontrados.length > 8 && " …"}. Essas pessoas entram
                   sem setor — respondem e contam para a campanha, mas não formam
-                  recorte próprio.
+                  recorte próprio.{" "}
+                  {/* Dizer que nao encontrou sem dizer o que existe deixa quem
+                      le sem nada para fazer: o nome tem de bater com o
+                      cadastro, e o cadastro nao estava a vista. */}
+                  {setores.length ? (
+                    <>
+                      Os setores cadastrados são:{" "}
+                      <strong>{setores.map((s) => s.name).join(", ")}</strong> —
+                      o casamento é pelo nome ou pelo código interno, e não por
+                      semelhança.
+                    </>
+                  ) : (
+                    <>
+                      Nenhum setor está cadastrado nesta empresa: enquanto for
+                      assim, toda linha com setor cai aqui.
+                    </>
+                  )}
                 </p>
               )}
 
@@ -1260,9 +1565,45 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
                 </p>
               )}
 
+              {/* O portao so aparecia na CRIACAO da campanha, junto do
+                  efetivo digitado. Na hora de emitir — que e a hora em que o
+                  numero de convidados existe — a tela deixava emitir oito
+                  convites numa campanha que declarou quinze trabalhadores e
+                  exige censo, sem uma palavra. A campanha ia inteira ate o
+                  fechamento para so entao nao publicar nada. */}
+              {alcanceInsuficiente && (
+                <p className="mt-3 rounded border border-red-900 bg-red-950/60 p-2.5 text-[11px] leading-4 text-red-100">
+                  <strong>
+                    Com {alcanceMaximo} convite(s), esta campanha não publica
+                    resultado nenhum.
+                  </strong>{" "}
+                  Ela declarou {selecionada.target_headcount} trabalhadores, e
+                  nesse tamanho o portão de representatividade exige{" "}
+                  {exigidoNaSelecionada} respostas substantivas
+                  {exigidoNaSelecionada === selecionada.target_headcount
+                    ? " — censo: todo mundo responde"
+                    : ""}
+                  .{" "}
+                  {convitesJaEmitidos === null
+                    ? "Contando só os convites desta emissão"
+                    : `Contando os ${convitesJaEmitidos} já emitidos mais estes`}
+                  , o máximo alcançável seriam {alcanceMaximo} respostas — e
+                  isso supondo adesão de 100%, que não acontece. Faltariam{" "}
+                  {Math.max(0, (exigidoNaSelecionada || 0) - alcanceMaximo)}{" "}
+                  pessoa(s). Convide o efetivo inteiro, ou, se o efetivo
+                  declarado estiver errado, crie uma campanha nova com o número
+                  certo: campanha não aceita edição.
+                </p>
+              )}
+
               <button
                 type="button"
-                disabled={salvando || !linhasInterpretadas.length}
+                disabled={
+                  salvando ||
+                  !linhasInterpretadas.length ||
+                  emissaoImpossivel ||
+                  (selecionada.status === "draft" && !cienteRascunho)
+                }
                 onClick={gerarConvites}
                 className="mt-4 rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-black text-amber-950 hover:bg-amber-400 disabled:opacity-50"
               >
