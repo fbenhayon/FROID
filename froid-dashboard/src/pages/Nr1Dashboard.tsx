@@ -167,15 +167,15 @@ const EFFICACY_LABEL: Record<string, string> = {
 };
 
 const ROADMAP_NR1 = [
-  { numero: "01", titulo: "Estruturar", detalhe: "estabelecimentos, setores e efetivos", rota: "/access/empresa" },
-  { numero: "02", titulo: "Preparar a AEP", detalhe: "Avaliação Ergonômica Preliminar: o método da NR-17", rota: "/nr1/aep" },
-  { numero: "03", titulo: "Coletar", detalhe: "campanha, convites e representatividade", rota: "/nr1/campanha" },
-  { numero: "04", titulo: "Apurar", detalhe: "encerrar a coleta e classificar riscos", rota: "#apuracao" },
-  { numero: "05", titulo: "Documentar", detalhe: "inventário vinculado à AEP", rota: "/nr1/inventario" },
-  { numero: "06", titulo: "Agir", detalhe: "medidas, responsáveis, prazos e aferição", rota: "/nr1/plano-de-acao" },
-  { numero: "07", titulo: "Reavaliar", detalhe: "nova campanha após a implementação", rota: "/nr1/campanha" },
-  { numero: "08", titulo: "Comprovar eficácia", detalhe: "comparar ciclos e corrigir insuficiências", rota: "/nr1/eficacia" },
-  { numero: "09", titulo: "Consolidar o dossiê", detalhe: "provas, integridade e resposta à fiscalização", rota: "/nr1/dossie" },
+  { numero: "01", titulo: "Estruturar", detalhe: "estabelecimentos, setores e efetivos", entrega: "Delimita unidades, atividades, grupos e população exposta. Conclui quando todo trabalhador do escopo está associado ao recorte correto.", rota: "/access/empresa" },
+  { numero: "02", titulo: "Preparar a AEP", detalhe: "trabalho real, método, consulta e evidências", entrega: "Registra a organização do trabalho, métodos utilizados, participação dos trabalhadores e fontes que sustentam a identificação preliminar dos perigos.", rota: "/nr1/aep" },
+  { numero: "03", titulo: "Coletar", detalhe: "campanha, convites e representatividade", entrega: "Define público, período e canais; acompanha adesão e os portões mínimos de anonimato, censo e representatividade sem expor respostas individuais.", rota: "/nr1/campanha" },
+  { numero: "04", titulo: "Apurar", detalhe: "fechar a coleta e classificar riscos", entrega: "Congela a coorte elegível, calcula somente resultados agregados aprovados e aplica os critérios publicados de severidade e probabilidade.", rota: "#apuracao" },
+  { numero: "05", titulo: "Documentar", detalhe: "inventário vinculado à AEP e à apuração", entrega: "Consolida perigo, fonte, possíveis danos, grupos expostos, controles existentes, classificação e prazo de revisão, preservando o histórico.", rota: "/nr1/inventario" },
+  { numero: "06", titulo: "Agir", detalhe: "medidas, responsáveis, prazos e aferição", entrega: "Transforma riscos em controles com prioridade, responsável, prazo, método de acompanhamento e resultado mensurável esperado.", rota: "/nr1/plano-de-acao" },
+  { numero: "07", titulo: "Reavaliar", detalhe: "novo ciclo após a implementação", entrega: "Repete a avaliação após tempo suficiente de implementação, com escopo comparável e registro dos eventos que possam afetar a leitura.", rota: "/nr1/campanha" },
+  { numero: "08", titulo: "Comprovar eficácia", detalhe: "comparar ciclos e tratar insuficiências", entrega: "Relaciona medida e risco, compara resultados elegíveis e abre correção quando a eficácia for parcial, insuficiente ou não demonstrada.", rota: "/nr1/eficacia" },
+  { numero: "09", titulo: "Consolidar o dossiê", detalhe: "provas, integridade e resposta à fiscalização", entrega: "Reúne a trilha agregada, registra versão append-only, encadeia hashes, gera PDF institucional e JSON verificável para apresentação controlada.", rota: "/nr1/dossie" },
 ] as const;
 
 const RECURSOS_NR1 = [
@@ -664,11 +664,13 @@ export const Nr1Dashboard: React.FC<{
           </div>
           <ol className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {ROADMAP_NR1.map((passo) => (
-              <li key={passo.numero}>
+              <li key={passo.numero} className="group relative">
                 <button
                   type="button"
                   onClick={() => abrirRotaNr1(passo.rota)}
-                  className="group flex h-full w-full gap-3 rounded-lg border border-slate-800 bg-slate-950/80 p-3 text-left transition hover:-translate-y-0.5 hover:border-cyan-500 hover:bg-cyan-950/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                  title={passo.entrega}
+                  aria-label={`${passo.numero}. ${passo.titulo}. ${passo.detalhe}. ${passo.entrega}`}
+                  className="flex h-full w-full gap-3 rounded-lg border border-slate-800 bg-slate-950/80 p-3 text-left transition hover:-translate-y-0.5 hover:border-cyan-500 hover:bg-cyan-950/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
                 >
                   <span className="text-xs font-black text-cyan-400">{passo.numero}</span>
                   <span>
@@ -680,6 +682,9 @@ export const Nr1Dashboard: React.FC<{
                     </span>
                   </span>
                 </button>
+                <span role="tooltip" className="pointer-events-none absolute left-2 right-2 top-full z-30 mt-1 hidden rounded-md border border-cyan-900 bg-slate-950 p-2 text-[10px] leading-4 text-slate-200 shadow-xl group-hover:block group-focus-within:block">
+                  {passo.entrega}
+                </span>
               </li>
             ))}
           </ol>
