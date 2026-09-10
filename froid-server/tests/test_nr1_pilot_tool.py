@@ -127,6 +127,14 @@ class PilotSafetyTests(unittest.TestCase):
         self.assertIn("random.Random(", SOURCE)
         self.assertNotIn("random.seed()", SOURCE)
 
+    def test_reexecucao_recalcula_respostas_da_amostra_ampliada(self):
+        # A logística era gerada depois de 64 pessoas e agora vem depois de 240.
+        # Preservar os itens antigos faria o mesmo piloto divergir entre uma
+        # instalação nova e o servidor atualizado.
+        simulacao = SOURCE[SOURCE.index("def _simulate_wave("):SOURCE.index("def _scores(")]
+        self.assertIn("ON CONFLICT (response_id, item_id) DO UPDATE SET", simulacao)
+        self.assertIn("value=EXCLUDED.value", simulacao)
+
 
 class PilotScenarioTests(unittest.TestCase):
     """O cenario simulado precisa exercitar os tres vereditos de eficacia."""
@@ -157,8 +165,8 @@ class PilotScenarioTests(unittest.TestCase):
         )
 
     def test_harassment_worsens_between_waves(self):
-        antes = self._mean("assedio", "risk", self.tool.UNIT_ATENDIMENTO, "baseline")
-        depois = self._mean("assedio", "risk", self.tool.UNIT_ATENDIMENTO, "followup")
+        antes = self._mean("assedio", "risk", self.tool.UNIT_DIGITAL, "baseline")
+        depois = self._mean("assedio", "risk", self.tool.UNIT_DIGITAL, "followup")
         self.assertGreater(
             depois - antes, 0.8,
             "o cenario precisa produzir uma piora clara em assedio",
@@ -185,6 +193,92 @@ class PilotScenarioTests(unittest.TestCase):
                         self.tool.UNIT_ATENDIMENTO, wave,
                     )
                     self.assertTrue(1 <= valor <= 5, f"{code} gerou {valor}")
+
+    def test_casos_estrategicos_produzem_os_vereditos_apresentados(self):
+        import random
+        import statistics
+
+        dimensions = (
+            ("mudanca_organizacional", "risk"),
+            ("clareza_papel", "protective"),
+            ("reconhecimento", "protective"),
+            ("suporte_social", "protective"),
+            ("autonomia", "protective"),
+            ("justica_organizacional", "protective"),
+            ("sobrecarga", "risk"),
+            ("subcarga", "risk"),
+            ("assedio", "risk"),
+            ("violencia", "risk"),
+            ("relacoes", "risk"),
+            ("isolamento", "risk"),
+            ("comunicacao", "risk"),
+        )
+        targets = {
+            (self.tool.UNIT_ATENDIMENTO, "sobrecarga"),
+            (self.tool.UNIT_ATENDIMENTO, "violencia"),
+            (self.tool.UNIT_LOGISTICA, "comunicacao"),
+            (self.tool.UNIT_LOGISTICA, "sobrecarga"),
+            (self.tool.UNIT_DIGITAL, "assedio"),
+            (self.tool.UNIT_DIGITAL, "autonomia"),
+        }
+
+        def scores(campaign, wave):
+            rng = random.Random(f"{campaign}|{wave}")
+            result = []
+            for unit_id, total in self.tool.POPULATION.items():
+                collected = {code: [] for code, _ in dimensions}
+                for _ in range(total):
+                    for code, polarity in dimensions:
+                        values = [
+                            self.tool.answer_for(
+                                rng, {"code": code, "polarity": polarity}, unit_id, wave
+                            )
+                            for _ in range(3)
+                        ]
+                        collected[code].append(sum(values) / len(values))
+                for code, polarity in dimensions:
+                    if (unit_id, code) not in targets:
+                        continue
+                    values = collected[code]
+                    critical = 2.0 if polarity == "protective" else (3.0 if code in {"assedio", "violencia"} else 4.0)
+                    favorable = 4.0 if polarity == "protective" else (1.5 if code in {"assedio", "violencia"} else 2.0)
+                    factor = {
+                        "autonomia": "work_organization",
+                        "sobrecarga": "workload_demand",
+                        "assedio": "harassment_violence",
+                        "violencia": "harassment_violence",
+                        "comunicacao": "environment_modality",
+                    }[code]
+                    result.append(self.tool.nr1_compliance.DimensionScore(
+                        unit_id=unit_id, dimension_id=code, nr1_factor=factor,
+                        polarity=polarity, cut_favorable=favorable,
+                        cut_critical=critical, cohort_size=total,
+                        mean_score=sum(values) / total,
+                        critical_ratio=sum(
+                            value <= critical if polarity == "protective" else value >= critical
+                            for value in values
+                        ) / total,
+                        score_stddev=statistics.stdev(values),
+                        consequences=("transtorno_mental",), measure_efficacy="none",
+                        exposed_workers=total,
+                    ))
+            return result
+
+        verdicts = {
+            (item.unit_id, item.dimension_id): item
+            for item in self.tool.nr1_effectiveness.compare_campaigns(
+                scores(self.tool.CAMPAIGN_BASE, "baseline"),
+                scores(self.tool.CAMPAIGN_FOLLOW, "followup"),
+            )
+        }
+        self.assertEqual(verdicts[(self.tool.UNIT_ATENDIMENTO, "sobrecarga")].verdict, "effective")
+        self.assertEqual(verdicts[(self.tool.UNIT_ATENDIMENTO, "violencia")].verdict, "effective")
+        self.assertEqual(verdicts[(self.tool.UNIT_LOGISTICA, "comunicacao")].verdict, "effective")
+        self.assertEqual(verdicts[(self.tool.UNIT_LOGISTICA, "sobrecarga")].verdict, "partial")
+        self.assertEqual(verdicts[(self.tool.UNIT_DIGITAL, "autonomia")].verdict, "effective")
+        assedio = verdicts[(self.tool.UNIT_DIGITAL, "assedio")]
+        self.assertEqual(assedio.verdict, "worsened")
+        self.assertTrue(assedio.requires_correction)
 
     def test_pseudonyms_are_unique_across_the_whole_population(self):
         """O banco impõe um pseudônimo por pessoa por campanha.
@@ -271,7 +365,7 @@ class ORenomearNaoDeixaPilotoOrfao(unittest.TestCase):
 
 
 class DocumentoCompletoDoPiloto(unittest.TestCase):
-    """O cenário precisa fechar documentos sem esconder que é simulação."""
+    """O aviso global identifica o piloto; os documentos descrevem o caso."""
 
     def setUp(self):
         import importlib.util
@@ -280,13 +374,20 @@ class DocumentoCompletoDoPiloto(unittest.TestCase):
         self.tool = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(self.tool)
 
-    def test_toda_informacao_complementar_e_marcada_como_demonstracao(self):
-        marcadores = (
-            "demonstra", "fictíci", "hipótese", "premissa", "simulad",
-            "hipotético", "cenográfico", "papel simulado", "decisão demonstrativa",
-            "histórico demonstrativo",
+    def test_aviso_global_substitui_rotulos_repetidos_nos_campos(self):
+        proibidos = (
+            "demonstração", "dados simulados", "fictício", "fictícia",
+            "simulado", "simulada", "cenográfico", "cenográfica",
+            "hipótese do piloto", "premissa demonstrativa", "papel simulado",
+            "decisão demonstrativa", "exercício demonstrativo",
         )
-        for unidade in (self.tool.UNIT_ATENDIMENTO, self.tool.UNIT_LOGISTICA):
+        self.assertIn("DADOS SIMULADOS", self.tool.ORG_DISPLAY_NAME)
+        etapa = (
+            SERVER_DIR.parent / "froid-dashboard" / "src" / "components" /
+            "nr1" / "EtapaNr1.tsx"
+        ).read_text(encoding="utf-8")
+        self.assertIn("Demonstração · dados simulados · sem validade documental", etapa)
+        for unidade in self.tool.POPULATION:
             for onda in ("baseline", "followup"):
                 campos = self.tool._aep_text(unidade, onda)
                 textos = []
@@ -294,9 +395,9 @@ class DocumentoCompletoDoPiloto(unittest.TestCase):
                     if isinstance(valor, bool):
                         continue
                     self.assertTrue(valor.strip(), f"campo AEP vazio: {nome}")
-                    self.assertTrue(
-                        any(marcador in valor.lower() for marcador in marcadores),
-                        f"campo AEP poderia ser lido como fato real: {nome}",
+                    self.assertFalse(
+                        any(marcador in valor.lower() for marcador in proibidos),
+                        f"campo AEP repete o aviso global: {nome}",
                     )
                     textos.append(valor)
                 self.assertEqual(
@@ -306,7 +407,7 @@ class DocumentoCompletoDoPiloto(unittest.TestCase):
 
     def test_evidencias_contam_ocorrencias_diferentes(self):
         textos = []
-        for unidade in (self.tool.UNIT_ATENDIMENTO, self.tool.UNIT_LOGISTICA):
+        for unidade in self.tool.POPULATION:
             for onda in ("baseline", "followup"):
                 evidence = self.tool._evidence_summaries(unidade, onda)
                 self.assertEqual(
@@ -315,8 +416,41 @@ class DocumentoCompletoDoPiloto(unittest.TestCase):
                 )
                 textos.extend(evidence.values())
         self.assertEqual(len(textos), len(set(textos)))
-        self.assertTrue(any("ameaça encenada" in texto for texto in textos))
-        self.assertTrue(any("clientes hostis" in texto for texto in textos))
+        self.assertTrue(any("recusa técnica" in texto for texto in textos))
+        self.assertTrue(any("WMS" in texto for texto in textos))
+        self.assertTrue(any("ranking nominal" in texto for texto in textos))
+
+    def test_rede_farmaceutica_tem_tres_setores_e_escala_nacional(self):
+        self.assertEqual(len(self.tool.POPULATION), 3)
+        self.assertEqual(sum(self.tool.POPULATION.values()), 450)
+        loja = self.tool._aep_text(self.tool.UNIT_ATENDIMENTO, "baseline")
+        self.assertIn("1.084 farmácias", loja["real_work_description"])
+        self.assertIn("sete estados", loja["real_work_description"])
+
+    def test_planos_sao_especificos_por_setor_e_fator(self):
+        fatores = (
+            "work_organization", "workload_demand",
+            "harassment_violence", "environment_modality",
+        )
+        medidas = []
+        for unidade in self.tool.POPULATION:
+            for fator in fatores:
+                conteudo = self.tool._action_plan_text(
+                    {
+                        "unit_id": unidade,
+                        "nr1_factor": fator,
+                        "plan_action": "introduce",
+                        "priority_rank": 1,
+                        "risk_level": "critical",
+                    },
+                    "Condição avaliada",
+                    implemented=False,
+                )
+                self.assertIn("Entrega prevista:", conteudo["evidence"])
+                self.assertNotIn("simulad", conteudo["measure"].lower())
+                self.assertNotIn("demonstra", conteudo["measure"].lower())
+                medidas.append(conteudo["measure"])
+        self.assertEqual(len(medidas), len(set(medidas)))
 
     def test_ciclo_liga_as_duas_campanhas_a_documentos(self):
         fonte = SOURCE[SOURCE.index("def complete_cycle("):SOURCE.index("def _json(")]

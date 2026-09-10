@@ -67,6 +67,7 @@ PILOT_USER_EMAIL = "piloto-nr1@teste.invalid"
 MEMBERSHIP_ID = str(uuid.uuid5(PILOT_NAMESPACE, "membership"))
 UNIT_ATENDIMENTO = str(uuid.uuid5(PILOT_NAMESPACE, "unit/atendimento"))
 UNIT_LOGISTICA = str(uuid.uuid5(PILOT_NAMESPACE, "unit/logistica"))
+UNIT_DIGITAL = str(uuid.uuid5(PILOT_NAMESPACE, "unit/digital"))
 CRITERIA_ID = str(uuid.uuid5(PILOT_NAMESPACE, "criteria"))
 CAMPAIGN_BASE = str(uuid.uuid5(PILOT_NAMESPACE, "campaign/baseline"))
 CAMPAIGN_FOLLOW = str(uuid.uuid5(PILOT_NAMESPACE, "campaign/followup"))
@@ -79,9 +80,20 @@ def pilot_id(name: str) -> str:
 INSTRUMENT_CODE = "froid-nr1-psicossocial"
 INSTRUMENT_VERSION = "1.0"
 
-# População simulada por unidade. Acima do piso total (50) e do piso por
-# recorte (10), para que os dois sejam exercitados de verdade.
-POPULATION = {UNIT_ATENDIMENTO: 64, UNIT_LOGISTICA: 22}
+# Amostra do estudo demonstrativo de uma rede com 1.084 farmácias em sete
+# estados. Os números representam participantes, não perguntas nem o efetivo
+# total da empresa. Todos os recortes ficam acima dos pisos de coorte.
+POPULATION = {
+    UNIT_ATENDIMENTO: 240,
+    UNIT_LOGISTICA: 120,
+    UNIT_DIGITAL: 90,
+}
+
+UNIT_NAMES = {
+    UNIT_ATENDIMENTO: "Lojas — dispensação, atendimento e caixa",
+    UNIT_LOGISTICA: "Centros de distribuição e abastecimento",
+    UNIT_DIGITAL: "Comércio digital e televendas",
+}
 
 RESET = "\033[0m"
 BOLD = "\033[1m"
@@ -168,23 +180,24 @@ def dimensions_of(connection, instrument_id):
 def answer_for(rng, dimension, unit_id, wave):
     """Resposta simulada para um item, na escala 1..5.
 
-    O cenário é montado para produzir um resultado interpretável:
-
-      * Atendimento tem sobrecarga alta na linha de base e melhora na segunda
-        onda — é o caso que deve sair como "medida eficaz".
-      * Assédio piora entre as ondas — deve sair como "piorou" e entrar para
-        correção.
-      * As demais dimensões oscilam pouco, dentro do ruído — devem sair como
-        "sem mudança", que é o veredito mais importante de conferir, porque é
-        onde todo concorrente declararia sucesso.
+    Cada setor exercita uma decisão diferente do acompanhamento: melhora
+    comprovada, melhora parcial, ausência de mudança e piora que exige correção.
     """
     code = dimension["code"]
     protective = dimension["polarity"] == "protective"
 
     if unit_id == UNIT_ATENDIMENTO and code == "sobrecarga":
         centro = 4.4 if wave == "baseline" else 2.9
-    elif unit_id == UNIT_ATENDIMENTO and code == "assedio":
-        centro = 1.8 if wave == "baseline" else 3.1
+    elif unit_id == UNIT_ATENDIMENTO and code == "violencia":
+        centro = 3.6 if wave == "baseline" else 2.2
+    elif unit_id == UNIT_LOGISTICA and code == "comunicacao":
+        centro = 4.1 if wave == "baseline" else 2.7
+    elif unit_id == UNIT_LOGISTICA and code == "sobrecarga":
+        centro = 3.9 if wave == "baseline" else 3.5
+    elif unit_id == UNIT_DIGITAL and code == "assedio":
+        centro = 1.7 if wave == "baseline" else 3.2
+    elif unit_id == UNIT_DIGITAL and code == "autonomia":
+        centro = 2.0 if wave == "baseline" else 3.25
     elif protective:
         centro = 3.6 if wave == "baseline" else 3.7
     else:
@@ -236,16 +249,17 @@ def create(connection) -> None:
             (MEMBERSHIP_ID, papel),
         )
 
-    for unit_id, (nome, headcount) in {
-        UNIT_ATENDIMENTO: ("Atendimento ao cliente", POPULATION[UNIT_ATENDIMENTO]),
-        UNIT_LOGISTICA: ("Logística", POPULATION[UNIT_LOGISTICA]),
-    }.items():
+    for unit_id, nome in UNIT_NAMES.items():
+        headcount = POPULATION[unit_id]
         connection.execute(
             """
             INSERT INTO organization_units
                 (id, organization_id, unit_type, name, headcount, status)
             VALUES (%s,%s,'sector',%s,%s,'active')
-            ON CONFLICT (id) DO NOTHING
+            ON CONFLICT (id) DO UPDATE SET
+                name=EXCLUDED.name,
+                headcount=EXCLUDED.headcount,
+                status='active'
             """,
             (unit_id, ORG_ID, nome, headcount),
         )
@@ -277,10 +291,7 @@ def create(connection) -> None:
     ):
         abertura = agora - timedelta(days=inicio_ha)
         encerramento = agora - timedelta(days=fim_ha)
-        periodo = (
-            f"Cenário demonstrativo: {abertura:%d/%m/%Y} a "
-            f"{encerramento:%d/%m/%Y}"
-        )
+        periodo = f"{abertura:%d/%m/%Y} a {encerramento:%d/%m/%Y}"
         connection.execute(
             """
             INSERT INTO assessment_campaigns
@@ -303,9 +314,12 @@ def create(connection) -> None:
                 campaign_id, ORG_ID, instrument["id"], titulo,
                 abertura, encerramento,
                 CRITERIA_ID, sum(POPULATION.values()),
-                "Demonstração do ciclo NR-1 com cenário empresarial inteiramente fictício.",
-                "Acolhimento demonstrativo",
-                "Em uma operação real, este campo informa o canal independente de apoio.",
+                "Mapear fatores de risco psicossociais relacionados ao trabalho em uma rede "
+                "de 1.084 farmácias distribuídas por sete estados, comparar lojas, centros "
+                "de distribuição e comércio digital e acompanhar a eficácia das medidas adotadas.",
+                "Canal de acolhimento e orientação",
+                "Atendimento confidencial pela equipe corporativa de Saúde e Segurança "
+                "do Trabalho, com encaminhamento conforme a natureza da demanda.",
                 periodo,
             ),
         )
@@ -320,190 +334,329 @@ def create(connection) -> None:
 
 
 def _aep_text(unit_id: str, wave: str) -> dict:
-    """Quatro narrativas coerentes, todas reconhecíveis como cenário fictício."""
+    """Narrativas operacionais completas para os três recortes do estudo."""
     if unit_id not in POPULATION or wave not in {"baseline", "followup"}:
-        raise ValueError("unidade ou onda fora do cenário demonstrativo")
-    if unit_id == UNIT_ATENDIMENTO and wave == "baseline":
-        return {
-            "reference_period": "DEMONSTRAÇÃO — linha de base fictícia, sem validade documental.",
+        raise ValueError("unidade ou onda fora do cenário do piloto")
+
+    scenarios = {
+        (UNIT_ATENDIMENTO, "baseline"): {
+            "reference_period": "Linha de base — ciclo nacional de lojas",
             "real_work_description": (
-                "Cenário fictício: 64 atendentes alternam voz, chat e e-mail em filas "
-                "simultâneas. Em campanhas comerciais, a prioridade muda durante o "
-                "turno; metas de tempo, qualidade e retenção competem entre si, e pausas "
-                "são negociadas com a supervisão conforme o tamanho da fila."
+                "A rede opera 1.084 farmácias em sete estados: São Paulo, Rio de Janeiro, "
+                "Minas Gerais, Paraná, Santa Catarina, Goiás e Bahia. Farmacêuticos, balconistas, operadores "
+                "de caixa e gerentes conciliam dispensação segura, orientação ao consumidor, "
+                "validação de receitas, controle de medicamentos sujeitos a controle especial, "
+                "retirada de pedidos digitais, reposição de gôndola e fechamento financeiro. "
+                "Lojas de rua, shopping e atendimento 24 horas têm ritmos e estruturas distintos."
             ),
             "exposure_duration": (
-                "Hipótese do piloto: blocos contínuos de atendimento ocupam a maior "
-                "parte da jornada, intercalados por pausas curtas e troca de canal."
+                "As exigências acompanham toda a jornada e se intensificam nos intervalos em "
+                "que a mesma equipe atende balcão, caixa, telefone e retirada digital. Filas "
+                "prolongadas reduzem a previsibilidade das pausas e concentram conferências "
+                "técnicas no farmacêutico responsável."
             ),
             "exposure_frequency": (
-                "Premissa demonstrativa: picos aparecem diariamente na abertura, no "
-                "horário de almoço e após comunicações promocionais."
+                "Picos ocorrem diariamente no início da manhã, no horário de almoço e após o "
+                "expediente comercial. Datas de pagamento, campanhas promocionais e períodos "
+                "de maior procura por medicamentos respiratórios ampliam volume e conflitos."
             ),
             "exposure_intensity": (
-                "Leitura simulada: sobrecarga elevada quando filas crescem e o atendente "
-                "precisa resolver a demanda sem autonomia para exceções."
+                "A pressão é elevada quando há escala incompleta, indisponibilidade de produto, "
+                "divergência entre preço do aplicativo e da loja ou necessidade de recusar uma "
+                "dispensação. Nessas situações, rapidez comercial e segurança farmacêutica "
+                "podem ser percebidas como objetivos concorrentes."
             ),
             "exposure_cofactors": (
-                "Elementos fictícios do cenário: ruído da operação, mensagens "
-                "contraditórias, clientes hostis, monitoramento em tempo real e apoio "
-                "desigual entre supervisores."
+                "Contribuem para a exposição a variação de porte das lojas, metas simultâneas, "
+                "troca frequente de prioridade, falhas de integração de estoque, autonomia "
+                "desigual das gerências, clientes agressivos e risco de roubo em unidades com "
+                "funcionamento noturno."
             ),
             "health_indicators": (
-                "Indicadores demonstrativos sugerem relatos coletivos de tensão ao fim "
-                "do turno e dificuldade de recuperação após dias de pico; nenhum dado "
-                "clínico individual foi utilizado."
+                "Os registros coletivos de SST concentram relatos de desgaste após picos, "
+                "dificuldade para realizar pausas e tensão em atendimentos com recusa técnica. "
+                "A análise permanece ocupacional e agregada, sem acesso a resposta individual "
+                "ou utilização de diagnóstico clínico."
             ),
             "absenteeism_notes": (
-                "Padrão hipotético: ausências breves se concentram após campanhas de "
-                "alto volume. A demonstração não atribui causa nem informa quantidade real."
+                "A série gerencial indica concentração de ausências breves em lojas com vagas "
+                "temporariamente descobertas e jornadas de maior movimento. A informação orienta "
+                "a investigação das condições de trabalho e não estabelece nexo individual."
             ),
             "previous_assessments": (
-                "Histórico demonstrativo: primeira medição estruturada deste setor; não "
-                "há resultado anterior usado como substituto."
+                "Inspeções anteriores tratavam ergonomia física, segurança patrimonial e escalas "
+                "separadamente. Não havia avaliação psicossocial comparável por setor, estado e "
+                "modelo de loja; esta coleta estabelece a referência inicial."
             ),
-            "responsible_name": "DEMONSTRAÇÃO — Marina Lopes (personagem fictícia)",
-            "responsible_qualification": "Papel simulado: coordenação de SST da empresa-piloto",
+            "responsible_name": "Juliana Costa",
+            "responsible_qualification": "Engenharia de Segurança do Trabalho — coordenação corporativa de SST",
             "aet_required": True,
             "aet_justification": (
-                "Decisão demonstrativa: aprofundar a análise de filas, metas concorrentes, "
-                "margem de decisão e recuperação entre atendimentos."
+                "Aprofundar a organização real do trabalho em lojas de diferentes portes, com "
+                "ênfase em dimensionamento, pausas, metas concorrentes, autonomia para recusa "
+                "técnica, atendimento hostil e trabalho noturno."
             ),
-        }
-    if unit_id == UNIT_ATENDIMENTO:
-        return {
-            "reference_period": "DEMONSTRAÇÃO — reavaliação fictícia, sem validade documental.",
+        },
+        (UNIT_ATENDIMENTO, "followup"): {
+            "reference_period": "Reavaliação — ciclo nacional de lojas",
             "real_work_description": (
-                "Cenário fictício de reavaliação: o roteamento passou a separar demandas "
-                "simples e complexas, reforços cobrem horários de pico e micro-pausas são "
-                "programadas. A carga caiu, mas o novo escalonamento de clientes agressivos "
-                "funciona de modo desigual e expõe parte da equipe a conflitos repetidos."
+                "A rede implantou matriz mínima de cobertura por faixa horária, célula regional "
+                "para remanejamento de equipes, separação da fila de retirada digital e regra que "
+                "preserva a decisão técnica do farmacêutico. Gerentes passaram a registrar pausas "
+                "adiadas e acionar suporte regional quando a ocupação supera a capacidade prevista."
             ),
             "exposure_duration": (
-                "Hipótese pós-medida: os picos ficaram mais curtos, enquanto interações "
-                "hostis ainda podem ocupar todo o atendimento até a chegada da supervisão."
+                "Os períodos contínuos de pressão ficaram mais curtos nas lojas cobertas pelo "
+                "novo dimensionamento. Unidades 24 horas e lojas com vaga aberta ainda acumulam "
+                "atendimento, conferência, reposição e fechamento no mesmo profissional."
             ),
             "exposure_frequency": (
-                "Premissa da segunda onda: pressão por volume permanece diária; episódios "
-                "de desrespeito aparecem de forma intermitente e sem resposta uniforme."
+                "A sobrecarga deixou de dominar a rotina diária na maior parte do recorte, mas "
+                "permanece recorrente em campanhas de preço, fechamento de mês, faltas imprevistas "
+                "e indisponibilidade de itens anunciados nos canais digitais."
             ),
             "exposure_intensity": (
-                "Leitura agregada simulada: melhora expressiva de excesso de demandas e "
-                "agravamento de assédio, combinação que exige medidas diferentes."
+                "A redução das filas e a cobertura regional diminuíram a pressão por velocidade. "
+                "Ocorrências de ameaça, tentativa de intimidação e agressão verbal continuam com "
+                "alto impacto, embora o tempo de resposta da liderança tenha melhorado."
             ),
             "exposure_cofactors": (
-                "Cofatores hipotéticos: treinamento desigual de líderes, transferência "
-                "tardia de chamadas críticas e cobrança de retenção durante conflitos."
+                "Persistem diferenças entre estados na disponibilidade de mão de obra, na estrutura "
+                "física e no apoio de segurança. A aplicação do protocolo de interrupção segura "
+                "ainda varia entre gerentes recém-admitidos e equipes de turno noturno."
             ),
             "health_indicators": (
-                "Painel demonstrativo: diminuem referências coletivas a exaustão por fila, "
-                "enquanto aumentam pedidos de apoio após interação ofensiva."
+                "A devolutiva coletiva aponta melhora na recuperação após os picos e maior "
+                "previsibilidade das pausas. Permanecem pedidos de apoio depois de agressões verbais "
+                "e ocorrências de segurança, tratados sem exposição da identidade do trabalhador."
             ),
             "absenteeism_notes": (
-                "Registro cenográfico: o padrão de ausências não permite conclusão; no "
-                "caso real, RH e PCMSO precisariam validar tendência e nexo."
+                "A distribuição de ausências passou a ser acompanhada por porte de loja, turno e "
+                "cobertura da escala. O período ainda é insuficiente para atribuir mudança às "
+                "medidas, razão pela qual o indicador permanece em acompanhamento."
             ),
             "previous_assessments": (
-                "Comparação demonstrativa: usa a linha de base fictícia da mesma unidade, "
-                "instrumento e recorte, preservando comparabilidade."
+                "A comparação utiliza a linha de base do mesmo instrumento, os mesmos três recortes "
+                "ocupacionais e regras de coorte equivalentes. Alterações de composição das equipes "
+                "foram registradas antes da análise de eficácia."
             ),
-            "responsible_name": "DEMONSTRAÇÃO — Marina Lopes (personagem fictícia)",
-            "responsible_qualification": "Papel simulado: coordenação de SST da empresa-piloto",
+            "responsible_name": "Juliana Costa",
+            "responsible_qualification": "Engenharia de Segurança do Trabalho — coordenação corporativa de SST",
             "aet_required": True,
             "aet_justification": (
-                "Decisão demonstrativa: manter o aprofundamento e observar o protocolo de "
-                "escalonamento, pois o risco crítico de assédio piorou na segunda onda."
+                "Manter o aprofundamento nas lojas 24 horas e com escala incompleta, verificar a "
+                "aplicação do protocolo de violência e consolidar critérios nacionais para pausas, "
+                "remanejamento e interrupção de atendimento inseguro."
             ),
-        }
-    if wave == "baseline":
-        return {
-            "reference_period": "DEMONSTRAÇÃO — linha de base logística fictícia, sem validade documental.",
+        },
+        (UNIT_LOGISTICA, "baseline"): {
+            "reference_period": "Linha de base — distribuição e abastecimento",
             "real_work_description": (
-                "Cenário fictício: 22 trabalhadores recebem, separam e expedem pedidos, "
-                "com reprogramações urgentes no fechamento de carga. A passagem entre "
-                "turnos ocorre por rádio e quadro de doca, e motoristas aguardam liberação "
-                "em área compartilhada com a conferência."
+                "Quatro centros de distribuição recebem medicamentos, conferem lote e validade, "
+                "armazenam produtos com requisitos distintos, separam pedidos e abastecem 1.084 "
+                "lojas em sete estados. Planejamento, recebimento, armazenagem, picking, conferência, "
+                "expedição e transporte coordenam janelas rígidas, cadeia fria, itens controlados, "
+                "devoluções e bloqueios de qualidade."
             ),
             "exposure_duration": (
-                "Hipótese do piloto: alternância durante todo o turno entre separação "
-                "planejada e janelas curtas de carregamento."
+                "A pressão acompanha as ondas de separação e cresce nas quatro horas anteriores ao "
+                "corte de expedição. Divergências de lote, atraso de transportadora e pedido urgente "
+                "podem prolongar a atividade até a passagem para o turno seguinte."
             ),
             "exposure_frequency": (
-                "Premissa demonstrativa: urgências concentram-se no fim de cada janela de "
-                "expedição e nas trocas de turno."
+                "Repriorizações acontecem em todas as janelas de carga. Eventos mais intensos se "
+                "concentram em lançamentos comerciais, feriados, restrições de tráfego, ruptura de "
+                "estoque e necessidade de redistribuição entre estados."
             ),
             "exposure_intensity": (
-                "Leitura simulada: exigência moderada na rotina, com elevação súbita diante "
-                "de atraso, divergência de pedido ou bloqueio de doca."
+                "A exigência é alta quando WMS, quadro da doca e orientação por rádio apresentam "
+                "prioridades diferentes. O trabalhador precisa manter rastreabilidade e qualidade "
+                "ao mesmo tempo que responde à urgência de lojas sem estoque."
             ),
             "exposure_cofactors": (
-                "Elementos fictícios: comunicação por canais paralelos, iluminação variável, "
-                "ruído, espera de terceiros e responsabilidade pouco clara por exceções."
+                "Ruído, distância entre áreas, circulação de terceiros, metas por onda, diferenças "
+                "entre turnos, baixa visibilidade da causa das urgências e responsabilidade pouco "
+                "clara para liberar exceções ampliam a carga organizacional."
             ),
             "health_indicators": (
-                "Indicadores demonstrativos mencionam fadiga no fechamento e tensão em "
-                "situações de divergência; não há prontuários ou diagnósticos no piloto."
+                "As escutas coletivas registram fadiga ao final das ondas, tensão nas divergências "
+                "de inventário e receio de responsabilização por decisões recebidas por canais "
+                "informais. Não são utilizados prontuários nem informações clínicas individuais."
             ),
             "absenteeism_notes": (
-                "Padrão hipotético: não foi formada tendência confiável de ausências; a "
-                "lacuna permanece declarada em vez de preenchida com zero."
+                "O acompanhamento gerencial identifica maior necessidade de recomposição de equipe "
+                "nos turnos de fechamento. Não há base suficiente para atribuir causalidade, e a "
+                "informação é usada apenas para orientar verificação do trabalho real."
             ),
             "previous_assessments": (
-                "Histórico demonstrativo: inspeções operacionais anteriores não continham "
-                "avaliação psicossocial comparável."
+                "Os centros possuíam inspeções de segurança e indicadores de produtividade, porém "
+                "sem integração entre organização do trabalho, comunicação e riscos psicossociais. "
+                "A linha de base cria essa referência conjunta."
             ),
-            "responsible_name": "DEMONSTRAÇÃO — Rafael Nunes (personagem fictício)",
-            "responsible_qualification": "Papel simulado: engenharia de segurança da empresa-piloto",
-            "aet_required": False,
+            "responsible_name": "Eduardo Ramos",
+            "responsible_qualification": "Engenharia de Segurança do Trabalho — operações logísticas",
+            "aet_required": True,
             "aet_justification": (
-                "Decisão demonstrativa inicial: acompanhar a atividade e reavaliar antes de "
-                "escalonar; nenhuma dispensa real de AET é produzida por este piloto."
+                "Analisar em profundidade as ondas de separação, os cortes de expedição, a passagem "
+                "entre turnos, os canais de priorização e a autonomia para interromper uma operação "
+                "quando rastreabilidade, segurança ou qualidade estiverem ameaçadas."
             ),
-        }
-    return {
-        "reference_period": "DEMONSTRAÇÃO — reavaliação logística fictícia, sem validade documental.",
-        "real_work_description": (
-            "Cenário fictício de reavaliação: o quadro de doca foi padronizado e a passagem "
-            "de turno ganhou conferência conjunta. Persistem reprogramações de última hora; "
-            "um episódio encenado de ameaça durante uma divergência de entrega revelou que "
-            "o protocolo de segurança e acolhimento ainda não está claro."
-        ),
-        "exposure_duration": (
-            "Hipótese pós-medida: a pressão continua concentrada nas janelas de expedição; "
-            "incidentes críticos são curtos, mas podem produzir impacto prolongado."
-        ),
-        "exposure_frequency": (
-            "Premissa da segunda onda: reprogramações seguem semanais e conflitos são raros, "
-            "porém plausíveis no cenário operacional."
-        ),
-        "exposure_intensity": (
-            "Leitura agregada simulada: não há melhora estatisticamente demonstrável e a "
-            "dimensão de eventos violentos permanece em prioridade crítica."
-        ),
-        "exposure_cofactors": (
-            "Cofatores hipotéticos: acesso de terceiros, espera em doca, rádio congestionado, "
-            "liderança fora do local e ausência de roteiro pós-incidente."
-        ),
-        "health_indicators": (
-            "Painel demonstrativo registra procura espontânea por orientação após o episódio "
-            "encenado; nenhuma informação identificada ou clínica integra o cenário."
-        ),
-        "absenteeism_notes": (
-            "Registro cenográfico: não se atribui ausência ao episódio; uma operação real "
-            "exigiria análise conjunta de RH, PCMSO e contexto de trabalho."
-        ),
-        "previous_assessments": (
-            "Comparação demonstrativa: a linha de base logística fictícia é mantida como "
-            "referência, sem trocar recorte ou instrumento."
-        ),
-        "responsible_name": "DEMONSTRAÇÃO — Rafael Nunes (personagem fictício)",
-        "responsible_qualification": "Papel simulado: engenharia de segurança da empresa-piloto",
-        "aet_required": True,
-        "aet_justification": (
-            "Decisão demonstrativa: aprofundar a análise do trabalho em doca, resposta a "
-            "ameaças, suporte pós-incidente e coordenação com terceiros."
-        ),
+        },
+        (UNIT_LOGISTICA, "followup"): {
+            "reference_period": "Reavaliação — distribuição e abastecimento",
+            "real_work_description": (
+                "Os centros adotaram uma fila única de prioridades integrada ao WMS, reunião curta "
+                "na troca de turno, autoridade formal para bloqueio de exceções e célula de controle "
+                "para redistribuição entre estados. O plano de ondas passou a considerar capacidade "
+                "real, pedidos críticos, cadeia fria e horário limite das transportadoras."
+            ),
+            "exposure_duration": (
+                "O tempo gasto conciliando orientações divergentes caiu após a unificação do canal. "
+                "A pressão próxima ao corte permanece prolongada quando atraso de fornecedor, avaria "
+                "ou restrição de transporte afeta mais de uma rota."
+            ),
+            "exposure_frequency": (
+                "Falhas de comunicação tornaram-se menos frequentes; repriorizações continuam "
+                "diárias, agora registradas com origem, responsável, justificativa e impacto sobre "
+                "a capacidade de cada turno."
+            ),
+            "exposure_intensity": (
+                "A clareza do canal reduziu retrabalho e conflito entre planejamento, separação e "
+                "doca. O volume dos dias críticos ainda supera a capacidade prevista em parte das "
+                "rotas, produzindo melhora parcial de sobrecarga."
+            ),
+            "exposure_cofactors": (
+                "A efetividade varia conforme adesão das transportadoras, estabilidade do WMS, "
+                "antecedência da previsão comercial e disponibilidade de pessoal habilitado para "
+                "itens controlados e produtos de cadeia fria."
+            ),
+            "health_indicators": (
+                "A equipe relata menor ambiguidade na passagem de turno e menos conflito sobre a "
+                "ordem de carregamento. Persistem sinais coletivos de desgaste em picos extensos, "
+                "mantidos sob acompanhamento ocupacional agregado."
+            ),
+            "absenteeism_notes": (
+                "As ausências e substituições são revisadas junto à ocupação das ondas, horas extras "
+                "e aderência ao quadro planejado. O intervalo observado ainda não sustenta conclusão "
+                "causal sobre a medida."
+            ),
+            "previous_assessments": (
+                "A reavaliação repete instrumento, setores, critérios e regras de agregação da linha "
+                "de base. A implantação do WMS integrado e da passagem estruturada foi registrada "
+                "para permitir associação temporal com os resultados."
+            ),
+            "responsible_name": "Eduardo Ramos",
+            "responsible_qualification": "Engenharia de Segurança do Trabalho — operações logísticas",
+            "aet_required": True,
+            "aet_justification": (
+                "Verificar os picos que continuam acima da capacidade, a aderência ao canal único e "
+                "a participação das transportadoras, preservando a autonomia de bloqueio e a "
+                "rastreabilidade das decisões urgentes."
+            ),
+        },
+        (UNIT_DIGITAL, "baseline"): {
+            "reference_period": "Linha de base — comércio digital e televendas",
+            "real_work_description": (
+                "A operação reúne atendimento por telefone, chat e aplicativos, validação de receita, "
+                "pagamento, consulta de estoque, substituição autorizada, separação na loja e entrega. "
+                "Agentes atendem consumidores de sete estados e dependem da integração entre e-commerce, "
+                "marketplaces, lojas, prescrições digitais, antifraude e parceiros logísticos."
+            ),
+            "exposure_duration": (
+                "Filas multicanal ocupam a maior parte da jornada, com alternância rápida entre dúvidas "
+                "técnicas, falha de pagamento, atraso de entrega e indisponibilidade. Casos pendentes "
+                "permanecem atribuídos ao agente até a confirmação da solução."
+            ),
+            "exposure_frequency": (
+                "A pressão por tempo é diária e aumenta após campanhas, indisponibilidade do aplicativo "
+                "ou atraso regional de entregas. Comparações públicas de desempenho ocorrem nas reuniões "
+                "semanais e nos painéis em tempo real."
+            ),
+            "exposure_intensity": (
+                "Metas de tempo médio, conversão, qualidade e retenção são cobradas simultaneamente. A "
+                "baixa autonomia para corrigir preço, prazo ou substituição prolonga conflitos e exige "
+                "múltiplas autorizações para resolver uma única demanda."
+            ),
+            "exposure_cofactors": (
+                "Monitoramento contínuo, mudanças de campanha sem briefing uniforme, trabalho remoto, "
+                "falhas entre sistemas, clientes hostis e critérios diferentes entre supervisores "
+                "ampliam a exposição."
+            ),
+            "health_indicators": (
+                "As devolutivas coletivas concentram queixas sobre baixa margem de decisão, cobrança "
+                "pública de resultados e dificuldade de desconexão após casos não resolvidos. A empresa "
+                "recebe apenas achados agregados do trabalho."
+            ),
+            "absenteeism_notes": (
+                "O acompanhamento mostra concentração de ausências curtas após semanas de instabilidade "
+                "dos canais. O dado orienta investigação organizacional, sem atribuição individual ou "
+                "conclusão clínica."
+            ),
+            "previous_assessments": (
+                "Pesquisas de clima anteriores não separavam exposição ocupacional, satisfação com a "
+                "empresa e experiência do cliente. Esta linha de base adota recorte e instrumento próprios."
+            ),
+            "responsible_name": "Camila Azevedo",
+            "responsible_qualification": "Psicologia organizacional — prevenção de riscos psicossociais",
+            "aet_required": True,
+            "aet_justification": (
+                "Aprofundar metas concorrentes, monitoramento, autonomia para solução, exposição a "
+                "agressões de consumidores, critérios de supervisão e condições do trabalho remoto."
+            ),
+        },
+        (UNIT_DIGITAL, "followup"): {
+            "reference_period": "Reavaliação — comércio digital e televendas",
+            "real_work_description": (
+                "A operação adotou árvore de decisão com alçadas para crédito, substituição e prazo, "
+                "reduziu transferências e criou célula de resolução para pedidos críticos. Ao mesmo tempo, "
+                "uma reorganização introduziu ranking nominal diário, comparação pública entre agentes "
+                "e cobrança direta em grupos de mensagem fora do fluxo formal."
+            ),
+            "exposure_duration": (
+                "A autonomia reduziu a duração de demandas simples e o tempo de espera por autorização. "
+                "A exposição à cobrança pública passou a acompanhar todo o turno por painel e mensagens, "
+                "inclusive depois do encerramento de casos complexos."
+            ),
+            "exposure_frequency": (
+                "Transferências e reaberturas diminuíram, enquanto comparações individuais e comentários "
+                "depreciativos tornaram-se recorrentes nas reuniões de resultado e nos canais de equipe."
+            ),
+            "exposure_intensity": (
+                "A maior alçada de decisão melhorou o controle sobre o trabalho. A forma de cobrança da "
+                "nova gestão elevou o risco relacionado a humilhação, exposição vexatória e isolamento "
+                "informal de agentes com resultado abaixo da meta."
+            ),
+            "exposure_cofactors": (
+                "Trabalho remoto, registro permanente das mensagens, ausência de mediação, critérios de "
+                "ranking pouco transparentes e competição por melhores filas reforçam o problema, apesar "
+                "da melhoria operacional obtida com as novas alçadas."
+            ),
+            "health_indicators": (
+                "A escuta agregada reconhece maior capacidade de resolver demandas e aponta aumento de "
+                "relatos sobre constrangimento em reuniões e canais digitais. Nenhum relato individual é "
+                "disponibilizado à gestão."
+            ),
+            "absenteeism_notes": (
+                "O período de acompanhamento não permite relacionar ausências à reorganização. A análise "
+                "mantém o indicador sem conclusão e prioriza as evidências convergentes do questionário, "
+                "da observação e do diálogo coletivo."
+            ),
+            "previous_assessments": (
+                "A comparação conserva instrumento, recorte, escala e critérios da linha de base. As alçadas "
+                "e o ranking foram registrados como mudanças distintas para evitar atribuir o resultado a "
+                "uma intervenção única."
+            ),
+            "responsible_name": "Camila Azevedo",
+            "responsible_qualification": "Psicologia organizacional — prevenção de riscos psicossociais",
+            "aet_required": True,
+            "aet_justification": (
+                "Interromper práticas de exposição nominal, revisar critérios de desempenho com participação "
+                "dos trabalhadores e avaliar separadamente os benefícios das alçadas e os efeitos do modelo "
+                "de supervisão."
+            ),
+        },
     }
+    return scenarios[(unit_id, wave)]
 
 
 def _graded_payload(risk) -> dict:
@@ -517,84 +670,127 @@ def _graded_payload(risk) -> dict:
 
 
 def _evidence_summaries(unit_id: str, wave: str) -> dict:
-    """Evidências cenográficas que se completam, em vez de repetir um aviso."""
+    """Evidências complementares específicas para cada setor e ciclo."""
     if unit_id not in POPULATION or wave not in {"baseline", "followup"}:
-        raise ValueError("unidade ou onda fora do cenário demonstrativo")
-    if unit_id == UNIT_ATENDIMENTO and wave == "baseline":
-        return {
+        raise ValueError("unidade ou onda fora do cenário do piloto")
+
+    evidence = {
+        (UNIT_ATENDIMENTO, "baseline"): {
             "questionnaire": (
-                "Questionário fictício com 64 respostas agregadas: maior exigência em "
-                "excesso de demandas e diferenças de apoio entre momentos do turno."
+                "Questionário respondido por 240 trabalhadores de lojas, com 39 itens analisados "
+                "exclusivamente de forma agregada. Excesso de demandas e eventos violentos aparecem "
+                "como prioridades convergentes entre portes de loja e estados."
             ),
             "activity_observation": (
-                "Observação encenada do atendimento multicanal: troca frequente de tela, "
-                "fila visível, interrupções e negociação de pausas durante picos."
+                "Observação de jornadas em loja de rua, shopping e operação 24 horas registrou "
+                "sobreposição entre balcão, caixa, retirada digital, telefone e conferência técnica, "
+                "além de pausas adiadas durante filas prolongadas."
             ),
             "worker_dialogue": (
-                "Roda de conversa simulada: o grupo associa desgaste à combinação de metas "
-                "concorrentes, baixa autonomia para exceções e clientes hostis."
+                "Grupos de diálogo com farmacêuticos, balconistas, caixas e gerentes relacionaram o "
+                "desgaste à escala incompleta, às metas concorrentes e à dificuldade de interromper "
+                "atendimentos com agressão verbal ou tentativa de intimidação."
             ),
             "document_analysis": (
-                "Documentos cenográficos examinados: escala, roteiro de qualidade, regra de "
-                "pausas e fluxo de escalonamento; nenhum arquivo empresarial real foi usado."
+                "Foram confrontados matriz de cobertura, escalas, regras de pausa, campanhas, registro "
+                "de ocorrências de segurança, procedimento de recusa técnica e fluxo de apoio regional."
             ),
-        }
-    if unit_id == UNIT_ATENDIMENTO:
-        return {
+        },
+        (UNIT_ATENDIMENTO, "followup"): {
             "questionnaire": (
-                "Segunda onda fictícia com 64 respostas agregadas: queda consistente da "
-                "sobrecarga e aumento do risco relacionado a assédio."
+                "A segunda coleta reuniu 240 participantes e mostrou redução consistente de excesso de "
+                "demandas e exposição a violência, preservadas as mesmas regras de agregação e recorte."
             ),
             "activity_observation": (
-                "Revisita encenada: reforço nos picos e micro-pausas estão visíveis, mas "
-                "chamadas ofensivas nem sempre recebem apoio imediato da supervisão."
+                "A revisita confirmou fila separada para retirada digital, acionamento da célula regional, "
+                "registro de pausas e presença de cobertura adicional nos horários previstos. Lojas 24 "
+                "horas ainda apresentaram aplicação desigual do protocolo de segurança."
             ),
             "worker_dialogue": (
-                "Devolutiva simulada: a equipe reconhece melhora das filas e pede regra única "
-                "para interromper interação abusiva sem prejuízo da meta."
+                "As equipes reconheceram maior previsibilidade e apoio para recusa técnica. Gerentes recém-"
+                "admitidos e trabalhadores noturnos solicitaram treinamento prático sobre interrupção de "
+                "atendimento, preservação do local e acolhimento após ocorrência."
             ),
             "document_analysis": (
-                "Comparação cenográfica entre escalas e protocolos: o dimensionamento foi "
-                "revisto; o procedimento de proteção diante de agressões permanece incompleto."
+                "Escalas, acionamentos regionais, pausas adiadas, registros de ocorrência e treinamentos "
+                "foram comparados com a linha de base. As pendências ficaram associadas a responsáveis e prazos."
             ),
-        }
-    if wave == "baseline":
-        return {
+        },
+        (UNIT_LOGISTICA, "baseline"): {
             "questionnaire": (
-                "Questionário fictício com 22 respostas agregadas: pressão em janelas de "
-                "expedição e fragilidade na comunicação de exceções."
+                "Questionário respondido por 120 trabalhadores dos centros de distribuição, com resultado "
+                "agregado por setor. Comunicação operacional e excesso de demandas concentraram os achados."
             ),
             "activity_observation": (
-                "Percurso encenado da doca: rádio, quadro de carga e orientação verbal podem "
-                "divergir quando um pedido é reprogramado."
+                "O percurso acompanhou recebimento, armazenagem, picking, conferência e doca em duas trocas "
+                "de turno. Foram observadas prioridades divergentes entre WMS, rádio e quadro, além de "
+                "reprocessamento quando uma carga era alterada perto do corte."
             ),
             "worker_dialogue": (
-                "Diálogo simulado de turno: conferentes e expedição relatam dúvida sobre quem "
-                "decide diante de atraso, avaria ou recusa de terceiros."
+                "Planejamento, separação, conferência e expedição relataram dúvidas sobre quem podia bloquear "
+                "uma exceção, alterar a sequência das ondas ou aceitar impacto sobre cadeia fria e rastreabilidade."
             ),
             "document_analysis": (
-                "Peças demonstrativas analisadas: passagem de turno, checklist de doca e "
-                "registro de ocorrência; nenhuma informação de empresa real foi anexada."
+                "Foram analisados plano de ondas, janelas de transportadoras, passagem de turno, registros de "
+                "avaria, bloqueios de qualidade, horas extras e pedidos urgentes originados pelas lojas."
             ),
-        }
-    return {
-        "questionnaire": (
-            "Segunda onda fictícia com 22 respostas agregadas: variação dentro do ruído e "
-            "prioridade crítica mantida para eventos violentos ou traumáticos."
-        ),
-        "activity_observation": (
-            "Simulação na doca: o quadro reduziu desencontros, mas uma ameaça encenada mostrou "
-            "demora para acionar liderança e retirar a equipe da exposição."
-        ),
-        "worker_dialogue": (
-            "Debriefing fictício: trabalhadores pedem canal de emergência, autoridade clara "
-            "para suspender a operação e acolhimento após incidente."
-        ),
-        "document_analysis": (
-            "Auditoria cenográfica: checklist operacional atualizado, sem fluxo completo de "
-            "resposta, comunicação e aprendizagem pós-incidente."
-        ),
+        },
+        (UNIT_LOGISTICA, "followup"): {
+            "questionnaire": (
+                "A reavaliação contou com 120 participantes. Condições de comunicação melhoraram de forma "
+                "consistente; excesso de demandas apresentou redução parcial e permaneceu sob acompanhamento."
+            ),
+            "activity_observation": (
+                "A fila única de prioridades e a reunião de troca de turno reduziram instruções conflitantes. "
+                "Em dias com atraso de fornecedor e restrição de rota, a capacidade planejada ainda foi excedida."
+            ),
+            "worker_dialogue": (
+                "As equipes confirmaram maior clareza para bloquear exceções e pediram participação mais cedo "
+                "na previsão de campanhas, dimensionamento de ondas e negociação de horários com transportadoras."
+            ),
+            "document_analysis": (
+                "Logs do WMS, atas de passagem, justificativas de repriorização, ocupação por turno e cortes de "
+                "expedição demonstraram adesão ao novo fluxo e localizaram as rotas ainda críticas."
+            ),
+        },
+        (UNIT_DIGITAL, "baseline"): {
+            "questionnaire": (
+                "Questionário respondido por 90 trabalhadores de comércio digital e televendas. Baixa autonomia, "
+                "excesso de demandas e condições de comunicação formaram o conjunto prioritário."
+            ),
+            "activity_observation": (
+                "Acompanhamento de telefone, chat e aplicativos registrou múltiplas transferências, espera por "
+                "alçada, alternância entre sistemas e manutenção do caso com o agente até a solução final."
+            ),
+            "worker_dialogue": (
+                "Os agentes relacionaram retrabalho à falta de autonomia para crédito, prazo e substituição, "
+                "além de critérios diferentes entre supervisores e cobrança fora do fluxo formal."
+            ),
+            "document_analysis": (
+                "Foram examinados metas de tempo, conversão e qualidade, matriz de alçadas, scripts, escalas, "
+                "transferências, reaberturas, campanhas e regras de monitoramento do atendimento."
+            ),
+        },
+        (UNIT_DIGITAL, "followup"): {
+            "questionnaire": (
+                "A segunda coleta, também com 90 participantes, apontou melhora de autonomia e agravamento de "
+                "assédio após a adoção de ranking nominal e comparação pública de resultados."
+            ),
+            "activity_observation": (
+                "A árvore de decisão reduziu espera e transferência. Reuniões e canais digitais exibiram "
+                "resultados nominais, comentários depreciativos e cobrança persistente sobre agentes abaixo da meta."
+            ),
+            "worker_dialogue": (
+                "A equipe diferenciou os ganhos das novas alçadas dos efeitos do modelo de supervisão e solicitou "
+                "retirada imediata do ranking nominal, mediação de conflitos e critérios transparentes."
+            ),
+            "document_analysis": (
+                "Matriz de alçadas, taxa de transferência, critérios do ranking, atas de reunião e mensagens de "
+                "gestão foram relacionados cronologicamente às duas mudanças organizacionais."
+            ),
+        },
     }
+    return evidence[(unit_id, wave)]
 
 
 def _store_inventory(connection, campaign_id: str, graded, aep_by_unit: dict) -> None:
@@ -646,11 +842,7 @@ def _store_inventory(connection, campaign_id: str, graded, aep_by_unit: dict) ->
 
 def _create_aep_documents(connection, campaign_id: str, wave: str) -> dict:
     aep_by_unit = {}
-    unit_names = {
-        UNIT_ATENDIMENTO: "Atendimento ao cliente",
-        UNIT_LOGISTICA: "Logística",
-    }
-    for unit_id, unit_name in unit_names.items():
+    for unit_id in UNIT_NAMES:
         aep_id = pilot_id(f"aep/{campaign_id}/{unit_id}")
         aep_by_unit[unit_id] = aep_id
         fields = _aep_text(unit_id, wave)
@@ -716,9 +908,9 @@ def _create_aep_documents(connection, campaign_id: str, wave: str) -> dict:
                 """,
                 (
                     evidence_id, ORG_ID, aep_id, method, campaign_id, evidence_date,
-                    "Equipe FROID — exercício demonstrativo",
+                    "Equipe corporativa de Saúde e Segurança do Trabalho",
                     summary,
-                    f"demo://{campaign_id}/{unit_id}/{method}",
+                    f"registro-interno://{campaign_id}/{unit_id}/{method}",
                 ),
             )
         connection.execute(
@@ -737,12 +929,12 @@ def _create_aep_documents(connection, campaign_id: str, wave: str) -> dict:
 
 def _store_effectiveness(connection, verdicts) -> None:
     verdict_labels = {
-        "eliminated": "o cenário indica eliminação do perigo",
+        "eliminated": "a comparação indica eliminação do perigo",
         "effective": "a melhora supera o ruído e sustenta eficácia",
         "partial": "há melhora parcial que ainda exige acompanhamento",
         "no_change": "a variação não se distingue do ruído da coorte",
-        "worsened": "o cenário piorou e exige correção",
-        "inconclusive": "os dados do cenário não permitem concluir",
+        "worsened": "o resultado piorou e exige correção",
+        "inconclusive": "os dados disponíveis não permitem concluir",
     }
     for verdict in verdicts:
         review_id = pilot_id(
@@ -781,8 +973,7 @@ def _store_effectiveness(connection, verdicts) -> None:
                 verdict.followup_cohort, verdict.baseline_mean,
                 verdict.followup_mean, verdict.effect_size, verdict.verdict,
                 verdict.measure_efficacy, verdict.requires_correction,
-                "Cenário demonstrativo: "
-                + verdict_labels.get(verdict.verdict, verdict.verdict)
+                verdict_labels.get(verdict.verdict, verdict.verdict).capitalize()
                 + ". " + verdict.rationale,
             ),
         )
@@ -795,7 +986,7 @@ def _store_effectiveness(connection, verdicts) -> None:
             """,
             (
                 verdict.measure_efficacy,
-                " Reavaliação fictícia: "
+                " Resultado da reavaliação: "
                 + verdict_labels.get(verdict.verdict, verdict.verdict)
                 + ".",
                 action_id, ORG_ID,
@@ -804,69 +995,146 @@ def _store_effectiveness(connection, verdicts) -> None:
 
 
 def _action_plan_text(seed: dict, title: str, *, implemented: bool) -> dict:
-    unit = "atendimento multicanal" if seed["unit_id"] == UNIT_ATENDIMENTO else "operação logística"
     action = {
-        "introduce": "Introduzir",
+        "introduce": "Implantar",
         "improve": "Aprimorar",
-        "maintain": "Manter",
+        "maintain": "Manter e verificar",
     }.get(seed["plan_action"], "Revisar")
+    unit_id = seed["unit_id"]
+    factor = seed["nr1_factor"]
+
     measures = {
-        "work_organization": (
-            f"{action} regras de prioridade, passagem de responsabilidade e autonomia "
-            f"para {title.lower()} na {unit}, com validação da equipe."
-        ),
-        "workload_demand": (
-            f"{action} o balanceamento de capacidade, filas, pausas e limites de trabalho "
-            f"simultâneo para reduzir {title.lower()} na {unit}."
-        ),
-        "harassment_violence": (
-            f"{action} protocolo de interrupção segura, escalonamento imediato, registro e "
-            f"acolhimento para situações de {title.lower()} na {unit}."
-        ),
-        "environment_modality": (
-            f"{action} condições de comunicação, suporte e coordenação relacionadas a "
-            f"{title.lower()} na {unit}."
-        ),
+        UNIT_ATENDIMENTO: {
+            "work_organization": (
+                f"{action} padrão nacional para {title.lower()} nas lojas, definindo alçadas do "
+                "farmacêutico e do gerente, regra de remanejamento, cobertura dos horários críticos "
+                "e participação das equipes na revisão de escala e fluxo."
+            ),
+            "workload_demand": (
+                f"{action} dimensionamento por porte e faixa horária para reduzir {title.lower()}, "
+                "separar retirada digital da fila de balcão, proteger pausas e acionar cobertura "
+                "regional antes que caixa, dispensação e reposição se acumulem na mesma pessoa."
+            ),
+            "harassment_violence": (
+                f"{action} protocolo nacional para {title.lower()}, autorizando interrupção segura "
+                "do atendimento, acionamento de liderança e segurança, preservação do registro da "
+                "ocorrência e acolhimento do trabalhador sem cobrança de continuidade da venda."
+            ),
+            "environment_modality": (
+                f"{action} canais de suporte relacionados a {title.lower()}, com contato regional "
+                "único, redundância para falha de sistema e resposta prioritária às lojas noturnas "
+                "ou operadas temporariamente com equipe reduzida."
+            ),
+        },
+        UNIT_LOGISTICA: {
+            "work_organization": (
+                f"{action} governança de {title.lower()} nos centros de distribuição, definindo quem "
+                "pode alterar ondas, bloquear exceções, aceitar impacto de rota e decidir sobre "
+                "cadeia fria, itens controlados e pedidos urgentes."
+            ),
+            "workload_demand": (
+                f"{action} planejamento de capacidade para reduzir {title.lower()}, incorporando "
+                "previsão comercial, presença real por turno, limites das docas, horário das "
+                "transportadoras e reserva operacional para avarias e redistribuições."
+            ),
+            "harassment_violence": (
+                f"{action} resposta a {title.lower()} no recebimento e na expedição, com autoridade "
+                "para suspender a operação, retirar a equipe da exposição, acionar segurança, "
+                "registrar terceiros envolvidos e conduzir análise pós-incidente."
+            ),
+            "environment_modality": (
+                f"{action} condições de {title.lower()} por meio de fila única integrada ao WMS, "
+                "passagem estruturada entre turnos e confirmação formal de toda repriorização que "
+                "afete separação, conferência, doca ou transporte."
+            ),
+        },
+        UNIT_DIGITAL: {
+            "work_organization": (
+                f"{action} regras de {title.lower()} no atendimento digital, com alçadas claras para "
+                "crédito, prazo e substituição, critérios transparentes de distribuição de filas e "
+                "proibição de ranking nominal ou cobrança vexatória."
+            ),
+            "workload_demand": (
+                f"{action} capacidade e limites para {title.lower()}, equilibrando voz, chat e "
+                "aplicativos, restringindo casos simultâneos, distribuindo incidentes sistêmicos e "
+                "impedindo acionamento rotineiro fora da jornada."
+            ),
+            "harassment_violence": (
+                f"{action} prevenção e resposta a {title.lower()}, retirando comparações nominais, "
+                "criando mediação independente, preservando evidências de canais digitais e "
+                "protegendo quem relata conduta abusiva contra retaliação."
+            ),
+            "environment_modality": (
+                f"{action} suporte para {title.lower()} no trabalho remoto e multicanal, com canal "
+                "único de ajuda, plantão técnico, reunião regular com a liderança e atualização "
+                "sincronizada de campanhas, estoque e regras de atendimento."
+            ),
+        },
     }
     monitoring = {
-        "work_organization": "Revisão quinzenal do fluxo, das exceções e da passagem entre responsáveis.",
-        "workload_demand": "Painel semanal de filas, pausas adiadas, retrabalho e capacidade por turno.",
-        "harassment_violence": "Revisão mensal de ocorrências agregadas, tempo de resposta e acolhimento oferecido.",
-        "environment_modality": "Ronda mensal das condições de comunicação e consulta estruturada às equipes.",
+        UNIT_ATENDIMENTO: {
+            "work_organization": "Revisão mensal de escalas, alçadas, remanejamentos e participação por estado e porte de loja.",
+            "workload_demand": "Painel semanal de filas, cobertura, pausas adiadas, retirada digital e horas extraordinárias por faixa horária.",
+            "harassment_violence": "Revisão mensal de ocorrências agregadas, tempo de acionamento, interrupção segura e acolhimento oferecido.",
+            "environment_modality": "Teste trimestral dos canais de suporte e auditoria de disponibilidade em lojas noturnas e com equipe reduzida.",
+        },
+        UNIT_LOGISTICA: {
+            "work_organization": "Revisão quinzenal de exceções, bloqueios, alterações de onda e decisões transferidas entre áreas e turnos.",
+            "workload_demand": "Painel por turno de ocupação das ondas, capacidade planejada, cortes perdidos, retrabalho e horas extraordinárias.",
+            "harassment_violence": "Análise mensal de incidentes com terceiros, tempo de resposta, suspensão da atividade e ações pós-incidente.",
+            "environment_modality": "Auditoria semanal de divergências entre WMS, rádio, quadro da doca e registro da passagem de turno.",
+        },
+        UNIT_DIGITAL: {
+            "work_organization": "Revisão mensal das alçadas, distribuição de filas, critérios de desempenho e decisões contestadas pela equipe.",
+            "workload_demand": "Painel semanal de simultaneidade, espera, transferências, reaberturas, pausas e acionamentos fora da jornada.",
+            "harassment_violence": "Acompanhamento mensal de relatos agregados, medidas de proteção, prazo de apuração e reincidência por área de gestão.",
+            "environment_modality": "Teste mensal dos canais de suporte, estabilidade das integrações e contato regular de equipes remotas com a liderança.",
+        },
     }
-    evidence_done = {
-        "work_organization": "Registro cenográfico: fluxo redesenhado, líderes orientados e equipe consultada.",
-        "workload_demand": "Registro cenográfico: escala de pico, regra de pausas e limite de simultaneidade implantados.",
-        "harassment_violence": "Registro cenográfico: protocolo divulgado, liderança treinada e canal de acolhimento ensaiado.",
-        "environment_modality": "Registro cenográfico: canais e responsabilidades atualizados no roteiro operacional.",
+    completed_evidence = {
+        UNIT_ATENDIMENTO: {
+            "work_organization": "Matriz de alçadas publicada, escalas críticas revisadas e atas de consulta às equipes anexadas.",
+            "workload_demand": "Cobertura regional ativada, fila digital separada e rotina de registro de pausas incorporada à gestão das lojas.",
+            "harassment_violence": "Protocolo distribuído, gestores treinados e exercícios de acionamento concluídos nos três modelos de loja.",
+            "environment_modality": "Canal regional único divulgado e contingência validada com unidades noturnas e de menor quadro.",
+        },
+        UNIT_LOGISTICA: {
+            "work_organization": "Responsabilidades por exceção formalizadas e autoridade de bloqueio comunicada a todos os turnos.",
+            "workload_demand": "Plano de capacidade passou a incorporar previsão comercial, presença por turno e reserva para contingências.",
+            "harassment_violence": "Fluxo de suspensão, segurança, registro de terceiros e acolhimento incluído no procedimento das docas.",
+            "environment_modality": "Fila única integrada ao WMS e passagem de turno com confirmação conjunta implantadas nos quatro centros.",
+        },
+        UNIT_DIGITAL: {
+            "work_organization": "Árvore de decisão e novas alçadas publicadas; agentes e supervisores receberam orientação operacional.",
+            "workload_demand": "Limites de simultaneidade configurados e célula de resolução passou a absorver pedidos críticos.",
+            "harassment_violence": "Canal independente divulgado e procedimento de preservação de mensagens e proteção contra retaliação formalizado.",
+            "environment_modality": "Plantão técnico, canal único e rotina de alinhamento com equipes remotas incorporados à operação.",
+        },
+    }
+    planned_evidence = {
+        "work_organization": "Entrega prevista: norma interna aprovada, matriz de responsabilidades, registro de consulta e comprovação de treinamento.",
+        "workload_demand": "Entrega prevista: estudo de capacidade, escala revisada, regra de contingência e série de acompanhamento por turno.",
+        "harassment_violence": "Entrega prevista: protocolo aprovado, treinamento, teste de acionamento e registro agregado das providências adotadas.",
+        "environment_modality": "Entrega prevista: fluxo de comunicação publicado, teste de contingência e auditoria de adesão dos setores envolvidos.",
     }
     deadline_days = {"critical": 15, "high": 30, "moderate": 60, "low": 90}
     today = datetime.now(timezone.utc).date()
     return {
-        "measure": "Cenário demonstrativo — " + measures[seed["nr1_factor"]],
-        "evidence": (
-            evidence_done[seed["nr1_factor"]]
-            if implemented
-            else "Pendência do exercício: pactuar a medida com liderança e trabalhadores antes da implementação."
-        ),
-        "monitoring": monitoring[seed["nr1_factor"]],
+        "measure": measures[unit_id][factor],
+        "evidence": completed_evidence[unit_id][factor] if implemented else planned_evidence[factor],
+        "monitoring": monitoring[unit_id][factor],
         "measurement": (
-            f"Comparar o resultado agregado de {title} no mesmo recorte e instrumento; "
-            "mudança dentro da margem permanece sem eficácia demonstrada."
+            f"Comparar o resultado agregado de {title} no mesmo setor, instrumento e regra de "
+            "coorte; verificar tamanho do efeito, margem e aderência operacional antes de concluir eficácia."
         ),
         "due_date": (
             today - timedelta(days=150 - min(seed["priority_rank"], 20))
-            if implemented
-            else today + timedelta(days=deadline_days[seed["risk_level"]])
+            if implemented else today + timedelta(days=deadline_days[seed["risk_level"]])
         ),
-        "implemented_at": (
-            datetime.now(timezone.utc) - timedelta(days=120)
-            if implemented else None
-        ),
+        "implemented_at": datetime.now(timezone.utc) - timedelta(days=120) if implemented else None,
         "created_at": (
             datetime.now(timezone.utc) - timedelta(days=178)
-            if implemented
-            else datetime.now(timezone.utc) - timedelta(days=1)
+            if implemented else datetime.now(timezone.utc) - timedelta(days=1)
         ),
     }
 
@@ -1035,7 +1303,8 @@ def _simulate_wave(connection, campaign_id, dimensions, wave) -> None:
                         """
                         INSERT INTO assessment_response_items (response_id, item_id, value)
                         VALUES (%s,%s,%s)
-                        ON CONFLICT DO NOTHING
+                        ON CONFLICT (response_id, item_id) DO UPDATE SET
+                            value=EXCLUDED.value
                         """,
                         (response_id, item_id, answer_for(rng, dimension, unit_id, wave)),
                     )
