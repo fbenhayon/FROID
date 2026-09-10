@@ -168,13 +168,27 @@ const EFFICACY_LABEL: Record<string, string> = {
 
 const ROADMAP_NR1 = [
   { numero: "01", titulo: "Estruturar", detalhe: "estabelecimentos, setores e efetivos", rota: "/access/empresa" },
-  { numero: "02", titulo: "Preparar a AEP", detalhe: "atividade real, métodos e evidências", rota: "/nr1/aep" },
+  { numero: "02", titulo: "Preparar a AEP", detalhe: "Avaliação Ergonômica Preliminar: o método da NR-17", rota: "/nr1/aep" },
   { numero: "03", titulo: "Coletar", detalhe: "campanha, convites e representatividade", rota: "/nr1/campanha" },
-  { numero: "04", titulo: "Apurar", detalhe: "encerrar a coleta e classificar riscos", rota: "/nr1" },
+  { numero: "04", titulo: "Apurar", detalhe: "encerrar a coleta e classificar riscos", rota: "#apuracao" },
   { numero: "05", titulo: "Documentar", detalhe: "inventário vinculado à AEP", rota: "/nr1/inventario" },
   { numero: "06", titulo: "Agir", detalhe: "medidas, responsáveis, prazos e aferição", rota: "/nr1/plano-de-acao" },
   { numero: "07", titulo: "Reavaliar", detalhe: "nova campanha após a implementação", rota: "/nr1/campanha" },
   { numero: "08", titulo: "Comprovar eficácia", detalhe: "comparar ciclos e corrigir insuficiências", rota: "/nr1/eficacia" },
+  { numero: "09", titulo: "Consolidar o dossiê", detalhe: "provas, integridade e resposta à fiscalização", rota: "/nr1/dossie" },
+] as const;
+
+const RECURSOS_NR1 = [
+  {
+    titulo: "Comprovante de aceite",
+    detalhe: "contratação, versões dos documentos e impressões digitais SHA-256",
+    rota: "/nr1/comprovante",
+  },
+  {
+    titulo: "FROID Explica NR-1",
+    detalhe: "orientação sobre norma, metodologia e leitura dos resultados",
+    rota: "/nr1/explica",
+  },
 ] as const;
 
 /** Quanto falta para a coorte falar pelo efetivo.
@@ -346,6 +360,19 @@ export const Nr1Dashboard: React.FC<{
   // errado. Quando isto é null, o cabeçalho renderiza "Sair" no lugar de
   // "Dashboard"; o comentário do botão, lá embaixo, conta o caso.
   const organizacaoDoPsique = organizacaoClinica(user);
+  const abrirRotaNr1 = (rota: string) => {
+    if (rota === "#apuracao") {
+      document.getElementById("apuracao")?.scrollIntoView({ behavior: "smooth" });
+    } else if (rota === "/access/empresa") nav("/access/empresa");
+    else if (rota === "/nr1/aep") nav("/nr1/aep");
+    else if (rota === "/nr1/campanha") nav("/nr1/campanha");
+    else if (rota === "/nr1/inventario") nav("/nr1/inventario");
+    else if (rota === "/nr1/plano-de-acao") nav("/nr1/plano-de-acao");
+    else if (rota === "/nr1/eficacia") nav("/nr1/eficacia");
+    else if (rota === "/nr1/dossie") nav("/nr1/dossie");
+    else if (rota === "/nr1/comprovante") nav("/nr1/comprovante");
+    else if (rota === "/nr1/explica") nav("/nr1/explica");
+  };
   const voltarAoPsique = async () => {
     // O botão só é renderizado com organização clínica. A guarda continua aqui
     // para o caso de alguém voltar a renderizá-lo sem ela — e o que ela NÃO
@@ -565,7 +592,7 @@ export const Nr1Dashboard: React.FC<{
               nem pela empresa, nem pelo FROID.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {organizacoes.length > 1 && (
               <label className="flex items-center gap-2">
                 <span className="text-[10px] font-black uppercase tracking-wide text-slate-500">
@@ -581,129 +608,33 @@ export const Nr1Dashboard: React.FC<{
                       key={organizacao.organization_id}
                       value={organizacao.organization_id}
                     >
-                      {organizacao.organization_name ||
-                        organizacao.organization_id}
+                      {organizacao.organization_name || organizacao.organization_id}
                     </option>
                   ))}
                 </select>
               </label>
             )}
-            <button
-              onClick={() => nav("/nr1/aep")}
-              title="Avaliação Ergonômica Preliminar: o método da NR-17 pelo qual a identificação de perigos e a avaliação de riscos psicossociais efetivamente acontecem. Obrigatória para toda organização, inclusive as dispensadas do PGR."
-              className="rounded border border-cyan-700 bg-cyan-950 px-4 py-2 text-xs font-black text-cyan-100 hover:bg-cyan-900"
-            >
-              AEP
-            </button>
-            {/* Faltava a porta de volta para a estrutura.
-                /access/empresa foi feita para continuar alcancavel depois do
-                cadastro — "a empresa volta aqui para acrescentar uma filial ou
-                corrigir um efetivo" — e nenhuma tela apontava para ela. O
-                unico link vivo estava na escolha de produto, que so aparece
-                para quem AINDA NAO se cadastrou. Na pratica, quem terminava o
-                cadastro nao tinha mais como cadastrar unidade nenhuma. */}
-            <button
-              onClick={() => nav("/access/empresa")}
-              title="Estabelecimentos e setores: a estrutura sobre a qual os recortes do relatorio sao calculados."
-              className="rounded border border-slate-700 px-4 py-2 text-xs font-black text-slate-200 hover:bg-slate-900"
-            >
-              Estrutura da empresa
-            </button>
-            <button
-              onClick={() => nav("/nr1/campanha")}
-              title="Criar a campanha, abrir a coleta e emitir os convites de cada trabalhador."
-              className="rounded border border-emerald-700 bg-emerald-950 px-4 py-2 text-xs font-black text-emerald-100 hover:bg-emerald-900"
-            >
-              Campanha e convites
-            </button>
-            {/* A duvida sobre a norma chega no meio da operacao, e nao numa
-                sessao de estudo. Por isso o acesso fica aqui, ao lado dos
-                botoes que a produzem, e nao num menu de ajuda. */}
-            <button
-              onClick={() => nav("/nr1/inventario")}
-              title="O inventário de riscos gerado a partir da campanha encerrada, pronto para imprimir."
-              className="rounded border border-slate-700 px-4 py-2 text-xs font-black text-slate-200 hover:bg-slate-900"
-            >
-              Inventário
-            </button>
-            <div className="flex items-center border-l border-slate-800 pl-3">
-              <button
-                onClick={() => nav("/nr1/explica")}
-                title="Perguntas sobre a norma, sobre a metodologia e sobre como ler o resultado — com a fonte normativa."
-                className="rounded border border-cyan-700 bg-cyan-950 px-4 py-2 text-xs font-black text-cyan-100 hover:bg-cyan-900"
-              >
-                FROID Explica NR-1
-              </button>
-            </div>
-            <button
-              onClick={() => nav("/nr1/comprovante")}
-              title="Comprovante de aceite: quem contratou, quando, e a integra dos documentos com a impressao digital de cada um."
-              className="rounded border border-slate-700 px-4 py-2 text-xs font-black text-slate-200 hover:bg-slate-900"
-            >
-              Comprovante de aceite
-            </button>
-            <button
-              onClick={() => nav("/nr1/plano-de-acao")}
-              title="Plano de ação: o segundo documento obrigatório do Programa de Gerenciamento de Riscos (PGR), conforme NR-1, subitem 1.5.7.1 'b'."
-              className="rounded border border-amber-700 bg-amber-950 px-4 py-2 text-xs font-black text-amber-100 hover:bg-amber-900"
-            >
-              Plano de ação
-            </button>
-            <button
-              onClick={() => nav("/nr1/eficacia")}
-              className="rounded border border-cyan-700 bg-cyan-950 px-4 py-2 text-xs font-black text-cyan-100 hover:bg-cyan-900"
-            >
-              Eficácia das medidas
-            </button>
-            {/* A volta ao Psique leva o contexto junto.
-                Chamava-se "Voltar ao painel" e só mudava a URL. A organização
-                ativa continuava sendo a empresa NR-1, e o painel clínico
-                aberto sob organização 'enterprise' perde as permissões
-                clínicas identificadas: a pessoa chegava lá e os pacientes
-                dela tinham sumido, sem nada na tela explicando por quê.
-
-                O botão é de quem TEM os dois produtos. Para a empresa
-                contratante do NR-1 ele estava rotulado "Dashboard" e levava a
-                /dashboard, que é o painel CLÍNICO — "Saldo de sessões", "Meus
-                Pacientes", "Gestão da clínica". É exatamente o defeito que
-                `homeDoProduto` corrigiu no redirecionamento de login, apurado
-                em 27/08/2026 com a conta da TATICCA, e que este botão reabria
-                por dentro. Além de inútil para ela, é a tela que mais
-                contradiz o que o produto promete: o empregador não tem, e não
-                pode ter, pacientes — e numa demonstração comercial é a
-                primeira coisa que o cliente vê.
-
-                A necessidade que o botão atendia era outra, e continua
-                atendida: o painel NR-1 não tem "Administrativo", e sem uma
-                porta a única saída da tela seria fechar o navegador. Para quem
-                não tem painel clínico, a saída honesta do módulo é sair da
-                sessão. */}
             {organizacaoDoPsique ? (
               <button
                 onClick={() => void voltarAoPsique()}
-                title={`Painel clínico FROID Psique, no contexto de ${nomeDaOrganizacao(organizacaoDoPsique)}.`}
-                className="rounded border border-cyan-700 bg-cyan-950 px-4 py-2 text-xs font-black text-cyan-100 hover:bg-cyan-900"
+                title={`Abrir o FROID Psique no contexto de ${nomeDaOrganizacao(organizacaoDoPsique)}.`}
+                className="rounded border border-slate-700 px-3 py-2 text-xs font-black text-slate-300 hover:bg-slate-900"
               >
-                Dashboard
+                FROID Psique
               </button>
             ) : (
               <>
-                {/* A empresa que quiser o produto clínico passa a ter por onde.
-                    Não é o painel clínico dela — é o cadastro de um consultório
-                    PRÓPRIO, numa organização separada, porque o empregador não
-                    tem e não pode ter pacientes dentro da organização da
-                    empresa. Essa separação é o que sustenta a fronteira. */}
                 <button
                   onClick={() => nav("/access/produto")}
                   title="Cadastrar um consultório próprio no FROID Psique, em organização separada da empresa."
-                  className="rounded border border-cyan-800 bg-slate-900 px-4 py-2 text-xs font-black text-cyan-200 hover:bg-cyan-950"
+                  className="rounded border border-cyan-800 bg-slate-900 px-3 py-2 text-xs font-black text-cyan-200 hover:bg-cyan-950"
                 >
                   Adicionar FROID Psique
                 </button>
                 <button
                   onClick={onLogout}
                   title="Encerrar a sessão e voltar à tela de entrada."
-                  className="rounded border border-slate-700 px-4 py-2 text-xs font-black text-slate-200 hover:bg-slate-900"
+                  className="rounded border border-slate-700 px-3 py-2 text-xs font-black text-slate-300 hover:bg-slate-900"
                 >
                   Sair
                 </button>
@@ -731,13 +662,13 @@ export const Nr1Dashboard: React.FC<{
               correção do próximo giro.
             </p>
           </div>
-          <ol className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          <ol className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {ROADMAP_NR1.map((passo) => (
               <li key={passo.numero}>
                 <button
                   type="button"
-                  onClick={() => nav(passo.rota)}
-                  className="group flex h-full w-full gap-3 rounded-lg border border-slate-800 bg-slate-950/80 p-3 text-left hover:border-cyan-700 hover:bg-cyan-950/30"
+                  onClick={() => abrirRotaNr1(passo.rota)}
+                  className="group flex h-full w-full gap-3 rounded-lg border border-slate-800 bg-slate-950/80 p-3 text-left transition hover:-translate-y-0.5 hover:border-cyan-500 hover:bg-cyan-950/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
                 >
                   <span className="text-xs font-black text-cyan-400">{passo.numero}</span>
                   <span>
@@ -752,6 +683,28 @@ export const Nr1Dashboard: React.FC<{
               </li>
             ))}
           </ol>
+          <div className="mt-4 border-t border-slate-800 pt-3">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+              Recursos de apoio e prova
+            </p>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              {RECURSOS_NR1.map((recurso) => (
+                <button
+                  key={recurso.rota}
+                  type="button"
+                  onClick={() => abrirRotaNr1(recurso.rota)}
+                  className="group rounded-lg border border-slate-800 bg-slate-950/60 px-4 py-3 text-left transition hover:border-cyan-700 hover:bg-cyan-950/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                >
+                  <strong className="block text-xs text-slate-200 group-hover:text-cyan-100">
+                    {recurso.titulo}
+                  </strong>
+                  <span className="mt-1 block text-[10px] leading-4 text-slate-500">
+                    {recurso.detalhe}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
         </section>
 
         {!criteriaPublished && (
@@ -781,7 +734,7 @@ export const Nr1Dashboard: React.FC<{
           </p>
         )}
 
-        <div className="mt-5 grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
+        <div id="apuracao" className="mt-5 scroll-mt-4 grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
           <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-sm font-black">Campanhas</h2>

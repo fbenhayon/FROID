@@ -15,6 +15,7 @@ describe("road map do ciclo NR-1", () => {
       "Agir",
       "Reavaliar",
       "Comprovar eficácia",
+      "Consolidar o dossiê",
     ];
     let anterior = -1;
     for (const passo of passos) {
@@ -27,5 +28,12 @@ describe("road map do ciclo NR-1", () => {
   it("não apresenta a reavaliação como sucesso automático", () => {
     expect(FONTE).toContain("quando uma medida não demonstra eficácia");
     expect(FONTE).toContain("correção do próximo giro");
+  });
+
+  it("mantém o fluxo principal no road map e separa os recursos de apoio", () => {
+    expect(FONTE).toContain('rota: "/nr1/dossie"');
+    expect(FONTE).toContain("Recursos de apoio e prova");
+    expect(FONTE).toContain('titulo: "Comprovante de aceite"');
+    expect(FONTE).toContain('titulo: "FROID Explica NR-1"');
   });
 });
