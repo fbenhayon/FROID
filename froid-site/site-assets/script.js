@@ -104,7 +104,7 @@ var NAV_SECOES = {
   ],
   "como-funciona-nr1.html": [
     ["as-sete-etapas", "As nove etapas"],
-    ["dossie-verificavel", "Dossiê verificável"],
+    ["dossie-verificavel", "Comprovação de Gestão Diciplinar"],
     ["os-perigos", "A listagem do Guia MTE"],
     ["o-que-e-igual-em-toda-empresa-e-o-que-muda", "O que muda em cada empresa"],
     ["quando-a-segunda-avaliacao-reprova", "E se a segunda avaliação reprovar?"],
