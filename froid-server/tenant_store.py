@@ -4175,9 +4175,8 @@ class TenantStore:
                 self._nr1_session(connection, organization_id, membership_id)
                 payload = self._nr1_dossier_payload(connection, organization_id)
                 fingerprint = sha256_json(payload)
-                # Serializa a numeração por organização. SELECT ... FOR SHARE
-                # não impede duas requisições simultâneas de escolherem a mesma
-                # próxima versão.
+                # Serializa a numeração por organização sem bloqueio de linha:
+                # a tabela append-only não concede UPDATE ao papel de runtime.
                 connection.execute(
                     "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
                     (organization_id,),
@@ -4187,7 +4186,6 @@ class TenantStore:
                     SELECT version, content_sha256
                     FROM psychosocial_compliance_dossiers
                     WHERE organization_id=%s ORDER BY version DESC LIMIT 1
-                    FOR SHARE
                     """,
                     (organization_id,),
                 ).fetchone()

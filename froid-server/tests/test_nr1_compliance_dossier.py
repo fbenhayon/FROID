@@ -35,6 +35,10 @@ class DossierIntegrityTests(unittest.TestCase):
         seal = STORE[STORE.index("def nr1_seal_compliance_dossier"):]
         seal = seal[:seal.index("def nr1_get_compliance_dossier")]
         self.assertIn("pg_advisory_xact_lock", seal)
+        # FOR SHARE também exige UPDATE no PostgreSQL. A tabela é append-only e
+        # o runtime deliberadamente não tem esse privilégio; o advisory lock já
+        # serializa a numeração sem enfraquecer a imutabilidade.
+        self.assertNotIn("FOR SHARE", seal)
         self.assertIn("nr1.dossier.seal", seal)
         self.assertIn("sha256_json(payload)", seal)
 
