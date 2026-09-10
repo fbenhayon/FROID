@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Como funciona — o ciclo da NR-1 psicossocial, etapa por etapa</title>
-<meta name="description" content="O roteiro completo de uma implantação NR-1 no FROID: cadastro, campanha anônima, coleta, inventário com os nove itens, AEP, plano de ação e o acompanhamento da eficácia das medidas." />
+<title>Como funciona — ciclo NR-1 e dossiê verificável no FROID</title>
+<meta name="description" content="As nove etapas do FROID NR-1/ISO-45003: AEP, coleta anônima, inventário, plano de ação, eficácia e dossiê verificável com histórico append-only e SHA-256." />
 <link rel="alternate" hreflang="pt-BR" href="https://www.froid.com.br/como-funciona-nr1.html" />
 <link rel="alternate" hreflang="en" href="https://www.froid.com.br/en/como-funciona-nr1.html" />
 <link rel="alternate" hreflang="fr" href="https://www.froid.com.br/fr/como-funciona-nr1.html" />
@@ -36,6 +36,30 @@
   .fase-ciclo { border-left-style:dashed; border-left-color:#92400e; }
   .fase-ciclo::before { background:#fcd34d; }
   .fase-ciclo .quando { color:#fcd34d; }
+
+  .proof-stage { margin-top:48px; padding:28px; border:1px solid #155e75; border-radius:16px; background:linear-gradient(145deg,rgba(8,47,73,.78),rgba(15,23,42,.96)); box-shadow:0 18px 54px rgba(2,8,23,.32); }
+  .proof-stage .proof-lead { max-width:700px; margin:10px 0 0; color:#cbd5e1; line-height:1.7; }
+  .proof-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-top:22px; }
+  .proof-card { min-height:150px; padding:18px; border:1px solid #1e3a5f; border-radius:10px; background:rgba(2,6,23,.7); }
+  .proof-card .proof-num { color:#67e8f9; font-size:12px; font-weight:900; letter-spacing:.12em; }
+  .proof-card h3 { margin:8px 0 6px; font-size:1rem; }
+  .proof-card p { margin:0; color:#94a3b8; font-size:.88rem; line-height:1.65; }
+  .hash-chain { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:7px; margin:24px 0 0; padding:0; list-style:none; counter-reset:proof; }
+  .hash-chain li { position:relative; min-height:112px; padding:13px 11px; border:1px solid #164e63; border-radius:8px; background:#07111f; color:#cbd5e1; font-size:.76rem; line-height:1.5; }
+  .hash-chain li::before { counter-increment:proof; content:"0" counter(proof); display:block; margin-bottom:7px; color:#22d3ee; font-weight:900; }
+  .hash-chain li:not(:last-child)::after { content:"›"; position:absolute; z-index:2; right:-8px; top:42px; color:#67e8f9; font-size:21px; font-weight:900; }
+  .proof-formats { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-top:22px; }
+  .proof-format { padding:13px 14px; border-top:2px solid #0891b2; background:rgba(15,23,42,.72); }
+  .proof-format strong { display:block; color:#e2e8f0; font-size:.84rem; }
+  .proof-format span { display:block; margin-top:4px; color:#94a3b8; font-size:.75rem; line-height:1.5; }
+  .proof-limit { margin-top:20px; padding:14px 16px; border-left:3px solid #f59e0b; background:rgba(69,26,3,.42); color:#fde68a; font-size:.82rem; line-height:1.65; }
+  @media (max-width:760px) {
+    .proof-stage { padding:20px; }
+    .proof-grid, .proof-formats { grid-template-columns:1fr; }
+    .hash-chain { grid-template-columns:1fr; }
+    .hash-chain li { min-height:0; }
+    .hash-chain li:not(:last-child)::after { content:"↓"; right:14px; top:auto; bottom:-16px; }
+  }
 
   .haz-wrap { overflow-x:auto; }
   .haz-table { width:100%; border-collapse:collapse; font-size:0.9rem; min-width:600px; }
@@ -120,7 +144,8 @@
           </div>
           <div class="nav-drop-col">
             <a class="nav-drop-pagina ativo" role="menuitem" href="como-funciona-nr1.html">Como funciona</a>
-            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#as-sete-etapas">As sete etapas</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#as-sete-etapas">As nove etapas</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#dossie-verificavel">Dossiê verificável</a>
             <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#os-perigos">A listagem do Guia MTE</a>
             <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#o-que-e-igual-em-toda-empresa-e-o-que-muda">O que muda em cada empresa</a>
             <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#quando-a-segunda-avaliacao-reprova">E se a segunda avaliação reprovar?</a>
@@ -196,10 +221,9 @@
       <strong>Antes de tudo, um esclarecimento que evita mal-entendido:</strong> no módulo NR-1 <em>não existe sessão</em>. Ninguém é entrevistado, ninguém liga a câmera e nenhum profissional do FROID entra na sua empresa. O trabalhador recebe um link para responder sobre condições de trabalho. O tempo de preenchimento varia; a participação não é atendimento clínico. A análise de voz e face é o outro produto do FROID, usado por profissionais de saúde no atendimento clínico — e o empregador nunca tem acesso a ele.
     </div>
 
-    <!-- O id continua "as-sete-etapas" de proposito: ja esta publicado, no menu
-         suspenso e em links externos. Trocar o id quebraria essas entradas para
-         ganhar nada — o titulo visivel e que precisava acompanhar o oitavo item. -->
-    <h2 id="as-sete-etapas">As sete etapas — e o desvio quando o ciclo não fecha</h2>
+    <!-- O id continua "as-sete-etapas" de propósito: já está publicado no menu
+         e em links externos. O título acompanha o fluxo atual sem quebrar URLs. -->
+    <h2 id="as-sete-etapas">As nove etapas — e o desvio quando o ciclo não fecha</h2>
 
     <div style="margin-top:24px;">
 
@@ -210,26 +234,26 @@
       </div>
 
       <div class="fase">
-        <span class="quando">Preparar</span>
-        <h3>Preparação da campanha</h3>
-        <p>Aqui entram as três coisas que só a sua empresa tem: o <strong>canal de apoio real</strong> — o telefone ou serviço que o trabalhador procura se não estiver bem —, o <strong>aviso de finalidade</strong> e os <strong>critérios de gradação</strong>. Se vocês já usam uma matriz 5×5 para risco químico, o FROID usa a mesma para o psicossocial, porque a NR-1 exige coerência entre todos os riscos do PGR.</p>
-        <div class="trava">
-          <strong>Trava:</strong> sem canal de apoio informado, o sistema recusa abrir a campanha. Perguntar a alguém como ele está e não ter para onde encaminhá-lo é pior do que não perguntar.
-        </div>
+        <span class="quando">Preparar a AEP</span>
+        <h3>Trabalho real, método e evidências</h3>
+        <p>A Avaliação Ergonômica Preliminar registra a organização do trabalho, duração, frequência e intensidade das exposições, possíveis cofatores, consulta aos trabalhadores, evidências utilizadas e responsável técnico. O questionário é uma das fontes: a AEP não nasce automaticamente das respostas e deve ser sustentada pela análise do trabalho real.</p>
       </div>
 
       <div class="fase">
         <span class="quando">Coletar</span>
-        <h3>Coleta</h3>
-        <p>Na área de campanhas, crie a campanha, confira o instrumento, as datas, o aviso de finalidade e o canal de apoio. Abra a coleta e emita os convites. O arquivo de distribuição relaciona matrícula e link: use-o para encaminhar os convites e apague-o após distribuir. O trabalhador não precisa de conta clínica para responder. A eventual reemissão deve ser feita pela ação própria da campanha.</p>
+        <h3>Campanha, proteção e coleta</h3>
+        <p>Na área de campanhas, defina público, instrumento, datas, aviso de finalidade, canal de apoio real e critérios de gradação. Se a organização já utiliza uma matriz de riscos no PGR, ela pode publicar os critérios correspondentes para manter coerência na avaliação psicossocial. Abra a coleta e emita os convites. O arquivo de distribuição relaciona matrícula e link: use-o para encaminhar os convites e apague-o após distribuir. O trabalhador não precisa de conta clínica para responder. A eventual reemissão deve ser feita pela ação própria da campanha.</p>
+        <div class="trava">
+          <strong>Trava:</strong> sem canal de apoio informado, o sistema recusa abrir a campanha. Perguntar a alguém como ele está e não ter para onde encaminhá-lo é pior do que não perguntar.
+        </div>
         <div class="trava">
           <strong>Trava:</strong> durante toda a coleta a empresa não vê absolutamente nada — nem parcial, nem percentual por setor. O motivo é matemático: se o painel mostra o resultado com 30 respondentes e depois com 31, a diferença entre as duas telas revela a resposta do trigésimo primeiro.
         </div>
       </div>
 
       <div class="fase">
-        <span class="quando">Encerrar e conferir</span>
-        <h3>Resultado</h3>
+        <span class="quando">Apurar</span>
+        <h3>Encerramento e resultado agregado</h3>
         <p>Encerre a coleta pela ação da campanha, após conferir o período de participação. O encerramento é definitivo nessa campanha. Só depois consulte o painel: resultados agregados dependem dos portões de anonimato e representatividade. A empresa não recebe respostas individuais. Encerrar a coleta não garante que todos os recortes tenham resultado publicável.</p>
         <div class="trava">
           <strong>Trava:</strong> um recorte sem dados suficientes não recebe classificação de risco. O inventário registra a insuficiência e o motivo; isso não equivale a risco baixo ou ausência de risco.
@@ -238,21 +262,33 @@
 
       <div class="fase">
         <span class="quando">Documentar</span>
-        <h3>Inventário, AEP e plano de ação</h3>
-        <p>Gere ou atualize o inventário da campanha e confira os recortes avaliados e os declarados insuficientes. A AEP tem formulário próprio: registre o contexto de trabalho, os achados e o responsável; ela não nasce apenas das respostas ao questionário. No plano de ação, complete as medidas com responsável, cronograma, acompanhamento e forma de aferição. A organização deve revisar os documentos e integrá-los ao seu processo de prevenção.</p>
+        <h3>Inventário vinculado à avaliação</h3>
+        <p>Gere ou atualize o inventário e confira os recortes avaliados e os declarados insuficientes. Cada registro reúne perigo, fontes, possíveis danos, grupos expostos, medidas existentes, classificação, vínculo com a AEP e prazo de revisão. Alterações posteriores preservam o histórico anterior.</p>
       </div>
 
       <div class="fase">
-        <span class="quando">Executar e acompanhar</span>
-        <h3>Implementação</h3>
-        <p>As medidas são da empresa. O FROID guarda os critérios registrados, as evidências e as datas — de modo que, quando alguém perguntar, exista trilha e não memória.</p>
+        <span class="quando">Agir</span>
+        <h3>Plano, implementação e acompanhamento</h3>
+        <p>Transforme os riscos priorizados em medidas com responsável, prazo, evidência de implementação, método de acompanhamento e resultado esperado. As medidas são da empresa; o FROID organiza decisões, critérios e datas para que exista uma trilha documental verificável.</p>
       </div>
 
       <div class="fase">
-        <span class="quando">Depois</span>
-        <h3>A prova de eficácia</h3>
-        <p>Planeje nova campanha comparável, com o mesmo instrumento e recorte. Na área de eficácia, selecione a campanha de referência e a de acompanhamento. O sistema compara as medidas disponíveis e apresenta o tamanho do efeito e sua incerteza; a interpretação deve considerar as ações realizadas e mudanças no contexto de trabalho.</p>
+        <span class="quando">Reavaliar</span>
+        <h3>Nova campanha após as medidas</h3>
+        <p>Planeje uma campanha posterior à implementação com instrumento e recorte compatíveis. Registre mudanças no contexto de trabalho que possam afetar a comparação e aguarde dados suficientes; recortes reprovados pelos portões de privacidade e representatividade continuam declarados como insuficientes.</p>
+      </div>
+
+      <div class="fase">
+        <span class="quando">Comprovar eficácia</span>
+        <h3>Comparação entre ciclos</h3>
+        <p>Na área de eficácia, relacione a campanha de referência, a campanha de acompanhamento, o risco e a medida implementada. O sistema compara as medidas disponíveis e registra o resultado e sua incerteza; a interpretação deve considerar as ações realizadas e mudanças no contexto de trabalho.</p>
         <p><strong>Um resultado inconclusivo não comprova melhora nem piora.</strong> Diferencie ausência de mudança detectável, piora e insuficiência de dados. A comparação entre campanhas, isoladamente, não prova que uma medida foi a causa da mudança.</p>
+      </div>
+
+      <div class="fase">
+        <span class="quando">Consolidar</span>
+        <h3>Dossiê de evidências verificável</h3>
+        <p>Reúna estrutura, AEP, campanhas encerradas, critérios, participação, inventário, medidas e eficácia em uma versão registrada. O FROID calcula o SHA-256 do conteúdo canônico, encadeia a versão à anterior e oferece a leitura em tela, o PDF institucional e o JSON estruturado.</p>
       </div>
 
       <div class="fase fase-ciclo">
@@ -263,6 +299,53 @@
       </div>
 
     </div>
+
+    <section class="proof-stage" id="dossie-verificavel" aria-labelledby="titulo-dossie-verificavel">
+      <p class="section-kicker" style="color:#67e8f9;">Da gestão à comprovação</p>
+      <h2 id="titulo-dossie-verificavel" style="margin:6px 0 0;">Um dossiê que permite reconstruir o que a empresa fez</h2>
+      <p class="proof-lead">O FROID transforma o ciclo psicossocial em uma cadeia documental: mostra o escopo avaliado, as fontes utilizadas, as decisões adotadas, quem ficou responsável, como a medida foi acompanhada e o que a reavaliação encontrou. Nenhuma resposta individual de trabalhador integra o dossiê.</p>
+
+      <div class="proof-grid">
+        <article class="proof-card">
+          <span class="proof-num">01 · CONTEXTO</span>
+          <h3>Origem e método permanecem ligados</h3>
+          <p>Estrutura organizacional, critérios publicados, AEP, evidências metodológicas e registros de participação dão contexto aos resultados agregados.</p>
+        </article>
+        <article class="proof-card">
+          <span class="proof-num">02 · DECISÃO</span>
+          <h3>Do risco à providência adotada</h3>
+          <p>Inventário e plano conectam perigo, grupos expostos, classificação, medida, responsável, prazo, acompanhamento e resultado esperado.</p>
+        </article>
+        <article class="proof-card">
+          <span class="proof-num">03 · ACOMPANHAMENTO</span>
+          <h3>A eficácia fecha — ou reabre — o ciclo</h3>
+          <p>A campanha posterior é comparada à referência. Eficácia insuficiente mantém a necessidade de correção visível e abre novo acompanhamento.</p>
+        </article>
+        <article class="proof-card">
+          <span class="proof-num">04 · INTEGRIDADE</span>
+          <h3>Versões preservadas e encadeadas</h3>
+          <p>Cada conteúdo novo recebe versão, data, conta responsável pelo registro e SHA-256; o hash anterior integra a cadeia. O papel operacional não pode alterar ou excluir uma versão registrada.</p>
+        </article>
+      </div>
+
+      <ol class="hash-chain" aria-label="Como o FROID registra uma versão verificável">
+        <li>Consolida somente os registros organizacionais e resultados agregados autorizados.</li>
+        <li>Ordena o conteúdo em uma representação canônica estável.</li>
+        <li>Calcula o SHA-256 que identifica exatamente aquele conteúdo.</li>
+        <li>Grava a versão append-only e a conecta ao hash da versão anterior.</li>
+        <li>Recalcula o hash na consulta para conferir a integridade preservada.</li>
+      </ol>
+
+      <div class="proof-formats" aria-label="Formatos de apresentação do dossiê">
+        <div class="proof-format"><strong>Painel interativo</strong><span>Consulta operacional da prontidão, dos registros e do histórico.</span></div>
+        <div class="proof-format"><strong>PDF institucional</strong><span>Documento A4 com faixa FROID, rodapé, paginação, conteúdo e hash.</span></div>
+        <div class="proof-format"><strong>JSON estruturado</strong><span>Arquivo dos dados estruturados e do hash registrado para análise técnica e guarda.</span></div>
+      </div>
+
+      <div class="proof-limit"><strong>O que essa comprovação significa:</strong> a igualdade do SHA-256 confirma que o conteúdo consultado corresponde ao conteúdo registrado; o histórico append-only e o encadeamento tornam alterações e substituições detectáveis. O hash não identifica o signatário e não substitui a assinatura eletrônica definida pela organização. O PDF apresenta o hash do conteúdo do dossiê; salvar o PDF pelo navegador não equivale, por si só, a assinar digitalmente o arquivo.</div>
+
+      <p style="margin:22px 0 0;"><a class="btn btn-amber" href="https://www.froid.com.br/app/#/nr1/dossie">Conhecer o dossiê no FROID</a></p>
+    </section>
 
     <!-- Veio de empresas.html. E referencia operacional -- o que precisa ser
          mapeado -- e quem decide comprar nao le a tabela inteira; quem vai
@@ -464,7 +547,7 @@
   </div>
 </footer>
 
-<script src="site-assets/script.js?v=17"></script>
+<script src="site-assets/script.js?v=18"></script>
 <script src="site-assets/navigation.js?v=1"></script>
 </body>
 </html>

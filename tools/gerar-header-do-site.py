@@ -40,7 +40,7 @@ IDIOMAS = {
                 ("Profissionais", "profissionais.html"),
                 ("FROID Explica", "froid-explica.html"),
             ]),
-            ("FROID Psicossocial", "iso-45003.html", [
+            ("FROID NR-1/ISO-45003", "iso-45003.html", [
                 ("Vis\u00e3o geral (ISO 45003)", "iso-45003.html"),
                 ("Para empresas", "empresas.html"),
                 ("Como funciona", "como-funciona-nr1.html"),
@@ -62,7 +62,7 @@ IDIOMAS = {
                 ("Professionals", "profissionais.html"),
                 ("FROID Explains", "froid-explica.html"),
             ]),
-            ("FROID Psychosocial", "iso-45003.html", [
+            ("FROID NR-1/ISO-45003", "iso-45003.html", [
                 ("Overview (ISO 45003)", "iso-45003.html"),
                 ("For Employers", "empresas.html"),
                 ("How it works", "como-funciona-nr1.html"),
@@ -84,7 +84,7 @@ IDIOMAS = {
                 ("Profesionales", "profissionais.html"),
                 ("FROID Explica", "froid-explica.html"),
             ]),
-            ("FROID Psicosocial", "iso-45003.html", [
+            ("FROID NR-1/ISO-45003", "iso-45003.html", [
                 ("Visi\u00f3n general (ISO 45003)", "iso-45003.html"),
                 ("Para Empresas", "empresas.html"),
                 ("C\u00f3mo funciona", "como-funciona-nr1.html"),
@@ -106,7 +106,7 @@ IDIOMAS = {
                 ("Professionnels", "profissionais.html"),
                 ("FROID Explique", "froid-explica.html"),
             ]),
-            ("FROID Psychosocial", "iso-45003.html", [
+            ("FROID NR-1/ISO-45003", "iso-45003.html", [
                 ("Vue d'ensemble (ISO 45003)", "iso-45003.html"),
                 ("Pour les Entreprises", "empresas.html"),
                 ("Comment \u00e7a marche", "como-funciona-nr1.html"),

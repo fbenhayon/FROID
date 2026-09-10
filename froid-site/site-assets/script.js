@@ -103,7 +103,8 @@ var NAV_SECOES = {
     ["proximo-passo", "Comece por um estabelecimento"]
   ],
   "como-funciona-nr1.html": [
-    ["as-sete-etapas", "As sete etapas"],
+    ["as-sete-etapas", "As nove etapas"],
+    ["dossie-verificavel", "Dossiê verificável"],
     ["os-perigos", "A listagem do Guia MTE"],
     ["o-que-e-igual-em-toda-empresa-e-o-que-muda", "O que muda em cada empresa"],
     ["quando-a-segunda-avaliacao-reprova", "E se a segunda avaliação reprovar?"],
