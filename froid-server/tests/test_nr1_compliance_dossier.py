@@ -42,6 +42,15 @@ class DossierIntegrityTests(unittest.TestCase):
         self.assertIn("nr1.dossier.seal", seal)
         self.assertIn("sha256_json(payload)", seal)
 
+    def test_preview_time_does_not_create_a_new_document_version(self):
+        payload = STORE[STORE.index("def _nr1_dossier_payload"):]
+        payload = payload[:payload.index("def nr1_compliance_dossier_preview")]
+        preview = STORE[STORE.index("def nr1_compliance_dossier_preview"):]
+        preview = preview[:preview.index("def nr1_seal_compliance_dossier")]
+        self.assertNotIn('"generated_at"', payload)
+        self.assertIn('"preview_generated_at"', preview)
+        self.assertIn('"schema_version": "1.1"', payload)
+
 
 class DossierPrivacyAndFlowTests(unittest.TestCase):
     def test_payload_does_not_query_individual_answers(self):
@@ -58,9 +67,9 @@ class DossierPrivacyAndFlowTests(unittest.TestCase):
         self.assertIn('@app.post("/api/organizations/{organization_id}/nr1/dossiers"', MAIN)
 
     def test_interface_states_hash_limit_and_exports(self):
-        self.assertIn("não substitui a assinatura eletrônica", DASHBOARD)
+        self.assertIn("o hash não identifica o signatário", DASHBOARD)
         self.assertIn("Baixar JSON", DASHBOARD)
-        self.assertIn("Imprimir / salvar PDF", DASHBOARD)
+        self.assertIn("Gerar PDF institucional", DASHBOARD)
         self.assertIn("Roteiro para fiscalização", DASHBOARD)
         self.assertIn("Nenhuma resposta individual", DASHBOARD)
 

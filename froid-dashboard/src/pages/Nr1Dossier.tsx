@@ -3,20 +3,7 @@ import { useNavigate } from "react-router-dom";
 import type { FroidUser } from "../App";
 import { EtapaNr1 } from "../components/nr1/EtapaNr1";
 import { apiUrl } from "../lib/api";
-
-type Payload = {
-  document: { title: string; scope: string; generated_at: string };
-  organization: { legal_name?: string; organization_name?: string };
-  normative_basis: Array<{ reference: string; purpose: string; url: string }>;
-  response_protocol: string[];
-  privacy: Record<string, string>;
-  completeness: {
-    status: "complete" | "attention";
-    gaps: string[];
-    counts: Record<string, number>;
-  };
-  records: Record<string, Array<Record<string, unknown>>>;
-};
+import { printNr1Dossier, type Nr1DossierPayload as Payload } from "../lib/nr1-dossier-print";
 
 type Version = {
   dossier_id: string;
@@ -26,27 +13,29 @@ type Version = {
   sealed_at: string;
   integrity_verified?: boolean;
   integrity_scope?: string;
+  created?: boolean;
   payload?: Payload;
 };
 
 type PreviewResponse = {
   preview: Payload;
   preview_sha256: string;
+  preview_generated_at?: string;
   versions: Version[];
 };
 
-const COUNT_LABELS: Record<string, string> = {
-  active_units: "Unidades e grupos ativos",
-  published_criteria_versions: "Versões dos critérios do GRO",
-  closed_campaigns: "Campanhas encerradas",
-  aep_documents: "AEPs concluídas ou em curso",
-  aep_evidence: "Evidências metodológicas",
-  worker_participation_records: "Registros de participação",
-  inventory_rows: "Riscos documentados",
-  inventory_history_rows: "Versões históricas preservadas",
-  action_plan_items: "Medidas do plano de ação",
-  effectiveness_reviews: "Revisões de eficácia",
-  corrections_required: "Correções requeridas",
+const COUNT_META: Record<string, { label: string; detail: string }> = {
+  active_units: { label: "Unidades e grupos", detail: "Recortes organizacionais ativos que delimitam população, local e atividade avaliados." },
+  published_criteria_versions: { label: "Critérios do GRO", detail: "Versões publicadas da matriz usada para severidade, probabilidade e classificação." },
+  closed_campaigns: { label: "Campanhas encerradas", detail: "Coletas fechadas cuja apuração agregada já pode integrar o ciclo documental." },
+  aep_documents: { label: "AEPs", detail: "Avaliações Ergonômicas Preliminares concluídas ou em curso que descrevem trabalho e método." },
+  aep_evidence: { label: "Evidências da AEP", detail: "Observações, documentos e registros metodológicos vinculados à avaliação preliminar." },
+  worker_participation_records: { label: "Participação", detail: "Registros de consulta e participação dos trabalhadores sem revelar respostas individuais." },
+  inventory_rows: { label: "Riscos no inventário", detail: "Perigos avaliados, grupos expostos, controles existentes e classificação consolidada." },
+  inventory_history_rows: { label: "Histórico preservado", detail: "Estados anteriores do inventário mantidos para reconstruir decisões e mudanças." },
+  action_plan_items: { label: "Medidas de ação", detail: "Controles com responsável, prazo, acompanhamento e resultado esperado." },
+  effectiveness_reviews: { label: "Revisões de eficácia", detail: "Comparações posteriores à implementação para verificar o efeito das medidas." },
+  corrections_required: { label: "Correções requeridas", detail: "Medidas sem eficácia suficiente que precisam de ajuste e novo acompanhamento." },
 };
 
 const readableDate = (value?: string | null) =>
@@ -102,7 +91,9 @@ export const Nr1Dossier: React.FC<{ user: FroidUser | null }> = ({ user }) => {
       const body = await response.json();
       if (!response.ok) throw new Error(body?.detail || "Não foi possível registrar a versão.");
       setSelected(body as Version);
-      setMessage(`Versão ${body.version} registrada. A conferência de integridade foi concluída.`);
+      setMessage(body.created
+        ? `Nova versão ${body.version} registrada. O conteúdo foi conferido e encadeado à versão anterior.`
+        : `Nenhuma alteração documental foi encontrada. A versão ${body.version} permanece atual e sua integridade foi reconferida.`);
       await load();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Falha ao registrar a versão.");
@@ -141,6 +132,18 @@ export const Nr1Dossier: React.FC<{ user: FroidUser | null }> = ({ user }) => {
     URL.revokeObjectURL(link.href);
   };
 
+  const printDocument = () => {
+    if (!payload) return;
+    const opened = printNr1Dossier(payload, {
+      version: selected?.version,
+      content_sha256: selected?.content_sha256 || data?.preview_sha256 || "",
+      previous_sha256: selected?.previous_sha256,
+      sealed_at: selected?.sealed_at || data?.preview_generated_at,
+      integrity_verified: selected?.integrity_verified,
+    });
+    if (!opened) setError("O navegador bloqueou a janela de impressão. Autorize pop-ups para o FROID e tente novamente.");
+  };
+
   const payload = selected?.payload || data?.preview;
   const counts = payload?.completeness.counts || {};
   const campaigns = payload?.records.campaigns || [];
@@ -172,7 +175,7 @@ export const Nr1Dossier: React.FC<{ user: FroidUser | null }> = ({ user }) => {
           <div className="flex flex-wrap gap-2 print:hidden">
             <button onClick={() => nav("/nr1")} className="rounded border border-slate-700 px-4 py-2 text-xs font-black">Voltar ao road map</button>
             <button onClick={downloadJson} disabled={!payload} className="rounded border border-cyan-700 px-4 py-2 text-xs font-black text-cyan-100 disabled:opacity-50">Baixar JSON</button>
-            <button onClick={() => window.print()} disabled={!payload} className="rounded border border-cyan-700 px-4 py-2 text-xs font-black text-cyan-100 disabled:opacity-50">Imprimir / salvar PDF</button>
+            <button onClick={printDocument} disabled={!payload} className="rounded border border-cyan-700 px-4 py-2 text-xs font-black text-cyan-100 disabled:opacity-50">Gerar PDF institucional</button>
             <button onClick={() => void seal()} disabled={!payload || sealing} className="rounded bg-cyan-600 px-4 py-2 text-xs font-black text-white disabled:opacity-50">{sealing ? "Registrando..." : "Registrar nova versão"}</button>
           </div>
         </header>
@@ -191,16 +194,27 @@ export const Nr1Dossier: React.FC<{ user: FroidUser | null }> = ({ user }) => {
             <div className="rounded-xl border border-slate-800 bg-slate-900 p-5 print:bg-white">
               <p className="text-[10px] font-black uppercase tracking-[.18em] text-cyan-300">Identificação da versão</p>
               <p className="mt-2 text-sm font-black">{payload.organization.organization_name || payload.organization.legal_name}</p>
-              <p className="mt-1 text-xs text-slate-400">Extração: {readableDate(payload.document.generated_at)}</p>
+              <p className="mt-1 text-xs text-slate-400">{selected ? "Registro" : "Prévia preparada"}: {readableDate(selected?.sealed_at || data?.preview_generated_at || payload.document.generated_at)}</p>
               <p className="mt-3 break-all font-mono text-[10px] text-cyan-200 print:text-slate-800">SHA-256: {selected?.content_sha256 || data?.preview_sha256}</p>
               {selected ? <p className="mt-2 text-xs text-slate-400">Versão {selected.version} · registrada em {readableDate(selected.sealed_at)} · integridade {selected.integrity_verified ? "conferida" : "não conferida"}</p> : <p className="mt-2 text-xs text-amber-300">Prévia ainda não registrada. Alterações posteriores mudarão o hash.</p>}
-              <p className="mt-3 text-[11px] leading-5 text-slate-400">O SHA-256 permite detectar alteração do conteúdo registrado. Ele não substitui a assinatura eletrônica do responsável; o PDF exportado pode receber assinatura qualificada ICP-Brasil conforme a política documental da organização.</p>
+              <div className="mt-3 space-y-1 text-[11px] leading-5 text-slate-400">
+                <p><strong className="text-slate-300">Integridade:</strong> o FROID recalcula o SHA-256 do conteúdo canônico; a igualdade confirma que os dados lidos são exatamente os registrados.</p>
+                <p><strong className="text-slate-300">Imutabilidade verificável:</strong> cada versão é append-only, sem alteração ou exclusão pelo papel operacional, e guarda o hash da versão anterior. Uma divergência evidencia adulteração ou quebra da cadeia.</p>
+                <p><strong className="text-slate-300">Limite:</strong> o hash não identifica o signatário. O PDF institucional pode receber a assinatura eletrônica adotada pela organização.</p>
+              </div>
             </div>
           </section>
 
-          <section className="mt-4 rounded-xl border border-slate-800 bg-slate-900 p-5 print:bg-white">
-            <h2 className="text-base font-black">Mapa das evidências consolidadas</h2>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">{Object.entries(counts).map(([key, value]) => <div key={key} className="rounded-lg border border-slate-800 bg-slate-950 p-3 print:bg-white"><strong className="text-xl text-cyan-300 print:text-slate-950">{value}</strong><span className="mt-1 block text-[10px] leading-4 text-slate-400">{COUNT_LABELS[key] || key}</span></div>)}</div>
+          <section className="mt-4 rounded-xl border border-slate-800 bg-slate-900 p-4 print:bg-white">
+            <h2 className="text-sm font-black">Mapa das evidências consolidadas</h2>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-6">{Object.entries(counts).map(([key, value]) => {
+              const meta = COUNT_META[key] || { label: key, detail: "Quantidade de registros consolidados neste componente." };
+              return <div key={key} title={meta.detail} tabIndex={0} aria-label={`${value} — ${meta.label}. ${meta.detail}`} className="group relative flex min-h-10 items-center gap-2 rounded-md border border-slate-800 bg-slate-950 px-2 py-1.5 print:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400">
+                <strong className="text-base leading-none text-cyan-300 print:text-slate-950">{value}</strong>
+                <span className="text-[9px] leading-3 text-slate-400">{meta.label}</span>
+                <span role="tooltip" className="pointer-events-none absolute left-1/2 top-full z-30 mt-1 hidden w-60 -translate-x-1/2 rounded-md border border-cyan-900 bg-slate-950 p-2 text-[10px] leading-4 text-slate-200 shadow-xl group-hover:block group-focus:block">{meta.detail}</span>
+              </div>;
+            })}</div>
           </section>
 
           <section className="mt-4 grid gap-4 lg:grid-cols-3">
@@ -214,7 +228,7 @@ export const Nr1Dossier: React.FC<{ user: FroidUser | null }> = ({ user }) => {
             <div className="rounded-xl border border-slate-800 bg-slate-900 p-5 print:bg-white"><h2 className="text-base font-black">Base e limites da prova</h2><div className="mt-4 space-y-4">{payload.normative_basis.map((item) => <div key={item.reference}><a href={item.url} target="_blank" rel="noreferrer" className="text-xs font-black text-cyan-300 underline">{item.reference}</a><p className="mt-1 text-[11px] leading-5 text-slate-400">{item.purpose}</p></div>)}</div><div className="mt-5 border-t border-slate-800 pt-4 text-[11px] leading-5 text-slate-400">{Object.values(payload.privacy).map((item) => <p key={item}>• {item}</p>)}</div></div>
           </section>
 
-          {data && data.versions.length > 0 && <section className="mt-4 rounded-xl border border-slate-800 bg-slate-900 p-5 print:hidden"><h2 className="text-base font-black">Histórico imutável</h2><div className="mt-3 grid gap-2 md:grid-cols-2">{data.versions.map((version) => <button key={version.dossier_id} onClick={() => void openVersion(version)} className="rounded-lg border border-slate-700 p-3 text-left hover:border-cyan-600"><strong className="text-xs">Versão {version.version}</strong><span className="ml-2 text-[10px] text-slate-500">{readableDate(version.sealed_at)}</span><span className="mt-2 block truncate font-mono text-[10px] text-cyan-300">{version.content_sha256}</span></button>)}</div></section>}
+          {data && data.versions.length > 0 && <section className="mt-4 rounded-xl border border-slate-800 bg-slate-900 p-5 print:hidden"><h2 className="text-base font-black">Histórico imutável e encadeado</h2><p className="mt-1 text-[11px] leading-5 text-slate-400">Abra uma versão para recomputar seu hash e conferir a integridade do conteúdo preservado. Cada registro aponta para o SHA-256 anterior, formando a trilha cronológica.</p><div className="mt-3 grid gap-2 md:grid-cols-2">{data.versions.map((version) => <button key={version.dossier_id} onClick={() => void openVersion(version)} className="rounded-lg border border-slate-700 p-3 text-left hover:border-cyan-600"><strong className="text-xs">Versão {version.version}</strong><span className="ml-2 text-[10px] text-slate-500">{readableDate(version.sealed_at)}</span><span className="mt-2 block truncate font-mono text-[10px] text-cyan-300">{version.content_sha256}</span>{version.previous_sha256 && <span className="mt-1 block truncate font-mono text-[9px] text-slate-600">anterior: {version.previous_sha256}</span>}</button>)}</div></section>}
         </>}
       </main>
     </div>

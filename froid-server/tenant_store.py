@@ -4043,12 +4043,10 @@ class TenantStore:
         if len(closed_campaigns) >= 2 and not effectiveness:
             gaps.append("Há ciclos encerrados sem comparação de eficácia registrada.")
 
-        generated_at = connection.execute("SELECT now()").fetchone()[0]
         payload = {
             "document": {
                 "title": "Dossiê de evidências do processo FROID NR-1",
-                "schema_version": "1.0",
-                "generated_at": generated_at,
+                "schema_version": "1.1",
                 "scope": (
                     "Registros organizacionais e resultados agregados do GRO/PGR. "
                     "Não contém resposta individual de trabalhador."
@@ -4154,6 +4152,7 @@ class TenantStore:
         return {
             "preview": payload,
             "preview_sha256": sha256_json(payload),
+            "preview_generated_at": datetime.now(timezone.utc).isoformat(),
             "versions": [
                 {
                     "dossier_id": str(item[0]), "version": int(item[1]),
@@ -4242,8 +4241,10 @@ class TenantStore:
             "integrity_verified": sha256_json(stored_payload) == row[2],
             "created": created,
             "integrity_scope": (
-                "SHA-256 comprova integridade do conteúdo registrado no FROID; "
-                "não substitui assinatura eletrônica do responsável."
+                "O SHA-256 confere a integridade do conteúdo canônico registrado. "
+                "A gravação append-only e o encadeamento ao hash anterior tornam "
+                "alterações posteriores detectáveis. O hash não identifica o "
+                "signatário nem substitui sua assinatura eletrônica."
             ),
         }
 
@@ -4275,8 +4276,10 @@ class TenantStore:
             "payload": payload,
             "integrity_verified": sha256_json(payload) == row[2],
             "integrity_scope": (
-                "SHA-256 comprova integridade do conteúdo registrado no FROID; "
-                "não substitui assinatura eletrônica do responsável."
+                "O SHA-256 confere a integridade do conteúdo canônico registrado. "
+                "A gravação append-only e o encadeamento ao hash anterior tornam "
+                "alterações posteriores detectáveis. O hash não identifica o "
+                "signatário nem substitui sua assinatura eletrônica."
             ),
         }
 

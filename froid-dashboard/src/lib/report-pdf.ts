@@ -498,6 +498,28 @@ function documento(
     })});<\/script>`;
 }
 
+/** Reutiliza o mesmo papel timbrado e o mesmo paginador dos relatórios da
+ * sessão em documentos administrativos do FROID. O conteúdo continua sendo
+ * montado pelo domínio de origem; faixa, A4, rodapé e numeração têm uma única
+ * implementação. */
+export function buildBrandedPrintable(options: {
+  title: string;
+  blocks: string[];
+  footer: string;
+  finalFooter?: string;
+  headerLabel?: string;
+  extraCss?: string;
+}): string {
+  return head(options.title, options.extraCss || "")
+    + documento(
+      options.blocks,
+      options.footer,
+      options.finalFooter || options.footer,
+      options.headerLabel || "",
+    )
+    + `</body></html>`;
+}
+
 /** Executa DENTRO da janela do relatório. Não pode referenciar nada do módulo:
  *  vai serializada por toString(). */
 function paginador(cfg: { cabecalho: string; rodape: string; rodapeFim: string; faixa: string }) {
