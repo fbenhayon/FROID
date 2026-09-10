@@ -10033,6 +10033,95 @@ async def register_nr1_lead(request: Request):
     }
 
 
+# Para onde vai a mensagem escrita no formulário de Sobre & Contato. O padrão
+# é o mesmo endereço que as quatro versões da página publicam — se os dois
+# divergirem, o visitante lê um endereço e escreve para outro. É o espelho da
+# regra 2.7 aplicado a endereço, e `test_contato_site.py` confronta esta
+# constante com o que cada página exibe.
+CONTATO_DESTINO = (
+    str(os.getenv("FROID_CONTATO_DESTINO", "") or "").strip() or "froid@froid.com.br"
+)
+
+
+@app.post("/api/contato")
+async def receber_mensagem_de_contato(request: Request):
+    """Mensagem deixada no formulário de Sobre & Contato do site.
+
+    Endpoint público, sem autenticação, e por isso com os mesmos cuidados do
+    formulário de leads: limite por IP, porque formulário aberto na internet é
+    alvo de robô antes de ser alvo de cliente, e teto de tamanho em cada campo.
+
+    A mensagem **não** é gravada em lugar nenhum: ela vira e-mail para
+    `CONTATO_DESTINO` e acabou. A escolha é deliberada — `marketing_leads`
+    grava e nenhuma tela lê, então mandar a mensagem para lá seria escrevê-la
+    num lugar onde ninguém a encontraria. A caixa de entrada é o leitor.
+
+    Por isso, também, falha de SMTP devolve 503 e não 200: quem escreveu
+    precisa saber que a mensagem não saiu, senão fica esperando resposta de um
+    e-mail que nunca chegou. É a regra 1.3 — falhe fechado, e diga que fechou.
+    """
+    _rate_limit_guard(
+        "contato", _client_ip(request), 5, 3600.0,
+        "Muitas mensagens deste endereço. Tente novamente mais tarde.",
+    )
+    body = await request.json()
+
+    def _texto(chave: str, limite: int) -> str:
+        return str(body.get(chave) or "").strip()[:limite]
+
+    nome = _texto("nome", 120)
+    email = _texto("email", 180)
+    telefone = _texto("telefone", 40)
+    mensagem = _texto("mensagem", 4000)
+    assunto_origem = _texto("origem", 60) or "sobre-contato"
+
+    if len(nome) < 2 or "@" not in email or len(mensagem) < 10:
+        raise HTTPException(
+            status_code=400,
+            detail="nome, e-mail e uma mensagem de ao menos 10 caracteres são obrigatórios",
+        )
+    if not froid_mailer.mailer_enabled():
+        # Sem SMTP não há para onde mandar. Devolver 200 fingindo que enviou
+        # perderia a mensagem em silêncio, que é pior que a falha visível.
+        raise HTTPException(
+            status_code=503, detail="envio indisponível no momento"
+        )
+
+    assunto = f"[Site FROID] Mensagem de {nome}"
+    corpo = (
+        f"Mensagem enviada pelo formulário de contato do site ({assunto_origem}).\n\n"
+        f"Nome: {nome}\n"
+        f"E-mail: {email}\n"
+        f"Telefone: {telefone or 'não informado'}\n\n"
+        f"Mensagem:\n{mensagem}\n"
+    )
+    try:
+        await asyncio.to_thread(
+            froid_mailer.send_email,
+            CONTATO_DESTINO,
+            assunto,
+            corpo,
+            "",
+            email,
+        )
+    except froid_mailer.MailerError:
+        # O log fica com o tipo da falha; o texto da mensagem e o e-mail de
+        # quem escreveu não vão parar no arquivo de log.
+        LOGGER.warning(
+            json.dumps(
+                {"event": "froid.site_contact_send_failed", "origem": assunto_origem},
+                ensure_ascii=False,
+            )
+        )
+        raise HTTPException(
+            status_code=503, detail="envio indisponível no momento"
+        )
+    return {
+        "status": "ok",
+        "mensagem": "Mensagem enviada. Respondemos no e-mail que você informou.",
+    }
+
+
 # ----------------------------------------------------------------------
 # Validade convergente.
 #

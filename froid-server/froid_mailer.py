@@ -59,23 +59,49 @@ def dev_echo_enabled() -> bool:
     return SMTP_DEV_ECHO and not mailer_enabled()
 
 
-def send_email(to_address: str, subject: str, text_body: str, html_body: str = "") -> None:
+def _header_safe(value: str) -> str:
+    """Achata quebras de linha antes de o texto virar cabeçalho.
+
+    Quase todo assunto daqui é escrito pelo próprio backend, mas o formulário
+    de contato do site põe nome e e-mail de visitante anônimo em `Subject` e
+    `Reply-To`. Um `\\r\\n` no meio de um cabeçalho é o que permite anexar
+    outro cabeçalho — um `Bcc:` para uma lista qualquer, com o SMTP autenticado
+    do FROID assinando o envio. Achatar aqui, no único ponto por onde todo
+    cabeçalho passa, vale mais que confiar em cada chamador se lembrar.
+    """
+    return " ".join(str(value or "").split())
+
+
+def send_email(
+    to_address: str,
+    subject: str,
+    text_body: str,
+    html_body: str = "",
+    reply_to: str = "",
+) -> None:
     """Envia uma mensagem. Bloqueante — chame por `asyncio.to_thread`.
 
     O laço de eventos do FastAPI atende as sessões ao vivo (o tick de 1s do
     stream multimodal); um SMTP lento no laço congelaria o atendimento de todo
     mundo enquanto espera o handshake.
+
+    `reply_to` existe para o contato do site: o envio sai do SMTP do FROID
+    (é ele que o domínio autoriza a assinar), mas quem responde precisa cair
+    no endereço do visitante, não no próprio remetente.
     """
-    destino = str(to_address or "").strip()
+    destino = _header_safe(to_address)
     if not destino:
         raise MailerError("destinatário ausente")
     if not mailer_enabled():
         raise MailerError("SMTP não configurado")
 
     message = EmailMessage()
-    message["Subject"] = subject
+    message["Subject"] = _header_safe(subject)
     message["From"] = formataddr((SMTP_FROM_NAME, SMTP_FROM))
     message["To"] = destino
+    responder_para = _header_safe(reply_to)
+    if responder_para:
+        message["Reply-To"] = responder_para
     message["Message-ID"] = make_msgid()
     # Correio transacional: nenhum cliente deve tratar isto como marketing nem
     # gerar resposta automática de férias para um link de uso único.

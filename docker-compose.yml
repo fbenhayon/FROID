@@ -95,6 +95,13 @@ services:
       - FROID_SMTP_FROM_NAME=${FROID_SMTP_FROM_NAME:-FROID}
       - FROID_SMTP_STARTTLS=${FROID_SMTP_STARTTLS:-true}
       - FROID_SMTP_SSL=${FROID_SMTP_SSL:-false}
+      # Para onde vai a mensagem do formulario de Sobre & Contato. A linha
+      # existe porque o servico recebe lista explicita e nao env_file: sem ela,
+      # por-la no .env ligaria uma chave que nunca chegaria ao contexto, e o
+      # sintoma seria a mensagem continuar indo para o endereco antigo sem erro
+      # nenhum. O padrao e o mesmo endereco que as quatro versoes da pagina
+      # publicam, conferido por teste.
+      - FROID_CONTATO_DESTINO=${FROID_CONTATO_DESTINO:-froid@froid.com.br}
       - STRIPE_CURRENCY=${STRIPE_CURRENCY:-usd}
       - FROID_ALLOW_LOCAL_BILLING_FALLBACK=${FROID_ALLOW_LOCAL_BILLING_FALLBACK:-false}
       - FROID_LEGAL_ACCEPTANCE_REQUIRED=${FROID_LEGAL_ACCEPTANCE_REQUIRED:-false}
