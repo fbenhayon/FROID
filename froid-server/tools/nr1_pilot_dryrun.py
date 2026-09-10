@@ -255,8 +255,9 @@ def create(connection) -> None:
             """
             INSERT INTO organization_units
                 (id, organization_id, unit_type, name, headcount, status)
-            VALUES (%s,%s,'sector',%s,%s,'active')
+            VALUES (%s,%s,'exposure_group',%s,%s,'active')
             ON CONFLICT (id) DO UPDATE SET
+                unit_type='exposure_group',
                 name=EXCLUDED.name,
                 headcount=EXCLUDED.headcount,
                 status='active'
@@ -790,7 +791,32 @@ def _evidence_summaries(unit_id: str, wave: str) -> dict:
             ),
         },
     }
-    return evidence[(unit_id, wave)]
+    result = evidence[(unit_id, wave)]
+    participation = {
+        UNIT_ATENDIMENTO: (
+            "Oficina moderada com farmacêuticos, balconistas, caixas e gerentes reconstruiu a jornada do atendimento, da chegada do cliente ao encerramento da venda, localizando filas, pausas, recusas técnicas, conflitos e acionamentos regionais.",
+            "A representação dos trabalhadores examinou escalas, segurança no atendimento, canais de acolhimento e prioridades do plano, registrando concordâncias, ressalvas e pedidos de acompanhamento para lojas 24 horas.",
+        ),
+        UNIT_LOGISTICA: (
+            "Oficina com recebimento, armazenagem, picking, conferência, qualidade e expedição mapeou decisões de prioridade, passagem de turno, bloqueios, cadeia fria, avarias e impactos de alterações próximas ao corte.",
+            "A representação dos trabalhadores revisou o fluxo de exceções, horas extras, capacidade das ondas e comunicação entre planejamento e operação, com registro das pendências levadas ao plano de ação.",
+        ),
+        UNIT_DIGITAL: (
+            "Oficina com atendimento por telefone, chat e aplicativos reconstruiu transferências, alçadas, alternância entre sistemas, metas concorrentes, monitoramento e situações de exposição nominal em reuniões e canais digitais.",
+            "A representação dos trabalhadores avaliou autonomia, critérios de desempenho, prevenção de assédio e canais de mediação, registrando a retirada do ranking nominal como prioridade quando identificada na reavaliação.",
+        ),
+    }
+    workshop, cipa = participation[unit_id]
+    wave_note = (
+        " Na linha de base, o registro consolidou causas, controles existentes e prioridades iniciais."
+        if wave == "baseline"
+        else " Na reavaliação, o registro comparou as mudanças, confirmou efeitos e abriu correções pendentes."
+    )
+    return {
+        **result,
+        "workshop": workshop + wave_note,
+        "cipa_manifestation": cipa + wave_note,
+    }
 
 
 def _store_inventory(connection, campaign_id: str, graded, aep_by_unit: dict) -> None:
@@ -891,23 +917,80 @@ def _create_aep_documents(connection, campaign_id: str, wave: str) -> dict:
             ),
         )
         evidence = _evidence_summaries(unit_id, wave)
+        participation_ids = {}
+        for method, record_type, subject, attendees in (
+            (
+                "workshop", "focus_group",
+                f"Oficina de trabalho real — {UNIT_NAMES[unit_id]} — {fields['reference_period']}",
+                18 if unit_id == UNIT_ATENDIMENTO else 12,
+            ),
+            (
+                "cipa_manifestation", "cipa_minutes",
+                f"Manifestação da representação dos trabalhadores — {UNIT_NAMES[unit_id]} — {fields['reference_period']}",
+                8,
+            ),
+        ):
+            participation_id = pilot_id(f"participation/{campaign_id}/{unit_id}/{method}")
+            participation_ids[method] = participation_id
+            connection.execute(
+                """
+                INSERT INTO worker_participation_records
+                    (id, organization_id, unit_id, campaign_id, record_type,
+                     occurred_on, subject, attendee_count, evidence_reference,
+                     recorded_by_membership_id)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                ON CONFLICT (id) DO UPDATE SET
+                    subject=EXCLUDED.subject,
+                    attendee_count=EXCLUDED.attendee_count,
+                    evidence_reference=EXCLUDED.evidence_reference
+                """,
+                (
+                    participation_id, ORG_ID, unit_id, campaign_id, record_type,
+                    evidence_date, subject, attendees,
+                    f"registro-interno://{campaign_id}/{unit_id}/{record_type}",
+                    MEMBERSHIP_ID,
+                ),
+            )
+        communication_id = pilot_id(f"participation/{campaign_id}/{unit_id}/risk-communication")
+        connection.execute(
+            """
+            INSERT INTO worker_participation_records
+                (id, organization_id, unit_id, campaign_id, record_type,
+                 occurred_on, subject, attendee_count, evidence_reference,
+                 recorded_by_membership_id)
+            VALUES (%s,%s,%s,%s,'risk_communication',%s,%s,%s,%s,%s)
+            ON CONFLICT (id) DO UPDATE SET
+                subject=EXCLUDED.subject,
+                attendee_count=EXCLUDED.attendee_count,
+                evidence_reference=EXCLUDED.evidence_reference
+            """,
+            (
+                communication_id, ORG_ID, unit_id, campaign_id, evidence_date,
+                f"Devolutiva agregada e comunicação das medidas — {UNIT_NAMES[unit_id]} — {fields['reference_period']}",
+                24 if unit_id == UNIT_ATENDIMENTO else 16,
+                f"registro-interno://{campaign_id}/{unit_id}/risk-communication",
+                MEMBERSHIP_ID,
+            ),
+        )
         for method, summary in evidence.items():
             evidence_id = pilot_id(f"aep-evidence/{aep_id}/{method}")
             connection.execute(
                 """
                 INSERT INTO aep_evidence
-                    (id, organization_id, aep_id, method, campaign_id,
+                    (id, organization_id, aep_id, method, campaign_id, participation_record_id,
                      collected_on, collected_by, summary, evidence_reference)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 ON CONFLICT (id) DO UPDATE SET
                     campaign_id=EXCLUDED.campaign_id,
+                    participation_record_id=EXCLUDED.participation_record_id,
                     collected_on=EXCLUDED.collected_on,
                     collected_by=EXCLUDED.collected_by,
                     summary=EXCLUDED.summary,
                     evidence_reference=EXCLUDED.evidence_reference
                 """,
                 (
-                    evidence_id, ORG_ID, aep_id, method, campaign_id, evidence_date,
+                    evidence_id, ORG_ID, aep_id, method, campaign_id,
+                    participation_ids.get(method), evidence_date,
                     "Equipe corporativa de Saúde e Segurança do Trabalho",
                     summary,
                     f"registro-interno://{campaign_id}/{unit_id}/{method}",
@@ -1403,6 +1486,10 @@ def report(connection) -> None:
             "SELECT count(*) FROM aep_evidence WHERE organization_id=%s",
             (ORG_ID,),
         ).fetchone()[0],
+        "registros de participação e comunicação": connection.execute(
+            "SELECT count(*) FROM worker_participation_records WHERE organization_id=%s",
+            (ORG_ID,),
+        ).fetchone()[0],
         "riscos no inventário": connection.execute(
             "SELECT count(*) FROM psychosocial_risk_inventory WHERE organization_id=%s",
             (ORG_ID,),
@@ -1428,7 +1515,8 @@ def report(connection) -> None:
     incomplete = (
         counts["campanhas encerradas"] != 2
         or counts["AEP concluídas"] != len(POPULATION) * 2
-        or counts["evidências metodológicas"] != len(POPULATION) * 2 * 4
+        or counts["evidências metodológicas"] != len(POPULATION) * 2 * 6
+        or counts["registros de participação e comunicação"] != len(POPULATION) * 2 * 3
         or counts["riscos no inventário"] == 0
         or counts["medidas no plano de ação"] == 0
         or counts["revisões de eficácia"] != expected_reviews
@@ -1464,6 +1552,10 @@ def report(connection) -> None:
 
 def destroy(connection) -> None:
     """Remove exatamente o que o piloto criou, e nada além disso."""
+    connection.execute("SELECT set_config('app.nr1_pilot_destroy','allowed',true)")
+    connection.execute(
+        "DELETE FROM psychosocial_compliance_dossiers WHERE organization_id=%s", (ORG_ID,)
+    )
     passos = [
         ("measure_effectiveness_reviews", "organization_id=%s"),
         ("psychosocial_action_plan", "organization_id=%s"),
@@ -1633,6 +1725,22 @@ def main() -> int:
                 grant_access(connection, email)
             if args.create or args.report:
                 report(connection)
+    # A versão só é selada depois do commit do ciclo. Assim o papel de runtime
+    # enxerga exatamente o estado que a tela mostrará ao cliente e aplica as
+    # mesmas políticas RLS usadas pela aplicação.
+    if args.create:
+        from tenant_store import TenantStore
+
+        store = TenantStore.from_env()
+        sealed = store.nr1_seal_compliance_dossier(
+            organization_id=ORG_ID,
+            membership_id=MEMBERSHIP_ID,
+            actor_user_id=PILOT_USER_ID,
+        )
+        print(
+            f"Dossiê demonstrativo v{sealed['version']} registrado: "
+            f"SHA-256 {sealed['content_sha256']}"
+        )
     return 0
 
 

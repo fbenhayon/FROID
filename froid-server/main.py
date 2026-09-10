@@ -12200,6 +12200,73 @@ async def update_nr1_action_plan_item(
     return resultado
 
 
+@app.get("/api/organizations/{organization_id}/nr1/dossiers")
+async def preview_nr1_compliance_dossier(organization_id: str, request: Request):
+    """Prévia atual e versões imutáveis do dossiê, sempre em dados agregados."""
+    context = _require_enterprise_context(
+        request, organization_id, "nr1.aggregate.read"
+    )
+    try:
+        return TENANT_STORE.nr1_compliance_dossier_preview(
+            organization_id=organization_id,
+            membership_id=context.membership_id,
+        )
+    except RuntimeError:
+        raise HTTPException(status_code=409, detail="módulo NR-1 requer persistência dual")
+    except ValueError as exc:
+        if str(exc) == "organization_not_found":
+            raise HTTPException(status_code=404, detail="organização não encontrada")
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception:
+        LOGGER.exception("Unable to build NR-1 compliance dossier")
+        raise HTTPException(status_code=503, detail="dossiê NR-1 indisponível")
+
+
+@app.post("/api/organizations/{organization_id}/nr1/dossiers", status_code=201)
+async def seal_nr1_compliance_dossier(organization_id: str, request: Request):
+    """Registra nova versão append-only e encadeia seu SHA-256 à anterior."""
+    context = _require_enterprise_context(
+        request, organization_id, "nr1.action_plan.manage"
+    )
+    try:
+        result = TENANT_STORE.nr1_seal_compliance_dossier(
+            organization_id=organization_id,
+            membership_id=context.membership_id,
+            actor_user_id=context.user_id,
+        )
+    except RuntimeError:
+        raise HTTPException(status_code=409, detail="módulo NR-1 requer persistência dual")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception:
+        LOGGER.exception("Unable to seal NR-1 compliance dossier")
+        raise HTTPException(status_code=503, detail="não foi possível registrar o dossiê")
+    return result
+
+
+@app.get("/api/organizations/{organization_id}/nr1/dossiers/{dossier_id}")
+async def read_nr1_compliance_dossier(
+    organization_id: str, dossier_id: str, request: Request
+):
+    context = _require_enterprise_context(
+        request, organization_id, "nr1.aggregate.read"
+    )
+    try:
+        result = TENANT_STORE.nr1_get_compliance_dossier(
+            organization_id=organization_id,
+            membership_id=context.membership_id,
+            dossier_id=dossier_id,
+        )
+    except RuntimeError:
+        raise HTTPException(status_code=409, detail="módulo NR-1 requer persistência dual")
+    except Exception:
+        LOGGER.exception("Unable to read NR-1 compliance dossier")
+        raise HTTPException(status_code=503, detail="dossiê NR-1 indisponível")
+    if result is None:
+        raise HTTPException(status_code=404, detail="versão do dossiê não encontrada")
+    return result
+
+
 @app.get("/api/organizations/{organization_id}/wallet")
 async def get_organization_wallet(organization_id: str, request: Request):
     context = _require_tenant_management_context(

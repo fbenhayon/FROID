@@ -164,6 +164,21 @@ def _json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, default=str)
 
 
+def canonical_json(value: Any) -> str:
+    """Representação estável usada pela impressão digital do dossiê NR-1."""
+    return json.dumps(
+        value,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
+    )
+
+
+def sha256_json(value: Any) -> str:
+    return hashlib.sha256(canonical_json(value).encode("utf-8")).hexdigest()
+
+
 def _migration_is_applied(connection, version: str) -> bool:
     """Return whether a version is recorded without assuming the table exists."""
     table_exists = connection.execute(
@@ -3794,6 +3809,478 @@ class TenantStore:
                 if int(getattr(cursor, "rowcount", 0) or 0) == 0:
                     raise ValueError("action_plan_item_not_found")
         return {"item_id": item_id, "updated_fields": sorted(alteracoes)}
+
+    # -- Dossiê de fiscalização ---------------------------------------------
+    def _nr1_dossier_payload(self, connection, organization_id: str) -> dict:
+        """Consolida somente documentos e agregados; nunca lê resposta individual."""
+
+        def rows(query: str, params=()) -> list[dict]:
+            cursor = connection.execute(query, params)
+            names = [getattr(column, "name", column[0]) for column in cursor.description]
+            return [dict(zip(names, item)) for item in cursor.fetchall()]
+
+        def json_ready(value: Any) -> Any:
+            # Canonicalizar primeiro também transforma Decimal, date, datetime
+            # e UUID em texto estável antes de calcular o hash.
+            return json.loads(canonical_json(value))
+
+        organization_rows = rows(
+            """
+            SELECT id, legal_name, legal_name AS organization_name,
+                   organization_type, status
+            FROM organizations WHERE id=%s
+            """,
+            (organization_id,),
+        )
+        if not organization_rows:
+            raise ValueError("organization_not_found")
+
+        units = rows(
+            """
+            SELECT unit.id, unit.parent_unit_id, parent.name AS parent_name,
+                   unit.unit_type, unit.name, unit.external_code,
+                   unit.headcount, unit.status, unit.created_at, unit.updated_at
+            FROM organization_units unit
+            LEFT JOIN organization_units parent ON parent.id=unit.parent_unit_id
+            WHERE unit.organization_id=%s
+            ORDER BY unit.unit_type, parent.name NULLS FIRST, unit.name
+            """,
+            (organization_id,),
+        )
+        criteria = rows(
+            """
+            SELECT id, version, severity_scale, probability_scale, risk_matrix,
+                   classification_rules, decision_rules, consequence_magnitudes,
+                   review_interval_months, has_certified_sst_system,
+                   published_at, published_by_membership_id
+            FROM gro_risk_criteria
+            WHERE organization_id=%s
+            ORDER BY version
+            """,
+            (organization_id,),
+        )
+        campaigns = rows(
+            """
+            SELECT campaign.id, campaign.title, campaign.reference_period,
+                   campaign.unit_id, unit.name AS unit_name,
+                   campaign.target_headcount, campaign.opens_at,
+                   campaign.closes_at, campaign.closed_at, campaign.status,
+                   instrument.code AS instrument_code,
+                   instrument.version AS instrument_version,
+                   instrument.title AS instrument_title,
+                   campaign.criteria_id, counts.recorded AS recorded_responses,
+                   counts.substantive AS substantive_responses
+            FROM assessment_campaigns campaign
+            JOIN assessment_instruments instrument ON instrument.id=campaign.instrument_id
+            LEFT JOIN organization_units unit ON unit.id=campaign.unit_id
+            LEFT JOIN LATERAL froid_nr1_campaign_response_counts(campaign.id) counts
+                ON true
+            WHERE campaign.organization_id=%s
+            ORDER BY campaign.opens_at, campaign.id
+            """,
+            (organization_id,),
+        )
+        aeps = rows(
+            """
+            SELECT aep.id, aep.unit_id, unit.name AS unit_name,
+                   aep.criteria_id, aep.reference_period, aep.status,
+                   aep.real_work_description, aep.exposure_duration,
+                   aep.exposure_frequency, aep.exposure_intensity,
+                   aep.exposure_cofactors, aep.health_indicators,
+                   aep.absenteeism_notes, aep.previous_assessments,
+                   aep.responsible_name, aep.responsible_qualification,
+                   aep.aet_required, aep.aet_justification,
+                   aep.opened_at, aep.concluded_at,
+                   count(evidence.id) AS evidence_count,
+                   count(DISTINCT evidence.method) AS evidence_method_count
+            FROM aep_assessments aep
+            JOIN organization_units unit ON unit.id=aep.unit_id
+            LEFT JOIN aep_evidence evidence ON evidence.aep_id=aep.id
+            WHERE aep.organization_id=%s
+            GROUP BY aep.id, unit.name
+            ORDER BY aep.opened_at, unit.name
+            """,
+            (organization_id,),
+        )
+        evidence = rows(
+            """
+            SELECT evidence.id, evidence.aep_id, evidence.campaign_id,
+                   evidence.method, evidence.collected_on,
+                   evidence.collected_by, evidence.summary,
+                   evidence.evidence_reference, evidence.created_at
+            FROM aep_evidence evidence
+            WHERE evidence.organization_id=%s
+            ORDER BY evidence.collected_on, evidence.aep_id, evidence.method
+            """,
+            (organization_id,),
+        )
+        participation = rows(
+            """
+            SELECT record.id, record.unit_id, unit.name AS unit_name,
+                   record.campaign_id, record.record_type, record.occurred_on,
+                   record.subject, record.attendee_count,
+                   record.evidence_reference,
+                   record.recorded_by_membership_id, record.created_at
+            FROM worker_participation_records record
+            LEFT JOIN organization_units unit ON unit.id=record.unit_id
+            WHERE record.organization_id=%s
+            ORDER BY record.occurred_on, unit.name, record.record_type
+            """,
+            (organization_id,),
+        )
+        inventory = rows(
+            """
+            SELECT inventory.id, inventory.campaign_id, inventory.unit_id,
+                   unit.name AS unit_name, inventory.dimension_id,
+                   dimension.title AS dimension_title, inventory.nr1_factor,
+                   inventory.cohort_size, inventory.mean_score,
+                   inventory.severity, inventory.probability,
+                   inventory.risk_level, inventory.rationale,
+                   inventory.process_characterization,
+                   inventory.activity_characterization,
+                   inventory.hazard_description, inventory.hazard_sources,
+                   inventory.possible_harms, inventory.selected_consequence,
+                   inventory.exposed_groups, inventory.exposed_workers,
+                   inventory.implemented_measures, inventory.measure_efficacy,
+                   inventory.exposure_characterization,
+                   inventory.exposure_level, inventory.aep_id,
+                   inventory.aep_reference, inventory.risk_classification,
+                   inventory.review_due_at, inventory.review_trigger,
+                   inventory.generated_at
+            FROM psychosocial_risk_inventory inventory
+            JOIN assessment_dimensions dimension ON dimension.id=inventory.dimension_id
+            LEFT JOIN organization_units unit ON unit.id=inventory.unit_id
+            WHERE inventory.organization_id=%s
+            ORDER BY inventory.campaign_id, unit.name, dimension.display_order
+            """,
+            (organization_id,),
+        )
+        actions = rows(
+            """
+            SELECT plan.id, plan.inventory_id, plan.campaign_id,
+                   inventory.unit_id, unit.name AS unit_name,
+                   inventory.dimension_id, dimension.title AS dimension_title,
+                   plan.plan_action, plan.measure, plan.measure_type,
+                   plan.responsible_membership_id, plan.due_date, plan.status,
+                   plan.evidence, plan.monitoring_method,
+                   plan.result_measurement, plan.implemented_at,
+                   plan.effectiveness_reviewed_at, plan.effectiveness,
+                   plan.exposed_workers, plan.priority_rank,
+                   plan.created_at, plan.updated_at
+            FROM psychosocial_action_plan plan
+            JOIN psychosocial_risk_inventory inventory ON inventory.id=plan.inventory_id
+            JOIN assessment_dimensions dimension ON dimension.id=inventory.dimension_id
+            LEFT JOIN organization_units unit ON unit.id=inventory.unit_id
+            WHERE plan.organization_id=%s
+            ORDER BY plan.campaign_id, plan.priority_rank NULLS LAST,
+                     unit.name, dimension.display_order
+            """,
+            (organization_id,),
+        )
+        effectiveness = rows(
+            """
+            SELECT review.id, review.unit_id, unit.name AS unit_name,
+                   review.dimension_id, dimension.title AS dimension_title,
+                   review.action_plan_id, review.baseline_campaign_id,
+                   review.followup_campaign_id, review.baseline_cohort,
+                   review.followup_cohort, review.baseline_mean,
+                   review.followup_mean, review.effect_size, review.verdict,
+                   review.measure_efficacy, review.requires_correction,
+                   review.rationale, review.reviewed_at
+            FROM measure_effectiveness_reviews review
+            JOIN assessment_dimensions dimension ON dimension.id=review.dimension_id
+            LEFT JOIN organization_units unit ON unit.id=review.unit_id
+            WHERE review.organization_id=%s
+            ORDER BY unit.name, dimension.display_order
+            """,
+            (organization_id,),
+        )
+        inventory_history = rows(
+            """
+            SELECT id, inventory_id, snapshot, superseded_at, retain_until
+            FROM psychosocial_risk_inventory_history
+            WHERE organization_id=%s
+            ORDER BY superseded_at, inventory_id
+            """,
+            (organization_id,),
+        )
+
+        gaps = []
+        active_units = [item for item in units if item["status"] == "active"]
+        published_criteria = [item for item in criteria if item["published_at"]]
+        closed_campaigns = [item for item in campaigns if item["status"] == "closed"]
+        if not active_units:
+            gaps.append("Estrutura organizacional sem unidade ativa.")
+        if not published_criteria:
+            gaps.append("Critérios do GRO ainda não publicados pela organização.")
+        if not closed_campaigns:
+            gaps.append("Nenhuma campanha encerrada com resultado disponível.")
+        if not aeps:
+            gaps.append("Nenhuma AEP registrada.")
+        elif any(item["status"] != "concluded" for item in aeps):
+            gaps.append("Existem AEPs ainda não concluídas.")
+        if any(int(item["evidence_method_count"] or 0) < 2 for item in aeps):
+            gaps.append("Existe AEP sustentada por menos de dois métodos de evidência.")
+        if not participation:
+            gaps.append("Não há registro formal de consulta, participação ou comunicação aos trabalhadores.")
+        if not inventory:
+            gaps.append("Inventário de riscos psicossociais ainda não gerado.")
+        elif any(not item["aep_id"] for item in inventory):
+            gaps.append("Existem riscos do inventário sem vínculo com a AEP.")
+        if not actions:
+            gaps.append("Plano de ação ainda não registrado.")
+        if any(
+            item["status"] == "done" and (
+                not item["responsible_membership_id"]
+                or not item["due_date"]
+                or not str(item["monitoring_method"] or "").strip()
+                or not str(item["result_measurement"] or "").strip()
+                or not item["implemented_at"]
+            )
+            for item in actions
+        ):
+            gaps.append("Existe medida concluída sem todos os registros de implementação e acompanhamento.")
+        if len(closed_campaigns) >= 2 and not effectiveness:
+            gaps.append("Há ciclos encerrados sem comparação de eficácia registrada.")
+
+        generated_at = connection.execute("SELECT now()").fetchone()[0]
+        payload = {
+            "document": {
+                "title": "Dossiê de evidências do processo FROID NR-1",
+                "schema_version": "1.0",
+                "generated_at": generated_at,
+                "scope": (
+                    "Registros organizacionais e resultados agregados do GRO/PGR. "
+                    "Não contém resposta individual de trabalhador."
+                ),
+            },
+            "organization": organization_rows[0],
+            "normative_basis": [
+                {
+                    "reference": "NR-1, capítulo 1.5",
+                    "purpose": "GRO, avaliação de riscos, medidas de prevenção, documentação e atualização do PGR.",
+                    "url": "https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartitaria-permanente/normas-regulamentadora/normas-regulamentadoras-vigentes/nr-1",
+                },
+                {
+                    "reference": "Manual de interpretação e aplicação do capítulo 1.5 da NR-1 — MTE, 2026",
+                    "purpose": "Orientação oficial sobre integração dos fatores psicossociais ao GRO/PGR.",
+                    "url": "https://www.gov.br/trabalho-e-emprego/pt-br/assuntos/inspecao-do-trabalho/manuais-e-publicacoes/2026/manual_gro_pgr_da_nr_1.pdf",
+                },
+                {
+                    "reference": "Guia de fatores de riscos psicossociais relacionados ao trabalho — MTE, 2025",
+                    "purpose": "Identificação, avaliação, participação dos trabalhadores e combinação de métodos.",
+                    "url": "https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/normas-regulamentadoras/normas-regulamentadoras-vigentes/guia-nr-01-revisado.pdf",
+                },
+                {
+                    "reference": "Programa de Gerenciamento de Riscos — MTE",
+                    "purpose": "Página oficial sobre inventário, plano de ação, manutenção e acesso aos documentos do PGR.",
+                    "url": "https://www.gov.br/trabalho-e-emprego/pt-br/assuntos/inspecao-do-trabalho/pgr/principal",
+                },
+                {
+                    "reference": "Perguntas e respostas sobre GRO/PGR — MTE, maio de 2026",
+                    "purpose": "Esclarecimentos oficiais; não impõe um modelo único de documento comprobatório.",
+                    "url": "https://www.gov.br/trabalho-e-emprego/pt-br/assuntos/inspecao-do-trabalho/manuais-e-publicacoes/2026/perguntas-e-respostas-gro-pgr-maio-2026/@@download/file",
+                },
+            ],
+            "response_protocol": [
+                "Registrar a autoridade solicitante, o número da notificação, o escopo, o prazo e o responsável interno pela resposta.",
+                "Identificar a organização, o responsável pelo GRO e o escopo efetivamente apresentado.",
+                "Apresentar estrutura, unidades de avaliação, efetivos e critérios de recorte.",
+                "Demonstrar como a AEP descreveu o trabalho real e quais evidências a sustentaram.",
+                "Explicar instrumento, participação, representatividade, anonimato e encerramento da coleta.",
+                "Apresentar critérios de severidade, probabilidade, classificação e decisão vinculados ao ciclo.",
+                "Entregar inventário e plano de ação com riscos, medidas, responsáveis, prazos e acompanhamento.",
+                "Mostrar implementação, reavaliação, eficácia e correções abertas quando a medida não funcionou.",
+                "Disponibilizar a versão selada, conferir seu SHA-256 e registrar toda complementação posterior em nova versão.",
+                "Exportar o PDF e o JSON, aplicar a assinatura eletrônica definida pela organização e guardar o recibo ou protocolo de entrega junto ao expediente fiscal.",
+            ],
+            "privacy": {
+                "employer_access": "Somente resultados agregados e documentos do processo.",
+                "individual_answers": "Não incluídas nem consultadas para gerar este dossiê.",
+                "suppressed_cohorts": "Recortes reprovados pelos portões permanecem declarados sem média ou resposta individual.",
+            },
+            "completeness": {
+                "status": "complete" if not gaps else "attention",
+                "gaps": gaps,
+                "counts": {
+                    "active_units": len(active_units),
+                    "published_criteria_versions": len(published_criteria),
+                    "closed_campaigns": len(closed_campaigns),
+                    "aep_documents": len(aeps),
+                    "aep_evidence": len(evidence),
+                    "worker_participation_records": len(participation),
+                    "inventory_rows": len(inventory),
+                    "inventory_history_rows": len(inventory_history),
+                    "action_plan_items": len(actions),
+                    "effectiveness_reviews": len(effectiveness),
+                    "corrections_required": sum(
+                        1 for item in effectiveness if item["requires_correction"]
+                    ),
+                },
+            },
+            "records": {
+                "units": units,
+                "criteria": criteria,
+                "campaigns": campaigns,
+                "aep": aeps,
+                "evidence": evidence,
+                "worker_participation": participation,
+                "inventory": inventory,
+                "inventory_history": inventory_history,
+                "action_plan": actions,
+                "effectiveness": effectiveness,
+            },
+        }
+        return json_ready(payload)
+
+    def nr1_compliance_dossier_preview(
+        self, *, organization_id: str, membership_id: str
+    ) -> dict:
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                self._nr1_session(connection, organization_id, membership_id)
+                payload = self._nr1_dossier_payload(connection, organization_id)
+                versions = connection.execute(
+                    """
+                    SELECT id, version, content_sha256, previous_sha256,
+                           sealed_by_membership_id, sealed_at
+                    FROM psychosocial_compliance_dossiers
+                    WHERE organization_id=%s ORDER BY version DESC
+                    """,
+                    (organization_id,),
+                ).fetchall()
+        return {
+            "preview": payload,
+            "preview_sha256": sha256_json(payload),
+            "versions": [
+                {
+                    "dossier_id": str(item[0]), "version": int(item[1]),
+                    "content_sha256": item[2], "previous_sha256": item[3],
+                    "sealed_by_membership_id": str(item[4]) if item[4] else None,
+                    "sealed_at": item[5].isoformat() if item[5] else None,
+                }
+                for item in versions
+            ],
+        }
+
+    def nr1_seal_compliance_dossier(
+        self, *, organization_id: str, membership_id: str, actor_user_id: str
+    ) -> dict:
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                self._nr1_session(connection, organization_id, membership_id)
+                payload = self._nr1_dossier_payload(connection, organization_id)
+                fingerprint = sha256_json(payload)
+                # Serializa a numeração por organização. SELECT ... FOR SHARE
+                # não impede duas requisições simultâneas de escolherem a mesma
+                # próxima versão.
+                connection.execute(
+                    "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
+                    (organization_id,),
+                )
+                latest = connection.execute(
+                    """
+                    SELECT version, content_sha256
+                    FROM psychosocial_compliance_dossiers
+                    WHERE organization_id=%s ORDER BY version DESC LIMIT 1
+                    FOR SHARE
+                    """,
+                    (organization_id,),
+                ).fetchone()
+                if latest and latest[1] == fingerprint:
+                    row = connection.execute(
+                        """
+                        SELECT id, version, content_sha256, previous_sha256,
+                               sealed_by_membership_id, sealed_at, payload
+                        FROM psychosocial_compliance_dossiers
+                        WHERE organization_id=%s AND content_sha256=%s
+                        """,
+                        (organization_id, fingerprint),
+                    ).fetchone()
+                    created = False
+                else:
+                    dossier_id = str(uuid.uuid4())
+                    version = int(latest[0]) + 1 if latest else 1
+                    previous = latest[1] if latest else None
+                    row = connection.execute(
+                        """
+                        INSERT INTO psychosocial_compliance_dossiers
+                            (id, organization_id, version, content_sha256,
+                             previous_sha256, payload, sealed_by_membership_id)
+                        VALUES (%s,%s,%s,%s,%s,%s::jsonb,%s)
+                        RETURNING id, version, content_sha256, previous_sha256,
+                                  sealed_by_membership_id, sealed_at, payload
+                        """,
+                        (
+                            dossier_id, organization_id, version, fingerprint,
+                            previous, canonical_json(payload), membership_id,
+                        ),
+                    ).fetchone()
+                    connection.execute(
+                        """
+                        INSERT INTO audit_events
+                            (id, organization_id, actor_user_id, action,
+                             resource_type, resource_id, metadata)
+                        VALUES (%s,%s,%s,'nr1.dossier.seal','nr1_compliance_dossier',%s,%s::jsonb)
+                        """,
+                        (
+                            uuid.uuid4(), organization_id, actor_user_id or None,
+                            dossier_id,
+                            _json({"version": version, "content_sha256": fingerprint}),
+                        ),
+                    )
+                    created = True
+        stored_payload = row[6] if isinstance(row[6], dict) else json.loads(row[6])
+        return {
+            "dossier_id": str(row[0]), "version": int(row[1]),
+            "content_sha256": row[2], "previous_sha256": row[3],
+            "sealed_by_membership_id": str(row[4]) if row[4] else None,
+            "sealed_at": row[5].isoformat() if row[5] else None,
+            "payload": stored_payload,
+            "integrity_verified": sha256_json(stored_payload) == row[2],
+            "created": created,
+            "integrity_scope": (
+                "SHA-256 comprova integridade do conteúdo registrado no FROID; "
+                "não substitui assinatura eletrônica do responsável."
+            ),
+        }
+
+    def nr1_get_compliance_dossier(
+        self, *, organization_id: str, membership_id: str, dossier_id: str
+    ) -> Optional[dict]:
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                self._nr1_session(connection, organization_id, membership_id)
+                row = connection.execute(
+                    """
+                    SELECT id, version, content_sha256, previous_sha256,
+                           sealed_by_membership_id, sealed_at, payload
+                    FROM psychosocial_compliance_dossiers
+                    WHERE organization_id=%s AND id=%s
+                    """,
+                    (organization_id, dossier_id),
+                ).fetchone()
+        if not row:
+            return None
+        payload = row[6] if isinstance(row[6], dict) else json.loads(row[6])
+        return {
+            "dossier_id": str(row[0]), "version": int(row[1]),
+            "content_sha256": row[2], "previous_sha256": row[3],
+            "sealed_by_membership_id": str(row[4]) if row[4] else None,
+            "sealed_at": row[5].isoformat() if row[5] else None,
+            "payload": payload,
+            "integrity_verified": sha256_json(payload) == row[2],
+            "integrity_scope": (
+                "SHA-256 comprova integridade do conteúdo registrado no FROID; "
+                "não substitui assinatura eletrônica do responsável."
+            ),
+        }
 
     def mark_mirrored_report_deleted(
         self, *, organization_id: str, session_id: str

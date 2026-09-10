@@ -82,7 +82,9 @@ ROLE_PERMISSIONS = {
         "organization.read", "patients.read_assigned", "reports.read_assigned",
         "reports.write", "credits.read",
     }),
-    "auditor": frozenset({"organization.read", "audit.read", "privacy.read"}),
+    "auditor": frozenset({
+        "organization.read", "audit.read", "privacy.read", "nr1.aggregate.read",
+    }),
     # Runs the NR-1 programme for the employer: campaigns, aggregated panel,
     # risk inventory and action plan. Reads no identified clinical record.
     "compliance_manager": frozenset({

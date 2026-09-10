@@ -55,7 +55,7 @@ class PilotSafetyTests(unittest.TestCase):
             table
             for table in written_tables()
             if table not in ALLOWED_NON_NR1
-            and not table.startswith(("assessment_", "aep_", "psychosocial_", "gro_", "measure_", "organization_unit", "worker_"))
+            and not table.startswith(("assessment_", "aep_", "psychosocial_", "gro_", "measure_", "nr1_", "organization_unit", "worker_"))
         }
         self.assertEqual(fora, set(), f"tabelas inesperadas: {sorted(fora)}")
 
@@ -412,7 +412,10 @@ class DocumentoCompletoDoPiloto(unittest.TestCase):
                 evidence = self.tool._evidence_summaries(unidade, onda)
                 self.assertEqual(
                     set(evidence),
-                    {"questionnaire", "activity_observation", "worker_dialogue", "document_analysis"},
+                    {
+                        "questionnaire", "activity_observation", "worker_dialogue",
+                        "document_analysis", "workshop", "cipa_manifestation",
+                    },
                 )
                 textos.extend(evidence.values())
         self.assertEqual(len(textos), len(set(textos)))
