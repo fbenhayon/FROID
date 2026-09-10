@@ -51,6 +51,20 @@ class DossierIntegrityTests(unittest.TestCase):
         self.assertIn('"preview_generated_at"', preview)
         self.assertIn('"schema_version": "1.1"', payload)
 
+    def test_official_mte_references_use_the_published_paths(self):
+        payload = STORE[STORE.index("def _nr1_dossier_payload"):]
+        payload = payload[:payload.index("def nr1_compliance_dossier_preview")]
+        base = (
+            "https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/"
+            "participacao-social/conselhos-e-orgaos-colegiados/"
+            "comissao-tripartite-partitaria-permanente/normas-regulamentadora/"
+            "normas-regulamentadoras-vigentes/"
+        )
+        self.assertIn(f'"url": "{base}nr-1"', payload)
+        self.assertIn(f'"url": "{base}guia-nr-01-revisado.pdf"', payload)
+        self.assertNotIn("comissao-tripartitaria-permanente", payload)
+        self.assertNotIn("/normas-regulamentadoras/normas-regulamentadoras-vigentes/", payload)
+
 
 class DossierPrivacyAndFlowTests(unittest.TestCase):
     def test_payload_does_not_query_individual_answers(self):

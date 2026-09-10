@@ -4057,7 +4057,7 @@ class TenantStore:
                 {
                     "reference": "NR-1, capítulo 1.5",
                     "purpose": "GRO, avaliação de riscos, medidas de prevenção, documentação e atualização do PGR.",
-                    "url": "https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartitaria-permanente/normas-regulamentadora/normas-regulamentadoras-vigentes/nr-1",
+                    "url": "https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/normas-regulamentadora/normas-regulamentadoras-vigentes/nr-1",
                 },
                 {
                     "reference": "Manual de interpretação e aplicação do capítulo 1.5 da NR-1 — MTE, 2026",
@@ -4067,7 +4067,7 @@ class TenantStore:
                 {
                     "reference": "Guia de fatores de riscos psicossociais relacionados ao trabalho — MTE, 2025",
                     "purpose": "Identificação, avaliação, participação dos trabalhadores e combinação de métodos.",
-                    "url": "https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/normas-regulamentadoras/normas-regulamentadoras-vigentes/guia-nr-01-revisado.pdf",
+                    "url": "https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/normas-regulamentadora/normas-regulamentadoras-vigentes/guia-nr-01-revisado.pdf",
                 },
                 {
                     "reference": "Programa de Gerenciamento de Riscos — MTE",
