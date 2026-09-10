@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Acerca de &amp; Contacto — FROID</title>
-<meta name="description" content="Quién hace FROID y cómo contactar al equipo." />
+<meta name="description" content="Habla con FROID: teléfono, correo y un espacio para dejar tu mensaje." />
 <link rel="alternate" hreflang="pt-BR" href="https://www.froid.com.br/sobre-contato.html" />
 <link rel="alternate" hreflang="en" href="https://www.froid.com.br/en/sobre-contato.html" />
 <link rel="alternate" hreflang="fr" href="https://www.froid.com.br/fr/sobre-contato.html" />
@@ -33,6 +33,23 @@
   .manifesto p em { color: #cfe6ff; font-style: italic; }
   .manifesto__sig { font-size: 0.95rem; color: rgba(230,236,255,0.62); margin-top: 28px; }
   .manifesto__sig a { color: #93c5fd; }
+
+  .contato-grid { display: grid; grid-template-columns: 1fr 1.35fr; gap: 22px; align-items: start; }
+  @media (max-width: 860px) { .contato-grid { grid-template-columns: 1fr; } }
+  .contato-dados p { margin: 0 0 14px; font-size: 1.02rem; }
+  .contato-dados p:last-child { margin-bottom: 0; }
+  .contato-dados .rotulo { display: block; font-size: 0.74rem; text-transform: uppercase;
+    letter-spacing: 0.16em; color: var(--froid-cinza); font-weight: 700; margin-bottom: 3px; }
+  .form-contato label { display: block; font-size: 13px; font-weight: 700; margin: 14px 0 6px; }
+  .form-contato input, .form-contato textarea {
+    width: 100%; padding: 10px 12px; border-radius: 7px; border: 1px solid var(--border);
+    background: #060d18; color: var(--ink); font-size: 15px; font-family: var(--font); }
+  .form-contato textarea { min-height: 148px; resize: vertical; line-height: 1.6; }
+  .form-contato .linha { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 640px) { .form-contato .linha { grid-template-columns: 1fr; } }
+  .form-status { margin: 14px 0 0; font-size: 0.92rem; line-height: 1.6; }
+  .form-status.erro { color: #fca5a5; }
+  .form-status.ok { color: #86efac; }
 </style>
 </head>
 <body>
@@ -173,19 +190,6 @@
   </div>
 </section>
 
-<section class="block">
-  <div class="container">
-    <div class="grid-2">
-      <div>
-        <p class="section-kicker">Quién hace FROID</p>
-        <h2 class="section-title">Ingeniería biomédica al servicio de la escucha clínica</h2>
-        <p>FROID nació del cruce entre la ingeniería de señales, la visión por computadora y la práctica clínica — buscando ofrecer al terapeuta una capa objetiva de lectura, sin prometer lo que la ciencia todavía no valida.</p>
-      </div>
-      <div class="img-placeholder"></div>
-    </div>
-  </div>
-</section>
-
 <section class="block soft">
   <div class="container">
     <p class="section-kicker">Gobernanza clínica</p>
@@ -217,10 +221,41 @@
   <div class="container">
     <p class="section-kicker">Hablar con el equipo</p>
     <h2 class="section-title">Contacto</h2>
-    <div class="card" style="max-width:520px;">
-      <p><strong>Correo electrónico:</strong> contato@froid.com.br</p>
-      <p><strong>Ventas para clínicas:</strong> vendas@froid.com.br</p>
-      <p><strong>Soporte técnico:</strong> suporte@froid.com.br</p>
+
+    <div class="contato-grid">
+      <div class="card contato-dados">
+        <h3 style="margin-top:0;">Fábio Benhayon</h3>
+        <p><span class="rotulo">Teléfono</span>
+          <a href="tel:+5511945856941">+55 11 94585-6941</a></p>
+        <p><span class="rotulo">Correo electrónico</span>
+          <a href="mailto:froid@froid.com.br">froid@froid.com.br</a></p>
+      </div>
+
+      <div class="card">
+        <h3 style="margin-top:0;">Deja un mensaje</h3>
+        <p style="font-size:0.92rem; color:var(--froid-cinza); margin-top:0;">Escribe aquí y el mensaje llega al correo de arriba. Respondemos a la dirección que nos indiques.</p>
+        <form id="form-contato" class="form-contato" method="post" action="/api/contato" onsubmit="return enviarContato(event)">
+          <div class="linha">
+            <div>
+              <label for="contato-nome">Nombre</label>
+              <input type="text" id="contato-nome" name="nome" required minlength="2" maxlength="120" autocomplete="name" />
+            </div>
+            <div>
+              <label for="contato-email">Correo electrónico</label>
+              <input type="email" id="contato-email" name="email" required maxlength="180" autocomplete="email" />
+            </div>
+          </div>
+          <label for="contato-telefone">Teléfono <span style="font-weight:400; color:var(--froid-cinza);">(opcional)</span></label>
+          <input type="tel" id="contato-telefone" name="telefone" maxlength="40" autocomplete="tel" />
+          <label for="contato-mensagem">Mensaje</label>
+          <textarea id="contato-mensagem" name="mensagem" required minlength="10" maxlength="4000" placeholder="Cuéntanos en qué podemos ayudarte."></textarea>
+          <p style="margin:18px 0 0;">
+            <button class="btn btn-solid" type="submit">Enviar mensaje</button>
+          </p>
+          <p class="form-status" id="contato-status" role="status" aria-live="polite"></p>
+          <p style="font-size:0.82rem; color:var(--froid-cinza); margin:12px 0 0;">Usamos lo que escribas solo para responderte. No lo compartimos con terceros — consulta la <a href="privacidade.html">Política de Privacidad</a>.</p>
+        </form>
+      </div>
     </div>
   </div>
 </section>
@@ -275,5 +310,58 @@
 
 <script src="../site-assets/script.js?v=18"></script>
 <script src="../site-assets/navigation.js?v=1"></script>
+<script>
+// A mensagem vira e-mail no servidor; nao fica gravada em lugar nenhum. Por
+// isso falha nunca pode passar por sucesso: quem escreveu ficaria esperando
+// resposta a um e-mail que nunca saiu.
+function enviarContato(evento) {
+  evento.preventDefault();
+  var form = document.getElementById('form-contato');
+  var botao = form.querySelector('button[type=submit]');
+  var status = document.getElementById('contato-status');
+  var rotulo = botao.textContent;
+  var dados = { origem: "sobre-contato-es" };
+  ['nome', 'email', 'telefone', 'mensagem'].forEach(function (campo) {
+    var el = document.getElementById('contato-' + campo);
+    if (el) dados[campo] = el.value;
+  });
+
+  botao.disabled = true;
+  botao.textContent = "Enviando...";
+  status.className = 'form-status';
+  status.textContent = '';
+
+  // Texto proprio por codigo, em vez de ecoar o `detail` do servidor: a
+  // resposta da API e sempre em portugues.
+  function textoDoErro(codigo) {
+    if (codigo === 429) return "Demasiados mensajes desde este dispositivo. Inténtalo de nuevo más tarde.";
+    if (codigo === 400) return "Revisa los campos: nombre, correo y un mensaje de al menos 10 caracteres.";
+    return "No fue posible enviarlo ahora.";
+  }
+
+  function falhou(codigo) {
+    botao.disabled = false;
+    botao.textContent = rotulo;
+    status.className = 'form-status erro';
+    status.innerHTML = textoDoErro(codigo) + " Si lo prefieres, escribe directamente a <a href=\"mailto:froid@froid.com.br\">froid@froid.com.br</a> o llama al <a href=\"tel:+5511945856941\">+55 11 94585-6941</a>.";
+  }
+
+  fetch(form.action, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(dados)
+  })
+    .then(function (resposta) {
+      if (!resposta.ok) { falhou(resposta.status); return; }
+      form.reset();
+      botao.disabled = false;
+      botao.textContent = rotulo;
+      status.className = 'form-status ok';
+      status.textContent = "Mensaje enviado. Respondemos al correo que nos indicaste.";
+    })
+    .catch(function () { falhou(0); });
+  return false;
+}
+</script>
 </body>
 </html>

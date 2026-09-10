@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Sobre & Contato — FROID</title>
-<meta name="description" content="Quem faz o FROID e como falar com o time." />
+<meta name="description" content="Fale com o FROID: telefone, e-mail e um espaço para deixar sua mensagem." />
 <link rel="alternate" hreflang="pt-BR" href="https://www.froid.com.br/sobre-contato.html" />
 <link rel="alternate" hreflang="en" href="https://www.froid.com.br/en/sobre-contato.html" />
 <link rel="alternate" hreflang="fr" href="https://www.froid.com.br/fr/sobre-contato.html" />
@@ -33,6 +33,23 @@
   .manifesto p em { color: #cfe6ff; font-style: italic; }
   .manifesto__sig { font-size: 0.95rem; color: rgba(230,236,255,0.62); margin-top: 28px; }
   .manifesto__sig a { color: #93c5fd; }
+
+  .contato-grid { display: grid; grid-template-columns: 1fr 1.35fr; gap: 22px; align-items: start; }
+  @media (max-width: 860px) { .contato-grid { grid-template-columns: 1fr; } }
+  .contato-dados p { margin: 0 0 14px; font-size: 1.02rem; }
+  .contato-dados p:last-child { margin-bottom: 0; }
+  .contato-dados .rotulo { display: block; font-size: 0.74rem; text-transform: uppercase;
+    letter-spacing: 0.16em; color: var(--froid-cinza); font-weight: 700; margin-bottom: 3px; }
+  .form-contato label { display: block; font-size: 13px; font-weight: 700; margin: 14px 0 6px; }
+  .form-contato input, .form-contato textarea {
+    width: 100%; padding: 10px 12px; border-radius: 7px; border: 1px solid var(--border);
+    background: #060d18; color: var(--ink); font-size: 15px; font-family: var(--font); }
+  .form-contato textarea { min-height: 148px; resize: vertical; line-height: 1.6; }
+  .form-contato .linha { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 640px) { .form-contato .linha { grid-template-columns: 1fr; } }
+  .form-status { margin: 14px 0 0; font-size: 0.92rem; line-height: 1.6; }
+  .form-status.erro { color: #fca5a5; }
+  .form-status.ok { color: #86efac; }
 </style>
 </head>
 <body>
@@ -181,21 +198,6 @@
 </section>
 
 
-<section class="block" id="quem-faz-o-froid">
-  <div class="container">
-    <div class="grid-2">
-      <div>
-        <p class="section-kicker">Quem faz o FROID</p>
-        <h2 class="section-title">Engenharia biomédica a serviço da escuta clínica</h2>
-        <p>O FROID nasceu do cruzamento entre engenharia de sinal, visão computacional e prática clínica — buscando dar ao terapeuta uma camada objetiva de leitura, sem prometer o que a ciência ainda não valida.</p>
-      </div>
-      <img class="site-img" src="site-assets/img/escuta-clinica.svg" width="560" height="400"
-           alt="Da fala ao sinal legível: a voz de quem fala atravessa a camada de medição do FROID e chega ao profissional como traçado organizado. A leitura permanece com o profissional." />
-    </div>
-  </div>
-</section>
-
-
 <section class="block soft" id="fale-com-o-time">
   <div class="container">
     <p class="section-kicker">Fale com o time</p>
@@ -224,10 +226,40 @@
       </div>
     </div>
 
-    <div class="card" style="margin-top:22px;">
-      <h3 style="margin-top:0;">Suporte técnico</h3>
-      <p style="margin-bottom:0;">Um endereço para as duas frentes — sessões clínicas e avaliação NR-1. Diga por qual delas você chegou e a conversa começa no lugar certo.<br />
-      <a href="mailto:suporte@froid.com.br"><strong>suporte@froid.com.br</strong></a></p>
+    <div class="contato-grid" style="margin-top:22px;">
+      <div class="card contato-dados">
+        <h3 style="margin-top:0;">Fábio Benhayon</h3>
+        <p><span class="rotulo">Telefone</span>
+          <a href="tel:+5511945856941">(11) 94585-6941</a></p>
+        <p><span class="rotulo">E-mail</span>
+          <a href="mailto:froid@froid.com.br">froid@froid.com.br</a></p>
+      </div>
+
+      <div class="card">
+        <h3 style="margin-top:0;">Deixe uma mensagem</h3>
+        <p style="font-size:0.92rem; color:var(--froid-cinza); margin-top:0;">Escreva aqui e a mensagem chega no e-mail acima. Respondemos no endereço que você informar.</p>
+        <form id="form-contato" class="form-contato" method="post" action="/api/contato" onsubmit="return enviarContato(event)">
+          <div class="linha">
+            <div>
+              <label for="contato-nome">Nome</label>
+              <input type="text" id="contato-nome" name="nome" required minlength="2" maxlength="120" autocomplete="name" />
+            </div>
+            <div>
+              <label for="contato-email">E-mail</label>
+              <input type="email" id="contato-email" name="email" required maxlength="180" autocomplete="email" />
+            </div>
+          </div>
+          <label for="contato-telefone">Telefone <span style="font-weight:400; color:var(--froid-cinza);">(opcional)</span></label>
+          <input type="tel" id="contato-telefone" name="telefone" maxlength="40" autocomplete="tel" />
+          <label for="contato-mensagem">Mensagem</label>
+          <textarea id="contato-mensagem" name="mensagem" required minlength="10" maxlength="4000" placeholder="Conte no que podemos ajudar."></textarea>
+          <p style="margin:18px 0 0;">
+            <button class="btn btn-solid" type="submit">Enviar mensagem</button>
+          </p>
+          <p class="form-status" id="contato-status" role="status" aria-live="polite"></p>
+          <p style="font-size:0.82rem; color:var(--froid-cinza); margin:12px 0 0;">Usamos o que você escrever apenas para responder. Não compartilhamos com terceiros — veja a <a href="privacidade.html">Política de Privacidade</a>.</p>
+        </form>
+      </div>
     </div>
   </div>
 </section>
@@ -282,5 +314,62 @@
 
 <script src="site-assets/script.js?v=18"></script>
 <script src="site-assets/navigation.js?v=1"></script>
+<script>
+// A mensagem vira e-mail no servidor; nao fica gravada em lugar nenhum.
+// Por isso o unico jeito de a pessoa saber que chegou e o retorno daqui — e
+// falha nunca pode passar por sucesso: quem escreveu ficaria esperando uma
+// resposta a um e-mail que nunca saiu.
+function enviarContato(evento) {
+  evento.preventDefault();
+  var form = document.getElementById('form-contato');
+  var botao = form.querySelector('button[type=submit]');
+  var status = document.getElementById('contato-status');
+  var rotulo = botao.textContent;
+  var dados = { origem: 'sobre-contato' };
+  ['nome', 'email', 'telefone', 'mensagem'].forEach(function (campo) {
+    var el = document.getElementById('contato-' + campo);
+    if (el) dados[campo] = el.value;
+  });
+
+  botao.disabled = true;
+  botao.textContent = 'Enviando...';
+  status.className = 'form-status';
+  status.textContent = '';
+
+  // Texto proprio por codigo, em vez de ecoar o `detail` do servidor: a
+  // resposta da API e sempre em portugues, e as outras tres versoes desta
+  // pagina usam este mesmo script traduzido.
+  function textoDoErro(codigo) {
+    if (codigo === 429) return 'Muitas mensagens enviadas deste dispositivo. Tente novamente mais tarde.';
+    if (codigo === 400) return 'Confira os campos: nome, e-mail e uma mensagem de ao menos 10 caracteres.';
+    return 'Não foi possível enviar agora.';
+  }
+
+  function falhou(codigo) {
+    botao.disabled = false;
+    botao.textContent = rotulo;
+    status.className = 'form-status erro';
+    status.innerHTML = textoDoErro(codigo) +
+      ' Se preferir, escreva direto para <a href="mailto:froid@froid.com.br">froid@froid.com.br</a>' +
+      ' ou ligue para <a href="tel:+5511945856941">(11) 94585-6941</a>.';
+  }
+
+  fetch(form.action, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(dados)
+  })
+    .then(function (resposta) {
+      if (!resposta.ok) { falhou(resposta.status); return; }
+      form.reset();
+      botao.disabled = false;
+      botao.textContent = rotulo;
+      status.className = 'form-status ok';
+      status.textContent = 'Mensagem enviada. Respondemos no e-mail que você informou.';
+    })
+    .catch(function () { falhou(0); });
+  return false;
+}
+</script>
 </body>
 </html>
