@@ -209,11 +209,6 @@ export const PatientInvitePage: React.FC = () => {
           privacy_policy: consentAll,
           sensitive_data_processing: consentAll,
           audio_video_processing: consentAll,
-          // A faculdade viaja pelo estado proprio, NUNCA por `consentAll`: o
-          // clique das obrigatorias nao autoriza pesquisa. Ate 11/09/2026 a
-          // chave nao era enviada e o servidor gravava sempre o default —
-          // o TCLE oferecia a escolha e nada a coletava.
-          research_anonymized: consent.research_anonymized,
         }
       : consent;
     const patientPayload = TESTING_MINIMAL_PATIENT
@@ -538,42 +533,6 @@ export const PatientInvitePage: React.FC = () => {
                         "es-ES": "He leído y acepto el TCLE, los Términos de Uso y la Política de Privacidad, y autorizo el tratamiento de mis datos sensibles (audio y vídeo) para la realización de la sesión.",
                       }[uiLocale] ||
                         "Li e aceito o TCLE, os Termos de Uso e a Política de Privacidade, e autorizo o tratamento dos meus dados sensíveis (áudio e vídeo) para a realização da sessão."}
-                    </span>
-                  </label>
-                  {/* A ESCOLHA FACULTATIVA FICA SEPARADA, E NASCE DESMARCADA.
-                    *
-                    * O TCLE vigente desde 11/09/2026 diz, no item 14, que
-                    * finalidades não necessárias "deverão ser apresentadas
-                    * separadamente", e no item 17 oferece pesquisa como opção
-                    * com SIM e NÃO. Até esta data a tela não enviava
-                    * `research_anonymized` de forma alguma: o documento
-                    * prometia uma escolha que a tela não apresentava, e o
-                    * campo chegava ao servidor sempre no default.
-                    *
-                    * Deliberadamente FORA do consentimento único acima: o clique
-                    * que cobre as autorizações obrigatórias não pode arrastar
-                    * junto uma faculdade — autorização por arraste não é
-                    * autorização. */}
-                  <label className="mt-2 flex gap-2">
-                    <input
-                      type="checkbox"
-                      checked={consent.research_anonymized}
-                      onChange={(event) =>
-                        updateConsent("research_anonymized", event.target.checked)
-                      }
-                    />
-                    <span>
-                      {copy.consentLabels.research_anonymized}
-                      {" "}
-                      <span className="text-slate-400">
-                        {{
-                          "pt-BR": "(opcional — recusar não afeta o atendimento)",
-                          "en-US": "(optional — declining does not affect your care)",
-                          "fr-FR": "(facultatif — refuser n’affecte pas votre suivi)",
-                          "es-ES": "(opcional — rechazar no afecta su atención)",
-                        }[uiLocale] ||
-                          "(opcional — recusar não afeta o atendimento)"}
-                      </span>
                     </span>
                   </label>
                 </div>

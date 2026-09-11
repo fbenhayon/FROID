@@ -339,38 +339,5 @@ class AFichaDeAceiteDeclaraAAusencia(unittest.TestCase):
         self.assertIn("nr1_company_contract", corpo)
 
 
-class APesquisaViroUmaEscolhaDeVerdade(unittest.TestCase):
-    """O item 17 do TCLE oferece SIM e NÃO. Até 11/09/2026 nada coletava isso.
-
-    A tela de convite montava o payload sem `research_anonymized`, e o campo
-    chegava ao servidor sempre no default. O documento prometia uma escolha que
-    a tela não apresentava — o padrão de defeito desta casa, agora num
-    documento que a pessoa assina.
-    """
-
-    def setUp(self):
-        self.convite = (PAINEL / "pages" / "PatientInvitePage.tsx").read_text(
-            encoding="utf-8"
-        )
-
-    def test_a_tela_envia_a_escolha_de_pesquisa(self):
-        self.assertIn("research_anonymized: consent.research_anonymized", self.convite)
-
-    def test_a_faculdade_nao_e_arrastada_pelo_consentimento_unico(self):
-        """O clique das obrigatorias nao pode marcar a opcional junto.
-
-        Autorizacao por arraste nao e autorizacao, e o proprio item 14 do Termo
-        manda apresentar finalidade nao necessaria separadamente.
-        """
-        self.assertNotIn("research_anonymized: consentAll", self.convite)
-
-    def test_a_caixa_da_pesquisa_nasce_desmarcada(self):
-        self.assertIn("research_anonymized: false", self.convite)
-        self.assertIn('updateConsent("research_anonymized", event.target.checked)', self.convite)
-
-    def test_a_tela_diz_que_recusar_nao_afeta_o_atendimento(self):
-        self.assertIn("recusar não afeta o atendimento", self.convite)
-
-
 if __name__ == "__main__":
     unittest.main()
