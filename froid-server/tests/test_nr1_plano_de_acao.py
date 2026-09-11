@@ -886,11 +886,35 @@ class SiglasSeExplicam(unittest.TestCase):
             self._fonte("pages/Nr1ActionPlan.tsx"),
         )
 
-    def test_o_botao_de_sigla_curta_carrega_a_explicacao(self):
-        # No cabecalho o espaco e curto e a sigla fica; a explicacao vai no
-        # title, que e onde o navegador e o leitor de tela a procuram.
+    def test_a_sigla_da_tela_do_nr1_se_explica_em_algum_lugar_dela(self):
+        """Este teste ficou VERMELHO por um dia inteiro, e o motivo ensina algo.
+
+        Ele afirmava a frase literal "Avaliação Ergonômica Preliminar: o método
+        da NR-17" dentro de Nr1Dashboard.tsx — que era o texto de um `title=`.
+        Em 217adf47 (10/09/2026) o road map foi reescrito, o card 02 passou a
+        descrever o CONTEUDO da etapa ("trabalho real, método, consulta e
+        evidências") e a frase saiu. O teste passou a defender o MECANISMO
+        antigo em vez da garantia, e acusou defeito onde nao havia: a sigla
+        continuou explicada, agora pelo glossario ao pe da tela.
+
+        A garantia e "quem le a tela do NR-1 descobre o que a sigla quer dizer",
+        e nao "existe um title com esta frase". Reescrito para afirmar isso, que
+        sobrevive a proxima reescrita de texto.
+        """
         painel = self._fonte("pages/Nr1Dashboard.tsx")
-        self.assertIn("Avaliação Ergonômica Preliminar: o método da NR-17", painel)
+        glossario = self._fonte("lib/nr1-glossario.ts")
+
+        # A tela publica o glossario, e a AEP esta entre os termos dele.
+        self.assertIn("<GlossarioDeSiglas", painel)
+        termos = re.search(r"<GlossarioDeSiglas termos=\{\[([^\]]*)\]", painel)
+        self.assertIsNotNone(termos, "o glossario da tela nao declara termos")
+        for sigla in ("NR-1", "GRO", "PGR", "AEP"):
+            with self.subTest(sigla=sigla):
+                self.assertIn(f'"{sigla}"', termos.group(1))
+
+        # E o glossario de fato expande a sigla, em vez de so lista-la.
+        self.assertIn('nome: "Avaliação Ergonômica Preliminar"', glossario)
+        self.assertIn("Método da NR-17", glossario)
 
     def test_o_componente_usa_abbr_e_nao_um_span_qualquer(self):
         # <abbr> e o elemento que existe para isto: leitor de tela anuncia a
