@@ -218,6 +218,20 @@ def conferir_painel(base: str, r: Resultado) -> None:
         )
         return
 
+    # BUILD LOCAL VELHO DA FALSO "OK", e esse e o pior defeito que esta
+    # ferramenta poderia ter: ela compara o servidor contra o dist, e se o dist
+    # tambem estiver atrasado os dois batem e o comando declara que esta tudo
+    # certo sem ter conferido nada. Concordancia entre duas copias velhas nao e
+    # prova de nada.
+    fontes = [c for c in (REPO / "froid-dashboard" / "src").rglob("*") if c.is_file()]
+    mais_nova = max((c.stat().st_mtime for c in fontes), default=0)
+    if mais_nova > indice_local.stat().st_mtime:
+        r.indefinido(
+            "froid-dashboard/dist e mais antigo que a fonte — rode `npm run build` "
+            "antes de comparar, ou a comparacao abaixo nao vale"
+        )
+        return
+
     status, corpo = _buscar(f"{base}/app/")
     if status != 200:
         r.falha(f"/app/ respondeu {status}")
