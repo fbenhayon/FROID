@@ -209,7 +209,17 @@ export const Nr1Dossier: React.FC<{ user: FroidUser | null }> = ({ user }) => {
             <h2 className="text-sm font-black">Mapa das evidências consolidadas</h2>
             <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-6">{Object.entries(counts).map(([key, value]) => {
               const meta = COUNT_META[key] || { label: key, detail: "Quantidade de registros consolidados neste componente." };
-              return <div key={key} title={meta.detail} tabIndex={0} aria-label={`${value} — ${meta.label}. ${meta.detail}`} className="group relative flex min-h-10 items-center gap-2 rounded-md border border-slate-800 bg-slate-950 px-2 py-1.5 print:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400">
+              // UM tooltip por card, e e o escuro.
+              //
+              // Os dois carregavam o MESMO texto (`meta.detail`): o `title`
+              // nativo do navegador, em caixa de fundo branco junto ao cursor,
+              // e o painel estilizado ancorado ao card. O nativo saiu em
+              // 11/09/2026, pelo mesmo motivo que saiu do road map em 90bdf5b7
+              // — abria fora da largura do card e sobrepunha o vizinho.
+              //
+              // O `aria-label` abaixo ja leva valor, rotulo e detalhe, entao o
+              // leitor de tela nao perde nada com a remocao.
+              return <div key={key} tabIndex={0} aria-label={`${value} — ${meta.label}. ${meta.detail}`} className="group relative flex min-h-10 items-center gap-2 rounded-md border border-slate-800 bg-slate-950 px-2 py-1.5 print:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400">
                 <strong className="text-base leading-none text-cyan-300 print:text-slate-950">{value}</strong>
                 <span className="text-[9px] leading-3 text-slate-400">{meta.label}</span>
                 <span role="tooltip" className="pointer-events-none absolute left-1/2 top-full z-30 mt-1 hidden w-60 -translate-x-1/2 rounded-md border border-cyan-900 bg-slate-950 p-2 text-[10px] leading-4 text-slate-200 shadow-xl group-hover:block group-focus:block">{meta.detail}</span>
