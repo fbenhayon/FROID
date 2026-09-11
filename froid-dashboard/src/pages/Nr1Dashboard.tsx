@@ -668,7 +668,6 @@ export const Nr1Dashboard: React.FC<{
                 <button
                   type="button"
                   onClick={() => abrirRotaNr1(passo.rota)}
-                  title={passo.entrega}
                   aria-label={`${passo.numero}. ${passo.titulo}. ${passo.detalhe}. ${passo.entrega}`}
                   className="flex h-full w-full gap-3 rounded-lg border border-slate-800 bg-slate-950/80 p-3 text-left transition hover:-translate-y-0.5 hover:border-cyan-500 hover:bg-cyan-950/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
                 >
