@@ -2460,7 +2460,7 @@ class TenantStore:
                 f"""
                 SELECT document_key, document_version, document_sha256,
                        acceptance_context, accepted_at, organization_id,
-                       subject_kind, id
+                       subject_kind
                   FROM legal_acceptance_events
                  WHERE {" AND ".join(clausulas)}
                  ORDER BY accepted_at ASC
@@ -2476,12 +2476,6 @@ class TenantStore:
                 "accepted_at": linha[4].isoformat() if linha[4] else "",
                 "organization_id": str(linha[5]) if linha[5] else "",
                 "subject_kind": linha[6],
-                # `id` entrou em 11/09/2026, com a ficha de aceite. A coluna
-                # sempre existiu e nunca saia daqui: e ela o "identificador
-                # eletronico do aceite" que o TCLE novo promete no item 21, e
-                # sem devolve-la a ficha teria de inventar um identificador —
-                # que e exatamente o que nao se faz nesta casa.
-                "acceptance_id": str(linha[7]) if linha[7] else "",
             }
             for linha in linhas
         ]

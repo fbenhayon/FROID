@@ -57,18 +57,6 @@ type ConsentOverview = {
   session_authorization_active: boolean;
 };
 
-/** O item 21 do TCLE, montado pelo servidor do cadastro e do registro de aceite.
- *
- *  Campo que o cadastro não tem chega como "não registrado", e a tela imprime
- *  exatamente isso. Em branco se leria como "não havia", e o que há é outra
- *  coisa. */
-type FichaDeAceite = {
-  acceptance_sheet: Record<string, string>;
-  ledger_configured: boolean;
-  document: { title?: string; version?: string; sha256?: string } | null;
-  matches_current_version: boolean;
-};
-
 const PRIVACY_RIGHT_LABELS: Record<string, string> = {
   access: "Acesso aos dados",
   correction: "Correção",
@@ -188,8 +176,6 @@ export const PatientPortalPage: React.FC = () => {
   });
   const [privacySaving, setPrivacySaving] = useState(false);
   const [consentOverview, setConsentOverview] = useState<ConsentOverview | null>(null);
-  const [ficha, setFicha] = useState<FichaDeAceite | null>(null);
-  const [fichaErro, setFichaErro] = useState("");
   const [consentForm, setConsentForm] = useState<ConsentPreferences>({
     patient_tcle: false,
     terms_of_use: false,
@@ -347,32 +333,6 @@ export const PatientPortalPage: React.FC = () => {
     setConsentForm({ ...(data as ConsentOverview).consent, patient_tcle: Boolean((data as ConsentOverview).consent.patient_tcle) });
   }, [authHeaders, token]);
 
-  /** A ficha de aceite do item 21 do TCLE.
-   *
-   *  O corpo do Termo é igual para todo mundo — é isso que mantém um hash por
-   *  versão. A identificação individual vive ao lado, e sem esta leitura ela
-   *  não chegaria a quem o Termo diz que ela pertence.
-   *
-   *  Falha aqui NÃO derruba o portal e nem fica muda: a ficha é evidência, e
-   *  ausência silenciosa de evidência é indistinguível de nunca ter aceitado. */
-  const loadFichaDeAceite = useCallback(async () => {
-    if (!token) return;
-    try {
-      const response = await fetch(apiUrl("/api/patient-portal/legal-acceptance"), {
-        headers: authHeaders,
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        setFichaErro(data?.detail || "Não foi possível carregar seu registro de aceite.");
-        return;
-      }
-      setFichaErro("");
-      setFicha(data as FichaDeAceite);
-    } catch {
-      setFichaErro("Não foi possível carregar seu registro de aceite.");
-    }
-  }, [authHeaders, token]);
-
   useEffect(() => {
     if (!token) return;
     fetch(apiUrl("/api/patient-auth/me"), { headers: authHeaders })
@@ -383,7 +343,6 @@ export const PatientPortalPage: React.FC = () => {
         return Promise.all([
           loadReports(),
           loadConsent(),
-          loadFichaDeAceite(),
           loadPrivacy().catch((err) => {
             setPrivacy(null);
             setError(err instanceof Error ? err.message : "Portal LGPD temporariamente indisponível.");
@@ -398,15 +357,7 @@ export const PatientPortalPage: React.FC = () => {
         setToken("");
         applyPatient(null);
       });
-  }, [
-    applyPatient,
-    authHeaders,
-    loadConsent,
-    loadFichaDeAceite,
-    loadPrivacy,
-    loadReports,
-    token,
-  ]);
+  }, [applyPatient, authHeaders, loadConsent, loadPrivacy, loadReports, token]);
 
   const saveConsent = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -923,86 +874,6 @@ export const PatientPortalPage: React.FC = () => {
               {consentSaving ? "Salvando..." : "Salvar autorizações"}
             </button>
           </form>
-
-          {/* O REGISTRO DE ACEITE — o item 21 do TCLE chegando a quem ele nomeia.
-            *
-            * O Termo promete que a identificação do atendimento "fica disponível
-            * à pessoa atendida no Portal". Sem este bloco a promessa existiria só
-            * no texto, que é o padrão de defeito desta casa.
-            *
-            * A comparação com o texto vigente vem pronta do servidor: quando o
-            * hash aceito difere do de hoje, isso é DITO. Imprimir o documento
-            * atual sob a data de um aceite anterior é a confusão que o sha256
-            * existe para impedir. */}
-          <section className="rounded-lg border border-slate-700 bg-slate-900 p-4">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
-              Registro de aceite
-            </p>
-            <h2 className="mt-1 text-sm font-black text-white">
-              Identificação do seu atendimento
-            </h2>
-            <p className="mt-2 text-xs leading-5 text-slate-400">
-              O texto do Termo é o mesmo para todas as pessoas atendidas — é
-              assim que ele pode ser conferido por uma única impressão digital.
-              A identificação abaixo é a sua, registrada no momento do aceite.
-            </p>
-
-            {fichaErro && (
-              <p className="mt-3 rounded border border-amber-800 bg-amber-950 px-3 py-2 text-xs text-amber-100">
-                {fichaErro}
-              </p>
-            )}
-
-            {ficha && (
-              <>
-                {!ficha.ledger_configured && (
-                  <p className="mt-3 rounded border border-amber-800 bg-amber-950 px-3 py-2 text-xs text-amber-100">
-                    O registro de aceite não pôde ser verificado neste servidor.
-                    Isso não significa que você não aceitou — significa que a
-                    verificação não está disponível agora.
-                  </p>
-                )}
-                <dl className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
-                  {[
-                    ["Pessoa atendida", "pessoa_atendida"],
-                    ["Profissional responsável", "profissional_responsavel"],
-                    ["Categoria profissional", "categoria_profissional"],
-                    ["Registro profissional", "registro_profissional"],
-                    ["Clínica ou organização", "clinica_ou_organizacao"],
-                    ["Data e hora do aceite", "data_e_hora_do_aceite"],
-                    ["Versão do Termo aceita", "versao_do_termo"],
-                    ["Hash da versão", "hash_da_versao"],
-                    ["Identificador do aceite", "identificador_eletronico_do_aceite"],
-                  ].map(([rotulo, chave]) => {
-                    const valor = ficha.acceptance_sheet?.[chave] || "não registrado";
-                    const ausente = valor === "não registrado";
-                    return (
-                      <div key={chave} className="rounded border border-slate-800 px-3 py-2">
-                        <dt className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
-                          {rotulo}
-                        </dt>
-                        <dd
-                          className={`mt-1 break-all ${
-                            ausente ? "italic text-slate-500" : "text-slate-200"
-                          }`}
-                        >
-                          {valor}
-                        </dd>
-                      </div>
-                    );
-                  })}
-                </dl>
-                {!ficha.matches_current_version && (
-                  <p className="mt-3 rounded border border-amber-800 bg-amber-950 px-3 py-2 text-xs leading-5 text-amber-100">
-                    O Termo em vigor hoje não é o mesmo que consta do seu
-                    registro de aceite. Para voltar a autorizar sessões, revise e
-                    salve as autorizações acima — o texto atual está na página do
-                    TCLE.
-                  </p>
-                )}
-              </>
-            )}
-          </section>
 
           <section className="rounded-lg border border-cyan-900 bg-slate-900 p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
