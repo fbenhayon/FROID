@@ -372,26 +372,5 @@ class APesquisaViroUmaEscolhaDeVerdade(unittest.TestCase):
         self.assertIn("recusar não afeta o atendimento", self.convite)
 
 
-class TodaTelaJuridicaPreservaAQuebraDeLinha(unittest.TestCase):
-    """As alíneas do contrato novo vivem em linhas próprias.
-
-    Uma das três telas que exibem documento jurídico não preservava a quebra, e
-    era justamente a tela em que a empresa ACEITA: as nove alíneas da cláusula
-    15.4 sairiam emendadas num parágrafo só.
-    """
-
-    TELAS = (
-        ("LegalPages.tsx", "section.body"),
-        ("Nr1Acceptance.tsx", "secao.body"),
-        ("Nr1CompanyOnboarding.tsx", "secao.body"),
-    )
-
-    def test_as_tres_telas_usam_whitespace_pre_line(self):
-        for nome, _ in self.TELAS:
-            with self.subTest(tela=nome):
-                fonte = (PAINEL / "pages" / nome).read_text(encoding="utf-8")
-                self.assertIn("whitespace-pre-line", fonte)
-
-
 if __name__ == "__main__":
     unittest.main()

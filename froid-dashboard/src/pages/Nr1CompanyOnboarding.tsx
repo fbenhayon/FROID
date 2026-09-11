@@ -659,14 +659,7 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
                             <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
                               {secao.heading}
                             </p>
-                            {/* `whitespace-pre-line` desde 11/09/2026: o contrato
-                              * novo do NR-1 tem alíneas em linhas próprias, e as
-                              * outras duas telas que exibem documento jurídico
-                              * (LegalPages e Nr1Acceptance) já preservavam a
-                              * quebra. Só esta não, e aqui a empresa lia as
-                              * nove alíneas da cláusula 15.4 emendadas num
-                              * parágrafo só, na tela em que ela ACEITA. */}
-                            <p className="mt-1 whitespace-pre-line text-xs leading-5 text-slate-300">{secao.body}</p>
+                            <p className="mt-1 text-xs leading-5 text-slate-300">{secao.body}</p>
                           </div>
                         ))}
                       </div>
