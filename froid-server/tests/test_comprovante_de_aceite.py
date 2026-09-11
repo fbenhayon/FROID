@@ -151,5 +151,93 @@ class OCatalogoDeInstrumentos(unittest.TestCase):
         self.assertNotIn("155b04c0", tela)
 
 
+class AEmpresaConsegueReaceitar(unittest.TestCase):
+    """O contrato muda, a versao sobe, e a empresa precisa de um caminho.
+
+    Ate 11/09/2026 so o profissional tinha: `/api/professional/legal-acceptances`
+    com tela em Settings. A empresa contratante do NR-1 nao tinha nenhum. No dia
+    em que o texto do contrato foi substituido, o aceite dela passaria a provar
+    um texto superado, o comprovante diria isso em voz alta — corretamente — e
+    nao existiria botao para aceitar o novo. O unico caminho seria refazer o
+    cadastro, que e o pior conserto possivel para um problema de prova.
+    """
+
+    def test_a_rota_da_organizacao_aceita_o_reaceite(self):
+        self.assertIn(
+            '@app.post("/api/organizations/{organization_id}/legal-acceptances")',
+            MAIN,
+        )
+
+    def test_so_quem_contrata_pode_aceitar(self):
+        """Compliance manager conduz o programa e nao assina pela empresa.
+
+        Aceite valido na aparencia e questionavel na origem e pior que aceite
+        nenhum: o primeiro parece prova e nao e.
+        """
+        corpo = _corpo_da_funcao(MAIN, "renew_organization_legal_acceptances")
+        self.assertIn('{"owner", "administrator"}', corpo)
+        self.assertIn("403", corpo)
+
+    def test_os_dois_caminhos_compartilham_a_gravacao(self):
+        """Duas copias da mesma regra divergem, e aqui a divergencia e cara.
+
+        A que divergisse gravaria o aceite com o hash de um catalogo e deixaria
+        o perfil apontando para outro — comprovante certo e acesso errado, ou o
+        contrario, e nenhum dos dois aparece ate alguem conferir.
+        """
+        for rota in (
+            "renew_organization_legal_acceptances",
+            "renew_professional_legal_acceptances",
+        ):
+            with self.subTest(rota=rota):
+                self.assertIn("_record_legal_renewal(", _corpo_da_funcao(MAIN, rota))
+        corpo = _corpo_da_funcao(MAIN, "_record_legal_renewal")
+        self.assertIn("required=True", corpo)
+        self.assertIn("_record_legal_documents(", corpo)
+
+    def test_o_reaceite_exige_o_hash_do_texto_vigente(self):
+        """`required=True` faz `_validated_legal_acceptances` conferir versao E
+        sha256 contra o catalogo. Sem isso, a tela poderia gravar aceite de um
+        texto que nao e o exibido, e o comprovante imprimiria a divergencia
+        como se fosse historico."""
+        validacao = _corpo_da_funcao(MAIN, "_validated_legal_acceptances")
+        self.assertIn('candidate.get("version") == document["version"]', validacao)
+        self.assertIn('candidate.get("sha256") == document["sha256"]', validacao)
+
+    def test_o_contexto_do_ato_diz_a_verdade(self):
+        """O comprovante imprime `acceptance_context`.
+
+        Gravar `professional_legal_renewal` num aceite de EMPREGADOR descreve um
+        ato que nao aconteceu — e num documento de prova isso e o defeito.
+        """
+        corpo = _corpo_da_funcao(MAIN, "_legal_renewal_context")
+        self.assertIn('"nr1_company_legal_renewal"', corpo)
+        self.assertIn('account_type == "nr1_company"', corpo)
+
+    def test_a_natureza_do_sujeito_tem_uma_fonte_so(self):
+        """O ternario existia em tres copias.
+
+        O rotulo da empresa ali e errado — a CHECK da migration 009 so admite
+        professional, organization e patient, e a empresa entra como
+        'professional'. Corrigi-lo exige ALTER numa tabela append-only com
+        aceites reais, decisao do dono. O que da para fazer sem essa decisao e
+        impedir que o rotulo errado vire tres rotulos errados diferentes.
+        """
+        self.assertIn("def _legal_subject_kind(", MAIN)
+        fora = MAIN.replace(_corpo_da_funcao(MAIN, "_legal_subject_kind"), "")
+        self.assertNotIn(
+            '"organization" if account_type == "organization" else "professional"',
+            fora,
+        )
+
+    def test_o_livro_continua_append_only(self):
+        """O reaceite ACRESCENTA. Nao existe caminho que altere o anterior."""
+        self.assertIn("legal_acceptance_events is append-only", MIGRACAO_009)
+        corpo = _corpo_da_funcao(MAIN, "_record_legal_renewal")
+        for verbo in ("UPDATE", "DELETE", "delete_legal"):
+            with self.subTest(verbo=verbo):
+                self.assertNotIn(verbo, corpo)
+
+
 if __name__ == "__main__":
     unittest.main()

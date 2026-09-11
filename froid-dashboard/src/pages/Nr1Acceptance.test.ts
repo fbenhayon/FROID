@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { carimbo, cnpjFormatado, vigentesPorDocumento } from "./Nr1Acceptance";
+import {
+  audienciaDaConta,
+  carimbo,
+  cnpjFormatado,
+  documentosPendentes,
+  vigentesPorDocumento,
+} from "./Nr1Acceptance";
 
 /**
  * Travas do comprovante de aceite.
@@ -132,5 +138,112 @@ describe("o caminho até o comprovante", () => {
 
   it("o painel NR-1 aponta para ele", () => {
     expect(PAINEL).toContain('nav("/nr1/comprovante")');
+  });
+});
+
+/**
+ * O reaceite, que ate 11/09/2026 nao existia para a empresa.
+ *
+ * A tela ja sabia dizer "o texto vigente nao e o texto aceito" — e parava ali.
+ * Quando o contrato do NR-1 foi reescrito e LEGAL_DOCUMENT_VERSION subiu, o
+ * aceite da contratante passou a provar um texto superado e nao havia botao
+ * nenhum para aceitar o novo: o unico caminho era refazer o cadastro. Aviso
+ * sem saida e pior que nenhum, porque descreve um problema que quem le nao tem
+ * como resolver.
+ */
+function doc(chave: string, sha: string, audiencias: string[]) {
+  return {
+    key: chave,
+    version: "2026-09-11.br-pf-v6",
+    sha256: sha,
+    title: `Documento ${chave}`,
+    audiences: audiencias,
+    sections: [],
+  };
+}
+
+describe("o reaceite do texto vigente", () => {
+  const vigenteA = doc("nr1_company_contract", "b".repeat(64), ["nr1_company"]);
+  const vigenteB = doc("terms_nr1", "c".repeat(64), ["nr1_company"]);
+  const doOutroProduto = doc("professional_contract", "d".repeat(64), ["professional"]);
+  const catalogo = {
+    nr1_company_contract: vigenteA,
+    terms_nr1: vigenteB,
+    professional_contract: doOutroProduto,
+  };
+
+  it("mapeia o tipo de conta para a audiencia do catalogo", () => {
+    expect(audienciaDaConta("nr1_company")).toBe("nr1_company");
+    expect(audienciaDaConta("organization")).toBe("organization");
+    expect(audienciaDaConta("individual")).toBe("professional");
+    expect(audienciaDaConta(undefined)).toBe("professional");
+  });
+
+  it("acusa o documento cujo texto mudou depois do aceite", () => {
+    const pendentes = documentosPendentes(
+      catalogo,
+      [
+        aceite("nr1_company_contract", "5.0", "2026-08-25T10:00:00Z", "a".repeat(64)),
+        aceite("terms_nr1", "6.0", "2026-09-11T10:00:00Z", "c".repeat(64)),
+      ],
+      "nr1_company",
+    );
+    expect(pendentes.map((d) => d.key)).toEqual(["nr1_company_contract"]);
+  });
+
+  it("acusa o documento que nunca foi aceito", () => {
+    const pendentes = documentosPendentes(catalogo, [], "nr1_company");
+    expect(pendentes.map((d) => d.key).sort()).toEqual([
+      "nr1_company_contract",
+      "terms_nr1",
+    ]);
+  });
+
+  it("nao pede a empresa o contrato do outro produto", () => {
+    const pendentes = documentosPendentes(catalogo, [], "nr1_company");
+    expect(pendentes.some((d) => d.key === "professional_contract")).toBe(false);
+  });
+
+  it("nao acusa nada quando tudo esta no texto vigente", () => {
+    const pendentes = documentosPendentes(
+      catalogo,
+      [
+        aceite("nr1_company_contract", "6.0", "2026-09-11T10:00:00Z", "b".repeat(64)),
+        aceite("terms_nr1", "6.0", "2026-09-11T10:00:00Z", "c".repeat(64)),
+      ],
+      "nr1_company",
+    );
+    expect(pendentes).toEqual([]);
+  });
+
+  it("a tela envia para a rota da organizacao, e nao para a do profissional", () => {
+    expect(PAGINA).toContain("/api/organizations/${organizationId}/legal-acceptances");
+    expect(PAGINA).toContain('method: "POST"');
+  });
+
+  it("nenhuma caixa vem pre-marcada", () => {
+    // Aceite pre-marcado descreve um ato que nao aconteceu.
+    expect(PAGINA).toContain("checked={Boolean(marcados[doc.key])}");
+    expect(PAGINA).toContain("useState<Record<string, boolean>>({})");
+  });
+
+  it("o botao so libera com todos os documentos marcados", () => {
+    expect(PAGINA).toContain("pendentes.some((doc) => !marcados[doc.key])");
+  });
+
+  it("o bloco de reaceite fica fora da impressao", () => {
+    // O comprovante em papel e documento de prova e nao carrega botao.
+    const bloco = PAGINA.slice(PAGINA.indexOf("pendentes.length > 0"));
+    expect(bloco.slice(0, 400)).toContain("froid-nao-imprime");
+  });
+
+  it("nao oferece aceite quando o livro nao pode ser consultado", () => {
+    // Sem a chave de auditoria o servidor recusa gravar; oferecer o botao
+    // produziria um erro no lugar de uma explicacao.
+    expect(PAGINA).toContain("dados?.ledger_configured && pendentes.length > 0");
+  });
+
+  it("diz que o registro anterior continua valendo", () => {
+    expect(PAGINA_CORRIDA).toMatch(/continua provando o que foi aceito antes/i);
   });
 });

@@ -5274,6 +5274,64 @@ def _validated_legal_acceptances(
     return accepted
 
 
+def _legal_subject_kind(account_type: str) -> str:
+    """A natureza do sujeito, como o livro de aceites a registra.
+
+    A coluna aceita 'professional', 'organization' ou 'patient' por CHECK do
+    banco (migration 009). A empresa contratante do NR-1 nao tem valor proprio
+    ali e entra como 'professional' desde o primeiro cadastro dela, em
+    22/08/2026 — rotulo errado, e conhecido.
+
+    Nao e corrigido aqui porque corrigi-lo exige ALTER na CHECK de uma tabela
+    append-only que ja guarda aceites reais, e essa e decisao do dono, nao
+    efeito colateral de outra tarefa. O que o rotulo NAO faz e mudar resultado:
+    o comprovante recupera por subject_reference_hash, e nenhuma leitura filtra
+    por esta coluna. Registrado numa funcao so para parar de existir em tres
+    copias — que e como um rotulo errado vira dois rotulos errados diferentes.
+    """
+    return "organization" if account_type == "organization" else "professional"
+
+
+def _legal_renewal_context(account_type: str) -> str:
+    """O rotulo do ato. O comprovante o imprime, entao ele precisa ser verdade."""
+    if account_type == "nr1_company":
+        return "nr1_company_legal_renewal"
+    return "professional_legal_renewal"
+
+
+def _record_legal_renewal(
+    *, request: Request, body: object, email: str, profile: dict,
+    organization_id: str,
+) -> dict:
+    """Grava o aceite dos documentos VIGENTES e atualiza o perfil.
+
+    Uma implementacao para os dois caminhos — o do profissional e o da
+    organizacao. Duas copias da mesma regra divergem, e a que divergisse aqui
+    gravaria aceite com o hash de um catalogo e deixaria o perfil apontando
+    para outro: o comprovante ficaria certo e o acesso errado, ou o contrario.
+    """
+    submitted = body if isinstance(body, dict) else {}
+    account_type = str(profile.get("account_type") or "individual")
+    legal_acceptances = _validated_legal_acceptances(
+        submitted.get("legal_acceptances"),
+        account_type,
+        required=True,
+    )
+    _record_legal_documents(
+        request=request,
+        subject_reference=email,
+        subject_kind=_legal_subject_kind(account_type),
+        organization_id=organization_id,
+        acceptances=legal_acceptances,
+        context=_legal_renewal_context(account_type),
+    )
+    profile["legal_acceptances"] = legal_acceptances
+    profile["updated_at"] = _utc_now_iso()
+    PROFESSIONAL_PROFILES[email] = profile
+    _save_identity_state()
+    return {"status": "accepted", "legal_acceptances": legal_acceptances}
+
+
 def _record_legal_documents(
     *, request: Request, subject_reference: str, subject_kind: str,
     organization_id: str, acceptances: dict[str, dict], context: str,
@@ -11361,6 +11419,44 @@ async def list_organization_legal_acceptances(organization_id: str, request: Req
     }
 
 
+@app.post("/api/organizations/{organization_id}/legal-acceptances")
+async def renew_organization_legal_acceptances(organization_id: str, request: Request):
+    """Reaceite dos documentos vigentes por quem contrata pela organizacao.
+
+    Existia so para o profissional, em `/api/professional/legal-acceptances`,
+    com tela em Settings. A empresa contratante do NR-1 nao tinha caminho
+    nenhum: quando o texto mudava e LEGAL_DOCUMENT_VERSION subia, o aceite dela
+    passava a provar um texto superado, o comprovante denunciava a divergencia
+    — corretamente — e nao havia botao para aceitar o novo.
+
+    Apareceu em 11/09/2026, ao substituir o contrato do NR-1. Comprovante que
+    aponta o problema e nao oferece saida transforma a prova do aceite num
+    defeito sem conserto pela tela, e o unico caminho seria refazer o cadastro.
+    """
+    user = _require_current_user(request)
+    context = _require_tenant_management_context(
+        request, organization_id, "organization.read"
+    )
+    # Aceitar contrato e ato de contratacao. O compliance_manager conduz o
+    # programa e nao assina pela empresa: dar-lhe esse poder produziria aceite
+    # valido na aparencia e questionavel na origem, que e pior do que nenhum.
+    if not ({"owner", "administrator"} & set(context.roles)):
+        raise HTTPException(
+            status_code=403, detail="papel sem permissão para aceitar contratação"
+        )
+    email = _normalize_email(user.get("email") or "")
+    profile = PROFESSIONAL_PROFILES.get(email)
+    if not isinstance(profile, dict):
+        raise HTTPException(status_code=409, detail="cadastro ausente")
+    return _record_legal_renewal(
+        request=request,
+        body=await request.json(),
+        email=email,
+        profile=profile,
+        organization_id=context.organization_id,
+    )
+
+
 @app.get("/api/organizations/{organization_id}/nr1/units")
 async def list_nr1_units(organization_id: str, request: Request):
     """Estrutura da empresa: estabelecimentos e os setores de cada um.
@@ -12919,26 +13015,13 @@ async def renew_professional_legal_acceptances(request: Request):
     profile = PROFESSIONAL_PROFILES.get(email)
     if not isinstance(profile, dict):
         raise HTTPException(status_code=409, detail="cadastro profissional ausente")
-    body = await request.json()
-    account_type = str(profile.get("account_type") or "individual")
-    legal_acceptances = _validated_legal_acceptances(
-        body.get("legal_acceptances"),
-        account_type,
-        required=True,
-    )
-    _record_legal_documents(
+    return _record_legal_renewal(
         request=request,
-        subject_reference=email,
-        subject_kind=("organization" if account_type == "organization" else "professional"),
+        body=await request.json(),
+        email=email,
+        profile=profile,
         organization_id=context.organization_id,
-        acceptances=legal_acceptances,
-        context="professional_legal_renewal",
     )
-    profile["legal_acceptances"] = legal_acceptances
-    profile["updated_at"] = _utc_now_iso()
-    PROFESSIONAL_PROFILES[email] = profile
-    _save_identity_state()
-    return {"status": "accepted", "legal_acceptances": legal_acceptances}
 
 
 def _assert_account_type_transition(
@@ -13403,7 +13486,7 @@ async def save_professional_profile(request: Request):
         _record_legal_documents(
             request=request,
             subject_reference=owner_email,
-            subject_kind=("organization" if account_type == "organization" else "professional"),
+            subject_kind=_legal_subject_kind(account_type),
             organization_id=tenant_organization_id_for_profile(
                 owner_email, account_type, body.get("organization_document")
             ),
@@ -13673,10 +13756,8 @@ async def create_subscription_checkout(request: Request):
         _record_legal_documents(
             request=request,
             subject_reference=email,
-            subject_kind=(
-                "organization"
-                if profile.get("account_type") == "organization"
-                else "professional"
+            subject_kind=_legal_subject_kind(
+                str(profile.get("account_type") or "individual")
             ),
             organization_id=context.organization_id,
             acceptances={

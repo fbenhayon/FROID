@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 
 import type { FroidUser } from "../App";
 import { apiUrl } from "../lib/api";
-import { rotuloDaClausula } from "../lib/legal";
+import { legalRouteByKey, rotuloDaClausula } from "../lib/legal";
 import { GlossarioDeSiglas } from "../lib/siglas";
 import { Nr1ExplicaPainel } from "../components/nr1/Nr1ExplicaPainel";
 
@@ -57,6 +57,8 @@ type DocumentoLegal = {
   version: string;
   sha256: string;
   title: string;
+  /** A quem o documento se dirige. O catalogo ja declarava; a tela ignorava. */
+  audiences?: string[];
   sections: Array<{ heading: string; body: string }>;
 };
 
@@ -124,11 +126,44 @@ export function vigentesPorDocumento(aceites: Aceite[]): Aceite[] {
   return Array.from(porChave.values());
 }
 
+/** A audiencia desta conta, como o catalogo a declara. */
+export function audienciaDaConta(accountType: string | undefined): string {
+  if (accountType === "nr1_company") return "nr1_company";
+  if (accountType === "organization") return "organization";
+  return "professional";
+}
+
+/**
+ * Os documentos desta audiencia que esta conta ainda nao aceitou — ou aceitou
+ * num texto que nao e mais o vigente.
+ *
+ * A segunda metade e o que faltava. Enquanto a versao nao subia, "aceitou" e
+ * "aceitou o texto de hoje" eram a mesma coisa. Quando o contrato do NR-1 foi
+ * reescrito, em 11/09/2026, deixaram de ser — e esta tela, que ja sabia dizer
+ * "o texto vigente nao e o texto aceito", nao sabia o que fazer a respeito.
+ *
+ * Documento nunca aceito tambem entra: `undefined !== sha` e verdadeiro, e um
+ * documento sem aceite nenhum e o caso mais grave, nao o mais leve.
+ */
+export function documentosPendentes(
+  documentos: Record<string, DocumentoLegal>,
+  vigentes: Aceite[],
+  audiencia: string,
+): DocumentoLegal[] {
+  const aceitoPorChave = new Map(vigentes.map((a) => [a.document_key, a]));
+  return Object.values(documentos || {})
+    .filter((doc) => (doc.audiences ?? []).includes(audiencia))
+    .filter((doc) => aceitoPorChave.get(doc.key)?.document_sha256 !== doc.sha256);
+}
+
 export const Nr1Acceptance: React.FC<Props> = ({ user }) => {
   const organizationId = String(user?.active_organization_id || "");
   const [dados, setDados] = useState<Resposta | null>(null);
   const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [erro, setErro] = useState("");
+  const [marcados, setMarcados] = useState<Record<string, boolean>>({});
+  const [enviando, setEnviando] = useState(false);
+  const [avisoDoAceite, setAvisoDoAceite] = useState("");
 
   const carregar = useCallback(async () => {
     if (!organizationId) return;
@@ -169,6 +204,56 @@ export const Nr1Acceptance: React.FC<Props> = ({ user }) => {
   );
 
   const emitidoEm = useMemo(() => carimbo(new Date().toISOString()), []);
+
+  const pendentes = useMemo(
+    () =>
+      dados
+        ? documentosPendentes(
+            dados.documents,
+            vigentes,
+            audienciaDaConta(perfil?.account_type),
+          )
+        : [],
+    [dados, vigentes, perfil],
+  );
+
+  /** Acrescenta um aceite do texto VIGENTE. Nada do que ja foi aceito muda:
+   *  o livro recusa alteracao por gatilho, e e assim que deve ser. */
+  const aceitarVigentes = useCallback(async () => {
+    setEnviando(true);
+    setAvisoDoAceite("");
+    try {
+      const resposta = await fetch(
+        apiUrl(`/api/organizations/${organizationId}/legal-acceptances`),
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token()}`,
+            "X-FROID-Organization-ID": organizationId,
+          },
+          body: JSON.stringify({
+            legal_acceptances: Object.fromEntries(
+              pendentes.map((doc) => [
+                doc.key,
+                { accepted: true, version: doc.version, sha256: doc.sha256 },
+              ]),
+            ),
+          }),
+        },
+      );
+      const corpo = await resposta.json().catch(() => ({}));
+      if (!resposta.ok) {
+        throw new Error(corpo?.detail || "Não foi possível registrar o aceite.");
+      }
+      setMarcados({});
+      await carregar();
+    } catch (e) {
+      setAvisoDoAceite(String((e as Error).message));
+    } finally {
+      setEnviando(false);
+    }
+  }, [carregar, organizationId, pendentes]);
 
   if (!organizationId) {
     return (
@@ -339,6 +424,80 @@ export const Nr1Acceptance: React.FC<Props> = ({ user }) => {
             })}
           </ol>
         </section>
+
+        {/* Fora da impressão: o comprovante em papel é documento de prova e não
+            carrega botão. Na tela ele precisa oferecer a saída — comprovante que
+            denuncia a divergência e não deixa resolver transforma a prova do
+            aceite num defeito sem conserto, e o único caminho seria refazer o
+            cadastro da empresa. */}
+        {dados?.ledger_configured && pendentes.length > 0 && (
+          <section className="froid-nao-imprime mt-5 rounded-lg border border-amber-700 bg-amber-950/40 p-4">
+            <h2 className="text-sm font-black text-amber-100">
+              {vigentes.length
+                ? "O texto vigente ainda não foi aceito por esta conta"
+                : "Esta conta ainda não tem aceite registrado"}
+            </h2>
+            <p className="mt-1 text-xs leading-5 text-amber-100/90">
+              O que está acima continua provando o que foi aceito antes, e
+              continua válido para aquela data: o livro de aceites recusa
+              alteração e exclusão, e nada aqui o modifica. O aceite abaixo
+              acrescenta um registro novo, do texto vigente, com a data de hoje.
+            </p>
+            <ul className="mt-3 space-y-2">
+              {pendentes.map((doc) => (
+                <li
+                  key={doc.key}
+                  className="rounded border border-amber-800/60 bg-slate-950/50 p-3"
+                >
+                  <label className="flex items-start gap-2 text-xs leading-5 text-slate-200">
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={Boolean(marcados[doc.key])}
+                      onChange={(e) =>
+                        setMarcados((atual) => ({
+                          ...atual,
+                          [doc.key]: e.target.checked,
+                        }))
+                      }
+                    />
+                    <span>
+                      Li e aceito <strong>{doc.title}</strong>, versão{" "}
+                      {doc.version}.{" "}
+                      <Link
+                        to={legalRouteByKey[doc.key] || "/"}
+                        className="font-bold text-cyan-300 underline"
+                      >
+                        Ler a íntegra
+                      </Link>
+                    </span>
+                  </label>
+                  <p className="mt-1 break-all pl-6 font-mono text-[11px] text-slate-500">
+                    SHA-256 {doc.sha256}
+                  </p>
+                </li>
+              ))}
+            </ul>
+            {avisoDoAceite && (
+              <p className="mt-3 rounded border border-red-800 bg-red-950/60 p-2 text-[11px] leading-4 text-red-100">
+                {avisoDoAceite}
+              </p>
+            )}
+            <button
+              type="button"
+              disabled={enviando || pendentes.some((doc) => !marcados[doc.key])}
+              onClick={() => void aceitarVigentes()}
+              className="mt-3 rounded bg-cyan-500 px-4 py-2 text-xs font-black text-cyan-950 hover:bg-cyan-400 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
+            >
+              {enviando ? "Registrando..." : "Registrar aceite do texto vigente"}
+            </button>
+            <p className="mt-2 text-[11px] leading-4 text-slate-400">
+              O registro guarda a versão e o SHA-256 do texto lido nesta tela.
+              Nenhuma caixa vem marcada: aceite pré-marcado descreve um ato que
+              não aconteceu.
+            </p>
+          </section>
+        )}
 
         {/* A integra, uma pagina nova por documento. Comprovante que cita sem
             reproduzir obriga quem le a ir buscar o texto noutro lugar — e no dia

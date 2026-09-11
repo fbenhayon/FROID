@@ -19,6 +19,7 @@ O comportamento real das restricoes contra um Postgres de verdade esta em
 tests/test_nr1_plano_de_acao_postgres.py, que pula sem banco configurado.
 """
 
+import ast
 import re
 import sys
 import unittest
@@ -363,7 +364,18 @@ class OCadastroDaEmpresaConsegueTerminar(unittest.TestCase):
     """
 
     def test_a_chave_da_empresa_e_o_cnpj_e_nao_um_cpf(self):
-        trecho = MAIN[MAIN.index('if account_type == "nr1_company":'):]
+        """Recortado pelo PARSER, e nao por janela de texto.
+
+        A versao antiga cortava MAIN do primeiro `if account_type ==
+        "nr1_company":` ate o primeiro `legal_acceptances = `. Em
+        11/09/2026 uma funcao auxiliar com essas mesmas duas linhas entrou
+        ANTES do cadastro no arquivo, e o teste passou a inspecionar o
+        trecho errado — falhou sem que a garantia tivesse mudado. E o mesmo
+        defeito que ja quebrou dois testes desta casa por crescimento de
+        comentario: recorte por posicao afirma o arquivo, nao a regra.
+        """
+        trecho = _corpo_da_funcao(MAIN, "save_professional_profile")
+        trecho = trecho[trecho.index('if account_type == "nr1_company":'):]
         trecho = trecho[: trecho.index("legal_acceptances = ")]
         self.assertIn("organization_document", trecho)
         self.assertIn("14", trecho)
@@ -497,6 +509,15 @@ class OBloqueioFalaComQuemLe(unittest.TestCase):
         # "voce preencheu errado".
         self.assertIn('"access_blocked": True', MAIN)
         self.assertIn('"access_block_status": approval.get("access_block_status")', MAIN)
+
+
+def _corpo_da_funcao(fonte: str, nome: str) -> str:
+    """O texto de uma funcao, isolado — recorte pelo parser, e nao por posicao."""
+    arvore = ast.parse(fonte)
+    for no in ast.walk(arvore):
+        if isinstance(no, (ast.FunctionDef, ast.AsyncFunctionDef)) and no.name == nome:
+            return ast.get_source_segment(fonte, no) or ""
+    raise AssertionError(f"funcao {nome} nao encontrada")
 
 
 def _texto_do_contrato(catalogo):
