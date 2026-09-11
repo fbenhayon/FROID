@@ -5,7 +5,7 @@
 - [Armadilha de encoding nos HTML](froid-html-encoding-pitfall.md) — edições manuais podem corromper UTF-8; verificar mojibake antes de commitar
 - [Módulo NR-1 corporativo](froid-nr1-corporate-module.md) — instrumento, pisos de coorte e a fronteira que impede o empregador de ler dado clínico
 - [Infra de produção](froid-infra-producao.md) — branch, banco e contêineres reais; três suposições minhas que quase viraram incidente
-- [Topologia de deploy](froid-deploy-topologia.md) — site entra com git pull, painel exige rebuild, backend quase nunca; DEPLOY_LOG.md engana
+- [Topologia de deploy](froid-deploy-topologia.md) — site entra com git pull, painel exige rebuild, backend quase nunca; conferir com tools/conferir-deploy.py
 - [Envio de e-mail (SMTP)](froid-smtp-envio.md) — froid@froid.com.br funciona; fbenhayon@froid.com.br não, e por quê
 - [Fontes normativas da NR-1](froid-nr1-fontes-normativas.md) — o texto da lei vive em docs/normas/, e três coisas que ela não diz
 - [Espelho PostgreSQL silencioso](froid-espelho-postgres-silencioso.md) — o 403 do NR-1 que não era permissão: o espelho nunca rodou

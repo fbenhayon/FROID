@@ -1,6 +1,6 @@
 ---
 name: froid-deploy-topologia
-description: O que precisa de rebuild no deploy do FROID e o que entra só com git pull — e por que o DEPLOY_LOG.md engana
+description: O que precisa de rebuild no deploy do FROID e o que entra só com git pull — e como conferir o que esta no ar com tools/conferir-deploy.py
 metadata: 
   node_type: memory
   type: project
@@ -16,7 +16,9 @@ Topologia real de produção, apurada em 07/08/2026 lendo `docker-compose.yml` e
 - **O contexto de build do backend é `./froid-server` e não alcança a raiz do repositório.** `docs/`, `Caddyfile` e qualquer coisa fora de `froid-server/` **não entram na imagem**. Foi assim que o indexador do FROID Explica NR-1 rodou com sucesso indexando tudo menos o texto da lei: a pasta não existia lá dentro, e ausência de pasta não é erro. Hoje `docs/normas` é montado em `/normas:ro` pelo compose.
 - **Diretório é `/root/froid-project`.** Contêineres com prefixo `froid-project-` (ex.: `froid-project-froid-frontend-1`), diferentes do `froid-postgres-1` de [[froid-infra-producao]], que é de outra pilha.
 
-**`DEPLOY_LOG.md` está obsoleto e induz ao erro:** descreve o setup de junho/2026 com `uvicorn --reload` e `npx vite` em `/root/froid-project`, que não corresponde mais à produção em Docker. Não montar comando a partir dele.
+**Antes de montar comando de deploy, rode `python tools/conferir-deploy.py`.** Ele pergunta ao servidor por HTTP público (sem SSH) e diz, camada a camada, o que está no ar e o que não está — rotas que o site chama, cada página servida byte a byte, e as frases do painel contra o build local.
+
+Ele existe por causa de 11/09/2026: o formulário de Sobre & Contato estava quebrado em produção nas quatro versões de idioma, porque o site entrou com `git pull` levando a página e o backend ficou para trás sem a rota `/api/contato`. Nada acusava — sem erro de build, sem teste vermelho, sem log. O `DEPLOY_LOG.md` deveria ter respondido e estava parado em junho/2026, descrevendo `uvicorn --reload` e `npx vite`: log de implantação que envelhece não é registro incompleto, é registro que mente. Foi substituído pelo comando acima e hoje só explica a topologia e o incidente.
 
 - **Variável de ambiente nova exige linha no `docker-compose.yml`.** O `froid-backend` recebe lista explícita em `environment:`, e não `env_file`. Pôr a variável só no `.env` do servidor não a faz chegar ao contêiner — e o sintoma é o pior possível: a chave parece ligada, nada acontece, e não há erro nenhum. Apurado em 04/09/2026 ao habilitar `FROID_DATAMART_FALA_PROFISSIONAL`. Depois de ligar qualquer chave, confirmar com `docker compose exec froid-backend printenv NOME`.
 
