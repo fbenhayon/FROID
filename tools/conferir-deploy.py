@@ -138,8 +138,24 @@ def conferir_backend(base: str, r: Resultado) -> None:
         r.falha(f"espelho PostgreSQL com erro: {persistencia['last_error']}")
     elif persistencia.get("schema_ready"):
         r.ok(f"espelho PostgreSQL sincronizado ({persistencia.get('last_sync_at')})")
+    elif persistencia.get("postgres_mirror_enabled") and not persistencia.get("last_sync_at"):
+        # NAO E INCIDENTE, e dizer so "sem schema pronto" assustava a cada deploy.
+        #
+        # `ensure_schema()` roda na PRIMEIRA operacao de tenant, e nao no start
+        # do conteiner. Logo depois de subir o backend o espelho fica assim:
+        # habilitado, sem erro, sem sincronizacao ainda. Vira pronto no primeiro
+        # login. Sem esta distincao o comando gritaria em toda publicacao, e
+        # alarme que sempre toca deixa de ser lido.
+        r.ok(
+            "espelho PostgreSQL habilitado e sem erro; schema inicializa na "
+            "primeira operacao de tenant (normal logo apos reiniciar o backend)"
+        )
     else:
-        r.indefinido("espelho PostgreSQL sem schema pronto")
+        r.indefinido(
+            f"espelho PostgreSQL sem schema pronto e sem erro declarado "
+            f"(mirror={persistencia.get('postgres_mirror_enabled')}, "
+            f"ultima sincronizacao={persistencia.get('last_sync_at')})"
+        )
 
     midia = saude.get("media") or {}
     if midia.get("turn_configured") and midia.get("turn_reachable"):
@@ -245,40 +261,65 @@ def conferir_painel(base: str, r: Resultado) -> None:
         r.indefinido("nao encontrei o bundle de entrada para comparar")
         return
 
-    nome_local = bundle_local.group(1).lstrip("/")
-    if bundle_servido.group(1).lstrip("/") == nome_local:
-        r.ok("bundle de entrada identico ao build local")
+    # CONFERIR SO O BUNDLE DE ENTRADA ERA UM PONTO CEGO, e ele quase me enganou.
+    #
+    # O painel e dividido em pedacos carregados sob demanda: cada tela vive no
+    # seu. A correcao do tooltip do dossie, por exemplo, mora inteira em
+    # `Nr1Dossier-*.js` e NAO toca o `index-*.js`. Comparar so a entrada
+    # responderia "mesmo produto" com a tela antiga no ar — um OK que nao
+    # verificou o que importava.
+    #
+    # Agora compara TODOS os pedacos que a entrada referencia. O casamento entre
+    # servido e local e pelo nome-base antes do hash (`Nr1Dossier-` casa com
+    # `Nr1Dossier-`), porque o hash e justamente o que difere.
+    status, corpo_entrada = _buscar(f"{base}{bundle_servido.group(1)}")
+    if status != 200:
+        r.indefinido("nao consegui baixar o bundle de entrada servido")
         return
+    texto_entrada = corpo_entrada.decode("utf-8", errors="ignore")
 
-    # Nome diferente NAO prova produto diferente: dois empacotadores de versoes
-    # distintas geram hashes distintos para a mesma fonte. O que decide e o
-    # texto que a pessoa le.
-    status, corpo = _buscar(f"{base}{bundle_servido.group(1)}")
-    arquivo_local = PAINEL_DIST / nome_local
-    if status != 200 or not arquivo_local.exists():
-        r.indefinido("nao consegui baixar os dois bundles para comparar o conteudo")
-        return
-    servidas = _frases_de_aplicacao(corpo.decode("utf-8", errors="ignore"))
-    locais = _frases_de_aplicacao(arquivo_local.read_text(encoding="utf-8"))
-    faltando = sorted(locais - servidas)
-    sobrando = sorted(servidas - locais)
-    if not faltando and not sobrando:
-        r.ok(
-            f"mesmo produto ({len(locais)} frases conferem); hash difere so por "
-            "versao do empacotador"
+    def _base_do_chunk(nome: str) -> str:
+        return re.sub(r"-[A-Za-z0-9_-]{6,}\.js$", "", nome)
+
+    servidos = {bundle_servido.group(1).lstrip("/").split("/")[-1]}
+    servidos.update(re.findall(r"[A-Za-z0-9_.-]+-[A-Za-z0-9_-]{6,}\.js", texto_entrada))
+    locais = {c.name for c in (PAINEL_DIST / "assets").glob("*.js")}
+    por_base_local = {_base_do_chunk(n): n for n in locais}
+
+    conferidos = 0
+    faltando_total: list[str] = []
+    sem_par: list[str] = []
+    for nome_servido in sorted(servidos):
+        chave = _base_do_chunk(nome_servido)
+        nome_local = por_base_local.get(chave)
+        if not nome_local:
+            sem_par.append(nome_servido)
+            continue
+        st, dados = _buscar(f"{base}/assets/{nome_servido}")
+        if st != 200:
+            sem_par.append(nome_servido)
+            continue
+        frases_servidas = _frases_de_aplicacao(dados.decode("utf-8", errors="ignore"))
+        frases_locais = _frases_de_aplicacao(
+            (PAINEL_DIST / "assets" / nome_local).read_text(encoding="utf-8")
         )
-        return
-    if faltando:
+        conferidos += 1
+        for frase in sorted(frases_locais - frases_servidas):
+            faltando_total.append(f"{chave}: {frase[:70]}")
+
+    if faltando_total:
         r.falha(
-            f"{len(faltando)} frase(s) existem no build local e NAO estao no ar "
-            f"— ex.: {faltando[0][:70]!r}",
+            f"{len(faltando_total)} frase(s) do build local NAO estao no ar "
+            f"— ex.: {faltando_total[0]!r}",
             "painel atrasado: docker compose build froid-frontend && "
             "docker compose up -d froid-frontend",
         )
-    if sobrando:
+    else:
+        r.ok(f"mesmo produto em {conferidos} pedaco(s) do painel")
+    if sem_par:
         r.indefinido(
-            f"{len(sobrando)} frase(s) estao no ar e nao no build local "
-            f"— ex.: {sobrando[0][:70]!r} (build local desatualizado?)"
+            f"{len(sem_par)} pedaco(s) servidos sem par local para comparar "
+            f"— ex.: {sem_par[0]}"
         )
 
 
