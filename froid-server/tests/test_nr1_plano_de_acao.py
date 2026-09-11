@@ -499,6 +499,23 @@ class OBloqueioFalaComQuemLe(unittest.TestCase):
         self.assertIn('"access_block_status": approval.get("access_block_status")', MAIN)
 
 
+def _texto_do_contrato(catalogo):
+    """O contrato do NR-1 inteiro, para procurar garantia sem depender do titulo.
+
+    Ate 11/09/2026 cada teste abria `secoes["Pisos de coorte, agregacao e
+    supressao"]` e afirmava sobre aquele corpo. Funcionava enquanto os titulos
+    nao mudassem — e quando o contrato foi reescrito em 16 clausulas numeradas,
+    doze testes cairam com KeyError sem que UMA garantia tivesse saido do texto.
+    Teste que quebra por renomeacao afirma o mecanismo, e nao a garantia.
+
+    Procurar no documento inteiro afirma o que interessa: a frase esta no
+    contrato que a empresa aceita. Onde ela mora e decisao de redacao.
+    """
+    return " ".join(
+        secao["body"]
+        for secao in catalogo["documents"]["nr1_company_contract"]["sections"]
+    )
+
 class CadaServicoTemOContratoDele(unittest.TestCase):
     """O objeto de cada servico, dito no contrato dele.
 
@@ -563,11 +580,8 @@ class CadaServicoTemOContratoDele(unittest.TestCase):
                 self.assertEqual(titulos[0], "Objeto e finalidade")
 
     def test_o_contrato_do_nr1_nomeia_a_fronteira_como_estrutural(self):
-        secoes = {
-            secao["heading"]: secao["body"]
-            for secao in self.catalogo["documents"]["nr1_company_contract"]["sections"]
-        }
-        fronteira = secoes["Dados não disponibilizados à contratante"]
+        contrato = _texto_do_contrato(self.catalogo)
+        fronteira = contrato
         for proibido in ("respostas individualizadas", "prontuário", "diagnóstico clínico"):
             with self.subTest(item=proibido):
                 self.assertIn(proibido, fronteira)
@@ -589,11 +603,8 @@ class CadaServicoTemOContratoDele(unittest.TestCase):
         identidade e resposta nao sai do FROID por funcionalidade, exportacao,
         integracao, suporte ou cruzamento.
         """
-        secoes = {
-            secao["heading"]: secao["body"]
-            for secao in self.catalogo["documents"]["nr1_company_contract"]["sections"]
-        }
-        fronteira = secoes["Dados não disponibilizados à contratante"]
+        contrato = _texto_do_contrato(self.catalogo)
+        fronteira = contrato
         self.assertNotIn("não pode obter por outro caminho", fronteira)
         self.assertIn("investigação de acidente", fronteira)
         self.assertIn("ordem de autoridade competente", fronteira)
@@ -607,20 +618,14 @@ class CadaServicoTemOContratoDele(unittest.TestCase):
         Trocada por obrigacoes verificaveis, e por uma ressalva explicita de que
         acesso tecnico excepcional do fornecedor existe e e controlado.
         """
-        todas = " ".join(
-            secao["body"]
-            for secao in self.catalogo["documents"]["nr1_company_contract"]["sections"]
-        )
+        todas = _texto_do_contrato(self.catalogo)
         self.assertNotIn("não são legíveis pela aplicação", todas)
         self.assertIn("privilégio mínimo", todas)
         self.assertIn("não será interpretada como declaração de inexistência", todas)
 
     def test_o_contrato_do_nr1_declara_a_base_legal_correta(self):
-        secoes = {
-            secao["heading"]: secao["body"]
-            for secao in self.catalogo["documents"]["nr1_company_contract"]["sections"]
-        }
-        base = secoes["Proteção de dados pessoais: papéis e bases legais"]
+        contrato = _texto_do_contrato(self.catalogo)
+        base = contrato
         # A citacao agora e CONDICIONAL, como o parecer pediu: art. 7 para dado
         # comum, art. 11 so quando houver dado sensivel e ele for indispensavel.
         # Invocar os dois em bloco afirmava que a coleta trata dado sensivel
@@ -635,11 +640,8 @@ class CadaServicoTemOContratoDele(unittest.TestCase):
         self.assertIn("conteúdo real das perguntas", base)
 
     def test_o_contrato_admite_que_os_pisos_sao_escolha_nossa(self):
-        secoes = {
-            secao["heading"]: secao["body"]
-            for secao in self.catalogo["documents"]["nr1_company_contract"]["sections"]
-        }
-        pisos = secoes["Pisos de coorte, agregação e supressão"]
+        contrato = _texto_do_contrato(self.catalogo)
+        pisos = contrato
         self.assertIn("critérios metodológicos e de proteção definidos pelo FORNECEDOR", pisos)
         self.assertIn("não serão apresentados como tamanho mínimo de coorte", pisos)
 
@@ -652,11 +654,8 @@ class CadaServicoTemOContratoDele(unittest.TestCase):
         a defesa inteira — e e por isso que o documento de criterios declara
         qual piso serve a qual finalidade.
         """
-        secoes = {
-            secao["heading"]: secao["body"]
-            for secao in self.catalogo["documents"]["nr1_company_contract"]["sections"]
-        }
-        pisos = secoes["Pisos de coorte, agregação e supressão"]
+        contrato = _texto_do_contrato(self.catalogo)
+        pisos = contrato
         self.assertIn("reduzir o risco de identificação ou reidentificação", pisos)
         self.assertIn("suficiência metodológica mínima", pisos)
         self.assertIn("distinguir essas finalidades", pisos)
@@ -669,17 +668,14 @@ class CadaServicoTemOContratoDele(unittest.TestCase):
         cria a terceira saida: declarar o recorte insuficiente para
         classificacao. Suprimir e ocultar; declarar insuficiente e documentar.
         """
-        secoes = {
-            secao["heading"]: secao["body"]
-            for secao in self.catalogo["documents"]["nr1_company_contract"]["sections"]
-        }
-        pisos = secoes["Pisos de coorte, agregação e supressão"]
+        contrato = _texto_do_contrato(self.catalogo)
+        pisos = contrato
         self.assertIn("declarado insuficiente para classificação", pisos)
         self.assertIn(
             "Não será criada artificialmente conclusão sobre ausência ou baixo nível de risco",
             pisos,
         )
-        inconclusivo = secoes["Resultado inconclusivo não é ausência de risco"]
+        inconclusivo = contrato
         self.assertIn(
             "não será automaticamente interpretada como inexistência de risco", inconclusivo
         )
@@ -713,10 +709,7 @@ class SinergiaEntreOsDoisProdutos(unittest.TestCase):
 
         self.legal = legal_documents
         self.catalogo = legal_documents.public_legal_catalog()
-        self.nr1 = {
-            secao["heading"]: secao["body"]
-            for secao in self.catalogo["documents"]["nr1_company_contract"]["sections"]
-        }
+        self.nr1 = _texto_do_contrato(self.catalogo)
 
     def test_o_psique_pode_ser_o_canal_de_apoio(self):
         objeto = self.legal.OBJETO_PSIQUE
@@ -724,7 +717,7 @@ class SinergiaEntreOsDoisProdutos(unittest.TestCase):
         self.assertIn("articulação é de finalidade, nunca de", objeto)
 
     def test_o_contrato_do_nr1_descreve_a_articulacao(self):
-        clausula = self.nr1["FROID Psique e serviços assistenciais"]
+        clausula = self.nr1
         self.assertIn("FROID Psique", clausula)
         self.assertIn("instrumento próprio", clausula)
         # O que a empresa NAO recebe por essa porta.
@@ -746,13 +739,13 @@ class SinergiaEntreOsDoisProdutos(unittest.TestCase):
         requisito de abertura de campanha, e a contratante pode escolher o
         Psique para esse papel. O que ela impede e o FROID escolher por ela.
         """
-        clausula = self.nr1["FROID Psique e serviços assistenciais"]
+        clausula = self.nr1
         self.assertIn("não poderá favorecer serviço assistencial do próprio FORNECEDOR", clausula)
         self.assertIn("em detrimento de medida organizacional mais adequada", clausula)
         # E a contrapartida: escolher o Psique como canal continua permitido.
         self.assertIn("salvo se expressamente escolhido pela contratante", clausula)
 
-        plano = self.nr1["Plano de ação e medidas de prevenção"]
+        plano = self.nr1
         self.assertIn(
             "Medidas individuais de acolhimento, orientação ou assistência não serão tratadas "
             "como substitutas automáticas de correções organizacionais",
@@ -771,7 +764,7 @@ class SinergiaEntreOsDoisProdutos(unittest.TestCase):
         Comercialmente a mudanca tambem e boa: acompanhamento continuo e servico
         recorrente, enquanto "espere dois anos" e uma venda a cada dois anos.
         """
-        clausula = self.nr1["Acompanhamento, risco residual e eficácia"]
+        clausula = self.nr1
         self.assertIn("uma das evidências", clausula)
         self.assertIn("não constitui necessariamente o único ou suficiente meio", clausula)
         # E o risco residual nao espera o proximo ciclo.
@@ -782,7 +775,7 @@ class SinergiaEntreOsDoisProdutos(unittest.TestCase):
     def test_a_procura_pelo_canal_e_ato_do_trabalhador(self):
         # Encaminhamento disparado pela resposta individual seria triagem
         # individual, que e o que o Guia MTE afasta como objeto do processo.
-        clausula = self.nr1["FROID Psique e serviços assistenciais"]
+        clausula = self.nr1
         self.assertIn("a procura será ato do trabalhador", clausula)
         self.assertIn(
             "informações clínicas não serão reutilizadas para classificar individualmente",
@@ -797,7 +790,7 @@ class SinergiaEntreOsDoisProdutos(unittest.TestCase):
         o contrario e, num contrato, uma frase dessas e a primeira coisa que a
         parte adversa cita para dizer que o instrumento faz avaliacao clinica.
         """
-        canal = self.nr1["Canal de apoio ao trabalhador"]
+        canal = self.nr1
         self.assertNotIn("como ele está", canal)
         self.assertIn("revelar ou provocar relatos de sofrimento", canal)
         # E o canal continua sendo escolha metodologica nossa, nao exigencia da norma.

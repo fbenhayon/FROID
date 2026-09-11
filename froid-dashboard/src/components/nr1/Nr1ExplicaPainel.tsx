@@ -47,11 +47,17 @@ const PARAGRAFOS = /\n{2,}/;
 /** Os documentos desta contratação, citados por nome e alcançáveis daqui.
  *
  *  Ficam no rodapé do painel de propósito: a pergunta contratual é comum, e a
- *  resposta honesta a quase toda ela é "está escrito aqui, veja o texto". */
+ *  resposta honesta a quase toda ela é "está escrito aqui, veja o texto".
+ *
+ *  Os títulos são CÓPIA dos de `legal_documents.py`, e cópia diverge sozinha:
+ *  em 11/09/2026 o contrato foi reescrito, o título mudou, e este rótulo ficou
+ *  prometendo um documento com outro nome — enquanto o teste que deveria pegar
+ *  isso afirmava a cópia, e não a fonte. Agora `Nr1ExplicaPainel.test.ts` lê o
+ *  título do catálogo e confronta, e a próxima renomeação não passa. */
 const DOCUMENTOS = [
   { rotulo: "Termos de Uso — FROID NR-1", para: "/termos-nr1" },
   {
-    rotulo: "Contrato de Prestação de Serviço — FROID NR-1, Riscos Psicossociais",
+    rotulo: "Contrato de Prestação de Serviços FROID NR-1 — Riscos Psicossociais Relacionados ao Trabalho",
     para: "/contrato-nr1",
   },
   { rotulo: "Política de Privacidade", para: "/privacidade" },

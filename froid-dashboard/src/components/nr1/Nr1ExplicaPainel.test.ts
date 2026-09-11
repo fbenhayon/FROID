@@ -54,11 +54,29 @@ describe("os oito layouts tem a segunda coluna", () => {
 });
 
 describe("o painel responde o que foi pedido", () => {
-  it("cita os documentos da contratacao pelo nome", () => {
-    expect(PAINEL).toContain("Termos de Uso — FROID NR-1");
-    expect(PAINEL).toContain(
-      "Contrato de Prestação de Serviço — FROID NR-1, Riscos Psicossociais",
+  /** O titulo tem UMA fonte, e ela e `legal_documents.py`.
+   *
+   *  Ate 11/09/2026 este teste afirmava o titulo literal, que era a copia que
+   *  o proprio painel carregava: os dois diziam a mesma coisa errada e o teste
+   *  passava. Quando o contrato foi reescrito, o rotulo do rodape continuou
+   *  prometendo "Contrato de Prestacao de Servico — FROID NR-1, Riscos
+   *  Psicossociais" e a pagina abria com outro nome. Teste que afirma a copia
+   *  guarda a copia; este le a fonte. */
+  it("cita os documentos da contratacao com o titulo que o catalogo publica", () => {
+    const catalogo = readFileSync(
+      new URL("../../../../froid-server/legal_documents.py", import.meta.url),
+      "utf-8",
     );
+    const tituloDe = (chave: string) => {
+      const bloco = catalogo.slice(catalogo.indexOf(`"${chave}"`));
+      const achado = /"title": "([^"]+)"/.exec(bloco);
+      expect(achado, `titulo de ${chave} nao encontrado no catalogo`).toBeTruthy();
+      return achado![1];
+    };
+    expect(PAINEL).toContain(tituloDe("terms_nr1"));
+    expect(PAINEL).toContain(tituloDe("nr1_company_contract"));
+    // A privacidade entra pelo nome curto; o catalogo a titula "... do FROID".
+    expect(tituloDe("privacy").startsWith("Política de Privacidade")).toBe(true);
     expect(PAINEL).toContain("Política de Privacidade");
   });
 

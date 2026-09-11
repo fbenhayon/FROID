@@ -221,7 +221,7 @@ export const VERBETES: VerbeteExplica[] = [
     tema: "contrato",
     pergunta: "Se a proposta comercial e o contrato disserem coisas diferentes, o que vale?",
     resposta: [
-      "O contrato resolve isso expressamente, na seção “Partes e documentos integrantes”: prevalece o contrato quanto às obrigações jurídicas gerais; a proposta comercial quanto a preço, prazo, quantidade de trabalhadores, estabelecimentos e escopo adicional; e os documentos metodológicos quanto aos critérios técnicos declarados.",
+      "O contrato resolve isso expressamente, na cláusula 1.5: prevalece o contrato quanto às condições jurídicas gerais; a Proposta Comercial quanto a preço, prazo, quantidade de trabalhadores, estabelecimentos, periodicidade e escopo adicional; e a documentação metodológica quanto aos critérios técnicos aplicáveis ao ciclo.",
       "Por isso preço, prazo e escopo não são respondidos nesta tela: eles variam por contrato e vivem na proposta comercial.",
     ],
     destino: { rotulo: "Ler a seção no contrato", para: "/contrato-nr1" },

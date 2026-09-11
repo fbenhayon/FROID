@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 
 import type { FroidUser } from "../App";
 import { apiUrl } from "../lib/api";
+import { rotuloDaClausula } from "../lib/legal";
 import { GlossarioDeSiglas } from "../lib/siglas";
 import { Nr1ExplicaPainel } from "../components/nr1/Nr1ExplicaPainel";
 
@@ -361,7 +362,7 @@ export const Nr1Acceptance: React.FC<Props> = ({ user }) => {
                 {documento.sections.map((secao, indice) => (
                   <section key={secao.heading} className="froid-clausula">
                     <h3 className="text-sm font-black text-white">
-                      {indice + 1}. {secao.heading}
+                      {rotuloDaClausula(secao.heading, indice)}
                     </h3>
                     <p className="mt-1 whitespace-pre-line">{secao.body}</p>
                   </section>

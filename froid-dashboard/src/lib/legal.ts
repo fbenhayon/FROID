@@ -62,6 +62,29 @@ export function acceptanceFor(document: LegalDocument, accepted: boolean) {
   };
 }
 
+/**
+ * O documento numera as próprias cláusulas?
+ *
+ * Existe porque as duas telas que imprimem documento jurídico numeravam a
+ * cláusula pela POSIÇÃO NA LISTA. Enquanto os títulos eram nomes ("Pisos de
+ * coorte…") isso passava. Quando o contrato do NR-1 foi reescrito em 16
+ * cláusulas numeradas, em 11/09/2026, a folha impressa passaria a dizer
+ * "8. 8. Agregação, pisos de coorte e proteção das respostas".
+ *
+ * O defeito maior não é o número repetido: é que numeração derivada de posição
+ * renumera o documento inteiro, em silêncio, no dia em que uma cláusula for
+ * retirada — e um contrato cuja cláusula 8 vira 7 invalida toda citação já
+ * feita, inclusive as do comprovante de aceite e as do FROID Explica.
+ */
+export function clausulaTemNumeroProprio(heading: string): boolean {
+  return /^\d+(\.\d+)*\.\s/.test(heading);
+}
+
+/** O rótulo da cláusula: o número dela quando existe, o da posição quando não. */
+export function rotuloDaClausula(heading: string, indice: number): string {
+  return clausulaTemNumeroProprio(heading) ? heading : `${indice + 1}. ${heading}`;
+}
+
 export const legalRouteByKey: Record<string, string> = {
   privacy: "/privacidade",
   terms: "/termos",

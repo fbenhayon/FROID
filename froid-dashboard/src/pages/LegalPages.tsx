@@ -1,5 +1,10 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { loadLegalCatalog, type LegalCatalog, type LegalDocument } from "../lib/legal";
+import {
+  clausulaTemNumeroProprio,
+  loadLegalCatalog,
+  type LegalCatalog,
+  type LegalDocument,
+} from "../lib/legal";
 
 /**
  * Folha impressa: A4 branco, sem navegação, sem botões, sem fundo escuro.
@@ -121,8 +126,13 @@ export function LegalDocumentPage({ documentKey }: { documentKey: string }) {
           <section key={section.heading} className="froid-clausula">
             <h2 className="text-base font-black text-white">
               {/* Cláusula numerada só na impressão: no papel é assim que se
-                  cita, e é assim que o jurídico do cliente vai referenciar. */}
-              <span className="hidden froid-rodape-impressao">{indice + 1}. </span>
+                  cita, e é assim que o jurídico do cliente vai referenciar.
+                  Documento que já traz o próprio número no título não recebe
+                  um segundo — e aí o número aparece também na tela, que é onde
+                  o jurídico do cliente lê antes de citar. */}
+              {!clausulaTemNumeroProprio(section.heading) && (
+                <span className="hidden froid-rodape-impressao">{indice + 1}. </span>
+              )}
               {section.heading}
             </h2>
             <p className="mt-2 whitespace-pre-line">{section.body}</p>
