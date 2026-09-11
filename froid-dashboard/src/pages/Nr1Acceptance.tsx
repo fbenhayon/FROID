@@ -68,7 +68,14 @@ type Resposta = {
   organization_id: string;
   subject_email: string;
   documents: Record<string, DocumentoLegal>;
-  supplier: { name?: string; tax_id?: string; address?: string; contact_email?: string };
+  supplier: {
+    name?: string;
+    tax_id?: string;
+    /** CNPJ ou CPF, decidido pelo servidor a partir do documento. */
+    tax_id_label?: string;
+    address?: string;
+    contact_email?: string;
+  };
 };
 
 type Perfil = {
@@ -360,7 +367,11 @@ export const Nr1Acceptance: React.FC<Props> = ({ user }) => {
               </dt>
               <dd className="mt-1 text-xs text-slate-300">
                 {dados?.supplier?.name || "—"}
-                {dados?.supplier?.tax_id ? `, CPF/CNPJ ${dados.supplier.tax_id}` : ""}
+                {/* O rótulo vem do servidor, que o deriva do documento. A tela
+                    dizia "CPF/CNPJ" para não errar; agora ela acerta. */}
+                {dados?.supplier?.tax_id
+                  ? `, ${dados.supplier.tax_id_label || "documento"} ${dados.supplier.tax_id}`
+                  : ""}
               </dd>
             </div>
             <div>

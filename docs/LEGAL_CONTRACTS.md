@@ -1,14 +1,21 @@
-# Contratos jurídicos versionados — fornecedor pessoa física
+# Contratos jurídicos versionados
+
+Renomeado em 11/09/2026. O arquivo se chamava `LEGAL_CONTRACTS_PF.md` e o título
+dizia "fornecedor pessoa física" — verdade até o FORNECEDOR passar a ser pessoa
+jurídica. Nome de arquivo que descreve outra coisa é pior que nome nenhum,
+porque quem procura confia nele.
 
 ## Escopo
 
 O backend é a fonte autoritativa dos textos, versões e hashes apresentados em:
 
 - Política de Privacidade;
-- Termos Gerais de Uso;
+- Termos de Uso do FROID Psique;
+- Termos de Uso do FROID NR-1;
 - contrato de licença do profissional;
 - contrato de clínica ou organização;
-- TCLE do paciente;
+- Contrato de Prestação de Serviços FROID NR-1;
+- TCLE do paciente e TCLE do estudo de validade;
 - resumo comercial de cada checkout.
 
 Os textos não fixam preços, quantidade de sessões ou SLA. O resumo comercial é
@@ -16,8 +23,8 @@ calculado no servidor a partir do catálogo vigente e gravado junto ao aceite.
 
 ## Privacidade do fornecedor
 
-Nome, CPF, endereço e contatos não pertencem ao Git. Configure-os apenas no
-`.env` protegido do servidor:
+Nome, documento, endereço e contatos não pertencem ao Git. Configure-os apenas
+no `.env` protegido do servidor:
 
 ```dotenv
 FROID_LEGAL_SUPPLIER_NAME=
@@ -28,6 +35,16 @@ FROID_LEGAL_PRIVACY_EMAIL=
 FROID_LEGAL_AUDIT_HMAC_KEY=
 FROID_LEGAL_ACCEPTANCE_REQUIRED=false
 ```
+
+`FROID_LEGAL_SUPPLIER_TAX_ID` decide o **rótulo** impresso na qualificação do
+fornecedor em todos os documentos acima: 14 dígitos saem como `CNPJ`, 11 como
+`CPF`. Qualquer outro formato deixa `supplier.configured` em `false` e bloqueia
+a contratação — de propósito. Até 11/09/2026 a palavra `CPF` estava escrita no
+código, e trocar o fornecedor por uma pessoa jurídica teria qualificado a parte
+como "Fulano Ltda, CPF 05.215.763/0001-73" em todo documento assinado.
+
+O sufixo de `LEGAL_DOCUMENT_VERSION` acompanha essa natureza: `br-pf` enquanto o
+fornecedor foi pessoa física, `br-pj` a partir da v6.
 
 `FROID_LEGAL_AUDIT_HMAC_KEY` deve ser um segredo aleatório independente, com no
 mínimo 32 bytes. Ele pseudonimiza a identidade e o fingerprint da requisição na
@@ -53,7 +70,8 @@ Paciente.
 
 ## Evidência
 
-A tabela `legal_acceptance_events` não armazena nome, CPF, e-mail ou IP em texto.
+A tabela `legal_acceptance_events` não armazena nome, documento, e-mail ou IP
+em texto.
 Ela guarda documento, versão, SHA-256, contexto, resumo comercial, instante e
 referências HMAC. Trigger de banco impede UPDATE e DELETE.
 

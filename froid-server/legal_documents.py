@@ -16,7 +16,42 @@ from typing import Any
 # Mudança material: a versão sobe e todo profissional volta a aceitar. Alterar
 # limites clínicos sem subir a versão deixaria aceites antigos provando um
 # texto que não é mais o vigente — exatamente o que o hash existe para impedir.
-LEGAL_DOCUMENT_VERSION = "2026-09-11.br-pf-v6"
+#
+# O sufixo diz a jurisdição e a natureza jurídica do FORNECEDOR: `br-pj` desde
+# 11/09/2026, quando ele deixou de ser pessoa física. Era `br-pf` até a v5, e a
+# v6 nasceu `br-pf` e foi corrigida antes de ir ao ar — manter o rótulo errado
+# num identificador de versão jurídica é o tipo de detalhe que ninguém confere
+# e que, na perícia, é a primeira coisa que alguém aponta.
+LEGAL_DOCUMENT_VERSION = "2026-09-11.br-pj-v6"
+
+
+def _tax_id_label(tax_id: str) -> str:
+    """CNPJ ou CPF, decidido pelo documento — e nunca escrito no texto.
+
+    Até 11/09/2026 a qualificação do fornecedor era montada com a palavra "CPF"
+    LITERAL no código. Enquanto o fornecedor foi pessoa física isso era verdade
+    e passava despercebido. No dia em que ele passou a ser pessoa jurídica, os
+    SETE documentos do catálogo — privacidade, os dois termos, os dois
+    contratos clínicos, os dois TCLE e o contrato do NR-1 — passariam a
+    qualificar a parte como "Fulano Ltda, CPF 05.215.763/0001-73".
+
+    Afirmação falsa na qualificação de uma das partes, em todo documento
+    assinado, e invisível para quem não conferir dígito a dígito.
+
+    A escolha aqui é determinística e não é palpite: 11 dígitos é CPF e 14 é
+    CNPJ, por definição legal. Qualquer outra coisa devolve vazio de propósito
+    — e vazio derruba `supplier["configured"]`, que já faz a página do contrato
+    mostrar "Configuração jurídica do fornecedor pendente" e o cadastro recusar
+    com 503. Fornecedor estrangeiro (NIF, SIREN, EIN) cai aqui porque os textos
+    deste catálogo são de direito brasileiro: inventar um rótulo para o
+    documento dele seria pior do que recusar a configuração.
+    """
+    digitos = "".join(caractere for caractere in tax_id if caractere.isdigit())
+    if len(digitos) == 14:
+        return "CNPJ"
+    if len(digitos) == 11:
+        return "CPF"
+    return ""
 
 
 def _supplier() -> dict[str, str | bool]:
@@ -27,6 +62,10 @@ def _supplier() -> dict[str, str | bool]:
         "contact_email": os.getenv("FROID_LEGAL_CONTACT_EMAIL", "").strip(),
         "privacy_email": os.getenv("FROID_LEGAL_PRIVACY_EMAIL", "").strip(),
     }
+    # Entra ANTES de `configured` para ser coberto pelo `all()`: documento que
+    # não é CPF nem CNPJ deixa o fornecedor por configurar, em vez de imprimir
+    # um rótulo em branco na qualificação da parte.
+    supplier["tax_id_label"] = _tax_id_label(str(supplier["tax_id"]))
     supplier["configured"] = all(supplier.values())
     return supplier
 
@@ -356,8 +395,8 @@ DOCUMENT_TEMPLATES["nr1_company_contract"] = {
 def public_legal_catalog() -> dict[str, Any]:
     supplier = _supplier()
     supplier_identity = (
-        f"{supplier['name']}, CPF {supplier['tax_id']}, com endereço em "
-        f"{supplier['address']} e contato {supplier['contact_email']}"
+        f"{supplier['name']}, {supplier['tax_id_label']} {supplier['tax_id']}, "
+        f"com endereço em {supplier['address']} e contato {supplier['contact_email']}"
         if supplier["configured"] else "fornecedor do FROID (configuração jurídica pendente)"
     )
     documents: dict[str, Any] = {}

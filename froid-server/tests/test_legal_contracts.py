@@ -32,7 +32,8 @@ class LegalContractsTests(unittest.TestCase):
         self.assertIn('os.getenv("FROID_LEGAL_SUPPLIER_TAX_ID", "")', self.documents)
         self.assertIn('os.getenv("FROID_LEGAL_SUPPLIER_ADDRESS", "")', self.documents)
 
-    def test_rendered_supplier_is_versioned_without_source_defaults(self):
+    def _catalog_for(self, tax_id: str):
+        """O catálogo renderizado para um documento de fornecedor."""
         spec = importlib.util.spec_from_file_location(
             "legal_documents_under_test", SERVER / "legal_documents.py"
         )
@@ -41,16 +42,65 @@ class LegalContractsTests(unittest.TestCase):
         spec.loader.exec_module(module)
         deployment = {
             "FROID_LEGAL_SUPPLIER_NAME": "Fornecedor de Teste",
-            "FROID_LEGAL_SUPPLIER_TAX_ID": "documento-de-teste",
+            "FROID_LEGAL_SUPPLIER_TAX_ID": tax_id,
             "FROID_LEGAL_SUPPLIER_ADDRESS": "endereço-de-teste",
             "FROID_LEGAL_CONTACT_EMAIL": "contato@example.invalid",
             "FROID_LEGAL_PRIVACY_EMAIL": "privacidade@example.invalid",
         }
         with patch.dict(os.environ, deployment):
-            catalog = module.public_legal_catalog()
+            return module.public_legal_catalog()
+
+    def test_rendered_supplier_is_versioned_without_source_defaults(self):
+        catalog = self._catalog_for("11.222.333/0001-81")
         self.assertTrue(catalog["supplier"]["configured"])
         self.assertEqual(len(catalog["documents"]["terms"]["sha256"]), 64)
         self.assertIn("Fornecedor de Teste", catalog["documents"]["terms"]["sections"][0]["body"])
+
+    def test_supplier_document_label_follows_the_document(self):
+        """"CPF" estava ESCRITO NO CÓDIGO, e o fornecedor virou pessoa jurídica.
+
+        Em 11/09/2026 o FORNECEDOR passou a ser uma Ltda. Com o rótulo literal,
+        os sete documentos do catálogo passariam a qualificar a parte como
+        "Fulano Ltda, CPF 05.215.763/0001-73" — afirmação falsa sobre uma das
+        partes, em todo documento assinado, e invisível para quem não conferir
+        dígito a dígito.
+        """
+        pj = self._catalog_for("11.222.333/0001-81")
+        self.assertEqual(pj["supplier"]["tax_id_label"], "CNPJ")
+        identidade = pj["documents"]["nr1_company_contract"]["sections"][0]["body"]
+        self.assertIn("CNPJ 11.222.333/0001-81", identidade)
+        self.assertNotIn("CPF 11.222.333/0001-81", identidade)
+
+        pf = self._catalog_for("050.983.408-61")
+        self.assertEqual(pf["supplier"]["tax_id_label"], "CPF")
+        self.assertIn(
+            "CPF 050.983.408-61",
+            pf["documents"]["nr1_company_contract"]["sections"][0]["body"],
+        )
+
+    def test_unknown_document_leaves_the_supplier_unconfigured(self):
+        """Documento que não é CPF nem CNPJ recusa, em vez de rotular no chute.
+
+        `configured=False` já bloqueia a contratação e já mostra "Configuração
+        jurídica do fornecedor pendente" na página do contrato. Um fornecedor
+        estrangeiro (NIF, SIREN, EIN) cai aqui de propósito: os textos deste
+        catálogo são de direito brasileiro, e inventar um rótulo para o
+        documento dele seria pior do que recusar.
+        """
+        for documento in ("ES-B12345678", "documento-de-teste", "", "123"):
+            with self.subTest(documento=documento):
+                catalog = self._catalog_for(documento)
+                self.assertFalse(catalog["supplier"]["configured"])
+                self.assertIn(
+                    "configuração jurídica pendente",
+                    catalog["documents"]["nr1_company_contract"]["sections"][0]["body"],
+                )
+
+    def test_no_document_label_is_written_into_the_texts(self):
+        """A regra varre o ARQUIVO, e não a ocorrência que eu vi."""
+        self.assertNotIn("CPF {supplier", self.documents)
+        self.assertNotIn("CNPJ {supplier", self.documents)
+        self.assertIn("{supplier['tax_id_label']}", self.documents)
 
     def test_documents_describe_actual_remote_processing(self):
         self.assertIn("servidor TURN", self.documents)

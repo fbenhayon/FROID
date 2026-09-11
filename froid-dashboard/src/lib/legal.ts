@@ -16,6 +16,8 @@ export type LegalCatalog = {
   supplier: {
     name: string;
     tax_id: string;
+    /** CNPJ ou CPF, derivado do documento pelo servidor. */
+    tax_id_label: string;
     address: string;
     contact_email: string;
     privacy_email: string;
