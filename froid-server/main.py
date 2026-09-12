@@ -7271,6 +7271,38 @@ def _nr1_pricing_tabela_vigente() -> tuple[dict, str]:
     return do_banco, "postgres"
 
 
+def _nr1_pricing_tabela_publica() -> dict:
+    """A tabela vigente como o site e o painel a leem."""
+    tabela, procedencia = _nr1_pricing_tabela_vigente()
+    return {
+        "source": procedencia,
+        "code": tabela["code"],
+        "version": tabela["version"],
+        "validFrom": tabela["validFrom"],
+        "baseEstablishmentCents": tabela["baseEstablishmentCents"],
+        "baseEstablishmentLabel": pricing_nr1.formatar_brl(
+            tabela["baseEstablishmentCents"], casas=0
+        ),
+        "tiers": [
+            {
+                "order": faixa["order"],
+                "lowerBound": faixa["lowerBound"],
+                "upperBound": faixa["upperBound"],
+                "workerPriceCents": faixa["workerPriceCents"],
+                "workerPriceLabel": pricing_nr1.formatar_brl(faixa["workerPriceCents"]),
+            }
+            for faixa in tabela["tiers"]
+        ],
+        "sha256": pricing_nr1.pricing_hash(tabela),
+    }
+
+
+@app.get("/api/nr1/pricing/table")
+def nr1_pricing_table():
+    """A tabela comercial vigente, com a digital. Publica: ja esta impressa no site."""
+    return _nr1_pricing_tabela_publica()
+
+
 @app.get("/api/nr1/pricing/simulate")
 def nr1_pricing_simulate(trabalhadores: int, estabelecimentos: int = 1):
     """Valor mensal e por trabalhador, com a memoria de calculo e a digital.
@@ -11505,6 +11537,89 @@ async def list_organization_legal_acceptances(organization_id: str, request: Req
         "documents": catalogo.get("documents", {}),
         "supplier": catalogo.get("supplier", {}),
     }
+
+
+@app.post("/api/organizations/{organization_id}/nr1/pricing/acceptance")
+async def nr1_pricing_acceptance(organization_id: str, request: Request):
+    """Grava o valor mensal aceito, RECALCULADO no servidor.
+
+    O numero nao vem da tela. Aceitar o total que o navegador enviou seria
+    aceitar o total que o navegador escolheu — e o valor aceito e a metade
+    comercial de uma prova: o contrato remete a Proposta Comercial quanto a
+    preco, prazo e vigencia, e ate agora o sistema nao guardava nenhuma
+    evidencia de QUAL proposta a empresa aceitou. Numa discussao sobre valor, o
+    contrato dizia "veja a Proposta" e nao havia proposta registrada.
+
+    Efetivo e numero de estabelecimentos tambem sao lidos do banco, das
+    unidades que a propria empresa cadastrou nos passos anteriores. Aceitar o
+    efetivo informado no corpo permitiria declarar 10 trabalhadores, aceitar o
+    preco de 10 e operar com 300.
+
+    Fica no mesmo livro append-only do aceite juridico, com versao e sha256 da
+    TABELA COMERCIAL no lugar do documento — mesma forma, mesma prova.
+    """
+    user = _require_current_user(request)
+    context = _require_enterprise_context(request, organization_id, "nr1.unit.list")
+    # Confirmar preco e ato de contratacao, como assinar o contrato. O
+    # compliance_manager conduz o programa e nao obriga a empresa.
+    if not ({"owner", "administrator"} & set(context.roles)):
+        raise HTTPException(
+            status_code=403, detail="papel sem permissão para aceitar contratação"
+        )
+    _require_nr1_persistence()
+
+    unidades = TENANT_STORE.nr1_list_units(
+        organization_id=organization_id, membership_id=context.membership_id
+    )
+    estabelecimentos = [u for u in unidades if u["unit_type"] == "site"]
+    trabalhadores = sum(int(u.get("headcount") or 0) for u in estabelecimentos)
+    if not estabelecimentos or trabalhadores <= 0:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "cadastre os estabelecimentos e o efetivo de cada um antes de "
+                "confirmar o valor"
+            ),
+        )
+
+    tabela, procedencia = _nr1_pricing_tabela_vigente()
+    calculo = pricing_nr1.simular(trabalhadores, len(estabelecimentos), tabela)
+
+    body = await request.json()
+    if not isinstance(body, dict) or body.get("accepted") is not True:
+        raise HTTPException(status_code=400, detail="confirmação do valor é obrigatória")
+    # A tela diz QUAL numero mostrou. Divergiu, ela esta desatualizada — e
+    # gravar o aceite mesmo assim registraria concordancia com um valor que a
+    # pessoa nao viu.
+    visto = body.get("monthly_total_cents")
+    if visto is not None and int(visto) != calculo["monthlyTotalCents"]:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "o valor exibido não é o valor vigente para a estrutura "
+                "cadastrada; recarregue a página antes de confirmar"
+            ),
+        )
+
+    email = _normalize_email(user.get("email") or "")
+    perfil = PROFESSIONAL_PROFILES.get(email)
+    account_type = str((perfil or {}).get("account_type") or "nr1_company")
+    _record_legal_documents(
+        request=request,
+        subject_reference=email,
+        subject_kind=_legal_subject_kind(account_type),
+        organization_id=context.organization_id,
+        acceptances={
+            "nr1_commercial_proposal": {
+                "version": calculo["pricingTable"]["version"],
+                "sha256": calculo["pricingTable"]["sha256"],
+                "accepted_at": _utc_now_iso(),
+            }
+        },
+        context="nr1_pricing_acceptance",
+        commercial_snapshot={**calculo, "pricingTableSource": procedencia},
+    )
+    return {"status": "accepted", **calculo}
 
 
 @app.post("/api/organizations/{organization_id}/legal-acceptances")

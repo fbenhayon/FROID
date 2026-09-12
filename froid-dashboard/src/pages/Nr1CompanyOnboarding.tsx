@@ -111,6 +111,42 @@ async function chamar(caminho: string, init?: RequestInit) {
   return corpo;
 }
 
+type FaixaDePrecoNr1 = {
+  order: number;
+  lowerBound: number;
+  upperBound: number | null;
+  workerPriceCents: number;
+  workerPriceLabel: string;
+};
+
+type TabelaDePrecoNr1 = {
+  code: string;
+  version: string;
+  baseEstablishmentCents: number;
+  baseEstablishmentLabel: string;
+  tiers: FaixaDePrecoNr1[];
+  sha256: string;
+  source: string;
+};
+
+type SimulacaoNr1 = {
+  workers: number;
+  establishments: number;
+  baseSubtotalCents: number;
+  workersSubtotalCents: number;
+  monthlyTotalCents: number;
+  perWorkerMonthCents: number;
+  monthlyTotalLabel: string;
+  perWorkerMonthLabel: string;
+  tierBreakdown: Array<{
+    order: number;
+    workersInTier: number;
+    workerPriceCents: number;
+    subtotalCents: number;
+  }>;
+  pricingTable: { code: string; version: string; sha256: string };
+};
+
 const Passo: React.FC<{ numero: number; atual: number; titulo: string }> = ({
   numero,
   atual,
@@ -188,6 +224,11 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
   // e abrir um fecha o outro, que é o que se espera de uma sanfona.
   const [documentoAberto, setDocumentoAberto] = useState("");
   const [contratoAceito, setContratoAceito] = useState(false);
+  const [valor, setValor] = useState<SimulacaoNr1 | null>(null);
+  const [tabelaDePreco, setTabelaDePreco] = useState<TabelaDePrecoNr1 | null>(null);
+  const [valorConfirmado, setValorConfirmado] = useState(false);
+  const [erroDoValor, setErroDoValor] = useState("");
+  const [confirmandoValor, setConfirmandoValor] = useState(false);
   const [telefone, setTelefone] = useState("");
 
   const [unidades, setUnidades] = useState<Unidade[]>([]);
@@ -288,6 +329,7 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
     if (passo >= 2) void carregarUnidades();
   }, [passo, carregarUnidades]);
 
+
   const estabelecimentos = useMemo(
     () => unidades.filter((u) => u.unit_type === "site"),
     [unidades],
@@ -306,6 +348,65 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
   // ia publicar nada. A AEP, que atende essa empresa e e obrigatoria para ela,
   // nao era sequer mencionada.
   const caminho = caminhoDoPorte(efetivoTotal);
+
+  /** O valor vem do motor, e nunca e calculado aqui.
+   *
+   *  Repetir a formula no painel criaria mais uma copia do preco — e ate
+   *  11/09/2026 havia doze, com tres bases diferentes circulando ao mesmo
+   *  tempo. A tela pergunta e mostra; se a resposta nao vier, ela diz isso e
+   *  nao deixa confirmar. */
+  const carregarValor = useCallback(async () => {
+    if (!organizationId || !efetivoTotal || !estabelecimentos.length) return;
+    setErroDoValor("");
+    try {
+      const [simulacao, tabela] = await Promise.all([
+        chamar(
+          `/api/nr1/pricing/simulate?trabalhadores=${efetivoTotal}` +
+            `&estabelecimentos=${estabelecimentos.length}`,
+        ),
+        chamar("/api/nr1/pricing/table"),
+      ]);
+      setValor(simulacao as SimulacaoNr1);
+      setTabelaDePreco(tabela as TabelaDePrecoNr1);
+    } catch (e) {
+      setValor(null);
+      setTabelaDePreco(null);
+      setErroDoValor(String((e as Error).message));
+    }
+  }, [organizationId, efetivoTotal, estabelecimentos.length]);
+
+  useEffect(() => {
+    if (passo === 4) void carregarValor();
+  }, [passo, carregarValor]);
+
+  /** Grava o valor aceito ao lado do aceite do contrato.
+   *
+   *  O contrato remete a Proposta Comercial quanto a preco, prazo e vigencia
+   *  (clausulas 1.5, 13.1 e 14.1), e ate agora o sistema nao guardava nenhuma
+   *  evidencia de QUAL proposta a empresa aceitou: numa discussao sobre valor,
+   *  o contrato dizia "veja a Proposta" e nao havia proposta registrada.
+   *
+   *  O servidor RECALCULA antes de gravar, e recusa se o total exibido aqui
+   *  nao for o vigente — tela desatualizada nao vira aceite de outro valor. */
+  const confirmarValor = useCallback(async () => {
+    if (!organizationId || !valor) return;
+    setConfirmandoValor(true);
+    setErroDoValor("");
+    try {
+      await chamar(`/api/organizations/${organizationId}/nr1/pricing/acceptance`, {
+        method: "POST",
+        body: JSON.stringify({
+          accepted: true,
+          monthly_total_cents: valor.monthlyTotalCents,
+        }),
+      });
+      setPasso(5);
+    } catch (e) {
+      setErroDoValor(String((e as Error).message));
+    } finally {
+      setConfirmandoValor(false);
+    }
+  }, [organizationId, valor]);
 
   useEffect(() => {
     loadLegalCatalog("BR")
@@ -528,7 +629,8 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
           <Passo numero={1} atual={passo} titulo="A empresa" />
           <Passo numero={2} atual={passo} titulo="Estabelecimentos" />
           <Passo numero={3} atual={passo} titulo="Setores" />
-          <Passo numero={4} atual={passo} titulo="Conferência" />
+          <Passo numero={4} atual={passo} titulo="Valor" />
+          <Passo numero={5} atual={passo} titulo="Conferência" />
         </div>
 
         {acessoCortado ? (
@@ -974,6 +1076,164 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
         )}
 
         {passo === 4 && (
+          <section className="mt-6 space-y-4">
+            <h1 className="text-2xl font-black">Valor mensal</h1>
+            <p className="max-w-3xl text-sm text-slate-300">
+              Calculado sobre a estrutura que você acabou de cadastrar:{" "}
+              <strong>{efetivoTotal}</strong> trabalhador(es) em{" "}
+              <strong>{estabelecimentos.length}</strong> estabelecimento(s). A base
+              é por estabelecimento, e as faixas incidem sobre o efetivo total.
+            </p>
+
+            {erroDoValor && (
+              <div className="rounded-lg border border-red-800 bg-red-950/60 p-4 text-sm text-red-100">
+                <p className="font-black">Não foi possível calcular o valor.</p>
+                <p className="mt-1">{erroDoValor}</p>
+                {/* Sem valor nao ha o que confirmar. Seguir sem ele deixaria a
+                    empresa contratar sem ter visto preco, que e o defeito que
+                    esta etapa existe para impedir. */}
+                <button
+                  type="button"
+                  onClick={() => void carregarValor()}
+                  className="mt-3 rounded-lg border border-red-700 px-4 py-2 text-xs font-black text-red-100 hover:bg-red-900"
+                >
+                  Tentar de novo
+                </button>
+              </div>
+            )}
+
+            {!valor && !erroDoValor && (
+              <p className="text-sm text-slate-400">Calculando…</p>
+            )}
+
+            {valor && (
+              <>
+                <div className="flex flex-wrap gap-8 rounded-xl border border-slate-800 bg-slate-900/70 p-5">
+                  <div>
+                    <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+                      Valor mensal estimado
+                    </p>
+                    <p className="mt-1 text-3xl font-black text-cyan-300">
+                      {valor.monthlyTotalLabel}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+                      Por trabalhador / mês
+                    </p>
+                    <p className="mt-1 text-3xl font-black text-slate-100">
+                      {valor.perWorkerMonthLabel}
+                    </p>
+                  </div>
+                </div>
+
+                {/* A memoria de calculo. Sem ela o total obriga a confiar, e a
+                    primeira pergunta de qualquer comprador e de onde saiu. */}
+                {tabelaDePreco && (
+                  <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/70 p-5">
+                    <p className="text-sm font-black text-white">Como esse valor se forma</p>
+                    <table className="mt-3 w-full text-sm text-slate-300">
+                      <tbody>
+                        <tr className="border-b border-slate-800">
+                          <td className="py-2">
+                            Base da plataforma — {estabelecimentos.length} ×{" "}
+                            {tabelaDePreco.baseEstablishmentLabel}
+                          </td>
+                          <td className="py-2 text-right font-mono">
+                            {(valor.baseSubtotalCents / 100).toLocaleString("pt-BR", {
+                              style: "currency",
+                              currency: "BRL",
+                            })}
+                          </td>
+                        </tr>
+                        {valor.tierBreakdown
+                          .filter((faixa) => faixa.workersInTier > 0)
+                          .map((faixa) => {
+                            const regra = tabelaDePreco.tiers.find(
+                              (f) => f.order === faixa.order,
+                            );
+                            return (
+                              <tr key={faixa.order} className="border-b border-slate-800">
+                                <td className="py-2">
+                                  Faixa {faixa.order} — {faixa.workersInTier}{" "}
+                                  trabalhador(es) a {regra?.workerPriceLabel}
+                                </td>
+                                <td className="py-2 text-right font-mono">
+                                  {(faixa.subtotalCents / 100).toLocaleString("pt-BR", {
+                                    style: "currency",
+                                    currency: "BRL",
+                                  })}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        <tr>
+                          <td className="py-2 font-black text-white">Total mensal</td>
+                          <td className="py-2 text-right font-mono font-black text-white">
+                            {valor.monthlyTotalLabel}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    <p className="mt-3 break-all text-[11px] text-slate-500">
+                      Tabela {valor.pricingTable.code} v{valor.pricingTable.version} ·
+                      SHA-256 {valor.pricingTable.sha256.slice(0, 16)}…
+                    </p>
+                  </div>
+                )}
+
+                <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-5">
+                  <label className="flex items-start gap-3 text-sm text-slate-200">
+                    {/* Nunca pre-marcada: aceite pre-marcado descreve um ato
+                        que nao aconteceu. */}
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={valorConfirmado}
+                      onChange={(e) => setValorConfirmado(e.target.checked)}
+                    />
+                    <span>
+                      Confirmo o valor mensal de{" "}
+                      <strong>{valor.monthlyTotalLabel}</strong> para{" "}
+                      {efetivoTotal} trabalhador(es) em {estabelecimentos.length}{" "}
+                      estabelecimento(s), calculado pela tabela{" "}
+                      {valor.pricingTable.code} v{valor.pricingTable.version}.
+                    </span>
+                  </label>
+                  <p className="mt-3 text-xs leading-5 text-slate-400">
+                    O valor confirmado é registrado junto do aceite do contrato, com a
+                    versão e a impressão digital da tabela que o produziu. Alteração
+                    relevante de efetivo, estabelecimentos ou escopo enseja revisão
+                    comercial para ciclo futuro, mediante comunicação e aceite
+                    (cláusula 13.2). O contrato pode ser denunciado por qualquer das
+                    partes com aviso de 60 dias, e o ciclo em curso se conclui
+                    (cláusulas 14.6 e 14.7).
+                  </p>
+                </div>
+              </>
+            )}
+
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => setPasso(3)}
+                className="rounded-lg border border-slate-600 px-4 py-2 text-sm font-black"
+              >
+                Voltar
+              </button>
+              <button
+                type="button"
+                disabled={!valor || !valorConfirmado || confirmandoValor}
+                onClick={() => void confirmarValor()}
+                className="rounded-lg bg-amber-500 px-5 py-2 text-sm font-black text-amber-950 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
+              >
+                {confirmandoValor ? "Registrando…" : "Confirmar valor e continuar"}
+              </button>
+            </div>
+          </section>
+        )}
+
+        {passo === 5 && (
           <section className="mt-6">
             <h1 className="text-2xl font-black">Estrutura registrada</h1>
             <div className="mt-4 rounded-lg border border-slate-700 bg-slate-950 p-4">
@@ -1139,7 +1399,7 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
             )}
 
             <div className="mt-6 flex flex-wrap gap-3">
-              <button type="button" onClick={() => setPasso(3)} className="rounded-lg border border-slate-600 px-4 py-2 text-sm font-black">
+              <button type="button" onClick={() => setPasso(4)} className="rounded-lg border border-slate-600 px-4 py-2 text-sm font-black">
                 Ajustar estrutura
               </button>
               <Link
