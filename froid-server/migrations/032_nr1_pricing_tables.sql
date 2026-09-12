@@ -45,8 +45,14 @@ CREATE TABLE IF NOT EXISTS nr1_pricing_tiers (
 
 -- Duas tabelas ativas ao mesmo tempo produziriam duas propostas com precos
 -- diferentes no mesmo dia, e nada indicaria qual das duas valia.
+--
+-- Indice unico sobre `status` RESTRITO as ativas: como toda linha filtrada tem
+-- o mesmo valor ('active'), duas delas colidem. A primeira versao usava
+-- `((true))`, que e a forma esperta e sobre a qual eu nao tinha certeza — e
+-- migration roda na SUBIDA do backend, entao sintaxe que o Postgres recusa nao
+-- da erro de teste: derruba o servidor longe de quem escreveu.
 CREATE UNIQUE INDEX IF NOT EXISTS nr1_pricing_uma_ativa_por_vez
-    ON nr1_pricing_tables ((true)) WHERE status = 'active';
+    ON nr1_pricing_tables (status) WHERE status = 'active';
 
 -- NAO existe tabela de simulacoes aqui, e isso e deliberado.
 --
