@@ -188,6 +188,11 @@ def conferir_backend(base: str, r: Resultado) -> None:
             r.ok(f"{rota} responde {status} (rota publicada)")
 
 
+def _sem_cr(dados: bytes) -> bytes:
+    """O conteudo sem o retorno de carro, para comparar arvore com servidor."""
+    return dados.replace(b"\r\n", b"\n")
+
+
 def conferir_site(base: str, r: Resultado) -> None:
     print(f"\n{CINZA}SITE{FIM}")
     paginas = [
@@ -205,7 +210,18 @@ def conferir_site(base: str, r: Resultado) -> None:
             r.falha(f"{rota} respondeu {status}")
             continue
         local = arquivo.read_bytes()
-        if corpo == local:
+        # FIM DE LINHA NORMALIZADO ANTES DE COMPARAR.
+        #
+        # Em 12/09/2026 este conferidor acusou /empresas divergente com o
+        # site PERFEITO no ar. A arvore Windows tinha 1.093 linhas CRLF e o
+        # servidor Linux serve LF: a diferenca era exatamente uma por linha,
+        # e o `git status` dizia que nada estava modificado — porque o filtro
+        # de entrada do git ja normaliza (core.autocrlf=true).
+        #
+        # Alarme falso e pior que alarme nenhum: ensina quem le a ignorar o
+        # conferidor, e ele existe justamente para o dia em que a divergencia
+        # for real. Byte de fim de linha nao muda o que o visitante ve.
+        if _sem_cr(corpo) == _sem_cr(local):
             r.ok(f"{rota} identico ao repositorio ({len(local)} bytes)")
         else:
             r.falha(
@@ -279,20 +295,53 @@ def conferir_painel(base: str, r: Resultado) -> None:
     texto_entrada = corpo_entrada.decode("utf-8", errors="ignore")
 
     def _base_do_chunk(nome: str) -> str:
-        return re.sub(r"-[A-Za-z0-9_-]{6,}\.js$", "", nome)
+        """O nome do pedaco sem o hash do empacotador.
+
+        O COMPRIMENTO E FIXO, e nao `{6,}`. Correcao de 12/09/2026, e as duas
+        tentativas anteriores estavam erradas de maneiras opostas:
+
+          `-[A-Za-z0-9_-]{6,}` era guloso e comia os hifens do PROPRIO nome:
+          `nr1-explica-sessao-HXLoveIm.js` e `nr1-representatividade-CiMcPcam.js`
+          colapsavam os DOIS para `nr1`, e a colisao decidia por sorteio.
+
+          `-[A-Za-z0-9_]{6,}` tirava o hifen da classe e deixava de reconhecer
+          os hashes que TEM hifen — e o Vite gera varios: `DJZv-46a`,
+          `Cz-Ns00-`, `--gFlDu49`. Doze pedacos ficavam sem par.
+
+        O hash do Vite tem oito caracteres. Exigir exatamente oito descasca
+        `Dashboard--gFlDu49.js` e preserva `nr1-explica-sessao`. Conferido
+        contra os 54 pedacos locais e os 42 servidos: zero sem descascar, zero
+        colisao, zero sem par.
+        """
+        return re.sub(r"-[A-Za-z0-9_-]{8}\.js$", "", nome)
 
     servidos = {bundle_servido.group(1).lstrip("/").split("/")[-1]}
     servidos.update(re.findall(r"[A-Za-z0-9_.-]+-[A-Za-z0-9_-]{6,}\.js", texto_entrada))
-    locais = {c.name for c in (PAINEL_DIST / "assets").glob("*.js")}
-    por_base_local = {_base_do_chunk(n): n for n in locais}
+    # UM DICIONARIO MONTADO A PARTIR DE UM `set` DECIDIA POR SORTEIO.
+    #
+    # Quando dois pedacos locais colapsavam para o mesmo nome-base, o
+    # `{base: nome for nome in conjunto}` guardava um deles — e a ordem de
+    # iteracao de um conjunto de strings muda a cada PROCESSO, porque o Python
+    # aleatoriza o hash de string. O conferidor comparava o pedaco servido ora
+    # contra um arquivo, ora contra outro, e alternava entre "mesmo produto em
+    # 54 pedacos" e "206 frases fora do ar" sem nada ter mudado no servidor nem
+    # no build. Descoberto em 12/09/2026, rodando o comando duas vezes seguidas.
+    #
+    # Ferramenta de conferencia que responde cara ou coroa e pior que nenhuma:
+    # ela e consultada justamente quando se quer certeza.
+    locais = sorted(c.name for c in (PAINEL_DIST / "assets").glob("*.js"))
+    por_base_local: dict[str, list[str]] = {}
+    for nome in locais:
+        por_base_local.setdefault(_base_do_chunk(nome), []).append(nome)
+    colididos = sorted(b for b, nomes in por_base_local.items() if len(nomes) > 1)
 
     conferidos = 0
     faltando_total: list[str] = []
     sem_par: list[str] = []
     for nome_servido in sorted(servidos):
         chave = _base_do_chunk(nome_servido)
-        nome_local = por_base_local.get(chave)
-        if not nome_local:
+        candidatos = por_base_local.get(chave) or []
+        if not candidatos:
             sem_par.append(nome_servido)
             continue
         st, dados = _buscar(f"{base}/assets/{nome_servido}")
@@ -300,11 +349,19 @@ def conferir_painel(base: str, r: Resultado) -> None:
             sem_par.append(nome_servido)
             continue
         frases_servidas = _frases_de_aplicacao(dados.decode("utf-8", errors="ignore"))
-        frases_locais = _frases_de_aplicacao(
-            (PAINEL_DIST / "assets" / nome_local).read_text(encoding="utf-8")
-        )
+        # Havendo mais de um candidato, vale o que menos acusa: o empacotador
+        # pode redistribuir o mesmo texto entre pedacos, e escolher o pior
+        # candidato produziria o alarme falso que esta ferramenta acabou de dar.
+        faltando_aqui: set | None = None
+        for nome_local in candidatos:
+            frases_locais = _frases_de_aplicacao(
+                (PAINEL_DIST / "assets" / nome_local).read_text(encoding="utf-8")
+            )
+            ausentes = frases_locais - frases_servidas
+            if faltando_aqui is None or len(ausentes) < len(faltando_aqui):
+                faltando_aqui = ausentes
         conferidos += 1
-        for frase in sorted(frases_locais - frases_servidas):
+        for frase in sorted(faltando_aqui or set()):
             faltando_total.append(f"{chave}: {frase[:70]}")
 
     if faltando_total:
@@ -320,6 +377,14 @@ def conferir_painel(base: str, r: Resultado) -> None:
         r.indefinido(
             f"{len(sem_par)} pedaco(s) servidos sem par local para comparar "
             f"— ex.: {sem_par[0]}"
+        )
+    if colididos:
+        # Declarada, e nao resolvida em silencio. Se o nome-base voltar a
+        # colidir, quem le precisa saber que a comparacao daquele pedaco ficou
+        # menos estrita — em vez de descobrir por um OK que nao conferiu nada.
+        r.indefinido(
+            f"{len(colididos)} nome(s)-base com mais de um pedaco local "
+            f"— ex.: {colididos[0]}"
         )
 
 
