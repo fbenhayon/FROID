@@ -7271,6 +7271,28 @@ def _nr1_pricing_tabela_vigente() -> tuple[dict, str]:
     return do_banco, "postgres"
 
 
+def _nr1_pricing_com_rotulos(calculo: dict) -> dict:
+    """Todo valor em centavos sai TAMBEM escrito, e por UM formatador so.
+
+    Existe porque o painel formatava a memoria de calculo com
+    `toLocaleString("pt-BR")` e imprimia o total com o rotulo do servidor — na
+    MESMA tabela. O `toLocaleString` separa "R$" do numero com espaco NAO
+    SEPARAVEL (U+00A0) e `formatar_brl` usa espaco comum (U+0020): duas
+    convencoes tipograficas diferentes, uma embaixo da outra, no documento que
+    sustenta o preco. Formatar no servidor deixa uma fonte so.
+    """
+    calculo["monthlyTotalLabel"] = pricing_nr1.formatar_brl(calculo["monthlyTotalCents"])
+    calculo["perWorkerMonthLabel"] = pricing_nr1.formatar_brl(
+        calculo["perWorkerMonthCents"]
+    )
+    calculo["baseSubtotalLabel"] = pricing_nr1.formatar_brl(calculo["baseSubtotalCents"])
+    calculo["tierBreakdown"] = [
+        {**faixa, "subtotalLabel": pricing_nr1.formatar_brl(faixa["subtotalCents"])}
+        for faixa in calculo["tierBreakdown"]
+    ]
+    return calculo
+
+
 def _nr1_pricing_tabela_publica() -> dict:
     """A tabela vigente como o site e o painel a leem."""
     tabela, procedencia = _nr1_pricing_tabela_vigente()
@@ -7331,10 +7353,7 @@ def nr1_pricing_simulate(trabalhadores: int, estabelecimentos: int = 1):
         # A mensagem do motor ja diz QUAL regra falhou. Trocar por "dados
         # invalidos" obrigaria quem esta na tela a adivinhar.
         raise HTTPException(status_code=400, detail=str(erro))
-    calculo["monthlyTotalLabel"] = pricing_nr1.formatar_brl(calculo["monthlyTotalCents"])
-    calculo["perWorkerMonthLabel"] = pricing_nr1.formatar_brl(
-        calculo["perWorkerMonthCents"]
-    )
+    calculo = _nr1_pricing_com_rotulos(calculo)
     calculo["pricingTable"] = {
         **calculo["pricingTable"],
         "baseEstablishmentCents": tabela["baseEstablishmentCents"],
@@ -11583,7 +11602,9 @@ async def nr1_pricing_acceptance(organization_id: str, request: Request):
         )
 
     tabela, procedencia = _nr1_pricing_tabela_vigente()
-    calculo = pricing_nr1.simular(trabalhadores, len(estabelecimentos), tabela)
+    calculo = _nr1_pricing_com_rotulos(
+        pricing_nr1.simular(trabalhadores, len(estabelecimentos), tabela)
+    )
 
     body = await request.json()
     if not isinstance(body, dict) or body.get("accepted") is not True:
@@ -11592,7 +11613,16 @@ async def nr1_pricing_acceptance(organization_id: str, request: Request):
     # gravar o aceite mesmo assim registraria concordancia com um valor que a
     # pessoa nao viu.
     visto = body.get("monthly_total_cents")
-    if visto is not None and int(visto) != calculo["monthlyTotalCents"]:
+    if visto is not None:
+        # `int("abc")` levantaria ValueError e viraria 500 — erro de servidor
+        # para um dado que veio do cliente. 400 diz de quem e o problema.
+        try:
+            visto = int(visto)
+        except (TypeError, ValueError):
+            raise HTTPException(
+                status_code=400, detail="monthly_total_cents deve ser inteiro em centavos"
+            )
+    if visto is not None and visto != calculo["monthlyTotalCents"]:
         raise HTTPException(
             status_code=409,
             detail=(

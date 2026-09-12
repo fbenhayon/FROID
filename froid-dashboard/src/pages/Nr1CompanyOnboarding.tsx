@@ -126,7 +126,6 @@ type TabelaDePrecoNr1 = {
   baseEstablishmentLabel: string;
   tiers: FaixaDePrecoNr1[];
   sha256: string;
-  source: string;
 };
 
 type SimulacaoNr1 = {
@@ -138,11 +137,13 @@ type SimulacaoNr1 = {
   perWorkerMonthCents: number;
   monthlyTotalLabel: string;
   perWorkerMonthLabel: string;
+  baseSubtotalLabel: string;
   tierBreakdown: Array<{
     order: number;
     workersInTier: number;
     workerPriceCents: number;
     subtotalCents: number;
+    subtotalLabel: string;
   }>;
   pricingTable: { code: string; version: string; sha256: string };
 };
@@ -1139,11 +1140,13 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
                             Base da plataforma — {estabelecimentos.length} ×{" "}
                             {tabelaDePreco.baseEstablishmentLabel}
                           </td>
+                          {/* O rotulo vem do SERVIDOR. `toLocaleString` separa
+                              "R$" do numero com espaco nao separavel (U+00A0) e
+                              o rotulo do servidor usa espaco comum: as duas
+                              convencoes apareciam na mesma tabela, uma embaixo
+                              da outra. */}
                           <td className="py-2 text-right font-mono">
-                            {(valor.baseSubtotalCents / 100).toLocaleString("pt-BR", {
-                              style: "currency",
-                              currency: "BRL",
-                            })}
+                            {valor.baseSubtotalLabel}
                           </td>
                         </tr>
                         {valor.tierBreakdown
@@ -1159,10 +1162,7 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
                                   trabalhador(es) a {regra?.workerPriceLabel}
                                 </td>
                                 <td className="py-2 text-right font-mono">
-                                  {(faixa.subtotalCents / 100).toLocaleString("pt-BR", {
-                                    style: "currency",
-                                    currency: "BRL",
-                                  })}
+                                  {faixa.subtotalLabel}
                                 </td>
                               </tr>
                             );

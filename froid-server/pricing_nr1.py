@@ -151,7 +151,21 @@ def calculate_pricing(
         # Arredondamento comercial, e SO para exibicao: o total cobravel e
         # `monthlyTotalCents`. Multiplicar este valor pelo efetivo de volta nao
         # devolve o total, e nenhuma fatura deve ser montada a partir dele.
-        "perWorkerMonthCents": round(total / workers),
+        #
+        # ARITMETICA INTEIRA, E NAO `round(total / workers)`.
+        #
+        # `round()` do Python e BANCARIO — empate vai para o par: round(2.5)==2.
+        # `Math.round` do JavaScript, que a origem usa, e metade para CIMA: 3.
+        # Numa varredura de 12 estabelecimentos por 4.000 trabalhadores os dois
+        # divergem em 33 combinacoes, e a mais banal delas e 64 trabalhadores num
+        # estabelecimento: a origem diz 1813 e o `round()` dizia 1812.
+        #
+        # Os sete casos do oraculo nao continham nenhum empate, entao a bateria
+        # passava verde sobre uma divergencia real — publicada no simulador do
+        # site e na etapa do cadastro. `(2*a + b) // (2*b)` e metade para cima
+        # sem passar por float, entao tambem nao depende da precisao do double
+        # num efetivo grande.
+        "perWorkerMonthCents": (2 * total + workers) // (2 * workers),
         "tierBreakdown": memoria,
     }
 

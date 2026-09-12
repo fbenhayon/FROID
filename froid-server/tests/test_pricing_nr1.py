@@ -38,6 +38,21 @@ ORACULO_TYPESCRIPT = {
     (3_000, 1): (2_381_000, 794),
     (1, 1): (21_500, 21_500),
     (5_000, 37): (4_411_000, 882),
+    # OS EMPATES. Colhidos do mesmo motor em 11/09/2026, durante auditoria.
+    #
+    # Nenhum dos sete casos acima cai exatamente em meio centavo, e por isso a
+    # bateria passava verde sobre uma divergencia real: `round()` do Python e
+    # BANCARIO (empate para o par) e `Math.round` do JavaScript e metade para
+    # CIMA. Numa varredura de 12 estabelecimentos por 4.000 trabalhadores os dois
+    # discordavam em 33 combinacoes — e a mais banal e 64 pessoas num endereco.
+    #
+    # Um teste que so exercita o caso facil nao afirma a garantia: afirma que o
+    # caso facil funciona.
+    (64, 1): (116_000, 1_813),
+    (144, 1): (225_000, 1_563),
+    (400, 1): (513_000, 1_283),
+    (208, 2): (325_000, 1_563),
+    (1_920, 3): (1_713_600, 893),
 }
 
 HASH_TYPESCRIPT = "043dcbeecb79c313e8c1fe5fe0373b70107efca6b1232a8b2f3bfe744c097fea"
@@ -95,6 +110,51 @@ class DinheiroEInteiro(unittest.TestCase):
         self.assertIsInstance(pricing_nr1.TABELA_VIGENTE["baseEstablishmentCents"], int)
         for faixa in pricing_nr1.TABELA_VIGENTE["tiers"]:
             self.assertIsInstance(faixa["workerPriceCents"], int)
+
+    def test_o_empate_vai_para_cima_e_nao_para_o_par(self):
+        """A regra, e nao a ocorrencia.
+
+        Corrigir os 33 casos encontrados e reafirma-los um a um deixaria a
+        proxima mudanca de formula livre para reintroduzir `round()`. Isto aqui
+        varre e exige a regra inteira.
+        """
+        divergentes = []
+        for estabelecimentos in range(1, 13):
+            for trabalhadores in range(1, 2_001):
+                r = pricing_nr1.calculate_pricing(
+                    pricing_nr1.TABELA_VIGENTE, trabalhadores, estabelecimentos
+                )
+                total = r["monthlyTotalCents"]
+                meia_para_cima = (2 * total + trabalhadores) // (2 * trabalhadores)
+                if r["perWorkerMonthCents"] != meia_para_cima:
+                    divergentes.append((trabalhadores, estabelecimentos))
+        self.assertEqual(
+            [], divergentes[:5], f"{len(divergentes)} combinacoes arredondam para o par"
+        )
+
+    def test_o_valor_por_trabalhador_nao_passa_por_float(self):
+        """Divisao em ponto flutuante perde precisao em efetivo grande.
+
+        A aritmetica inteira nao e so pelo empate: `total / workers` num double
+        de 53 bits ja nao e exato quando o total passa de alguns bilhoes de
+        centavos, e o erro aparece no numero que o cliente le.
+        """
+        import ast
+
+        fonte = (SERVER_DIR / "pricing_nr1.py").read_text(encoding="utf-8")
+        # Pelo PARSER, e nao pelo texto do arquivo: o comentario que explica a
+        # troca cita `round(total / workers)` de proposito, e uma varredura de
+        # texto cru falharia contra a propria lapide. A lapide fica — e ela que
+        # impede alguem de reintroduzir o bancario por ignorancia.
+        expressao = None
+        for no in ast.walk(ast.parse(fonte)):
+            if isinstance(no, ast.Dict):
+                for chave, valor in zip(no.keys, no.values):
+                    if isinstance(chave, ast.Constant) and chave.value == "perWorkerMonthCents":
+                        expressao = ast.dump(valor)
+        self.assertIsNotNone(expressao, "perWorkerMonthCents nao encontrado no retorno")
+        self.assertIn("FloorDiv", expressao, "a divisao deixou de ser inteira")
+        self.assertNotIn("'round'", expressao, "voltou a usar round(), que e bancario")
 
     def test_o_valor_por_trabalhador_nao_reconstroi_o_total(self):
         """E arredondado, e serve SO para exibir.

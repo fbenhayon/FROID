@@ -50,6 +50,33 @@ type Aceite = {
   accepted_at: string;
   organization_id: string;
   subject_kind: string;
+  /** O que foi aceito alem do texto: o valor mensal, para o aceite comercial. */
+  commercial_snapshot?: {
+    monthlyTotalLabel?: string;
+    perWorkerMonthLabel?: string;
+    workers?: number;
+    establishments?: number;
+    pricingTable?: { code?: string; version?: string };
+  };
+};
+
+/**
+ * Aceites que NAO sao documento do catalogo juridico.
+ *
+ * Ate 11/09/2026 o comprovante imprimia `vigente?.title || aceite.document_key`
+ * — e para uma chave que nao esta no catalogo isso significa imprimir a CHAVE
+ * CRUA. O aceite do valor mensal sairia como "nr1_commercial_proposal" no
+ * documento de prova, ao lado de "Versao 1.0" e de um sha256 que e da tabela de
+ * preco, nao de um contrato. Quem lesse concluiria, com razao, que o sistema
+ * esta quebrado.
+ *
+ * O contrato remete a Proposta Comercial quanto a preco, prazo e vigencia
+ * (clausulas 1.5, 13.1 e 14.1). O comprovante precisa saber dizer isso por
+ * extenso, e mostrar o valor — senao prova a metade que ninguem discute.
+ */
+const TITULOS_FORA_DO_CATALOGO: Record<string, string> = {
+  nr1_commercial_proposal: "Proposta Comercial — valor mensal aceito",
+  order_summary: "Resumo comercial do pedido",
 };
 
 type DocumentoLegal = {
@@ -410,12 +437,33 @@ export const Nr1Acceptance: React.FC<Props> = ({ user }) => {
                   className="froid-clausula rounded-lg border border-slate-800 bg-slate-900/70 p-4"
                 >
                   <p className="text-sm font-black text-slate-100">
-                    {indice + 1}. {vigente?.title || aceite.document_key}
+                    {indice + 1}.{" "}
+                    {vigente?.title ||
+                      TITULOS_FORA_DO_CATALOGO[aceite.document_key] ||
+                      aceite.document_key}
                   </p>
                   <p className="mt-1 text-xs text-slate-400">
-                    Versão {aceite.document_version} · aceito em{" "}
-                    {carimbo(aceite.accepted_at)}
+                    {vigente ? "Versão" : "Tabela versão"} {aceite.document_version} ·
+                    aceito em {carimbo(aceite.accepted_at)}
                   </p>
+                  {/* O VALOR, quando o aceite for comercial. Comprovante que
+                      prova o texto e cala sobre o preco deixa de fora
+                      justamente o que se discute. */}
+                  {aceite.commercial_snapshot?.monthlyTotalLabel && (
+                    <p className="mt-1 text-xs text-slate-200">
+                      <strong>{aceite.commercial_snapshot.monthlyTotalLabel}</strong> por
+                      mês
+                      {aceite.commercial_snapshot.workers
+                        ? ` · ${aceite.commercial_snapshot.workers} trabalhador(es)`
+                        : ""}
+                      {aceite.commercial_snapshot.establishments
+                        ? ` em ${aceite.commercial_snapshot.establishments} estabelecimento(s)`
+                        : ""}
+                      {aceite.commercial_snapshot.perWorkerMonthLabel
+                        ? ` · ${aceite.commercial_snapshot.perWorkerMonthLabel} por trabalhador/mês`
+                        : ""}
+                    </p>
+                  )}
                   <p className="mt-1 break-all font-mono text-[11px] text-slate-400">
                     SHA-256 {aceite.document_sha256}
                   </p>

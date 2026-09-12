@@ -2526,7 +2526,14 @@ class TenantStore:
                 f"""
                 SELECT document_key, document_version, document_sha256,
                        acceptance_context, accepted_at, organization_id,
-                       subject_kind
+                       subject_kind,
+                       -- O VALOR aceito, que ate 11/09/2026 ficava guardado e
+                       -- nao chegava ao comprovante. O contrato remete a
+                       -- Proposta Comercial quanto a preco (clausulas 1.5 e
+                       -- 13.1), entao um comprovante sem o valor prova a metade
+                       -- que ninguem discute. Nao ha dado pessoal aqui: e a
+                       -- memoria de calculo e a digital da tabela.
+                       commercial_snapshot
                   FROM legal_acceptance_events
                  WHERE {" AND ".join(clausulas)}
                  ORDER BY accepted_at ASC
@@ -2542,6 +2549,10 @@ class TenantStore:
                 "accepted_at": linha[4].isoformat() if linha[4] else "",
                 "organization_id": str(linha[5]) if linha[5] else "",
                 "subject_kind": linha[6],
+                # Acrescentar coluna ao SELECT sem acrescenta-la AQUI a
+                # descarta em silencio: a consulta fica mais cara e o
+                # dado nao chega a tela nenhuma. Ja aconteceu nesta casa.
+                "commercial_snapshot": linha[7] if linha[7] else {},
             }
             for linha in linhas
         ]

@@ -247,3 +247,44 @@ describe("o reaceite do texto vigente", () => {
     expect(PAGINA_CORRIDA).toMatch(/continua provando o que foi aceito antes/i);
   });
 });
+
+/**
+ * O comprovante nao imprime chave crua, e nao cala sobre o preco.
+ *
+ * ACHADO DA AUDITORIA DE 11/09/2026. O aceite do valor mensal entra no livro
+ * com a chave `nr1_commercial_proposal`, que NAO esta no catalogo juridico —
+ * e a tela imprimia `vigente?.title || aceite.document_key`. Numa folha que e
+ * documento de prova sairia a string "nr1_commercial_proposal", ao lado de
+ * "Versao 1.0" e de um sha256 que e da tabela de preco e nao de um contrato.
+ *
+ * O segundo defeito era mais grave e mais silencioso: o valor aceito ficava
+ * guardado no `commercial_snapshot` e nao chegava a lugar nenhum. O contrato
+ * remete a Proposta Comercial quanto a preco, prazo e vigencia (clausulas 1.5,
+ * 13.1 e 14.1) — comprovante sem o valor prova a metade que ninguem discute.
+ */
+describe("o comprovante fala do aceite comercial", () => {
+  it("traduz a chave que nao esta no catalogo", () => {
+    expect(PAGINA).toContain("TITULOS_FORA_DO_CATALOGO");
+    expect(PAGINA).toContain("Proposta Comercial — valor mensal aceito");
+    // A ordem importa: titulo do catalogo primeiro, mapa depois, chave crua
+    // so como ultimo recurso.
+    const bloco = PAGINA.slice(PAGINA.indexOf("{vigente?.title ||"));
+    const catalogo = bloco.indexOf("vigente?.title");
+    const mapa = bloco.indexOf("TITULOS_FORA_DO_CATALOGO[aceite.document_key]");
+    const crua = bloco.indexOf("aceite.document_key}");
+    expect(catalogo).toBeLessThan(mapa);
+    expect(mapa).toBeLessThan(crua);
+  });
+
+  it("imprime o valor aceito quando ele existe", () => {
+    expect(PAGINA).toContain("aceite.commercial_snapshot?.monthlyTotalLabel");
+    expect(PAGINA_CORRIDA).toMatch(/por trabalhador\/mês/);
+  });
+
+  it("o valor vem do livro, e nao e recalculado na tela", () => {
+    // Recalcular aqui produziria um numero que pode diferir do que foi aceito
+    // — que e o oposto do que um comprovante existe para fazer.
+    expect(PAGINA).not.toContain("monthlyTotalCents /");
+    expect(PAGINA).not.toContain("baseEstablishmentCents");
+  });
+});
