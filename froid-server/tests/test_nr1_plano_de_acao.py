@@ -537,9 +537,12 @@ class OCadastroDaEmpresaConsegueTerminar(unittest.TestCase):
         # de sessao, transcricao, prontuario e habilitacao profissional, e nada
         # disso alcanca quem so vai abrir campanha.
         self.assertIn("terms_nr1", chaves)
-        self.assertIn("privacy", chaves)
+        # A politica tambem se separou, em 12/09/2026: a versao unica afirmava
+        # que o servico trata "voz, imagem, sinais faciais, metricas acusticas,
+        # transcricao" — falso para quem so abre campanha de avaliacao.
+        self.assertIn("privacy_nr1", chaves)
         self.assertIn("nr1_company_contract", chaves)
-        for clinico in ("terms", "psique_contract"):
+        for clinico in ("terms", "psique_contract", "privacy"):
             with self.subTest(documento=clinico):
                 self.assertNotIn(clinico, chaves)
 
@@ -1338,8 +1341,17 @@ class ATelaMostraOQueAPessoaAssina(unittest.TestCase):
         contaminado por uma declaracao de ciencia, e a declaracao de ciencia
         deixa de ser um ato deliberado do controlador.
         """
-        self.assertIn('([chave]) => chave !== "privacy"', self.pagina)
-        self.assertIn('chave === "privacy" ? reconhece : contratoAceito', self.pagina)
+        # A comparacao literal por `chave === "privacy"` saiu em 12/09/2026,
+        # quando a politica se separou em `privacy` e `privacy_nr1`: as duas
+        # comparacoes passariam a ser FALSAS para a empresa, a politica cairia
+        # na lista do contrato e os dois atos voltariam a ser um clique so —
+        # sem erro nenhum, que e o pior jeito de uma garantia morrer. A funcao
+        # `ehPoliticaDePrivacidade` e a fonte unica desse nome agora.
+        self.assertIn("([chave]) => !ehPoliticaDePrivacidade(chave)", self.pagina)
+        self.assertIn(
+            "ehPoliticaDePrivacidade(chave) ? reconhece : contratoAceito", self.pagina
+        )
+        self.assertNotIn('chave !== "privacy"', self.pagina)
 
     def test_o_texto_de_cada_documento_e_legivel_na_propria_tela(self):
         """Sem depender de abrir outra aba, que e onde a leitura se perde."""

@@ -165,5 +165,6 @@ export function PsiqueContractPage() { return <LegalDocumentPage documentKey="ps
 // /contrato-nr1 desde 22/08/2026 e a rota nunca existiu: o link do contrato no
 // cadastro dava 404, e daria na frente do cliente.
 export function Nr1TermsPage() { return <LegalDocumentPage documentKey="terms_nr1" />; }
+export function Nr1PrivacyPage() { return <LegalDocumentPage documentKey="privacy_nr1" />; }
 export function Nr1ContractPage() { return <LegalDocumentPage documentKey="nr1_company_contract" />; }
 export function PatientTclePage() { return <LegalDocumentPage documentKey="patient_tcle" />; }

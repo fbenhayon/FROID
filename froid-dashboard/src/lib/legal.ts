@@ -87,8 +87,25 @@ export function rotuloDaClausula(heading: string, indice: number): string {
   return clausulaTemNumeroProprio(heading) ? heading : `${indice + 1}. ${heading}`;
 }
 
+/**
+ * A chave é de uma política de privacidade?
+ *
+ * Existe porque o cadastro da empresa comparava `chave === "privacy"` em DOIS
+ * lugares para separar a caixa da privacidade da caixa do contrato — e em
+ * 12/09/2026 a política se separou em `privacy` (Psique) e `privacy_nr1`. As
+ * duas comparações passariam a ser falsas para a empresa, a política cairia na
+ * lista do contrato e os dois atos voltariam a ser um clique só: exatamente o
+ * que aquela separação existe para impedir, desfeito sem erro nenhum.
+ *
+ * Mesma regra do §2.9: onde alguém casa por NOME, o nome tem uma fonte.
+ */
+export function ehPoliticaDePrivacidade(chave: string): boolean {
+  return chave === "privacy" || chave.startsWith("privacy_");
+}
+
 export const legalRouteByKey: Record<string, string> = {
   privacy: "/privacidade",
+  privacy_nr1: "/privacidade-nr1",
   terms: "/termos",
   terms_nr1: "/termos-nr1",
   psique_contract: "/contrato-psique",

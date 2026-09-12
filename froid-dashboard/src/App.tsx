@@ -46,6 +46,7 @@ const TermsPage = lazy(() => import("./pages/LegalPages").then((module) => ({ de
 const PsiqueContractPage = lazy(() => import("./pages/LegalPages").then((module) => ({ default: module.PsiqueContractPage })));
 const Nr1TermsPage = lazy(() => import("./pages/LegalPages").then((module) => ({ default: module.Nr1TermsPage })));
 const Nr1ContractPage = lazy(() => import("./pages/LegalPages").then((module) => ({ default: module.Nr1ContractPage })));
+const Nr1PrivacyPage = lazy(() => import("./pages/LegalPages").then((module) => ({ default: module.Nr1PrivacyPage })));
 const PatientTclePage = lazy(() => import("./pages/LegalPages").then((module) => ({ default: module.PatientTclePage })));
 const FroidProfessionalsPage = lazy(() => import("./pages/FroidInstitutionalPages").then((module) => ({ default: module.FroidProfessionalsPage })));
 const Nr1Aep = lazy(() => import("./pages/Nr1Aep").then((module) => ({ default: module.Nr1Aep })));
@@ -333,6 +334,7 @@ function App() {
         <Route path="/contrato-clinica" element={<PsiqueContractPage />} />
         <Route path="/termos-nr1" element={<Nr1TermsPage />} />
         <Route path="/contrato-nr1" element={<Nr1ContractPage />} />
+        <Route path="/privacidade-nr1" element={<Nr1PrivacyPage />} />
         <Route path="/tcle-paciente" element={<PatientTclePage />} />
         <Route path="/froid/ciencia" element={<FroidSciencePage />} />
         <Route path="/froid/tecnologia" element={<FroidTechnologyPage />} />

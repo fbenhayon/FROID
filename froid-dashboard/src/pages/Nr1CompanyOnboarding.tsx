@@ -3,12 +3,7 @@ import { Link } from "react-router-dom";
 
 import type { FroidUser } from "../App";
 import { apiUrl } from "../lib/api";
-import {
-  acceptanceFor,
-  documentosDaAudiencia,
-  loadLegalCatalog,
-  type LegalCatalog,
-} from "../lib/legal";
+import { acceptanceFor, documentosDaAudiencia, ehPoliticaDePrivacidade, loadLegalCatalog, type LegalCatalog } from "../lib/legal";
 import {
   caminhoDoPorte,
   exigeCenso,
@@ -421,7 +416,7 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
   // caixa própria mais acima — reconhecer tratamento de dados e contratar
   // um serviço são dois atos, e juntá-los num só clique enfraquece os dois.
   const paraAceitar = documentosDaAudiencia(catalogo, "nr1_company").filter(
-    ([chave]) => chave !== "privacy",
+    ([chave]) => !ehPoliticaDePrivacidade(chave),
   );
 
   const salvarEmpresa = async () => {
@@ -496,7 +491,7 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
           legal_acceptances: Object.fromEntries(
             documentosDaAudiencia(catalogo, "nr1_company").map(([chave, doc]) => [
               chave,
-              acceptanceFor(doc, chave === "privacy" ? reconhece : contratoAceito),
+              acceptanceFor(doc, ehPoliticaDePrivacidade(chave) ? reconhece : contratoAceito),
             ]),
           ),
         }),

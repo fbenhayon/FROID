@@ -103,11 +103,33 @@ class LegalContractsTests(unittest.TestCase):
         self.assertIn("{supplier['tax_id_label']}", self.documents)
 
     def test_documents_describe_actual_remote_processing(self):
-        self.assertIn("servidor TURN", self.documents)
-        self.assertIn("provedor de transcrição", self.documents)
-        self.assertIn("hospedagem na Estônia", self.documents)
+        """Os documentos admitem o processamento remoto que de fato ocorre.
+
+        ESTE TESTE DEFENDIA UM DEFEITO. Ele exigia literalmente "hospedagem na
+        Estonia" — e a Hetzner nao opera datacenter na Estonia. A afirmacao
+        estava publicada em oito paginas do site, em quatro idiomas, e o teste
+        que deveria proteger a honestidade dos documentos protegia o erro: de
+        toda mudanca que alguem tentasse, esta seria reprovada.
+        O proprio playbook interno da casa ja citava "estar hospedado na
+        Estonia" como FALACIA de conformidade automatica com o RGPD.
+        Corrigido em 12/09/2026 para a Alemanha, por apuracao do dono.
+
+        A garantia continua sendo a mesma e nao depende do pais: os documentos
+        nao podem vender processamento local nem negar a transmissao, e tem de
+        nomear para onde os dados vao.
+        """
         self.assertNotIn("100% local", self.documents)
         self.assertNotIn("jamais são transmitidos", self.documents)
+        # O destino e nomeado, e o fornecedor tambem.
+        self.assertIn("Hetzner", self.documents)
+        self.assertIn("transferência internacional", self.documents)
+        self.assertIn("OpenAI", self.documents)
+        # A retransmissao de midia e NOSSA, e nao de terceiro: o contrario
+        # estava escrito como "servidor TURN" generico, que o leitor so podia
+        # entender como mais um fornecedor recebendo a sessao.
+        self.assertIn("retransmissão", self.documents)
+        # Regressao: o pais desmentido nao volta por copia de outro documento.
+        self.assertNotIn("Estônia", self.documents)
 
     def test_documents_do_not_freeze_prices_or_false_sla(self):
         """Preco e SLA moram no documento comercial, nunca no contrato.
