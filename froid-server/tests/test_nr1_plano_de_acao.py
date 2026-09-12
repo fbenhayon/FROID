@@ -313,9 +313,79 @@ class ODenunciaNaoDeixaCicloOrfao(unittest.TestCase):
         self.assertIn("independe do aviso de sessenta dias", self.contrato)
 
     def test_a_versao_subiu_porque_a_clausula_14_mudou(self):
-        # Regra do proprio arquivo: mudanca material sobe a versao, senao aceites
-        # antigos provariam um texto que nao e mais o vigente.
-        self.assertEqual(self.legal.LEGAL_DOCUMENT_VERSION, "2026-09-11.br-pj-v7")
+        """Afirma que PASSOU do ponto, e nao qual e o ponto de hoje.
+
+        Escrito com igualdade exata em 11/09/2026, este teste caiu no PRIMEIRO
+        aumento de versao seguinte — sem que a garantia da clausula 14 tivesse
+        mudado. O arquivo ja tinha o padrao certo alguns testes acima
+        (`assertNotEqual` contra uma versao antiga conhecida): versao e rotulo
+        movel, e teste que a fixa quebra por motivo errado e treina quem le a
+        atualizar o numero sem pensar.
+        """
+        vigente = self.legal.LEGAL_DOCUMENT_VERSION
+        # v6 e anterior sao de antes do aviso previo entrar na clausula 14.
+        for anterior in ("2026-08-25.br-pf-v5", "2026-09-11.br-pj-v6"):
+            with self.subTest(anterior=anterior):
+                self.assertNotEqual(vigente, anterior)
+        self.assertTrue(vigente.startswith("2026-"), vigente)
+
+
+class OFornecedorNaoVaiACampo(unittest.TestCase):
+    """O FROID entrega o instrumento; a conducao e da CONTRATANTE.
+
+    O CASO, 12/09/2026. A clausula 3.6 dizia "SALVO CONTRATACAO EXPRESSA,
+    avaliacoes complementares e realizacao integral de AET nao integram o
+    objeto". A ressalva era uma porta: admitia que o FORNECEDOR pudesse ser
+    contratado para ir a campo — e o material comercial de fato vendia isso, com
+    tabela de preco por estabelecimento em quatro idiomas, de um servico que a
+    equipe nao presta.
+
+    A 3.5 entrou na mesma correcao porque LISTA observacao da atividade,
+    entrevistas e grupos focais na linha imediatamente anterior. Fechar a 3.6 e
+    deixar a 3.5 calada sobre quem conduz faria o leitor inferir o oposto do que
+    a clausula seguinte afirma, e clausulas vizinhas que se contradizem sao a
+    primeira coisa que a outra parte cita.
+
+    A razao de fundo e tecnica, e a mesma da 7.7: quem conhece a atividade e a
+    empresa, e fornecedor que executasse as proprias medidas estaria medindo o
+    resultado do proprio trabalho.
+    """
+
+    def setUp(self):
+        import legal_documents
+
+        self.contrato = _texto_do_contrato(legal_documents.public_legal_catalog())
+
+    def test_a_porta_da_contratacao_expressa_esta_fechada(self):
+        self.assertNotIn("Salvo contratação expressa", self.contrato)
+        self.assertIn("não são oferecidas pelo FORNECEDOR em nenhuma hipótese", self.contrato)
+
+    def test_o_fornecedor_declara_o_que_nao_faz(self):
+        for negativa in (
+            "não conduz avaliação em campo",
+            "não realiza AET",
+            "não aplica métodos presenciais de coleta",
+            "não implementa medidas de prevenção",
+        ):
+            with self.subTest(negativa=negativa):
+                self.assertIn(negativa, self.contrato)
+        # E a vedacao alcanca terceiros: sem isso, bastaria subcontratar.
+        self.assertIn("nem diretamente, nem por meio de terceiros", self.contrato)
+
+    def test_o_dever_correspondente_e_da_contratante(self):
+        """Dizer so o que NAO se faz deixa a obrigacao sem dono."""
+        self.assertIn(
+            "conduzir, contratar e custear a avaliação em campo", self.contrato
+        )
+        self.assertIn("observado que o FORNECEDOR não os executa", self.contrato)
+
+    def test_a_clausula_vizinha_nao_contradiz(self):
+        """3.5 lista os metodos; ela precisa dizer quem os conduz."""
+        self.assertIn(
+            "a serem conduzidos pela CONTRATANTE, por equipe própria ou por "
+            "profissional ou prestador que ela designar",
+            self.contrato,
+        )
 
 
 if __name__ == "__main__":
