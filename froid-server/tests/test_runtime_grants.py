@@ -127,7 +127,82 @@ def tabelas_com_grant() -> set:
     return concedidas
 
 
+def tabelas_com_rls() -> dict:
+    """Tabela -> migration que ligou RLS nela."""
+    encontradas = {}
+    for sql in sorted(MIGRATIONS.glob("*.sql")):
+        texto = _sem_comentarios(sql)
+        for m in re.finditer(
+            r"ALTER TABLE ([a-z0-9_]+) ENABLE ROW LEVEL SECURITY", texto, re.I
+        ):
+            encontradas.setdefault(m.group(1).lower(), sql.name)
+    return encontradas
+
+
+def tabelas_com_politica() -> set:
+    """Tabelas que tem ao menos uma POLICY declarada."""
+    return {
+        m.group(1).lower()
+        for sql in sorted(MIGRATIONS.glob("*.sql"))
+        for m in re.finditer(
+            r"CREATE POLICY [a-z0-9_]+ ON ([a-z0-9_]+)", _sem_comentarios(sql), re.I
+        )
+    }
+
+
+def _sem_comentarios(sql) -> str:
+    """Comentario engole o comando que vem depois dele na mesma varredura."""
+    return " ".join(
+        "\n".join(
+            linha.split("--")[0]
+            for linha in sql.read_text(encoding="utf-8").splitlines()
+        ).split()
+    )
+
+
 class GrantsTests(unittest.TestCase):
+    def test_rls_ligado_com_grant_ao_runtime_exige_politica(self):
+        """RLS sem politica devolve ZERO LINHAS, e nao erro.
+
+        O CASO, 11/09/2026. A migration 032 ligou RLS nas duas tabelas de preco
+        e concedeu SELECT ao `froid_runtime` — e nao criou politica. No Postgres
+        isso nao e "RLS desligado": e regra vazia, e regra vazia nao casa com
+        linha nenhuma. O dono da tabela ignora RLS, entao o INSERT da propria
+        migration funcionou; so a leitura pelo papel de runtime via vazio. Sem
+        excecao, sem log, sem sintoma.
+
+        A rota publica de preco caiu de volta na tabela do modulo e so nao
+        passou despercebido porque a resposta DECLARA a procedencia: veio
+        `"source":"modulo"` em vez de `"postgres"`.
+
+        A REGRA NAO E "toda tabela com RLS precisa de politica".
+        `legal_acceptance_events` tem RLS e nao tem politica de proposito: a
+        migration 009 REVOKE ALL do runtime, e negar pelos dois caminhos ao
+        mesmo tempo e a postura certa para o livro de prova juridica.
+
+        A regra e: quem RECEBE grant e vive sob RLS precisa de politica. Sem
+        ela, o GRANT e uma promessa que o banco desmente em silencio.
+        """
+        com_rls = tabelas_com_rls()
+        com_politica = tabelas_com_politica()
+        concedidas = tabelas_com_grant()
+        mudas = sorted(
+            f"{tabela} (RLS em {origem})"
+            for tabela, origem in com_rls.items()
+            if tabela in concedidas and tabela not in com_politica
+        )
+        self.assertEqual(
+            [],
+            mudas,
+            "tabela com GRANT ao runtime e RLS SEM politica — a leitura devolve "
+            "zero linhas em silencio:\n  " + "\n  ".join(mudas),
+        )
+
+    def test_a_varredura_de_rls_encontra_alguma_coisa(self):
+        """Varredura que nao acha nada e indistinguivel de varredura limpa."""
+        self.assertGreaterEqual(len(tabelas_com_rls()), 20)
+        self.assertGreaterEqual(len(tabelas_com_politica()), 10)
+
     def test_toda_tabela_declara_o_acesso_do_runtime(self):
         criadas = tabelas_criadas()
         concedidas = tabelas_com_grant()
