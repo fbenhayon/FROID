@@ -123,32 +123,28 @@
   <div class="container">
     <p class="section-kicker" style="color:#93c5fd;">Mentions légales</p>
     <h1 style="font-size:2.1rem;">Politique de confidentialité</h1>
-    <p class="lead">Version en vigueur <code>2026-07-21.br-pf-v1</code>, pour l'exploitation brésilienne. Le document officiel et intégral, avec l'identification complète du fournisseur, est présenté et accepté dans l'application au moment de l'inscription.</p>
+    <p class="lead">Cette page est un résumé. Le document officiel et intégral — avec l'identification complète du fournisseur, le code de version et l'empreinte SHA-256 du texte — est présenté dans l'application et consigné dans le justificatif d'acceptation.</p>
   </div>
 </section>
 
 <section class="block">
   <div class="container" style="max-width:820px;">
-    <h3>1. Responsable du service</h3>
-    <p>Le fournisseur de FROID est responsable des activités propres à l'inscription, la sécurité, la facturation, le support et l'exploitation de la plateforme. Le professionnel ou la clinique décide des finalités cliniques et de la composition du dossier de ses patients — les rôles de responsable et de sous-traitant dépendent de chaque opération effectivement réalisée.</p>
-    <h3>2. Données traitées</h3>
-    <p>Le service peut traiter l'inscription, l'authentification, l'agenda, les paiements, les journaux d'accès et d'audit, la voix, l'image, les signaux faciaux, les métriques acoustiques, la transcription, le contexte de la parole du patient et du professionnel, les notes, les rapports et l'historique des séances.</p>
-    <h3>3. Comment se déroule le traitement</h3>
-    <p>Une partie des métriques est calculée dans le navigateur. Lors des séances à distance, l'audio et la vidéo sont transmis par internet et peuvent utiliser un serveur TURN exploité par FROID lui-même. Des segments audio peuvent être envoyés au backend et à un prestataire de transcription. Les transcriptions, rapports et enregistrements autorisés peuvent être stockés sur l'infrastructure de FROID. Détails dans <a href="seguranca.html">Sécurité</a>.</p>
-    <h3>4. Prestataires et transfert international</h3>
-    <p>FROID peut utiliser une infrastructure d'hébergement en Allemagne et des prestataires de paiement, de transcription, d'intelligence artificielle, d'e-mail et d'agenda. Cela peut impliquer un transfert international de données, protégé par les mécanismes contractuels et techniques applicables.</p>
-    <h3>5. Finalités et bases légales</h3>
-    <p>Les données sont utilisées pour exécuter le service souscrit, protéger les comptes et les séances, traiter les paiements, respecter les obligations légales, soutenir l'activité de santé d'un professionnel habilité et honorer des autorisations spécifiques. La recherche et le Data-Froid anonyme exigent des données préalablement approuvées par le processus d'anonymisation et, le cas échéant, une autorisation optionnelle du patient.</p>
-    <h3>6. Conservation et suppression</h3>
-    <p>La conservation tient compte de la finalité, du contrat, de la sécurité et des obligations professionnelles ou légales. Les demandes de suppression sont examinées et peuvent aboutir à une suppression, une anonymisation, un blocage ou une conservation restreinte et justifiée. Nous ne promettons pas de suppression automatique dans un délai fixe lorsqu'une obligation légitime de conservation existe.</p>
-    <div class="disclaimer-box" style="margin:18px 0;">
-      <strong>Irréversibilité :</strong> une fois la suppression définitive traitée, les données supprimées ne peuvent être récupérées — ni par FROID, ni par le professionnel, ni par la personne concernée elle-même.
-    </div>
-    <h3>7. Droits de la personne concernée</h3>
-    <p>Le patient peut demander la confirmation, l'accès, la correction, l'information sur les partages, la portabilité le cas échéant, l'opposition, la révocation du consentement et l'anonymisation, le blocage ou la suppression dans les hypothèses légales. Les demandes peuvent être faites via le Portail Patient ou le contact confidentialité indiqué dans l'application, et font l'objet d'un examen documenté.</p>
-    <h3>8. Sécurité</h3>
-    <p>FROID utilise une ségrégation par organisation (isolation multitenant et RLS), un contrôle d'accès, des pistes d'audit, le chiffrement des dossiers cliniques et des sauvegardes protégées et vérifiées. Aucun système n'élimine intégralement le risque ; les incidents pertinents sont évalués et communiqués conformément à la législation applicable.</p>
-    <div class="ref" style="margin-top:16px;"><a href="seguranca.html">Voir aussi : Sécurité &amp; conformité</a></div>
+    <h3>Le document qui fait foi</h3>
+    <p>FROID a un document par service, et c'est celui que votre justificatif d'acceptation atteste :</p>
+    <ul style="line-height:1.8;">
+        <li><a href="https://www.froid.com.br/app/#/privacidade"><strong>Politique de Confidentialité — FROID Psique</strong></a> — professionnels, cabinets et personnes accompagnées.</li>
+        <li><a href="https://www.froid.com.br/app/#/privacidade-nr1"><strong>Politique de Confidentialité — FROID NR-1</strong></a> — entreprise qui contracte l'évaluation des risques psychosociaux.</li>
+    </ul>
+    <p>Cette page ne reprend pas leur texte. Le reprendre créerait une seconde version du même document, et la copie vieillirait en silence — c'est exactement ce qui est arrivé au code de version qui figurait ici.</p>
+    <h3>L'essentiel</h3>
+    <ul style="line-height:1.8;">
+        <li><strong>FROID n'enregistre pas la séance.</strong> Il n'existe aucun fichier audio ou vidéo de la consultation, et aucun moyen de la rejouer ensuite.</li>
+        <li><strong>L'audio est traité de manière transitoire :</strong> quelques secondes à la fois, en mémoire, pour calculer les mesures ; et en courts segments envoyés à un prestataire de transcription, qui ne sont pas conservés comme fichiers.</li>
+        <li><strong>Le visage est analysé sur l'appareil de la personne accompagnée.</strong> Aucune image du visage n'atteint le serveur — seulement des nombres décrivant l'expression.</li>
+        <li><strong>Ce qui reste stocké, ce sont du texte et des nombres :</strong> la transcription, les mesures, les résumés et les notes du professionnel, chiffrés au repos.</li>
+        <li><strong>L'hébergement est en Allemagne ;</strong> la transcription et l'intelligence artificielle utilisent des prestataires aux États-Unis. Les noms, les finalités et ce qui n'a pas été vérifié figurent dans la Politique.</li>
+    </ul>
+    <div class="ref" style="margin-top:16px;"><a href="seguranca.html">Voir aussi : Sécurité et Conformité</a></div>
   </div>
 </section>
 

@@ -292,5 +292,99 @@ class APoliticaNaoCarregaLacunaNemPII(unittest.TestCase):
                 self.assertIn("2/2022", texto)
 
 
+class OSiteAponta_E_NaoCopia(unittest.TestCase):
+    """As paginas legais do site deixaram de ser uma segunda versao do documento.
+
+    O CASO, 12/09/2026. `privacidade.html` e `termos.html`, nos quatro idiomas,
+    traziam um resumo de oito secoes do documento juridico e carimbavam
+    "Versao vigente 2026-07-21.br-pf-v1". Esse codigo estava obsoleto por tres
+    motivos ao mesmo tempo: a versao corrente era outra, o sufixo `br-pf` diz
+    pessoa fisica e o fornecedor virou pessoa juridica em 11/09, e o documento
+    que a pessoa de fato aceita nunca foi aquele.
+
+    E o §2.7 aplicado a um texto inteiro em vez de a um numero: a copia diverge
+    em silencio. A saida e a mesma — uma fonte. O catalogo versionado e a unica,
+    e o site aponta para ela.
+
+    Decisao do dono: a pagina vira ponteiro para o documento versionado.
+    """
+
+    PAGINAS = [
+        prefixo + pagina
+        for prefixo in ("", "en/", "es/", "fr/")
+        for pagina in ("privacidade.html", "termos.html")
+    ]
+
+    def _texto(self, rel: str) -> str:
+        return (ROOT / "froid-site" / rel).read_text(encoding="utf-8")
+
+    def test_nenhuma_pagina_carimba_codigo_de_versao(self):
+        """Versao copiada para HTML estatico envelhece sem ninguem notar.
+
+        A varredura e por REGEX sobre todo o site, e nao por lista de arquivos:
+        pagina nova que herde o carimbo de outra cai aqui sozinha.
+        """
+        import re
+
+        achados = []
+        for caminho in sorted((ROOT / "froid-site").rglob("*.html")):
+            for carimbo in re.findall(r"2026-\d{2}-\d{2}\.br-p[fj]-v\d+", caminho.read_text(encoding="utf-8")):
+                achados.append(f"{caminho.relative_to(ROOT).as_posix()}: {carimbo}")
+        self.assertEqual(
+            [],
+            achados,
+            "codigo de versao carimbado no site: " + ", ".join(achados),
+        )
+
+    def test_cada_pagina_aponta_para_o_documento_versionado(self):
+        for rel in self.PAGINAS:
+            with self.subTest(pagina=rel):
+                texto = self._texto(rel)
+                self.assertIn("https://www.froid.com.br/app/#/", texto)
+                self.assertIn("SHA-256", texto)
+
+    def test_a_pagina_de_privacidade_aponta_para_as_DUAS_politicas(self):
+        for rel in ("privacidade.html", "en/privacidade.html", "es/privacidade.html", "fr/privacidade.html"):
+            with self.subTest(pagina=rel):
+                texto = self._texto(rel)
+                self.assertIn("/app/#/privacidade\"", texto)
+                self.assertIn("/app/#/privacidade-nr1\"", texto)
+
+    def test_os_destinos_apontados_existem_como_rota_no_painel(self):
+        """Ponteiro que aponta para 404 e pior que copia desatualizada.
+
+        O contrato do NR-1 ja teve um link assim: `legalRouteByKey` apontava
+        para /contrato-nr1 desde 22/08/2026 e a rota nunca existiu — o link do
+        contrato no cadastro dava 404, e daria na frente do cliente.
+        """
+        import re
+
+        rotas = set(
+            # `path=` sem exigir `<Route` na mesma linha: a rota /login e
+            # declarada em varias linhas, e a primeira versao deste teste a
+            # acusou de inexistente por causa da quebra de linha.
+            re.findall(r'path="(/[a-z0-9-]+)"', (ROOT / "froid-dashboard" / "src" / "App.tsx").read_text(encoding="utf-8"))
+        )
+        apontados = set()
+        for rel in self.PAGINAS:
+            apontados |= set(re.findall(r'app/#(/[a-z0-9-]+)"', self._texto(rel)))
+        self.assertTrue(apontados, "nenhum destino lido das paginas")
+        self.assertEqual(
+            set(), apontados - rotas, f"o site aponta para rota inexistente: {sorted(apontados - rotas)}"
+        )
+
+    def test_a_pagina_nao_voltou_a_copiar_o_documento(self):
+        """O sinal de que a copia voltou e o texto crescer de novo."""
+        for rel in self.PAGINAS:
+            with self.subTest(pagina=rel):
+                corpo = self._texto(rel)
+                inicio = corpo.index('<section class="block">')
+                fim = corpo.index("</section>", inicio)
+                self.assertLess(
+                    len(corpo[inicio:fim]), 4500,
+                    "a pagina voltou a carregar o documento inteiro em vez de apontar",
+                )
+
+
 if __name__ == "__main__":
     unittest.main()
