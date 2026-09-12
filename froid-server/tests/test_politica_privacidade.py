@@ -157,19 +157,71 @@ class AEstoniaNaoVolta(unittest.TestCase):
                     achados.append(f"{caminho.relative_to(ROOT).as_posix()}: {grafia}")
         self.assertEqual([], achados, "o pais desmentido voltou:\n  " + "\n  ".join(achados))
 
-    def test_o_pais_apurado_esta_nos_dois_documentos_e_no_site(self):
-        self.assertIn("Alemanha", _corpo("privacy"))
-        self.assertIn("Alemanha", _corpo("privacy_nr1"))
-        self.assertIn("Alemanha", _corpo("psique_contract"))
+    def test_o_pais_de_processamento_apurado_esta_em_todo_lugar(self):
+        """Terceira resposta, e a primeira que veio de uma fonte.
+
+        AS TRES TENTATIVAS, em ordem:
+          1. O site publicava "Estonia" — e um teste EXIGIA a frase. A Hetzner
+             nao opera datacenter na Estonia.
+          2. Perguntei, e a resposta foi "Alemanha": a localidade mais comum da
+             Hetzner, e a sede da empresa. Escrevi Alemanha em dez lugares.
+          3. O IP registrado na memoria de infra, 204.168.229.32, esta numa
+             faixa alocada via ARIN — America do Norte —, o que nao combinava
+             com datacenter alemao. Levantei a duvida ANTES do deploy, e o dono
+             foi ao console (servidor #130460833, CCX33): Helsinque, FINLANDIA.
+
+        Helsinque fica do outro lado do golfo de Tallinn, e e quase certamente
+        dali que "Estonia" nasceu anos atras, sem ninguem conferir depois.
+
+        A distincao que este teste existe para preservar: DOMICILIO DA EMPRESA
+        NAO E LOCAL DE PROCESSAMENTO. A Hetzner Online GmbH e sociedade alema e
+        o datacenter esta na Finlandia. A Resolucao CD/ANPD 19/2024 pergunta
+        pelo pais de PROCESSAMENTO, e responder com a sede da fornecedora seria
+        errar de novo, agora com aparencia de acerto — por isso a assercao
+        negativa abaixo proibe as frases que ligam HOSPEDAGEM a Alemanha, e nao
+        a palavra "Alemanha", que segue legitima ao qualificar a empresa.
+        """
+        for chave in ("privacy", "privacy_nr1", "psique_contract"):
+            with self.subTest(documento=chave):
+                self.assertIn("Finlândia", _corpo(chave))
         for prefixo, frase in (
-            ("", "na Alemanha"),
-            ("en/", "in Germany"),
-            ("es/", "en Alemania"),
-            ("fr/", "en Allemagne"),
+            ("", "na Finlândia"),
+            ("en/", "in Finland"),
+            ("es/", "en Finlandia"),
+            ("fr/", "en Finlande"),
         ):
-            caminho = ROOT / "froid-site" / prefixo / "privacidade.html"
-            with self.subTest(idioma=prefixo or "pt"):
-                self.assertIn(frase, caminho.read_text(encoding="utf-8"))
+            for pagina in ("privacidade.html", "seguranca.html"):
+                caminho = ROOT / "froid-site" / prefixo / pagina
+                with self.subTest(idioma=prefixo or "pt", pagina=pagina):
+                    self.assertIn(frase, caminho.read_text(encoding="utf-8"))
+
+    def test_a_sede_da_fornecedora_nao_volta_a_ser_o_pais_de_processamento(self):
+        """A resposta errada numero 2 nao pode voltar por copia."""
+        proibidas = (
+            "País de processamento: Alemanha",
+            "Localidade principal: Alemanha",
+            "hospedagem ocorre na Alemanha",
+            "hospedagem fica na Alemanha",
+            "hospedagem na Alemanha",
+            "Hosting is in Germany",
+            "hosting in Germany",
+            "alojamiento está en Alemania",
+            "alojamiento en Alemania",
+            "hébergement est en Allemagne",
+            "hébergement en Allemagne",
+        )
+        alvos = [SERVER_DIR / "legal_documents.py"]
+        alvos += sorted((ROOT / "froid-site").rglob("*.html"))
+        achados = []
+        for caminho in alvos:
+            texto = caminho.read_text(encoding="utf-8", errors="ignore")
+            for frase in proibidas:
+                if frase in texto:
+                    achados.append(f"{caminho.relative_to(ROOT).as_posix()}: {frase!r}")
+        self.assertEqual(
+            [], achados, "a sede da fornecedora voltou como pais de processamento: "
+            + ", ".join(achados)
+        )
 
 
 class OsSuboperadoresBatemComOCodigo(unittest.TestCase):
