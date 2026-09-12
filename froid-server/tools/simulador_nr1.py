@@ -117,7 +117,7 @@ def aba_receita(wb: Workbook):
         ws.cell(row=10, column=col).fill = PatternFill("solid", fgColor=AZUL_CLARO)
 
     _rotulo(ws, 11, 1, "Base da plataforma, por estabelecimento / mês")
-    _entrada(ws, 11, 2, 500, MOEDA)
+    _entrada(ws, 11, 2, 200, MOEDA)
     _rotulo(ws, 12, 1, "Faixa 1 — por trabalhador / mês")
     _entrada(ws, 12, 2, 15.0, MOEDA)
     _entrada(ws, 12, 3, 100)
