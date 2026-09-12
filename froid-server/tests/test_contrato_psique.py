@@ -45,6 +45,10 @@ TEXTO = " ".join(secao["body"] for secao in CONTRATO["sections"])
 TITULOS = [secao["heading"] for secao in CONTRATO["sections"]]
 
 
+def _corpo_do_contrato() -> str:
+    return TEXTO
+
+
 def _clausula(numero: str) -> str:
     """O texto de UMA clausula numerada, recortado do corpo que a contem.
 
@@ -246,6 +250,26 @@ class AJanelaDeNoventaDiasEstaNoContratoENoCodigo(unittest.TestCase):
 
     def test_o_contrato_promete_leitura_com_plano_vencido(self):
         self.assertIn("não impede a leitura dos registros", _clausula("13.5"))
+
+    def test_a_janela_nao_promete_aviso_que_ninguem_dispara(self):
+        """Promessa sem mecanismo e promessa quebrada com data marcada.
+
+        A 13.8 dizia "A CONTRATANTE sera avisada da data final da janela em
+        prazo razoavel". Nada no produto dispara esse aviso: era obrigacao de
+        conduta pendurada num lembrete humano, do tipo que so se descobre
+        quebrada no dia em que alguem a cobra — e ai ja e o dia em que o
+        profissional perdeu o acesso sem saber.
+
+        Decisao do dono em 12/09/2026: apontar o prazo, e a contagem e do
+        cliente. O contrato passa a dizer como a data se calcula, o que e
+        verificavel por quem le, em vez de prometer um ato que ninguem executa.
+        """
+        treze_oito = _clausula("13.8")
+        self.assertIn("A contagem desse prazo é objetiva", treze_oito)
+        self.assertIn("independe de comunicação do FORNECEDOR", treze_oito)
+        self.assertIn("não assume obrigação de aviso prévio", treze_oito)
+        # A promessa antiga nao volta por copia de rascunho.
+        self.assertNotIn("será avisada da data final", _corpo_do_contrato())
 
     def test_a_janela_nao_promete_alterar_nem_apagar(self):
         """O portao so abre GET; o contrato nao pode prometer mais que isso."""
