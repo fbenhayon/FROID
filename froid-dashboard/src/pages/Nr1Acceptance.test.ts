@@ -165,11 +165,14 @@ function doc(chave: string, sha: string, audiencias: string[]) {
 describe("o reaceite do texto vigente", () => {
   const vigenteA = doc("nr1_company_contract", "b".repeat(64), ["nr1_company"]);
   const vigenteB = doc("terms_nr1", "c".repeat(64), ["nr1_company"]);
-  const doOutroProduto = doc("professional_contract", "d".repeat(64), ["professional"]);
+  const doOutroProduto = doc("psique_contract", "d".repeat(64), [
+    "professional",
+    "organization",
+  ]);
   const catalogo = {
     nr1_company_contract: vigenteA,
     terms_nr1: vigenteB,
-    professional_contract: doOutroProduto,
+    psique_contract: doOutroProduto,
   };
 
   it("mapeia o tipo de conta para a audiencia do catalogo", () => {
@@ -201,7 +204,7 @@ describe("o reaceite do texto vigente", () => {
 
   it("nao pede a empresa o contrato do outro produto", () => {
     const pendentes = documentosPendentes(catalogo, [], "nr1_company");
-    expect(pendentes.some((d) => d.key === "professional_contract")).toBe(false);
+    expect(pendentes.some((d) => d.key === "psique_contract")).toBe(false);
   });
 
   it("nao acusa nada quando tudo esta no texto vigente", () => {

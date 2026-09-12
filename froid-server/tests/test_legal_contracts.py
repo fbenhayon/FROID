@@ -110,10 +110,27 @@ class LegalContractsTests(unittest.TestCase):
         self.assertNotIn("jamais são transmitidos", self.documents)
 
     def test_documents_do_not_freeze_prices_or_false_sla(self):
+        """Preco e SLA moram no documento comercial, nunca no contrato.
+
+        A assercao final afirmava a expressao literal "ordem eletronica", que
+        era o vocabulario dos dois contratos clinicos antigos. Quando eles
+        viraram um, em 12/09/2026, o texto novo passou a dizer "Proposta
+        Comercial, Ordem de Contratacao ou aceite eletronico" — e o teste
+        reprovou sem que nada da garantia tivesse mudado. Ele agora aceita
+        qualquer um dos nomes do mesmo instrumento: o que precisa continuar
+        verdadeiro e que o contrato REMETA o preco a outro documento, e nao que
+        o remeta com uma palavra especifica.
+        """
         self.assertNotIn("R$ 297", self.documents)
         self.assertNotIn("200ms", self.documents)
         self.assertNotIn("15 FPS", self.documents)
-        self.assertIn("ordem eletrônica", self.documents)
+        self.assertTrue(
+            any(
+                nome in self.documents
+                for nome in ("Proposta Comercial", "Ordem de Contratação", "ordem eletrônica")
+            ),
+            "nenhum documento remete as condicoes comerciais ao instrumento proprio",
+        )
 
     def test_ledger_is_append_only_and_pseudonymous(self):
         self.assertIn("legal_acceptance_events is append-only", self.migration)

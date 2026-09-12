@@ -157,8 +157,10 @@ export function LegalDocumentPage({ documentKey }: { documentKey: string }) {
 
 export function PrivacyPage() { return <LegalDocumentPage documentKey="privacy" />; }
 export function TermsPage() { return <LegalDocumentPage documentKey="terms" />; }
-export function ProfessionalContractPage() { return <LegalDocumentPage documentKey="professional_contract" />; }
-export function OrganizationContractPage() { return <LegalDocumentPage documentKey="organization_contract" />; }
+// UMA pagina para o contrato do Psique, desde 12/09/2026. Eram duas, porque
+// eram dois contratos; o texto agora e unico e declara na clausula 1.5 quais
+// clausulas valem so para pessoa juridica.
+export function PsiqueContractPage() { return <LegalDocumentPage documentKey="psique_contract" />; }
 // As duas páginas do lado da empresa. `legalRouteByKey` já apontava para
 // /contrato-nr1 desde 22/08/2026 e a rota nunca existiu: o link do contrato no
 // cadastro dava 404, e daria na frente do cliente.

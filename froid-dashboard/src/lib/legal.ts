@@ -91,8 +91,7 @@ export const legalRouteByKey: Record<string, string> = {
   privacy: "/privacidade",
   terms: "/termos",
   terms_nr1: "/termos-nr1",
-  professional_contract: "/contrato-profissional",
-  organization_contract: "/contrato-clinica",
+  psique_contract: "/contrato-psique",
   patient_tcle: "/tcle-paciente",
   nr1_company_contract: "/contrato-nr1",
 };

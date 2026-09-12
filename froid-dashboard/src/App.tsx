@@ -43,8 +43,7 @@ const PatientPasswordResetPage = lazy(() => import("./pages/PatientPasswordReset
 const PrivacyRequests = lazy(() => import("./pages/PrivacyRequests").then((module) => ({ default: module.PrivacyRequests })));
 const PrivacyPage = lazy(() => import("./pages/LegalPages").then((module) => ({ default: module.PrivacyPage })));
 const TermsPage = lazy(() => import("./pages/LegalPages").then((module) => ({ default: module.TermsPage })));
-const ProfessionalContractPage = lazy(() => import("./pages/LegalPages").then((module) => ({ default: module.ProfessionalContractPage })));
-const OrganizationContractPage = lazy(() => import("./pages/LegalPages").then((module) => ({ default: module.OrganizationContractPage })));
+const PsiqueContractPage = lazy(() => import("./pages/LegalPages").then((module) => ({ default: module.PsiqueContractPage })));
 const Nr1TermsPage = lazy(() => import("./pages/LegalPages").then((module) => ({ default: module.Nr1TermsPage })));
 const Nr1ContractPage = lazy(() => import("./pages/LegalPages").then((module) => ({ default: module.Nr1ContractPage })));
 const PatientTclePage = lazy(() => import("./pages/LegalPages").then((module) => ({ default: module.PatientTclePage })));
@@ -325,8 +324,13 @@ function App() {
         />
         <Route path="/privacidade" element={<PrivacyPage />} />
         <Route path="/termos" element={<TermsPage />} />
-        <Route path="/contrato-profissional" element={<ProfessionalContractPage />} />
-        <Route path="/contrato-clinica" element={<OrganizationContractPage />} />
+        <Route path="/contrato-psique" element={<PsiqueContractPage />} />
+        {/* As duas URLs antigas continuam de pe apontando para a pagina nova.
+            Elas foram dadas a cliente e impressas em comprovante de aceite; o
+            contrato virou um, mas link publicado que passa a dar 404 e
+            problema nosso, nao de quem guardou o link. */}
+        <Route path="/contrato-profissional" element={<PsiqueContractPage />} />
+        <Route path="/contrato-clinica" element={<PsiqueContractPage />} />
         <Route path="/termos-nr1" element={<Nr1TermsPage />} />
         <Route path="/contrato-nr1" element={<Nr1ContractPage />} />
         <Route path="/tcle-paciente" element={<PatientTclePage />} />

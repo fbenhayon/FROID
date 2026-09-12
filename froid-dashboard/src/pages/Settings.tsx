@@ -536,9 +536,8 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
         );
       }
       if (legalCatalog?.acceptance_required) {
-        const contractKey = accountType === "organization"
-          ? "organization_contract"
-          : "professional_contract";
+        // Um contrato para os dois tipos de conta, desde 12/09/2026.
+        const contractKey = "psique_contract";
         const acceptanceResponse = await fetch(
           apiUrl("/api/professional/legal-acceptances"),
           {

@@ -189,9 +189,13 @@ class OContratoEntraCitado(unittest.TestCase):
             self.assertIn(chave, INDEXADOR)
 
     def test_o_contrato_do_outro_produto_fica_de_fora(self):
-        # professional_contract e organization_contract sao da trilha clinica.
-        self.assertNotIn("professional_contract", INDEXADOR)
-        self.assertNotIn("organization_contract", INDEXADOR)
+        # `psique_contract` e da trilha clinica. Ate 12/09/2026 eram dois
+        # documentos (`professional_contract` e `organization_contract`) e este
+        # teste nomeava os dois; a unificacao trocou a chave, e a fronteira que
+        # ele guarda continua a mesma — o acervo do NR-1 nao indexa contrato
+        # clinico, senao o FROID Explica responderia sobre prontuario a quem
+        # pergunta sobre campanha.
+        self.assertNotIn("psique_contract", INDEXADOR)
 
     def test_o_texto_vem_da_fonte_canonica_e_nao_de_copia(self):
         # Copia envelheceria sozinha, e o comprovante prova a digital do texto

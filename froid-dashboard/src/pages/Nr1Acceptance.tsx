@@ -77,6 +77,12 @@ type Aceite = {
 const TITULOS_FORA_DO_CATALOGO: Record<string, string> = {
   nr1_commercial_proposal: "Proposta Comercial — valor mensal aceito",
   order_summary: "Resumo comercial do pedido",
+  // Aposentados em 12/09/2026, quando os dois contratos do Psique viraram
+  // um. As chaves saíram do catálogo, mas continuam no ledger: quem assinou
+  // antes assinou AQUELE texto, e o comprovante prova aquele hash. Sem estas
+  // duas linhas o comprovante imprimiria o slug cru no lugar do título.
+  professional_contract: "Contrato de Licença SaaS — FROID Psique, Profissional",
+  organization_contract: "Contrato de Licença SaaS — FROID Psique, Clínica ou Organização",
 };
 
 type DocumentoLegal = {

@@ -662,13 +662,13 @@ export const ProfessionalOnboarding: React.FC<Props> = ({
         legal_acceptances: legalCatalog ? {
           terms: acceptanceFor(legalCatalog.documents.terms, termsAccepted),
           privacy: acceptanceFor(legalCatalog.documents.privacy, lgpdAccepted),
-          [accountType === "organization" ? "organization_contract" : "professional_contract"]:
-            acceptanceFor(
-              legalCatalog.documents[
-                accountType === "organization" ? "organization_contract" : "professional_contract"
-              ],
-              contractAccepted,
-            ),
+          // Um contrato para os dois tipos de conta, desde 12/09/2026: a
+          // escolha por `accountType` nao existe mais porque o documento e o
+          // mesmo, e e ele que declara o que vale so para pessoa juridica.
+          psique_contract: acceptanceFor(
+            legalCatalog.documents.psique_contract,
+            contractAccepted,
+          ),
         } : {},
       };
 

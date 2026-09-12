@@ -539,7 +539,7 @@ class OCadastroDaEmpresaConsegueTerminar(unittest.TestCase):
         self.assertIn("terms_nr1", chaves)
         self.assertIn("privacy", chaves)
         self.assertIn("nr1_company_contract", chaves)
-        for clinico in ("terms", "professional_contract", "organization_contract"):
+        for clinico in ("terms", "psique_contract"):
             with self.subTest(documento=clinico):
                 self.assertNotIn(clinico, chaves)
 
@@ -574,14 +574,13 @@ class OCadastroDaEmpresaConsegueTerminar(unittest.TestCase):
                         f"{tipo} e obrigado a aceitar {chave}, que nao declara "
                         f"a audiencia {audiencia}",
                     )
-        self.assertIn(
-            "professional_contract",
-            legal_documents.required_document_keys("individual"),
-        )
-        self.assertIn(
-            "organization_contract",
-            legal_documents.required_document_keys("organization"),
-        )
+        # Um contrato para as duas contas clinicas, desde 12/09/2026.
+        for tipo_de_conta in ("individual", "organization"):
+            with self.subTest(conta=tipo_de_conta):
+                self.assertIn(
+                    "psique_contract",
+                    legal_documents.required_document_keys(tipo_de_conta),
+                )
 
 
 class OBloqueioFalaComQuemLe(unittest.TestCase):
@@ -673,8 +672,7 @@ class CadaServicoTemOContratoDele(unittest.TestCase):
     def test_a_empresa_assina_o_contrato_dela(self):
         chaves = self.legal.required_document_keys("nr1_company")
         self.assertIn("nr1_company_contract", chaves)
-        self.assertNotIn("professional_contract", chaves)
-        self.assertNotIn("organization_contract", chaves)
+        self.assertNotIn("psique_contract", chaves)
 
     def test_o_contrato_do_nr1_existe_no_catalogo(self):
         documento = self.catalogo["documents"].get("nr1_company_contract")
@@ -705,14 +703,22 @@ class CadaServicoTemOContratoDele(unittest.TestCase):
         self.assertIn("a pedido de empregador", objeto)
         self.assertIn("triagem admissional", objeto)
 
-    def test_os_dois_contratos_clinicos_declaram_o_objeto(self):
-        for chave in ("professional_contract", "organization_contract"):
-            with self.subTest(documento=chave):
-                titulos = [
-                    secao["heading"]
-                    for secao in self.catalogo["documents"][chave]["sections"]
-                ]
-                self.assertEqual(titulos[0], "Objeto e finalidade")
+    def test_o_contrato_clinico_declara_o_objeto(self):
+        """A garantia e que o OBJETO esteja NO contrato, e nao onde ele esta.
+
+        Ate 12/09/2026 este teste afirmava o MECANISMO — que a primeira secao se
+        chamasse "Objeto e finalidade" — e por isso reprovou quando o contrato
+        unificado passou a abrir por definicoes, com o objeto na clausula 2.
+        O titulo da primeira secao nunca foi a garantia: a garantia e que o
+        texto que separa o Psique do NR-1 chegue ao documento que a pessoa
+        assina, em vez de ficar sendo uma constante sem leitor.
+        """
+        corpo = " ".join(
+            secao["body"]
+            for secao in self.catalogo["documents"]["psique_contract"]["sections"]
+        )
+        self.assertIn(self.legal.OBJETO_PSIQUE, corpo)
+        self.assertIn(self.legal.INTERPRETATION_BOUNDARY, corpo)
 
     def test_o_contrato_do_nr1_nomeia_a_fronteira_como_estrutural(self):
         contrato = _texto_do_contrato(self.catalogo)
