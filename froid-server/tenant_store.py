@@ -2276,6 +2276,16 @@ class TenantStore:
         """
         if not self.enabled or not self.runtime_database_url:
             return None
+        # A migration 032 e aplicada SOB DEMANDA, e nao na subida: todo
+        # metodo deste store chama `ensure_schema` antes de tocar o banco.
+        # Este nao chamava, e num contentor recem-criado a tabela ainda nao
+        # existia — a consulta estourava e a rota publica de preco devolvia
+        # 503 ate que outra coisa qualquer aplicasse o esquema. Aconteceu no
+        # primeiro deploy, em 11/09/2026.
+        #
+        # Vai com conexao de DONO, como os vizinhos: DDL nao roda pelo papel
+        # de runtime. A leitura logo abaixo continua com o papel restrito.
+        self.ensure_schema()
         with self._connect(runtime=True) as connection:
             with connection.transaction():
                 linha = connection.execute(

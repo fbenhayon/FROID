@@ -262,5 +262,59 @@ class OBancoEOModuloNaoPodemDivergir(unittest.TestCase):
         self.assertIn("commercial_snapshot", self.sql)
 
 
+class ARotaPublicaNaoDependeDeAlguemTerLogado(unittest.TestCase):
+    """`nr1_active_pricing_table` prepara o esquema, e os vizinhos nao precisam.
+
+    O CASO, 11/09/2026, no primeiro deploy: contentor recem-criado, migration
+    032 ainda nao aplicada, e a rota publica de preco devolvendo 503 nas duas
+    paginas. A tabela nao existia porque NADA a tinha criado ainda.
+
+    As migrations sobem SOB DEMANDA: `ensure_schema` roda na primeira vez que um
+    metodo de conexao de DONO toca o banco. Cinquenta e quatro metodos do store
+    NAO a chamam, e isso e deliberado — os que usam o papel `runtime` nao podem
+    rodar DDL, e contam com o fato de que algum caminho autenticado ja rodou
+    antes deles.
+
+    Este e o unico que nao pode contar com isso: e a unica leitura de banco
+    servida numa rota PUBLICA, sem autenticacao. Se depender de alguem ter
+    logado, o simulador do site fica quebrado para o visitante — que e
+    exatamente quem ele existe para atender.
+
+    A regra que este teste afirma nao e "todo metodo chama ensure_schema", que
+    seria falsa. E "o metodo servido ao publico nao depende de outro ter rodado".
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.store = (SERVER_DIR / "tenant_store.py").read_text(encoding="utf-8")
+
+    def _corpo(self, nome):
+        import ast
+
+        for no in ast.walk(ast.parse(self.store)):
+            if isinstance(no, ast.FunctionDef) and no.name == nome:
+                return ast.get_source_segment(self.store, no) or ""
+        raise AssertionError(f"metodo {nome} nao encontrado")
+
+    def test_a_leitura_da_tabela_prepara_o_esquema(self):
+        corpo = self._corpo("nr1_active_pricing_table")
+        self.assertIn("self.ensure_schema()", corpo)
+        # E a preparacao vem ANTES da leitura, senao nao adianta.
+        self.assertLess(
+            corpo.index("self.ensure_schema()"),
+            corpo.index("self._connect(runtime=True)"),
+        )
+
+    def test_a_leitura_continua_com_o_papel_restrito(self):
+        """DDL com conexao de dono, SELECT com o papel de runtime.
+
+        Ler a tabela com a conexao de dono funcionaria e seria pior: a rota e
+        publica, e privilegio a mais numa rota sem autenticacao e privilegio
+        que so faz falta no dia do incidente.
+        """
+        corpo = self._corpo("nr1_active_pricing_table")
+        self.assertIn("self._connect(runtime=True)", corpo)
+
+
 if __name__ == "__main__":
     unittest.main()
