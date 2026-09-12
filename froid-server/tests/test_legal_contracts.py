@@ -164,11 +164,29 @@ class LegalContractsTests(unittest.TestCase):
         )
 
     def test_legal_enforcement_is_independent_by_jurisdiction(self):
+        """As quatro chaves precisam existir nas TRES camadas.
+
+        Ate 11/09/2026 este teste conferia o `.env.multitenant.example` e o
+        `main.py`, e nunca o `docker-compose.yml` — que e exatamente onde elas
+        se perdiam. O servico recebe lista explicita e nao `env_file`, entao
+        ligar a chave no `.env` nao mudava nada, sem erro e sem log.
+
+        Guarda que olha a camada errada e pior que guarda nenhum: a suite verde
+        fazia crer que a ativacao gradual por pais funcionava.
+        """
+        exemplo = (SERVER / ".env.multitenant.example").read_text(encoding="utf-8")
+        compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
         for jurisdiction in ("BR", "ES", "FR", "US"):
-            self.assertIn(
-                f"FROID_LEGAL_ACCEPTANCE_REQUIRED_{jurisdiction}",
-                (SERVER / ".env.multitenant.example").read_text(encoding="utf-8"),
-            )
+            chave = f"FROID_LEGAL_ACCEPTANCE_REQUIRED_{jurisdiction}"
+            with self.subTest(jurisdiction=jurisdiction):
+                self.assertIn(chave, exemplo)
+                # `assertTrue` e nao `assertIn`: o assertIn imprime o
+                # haystack, e aqui o haystack e o compose inteiro.
+                self.assertTrue(
+                    f"- {chave}=${{{chave}:-false}}" in compose,
+                    f"{chave} nao chega ao contentor: o servico recebe lista "
+                    "explicita, e sem esta linha a chave do .env e ignorada",
+                )
         self.assertIn("FROID_LEGAL_ACCEPTANCE_REQUIRED_BY_JURISDICTION", self.main)
         self.assertIn("_legal_acceptance_required(legal_jurisdiction)", self.main)
         self.assertIn('"metadata[legal_jurisdiction]"', self.main)

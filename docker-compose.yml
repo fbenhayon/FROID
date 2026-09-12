@@ -105,6 +105,22 @@ services:
       - STRIPE_CURRENCY=${STRIPE_CURRENCY:-usd}
       - FROID_ALLOW_LOCAL_BILLING_FALLBACK=${FROID_ALLOW_LOCAL_BILLING_FALLBACK:-false}
       - FROID_LEGAL_ACCEPTANCE_REQUIRED=${FROID_LEGAL_ACCEPTANCE_REQUIRED:-false}
+      # As quatro chaves por jurisdicao FALTAVAM aqui ate 11/09/2026, e o
+      # sintoma era o pior possivel: nenhum.
+      #
+      # O servico recebe lista explicita e nao env_file. `.env.multitenant.example`
+      # lista as quatro, `main.py` le as quatro, e nenhuma delas chegava ao
+      # contentor — entao ligar FROID_LEGAL_ACCEPTANCE_REQUIRED_BR=true no .env
+      # nao mudava coisa alguma, sem erro e sem log. Descoberto ao conferir a
+      # variavel antes de um deploy que sobe a versao juridica: `printenv` nao
+      # devolveu linha nenhuma para ela.
+      #
+      # O padrao `:-false` preserva o comportamento atual. A ativacao gradual
+      # por pais so passa a ser possivel por causa destas quatro linhas.
+      - FROID_LEGAL_ACCEPTANCE_REQUIRED_BR=${FROID_LEGAL_ACCEPTANCE_REQUIRED_BR:-false}
+      - FROID_LEGAL_ACCEPTANCE_REQUIRED_ES=${FROID_LEGAL_ACCEPTANCE_REQUIRED_ES:-false}
+      - FROID_LEGAL_ACCEPTANCE_REQUIRED_FR=${FROID_LEGAL_ACCEPTANCE_REQUIRED_FR:-false}
+      - FROID_LEGAL_ACCEPTANCE_REQUIRED_US=${FROID_LEGAL_ACCEPTANCE_REQUIRED_US:-false}
       - FROID_LEGAL_AUDIT_HMAC_KEY=${FROID_LEGAL_AUDIT_HMAC_KEY:-}
       - FROID_LEGAL_SUPPLIER_NAME=${FROID_LEGAL_SUPPLIER_NAME:-}
       - FROID_LEGAL_SUPPLIER_TAX_ID=${FROID_LEGAL_SUPPLIER_TAX_ID:-}
