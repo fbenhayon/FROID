@@ -274,6 +274,50 @@ class FronteiraClinicaIntacta(unittest.TestCase):
         self.assertNotIn("id", re.findall(r'"(\w+)"', trecho))
 
 
+class ODenunciaNaoDeixaCicloOrfao(unittest.TestCase):
+    """Aviso previo de 60 dias, e o que acontece com a campanha aberta.
+
+    Determinacao do dono em 11/09/2026: denuncia imotivada por QUALQUER das
+    Partes, com sessenta dias, e o ciclo em curso se conclui.
+
+    A segunda metade e a que importa tecnicamente. Campanha interrompida no
+    meio deixa o recorte SEM inventario — e o produto inteiro se apoia em nao
+    produzir coleta sem documento. A clausula 8.7 diz que ausencia de evidencia
+    nao e ausencia de risco; se a propria rescisao pudesse criar o buraco, a
+    8.7 viraria promessa que o contrato desmente duas clausulas depois.
+    """
+
+    def setUp(self):
+        import legal_documents
+
+        self.legal = legal_documents
+        self.contrato = _texto_do_contrato(legal_documents.public_legal_catalog())
+
+    def test_as_duas_partes_denunciam_com_sessenta_dias(self):
+        self.assertIn("Qualquer das Partes poderá denunciar este Contrato", self.contrato)
+        self.assertIn("independentemente de motivação", self.contrato)
+        self.assertIn("60 (sessenta) dias", self.contrato)
+
+    def test_o_ciclo_em_curso_se_conclui(self):
+        self.assertIn("o ciclo de avaliação em curso será concluído", self.contrato)
+        self.assertIn("campanha já aberta seguirá até seu encerramento regular", self.contrato)
+        # E o contrato so acaba depois do que vier por ultimo, senao o prazo de
+        # aviso engoliria a entrega que a clausula acabou de prometer.
+        self.assertIn("o que ocorrer por último", self.contrato)
+
+    def test_a_denuncia_nao_se_confunde_com_a_suspensao_por_inadimplemento(self):
+        """Sem esta linha, um inadimplente alegaria sessenta dias de carencia."""
+        self.assertIn(
+            "não afasta nem substitui a suspensão por inadimplemento", self.contrato
+        )
+        self.assertIn("independe do aviso de sessenta dias", self.contrato)
+
+    def test_a_versao_subiu_porque_a_clausula_14_mudou(self):
+        # Regra do proprio arquivo: mudanca material sobe a versao, senao aceites
+        # antigos provariam um texto que nao e mais o vigente.
+        self.assertEqual(self.legal.LEGAL_DOCUMENT_VERSION, "2026-09-11.br-pj-v7")
+
+
 if __name__ == "__main__":
     unittest.main()
 
