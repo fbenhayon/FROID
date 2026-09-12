@@ -69,9 +69,22 @@ class Phase4SecurityTests(unittest.TestCase):
             self.assertIn("_require_professional_feature_access(request)", next_block, route)
 
     def test_subscription_enforcement_is_central_and_fail_closed(self):
+        """Central e fail-closed — agora sabendo O QUE esta sendo pedido.
+
+        Em 12/09/2026 o portao passou a receber a permissao, para que a leitura
+        do prontuario sobreviva 90 dias ao fim do plano (decisao do dono). A
+        assercao antiga exigia a chamada sem argumento nenhum e reprovaria so
+        por causa disso — mas APAGA-LA seria trocar uma garantia por nada. Ela
+        foi reescrita para exigir a chamada COM a permissao, que e justamente o
+        que mantem a janela estreita: quem chama sem dizer o que quer cai no
+        default vazio e continua levando 402.
+        """
         authorization_index = self.main_source.index("def _authorize_tenant_request")
         authorization_block = self.main_source[authorization_index:authorization_index + 900]
-        self.assertIn("_require_active_subscription_for_context(context)", authorization_block)
+        self.assertIn(
+            "_require_active_subscription_for_context(context, permission, request.method)",
+            authorization_block,
+        )
         gate_index = self.main_source.index("def _require_active_subscription_for_context")
         gate_block = self.main_source[gate_index:gate_index + 1800]
         self.assertIn("if not TENANT_STORE.enabled:", gate_block)

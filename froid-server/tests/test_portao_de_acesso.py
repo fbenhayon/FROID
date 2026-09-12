@@ -27,6 +27,7 @@ import logging
 import sys
 import typing
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 SERVER_DIR = Path(__file__).resolve().parents[1]
@@ -46,6 +47,19 @@ def _funcao(nome, ns):
     )
     exec(ast.get_source_segment(BACKEND, alvo), ns)  # noqa: S102
     return ns[nome]
+
+
+def _constante(nome):
+    """Le uma constante de modulo do main.py sem importar o main.py inteiro.
+
+    Importar traria FastAPI, banco e chaves; o que precisamos e um literal.
+    """
+    for no in ARVORE.body:
+        if isinstance(no, ast.Assign) and any(
+            getattr(alvo, "id", "") == nome for alvo in no.targets
+        ):
+            return eval(compile(ast.Expression(no.value), "<main>", "eval"))  # noqa: S307
+    raise AssertionError(f"constante {nome} nao encontrada em main.py")
 
 
 def _trecho(inicio: str, fim: str) -> str:
@@ -415,6 +429,202 @@ class AsTelasDizemOQueDeFatoAconteceu(unittest.TestCase):
         self.assertIn("grid min-w-[980px] grid-cols-7", self.admin_detail)
         self.assertIn("reports.slice(0, 3)", self.admin_detail)
         self.assertIn("receivables.slice(0, 3)", self.admin_detail)
+
+
+class AGuardaDocumentalSobreviveAoFimDoPlano(unittest.TestCase):
+    """Plano vencido para de cobrar servico novo; nao confisca prontuario.
+
+    O CASO, 12/09/2026. `_authorize_tenant_request` chamava o portao de
+    assinatura na PRIMEIRA linha, antes de saber o que estava sendo pedido.
+    Plano vencido devolvia 402 para tudo — inclusive para LER a sessao que o
+    profissional ja tinha realizado e ja havia pago.
+
+    Isso nao e alavanca comercial: a obrigacao de guarda documental e do
+    profissional perante o conselho dele, e nao some porque a fatura atrasou.
+    Decisao do dono: noventa dias de leitura contados do fim do periodo pago.
+
+    A armadilha que este arquivo existe para travar e a do VOCABULARIO. O
+    primeiro rascunho da lista trazia `patients.read_all` e `reports.read_all`
+    — que sao CONCESSOES de papel, nao acoes pedidas. O que chega ao portao e
+    `reports.read`. A lista errada nao casaria com pedido nenhum, a janela
+    nunca abriria, e NADA acusaria erro: o sintoma seria o 402 de sempre, agora
+    com um pedaco de codigo morto jurando que resolvia.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        ns = {
+            "datetime": datetime,
+            "timezone": timezone,
+            "timedelta": timedelta,
+            "Optional": typing.Optional,
+        }
+        ns["LEITURA_APOS_ENCERRAMENTO_DIAS"] = _constante(
+            "LEITURA_APOS_ENCERRAMENTO_DIAS"
+        )
+        # staticmethod: sem isto o atributo de classe vira metodo e o
+        # dicionario da assinatura chegaria como `self`.
+        cls.dentro = staticmethod(_funcao("_dentro_da_janela_de_guarda", ns))
+        cls.dias = ns["LEITURA_APOS_ENCERRAMENTO_DIAS"]
+
+    def _venceu_ha(self, dias):
+        return {
+            "status": "canceled",
+            "current_period_end": datetime.now(timezone.utc) - timedelta(days=dias),
+        }
+
+    def test_a_janela_e_de_noventa_dias(self):
+        self.assertEqual(90, self.dias)
+
+    def test_logo_depois_do_vencimento_ainda_le(self):
+        self.assertTrue(self.dentro(self._venceu_ha(1)))
+
+    def test_na_vespera_do_nonagesimo_dia_ainda_le(self):
+        self.assertTrue(self.dentro(self._venceu_ha(89)))
+
+    def test_passados_os_noventa_dias_fecha(self):
+        self.assertFalse(self.dentro(self._venceu_ha(91)))
+
+    def test_sem_data_de_fim_a_janela_NAO_abre(self):
+        """Nao saber quando terminou nao e motivo para liberar.
+
+        Falhar fechado vale aqui igual a todo o resto: a janela tem de nascer
+        de uma data apurada. Abrir porque o campo veio vazio seria supor a
+        data, que e exatamente o que esta casa nao faz.
+        """
+        self.assertFalse(self.dentro(None))
+        self.assertFalse(self.dentro({"status": "canceled"}))
+        self.assertFalse(self.dentro({"current_period_end": None}))
+        self.assertFalse(self.dentro({"current_period_end": "ontem de manha"}))
+        self.assertFalse(self.dentro({"current_period_end": 1757635200}))
+
+    def test_data_sem_fuso_e_lida_como_UTC_e_nao_descartada(self):
+        """Coluna `timestamp` sem fuso nao pode virar recusa silenciosa."""
+        ingenua = (datetime.now(timezone.utc) - timedelta(days=2)).replace(tzinfo=None)
+        self.assertTrue(self.dentro({"current_period_end": ingenua}))
+
+    def test_texto_ISO_com_Z_e_aceito(self):
+        iso = (datetime.now(timezone.utc) - timedelta(days=3)).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        )
+        self.assertTrue(self.dentro({"current_period_end": iso}))
+
+
+class AJanelaAbreSOAquiloQueJaFoiPago(unittest.TestCase):
+    """O que a janela alcanca, e o que ela nao pode alcancar nunca."""
+
+    LEITURA = {"organization.read", "reports.read"}
+    JAMAIS = {
+        "reports.write",
+        "reports.update",
+        "reports.delete",
+        "audit.read",
+    }
+
+    @classmethod
+    def setUpClass(cls):
+        cls.conjunto = _constante("PERMISSOES_DE_GUARDA_DOCUMENTAL")
+
+    def test_a_lista_e_exatamente_a_leitura_do_que_ja_existe(self):
+        self.assertEqual(self.LEITURA, set(self.conjunto))
+
+    def test_escrever_alterar_apagar_e_auditar_continuam_fechados(self):
+        for acao in self.JAMAIS:
+            with self.subTest(acao=acao):
+                self.assertNotIn(acao, self.conjunto)
+
+    def test_todo_nome_da_lista_E_um_pedido_que_o_portao_recebe(self):
+        """A trava do vocabulario: comparar por IGUALDADE, nao por parecenca.
+
+        Concessao de papel (`reports.read_all`) e acao pedida (`reports.read`)
+        sao vocabularios diferentes que se parecem. Este teste confronta a
+        lista com as acoes que as rotas de fato passam; nome que nao chega ao
+        portao e codigo morto que nao abre janela nenhuma.
+        """
+        pedidas = set()
+        for no in ast.walk(ARVORE):
+            if isinstance(no, ast.Call) and getattr(no.func, "id", "") == "_authorize_tenant_request":
+                if len(no.args) >= 2 and isinstance(no.args[1], ast.Constant):
+                    pedidas.add(no.args[1].value)
+        self.assertTrue(pedidas, "nenhuma chamada de _authorize_tenant_request lida")
+        orfaos = sorted(set(self.conjunto) - pedidas)
+        self.assertEqual(
+            [],
+            orfaos,
+            "nome na janela que rota nenhuma pede (a janela nunca abriria): "
+            + ", ".join(orfaos),
+        )
+
+    def test_os_DOIS_portoes_que_sabem_o_pedido_informam_pedido_e_verbo(self):
+        """Um dos dois e facil de esquecer, e fecharia a janela em silencio.
+
+        Sao DUAS funcoes diferentes, e nao duas chamadas na mesma: a leitura
+        clinica passa por `_authorize_tenant_request`, e a leitura dos
+        comprovantes de aceite passa por `_require_tenant_management_context`.
+        Esqueceu uma, aquela metade da janela nunca abre — e o sintoma e o 402
+        de sempre, sem erro nenhum apontando a causa.
+
+        Conferido pelo parser, e nao por contagem de texto: a primeira versao
+        deste teste contava ocorrencias num RECORTE e reprovou porque as duas
+        chamadas nao moram na mesma funcao.
+        """
+        for nome in ("_authorize_tenant_request", "_require_tenant_management_context"):
+            alvo = next(
+                n for n in ARVORE.body
+                if isinstance(n, ast.FunctionDef) and n.name == nome
+            )
+            chamadas = [
+                no for no in ast.walk(alvo)
+                if isinstance(no, ast.Call)
+                and getattr(no.func, "id", "") == "_require_active_subscription_for_context"
+            ]
+            with self.subTest(portao=nome):
+                self.assertEqual(1, len(chamadas), "numero de chamadas mudou")
+                argumentos = [ast.unparse(a) for a in chamadas[0].args]
+                self.assertEqual(
+                    ["context", "permission", "request.method"], argumentos
+                )
+
+    def test_a_janela_exige_o_VERBO_de_leitura_e_nao_so_o_nome(self):
+        """Sem o verbo, "somente leitura" seria coincidencia de vocabulario.
+
+        `organization.read` tambem chega ao portao vindo de
+        `renew_organization_legal_acceptances`, que e um POST que GRAVA aceite.
+        Exigir GET faz a promessa de leitura ser verdade por construcao.
+        """
+        alvo = next(
+            n for n in ARVORE.body
+            if isinstance(n, ast.FunctionDef)
+            and n.name == "_require_active_subscription_for_context"
+        )
+        condicoes = [
+            ast.unparse(no.test) for no in ast.walk(alvo)
+            if isinstance(no, ast.If)
+            and "PERMISSOES_DE_GUARDA_DOCUMENTAL" in ast.unparse(no.test)
+        ]
+        self.assertEqual(1, len(condicoes), "a janela deixou de ser um `if` unico")
+        self.assertIn("metodo == 'GET'", condicoes[0])
+
+    def test_os_portoes_que_nao_sabem_o_pedido_continuam_fechando(self):
+        """Feature profissional, websocket e evento de auditoria do cliente.
+
+        Nenhum dos tres informa permissao, entao caem no default vazio e
+        recusam como sempre recusaram. Sessao, transcricao, insights, agenda e
+        o FROID Explica ficam de fora da janela por causa disto — e nao por uma
+        lista propria que alguem teria de lembrar de manter.
+        """
+        fora = BACKEND.count("_require_active_subscription_for_context(context)")
+        self.assertEqual(3, fora, "numero de portoes cegos mudou; confira quais")
+        for portao in (
+            "def _require_professional_feature_access",
+            "def _require_professional_websocket_access",
+        ):
+            with self.subTest(portao=portao):
+                i = BACKEND.index(portao)
+                self.assertIn(
+                    "_require_active_subscription_for_context(context)",
+                    BACKEND[i : i + 1400],
+                )
 
 
 if __name__ == "__main__":

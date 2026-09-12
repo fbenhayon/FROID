@@ -5892,10 +5892,95 @@ async def security_audit_middleware(request: Request, call_next):
                 )
 
 
+# A GUARDA DOCUMENTAL SOBREVIVE AO FIM DO PLANO.
+#
+# Ate 12/09/2026 este portao era CEGO: `_authorize_tenant_request` o chamava na
+# primeira linha, antes de saber o que estava sendo pedido, e plano vencido
+# devolvia 402 para tudo — inclusive para LER a sessao que o profissional ja
+# tinha realizado e pela qual ja havia pago.
+#
+# Prender prontuario por inadimplencia nao e alavanca comercial: a obrigacao de
+# guarda documental e do PROFISSIONAL perante o conselho dele, e ela nao some
+# porque a fatura atrasou. O que se bloqueia e consumo novo; o que ja foi
+# produzido continua legivel pelo tempo necessario a retirada.
+#
+# Decisao do dono em 12/09/2026: noventa dias contados do fim do periodo pago.
+LEITURA_APOS_ENCERRAMENTO_DIAS = 90
+
+# O QUE A JANELA ABRE — e por que sao exatamente estes dois nomes.
+#
+# Os nomes aqui sao os da ACAO PEDIDA que chega a `decide()`, e nao os das
+# CONCESSOES que os papeis carregam. A distincao derrubaria esta lista em
+# silencio: um papel carrega `reports.read_all`/`reports.read_assigned`, mas o
+# que a rota pede e `reports.read`. Escrever a concessao aqui nao casaria com
+# pedido nenhum, a janela nunca abriria, e nada acusaria erro.
+#
+#   organization.read -> `_accessible_session_reports`, a listagem dos
+#       relatorios, e a leitura dos comprovantes de aceite.
+#   reports.read      -> GET do relatorio, das metricas e do patient-release.
+#
+# Fora da lista, e portanto ainda bloqueados: `reports.write` (relatorio novo),
+# `reports.update` (nota clinica, liberacao ao paciente), `reports.delete` e
+# `audit.read`. E tudo que passa por `_require_professional_feature_access` —
+# sessao, transcricao, insights, agenda e o FROID Explica — continua fechado
+# porque aquele portao nao informa permissao nenhuma e cai no default vazio.
+#
+# Nao ha rota de EXPORTACAO do profissional para liberar: o download e montado
+# no navegador (`report-pdf.ts` -> `buildProfessionalReport`/`openPrintable`) a
+# partir do relatorio ja lido. Abrir a leitura abre a extracao; a unica rota de
+# export do servidor, `/api/patient-portal/privacy/export`, e do paciente.
+#
+# Alem da acao, a janela exige o VERBO GET. Sem isso ela se apoiaria na boa
+# vontade do vocabulario: `organization.read` tambem chega ao portao vindo de
+# `renew_organization_legal_acceptances`, que e um POST que GRAVA aceite. Com o
+# verbo, "somente leitura" e verdade por construcao, e nao por coincidencia de
+# nomes. `organization.read` em GET alcanca dois lugares, ambos corretos: a
+# listagem de relatorios e a leitura dos comprovantes de aceite — que sao
+# justamente a prova do que a pessoa assinou.
+PERMISSOES_DE_GUARDA_DOCUMENTAL = frozenset({"organization.read", "reports.read"})
+
+
+def _dentro_da_janela_de_guarda(subscription: Optional[dict]) -> bool:
+    """Ainda ha direito de leitura depois do fim do periodo pago?
+
+    Sem data de fim a resposta e NAO. Assinatura sem `current_period_end` e
+    estado que nao sabemos datar, e abrir acesso por nao saber seria o oposto
+    de falhar fechado — a janela tem de nascer de uma data apurada, nunca de
+    uma suposicao sobre quando o plano terminou.
+    """
+    if not subscription:
+        return False
+    fim = subscription.get("current_period_end")
+    if not fim:
+        return False
+    if isinstance(fim, str):
+        try:
+            fim = datetime.fromisoformat(fim.replace("Z", "+00:00"))
+        except ValueError:
+            return False
+    if not isinstance(fim, datetime):
+        return False
+    if fim.tzinfo is None:
+        fim = fim.replace(tzinfo=timezone.utc)
+    return datetime.now(timezone.utc) <= fim + timedelta(
+        days=LEITURA_APOS_ENCERRAMENTO_DIAS
+    )
+
+
 def _require_active_subscription_for_context(
     context: Optional[AccessContext],
+    permission: str = "",
+    metodo: str = "",
 ) -> Optional[dict]:
-    """Fail closed for professional features when commercial access is enforced."""
+    """Fail closed for professional features when commercial access is enforced.
+
+    `permission` e o que esta sendo pedido e `metodo` e o verbo HTTP. Os dois
+    defaults vazios sao deliberados: quem chama sem dizer o que quer nao entra
+    na janela de guarda. Assim os portoes que nao tem essa informacao — o de
+    features profissionais, o do websocket e o do evento de auditoria do
+    cliente — continuam fechando como sempre fecharam, sem precisar saber que
+    a janela existe.
+    """
     if not FROID_SUBSCRIPTIONS_REQUIRED:
         return None
     if not TENANT_STORE.enabled:
@@ -5920,6 +6005,13 @@ def _require_active_subscription_for_context(
         not subscription
         or subscription.get("status") not in ACTIVE_SUBSCRIPTION_STATUSES
     ):
+        if (
+            metodo == "GET"
+            and permission in PERMISSOES_DE_GUARDA_DOCUMENTAL
+            and _dentro_da_janela_de_guarda(subscription)
+        ):
+            # Plano encerrado, janela aberta: le o que ja existe, e so isso.
+            return subscription
         raise HTTPException(status_code=402, detail="plano FROID ativo obrigatório")
     return subscription
 
@@ -6038,7 +6130,7 @@ def _authorize_tenant_request(
     context_override: Optional[AccessContext] = None,
 ) -> Optional[AccessContext]:
     context = context_override or _tenant_context_from_request(request)
-    _require_active_subscription_for_context(context)
+    _require_active_subscription_for_context(context, permission, request.method)
     if FROID_TENANT_AUTHORIZATION_MODE == "off":
         return context
     decision = decide(
@@ -6112,7 +6204,9 @@ def _require_tenant_management_context(
             status_code=403,
             detail=f"permissão organizacional insuficiente — {detalhe}",
         )
-    subscription = _require_active_subscription_for_context(context)
+    subscription = _require_active_subscription_for_context(
+        context, permission, request.method
+    )
     if subscription is None:
         subscription = TENANT_STORE.subscription_status(
             organization_id=context.organization_id,
