@@ -2263,6 +2263,62 @@ class TenantStore:
             "headcount": max(0, int(headcount)),
         }
 
+    def nr1_active_pricing_table(self) -> Optional[dict]:
+        """A tabela comercial ativa, com as faixas. `None` quando nao ha espelho.
+
+        `None` NAO significa "sem tabela": significa que este deployment nao tem
+        Postgres, e nesse caso a unica tabela que existe e a do modulo. Quem
+        chama precisa dizer qual das duas usou — devolver a do modulo calado
+        esconderia justamente o caso em que o banco tem outra.
+
+        O indice unico da migration 032 garante no maximo uma linha ativa, entao
+        o `fetchone` aqui nao escolhe entre candidatas: ou ha uma, ou nao ha.
+        """
+        if not self.enabled or not self.runtime_database_url:
+            return None
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                linha = connection.execute(
+                    """
+                    SELECT code, name, version, valid_from, valid_to, status,
+                           base_establishment_cents, config_hash
+                      FROM nr1_pricing_tables
+                     WHERE status = 'active'
+                    """
+                ).fetchone()
+                if not linha:
+                    return None
+                faixas = connection.execute(
+                    """
+                    SELECT tier_order, lower_bound, upper_bound, worker_price_cents
+                      FROM nr1_pricing_tiers
+                     WHERE pricing_table_code = %s
+                     ORDER BY tier_order
+                    """,
+                    (linha[0],),
+                ).fetchall()
+        return {
+            "code": linha[0],
+            "name": linha[1],
+            "version": linha[2],
+            # ISO, e nao o `date` do driver: a digital e calculada sobre o texto,
+            # e `str(date)` de outro driver poderia sair noutro formato.
+            "validFrom": linha[3].isoformat(),
+            "validTo": linha[4].isoformat() if linha[4] else None,
+            "status": linha[5],
+            "baseEstablishmentCents": int(linha[6]),
+            "configHash": linha[7],
+            "tiers": [
+                {
+                    "order": int(f[0]),
+                    "lowerBound": int(f[1]),
+                    "upperBound": int(f[2]) if f[2] is not None else None,
+                    "workerPriceCents": int(f[3]),
+                }
+                for f in faixas
+            ],
+        }
+
     def nr1_list_units(
         self, *, organization_id: str, membership_id: str,
         include_archived: bool = False,

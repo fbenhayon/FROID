@@ -75,6 +75,7 @@ from legal_documents import (
     public_legal_catalog,
     required_document_keys,
 )
+import pricing_nr1
 import httpx
 
 app = FastAPI(title="FROID Fusion Server", version="3.0.0")
@@ -7221,6 +7222,93 @@ def legal_documents(jurisdiction: str = "BR"):
         "jurisdiction": normalized_jurisdiction,
         "acceptance_required": _legal_acceptance_required(normalized_jurisdiction),
     }
+
+
+# Teto de entrada da rota PUBLICA de simulacao. Nao e regra comercial: e
+# defesa de uma rota sem autenticacao. Efetivo acima disso nao e empresa, e
+# multiplicacao de inteiro gigante so serve para gastar CPU de graca.
+NR1_PRICING_MAX_TRABALHADORES = 200_000
+NR1_PRICING_MAX_ESTABELECIMENTOS = 5_000
+
+
+def _nr1_pricing_tabela_vigente() -> tuple[dict, str]:
+    """A tabela comercial ativa, e DE ONDE ela veio.
+
+    Le do Postgres quando ha espelho, e confere a digital gravada contra a
+    recalculada antes de deixar qualquer coisa precificar. Tabela adulterada no
+    banco nao produz preco errado: produz recusa, como no motor de origem.
+
+    Sem espelho, a unica tabela que existe e a do modulo — e a resposta declara
+    isso em vez de fingir que veio do banco. A migration 032 semeia exatamente
+    os mesmos numeros, e `test_pricing_nr1.py` compara os dois lado a lado, de
+    modo que a divergencia falha na bateria e nao em producao.
+    """
+    try:
+        do_banco = TENANT_STORE.nr1_active_pricing_table()
+    except Exception:
+        LOGGER.exception("Unable to read NR-1 pricing table")
+        raise HTTPException(
+            status_code=503,
+            detail="tabela comercial indisponível no momento",
+        )
+    if do_banco is None:
+        return pricing_nr1.TABELA_VIGENTE, "modulo"
+    gravado = str(do_banco.pop("configHash", ""))
+    if not hmac.compare_digest(gravado, pricing_nr1.pricing_hash(do_banco)):
+        # O nome do erro e o do motor de origem de proposito: quem conhece um
+        # reconhece o outro. E a recusa e o comportamento correto — precificar
+        # com tabela cuja digital nao fecha produziria proposta que ninguem
+        # consegue reproduzir depois.
+        LOGGER.error("PRICING_HASH_MISMATCH on active NR-1 pricing table")
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "PRICING_HASH_MISMATCH: a tabela comercial ativa no banco não "
+                "confere com a própria impressão digital, e por isso nada é "
+                "precificado até que seja corrigida."
+            ),
+        )
+    return do_banco, "postgres"
+
+
+@app.get("/api/nr1/pricing/simulate")
+def nr1_pricing_simulate(trabalhadores: int, estabelecimentos: int = 1):
+    """Valor mensal e por trabalhador, com a memoria de calculo e a digital.
+
+    Publica e sem gravacao. Gravar aqui encheria a tabela de evidencia com
+    trafego anonimo e tiraria dela justamente o que a torna prova: cada linha
+    corresponder a uma cotacao de alguem. O registro acontece no aceite, onde
+    existe organizacao.
+    """
+    if trabalhadores > NR1_PRICING_MAX_TRABALHADORES:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"efetivo acima de {NR1_PRICING_MAX_TRABALHADORES:,} trabalhadores "
+                "nao e simulado por esta rota; fale com o time comercial"
+            ).replace(",", "."),
+        )
+    if estabelecimentos > NR1_PRICING_MAX_ESTABELECIMENTOS:
+        raise HTTPException(
+            status_code=400, detail="número de estabelecimentos acima do simulável"
+        )
+    tabela, procedencia = _nr1_pricing_tabela_vigente()
+    try:
+        calculo = pricing_nr1.simular(trabalhadores, estabelecimentos, tabela)
+    except pricing_nr1.TabelaInvalida as erro:
+        # A mensagem do motor ja diz QUAL regra falhou. Trocar por "dados
+        # invalidos" obrigaria quem esta na tela a adivinhar.
+        raise HTTPException(status_code=400, detail=str(erro))
+    calculo["monthlyTotalLabel"] = pricing_nr1.formatar_brl(calculo["monthlyTotalCents"])
+    calculo["perWorkerMonthLabel"] = pricing_nr1.formatar_brl(
+        calculo["perWorkerMonthCents"]
+    )
+    calculo["pricingTable"] = {
+        **calculo["pricingTable"],
+        "baseEstablishmentCents": tabela["baseEstablishmentCents"],
+        "source": procedencia,
+    }
+    return calculo
 
 
 def _midia_turn() -> tuple[bool, str]:

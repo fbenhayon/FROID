@@ -64,8 +64,14 @@ def tabelas_criadas() -> dict:
     encontradas = {}
     for sql in sorted(MIGRATIONS.glob("*.sql")):
         texto = sql.read_text(encoding="utf-8")
+        # TERCEIRA ARMADILHA, 11/09/2026: o nome parava no primeiro DIGITO.
+        # `[a-z_]+` lia `nr1_pricing_tables` como `nr`, e o teste acusava uma
+        # tabela inexistente enquanto deixava as tres reais sem conferencia. As
+        # `nr1_*` da migration 032 foram as primeiras com digito no nome, entao
+        # o caso nunca tinha sido exercitado — guarda com ponto cego e pior que
+        # guarda nenhum, porque quem le a suite verde acha que conferiu.
         for m in re.finditer(
-            r"CREATE TABLE (?:IF NOT EXISTS )?([a-z_]+)", texto, re.I
+            r"CREATE TABLE (?:IF NOT EXISTS )?([a-z0-9_]+)", texto, re.I
         ):
             encontradas.setdefault(m.group(1).lower(), sql.name)
     return encontradas

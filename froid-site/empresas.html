@@ -815,6 +815,108 @@ N = 3.000  ->  n = 341</div>
         </table>
       </div>
       <p style="font-size:0.85rem; color:var(--froid-cinza); margin-top:10px;">As faixas são cumulativas e incidem sobre o efetivo total da empresa: com 300 trabalhadores, paga-se R$ 15 pelos 100 primeiros e R$ 12,50 pelos 200 seguintes. A base é por <strong>estabelecimento</strong> — não por departamento: uma empresa com cinco setores no mesmo endereço tem uma base, não cinco. O <a href="proposta-nr1.html">simulador da proposta</a> calcula o valor do seu efetivo.</p>
+    <div class="card" style="margin-top:28px;" id="simulador-nr1"
+         data-sep-mil="." data-sep-dec="," data-moeda-depois="0">
+      <h3>Simule o valor da sua empresa</h3>
+      <p style="font-size:0.92rem;">O cálculo vem do motor de precificação do FROID, e não desta página: o valor exibido carrega a versão e a impressão digital da tabela comercial que o produziu.</p>
+      <form onsubmit="return froidSimularNr1(event)" style="display:flex; flex-wrap:wrap; gap:14px; align-items:flex-end; margin-top:14px;">
+        <label style="display:flex; flex-direction:column; font-size:0.82rem; font-weight:700;">Trabalhadores
+          <input type="number" id="sim-trabalhadores" min="1" max="200000" step="1" required
+                 style="margin-top:5px; padding:9px 11px; font-size:1rem; border:1px solid var(--froid-linha,#d1d5db); border-radius:8px; width:150px;" />
+        </label>
+        <label style="display:flex; flex-direction:column; font-size:0.82rem; font-weight:700;">Estabelecimentos
+          <input type="number" id="sim-estabelecimentos" min="1" max="5000" step="1" value="1" required
+                 style="margin-top:5px; padding:9px 11px; font-size:1rem; border:1px solid var(--froid-linha,#d1d5db); border-radius:8px; width:150px;" />
+        </label>
+        <button type="submit" id="sim-botao"
+                style="padding:11px 22px; font-size:0.95rem; font-weight:800; border:0; border-radius:8px; cursor:pointer; background:var(--froid-azul,#0369a1); color:#fff;">Simular</button>
+      </form>
+      <div id="sim-resultado" hidden style="margin-top:18px; display:flex; flex-wrap:wrap; gap:26px;">
+        <div>
+          <div style="font-size:0.78rem; text-transform:uppercase; letter-spacing:.08em; color:var(--froid-cinza,#4b5563); font-weight:800;">Valor mensal estimado</div>
+          <div id="sim-mensal" style="font-size:1.8rem; font-weight:800; margin-top:3px;"></div>
+        </div>
+        <div>
+          <div style="font-size:0.78rem; text-transform:uppercase; letter-spacing:.08em; color:var(--froid-cinza,#4b5563); font-weight:800;">Investimento por trabalhador / mês</div>
+          <div id="sim-por-trabalhador" style="font-size:1.8rem; font-weight:800; margin-top:3px;"></div>
+        </div>
+      </div>
+      <p id="sim-procedencia" hidden style="font-size:0.78rem; color:var(--froid-cinza,#4b5563); margin-top:12px;"></p>
+      <p id="sim-erro" hidden style="font-size:0.88rem; color:#b91c1c; margin-top:14px; font-weight:600;"></p>
+      <p style="font-size:0.78rem; color:var(--froid-cinza,#4b5563); margin-top:10px;">Estimativa pela tabela vigente. O valor contratado é o da Proposta Comercial.</p>
+    </div>
+
+    <script>
+    /* O valor NAO e calculado aqui.
+     *
+     * Ate 11/09/2026 o preco do NR-1 vivia copiado em doze lugares, e tres
+     * bases diferentes chegaram a circular ao mesmo tempo. Repetir a formula em
+     * JavaScript criaria a decima terceira copia — a que ninguem confere,
+     * porque roda no navegador do cliente.
+     *
+     * A pagina pergunta ao motor e mostra a resposta. Falhou, ela DIZ que
+     * falhou: um numero aproximado numa pagina de preco e pior que nenhum. */
+    function froidFormatarBRL(centavos, caixa, comCentavos) {
+      var mil = caixa.getAttribute('data-sep-mil');
+      var dec = caixa.getAttribute('data-sep-dec');
+      var depois = caixa.getAttribute('data-moeda-depois') === '1';
+      var inteiro = Math.floor(centavos / 100);
+      var resto = centavos % 100;
+      var corpo = String(inteiro).replace(/\B(?=(\d{3})+(?!\d))/g, mil);
+      if (comCentavos) corpo += dec + (resto < 10 ? '0' : '') + resto;
+      return depois ? corpo + ' R$' : 'R$ ' + corpo;
+    }
+
+    function froidSimularNr1(evento) {
+      evento.preventDefault();
+      var caixa = document.getElementById('simulador-nr1');
+      var botao = document.getElementById('sim-botao');
+      var resultado = document.getElementById('sim-resultado');
+      var procedencia = document.getElementById('sim-procedencia');
+      var erro = document.getElementById('sim-erro');
+      var trabalhadores = document.getElementById('sim-trabalhadores').value;
+      var estabelecimentos = document.getElementById('sim-estabelecimentos').value;
+
+      erro.hidden = true;
+      botao.disabled = true;
+      var rotulo = botao.textContent;
+      botao.textContent = 'Calculando...';
+
+      fetch('/api/nr1/pricing/simulate?trabalhadores=' + encodeURIComponent(trabalhadores) +
+            '&estabelecimentos=' + encodeURIComponent(estabelecimentos))
+        .then(function (resposta) {
+          return resposta.json().then(function (corpo) {
+            return { ok: resposta.ok, corpo: corpo };
+          });
+        })
+        .then(function (r) {
+          if (!r.ok) throw new Error((r.corpo && r.corpo.detail) || 'Não foi possível simular agora. O valor não é calculado nesta página, e mostrar um número aproximado seria pior do que não mostrar nenhum.');
+          document.getElementById('sim-mensal').textContent =
+            froidFormatarBRL(r.corpo.monthlyTotalCents, caixa, true);
+          document.getElementById('sim-por-trabalhador').textContent =
+            froidFormatarBRL(r.corpo.perWorkerMonthCents, caixa, true);
+          /* A procedencia acompanha o numero: sem ela, seis meses depois
+             ninguem sabe de que tabela aquele valor saiu. */
+          procedencia.textContent = 'Tabela ' + r.corpo.pricingTable.code +
+            ' v' + r.corpo.pricingTable.version +
+            ' \u00b7 SHA-256 ' + r.corpo.pricingTable.sha256.slice(0, 16) + '\u2026';
+          procedencia.hidden = false;
+          resultado.hidden = false;
+        })
+        .catch(function (e) {
+          resultado.hidden = true;
+          procedencia.hidden = true;
+          erro.textContent = String(e.message || e) || 'Não foi possível simular agora. O valor não é calculado nesta página, e mostrar um número aproximado seria pior do que não mostrar nenhum.';
+          erro.hidden = false;
+        })
+        .finally(function () {
+          botao.disabled = false;
+          botao.textContent = rotulo;
+        });
+      return false;
+    }
+    </script>
+
     </div>
 
     <div class="card" style="margin-top:28px;">

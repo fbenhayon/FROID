@@ -348,6 +348,108 @@
       </table>
     </div>
     <p style="font-size:0.85rem; color:var(--froid-cinza); margin-top:10px;">Les tranches sont cumulatives et portent sur l'effectif total de l'entreprise : avec 300 travailleurs, on paie 15 R$ pour les 100 premiers et 12,50 R$ pour les 200 suivants. La base est par <strong>établissement</strong> — et non par département : une entreprise avec cinq services à la même adresse a une base, pas cinq. Les montants sont en réaux brésiliens. Le <a href="proposta-nr1.html">simulateur de proposition</a> calcule le montant pour votre effectif.</p>
+    <div class="card" style="margin-top:28px;" id="simulador-nr1"
+         data-sep-mil=" " data-sep-dec="," data-moeda-depois="1">
+      <h3>Simulez le montant de votre entreprise</h3>
+      <p style="font-size:0.92rem;">Le calcul vient du moteur de tarification FROID, et non de cette page : le montant affiché porte la version et l'empreinte de la table commerciale qui l'a produit.</p>
+      <form onsubmit="return froidSimularNr1(event)" style="display:flex; flex-wrap:wrap; gap:14px; align-items:flex-end; margin-top:14px;">
+        <label style="display:flex; flex-direction:column; font-size:0.82rem; font-weight:700;">Travailleurs
+          <input type="number" id="sim-trabalhadores" min="1" max="200000" step="1" required
+                 style="margin-top:5px; padding:9px 11px; font-size:1rem; border:1px solid var(--froid-linha,#d1d5db); border-radius:8px; width:150px;" />
+        </label>
+        <label style="display:flex; flex-direction:column; font-size:0.82rem; font-weight:700;">Établissements
+          <input type="number" id="sim-estabelecimentos" min="1" max="5000" step="1" value="1" required
+                 style="margin-top:5px; padding:9px 11px; font-size:1rem; border:1px solid var(--froid-linha,#d1d5db); border-radius:8px; width:150px;" />
+        </label>
+        <button type="submit" id="sim-botao"
+                style="padding:11px 22px; font-size:0.95rem; font-weight:800; border:0; border-radius:8px; cursor:pointer; background:var(--froid-azul,#0369a1); color:#fff;">Simuler</button>
+      </form>
+      <div id="sim-resultado" hidden style="margin-top:18px; display:flex; flex-wrap:wrap; gap:26px;">
+        <div>
+          <div style="font-size:0.78rem; text-transform:uppercase; letter-spacing:.08em; color:var(--froid-cinza,#4b5563); font-weight:800;">Montant mensuel estimé</div>
+          <div id="sim-mensal" style="font-size:1.8rem; font-weight:800; margin-top:3px;"></div>
+        </div>
+        <div>
+          <div style="font-size:0.78rem; text-transform:uppercase; letter-spacing:.08em; color:var(--froid-cinza,#4b5563); font-weight:800;">Investissement par travailleur / mois</div>
+          <div id="sim-por-trabalhador" style="font-size:1.8rem; font-weight:800; margin-top:3px;"></div>
+        </div>
+      </div>
+      <p id="sim-procedencia" hidden style="font-size:0.78rem; color:var(--froid-cinza,#4b5563); margin-top:12px;"></p>
+      <p id="sim-erro" hidden style="font-size:0.88rem; color:#b91c1c; margin-top:14px; font-weight:600;"></p>
+      <p style="font-size:0.78rem; color:var(--froid-cinza,#4b5563); margin-top:10px;">Estimation d'après la table en vigueur. Le montant contracté est celui de la Proposition Commerciale.</p>
+    </div>
+
+    <script>
+    /* O valor NAO e calculado aqui.
+     *
+     * Ate 11/09/2026 o preco do NR-1 vivia copiado em doze lugares, e tres
+     * bases diferentes chegaram a circular ao mesmo tempo. Repetir a formula em
+     * JavaScript criaria a decima terceira copia — a que ninguem confere,
+     * porque roda no navegador do cliente.
+     *
+     * A pagina pergunta ao motor e mostra a resposta. Falhou, ela DIZ que
+     * falhou: um numero aproximado numa pagina de preco e pior que nenhum. */
+    function froidFormatarBRL(centavos, caixa, comCentavos) {
+      var mil = caixa.getAttribute('data-sep-mil');
+      var dec = caixa.getAttribute('data-sep-dec');
+      var depois = caixa.getAttribute('data-moeda-depois') === '1';
+      var inteiro = Math.floor(centavos / 100);
+      var resto = centavos % 100;
+      var corpo = String(inteiro).replace(/\B(?=(\d{3})+(?!\d))/g, mil);
+      if (comCentavos) corpo += dec + (resto < 10 ? '0' : '') + resto;
+      return depois ? corpo + ' R$' : 'R$ ' + corpo;
+    }
+
+    function froidSimularNr1(evento) {
+      evento.preventDefault();
+      var caixa = document.getElementById('simulador-nr1');
+      var botao = document.getElementById('sim-botao');
+      var resultado = document.getElementById('sim-resultado');
+      var procedencia = document.getElementById('sim-procedencia');
+      var erro = document.getElementById('sim-erro');
+      var trabalhadores = document.getElementById('sim-trabalhadores').value;
+      var estabelecimentos = document.getElementById('sim-estabelecimentos').value;
+
+      erro.hidden = true;
+      botao.disabled = true;
+      var rotulo = botao.textContent;
+      botao.textContent = 'Calcul en cours...';
+
+      fetch('/api/nr1/pricing/simulate?trabalhadores=' + encodeURIComponent(trabalhadores) +
+            '&estabelecimentos=' + encodeURIComponent(estabelecimentos))
+        .then(function (resposta) {
+          return resposta.json().then(function (corpo) {
+            return { ok: resposta.ok, corpo: corpo };
+          });
+        })
+        .then(function (r) {
+          if (!r.ok) throw new Error((r.corpo && r.corpo.detail) || 'Impossible de simuler pour le moment. Le montant n\'est pas calculé sur cette page, et afficher un nombre approximatif serait pire que de n\'en afficher aucun.');
+          document.getElementById('sim-mensal').textContent =
+            froidFormatarBRL(r.corpo.monthlyTotalCents, caixa, true);
+          document.getElementById('sim-por-trabalhador').textContent =
+            froidFormatarBRL(r.corpo.perWorkerMonthCents, caixa, true);
+          /* A procedencia acompanha o numero: sem ela, seis meses depois
+             ninguem sabe de que tabela aquele valor saiu. */
+          procedencia.textContent = 'Table ' + r.corpo.pricingTable.code +
+            ' v' + r.corpo.pricingTable.version +
+            ' \u00b7 SHA-256 ' + r.corpo.pricingTable.sha256.slice(0, 16) + '\u2026';
+          procedencia.hidden = false;
+          resultado.hidden = false;
+        })
+        .catch(function (e) {
+          resultado.hidden = true;
+          procedencia.hidden = true;
+          erro.textContent = String(e.message || e) || 'Impossible de simuler pour le moment. Le montant n\'est pas calculé sur cette page, et afficher un nombre approximatif serait pire que de n\'en afficher aucun.';
+          erro.hidden = false;
+        })
+        .finally(function () {
+          botao.disabled = false;
+          botao.textContent = rotulo;
+        });
+      return false;
+    }
+    </script>
+
 
     <div class="disclaimer-box" style="margin-top:22px;">
       <strong>Aucun résultat n'est publié sous les seuils.</strong> Une campagne ne libère de résultat qu'à partir de 15 réponses complétées, et chaque découpage en exige au moins 10 — et seulement après la clôture de la collecte. En dessous de 98 personnes dans l'établissement, l'échantillon requis devient un recensement. Les seuils sont appliqués dans la base de données, pas dans l'application.
