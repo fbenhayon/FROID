@@ -229,20 +229,15 @@ de AEP próprio e linha própria no inventário.
 | **Anual** | **R$ `[_____]`** |
 | Anual com condição de pioneiro (15%, até 31/12/2026) | **R$ `[_____]`** |
 
-### 6.2 Item adicional — condução da AEP em campo
+### 6.2 A condução da AEP é da contratante
 
-A observação da atividade real e o diálogo com os trabalhadores são exigidos pela
-AEP e feitos por pessoa, não por sistema.
+A observação da atividade real, o diálogo com os trabalhadores e a execução das medidas de prevenção são **da empresa contratante**. O FROID não conduz avaliação em campo, não executa AET e não implementa medida nenhuma — nem com equipe própria, nem por terceiros.
 
-| Modalidade | Por estabelecimento |
-|---|---:|
-| Presencial, até 50 trabalhadores no endereço | R$ 2.900,00 |
-| Presencial, de 51 a 150 trabalhadores | R$ 4.400,00 |
-| Remota — rodas de diálogo por vídeo e análise documental | R$ 1.600,00 |
+O que o FROID entrega é o **instrumento**: a mensuração, o registro de cada evidência com o método declarado e a aferição da eficácia das ações que a empresa decidir e executar, na forma que a norma exige.
 
-Deslocamento e hospedagem reembolsados a custo. A modalidade remota se aplica a
-endereço de atividade administrativa; em operação industrial, logística ou de
-atendimento presencial, a visita é necessária.
+A razão é técnica, e não comercial. Quem conhece a atividade, a organização do trabalho e as condições concretas é a empresa — e é a ela que a norma atribui a decisão sobre as medidas, a implementação e a assinatura dos documentos. Fornecedor que propusesse e executasse as próprias medidas estaria medindo o resultado do próprio trabalho.
+
+> **Campanhas ilimitadas.** Cada estabelecimento abre quantas campanhas de avaliação precisar, em qualquer setor, sem cobrança por campanha nem por setor. O valor mensal é o da tabela acima, e medir de novo nunca custa mais — o oposto do incentivo de quem cobra por levantamento.
 
 ---
 

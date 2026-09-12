@@ -275,5 +275,101 @@ class OsTotaisDERIVADOSTambemConferem(unittest.TestCase):
         self.assertGreaterEqual(achados, 16, "as tabelas de simulacao sumiram do site")
 
 
+class AConducaoEmCampoEDaContratante(unittest.TestCase):
+    """O FROID nao conduz avaliacao em campo, e o material dizia o contrario.
+
+    O CASO, 12/09/2026. O site e o modelo de proposta vendiam "Conducao da AEP
+    em campo" com preco por estabelecimento — R$ 2.900, R$ 4.400 e R$ 1.600 —
+    em quatro idiomas. A equipe NAO presta esse servico.
+
+    Preco publicado de servico que nao existe e a pior especie de numero errado:
+    os outros levam a cobrar a mais ou a menos, este leva o cliente a comprar o
+    que ninguem vai entregar.
+
+    Determinacao do dono: a conducao da AEP, a proposicao e a execucao das
+    medidas de prevencao sao da CONTRATANTE. O FROID entrega o instrumento de
+    mensuracao e de acompanhamento da eficacia, e mais nada. A razao e tecnica:
+    quem conhece a atividade e a empresa, e a norma atribui a ela a decisao, a
+    implementacao e a assinatura.
+    """
+
+    NEGACAO = {
+        "": "não conduz avaliação em campo",
+        "en/": "does not conduct field assessment",
+        "es/": "no conduce evaluación en campo",
+        "fr/": "ne conduit pas d'évaluation sur le terrain",
+    }
+    ILIMITADAS = {
+        "": "Campanhas ilimitadas.",
+        "en/": "Unlimited campaigns.",
+        "es/": "Campañas ilimitadas.",
+        "fr/": "Campagnes illimitées.",
+    }
+    PAGINAS = ("empresas.html", "proposta-nr1.html")
+
+    def test_o_servico_que_nao_prestamos_saiu_do_material(self):
+        """Os tres precos nao podem voltar a lugar nenhum da varredura."""
+        proibidos = ("2.900", "4.400", "1.600", "2,900", "4,400", "1,600",
+                     "2 900", "4 400", "1 600")
+        achados = []
+        for caminho in _arquivos():
+            texto = caminho.read_text(encoding="utf-8")
+            for valor in proibidos:
+                if valor in texto:
+                    achados.append(f"{caminho.relative_to(REPO).as_posix()}: {valor}")
+        self.assertEqual(
+            [],
+            achados,
+            "preco de conducao em campo de volta ao material:\n  " + "\n  ".join(achados),
+        )
+
+    def test_a_negacao_esta_nos_quatro_idiomas(self):
+        """Dizer em portugues e calar nas traducoes deixa o comprador
+        estrangeiro concluindo que a assinatura cobre a AEP inteira."""
+        for prefixo, frase in self.NEGACAO.items():
+            for pagina in self.PAGINAS:
+                caminho = REPO / "froid-site" / prefixo / pagina
+                with self.subTest(pagina=caminho.name, idioma=prefixo or "pt"):
+                    self.assertIn(frase, caminho.read_text(encoding="utf-8"))
+
+    def test_as_campanhas_ilimitadas_estao_declaradas(self):
+        for prefixo, frase in self.ILIMITADAS.items():
+            for pagina in self.PAGINAS:
+                caminho = REPO / "froid-site" / prefixo / pagina
+                with self.subTest(pagina=caminho.name, idioma=prefixo or "pt"):
+                    self.assertIn(frase, caminho.read_text(encoding="utf-8"))
+
+    def test_o_produto_CUMPRE_a_promessa_de_campanha_ilimitada(self):
+        """A promessa publicada tem de ser verdade no codigo, e nao so no texto.
+
+        Publicar "campanhas ilimitadas" com um teto escondido seria a mesma
+        familia do preco sem fonte: afirmacao que ninguem confere. Aqui a
+        afirmacao fica amarrada ao caminho que criaria a cobranca.
+        """
+        import ast
+
+        main = (SERVER_DIR / "main.py").read_text(encoding="utf-8")
+        corpo = ""
+        for no in ast.walk(ast.parse(main)):
+            if isinstance(no, (ast.FunctionDef, ast.AsyncFunctionDef)) and no.name == "create_nr1_campaign":
+                corpo = ast.get_source_segment(main, no) or ""
+        self.assertTrue(corpo, "create_nr1_campaign nao encontrado")
+        for cobranca in ("consume_credit", "apply_credit_event", "used_sessions", "debit"):
+            with self.subTest(cobranca=cobranca):
+                self.assertNotIn(cobranca, corpo)
+
+    def test_a_proposta_ja_enviada_nao_foi_reescrita(self):
+        """Documento comercial enviado e registro, e nao rascunho.
+
+        A proposta da TATICCA de 28/08/2026 carrega a conducao em campo com
+        preco, porque era o que estava sendo oferecido naquela data. Reescreve-la
+        para "passar no teste" falsificaria o registro — e a conversa com o
+        cliente sobre o que mudou e do dono, nao do repositorio.
+        """
+        enviada = REPO / "docs" / "comercial" / "2026-08-28-taticca-proposta.md"
+        self.assertIn("2026-08-28-taticca-proposta.md", FORA_DA_VARREDURA)
+        self.assertIn("2.900", enviada.read_text(encoding="utf-8"))
+
+
 if __name__ == "__main__":
     unittest.main()
