@@ -213,6 +213,88 @@ class UmRegistroRuimNaoApagaOsOutros(AcervoEmDisco):
         self.assertEqual(carregado["bom2"]["patient"]["name"], "Integro Dois")
 
 
+class ASessaoAbreParaOAutor(AcervoEmDisco):
+    """A rota do relatorio unico nao pode recusar quem escreveu o relatorio.
+
+    Segundo ato do mesmo defeito, apurado quando o painel ja listava os
+    pacientes: clicar na sessao levava a "Relatorio nao encontrado — ainda nao
+    foi gerado neste navegador". O relatorio existia, tinha sido gerado, e o
+    servidor devolvia 403. A regra de alcance estava escrita A MAO em tres
+    rotas de relatorio unico, alem da listagem, e as copias divergiram — a
+    listagem passou a respeitar autoria e as tres continuaram sem respeitar.
+
+    Hoje existe _report_within_context e as quatro chamam a mesma funcao.
+    """
+
+    def abrir(self, rotina, session_id, email, organization_id):
+        import asyncio
+
+        contexto = AccessContext.create(
+            organization_id=organization_id,
+            membership_id="22222222-2222-4222-8222-222222222222",
+            user_id="33333333-3333-4333-8333-333333333333",
+            roles=["owner", "professional"],
+        )
+        originais = {
+            nome: getattr(main, nome)
+            for nome in (
+                "_current_user_from_request",
+                "_tenant_context_from_request",
+                "_authorize_tenant_request",
+                "_record_tenant_success",
+            )
+        }
+        for nome, valor in originais.items():
+            self.addCleanup(setattr, main, nome, valor)
+        main._current_user_from_request = lambda request: {"email": email}
+        main._tenant_context_from_request = lambda request: contexto
+        main._authorize_tenant_request = lambda *a, **k: contexto
+        main._record_tenant_success = lambda *a, **k: None
+        return asyncio.run(rotina(session_id, None))
+
+    def test_o_autor_abre_a_sessao_sob_outra_organizacao(self):
+        self.escrever_acervo({"s1": relatorio("s1", AUTOR, None, "Paciente")})
+        devolvido = self.abrir(main.get_session_report, "s1", AUTOR, ORG_DA_CLINICA)
+        self.assertEqual(devolvido.get("sessionId"), "s1")
+
+    def test_as_metricas_da_sessao_abrem_pelo_mesmo_motivo(self):
+        self.escrever_acervo({"s1": relatorio("s1", AUTOR, None, "Paciente")})
+        self.abrir(main.get_session_report_metrics, "s1", AUTOR, ORG_DA_CLINICA)
+
+    def test_relatorio_carimbado_com_a_organizacao_antiga_tambem_abre(self):
+        self.escrever_acervo({"s1": relatorio("s1", AUTOR, ORG_DO_EMAIL, "Paciente")})
+        devolvido = self.abrir(main.get_session_report, "s1", AUTOR, ORG_DA_CLINICA)
+        self.assertEqual(devolvido.get("sessionId"), "s1")
+
+    def test_a_sessao_de_um_colega_continua_recusada(self):
+        from fastapi import HTTPException
+
+        self.escrever_acervo({"s1": relatorio("s1", COLEGA, None, "Do colega")})
+        with self.assertRaises(HTTPException) as capturado:
+            self.abrir(main.get_session_report, "s1", AUTOR, ORG_DA_CLINICA)
+        self.assertEqual(capturado.exception.status_code, 403)
+
+    def test_as_metricas_de_um_colega_continuam_recusadas(self):
+        from fastapi import HTTPException
+
+        self.escrever_acervo({"s1": relatorio("s1", COLEGA, None, "Do colega")})
+        with self.assertRaises(HTTPException) as capturado:
+            self.abrir(main.get_session_report_metrics, "s1", AUTOR, ORG_DA_CLINICA)
+        self.assertEqual(capturado.exception.status_code, 403)
+
+    def test_a_regra_de_alcance_tem_um_dono_so(self):
+        """Se alguem reescrever a mao de novo, este teste avisa."""
+        fonte = open(
+            os.path.join(SERVER_DIR, "main.py"), encoding="utf-8"
+        ).read()
+        self.assertNotIn(
+            "_report_organization_id(report) != request_context.organization_id",
+            fonte,
+        )
+        # 1 definicao + 4 chamadas (listagem, GET, metrics, DELETE).
+        self.assertEqual(fonte.count("_report_within_context("), 5)
+
+
 class OPainelNaoDescartaARespostaDoServidor(unittest.TestCase):
     """A metade da correcao que vive no navegador, fixada na fonte.
 

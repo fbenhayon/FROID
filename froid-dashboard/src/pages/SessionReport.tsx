@@ -950,6 +950,10 @@ export const SessionReport: React.FC<Props> = () => {
     () => loadSessionReport(sessionId)?.metricsAnalysis || null,
   );
   const [metricsError, setMetricsError] = useState("");
+  // Por que o relatorio nao esta aqui. A tela afirmava "ainda nao foi gerado
+  // neste navegador" em qualquer caso — inclusive quando o servidor TINHA o
+  // relatorio e o recusou. Frase falsa manda o leitor procurar no lugar errado.
+  const [reportLoadError, setReportLoadError] = useState("");
   const [sections, setSections] = useState(DEFAULT_SECTIONS);
   const [descriptiveReport, setDescriptiveReport] = useState("");
   // Texto que o sistema pré-compôs. Guardado para saber se o profissional
@@ -1107,14 +1111,37 @@ export const SessionReport: React.FC<Props> = () => {
     fetch(apiUrl(`/api/session-reports/${sessionId}`), {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data) => {
-        if (active && data?.sessionId) {
+      .then(async (response) => ({
+        ok: response.ok,
+        status: response.status,
+        body: response.ok ? await response.json().catch(() => null) : null,
+      }))
+      .then((result) => {
+        if (!active) return;
+        if (!result.ok) {
+          setReportLoadError(
+            result.status === 403
+              ? "O servidor recusou este relatorio (403). Ele existe, mas a sua sessao esta operando sob outra organizacao."
+              : result.status === 404
+                ? "Esta sessao nao tem relatorio arquivado no servidor."
+                : result.status === 401
+                  ? "Sua sessao expirou. Entre de novo para abrir o relatorio."
+                  : `O servidor nao entregou este relatorio (erro ${result.status}).`,
+          );
+          return;
+        }
+        const data = result.body;
+        if (data?.sessionId) {
           setReport(data);
+          setReportLoadError("");
           if (data.metricsAnalysis) setMetricsAnalysis(data.metricsAnalysis);
         }
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (active) {
+          setReportLoadError("Nao foi possivel falar com o servidor para buscar este relatorio.");
+        }
+      });
     return () => {
       active = false;
     };
@@ -1191,7 +1218,8 @@ export const SessionReport: React.FC<Props> = () => {
             {tr("Relatório não encontrado")}
           </h1>
           <p className="mt-2 text-sm text-slate-500">
-            O relatório da sessão ainda não foi gerado neste navegador.
+            {reportLoadError
+              || "O relatório da sessão ainda não foi gerado neste navegador."}
           </p>
           <button
             onClick={() => navigate("/dashboard")}

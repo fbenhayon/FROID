@@ -2943,6 +2943,32 @@ def _can_access_report(report: dict, owner_email: str) -> bool:
     return _report_owner_email(report) == _normalize_email(owner_email)
 
 
+def _report_within_context(
+    report: dict, owner_email: str, context: Optional[AccessContext]
+) -> bool:
+    """Este relatorio esta ao alcance de quem esta pedindo?
+
+    UMA pergunta, UMA resposta, UM lugar. A regra ja esteve escrita quatro
+    vezes neste arquivo — na listagem e, a mao, em tres rotas de relatorio
+    unico — e as copias divergiram: a listagem passou a respeitar autoria e as
+    copias continuaram recusando o proprio autor, entao o paciente aparecia no
+    painel e a sessao dele devolvia 403. O sintoma na tela era pior que o erro:
+    "o relatorio da sessao ainda nao foi gerado neste navegador", uma frase
+    falsa sobre um relatorio que existe, foi gerado e estava sendo recusado.
+
+    A autoria vence a organizacao corrente pelo mesmo motivo da listagem: o
+    prontuario e de quem o escreveu, e trocar de organizacao nao transfere a
+    autoria de nada. Nao afrouxa isolamento — _can_access_report compara o
+    e-mail do autor com o de quem pede, entao ninguem alcanca relatorio alheio
+    por aqui; e onde ha politica de tenant, decide() continua decidindo depois.
+    """
+    if context is None:
+        return True
+    if _report_organization_id(report) == context.organization_id:
+        return True
+    return _can_access_report(report, owner_email)
+
+
 def _find_invite_by_session(session_id: str) -> Optional[dict]:
     if not session_id:
         return None
@@ -14866,28 +14892,7 @@ def _accessible_session_reports(
         report
         for report in stored.values()
         if isinstance(report, dict)
-        and (
-            context is None
-            or _report_organization_id(report) == context.organization_id
-            # A AUTORIA SOBREVIVE A TROCA DE ORGANIZACAO.
-            #
-            # Sem esta linha, o recorte por organizacao subtraia do
-            # profissional o proprio prontuario. O caminho e silencioso e ja
-            # aconteceu em producao: relatorio antigo, gravado sem
-            # organizationId, resolve para a organizacao DERIVADA DO E-MAIL
-            # (_report_organization_id); quando a mesma conta passa a operar
-            # sob outra organizacao — clinica com CNPJ, empresa NR-1, ou o
-            # contexto vindo do PostgreSQL em vez do fallback legado — o id
-            # corrente deixa de bater e o acervo inteiro some da listagem, com
-            # HTTP 200 e sem uma linha de log.
-            #
-            # Isto NAO afrouxa o isolamento entre organizacoes:
-            # _can_access_report compara o e-mail do autor do relatorio com o
-            # e-mail de quem pediu, entao so devolve o que a propria pessoa
-            # escreveu. E em modo 'enforce' a clausula seguinte ainda chama
-            # decide(), que continua negando cross_organization.
-            or _can_access_report(report, owner_email)
-        )
+        and _report_within_context(report, owner_email, context)
         and (
             (
                 effective_mode != "enforce"
@@ -15245,9 +15250,8 @@ async def get_session_report_metrics(session_id: str, request: Request):
     if not report:
         raise HTTPException(status_code=404, detail="Relatório não encontrado")
     request_context = _tenant_context_from_request(request)
-    if (
-        request_context
-        and _report_organization_id(report) != request_context.organization_id
+    if not _report_within_context(
+        report, _normalize_email(user.get("email") or ""), request_context
     ):
         raise HTTPException(status_code=403, detail="relatório pertence a outra organização")
     assigned_report_ids = (
@@ -15288,9 +15292,8 @@ async def get_session_report(session_id: str, request: Request):
     if not report:
         raise HTTPException(status_code=404, detail="Relatório não encontrado")
     request_context = _tenant_context_from_request(request)
-    if (
-        request_context
-        and _report_organization_id(report) != request_context.organization_id
+    if not _report_within_context(
+        report, _normalize_email(user.get("email") or ""), request_context
     ):
         raise HTTPException(status_code=403, detail="relatório pertence a outra organização")
     assigned_report_ids = (
@@ -15329,10 +15332,8 @@ async def delete_session_report(session_id: str, request: Request):
     if session_id not in reports:
         raise HTTPException(status_code=404, detail="Relatório não encontrado")
     request_context = _tenant_context_from_request(request)
-    if (
-        request_context
-        and _report_organization_id(reports[session_id])
-        != request_context.organization_id
+    if not _report_within_context(
+        reports[session_id], _normalize_email(user.get("email") or ""), request_context
     ):
         raise HTTPException(status_code=403, detail="relatório pertence a outra organização")
     context = _authorize_tenant_request(
