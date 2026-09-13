@@ -178,6 +178,40 @@ export const Nr1QuestionnairePage: React.FC = () => {
         </p>
         <h1 className="mt-2 text-2xl font-black text-white">{form.campaign_title}</h1>
 
+        {/* A DECLARACAO QUE A PESSOA LE ANTES DE DECIDIR SE RESPONDE A
+            VERDADE. Determinacao do dono em 12/09/2026: ela vai no
+            cabecalho do convite.
+
+            A redacao separa DE PROPOSITO "se voce respondeu" de "o que voce
+            respondeu", e a segunda e a que importa para quem teme
+            retaliacao. O rascunho dizia "ninguem consegue saber quem
+            respondeu e o que" — e a primeira metade disso e falsa: quem
+            opera o RH tem o pareamento matricula-link no CSV que baixou
+            para distribuir os convites, e o proprio docstring de
+            `reissue_nr1_invitations` registra que da para descobrir quem
+            respondeu abrindo cada link e vendo qual recusa.
+
+            Prometer anonimato de PARTICIPACAO a quem vai relatar assedio, e
+            depois a pessoa descobrir que o RH sabia que ela respondeu,
+            destrói a credibilidade de tudo o que a frase afirma de
+            verdade — inclusive a parte que de fato protege. Os contratos
+            (Psique 16.4, NR-1 9.8) ja recusam vender impossibilidade
+            arquitetural; esta tela nao podia vender. */}
+        <section className="mt-4 rounded-lg border border-cyan-900 bg-cyan-950/40 p-5">
+          <p className="text-sm font-black leading-6 text-cyan-100">
+            Esta avaliação é voluntária.
+          </p>
+          <p className="mt-2 text-sm leading-6 text-cyan-50">
+            <strong>O que você respondeu não é exibido a ninguém</strong>, nem à sua
+            empresa: os resultados aparecem somente somados aos de outras pessoas, e
+            recortes pequenos demais são bloqueados pelo sistema.
+          </p>
+          <p className="mt-2 text-xs leading-5 text-cyan-200/80">
+            Como é a empresa que distribui os links, ela pode saber se você
+            respondeu — nunca o que você respondeu.
+          </p>
+        </section>
+
         <section className="mt-4 rounded-lg border border-slate-800 bg-slate-900 p-5">
           <h2 className="text-sm font-black text-white">Antes de começar</h2>
           <p className="mt-2 whitespace-pre-line text-sm leading-6 text-slate-300">
@@ -188,10 +222,6 @@ export const Nr1QuestionnairePage: React.FC = () => {
               As perguntas são sobre <strong className="text-slate-200">como o trabalho é
               organizado</strong>, não sobre você. Não é uma avaliação de saúde
               mental nem de desempenho.
-            </li>
-            <li>
-              As respostas são anônimas e só aparecem somadas a de outras
-              pessoas. Recortes muito pequenos são bloqueados pelo sistema.
             </li>
             <li>
               O link é de uso único e expira em{" "}
