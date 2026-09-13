@@ -1197,9 +1197,25 @@ class OsTermosSeSepararamDeVerdade(unittest.TestCase):
         )
 
     def test_os_termos_do_psique_nao_falam_do_mundo_da_empresa(self):
-        for estranho in ("piso de coorte", "inventário de riscos", "PGR", "NR-1"):
+        """O que nao pode entrar e o VOCABULARIO da empresa, nao o nome do produto.
+
+        A lista incluia "NR-1" ate 12/09/2026, e reprovou quando os Termos novos
+        ganharam a clausula 1.6 — uma frase que diz que o FROID NR-1 e servico
+        distinto, com Termos proprios, e que ESTES Termos nao se aplicam a ele.
+        Isso e o contrario de misturar os dois mundos: e a delimitacao de
+        escopo, e as duas Politicas fazem o mesmo (1.4 e 1.3), com teste proprio
+        exigindo que cada uma diga que a outra existe.
+
+        O que continua proibido e a operacao do outro produto entrando aqui:
+        piso de coorte, inventario de riscos e PGR nao alcancam quem atende uma
+        pessoa, e sua presenca indicaria que os documentos voltaram a ser um so.
+        """
+        for estranho in ("piso de coorte", "inventário de riscos", "PGR"):
             with self.subTest(termo=estranho):
                 self.assertNotIn(estranho, self.psique)
+        # A unica mencao permitida ao outro produto e a que o afasta.
+        self.assertEqual(1, self.psique.count("FROID NR-1"))
+        self.assertIn("Estes Termos não se aplicam a ele", self.psique)
 
     def test_os_termos_do_nr1_nao_impoem_obrigacao_clinica_a_empresa(self):
         """A empresa nao grava sessao, nao transcreve e nao tem CRP.
