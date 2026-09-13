@@ -312,6 +312,28 @@ class ODenunciaNaoDeixaCicloOrfao(unittest.TestCase):
         )
         self.assertIn("independe do aviso de sessenta dias", self.contrato)
 
+    def test_os_termos_do_nr1_apontam_para_a_denuncia(self):
+        """Quem le so os Termos precisa saber que existe saida sem justa causa.
+
+        A revisao de 13/09/2026 deixou a clausula 10 dos Termos listando
+        apenas suspensao POR CAUSA — seguranca, fraude, inadimplemento. Lida
+        isoladamente, ela sugere que so se encerra por justa causa, e a
+        empresa que quer sair no fim do ciclo concluiria que nao pode.
+
+        O Contrato e dono da regra e os Termos apontam, sem repetir: e a
+        harmonizacao que o dono pediu — cada documento rege a sua materia, e
+        duas copias da mesma regra divergem em silencio.
+        """
+        import legal_documents
+
+        termos = " ".join(
+            b for _, b in legal_documents.DOCUMENT_TEMPLATES["terms_nr1"]["sections"]
+        )
+        self.assertIn("60 (sessenta) dias", termos)
+        self.assertIn("independentemente de motivação", termos)
+        # Aponta, nao repete: os EFEITOS ficam no Contrato.
+        self.assertIn("definidos no Contrato", termos)
+
     def test_a_versao_subiu_porque_a_clausula_14_mudou(self):
         """Afirma que PASSOU do ponto, e nao qual e o ponto de hoje.
 

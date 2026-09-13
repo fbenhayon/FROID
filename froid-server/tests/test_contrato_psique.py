@@ -335,7 +335,6 @@ class AClausula19DeclaraOAcervoEAsQuatroExclusoes(unittest.TestCase):
         self.assertIn("Data-FROID", dezenove)
         self.assertIn("problemas de saúde mental", dezenove)
         self.assertIn("o que os mitiga", dezenove)
-        self.assertIn("o que os mitiga", dezenove)
 
     def test_a_fala_desidentificada_do_profissional_integra_o_acervo(self):
         dois = _corpo_do_contrato()
