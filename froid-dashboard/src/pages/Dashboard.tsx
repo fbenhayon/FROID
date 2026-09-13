@@ -257,6 +257,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   const [reports, setReports] = useState<SessionReportRecord[]>(() =>
     loadSessionReports(),
   );
+  // Ver ProfessionalDashboardSummary: sem este estado, a falha de leitura do
+  // acervo fica indistinguivel de "este profissional nao tem paciente".
+  const [reportsError, setReportsError] = useState("");
   const eventCursorRef = useRef<number | null>(null);
   const redirectingRef = useRef(false);
   const professionalName = user?.name || user?.email || "Profissional";
@@ -360,19 +363,39 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
     fetch(apiUrl("/api/session-reports"), {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data) => {
+      .then(async (response) => ({
+        ok: response.ok,
+        status: response.status,
+        body: response.ok ? await response.json().catch(() => null) : null,
+      }))
+      .then((result) => {
         if (!active) return;
+        if (!result.ok) {
+          setReportsError(
+            result.status === 401
+              ? "Sua sessao expirou. Entre de novo para ver o acervo completo."
+              : `Nao foi possivel carregar os relatorios do servidor (erro ${result.status}). A lista abaixo pode estar incompleta.`,
+          );
+          return;
+        }
+        const data = result.body;
         const remoteReports: SessionReportRecord[] = Array.isArray(data?.reports)
           ? data.reports
           : Array.isArray(data)
             ? data
             : [];
-        if (remoteReports.length) {
-          setReports((current) => mergeReports(current, remoteReports));
-        }
+        // Aplica sempre. O "if (remoteReports.length)" que existia aqui
+        // descartava a resposta do servidor quando ela vinha vazia e deixava
+        // o cache do navegador no lugar dela, sem dizer nada a ninguem.
+        setReports((current) => mergeReports(current, remoteReports));
+        setReportsError("");
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (!active) return;
+        setReportsError(
+          "Nao foi possivel falar com o servidor. A lista abaixo e o que esta guardado neste navegador e pode estar incompleta.",
+        );
+      });
     return () => {
       active = false;
     };
@@ -707,6 +730,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
       </header>
 
       <main className="mx-auto max-w-7xl space-y-4 p-6">
+        {reportsError ? (
+          <div
+            role="alert"
+            className="rounded-lg border border-amber-700 bg-amber-950 px-4 py-3 text-xs font-semibold text-amber-100"
+          >
+            {reportsError}
+          </div>
+        ) : null}
 
       {/* A troca de contexto pode falhar (403 sobre organizacao sem vinculo,
           rede fora). Navegar assim mesmo levaria a pessoa a um painel NR-1

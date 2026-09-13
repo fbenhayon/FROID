@@ -2155,14 +2155,38 @@ async def _query_froid_analytics(payload: FroidExplicaQuery) -> FroidExplicaResp
     )
 
 
-def _load_session_reports(*, reveal_transcripts: bool = True) -> Dict[str, dict]:
+class SessionReportStoreUnavailable(RuntimeError):
+    """O acervo existe e nao pode ser lido.
+
+    Existe para separar duas respostas que ate aqui tinham a mesma cara: "voce
+    nao tem relatorio nenhum" e "eu nao consegui ler o teu acervo". As duas
+    chegavam ao painel como lista vazia, com HTTP 200, e o profissional lia a
+    segunda como a primeira.
+    """
+
+
+def _load_session_reports(
+    *, reveal_transcripts: bool = True, strict: bool = False
+) -> Dict[str, dict]:
+    """Le o acervo de relatorios do disco.
+
+    ``strict`` decide o que fazer quando a LEITURA FALHA — nunca o que fazer
+    quando ela devolve pouco. Arquivo ausente e vazio de verdade nos dois
+    modos. Arquivo ilegivel levanta ``SessionReportStoreUnavailable`` em modo
+    estrito, e degrada para {} fora dele, porque os chamadores de escrita e de
+    contagem nao podem derrubar a requisicao inteira por causa do acervo.
+
+    Quem responde uma LISTAGEM a um humano usa strict=True. Sempre.
+    """
     try:
         if not os.path.exists(FROID_SESSION_REPORTS_PATH):
             return {}
         with open(FROID_SESSION_REPORTS_PATH, "r", encoding="utf-8") as report_file:
             data = json.load(report_file)
         if not isinstance(data, dict):
-            return {}
+            raise SessionReportStoreUnavailable(
+                "session_reports.json nao contem um objeto JSON"
+            )
         reports = {}
         for session_id, report in data.items():
             if not isinstance(report, dict):
@@ -2183,7 +2207,13 @@ def _load_session_reports(*, reveal_transcripts: bool = True) -> Dict[str, dict]
                     )
                     report.pop("transcript_storage_locked", None)
                     report.pop("transcript_storage_error", None)
-                except TokenEncryptionError:
+                except Exception:
+                    # Larga o suficiente de proposito. Antes so
+                    # TokenEncryptionError era contida aqui, e qualquer outra
+                    # falha de decifragem — chave rotacionada, campo com
+                    # formato inesperado — subia ate o except da funcao e
+                    # transformava o acervo INTEIRO em {}. Um registro ruim
+                    # apagava a lista de todo mundo.
                     LOGGER.exception("Unable to decrypt clinical transcript")
                     locked = dict(report)
                     locked["transcript"] = ""
@@ -2193,8 +2223,15 @@ def _load_session_reports(*, reveal_transcripts: bool = True) -> Dict[str, dict]
                     continue
             reports[session_id] = report
         return reports
-    except Exception:
+    except SessionReportStoreUnavailable:
         LOGGER.exception("Unable to load persisted session reports")
+        if strict:
+            raise
+        return {}
+    except Exception as erro:
+        LOGGER.exception("Unable to load persisted session reports")
+        if strict:
+            raise SessionReportStoreUnavailable(str(erro)) from erro
         return {}
 
 
@@ -14813,15 +14850,43 @@ def _accessible_session_reports(
         )
         == "clinic_wide"
     )
+    try:
+        stored = _load_session_reports(
+            reveal_transcripts=reveal_transcripts, strict=True
+        )
+    except SessionReportStoreUnavailable as erro:
+        # 503, e nao uma lista vazia. Uma listagem vazia e uma AFIRMACAO —
+        # "voce nao tem relatorio nenhum" — e o painel a exibe como tal. Falha
+        # de leitura nao autoriza essa afirmacao.
+        raise HTTPException(
+            status_code=503,
+            detail="acervo de relatorios temporariamente indisponivel",
+        ) from erro
     reports = [
         report
-        for report in _load_session_reports(
-            reveal_transcripts=reveal_transcripts
-        ).values()
+        for report in stored.values()
         if isinstance(report, dict)
         and (
             context is None
             or _report_organization_id(report) == context.organization_id
+            # A AUTORIA SOBREVIVE A TROCA DE ORGANIZACAO.
+            #
+            # Sem esta linha, o recorte por organizacao subtraia do
+            # profissional o proprio prontuario. O caminho e silencioso e ja
+            # aconteceu em producao: relatorio antigo, gravado sem
+            # organizationId, resolve para a organizacao DERIVADA DO E-MAIL
+            # (_report_organization_id); quando a mesma conta passa a operar
+            # sob outra organizacao — clinica com CNPJ, empresa NR-1, ou o
+            # contexto vindo do PostgreSQL em vez do fallback legado — o id
+            # corrente deixa de bater e o acervo inteiro some da listagem, com
+            # HTTP 200 e sem uma linha de log.
+            #
+            # Isto NAO afrouxa o isolamento entre organizacoes:
+            # _can_access_report compara o e-mail do autor do relatorio com o
+            # e-mail de quem pediu, entao so devolve o que a propria pessoa
+            # escreveu. E em modo 'enforce' a clausula seguinte ainda chama
+            # decide(), que continua negando cross_organization.
+            or _can_access_report(report, owner_email)
         )
         and (
             (
@@ -14843,6 +14908,19 @@ def _accessible_session_reports(
             )
         )
     ]
+    if stored and not reports:
+        # O acervo tem conteudo e esta pessoa nao ve nada. Pode ser legitimo
+        # (conta nova numa clinica alheia), mas foi tambem exatamente a cara
+        # do defeito que esta funcao passou meses produzindo. Sem esta linha,
+        # a unica testemunha do sumico era o profissional olhando a tela.
+        LOGGER.warning(
+            "Listagem de relatorios vazia com acervo de %d: solicitante=%s "
+            "organizacao=%s modo=%s",
+            len(stored),
+            owner_email or "(sem e-mail)",
+            (context.organization_id if context else "(sem contexto)"),
+            effective_mode,
+        )
     return reports, context
 
 

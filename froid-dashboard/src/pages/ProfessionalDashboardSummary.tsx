@@ -42,6 +42,10 @@ export const ProfessionalDashboardSummary: React.FC<Props> = ({ user, onLogout }
   const [patientFinancials, setPatientFinancials] = useState<PatientFinancialRow[]>([]);
   const [selectedKey, setSelectedKey] = useState("");
   const [patientSearch, setPatientSearch] = useState("");
+  // Falha ao buscar o acervo no servidor. Precisa de estado proprio porque a
+  // tela continua mostrando o cache do navegador, e sem aviso o profissional
+  // le esse cache como se fosse a lista completa dos pacientes dele.
+  const [reportsError, setReportsError] = useState("");
   const locale = loadSessionLanguagePreferences().spokenLanguage;
   const tr = (text: string) => dashboardText(locale, text);
   const token = localStorage.getItem("froid_token") || "";
@@ -52,21 +56,44 @@ export const ProfessionalDashboardSummary: React.FC<Props> = ({ user, onLogout }
   useEffect(() => {
     let active = true;
     Promise.all([
-      fetch(apiUrl("/api/session-reports"), { headers }).then((response) =>
-        response.ok ? response.json() : null,
-      ),
+      fetch(apiUrl("/api/session-reports"), { headers }).then(async (response) => ({
+        ok: response.ok,
+        status: response.status,
+        body: response.ok ? await response.json().catch(() => null) : null,
+      })),
       fetch(apiUrl("/api/professional/receivables"), { headers }).then((response) =>
         response.ok ? response.json() : null,
       ),
-    ]).then(([reportData, receivableData]) => {
+    ]).then(([reportResult, receivableData]) => {
       if (!active) return;
-      const remote = Array.isArray(reportData?.reports) ? reportData.reports : [];
-      if (remote.length) setReports((current) => mergeReports(current, remote));
+      if (reportResult.ok) {
+        // Sem o "if (remote.length)" que existia aqui. Aquele guarda fazia a
+        // resposta do servidor ser IGNORADA quando vinha vazia, e a tela
+        // seguia exibindo o cache local como se fosse o acervo — foi assim
+        // que 62 relatorios no servidor viraram 2 pacientes na tela, sem erro
+        // nenhum. Resposta boa manda, inclusive quando manda "nenhum".
+        const remote = Array.isArray(reportResult.body?.reports)
+          ? reportResult.body.reports
+          : [];
+        setReports((current) => mergeReports(current, remote));
+        setReportsError("");
+      } else {
+        setReportsError(
+          reportResult.status === 401
+            ? "Sua sessao expirou. Entre de novo para ver o acervo completo."
+            : `Nao foi possivel carregar os relatorios do servidor (erro ${reportResult.status}). A lista abaixo pode estar incompleta.`,
+        );
+      }
       setFinancial(receivableData?.summary || null);
       setPatientFinancials(
         Array.isArray(receivableData?.rows) ? receivableData.rows : [],
       );
-    }).catch(() => undefined);
+    }).catch(() => {
+      if (!active) return;
+      setReportsError(
+        "Nao foi possivel falar com o servidor. A lista abaixo e o que esta guardado neste navegador e pode estar incompleta.",
+      );
+    });
     return () => { active = false; };
   }, []);
 
@@ -107,6 +134,14 @@ export const ProfessionalDashboardSummary: React.FC<Props> = ({ user, onLogout }
       </header>
 
       <main className="mx-auto max-w-7xl space-y-4 p-5">
+        {reportsError ? (
+          <div
+            role="alert"
+            className="rounded-lg border border-amber-700 bg-amber-950 px-4 py-3 text-xs font-semibold text-amber-100"
+          >
+            {tr(reportsError)}
+          </div>
+        ) : null}
         <WaitingPatientSessions />
 
         <section className="overflow-x-auto rounded-lg border border-slate-800 bg-slate-900 p-3">
