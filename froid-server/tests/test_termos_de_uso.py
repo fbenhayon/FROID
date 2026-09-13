@@ -59,44 +59,47 @@ class OsTermosDescrevemOQueExiste(unittest.TestCase):
     """A clausula 13 nao promete exportacao que o produto nao tem."""
 
     def test_o_que_a_plataforma_oferece_esta_descrito(self):
-        treze = _clausula("terms", "13.2")
+        treze = _corpo("psique_contract")
         for capacidade in (
-            "listagem das sessões",
-            "transcrição textual integral com marcação dos interlocutores",
-            "emissão de documento descritivo da sessão",
+            "consultar as sessões às quais possui acesso",
+            "ler a transcrição e os demais registros",
+            "emitir documento descritivo da sessão",
         ):
             with self.subTest(capacidade=capacidade):
                 self.assertIn(capacidade, treze)
 
     def test_as_tres_ausencias_estao_declaradas(self):
-        treze = _clausula("terms", "13.3")
-        self.assertIn("não inclui a transcrição textual integral", treze)
-        self.assertIn("não existe função de exportação em lote", treze)
-        self.assertIn("não existe função de exportação dos registros em formato estruturado", treze)
+        treze = _corpo("psique_contract")
+        self.assertIn("não contém a transcrição textual integral", treze)
+        self.assertIn("não existe exportação em lote", treze)
+        self.assertIn("não existe exportação geral em formato estruturado", treze)
+        # Os Termos nao repetem; remetem.
+        self.assertIn("são os definidos no Contrato", _corpo("terms"))
 
     def test_os_termos_e_o_contrato_declaram_as_MESMAS_ausencias(self):
         """Dois documentos vigentes que descrevem a mesma funcionalidade tem de
         descreve-la igual. Divergir e dar a outra parte a escolha do texto."""
         for frase in (
-            "não existe função de exportação em lote",
-            "não existe função de exportação dos registros em formato estruturado",
+            "não existe exportação em lote",
+            "não existe exportação geral em formato estruturado",
         ):
             with self.subTest(frase=frase):
                 self.assertIn(frase, _corpo("psique_contract"))
-                self.assertIn(frase, _corpo("terms"))
 
     def test_a_janela_de_noventa_dias_e_a_mesma_nos_dois(self):
-        self.assertIn("90 (noventa) dias", _clausula("terms", "13.5"))
-        self.assertIn("independe de comunicação do FROID", _clausula("terms", "13.6"))
-        self.assertIn("não assume obrigação de aviso prévio", _clausula("terms", "13.6"))
+        self.assertIn("90 (noventa) dias", _corpo("psique_contract"))
+        self.assertIn("A contagem do prazo é objetiva", _corpo("psique_contract"))
+        self.assertIn("não assume obrigação de aviso prévio", _corpo("psique_contract"))
+        # Os Termos NAO repetem: apontam para o Contrato.
+        self.assertIn("são os definidos no Contrato", _corpo("terms"))
 
 
 class OsTermosDizemAVerdadeSobreQuemLeOProntuario(unittest.TestCase):
     """A 15.3 do rascunho afirmava o oposto do que a politica de RLS executa."""
 
     def test_a_clausula_declara_o_acesso_administrativo_que_existe(self):
-        quinze = _clausula("terms", "15.3")
-        self.assertIn("proprietário, administrador e supervisor", quinze)
+        quinze = _corpo("psique_contract")
+        self.assertIn("proprietário, administrador e supervisor", quinze)  # no Contrato
         self.assertIn("independentemente de haver vínculo de atendimento", quinze)
 
     def test_a_frase_falsa_do_rascunho_nao_esta_no_documento(self):
@@ -104,12 +107,12 @@ class OsTermosDizemAVerdadeSobreQuemLeOProntuario(unittest.TestCase):
         self.assertNotIn("não confere automaticamente acesso ao conteúdo clínico", corpo)
 
     def test_a_capacidade_tecnica_nao_e_vendida_como_autorizacao(self):
-        self.assertIn("não constitui autorização ética ou legal", _clausula("terms", "15.4"))
+        self.assertIn("não constitui autorização jurídica ou ética", _corpo("psique_contract"))
 
     def test_os_tres_documentos_descrevem_o_mesmo_acesso(self):
         """Contrato 14.3, Politica 18.3 e Termos 15.3 falam do mesmo fato."""
         frase = "independentemente de haver vínculo de atendimento"
-        for chave in ("psique_contract", "privacy", "terms"):
+        for chave in ("psique_contract", "privacy"):
             with self.subTest(documento=chave):
                 self.assertIn(frase, _corpo(chave))
 
@@ -118,30 +121,47 @@ class ACadeiaDocumentalEstaHarmonizada(unittest.TestCase):
     """Ordem canonica do dono: Contrato -> Termos -> Politica -> TCLE -> Anexos -> SLA."""
 
     def test_a_precedencia_lista_apenas_documentos_que_existem(self):
-        vinte_e_cinco = _clausula("terms", "25.1")
+        vinte_e_cinco = _corpo("psique_contract")
         # Os anexos sao DO CONTRATO, e nao documentos soltos.
-        self.assertIn("Anexo I", vinte_e_cinco)
-        self.assertIn("Anexo II", vinte_e_cinco)
-        self.assertNotIn("Anexo de Tratamento e Proteção de Dados", _corpo("terms"))
-        self.assertNotIn("Anexo Técnico de Suboperadores", _corpo("terms"))
+        # Os anexos deixaram de existir como documentos soltos na revisao de
+        # 13/09/2026: o Contrato passou a descrever fluxo e suboperadores nas
+        # proprias clausulas, e a Politica carrega a relacao nominal.
+        self.assertIn("Política de Privacidade", vinte_e_cinco)
+        for chave in ("terms", "psique_contract"):
+            with self.subTest(documento=chave):
+                self.assertNotIn("Anexo de Tratamento e Proteção de Dados", _corpo(chave))
+                self.assertNotIn("Anexo Técnico de Suboperadores", _corpo(chave))
 
     def test_a_ordem_canonica_aparece_no_contrato_e_nos_termos(self):
-        for chave, numero in (("psique_contract", "1.8"), ("terms", "25.1")):
+        # O Contrato lista os documentos pelo nome inteiro na 1.6; os Termos
+        # remetem a eles pela sigla na 10.3. A ordem e a mesma, e e ela que
+        # este teste guarda — nao a grafia.
+        nomes = {
+            "psique_contract": ("Contrato", "Termos de Uso", "Política de Privacidade",
+                                "Termo de Ciência e Consentimento Informado"),
+            "terms": ("Contrato", "Termos", "Política de Privacidade", "TCLE"),
+        }
+        # O RECORTE E PELA FRASE QUE ABRE A LISTA, e nao pelo documento
+        # inteiro: "Contrato", "Termos" e "Politica" aparecem dezenas de
+        # vezes em cada texto, e `find` devolveria a primeira ocorrencia
+        # em qualquer lugar — a ordem medida seria a de mencoes soltas, e
+        # nao a da lista. A primeira versao deste teste caiu nisso.
+        aberturas = {
+            "psique_contract": "Integram a contratação",
+            "terms": "Em caso de conflito",
+        }
+        for chave, rotulos in nomes.items():
             with self.subTest(documento=chave):
-                texto = _clausula(chave, numero)
-                posicoes = [
-                    texto.find(nome)
-                    for nome in ("Contrato", "Termos de Uso", "Política de Privacidade",
-                                 "Termo de Ciência e Consentimento Informado")
-                ]
+                corpo = _corpo(chave)
+                inicio = corpo.index(aberturas[chave])
+                texto = corpo[inicio:inicio + 900]
+                posicoes = [texto.find(nome) for nome in rotulos]
                 self.assertTrue(all(p >= 0 for p in posicoes), texto[:400])
                 self.assertEqual(sorted(posicoes), posicoes, "a ordem canonica mudou")
 
     def test_nenhum_documento_se_apresenta_como_substituto_dos_outros(self):
-        frase = "nenhum substitui os demais"
-        for chave in ("psique_contract", "terms"):
-            with self.subTest(documento=chave):
-                self.assertIn(frase, _corpo(chave))
+        frase = "nenhum substitui os demais"  # 1.7 do Contrato; os Termos remetem
+        self.assertIn(frase, _corpo("psique_contract"))
 
     def test_a_politica_e_citada_pelo_nome_que_ela_tem(self):
         """Ela virou duas em 12/09/2026; citar 'a Política de Privacidade do
@@ -156,18 +176,18 @@ class ARedacaoSobreIAFicaComoOCFPRecomenda(unittest.TestCase):
     """A IA auxilia; o profissional interpreta, revisa e decide."""
 
     def test_a_clausula_nomeia_os_riscos_que_o_CFP_aponta(self):
-        dez = _clausula("terms", "10.7")
+        dez = _corpo("psique_contract")
         for risco in ("erro", "excesso de confiança", "discriminação", "dados sensíveis"):
             with self.subTest(risco=risco):
                 self.assertIn(risco, dez)
         self.assertIn("não possui julgamento ético próprio", dez)
 
     def test_a_revisao_humana_e_obrigacao_e_nao_sugestao(self):
-        self.assertIn("deverá revisar", _clausula("terms", "7.2"))
-        self.assertIn("antes da incorporação", _clausula("terms", "7.3"))
+        self.assertIn("deverá revisar conteúdos relevantes", _corpo("terms"))
+        self.assertIn("antes de incorporá-los", _corpo("terms"))
 
     def test_a_fronteira_do_SATEPSI_esta_declarada(self):
-        self.assertIn("SATEPSI", _clausula("terms", "6.4"))
+        self.assertIn("SATEPSI", _corpo("terms"))
 
 
 class ONumeroDaClausulaViveNoTextoEnaoNaTela(unittest.TestCase):

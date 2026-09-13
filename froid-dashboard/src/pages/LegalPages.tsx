@@ -26,6 +26,23 @@ const CSS_IMPRESSAO = `
     border-color: #999 !important; box-shadow: none !important; }
   .froid-clausula { break-inside: avoid; page-break-inside: avoid; }
   .froid-rodape-impressao { display: block !important; }
+
+  /* SEM ESPACO ENTRE CLAUSULAS NO PAPEL. Determinacao do dono em
+     13/09/2026. Na tela o respiro entre secoes ajuda a leitura corrida;
+     no papel ele vira folha desperdicada e, num contrato de 12 clausulas
+     com alineas, empurra o texto para uma pagina a mais sem ganho nenhum.
+
+     O espacamento vem de 'space-y-5' no <article> — margem no irmao
+     seguinte — e de 'mt-2' no paragrafo do corpo. Os dois sao zerados
+     aqui, e o titulo recebe um respiro minimo acima para a clausula nao
+     colar na anterior. 'break-inside: avoid' continua valendo: clausula
+     partida entre paginas e onde a citacao erra o numero. */
+  .froid-impresso article > * + * { margin-top: 0 !important; }
+  .froid-clausula { margin: 0 !important; padding: 0 !important; }
+  .froid-clausula + .froid-clausula { margin-top: 2.6mm !important; }
+  .froid-clausula h2 { margin: 0 0 0.6mm !important; font-size: 10.5pt; }
+  .froid-clausula p { margin: 0 !important; text-align: justify;
+    font-size: 10pt; line-height: 1.32; }
 }
 .froid-rodape-impressao { display: none; }
 `;

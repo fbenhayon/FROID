@@ -247,12 +247,16 @@ class OTrabalhadorNaoAssinaTCLE(unittest.TestCase):
     def test_os_termos_do_NR1_nao_prometem_consentimento_do_trabalhador(self):
         import legal_documents
 
+        # A frase mudou de documento na revisao de 13/09/2026: os Termos do
+        # NR-1 condensaram e a declaracao ficou no Contrato, que e onde a
+        # base legal e materia propria.
         corpo = " ".join(
-            b for _, b in legal_documents.DOCUMENT_TEMPLATES["terms_nr1"]["sections"]
+            b for _, b in legal_documents.DOCUMENT_TEMPLATES
+            ["nr1_company_contract"]["sections"]
         )
         self.assertIn(
-            "a voluntariedade não significa, por si só, que consentimento seja a base "
-            "jurídica utilizada para todo tratamento",
+            "não significa que toda operação de tratamento de dados realizada no "
+            "contexto do GRO ou do PGR esteja juridicamente baseada em consentimento",
             corpo,
         )
 

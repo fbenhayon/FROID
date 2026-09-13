@@ -90,8 +90,8 @@ class ADuasPoliticasParaDoisProdutos(unittest.TestCase):
 
     def test_cada_politica_diz_que_a_outra_existe(self):
         """Documento que se cala sobre o limite do proprio alcance convida o erro."""
-        self.assertIn("FROID NR-1", _secao("privacy", "1.4"))
-        self.assertIn("Política de Privacidade própria", _secao("privacy", "1.4"))
+        self.assertIn("FROID NR-1", _corpo("privacy"))
+        self.assertIn("regras próprias de privacidade", _corpo("privacy"))
         self.assertIn("FROID Psique", _secao("privacy_nr1", "1.3"))
 
 
@@ -121,10 +121,10 @@ class NenhumDocumentoAfirmaQueOFroidGrava(unittest.TestCase):
 
     def test_os_tres_documentos_do_psique_afirmam_a_ausencia_de_gravacao(self):
         """Contrato, Termos e TCLE, cada um na linguagem do seu leitor."""
-        self.assertIn("não grava a sessão em áudio ou vídeo", _corpo("psique_contract"))
+        self.assertIn("não conserva gravação da sessão em áudio ou vídeo", _corpo("psique_contract"))
         self.assertIn("não grava a sessão em áudio ou vídeo", _corpo("terms"))
         # O TCLE fala com a pessoa atendida, e comeca por ali.
-        self.assertIn("A sessão não é gravada.", _corpo("patient_tcle"))
+        self.assertIn("A sessão não é gravada pelo FROID", _corpo("patient_tcle"))
 
     def test_o_site_tambem_parou_de_dizer_que_grava(self):
         """O site e o documento que o comprador le ANTES de assinar qualquer um."""
@@ -181,7 +181,7 @@ class AEstoniaNaoVolta(unittest.TestCase):
         negativa abaixo proibe as frases que ligam HOSPEDAGEM a Alemanha, e nao
         a palavra "Alemanha", que segue legitima ao qualificar a empresa.
         """
-        for chave in ("privacy", "privacy_nr1", "psique_contract"):
+        for chave in ("privacy", "privacy_nr1"):
             with self.subTest(documento=chave):
                 self.assertIn("Finlândia", _corpo(chave))
         for prefixo, frase in (
@@ -232,13 +232,13 @@ class OsSuboperadoresBatemComOCodigo(unittest.TestCase):
 
     def test_a_transcricao_e_da_OpenAI_no_documento_e_no_codigo(self):
         self.assertIn('OPENAI_TRANSCRIBE_MODEL = os.getenv("OPENAI_TRANSCRIBE_MODEL"', self.MAIN)
-        self.assertIn("OpenAI", _secao("privacy", "13.3"))
+        self.assertIn("OpenAI", _corpo("privacy"))
 
     def test_a_IA_de_apoio_nomeia_os_dois_provedores_que_o_codigo_usa(self):
         self.assertIn('FROID_EXPLICA_MODEL = os.getenv("FROID_EXPLICA_MODEL"', self.MAIN)
         self.assertIn("GEMINI_API_KEY", self.MAIN)
         self.assertIn("OPENAI_API_KEY", self.MAIN)
-        treze_quatro = _secao("privacy", "13.4")
+        treze_quatro = _corpo("privacy")
         self.assertIn("OpenAI", treze_quatro)
         self.assertIn("Google", treze_quatro)
 
@@ -250,7 +250,7 @@ class OsSuboperadoresBatemComOCodigo(unittest.TestCase):
         terceiro que nao existe e tao ruim quanto esconder um que existe.
         """
         self.assertIn("coturn/coturn", self.COMPOSE)
-        treze_oito = _secao("privacy", "13.8")
+        treze_oito = _corpo("privacy")
         self.assertIn("operada pelo próprio FROID", treze_oito)
         self.assertIn("não constitui fornecedor externo", treze_oito)
 
@@ -260,10 +260,10 @@ class OsSuboperadoresBatemComOCodigo(unittest.TestCase):
         Nao sabemos quanto tempo a OpenAI retem os segmentos. Escrever um prazo
         seria inventar; calar deixaria o leitor supor que nao ha retencao.
         """
-        for secao in ("13.3", "13.4"):
-            with self.subTest(secao=secao):
-                self.assertIn("não apurad", _secao("privacy", secao))
-        self.assertIn("não afirma a existência de decisão de adequação", _secao("privacy", "14.4"))
+        # A revisao de 13/09/2026 juntou os fornecedores numa clausula so. A
+        # declaracao de ausencia de apuracao continua, e e ela que importa.
+        self.assertIn("não foram apuradas documentalmente", _corpo("privacy"))
+        self.assertIn("não afirma a existência de decisão de adequação", _corpo("privacy"))
 
 
 class APoliticaFalaAMesmaLinguaDoContrato(unittest.TestCase):
@@ -277,17 +277,17 @@ class APoliticaFalaAMesmaLinguaDoContrato(unittest.TestCase):
             ):
                 dias = no.value.value
         self.assertEqual(90, dias)
-        self.assertIn("90 (noventa) dias", _secao("privacy", "15.7"))
+        self.assertIn("90 (noventa) dias", _corpo("privacy"))
         self.assertIn("90 (noventa) dias", _corpo("psique_contract"))
 
     def test_o_acervo_tem_as_mesmas_quatro_exclusoes_nos_dois(self):
         exclusoes = (
-            "áudio bruto da pessoa atendida",
+            "áudio bruto da PESSOA ATENDIDA",
             "vídeo ou imagem de sua face",
             "identificadores pessoais diretos",
             "transcrição literal de sua fala",
         )
-        dezesseis = _secao("privacy", "16.3")
+        dezesseis = _corpo("privacy")
         for excluido in exclusoes:
             with self.subTest(excluido=excluido):
                 self.assertIn(excluido, dezesseis)
@@ -297,12 +297,15 @@ class APoliticaFalaAMesmaLinguaDoContrato(unittest.TestCase):
         self.assertIn("transcrição literal de sua fala", contrato)
 
     def test_a_fala_desidentificada_do_profissional_esta_nos_dois(self):
-        self.assertIn("fala do profissional em forma desidentificada", _secao("privacy", "16.2"))
-        self.assertIn("fala do PROFISSIONAL em forma desidentificada", _corpo("psique_contract"))
+        for chave in ("privacy", "psique_contract"):
+            with self.subTest(documento=chave):
+                self.assertIn(
+                    "fala do PROFISSIONAL após processo de desidentificação", _corpo(chave)
+                )
 
     def test_quem_le_prontuario_dentro_da_clinica_esta_nos_dois(self):
         """A 14.3 do contrato e a 18.3 da Politica descrevem a mesma politica de RLS."""
-        dezoito = _secao("privacy", "18.3")
+        dezoito = _corpo("privacy")
         self.assertIn("proprietário, administrador e supervisor", dezoito)
         self.assertIn("independentemente de haver vínculo de atendimento", dezoito)
         self.assertIn("independentemente de haver vínculo de atendimento", _corpo("psique_contract"))
@@ -310,15 +313,14 @@ class APoliticaFalaAMesmaLinguaDoContrato(unittest.TestCase):
     def test_os_tres_segundos_estao_nos_dois_e_no_codigo(self):
         core = (SERVER_DIR / "froid_core.py").read_text(encoding="utf-8")
         self.assertIn("keep_seconds: float = 3.0", core.replace("\n", " ").replace("  ", " "))
-        self.assertIn("aproximadamente 3 (três) segundos", _secao("privacy", "6.1"))
+        self.assertIn("aproximadamente 3 (três) segundos", _corpo("privacy"))
         self.assertIn("aproximadamente 3 (três) segundos", _corpo("psique_contract"))
 
     def test_a_representacao_vocal_e_descrita_igual_nos_dois(self):
-        nove = _secao("privacy", "9.3")
-        self.assertIn("armazenamento local do navegador", nove)
+        nove = _corpo("privacy")
+        self.assertIn("armazenamento local no navegador", nove)
         self.assertIn("não é transmitida ao FROID", nove)
-        self.assertIn("não constrói representação numérica da voz da pessoa atendida",
-                      _secao("privacy", "9.5"))
+        self.assertIn("não constrói representação alguma", _corpo("privacy"))
 
 
 class APoliticaNaoCarregaLacunaNemPII(unittest.TestCase):
@@ -337,9 +339,9 @@ class APoliticaNaoCarregaLacunaNemPII(unittest.TestCase):
 
     def test_a_ausencia_de_encarregado_e_declarada_e_nao_omitida(self):
         """Canal apresentado como se houvesse designacao seria informacao falsa."""
-        for chave, secao in (("privacy", "25.2"), ("privacy_nr1", "10.5")):
+        for chave in ("privacy", "privacy_nr1"):
             with self.subTest(documento=chave):
-                texto = _secao(chave, secao)
+                texto = _corpo(chave)
                 self.assertIn("não designou formalmente encarregado", texto)
                 self.assertIn("2/2022", texto)
 

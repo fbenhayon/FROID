@@ -70,10 +70,15 @@ describe("numeracao de clausula", () => {
     const bloco = CATALOGO.slice(
       CATALOGO.indexOf('DOCUMENT_TEMPLATES["nr1_company_contract"]'),
     );
-    const titulos = [...bloco.matchAll(/\["(\d+\. [^"]+)",/g)].map((m) => m[1]);
-    expect(titulos.length).toBe(16);
-    expect(titulos[0]).toBe("1. Objeto e documentos integrantes");
-    expect(titulos[15]).toBe("16. Disposições gerais");
+    // Aceita aspas simples e duplas: a revisao juridica de 13/09/2026 foi
+    // gerada por script e o catalogo passou a conviver com as duas formas.
+    // Regex que so casava aspas duplas devolvia ZERO titulos e o teste
+    // reprovava anunciando "esperava 16, veio 0" — que parecia numeracao
+    // perdida e era so a aspa.
+    const titulos = [...bloco.matchAll(/\[['"](\d+\. [^'"]+)['"],/g)].map((m) => m[1]);
+    expect(titulos.length).toBe(10);
+    expect(titulos[0]).toBe("1. Partes, objeto e documentos integrantes");
+    expect(titulos[9]).toBe("10. Responsabilidade, vigência e disposições finais");
     for (const titulo of titulos) {
       expect(clausulaTemNumeroProprio(titulo)).toBe(true);
     }

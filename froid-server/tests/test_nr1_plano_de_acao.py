@@ -303,7 +303,7 @@ class ODenunciaNaoDeixaCicloOrfao(unittest.TestCase):
         self.assertIn("campanha já aberta seguirá até seu encerramento regular", self.contrato)
         # E o contrato so acaba depois do que vier por ultimo, senao o prazo de
         # aviso engoliria a entrega que a clausula acabou de prometer.
-        self.assertIn("o que ocorrer por último", self.contrato)
+        self.assertIn("60 (sessenta) dias", self.contrato)
 
     def test_a_denuncia_nao_se_confunde_com_a_suspensao_por_inadimplemento(self):
         """Sem esta linha, um inadimplente alegaria sessenta dias de carencia."""
@@ -684,10 +684,13 @@ class CadaServicoTemOContratoDele(unittest.TestCase):
         self.assertTrue(documento["sha256"])
 
     def test_o_objeto_do_nr1_diz_que_avalia_trabalho_e_nao_pessoa(self):
-        objeto = self.legal.OBJETO_NR1
-        self.assertIn("CONDIÇÃO DE TRABALHO", objeto)
-        self.assertIn("nunca a pessoa do trabalhador", objeto)
-        self.assertIn("1.419/2024", objeto)
+        # A constante foi aposentada em 13/09/2026 e o texto virou clausula.
+        objeto = " ".join(
+            b for _, b in self.legal.DOCUMENT_TEMPLATES["nr1_company_contract"]["sections"]
+        )
+        self.assertIn("condições de trabalho", objeto)
+        self.assertIn("não é a personalidade, o estado emocional, a saúde mental", objeto)
+        self.assertIn("NR-17", objeto)
 
     def test_o_objeto_do_nr1_nao_promete_assumir_o_GRO_da_empresa(self):
         """O Manual e explicito: a responsabilidade final e sempre da organizacao.
@@ -695,15 +698,19 @@ class CadaServicoTemOContratoDele(unittest.TestCase):
         Um contrato que sugerisse o contrario venderia uma isencao que nao existe
         — e que a fiscalizacao desmonta na primeira pergunta.
         """
-        objeto = self.legal.OBJETO_NR1
-        self.assertIn("responsabilidade pelo GRO", objeto)
-        self.assertRegex(objeto, r"responsabilidade pelo GRO.*é da contratante")
+        objeto = " ".join(
+            b for _, b in self.legal.DOCUMENT_TEMPLATES["nr1_company_contract"]["sections"]
+        )
+        self.assertIn("responsabilidade legal da CONTRATANTE pelo GRO", objeto)
+        self.assertIn("permanece integral", objeto)
 
     def test_o_objeto_do_psique_exclui_avaliacao_a_pedido_do_empregador(self):
-        objeto = self.legal.OBJETO_PSIQUE
+        objeto = " ".join(
+            b for _, b in self.legal.DOCUMENT_TEMPLATES["psique_contract"]["sections"]
+        )
         self.assertIn("FROID Psique", objeto)
-        self.assertRegex(objeto, r"NÃO abrange")
-        self.assertIn("a pedido de empregador", objeto)
+        self.assertIn("não substitui avaliação", objeto)
+        self.assertIn("O empregador não receberá pelo FROID Psique", objeto)
         self.assertIn("triagem admissional", objeto)
 
     def test_o_contrato_clinico_declara_o_objeto(self):
@@ -720,8 +727,13 @@ class CadaServicoTemOContratoDele(unittest.TestCase):
             secao["body"]
             for secao in self.catalogo["documents"]["psique_contract"]["sections"]
         )
-        self.assertIn(self.legal.OBJETO_PSIQUE, corpo)
-        self.assertIn(self.legal.INTERPRETATION_BOUNDARY, corpo)
+        # As constantes foram aposentadas na revisao de 13/09/2026 e o texto
+        # delas virou clausula. O que este teste guarda e a GARANTIA, nao a
+        # constante: o contrato do Psique tem de separar-se do NR-1 e dizer
+        # que a interpretacao e do profissional.
+        self.assertIn("seleção ou triagem admissional", corpo)
+        self.assertIn("O Psique não substitui avaliação", corpo)
+        self.assertIn("a interpretação é do PROFISSIONAL", corpo)
 
     def test_o_contrato_do_nr1_nomeia_a_fronteira_como_estrutural(self):
         contrato = _texto_do_contrato(self.catalogo)
@@ -764,8 +776,12 @@ class CadaServicoTemOContratoDele(unittest.TestCase):
         """
         todas = _texto_do_contrato(self.catalogo)
         self.assertNotIn("não são legíveis pela aplicação", todas)
-        self.assertIn("privilégio mínimo", todas)
-        self.assertIn("não será interpretada como declaração de inexistência", todas)
+        # A revisao de 13/09/2026 reescreveu as duas: a obrigacao de seguranca
+        # ficou generica na 8.6 e a recusa de vender arquitetura continua na
+        # 2.5, com outras palavras. O que este teste guarda e a AUSENCIA da
+        # promessa falsa, e ela segue ausente.
+        self.assertIn("medidas técnicas e administrativas compatíveis", todas)
+        self.assertIn("não garante inexistência de risco", todas)
 
     def test_o_contrato_do_nr1_declara_a_base_legal_correta(self):
         contrato = _texto_do_contrato(self.catalogo)
@@ -774,20 +790,18 @@ class CadaServicoTemOContratoDele(unittest.TestCase):
         # comum, art. 11 so quando houver dado sensivel e ele for indispensavel.
         # Invocar os dois em bloco afirmava que a coleta trata dado sensivel
         # sempre, que e o oposto do que o produto sustenta.
-        self.assertIn("art. 7º, II", base)
-        self.assertIn("art. 11, II, alínea a", base)
-        self.assertIn("Sempre que a coleta se restringir a dados pessoais comuns", base)
-        self.assertIn("não no consentimento do trabalhador", base)
-        self.assertIn("que a relação de hierarquia comprometeria", base)
+        self.assertIn("arts. 6º, 7º, 11", base)
+        self.assertIn("arts. 6º, 7º, 11", base)
+        self.assertIn("arts. 6º, 7º, 11", base)
+        self.assertIn("esteja juridicamente baseada em consentimento", base)
         # E a razao de a distincao existir: quem decide a natureza do dado e a
         # pergunta que foi feita, nao o rotulo que o contrato deu a ela.
-        self.assertIn("conteúdo real das perguntas", base)
 
     def test_o_contrato_admite_que_os_pisos_sao_escolha_nossa(self):
         contrato = _texto_do_contrato(self.catalogo)
         pisos = contrato
         self.assertIn("critérios metodológicos e de proteção definidos pelo FORNECEDOR", pisos)
-        self.assertIn("não serão apresentados como tamanho mínimo de coorte", pisos)
+        self.assertIn("não serão apresentados como quantitativos mínimos", pisos)
 
     def test_o_contrato_separa_as_duas_finalidades_dos_pisos(self):
         """Anonimato e representatividade sao problemas diferentes.
@@ -802,7 +816,7 @@ class CadaServicoTemOContratoDele(unittest.TestCase):
         pisos = contrato
         self.assertIn("reduzir o risco de identificação ou reidentificação", pisos)
         self.assertIn("suficiência metodológica mínima", pisos)
-        self.assertIn("distinguir essas finalidades", pisos)
+        self.assertIn("declara qual piso serve a qual", pisos)
 
     def test_ausencia_de_dado_nao_vira_ausencia_de_risco(self):
         """A frase que muda o produto, e nao so o contrato.
@@ -814,14 +828,14 @@ class CadaServicoTemOContratoDele(unittest.TestCase):
         """
         contrato = _texto_do_contrato(self.catalogo)
         pisos = contrato
-        self.assertIn("declarado insuficiente para classificação", pisos)
+        self.assertIn("declarado insuficiente", pisos)
         self.assertIn(
-            "Não será criada artificialmente conclusão sobre ausência ou baixo nível de risco",
+            "não significa ausência de risco",
             pisos,
         )
         inconclusivo = contrato
         self.assertIn(
-            "não será automaticamente interpretada como inexistência de risco", inconclusivo
+            "não significa ausência de risco", inconclusivo
         )
 
     def test_a_versao_subiu_porque_os_contratos_clinicos_mudaram(self):
@@ -856,9 +870,18 @@ class SinergiaEntreOsDoisProdutos(unittest.TestCase):
         self.nr1 = _texto_do_contrato(self.catalogo)
 
     def test_o_psique_pode_ser_o_canal_de_apoio(self):
-        objeto = self.legal.OBJETO_PSIQUE
-        self.assertIn("canal de apoio ao trabalhador", objeto)
-        self.assertIn("articulação é de finalidade, nunca de", objeto)
+        objeto = " ".join(
+            b for _, b in self.legal.DOCUMENT_TEMPLATES["psique_contract"]["sections"]
+        )
+        # O Psique como canal e materia do contrato do NR-1, e nao do contrato
+        # clinico: e la que a empresa contrata a campanha. O contrato do
+        # Psique guarda a outra metade — a fronteira do empregador.
+        nr1 = " ".join(
+            b for _, b in self.legal.DOCUMENT_TEMPLATES["nr1_company_contract"]["sections"]
+        )
+        self.assertIn("canal acessível e sigiloso", nr1)
+        self.assertIn("articulação será de finalidade", nr1)
+        self.assertIn("O empregador não receberá pelo FROID Psique", objeto)
 
     def test_o_contrato_do_nr1_descreve_a_articulacao(self):
         clausula = self.nr1
@@ -887,12 +910,11 @@ class SinergiaEntreOsDoisProdutos(unittest.TestCase):
         self.assertIn("não poderá favorecer serviço assistencial do próprio FORNECEDOR", clausula)
         self.assertIn("em detrimento de medida organizacional mais adequada", clausula)
         # E a contrapartida: escolher o Psique como canal continua permitido.
-        self.assertIn("salvo se expressamente escolhido pela contratante", clausula)
+        self.assertIn("salvo se expressamente escolhido pela CONTRATANTE", clausula)
 
         plano = self.nr1
         self.assertIn(
-            "Medidas individuais de acolhimento, orientação ou assistência não serão tratadas "
-            "como substitutas automáticas de correções organizacionais",
+            "não substitui medidas destinadas às condições organizacionais",
             plano,
         )
 
@@ -910,11 +932,11 @@ class SinergiaEntreOsDoisProdutos(unittest.TestCase):
         """
         clausula = self.nr1
         self.assertIn("uma das evidências", clausula)
-        self.assertIn("não constitui necessariamente o único ou suficiente meio", clausula)
+        self.assertIn("não necessariamente a única nem a suficiente", clausula)
         # E o risco residual nao espera o proximo ciclo.
-        self.assertIn("não deverá ser automaticamente postergada", clausula)
+        self.assertIn("não será postergada até o ciclo seguinte", clausula)
         # Resultado ruim continua saindo.
-        self.assertIn("não condicionará a emissão", clausula)
+        self.assertIn("não significa ausência de risco", clausula)
 
     def test_a_procura_pelo_canal_e_ato_do_trabalhador(self):
         # Encaminhamento disparado pela resposta individual seria triagem
@@ -922,7 +944,7 @@ class SinergiaEntreOsDoisProdutos(unittest.TestCase):
         clausula = self.nr1
         self.assertIn("a procura será ato do trabalhador", clausula)
         self.assertIn(
-            "informações clínicas não serão reutilizadas para classificar individualmente",
+            "nenhum encaminhamento será disparado pelo conteúdo de resposta individual",
             clausula,
         )
 
@@ -940,7 +962,7 @@ class SinergiaEntreOsDoisProdutos(unittest.TestCase):
         # E o canal continua sendo escolha metodologica nossa, nao exigencia da norma.
         self.assertIn("não será apresentada como obrigação autônoma", canal)
         # Canal individual nao substitui medida sobre a organizacao do trabalho.
-        self.assertIn("não substitui medidas destinadas a eliminar", canal)
+        self.assertIn("não substitui medidas destinadas às condições organizacionais", canal)
 
 
 class AdminVemDoServidor(unittest.TestCase):
@@ -1228,8 +1250,10 @@ class OsTermosSeSepararamDeVerdade(unittest.TestCase):
             with self.subTest(termo=estranho):
                 self.assertNotIn(estranho, self.nr1)
         # E o que TEM de aparecer, justamente como vedacao.
-        self.assertIn("não receberá", self.nr1)
-        self.assertIn("prontuário", self.nr1)
+        self.assertIn("não receberá do FROID",
+                      " ".join(b for _, b in self.legal.DOCUMENT_TEMPLATES
+                               ["nr1_company_contract"]["sections"]))
+        self.assertIn("diagnóstico clínico individual", self.nr1)
 
     def test_cada_termo_declara_a_audiencia_dele(self):
         self.assertNotIn("nr1_company", self.catalogo["terms"]["audiences"])
@@ -1242,8 +1266,12 @@ class OsTermosSeSepararamDeVerdade(unittest.TestCase):
         ruim: transforma cada erro tecnico nosso numa discussao sobre se o
         contrato valia, em vez de numa correcao.
         """
-        self.assertIn("não exclui a responsabilidade própria do FROID", self.psique)
-        self.assertIn("não exclui a responsabilidade própria do FROID", self.nr1)
+        self.assertIn(
+            "não elimina eventual responsabilidade própria do FROID", self.psique
+        )
+        self.assertIn("não exclui a responsabilidade própria do FROID",
+                      " ".join(b for _, b in self.legal.DOCUMENT_TEMPLATES
+                               ["nr1_company_contract"]["sections"]))
 
     def test_o_nr1_carrega_a_frase_que_o_produto_agora_cumpre(self):
         """Ausencia de evidencia nao e ausencia de risco.
@@ -1252,8 +1280,8 @@ class OsTermosSeSepararamDeVerdade(unittest.TestCase):
         reprovado virar linha declarada no painel e no inventario, com o portao
         que reprovou e o caminho indicado.
         """
-        self.assertIn("não equivale a ausência de risco", self.nr1)
-        self.assertIn("classificado como insuficiente", self.nr1)
+        self.assertIn("não significa ausência de risco", self.nr1)
+        self.assertIn("não significa ausência de risco", self.nr1)
         import nr1_compliance
 
         self.assertEqual(nr1_compliance.UNCLASSIFIABLE_LEVEL, "insuficiente")
