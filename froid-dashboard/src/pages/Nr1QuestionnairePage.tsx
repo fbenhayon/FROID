@@ -178,33 +178,42 @@ export const Nr1QuestionnairePage: React.FC = () => {
         </p>
         <h1 className="mt-2 text-2xl font-black text-white">{form.campaign_title}</h1>
 
-        {/* A DECLARACAO QUE A PESSOA LE ANTES DE DECIDIR SE RESPONDE A
-            VERDADE. Determinacao do dono em 12/09/2026: ela vai no
-            cabecalho do convite.
+        {/* A DECLARACAO QUE A PESSOA LE ANTES DE DECIDIR SE RESPONDE A VERDADE.
 
-            A redacao separa DE PROPOSITO "se voce respondeu" de "o que voce
-            respondeu", e a segunda e a que importa para quem teme
-            retaliacao. O rascunho dizia "ninguem consegue saber quem
-            respondeu e o que" — e a primeira metade disso e falsa: quem
-            opera o RH tem o pareamento matricula-link no CSV que baixou
-            para distribuir os convites, e o proprio docstring de
-            `reissue_nr1_invitations` registra que da para descobrir quem
-            respondeu abrindo cada link e vendo qual recusa.
+            Determinacao do dono em 12/09/2026, e ela vai no cabecalho do
+            convite. A frase afirma IMPOSSIBILIDADE — "ninguem consegue saber
+            quem respondeu o que" —, e so pode estar aqui porque o dono mandou
+            construir a impossibilidade em vez de afrouxar a frase.
 
-            Prometer anonimato de PARTICIPACAO a quem vai relatar assedio, e
-            depois a pessoa descobrir que o RH sabia que ela respondeu,
-            destrói a credibilidade de tudo o que a frase afirma de
-            verdade — inclusive a parte que de fato protege. Os contratos
-            (Psique 16.4, NR-1 9.8) ja recusam vender impossibilidade
-            arquitetural; esta tela nao podia vender. */}
+            O QUE MUDOU PARA ELA PODER SER DITA. O desenho ja separava o
+            conhecimento em duas maos: o FROID tem resposta <-> pseudonimo e nao
+            tem pseudonimo <-> matricula; a empresa tem o inverso. Sozinha,
+            nenhuma das duas conseguia o pareamento — mas juntas conseguiriam,
+            porque `assessment_responses.invitation_id` guardava o elo. Desde a
+            migration 034 esse elo e rompido no mesmo commit que fecha a coleta,
+            e o dado deixa de existir: nem uma ordem judicial o recupera, porque
+            nao ha o que entregar.
+
+            A terceira frase fica de proposito. A empresa distribui os links e
+            por isso sabe QUEM respondeu; dizer isso aqui nao enfraquece a
+            promessa — sustenta. Quem desconfia que o RH sabe que ela respondeu,
+            e nos ve admitir, acredita no resto. Prometer tambem anonimato de
+            participacao seria o unico exagero capaz de derrubar a parte que de
+            fato protege. */}
         <section className="mt-4 rounded-lg border border-cyan-900 bg-cyan-950/40 p-5">
           <p className="text-sm font-black leading-6 text-cyan-100">
-            Esta avaliação é voluntária.
+            Esta avaliação é voluntária e confidencial.
           </p>
           <p className="mt-2 text-sm leading-6 text-cyan-50">
-            <strong>O que você respondeu não é exibido a ninguém</strong>, nem à sua
-            empresa: os resultados aparecem somente somados aos de outras pessoas, e
-            recortes pequenos demais são bloqueados pelo sistema.
+            <strong>Ninguém consegue saber quem respondeu o quê.</strong> Suas
+            respostas não são exibidas individualmente a ninguém, nem à sua empresa:
+            os resultados aparecem somente somados aos de outras pessoas, e recortes
+            pequenos demais são bloqueados pelo sistema.
+          </p>
+          <p className="mt-2 text-sm leading-6 text-cyan-50">
+            Quando a coleta termina, o vínculo entre o seu convite e as suas
+            respostas é <strong>apagado do banco de dados</strong>. A partir daí,
+            nem o FROID consegue refazê-lo.
           </p>
           <p className="mt-2 text-xs leading-5 text-cyan-200/80">
             Como é a empresa que distribui os links, ela pode saber se você

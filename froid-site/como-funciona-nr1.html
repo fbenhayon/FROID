@@ -350,6 +350,22 @@
     <!-- Veio de empresas.html. E referencia operacional -- o que precisa ser
          mapeado -- e quem decide comprar nao le a tabela inteira; quem vai
          operar, sim. La ela travava a leitura logo depois do "o que mudou". -->
+    <h2 style="margin-top:48px;" id="anonimato-das-respostas">Por que ninguém consegue saber quem respondeu o quê</h2>
+    <p style="margin-top:12px;">Esta é a primeira pergunta de qualquer CIPA, de qualquer sindicato e de qualquer trabalhador que vai relatar assédio. A resposta não é uma promessa de conduta — é uma propriedade da arquitetura, e cabe em quatro fatos verificáveis.</p>
+    <div style="margin-top:18px;">
+      <h3 style="margin-top:22px;">1. O conhecimento nasce partido em duas mãos</h3>
+      <p style="margin-top:8px;">Para despachar os convites, a sua empresa recebe o pareamento entre matrícula e link. O FROID <strong>não guarda esse pareamento</strong>. Do nosso lado existe apenas um pseudônimo, derivado da matrícula por HMAC-SHA256 com uma chave que fica no servidor — sem ela, ninguém reconstrói a tabela partindo de uma folha de pagamento que já tenha. Sozinha, nenhuma das duas partes consegue ligar pessoa e resposta.</p>
+      <h3 style="margin-top:22px;">2. A aplicação não consegue ler uma resposta</h3>
+      <p style="margin-top:8px;">As tabelas de respostas não têm política de leitura, e o papel de banco que a aplicação usa teve todos os privilégios sobre elas revogados. Ele consegue gravar uma resposta e consegue pedir um agregado — não consegue ler uma de volta. A única saída é uma função que soma os resultados e aplica o piso de coorte <strong>dentro do próprio SQL</strong>, de modo que a garantia sobrevive até a um erro de programação na camada de cima.</p>
+      <h3 style="margin-top:22px;">3. Quando a coleta fecha, o elo é apagado</h3>
+      <p style="margin-top:8px;">Durante a coleta existe um vínculo entre o convite e a resposta — ele é o que impede que o mesmo link seja usado duas vezes. No instante em que a campanha é encerrada, e <strong>no mesmo commit</strong>, esse vínculo é apagado do banco de dados. A partir daí o dado que permitiria o pareamento deixa de existir: não há o que recuperar, nem sob ordem judicial, porque não há o que entregar. Cada encerramento registra na trilha de auditoria quantos vínculos foram rompidos.</p>
+      <h3 style="margin-top:22px;">4. O resultado só aparece somado</h3>
+      <p style="margin-top:8px;">Nenhum recorte é publicado abaixo do piso de coorte, e recortes insuficientes são declarados como insuficientes em vez de sumirem da tela — suprimir esconde, declarar documenta. Resultados também não são liberados durante a coleta, porque a diferença entre dois momentos revelaria a resposta de quem entrou no intervalo.</p>
+      <div class="disclaimer-box" style="margin-top:22px;">
+        <strong>O que nós não prometemos.</strong> A sua empresa distribui os links e, por isso, sabe <strong>se</strong> você respondeu — nunca o que você respondeu. Dizemos isso com todas as letras no cabeçalho do convite, e não por formalidade: prometer também anonimato de participação seria o único exagero capaz de derrubar a credibilidade de tudo o que garantimos de verdade.
+      </div>
+    </div>
+
     <h2 style="margin-top:48px;" id="os-perigos">A listagem do Guia MTE 2025</h2>
     <p style="margin-top:12px;">O Guia de informações sobre os Fatores de Riscos Psicossociais Relacionados ao Trabalho traz esta listagem de perigos e suas possíveis consequências. Ela é <strong>orientativa e não taxativa</strong>: a fiscalização avalia a coerência do processo de identificação, não a aderência literal à lista. Sua empresa pode incluir perigos próprios do setor e afastar os que não se aplicam, desde que documente a justificativa técnica.</p>
     <div style="margin-top:20px;"><div class="haz-wrap">

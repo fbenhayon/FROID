@@ -1,6 +1,6 @@
 # Memória — FROID
 
-- [Deploy no Hetzner](froid-deploy-hetzner.md) — Fábio cola os comandos no console; minha chave SSH não está autorizada
+- [Deploy no Hetzner](froid-deploy-hetzner.md) — Fábio cola os comandos no console; a máquina fica em Helsinque, e o IP mente sobre isso
 - [Arquitetura site + SPA](froid-site-architecture.md) — froid-site na raiz, painel em /app/#, rotas preservadas e cache de imagens
 - [Armadilha de encoding nos HTML](froid-html-encoding-pitfall.md) — edições manuais podem corromper UTF-8; verificar mojibake antes de commitar
 - [Módulo NR-1 corporativo](froid-nr1-corporate-module.md) — instrumento, pisos de coorte e a fronteira que impede o empregador de ler dado clínico

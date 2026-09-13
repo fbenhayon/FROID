@@ -11151,8 +11151,16 @@ async def close_nr1_campaign(organization_id: str, campaign_id: str, request: Re
         raise HTTPException(status_code=409, detail="módulo NR-1 requer persistência dual")
     except ValueError:
         raise HTTPException(status_code=409, detail="campanha não está aberta")
+    # O numero de elos rompidos entra na trilha. "Executou" nao e prova de
+    # nada; "rompeu 152 elos" e conferivel contra a contagem de respostas, e
+    # zero num universo de 152 respostas seria o sintoma de que a rotina parou
+    # de funcionar sem ninguem notar.
     _record_tenant_success(
-        context, "nr1.campaign.close", "assessment_campaign", campaign_id
+        context,
+        "nr1.campaign.close",
+        "assessment_campaign",
+        campaign_id,
+        metadata={"links_severed": closed.get("links_severed", 0)},
     )
     return closed
 

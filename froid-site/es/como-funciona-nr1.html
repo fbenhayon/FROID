@@ -240,6 +240,22 @@
     <!-- Vino de empresas.html. Es referencia operativa -- lo que hay que
          mapear -- y quien decide comprar no lee la tabla entera; quien va a
          operar, sí. Allá trababa la lectura justo después de "lo que cambió". -->
+    <h2 style="margin-top:48px;" id="anonimato-das-respostas">Por qué nadie puede saber quién respondió qué</h2>
+    <p style="margin-top:12px;">Esta es la primera pregunta de cualquier comisión interna, de cualquier sindicato y de cualquier trabajador que va a denunciar acoso. La respuesta no es una promesa de conducta — es una propiedad de la arquitectura, y cabe en cuatro hechos verificables.</p>
+    <div style="margin-top:18px;">
+      <h3 style="margin-top:22px;">1. El conocimiento nace partido en dos manos</h3>
+      <p style="margin-top:8px;">Para despachar las invitaciones, su empresa recibe el emparejamiento entre número de legajo y enlace. FROID <strong>no guarda ese emparejamiento</strong>. De nuestro lado existe solo un seudónimo, derivado del legajo por HMAC-SHA256 con una clave que queda en el servidor — sin ella, nadie reconstruye la tabla partiendo de una nómina que ya tenga. Sola, ninguna de las dos partes puede vincular persona y respuesta.</p>
+      <h3 style="margin-top:22px;">2. La aplicación no puede leer una respuesta</h3>
+      <p style="margin-top:8px;">Las tablas de respuestas no tienen política de lectura, y el rol de base de datos que usa la aplicación tuvo todos los privilegios sobre ellas revocados. Puede grabar una respuesta y puede pedir un agregado — no puede leer una de vuelta. La única salida es una función que suma los resultados y aplica el piso de cohorte <strong>dentro del propio SQL</strong>, de modo que la garantía sobrevive incluso a un error de programación en la capa superior.</p>
+      <h3 style="margin-top:22px;">3. Cuando la recolección cierra, el vínculo se borra</h3>
+      <p style="margin-top:8px;">Durante la recolección existe un vínculo entre la invitación y la respuesta — es lo que impide que el mismo enlace se use dos veces. En el instante en que la campaña se cierra, y <strong>en el mismo commit</strong>, ese vínculo se borra de la base de datos. A partir de ahí el dato que permitiría el emparejamiento deja de existir: no hay qué recuperar, ni bajo orden judicial, porque no hay qué entregar. Cada cierre registra en la traza de auditoría cuántos vínculos fueron rotos.</p>
+      <h3 style="margin-top:22px;">4. El resultado solo aparece sumado</h3>
+      <p style="margin-top:8px;">Ningún recorte se publica por debajo del piso de cohorte, y los recortes insuficientes se declaran insuficientes en vez de desaparecer de la pantalla — suprimir esconde, declarar documenta. Los resultados tampoco se liberan durante la recolección, porque la diferencia entre dos momentos revelaría la respuesta de quien entró en el intervalo.</p>
+      <div class="disclaimer-box" style="margin-top:22px;">
+        <strong>Lo que no prometemos.</strong> Su empresa distribuye los enlaces y, por eso, sabe <strong>si</strong> usted respondió — nunca qué respondió. Lo decimos con todas las letras en el encabezado de la invitación, y no por formalidad: prometer también anonimato de participación sería la única exageración capaz de derribar la credibilidad de todo lo que sí garantizamos.
+      </div>
+    </div>
+
     <h2 style="margin-top:48px;" id="os-perigos">El listado de peligros de la guía del regulador (2025)</h2>
     <p style="margin-top:12px;">La Guía de Factores de Riesgos Psicosociales Relacionados con el Trabajo del ministerio de Trabajo brasileño publica este listado de peligros y sus posibles consecuencias. Es <strong>orientativo y no taxativo</strong>: la fiscalización evalúa la coherencia del proceso de identificación, no la adherencia literal a la lista. Su empresa puede incluir peligros propios del sector y descartar los que no se apliquen, siempre que documente la justificación técnica. Las categorías se solapan estrechamente con las que describe la ISO 45003, lo que hace el listado útil mucho más allá de la jurisdicción que lo publicó.</p>
     <div style="margin-top:20px;"><div class="haz-wrap">

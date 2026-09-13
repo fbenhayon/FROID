@@ -240,6 +240,22 @@
          doit être cartographié -- et celui qui décide d'acheter ne lit pas tout
          le tableau ; celui qui va l'exploiter, si. Là-bas, il bloquait la
          lecture juste après « ce qui a changé ». -->
+    <h2 style="margin-top:48px;" id="anonimato-das-respostas">Pourquoi personne ne peut savoir qui a répondu quoi</h2>
+    <p style="margin-top:12px;">C'est la première question de tout comité, de tout syndicat et de tout travailleur sur le point de signaler un harcèlement. La réponse n'est pas une promesse de conduite — c'est une propriété de l'architecture, et elle tient en quatre faits vérifiables.</p>
+    <div style="margin-top:18px;">
+      <h3 style="margin-top:22px;">1. Le savoir naît partagé entre deux mains</h3>
+      <p style="margin-top:8px;">Pour distribuer les invitations, votre entreprise reçoit l'appariement entre le matricule et le lien. FROID <strong>ne conserve pas cet appariement</strong>. De notre côté il n'existe qu'un pseudonyme, dérivé du matricule par HMAC-SHA256 avec une clé qui reste sur le serveur — sans elle, personne ne reconstruit la table à partir d'une liste de paie qu'il détiendrait déjà. Seule, aucune des deux parties ne peut relier une personne à une réponse.</p>
+      <h3 style="margin-top:22px;">2. L'application ne peut pas lire une réponse</h3>
+      <p style="margin-top:8px;">Les tables de réponses ne portent aucune politique de lecture, et le rôle de base de données utilisé par l'application s'est vu retirer tous les privilèges sur elles. Il peut écrire une réponse et demander un agrégat — il ne peut pas en relire une. La seule sortie est une fonction qui somme les résultats et applique le seuil de cohorte <strong>dans le SQL lui-même</strong>, de sorte que la garantie survit même à une erreur de programmation dans la couche supérieure.</p>
+      <h3 style="margin-top:22px;">3. Quand la collecte se ferme, le lien est effacé</h3>
+      <p style="margin-top:8px;">Pendant la collecte, un lien existe entre l'invitation et la réponse — c'est lui qui empêche qu'un même lien serve deux fois. À l'instant où la campagne est clôturée, et <strong>dans le même commit</strong>, ce lien est effacé de la base de données. Dès lors, la donnée qui permettrait l'appariement cesse d'exister : il n'y a rien à récupérer, pas même sous décision de justice, parce qu'il n'y a rien à remettre. Chaque clôture consigne dans la piste d'audit combien de liens ont été rompus.</p>
+      <h3 style="margin-top:22px;">4. Le résultat n'apparaît que cumulé</h3>
+      <p style="margin-top:8px;">Aucun découpage n'est publié sous le seuil de cohorte, et les découpages insuffisants sont déclarés insuffisants au lieu de disparaître de l'écran — supprimer cache, déclarer documente. Les résultats ne sont pas non plus libérés pendant la collecte, car la différence entre deux moments révélerait la réponse de celui qui est entré entre-temps.</p>
+      <div class="disclaimer-box" style="margin-top:22px;">
+        <strong>Ce que nous ne promettons pas.</strong> Votre entreprise distribue les liens et sait donc <strong>si</strong> vous avez répondu — jamais ce que vous avez répondu. Nous le disons clairement dans l'en-tête de l'invitation, et non par formalisme : promettre aussi l'anonymat de la participation serait la seule exagération capable de ruiner la crédibilité de tout ce que nous garantissons réellement.
+      </div>
+    </div>
+
     <h2 style="margin-top:48px;" id="os-perigos">La liste des dangers du guide du régulateur (2025)</h2>
     <p style="margin-top:12px;">Le Guide des facteurs de risques psychosociaux liés au travail du ministère du Travail brésilien publie cette liste de dangers et de leurs conséquences possibles. Elle est <strong>indicative et non limitative</strong> : le contrôle apprécie la cohérence du processus d'identification, non l'adhésion littérale à la liste. Votre entreprise peut ajouter des dangers propres à son secteur et écarter ceux qui ne s'appliquent pas, à condition de documenter la justification technique. Les catégories recoupent étroitement celles que décrit l'ISO 45003, ce qui rend la liste utile bien au-delà de la juridiction qui l'a publiée.</p>
     <div style="margin-top:20px;"><div class="haz-wrap">

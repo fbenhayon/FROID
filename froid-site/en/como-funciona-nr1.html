@@ -240,6 +240,22 @@
          has to be mapped -- and whoever decides to buy does not read the whole
          table; whoever will operate it does. Over there it blocked the reading
          right after "what changed". -->
+    <h2 style="margin-top:48px;" id="anonimato-das-respostas">Why nobody can know who answered what</h2>
+    <p style="margin-top:12px;">This is the first question any works council, any union and any worker about to report harassment will ask. The answer is not a promise of conduct — it is a property of the architecture, and it fits into four verifiable facts.</p>
+    <div style="margin-top:18px;">
+      <h3 style="margin-top:22px;">1. The knowledge is split between two hands from the start</h3>
+      <p style="margin-top:8px;">To dispatch the invitations, your company receives the pairing between payroll number and link. FROID <strong>does not keep that pairing</strong>. On our side there is only a pseudonym, derived from the payroll number by HMAC-SHA256 with a key held on the server — without it, nobody can rebuild the table from a payroll list they already hold. Alone, neither party can link person to answer.</p>
+      <h3 style="margin-top:22px;">2. The application cannot read an answer</h3>
+      <p style="margin-top:8px;">The answer tables carry no read policy, and the database role the application uses had every privilege over them revoked. It can write an answer and it can request an aggregate — it cannot read one back. The only way out is a function that sums the results and clamps the cohort floor <strong>inside SQL itself</strong>, so the guarantee survives even a programming error in the layer above.</p>
+      <h3 style="margin-top:22px;">3. When collection closes, the link is erased</h3>
+      <p style="margin-top:8px;">During collection a link exists between the invitation and the answer — it is what prevents the same link from being used twice. The moment the campaign is closed, and <strong>in the same commit</strong>, that link is erased from the database. From then on the data that would allow the pairing ceases to exist: there is nothing to recover, not even under a court order, because there is nothing to hand over. Every closing records in the audit trail how many links were severed.</p>
+      <h3 style="margin-top:22px;">4. Results only ever appear aggregated</h3>
+      <p style="margin-top:8px;">No breakdown is published below the cohort floor, and insufficient breakdowns are declared insufficient rather than disappearing from the screen — suppressing hides, declaring documents. Results are also not released during collection, because the difference between two moments would reveal the answer of whoever came in between.</p>
+      <div class="disclaimer-box" style="margin-top:22px;">
+        <strong>What we do not promise.</strong> Your company distributes the links and therefore knows <strong>whether</strong> you answered — never what you answered. We say so plainly in the invitation header, and not as a formality: promising anonymity of participation as well would be the one overstatement capable of destroying the credibility of everything we do guarantee.
+      </div>
+    </div>
+
     <h2 style="margin-top:48px;" id="os-perigos">The hazard list from the 2025 regulator's guide</h2>
     <p style="margin-top:12px;">The Brazilian labour ministry's Guide to Work-Related Psychosocial Risk Factors publishes this list of hazards and their possible consequences. It is <strong>indicative and not exhaustive</strong>: inspection assesses the coherence of the identification process, not literal adherence to the list. Your company can add hazards specific to its sector and set aside those that do not apply, as long as it documents the technical justification. The categories map closely onto the ones ISO 45003 describes, which is why the list is useful well beyond the jurisdiction that published it.</p>
     <div style="margin-top:20px;"><div class="haz-wrap">

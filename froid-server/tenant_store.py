@@ -2626,6 +2626,30 @@ class TenantStore:
 
         The cohort has to stop moving before any result is served, otherwise it
         can be differenced one respondent at a time.
+
+        FECHAR TAMBEM ROMPE O ELO ENTRE CONVITE E RESPOSTA, no mesmo commit.
+
+        Ate 12/09/2026 `assessment_responses.invitation_id` sobrevivia ao
+        encerramento. Ele nunca era lido — existia so para sustentar o
+        `UNIQUE (invitation_id)` que impede envio duplo —, mas guardava o unico
+        elo capaz de parear pessoa e resposta. O FROID tem resposta <-> pseudonimo
+        e nao tem pseudonimo <-> matricula; a empresa tem o inverso. Sozinha,
+        nenhuma das duas consegue o pareamento. Juntas, conseguiriam: sob ordem
+        judicial, por conluio, ou num vazamento que alcancasse os dois lados.
+
+        Encerrada a coleta a campanha nao aceita mais resposta, entao a coluna
+        deixa de ter finalidade e vira risco guardado a toa — que e exatamente o
+        que o art. 6, III da LGPD manda nao fazer. Rompido o elo, a promessa que
+        o convite faz ao trabalhador deixa de ser conduta e vira arquitetura:
+        nem uma ordem judicial recupera o dado, porque nao ha o que entregar.
+
+        O rompimento roda no MESMO commit que fecha. Se fosse um passo separado,
+        existiria uma janela — talvez curta, talvez de dias, se o passo falhasse
+        em silencio — em que a coleta ja esta fechada e o elo ainda de pe.
+
+        O que nao se perde: `assessment_invitations.status='responded'` e
+        `responded_at` continuam registrando a participacao, que e do que a
+        reemissao precisa e o que deixa a empresa acompanhar a adesao.
         """
         if not self.enabled or not self.runtime_database_url:
             raise RuntimeError("dual persistence and runtime role are required")
@@ -2642,9 +2666,27 @@ class TenantStore:
                     """,
                     (membership_id, campaign_id, organization_id),
                 ).fetchone()
+                # SECURITY DEFINER porque o papel da aplicacao teve TODOS os
+                # privilegios revogados sobre assessment_responses na migration
+                # 014: ele nao le uma resposta e nao a altera — pode apenas
+                # pedir ao dono do esquema que rompa os elos da campanha que
+                # acabou de fechar. A propria funcao recusa campanha aberta.
+                rompidos = 0
+                if row:
+                    rompidos = connection.execute(
+                        "SELECT froid_nr1_sever_response_links(%s)",
+                        (campaign_id,),
+                    ).fetchone()[0]
         if not row:
             raise ValueError("campaign_not_open")
-        return {"campaign_id": campaign_id, "status": "closed"}
+        return {
+            "campaign_id": campaign_id,
+            "status": "closed",
+            # Devolvido para a trilha registrar o NUMERO de elos rompidos, e nao
+            # apenas que a rotina executou. Zero e resposta legitima (campanha
+            # sem resposta) e precisa ser distinguivel de "nao rodou".
+            "links_severed": int(rompidos or 0),
+        }
 
     def nr1_list_campaigns(
         self, *, organization_id: str, membership_id: str
