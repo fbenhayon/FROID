@@ -78,14 +78,57 @@ function LegalShell({ title, children }: { title: string; children: ReactNode })
             </button>
             <a href="#/" className="text-sm font-black uppercase tracking-[0.28em] text-cyan-300">FROID</a>
           </div>
-          <nav className="flex flex-wrap gap-3 text-xs font-bold text-slate-300">
-            <a className="hover:text-cyan-200" href="#/privacidade">Privacidade</a>
-            <a className="hover:text-cyan-200" href="#/termos">Termos · Psique</a>
-            <a className="hover:text-cyan-200" href="#/termos-nr1">Termos · NR-1</a>
-            <a className="hover:text-cyan-200" href="#/contrato-profissional">Profissional</a>
-            <a className="hover:text-cyan-200" href="#/contrato-clinica">Clínica</a>
-            <a className="hover:text-cyan-200" href="#/contrato-nr1">Contrato NR-1</a>
-            <a className="hover:text-cyan-200" href="#/tcle-paciente">TCLE</a>
+          {/* O MENU SEPARA POR SERVICO, e nao por tipo de documento.
+              Determinacao do dono em 13/09/2026.
+
+              Antes havia "Profissional" e "Clinica" como entradas distintas, e
+              as duas abriam O MESMO documento desde a unificacao de 12/09 — o
+              contrato do Psique virou um so, com as clausulas de pessoa
+              juridica declarando o proprio escopo. Duas entradas para um texto
+              fazem quem le conferir se nao perdeu alguma diferenca que nao
+              existe.
+
+              A segunda falta era mais seria: "Privacidade" apontava so para a
+              do Psique, e a empresa que contrata o NR-1 nao tinha link nenhum
+              para a Politica DELA, que existe desde 12/09. Documento sem porta
+              de entrada e documento que ninguem le.
+
+              As duas URLs antigas continuam resolvendo — elas foram impressas
+              em comprovante de aceite —, so nao tem mais lugar no menu. */}
+          <nav className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs font-bold text-slate-300">
+            {[
+              {
+                servico: "Psique",
+                itens: [
+                  ["#/contrato-psique", "Contrato"],
+                  ["#/termos", "Termos"],
+                  ["#/privacidade", "Privacidade"],
+                ],
+              },
+              {
+                servico: "NR-1",
+                itens: [
+                  ["#/contrato-nr1", "Contrato"],
+                  ["#/termos-nr1", "Termos"],
+                  ["#/privacidade-nr1", "Privacidade"],
+                ],
+              },
+              {
+                servico: "Pessoa atendida",
+                itens: [["#/tcle-paciente", "TCLE"]],
+              },
+            ].map((grupo) => (
+              <span key={grupo.servico} className="flex items-center gap-2">
+                <span className="text-[10px] uppercase tracking-wider text-slate-500">
+                  {grupo.servico}
+                </span>
+                {grupo.itens.map(([href, rotulo]) => (
+                  <a key={href} className="hover:text-cyan-200" href={href}>
+                    {rotulo}
+                  </a>
+                ))}
+              </span>
+            ))}
           </nav>
         </div>
       </header>

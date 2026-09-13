@@ -1733,10 +1733,61 @@ class ODocumentoJuridicoSaiDaTela(unittest.TestCase):
         volta = volta[: volta.index("\n}")]
         self.assertIn("window.history.length > 1", volta)
 
-    def test_a_navegacao_inclui_os_documentos_do_nr1(self):
-        """Existiam desde 22/08 e a barra so listava os clinicos."""
-        self.assertIn('href="#/termos-nr1"', self.pagina)
-        self.assertIn('href="#/contrato-nr1"', self.pagina)
+    def test_a_navegacao_separa_os_documentos_por_servico(self):
+        """Existiam desde 22/08 e a barra so listava os clinicos.
+
+        Em 13/09/2026 a barra passou a agrupar POR SERVICO, por determinacao do
+        dono, e a corrigir duas faltas:
+
+        - "Profissional" e "Clinica" eram entradas distintas que abriam O MESMO
+          documento desde a unificacao de 12/09. Duas portas para um texto fazem
+          quem le conferir se nao perdeu uma diferenca que nao existe.
+        - "Privacidade" apontava so para a do Psique. A empresa do NR-1 nao
+          tinha link nenhum para a Politica DELA, que existe desde 12/09 —
+          documento sem porta de entrada e documento que ninguem le.
+        """
+        for grupo in ("Psique", "NR-1", "Pessoa atendida"):
+            with self.subTest(grupo=grupo):
+                self.assertIn(grupo, self.pagina)
+        for rota in (
+            "#/contrato-psique", "#/termos", "#/privacidade",
+            "#/contrato-nr1", "#/termos-nr1", "#/privacidade-nr1",
+            "#/tcle-paciente",
+        ):
+            with self.subTest(rota=rota):
+                self.assertIn(f'"{rota}"', self.pagina)
+
+    def test_o_contrato_do_psique_tem_UMA_porta_no_menu(self):
+        """As duas URLs antigas continuam resolvendo; so saem do menu.
+
+        Elas foram impressas em comprovante de aceite, entao 404 nelas seria
+        problema nosso — mas listar as duas anunciava uma diferenca inexistente.
+        """
+        for aposentada in ("#/contrato-profissional", "#/contrato-clinica"):
+            with self.subTest(rota=aposentada):
+                self.assertNotIn(f'href="{aposentada}"', self.pagina)
+        rotas = (
+            Path(__file__).resolve().parents[2]
+            / "froid-dashboard" / "src" / "App.tsx"
+        ).read_text(encoding="utf-8")
+        for aposentada in ("/contrato-profissional", "/contrato-clinica"):
+            with self.subTest(rota=aposentada):
+                self.assertIn(f'path="{aposentada}"', rotas)
+
+    def test_o_portal_do_paciente_deixa_LER_o_que_se_aceita(self):
+        """Aceite de texto que nao se podia abrir nao se sustenta.
+
+        Ate 13/09/2026 a pessoa marcava "Li e aceito o TCLE vigente do FROID"
+        numa tela sem nenhum link para o TCLE.
+        """
+        portal = (
+            Path(__file__).resolve().parents[2]
+            / "froid-dashboard" / "src" / "pages" / "PatientPortalPage.tsx"
+        ).read_text(encoding="utf-8")
+        self.assertIn('"#/tcle-paciente"', portal)
+        self.assertIn('"#/termos"', portal)
+        self.assertIn('"#/privacidade"', portal)
+        self.assertIn("Ler o documento", portal)
 
     def test_a_impressao_esconde_o_que_nao_e_documento(self):
         self.assertIn("@media print", self.pagina)

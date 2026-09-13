@@ -844,13 +844,13 @@ export const PatientPortalPage: React.FC = () => {
             </p>
             <div className="mt-3 space-y-2 text-xs text-slate-300">
               {[
-                ["patient_tcle", "Li e aceito o TCLE vigente do FROID."],
-                ["terms_of_use", "Aceito os termos de uso do FROID."],
-                ["privacy_policy", "Aceito a política de privacidade."],
-                ["sensitive_data_processing", "Autorizo o tratamento de dados sensíveis de saúde."],
-                ["audio_video_processing", "Autorizo a captura e o processamento de áudio, vídeo e biomarcadores."],
-                ["research_anonymized", "Autorizo o uso anonimizado para pesquisa e melhoria do FROID (opcional)."],
-              ].map(([key, label]) => (
+                ["patient_tcle", "Li e aceito o TCLE vigente do FROID.", "#/tcle-paciente"],
+                ["terms_of_use", "Aceito os termos de uso do FROID.", "#/termos"],
+                ["privacy_policy", "Aceito a política de privacidade.", "#/privacidade"],
+                ["sensitive_data_processing", "Autorizo o tratamento de dados sensíveis de saúde.", ""],
+                ["audio_video_processing", "Autorizo o processamento de áudio, vídeo e biomarcadores durante a sessão.", ""],
+                ["research_anonymized", "Autorizo o uso anonimizado para pesquisa e melhoria do FROID (opcional).", ""],
+              ].map(([key, label, documento]) => (
                 <label key={key} className="flex items-start gap-2">
                   <input
                     type="checkbox"
@@ -862,7 +862,28 @@ export const PatientPortalPage: React.FC = () => {
                       }))
                     }
                   />
-                  <span>{label}</span>
+                  <span>
+                    {label}
+                    {/* O LINK PARA LER O QUE SE ESTA ACEITANDO.
+                        Ate 13/09/2026 a pessoa marcava "li e aceito" sem ter
+                        como abrir o documento nesta tela. Aceite de texto que
+                        nao se podia ler nao se sustenta — e e desrespeitoso com
+                        quem esta consentindo o tratamento do proprio dado de
+                        saude. Abre em aba nova para nao perder o formulario. */}
+                    {documento && (
+                      <>
+                        {" "}
+                        <a
+                          className="underline decoration-dotted hover:text-cyan-200"
+                          href={documento}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Ler o documento
+                        </a>
+                      </>
+                    )}
+                  </span>
                 </label>
               ))}
             </div>
