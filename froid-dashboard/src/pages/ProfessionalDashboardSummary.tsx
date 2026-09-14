@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { FroidUser } from "../App";
+import { AgendaDoProfissional } from "../components/panels/AgendaDoProfissional";
 import { AIInsights } from "../components/panels/AIInsights";
 import { WaitingPatientSessions } from "../components/WaitingPatientSessions";
 import { apiUrl } from "../lib/api";
@@ -144,6 +145,11 @@ export const ProfessionalDashboardSummary: React.FC<Props> = ({ user, onLogout }
         ) : null}
         <WaitingPatientSessions />
 
+        {/* Duas colunas a partir de lg. `min-w-0` na coluna da esquerda nao e
+            enfeite: sem ele a tabela de pacientes, que rola na horizontal,
+            estoura a largura da grade e empurra a agenda para fora da tela. */}
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+          <div className="min-w-0 space-y-4">
         <section className="overflow-x-auto rounded-lg border border-slate-800 bg-slate-900 p-3">
           <div className="flex min-w-max items-center gap-5 text-[11px]">
             <strong className="text-sm">{tr("Resumo profissional")}</strong>
@@ -250,6 +256,10 @@ export const ProfessionalDashboardSummary: React.FC<Props> = ({ user, onLogout }
               </table>
             </div>
           </section>
+          </div>
+
+          <AgendaDoProfissional tr={tr} />
+        </div>
       </main>
     </div>
   );
