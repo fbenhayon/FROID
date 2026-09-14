@@ -210,8 +210,20 @@ export function needsProductChoice(
  *  O tipo da conta e decidido no cadastro e gravado no servidor: `nr1_company`
  *  produz organizacao `enterprise`, e a casa dela e o painel de conformidade.
  */
+/** A casa do profissional clinico.
+ *
+ *  E o dashboard RESUMIDO, nao o detalhado. Quem entra quer ver a carteira de
+ *  pacientes de uma vez; o detalhado continua a um clique, no botao do
+ *  cabecalho. Constante exportada porque LoginPage precisa reconhecer este
+ *  mesmo valor para saber quando o destino e "a casa generica" — e portanto
+ *  quando pode ceder a vez para a pagina que a pessoa tentou abrir antes de o
+ *  login ser pedido. Com o caminho escrito a mao nos dois lugares, mudar um
+ *  deles quebrava o retorno do link profundo em silencio.
+ */
+export const HOME_CLINICO = "/dashboard/resumido";
+
 export function homeDoProduto(user: UsuarioRoteavel): string {
-  return user?.access_status?.account_type === "nr1_company" ? "/nr1" : "/dashboard";
+  return user?.access_status?.account_type === "nr1_company" ? "/nr1" : HOME_CLINICO;
 }
 
 export function defaultAuthenticatedPath(

@@ -3,7 +3,11 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { defaultAuthenticatedPath, homeDoProduto } from "./product-choice";
+import {
+  defaultAuthenticatedPath,
+  HOME_CLINICO,
+  homeDoProduto,
+} from "./product-choice";
 
 /**
  * A empresa contratante do NR-1 entrava no painel CLINICO.
@@ -33,22 +37,25 @@ describe("cada conta vai para a casa do seu produto", () => {
     expect(defaultAuthenticatedPath(empresa, null)).toBe("/nr1");
   });
 
-  it("o profissional continua indo para o painel clínico", () => {
-    expect(homeDoProduto(profissional)).toBe("/dashboard");
-    expect(defaultAuthenticatedPath(profissional, null)).toBe("/dashboard");
+  it("o profissional entra no dashboard resumido", () => {
+    // A casa do clínico é o RESUMIDO: quem entra quer a carteira de pacientes
+    // de uma vez. O detalhado continua a um clique, no botão do cabeçalho.
+    expect(HOME_CLINICO).toBe("/dashboard/resumido");
+    expect(homeDoProduto(profissional)).toBe(HOME_CLINICO);
+    expect(defaultAuthenticatedPath(profissional, null)).toBe(HOME_CLINICO);
   });
 
-  it("a clínica continua indo para o painel clínico", () => {
-    expect(homeDoProduto(clinica)).toBe("/dashboard");
+  it("a clínica entra no mesmo lugar que o profissional", () => {
+    expect(homeDoProduto(clinica)).toBe(HOME_CLINICO);
   });
 
   it("conta sem tipo declarado não é mandada para o NR-1", () => {
     // Na dúvida, o caminho antigo: mandar um profissional para o painel de
     // conformidade o deixaria numa tela onde ele não tem permissão nenhuma.
     expect(homeDoProduto({ access_status: { onboarding_required: false } })).toBe(
-      "/dashboard",
+      HOME_CLINICO,
     );
-    expect(homeDoProduto(null)).toBe("/dashboard");
+    expect(homeDoProduto(null)).toBe(HOME_CLINICO);
   });
 });
 

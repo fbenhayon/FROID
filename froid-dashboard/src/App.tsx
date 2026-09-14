@@ -10,6 +10,7 @@ import {
   bloqueadoPorSaldo,
   contaTemProduto,
   defaultAuthenticatedPath,
+  HOME_CLINICO,
   homeDoProduto,
   needsProductChoice,
   onboardingRequired,
@@ -345,7 +346,7 @@ function App() {
             isAuthenticated ? (
               <Navigate to={defaultAuthenticatedPath(user, productChoice)} replace />
             ) : (
-              <LoginPage onLogin={setUser} afterLoginPath="/dashboard" />
+              <LoginPage onLogin={setUser} afterLoginPath={HOME_CLINICO} />
             )
           }
         />
@@ -364,7 +365,7 @@ function App() {
             isAuthenticated ? (
               <Navigate to={defaultAuthenticatedPath(user, productChoice)} replace />
             ) : (
-              <LoginPage onLogin={setUser} afterLoginPath="/dashboard" initialMode="criar" />
+              <LoginPage onLogin={setUser} afterLoginPath={HOME_CLINICO} initialMode="criar" />
             )
           }
         />

@@ -5,6 +5,7 @@ import { apiUrl } from "../lib/api";
 import { rememberProfessionalEmail } from "../lib/professional-prompts";
 import {
   defaultAuthenticatedPath,
+  HOME_CLINICO,
   readProductChoice,
 } from "../lib/product-choice";
 import {
@@ -61,7 +62,7 @@ const SENHA_MINIMA_PADRAO = 6;
 
 export const LoginPage: React.FC<Props> = ({
   onLogin,
-  afterLoginPath = "/dashboard",
+  afterLoginPath = HOME_CLINICO,
   initialMode = "entrar",
 }) => {
   const navigate = useNavigate();
@@ -112,7 +113,7 @@ export const LoginPage: React.FC<Props> = ({
       // tela de escolha mesmo depois de a excecao dele existir no App.
       const destino = defaultAuthenticatedPath(data.user, readProductChoice());
       navigate(
-        destino === "/dashboard" ? afterLoginPath : destino,
+        destino === HOME_CLINICO ? afterLoginPath : destino,
         { replace: true },
       );
     } catch (err: any) {

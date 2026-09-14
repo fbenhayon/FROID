@@ -65,6 +65,11 @@ export const PatientDetail: React.FC = () => {
   const [patientStatuses, setPatientStatuses] = useState<
     Record<string, PatientFollowStatus>
   >(() => loadPatientStatuses());
+  // A busca do acervo ainda esta no ar. Precisa de estado proprio: sem ele a
+  // tela caia direto no cartao "Paciente nao encontrado" enquanto o servidor
+  // ainda estava respondendo, e o profissional lia uma afirmacao definitiva
+  // sobre um paciente que estava a caminho.
+  const [carregandoAcervo, setCarregandoAcervo] = useState(true);
   const [professionalObservation, setProfessionalObservation] = useState("");
   const [observationSaving, setObservationSaving] = useState(false);
   const [observationFeedback, setObservationFeedback] = useState("");
@@ -83,11 +88,15 @@ export const PatientDetail: React.FC = () => {
           : Array.isArray(data)
             ? data
             : [];
-        if (remoteReports.length) {
-          setReports((current) => mergeReports(current, remoteReports));
-        }
+        // Aplica a resposta do servidor inclusive quando ela vem vazia, pelo
+        // mesmo motivo das outras telas: resposta boa manda, e o cache do
+        // navegador nao pode continuar no lugar dela sem ninguem saber.
+        setReports((current) => mergeReports(current, remoteReports));
       })
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => {
+        if (active) setCarregandoAcervo(false);
+      });
     return () => {
       active = false;
     };
@@ -103,6 +112,28 @@ export const PatientDetail: React.FC = () => {
   );
   const tr = (text: string) => dashboardText(locale, text);
 
+  // Enquanto o acervo nao chegou, a tela NAO afirma que o paciente nao existe.
+  // Sao duas respostas diferentes e so uma delas e definitiva.
+  if (!group && carregandoAcervo) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 p-6 text-slate-300">
+        <div
+          role="status"
+          aria-live="polite"
+          className="max-w-md rounded-lg border border-slate-800 bg-slate-900 p-6 text-center shadow-sm"
+        >
+          <div
+            aria-hidden="true"
+            className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-slate-700 border-t-cyan-400"
+          />
+          <p className="mt-4 text-sm font-semibold text-slate-200">
+            {tr("Estamos executando sua Solicitação, aguarde por favor")}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (!group) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 p-6 text-slate-300">
@@ -114,7 +145,7 @@ export const PatientDetail: React.FC = () => {
             Ainda não há relatórios locais ou sincronizados para este paciente.
           </p>
           <button
-            onClick={() => navigate("/dashboard")}
+            onClick={() => navigate(returnTo)}
             className="mt-4 rounded-lg bg-cyan-700 px-4 py-2 text-sm font-bold text-white hover:bg-cyan-800"
           >
             {tr("Voltar ao dashboard")}
