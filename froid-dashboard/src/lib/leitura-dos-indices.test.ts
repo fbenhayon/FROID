@@ -10,6 +10,11 @@ const ler = (...partes: string[]) =>
 
 const RELATORIO = ler("pages", "SessionReport.tsx");
 const GRAFICO_IPM = ler("components", "indicators", "IPMLineChart.tsx");
+// O painel por indice saiu de SessionReport e virou componente compartilhado
+// quando a tela do PACIENTE passou a usar o mesmo desenho. As afirmacoes
+// abaixo seguem as mesmas; mudou so onde o codigo mora.
+const PAINEL = ler("components", "indicators", "PainelEvolucao.tsx");
+const PACIENTE = ler("pages", "PatientDetail.tsx");
 
 /**
  * Item 1 do pedido de 02/09/2026: "gostaria que a abrangência das oscilações
@@ -81,8 +86,14 @@ describe("a janela do gráfico de IPM acompanha os dados", () => {
  */
 describe("a evolução deixou de espremer grandezas incomparáveis num eixo só", () => {
   it("cada índice ganhou o próprio painel", () => {
-    expect(RELATORIO).toContain("const PainelEvolucao");
+    expect(PAINEL).toContain("export const PainelEvolucao");
     expect(RELATORIO).toContain("<PainelEvolucao");
+  });
+
+  it("a tela do paciente usa o MESMO painel, e não uma cópia", () => {
+    // A cópia seria a quarta divergência desta semana neste projeto.
+    expect(PACIENTE).toContain("<PainelEvolucao");
+    expect(PACIENTE).toContain('from "../components/indicators/PainelEvolucao"');
   });
 
   it("o eixo compartilhado saiu junto com a normalização que o alimentava", () => {
@@ -91,21 +102,27 @@ describe("a evolução deixou de espremer grandezas incomparáveis num eixo só"
   });
 
   it("cada painel calcula a própria faixa", () => {
-    expect(RELATORIO).toContain("const menor = Math.min(...validos)");
-    expect(RELATORIO).toContain("const maior = Math.max(...validos)");
+    expect(PAINEL).toContain("const menor = Math.min(...validos)");
+    expect(PAINEL).toContain("const maior = Math.max(...validos)");
   });
 
   it("série sem leitura DIZ isso, em vez de desenhar zero", () => {
     // Uma linha reta no zero parece medida. Uma medida ausente que parece
     // medida é pior do que um espaço vazio — foi o que fez a dissonância
     // parecer inútil quando na verdade estava vazia.
-    expect(RELATORIO).toContain("sem leitura");
-    expect(RELATORIO).toContain("Nenhum corte deste período produziu valor");
+    expect(PAINEL).toContain("sem leitura");
+    expect(PAINEL).toContain("Nenhum corte deste período produziu valor");
   });
 
   it("os valores reais aparecem escritos, não só desenhados", () => {
-    expect(RELATORIO).toContain("atual.toFixed(serie.casas)");
-    expect(RELATORIO).toContain("baseline");
+    expect(PAINEL).toContain("atual.toFixed(serie.casas)");
+  });
+
+  it("a referência é nomeada por quem a fornece, e não presumida", () => {
+    // No relatório é o baseline da sessão; na tela do paciente é a 1ª sessão.
+    // Chamar as duas de "baseline" seria afirmar uma medida que não existe.
+    expect(PAINEL).toContain("referenciaRotulo");
+    expect(RELATORIO).toContain('referenciaRotulo: "baseline"');
   });
 });
 

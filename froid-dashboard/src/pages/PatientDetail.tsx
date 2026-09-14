@@ -3,6 +3,10 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { AIInsights } from "../components/panels/AIInsights";
 import { apiUrl } from "../lib/api";
 import {
+  PainelEvolucao,
+  type SerieEvolucao,
+} from "../components/indicators/PainelEvolucao";
+import {
   buildPatientGroups,
   fmt,
   deltaMedido,
@@ -911,29 +915,50 @@ const PatientMetricTable: React.FC<{
   </section>
 );
 
-const CHART_METRICS = [
-  { key: "ipm", label: "IPM", color: "#2563eb", get: (m: MetricSnapshot) => m.ipmAvg },
-  { key: "idm", label: "IDM", color: "#16a34a", get: (m: MetricSnapshot) => m.idmAvg },
-  {
-    key: "wpm",
-    label: "P/min",
-    color: "#dc2626",
-    get: (m: MetricSnapshot) => m.wordsPerMinute,
-  },
-  {
-    key: "dissonance",
-    label: "Disso.",
-    color: "#9333ea",
-    get: (m: MetricSnapshot) => m.dissonanceCount,
-  },
-  {
-    key: "subharmonic",
-    label: "Sub-H",
-    color: "#ea580c",
-    get: (m: MetricSnapshot) => m.subharmonic5_12 || 0,
-  },
+/** Os indices longitudinais do paciente.
+ *
+ *  As cores sao as do relatorio de sessao, e nao as antigas: aquelas eram de
+ *  paleta clara (#2563eb, #16a34a) desenhadas para fundo branco, e o painel
+ *  vive sobre slate-950.
+ *
+ *  `casas` segue a grandeza — IDM na segunda decimal, palavras por minuto
+ *  inteiras —, pelo mesmo motivo que cada serie tem escala propria.
+ */
+const CHART_METRICS: Array<{
+  key: string;
+  label: string;
+  color: string;
+  casas: number;
+  get: (m: MetricSnapshot) => number | null;
+}> = [
+  { key: "ipm", label: "IPM", color: "#60a5fa", casas: 1, get: (m) => m.ipmAvg },
+  { key: "idm", label: "IDM", color: "#4ade80", casas: 2, get: (m) => m.idmAvg },
+  { key: "wpm", label: "Palavras/min", color: "#fbbf24", casas: 0, get: (m) => m.wordsPerMinute },
+  { key: "dissonance", label: "Dissonancia", color: "#f87171", casas: 0, get: (m) => m.dissonanceCount },
+  { key: "subharmonic", label: "Sub-harmonico", color: "#c084fc", casas: 2, get: (m) => m.subharmonic5_12 },
 ];
 
+/**
+ * A evolucao do paciente, no mesmo desenho do relatorio de sessao.
+ *
+ * A versao anterior desenhava as cinco series SOBREPOSTAS num unico SVG, e
+ * duas coisas saiam erradas dali:
+ *
+ *  - grandezas incomparaveis dividiam o eixo. IPM perto de 50 e IDM perto de
+ *    0,04 na mesma altura achata as duas, e o olho le estabilidade onde nao ha
+ *    medida comparavel. (O relatorio de sessao ja tinha abandonado esse eixo
+ *    unico pelo mesmo motivo, em 02/09/2026.)
+ *  - `Number(metric.get(...) || 0)` fechava ausencia com ZERO. Uma sessao sem
+ *    leitura de dissonancia virava um ponto no zero, indistinguivel de "nenhuma
+ *    dissonancia observada" — que e uma afirmacao clinica. A varredura de
+ *    `ausencia-nao-vira-zero` nao pegava porque o `|| 0` estava no resultado da
+ *    chamada, e nao colado ao nome do campo.
+ *
+ * Agora cada indice tem painel e escala propria, valor nulo abre buraco na
+ * linha, e a referencia e a PRIMEIRA sessao com leitura — nomeada como tal,
+ * porque chamar isso de "baseline" seria emprestar a autoridade de uma medida
+ * que o paciente nao tem.
+ */
 const PatientEvolutionChart: React.FC<{ reports: SessionReportRecord[] }> = ({
   reports,
 }) => {
@@ -944,107 +969,45 @@ const PatientEvolutionChart: React.FC<{ reports: SessionReportRecord[] }> = ({
         new Date(b.createdAt || 0).getTime(),
     )
     .slice(-20);
-  const width = 980;
-  const height = 260;
-  const padX = 46;
-  const padY = 24;
-  const chartWidth = width - padX * 2;
-  const chartHeight = height - padY * 2;
-
-  const xFor = (index: number) =>
-    padX + (ordered.length <= 1 ? chartWidth / 2 : (index / (ordered.length - 1)) * chartWidth);
-
-  const pointsFor = (metric: (typeof CHART_METRICS)[number]) => {
-    const values = ordered.map((report) => Number(metric.get(report.sessionAverage) || 0));
-    const min = Math.min(...values, 0);
-    const max = Math.max(...values, 1);
-    const span = max - min || 1;
-    return values
-      .map((value, index) => {
-        const x = xFor(index);
-        const y = padY + chartHeight - ((value - min) / span) * chartHeight;
-        return `${x},${y}`;
-      })
-      .join(" ");
-  };
 
   if (!ordered.length) {
     return (
       <div className="mt-3 rounded border border-slate-700 bg-slate-950 p-3 text-xs text-slate-400">
-        Sem sessões suficientes para desenhar evolução longitudinal.
+        Sem sessoes suficientes para desenhar evolucao longitudinal.
       </div>
     );
   }
 
+  const rotulos = ordered.map((report) =>
+    reportEndDate(report).toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+    }),
+  );
+
+  const series: SerieEvolucao[] = CHART_METRICS.map((metric) => {
+    const valores = ordered.map((report) => {
+      const valor = metric.get(report.sessionAverage);
+      return typeof valor === "number" && Number.isFinite(valor) ? valor : null;
+    });
+    return {
+      key: metric.key,
+      label: metric.label,
+      color: metric.color,
+      valores,
+      // A primeira sessao COM leitura. Se a primeira nao mediu, a referencia
+      // nao e zero: e a primeira que mediu de verdade.
+      referencia: valores.find((valor): valor is number => valor !== null) ?? null,
+      referenciaRotulo: "1a sessao",
+      casas: metric.casas,
+    };
+  });
+
   return (
-    <div className="mt-3 overflow-x-auto rounded border border-slate-700 bg-slate-950 p-2">
-      <svg viewBox={`0 0 ${width} ${height}`} className="min-w-[760px] w-full">
-        {[0, 1, 2, 3, 4].map((line) => {
-          const y = padY + (line / 4) * chartHeight;
-          const isCenter = line === 2;
-          return (
-            <line
-              key={line}
-              x1={padX}
-              x2={width - padX}
-              y1={y}
-              y2={y}
-              stroke={isCenter ? "#94a3b8" : "#d1d5db"}
-              strokeDasharray={isCenter ? "0" : "5 5"}
-              strokeWidth={isCenter ? "1.4" : "1"}
-            />
-          );
-        })}
-        {ordered.map((report, index) => {
-          const x = xFor(index);
-          return (
-            <g key={report.sessionId}>
-              <line
-                x1={x}
-                x2={x}
-                y1={padY}
-                y2={height - padY}
-                stroke="#e5e7eb"
-                strokeWidth="1"
-              />
-              <text
-                x={x}
-                y={height - 4}
-                textAnchor="middle"
-                fontSize="10"
-                fill="#111827"
-              >
-                {reportEndDate(report).toLocaleDateString("pt-BR", {
-                  day: "2-digit",
-                  month: "2-digit",
-                })}
-              </text>
-            </g>
-          );
-        })}
-        {CHART_METRICS.map((metric) => (
-          <polyline
-            key={metric.key}
-            points={pointsFor(metric)}
-            fill="none"
-            stroke={metric.color}
-            strokeWidth="3"
-            strokeLinejoin="round"
-            strokeLinecap="round"
-          />
-        ))}
-      </svg>
-      <div className="mt-2 flex flex-wrap gap-3 text-[10px] font-bold">
-        {CHART_METRICS.map((metric) => (
-          <span key={metric.key} className="inline-flex items-center gap-1">
-            <span
-              className="inline-block h-2 w-5"
-              style={{ backgroundColor: metric.color }}
-            />
-            {metric.label}
-          </span>
-        ))}
-      </div>
+    <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+      {series.map((serie) => (
+        <PainelEvolucao key={serie.key} serie={serie} rotulos={rotulos} />
+      ))}
     </div>
   );
 };
