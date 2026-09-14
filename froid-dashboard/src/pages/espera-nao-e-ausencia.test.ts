@@ -64,6 +64,38 @@ describe("a tela do paciente distingue esperar de não encontrar", () => {
  */
 const LOGIN = readFileSync(join(__dirname, "LoginPage.tsx"), "utf-8");
 
+const APP = readFileSync(join(__dirname, "..", "App.tsx"), "utf-8");
+
+/**
+ * "Nao pedi nada" e "pedi o painel detalhado" chegavam identicos.
+ *
+ * `protectedElement` montava o afterLoginPath com
+ * `window.location.hash.replace(/^#/, "") || "/dashboard"`. O fallback e o
+ * hash deixado por uma sessao anterior produziam a MESMA string, e como o
+ * LoginPage cede a vez para o afterLoginPath quando o destino e a casa
+ * generica, o profissional voltava ao painel detalhado depois de entrar —
+ * mesmo com a casa dele ja apontando para o resumido.
+ */
+describe("as portas de entrada caem na casa, nao no detalhado", () => {
+  it("nao usa mais /dashboard como destino de quem nao pediu nada", () => {
+    expect(APP).not.toContain('window.location.hash.replace(/^#/, "") || "/dashboard"');
+    expect(APP).toContain("semDestinoProprio");
+    expect(APP).toContain("afterLoginPath={semDestinoProprio ? HOME_CLINICO : hash}");
+  });
+
+  it("trata as portas de entrada como ausencia de destino", () => {
+    for (const porta of ['hash === "/"', 'hash === "/dashboard"',
+                         'hash.startsWith("/login")', 'hash.startsWith("/registrar")']) {
+      expect(APP).toContain(porta);
+    }
+  });
+
+  it("link profundo de verdade continua respeitado", () => {
+    // A lista de excecoes e fechada: qualquer outra rota cai no `hash`.
+    expect(APP).toContain("? HOME_CLINICO : hash");
+  });
+});
+
 describe("o login não perde o link profundo ao mudar a casa do clínico", () => {
   it("compara com a constante, não com um caminho escrito à mão", () => {
     expect(LOGIN).toContain("destino === HOME_CLINICO ? afterLoginPath : destino");

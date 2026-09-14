@@ -231,11 +231,33 @@ function App() {
       );
     }
     if (!isAuthenticated) {
-      const currentPath =
+      // Para onde voltar depois de entrar.
+      //
+      // "/dashboard" NAO conta como destino pedido. Era o valor que este
+      // proprio fallback usava quando nao havia hash nenhuma, e e tambem o que
+      // a URL guarda de uma sessao anterior — entao "a pessoa pediu o painel
+      // detalhado" e "a pessoa nao pediu nada" chegavam aqui identicos. Como o
+      // LoginPage cede a vez para afterLoginPath, o profissional era devolvido
+      // ao detalhado depois do login, apesar de a casa dele ser o resumido.
+      //
+      // Link profundo de verdade (um paciente, um relatorio, o NR-1) continua
+      // sendo respeitado: so as portas de entrada caem na casa.
+      const hash =
         typeof window !== "undefined"
-          ? window.location.hash.replace(/^#/, "") || "/dashboard"
-          : "/dashboard";
-      return <LoginPage onLogin={setUser} afterLoginPath={currentPath} />;
+          ? window.location.hash.replace(/^#/, "")
+          : "";
+      const semDestinoProprio =
+        !hash
+        || hash === "/"
+        || hash === "/dashboard"
+        || hash.startsWith("/login")
+        || hash.startsWith("/registrar");
+      return (
+        <LoginPage
+          onLogin={setUser}
+          afterLoginPath={semDestinoProprio ? HOME_CLINICO : hash}
+        />
+      );
     }
     return element;
   };
