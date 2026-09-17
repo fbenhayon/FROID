@@ -223,7 +223,7 @@ const ScoreBar: React.FC<{ label: string; value: number; color: string; locale: 
         width={320}
         content={
           <div>
-            <p className="font-bold text-slate-900">{label}</p>
+            <p className="font-bold text-slate-100">{label}</p>
             <p className="mt-1">{tooltipText(locale, SIGNAL_TOOLTIPS[label] || "Indicador médio da carteira do paciente.")}</p>
           </div>
         }
@@ -1021,7 +1021,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                             width={300}
                             content={
                               <div>
-                                <p className="font-bold text-slate-900">{cell.label}</p>
+                                <p className="font-bold text-slate-100">{cell.label}</p>
                                 <p className="mt-1">
                                   {tooltipText(defaultSessionLocale, METRIC_TOOLTIPS[cell.key] || "Métrica média consolidada das sessões do paciente.")}
                                 </p>
@@ -1074,7 +1074,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                             width={300}
                             content={
                               <div>
-                                <p className="font-bold text-slate-900">{cell.label}</p>
+                                <p className="font-bold text-slate-100">{cell.label}</p>
                                 <p className="mt-1">
                                   {tooltipText(defaultSessionLocale, METRIC_TOOLTIPS[cell.key] || "Métrica desta sessão no acompanhamento do paciente.")}
                                 </p>

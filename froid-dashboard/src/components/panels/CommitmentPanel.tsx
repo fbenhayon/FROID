@@ -116,9 +116,9 @@ export const CommitmentPanel: React.FC<Props> = ({ commitments }) => {
             </p>
             <FroidTooltip content={
               <div className="max-w-[320px] space-y-1">
-                <p className="font-bold text-slate-900 text-xs">{model.title}</p>
-                {model.lines.map((l, idx) => <p key={idx} className="text-slate-600 text-[11px] leading-snug">• {l}</p>)}
-                <p className="text-[10px] text-slate-400 mt-1 pt-1 border-t border-slate-100">Baseado na ativação das zonas: {c.zones.join(", ")}</p>
+                <p className="font-bold text-slate-100 text-xs">{model.title}</p>
+                {model.lines.map((l, idx) => <p key={idx} className="text-slate-300 text-[11px] leading-snug">• {l}</p>)}
+                <p className="text-[10px] text-slate-400 mt-1 pt-1 border-t border-slate-700">Baseado na ativação das zonas: {c.zones.join(", ")}</p>
               </div>
             } width={340}>
               <button className="mt-1 text-[9px] font-bold text-blue-600 hover:text-blue-800 cursor-pointer bg-transparent border-none p-0">

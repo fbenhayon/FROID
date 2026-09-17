@@ -32,7 +32,7 @@ export const CoherenceLine: React.FC<Props> = ({ status }) => {
           width={340}
           content={
             <div className="space-y-1">
-              <p className="font-bold text-slate-900">Sincronia Voz-Face</p>
+              <p className="font-bold text-slate-100">Sincronia Voz-Face</p>
               <p>
                 Mede o quanto a expressão vocal e a facial acompanham, em tempo
                 real, o conteúdo que o paciente verbaliza. Quanto maior a
@@ -40,7 +40,7 @@ export const CoherenceLine: React.FC<Props> = ({ status }) => {
                 dissonância aponta possível conteúdo mascarado ou conflito
                 interno.
               </p>
-              <p className="border-t border-slate-100 pt-1">
+              <p className="border-t border-slate-700 pt-1">
                 <span className="font-bold" style={{ color: meta.color }}>{meta.label}:</span>{" "}
                 {STATE_HELP[meta.label]}
               </p>

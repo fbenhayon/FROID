@@ -35,7 +35,7 @@ export function FroidTooltip({
       {children}
       {show && rect && (
         <div
-          className="fixed z-[9999] max-h-[70vh] max-w-[calc(100vw-24px)] -translate-x-1/2 -translate-y-full overflow-y-auto rounded-lg border border-slate-200 bg-white p-3 text-[11px] leading-snug text-slate-700 shadow-xl"
+          className="fixed z-[9999] max-h-[70vh] max-w-[calc(100vw-24px)] -translate-x-1/2 -translate-y-full overflow-y-auto rounded-md border border-cyan-900 bg-slate-950 p-3 text-[11px] leading-snug text-slate-200 shadow-xl"
           style={{ width: safeWidth, left, top }}
         >
           {content}
@@ -65,7 +65,7 @@ export function ZoneTooltip({ zoneId, children }: { zoneId: number; children: Re
     <FroidTooltip
       content={
         <div className="space-y-1">
-          <p className="font-bold text-slate-900">Zona {zoneId}</p>
+          <p className="font-bold text-slate-100">Zona {zoneId}</p>
           <p>{desc}</p>
           <p className="text-[10px] text-slate-400 uppercase tracking-wider">Clique para isolar</p>
         </div>
@@ -94,7 +94,7 @@ export function ColorTooltip({ color, children }: { color: import("../../lib/fro
     <FroidTooltip
       content={
         <div className="space-y-1">
-          <p className="font-bold" style={{ color: hex[color] || "#000" }}>{color}</p>
+          <p className="font-bold" style={{ color: hex[color] || "#e2e8f0" }}>{color}</p>
           <p>{meanings[color] || ""}</p>
         </div>
       }
