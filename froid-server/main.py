@@ -7218,6 +7218,49 @@ async def submit_facial_aus(session_id: str, request: Request):
     }
 
 
+async def _recusar_websocket(websocket: WebSocket, code: int) -> None:
+    """Recusa que CHEGA ao outro lado.
+
+    O `accept()` aqui nao e cortesia: e o canal. Fechar um WebSocket ANTES de
+    aceitar nao entrega codigo nenhum — o uvicorn transforma o `websocket.close`
+    pre-handshake num HTTP 403 e descarta o codigo inteiro
+    (`uvicorn/protocols/websockets/websockets_impl.py`, no ramo
+    `message_type == "websocket.close"` de antes do handshake: ele so guarda
+    `initial_response = (HTTPStatus.FORBIDDEN, [], b"")`). O navegador nao ve
+    4401 nem 4403: ve o handshake falhar, e entrega ao `onclose` o codigo 1006.
+
+    O estrago media-se em consultorio. 1006 nao esta na lista de codigos
+    terminais do cliente, entao `shouldReconnectRtcSignaling` autoriza a
+    reconexao — oito vezes, com recuo exponencial, cerca de 23 segundos contra
+    uma recusa que e deterministica e nunca vai mudar de ideia. Depois disso a
+    tela mostra a frase generica ("nao foi possivel manter a conexao"), e as
+    quatro frases que existem para dizer o motivo — conta errada, saldo,
+    convite invalido, cadastro pendente — nunca podem aparecer. Elas foram
+    escritas, testadas, e eram inalcancaveis.
+
+    Do lado do profissional o sintoma e pior que a frase errada: se quem foi
+    recusado e o PACIENTE, ele nunca entra na sala, nenhum `peer-joined` chega,
+    nenhuma oferta e feita, e o painel fica em "Aguardando paciente..." para
+    sempre — sem nada na tela que diga que houve uma recusa. Apurado em
+    19/09/2026, depois de uma sessao real abandonada apos 2min30 de espera.
+
+    Aceitar primeiro custa um handshake e faz o motivo chegar. O ramo de papel
+    invalido desta mesma rota ja fazia certo desde sempre; era o unico, e por
+    isso era o unico cujo erro o cliente via.
+
+    O texto de cada codigo NAO viaja daqui: quem o escreve e
+    `motivoDaRecusaDeSinalizacao`, no cliente. Duas versoes da mesma frase em
+    lados diferentes divergem — e o cliente e quem sabe em que idioma a pessoa
+    esta lendo.
+    """
+    try:
+        await websocket.accept()
+        await websocket.close(code=code)
+    except Exception:
+        # Cliente que ja desistiu do handshake. Nao ha a quem informar.
+        pass
+
+
 @app.websocket("/ws/fusion/{session_id}")
 async def websocket_fusion(websocket: WebSocket, session_id: str):
     token = str(websocket.query_params.get("token") or "")
@@ -7227,7 +7270,7 @@ async def websocket_fusion(websocket: WebSocket, session_id: str):
             action="connect", session_id=session_id, role="professional",
             outcome="denied",
         )
-        await websocket.close(code=4401)
+        await _recusar_websocket(websocket, 4401)
         return
     try:
         context = _require_professional_websocket_access(user)
@@ -7236,14 +7279,14 @@ async def websocket_fusion(websocket: WebSocket, session_id: str):
             action="connect", session_id=session_id, role="professional",
             outcome="denied",
         )
-        await websocket.close(code=4402 if exc.status_code == 402 else 1013)
+        await _recusar_websocket(websocket, 4402 if exc.status_code == 402 else 1013)
         return
     if not _session_matches_context(session_id, context):
         await _record_websocket_audit(
             action="connect", session_id=session_id, role="professional",
             outcome="denied", context=context,
         )
-        await websocket.close(code=4403)
+        await _recusar_websocket(websocket, 4403)
         return
     connection_id = await manager.connect(websocket, session_id)
     await _record_websocket_audit(
@@ -7289,7 +7332,7 @@ async def websocket_rtc_signaling(websocket: WebSocket, session_id: str, role: s
                 action="connect", session_id=session_id, role=role,
                 outcome="denied",
             )
-            await websocket.close(code=4401)
+            await _recusar_websocket(websocket, 4401)
             return
         try:
             context = _require_professional_websocket_access(user)
@@ -7298,14 +7341,14 @@ async def websocket_rtc_signaling(websocket: WebSocket, session_id: str, role: s
                 action="connect", session_id=session_id, role=role,
                 outcome="denied",
             )
-            await websocket.close(code=4402 if exc.status_code == 402 else 1013)
+            await _recusar_websocket(websocket, 4402 if exc.status_code == 402 else 1013)
             return
         if not _session_matches_context(session_id, context):
             await _record_websocket_audit(
                 action="connect", session_id=session_id, role=role,
                 outcome="denied", context=context,
             )
-            await websocket.close(code=4403)
+            await _recusar_websocket(websocket, 4403)
             return
     else:
         invite_token = str(websocket.query_params.get("invite") or "")
@@ -7324,7 +7367,7 @@ async def websocket_rtc_signaling(websocket: WebSocket, session_id: str, role: s
                 action="connect", session_id=session_id, role=role,
                 outcome="denied",
             )
-            await websocket.close(code=4403)
+            await _recusar_websocket(websocket, 4403)
             return
 
     await rtc_signals.connect(websocket, session_id, role)

@@ -60,13 +60,20 @@ WEBRTC = (
 
 
 def _trecho_da_sinalizacao() -> str:
-    """So o hub e a rota de sinalizacao, para nao varrer o main inteiro."""
+    """So o hub e as rotas de WebSocket, para nao varrer o main inteiro.
+
+    O recorte passou a comecar em `_recusar_websocket` (19/09/2026), e com isso
+    entrou tambem a rota `/ws/fusion`. Antes ele pulava as duas coisas, e o
+    efeito nao era teorico: as recusas da fusion nunca foram conferidas por este
+    arquivo, e as da sinalizacao deixariam de ser no dia em que saissem de um
+    `close(` literal — que foi exatamente o que aconteceu.
+    """
     inicio = MAIN.index("class RtcSignalManager")
     fim = MAIN.index("def _decode_audio_bytes")
     hub = MAIN[inicio:fim]
-    rota_inicio = MAIN.index('@app.websocket("/ws/rtc/{session_id}/{role}")')
-    rota_fim = MAIN.index("@app.get", rota_inicio)
-    return hub + MAIN[rota_inicio:rota_fim]
+    rotas_inicio = MAIN.index("async def _recusar_websocket")
+    rotas_fim = MAIN.index("@app.get", MAIN.index('@app.websocket("/ws/rtc/'))
+    return hub + MAIN[rotas_inicio:rotas_fim]
 
 
 TRECHO = _trecho_da_sinalizacao()
@@ -126,14 +133,24 @@ class TodoFechamentoTemTratamento(unittest.TestCase):
 
     @property
     def codigos_do_servidor(self) -> set:
-        """Todo numero que aparece dentro de um close(...) da sinalizacao.
+        """Todo numero de fechamento que a sinalizacao emite.
 
         Pega tanto `close(code=4401)` quanto a forma condicional
         `close(code=4402 if ... else 1013)` — foi o 1013 dessa segunda forma
         que passou despercebido.
+
+        E pega tambem `_recusar_websocket(websocket, 4403)`. Em 19/09/2026 as
+        recusas passaram a ir por esse helper, porque fechar antes do `accept()`
+        fazia o uvicorn descartar o codigo e responder HTTP 403 — o cliente via
+        1006 e reconectava oito vezes contra uma recusa deterministica. Sem
+        acrescentar a forma nova aqui, esta varredura encontraria apenas
+        {4000, 1008} e daria por cumprida uma garantia que teria parado de
+        valer: o teste continuaria verde e vazio.
         """
         codigos: set = set()
-        for chamada in re.findall(r"close\(([^)]*)\)", TRECHO):
+        chamadas = re.findall(r"close\(([^)]*)\)", TRECHO)
+        chamadas += re.findall(r"_recusar_websocket\(([^)]*)\)", TRECHO)
+        for chamada in chamadas:
             codigos.update(int(n) for n in re.findall(NUMERO_DE_CODIGO, chamada))
         return codigos
 
