@@ -355,10 +355,17 @@ class AsRestricoesProibemODefeitoObservado(unittest.TestCase):
         O que se afirma agora e a exigencia, nao o formato dela: a resposta tem
         de dizer o que fazer com a medida e o detalhe da formula que muda a
         leitura.
+
+        Em 19/09/2026 a redacao mudou de novo: o movimento 4 deixou de se
+        chamar "o que fazer com isso agora" e passou a "as leituras candidatas,
+        e o que as separa", fechando no passo concreto. A exigencia nao mudou —
+        mudou a frase — entao o teste continua, citando agora o passo concreto
+        em si. Ele esta escrito duas vezes no prompt, no movimento 4 e no
+        contrato: se o movimento cair, as duas caem com ele e este caso reprova.
         """
         instrucao = _sem_quebra(explica_clinico.instrucao())
-        self.assertIn("o que fazer com isso agora", instrucao)
-        self.assertIn("cruzamento concreto", instrucao)
+        self.assertIn("o trecho que vale reouvir", instrucao)
+        self.assertIn("confirma ou derruba", instrucao)
         self.assertIn("detalhe da formula que muda a leitura", instrucao)
 
     def test_a_instrucao_limita_o_tamanho_da_resposta(self):

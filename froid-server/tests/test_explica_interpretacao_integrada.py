@@ -115,7 +115,7 @@ class NuncaUmaMetricaIsoladaTests(unittest.TestCase):
 
     def test_os_quatro_movimentos_estao_todos_la(self):
         for movimento in ("regua deste paciente", "indices de sintese",
-                          "linguagem funcional", "fazer com isso agora"):
+                          "dito com todas as letras", "leituras candidatas"):
             with self.subTest(movimento=movimento):
                 self.assertIn(movimento.lower(), BAIXA)
 
@@ -130,30 +130,49 @@ class NuncaUmaMetricaIsoladaTests(unittest.TestCase):
         self.assertIn("sem lista numerada", CONTRATO)
 
 
-class AConclusaoNaoAtravessaAFronteiraTests(unittest.TestCase):
-    """Ser conclusivo nao e o mesmo que diagnosticar.
+class AConclusaoEDecisivaSemAtravessarALinhaTests(unittest.TestCase):
+    """Decisao do dono, 19/09/2026: parar de se esconder.
 
-    Se alguem reescrever o bloco permitindo nomear condicao, estes casos caem —
-    e essa e uma decisao do dono, tomada de olhos abertos, nao um efeito
+    "devemos encontrar uma forma de ser mais decisivos, pontuais e coerentes em
+    detrimento a nos escondermos atras de uma covardia e medo de dizer a verdade
+    apurada (...) somente seja ameno se for possivel, caso contrario vamos
+    expressar claramente as nossas conclusoes."
+
+    A sintese aplicada: nomear as leituras candidatas COM o discriminador e o
+    dado que as separa e decisivo, util e defensavel; afirmar a condicao como
+    fato nao e — nao por prudencia, mas porque nenhum indice tem validade
+    convergente e o Anexo II do contrato assinado declara que o servico nao
+    realiza diagnostico.
+
+    Se um dia a decisao for atravessar tambem essa linha, estes casos caem — de
+    olhos abertos, que e como se toma uma decisao dessas, e nao como efeito
     colateral de uma edicao de prompt.
     """
 
-    def test_proibe_nomear_condicao(self):
-        self.assertIn("nao nomeia condicao", BAIXA)
-        self.assertIn("ansiedade", BAIXA)
+    def test_proibe_afirmar_condicao_como_fato(self):
+        self.assertIn("afirmar uma condicao como fato", BAIXA)
+        self.assertIn("o paciente tem ansiedade", BAIXA)
+        self.assertIn("escore de risco", BAIXA)
 
-    def test_proibe_afirmar_mecanismo_interno(self):
-        self.assertIn("mecanismo interno", BAIXA)
+    def test_o_motivo_e_falta_de_base_e_nao_cautela(self):
+        # Se o motivo fosse "cautela", a proxima edicao do prompt o removeria
+        # como excesso de zelo. O motivo e que a base nao existe, e isso e
+        # verificavel: nenhum indice tem validade convergente medida.
+        self.assertIn("nao por cautela", BAIXA)
+        self.assertIn("norma populacional", BAIXA)
+        self.assertIn("anexo ii", BAIXA)
 
-    def test_as_regras_6_e_7_continuam_valendo_sobre_o_bloco_novo(self):
-        self.assertIn("regras 6 e 7", BAIXA)
-        self.assertIn("nao sao afrouxadas", BAIXA)
-        # E continuam no texto de onde vieram.
+    def test_nao_descreve_mecanismo_interno_que_o_froid_nao_mede(self):
+        self.assertIn("mecanismo interno que o froid nao mede", BAIXA)
         self.assertIn("SINAL ACUSTICO NAO VIRA FISIOLOGIA", explica_clinico._REGRAS)
-        self.assertIn("NAO DIAGNOSTIQUE", explica_clinico._REGRAS)
 
-    def test_a_hipotese_clinica_continua_sendo_do_profissional(self):
-        self.assertIn("hipotese clinica e do profissional", BAIXA)
+    def test_a_regra_7_deixou_de_ser_ordem_de_calar(self):
+        # Determinacao do dono, 19/09/2026: a regra existia e estava sendo lida
+        # como licenca para respostas mornas. Ela continua proibindo o
+        # diagnostico e passa a EXIGIR a leitura candidata.
+        regras = _corrido(explica_clinico._REGRAS)
+        self.assertIn("nao e ordem de calar nem de amenizar", regras)
+        self.assertIn("leituras candidatas", regras)
 
 
 class AusenciaNaoVirarSuposicaoTests(unittest.TestCase):
