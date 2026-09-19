@@ -257,7 +257,12 @@ class SessionState:
         self.activation_center = centro
         self.activation_scale = max(mad, self.ACTIVATION_SCALE_FLOOR)
 
-    def _payload_sem_apuracao(self, motivo: str, face_medida: bool = False) -> dict:
+    def _payload_sem_apuracao(
+        self,
+        motivo: str,
+        face_medida: bool = False,
+        audio_chegou: bool = False,
+    ) -> dict:
         """O tick que nao mediu o espectro, dizendo isso — e sem perder o que MEDIU.
 
         Determinacao do dono do produto em 02/09/2026, e ela e absoluta:
@@ -280,6 +285,32 @@ class SessionState:
         `audio_meta["f0_mean"]` nao pode quebrar so porque nao houve apuracao —
         e foi exatamente assim que quatro testes de integracao quebraram quando
         a primeira versao deste metodo devolveu um dicionario menor.
+
+        `audio_chegou` separa as DUAS ausencias que este payload representava
+        com a mesma palavra, e que nao sao o mesmo problema nem de longe:
+
+          FALSO  — o PCM do paciente nao chegou ao motor. Microfone negado,
+                   captura bloqueada, conexao caida. E falha, e cada segundo
+                   assim e perda irrecuperavel.
+          VERDADE — o PCM chegou e a janela nao tinha voz vozeada. O paciente
+                   esta calado enquanto o profissional fala. Nao e falha: e
+                   metade de qualquer consulta.
+
+        Ate 19/09/2026 so viajava a prosa de `motivo_sem_apuracao`, que
+        distingue as duas e que nenhuma tela lia. O painel contava as duas
+        juntas e acendia o alarme vermelho "confira a permissao de microfone"
+        a cada cinco segundos de silencio do paciente — sobre um microfone que
+        estava funcionando. Voltava a apagar na primeira silaba, e o
+        profissional via um alarme piscando a sessao inteira. Alarme que pisca
+        deixa de ser lido, e o dia em que o microfone cair de verdade ele vai
+        parecer mais uma piscada.
+
+        O padrao desta casa: a peca existia, estava correta, e nada a
+        consumia. O que faltava era um campo que se pudesse LER — casar por
+        pedaco da frase em portugues seria trocar um defeito por outro.
+
+        O default e FALSO de proposito: quem nao souber responder cai no lado
+        que alarma. Falhar fechado vale tambem para diagnostico.
         """
         f0_medida = self.latest_f0_mean > 0.0
         return {
@@ -325,6 +356,12 @@ class SessionState:
                 # regra na outra direcao: apurar e nao informar.
                 "facial_real": face_medida,
                 "voice_features_source": "sem_apuracao",
+                # Falha de captura e paciente calado saem daqui com nomes
+                # diferentes. Ver o docstring: com um nome so, o painel
+                # alarmava sobre silencio.
+                "estado_da_captura": (
+                    "sem_vozeamento" if audio_chegou else "sem_audio"
+                ),
                 "facs_source": "real_facs" if face_medida else "sem_apuracao",
                 "f0_source": "yin_pcm" if f0_medida else "sem_apuracao",
                 "baseline_locked": self.baseline_locked,
@@ -533,6 +570,9 @@ class SessionState:
                     else ""
                 ),
                 face_medida=face_medida,
+                # `tem_espectro` e a propria pergunta "o PCM chegou?": a janela
+                # com sinal e sem vozeamento tem espectro e nao tem voz.
+                audio_chegou=tem_espectro,
             )
         voice_spectral_12 = np.asarray(real["voice_spectral_12"], dtype=np.float64)
         # Se há marcações FACIAIS REAIS (blendshapes do navegador -> AUs FACS),
@@ -1113,6 +1153,10 @@ class SessionState:
                 "voice_features_source": (
                     "real_pcm" if (real and "zcr" in real) else "sem_apuracao"
                 ),
+                # O mesmo conjunto de chaves do payload sem apuracao: quem le
+                # `estado_da_captura` nao pode quebrar no tick que mediu.
+                # Chegar aqui ja exige `tem_voz_medida`.
+                "estado_da_captura": "medida",
                 "facs_source": facs_source,
                 "facial_action_units": self.latest_facial_aus if facs_source == "real_facs" else None,
                 "jitter_unit": "internal_proxy_0_2_spectral_dispersion",

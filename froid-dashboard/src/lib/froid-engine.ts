@@ -80,6 +80,17 @@ export interface AcousticBiomarkers {
   f0_source?: string;
   loudness_dbfs?: number;
   voice_features_source?: "real_pcm" | "sem_apuracao" | string;
+  /** Por que nao houve voz medida nesta janela — e a diferenca entre falha e
+   *  paciente calado.
+   *
+   *  `sem_audio` e falha de captura: o PCM nao chegou ao motor. `sem_vozeamento`
+   *  e o PCM chegando sem voz vozeada — o paciente ouvindo enquanto o
+   *  profissional fala, que e metade de qualquer consulta.
+   *
+   *  `voice_features_source` colapsa as duas em `sem_apuracao`, e quem tratar
+   *  as duas igual vai alarmar sobre silencio. Ausente em payload de motor
+   *  anterior a 19/09/2026. */
+  estado_da_captura?: "medida" | "sem_vozeamento" | "sem_audio" | string;
   facs_source?: "real_facs" | "sem_apuracao" | string;
   facial_action_units?: Record<string, number> | null;
   zcr?: number;

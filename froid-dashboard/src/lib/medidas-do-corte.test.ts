@@ -233,9 +233,20 @@ describe("o painel avisa quando a leitura não está entrando", () => {
     readFileSync(join(__dirname, "..", "pages", "LiveSession.tsx"), "utf-8"),
   );
 
+  // A asserção acústica deste teste exigia, literalmente,
+  // `meta.voice_features_source === "real_pcm"` dentro de `LiveSession.tsx`.
+  // Ela guardava o MECANISMO, e o mecanismo era o defeito: aquela comparação
+  // trata "o áudio não chegou" e "o paciente está calado" como a mesma coisa,
+  // e foi ela que fez o alarme do microfone piscar a sessão inteira em
+  // 19/09/2026, sobre um microfone intacto.
+  //
+  // A regra mudou de casa para poder ser testada por comportamento
+  // (`estado-da-captura.test.ts`), e não por `grep` no fonte — que confirma que
+  // a linha existe, nunca que ela decide certo. O que se guarda aqui é o que
+  // continua sendo verdade: o painel consome a procedência a cada tique.
   it("lê a procedência que o motor já declarava a cada tique", () => {
     expect(LIVE).toContain('meta.facs_source === "real_facs"');
-    expect(LIVE).toContain('meta.voice_features_source === "real_pcm"');
+    expect(LIVE).toContain("contarCaptura");
   });
 
   // Três layouts (detalhada, simplificada e a terceira). Um aviso que só existe

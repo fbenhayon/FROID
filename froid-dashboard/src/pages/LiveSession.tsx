@@ -39,6 +39,10 @@ import {
   DissonanceEvent,
   EvidentMarker,
 } from "../lib/froid-engine";
+import {
+  contarCaptura,
+  TIQUES_DE_CAPTURA_ZERADOS,
+} from "../lib/estado-da-captura";
 import { getAUDetails, ZONE_CLINICAL_DESCRIPTIONS } from "../lib/froid-data";
 import {
   STATUS_CLASSES,
@@ -810,8 +814,30 @@ const CameraDesligada: React.FC = () => {
  *  `froid_stream_loop`), então cinco tiques são cinco segundos. Não é um
  *  limiar escolhido no escuro: abaixo disso o aviso piscaria a cada vez que o
  *  paciente virasse a cabeça ou fizesse uma pausa, e um aviso que pisca deixa
- *  de ser lido. Acima, o profissional perderia meia sessão antes de saber. */
+ *  de ser lido. Acima, o profissional perderia meia sessão antes de saber.
+ *
+ *  Cinco só vale para a FALHA. Contava também o silêncio do paciente, e aí o
+ *  limiar estava errado por construção — não por ser cinco: uma pausa de seis
+ *  segundos não é defeito nenhum, e nenhum número consertaria isso. Ver
+ *  `TIQUES_ATE_NOTAR_SILENCIO`. */
 const TIQUES_ATE_AVISAR = 5;
+
+/** Tiques de áudio chegando SEM voz vozeada até dizer alguma coisa.
+ *
+ *  Este limiar é PROVISÓRIO e eu não tenho como sustentá-lo com medida: não
+ *  existe apuração da distribuição de silêncios do paciente em sessão real. O
+ *  número que o sustentaria é direto de obter — a série de `estado_da_captura`
+ *  por tique já viaja em toda sessão; contar os comprimentos de sequência
+ *  `sem_vozeamento` em algumas dezenas de sessões dá o percentil, e o limiar
+ *  sai dele. Enquanto isso não for medido, 60 é uma escolha conservadora e
+ *  está aqui declarada como tal.
+ *
+ *  Conservadora para que lado: alto demais atrasa o aviso do microfone fraco;
+ *  baixo demais volta a falar sobre silêncio normal, que é o defeito que este
+ *  trabalho foi corrigir. Errar para o lado de calar é o menos danoso, porque
+ *  a falha de captura DE VERDADE tem o alarme vermelho dela, em cinco
+ *  segundos, por outro caminho. */
+const TIQUES_ATE_NOTAR_SILENCIO = 60;
 
 /**
  * O aviso que faltava: a ausência de leitura não se anunciava.
@@ -840,11 +866,20 @@ const TIQUES_ATE_AVISAR = 5;
 const AvisoDeApuracao: React.FC<{
   semFace: boolean;
   semVoz: boolean;
+  /** Áudio chegando, sem voz vozeada, há muito tempo. NÃO é o mesmo que
+   *  `semVoz`, e é por confundir os dois que este aviso piscava. */
+  silencioProlongado: boolean;
   presencialSemCamera: boolean;
   /** O motivo que o dispositivo do paciente relatou. Vazio quando ele nao
    *  relatou nada — e ai o aviso diz o que conferir, sem inventar a causa. */
   causaNoPaciente: string;
-}> = ({ semFace, semVoz, presencialSemCamera, causaNoPaciente }) => {
+}> = ({
+  semFace,
+  semVoz,
+  silencioProlongado,
+  presencialSemCamera,
+  causaNoPaciente,
+}) => {
   if (presencialSemCamera) {
     return (
       <div className="absolute bottom-3 left-[1.6cm] right-3 z-20 rounded-lg border border-slate-500/50 bg-slate-950/80 px-3 py-2 text-[10px] font-semibold leading-4 text-slate-300 backdrop-blur-sm">
@@ -854,7 +889,32 @@ const AvisoDeApuracao: React.FC<{
       </div>
     );
   }
-  if (!semFace && !semVoz) return null;
+  const temFalha = semFace || semVoz;
+  // Com o alarme vermelho de voz na tela, acrescentar "e está sem vozeamento"
+  // é dizer a mesma coisa duas vezes, com a segunda contradizendo a primeira:
+  // uma fala de captura quebrada, a outra de captura funcionando.
+  const notarSilencio = silencioProlongado && !semVoz;
+  if (!temFalha && !notarSilencio) return null;
+  if (!temFalha) {
+    // Calmo, e nunca vermelho: aqui o áudio ESTÁ chegando. A cor tem de
+    // distinguir "conserte agora" de "fique sabendo", senão o profissional
+    // aprende a ignorar as duas.
+    return (
+      <div className="absolute bottom-3 left-[1.6cm] right-3 z-20 rounded-lg border border-slate-500/50 bg-slate-950/80 px-3 py-2 text-[10px] font-semibold leading-4 text-slate-300 backdrop-blur-sm">
+        <p className="m-0">
+          <strong>Sem voz vozeada há {TIQUES_ATE_NOTAR_SILENCIO} segundos.</strong>{" "}
+          O áudio do paciente está chegando — o microfone está funcionando. Se
+          ele estiver em silêncio, não há nada a corrigir: F0, MFCC e
+          sub-harmônicos só saem de fala vozeada, e esta janela não terá
+          nenhum deles.
+        </p>
+        <p className="m-0 mt-1 font-normal text-slate-400">
+          Se ele estiver falando e isto continuar, o sinal está fraco demais
+          para ser medido: aproxime o aparelho da boca dele.
+        </p>
+      </div>
+    );
+  }
   return (
     <div className="absolute bottom-3 left-[1.6cm] right-3 z-20 rounded-lg border border-red-400/60 bg-red-950/85 px-3 py-2 text-[10px] font-semibold leading-4 text-red-100 backdrop-blur-sm">
       {semFace && (
@@ -2563,7 +2623,12 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   // O motivo que o dispositivo do paciente relata pela sinalizacao.
   const [causaAcusticaNoPaciente, setCausaAcusticaNoPaciente] = useState("");
   const [tiquesSemFace, setTiquesSemFace] = useState(0);
-  const [tiquesSemVoz, setTiquesSemVoz] = useState(0);
+  // Falha de captura e paciente calado, contados SEPARADO. A regra que os
+  // separa mora em `estado-da-captura.ts`, com teste: contá-los juntos fez o
+  // alarme do microfone piscar a sessão inteira em 19/09/2026.
+  const [tiquesDeCaptura, setTiquesDeCaptura] = useState(
+    TIQUES_DE_CAPTURA_ZERADOS,
+  );
   const [dissonanceLog, setDissonanceLog] = useState<
     Array<{
       id: string;
@@ -5180,7 +5245,9 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     const meta = (state.payload as any)?.audio_meta;
     if (!meta) return;
     setTiquesSemFace((n) => (meta.facs_source === "real_facs" ? 0 : n + 1));
-    setTiquesSemVoz((n) => (meta.voice_features_source === "real_pcm" ? 0 : n + 1));
+    // `voice_features_source` diz que NÃO houve voz medida; não diz por quê, e
+    // os dois porquês pedem telas opostas.
+    setTiquesDeCaptura((anterior) => contarCaptura(anterior, meta));
   }, [state.payload]);
 
   // Só depois que a sessão está de pé: antes disso "sem leitura" é o estado
@@ -5188,7 +5255,10 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const capturaEmCurso = state.phase === "LIVE" && (remotePatientOn || isPresentialSession);
   const semFaceApurada =
     capturaEmCurso && !isPresentialSession && tiquesSemFace >= TIQUES_ATE_AVISAR;
-  const semVozApurada = capturaEmCurso && tiquesSemVoz >= TIQUES_ATE_AVISAR;
+  const semVozApurada =
+    capturaEmCurso && tiquesDeCaptura.semAudio >= TIQUES_ATE_AVISAR;
+  const silencioProlongado =
+    capturaEmCurso && tiquesDeCaptura.emSilencio >= TIQUES_ATE_NOTAR_SILENCIO;
   // No presencial puro não existe página do paciente, logo não existe câmera
   // dele: a ausência de leitura facial é estrutural do modo, e não uma falha a
   // corrigir no meio do atendimento. Dizer isso uma vez, calmo, em vez de
@@ -6107,6 +6177,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             <AvisoDeApuracao
               semFace={semFaceApurada}
               semVoz={semVozApurada}
+              silencioProlongado={silencioProlongado}
               presencialSemCamera={presencialSemCamera}
               causaNoPaciente={causaAcusticaNoPaciente}
             />
@@ -6320,6 +6391,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             <AvisoDeApuracao
               semFace={semFaceApurada}
               semVoz={semVozApurada}
+              silencioProlongado={silencioProlongado}
               presencialSemCamera={presencialSemCamera}
               causaNoPaciente={causaAcusticaNoPaciente}
             />
@@ -6625,6 +6697,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           <AvisoDeApuracao
             semFace={semFaceApurada}
             semVoz={semVozApurada}
+            silencioProlongado={silencioProlongado}
             presencialSemCamera={presencialSemCamera}
             causaNoPaciente={causaAcusticaNoPaciente}
           />
