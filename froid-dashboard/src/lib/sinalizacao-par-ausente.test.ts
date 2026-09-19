@@ -226,13 +226,26 @@ describe("o profissional enxerga onde o paciente está", () => {
     expect(PROFISSIONAL.slice(i, j)).not.toContain("setRtcStatus");
   });
 
-  it("para de perguntar quando a mídia chega", () => {
-    // A partir daí quem descreve a sessão é o próprio vídeo.
+  // A asserção travava a condição inteira, literal. Isso guardava o mecanismo:
+  // acrescentar um motivo LEGÍTIMO para parar de perguntar reprovava o teste,
+  // embora reforçasse a própria garantia que ele descreve.
+  //
+  // Foi o que aconteceu em 19/09/2026. `patient_joined` é o último evento que o
+  // servidor publica, e a frase dele é "falta ele liberar câmera e microfone" —
+  // correta no instante em que o paciente abre o link, e falsa em todo instante
+  // depois. Como o polling reescrevia essa linha a cada 3 segundos, o painel
+  // acusou durante 2min30 um paciente que tinha liberado tudo em 3 segundos.
+  // A entrada dele na sala de sinalização (`pacienteNaChamada`) é prova de
+  // permissão concedida, e passou a interromper o polling também.
+  it("para de perguntar quando já se sabe onde o paciente está", () => {
     const i = PROFISSIONAL.indexOf("/api/session-events?after=");
     const inicio = PROFISSIONAL.lastIndexOf("useEffect(() => {", i);
-    expect(PROFISSIONAL.slice(inicio, i)).toContain(
-      "if (remotePatientOn || remotePatientVideoOn) return;",
-    );
+    const guarda = PROFISSIONAL.slice(inicio, i);
+    // A mídia chegando: daí em diante quem descreve a sessão é o próprio vídeo.
+    expect(guarda).toMatch(/if \([^)]*remotePatientOn[^)]*\) return;/);
+    expect(guarda).toContain("remotePatientVideoOn");
+    // E a sinalização dele, que prova a permissão antes de a mídia fluir.
+    expect(guarda).toContain("pacienteNaChamada");
   });
 
   it("falha ao buscar presença não atrapalha a sessão", () => {
@@ -250,5 +263,52 @@ describe("a credencial de TURN sai do caminho crítico", () => {
     const i = PACIENTE.indexOf('joinState !== "joined"');
     expect(i).toBeGreaterThan(-1);
     expect(PACIENTE.slice(i, i + 260)).toContain("loadRtcConfiguration");
+  });
+});
+
+/**
+ * A oferta sem resposta, e o resgate que não existia.
+ *
+ * Apurado em 19/09/2026, numa consulta encerrada aos 2min30 sem conexão.
+ *
+ * Quando a oferta sai e a resposta não volta, o peer fica em `have-local-offer`.
+ * Havia um vigia de 8 s para reenviá-la, e ele tinha dois furos: ao disparar,
+ * reenviava e NÃO se rearmava — uma tentativa e depois silêncio; e o caminho de
+ * `forcar`, que é justamente o que o `renegotiate-request` do paciente dispara
+ * ao entrar na sala, chamava `clearOfferWatchdog()` e reenviava sem armar nada.
+ * Na sequência comum — paciente entra, profissional oferta, paciente pede
+ * renegociação — o único vigia era cancelado antes de nunca ter disparado.
+ *
+ * E não havia rede de baixo. Sem resposta não há descrição remota; sem ela o
+ * ICE nem começa a testar conectividade, então `connectionState` fica em `new`
+ * e NUNCA chega a `failed`. Todo o resgate de `onconnectionstatechange` é
+ * inalcançável nesse estado, e o monitor de fluxo desiste na primeira linha,
+ * porque exige `connectionState === "connected"`.
+ */
+describe("oferta sem resposta continua sendo tentada, e a desistência é dita", () => {
+  it("o vigia se rearma em vez de vigiar uma vez só", () => {
+    const i = PROFISSIONAL.indexOf("const armOfferWatchdog");
+    expect(i).toBeGreaterThan(-1);
+    const j = PROFISSIONAL.indexOf("const refreshRemoteTracks", i);
+    const corpo = PROFISSIONAL.slice(i, j);
+    // Rearma dentro do próprio disparo.
+    expect(corpo).toContain("armOfferWatchdog();");
+    expect(corpo).toContain("reenviarOfertaPendente();");
+  });
+
+  it("o reenvio forçado também deixa um vigia para trás", () => {
+    // Era aqui que o último vigia morria sem substituto.
+    const i = PROFISSIONAL.indexOf("const makeOffer = async");
+    const j = PROFISSIONAL.indexOf("rtcMakingOfferRef.current = true", i);
+    expect(PROFISSIONAL.slice(i, j)).toContain("armOfferWatchdog();");
+  });
+
+  it("insistir tem teto, e o teto avisa em vez de calar", () => {
+    // Laço silencioso é o defeito simétrico: o freio de renegociação existe
+    // nesta casa exatamente por isso.
+    expect(PROFISSIONAL).toMatch(/MAX_REENVIOS_DA_OFERTA\s*=\s*\d+/);
+    const i = PROFISSIONAL.indexOf("reenviosDaOferta >= MAX_REENVIOS_DA_OFERTA");
+    expect(i).toBeGreaterThan(-1);
+    expect(PROFISSIONAL.slice(i, i + 500)).toContain("setRtcStatus");
   });
 });

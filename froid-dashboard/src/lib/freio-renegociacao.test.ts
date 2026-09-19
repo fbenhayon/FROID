@@ -190,11 +190,36 @@ describe("o relatório diz se as DUAS trilhas subiram, nos DOIS sentidos", () =>
     expect(relatorioRtc()).toContain("nenhum transceptor");
   });
 
+  // A asserção era `.toBe(2)`, e travava a CONTAGEM em vez da garantia. Em
+  // 19/09/2026 nasceu um terceiro ponto de desistência legítimo — o vigia da
+  // oferta, que agora reenvia com teto e, ao atingi-lo, para e avisa. Tirar o
+  // retrato ali é exatamente o que a regra pede, e o teste reprovou por isso.
+  //
+  // O que importa é que TODO caminho de desistência e a subida da conexão
+  // deixem o retrato da negociação registrado: sem ele, "não conectou" é
+  // indistinguível de "conectou sem trilha nenhuma". O número de caminhos é
+  // detalhe, e travá-lo reprova a próxima correção em vez do próximo defeito.
   it.each(["LiveSession.tsx", "PatientSessionPage.tsx"])(
-    "%s tira o retrato quando a conexão sobe e quando o freio desiste",
+    "%s tira o retrato quando a conexão sobe e em toda desistência",
     (arquivo) => {
       const fonte = readFileSync(join(__dirname, "..", "pages", arquivo), "utf-8");
-      expect(fonte.match(/registrarNegociacao\(peer\)/g)?.length).toBe(2);
+      const retratos = fonte.match(/registrarNegociacao\(peer\)/g)?.length ?? 0;
+      // A subida da conexão e, no mínimo, a desistência do freio.
+      expect(retratos).toBeGreaterThanOrEqual(2);
+      // Âncora no ramo que trata a conexão subindo, e não em qualquer
+      // `=== "connected"`: os dois arquivos têm outro, no monitor de fluxo, e
+      // era nele que a primeira versão desta asserção caía.
+      expect(fonte).toMatch(
+        /connectionState === "connected"\)\s*\{\s*freioRenegociacao\.liberar\(\)[\s\S]{0,200}registrarNegociacao\(peer\)/,
+      );
+      // E o freio esgotado, que é a desistência mais antiga. O CANAL do
+      // diagnóstico difere entre os dois lados de propósito — o profissional
+      // pede o relatório do outro (`pedir-diagnostico`), o paciente envia o
+      // seu (`enviarDiagnostico`) —, então o que se exige aqui é o retrato, que
+      // é a garantia comum aos dois.
+      const esgotou = fonte.indexOf("freioRenegociacao.esgotado()");
+      expect(esgotou).toBeGreaterThan(-1);
+      expect(fonte.slice(esgotou, esgotou + 600)).toContain("registrarNegociacao(peer)");
     },
   );
 
@@ -238,10 +263,22 @@ describe("o rollback saiu — era ele que embaralhava as m-lines", () => {
     expect(fonte("LiveSession.tsx")).toContain("reenviarOfertaPendente()");
   });
 
+  // O recorte era `i + 400` a partir do `setTimeout`, e quebrou pelo motivo que
+  // esta casa já catalogou duas vezes: janela de caracteres não sobrevive ao
+  // crescimento do bloco. Em 19/09/2026 o vigia ganhou teto e aviso de
+  // desistência, o reenvio passou dos 400 caracteres, e o teste reprovou uma
+  // correção. Agora o recorte é o corpo da função, pelo delimitador dela.
   it("o cão de guarda também reenvia, em vez de refazer", () => {
     const texto = fonte("LiveSession.tsx");
-    const i = texto.indexOf("offerWatchdogTimer = window.setTimeout");
-    expect(texto.slice(i, i + 400)).toContain("reenviarOfertaPendente()");
+    const i = texto.indexOf("const armOfferWatchdog");
+    expect(i).toBeGreaterThan(-1);
+    // Até o fecho do próprio setTimeout: `makeOffer` vem logo abaixo e ele SIM
+    // chama createOffer, legitimamente.
+    const fim = texto.indexOf("}, 8_000);", i);
+    expect(fim).toBeGreaterThan(i);
+    const corpo = texto.slice(i, fim);
+    expect(corpo).toContain("reenviarOfertaPendente()");
+    expect(corpo).not.toContain("createOffer()");
   });
 
   it("cada oferta leva número, e a resposta o devolve", () => {

@@ -43,6 +43,7 @@ import {
   contarCaptura,
   TIQUES_DE_CAPTURA_ZERADOS,
 } from "../lib/estado-da-captura";
+import { sessaoComecou } from "../lib/inicio-da-sessao";
 import { getAUDetails, ZONE_CLINICAL_DESCRIPTIONS } from "../lib/froid-data";
 import {
   STATUS_CLASSES,
@@ -197,6 +198,12 @@ interface SessionState {
   ipmHistory: number[];
   cameraOn: boolean;
   micOn: boolean;
+  /** A sessão começou DE VERDADE — há o outro lado, e não só microfone aqui.
+   *
+   *  Os dois relógios dependem disto: `elapsedSeconds`, que é o eixo de tempo
+   *  de tudo o que se mede, e `sessionStart`, que é o cronômetro na tela e o
+   *  que dispara o encerramento automático aos 55 minutos. */
+  clockStarted: boolean;
   sessionStart: number;
   camError: string;
   aggregated: AggData | null;
@@ -207,6 +214,8 @@ type Action =
   | { type: "WS_OPEN" }
   | { type: "WS_CLOSE" }
   | { type: "TICK" }
+  // A sessão passou a existir: há o outro lado. Só daqui os relógios andam.
+  | { type: "SESSION_CONNECTED" }
   // Nulo quando os 60 s de calibração não tiveram apuração nenhuma. O estado
   // que recebe (`baselineIPM`) já era `number | null`; só a ação exigia número,
   // e a exigência sumia atrás do `|| 0` que a origem aplicava.
@@ -569,10 +578,34 @@ function reducer(state: SessionState, action: Action): SessionState {
           connected: false,
           phase: state.phase,
         };
+      // O RELOGIO NAO CONTA ESPERA.
+      //
+      // Ate 19/09/2026 a condicao era `state.micOn`: o microfone DO
+      // PROFISSIONAL, que fica pronto assim que ele abre a tela e nada tem a
+      // ver com existir alguem do outro lado. Numa sessao real ele esperou
+      // 2min30 olhando "Aguardando paciente..." com o cronometro correndo, e
+      // desistiu.
+      //
+      // O estrago nao para no cronometro. `elapsedSeconds` e o eixo de tempo de
+      // TUDO o que se mede — carimba cada amostra, delimita cada corte, abre a
+      // janela de 60 s da baseline e vira a duracao no relatorio. Contando a
+      // espera, a sessao inteira fica deslocada, e o documento afirma uma
+      // duracao que nao houve.
+      //
+      // `micOn` tambem parava o relogio quando o microfone do profissional
+      // caia no meio da sessao, comprimindo o eixo justamente onde o servidor
+      // seguia publicando um tique por segundo. Saiu junto: o relogio da
+      // sessao e tempo decorrido, nao tempo com microfone.
       case "TICK":
-        return state.phase !== "ENDED" && state.micOn
+        return state.phase !== "ENDED" && state.clockStarted
           ? { ...state, elapsedSeconds: state.elapsedSeconds + 1 }
           : state;
+      case "SESSION_CONNECTED":
+        // Idempotente de proposito: a midia do paciente oscila, e o relogio
+        // nao pode reiniciar a cada oscilacao.
+        return state.clockStarted
+          ? state
+          : { ...state, clockStarted: true, sessionStart: Date.now() };
       case "BASELINE_LOCK":
         return { ...state, baselineIPM: action.ipm, phase: "LIVE" };
       case "PAYLOAD": {
@@ -608,13 +641,12 @@ function reducer(state: SessionState, action: Action): SessionState {
           ...state,
           cameraOn: action.cameraOn,
           micOn: action.micOn,
-          sessionStart:
-            action.micOn &&
-            !state.micOn &&
-            state.phase === "CALIBRATING" &&
-            state.elapsedSeconds === 0
-              ? Date.now()
-              : state.sessionStart,
+          // `sessionStart` saiu daqui. Ele marcava o instante em que o
+          // microfone DO PROFISSIONAL ficava vivo — e era esse instante que
+          // alimentava o cronometro da tela e a conta dos 55 minutos do
+          // encerramento automatico. Uma espera de dez minutos pelo paciente
+          // encurtava a consulta em dez. Agora quem o define e
+          // `SESSION_CONNECTED`.
           camError: action.camError || "",
         };
       case "END_SESSION":
@@ -636,6 +668,7 @@ const createInitialState = (): SessionState => ({
   ipmHistory: [],
   cameraOn: false,
   micOn: false,
+  clockStarted: false,
   sessionStart: 0,
   camError: "",
   aggregated: null,
@@ -2695,6 +2728,20 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   // proposito: aquele descreve a negociacao WebRTC, este descreve a pessoa. Um
   // nao pode sobrescrever o outro.
   const [presencaDoPaciente, setPresencaDoPaciente] = useState("");
+  // O paciente JÁ liberou câmera e microfone.
+  //
+  // A sinalização dele só abre depois do `getUserMedia` — `startPatientRtc` é
+  // chamado dentro de `activateMedia`, e não antes. Logo, a entrada dele na
+  // sala É a prova de que a permissão foi concedida, e é a única prova que o
+  // painel pode ter antes da mídia fluir.
+  //
+  // Sem isto, a linha de presença ficava presa no último evento do servidor,
+  // `patient_joined`, cuja frase é "falta ele liberar câmera e microfone" —
+  // correta no instante em que ele abre o link, e falsa em todo instante
+  // depois. Numa sessão real de 19/09/2026 o profissional leu essa acusação
+  // durante 2min30 sobre um paciente que tinha liberado tudo em 3 segundos, e
+  // encerrou a consulta atrás de um problema que não existia.
+  const [pacienteNaChamada, setPacienteNaChamada] = useState(false);
   // Acumula entre as voltas do polling: cada volta so traz os eventos novos.
   const aberturasRef = useRef(0);
   const [remotePatientOn, setRemotePatientOn] = useState(false);
@@ -2871,7 +2918,12 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     if (!token) return;
     // Para de perguntar assim que a midia do paciente chega: dai em diante
     // quem descreve a sessao e o proprio video.
-    if (remotePatientOn || remotePatientVideoOn) return;
+    //
+    // E para tambem quando ele entra na sala de sinalizacao: a partir dali o
+    // ultimo evento do servidor (`patient_joined`) descreve um passado, e
+    // reescreve-lo a cada 3 segundos por cima do que a sinalizacao ja provou
+    // e voltar a acusar quem nao tem culpa.
+    if (remotePatientOn || remotePatientVideoOn || pacienteNaChamada) return;
     let ativo = true;
     let cursor = 0;
     const FRASES: Record<string, string> = {
@@ -2933,7 +2985,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       ativo = false;
       window.clearInterval(relogio);
     };
-  }, [sessionId, remotePatientOn, remotePatientVideoOn]);
+  }, [sessionId, remotePatientOn, remotePatientVideoOn, pacienteNaChamada]);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -2974,6 +3026,35 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       });
     return () => controller.abort();
   }, [sessionId]);
+
+  // QUANDO A SESSÃO COMEÇA.
+  //
+  // No remoto e no presencial-móvel, começa quando a mídia do paciente chega:
+  // antes disso não há sessão, há espera — e espera não é tempo de consulta.
+  // `remotePatientOn` sai dos contadores RTP reais de entrada, então é fluxo
+  // medido, e não promessa de negociação.
+  //
+  // No presencial puro não existe página do paciente, logo não há mídia dele
+  // para esperar: os dois estão na mesma sala e a captura local É a sessão.
+  // Exigir o paciente ali deixaria o relógio parado a consulta inteira.
+  useEffect(() => {
+    if (state.clockStarted) return;
+    const comecou = sessaoComecou({
+      presencial: isPresentialSession,
+      micOn: state.micOn,
+      cameraOn: state.cameraOn,
+      remotePatientOn,
+      remotePatientVideoOn,
+    });
+    if (comecou) dispatch({ type: "SESSION_CONNECTED" });
+  }, [
+    state.clockStarted,
+    state.micOn,
+    state.cameraOn,
+    isPresentialSession,
+    remotePatientOn,
+    remotePatientVideoOn,
+  ]);
 
   useEffect(() => {
     const id = setInterval(() => dispatch({ type: "TICK" }), 1000);
@@ -3510,6 +3591,54 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         if (offerWatchdogTimer) window.clearTimeout(offerWatchdogTimer);
         offerWatchdogTimer = null;
       };
+      // O VIGIA QUE VIGIAVA UMA VEZ SÓ.
+      //
+      // Ele existe para o caso em que a oferta sai e a resposta não volta. Era
+      // armado num `setTimeout` que, ao disparar, reenviava a oferta e NÃO se
+      // rearmava — uma tentativa, e depois silêncio. Pior: o caminho de
+      // `forcar` (o mesmo que o `renegotiate-request` do paciente dispara
+      // assim que ele entra na sala) chamava `clearOfferWatchdog()` e reenviava
+      // sem armar nada. Na sequência comum — paciente entra, profissional
+      // oferta, paciente pede renegociação — o único vigia era cancelado antes
+      // de nunca ter disparado.
+      //
+      // E não havia rede de baixo. Sem resposta não há descrição remota; sem
+      // ela o ICE nem começa a testar conectividade, então `connectionState`
+      // fica em `new` e NUNCA chega a `failed`. Todo o resgate de
+      // `onconnectionstatechange` — que trata `failed` e `disconnected` — é
+      // inalcançável nesse estado. O monitor de fluxo também desiste na
+      // primeira linha, porque exige `connectionState === "connected"`.
+      //
+      // Resultado no consultório, 19/09/2026: a tela parada, sem erro, sem
+      // alarme e sem fim. O profissional esperou 2min30 e encerrou.
+      //
+      // Agora o vigia se rearma, com teto — insistir para sempre seria o outro
+      // defeito desta casa, o laço que nunca diz que desistiu.
+      let reenviosDaOferta = 0;
+      const MAX_REENVIOS_DA_OFERTA = 6;
+      const armOfferWatchdog = () => {
+        clearOfferWatchdog();
+        offerWatchdogTimer = window.setTimeout(() => {
+          offerWatchdogTimer = null;
+          if (
+            peer.signalingState !== "have-local-offer"
+            || peer.connectionState === "closed"
+          ) return;
+          if (reenviosDaOferta >= MAX_REENVIOS_DA_OFERTA) {
+            registrarRtc(
+              `oferta sem resposta apos ${MAX_REENVIOS_DA_OFERTA} reenvios — parei de insistir`,
+            );
+            registrarNegociacao(peer);
+            setRtcStatus(
+              "O paciente não respondeu à chamada. Peça que ele recarregue o link do convite e use Religar.",
+            );
+            return;
+          }
+          reenviosDaOferta += 1;
+          reenviarOfertaPendente();
+          armOfferWatchdog();
+        }, 8_000);
+      };
       // `forcar` desfaz uma oferta pendente antes de refazer, e existe por um
       // impasse real observado em consulta (26/08/2026):
       //
@@ -3559,8 +3688,10 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           // sala vazia) se resolve sem ele: a sala agora tem alguem, entao
           // basta reenviar a MESMA oferta. Ela continua valida, e reenviar nao
           // reordena coisa nenhuma.
-          clearOfferWatchdog();
+          // Rearma: este reenvio pode se perder como o anterior, e era aqui que
+          // o vigia morria sem substituto.
           reenviarOfertaPendente();
+          armOfferWatchdog();
           return;
         }
         rtcMakingOfferRef.current = true;
@@ -3573,15 +3704,11 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           // Sem resposta dentro do prazo a conexão ficaria presa em
           // have-local-offer. Reenviar a MESMA oferta e o caminho de volta;
           // refazer com rollback era o que embaralhava as m-lines.
-          clearOfferWatchdog();
-          offerWatchdogTimer = window.setTimeout(() => {
-            offerWatchdogTimer = null;
-            if (
-              peer.signalingState !== "have-local-offer"
-              || peer.connectionState === "closed"
-            ) return;
-            reenviarOfertaPendente();
-          }, 8_000);
+          // Oferta NOVA devolve a cota inteira de reenvios: o teto existe para
+          // impedir insistência infinita sobre a mesma oferta, não para punir
+          // uma negociação que recomeçou.
+          reenviosDaOferta = 0;
+          armOfferWatchdog();
         } finally {
           rtcMakingOfferRef.current = false;
         }
@@ -3802,11 +3929,28 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       };
 
       let reconnectAttempt = 0;
+      // Entrar na sala de sinalização é prova de permissão concedida: do outro
+      // lado, `startPatientRtc` só roda depois que o `getUserMedia` devolve as
+      // trilhas. Ver `pacienteNaChamada`.
+      const marcarPacienteNaChamada = () => {
+        setPacienteNaChamada(true);
+        setPresencaDoPaciente(
+          "O paciente liberou câmera e microfone e entrou na chamada. Estabelecendo áudio e vídeo...",
+        );
+      };
+      const marcarPacienteForaDaChamada = () => {
+        setPacienteNaChamada(false);
+        // Devolve a linha aos eventos do servidor: a partir daqui quem sabe
+        // onde ele está é a trilha de presença, não a sinalização.
+        setPresencaDoPaciente("");
+      };
       const handleSignal = async (event: MessageEvent) => {
         const data = JSON.parse(String(event.data || "{}"));
         if (data.type === "signal-ready" && data.peer_connected) {
+          marcarPacienteNaChamada();
           await makeOffer(true);
         } else if (data.type === "peer-joined") {
+          marcarPacienteNaChamada();
           // O par ACABOU de entrar: qualquer oferta pendente foi para a sala
           // vazia e nunca sera respondida. Forcar aqui e o que desfaz o
           // impasse — sem isso, quem reentra fica esperando uma chamada que o
@@ -3894,6 +4038,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           // proxima oferta sai quando chegar `peer-joined`, que e o evento que
           // significa que existe alguem do outro lado.
           clearOfferWatchdog();
+          marcarPacienteForaDaChamada();
           setRemotePatientOn(false);
           setRemotePatientVideoOn(false);
           setRtcStatus(
@@ -3905,6 +4050,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             remoteStream.removeTrack(track);
           });
           resetPatientAudioPipeline(true);
+          marcarPacienteForaDaChamada();
           setRemotePatientOn(false);
           setRemotePatientVideoOn(false);
           setRtcStatus("Paciente saiu da chamada.");
