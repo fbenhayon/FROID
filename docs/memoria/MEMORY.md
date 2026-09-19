@@ -20,3 +20,4 @@
 - [Capacidade facial afirmada](froid-facs-capacidade-afirmada.md) — 16 AUs e seis regras, sem onset/apex/offset; corrigido no site, pendente no painel
 - [Sessões simultâneas](froid-sessoes-simultaneas.md) — o git reset de uma sessão apaga o trabalho não commitado da outra; commitar cedo
 - [run-tests.sh para cedo](froid-run-tests-para-cedo.md) — aborta na primeira falha e a saída parcial parece completa; como rodar a suíte inteira
+- [Organizacao ativa x autoria](froid-organizacao-ativa-vs-autoria.md) — os dois ids reais da conta do Fabio, e o recorte que apagou 62 relatorios da tela com HTTP 200
