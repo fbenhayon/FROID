@@ -243,6 +243,51 @@ class ARecusaDizQualFoi(unittest.TestCase):
         self.assertIn("motivoDaRecusaDeSinalizacao", PROFISSIONAL)
         self.assertIn("motivoDaRecusaDeSinalizacao", PACIENTE)
 
+    def test_o_recorte_por_organizacao_nao_recusa_o_dono_da_sessao(self):
+        """Autoria antes de recorte — decisao do dono do produto, 20/09/2026.
+
+        Nas duas rotas de WebSocket o teste de organizacao roda DEPOIS do teste
+        de dono. Quando ele roda, portanto, ja esta provado que quem conecta e o
+        autor daquela sessao: ele so conseguiria barrar essa mesma pessoa,
+        operando sob outra organizacao da propria conta. Nao protege ninguem de
+        ninguem — disso o teste de dono ja cuidou.
+
+        Em 20/09/2026 ele barrou onze vezes, no comeco de um atendimento real,
+        sem saida possivel na tela: o painel clinico nao tem seletor de
+        organizacao. A divergencia passou a ser anotada no log em vez de virar
+        recusa, porque ela ainda e sintoma de uma duplicacao de organizacoes
+        aberta no banco.
+
+        Este teste falha se alguem voltar a recusar ali — e a ORDEM tambem e
+        afirmada, porque sem ela o argumento inteiro cai.
+        """
+        for rota in ("async def websocket_fusion", "async def websocket_rtc_signaling"):
+            trecho = MAIN[MAIN.index(rota) :]
+            trecho = trecho[: trecho.index("\n@app.")] if "\n@app." in trecho else trecho
+
+            dono = trecho.index("SESSION_OWNERS.get(session_id) !=")
+            organizacao = trecho.index("if not _session_matches_context(session_id, context):")
+            self.assertLess(
+                dono,
+                organizacao,
+                f"{rota}: o teste de dono precisa vir ANTES do de organizacao",
+            )
+
+            # Recorte ancorado em sintaxe, e nao em contagem de caracteres: o
+            # bloco do profissional termina no `else:` do paciente (rota de
+            # sinalizacao) ou na conexao do hub (rota de fusao). Uma janela de
+            # N caracteres engoliria o ramo do paciente, que continua recusando
+            # por 4403 com toda razao — e o teste acusaria o lugar errado.
+            bloco = trecho[organizacao:]
+            for fronteira in ("\n    else:", "\n    connection_id = await manager.connect"):
+                corte = bloco.find(fronteira)
+                if corte != -1:
+                    bloco = bloco[:corte]
+
+            self.assertIn('outcome="organization_mismatch"', bloco)
+            self.assertNotIn("_recusar_websocket", bloco)
+            self.assertNotIn("return", bloco)
+
     def test_o_canal_de_analise_tambem_le_o_codigo(self):
         """A recusa do `/ws/fusion` nao chegava a lugar nenhum.
 

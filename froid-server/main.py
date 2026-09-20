@@ -7333,12 +7333,27 @@ async def websocket_fusion(websocket: WebSocket, session_id: str):
         await _recusar_websocket(websocket, 4402 if exc.status_code == 402 else 1013)
         return
     if not _session_matches_context(session_id, context):
+        # REGISTRADO, E NAO RECUSADO. Decisao do dono do produto, 20/09/2026:
+        # autoria antes de recorte.
+        #
+        # Quando esta linha roda, a checagem de dono acima ja provou que quem
+        # conecta E o autor desta sessao. Logo este teste so conseguiria barrar
+        # ele mesmo, operando sob outra organizacao da propria conta — ele nao
+        # protege ninguem de ninguem, porque disso a checagem de dono ja cuidou.
+        #
+        # E foi o que aconteceu: onze recusas no comeco de um atendimento real,
+        # com o paciente ja na sala, e sem saida nenhuma na tela, porque o
+        # painel clinico nao tem seletor de organizacao (retirado de proposito
+        # — ver lib/contexto-organizacao.ts). A organizacao ativa de um login e
+        # escolhida pelo servidor quando a anterior nao esta na lista, entao ela
+        # muda entre logins sem ninguem pedir.
+        #
+        # A divergencia continua sendo anotada, porque ela e sintoma de uma
+        # duplicacao de organizacoes que segue aberta no banco.
         await _record_websocket_audit(
             action="connect", session_id=session_id, role="professional",
-            outcome="denied", context=context, close_code=4405,
+            outcome="organization_mismatch", context=context,
         )
-        await _recusar_websocket(websocket, 4405)
-        return
     connection_id = await manager.connect(websocket, session_id)
     await _record_websocket_audit(
         action="connect", session_id=session_id, role="professional",
@@ -7404,12 +7419,13 @@ async def websocket_rtc_signaling(websocket: WebSocket, session_id: str, role: s
             await _recusar_websocket(websocket, 4402 if exc.status_code == 402 else 1013)
             return
         if not _session_matches_context(session_id, context):
+            # Registrado, e nao recusado — mesma razao da rota de fusao logo
+            # acima: a checagem de dono ja provou a autoria, e este teste so
+            # alcancaria o proprio autor.
             await _record_websocket_audit(
                 action="connect", session_id=session_id, role=role,
-                outcome="denied", context=context, close_code=4405,
+                outcome="organization_mismatch", context=context,
             )
-            await _recusar_websocket(websocket, 4405)
-            return
     else:
         invite_token = str(websocket.query_params.get("invite") or "")
         invite = SESSION_INVITES.get(invite_token)
