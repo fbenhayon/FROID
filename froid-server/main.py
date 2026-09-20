@@ -7265,12 +7265,27 @@ async def _recusar_websocket(websocket: WebSocket, code: int) -> None:
 async def websocket_fusion(websocket: WebSocket, session_id: str):
     token = str(websocket.query_params.get("token") or "")
     user = _session_user_for_token(token)
-    if not user or SESSION_OWNERS.get(session_id) != _normalize_email(user.get("email") or ""):
+    # As duas recusas saiam pelo MESMO 4401, e a tela dizia "esta sessao
+    # pertence a outra conta" para as duas. Em 20/09/2026, num atendimento real,
+    # foi isso que o profissional leu enquanto o problema era outro: o token de
+    # login tinha deixado de valer. Ele foi conferir de qual conta era a sessao,
+    # que estava certa, enquanto a acao que resolvia era entrar de novo.
+    #
+    # Sao causas diferentes, com acoes diferentes, e agora com codigos
+    # diferentes: 4401 nao autenticado, 4404 sessao de outra conta.
+    if not user:
         await _record_websocket_audit(
             action="connect", session_id=session_id, role="professional",
             outcome="denied",
         )
         await _recusar_websocket(websocket, 4401)
+        return
+    if SESSION_OWNERS.get(session_id) != _normalize_email(user.get("email") or ""):
+        await _record_websocket_audit(
+            action="connect", session_id=session_id, role="professional",
+            outcome="denied",
+        )
+        await _recusar_websocket(websocket, 4404)
         return
     try:
         context = _require_professional_websocket_access(user)
@@ -7327,12 +7342,21 @@ async def websocket_rtc_signaling(websocket: WebSocket, session_id: str, role: s
     if role == "professional":
         token = str(websocket.query_params.get("token") or "")
         user = _session_user_for_token(token)
-        if not user or SESSION_OWNERS.get(session_id) != _normalize_email(user.get("email") or ""):
+        # Mesma separacao da rota de fusao, pelo mesmo motivo: token morto e
+        # sessao de outra conta pedem acoes opostas de quem esta na tela.
+        if not user:
             await _record_websocket_audit(
                 action="connect", session_id=session_id, role=role,
                 outcome="denied",
             )
             await _recusar_websocket(websocket, 4401)
+            return
+        if SESSION_OWNERS.get(session_id) != _normalize_email(user.get("email") or ""):
+            await _record_websocket_audit(
+                action="connect", session_id=session_id, role=role,
+                outcome="denied",
+            )
+            await _recusar_websocket(websocket, 4404)
             return
         try:
             context = _require_professional_websocket_access(user)
@@ -7752,10 +7776,12 @@ async def create_session_invite(request: Request):
         session_value_cents * package_sessions if payment_mode == "package" else session_value_cents
     )
     # Decisão do profissional, tomada no convite: este paciente poderá ver as
-    # próprias sessões e relatórios na área dele? O padrão de um convite NOVO é
-    # negativo — liberar dado clínico ao paciente é ato do profissional, e ato
-    # não se pratica por omissão. Cadastros anteriores a este controle seguem
-    # como estão; quem trata disso é _patient_results_enabled.
+    # próprias sessões e relatórios na área dele? Aqui a ausência do campo NEGA:
+    # corpo que não afirma nada não libera dado clínico, e é essa a garantia que
+    # este `bool(...)` sustenta. O padrão do produto é outra coisa e vive na
+    # tela — desde 20/09/2026 o formulário de convite manda a caixa marcada.
+    # Cadastros anteriores a este controle seguem como estão; quem trata disso é
+    # _patient_results_enabled.
     patient_results_enabled = bool(body.get("patient_results_enabled"))
 
     invite = {

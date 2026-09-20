@@ -165,6 +165,7 @@ class TodoFechamentoTemTratamento(unittest.TestCase):
     def test_a_varredura_encontra_os_codigos(self):
         self.assertIn(4401, self.codigos_do_servidor)
         self.assertIn(4403, self.codigos_do_servidor)
+        self.assertIn(4404, self.codigos_do_servidor)
 
     def test_todo_codigo_de_recusa_e_terminal_no_cliente(self):
         """Recusa nao se resolve tentando de novo.
@@ -192,18 +193,50 @@ class ARecusaDizQualFoi(unittest.TestCase):
     """Quatro causas diferentes nao podem produzir a mesma frase."""
 
     def test_o_cliente_distingue_os_motivos_de_recusa(self):
-        # 4401 = a sessao nao e desta conta; 4403 = convite invalido ou fora da
-        # janela; 4402 = sem credito; 1008 = papel invalido. Um unico
-        # "Sinalizacao indisponivel" para os quatro deixa quem esta na tela sem
-        # nenhuma acao possivel — e quem esta na tela e um profissional com um
-        # paciente esperando.
+        # 4401 = o login do profissional nao vale mais; 4404 = a sessao e de
+        # outra conta; 4403 = convite invalido ou fora da janela; 4402 = sem
+        # credito; 1008 = papel invalido. Um unico "Sinalizacao indisponivel"
+        # para todos deixa quem esta na tela sem nenhuma acao possivel — e quem
+        # esta na tela e um profissional com um paciente esperando.
         self.assertIn("motivoDaRecusaDeSinalizacao", WEBRTC)
-        for codigo in ("4401", "4402", "4403", "1008"):
+        for codigo in ("4401", "4402", "4403", "4404", "1008"):
             self.assertIn(codigo, WEBRTC)
+
+    def test_o_login_vencido_nao_acusa_a_conta_errada(self):
+        # Ate 20/09/2026 os dois casos saiam pelo mesmo 4401, com a frase do
+        # 4404. Num atendimento real o profissional leu "esta sessao pertence a
+        # outra conta" e foi conferir a conta, que estava certa, enquanto o que
+        # tinha acabado era o login dele. Sao acoes opostas: uma manda trocar de
+        # login, a outra manda entrar de novo no mesmo.
+        trecho = MAIN[MAIN.index("async def websocket_fusion") :][:2500]
+        self.assertIn("if not user:", trecho)
+        self.assertIn("_recusar_websocket(websocket, 4401)", trecho)
+        self.assertIn("_recusar_websocket(websocket, 4404)", trecho)
 
     def test_os_dois_lados_usam_a_explicacao(self):
         self.assertIn("motivoDaRecusaDeSinalizacao", PROFISSIONAL)
         self.assertIn("motivoDaRecusaDeSinalizacao", PACIENTE)
+
+    def test_o_canal_de_analise_tambem_le_o_codigo(self):
+        """A recusa do `/ws/fusion` nao chegava a lugar nenhum.
+
+        O teste acima conferia que `motivoDaRecusaDeSinalizacao` APARECE em
+        LiveSession.tsx — e aparecia, no socket da chamada. O socket de ANALISE,
+        que e por onde chegam F0, MFCC, sub-harmonicos e as AUs, ignorava
+        `event.code` e reconectava sempre. Em 20/09/2026, num atendimento real,
+        ele ficou em laco contra um 4401 a cada cinco segundos SEM UMA LINHA NA
+        TELA: audio e video perfeitos, e nenhuma medida sendo apurada.
+
+        O teste passava porque afirmava o mecanismo em algum lugar do arquivo, e
+        nao a garantia em cada socket (secao 3 do guia de rigor). O recorte
+        abaixo e ancorado em sintaxe, e nao em contagem de caracteres, para nao
+        quebrar no proximo comentario que crescer.
+        """
+        inicio = PROFISSIONAL.index("/ws/fusion/")
+        fim = PROFISSIONAL.index("socket.onmessage", inicio)
+        trecho = PROFISSIONAL[inicio:fim]
+        self.assertIn("deveReconectarAnalise(event.code)", trecho)
+        self.assertIn("motivoDaRecusaDeSinalizacao(event.code)", trecho)
 
 
 if __name__ == "__main__":

@@ -61,6 +61,7 @@ import {
   attachRemoteMedia,
   configureConferenceSender,
   createConferenceStream,
+  deveReconectarAnalise,
   evaluateInboundFlow,
   loadRtcConfiguration,
   readRtcMediaFlowStats,
@@ -906,13 +907,51 @@ const AvisoDeApuracao: React.FC<{
   /** O motivo que o dispositivo do paciente relatou. Vazio quando ele nao
    *  relatou nada — e ai o aviso diz o que conferir, sem inventar a causa. */
   causaNoPaciente: string;
+  /** O canal de analise foi recusado pelo servidor. Vazio quando esta de pe. */
+  recusaDaAnalise: string;
+  /** Tenta de novo o canal de analise, relendo o token. Nao recarrega a
+   *  pagina: recarregar levaria junto a transcricao desta sessao. */
+  onReligarAnalise: () => void;
 }> = ({
   semFace,
   semVoz,
   silencioProlongado,
   presencialSemCamera,
   causaNoPaciente,
+  recusaDaAnalise,
+  onReligarAnalise,
 }) => {
+  // Primeiro de todos, e sozinho. Os outros avisos leem o ultimo tique que
+  // chegou; com o canal fechado, esse tique e passado, e um deles chega a
+  // afirmar que "o microfone esta funcionando" e que "nao ha nada a corrigir".
+  // Enquanto a porta esta fechada nao ha leitura nenhuma para interpretar.
+  if (recusaDaAnalise) {
+    return (
+      <div className="absolute bottom-3 left-[1.6cm] right-3 z-20 rounded-lg border border-red-400/60 bg-red-950/85 px-3 py-2 text-[10px] font-semibold leading-4 text-red-100 backdrop-blur-sm">
+        <p className="m-0">
+          <strong>A análise do FROID está fora do ar nesta sessão.</strong>{" "}
+          {recusaDaAnalise}
+        </p>
+        <p className="m-0 mt-1 font-normal text-red-200/90">
+          A chamada continua — áudio e vídeo entre vocês não dependem disto. O
+          que está parado é a apuração: F0, MFCC, sub-harmônicos e AUs não estão
+          sendo medidos, e o que não for captado agora não se recupera depois.
+        </p>
+        <p className="m-0 mt-1 font-normal text-red-200/90">
+          Resolva o motivo acima em outra aba e clique em Religar análise.{" "}
+          <strong>Não recarregue esta página</strong>: a transcrição desta
+          sessão está viva aqui e recarregar a perderia.
+        </p>
+        <button
+          type="button"
+          onClick={onReligarAnalise}
+          className="mt-2 rounded border border-red-300/60 bg-red-900/60 px-2 py-1 text-[10px] font-bold text-red-50 hover:bg-red-900"
+        >
+          Religar análise
+        </button>
+      </div>
+    );
+  }
   if (presencialSemCamera) {
     return (
       <div className="absolute bottom-3 left-[1.6cm] right-3 z-20 rounded-lg border border-slate-500/50 bg-slate-950/80 px-3 py-2 text-[10px] font-semibold leading-4 text-slate-300 backdrop-blur-sm">
@@ -2662,6 +2701,18 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const [tiquesDeCaptura, setTiquesDeCaptura] = useState(
     TIQUES_DE_CAPTURA_ZERADOS,
   );
+  // O canal de analise foi RECUSADO pelo servidor, e nao apenas caiu. Vazio
+  // enquanto ele estiver de pe ou apenas reconectando. Enquanto tem conteudo,
+  // nenhuma medida esta sendo apurada — e nenhum outro aviso desta tela pode
+  // afirmar que a captura esta bem, porque o que eles leem e o ultimo tique
+  // que chegou antes da porta fechar.
+  const [recusaDaAnalise, setRecusaDaAnalise] = useState("");
+  // Recusa é terminal: o laço de reconexão para, e tem de parar. Mas o motivo
+  // costuma ser resolvível DURANTE o atendimento — reentrar na conta, repor
+  // saldo —, e sem isto não haveria como retomar a apuração sem recarregar a
+  // página, que levaria junto a transcrição em curso. Mexer neste número
+  // refaz o efeito e reconecta lendo o token de novo.
+  const [tentativaDeAnalise, setTentativaDeAnalise] = useState(0);
   const [dissonanceLog, setDissonanceLog] = useState<
     Array<{
       id: string;
@@ -5434,14 +5485,25 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           if (wsRef.current === socket) {
             dispatch({ type: "WS_OPEN" });
             wsLastMessageAtRef.current = Date.now();
+            setRecusaDaAnalise("");
           }
         };
-        socket.onclose = () => {
+        socket.onclose = (event) => {
           if (wsRef.current === socket) {
             wsRef.current = null;
             dispatch({ type: "WS_CLOSE" });
           }
-          if (!cancelled) scheduleConnect(attempt + 1);
+          if (cancelled) return;
+          // Este `onclose` ignorava o codigo. Recusa do servidor e queda de
+          // rede entravam no mesmo laco de reconexao, e a recusa nunca chegava
+          // a tela: a chamada seguia perfeita e as medicoes paravam em
+          // silencio. Foi o que aconteceu em 20/09/2026, num atendimento real.
+          if (!deveReconectarAnalise(event.code)) {
+            setRecusaDaAnalise(motivoDaRecusaDeSinalizacao(event.code));
+            return;
+          }
+          setRecusaDaAnalise("");
+          scheduleConnect(attempt + 1);
         };
         socket.onerror = () => {
           try {
@@ -5518,7 +5580,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         ws?.close();
       } catch {}
     };
-  }, [sessionId]);
+  }, [sessionId, tentativaDeAnalise]);
 
   useEffect(() => {
     // Agrega a cada 3s sobre os frames acumulados desde a última agregação.
@@ -6326,6 +6388,8 @@ function LiveSessionInner({ user }: LiveSessionProps) {
               silencioProlongado={silencioProlongado}
               presencialSemCamera={presencialSemCamera}
               causaNoPaciente={causaAcusticaNoPaciente}
+              recusaDaAnalise={recusaDaAnalise}
+              onReligarAnalise={() => setTentativaDeAnalise((n) => n + 1)}
             />
             {(state.camError || !state.micOn) && (
               <div className="absolute bottom-3 left-[1.6cm] right-3 z-20 rounded-lg border border-amber-300/50 bg-slate-950/75 px-3 py-2 text-[10px] font-semibold text-amber-100 backdrop-blur-sm">
@@ -6540,6 +6604,8 @@ function LiveSessionInner({ user }: LiveSessionProps) {
               silencioProlongado={silencioProlongado}
               presencialSemCamera={presencialSemCamera}
               causaNoPaciente={causaAcusticaNoPaciente}
+              recusaDaAnalise={recusaDaAnalise}
+              onReligarAnalise={() => setTentativaDeAnalise((n) => n + 1)}
             />
             {(state.camError || !state.micOn) && (
               <div className="absolute bottom-3 left-[1.6cm] right-3 z-20 rounded-lg border border-amber-300/50 bg-slate-950/75 px-3 py-2 text-[10px] font-semibold text-amber-100 backdrop-blur-sm">
@@ -6846,6 +6912,8 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             silencioProlongado={silencioProlongado}
             presencialSemCamera={presencialSemCamera}
             causaNoPaciente={causaAcusticaNoPaciente}
+            recusaDaAnalise={recusaDaAnalise}
+            onReligarAnalise={() => setTentativaDeAnalise((n) => n + 1)}
           />
           {(state.camError || !state.micOn) && (
             <div className="absolute bottom-3 left-[1.6cm] right-3 z-20 rounded-lg border border-amber-300/50 bg-slate-950/75 px-3 py-2 text-[10px] font-semibold text-amber-100 backdrop-blur-sm">

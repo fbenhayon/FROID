@@ -2,8 +2,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   adoptRemoteTrack,
   attachRemoteMedia,
+  deveReconectarAnalise,
   evaluateInboundFlow,
   evaluateOutboundFlow,
+  motivoDaRecusaDeSinalizacao,
   shouldReconnectRtcSignaling,
   type RtcMediaFlowStats,
 } from "./webrtc";
@@ -195,7 +197,7 @@ describe("attachRemoteMedia", () => {
 
 describe("shouldReconnectRtcSignaling", () => {
   it("nunca reconecta em códigos terminais de autorização", () => {
-    for (const code of [1008, 4000, 4401, 4402, 4403]) {
+    for (const code of [1008, 4000, 4401, 4402, 4403, 4404]) {
       expect(shouldReconnectRtcSignaling(code, 0, "connected")).toBe(false);
     }
   });
@@ -207,5 +209,41 @@ describe("shouldReconnectRtcSignaling", () => {
   it("reconecta nas tentativas iniciais e desiste após o teto", () => {
     expect(shouldReconnectRtcSignaling(1006, 7, "connecting")).toBe(true);
     expect(shouldReconnectRtcSignaling(1006, 8, "connecting")).toBe(false);
+  });
+});
+
+describe("deveReconectarAnalise", () => {
+  it("desiste em toda recusa do servidor", () => {
+    for (const code of [1008, 1013, 4000, 4401, 4402, 4403, 4404]) {
+      expect(deveReconectarAnalise(code)).toBe(false);
+    }
+  });
+
+  it("insiste sem teto quando foi queda, e não recusa", () => {
+    // Sem teto de propósito: o que este canal perde enquanto está fora não se
+    // recupera depois. 1006 é a queda de rede que não manda código nenhum.
+    expect(deveReconectarAnalise(1006)).toBe(true);
+    expect(deveReconectarAnalise(1001)).toBe(true);
+    expect(deveReconectarAnalise(1011)).toBe(true);
+  });
+});
+
+describe("motivoDaRecusaDeSinalizacao", () => {
+  it("separa login vencido de sessão de outra conta", () => {
+    // Os dois saíam pelo mesmo 4401, com a frase do 4404, e num atendimento
+    // real de 20/09/2026 o profissional foi conferir de qual conta era a
+    // sessão — que estava certa — enquanto o que havia acabado era o login.
+    const vencido = motivoDaRecusaDeSinalizacao(4401);
+    const outraConta = motivoDaRecusaDeSinalizacao(4404);
+    expect(vencido).not.toBe(outraConta);
+    expect(vencido).toMatch(/entre de novo/i);
+    expect(outraConta).toMatch(/outra conta/i);
+  });
+
+  it("nenhuma recusa cai na frase genérica", () => {
+    const generica = motivoDaRecusaDeSinalizacao(9999);
+    for (const code of [1008, 1013, 4000, 4401, 4402, 4403, 4404]) {
+      expect(motivoDaRecusaDeSinalizacao(code)).not.toBe(generica);
+    }
   });
 });

@@ -25,8 +25,9 @@ const rtcConfigurationPromises = new Map<string, CachedRtcConfiguration>();
 // reconectava oito vezes contra uma recusa deterministica — mostrando
 // "Reconectando..." o tempo todo, que e a mensagem errada para uma porta
 // fechada.
+// 4404 entrou em 20/09/2026, quando 4401 deixou de significar duas coisas.
 const TERMINAL_SIGNALING_CLOSE_CODES = new Set([
-  1008, 1013, 4000, 4401, 4402, 4403,
+  1008, 1013, 4000, 4401, 4402, 4403, 4404,
 ]);
 const MAX_INITIAL_SIGNALING_RECONNECTS = 8;
 
@@ -43,6 +44,13 @@ const MAX_INITIAL_SIGNALING_RECONNECTS = 8;
 export function motivoDaRecusaDeSinalizacao(closeCode: number): string {
   switch (closeCode) {
     case 4401:
+      // Separado do 4404 em 20/09/2026. Os dois saiam juntos, com a frase do
+      // 4404 — e num atendimento real o profissional foi conferir de qual
+      // conta era a sessao (estava certa) enquanto o que havia acabado era o
+      // login dele. A frase precisa carregar a acao, e a acao aqui e entrar de
+      // novo.
+      return "Sua sessão de trabalho no FROID expirou. Entre de novo nesta mesma conta, em outra aba, para retomar.";
+    case 4404:
       return "Esta sessão pertence a outra conta. Verifique se você entrou com o mesmo login que a criou.";
     case 4402:
       return "Sua conta está sem saldo de sessões. Reponha o saldo para iniciar o atendimento.";
@@ -67,6 +75,26 @@ export function shouldReconnectRtcSignaling(
   if (TERMINAL_SIGNALING_CLOSE_CODES.has(closeCode)) return false;
   return connectionState === "connected"
     || reconnectAttempt < MAX_INITIAL_SIGNALING_RECONNECTS;
+}
+
+/**
+ * O mesmo julgamento, para o canal de ANALISE (`/ws/fusion`).
+ *
+ * Aquele socket nao e a chamada: e por onde chegam F0, MFCC, sub-harmonicos e
+ * as AUs. Ele olhava o `onclose` e reconectava SEMPRE, sem ler o codigo — e o
+ * servidor recusa por 4401/4404 exatamente como recusa a sinalizacao. Em
+ * 20/09/2026, num atendimento real, isso produziu um laco de reconexao a cada
+ * cinco segundos contra uma recusa deterministica, SEM UMA LINHA NA TELA: a
+ * chamada continuou perfeita, e as medicoes simplesmente pararam de existir.
+ * Pior, o aviso calmo de "sem voz vozeada" seguiu na tela afirmando que o
+ * microfone estava funcionando, a partir do ultimo tique que chegou.
+ *
+ * Diferente da sinalizacao, aqui nao ha teto de tentativas: fora das recusas,
+ * este canal tem de insistir enquanto a sessao durar, porque o que ele perde
+ * nao se recupera depois.
+ */
+export function deveReconectarAnalise(closeCode: number): boolean {
+  return !TERMINAL_SIGNALING_CLOSE_CODES.has(closeCode);
 }
 
 /** O erro que NAO se recupera renegociando.
