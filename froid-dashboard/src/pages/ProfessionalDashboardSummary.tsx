@@ -5,6 +5,7 @@ import { AgendaDoProfissional } from "../components/panels/AgendaDoProfissional"
 import { AIInsights } from "../components/panels/AIInsights";
 import { WaitingPatientSessions } from "../components/WaitingPatientSessions";
 import { apiUrl } from "../lib/api";
+import { caminhoDoConviteDeSessao } from "../lib/convite-de-sessao";
 import {
   buildPatientGroups,
   fmt,
@@ -30,6 +31,29 @@ type PatientFinancialRow = {
   total_received_brl?: string;
   total_pending_brl?: string;
 };
+
+// As colunas da tabela de pacientes. Ficam numa lista só porque o `colSpan` da
+// linha de "nenhum paciente" sai daqui: eram dois números escritos à mão, e a
+// coluna "Convite" acabou de mostrar que a segunda cópia é fácil de esquecer —
+// o desalinhamento só apareceria para quem abrisse a tela sem paciente nenhum
+// (espelho de número, seção 2.7).
+const COLUNAS_DA_TABELA = [
+  "Paciente",
+  "Sessões",
+  "Tom",
+  "IPM",
+  "IDM",
+  "P/min",
+  "MFCC7",
+  "MFCC9",
+  "Jitter",
+  "Shimmer",
+  "Prioridade",
+  "Devido",
+  "Recebido",
+  "Pendente",
+  "Convite",
+];
 
 function mean(reports: SessionReportRecord[], select: (report: SessionReportRecord) => number | null | undefined) {
   const values = reports.map(select).filter((value): value is number => Number.isFinite(value));
@@ -187,16 +211,30 @@ export const ProfessionalDashboardSummary: React.FC<Props> = ({ user, onLogout }
         </section>
 
           <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-            <h2 className="text-sm font-black">{tr("Pacientes e indicadores médios")}</h2>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-sm font-black">{tr("Pacientes e indicadores médios")}</h2>
+              {/* O cadastro só existia no dashboard detalhado. Quem trabalhava
+                  no resumido tinha de trocar de tela para cadastrar alguém. */}
+              <button
+                type="button"
+                onClick={() => nav(caminhoDoConviteDeSessao())}
+                title={tr(
+                  "Abre o formulário de cadastro em branco, para registrar um paciente novo e gerar o convite da primeira sessão.",
+                )}
+                className="rounded-lg bg-cyan-700 px-3 py-2 text-xs font-bold text-white hover:bg-cyan-800"
+              >
+                {tr("Cadastrar paciente")}
+              </button>
+            </div>
             <div className="mt-3 overflow-x-auto">
               <table className="min-w-max table-auto whitespace-nowrap text-left text-[10px]">
                 <thead className="uppercase text-slate-500">
-                  <tr>{["Paciente", "Sessões", "Tom", "IPM", "IDM", "P/min", "MFCC7", "MFCC9", "Jitter", "Shimmer", "Prioridade", "Devido", "Recebido", "Pendente"].map((label) => <th key={label} className="whitespace-nowrap px-2 py-2">{tr(label)}</th>)}</tr>
+                  <tr>{COLUNAS_DA_TABELA.map((label) => <th key={label} className="whitespace-nowrap px-2 py-2">{tr(label)}</th>)}</tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
                   {visibleGroups.length === 0 && (
                     <tr>
-                      <td colSpan={14} className="px-2 py-4 text-center text-[11px] text-slate-500">
+                      <td colSpan={COLUNAS_DA_TABELA.length} className="px-2 py-4 text-center text-[11px] text-slate-500">
                         {groups.length === 0
                           ? tr("Nenhum paciente com relatório disponível.")
                           : tr("Nenhum paciente encontrado para esta busca.")}
@@ -249,6 +287,25 @@ export const ProfessionalDashboardSummary: React.FC<Props> = ({ user, onLogout }
                         <td className="whitespace-nowrap px-2 py-2 text-cyan-200">{patientFinancial?.total_due_brl || "R$ 0,00"}</td>
                         <td className="whitespace-nowrap px-2 py-2 text-emerald-200">{patientFinancial?.total_received_brl || "R$ 0,00"}</td>
                         <td className="whitespace-nowrap px-2 py-2 text-amber-100">{patientFinancial?.total_pending_brl || "R$ 0,00"}</td>
+                        <td className="whitespace-nowrap px-2 py-2">
+                          {/* `stopPropagation` pelo mesmo motivo do botão do
+                              nome: o clique na linha seleciona o paciente para
+                              o FROID Explica, e sem isto o convite trocaria a
+                              seleção no caminho de saída da tela. */}
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              nav(caminhoDoConviteDeSessao(group.patient));
+                            }}
+                            title={tr(
+                              "Abre o formulário de convite já preenchido com os dados deste paciente, para gerar o link da próxima sessão.",
+                            )}
+                            className="rounded bg-cyan-700 px-2 py-1 text-[10px] font-bold text-white hover:bg-cyan-800 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                          >
+                            {tr("Convidar")}
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { AIInsights } from "../components/panels/AIInsights";
 import { apiUrl } from "../lib/api";
+import { caminhoDoConviteDeSessao } from "../lib/convite-de-sessao";
 import {
   PainelEvolucao,
   type SerieEvolucao,
@@ -266,11 +267,21 @@ export const PatientDetail: React.FC = () => {
             >
               {tr("Prioridade")}: {signal.priority}
             </span>
+            {/* Aqui havia um "Abrir sessão" que levava à sala da ÚLTIMA sessão
+                deste paciente. O rótulo prometia o que o produto não faz: pelo
+                painel não se abre a sessão de um paciente, convida-se — o
+                paciente recebe um link único e a sala nasce quando ele entra.
+                Quem clicasse esperando começar um atendimento novo caía dentro
+                de uma sessão já encerrada (padrão 2.4, rótulo que promete o que
+                não entrega). */}
             <button
-              onClick={() => navigate(`/session/${latest.sessionId}`)}
+              onClick={() => navigate(caminhoDoConviteDeSessao(group.patient))}
+              title={tr(
+                "Abre o formulário de convite já preenchido com os dados deste paciente, para gerar o link da próxima sessão.",
+              )}
               className="rounded-lg bg-cyan-700 px-3 py-2 text-xs font-bold text-white hover:bg-cyan-800"
             >
-              Abrir sessão
+              {tr("Convidar para sessão")}
             </button>
             <button
               onClick={() => navigate(returnTo)}
