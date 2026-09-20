@@ -25,9 +25,10 @@ const rtcConfigurationPromises = new Map<string, CachedRtcConfiguration>();
 // reconectava oito vezes contra uma recusa deterministica — mostrando
 // "Reconectando..." o tempo todo, que e a mensagem errada para uma porta
 // fechada.
-// 4404 entrou em 20/09/2026, quando 4401 deixou de significar duas coisas.
+// 4404 e 4405 entraram em 20/09/2026, quando 4401 deixou de significar duas
+// coisas e o 4403 deixou de ser dito ao profissional com a frase do paciente.
 const TERMINAL_SIGNALING_CLOSE_CODES = new Set([
-  1008, 1013, 4000, 4401, 4402, 4403, 4404,
+  1008, 1013, 4000, 4401, 4402, 4403, 4404, 4405,
 ]);
 const MAX_INITIAL_SIGNALING_RECONNECTS = 8;
 
@@ -56,6 +57,13 @@ export function motivoDaRecusaDeSinalizacao(closeCode: number): string {
       return "Sua conta está sem saldo de sessões. Reponha o saldo para iniciar o atendimento.";
     case 4403:
       return "Este convite não é válido para esta sessão, ou a janela de acesso já passou. Peça um novo link ao profissional.";
+    case 4405:
+      // O profissional recebia a frase acima, que foi escrita para o PACIENTE:
+      // mandava pedir um link novo "ao profissional" — a ele mesmo. Em
+      // 20/09/2026 o log de auditoria mostrou onze recusas assim no comeco de
+      // um atendimento real, e nenhuma delas tinha acao possivel na tela,
+      // porque o painel clinico nao tem seletor de organizacao.
+      return "Esta sessão foi aberta sob outra organização da sua conta, e a sessão de trabalho atual está em uma diferente. Entre de novo para que a organização volte a bater.";
     case 1008:
       return "O link de acesso está malformado. Peça um novo link ao profissional.";
     case 1013:

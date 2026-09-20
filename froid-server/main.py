@@ -6167,7 +6167,20 @@ async def _record_websocket_audit(
     outcome: str,
     context: Optional[AccessContext] = None,
     organization_id: str = "",
+    close_code: int = 0,
 ) -> None:
+    """Registra uma conexao de WebSocket — e, na recusa, POR QUE foi recusada.
+
+    `close_code` entrou em 20/09/2026. Ate ali a recusa era gravada sem o
+    motivo: todas as seis causas produziam a mesma linha "outcome":"denied", e
+    descobrir qual tinha sido exigia deduzir pelo unico sinal indireto que
+    sobrava — se o evento trazia `organization_id` preenchido, porque so o
+    ramo do recorte por organizacao passava `context`. Levou uma investigacao
+    inteira, num dia em que havia paciente esperando. Agora e um grep.
+
+    Isto e a regra 1.3 aplicada ao log: recusar em silencio e recusar sem
+    motivo sao a mesma falha vista de dois lugares.
+    """
     safe_session_reference = hashlib.sha256(
         str(session_id or "").encode("utf-8")
     ).hexdigest()[:16]
@@ -6181,6 +6194,7 @@ async def _record_websocket_audit(
         "session_reference": safe_session_reference,
         "role": safe_role,
         "outcome": outcome,
+        "close_code": int(close_code or 0),
         "organization_id": tenant_id,
         "actor_user_id": context.user_id if context else "",
     }
@@ -7298,14 +7312,14 @@ async def websocket_fusion(websocket: WebSocket, session_id: str):
     if not user:
         await _record_websocket_audit(
             action="connect", session_id=session_id, role="professional",
-            outcome="denied",
+            outcome="denied", close_code=4401,
         )
         await _recusar_websocket(websocket, 4401)
         return
     if SESSION_OWNERS.get(session_id) != _normalize_email(user.get("email") or ""):
         await _record_websocket_audit(
             action="connect", session_id=session_id, role="professional",
-            outcome="denied",
+            outcome="denied", close_code=4404,
         )
         await _recusar_websocket(websocket, 4404)
         return
@@ -7314,16 +7328,16 @@ async def websocket_fusion(websocket: WebSocket, session_id: str):
     except HTTPException as exc:
         await _record_websocket_audit(
             action="connect", session_id=session_id, role="professional",
-            outcome="denied",
+            outcome="denied", close_code=4402 if exc.status_code == 402 else 1013,
         )
         await _recusar_websocket(websocket, 4402 if exc.status_code == 402 else 1013)
         return
     if not _session_matches_context(session_id, context):
         await _record_websocket_audit(
             action="connect", session_id=session_id, role="professional",
-            outcome="denied", context=context,
+            outcome="denied", context=context, close_code=4405,
         )
-        await _recusar_websocket(websocket, 4403)
+        await _recusar_websocket(websocket, 4405)
         return
     connection_id = await manager.connect(websocket, session_id)
     await _record_websocket_audit(
@@ -7354,7 +7368,7 @@ async def websocket_rtc_signaling(websocket: WebSocket, session_id: str, role: s
     if role not in {"professional", "patient"}:
         await _record_websocket_audit(
             action="connect", session_id=session_id, role=role,
-            outcome="denied",
+            outcome="denied", close_code=1008,
         )
         await websocket.accept()
         await websocket.send_json({"type": "error", "detail": "role invalido"})
@@ -7369,14 +7383,14 @@ async def websocket_rtc_signaling(websocket: WebSocket, session_id: str, role: s
         if not user:
             await _record_websocket_audit(
                 action="connect", session_id=session_id, role=role,
-                outcome="denied",
+                outcome="denied", close_code=4401,
             )
             await _recusar_websocket(websocket, 4401)
             return
         if SESSION_OWNERS.get(session_id) != _normalize_email(user.get("email") or ""):
             await _record_websocket_audit(
                 action="connect", session_id=session_id, role=role,
-                outcome="denied",
+                outcome="denied", close_code=4404,
             )
             await _recusar_websocket(websocket, 4404)
             return
@@ -7385,16 +7399,16 @@ async def websocket_rtc_signaling(websocket: WebSocket, session_id: str, role: s
         except HTTPException as exc:
             await _record_websocket_audit(
                 action="connect", session_id=session_id, role=role,
-                outcome="denied",
+                outcome="denied", close_code=4402 if exc.status_code == 402 else 1013,
             )
             await _recusar_websocket(websocket, 4402 if exc.status_code == 402 else 1013)
             return
         if not _session_matches_context(session_id, context):
             await _record_websocket_audit(
                 action="connect", session_id=session_id, role=role,
-                outcome="denied", context=context,
+                outcome="denied", context=context, close_code=4405,
             )
-            await _recusar_websocket(websocket, 4403)
+            await _recusar_websocket(websocket, 4405)
             return
     else:
         invite_token = str(websocket.query_params.get("invite") or "")
@@ -7411,7 +7425,7 @@ async def websocket_rtc_signaling(websocket: WebSocket, session_id: str, role: s
         ):
             await _record_websocket_audit(
                 action="connect", session_id=session_id, role=role,
-                outcome="denied",
+                outcome="denied", close_code=4403,
             )
             await _recusar_websocket(websocket, 4403)
             return

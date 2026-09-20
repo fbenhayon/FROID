@@ -199,8 +199,34 @@ class ARecusaDizQualFoi(unittest.TestCase):
         # para todos deixa quem esta na tela sem nenhuma acao possivel — e quem
         # esta na tela e um profissional com um paciente esperando.
         self.assertIn("motivoDaRecusaDeSinalizacao", WEBRTC)
-        for codigo in ("4401", "4402", "4403", "4404", "1008"):
+        for codigo in ("4401", "4402", "4403", "4404", "4405", "1008"):
             self.assertIn(codigo, WEBRTC)
+
+    def test_toda_recusa_grava_o_proprio_codigo(self):
+        """Recusa registrada sem motivo e recusa pela metade.
+
+        Ate 20/09/2026 as seis causas produziam a mesma linha
+        `"outcome":"denied"` no log, sem dizer qual tinha sido. Descobrir exigia
+        deduzir pelo unico sinal indireto que sobrava — se o evento trazia
+        `organization_id` preenchido, porque so o ramo do recorte por
+        organizacao passava `context`. Custou uma investigacao inteira num dia
+        com paciente esperando.
+
+        A varredura pareia cada `_recusar_websocket(..., N)` com o
+        `close_code=` do audit que o precede, no mesmo bloco.
+        """
+        recusas = re.findall(
+            r'outcome="denied"(.{0,80}?)\n\s*\)\s*\n\s*await (?:_recusar_websocket\(websocket, |websocket\.accept)',
+            TRECHO,
+            re.DOTALL,
+        )
+        self.assertTrue(recusas, "a varredura nao encontrou recusa nenhuma")
+        sem_codigo = [trecho for trecho in recusas if "close_code=" not in trecho]
+        self.assertEqual(
+            sem_codigo,
+            [],
+            f"recusa que nao grava o proprio codigo no log: {sem_codigo}",
+        )
 
     def test_o_login_vencido_nao_acusa_a_conta_errada(self):
         # Ate 20/09/2026 os dois casos saiam pelo mesmo 4401, com a frase do

@@ -197,7 +197,7 @@ describe("attachRemoteMedia", () => {
 
 describe("shouldReconnectRtcSignaling", () => {
   it("nunca reconecta em códigos terminais de autorização", () => {
-    for (const code of [1008, 4000, 4401, 4402, 4403, 4404]) {
+    for (const code of [1008, 4000, 4401, 4402, 4403, 4404, 4405]) {
       expect(shouldReconnectRtcSignaling(code, 0, "connected")).toBe(false);
     }
   });
@@ -214,7 +214,7 @@ describe("shouldReconnectRtcSignaling", () => {
 
 describe("deveReconectarAnalise", () => {
   it("desiste em toda recusa do servidor", () => {
-    for (const code of [1008, 1013, 4000, 4401, 4402, 4403, 4404]) {
+    for (const code of [1008, 1013, 4000, 4401, 4402, 4403, 4404, 4405]) {
       expect(deveReconectarAnalise(code)).toBe(false);
     }
   });
@@ -240,9 +240,22 @@ describe("motivoDaRecusaDeSinalizacao", () => {
     expect(outraConta).toMatch(/outra conta/i);
   });
 
+  it("o profissional não recebe a frase escrita para o paciente", () => {
+    // O 4403 manda "peça um novo link ao profissional" — e o profissional é
+    // ele mesmo. O log de 20/09/2026 trouxe onze recusas dessas no começo de
+    // um atendimento real, todas por recorte de organização, e nenhuma tinha
+    // ação possível: o painel clínico não tem seletor de organização.
+    const doPaciente = motivoDaRecusaDeSinalizacao(4403);
+    const doProfissional = motivoDaRecusaDeSinalizacao(4405);
+    expect(doProfissional).not.toBe(doPaciente);
+    expect(doPaciente).toMatch(/novo link ao profissional/i);
+    expect(doProfissional).toMatch(/organiza/i);
+    expect(doProfissional).not.toMatch(/novo link ao profissional/i);
+  });
+
   it("nenhuma recusa cai na frase genérica", () => {
     const generica = motivoDaRecusaDeSinalizacao(9999);
-    for (const code of [1008, 1013, 4000, 4401, 4402, 4403, 4404]) {
+    for (const code of [1008, 1013, 4000, 4401, 4402, 4403, 4404, 4405]) {
       expect(motivoDaRecusaDeSinalizacao(code)).not.toBe(generica);
     }
   });
