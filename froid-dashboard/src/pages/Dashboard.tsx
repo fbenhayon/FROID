@@ -5,6 +5,8 @@ import { AIInsights } from "../components/panels/AIInsights";
 import { FroidTooltip } from "../components/ui/FroidTooltip";
 import { tooltipText } from "../lib/tooltip-i18n";
 import { apiUrl } from "../lib/api";
+import { caminhoDoConviteDeSessao } from "../lib/convite-de-sessao";
+import { criarSessaoPresencial } from "../lib/sessao-presencial";
 import {
   buildPatientGroups,
   deltaMedido,
@@ -95,9 +97,9 @@ interface ProfessionalProfile {
   remaining_sessions?: number;
 }
 
-function makeId() {
-  return `froid-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
-}
+// Aqui vivia `makeId()`, que gerava o id da sessão presencial no navegador.
+// Era ele que deixava a sessão sem dono no servidor — lápide para ninguém o
+// reintroduzir: quem abre sessão presencial é `POST /session/create`.
 
 const PRIORITY_STYLES: Record<string, string> = {
   ROTINA: "border-emerald-700 bg-emerald-950/40 text-emerald-200",
@@ -501,17 +503,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
     captureMode?: "patient_mobile",
   ) => {
     if (patientKey) setSelectedPatientKey(patientKey);
-    const params = new URLSearchParams();
-    if (patient?.name) params.set("name", patient.name);
-    if (patient?.email) params.set("email", patient.email);
-    if (patient?.phone) params.set("phone", patient.phone);
-    if (captureMode) params.set("capture", captureMode);
-    const query = params.toString();
-    nav(`/patients/new${query ? `?${query}` : ""}`);
+    nav(caminhoDoConviteDeSessao(patient, captureMode));
   };
 
-  const startPresentialSession = (group = selectedGroup) => {
-    const sessionId = makeId();
+  const startPresentialSession = async (group = selectedGroup) => {
+    // O id nascia aqui, no navegador, e o servidor nunca ficava sabendo de quem
+    // era a sessão. Sem dono registrado ele recusa o WebSocket de análise, e a
+    // sessão presencial rodava sem apurar F0, MFCC, sub-harmônicos nem AUs.
+    // Agora quem abre a sessão é o servidor, e ele devolve o id já com dono.
+    let sessionId = "";
+    try {
+      sessionId = await criarSessaoPresencial(authHeaders());
+    } catch (erro) {
+      window.alert(
+        erro instanceof Error
+          ? erro.message
+          : "Não foi possível abrir a sessão presencial.",
+      );
+      return;
+    }
     const languages = loadSessionLanguagePreferences();
     if (group?.patient) {
       rememberSessionPatient(sessionId, {

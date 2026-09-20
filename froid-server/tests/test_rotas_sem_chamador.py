@@ -63,10 +63,13 @@ SEM_CHAMADOR_POR_DESENHO = {
     "/api/admin/access/membership": "chamada por caminho montado em ControleDeAcesso.tsx",
     "/api/admin/access/organization": "chamada por caminho montado em ControleDeAcesso.tsx",
     "/api/admin/access/user": "chamada por caminho montado em ControleDeAcesso.tsx",
-    # CODIGO MORTO, declarado. A sessao nasce de POST /api/session-invites,
-    # que e quem grava SESSION_OWNERS. /session/create faz a mesma coisa e
-    # ninguem o chama desde que o painel passou a gerar o id no cliente.
-    "/session/create": "codigo morto — ver POST /api/session-invites",
+    # `/session/create` saiu desta lista em 20/09/2026. Ele estava declarado
+    # como codigo morto porque o painel passou a gerar o id da sessao
+    # presencial no cliente — e era exatamente isso o defeito: sem passar por
+    # aqui, a sessao presencial nascia sem dono em SESSION_OWNERS, o servidor
+    # recusava o WebSocket de analise dela e o atendimento inteiro corria sem
+    # apurar F0, MFCC, sub-harmonicos nem AUs. A rota certa existia e nao tinha
+    # consumidor (padrao 2.1); agora tem, em lib/sessao-presencial.ts.
 }
 
 # Rotas cuja ausencia de chamador e DIVIDA CONHECIDA, com data. Diferente da
