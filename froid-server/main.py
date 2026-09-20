@@ -5689,14 +5689,36 @@ def _current_user_from_request(request: Request) -> Optional[dict]:
 
 
 def _session_user_for_token(token: str) -> Optional[dict]:
+    """O profissional dono deste token, ou None se a sessao nao vale mais.
+
+    A JANELA E DESLIZANTE, e nao um prazo fixo desde o login.
+
+    Ate 20/09/2026 `_session_expires_at` era escrito uma unica vez, na emissao
+    do token, e nada o renovava: a sessao de trabalho morria
+    FROID_SESSION_TOKEN_TTL_SECONDS depois do login, em uso ou nao. Num
+    atendimento real daquele dia o prazo venceu no meio da consulta. A chamada
+    continuou — ela e ponto a ponto —, mas o canal de analise passou a ser
+    recusado, as medicoes pararam, e no fim o relatorio nao pode ser arquivado:
+    "nao autenticado", com um paciente do outro lado.
+
+    Nada avisava, e nada podia avisar: o prazo nao aparece em lugar nenhum da
+    tela, e o painel nao le o `expires_in` que o login devolve.
+
+    Agora o prazo conta a partir do ULTIMO uso. Quem esta trabalhando nao e
+    interrompido; quem largou a aba aberta continua expirando no mesmo tempo de
+    inatividade de antes. Nenhuma janela foi alargada — o que mudou e de onde
+    ela e contada.
+    """
     if not token:
         return None
     user = SESSION_USERS.get(token)
     if not isinstance(user, dict):
         return None
-    if float(user.get("_session_expires_at") or 0) <= datetime.now(timezone.utc).timestamp():
+    agora = datetime.now(timezone.utc).timestamp()
+    if float(user.get("_session_expires_at") or 0) <= agora:
         SESSION_USERS.pop(token, None)
         return None
+    user["_session_expires_at"] = agora + FROID_SESSION_TOKEN_TTL_SECONDS
     return user
 
 
