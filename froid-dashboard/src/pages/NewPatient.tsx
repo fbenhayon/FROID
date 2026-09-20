@@ -72,11 +72,19 @@ export const NewPatient: React.FC = () => {
     loadSessionLanguagePreferences,
   );
   // Este paciente poderá ver as próprias sessões na área dele? Decisão do
-  // profissional. Nasce desligado de propósito: liberar dado clínico ao
-  // paciente é ato, e ato não se pratica por omissão. Alterável depois na ficha
-  // — ligar aqui não libera nada sozinho, cada relatório ainda passa pela
-  // composição e liberação na tela do Relatório da Sessão.
-  const [patientResultsEnabled, setPatientResultsEnabled] = useState(false);
+  // profissional, tomada aqui e alterável depois na ficha.
+  //
+  // Nasce LIGADO por determinação do dono (20/09/2026). Nascia desligado pelo
+  // argumento de que liberar dado clínico é ato e ato não se pratica por
+  // omissão — argumento que continua valendo, só que no portão onde ele morde:
+  // marcar esta caixa não publica relatório nenhum sozinho, cada sessão ainda
+  // passa pela composição e pelo botão de liberar, na tela do Relatório da
+  // Sessão. O que a caixa decide é se o paciente chega a ver o que já foi
+  // liberado.
+  //
+  // O servidor continua negando por ausência do campo — o padrão vive nesta
+  // tela, não lá.
+  const [patientResultsEnabled, setPatientResultsEnabled] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
   const [invite, setInvite] = useState<InviteResult | null>(null);

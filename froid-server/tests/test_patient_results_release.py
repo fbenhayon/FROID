@@ -47,13 +47,28 @@ class PatientResultsReleaseTests(unittest.TestCase):
         self.assertIn("if value is None:", corpo)
         self.assertIn("return True", corpo)
 
-    def test_convite_novo_nasce_desligado(self):
-        # Liberar dado clínico ao paciente é ato do profissional, e ato não se
-        # pratica por omissão.
+    def test_corpo_sem_o_campo_nao_libera(self):
+        # Chamava-se "convite novo nasce desligado" enquanto o formulário do
+        # painel também nascia desligado. Em 20/09/2026 o dono determinou a
+        # caixa marcada por padrão na tela; a asserção abaixo não mudou uma
+        # letra, mas o nome antigo passou a descrever o produto errado. O que
+        # este teste guarda é o servidor: corpo que não afirma o campo não
+        # libera dado clínico, venha de onde vier.
         self.assertIn(
             "patient_results_enabled = bool(body.get(\"patient_results_enabled\"))",
             self.backend,
         )
+
+    def test_convite_novo_nao_mexe_em_paciente_conhecido(self):
+        # A guarda já existia no código e não tinha teste nenhum. Ela passou a
+        # ser carregada em 20/09/2026, quando a caixa do formulário passou a
+        # chegar marcada: sem ela, reconvidar um paciente cujo acesso o
+        # profissional tinha DESLIGADO na ficha o religaria em silêncio, porque
+        # o convite carrega a decisão do formulário, não a da ficha.
+        trecho = self.backend.split("\"portal_results_enabled\": (")[1][:300]
+        self.assertIn("PATIENTS.get(patient_id, {}).get(\"portal_results_enabled\")", trecho)
+        self.assertIn("if patient_id in PATIENTS", trecho)
+        self.assertIn("else bool(invite.get(\"patient_results_enabled\"))", trecho)
 
     # ---------- portão 2: liberação da sessão ----------
 
