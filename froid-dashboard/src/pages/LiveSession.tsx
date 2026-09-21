@@ -28,6 +28,7 @@ import { RiskChart } from "../components/indicators/RiskChart";
 import { SpectralBandsChart } from "../components/indicators/SpectralBandsChart";
 import { SubharmonicChart } from "../components/indicators/SubharmonicChart";
 import { MediaStatus } from "../components/indicators/MediaStatus";
+import { DiagnosticoAcustico } from "../components/indicators/DiagnosticoAcustico";
 import { BotaoDeCorte } from "../components/indicators/BotaoDeCorte";
 import { SessionTimer } from "../components/indicators/SessionTimer";
 import { AIInsights } from "../components/panels/AIInsights";
@@ -214,6 +215,7 @@ interface SessionState {
 type Action =
   | { type: "WS_OPEN" }
   | { type: "WS_CLOSE" }
+  | { type: "SEM_LEITURA" }
   | { type: "TICK" }
   // A sessão passou a existir: há o outro lado. Só daqui os relógios andam.
   | { type: "SESSION_CONNECTED" }
@@ -572,13 +574,18 @@ function reducer(state: SessionState, action: Action): SessionState {
   try {
     switch (action.type) {
       case "WS_OPEN":
-        return { ...state, connected: true };
+        return { ...state, connected: true, payload: null, aggregated: null, localIpm: null };
       case "WS_CLOSE":
         return {
           ...state,
           connected: false,
+          payload: null,
+          aggregated: null,
+          localIpm: null,
           phase: state.phase,
         };
+      case "SEM_LEITURA":
+        return { ...state, payload: null, aggregated: null, localIpm: null };
       // O RELOGIO NAO CONTA ESPERA.
       //
       // Ate 19/09/2026 a condicao era `state.micOn`: o microfone DO
@@ -636,7 +643,7 @@ function reducer(state: SessionState, action: Action): SessionState {
         };
       }
       case "AGGREGATE":
-        return { ...state, aggregated: action.agg };
+        return !state.connected || !state.payload ? state : { ...state, aggregated: action.agg };
       case "MEDIA_STATUS":
         return {
           ...state,
@@ -909,6 +916,8 @@ const AvisoDeApuracao: React.FC<{
   causaNoPaciente: string;
   /** O canal de analise foi recusado pelo servidor. Vazio quando esta de pe. */
   recusaDaAnalise: string;
+  aguardandoAnalise: string;
+  diagnosticoAcustico: unknown;
   /** Tenta de novo o canal de analise, relendo o token. Nao recarrega a
    *  pagina: recarregar levaria junto a transcricao desta sessao. */
   onReligarAnalise: () => void;
@@ -919,6 +928,8 @@ const AvisoDeApuracao: React.FC<{
   presencialSemCamera,
   causaNoPaciente,
   recusaDaAnalise,
+  aguardandoAnalise,
+  diagnosticoAcustico,
   onReligarAnalise,
 }) => {
   // Primeiro de todos, e sozinho. Os outros avisos leem o ultimo tique que
@@ -952,6 +963,17 @@ const AvisoDeApuracao: React.FC<{
       </div>
     );
   }
+  if (aguardandoAnalise) {
+    return (
+      <div className="absolute bottom-3 left-[1.6cm] right-3 z-20 rounded-lg border border-amber-300/50 bg-slate-950/85 px-3 py-2 text-[10px] leading-4 text-amber-100 backdrop-blur-sm">
+        <strong>Sem leitura atual dos indicadores.</strong> {aguardandoAnalise}
+        <p className="m-0">A reprodução de áudio e vídeo usa outro caminho.</p>
+        <button type="button" onClick={onReligarAnalise} className="mt-1 rounded border border-amber-300/50 px-2 py-1">
+          Religar análise
+        </button>
+      </div>
+    );
+  }
   if (presencialSemCamera) {
     return (
       <div className="absolute bottom-3 left-[1.6cm] right-3 z-20 rounded-lg border border-slate-500/50 bg-slate-950/80 px-3 py-2 text-[10px] font-semibold leading-4 text-slate-300 backdrop-blur-sm">
@@ -961,11 +983,12 @@ const AvisoDeApuracao: React.FC<{
       </div>
     );
   }
-  const temFalha = semFace || semVoz;
+  const falhaDeVoz = semVoz || Boolean(causaNoPaciente);
+  const temFalha = semFace || falhaDeVoz;
   // Com o alarme vermelho de voz na tela, acrescentar "e está sem vozeamento"
   // é dizer a mesma coisa duas vezes, com a segunda contradizendo a primeira:
   // uma fala de captura quebrada, a outra de captura funcionando.
-  const notarSilencio = silencioProlongado && !semVoz;
+  const notarSilencio = silencioProlongado && !falhaDeVoz;
   if (!temFalha && !notarSilencio) return null;
   if (!temFalha) {
     // Calmo, e nunca vermelho: aqui o áudio ESTÁ chegando. A cor tem de
@@ -974,16 +997,15 @@ const AvisoDeApuracao: React.FC<{
     return (
       <div className="absolute bottom-3 left-[1.6cm] right-3 z-20 rounded-lg border border-slate-500/50 bg-slate-950/80 px-3 py-2 text-[10px] font-semibold leading-4 text-slate-300 backdrop-blur-sm">
         <p className="m-0">
-          <strong>Sem voz vozeada há {TIQUES_ATE_NOTAR_SILENCIO} segundos.</strong>{" "}
-          O áudio do paciente está chegando — o microfone está funcionando. Se
-          ele estiver em silêncio, não há nada a corrigir: F0, MFCC e
-          sub-harmônicos só saem de fala vozeada, e esta janela não terá
-          nenhum deles.
+          <strong>Áudio recebido, mas sem voz reconhecida para os índices.</strong>{" "}
+          Isso pode ocorrer durante pausas. Se o paciente está falando, a
+          captura ou a detecção de voz precisa ser verificada.
         </p>
         <p className="m-0 mt-1 font-normal text-slate-400">
-          Se ele estiver falando e isto continuar, o sinal está fraco demais
-          para ser medido: aproxime o aparelho da boca dele.
+          Ouvir a chamada com clareza não confirma a entrada da análise.
+          Esta leitura não identifica a causa nem comprova volume baixo.
         </p>
+        <DiagnosticoAcustico diagnostico={diagnosticoAcustico} />
       </div>
     );
   }
@@ -997,10 +1019,10 @@ const AvisoDeApuracao: React.FC<{
           à frente, nunca atrás.
         </p>
       )}
-      {semVoz && (
+      {falhaDeVoz && (
         <p className={semFace ? "m-0 mt-1" : "m-0"}>
-          <strong>Voz do paciente não está chegando à análise.</strong> Sem ela
-          não há apuração de F0, MFCC, sub-harmônicos nem dos índices derivados.
+          <strong>Sem capacidade de apuração atual da voz.</strong> Os índices
+          dependem de áudio recebido e reconhecido pela análise.
           {causaNoPaciente ? (
             <>
               {" "}No aparelho dele: <em>{causaNoPaciente}</em>.
@@ -1010,6 +1032,7 @@ const AvisoDeApuracao: React.FC<{
           )}
         </p>
       )}
+      {falhaDeVoz && <DiagnosticoAcustico diagnostico={diagnosticoAcustico} />}
       <p className="m-0 mt-1 font-normal text-red-200/90">
         O que não for captado agora não pode ser recuperado depois: não há
         reprocessamento.
@@ -5448,8 +5471,12 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   // as consultava durante a sessão: a ausência não produzia sinal nenhum.
   useEffect(() => {
     const meta = (state.payload as any)?.audio_meta;
-    if (!meta) return;
-    setTiquesSemFace((n) => (meta.facs_source === "real_facs" ? 0 : n + 1));
+    if (!state.payload) {
+      setTiquesSemFace(0);
+      setTiquesDeCaptura(TIQUES_DE_CAPTURA_ZERADOS);
+      return;
+    }
+    setTiquesSemFace((n) => (meta && meta.facs_source === "real_facs" ? 0 : n + 1));
     // `voice_features_source` diz que NÃO houve voz medida; não diz por quê, e
     // os dois porquês pedem telas opostas.
     setTiquesDeCaptura((anterior) => contarCaptura(anterior, meta));
@@ -5458,6 +5485,10 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   // Só depois que a sessão está de pé: antes disso "sem leitura" é o estado
   // esperado de quem ainda não conectou, e alarmar ali seria ruído.
   const capturaEmCurso = state.phase === "LIVE" && (remotePatientOn || isPresentialSession);
+  const aguardandoAnalise = !capturaEmCurso ? ""
+    : !state.connected ? "O canal de análise está desconectado; tentando reconectar."
+    : !state.payload ? "Aguardando uma leitura válida da trilha do paciente."
+    : "";
   const semFaceApurada =
     capturaEmCurso && !isPresentialSession && tiquesSemFace >= TIQUES_ATE_AVISAR;
   const semVozApurada =
@@ -5474,6 +5505,8 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     let ws: WebSocket | null = null;
     let cancelled = false;
     let reconnectTimer: number | null = null;
+    frameBuffer.current = [];
+    dispatch({ type: "WS_CLOSE" });
 
     const scheduleConnect = (attempt: number) => {
       const delay = attempt === 0 ? 50 : Math.min(5000, 600 + attempt * 700);
@@ -5490,18 +5523,18 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         ws = socket;
         wsRef.current = socket;
         socket.onopen = () => {
-          if (wsRef.current === socket) {
+          if (!cancelled && wsRef.current === socket) {
+            frameBuffer.current = [];
             dispatch({ type: "WS_OPEN" });
             wsLastMessageAtRef.current = Date.now();
             setRecusaDaAnalise("");
           }
         };
         socket.onclose = (event) => {
-          if (wsRef.current === socket) {
-            wsRef.current = null;
-            dispatch({ type: "WS_CLOSE" });
-          }
-          if (cancelled) return;
+          if (cancelled || wsRef.current !== socket) return;
+          wsRef.current = null;
+          frameBuffer.current = [];
+          dispatch({ type: "WS_CLOSE" });
           // Este `onclose` ignorava o codigo. Recusa do servidor e queda de
           // rede entravam no mesmo laco de reconexao, e a recusa nunca chegava
           // a tela: a chamada seguia perfeita e as medicoes paravam em
@@ -5519,16 +5552,24 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           } catch {}
         };
         socket.onmessage = (event) => {
-          if (cancelled) return;
-          wsLastMessageAtRef.current = Date.now();
+          if (cancelled || wsRef.current !== socket) return;
           try {
             const data: FroidPayload = JSON.parse(event.data);
+            if (!data || data.session_id !== (sessionId || "default")
+              || !Number.isFinite(data.timestamp_ms)
+              || !Array.isArray(data.perception_zones)
+              || !Array.isArray(data.realtime_alerts)) {
+              throw new Error("Leitura de análise inválida ou de outra sessão");
+            }
+            wsLastMessageAtRef.current = Date.now();
             const elapsedSeconds = elapsedSecondsRef.current;
             const shouldUseForMetrics =
               patientTrackUsable() ||
               attributedSpeakerRef.current === "PC" ||
               directLocalMetricsActiveRef.current;
             if (!shouldUseForMetrics) {
+              frameBuffer.current = [];
+              dispatch({ type: "SEM_LEITURA" });
               setLiveTranscription((prev) => ({
                 ...(prev || {}),
                 bioacoustic_status: "waiting_patient",
@@ -5549,10 +5590,13 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             frameBuffer.current.push(data);
             if (frameBuffer.current.length > 6) frameBuffer.current.shift();
           } catch (err) {
+            frameBuffer.current = [];
+            dispatch({ type: "SEM_LEITURA" });
             console.error("Parse WS:", err);
           }
         };
       } catch {
+        frameBuffer.current = [];
         dispatch({ type: "WS_CLOSE" });
         if (!cancelled) scheduleConnect(attempt + 1);
       }
@@ -5624,20 +5668,21 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   // Fome e melhor que mentira: sem medida eles recebem vazio e o aviso ocupa a
   // tela.
   const semApuracaoAgora =
-    (raw as { apuracao_disponivel?: boolean } | undefined)?.apuracao_disponivel === false;
+    !state.connected || !raw || raw.apuracao_disponivel === false;
   const displayZones = semApuracaoAgora
     ? []
     : presentationAgg?.zones || raw?.perception_zones || [];
   const displayIpm = semApuracaoAgora
     ? null
-    : presentationAgg?.ipm ?? raw?.ipm_score ?? state.localIpm ?? 0;
-  const displayDrValue = presentationAgg?.drValue ?? (raw as any)?.dr_value ?? null;
+    : presentationAgg?.ipm ?? raw?.ipm_score ?? state.localIpm ?? null;
+  const displayDrValue = semApuracaoAgora ? null
+    : presentationAgg?.drValue ?? (raw as any)?.dr_value ?? null;
   // "NEUTRO" seria uma AFIRMACAO de coerencia neutra sobre nada medido. Vazio
   // e o unico valor honesto, e os consumidores ja sabem tratar ausencia.
   const displayCoherence = semApuracaoAgora
     ? ""
     : presentationAgg?.coherence || raw?.coherence_status || "NEUTRO";
-  const displayAlerts = presentationAgg?.alerts || raw?.realtime_alerts || [];
+  const displayAlerts = semApuracaoAgora ? [] : presentationAgg?.alerts || raw?.realtime_alerts || [];
   const baseDisplayAudio = semApuracaoAgora ? {} : presentationAgg?.audioMeta ||
     (raw as any)?.audio_meta || {
       words_per_window: 0,
@@ -5672,10 +5717,8 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   // IPM) é sempre AO VIVO: a estabilização clínica se aplica ao painel de
   // risco/zonas, não a estes gráficos, que devem acompanhar o sinal real.
   const liveAudioMeta =
-    (agg?.audioMeta as Record<string, unknown> | undefined) ||
-    ((raw as any)?.audio_meta as Record<string, unknown> | undefined) ||
-    displayAudio;
-  const liveZones = agg?.zones || raw?.perception_zones || displayZones;
+    !state.connected || !raw ? {} : raw.audio_meta || {};
+  const liveZones = semApuracaoAgora ? [] : agg?.zones || raw?.perception_zones || displayZones;
   // Sem apuracao, `liveIpm` tambem e nulo: cair no IPM local aqui reintroduziria
   // um numero na tela exatamente onde a medida falta.
   const liveIpm = semApuracaoAgora
@@ -6397,6 +6440,8 @@ function LiveSessionInner({ user }: LiveSessionProps) {
               presencialSemCamera={presencialSemCamera}
               causaNoPaciente={causaAcusticaNoPaciente}
               recusaDaAnalise={recusaDaAnalise}
+              aguardandoAnalise={aguardandoAnalise}
+              diagnosticoAcustico={state.payload?.audio_meta?.diagnostico_acustico}
               onReligarAnalise={() => setTentativaDeAnalise((n) => n + 1)}
             />
             {(state.camError || !state.micOn) && (
@@ -6613,6 +6658,8 @@ function LiveSessionInner({ user }: LiveSessionProps) {
               presencialSemCamera={presencialSemCamera}
               causaNoPaciente={causaAcusticaNoPaciente}
               recusaDaAnalise={recusaDaAnalise}
+              aguardandoAnalise={aguardandoAnalise}
+              diagnosticoAcustico={state.payload?.audio_meta?.diagnostico_acustico}
               onReligarAnalise={() => setTentativaDeAnalise((n) => n + 1)}
             />
             {(state.camError || !state.micOn) && (
@@ -6921,6 +6968,8 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             presencialSemCamera={presencialSemCamera}
             causaNoPaciente={causaAcusticaNoPaciente}
             recusaDaAnalise={recusaDaAnalise}
+              aguardandoAnalise={aguardandoAnalise}
+              diagnosticoAcustico={state.payload?.audio_meta?.diagnostico_acustico}
             onReligarAnalise={() => setTentativaDeAnalise((n) => n + 1)}
           />
           {(state.camError || !state.micOn) && (

@@ -34,6 +34,7 @@ import {
   type StatusCaptura,
 } from "../lib/froid-acoustic";
 import { startFaceCapture } from "../lib/froid-face";
+import { configuracaoDaCaptura, selecionarMicrofoneDeAnalise } from "../lib/microfone-de-analise";
 
 type JoinState = "checking" | "joined" | "blocked";
 type MediaState = "idle" | "requesting" | "active" | "failed";
@@ -52,6 +53,7 @@ export const PatientSessionPage: React.FC = () => {
   const wakeLockRef = useRef<ScreenWakeLock | null>(null);
   // Para a captura de PCM do microfone (análise de F0 real).
   const f0StopRef = useRef<null | (() => void)>(null);
+  const f0GenerationRef = useRef(0);
   // A trilha crua e SEPARADA da trilha da chamada, e precisa ser parada junto:
   // deixar um microfone aberto depois da sessao e falha de privacidade.
   const analiseStreamRef = useRef<MediaStream | null>(null);
@@ -110,6 +112,7 @@ export const PatientSessionPage: React.FC = () => {
   // Os dois se resolvem com um toque na tela. O que faltava era pedir o toque.
   const [statusAcustico, setStatusAcustico] = useState<StatusCaptura | "">("");
   const [detalheAcustico, setDetalheAcustico] = useState("");
+  const [avisoFonteAcustica, setAvisoFonteAcustica] = useState("");
   const [audioBloqueado, setAudioBloqueado] = useState(false);
   const [uiLocale, setUiLocale] = useState<SessionLocale>(() =>
     normalizeSessionLocale(typeof navigator === "undefined" ? "" : navigator.language),
@@ -181,6 +184,7 @@ export const PatientSessionPage: React.FC = () => {
 
     return () => {
       active = false;
+      f0GenerationRef.current += 1;
       cleanupRtc();
       try {
         f0StopRef.current?.();
@@ -591,6 +595,7 @@ export const PatientSessionPage: React.FC = () => {
         if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
         if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
       } else if (data.type === "session-ended") {
+        f0GenerationRef.current += 1;
         // Encerramento deliberado pelo profissional: libera câmera/microfone e
         // as capturas de análise, e habilita o encaminhamento à área do paciente.
         try {
@@ -698,6 +703,57 @@ export const PatientSessionPage: React.FC = () => {
       };
     };
     connectSignaling();
+  };
+
+  const iniciarCapturaAcustica = async (stream: MediaStream) => {
+    const generation = ++f0GenerationRef.current;
+    f0StopRef.current?.();
+    f0StopRef.current = null;
+    analiseStreamRef.current?.getTracks().forEach((t) => t.stop());
+    analiseStreamRef.current = null;
+    const selecao = await selecionarMicrofoneDeAnalise(stream, {
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false,
+    });
+    const streamDeAnalise = selecao.stream;
+    if (generation !== f0GenerationRef.current || streamRef.current !== stream) {
+      streamDeAnalise?.getTracks().forEach((track) => track.stop());
+      return;
+    }
+    analiseStreamRef.current = streamDeAnalise;
+    let ajustes: MediaTrackSettings = {};
+    try { ajustes = (streamDeAnalise || stream).getAudioTracks()[0]?.getSettings?.() || {}; } catch { /* configuração não registrada */ }
+    const audioBruto = ajustes.echoCancellation === false
+      && ajustes.noiseSuppression === false && ajustes.autoGainControl === false;
+    const capturaCliente = configuracaoDaCaptura(ajustes, selecao.mesmoDispositivo);
+    const avisoFonte = [
+      selecao.motivo,
+      !audioBruto ? "O navegador não confirmou áudio sem processamento; medidas de amplitude e espectro podem ser alteradas." : "",
+    ].filter(Boolean).join(" ");
+    setAvisoFonteAcustica(avisoFonte);
+    registrarRtc(audioBruto
+      ? "sinal de analise: microfone CRU (sem AGC/supressao)"
+      : "sinal de analise: microfone PROCESSADO ou configuração não registrada");
+    registrarRtc(`configuração da captura: ${JSON.stringify(capturaCliente)}`);
+    const stop = await startF0Capture(streamDeAnalise || stream, {
+      endpoint: apiUrl(`/api/froid/${sessionId}/acoustic-f0`),
+      invite: inviteToken,
+      capturaCliente,
+      onStatus: (status, detalhe) => {
+        if (generation !== f0GenerationRef.current || streamRef.current !== stream) return;
+        const explicacao = [detalhe, avisoFonte].filter(Boolean).join(" ");
+        setStatusAcustico(status);
+        setDetalheAcustico(explicacao);
+        registrarRtc(`analise acustica: ${STATUS_CAPTURA_TEXTO[status]}${explicacao ? ` (${explicacao})` : ""}`);
+        const canal = rtcSignalRef.current;
+        if (canal?.readyState === WebSocket.OPEN) {
+          canal.send(JSON.stringify({ type: "acustica", status, detalhe: explicacao }));
+        }
+      },
+    });
+    if (generation === f0GenerationRef.current && streamRef.current === stream) f0StopRef.current = stop;
+    else stop();
   };
 
   const activateMedia = async () => {
@@ -823,86 +879,11 @@ export const PatientSessionPage: React.FC = () => {
       // captacao, nao. Sobrava so a F0 relativamente intacta, porque o YIN mede
       // periodicidade e ela resiste a ganho.
       //
-      // Agora sao dois streams: o processado continua na chamada, e a analise
-      // pede um proprio com os tres desligados. Se o navegador nao honrar —
-      // acontece, e alguns dispositivos ignoram as constraints — a captura
-      // segue com o processado e DECLARA isso, em vez de degradar em silencio.
-      let streamDeAnalise: MediaStream | null = null;
-      let audioBruto = false;
+      // A captura separada é vinculada ao deviceId EFETIVO da chamada. Se o
+      // navegador não comprovar a mesma fonte sem processamento, usamos a
+      // própria trilha da chamada, declarando a configuração que foi obtida.
       if (temTrilhaDeAudio && sessionId) {
-        try {
-          streamDeAnalise = await navigator.mediaDevices.getUserMedia({
-            audio: {
-              echoCancellation: false,
-              noiseSuppression: false,
-              autoGainControl: false,
-            },
-            video: false,
-          });
-          // Pedir nao e obter: o navegador pode devolver a trilha com as
-          // constraints da captura ja aberta. `getSettings` diz o que de fato
-          // valeu, e e isso que vira procedencia.
-          const ajustes = streamDeAnalise.getAudioTracks()[0]?.getSettings?.() || {};
-          audioBruto =
-            ajustes.echoCancellation === false
-            && ajustes.noiseSuppression === false
-            && ajustes.autoGainControl === false;
-        } catch {
-          streamDeAnalise = null;
-        }
-        if (streamDeAnalise) {
-          analiseStreamRef.current?.getTracks().forEach((t) => t.stop());
-          analiseStreamRef.current = streamDeAnalise;
-        }
-      }
-
-      // Captura o microfone cru (pré-Opus) para o cálculo de F0 real no
-      // backend. Aditivo e tolerante a falhas; não interfere na chamada.
-      if (temTrilhaDeAudio && sessionId) {
-        try {
-          f0StopRef.current?.();
-        } catch {
-          /* noop */
-        }
-        f0StopRef.current = null;
-        startF0Capture(streamDeAnalise || stream, {
-          endpoint: apiUrl(`/api/froid/${sessionId}/acoustic-f0`),
-          invite: inviteToken,
-          onStatus: (status, detalhe) => {
-            // A tela do paciente primeiro: e ele quem pode tocar a tela,
-            // refazer a permissao ou trocar de navegador.
-            setStatusAcustico(status);
-            setDetalheAcustico(detalhe || "");
-            // A procedencia do SINAL viaja junto com o estado da captura: sem
-            // ela, "enviando" diria que esta tudo bem quando o que sobe pode
-            // ser audio tratado para conversa, nao para medida.
-            registrarRtc(
-              audioBruto
-                ? "sinal de analise: microfone CRU (sem AGC/supressao)"
-                : "sinal de analise: microfone PROCESSADO — medidas de amplitude e espectro ficam comprometidas",
-            );
-            registrarRtc(
-              `analise acustica: ${STATUS_CAPTURA_TEXTO[status]}`
-              + (detalhe ? ` (${detalhe})` : ""),
-            );
-            // Quem precisa saber disso e o profissional, e ele esta do outro
-            // lado da sinalizacao. O paciente nao tem como reportar sozinho.
-            const canal = rtcSignalRef.current;
-            if (canal?.readyState === WebSocket.OPEN) {
-              // `detalhe` junto: sem ele o painel dizia "nao esta chegando" e
-              // o motivo — CSP recusando o worklet, contexto suspenso,
-              // navegador sem suporte — ficava so aqui.
-              canal.send(
-                JSON.stringify({ type: "acustica", status, detalhe: detalhe || "" }),
-              );
-            }
-          },
-        })
-          .then((stop) => {
-            if (streamRef.current === stream) f0StopRef.current = stop;
-            else stop();
-          })
-          .catch(() => undefined);
+        void iniciarCapturaAcustica(stream);
       }
       // Captura facial real (blendshapes -> AUs FACS). Tolerante a falhas: se o
       // modelo não carregar, o servidor declara `facs_source = "sem_apuracao"`
@@ -1061,7 +1042,7 @@ export const PatientSessionPage: React.FC = () => {
             )}
             {!audioBloqueado
               && statusAcustico !== ""
-              && statusAcustico !== "enviando" && (
+              && (statusAcustico !== "enviando" || avisoFonteAcustica) && (
               <div
                 onClick={
                   statusAcustico === "aguardando-gesto"
@@ -1076,12 +1057,20 @@ export const PatientSessionPage: React.FC = () => {
               >
                 {statusAcustico === "aguardando-gesto"
                   ? "Toque na tela para iniciar a análise da sua voz."
-                  : `Análise da voz indisponível: ${STATUS_CAPTURA_TEXTO[statusAcustico]}`}
+                  : statusAcustico === "enviando"
+                    ? "Áudio enviado para análise."
+                    : `Análise da voz indisponível: ${STATUS_CAPTURA_TEXTO[statusAcustico]}`}
                 {detalheAcustico && statusAcustico !== "aguardando-gesto" ? (
                   <span className="mt-1 block font-normal opacity-80">
                     {detalheAcustico}
                   </span>
                 ) : null}
+                {(statusAcustico === "erro" || statusAcustico === "sem-audio") && (
+                  <button type="button" className="mt-2 rounded border border-amber-200/50 px-2 py-1 font-bold"
+                    onClick={() => { if (streamRef.current) void iniciarCapturaAcustica(streamRef.current); }}>
+                    Reativar análise da voz
+                  </button>
+                )}
               </div>
             )}
           </div>

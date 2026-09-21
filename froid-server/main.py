@@ -7114,6 +7114,23 @@ async def froid_stream_loop(session_id: str, connection_id: str):
         await asyncio.sleep(1.0)
 
 
+def _sanitized_acoustic_capture(value: object) -> Optional[dict]:
+    """Somente declaracoes tecnicas permitidas; nunca ids/nomes de dispositivos."""
+    if not isinstance(value, dict):
+        return None
+    result = {
+        key: value.get(key) if isinstance(value.get(key), bool) else None
+        for key in (
+            "mesmo_dispositivo", "audio_bruto", "echo_cancellation",
+            "noise_suppression", "auto_gain_control",
+        )
+    }
+    for key in ("canais", "taxa_amostragem"):
+        number = value.get(key)
+        result[key] = number if type(number) is int and number > 0 else None
+    return result
+
+
 @app.post("/api/froid/{session_id}/acoustic-f0")
 async def submit_acoustic_f0(session_id: str, request: Request):
     """Recebe uma janela de PCM cru (int16 mono) do navegador e mede a F0 real
@@ -7155,7 +7172,8 @@ async def submit_acoustic_f0(session_id: str, request: Request):
     if state is None:
         # A sessão de análise do profissional ainda não foi aberta nenhuma vez;
         # o cliente continua enviando e a F0 passa a valer quando ela abrir.
-        return {"status": "session_inactive", "f0_mean": 0.0}
+        return {"status": "session_inactive", "f0_mean": None,
+                "diagnostico_acustico": None}
 
     try:
         sample_rate = int(body.get("sample_rate") or 16000)
@@ -7173,11 +7191,29 @@ async def submit_acoustic_f0(session_id: str, request: Request):
     # Teto de tamanho: ~5 s a 48 kHz int16 mono.
     if len(pcm_bytes) > 500_000:
         raise HTTPException(status_code=413, detail="quadro de áudio grande demais")
+    if not pcm_bytes or len(pcm_bytes) % 2:
+        raise HTTPException(status_code=400, detail="PCM int16 deve conter amostras completas")
+
+    stream_id = body.get("capture_stream_id")
+    sequence = body.get("capture_sequence")
+    if stream_id is not None or sequence is not None:
+        if (not isinstance(stream_id, str)
+                or not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", stream_id)
+                or type(sequence) is not int or sequence < 0):
+            raise HTTPException(status_code=400, detail="sequência de captura inválida")
 
     signal = froid_f0.pcm16_bytes_to_float(pcm_bytes)
     # Buffer rolante (~3s) dá resolução às bandas de modulação lentas; todos os
     # biomarcadores vocais reais são extraídos dele e injetados na sessão.
-    buffer = state.ingest_pcm(signal, sample_rate)
+    try:
+        buffer = state.ingest_pcm(
+            signal, sample_rate, capture_stream_id=stream_id,
+            capture_sequence=sequence,
+            captura_cliente=_sanitized_acoustic_capture(body.get("diagnostico_acustico")),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    pcm_revision = state.pcm_revision
     # A DSP (YIN + FFT + Hilbert + MFCC) é pesada; roda em thread pool para NÃO
     # bloquear o event loop — mantendo o laço de tick fluido com várias sessões
     # simultâneas. numpy libera o GIL nas operações vetoriais, então paraleliza
@@ -7185,13 +7221,16 @@ async def submit_acoustic_f0(session_id: str, request: Request):
     features = await asyncio.to_thread(
         froid_voice.extract_voice_features, buffer, sample_rate
     )
-    state.update_voice_features(features)
+    applied = state.update_voice_features(features, pcm_revision=pcm_revision)
+    diagnostic = state.acoustic_diagnostics()
     return {
-        "f0_mean": features.get("f0_mean", 0.0),
-        "f0_voiced_ratio": features.get("f0_voiced_ratio", 0.0),
-        "markers_computed": len(features),
-        "source": "real_pcm",
+        "status": "processed" if applied else "superseded",
+        "f0_mean": features.get("f0_mean") if applied and diagnostic["estado"] != "sem_audio" else None,
+        "f0_voiced_ratio": diagnostic["f0_voiced_ratio"],
+        "markers_computed": len(features) if applied else None,
+        "source": "real_pcm" if diagnostic["estado"] == "medida" else "sem_apuracao",
         "sample_rate": sample_rate,
+        "diagnostico_acustico": diagnostic,
     }
 
 

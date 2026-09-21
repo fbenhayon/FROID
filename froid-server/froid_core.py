@@ -132,6 +132,15 @@ class SessionState:
     voice_features_updated_at: float = 0.0
     pcm_buffer: Optional[np.ndarray] = None
     pcm_sample_rate: int = 16000
+    # Chegada do PCM e conclusao da analise sao fatos distintos. Uma janela
+    # silenciosa tambem chegou; nao pode conservar a voz da janela anterior.
+    pcm_received_at: Optional[float] = None
+    pcm_received_samples: Optional[int] = None
+    pcm_revision: int = 0
+    pcm_analyzed_revision: Optional[int] = None
+    pcm_stream_id: Optional[str] = None
+    pcm_sequence: Optional[int] = None
+    pcm_client_capture: Optional[dict] = None
     baseline_mfcc7_real: float = 0.0
     baseline_mfcc9_real: float = 0.0
     # Baselines de repouso do paciente para as métricas base de dissonância
@@ -174,9 +183,34 @@ class SessionState:
             self.latest_f0_voiced_ratio = float(voiced_ratio)
             self.f0_updated_at = time.time()
 
-    def ingest_pcm(self, signal: np.ndarray, sample_rate: int, keep_seconds: float = 3.0) -> np.ndarray:
+    def ingest_pcm(self, signal: np.ndarray, sample_rate: int, keep_seconds: float = 3.0,
+                   *, capture_stream_id: Optional[str] = None,
+                   capture_sequence: Optional[int] = None,
+                   captura_cliente: Optional[dict] = None) -> np.ndarray:
         """Acumula PCM num buffer rolante (últimos keep_seconds) para dar
-        resolução às bandas de modulação lentas. Retorna o buffer atual."""
+        resolução às bandas de modulação lentas. Retorna o buffer atual.
+
+        Nao concatena taxas distintas nem finge continuidade depois de uma
+        lacuna. A sequencia conta janelas CAPTURADAS, incluindo as descartadas
+        pelo cliente. A revisao permite rejeitar uma DSP antiga que termine
+        depois de uma captura nova; seus resultados nunca ganham data nova.
+        """
+        agora = time.time()
+        mesmo_stream = capture_stream_id == self.pcm_stream_id
+        if (capture_stream_id is not None and mesmo_stream
+                and capture_sequence is not None and self.pcm_sequence is not None
+                and capture_sequence <= self.pcm_sequence):
+            raise ValueError("janela PCM repetida ou fora de ordem")
+        descontinua = (
+            self.pcm_received_at is not None
+            and (int(sample_rate) != self.pcm_sample_rate
+                 or agora - self.pcm_received_at > self.VALIDADE_VOZ_S
+                 or not mesmo_stream
+                 or (capture_sequence is not None and self.pcm_sequence is not None
+                     and capture_sequence != self.pcm_sequence + 1))
+        )
+        if descontinua:
+            self.pcm_buffer = None
         self.pcm_sample_rate = int(sample_rate)
         incoming = np.asarray(signal, dtype=np.float64)
         if self.pcm_buffer is None or self.pcm_buffer.size == 0:
@@ -186,19 +220,98 @@ class SessionState:
         max_samples = int(keep_seconds * sample_rate)
         if self.pcm_buffer.size > max_samples:
             self.pcm_buffer = self.pcm_buffer[-max_samples:]
+        self.pcm_received_at = agora
+        self.pcm_received_samples = int(incoming.size)
+        self.pcm_stream_id = capture_stream_id
+        self.pcm_sequence = capture_sequence
+        self.pcm_client_capture = captura_cliente
+        self.pcm_revision += 1
+        # Enquanto a DSP desta janela esta pendente, a anterior nao e atual.
+        self.latest_voice_features = None
+        self._clear_pcm_f0()
         return self.pcm_buffer
 
-    def update_voice_features(self, features: Optional[dict]) -> None:
-        """Registra o conjunto de biomarcadores vocais reais e sincroniza a F0."""
-        if not features:
-            return
-        self.latest_voice_features = features
-        self.voice_features_updated_at = time.time()
-        self.update_f0(
-            float(features.get("f0_mean") or 0.0),
-            float(features.get("f0_var") or 0.0),
-            float(features.get("f0_voiced_ratio") or 0.0),
+    def _clear_pcm_f0(self) -> None:
+        self.latest_f0_mean = 0.0
+        self.latest_f0_std = 0.0
+        self.latest_f0_voiced_ratio = 0.0
+        self.f0_updated_at = 0.0
+
+    def update_voice_features(self, features: Optional[dict],
+                              *, pcm_revision: Optional[int] = None) -> bool:
+        """Publica somente o resultado da janela atual, inclusive sua ausencia.
+
+        `update_f0` continua aceitando a medida independente, sem espectro.
+        Aqui a janela PCM completa e conhecida: F0 zero ou features vazias
+        invalidam a medida anterior, em vez de apresenta-la como atual.
+        """
+        if pcm_revision is not None and pcm_revision != self.pcm_revision:
+            return False
+        self.pcm_analyzed_revision = self.pcm_revision
+        self.voice_features_updated_at = (
+            self.pcm_received_at if self.pcm_received_at is not None else time.time()
         )
+        if not features:
+            self.latest_voice_features = None
+            if self.pcm_received_at is not None:
+                self._clear_pcm_f0()
+            return True
+        self.latest_voice_features = features
+        if "f0_mean" in features:
+            if features["f0_mean"] is not None and features["f0_mean"] > 0.0:
+                self.update_f0(
+                    float(features["f0_mean"]),
+                    float(features.get("f0_var") or 0.0),
+                    float(features.get("f0_voiced_ratio") or 0.0),
+                )
+                self.f0_updated_at = self.voice_features_updated_at
+            else:
+                self._clear_pcm_f0()
+        return True
+
+    def acoustic_diagnostics(self) -> dict:
+        """Diagnostico tecnico atual, sem audio, fala ou identificador de captura.
+
+        RMS/razao nulos significam nao apurados. Silencio digital medido tem
+        RMS e razao zero; dBFS fica nulo porque log(0) nao tem valor finito.
+        Metadados do navegador sao declaracoes do cliente, nao medidas da DSP.
+        """
+        idade = (max(0.0, time.time() - self.pcm_received_at)
+                 if self.pcm_received_at is not None else None)
+        atual = idade is not None and idade <= self.VALIDADE_VOZ_S
+        concluida = atual and self.pcm_analyzed_revision == self.pcm_revision
+        real = self.latest_voice_features if concluida else None
+        silencio = bool(concluida) and self.pcm_buffer is not None and (
+            self.pcm_buffer.size > 0
+            and not np.any(self.pcm_buffer - float(np.mean(self.pcm_buffer)))
+        )
+        razao = real.get("f0_voiced_ratio") if real else (0.0 if silencio else None)
+        tem_espectro = bool(real and isinstance(real.get("voice_spectral_12"), (list, tuple))
+                            and len(real["voice_spectral_12"]) == 12)
+        medida = tem_espectro and razao is not None and razao >= self.PISO_DE_VOZEAMENTO
+        estado = ("sem_audio" if not atual else "analisando" if not concluida
+                  else "medida" if medida else "sem_vozeamento")
+        motivo = ("pcm_ausente" if idade is None else "pcm_vencido" if not atual
+                  else "analise_pendente" if not concluida else "voz_medida" if medida
+                  else "silencio_digital" if silencio else "vozeamento_insuficiente"
+                  if razao is not None else "analise_sem_medidas")
+        rms = real.get("rms") if real else (0.0 if silencio else None)
+        loudness = real.get("loudness_dbfs") if real else None
+        amostras = int(self.pcm_buffer.size) if concluida and self.pcm_buffer is not None else None
+        return {
+            "estado": estado,
+            "motivo": motivo,
+            "pcm_recebido_em_ms": round(self.pcm_received_at * 1000) if self.pcm_received_at is not None else None,
+            "idade_pcm_ms": round(idade * 1000) if idade is not None else None,
+            "sample_rate_hz": self.pcm_sample_rate if atual else None,
+            "amostras_recebidas": self.pcm_received_samples if atual else None,
+            "amostras_analisadas": amostras,
+            "duracao_janela_ms": round(amostras / self.pcm_sample_rate * 1000, 2) if amostras is not None else None,
+            "rms": rms,
+            "loudness_dbfs": loudness,
+            "f0_voiced_ratio": razao,
+            "captura_cliente": self.pcm_client_capture if atual else None,
+        }
 
     def update_facial_features(self, blendshapes: Optional[dict]) -> None:
         """Recebe blendshapes faciais reais do navegador e deriva AUs +
@@ -351,6 +464,7 @@ class SessionState:
                 "facs_source": "real_facs" if face_medida else "sem_apuracao",
             },
             "audio_meta": {
+                "diagnostico_acustico": self.acoustic_diagnostics(),
                 "voice_real": False,
                 # A face PODE ter sido medida sem voz. Apagar isso violaria a
                 # regra na outra direcao: apurar e nao informar.
@@ -507,11 +621,10 @@ class SessionState:
         # O criterio nao e inventado aqui: `froid_dissonance.py:217` ja descarta
         # a janela com `f0_voiced_ratio < 0.30` por considerar o desvio ruidoso
         # demais. Mesma regua, aplicada uma etapa antes.
-        vozeamento = float(
-            (real or {}).get("f0_voiced_ratio")
-            or self.latest_f0_voiced_ratio
-            or 0.0
-        )
+        # Zero e uma razao MEDIDA. `or` aqui reutilizava a voz anterior sobre
+        # uma janela que o YIN acabara de declarar sem periodicidade.
+        razao_atual = (real or {}).get("f0_voiced_ratio")
+        vozeamento = float(razao_atual if razao_atual is not None else self.latest_f0_voiced_ratio)
         tem_voz_medida = tem_espectro and vozeamento >= self.PISO_DE_VOZEAMENTO
         # PROIBIDO SIMULAR. Sem espectro medido nao ha o que derivar, e o
         # honesto e dizer isso em vez de publicar 98 campos calculados sobre
@@ -559,6 +672,9 @@ class SessionState:
                     "janela sem voz vozeada: sinal presente, mas abaixo do piso "
                     "de vozeamento — ruido de sala nao e medida de voz"
                 )
+            elif (self.pcm_received_at is not None
+                  and agora - self.pcm_received_at <= self.VALIDADE_VOZ_S):
+                motivo = "PCM recebido, mas sem medidas de voz nesta janela"
             else:
                 motivo = "audio do paciente nao chegou ao motor nesta janela"
             return self._payload_sem_apuracao(
@@ -570,9 +686,11 @@ class SessionState:
                     else ""
                 ),
                 face_medida=face_medida,
-                # `tem_espectro` e a propria pergunta "o PCM chegou?": a janela
-                # com sinal e sem vozeamento tem espectro e nao tem voz.
-                audio_chegou=tem_espectro,
+                # PCM silencioso tambem chega, embora nao produza espectro.
+                audio_chegou=tem_espectro or (
+                    self.pcm_received_at is not None
+                    and agora - self.pcm_received_at <= self.VALIDADE_VOZ_S
+                ),
             )
         voice_spectral_12 = np.asarray(real["voice_spectral_12"], dtype=np.float64)
         # Se há marcações FACIAIS REAIS (blendshapes do navegador -> AUs FACS),
@@ -1093,6 +1211,7 @@ class SessionState:
             "dissonance_event": dissonance_event,
             "dr_value": dr_value,
             "audio_meta": {
+                "diagnostico_acustico": self.acoustic_diagnostics(),
                 "words_per_window": words_this_window,
                 "words_per_minute_10m": round(words_per_minute_10m, 1),
                 "total_words_session": int(total_words),

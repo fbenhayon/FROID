@@ -1,5 +1,5 @@
-// Captura de PCM cru (não comprimido) do microfone para análise acústica do
-// FROID — a rota mais correta cientificamente: evita a perda do Opus/WebRTC e
+// Captura de PCM (não comprimido) do microfone para análise acústica do
+// FROID. As configurações efetivas declaram se há processamento; evita Opus e
 // não depende de decodificador no servidor. Envia janelas de ~1s de PCM
 // (Int16 mono, na taxa do AudioContext) ao backend, que mede a F0 real por YIN.
 //
@@ -12,6 +12,12 @@
 //
 // Agora cada caminho de falha se anuncia por `onStatus`. A captura continua
 // sem poder quebrar a sessao; o que ela nao pode mais e fracassar em segredo.
+
+import type { CapturaCliente } from "./microfone-de-analise";
+
+// O motor só considera atuais os últimos 4s de PCM. Rede pendurada não pode
+// ocupar a fila indefinidamente nem reapresentar essa janela como atual.
+export const PCM_VALIDITY_MS = 4_000;
 
 const WORKLET_CODE = `
 class FroidPcmTap extends AudioWorkletProcessor {
@@ -29,9 +35,8 @@ registerProcessor('froid-pcm-tap', FroidPcmTap);
 
 /** O que a captura tem a dizer sobre si mesma.
  *
- *  `enviando` e o unico estado que significa "a analise clinica esta sobre voz
- *  real". Todos os outros significam que o motor esta trabalhando com dados
- *  simulados, e quem conduz a sessao precisa saber disso. */
+ *  `enviando` confirma transporte de PCM aceito pelo servidor, não vozeamento
+ *  nem apuração clínica. Só o motor declara o que conseguiu medir. */
 export type StatusCaptura =
   | "sem-audio"
   | "sem-suporte"
@@ -47,7 +52,7 @@ export const STATUS_CAPTURA_TEXTO: Record<StatusCaptura, string> = {
     "o navegador suspendeu o audio ate um toque na tela; a analise comeca no primeiro clique",
   enviando: "enviando audio real para analise",
   "sessao-inativa": "o painel do profissional ainda nao abriu a analise",
-  erro: "falha ao iniciar a captura de audio",
+  erro: "falha na captura ou no envio de audio para analise",
 };
 
 export interface F0CaptureOptions {
@@ -55,7 +60,8 @@ export interface F0CaptureOptions {
   invite?: string;
   token?: string;
   windowSeconds?: number; // janela enviada por requisição (padrão 1.0s)
-  /** Chamado a cada MUDANCA de estado — nunca repete o mesmo status. */
+  capturaCliente?: CapturaCliente;
+  /** Chamado quando muda o estado OU seu detalhe. */
   onStatus?: (status: StatusCaptura, detalhe?: string) => void;
 }
 
@@ -85,12 +91,13 @@ export async function startF0Capture(
   stream: MediaStream,
   opts: F0CaptureOptions,
 ): Promise<() => void> {
-  // So avisa quando o estado MUDA: um aviso por janela de 1s viraria ruido e
-  // esconderia justamente a transicao que importa.
+  let stopped = false;
   let ultimoStatus: StatusCaptura | null = null;
+  let ultimoDetalhe: string | undefined;
   const avisar = (status: StatusCaptura, detalhe?: string) => {
-    if (status === ultimoStatus) return;
+    if (stopped || (status === ultimoStatus && detalhe === ultimoDetalhe)) return;
     ultimoStatus = status;
+    ultimoDetalhe = detalhe;
     try {
       opts.onStatus?.(status, detalhe);
     } catch {
@@ -98,7 +105,7 @@ export async function startF0Capture(
     }
   };
 
-  const audioTracks = stream.getAudioTracks();
+  const audioTracks = stream.getAudioTracks().filter((track) => track.readyState === "live");
   if (typeof window === "undefined" || !audioTracks.length) {
     avisar("sem-audio");
     return () => {};
@@ -110,25 +117,43 @@ export async function startF0Capture(
     return () => {};
   }
 
-  let stopped = false;
+  const track = audioTracks[0];
   let ctx: AudioContext | null = null;
   let source: MediaStreamAudioSourceNode | null = null;
   let node: AudioWorkletNode | null = null;
   let sink: GainNode | null = null;
   let buffer: number[] = [];
-
   let soltarGesto: (() => void) | null = null;
+  let generation = 0;
+  let activeRequest: AbortController | null = null;
+  let sequence = 0;
+  // ID efêmero de transporte, sem ligação com identidade ou conteúdo clínico.
+  const streamId = crypto.randomUUID();
+  const queue: Array<{ frame: Float32Array; capturedAt: number; sequence: number }> = [];
+  const listeners: Array<() => void> = [];
+  const interromperJanelas = () => {
+    generation += 1;
+    buffer = [];
+    queue.length = 0;
+    activeRequest?.abort();
+  };
 
   const stop = () => {
+    if (stopped) return;
     stopped = true;
+    interromperJanelas();
+    listeners.splice(0).forEach((remove) => remove());
     soltarGesto?.();
     soltarGesto = null;
     try {
-      if (node) node.port.onmessage = null;
+      if (node) {
+        node.port.onmessage = null;
+        node.onprocessorerror = null;
+      }
       node?.disconnect();
       source?.disconnect();
       sink?.disconnect();
-      if (ctx && ctx.state !== "closed") void ctx.close();
+      if (ctx && ctx.state !== "closed") void ctx.close().catch(() => undefined);
     } catch {
       /* noop */
     }
@@ -140,27 +165,20 @@ export async function startF0Capture(
     // taxa efetiva e o cálculo permanece correto.
     ctx = new AudioCtx({ sampleRate: 16000 });
     const sampleRate = ctx.sampleRate;
-    if (ctx.state === "suspended") {
-      try {
-        await ctx.resume();
-      } catch {
-        /* alguns navegadores exigem gesto do usuário */
-      }
-    }
     // Um AudioContext suspenso nao processa NADA — o worklet nunca roda e
     // nenhum PCM sobe. Antes isso passava batido: "segue mesmo assim" seguia
-    // para lugar nenhum, e a sessao inteira ia a dados simulados. Agora o
-    // primeiro toque na tela liga a captura, e ate la o estado e declarado.
-    if (ctx.state !== "running") {
-      avisar("aguardando-gesto");
-      const contexto = ctx;
+    // para lugar nenhum. Os gestos são instalados ANTES de resume(): alguns
+    // navegadores deixam essa Promise pendente até o próprio gesto.
+    const contexto = ctx;
+    const aguardarGesto = () => {
+      if (soltarGesto || stopped) return;
       const retomar = () => {
         void contexto
           .resume()
           .then(() => {
             if (contexto.state === "running") soltarGesto?.();
           })
-          .catch(() => undefined);
+          .catch(() => avisar("aguardando-gesto", "O navegador não retomou a captura; toque novamente para tentar."));
       };
       soltarGesto = () => {
         document.removeEventListener("pointerdown", retomar);
@@ -171,7 +189,45 @@ export async function startF0Capture(
       document.addEventListener("pointerdown", retomar);
       document.addEventListener("keydown", retomar);
       document.addEventListener("touchstart", retomar);
+    };
+    const verificarContexto = () => {
+      if (stopped) return;
+      if (contexto.state === "running") {
+        soltarGesto?.();
+        return;
+      }
+      interromperJanelas();
+      if (contexto.state === "closed") {
+        avisar("erro", "O navegador encerrou o processamento de áudio. Reative a captura.");
+        stop();
+      } else {
+        avisar("aguardando-gesto");
+        aguardarGesto();
+      }
+    };
+    contexto.addEventListener("statechange", verificarContexto);
+    listeners.push(() => contexto.removeEventListener("statechange", verificarContexto));
+    verificarContexto();
+    if (contexto.state !== "running" && contexto.state !== "closed") {
+      void contexto.resume().catch(() => {
+        if (!stopped && contexto.state !== "running") verificarContexto();
+      });
     }
+    const verificarTrilha = () => {
+      if (stopped) return;
+      interromperJanelas();
+      if (track.readyState === "ended") {
+        avisar("sem-audio", "A trilha de análise foi encerrada. Reative a captura.");
+        stop();
+      } else if (track.muted || !track.enabled) {
+        avisar("sem-audio", "A trilha de análise está temporariamente sem sinal no navegador.");
+      }
+    };
+    for (const event of ["ended", "mute", "unmute"]) {
+      track.addEventListener(event, verificarTrilha);
+      listeners.push(() => track.removeEventListener(event, verificarTrilha));
+    }
+    verificarTrilha();
     source = ctx.createMediaStreamSource(new MediaStream([audioTracks[0]]));
 
     const blob = new Blob([WORKLET_CODE], { type: "application/javascript" });
@@ -185,7 +241,18 @@ export async function startF0Capture(
       stop();
       return stop;
     }
-    node = new AudioWorkletNode(ctx, "froid-pcm-tap");
+    // Downmix padrão Web Audio: estéreo -> mono (L + R) / 2. Ler só o canal
+    // esquerdo descartava integralmente uma voz presente apenas à direita.
+    node = new AudioWorkletNode(ctx, "froid-pcm-tap", {
+      channelCount: 1,
+      channelCountMode: "explicit",
+      channelInterpretation: "speakers",
+      outputChannelCount: [1],
+    });
+    node.onprocessorerror = () => {
+      avisar("erro", "O processamento do áudio parou no navegador. Reative a captura.");
+      stop();
+    };
 
     const windowSamples = Math.max(
       1,
@@ -196,55 +263,100 @@ export async function startF0Capture(
     // então a ordem importa. Sem esta fila, uma oscilação de rede poderia
     // fazer janelas chegarem fora de ordem e corromper a análise temporal
     // (F0/MFCC/envelope calculados sobre um sinal remontado errado).
-    let sendChain: Promise<void> = Promise.resolve();
-    let pendingSends = 0;
-
-    const flush = () => {
-      if (!buffer.length) return;
-      const frame = Float32Array.from(buffer);
-      buffer = [];
-      // Descarta a janela se houver acúmulo (rede muito lenta): manter o
-      // tempo real é preferível a processar áudio obsoleto em atraso crescente.
-      if (pendingSends >= 3) return;
-      pendingSends += 1;
-      const pcmBase64 = floatToBase64Int16(frame);
-      sendChain = sendChain
-        .then(async () => {
-          if (stopped) return;
+    let sending = false;
+    const enviarFila = async () => {
+      if (sending) return;
+      sending = true;
+      try {
+        while (!stopped && queue.length) {
+          const janela = queue.shift()!;
+          const remaining = PCM_VALIDITY_MS - (performance.now() - janela.capturedAt);
+          if (remaining <= 0) {
+            avisar("erro", "Áudio não enviado a tempo: janela descartada para não analisar sinal antigo.");
+            continue;
+          }
+          const currentGeneration = generation;
+          const controller = new AbortController();
+          activeRequest = controller;
+          let timedOut = false;
+          const timeout = window.setTimeout(() => {
+            timedOut = true;
+            controller.abort();
+          }, remaining);
+          let removeAbort = () => {};
+          const aborted = new Promise<never>((_resolve, reject) => {
+            const cancel = () => reject(new Error("capture-request-aborted"));
+            controller.signal.addEventListener("abort", cancel, { once: true });
+            removeAbort = () => controller.signal.removeEventListener("abort", cancel);
+          });
           try {
-            const resposta = await fetch(opts.endpoint, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                ...(opts.token ? { Authorization: `Bearer ${opts.token}` } : {}),
-              },
-              body: JSON.stringify({
-                pcm_base64: pcmBase64,
-                sample_rate: sampleRate,
-                invite: opts.invite || "",
-              }),
-            });
+            const enviar = async () => {
+              const resposta = await fetch(opts.endpoint, {
+                method: "POST",
+                signal: controller.signal,
+                headers: {
+                  "Content-Type": "application/json",
+                  ...(opts.token ? { Authorization: `Bearer ${opts.token}` } : {}),
+                },
+                body: JSON.stringify({
+                  pcm_base64: floatToBase64Int16(janela.frame),
+                  sample_rate: sampleRate,
+                  invite: opts.invite || "",
+                  capture_stream_id: streamId,
+                  capture_sequence: janela.sequence,
+                  ...(opts.capturaCliente ? { captura_cliente: opts.capturaCliente } : {}),
+                }),
+              });
+              if (!resposta.ok) throw new Error(`HTTP ${resposta.status}`);
+              const corpo = await resposta.json().catch(() => {
+                throw new Error("Resposta inválida do servidor: JSON não legível.");
+              });
+              if (!corpo || typeof corpo !== "object" || typeof corpo.status !== "string") {
+                throw new Error("Resposta inválida do servidor: estado da captura ausente.");
+              }
+              return corpo;
+            };
+            const corpo = await Promise.race([enviar(), aborted]);
+            if (stopped || generation !== currentGeneration) continue;
             // O servidor responde 200 com `session_inactive` quando o painel do
             // profissional ainda nao abriu a analise. Era um sucesso aparente
             // que nao produzia medida nenhuma.
-            const corpo = await resposta.json().catch(() => null);
-            if (!resposta.ok) avisar("erro", `HTTP ${resposta.status}`);
-            else if (corpo && corpo.status === "session_inactive") avisar("sessao-inativa");
+            if (corpo.status === "session_inactive") avisar("sessao-inativa");
+            else if (corpo.status !== "ok") avisar("erro", "O servidor não confirmou o recebimento desta janela de áudio.");
             else avisar("enviando");
-          } catch {
-            /* falha transitória de rede é ignorada */
+          } catch (erro) {
+            if (!stopped && generation === currentGeneration) {
+              avisar("erro", timedOut
+                ? "O envio do áudio excedeu 4 segundos; a próxima janela será tentada."
+                : erro instanceof Error && (erro.message.startsWith("HTTP ") || erro.message.startsWith("Resposta inválida"))
+                  ? erro.message : "Falha de rede ao enviar áudio para análise; a próxima janela será tentada.");
+            }
+          } finally {
+            window.clearTimeout(timeout);
+            removeAbort();
+            if (activeRequest === controller) activeRequest = null;
           }
-        })
-        .finally(() => {
-          pendingSends -= 1;
-        });
+        }
+      } finally {
+        sending = false;
+      }
+    };
+    const flush = () => {
+      const frame = Float32Array.from(buffer.splice(0, windowSamples));
+      sequence += 1;
+      if (queue.length + (sending ? 1 : 0) >= 3) {
+        avisar("erro", "Rede atrasada: uma janela de áudio foi descartada, sem interromper a chamada.");
+        return;
+      }
+      queue.push({ frame, sequence, capturedAt: performance.now() });
+      void enviarFila();
     };
 
     node.port.onmessage = (event: MessageEvent) => {
-      if (stopped) return;
+      if (stopped || contexto.state !== "running" || track.readyState !== "live" || track.muted || !track.enabled) return;
       const chunk = event.data as Float32Array;
       for (let i = 0; i < chunk.length; i += 1) buffer.push(chunk[i]);
-      if (buffer.length >= windowSamples) flush();
+      while (buffer.length >= windowSamples) flush();
     };
 
     // Um AudioWorkletNode só processa quando alcança o destino do grafo.

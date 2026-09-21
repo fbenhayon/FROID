@@ -322,7 +322,16 @@ describe("a falha de captura chega a quem pode agir", () => {
   });
 
   it("o motivo atravessa a sinalizacao ate o painel", () => {
-    expect(PAC).toContain("detalhe: detalhe");
+    // A garantia e que a mensagem de acustica CARREGA um motivo, nao o nome da
+    // variavel que o carrega. Em 21/09/2026 o campo passou a levar o detalhe
+    // somado ao aviso de fonte (`[detalhe, avisoFonte].join(" ")`), e a
+    // assercao literal `detalhe: detalhe` reprovou uma mudanca que PRESERVAVA
+    // a garantia e ampliava o que chega ao painel. Teste que exige o mecanismo
+    // defende o mecanismo, nao o profissional do outro lado.
+    const envio = PAC.match(/type:\s*"acustica"[^}]*\}/);
+    expect(envio, 'a tela do paciente nao envia mais mensagem "acustica"').not.toBeNull();
+    // Um campo `detalhe` vazio por literal ("" ou '') e o mesmo que nao enviar.
+    expect(envio![0]).toMatch(/detalhe:\s*[A-Za-z_]/);
     expect(PAINEL).toContain("setCausaAcusticaNoPaciente");
     expect(PAINEL).toContain("causaNoPaciente");
   });
