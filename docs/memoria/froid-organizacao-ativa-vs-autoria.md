@@ -30,6 +30,11 @@ docker compose logs --tail=3000 froid-backend | grep "session-reports" | tail -2
 
 **O padrão, que é o que importa daqui em diante:** recorte por organização aplicado **antes** de autoria subtrai do profissional o próprio prontuário. Hoje existe `_report_within_context` em `main.py` e as quatro chamadas (listagem, `GET` do relatório, `GET` das métricas, `DELETE`) passam por ela; um teste conta as chamadas. **`_can_access_invite_finance` continua com o defeito** — Devido/Recebido/Pendente podem zerar do mesmo jeito silencioso, e a correção foi bloqueada pelo classificador de segurança por remover checagem de organização de função de controle de acesso. Precisa de autorização explícita do Fábio.
 
+**DECISAO DO DONO, 20/09/2026 — "autoria antes de recorte", agora explicita.** Depois de o log de auditoria mostrar onze recusas no comeco de um atendimento real (`froid.websocket_audit`, `organization_id` preenchido = era o recorte por organizacao), Fabio autorizou: **nas duas rotas de WebSocket do profissional, o recorte por organizacao deixou de RECUSAR e passou a apenas REGISTRAR** (`"outcome":"organization_mismatch"`). O argumento que sustenta isso, e que vale para avaliar os proximos casos: naquele ponto a checagem de dono (`SESSION_OWNERS`) ja rodou, entao o recorte so alcanca o proprio autor — ele nao protege ninguem de ninguem. Commit `99eda1eb`.
+
+**Ainda de pe, e e o mesmo risco no pior momento:** `POST /api/session-reports` (main.py, o `_session_matches_context` do arquivamento) devolve **409 "sessao pertence a outra organizacao"** e o relatorio da consulta nao e gravado. Ali o recorte e a UNICA guarda de tenant — o endpoint nao compara `SESSION_OWNERS` —, entao dar passagem ao dono e uma decisao separada, ainda nao tomada.
+
+
 **Why:** o sintoma é sempre o mesmo e nunca se anuncia — HTTP 200, lista vazia, nada no log. E o painel piorava, exibindo cache do navegador no lugar da resposta. Ver [[froid-sinal-sem-leitor]]: existe, é correto, e ninguém consome.
 
 **How to apply:** ao mexer em qualquer autorização sobre relatório, paciente ou recebível, perguntar "isto pode subtrair de alguém o que é dele?" antes de "isto protege de acesso alheio?". As duas perguntas têm respostas diferentes, e só a segunda costuma ser testada. Relacionado: [[froid-espelho-postgres-silencioso]] e [[froid-infra-producao]].
