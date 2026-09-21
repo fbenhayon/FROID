@@ -15,6 +15,12 @@ interface InviteData {
   patient_session_url?: string;
   patient_known: boolean;
   password_only?: boolean;
+  /** As autorizações que este paciente já deu, para a tela NOMEAR cada uma
+   *  antes de pedir a confirmação da sessão seguinte. Só vem no fluxo de
+   *  paciente recorrente. */
+  consent_on_file?: string[];
+  consent_updated_at?: string;
+  consent_version?: string;
   patient_name: string;
   patient_email: string;
   patient_phone: string;
@@ -77,6 +83,10 @@ export const PatientInvitePage: React.FC = () => {
   // Privacidade e o tratamento de dados sensiveis (audio/video). O uso de
   // dados no data-froid (pesquisa anonimizada) nao e solicitado nesta fase.
   const [consentAll, setConsentAll] = useState(false);
+  // Sessão seguinte: confirma que as autorizações já dadas seguem valendo.
+  // Nasce DESMARCADA e assim permanece — reafirmar é ato do paciente, e ato
+  // não se pratica por omissão. É a mesma regra do aceite original.
+  const [consentReaffirmed, setConsentReaffirmed] = useState(false);
   // Consentimentos detalhados (usados quando a flag reduzida for desativada).
   const [consent, setConsent] = useState(initialConsent);
   const [loading, setLoading] = useState(true);
@@ -87,6 +97,24 @@ export const PatientInvitePage: React.FC = () => {
     normalizeSessionLocale(typeof navigator === "undefined" ? "" : navigator.language),
   );
   const copy = patientCopy(uiLocale);
+
+  // As autorizações em ficha, no idioma do paciente. Uma chave que o servidor
+  // mande e a tela não saiba nomear é descartada em vez de exibida crua: um
+  // `sensitive_data_processing` na tela não informa ninguém, e a lista existe
+  // para informar.
+  const autorizacoesEmVigor = (invite?.consent_on_file || [])
+    .map((key) => ({
+      key,
+      label: copy.consentLabels[key as keyof typeof copy.consentLabels],
+    }))
+    .filter((item): item is { key: string; label: string } => Boolean(item.label));
+
+  const dataDasAutorizacoes = (() => {
+    const bruto = invite?.consent_updated_at;
+    if (!bruto) return "";
+    const data = new Date(bruto);
+    return Number.isNaN(data.getTime()) ? "" : data.toLocaleDateString(uiLocale);
+  })();
   const sexCopy = SEX_COPY[uiLocale] || SEX_COPY["pt-BR"];
   const sessionEntryUrl =
     invite?.session_url ||
@@ -168,6 +196,14 @@ export const PatientInvitePage: React.FC = () => {
       setSubmitting(false);
       return;
     }
+    // O servidor também recusa sem isto (400). A checagem aqui existe para o
+    // paciente ver o motivo na própria tela, em vez de receber um erro vindo
+    // de uma requisição que ele não sabe que aconteceu.
+    if (passwordOnly && !consentReaffirmed) {
+      setError(copy.reaffirmAuthorizations);
+      setSubmitting(false);
+      return;
+    }
     if (!passwordOnly && TESTING_MINIMAL_PATIENT) {
       if (!patientForm.email.trim()) {
         setError(copy.errors.email);
@@ -235,7 +271,7 @@ export const PatientInvitePage: React.FC = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...(passwordOnly
-            ? { password: patientForm.password }
+            ? { password: patientForm.password, consent_reaffirmed: consentReaffirmed }
             : TESTING_MINIMAL_PATIENT
               ? { ...patientPayload, consent: consentPayload }
               : { ...patientPayload, email_confirm: patientForm.email_confirm, consent: consentPayload }),
@@ -395,6 +431,56 @@ export const PatientInvitePage: React.FC = () => {
                     className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none focus:border-cyan-500"
                   />
                 </label>
+
+                {/* A reafirmação da sessão seguinte.
+                    O paciente não repete as autorizações: ele confirma, num
+                    clique, que as que já deu seguem valendo. Mas a tela NOMEIA
+                    cada uma antes de pedir a confirmação — confirmar o que não
+                    se vê não é confirmar, e é isso que separa uma reafirmação
+                    de uma autorização genérica.
+                    O servidor exige esta confirmação (400 sem ela) e a grava na
+                    trilha marcada como reafirmação, separada do aceite original. */}
+                <div className="mt-4 rounded-lg border border-slate-700 bg-slate-950 p-3">
+                  <p className="text-xs font-bold text-slate-100">
+                    {copy.authorizationsInForce}
+                  </p>
+                  {autorizacoesEmVigor.length > 0 && (
+                    <ul className="mt-2 space-y-1 text-[11px] leading-relaxed text-slate-300">
+                      {autorizacoesEmVigor.map((item) => (
+                        <li key={item.key} className="flex gap-2">
+                          <span aria-hidden="true" className="text-emerald-400">✓</span>
+                          <span>{item.label}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {dataDasAutorizacoes && (
+                    <p className="mt-2 text-[11px] text-slate-400">
+                      {copy.authorizationsGivenAt} {dataDasAutorizacoes}
+                      {invite?.consent_version ? ` · ${invite.consent_version}` : ""}
+                    </p>
+                  )}
+                  <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
+                    {copy.authorizationsInForceBody}
+                  </p>
+                  <p className="mt-2 text-[11px] font-bold text-cyan-300">
+                    {copy.readDocuments}:{" "}
+                    <a className="underline" href="#/tcle-paciente" target="_blank" rel="noreferrer">TCLE</a>
+                    {" · "}
+                    <a className="underline" href="#/privacidade" target="_blank" rel="noreferrer">{copy.privacyAuthorizations}</a>
+                    {" · "}
+                    <a className="underline" href="#/termos" target="_blank" rel="noreferrer">{copy.consentLabels.terms_of_use}</a>
+                  </p>
+                  <label className="mt-3 flex gap-2 text-[11px] leading-relaxed text-slate-200">
+                    <input
+                      type="checkbox"
+                      checked={consentReaffirmed}
+                      onChange={(event) => setConsentReaffirmed(event.target.checked)}
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-cyan-500"
+                    />
+                    <span>{copy.reaffirmAuthorizations}</span>
+                  </label>
+                </div>
               </div>
             ) : (
               <>

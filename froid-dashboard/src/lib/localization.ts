@@ -398,6 +398,14 @@ type PatientCopy = {
   pilotNotice: string;
   accountLocated: string;
   accountLocatedBody: string;
+  /** As autorizacoes que este paciente ja deu, reafirmadas num clique nas
+   *  sessoes seguintes. A tela NOMEIA cada uma antes de pedir a
+   *  confirmacao: confirmar o que nao se ve nao e confirmar. */
+  authorizationsInForce: string;
+  authorizationsInForceBody: string;
+  authorizationsGivenAt: string;
+  reaffirmAuthorizations: string;
+  readDocuments: string;
   accessPassword: string;
   fullName: string;
   document: string;
@@ -457,6 +465,11 @@ const PATIENT_COPY: Record<SessionLocale, PatientCopy> = {
     pilotNotice: "Idioma internacional em validação controlada.",
     accountLocated: "Cadastro e autorizações localizados",
     accountLocatedBody: "Para liberar esta sessão, informe somente sua senha. Suas autorizações permanecem válidas até que você as altere no Portal do Paciente.",
+    authorizationsInForce: "Suas autorizações em vigor",
+    authorizationsInForceBody: "Você não precisa preencher tudo de novo. Confirme abaixo que estas autorizações seguem valendo para esta sessão. Se quiser mudar qualquer uma, faça isso no Portal do Paciente — e o atendimento continua disponível.",
+    authorizationsGivenAt: "Autorizações registradas em",
+    reaffirmAuthorizations: "Confirmo que li os documentos e que as autorizações acima seguem válidas para esta sessão.",
+    readDocuments: "Ler os documentos",
     accessPassword: "Senha de acesso",
     fullName: "Nome completo",
     document: "CPF ou documento",
@@ -528,6 +541,11 @@ const PATIENT_COPY: Record<SessionLocale, PatientCopy> = {
     pilotNotice: "International language available under controlled validation.",
     accountLocated: "Registration and authorizations found",
     accountLocatedBody: "Enter only your password to access this session. Your authorizations remain valid until you change them in the Patient Portal.",
+    authorizationsInForce: "Your authorizations in force",
+    authorizationsInForceBody: "You do not need to fill everything in again. Confirm below that these authorizations still apply to this session. To change any of them, use the Patient Portal — your care remains available either way.",
+    authorizationsGivenAt: "Authorizations recorded on",
+    reaffirmAuthorizations: "I confirm that I have read the documents and that the authorizations above still apply to this session.",
+    readDocuments: "Read the documents",
     accessPassword: "Access password",
     fullName: "Full name",
     document: "ID or document",
@@ -599,6 +617,11 @@ const PATIENT_COPY: Record<SessionLocale, PatientCopy> = {
     pilotNotice: "Langue internationale disponible en validation contrôlée.",
     accountLocated: "Inscription et autorisations retrouvées",
     accountLocatedBody: "Saisissez uniquement votre mot de passe pour accéder à cette séance. Vos autorisations restent valables jusqu’à leur modification dans le Portail patient.",
+    authorizationsInForce: "Vos autorisations en vigueur",
+    authorizationsInForceBody: "Vous n’avez pas à tout ressaisir. Confirmez ci-dessous que ces autorisations s’appliquent toujours à cette séance. Pour en modifier une, passez par le Portail patient — le suivi reste disponible dans tous les cas.",
+    authorizationsGivenAt: "Autorisations enregistrées le",
+    reaffirmAuthorizations: "Je confirme avoir lu les documents et que les autorisations ci-dessus s’appliquent toujours à cette séance.",
+    readDocuments: "Lire les documents",
     accessPassword: "Mot de passe d’accès",
     fullName: "Nom complet",
     document: "Pièce d’identité ou document",
@@ -670,6 +693,11 @@ const PATIENT_COPY: Record<SessionLocale, PatientCopy> = {
     pilotNotice: "Idioma internacional disponible en validación controlada.",
     accountLocated: "Registro y autorizaciones encontrados",
     accountLocatedBody: "Introduzca únicamente su contraseña para acceder a esta sesión. Sus autorizaciones seguirán vigentes hasta que las modifique en el Portal del paciente.",
+    authorizationsInForce: "Sus autorizaciones vigentes",
+    authorizationsInForceBody: "No necesita completarlo todo de nuevo. Confirme abajo que estas autorizaciones siguen aplicándose a esta sesión. Para modificar cualquiera de ellas, use el Portal del paciente — la atención sigue disponible igualmente.",
+    authorizationsGivenAt: "Autorizaciones registradas el",
+    reaffirmAuthorizations: "Confirmo que he leído los documentos y que las autorizaciones anteriores siguen vigentes para esta sesión.",
+    readDocuments: "Leer los documentos",
     accessPassword: "Contraseña de acceso",
     fullName: "Nombre completo",
     document: "Documento de identidad",

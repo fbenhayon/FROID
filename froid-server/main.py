@@ -8629,11 +8629,36 @@ async def get_session_invite(token: str):
         raise HTTPException(status_code=404, detail="Convite não encontrado")
     _record_session_event("invite_opened", invite)
     patient = PATIENTS.get(str(invite.get("patient_id") or ""))
+    password_only = bool(isinstance(patient, dict) and patient.get("password_hash"))
+    # O que este paciente JA autorizou, para a tela do convite seguinte poder
+    # mostrar o que esta sendo reafirmado.
+    #
+    # Sem isto a simplificacao viraria um "de acordo" sobre coisa nenhuma: a
+    # pessoa confirmaria autorizacoes que a tela nao nomeia. Confirmar o que
+    # nao se ve nao e confirmar.
+    #
+    # Sai so no fluxo de paciente recorrente, e sai so a LISTA das chaves
+    # ativas, a data e a versao — nada do conteudo clinico. Quem tem o token ja
+    # recebe nome, e-mail e telefone deste mesmo endpoint, entao isto nao abre
+    # classe nova de exposicao.
+    consent_on_file: list[str] = []
+    consent_updated_at = ""
+    consent_version = ""
+    if password_only and isinstance(patient, dict):
+        preferencias = _patient_consent_preferences(patient)
+        consent_on_file = sorted(
+            chave for chave, valor in preferencias.items() if valor is True
+        )
+        consent_updated_at = str(
+            patient.get("consent_updated_at") or patient.get("lgpd_consent_at") or ""
+        )
+        consent_version = str(patient.get("lgpd_consent_version") or "")
     return {
         **invite,
-        "password_only": bool(
-            isinstance(patient, dict) and patient.get("password_hash")
-        ),
+        "password_only": password_only,
+        "consent_on_file": consent_on_file,
+        "consent_updated_at": consent_updated_at,
+        "consent_version": consent_version,
     }
 
 
@@ -8689,6 +8714,22 @@ async def accept_session_invite(token: str, request: Request):
                 status_code=403,
                 detail="Autorização do paciente inativa ou desatualizada. Atualize-a no Portal do Paciente.",
             )
+        # A reafirmacao e EXIGIDA, e nao decorativa.
+        #
+        # Nas sessoes seguintes o paciente nao repete as seis autorizacoes: ele
+        # confirma, num clique, que as que ja deu seguem valendo. Isso so se
+        # sustenta se o clique existir de verdade — caixa que a tela mostra e o
+        # servidor ignora e teatro, e teatro num registro de consentimento e
+        # pior do que nao ter caixa nenhuma.
+        #
+        # As duas guardas acima continuam antes desta: reafirmar nao substitui
+        # ter a autorizacao em ficha, nem revalida versao vencida de documento.
+        if body.get("consent_reaffirmed") is not True:
+            raise HTTPException(
+                status_code=400,
+                detail="Confirme que suas autorizações seguem válidas para esta sessão.",
+            )
+        consent_reaffirmed = True
         patient_id = known_patient_id
         patient_name = str(patient.get("name") or invite.get("patient_name") or "").strip()
         patient_email = _normalize_email(patient.get("email") or "")
@@ -8702,6 +8743,7 @@ async def accept_session_invite(token: str, request: Request):
         sex = str(body.get("sex") or "").strip()[:20]
         birth_date = str(body.get("birth_date") or "").strip()
         consent = body.get("consent") or {}
+        consent_reaffirmed = False
         missing = [key for key in required_consents if consent.get(key) is not True]
         if missing:
             raise HTTPException(status_code=400, detail=f"Consentimentos obrigatorios ausentes: {', '.join(missing)}")
@@ -8760,6 +8802,11 @@ async def accept_session_invite(token: str, request: Request):
         "session_id": invite.get("session_id"),
         "consent": consent,
         "source": consent_source,
+        # Distingue no registro o aceite ORIGINAL da reafirmacao de uma
+        # sessao seguinte. Sem este campo as duas linhas ficariam iguais na
+        # trilha, e nao haveria como responder "quando ela consentiu?"
+        # separado de "quando ela confirmou que seguia valendo?".
+        "reaffirmed": consent_reaffirmed,
         "version": "FROID-LGPD-v1.0",
         "accepted_at": now,
         "remote_addr": request.client.host if request.client else "",
