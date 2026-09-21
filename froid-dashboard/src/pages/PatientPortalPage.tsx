@@ -47,7 +47,6 @@ type ConsentPreferences = {
   privacy_policy: boolean;
   sensitive_data_processing: boolean;
   audio_video_processing: boolean;
-  research_anonymized: boolean;
 };
 
 type ConsentOverview = {
@@ -182,7 +181,6 @@ export const PatientPortalPage: React.FC = () => {
     privacy_policy: false,
     sensitive_data_processing: false,
     audio_video_processing: false,
-    research_anonymized: false,
   });
   const [consentSaving, setConsentSaving] = useState(false);
 
@@ -849,7 +847,6 @@ export const PatientPortalPage: React.FC = () => {
                 ["privacy_policy", "Aceito a política de privacidade.", "#/privacidade"],
                 ["sensitive_data_processing", "Autorizo o tratamento de dados sensíveis de saúde.", ""],
                 ["audio_video_processing", "Autorizo o processamento de áudio, vídeo e biomarcadores durante a sessão.", ""],
-                ["research_anonymized", "Autorizo o uso anonimizado para pesquisa e melhoria do FROID (opcional).", ""],
               ].map(([key, label, documento]) => (
                 <label key={key} className="flex items-start gap-2">
                   <input

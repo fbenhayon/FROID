@@ -2569,7 +2569,15 @@ function buildAnonymizedContext(
         : "baixa_amostragem",
     mediaInterruptions: 0,
     mediaLossEvents: 0,
-    consentAnonymousResearch: true,
+    // Aqui havia `consentAnonymousResearch: true`, fixo, em todo relatorio.
+    // Afirmava um consentimento que nunca foi pedido a ninguem — e que o
+    // servidor jamais leu: a coluna `consent_anonymous_research` do datamart
+    // e gravada com um `False` proprio, independente disto. Lapide para nao
+    // voltar: o datamart anonimo corre sob LEGITIMO INTERESSE sobre dado
+    // anonimizado, e nao sob consentimento — e isso esta escrito no registro
+    // LGPD do produto (`lgpd_registry.py`, operacao `datamart_anonimo`).
+    // O consentimento de PESQUISA que existe de verdade e outro, o do estudo
+    // de validade, e vive no seu proprio fluxo (`ResearchConsentCard`).
     privacyTier: "anonymous_research_datamart",
     piiExcluded: true,
     rawAudioRetained: false,

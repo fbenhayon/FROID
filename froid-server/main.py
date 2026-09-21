@@ -1040,7 +1040,6 @@ class PatientConsentPreferences(BaseModel):
     privacy_policy: bool
     sensitive_data_processing: bool
     audio_video_processing: bool
-    research_anonymized: bool = False
 
 
 class ClinicalNoteCreate(BaseModel):

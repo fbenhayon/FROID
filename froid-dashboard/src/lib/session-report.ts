@@ -191,7 +191,6 @@ export interface SessionReportRecord {
     audioQuality: string;
     mediaInterruptions: number;
     mediaLossEvents?: number;
-    consentAnonymousResearch: boolean;
     privacyTier?: "anonymous_research_datamart";
     piiExcluded?: boolean;
     rawAudioRetained?: boolean;
