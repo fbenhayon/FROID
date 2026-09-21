@@ -7889,15 +7889,24 @@ async def create_session_invite(request: Request):
 async def get_professional_session_configuration(session_id: str, request: Request):
     """Return server-authoritative session language and modality."""
     current_user = _require_current_user(request)
-    context = _require_professional_feature_access(request)
+    # A chamada FICA — ela é o portão de acesso e levanta sozinha quando recusa.
+    # O que saiu foi o valor de retorno, que não tem mais leitor aqui.
+    _require_professional_feature_access(request)
     professional_email = _normalize_email(current_user.get("email") or "")
+    # O recorte por organização saiu daqui em 20/09/2026, pela mesma razão das
+    # rotas de WebSocket: a autoria já é exigida na linha de cima, no mesmo
+    # `if`. Com ela satisfeita, o recorte só alcançava o próprio autor — e o que
+    # ele produzia era um 404 "configuração da sessão não encontrada" sobre uma
+    # sessão que existe e é dele, no meio do atendimento.
+    #
+    # A divergência não deixa de ser vista: o canal de análise da mesma sessão a
+    # grava como `"outcome":"organization_mismatch"` no log de auditoria.
     invite = next(
         (
             item
             for item in SESSION_INVITES.values()
             if str(item.get("session_id") or "") == session_id
             and _normalize_email(item.get("professional_email") or "") == professional_email
-            and _session_matches_context(session_id, context)
         ),
         None,
     )
@@ -15098,7 +15107,28 @@ async def save_session_report(request: Request):
         resource_type="session_report",
         resource_id=session_id,
     )
-    if not _session_matches_context(session_id, context):
+    # A pergunta que FALTAVA aqui: esta sessão foi criada por quem está
+    # mandando? Sem ela, o recorte por organização era a única guarda — e num
+    # atendimento real de 20/09/2026 ele devolveria 409 no fim da consulta, com
+    # o relatório pronto e a organização ativa do login divergindo da que
+    # carimbou a sessão. Tentar de novo daria o mesmo 409: não havia saída.
+    #
+    # A correção é ACRESCENTAR, e não remover. Quem criou, grava; quem não
+    # criou continua exatamente sob a regra de antes, e ninguém passa a
+    # alcançar o que não alcançava.
+    #
+    # Do lado da LEITURA esta regra já existe desde a correção de
+    # `_report_within_context`: "a autoria vence a organização corrente [...], o
+    # prontuário é de quem o escreveu, e trocar de organização não transfere a
+    # autoria de nada". A gravação tinha ficado para trás.
+    #
+    # Sessão sem dono registrado (anterior a este controle) cai no recorte, como
+    # antes: `SESSION_OWNERS.get` devolve "" e "" nunca é um e-mail.
+    e_o_autor_da_sessao = (
+        _normalize_email(SESSION_OWNERS.get(session_id) or "") == owner_email
+        and bool(owner_email)
+    )
+    if not e_o_autor_da_sessao and not _session_matches_context(session_id, context):
         raise HTTPException(status_code=409, detail="sessão pertence a outra organização")
     report["professionalEmail"] = owner_email
     if context:
