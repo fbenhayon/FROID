@@ -115,10 +115,20 @@ class OConferidorDeDeployExiste(unittest.TestCase):
         self.assertIn("_rotas_que_o_site_chama", fonte)
 
     def test_ela_nao_precisa_de_chave_ssh(self):
-        """Apurado em 04/08/2026: minha chave nao esta autorizada no servidor.
+        """A razao mudou em 21/09/2026; a garantia nao, e por isso a assercao
+        continua exatamente como estava.
 
-        Uma ferramenta que exigisse SSH so rodaria na maquina do dono, e por isso
-        nao rodaria. Esta fala com o servico publico por HTTP.
+        Escrito em 04/08/2026 porque a chave da sessao de trabalho nao estava
+        autorizada no servidor: uma ferramenta que exigisse SSH so rodaria na
+        maquina do dono, e por isso nao rodaria. Desde 21/09/2026 o acesso de
+        shell EXISTE — e o motivo de nao usar aqui passou a ser outro, mais
+        forte: este verificador tem de ver o que o VISITANTE ve. Perguntar ao
+        disco do servidor responde outra coisa, e foi a divergencia entre as
+        duas que produziu o incidente de 11/09.
+
+        Continua reprovando a palavra de invocacao em qualquer lugar do arquivo,
+        comentario incluido. E grosseiro de proposito: a alternativa fina deixa
+        passar a primeira chamada que alguem acrescentar.
         """
         fonte = self.FERRAMENTA.read_text(encoding="utf-8")
         self.assertNotIn("ssh ", fonte)

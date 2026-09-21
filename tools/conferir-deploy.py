@@ -27,8 +27,13 @@ envelhece, e log de implantacao velho nao e registro incompleto: e registro que
 MENTE, porque quem o le conclui que aquilo esta no ar.
 
 Este script nao anota nada. Ele PERGUNTA ao servidor, por HTTP publico — sem
-SSH, porque a chave da sessao de trabalho nao esta autorizada no servidor e uma
-ferramenta que exigisse acesso de shell simplesmente nao seria rodada.
+SSH. Desde 21/09/2026 existe acesso direto de shell ao servidor, pelo atalho
+`froid`, e este script continua sem usar, de proposito: quem pergunta de fora ve
+o que o VISITANTE ve, que e a coisa em duvida. O shell responde o que o disco do
+servidor tem, e isso e outra pergunta — um verificador que dependesse dele
+confirmaria o arquivo certo no lugar certo enquanto a pagina servida continuasse
+quebrada. `tests/test_o_que_quebrou_em_producao.py` guarda isso e reprova a
+palavra de invocacao dentro deste arquivo, inclusive em comentario.
 
 O QUE ELE NAO FAZ
 
