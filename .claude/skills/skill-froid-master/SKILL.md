@@ -114,6 +114,15 @@ sessão inteira rodou sem PCM e ninguém soube.
 **Regra:** todo caminho de degradação precisa **reportar**. Se o sistema
 continua funcionando sem uma peça, alguém tem de ficar sabendo que a peça faltou.
 
+**E silêncio não é a única forma de não reportar.** Em 20/09/2026 o canal de
+análise foi recusado pelo servidor e o painel seguiu exibindo o aviso calmo
+montado sobre o **último tique que havia chegado**: *"o áudio do paciente está
+chegando — o microfone está funcionando. Se ele estiver em silêncio, não há nada
+a corrigir."* Era verdade um minuto antes, e passou a ser o contrário do que
+acontecia. Um aviso alimentado por dado de chegada tem de saber quando o canal
+caiu; senão deixa de reportar o presente e passa a **afirmar o passado** — o que
+é pior que não dizer nada, porque quem lê age sobre ele e para de procurar.
+
 ### 2.3 A chave que não chega
 
 `FROID_DATAMART_FALA_PROFISSIONAL=1` no `.env` do servidor não chegaria ao
@@ -218,11 +227,103 @@ como se estivesse dentro dela).
 
 ---
 
+### 2.10 A guarda que só alcança quem ela deveria proteger
+
+**O caso, 20/09/2026, com o paciente já na sala.** O profissional foi barrado da
+própria consulta, onze vezes. A rota do WebSocket perguntava, nesta ordem:
+
+1. o token de login vale?
+2. **esta sessão foi criada por ele?**
+3. o acesso profissional está ativo?
+4. a organização da sessão bate com a organização ativa do login?
+
+A quarta recusou. Mas quando ela roda, a **segunda já provou** que quem conecta é
+o autor daquela sessão — qualquer outra pessoa foi barrada antes. Ou seja: a
+quarta só conseguia alcançar o próprio dono. Ela não protegia ninguém de
+ninguém, e o que produzia era um profissional trancado para fora do que é dele,
+sem ação possível na tela.
+
+**Regra:** ao ler uma checagem de acesso, pergunte **quem ela ainda consegue
+barrar, depois de tudo o que veio antes dela**. Se a resposta for "só o próprio
+titular", ela não é proteção: é um portão virado para dentro.
+
+E a correção depende de onde ela está — as duas metades importam:
+
+- onde a autoria **já foi provada** antes dela, a checagem sai (ou vira registro);
+- onde a autoria **não é perguntada em lugar nenhum**, a correção é
+  **ACRESCENTAR** a pergunta que falta, nunca remover a que existe. Foi o caso do
+  arquivamento do relatório: tirar o recorte ali deixaria qualquer conta gravar
+  em sessão alheia, porque o recorte era a única guarda.
+
+O corolário a casa já tinha escrito, e não tinha aplicado a todos os pontos: *"a
+autoria vence a organização corrente [...]; trocar de organização não transfere a
+autoria de nada."* Ver também 2.8 — corrigi as duas rotas de WebSocket e parei,
+e foram os pontos que ficaram para trás que quase custaram o relatório da
+consulta.
+
+### 2.11 Um código, duas causas — e a recusa que não diz qual foi
+
+**O caso, 20/09/2026.** O servidor fechava o WebSocket com `4401` em duas
+situações: token de login inválido, e sessão pertencente a outra conta. A tela
+tinha **uma** frase, a da segunda. O profissional leu "esta sessão pertence a
+outra conta" e foi conferir de qual conta era a sessão — que estava certa —
+enquanto o que tinha acabado era o login dele. As duas causas pedem ações
+opostas: uma manda trocar de login, a outra manda entrar de novo no mesmo.
+
+Pior, **o log tinha o mesmo defeito**. As seis causas de recusa gravavam a mesma
+linha, `"outcome":"denied"`, sem o código. Descobrir qual havia sido exigiu
+deduzir por um sinal indireto — o evento trazia `organization_id` preenchido, e
+só um dos ramos passava contexto ao auditor. Custou uma investigação inteira,
+com paciente esperando.
+
+**Regra:** um código de erro é contrato de **uma** causa. Duas causas no mesmo
+código produzem uma frase que está errada para metade dos casos, e quem a lê age
+sobre a metade errada. E toda recusa grava **o próprio motivo**, não apenas o
+fato de ter recusado: recusar em silêncio e recusar sem motivo registrado são a
+mesma falha vista de dois lugares (regra 1.3).
+
+**Como caçar:** para cada código que o sistema emite, liste os ramos que o
+emitem. Mais de um ramo com semânticas diferentes é o defeito. E leia a frase
+perguntando *a quem ela foi escrita* — no mesmo dia, o profissional recebia uma
+recusa que mandava "pedir um novo link ao profissional", frase redigida para o
+paciente.
+
+### 2.12 O prazo contado do lugar errado
+
+**O caso, 20/09/2026 — a causa raiz daquele dia.** A sessão de trabalho do
+profissional expirava 8 horas depois do **login**, e nada a renovava: nem uso,
+nem requisição, nem atividade. Quem entrou de manhã e atendeu à tarde teve o
+prazo vencendo com o paciente do outro lado. A chamada continuou, porque é ponto
+a ponto; o canal de análise passou a ser recusado, as medições pararam, e no fim
+o relatório não gravou.
+
+O prazo não estava errado. O **evento de partida** estava. Contado do último
+uso, a mesma janela de 8 horas nunca interrompe quem está trabalhando e continua
+expirando quem parou — nenhuma janela precisou ser alargada.
+
+**Regra:** todo prazo tem um evento de partida, e ele quase nunca é o que se
+escreveu primeiro. Pergunte: *isto mede inatividade ou mede tempo de vida?* Se o
+que se quer é inatividade, contar do login está errado — e o erro só aparece no
+dia mais longo de trabalho de alguém, que é o pior dia para aparecer.
+
+---
+
 ## 3. Testes que valem alguma coisa
 
 - **Afirme a garantia, não o mecanismo.** Um teste exigia literalmente o
   `rollback` do WebRTC; quando o rollback virou o defeito, o teste defendia o
   defeito. Reescrito para afirmar o que o usuário precisa que seja verdade.
+- **E afirme-a em CADA ponto, não em algum ponto do arquivo.** Um teste conferia
+  que `motivoDaRecusaDeSinalizacao` **aparece** em `LiveSession.tsx` — e aparecia,
+  no socket da chamada. O socket de ANÁLISE, no mesmo arquivo, ignorava o código
+  de fechamento e reconectava a cada cinco segundos contra uma recusa
+  determinística, sem uma linha na tela. O teste passou o tempo todo, e a sessão
+  correu sem medir nada. Presença no arquivo é mecanismo; a garantia era "todo
+  socket que pode ser recusado lê a recusa", e essa se afirma varrendo os pontos
+  um a um. Quando a correção for de regra e não de ocorrência (2.8), o teste
+  **enumera** os pontos e obriga cada um a se declarar — o do recorte por
+  organização lista as quatro funções que o usam, com o motivo de cada uma, e um
+  uso novo quebra o teste.
 - **Teste frágil é teste que mente.** Recorte por número de linha ou janela de
   caracteres quebrou duas vezes por crescimento de comentário. Recorte pelo
   **parser**, por nome de definição.
@@ -293,6 +394,13 @@ uma palavra.
   qualquer outra coisa. Quando um grupo pede uma sessão nova, diga isso.
 - **Verifique antes de afirmar.** Já afirmei sobre produção lendo um `.env`
   local, e estava errado. Ambiente local não é evidência sobre o servidor.
+  Em 20/09/2026 repeti a falta noutra forma: dei o reinício do backend como causa
+  provável de um incidente e **escrevi isso como conclusão** — inclusive numa
+  anotação de memória — antes de ter conferido. O comando que derrubou a
+  hipótese, `docker inspect -f '{{.State.StartedAt}} {{.RestartCount}}'`, existia
+  o tempo todo e custava um minuto. **Hipótese nomeada como hipótese não custa
+  nada; hipótese entregue como causa faz o outro lado agir sobre ela.** Antes de
+  chamar alguma coisa de causa, pergunte que comando a falsificaria — e rode-o.
 - **Meça antes de apertar ou afrouxar.** Escolher um limiar sem dado é escolher
   no escuro. Se o dado ainda não existe, diga que não existe e diga qual número
   o produziria.
@@ -372,3 +480,7 @@ disso antes de decidir.
 6. Este trabalho deixou **lixo** para trás? (seção 4)
 7. O que ficou **de fora**, e eu disse isso? (seção 5)
 8. As decisões que o dono toma separadas entraram em commits **separados**? (seção 5.1)
+9. Esta checagem de acesso ainda consegue barrar **alguém além do próprio titular**? (padrão 2.10)
+10. Cada recusa diz **qual** das causas foi — na tela e no log? (padrão 2.11)
+11. Este prazo mede **inatividade** ou tempo de vida, e parte do evento certo? (padrão 2.12)
+12. O que eu chamei de **causa** foi conferido, ou é hipótese que escapou como conclusão? (seção 5)
