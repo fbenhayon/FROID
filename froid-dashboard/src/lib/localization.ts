@@ -406,6 +406,14 @@ type PatientCopy = {
   authorizationsGivenAt: string;
   reaffirmAuthorizations: string;
   readDocuments: string;
+  /** O aceite inicial vem em DUAS caixas, e nao numa so.
+   *  Documentos e termos de um lado; captura e tratamento de audio, video
+   *  e dados de saude do outro, destacado. A LGPD pede consentimento
+   *  'especifico e destacado' para dado sensivel de saude (art. 11, I), e
+   *  agregar o dado de saude no mesmo clique dos termos de uso e
+   *  exatamente o que a lei manda separar. Decisao do dono, 21/09/2026. */
+  consentDocuments: string;
+  consentHealthData: string;
   accessPassword: string;
   fullName: string;
   document: string;
@@ -470,6 +478,8 @@ const PATIENT_COPY: Record<SessionLocale, PatientCopy> = {
     authorizationsGivenAt: "Autorizações registradas em",
     reaffirmAuthorizations: "Confirmo que li os documentos e que as autorizações acima seguem válidas para esta sessão.",
     readDocuments: "Ler os documentos",
+    consentDocuments: "Li e aceito o TCLE, os Termos de Uso e a Política de Privacidade do FROID.",
+    consentHealthData: "Autorizo a captura e o tratamento do meu áudio, do meu vídeo, das minhas métricas vocais e dos demais dados de saúde desta sessão, para a realização do atendimento.",
     accessPassword: "Senha de acesso",
     fullName: "Nome completo",
     document: "CPF ou documento",
@@ -487,7 +497,6 @@ const PATIENT_COPY: Record<SessionLocale, PatientCopy> = {
       privacy_policy: "Li e aceito a política de privacidade.",
       sensitive_data_processing: "Autorizo o tratamento de dados sensíveis de saúde para esta sessão.",
       audio_video_processing: "Autorizo a captura e o processamento de áudio, vídeo e métricas vocais.",
-      research_anonymized: "Autorizo o uso anonimizado para pesquisa e melhoria do FROID.",
     },
     confirming: "Confirmando...",
     confirmPasswordEntry: "Confirmar senha e entrar",
@@ -503,6 +512,8 @@ const PATIENT_COPY: Record<SessionLocale, PatientCopy> = {
       passwordLength: "A senha do paciente deve ter no mínimo 8 caracteres.",
       passwordMatch: "A confirmação de senha não confere.",
       confirmation: "Não foi possível confirmar.",
+      consentDocuments: "É necessário aceitar o TCLE, os Termos de Uso e a Política de Privacidade para continuar.",
+      consentHealthData: "Sem a autorização de captura e tratamento dos dados de saúde a sessão não pode acontecer.",
     },
   },
   "en-US": {
@@ -546,6 +557,8 @@ const PATIENT_COPY: Record<SessionLocale, PatientCopy> = {
     authorizationsGivenAt: "Authorizations recorded on",
     reaffirmAuthorizations: "I confirm that I have read the documents and that the authorizations above still apply to this session.",
     readDocuments: "Read the documents",
+    consentDocuments: "I have read and accept FROID's Informed Consent (TCLE), Terms of Use and Privacy Policy.",
+    consentHealthData: "I authorize the capture and processing of my audio, my video, my vocal metrics and the other health data of this session, in order to carry out the session.",
     accessPassword: "Access password",
     fullName: "Full name",
     document: "ID or document",
@@ -563,7 +576,6 @@ const PATIENT_COPY: Record<SessionLocale, PatientCopy> = {
       privacy_policy: "I have read and accept the privacy notice.",
       sensitive_data_processing: "I authorize the processing of sensitive health information for this session.",
       audio_video_processing: "I authorize audio, video, and voice-metric capture and processing.",
-      research_anonymized: "I authorize anonymized use for research and FROID improvement.",
     },
     confirming: "Confirming...",
     confirmPasswordEntry: "Confirm password and enter",
@@ -579,6 +591,8 @@ const PATIENT_COPY: Record<SessionLocale, PatientCopy> = {
       passwordLength: "The patient password must contain at least 8 characters.",
       passwordMatch: "The passwords do not match.",
       confirmation: "The invitation could not be confirmed.",
+      consentDocuments: "You must accept the Informed Consent, Terms of Use and Privacy Policy to continue.",
+      consentHealthData: "Without authorization to capture and process health data the session cannot take place.",
     },
   },
   "fr-FR": {
@@ -622,6 +636,8 @@ const PATIENT_COPY: Record<SessionLocale, PatientCopy> = {
     authorizationsGivenAt: "Autorisations enregistrées le",
     reaffirmAuthorizations: "Je confirme avoir lu les documents et que les autorisations ci-dessus s’appliquent toujours à cette séance.",
     readDocuments: "Lire les documents",
+    consentDocuments: "J’ai lu et j’accepte le consentement éclairé (TCLE), les Conditions d’utilisation et la Politique de confidentialité de FROID.",
+    consentHealthData: "J’autorise la captation et le traitement de mon audio, de ma vidéo, de mes métriques vocales et des autres données de santé de cette séance, pour la réalisation de la séance.",
     accessPassword: "Mot de passe d’accès",
     fullName: "Nom complet",
     document: "Pièce d’identité ou document",
@@ -639,7 +655,6 @@ const PATIENT_COPY: Record<SessionLocale, PatientCopy> = {
       privacy_policy: "J’ai lu et j’accepte la notice de confidentialité.",
       sensitive_data_processing: "J’autorise le traitement de données de santé sensibles pour cette séance.",
       audio_video_processing: "J’autorise la capture et le traitement de l’audio, de la vidéo et des métriques vocales.",
-      research_anonymized: "J’autorise l’utilisation anonymisée à des fins de recherche et d’amélioration de FROID.",
     },
     confirming: "Confirmation...",
     confirmPasswordEntry: "Confirmer le mot de passe et accéder",
@@ -655,6 +670,8 @@ const PATIENT_COPY: Record<SessionLocale, PatientCopy> = {
       passwordLength: "Le mot de passe doit comporter au moins 8 caractères.",
       passwordMatch: "Les mots de passe ne correspondent pas.",
       confirmation: "L’invitation n’a pas pu être confirmée.",
+      consentDocuments: "Vous devez accepter le consentement éclairé, les Conditions d’utilisation et la Politique de confidentialité pour continuer.",
+      consentHealthData: "Sans autorisation de captation et de traitement des données de santé, la séance ne peut pas avoir lieu.",
     },
   },
   "es-ES": {
@@ -698,6 +715,8 @@ const PATIENT_COPY: Record<SessionLocale, PatientCopy> = {
     authorizationsGivenAt: "Autorizaciones registradas el",
     reaffirmAuthorizations: "Confirmo que he leído los documentos y que las autorizaciones anteriores siguen vigentes para esta sesión.",
     readDocuments: "Leer los documentos",
+    consentDocuments: "He leído y acepto el TCLE, los Términos de Uso y la Política de Privacidad de FROID.",
+    consentHealthData: "Autorizo la captación y el tratamiento de mi audio, mi vídeo, mis métricas vocales y los demás datos de salud de esta sesión, para la realización de la sesión.",
     accessPassword: "Contraseña de acceso",
     fullName: "Nombre completo",
     document: "Documento de identidad",
@@ -715,7 +734,6 @@ const PATIENT_COPY: Record<SessionLocale, PatientCopy> = {
       privacy_policy: "He leído y acepto el aviso de privacidad.",
       sensitive_data_processing: "Autorizo el tratamiento de datos sensibles de salud para esta sesión.",
       audio_video_processing: "Autorizo la captura y el procesamiento de audio, vídeo y métricas vocales.",
-      research_anonymized: "Autorizo el uso anonimizado para investigación y mejora de FROID.",
     },
     confirming: "Confirmando...",
     confirmPasswordEntry: "Confirmar contraseña y entrar",
@@ -731,6 +749,8 @@ const PATIENT_COPY: Record<SessionLocale, PatientCopy> = {
       passwordLength: "La contraseña debe tener al menos 8 caracteres.",
       passwordMatch: "Las contraseñas no coinciden.",
       confirmation: "No se pudo confirmar la invitación.",
+      consentDocuments: "Debe aceptar el TCLE, los Términos de Uso y la Política de Privacidad para continuar.",
+      consentHealthData: "Sin la autorización de captación y tratamiento de los datos de salud la sesión no puede realizarse.",
     },
   },
 };

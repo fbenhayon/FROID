@@ -141,18 +141,37 @@ class PatientMobileWebRtcTests(unittest.TestCase):
         self.assertIn("visibilitychange", self.professional_session)
         self.assertIn("visibilitychange", self.patient_session)
 
-    def test_reduced_patient_registration_keeps_password_and_single_consent(self):
-        # Fase de testes: cadastro reduzido, mas a senha (e confirmacao) segue
-        # obrigatoria no novo cadastro, alem da senha do paciente recorrente.
+    def test_reduced_patient_registration_keeps_password_and_split_consent(self):
+        """Cadastro reduzido, senha obrigatoria — e o consentimento em DUAS caixas.
+
+        Este teste chamava-se `..._and_single_consent` e exigia literalmente
+        `checked={consentAll}`: uma caixa so, cobrindo TCLE, termos, privacidade
+        e dado sensivel de saude. Em 21/09/2026 o dono revogou aquela decisao —
+        a LGPD pede consentimento "especifico e destacado" para dado sensivel de
+        saude (art. 11, I), e agregar o dado de saude no mesmo clique das
+        condicoes de uso e exatamente o que a lei manda separar.
+
+        Reescrito para a decisao nova, e nao apagado: o que ele guarda continua
+        sendo "o cadastro reduzido nao reduz o consentimento". Mudou o numero de
+        caixas, nao a garantia.
+        """
         self.assertIn("...initialPatientForm", self.patient_invite)
         self.assertEqual(self.patient_invite.count('autoComplete="new-password"'), 2)
         self.assertEqual(self.patient_invite.count('autoComplete="current-password"'), 1)
         self.assertIn("[&_input]:bg-blue-950", self.patient_invite)
         self.assertIn("[&_input]:text-white", self.patient_invite)
         self.assertIn('sessionStorage.removeItem("froid_patient_token")', self.patient_invite)
-        # Consentimento unico via um checkbox.
-        self.assertIn("setConsentAll(false)", self.patient_invite)
-        self.assertIn("checked={consentAll}", self.patient_invite)
+        # Duas caixas, cada uma com o seu proprio estado — e nenhuma "consentAll"
+        # sobrevivente, que reagregaria as duas sem ninguem perceber.
+        self.assertIn("checked={consentDocuments}", self.patient_invite)
+        self.assertIn("checked={consentHealthData}", self.patient_invite)
+        self.assertNotIn("consentAll", self.patient_invite)
+        # As duas nascem desmarcadas: consentir e ato, e ato nao se pratica por
+        # omissao.
+        self.assertIn("const [consentDocuments, setConsentDocuments] = useState(false)", self.patient_invite)
+        self.assertIn("const [consentHealthData, setConsentHealthData] = useState(false)", self.patient_invite)
+        # O dado de saude sai destacado, e nao numa linha igual as outras.
+        self.assertIn("border-cyan-700 bg-cyan-950/40", self.patient_invite)
 
 
 if __name__ == "__main__":

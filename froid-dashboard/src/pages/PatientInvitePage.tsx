@@ -40,11 +40,11 @@ interface InviteData {
   };
 }
 
-// Fase de testes iniciais: exibe apenas o cadastro reduzido do paciente
-// (Nome, Telefone, E-mail, Sexo, Data de nascimento e senha) com um unico
-// consentimento. Os demais campos (CPF, confirmacao de e-mail e as
-// autorizacoes detalhadas) permanecem no codigo e voltam ao layout ao
-// definir esta flag como false.
+// Fase de testes iniciais: exibe o cadastro reduzido do paciente (Nome,
+// Telefone, E-mail, Sexo, Data de nascimento e senha) com DUAS caixas de
+// consentimento — documentos de um lado, dados de saude do outro. Os demais
+// campos (CPF, confirmacao de e-mail e as autorizacoes item a item)
+// permanecem no codigo e voltam ao layout ao definir esta flag como false.
 const TESTING_MINIMAL_PATIENT = true;
 
 const initialPatientForm = {
@@ -65,7 +65,6 @@ const initialConsent = {
   privacy_policy: false,
   sensitive_data_processing: false,
   audio_video_processing: false,
-  research_anonymized: false,
 };
 
 const SEX_COPY: Record<string, { label: string; female: string; male: string; other: string; prefer: string }> = {
@@ -79,10 +78,20 @@ export const PatientInvitePage: React.FC = () => {
   const { token = "" } = useParams<{ token: string }>();
   const [invite, setInvite] = useState<InviteData | null>(null);
   const [patientForm, setPatientForm] = useState(initialPatientForm);
-  // Consentimento unico (fase de testes): um clique cobre TCLE, Termos,
-  // Privacidade e o tratamento de dados sensiveis (audio/video). O uso de
-  // dados no data-froid (pesquisa anonimizada) nao e solicitado nesta fase.
-  const [consentAll, setConsentAll] = useState(false);
+  // DUAS caixas, e não uma. Documentos e termos de um lado; captura e
+  // tratamento de áudio, vídeo e dados de saúde do outro, destacado.
+  //
+  // A LGPD pede consentimento "específico e destacado" para dado sensível de
+  // saúde (art. 11, I), e considera nula a autorização genérica (art. 8º §4º).
+  // Até 21/09/2026 as duas coisas saíam num clique só — e é esse aceite que
+  // funda todos os outros, inclusive a reafirmação das sessões seguintes: se
+  // ele for frágil, o que se apoia nele também é. Decisão do dono.
+  //
+  // Não é a volta das seis caixas. São duas, porque duas é o que a separação
+  // exige: o que a pessoa lê e aceita, e o que ela deixa ser medido do corpo
+  // dela.
+  const [consentDocuments, setConsentDocuments] = useState(false);
+  const [consentHealthData, setConsentHealthData] = useState(false);
   // Sessão seguinte: confirma que as autorizações já dadas seguem valendo.
   // Nasce DESMARCADA e assim permanece — reafirmar é ato do paciente, e ato
   // não se pratica por omissão. É a mesma regra do aceite original.
@@ -128,7 +137,12 @@ export const PatientInvitePage: React.FC = () => {
     setLoading(true);
     setInvite(null);
     setPatientForm({ ...initialPatientForm });
-    setConsentAll(false);
+    // Trocar de convite zera TODA caixa. Consentimento não atravessa link:
+    // uma caixa que sobrevivesse à troca faria a pessoa autorizar uma sessão
+    // por um clique dado noutra.
+    setConsentDocuments(false);
+    setConsentHealthData(false);
+    setConsentReaffirmed(false);
     setConsent({ ...initialConsent });
     setAccepted(false);
     setSubmitting(false);
@@ -210,8 +224,15 @@ export const PatientInvitePage: React.FC = () => {
         setSubmitting(false);
         return;
       }
-      if (!consentAll) {
-        setError(copy.errors.consent || "É necessário aceitar as autorizações para continuar.");
+      // Cada uma recusa com o seu próprio motivo. Uma frase só para as duas
+      // faria a pessoa reler a tela inteira procurando o que faltou.
+      if (!consentDocuments) {
+        setError(copy.errors.consentDocuments);
+        setSubmitting(false);
+        return;
+      }
+      if (!consentHealthData) {
+        setError(copy.errors.consentHealthData);
         setSubmitting(false);
         return;
       }
@@ -240,11 +261,13 @@ export const PatientInvitePage: React.FC = () => {
     // data-froid). Com a flag desativada, usa os consentimentos detalhados.
     const consentPayload = TESTING_MINIMAL_PATIENT
       ? {
-          patient_tcle: consentAll,
-          terms_of_use: consentAll,
-          privacy_policy: consentAll,
-          sensitive_data_processing: consentAll,
-          audio_video_processing: consentAll,
+          // Cada caixa governa o que ela nomeia, e só. Mapear as cinco chaves
+          // para um único booleano foi o que apagou a distinção no aceite.
+          patient_tcle: consentDocuments,
+          terms_of_use: consentDocuments,
+          privacy_policy: consentDocuments,
+          sensitive_data_processing: consentHealthData,
+          audio_video_processing: consentHealthData,
         }
       : consent;
     const patientPayload = TESTING_MINIMAL_PATIENT
@@ -604,23 +627,34 @@ export const PatientInvitePage: React.FC = () => {
                 <LgpdNotice audience="patient" compact locale={uiLocale} />
               </div>
               {TESTING_MINIMAL_PATIENT ? (
-                <div className="mt-3 text-xs text-slate-300">
+                <div className="mt-3 space-y-3 text-xs text-slate-300">
                   <label className="flex gap-2">
                     <input
                       type="checkbox"
-                      checked={consentAll}
-                      onChange={(event) => setConsentAll(event.target.checked)}
+                      checked={consentDocuments}
+                      onChange={(event) => setConsentDocuments(event.target.checked)}
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-cyan-500"
                     />
-                    <span>
-                      {{
-                        "pt-BR": "Li e aceito o TCLE, os Termos de Uso e a Política de Privacidade, e autorizo o tratamento dos meus dados sensíveis (áudio e vídeo) para a realização da sessão.",
-                        "en-US": "I have read and accept the Informed Consent (TCLE), the Terms of Use and the Privacy Policy, and I authorize the processing of my sensitive data (audio and video) to run the session.",
-                        "fr-FR": "J'ai lu et j'accepte le consentement éclairé (TCLE), les Conditions d'utilisation et la Politique de confidentialité, et j'autorise le traitement de mes données sensibles (audio et vidéo) pour la réalisation de la séance.",
-                        "es-ES": "He leído y acepto el TCLE, los Términos de Uso y la Política de Privacidad, y autorizo el tratamiento de mis datos sensibles (audio y vídeo) para la realización de la sesión.",
-                      }[uiLocale] ||
-                        "Li e aceito o TCLE, os Termos de Uso e a Política de Privacidade, e autorizo o tratamento dos meus dados sensíveis (áudio e vídeo) para a realização da sessão."}
-                    </span>
+                    <span>{copy.consentDocuments}</span>
                   </label>
+                  {/* Destacado de propósito, e não por estética: a LGPD
+                      exige consentimento "específico e destacado" para dado
+                      sensível de saúde (art. 11, I). Este é o clique que
+                      autoriza medir a voz e a face de uma pessoa, e ele não
+                      pode dividir a linha com as condições de uso. */}
+                  <div className="rounded-lg border border-cyan-700 bg-cyan-950/40 p-3">
+                    <label className="flex gap-2">
+                      <input
+                        type="checkbox"
+                        checked={consentHealthData}
+                        onChange={(event) => setConsentHealthData(event.target.checked)}
+                        className="mt-0.5 h-4 w-4 shrink-0 accent-cyan-500"
+                      />
+                      <span className="font-semibold leading-relaxed text-cyan-50">
+                        {copy.consentHealthData}
+                      </span>
+                    </label>
+                  </div>
                 </div>
               ) : (
                 <div className="mt-3 space-y-2 text-xs text-slate-300">
@@ -630,7 +664,6 @@ export const PatientInvitePage: React.FC = () => {
                     ["privacy_policy", copy.consentLabels.privacy_policy],
                     ["sensitive_data_processing", copy.consentLabels.sensitive_data_processing],
                     ["audio_video_processing", copy.consentLabels.audio_video_processing],
-                    ["research_anonymized", copy.consentLabels.research_anonymized],
                   ].map(([key, label]) => (
                     <label key={key} className="flex gap-2">
                       <input
