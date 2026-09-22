@@ -24,3 +24,4 @@
 - [Assunto do commit x diff](froid-commit-assunto-vs-diff.md) — commitar trabalho herdado faz o assunto descrever a minha última etapa, não a maior mudança
 - [Sessao de trabalho desliza](froid-sessao-de-trabalho-desliza.md) — o login vencia 8h depois do login e derrubava a apuracao no meio da consulta; e a hipotese que eu dei como certa sem conferir
 - [Rigor maximo na seguranca](froid-seguranca-rigor-maximo.md) — instrucao permanente do Fabio, e o dia em que a medida mais rigida teria trancado ele mesmo fora
+- [O site afirma o que o painel nao faz](froid-site-afirma-o-que-o-painel-nao-faz.md) — tres afirmacoes vetadas que o codigo desmente; conferir em froid-dashboard, nao em outra pagina
