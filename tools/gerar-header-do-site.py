@@ -32,11 +32,18 @@ import sys
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RAIZ = os.path.join(REPO, "froid-site")
 
+# "Demonstracao" so entra no menu em pt-BR. A pagina existe nos quatro idiomas
+# e o rodape ja a lista em todos, mas en/fr/es ainda tem o texto curto antigo,
+# de quatro secoes; o percurso completo do Psique so foi escrito em pt-BR.
+# Por em destaque no header uma pagina que nao entrega o que o rotulo promete e
+# o defeito 2.4 da skill-froid-master. Ao traduzir, acrescente a linha nos
+# outros tres idiomas e rode este script de novo.
 IDIOMAS = {
     "": {
         "familias": [
             ("FROID Psique", "index.html", [
                 ("Vis\u00e3o geral", "index.html"),
+                ("Demonstra\u00e7\u00e3o", "demonstracao.html"),
                 ("Profissionais", "profissionais.html"),
                 ("FROID Explica", "froid-explica.html"),
             ]),

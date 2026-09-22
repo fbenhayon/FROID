@@ -143,10 +143,18 @@ var NAV_SECOES = {
     ["limites", "O que os mapas não afirmam"]
   ],
   "demonstracao.html": [
-    ["framework-proprietario-froid", "Framework proprietário"],
-    ["indices-em-tempo-real", "Índices em tempo real"],
-    ["depois-da-sessao", "Depois da sessão"],
-    ["galeria-do-produto", "Galeria do produto"]
+    ["indice", "Como a página se organiza"],
+    ["o-que-e", "As três camadas"],
+    ["antes", "Antes: conta, convite e sala"],
+    ["calibracao", "Os 60 primeiros segundos"],
+    ["durante", "Durante: o que a tela mostra"],
+    ["sem-apuracao", "Quando não há o que medir"],
+    ["explica", "Perguntar ao FROID Explica"],
+    ["depois", "Depois: o relatório"],
+    ["liberacao", "O documento do paciente"],
+    ["acervo", "O que volta ao Data-Froid"],
+    ["limites", "O que o FROID não afirma"],
+    ["proximo-passo", "Próximo passo"]
   ]
 };
 
