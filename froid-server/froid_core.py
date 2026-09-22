@@ -282,8 +282,8 @@ class SessionState:
         concluida = atual and self.pcm_analyzed_revision == self.pcm_revision
         real = self.latest_voice_features if concluida else None
         silencio = bool(concluida) and self.pcm_buffer is not None and (
-            self.pcm_buffer.size > 0
-            and not np.any(self.pcm_buffer - float(np.mean(self.pcm_buffer)))
+            self.pcm_received_samples is not None and self.pcm_received_samples > 0
+            and np.ptp(self.pcm_buffer[-self.pcm_received_samples:]) == 0.0
         )
         razao = real.get("f0_voiced_ratio") if real else (0.0 if silencio else None)
         tem_espectro = bool(real and isinstance(real.get("voice_spectral_12"), (list, tuple))
@@ -297,7 +297,7 @@ class SessionState:
                   if razao is not None else "analise_sem_medidas")
         rms = real.get("rms") if real else (0.0 if silencio else None)
         loudness = real.get("loudness_dbfs") if real else None
-        amostras = int(self.pcm_buffer.size) if concluida and self.pcm_buffer is not None else None
+        amostras = self.pcm_received_samples if concluida else None
         return {
             "estado": estado,
             "motivo": motivo,
@@ -307,6 +307,7 @@ class SessionState:
             "amostras_recebidas": self.pcm_received_samples if atual else None,
             "amostras_analisadas": amostras,
             "duracao_janela_ms": round(amostras / self.pcm_sample_rate * 1000, 2) if amostras is not None else None,
+            "duracao_contexto_modulacao_ms": round(self.pcm_buffer.size / self.pcm_sample_rate * 1000, 2) if concluida and self.pcm_buffer is not None else None,
             "rms": rms,
             "loudness_dbfs": loudness,
             "f0_voiced_ratio": razao,

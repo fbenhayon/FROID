@@ -114,6 +114,9 @@ def estimate_f0_frame(
     n = x.size
     if n < 4 or sample_rate <= 0 or fmax <= fmin:
         return 0.0
+    # Quadro constante não contém oscilação; a média pode deixar resíduo numérico.
+    if np.ptp(x) == 0.0:
+        return 0.0
     # Remove o nível DC (offset) que enviesa a função de diferença.
     x = x - float(np.mean(x))
     if not np.any(x):

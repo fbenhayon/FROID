@@ -198,13 +198,17 @@ class AAtribuicaoDeFalaEDescritaNaPolitica(unittest.TestCase):
         self.assertIn("não corresponde a assinatura vocal", self.POLITICA)
         self.assertIn('distance <= currentSignature.threshold ? "DR" : "PC"', self.LIVE)
 
-    def test_sem_modo_automatico_a_captacao_local_e_da_pessoa_atendida(self):
+    def test_captacao_local_exige_identificacao_ou_selecao_manual(self):
         self.assertIn("recurso operacional e falível", _corpo("terms"))
         self.assertIn("não constitui identificação biométrica", _corpo("terms"))
         self.assertIn(
-            'const metricSpeaker = hasAutomaticVoiceGuard ? attributedSpeaker : "PC";',
+            'const metricSpeaker = hasAutomaticVoiceGuard || speakerIdMode === "manual"',
             self.LIVE,
         )
+        self.assertNotIn('hasAutomaticVoiceGuard ? attributedSpeaker : "PC"', self.LIVE)
+        # Orientacao do dono em 22/09: fala profissional nao alimenta indices.
+        # Comportamento executado tambem em separacao-de-trilhas.test.ts.
+        self.assertIn('? attributedSpeaker\n      : null;', self.LIVE)
 
 
 class AClausula13DescreveOQueExisteEOQueNaoExiste(unittest.TestCase):

@@ -120,8 +120,8 @@ function getZoneNumber(item: ZoneInput) {
 }
 
 function getDeviationScore(item: ZoneInput) {
-  const raw = item.deviation_score ?? item.idm ?? item.score ?? 0;
-  return typeof raw !== "number" || !Number.isFinite(raw) ? 0 : raw;
+  const raw = item.deviation_score ?? item.idm ?? item.score;
+  return typeof raw !== "number" || !Number.isFinite(raw) ? null : raw;
 }
 
 function formatScore(value: number) {
@@ -154,10 +154,11 @@ export default function MapaZonalFroid({
       const zn = getZoneNumber(item);
       if (!zn) return;
 
+      const valor = getDeviationScore(item);
       base[zn - 1] = {
         zone: zn,
-        deviation_score: getDeviationScore(item),
-        hasData: true,
+        deviation_score: valor ?? 0,
+        hasData: valor !== null,
       };
     });
 
@@ -225,13 +226,14 @@ export default function MapaZonalFroid({
         </div>
       </div>
 
+      {!normalizedZones.some((z) => z.hasData) && <p className="m-0 mb-1 text-center text-[10px] text-amber-200">Sem apuração atual do IDM</p>}
       <div className="grid flex-1 auto-rows-fr grid-cols-[24px_minmax(96px,0.9fr)_minmax(220px,1.8fr)_minmax(96px,0.9fr)] gap-x-1">
         {normalizedZones.map((item, index) => {
           const zn = item.zone;
           const val = item.deviation_score;
           const isNeg = val < -0.005;
           const isPos = val > 0.005;
-          const isNeu = !isNeg && !isPos;
+          const isNeu = item.hasData && !isNeg && !isPos;
           const intensity = item.hasData
             ? clamp(Math.abs(val) / maxAbs, 0, 1)
             : 0;
@@ -242,7 +244,7 @@ export default function MapaZonalFroid({
               ? interpolateColor(NEGATIVE_COLORS, intensity)
               : interpolateColor(POSITIVE_COLORS, intensity);
           const tooltipUp = zn >= 9;
-          const zoneLabel = isNeg
+          const zoneLabel = !item.hasData ? "Sem capacidade de apuração" : isNeg
             ? NEGATIVES[index]
             : isPos
               ? POSITIVES[index]
@@ -290,7 +292,8 @@ export default function MapaZonalFroid({
                   <div className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-slate-300" />
                 )}
 
-                {!isNeu && (
+                {!item.hasData && <span className="absolute left-1/2 -translate-x-1/2 bg-slate-950 px-1 text-[9px] text-slate-500" title="Sem capacidade de apuração">--</span>}
+                {item.hasData && !isNeu && (
                   <div
                     className={`absolute top-1/2 -translate-y-1/2 text-[9px] font-bold text-slate-100 transition-all duration-700 ${
                       isNeg
@@ -320,7 +323,7 @@ export default function MapaZonalFroid({
                               : "bg-slate-100 text-slate-600"
                         }`}
                       >
-                        IDM {formatScore(val)}
+                        IDM {item.hasData ? formatScore(val) : "--"}
                       </span>
                     </div>
                     <p className="mt-1 text-[9px] leading-tight text-slate-600">

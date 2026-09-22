@@ -5,6 +5,8 @@ import type { SessionLocale } from "../../lib/localization";
 
 interface Props {
   data: number[];
+  samples?: { second: number; value: number | null }[];
+  elapsedSeconds?: number;
   /** Nulo quando nao houve apuracao: o grafico nao desenha ponto atual. */
   current: number | null;
   baseline?: number;
@@ -63,7 +65,7 @@ const polarBands = [
   { from: 75, to: 100, color: "#dc2626", label: "Desadaptativo" },
 ];
 
-export const IPMLineChart: React.FC<Props> = ({ data, current, baseline, locale = "pt-BR" }) => {
+export const IPMLineChart: React.FC<Props> = ({ data, samples, elapsedSeconds, current, baseline, locale = "pt-BR" }) => {
   const viewW = 620;
   const viewH = 230;
   const padLeft = 0;
@@ -73,58 +75,50 @@ export const IPMLineChart: React.FC<Props> = ({ data, current, baseline, locale 
   const chartW = viewW - padLeft - padRight;
   const chartH = viewH - padTop - padBot;
 
-  const { pathD, areaD, pts, values, janela } = useMemo(() => {
-    const values = Array.isArray(data)
-      ? data.filter((v) => typeof v === "number" && Number.isFinite(v))
-      : [];
-    const n = values.length;
-
+  const endSecond = Math.max(1, elapsedSeconds ?? Math.max(1, data.length - 1));
+  const startSecond = Math.max(0, endSecond - 600);
+  const { pathD, areaD, pts, isolados, values, janela } = useMemo(() => {
+    const records = (samples ?? data.map((value, second) => ({ second, value })))
+      .filter((item) => item.second >= startSecond && item.second <= endSecond);
+    const values = records.flatMap((item) =>
+      typeof item.value === "number" && Number.isFinite(item.value) ? [item.value] : []);
     const janela = janelaVertical(values);
-
-    if (n === 0) {
-      return { pathD: "", areaD: "", pts: [] as number[][], values, janela };
+    const pts: number[][] = [];
+    // PONTO SOZINHO NAO DESENHA NADA.
+    //
+    // O caminho so recebe `L` entre segundos consecutivos — e correto, porque
+    // ligar por cima de uma lacuna inventaria medida que ninguem tomou. Mas um
+    // ponto medido entre dois silencios sai como `M x,y` isolado, e `M` apenas
+    // move a caneta: o SVG fica em branco com `pts.length > 0`.
+    //
+    // Numa consulta o paciente fala em rajadas curtas entre silencios, que e
+    // exatamente o padrao que produz pontos isolados. O grafico acendia no
+    // segundo da silaba e apagava — a "piscada" relatada. Cada ponto sem
+    // vizinho contiguo ganha um disco proprio: e a mesma medida, visivel.
+    const isolados: number[][] = [];
+    const ligado: boolean[] = [];
+    let pathD = "";
+    let previousSecond: number | null = null;
+    for (const item of records) {
+      if (typeof item.value !== "number" || !Number.isFinite(item.value)) {
+        previousSecond = null;
+        continue;
+      }
+      const x = ((item.second - startSecond) / (endSecond - startSecond)) * chartW;
+      const y = padTop + (1 - (clamp(item.value) - janela.min) / (janela.max - janela.min)) * chartH;
+      // Uma lacuna permanece vazia; nenhuma media substitui a medida recebida.
+      const liga = previousSecond !== null && item.second - previousSecond <= 1;
+      pathD += `${liga ? " L" : " M"} ${x},${y}`;
+      if (liga) ligado[pts.length - 1] = true;
+      pts.push([x, y]);
+      ligado.push(liga);
+      previousSecond = item.second;
     }
-
-    const smoothed = values.map((_, index) => {
-      const start = Math.max(0, index - 4);
-      const end = Math.min(values.length, index + 5);
-      const slice = values.slice(start, end);
-      return slice.reduce((sum, value) => sum + value, 0) / slice.length;
+    pts.forEach((ponto, indice) => {
+      if (!ligado[indice]) isolados.push(ponto);
     });
-
-    const step = n > 1 ? chartW / (n - 1) : 0;
-    const alturaNaJanela = (value: number) => {
-      const amplitude = Math.max(1e-6, janela.max - janela.min);
-      const proporcao = (clamp(value) - janela.min) / amplitude;
-      return padTop + (1 - Math.min(1, Math.max(0, proporcao))) * chartH;
-    };
-    const points = smoothed.map((value, index) => [
-      padLeft + index * step,
-      alturaNaJanela(value),
-    ]);
-
-    let d = `M ${points[0][0]},${points[0][1]}`;
-    for (let i = 0; i < n - 1; i++) {
-      const p0 = points[Math.max(0, i - 1)];
-      const p1 = points[i];
-      const p2 = points[i + 1];
-      const p3 = points[Math.min(n - 1, i + 2)];
-      const cp1x = p1[0] + (p2[0] - p0[0]) / 6;
-      const cp1y = p1[1] + (p2[1] - p0[1]) / 6;
-      const cp2x = p2[0] - (p3[0] - p1[0]) / 6;
-      const cp2y = p2[1] - (p3[1] - p1[1]) / 6;
-      d += ` C ${cp1x},${cp1y} ${cp2x},${cp2y} ${p2[0]},${p2[1]}`;
-    }
-
-    const last = points[n - 1];
-    return {
-      pathD: d,
-      areaD: `${d} L ${last[0]},${viewH - padBot} L ${points[0][0]},${viewH - padBot} Z`,
-      pts: points,
-      values,
-      janela,
-    };
-  }, [chartH, chartW, data]);
+    return { pathD, areaD: "", pts, isolados, values, janela };
+  }, [chartH, chartW, data, samples, startSecond, endSecond]);
 
   // Mesma conversão usada fora do useMemo: faixas, marcas e baseline precisam
   // pousar na mesma régua da linha, senão o gráfico se contradiz.
@@ -163,8 +157,7 @@ export const IPMLineChart: React.FC<Props> = ({ data, current, baseline, locale 
             values.length,
         )
       : 0;
-  const quality =
-    values.length >= 20 ? "Excelente" : values.length >= 6 ? "Boa" : "Aguardando";
+
   const timeline = polarBands
     .map((band) => {
       // A ultima faixa precisa incluir o proprio 100: `value < band.to` deixava
@@ -218,7 +211,7 @@ export const IPMLineChart: React.FC<Props> = ({ data, current, baseline, locale 
             baseline {baselineLabel}
           </span>
           <span className="rounded-full bg-emerald-500 px-2 py-0.5 text-[9px] font-black uppercase text-slate-950">
-            ao vivo
+            {semApuracao ? "Sem leitura atual" : "ao vivo"}
           </span>
         </div>
       </div>
@@ -334,7 +327,7 @@ export const IPMLineChart: React.FC<Props> = ({ data, current, baseline, locale 
                   textAnchor="middle"
                   className="fill-slate-300 font-mono text-[10px]"
                 >
-                  {i === 3 ? "agora" : `-${Math.round((1 - i / 3) * 10)}m`}
+                  {i === 3 ? "agora" : `-${Math.round((1 - i / 3) * (endSecond - startSecond))}s`}
                 </text>
               );
             })}
@@ -374,14 +367,23 @@ export const IPMLineChart: React.FC<Props> = ({ data, current, baseline, locale 
                     strokeWidth={3}
                   />
                 )}
-                <circle
+                {isolados.map(([x, y], indice) => (
+                  <circle
+                    key={`isolado-${indice}`}
+                    cx={x}
+                    cy={y}
+                    r={2.4}
+                    fill="#22f58b"
+                  />
+                ))}
+                {!semApuracao && <circle
                   cx={pts[pts.length - 1][0]}
                   cy={pts[pts.length - 1][1]}
                   r={5.2}
                   fill="#22f58b"
                   stroke="#ffffff"
                   strokeWidth={2.2}
-                />
+                />}
               </>
             )}
           </svg>
@@ -390,11 +392,11 @@ export const IPMLineChart: React.FC<Props> = ({ data, current, baseline, locale 
 
       <div className="mt-1 grid shrink-0 grid-cols-5 overflow-hidden rounded-md border border-slate-700 bg-slate-900 text-[9px]">
         {[
-          ["Med. IPM", average.toFixed(1), "text-white"],
-          ["P. Max", peak.toFixed(1), "text-orange-300"],
-          ["Min", minimum.toFixed(1), "text-cyan-300"],
-          ["Variabl.", variability.toFixed(1), "text-white"],
-          ["Qualid.", quality, "text-emerald-300"],
+          ["Med. IPM", values.length ? average.toFixed(1) : "--", "text-white"],
+          ["P. Max", values.length ? peak.toFixed(1) : "--", "text-orange-300"],
+          ["Min", values.length ? minimum.toFixed(1) : "--", "text-cyan-300"],
+          ["Variabl.", values.length > 1 ? variability.toFixed(1) : "--", "text-white"],
+          ["Amostras", String(values.length), "text-emerald-300"],
         ].map(([label, value, color]) => (
           <div
             key={label}

@@ -133,6 +133,9 @@ export async function startF0Capture(
   const listeners: Array<() => void> = [];
   const interromperJanelas = () => {
     generation += 1;
+    // Mute/suspensão também interrompem a continuidade, mesmo quando não
+    // havia uma janela inteira na fila. O servidor deve reiniciar o buffer.
+    sequence += 1;
     buffer = [];
     queue.length = 0;
     activeRequest?.abort();
@@ -165,6 +168,11 @@ export async function startF0Capture(
     // taxa efetiva e o cálculo permanece correto.
     ctx = new AudioCtx({ sampleRate: 16000 });
     const sampleRate = ctx.sampleRate;
+    if (!ctx.audioWorklet || typeof AudioWorkletNode === "undefined") {
+      avisar("sem-suporte");
+      stop();
+      return stop;
+    }
     // Um AudioContext suspenso nao processa NADA — o worklet nunca roda e
     // nenhum PCM sobe. Antes isso passava batido: "segue mesmo assim" seguia
     // para lugar nenhum. Os gestos são instalados ANTES de resume(): alguns
@@ -322,7 +330,7 @@ export async function startF0Capture(
             // profissional ainda nao abriu a analise. Era um sucesso aparente
             // que nao produzia medida nenhuma.
             if (corpo.status === "session_inactive") avisar("sessao-inativa");
-            else if (corpo.status !== "ok") avisar("erro", "O servidor não confirmou o recebimento desta janela de áudio.");
+            else if (corpo.status !== "processed") avisar("erro", "O servidor não confirmou o processamento desta janela de áudio.");
             else avisar("enviando");
           } catch (erro) {
             if (!stopped && generation === currentGeneration) {
@@ -353,7 +361,11 @@ export async function startF0Capture(
     };
 
     node.port.onmessage = (event: MessageEvent) => {
-      if (stopped || contexto.state !== "running" || track.readyState !== "live" || track.muted || !track.enabled) return;
+      if (stopped || contexto.state !== "running") return;
+      if (track.readyState !== "live" || track.muted || !track.enabled) {
+        verificarTrilha();
+        return;
+      }
       const chunk = event.data as Float32Array;
       for (let i = 0; i < chunk.length; i += 1) buffer.push(chunk[i]);
       while (buffer.length >= windowSamples) flush();

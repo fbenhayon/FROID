@@ -96,3 +96,75 @@ o problema, registrando somente diagnóstico técnico:
 Essas observações distinguem problema de entrada, detecção e apresentação sem
 guardar a fala. Até obter essa evidência, não alterar limiares científicos nem
 apresentar uma correção de dispositivo como causa comprovada deste incidente.
+
+
+## Revisão após as alterações publicadas pelo proprietário
+
+Às 15h31 de 21/09/2026, o código local e o servidor estavam em `8f095ca4`.
+O commit `d49ed6f7` já incorporava a primeira etapa das correções. Os hashes
+de `main.py` e `froid_core.py` dentro do contêiner coincidiam com o servidor.
+Os contêineres haviam iniciado às 12h39 de Brasília. O JavaScript público
+também continha a nova captura e o diagnóstico.
+
+A revisão encontrou duas incompatibilidades não cobertas pelos testes anteriores:
+
+- A rota responde `status="processed"`, mas a captura esperava `"ok"` e emitia
+  erro mesmo após processamento. O cliente agora reconhece `processed`;
+  `session_inactive`, resposta inválida e `superseded` continuam distintos.
+- O cliente envia `captura_cliente`, mas a rota buscava `diagnostico_acustico`
+  no pedido. Corrigida a leitura do campo, mantendo a filtragem de atributos.
+  Nome e identificador do microfone não são publicados.
+
+Mute e suspensão agora interrompem a sequência mesmo sem janela inteira
+pendente; trilha desabilitada informa ausência; navegador sem AudioWorklet
+declara falta de suporte. Não houve alteração do YIN ou de critérios científicos.
+
+### Validação desta etapa
+
+- Painel: 757 testes existentes passaram; 18 novos testes de execução da captura
+  passaram. Cobrem dispositivo, metadados, resposta, rede, timeout, parada e mute.
+- Backend: 24 testes focados passaram localmente e na imagem nova, em contêiner
+  descartável sem rede ou volumes de produção. Exercitam a rota real isolada
+  por AST, DSP real, diagnóstico até o tick, silêncio, duplicatas, autorização,
+  validade e substituição de janelas.
+- A suíte geral local executou 1.868 testes e terminou com cinco erros por falta
+  de FastAPI/pytest e 75 testes pulados. Não foi inteiramente verde. Os três
+  casos de recusa de WebSocket afetados pela falta do FastAPI passaram depois
+  na imagem isolada.
+- TypeScript e build do painel passaram localmente; ambas as imagens Docker
+  foram construídas com sucesso no servidor.
+- O ensaio de downmix no Chrome não concluiu: a navegação do teste foi abortada
+  antes de executar o código. Os testes confirmam a configuração mono, mas não
+  há validação concluída em navegador real nesta etapa.
+
+### Estado da publicação
+
+O proprietário autorizou atualizar o servidor. Quatro arquivos foram enviados
+após conferir commit e hashes, preservando as demais alterações:
+
+- `froid-dashboard/src/lib/froid-acoustic.ts`
+- `froid-server/main.py`
+- `froid-dashboard/src/lib/captura-acustica-runtime.test.ts`
+- `froid-server/tests/test_acoustic_transport_contract.py`
+
+Backup dos arquivos e referências das imagens anteriores:
+`/root/froid-deploy-backups/acustica-20260921T184246Z`.
+As imagens anteriores também receberam tags de retorno.
+
+**Ativação concluída em 21/09/2026 às 15h54 de Brasília.** Após o bloqueio
+inicial da revisão automática, o proprietário autorizou explicitamente a
+ativação mesmo com interrupção de consultas. Backend e painel foram recriados
+com as imagens testadas e ambos atingiram o estado `healthy`.
+
+Verificações após a ativação:
+
+- O hash de `main.py` dentro do backend coincide com a correção enviada.
+- A aplicação pública e `/health` responderam HTTP 200.
+- O arquivo público `/assets/webrtc-Asqh1NFy.js` é idêntico ao do contêiner e
+  contém reconhecimento de `processed`, `captura_cliente` e `capture_sequence`.
+  Os assets ficam em `/assets/`, conforme o índice, e não em `/app/assets/`.
+- Nenhum traceback nem erro `tick falhou` nos logs entre a ativação e a
+  conferência final.
+
+Não houve commit nem push nesta etapa. Confirmar o funcionamento no dispositivo
+do incidente ainda exige uma nova fala capturada nesse dispositivo.

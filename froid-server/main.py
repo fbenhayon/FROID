@@ -7105,7 +7105,32 @@ async def froid_stream_loop(session_id: str, connection_id: str):
             # medida real. Agora ele recebe vazio e, sem medida, declara que
             # nao houve apuracao.
             payload = state.process_tick()
-            await manager.broadcast_payload(session_id, payload)
+            # AUSENCIA TRANSITORIA NAO VIAJA.
+            #
+            # O laco corre 1x/s; a DSP da janela recebida corre numa thread e
+            # nem sempre termina dentro do mesmo segundo. Entre a chegada do
+            # PCM e o fim do calculo, `process_tick` declara ausencia — e essa
+            # ausencia e FALSA: a janela chegou e esta sendo medida agora.
+            #
+            # Publicada, ela chegava ao painel como um tique sem apuracao no
+            # meio de tiques medidos, e a tela apagava e reacendia. O motor ja
+            # separa esse caso dos demais: `analisando`/`analise_pendente` e a
+            # unica combinacao que significa "ainda nao sei", em vez de "nao
+            # houve". Só ela e retida; silencio, PCM vencido e ausencia de
+            # audio continuam sendo publicados no tique em que acontecem.
+            #
+            # A espera e limitada pelo proprio motor, nao por um relogio daqui:
+            # passados `VALIDADE_VOZ_S` (4s) o PCM vence, `estado` deixa de ser
+            # `analisando` e o tique seguinte publica a ausencia de verdade —
+            # folga confortavel ante o watchdog de 8s do painel.
+            diagnostico = (payload.get("audio_meta") or {}).get("diagnostico_acustico") or {}
+            ausencia_transitoria = (
+                payload.get("apuracao_disponivel") is False
+                and diagnostico.get("estado") == "analisando"
+                and diagnostico.get("motivo") == "analise_pendente"
+            )
+            if not ausencia_transitoria:
+                await manager.broadcast_payload(session_id, payload)
         except Exception:
             STREAM_LOGGER.exception(
                 "froid_stream_loop: tick falhou (session_id=%s) — seguindo para o próximo tick",
@@ -7209,7 +7234,7 @@ async def submit_acoustic_f0(session_id: str, request: Request):
         buffer = state.ingest_pcm(
             signal, sample_rate, capture_stream_id=stream_id,
             capture_sequence=sequence,
-            captura_cliente=_sanitized_acoustic_capture(body.get("diagnostico_acustico")),
+            captura_cliente=_sanitized_acoustic_capture(body.get("captura_cliente")),
         )
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
@@ -7219,7 +7244,7 @@ async def submit_acoustic_f0(session_id: str, request: Request):
     # simultâneas. numpy libera o GIL nas operações vetoriais, então paraleliza
     # de fato entre núcleos.
     features = await asyncio.to_thread(
-        froid_voice.extract_voice_features, buffer, sample_rate
+        froid_voice.extract_voice_features, signal, sample_rate, modulation_signal=buffer
     )
     applied = state.update_voice_features(features, pcm_revision=pcm_revision)
     diagnostic = state.acoustic_diagnostics()

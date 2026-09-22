@@ -214,14 +214,49 @@ class ATelaCONSOMEaDeclaracaoDeAusencia(unittest.TestCase):
         self.assertNotIn('typeof p.ipm_score === "number" ? p.ipm_score : 0', trecho)
 
     def test_os_graficos_derivados_recebem_VAZIO(self):
-        self.assertIn("const displayZones = semApuracaoAgora", SESSAO)
-        self.assertIn("const displayIpm = semApuracaoAgora", SESSAO)
-        self.assertIn("semApuracaoAgora ? {} :", SESSAO)
+        self.assertIn("const displayZones = semApuracaoNaJanela", SESSAO)
+        self.assertIn("const displayIpm = semApuracaoNaJanela", SESSAO)
+        self.assertIn("semApuracaoNaJanela ? {} :", SESSAO)
 
     def test_coerencia_vazia_em_vez_de_NEUTRO(self):
         """"NEUTRO" seria uma afirmacao de coerencia neutra sobre nada medido."""
         i = SESSAO.index("const displayCoherence")
-        self.assertIn("semApuracaoAgora", SESSAO[i : i + 200])
+        self.assertIn("semApuracaoNaJanela", SESSAO[i : i + 200])
+
+    def test_o_portao_e_a_JANELA_e_nao_o_tique(self):
+        """Em 22/09/2026 o portao era o tique, e por isso a tela piscava.
+
+        O motor publica um tique por SEGUNDO e declara ausencia em toda janela
+        sem voz vozeada — que `froid_core.gerar_payload_sem_apuracao` descreve
+        como metade de qualquer consulta. Usado como porteiro dos paineis
+        derivados, cada segundo calado do paciente esvaziava zonas, IPM,
+        coerencia e alertas, e a primeira silaba os reacendia por um segundo.
+        No modo de janela clinica o instante derrubava justamente o agregado
+        que a janela existe para segurar parado.
+
+        A regra que faltava ja era desta casa — `PATIENT_AUDIO_GRACE_MS`, "o
+        silencio clinico e dado, nao ausencia de sinal" — e valia so no portao
+        das metricas. `semApuracaoAgora` continua existindo e continua sendo a
+        verdade sobre o INSTANTE: e ele que rotula "sem leitura atual".
+        """
+        self.assertIn("const semApuracaoNaJanela = !apuracaoRetida", SESSAO)
+        self.assertIn("lastMeasured", SESSAO)
+
+    def test_a_retencao_TEM_horizonte(self):
+        """Reter sem limite e o defeito oposto: afirmar o presente com passado.
+
+        Sem a comparacao contra o horizonte, a ultima medida ficaria na tela
+        pelo resto da consulta, e o profissional leria como atual um numero de
+        meia hora atras. O horizonte acompanha a janela escolhida; fora dele a
+        tela volta a declarar ausencia.
+        """
+        i = SESSAO.index("const apuracaoRetida")
+        trecho = SESSAO[i : i + 400]
+        self.assertIn("idadeDaApuracao <= horizonteDeRetencaoSegundos", trecho)
+        self.assertIn("state.connected", trecho)
+        # Socket caido nao e silencio do paciente: nao ha o que reter.
+        i = SESSAO.index('case "SEM_LEITURA"')
+        self.assertIn("lastMeasured: null", SESSAO[i : i + 200])
 
     def test_ausencia_NAO_e_alerta_de_coerencia(self):
         self.assertIn('coherenceStatus === "SEM_APURACAO"', RISCO)

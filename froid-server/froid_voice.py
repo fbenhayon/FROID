@@ -174,7 +174,8 @@ def _mfcc_mean(signal: np.ndarray, sr: float, n_mfcc: int = 13, n_filters: int =
     return np.mean(log_mel @ dct_matrix.T, axis=0)
 
 
-def extract_voice_features(signal: np.ndarray, sample_rate: float) -> Dict[str, float]:
+def extract_voice_features(signal: np.ndarray, sample_rate: float,
+                           *, modulation_signal: np.ndarray | None = None) -> Dict[str, float]:
     """Calcula todos os biomarcadores vocais reais de uma janela PCM mono."""
     x = np.asarray(signal, dtype=np.float64)
     n = x.size
@@ -243,9 +244,13 @@ def extract_voice_features(signal: np.ndarray, sample_rate: float) -> Dict[str, 
     )
 
     # Espectro de MODULAÇÃO do envelope -> bandas neuroacústicas e sub-harmônicos.
-    envelope = _analytic_envelope(x)
+    # A janela longa resolve bandas lentas; F0, vozeamento, MFCC e espectro
+    # usam o pacote atual. Pausas anteriores não decidem se há voz agora.
+    modulation = x if modulation_signal is None else np.asarray(modulation_signal, dtype=np.float64)
+    modulation = modulation - float(np.mean(modulation))
+    envelope = _analytic_envelope(modulation)
     envelope = envelope - float(np.mean(envelope))
-    env_windowed = envelope * np.hamming(n)
+    env_windowed = envelope * np.hamming(modulation.size)
     env_freqs_norm, env_power = _rfft_power(env_windowed)
     env_freqs_hz = env_freqs_norm * sample_rate
     total_mod = float(np.sum(env_power)) + EPS

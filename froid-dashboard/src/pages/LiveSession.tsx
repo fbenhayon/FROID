@@ -210,6 +210,18 @@ interface SessionState {
   camError: string;
   aggregated: AggData | null;
   localIpm: number | null;
+  /** O ultimo tique que MEDIU, e o segundo da sessao em que ele mediu.
+   *
+   *  Silencio do paciente nao e ausencia de medida: e a metade calada de
+   *  qualquer consulta, e o motor publica `apuracao_disponivel: false` a cada
+   *  segundo dela. Sem reter a ultima apuracao, cada tique calado apagava a
+   *  tela inteira e a primeira silaba a reacendia por um segundo — o mesmo
+   *  "entra e sai" que `estado-da-captura.ts` ja tinha corrigido no alarme.
+   *
+   *  Quem le isto DEVE conferir `atSecond` contra um horizonte: medida retida
+   *  alem do horizonte vira afirmacao sobre o presente, que e o defeito
+   *  oposto. */
+  lastMeasured: { payload: FroidPayload; atSecond: number } | null;
 }
 
 type Action =
@@ -582,10 +594,12 @@ function reducer(state: SessionState, action: Action): SessionState {
           payload: null,
           aggregated: null,
           localIpm: null,
+          // Socket caido nao e silencio do paciente: nao ha o que reter.
+          lastMeasured: null,
           phase: state.phase,
         };
       case "SEM_LEITURA":
-        return { ...state, payload: null, aggregated: null, localIpm: null };
+        return { ...state, payload: null, aggregated: null, localIpm: null, lastMeasured: null };
       // O RELOGIO NAO CONTA ESPERA.
       //
       // Ate 19/09/2026 a condicao era `state.micOn`: o microfone DO
@@ -629,7 +643,17 @@ function reducer(state: SessionState, action: Action): SessionState {
           state.phase === "LIVE" && !semApuracao && typeof p.ipm_score === "number"
             ? [...state.ipmHistory, p.ipm_score].slice(-IPM_HISTORY_LIMIT)
             : state.ipmHistory;
-        return { ...state, payload: p, ipmHistory: nextHistory };
+        return {
+          ...state,
+          payload: p,
+          ipmHistory: nextHistory,
+          // Tique calado NAO derruba a ultima apuracao — so a deixa envelhecer.
+          // O horizonte que a invalida e conferido na apresentacao, onde se
+          // sabe qual janela o profissional escolheu.
+          lastMeasured: semApuracao
+            ? state.lastMeasured
+            : { payload: p, atSecond: state.elapsedSeconds },
+        };
       }
       case "LOCAL_IPM": {
         const ipm = clamp(action.ipm, 0, 100);
@@ -681,6 +705,7 @@ const createInitialState = (): SessionState => ({
   camError: "",
   aggregated: null,
   localIpm: null,
+  lastMeasured: null,
 });
 
 class ErrorGuard extends React.Component<
@@ -4359,7 +4384,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           );
           const shouldFeedLocalIpm =
             patientTrackUsable() ||
-            attributedSpeakerRef.current === "PC" ||
             directLocalMetricsActiveRef.current;
           const localIpm = computeLocalIpmFromBioacoustics(metrics, dnaMetrics);
           if (
@@ -4998,12 +5022,12 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           window.setTimeout(() => startSpeechToText(stream, speaker, source, 0), 0);
           if (finishedBlob) {
             const forcedSpeaker =
-              source === "professional"
+              source === "professional" && isPresentialSession
                 ? forcedLocalSegmentSpeakerRef.current
                 : null;
             const segmentSpeaker =
               forcedSpeaker ||
-              (source === "professional" && !remotePatientOnRef.current
+              (source === "professional" && isPresentialSession
                 ? attributedSpeakerRef.current
                 : speaker);
             if (source === "professional") {
@@ -5058,7 +5082,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
 
       recorderBox.current = recorder;
     },
-    [enqueueTranscriptionBlob],
+    [enqueueTranscriptionBlob, isPresentialSession],
   );
 
   useEffect(() => {
@@ -5155,16 +5179,12 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     }
 
     const hasAutomaticVoiceGuard = speakerIdMode === "auto" && Boolean(drVoiceSignature);
-    const metricSpeaker = hasAutomaticVoiceGuard ? attributedSpeaker : "PC";
+    const metricSpeaker = hasAutomaticVoiceGuard || speakerIdMode === "manual"
+      ? attributedSpeaker
+      : null;
 
     if (metricSpeaker === "PC") {
       directLocalMetricsActiveRef.current = true;
-      if (!hasAutomaticVoiceGuard && attributedSpeakerRef.current !== "PC") {
-        applyAttributedSpeaker(
-          "PC",
-          "Atendimento presencial: sem voz DR cadastrada, microfone local atribuido ao PC para métricas.",
-        );
-      }
       startRawBioacousticPipeline(
         new MediaStream([localAudioTrack.clone()]),
         hasAutomaticVoiceGuard ? "semantic-fallback" : "direct-local-patient",
@@ -5179,7 +5199,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         bioacoustic_warning:
           hasAutomaticVoiceGuard
             ? "Atendimento presencial: métricas calculadas a partir da voz local identificada como paciente."
-            : "Atendimento presencial: microfone local alimentando a trilha PC para manter métricas e gráficos ativos.",
+            : "Atendimento presencial: voz local selecionada manualmente como paciente.",
         transcription_sources: "captura-semantica-por-cortes",
         bioacoustic_error: "",
       }));
@@ -5565,7 +5585,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             const elapsedSeconds = elapsedSecondsRef.current;
             const shouldUseForMetrics =
               patientTrackUsable() ||
-              attributedSpeakerRef.current === "PC" ||
               directLocalMetricsActiveRef.current;
             if (!shouldUseForMetrics) {
               frameBuffer.current = [];
@@ -5669,22 +5688,73 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   // tela.
   const semApuracaoAgora =
     !state.connected || !raw || raw.apuracao_disponivel === false;
-  const displayZones = semApuracaoAgora
+  // O TIQUE CALADO NAO PODE APAGAR A JANELA INTEIRA.
+  //
+  // `semApuracaoAgora` responde sobre UM segundo. O motor publica um tique por
+  // segundo e declara `apuracao_disponivel: false` em toda janela sem voz
+  // vozeada — que froid_core.py descreve como "metade de qualquer consulta".
+  // Usado como porteiro da tela, ele apagava zonas, IPM, coerencia e alertas a
+  // cada segundo calado, e a primeira silaba os reacendia por um segundo: os
+  // graficos piscavam e sumiam. Em `1min` o efeito era pior, porque o instante
+  // derrubava justamente o agregado que a janela clinica existe para segurar.
+  //
+  // `PATIENT_AUDIO_GRACE_MS` ja e a regra desta casa para o mesmo fato — "o
+  // silencio clinico e dado, nao ausencia de sinal" — e valia so no portao das
+  // metricas. Aqui ela passa a valer tambem na apresentacao.
+  //
+  // O horizonte e o que separa reter de mentir: passado ele, a medida nao
+  // descreve mais o presente e a tela volta a declarar ausencia.
+  const clinicalWindowMinutes = clinicalModeToMinutes(clinicalUpdateMode);
+  const horizonteDeRetencaoSegundos = clinicalPresentationActive
+    ? clinicalWindowMinutes * CLINICAL_MICRO_WINDOW_SECONDS
+    : PATIENT_AUDIO_GRACE_MS / 1000;
+  const idadeDaApuracao =
+    state.lastMeasured === null
+      ? null
+      : Math.max(0, state.elapsedSeconds - state.lastMeasured.atSecond);
+  // Retida = medida de verdade, dentro do horizonte. Fora dele, nada.
+  const apuracaoRetida =
+    state.connected &&
+    state.lastMeasured !== null &&
+    idadeDaApuracao !== null &&
+    idadeDaApuracao <= horizonteDeRetencaoSegundos
+      ? state.lastMeasured.payload
+      : null;
+  // Este e o portao dos paineis derivados. `semApuracaoAgora` continua sendo a
+  // verdade sobre o instante e segue rotulando "sem leitura atual" — o numero
+  // exibido pode ser retido, mas a tela nao o chama de atual.
+  const semApuracaoNaJanela = !apuracaoRetida;
+  const displayZones = semApuracaoNaJanela
     ? []
-    : presentationAgg?.zones || raw?.perception_zones || [];
-  const displayIpm = semApuracaoAgora
+    : clinicalPresentationActive
+      ? presentationAgg?.zones || apuracaoRetida?.perception_zones || []
+      : apuracaoRetida?.perception_zones || [];
+  const displayIpm = semApuracaoNaJanela
     ? null
-    : presentationAgg?.ipm ?? raw?.ipm_score ?? state.localIpm ?? null;
-  const displayDrValue = semApuracaoAgora ? null
-    : presentationAgg?.drValue ?? (raw as any)?.dr_value ?? null;
+    : presentationAgg?.ipm ?? apuracaoRetida?.ipm_score ?? state.localIpm ?? null;
+  const displayDrValue = semApuracaoNaJanela ? null
+    : presentationAgg?.drValue ?? (apuracaoRetida as any)?.dr_value ?? null;
   // "NEUTRO" seria uma AFIRMACAO de coerencia neutra sobre nada medido. Vazio
   // e o unico valor honesto, e os consumidores ja sabem tratar ausencia.
-  const displayCoherence = semApuracaoAgora
+  // "SEM_APURACAO" NAO E UM VALOR DE COERENCIA.
+  //
+  // `aggregatePayloads` copia a coerencia do ULTIMO payload da janela de 3s, e
+  // esse pode ser um tique calado — o agregado entao carrega "SEM_APURACAO"
+  // mesmo quando a janela mediu. O RiskChart trata essa string como ausencia e
+  // apaga, enquanto as zonas ao lado seguem retidas: painel se contradizendo.
+  // Aqui ela e recusada como valor, e a coerencia cai na ultima MEDIDA.
+  const coerenciaMedida = (valor: unknown) =>
+    typeof valor === "string" && valor && valor !== "SEM_APURACAO" ? valor : null;
+  const displayCoherence = semApuracaoNaJanela
     ? ""
-    : presentationAgg?.coherence || raw?.coherence_status || "NEUTRO";
-  const displayAlerts = semApuracaoAgora ? [] : presentationAgg?.alerts || raw?.realtime_alerts || [];
-  const baseDisplayAudio = semApuracaoAgora ? {} : presentationAgg?.audioMeta ||
-    (raw as any)?.audio_meta || {
+    : coerenciaMedida(presentationAgg?.coherence) ||
+      coerenciaMedida(apuracaoRetida?.coherence_status) ||
+      "NEUTRO";
+  const displayAlerts = semApuracaoNaJanela
+    ? []
+    : presentationAgg?.alerts || apuracaoRetida?.realtime_alerts || [];
+  const baseDisplayAudio = semApuracaoNaJanela ? {} : presentationAgg?.audioMeta ||
+    (apuracaoRetida as any)?.audio_meta || {
       words_per_window: 0,
       total_words_session: 0,
       // Vazio, nao "neutro": o estado inicial nao observou nada ainda, e
@@ -5716,15 +5786,27 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   // Detalhe diagnóstico (bandas, sub-harmônicos, biomarcadores e timeline do
   // IPM) é sempre AO VIVO: a estabilização clínica se aplica ao painel de
   // risco/zonas, não a estes gráficos, que devem acompanhar o sinal real.
-  const liveAudioMeta =
-    !state.connected || !raw ? {} : raw.audio_meta || {};
-  const liveZones = semApuracaoAgora ? [] : agg?.zones || raw?.perception_zones || displayZones;
-  // Sem apuracao, `liveIpm` tambem e nulo: cair no IPM local aqui reintroduziria
-  // um numero na tela exatamente onde a medida falta.
+  //
+  // "Ao vivo" e a janela de tolerancia, nao o tique. Estes graficos NAO seguem
+  // a janela clinica escolhida — seguem `PATIENT_AUDIO_GRACE_MS`, os mesmos 20s
+  // que o portao das metricas ja usa. Apagar a ultima medida real porque o
+  // paciente parou de falar por um segundo nao e acompanhar o sinal: e afirmar
+  // uma ausencia que nao houve.
+  const apuracaoRetidaAoVivo =
+    state.connected &&
+    state.lastMeasured !== null &&
+    idadeDaApuracao !== null &&
+    idadeDaApuracao <= PATIENT_AUDIO_GRACE_MS / 1000
+      ? state.lastMeasured.payload
+      : null;
+  const liveAudioMeta = apuracaoRetidaAoVivo?.audio_meta || {};
+  const liveZones = apuracaoRetidaAoVivo?.perception_zones || [];
+  // `current` do grafico continua sendo o INSTANTE, nao a medida retida: e ele
+  // que acende "ao vivo" ou "Sem leitura atual" e imprime o numero grande. A
+  // serie retem o que foi medido; o rotulo nunca chama o retido de atual.
   const liveIpm = semApuracaoAgora
     ? null
-    : agg?.ipm ?? raw?.ipm_score ?? state.localIpm ?? displayIpm;
-  const clinicalWindowMinutes = clinicalModeToMinutes(clinicalUpdateMode);
+    : raw?.ipm_score ?? null;
   const clinicalNextUpdateSeconds =
     clinicalPresentationActive
       ? Math.max(0, clinicalSnapshot.nextUpdateSecond - state.elapsedSeconds)
@@ -6729,9 +6811,14 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             <>
               <div className="min-h-0 overflow-hidden">
                 <IPMLineChart
-                  data={state.ipmHistory}
+                  data={[]}
+                  samples={sessionSamplesRef.current.slice(-IPM_HISTORY_LIMIT).map((sample) => ({
+                    second: sample.elapsedSeconds,
+                    value: sample.payload.apuracao_disponivel === false ? null : sample.payload.ipm_score,
+                  }))}
+                  elapsedSeconds={state.elapsedSeconds}
                   current={liveIpm}
-                  baseline={state.baselineIPM || undefined}
+                  baseline={state.baselineIPM ?? undefined}
                   locale={reportLocale}
                 />
               </div>
@@ -7029,9 +7116,14 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           <>
             <div className="min-h-0 overflow-hidden">
               <IPMLineChart
-                data={state.ipmHistory}
+                data={[]}
+                  samples={sessionSamplesRef.current.slice(-IPM_HISTORY_LIMIT).map((sample) => ({
+                    second: sample.elapsedSeconds,
+                    value: sample.payload.apuracao_disponivel === false ? null : sample.payload.ipm_score,
+                  }))}
+                  elapsedSeconds={state.elapsedSeconds}
                 current={liveIpm}
-                baseline={state.baselineIPM || undefined}
+                baseline={state.baselineIPM ?? undefined}
                 locale={reportLocale}
               />
             </div>
