@@ -1,10 +1,12 @@
 import React, { useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 interface TooltipProps {
   children: React.ReactNode;
   content: React.ReactNode;
   width?: number;
   fullWidth?: boolean;
+  blue?: boolean;
 }
 
 export function FroidTooltip({
@@ -12,6 +14,7 @@ export function FroidTooltip({
   content,
   width = 280,
   fullWidth = false,
+  blue = false,
 }: TooltipProps) {
   const [show, setShow] = useState(false);
   const anchorRef = useRef<HTMLSpanElement | null>(null);
@@ -23,7 +26,11 @@ export function FroidTooltip({
         (typeof window !== "undefined" ? window.innerWidth : 1200) - 12 - safeWidth / 2,
       )
     : 0;
-  const top = rect ? Math.max(12, rect.top - 10) : 0;
+  const below = rect ? rect.top < window.innerHeight / 2 : false;
+  const top = rect ? (below ? rect.bottom + 10 : rect.top - 10) : 0;
+  const availableHeight = rect
+    ? Math.max(0, below ? window.innerHeight - top - 12 : top - 12)
+    : 0;
 
   return (
     <span
@@ -31,15 +38,29 @@ export function FroidTooltip({
       className={fullWidth ? "relative block w-full" : "relative inline-block"}
       onMouseEnter={() => setShow(true)}
       onMouseLeave={() => setShow(false)}
+      onFocus={() => setShow(true)}
+      onBlur={() => setShow(false)}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") setShow(false);
+      }}
     >
       {children}
-      {show && rect && (
+      {show && rect && createPortal(
         <div
           className="fixed z-[9999] max-h-[70vh] max-w-[calc(100vw-24px)] -translate-x-1/2 -translate-y-full overflow-y-auto rounded-md border border-cyan-900 bg-slate-950 p-3 text-[11px] leading-snug text-slate-200 shadow-xl"
-          style={{ width: safeWidth, left, top }}
+          role="tooltip"
+          style={{
+            width: safeWidth,
+            left,
+            top,
+            maxHeight: availableHeight,
+            transform: below ? "translate(-50%, 0)" : "translate(-50%, -100%)",
+            ...(blue ? { backgroundColor: "#172554", borderColor: "#1e40af" } : {}),
+          }}
         >
           {content}
-        </div>
+        </div>,
+        document.body,
       )}
     </span>
   );

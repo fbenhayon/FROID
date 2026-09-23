@@ -6647,20 +6647,35 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             {metricasComLimite.map((m) => {
               const cor = STATUS_CLASSES[m.status];
               return (
-                <div
+                <FroidTooltip
                   key={m.label}
-                  title={`${tooltipText(reportLocale, SIMPLIFIED_METRIC_TOOLTIPS[m.label] || "Descrição indisponível para este índice.")}\n\n${statusLabel(m.status)}${
-                    m.band ? ` · faixa ${m.band[0] ?? "—"} a ${m.band[1] ?? "—"}` : ""
-                  }${m.interpretation ? ` · ${m.interpretation}` : ""}`}
-                  className={`cursor-help rounded border px-1.5 py-1 transition-colors ${cor.box}`}
+                  fullWidth
+                  blue
+                  width={330}
+                  content={
+                    <div className="space-y-2">
+                      <p className="font-bold text-slate-100">{m.label}</p>
+                      <p>{tooltipText(reportLocale, SIMPLIFIED_METRIC_TOOLTIPS[m.label] || "Descrição indisponível para este índice.")}</p>
+                      <p className="text-slate-300">
+                        {statusLabel(m.status)}
+                        {m.band ? ` · faixa ${m.band[0] ?? "—"} a ${m.band[1] ?? "—"}` : ""}
+                        {m.interpretation ? ` · ${m.interpretation}` : ""}
+                      </p>
+                    </div>
+                  }
                 >
-                  <span className={`block truncate text-[8px] font-bold uppercase tracking-wide ${cor.label}`}>
-                    {m.label}
+                  <span
+                    tabIndex={0}
+                    className={`block cursor-help rounded border px-1.5 py-1 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400 ${cor.box}`}
+                  >
+                    <span className={`block truncate text-[8px] font-bold uppercase tracking-wide ${cor.label}`}>
+                      {m.label}
+                    </span>
+                    <span className={`block truncate font-mono text-[10px] font-black ${cor.value}`}>
+                      {m.value}
+                    </span>
                   </span>
-                  <span className={`block truncate font-mono text-[10px] font-black ${cor.value}`}>
-                    {m.value}
-                  </span>
-                </div>
+                </FroidTooltip>
               );
             })}
           </div>
