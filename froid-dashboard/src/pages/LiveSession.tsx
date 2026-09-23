@@ -6649,10 +6649,10 @@ function LiveSessionInner({ user }: LiveSessionProps) {
               return (
                 <div
                   key={m.label}
-                  title={`${statusLabel(m.status)}${
+                  title={`${tooltipText(reportLocale, SIMPLIFIED_METRIC_TOOLTIPS[m.label] || "Descrição indisponível para este índice.")}\n\n${statusLabel(m.status)}${
                     m.band ? ` · faixa ${m.band[0] ?? "—"} a ${m.band[1] ?? "—"}` : ""
                   }${m.interpretation ? ` · ${m.interpretation}` : ""}`}
-                  className={`rounded border px-1.5 py-1 transition-colors ${cor.box}`}
+                  className={`cursor-help rounded border px-1.5 py-1 transition-colors ${cor.box}`}
                 >
                   <span className={`block truncate text-[8px] font-bold uppercase tracking-wide ${cor.label}`}>
                     {m.label}
