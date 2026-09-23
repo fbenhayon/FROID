@@ -364,8 +364,8 @@ export const AIInsights: React.FC<Props> = ({
   );
 
   return (
-    <div className={`flex h-full min-h-[200px] flex-col border-t border-slate-700 pt-3 mt-2 text-slate-100 ${rootClassName}`}>
-      <div className="mb-2 flex items-center justify-between gap-2">
+    <div className={`flex h-full min-h-0 flex-col overflow-hidden border-t border-slate-700 pt-3 text-slate-100 ${rootClassName}`}>
+      <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="rounded bg-cyan-700 px-1.5 py-0.5 text-[9px] font-bold text-white">
             FROID
@@ -381,7 +381,7 @@ export const AIInsights: React.FC<Props> = ({
         )}
       </div>
 
-      <div className={`mb-2 min-h-[120px] flex-1 overflow-y-auto rounded-lg border border-slate-700 bg-slate-950 p-2 space-y-3 ${messagesClassName}`}>
+      <div className={`mb-2 min-h-0 flex-1 overflow-y-scroll overscroll-contain [scrollbar-gutter:stable] rounded-lg border border-slate-700 bg-slate-950 p-2 space-y-3 ${messagesClassName}`}>
         {messages.length === 0 && (
           <div className="py-4 text-center">
             <p className="text-[11px] text-slate-500">{ui.ready}</p>
@@ -438,7 +438,7 @@ export const AIInsights: React.FC<Props> = ({
         <div ref={bottomRef} />
       </div>
 
-      <div className={controlsSticky ? "sticky bottom-0 z-10 border-t border-slate-700 bg-slate-900/95 pt-2 backdrop-blur" : ""}>
+      <div className={controlsSticky ? "shrink-0 sticky bottom-0 z-10 border-t border-slate-700 bg-slate-900/95 pt-2 backdrop-blur" : "shrink-0"}>
         <div className="grid gap-2 md:grid-cols-2">
           <div className="relative">
             <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">

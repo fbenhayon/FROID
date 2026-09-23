@@ -6574,7 +6574,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                 initialMessages={froidExplicaConversationRef.current}
                 controlsSticky
                 rootClassName="h-full border-0 bg-transparent p-0 text-slate-100"
-                messagesClassName="min-h-[360px] bg-slate-800/80 text-slate-200"
+                messagesClassName="bg-slate-800/80 text-slate-200"
               />
             </section>
           </div>
@@ -6778,7 +6778,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           </section>
 
           {/* FROID Explica — reduzido para abrir espaço às dissonâncias */}
-          <div className="min-h-[150px] max-h-[220px] shrink-0 overflow-hidden rounded-xl border border-slate-700 bg-slate-950 p-2">
+          <div className="h-[220px] shrink-0 overflow-hidden rounded-xl border border-slate-700 bg-slate-950 p-2">
             <AIInsights
               responseLocale={reportLocale}
               zones={displayZones}
@@ -6791,7 +6791,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
               initialMessages={froidExplicaConversationRef.current}
               controlsSticky
               rootClassName="h-full border-0 bg-transparent p-0 text-slate-100"
-              messagesClassName="min-h-[90px] bg-slate-800/80 text-slate-200"
+              messagesClassName="bg-slate-800/80 text-slate-200"
             />
           </div>
 
@@ -7105,7 +7105,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             initialMessages={froidExplicaConversationRef.current}
             controlsSticky
             rootClassName="h-full border-0 bg-transparent p-0 text-slate-100"
-            messagesClassName="min-h-[360px] bg-slate-800/80 text-slate-200"
+            messagesClassName="bg-slate-800/80 text-slate-200"
           />
         </div>
       </div>
