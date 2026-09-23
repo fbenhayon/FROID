@@ -136,7 +136,11 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta, locale = "pt-BR
         </FroidTooltip>
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-5 items-stretch gap-1.5 overflow-hidden px-1">
+      <p className="mb-2 text-[10px] leading-relaxed text-slate-300">
+        Energia por faixa de modulação da voz · escala fixa de 0–100%.
+        Não mede ondas cerebrais nem determina, isoladamente, um estado emocional.
+      </p>
+      <div className="flex shrink-0 flex-col gap-2">
         {metrics.map((metric) => (
           <FroidTooltip
             key={metric.label}
@@ -151,25 +155,27 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta, locale = "pt-BR
               </div>
             }
           >
-            <div className="flex h-full min-w-0 cursor-help flex-col items-center">
-              <span className="mb-1 font-mono text-[9px] font-black text-slate-100">
-                {metric.value === null ? "sem apuração" : `${percent(metric.value)}%`}
-              </span>
-              <div className="flex min-h-0 w-full flex-1 items-end justify-center overflow-hidden rounded-md bg-slate-800/70 px-1 pt-1">
-                <div
-                  className="w-full max-w-8 rounded-t-sm transition-all duration-700"
-                  style={{
-                    height: `${metric.value === null ? 0 : clamp(metric.value) * 100}%`,
-                    backgroundColor: metric.color,
-                  }}
-                />
+            <div className="min-w-0 rounded-md border border-slate-800 bg-slate-900/60 px-2 py-1.5">
+              <div className="flex items-baseline justify-between gap-2 text-[11px]">
+                <span className="font-bold" style={{ color: metric.color }}>
+                  {metric.label} <span className="font-normal text-slate-400">{metric.band}</span>
+                </span>
+                <strong className="font-mono">
+                  {metric.value === null ? "sem apuração" : `${percent(metric.value)}%`}
+                </strong>
               </div>
-              <span className="mt-1 block w-full truncate text-center text-[9px] font-black text-slate-100">
-                {metric.label}
-              </span>
-              <span className="block w-full truncate text-center text-[7px] font-bold text-slate-500">
-                {metric.band}
-              </span>
+              <div className="my-1 h-2 overflow-hidden rounded-full bg-slate-800">
+                {metric.value !== null && <div
+                  role="meter"
+                  aria-label={`${metric.label}: energia na faixa`}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={percent(metric.value)}
+                  className="h-full rounded-full"
+                  style={{ width: `${clamp(metric.value) * 100}%`, backgroundColor: metric.color }}
+                />}
+              </div>
+              <p className="text-[10px] leading-snug text-slate-400">{metric.tooltip}</p>
             </div>
           </FroidTooltip>
         ))}
