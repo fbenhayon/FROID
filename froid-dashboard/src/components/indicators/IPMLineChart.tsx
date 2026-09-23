@@ -68,8 +68,8 @@ const polarBands = [
 export const IPMLineChart: React.FC<Props> = ({ data, samples, elapsedSeconds, current, baseline, locale = "pt-BR" }) => {
   const viewW = 620;
   const viewH = 230;
-  const padLeft = 0;
-  const padRight = 0;
+  const padLeft = 12;
+  const padRight = 12;
   const padTop = 10;
   const padBot = 28;
   const chartW = viewW - padLeft - padRight;
@@ -77,7 +77,7 @@ export const IPMLineChart: React.FC<Props> = ({ data, samples, elapsedSeconds, c
 
   const endSecond = Math.max(1, elapsedSeconds ?? Math.max(1, data.length - 1));
   const startSecond = Math.max(0, endSecond - 600);
-  const { pathD, areaD, pts, isolados, values, janela } = useMemo(() => {
+  const { pathD, ponteD, areaD, pts, isolados, values, janela } = useMemo(() => {
     const records = (samples ?? data.map((value, second) => ({ second, value })))
       .filter((item) => item.second >= startSecond && item.second <= endSecond);
     const values = records.flatMap((item) =>
@@ -104,7 +104,7 @@ export const IPMLineChart: React.FC<Props> = ({ data, samples, elapsedSeconds, c
         previousSecond = null;
         continue;
       }
-      const x = ((item.second - startSecond) / (endSecond - startSecond)) * chartW;
+      const x = padLeft + ((item.second - startSecond) / (endSecond - startSecond)) * chartW;
       const y = padTop + (1 - (clamp(item.value) - janela.min) / (janela.max - janela.min)) * chartH;
       // Uma lacuna permanece vazia; nenhuma media substitui a medida recebida.
       const liga = previousSecond !== null && item.second - previousSecond <= 1;
@@ -117,7 +117,21 @@ export const IPMLineChart: React.FC<Props> = ({ data, samples, elapsedSeconds, c
     pts.forEach((ponto, indice) => {
       if (!ligado[indice]) isolados.push(ponto);
     });
-    return { pathD, areaD: "", pts, isolados, values, janela };
+    // A TRAJETORIA ATRAVESSA A LACUNA; A MEDIDA NAO.
+    //
+    // Pedido do Fabio em 22/09/2026: so com discos, o profissional nao enxerga
+    // em que regiao da escala as apuracoes estao acontecendo. A linha continua
+    // sendo a unica coisa que le a trajetoria de relance.
+    //
+    // O que NAO da para fazer e desenhar o traco cheio por cima do buraco:
+    // isso afirmaria medida em segundos que ninguem mediu, e e o motivo de a
+    // linha so ligar segundos consecutivos. A saida e a ponte TRACEJADA: ela
+    // liga as medidas reais na ordem do tempo, e o tracejado declara, na
+    // propria forma, que ali nao houve apuracao. O cabecalho nomeia as duas.
+    const ponteD = pts.length > 1
+      ? pts.map(([x, y], i) => `${i === 0 ? "M" : "L"} ${x},${y}`).join(" ")
+      : "";
+    return { pathD, ponteD, areaD: "", pts, isolados, values, janela };
   }, [chartH, chartW, data, samples, startSecond, endSecond]);
 
   // Mesma conversão usada fora do useMemo: faixas, marcas e baseline precisam
@@ -179,8 +193,8 @@ export const IPMLineChart: React.FC<Props> = ({ data, samples, elapsedSeconds, c
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border border-slate-700 bg-slate-950 px-2 py-2 text-white shadow-sm">
-      <div className="mb-1 flex shrink-0 items-center justify-between gap-3 border-b border-slate-800 pb-1">
-        <div className="flex min-w-0 items-center gap-3">
+      <div className="mb-1 flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-1">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <FroidTooltip
             width={400}
             content={
@@ -190,7 +204,7 @@ export const IPMLineChart: React.FC<Props> = ({ data, samples, elapsedSeconds, c
               </div>
             }
           >
-            <span className="flex cursor-help items-center gap-3">
+            <span className="flex min-w-0 cursor-help flex-wrap items-center gap-2">
               <span className="text-[11px] font-black uppercase tracking-widest text-slate-100">
                 FROID - IPM
               </span>
@@ -210,19 +224,23 @@ export const IPMLineChart: React.FC<Props> = ({ data, samples, elapsedSeconds, c
           <span className="font-mono text-[10px] text-slate-400">
             baseline {baselineLabel}
           </span>
-          <span className="rounded-full bg-emerald-500 px-2 py-0.5 text-[9px] font-black uppercase text-slate-950">
+          <span className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase ${semApuracao ? "bg-slate-700 text-slate-200" : "bg-emerald-500 text-slate-950"}`}>
             {semApuracao ? "Sem leitura atual" : "ao vivo"}
           </span>
         </div>
       </div>
 
+      <div className="mb-1 flex shrink-0 flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-300">
+        <span><span className="mr-1 inline-block w-5 border-t-2 border-emerald-300 align-middle" />Traço cheio: segundos medidos</span>
+        {ponteD && <span><span className="mr-1 inline-block w-5 border-t-2 border-dashed border-emerald-300 align-middle" />Tracejado: sem apuração no intervalo</span>}
+      </div>
       <div className="min-h-0 flex-1">
         <div className="relative h-full min-h-0 rounded-lg border border-slate-700 bg-slate-900 p-1.5">
           {/* Zoom que nao se declara e grafico que mente: a faixa visivel fica
               escrita, para ninguem confundir amplitude de tela com amplitude
               de IPM. */}
-          <div className="absolute right-3 top-2 z-10 text-[9px] font-black uppercase text-slate-400">
-            escala IPM {janela.min.toFixed(0)}–{janela.max.toFixed(0)}
+          <div className="absolute right-3 top-2 z-10 text-right text-[9px] font-black uppercase text-slate-400">
+            <div>escala IPM {janela.min.toFixed(0)}–{janela.max.toFixed(0)}</div>
           </div>
           <FroidTooltip
             content={
@@ -262,7 +280,7 @@ export const IPMLineChart: React.FC<Props> = ({ data, samples, elapsedSeconds, c
                       width={chartW}
                       height={altura}
                       fill={band.color}
-                      opacity={0.98}
+                      opacity={0.38}
                     />
                     {/* O rótulo só cabe se a faixa visível tiver altura para
                         ele; espremido, viraria borrão sobre a linha. */}
@@ -339,26 +357,43 @@ export const IPMLineChart: React.FC<Props> = ({ data, samples, elapsedSeconds, c
                 textAnchor="middle"
                 className="fill-slate-300 text-[11px]"
               >
-                Aguardando serie temporal...
+                Sem Capacidade de Apuração: sem amostras na janela
               </text>
             )}
 
             {pts.length > 0 && (
               <>
                 {areaD && <path d={areaD} fill="url(#ipmAreaCompact)" />}
+                {ponteD && (
+                  <path
+                    // Nome do papel do traco. O teste ancora aqui, e nao na cor:
+                    // os dois caminhos usam o mesmo verde de proposito (e a
+                    // mesma serie), entao casar por cor pegava o errado.
+                    data-linha="ponte"
+                    d={ponteD}
+                    fill="none"
+                    stroke="#22f58b"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2.5}
+                    strokeDasharray="6 4"
+                    opacity={0.95}
+                  />
+                )}
                 {pathD && (
                   <path
                     d={pathD}
                     fill="none"
-                    stroke="#ffffff"
+                    stroke="#020617"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    strokeWidth={2}
+                    strokeWidth={5}
                     opacity={0.8}
                   />
                 )}
                 {pathD && (
                   <path
+                    data-linha="medida"
                     d={pathD}
                     fill="none"
                     stroke="#22f58b"
