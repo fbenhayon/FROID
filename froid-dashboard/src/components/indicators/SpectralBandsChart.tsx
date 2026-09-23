@@ -12,10 +12,25 @@ interface Props {
 const clamp = (value: number, min = 0, max = 1) =>
   Math.min(Math.max(Number.isFinite(value) ? value : 0, min), max);
 
-const read = (audioMeta: Props["audioMeta"], key: keyof AcousticBiomarkers) => {
+// AUSENCIA NAO E ZERO — e nas derivadas isso aparecia na tela.
+//
+// As quatro derivadas cepstrais passavam por um `read` que devolvia 0 para
+// o que nao veio, e eram impressas com `.toFixed(4)`: `DMFCC7 0.0000`, com a
+// mesma tipografia de uma medida real de zero. Em 22/09/2026 os quatro campos
+// apareceram cravados em 0.0000 numa sessao inteira.
+//
+// O servidor ja declara ausencia com null nesses campos. Aqui ela passa a ser
+// impressa, e nao convertida.
+const lerOuAusente = (
+  audioMeta: Props["audioMeta"],
+  key: keyof AcousticBiomarkers,
+) => {
   const raw = audioMeta?.[key];
-  return typeof raw === "number" && Number.isFinite(raw) ? raw : 0;
+  return typeof raw === "number" && Number.isFinite(raw) ? raw : null;
 };
+
+const derivada = (valor: number | null) =>
+  valor === null ? "sem apuração" : valor.toFixed(4);
 
 const percent = (value: number) => Math.round(clamp(value) * 100);
 
@@ -25,58 +40,57 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta, locale = "pt-BR
       {
         label: "Delta",
         band: "0.5-4 Hz",
-        value: read(audioMeta, "spectral_delta_0_4hz"),
+        value: lerOuAusente(audioMeta, "spectral_delta_0_4hz"),
         color: "#7DD3FC",
         tooltip:
-          "Delta (0,5–4 Hz): oscilação lenta do envelope vocal, usada como marcador de carga vegetativa basal e de baixa variabilidade dinâmica. Valores altos sugerem lentificação e retraimento; valores baixos, maior mobilização.",
+          "Modulações mais lentas do envelope vocal: 0,5 a 4 oscilações por segundo.",
       },
       {
         label: "Theta",
         band: "4-8 Hz",
-        value: read(audioMeta, "spectral_theta_4_8hz"),
+        value: lerOuAusente(audioMeta, "spectral_theta_4_8hz"),
         color: "#A5B4FC",
         tooltip:
-          "Theta (4–8 Hz): componente de modulação lenta relacionado a flutuações afetivas e à organização narrativa sob esforço emocional. Realça quando o paciente elabora conteúdo emocionalmente carregado.",
+          "Modulações de 4 a 8 oscilações por segundo, acima da faixa Delta.",
       },
       {
         label: "Alpha",
         band: "8-12 Hz",
-        value: read(audioMeta, "spectral_alpha_8_12hz"),
+        value: lerOuAusente(audioMeta, "spectral_alpha_8_12hz"),
         color: "#6EE7B7",
         tooltip:
-          "Alpha (8–12 Hz): faixa de estabilização moduladora entre os ritmos lentos e a resposta autônoma mais ativa. Serve de referência de equilíbrio entre relaxamento e ativação.",
+          "Modulações de 8 a 12 oscilações por segundo, entre Theta e Beta.",
       },
       {
         label: "Beta",
         band: "12-30 Hz",
-        value: read(audioMeta, "spectral_beta_12_30hz"),
+        value: lerOuAusente(audioMeta, "spectral_beta_12_30hz"),
         color: "#FBBF24",
         tooltip:
-          "Beta (12-30 Hz): energia nessa faixa de modulacao da envoltoria vocal. Nao corresponde a ritmo cortical de EEG — a homonimia e coincidencia de nomenclatura de faixa. Picos indicam elevacao contra a referencia do paciente. Associacao descrita na literatura em nivel de grupo; nao constitui inferencia sobre este paciente.",
+          "Modulações rápidas do envelope vocal: 12 a 30 oscilações por segundo.",
       },
       {
         label: "Gama",
         band: "30-80 Hz",
-        value: read(audioMeta, "spectral_gamma_30_80hz"),
+        value: lerOuAusente(audioMeta, "spectral_gamma_30_80hz"),
         color: "#FB7185",
         tooltip:
-          "Gama (30–80 Hz): energia espectral de alta frequência, interpretada com cautela como indicador de descarga fina, tensão e aspereza vocal. É a banda mais exploratória — leia sempre junto às demais.",
+          "Modulações mais rápidas entre as faixas exibidas: 30 a 80 oscilações por segundo.",
       },
     ],
     [audioMeta],
   );
 
-  const index = read(audioMeta, "spectral_band_index");
-  const mfcc7Delta = read(audioMeta, "mfcc7_delta");
-  const mfcc9Delta = read(audioMeta, "mfcc9_delta");
-  const mfcc7DeltaDelta = read(audioMeta, "mfcc7_delta_delta");
-  const mfcc9DeltaDelta = read(audioMeta, "mfcc9_delta_delta");
-  const hasData = metrics.some((metric) => metric.value > 0);
-  const metricPercentages = metrics.map((metric) => percent(metric.value));
-  const maxMetricPercentage = Math.max(...metricPercentages, 1);
+  const index = lerOuAusente(audioMeta, "spectral_band_index");
+  const mfcc7Delta = lerOuAusente(audioMeta, "mfcc7_delta");
+  const mfcc9Delta = lerOuAusente(audioMeta, "mfcc9_delta");
+  const mfcc7DeltaDelta = lerOuAusente(audioMeta, "mfcc7_delta_delta");
+  const mfcc9DeltaDelta = lerOuAusente(audioMeta, "mfcc9_delta_delta");
+  const hasData = metrics.some((metric) => metric.value !== null);
+  const windowMs = lerOuAusente(audioMeta, "bioacoustic_window_ms");
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border border-slate-700 bg-slate-950 p-2 text-slate-100 shadow-sm">
+    <div className="flex h-full min-h-0 w-full flex-col overflow-y-auto rounded-xl border border-slate-700 bg-slate-950 p-2 text-slate-100 shadow-sm">
       <div className="mb-1.5 flex shrink-0 items-start justify-between gap-3">
         <div>
           <FroidTooltip
@@ -87,7 +101,7 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta, locale = "pt-BR
                 <p className="mt-1">
                   {tooltipText(
                     locale,
-                    "Leitura das modulações vocais Delta, Theta, Alpha, Beta e Gama da trilha do paciente. A nomenclatura é analógica para bandas de voz, não EEG, consolidada a cada 1 segundo e cruzada com os deltas cepstrais MFCC7/MFCC9.",
+                    "Distribuição da energia de modulação do envelope vocal por faixa de frequência. O envelope acompanha as variações de amplitude da voz; Hz indica oscilações por segundo. As bandas não são uma medição de EEG.",
                   )}
                 </p>
               </div>
@@ -98,7 +112,7 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta, locale = "pt-BR
             </h3>
           </FroidTooltip>
           <p className="mt-0.5 truncate text-[10px] font-medium text-slate-400">
-            Consolidação bioacústica: {Number(audioMeta?.bioacoustic_window_ms || 1000)}ms
+            Janela bioacústica: {windowMs === null ? "não informada" : `${windowMs} ms`}
           </p>
         </div>
         <FroidTooltip
@@ -109,7 +123,7 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta, locale = "pt-BR
               <p className="mt-1">
                 {tooltipText(
                   locale,
-                  "Média ponderada da energia das cinco bandas neuroacústicas em 0–100%. Sintetiza o nível global de modulação vocal do momento — útil como leitura rápida antes de detalhar banda a banda.",
+                  "Média aritmética das cinco bandas, calculada pelo motor e apresentada em percentual. Não é a soma das bandas nem uma classificação clínica.",
                 )}
               </p>
             </div>
@@ -117,7 +131,7 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta, locale = "pt-BR
         >
           <div className="shrink-0 cursor-help rounded-xl border border-blue-800 bg-blue-950 px-2.5 py-0.5 text-center text-blue-200">
             <p className="text-[8px] font-black uppercase">Índice geral</p>
-            <p className="font-mono text-[12px] font-black">{percent(index)}%</p>
+            <p className="font-mono text-[12px] font-black">{index === null ? "sem apuração" : `${percent(index)}%`}</p>
           </div>
         </FroidTooltip>
       </div>
@@ -139,13 +153,13 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta, locale = "pt-BR
           >
             <div className="flex h-full min-w-0 cursor-help flex-col items-center">
               <span className="mb-1 font-mono text-[9px] font-black text-slate-100">
-                {percent(metric.value)}%
+                {metric.value === null ? "sem apuração" : `${percent(metric.value)}%`}
               </span>
               <div className="flex min-h-0 w-full flex-1 items-end justify-center overflow-hidden rounded-md bg-slate-800/70 px-1 pt-1">
                 <div
                   className="w-full max-w-8 rounded-t-sm transition-all duration-700"
                   style={{
-                    height: `${Math.max(3, (percent(metric.value) / maxMetricPercentage) * 100)}%`,
+                    height: `${metric.value === null ? 0 : clamp(metric.value) * 100}%`,
                     backgroundColor: metric.color,
                   }}
                 />
@@ -176,7 +190,7 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta, locale = "pt-BR
             </div>
           }
         >
-          <span className="cursor-help border-b border-dotted border-slate-600">DMFCC7 {mfcc7Delta.toFixed(4)}</span>
+          <span className="cursor-help border-b border-dotted border-slate-600">DMFCC7 {derivada(mfcc7Delta)}</span>
         </FroidTooltip>
         <FroidTooltip
           width={320}
@@ -192,7 +206,7 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta, locale = "pt-BR
             </div>
           }
         >
-          <span className="cursor-help border-b border-dotted border-slate-600">DMFCC9 {mfcc9Delta.toFixed(4)}</span>
+          <span className="cursor-help border-b border-dotted border-slate-600">DMFCC9 {derivada(mfcc9Delta)}</span>
         </FroidTooltip>
         <FroidTooltip
           width={320}
@@ -208,7 +222,7 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta, locale = "pt-BR
             </div>
           }
         >
-          <span className="cursor-help border-b border-dotted border-slate-600">DDMFCC7 {mfcc7DeltaDelta.toFixed(4)}</span>
+          <span className="cursor-help border-b border-dotted border-slate-600">DDMFCC7 {derivada(mfcc7DeltaDelta)}</span>
         </FroidTooltip>
         <FroidTooltip
           width={320}
@@ -224,12 +238,12 @@ export const SpectralBandsChart: React.FC<Props> = ({ audioMeta, locale = "pt-BR
             </div>
           }
         >
-          <span className="cursor-help border-b border-dotted border-slate-600">DDMFCC9 {mfcc9DeltaDelta.toFixed(4)}</span>
+          <span className="cursor-help border-b border-dotted border-slate-600">DDMFCC9 {derivada(mfcc9DeltaDelta)}</span>
         </FroidTooltip>
       </div>
       {!hasData && (
         <p className="mt-2 text-[9px] italic text-slate-500">
-          Aguardando voz do paciente para consolidar as bandas.
+          Sem Capacidade de Apuração: nenhuma banda foi recebida nesta leitura.
         </p>
       )}
     </div>
