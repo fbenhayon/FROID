@@ -308,8 +308,8 @@ export const ProfessionalOnboarding: React.FC<Props> = ({
             const totalAmount = Number(price.total_amount_minor || 0);
             return {
               id: item.code,
-              name: `FROID ${String(item.plan_code || "").toUpperCase()} — ${item.sessions} sessões`,
-              description: `${formatMoneyFromCents(unitAmount, _currency)} por sessão`,
+              name: `FROID ${String(item.plan_code || "").toUpperCase()} — ${item.sessions} créditos de atendimento`,
+              description: `${formatMoneyFromCents(unitAmount, _currency)} por crédito de atendimento`,
               session_credits: item.sessions,
               amount_cents: unitAmount,
               total_amount_cents: totalAmount,
@@ -357,7 +357,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({
     if (!token) return;
     let cancelled = false;
     let attempt = 0;
-    setMessage("Pagamento recebido. Confirmando a liberação das sessões...");
+    setMessage("Pagamento recebido. Confirmando a liberação dos créditos de atendimento...");
     const refreshAccess = async () => {
       attempt += 1;
       try {
@@ -845,8 +845,8 @@ export const ProfessionalOnboarding: React.FC<Props> = ({
                   número suposto. */}
               <p className="text-sm font-black text-amber-200">
                 {accessStatus.trial_sessions
-                  ? `Suas ${accessStatus.trial_sessions} sessões de cortesia foram utilizadas`
-                  : "Suas sessões de cortesia foram utilizadas"}
+                  ? `Seus ${accessStatus.trial_sessions} créditos de atendimento de cortesia foram utilizados`
+                  : "Seus créditos de atendimento de cortesia foram utilizados"}
               </p>
               <p className="mt-2 text-xs leading-5 text-amber-100">
                 O que já foi atendido continua registrado e acessível — nada se
@@ -869,7 +869,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({
           {accessStatus?.on_trial && !accessStatus.trial_exhausted && (
             <p className="mt-4 rounded-lg border border-emerald-800 bg-emerald-950/50 px-3 py-2 text-xs font-bold text-emerald-100">
               Você tem {accessStatus.trial_remaining} de{" "}
-              {accessStatus.trial_sessions} sessões de cortesia disponíveis.
+              {accessStatus.trial_sessions} créditos de atendimento de cortesia disponíveis.
             </p>
           )}
         </div>
@@ -1210,7 +1210,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({
             <div className="mt-4 grid gap-3 rounded-lg border border-slate-700 bg-slate-950 p-3">
               <label className="block">
                 <span className="text-[11px] font-black uppercase text-slate-400">
-                  Número de sessões contratadas
+                  Número de créditos de atendimento contratados
                 </span>
                 <input
                   value={contractedSessions}
@@ -1223,8 +1223,8 @@ export const ProfessionalOnboarding: React.FC<Props> = ({
               <div className="rounded-md border border-cyan-200 bg-cyan-50 p-3 text-xs font-bold leading-5 text-cyan-950">
                 <p>Valor unitario do plano: {formatMoneyFromCents(unitAmountCents, billingCurrency)}</p>
                 <p>Total do pacote: {formatMoneyFromCents(packageTotalCents, billingCurrency)}</p>
-                <p>Sessões contratadas: {contractedSessions}</p>
-                <p>Total liberado: {totalSessions} sessões</p>
+                <p>Créditos de atendimento contratados: {contractedSessions}</p>
+                <p>Total liberado: {totalSessions} créditos de atendimento</p>
                 <p>Moeda do checkout: {billingCurrency.toUpperCase()}</p>
               </div>
             </div>
@@ -1237,7 +1237,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({
                 className="mt-1"
               />
               <span>
-                Confirmo o pacote selecionado, a quantidade de sessões, a moeda e o valor total exibidos acima. Esta confirmação será vinculada à ordem enviada ao Stripe.
+                Confirmo o pacote selecionado, a quantidade de créditos de atendimento, a moeda e o valor total exibidos acima. Esta confirmação será vinculada à ordem enviada ao Stripe.
               </span>
             </label>
 
@@ -1252,7 +1252,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({
               />
               <span>
                   <strong>Opcional:</strong> autorizo o FROID a salvar o método de pagamento e recomprar automaticamente
-                o mesmo pacote quando o saldo de sessões chegar a zero, na mesma moeda e pelo
+                o mesmo pacote quando o saldo de créditos de atendimento chegar a zero, na mesma moeda e pelo
                 valor total informado nesta contratação. Qualquer alteração exigirá nova autorização.
               </span>
             </label>
@@ -1293,7 +1293,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({
                   <span className="block text-sm font-black text-slate-100">{plan.name}</span>
                   <span className="mt-1 block text-2xl font-black text-cyan-200">{plan.display_amount}</span>
                   <span className="mt-1 block text-xs text-slate-400">
-                    {plan.session_credits} sessões - {plan.description}
+                    {plan.session_credits} créditos de atendimento - {plan.description}
                   </span>
                 </label>
               ))}

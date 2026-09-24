@@ -54,16 +54,16 @@ export const AvisoSemSaldo: React.FC<Props> = ({
       ? {
           titulo: "O período de avaliação terminou",
           texto:
-            "As sessões de avaliação foram utilizadas. Para continuar atendendo, " +
+            "Os créditos de atendimento de avaliação foram utilizados. Para continuar atendendo, " +
             "escolha um pacote.",
           acao: "Ver os pacotes",
         }
       : {
-          titulo: "Suas sessões acabaram",
+          titulo: "Seus créditos de atendimento acabaram",
           texto:
             "O saldo chegou a zero, e por isso o sistema não abre uma sessão nova. " +
             "Nada foi perdido: pacientes, relatórios e histórico continuam no lugar.",
-          acao: "Comprar sessões",
+          acao: "Comprar créditos de atendimento",
         };
 
   return (
@@ -78,12 +78,12 @@ export const AvisoSemSaldo: React.FC<Props> = ({
         <div className="mt-4 flex flex-wrap gap-4 rounded border border-amber-800/60 bg-amber-950/40 px-4 py-3 text-[11px] text-amber-100/80">
           {total !== undefined && (
             <span>
-              Contratadas <strong className="text-amber-100">{total}</strong>
+              Créditos contratados <strong className="text-amber-100">{total}</strong>
             </span>
           )}
           {usadas !== undefined && (
             <span>
-              Utilizadas <strong className="text-amber-100">{usadas}</strong>
+              Créditos utilizados <strong className="text-amber-100">{usadas}</strong>
             </span>
           )}
           <span>

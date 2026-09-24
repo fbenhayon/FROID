@@ -187,7 +187,7 @@ class OTextoAnunciadoEOQueOServidorConcede(unittest.TestCase):
     PADROES = (
         re.compile(
             r"(?:Primeiros|Próximos)\s+(\d+)\s+profissionais"
-            r".*?(\d+)\s+sessões\s+gratuitas",
+            r".*?(\d+)\s+(?:sessões\s+gratuitas|créditos de atendimento\s+gratuitos)",
             re.S,
         ),
         re.compile(

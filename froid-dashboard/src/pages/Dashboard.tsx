@@ -662,7 +662,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
           <div className="flex flex-wrap items-center justify-end gap-2">
             {professionalProfile && (
               <span className="rounded-lg border border-emerald-800 bg-emerald-950 px-3 py-2 text-xs font-bold text-emerald-100">
-                Saldo: {professionalProfile.remaining_sessions ?? "--"} sessões
+                Saldo: {professionalProfile.remaining_sessions ?? "--"} créditos de atendimento
               </span>
             )}
             {(user?.access_status?.admin || String(user?.email || "").toLowerCase() === "fbenhayon@gmail.com") && (

@@ -273,7 +273,7 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
             throw new Error(data.detail || "Não foi possível confirmar o pagamento.");
           }
           await loadBillingProfile(billingCurrency);
-          setBillingMessage("Pagamento confirmado e sessões liberadas.");
+          setBillingMessage("Pagamento confirmado e créditos de atendimento liberados.");
         } catch (error: any) {
           setBillingMessage(
             error?.message
@@ -304,8 +304,8 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
             const totalAmount = Number(price.total_amount_minor || 0);
             return {
               id: item.code,
-              name: `FROID ${String(item.plan_code || "").toUpperCase()} — ${item.sessions} sessões`,
-              description: `${formatMoneyFromCents(unitAmount, currency)} por sessão`,
+              name: `FROID ${String(item.plan_code || "").toUpperCase()} — ${item.sessions} créditos de atendimento`,
+              description: `${formatMoneyFromCents(unitAmount, currency)} por crédito de atendimento`,
               session_credits: Number(item.sessions || 0),
               amount_cents: unitAmount,
               total_amount_cents: totalAmount,
@@ -585,7 +585,7 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
       }
       setBillingMessage("Checkout iniciado sem URL de redirecionamento.");
     } catch (error: any) {
-      setBillingMessage(error?.message || "Falha ao comprar sessões.");
+      setBillingMessage(error?.message || "Falha ao comprar créditos de atendimento.");
     } finally {
       setBillingLoading(false);
     }
@@ -1049,17 +1049,17 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
           <div className="rounded-lg border border-slate-700 p-3">
             <p className="text-sm font-semibold">Planos e Cobranca</p>
             <p className="mt-1 text-xs text-slate-400">
-              Checkout Stripe, saldo contratado e controle de créditos de sessão FROID.
+              Checkout Stripe, saldo contratado e controle de créditos de atendimento FROID.
             </p>
             <div className="mt-3 grid gap-2 text-xs sm:grid-cols-3">
               <div className="rounded border border-slate-700 bg-slate-950 p-2">
-                <p className="font-black uppercase text-slate-500">Contratadas</p>
+                <p className="font-black uppercase text-slate-500">Créditos contratados</p>
                 <p className="mt-1 text-lg font-black text-cyan-200">
                   {profileStatus?.total_sessions ?? "--"}
                 </p>
               </div>
               <div className="rounded border border-slate-700 bg-slate-950 p-2">
-                <p className="font-black uppercase text-slate-500">Usadas</p>
+                <p className="font-black uppercase text-slate-500">Créditos utilizados</p>
                 <p className="mt-1 text-lg font-black text-amber-100">
                   {profileStatus?.used_sessions ?? "--"}
                 </p>
@@ -1110,7 +1110,7 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
                 </select>
               </label>
               <label className="text-[10px] font-black uppercase tracking-wide text-slate-400">
-                Sessões a comprar
+                Créditos de atendimento a comprar
                 <input
                   type="number"
                   min={1}
@@ -1120,7 +1120,7 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
                 />
               </label>
               <div className="rounded border border-cyan-900/70 bg-cyan-950/30 p-2 text-xs text-cyan-100">
-                Total liberado: <strong>{purchaseTotalSessions}</strong> sessões.
+                Total liberado: <strong>{purchaseTotalSessions}</strong> créditos de atendimento.
                 <br />
                 Total do pacote: <strong>{formatMoneyFromCents(purchaseTotalCents, billingCurrency)}</strong>.
                 <br />
@@ -1151,7 +1151,7 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
                   <label className="flex items-start gap-2 rounded border border-cyan-900/70 bg-cyan-950/30 p-2">
                     <input type="checkbox" checked={orderSummaryAccepted} onChange={(event) => setOrderSummaryAccepted(event.target.checked)} />
                     <span>
-                      Confirmo o pacote, a quantidade de sessões, a moeda e o valor total
+                      Confirmo o pacote, a quantidade de créditos de atendimento, a moeda e o valor total
                       mostrados acima. Esta confirmação será vinculada à ordem enviada ao Stripe.
                     </span>
                   </label>
@@ -1176,7 +1176,7 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
                 onClick={() => void buySessionCredits()}
                 className="rounded-lg bg-cyan-700 px-3 py-2 text-xs font-bold text-white hover:bg-cyan-800 disabled:opacity-40"
               >
-                {billingLoading ? "Processando..." : "Comprar sessões"}
+                {billingLoading ? "Processando..." : "Comprar créditos de atendimento"}
               </button>
               {profileStatus?.subscription?.last_recharge_status === "failed" && (
                 <button

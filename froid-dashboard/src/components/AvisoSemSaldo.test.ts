@@ -96,7 +96,7 @@ describe("o aviso é alcançável e oferece saída", () => {
   });
 
   it("o aviso nomeia a causa, e são três distintas", () => {
-    expect(AVISO).toContain("Suas sessões acabaram");
+    expect(AVISO).toContain("Seus créditos de atendimento acabaram");
     expect(AVISO).toContain("Há cobrança pendente de acerto");
     expect(AVISO).toContain("O período de avaliação terminou");
   });

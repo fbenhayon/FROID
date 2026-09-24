@@ -78,7 +78,7 @@ PENDENTES = {
 }
 
 PACOTE = re.compile(
-    r'<span class="qtd">(\d+)\s*sess[^<]*</span>\s*'
+    r'<span class="qtd">(\d+)\s*(?:sess[^<]*|créditos de atendimento)</span>\s*'
     r'<span class="valor">R\$\s*([\d.,]+)',
     re.IGNORECASE,
 )
