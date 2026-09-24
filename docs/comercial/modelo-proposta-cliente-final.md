@@ -227,7 +227,6 @@ de AEP próprio e linha própria no inventário.
 |---|---:|
 | Mensal de tabela | R$ `[_____]` |
 | **Anual** | **R$ `[_____]`** |
-| Anual com condição de pioneiro (15%, até 31/12/2026) | **R$ `[_____]`** |
 
 ### 6.2 A condução da AEP é da contratante
 
@@ -261,18 +260,18 @@ comunicação interna, apoio da liderança e tempo concedido dentro do expedient
 > **Uso interno da TATICCA.** Base de um estabelecimento. Para mais de um, somar
 > R$ 200,00/mês por endereço adicional. Não enviar este anexo ao cliente.
 
-| Efetivo | Mensal | Anual | Anual −15% | Respostas exigidas | Caminho |
-|---:|---:|---:|---:|---:|---|
-| 10 | R$ 350,00 | R$ 4.200,00 | R$ 3.570,00 | — | só AEP |
-| 20 | R$ 500,00 | R$ 6.000,00 | R$ 5.100,00 | 20 | campanha em censo |
-| 50 | R$ 950,00 | R$ 11.400,00 | R$ 9.690,00 | 50 | campanha em censo |
-| 97 | R$ 1.655,00 | R$ 19.860,00 | R$ 16.881,00 | 97 | campanha em censo |
-| 98 | R$ 1.670,00 | R$ 20.040,00 | R$ 17.034,00 | 79 | campanha por amostra |
-| 150 | R$ 2.325,00 | R$ 27.900,00 | R$ 23.715,00 | 109 | campanha por amostra |
-| 300 | R$ 4.200,00 | R$ 50.400,00 | R$ 42.840,00 | 169 | campanha por amostra |
-| 500 | R$ 6.060,00 | R$ 72.720,00 | R$ 61.812,00 | 218 | campanha por amostra |
-| 1.000 | R$ 10.710,00 | R$ 128.520,00 | R$ 109.242,00 | 278 | campanha por amostra |
-| 3.000 | R$ 23.810,00 | R$ 285.720,00 | R$ 242.862,00 | 341 | campanha por amostra |
+| Efetivo | Mensal | Anual | Respostas exigidas | Caminho |
+|---:|---:|---:|---:|---|
+| 10 | R$ 350,00 | R$ 4.200,00 | — | só AEP |
+| 20 | R$ 500,00 | R$ 6.000,00 | 20 | campanha em censo |
+| 50 | R$ 950,00 | R$ 11.400,00 | 50 | campanha em censo |
+| 97 | R$ 1.655,00 | R$ 19.860,00 | 97 | campanha em censo |
+| 98 | R$ 1.670,00 | R$ 20.040,00 | 79 | campanha por amostra |
+| 150 | R$ 2.325,00 | R$ 27.900,00 | 109 | campanha por amostra |
+| 300 | R$ 4.200,00 | R$ 50.400,00 | 169 | campanha por amostra |
+| 500 | R$ 6.060,00 | R$ 72.720,00 | 218 | campanha por amostra |
+| 1.000 | R$ 10.710,00 | R$ 128.520,00 | 278 | campanha por amostra |
+| 3.000 | R$ 23.810,00 | R$ 285.720,00 | 341 | campanha por amostra |
 
 **A curva achata.** Dobrar a empresa não dobra a exigência de respostas: 300
 pessoas precisam de 169, e 3.000 precisam de 341. Empresa grande tem folga;

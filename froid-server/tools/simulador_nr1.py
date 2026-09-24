@@ -107,7 +107,7 @@ def aba_receita(wb: Workbook):
             "departamento no mesmo endereço NÃO é unidade")
     _entrada(ws, 6, 2, 1)
     _rotulo(ws, 7, 1, "Desconto aplicado")
-    _entrada(ws, 7, 2, 0.15, PCT)
+    _entrada(ws, 7, 2, 0, PCT)  # Desconto de pioneiro encerrado em 24/09/2026.
 
     _titulo(ws, 9, "  Tabela de preços", 7)
     ws.cell(row=10, column=1, value="Componente").font = Font(bold=True, color=BRANCO)
