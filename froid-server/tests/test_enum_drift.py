@@ -25,6 +25,7 @@ if str(SERVER_DIR) not in sys.path:
 import nr1_compliance
 import psique_billing
 import psique_identity
+import psique_license
 import psique_pricing
 import tenant_access
 
@@ -160,6 +161,14 @@ class PsiqueBillingTypeDriftTests(unittest.TestCase):
         self.assertEqual(last_check_for("processing_status"),
                          set(psique_billing.EVENT_PROCESSING_STATUSES))
 
+    def test_phase2c_license_domains_match(self):
+        self.assertEqual(last_check_for("clinical_status"),
+                         set(psique_license.CLINICAL_STATUSES))
+        self.assertEqual(last_check_for("license_status"),
+                         set(psique_license.LICENSE_STATUSES))
+        self.assertEqual(last_check_for("change_status"),
+                         set(psique_license.CHANGE_STATUSES))
+
     def test_phase2a_identity_and_funding_domains_match(self):
         for column, values in (
             ("credit_model", psique_identity.CREDIT_MODELS),
@@ -182,7 +191,7 @@ class DriftGuardCoverageTests(unittest.TestCase):
             "role", "organization_type", "risk_level", "nr1_factor",
             "measure_efficacy", "measure_type", "polarity", "report_visibility",
             "plan_action", "billing_type", "credit_model", "funding", "source_kind", "eligibility_origin",
-            "processing_status",
+            "processing_status", "clinical_status", "license_status", "change_status",
         }
         todas = set(re.findall(r"CHECK\s*\(\s*([a-z_]+)\s+IN\s*\(", all_sql()))
         # Colunas de estado interno não têm par em Python e não sofrem drift.

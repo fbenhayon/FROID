@@ -29,6 +29,10 @@ Catálogo `FROID_PSIQUE_V2` versão `2.1`, hash `39b0ba03b384c49ec57844bbfed6ef5
 
 A ativação pública segue desligada: `FROID_PSIQUE_V2_BILLING_ENABLED=false` por padrão, transmitida literalmente pelo Compose; ligar sem chave TEST, segredo de webhook e DSN restrito falha fechado com motivo nomeado. A chave do Sandbox e o `whsec` vivem só em ambiente/secret local, nunca no repositório.
 
+## Licença organizacional (Fase 2C)
+
+Product e Price da licença criados no mesmo Sandbox pelo operador (`tools/psique_license_stripe.py`, idempotente por `lookup_key`): `price_1UL8dPAg9NSIrvBV0cTTE8Ul`, mensal BRL `tiered/graduated`, `lookup_key froid_psique_org_license_v2_1`. Os 16 previews reais das fronteiras do checklist reproduziram a fórmula do backend ao centavo, e o smoke real comprovou aumento com prorrata acumulada na fatura seguinte e cancelamento no fim do período. Regras, estados e evidências no [relatório da Fase 2C](psique-v2-fase2c-relatorio.md) e em [billing V2](psique-billing-v2.md). O webhook V2 sincroniza `customer.subscription.*` com a licença local; faturas são auditadas e nunca movem créditos.
+
 ## O que ainda não foi executado
 
 - Pagamentos reais com os cartões de teste na página hospedada (4242…, recusa, fundos insuficientes, 3DS) e entrega real de webhook (Stripe CLI `stripe listen` local ou endpoint TEST em staging HTTPS). A matriz correspondente foi coberta com eventos sintéticos assinados pelo mesmo verificador; a homologação com cartão é o passo manual seguinte.

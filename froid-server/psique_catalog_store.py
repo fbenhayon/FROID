@@ -159,3 +159,86 @@ def register_test_mapping(connection: Any, *, version: str, product_code: str,
         if lookup_key is not None and mapping[3] != lookup_key:
             raise PricingError("existing_mapping_is_immutable")
     return str(mapping[0])
+
+
+def license_expected_tiers(config: dict[str, Any]) -> list[dict[str, Any]]:
+    """Stripe graduated tiers that reproduce the backend formula exactly."""
+    rule = config["organization_license"]
+    tiers: list[dict[str, Any]] = [{
+        "up_to": rule["included_clinicians"],
+        "flat_amount": rule["base_cents"], "unit_amount": 0,
+    }]
+    for tier in rule["tiers"]:
+        tiers.append({"up_to": tier["through"], "flat_amount": None,
+                      "unit_amount": tier["unit_cents"]})
+    # Stripe requires an open last tier; the application refuses quantities
+    # above self_service_max before any Stripe call (201+ is Enterprise).
+    tiers[-1]["up_to"] = None
+    return tiers
+
+
+def register_license_test_mapping(connection: Any, *, version: str, account_id: str,
+                                  product: dict[str, Any], price: dict[str, Any],
+                                  actor: str, lookup_key: str) -> str:
+    """Validate the retrieved TEST license objects and register the mapping.
+
+    The price must be monthly, BRL, tiered/graduated, with tiers identical to
+    the catalog rule (fetch it with expand[]=tiers). Divergence stops here.
+    """
+    verify_schema(connection, {"035_psique_v2_pricing", "036_psique_v2_purchases",
+                               "039_psique_stripe_test_checkout"})
+    config = read_catalog(connection, version=version, include_draft=True)
+    if not actor.strip() or not account_id.startswith("acct_"):
+        raise PricingError("mapping_actor_and_account_required")
+    if product.get("livemode") is not False or price.get("livemode") is not False:
+        raise PricingError("license_mapping_is_test_only")
+    recurring = price.get("recurring") or {}
+    if (product.get("active") is not True or price.get("active") is not True
+        or price.get("product") not in (product.get("id"),)
+        or price.get("currency") != config["currency"]
+        or recurring.get("interval") != "month" or recurring.get("interval_count") != 1
+        or price.get("billing_scheme") != "tiered" or price.get("tiers_mode") != "graduated"
+        or price.get("lookup_key") != lookup_key):
+        raise PricingError("stripe_license_price_shape_mismatch")
+    expected = license_expected_tiers(config)
+    actual = [{"up_to": tier.get("up_to"),
+               "flat_amount": tier.get("flat_amount") or None,
+               "unit_amount": tier.get("unit_amount") or 0}
+              for tier in (price.get("tiers") or [])]
+    normalized = [{"up_to": tier["up_to"],
+                   "flat_amount": tier["flat_amount"] or None,
+                   "unit_amount": tier["unit_amount"] or 0} for tier in expected]
+    if actual != normalized:
+        raise PricingError("stripe_license_tiers_do_not_match_backend")
+    expected_meta = {"froid_product": "psique", "family": "psique_license",
+                     "product_code": "FROID_ORG_LICENSE",
+                     "pricing_version": version, "pricing_hash": pricing_hash(config)}
+    for obj in (product, price):
+        if any((obj.get("metadata") or {}).get(k) != v for k, v in expected_meta.items()):
+            raise PricingError("stripe_license_metadata_mismatch")
+    with connection.transaction():
+        row = connection.execute(
+            """SELECT offers.id,offers.pricing_table_id FROM psique_pricing_offers offers
+               JOIN psique_pricing_tables parent ON parent.id=offers.pricing_table_id
+               WHERE parent.code=%s AND parent.version=%s AND offers.product_code='FROID_ORG_LICENSE'""",
+            (config["code"], version),
+        ).fetchone()
+        if row is None:
+            raise PricingError("license_offer_missing_from_catalog")
+        connection.execute(
+            """INSERT INTO psique_stripe_price_mappings
+               (offer_id,pricing_table_id,stripe_account_id,livemode,stripe_product_id,
+                stripe_price_id,verified_at,verified_by,lookup_key,active)
+               VALUES(%s,%s,%s,false,%s,%s,now(),%s,%s,true)
+               ON CONFLICT(offer_id,stripe_account_id,livemode) DO NOTHING""",
+            (row[0], row[1], account_id, product["id"], price["id"], actor, lookup_key),
+        )
+        mapping = connection.execute(
+            """SELECT id,stripe_product_id,stripe_price_id,lookup_key
+               FROM psique_stripe_price_mappings
+               WHERE offer_id=%s AND stripe_account_id=%s AND livemode=false""",
+            (row[0], account_id),
+        ).fetchone()
+        if mapping is None or mapping[1:] != (product["id"], price["id"], lookup_key):
+            raise PricingError("existing_mapping_is_immutable")
+    return str(mapping[0])

@@ -83,31 +83,37 @@ Gate: autorizar Fase 2C.
 
 ## Fase 2C — Licença organizacional Stripe TEST
 
-- [ ] fórmula backend validada
-- [ ] 1/2=499
-- [ ] 5=856
-- [ ] 10=1.351
-- [ ] 20=2.241
-- [ ] 25=2.686
-- [ ] 30=3.081
-- [ ] 50=4.661
-- [ ] 100=8.111
-- [ ] 200=14.011
-- [ ] 201+ Enterprise
-- [ ] tiered pricing reproduz backend ou alternativa documentada
-- [ ] `active_clinical_seat_count`
-- [ ] `billed_clinical_seat_count`
-- [ ] `next_cycle_clinical_seat_count`
-- [ ] clínico ACTIVE imediatamente
-- [ ] prorrata acumulada para próximo vencimento
-- [ ] sem `always_invoice`
-- [ ] redução operacional imediata
-- [ ] redução financeira no ciclo seguinte
-- [ ] 10→8→9 sem nova cobrança
-- [ ] 10→8→11 cobra apenas 11º
-- [ ] billing separado de clinical status
-- [ ] não clínicos gratuitos/ilimitados
-- [ ] sem LIVE
+Status: IMPLEMENTADA E VALIDADA LOCALMENTE em 29/09/2026, com homologação real dos tiers no Sandbox `acct_1UL3JIAg9NSIrvBV`. [Relatório da Fase 2C](psique-v2-fase2c-relatorio.md).
+
+- [x] fórmula backend validada — todos os pontos do checklist e a série completa 1..200 contra os tiers
+- [x] 1/2=499
+- [x] 5=856
+- [x] 10=1.351
+- [x] 20=2.241
+- [x] 25=2.686
+- [x] 30=3.081
+- [x] 50=4.661
+- [x] 100=8.111
+- [x] 200=14.011
+- [x] 201+ Enterprise — sem preço/self-service; preview recusa antes de qualquer chamada Stripe
+- [x] tiered pricing reproduz backend — 16 previews REAIS no Sandbox, 16/16 exatos ao centavo
+- [x] `active_clinical_seat_count`
+- [x] `billed_clinical_seat_count`
+- [x] `next_cycle_clinical_seat_count`
+- [x] clínico ACTIVE imediatamente
+- [x] prorrata acumulada para próximo vencimento — fatura real seguinte 73700 = 61800 + 11900 do assento novo, sem fatura imediata
+- [x] sem `always_invoice` — somente `create_prorations`, exigido como evidência pelo próprio banco
+- [x] redução operacional imediata
+- [x] redução financeira no ciclo seguinte
+- [x] 10→8→9 sem nova cobrança — zero chamadas Stripe no caminho
+- [x] 10→8→11 cobra apenas 11º — uma única atualização de quantidade
+- [x] billing separado de clinical status — PAST_DUE não desativa clínico
+- [x] não clínicos gratuitos/ilimitados
+- [x] sem LIVE
+
+- [ ] Homologação manual: eventos reais de assinatura/fatura via `stripe listen` (junto com a rodada de cartões da 2B)
+- [ ] Fonte real do e-mail de faturamento na fase de ativação (criação de assinatura falha fechada sem resolvedor)
+- [ ] Revisão e aprovação desta entrega pelo proprietário
 
 Gate: autorizar RBAC V2.
 

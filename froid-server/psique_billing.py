@@ -29,6 +29,7 @@ PHASE2B_SCHEMA = {
     "037_psique_trial_credit_state", "038_psique_credit_commands",
     "039_psique_stripe_test_checkout",
 }
+PHASE2C_SCHEMA = PHASE2B_SCHEMA | {"040_psique_org_license_test"}
 
 # Mirrors the CHECK constraints of migration 039; test_enum_drift compares.
 PURCHASE_STATUSES = (
@@ -128,6 +129,48 @@ class StripeTestClient:
             "GET", f"/v1/checkout/sessions/{urllib.parse.quote(session_id)}?{query}",
         )
 
+    # -- Organizational license (Phase 2C, TEST homologation) ---------------
+    def create_customer(self, *, description: str, email: str) -> dict[str, Any]:
+        # send_invoice collection requires a deliverable billing e-mail.
+        return self._request("POST", "/v1/customers",
+                             [("description", description), ("email", email)])
+
+    def create_license_subscription(self, *, customer_id: str, price_id: str,
+                                    quantity: int) -> dict[str, Any]:
+        # TEST homologation collects by invoice so no synthetic card is needed;
+        # a LIVE collection decision belongs to a later authorized phase.
+        return self._request("POST", "/v1/subscriptions", [
+            ("customer", customer_id),
+            ("items[0][price]", price_id),
+            ("items[0][quantity]", str(quantity)),
+            ("collection_method", "send_invoice"),
+            ("days_until_due", "30"),
+        ])
+
+    def update_subscription_quantity(self, *, subscription_item_id: str,
+                                     quantity: int) -> dict[str, Any]:
+        # Accrues the proration to the next invoice; never always_invoice.
+        return self._request("POST", f"/v1/subscription_items/{subscription_item_id}", [
+            ("quantity", str(quantity)),
+            ("proration_behavior", "create_prorations"),
+        ])
+
+    def set_cancel_at_period_end(self, *, subscription_id: str, cancel: bool) -> dict[str, Any]:
+        return self._request("POST", f"/v1/subscriptions/{subscription_id}", [
+            ("cancel_at_period_end", "true" if cancel else "false"),
+        ])
+
+    def get_subscription(self, subscription_id: str) -> dict[str, Any]:
+        return self._request("GET", f"/v1/subscriptions/{urllib.parse.quote(subscription_id)}")
+
+    def preview_license_invoice(self, *, customer_id: str, price_id: str,
+                                quantity: int) -> dict[str, Any]:
+        return self._request("POST", "/v1/invoices/create_preview", [
+            ("customer", customer_id),
+            ("subscription_details[items][0][price]", price_id),
+            ("subscription_details[items][0][quantity]", str(quantity)),
+        ])
+
 
 def flatten_session(session: dict[str, Any]) -> dict[str, Any]:
     """Project the fields the SQL validator checks; absent keys stay absent."""
@@ -160,12 +203,13 @@ class PsiqueBilling:
         self._success_url = success_url
         self._cancel_url = cancel_url
 
-    def _call(self, sql: str, params: tuple, context: AccessContext | None = None) -> dict[str, Any]:
+    def _call(self, sql: str, params: tuple, context: AccessContext | None = None,
+              schema: set[str] | None = None) -> dict[str, Any]:
         import psycopg
 
         try:
             with self._connect() as conn, conn.transaction():
-                verify_schema(conn, PHASE2B_SCHEMA)
+                verify_schema(conn, schema or PHASE2B_SCHEMA)
                 if context is not None:
                     conn.execute("SELECT set_config('app.organization_id',%s,true)",
                                  (context.organization_id,))
@@ -260,6 +304,12 @@ class PsiqueBilling:
             outcome = self._outcome(event_id, "FAILED", "ASYNC_PAYMENT_FAILED")
         elif event_type in REVIEW_EVENTS:
             outcome = self._outcome(event_id, "REVIEW", event_type)
+        elif event_type.startswith("customer.subscription."):
+            outcome = self._license_sync(event_id, target)
+        elif event_type.startswith("invoice."):
+            # License state follows the subscription object; invoices are
+            # auditable and never move credits or clinical status.
+            outcome = self._outcome(event_id, "RESOLVED", "LICENSE_INVOICE_AUDIT_ONLY")
         elif event_type == "payment_intent.succeeded":
             # Audited, never grants: the grant belongs to the paid Checkout.
             outcome = self._outcome(event_id, "RESOLVED", "AUDIT_ONLY_PAYMENT_INTENT")
@@ -291,3 +341,22 @@ class PsiqueBilling:
     def _outcome(self, event_id: str, outcome: str, note: str) -> dict[str, Any]:
         return self._call("SELECT psique_v2_purchase_outcome(%s,%s,%s)",
                           (event_id, outcome, _sanitize(note)))
+
+    def _license_sync(self, event_id: str, subscription: dict[str, Any]) -> dict[str, Any]:
+        from datetime import datetime, timezone
+
+        period_end = subscription.get("current_period_end")
+        items = (subscription.get("items") or {}).get("data") or []
+        synced = self._call(
+            "SELECT psique_v2_license_sync(%s::jsonb)",
+            (json.dumps({
+                "subscription_id": subscription.get("id"),
+                "stripe_status": subscription.get("status"),
+                "cancel_at_period_end": subscription.get("cancel_at_period_end"),
+                "current_period_end": datetime.fromtimestamp(
+                    period_end, tz=timezone.utc).isoformat() if isinstance(period_end, int) else None,
+                "quantity": items[0].get("quantity") if items else None,
+            }, allow_nan=False),), schema=PHASE2C_SCHEMA)
+        note = "LICENSE_SYNC_" + ("OK" if synced.get("synced") else str(synced.get("code")))
+        closure = self._outcome(event_id, "RESOLVED", note)
+        return {**closure, "license_sync": synced}
