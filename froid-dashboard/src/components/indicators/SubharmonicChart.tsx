@@ -17,7 +17,11 @@ type SubharmonicMetric = {
   value: number;
   color: string;
   source: "acústico" | "proxy";
-  tooltip: string;
+  // Duas linhas separadas de proposito: `indica` diz o que o marcador
+  // mostra, `uso` diz o que o profissional faz com isso. Misturadas num
+  // paragrafo so, a leitura vira conclusao sobre a pessoa.
+  indica: string;
+  uso: string;
 };
 
 const DNA_COLORS: Record<string, string> = {
@@ -139,66 +143,73 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta, locale = "
     const items: Omit<SubharmonicMetric, "color">[] = [
       {
         id: "nuclear_infrasound",
-        label: "Infrassom nuclear: energia medida na faixa de 5 a 12 Hz da envoltoria vocal. Valores altos indicam elevacao dessa banda contra a referencia do paciente. Nao mede atividade do sistema nervoso autonomo nem conteudo nao verbalizado.",
-        band: "5-12 Hz | Tremor SNA profundo",
+        label: "Modulação Lenta da Voz",
+        band: "5–12 Hz · Comparado à linha de base individual",
         value: tremor5_12,
         source: acoustic5_12 !== null ? "acústico" : "proxy",
-        tooltip:
-          "Infrassom Nuclear: leitura da faixa 5–12 Hz, associada a tremor profundo do Sistema Nervoso Autônomo e à ativação inconsciente. Valores altos sinalizam mobilização autonômica ainda não verbalizada.",
+        indica: "Oscilação lenta na sustentação vocal.",
+        uso:
+          "A literatura aponta correlação com mobilização autonômica, mas a medida indica o desvio espectral frente à calibração inicial, cabendo ao clínico validar no contexto.",
       },
       {
         id: "limbic_12_20",
-        label: "Modulação límbica",
-        band: "12-20 Hz | Reatividade afetiva",
+        label: "Modulação Média da Voz",
+        band: "12–20 Hz · Transição de envoltória e afeto",
         value: upper12_20,
         source: acoustic12_20 !== null ? "acústico" : "proxy",
-        tooltip:
-          "Modulação Límbica: faixa 12–20 Hz, usada para estimar a reatividade afetiva e a variação autônoma ligada a estados emocionais. Acompanha a intensidade da resposta emocional em curso.",
+        indica: "Variação intermediária na emissão sonora.",
+        uso:
+          "Auxilia a perceber ressonâncias de reatividade emocional que escapam ao ritmo habitual de fala.",
       },
       {
         id: "vocal_85_165",
-        label: "Tensão vocal basal",
-        band: "85–165 Hz | Rigidez laríngea",
+        label: "Sustentação da Faixa Grave",
+        band: "85–165 Hz · Esforço e tônus laríngeo basal",
         value: tension85_165,
         source: acoustic85_165 !== null ? "acústico" : "proxy",
-        tooltip:
-          "Tensão Vocal Basal: faixa 85–165 Hz, relacionada a rigidez laríngea, hipercontrole vocal e esforço de sustentação. Sobe quando o paciente contém ou controla excessivamente a fala.",
+        indica: "Concentração de energia nos graves da fonação.",
+        uso:
+          "Sinaliza sobrecarga mecânica ou esforço fonatório associado a retenção de tensão somática.",
       },
       {
         id: "flooding",
-        label: "Flooding autonômico",
-        band: "5–12 + 85–165 Hz | Colisão autônoma",
+        label: "Convergência de Canais (Flooding)",
+        band: "5–12 Hz com 85–165 Hz · Elevação síncrona de faixas",
         value: flooding,
         source: hasAcoustic ? "acústico" : "proxy",
-        tooltip:
-          "Elevacao multimodal simultanea: coincidencia entre a energia de 5 a 12 Hz e a tensao vocal basal na mesma janela. Mede co-ocorrencia entre canais, nao estado interno, e nao indica conduta.",
+        indica: "Ativação simultânea de bandas graves e lentas.",
+        uso:
+          "Alerta preventivo importante para o terapeuta ponderar o ritmo da sessão e evitar sobrecarga ou retraumatização.",
       },
       {
         id: "shutdown",
-        label: "Shutdown dissociativo",
-        band: "Queda energética | Coerência reduzida",
+        label: "Queda Simultânea de Canais",
+        band: "Energia e coerência · Retração de sinal",
         value: shutdown,
         source: hasAcoustic ? "acústico" : "proxy",
-        tooltip:
-          "Queda multimodal sustentada: reducao simultanea de energia expressiva e de coerencia entre canais, contra a linha de base do paciente. E o inverso do padrao de elevacao simultanea.",
+        indica: "Redução síncrona de energia expressiva.",
+        uso:
+          "Pode sinalizar restrição psicomotora, esgotamento ou mecanismos de distanciamento/congelamento defensivo.",
       },
       {
         id: "neurogenic",
-        label: "Ressonância neurogênica",
-        band: "20–40 Hz | Descarga vegetativa",
+        label: "Modulação Rápida da Voz",
+        band: "20–40 Hz · Carga sobre a musculatura fina",
         value: neurogenic,
         source: acoustic20_40 !== null ? "acústico" : "proxy",
-        tooltip:
-          "Ressonância Neurogênica: faixa 20–40 Hz, associada a descarga vegetativa, regulação autônoma e reorganização neurofisiológica. Tende a acompanhar momentos de reprocessamento e alívio.",
+        indica: "Oscilação rápida na microfonação.",
+        uso:
+          "Relacionada a microtensão na musculatura laríngea fina, servindo de apoio para notar picos de alerta invisíveis a olho nu.",
       },
       {
         id: "somatoaffective",
-        label: "Dissonância somatoafetiva",
-        band: "Calma verbal x tensão sub-harmônica",
+        label: "Divergência Somatoafetiva",
+        band: "Fala calma com sub-harmônico tenso",
         value: somatoaffective,
         source: "proxy",
-        tooltip:
-          "Divergencia entre canais: contraste entre a calma medida na fala e a tensao medida na faixa sub-harmonica, na mesma janela. Mede divergencia entre canais, nao conteudo reprimido.",
+        indica: "Quebra de simetria entre o conteúdo verbal e a assinatura acústica.",
+        uso:
+          "Aponta para o profissional que o paciente relata tranquilidade verbal enquanto o corpo mantém padrões de tensão.",
       },
     ];
 
@@ -294,7 +305,15 @@ export const SubharmonicChart: React.FC<Props> = ({ zones, audioMeta, locale = "
                       {metric.label} ({metric.band})
                     </p>
                     <p className="mt-1 text-[10px] leading-relaxed">
-                      {tooltipText(locale, metric.tooltip)}
+                      <span className="font-bold text-slate-100">O que indica: </span>
+                      {tooltipText(locale, metric.indica)}
+                    </p>
+                    <p className="mt-1 text-[10px] leading-relaxed">
+                      <span className="font-bold text-slate-100">Uso clínico: </span>
+                      {tooltipText(locale, metric.uso)}
+                    </p>
+                    <p className="mt-1 text-[9px] leading-relaxed text-slate-400">
+                      Procedência: {metric.source}. Leitura clínica é do profissional.
                     </p>
                   </div>
                 }

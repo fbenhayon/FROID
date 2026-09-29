@@ -91,8 +91,11 @@ class SessionState:
     # (espectro gerado). Comparar janelas de ramos diferentes produz uma
     # derivada sem significado — ver o bloco que zera a referencia na troca.
     previous_mfcc_source: str = ""
-    previous_delta_mfcc7: float = 0.0
-    previous_delta_mfcc9: float = 0.0
+    # None = ainda nao ha derivada anterior COMPARAVEL (inicio de sessao,
+    # buraco de sinal ou troca de ramo). Nasciam 0.0, e esse 0.0 virava
+    # medida publicada de segunda derivada. Ver o bloco das derivadas.
+    previous_delta_mfcc7: Optional[float] = None
+    previous_delta_mfcc9: Optional[float] = None
     # F0 real, medida da forma de onda PCM enviada pelo navegador (froid_f0/YIN).
     # 0.0 = ainda sem medida vozeada. Atualizada pelo endpoint acústico e
     # incluída no payload de cada tick.
@@ -664,8 +667,8 @@ class SessionState:
             self.dissonance_history = []
             self.previous_mfcc7 = None
             self.previous_mfcc9 = None
-            self.previous_delta_mfcc7 = 0.0
-            self.previous_delta_mfcc9 = 0.0
+            self.previous_delta_mfcc7 = None
+            self.previous_delta_mfcc9 = None
             self.previous_mfcc_source = ""
             self.last_alert_signature = ""
             if tem_espectro:
@@ -1000,28 +1003,61 @@ class SessionState:
         else:
             mfcc7 = round(float(np.clip(np.mean(voice_spectral_12[4:8]) - baseline_mean * 0.12, 0.0, 25.0)), 3)
             mfcc9 = round(float(np.clip(np.mean(voice_spectral_12[6:10]) - baseline_mean * 0.08, 0.0, 25.0)), 3)
-        mfcc7_delta = round(float(mfcc7 - (self.previous_mfcc7 if self.previous_mfcc7 is not None else mfcc7)), 4)
-        mfcc9_delta = round(float(mfcc9 - (self.previous_mfcc9 if self.previous_mfcc9 is not None else mfcc9)), 4)
-        mfcc7_delta_delta = round(float(mfcc7_delta - self.previous_delta_mfcc7), 4)
-        mfcc9_delta_delta = round(float(mfcc9_delta - self.previous_delta_mfcc9), 4)
-        # As derivadas comparam a janela atual com a anterior — e so fazem
-        # sentido se as duas vierem da MESMA fonte. Antes, `previous_*` era
-        # atualizado sempre, entao o primeiro tick com voz real subtraia MFCC
-        # medido de um proxy espectral GERADO: duas grandezas que nao se
-        # comparam, e o pico resultante alimentava o alerta de contracao
-        # espastica. Trocar de ramo agora zera a referencia em vez de produzir
-        # uma diferenca falsa.
+        # A REFERENCIA DA DERIVADA MORRE NA TROCA DE RAMO, E ISSO PRECISA
+        # ACONTECER ANTES DE CALCULAR A DERIVADA.
+        #
+        # Derivada compara a janela atual com a anterior, e so faz sentido se as
+        # duas vierem da MESMA fonte: MFCC medido do PCM nao se compara com
+        # proxy espectral derivado do envelope. O pico falso dessa subtracao
+        # alimentava o alerta de contracao espastica.
+        #
+        # A guarda existia e NAO FUNCIONAVA: rodava depois do calculo, e as
+        # quatro atribuicoes que ela fazia eram sobrescritas duas linhas abaixo
+        # pelo armazenamento do tick. Codigo morto descrevendo uma protecao que
+        # nao acontecia — achado em 22/09/2026. Agora roda antes, e o tick da
+        # troca sai declarando ausencia em vez de publicar a diferenca falsa.
         _ramo = "real" if (real and "mfcc7" in real) else "proxy"
         if _ramo != self.previous_mfcc_source:
             self.previous_mfcc7 = None
             self.previous_mfcc9 = None
-            # Nomes reais dos campos: `previous_delta_*`, e o padrao deles e
-            # 0.0, nao None. Zerar assim faz a primeira delta-delta apos a
-            # troca de ramo valer a propria delta, em vez de uma diferenca
-            # contra a derivada de outra fonte.
-            self.previous_delta_mfcc7 = 0.0
-            self.previous_delta_mfcc9 = 0.0
+            self.previous_delta_mfcc7 = None
+            self.previous_delta_mfcc9 = None
         self.previous_mfcc_source = _ramo
+        # DERIVADA SEM JANELA ANTERIOR NAO EXISTE — E NAO E ZERO.
+        #
+        # Ate 22/09/2026 a falta de referencia era resolvida subtraindo o valor
+        # DELE MESMO: `mfcc7 - (previous if previous is not None else mfcc7)`,
+        # que da exatamente 0.0. E o `previous_delta_*` nascia 0.0, entao a
+        # segunda derivada saia 0.0 pelo mesmo caminho.
+        #
+        # Isso publicava "a voz nao variou" onde o correto era "nao houve como
+        # medir variacao" — indistinguiveis na tela, e um deles e falso. Regra
+        # 1.1 da casa: onde nao ha apuracao, declare a ausencia.
+        #
+        # O defeito ficava permanente quando a voz vozeada chega em segundos
+        # isolados: o ramo alterna real/proxy a cada tique, o bloco abaixo zera
+        # a referencia em toda troca, e entao TODO tique e um primeiro tique.
+        # Foi o que o Fabio viu em 22/09 — DMFCC7, DMFCC9, DDMFCC7 e DDMFCC9
+        # cravados em 0.0000 na tela inteira.
+        #
+        # O payload de ausencia ja usava None nestes quatro campos, e o painel
+        # ja sabe ler None. A unica peca que faltava era esta.
+        mfcc7_delta = (
+            None if self.previous_mfcc7 is None
+            else round(float(mfcc7 - self.previous_mfcc7), 4)
+        )
+        mfcc9_delta = (
+            None if self.previous_mfcc9 is None
+            else round(float(mfcc9 - self.previous_mfcc9), 4)
+        )
+        mfcc7_delta_delta = (
+            None if mfcc7_delta is None or self.previous_delta_mfcc7 is None
+            else round(float(mfcc7_delta - self.previous_delta_mfcc7), 4)
+        )
+        mfcc9_delta_delta = (
+            None if mfcc9_delta is None or self.previous_delta_mfcc9 is None
+            else round(float(mfcc9_delta - self.previous_delta_mfcc9), 4)
+        )
         self.previous_mfcc7 = mfcc7
         self.previous_mfcc9 = mfcc9
         self.previous_delta_mfcc7 = mfcc7_delta
@@ -1031,7 +1067,13 @@ class SessionState:
         # vocais por ativação do sistema nervoso simpático.
         # Uma fonte so: ver LIMIAR_ESPASTICO_MFCC9 em froid_dissonance.
         mfcc9_spastic_threshold = froid_dissonance.LIMIAR_ESPASTICO_MFCC9
-        mfcc9_spastic_alert = bool(abs(mfcc9_delta_delta) > mfcc9_spastic_threshold)
+        # Sem aceleracao apurada nao ha alerta a afirmar NEM a negar. `False`
+        # diria "conferi e nao ha contracao espastica", que e outra afirmacao —
+        # e falsa. O payload de ausencia ja publica None neste campo.
+        mfcc9_spastic_alert = (
+            None if mfcc9_delta_delta is None
+            else bool(abs(mfcc9_delta_delta) > mfcc9_spastic_threshold)
+        )
         # SUB-HARMONICOS MEDIDOS, nao mais derivados por formula propria.
         #
         # `froid_voice.extract_voice_features` sempre calculou estas tres bandas

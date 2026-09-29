@@ -21,6 +21,12 @@ type RiskItem = {
   pct: number;
   sharePct: number;
   color: string;
+  // Tres blocos, e a separacao e proposital. `mede` diz a grandeza apurada,
+  // `uso` diz o que o profissional faz com ela, e `tooltip` guarda a nota
+  // tecnica com a ressalva de que a associacao da literatura e de grupo. Num
+  // paragrafo unico a ressalva some no meio e a leitura vira conclusao.
+  mede: string;
+  uso: string;
   tooltip: string;
   source: string;
 };
@@ -233,8 +239,11 @@ export const RiskChart: React.FC<Props> = ({
     const definitions = [
       {
         id: "depression",
-        label: "Lentificação psicomotora vocal",
-        scale: "MFCC7 + ZCR + pausas + F0",
+        label: "Lentificação Articulatória e Prosódica",
+        scale: "MFCC7 + ZCR + pausas + F0 · ritmo reduzido",
+        mede: "Queda na taxa de cruzamento por zero e prolongamento do tempo de pausas, com MFCC7 e variação de F0 no mesmo composto.",
+        uso:
+          "Aponta para o profissional se o fluxo de fala apresenta lentificação ou fadiga neuromuscular.",
         pct: Math.max(depressionProxy, depressionSpectral ?? 0) + (maskedDepression ? 8 : 0),
         tooltip:
           depressionSpectral !== null
@@ -244,8 +253,11 @@ export const RiskChart: React.FC<Props> = ({
       },
       {
         id: "anxiety",
-        label: "Tensão laríngea sustentada",
-        scale: "MFCC9 em fala neutra",
+        label: "Sustentação com Tensão Laríngea",
+        scale: "MFCC9 em fala neutra · carga basal",
+        mede: "Concentração contínua do coeficiente MFCC9 em fala neutra, contra a referência do próprio paciente.",
+        uso:
+          "Sinaliza esforço fonatório mantido ou sobrecarga mecânica na emissão neutra.",
         pct: Math.max(anxietyProxy, anxietySpectral ?? 0) + (maskedDepression ? 8 : 0),
         tooltip:
           anxietySpectral !== null
@@ -255,16 +267,22 @@ export const RiskChart: React.FC<Props> = ({
       },
       {
         id: "mania",
-        label: "Ativação prosódica",
-        scale: "F0 + loudness + taxa",
+        label: "Aceleração Prosódica",
+        scale: "F0 + loudness + taxa acelerados",
+        mede: "Picos de frequência fundamental, volume e taxa de elocução por segundo.",
+        uso:
+          "Auxilia a perceber aumentos repentinos na velocidade e na energia da fonação.",
         pct: ipmLoad * 1.2 + zonePressure(arr, [2, 7]) * 0.55 + peakLoad * 0.35,
         tooltip: TOOLTIP_TEXT.mania,
         source: "proxy",
       },
       {
         id: "stress",
-        label: "Esforço vocal sustentado",
-        scale: "F0 + ZCR + jitter/shimmer",
+        label: "Carga Articulatória Contínua",
+        scale: "F0 + ZCR + jitter/shimmer · sem alívio",
+        mede: "Estabilidade ou rigidez prolongada nos parâmetros dinâmicos do trato vocal.",
+        uso:
+          "Indica persistência de esforço físico na fala que não apresenta relaxamento cíclico.",
         pct: stressProxy + (maskedDepression ? 10 : 0),
         tooltip:
           maskedDepression && hasSpectralBiopsy
@@ -274,8 +292,11 @@ export const RiskChart: React.FC<Props> = ({
       },
       {
         id: "autonomic",
-        label: "Assinatura sub-harmônica",
-        scale: "5-12 Hz + AU15/AU20",
+        label: "Modulação de Infrassom e Retração",
+        scale: "5–12 Hz + AU15/AU20 · contenção facial",
+        mede: "Co-ocorrência entre energia sub-harmônica lenta na voz e traços de expressão contida.",
+        uso:
+          "Apóia a percepção de estados de alta ativação interna combinados com contenção corporal.",
         pct:
           Math.max(traumaRaw, dissociationRaw) +
           Math.min(traumaRaw, dissociationRaw) * 0.25,
@@ -373,6 +394,14 @@ export const RiskChart: React.FC<Props> = ({
                       {index + 1}. {risk.label} ({risk.scale})
                     </p>
                     <p className="mt-1 text-[10px] leading-relaxed">
+                      <span className="font-bold text-slate-100">O que mede: </span>
+                      {tooltipText(locale, risk.mede)}
+                    </p>
+                    <p className="mt-1 text-[10px] leading-relaxed">
+                      <span className="font-bold text-slate-100">Uso clínico: </span>
+                      {tooltipText(locale, risk.uso)}
+                    </p>
+                    <p className="mt-1 border-t border-slate-700 pt-1 text-[9px] leading-relaxed text-slate-400">
                       {tooltipText(locale, risk.tooltip)}
                     </p>
                   </div>
