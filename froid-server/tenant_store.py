@@ -17,6 +17,8 @@ import threading
 from typing import Any, Dict, Iterable, Optional, Sequence
 import uuid
 
+from froid_schema import runtime_migration_paths, verify_schema
+
 
 NAMESPACE = uuid.UUID("c173f252-e04f-4ca4-a337-39767764c79c")
 VALID_MODES = {"legacy", "dual"}
@@ -237,6 +239,8 @@ class TenantStore:
 
     @classmethod
     def from_env(cls) -> "TenantStore":
+        if os.getenv("FROID_AUTO_APPLY_MIGRATIONS", "false").strip().lower() != "false":
+            raise ValueError("FROID_AUTO_APPLY_MIGRATIONS must be false; use tools/migrate_schema.py")
         return cls(
             mode=os.getenv("FROID_PERSISTENCE_MODE", "legacy"),
             database_url=os.getenv("FROID_DATABASE_URL", "").strip(),
@@ -273,7 +277,7 @@ class TenantStore:
             return {"ready": True, "mode": self.mode, "checks": checks}
 
         expected_migrations = {
-            path.stem for path in self.migration_path.parent.glob("*.sql")
+            path.stem for path in runtime_migration_paths(self.migration_path.parent)
         }
         try:
             with self._connect() as owner_connection:
@@ -386,37 +390,22 @@ class TenantStore:
         return psycopg.connect(database_url, connect_timeout=10)
 
     def ensure_schema(self, connection=None) -> None:
+        """Verify schema only; application reads never execute migrations.
+
+        Psique V2.1 removes automatic DDL from reads/startup. Optional V2 tables
+        have their own verification, so inactive V2 does not disable V1/NR-1.
+        """
         if self._schema_ready:
             return
         with self._schema_lock:
             if self._schema_ready:
                 return
-            migration_paths = sorted(self.migration_path.parent.glob("*.sql"))
-            if self.migration_path not in migration_paths:
-                migration_paths.insert(0, self.migration_path)
-
-            def apply_migrations(conn) -> None:
-                # Serializes schema startup across workers on the same database.
-                lock_id = 7_346_643_004
-                conn.execute("SELECT pg_advisory_lock(%s)", (lock_id,))
-                try:
-                    for migration_path in migration_paths:
-                        if _migration_is_applied(conn, migration_path.stem):
-                            continue
-                        conn.execute(migration_path.read_text(encoding="utf-8"))
-                except Exception:
-                    conn.rollback()
-                    conn.execute("SELECT pg_advisory_unlock(%s)", (lock_id,))
-                    conn.commit()
-                    raise
-                conn.execute("SELECT pg_advisory_unlock(%s)", (lock_id,))
-                conn.commit()
-
+            required = [p.stem for p in runtime_migration_paths(self.migration_path.parent)]
             if connection is None:
                 with self._connect() as conn:
-                    apply_migrations(conn)
+                    verify_schema(conn, required)
             else:
-                apply_migrations(connection)
+                verify_schema(connection, required)
             self._schema_ready = True
 
     def organization_type(self, organization_id) -> str:

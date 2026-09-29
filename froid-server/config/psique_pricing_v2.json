@@ -1,0 +1,28 @@
+{
+  "code": "FROID_PSIQUE_V2",
+  "version": "2.1",
+  "currency": "brl",
+  "offers": [
+    {"product_code": "FROID_PRO_10", "name": "PRO 10", "credits": 10, "total_cents": 19900, "billing_type": "one_time", "active": true, "public": false},
+    {"product_code": "FROID_PRO_25", "name": "PRO 25", "credits": 25, "total_cents": 46900, "billing_type": "one_time", "active": true, "public": false},
+    {"product_code": "FROID_PRO_50", "name": "PRO 50", "credits": 50, "total_cents": 91500, "billing_type": "one_time", "active": true, "public": false},
+    {"product_code": "FROID_PRO_100", "name": "PRO 100", "credits": 100, "total_cents": 169000, "billing_type": "one_time", "active": true, "public": false},
+    {"product_code": "FROID_PRO_200", "name": "PRO 200", "credits": 200, "total_cents": 318000, "billing_type": "one_time", "active": true, "public": false},
+    {"product_code": "FROID_PRO_500", "name": "PRO 500", "credits": 500, "total_cents": 745000, "billing_type": "one_time", "active": true, "public": false},
+    {"product_code": "FROID_ORG_LICENSE", "name": "Licença Organizacional", "credits": null, "total_cents": null, "billing_type": "monthly_graduated", "active": false, "public": false},
+    {"product_code": "FROID_FLEX", "name": "FLEX", "credits": null, "total_cents": 2190, "billing_type": "usage", "active": false, "public": false}
+  ],
+  "organization_license": {
+    "base_cents": 49900,
+    "included_clinicians": 2,
+    "self_service_max": 200,
+    "tiers": [
+      {"from": 3, "through": 5, "unit_cents": 11900},
+      {"from": 6, "through": 10, "unit_cents": 9900},
+      {"from": 11, "through": 25, "unit_cents": 8900},
+      {"from": 26, "through": 50, "unit_cents": 7900},
+      {"from": 51, "through": 100, "unit_cents": 6900},
+      {"from": 101, "through": 200, "unit_cents": 5900}
+    ]
+  }
+}
