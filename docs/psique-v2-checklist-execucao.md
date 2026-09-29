@@ -60,19 +60,24 @@ Gate: Fase 2B não iniciada. A seção 24 do prompt 2A manda parar e aguardar no
 
 ## Fase 2B — Stripe TEST para pacotes PRO
 
-- [ ] webhook V2 TEST separado
-- [ ] Products/Prices TEST para PRO10/25/50/100/200/500
-- [ ] Checkout recebe somente `product_code`
-- [ ] backend resolve amount/credits/Price ID
-- [ ] `checkout.session.completed` paid concede uma vez
-- [ ] async success se aplicável
-- [ ] PaymentIntent não duplica concessão
-- [ ] idempotência event + Checkout/Purchase
-- [ ] créditos exatos por SKU
-- [ ] pagamento recusado não concede
-- [ ] redirect browser não concede
-- [ ] dispute/refund externo apenas revisão
-- [ ] sem LIVE
+Status: IMPLEMENTADA E VALIDADA LOCALMENTE em 29/09/2026, contra o Sandbox real `acct_1UL3JIAg9NSIrvBV`; homologação manual com cartões de teste pendente. [Relatório da Fase 2B](psique-v2-fase2b-relatorio.md).
+
+- [x] webhook V2 TEST separado — rota própria, assinatura sobre corpo bruto, inbox durável; Event Destination fixo não criado (teste local usará Stripe CLI)
+- [x] Products/Prices TEST para PRO10/25/50/100/200/500 — verificados no Sandbox real; metadata completada (única escrita, somente TEST)
+- [x] Checkout recebe somente `product_code`
+- [x] backend resolve amount/credits/Price ID
+- [x] `checkout.session.completed` paid concede uma vez
+- [x] async success se aplicável
+- [x] PaymentIntent não duplica concessão
+- [x] idempotência event + Checkout/Purchase
+- [x] créditos exatos por SKU — matriz com eventos sintéticos assinados; cartões reais na página hospedada pendentes
+- [x] pagamento recusado não concede
+- [x] redirect browser não concede
+- [x] dispute/refund externo apenas revisão
+- [x] sem LIVE
+
+- [ ] Homologação manual: cartões de teste na página hospedada + `stripe listen` (CLI não instalado nesta máquina)
+- [ ] Revisão e aprovação desta entrega pelo proprietário
 
 Gate: autorizar Fase 2C.
 

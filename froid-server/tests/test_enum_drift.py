@@ -13,20 +13,20 @@ pega exatamente esta classe de erro: a lista que existe em dois lugares e so foi
 atualizada num deles.
 """
 
-from pathlib import Path
 import re
 import sys
 import unittest
-
+from pathlib import Path
 
 SERVER_DIR = Path(__file__).resolve().parents[1]
 if str(SERVER_DIR) not in sys.path:
     sys.path.insert(0, str(SERVER_DIR))
 
-import nr1_compliance  # noqa: E402
-import psique_pricing  # noqa: E402
-import psique_identity  # noqa: E402
-import tenant_access  # noqa: E402
+import nr1_compliance
+import psique_billing
+import psique_identity
+import psique_pricing
+import tenant_access
 
 MIGRATIONS = SERVER_DIR / "migrations"
 
@@ -153,6 +153,13 @@ class PsiqueBillingTypeDriftTests(unittest.TestCase):
     def test_billing_types_match_the_server_validator(self):
         self.assertEqual(last_check_for("billing_type"), set(psique_pricing.BILLING_TYPES))
 
+    def test_phase2b_webhook_inbox_domain_matches(self):
+        # O status de psique_purchases é conferido em test_psique_phase2b.py,
+        # porque 'status' existe em várias tabelas e este scanner casa por
+        # nome de coluna, não por tabela.
+        self.assertEqual(last_check_for("processing_status"),
+                         set(psique_billing.EVENT_PROCESSING_STATUSES))
+
     def test_phase2a_identity_and_funding_domains_match(self):
         for column, values in (
             ("credit_model", psique_identity.CREDIT_MODELS),
@@ -175,6 +182,7 @@ class DriftGuardCoverageTests(unittest.TestCase):
             "role", "organization_type", "risk_level", "nr1_factor",
             "measure_efficacy", "measure_type", "polarity", "report_visibility",
             "plan_action", "billing_type", "credit_model", "funding", "source_kind", "eligibility_origin",
+            "processing_status",
         }
         todas = set(re.findall(r"CHECK\s*\(\s*([a-z_]+)\s+IN\s*\(", all_sql()))
         # Colunas de estado interno não têm par em Python e não sofrem drift.

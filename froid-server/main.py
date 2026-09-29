@@ -15834,3 +15834,55 @@ async def session_summary(request: Request):
         }
     except Exception:
         return fallback
+
+
+# --- Psique V2 Fase 2B: cobrança Stripe TEST, desligada por padrão. ---------
+# Ligar exige decisão explícita do operador via Compose; com a flag desligada,
+# nenhuma rota V2 de cobrança existe e o fluxo público permanece V1.
+FROID_PSIQUE_V2_BILLING_ENABLED = (
+    os.getenv("FROID_PSIQUE_V2_BILLING_ENABLED", "false").strip().lower() == "true"
+)
+
+if FROID_PSIQUE_V2_BILLING_ENABLED:
+    from psique_api import build_psique_v2_billing_router
+    from psique_billing import BillingError, PsiqueBilling, StripeTestClient
+    import psique_pricing as _psique_pricing
+
+    _psique_billing_instance: Optional["PsiqueBilling"] = None
+
+    def _psique_billing_provider() -> "PsiqueBilling":
+        global _psique_billing_instance
+        if _psique_billing_instance is None:
+            key = os.getenv("FROID_PSIQUE_STRIPE_TEST_SECRET_KEY", "").strip()
+            webhook_secret = os.getenv("FROID_PSIQUE_STRIPE_TEST_WEBHOOK_SECRET", "").strip()
+            runtime_dsn = os.getenv("FROID_RUNTIME_DATABASE_URL", "").strip()
+            if not key or not webhook_secret or not runtime_dsn:
+                # Falha fechada e nomeada: flag ligada sem credencial TEST,
+                # segredo de webhook ou DSN restrito não atende em silêncio.
+                raise BillingError("PSIQUE_V2_BILLING_CONFIG_REQUIRED")
+            client = StripeTestClient(key)
+            account_id = client.account()["id"]
+            catalog = _psique_pricing.load_config()
+            base = os.getenv("FROID_PUBLIC_URL", "http://localhost:5173").rstrip("/")
+            import psycopg as _psycopg
+
+            _psique_billing_instance = PsiqueBilling(
+                lambda: _psycopg.connect(runtime_dsn, autocommit=True, connect_timeout=10),
+                stripe_client=client,
+                webhook_secret=webhook_secret,
+                account_id=account_id,
+                pricing_version=catalog["version"],
+                success_url=base + "/app/#/psique/compra/confirmacao?session_id={CHECKOUT_SESSION_ID}",
+                cancel_url=base + "/app/#/psique/compra/cancelada",
+            )
+        return _psique_billing_instance
+
+    def _psique_v2_billing_context(request: Request):
+        context = _tenant_context_from_request(request)
+        if context is None:
+            raise HTTPException(status_code=401, detail="AUTHENTICATION_REQUIRED")
+        return context
+
+    app.include_router(
+        build_psique_v2_billing_router(_psique_billing_provider, _psique_v2_billing_context)
+    )

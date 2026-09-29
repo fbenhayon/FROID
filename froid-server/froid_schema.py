@@ -14,6 +14,7 @@ PSIQUE_V2_VERSIONS = frozenset({
     "036_psique_v2_purchases",
     "037_psique_trial_credit_state",
     "038_psique_credit_commands",
+    "039_psique_stripe_test_checkout",
 })
 
 

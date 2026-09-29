@@ -82,7 +82,7 @@ def read_catalog(connection: Any, *, version: str,
 
 def register_test_mapping(connection: Any, *, version: str, product_code: str,
                           account_id: str, product: dict[str, Any], price: dict[str, Any],
-                          actor: str) -> str:
+                          actor: str, lookup_key: str | None = None) -> str:
     """Validate already retrieved TEST objects; this function makes no Stripe calls.
 
     Caller is an explicit operator/test, not an HTTP/frontend input. A later
@@ -90,6 +90,13 @@ def register_test_mapping(connection: Any, *, version: str, product_code: str,
     No public permission or live mapping is supplied by this phase.
     """
     verify_schema(connection, {"035_psique_v2_pricing", "036_psique_v2_purchases"})
+    if lookup_key is not None:
+        # Phase 2B checkout resolves mappings by offer+account and audits the
+        # lookup_key; registering one requires the 039 columns and the exact
+        # key Stripe returned, never a locally invented value.
+        verify_schema(connection, {"039_psique_stripe_test_checkout"})
+        if price.get("lookup_key") != lookup_key:
+            raise PricingError("stripe_lookup_key_does_not_match")
     config = read_catalog(connection, version=version, include_draft=True)
     offer = offer_for(config, product_code)
     if not actor.strip() or not account_id.startswith("acct_"):
@@ -119,19 +126,36 @@ def register_test_mapping(connection: Any, *, version: str, product_code: str,
                WHERE parent.code=%s AND parent.version=%s AND offers.product_code=%s""",
             (config["code"], version, product_code),
         ).fetchone()
-        connection.execute(
-            """INSERT INTO psique_stripe_price_mappings
-               (offer_id,pricing_table_id,stripe_account_id,livemode,stripe_product_id,
-                stripe_price_id,verified_at,verified_by)
-               VALUES(%s,%s,%s,false,%s,%s,now(),%s)
-               ON CONFLICT(offer_id,stripe_account_id,livemode) DO NOTHING""",
-            (row[0], row[1], account_id, product["id"], price["id"], actor),
-        )
+        if lookup_key is None:
+            connection.execute(
+                """INSERT INTO psique_stripe_price_mappings
+                   (offer_id,pricing_table_id,stripe_account_id,livemode,stripe_product_id,
+                    stripe_price_id,verified_at,verified_by)
+                   VALUES(%s,%s,%s,false,%s,%s,now(),%s)
+                   ON CONFLICT(offer_id,stripe_account_id,livemode) DO NOTHING""",
+                (row[0], row[1], account_id, product["id"], price["id"], actor),
+            )
+        else:
+            connection.execute(
+                """INSERT INTO psique_stripe_price_mappings
+                   (offer_id,pricing_table_id,stripe_account_id,livemode,stripe_product_id,
+                    stripe_price_id,verified_at,verified_by,lookup_key,active)
+                   VALUES(%s,%s,%s,false,%s,%s,now(),%s,%s,true)
+                   ON CONFLICT(offer_id,stripe_account_id,livemode) DO NOTHING""",
+                (row[0], row[1], account_id, product["id"], price["id"], actor, lookup_key),
+            )
+        columns = "id,stripe_product_id,stripe_price_id"
+        if lookup_key is not None:
+            # The lookup_key column only exists from migration 039 on; the
+            # legacy Phase 1 call keeps working against a through-036 schema.
+            columns += ",lookup_key"
         mapping = connection.execute(
-            """SELECT id,stripe_product_id,stripe_price_id FROM psique_stripe_price_mappings
+            f"""SELECT {columns} FROM psique_stripe_price_mappings
                WHERE offer_id=%s AND stripe_account_id=%s AND livemode=false""",
             (row[0], account_id),
         ).fetchone()
-        if mapping is None or mapping[1:] != (product["id"], price["id"]):
+        if mapping is None or mapping[1:3] != (product["id"], price["id"]):
+            raise PricingError("existing_mapping_is_immutable")
+        if lookup_key is not None and mapping[3] != lookup_key:
             raise PricingError("existing_mapping_is_immutable")
     return str(mapping[0])
