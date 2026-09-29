@@ -5,10 +5,10 @@ metadata:
   node_type: memory
   type: project
   originSessionId: 6ec3bea4-fdce-409b-b3dd-be8966cb8ab3
-  modified: 2026-09-29T14:57:28.335Z
+  modified: 2026-09-29T15:19:07.916Z
 ---
 
-Em 29/09/2026, com autorização do Fábio, o Psique V2 entrou no `main` em três commits cirúrgicos: `3732d6c9` (auditoria de pré-implementação), `3d570799` (Fase 1: migrations explícitas + catálogo em rascunho) e `55462af6` (Fase 2A: trial, máquina de créditos, identidade de fonte). Ficaram fora, de propósito: a frente das derivadas ([[froid-derivadas-zeradas-decisao-adiada]]) e os registros de `docs/memoria/`. Push, produção e Stripe operacional seguem pendentes; a **Fase 2B (Stripe TEST) exige nova aprovação explícita** — a seção 24 do prompt 2A manda parar.
+Em 29/09/2026, com autorização do Fábio, o Psique V2 entrou no `main` em três commits cirúrgicos: `3732d6c9` (auditoria de pré-implementação), `3d570799` (Fase 1: migrations explícitas + catálogo em rascunho) e `55462af6` (Fase 2A: trial, máquina de créditos, identidade de fonte), seguidos de `c1405a6f` (registros de sessão). A frente das derivadas ([[froid-derivadas-zeradas-decisao-adiada]]) foi preservada **sem instalar** na branch `frente-derivadas-zeradas` (`8b29de78`) — instalar = merge deliberado + janela de rebuild. Tudo foi **enviado ao origin** no mesmo dia; a árvore ficou limpa. Pendências: o `git stash drop stash@{0}` ficou para o Fábio (backup provado idêntico a `e0694150`; o classificador bloqueou o descarte por mim); produção segue intocada; a **Fase 2B (Stripe TEST) exige nova aprovação explícita**. Em 29/09/2026 o Fábio estava configurando o Stripe pessoalmente e pediu que eu aguardasse o aviso dele antes de conferir — não mexer em Stripe até lá.
 
 **Why:** o gate por fase é contratual (checklist em `docs/psique-v2-checklist-execucao.md`), e avançar sem aprovação repetiria o padrão que o checklist existe para impedir. O NR-1 está explicitamente fora do escopo Psique por ordem do Fábio de 29/09/2026.
 
