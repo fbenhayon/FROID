@@ -24,6 +24,8 @@ if str(SERVER_DIR) not in sys.path:
     sys.path.insert(0, str(SERVER_DIR))
 
 import nr1_compliance  # noqa: E402
+import psique_pricing  # noqa: E402
+import psique_identity  # noqa: E402
 import tenant_access  # noqa: E402
 
 MIGRATIONS = SERVER_DIR / "migrations"
@@ -47,7 +49,7 @@ def last_check_for(column: str) -> set:
         for match in re.finditer(
             rf"CHECK\s*\(\s*{re.escape(column)}\s+IN\s*\(([^)]*)\)", content
         ):
-            encontrado = set(re.findall(r"'([a-z_]+)'", match.group(1)))
+            encontrado = set(re.findall(r"'([A-Za-z_0-9]+)'", match.group(1)))
     return encontrado or set()
 
 
@@ -147,6 +149,21 @@ class ReportVisibilityDriftTests(unittest.TestCase):
         self.assertEqual(no_banco, {"restricted", "clinic_wide"})
 
 
+class PsiqueBillingTypeDriftTests(unittest.TestCase):
+    def test_billing_types_match_the_server_validator(self):
+        self.assertEqual(last_check_for("billing_type"), set(psique_pricing.BILLING_TYPES))
+
+    def test_phase2a_identity_and_funding_domains_match(self):
+        for column, values in (
+            ("credit_model", psique_identity.CREDIT_MODELS),
+            ("funding", psique_identity.FUNDING_TYPES),
+            ("source_kind", psique_identity.SOURCE_KINDS),
+            ("eligibility_origin", psique_identity.ELIGIBILITY_ORIGINS),
+        ):
+            with self.subTest(column=column):
+                self.assertEqual(last_check_for(column), set(values))
+
+
 class DriftGuardCoverageTests(unittest.TestCase):
     def test_every_python_enum_used_in_a_check_is_covered_here(self):
         """Se alguém criar um CHECK novo, que exista um teste para ele.
@@ -157,7 +174,7 @@ class DriftGuardCoverageTests(unittest.TestCase):
         cobertas = {
             "role", "organization_type", "risk_level", "nr1_factor",
             "measure_efficacy", "measure_type", "polarity", "report_visibility",
-            "plan_action",
+            "plan_action", "billing_type", "credit_model", "funding", "source_kind", "eligibility_origin",
         }
         todas = set(re.findall(r"CHECK\s*\(\s*([a-z_]+)\s+IN\s*\(", all_sql()))
         # Colunas de estado interno não têm par em Python e não sofrem drift.
