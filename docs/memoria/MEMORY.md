@@ -25,3 +25,5 @@
 - [Sessao de trabalho desliza](froid-sessao-de-trabalho-desliza.md) — o login vencia 8h depois do login e derrubava a apuracao no meio da consulta; e a hipotese que eu dei como certa sem conferir
 - [Rigor maximo na seguranca](froid-seguranca-rigor-maximo.md) — instrucao permanente do Fabio, e o dia em que a medida mais rigida teria trancado ele mesmo fora
 - [O site afirma o que o painel nao faz](froid-site-afirma-o-que-o-painel-nao-faz.md) — tres afirmacoes vetadas que o codigo desmente; conferir em froid-dashboard, nao em outra pagina
+- [Derivadas zeradas, decisao adiada](froid-derivadas-zeradas-decisao-adiada.md) — causa achada e correcao pronta; Fabio adiou a instalacao para juntar evidencia
+- [Psique V2: estado da execucao](froid-psique-v2-estado-execucao.md) — auditoria, Fase 1 e Fase 2A commitadas em 29/09/2026; 2B exige nova aprovacao; PostgreSQL de teste se recria, nao se sonda
