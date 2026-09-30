@@ -20,6 +20,10 @@ Org V1 recusada; secretária opera o ciclo completo com trilha `CREATED→RESCHE
 
 Qualidade: Ruff/Mypy limpos; `git diff --check` aprovado; regressão V1 selecionada verde; TypeScript não aplicável.
 
+## Correção da prova de verificação (30/09/2026, migration 045)
+
+Durante a prova executada com o proprietário, o teste de corrida do mesmo horário falhou de forma intermitente (~1 em 4). Investigação com diagnóstico completo provou a causa: sob inserções simultâneas, a checagem da exclusion constraint GiST pode terminar em `40P01 deadlock detected` em vez do conflito limpo — comportamento conhecido do PostgreSQL —, e o perdedor recebia `PSIQUE_STORAGE_ERROR` em vez de `APPOINTMENT_CONFLICT`. A migration 045 regrava as duas funções de agendamento (cópia textual da 044, guardada por teste de espelho) com uma única adição: advisory lock transacional por clínico antes da checagem/inserção — o perdedor agora recebe sempre o conflito nomeado, clínicos diferentes continuam paralelos e a exclusion constraint permanece como garantia final. Corrida reexecutada 12/12 verde; regressão completa 185/185 em Windows e em contêiner Linux. O teste não foi afrouxado.
+
 ## Limites e pendências
 
 - Worker Google real (OAuth existente) e a projeção administrativa de pacientes para a SECRETARY chegam na ativação/UI — a secretária agenda por `patient_id` sem ler a tabela de pacientes até lá.

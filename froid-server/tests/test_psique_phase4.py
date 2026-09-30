@@ -71,7 +71,7 @@ def database():
         try:
             isolated = make_conninfo(dsn, dbname=name)
             with psycopg.connect(isolated, autocommit=True) as conn:
-                apply(conn, ROOT / "migrations", "044_psique_org_scheduling", name)
+                apply(conn, ROOT / "migrations", "045_psique_scheduling_serialization", name)
             yield isolated
         finally:
             admin.execute(psycopg.sql.SQL("DROP DATABASE {} WITH (FORCE)").format(psycopg.sql.Identifier(name)))
@@ -160,6 +160,25 @@ def race(*functions):
 
 
 # -- Authority, roles and clinical boundary -------------------------------------
+
+def test_serialization_functions_stay_in_sync_with_044():
+    """Espelho de codigo: a 045 embute as funcoes da 044 com UMA adicao (o
+    advisory lock por clinico). Editar a 044 sem regravar a 045 quebra aqui."""
+    sql045 = (ROOT / "migrations/045_psique_scheduling_serialization.sql").read_text(encoding="utf-8")
+    sql044 = (ROOT / "migrations/044_psique_org_scheduling.sql").read_text(encoding="utf-8")
+    assert "pg_advisory_xact_lock(hashtextextended('psique_agenda:'||clinician::text, 0))" in sql045
+    assert "pg_advisory_xact_lock(hashtextextended('psique_agenda:'||appointment.clinician_membership_id::text, 0))" in sql045
+    sem_lock = "\n".join(linha for linha in sql045.splitlines()
+                          if "advisory" not in linha and "deadlock" not in linha
+                          and "40P01" not in linha and not linha.strip().startswith("--"))
+    for nome in ("psique_v2_appointment_create", "psique_v2_appointment_change"):
+        inicio = sql044.index(f"CREATE FUNCTION {nome}")
+        fim = sql044.index("END $$;", inicio) + len("END $$;")
+        corpo = sql044[inicio:fim].replace("CREATE FUNCTION", "CREATE OR REPLACE FUNCTION", 1)
+        corpo_sem_comentarios = "\n".join(l for l in corpo.splitlines()
+                                           if not l.strip().startswith("--"))
+        assert corpo_sem_comentarios in sem_lock, nome
+
 
 def test_scheduling_requires_rbac_v2(harness):
     h = harness

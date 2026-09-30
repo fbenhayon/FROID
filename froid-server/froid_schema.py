@@ -20,6 +20,7 @@ PSIQUE_V2_VERSIONS = frozenset({
     "042_psique_rbac_v2",
     "043_psique_rbac_v2_complement",
     "044_psique_org_scheduling",
+    "045_psique_scheduling_serialization",
 })
 
 

@@ -19,7 +19,8 @@ from psique_billing import BillingError, PsiqueBilling
 from psique_rbac import PHASE3_SCHEMA
 from tenant_access import AccessContext
 
-PHASE4_SCHEMA = PHASE3_SCHEMA | {"044_psique_org_scheduling"}
+PHASE4_SCHEMA = PHASE3_SCHEMA | {"044_psique_org_scheduling",
+                                 "045_psique_scheduling_serialization"}
 
 # Mirrors of the migration 044 CHECK domains; drift is guarded by tests.
 APPOINTMENT_STATUSES = ("SCHEDULED", "CONFIRMED", "IN_PROGRESS",
