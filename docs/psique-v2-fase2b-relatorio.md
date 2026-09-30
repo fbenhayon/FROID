@@ -51,11 +51,19 @@ Novos: `psique_billing.py`, `psique_api.py`, `tools/psique_stripe_mappings.py`, 
 
 Sem LIVE, sem produção, sem deploy, sem website, sem licença organizacional, sem FLEX, sem alteração NR-1, sem reinterpretação V1. Falhas preexistentes (anexo comercial NR-1; mypy de `tenant_access.py`) permanecem documentadas nos relatórios anteriores, fora deste escopo, e não foram tocadas.
 
-## Pendências para fechar a homologação 2B (manuais/próxima janela)
+## Homologação manual — executada em 30/09/2026
 
-1. **Cartões de teste na página hospedada:** com o backend rodando em homologação (`FROID_PSIQUE_V2_BILLING_ENABLED=true` + chave + `whsec` do CLI), pagar PRO 10 com `4242…`/`4000 0007 6000 0002`, recusar com `4000…0002`, fundos insuficientes `…9995` e 3DS `…3220`, com `stripe listen --forward-to localhost:<porta>/api/psique/v2/stripe/webhook`. O Stripe CLI não está instalado nesta máquina.
-2. Conferir no painel do Sandbox os eventos entregues e o saldo resultante (esperado: uma concessão por pagamento aprovado).
-3. Decidir se haverá Event Destination TEST fixo em staging HTTPS.
+Sessão conduzida com o proprietário digitando os cartões na página hospedada real, app local expondo o roteador V2 desta entrega (única diferença: contexto de autenticação sintético de homologação) e `stripe listen` (CLI 1.52.1) encaminhando eventos reais assinados ao webhook. Banco descartável preparado pelo caminho completo do operador (runner explícito, catálogo, mappings reais).
+
+| Cenário real | Resultado |
+|---|---|
+| PRO 10 com 4242…, PRO 25 com cartão BR, PRO 50 com 3DS completado | Aprovados; saldo exato **85** (10+25+50); três Purchases `APPLIED`; três `checkout.session.completed` → `credited` |
+| Recusa (…0002), fundos insuficientes (…9995), 3DS abandonado | **+0**; três `payment_intent.payment_failed` reais → `resolved (PAYMENT_FAILED_NO_GRANT)`; Purchases permanecem `CHECKOUT_CREATED` |
+| `payment_intent.succeeded` reais (3) | Somente auditados; nenhuma dupla concessão |
+| Reembolso real do PRO 10 (`re_…`, R$ 199,00 no Sandbox) | `refund.created`, `charge.refunded` e `refund.updated` → **revisão administrativa**; saldo continua 85 e a Purchase continua `APPLIED` |
+| Entregas do listener | 13, todas HTTP 200, todas com assinatura verificada |
+
+Encerramento: assinatura e objetos de homologação limpos no Sandbox; PostgreSQL descartável removido; arquivos locais contendo o `whsec` do CLI apagados. Pendência remanescente: decidir se haverá Event Destination TEST fixo em staging HTTPS (o teste local usa o CLI).
 
 ## Proposta de Fase 2C e parada
 

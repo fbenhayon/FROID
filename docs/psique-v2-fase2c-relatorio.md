@@ -34,7 +34,7 @@ Cobertura: ativação imediata/idempotente e restrita a owner/administrator; nã
 
 ## Limites, pendências e ponto de parada
 
-- Eventos reais de assinatura/fatura entregues por webhook ficam para a mesma rodada manual da 2B (`stripe listen`; CLI não instalado). O handler foi testado com eventos sintéticos assinados e o sync com chamadas diretas.
+- **Eventos reais de assinatura homologados em 30/09/2026**, na sessão manual conjunta com a 2B: assinatura criada e aumentada pela API de homologação, `customer.subscription.created/updated` e `invoice.created/finalized` reais entregues pelo `stripe listen`, assinatura verificada, licença sincronizada (`LICENSE_SYNC_OK`, `ACTIVE 3/3`) e faturas auditadas sem mover créditos; assinatura de homologação cancelada ao final.
 - A aplicação da redução no vencimento (ajustar a quantidade Stripe para `next_cycle` na virada) é reconciliação operada — como o `reconcile` da 2A — e será exercitada na homologação com relógio de teste ou na ativação; o estado local (`billed` × `next_cycle` × `current_period_end`) já registra tudo.
 - Falhas preexistentes conhecidas (anexo NR-1; mypy de `tenant_access.py`) permanecem fora do escopo, inalteradas.
 - Sem LIVE, sem produção, sem publicação, sem FLEX, sem RBAC V2. **Fase 3 (RBAC V2) somente com nova aprovação explícita.**

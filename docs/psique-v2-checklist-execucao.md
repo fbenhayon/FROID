@@ -76,7 +76,7 @@ Status: IMPLEMENTADA E VALIDADA LOCALMENTE em 29/09/2026, contra o Sandbox real 
 - [x] dispute/refund externo apenas revisão
 - [x] sem LIVE
 
-- [ ] Homologação manual: cartões de teste na página hospedada + `stripe listen` (CLI não instalado nesta máquina)
+- [x] Homologação manual executada em 30/09/2026, com o proprietário digitando os cartões: PRO 10 (4242), PRO 25 (cartão BR) e PRO 50 (3DS completado) aprovados → saldo exato 85, três Purchases APPLIED; recusa, fundos insuficientes e 3DS abandonado → +0, sem transição; `payment_intent.succeeded` reais só auditados; 13 entregas reais do `stripe listen`, todas 200 com assinatura verificada; reembolso real do PRO 10 → três eventos em revisão administrativa, saldo e Purchase intocados. [Detalhes no relatório](psique-v2-fase2b-relatorio.md).
 - [ ] Revisão e aprovação desta entrega pelo proprietário
 
 Gate: autorizar Fase 2C.
@@ -111,7 +111,7 @@ Status: IMPLEMENTADA E VALIDADA LOCALMENTE em 29/09/2026, com homologação real
 - [x] não clínicos gratuitos/ilimitados
 - [x] sem LIVE
 
-- [ ] Homologação manual: eventos reais de assinatura/fatura via `stripe listen` (junto com a rodada de cartões da 2B)
+- [x] Homologação manual executada em 30/09/2026: assinatura real criada e aumentada pela API de homologação; `customer.subscription.created/updated` e `invoice.*` reais entregues pelo `stripe listen`, assinados, sincronizados (`LICENSE_SYNC_OK`) e faturas auditadas sem mover créditos; assinatura de homologação cancelada ao final.
 - [ ] Fonte real do e-mail de faturamento na fase de ativação (criação de assinatura falha fechada sem resolvedor)
 - [ ] Revisão e aprovação desta entrega pelo proprietário
 
