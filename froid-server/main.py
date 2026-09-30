@@ -15847,6 +15847,7 @@ if FROID_PSIQUE_V2_BILLING_ENABLED:
     from psique_api import build_psique_v2_billing_router
     from psique_billing import BillingError, PsiqueBilling, StripeTestClient
     from psique_license import PsiqueLicense
+    from psique_rbac import PsiqueRbac
     import psique_pricing as _psique_pricing
 
     _psique_billing_instance: Optional["PsiqueBilling"] = None
@@ -15891,6 +15892,14 @@ if FROID_PSIQUE_V2_BILLING_ENABLED:
             )
         return _psique_license_instance
 
+    _psique_rbac_instance: Optional["PsiqueRbac"] = None
+
+    def _psique_rbac_provider() -> "PsiqueRbac":
+        global _psique_rbac_instance
+        if _psique_rbac_instance is None:
+            _psique_rbac_instance = PsiqueRbac(_psique_billing_provider()._connect)  # noqa: SLF001 -- mesma familia
+        return _psique_rbac_instance
+
     def _psique_v2_billing_context(request: Request):
         context = _tenant_context_from_request(request)
         if context is None:
@@ -15901,5 +15910,6 @@ if FROID_PSIQUE_V2_BILLING_ENABLED:
         build_psique_v2_billing_router(
             _psique_billing_provider, _psique_v2_billing_context,
             license_provider=_psique_license_provider,
+            rbac_provider=_psique_rbac_provider,
         )
     )

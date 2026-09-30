@@ -128,17 +128,23 @@ Revisão de ponta a ponta do núcleo financeiro (fórmulas, máquina de crédito
 
 ## Fase 3 — RBAC V2
 
-- [ ] papéis cumulativos
-- [ ] CLINICIAN / SECRETARY / FINANCE / ORG_ADMIN
-- [ ] CLINICAL_SUPERVISOR / AUDITOR_COMPLIANCE / SUPERADMIN
-- [ ] admin sem clínico por padrão
-- [ ] secretaria sem conteúdo clínico
-- [ ] financeiro sem conteúdo clínico
-- [ ] supervisor apenas escopo explícito
-- [ ] backend/API/WS/SQL/RLS protegidos
-- [ ] policy V1 não contorna V2
-- [ ] cross-org negado
-- [ ] NR-1 preservado
+Status: IMPLEMENTADA E VALIDADA LOCALMENTE em 30/09/2026 (migration 042, opt-in por organização com autorização do owner e snapshot auditado de papéis). [Relatório da Fase 3](psique-v2-fase3-relatorio.md).
+
+- [x] papéis cumulativos — concessões independentes por membership, revogáveis, com histórico imutável
+- [x] CLINICIAN / SECRETARY / FINANCE / ORG_ADMIN
+- [x] CLINICAL_SUPERVISOR / AUDITOR_COMPLIANCE — supervisão só por vínculo explícito; SUPERADMIN é exceção de plataforma e NÃO é concedível organizacionalmente (fora do domínio por desenho)
+- [x] admin sem clínico por padrão — dono/ORG_ADMIN de org V2 não lê relatório nem paciente
+- [x] secretaria sem conteúdo clínico — zero linhas em session_reports/patients/consents na RLS
+- [x] financeiro sem conteúdo clínico — inclusive READ_DELIVERY negado no comando de crédito
+- [x] supervisor apenas escopo explícito — papel sem vínculo não lê nada; revogação corta na hora
+- [x] backend/API/WS/SQL/RLS protegidos — RLS com ramo V2, comando de crédito com portões por grupo, gates de billing/licença ramificados; rotas sob a mesma flag (WS/rotas antigas seguem V1 até a ativação, que não muda a RLS)
+- [x] policy V1 não contorna V2 — todo ramo V1 das políticas ficou atrás de NOT rbac_v2_active(); testado com owner V1 em org V2
+- [x] cross-org negado — grants, capabilities e contexto forjado
+- [x] NR-1 preservado — organization_type enterprise é recusado pelo trigger de settings; políticas V1 idênticas para quem não ativou
+
+Extras da implementação: downgrade de RBAC proibido por trigger (rollback nunca amplia leitura clínica); último ORG_ADMIN protegido contra auto-trancamento; DELETE de histórico clínico negado em org V2 mesmo para admin; ativação clínica de assento exige ORG_ADMIN (FINANCE compra, não habilita).
+
+- [ ] Revisão e aprovação desta entrega pelo proprietário
 
 Gate: autorizar agenda.
 
