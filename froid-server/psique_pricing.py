@@ -187,8 +187,10 @@ def public_catalog(config: dict[str, Any]) -> dict[str, Any]:
             "total_cents": offer["total_cents"],
             "unit_price_display": unit_price_display(config, offer["product_code"]),
         }
-        for offer in sorted(config["offers"], key=lambda o: o["product_code"])
-        if offer["billing_type"] == "one_time" and offer["active"]
+        for offer in sorted(
+            (o for o in config["offers"]
+             if o["billing_type"] == "one_time" and o["active"]),
+            key=lambda o: o["credits"])
     ]
     return {
         "pricing_version": config["version"],

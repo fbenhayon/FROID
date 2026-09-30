@@ -41,6 +41,8 @@ def test_public_catalog_exposes_exactly_the_six_prepaid_offers():
                 "FROID_PRO_50": (50, 91500, "18.30"), "FROID_PRO_100": (100, 169000, "16.90"),
                 "FROID_PRO_200": (200, 318000, "15.90"), "FROID_PRO_500": (500, 745000, "14.90")}
     assert set(offers) == set(esperado)  # licenca e FLEX nunca aparecem aqui
+    creditos_na_ordem = [o["credits"] for o in payload["offers"]]
+    assert creditos_na_ordem == sorted(creditos_na_ordem)  # cards do menor ao maior
     for code, (credits, cents, unit) in esperado.items():
         assert offers[code]["credits"] == credits
         assert offers[code]["total_cents"] == cents
