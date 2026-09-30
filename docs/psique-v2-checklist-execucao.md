@@ -198,7 +198,7 @@ Status: IMPLEMENTADA E VALIDADA LOCALMENTE em 30/09/2026, como experiência V2 C
 - [x] nenhum hardcode conflitante — guarda regex: zero preços embutidos nas superfícies V2 (páginas + JS)
 
 - [ ] Virada (Fase 6): trocar a página pública, atualizar FAQ/profissionais/metadados, fiar painel (rotas/menus/onboarding) e ativar o flag
-- [ ] Revisão e aprovação desta entrega pelo proprietário
+- [x] Revisão e aprovação pelo proprietário — 30/09/2026, após a prova executada junto (que encontrou e corrigiu a corrida da agenda), a demonstração local da página ao vivo e as revisões de texto pedidas (nova sessão de atendimento; autônomo compra créditos sem licença; quadro de benefícios da licença; aviso âmbar de preços de lançamento)
 
 Gate: preparar LIVE.
 
