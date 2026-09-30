@@ -241,6 +241,10 @@ class PsiqueBilling:
             (context.organization_id, context.membership_id, context.user_id,
              product_code.strip(), self._pricing_version, self._account_id,
              idempotency_key), context)
+        if prepared["status"] in ("EXPIRED", "FAILED", "CANCELED", "canceled", "REVIEW_REQUIRED"):
+            # A mesma chave aponta para uma compra encerrada: devolver a URL
+            # da sessao morta enganaria o pagador. Nova intencao, nova chave.
+            raise BillingError("PURCHASE_TERMINAL_USE_NEW_IDEMPOTENCY_KEY")
         session_id = prepared.get("stripe_checkout_session_id")
         if session_id:
             session = self._stripe.get_checkout_session(session_id)

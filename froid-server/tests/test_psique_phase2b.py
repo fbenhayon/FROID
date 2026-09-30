@@ -539,6 +539,45 @@ def test_disputes_and_refunds_only_open_review(harness):
     assert reviews[0][0] >= 3
 
 
+def test_terminal_purchase_with_same_key_is_refused(harness):
+    h = harness
+    ctx = h.enrolled()
+    result = h.checkout(ctx, "FROID_PRO_10", idem="chave-terminal")
+    h.event("checkout.session.expired", {"id": h.session_of(result), "livemode": False})
+    assert h.billing.purchase_state(ctx, str(result["purchase_id"]))["status"] == "EXPIRED"
+    with pytest.raises(BillingError, match="PURCHASE_TERMINAL_USE_NEW_IDEMPOTENCY_KEY"):
+        h.checkout(ctx, "FROID_PRO_10", idem="chave-terminal")
+    fresh = h.checkout(ctx, "FROID_PRO_10", idem="chave-nova")
+    assert fresh["purchase_id"] != result["purchase_id"]
+    assert h.grants(ctx) == []
+
+
+def test_router_requires_idempotency_header():
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from psique_api import build_psique_v2_billing_router
+
+    captured = {}
+
+    class StubBilling:
+        def checkout(self, context, body, *, idempotency_key):
+            captured["key"] = idempotency_key
+            return {"purchase_id": "SYNTHETIC", "status": "CREATED", "checkout_url": "https://x"}
+
+    app = FastAPI()
+    app.include_router(build_psique_v2_billing_router(lambda: StubBilling(), lambda: object()))
+    client = TestClient(app)
+    denied = client.post("/api/psique/v2/checkout", json={"product_code": "FROID_PRO_10"})
+    assert denied.status_code == 422 and denied.json()["detail"] == "IDEMPOTENCY_KEY_REQUIRED"
+    blank = client.post("/api/psique/v2/checkout", json={"product_code": "FROID_PRO_10"},
+                        headers={"X-Idempotency-Key": "   "})
+    assert blank.status_code == 422
+    ok = client.post("/api/psique/v2/checkout", json={"product_code": "FROID_PRO_10"},
+                     headers={"X-Idempotency-Key": "cliente-define"})
+    assert ok.status_code == 200 and captured["key"] == "cliente-define"
+
+
 # -- Webhook: signature and payload boundary -----------------------------------
 
 def test_invalid_signature_is_rejected_and_not_recorded(harness):

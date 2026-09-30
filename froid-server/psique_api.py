@@ -54,7 +54,11 @@ def build_psique_v2_billing_router(
             body = await request.json()
         except Exception:  # noqa: BLE001 -- fronteira HTTP: corpo ilegivel vira 422 nomeado
             raise HTTPException(status_code=422, detail="CHECKOUT_BODY_MUST_BE_PRODUCT_CODE_ONLY")
-        idempotency_key = request.headers.get("x-idempotency-key") or uuid.uuid4().hex
+        idempotency_key = (request.headers.get("x-idempotency-key") or "").strip()
+        if not idempotency_key:
+            # Um retry de rede sem chave viraria uma segunda compra com uma
+            # chave inventada aqui; o cliente e quem define a intencao.
+            raise HTTPException(status_code=422, detail="IDEMPOTENCY_KEY_REQUIRED")
         try:
             return billing_provider().checkout(context, body, idempotency_key=idempotency_key)
         except BillingError as error:

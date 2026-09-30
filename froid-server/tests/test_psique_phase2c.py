@@ -102,7 +102,7 @@ def database():
         try:
             isolated = make_conninfo(dsn, dbname=name)
             with psycopg.connect(isolated, autocommit=True) as conn:
-                apply(conn, ROOT / "migrations", "040_psique_org_license_test", name)
+                apply(conn, ROOT / "migrations", "041_psique_financial_lookup_indexes", name)
                 config = psique_pricing.load_config()
                 install_draft(conn, config, actor="phase2c-tests")
                 metadata = {"froid_product": "psique", "family": "psique_license",

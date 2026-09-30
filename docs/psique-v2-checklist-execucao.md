@@ -117,6 +117,15 @@ Status: IMPLEMENTADA E VALIDADA LOCALMENTE em 29/09/2026, com homologação real
 
 Gate: autorizar RBAC V2.
 
+## Revisão financeira pré-Fase 3 (30/09/2026)
+
+Revisão de ponta a ponta do núcleo financeiro (fórmulas, máquina de créditos, checkout, licença) a pedido do proprietário, antes do RBAC V2. A fórmula, as invariantes de carteira/ledger da 037 e a semântica por evento foram reconferidas e estavam corretas. Quatro melhorias executadas, todas testadas:
+
+- [x] Migration 041: índices que os lookups financeiros realmente usam — as buscas de consumo/restauração não casavam com o predicado (`ledger_version=2`) dos índices parciais da 037 e varriam o ledger inteiro; contagem de assentos e supersessão de preview ganharam índices parciais por organização.
+- [x] `X-Idempotency-Key` passou a ser obrigatório no checkout (422 nomeado): retry de rede não pode virar segunda compra com chave inventada pelo servidor.
+- [x] Compra em estado terminal com a mesma chave é recusada com motivo (`PURCHASE_TERMINAL_USE_NEW_IDEMPOTENCY_KEY`) em vez de devolver URL de sessão morta.
+- [x] Guarda de espelhos de número: teste novo compara os preços copiados nos documentos (pontos da licença no checklist e tabela PRO do doc Stripe) contra o catálogo-fonte.
+
 ## Fase 3 — RBAC V2
 
 - [ ] papéis cumulativos
