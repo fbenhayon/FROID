@@ -204,6 +204,19 @@ Gate: preparar LIVE.
 
 ## Fase 6 — Homologação de produção / LIVE
 
+Plano de cinco etapas aprovado pelo proprietário em 30/09/2026, com duas ordens registradas: instalar a frente das derivadas junto da janela, e IPM intocável (o teste `retencao-da-apuracao` permanece vermelho por decisão expressa — painel em 813/814 é o estado correto).
+
+**Etapa 0 — pré-janela (local) — EXECUTADA em 30/09/2026:**
+- [x] Merge da `frente-derivadas-zeradas` no main (`80adcd46`); 5 testes do motor verdes (numpy adicionado ao venv de testes)
+- [x] Fiação do painel V2: seção sondada nas Configurações (flag desligado ⇒ saída vazia byte a byte, garantida por teste), compra com chave por intenção, rotas de confirmação/cancelada com polling pós-redirect que nunca inventa sucesso (`b1c920db`)
+- [x] Virada da página pública de preços ×4 línguas com chrome preservado e zero preço embutido; âncoras #cortesia→#trial; guarda de teste invertida com o motivo (`af4d11b3`)
+- [x] Regressão completa: 191 testes Psique + derivadas, 37 V1, 813/814 painel + tsc
+- [x] Builds locais das imagens backend/frontend (ensaio da janela)
+- ⚠️ **Até a Etapa 2: NÃO fazer `git pull` do site em produção** — a página pública nova mostraria indisponibilidade com o flag desligado.
+
+Etapas 1–5 (inventário LIVE somente-leitura; janela de infraestrutura com backup e runner explícito; objetos Stripe LIVE; ativação piloto por adesão explícita; virada pública) aguardam os insumos do proprietário: credencial LIVE, fonte do e-mail de faturamento, data/hora da janela e decisão do smoke com cartão real.
+
+
 - [ ] Linux/container equivalente validado
 - [ ] runtime DB role sem DDL
 - [ ] migration role separado
