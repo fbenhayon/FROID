@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Tarifs — FROID</title>
-<meta name="description" content="Plans FROID PRO, PLUS et MASTER : forfaits de crédits de consultation avec analyse multimodale, FROID Explique et fonctionnalités multiprofessionnelles." />
+<title>Tarifs — FROID Psique : crédits et licence</title>
+<meta name="description" content="Packs de crédits d’analyse FROID Psique et licence organisationnelle par clinicien. Tarifs consultés en direct ; essai gratuit sans carte." />
 <link rel="alternate" hreflang="pt-BR" href="https://www.froid.com.br/precos.html" />
 <link rel="alternate" hreflang="en" href="https://www.froid.com.br/en/precos.html" />
 <link rel="alternate" hreflang="fr" href="https://www.froid.com.br/fr/precos.html" />
@@ -12,6 +12,7 @@
 <link rel="alternate" hreflang="x-default" href="https://www.froid.com.br/precos.html" />
 <link rel="stylesheet" href="../site-assets/style.css?v=16" />
 <link rel="stylesheet" href="../site-assets/refinement.css?v=2" />
+<link rel="stylesheet" href="../site-assets/psique-pricing-v2.css?v=1" />
 <style>
   .plan-card h3 { margin-bottom:2px; }
   .plan-tag { font-size:0.78rem; color:var(--froid-azul); font-weight:700; text-transform:uppercase; letter-spacing:0.06em; }
@@ -142,216 +143,91 @@
   </div>
 </header>
 
-<section class="hero" style="padding:64px 0 56px;">
+<section class="hero" style="padding:64px 0 44px;">
   <div class="container">
-    <p class="section-kicker" style="color:#93c5fd;">Tarifs</p>
-    <h1 style="font-size:2.1rem;">Un plan pour chaque étape d'une pratique clinique</h1>
-    <p class="lead">Du professionnel indépendant au réseau de cliniques — un modèle de crédits de consultation, sans surprise sur la facture.</p>
+    <p class="section-kicker" style="color:#93c5fd;">FROID Psique — Tarifs</p>
+    <h1 style="font-size:2.1rem;">Crédits d’analyse et licence organisationnelle</h1>
+    <p class="lead">Deux contrats séparés, chacun avec une règle claire : des packs prépayés de crédits pour les analyses, et une licence mensuelle par clinicien pour l’organisation. Montants en réaux, consultés en direct.</p>
   </div>
 </section>
 
-<section class="block soft" id="cortesia">
+<div id="psique-v2-precos">
+
+<section class="block soft" id="trial">
   <div class="container">
-    <p class="section-kicker">Programme d'entrée</p>
-    <h2 class="section-title">Séances gratuites pour les premières inscriptions cliniques</h2>
-    <p class="section-lead">FROID est en disponibilité contrôlée et constitue en ce moment sa première communauté d'usage réel. Qui entre dans cette phase reçoit un lot de séances offertes, pour essayer le système dans la routine clinique — avec métriques de la parole, coupes sémantiques, rapport et FROID Explique, exactement comme dans un plan souscrit.</p>
-
-    <div class="grid-2">
-      <div class="card">
-        <p class="section-kicker" style="margin:0; color:#93c5fd;">Les 100 premiers professionnels</p>
-        <h3 style="margin-top:10px;">20 séances gratuites</h3>
-        <p style="font-size:0.92rem;">De quoi utiliser FROID en consultation réelle et se faire une opinion du système avec son propre matériel clinique.</p>
-      </div>
-      <div class="card">
-        <p class="section-kicker" style="margin:0; color:#6ee7b7;">Les 100 professionnels suivants</p>
-        <h3 style="margin-top:10px;">10 séances gratuites</h3>
-        <p style="font-size:0.92rem;">Le même accès et les mêmes fonctions, dans un lot plus petit, à mesure que la base d'usage s'élargit.</p>
-      </div>
-    </div>
-
-    <div class="card" style="margin-top:28px;">
-      <h3>Comment la place est comptée</h3>
-      <p style="font-size:0.92rem;">La place est fixée au moment de l'inscription clinique et reste <strong>enregistrée sur le compte</strong> : le lot reçu ne change pas ensuite, quel que soit le nombre de professionnels qui s'inscrivent après. Chaque compte entre dans la file une seule fois.</p>
-      <p style="font-size:0.92rem;">La courtoisie <strong>ne se transforme jamais en facture</strong> : le lot épuisé, il n'y a aucun crédit à régler plus tard — les nouvelles séances dépendent alors d'un forfait souscrit, et tout ce qui a déjà été traité reste accessible.</p>
-    </div>
-
-    <div class="disclaimer-box" style="margin-top:28px;">
-      <strong>Vaut pour le professionnel indépendant et la clinique.</strong> L'entreprise qui souscrit FROID NR-1 ne reçoit aucune séance offerte : le produit corporatif fonctionne sous contrat, au prix indexé sur l'effectif, et ne consomme pas de crédit de séance.
-    </div>
+    <p class="section-kicker">Commencez sans payer</p>
+    <h2 class="section-title">Essai gratuit, sans carte</h2>
+    <p id="pv2-trial" class="section-lead" data-estado="carregando">Consultation des conditions en vigueur…</p>
+    <p style="font-size:0.9rem; color:var(--froid-cinza);">L’essai vaut une seule fois par compte, après vérification de l’e-mail. Acheter un pack ne met pas fin à l’essai, et le solde gratuit est consommé avant le solde payé. À l’échéance, seul le solde gratuit restant expire — les crédits achetés ne sont jamais retirés.</p>
   </div>
 </section>
 
-<section class="block">
+<section class="block" id="pacotes">
   <div class="container">
-    <p class="section-kicker">Plans</p>
-    <h2 class="section-title">PRO, PLUS et MASTER — des crédits de consultation, sans petites lignes</h2>
-    <p class="section-lead">FROID a évolué vers une architecture multi-organisation, conçue pour les professionnels indépendants, les cliniques et les équipes de santé mentale. Tous les plans offrent des séances avec analyse multimodale de la parole, métriques vocales, segments sémantiques, rapports détaillés et l'aide de FROID Explique.</p>
-
-    <div class="disclaimer-box" style="margin-bottom:28px;">
-      <strong>Tarifs de lancement :</strong> les valeurs ci-dessous correspondent à cette phase initiale de disponibilité contrôlée et <strong>seront mises à jour prochainement</strong>. S'inscrire maintenant permet de conserver le forfait au tarif en vigueur au moment de l'achat.
+    <p class="section-kicker">Crédits d’analyse</p>
+    <h2 class="section-title">Packs FROID PRO</h2>
+    <p class="section-lead">Chaque nouvelle séance de soin consomme un crédit d’analyse — une seule fois. La réanalyse, le retraitement et la régénération du rapport de la même séance ne sont jamais refacturés. Le crédit est réservé avant le traitement, et la consommation n’est confirmée qu’à la livraison du rapport : un échec technique restitue la réservation.</p>
+    <p class="section-lead"><strong>Pour le professionnel indépendant, les packs suffisent :</strong> achetez des crédits directement et utilisez-les dans votre pratique — sans licence organisationnelle et sans aucun abonnement mensuel. La licence n’existe que pour les cliniques avec équipe.</p>
+    <div class="pv2-aviso-lancamento"><strong>Tarifs de lancement :</strong> les montants affichés relèvent de cette phase initiale de disponibilité et seront réajustés prochainement. Acheter maintenant garantit le pack au tarif en vigueur au moment de l’achat.</div>
+    <div id="pv2-ofertas" class="pv2-grade" data-estado="carregando">
+      <p class="pv2-carregando">Consultation des tarifs en vigueur…</p>
     </div>
-
-    <div class="grid-3">
-      <div class="card plan-card">
-        <span class="plan-tag">Pratique individuelle</span>
-        <h3>FROID PRO</h3>
-        <p style="font-size:0.92rem;">Pour le professionnel qui souhaite utiliser toutes les capacités cliniques centrales de FROID dans sa pratique individuelle.</p>
-        <div class="pack"><span class="qtd">10 crédits de consultation</span><span class="valor">33,00 €<span class="unit">prix unitaire de référence : 3,31 €</span></span></div>
-        <div class="pack"><span class="qtd">25 crédits de consultation</span><span class="valor">78,00 €<span class="unit">prix unitaire de référence : 3,13 €</span></span></div>
-        <ul class="plan-list">
-          <li>1 utilisateur</li>
-          <li>Affichages Simplifié et Détaillé</li>
-          <li>Vidéo, capture et transcription de la séance</li>
-          <li>Métriques cliniques et vocales complètes</li>
-          <li>Segments sémantiques et résumé de la parole</li>
-          <li>FROID Explique et rapport complet</li>
-          <li>Portail patient, consentements et historique</li>
-          <li>Intégration avec Google Agenda</li>
-        </ul>
-        <a class="btn btn-solid" href="https://www.froid.com.br/cadastro">S'inscrire à FROID</a>
-      </div>
-
-      <div class="card plan-card" style="border-color:var(--froid-azul); box-shadow:0 0 0 2px var(--froid-azul);">
-        <span class="badge badge-proprietary">Le plus populaire</span>
-        <span class="plan-tag">Cliniques &amp; équipes</span>
-        <h3>FROID PLUS</h3>
-        <p style="font-size:0.92rem;">Pour les cliniques et équipes qui doivent partager des patients, organiser les professionnels et travailler avec supervision.</p>
-        <div class="pack"><span class="qtd">50 crédits de consultation</span><span class="valor">197,00 €<span class="unit">prix unitaire de référence : 3,94 €</span></span></div>
-        <div class="pack"><span class="qtd">100 crédits de consultation</span><span class="valor">367,00 €<span class="unit">prix unitaire de référence : 3,67 €</span></span></div>
-        <ul class="plan-list">
-          <li>Tout ce qui est inclus dans PRO, plus :</li>
-          <li>Jusqu'à 10 utilisateurs</li>
-          <li>Gestion multiprofessionnelle</li>
-          <li>Rôles : propriétaire, administrateur, superviseur, professionnel et auditeur</li>
-          <li>Attribution contrôlée des patients</li>
-          <li>Supervision clinique</li>
-          <li>Audit avancé</li>
-          <li>Crédits partagés par l'équipe</li>
-        </ul>
-        <a class="btn btn-solid" href="sobre-contato.html">Parler à l'équipe</a>
-      </div>
-
-      <div class="card plan-card">
-        <span class="plan-tag">Échelle &amp; réseaux</span>
-        <h3>FROID MASTER</h3>
-        <p style="font-size:0.92rem;">Le plan d'échelle : pour les réseaux et opérations de plus grande taille, avec toutes les capacités de FROID activées et un accès prioritaire aux nouvelles fonctionnalités au fur et à mesure de leur lancement.</p>
-        <div class="pack"><span class="qtd">25 crédits de consultation <span style="display:block; font-size:0.75rem; color:var(--froid-cinza); font-weight:500;">forfait de démarrage/pilote</span></span><span class="valor">3,00 €<span class="unit">tarif symbolique de lancement</span></span></div>
-        <div class="pack" style="border-style:dashed;"><span class="qtd" style="color:var(--froid-cinza);">Forfaits de volume</span><span class="valor" style="color:var(--froid-cinza); font-weight:600;">bientôt disponibles</span></div>
-        <ul class="plan-list">
-          <li>Tout ce qui est inclus dans PRO et PLUS</li>
-          <li>Jusqu'à 35 utilisateurs</li>
-          <li>Gestion multiprofessionnelle complète</li>
-          <li>Supervision et audit avancé</li>
-          <li>Contrôle organisationnel et portefeuille de crédits partagé</li>
-          <li>Tous les affichages, métriques, rapports et fonctionnalités d'IA</li>
-          <li>Accès prioritaire aux nouvelles fonctionnalités</li>
-        </ul>
-        <a class="btn btn-solid" href="sobre-contato.html">Parler à l'équipe</a>
-      </div>
-    </div>
-
-    <p style="margin-top:20px; font-size:0.88rem; color:var(--froid-cinza); text-align:center;">Le total du forfait est le montant effectivement facturé ; le prix unitaire de référence est informatif et peut ne pas correspondre exactement à la simple division du total, en raison d'arrondis par devise. Prix affichés en euros. Facturation également disponible en BRL, USD ou CNY au moment du paiement, avec un montant validé par Stripe. Les limites d'utilisateurs incluent les membres actifs, invités et les invitations en attente, y compris le propriétaire.</p>
+    <p style="margin-top:16px; font-size:0.88rem; color:var(--froid-cinza);">Le prix du pack est le montant effectivement facturé, en réaux (BRL), confirmé par Stripe avant toute attribution. Le prix unitaire est indicatif. Les crédits achetés n’expirent pas.</p>
   </div>
 </section>
 
-<section class="block soft">
+<section class="block soft" id="licenca">
   <div class="container">
-    <p class="section-kicker">Comparaison</p>
-    <h2 class="section-title">Les capacités de chaque plan</h2>
-    <p class="section-lead">La base clinique est généreuse dans tous les plans — la différence se situe dans l'organisation : combien d'utilisateurs, quels rôles et quel niveau de supervision et d'audit votre structure nécessite. <strong>Cliquez sur n'importe quelle capacité</strong> pour voir l'explication détaillée de son fonctionnement.</p>
-
-    <div class="hab-wrap">
-      <table class="hab-table">
-        <thead>
-          <tr><th>Capacité</th><th>PRO</th><th>PLUS</th><th>MASTER</th></tr>
-        </thead>
-        <tbody>
-          <tr class="grp"><td colspan="4">Séance et capture</td></tr>
-          <tr><td><a class="hab-link" href="profissionais.html#sessao">Séance avec vidéo</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td><a class="hab-link" href="tecnologia.html#extracao-acustica">Capture de la parole du patient et du professionnel</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td><a class="hab-link" href="tecnologia.html#extracao-acustica">Transcription intégrale de la séance</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td><a class="hab-link" href="tecnologia.html#estabilizacao">Segments sémantiques temporels</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td><a class="hab-link" href="froid-explica.html">Résumé de la parole par IA</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td><a class="hab-link" href="froid-explica.html">FROID Explique</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td><a class="hab-link" href="profissionais.html#sessao">Affichage Simplifié</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td><a class="hab-link" href="profissionais.html#sessao">Affichage Détaillé</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td><a class="hab-link" href="profissionais.html#relatorios">Rapport complet de séance</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr class="grp"><td colspan="4">Métriques et indicateurs</td></tr>
-          <tr><td><a class="hab-link" href="tecnologia.html#ipm-idm">IPM et IDM</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td><a class="hab-link" href="tecnologia.html#zonas">Zones émotionnelles et ton prédominant</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td><a class="hab-link" href="tecnologia.html#facs">Mots par minute et dissonances</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td><a class="hab-link" href="ciencia.html#evidencia">Bandes neuroacoustiques</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td><a class="hab-link" href="ciencia.html#evidencia">Sous-harmoniques</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td><a class="hab-link" href="tecnologia.html#extracao-acustica">MFCC7 × MFCC9</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td><a class="hab-link" href="tecnologia.html#extracao-acustica">Jitter et Shimmer proxy</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td><a class="hab-link" href="tecnologia.html#extracao-acustica">Biomarqueurs vocaux</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td><a class="hab-link" href="ciencia.html#evidencia">Motifs de signal acoustique et facial</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr class="grp"><td colspan="4">Patients et intégration</td></tr>
-          <tr><td><a class="hab-link" href="profissionais.html#relatorios">Historique des patients et séances</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td><a class="hab-link" href="index.html#paciente">Portail et consentement du patient</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td><a class="hab-link" href="profissionais.html#sessao">Intégration avec Google Agenda</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td><a class="hab-link" href="seguranca.html#caminho">Isolation organisationnelle des données</a></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr class="grp"><td colspan="4">Organisation et équipe</td></tr>
-          <tr><td><a class="hab-link" href="profissionais.html#equipe">Gestion des membres de l'organisation</a></td><td>1 utilisateur</td><td>Jusqu'à 10</td><td>Jusqu'à 35</td></tr>
-          <tr><td><a class="hab-link" href="profissionais.html#equipe">Rôles organisationnels</a></td><td>Individuel</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td><a class="hab-link" href="profissionais.html#equipe">Gestion multiprofessionnelle</a></td><td class="no">—</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td><a class="hab-link" href="profissionais.html#equipe">Supervision clinique</a></td><td class="no">—</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td><a class="hab-link" href="profissionais.html#equipe">Attribution des patients à l'équipe</a></td><td class="no">—</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td><a class="hab-link" href="seguranca.html#protecao">Audit organisationnel avancé</a></td><td class="no">—</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td><a class="hab-link" href="#creditos">Crédits partagés par l'équipe</a></td><td class="no">—</td><td class="ok">✓</td><td class="ok">✓</td></tr>
-          <tr><td>Accès prioritaire aux nouvelles fonctionnalités</td><td class="no">—</td><td class="no">—</td><td class="ok">✓</td></tr>
-        </tbody>
-      </table>
+    <p class="section-kicker">Organisations</p>
+    <h2 class="section-title">Licence mensuelle par clinicien</h2>
+    <p class="section-lead">La licence organisationnelle est un contrat séparé des crédits : elle couvre la structure de la clinique — rôles, supervision, agenda et gouvernance — et se dimensionne uniquement sur les cliniciens actifs. <strong>Les utilisateurs administratifs (secrétariat, finance, audit) sont gratuits et illimités.</strong> Le professionnel indépendant n’a pas besoin de licence : les packs de crédits ci-dessus lui suffisent.</p>
+    <div class="card" style="margin:8px 0 20px;">
+      <h3>Ce que couvre la licence — le forfait clinique complet de l’organisation</h3>
+      <ul class="plan-list">
+        <li><strong>Équipe administrative sans coût ni limite :</strong> secrétariat, finance et audit ne comptent jamais dans la licence — seuls les cliniciens actifs sont facturés.</li>
+        <li><strong>Rôles cumulatifs avec gouvernance :</strong> administration de l’organisation, gestion des rôles et permissions, et piste d’audit des actions administratives.</li>
+        <li><strong>Frontière clinique imposée dans la base de données elle-même :</strong> secrétariat, finance et audit n’accèdent ni aux dossiers, ni aux rapports, ni à aucun contenu clinique — pas même l’administrateur sans habilitation clinique propre.</li>
+        <li><strong>Supervision clinique par affectation explicite :</strong> le superviseur ne lit que les cliniciens qui lui sont désignés, et la révocation coupe l’accès immédiatement.</li>
+        <li><strong>Agenda organisationnel :</strong> le secrétariat réserve, reprogramme et annule sans toucher au contenu clinique ; le double rendez-vous est impossible, chaque modification reste dans l’historique et la disponibilité de chaque clinicien est respectée.</li>
+        <li><strong>Portefeuille de crédits partagé :</strong> l’équipe consomme un solde unique de l’organisation, sans quota par clinicien.</li>
+        <li><strong>Facturation sans surprise :</strong> un nouveau clinicien est actif immédiatement, avec l’ajustement cumulé sur la facture suivante ; la réduction vaut tout de suite et ne crée jamais de facturation en cours de cycle.</li>
+      </ul>
     </div>
-    <p style="margin-top:14px; font-size:0.85rem; color:var(--froid-cinza); text-align:center;">FROID MASTER — toutes les capacités de FROID activées dans un seul plan.</p>
+    <div id="pv2-calculadora" class="card">
+      <label for="pv2-clinicos" style="font-weight:600;">Cliniciens :</label>
+      <input id="pv2-clinicos" type="number" min="1" step="1" value="2" inputmode="numeric" />
+      <button class="btn btn-solid" type="button">Calculer</button>
+      <span data-papel="resultado" data-estado="vazio"></span>
+    </div>
+    <p style="margin-top:14px; font-size:0.9rem; color:var(--froid-cinza);">L’arrivée d’un nouveau clinicien vaut immédiatement, avec l’ajustement financier cumulé sur la facture suivante — jamais de facturation surprise en cours de cycle. La réduction vaut opérationnellement tout de suite et financièrement au cycle suivant. La licence n’attribue aucun crédit d’analyse.</p>
   </div>
 </section>
 
-<section class="block" id="creditos">
+<section class="block" id="acervo">
   <div class="container">
-    <p class="section-kicker">Comment fonctionnent les crédits</p>
-    <h2 class="section-title">Forfaits de crédits, règles claires</h2>
-    <p class="section-lead">Les plans fonctionnent comme des forfaits de crédits de consultation : chaque séance réalisée consomme un crédit. Aucun abonnement mensuel obligatoire.</p>
-
-    <div class="grid-3">
-      <div class="card">
-        <h3>🔁 Recharge automatique</h3>
-        <p style="font-size:0.92rem;">Optionnelle et transparente : dépend d'un <strong>consentement explicite</strong>, ne se déclenche que lorsque le solde atteint zéro, rachète le même forfait, conserve la devise choisie et utilise le montant validé par Stripe. Si le paiement échoue, une nouvelle action du client peut être nécessaire.</p>
-      </div>
-      <div class="card">
-        <h3>💳 Stripe confirme chaque paiement</h3>
-        <p style="font-size:0.92rem;">Stripe est l'autorité financière de la souscription. FROID ne libère les crédits qu'après confirmation directe auprès de Stripe du paiement abouti — montant, devise, forfait et organisation bénéficiaire. Le retour du navigateur vers FROID ne suffit pas, à lui seul, à accorder l'accès ; et un paiement échoué ne libère jamais de crédits.</p>
-      </div>
-      <div class="card">
-        <h3>🤝 Accompagnement personnalisé</h3>
-        <p style="font-size:0.92rem;">Nous sommes en phase de disponibilité contrôlée : l'inscription est accompagnée par l'équipe FROID, qui aide à configurer l'organisation, les rôles et les premiers patients. Les documents et acceptations applicables sont présentés selon le pays renseigné à l'inscription — la disponibilité commerciale peut être activée séparément dans chaque marché.</p>
-      </div>
-    </div>
-
-    <div class="card" style="margin-top:28px;">
-      <h3>⏸️ L'épuisement du crédit n'interrompt ni le suivi ni l'enregistrement</h3>
-      <p style="font-size:0.92rem;">Une séance déjà réalisée n'est <strong>jamais</strong> refusée ni supprimée pour une question de crédit : le dossier clinique est toujours conservé. Si le solde atteint zéro, la séance est délivrée normalement et enregistrée comme <strong>en attente de régularisation</strong>, avec un avis à chaque accès au tableau de bord.</p>
-      <p style="font-size:0.92rem;">Jusqu'à <strong>10 séances</strong> peuvent rester ouvertes. À cette limite, le démarrage de nouvelles séances est bloqué jusqu'à régularisation — tout ce qui a déjà été réalisé reste accessible. Au renouvellement du forfait, les séances ouvertes sont automatiquement créditées à FROID et déduites du nouveau solde, une seule fois chacune.</p>
-    </div>
-
-    <div class="disclaimer-box" style="margin-top:28px;">
-      <strong>Aide, pas diagnostic :</strong> FROID est une technologie d'aide au professionnel. Ses métriques ne constituent pas un diagnostic clinique automatisé et doivent être interprétées par un professionnel habilité.
-    </div>
+    <p class="section-kicker">Règle d’accès</p>
+    <h2 class="section-title">Un solde épuisé ne bloque que la nouvelle analyse</h2>
+    <p class="section-lead">Sans crédits, la connexion continue, l’historique demeure, les rapports déjà livrés restent accessibles. Seul le démarrage d’une nouvelle analyse facturable devient indisponible — avec le motif affiché à l’écran et le parcours d’achat à côté.</p>
+    <a class="btn btn-solid" href="https://www.froid.com.br/cadastro">Créer un compte FROID</a>
   </div>
 </section>
 
-<section class="block soft">
-  <div class="container">
-    <p class="section-kicker">Avant de décider</p>
-    <h2 class="section-title">Vous hésitez encore ?</h2>
-    <p class="section-lead">Pas besoin de vous inscrire pour découvrir. Voyez le produit en action ou échangez avec l'équipe au sujet d'un pilote pour votre pratique.</p>
-    <div class="hero-actions">
-      <a class="btn btn-solid" href="demonstracao.html">Voir la démonstration interactive</a>
-      <a class="btn btn-ghost" href="sobre-contato.html">Échanger au sujet d'un programme pilote</a>
-      <a class="btn btn-ghost" href="etica.html">Vérifier l'éthique et la conformité</a>
-    </div>
-  </div>
-</section>
+</div>
+
+<script>
+window.PSIQUE_PRECOS_V2_I18N = {
+  locale: "fr-FR",
+  indisponivel: "Tarifs temporairement indisponibles. Réessayez dans un instant.",
+  creditos: "crédits d’analyse",
+  unitario: "prix unitaire de référence :",
+  trial_modelo: "{creditos} analyses gratuites ou {dias} jours — au premier des deux. Sans carte.",
+  calc_invalido: "Indiquez le nombre de cliniciens.",
+  calc_carregando: "Consultation…",
+  calc_resultado: "Licence mensuelle : {valor}",
+  calc_enterprise: "Au-delà de {max} cliniciens : proposition Enterprise avec l’équipe FROID."
+};
+</script>
+<script src="../site-assets/psique-pricing-v2.js?v=1"></script>
 
 <footer class="site-footer">
   <div class="container">

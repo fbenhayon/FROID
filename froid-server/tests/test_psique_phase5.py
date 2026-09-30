@@ -141,11 +141,25 @@ def test_pricing_pages_share_the_same_i18n_contract():
     assert "indisponivel" in chaves[0] and "calc_enterprise" in chaves[0]
 
 
-def test_legacy_pricing_page_remains_untouched_until_the_switchover():
-    # A pagina publica vigente (V1) nao muda nesta fase: a troca e a virada da
-    # Fase 6, junto com a ativacao do backend — nunca um efeito colateral.
-    texto = (SITE / "precos.html").read_text(encoding="utf-8")
-    assert "psique-pricing-v2.js" not in texto
+PAGINAS_PUBLICAS = [SITE / "precos.html", SITE / "en/precos.html",
+                    SITE / "es/precos.html", SITE / "fr/precos.html"]
+
+
+def test_switchover_happened_and_public_pages_have_zero_hardcoded_prices():
+    """Decisao revogada em 30/09/2026 (Etapa 0 da Fase 6, aprovada pelo
+    proprietario): a pagina publica FOI trocada pela V2. A guarda inverte —
+    agora exige a virada consumada, chrome preservado e nenhum preco
+    embutido tambem na pagina publica."""
+    import re as _re
+
+    proibidos = _re.compile(r"R\$\s*\d|19900|46900|91500|169000|318000|745000|"
+                            r"198,00|470,00|1\.182|2\.202|4\.888")
+    for pagina in PAGINAS_PUBLICAS:
+        texto = pagina.read_text(encoding="utf-8")
+        assert "psique-pricing-v2.js" in texto, pagina
+        assert 'id="pv2-ofertas"' in texto and 'id="pv2-calculadora"' in texto, pagina
+        assert "<footer" in texto and "nav" in texto, pagina  # chrome preservado
+        assert not proibidos.search(texto), f"preco embutido em {pagina}"
 
 
 def test_pricing_error_is_a_billing_error_with_named_code():
