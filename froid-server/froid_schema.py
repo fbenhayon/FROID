@@ -18,6 +18,7 @@ PSIQUE_V2_VERSIONS = frozenset({
     "040_psique_org_license_test",
     "041_psique_financial_lookup_indexes",
     "042_psique_rbac_v2",
+    "043_psique_rbac_v2_complement",
 })
 
 

@@ -36,6 +36,51 @@ def test_migration_role_domain_mirrors_module_and_excludes_superadmin():
     assert "SUPERADMIN" not in domain  # excecao de plataforma, nunca organizacional
 
 
+def _sync_expected_credit_command():
+    sql038 = (ROOT / "migrations/038_psique_credit_commands.sql").read_text(encoding="utf-8")
+    start = sql038.index("CREATE FUNCTION psique_v2_credit_command")
+    end = sql038.index("END $$;", sql038.index("RAISE EXCEPTION 'UNKNOWN_PSIQUE_COMMAND'")) + len("END $$;")
+    body = sql038[start:end].replace("CREATE FUNCTION", "CREATE OR REPLACE FUNCTION", 1)
+    old_block = (
+        "    IF NOT froid_has_role(ARRAY['owner','administrator','professional']) THEN\n"
+        "        RAISE EXCEPTION 'PSIQUE_ROLE_DENIED' USING ERRCODE='42501';\n"
+        "    END IF;\n"
+        "    IF command IN ('ENROLL','GRANT_TRIAL') AND NOT froid_has_role(ARRAY['owner']) THEN\n"
+        "        RAISE EXCEPTION 'TRIAL_OWNER_REQUIRED' USING ERRCODE='42501';\n"
+        "    END IF;\n"
+        "    IF command IN ('RESTORE','ADJUST') AND NOT froid_has_role(ARRAY['owner','administrator']) THEN\n"
+        "        RAISE EXCEPTION 'PSIQUE_CREDIT_ADMIN_REQUIRED' USING ERRCODE='42501';\n"
+        "    END IF;"
+    )
+    return body.replace(old_block, "    PERFORM psique_v2_credit_command_roles(org, command);")
+
+
+def test_embedded_credit_command_copy_stays_in_sync_with_038():
+    """Espelho de codigo: a 042 embute a copia da 038 com o bloco de papeis
+    trocado. Se alguem editar a 038, a funcao viva (da 042) divergiria em
+    silencio; este teste reaplica a MESMA transformacao e exige igualdade."""
+    sql042 = (ROOT / "migrations/042_psique_rbac_v2.sql").read_text(encoding="utf-8")
+    assert _sync_expected_credit_command() in sql042
+
+
+def test_embedded_clinical_set_copy_stays_in_sync_with_040():
+    sql040 = (ROOT / "migrations/040_psique_org_license_test.sql").read_text(encoding="utf-8")
+    start = sql040.index("CREATE FUNCTION psique_v2_clinical_set")
+    end = sql040.index("END $$;", start) + len("END $$;")
+    body = sql040[start:end].replace("CREATE FUNCTION", "CREATE OR REPLACE FUNCTION", 1)
+    anchor = "    PERFORM psique_v2_require_billing_member(org,member,actor);"
+    extra = (
+        "\n    -- Habilitacao clinica e governanca clinica: em organizacao V2 exige\n"
+        "    -- ORG_ADMIN; FINANCE compra creditos, nao habilita profissional.\n"
+        "    IF psique_rbac_v2_active(org) AND NOT psique_v2_role_check(ARRAY['ORG_ADMIN']) THEN\n"
+        "        RAISE EXCEPTION 'PSIQUE_ORG_ADMIN_REQUIRED' USING ERRCODE='42501';\n"
+        "    END IF;"
+    )
+    body = body.replace(anchor, anchor + extra)
+    sql042 = (ROOT / "migrations/042_psique_rbac_v2.sql").read_text(encoding="utf-8")
+    assert body in sql042
+
+
 @pytest.fixture(scope="module")
 def database():
     import os
@@ -56,7 +101,7 @@ def database():
         try:
             isolated = make_conninfo(dsn, dbname=name)
             with psycopg.connect(isolated, autocommit=True) as conn:
-                apply(conn, ROOT / "migrations", "042_psique_rbac_v2", name)
+                apply(conn, ROOT / "migrations", "043_psique_rbac_v2_complement", name)
             yield isolated
         finally:
             admin.execute(psycopg.sql.SQL("DROP DATABASE {} WITH (FORCE)").format(psycopg.sql.Identifier(name)))
@@ -436,3 +481,80 @@ def test_concurrent_enable_and_duplicate_grant_apply_once(harness):
                  "WHERE membership_id=%s AND v2_role='SECRETARY' AND revoked_at IS NULL",
                  (target.membership_id,))
     assert rows[0][0] == 1
+
+
+# -- Complemento da revisao pre-Fase 4 (migration 043) ---------------------------
+
+GUARDED_TABLES = ("session_reports", "patients", "patient_assignments", "consents",
+                  "patient_research_consent", "validation_administrations",
+                  "validation_observations", "data_subject_requests",
+                  "data_subject_request_events", "organization_wallets", "credit_ledger",
+                  "audit_events")
+
+
+def test_every_read_policy_on_sensitive_tables_carries_the_v2_guard(harness):
+    """Se uma migration futura criar policy permissiva sem o ramo V2, este
+    teste aponta: politicas de leitura das tabelas sensiveis precisam
+    referenciar psique_rbac_v2_active."""
+    h = harness
+    rows = h.sql(
+        "SELECT tablename, policyname, coalesce(qual,'') FROM pg_policies "
+        "WHERE tablename = ANY(%s) AND cmd IN ('SELECT','ALL')", (list(GUARDED_TABLES),))
+    assert rows, "inventario de politicas vazio"
+    unguarded = [(t, p) for t, p, qual in rows if "psique_rbac_v2_active" not in qual]
+    assert unguarded == [], f"politicas de leitura sem ramo V2: {unguarded}"
+
+
+def test_research_consent_and_validation_rows_follow_v2_roles(harness):
+    h = harness
+    owner = h.v2_org()
+    clinician = h.member(owner.organization_id, v1_role="professional")
+    secretary = h.member(owner.organization_id, v1_role="professional")
+    h.rbac.grant_role(owner, clinician.membership_id, "CLINICIAN")
+    h.rbac.grant_role(owner, secretary.membership_id, "SECRETARY")
+    patient = h.seed_patient(owner.organization_id, clinician.membership_id)
+    h.sql("INSERT INTO patient_research_consent(patient_id,organization_id,consent_version,"
+          "granted_at,registered_by) VALUES(%s,%s,'SYNTHETIC-v1',now(),%s)",
+          (patient, owner.organization_id, clinician.user_id))
+    instrument = h.sql("INSERT INTO validation_instruments(code,display_name,score_min,score_max,"
+                       "source_citation) VALUES(%s,'SYNTHETIC',0,10,'SYNTHETIC') RETURNING id",
+                       ("SYN-" + uuid.uuid4().hex[:8],))[0][0]
+    h.sql("INSERT INTO validation_administrations(organization_id,patient_id,instrument_id,"
+          "administered_at,total_score,administered_by,research_consent,consent_version) "
+          "VALUES(%s,%s,%s,now(),5,%s,true,'SYNTHETIC-v1')",
+          (owner.organization_id, patient, instrument, clinician.user_id))
+    consent_query = "SELECT patient_id FROM patient_research_consent WHERE organization_id=%s"
+    admin_query = "SELECT id FROM validation_administrations WHERE organization_id=%s"
+    org = (owner.organization_id,)
+    assert h.rows_as(clinician, consent_query, org) != []
+    assert h.rows_as(clinician, admin_query, org) != []
+    for denied in (secretary, owner):  # dona/ORG_ADMIN tambem nao le pesquisa clinica
+        assert h.rows_as(denied, consent_query, org) == []
+        assert h.rows_as(denied, admin_query, org) == []
+    v1_owner = h.org()
+    v1_patient = h.seed_patient(v1_owner.organization_id, v1_owner.membership_id)
+    h.sql("INSERT INTO patient_research_consent(patient_id,organization_id,consent_version,"
+          "granted_at,registered_by) VALUES(%s,%s,'SYNTHETIC-v1',now(),%s)",
+          (v1_patient, v1_owner.organization_id, v1_owner.user_id))
+    assert h.rows_as(v1_owner, consent_query, (v1_owner.organization_id,)) != []  # V1 intacta
+
+
+def test_lgpd_requests_follow_v2_governance_roles(harness):
+    h = harness
+    owner = h.v2_org()
+    auditor = h.member(owner.organization_id, v1_role="professional")
+    clinician = h.member(owner.organization_id, v1_role="professional")
+    secretary = h.member(owner.organization_id, v1_role="professional")
+    h.rbac.grant_role(owner, auditor.membership_id, "AUDITOR_COMPLIANCE")
+    h.rbac.grant_role(owner, clinician.membership_id, "CLINICIAN")
+    h.rbac.grant_role(owner, secretary.membership_id, "SECRETARY")
+    patient = h.seed_patient(owner.organization_id, clinician.membership_id)
+    h.sql("INSERT INTO data_subject_requests(id,request_batch_id,organization_id,patient_id,"
+          "request_type) VALUES(%s,%s,%s,%s,'access')",
+          (str(uuid.uuid4()), str(uuid.uuid4()), owner.organization_id, patient))
+    query = "SELECT id FROM data_subject_requests WHERE organization_id=%s"
+    org = (owner.organization_id,)
+    assert h.rows_as(owner, query, org) != []      # ORG_ADMIN: governanca
+    assert h.rows_as(auditor, query, org) != []    # AUDITOR_COMPLIANCE
+    assert h.rows_as(clinician, query, org) == []  # clinico nao gere LGPD
+    assert h.rows_as(secretary, query, org) == []

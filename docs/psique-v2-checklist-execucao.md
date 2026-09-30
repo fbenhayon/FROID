@@ -148,6 +148,17 @@ Extras da implementação: downgrade de RBAC proibido por trigger (rollback nunc
 
 Gate: autorizar agenda — APROVADO pelo proprietário em 30/09/2026, condicionado à revisão minuciosa pré-fase (registrada abaixo antes da implementação).
 
+## Revisão pré-Fase 4 (30/09/2026)
+
+Revisão minuciosa de funções, processos, fluxos e RLS a pedido do proprietário, antes da agenda. O inventário completo de políticas achou três grupos de tabelas com conteúdo ligado a paciente ou governança **sem ramo V2** — corrigidos na migration 043 com o mesmo padrão de dois ramos:
+
+- [x] `patient_research_consent` — era tenant-only, sem papel nenhum: qualquer membro lia estado de consentimento de pesquisa; agora, em org V2, só CLINICIAN atribuído
+- [x] `validation_administrations`/`validation_observations` — escores clínicos de pesquisa eram tenant-only; agora só CLINICIAN atribuído em org V2
+- [x] `data_subject_requests`(+events) — LGPD mapeada para ORG_ADMIN/AUDITOR_COMPLIANCE em org V2 (clínico e secretaria fora)
+- [x] Guarda de espelho de código: teste reaplica a transformação e exige que as cópias embutidas na 042 (comando de crédito da 038, clinical_set da 040) fiquem idênticas à fonte — edição na fonte sem atualizar a cópia viva quebra o teste
+- [x] Guarda de inventário RLS: toda política de leitura das 12 tabelas sensíveis precisa referenciar `psique_rbac_v2_active` — política permissiva futura sem ramo V2 é apontada na hora
+- [x] 163 testes Psique verdes contra PostgreSQL Linux (Docker), regressão V1 intacta
+
 ## Fase 4 — Agenda organizacional
 
 - [ ] Appointment interno é autoridade

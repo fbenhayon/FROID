@@ -15,7 +15,7 @@ from typing import Any
 from psique_billing import PHASE2C_SCHEMA, BillingError, PsiqueBilling
 from tenant_access import AccessContext
 
-PHASE3_SCHEMA = PHASE2C_SCHEMA | {"042_psique_rbac_v2"}
+PHASE3_SCHEMA = PHASE2C_SCHEMA | {"042_psique_rbac_v2", "043_psique_rbac_v2_complement"}
 
 # Mirror of the migration 042 CHECK domain; drift is guarded by tests.
 V2_ROLES = ("CLINICIAN", "SECRETARY", "FINANCE", "ORG_ADMIN",

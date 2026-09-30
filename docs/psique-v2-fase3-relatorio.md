@@ -25,6 +25,10 @@ Ativação (owner-only, idempotente, snapshot, corrida dupla com uma só ativaç
 
 Qualidade: Ruff e Mypy limpos nos módulos novos/tocados; `git diff --check` aprovado; TypeScript não aplicável (painel intocado). Guards de drift cobrem `v2_role`.
 
+## Complemento da revisão pré-Fase 4 (30/09/2026, migration 043)
+
+O inventário completo de políticas RLS encontrou e fechou três lacunas que a 042 não cobria: `patient_research_consent` (era tenant-only, sem papel — qualquer membro lia), `validation_administrations/observations` (escores clínicos de pesquisa tenant-only) e `data_subject_requests(+events)` (LGPD sem mapeamento V2 → agora ORG_ADMIN/AUDITOR_COMPLIANCE). Duas guardas novas impedem regressão silenciosa: o teste de espelho de código exige que as cópias embutidas na 042 permaneçam idênticas às fontes 038/040 sob a mesma transformação, e o teste de inventário exige o ramo V2 em toda política de leitura das doze tabelas sensíveis. Total: 163 testes Psique verdes, validados contra PostgreSQL Linux.
+
 ## Limites e pendências
 
 - A **ativação pública** (rotas antigas, WebSockets e onboarding consultando capabilities V2) permanece para a fase de ativação/integração, como nas fases anteriores: a RLS já decide no banco para qualquer caminho que chegue com o contexto do membro, e nenhuma organização tem `rbac_version=2` até o comando explícito do owner.
