@@ -268,14 +268,24 @@ def _mfcc9_spastic(snap):
     # espástica involuntária das cordas vocais por ativação simpática.
     if not _voice_real(snap):
         return None
-    return (abs(float(snap.get("mfcc9_delta_delta") or 0.0)), None, LIMIAR_ESPASTICO_MFCC9)
+    # `or 0.0` transformava derivada ausente em zero medido, e zero passa
+    # longe do limiar: a leitura saia como "conferi, nao ha contracao",
+    # que e afirmacao diferente de "nao houve como conferir". O idioma
+    # deste arquivo para ausencia e None, como em _zcr logo acima.
+    acc = snap.get("mfcc9_delta_delta")
+    if acc is None:
+        return None
+    return (abs(float(acc)), None, LIMIAR_ESPASTICO_MFCC9)
 
 
 def _mfcc7_spastic(snap):
     # Instabilidade cepstral análoga no coeficiente 7 (formante/timbre).
     if not _voice_real(snap):
         return None
-    return (abs(float(snap.get("mfcc7_delta_delta") or 0.0)), None, 1.8)
+    acc = snap.get("mfcc7_delta_delta")
+    if acc is None:
+        return None
+    return (abs(float(acc)), None, 1.8)
 
 
 def _dna_flooding(snap):

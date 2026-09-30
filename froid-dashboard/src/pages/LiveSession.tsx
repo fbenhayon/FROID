@@ -6277,6 +6277,36 @@ function LiveSessionInner({ user }: LiveSessionProps) {
 
   // Painel "Dissonâncias Evidentes" — extraído para ser reutilizado tanto na
   // Coluna 3 do layout Detalhado quanto na Coluna 2 do layout de Índices.
+  // O TEMA DO CORTE EM QUE A DISSONANCIA CAIU.
+  //
+  // Pedido do Fabio em 22/09/2026: ver, junto do sinal, de que assunto se
+  // estava falando. O registro da dissonancia ja guarda `elapsedSeconds` e o
+  // resumo de cada corte guarda `startSecond`/`endSecond` — cruzar os dois por
+  // tempo e juncao de duas medidas, nao inferencia.
+  //
+  // Duas ressalvas que mudam o texto na tela:
+  //
+  // 1. O tema NAO e a causa. Foi o que se falou na mesma janela; atribuir
+  //    causalidade seria o defeito 2.5 desta casa, onde o resumidor acertou um
+  //    parentesco por sorte e errou a cidade pelo mesmo mecanismo.
+  // 2. No instante do alerta o corte ainda esta ABERTO e nao tem tema — ele so
+  //    nasce quando o corte fecha e o resumo volta. Entao a tela diz "corte em
+  //    andamento" em vez de emprestar o tema do corte anterior, que descreveria
+  //    outro trecho da conversa.
+  const temaDoCorteEm = useCallback(
+    (segundo: number): string | null => {
+      const corte = conversationSummaries.find(
+        (resumo) =>
+          typeof resumo.startSecond === "number" &&
+          typeof resumo.endSecond === "number" &&
+          segundo >= resumo.startSecond &&
+          segundo <= resumo.endSecond,
+      );
+      return corte?.theme ? corte.theme : null;
+    },
+    [conversationSummaries],
+  );
+
   function renderEvidentDissonancePanel() {
     if (multiDissonanceLog.length === 0) return null;
     return (
@@ -6345,6 +6375,14 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                     {entry.peakZoneTema ? ` — ${entry.peakZoneTema}` : ""}
                   </p>
                 )}
+                <p className="mt-0.5 text-[9px] text-amber-200/80">
+                  {temaDoCorteEm(entry.elapsedSeconds)
+                    ? `Assunto no corte: ${temaDoCorteEm(entry.elapsedSeconds)}`
+                    : "Assunto no corte: corte em andamento, tema ainda não resumido"}
+                  <span className="text-slate-400">
+                    {" "}· o que se falava na mesma janela, não a causa do sinal
+                  </span>
+                </p>
                 <div className="mt-1 space-y-1">
                   {entry.markers.map((m, mi) => (
                     <div
