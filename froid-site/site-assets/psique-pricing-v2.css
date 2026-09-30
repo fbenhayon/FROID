@@ -19,3 +19,11 @@
 #pv2-calculadora [data-estado="ok"] { color: #6ee7b7; }
 #pv2-calculadora [data-estado="enterprise"] { color: #93c5fd; }
 .pv2-carregando { color: var(--froid-cinza); font-size: 0.95rem; }
+
+.pv2-aviso-lancamento {
+  border: 1px solid #f59e0b; background: rgba(245, 158, 11, 0.10);
+  border-left: 4px solid #f59e0b; border-radius: 10px;
+  padding: 14px 16px; margin: 4px 0 20px;
+  color: #fbbf24; font-size: 0.95rem;
+}
+.pv2-aviso-lancamento strong { color: #fcd34d; }
