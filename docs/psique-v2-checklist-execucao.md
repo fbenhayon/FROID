@@ -20,8 +20,8 @@ Status: APROVADA LOCALMENTE, com pré-requisitos de produção pendentes.
 - [x] catálogo draft/public=false
 - [x] Purchase estrutural sem conceder créditos
 - [x] PostgreSQL descartável testado
-- [x] V1 preservada no escopo executado
-- [ ] validar em Linux/runtime equivalente à produção
+- [x] V1 preservada no esco- [x] validar em Linux/runtime equivalente à produção — 30/09/2026, via Docker: regressão completa (158 testes, fases 1–3) aprovada duas vezes, primeiro contra PostgreSQL 16.15 Debian em contêiner Linux e depois com o pytest executando DENTRO de contêiner python:3.13 Linux (WSL2) contra o mesmo banco; a revalidação no contêiner real de produção permanece na Fase 6po executado
+
 - [x] revalidar números de migration antes do merge — 035–038 únicos e sequenciais, conferidos em 29/09/2026 sobre o HEAD `a82e962a` imediatamente antes do commit
 - [x] commit cirúrgico sem trabalho concorrente — autorizado pelo proprietário e executado em 29/09/2026, em três commits (auditoria, Fase 1, Fase 2A); os arquivos da frente concorrente ficaram fora
 - [ ] runtime DB role sem DDL amplo antes de produção
@@ -77,7 +77,7 @@ Status: IMPLEMENTADA E VALIDADA LOCALMENTE em 29/09/2026, contra o Sandbox real 
 - [x] sem LIVE
 
 - [x] Homologação manual executada em 30/09/2026, com o proprietário digitando os cartões: PRO 10 (4242), PRO 25 (cartão BR) e PRO 50 (3DS completado) aprovados → saldo exato 85, três Purchases APPLIED; recusa, fundos insuficientes e 3DS abandonado → +0, sem transição; `payment_intent.succeeded` reais só auditados; 13 entregas reais do `stripe listen`, todas 200 com assinatura verificada; reembolso real do PRO 10 → três eventos em revisão administrativa, saldo e Purchase intocados. [Detalhes no relatório](psique-v2-fase2b-relatorio.md).
-- [ ] Revisão e aprovação desta entrega pelo proprietário
+- [x] Revisão e aprovação pelo proprietário — 30/09/2026, após a homologação manual com cartões reais, ao autorizar a fase seguinte
 
 Gate: autorizar Fase 2C.
 
@@ -113,7 +113,7 @@ Status: IMPLEMENTADA E VALIDADA LOCALMENTE em 29/09/2026, com homologação real
 
 - [x] Homologação manual executada em 30/09/2026: assinatura real criada e aumentada pela API de homologação; `customer.subscription.created/updated` e `invoice.*` reais entregues pelo `stripe listen`, assinados, sincronizados (`LICENSE_SYNC_OK`) e faturas auditadas sem mover créditos; assinatura de homologação cancelada ao final.
 - [ ] Fonte real do e-mail de faturamento na fase de ativação (criação de assinatura falha fechada sem resolvedor)
-- [ ] Revisão e aprovação desta entrega pelo proprietário
+- [x] Revisão e aprovação pelo proprietário — 30/09/2026, após a homologação real de assinatura/eventos, ao autorizar a fase seguinte
 
 Gate: autorizar RBAC V2.
 
@@ -144,9 +144,9 @@ Status: IMPLEMENTADA E VALIDADA LOCALMENTE em 30/09/2026 (migration 042, opt-in 
 
 Extras da implementação: downgrade de RBAC proibido por trigger (rollback nunca amplia leitura clínica); último ORG_ADMIN protegido contra auto-trancamento; DELETE de histórico clínico negado em org V2 mesmo para admin; ativação clínica de assento exige ORG_ADMIN (FINANCE compra, não habilita).
 
-- [ ] Revisão e aprovação desta entrega pelo proprietário
+- [x] Revisão e aprovação pelo proprietário — 30/09/2026: "aprovo o gate da Fase 4", com a validação Linux fechada
 
-Gate: autorizar agenda.
+Gate: autorizar agenda — APROVADO pelo proprietário em 30/09/2026, condicionado à revisão minuciosa pré-fase (registrada abaixo antes da implementação).
 
 ## Fase 4 — Agenda organizacional
 
