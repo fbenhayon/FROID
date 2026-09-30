@@ -193,3 +193,62 @@ it("a consulta de compra devolve o estado da Purchase e mapeia negacao", async (
   const negado = await consultarCompraPsiqueV2("SYNTHETIC-id");
   expect(negado.estado === "negado" && negado.motivo).toBe("PURCHASE_ACCESS_DENIED");
 });
+
+it("a seção V2 das Configurações NÃO renderiza nada com o flag desligado", async () => {
+  const { SecaoPsiqueV2View } = await import("../components/psique/SecaoPsiqueV2");
+  const indisponivel = { estado: "indisponivel", motivo: "HTTP_404" } as const;
+  const html = renderToStaticMarkup(
+    <SecaoPsiqueV2View
+      carteira={indisponivel}
+      precos={indisponivel}
+      capacidades={indisponivel}
+      aoComprar={() => undefined}
+      comprando={null}
+      erroCompra=""
+    />,
+  );
+  expect(html).toBe(""); // V1 fica dona da tela, byte a byte
+});
+
+it("com o backend respondendo, a seção aparece e sem capacidade a compra explica-se", async () => {
+  const { SecaoPsiqueV2View } = await import("../components/psique/SecaoPsiqueV2");
+  const html = renderToStaticMarkup(
+    <SecaoPsiqueV2View
+      carteira={{
+        estado: "ok",
+        dados: {
+          balance: 5, reserved_balance: 0, available_balance: 5,
+          trial_status: "EXPIRED", trial_free_remaining: 0, trial_expires_at: null,
+        },
+      }}
+      precos={{ estado: "ok", dados: PRECOS }}
+      capacidades={{
+        estado: "ok",
+        dados: {
+          rbac_version: 2, v2_roles: ["CLINICIAN"],
+          capabilities: {
+            clinical_analysis: true, purchase_credits: false,
+            manage_roles: false, read_audit: false, supervise: false,
+          },
+        },
+      }}
+      aoComprar={() => undefined}
+      comprando={null}
+      erroCompra=""
+    />,
+  );
+  expect(html).toContain("psique-v2");
+  expect(html).toContain("5 créditos disponíveis");
+  expect(html).toContain("sem-capacidade-compra");
+});
+
+it("a página de confirmação descreve cada fase sem inventar sucesso", async () => {
+  const { situacaoParaTexto } = await import("../pages/PsiqueCompraConfirmacao");
+  expect(situacaoParaTexto({ fase: "aplicada", creditos: 25 })).toContain("25 créditos");
+  expect(situacaoParaTexto({ fase: "pendente", status: "CHECKOUT_CREATED" }))
+    .toContain("CHECKOUT_CREATED");
+  expect(situacaoParaTexto({ fase: "indisponivel", motivo: "SEM_CONEXAO" }))
+    .toContain("SEM_CONEXAO");
+  expect(situacaoParaTexto({ fase: "consultando", tentativas: 3 })).toContain("webhook");
+  expect(situacaoParaTexto({ fase: "sem-registro" })).toContain("saldo");
+});

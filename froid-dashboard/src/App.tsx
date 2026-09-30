@@ -25,6 +25,8 @@ const ProfessionalDashboardSummary = lazy(() => import("./pages/ProfessionalDash
 const LiveSession = lazy(() => import("./pages/LiveSession").then((module) => ({ default: module.LiveSession })));
 const History = lazy(() => import("./pages/History").then((module) => ({ default: module.History })));
 const Settings = lazy(() => import("./pages/Settings").then((module) => ({ default: module.Settings })));
+const PsiqueCompraConfirmacaoPage = lazy(() => import("./pages/PsiqueCompraConfirmacao").then((module) => ({ default: module.PsiqueCompraConfirmacaoPage })));
+const PsiqueCompraCanceladaPage = lazy(() => import("./pages/PsiqueCompraConfirmacao").then((module) => ({ default: module.PsiqueCompraCanceladaPage })));
 const ClinicManagement = lazy(() => import("./pages/ClinicManagement").then((module) => ({ default: module.ClinicManagement })));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard").then((module) => ({ default: module.AdminDashboard })));
 const AdminProfessionalDetail = lazy(() => import("./pages/AdminProfessionalDetail").then((module) => ({ default: module.AdminProfessionalDetail })));
@@ -529,6 +531,14 @@ function App() {
         <Route
           path="/settings"
           element={clinicalElement(<Settings user={user} />)}
+        />
+        <Route
+          path="/psique/compra/confirmacao"
+          element={clinicalElement(<PsiqueCompraConfirmacaoPage />)}
+        />
+        <Route
+          path="/psique/compra/cancelada"
+          element={clinicalElement(<PsiqueCompraCanceladaPage />)}
         />
         <Route
           path="/privacy-requests"

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { FroidUser } from "../App";
 import { ProfessionalReceivables } from "../components/administrative/ProfessionalReceivables";
+import { SecaoPsiqueV2 } from "../components/psique/SecaoPsiqueV2";
 import { apiUrl, publicAppUrl } from "../lib/api";
 import {
   acceptanceFor,
@@ -1046,6 +1047,7 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
               Dúvidas e referências pelo FROID Explica
             </span>
           </div>
+          <SecaoPsiqueV2 />
           <div className="rounded-lg border border-slate-700 p-3">
             <p className="text-sm font-semibold">Planos e Cobranca</p>
             <p className="mt-1 text-xs text-slate-400">
