@@ -16,6 +16,12 @@ from typing import Any
 DEFAULT_CONFIG = Path(__file__).parent / "config" / "psique_pricing_v2.json"
 BILLING_TYPES = frozenset({"one_time", "usage", "monthly_graduated"})
 
+# Regra do Trial V2. A fonte executavel vive na migration 037
+# (credits_granted=10; expires_at = started_at + 336 horas); estes espelhos
+# existem para a comunicacao publica e tem guarda de teste contra a 037.
+TRIAL_CREDITS = 10
+TRIAL_DAYS = 14
+
 
 class PricingError(ValueError):
     pass
@@ -164,3 +170,33 @@ def require_effective(status: str, valid_from: datetime | None,
         valid_to is not None and at >= valid_to
     ):
         raise PricingError("pricing_not_effective")
+
+
+def public_catalog(config: dict[str, Any]) -> dict[str, Any]:
+    """Payload publico de precos: somente pacotes pre-pagos ativos.
+
+    Nenhum consumidor deve exibir preco antigo ou zero quando isto falhar:
+    a falha e do chamador comunicar como indisponibilidade explicita.
+    """
+    validate(config)
+    offers = [
+        {
+            "product_code": offer["product_code"],
+            "name": offer["name"],
+            "credits": offer["credits"],
+            "total_cents": offer["total_cents"],
+            "unit_price_display": unit_price_display(config, offer["product_code"]),
+        }
+        for offer in sorted(config["offers"], key=lambda o: o["product_code"])
+        if offer["billing_type"] == "one_time" and offer["active"]
+    ]
+    return {
+        "pricing_version": config["version"],
+        "pricing_hash": pricing_hash(config),
+        "currency": config["currency"],
+        "trial": {"credits": TRIAL_CREDITS, "days": TRIAL_DAYS},
+        "offers": offers,
+        "organization_license": {
+            "self_service_max": config["organization_license"]["self_service_max"],
+        },
+    }

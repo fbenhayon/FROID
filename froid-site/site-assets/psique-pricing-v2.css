@@ -1,0 +1,21 @@
+/* FROID Psique V2 — página de preços alimentada pelo backend. */
+.pv2-grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.pv2-card { text-align: left; }
+.pv2-card h3 { margin: 0 0 4px; }
+.pv2-creditos { font-weight: 700; color: #93c5fd; margin: 0 0 8px; font-size: 0.92rem; }
+.pv2-valor { font-size: 1.5rem; font-weight: 800; color: #f8fafc; margin: 0; font-variant-numeric: tabular-nums; }
+.pv2-unitario { font-size: 0.82rem; color: var(--froid-cinza); margin: 4px 0 0; }
+.pv2-indisponivel,
+#pv2-trial[data-estado="indisponivel"],
+#pv2-calculadora [data-estado="indisponivel"] {
+  border: 1px dashed #f59e0b; border-radius: 10px; padding: 14px 16px;
+  color: #fbbf24; font-size: 0.95rem;
+}
+#pv2-trial { font-size: 1.05rem; font-weight: 600; }
+#pv2-calculadora { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+#pv2-calculadora input { width: 120px; padding: 10px 12px; border-radius: 8px;
+  border: 1px solid #334155; background: #0b1220; color: #f8fafc; font-size: 1rem; }
+#pv2-calculadora [data-papel="resultado"] { font-weight: 700; min-height: 1.4em; }
+#pv2-calculadora [data-estado="ok"] { color: #6ee7b7; }
+#pv2-calculadora [data-estado="enterprise"] { color: #93c5fd; }
+.pv2-carregando { color: var(--froid-cinza); font-size: 0.95rem; }

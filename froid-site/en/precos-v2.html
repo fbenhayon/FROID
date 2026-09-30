@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FROID Psique Pricing — Credits and License</title>
+<meta name="description" content="FROID Psique analysis credit packs and per-clinician organizational license. Live pricing; free trial, no card required." />
+<meta name="robots" content="noindex" />
+<!-- Página V2 fora do menu até a virada da Fase 6: os preços vêm exclusivamente
+     do backend; nenhum valor é embutido neste arquivo, e a indisponibilidade
+     da API aparece declarada — nunca preço antigo ou zero. -->
+<link rel="stylesheet" href="../site-assets/style.css?v=16" />
+<link rel="stylesheet" href="../site-assets/refinement.css?v=2" />
+<link rel="stylesheet" href="../site-assets/psique-pricing-v2.css?v=1" />
+</head>
+<body>
+
+<section class="hero" style="padding:64px 0 44px;">
+  <div class="container">
+    <p class="section-kicker" style="color:#93c5fd;">FROID Psique — Pricing</p>
+    <h1 style="font-size:2.1rem;">Analysis credits and organizational license</h1>
+    <p class="lead">Two separate contracts, each with a clear rule: prepaid credit packs for analyses, and a monthly per-clinician license for the organization. Prices in Brazilian reais, fetched live.</p>
+  </div>
+</section>
+
+<div id="psique-v2-precos">
+
+<section class="block soft" id="trial">
+  <div class="container">
+    <p class="section-kicker">Start without paying</p>
+    <h2 class="section-title">Free trial, no card</h2>
+    <p id="pv2-trial" class="section-lead" data-estado="carregando">Checking the current terms…</p>
+    <p style="font-size:0.9rem; color:var(--froid-cinza);">The trial applies once per account, after e-mail verification. Buying a pack does not end the trial, and free balance is consumed before paid balance. On expiry, only the remaining free balance expires — purchased credits are never removed.</p>
+  </div>
+</section>
+
+<section class="block" id="pacotes">
+  <div class="container">
+    <p class="section-kicker">Analysis credits</p>
+    <h2 class="section-title">FROID PRO packs</h2>
+    <p class="section-lead">Each new clinical material consumes one analysis credit — once. Reanalysis, reprocessing and report regeneration of the same material are never charged again. The credit is reserved before processing, and consumption is only confirmed once the report is delivered: a technical failure releases the reservation.</p>
+    <div id="pv2-ofertas" class="pv2-grade" data-estado="carregando">
+      <p class="pv2-carregando">Fetching current prices…</p>
+    </div>
+    <p style="margin-top:16px; font-size:0.88rem; color:var(--froid-cinza);">The pack price is the amount actually charged, in Brazilian reais (BRL), confirmed by Stripe before any credit is granted. The unit price is informational. Purchased credits do not expire.</p>
+  </div>
+</section>
+
+<section class="block soft" id="licenca">
+  <div class="container">
+    <p class="section-kicker">Organizations</p>
+    <h2 class="section-title">Monthly license per clinician</h2>
+    <p class="section-lead">The organizational license is a contract separate from credits: it covers the clinic structure — roles, supervision, scheduling and governance — and is sized only by active clinicians. <strong>Administrative users (front desk, finance, audit) are free and unlimited.</strong></p>
+    <div id="pv2-calculadora" class="card">
+      <label for="pv2-clinicos" style="font-weight:600;">Clinicians:</label>
+      <input id="pv2-clinicos" type="number" min="1" step="1" value="2" inputmode="numeric" />
+      <button class="btn btn-solid" type="button">Calculate</button>
+      <span data-papel="resultado" data-estado="vazio"></span>
+    </div>
+    <p style="margin-top:14px; font-size:0.9rem; color:var(--froid-cinza);">A new clinician is active immediately, with the financial adjustment accrued to the next invoice — never a surprise mid-cycle charge. Reductions apply operationally at once and financially on the next cycle. The license grants no analysis credits.</p>
+  </div>
+</section>
+
+<section class="block" id="acervo">
+  <div class="container">
+    <p class="section-kicker">Access rule</p>
+    <h2 class="section-title">An empty balance only blocks new analyses</h2>
+    <p class="section-lead">Without credits, login still works, history remains, delivered reports remain accessible. Only starting a new billable analysis becomes unavailable — with the reason stated on screen and the purchase path next to it.</p>
+    <a class="btn btn-solid" href="https://www.froid.com.br/cadastro">Create a FROID account</a>
+  </div>
+</section>
+
+</div>
+
+<script>
+window.PSIQUE_PRECOS_V2_I18N = {
+  locale: "en-US",
+  indisponivel: "Prices temporarily unavailable. Please try again shortly.",
+  creditos: "analysis credits",
+  unitario: "unit reference price:",
+  trial_modelo: "{creditos} free analyses or {dias} days — whichever comes first. No card.",
+  calc_invalido: "Enter how many clinicians.",
+  calc_carregando: "Checking…",
+  calc_resultado: "Monthly license: {valor}",
+  calc_enterprise: "Above {max} clinicians: Enterprise proposal with the FROID team."
+};
+</script>
+<script src="../site-assets/psique-pricing-v2.js?v=1"></script>
+</body>
+</html>

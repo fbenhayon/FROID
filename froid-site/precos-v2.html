@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Preços FROID Psique — Créditos e Licença</title>
+<meta name="description" content="Pacotes de créditos de análise FROID Psique e licença organizacional por profissional clínico. Preços consultados ao vivo; teste gratuito sem cartão." />
+<meta name="robots" content="noindex" />
+<!-- Página V2 fora do menu até a virada da Fase 6: os preços vêm exclusivamente
+     do backend; nenhum valor é embutido neste arquivo, e a indisponibilidade
+     da API aparece declarada — nunca preço antigo ou zero. -->
+<link rel="stylesheet" href="site-assets/style.css?v=16" />
+<link rel="stylesheet" href="site-assets/refinement.css?v=2" />
+<link rel="stylesheet" href="site-assets/psique-pricing-v2.css?v=1" />
+</head>
+<body>
+
+<section class="hero" style="padding:64px 0 44px;">
+  <div class="container">
+    <p class="section-kicker" style="color:#93c5fd;">FROID Psique — Preços</p>
+    <h1 style="font-size:2.1rem;">Créditos de análise e licença organizacional</h1>
+    <p class="lead">Dois contratos separados, cada um com uma régua clara: pacotes pré-pagos de créditos para as análises, e uma licença mensal por profissional clínico para a organização. Valores em reais, consultados ao vivo.</p>
+  </div>
+</section>
+
+<div id="psique-v2-precos">
+
+<section class="block soft" id="trial">
+  <div class="container">
+    <p class="section-kicker">Comece sem pagar</p>
+    <h2 class="section-title">Teste gratuito, sem cartão</h2>
+    <p id="pv2-trial" class="section-lead" data-estado="carregando">Consultando as condições vigentes…</p>
+    <p style="font-size:0.9rem; color:var(--froid-cinza);">O teste vale uma única vez por conta, após a verificação do e-mail. Comprar um pacote não encerra o período de teste, e o saldo gratuito é consumido antes do saldo pago. Ao expirar, somente o saldo gratuito remanescente expira — créditos comprados nunca são removidos.</p>
+  </div>
+</section>
+
+<section class="block" id="pacotes">
+  <div class="container">
+    <p class="section-kicker">Créditos de análise</p>
+    <h2 class="section-title">Pacotes FROID PRO</h2>
+    <p class="section-lead">Cada material clínico novo consome um crédito de análise — uma única vez. Reanálise, reprocessamento e regeneração de relatório do mesmo material não cobram de novo. A reserva do crédito acontece antes do processamento, e o consumo só se confirma com o relatório entregue: falha técnica devolve a reserva.</p>
+    <div id="pv2-ofertas" class="pv2-grade" data-estado="carregando">
+      <p class="pv2-carregando">Consultando os preços vigentes…</p>
+    </div>
+    <p style="margin-top:16px; font-size:0.88rem; color:var(--froid-cinza);">O valor do pacote é o valor efetivamente cobrado, em reais (BRL), confirmado pelo Stripe antes de qualquer concessão. O valor unitário é referência informativa. Créditos comprados não expiram.</p>
+  </div>
+</section>
+
+<section class="block soft" id="licenca">
+  <div class="container">
+    <p class="section-kicker">Organizações</p>
+    <h2 class="section-title">Licença mensal por profissional clínico</h2>
+    <p class="section-lead">A licença organizacional é um contrato separado dos créditos: cobre a estrutura da clínica — papéis, supervisão, agenda e governança — e é dimensionada apenas pelos profissionais clínicos ativos. <strong>Usuários administrativos (secretaria, financeiro, auditoria) são gratuitos e ilimitados.</strong></p>
+    <div id="pv2-calculadora" class="card">
+      <label for="pv2-clinicos" style="font-weight:600;">Profissionais clínicos:</label>
+      <input id="pv2-clinicos" type="number" min="1" step="1" value="2" inputmode="numeric" />
+      <button class="btn btn-solid" type="button">Calcular</button>
+      <span data-papel="resultado" data-estado="vazio"></span>
+    </div>
+    <p style="margin-top:14px; font-size:0.9rem; color:var(--froid-cinza);">Entrada de um novo clínico vale imediatamente, com o ajuste financeiro acumulado para a fatura seguinte — nunca uma cobrança-surpresa no meio do ciclo. Redução vale operacionalmente na hora e financeiramente no ciclo seguinte. A licença não concede créditos de análise.</p>
+  </div>
+</section>
+
+<section class="block" id="acervo">
+  <div class="container">
+    <p class="section-kicker">Regra de acesso</p>
+    <h2 class="section-title">Saldo esgotado bloqueia só a análise nova</h2>
+    <p class="section-lead">Sem créditos, o login continua, o histórico continua, os relatórios já entregues continuam acessíveis. O que fica indisponível é somente iniciar uma nova análise faturável — com o motivo declarado na tela e o caminho de compra ao lado.</p>
+    <a class="btn btn-solid" href="https://www.froid.com.br/cadastro">Criar conta no FROID</a>
+  </div>
+</section>
+
+</div>
+
+<script>
+window.PSIQUE_PRECOS_V2_I18N = {
+  locale: "pt-BR",
+  indisponivel: "Preços temporariamente indisponíveis. Tente novamente em instantes.",
+  creditos: "créditos de análise",
+  unitario: "valor unitário de referência:",
+  trial_modelo: "{creditos} análises gratuitas ou {dias} dias — o que ocorrer primeiro. Sem cartão.",
+  calc_invalido: "Informe quantos profissionais clínicos.",
+  calc_carregando: "Consultando…",
+  calc_resultado: "Licença mensal: {valor}",
+  calc_enterprise: "Acima de {max} clínicos: proposta Enterprise com a equipe FROID."
+};
+</script>
+<script src="site-assets/psique-pricing-v2.js?v=1"></script>
+</body>
+</html>

@@ -15849,6 +15849,8 @@ if FROID_PSIQUE_V2_BILLING_ENABLED:
     from psique_license import PsiqueLicense
     from psique_rbac import PsiqueRbac
     from psique_scheduling import PsiqueScheduling
+    from psique_credits import PsiqueCredits
+    from psique_identity import EvidenceError, TrialKeyring
     import psique_pricing as _psique_pricing
 
     _psique_billing_instance: Optional["PsiqueBilling"] = None
@@ -15910,6 +15912,26 @@ if FROID_PSIQUE_V2_BILLING_ENABLED:
                 _psique_billing_provider()._connect)  # noqa: SLF001 -- mesma familia
         return _psique_scheduling_instance
 
+    _psique_wallet_instance: Optional["PsiqueCredits"] = None
+
+    def _psique_pricing_payload() -> dict:
+        return _psique_pricing.public_catalog(_psique_pricing.load_config())
+
+    def _psique_wallet_provider() -> "PsiqueCredits":
+        global _psique_wallet_instance
+        if _psique_wallet_instance is None:
+            def _sem_provedor(*_args, **_kwargs):
+                # A rota de carteira so le saldo; concessao de Trial e fonte
+                # tem provedores proprios na ativacao e falham fechado aqui.
+                raise EvidenceError("PROVIDER_NOT_WIRED_FOR_WALLET_ROUTE")
+
+            _psique_wallet_instance = PsiqueCredits(
+                _psique_billing_provider()._connect,  # noqa: SLF001 -- mesma familia
+                identity_loader=_sem_provedor, material_loader=_sem_provedor,
+                keyring=TrialKeyring({"wallet-route": b"0" * 32}, "wallet-route"),
+            )
+        return _psique_wallet_instance
+
     def _psique_v2_billing_context(request: Request):
         context = _tenant_context_from_request(request)
         if context is None:
@@ -15922,5 +15944,7 @@ if FROID_PSIQUE_V2_BILLING_ENABLED:
             license_provider=_psique_license_provider,
             rbac_provider=_psique_rbac_provider,
             scheduling_provider=_psique_scheduling_provider,
+            pricing_provider=_psique_pricing_payload,
+            wallet_provider=_psique_wallet_provider,
         )
     )

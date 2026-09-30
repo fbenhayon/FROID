@@ -181,19 +181,24 @@ Gate: autorizar UI/site.
 
 ## Fase 5 — App e website V2
 
-- [ ] pricing vem do backend
-- [ ] falha API não mostra preço antigo/zero
-- [ ] todos PRO visíveis
-- [ ] Trial 10/14 comunicado
-- [ ] pioneiros removidos
-- [ ] créditos e licença separados
-- [ ] calculadora clínica usa backend
-- [ ] administrativos gratuitos/ilimitados
-- [ ] paywall bloqueia só nova análise
-- [ ] histórico permanece acessível
-- [ ] menus respeitam capabilities
-- [ ] quatro idiomas consistentes
-- [ ] nenhum hardcode conflitante
+Status: IMPLEMENTADA E VALIDADA LOCALMENTE em 30/09/2026, como experiência V2 COEXISTENTE: `precos-v2.html` (4 idiomas, fora do menu) e componentes novos do painel, inertes até o flag — a troca da página pública e a fiação nas rotas do app são a virada da Fase 6, nunca efeito colateral de um `git pull` do site. [Relatório da Fase 5](psique-v2-fase5-relatorio.md).
+
+- [x] pricing vem do backend — `GET /pricing` público (6 ofertas + trial + teto da licença) e `GET /wallet` autenticada; site e painel consomem exclusivamente a API
+- [x] falha API não mostra preço antigo/zero — estados discriminados no cliente TS (sem campo de dados fora do "ok") e indisponibilidade declarada no site; catálogo quebrado responde 503 nomeado
+- [x] todos PRO visíveis — os seis pacotes no payload, com guarda de conteúdo
+- [x] Trial 10/14 comunicado — números vêm da API; espelho `TRIAL_CREDITS/TRIAL_DAYS` com guarda contra a migration 037
+- [x] pioneiros removidos — a experiência V2 não tem programa de pioneiros; a página V1 vigente permanece intocada até a virada (guardada por teste)
+- [x] créditos e licença separados — seções e contratos distintos no site e no painel
+- [x] calculadora clínica usa backend — quote ao vivo; 201+ vira mensagem Enterprise
+- [x] administrativos gratuitos/ilimitados — comunicado no site (garantia já imposta na 2C)
+- [x] paywall bloqueia só nova análise — `portaoDeAcessoV2` com login/histórico/relatórios travados em `true` por teste
+- [x] histórico permanece acessível — idem, inclusive com carteira indisponível
+- [x] menus respeitam capabilities — `menuVisivelV2` sobre `GET /capabilities`; sem capacidades, nada aparece
+- [x] quatro idiomas consistentes — PT/EN/ES/FR gerados da mesma estrutura, com guarda de contrato i18n idêntico
+- [x] nenhum hardcode conflitante — guarda regex: zero preços embutidos nas superfícies V2 (páginas + JS)
+
+- [ ] Virada (Fase 6): trocar a página pública, atualizar FAQ/profissionais/metadados, fiar painel (rotas/menus/onboarding) e ativar o flag
+- [ ] Revisão e aprovação desta entrega pelo proprietário
 
 Gate: preparar LIVE.
 

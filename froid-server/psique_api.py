@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from psique_billing import BillingError, PsiqueBilling
+from psique_credits import CreditError, PsiqueCredits
 from psique_license import PsiqueLicense
 from psique_rbac import PsiqueRbac
 from psique_scheduling import PsiqueScheduling
@@ -28,6 +29,7 @@ _DENIED_CODES = {
     "RBAC_ENABLE_OWNER_REQUIRED", "RBAC_TARGET_MEMBERSHIP_REQUIRED",
     "PSIQUE_SCHEDULING_ROLE_DENIED", "OWN_AGENDA_ONLY", "OWN_AVAILABILITY_ONLY",
     "APPOINTMENT_ACCESS_DENIED", "SOURCE_ACCESS_DENIED",
+    "PSIQUE_ROLE_DENIED", "PSIQUE_CREDIT_ADMIN_REQUIRED", "TRIAL_OWNER_REQUIRED",
 }
 _BAD_REQUEST_CODES = {
     "CHECKOUT_BODY_MUST_BE_PRODUCT_CODE_ONLY", "PRODUCT_CODE_REQUIRED",
@@ -56,6 +58,8 @@ def build_psique_v2_billing_router(
     license_provider: Callable[[], PsiqueLicense] | None = None,
     rbac_provider: Callable[[], PsiqueRbac] | None = None,
     scheduling_provider: Callable[[], PsiqueScheduling] | None = None,
+    pricing_provider: Callable[[], dict[str, Any]] | None = None,
+    wallet_provider: Callable[[], PsiqueCredits] | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/psique/v2", tags=["psique-v2-billing"])
 
@@ -323,6 +327,25 @@ def build_psique_v2_billing_router(
                 return scheduling_provider().calendar_sync_status(context)
             except BillingError as error:
                 raise _http_error(error) from None
+
+    if pricing_provider is not None:
+        @router.get("/pricing")
+        async def public_pricing():
+            # Publico e sem fallback: se o catalogo nao carregar, a resposta e
+            # uma indisponibilidade explicita, nunca preco antigo ou zero.
+            try:
+                return pricing_provider()
+            except Exception:  # noqa: BLE001 -- fronteira HTTP: catalogo indisponivel e 503 nomeado
+                return JSONResponse(status_code=503,
+                                    content={"code": "PRICING_UNAVAILABLE"})
+
+    if wallet_provider is not None:
+        @router.get("/wallet")
+        async def wallet_state(context: Any = Depends(context_dependency)):  # noqa: B008 -- padrao FastAPI de dependencia
+            try:
+                return wallet_provider().balance(context)
+            except CreditError as error:
+                raise _http_error(BillingError(error.code)) from None
 
     @router.post("/stripe/webhook")
     async def stripe_webhook(request: Request):
