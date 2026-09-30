@@ -15,7 +15,7 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
-from psique_billing import BillingError, PsiqueBilling
+from psique_billing import BillingError, executar_comando_v2
 from psique_rbac import PHASE3_SCHEMA
 from tenant_access import AccessContext
 
@@ -39,13 +39,11 @@ def _iso(value: datetime) -> str:
 
 class PsiqueScheduling:
     def __init__(self, connection_factory: Callable[[], Any]):
-        self._commands = PsiqueBilling(
-            connection_factory, stripe_client=None, webhook_secret="unused",
-            account_id="acct_unused", pricing_version="unused",
-            success_url="https://unused.invalid", cancel_url="https://unused.invalid")
+        self._connect = connection_factory
 
     def _call(self, sql: str, params: tuple, context: AccessContext) -> dict[str, Any]:
-        return self._commands._call(sql, params, context, schema=PHASE4_SCHEMA)
+        return executar_comando_v2(self._connect, sql, params,
+                                   context=context, schema=PHASE4_SCHEMA)
 
     def upsert_unit(self, context: AccessContext, name: str) -> dict[str, Any]:
         return self._call("SELECT psique_v2_unit_upsert(%s,%s,%s,%s)",

@@ -16,7 +16,7 @@ from collections.abc import Callable
 from typing import Any
 
 import psique_pricing
-from psique_billing import PHASE2C_SCHEMA, BillingError, PsiqueBilling
+from psique_billing import PHASE2C_SCHEMA, BillingError, executar_comando_v2
 from tenant_access import AccessContext
 
 # Mirrors of the migration 040 CHECK domains; drift is guarded by tests.
@@ -35,14 +35,11 @@ class PsiqueLicense:
         self._account_id = account_id
         self._billing_email_resolver = billing_email_resolver
         self._catalog = catalog or psique_pricing.load_config()
-        # Reuses the schema-verified, sanitized SQL boundary of Phase 2B.
-        self._commands = PsiqueBilling(
-            connection_factory, stripe_client=stripe_client, webhook_secret="unused",
-            account_id=account_id, pricing_version=self._catalog["version"],
-            success_url="https://unused.invalid", cancel_url="https://unused.invalid")
+        self._connect = connection_factory
 
     def _call(self, sql: str, params: tuple, context: AccessContext | None = None) -> dict[str, Any]:
-        return self._commands._call(sql, params, context, schema=PHASE2C_SCHEMA)
+        return executar_comando_v2(self._connect, sql, params,
+                                   context=context, schema=PHASE2C_SCHEMA)
 
     # -- Pure quote ----------------------------------------------------------
     def quote(self, clinical_seat_count: int) -> dict[str, Any]:

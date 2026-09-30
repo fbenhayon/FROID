@@ -11,6 +11,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, expect, it, vi } from "vitest";
 
 import {
+  consultarCompraPsiqueV2,
   criarCheckoutPsiqueV2,
   menuVisivelV2,
   obterCarteiraPsiqueV2,
@@ -180,4 +181,15 @@ it("com dados, o painel separa saldo, trial e ofertas com preço do backend", ()
   expect(html).toContain("3 análises restantes");
   expect(html).toContain("FROID_PRO_10");
   expect(html).toContain("199,00");
+});
+
+it("a consulta de compra devolve o estado da Purchase e mapeia negacao", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
+    respostaJson(200, { status: "APPLIED", credits: 25, applied_at: "2026-09-30T12:00:00Z" })));
+  const ok = await consultarCompraPsiqueV2("SYNTHETIC-id");
+  expect(ok.estado === "ok" && ok.dados.status).toBe("APPLIED");
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
+    respostaJson(403, { detail: "PURCHASE_ACCESS_DENIED" })));
+  const negado = await consultarCompraPsiqueV2("SYNTHETIC-id");
+  expect(negado.estado === "negado" && negado.motivo).toBe("PURCHASE_ACCESS_DENIED");
 });

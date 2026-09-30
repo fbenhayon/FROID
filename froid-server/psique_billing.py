@@ -189,6 +189,39 @@ def flatten_session(session: dict[str, Any]) -> dict[str, Any]:
     return flat
 
 
+def executar_comando_v2(connection_factory: Callable[[], Any], sql: str, params: tuple,
+                        *, context: AccessContext | None = None,
+                        schema: set[str] | None = None) -> dict[str, Any]:
+    """Executor unico dos comandos SQL do Psique V2 (fronteira SECURITY DEFINER).
+
+    Verifica o schema exigido sem escrever, define o contexto GUC quando ha
+    membro autenticado e traduz erros nomeados do banco em BillingError; o que
+    nao for codigo vira PSIQUE_STORAGE_ERROR sanitizado. Todos os servicos V2
+    (billing, licenca, RBAC, agenda) usam ESTA funcao — nao construa um
+    PsiqueBilling de fachada para pegar o executor emprestado.
+    """
+    import psycopg
+
+    try:
+        with connection_factory() as conn, conn.transaction():
+            verify_schema(conn, schema or PHASE2B_SCHEMA)
+            if context is not None:
+                conn.execute("SELECT set_config('app.organization_id',%s,true)",
+                             (context.organization_id,))
+                conn.execute("SELECT set_config('app.membership_id',%s,true)",
+                             (context.membership_id,))
+            row = conn.execute(sql, params).fetchone()
+            if row is None:
+                raise BillingError("PSIQUE_COMMAND_RESULT_MISSING")
+            result: dict[str, Any] = row[0]
+            return result
+    except psycopg.Error as exc:
+        reason = exc.diag.message_primary or ""
+        if reason and all(c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789" for c in reason):
+            raise BillingError(reason) from exc
+        raise BillingError("PSIQUE_STORAGE_ERROR") from exc
+
+
 class PsiqueBilling:
     def __init__(self, connection_factory: Callable[[], Any], *,
                  stripe_client: Any, webhook_secret: str, account_id: str,
@@ -205,26 +238,8 @@ class PsiqueBilling:
 
     def _call(self, sql: str, params: tuple, context: AccessContext | None = None,
               schema: set[str] | None = None) -> dict[str, Any]:
-        import psycopg
-
-        try:
-            with self._connect() as conn, conn.transaction():
-                verify_schema(conn, schema or PHASE2B_SCHEMA)
-                if context is not None:
-                    conn.execute("SELECT set_config('app.organization_id',%s,true)",
-                                 (context.organization_id,))
-                    conn.execute("SELECT set_config('app.membership_id',%s,true)",
-                                 (context.membership_id,))
-                row = conn.execute(sql, params).fetchone()
-                if row is None:
-                    raise BillingError("PSIQUE_COMMAND_RESULT_MISSING")
-                result: dict[str, Any] = row[0]
-                return result
-        except psycopg.Error as exc:
-            reason = exc.diag.message_primary or ""
-            if reason and all(c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789" for c in reason):
-                raise BillingError(reason) from exc
-            raise BillingError("PSIQUE_STORAGE_ERROR") from exc
+        return executar_comando_v2(self._connect, sql, params,
+                                   context=context, schema=schema)
 
     # -- Checkout -----------------------------------------------------------
     def checkout(self, context: AccessContext, body: dict[str, Any], *,

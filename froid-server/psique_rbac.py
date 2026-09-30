@@ -12,7 +12,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from psique_billing import PHASE2C_SCHEMA, BillingError, PsiqueBilling
+from psique_billing import PHASE2C_SCHEMA, BillingError, executar_comando_v2
 from tenant_access import AccessContext
 
 PHASE3_SCHEMA = PHASE2C_SCHEMA | {"042_psique_rbac_v2", "043_psique_rbac_v2_complement"}
@@ -24,13 +24,11 @@ V2_ROLES = ("CLINICIAN", "SECRETARY", "FINANCE", "ORG_ADMIN",
 
 class PsiqueRbac:
     def __init__(self, connection_factory: Callable[[], Any]):
-        self._commands = PsiqueBilling(
-            connection_factory, stripe_client=None, webhook_secret="unused",
-            account_id="acct_unused", pricing_version="unused",
-            success_url="https://unused.invalid", cancel_url="https://unused.invalid")
+        self._connect = connection_factory
 
     def _call(self, sql: str, params: tuple, context: AccessContext) -> dict[str, Any]:
-        return self._commands._call(sql, params, context, schema=PHASE3_SCHEMA)
+        return executar_comando_v2(self._connect, sql, params,
+                                   context=context, schema=PHASE3_SCHEMA)
 
     def enable(self, context: AccessContext) -> dict[str, Any]:
         return self._call("SELECT psique_v2_rbac_enable(%s,%s,%s)",

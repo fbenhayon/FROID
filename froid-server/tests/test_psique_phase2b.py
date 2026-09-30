@@ -54,6 +54,16 @@ EXPECTED_TOTALS = {"FROID_PRO_10": 19900, "FROID_PRO_25": 46900, "FROID_PRO_50":
 
 # -- Static guards -----------------------------------------------------------
 
+def test_authorized_objects_mirror_the_operator_tool():
+    """Espelho: a tabela de objetos TEST autorizada existe aqui e na
+    ferramenta do operador; se uma mudar sem a outra, este teste aponta."""
+    from tools.psique_stripe_mappings import AUTHORIZED_OBJECTS
+
+    assert AUTHORIZED_OBJECTS == AUTHORIZED
+
+
+
+
 def test_purchase_status_check_mirrors_module_constant():
     sql = (ROOT / "migrations/039_psique_stripe_test_checkout.sql").read_text(encoding="utf-8")
     match = re.search(r"psique_purchases_status_check CHECK \(status IN\s*\(([^)]*)\)", sql)
