@@ -28,6 +28,7 @@ import psique_identity
 import psique_license
 import psique_pricing
 import psique_rbac
+import psique_scheduling
 import tenant_access
 
 MIGRATIONS = SERVER_DIR / "migrations"
@@ -162,6 +163,16 @@ class PsiqueBillingTypeDriftTests(unittest.TestCase):
         self.assertEqual(last_check_for("processing_status"),
                          set(psique_billing.EVENT_PROCESSING_STATUSES))
 
+    def test_phase4_scheduling_domains_match(self):
+        self.assertEqual(last_check_for("appointment_status"),
+                         set(psique_scheduling.APPOINTMENT_STATUSES))
+        self.assertEqual(last_check_for("event_kind"),
+                         set(psique_scheduling.APPOINTMENT_EVENT_KINDS))
+        self.assertEqual(last_check_for("outbox_status"),
+                         set(psique_scheduling.OUTBOX_STATUSES))
+        self.assertEqual(last_check_for("operation"),
+                         set(psique_scheduling.OUTBOX_OPERATIONS))
+
     def test_phase3_rbac_role_domain_matches(self):
         self.assertEqual(last_check_for("v2_role"), set(psique_rbac.V2_ROLES))
 
@@ -196,7 +207,7 @@ class DriftGuardCoverageTests(unittest.TestCase):
             "measure_efficacy", "measure_type", "polarity", "report_visibility",
             "plan_action", "billing_type", "credit_model", "funding", "source_kind", "eligibility_origin",
             "processing_status", "clinical_status", "license_status", "change_status",
-            "v2_role",
+            "v2_role", "appointment_status", "event_kind", "outbox_status", "operation",
         }
         todas = set(re.findall(r"CHECK\s*\(\s*([a-z_]+)\s+IN\s*\(", all_sql()))
         # Colunas de estado interno não têm par em Python e não sofrem drift.

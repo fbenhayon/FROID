@@ -18,6 +18,7 @@ from fastapi.responses import JSONResponse
 from psique_billing import BillingError, PsiqueBilling
 from psique_license import PsiqueLicense
 from psique_rbac import PsiqueRbac
+from psique_scheduling import PsiqueScheduling
 
 _DENIED_CODES = {
     "PSIQUE_CONTEXT_MISMATCH", "PSIQUE_ACTIVE_MEMBERSHIP_REQUIRED",
@@ -25,6 +26,8 @@ _DENIED_CODES = {
     "PREVIEW_ACCESS_DENIED", "CLINICAL_TARGET_MEMBERSHIP_REQUIRED",
     "PSIQUE_ORG_ADMIN_REQUIRED", "PSIQUE_CLINICIAN_REQUIRED",
     "RBAC_ENABLE_OWNER_REQUIRED", "RBAC_TARGET_MEMBERSHIP_REQUIRED",
+    "PSIQUE_SCHEDULING_ROLE_DENIED", "OWN_AGENDA_ONLY", "OWN_AVAILABILITY_ONLY",
+    "APPOINTMENT_ACCESS_DENIED", "SOURCE_ACCESS_DENIED",
 }
 _BAD_REQUEST_CODES = {
     "CHECKOUT_BODY_MUST_BE_PRODUCT_CODE_ONLY", "PRODUCT_CODE_REQUIRED",
@@ -41,7 +44,8 @@ def _http_error(error: BillingError) -> HTTPException:
     if error.code in {"PSIQUE_WALLET_REQUIRED", "ENTERPRISE_REQUIRED_NO_SELF_SERVICE",
                       "SEAT_COUNT_UNSTABLE_RETRY_LATER", "RBAC_V2_NOT_ENABLED",
                       "LAST_ORG_ADMIN_PROTECTED", "SUPERVISOR_ROLE_REQUIRED",
-                      "SUPERVISED_CLINICIAN_REQUIRED"}:
+                      "SUPERVISED_CLINICIAN_REQUIRED", "APPOINTMENT_CONFLICT",
+                      "OUTSIDE_AVAILABILITY"}:
         return HTTPException(status_code=409, detail=error.code)
     return HTTPException(status_code=503, detail=error.code)
 
@@ -51,6 +55,7 @@ def build_psique_v2_billing_router(
     context_dependency: Callable[..., Any],
     license_provider: Callable[[], PsiqueLicense] | None = None,
     rbac_provider: Callable[[], PsiqueRbac] | None = None,
+    scheduling_provider: Callable[[], PsiqueScheduling] | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/psique/v2", tags=["psique-v2-billing"])
 
@@ -186,6 +191,136 @@ def build_psique_v2_billing_router(
                     context, supervisor_membership_id=str(body["supervisor_membership_id"]),
                     supervised_membership_id=str(body["supervised_membership_id"]),
                     active=body["active"])
+            except BillingError as error:
+                raise _http_error(error) from None
+
+    if scheduling_provider is not None:
+        from datetime import datetime
+
+        def _dt(value: Any, field: str) -> datetime:
+            try:
+                parsed = datetime.fromisoformat(str(value))
+            except ValueError:
+                raise HTTPException(status_code=422, detail=f"SCHEDULING_{field}_INVALID")
+            if parsed.tzinfo is None:
+                raise HTTPException(status_code=422, detail=f"SCHEDULING_{field}_INVALID")
+            return parsed
+
+        async def _json_body(request: Request, expected: set[str],
+                             optional: set[str] | frozenset[str] = frozenset()):
+            try:
+                body = await request.json()
+            except Exception:  # noqa: BLE001 -- fronteira HTTP: corpo ilegivel vira 422 nomeado
+                raise HTTPException(status_code=422, detail="SCHEDULING_BODY_INVALID")
+            if not isinstance(body, dict) or not expected <= set(body) or not set(body) <= (expected | optional):
+                raise HTTPException(status_code=422, detail="SCHEDULING_BODY_INVALID")
+            return body
+
+        @router.post("/scheduling/units")
+        async def scheduling_unit(request: Request, context: Any = Depends(context_dependency)):  # noqa: B008 -- padrao FastAPI de dependencia
+            body = await _json_body(request, {"unit_name"})
+            try:
+                return scheduling_provider().upsert_unit(context, str(body["unit_name"]))
+            except BillingError as error:
+                raise _http_error(error) from None
+
+        @router.put("/scheduling/availability")
+        async def scheduling_availability(request: Request, context: Any = Depends(context_dependency)):  # noqa: B008 -- padrao FastAPI de dependencia
+            body = await _json_body(request, {"clinician_membership_id", "weekday",
+                                              "start_minute", "end_minute", "timezone"},
+                                    {"active"})
+            try:
+                return scheduling_provider().set_availability(
+                    context, clinician_membership_id=str(body["clinician_membership_id"]),
+                    weekday=int(body["weekday"]), start_minute=int(body["start_minute"]),
+                    end_minute=int(body["end_minute"]), timezone_name=str(body["timezone"]),
+                    active=bool(body.get("active", True)))
+            except BillingError as error:
+                raise _http_error(error) from None
+
+        @router.get("/scheduling/appointments")
+        async def scheduling_list(from_at: str, to_at: str,
+                                  context: Any = Depends(context_dependency)):  # noqa: B008 -- padrao FastAPI de dependencia
+            try:
+                return scheduling_provider().list_appointments(
+                    context, from_at=_dt(from_at, "FROM"), to_at=_dt(to_at, "TO"))
+            except BillingError as error:
+                raise _http_error(error) from None
+
+        @router.post("/scheduling/appointments")
+        async def scheduling_create(request: Request, context: Any = Depends(context_dependency)):  # noqa: B008 -- padrao FastAPI de dependencia
+            body = await _json_body(request, {"patient_id", "clinician_membership_id",
+                                              "start_at", "end_at", "timezone"}, {"unit_id"})
+            idempotency_key = (request.headers.get("x-idempotency-key") or "").strip()
+            if not idempotency_key:
+                raise HTTPException(status_code=422, detail="IDEMPOTENCY_KEY_REQUIRED")
+            try:
+                return scheduling_provider().create_appointment(
+                    context, patient_id=str(body["patient_id"]),
+                    clinician_membership_id=str(body["clinician_membership_id"]),
+                    start_at=_dt(body["start_at"], "START"), end_at=_dt(body["end_at"], "END"),
+                    timezone_name=str(body["timezone"]),
+                    idempotency_key=idempotency_key,
+                    unit_id=str(body["unit_id"]) if body.get("unit_id") else None)
+            except BillingError as error:
+                raise _http_error(error) from None
+
+        @router.patch("/scheduling/appointments/{appointment_id}")
+        async def scheduling_change(appointment_id: uuid.UUID, request: Request,
+                                    context: Any = Depends(context_dependency)):  # noqa: B008 -- padrao FastAPI de dependencia
+            body = await _json_body(request, {"expected_version"},
+                                    {"start_at", "end_at", "appointment_status"})
+            try:
+                result = scheduling_provider().change_appointment(
+                    context, appointment_id=str(appointment_id),
+                    expected_version=int(body["expected_version"]),
+                    start_at=_dt(body["start_at"], "START") if body.get("start_at") else None,
+                    end_at=_dt(body["end_at"], "END") if body.get("end_at") else None,
+                    appointment_status=body.get("appointment_status"))
+            except BillingError as error:
+                raise _http_error(error) from None
+            if not result.get("applied"):
+                return JSONResponse(status_code=409, content=result)
+            return result
+
+        @router.post("/scheduling/appointments/{appointment_id}/cancel")
+        async def scheduling_cancel(appointment_id: uuid.UUID, request: Request,
+                                    context: Any = Depends(context_dependency)):  # noqa: B008 -- padrao FastAPI de dependencia
+            body = await _json_body(request, {"expected_version"}, {"reason"})
+            try:
+                result = scheduling_provider().cancel_appointment(
+                    context, appointment_id=str(appointment_id),
+                    expected_version=int(body["expected_version"]),
+                    reason=str(body.get("reason", "")))
+            except BillingError as error:
+                raise _http_error(error) from None
+            if not result.get("applied"):
+                return JSONResponse(status_code=409, content=result)
+            return result
+
+        @router.get("/scheduling/appointments/{appointment_id}/history")
+        async def scheduling_history(appointment_id: uuid.UUID,
+                                     context: Any = Depends(context_dependency)):  # noqa: B008 -- padrao FastAPI de dependencia
+            try:
+                return scheduling_provider().appointment_history(context, str(appointment_id))
+            except BillingError as error:
+                raise _http_error(error) from None
+
+        @router.post("/scheduling/appointments/{appointment_id}/session-link")
+        async def scheduling_link(appointment_id: uuid.UUID, request: Request,
+                                  context: Any = Depends(context_dependency)):  # noqa: B008 -- padrao FastAPI de dependencia
+            body = await _json_body(request, {"analysis_source_id"})
+            try:
+                return scheduling_provider().link_source(
+                    context, appointment_id=str(appointment_id),
+                    analysis_source_id=str(body["analysis_source_id"]))
+            except BillingError as error:
+                raise _http_error(error) from None
+
+        @router.get("/scheduling/calendar-sync/status")
+        async def scheduling_sync_status(context: Any = Depends(context_dependency)):  # noqa: B008 -- padrao FastAPI de dependencia
+            try:
+                return scheduling_provider().calendar_sync_status(context)
             except BillingError as error:
                 raise _http_error(error) from None
 

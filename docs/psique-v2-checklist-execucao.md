@@ -161,16 +161,21 @@ Revisão minuciosa de funções, processos, fluxos e RLS a pedido do proprietár
 
 ## Fase 4 — Agenda organizacional
 
-- [ ] Appointment interno é autoridade
-- [ ] Google apenas espelho
-- [ ] secretaria cria/reagenda/cancela sem conteúdo clínico
-- [ ] profissional vê agenda autorizada
-- [ ] version/expected_version + 409
-- [ ] audit trail
-- [ ] disponibilidade
-- [ ] vínculo appointment→session/source
-- [ ] falha Google não perde agendamento
-- [ ] tokens externos não expostos
+Status: IMPLEMENTADA E VALIDADA LOCALMENTE em 30/09/2026 (migration 044; exige RBAC V2 ativo — organizações V1 mantêm o comportamento atual e recebem recusa nomeada). [Relatório da Fase 4](psique-v2-fase4-relatorio.md).
+
+- [x] Appointment interno é autoridade — dupla marcação é impossível no próprio banco (exclusion constraint com tstzrange por clínico); DELETE de agendamento proibido por trigger
+- [x] Google apenas espelho — outbox alimentada após o commit; entrega/reprocesso via take (SKIP LOCKED) e settle
+- [x] secretaria cria/reagenda/cancela sem conteúdo clínico — trilha e payload do espelho carregam só horários/status/versão; sem patient_id, sem nome
+- [x] profissional vê agenda autorizada — CLINICIAN só a própria (criar/cancelar idem); SECRETARY/ORG_ADMIN todas
+- [x] version/expected_version + 409 — conflito devolve applied=false com versão atual; rota responde 409
+- [x] audit trail — eventos imutáveis CREATED/RESCHEDULED/STATUS_CHANGED/CANCELLED/SESSION_LINKED com estado anterior/novo
+- [x] disponibilidade — janelas semanais por fuso IANA; agendamento fora da janela é recusado; clínico gere a própria, staff gere todas
+- [x] vínculo appointment→session/source — somente o clínico do atendimento liga a própria analysis_source; um vínculo por atendimento, imutável
+- [x] falha Google não perde agendamento — settle de falha marca FAILED com erro sanitizado visível no status de sincronização; o agendamento não se move
+- [x] tokens externos não expostos — nenhuma credencial entra no domínio; o worker usará o OAuth existente fora destas tabelas
+
+- [ ] Integração real do worker Google (OAuth existente) e projeção administrativa de pacientes para a SECRETARY — na ativação/UI
+- [ ] Revisão e aprovação desta entrega pelo proprietário
 
 Gate: autorizar UI/site.
 

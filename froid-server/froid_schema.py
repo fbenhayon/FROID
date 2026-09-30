@@ -19,6 +19,7 @@ PSIQUE_V2_VERSIONS = frozenset({
     "041_psique_financial_lookup_indexes",
     "042_psique_rbac_v2",
     "043_psique_rbac_v2_complement",
+    "044_psique_org_scheduling",
 })
 
 
