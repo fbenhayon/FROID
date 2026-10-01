@@ -80,8 +80,9 @@ DIVIDA_CONHECIDA = {
     "/api/billing/checkout": "26/08/2026 — fluxo de compra passa por outra rota",
     "/api/billing/confirm-checkout": "26/08/2026 — idem",
     "/api/subscriptions/current": "26/08/2026 — assinatura lida por outro caminho",
-    "/api/organizations/{organization_id}/wallet": "26/08/2026 — carteira sem tela",
-    "/api/organizations/{organization_id}/wallet/activate": "26/08/2026 — idem",
+    # /wallet saiu da divida em 30/09/2026: a secao Psique V2 das
+    # Configuracoes (Etapa 0 da Fase 6) consulta a carteira pelo painel.
+    "/api/organizations/{organization_id}/wallet/activate": "26/08/2026 — ativacao de carteira sem tela",
     "/api/organizations/{organization_id}/audit-events": (
         "26/08/2026 — auditoria por organizacao sem tela; existe painel de "
         "privacidade, nao de auditoria"
