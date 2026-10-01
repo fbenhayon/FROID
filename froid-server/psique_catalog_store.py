@@ -82,12 +82,14 @@ def read_catalog(connection: Any, *, version: str,
 
 def register_test_mapping(connection: Any, *, version: str, product_code: str,
                           account_id: str, product: dict[str, Any], price: dict[str, Any],
-                          actor: str, lookup_key: str | None = None) -> str:
-    """Validate already retrieved TEST objects; this function makes no Stripe calls.
+                          actor: str, lookup_key: str | None = None,
+                          live: bool = False) -> str:
+    """Validate already retrieved Stripe objects; this function makes no Stripe calls.
 
     Caller is an explicit operator/test, not an HTTP/frontend input. A later
     Stripe integration must retrieve these objects authenticated to account_id.
-    No public permission or live mapping is supplied by this phase.
+    O padrao continua TEST; live=True e a decisao explicita da Fase 6 e exige
+    objetos cujo livemode confere (migration 046 destrava o banco).
     """
     verify_schema(connection, {"035_psique_v2_pricing", "036_psique_v2_purchases"})
     if lookup_key is not None:
@@ -106,8 +108,8 @@ def register_test_mapping(connection: Any, *, version: str, product_code: str,
         "product_code": product_code, "credits": str(offer["credits"]),
         "pricing_version": version, "pricing_hash": pricing_hash(config),
     }
-    if product.get("livemode") is not False or price.get("livemode") is not False:
-        raise PricingError("phase1_test_only")
+    if product.get("livemode") is not live or price.get("livemode") is not live:
+        raise PricingError("stripe_object_mode_mismatch" if live else "phase1_test_only")
     if (offer["billing_type"] != "one_time" or price.get("type") != "one_time"
         or price.get("recurring") is not None or price.get("billing_scheme") != "per_unit"
         or product.get("active") is not True or price.get("active") is not True
@@ -131,18 +133,18 @@ def register_test_mapping(connection: Any, *, version: str, product_code: str,
                 """INSERT INTO psique_stripe_price_mappings
                    (offer_id,pricing_table_id,stripe_account_id,livemode,stripe_product_id,
                     stripe_price_id,verified_at,verified_by)
-                   VALUES(%s,%s,%s,false,%s,%s,now(),%s)
+                   VALUES(%s,%s,%s,%s,%s,%s,now(),%s)
                    ON CONFLICT(offer_id,stripe_account_id,livemode) DO NOTHING""",
-                (row[0], row[1], account_id, product["id"], price["id"], actor),
+                (row[0], row[1], account_id, live, product["id"], price["id"], actor),
             )
         else:
             connection.execute(
                 """INSERT INTO psique_stripe_price_mappings
                    (offer_id,pricing_table_id,stripe_account_id,livemode,stripe_product_id,
                     stripe_price_id,verified_at,verified_by,lookup_key,active)
-                   VALUES(%s,%s,%s,false,%s,%s,now(),%s,%s,true)
+                   VALUES(%s,%s,%s,%s,%s,%s,now(),%s,%s,true)
                    ON CONFLICT(offer_id,stripe_account_id,livemode) DO NOTHING""",
-                (row[0], row[1], account_id, product["id"], price["id"], actor, lookup_key),
+                (row[0], row[1], account_id, live, product["id"], price["id"], actor, lookup_key),
             )
         columns = "id,stripe_product_id,stripe_price_id"
         if lookup_key is not None:
@@ -151,8 +153,8 @@ def register_test_mapping(connection: Any, *, version: str, product_code: str,
             columns += ",lookup_key"
         mapping = connection.execute(
             f"""SELECT {columns} FROM psique_stripe_price_mappings
-               WHERE offer_id=%s AND stripe_account_id=%s AND livemode=false""",
-            (row[0], account_id),
+               WHERE offer_id=%s AND stripe_account_id=%s AND livemode=%s""",
+            (row[0], account_id, live),
         ).fetchone()
         if mapping is None or mapping[1:3] != (product["id"], price["id"]):
             raise PricingError("existing_mapping_is_immutable")

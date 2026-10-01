@@ -71,7 +71,7 @@ def database():
         try:
             isolated = make_conninfo(dsn, dbname=name)
             with psycopg.connect(isolated, autocommit=True) as conn:
-                apply(conn, ROOT / "migrations", "045_psique_scheduling_serialization", name)
+                apply(conn, ROOT / "migrations", "046_psique_live_mode", name)
             yield isolated
         finally:
             admin.execute(psycopg.sql.SQL("DROP DATABASE {} WITH (FORCE)").format(psycopg.sql.Identifier(name)))

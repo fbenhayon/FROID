@@ -27,7 +27,7 @@ from tenant_access import AccessContext
 PHASE2B_SCHEMA = {
     "035_psique_v2_pricing", "036_psique_v2_purchases",
     "037_psique_trial_credit_state", "038_psique_credit_commands",
-    "039_psique_stripe_test_checkout",
+    "039_psique_stripe_test_checkout", "046_psique_live_mode",
 }
 PHASE2C_SCHEMA = PHASE2B_SCHEMA | {"040_psique_org_license_test"}
 
@@ -81,11 +81,20 @@ def verify_stripe_signature(payload: bytes, header: str, secret: str, *,
 
 
 class StripeTestClient:
-    """Raw HTTPS client bound to one TEST key. Refuses LIVE at construction."""
+    """Raw HTTPS client bound to one key and um modo decidido na construcao.
 
-    def __init__(self, secret_key: str, *, timeout: int = 30):
-        if not secret_key.startswith(("sk_test_", "rk_test_")):
-            raise BillingError("STRIPE_TEST_KEY_REQUIRED")
+    O padrao continua TEST e recusa chave live; o modo LIVE so existe quando
+    o operador passa live=True explicitamente (Fase 6), e entao recusa chave
+    de teste. Nunca ha deducao de modo a partir da chave: a intencao vem
+    primeiro, a chave precisa conferir com ela.
+    """
+
+    def __init__(self, secret_key: str, *, timeout: int = 30, live: bool = False):
+        esperados = ("sk_live_", "rk_live_") if live else ("sk_test_", "rk_test_")
+        if not secret_key.startswith(esperados):
+            raise BillingError("STRIPE_LIVE_KEY_REQUIRED" if live
+                               else "STRIPE_TEST_KEY_REQUIRED")
+        self.live = live
         self._key = secret_key
         self._timeout = timeout
 
@@ -230,6 +239,9 @@ class PsiqueBilling:
             raise BillingError("STRIPE_ACCOUNT_REQUIRED")
         self._connect = connection_factory
         self._stripe = stripe_client
+        # O modo vem do cliente (decisao de construcao); fakes sem o atributo
+        # continuam TEST, entao toda a suite existente permanece identica.
+        self._live = bool(getattr(stripe_client, "live", False))
         self._webhook_secret = webhook_secret
         self._account_id = account_id
         self._pricing_version = pricing_version
@@ -252,10 +264,10 @@ class PsiqueBilling:
         if not isinstance(product_code, str) or not product_code.strip():
             raise BillingError("PRODUCT_CODE_REQUIRED")
         prepared = self._call(
-            "SELECT psique_v2_checkout_prepare(%s,%s,%s,%s,%s,%s,%s)",
+            "SELECT psique_v2_checkout_prepare(%s,%s,%s,%s,%s,%s,%s,%s)",
             (context.organization_id, context.membership_id, context.user_id,
              product_code.strip(), self._pricing_version, self._account_id,
-             idempotency_key), context)
+             idempotency_key, self._live), context)
         if prepared["status"] in ("EXPIRED", "FAILED", "CANCELED", "canceled", "REVIEW_REQUIRED"):
             # A mesma chave aponta para uma compra encerrada: devolver a URL
             # da sessao morta enganaria o pagador. Nova intencao, nova chave.
@@ -268,8 +280,9 @@ class PsiqueBilling:
         session = self._stripe.create_checkout_session(
             price_id=prepared["stripe_price_id"], purchase_id=str(prepared["purchase_id"]),
             success_url=self._success_url, cancel_url=self._cancel_url)
-        if session.get("livemode") is not False:
-            raise BillingError("LIVE_SESSION_REFUSED")
+        if session.get("livemode") is not self._live:
+            raise BillingError("TEST_SESSION_REFUSED" if self._live
+                               else "LIVE_SESSION_REFUSED")
         attached = self._call(
             "SELECT psique_v2_checkout_attach(%s,%s,%s,%s,%s)",
             (context.organization_id, context.membership_id, context.user_id,
@@ -299,18 +312,20 @@ class PsiqueBilling:
         if (not isinstance(event_id, str) or not re.fullmatch(r"evt_[A-Za-z0-9]+", event_id)
                 or not isinstance(event_type, str) or not event_type):
             return 400, {"received": False, "code": "EVENT_PAYLOAD_INVALID"}
-        if event.get("livemode") is not False or target.get("livemode") is True:
-            # A LIVE event on the TEST endpoint is a configuration failure and
-            # must fail loudly instead of entering the TEST inbox.
-            return 400, {"received": False, "code": "LIVE_EVENT_REFUSED"}
+        if event.get("livemode") is not self._live or target.get("livemode") is (not self._live):
+            # Evento do modo oposto neste endpoint e falha de configuracao e
+            # precisa falhar alto em vez de entrar no inbox.
+            return 400, {"received": False,
+                         "code": "TEST_EVENT_REFUSED" if self._live else "LIVE_EVENT_REFUSED"}
         session_id = target.get("id") if event_type.startswith("checkout.session.") else None
-        if session_id is not None and not re.fullmatch(r"cs_test_[A-Za-z0-9]+", session_id):
+        prefixo_sessao = "cs_live_" if self._live else "cs_test_"
+        if session_id is not None and not re.fullmatch(prefixo_sessao + r"[A-Za-z0-9]+", session_id):
             return 400, {"received": False, "code": "EVENT_PAYLOAD_INVALID"}
         payload_hash = hashlib.sha256(payload).hexdigest()
 
         recorded = self._call(
             "SELECT psique_v2_stripe_event(%s,%s,%s,%s,%s,%s)",
-            (self._account_id, False, event_id, event_type, session_id, payload_hash))
+            (self._account_id, self._live, event_id, event_type, session_id, payload_hash))
         if recorded["duplicate"] and recorded["processing_status"] != "received":
             return 200, {"received": True, "duplicate": True,
                          "processing_status": recorded["processing_status"]}

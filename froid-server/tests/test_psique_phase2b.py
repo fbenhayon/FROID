@@ -134,7 +134,7 @@ def database():
         try:
             isolated = make_conninfo(dsn, dbname=name)
             with psycopg.connect(isolated, autocommit=True) as conn:
-                apply(conn, ROOT / "migrations", "039_psique_stripe_test_checkout", name)
+                apply(conn, ROOT / "migrations", "046_psique_live_mode", name)
                 config = psique_pricing.load_config()
                 install_draft(conn, config, actor="phase2b-tests")
                 for code, (product_id, price_id, lookup_key) in AUTHORIZED.items():

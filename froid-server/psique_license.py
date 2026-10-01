@@ -32,6 +32,9 @@ class PsiqueLicense:
         if not account_id.startswith("acct_"):
             raise BillingError("STRIPE_ACCOUNT_REQUIRED")
         self._stripe = stripe_client
+        # Mesmo contrato do PsiqueBilling: o modo e decisao de construcao do
+        # cliente; fakes sem o atributo continuam TEST.
+        self._live = bool(getattr(stripe_client, "live", False))
         self._account_id = account_id
         self._billing_email_resolver = billing_email_resolver
         self._catalog = catalog or psique_pricing.load_config()
@@ -108,11 +111,12 @@ class PsiqueLicense:
                 email=billing_email)
             subscription = self._stripe.create_license_subscription(
                 customer_id=customer["id"], price_id=price_id, quantity=active)
-            if subscription.get("livemode") is not False:
-                raise BillingError("LIVE_SUBSCRIPTION_REFUSED")
+            if subscription.get("livemode") is not self._live:
+                raise BillingError("TEST_SUBSCRIPTION_REFUSED" if self._live
+                                   else "LIVE_SUBSCRIPTION_REFUSED")
             item = subscription["items"]["data"][0]
             payload = {
-                "account_id": self._account_id, "livemode": False,
+                "account_id": self._account_id, "livemode": self._live,
                 "customer_id": customer["id"], "subscription_id": subscription["id"],
                 "item_id": item["id"], "price_id": price_id,
                 "quantity": item["quantity"],
@@ -165,6 +169,7 @@ class PsiqueLicense:
                 "SELECT psique_v2_seat_confirm(%s,%s,%s,%s::jsonb)",
                 (context.organization_id, context.membership_id, context.user_id,
                  json.dumps({"preview_id": preview_id, "expected_version": expected_version,
+                             "expected_livemode": self._live,
                              "stripe": payload}, allow_nan=False)), context)
         except BillingError:
             # The DB refused after the Stripe side effect: undo the quantity
@@ -193,9 +198,9 @@ class PsiqueLicense:
 
     def _license_price_id(self, context: AccessContext) -> str:
         row = self._call(
-            "SELECT psique_v2_license_price_mapping(%s,%s,%s,%s,%s)",
+            "SELECT psique_v2_license_price_mapping(%s,%s,%s,%s,%s,%s)",
             (context.organization_id, context.membership_id, context.user_id,
-             self._catalog["version"], self._account_id), context)
+             self._catalog["version"], self._account_id, self._live), context)
         return str(row["price_id"])
 
     @staticmethod
