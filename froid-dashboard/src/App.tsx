@@ -28,6 +28,7 @@ const Settings = lazy(() => import("./pages/Settings").then((module) => ({ defau
 const PsiqueCompraConfirmacaoPage = lazy(() => import("./pages/PsiqueCompraConfirmacao").then((module) => ({ default: module.PsiqueCompraConfirmacaoPage })));
 const PsiqueCompraCanceladaPage = lazy(() => import("./pages/PsiqueCompraConfirmacao").then((module) => ({ default: module.PsiqueCompraCanceladaPage })));
 const ClinicManagement = lazy(() => import("./pages/ClinicManagement").then((module) => ({ default: module.ClinicManagement })));
+const EntrarNaClinicaPage = lazy(() => import("./pages/EntrarNaClinica").then((module) => ({ default: module.EntrarNaClinicaPage })));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard").then((module) => ({ default: module.AdminDashboard })));
 const AdminProfessionalDetail = lazy(() => import("./pages/AdminProfessionalDetail").then((module) => ({ default: module.AdminProfessionalDetail })));
 const AdminPatientDetail = lazy(() => import("./pages/AdminPatientDetail").then((module) => ({ default: module.AdminPatientDetail })));
@@ -507,6 +508,16 @@ function App() {
         <Route
           path="/clinica"
           element={clinicalElement(<ClinicManagement user={user} />)}
+        />
+        {/* Resgate de convite de equipe. protectedElement (exige login) e NAO
+            clinicalElement: o convidado costuma ser autonomo sem plano proprio
+            e nao pode ser desviado para a escolha de produto — ele passa a
+            consumir do pool da clinica. Se chegar deslogado pelo link do
+            WhatsApp, protectedElement guarda o hash (com ?token=) e devolve
+            aqui apos o login. */}
+        <Route
+          path="/entrar-clinica"
+          element={protectedElement(<EntrarNaClinicaPage />)}
         />
         <Route
           path="/session/:sessionId"

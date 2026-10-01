@@ -76,10 +76,18 @@ export const ClinicManagement: React.FC<Props> = ({ user }) => {
   const whatsappUrl = useMemo(() => {
     if (!invitation) return "";
     const clinicName = activeOrganization?.organization_name || "nossa clínica";
+    // Link direto para a tela de resgate, com o código já no endereço. Quem
+    // clica entra (ou cria a conta) com o e-mail convidado e cai na tela com
+    // o campo preenchido — sem copiar e colar codigo nenhum. O codigo em
+    // texto continua logo abaixo como alternativa para quem prefere digitar.
+    const linkResgate = `${window.location.origin}/app/#/entrar-clinica?token=${encodeURIComponent(invitation.token)}`;
     const message =
       `Olá! Você foi convidado(a) para integrar a equipe de ${clinicName} no FROID.\n\n` +
-      `1) Acesse ${window.location.origin}/app/#/login e entre (ou crie sua conta) com o e-mail ${invitation.email}.\n` +
-      `2) Informe este código de convite:\n\n${invitation.token}\n\n` +
+      `Como aceitar:\n` +
+      `1) Clique no link abaixo:\n${linkResgate}\n` +
+      `2) Entre (ou crie sua conta) com o e-mail ${invitation.email}.\n` +
+      `3) Confirme em "Entrar na clínica".\n\n` +
+      `Se o link não abrir, acesse ${window.location.origin}/app/#/entrar-clinica e informe este código:\n${invitation.token}\n\n` +
       `O código vale por ${invitation.hours} horas e é de uso único. Não o repasse a terceiros.`;
     const digits = invitation.phone.replace(/\D/g, "");
     return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
@@ -365,6 +373,14 @@ export const ClinicManagement: React.FC<Props> = ({ user }) => {
                       Este código aparece <strong>uma única vez</strong> e não
                       poderá ser recuperado. Envie-o ao profissional por um canal
                       seguro — quem tiver o código entra na sua clínica.
+                    </p>
+                    <p className="mt-1 text-[10px] leading-relaxed text-amber-200/90">
+                      O profissional resgata em{" "}
+                      <code className="rounded bg-slate-950 px-1 text-amber-100">
+                        /app/#/entrar-clinica
+                      </code>
+                      , entrando com o e-mail convidado. O botão do WhatsApp já
+                      monta a mensagem com o link direto.
                     </p>
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       <code className="min-w-0 flex-1 break-all rounded border border-amber-800 bg-slate-950 px-2 py-1.5 font-mono text-[10px] text-amber-100">
