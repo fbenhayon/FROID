@@ -1041,12 +1041,6 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
               )}
             </div>
           </div>
-          <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-700 p-3">
-            <p className="text-sm font-semibold">Consentimentos LGPD</p>
-            <span className="text-xs font-bold text-slate-400">
-              Dúvidas e referências pelo FROID Explica
-            </span>
-          </div>
           <SecaoPsiqueV2 />
           <div className="rounded-lg border border-slate-700 p-3">
             <p className="text-sm font-semibold">Planos e Cobranca</p>
