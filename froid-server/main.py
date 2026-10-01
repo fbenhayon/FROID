@@ -15858,14 +15858,24 @@ if FROID_PSIQUE_V2_BILLING_ENABLED:
     def _psique_billing_provider() -> "PsiqueBilling":
         global _psique_billing_instance
         if _psique_billing_instance is None:
-            key = os.getenv("FROID_PSIQUE_STRIPE_TEST_SECRET_KEY", "").strip()
-            webhook_secret = os.getenv("FROID_PSIQUE_STRIPE_TEST_WEBHOOK_SECRET", "").strip()
+            # Modo por decisão explícita do operador (Fase 6): "live" exige
+            # a credencial e o segredo de webhook LIVE; qualquer outra coisa
+            # permanece TEST. A chave ainda precisa conferir com a intenção
+            # (StripeTestClient recusa prefixo do modo oposto).
+            modo_live = (os.getenv("FROID_PSIQUE_STRIPE_MODE", "test")
+                         .strip().lower() == "live")
+            if modo_live:
+                key = os.getenv("FROID_PSIQUE_STRIPE_LIVE_SECRET_KEY", "").strip()
+                webhook_secret = os.getenv("FROID_PSIQUE_STRIPE_LIVE_WEBHOOK_SECRET", "").strip()
+            else:
+                key = os.getenv("FROID_PSIQUE_STRIPE_TEST_SECRET_KEY", "").strip()
+                webhook_secret = os.getenv("FROID_PSIQUE_STRIPE_TEST_WEBHOOK_SECRET", "").strip()
             runtime_dsn = os.getenv("FROID_RUNTIME_DATABASE_URL", "").strip()
             if not key or not webhook_secret or not runtime_dsn:
-                # Falha fechada e nomeada: flag ligada sem credencial TEST,
+                # Falha fechada e nomeada: flag ligada sem credencial do modo,
                 # segredo de webhook ou DSN restrito não atende em silêncio.
                 raise BillingError("PSIQUE_V2_BILLING_CONFIG_REQUIRED")
-            client = StripeTestClient(key)
+            client = StripeTestClient(key, live=modo_live)
             account_id = client.account()["id"]
             catalog = _psique_pricing.load_config()
             base = os.getenv("FROID_PUBLIC_URL", "http://localhost:5173").rstrip("/")
@@ -15888,10 +15898,17 @@ if FROID_PSIQUE_V2_BILLING_ENABLED:
         global _psique_license_instance
         if _psique_license_instance is None:
             billing = _psique_billing_provider()
+            def _email_de_faturamento(_contexto) -> str:
+                # Fonte definida pelo proprietario em 01/10/2026:
+                # froid@froid.com.br via FROID_PSIQUE_BILLING_EMAIL no
+                # ambiente. Vazio = criacao de assinatura falha fechada.
+                return os.getenv("FROID_PSIQUE_BILLING_EMAIL", "").strip()
+
             _psique_license_instance = PsiqueLicense(
                 billing._connect,  # noqa: SLF001 -- mesma familia de servicos V2
                 stripe_client=billing._stripe,  # noqa: SLF001
                 account_id=billing._account_id,  # noqa: SLF001
+                billing_email_resolver=_email_de_faturamento,
             )
         return _psique_license_instance
 
