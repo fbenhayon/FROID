@@ -216,12 +216,18 @@ Plano de cinco etapas aprovado pelo proprietário em 30/09/2026, com duas ordens
 
 Etapas 1–5 (inventário LIVE somente-leitura; janela de infraestrutura com backup e runner explícito; objetos Stripe LIVE; ativação piloto por adesão explícita; virada pública) aguardam os insumos do proprietário: credencial LIVE, fonte do e-mail de faturamento, data/hora da janela e decisão do smoke com cartão real.
 
+**Insumos respondidos em 01/10/2026:** e-mail de faturamento = froid@froid.com.br (fiado em `main.py` via `FROID_PSIQUE_BILLING_EMAIL`, falha fechada quando vazio); janela = imediata assim que a credencial LIVE existir; smoke reembolsável no PRO 10 aprovado. **Pendente: a credencial Stripe LIVE** — o Sandbox de QA não tem modo live; a chave restrita live é criada pelo proprietário no Dashboard da conta real e instalada no `.env` do servidor.
+
+**Conta de demonstração (pedido de 01/10/2026):** fbenhayon@gmail.com em clínica FROID com acesso nível PRO 500 e licença de 10 profissionais, sem passar por compra/reembolso. Mecanismo escolhido: `tools/psique_demo_cortesia.py` (ENROLL + `ADJUST +500` pelo comando SECURITY DEFINER auditado, motivo e chave de idempotência obrigatórios; ensaio por padrão, 3 testes contra PostgreSQL real) — créditos não exigem NENHUM ajuste no Stripe. A licença dos 10 profissionais conta apenas membros clínicos ATIVOS reais (`psique_v2_active_clinical_count`); para ela não gerar fatura, cupom de 100% no customer da clínica demo antes do confirm (criado na Etapa 3 junto dos objetos LIVE). Executa-se na janela, depois das migrations e do cadastro real da conta.
+
 
 - [ ] Linux/container equivalente validado
 - [ ] runtime DB role sem DDL
 - [ ] migration role separado
 - [ ] migrations rechecadas contra branch final
-- [ ] inventário Stripe LIVE read-only
+- [x] inventário Stripe LIVE read-only — 01/10/2026, conta real `acct_1TCUwiAYhukisMIH` (BRL, cobranças habilitadas): 0 produtos/preços/assinaturas/clientes/cupons em live; 1 webhook órfão de túnel trycloudflare morto (remover na Etapa 3, aguarda aprovação); 4 sessions expiradas + 1 cobrança falhada de USD 1,50 — dinheiro nunca se moveu em live. Chave sk_live instalada e validada (a primeira colagem deu 401: chave inválida/girada; a segunda autenticou).
+- [x] Modo LIVE deliberado no código — 01/10/2026: migration 046 GERADA por transformação declarada das 039/040 (`tools/psique_live_mode_sync.py`, teste de espelho byte a byte); `StripeTestClient(live=...)` exige chave do modo da intenção; cada modo recusa alto sessão/evento/assinatura do outro (TEST_*_REFUSED ↔ LIVE_*_REFUSED); `expected_livemode` fail-closed no confirm da licença; `register_test_mapping(live=True)`; `main.py` com `FROID_PSIQUE_STRIPE_MODE` (test padrão, live exige chave+whsec LIVE, falha fechada). 7 testes novos incl. compra live de ponta a ponta com cs_live_/livemode=true; regressão 207 verdes (flake único do outbox sob carga, 5 rodadas seguintes limpas); fixtures 2B/2C/3/4 migram até a 046.
+- [x] Roteiro da janela escrito — `docs/psique-v2-janela-producao.md` (Etapas 2–5 comprimidas; o git pull da Etapa 2 JÁ publica a página de preços; commit+push antes de qualquer comando no servidor).
 - [ ] Products/Prices LIVE planejados
 - [ ] webhook LIVE V2 planejado
 - [ ] secrets via ambiente/secret manager
