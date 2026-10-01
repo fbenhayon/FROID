@@ -181,19 +181,22 @@ def license_expected_tiers(config: dict[str, Any]) -> list[dict[str, Any]]:
 
 def register_license_test_mapping(connection: Any, *, version: str, account_id: str,
                                   product: dict[str, Any], price: dict[str, Any],
-                                  actor: str, lookup_key: str) -> str:
-    """Validate the retrieved TEST license objects and register the mapping.
+                                  actor: str, lookup_key: str,
+                                  live: bool = False) -> str:
+    """Validate the retrieved license objects and register the mapping.
 
     The price must be monthly, BRL, tiered/graduated, with tiers identical to
     the catalog rule (fetch it with expand[]=tiers). Divergence stops here.
+    O padrao continua TEST; live=True exige objetos cujo livemode confere.
     """
     verify_schema(connection, {"035_psique_v2_pricing", "036_psique_v2_purchases",
                                "039_psique_stripe_test_checkout"})
     config = read_catalog(connection, version=version, include_draft=True)
     if not actor.strip() or not account_id.startswith("acct_"):
         raise PricingError("mapping_actor_and_account_required")
-    if product.get("livemode") is not False or price.get("livemode") is not False:
-        raise PricingError("license_mapping_is_test_only")
+    if product.get("livemode") is not live or price.get("livemode") is not live:
+        raise PricingError("stripe_object_mode_mismatch" if live
+                           else "license_mapping_is_test_only")
     recurring = price.get("recurring") or {}
     if (product.get("active") is not True or price.get("active") is not True
         or price.get("product") not in (product.get("id"),)
@@ -231,15 +234,15 @@ def register_license_test_mapping(connection: Any, *, version: str, account_id: 
             """INSERT INTO psique_stripe_price_mappings
                (offer_id,pricing_table_id,stripe_account_id,livemode,stripe_product_id,
                 stripe_price_id,verified_at,verified_by,lookup_key,active)
-               VALUES(%s,%s,%s,false,%s,%s,now(),%s,%s,true)
+               VALUES(%s,%s,%s,%s,%s,%s,now(),%s,%s,true)
                ON CONFLICT(offer_id,stripe_account_id,livemode) DO NOTHING""",
-            (row[0], row[1], account_id, product["id"], price["id"], actor, lookup_key),
+            (row[0], row[1], account_id, live, product["id"], price["id"], actor, lookup_key),
         )
         mapping = connection.execute(
             """SELECT id,stripe_product_id,stripe_price_id,lookup_key
                FROM psique_stripe_price_mappings
-               WHERE offer_id=%s AND stripe_account_id=%s AND livemode=false""",
-            (row[0], account_id),
+               WHERE offer_id=%s AND stripe_account_id=%s AND livemode=%s""",
+            (row[0], account_id, live),
         ).fetchone()
         if mapping is None or mapping[1:] != (product["id"], price["id"], lookup_key):
             raise PricingError("existing_mapping_is_immutable")
