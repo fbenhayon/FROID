@@ -102,13 +102,26 @@ def _buscar(url: str, metodo: str = "GET", corpo: bytes | None = None):
 
 
 def _rotas_do_backend() -> set:
+    # main.py declara rotas em @app; o Psique V2 declara em @router dentro de
+    # psique_api.py, com prefixo /api/psique/v2 (atras de flag). Sem ler os
+    # dois, o verificador acusaria divergencia falsa numa rota publicada.
     texto = MAIN.read_text(encoding="utf-8")
-    return {
+    rotas = {
         achado.group(2)
         for achado in re.finditer(
             r'@app\.(get|post|patch|put|delete|websocket)\("([^"]+)"', texto
         )
     }
+    psique_api = MAIN.parent / "psique_api.py"
+    if psique_api.exists():
+        texto_v2 = psique_api.read_text(encoding="utf-8")
+        rotas |= {
+            "/api/psique/v2" + achado.group(2)
+            for achado in re.finditer(
+                r'@router\.(get|post|patch|put|delete)\("([^"]+)"', texto_v2
+            )
+        }
+    return rotas
 
 
 def _rotas_que_o_site_chama() -> dict:
