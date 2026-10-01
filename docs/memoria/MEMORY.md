@@ -27,3 +27,4 @@
 - [O site afirma o que o painel nao faz](froid-site-afirma-o-que-o-painel-nao-faz.md) — tres afirmacoes vetadas que o codigo desmente; conferir em froid-dashboard, nao em outra pagina
 - [Derivadas zeradas, decisao adiada](froid-derivadas-zeradas-decisao-adiada.md) — causa achada e correcao pronta; Fabio adiou a instalacao para juntar evidencia
 - [Psique V2: estado da execucao](froid-psique-v2-estado-execucao.md) — Fases 1, 2A e 2B commitadas em 29/09/2026; homologacao com cartao pendente; 2C exige nova aprovacao; PostgreSQL de teste se recria, nao se sonda
+- [Instrucao de terminal em dois passos](froid-instrucao-de-terminal-em-dois-passos.md) — "conecte e cole" numa frase so fez o bash do Hetzner cair no PowerShell local; separar ambientes, mostrar o prompt
