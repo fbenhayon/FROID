@@ -46,7 +46,8 @@ class Phase4BillingTests(unittest.TestCase):
             "pro_25": ("pro", 25, {"brl": (1880, 47000), "usd": (376, 9400), "eur": (313, 7800), "cny": (1414, 35300)}),
             "plus_50": ("plus", 50, {"brl": (2363, 118200), "usd": (473, 23600), "eur": (394, 19700), "cny": (1777, 88900)}),
             "plus_100": ("plus", 100, {"brl": (2202, 220200), "usd": (440, 44000), "eur": (367, 36700), "cny": (1656, 165600)}),
-            "master_25": ("master", 25, {"brl": (78, 2000), "usd": (16, 400), "eur": (13, 300), "cny": (59, 1500)}),
+            # master_25 (25 sessoes por R$ 20,00) removido em 01/10/2026 por
+            # ordem do proprietario: pacote de homologacao exposto no cadastro.
         }
         actual = {
             code: (

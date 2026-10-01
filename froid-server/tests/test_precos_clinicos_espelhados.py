@@ -95,8 +95,16 @@ def _pacotes_publicados():
 
 class OSitePublicaOQueOServidorCobra(unittest.TestCase):
     def test_a_varredura_encontra_os_pacotes(self):
-        """Varredura vazia e indistinguivel de varredura limpa."""
-        self.assertGreaterEqual(len(_pacotes_publicados()), 4, "nenhum pacote lido de precos.html")
+        """Invertido em 01/10/2026: zero preco embutido E o estado correto.
+
+        Na Etapa 0 da Fase 6 a pagina publica virou V2 e passou a consultar os
+        precos ao vivo pela API — nenhum pacote pode mais estar cravado no
+        HTML (test_psique_phase5 guarda a proibicao pelo lado V2). A varredura
+        V1 deste arquivo perdeu o objeto; agora ela VETA a volta de qualquer
+        preco de pacote embutido na pagina.
+        """
+        self.assertEqual([], _pacotes_publicados(),
+                         "precos.html voltou a ter preco de pacote embutido")
 
     def test_todo_pacote_publicado_existe_no_servidor_com_o_mesmo_preco(self):
         do_servidor = {
@@ -138,17 +146,24 @@ class OSitePublicaOQueOServidorCobra(unittest.TestCase):
         )
 
     def test_o_plano_master_do_servidor_nao_e_a_oferta_publicada(self):
-        """A lapide do defeito, travada.
+        """A lapide do defeito, agora fechada por remocao.
 
-        Enquanto `master_25` for o unico pacote `master`, ligar o checkout do
-        MASTER cobra R$ 20,00 por 25 sessoes. Este teste existe para que a
-        proxima pessoa encontre o aviso antes de ligar.
+        `master_25` (25 sessoes por R$ 20,00) era pacote de homologacao e
+        VAZOU para a tela publica de cadastro; o proprietario ordenou a
+        remocao em 01/10/2026. Este teste agora veta o retorno de qualquer
+        pacote `master` que nao seja a oferta real anunciada (200 sessoes
+        por R$ 4.888,00). Enquanto ela nao for cadastrada no Stripe, o
+        catalogo nao pode ter pacote `master` nenhum.
         """
         masters = {k: v for k, v in CATALOGO.items() if v.get("plan_code") == "master"}
-        self.assertTrue(masters, "nenhum pacote master no catalogo")
-        if set(masters) == {"master_25"}:
-            self.assertEqual(2000, masters["master_25"]["prices"]["brl"]["total_amount_minor"])
-            self.assertEqual(25, masters["master_25"]["sessions"])
+        for codigo, pacote in masters.items():
+            self.assertEqual(
+                (200, 488800),
+                (int(pacote["sessions"]), int(pacote["prices"]["brl"]["total_amount_minor"])),
+                "pacote master %r nao e a oferta real de 200 sessoes por "
+                "R$ 4.888,00 — o master_25 de R$ 20,00 foi removido em "
+                "01/10/2026 e nao pode voltar" % (codigo,),
+            )
 
     def test_os_dois_produtos_nao_compartilham_tabela(self):
         """`precos.html` aponta para o NR-1 por LINK, sem copiar valor.

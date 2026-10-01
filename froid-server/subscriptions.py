@@ -111,15 +111,14 @@ SESSION_PACKAGES: dict[str, dict[str, Any]] = {
             "cny": {"unit_amount_minor": 1656, "total_amount_minor": 165600},
         },
     },
-    "master_25": {
-        "code": "master_25", "plan_code": "master", "sessions": 25,
-        "prices": {
-            "brl": {"unit_amount_minor": 78, "total_amount_minor": 2000},
-            "usd": {"unit_amount_minor": 16, "total_amount_minor": 400},
-            "eur": {"unit_amount_minor": 13, "total_amount_minor": 300},
-            "cny": {"unit_amount_minor": 59, "total_amount_minor": 1500},
-        },
-    },
+    # LAPIDE: `master_25` (25 sessoes por R$ 20,00) foi REMOVIDO em 01/10/2026
+    # por ordem do proprietario. Era um pacote de homologacao que vazou para a
+    # tela publica de cadastro — qualquer conta nova podia comprar 25 creditos
+    # por R$ 20,00. O plano `master` continua existindo apenas como pacote de
+    # entitlements para assinantes legados; a oferta real do MASTER (200
+    # sessoes por R$ 4.888,00) so entra aqui quando for cadastrada no Stripe.
+    # O teste test_precos_clinicos_espelhados veta o retorno de qualquer
+    # pacote `master` barato.
 }
 
 
