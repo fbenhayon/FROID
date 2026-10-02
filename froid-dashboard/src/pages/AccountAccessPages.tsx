@@ -31,12 +31,12 @@ type LoginProp = { onLogin: (user: FroidUser) => void };
 /** Guarda a sessão devolvida por verificação ou recuperação e entra no painel. */
 function useEntrarComSessao(onLogin: (user: FroidUser) => void) {
   const navigate = useNavigate();
-  return (data: any) => {
+  return (data: any, destino?: string) => {
     localStorage.setItem("froid_token", data.token);
     rememberProfessionalEmail(data.user?.email);
     onLogin(data.user);
     navigate(
-      defaultAuthenticatedPath(data.user, readProductChoice()),
+      destino || defaultAuthenticatedPath(data.user, readProductChoice()),
       { replace: true },
     );
   };
@@ -58,6 +58,12 @@ function useSenhaMinima() {
 export const VerifyEmailPage: React.FC<LoginProp> = ({ onLogin }) => {
   const [searchParams] = useSearchParams();
   const token = useMemo(() => searchParams.get("token") || "", [searchParams]);
+  // Para onde ir depois de confirmar: só um caminho interno previsto (voltar ao
+  // aceite do convite de clínica), nunca um destino arbitrário (anti open-redirect).
+  const seguir = useMemo(() => {
+    const bruto = searchParams.get("seguir") || "";
+    return /^\/entrar-clinica(\?|$)/.test(bruto) ? bruto : "";
+  }, [searchParams]);
   const [error, setError] = useState("");
   const [email, setEmail] = useState("");
   const [reenviado, setReenviado] = useState(false);
@@ -72,7 +78,7 @@ export const VerifyEmailPage: React.FC<LoginProp> = ({ onLogin }) => {
     let ativo = true;
     postAuthJson("/api/auth/verify-email", { token })
       .then((data) => {
-        if (ativo) entrarComSessao(data);
+        if (ativo) entrarComSessao(data, seguir || undefined);
       })
       .catch((err: any) => {
         if (ativo) setError(err.message || "Link inválido ou expirado");

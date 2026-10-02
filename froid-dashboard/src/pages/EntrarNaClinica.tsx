@@ -268,6 +268,9 @@ export function EntrarNaClinicaPage() {
           email: detalhes?.invited_email || "",
           password: senha,
           password_confirm: senha2,
+          // Ao confirmar o e-mail, voltar direto a este aceite (logado), sem o
+          // convidado ter de reencontrar o link.
+          continue_to: "/entrar-clinica?token=" + token,
         }),
       });
       const d = await r.json().catch(() => null);

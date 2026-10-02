@@ -10063,13 +10063,20 @@ def _valid_email_shape(email: str) -> bool:
     return " " not in valor and ".." not in valor
 
 
-async def _send_verification_email(credential: dict) -> str:
+async def _send_verification_email(credential: dict, continue_to: str = "") -> str:
     """Envia o convite de verificação. Devolve o link apenas no modo de
-    desenvolvimento sem SMTP; em produção devolve string vazia."""
+    desenvolvimento sem SMTP; em produção devolve string vazia.
+
+    `continue_to` permite que a confirmação do e-mail leve de volta a um fluxo
+    em curso — hoje, o aceite de convite de clinica — para o convidado nao ter
+    de voltar sozinho. So um caminho interno previsto viaja no link; qualquer
+    outro e ignorado (anti open-redirect)."""
     token = _issue_credential_token(
         credential, "verification", FROID_EMAIL_VERIFICATION_TTL_SECONDS
     )
     link = _public_app_link("/verificar-email?token=" + quote(token, safe=""))
+    if continue_to.startswith("/entrar-clinica"):
+        link = link + "&seguir=" + quote(continue_to, safe="")
     horas = max(1, FROID_EMAIL_VERIFICATION_TTL_SECONDS // 3600)
     assunto = "Confirme seu e-mail no FROID"
     texto, html = _credential_email_bodies(
@@ -10140,6 +10147,10 @@ async def auth_register(request: Request):
     if queixa:
         raise HTTPException(status_code=400, detail=queixa)
     nome = str(body.get("name") or "").strip()[:300] or email.split("@", 1)[0]
+    # Para onde levar depois de confirmar o e-mail (ex.: voltar ao aceite do
+    # convite de clinica). Validado em _send_verification_email; so caminho
+    # interno previsto viaja.
+    continue_to = str(body.get("continue_to") or "").strip()
 
     _rate_limit_guard(
         "auth_register_email", email, 5, 3600.0,
@@ -10181,7 +10192,7 @@ async def auth_register(request: Request):
     credencial["updated_at"] = agora
     _set_professional_password(credencial, password)
     PROFESSIONAL_CREDENTIALS[email] = credencial
-    link = await _send_verification_email(credencial)
+    link = await _send_verification_email(credencial, continue_to)
     _save_identity_state()
     LOGGER.info(
         json.dumps(
