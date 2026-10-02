@@ -17,6 +17,7 @@
 - [Heredoc e barra invertida](froid-heredoc-barra-invertida.md) — `\` colapsa e quebra o arquivo gerado; usar chr(10)/chr(92) ou Write
 - [Fim de linha por arquivo](froid-fim-de-linha-por-arquivo.md) — CRLF e LF convivem na arvore; script de edicao que nao normaliza casa zero ocorrencia
 - [Acervo Data-Froid](froid-data-froid-corpus.md) — preservar a substância vale mais que recusar por precaução
+- [Acervo de evidências (4 fases)](froid-data-froid-acervo-de-evidencias.md) — Data-FROID consultável por tema; piso 7, tema desidentificado, paciente só em síntese; Fase 1 feita em 02/10
 - [Capacidade facial afirmada](froid-facs-capacidade-afirmada.md) — 16 AUs e seis regras, sem onset/apex/offset; corrigido no site, pendente no painel
 - [Sessões simultâneas](froid-sessoes-simultaneas.md) — o git reset de uma sessão apaga o trabalho não commitado da outra; commitar cedo
 - [run-tests.sh para cedo](froid-run-tests-para-cedo.md) — aborta na primeira falha e a saída parcial parece completa; como rodar a suíte inteira

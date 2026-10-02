@@ -156,6 +156,16 @@ def _tem_forma_de_verbo(token: str) -> bool:
     return len(limpo) >= 5 and limpo.endswith("i")
 
 
+def _dentro_de_marcador(texto: str, match: re.Match[str]) -> bool:
+    """O token e o miolo de um marcador como `[DATA]`?"""
+    return (
+        match.start() > 0
+        and texto[match.start() - 1] == "["
+        and texto[match.end():match.end() + 1] == "]"
+        and match.group(0).isupper()
+    )
+
+
 def _abre_periodo(texto: str, inicio: int) -> bool:
     """O token em `inicio` é o primeiro de um período?"""
     anterior = texto[:inicio].rstrip()
@@ -187,13 +197,23 @@ def _limpa_periodo(periodo: str) -> tuple[str, bool]:
     duas saídas possíveis aqui — apagar o verbo principal ou deixar passar um
     nome — são ruins, e escolher entre elas seria supor.
     """
-    primeiro = _TOKEN.search(periodo)
+    # O marcador ja e o resultado da limpeza, nao texto a limpar. Sem esta
+    # guarda, "12/05" virava `[DATA]`, e logo em seguida o `DATA` de dentro dele
+    # era lido como palavra capitalizada: `[[NOME]]` no meio do periodo, e
+    # periodo inteiro descartado como "ambiguo" quando o marcador o abria.
+    # Apurado em 02/10/2026, ao reaproveitar este modulo para o tema do corte.
+    primeiro = next(
+        (m for m in _TOKEN.finditer(periodo) if not _dentro_de_marcador(periodo, m)),
+        None,
+    )
     inicio = primeiro.start() if primeiro else -1
     ambiguo = False
 
     def _troca(match: re.Match[str]) -> str:
         nonlocal ambiguo
         token = match.group(0)
+        if _dentro_de_marcador(periodo, match):
+            return token
         if _e_temporal(token):
             return "[DATA]"
         if not token[:1].isupper() or _e_comum(token):
@@ -280,4 +300,145 @@ def desidentificar_fala(
         # nome, e "…Nath" numa coluna de acervo não ajuda ninguém.
         limpo = limpo[:limite].rsplit(" ", 1)[0].rstrip() + " […]"
 
+    return limpo, "ok"
+
+
+# ---------------------------------------------------------------------------
+# O TEMA DO CORTE
+#
+# O tema e a chave pela qual o FROID Explica vai procurar no acervo ("o que se
+# fez quando apareceu isto?"). Ate 02/10/2026 ele passava por uma lista fixa de
+# ~120 palavras e, como o tema da IA e livre por contrato, quase todo tema
+# virava `nao_classificado`: a chave da consulta nao chegava ao acervo.
+#
+# A lista fixa protegia por EXCLUSAO — so passava o que ja se sabia inocente.
+# Aqui a protecao e por IDENTIFICACAO do que e referencial, e a fonte mais forte
+# para isso nao e uma regra de gramatica: e a propria sessao. Nome proprio dito
+# em voz alta aparece transcrito com maiuscula no meio da frase. Se essa palavra
+# reaparece no tema — em qualquer posicao, em qualquer caixa —, e o nome de
+# alguem daquela conversa. E isso que pega "conflito com joana" (o tema por
+# palavras frequentes vem todo em minuscula) e "Joana e o divorcio" (o nome na
+# primeira posicao, onde a maiuscula nao prova nada).
+# ---------------------------------------------------------------------------
+
+#: Acima disto nao e tema, e frase: o tema da IA tem no maximo 6 palavras por
+#: contrato, e o folgado aqui so absorve marcador e artigo.
+MAXIMO_DE_PALAVRAS_DO_TEMA = 12
+
+LIMITE_DO_TEMA = 120
+
+_PREFIXO_DE_FALANTE = re.compile(r"^\s*(?:DR\.|PC|PAC)\s*-\s*", re.IGNORECASE)
+
+
+def _chave(token: str) -> str:
+    return _sem_acento(token).lower()
+
+
+def _e_sigla(token: str) -> bool:
+    """TCC, TDAH, IPM: vocabulario tecnico, nao nome de gente."""
+    return len(token) >= 2 and token.isupper()
+
+
+def nomes_da_sessao(transcricao: str) -> frozenset[str]:
+    """Palavras que a sessao escreveu com maiuscula NO MEIO de um periodo.
+
+    O primeiro token de cada periodo fica de fora: ali a maiuscula e de posicao.
+    Sigla fica de fora: e vocabulario. O que sobra e, na fala transcrita, nome
+    proprio — de pessoa, de lugar, de empresa.
+    """
+    nomes: set[str] = set()
+    for linha in str(transcricao or "").splitlines():
+        fala = _PREFIXO_DE_FALANTE.sub("", linha)
+        for periodo in _SEPARA_PERIODO.split(fala):
+            tokens = list(_TOKEN.finditer(periodo))
+            for achado in tokens[1:]:
+                token = achado.group(0)
+                if not token[:1].isupper() or _e_sigla(token):
+                    continue
+                if _e_comum(token) or _e_temporal(token):
+                    continue
+                nomes.add(_chave(token))
+    return frozenset(nomes)
+
+
+def minusculas_da_sessao(transcricao: str) -> frozenset[str]:
+    """Palavras que a sessao escreveu em minuscula — palavra comum, dita como tal.
+
+    E o contrapeso de `nomes_da_sessao`. Sem ele, "Ansiedade no Trabalho" e
+    "Conflito com Pedro" tem a mesma forma e o tema perde "trabalho" para um
+    `[NOME]`. Se a conversa disse "o trabalho" em algum momento, a palavra e
+    comum ali; nome dito em voz alta nao aparece transcrito em minuscula.
+    """
+    vistas: set[str] = set()
+    for linha in str(transcricao or "").splitlines():
+        fala = _PREFIXO_DE_FALANTE.sub("", linha)
+        for achado in _TOKEN.finditer(fala):
+            token = achado.group(0)
+            if token[:1].islower():
+                vistas.add(_chave(token))
+    return frozenset(vistas)
+
+
+def desidentificar_tema(
+    tema: str,
+    nomes: frozenset[str] = frozenset(),
+    minusculas: frozenset[str] = frozenset(),
+) -> tuple[str, str]:
+    """Prepara o tema de um corte para o acervo.
+
+    Devolve `(tema_seguro, motivo)`. Vazio significa NAO GUARDAR, e o motivo diz
+    por que: `vazio`, `longo_demais`, `referencial_demais`. Com tema, o motivo e
+    `ok` e cada referencia aparece como marcador tipado (`[NOME]`, `[DATA]`...),
+    para que quem consulta saiba que ali havia algo e o que era.
+    """
+    bruto = re.sub(r"\s+", " ", str(tema or "")).strip()
+    if not bruto:
+        return "", "vazio"
+    if len(bruto.split()) > MAXIMO_DE_PALAVRAS_DO_TEMA:
+        return "", "longo_demais"
+
+    limpo = bruto
+    for padrao, marcador in PADROES_ESTRUTURADOS:
+        limpo = padrao.sub(marcador, limpo)
+
+    tokens = [m for m in _TOKEN.finditer(limpo) if not _dentro_de_marcador(limpo, m)]
+    # Tema em Title Case ("Ansiedade no Trabalho") capitaliza por ESTILO, e a
+    # regra "maiuscula fora da primeira posicao e nome" marcaria o tema inteiro.
+    # Nesse caso a maiuscula nao prova nada, e quem decide sao os nomes da sessao.
+    plenas = [m.group(0) for m in tokens[1:] if len(m.group(0)) >= 4 and not _e_sigla(m.group(0))]
+    title_case = len(plenas) >= 2 and all(p[:1].isupper() for p in plenas)
+    primeiro = tokens[0].start() if tokens else -1
+
+    def _troca(match: re.Match[str]) -> str:
+        token = match.group(0)
+        if _dentro_de_marcador(limpo, match):
+            return token
+        if _chave(token) in nomes:
+            return "[NOME]"
+        if _e_temporal(token):
+            return "[DATA]"
+        if _e_sigla(token):
+            return token
+        # A ordem importa: `nomes` vem antes, entao uma palavra que a sessao usou
+        # das duas formas ("Clara" nome e "clara" adjetivo) cai como nome.
+        if (
+            match.start() != primeiro
+            and not title_case
+            and token[:1].isupper()
+            and not _e_comum(token)
+            and _chave(token) not in minusculas
+        ):
+            return "[NOME]"
+        return token
+
+    limpo = _TOKEN.sub(_troca, limpo)
+
+    palavras = len(limpo.split())
+    marcadores = len(_MARCADOR.findall(limpo))
+    sobra = _MARCADOR.sub(" ", limpo)
+    if not _TOKEN.search(sobra) or marcadores * 2 > palavras:
+        return "", "referencial_demais"
+
+    if len(limpo) > LIMITE_DO_TEMA:
+        limpo = limpo[:LIMITE_DO_TEMA].rsplit(" ", 1)[0].rstrip()
     return limpo, "ok"

@@ -153,6 +153,11 @@ export interface SessionReportRecord {
     source: string;
   }>;
   transcript: string;
+  /** Segundo da sessao de cada linha de `transcript`, na mesma ordem (1:1).
+   *  So numeros: e o que permite ao servidor recortar a fala de CADA corte
+   *  para o Data-FROID. Sem ela, o recorte cai e o corte grava contagens
+   *  como nao apuradas. Ausente em relatorios anteriores a 02/10/2026. */
+  transcriptLineSeconds?: number[];
   transcriptionQuality?: {
     successfulSegments: number;
     emptySegments: number;
@@ -212,13 +217,10 @@ export interface SessionReportRecord {
       startSecond?: number;
       endSecond?: number;
       themePredominant?: string;
-      patientSummaryAnon?: string;
-      professionalSummaryAnon?: string;
       /** Nula sem fala do paciente apurada na janela. Era `number`, e a origem
        *  entregava `0` — que num acervo de pesquisa lê como "corte de
        *  qualidade zero", e não como corte que não pôde ser avaliado. */
       qualityConfidence: number | null;
-      interventionCategory: string;
       patientResponse: string;
       ipmDeltaFromBaseline?: number | null;
       idmDeltaFromBaseline?: number | null;

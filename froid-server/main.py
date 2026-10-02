@@ -22,7 +22,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 from froid_core import SessionState
-from froid_deidentify import VERSAO_DEID, desidentificar_fala
+from froid_deidentify import (
+    VERSAO_DEID,
+    desidentificar_fala,
+    desidentificar_tema,
+    minusculas_da_sessao,
+    nomes_da_sessao,
+)
 import froid_f0
 import froid_mailer
 import froid_voice
@@ -3709,6 +3715,41 @@ def _anonymous_cut_hash(session_hash: str, cut_index: int, start_second: int, en
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
+#: Rotulos que o PROPRIO sistema emite, aceitos inteiros.
+#:
+#: A lista de palavras de `_anonymous_category` existe para barrar texto livre
+#: que carregue fala ou identificador. Ela barrava tambem vinte rotulos que o
+#: navegador e este arquivo produzem — e de um jeito enviesado: `melhora`
+#: passava e `piora` virava `nao_apurado`; `estavel` passava e `oscilante`
+#: virava `nao_apurada`; `primeira_sessao` virava `seguimento`, uma afirmacao
+#: falsa; todo corte automatico (`automatico_10min`) perdia o gatilho. O acervo
+#: so guardava as noticias boas. Apurado em 02/10/2026.
+#:
+#: Tabela explicita, e nao mais palavras soltas na lista: liberar `sem` ou
+#: `zona` como palavra autorizaria combinacoes que ninguem emite. O teste
+#: `test_rotulos_do_sistema_no_acervo` confere cada rotulo contra a fonte.
+ROTULOS_EMITIDOS_PELO_SISTEMA = frozenset(
+    {
+        # sessao (buildAnonymizedContext, LiveSession.tsx)
+        "seguimento", "primeira_sessao",
+        "inicio", "meio", "manutencao",
+        "remote", "presential", "presential_mobile",
+        "sem_historico", "melhora", "piora", "estabilidade",
+        "nao_apurado", "nao_apurada", "estavel", "oscilante",
+        "suficiente", "baixa_amostragem",
+        # corte
+        "final", "automatico_10min",
+        "mudanca_zona", "sem_mudanca_zona",
+        "mudanca_tom", "sem_mudanca_tom",
+        "mudanca_coerencia", "sem_mudanca_coerencia",
+        "aumento", "reducao",
+        # servidor (_infer_patient_response, categoria de intervencao)
+        "melhora_regulacao", "aumento_ativacao",
+        "sem_recorte_temporal", "sem_atribuicao_de_falante", "sem_fala_profissional",
+    }
+)
+
+
 def _anonymous_category(value: Any, default: str = "nao_classificado") -> str:
     """Keep taxonomy labels while rejecting text that can carry literal speech or PII."""
     text = re.sub(r"\s+", " ", str(value or "").strip().lower())
@@ -3737,6 +3778,8 @@ def _anonymous_category(value: Any, default: str = "nao_classificado") -> str:
         "melhora", "aumento", "resposta", "coerente", "incoerente", "estavel", "crescente", "decrescente",
         "feminino", "masculino", "nao_binario", "binario", "online", "hibrida", "boa", "regular", "baixa",
     }
+    if normalized in ROTULOS_EMITIDOS_PELO_SISTEMA:
+        return normalized
     tokens = [token for token in normalized.split("_") if token and not token.isdigit()]
     if not tokens or any(token not in safe_tokens for token in tokens):
         return default
@@ -3787,21 +3830,60 @@ def _session_context(report: dict) -> dict:
     return context if isinstance(context, dict) else {}
 
 
-def _summary_for_cut(report: dict, start_minute: int, end_minute: int) -> dict:
+def _summary_for_cut(report: dict, start_second: int) -> dict:
+    """O resumo da IA que deu origem ao corte, casado pelo SEGUNDO de inicio.
+
+    Antes casava por minuto de inicio e de fim, com `round` no fim — enquanto o
+    navegador casa com `ceil`. Os dois divergiriam no primeiro corte que nao
+    terminasse em minuto cheio; ninguem percebia porque o resultado nunca era
+    lido. O inicio basta: dois cortes nao comecam no mesmo segundo, e e com
+    `floor(startSecond)` que `buildReportCuts` monta o corte a partir do resumo.
+    """
     for item in report.get("conversationSummaries") or []:
         if not isinstance(item, dict):
             continue
-        if _safe_int(item.get("startMinute")) == start_minute and _safe_int(item.get("endMinute")) == end_minute:
+        inicio = _medida(item.get("startSecond"))
+        if inicio is None:
+            minuto = _medida(item.get("startMinute"))
+            inicio = None if minuto is None else minuto * 60
+        if inicio is not None and int(inicio) == start_second:
             return item
     return {}
 
 
-def _transcript_for_range(report: dict, start_second: int, end_second: int) -> str:
+def _transcript_for_range(
+    report: dict, start_second: int, end_second: int
+) -> Optional[str]:
+    """A fala do corte — e so a dele. `None` quando nao ha como recortar.
+
+    Ate 02/10/2026 esta funcao ignorava os dois limites e devolvia a transcricao
+    INTEIRA para todo corte: contagem de palavras, densidade de fala e categoria
+    de intervencao eram da sessao toda, repetidas em cada linha do acervo, e o
+    tema de um corte vinha acompanhado da fala de todos os outros.
+
+    A linha do tempo vem do navegador em `transcriptLineSeconds`: um segundo por
+    linha de `transcript`, na mesma ordem — `transcript` e exatamente as linhas
+    dos segmentos unidas por `\\n`, e nenhum segmento contem quebra de linha. A
+    regra de pertencimento e a mesma do navegador (`collectTranscript`):
+    `inicio <= segundo < fim`.
+
+    Sem linha do tempo, ou com ela desalinhada, a resposta e `None` — nunca a
+    sessao inteira, que era a suposicao antiga, e nunca string vazia, que leria
+    como "ninguem falou neste corte".
+    """
     transcript = str(report.get("transcript") or "")
-    if not transcript.strip():
-        return ""
-    # Relatorios antigos salvam apenas texto linear; usamos o trecho inteiro como fallback anonimo.
-    return transcript
+    linhas = transcript.split("\n")
+    segundos = report.get("transcriptLineSeconds")
+    if not transcript.strip() or not isinstance(segundos, list) or len(segundos) != len(linhas):
+        return None
+    medidos = [_medida(segundo) for segundo in segundos]
+    if any(segundo is None for segundo in medidos):
+        return None
+    return "\n".join(
+        linha
+        for linha, segundo in zip(linhas, medidos)
+        if start_second <= segundo < end_second
+    )
 
 
 def _speaker_text(transcript: str, speaker: str) -> str:
@@ -4091,6 +4173,7 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 "baseline_spectral_beta": "DOUBLE",
                 "baseline_spectral_gamma": "DOUBLE",
                 "ingestion_basis": "VARCHAR",
+                "summary_theme_deid_reason": "VARCHAR",
             },
         )
         conn.execute(
@@ -4248,6 +4331,8 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 "metrics_version": "VARCHAR",
                 "weights_version": "VARCHAR",
                 "media_loss_events": "INTEGER",
+                "theme_deid_reason": "VARCHAR",
+                "transcript_scope": "VARCHAR",
             },
         )
         conn.execute("BEGIN TRANSACTION")
@@ -4258,6 +4343,20 @@ def _append_anonymous_datamart_row(report: dict) -> None:
         ten_minute_cuts = [
             cut for cut in (report.get("tenMinuteCuts") or []) if isinstance(cut, dict)
         ]
+        # O tema e a chave pela qual o FROID Explica vai consultar o acervo.
+        # Passa pela desidentificacao, e nao mais pela lista fixa de palavras
+        # que o reduzia a `nao_classificado` (froid_deidentify, "O TEMA DO
+        # CORTE"). Os nomes ditos na sessao sao a referencia do que tirar.
+        transcricao_da_sessao = str(report.get("transcript") or "")
+        nomes_ditos = nomes_da_sessao(transcricao_da_sessao)
+        palavras_comuns = minusculas_da_sessao(transcricao_da_sessao)
+
+        def _tema(valor) -> tuple[str, str]:
+            return desidentificar_tema(str(valor or ""), nomes_ditos, palavras_comuns)
+
+        summary_theme, summary_theme_motivo = _tema(
+            session_summary.get("theme") or average.get("theme")
+        )
         # A PROCEDENCIA, lida uma vez e usada em todo o resto.
         #
         # `ipmAvg` e `idmAvg` chegam do navegador ja zerados: `LiveSession.tsx`
@@ -4403,7 +4502,7 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 _contagem_acustica(average.get("dissonanceCount")),
                 len(ten_minute_cuts),
                 len(report.get("clinicalNotes") or []),
-                _anonymous_category(session_summary.get("theme") or average.get("theme") or ""),
+                summary_theme,
                 "",
                 _safe_technical_id(context.get("stt_model") or context.get("sttModel") or OPENAI_TRANSCRIBE_MODEL, OPENAI_TRANSCRIBE_MODEL),
                 _safe_technical_id(context.get("llm_model") or context.get("llmModel") or FROID_EXPLICA_MODEL, FROID_EXPLICA_MODEL),
@@ -4478,17 +4577,22 @@ def _append_anonymous_datamart_row(report: dict) -> None:
             ],
         )
         conn.execute(
-            "UPDATE anonymous_sessions SET ingestion_basis='post_anonymization' WHERE session_hash=?",
-            [session_hash],
+            "UPDATE anonymous_sessions SET ingestion_basis='post_anonymization', "
+            "summary_theme_deid_reason=? WHERE session_hash=?",
+            [summary_theme_motivo, session_hash],
         )
         previous_cut: Optional[dict] = None
         for index, cut in enumerate(ten_minute_cuts):
             start_second = _safe_int(cut.get("startSecond"))
             end_second = _safe_int(cut.get("endSecond"))
-            start_minute = int(start_second / 60)
-            end_minute = max(start_minute + 1, int(round(end_second / 60)))
-            summary = _summary_for_cut(report, start_minute, end_minute)
+            summary = _summary_for_cut(report, start_second)
             transcript = _transcript_for_range(report, start_second, end_second)
+            # Sem linha do tempo nao ha fala DESTE corte: as contagens ficam
+            # NULL (nao apurado) e o escopo diz por que. Zero afirmaria que
+            # ninguem falou; a sessao inteira afirmaria que tudo foi dito aqui.
+            recortado = transcript is not None
+            transcript_scope = "corte" if recortado else "sem_linha_do_tempo"
+            transcript = transcript or ""
             patient_text = _speaker_text(transcript, "PC")
             professional_text = _speaker_text(transcript, "DR.")
             # ATRIBUICAO NAO SE PRESUME.
@@ -4507,9 +4611,11 @@ def _append_anonymous_datamart_row(report: dict) -> None:
             #
             # Sem prefixo, a fala fica NAO ATRIBUIDA. O corte entra no acervo
             # com as metricas que tem e sem inventar de quem era a voz.
-            atribuicao_desconhecida = not patient_text and not professional_text
-            patient_word_count = _word_count(patient_text)
-            professional_word_count = _word_count(professional_text)
+            atribuicao_desconhecida = (
+                bool(transcript.strip()) and not patient_text and not professional_text
+            )
+            patient_word_count = _word_count(patient_text) if recortado else None
+            professional_word_count = _word_count(professional_text) if recortado else None
             # A fala do PROFISSIONAL entra no acervo com a forma preservada e as
             # referencias trocadas por marcador. A do paciente nao entra literal
             # em forma nenhuma — a assimetria e deliberada e esta explicada em
@@ -4523,6 +4629,11 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 professional_summary_anon, motivo_deid = desidentificar_fala(
                     professional_text
                 )
+                if not recortado:
+                    # Sem linha do tempo a fala do corte e "" e a limpeza
+                    # devolveria "vazio" — que leria como "o profissional nao
+                    # falou". O motivo verdadeiro e outro.
+                    motivo_deid = "sem_recorte_temporal"
             else:
                 professional_summary_anon, motivo_deid = "", "desligado"
             duration_seconds = max(1, end_second - start_second)
@@ -4531,13 +4642,19 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 if _safe_int(report.get("durationSeconds")) > 0
                 else 0.0
             )
-            speech_density = round(
-                (patient_word_count + professional_word_count) / max(1.0, duration_seconds / 60.0),
-                3,
+            speech_density = (
+                round(
+                    (patient_word_count + professional_word_count)
+                    / max(1.0, duration_seconds / 60.0),
+                    3,
+                )
+                if recortado
+                else None
             )
-            patient_professional_word_ratio = round(
-                patient_word_count / max(1, professional_word_count),
-                3,
+            patient_professional_word_ratio = (
+                round(patient_word_count / max(1, professional_word_count), 3)
+                if recortado
+                else None
             )
             cut_hash = _anonymous_cut_hash(session_hash, index, start_second, end_second)
             cut_context = {}
@@ -4545,19 +4662,38 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 maybe_cut_context = (context.get("cuts") or [])[index]
                 if isinstance(maybe_cut_context, dict):
                     cut_context = maybe_cut_context
+            # A categoria e SEMPRE deste classificador, sobre a fala DR. do corte.
+            #
+            # Ate 02/10/2026 o rotulo enviado pelo navegador vinha primeiro — e o
+            # navegador sempre envia. Ele usava `inferInterventionCategory`, a
+            # versao antiga: substring sem fronteira ("como" dentro de
+            # comodidade), indicio de uma palavra valendo ponto e empate decidido
+            # pela ordem da lista. Os tres defeitos foram corrigidos AQUI, e a
+            # correcao nunca rodou num relatorio novo.
+            #
             # Sem saber de quem era a fala, nao se classifica a intervencao: o
             # classificador le o texto do PROFISSIONAL, e texto de origem
             # desconhecida nao e texto do profissional.
-            intervention_category = _anonymous_category(
-                cut_context.get("intervention_category")
-                or cut_context.get("interventionCategory")
-                or (
-                    "sem_atribuicao_de_falante"
-                    if atribuicao_desconhecida
-                    else _infer_intervention_category(professional_text)
-                ),
-                "intervencao_geral",
+            if not recortado:
+                categoria = "sem_recorte_temporal"
+            elif atribuicao_desconhecida:
+                categoria = "sem_atribuicao_de_falante"
+            elif not professional_text:
+                categoria = "sem_fala_profissional"
+            else:
+                categoria = _infer_intervention_category(professional_text)
+            intervention_category = _anonymous_category(categoria, "intervencao_geral")
+            # Tema do corte: o da IA, que resumiu ESTE trecho. O recuo para o
+            # `themePredominant` do navegador cobre relatorio sem resumo casado.
+            theme_predominant, theme_motivo = _tema(
+                summary.get("theme")
+                or cut_context.get("theme_predominant")
+                or cut_context.get("themePredominant")
             )
+            # `cut.theme` NAO e o tema da IA: sao as seis palavras mais
+            # frequentes da fala (`inferThemeFromTranscript`), em minuscula — e
+            # por isso podem trazer o nome de alguem. Passa pela mesma limpeza.
+            cut_theme, _ = _tema(cut.get("theme"))
             patient_response = _anonymous_category(
                 cut_context.get("patient_response")
                 or cut_context.get("patientResponse")
@@ -4631,7 +4767,7 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                     _anonymous_category(cut.get("coherenceStatus") or ""),
                     _anonymous_category(cut.get("emotionalTone") or ""),
                     _medida(cut.get("wordsPerMinute")),
-                    _anonymous_category(cut.get("theme") or ""),
+                    cut_theme,
                     _contagem_acustica(cut.get("dissonanceCount")),
                     _medida(cut.get("mfcc7")),
                     _medida(cut.get("mfcc9")),
@@ -4732,8 +4868,9 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                     "trigger": _anonymous_category(cut_context.get("cut_trigger") or cut_context.get("cutTrigger") or "automatico", "automatico"),
                 },
                 "semantic": {
-                    "theme": _anonymous_category(cut.get("theme") or ""),
-                    "theme_predominant": _anonymous_category(cut_context.get("theme_predominant") or cut_context.get("themePredominant") or cut.get("theme") or ""),
+                    "theme": cut_theme,
+                    "theme_predominant": theme_predominant,
+                    "transcript_scope": transcript_scope,
                     "coherence_status": _anonymous_category(cut.get("coherenceStatus") or ""),
                     "patient_word_count": patient_word_count,
                     "professional_word_count": professional_word_count,
@@ -4809,7 +4946,8 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                     jitter_unit = ?, shimmer_unit = ?,
                     previous_cut_context = ?, next_cut_context = ?, response_ipm_direction = ?,
                     response_idm_direction = ?, response_dissonance_direction = ?,
-                    metrics_version = ?, weights_version = ?, media_loss_events = ?
+                    metrics_version = ?, weights_version = ?, media_loss_events = ?,
+                    theme_deid_reason = ?, transcript_scope = ?
                 WHERE session_hash = ? AND cut_index = ?
                 """,
                 [
@@ -4818,7 +4956,7 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                     relative_position,
                     speech_density,
                     patient_professional_word_ratio,
-                    _anonymous_category(cut_context.get("theme_predominant") or cut_context.get("themePredominant") or cut.get("theme") or ""),
+                    theme_predominant,
                     "",
                     _primeiro_presente(cut_context.get("ipm_delta_after_intervention"), cut_context.get("ipmDeltaAfterIntervention")),
                     _primeiro_presente(cut_context.get("idm_delta_after_intervention"), cut_context.get("idmDeltaAfterIntervention")),
@@ -4842,6 +4980,8 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                     _safe_technical_id(cut_context.get("metrics_version") or cut_context.get("metricsVersion") or context.get("metrics_version") or context.get("metricsVersion") or "froid-metrics-v3", "froid-metrics-v3", 80),
                     _safe_technical_id(cut_context.get("weights_version") or cut_context.get("weightsVersion") or context.get("weights_version") or context.get("weightsVersion") or "froid-weights-v1", "froid-weights-v1", 80),
                     _safe_int(cut_context.get("media_loss_events") or cut_context.get("mediaLossEvents") or context.get("media_loss_events") or context.get("mediaLossEvents")),
+                    theme_motivo,
+                    transcript_scope,
                     session_hash,
                     index,
                 ],

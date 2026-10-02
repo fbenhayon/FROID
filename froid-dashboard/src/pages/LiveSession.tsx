@@ -2381,29 +2381,6 @@ function transcriptWordCount(text: string, speakerPrefixText?: string) {
     .filter(Boolean).length;
 }
 
-function inferInterventionCategory(text: string) {
-  const clean = normalizeTranscriptText(text);
-  if (!clean) return "nao_classificada";
-  const buckets: Array<[string, string[]]> = [
-    ["acolhimento", ["estou aqui", "vamos com calma", "pode falar", "te escuto", "acolho"]],
-    ["silencio_terapeutico", ["pausa", "silêncio", "podemos esperar", "sem pressa"]],
-    ["grounding_regulacao", ["respira", "corpo", "observe", "presença", "aterrar"]],
-    ["psicoeducacao", ["explicar", "entenda", "funciona", "modelo", "sistema nervoso"]],
-    ["reestruturacao_cognitiva", ["pensamento", "crenca", "evidência", "alternativa"]],
-    ["validacao_emocional", ["faz sentido", "compreendo", "válido", "acolho"]],
-    ["pergunta_aberta", ["como", "quando", "qual", "conte", "fale"]],
-    ["orientacao_pratica", ["exercicio", "praticar", "anotar", "combinado", "tarefa"]],
-    ["confrontacao_terapeutica", ["percebe", "padrão", "evita", "resistência"]],
-    ["encerramento_sintese", ["resumindo", "síntese", "próxima sessão", "encerrar"]],
-  ];
-  const ranked = buckets
-    .map(([category, words]) => ({
-      category,
-      score: words.filter((word) => clean.includes(word)).length,
-    }))
-    .sort((a, b) => b.score - a.score);
-  return ranked[0]?.score ? ranked[0].category : "intervencao_geral";
-}
 
 function inferPatientResponse(
   cut: MetricSnapshot,
@@ -2446,27 +2423,7 @@ function samePatientReport(report: SessionReportRecord, patient?: { id?: string;
   );
 }
 
-function anonymizeForResearch(text: string, maxWords = 80) {
-  return limitWords(
-    String(text || "")
-      .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]")
-      .replace(/\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/g, "[documento]")
-      .replace(/\b(?:\+?55\s*)?(?:\(?\d{2}\)?\s*)?9?\d{4}[-\s]?\d{4}\b/g, "[telefone]")
-      .replace(/\b\d{5,}\b/g, "[número]")
-      .replace(/\s+/g, " ")
-      .trim(),
-    maxWords,
-  );
-}
 
-function scopedSpeakerText(transcript: string, speaker: SpeakerRole) {
-  const prefix = speakerPrefix(speaker);
-  return String(transcript || "")
-    .split(/\n+/)
-    .filter((line) => line.trim().startsWith(prefix))
-    .map((line) => line.replace(prefix, "").trim())
-    .join(" ");
-}
 
 function reportsMetricAverage(
   reports: SessionReportRecord[],
@@ -2648,14 +2605,6 @@ function buildAnonymizedContext(
       previousReports.map((report) => report.sessionAverage?.coherenceStatus || ""),
     ) as string[],
     cuts: cuts.map((cut, index) => {
-      const scopedTranscript = transcriptSegments
-        .filter(
-          (segment) =>
-            segment.elapsedSeconds >= cut.startSecond &&
-            segment.elapsedSeconds < cut.endSecond,
-        )
-        .map((segment) => segment.text)
-        .join("\n");
       const summary = conversationSummaries.find(
         (item) =>
           item.startMinute === Math.floor(cut.startSecond / 60) &&
@@ -2663,8 +2612,6 @@ function buildAnonymizedContext(
       );
       const previousCut = cuts[index - 1] || null;
       const nextCut = cuts[index + 1] || null;
-      const drText = scopedSpeakerText(scopedTranscript, "DR");
-      const pcText = scopedSpeakerText(scopedTranscript, "PC");
       const reference = previousCut || baseline;
       const nextReference = nextCut || cut;
       return {
@@ -2674,10 +2621,19 @@ function buildAnonymizedContext(
         startSecond: cut.startSecond,
         endSecond: cut.endSecond,
         themePredominant: limitTheme(summary?.theme || cut.theme, 6),
-        patientSummaryAnon: anonymizeForResearch(pcText || summary?.summary || cut.theme, 80),
-        professionalSummaryAnon: anonymizeForResearch(drText || "intervencao profissional sem texto suficiente", 80),
+        // Aqui havia `patientSummaryAnon` e `professionalSummaryAnon`: ate 80
+        // palavras LITERAIS de cada lado, por corte, com limpeza de e-mail,
+        // CPF, telefone e numero e nada mais. Este objeto e gravado no
+        // relatorio EM CLARO — so `transcript` e criptografado — e o servidor
+        // nunca leu os dois campos. Era fala do paciente fora da criptografia
+        // do prontuario, sem leitor. Removidos em 02/10/2026; nao reintroduzir.
+        // A fala que o acervo precisa e recortada no servidor, a partir da
+        // transcricao criptografada e de `transcriptLineSeconds`.
         qualityConfidence: cutQualityConfidence(cut),
-        interventionCategory: inferInterventionCategory(drText),
+        // A categoria de intervencao tambem saiu daqui: o servidor a calcula
+        // sobre a fala DR. do corte com o classificador corrigido
+        // (`_infer_intervention_category`). A versao deste arquivo casava por
+        // substring e desempatava pela ordem da lista, e era ela que valia.
         patientResponse: inferPatientResponse(cut, previousCut, baseline),
         ipmDeltaFromBaseline: rounded(menos(cut.ipmAvg, baseline.ipmAvg), 3),
         idmDeltaFromBaseline: rounded(menos(cut.idmAvg, baseline.idmAvg), 3),
@@ -6009,6 +5965,12 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       dissonances: dissonanceLog,
       evidentDissonances: multiDissonanceLog,
       transcript: summarySourceTranscript,
+      // Um segundo por linha de `transcript`, na mesma ordem: as duas saem do
+      // mesmo `transcriptSegmentsRef`, e nenhum segmento contem quebra de
+      // linha (`appendTranscriptText` colapsa todo espaco em branco).
+      transcriptLineSeconds: transcriptSegmentsRef.current.map(
+        (segment) => segment.elapsedSeconds,
+      ),
       // A base probatoria do documento, contada amostra a amostra. O motor
       // declara a origem em cada leitura; aqui ela para de se perder.
       procedenciaDosDados: {
