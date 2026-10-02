@@ -509,16 +509,12 @@ function App() {
           path="/clinica"
           element={clinicalElement(<ClinicManagement user={user} />)}
         />
-        {/* Resgate de convite de equipe. protectedElement (exige login) e NAO
-            clinicalElement: o convidado costuma ser autonomo sem plano proprio
-            e nao pode ser desviado para a escolha de produto — ele passa a
-            consumir do pool da clinica. Se chegar deslogado pelo link do
-            WhatsApp, protectedElement guarda o hash (com ?token=) e devolve
-            aqui apos o login. */}
-        <Route
-          path="/entrar-clinica"
-          element={protectedElement(<EntrarNaClinicaPage user={user} />)}
-        />
+        {/* Resgate de convite de equipe. Rota PUBLICA (espelha /convite/:token do
+            paciente): o convidado chega pelo link do WhatsApp sem conta, se
+            cadastra/entra na propria tela com o e-mail convidado e passa a
+            integrar a equipe. A guarda de acesso clinico (e-mail do convite) vive
+            no backend; o cadastro proprio exige confirmar o e-mail antes de entrar. */}
+        <Route path="/entrar-clinica" element={<EntrarNaClinicaPage />} />
         <Route
           path="/session/:sessionId"
           element={clinicalElement(<LiveSession user={user} />)}

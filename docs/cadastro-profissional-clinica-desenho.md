@@ -86,6 +86,17 @@ melhor**, e o risco da mudança é de **UI**, não de identidade.
 > - **D1 = Google + senha**, com "Entrar com Google" em destaque e "Criar conta /
 >   entrar com senha" como alternativa.
 > - **D2 = e-mail convidado mostrado por inteiro** na página de aceite.
+> - **D3 (02/10/2026) = o caminho "criar conta com senha" EXIGE confirmar o
+>   e-mail** antes de entrar na clínica (prova de caixa, acesso clínico); o
+>   "Entrar com Google" resolve em 1 clique (o Google prova o e-mail).
+>
+> **EXECUÇÃO (02/10/2026):** a primeira entrega foi a versão *contida* (página
+> protegida + "trocar de conta") — NÃO era a similaridade com o paciente que o
+> dono pediu. Refeita como **página PÚBLICA** (rota `/entrar-clinica` agora
+> pública, espelho de `PatientInvitePage`): cara da clínica, "Entrar com Google"
+> em destaque + "Criar conta / entrar com senha" na própria tela, com o e-mail
+> fixado no do convite, auto-aceite após a sessão existir. Backend de aceite +
+> trava de e-mail intocados; reusa register/google/login + o GET do convite.
 
 - **D1 — Caminhos de autenticação na página de aceite:** Google + senha (Google
   promovido) · só Google · só senha. Depende de como seus profissionais entram.

@@ -1,33 +1,13 @@
-/** Tela de resgate de convite de equipe: cada erro do backend vira uma frase
- *  que diz o proximo passo, e o formulario abre com o codigo do link ja no
- *  campo. Sem DOM: render estatico, como o resto da suite do painel. */
+/** Tela PÚBLICA de resgate de convite de equipe (espelha a do paciente): cada
+ *  erro do backend vira uma frase que diz o próximo passo, e a página abre
+ *  buscando o convite. Sem DOM: render estático, como o resto da suíte. */
 
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
 import { expect, it } from "vitest";
 
-import {
-  EntrarNaClinicaPage,
-  mensagemDoErro,
-  situacaoDoConvite,
-} from "./EntrarNaClinica";
-
-it("situacaoDoConvite distingue os quatro estados diante da conta logada", () => {
-  const base = {
-    clinic_name: "Clinica X",
-    invited_email: "convidado@x.com",
-    roles: ["professional"],
-    status: "pending",
-    expired: false,
-  };
-  expect(situacaoDoConvite("convidado@x.com", null)).toBe("sem_detalhes");
-  expect(situacaoDoConvite("convidado@x.com", { ...base, expired: true })).toBe("indisponivel");
-  expect(situacaoDoConvite("convidado@x.com", { ...base, status: "accepted" })).toBe("indisponivel");
-  expect(situacaoDoConvite("outro@x.com", base)).toBe("email_divergente");
-  // Casa a identidade ignorando caixa/espaco; o backend tambem normaliza.
-  expect(situacaoDoConvite("  Convidado@X.com ", base)).toBe("pronto");
-});
+import { EntrarNaClinicaPage, mensagemDoErro, papeisEmTexto } from "./EntrarNaClinica";
 
 it("cada codigo de erro vira a orientacao certa, distinta uma da outra", () => {
   const porOutroEmail = mensagemDoErro(403, "convite destinado a outro email");
@@ -51,13 +31,19 @@ it("erro sem codigo conhecido usa o detalhe do servidor e nunca fica vazio", () 
   expect(mensagemDoErro(500, "")).not.toHaveLength(0);
 });
 
-it("o formulario abre com o codigo que veio no link", () => {
+it("os papeis do convite viram texto em portugues, com fallback", () => {
+  expect(papeisEmTexto(["professional"])).toBe("profissional");
+  expect(papeisEmTexto(["administrator", "supervisor"])).toBe("administrador, supervisor");
+  expect(papeisEmTexto([])).toBe("profissional");
+  expect(papeisEmTexto(["desconhecido"])).toBe("desconhecido");
+});
+
+it("a pagina abre buscando o convite (estado de carregamento), sem quebrar", () => {
   const html = renderToStaticMarkup(
     <MemoryRouter initialEntries={["/entrar-clinica?token=CODIGO-DO-LINK"]}>
       <EntrarNaClinicaPage />
     </MemoryRouter>,
   );
-  expect(html).toContain("Entrar numa clínica");
-  expect(html).toContain("Código de convite");
-  expect(html).toContain("CODIGO-DO-LINK");
+  expect(html).toContain("Equipe FROID");
+  expect(html).toContain("Carregando o convite...");
 });
