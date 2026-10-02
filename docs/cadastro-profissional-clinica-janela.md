@@ -1,9 +1,10 @@
 # Aceite de convite de profissional — roteiro da janela
 
-Escrito em 02/10/2026. Deploy da correção `f16b0e24` (mostra o convite + resolve o
-e-mail divergente), já no `origin/main`. **Frontend + backend** (página de aceite
-nova + endpoint GET novo); **sem migration** — não há mudança de banco. Você cola
-cada bloco; cada bloco diz **onde** rodar.
+Escrito em 02/10/2026, atualizado para `7b6cd019`. Deploy da correção do convite
+de profissional: o backend ganhou o GET do convite em `f16b0e24` e a página pública
+estilo paciente veio em `7b6cd019` — o `git pull` traz os dois. **Frontend +
+backend** (página de aceite pública + endpoint GET); **sem migration** — não há
+mudança de banco. Você cola cada bloco; cada bloco diz **onde** rodar.
 
 ## O que muda (e o que não)
 - **Muda frontend e backend.** Backend ganha `GET /api/organization-invitations/{token}`
@@ -29,7 +30,7 @@ git pull --ff-only
 ```
 git log --oneline -3
 ```
-Confirme `f16b0e24` no topo.
+Confirme `7b6cd019` no topo (a página pública do convite).
 
 ## Passo 3 — Backup rápido (console do servidor)
 Não há mudança de banco, mas o backup é barato e é a rede de segurança:
@@ -71,12 +72,15 @@ me chame.
 Com um **profissional real** (nada de demo):
 1. Em `/clinica`, gere o convite para o **e-mail exato** do profissional (papel
    professional) e envie o link.
-2. O profissional abre o link `/entrar-clinica?token=…`. A tela agora mostra
-   **"Convite para <clínica> como profissional · emitido para <e-mail>"**.
-3. Se ele não estiver logado, entra (Google no e-mail convidado — 1 clique — ou
-   cria conta com senha e verifica o e-mail). Se estiver logado com **outro**
-   e-mail, a tela oferece **"Sair e entrar com o e-mail certo"**.
-4. Logado com o e-mail convidado → **"Entrar na clínica"** → aceito.
+2. O profissional abre o link `/entrar-clinica?token=…` (página **pública**, com a
+   cara da clínica). Mostra **"Convite para a equipe de <clínica> como profissional
+   · emitido para <e-mail>"**.
+3. Deslogado: **"Entrar com Google"** (1 clique, no e-mail convidado) **ou**
+   **"Criar conta / entrar com senha"** na própria tela (e-mail já fixado). No
+   caminho senha, criar a conta pede **confirmar o e-mail** (1 clique no link) antes
+   de entrar; o Google entra na hora.
+4. Já logado: botão **"Entrar na clínica"** (ou **"Usar outra conta"** se for o
+   e-mail errado) → aceito.
 
 ## Rollback
 Sem migration: reverter é só voltar o código (`git` para o commit anterior +
