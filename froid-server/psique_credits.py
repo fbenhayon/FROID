@@ -25,12 +25,23 @@ from psique_identity import (
 from tenant_access import AccessContext
 
 PHASE2_SCHEMA = {"037_psique_trial_credit_state", "038_psique_credit_commands"}
+# A cobranca de sessao (Fase 7.2) vive numa funcao propria de 047, separada do
+# comando grande; so precisa da base de estado (037) mais a sua migration.
+SESSION_SCHEMA = {"037_psique_trial_credit_state", "047_psique_session_consumption"}
 
 
 class CreditError(RuntimeError):
     def __init__(self, code: str):
         self.code = code
         super().__init__(code)
+
+
+def _credit_error(exc: Any) -> CreditError:
+    """Promote a PostgreSQL error to a stable, non-leaking CreditError code."""
+    reason = exc.diag.message_primary or ""
+    if reason and all(c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789" for c in reason):
+        return CreditError(reason)
+    return CreditError("PSIQUE_STORAGE_ERROR")
 
 
 class PsiqueCredits:
@@ -60,10 +71,34 @@ class PsiqueCredits:
                 result: dict[str, Any] = row[0]
                 return result
         except psycopg.Error as exc:
-            reason = exc.diag.message_primary or ""
-            if reason and all(c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789" for c in reason):
-                raise CreditError(reason) from exc
-            raise CreditError("PSIQUE_STORAGE_ERROR") from exc
+            raise _credit_error(exc) from exc
+
+    def charge_session(self, context: AccessContext, session_id: str, *, note: str = "") -> dict[str, Any]:
+        """Debita 1 credito da carteira V2 por sessao atendida (Fase 7.2).
+
+        Politica A (entregar e acertar depois): sem saldo nao levanta erro —
+        marca a sessao como pendencia e devolve pending=true. A idempotencia e
+        por session_id: atender a mesma sessao de novo nunca cobra duas vezes.
+        Liquida pendencias antigas em ordem (FIFO) quando houver saldo.
+        """
+        import psycopg
+
+        if not session_id.strip():
+            raise CreditError("SESSION_ID_REQUIRED")
+        try:
+            with self._connect() as conn, conn.transaction():
+                verify_schema(conn, SESSION_SCHEMA)
+                conn.execute("SELECT set_config('app.organization_id',%s,true)", (context.organization_id,))
+                conn.execute("SELECT set_config('app.membership_id',%s,true)", (context.membership_id,))
+                row = conn.execute("SELECT psique_v2_session_charge(%s,%s,%s,%s,%s)",
+                                   (context.organization_id, context.membership_id, context.user_id,
+                                    session_id, note)).fetchone()
+                if row is None:
+                    raise CreditError("PSIQUE_COMMAND_RESULT_MISSING")
+                result: dict[str, Any] = row[0]
+                return result
+        except psycopg.Error as exc:
+            raise _credit_error(exc) from exc
 
     def enroll_empty_wallet(self, context: AccessContext) -> dict[str, Any]:
         return self._command(context, "ENROLL")

@@ -2847,10 +2847,82 @@ def _apply_shared_wallet_compatibility(
     }
 
 
+def _organization_uses_psique_v2(organization_id: str) -> bool:
+    """A carteira desta organizacao ja e a unica do V2 (Fase 7)?
+
+    So entao o atendimento desconta do saldo da organizacao pela maquina V2.
+    A leitura usa a conexao administrativa do TENANT_STORE; qualquer falha
+    degrada para o caminho V1 — a pergunta de roteamento nunca derruba o save.
+    """
+    if not organization_id:
+        return False
+    try:
+        return TENANT_STORE.organization_credit_model(organization_id) == "psique_v2"
+    except Exception:
+        LOGGER.exception(
+            "Nao foi possivel ler o modelo de credito de %s; mantendo o caminho V1.",
+            organization_id,
+        )
+        return False
+
+
+def _consume_session_credit_v2(
+    context: AccessContext, owner_email: str, session_id: str
+) -> dict:
+    """Desconta a sessao da carteira unica V2 (Fase 7.2), com a politica A.
+
+    Nunca bloqueia o registro clinico: sem saldo a sessao vira pendencia no
+    proprio ledger V2 e o status carrega a divida; a idempotencia e por
+    session_id. Falha de infraestrutura levanta 503 — o relatorio ja esta
+    salvo e e preservado pelo chamador, e uma nova tentativa nao cobra duas
+    vezes. O caminho nao depende do Stripe (servico dedicado so com o DSN de
+    runtime), para que uma indisponibilidade de pagamento jamais afete o
+    atendimento.
+    """
+    from psique_credits import CreditError
+
+    try:
+        result = _psique_session_charger().charge_session(context, session_id)
+    except CreditError as exc:
+        LOGGER.exception(
+            "Cobranca V2 da sessao %s falhou (%s); relatorio clinico preservado.",
+            session_id,
+            exc.code,
+        )
+        raise HTTPException(status_code=503, detail="falha ao consumir crédito V2")
+    available = max(0, _local_int(result.get("available_balance")))
+    pending_total = max(0, _local_int(result.get("pending_total")))
+    return {
+        "credit_model": "psique_v2",
+        "shared_credit_mode": "psique_v2",
+        "remaining_sessions": available,
+        "settlement_pending": bool(result.get("pending")),
+        "pending_settlement_count": pending_total,
+        "psique_v2": {
+            "charged": bool(result.get("charged")),
+            "pending": bool(result.get("pending")),
+            "settled_pending": max(0, _local_int(result.get("settled_pending"))),
+            "balance": max(0, _local_int(result.get("balance"))),
+            "available_balance": available,
+            "pending_total": pending_total,
+        },
+    }
+
+
 def _consume_session_credit(
     context: Optional[AccessContext], owner_email: str, session_id: str
 ) -> dict:
     organization_id = context.organization_id if context else ""
+    # Fase 7: organizacao ja na carteira unica V2 desconta a sessao do saldo da
+    # organizacao (maquina V2); as demais seguem no consumo por-profissional V1,
+    # ate a 7.3 migra-las. Caminho duplo temporario e explicito.
+    if (
+        context is not None
+        and FROID_PSIQUE_V2_BILLING_ENABLED
+        and TENANT_STORE.enabled
+        and _organization_uses_psique_v2(organization_id)
+    ):
+        return _consume_session_credit_v2(context, owner_email, session_id)
     mode = _shared_credit_mode_for(organization_id)
     if mode != "enforce":
         status = _consume_professional_session_credit(owner_email, session_id)
@@ -15849,7 +15921,7 @@ if FROID_PSIQUE_V2_BILLING_ENABLED:
     from psique_license import PsiqueLicense
     from psique_rbac import PsiqueRbac
     from psique_scheduling import PsiqueScheduling
-    from psique_credits import PsiqueCredits
+    from psique_credits import CreditError, PsiqueCredits
     from psique_identity import EvidenceError, TrialKeyring
     import psique_pricing as _psique_pricing
 
@@ -15948,6 +16020,34 @@ if FROID_PSIQUE_V2_BILLING_ENABLED:
                 keyring=TrialKeyring({"wallet-route": b"0" * 32}, "wallet-route"),
             )
         return _psique_wallet_instance
+
+    _psique_session_charger_instance: Optional["PsiqueCredits"] = None
+
+    def _psique_session_charger() -> "PsiqueCredits":
+        """Servico dedicado a cobrar a sessao atendida (Fase 7.2).
+
+        Usa SO o DSN restrito de runtime — nao constroi o provedor de
+        faturamento nem fala com o Stripe, para que uma indisponibilidade de
+        pagamento jamais afete o registro clinico. A fabrica de conexao e
+        preguicosa (so conecta na cobranca); os loaders de identidade/material
+        nunca sao chamados pela cobranca de sessao e falham fechado se o forem.
+        """
+        global _psique_session_charger_instance
+        if _psique_session_charger_instance is None:
+            runtime_dsn = os.getenv("FROID_RUNTIME_DATABASE_URL", "").strip()
+            if not runtime_dsn:
+                raise CreditError("PSIQUE_V2_RUNTIME_DSN_REQUIRED")
+            import psycopg as _psycopg
+
+            def _loader_nao_usado(*_args, **_kwargs):
+                raise EvidenceError("LOADER_NOT_USED_BY_SESSION_CHARGE")
+
+            _psique_session_charger_instance = PsiqueCredits(
+                lambda: _psycopg.connect(runtime_dsn, autocommit=True, connect_timeout=10),
+                identity_loader=_loader_nao_usado, material_loader=_loader_nao_usado,
+                keyring=TrialKeyring({"session-charge": b"0" * 32}, "session-charge"),
+            )
+        return _psique_session_charger_instance
 
     def _psique_v2_billing_context(request: Request):
         context = _tenant_context_from_request(request)

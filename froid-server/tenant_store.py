@@ -430,6 +430,29 @@ class TenantStore:
                 row = cursor.fetchone()
         return str((row or [""])[0] or "")
 
+    def organization_credit_model(self, organization_id) -> str:
+        """Modelo de credito da carteira desta organizacao, ou "" se nao houver.
+
+        'psique_v2' e a carteira unica da Fase 7 (atendimento desconta do saldo
+        da organizacao); 'v1' ou ausencia mantem o consumo por-profissional. A
+        leitura usa a conexao administrativa de proposito: o papel de runtime
+        nao tem SELECT direto em organization_wallets — so as funcoes SECURITY
+        DEFINER do comando V2 — entao o roteamento do atendimento pergunta aqui.
+        O chamador trata a falha (ex.: banco sem a coluna de 037) degradando
+        para o caminho V1; aqui a leitura e direta, no estilo do modulo.
+        """
+        if not self.enabled or not organization_id:
+            return ""
+        with self._connect() as connection:
+            self.ensure_schema(connection)
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT credit_model FROM organization_wallets WHERE organization_id = %s",
+                    (str(organization_id),),
+                )
+                row = cursor.fetchone()
+        return str((row or [""])[0] or "")
+
     # ------------------------------------------------------------------
     # Controle administrativo de acesso.
     #
