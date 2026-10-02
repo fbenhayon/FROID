@@ -106,6 +106,22 @@ divirja do pool.
 
 ## 4. Decisões que SÓ você toma (bloqueiam o início)
 
+> **DECIDIDO pelo proprietário em 02/10/2026:**
+> - **D2a = Preservar o portão, reexpresso em V2.** Carregar `ever_purchased`;
+>   manter o 402 no início de sessão quando a carteira V2 está zerada E a org
+>   nunca comprou E o trial V2 expirou/esgotou. O código do portão aterrissa na
+>   7.4/7.5; a 7.3 **carrega o sinal**.
+> - **D2b = Carregar como `PAID`** (permanente, sem expiração).
+> - **D2c = Carregar as pendências V1** como `SESSION_PENDING` V2.
+> - **D2d = Mecanismo + piloto agora; conversão em massa na janela da 7.4.**
+>
+> **Escopo desta entrega (02/10/2026):** migration 048 (comando de backfill +
+> evento `V2_MIGRATION_OPENING` + coluna `ever_purchased`), serviço e testes
+> contra PostgreSQL descartável. A **ferramenta** de enumeração da frota e o
+> **portão V2** de início de sessão ficam para a janela da 7.4, quando houver o
+> `identity_state.json` real em mãos.
+
+
 **DECISÃO D2a — o bloqueio de trial V1 (a mais importante).**
 Hoje uma conta que **nunca comprou** e esgotou a cortesia **não consegue iniciar**
 uma sessão nova (402). Depois do backfill, o que vale?

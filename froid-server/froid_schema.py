@@ -23,6 +23,7 @@ PSIQUE_V2_VERSIONS = frozenset({
     "045_psique_scheduling_serialization",
     "046_psique_live_mode",
     "047_psique_session_consumption",
+    "048_psique_v2_backfill",
 })
 
 

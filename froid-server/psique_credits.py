@@ -28,6 +28,8 @@ PHASE2_SCHEMA = {"037_psique_trial_credit_state", "038_psique_credit_commands"}
 # A cobranca de sessao (Fase 7.2) vive numa funcao propria de 047, separada do
 # comando grande; so precisa da base de estado (037) mais a sua migration.
 SESSION_SCHEMA = {"037_psique_trial_credit_state", "047_psique_session_consumption"}
+# O backfill V1->V2 (Fase 7.3) vive numa funcao propria de 048.
+BACKFILL_SCHEMA = {"037_psique_trial_credit_state", "048_psique_v2_backfill"}
 
 
 class CreditError(RuntimeError):
@@ -93,6 +95,35 @@ class PsiqueCredits:
                 row = conn.execute("SELECT psique_v2_session_charge(%s,%s,%s,%s,%s)",
                                    (context.organization_id, context.membership_id, context.user_id,
                                     session_id, note)).fetchone()
+                if row is None:
+                    raise CreditError("PSIQUE_COMMAND_RESULT_MISSING")
+                result: dict[str, Any] = row[0]
+                return result
+        except psycopg.Error as exc:
+            raise _credit_error(exc) from exc
+
+    def backfill_from_v1(self, context: AccessContext, net: int, *, ever_purchased: bool,
+                         pending_ids: list[str] | tuple[str, ...] = (), note: str = "") -> dict[str, Any]:
+        """Converte a carteira V1 da organizacao para V2 preservando o saldo (Fase 7.3).
+
+        Nao destrutivo: vira o modelo, reabre o saldo liquido (`net`, calculado
+        do JSON autoritativo) como evento auditavel e carrega as pendencias V1.
+        Idempotente por organizacao (no-op se ja for psique_v2).
+        """
+        import psycopg
+
+        if type(net) is not int or net < 0:
+            raise CreditError("BACKFILL_NET_INVALID")
+        ids = [str(item).strip() for item in pending_ids if str(item).strip()]
+        try:
+            with self._connect() as conn, conn.transaction():
+                verify_schema(conn, BACKFILL_SCHEMA)
+                conn.execute("SELECT set_config('app.organization_id',%s,true)", (context.organization_id,))
+                conn.execute("SELECT set_config('app.membership_id',%s,true)", (context.membership_id,))
+                row = conn.execute(
+                    "SELECT psique_v2_backfill_from_v1(%s,%s,%s,%s,%s,%s,%s)",
+                    (context.organization_id, context.membership_id, context.user_id,
+                     net, bool(ever_purchased), ids, note)).fetchone()
                 if row is None:
                     raise CreditError("PSIQUE_COMMAND_RESULT_MISSING")
                 result: dict[str, Any] = row[0]
