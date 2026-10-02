@@ -1,32 +1,39 @@
-# Fase 7.2 — Roteiro da janela de produção
+# Fase 7.2 + mecanismo 7.3 — Roteiro da janela de produção
 
-Escrito em 02/10/2026, depois dos commits `e47e64ca` (código) e `bf039026`
-(memória), **já enviados ao origin nesta sessão**. Nenhum comando aqui roda
-sozinho: você cola cada bloco. Cada bloco diz **onde** rodar.
+Escrito em 02/10/2026 e atualizado para o **bundle** (a opção mais segura): esta
+janela aplica numa só passada a 7.2 (consumo de sessão no V2, migration 047,
+commit `e47e64ca`) e o **mecanismo dormente** da 7.3 (backfill V1→V2, migration
+048, commit `bf5466ef`), ambos já no `origin/main`. A 048 é aditiva e **não é
+chamada por código nenhum em execução**, então entra junto sem segundo rebuild —
+um deslog só. Nenhum comando aqui roda sozinho: você cola cada bloco, e cada
+bloco diz **onde** rodar.
 
 ## O que esta janela muda (e o que NÃO muda)
-- **Muda só o backend.** Todas as alterações da 7.2 estão em `froid-server/`
-  (migration 047, `main.py`, serviços). Nada de site nem de painel: a página
-  pública e o SPA ficam idênticos, sem `git pull` com efeito visível e sem
-  rebuild de frontend.
+- **Muda só o backend.** Todas as alterações estão em `froid-server/` (migrations
+  047 e 048, `main.py`, serviços). Nada de site nem de painel: a página pública e
+  o SPA ficam idênticos, sem `git pull` com efeito visível e sem rebuild de
+  frontend.
 - **A flag já está ligada** (`FROID_PSIQUE_V2_BILLING_ENABLED=true` desde a
   Fase 6). Assim que a 047 entrar e o backend subir, **só a clínica demo**
   (`c573d2f1-768f-555f-9d64-8565bb5df7cf`, única `credit_model='psique_v2'`)
   passa a descontar o atendimento do saldo V2. Todas as outras organizações
   seguem no consumo por-profissional V1, intocadas.
-- **Ordem obrigatória:** aplicar a migration 047 **antes** de subir o backend
-  novo. O backend velho não chama a função nova, então aplicar a 047 com ele
-  ainda no ar é seguro (a 047 só acrescenta tipos/função — nada é removido).
+- **A 048 entra dormente.** Cria a função de backfill V1→V2 e a coluna
+  `ever_purchased`, mas nenhum código em execução a chama — a conversão em massa é
+  a Fase 7.4. Instalar agora só adianta o mecanismo, sem mudar comportamento.
+- **Ordem obrigatória:** aplicar as migrations **antes** de subir o backend novo.
+  O backend velho não chama as funções novas, então aplicar com ele ainda no ar é
+  seguro (047 e 048 só acrescentam tipos/função/coluna — nada é removido).
 
 ## Pré-condição (já satisfeita)
-`e47e64ca` e `bf039026` estão no `origin/main`. Confirmação opcional **no seu
-PowerShell ou Git Bash local**, dentro do repositório:
+Os commits da 7.2 (`e47e64ca`) e da 7.3 (`bf5466ef`) estão no `origin/main`.
+Confirmação opcional **no seu PowerShell ou Git Bash local**, no repositório:
 
 ```
-git log --oneline -2
+git log --oneline -8
 ```
 
-Deve mostrar `bf039026` e `e47e64ca` no topo.
+Devem aparecer `e47e64ca` e `bf5466ef` na lista.
 
 ---
 
@@ -57,10 +64,15 @@ git pull --ff-only
 ```
 
 ```
-git log --oneline -2
+git log --oneline -8
 ```
 
-Confirme `bf039026` / `e47e64ca` no topo, igual ao local.
+Confirme que `e47e64ca` (7.2) e `bf5466ef` (7.3) aparecem na lista. E que as duas
+migrations chegaram no disco:
+
+```
+ls froid-server/migrations/047_psique_session_consumption.sql froid-server/migrations/048_psique_v2_backfill.sql
+```
 
 ## Passo 3 — Backup do banco (console do servidor)
 
@@ -84,32 +96,33 @@ Não derruba nada ainda; só compila o código novo:
 docker compose build froid-backend
 ```
 
-## Passo 5 — Aplicar a migration 047 (console do servidor)
+## Passo 5 — Aplicar as migrations 047 e 048 (console do servidor)
 
 UM comando só, numa linha (o runner explícito, com o DSN administrativo da
-pilha; `--through 047` pula as 001–046 já aplicadas e roda só a 047):
+pilha; `--through 048` pula as 001–046 já aplicadas e roda a 047 e a 048, nesta
+ordem):
 
 ```
-docker compose run --rm -e FROID_MIGRATION_DATABASE_URL="$FROID_DATABASE_URL" froid-backend python tools/migrate_schema.py --apply --through 047_psique_session_consumption --confirm-database froid_homologacao
+docker compose run --rm -e FROID_MIGRATION_DATABASE_URL="$FROID_DATABASE_URL" froid-backend python tools/migrate_schema.py --apply --through 048_psique_v2_backfill --confirm-database froid_homologacao
 ```
 
 Saída esperada (JSON numa linha):
 
 ```
-{"action": "apply", "result": ["047_psique_session_consumption"]}
+{"action": "apply", "result": ["047_psique_session_consumption", "048_psique_v2_backfill"]}
 ```
 
-Se `result` vier `[]`, a 047 já estava aplicada (idempotente — seguir mesmo
-assim). Qualquer `{"status": "failed", ...}` **interrompe a janela**: não suba
-o backend novo; me chame com a `error_class`.
+Se `result` vier com só uma, ou `[]`, é porque parte já estava aplicada
+(idempotente — seguir mesmo assim). Qualquer `{"status": "failed", ...}`
+**interrompe a janela**: não suba o backend novo; me chame com a `error_class`.
 
-Conferência read-only de que a função e os tipos entraram:
+Conferência read-only de que as funções, os tipos e a coluna entraram:
 
 ```
-docker exec froid-postgres-1 psql -U "$POSTGRES_USER" -d froid_homologacao -c "SELECT proname FROM pg_proc WHERE proname IN ('psique_v2_session_charge','psique_v2_session_pending_total') ORDER BY 1;"
+docker exec froid-postgres-1 psql -U "$POSTGRES_USER" -d froid_homologacao -c "SELECT proname FROM pg_proc WHERE proname IN ('psique_v2_session_charge','psique_v2_session_pending_total','psique_v2_backfill_from_v1') ORDER BY 1; SELECT column_name FROM information_schema.columns WHERE table_name='organization_wallets' AND column_name='ever_purchased';"
 ```
 
-Deve listar as duas funções.
+Deve listar as três funções e a coluna `ever_purchased`.
 
 ## Passo 6 — Subir o backend novo (console do servidor)
 
@@ -159,9 +172,10 @@ Esperado: `balance` um a menos do que antes, `credit_model='psique_v2'`, uma
 descontando como antes (nada no ledger V2 dela).
 
 ## Rollback (se preciso)
-A 047 só acrescenta (tipos de evento, duas funções, dois CHECKs mais largos);
-não remove nada e não altera dados. O caminho de reversão operacional é
-**desligar a rota V2 de atendimento** sem desfazer a migration: como o
+Tanto a 047 quanto a 048 só **acrescentam** (tipos de evento, funções, coluna,
+CHECKs mais largos); não removem nada nem alteram dados, e a 048 é dormente (sem
+chamador), então não muda comportamento. O caminho de reversão operacional da
+7.2 é **desligar a rota V2 de atendimento** sem desfazer a migration: como o
 roteamento exige `credit_model='psique_v2'`, reverter a clínica demo para V1
 (decisão deliberada, fora desta janela) tira o atendimento do V2 sem tocar no
 esquema. Restaurar o dump do Passo 3 é o último recurso. Não há `DROP` a fazer.
