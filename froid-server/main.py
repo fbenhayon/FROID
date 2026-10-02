@@ -10360,6 +10360,29 @@ async def invite_organization_member(organization_id: str, request: Request):
     }
 
 
+@app.get("/api/organization-invitations/{token}")
+async def organization_invitation_details(token: str, request: Request):
+    # Publico de proposito: a tela de aceite mostra para qual e-mail/clinica o
+    # convite foi emitido ANTES do login, para o convidado entrar com a conta
+    # certa (e nao cair no 403 por estar logado com outro e-mail). Isto NAO
+    # resgata nada — o aceite continua exigindo sessao + e-mail casado +
+    # verificacao. Rate-limit por IP contra varredura de tokens.
+    _rate_limit_guard(
+        "org_invite_details", _client_ip(request), 60, 900.0,
+        "Muitas tentativas. Aguarde alguns minutos e tente novamente.",
+    )
+    if not TENANT_STORE.enabled:
+        raise HTTPException(status_code=409, detail="persistência dual obrigatória")
+    token_value = str(token or "").strip()
+    if not token_value:
+        raise HTTPException(status_code=400, detail="token de convite obrigatório")
+    token_hash = hashlib.sha256(token_value.encode("utf-8")).hexdigest()
+    details = TENANT_STORE.member_invitation_details(token_hash=token_hash)
+    if not details:
+        raise HTTPException(status_code=404, detail="convite inválido ou expirado")
+    return details
+
+
 @app.post("/api/organization-invitations/accept")
 async def accept_organization_invitation(request: Request):
     user = _require_current_user(request)

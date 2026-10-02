@@ -7,7 +7,27 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
 import { expect, it } from "vitest";
 
-import { EntrarNaClinicaPage, mensagemDoErro } from "./EntrarNaClinica";
+import {
+  EntrarNaClinicaPage,
+  mensagemDoErro,
+  situacaoDoConvite,
+} from "./EntrarNaClinica";
+
+it("situacaoDoConvite distingue os quatro estados diante da conta logada", () => {
+  const base = {
+    clinic_name: "Clinica X",
+    invited_email: "convidado@x.com",
+    roles: ["professional"],
+    status: "pending",
+    expired: false,
+  };
+  expect(situacaoDoConvite("convidado@x.com", null)).toBe("sem_detalhes");
+  expect(situacaoDoConvite("convidado@x.com", { ...base, expired: true })).toBe("indisponivel");
+  expect(situacaoDoConvite("convidado@x.com", { ...base, status: "accepted" })).toBe("indisponivel");
+  expect(situacaoDoConvite("outro@x.com", base)).toBe("email_divergente");
+  // Casa a identidade ignorando caixa/espaco; o backend tambem normaliza.
+  expect(situacaoDoConvite("  Convidado@X.com ", base)).toBe("pronto");
+});
 
 it("cada codigo de erro vira a orientacao certa, distinta uma da outra", () => {
   const porOutroEmail = mensagemDoErro(403, "convite destinado a outro email");

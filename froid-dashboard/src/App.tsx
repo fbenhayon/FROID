@@ -517,7 +517,7 @@ function App() {
             aqui apos o login. */}
         <Route
           path="/entrar-clinica"
-          element={protectedElement(<EntrarNaClinicaPage />)}
+          element={protectedElement(<EntrarNaClinicaPage user={user} />)}
         />
         <Route
           path="/session/:sessionId"

@@ -1319,6 +1319,47 @@ class TenantStore:
             connection.commit()
         return str(invitation_id)
 
+    def member_invitation_details(self, *, token_hash: str) -> Optional[dict]:
+        """Dados do convite de equipe para a tela de aceite — leitura, sem resgatar.
+
+        Mostra para QUAL e-mail/clinica o convite foi emitido, para o convidado
+        entrar com a conta certa antes do aceite. Nao altera nada e nao resgata:
+        o aceite (accept_member_invitation) segue exigindo sessao + e-mail casado.
+        Retorna None se o token nao existe.
+        """
+        if not self.enabled or not token_hash:
+            return None
+        with self._connect() as connection:
+            self.ensure_schema(connection)
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT i.invited_email, i.requested_roles, i.status,
+                           i.expires_at <= now() AS expired,
+                           coalesce(o.display_name, o.legal_name, '')
+                    FROM membership_invitations i
+                    JOIN organizations o ON o.id = i.organization_id
+                    WHERE i.token_hash=%s
+                    """,
+                    (token_hash,),
+                )
+                row = cursor.fetchone()
+        if not row:
+            return None
+        roles = row[1]
+        if isinstance(roles, str):
+            roles = json.loads(roles)
+        roles = sorted(
+            {str(role).strip().lower() for role in (roles or []) if str(role).strip()}
+        )
+        return {
+            "invited_email": str(row[0] or ""),
+            "roles": roles,
+            "status": str(row[2] or ""),
+            "expired": bool(row[3]),
+            "clinic_name": str(row[4] or ""),
+        }
+
     def accept_member_invitation(
         self, *, token_hash: str, email: str, display_name: str
     ) -> dict:
