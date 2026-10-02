@@ -467,10 +467,127 @@ disso antes de decidir.
 - **O documento do paciente é pauta, não relatório técnico.** Vinte e uma linhas
   de MFCC e ZCR não dizem nada a ele e, a `0,00`, destroem a credibilidade das
   duas leituras que estavam certas.
+- **Terminal em dois passos.** "Conecte e cole" numa frase só fez o bash do
+  servidor cair no PowerShell local — `$(date)`, `&&` e `tail` quebraram e um
+  diretório nasceu por engano. Toda instrução diz **onde** roda: Git
+  Bash/PowerShell **local**, ou **console do servidor** (após `ssh froid`,
+  prompt `root@...`). Mostre a troca de prompt ao entrar, mande **um** comando
+  por bloco (dois `docker compose run` colados: o primeiro engole a linha do
+  segundo pelo stdin) e **sem barra de continuação** de linha. E `.env` editado
+  só vale depois de `docker compose up -d` — a variável é lida na subida.
 
 ---
 
-## 7. Antes de dizer que terminou
+## 7. Entregar em fases, com gate (quebrar a implementação)
+
+A unificação do Psique V2 (Fases 1→7, set–out/2026) ensinou a forma. Mudança
+grande que toca dinheiro, dado ou produção **não entra num lance** — vira uma
+sequência de fases, e cada fase é uma unidade fechada:
+
+1. **Desenha primeiro, aterrado no código real.** Antes de uma linha, um
+   documento (`docs/...-faseN-desenho.md`) que lê o código existente e aponta
+   `arquivo:linha` — o que entra, o que **não** entra (fronteira explícita) e os
+   pontos de religamento. Desenho que não cita o código é palpite.
+2. **As decisões do dono bloqueiam o início.** Toda bifurcação que muda o que se
+   constrói (esgotamento bloqueia ou entrega?; aposentar ou preservar um portão?)
+   é pergunta ao dono — `AskUserQuestion`, recomendação como primeira opção, com
+   o custo de cada caminho. Marque `DECIDIDO em <data>` no documento. Não presuma
+   a decisão "para adiantar".
+3. **Mecanismo agora, execução em massa depois.** Separe a peça reutilizável
+   (migração + serviço + testes, que pode entrar **dormente**, sem chamador) da
+   ativação que acopla a outras fases. A 7.3 entregou o backfill como função
+   dormente e commitada; converter todas as orgs ficou para a janela da 7.4,
+   porque converter uma org sem unificar o comércio a deixaria sem como comprar.
+   Entregar o mecanismo cedo é seguro; executar em massa é que pede a janela.
+4. **Caminho duplo temporário e explícito.** Ao religar, roteie por estado
+   (`credit_model='psique_v2'` → V2; o resto → V1), nunca um big-bang. O caminho
+   duplo é comentado como temporário e some quando a fase seguinte migra o resto.
+5. **Commit só com a palavra; publique cedo; produção só colada pelo dono.**
+   "commit" é gatilho explícito (o recorte em 5.1). Empurre para o origin assim
+   que commitar — sessão simultânea reseta trabalho não publicado. Nada em
+   produção sem o dono colar no console; a janela é dele.
+6. **Cada fase fecha com evidência e janela própria:** teste (seção 8) →
+   apresentação para commit → roteiro de janela rotulado (seção 6, terminal em
+   dois passos) → gate. A fase seguinte só começa no próximo gate.
+
+## 8. Teste contra PostgreSQL real — e em Windows E Linux
+
+Máquina de crédito, esquema, RLS, `SECURITY DEFINER`: prova-se contra
+**PostgreSQL descartável real**, nunca mock. E em **duas plataformas** — o
+programa fechou "158/158 contra `postgres:16` Linux", e a paridade é parte do
+contrato. Validar só no Windows é meia validação (caso real, 02/10/2026:
+perguntaram "você testou no Linux?" e a resposta honesta era não).
+
+**Windows (binário portátil em `.codex-tmp/psique-postgres16`):** `initdb -U
+psique_test -A trust`; role `froid_runtime` `NOSUPERUSER NOBYPASSRLS NOLOGIN`
+criada **fora** de transação; banco-âncora com prefixo obrigatório
+`psique_v2_test_` (a guarda do fixture exige); `FROID_PSIQUE_TEST_DATABASE_URL`;
+pytest no venv `.codex-tmp/psique-v2-venv`. Encerrar (`pg_ctl stop`) e **remover
+o cluster** no fim — cluster órfão não se sonda nem se reusa.
+
+**Linux (Docker):** `postgres:16` com `POSTGRES_USER=psique_test`,
+`POSTGRES_DB=psique_v2_test_base` (prefixo!), `POSTGRES_HOST_AUTH_METHOD=trust`;
+criar `froid_runtime` via `docker exec ... psql`; rodar pytest dentro de
+`python:3.13-slim` com **`--network container:<pg>`** (o banco vira `127.0.0.1`
+e satisfaz a guarda de host do fixture). Derrubar o container no fim.
+
+**As quatro armadilhas que custaram uma sessão (02/10/2026), cada uma um caso:**
+- **Mount com espaço no caminho.** O repo mora em `.../FROID GITHUB V5/FROID`; no
+  Git Bash o `docker -v` com espaço falha e `-w /app` vira
+  `C:/Program Files/Git/app`. Copie o fonte para um caminho **sem espaço** (o
+  scratchpad), monte com `MW=$(pwd -W)` + `MSYS_NO_PATHCONV=1`, destino `-w /app`.
+- **Dependência pinada sem wheel para o Python do container.** `pydantic==2.7.4`
+  não tem wheel para py3.13 → o pip tenta compilar `pydantic-core` com Rust
+  (ausente no slim) → aborta inteiro → `No module named pytest`, que **parece**
+  erro de teste e é de instalação. Não pine o que o resolvedor pode escolher.
+- **Cópia incompleta parece regressão.** Copiar só `*.py`/migrations/tools/tests
+  e esquecer `config/` (catálogo) dá 73 "errors" de fixture
+  (`FileNotFoundError: psique_pricing_v2.json`) — zero a ver com o código. As
+  fases de site/compose ainda pedem `froid-site` e `docker-compose.yml` da raiz.
+  Monte o repo inteiro, ou copie também o que vive fora de `froid-server`.
+- **`tail` esconde a causa.** `... | tail` no container guarda só o resumo e o
+  motivo do erro some. Para diagnosticar, capture o **bloco de erro** inteiro, ou
+  `--collect-only` para separar erro de import de erro de fixture. (E
+  `set_config(...,true)` só vale dentro de transação explícita — probe em
+  autocommit perde a GUC e dá falso `CONTEXT_MISMATCH`.)
+
+**O sinal limpo:** rode a suíte-alvo **isolada, com as deps certas**, e distinga
+falha de código de artefato de arnês (dep ou arquivo faltando). Um número de
+"falhas" só vale depois que você provou que não é o seu setup.
+
+## 9. Migrations de ledger imutável e a máquina de dinheiro
+
+Da 047 (consumo de sessão) e 048 (backfill V1→V2):
+
+- **CHECK fechado amplia-se copiando-se verbatim.** Para acrescentar um tipo de
+  evento a um `credit_ledger` com `version_semantics`/`event_type_check`
+  fechados, a migração faz `DROP`/`ADD` copiando a **definição corrente inteira,
+  verbatim**, mais a linha nova. Só **uma** migração por vez mexe nesses CHECKs;
+  copiar de uma versão velha reverte as linhas das migrações do meio. Ampliar
+  (não restringir) nunca falha sobre dados existentes.
+- **Função nova e focada, não reescrever o comando grande.** O consumo de sessão
+  virou `psique_v2_session_charge` separada, não um ramo no comando de 250 linhas
+  — menor superfície, menos risco ao que já estava provado.
+- **Prove a aplicação INCREMENTAL, não só o encadeamento inteiro.** O fixture
+  aplica 001→N de uma vez, mas produção aplica **só a migração nova** sobre o
+  estado já aplicado. Teste exatamente isso: `--through` da nova sobre um banco
+  em N-1, confirme que rodou **só ela** e que **reaplicar é no-op** (o runner
+  confere checksum do log; arquivo alterado depois de aplicado aborta).
+- **Parâmetro de função não pode ter nome de coluna tocada no corpo.**
+  `ever_purchased` (parâmetro) × `ever_purchased` (coluna) no `UPDATE` deu
+  `42702 referência ambígua`, mascarado como `PSIQUE_STORAGE_ERROR`. Renomeie o
+  parâmetro (`has_purchased`).
+- **Valide como o papel restrito real.** `SECURITY DEFINER` roda como o dono e
+  **esconde** a falta de grant em runtime. Rode os testes como `froid_runtime`
+  (SET ROLE / DSN restrito), senão o grant que faltaria em produção passa verde.
+- **Preserve a trilha; não apague para converter.** O backfill vira a carteira
+  V1→V2 **sem** DELETE do histórico (o gatilho de imutabilidade só barra *novas*
+  linhas v1 sob carteira v2). Converter apagando foi o caminho da demo, não o da
+  frota.
+
+---
+
+## 10. Antes de dizer que terminou
 
 1. O que eu escrevi é **lido** por alguém? (padrão 2.1)
 2. Se a peça falhar, alguém **fica sabendo**? (padrão 2.2)
@@ -484,3 +601,6 @@ disso antes de decidir.
 10. Cada recusa diz **qual** das causas foi — na tela e no log? (padrão 2.11)
 11. Este prazo mede **inatividade** ou tempo de vida, e parte do evento certo? (padrão 2.12)
 12. O que eu chamei de **causa** foi conferido, ou é hipótese que escapou como conclusão? (seção 5)
+13. Provei contra PostgreSQL real, em **Windows e Linux**, e o número não é artefato de arnês (dep/arquivo faltando)? (seção 8)
+14. A migração aplica **incremental** — só ela sobre o estado atual — e **reaplicar é no-op**? (seção 9)
+15. Esta fase respeitou o gate: desenho aterrado, decisão do dono, commit só com a palavra, produção só colada? (seção 7)
