@@ -152,7 +152,18 @@ FROID_DUCKDB_PATH = os.getenv(
     "/data/datamart_anonymous_v3.duckdb",
 )
 FROID_ALGORITHM_VERSION = os.getenv("FROID_ALGORITHM_VERSION", app.version)
-FROID_ANALYTICS_MIN_K = int(os.getenv("FROID_ANALYTICS_MIN_K", "50") or "50")
+# Piso de coorte das consultas ao Data-FROID: a consulta e BLOQUEADA quando o
+# grupo tem MENOS de N sessoes — N passa, N-1 nao.
+#
+# Decisao do Fabio em 02/10/2026: "bloqueia abaixo de 7". Ate entao o piso era
+# 50 e a comparacao era `<=`, o que exigia 51 na pratica, enquanto o glossario
+# do site publicava "k >= 50". O numero escrito e o numero aplicado tinham de
+# ser o mesmo, e agora sao: a comparacao e `<`.
+#
+# O piso protege MEDIAS. Trecho de fala devolvido por busca e protegido por
+# outra coisa (desidentificacao e a regra de nunca devolver ao profissional
+# sessao dele mesmo) — baixar este numero nao afrouxa aquela protecao.
+FROID_ANALYTICS_MIN_K = int(os.getenv("FROID_ANALYTICS_MIN_K", "7") or "7")
 
 # A fala do profissional no acervo: DESLIGADA por padrao, e por um motivo.
 #
@@ -2089,7 +2100,7 @@ async def _query_froid_analytics(payload: FroidExplicaQuery) -> FroidExplicaResp
             pass
         raise HTTPException(status_code=400, detail=f"Erro de validacao SQL: {exc}")
 
-    if cohort_size <= FROID_ANALYTICS_MIN_K:
+    if cohort_size < FROID_ANALYTICS_MIN_K:
         try:
             conn.close()
         except Exception:
@@ -2098,7 +2109,7 @@ async def _query_froid_analytics(payload: FroidExplicaQuery) -> FroidExplicaResp
             result_text=(
                 "Acesso bloqueado por governanca de dados e LGPD. "
                 f"A coorte resultante contém {cohort_size} registros. O Data-FROID "
-                f"exige coortes maiores que {FROID_ANALYTICS_MIN_K}. Refine para uma "
+                f"exige coortes de pelo menos {FROID_ANALYTICS_MIN_K}. Refine para uma "
                 "coorte maior ou use apenas a leitura qualitativa da sessão atual."
             ),
             engine_used=f"FROID Explica Analytics - {sql_engine}",
