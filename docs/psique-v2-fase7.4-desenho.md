@@ -69,6 +69,16 @@ compra dela apontar para o V2 faz o cliente pagar e não receber crédito.** Log
 7. **Reconciliar assentos (C5)** ao longo do caminho (ver D1).
 
 ## 4. Decisões que são suas (DECISÃO)
+
+> **DECIDIDO pelo proprietário em 02/10/2026:**
+> - **D1 = Assento clínico V2 como fonte única.** O convite/aceite deixa de ler o
+>   entitlement `organization_members` V1 e passa a consultar a licença V2
+>   (`PsiqueLicense`). Uma assinatura por profissional governa acesso e faturamento.
+> - **D2 = Onboarding com trial, compra depois.** O profissional entra com o trial
+>   V2 (10 créditos/14 dias) sem comprar no onboarding; compra depois pela
+>   `SecaoPsiqueV2` já existente no Settings. Sem UI de compra nova no onboarding.
+> - **D3 = `/api/billing/*` legado aposentado na 7.5** (não na 7.4).
+
 - **D1 — Assentos (C5):** o **assento clínico V2** (`PsiqueLicense`, assinatura por
   profissional) passa a ser a **única** fonte de "quantos profissionais a org
   paga", substituindo o entitlement `organization_members` V1 na imposição de
