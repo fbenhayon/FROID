@@ -448,6 +448,87 @@ acima, o header voltaria a quebrar em duas linhas, agora com um link a mais.
 Reverter restaura o estado anterior, não um melhor, e quem decide precisa saber
 disso antes de decidir.
 
+### 5.2 Uma verificação para cada ação — Git, concorrência e servidor
+
+Duas sessões abertas no mesmo diretório compartilham os arquivos e a árvore do
+Git. Uma instrução de agente não cria isolamento nem trava o servidor: a
+verificação reduz o risco, mas há uma janela entre conferir e alterar. Para
+trabalho paralelo, prefira branches e worktrees separados; combine também a
+propriedade dos arquivos. Separar pastas não basta se as duas frentes alteram
+um contrato ou arquivo compartilhado.
+
+**Antes de cada ação que muda estado**, confira de novo o estado atual — não
+reutilize a verificação feita no início da tarefa:
+
+```text
+git status --short --branch
+git diff --name-only
+git worktree list
+```
+
+Considere mudança de estado: editar/salvar arquivo; stage ou operação de Git;
+migração ou escrita em banco; e iniciar, parar, reconstruir ou publicar serviço.
+Compare os caminhos alterados com os da sua tarefa. Se aparecer mudança nova,
+arquivo de outra sessão no mesmo caminho, branch inesperada ou estado que não
+consegue atribuir, **pare antes de agir**. Não sobrescreva nem descarte; peça
+coordenação ao dono das mudanças. Se as sessões compartilham o mesmo diretório,
+não presuma que uma janela tem uma cópia isolada da outra.
+
+- Faça stage apenas dos caminhos revisados (`git add <caminhos>`), nunca de
+  tudo por conveniência (`git add .` ou `git add -A`) numa árvore compartilhada.
+- Não execute `reset`, `checkout` que descarte alterações, `clean`, `stash`,
+  rebase, merge ou force-push para resolver concorrência sem autorização
+  explícita. Nunca use essas operações para apagar trabalho de outra sessão.
+- Commit e push exigem autorização explícita do dono, conforme `AGENTS.md`.
+  Uma instrução de publicar cedo não substitui essa autorização.
+- Antes de qualquer comando que afete servidor, banco ou ambiente compartilhado,
+  confirme o alvo, o serviço, o efeito e a janela autorizada. Sem confirmação,
+  faça apenas inspeção não destrutiva. Migração, deploy, restart, `down` e
+  rebuild não são verificações; são operações com impacto.
+- Rebuild de `froid-backend` pode derrubar sessões clínicas ativas. Não o execute
+  sem autorização explícita e confirmação de que a janela não interromperá
+  atendimento.
+
+**Depois de cada ação**, confira novamente `git status --short --branch` e o
+diff dos caminhos tocados; execute o teste ou a verificação de saúde apropriada
+antes de declarar sucesso. Se o resultado divergir do esperado, pare e reporte
+o estado observado; não encadeie uma segunda operação para "consertar" sem
+entender a primeira. A checagem de Git não prova o estado de produção: para
+afirmações sobre o servidor, consulte evidência do próprio ambiente.
+
+### 5.3 Commitado não é publicado; publicado não é testado
+
+**O caso, 02/10/2026.** O dono tentou quatro vezes entrar numa clínica pelo link
+do convite e bateu quatro vezes na mesma tela de erro. Eu, nesse meio-tempo, tinha
+feito quatro commits na correção — incluindo um **rewrite inteiro** da tela — e
+dito "pronto / concluído / validado" a cada um. Só que **nada daquilo estava no
+ar**: o servidor seguia no commit de ontem (`b5d0d60`), com o frontend de 24 horas
+atrás. Cada clique dele acertava a versão velha; cada "correção" minha ficava no
+GitHub. A foto da tela antiga era o aviso em TODAS as tentativas, e eu só fui olhar
+o `git log` do servidor na quarta.
+
+Três erros encadeados, todos meus:
+
+- **Tratei "commitado" como "pronto", e disse isso.** Para quem usa, *pronto* é
+  **no ar e usável** — não "no GitHub". Enquanto não estiver publicado e ao alcance
+  do usuário, a palavra é **"commitado, falta publicar"**, nunca "concluído".
+- **Empilhei entrega sobre produção parada.** Quatro commits, e até um rewrite, sem
+  um único deploy no meio. Parecia progresso e não era: a tela real não mudava. Uma
+  correção que o usuário vai usar segue o ciclo **publica → valida → só então a
+  próxima**; não se acumulam commits (muito menos um rewrite) sobre um ambiente que
+  não se mexeu.
+- **Não conferi o que estava NO AR antes de pedir teste.** O sinal estava na cara
+  (a foto da tela velha); a confirmação custava um comando no servidor (`git log -1`
+  + idade do contêiner). Checar o *seu* Git local não prova nada sobre produção.
+
+**Regra.** Commitado ≠ publicado ≠ testado, e cada seta é um passo que alguém dá de
+propósito. Antes de pedir ao usuário que teste, **confirme o que está rodando no
+ambiente dele** (HEAD do servidor, idade/estado do contêiner) — não o seu
+repositório. E quando o relato de falha vem **repetido e idêntico**, a primeira
+hipótese não é "corrigir de novo": é **"isto não está no ar"** — cheque o deploy
+antes de tocar no código. É a 5 ("verifique antes de afirmar") aplicada à distância
+entre o commit e a produção.
+
 ---
 
 ## 6. Armadilhas desta casa
@@ -502,10 +583,10 @@ sequência de fases, e cada fase é uma unidade fechada:
 4. **Caminho duplo temporário e explícito.** Ao religar, roteie por estado
    (`credit_model='psique_v2'` → V2; o resto → V1), nunca um big-bang. O caminho
    duplo é comentado como temporário e some quando a fase seguinte migra o resto.
-5. **Commit só com a palavra; publique cedo; produção só colada pelo dono.**
-   "commit" é gatilho explícito (o recorte em 5.1). Empurre para o origin assim
-   que commitar — sessão simultânea reseta trabalho não publicado. Nada em
-   produção sem o dono colar no console; a janela é dele.
+5. **Commit, push e produção exigem autorização explícita.** "Commit" é gatilho
+    explícito (o recorte em 5.1); push também exige autorização do dono, conforme
+    `AGENTS.md`. Nada em produção sem autorização e sem o dono executar na janela
+    combinada. Verifique o estado imediatamente antes de cada ação (seção 5.2).
 6. **Cada fase fecha com evidência e janela própria:** teste (seção 8) →
    apresentação para commit → roteiro de janela rotulado (seção 6, terminal em
    dois passos) → gate. A fase seguinte só começa no próximo gate.
@@ -604,3 +685,5 @@ Da 047 (consumo de sessão) e 048 (backfill V1→V2):
 13. Provei contra PostgreSQL real, em **Windows e Linux**, e o número não é artefato de arnês (dep/arquivo faltando)? (seção 8)
 14. A migração aplica **incremental** — só ela sobre o estado atual — e **reaplicar é no-op**? (seção 9)
 15. Esta fase respeitou o gate: desenho aterrado, decisão do dono, commit só com a palavra, produção só colada? (seção 7)
+16. Antes de cada ação que muda estado, conferi novamente Git/concorrência e
+    servidor, parei diante de sobreposição e validei o resultado depois? (seção 5.2)
