@@ -20,6 +20,7 @@ ter acrescentado:
     acrescentar nao reescreve o cadastro que ja existia
 """
 
+import types
 import ast
 import sys
 import typing
@@ -76,6 +77,10 @@ NS["_cadastro_clinico"] = _funcao("_cadastro_clinico", NS)
 NS["_tipos_de_cadastro"] = _funcao("_tipos_de_cadastro", NS)
 NS["_documento_da_empresa_nr1"] = _funcao("_documento_da_empresa_nr1", NS)
 NS["_trial_state"] = _funcao("_trial_state", NS)
+# Fase 7.4: com o armazenamento desligado, so a marca credit_origin=psique_v2*
+# poe a conta no V2; estes perfis sao V1.
+NS["TENANT_STORE"] = types.SimpleNamespace(enabled=False)
+NS["_conta_no_psique_v2"] = _funcao("_conta_no_psique_v2", NS)
 tipos_de_cadastro = NS["_tipos_de_cadastro"]
 documento_nr1 = NS["_documento_da_empresa_nr1"]
 estado_de_acesso = _funcao("_professional_access_status", NS)

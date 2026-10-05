@@ -32,3 +32,4 @@
 - [Receita de teste no Linux](froid-teste-linux-receita.md) — provar em Docker postgres:16 com --network container, e as quatro armadilhas (espaco no mount, pydantic sem wheel, config faltando, tail escondendo o erro); detalhe na skill-froid-master
 - [Apuracao entrecortada (incidente aberto)](froid-apuracao-entrecortada.md) — voz entrecortada com mic a 80%: nao e nivel do lado dele; resolver SO depois de 7.2/7.3/7.4/7.5; medir antes de mexer no detector
 - [Falar menos e resolver](froid-falar-menos-resolver.md) — ordem de 05/10 apos 2 dias no convite: so comandos quando ele pedir, sem placeholders para editar, sempre com cd no compose
+- [SSH direto a producao](froid-ssh-direto.md) — eu rodo as janelas por ssh froid; exec precisa de </dev/null no heredoc; provar build pelo codigo no conteiner
