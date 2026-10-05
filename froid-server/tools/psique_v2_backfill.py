@@ -100,6 +100,10 @@ def classificar(carteira: dict | None, membro: dict | None) -> str:
         return "PULAR_SEM_CARTEIRA"
     if carteira["credit_model"] == "psique_v2":
         return "JA_V2"
+    # Empresa do NR-1 nao atende sessao: a carteira unica V2 so existe para
+    # profissional (solo) e clinica. O comando 048 recusaria; aqui so se pula.
+    if membro is not None and membro["organization_type"] not in {"solo", "clinic"}:
+        return "PULAR_EMPRESA_NR1"
     if membro is None:
         return "PULAR_SEM_DONO_ATIVO"
     return "CONVERTER"

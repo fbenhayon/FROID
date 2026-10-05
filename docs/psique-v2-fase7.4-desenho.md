@@ -130,3 +130,18 @@ da 7.3. As etapas 2–6 mexem em pagamento/tela e pedem gate e janela.
   D2 (trial no onboarding, compra depois) depende de a conta nova nascer V2 com
   o trial — que é a mesma entrega do portão de início de sessão V2.
 - Só painel (frontend); sem backend, sem migration.
+
+## 9. Execução da etapa 4 — conversão da frota (05/10/2026, 21h15)
+- Backup antes: `/root/froid-backups/manual/pre-7.4-conversao-20261005-2115.dump`
+  (8,7 MB) e `/data/identity_state.json.bak-pre74-20261005-2115`.
+- Ensaio: 12 organizações, 10 a converter, 2 já V2. **Ninguém comprou pelo V1**
+  (todo saldo era cortesia), nenhuma pendência → nenhuma recarga V1 a quebrar.
+- Aplicado (`--todas --aplicar`): **7 convertidas** (saldos do JSON: 1082, 20, 5
+  e quatro zeros); **3 recusadas por serem empresas NR-1** (Sirea, Taticca,
+  Froid; `organization_type='enterprise'`) — correto, a carteira V2 só existe
+  para solo/clínica. Ficam `v1`/`legacy`, sem efeito (não atendem sessão).
+- Estado final: todas as 9 contas de atendimento em `psique_v2/shared` com o
+  saldo do JSON; o pool velho (121, 25, 10) foi descartado como previsto.
+- Ferramenta ajustada: empresa NR-1 vira `PULAR_EMPRESA_NR1` em vez de erro.
+- Próximas: etapa 5 (aposentar webhook/rotas V1 — nenhuma UI de conta V2 as
+  chama; as 3 empresas NR-1 não compram sessão) e 6 (env V1).

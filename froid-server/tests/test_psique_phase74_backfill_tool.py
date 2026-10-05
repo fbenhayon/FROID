@@ -154,3 +154,13 @@ def test_converte_frota_pelo_json_e_e_idempotente(database, monkeypatch, tmp_pat
     assert ferramenta.main(base + ["--todas", "--aplicar"]) == 0
     assert '"JA_V2": 1' in capsys.readouterr().out
     assert _carteira(dsn, clinica)[0] == 10
+
+
+def test_empresa_nr1_e_pulada_e_nao_recusada():
+    carteira = {"credit_model": "v1", "pool": 5, "authority": "legacy"}
+    empresa = {"membership_id": "m", "user_id": "u", "organization_type": "enterprise",
+               "display_name": "Empresa"}
+    clinica = dict(empresa, organization_type="clinic")
+    assert ferramenta.classificar(carteira, empresa) == "PULAR_EMPRESA_NR1"
+    assert ferramenta.classificar(carteira, clinica) == "CONVERTER"
+    assert ferramenta.classificar({**carteira, "credit_model": "psique_v2"}, empresa) == "JA_V2"
