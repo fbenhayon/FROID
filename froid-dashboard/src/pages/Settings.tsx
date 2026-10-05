@@ -168,6 +168,8 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
   const [eventDuration, setEventDuration] = useState("50");
   const [profileStatus, setProfileStatus] = useState<any>(user?.access_status || null);
   const [plans, setPlans] = useState<AccessPlan[]>([]);
+  // null enquanto a carteira V2 e consultada: nenhum bloco de compra pisca.
+  const [carteiraV2, setCarteiraV2] = useState<boolean | null>(null);
   const [selectedPlan, setSelectedPlan] = useState("pro_10");
   const [billingMarket, setBillingMarket] = useState("BR");
   const [billingCurrency, setBillingCurrency] = useState("brl");
@@ -1041,7 +1043,8 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
               )}
             </div>
           </div>
-          <SecaoPsiqueV2 />
+          <SecaoPsiqueV2 aoResolverCarteira={setCarteiraV2} />
+          {carteiraV2 === false && (
           <div className="rounded-lg border border-slate-700 p-3">
             <p className="text-sm font-semibold">Planos e Cobranca</p>
             <p className="mt-1 text-xs text-slate-400">
@@ -1189,6 +1192,7 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
               )}
             </div>
           </div>
+          )}
           <div className="rounded-lg border border-slate-700 p-3">
             <p className="text-sm font-semibold">Auditoria e Ledger</p>
             <p className="mt-1 text-xs text-slate-400">

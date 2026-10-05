@@ -118,3 +118,15 @@ da 7.3. As etapas 2–6 mexem em pagamento/tela e pedem gate e janela.
   `psique_api.py:90-130`.
 - Backfill pronto: migration 048, `psique_credits.py:105`; portão V1:
   `main.py:2431/7889/7907`.
+
+## 8. Execução da etapa 2 (05/10/2026)
+- **Regra: uma compra só por organização, a do sistema em que a carteira está.**
+  O servidor já recusa o checkout V2 de carteira V1 (`PSIQUE_WALLET_REQUIRED`,
+  antes do Stripe: ninguém é cobrado). Então: carteira V2 → as Configurações
+  mostram só a seção Psique V2; carteira V1 → só o bloco "Planos e Cobrança" V1.
+  Ao converter a org (etapa 4), a tela troca sozinha — nenhuma janela sem compra.
+- **Onboarding fica para a etapa 3.** Conta nova ainda nasce com carteira V1
+  (o espelho cria na gravação do perfil); uma compra V2 ali seria recusada. A
+  D2 (trial no onboarding, compra depois) depende de a conta nova nascer V2 com
+  o trial — que é a mesma entrega do portão de início de sessão V2.
+- Só painel (frontend); sem backend, sem migration.

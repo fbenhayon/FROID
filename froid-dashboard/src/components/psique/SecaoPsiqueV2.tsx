@@ -24,6 +24,15 @@ import { PsiqueCreditsPanel } from "./PsiqueCreditsPanel";
 
 export const CHAVE_COMPRA_PENDENTE = "froid_psique_v2_compra_pendente";
 
+/** A carteira desta organização já está no V2? null = ainda consultando.
+ *  O servidor recusa o checkout V2 de carteira V1 (PSIQUE_WALLET_REQUIRED),
+ *  então a tela mostra uma compra só: a do sistema em que a carteira está. */
+export function carteiraEmV2(carteira: EstadoV2<CarteiraPsiqueV2>): boolean | null {
+  if (carteira.estado === "ok") return true;
+  if (carteira.estado === "indisponivel" && carteira.motivo === "CARREGANDO") return null;
+  return false;
+}
+
 export function SecaoPsiqueV2View({
   carteira,
   precos,
@@ -45,6 +54,11 @@ export function SecaoPsiqueV2View({
     carteira.estado === "indisponivel" &&
     precos.estado === "indisponivel"
   ) {
+    return null;
+  }
+  // Carteira ainda no V1: a compra V2 seria recusada pelo servidor; quem vende
+  // para esta organização, até a conversão, é o bloco V1.
+  if (carteira.estado === "indisponivel" && carteira.motivo === "PSIQUE_WALLET_REQUIRED") {
     return null;
   }
   const podeComprar = menuVisivelV2(capacidades, "comprar-creditos");
@@ -85,7 +99,11 @@ export function SecaoPsiqueV2View({
   );
 }
 
-export function SecaoPsiqueV2() {
+export function SecaoPsiqueV2({
+  aoResolverCarteira,
+}: {
+  aoResolverCarteira?: (emV2: boolean) => void;
+} = {}) {
   const [carteira, setCarteira] = useState<EstadoV2<CarteiraPsiqueV2>>({
     estado: "indisponivel",
     motivo: "CARREGANDO",
@@ -103,7 +121,11 @@ export function SecaoPsiqueV2() {
 
   useEffect(() => {
     let ativo = true;
-    void obterCarteiraPsiqueV2().then((r) => ativo && setCarteira(r));
+    void obterCarteiraPsiqueV2().then((r) => {
+      if (!ativo) return;
+      setCarteira(r);
+      aoResolverCarteira?.(carteiraEmV2(r) === true);
+    });
     void obterPrecosPsiqueV2().then((r) => ativo && setPrecos(r));
     void obterCapacidadesPsiqueV2().then((r) => ativo && setCapacidades(r));
     return () => {

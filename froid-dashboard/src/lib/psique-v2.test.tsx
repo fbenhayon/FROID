@@ -252,3 +252,29 @@ it("a página de confirmação descreve cada fase sem inventar sucesso", async (
   expect(situacaoParaTexto({ fase: "consultando", tentativas: 3 })).toContain("webhook");
   expect(situacaoParaTexto({ fase: "sem-registro" })).toContain("saldo");
 });
+
+it("carteira ainda V1: a seção V2 some e quem vende é o bloco V1 (uma compra só)", async () => {
+  const { SecaoPsiqueV2View, carteiraEmV2 } = await import("../components/psique/SecaoPsiqueV2");
+  const carteiraV1 = { estado: "indisponivel", motivo: "PSIQUE_WALLET_REQUIRED" } as const;
+  const html = renderToStaticMarkup(
+    <SecaoPsiqueV2View
+      carteira={carteiraV1}
+      precos={{ estado: "ok", dados: PRECOS }}
+      capacidades={{ estado: "indisponivel", motivo: "HTTP_409" }}
+      aoComprar={() => undefined}
+      comprando={null}
+      erroCompra=""
+    />,
+  );
+  expect(html).toBe("");
+  expect(carteiraEmV2(carteiraV1)).toBe(false);
+  expect(carteiraEmV2({ estado: "indisponivel", motivo: "CARREGANDO" })).toBeNull();
+  expect(carteiraEmV2({ estado: "indisponivel", motivo: "SEM_CONEXAO" })).toBe(false);
+  expect(carteiraEmV2({
+    estado: "ok",
+    dados: {
+      balance: 1, reserved_balance: 0, available_balance: 1,
+      trial_status: "EXPIRED", trial_free_remaining: 0, trial_expires_at: null,
+    },
+  })).toBe(true);
+});
