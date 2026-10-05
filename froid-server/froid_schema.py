@@ -24,6 +24,7 @@ PSIQUE_V2_VERSIONS = frozenset({
     "046_psique_live_mode",
     "047_psique_session_consumption",
     "048_psique_v2_backfill",
+    "049_psique_outbox_lease",
 })
 
 

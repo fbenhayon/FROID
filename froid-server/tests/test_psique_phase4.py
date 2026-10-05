@@ -71,7 +71,7 @@ def database():
         try:
             isolated = make_conninfo(dsn, dbname=name)
             with psycopg.connect(isolated, autocommit=True) as conn:
-                apply(conn, ROOT / "migrations", "046_psique_live_mode", name)
+                apply(conn, ROOT / "migrations", "049_psique_outbox_lease", name)
             yield isolated
         finally:
             admin.execute(psycopg.sql.SQL("DROP DATABASE {} WITH (FORCE)").format(psycopg.sql.Identifier(name)))
@@ -396,3 +396,19 @@ def test_concurrent_bookings_for_the_same_slot_yield_exactly_one(harness):
                   "AND clinician_membership_id=%s AND appointment_status='SCHEDULED'",
                   (owner.organization_id, clinician.membership_id))[0][0]
     assert count == 1
+
+
+def test_item_reservado_e_nao_liquidado_volta_quando_a_reserva_vence(harness):
+    """049: worker que caiu no meio da entrega nao prende o item para sempre."""
+    h = harness
+    owner, secretary, clinician = h.clinic()
+    patient = h.patient(owner.organization_id)
+    h.book(secretary, clinician, patient)
+    primeiro = h.scheduling.outbox_take(owner, how_many=5)["items"]
+    assert len(primeiro) == 1
+    assert h.scheduling.outbox_take(owner, how_many=5)["items"] == []  # reservado
+    h.sql("UPDATE psique_calendar_outbox SET leased_until = now() - interval '1 minute' "
+          "WHERE id = %s", (primeiro[0]["outbox_id"],))
+    de_novo = h.scheduling.outbox_take(owner, how_many=5)["items"]
+    assert [i["outbox_id"] for i in de_novo] == [primeiro[0]["outbox_id"]]
+    assert de_novo[0]["attempts"] == 2
