@@ -145,3 +145,19 @@ da 7.3. As etapas 2–6 mexem em pagamento/tela e pedem gate e janela.
 - Ferramenta ajustada: empresa NR-1 vira `PULAR_EMPRESA_NR1` em vez de erro.
 - Próximas: etapa 5 (aposentar webhook/rotas V1 — nenhuma UI de conta V2 as
   chama; as 3 empresas NR-1 não compram sessão) e 6 (env V1).
+
+## 10. Etapa 5 — aposentar o comércio V1 (05/10/2026)
+- **Apurado em produção antes:** nenhuma compra V1 no JSON, nenhum checkout
+  pendente; 3 linhas em `organization_subscriptions` (todas contas do dono e da
+  família, já convertidas ao V2). Uma delas (Philippe, `pro_10`) tem cliente e
+  cartão Stripe salvos com **recarga automática ligada** (última recarga
+  26/08). A recarga só dispara no modo `enforce` (desligado) e as contas V2 nem
+  chegam lá; o único gatilho restante era o botão "Tentar recarga novamente".
+- **Feito:** interruptor `FROID_V1_COMMERCE_RETIRED` (padrão false). Ligado:
+  `/api/subscriptions/checkout`, `/confirm-checkout`, `/recharge/retry` e
+  `/api/stripe/webhook` respondem 410; `_run_automatic_recharge` retorna sem
+  chamar o Stripe; `/api/auth/config` expõe `v1_commerce_retired`, a tela some
+  com o bloco "Planos e Cobrança" e o onboarding não paga V1.
+- **Fica para a 7.5:** `/api/billing/*` (D3); as linhas de assinatura V1 e o
+  endpoint do webhook V1 no painel do Stripe; o cartão salvo do cliente.
+- Testes: `test_psique_phase74_etapa5.py` (7).

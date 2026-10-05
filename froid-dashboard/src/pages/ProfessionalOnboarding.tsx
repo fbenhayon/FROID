@@ -239,7 +239,9 @@ export const ProfessionalOnboarding: React.FC<Props> = ({
   useEffect(() => {
     fetch(apiUrl("/api/auth/config"))
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setTrialFirst(Boolean(d?.onboarding_trial_first)))
+      // Comercio V1 aposentado tambem dispensa o pagamento aqui: nao ha mais
+      // checkout V1, e a compra e a do Administrativo (V2).
+      .then((d) => setTrialFirst(Boolean(d?.onboarding_trial_first || d?.v1_commerce_retired)))
       .catch(() => undefined);
   }, []);
   const [billingMarket, setBillingMarket] = useState("BR");

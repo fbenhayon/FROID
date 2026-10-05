@@ -377,6 +377,21 @@ STRIPE_SUBSCRIPTION_PRICE_IDS = {
 FROID_SUBSCRIPTIONS_REQUIRED = os.getenv(
     "FROID_SUBSCRIPTIONS_REQUIRED", "false"
 ).lower() in {"1", "true", "yes", "on"}
+# Fase 7.4 etapa 5: comercio V1 aposentado. Ligado, checkout, confirmacao,
+# recarga e webhook V1 respondem 410 e a recarga automatica nunca chama o
+# Stripe — toda conta de atendimento ja esta na carteira V2, onde um credito V1
+# seria recusado (cliente cobrado sem receber). Volta atras sem deploy.
+FROID_V1_COMMERCE_RETIRED = os.getenv(
+    "FROID_V1_COMMERCE_RETIRED", "false"
+).lower() in {"1", "true", "yes", "on"}
+
+
+def _v1_commerce_retired_guard() -> None:
+    if FROID_V1_COMMERCE_RETIRED:
+        raise HTTPException(
+            status_code=410,
+            detail="compra pelo sistema antigo encerrada; use Administrativo > Psique V2",
+        )
 # LAPIDE: FROID_PROFESSIONAL_APPROVAL_REQUIRED, retirada em 09/09/2026.
 #
 # A chave punha todo cadastro novo em `access_approval_status="pending"` e o
@@ -10207,6 +10222,8 @@ def auth_config():
         "onboarding_trial_first": bool(
             FROID_PSIQUE_V2_NEW_ACCOUNTS and FROID_PSIQUE_V2_BILLING_ENABLED
         ),
+        # A tela esconde a compra V1 (Configuracoes) e o onboarding nao paga V1.
+        "v1_commerce_retired": FROID_V1_COMMERCE_RETIRED,
     }
 
 @app.post("/api/auth/google")
@@ -14858,6 +14875,7 @@ async def _verify_stripe_checkout_line_item(
 
 @app.post("/api/subscriptions/checkout")
 async def create_subscription_checkout(request: Request):
+    _v1_commerce_retired_guard()
     user = _require_current_user(request)
     context = _tenant_context_from_request(request)
     if context is None:
@@ -15018,6 +15036,7 @@ async def create_subscription_checkout(request: Request):
 @app.post("/api/subscriptions/confirm-checkout")
 async def confirm_subscription_checkout(request: Request):
     """Reconcile a paid Stripe return without depending on webhook timing."""
+    _v1_commerce_retired_guard()
     user = _require_current_user(request)
     context = _tenant_context_from_request(request)
     if context is None:
@@ -15170,6 +15189,7 @@ async def confirm_subscription_checkout(request: Request):
 
 @app.post("/api/stripe/webhook")
 async def stripe_webhook(request: Request):
+    _v1_commerce_retired_guard()
     payload = await request.body()
     try:
         event = verify_stripe_event(
@@ -15323,6 +15343,9 @@ async def stripe_webhook(request: Request):
 
 
 async def _run_automatic_recharge(organization_id: str) -> None:
+    if FROID_V1_COMMERCE_RETIRED:
+        LOGGER.warning("Recarga automatica V1 ignorada (comercio V1 aposentado): %s", organization_id)
+        return
     recharge = None
     try:
         recharge = await asyncio.to_thread(
@@ -15391,6 +15414,7 @@ async def _run_automatic_recharge(organization_id: str) -> None:
 
 @app.post("/api/subscriptions/recharge/retry")
 async def retry_automatic_recharge(request: Request):
+    _v1_commerce_retired_guard()
     context = _tenant_context_from_request(request)
     if context is None:
         raise HTTPException(status_code=409, detail="contexto organizacional ausente")
