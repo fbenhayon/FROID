@@ -453,6 +453,26 @@ class TenantStore:
                 row = cursor.fetchone()
         return str((row or [""])[0] or "")
 
+    def psique_v2_ever_purchased(self, organization_id) -> bool:
+        """A organizacao ja comprou alguma vez (portao V2 de inicio, D2a)?
+
+        Verdadeiro se o sinal carregado do V1 pelo backfill (048) estiver ligado
+        OU se existir qualquer CREDIT_PURCHASE no ledger. Conexao administrativa,
+        como organization_credit_model: o runtime nao le a carteira direto.
+        """
+        if not self.enabled or not organization_id:
+            return False
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT coalesce((SELECT ever_purchased FROM organization_wallets "
+                    "WHERE organization_id = %s), false) OR EXISTS(SELECT 1 FROM credit_ledger "
+                    "WHERE organization_id = %s AND event_type = 'CREDIT_PURCHASE')",
+                    (str(organization_id), str(organization_id)),
+                )
+                row = cursor.fetchone()
+        return bool(row and row[0])
+
     # ------------------------------------------------------------------
     # Controle administrativo de acesso.
     #

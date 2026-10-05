@@ -2477,6 +2477,137 @@ def _trial_block_detail(email: str) -> str:
     )
 
 
+# Fase 7.4, etapa 3: conta nova nasce na carteira unica V2, com o trial V2
+# (10 creditos/14 dias, decisao do dono de 05/10/2026) no lugar da cortesia V1.
+# Desligado por padrao; volta atras sem deploy.
+FROID_PSIQUE_V2_NEW_ACCOUNTS = os.getenv(
+    "FROID_PSIQUE_V2_NEW_ACCOUNTS", "false"
+).strip().lower() in {"1", "true", "yes", "on"}
+
+PSIQUE_V2_TRIAL_BLOCK_DETAIL = (
+    "Seu período de teste terminou e ainda não há créditos comprados. "
+    "Compre créditos em Administrativo para iniciar uma nova sessão."
+)
+
+
+def _psique_v2_identidade_para_trial(user: dict, email: str):
+    """A identidade ja provada pelo login, no formato que o trial V2 exige.
+
+    Google prova o e-mail; senha so vale com e-mail verificado (caixa ou convite
+    de clinica). Sem prova, devolve None e a conta segue a cortesia V1.
+    `legacy_history_checked`: o chamador so usa isto para perfil NOVO, entao nao
+    ha beneficio V1 anterior neste e-mail.
+    """
+    from psique_identity import TrialIdentity
+
+    provedor = str((user or {}).get("provider") or "").strip().lower()
+    agora = datetime.now(timezone.utc)
+    if provedor == "google":
+        return TrialIdentity(email=email, verified_at=agora, verification_ref="google-login",
+                             legacy_benefit_ref=None, legacy_history_checked=True)
+    if provedor == "password":
+        credencial = PROFESSIONAL_CREDENTIALS.get(email)
+        if isinstance(credencial, dict) and credencial.get("email_verified"):
+            via = str(credencial.get("verified_via") or "email")
+            return TrialIdentity(email=email, verified_at=agora,
+                                 verification_ref=f"password-{via}",
+                                 legacy_benefit_ref=None, legacy_history_checked=True)
+    return None
+
+
+def _psique_v2_conta_nova_pode_nascer(user: dict, email: str, account_type: str,
+                                      organization_document) -> bool:
+    """Pre-condicoes para a conta nova nascer no V2; qualquer falta = cortesia V1.
+
+    A organizacao tem de ser SO desta conta: uma clinica que ja existe pelo CNPJ
+    tem colegas com saldo V1, e converte-la aqui mexeria no saldo deles.
+    """
+    if not (FROID_PSIQUE_V2_NEW_ACCOUNTS and FROID_PSIQUE_V2_BILLING_ENABLED
+            and TENANT_STORE.enabled):
+        return False
+    if not os.getenv("FROID_RUNTIME_DATABASE_URL", "").strip():
+        return False
+    if _psique_v2_identidade_para_trial(user, email) is None:
+        return False
+    try:
+        from psique_identity import TrialKeyring
+
+        TrialKeyring.from_env().tokens(email, [])
+    except Exception:
+        LOGGER.warning("Conta nova fica na cortesia V1: chave do trial V2 ausente ou invalida.")
+        return False
+    organizacao = str(tenant_organization_id_for_profile(email, account_type, organization_document))
+    for outro_email, perfil in PROFESSIONAL_PROFILES.items():
+        if _normalize_email(outro_email) == email or not isinstance(perfil, dict):
+            continue
+        outra = str(tenant_organization_id_for_profile(
+            _normalize_email(outro_email),
+            str(perfil.get("account_type") or "individual").lower(),
+            perfil.get("organization_document")))
+        if outra == organizacao:
+            return False
+    return True
+
+
+def _psique_v2_nascer(user: dict, email: str, account_type: str, organization_document) -> dict:
+    """Converte a carteira recem-criada pelo espelho (V1, saldo 0) e concede o trial V2.
+
+    Mesma maquina da etapa 1 (backfill da 048, net=0) seguida do GRANT_TRIAL.
+    Levanta excecao em qualquer falha; o chamador devolve a conta a cortesia V1.
+    """
+    import psycopg as _psycopg
+    from psique_credits import PsiqueCredits
+    from psique_identity import EvidenceError, TrialKeyring
+
+    identidade = _psique_v2_identidade_para_trial(user, email)
+    if identidade is None:
+        raise EvidenceError("VERIFIED_IDENTITY_REQUIRED")
+    runtime_dsn = os.getenv("FROID_RUNTIME_DATABASE_URL", "").strip()
+    organizacao = str(tenant_organization_id_for_profile(email, account_type, organization_document))
+    usuario = str(stable_uuid("user", email))
+    membro = str(stable_uuid("membership", organizacao, usuario))
+    contexto = AccessContext.create(
+        organization_id=organizacao, membership_id=membro, user_id=usuario, roles=["owner"],
+        organization_type=tenant_organization_type_for_account(account_type))
+
+    def _sem_material(*_args, **_kwargs):
+        raise EvidenceError("LOADER_NOT_USED_BY_ACCOUNT_BIRTH")
+
+    servico = PsiqueCredits(
+        lambda: _psycopg.connect(runtime_dsn, autocommit=True, connect_timeout=10),
+        identity_loader=lambda _user_id: identidade, material_loader=_sem_material,
+        keyring=TrialKeyring.from_env())
+    conversao = servico.backfill_from_v1(contexto, 0, ever_purchased=False,
+                                         note="Fase 7.4: conta nova nasce no V2")
+    trial = servico.grant_trial(contexto)
+    return {"conversao": conversao, "trial": trial, "organization_id": organizacao}
+
+
+def _psique_v2_start_block_detail(context: Optional[AccessContext]) -> str:
+    """Portao V2 de inicio de sessao (D2a). Devolve o aviso, ou "" se pode iniciar.
+
+    So vale para organizacao ja na carteira unica V2. Pode iniciar quem tem saldo
+    disponivel (trial ativo incluso) OU ja comprou alguma vez. Falha de leitura
+    NUNCA bloqueia: e portao de receita, nao pode impedir atendimento por defeito
+    de infraestrutura. Nao alcanca o salvamento de relatorio (politica A da 7.2).
+    """
+    if context is None or not (FROID_PSIQUE_V2_BILLING_ENABLED and TENANT_STORE.enabled):
+        return ""
+    if not _organization_uses_psique_v2(context.organization_id):
+        return ""
+    try:
+        if TENANT_STORE.psique_v2_ever_purchased(context.organization_id):
+            return ""
+        saldo = _psique_session_charger().balance(context)
+        if _local_int(saldo.get("available_balance")) > 0:
+            return ""
+    except Exception:
+        LOGGER.exception("Portao V2 de inicio nao conseguiu ler a carteira de %s; liberando.",
+                         context.organization_id)
+        return ""
+    return PSIQUE_V2_TRIAL_BLOCK_DETAIL
+
+
 def _professional_access_status(email: str) -> dict:
     owner_email = _normalize_email(email)
     profile = PROFESSIONAL_PROFILES.get(owner_email) if owner_email else None
@@ -8039,6 +8170,9 @@ def create_session(request: Request):
     # session_id ja criado) nem o salvamento do relatorio.
     if _trial_blocks_new_session(user.get("email") or ""):
         raise HTTPException(status_code=402, detail=_trial_block_detail(user.get("email") or ""))
+    bloqueio_v2 = _psique_v2_start_block_detail(context)
+    if bloqueio_v2:
+        raise HTTPException(status_code=402, detail=bloqueio_v2)
     session_id = str(uuid.uuid4())
     SESSION_OWNERS[session_id] = _normalize_email(user.get("email") or "")
     if context:
@@ -8057,6 +8191,9 @@ async def create_session_invite(request: Request):
     # andamento, que e exatamente o que este item nao pode fazer.
     if _trial_blocks_new_session(current_user.get("email") or ""):
         raise HTTPException(status_code=402, detail=_trial_block_detail(current_user.get("email") or ""))
+    bloqueio_v2 = _psique_v2_start_block_detail(context)
+    if bloqueio_v2:
+        raise HTTPException(status_code=402, detail=bloqueio_v2)
     body = await request.json()
     professional_email = _normalize_email(current_user.get("email") or "")
     patient_name = str(body.get("patient_name") or "").strip()
@@ -10027,6 +10164,11 @@ def auth_config():
         "password_login_enabled": True,
         "password_min_length": FROID_PASSWORD_MIN_LENGTH,
         "email_delivery_configured": froid_mailer.mailer_enabled(),
+        # Onboarding sem pacote: a conta nova entra no teste (V2, ou a
+        # cortesia V1 de reserva) e compra depois, em Administrativo.
+        "onboarding_trial_first": bool(
+            FROID_PSIQUE_V2_NEW_ACCOUNTS and FROID_PSIQUE_V2_BILLING_ENABLED
+        ),
     }
 
 @app.post("/api/auth/google")
@@ -14396,7 +14538,19 @@ async def save_professional_profile(request: Request):
         and _cadastro_clinico(account_type)
         and not ja_tinha_lado_clinico
     )
+    # Fase 7.4 etapa 3: perfil NOVO cuja organizacao e so dele nasce no V2 (trial
+    # V2 no lugar da cortesia V1). O status "trialing" continua abrindo o acesso.
+    nasce_v2 = False
     if conceder_cortesia:
+        nasce_v2 = bool(
+            not existing
+            and _psique_v2_conta_nova_pode_nascer(
+                user, owner_email, account_type, body.get("organization_document")
+            )
+        )
+        if nasce_v2:
+            trial_granted_at = now
+    if conceder_cortesia and not nasce_v2:
         # A vaga e gravada e nunca recalculada. Recalcular faria o mesmo perfil
         # valer numeros diferentes conforme a base crescesse, e quem recebeu 20
         # leria 10 na tela no mes seguinte.
@@ -14515,8 +14669,45 @@ async def save_professional_profile(request: Request):
             )
             profile["selected_plan"] = FROID_TRIAL_PLAN_ID
             profile["payment_status"] = "trialing"
+    if nasce_v2:
+        profile["credit_origin"] = "psique_v2_trial"
     PROFESSIONAL_PROFILES[owner_email] = profile
     _save_identity_state()
+    nascimento_v2: dict = {}
+    if nasce_v2:
+        # O espelho acabou de criar organizacao, membership e a carteira V1 com
+        # saldo 0. Converte e concede o trial. Se falhar ANTES de converter, a
+        # conta volta a cortesia V1 (nenhum cadastro novo fica sem como atender).
+        # Se converteu e so o trial falhou, cortesia V1 seria saldo de mentira
+        # (o consumo ja e V2): fica marcado para o operador conceder.
+        try:
+            nascimento_v2 = _psique_v2_nascer(
+                user, owner_email, account_type, body.get("organization_document")
+            )
+        except Exception as exc:
+            codigo = str(getattr(exc, "code", "") or type(exc).__name__)
+            organizacao_nova = str(tenant_organization_id_for_profile(
+                owner_email, account_type, body.get("organization_document")))
+            if _organization_uses_psique_v2(organizacao_nova):
+                LOGGER.error("Conta nova %s convertida ao V2 SEM trial (%s).",
+                             organizacao_nova, codigo)
+                profile["credit_origin"] = "psique_v2_sem_trial"
+                nascimento_v2 = {"erro": codigo, "convertida": True}
+            else:
+                LOGGER.exception("Conta nova nao nasceu no V2; voltando a cortesia V1.")
+                posicao = _next_trial_position()
+                sessoes = _trial_sessions_for_position(posicao)
+                profile.update({
+                    "credit_origin": "v1_trial_fallback",
+                    "trial_position": posicao,
+                    "trial_sessions": sessoes,
+                    "trial_granted_at": now,
+                    "total_sessions": sessoes,
+                    "remaining_sessions": sessoes,
+                })
+                nascimento_v2 = {"erro": codigo, "convertida": False}
+            PROFESSIONAL_PROFILES[owner_email] = profile
+            _save_identity_state()
     # A organizacao acaba de ser provisionada a partir deste perfil, e quem
     # chamou ainda nao sabe o id dela. Sem devolve-lo aqui, o cadastro guiado da
     # empresa monta a proxima chamada como /api/organizations//nr1/units e
@@ -14547,6 +14738,8 @@ async def save_professional_profile(request: Request):
         "access_status": _professional_access_status(owner_email),
         "organizations": contextos,
         "organization_id": str(escolhida.get("organization_id") or ""),
+        "credit_origin": str(profile.get("credit_origin") or "v1"),
+        **({"psique_v2_birth": nascimento_v2} if nasce_v2 else {}),
     }
 
 

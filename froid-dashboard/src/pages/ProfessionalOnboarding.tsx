@@ -233,6 +233,15 @@ export const ProfessionalOnboarding: React.FC<Props> = ({
   const [baseAccessRaw, setBaseAccessRaw] = useState("");
   const [monthlyConsultations, setMonthlyConsultations] = useState(25);
   const [selectedPlan, setSelectedPlan] = useState("pro_10");
+  // Fase 7.4 etapa 3: com o servidor dizendo "teste primeiro", o cadastro
+  // termina sem pacote e a compra fica em Administrativo.
+  const [trialFirst, setTrialFirst] = useState(false);
+  useEffect(() => {
+    fetch(apiUrl("/api/auth/config"))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setTrialFirst(Boolean(d?.onboarding_trial_first)))
+      .catch(() => undefined);
+  }, []);
   const [billingMarket, setBillingMarket] = useState("BR");
   const [billingCurrency, setBillingCurrency] = useState("brl");
   const requestedCurrencyRef = useRef("brl");
@@ -590,6 +599,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({
     if (legalCatalog?.acceptance_required && (!legalCatalog.supplier.configured || legalError)) {
       return { message: legalError || "Identificação jurídica do fornecedor indisponível.", target: "legal-contract-consent" };
     }
+    if (trialFirst) return null;
     if (plansLoading) {
       return { message: "Aguarde o carregamento dos pacotes comerciais.", target: "planos" };
     }
@@ -699,6 +709,11 @@ export const ProfessionalOnboarding: React.FC<Props> = ({
         } as FroidUser;
         localStorage.setItem("froid_user", JSON.stringify(nextUser));
         onUserChange(nextUser);
+      }
+      if (trialFirst) {
+        setMessage("Cadastro salvo. Seu teste gratuito começou.");
+        navigate("/dashboard", { replace: true });
+        return;
       }
       setMessage("Cadastro salvo. Encaminhando para o pagamento...");
 
@@ -1160,9 +1175,11 @@ export const ProfessionalOnboarding: React.FC<Props> = ({
           </div>
 
           <aside id="planos" className="h-fit rounded-lg border border-slate-700 bg-slate-900 p-5 shadow-sm xl:sticky xl:top-4">
-            <h2 className="text-lg font-black">Plano e pagamento</h2>
+            <h2 className="text-lg font-black">{trialFirst ? "Teste gratuito" : "Plano e pagamento"}</h2>
             <p className="mt-1 text-sm text-slate-400">
-              O pagamento será processado pelo Stripe e depois o acesso retorna ao dashboard.
+              {trialFirst
+                ? "Você começa com créditos de teste, sem pagar agora. Quando quiser, compre créditos em Administrativo."
+                : "O pagamento será processado pelo Stripe e depois o acesso retorna ao dashboard."}
             </p>
 
             <div className="mt-4 rounded-lg border border-slate-700 bg-slate-950 p-3">
@@ -1174,6 +1191,8 @@ export const ProfessionalOnboarding: React.FC<Props> = ({
               </ul>
             </div>
 
+            {!trialFirst && (
+            <>
             <label className="mt-4 block">
               <span className="text-[11px] font-black uppercase text-slate-400">
                 Mercado / moeda
@@ -1298,6 +1317,8 @@ export const ProfessionalOnboarding: React.FC<Props> = ({
                 </label>
               ))}
             </div>
+            </>
+            )}
 
             <div ref={feedbackRef} tabIndex={-1} aria-live="assertive">
               {error && (
@@ -1318,7 +1339,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({
               aria-busy={loading}
               className="mt-5 w-full rounded-lg bg-cyan-700 px-4 py-3 text-sm font-black text-white hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-cyan-300 disabled:cursor-wait disabled:opacity-60"
             >
-              {loading ? "Processando..." : "Enviar informações e pagar"}
+              {loading ? "Processando..." : trialFirst ? "Começar meu teste gratuito" : "Enviar informações e pagar"}
             </button>
           </aside>
         </form>
