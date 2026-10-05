@@ -103,7 +103,7 @@ compra dela apontar para o V2 faz o cliente pagar e não receber crédito.** Log
   janela.
 
 ## 6. O que dá para adiantar com segurança (sem tocar produção)
-A **etapa 1 (ferramenta de conversão em massa)** é contida, testável e dormente
+**ETAPA 1 FEITA (05/10/2026):** `tools/psique_v2_backfill.py` — ensaio por padrão, `--aplicar` exige `--organizacao` ou `--todas`; net vem do JSON (o pool PG fica velho em modo off e só aparece para conferência); 23/23 Windows e Linux. A **etapa 1 (ferramenta de conversão em massa)** era contida, testável e dormente
 (não roda sozinha). É o próximo passo natural de construção — como foi o mecanismo
 da 7.3. As etapas 2–6 mexem em pagamento/tela e pedem gate e janela.
 
