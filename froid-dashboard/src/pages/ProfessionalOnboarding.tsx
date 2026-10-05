@@ -281,13 +281,15 @@ export const ProfessionalOnboarding: React.FC<Props> = ({
     ? [
         "Nome fantasia e razão social",
         "CNPJ, celular e e-mail da empresa",
-        "Nome, celular, e-mail e CPF do representante legal",
-        "CEP, logradouro, número e bairro",
+        "Nome, celular, e-mail, CPF, sexo e RG do representante legal",
+        "País, estado e cidade",
+        "Atividade principal",
         "Pacote comercial",
       ]
     : [
-        "Nome completo, celular, e-mail e CPF",
-        "CEP, logradouro, número e bairro",
+        "Nome completo, celular, e-mail, CPF, sexo e RG",
+        "País, estado e cidade",
+        "Profissão e registro profissional",
         "Pacote comercial",
       ];
   const selectedPlanData =
@@ -558,12 +560,18 @@ export const ProfessionalOnboarding: React.FC<Props> = ({
             ["Celular do representante legal", "legalRepresentativeMobile", fields.legalRepresentativeMobile],
             ["E-mail do representante legal", "legalRepresentativeEmail", fields.legalRepresentativeEmail],
             ["CPF do representante legal", "legalRepresentativeCpf", fields.legalRepresentativeCpf],
+            ["Sexo do representante legal", "legalRepresentativeSex", fields.legalRepresentativeSex],
+            ["RG do representante legal", "legalRepresentativeRg", fields.legalRepresentativeRg],
+            ["Atividade principal", "profession", fields.profession],
           ]
         : [
             ["Nome completo", "fullName", fields.fullName],
             ["Celular", "mobile", fields.mobile],
             ["E-mail", "email", fields.email],
             ["CPF", "cpf", fields.cpf],
+            ["Sexo", "sex", fields.sex],
+            ["RG", "rg", fields.rg],
+            ["Profissão", "profession", fields.profession],
             // Quem interpreta o sinal responde por um conselho. Na pessoa
             // jurídica o registro é de cada profissional da equipe, não da
             // entidade — por isso a exigência vale só aqui.
@@ -572,10 +580,11 @@ export const ProfessionalOnboarding: React.FC<Props> = ({
     const addressFields: Array<[string, string, string]> = TESTING_MINIMAL_ONBOARDING
       ? []
       : [
-          ["CEP", "postalCode", fields.postalCode],
-          ["Logradouro", "street", fields.street],
-          ["Número", "number", fields.number],
-          ["Bairro", "district", fields.district],
+          // Decisão do dono (05/10/2026): o endereço de rua é opcional;
+          // país, estado e cidade são obrigatórios.
+          ["País", "country", fields.country],
+          ["Estado", "state", fields.state],
+          ["Cidade", "city", fields.city],
         ];
     const missing = [...requiredFields, ...addressFields].find(([, , value]) => !String(value || "").trim());
     if (missing) {
@@ -940,10 +949,10 @@ export const ProfessionalOnboarding: React.FC<Props> = ({
                   <Field label="Nome completo" name={accountType === "organization" ? "legalRepresentativeName" : "fullName"} value={accountType === "organization" ? fields.legalRepresentativeName : fields.fullName} onChange={updateField} required />
                   <Field label="Celular" name={accountType === "organization" ? "legalRepresentativeMobile" : "mobile"} value={accountType === "organization" ? fields.legalRepresentativeMobile : fields.mobile} onChange={updateField} required />
                   <Field label="E-mail" name={accountType === "organization" ? "legalRepresentativeEmail" : "email"} value={accountType === "organization" ? fields.legalRepresentativeEmail : fields.email} onChange={updateField} type="email" required />
-                  <Field label="Sexo" name={accountType === "organization" ? "legalRepresentativeSex" : "sex"} value={accountType === "organization" ? fields.legalRepresentativeSex : fields.sex} onChange={updateField} />
+                  <Field label="Sexo" name={accountType === "organization" ? "legalRepresentativeSex" : "sex"} value={accountType === "organization" ? fields.legalRepresentativeSex : fields.sex} onChange={updateField} required />
                   <Field label="Data de nascimento" name={accountType === "organization" ? "legalRepresentativeBirthDate" : "birthDate"} value={accountType === "organization" ? fields.legalRepresentativeBirthDate : fields.birthDate} onChange={updateField} type="date" />
                   <Field label="CPF" name={accountType === "organization" ? "legalRepresentativeCpf" : "cpf"} value={accountType === "organization" ? fields.legalRepresentativeCpf : fields.cpf} onChange={updateField} required />
-                  <Field label="RG" name={accountType === "organization" ? "legalRepresentativeRg" : "rg"} value={accountType === "organization" ? fields.legalRepresentativeRg : fields.rg} onChange={updateField} />
+                  <Field label="RG" name={accountType === "organization" ? "legalRepresentativeRg" : "rg"} value={accountType === "organization" ? fields.legalRepresentativeRg : fields.rg} onChange={updateField} required />
                   <Field label="Emissor RG" name={accountType === "organization" ? "legalRepresentativeRgIssuer" : "rgIssuer"} value={accountType === "organization" ? fields.legalRepresentativeRgIssuer : fields.rgIssuer} onChange={updateField} />
                   {accountType === "organization" && (
                     <Field label="Emissao RG" name="legalRepresentativeRgDate" value={fields.legalRepresentativeRgDate} onChange={updateField} type="date" />
@@ -954,18 +963,18 @@ export const ProfessionalOnboarding: React.FC<Props> = ({
                 </Section>
 
                 <Section title="Informação do Endereço">
-                  <Field label="CEP" name="postalCode" value={fields.postalCode} onChange={updateField} required />
-                  <Field label="Logradouro" name="street" value={fields.street} onChange={updateField} required />
-                  <Field label="Número" name="number" value={fields.number} onChange={updateField} required />
-                  <Field label="Bairro" name="district" value={fields.district} onChange={updateField} required />
+                  <Field label="CEP" name="postalCode" value={fields.postalCode} onChange={updateField} />
+                  <Field label="Logradouro" name="street" value={fields.street} onChange={updateField} />
+                  <Field label="Número" name="number" value={fields.number} onChange={updateField} />
+                  <Field label="Bairro" name="district" value={fields.district} onChange={updateField} />
                   <Field label="Complemento" name="complement" value={fields.complement} onChange={updateField} />
-                  <Field label="Pais" name="country" value={fields.country} onChange={updateField} />
-                  <Field label="Estado" name="state" value={fields.state} onChange={updateField} />
-                  <Field label="Cidade" name="city" value={fields.city} onChange={updateField} />
+                  <Field label="Pais" name="country" value={fields.country} onChange={updateField} required />
+                  <Field label="Estado" name="state" value={fields.state} onChange={updateField} required />
+                  <Field label="Cidade" name="city" value={fields.city} onChange={updateField} required />
                 </Section>
 
                 <Section title="Dados fiscais para fatura e recibo">
-                  <Field label={accountType === "organization" ? "Atividade principal" : "Profissao"} name="profession" value={fields.profession} onChange={updateField} placeholder="Psicologa(o), Medica(o) Psiquiatra..." />
+                  <Field label={accountType === "organization" ? "Atividade principal" : "Profissao"} name="profession" value={fields.profession} onChange={updateField} placeholder="Psicologa(o), Medica(o) Psiquiatra..." required />
                   <Field label="Conselho profissional" name="professionalCouncil" value={fields.professionalCouncil} onChange={updateField} placeholder="CRP, CRM..." />
                   <Field label="Registro profissional" name="professionalRegistry" value={fields.professionalRegistry} onChange={updateField} placeholder="Número do CRP/CRM" required={accountType === "individual"} />
                   <Field label="Descrição padrão do serviço" name="receiptServiceDescription" value={fields.receiptServiceDescription} onChange={updateField} placeholder="Sessão de psicoterapia individual, consulta psiquiátrica..." />
@@ -1187,7 +1196,7 @@ export const ProfessionalOnboarding: React.FC<Props> = ({
                 Informações obrigatórias
               </p>
               <ul className="mt-2 list-disc space-y-1 pl-4 text-xs leading-5 text-slate-300">
-                {requiredFieldLabels.map((label) => <li key={label}>{label}</li>)}
+                {requiredFieldLabels.filter((label) => !(trialFirst && label === "Pacote comercial")).map((label) => <li key={label}>{label}</li>)}
               </ul>
             </div>
 

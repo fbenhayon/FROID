@@ -2583,6 +2583,25 @@ def _psique_v2_nascer(user: dict, email: str, account_type: str, organization_do
     return {"conversao": conversao, "trial": trial, "organization_id": organizacao}
 
 
+def _conta_no_psique_v2(email: str, profile: Optional[dict]) -> bool:
+    """A conta deste perfil ja vive na carteira unica V2?
+
+    Marca gravada no nascimento (etapa 3) ou, para quem foi convertido depois
+    (etapa 4), a carteira da organizacao do proprio perfil. Falha de leitura =
+    False: a regra V1 continua valendo, como antes.
+    """
+    if not isinstance(profile, dict):
+        return False
+    if str(profile.get("credit_origin") or "").startswith("psique_v2"):
+        return True
+    if not (globals().get("FROID_PSIQUE_V2_BILLING_ENABLED", False) and TENANT_STORE.enabled):
+        return False
+    organizacao = str(tenant_organization_id_for_profile(
+        _normalize_email(email), str(profile.get("account_type") or "individual").lower(),
+        profile.get("organization_document")))
+    return _organization_uses_psique_v2(organizacao)
+
+
 def _psique_v2_start_block_detail(context: Optional[AccessContext]) -> str:
     """Portao V2 de inicio de sessao (D2a). Devolve o aviso, ou "" se pode iniciar.
 
@@ -2724,6 +2743,23 @@ def _professional_access_status(email: str) -> dict:
     if trial["trial_exhausted"]:
         # Mesmo efeito: o painel devolve a pessoa para a selecao de pacotes.
         clinico_pronto = False
+    # Fase 7.4: conta na carteira unica V2 nao tem saldo no JSON (a conta nova
+    # nasce com 0 aqui e 10 creditos de teste la). Saldo, trial e pendencia sao
+    # decididos pela carteira V2 e pelo portao V2 no INICIO de sessao, com a
+    # mensagem certa; aplicar a regra V1 aqui mandaria quem tem credito para a
+    # tela "seus creditos acabaram". So consulta o banco quando a regra V1
+    # barraria, para nao pesar no login de ninguem.
+    conta_v2 = False
+    if tem_produto_clinico and not clinico_pronto and has_profile:
+        conta_v2 = _conta_no_psique_v2(owner_email, profile)
+        if conta_v2:
+            clinico_pronto = (
+                lgpd_acknowledged
+                and bool(selected_plan)
+                and bool(professional_cpf)
+                and payment_status in PAID_SESSION_STATUSES
+                and access_allowed
+            )
     access_ready = nr1_pronto or clinico_pronto
     return {
         "has_profile": has_profile,
@@ -2749,6 +2785,8 @@ def _professional_access_status(email: str) -> dict:
         "selected_plan": selected_plan,
         "payment_status": payment_status or ("pending_checkout" if selected_plan else "not_started"),
         "onboarding_required": not access_ready,
+        # Conta na carteira unica V2: o saldo daqui (JSON) nao e a autoridade.
+        "psique_v2": conta_v2,
         "total_sessions": total_sessions,
         "used_sessions": used_sessions,
         "remaining_sessions": remaining_sessions,

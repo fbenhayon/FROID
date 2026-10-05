@@ -25,6 +25,7 @@ import ast
 import json
 import logging
 import sys
+import types
 import typing
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -131,6 +132,10 @@ NS["_cadastro_clinico"] = _funcao("_cadastro_clinico", NS)
 NS["_tipos_de_cadastro"] = _funcao("_tipos_de_cadastro", NS)
 NS["_documento_da_empresa_nr1"] = _funcao("_documento_da_empresa_nr1", NS)
 NS["_trial_state"] = _funcao("_trial_state", NS)
+# Fase 7.4: conta V2 nao usa o saldo do JSON. Aqui o armazenamento esta
+# desligado, entao so a marca credit_origin=psique_v2* a coloca no V2.
+NS["TENANT_STORE"] = types.SimpleNamespace(enabled=False)
+NS["_conta_no_psique_v2"] = _funcao("_conta_no_psique_v2", NS)
 estado_de_acesso = _funcao("_professional_access_status", NS)
 
 
@@ -629,3 +634,34 @@ class AJanelaAbreSOAquiloQueJaFoiPago(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ContaNoPsiqueV2(unittest.TestCase):
+    """Fase 7.4 (05/10/2026): a conta nova nasce com 0 no JSON e 10 creditos na
+    carteira V2. O dono foi parado na tela "seus creditos acabaram" com o teste
+    ativo. Para conta V2 o saldo do JSON nao decide; o portao V2 decide no inicio."""
+
+    def setUp(self):
+        PERFIS.clear()
+        AVISOS.avisos.clear()
+
+    def test_conta_nova_v2_com_json_zerado_entra_no_painel(self):
+        PERFIS["nova@psi.com"] = perfil_clinico(
+            credit_origin="psique_v2_trial", total_sessions=0, trial_sessions=0,
+            remaining_sessions=0, trial_position=0)
+        estado = estado_de_acesso("nova@psi.com")
+        self.assertFalse(estado["onboarding_required"])
+        self.assertTrue(estado["psique_v2"])
+
+    def test_conta_v1_com_saldo_zero_continua_parada(self):
+        PERFIS["v1@psi.com"] = perfil_clinico(total_sessions=0, trial_sessions=0,
+                                              remaining_sessions=0, trial_position=0)
+        estado = estado_de_acesso("v1@psi.com")
+        self.assertTrue(estado["onboarding_required"])
+        self.assertFalse(estado["psique_v2"])
+
+    def test_conta_v2_suspensa_continua_fora(self):
+        PERFIS["susp@psi.com"] = perfil_clinico(
+            credit_origin="psique_v2_trial", remaining_sessions=0,
+            access_approval_status="suspended")
+        self.assertTrue(estado_de_acesso("susp@psi.com")["onboarding_required"])
