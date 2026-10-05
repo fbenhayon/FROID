@@ -22,6 +22,8 @@ ROTAS_V1 = [
     "/api/subscriptions/confirm-checkout",
     "/api/subscriptions/recharge/retry",
     "/api/stripe/webhook",
+    "/api/billing/checkout",
+    "/api/billing/confirm-checkout",
 ]
 
 

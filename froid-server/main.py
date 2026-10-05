@@ -15426,6 +15426,7 @@ async def retry_automatic_recharge(request: Request):
 
 @app.post("/api/billing/checkout")
 async def create_billing_checkout(request: Request):
+    _v1_commerce_retired_guard()
     if FROID_SUBSCRIPTIONS_REQUIRED:
         raise HTTPException(status_code=410, detail="checkout legado desativado")
     user = _current_user_from_request(request)
@@ -15584,6 +15585,7 @@ async def create_billing_checkout(request: Request):
 
 @app.post("/api/billing/confirm-checkout")
 async def confirm_billing_checkout(request: Request):
+    _v1_commerce_retired_guard()
     if FROID_SUBSCRIPTIONS_REQUIRED or not FROID_ALLOW_LOCAL_BILLING_FALLBACK:
         raise HTTPException(status_code=410, detail="confirmação legada desativada")
     user = _current_user_from_request(request)
