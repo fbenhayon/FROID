@@ -10524,11 +10524,9 @@ async def invite_organization_member(organization_id: str, request: Request):
 
 @app.get("/api/organization-invitations/{token}")
 async def organization_invitation_details(token: str, request: Request):
-    # Publico de proposito: a tela de aceite mostra para qual e-mail/clinica o
-    # convite foi emitido ANTES do login, para o convidado entrar com a conta
-    # certa (e nao cair no 403 por estar logado com outro e-mail). Isto NAO
-    # resgata nada — o aceite continua exigindo sessao + e-mail casado +
-    # verificacao. Rate-limit por IP contra varredura de tokens.
+    # Publico de proposito (espelho do GET do convite de paciente): a tela
+    # mostra clinica + e-mail convidado e decide o formulario. Nao resgata nada.
+    # Rate-limit por IP contra varredura de tokens.
     _rate_limit_guard(
         "org_invite_details", _client_ip(request), 60, 900.0,
         "Muitas tentativas. Aguarde alguns minutos e tente novamente.",
@@ -10542,6 +10540,10 @@ async def organization_invitation_details(token: str, request: Request):
     details = TENANT_STORE.member_invitation_details(token_hash=token_hash)
     if not details:
         raise HTTPException(status_code=404, detail="convite inválido ou expirado")
+    # A tela decide o formulario como a do paciente decide o "password_only":
+    # e-mail que ja tem acesso por senha so informa a senha; e-mail novo cria.
+    convidado = PROFESSIONAL_CREDENTIALS.get(_normalize_email(details.get("invited_email") or ""))
+    details["has_password"] = bool(isinstance(convidado, dict) and convidado.get("password_hash"))
     return details
 
 
@@ -10579,6 +10581,106 @@ async def accept_organization_invitation(request: Request):
     refreshed = _attach_tenant_contexts(user)
     user.update(refreshed)
     return {"status": "accepted", "membership": context}
+
+
+@app.post("/api/organization-invitations/{token}/accept")
+async def accept_organization_invitation_pelo_link(token: str, request: Request):
+    """Aceite PUBLICO do convite de equipe — espelho do aceite do paciente
+    (/api/session-invites/{token}/accept). Decisao do dono em 05/10/2026, depois
+    de cinco tentativas falhadas do modelo "entre logado com o e-mail convidado".
+
+    O convidado abre o link, cria a senha (ou informa a que ja tem) e entra na
+    clinica num passo so, sem sessao previa: o e-mail NAO vem do formulario nem
+    do navegador — vem do proprio convite, que a clinica emitiu para aquele
+    endereco. Assim a trava invited_email x e-mail casa por construcao, e um
+    navegador logado com OUTRA conta (a dona da clinica, no caso real) nao
+    atrapalha mais.
+
+    Procedencia: como no paciente, a entrega do link pela clinica e a prova; nao
+    ha confirmacao de caixa. A credencial fica marcada verified_via =
+    clinic_invitation para isso ser auditavel. Senha ja existente NUNCA e
+    redefinida por aqui (anti-sequestro): o convite exige a senha atual.
+    """
+    _rate_limit_guard(
+        "org_invite_accept", _client_ip(request), 30, 900.0,
+        "Muitas tentativas. Aguarde alguns minutos e tente novamente.",
+    )
+    if not TENANT_STORE.enabled:
+        raise HTTPException(status_code=409, detail="persistência dual obrigatória")
+    token_value = str(token or "").strip()
+    if not token_value:
+        raise HTTPException(status_code=400, detail="token de convite obrigatório")
+    token_hash = hashlib.sha256(token_value.encode("utf-8")).hexdigest()
+    details = TENANT_STORE.member_invitation_details(token_hash=token_hash)
+    if not details or details.get("status") != "pending" or details.get("expired"):
+        raise HTTPException(status_code=404, detail="convite inválido ou expirado")
+    email = _normalize_email(details.get("invited_email") or "")
+    if not _valid_email_shape(email):
+        raise HTTPException(status_code=404, detail="convite inválido ou expirado")
+    _rate_limit_guard(
+        "org_invite_accept_email", email, 10, 900.0,
+        "Muitas tentativas para este convite. Aguarde alguns minutos.",
+    )
+    body = await request.json()
+    password = str(body.get("password") or "")
+    existente = PROFESSIONAL_CREDENTIALS.get(email)
+    tem_senha = isinstance(existente, dict) and bool(existente.get("password_hash"))
+    # 1) Valida tudo ANTES de mudar qualquer estado.
+    if tem_senha:
+        if not _verify_professional_password(existente, password):
+            raise HTTPException(status_code=401, detail="Senha incorreta para este e-mail")
+        nome = str(existente.get("name") or "").strip() or email.split("@", 1)[0]
+    else:
+        confirm = str(body.get("password_confirm") or password)
+        if password != confirm:
+            raise HTTPException(status_code=400, detail="A confirmação da senha não confere")
+        queixa = _password_policy_error(password)
+        if queixa:
+            raise HTTPException(status_code=400, detail=queixa)
+        nome = str(body.get("name") or "").strip()[:300]
+        if not nome:
+            raise HTTPException(status_code=400, detail="Informe seu nome")
+    # 2) Vinculo com a clinica (limite de membros e assinatura valem aqui).
+    try:
+        context = TENANT_STORE.accept_member_invitation(
+            token_hash=token_hash, email=email, display_name=nome,
+        )
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="convite destinado a outro email")
+    except ValueError as exc:
+        if str(exc) == "organization_member_limit_reached":
+            raise HTTPException(status_code=409, detail="limite de profissionais do plano atingido")
+        if str(exc) == "organization_subscription_inactive":
+            raise HTTPException(status_code=402, detail="plano FROID inativo")
+        raise HTTPException(status_code=404, detail="convite inválido ou expirado")
+    # 3) So entao a credencial — nada fica pela metade se o vinculo falhar.
+    agora = _utc_now_iso()
+    credencial = existente if isinstance(existente, dict) else {"email": email, "created_at": agora}
+    if not tem_senha:
+        credencial["email"] = email
+        credencial["name"] = nome
+        credencial["provider"] = "password"
+        credencial["updated_at"] = agora
+        _set_professional_password(credencial, password)
+    if not credencial.get("email_verified"):
+        # Sem isto, quem entrou pelo convite nao conseguiria logar depois por
+        # senha (o login exige e-mail verificado). A clinica vouched pelo e-mail.
+        credencial["email_verified"] = True
+        credencial["verified_via"] = "clinic_invitation"
+        credencial["verified_at"] = agora
+    credencial["last_auth_at"] = agora
+    PROFESSIONAL_CREDENTIALS[email] = credencial
+    _save_identity_state()
+    TENANT_STORE.record_access_audit(
+        organization_id=context["organization_id"],
+        actor_user_id=context["user_id"],
+        action="member.join",
+        resource_type="organization_membership",
+        resource_id=context["membership_id"],
+        metadata={"via": "invitation_link", "credential_created": not tem_senha},
+    )
+    sessao = _issue_session({"email": email, "name": nome, "provider": "password"})
+    return {"status": "accepted", "membership": context, **sessao}
 
 
 @app.delete("/api/organizations/{organization_id}/members/{membership_id}")

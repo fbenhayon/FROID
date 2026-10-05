@@ -10,20 +10,22 @@ import { expect, it } from "vitest";
 import { EntrarNaClinicaPage, mensagemDoErro, papeisEmTexto } from "./EntrarNaClinica";
 
 it("cada codigo de erro vira a orientacao certa, distinta uma da outra", () => {
+  const senhaErrada = mensagemDoErro(401, "Senha incorreta para este e-mail");
   const porOutroEmail = mensagemDoErro(403, "convite destinado a outro email");
   const limite = mensagemDoErro(409, "limite de profissionais do plano atingido");
   const inativo = mensagemDoErro(402, "plano FROID inativo");
   const invalido = mensagemDoErro(404, "convite inválido ou expirado");
 
+  expect(senhaErrada.toLowerCase()).toContain("senha incorreta");
   expect(porOutroEmail).toContain("outro e-mail");
   expect(limite).toContain("limite de profissionais");
   expect(inativo).toContain("inativo");
   expect(invalido.toLowerCase()).toContain("expirado");
 
   // Nenhuma mensagem pode colidir com outra: o convidado precisa saber QUAL
-  // dos quatro problemas e o dele.
-  const todas = [porOutroEmail, limite, inativo, invalido];
-  expect(new Set(todas).size).toBe(4);
+  // dos cinco problemas e o dele.
+  const todas = [senhaErrada, porOutroEmail, limite, inativo, invalido];
+  expect(new Set(todas).size).toBe(5);
 });
 
 it("erro sem codigo conhecido usa o detalhe do servidor e nunca fica vazio", () => {

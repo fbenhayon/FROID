@@ -1,18 +1,19 @@
-/** Resgate de convite de equipe (profissional entrando numa clínica).
+/** Convite de equipe (profissional entrando numa clínica) — igual ao do paciente.
  *
- *  Espelha o fluxo do paciente (PatientInvitePage): página PÚBLICA, com a cara
- *  da clínica, onde o profissional se cadastra/entra ali mesmo e passa a integrar
- *  a equipe — sem login-first e sem beco de "e-mail errado". O link do WhatsApp
- *  traz o código em ?token=; um GET público revela a clínica e o e-mail convidado.
+ *  Espelho de PatientInvitePage (/convite/:token): página PÚBLICA, com a cara
+ *  da clínica, onde o convidado cria a senha (ou informa a que já tem) e entra
+ *  na clínica num passo só. O servidor cria a conta NO E-MAIL DO CONVITE e o
+ *  vínculo com a clínica na mesma chamada (POST /api/organization-invitations/
+ *  {token}/accept) e já devolve a sessão.
  *
- *  Segurança (ordem do dono, "rigor máximo"): o convite é amarrado ao e-mail
- *  (guarda do acesso clínico, validada no backend). O token viaja no WhatsApp e
- *  NÃO prova a caixa, então:
- *   - "Entrar com Google" resolve em 1 clique (o Google prova o e-mail);
- *   - "Criar conta com senha" exige CONFIRMAR o e-mail antes de entrar na clínica
- *     (prova de caixa) — decisão do dono em 02/10/2026.
- *  A conta é sempre criada/usada SOBRE o e-mail convidado, então o 403 do backend
- *  (invited_email × e-mail provado) continua sendo a trava, por construção.
+ *  Decisão do dono em 05/10/2026, depois de cinco tentativas falhadas do modelo
+ *  "entre logado com o e-mail convidado": esta tela NÃO consulta a sessão do
+ *  navegador. Quem abre o link estando logado como outra conta (a dona da
+ *  clínica, no caso real) não é derrubado por isso — como no paciente.
+ *
+ *  O e-mail não é editável: vem do convite, que a clínica emitiu. Senha já
+ *  existente nunca é redefinida por aqui (anti-sequestro): o servidor exige a
+ *  senha atual. "Entrar com Google" segue como alternativa de 1 clique.
  */
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -25,6 +26,8 @@ type DetalhesConvite = {
   roles: string[];
   status: string;
   expired: boolean;
+  /** O e-mail convidado já tem acesso FROID por senha: só pede a senha. */
+  has_password?: boolean;
 };
 
 type GoogleCredentialResponse = { credential?: string };
@@ -32,6 +35,8 @@ type GoogleCredentialResponse = { credential?: string };
 /** Traduz o erro do backend para uma frase que diz o que fazer a seguir. */
 export function mensagemDoErro(status: number, detalhe: string): string {
   switch (status) {
+    case 401:
+      return "Senha incorreta para este e-mail. Se esqueceu a senha, use \"Esqueci minha senha\" na tela de acesso e volte a este link.";
     case 403:
       return "Este convite foi emitido para outro e-mail. Entre com a conta do e-mail que recebeu o convite, ou peça à clínica um novo código para o seu endereço.";
     case 409:
@@ -41,7 +46,7 @@ export function mensagemDoErro(status: number, detalhe: string): string {
     case 404:
       return "Código inválido ou expirado. Os códigos valem por tempo limitado e são de uso único — peça um novo à clínica.";
     default:
-      return detalhe || "Não foi possível resgatar o convite agora. Tente novamente em instantes.";
+      return detalhe || "Não foi possível entrar na clínica agora. Tente novamente em instantes.";
   }
 }
 
@@ -52,17 +57,18 @@ const PAPEL_PT: Record<string, string> = {
   owner: "proprietário",
 };
 
-/** Como o convite nomeia os papéis, em português; só nomes testáveis sem efeito. */
+/** Como o convite nomeia os papéis, em português; puro, testável sem efeito. */
 export function papeisEmTexto(roles: string[]): string {
   const nomes = (roles || []).map((r) => PAPEL_PT[r] || r);
   return nomes.length ? nomes.join(", ") : "profissional";
 }
 
-function lerToken(): string {
+function guardarSessao(data: any) {
+  if (!data?.token) return;
   try {
-    return (typeof localStorage !== "undefined" && localStorage.getItem("froid_token")) || "";
+    localStorage.setItem("froid_token", data.token);
   } catch {
-    return "";
+    /* sem localStorage a sessão vale só nesta tela; o painel pedirá login */
   }
 }
 
@@ -81,6 +87,9 @@ function Moldura({ children }: { children: React.ReactNode }) {
   );
 }
 
+const CAMPO =
+  "w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200 outline-none focus:border-cyan-500";
+
 export function EntrarNaClinicaPage() {
   const [params] = useSearchParams();
   const token = (params.get("token") ?? "").trim();
@@ -88,16 +97,12 @@ export function EntrarNaClinicaPage() {
   const [detalhes, setDetalhes] = useState<DetalhesConvite | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [erroConvite, setErroConvite] = useState("");
-  const [logado, setLogado] = useState<boolean>(() => Boolean(lerToken()));
-  const [modo, setModo] = useState<"criar" | "entrar">("criar");
   const [nome, setNome] = useState("");
   const [senha, setSenha] = useState("");
   const [senha2, setSenha2] = useState("");
   const [ocupado, setOcupado] = useState(false);
   const [erro, setErro] = useState("");
-  const [fase, setFase] = useState<"form" | "aceito" | "confirme_email">("form");
-  const [devLink, setDevLink] = useState("");
-  const [registroHabilitado, setRegistroHabilitado] = useState(false);
+  const [aceito, setAceito] = useState(false);
   const [senhaMinima, setSenhaMinima] = useState(6);
   const [googlePronto, setGooglePronto] = useState(false);
   const googleRef = useRef<HTMLDivElement | null>(null);
@@ -106,7 +111,7 @@ export function EntrarNaClinicaPage() {
     [],
   );
 
-  // Dados do convite (clínica + e-mail convidado), leitura pública.
+  // Dados do convite (clínica + e-mail + se já tem senha), leitura pública.
   useEffect(() => {
     if (!token) {
       setCarregando(false);
@@ -124,7 +129,6 @@ export function EntrarNaClinicaPage() {
       .then((d) => {
         if (!vivo) return;
         setDetalhes(d);
-        setNome("");
         if (d.status !== "pending" || d.expired) setErroConvite(mensagemDoErro(404, ""));
       })
       .catch((e) => {
@@ -138,34 +142,54 @@ export function EntrarNaClinicaPage() {
     };
   }, [token]);
 
-  // Config de cadastro próprio (o servidor decide se existe).
   useEffect(() => {
     fetch(apiUrl("/api/auth/config"))
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        setRegistroHabilitado(Boolean(d?.registration_enabled));
         if (d?.password_min_length) setSenhaMinima(Number(d.password_min_length));
-        if (!d?.registration_enabled) setModo("entrar");
       })
       .catch(() => undefined);
   }, []);
 
-  const aceitar = async () => {
-    setOcupado(true);
+  // O aceite pelo link: cria a conta no e-mail do convite (ou confere a senha
+  // existente) e entra na clínica num passo só — como o paciente.
+  const entrar = async (e: React.FormEvent) => {
+    e.preventDefault();
     setErro("");
+    const novo = !detalhes?.has_password;
+    if (senha.length < senhaMinima) {
+      setErro(`A senha precisa ter ao menos ${senhaMinima} caracteres.`);
+      return;
+    }
+    if (novo && senha !== senha2) {
+      setErro("A confirmação da senha não confere.");
+      return;
+    }
+    if (novo && !nome.trim()) {
+      setErro("Informe seu nome.");
+      return;
+    }
+    setOcupado(true);
     try {
-      const auth = lerToken();
-      const r = await fetch(apiUrl("/api/organization-invitations/accept"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...(auth ? { Authorization: `Bearer ${auth}` } : {}) },
-        body: JSON.stringify({ invitation_token: token }),
-      });
-      if (r.ok) {
-        setFase("aceito");
+      const r = await fetch(
+        apiUrl("/api/organization-invitations/" + encodeURIComponent(token) + "/accept"),
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(
+            novo
+              ? { name: nome.trim(), password: senha, password_confirm: senha2 }
+              : { password: senha },
+          ),
+        },
+      );
+      const d = await r.json().catch(() => null);
+      if (!r.ok) {
+        setErro(mensagemDoErro(r.status, d?.detail || ""));
         return;
       }
-      const c = await r.json().catch(() => null);
-      setErro(mensagemDoErro(r.status, c?.detail || ""));
+      guardarSessao(d);
+      setAceito(true);
     } catch {
       setErro("Falha de conexão ao entrar na clínica. Verifique a internet e tente de novo.");
     } finally {
@@ -173,19 +197,26 @@ export function EntrarNaClinicaPage() {
     }
   };
 
-  const comSessaoEntrar = async (data: any) => {
-    if (data?.token) {
-      try {
-        localStorage.setItem("froid_token", data.token);
-      } catch {
-        /* sem localStorage o accept abaixo ainda tentara com o header vazio */
-      }
-      setLogado(true);
+  // Alternativa de 1 clique: o Google prova o e-mail; a sessão dele aceita o
+  // convite pelo caminho autenticado.
+  const aceitarComSessao = async (sessao: any) => {
+    guardarSessao(sessao);
+    const r = await fetch(apiUrl("/api/organization-invitations/accept"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(sessao?.token ? { Authorization: `Bearer ${sessao.token}` } : {}),
+      },
+      body: JSON.stringify({ invitation_token: token }),
+    });
+    if (r.ok) {
+      setAceito(true);
+      return;
     }
-    await aceitar();
+    const c = await r.json().catch(() => null);
+    setErro(mensagemDoErro(r.status, c?.detail || ""));
   };
 
-  // Google Identity Services (mesmo padrão do LoginPage), só quando faz sentido.
   useEffect(() => {
     if (!googleClientId || googlePronto) return;
     const existing = document.querySelector<HTMLScriptElement>(
@@ -207,8 +238,8 @@ export function EntrarNaClinicaPage() {
   }, [googleClientId, googlePronto]);
 
   useEffect(() => {
-    const mostrandoAuth = !logado && fase === "form" && Boolean(detalhes) && !erroConvite;
-    if (!googlePronto || !googleClientId || !mostrandoAuth || !googleRef.current) return;
+    const mostrando = !aceito && Boolean(detalhes) && !erroConvite;
+    if (!googlePronto || !googleClientId || !mostrando || !googleRef.current) return;
     const g = window.google?.accounts?.id;
     if (!g) return;
     g.initialize({
@@ -230,11 +261,9 @@ export function EntrarNaClinicaPage() {
             if (!r.ok) throw new Error(d?.detail || "Falha no login do Google.");
             return d;
           })
-          .then((d) => comSessaoEntrar(d))
-          .catch((e) => {
-            setErro(e instanceof Error ? e.message : "Falha no login do Google.");
-            setOcupado(false);
-          });
+          .then((d) => aceitarComSessao(d))
+          .catch((e) => setErro(e instanceof Error ? e.message : "Falha no login do Google."))
+          .finally(() => setOcupado(false));
       },
     });
     g.renderButton(googleRef.current, {
@@ -245,74 +274,7 @@ export function EntrarNaClinicaPage() {
       shape: "rectangular",
       width: 320,
     });
-  }, [googlePronto, googleClientId, logado, fase, detalhes, erroConvite]);
-
-  const criarConta = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErro("");
-    if (senha.length < senhaMinima) {
-      setErro(`A senha precisa ter ao menos ${senhaMinima} caracteres.`);
-      return;
-    }
-    if (senha !== senha2) {
-      setErro("A confirmação da senha não confere.");
-      return;
-    }
-    setOcupado(true);
-    try {
-      const r = await fetch(apiUrl("/api/auth/register"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: nome,
-          email: detalhes?.invited_email || "",
-          password: senha,
-          password_confirm: senha2,
-          // Ao confirmar o e-mail, voltar direto a este aceite (logado), sem o
-          // convidado ter de reencontrar o link.
-          continue_to: "/entrar-clinica?token=" + token,
-        }),
-      });
-      const d = await r.json().catch(() => null);
-      if (!r.ok) throw new Error(d?.detail || "Não foi possível criar a conta.");
-      setDevLink(String(d?.dev_link || ""));
-      setFase("confirme_email");
-    } catch (err) {
-      setErro(err instanceof Error ? err.message : "Não foi possível criar a conta.");
-    } finally {
-      setOcupado(false);
-    }
-  };
-
-  const entrarComSenha = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErro("");
-    setOcupado(true);
-    try {
-      const r = await fetch(apiUrl("/api/auth/login"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: detalhes?.invited_email || "", password: senha }),
-      });
-      const d = await r.json().catch(() => null);
-      if (!r.ok) throw new Error(d?.detail || "E-mail ou senha incorretos.");
-      await comSessaoEntrar(d);
-    } catch (err) {
-      setErro(err instanceof Error ? err.message : "E-mail ou senha incorretos.");
-    } finally {
-      setOcupado(false);
-    }
-  };
-
-  const sairParaOutraConta = () => {
-    try {
-      localStorage.removeItem("froid_token");
-    } catch {
-      /* ignore */
-    }
-    setLogado(false);
-    setErro("");
-  };
+  }, [googlePronto, googleClientId, aceito, detalhes, erroConvite]);
 
   if (carregando) {
     return (
@@ -336,7 +298,9 @@ export function EntrarNaClinicaPage() {
     );
   }
 
-  if (fase === "aceito") {
+  const convite = detalhes as DetalhesConvite;
+
+  if (aceito) {
     return (
       <Moldura>
         <div className="mt-4 rounded-lg border border-emerald-800/70 bg-emerald-950/30 p-5 text-center">
@@ -346,7 +310,7 @@ export function EntrarNaClinicaPage() {
           <h1 className="mt-3 text-2xl font-black">Você entrou na clínica</h1>
           <p className="mt-3 text-sm leading-6 text-slate-300">
             Seu acesso já inclui a equipe de{" "}
-            <span className="font-black">{detalhes?.clinic_name || "a clínica"}</span>. Ao atender
+            <span className="font-black">{convite.clinic_name || "a clínica"}</span>. Ao atender
             no contexto dela, os créditos consomem do saldo da clínica, não do seu.
           </p>
           <a
@@ -360,27 +324,9 @@ export function EntrarNaClinicaPage() {
     );
   }
 
-  if (fase === "confirme_email") {
-    return (
-      <Moldura>
-        <h1 className="mt-2 text-2xl font-black">Confirme seu e-mail</h1>
-        <p className="mt-4 text-sm leading-6 text-slate-300">
-          Enviamos um link de confirmação para{" "}
-          <span className="font-black text-cyan-300">{detalhes?.invited_email}</span>. Abra a
-          mensagem e confirme — isso prova que a caixa é sua. Depois, volte a este mesmo link do
-          convite para entrar na equipe de{" "}
-          <span className="font-black">{detalhes?.clinic_name || "a clínica"}</span>.
-        </p>
-        {devLink && (
-          <p className="mt-4 break-all text-[11px] text-slate-500">
-            Link de desenvolvimento: <a className="text-cyan-400 underline" href={devLink}>{devLink}</a>
-          </p>
-        )}
-      </Moldura>
-    );
-  }
+  const indisponivel = Boolean(erroConvite);
+  const jaTemSenha = Boolean(convite.has_password);
 
-  const convite = detalhes as DetalhesConvite;
   return (
     <Moldura>
       <h1 className="mt-2 text-2xl font-black">Entrar numa clínica</h1>
@@ -392,87 +338,33 @@ export function EntrarNaClinicaPage() {
         <span className="font-black">{convite.clinic_name || "a clínica"}</span> como{" "}
         <span className="font-black">{papeisEmTexto(convite.roles)}</span>.
         <br />
-        Emitido para{" "}
-        <span className="font-black text-cyan-300">{convite.invited_email}</span>. Entre com a
-        conta desse e-mail para aceitar.
+        E-mail do convite:{" "}
+        <span className="font-black text-cyan-300">{convite.invited_email}</span>.
       </div>
 
-      {logado ? (
-        <div className="mt-6">
-          <p className="text-sm text-slate-300">
-            Você já está conectada(o). Se esta for a conta de{" "}
-            <span className="font-black">{convite.invited_email}</span>, é só entrar na clínica.
-          </p>
-          {erro && (
-            <p data-campo="erro" className="mt-4 rounded-lg border border-amber-700 bg-amber-950/60 p-3 text-xs font-bold leading-5 text-amber-100">
-              {erro}
-            </p>
-          )}
-          <div className="mt-5 flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={aceitar}
-              disabled={ocupado}
-              className="rounded-lg bg-cyan-700 px-4 py-3 text-sm font-black text-white hover:bg-cyan-600 disabled:cursor-wait disabled:opacity-60"
-            >
-              {ocupado ? "Entrando..." : "Entrar na clínica"}
-            </button>
-            <button
-              type="button"
-              onClick={sairParaOutraConta}
-              className="rounded-lg border border-slate-700 px-4 py-3 text-sm font-black text-slate-200 hover:border-cyan-500 hover:text-cyan-300"
-            >
-              Usar outra conta
-            </button>
-          </div>
-        </div>
+      {indisponivel ? (
+        <p
+          data-campo="erro"
+          className="mt-5 rounded-lg border border-amber-700 bg-amber-950/60 p-3 text-xs font-bold leading-5 text-amber-100"
+        >
+          {erroConvite}
+        </p>
       ) : (
         <div className="mt-6 space-y-4">
-          {googleClientId && (
-            <div className="rounded-lg bg-white p-2">
-              <div ref={googleRef} className="flex justify-center" />
-            </div>
-          )}
-          {googleClientId && (
-            <div className="flex items-center gap-3 text-[11px] uppercase tracking-[0.24em] text-slate-500">
-              <span className="h-px flex-1 bg-slate-700" />
-              ou com e-mail e senha
-              <span className="h-px flex-1 bg-slate-700" />
-            </div>
-          )}
-
-          {registroHabilitado && (
-            <div className="grid grid-cols-2 gap-1 rounded-lg bg-slate-950/60 p-1">
-              {(["criar", "entrar"] as const).map((opcao) => (
-                <button
-                  key={opcao}
-                  type="button"
-                  onClick={() => {
-                    setModo(opcao);
-                    setErro("");
-                    setSenha("");
-                    setSenha2("");
-                  }}
-                  className={
-                    "rounded-md px-3 py-2 text-sm font-bold transition " +
-                    (modo === opcao ? "bg-slate-800 text-white" : "text-slate-400 hover:text-white")
-                  }
-                >
-                  {opcao === "criar" ? "Criar conta" : "Já tenho conta"}
-                </button>
-              ))}
-            </div>
-          )}
-
-          <form onSubmit={modo === "criar" && registroHabilitado ? criarConta : entrarComSenha} className="space-y-3">
-            {modo === "criar" && registroHabilitado && (
+          <form onSubmit={entrar} className="space-y-3">
+            <p className="text-sm leading-6 text-slate-300">
+              {jaTemSenha
+                ? "Este e-mail já tem acesso FROID. Informe sua senha para entrar na clínica."
+                : "Crie sua senha de acesso e você entra na clínica na hora."}
+            </p>
+            {!jaTemSenha && (
               <input
                 value={nome}
                 onChange={(e) => setNome(e.target.value)}
                 required
                 autoComplete="name"
                 placeholder="seu nome completo"
-                className="w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200 outline-none focus:border-cyan-500"
+                className={CAMPO}
               />
             )}
             <input
@@ -487,11 +379,11 @@ export function EntrarNaClinicaPage() {
               onChange={(e) => setSenha(e.target.value)}
               required
               minLength={senhaMinima}
-              autoComplete={modo === "criar" && registroHabilitado ? "new-password" : "current-password"}
-              placeholder={modo === "criar" && registroHabilitado ? `senha (mínimo ${senhaMinima} caracteres)` : "sua senha"}
-              className="w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200 outline-none focus:border-cyan-500"
+              autoComplete={jaTemSenha ? "current-password" : "new-password"}
+              placeholder={jaTemSenha ? "sua senha" : `senha (mínimo ${senhaMinima} caracteres, letras e números)`}
+              className={CAMPO}
             />
-            {modo === "criar" && registroHabilitado && (
+            {!jaTemSenha && (
               <input
                 type="password"
                 value={senha2}
@@ -500,11 +392,14 @@ export function EntrarNaClinicaPage() {
                 minLength={senhaMinima}
                 autoComplete="new-password"
                 placeholder="repita a senha"
-                className="w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200 outline-none focus:border-cyan-500"
+                className={CAMPO}
               />
             )}
             {erro && (
-              <p data-campo="erro" className="rounded-lg border border-amber-700 bg-amber-950/60 p-3 text-xs font-bold leading-5 text-amber-100">
+              <p
+                data-campo="erro"
+                className="rounded-lg border border-amber-700 bg-amber-950/60 p-3 text-xs font-bold leading-5 text-amber-100"
+              >
                 {erro}
               </p>
             )}
@@ -513,13 +408,23 @@ export function EntrarNaClinicaPage() {
               disabled={ocupado}
               className="w-full rounded-lg bg-cyan-700 px-4 py-3 text-sm font-black text-white hover:bg-cyan-600 disabled:cursor-wait disabled:opacity-60"
             >
-              {ocupado
-                ? "Enviando..."
-                : modo === "criar" && registroHabilitado
-                  ? "Criar conta e entrar na clínica"
-                  : "Entrar na clínica"}
+              {ocupado ? "Entrando..." : "Entrar na clínica"}
             </button>
           </form>
+
+          {googleClientId && (
+            <>
+              <div className="flex items-center gap-3 text-[11px] uppercase tracking-[0.24em] text-slate-500">
+                <span className="h-px flex-1 bg-slate-700" />
+                ou com Google
+                <span className="h-px flex-1 bg-slate-700" />
+              </div>
+              <div className="rounded-lg bg-white p-2">
+                <div ref={googleRef} className="flex justify-center" />
+              </div>
+            </>
+          )}
+
           <p className="text-center text-[11px] leading-5 text-slate-500">
             Ao continuar você concorda com os{" "}
             <Link to="/termos" className="text-cyan-400">termos de uso</Link> e a{" "}

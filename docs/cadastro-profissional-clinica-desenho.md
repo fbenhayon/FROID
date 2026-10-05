@@ -97,6 +97,23 @@ melhor**, e o risco da mudança é de **UI**, não de identidade.
 > em destaque + "Criar conta / entrar com senha" na própria tela, com o e-mail
 > fixado no do convite, auto-aceite após a sessão existir. Backend de aceite +
 > trava de e-mail intocados; reusa register/google/login + o GET do convite.
+>
+> **PIVÔ (05/10/2026), depois da 5ª falha.** O modelo "entre logado com o
+> e-mail convidado" é estruturalmente incompatível com o uso real: a dona da
+> clínica está sempre logada no mesmo navegador, e qualquer tela que consulte a
+> sessão a derruba no 403. Ordem do dono: **exatamente o procedimento do
+> paciente** (`/convite/:token`). Implementado: novo endpoint público
+> `POST /api/organization-invitations/{token}/accept` que cria a conta **no
+> e-mail do convite** (ou confere a senha já existente — nunca a redefine) e o
+> vínculo com a clínica numa chamada só, devolvendo a sessão; a página deixa de
+> olhar a sessão do navegador; o GET informa `has_password` para a tela pedir só
+> a senha quando o e-mail já tem acesso (espelho do `password_only` do paciente).
+> **Consequência de segurança, assumida como no paciente:** a entrega do link
+> pela clínica é a prova — não há confirmação de caixa; a credencial nasce com
+> `verified_via: clinic_invitation` para ficar auditável. O D3 anterior
+> ("confirmar o e-mail") fica substituído por esta decisão. Google segue em 1
+> clique pelo caminho autenticado. O `continue_to`/`seguir` do verify-email
+> permanece disponível, mas esta tela não depende mais dele.
 
 - **D1 — Caminhos de autenticação na página de aceite:** Google + senha (Google
   promovido) · só Google · só senha. Depende de como seus profissionais entram.

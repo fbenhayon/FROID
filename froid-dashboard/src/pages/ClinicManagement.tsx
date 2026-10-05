@@ -85,8 +85,8 @@ export const ClinicManagement: React.FC<Props> = ({ user }) => {
       `Olá! Você foi convidado(a) para integrar a equipe de ${clinicName} no FROID.\n\n` +
       `Como aceitar:\n` +
       `1) Clique no link abaixo:\n${linkResgate}\n` +
-      `2) Entre (ou crie sua conta) com o e-mail ${invitation.email}.\n` +
-      `3) Confirme em "Entrar na clínica".\n\n` +
+      `2) Crie sua senha de acesso (ou informe a que já tem) — o e-mail ${invitation.email} já está no convite.\n` +
+      `3) Pronto: você entra na clínica na hora.\n\n` +
       `Se o link não abrir, acesse ${window.location.origin}/app/#/entrar-clinica e informe este código:\n${invitation.token}\n\n` +
       `O código vale por ${invitation.hours} horas e é de uso único. Não o repasse a terceiros.`;
     const digits = invitation.phone.replace(/\D/g, "");
@@ -316,9 +316,10 @@ export const ClinicManagement: React.FC<Props> = ({ user }) => {
                   Convidar profissional para a clínica
                 </h2>
                 <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
-                  O profissional precisa ter (ou criar) uma conta FROID com o
-                  mesmo e-mail. Ao aceitar o convite, ele passa a consumir do
-                  saldo compartilhado desta clínica.
+                  O profissional abre o link, cria a senha (ou informa a que já
+                  tem) e entra na clínica na hora — como no convite de paciente.
+                  Ao entrar, ele passa a consumir do saldo compartilhado desta
+                  clínica.
                 </p>
                 <div className="mt-3 flex flex-wrap items-end gap-2">
                   <label className="flex-1 min-w-[220px] text-[10px] font-bold uppercase tracking-wide text-slate-500">
@@ -375,12 +376,12 @@ export const ClinicManagement: React.FC<Props> = ({ user }) => {
                       seguro — quem tiver o código entra na sua clínica.
                     </p>
                     <p className="mt-1 text-[10px] leading-relaxed text-amber-200/90">
-                      O profissional resgata em{" "}
+                      O link abre a página do convite em{" "}
                       <code className="rounded bg-slate-950 px-1 text-amber-100">
                         /app/#/entrar-clinica
                       </code>
-                      , entrando com o e-mail convidado. O botão do WhatsApp já
-                      monta a mensagem com o link direto.
+                      ; ali o profissional cria a senha e entra. O botão do
+                      WhatsApp já monta a mensagem com o link direto.
                     </p>
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       <code className="min-w-0 flex-1 break-all rounded border border-amber-800 bg-slate-950 px-2 py-1.5 font-mono text-[10px] text-amber-100">
