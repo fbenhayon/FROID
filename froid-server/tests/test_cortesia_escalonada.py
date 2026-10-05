@@ -224,61 +224,42 @@ class OTextoAnunciadoEOQueOServidorConcede(unittest.TestCase):
             self.assertTrue(arquivo.exists(), arquivo)
             self.assertIn(f"institutional/{arquivo.name}", pagina)
 
-    def test_cada_pagina_anuncia_exatamente_as_faixas_da_tabela(self):
-        esperado = [(str(vagas), str(sessoes)) for vagas, sessoes in TIERS]
-        for arquivo in ANUNCIAM:
-            achados = self._achados(arquivo.read_text(encoding="utf-8"))
-            self.assertTrue(
-                achados,
-                f"{arquivo.relative_to(ROOT)} nao anuncia mais o programa — se ele foi "
-                "retirado de proposito, retire tambem este teste",
-            )
+    # Fase 7.4 etapa 3 (05/10/2026): a conta nova deixou de receber as faixas
+    # V1 (20/10 sessoes) e passou a receber o trial V2. As faixas continuam no
+    # servidor so como reserva (quando a conta nao pode nascer no V2), entao
+    # NENHUMA pagina pode mais anuncia-las: seria prometer o que a conta nova
+    # nao recebe. O anuncio certo e o do trial V2, com o numero do catalogo.
+    TRIAL_V2 = re.compile(
+        r"data-trial-v2[^>]*>\s*(\d+)\s+créditos de análise por\s+(\d+)\s+dias"
+    )
+
+    def test_as_paginas_institucionais_anunciam_o_trial_v2_do_catalogo(self):
+        import psique_pricing
+
+        esperado = [(str(psique_pricing.TRIAL_CREDITS), str(psique_pricing.TRIAL_DAYS))]
+        for arquivo in INSTITUCIONAIS:
+            achados = self.TRIAL_V2.findall(arquivo.read_text(encoding="utf-8"))
             self.assertEqual(
-                achados,
-                esperado,
-                f"{arquivo.relative_to(ROOT)} anuncia {achados}, a tabela do "
-                f"servidor diz {esperado}",
+                achados, esperado,
+                f"{arquivo.relative_to(ROOT)} anuncia {achados}; o catalogo V2 diz {esperado}",
             )
 
-    def test_nenhuma_outra_pagina_do_site_diverge(self):
-        """Quem copiar o numero para uma pagina nova cai aqui.
-
-        A pagina que nao fala do programa nao e cobrada; a que fala tem de
-        falar o que a tabela diz. E assim que a proxima copia — outro idioma,
-        outra landing — fica coberta sem ninguem precisar lembrar deste teste.
-        """
-        esperado = [(str(vagas), str(sessoes)) for vagas, sessoes in TIERS]
-        for arquivo in VARREDURA:
+    def test_nenhuma_pagina_anuncia_mais_as_faixas_v1(self):
+        for arquivo in tuple(ANUNCIAM) + tuple(VARREDURA):
             achados = self._achados(arquivo.read_text(encoding="utf-8"))
-            if not achados:
-                continue
             self.assertEqual(
-                achados,
-                esperado,
-                f"{arquivo.relative_to(ROOT)} anuncia {achados}, a tabela do "
-                f"servidor diz {esperado}",
+                achados, [],
+                f"{arquivo.relative_to(ROOT)} ainda anuncia as faixas V1 {achados}, "
+                "que a conta nova nao recebe desde a etapa 3 da 7.4",
             )
 
-    def test_a_secao_tem_quem_a_aponte_em_cada_idioma(self):
-        """Secao publicada que nenhum caminho leva ate la e secao que nao existe.
-
-        E o padrao mais frequente desta casa: a peca esta correta e ninguem a
-        consome. Aqui o consumo e um link — sem ponteiro, a promocao depende de
-        o visitante rolar a pagina de precos por acaso. Vale por idioma: um
-        ponteiro so em portugues deixa tres publicos sem caminho.
-        """
+    def test_a_pagina_de_precos_de_cada_idioma_mostra_o_trial_v2_ao_vivo(self):
+        """O site publico le o trial do servidor (psique-pricing-v2.js) e nao
+        copia numero: e o que impede o espelho de envelhecer."""
         for idioma in IDIOMAS:
-            precos = PRECOS[idioma]
-            self.assertIn('id="cortesia"', precos.read_text(encoding="utf-8"), precos)
-            apontam = [
-                arquivo.name
-                for arquivo in sorted(precos.parent.glob("*.html"))
-                if "precos.html#cortesia" in arquivo.read_text(encoding="utf-8")
-            ]
-            self.assertTrue(
-                apontam,
-                f"nenhuma pagina de {idioma} aponta para precos.html#cortesia",
-            )
+            texto = PRECOS[idioma].read_text(encoding="utf-8")
+            self.assertIn('id="pv2-trial"', texto, PRECOS[idioma])
+            self.assertIn("psique-pricing-v2.js", texto, PRECOS[idioma])
 
 
 class OPadraoDoCodigoEODoCompose(unittest.TestCase):
