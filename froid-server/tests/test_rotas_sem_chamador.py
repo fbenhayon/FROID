@@ -45,7 +45,6 @@ SEM_CHAMADOR_POR_DESENHO = {
     "/api/stripe/webhook": "webhook do Stripe, servidor-a-servidor",
     "/api/google-calendar/callback": "callback OAuth do Google",
     "/api/auth/google-dev": "atalho de desenvolvimento local",
-    "/api/organization-invitations/accept": "aberto por link de e-mail",
     # Consumidas por outra rota do proprio servidor.
     "/api/insights": "proxy interno de IA, chamado pelo backend",
     "/api/knowledge": "ingestao operada por ferramenta em tools/",

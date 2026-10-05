@@ -59,6 +59,38 @@ ESCRITAS_PELO_OWNER = {
 }
 
 
+# Psique V2 (migrations 035-048): o papel de runtime NAO tem acesso direto a
+# nenhuma destas tabelas, por desenho. Toda leitura e escrita em tempo de
+# execucao passa pelos comandos SECURITY DEFINER (psique_v2_credit_command,
+# checkout, webhook, agenda, backfill), que revalidam organizacao, membro e
+# papel. Conferido em 05/10/2026: so as ferramentas de operador
+# (tools/psique_pricing_catalog.py, tools/psique_live_stripe.py, via
+# psique_catalog_store) tocam as de catalogo direto, e com o DSN de owner.
+SO_POR_FUNCAO_PSIQUE_V2 = {
+    "psique_analysis_attempts",
+    "psique_analysis_sources",
+    "psique_appointment_events",
+    "psique_appointment_session_links",
+    "psique_appointments",
+    "psique_calendar_outbox",
+    "psique_clinical_memberships",
+    "psique_clinician_availability",
+    "psique_credit_reservations",
+    "psique_membership_role_grants",
+    "psique_organization_licenses",
+    "psique_organization_settings",
+    "psique_organization_units",
+    "psique_pricing_offers",
+    "psique_pricing_tables",
+    "psique_purchases",
+    "psique_seat_changes",
+    "psique_stripe_events",
+    "psique_stripe_price_mappings",
+    "psique_supervision_assignments",
+    "psique_trial_eligibility",
+    "psique_trials",
+}
+
 def tabelas_criadas() -> dict:
     """Tabela -> migration que a criou."""
     encontradas = {}
@@ -212,6 +244,7 @@ class GrantsTests(unittest.TestCase):
             if t not in concedidas
             and t not in SEM_ACESSO_DE_RUNTIME
             and t not in ESCRITAS_PELO_OWNER
+            and t not in SO_POR_FUNCAO_PSIQUE_V2
         )
         self.assertEqual(
             faltando, [],
@@ -312,3 +345,23 @@ class GrantsTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PsiqueV2SoPorFuncao(unittest.TestCase):
+    def test_nenhuma_tabela_psique_v2_ganha_grant_direto(self):
+        """Conceder acesso direto pularia a revalidacao dos comandos V2."""
+        concedidas = tabelas_com_grant()
+        for tabela in SO_POR_FUNCAO_PSIQUE_V2:
+            self.assertNotIn(tabela, concedidas, tabela)
+
+    def test_o_runtime_nao_le_essas_tabelas_direto(self):
+        import re
+        for arquivo in SERVER_DIR.glob("*.py"):
+            if arquivo.name == "psique_catalog_store.py":
+                continue  # usado so pelas ferramentas de operador, com DSN de owner
+            texto = arquivo.read_text(encoding="utf-8")
+            for tabela in SO_POR_FUNCAO_PSIQUE_V2:
+                self.assertIsNone(
+                    re.search(rf"(FROM|JOIN|INTO|UPDATE)\s+{tabela}(?![A-Za-z0-9_])", texto),
+                    f"{arquivo.name} consulta {tabela} direto",
+                )

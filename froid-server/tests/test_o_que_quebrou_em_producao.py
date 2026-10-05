@@ -26,12 +26,25 @@ SITE = REPO / "froid-site"
 
 
 def _rotas_do_backend() -> set:
-    return {
+    rotas = {
         achado.group(2)
         for achado in re.finditer(
             r'@app\.(get|post|patch|put|delete|websocket)\("([^"]+)"', MAIN
         )
     }
+    # O Psique V2 monta as rotas por APIRouter com prefixo (psique_api.py),
+    # incluido por app.include_router em main.py. Sem isto, /api/psique/v2/pricing
+    # — chamada pelo site e viva em producao — aparecia como inexistente.
+    psique = (SERVER_DIR / "psique_api.py").read_text(encoding="utf-8")
+    prefixo = re.search(r'APIRouter\(prefix="([^"]+)"', psique)
+    if prefixo and "include_router(" in MAIN:
+        rotas |= {
+            prefixo.group(1) + achado.group(2)
+            for achado in re.finditer(
+                r'@router\.(get|post|patch|put|delete)\("([^"]+)"', psique
+            )
+        }
+    return rotas
 
 
 def _rotas_que_o_site_chama() -> dict:

@@ -253,10 +253,19 @@ class OsTotaisDERIVADOSTambemConferem(unittest.TestCase):
         for trabalhadores in self.PORTES_DO_ANEXO:
             mensal = self._mensal(trabalhadores)
             anual = mensal * 12
+            # Sem a coluna do desconto de pioneiro (15%): encerrado pelo dono em
+            # 24/09/2026 (dd90ff9a), que tirou a coluna do anexo. O teste ficou
+            # cobrando a coluna antiga ate 05/10/2026.
             esperado = (
-                f"| {self._moeda(mensal, 'pt', 2)} | {self._moeda(anual, 'pt', 2)} "
-                f"| {self._moeda(round(anual * 85 / 100), 'pt', 2)} |"
+                f"| {trabalhadores:,}".replace(",", ".")
+                + f" | {self._moeda(mensal, 'pt', 2)} | {self._moeda(anual, 'pt', 2)} |"
             )
+            descontado = self._moeda(round(anual * 85 / 100), 'pt', 2)
+            with self.subTest(trabalhadores=trabalhadores, desconto="ausente"):
+                self.assertFalse(
+                    f"{self._moeda(anual, 'pt', 2)} | {descontado} |" in texto,
+                    f"anexo: a linha de {trabalhadores} voltou a ter o desconto de pioneiro",
+                )
             with self.subTest(trabalhadores=trabalhadores):
                 self.assertTrue(
                     esperado in texto,
