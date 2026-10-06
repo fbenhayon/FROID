@@ -1,5 +1,6 @@
 import { PerceptionZone } from "./froid-engine";
 import type { SessionLocale } from "./localization";
+import type { FacialAnalysis, FacialEvent } from "./facial-analysis";
 
 export interface ClinicalNote {
   id: string;
@@ -112,6 +113,9 @@ export interface SessionReportRecord {
     generatedAt: string;
   };
   froidExplicaConversation?: Array<{ role: string; content: string }>;
+  /** Eventos canônicos do servidor, sem reclassificação pelo painel. */
+  facialEvents?: FacialEvent[];
+  facialAnalysis?: FacialAnalysis;
   dissonances: Array<{
     id: string;
     timestamp: string;

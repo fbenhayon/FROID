@@ -737,7 +737,7 @@ export const PatientDetail: React.FC = () => {
               </p>
               <p>
                 <strong>Observações:</strong> {latest.clinicalNotes.length} anotações |{" "}
-                {latest.dissonances.length} dissonâncias
+                {(latest.facialEvents || []).length} padrões faciais | {latest.dissonances.length} sinais legados
               </p>
             </div>
           </section>

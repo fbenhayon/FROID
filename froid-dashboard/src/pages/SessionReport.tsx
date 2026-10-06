@@ -18,6 +18,7 @@ import { dashboardText, loadSessionLanguagePreferences, normalizeSessionLocale, 
 import { tooltipText } from "../lib/tooltip-i18n";
 import { contextoDaTabela } from "../lib/painel-para-o-explica";
 import { InstrumentScorePrompt } from "../components/validation/InstrumentScorePrompt";
+import { FacialAnalysisPanel } from "../components/FacialAnalysisPanel";
 import { activeOrganizationId } from "../lib/validation";
 import {
   buildReport,
@@ -336,7 +337,9 @@ function derivedSessionSummary(report: SessionReportRecord) {
     && Number.isFinite(report.sessionAverage.wordsPerMinute)
       ? `${report.sessionAverage.wordsPerMinute.toFixed(1)} palavras/min em média`
       : "",
-    report.sessionAverage.dissonanceCount
+    typeof report.sessionAverage.dissonanceCount !== "number" || !Number.isFinite(report.sessionAverage.dissonanceCount)
+      ? "dissonância facial-vocal: sem capacidade de apuração"
+      : report.sessionAverage.dissonanceCount
       ? `${report.sessionAverage.dissonanceCount} dissonância(s) média(s) acima do limiar`
       : "sem dissonâncias médias relevantes registradas",
   ]
@@ -488,7 +491,7 @@ function buildDescriptiveReportText(
     `Linha comparativa: IPM ${fmt(report.baseline.ipmAvg, 1)} -> ${fmt(report.sessionAverage.ipmAvg, 1)}; IDM ${fmt(report.baseline.idmAvg, 2)} -> ${fmt(report.sessionAverage.idmAvg, 2)}; Zona ${report.sessionAverage.dominantZone || "--"}; Tom ${report.sessionAverage.emotionalTone || "--"}; ${fmt(report.sessionAverage.wordsPerMinute, 1)} palavras/min.`,
     `Linha bioacustica: Beta ${fmt(report.baseline.spectralBeta12_30, 3)} -> ${fmt(report.sessionAverage.spectralBeta12_30, 3)}; Gama ${fmt(report.baseline.spectralGamma30_80, 3)} -> ${fmt(report.sessionAverage.spectralGamma30_80, 3)}; DMFCC7 medio ${fmt(report.sessionAverage.mfcc7Delta, 4)}; DDMFCC9 medio ${fmt(report.sessionAverage.mfcc9DeltaDelta, 4)}.`,
     "",
-    `Observações clínicas registradas: ${report.clinicalNotes.length}. Dissonâncias persistentes registradas: ${report.dissonances.length}.`,
+    `Observações clínicas registradas: ${report.clinicalNotes.length}. Padrões faciais registrados: ${(report.facialEvents || []).length}. Sinais legados: ${report.dissonances.length}.`,
   ].join("\n");
 }
 
@@ -1580,12 +1583,13 @@ export const SessionReport: React.FC<Props> = () => {
           {sections.dissonances && (
             <section className="rounded-lg border border-slate-700 bg-slate-900 p-4">
               <h2 className="mb-3 text-sm font-bold text-slate-100">
-                <HelpTitle title="Dissonâncias registradas" />
+                {Array.isArray(report.facialEvents) ? "Registros faciais" : "Sinais legados da sessão"}
               </h2>
               <div className="space-y-2">
-                {report.dissonances.length === 0 && (
+                <FacialAnalysisPanel historical analysis={report.facialAnalysis} events={report.facialEvents || []} />
+                {report.dissonances.length === 0 && !(report.facialEvents || []).length && (
                   <p className="text-xs italic text-slate-500">
-                    Nenhuma dissonância persistente registrada.
+                    Nenhum padrão arquivado. Isso não comprova ausência de emoção ou de dissonância.
                   </p>
                 )}
                 {report.dissonances.map((item) => (

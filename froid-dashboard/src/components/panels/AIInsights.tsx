@@ -33,7 +33,7 @@ const PRESETS = [
   { text: "O IPM está acima ou abaixo do repouso deste paciente, e o que isso muda?" },
   { text: "Explique a zona dominante desta sessão: eixo, magnitude e persistência" },
   { text: "Quais índices saíram da faixa deste paciente e em que direção?" },
-  { text: "Quais dissonâncias faciais foram confirmadas e quais AUs dispararam?" },
+  { text: "Quais famílias faciais foram observadas, quais AUs as sustentam e quais são as limitações?" },
   { text: "Como interpretar os biomarcadores acústicos deste corte?" },
   { text: "O que na captação pode estar distorcendo esta leitura?" },
   { text: "Quais índices desta sessão estão sem apuração, e por quê?" },
@@ -257,9 +257,8 @@ export const AIInsights: React.FC<Props> = ({
     const dominant = sorted[0] ? compactZone(sorted[0]) : null;
     // Nulo quando nenhuma zona foi apurada: `0` afirmaria "procurei e nao
     // achei dissonancia nenhuma" sobre uma janela em que nada foi procurado.
-    const dissonanceCount = safeZones.length
-      ? safeZones.filter((zone) => zone?.facial_dissonance_detected).length
-      : null;
+    // Nenhuma relação validada entre canais: não confundir bandas com face.
+    const dissonanceCount = null;
 
     return {
       session_id: sessionId,

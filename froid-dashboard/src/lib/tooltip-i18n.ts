@@ -950,14 +950,11 @@ const TOOLTIP_I18N: Record<string, TooltipTranslations> = {
       "es-ES":
         "Esfuerzo vocal sostenido: compuesto de F0 sostenida, ZCR y los índices proxy de jitter y shimmer. Describe carga articulatoria continua. Los índices son estimaciones por cuadros y no equivalen a medidas normativas de laboratorio en % o dB.",
     },
-  "Assinatura sub-harmônica com retração facial: cruzamento entre energia sub-harmônica de 5 a 12 Hz, as Unidades de Ação AU15 e AU20 e tensão vocal na faixa de 85 a 165 Hz. Mede co-ocorrência entre canais, não estado interno. Associação observada em nível de grupo na literatura; não constitui inferência sobre este paciente. A leitura clínica é do profissional.":
+  "Desvios zonais e compensação: composto dos desvios relativos nas bandas vocais 4, 7, 8, 9 e 12 e das bandas com redução de energia. Não mede retração facial, atividade autonômica ou conflito interno.":
     {
-      "en-US":
-        "Sub-harmonic signature with facial retraction: a cross-reference between sub-harmonic energy from 5 to 12 Hz, Action Units AU15 and AU20, and vocal tension in the 85 to 165 Hz range. It measures co-occurrence across channels, not internal state. Association observed at group level in the literature; it is not an inference about this patient. The clinical reading belongs to the professional.",
-      "fr-FR":
-        "Signature sous-harmonique avec rétraction faciale : croisement entre l’énergie sous-harmonique de 5 à 12 Hz, les Unités d’Action AU15 et AU20 et la tension vocale dans la plage de 85 à 165 Hz. Elle mesure la co-occurrence entre canaux, et non un état interne. Association observée au niveau du groupe dans la littérature ; elle ne constitue pas une inférence sur ce patient. La lecture clinique appartient au professionnel.",
-      "es-ES":
-        "Firma subarmónica con retracción facial: cruce entre energía subarmónica de 5 a 12 Hz, las Unidades de Acción AU15 y AU20 y tensión vocal en la franja de 85 a 165 Hz. Mide co-ocurrencia entre canales, no estado interno. Asociación observada a nivel de grupo en la literatura; no constituye inferencia sobre este paciente. La lectura clínica es del profesional.",
+      "en-US": "Zonal deviations and compensation: a composite of relative deviations in vocal bands 4, 7, 8, 9 and 12 and bands with reduced energy. It does not measure facial retraction, autonomic activity or internal conflict.",
+      "fr-FR": "Écarts zonaux et compensation : composite des écarts relatifs dans les bandes vocales 4, 7, 8, 9 et 12 et des bandes présentant une réduction d’énergie. Il ne mesure ni rétraction faciale, ni activité autonome, ni conflit interne.",
+      "es-ES": "Desvíos zonales y compensación: compuesto de los desvíos relativos en las bandas vocales 4, 7, 8, 9 y 12 y de las bandas con reducción de energía. No mide retracción facial, actividad autonómica ni conflicto interno.",
     },
   "Padrões de sinal":
     {

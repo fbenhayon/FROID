@@ -991,7 +991,7 @@ export function buildProfessionalReport(
       <div class="kpi"><div class="n">${num((media as never as Record<string, number>).ipmAvg, 1)}</div><div class="d">IPM médio</div></div>
       <div class="kpi"><div class="n">${num((media as never as Record<string, number>).idmAvg, 2)}</div><div class="d">IDM médio</div></div>
       <div class="kpi"><div class="n">${cortes.length}</div><div class="d">Cortes</div></div>
-      <div class="kpi"><div class="n">${(report.dissonances || []).length}</div><div class="d">Dissonâncias</div></div>
+      <div class="kpi"><div class="n">${Array.isArray(report.facialEvents) ? report.facialEvents.length : (report.dissonances || []).length}</div><div class="d">${Array.isArray(report.facialEvents) ? "Registros faciais" : "Sinais legados"}</div></div>
     </div>
   `;
 
@@ -1023,10 +1023,17 @@ export function buildProfessionalReport(
       ? (report.dissonances || []).map((d) => `
         <div class="disso"><div class="disso-cab">Zona ${escapeHtml(d.zone)} · ${escapeHtml(formatClock(d.elapsedSeconds))}</div>
           <p>${escapeHtml(d.report)}</p></div>`)
-      : [`<p>Nenhuma dissonância registrada nesta sessão.</p>`]),
+      : []),
+    ...((report.facialEvents || []).map(event => `
+      <div class="disso"><div class="disso-cab">${escapeHtml(event.title)} · ${escapeHtml(new Date(event.started_at_ms).toLocaleTimeString("pt-BR"))}</div>
+      <p>${escapeHtml(event.report)}</p>
+      <p>${escapeHtml(event.variant)} · ${escapeHtml(event.observations)} quadros distintos${event.ambiguous ? " · famílias coocorrentes: interpretação ambígua" : ""}</p></div>`)),
+    ...(!(report.dissonances || []).length && !(report.facialEvents || []).length
+      ? [`<p>Nenhum sinal registrado. Isso não comprova ausência de emoção ou de dissonância.</p>`] : []),
     `<div class="limite"><b>O que estes sinais são, e o que não são.</b>
-      Descrevem medidas de fala e expressão facial contra a linha de base desta
-      sessão. Não constituem diagnóstico, não classificam a pessoa em faixa de
+      Descrevem medidas vocais e padrões faciais. A repetição de um padrão não
+      comprova emoção nem divergência entre canais. Não constituem diagnóstico,
+      não classificam a pessoa em faixa de
       risco e não substituem avaliação, conduta ou julgamento do profissional
       habilitado.</div>`,
   ];
@@ -1345,6 +1352,12 @@ export function buildPatientReport(
   // ---- dissonances: os sinais, já traduzidos ----
   if (tem("dissonances")) {
     blocos.push(`<section>${cab("Sinais registrados")}</section>`);
+    const facialSignals = (report.facialEvents || []).filter(event =>
+      event.schema_version === "facial_families_v1" && event.patient_title && event.patient_description);
+    facialSignals.forEach(event => {
+      blocos.push(`<div class="sinal"><h3>${escapeHtml(event.patient_title)}</h3>
+        <p>${escapeHtml(event.patient_description)}</p></div>`);
+    });
     if (sinais.length) {
       sinais.forEach((item) => {
         blocos.push(`<div class="sinal"><span class="quando">${escapeHtml(formatClock(item.registro.elapsedSeconds))}</span>
@@ -1357,7 +1370,7 @@ export function buildPatientReport(
         <div style="margin-top:8px;color:#6C757D">São nomes técnicos de movimentos
           musculares do rosto, usados internacionalmente. Nomear o movimento não
           interpreta a intenção.</div></div>`);
-    } else {
+    } else if (!facialSignals.length) {
       blocos.push(`<p>Nenhum sinal registrado nesta sessão.</p>`);
     }
   }

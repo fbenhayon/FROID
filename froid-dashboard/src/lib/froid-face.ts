@@ -1,17 +1,5 @@
-// Captura FACIAL real do FROID: computa, no navegador, os coeficientes de
-// blendshape faciais (MediaPipe FaceLandmarker / ARKit, 52 formas) a partir do
-// vídeo do paciente e os envia ao backend, que os converte em Unidades de Ação
-// (FACS) reais e em dissonâncias faciais.
-//
-// É TOLERANTE A FALHAS, mas não silencioso: se o modelo não carregar (rede/CSP),
-// se não houver vídeo, ou se o navegador não suportar, a captura não inicia e o
-// servidor declara `facs_source = "sem_apuracao"` — os campos faciais ficam
-// nulos, e a tela e o relatório dizem que não houve apuração. NÃO existe mais
-// modo simulado: o gerador foi removido em 03/09/2026, e a ausência de medida
-// nunca vira número. O modelo é carregado por import dinâmico de URL (externo
-// ao bundle), evitando nova dependência de build.
-
-// Versão fixada do MediaPipe Tasks Vision (pode ser sobrescrita via opções).
+// Captura do vídeo do paciente. Interpretação exclusivamente no backend.
+// 3 Hz preserva a cadência existente; não certifica captura de microexpressões.
 const DEFAULT_VISION_MODULE =
   "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
 const DEFAULT_WASM_BASE =
@@ -20,127 +8,124 @@ const DEFAULT_MODEL =
   "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
 
 export interface FaceCaptureOptions {
-  endpoint: string; // apiUrl('/api/froid/<id>/facial-aus')
+  endpoint: string;
   invite?: string;
   token?: string;
-  fps?: number; // taxa de envio (padrão 3 Hz — suficiente e leve)
+  fps?: number;
   visionModuleUrl?: string;
   wasmBaseUrl?: string;
   modelUrl?: string;
+  onStatus?: (message: string) => void;
+  /** Injeção para testar captura sem rede/modelo externo. */
+  loadVision?: () => Promise<any>;
 }
 
-type Blendshapes = Record<string, number>;
-
-/**
- * Inicia a captura facial a partir de um MediaStream com trilha de vídeo.
- * Retorna uma função de parada (sempre segura de chamar).
- */
 export async function startFaceCapture(
   stream: MediaStream,
   opts: FaceCaptureOptions,
 ): Promise<() => void> {
-  const videoTracks = stream.getVideoTracks();
-  if (typeof window === "undefined" || !videoTracks.length) return () => {};
-
+  const tracks = stream.getVideoTracks();
+  if (typeof window === "undefined" || !tracks.length) {
+    opts.onStatus?.("Sem capacidade de apuração facial: vídeo indisponível.");
+    return () => {};
+  }
   let stopped = false;
-  let raf = 0;
   let timer: ReturnType<typeof setTimeout> | null = null;
   let landmarker: any = null;
   let video: HTMLVideoElement | null = null;
-
+  const abort = new AbortController();
+  const streamId = crypto.randomUUID();
+  const streamStartedAt = Date.now();
+  let sequence = 0;
+  let lastVideoTime = -1;
+  const notify = (message: string) => { if (!stopped) opts.onStatus?.(message); };
   const stop = () => {
     stopped = true;
-    if (raf) cancelAnimationFrame(raf);
+    abort.abort();
     if (timer) clearTimeout(timer);
-    try {
-      landmarker?.close?.();
-    } catch {
-      /* noop */
-    }
-    if (video) {
-      try {
-        video.srcObject = null;
-      } catch {
-        /* noop */
-      }
-      video = null;
-    }
+    try { landmarker?.close(); } catch { /* captura já foi encerrada */ }
+    if (video) video.srcObject = null;
   };
 
   try {
-    const moduleUrl = opts.visionModuleUrl || DEFAULT_VISION_MODULE;
-    // Import dinâmico por variável -> o bundler o trata como externo (não tenta
-    // resolvê-lo em build) e o navegador o busca em runtime.
-    const vision: any = await import(/* @vite-ignore */ moduleUrl);
+    notify("Preparando a leitura facial.");
+    const vision = opts.loadVision
+      ? await opts.loadVision()
+      : await import(/* @vite-ignore */ opts.visionModuleUrl || DEFAULT_VISION_MODULE);
+    const fileset = await vision.FilesetResolver.forVisionTasks(opts.wasmBaseUrl || DEFAULT_WASM_BASE);
     if (stopped) return stop;
-    const { FilesetResolver, FaceLandmarker } = vision;
-    const fileset = await FilesetResolver.forVisionTasks(
-      opts.wasmBaseUrl || DEFAULT_WASM_BASE,
-    );
-    if (stopped) return stop;
-    landmarker = await FaceLandmarker.createFromOptions(fileset, {
+    landmarker = await vision.FaceLandmarker.createFromOptions(fileset, {
       baseOptions: { modelAssetPath: opts.modelUrl || DEFAULT_MODEL },
       runningMode: "VIDEO",
       numFaces: 1,
       outputFaceBlendshapes: true,
       outputFacialTransformationMatrixes: false,
     });
-    if (stopped) return stop;
-
-    // Elemento de vídeo oculto que serve os quadros ao detector.
+    if (stopped) { stop(); return stop; }
     video = document.createElement("video");
     video.muted = true;
     video.playsInline = true;
-    video.srcObject = new MediaStream([videoTracks[0]]);
-    await video.play().catch(() => undefined);
-
+    video.srcObject = new MediaStream([tracks[0]]);
+    await video.play();
     const intervalMs = Math.max(150, Math.round(1000 / (opts.fps ?? 3)));
 
-    const send = async (blendshapes: Blendshapes) => {
-      try {
-        await fetch(opts.endpoint, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(opts.token ? { Authorization: `Bearer ${opts.token}` } : {}),
-          },
-          body: JSON.stringify({
-            blendshapes,
-            invite: opts.invite || "",
-          }),
-        });
-      } catch {
-        /* falha transitória de rede é ignorada */
-      }
-    };
-
-    const tick = () => {
+    const tick = async () => {
       if (stopped || !video || !landmarker) return;
       try {
-        if (video.readyState >= 2) {
-          const result = landmarker.detectForVideo(video, performance.now());
-          const categories = result?.faceBlendshapes?.[0]?.categories;
-          if (Array.isArray(categories) && categories.length) {
-            const blendshapes: Blendshapes = {};
-            for (const c of categories) {
-              if (c && typeof c.categoryName === "string") {
-                blendshapes[c.categoryName] = Number(c.score) || 0;
+        if (video.readyState >= 2 && video.currentTime > lastVideoTime) {
+          lastVideoTime = video.currentTime;
+          const capturedAt = performance.now();
+          const frame = {
+            stream_id: streamId, sequence: ++sequence,
+            stream_started_at_ms: streamStartedAt,
+            captured_at_ms: capturedAt, video_time_ms: video.currentTime * 1000,
+          };
+          let blendshapes: Record<string, number> = {};
+          let captureStatus = "measured";
+          try {
+            const categories = landmarker.detectForVideo(video, capturedAt)?.faceBlendshapes?.[0]?.categories;
+            if (Array.isArray(categories)) {
+              for (const category of categories) {
+                if (typeof category?.categoryName === "string" &&
+                    typeof category.score === "number" &&
+                    Number.isFinite(category.score) && category.score >= 0 && category.score <= 1) {
+                  blendshapes[category.categoryName] = category.score;
+                }
               }
             }
-            if (Object.keys(blendshapes).length) void send(blendshapes);
+            if (!Object.keys(blendshapes).length) captureStatus = "no_face";
+          } catch {
+            captureStatus = "capture_error";
+            blendshapes = {};
           }
+          if (captureStatus !== "measured") {
+            notify("Sem capacidade de apuração facial: rosto ausente ou quadro inválido.");
+          }
+          // Aguarda o envio: não acumula requisições nem inverte quadros.
+          const response = await fetch(opts.endpoint, {
+            method: "POST", signal: abort.signal,
+            headers: { "Content-Type": "application/json",
+              ...(opts.token ? { Authorization: `Bearer ${opts.token}` } : {}) },
+            body: JSON.stringify({ blendshapes, frame, capture_status: captureStatus, invite: opts.invite || "" }),
+          });
+          if (!response.ok) throw new Error(`Servidor recusou a leitura facial (HTTP ${response.status}).`);
+          const body = await response.json();
+          if (body.status === "session_inactive") throw new Error("Canal de análise facial inativo.");
+          if (body.status === "ignored_frame") throw new Error("Quadro facial repetido ou fora de ordem.");
+          notify(body.facial_analysis?.status === "measured" ? ""
+            : body.facial_analysis?.reason || "Sem capacidade de apuração facial.");
         }
-      } catch {
-        /* um quadro problemático não interrompe a captura */
+      } catch (error) {
+        notify(error instanceof Error ? error.message : "Falha no envio da leitura facial.");
+      } finally {
+        if (!stopped) timer = setTimeout(tick, intervalMs);
       }
-      if (!stopped) timer = setTimeout(tick, intervalMs);
     };
-
-    tick();
-  } catch {
+    void tick();
+  } catch (error) {
+    notify(error instanceof Error ? `Sem capacidade de apuração facial: ${error.message}`
+      : "Sem capacidade de apuração facial: modelo indisponível.");
     stop();
-    return () => {};
   }
-
   return stop;
 }

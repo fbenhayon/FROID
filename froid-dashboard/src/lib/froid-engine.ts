@@ -1,3 +1,5 @@
+import type { FacialAnalysis, FacialEvent } from "./facial-analysis";
+
 export const PERCEPTION_ZONES: Record<number, string> = {
   1:  "Não Reconhecido vs. Autovalidação",
   2:  "Pensamento Repetitivo vs. Pensamento Criativo e Independente",
@@ -92,7 +94,7 @@ export interface AcousticBiomarkers {
    *  anterior a 19/09/2026. */
   estado_da_captura?: "medida" | "sem_vozeamento" | "sem_audio" | string;
   facs_source?: "real_facs" | "sem_apuracao" | string;
-  facial_action_units?: Record<string, number> | null;
+  facial_action_units?: Record<string, number | null> | null;
   zcr?: number;
   jitter_proxy_index?: number;
   shimmer_proxy_index?: number;
@@ -170,14 +172,16 @@ export interface FroidPayload {
   global_energy: { cor_plot: FroidColor; descricao: string };
   perception_zones: PerceptionZone[];
   realtime_alerts: string[];
+  facial_analysis?: FacialAnalysis;
+  facial_events?: FacialEvent[];
+  facial_only?: boolean;
   dissonance_event?: DissonanceEvent;
   audio_meta?: AcousticBiomarkers & Record<string, unknown>;
 }
 
-export function calculateIDM(vocalEnergy: number, baselineEnergy: number, facialDissonanceFlag: boolean): number {
+export function calculateIDM(vocalEnergy: number, baselineEnergy: number, _facialDissonanceFlag: boolean): number {
   const energyDeviationRatio = (vocalEnergy - baselineEnergy) / (baselineEnergy + 1e-9);
-  const dissonanceMultiplier = facialDissonanceFlag ? 2.5 : 1.0;
-  return energyDeviationRatio * dissonanceMultiplier;
+  return energyDeviationRatio;
 }
 
 export function mapColor(score: number): FroidColor {

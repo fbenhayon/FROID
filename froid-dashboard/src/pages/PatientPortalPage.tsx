@@ -1222,7 +1222,13 @@ export const PatientPortalPage: React.FC = () => {
                           </div>
                         </div>
                         <div className="rounded border border-slate-800 bg-slate-900 p-3">
-                          <p className="text-[10px] font-bold uppercase text-slate-400">Dissonâncias</p>
+                          <p className="text-[10px] font-bold uppercase text-slate-400">Sinais registrados</p>
+                          {(report.facialEvents || []).filter(event =>
+                            event.schema_version === "facial_families_v1" && event.patient_title && event.patient_description
+                          ).map(event => <div key={event.id} className="mt-2 text-xs text-slate-300">
+                            <p className="font-bold">{event.patient_title}</p>
+                            <p>{event.patient_description}</p>
+                          </div>)}
                           {(report.dissonances || []).length ? (
                             <ul className="mt-2 space-y-2 text-xs text-slate-300">
                               {report.dissonances.map((item) => {
@@ -1257,7 +1263,7 @@ export const PatientPortalPage: React.FC = () => {
                             </ul>
                           ) : (
                             <p className="mt-2 text-xs text-slate-400">
-                              Nenhuma dissonância acima do limiar foi registrada.
+                              {(report.facialEvents || []).length ? "Registros faciais apresentados acima." : "Nenhum sinal registrado; isso não comprova ausência de emoção."}
                             </p>
                           )}
                         </div>

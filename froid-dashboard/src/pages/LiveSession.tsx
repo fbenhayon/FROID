@@ -45,7 +45,8 @@ import {
   TIQUES_DE_CAPTURA_ZERADOS,
 } from "../lib/estado-da-captura";
 import { sessaoComecou } from "../lib/inicio-da-sessao";
-import { getAUDetails, ZONE_CLINICAL_DESCRIPTIONS } from "../lib/froid-data";
+import { FacialAnalysisPanel } from "../components/FacialAnalysisPanel";
+import { currentFacialAnalysis, mergeFacialEvents, type FacialEvent } from "../lib/facial-analysis";
 import {
   STATUS_CLASSES,
   countOutOfBounds,
@@ -86,17 +87,17 @@ const SIMPLIFIED_METRIC_TOOLTIPS: Record<string, string> = {
   CORTE:
     "Intervalo temporal em análise desde o último corte semântico, seja automático ou executado pelo profissional.",
   IPM:
-    "Índice de Potência Multimodal. Funciona como o velocímetro emocional: indica a intensidade global da energia vocal, facial e semântica do paciente.",
+    "Índice interno de ativação vocal contra a referência da sessão. Padrões faciais são apresentados separadamente; não mede emoção.",
   IDM:
-    "Índice de Desvio Multimodal. Indica a direção e o grau de afastamento entre voz, face, semântica e zonas FROID.",
+    "Índice interno de distribuição da energia vocal entre bandas. Não é uma medida validada de conflito entre voz e rosto.",
   ZONAS:
-    "Zona FROID predominante no corte atual, calculada pela composição das métricas bioacústicas, semânticas e multimodais.",
+    "Banda vocal de maior desvio relativo. Os temas psicológicos são nomenclatura legada, não emoções medidas por frequência.",
   TOM:
     "Tom emocional predominante inferido pela composição entre fala transcrita, marcadores acústicos e contexto do corte.",
   "P/MIN":
     "Palavras por minuto no corte atual. Ajuda a identificar aceleração, lentificação, bloqueios ou mudanças de cadência.",
   "DISSO.":
-    "Quantidade de dissonâncias confirmadas acima da métrica definida no corte atual. Exibe somente apontamentos efetivamente detectados.",
+    "Dissonância facial-vocal não apurada: falta relação validada entre canais. Não é a contagem das sete famílias faciais.",
   MFCC7:
     "Coeficiente cepstral vocal associado ao timbre e à energia espectral. No FROID, ganha relevância quando cruza valência semântica negativa e marcadores de retardo ou tensão.",
   MFCC9:
@@ -144,13 +145,13 @@ const SIMPLIFIED_METRIC_TOOLTIPS: Record<string, string> = {
   "DNA VOCAL":
     "Componente de tensão vocal basal usado para compor riscos, dissonâncias e estado de ativação.",
   "DNA FLOOD":
-    "Indicador composto de elevacao multimodal simultanea: varios canais medidos sobem juntos na mesma janela.",
+    "Composto acústico interno, sem amplificação facial. Não mede inundação autonômica.",
   "DNA SHUTDOWN":
     "Indicador composto de queda multimodal sustentada: varios canais medidos caem juntos, com reducao de coerencia entre eles.",
   "DNA NEURO":
     "Índice de ressonância neurogênica estimado por combinações sub-harmônicas e estabilidade vocal.",
   "DNA SOMATO":
-    "Índice de dissonância somatoafetiva, usado para cruzar expressão vocal, tensão e marcadores corporais inferidos.",
+    "Composto acústico de nomenclatura legada. Não mede conflito corporal nem usa AUs para ampliar o valor.",
 };
 
 interface AggData {
@@ -246,11 +247,6 @@ type Action =
     }
   | { type: "END_SESSION" };
 
-const DISSONANCE_REPORT_THRESHOLD = 1.5;
-const DISSONANCE_CRITICAL_THRESHOLD = 3.0;
-const DISSONANCE_MFCC_DELTA_THRESHOLD = 0.35;
-const DISSONANCE_DNA_THRESHOLD = 0.18;
-const DISSONANCE_IPM_DELTA_THRESHOLD = 3.0;
 const IPM_HISTORY_LIMIT = 1200;
 // Tolerância de silêncio do paciente: o fluxo de áudio RTP é amostrado a cada
 // 2s, então uma pausa natural na fala zera o delta de bytes. Manter a trilha
@@ -272,155 +268,9 @@ const CLINICAL_UPDATE_OPTIONS: Array<{ value: ClinicalUpdateMode; label: string 
 ];
 const DR_VOICEPRINT_STORAGE_KEY = "froid_dr_voiceprint_v1";
 
-function dissonanceScore(zone?: PerceptionZone | null) {
-  return Math.abs(Number(zone?.deviation_score || 0));
-}
 
-function isReportableDissonance(zone?: PerceptionZone | null) {
-  const activeAus = zone?.dissonance_details?.active_aus || [];
-  return Boolean(
-    zone?.facial_dissonance_detected &&
-      zone?.dissonance_details &&
-      activeAus.length > 0 &&
-      dissonanceScore(zone) > DISSONANCE_REPORT_THRESHOLD,
-  );
-}
 
-function hasConfirmedDissonanceEvidence(
-  zone?: PerceptionZone | null,
-  audioMeta?: Record<string, unknown>,
-) {
-  if (!isReportableDissonance(zone)) return false;
-  const score = dissonanceScore(zone);
-  const sub5 = Number(audioMeta?.subharmonic_energy_5_12hz || 0);
-  const basal = Number(audioMeta?.energy_85_165hz || 0);
-  const mfcc7 = Number(audioMeta?.mfcc7 || 0);
-  const mfcc9 = Number(audioMeta?.mfcc9 || 0);
-  const hasAcousticMarker =
-    Math.abs(score) >= DISSONANCE_REPORT_THRESHOLD ||
-    sub5 > 0.05 ||
-    basal > 0.05 ||
-    mfcc7 > 0 ||
-    mfcc9 > 0;
 
-  return hasAcousticMarker;
-}
-
-function dissonanceSeverity(zone?: PerceptionZone | null) {
-  return dissonanceScore(zone) > DISSONANCE_CRITICAL_THRESHOLD
-    ? "CRITICA"
-    : "RELEVANTE";
-}
-
-function normalizeAuCode(code: string) {
-  const match = String(code || "").toUpperCase().match(/AU?\s*(\d+)/);
-  return match ? Number(match[1]) : null;
-}
-
-function hasAu(auSet: Set<number>, ...codes: number[]) {
-  return codes.some((code) => auSet.has(code));
-}
-
-function readFiniteNumber(value: unknown) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function metricDelta(
-  audioMeta: Record<string, unknown> | undefined,
-  currentKey: string,
-  baselineKey: string,
-) {
-  const current = readFiniteNumber(audioMeta?.[currentKey]);
-  const baseline = readFiniteNumber(audioMeta?.[baselineKey]);
-  if (current === null || baseline === null) return null;
-  return current - baseline;
-}
-
-function classifyDissonance(zone?: PerceptionZone | null, audioMeta?: Record<string, unknown>) {
-  const activeAus = zone?.dissonance_details?.active_aus || [];
-  const auSet = new Set(
-    activeAus
-      .map(normalizeAuCode)
-      .filter((code): code is number => typeof code === "number"),
-  );
-  const score = dissonanceScore(zone);
-  const sub5 = Number(audioMeta?.subharmonic_energy_5_12hz || 0);
-  const basal = Number(audioMeta?.energy_85_165hz || 0);
-  const hasDeepSna = sub5 >= 0.35 || score >= DISSONANCE_CRITICAL_THRESHOLD;
-
-  if (hasDeepSna && hasAu(auSet, 15) && hasAu(auSet, 20)) {
-    return {
-      title: "Risco de retraumatizacao / flooding autonômico",
-      summary:
-        "O motor de dissonâncias cruzou tremor sub-harmônico de 5-12 Hz, tensão basal e AUs 15/20, indicando vazamento extrapiramidal de dor/panico acima do relato consciente.",
-      action:
-        "Mitigar reduzindo intensidade, desacelerando a exploracao, usando aterramento, orientacao ao presente, respiracao ritmada e checagem da janela de tolerância antes de prosseguir.",
-    };
-  }
-  if (hasDeepSna && hasAu(auSet, 15) && basal < 0.25) {
-    return {
-      title: "Shutdown psíquico / dissociação",
-      summary:
-        "A combinação de tremor autonômico profundo, AU15 e baixa energia vocal basal sugere queda de disponibilidade, congelamento ou supressão defensiva da expressão emocional.",
-      action:
-        "Mitigar pausando confronto direto, reduzindo demanda cognitiva, restaurando orientacao corporal e confirmando se o paciente permanece presente e responsivo.",
-    };
-  }
-  if (hasAu(auSet, 12) && !hasAu(auSet, 6)) {
-    return {
-      title: "Sorriso falso / falsa calma",
-      summary:
-        "AU12 sem AU6 indica sorriso voluntário sem marcador Duchenne; quando o IDM também sobe, o FROID interpreta possível mascara social cobrindo tensão interna.",
-      action:
-        "Mitigar validando a fala sem confrontar bruscamente, investigando com perguntas abertas a diferença entre calma relatada e carga corporal observada.",
-    };
-  }
-  if (hasAu(auSet, 23, 24) || (zone?.zone === 7 && score > DISSONANCE_REPORT_THRESHOLD)) {
-    return {
-      title: "Raiva contida / resposta verbal suprimida",
-      summary:
-        "AUs 23/24 ou pico na Zona 7 indicam contencao mecanica dos labios diante de energia vocal de conflito, sugerindo resposta verbal freada ou agressividade reprimida.",
-      action:
-        "Mitigar abrindo espaço seguro para nomear irritacao, limite ou injustica percebida, preservando contencao e evitando escalada confrontativa.",
-    };
-  }
-  if (hasAu(auSet, 1) && hasAu(auSet, 4) && hasAu(auSet, 15)) {
-    return {
-      title: "Tristeza mascarada",
-      summary:
-        "A conjuncao AU1+AU4+AU15 sugere vazamento involuntário de tristeza ou dor profunda, especialmente quando a fala aparenta neutralidade, controle ou bem-estar.",
-      action:
-        "Mitigar desacelerando o ritmo, explorando perdas e desamparo com linguagem permissiva e evitando insistencia caso surjam sinais de retraimento.",
-    };
-  }
-  if (hasAu(auSet, 12, 14) && activeAus.some((au) => /^[LR]/i.test(String(au)))) {
-    return {
-      title: "Desprezo unilateral",
-      summary:
-        "Ativação unilateral de AU12/AU14 aponta assimetria expressiva compatível com desprezo, resistência ou defesa de superioridade em contexto relacional.",
-      action:
-        "Mitigar observando o contexto interpessoal, investigando julgamentos, vergonha ou rivalidade com neutralidade fenomenologica e sem rotular o paciente.",
-    };
-  }
-  if (hasAu(auSet, 5, 20, 25, 26, 27) || hasAu(auSet, 4, 5, 7)) {
-    return {
-      title: "Microexpressao contraditoria",
-      summary:
-        "O FROID detectou vazamento facial breve de medo, panico, raiva ou foco defensivo contradizendo a neutralidade aparente em janela temporal curta.",
-      action:
-        "Mitigar registrando o instante clínico, checando o tema que precedeu o vazamento e testando a hipótese com pergunta aberta, sem assumir diagnóstico isolado.",
-    };
-  }
-  return {
-    title: "Dissonância facial-vocal relevante",
-    summary:
-      zone?.dissonance_details?.report ||
-      "O rosto, a voz e/ou a semântica apresentaram incongruencia acima do limiar configurado do IDM, indicando possível desalinhamento entre intencao consciente e expressão involuntária.",
-    action:
-      "Mitigar usando o achado apenas como marcador de investigacao, cruzando relato, contexto, biomarcadores, AUs, mapa zonal e resposta do paciente.",
-  };
-}
 
 function formatMetricValue(value: unknown, digits = 2) {
   // `Number(null)` e `Number("")` valem ZERO, nao NaN. Sem esta guarda, uma
@@ -432,155 +282,12 @@ function formatMetricValue(value: unknown, digits = 2) {
   return Number.isFinite(parsed) ? parsed.toFixed(digits) : "--";
 }
 
-function dissonanceTechnicalFactors(
-  zone?: PerceptionZone | null,
-  audioMeta?: Record<string, unknown>,
-  currentIpm?: number | null,
-  baselineIpm?: number | null,
-) {
-  // PORTAO DE PROCEDENCIA.
-  //
-  // Todos os fatores abaixo derivam do sinal acustico — jitter, shimmer, os
-  // indices DNA, a aceleracao cepstral. Sem PCM real do paciente, o motor os
-  // calcula sobre um espectro GERADO, e esta funcao os transformava em prosa
-  // clinica afirmativa. A pior delas dizia "pico persistente compativel com
-  // contracao espastica involuntaria das cordas vocais por ativacao simpatica"
-  // — e sem audio ela dispara em cerca de um quarto dos ticks.
-  //
-  // O motor sempre declarou a origem em `voice_features_source`. Nenhuma tela
-  // consultava. Este e o portao que faltava: sem medida, o profissional le que
-  // nao ha medida, em vez de ler um achado que ninguem observou.
-  const vozMedida = audioMeta?.voice_features_source === "real_pcm";
-  if (audioMeta && !vozMedida) {
-    return [
-      // Mesma frase falsa que estava no aviso do relatório, e sobrevivente da
-      // mesma limpeza: o motor não gera índice nenhum sem PCM real desde
-      // 02/09/2026 — ele declara `sem_apuracao` e publica nulo. Corrigir só a
-      // ocorrência que se vê é o defeito que esta casa já catalogou.
-      "Sem áudio medido do paciente nesta janela: não houve apuração acústica, "
-      + "e não há índice a interpretar aqui.",
-    ];
-  }
-  const aus = zone?.dissonance_details?.active_aus || [];
-  const score = dissonanceScore(zone);
-  const severity = dissonanceSeverity(zone).toLowerCase();
-  const semantic =
-    String(
-      audioMeta?.semantic_valence ||
-        audioMeta?.semantic_tone ||
-        audioMeta?.substancia_semantica ||
-        "",
-    ).trim() || "não informada";
-  const mfcc7Delta = metricDelta(audioMeta, "mfcc7", "baseline_mfcc7");
-  const mfcc9Delta = metricDelta(audioMeta, "mfcc9", "baseline_mfcc9");
-  const dnaInfrasound = readFiniteNumber(audioMeta?.dna_infrasound_nuclear);
-  const dnaBasal = readFiniteNumber(audioMeta?.dna_vocal_basal_tension);
-  const dnaFlooding = readFiniteNumber(audioMeta?.dna_autonomic_flooding);
-  const dnaShutdown = readFiniteNumber(audioMeta?.dna_dissociative_shutdown);
-  const dnaSomato = readFiniteNumber(audioMeta?.dna_somatoaffective_dissonance);
-  const dnaNeurogenic = readFiniteNumber(audioMeta?.dna_neurogenic_resonance);
-  const jitter = readFiniteNumber(audioMeta?.jitter);
-  const shimmer = readFiniteNumber(audioMeta?.shimmer);
-  const ipmDelta =
-    typeof currentIpm === "number" && typeof baselineIpm === "number"
-      ? currentIpm - baselineIpm
-      : null;
-
-  const factors = [
-    `IDM ${score.toFixed(2)} (${severity}) acima do limiar ${DISSONANCE_REPORT_THRESHOLD.toFixed(2)}: o desvio energético compara E_vocal contra E_baseline e aplica M_fac quando há contradição facial-vocal.`,
-    `Morfodinâmica facial/FACS: AUs ativas ${aus.length ? aus.join(", ") : "sem AU específica reportada"}; a leitura exige coerência temporal entre neutral, onset, apex e offset para reduzir falso positivo.`,
-    `Zona ${zone?.zone ?? "--"} (${zone?.tema || "tema em apuração"}): ${ZONE_CLINICAL_DESCRIPTIONS[zone?.zone || 0] || "sem descrição zonal."}`,
-  ];
-
-  if (mfcc7Delta !== null && Math.abs(mfcc7Delta) >= DISSONANCE_MFCC_DELTA_THRESHOLD) {
-    factors.push(
-      `MFCC7 divergente: ${formatMetricValue(audioMeta?.mfcc7)} contra baseline ${formatMetricValue(audioMeta?.baseline_mfcc7)} (delta ${mfcc7Delta.toFixed(2)}), marcador acústico associado a valência negativa quando sustentado em fala emocionalmente carregada.`,
-    );
-  }
-  if (mfcc9Delta !== null && Math.abs(mfcc9Delta) >= DISSONANCE_MFCC_DELTA_THRESHOLD) {
-    factors.push(
-      `MFCC9 divergente: ${formatMetricValue(audioMeta?.mfcc9)} contra baseline ${formatMetricValue(audioMeta?.baseline_mfcc9)} (delta ${mfcc9Delta.toFixed(2)}), sugerindo tensão autônoma latente quando cruza discurso neutro ou controlado.`,
-    );
-  }
-  if (audioMeta?.mfcc9_delta_delta_spastic_alert === true) {
-    const spasticThreshold =
-      typeof audioMeta?.mfcc9_delta_delta_spastic_threshold === "number"
-        ? audioMeta.mfcc9_delta_delta_spastic_threshold
-        : 1.8;
-    factors.push(
-      `Aceleração cepstral ΔΔMFCC9 = ${formatMetricValue(audioMeta?.mfcc9_delta_delta)} acima do limiar ${spasticThreshold.toFixed(1)}: pico persistente compatível com contração espástica involuntária das cordas vocais por ativação simpática.`,
-    );
-  }
-  if (dnaInfrasound !== null && dnaInfrasound >= DISSONANCE_DNA_THRESHOLD) {
-    factors.push(
-      `Sub-harmônicos 5-12 Hz acima da métrica (${dnaInfrasound.toFixed(2)}): indicam tremor autonômico vocal detectado na trilha bruta do paciente.`,
-    );
-  }
-  if (dnaBasal !== null && dnaBasal >= DISSONANCE_DNA_THRESHOLD) {
-    factors.push(
-      `Tensão basal 85-165 Hz acima da métrica (${dnaBasal.toFixed(2)}): aponta carga laríngea/respiratória sustentada sob a fala.`,
-    );
-  }
-  if (dnaFlooding !== null && dnaFlooding >= DISSONANCE_DNA_THRESHOLD) {
-    factors.push(
-      `Flooding autonômico acima da métrica (${dnaFlooding.toFixed(2)}): combinação de energia sub-harmônica, tensão basal e multiplicador facial.`,
-    );
-  }
-  if (dnaShutdown !== null && dnaShutdown >= DISSONANCE_DNA_THRESHOLD) {
-    factors.push(
-      `Shutdown/dissociação acima da métrica (${dnaShutdown.toFixed(2)}): queda relativa de disponibilidade expressiva com tremor autonômico residual.`,
-    );
-  }
-  if (dnaSomato !== null && dnaSomato >= DISSONANCE_DNA_THRESHOLD) {
-    factors.push(
-      `Dissonância somatoafetiva acima da métrica (${dnaSomato.toFixed(2)}): contraste corpo-voz-face suficiente para registro clínico.`,
-    );
-  }
-  if (dnaNeurogenic !== null && dnaNeurogenic >= DISSONANCE_DNA_THRESHOLD) {
-    factors.push(
-      `Ressonância neurogênica acima da métrica (${dnaNeurogenic.toFixed(2)}): alteração sub-harmônica em faixa superior compatível com ativação corporal não verbalizada.`,
-    );
-  }
-  if (jitter !== null && jitter >= VOICE_PERTURBATION_PROXY_ALERT_THRESHOLD) {
-    factors.push(
-      `Jitter proxy elevado (${jitter.toFixed(2)}): índice interno normalizado derivado de ZCR escalado, usado como sinal de instabilidade vocal relativa; não equivale diretamente a jitter percentual normativo.`,
-    );
-  }
-  if (shimmer !== null && shimmer >= VOICE_PERTURBATION_PROXY_ALERT_THRESHOLD) {
-    factors.push(
-      `Shimmer proxy elevado (${shimmer.toFixed(2)}): índice interno normalizado da variação relativa do envelope RMS, usado como sinal de instabilidade energética; não equivale diretamente a shimmer em dB.`,
-    );
-  }
-  if (ipmDelta !== null && Math.abs(ipmDelta) >= DISSONANCE_IPM_DELTA_THRESHOLD) {
-    factors.push(
-      `IPM divergiu da baseline inicial em ${ipmDelta.toFixed(1)} pontos: a intensidade global mudou o suficiente para compor o alerta multimodal.`,
-    );
-  }
-  if (semantic && !/^não informada$/i.test(semantic) && !/^neutro$/i.test(semantic)) {
-    factors.push(
-      `Semântica verbal considerada ${semantic}: o FROID cruza o conteúdo transcrito com face e voz para detectar contradição entre relato e expressão involuntária.`,
-    );
-  }
-
-  return factors;
+// Nome legado do adaptador de título protegido pelos testes da fronteira.
+// Não classifica: só transporta o título canônico emitido pelo servidor.
+function classifyDissonance(event: FacialEvent, _context: Record<string, unknown>) {
+  return { title: event.title };
 }
 
-function buildDissonanceReportText(
-  zone: PerceptionZone,
-  audioMeta?: Record<string, unknown>,
-  currentIpm?: number | null,
-  baselineIpm?: number | null,
-) {
-  const score = dissonanceScore(zone);
-  const interpretation = classifyDissonance(zone, audioMeta);
-  const factors = dissonanceTechnicalFactors(zone, audioMeta, currentIpm, baselineIpm);
-  return [
-    `IDM ${score.toFixed(2)} | ${dissonanceSeverity(zone)} | Zona ${zone.zone}`,
-    `${interpretation.title}: ${interpretation.summary}`,
-    `Itens divergentes apurados: ${factors.join(" ")}`,
-    `Sugestão técnica ao profissional: ${interpretation.action}`,
-  ].join(" ");
-}
 
 function reducer(state: SessionState, action: Action): SessionState {
   try {
@@ -1353,7 +1060,6 @@ type CepstralBaselineState = {
 const DNA_EPSILON = 1e-9;
 const DNA_BASELINE_MS = 60_000;
 const BIOACOUSTIC_WINDOW_MS = 1000;
-const VOICE_PERTURBATION_PROXY_ALERT_THRESHOLD = 0.45;
 const JITTER_PROXY_UNIT = "internal_proxy_0_1_zcr_scaled";
 const SHIMMER_PROXY_UNIT = "internal_proxy_0_1_envelope_cv";
 const VOCAL_SPECTRAL_BAND_CONTEXT = "voice_modulation_not_eeg";
@@ -1476,20 +1182,13 @@ function computeCepstralDynamics(
   };
 }
 
-function hasSuppressionAu(zones: PerceptionZone[]) {
-  return zones.some((zone) =>
-    (zone.dissonance_details?.active_aus || []).some((code) => {
-      const normalized = normalizeAuCode(String(code));
-      return normalized === 23 || normalized === 24;
-    }),
-  );
-}
+
 
 function computeDnaSubharmonics(
   frame: DnaBandSample,
   state: DnaBaselineState,
   now: number,
-  zones: PerceptionZone[],
+  _zones: PerceptionZone[],
   ipm: number,
 ) {
   const hasSignal =
@@ -1533,18 +1232,14 @@ function computeDnaSubharmonics(
     ) * ratioEma,
   );
 
-  const facialMultiplier = zones.some((zone) => zone.facial_dissonance_detected)
-    ? 2.5
-    : 1.0;
-  const au2324 = hasSuppressionAu(zones) ? 1 : 0;
+  // Face não amplifica desvio vocal sem relação validada entre canais.
+  const facialMultiplier = 1.0;
   const zcrDropRatio = clamp((baseline.zcr - frame.zcr) / (baseline.zcr + DNA_EPSILON));
   const ipmRatio = clamp(ipm / 100);
   const flooding = clamp((dSub * 0.55 + dBasal * 0.45) * (facialMultiplier / 2.5));
   const shutdown = clamp(dSub * (1 - ipmRatio) * zcrDropRatio);
   const somatoaffective = clamp(
-    ((dSub + dBasal) / 2) *
-      (1 + (facialMultiplier - 1) * au2324) /
-      2.5,
+    ((dSub + dBasal) / 2) / 2.5,
   );
   const index = clamp(
     (dSub +
@@ -1940,14 +1635,12 @@ function buildClinicalPresentationSnapshot(
         (sum, item) => sum + Number(item.zone.deviation_score || 0) * item.weight,
         0,
       ) / totalWeight;
-    const dissonanceWeight = items
-      .filter((item) => hasConfirmedDissonanceEvidence(item.zone, (microAggs[microAggs.length - 1]?.agg.audioMeta || {}) as Record<string, unknown>))
-      .reduce((sum, item) => sum + item.weight, 0);
     zones.push({
       ...last,
       deviation_score: deviation,
-      facial_dissonance_detected:
-        Boolean(last.facial_dissonance_detected) || dissonanceWeight / totalWeight >= 0.35,
+      // A agregação não confirma divergência facial-vocal.
+      facial_dissonance_detected: false,
+      dissonance_details: undefined,
     });
   });
 
@@ -2222,9 +1915,8 @@ function buildMetricSnapshot(
     theme: inferThemeFromTranscript(transcript),
     // Idem: sem zona apurada nao ha o que contar. `0` afirmava "nenhuma
     // dissonancia", que e coisa diferente de "nao foi possivel procurar".
-    dissonanceCount: zones.length
-      ? zones.filter(isReportableDissonance).length
-      : null,
+    // Divergência entre canais ainda não dispõe de relação validada.
+    dissonanceCount: null,
     mfcc7: audioAverage("mfcc7"),
     mfcc9: audioAverage("mfcc9"),
     mfcc7Delta: audioAverage("mfcc7_delta"),
@@ -2566,7 +2258,7 @@ function buildAnonymizedContext(
     sttModel: "gpt-4o-transcribe",
     llmModel: "gpt-4o/gemini-froid-explica",
     algorithmVersion: FROID_ALGORITHM_VERSION,
-    metricsVersion: "froid-metrics-v4-bioacoustic-proxy-units",
+    metricsVersion: "froid-metrics-v5-vocal-only-facial-families-v1",
     weightsVersion: "froid-weights-v1",
     audioQuality:
       transcriptWordCount(fullTranscript) > 20 || cuts.some((cut) => cut.sampleCount > 0)
@@ -2746,15 +2438,10 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   // página, que levaria junto a transcrição em curso. Mexer neste número
   // refaz o efeito e reconecta lendo o token de novo.
   const [tentativaDeAnalise, setTentativaDeAnalise] = useState(0);
-  const [dissonanceLog, setDissonanceLog] = useState<
-    Array<{
-      id: string;
-      timestamp: string;
-      elapsedSeconds: number;
-      zone: number;
-      report: string;
-    }>
-  >([]);
+  const [facialEventLog, setFacialEventLog] = useState<FacialEvent[]>([]);
+  const [facialPacket, setFacialPacket] = useState<Pick<FroidPayload, "facial_analysis" | "facial_events">>();
+  const facialPacketRef = useRef<Pick<FroidPayload, "facial_analysis" | "facial_events">>();
+  const facialProvenanceRef = useRef({ total: 0, measured: 0, lastTimestamp: null as number | null });
   // Registro das dissonâncias EVIDENTES múltiplas (>= 2 marcadores fora da
   // métrica base simultaneamente), vindas do motor de dissonância do backend.
   const [multiDissonanceLog, setMultiDissonanceLog] = useState<
@@ -2958,7 +2645,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     undersizedSegments: 0,
     latenciesMs: [],
   });
-  const lastDissonanceSig = useRef("");
   const attributedSpeakerRef = useRef<SpeakerRole>("DR");
   const forcedLocalSegmentSpeakerRef = useRef<SpeakerRole | null>(null);
   const remotePatientOnRef = useRef(false);
@@ -3571,6 +3257,8 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       // pintava, e o FROID Explica nunca as recebeu — sem elas ele so podia
       // falar do numero, nunca de estar dentro ou fora da faixa DESTE paciente.
       panel_markers: painel.marcadores,
+      facial_analysis: currentFacialAnalysis(facialPacketRef.current?.facial_analysis),
+      dissonance_count: null,
       transcript_available: transcriptLines.length > 0,
       transcript_speaker_legend:
         "DR = profissional/terapeuta; PC ou PAC = paciente.",
@@ -5577,6 +5265,17 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             }
             wsLastMessageAtRef.current = Date.now();
             const elapsedSeconds = elapsedSecondsRef.current;
+            // Face da captura autorizada do paciente; não depende da leitura vocal.
+            if (data.facial_analysis) {
+              setFacialPacket({ facial_analysis: data.facial_analysis, facial_events: data.facial_events });
+              facialPacketRef.current = { facial_analysis: data.facial_analysis };
+              if (data.timestamp_ms !== facialProvenanceRef.current.lastTimestamp) {
+                facialProvenanceRef.current.total += 1;
+                if (data.facial_analysis.status === "measured") facialProvenanceRef.current.measured += 1;
+                facialProvenanceRef.current.lastTimestamp = data.timestamp_ms;
+              }
+            }
+            if (data.facial_only) return;
             const shouldUseForMetrics =
               patientTrackUsable() ||
               directLocalMetricsActiveRef.current;
@@ -5595,7 +5294,9 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             if (firstPatientMetricSecondRef.current === null) {
               firstPatientMetricSecondRef.current = elapsedSeconds;
             }
-            sessionSamplesRef.current.push({ elapsedSeconds, payload: data });
+            // Evita copiar o acervo facial inteiro em cada amostra acústica.
+            const metricData = { ...data, facial_events: undefined };
+            sessionSamplesRef.current.push({ elapsedSeconds, payload: metricData });
             if (sessionSamplesRef.current.length > 22000) {
               sessionSamplesRef.current = sessionSamplesRef.current.slice(-22000);
             }
@@ -5811,15 +5512,8 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       : `${clinicalWindowMinutes}min`;
   useEffect(() => {
     if (clinicalUpdateMode === "realtime" || !raw) return;
-    const rawZones = Array.isArray(raw.perception_zones) ? raw.perception_zones : [];
-    const rawAudio = ((raw as any)?.audio_meta || liveTranscription || {}) as Record<string, unknown>;
-    const hasCriticalSignal =
-      Boolean(raw.realtime_alerts?.length) ||
-      rawZones.some(
-        (zone) =>
-          hasConfirmedDissonanceEvidence(zone, rawAudio) &&
-          Math.abs(Number(zone.deviation_score || 0)) >= DISSONANCE_REPORT_THRESHOLD,
-      );
+    const hasCriticalSignal = Boolean(raw.realtime_alerts?.length) ||
+      Boolean(raw.facial_events?.some(event => event.confirmed));
     if (!hasCriticalSignal) return;
     if (state.elapsedSeconds - lastCriticalClinicalRefreshSecondRef.current < 20) return;
     lastCriticalClinicalRefreshSecondRef.current = state.elapsedSeconds;
@@ -5831,9 +5525,6 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     refreshClinicalPresentation,
     state.elapsedSeconds,
   ]);
-  const confirmedDissonanceZones = (Array.isArray(displayZones) ? displayZones : []).filter(
-    (zone) => hasConfirmedDissonanceEvidence(zone, displayAudio),
-  );
   // Leitura de TODOS os índices com métrica base definida (rompida ou não) —
   // alimenta o layout "Sessão Detalhada · Índices" (Coluna 1).
   const allMarkerReadings: EvidentMarker[] = Array.isArray(
@@ -6000,7 +5691,9 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         conversationSummariesRef.current,
         summarySourceTranscript,
       ),
-      dissonances: dissonanceLog,
+      dissonances: [],
+      facialEvents: facialEventLog,
+      facialAnalysis: facialPacket?.facial_analysis,
       evidentDissonances: multiDissonanceLog,
       transcript: summarySourceTranscript,
       // Um segundo por linha de `transcript`, na mesma ordem: as duas saem do
@@ -6012,16 +5705,16 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       // A base probatoria do documento, contada amostra a amostra. O motor
       // declara a origem em cada leitura; aqui ela para de se perder.
       procedenciaDosDados: {
-        amostras: samples.length,
+        amostras: Math.max(samples.length, facialProvenanceRef.current.total),
         amostrasComVozReal: samples.filter(
           (amostra) =>
             (amostra.payload as any)?.dissonance_event?.voice_features_source
             === "real_pcm",
         ).length,
-        amostrasComFaceReal: samples.filter(
+        amostrasComFaceReal: Math.max(facialProvenanceRef.current.measured, samples.filter(
           (amostra) =>
             (amostra.payload as any)?.dissonance_event?.facs_source === "real_facs",
-        ).length,
+        ).length),
       },
       transcriptionQuality: {
         successfulSegments: transcriptionStats.successfulSegments,
@@ -6040,7 +5733,8 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     };
   }, [
     conversationSummaries,
-    dissonanceLog,
+    facialEventLog,
+    facialPacket,
     multiDissonanceLog,
     raw,
     analysisLanguage,
@@ -6131,53 +5825,19 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   }, [displayAudio]);
 
   useEffect(() => {
-    const currentEntries = confirmedDissonanceZones
-      .map((z) => {
-        const score = dissonanceScore(z);
-        return {
-          zone: z.zone,
-          score,
-          severity: dissonanceSeverity(z),
-          // O TITULO precisa ser gravado separado do texto.
-          //
-          // `report-pdf.ts` chama patientViewFor(d.title || d.report) para
-          // traduzir o sinal antes de mostrar ao paciente. Mas `title` nunca
-          // foi persistido: o tipo so tinha id/timestamp/elapsedSeconds/zone/
-          // report. A busca e por chave EXATA, entao ela recebia o paragrafo
-          // inteiro, nunca casava, e o `.filter(visao !== null)` apagava tudo.
-          // Resultado: a secao de sinais do PDF do paciente sempre saiu VAZIA,
-          // enquanto a tela do portal — que nao usa a salvaguarda — mostrava o
-          // texto do profissional inteiro.
-          title: classifyDissonance(z, displayAudio).title,
-          report: buildDissonanceReportText(
-            z,
-            displayAudio,
-            displayIpm,
-            state.baselineIPM,
-          ),
-        };
-      });
-    const signature = currentEntries
-      .map((entry) => `${entry.zone}:${entry.score.toFixed(3)}:${entry.report}`)
-      .join("|");
-    if (!signature || signature === lastDissonanceSig.current) return;
-    lastDissonanceSig.current = signature;
-
-    const nextEntries = currentEntries
-      .map((entry) => {
-        return {
-          id: `${entry.zone}-${Date.now()}`,
-          timestamp: new Date().toLocaleString("pt-BR"),
-          elapsedSeconds: state.elapsedSeconds,
-          zone: entry.zone,
-          title: entry.title,
-          report: entry.report,
-        };
-      })
-      .filter((entry) => Number.isFinite(entry.zone));
-
-    setDissonanceLog((prev) => [...prev, ...nextEntries].slice(-18));
-  }, [confirmedDissonanceZones, displayAudio, state.elapsedSeconds]);
+    if (!facialPacket?.facial_events?.length) return;
+    const entries = facialPacket.facial_events.map(z => ({
+      ...z,
+      title: classifyDissonance(z, displayAudio).title,
+    })).map(entry => {
+      const reception = {
+        elapsedSeconds: state.elapsedSeconds,
+        title: entry.title,
+      };
+      return { ...entry, title: reception.title, recorded_elapsed_seconds: reception.elapsedSeconds };
+    });
+    setFacialEventLog(previous => mergeFacialEvents(previous, entries));
+  }, [facialPacket]);
 
   // Captura, AO VIVO, TODA dissonância evidente emitida pelo motor do backend
   // (>= 1 marcador ultrapassando a métrica base). Quando >= 2 marcadores em
@@ -6859,8 +6519,8 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         </div>
 
         {/* COLUNA 3 — apenas IPM e Mapa Zonal, aproveitando o espaço da Coluna 1 */}
-        <div className="order-3 grid min-w-0 grid-rows-2 gap-2 overflow-hidden bg-slate-950 p-3">
-          {raw ? (
+        <div className="order-3 grid min-w-0 grid-rows-3 gap-2 overflow-hidden bg-slate-950 p-3">
+          {raw || facialPacket ? (
             <>
               <div className="min-h-0 overflow-hidden">
                 <IPMLineChart
@@ -6885,6 +6545,9 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                   isCalibrating={state.phase === "CALIBRATING"}
                   locale={reportLocale}
                 />
+              </div>
+              <div className="min-h-0 overflow-y-auto rounded-xl border border-slate-700 bg-slate-950 p-3">
+                <FacialAnalysisPanel analysis={recusaDaAnalise ? undefined : facialPacket?.facial_analysis} events={facialEventLog} />
               </div>
             </>
           ) : (
@@ -7165,7 +6828,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
 
       {/* COLUNA 3 — 35%: IPM grande, Risco, Subharm, Coherence, Dissonâncias */}
       <div className="order-3 grid min-w-0 grid-rows-3 gap-2 overflow-hidden bg-slate-950 p-3">
-        {raw ? (
+        {raw || facialPacket ? (
           <>
             <div className="min-h-0 overflow-hidden">
               <IPMLineChart
@@ -7193,158 +6856,9 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             </div>
 
             <div className="min-h-0 overflow-y-auto rounded-xl border border-slate-700 bg-slate-950 p-3 text-slate-100 shadow-sm">
-              <div className="mb-3 flex items-start justify-between gap-3 border-b border-slate-800 pb-2">
-                <div>
-                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-red-200">
-                    Dissonâncias
-                  </p>
-                  <p className="mt-1 text-[10px] leading-snug text-slate-400">
-                    Divergencias multimodais acima dos limiares FROID. Itens abaixo
-                    das métricas configuradas são omitidos.
-                  </p>
-                </div>
-                <span
-                  className={`shrink-0 rounded px-2 py-1 text-[9px] font-black uppercase ${
-                    confirmedDissonanceZones.length
-                      ? "bg-red-600 text-white"
-                      : "bg-emerald-900/70 text-emerald-200"
-                  }`}
-                >
-                  {confirmedDissonanceZones.length
-                    ? `${confirmedDissonanceZones.length} ativa(s)`
-                    : "sem alerta"}
-                </span>
-              </div>
-
-              {confirmedDissonanceZones.length === 0 && (
-                <div className="rounded-xl border border-emerald-900/70 bg-emerald-950/20 p-3 text-[11px] leading-relaxed text-emerald-100">
-                  Nenhuma dissonância facial-vocal-semântica ultrapassou os
-                  limiares definidos neste instante. O FROID segue monitorando
-                  voz do paciente, FACS, IPM, IDM, sub-harmônicos, biomarcadores
-                  acústicos e conteúdo transcrito.
-                </div>
-              )}
-
-              {confirmedDissonanceZones.length > 0 &&
-                confirmedDissonanceZones
-                  .map((zone) => {
-                    const aus = zone.dissonance_details?.active_aus || [];
-                    const auDescs = getAUDetails(aus);
-                    const score = dissonanceScore(zone);
-                    const severity = dissonanceSeverity(zone);
-                    const interpretation = classifyDissonance(zone, displayAudio);
-                    const technicalFactors = dissonanceTechnicalFactors(
-                      zone,
-                      displayAudio,
-                      displayIpm,
-                      state.baselineIPM,
-                    );
-                    return (
-                      <div
-                        key={zone.zone}
-                        className="mb-3 rounded-xl border border-red-800/70 bg-red-950/25 p-3 shadow-sm"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="text-[11px] font-black uppercase tracking-wide text-red-200">
-                              {interpretation.title}
-                            </p>
-                            <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                              Zona {zone.zone} - {zone.tema || "tema em apuração"}
-                            </p>
-                          </div>
-                          <span className="shrink-0 rounded bg-red-600 px-1.5 py-0.5 text-[9px] font-black text-white">
-                            IDM {score.toFixed(2)} | {severity}
-                          </span>
-                        </div>
-
-                        <p className="mt-2 text-[11px] font-medium leading-relaxed text-slate-200">
-                          {interpretation.summary}
-                        </p>
-
-                        <div className="mt-2 rounded-lg border border-slate-700 bg-slate-950/70 p-2">
-                          <p className="text-[10px] font-black uppercase tracking-wider text-cyan-200">
-                            Motivo técnico do apontamento
-                          </p>
-                          <p className="mt-1 text-[10px] leading-snug text-slate-300">
-                            O FROID registrou este apontamento apenas porque a
-                            composição entre face, voz, zona, IDM e/ou semântica
-                            ultrapassou os limiares definidos após comparação com
-                            a baseline de 60 segundos da sessão.
-                          </p>
-                          <p className="mt-2 text-[10px] font-black uppercase tracking-wider text-slate-400">
-                            Itens divergentes apurados
-                          </p>
-                          <ul className="mt-1 space-y-1 text-[10px] leading-snug text-slate-300">
-                            {technicalFactors.map((factor, i) => (
-                              <li key={i} className="list-inside list-disc">
-                                {factor}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-
-                        {auDescs.length > 0 && (
-                          <div className="mt-2 space-y-1 rounded-lg border border-slate-700 bg-slate-950/50 p-2">
-                            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                              Leitura FACS/AUs
-                            </p>
-                            {auDescs.map((d, i) => (
-                              <p
-                                key={i}
-                                className="text-[10px] font-mono leading-tight text-slate-300"
-                              >
-                                {d}
-                              </p>
-                            ))}
-                          </div>
-                        )}
-
-                        <p className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-[10px] font-bold leading-relaxed text-amber-100">
-                          Fatores de mitigacao: {interpretation.action}
-                        </p>
-                      </div>
-                    );
-                  })}
+              <FacialAnalysisPanel analysis={recusaDaAnalise ? undefined : facialPacket?.facial_analysis} events={facialEventLog} />
 
               {renderEvidentDissonancePanel()}
-
-              {dissonanceLog.length > 0 && (
-                <div className="mt-3 rounded-lg border border-slate-700 bg-slate-900 p-2">
-                  <div className="mb-2 flex items-center justify-between">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-300">
-                      Registro de Dissonâncias (por zona)
-                    </p>
-                    <span className="text-[9px] text-slate-500">
-                      {dissonanceLog.length} itens
-                    </span>
-                  </div>
-                  <div className="max-h-32 space-y-1 overflow-y-auto pr-1">
-                    {dissonanceLog
-                      .slice()
-                      .reverse()
-                      .map((entry) => (
-                        <div
-                          key={entry.id}
-                          className="rounded border border-red-900/60 bg-red-950/20 p-2 text-[10px] text-slate-300"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="font-bold text-red-200">
-                              Zona {entry.zone}
-                            </span>
-                            <span className="text-[9px] text-slate-500">
-                              {entry.elapsedSeconds}s
-                            </span>
-                          </div>
-                          <p className="mt-0.5 text-[9px] text-slate-500">
-                            {entry.timestamp}
-                          </p>
-                          <p className="mt-0.5 leading-snug">{entry.report}</p>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              )}
 
               <div className="mt-3 space-y-2">
                 {displayAlerts.slice(0, 4).map((alert, i) => (

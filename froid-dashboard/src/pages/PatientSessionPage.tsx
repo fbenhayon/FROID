@@ -82,6 +82,7 @@ export const PatientSessionPage: React.FC = () => {
   // desconecta o anterior. Dizer isso ANTES vale mais do que explicar depois.
   const [aberturasAnteriores, setAberturasAnteriores] = useState(0);
   const [error, setError] = useState("");
+  const [facialCaptureWarning, setFacialCaptureWarning] = useState("");
   // Fim deliberado da consulta (sinal explícito do profissional, distinto de
   // uma queda de rede transitória) — habilita o encaminhamento do paciente à
   // área restrita dele.
@@ -898,12 +899,15 @@ export const PatientSessionPage: React.FC = () => {
         startFaceCapture(stream, {
           endpoint: apiUrl(`/api/froid/${sessionId}/facial-aus`),
           invite: inviteToken,
+          onStatus: (message) => {
+            if (streamRef.current === stream) setFacialCaptureWarning(message);
+          },
         })
           .then((stop) => {
             if (streamRef.current === stream) faceStopRef.current = stop;
             else stop();
           })
-          .catch(() => undefined);
+          .catch(() => setFacialCaptureWarning("Sem capacidade de apuração facial: captura indisponível."));
       }
       await startPatientRtc(stream);
     } catch {
@@ -1138,6 +1142,7 @@ export const PatientSessionPage: React.FC = () => {
             </p>
           )}
 
+          {facialCaptureWarning && <p role="status" className="text-sm text-amber-300">{facialCaptureWarning}</p>}
           {error && (
             <p className="mt-4 rounded-md border border-red-900/50 bg-red-950/50 px-3 py-2 text-xs font-semibold text-red-200">
               {error}

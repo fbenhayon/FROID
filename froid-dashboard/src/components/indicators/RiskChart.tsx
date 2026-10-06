@@ -57,7 +57,7 @@ export const TOOLTIP_TEXT = {
   anxiety: `Tensão laríngea sustentada: acompanha o coeficiente MFCC9 em fala neutra, contra a referência do próprio paciente. Quedas sustentadas nesse coeficiente são descritas na literatura como correlato acústico de tensão na musculatura laríngea. ${RESSALVA}`,
   mania: `Ativação prosódica: composto de F0, loudness e taxa de fala, com fluxo espectral mais incisivo. Mede elevação simultânea de altura, intensidade e velocidade em relação à linha de base deste paciente. ${RESSALVA}`,
   stress: `Esforço vocal sustentado: composto de F0 sustentado, ZCR e os índices proxy de jitter e shimmer. Descreve carga articulatória contínua. Os índices são estimativas por quadros e não equivalem a medidas normativas de laboratório em % ou dB.`,
-  autonomic: `Assinatura sub-harmônica com retração facial: cruzamento entre energia sub-harmônica de 5 a 12 Hz, as Unidades de Ação AU15 e AU20 e tensão vocal na faixa de 85 a 165 Hz. Mede co-ocorrência entre canais, não estado interno. ${RESSALVA}`,
+  autonomic: "Desvios zonais e compensação: composto dos desvios relativos nas bandas vocais 4, 7, 8, 9 e 12 e das bandas com redução de energia. Não mede retração facial, atividade autonômica ou conflito interno.",
 };
 
 const clamp = (value: number, min = 0, max = 100) =>
@@ -183,7 +183,8 @@ export const RiskChart: React.FC<Props> = ({
     const isCoherenceAlert =
       !semApuracao
       && coherenceStatus !== "NEUTRO"
-      && coherenceStatus !== "COERENTE";
+      && coherenceStatus !== "COERENTE"
+      && coherenceStatus !== "ENERGIA_VOCAL_REDUZIDA";
     const valence = (
       readText(audioMeta, "substancia_semantica") ||
       readText(audioMeta, "semantic_valence") ||
@@ -292,11 +293,11 @@ export const RiskChart: React.FC<Props> = ({
       },
       {
         id: "autonomic",
-        label: "Modulação de Infrassom e Retração",
-        scale: "5–12 Hz + AU15/AU20 · contenção facial",
-        mede: "Co-ocorrência entre energia sub-harmônica lenta na voz e traços de expressão contida.",
+        label: "Desvios Zonais e Compensação",
+        scale: "Desvios espectrais relativos · somente voz",
+        mede: "Composto dos desvios nas bandas vocais e das reduções relativas de energia.",
         uso:
-          "Apóia a percepção de estados de alta ativação interna combinados com contenção corporal.",
+          "Localiza variações vocais medidas, sem inferir retração facial ou estado interno.",
         pct:
           Math.max(traumaRaw, dissociationRaw) +
           Math.min(traumaRaw, dissociationRaw) * 0.25,
