@@ -323,12 +323,9 @@ def _ipm_hyper(snap):
 
 
 def _facial_contradiction(snap):
-    # Contradição facial-vocal REAL (FACS): a assinatura de dissonância do
-    # FROID — o rosto mascarando/contradizendo o afeto. Só conta com face real
-    # (blendshapes medidos). Qualquer dissonância facial real (>= 1) é evidente.
-    if not snap.get("facial_real"):
-        return None
-    return (float(snap.get("facial_dissonance_count") or 0), None, 0.0)
+    # Medir uma configuração facial não mede divergência com a voz.
+    # Mantém a chave histórica; sem relação validada entre canais, não apura.
+    return None
 
 
 # Cada marcador descreve o SINAL medido. Nenhum nomeia construto psicológico

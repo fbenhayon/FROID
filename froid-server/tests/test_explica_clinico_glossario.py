@@ -193,27 +193,15 @@ class AsZonasVemDaFonte(unittest.TestCase):
         self.assertEqual(explica_clinico.ZONAS, dict(froid_core.PERCEPTION_ZONES))
         self.assertEqual(sorted(explica_clinico.ZONAS), list(range(1, 13)))
 
-    def test_as_regras_faciais_batem_com_o_motor_facial(self):
-        """A tabela de regras e copia declarada; aqui ela e confrontada.
-
-        `detect_facial_dissonance` e codigo imperativo, nao tabela — extrair a
-        tabela de la seria refatorar um motor em producao. A copia fica, e este
-        teste e o preco dela: mexeu na regra, o teste cai.
-        """
-        por_zona = regras_faciais_do_motor()
-        self.assertEqual(
-            sorted(por_zona),
-            sorted(explica_clinico.REGRAS_FACIAIS),
-            "o conjunto de zonas com regra facial mudou no motor e nao no glossario",
-        )
-        for zona, (aus, _descricao) in explica_clinico.REGRAS_FACIAIS.items():
-            corpo = por_zona[zona]
-            for au in aus:
-                self.assertIn(
-                    au,
-                    corpo,
-                    f"a regra da zona {zona} nao cita mais {au} no motor facial",
-                )
+    def test_as_familias_faciais_vem_da_fonte_sem_regra_por_zona(self):
+        import froid_facs
+        self.assertIs(explica_clinico.FAMILIAS_FACIAIS, froid_facs.FACIAL_FAMILIES)
+        self.assertEqual(len(explica_clinico.FAMILIAS_FACIAIS), 7)
+        self.assertEqual(explica_clinico.REGRAS_FACIAIS, {})
+        texto = explica_clinico.glossario_do_painel("familias faciais", {})
+        for familia in froid_facs.FACIAL_FAMILIES:
+            self.assertIn(familia["title"], texto)
+        self.assertIn("sem atribuicao facial", texto)
 
     def test_a_pergunta_por_uma_zona_recebe_o_eixo_dela(self):
         texto = explica_clinico.glossario_do_painel("como interpreto ZONAS Zona 12", {})
@@ -510,7 +498,11 @@ class OPainelEnviaOQueOGlossarioLe(unittest.TestCase):
 
     def test_o_painel_nao_conta_zero_dissonancia_sem_zona_apurada(self):
         bloco = _bloco(INSIGHTS, "const buildClinicalContext", "\n  }, [")
-        self.assertIn("safeZones.length", bloco)
+        # Decisão do dono: padrões faciais não comprovam divergência vocal.
+        # Garantia mais estrita: não apurada mesmo quando há bandas medidas.
+        self.assertIn("const dissonanceCount = null", bloco)
+        self.assertIn("dissonance_count: dissonanceCount", bloco)
+        self.assertNotIn("is_dissonant", bloco)
 
 
 if __name__ == "__main__":

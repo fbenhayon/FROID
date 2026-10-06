@@ -1,227 +1,327 @@
-"""
-Motor FACS (Facial Action Coding System) REAL do FROID.
-
-Substitui as marcações faciais simuladas por marcações REAIS derivadas da
-face do paciente. O navegador computa, quadro a quadro, os coeficientes de
-blendshape faciais (MediaPipe FaceLandmarker / ARKit, 52 formas) e os envia ao
-servidor; aqui eles são convertidos em INTENSIDADES de Unidades de Ação (AUs)
-do FACS e, a partir das AUs, em DISSONÂNCIAS FACIAIS por Zona de Percepção.
-
-Só marcações reais: se não há blendshapes medidos, nada é inventado — o motor
-não emite AU alguma (o motor de tick então recai no comportamento simulado
-explícito, sinalizado como tal). Quando há blendshapes reais, as AUs e as
-dissonâncias faciais passam a refletir o rosto de fato.
-
-MAPA BLENDSHAPE -> AU
----------------------
-O padrão ARKit/MediaPipe expõe 52 blendshapes cujos nomes têm correspondência
-consolidada na literatura com as Unidades de Ação do FACS de Ekman. Left/Right
-são combinados (média) para a intensidade bilateral da AU; a assimetria é
-preservada à parte para AUs de desprezo (unilaterais).
-
-Somente aritmética simples e determinística — sem dependências externas.
-"""
+"""Uma interpretação facial descritiva; AUs são proxies, não FACS certificado."""
 from __future__ import annotations
 
+import math
 from typing import Any, Dict, List, Optional, Tuple
 
-# Intensidade mínima de blendshape para considerar uma AU "ativa" (presente).
-# Blendshapes ARKit são escalas 0..1; 0,30 é um limiar de presença conservador
-# que evita ruído de micro-movimentos involuntários.
+# Limiares legados, não calibração clínica.
 AU_ACTIVE_THRESHOLD = 0.30
-
-# Assimetria mínima (|esq - dir|) para caracterizar uma AU unilateral (desprezo).
 AU_ASYMMETRY_THRESHOLD = 0.25
-
-# Mapa AU -> lista de blendshapes que a compõem (média das intensidades).
-# Nomes conforme MediaPipe FaceLandmarker (categorias ARKit).
+FACIAL_SCHEMA = "facial_families_v1"
 AU_BLENDSHAPES: Dict[str, List[str]] = {
-    "AU1": ["browInnerUp"],                              # Inner brow raiser
-    "AU2": ["browOuterUpLeft", "browOuterUpRight"],      # Outer brow raiser
-    "AU4": ["browDownLeft", "browDownRight"],            # Brow lowerer
-    "AU5": ["eyeWideLeft", "eyeWideRight"],              # Upper lid raiser
-    "AU6": ["cheekSquintLeft", "cheekSquintRight"],      # Cheek raiser
-    "AU7": ["eyeSquintLeft", "eyeSquintRight"],          # Lid tightener
-    "AU9": ["noseSneerLeft", "noseSneerRight"],          # Nose wrinkler
-    "AU10": ["mouthUpperUpLeft", "mouthUpperUpRight"],   # Upper lip raiser
-    "AU12": ["mouthSmileLeft", "mouthSmileRight"],       # Lip corner puller
-    "AU14": ["mouthDimpleLeft", "mouthDimpleRight"],     # Dimpler (desprezo)
-    "AU15": ["mouthFrownLeft", "mouthFrownRight"],       # Lip corner depressor
-    "AU17": ["mouthShrugLower", "mouthShrugUpper"],      # Chin raiser
-    "AU20": ["mouthStretchLeft", "mouthStretchRight"],   # Lip stretcher
-    "AU23": ["mouthRollLower", "mouthRollUpper"],        # Lip tightener
-    "AU24": ["mouthPressLeft", "mouthPressRight"],       # Lip pressor
-    "AU26": ["jawOpen"],                                 # Jaw drop
+    "AU1": ["browInnerUp"],
+    "AU2": ["browOuterUpLeft", "browOuterUpRight"],
+    "AU4": ["browDownLeft", "browDownRight"],
+    "AU5": ["eyeWideLeft", "eyeWideRight"],
+    "AU6": ["cheekSquintLeft", "cheekSquintRight"],
+    "AU7": ["eyeSquintLeft", "eyeSquintRight"],
+    "AU9": ["noseSneerLeft", "noseSneerRight"],
+    "AU10": ["mouthUpperUpLeft", "mouthUpperUpRight"],
+    "AU12": ["mouthSmileLeft", "mouthSmileRight"],
+    "AU14": ["mouthDimpleLeft", "mouthDimpleRight"],
+    "AU15": ["mouthFrownLeft", "mouthFrownRight"],
+    "AU17": ["mouthShrugLower"],
+    "AU20": ["mouthStretchLeft", "mouthStretchRight"],
+    # mouthRoll (rolamento labial) não equivale a apertamento AU23.
+    "AU23": [],
+    "AU24": ["mouthPressLeft", "mouthPressRight"],
+    "AU26": ["jawOpen"],
 }
+AU_LATERAL = {au: tuple(names) for au, names in AU_BLENDSHAPES.items()
+              if len(names) == 2 and names[0].endswith("Left")}
+LEGACY_MAPPING = {**AU_BLENDSHAPES,
+                  "AU17": ["mouthShrugLower", "mouthShrugUpper"],
+                  "AU23": ["mouthRollLower", "mouthRollUpper"]}
 
-# AUs unilaterais laterais (para detectar desprezo por assimetria).
-AU_LATERAL: Dict[str, Tuple[str, str]] = {
-    "AU12": ("mouthSmileLeft", "mouthSmileRight"),
-    "AU14": ("mouthDimpleLeft", "mouthDimpleRight"),
-}
+# Uma fonte para regras, nomes e textos. AU25/AU27 não são inventadas.
+FACIAL_FAMILIES = (
+    {"id": "sorriso", "title": "Sorriso", "patterns": (("AU12",),),
+     "description": "Elevação dos cantos labiais; AU6 distingue variantes observadas, não autenticidade."},
+    {"id": "tristeza", "title": "Padrão compatível com tristeza",
+     "patterns": (("AU1", "AU4", "AU15"), ("AU1", "AU4", "AU15", "AU17"), ("AU6", "AU15")),
+     "description": "Configuração de sobrancelhas e/ou cantos labiais rebaixados."},
+    {"id": "raiva", "title": "Padrão compatível com raiva",
+     "patterns": (("AU4", "AU5", "AU7", "AU24"), ("AU4", "AU5", "AU7", "AU23"), ("AU4", "AU5", "AU7", "AU10", "AU23")),
+     "description": "Contração de sobrancelhas, tensão palpebral e pressão labial."},
+    {"id": "medo", "title": "Padrão compatível com medo",
+     "patterns": (("AU1", "AU2", "AU4", "AU5", "AU20", "AU26"), ("AU5", "AU20")),
+     "description": "Abertura palpebral com estiramento horizontal dos lábios."},
+    {"id": "surpresa", "title": "Padrão compatível com surpresa",
+     "patterns": (("AU1", "AU2", "AU5", "AU26"),),
+     "description": "Elevação de sobrancelhas e pálpebras com abertura mandibular."},
+    {"id": "nojo", "title": "Padrão compatível com nojo",
+     "patterns": (("AU9", "AU15", "AU17"), ("AU10", "AU17")),
+     "description": "Elevação nasal/labial combinada ao proxy de movimento do queixo."},
+    {"id": "desprezo", "title": "Assimetria compatível com desprezo",
+     "patterns": (("AU12",), ("AU14",)),
+     "description": "Tração ou covinha estritamente unilateral; assimetria não comprova desprezo."},
+)
+LIMITATIONS = [
+    "Padrões morfológicos não comprovam emoção, mentira, mascaramento ou conflito subconsciente.",
+    "AUs são proxies não validados contra codificação FACS; limiares 0,30/0,25 são legados.",
+    "AU23 sem mapeamento; AU25/AU27 não instrumentadas; AU17 usa mouthShrugLower como proxy.",
+    "Sem confiança clínica, escala FACS A–E ou detecção certificada de ápice/microexpressão.",
+    "Sem baseline neutra individual nem controle validado de pose, oclusão, iluminação e movimentos de fala.",
+    "Dissonância facial-vocal não apurada: falta relação validada entre canais.",
+]
+PATIENT_FACIAL_TITLE = "Movimento facial observado"
+PATIENT_FACIAL_DESCRIPTION = (
+    "Foi observado um movimento do rosto em mais de um quadro. Esse registro "
+    "não determina o que você sentiu; seu significado depende do contexto "
+    "e da conversa com seu profissional."
+)
 
 
-def _bs(blendshapes: Dict[str, float], name: str) -> float:
+def _coefficient(value: Any) -> Optional[float]:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
     try:
-        return float(blendshapes.get(name, 0.0) or 0.0)
-    except (TypeError, ValueError):
-        return 0.0
+        number = float(value)
+    except OverflowError:
+        return None
+    return number if math.isfinite(number) and 0.0 <= number <= 1.0 else None
 
 
-def compute_action_units(blendshapes: Dict[str, float]) -> Dict[str, float]:
-    """Converte blendshapes ARKit/MediaPipe em intensidades de AU (0..1)."""
-    aus: Dict[str, float] = {}
+def _mean(blendshapes: dict, names: list) -> Optional[float]:
+    values = [_coefficient(blendshapes.get(name)) for name in names]
+    if not values or any(value is None for value in values):
+        return None
+    return round(sum(values) / len(values), 4)
+
+
+def _valid_time(value: Any) -> bool:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    try:
+        return math.isfinite(value) and value >= 0
+    except OverflowError:
+        return False
+
+
+def compute_action_units(blendshapes: dict) -> Dict[str, Optional[float]]:
     if not blendshapes:
-        return aus
-    for au, names in AU_BLENDSHAPES.items():
-        vals = [_bs(blendshapes, n) for n in names]
-        if not vals:
-            continue
-        aus[au] = round(float(sum(vals) / len(vals)), 4)
-    return aus
+        return {}
+    return {au: _mean(blendshapes, names) for au, names in AU_BLENDSHAPES.items()}
 
 
-def _asymmetry(blendshapes: Dict[str, float], au: str) -> float:
-    pair = AU_LATERAL.get(au)
-    if not pair:
-        return 0.0
-    return abs(_bs(blendshapes, pair[0]) - _bs(blendshapes, pair[1]))
+def _active(aus: dict, au: str) -> bool:
+    value = aus.get(au)
+    return value is not None and value >= AU_ACTIVE_THRESHOLD
 
 
-def _active(aus: Dict[str, float], au: str) -> bool:
-    return aus.get(au, 0.0) >= AU_ACTIVE_THRESHOLD
+def _unilateral(blendshapes: dict, au: str) -> Optional[str]:
+    left, right = (_coefficient(blendshapes.get(name)) for name in AU_LATERAL[au])
+    if left is None or right is None or abs(left - right) < AU_ASYMMETRY_THRESHOLD:
+        return None
+    if left >= AU_ACTIVE_THRESHOLD and right < AU_ACTIVE_THRESHOLD:
+        return "left"
+    if right >= AU_ACTIVE_THRESHOLD and left < AU_ACTIVE_THRESHOLD:
+        return "right"
+    return None
 
 
-# --------------------------------------------------------------------------
-# Regras de DISSONÂNCIA FACIAL por Zona de Percepção.
-#
-# A dissonância facial no FROID é o rosto CONTRADIZENDO/MASCARANDO o afeto:
-# co-ocorrência de AUs incompatíveis (ex.: sorriso social sobre lábios
-# comprimidos = aversão suprimida). Cada regra mapeia um padrão facial validado
-# a uma zona. Só dispara com AUs reais acima do limiar de presença.
-# --------------------------------------------------------------------------
-
-def detect_facial_dissonance(
-    aus: Dict[str, float], blendshapes: Optional[Dict[str, float]] = None
-) -> Tuple[Dict[int, bool], Dict[int, Optional[dict]]]:
-    """Deriva flags e detalhes de dissonância facial por zona (1..12)."""
-    flags: Dict[int, bool] = {z: False for z in range(1, 13)}
-    details: Dict[int, Optional[dict]] = {z: None for z in range(1, 13)}
-    blendshapes = blendshapes or {}
-
-    def set_zone(zone: int, active_aus: List[str], report: str, intensity: float):
-        # Preserva a dissonância de maior intensidade quando a mesma zona é
-        # candidata por mais de uma regra.
-        prev = details[zone]
-        if prev is not None and float(prev.get("intensity", 0.0)) >= intensity:
-            return
-        flags[zone] = True
-        details[zone] = {
-            "active_aus": active_aus,
-            "report": report,
-            "intensity": round(float(intensity), 3),
-            "source": "real_facs",
-        }
-
-    # Zona 7 — Raiva vs. Aceitação da Mudança: sorriso social (AU12) sobre
-    # compressão/aperto labial (AU23/AU24) = supressão de aversão.
-    if _active(aus, "AU12") and (_active(aus, "AU23") or _active(aus, "AU24")):
-        press = max(aus.get("AU23", 0.0), aus.get("AU24", 0.0))
-        used = ["AU12"] + (["AU23"] if _active(aus, "AU23") else []) + (
-            ["AU24"] if _active(aus, "AU24") else []
-        )
-        set_zone(
-            7, used,
-            "Supressão de Aversão: sorriso social sobreposto a compressão labial "
-            "involuntária — o rosto mascara a hostilidade.",
-            min(aus["AU12"], press),
-        )
-
-    # Zona 12 — Crenças e Ações Conflitantes: franzir de sobrancelhas (AU4) com
-    # olhos semicerrados (AU7) durante fala neutra = conflito interno.
-    if _active(aus, "AU4") and _active(aus, "AU7"):
-        set_zone(
-            12, ["AU4", "AU7"],
-            "Conflito interno: sobrancelhas contraídas com pálpebras tensionadas "
-            "— incongruência entre discurso e estado.",
-            min(aus["AU4"], aus["AU7"]),
-        )
-
-    # Zona 3 — Tristeza vs. Paz Interior: cantos da boca em queda (AU15) sob
-    # tentativa de sorriso (AU12) = tristeza mascarada.
-    if _active(aus, "AU15") and _active(aus, "AU12"):
-        set_zone(
-            3, ["AU15", "AU12"],
-            "Tristeza mascarada: depressão dos cantos labiais sob esforço de "
-            "sorriso — afeto negativo encoberto.",
-            min(aus["AU15"], aus["AU12"]),
-        )
-
-    # Zona 8 — Medo e Sobrecarga: elevação interna+externa de sobrancelhas
-    # (AU1+AU2) com pálpebra superior elevada (AU5) = medo contido.
-    if _active(aus, "AU1") and _active(aus, "AU2") and _active(aus, "AU5"):
-        set_zone(
-            8, ["AU1", "AU2", "AU5"],
-            "Medo contido: assinatura de sobrancelhas e pálpebras de sobressalto "
-            "durante fala controlada.",
-            min(aus["AU1"], aus["AU2"], aus["AU5"]),
-        )
-
-    # Zona 6 — Amor Condicional vs. Incondicional: covinha/canto unilateral
-    # (AU14 assimétrico) ou elevação de lábio superior (AU10) = desprezo.
-    asym14 = _asymmetry(blendshapes, "AU14")
-    asym12 = _asymmetry(blendshapes, "AU12")
-    if (_active(aus, "AU14") and asym14 >= AU_ASYMMETRY_THRESHOLD) or (
-        _active(aus, "AU10") and asym12 >= AU_ASYMMETRY_THRESHOLD
-    ):
-        set_zone(
-            6, ["AU14"] if _active(aus, "AU14") else ["AU10"],
-            "Desprezo: expressão facial unilateral (assimetria) — distanciamento "
-            "afetivo mascarado.",
-            max(aus.get("AU14", 0.0), aus.get("AU10", 0.0)),
-        )
-
-    # Zona 9 — Expressão Emocional Suprimida: aperto+compressão labial
-    # (AU23+AU24) com rosto globalmente inexpressivo = contenção expressiva.
-    expressivity = _global_expressivity(aus)
-    if _active(aus, "AU23") and _active(aus, "AU24") and expressivity < 0.20:
-        set_zone(
-            9, ["AU23", "AU24"],
-            "Supressão expressiva: lábios pressionados e tensos com face "
-            "aplainada — retenção do que seria dito.",
-            min(aus["AU23"], aus["AU24"]),
-        )
-
-    # Remove o campo interno "intensity" do payload público (uso apenas de
-    # priorização), mantendo o contrato existente (active_aus, report, source).
-    for z, d in details.items():
-        if d is not None:
-            d.pop("intensity", None)
-    return flags, details
+def interpret_families(aus: dict, blendshapes: dict) -> list:
+    families = []
+    for spec in FACIAL_FAMILIES:
+        variants = []
+        measurable = False
+        for pattern in spec["patterns"]:
+            if all(aus.get(au) is not None for au in pattern):
+                measurable = True
+            if spec["id"] == "desprezo":
+                side = _unilateral(blendshapes, pattern[0])
+                if side:
+                    variants.append({"id": f"{pattern[0]}_{side}", "aus": list(pattern), "side": side})
+            elif all(_active(aus, au) for au in pattern):
+                if spec["id"] == "sorriso":
+                    left, right = (_coefficient(blendshapes.get(n)) for n in AU_LATERAL["AU12"])
+                    if left is None or right is None or min(left, right) < AU_ACTIVE_THRESHOLD:
+                        continue
+                    suffix = "AU6_nao_apurada" if aus.get("AU6") is None else "com_AU6" if _active(aus, "AU6") else "sem_AU6"
+                    variants.append({"id": f"sorriso_{suffix}", "aus": ["AU12", "AU6"] if _active(aus, "AU6") else ["AU12"], "side": "bilateral"})
+                else:
+                    variants.append({"id": "+".join(pattern), "aus": list(pattern), "side": None})
+        # Variante mais completa contém a reduzida: não duplicar o mesmo padrão.
+        variants = [v for v in variants if not any(
+            set(v["aus"]) < set(other["aus"]) for other in variants
+        )]
+        families.append({"id": spec["id"], "title": spec["title"],
+                         "description": spec["description"], "variants": variants,
+                         "status": "candidate" if variants else "not_detected" if measurable else "unavailable",
+                         "confirmed": False})
+    return families
 
 
-def _global_expressivity(aus: Dict[str, float]) -> float:
-    """Média de intensidade das AUs EMOCIONAIS — proxy de quão animado está o
-    rosto. Baixa expressividade + AUs de contenção indica supressão. AU26
-    (abertura de mandíbula) é excluída por ser dirigida pela FALA, não pela
-    emoção — incluí-la inflava a expressividade durante o discurso e mascarava
-    a contenção justamente quando ela é mais relevante."""
-    expressive = ["AU1", "AU2", "AU5", "AU6", "AU12", "AU15"]
-    vals = [aus.get(a, 0.0) for a in expressive]
-    return float(sum(vals) / len(vals)) if vals else 0.0
+def detect_facial_dissonance(aus: dict, blendshapes: Optional[dict] = None) -> Tuple[dict, dict]:
+    """Contrato legado: expressão NÃO comprova dissonância por zona."""
+    return {z: False for z in range(1, 13)}, {z: None for z in range(1, 13)}
 
 
-def process_facial_frame(
-    blendshapes: Dict[str, float]
-) -> Dict[str, Any]:
-    """Pipeline completo: blendshapes reais -> AUs -> dissonâncias faciais."""
-    aus = compute_action_units(blendshapes)
-    flags, details = detect_facial_dissonance(aus, blendshapes)
-    active_zones = [z for z, f in flags.items() if f]
+def process_facial_frame(blendshapes: Dict[str, float]) -> Dict[str, Any]:
+    clean = {str(name): value for name, raw in blendshapes.items()
+             if (value := _coefficient(raw)) is not None}
+    aus = compute_action_units(clean)
+    measured = any(value is not None for value in aus.values())
+    flags, details = detect_facial_dissonance(aus)
+    families = interpret_families(aus, clean)
     return {
-        "action_units": aus,
-        "flags": flags,
-        "details": details,
-        "active_zones": active_zones,
-        "facs_source": "real_facs" if aus else "none",
+        "schema_version": FACIAL_SCHEMA,
+        "status": "measured" if measured else "unavailable",
+        "reason": None if measured else "Sem capacidade de apuração: coeficientes reconhecidos ausentes ou inválidos.",
+        "action_units": aus if measured else None,
+        "raw_blendshapes": clean,
+        "legacy_estimates": {au: _mean(clean, names) for au, names in LEGACY_MAPPING.items()},
+        "lateral": {au: {"left": _coefficient(clean.get(names[0])), "right": _coefficient(clean.get(names[1]))}
+                    for au, names in AU_LATERAL.items()},
+        "families": families,
+        "ambiguous": sum(bool(f["variants"]) for f in families) > 1,
+        "limitations": list(LIMITATIONS),
+        "dissonance": {"status": "unavailable", "reason": LIMITATIONS[-1]},
+        "flags": flags, "details": details, "active_zones": [],
+        "facs_source": "real_facs" if measured else "sem_apuracao",
     }
+
+
+class FacialTracker:
+    """Repetição por quadros distintos, nunca por tick/releitura de cache.
+
+    Eventos confirmados ficam no acervo da sessão, atualizados por ID. Não se
+    perde um padrão que iniciou e terminou entre dois ticks acústicos.
+    """
+    def __init__(self, validity_s: float, minimum_observations: int):
+        self.validity_s = validity_s
+        self.minimum_observations = minimum_observations
+        self.current = process_facial_frame({})
+        self.stream_id = None
+        self.stream_started_at = None
+        self.retired_streams = set()
+        self.last_identity = None
+        self.updated_at = None
+        self.active = {}
+        self.events = {}
+
+    def _end(self, reason: str) -> None:
+        for event in self.active.values():
+            if event["confirmed"]:
+                event["ended_at_ms"] = event["last_observed_at_ms"]
+                event["end_reason"] = reason
+                self.events[event["id"]] = dict(event)
+        self.active = {}
+
+    def unavailable(self, now: float, reason: str) -> None:
+        self._end(reason)
+        self.current = process_facial_frame({})
+        self.current["reason"] = reason
+        self.updated_at = None
+
+    def expire(self, now: float) -> None:
+        if self.updated_at is not None and now - self.updated_at > self.validity_s:
+            self.unavailable(now, "Leitura facial vencida: nenhum quadro novo no prazo de validade.")
+
+    def ingest(self, blendshapes: dict, frame: Optional[dict], now: float, reason: Optional[str] = None) -> bool:
+        self.expire(now)
+        identified = False
+        if isinstance(frame, dict):
+            stream = frame.get("stream_id")
+            sequence = frame.get("sequence")
+            captured = frame.get("captured_at_ms")
+            video_time = frame.get("video_time_ms")
+            stream_started = frame.get("stream_started_at_ms")
+            if not (isinstance(stream, str) and 0 < len(stream) <= 128
+                    and isinstance(sequence, int) and not isinstance(sequence, bool) and sequence > 0
+                    and all(_valid_time(v) for v in (captured, video_time, stream_started))):
+                return False
+            if stream in self.retired_streams:
+                return False
+            if stream != self.stream_id:
+                if self.stream_started_at is not None and stream_started <= self.stream_started_at:
+                    return False
+                self._end("capture_restarted")
+                if self.stream_id is not None:
+                    self.retired_streams.add(self.stream_id)
+                self.stream_id, self.last_identity = stream, None
+                self.stream_started_at = stream_started
+            elif stream_started != self.stream_started_at:
+                return False
+            identity = (sequence, captured, video_time)
+            if self.last_identity and any(new <= old for new, old in zip(identity, self.last_identity)):
+                return False
+            if self.last_identity and (captured - self.last_identity[1]) / 1000 > self.validity_s:
+                self._end("capture_gap")
+            self.last_identity = identity
+            identified = True
+        elif frame is not None:
+            return False
+        if reason:
+            self.unavailable(now, reason)
+            return True
+        result = process_facial_frame(blendshapes)
+        if result["status"] != "measured":
+            self.unavailable(now, result["reason"])
+            self.current = result
+            return True
+        if not identified:
+            self._end("frame_identity_unavailable")
+            result["limitations"].append("Quadro sem identidade temporal: padrões não podem ser confirmados.")
+        matching = [family for family in result["families"] if family["variants"]]
+        next_active = {}
+        for family in matching:
+            for variant in family["variants"]:
+                key = (family["id"], variant["id"])
+                previous = self.active.get(key) if identified else None
+                count = previous["observations"] + 1 if previous else 1
+                strength = min(result["action_units"][au] for au in variant["aus"])
+                if variant["side"] in ("left", "right"):
+                    strength = result["lateral"][variant["aus"][0]][variant["side"]]
+                event = {
+                    "id": previous["id"] if previous else f"{self.stream_id}:{self.last_identity[0] if identified else 'unidentified'}:{family['id']}:{variant['id']}",
+                    "schema_version": FACIAL_SCHEMA, "family": family["id"], "title": family["title"],
+                    "report": family["description"] + " Padrão facial observado; não comprova estado emocional ou dissonância.",
+                    "patient_title": PATIENT_FACIAL_TITLE,
+                    "patient_description": PATIENT_FACIAL_DESCRIPTION,
+                    "variant": variant["id"], "active_aus": variant["aus"], "side": variant["side"],
+                    "started_at_ms": previous["started_at_ms"] if previous else int(now * 1000),
+                    "last_observed_at_ms": int(now * 1000), "ended_at_ms": None,
+                    "observations": count, "confirmed": identified and count >= self.minimum_observations,
+                    "ambiguous": result["ambiguous"], "strength": strength,
+                    "peak_strength": max(previous["peak_strength"], strength) if previous else strength,
+                    "action_units": result["action_units"], "lateral": result["lateral"],
+                    "raw_blendshapes": result["raw_blendshapes"],
+                    "legacy_estimates": result["legacy_estimates"],
+                    "source": "real_facs", "clinical_confidence": None,
+                }
+                next_active[key] = event
+                if event["confirmed"]:
+                    self.events[event["id"]] = dict(event)
+                    family["confirmed"], family["status"] = True, "observed"
+        for key, event in self.active.items():
+            if key not in next_active and event["confirmed"]:
+                event["ended_at_ms"] = event["last_observed_at_ms"]
+                event["end_reason"] = "pattern_ended"
+                self.events[event["id"]] = dict(event)
+        self.active = next_active if identified else {}
+        result["frame"] = frame
+        result["observed_at_ms"] = int(now * 1000)
+        result["expires_at_ms"] = int((now + self.validity_s) * 1000)
+        self.current, self.updated_at = result, now
+        return True
+
+    def snapshot(self, now: float) -> dict:
+        self.expire(now)
+        return self.current
+
+    def archive(self) -> list:
+        return list(self.events.values())
+
+
+def facial_event_updates(events: list, versions: dict) -> Tuple[list, dict]:
+    """Delta por conexão. Reconexão com cursor vazio recebe o acervo completo."""
+    updated = dict(versions)
+    changes = []
+    for event in events:
+        version = (event["last_observed_at_ms"], event["observations"],
+                   event["ended_at_ms"], event.get("end_reason"))
+        if versions.get(event["id"]) != version:
+            changes.append(event)
+            updated[event["id"]] = version
+    return changes, updated

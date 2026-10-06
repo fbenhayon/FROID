@@ -1,6 +1,8 @@
-"""Motor FACS real: blendshapes ARKit/MediaPipe -> Unidades de Ação -> dissonâncias
-faciais por zona. Só marcações reais; padrões incompatíveis (ex.: sorriso sobre
-compressão labial) caracterizam contradição facial-vocal."""
+"""Contrato facial revisado: padrões observados NÃO comprovam dissonância.
+
+06/10/2026: decisão do dono substitui regras de mascaramento por sete famílias.
+As garantias de ausência e procedência continuam exigidas.
+"""
 import math
 import unittest
 
@@ -61,10 +63,11 @@ class FacialDissonanceTests(unittest.TestCase):
         bs["mouthSmileLeft"] = bs["mouthSmileRight"] = 0.6
         bs["mouthPressLeft"] = bs["mouthPressRight"] = 0.5
         result = froid_facs.process_facial_frame(bs)
-        self.assertTrue(result["flags"][7])
-        self.assertIn("AU12", result["details"][7]["active_aus"])
-        self.assertIn("AU24", result["details"][7]["active_aus"])
-        self.assertEqual(result["details"][7]["source"], "real_facs")
+        self.assertFalse(any(result["flags"].values()))
+        self.assertIsNone(result["details"][7])
+        sorriso = next(f for f in result["families"] if f["id"] == "sorriso")
+        self.assertEqual(sorriso["status"], "candidate")
+        self.assertEqual(result["action_units"]["AU24"], 0.5)
         self.assertEqual(result["facs_source"], "real_facs")
 
     def test_internal_conflict_zone12(self):
@@ -72,8 +75,10 @@ class FacialDissonanceTests(unittest.TestCase):
         bs["browDownLeft"] = bs["browDownRight"] = 0.6
         bs["eyeSquintLeft"] = bs["eyeSquintRight"] = 0.5
         result = froid_facs.process_facial_frame(bs)
-        self.assertTrue(result["flags"][12])
-        self.assertEqual(set(result["details"][12]["active_aus"]), {"AU4", "AU7"})
+        self.assertFalse(any(result["flags"].values()))
+        self.assertEqual(result["action_units"]["AU4"], 0.6)
+        self.assertEqual(result["action_units"]["AU7"], 0.5)
+        self.assertEqual(result["dissonance"]["status"], "unavailable")
 
     def test_neutral_face_no_dissonance(self):
         result = froid_facs.process_facial_frame(neutral_face())
@@ -92,7 +97,8 @@ class FacialDissonanceTests(unittest.TestCase):
         bs["mouthSmileLeft"] = bs["mouthSmileRight"] = 0.6
         bs["mouthPressLeft"] = bs["mouthPressRight"] = 0.5
         result = froid_facs.process_facial_frame(bs)
-        self.assertNotIn("intensity", result["details"][7])
+        self.assertIsNone(result["details"][7])
+        self.assertTrue(all("intensity" not in f for f in result["families"]))
 
 
 class FacsSessionIntegrationTests(unittest.TestCase):
@@ -114,7 +120,9 @@ class FacsSessionIntegrationTests(unittest.TestCase):
         self.assertEqual(payload["audio_meta"]["facs_source"], "real_facs")
         self.assertIsNotNone(payload["audio_meta"]["facial_action_units"])
         zone7 = next(z for z in payload["perception_zones"] if z["zone"] == 7)
-        self.assertTrue(zone7["facial_dissonance_detected"])
+        self.assertFalse(zone7["facial_dissonance_detected"])
+        self.assertEqual(payload["audio_meta"]["dna_facial_multiplier"], 1.0)
+        self.assertEqual(len(payload["facial_analysis"]["families"]), 7)
 
     def test_facial_contradiction_feeds_dissonance_engine(self):
         state = SessionState(session_id="s")
@@ -125,7 +133,8 @@ class FacsSessionIntegrationTests(unittest.TestCase):
         state.update_facial_features(bs)
         ev = self._neutral_tick(state)["dissonance_event"]
         keys = {m["key"] for m in ev["evident_markers"]}
-        self.assertIn("facial_contradiction", keys)
+        self.assertNotIn("facial_contradiction", keys)
+        self.assertEqual(state._facial_tracker().current["dissonance"]["status"], "unavailable")
 
     def test_sem_face_o_motor_declara_ausencia(self):
         """Era `facs_source == "mock"`, e o mock nao era inerte: as flags

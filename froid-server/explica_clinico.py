@@ -19,10 +19,8 @@ Na mesma conversa ele perguntou "o que quer dizer e como interpreto ZONAS
 Zona 12". A resposta parafraseou os avisos da ficha tecnica — "as zonas nao sao
 diagnosticos" — e nao disse o unico fato que a pergunta pedia: a Zona 12 e o
 eixo "Crencas e Acoes Conflitantes vs. Crencas e Acoes Congruentes", ela e uma
-das seis zonas com regra facial propria (AU4 + AU7), e quando essa regra
-dispara o desvio vocal daquela zona entra no escore multiplicado por 2,5.
-Tudo isso ja estava no codigo, em `froid_core.PERCEPTION_ZONES` e em
-`froid_facs.detect_facial_dissonance`, e nada disso chegava ao Explica.
+dos eixos legados de conversa. Desde 06/10/2026 a face possui sete familias
+descritivas independentes: nenhuma regra facial atribui conflito a essa zona.
 
 O QUE ESTE MODULO GARANTE
 -------------------------
@@ -59,6 +57,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 import froid_core
+import froid_facs
 
 
 # ---------------------------------------------------------------------------
@@ -82,19 +81,9 @@ CORES_DE_DESVIO: Tuple[Tuple[str, str], ...] = (
     ("CINZA", "nenhuma banda passou de 0,30 de desvio (energia distribuida)"),
 )
 
-# As seis regras faciais que existem hoje, por zona. Copia deliberada e travada:
-# `detect_facial_dissonance` e codigo imperativo, nao tabela, e extrair a tabela
-# de la seria refatorar um motor em producao dentro de uma tarefa de texto.
-# `tests/test_explica_clinico_glossario.py` confronta cada linha contra o fonte
-# de `froid_facs.py` e falha quando as duas divergirem.
-REGRAS_FACIAIS: Dict[int, Tuple[Tuple[str, ...], str]] = {
-    3: (("AU15", "AU12"), "cantos labiais em queda sob esforco de sorriso"),
-    6: (("AU14", "AU10"), "expressao unilateral (assimetria acima de 0,25)"),
-    7: (("AU12", "AU23", "AU24"), "sorriso sobre compressao labial"),
-    8: (("AU1", "AU2", "AU5"), "assinatura de sobressalto durante fala controlada"),
-    9: (("AU23", "AU24"), "labios pressionados com face aplainada (expressividade < 0,20)"),
-    12: (("AU4", "AU7"), "sobrancelhas contraidas com palpebras tensionadas"),
-}
+# As sete famílias vêm diretamente do motor; não copiar regras por zona.
+FAMILIAS_FACIAIS = froid_facs.FACIAL_FAMILIES
+REGRAS_FACIAIS: Dict[int, Tuple[Tuple[str, ...], str]] = {}
 
 
 # ---------------------------------------------------------------------------
@@ -240,38 +229,12 @@ CATALOGO: Tuple[Indice, ...] = (
         sinonimos=("indice de desvio multimodal", "bussola"),
     ),
     Indice(
-        rotulo="ZONAS",
-        chave="dominant_zone",
-        marcador="zone_extreme",
-        unidade="numero da zona (1 a 12) e escore de desvio",
-        medida=(
-            "12 bandas log-espacadas de 65,4 Hz a 1975,5 Hz (a escala cromatica "
-            "C2-B6). O desvio de cada zona e "
-            "(energia da banda - linha de base da banda) / linha de base, "
-            "MULTIPLICADO POR 2,5 quando ha dissonancia facial confirmada naquela "
-            "zona. A zona exibida e a de maior desvio absoluto no corte."
-        ),
-        leitura=(
-            "O multiplicador facial e a parte que mais engana: uma zona em 3,2 "
-            "pode ser 1,28 de desvio vocal vezes 2,5 de contribuicao facial. "
-            "Antes de ler magnitude, verifique se aquela zona esta com dissonancia "
-            "facial confirmada — o painel informa. "
-            "Persistencia entre janelas vale mais que o pico de uma janela."
-        ),
-        abre=(
-            "O eixo da zona e o vocabulario de leitura, e cada eixo e uma "
-            "POLARIDADE, nao um rotulo: a Zona 12 e 'Crencas e Acoes Conflitantes "
-            "vs. Crencas e Acoes Congruentes'. Concentracao ali sugere ao "
-            "profissional explorar congruencia entre o que o paciente diz querer e "
-            "o que relata fazer — como hipotese a testar na conversa, nao como "
-            "achado. Seis zonas (3, 6, 7, 8, 9 e 12) tem regra facial propria; as "
-            "outras seis so se movem por energia vocal."
-        ),
-        limite=(
-            "Zona nao e diagnostico, nao e tipo de personalidade e nao existe zona "
-            "boa ou ruim. O FROID nao mede o que nao foi expresso: ausencia de "
-            "sinal e ausencia de sinal, nunca 'conflito latente'."
-        ),
+        rotulo="ZONAS", chave="dominant_zone", marcador="zone_extreme",
+        unidade="numero da banda (1 a 12) e escore de desvio",
+        medida="12 bandas log-espacadas de 65,4 Hz a 1975,5 Hz. Desvio = (energia - baseline) / baseline, sem multiplicador facial.",
+        leitura="Persistencia entre janelas vale mais que um pico isolado; as bandas nao identificam emocao.",
+        abre="Os eixos sao vocabulario legado de conversa, nao estados psicologicos medidos.",
+        limite="Nao existe correspondencia validada entre banda de frequencia e conflito psicologico. Familias faciais sao apuradas separadamente.",
         sinonimos=("zona", "zona dominante", "zonas froid", "mapa zonal"),
     ),
     Indice(
@@ -330,33 +293,12 @@ CATALOGO: Tuple[Indice, ...] = (
         sinonimos=("palavras por minuto", "cadencia", "ritmo de fala", "wpm"),
     ),
     Indice(
-        rotulo="DISSO.",
-        referencias=(REF_FACS,),
-        chave="dissonance_count",
-        marcador="facial_contradiction",
-        unidade="contagem de zonas",
-        medida=(
-            "Quantas zonas, no corte, tem dissonancia facial confirmada: precisa "
-            "de AU ativa acima do limiar, detalhe registrado e escore acima do "
-            "limiar de reporte. Uma zona sem AU ativa nao entra."
-        ),
-        leitura=(
-            "Nulo quando nenhuma zona foi apurada — diferente de zero, que "
-            "significa 'procurei e nao achei'. Cada dissonancia vem de UMA das "
-            "seis regras faciais, e a regra diz qual padrao de AUs disparou."
-        ),
-        abre=(
-            "A dissonancia e o rosto contradizendo ou mascarando o afeto — "
-            "coocorrencia de AUs incompativeis. O valor esta menos na contagem e "
-            "mais em QUAL regra disparou e em que momento da fala: pedir o detalhe "
-            "das AUs e cruzar com o que estava sendo dito naquele minuto e a "
-            "leitura que a contagem sozinha nao entrega."
-        ),
-        limite=(
-            "Depende de face medida. Iluminacao lateral forte, oclusao, mascara, "
-            "oculos escuros e angulo acentuado degradam a leitura e reduzem a "
-            "contagem sem que nada tenha mudado no paciente."
-        ),
+        rotulo="DISSO.", chave="dissonance_count", marcador="facial_contradiction",
+        unidade="nao apurada",
+        medida="Divergencia facial-vocal sem relacao validada entre canais; o campo fica nulo.",
+        leitura="Nao substituir ausencia por zero nem contar familias faciais como dissonancias.",
+        abre="Consultar as sete familias e o momento da conversa sem inferir mascaramento ou conflito oculto.",
+        limite="Medir AUs nao comprova emocao, falsidade ou incongruencia.",
         sinonimos=("dissonancia", "dissonancias", "dissonancia facial", "dissonancia facial-vocal"),
     ),
     Indice(
@@ -829,33 +771,12 @@ CATALOGO: Tuple[Indice, ...] = (
         sinonimos=("tensao vocal",),
     ),
     Indice(
-        rotulo="DNA FLOOD",
-        chave="dna_autonomic_flooding",
-        marcador="dna_flooding",
+        rotulo="DNA FLOOD", chave="dna_autonomic_flooding", marcador="dna_flooding",
         unidade="indice composto 0 a 1",
-        medida=(
-            "(0,55 x DNA INFRA + 0,45 x DNA VOCAL) x (multiplicador facial / 2,5), "
-            "onde o multiplicador vale 2,5 quando ha dissonancia facial confirmada "
-            "no tick e 1,0 quando nao ha."
-        ),
-        leitura=(
-            "A consequencia aritmetica e grande e nao esta escrita em lugar nenhum "
-            "da tela: SEM dissonancia facial o composto e multiplicado por 0,4; "
-            "COM dissonancia, por 1,0. O mesmo estado vocal produz valores "
-            "duas vezes e meia diferentes conforme a face tenha sido lida ou nao. "
-            "Rosto fora de quadro, mal iluminado ou ocluso derruba este indice sem "
-            "que a voz tenha mudado."
-        ),
-        abre=(
-            "Antes de ler o composto como achado, decomponha: DNA INFRA, DNA "
-            "VOCAL e houve ou nao dissonancia facial confirmada. Se os dois "
-            "primeiros estao proximos de zero, o composto so pode estar proximo de "
-            "zero, e a leitura acaba ali. Tem faixa calculada pelo servidor."
-        ),
-        limite=(
-            "'Inundacao autonomica' nao e medida pelo FROID. O indice e composicao "
-            "de duas fracoes espectrais e de um sinalizador facial."
-        ),
+        medida="(0,55 x DNA INFRA + 0,45 x DNA VOCAL) / 2,5. Escala numerica legada, sem amplificacao facial.",
+        leitura="O fator facial fica em 1,0 independentemente da configuracao do rosto.",
+        abre="Decompor nas duas medidas espectrais e conferir a procedencia vocal.",
+        limite="Nao mede inundacao autonomica; e um composto acustico interno.",
         sinonimos=("inundacao autonomica", "flooding"),
     ),
     Indice(
@@ -900,29 +821,12 @@ CATALOGO: Tuple[Indice, ...] = (
         sinonimos=("ressonancia neurogenica",),
     ),
     Indice(
-        rotulo="DNA SOMATO",
-        chave="dna_somatoaffective_dissonance",
-        marcador="dna_somato",
+        rotulo="DNA SOMATO", chave="dna_somatoaffective_dissonance", marcador="dna_somato",
         unidade="indice composto 0 a 1",
-        medida=(
-            "((DNA INFRA + DNA VOCAL) / 2) x fator facial / 2,5, onde o fator so "
-            "cresce quando ha dissonancia facial confirmada E ha AU23 ou AU24 "
-            "ativa (compressao/aperto labial) entre as AUs detectadas."
-        ),
-        leitura=(
-            "Condicao mais estreita que a do DNA FLOOD: nao basta haver "
-            "dissonancia facial, e preciso que ela envolva compressao labial. Sem "
-            "isso, o composto fica dividido por 2,5."
-        ),
-        abre=(
-            "E o unico composto que olha QUAIS AUs estao ativas, e nao apenas se "
-            "havia dissonancia. Quando ele sobe, vale pedir o detalhe das AUs e o "
-            "trecho da transcricao correspondente."
-        ),
-        limite=(
-            "'Dissonancia somatoafetiva' e nomenclatura interna. O FROID nao mede "
-            "marcador corporal."
-        ),
+        medida="((DNA INFRA + DNA VOCAL) / 2) / 2,5. Escala legada, sem amplificacao por AU.",
+        leitura="Familias faciais nao alteram esse composto acustico.",
+        abre="Conferir as parcelas e a origem das medidas; nao atribuir conflito facial.",
+        limite="Nome interno legado; nao mede dissonancia corporal nem somatoafetiva.",
         sinonimos=("dissonancia somatoafetiva", "somatoafetiva"),
     ),
 )
@@ -1102,14 +1006,7 @@ def _detalhe_da_zona(valor: Mapping[str, Any]) -> str:
         partes.append(f"eixo: {tema}")
     if desvio is not None:
         partes.append(f"escore de desvio: {desvio}")
-    if valor.get("facial_dissonance_detected"):
-        aus = ", ".join(str(a) for a in (valor.get("active_aus") or []))
-        partes.append(
-            f"COM dissonancia facial confirmada (AUs: {aus or 'nao detalhadas'}) "
-            "— o escore acima ja inclui o multiplicador 2,5"
-        )
-    else:
-        partes.append("sem dissonancia facial nesta leitura")
+    partes.append("dissonancia facial-vocal nao apurada; sete familias descritivas independentes das bandas")
     return " | ".join(partes)
 
 
@@ -1242,15 +1139,17 @@ def _bloco_das_zonas(zonas: Sequence[int]) -> str:
     linhas = ["## As doze zonas (eixo de cada uma)"]
     for numero in sorted(ZONAS):
         marca = " <-- perguntada" if numero in zonas else ""
-        regra = REGRAS_FACIAIS.get(numero)
-        detalhe = f" [regra facial: {' + '.join(regra[0])} — {regra[1]}]" if regra else ""
-        linhas.append(f"- Zona {numero}: {ZONAS[numero]}{detalhe}{marca}")
+        linhas.append(f"- Zona {numero}: {ZONAS[numero]}{marca}")
     linhas.append(
-        "As seis zonas sem regra facial listada so se movem por energia vocal. "
+        "Todas as zonas atuais se movem apenas por energia vocal, sem atribuicao facial. "
         "Escala de cor do desvio: "
-        + "; ".join(f"{nome} = {faixa}" for nome, faixa in CORES_DE_DESVIO)
-        + "."
+        + "; ".join(f"{nome} = {faixa}" for nome, faixa in CORES_DE_DESVIO) + "."
     )
+    linhas.append("## Sete familias faciais (padroes, nao estados emocionais comprovados)")
+    for familia in FAMILIAS_FACIAIS:
+        padroes = " ou ".join(" + ".join(aus) for aus in familia["patterns"])
+        linhas.append(f"- {familia['title']}: {padroes}. {familia['description']}")
+    linhas.extend(froid_facs.LIMITATIONS)
     if zonas:
         linhas.append("")
         linhas.append("Modelos de compromisso que envolvem a(s) zona(s) perguntada(s):")
@@ -1309,17 +1208,7 @@ def glossario_do_painel(pergunta: str, contexto: Optional[Mapping[str, Any]]) ->
         partes.append("")
         partes.append("## Zonas citadas nesta pergunta")
         for numero in zonas:
-            regra = REGRAS_FACIAIS.get(numero)
-            partes.append(
-                f"- Zona {numero} — {ZONAS[numero]}. "
-                + (
-                    f"Tem regra facial propria: {' + '.join(regra[0])} ({regra[1]}). "
-                    "Quando ela dispara, o desvio vocal daquela zona entra no escore "
-                    "multiplicado por 2,5."
-                    if regra
-                    else "Nao tem regra facial propria: move-se apenas por energia vocal."
-                )
-            )
+            partes.append(f"- Zona {numero} — {ZONAS[numero]}. Move-se apenas por energia vocal, sem multiplicador facial.")
 
     return "\n".join(partes)
 
@@ -1409,15 +1298,16 @@ etapas numeradas ou lista:
    norma populacional: o FROID nao tem nenhuma, e inventar uma e o pior erro
    possivel aqui.
 
-2. CRUZADO COM OS INDICES DE SINTESE. O que F0, IDM (divergencia entre o sinal
-   acustico e a dinamica facial) e IPM (oscilacao da energia) fazem no MESMO
+2. CRUZADO COM OS INDICES DE SINTESE. O que F0, IDM (distribuicao de energia
+   vocal entre bandas) e IPM (oscilacao da energia) fazem no MESMO
    trecho. Uma aceleracao de fala com F0 subindo e IDM em pico nao e a mesma
    leitura que a mesma aceleracao com F0 estavel e IDM plano. Sem esse
    cruzamento a resposta descreve um numero, nao uma sessao.
 
 3. O PADRAO, DITO COM TODAS AS LETRAS. Traduza a matematica no que ela descreve
    do comportamento observavel — a fala acelerando, a prosodia achatando, a voz
-   e a face divergindo, a energia caindo — e diga QUANTO, contra a regua dele.
+   variando, a energia caindo — e diga QUANTO, contra a regua dele.
+   Nao afirme divergencia entre voz e face: essa relacao nao foi apurada.
    Isto e CONCLUSAO. Nao e ressalva, nao e "pode indicar", nao e convite a
    reflexao.
 

@@ -3899,6 +3899,18 @@ def _sanitize_report_for_patient(report: dict, items: list[str] | None = None) -
             for item in sanitized["dissonances"]
             if isinstance(item, dict)
         ]
+    if "dissonances" in selected and isinstance(enriched.get("facialEvents"), list):
+        # Tradução canônica no servidor; jamais entregar AUs/texto profissional.
+        from froid_facs import FACIAL_SCHEMA, PATIENT_FACIAL_TITLE, PATIENT_FACIAL_DESCRIPTION
+        sanitized["facialEvents"] = [
+            {"id": item.get("id"), "schema_version": FACIAL_SCHEMA,
+             "started_at_ms": item.get("started_at_ms"),
+             "patient_title": PATIENT_FACIAL_TITLE,
+             "patient_description": PATIENT_FACIAL_DESCRIPTION}
+            for item in enriched["facialEvents"]
+            if isinstance(item, dict) and item.get("schema_version") == FACIAL_SCHEMA
+            and item.get("confirmed") is True and item.get("source") == "real_facs"
+        ]
     sanitized["patient"] = _patient_identity_from_report(enriched)
     sanitized["patientReportItems"] = selected
     return sanitized
@@ -5585,8 +5597,10 @@ class ConnectionManager:
         if session_id in self.active_sessions:
             try:
                 await self.active_sessions[session_id]["ws"].send_json(payload)
+                return True
             except Exception:
-                pass
+                STREAM_LOGGER.exception("Falha ao enviar análise da sessão %s", session_id)
+        return False
 
 manager = ConnectionManager()
 
@@ -7765,6 +7779,8 @@ async def froid_stream_loop(session_id: str, connection_id: str):
     entry = manager.active_sessions.get(session_id)
     if not entry: return
     state: SessionState = entry["state"]
+    from froid_facs import facial_event_updates
+    facial_versions = {}
     while manager.is_current(session_id, connection_id):
         try:
             # NADA E GERADO AQUI. O laco chamava dois geradores a cada
@@ -7798,7 +7814,20 @@ async def froid_stream_loop(session_id: str, connection_id: str):
                 and diagnostico.get("motivo") == "analise_pendente"
             )
             if not ausencia_transitoria:
-                await manager.broadcast_payload(session_id, payload)
+                events, next_versions = facial_event_updates(payload.get("facial_events", []), facial_versions)
+                payload["facial_events"] = events
+                if await manager.broadcast_payload(session_id, payload) is not False:
+                    facial_versions = next_versions
+            elif ((payload.get("facial_analysis") or {}).get("status") == "measured"
+                  or payload.get("facial_events")):
+                events, next_versions = facial_event_updates(payload.get("facial_events", []), facial_versions)
+                facial_payload = {
+                    "session_id": session_id, "timestamp_ms": payload["timestamp_ms"],
+                    "facial_only": True, "facial_analysis": payload["facial_analysis"],
+                    "facial_events": events, "perception_zones": [], "realtime_alerts": [],
+                }
+                if await manager.broadcast_payload(session_id, facial_payload) is not False:
+                    facial_versions = next_versions
         except Exception:
             STREAM_LOGGER.exception(
                 "froid_stream_loop: tick falhou (session_id=%s) — seguindo para o próximo tick",
@@ -7929,11 +7958,10 @@ async def submit_acoustic_f0(session_id: str, request: Request):
 
 @app.post("/api/froid/{session_id}/facial-aus")
 async def submit_facial_aus(session_id: str, request: Request):
-    """Recebe os coeficientes de blendshape faciais (MediaPipe FaceLandmarker /
-    ARKit) medidos pelo navegador e deriva, no servidor, as Unidades de Ação
-    (FACS) reais e as dissonâncias faciais — substituindo as marcações
-    simuladas. Mesma autenticação do endpoint acústico (paciente por convite
-    aceito ou profissional dono da sessão)."""
+    """Recebe medidas faciais; interpretação única em sete famílias descritivas.
+
+    Mesma autenticação: convite aceito ou profissional dono da sessão.
+    """
     body = await request.json()
     invite = str(body.get("invite") or request.query_params.get("invite") or "")
     professional = _current_user_from_request(request)
@@ -7965,23 +7993,30 @@ async def submit_facial_aus(session_id: str, request: Request):
         return {"status": "session_inactive", "facs_source": "none"}
 
     blendshapes = body.get("blendshapes")
+    capture_status = body.get("capture_status")
+    absence_reasons = {
+        "no_face": "Sem capacidade de apuração: nenhum rosto detectado no quadro.",
+        "capture_error": "Sem capacidade de apuração: falha na captura facial.",
+        "stopped": "Sem capacidade de apuração: captura facial interrompida.",
+    }
+    if isinstance(capture_status, str) and capture_status in absence_reasons:
+        accepted = state.update_facial_features({}, body.get("frame"), absence_reasons[capture_status])
+        return {"status": "accepted" if accepted else "ignored_frame",
+                "facs_source": state._facial_tracker().current["facs_source"],
+                "facial_analysis": state._facial_tracker().current}
     if not isinstance(blendshapes, dict) or not blendshapes:
         raise HTTPException(status_code=400, detail="blendshapes ausentes")
     # Teto defensivo: o padrão ARKit expõe 52 formas; aceitamos folga.
     if len(blendshapes) > 128:
         raise HTTPException(status_code=413, detail="blendshapes em excesso")
-    sanitized: dict = {}
-    for name, value in blendshapes.items():
-        try:
-            sanitized[str(name)[:48]] = float(value)
-        except (TypeError, ValueError):
-            continue
-
-    state.update_facial_features(sanitized)
+    # Validação estrita no motor: não converter string, NaN, bool ou ausência em zero.
+    accepted = state.update_facial_features(blendshapes, body.get("frame"))
     return {
-        "facs_source": "real_facs" if state.latest_facial_aus else "none",
-        "action_units": state.latest_facial_aus or {},
-        "active_zones": [z for z, f in (state.latest_facs_flags or {}).items() if f],
+        "status": "accepted" if accepted else "ignored_frame",
+        "facs_source": state._facial_tracker().current["facs_source"],
+        "action_units": state.latest_facial_aus,
+        "facial_analysis": state._facial_tracker().current,
+        "active_zones": [],
     }
 
 

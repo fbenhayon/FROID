@@ -58,8 +58,8 @@ class FROIDColorimetryMapper:
 
     def calculate_multimodal_deviation(self, zone_id, vocal_energy, baseline_energy, facial_dissonance_flag):
         energy_deviation_ratio = (vocal_energy - baseline_energy) / (baseline_energy + 1e-9)
-        dissonance_multiplier = 2.5 if facial_dissonance_flag else 1.0
-        return energy_deviation_ratio * dissonance_multiplier
+        # Argumento legado preservado; expressão não comprova divergência.
+        return energy_deviation_ratio
 
     def map_color(self, final_deviation_score):
         if final_deviation_score <= -0.5: return FroidColor.BRANCO
@@ -172,6 +172,7 @@ class SessionState:
     latest_facs_flags: Optional[dict] = None
     latest_facs_details: Optional[dict] = None
     facial_updated_at: float = 0.0
+    facial_tracker: Optional[froid_facs.FacialTracker] = None
     # Histórico da condição de dissonância evidente (>= 1 marcador fora da
     # métrica base, últimos ticks) para a confirmação temporal — evita
     # alertar sobre pico de um único tick.
@@ -317,18 +318,32 @@ class SessionState:
             "captura_cliente": self.pcm_client_capture if atual else None,
         }
 
-    def update_facial_features(self, blendshapes: Optional[dict]) -> None:
-        """Recebe blendshapes faciais reais do navegador e deriva AUs +
-        dissonâncias faciais (froid_facs), armazenando-as para o próximo tick."""
-        if not blendshapes:
-            return
-        result = froid_facs.process_facial_frame(blendshapes)
-        if not result.get("action_units"):
-            return
+    def _facial_tracker(self) -> froid_facs.FacialTracker:
+        if self.facial_tracker is None:
+            self.facial_tracker = froid_facs.FacialTracker(
+                self.VALIDADE_FACE_S, froid_dissonance.CONFIRM_MIN,
+            )
+        return self.facial_tracker
+
+    def _facial_payload(self) -> dict:
+        tracker = self._facial_tracker()
+        result = tracker.snapshot(time.time())
+        return {"facial_analysis": result, "facial_events": tracker.archive()}
+
+    def update_facial_features(self, blendshapes: Optional[dict],
+                               frame: Optional[dict] = None,
+                               reason: Optional[str] = None) -> bool:
+        tracker = self._facial_tracker()
+        accepted = tracker.ingest(blendshapes or {}, frame, time.time(), reason)
+        if not accepted:
+            return False
+        result = tracker.current
         self.latest_facial_aus = result["action_units"]
-        self.latest_facs_flags = result["flags"]
-        self.latest_facs_details = result["details"]
-        self.facial_updated_at = time.time()
+        measured = result["status"] == "measured"
+        self.latest_facs_flags = result["flags"] if measured else None
+        self.latest_facs_details = result["details"] if measured else None
+        self.facial_updated_at = time.time() if measured else 0.0
+        return True
 
     # Piso da dispersão, em unidades de desvio relativo. Uma calibração quase
     # sem variação produziria escala perto de zero, e qualquer respiração
@@ -443,6 +458,7 @@ class SessionState:
                 "descricao": "Sem capacidade de apuracao",
             },
             "perception_zones": [],
+            **self._facial_payload(),
             "realtime_alerts": [],
             # NO TOPO, como no payload medido — nao dentro de audio_meta.
             #
@@ -581,6 +597,11 @@ class SessionState:
         # espectral de 12 bandas real substitui o simulado — passando a
         # alimentar as Zonas, o IPM, o IDM e a colorimetria com a voz de fato.
         agora = time.time()
+        facial = self._facial_tracker().snapshot(agora)
+        if facial["status"] != "measured":
+            self.latest_facs_flags = None
+            self.latest_facs_details = None
+            self.latest_facial_aus = None
         # Medida vencida nao e medida. Ver VALIDADE_VOZ_S.
         if (
             self.latest_voice_features is not None
@@ -697,21 +718,11 @@ class SessionState:
                 ),
             )
         voice_spectral_12 = np.asarray(real["voice_spectral_12"], dtype=np.float64)
-        # Se há marcações FACIAIS REAIS (blendshapes do navegador -> AUs FACS),
-        # elas substituem as flags/detalhes simulados recebidos — passando a
-        # reger as dissonâncias faciais, os multiplicadores e os alertas.
-        # Sem captura facial nao se inventa dissonancia. Antes, `facs_source`
-        # ficava "mock" e as flags SORTEADAS do gerador regiam o multiplicador
-        # 2.5, o dna_flooding e o dna_somato — com texto clinico pronto que
-        # chegava a tela sem nenhuma marca de que fora gerado.
-        facs_source = "sem_apuracao"
-        if self.latest_facs_flags is not None and self.latest_facs_details is not None:
-            facs_dissonance_flags = self.latest_facs_flags
-            facs_details = self.latest_facs_details
-            facs_source = "real_facs"
-        else:
-            facs_dissonance_flags = {i: False for i in range(1, 13)}
-            facs_details = {i: None for i in range(1, 13)}
+        # Procedência da medida facial é independente da dissonância entre canais.
+        # As sete famílias não ligam flags dos doze índices vocais.
+        facs_source = "real_facs" if self.latest_facial_aus is not None else "sem_apuracao"
+        facs_dissonance_flags = {i: False for i in range(1, 13)}
+        facs_details = {i: None for i in range(1, 13)}
         # A baseline só é construída com VOZ REAL. Antes, o buffer acumulava
         # também o vetor simulado e travava após 60 ticks independentemente —
         # se o áudio real do paciente entrasse depois disso (cenário comum), a
@@ -826,13 +837,9 @@ class SessionState:
             else:
                 global_color = self.mapper.map_color(max(global_deviations))
 
-        any_facs_active = any(facs_dissonance_flags.values()) or any(facs_details.values())
-        # Embotamento afetivo = REDUÇÃO da resposta emocional: voz apagada
-        # (energia abaixo da baseline) sem atividade facial. A condição anterior
-        # disparava com energia ALTA (mean_vocal > baseline*1.3), invertendo o
-        # sentido clínico. Corrigido para energia baixa.
-        if mean_vocal < mean_baseline * 0.7 and not any_facs_active:
-            coherence_status = "EMBOTAMENTO"
+        # Redução de energia vocal não prova embotamento afetivo, com ou sem face.
+        if mean_vocal < mean_baseline * 0.7:
+            coherence_status = "ENERGIA_VOCAL_REDUZIDA"
         elif has_critical_dissonance:
             coherence_status = "DISSONANCIA ALTA"
         elif has_dissonance:
@@ -900,19 +907,9 @@ class SessionState:
                 "theme": m["keywords"][0] if m["keywords"] else ""
             })
 
+        # Eventos faciais canônicos viajam no campo próprio, sem alerta de
+        # agressividade ou contraste vocal inventado.
         alerts = []
-        alert_sig = ""
-        for z in perception_zones:
-            if z["facial_dissonance_detected"] and z["dissonance_details"]:
-                au_list = ", ".join(z["dissonance_details"]["active_aus"])
-                alert_msg = f"Alerta: Dissonância crítica detectada na Zona {z['zone']}. O rosto contrasta a agressividade da voz. [{au_list}]"
-                alerts.append(alert_msg)
-                alert_sig += f"{z['zone']}-{au_list};"
-
-        if alert_sig and alert_sig == self.last_alert_signature:
-            alerts = []
-        elif alert_sig:
-            self.last_alert_signature = alert_sig
 
         # O TOM NAO E APURADO. Nao ha algoritmo para ele.
         #
@@ -1147,11 +1144,7 @@ class SessionState:
         dna_limbic = float(np.clip((current_limbic_ratio - baseline_limbic_ratio) / (baseline_limbic_ratio + eps), 0.0, 1.0))
         dna_neurogenic = float(np.clip((subharmonic_20_40 - base_subharmonic_20_40) / (base_subharmonic_20_40 + eps), 0.0, 1.0))
         dna_basal = float(np.clip((energy_85_165 - base_energy_85_165) / (base_energy_85_165 + eps), 0.0, 1.0))
-        facial_multiplier = 2.5 if has_dissonance else 1.0
-        au_suppression = any(
-            details and any(str(au).upper().replace("AU", "") in {"23", "24"} for au in details.get("active_aus", []))
-            for details in facs_details.values()
-        )
+        facial_multiplier = 1.0  # sem amplificação por expressão facial
         # O nome dizia ZCR e a formula usa JITTER — o ZCR real esta calculado
         # logo acima e nunca entrou aqui. Renomeado para o que de fato faz, sem
         # mudar o valor: trocar a formula mudaria a escala de
@@ -1168,15 +1161,14 @@ class SessionState:
                 1.0,
             )
         )
-        dna_somato = float(np.clip(((dna_infrasound + dna_basal) / 2.0) * (1.0 + (facial_multiplier - 1.0) * (1.0 if au_suppression else 0.0)) / 2.5, 0.0, 1.0))
+        dna_somato = float(np.clip(((dna_infrasound + dna_basal) / 2.0) / 2.5, 0.0, 1.0))
         dna_index = float(np.clip(np.mean([dna_infrasound, dna_limbic, dna_neurogenic, dna_basal, dna_flooding, dna_shutdown, dna_somato]), 0.0, 1.0))
         # Fonte única de velocidade de fala: alinhado ao WPM consolidado da
         # janela de 10 min, em vez de uma terceira fórmula divergente.
         speech_rate_proxy = round(float(words_per_minute_10m), 1)
         clinical_insight = (
-            "Coerência preservada" if coherence_status == "COERENTE" else
-            "Ativação vocal/gestual com risco de dissonância" if has_dissonance else
-            "Baseline em calibração"
+            "Desvio vocal apurado; interpretação facial independente"
+            if self.baseline_locked else "Baseline vocal em calibração"
         )
 
         # -----------------------------------------------------------------
@@ -1211,14 +1203,9 @@ class SessionState:
             # de zona extrema (dupla contagem correlacionada).
             "zone_deviations": [float(d) for d in raw_deviations],
             "ipm_score": float(ipm_score),
-            # Contradição facial-vocal REAL (só conta quando vinda de blendshapes
-            # medidos; o mock não alimenta a métrica base de dissonância facial).
+            # Face medida não implica divergência com a voz; contagem não apurada.
             "facial_real": facs_source == "real_facs",
-            "facial_dissonance_count": (
-                sum(1 for f in facs_dissonance_flags.values() if f)
-                if facs_source == "real_facs"
-                else 0
-            ),
+            "facial_dissonance_count": None,
         }
         dissonance_event = froid_dissonance.evaluate(dissonance_snapshot)
         # Confirmação temporal: só é "confirmada" a dissonância evidente (>= 1
@@ -1250,6 +1237,7 @@ class SessionState:
                 "descricao": self.mapper.color_scale[global_color],
             },
             "perception_zones": perception_zones,
+            **self._facial_payload(),
             "realtime_alerts": alerts,
             "dissonance_event": dissonance_event,
             "dr_value": dr_value,
