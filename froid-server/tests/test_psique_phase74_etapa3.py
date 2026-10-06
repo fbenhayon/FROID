@@ -215,3 +215,16 @@ def test_sinal_ja_comprou_do_portao(database):
     comprou, email2 = _conta_nova_como_o_espelho_cria(database)
     _servico(database, email2).backfill_from_v1(comprou, 3, ever_purchased=True)
     assert store.psique_v2_ever_purchased(comprou.organization_id) is True
+
+
+def test_cobranca_v2_que_falha_nao_derruba_o_atendimento(monkeypatch):
+    """Revisao 06/10/2026: era 503 (e 500 fora de CreditError), e a nova tentativa
+    nunca cobrava. Agora o atendimento segue e o relatorio fica marcado falhou."""
+    class Quebrado:
+        def charge_session(self, ctx, sid):
+            raise RuntimeError("SchemaNotReady")
+
+    monkeypatch.setattr(main, "_psique_session_charger", lambda: Quebrado(), raising=False)
+    monkeypatch.setattr(main, "_professional_access_status", lambda email: {"remaining_sessions": 0})
+    status = main._consume_session_credit_v2(_contexto(), "a@b.test", "sess-1")
+    assert status["credit_charge"] == "falhou" and status["credit_model"] == "psique_v2"

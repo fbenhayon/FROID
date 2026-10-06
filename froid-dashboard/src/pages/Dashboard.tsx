@@ -5,6 +5,7 @@ import { AIInsights } from "../components/panels/AIInsights";
 import { FroidTooltip } from "../components/ui/FroidTooltip";
 import { tooltipText } from "../lib/tooltip-i18n";
 import { apiUrl } from "../lib/api";
+import { obterCarteiraPsiqueV2 } from "../lib/psique-v2-api";
 import { caminhoDoConviteDeSessao } from "../lib/convite-de-sessao";
 import { criarSessaoPresencial } from "../lib/sessao-presencial";
 import {
@@ -253,6 +254,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   const [receivables, setReceivables] = useState<ReceivableRow[]>([]);
   const [receivablesSummary, setReceivablesSummary] = useState<ReceivablesSummary | null>(null);
   const [professionalProfile, setProfessionalProfile] = useState<ProfessionalProfile | null>(null);
+  // Conta na carteira unica V2: o saldo real e o dela, nao o do perfil (que fica
+  // 0 na conta nova e congelado na convertida). Revisao 06/10/2026.
+  const [saldoV2, setSaldoV2] = useState<number | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    void obterCarteiraPsiqueV2().then((r) => {
+      if (vivo && r.estado === "ok") setSaldoV2(r.dados.available_balance);
+    });
+    return () => {
+      vivo = false;
+    };
+  }, []);
   const [defaultSessionLocale, setDefaultSessionLocale] = useState<SessionLocale>(
     () => loadSessionLanguagePreferences().spokenLanguage,
   );
@@ -660,7 +673,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
               "Clientes NR-1", que troca a organização E abre /nr1; e no botão
               "Dashboard" do painel NR-1, que faz o caminho de volta. */}
           <div className="flex flex-wrap items-center justify-end gap-2">
-            {professionalProfile && (
+            {saldoV2 !== null ? (
+              <span className="rounded-lg border border-emerald-800 bg-emerald-950 px-3 py-2 text-xs font-bold text-emerald-100">
+                Saldo: {saldoV2} créditos de análise
+              </span>
+            ) : professionalProfile && (
               <span className="rounded-lg border border-emerald-800 bg-emerald-950 px-3 py-2 text-xs font-bold text-emerald-100">
                 Saldo: {professionalProfile.remaining_sessions ?? "--"} créditos de atendimento
               </span>

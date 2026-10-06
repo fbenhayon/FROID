@@ -2524,9 +2524,15 @@ def _psique_v2_identidade_para_trial(user: dict, email: str):
         credencial = PROFESSIONAL_CREDENTIALS.get(email)
         if isinstance(credencial, dict) and credencial.get("email_verified"):
             via = str(credencial.get("verified_via") or "email")
+            # Identidade criada so pelo convite de clinica nunca provou a caixa:
+            # nasce no V2, mas o trial sai INELIGIBLE (sem creditos gratis). Sem
+            # isto, um administrador fabricaria testes com e-mails inventados.
+            sem_prova_de_caixa = via == "clinic_invitation"
             return TrialIdentity(email=email, verified_at=agora,
                                  verification_ref=f"password-{via}",
-                                 legacy_benefit_ref=None, legacy_history_checked=True)
+                                 legacy_benefit_ref=("clinic-invitation-sem-prova-de-caixa"
+                                                     if sem_prova_de_caixa else None),
+                                 legacy_history_checked=True)
     return None
 
 
@@ -2592,6 +2598,10 @@ def _psique_v2_nascer(user: dict, email: str, account_type: str, organization_do
         lambda: _psycopg.connect(runtime_dsn, autocommit=True, connect_timeout=10),
         identity_loader=lambda _user_id: identidade, material_loader=_sem_material,
         keyring=TrialKeyring.from_env())
+    if TENANT_STORE.organization_other_members(organizacao, usuario):
+        # O arquivo de perfis nao enxerga membros que so existem no banco
+        # (convidados). Organizacao compartilhada nao e convertida por cadastro.
+        raise EvidenceError("ORGANIZACAO_COMPARTILHADA")
     conversao = servico.backfill_from_v1(contexto, 0, ever_purchased=False,
                                          note="Fase 7.4: conta nova nasce no V2")
     trial = servico.grant_trial(contexto)
@@ -2768,13 +2778,8 @@ def _professional_access_status(email: str) -> dict:
     if tem_produto_clinico and not clinico_pronto and has_profile:
         conta_v2 = _conta_no_psique_v2(owner_email, profile)
         if conta_v2:
-            clinico_pronto = (
-                lgpd_acknowledged
-                and bool(selected_plan)
-                and bool(professional_cpf)
-                and payment_status in PAID_SESSION_STATUSES
-                and access_allowed
-            )
+            # Plano e pagamento sao campos do V1: a compra V2 nao os atualiza.
+            clinico_pronto = lgpd_acknowledged and bool(professional_cpf) and access_allowed
     access_ready = nr1_pronto or clinico_pronto
     return {
         "has_profile": has_profile,
@@ -3048,6 +3053,9 @@ def _apply_shared_wallet_compatibility(
     }
 
 
+_ORGS_PSIQUE_V2: set = set()
+
+
 def _organization_uses_psique_v2(organization_id: str) -> bool:
     """A carteira desta organizacao ja e a unica do V2 (Fase 7)?
 
@@ -3057,8 +3065,14 @@ def _organization_uses_psique_v2(organization_id: str) -> bool:
     """
     if not organization_id:
         return False
+    if organization_id in _ORGS_PSIQUE_V2:
+        return True
     try:
-        return TENANT_STORE.organization_credit_model(organization_id) == "psique_v2"
+        if TENANT_STORE.organization_credit_model(organization_id) == "psique_v2":
+            # So o sim e guardado: a carteira vira V2 e nunca volta a V1.
+            _ORGS_PSIQUE_V2.add(organization_id)
+            return True
+        return False
     except Exception:
         LOGGER.exception(
             "Nao foi possivel ler o modelo de credito de %s; mantendo o caminho V1.",
@@ -3080,21 +3094,28 @@ def _consume_session_credit_v2(
     runtime), para que uma indisponibilidade de pagamento jamais afete o
     atendimento.
     """
-    from psique_credits import CreditError
-
     try:
         result = _psique_session_charger().charge_session(context, session_id)
-    except CreditError as exc:
+    except Exception as exc:
+        # Revisao 06/10/2026: era 503 so para CreditError (o resto virava 500) e a
+        # nova tentativa do cliente nao cobrava nunca (so relatorio NOVO cobra).
+        # Agora o atendimento recebe sucesso (politica A) e o relatorio fica
+        # marcado credit_charge="falhou"; a proxima gravacao dele tenta de novo.
         LOGGER.exception(
-            "Cobranca V2 da sessao %s falhou (%s); relatorio clinico preservado.",
+            "Cobranca V2 da sessao %s falhou (%s); relatorio preservado, nova tentativa na proxima gravacao.",
             session_id,
-            exc.code,
+            getattr(exc, "code", type(exc).__name__),
         )
-        raise HTTPException(status_code=503, detail="falha ao consumir crédito V2")
+        return {
+            **_professional_access_status(owner_email),
+            "credit_model": "psique_v2",
+            "credit_charge": "falhou",
+        }
     available = max(0, _local_int(result.get("available_balance")))
     pending_total = max(0, _local_int(result.get("pending_total")))
     return {
         "credit_model": "psique_v2",
+        "credit_charge": "ok",
         "shared_credit_mode": "psique_v2",
         "remaining_sessions": available,
         "settlement_pending": bool(result.get("pending")),
@@ -8221,9 +8242,10 @@ def create_session(request: Request):
     # Bloquear nos dois — aqui e em /api/session-invites — cobre a sessao
     # presencial e a remota sem alcancar reconexao de socket (que reaproveita um
     # session_id ja criado) nem o salvamento do relatorio.
-    if _trial_blocks_new_session(user.get("email") or ""):
+    org_v2 = bool(context and _organization_uses_psique_v2(context.organization_id))
+    if not org_v2 and _trial_blocks_new_session(user.get("email") or ""):
         raise HTTPException(status_code=402, detail=_trial_block_detail(user.get("email") or ""))
-    bloqueio_v2 = _psique_v2_start_block_detail(context)
+    bloqueio_v2 = _psique_v2_start_block_detail(context) if org_v2 else ""
     if bloqueio_v2:
         raise HTTPException(status_code=402, detail=bloqueio_v2)
     session_id = str(uuid.uuid4())
@@ -8242,9 +8264,15 @@ async def create_session_invite(request: Request):
     # e compartilhado por dezoito endpoints — entre eles /api/session-summary,
     # que roda no FIM do atendimento. Bloquear la derrubaria sessao em
     # andamento, que e exatamente o que este item nao pode fazer.
-    if _trial_blocks_new_session(current_user.get("email") or ""):
+    # Revisao 06/10/2026: a cortesia V1 nao barra conta ja no V2 (quem esgotou a
+    # cortesia e comprou V2 ficava preso); o portao V2 decide. Leituras de banco
+    # fora do laco de eventos, para nao travar sessoes ao vivo.
+    org_v2 = bool(context and await asyncio.to_thread(
+        _organization_uses_psique_v2, context.organization_id))
+    if not org_v2 and _trial_blocks_new_session(current_user.get("email") or ""):
         raise HTTPException(status_code=402, detail=_trial_block_detail(current_user.get("email") or ""))
-    bloqueio_v2 = _psique_v2_start_block_detail(context)
+    bloqueio_v2 = (await asyncio.to_thread(_psique_v2_start_block_detail, context)
+                   if org_v2 else "")
     if bloqueio_v2:
         raise HTTPException(status_code=402, detail=bloqueio_v2)
     body = await request.json()
@@ -8574,6 +8602,9 @@ async def admin_overview(request: Request):
                 "total_sessions": access.get("total_sessions", 0),
                 "used_sessions": access.get("used_sessions", 0),
                 "remaining_sessions": access.get("remaining_sessions", 0),
+                # Conta na carteira V2: os numeros acima sao do V1 (zerados na conta
+                # nova, congelados na convertida); a tela avisa em vez de mostra-los.
+                "psique_v2": _conta_no_psique_v2(email, profile),
                 "access_blocked": access.get("access_blocked", False),
                 "access_block_status": access.get("access_block_status", ""),
                 "reports_count": len(professional_reports),
@@ -10272,7 +10303,8 @@ async def _send_verification_email(credential: dict, continue_to: str = "") -> s
         credential, "verification", FROID_EMAIL_VERIFICATION_TTL_SECONDS
     )
     link = _public_app_link("/verificar-email?token=" + quote(token, safe=""))
-    if continue_to.startswith("/entrar-clinica"):
+    # So o formato exato do link de convite viaja (revisao 06/10/2026).
+    if re.fullmatch(r"/entrar-clinica\?token=[A-Za-z0-9_-]{8,200}", continue_to or ""):
         link = link + "&seguir=" + quote(continue_to, safe="")
     horas = max(1, FROID_EMAIL_VERIFICATION_TTL_SECONDS // 3600)
     assunto = "Confirme seu e-mail no FROID"
@@ -10737,11 +10769,53 @@ async def organization_invitation_details(token: str, request: Request):
     details = TENANT_STORE.member_invitation_details(token_hash=token_hash)
     if not details:
         raise HTTPException(status_code=404, detail="convite inválido ou expirado")
-    # A tela decide o formulario como a do paciente decide o "password_only":
-    # e-mail que ja tem acesso por senha so informa a senha; e-mail novo cria.
-    convidado = PROFESSIONAL_CREDENTIALS.get(_normalize_email(details.get("invited_email") or ""))
-    details["has_password"] = bool(isinstance(convidado, dict) and convidado.get("password_hash"))
+    if details.get("status") != "pending" or details.get("expired"):
+        # Link velho (aceito, revogado, vencido) nao revela e-mail, clinica nem papel.
+        return {"status": details.get("status"), "expired": bool(details.get("expired"))}
+    # A tela decide o formulario como a do paciente decide o "password_only".
+    try:
+        identidade = _identidade_do_convidado(_normalize_email(details.get("invited_email") or ""))
+    except Exception:
+        LOGGER.exception("Nao foi possivel classificar a identidade do convidado")
+        raise HTTPException(status_code=503, detail="convite indisponível no momento; tente em instantes")
+    papeis = {str(r).strip().lower() for r in (details.get("roles") or [])}
+    details["has_password"] = identidade["tipo"] == "senha"
+    details["google_only"] = identidade["tipo"] == "sem_senha"
+    details["blocked"] = identidade["tipo"] == "desativada"
+    details["requires_session"] = bool(papeis - PAPEIS_DO_ACEITE_PUBLICO)
     return details
+
+
+# Papeis que o aceite PUBLICO pode conceder. Gestao (owner/administrator) le a
+# clinica inteira; por link de WhatsApp encaminhavel, nao. Esses aceitam pelo
+# caminho com sessao (Google ou login com e-mail verificado). Revisao 06/10/2026.
+PAPEIS_DO_ACEITE_PUBLICO = frozenset({"professional", "supervisor"})
+
+
+def _identidade_do_convidado(email: str) -> dict:
+    """Como o e-mail convidado ja existe no FROID (revisao de seguranca 06/10/2026).
+
+    - "senha": credencial com senha E e-mail provado -> o aceite pede essa senha;
+    - "sem_senha": a identidade existe (perfil, membership ou usuario) mas sem
+      senha provada -- tipicamente conta so-Google. Criar senha aqui seria TOMAR a
+      conta de outra pessoa: o aceite publico recusa e manda para o Google;
+    - "nova": nenhuma identidade (credencial nao verificada, deixada por um
+      cadastro abandonado, nao conta: o aceite a substitui, como o register faz);
+    - "desativada": a plataforma desativou a pessoa; o convite nao a reativa.
+    Falha ao ler o banco levanta: na duvida, nao se cria senha sobre ninguem.
+    """
+    credencial = PROFESSIONAL_CREDENTIALS.get(email)
+    if (isinstance(credencial, dict) and credencial.get("password_hash")
+            and credencial.get("email_verified")):
+        status = TENANT_STORE.user_status(email)
+        return {"tipo": "desativada" if status not in {"", "active"} else "senha",
+                "credencial": credencial}
+    status = TENANT_STORE.user_status(email)
+    if status not in {"", "active"}:
+        return {"tipo": "desativada", "credencial": None}
+    if status or PROFESSIONAL_PROFILES.get(email):
+        return {"tipo": "sem_senha", "credencial": None}
+    return {"tipo": "nova", "credencial": None}
 
 
 @app.post("/api/organization-invitations/accept")
@@ -10767,6 +10841,8 @@ async def accept_organization_invitation(request: Request):
             raise HTTPException(status_code=409, detail="limite de profissionais do plano atingido")
         if str(exc) == "organization_subscription_inactive":
             raise HTTPException(status_code=402, detail="plano FROID inativo")
+        if str(exc) == "user_disabled":
+            raise HTTPException(status_code=403, detail="acesso desativado pela plataforma FROID")
         raise HTTPException(status_code=404, detail="convite inválido ou expirado")
     TENANT_STORE.record_access_audit(
         organization_id=context["organization_id"],
@@ -10814,14 +10890,36 @@ async def accept_organization_invitation_pelo_link(token: str, request: Request)
     email = _normalize_email(details.get("invited_email") or "")
     if not _valid_email_shape(email):
         raise HTTPException(status_code=404, detail="convite inválido ou expirado")
+    # Chave por convite + e-mail: quem tem o link nao consegue esgotar o limite
+    # de outro convite do mesmo e-mail (bloqueio do convidado legitimo).
     _rate_limit_guard(
-        "org_invite_accept_email", email, 10, 900.0,
+        "org_invite_accept_email", token_hash[:16] + ":" + email, 10, 900.0,
         "Muitas tentativas para este convite. Aguarde alguns minutos.",
     )
+    papeis = {str(r).strip().lower() for r in (details.get("roles") or [])}
+    if papeis - PAPEIS_DO_ACEITE_PUBLICO:
+        raise HTTPException(
+            status_code=403,
+            detail=("Convite de gestão da clínica: entre com a sua conta (Google ou "
+                    "e-mail e senha) e aceite pelo painel."),
+        )
+    try:
+        identidade = _identidade_do_convidado(email)
+    except Exception:
+        LOGGER.exception("Nao foi possivel classificar a identidade do convidado")
+        raise HTTPException(status_code=503, detail="convite indisponível no momento; tente em instantes")
+    if identidade["tipo"] == "desativada":
+        raise HTTPException(status_code=403, detail="acesso desativado pela plataforma FROID")
+    if identidade["tipo"] == "sem_senha":
+        raise HTTPException(
+            status_code=409,
+            detail=("Este e-mail já tem acesso FROID pelo Google. Use “Continuar com o "
+                    "Google” nesta página para entrar na clínica."),
+        )
     body = await request.json()
     password = str(body.get("password") or "")
-    existente = PROFESSIONAL_CREDENTIALS.get(email)
-    tem_senha = isinstance(existente, dict) and bool(existente.get("password_hash"))
+    existente = identidade["credencial"]
+    tem_senha = identidade["tipo"] == "senha"
     # 1) Valida tudo ANTES de mudar qualquer estado.
     if tem_senha:
         if not _verify_professional_password(existente, password):
@@ -10849,34 +10947,49 @@ async def accept_organization_invitation_pelo_link(token: str, request: Request)
             raise HTTPException(status_code=409, detail="limite de profissionais do plano atingido")
         if str(exc) == "organization_subscription_inactive":
             raise HTTPException(status_code=402, detail="plano FROID inativo")
+        if str(exc) == "user_disabled":
+            raise HTTPException(status_code=403, detail="acesso desativado pela plataforma FROID")
         raise HTTPException(status_code=404, detail="convite inválido ou expirado")
-    # 3) So entao a credencial — nada fica pela metade se o vinculo falhar.
+    # 3) So entao a credencial. Identidade "nova": credencial nova (substitui uma
+    # nao verificada deixada por cadastro abandonado -- nunca uma provada). A de
+    # quem ja tinha senha provada nao e tocada.
     agora = _utc_now_iso()
-    credencial = existente if isinstance(existente, dict) else {"email": email, "created_at": agora}
     if not tem_senha:
-        credencial["email"] = email
-        credencial["name"] = nome
-        credencial["provider"] = "password"
-        credencial["updated_at"] = agora
+        credencial = {
+            "email": email, "name": nome, "provider": "password",
+            "created_at": agora, "updated_at": agora,
+            "email_verified": True, "verified_via": "clinic_invitation", "verified_at": agora,
+        }
         _set_professional_password(credencial, password)
-    if not credencial.get("email_verified"):
-        # Sem isto, quem entrou pelo convite nao conseguiria logar depois por
-        # senha (o login exige e-mail verificado). A clinica vouched pelo e-mail.
-        credencial["email_verified"] = True
-        credencial["verified_via"] = "clinic_invitation"
-        credencial["verified_at"] = agora
+    else:
+        credencial = existente
     credencial["last_auth_at"] = agora
     PROFESSIONAL_CREDENTIALS[email] = credencial
-    _save_identity_state()
-    TENANT_STORE.record_access_audit(
-        organization_id=context["organization_id"],
-        actor_user_id=context["user_id"],
-        action="member.join",
-        resource_type="organization_membership",
-        resource_id=context["membership_id"],
-        metadata={"via": "invitation_link", "credential_created": not tem_senha},
-    )
-    sessao = _issue_session({"email": email, "name": nome, "provider": "password"})
+    # O vinculo ja foi gravado (passo 2). Daqui para baixo nada pode transformar
+    # um aceite feito em erro: o convidado receberia 500 e, ao tentar de novo,
+    # "convite expirado". Falhas viram registro; a sessao, se falhar, o login cobre.
+    try:
+        _save_identity_state()
+    except Exception:
+        LOGGER.exception("Aceite de convite gravado, mas o estado de identidade nao salvou")
+    try:
+        TENANT_STORE.record_access_audit(
+            organization_id=context["organization_id"],
+            actor_user_id=context["user_id"],
+            action="member.join",
+            resource_type="organization_membership",
+            resource_id=context["membership_id"],
+            ip_address=_client_ip(request),
+            user_agent=str(request.headers.get("user-agent") or "")[:300],
+            metadata={"via": "invitation_link", "credential_created": not tem_senha},
+        )
+    except Exception:
+        LOGGER.exception("Aceite de convite gravado, mas a auditoria falhou")
+    try:
+        sessao = _issue_session({"email": email, "name": nome, "provider": "password"})
+    except Exception:
+        LOGGER.exception("Aceite de convite gravado, mas a sessao nao foi emitida")
+        return {"status": "accepted", "membership": context, "session": "login_required"}
     return {"status": "accepted", "membership": context, **sessao}
 
 
@@ -14736,8 +14849,9 @@ async def save_professional_profile(request: Request):
         # Se converteu e so o trial falhou, cortesia V1 seria saldo de mentira
         # (o consumo ja e V2): fica marcado para o operador conceder.
         try:
-            nascimento_v2 = _psique_v2_nascer(
-                user, owner_email, account_type, body.get("organization_document")
+            nascimento_v2 = await asyncio.to_thread(
+                _psique_v2_nascer, user, owner_email, account_type,
+                body.get("organization_document"),
             )
         except Exception as exc:
             codigo = str(getattr(exc, "code", "") or type(exc).__name__)
@@ -14882,6 +14996,13 @@ async def create_subscription_checkout(request: Request):
         raise HTTPException(status_code=409, detail="contexto organizacional ausente")
     if not ({"owner", "administrator"} & set(context.roles)):
         raise HTTPException(status_code=403, detail="papel sem permissão para contratar plano")
+    if await asyncio.to_thread(_organization_uses_psique_v2, context.organization_id):
+        # Carteira V2 recusa credito V1: o cliente pagaria sem receber. Vale mesmo
+        # com o interruptor de aposentadoria desligado (revisao 06/10/2026).
+        raise HTTPException(
+            status_code=409,
+            detail="esta organização compra créditos pelo Psique V2, em Administrativo",
+        )
     if not STRIPE_SECRET_KEY:
         raise HTTPException(status_code=503, detail="Stripe não configurado")
     body = await request.json()
@@ -15886,14 +16007,27 @@ async def save_session_report(request: Request):
     if context and not SESSION_ORGANIZATIONS.get(session_id):
         SESSION_ORGANIZATIONS[session_id] = context.organization_id
         _save_identity_state()
+    # Relatorio cuja cobranca V2 falhou antes e cobrado de novo nesta gravacao
+    # (a cobranca e idempotente por session_id; a que falhou nao gravou nada).
+    cobranca_pendente = (
+        not is_new_report
+        and str((reports.get(session_id) or {}).get("credit_charge") or "") == "falhou"
+    )
+    if cobranca_pendente:
+        report["credit_charge"] = "falhou"
     reports[session_id] = report
     _save_session_reports(reports)
     try:
         access_status = (
             _consume_session_credit(context, owner_email, session_id)
-            if is_new_report
+            if is_new_report or cobranca_pendente
             else _professional_access_status(owner_email)
         )
+        estado_cobranca = str((access_status or {}).get("credit_charge") or "")
+        if estado_cobranca and report.get("credit_charge") != estado_cobranca:
+            report["credit_charge"] = estado_cobranca
+            reports[session_id] = report
+            _save_session_reports(reports)
     except HTTPException:
         # O registro clinico NUNCA e descartado por falha de cobranca ou de
         # infraestrutura. Antes, um 402/503 aqui apagava o relatorio de uma

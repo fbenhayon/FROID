@@ -106,3 +106,29 @@ def test_details_marks_expired(database):
 
 def test_details_unknown_token_is_none(database):
     assert _store(database).member_invitation_details(token_hash="de" * 32) is None
+
+
+def _aceitar(dsn, token_hash, email, nome):
+    return _store(dsn).accept_member_invitation(token_hash=token_hash, email=email, display_name=nome)
+
+
+def test_aceite_nao_reativa_usuario_desativado(database):
+    from tenant_store import stable_uuid
+    email = "desativado-" + uuid.uuid4().hex[:6] + "@x.com"
+    token_hash = _seed_invitation(database, invited_email=email, roles=["professional"])
+    _sql(database, "INSERT INTO users(id,email,display_name,status) VALUES(%s,%s,'Nome Real','disabled')",
+         (str(stable_uuid("user", email)), email))
+    with pytest.raises(ValueError, match="user_disabled"):
+        _aceitar(database, token_hash, email, "Outro Nome")
+    assert _sql(database, "SELECT status, display_name FROM users WHERE email=%s", (email,)) == [
+        ("disabled", "Nome Real")]
+
+
+def test_aceite_nao_renomeia_identidade_existente(database):
+    from tenant_store import stable_uuid
+    email = "existente-" + uuid.uuid4().hex[:6] + "@x.com"
+    token_hash = _seed_invitation(database, invited_email=email, roles=["professional"])
+    _sql(database, "INSERT INTO users(id,email,display_name) VALUES(%s,%s,'Nome Real')",
+         (str(stable_uuid("user", email)), email))
+    _aceitar(database, token_hash, email, "Nome Que A Clinica Digitou")
+    assert _sql(database, "SELECT display_name FROM users WHERE email=%s", (email,)) == [("Nome Real",)]

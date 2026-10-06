@@ -412,3 +412,16 @@ def test_item_reservado_e_nao_liquidado_volta_quando_a_reserva_vence(harness):
     de_novo = h.scheduling.outbox_take(owner, how_many=5)["items"]
     assert [i["outbox_id"] for i in de_novo] == [primeiro[0]["outbox_id"]]
     assert de_novo[0]["attempts"] == 2
+
+
+def test_entrega_depois_da_reserva_vencer_e_recusada(harness):
+    """049: worker lento nao entrega o que outro pode ter retirado."""
+    h = harness
+    owner, secretary, clinician = h.clinic()
+    patient = h.patient(owner.organization_id)
+    h.book(secretary, clinician, patient)
+    item = h.scheduling.outbox_take(owner, how_many=5)["items"][0]
+    h.sql("UPDATE psique_calendar_outbox SET leased_until = now() - interval '1 minute' "
+          "WHERE id = %s", (item["outbox_id"],))
+    with pytest.raises(Exception, match="OUTBOX_LEASE_EXPIRED"):
+        h.scheduling.outbox_settle(owner, outbox_id=item["outbox_id"], delivered=True)

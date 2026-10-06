@@ -28,6 +28,12 @@ type DetalhesConvite = {
   expired: boolean;
   /** O e-mail convidado já tem acesso FROID por senha: só pede a senha. */
   has_password?: boolean;
+  /** Identidade existe sem senha (conta Google): o link não cria senha nela. */
+  google_only?: boolean;
+  /** Convite de gestão: aceite só com a conta, pelo painel. */
+  requires_session?: boolean;
+  /** Pessoa desativada pela plataforma. */
+  blocked?: boolean;
 };
 
 type GoogleCredentialResponse = { credential?: string };
@@ -38,8 +44,12 @@ export function mensagemDoErro(status: number, detalhe: string): string {
     case 401:
       return "Senha incorreta para este e-mail. Se esqueceu a senha, use \"Esqueci minha senha\" na tela de acesso e volte a este link.";
     case 403:
+      // O servidor tem tres recusas 403 distintas; so a de e-mail divergente
+      // usa a frase generica, as outras ja vem explicadas.
+      if (detalhe && !detalhe.includes("outro email")) return detalhe;
       return "Este convite foi emitido para outro e-mail. Entre com a conta do e-mail que recebeu o convite, ou peça à clínica um novo código para o seu endereço.";
     case 409:
+      if (detalhe.includes("Google")) return detalhe;
       return "A clínica já atingiu o limite de profissionais do plano dela. Fale com quem administra a clínica para ampliar o plano antes de entrar.";
     case 402:
       return "O plano da clínica está inativo no momento. A clínica precisa regularizar a assinatura antes de admitir novos profissionais.";
@@ -91,7 +101,25 @@ const CAMPO =
   "w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200 outline-none focus:border-cyan-500";
 
 export function EntrarNaClinicaPage() {
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
+  const [codigo, setCodigo] = useState("");
+  const usarCodigo = (e: React.FormEvent) => {
+    e.preventDefault();
+    const limpo = codigo.trim();
+    if (limpo) setParams({ token: limpo });
+  };
+  // Recarga inteira: o App le a sessao so na montagem. Sem ela, quem ja estava
+  // logado (a dona da clinica) seguiria vendo a propria conta com o token do
+  // convidado por baixo -- uma identidade na tela, outra nas chamadas.
+  const irParaOPainel = () => {
+    try {
+      localStorage.removeItem("froid_user");
+    } catch {
+      /* sem storage, a recarga basta */
+    }
+    window.location.replace("/app/#/dashboard");
+    window.location.reload();
+  };
   const token = (params.get("token") ?? "").trim();
 
   const [detalhes, setDetalhes] = useState<DetalhesConvite | null>(null);
@@ -120,6 +148,8 @@ export function EntrarNaClinicaPage() {
     }
     let vivo = true;
     setCarregando(true);
+    setErroConvite("");
+    setDetalhes(null);
     fetch(apiUrl("/api/organization-invitations/" + encodeURIComponent(token)))
       .then(async (r) => {
         const d = await r.json().catch(() => null);
@@ -128,8 +158,12 @@ export function EntrarNaClinicaPage() {
       })
       .then((d) => {
         if (!vivo) return;
+        if (d.status !== "pending" || d.expired) {
+          // Link velho: o servidor nao devolve mais e-mail nem clinica.
+          setErroConvite(mensagemDoErro(404, ""));
+          return;
+        }
         setDetalhes(d);
-        if (d.status !== "pending" || d.expired) setErroConvite(mensagemDoErro(404, ""));
       })
       .catch((e) => {
         if (vivo) setErroConvite(e instanceof Error ? e.message : "Convite não encontrado.");
@@ -188,7 +222,7 @@ export function EntrarNaClinicaPage() {
         setErro(mensagemDoErro(r.status, d?.detail || ""));
         return;
       }
-      guardarSessao(d);
+      if (d?.token) guardarSessao(d);
       setAceito(true);
     } catch {
       setErro("Falha de conexão ao entrar na clínica. Verifique a internet e tente de novo.");
@@ -200,7 +234,8 @@ export function EntrarNaClinicaPage() {
   // Alternativa de 1 clique: o Google prova o e-mail; a sessão dele aceita o
   // convite pelo caminho autenticado.
   const aceitarComSessao = async (sessao: any) => {
-    guardarSessao(sessao);
+    // A sessao do Google so e guardada se o aceite der certo: um 403 (e-mail
+    // de outra conta) nao pode derrubar a sessao que ja estava no navegador.
     const r = await fetch(apiUrl("/api/organization-invitations/accept"), {
       method: "POST",
       headers: {
@@ -210,6 +245,7 @@ export function EntrarNaClinicaPage() {
       body: JSON.stringify({ invitation_token: token }),
     });
     if (r.ok) {
+      guardarSessao(sessao);
       setAceito(true);
       return;
     }
@@ -284,6 +320,36 @@ export function EntrarNaClinicaPage() {
     );
   }
 
+  if (!token) {
+    // A mensagem do WhatsApp oferece "informe este codigo" para quando o link
+    // nao abre; sem este campo, o caminho terminava em "veio sem codigo".
+    return (
+      <Moldura>
+        <h1 className="mt-2 text-2xl font-black">Entrar numa clínica</h1>
+        <form onSubmit={usarCodigo} className="mt-4 space-y-3">
+          <p className="text-sm leading-6 text-slate-300">
+            Cole o código do convite que a clínica enviou.
+          </p>
+          <input
+            value={codigo}
+            onChange={(e) => setCodigo(e.target.value)}
+            required
+            autoComplete="off"
+            aria-label="código do convite"
+            placeholder="código do convite"
+            className={CAMPO}
+          />
+          <button
+            type="submit"
+            className="w-full rounded-lg bg-cyan-700 px-4 py-3 text-sm font-black text-white hover:bg-cyan-600"
+          >
+            Abrir o convite
+          </button>
+        </form>
+      </Moldura>
+    );
+  }
+
   if (erroConvite && !detalhes) {
     return (
       <Moldura>
@@ -313,19 +379,27 @@ export function EntrarNaClinicaPage() {
             <span className="font-black">{convite.clinic_name || "a clínica"}</span>. Ao atender
             no contexto dela, os créditos consomem do saldo da clínica, não do seu.
           </p>
-          <a
-            href="/app/#/dashboard"
+          <button
+            type="button"
+            onClick={irParaOPainel}
             className="mt-6 inline-flex rounded-lg bg-cyan-700 px-4 py-3 text-sm font-black text-white hover:bg-cyan-600"
           >
             Ir para o painel
-          </a>
+          </button>
         </div>
       </Moldura>
     );
   }
 
-  const indisponivel = Boolean(erroConvite);
+  // Recusas que o servidor ja anuncia no GET: a tela nem oferece o formulario.
+  const recusa = convite.blocked
+    ? "Seu acesso ao FROID está desativado pela plataforma. Fale com froid@froid.com.br."
+    : convite.requires_session
+      ? "Convite de gestão da clínica: entre com a sua conta (Google ou e-mail e senha) e aceite pelo painel."
+      : "";
+  const indisponivel = Boolean(erroConvite || recusa);
   const jaTemSenha = Boolean(convite.has_password);
+  const soGoogle = Boolean(convite.google_only);
 
   return (
     <Moldura>
@@ -347,10 +421,17 @@ export function EntrarNaClinicaPage() {
           data-campo="erro"
           className="mt-5 rounded-lg border border-amber-700 bg-amber-950/60 p-3 text-xs font-bold leading-5 text-amber-100"
         >
-          {erroConvite}
+          {erroConvite || recusa}
         </p>
       ) : (
         <div className="mt-6 space-y-4">
+          {soGoogle && (
+            <p className="rounded-lg border border-cyan-800 bg-cyan-950/40 p-3 text-sm leading-6 text-cyan-100">
+              Este e-mail já tem acesso FROID pelo Google. Use “Continuar com o Google” abaixo
+              para entrar na clínica.
+            </p>
+          )}
+          {!soGoogle && (
           <form onSubmit={entrar} className="space-y-3">
             <p className="text-sm leading-6 text-slate-300">
               {jaTemSenha
@@ -411,6 +492,7 @@ export function EntrarNaClinicaPage() {
               {ocupado ? "Entrando..." : "Entrar na clínica"}
             </button>
           </form>
+          )}
 
           {googleClientId && (
             <>

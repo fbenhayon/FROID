@@ -29,8 +29,12 @@ export const CHAVE_COMPRA_PENDENTE = "froid_psique_v2_compra_pendente";
  *  então a tela mostra uma compra só: a do sistema em que a carteira está. */
 export function carteiraEmV2(carteira: EstadoV2<CarteiraPsiqueV2>): boolean | null {
   if (carteira.estado === "ok") return true;
-  if (carteira.estado === "indisponivel" && carteira.motivo === "CARREGANDO") return null;
-  return false;
+  // So duas respostas dizem "esta organizacao NAO esta no V2": a recusa explicita
+  // da carteira e a rota V2 inexistente (flag desligado). Falha passageira,
+  // permissao negada ou resposta ilegivel nao dizem nada sobre o modelo: null,
+  // para a tela nao oferecer a compra V1 a uma conta V2 (revisao 06/10/2026).
+  if (carteira.motivo === "PSIQUE_WALLET_REQUIRED" || carteira.motivo === "HTTP_404") return false;
+  return null;
 }
 
 export function SecaoPsiqueV2View({
@@ -77,12 +81,16 @@ export function SecaoPsiqueV2View({
           carteira={carteira}
           precos={precos}
           aoComprar={podeComprar ? aoComprar : () => undefined}
+          compraDesativada={!podeComprar || Boolean(comprando)}
         />
       </div>
-      {!podeComprar && capacidades.estado === "ok" ? (
+      {!podeComprar ? (
         <p data-campo="sem-capacidade-compra" className="mt-2 text-xs text-amber-300">
-          Compra disponível apenas para papéis financeiro/administração da
-          organização (o servidor decide; esta tela apenas apresenta).
+          {capacidades.estado === "ok"
+            ? "Compra disponível apenas para papéis financeiro/administração da organização (o servidor decide; esta tela apenas apresenta)."
+            : capacidades.estado === "indisponivel" && capacidades.motivo === "CARREGANDO"
+              ? "Confirmando sua permissão de compra..."
+              : "Não foi possível confirmar sua permissão de compra agora. Recarregue a página em instantes."}
         </p>
       ) : null}
       {comprando ? (

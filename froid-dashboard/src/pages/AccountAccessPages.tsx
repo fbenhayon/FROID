@@ -62,7 +62,7 @@ export const VerifyEmailPage: React.FC<LoginProp> = ({ onLogin }) => {
   // aceite do convite de clínica), nunca um destino arbitrário (anti open-redirect).
   const seguir = useMemo(() => {
     const bruto = searchParams.get("seguir") || "";
-    return /^\/entrar-clinica(\?|$)/.test(bruto) ? bruto : "";
+    return /^\/entrar-clinica\?token=[A-Za-z0-9_-]{8,200}$/.test(bruto) ? bruto : "";
   }, [searchParams]);
   const [error, setError] = useState("");
   const [email, setEmail] = useState("");

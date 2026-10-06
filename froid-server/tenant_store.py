@@ -453,6 +453,41 @@ class TenantStore:
                 row = cursor.fetchone()
         return str((row or [""])[0] or "")
 
+    def organization_other_members(self, organization_id, user_id) -> int:
+        """Membros ativos da organizacao alem deste usuario (conexao administrativa).
+
+        A conta nova so nasce no V2 se a organizacao for SO dela: converter uma
+        organizacao com colegas mexeria no saldo deles (revisao 06/10/2026).
+        """
+        if not self.enabled or not organization_id:
+            return 0
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT count(*) FROM organization_memberships WHERE organization_id=%s "
+                    "AND status='active' AND user_id<>%s",
+                    (str(organization_id), str(user_id)),
+                )
+                row = cursor.fetchone()
+        return int((row or [0])[0] or 0)
+
+    def user_status(self, email) -> str:
+        """Status da identidade global deste e-mail ("" se nao existe).
+
+        O aceite publico do convite usa isto para nao criar senha sobre uma
+        identidade que ja existe sem senha (conta so-Google): isso seria tomar a
+        conta de outra pessoa. Conexao administrativa.
+        """
+        normalized = normalize_email(email)
+        if not self.enabled or not normalized:
+            return ""
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT status FROM users WHERE id=%s",
+                               (stable_uuid("user", normalized),))
+                row = cursor.fetchone()
+        return str((row or [""])[0] or "")
+
     def psique_v2_ever_purchased(self, organization_id) -> bool:
         """A organizacao ja comprou alguma vez (portao V2 de inicio, D2a)?
 
@@ -1440,12 +1475,21 @@ class TenantStore:
                     ):
                         raise ValueError("organization_member_limit_reached")
                 now = datetime.now(timezone.utc)
+                # Revisao de 06/10/2026: o aceite NAO reativa quem a plataforma
+                # desativou (o aceite publico nao passa por sessao, entao a guarda
+                # de acesso revogado nao o alcanca) e nao troca o nome de quem ja
+                # existe -- a identidade e global, a clinica nao a renomeia.
+                existente = cursor.execute(
+                    "SELECT status FROM users WHERE id=%s", (user_id,)
+                ).fetchone()
+                if existente and existente[0] != "active":
+                    raise ValueError("user_disabled")
                 cursor.execute(
                     """
                     INSERT INTO users (id, email, display_name, status)
                     VALUES (%s,%s,%s,'active')
                     ON CONFLICT (id) DO UPDATE SET
-                        display_name=EXCLUDED.display_name, status='active',
+                        display_name=COALESCE(NULLIF(users.display_name, ''), EXCLUDED.display_name),
                         updated_at=now()
                     """,
                     (user_id, normalized_email, display_name or normalized_email),
@@ -2130,7 +2174,8 @@ class TenantStore:
                     FROM organization_subscriptions s JOIN organization_wallets w
                     ON w.organization_id=s.organization_id
                     WHERE s.organization_id=%s AND s.status='active' AND s.auto_replenish
-                    AND w.authority='shared' FOR UPDATE OF s,w""",
+                    AND w.authority='shared' AND w.credit_model<>'psique_v2'
+                    FOR UPDATE OF s,w""",
                     (organization_id,),
                 ).fetchone()
                 if not row or int(row[5]) != 0 or not row[3] or not row[4]:

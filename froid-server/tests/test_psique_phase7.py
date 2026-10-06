@@ -45,7 +45,7 @@ def database():
         try:
             isolated = make_conninfo(dsn, dbname=name)
             with psycopg.connect(isolated, autocommit=True) as conn:
-                apply(conn, ROOT / "migrations", "047_psique_session_consumption", name)
+                apply(conn, ROOT / "migrations", "050_psique_session_charge_fix", name)
             yield isolated
         finally:
             admin.execute(psycopg.sql.SQL("DROP DATABASE {} WITH (FORCE)").format(psycopg.sql.Identifier(name)))
@@ -251,3 +251,29 @@ def test_context_mismatch_is_refused(harness):
         with pytest.raises(harness.pg.errors.InsufficientPrivilege):
             conn.execute("SELECT psique_v2_session_charge(%s,%s,%s,%s,%s)",
                          (other, ctx.membership_id, ctx.user_id, "sess-1", "")).fetchone()
+
+
+# -- 050: a sessao que ja estava pendente e cobrada de novo -------------------
+
+def test_pendente_cobrada_de_novo_com_dois_creditos_nao_quebra(harness):
+    """Na 047 a fila liquidava S e o ramo atual gravava S de novo: UNIQUE violado
+    e a transacao inteira desfeita (PSIQUE_STORAGE_ERROR)."""
+    ctx = harness.enrolled(0)
+    assert harness.credits.charge_session(ctx, "S")["pending"] is True
+    harness.credits.manual_adjustment(ctx, 2, reason="recarga",
+                                      idempotency_key="r:" + uuid.uuid4().hex)
+    result = harness.credits.charge_session(ctx, "S")
+    assert result["charged"] is True and result["pending"] is False
+    assert result["pending_total"] == 0 and result["balance"] == 1
+    assert [k for (k,) in harness.ledger(ctx, "SESSION_CONSUMPTION")] == ["session:S"]
+
+
+def test_pendente_cobrada_de_novo_com_um_credito_fica_paga(harness):
+    """Na 047 respondia "pendente" sobre a sessao que acabara de liquidar."""
+    ctx = harness.enrolled(0)
+    harness.credits.charge_session(ctx, "S")
+    harness.credits.manual_adjustment(ctx, 1, reason="um",
+                                      idempotency_key="u:" + uuid.uuid4().hex)
+    result = harness.credits.charge_session(ctx, "S")
+    assert result["charged"] is True and result["pending"] is False
+    assert result["pending_total"] == 0 and result["balance"] == 0

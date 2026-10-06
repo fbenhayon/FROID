@@ -522,8 +522,8 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
                             : "Recusado"}
                       </span>
                     </td>
-                    <td className="whitespace-nowrap border-l border-slate-700 px-2 py-1 text-cyan-200">{row.used_sessions}/{row.total_sessions}</td>
-                    <td className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-black text-emerald-200">{row.remaining_sessions}</td>
+                    <td className="whitespace-nowrap border-l border-slate-700 px-2 py-1 text-cyan-200">{row.psique_v2 ? "—" : `${row.used_sessions}/${row.total_sessions}`}</td>
+                    <td className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-black text-emerald-200" title={row.psique_v2 ? "Saldo na carteira Psique V2 da organização" : undefined}>{row.psique_v2 ? "V2" : row.remaining_sessions}</td>
                     <td className="whitespace-nowrap border-l border-slate-700 px-2 py-1 text-slate-300">{row.reports_count}</td>
                     <td className="whitespace-nowrap border-l border-slate-700 px-2 py-1 text-slate-300">{row.patients_count}</td>
                     <td className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-bold text-emerald-200">{row.received_brl}</td>

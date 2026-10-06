@@ -236,13 +236,31 @@ export const ProfessionalOnboarding: React.FC<Props> = ({
   // Fase 7.4 etapa 3: com o servidor dizendo "teste primeiro", o cadastro
   // termina sem pacote e a compra fica em Administrativo.
   const [trialFirst, setTrialFirst] = useState(false);
+  // Revisao 06/10/2026: enquanto a configuracao nao chega (ou se falhar), o envio
+  // fica travado. Antes o padrao "false" mostrava pacotes e mandava ao checkout
+  // V1 ja aposentado, numa conta que acabava de ser salva.
+  const [configPronta, setConfigPronta] = useState(false);
+  const [configErro, setConfigErro] = useState("");
   useEffect(() => {
+    let vivo = true;
     fetch(apiUrl("/api/auth/config"))
-      .then((r) => (r.ok ? r.json() : null))
+      .then((r) => {
+        if (!r.ok) throw new Error(String(r.status));
+        return r.json();
+      })
       // Comercio V1 aposentado tambem dispensa o pagamento aqui: nao ha mais
       // checkout V1, e a compra e a do Administrativo (V2).
-      .then((d) => setTrialFirst(Boolean(d?.onboarding_trial_first || d?.v1_commerce_retired)))
-      .catch(() => undefined);
+      .then((d) => {
+        if (!vivo) return;
+        setTrialFirst(Boolean(d?.onboarding_trial_first || d?.v1_commerce_retired));
+        setConfigPronta(true);
+      })
+      .catch(() => {
+        if (vivo) setConfigErro("Não foi possível carregar a configuração do cadastro. Recarregue a página.");
+      });
+    return () => {
+      vivo = false;
+    };
   }, []);
   const [billingMarket, setBillingMarket] = useState("BR");
   const [billingCurrency, setBillingCurrency] = useState("brl");
@@ -604,7 +622,9 @@ export const ProfessionalOnboarding: React.FC<Props> = ({
     if (legalCatalog?.acceptance_required && (!termsAccepted || !contractAccepted)) {
       return { message: "Leia e aceite os termos e o contrato de licença aplicável.", target: "legal-contract-consent" };
     }
-    if (legalCatalog?.acceptance_required && !orderSummaryAccepted) {
+    // O resumo comercial so existe quando ha pacote a pagar; no teste gratuito a
+    // caixa nem e mostrada (revisao 06/10/2026: travava o cadastro).
+    if (!trialFirst && legalCatalog?.acceptance_required && !orderSummaryAccepted) {
       return { message: "Confirme o resumo comercial desta contratação.", target: "order-summary-consent" };
     }
     if (legalCatalog?.acceptance_required && (!legalCatalog.supplier.configured || legalError)) {
@@ -1346,12 +1366,19 @@ export const ProfessionalOnboarding: React.FC<Props> = ({
 
             <button
               type="submit"
-              disabled={loading}
-              aria-busy={loading}
+              disabled={loading || !configPronta}
+              aria-busy={loading || !configPronta}
               className="mt-5 w-full rounded-lg bg-cyan-700 px-4 py-3 text-sm font-black text-white hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-cyan-300 disabled:cursor-wait disabled:opacity-60"
             >
-              {loading ? "Processando..." : trialFirst ? "Começar meu teste gratuito" : "Enviar informações e pagar"}
+              {loading
+                ? "Processando..."
+                : !configPronta
+                  ? configErro ? "Recarregue a página" : "Carregando..."
+                  : trialFirst ? "Começar meu teste gratuito" : "Enviar informações e pagar"}
             </button>
+            {configErro && (
+              <p role="alert" className="mt-3 text-xs font-bold text-red-200">{configErro}</p>
+            )}
           </aside>
         </form>
       </main>

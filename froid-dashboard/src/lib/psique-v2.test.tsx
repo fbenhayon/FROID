@@ -269,7 +269,11 @@ it("carteira ainda V1: a seção V2 some e quem vende é o bloco V1 (uma compra 
   expect(html).toBe("");
   expect(carteiraEmV2(carteiraV1)).toBe(false);
   expect(carteiraEmV2({ estado: "indisponivel", motivo: "CARREGANDO" })).toBeNull();
-  expect(carteiraEmV2({ estado: "indisponivel", motivo: "SEM_CONEXAO" })).toBe(false);
+  // Falha passageira nao diz nada sobre o modelo (revisao 06/10/2026): null,
+  // para a tela nao oferecer compra V1 a uma conta V2.
+  expect(carteiraEmV2({ estado: "indisponivel", motivo: "SEM_CONEXAO" })).toBeNull();
+  expect(carteiraEmV2({ estado: "negado", motivo: "HTTP_403" })).toBeNull();
+  expect(carteiraEmV2({ estado: "indisponivel", motivo: "HTTP_404" })).toBe(false);
   expect(carteiraEmV2({
     estado: "ok",
     dados: {

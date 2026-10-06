@@ -39,10 +39,13 @@ export function PsiqueCreditsPanel({
   carteira,
   precos,
   aoComprar,
+  compraDesativada = false,
 }: {
   carteira: EstadoV2<CarteiraPsiqueV2>;
   precos: EstadoV2<PrecosPsiqueV2>;
   aoComprar: (productCode: string) => void;
+  /** Sem permissao de compra, ou um checkout ja abrindo (evita dois por clique duplo). */
+  compraDesativada?: boolean;
 }) {
   return (
     <section data-painel="psique-v2-creditos">
@@ -92,7 +95,12 @@ export function PsiqueCreditsPanel({
               </span>
               <span style={{ display: "flex", gap: 12, alignItems: "center" }}>
                 <span data-campo="preco">{formatarBRL(oferta.total_cents)}</span>
-                <button type="button" onClick={() => aoComprar(oferta.product_code)}>
+                <button
+                  type="button"
+                  disabled={compraDesativada}
+                  aria-disabled={compraDesativada}
+                  onClick={() => aoComprar(oferta.product_code)}
+                >
                   Comprar
                 </button>
               </span>

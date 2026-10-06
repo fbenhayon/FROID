@@ -39,6 +39,40 @@ BEGIN
     RETURN jsonb_build_object('items',result);
 END $$;
 
+CREATE OR REPLACE FUNCTION psique_v2_outbox_settle(org uuid, member uuid, actor uuid,
+    outbox_ref uuid, delivered boolean, external_ref text, error_note text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+DECLARE row_out psique_calendar_outbox%ROWTYPE;
+BEGIN
+    PERFORM psique_v2_scheduling_member(org,member,actor,ARRAY['ORG_ADMIN']);
+    SELECT * INTO row_out FROM psique_calendar_outbox
+        WHERE organization_id=org AND id=outbox_ref FOR UPDATE;
+    IF NOT FOUND THEN RAISE EXCEPTION 'OUTBOX_ITEM_NOT_FOUND'; END IF;
+    IF row_out.outbox_status='DELIVERED' THEN
+        RETURN jsonb_build_object('settled',false,'outbox_status','DELIVERED');
+    END IF;
+    -- 049: quem demorou mais que a reserva nao entrega mais; o item ja pode ter
+    -- sido retirado por outro worker (evento duplicado no Google).
+    IF row_out.outbox_status='PENDING' AND row_out.leased_until IS NOT NULL
+       AND row_out.leased_until < clock_timestamp() THEN
+        RAISE EXCEPTION 'OUTBOX_LEASE_EXPIRED';
+    END IF;
+    IF delivered THEN
+        UPDATE psique_calendar_outbox SET outbox_status='DELIVERED',
+            external_event_id=nullif(trim(external_ref),''),
+            delivered_at=clock_timestamp(),last_error_sanitized=NULL
+            WHERE id=outbox_ref RETURNING * INTO row_out;
+    ELSE
+        -- Falha do espelho e estado visivel, nunca degradacao silenciosa; o
+        -- agendamento interno permanece a autoridade e nao e tocado.
+        UPDATE psique_calendar_outbox SET outbox_status='FAILED',
+            last_error_sanitized=left(coalesce(nullif(trim(error_note),''),'MIRROR_FAILURE'),200)
+            WHERE id=outbox_ref RETURNING * INTO row_out;
+    END IF;
+    RETURN jsonb_build_object('settled',true,'outbox_status',row_out.outbox_status,
+        'attempts',row_out.attempts);
+END $$;
+
 CREATE OR REPLACE FUNCTION psique_calendar_outbox_clear_lease() RETURNS trigger
 LANGUAGE plpgsql SET search_path=public,pg_temp AS $$
 BEGIN

@@ -171,12 +171,20 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
   // null enquanto a carteira V2 e consultada: nenhum bloco de compra pisca.
   const [carteiraV2, setCarteiraV2] = useState<boolean | null>(null);
   // Comercio V1 aposentado (etapa 5): o bloco "Planos e Cobranca" some de vez.
-  const [v1Aposentado, setV1Aposentado] = useState(false);
+  // null ate a configuracao chegar: o bloco V1 so aparece com "nao aposentado"
+  // confirmado pelo servidor (antes o padrao false o mostrava por um instante).
+  const [v1Aposentado, setV1Aposentado] = useState<boolean | null>(null);
   useEffect(() => {
+    let vivo = true;
     fetch(apiUrl("/api/auth/config"))
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setV1Aposentado(Boolean(d?.v1_commerce_retired)))
+      .then((d) => {
+        if (vivo && d) setV1Aposentado(Boolean(d.v1_commerce_retired));
+      })
       .catch(() => undefined);
+    return () => {
+      vivo = false;
+    };
   }, []);
   const [selectedPlan, setSelectedPlan] = useState("pro_10");
   const [billingMarket, setBillingMarket] = useState("BR");
@@ -1052,7 +1060,13 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
             </div>
           </div>
           <SecaoPsiqueV2 aoResolverCarteira={setCarteiraV2} />
-          {carteiraV2 === false && !v1Aposentado && (
+          {billingMessage && (carteiraV2 !== false || v1Aposentado !== false) && (
+            // O retorno do Stripe precisa ser lido mesmo com o bloco V1 escondido.
+            <p role="status" className="rounded-lg border border-amber-700 bg-amber-950/40 p-3 text-xs font-bold text-amber-100">
+              {billingMessage}
+            </p>
+          )}
+          {carteiraV2 === false && v1Aposentado === false && (
           <div className="rounded-lg border border-slate-700 p-3">
             <p className="text-sm font-semibold">Planos e Cobranca</p>
             <p className="mt-1 text-xs text-slate-400">
