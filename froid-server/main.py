@@ -1911,7 +1911,63 @@ def _strip_sql(sql_text: str) -> str:
     return sql
 
 
-def _validate_duckdb_select(sql_text: str) -> str:
+#: Colunas que nenhuma consulta do Explica pode citar. Sao texto bruto ou quase:
+#: a fala desidentificada do profissional (que tera caminho proprio, com as suas
+#: regras, na busca por tema) e os vetores JSON que carregam tudo o que a linha
+#: tem. O tema NAO esta aqui: ele e curto, desidentificado, e o piso por linha
+#: (abaixo) so o mostra quando sete sessoes distintas o repetem.
+COLUNAS_VEDADAS_NA_CONSULTA = frozenset(
+    {
+        "professional_summary_anon", "cut_summary_anon", "patient_summary_anon",
+        "summary_text_anon", "cut_context_json", "biomarker_snapshot_json",
+        "subharmonic_snapshot_json",
+    }
+)
+
+
+def _nos_da_arvore(no):
+    """Todos os dicionarios da arvore JSON que o DuckDB devolve, em qualquer nivel."""
+    if isinstance(no, dict):
+        yield no
+        for valor in no.values():
+            yield from _nos_da_arvore(valor)
+    elif isinstance(no, list):
+        for item in no:
+            yield from _nos_da_arvore(item)
+
+
+def _arvore_da_consulta(conn, sql: str) -> dict:
+    """O SQL lido pelo PROPRIO DuckDB (`json_serialize_sql`), nao por regex.
+
+    Regex sobre SQL e palpite: `SELECT *` pode vir como `SELECT c.*`, uma
+    coluna vedada pode entrar por subconsulta ou CTE com outro apelido. A
+    arvore do parser nao tem como esconder nada disso.
+    """
+    try:
+        bruto = conn.execute("SELECT json_serialize_sql(?)", [sql]).fetchone()[0]
+        arvore = json.loads(bruto)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"SQL bloqueado: nao foi possivel analisar ({exc})")
+    if arvore.get("error"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"SQL bloqueado: {arvore.get('error_message') or 'sintaxe invalida'}",
+        )
+    declaracoes = arvore.get("statements") or []
+    if len(declaracoes) != 1:
+        raise HTTPException(status_code=400, detail="SQL bloqueado: uma unica consulta por vez")
+    return declaracoes[0].get("node") or {}
+
+
+def _validate_duckdb_select(sql_text: str, conn=None) -> str:
+    """As regras de forma. Com `conn`, tambem as regras de conteudo, pela arvore.
+
+    O que a arvore barra, e por que (apurado na auditoria de 05/10/2026):
+    - `*` em qualquer SELECT: devolveria toda coluna da linha, inclusive as
+      vedadas, sem nunca escrever o nome delas;
+    - UNION/EXCEPT/INTERSECT: montam linha a linha o que a agregacao esconde;
+    - referencia a coluna vedada, em qualquer nivel da consulta.
+    """
     sql = _strip_sql(sql_text)
     lowered = sql.lower()
     if not re.match(r"^\s*(select|with)\b", lowered):
@@ -1926,7 +1982,73 @@ def _validate_duckdb_select(sql_text: str) -> str:
             status_code=400,
             detail="SQL deve consultar apenas anonymous_sessions ou anonymous_session_cuts",
         )
+    if conn is None:
+        return sql
+    raiz = _arvore_da_consulta(conn, sql)
+    for no in _nos_da_arvore(raiz):
+        tipo = str(no.get("type") or no.get("class") or "")
+        if tipo == "STAR":
+            raise HTTPException(status_code=400, detail="SQL bloqueado: SELECT * nao e permitido")
+        if tipo == "SET_OPERATION_NODE":
+            raise HTTPException(status_code=400, detail="SQL bloqueado: UNION/EXCEPT/INTERSECT nao sao permitidos")
+        if no.get("class") == "COLUMN_REF":
+            nomes = [str(n).lower() for n in (no.get("column_names") or [])]
+            if nomes and nomes[-1] in COLUNAS_VEDADAS_NA_CONSULTA:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"SQL bloqueado: a coluna {nomes[-1]} nao pode ser consultada",
+                )
     return sql
+
+
+def _coluna_de_sessoes(conn, sql: str, columns: List[str]) -> int:
+    """O indice, no resultado, da coluna COUNT(DISTINCT session_hash) do SELECT de topo.
+
+    E ela que sustenta o piso POR LINHA. O piso de coorte (`cohort_sql`) era a
+    unica guarda, e rodava numa consulta separada, escrita pelo mesmo modelo:
+    nada obrigava os filtros a serem os mesmos, e nada impedia um GROUP BY com
+    grupos de uma sessao — cada linha do resultado era, na pratica, uma pessoa.
+    Sem esta coluna a consulta e recusada; com ela, cada linha e conferida.
+    """
+    raiz = _arvore_da_consulta(conn, sql)
+    if raiz.get("type") != "SELECT_NODE":
+        raise HTTPException(status_code=400, detail="SQL bloqueado: o nivel superior tem de ser um SELECT")
+    for posicao, item in enumerate(raiz.get("select_list") or []):
+        if item.get("class") != "FUNCTION" or str(item.get("function_name", "")).lower() != "count":
+            continue
+        if not item.get("distinct"):
+            continue
+        filhos = item.get("children") or []
+        if len(filhos) != 1 or filhos[0].get("class") != "COLUMN_REF":
+            continue
+        nomes = [str(n).lower() for n in (filhos[0].get("column_names") or [])]
+        if nomes and nomes[-1] == "session_hash" and posicao < len(columns):
+            return posicao
+    raise HTTPException(
+        status_code=400,
+        detail=(
+            "SQL bloqueado: o SELECT precisa incluir COUNT(DISTINCT session_hash) AS sessoes "
+            "para que cada linha do resultado seja conferida contra o piso de coorte"
+        ),
+    )
+
+
+def _suprimir_abaixo_do_piso(rows: List[tuple], indice: int, piso: int) -> tuple[List[tuple], int]:
+    """Linha com menos de `piso` sessoes distintas nao e mostrada — nem o seu rotulo.
+
+    Esconder so os numeros e deixar a chave do grupo (um tema, uma faixa) ja
+    diria que existe uma sessao assim. A linha inteira sai, e a quantidade de
+    linhas suprimidas e DECLARADA ao leitor: suprimir oculta, declarar documenta.
+    """
+    mantidas: List[tuple] = []
+    suprimidas = 0
+    for row in rows:
+        sessoes = _medida(row[indice]) if indice < len(row) else None
+        if sessoes is None or sessoes < piso:
+            suprimidas += 1
+            continue
+        mantidas.append(row)
+    return mantidas, suprimidas
 
 
 def _duckdb_connection():
@@ -1953,7 +2075,7 @@ def _fallback_analytics_sql(query_text: str) -> Dict[str, str]:
     query = _normalize_search_text(query_text)
     if "corte" in query or "10 minuto" in query or "janela" in query:
         result_sql = (
-            "SELECT cut_label, COUNT(*) AS sessoes, "
+            "SELECT cut_label, COUNT(DISTINCT session_hash) AS sessoes, "
             "AVG(ipm_avg) AS ipm_medio, COUNT(ipm_avg) AS n_ipm, "
             "AVG(idm_avg) AS idm_medio, COUNT(idm_avg) AS n_idm, "
             "AVG(words_per_minute) AS palavras_por_minuto_media, "
@@ -1965,7 +2087,7 @@ def _fallback_analytics_sql(query_text: str) -> Dict[str, str]:
         cohort_sql = "SELECT COUNT(DISTINCT session_hash) AS cohort_size FROM anonymous_session_cuts"
     elif "zona" in query:
         result_sql = (
-            "SELECT dominant_zone, COUNT(*) AS sessoes, "
+            "SELECT dominant_zone, COUNT(DISTINCT session_hash) AS sessoes, "
             "AVG(ipm_score) AS ipm_medio, COUNT(ipm_score) AS n_ipm, "
             "AVG(vocal_tension) AS tensao_vocal_media, COUNT(vocal_tension) AS n_tensao_vocal "
             "FROM anonymous_sessions GROUP BY dominant_zone ORDER BY sessoes DESC LIMIT 12"
@@ -1973,7 +2095,7 @@ def _fallback_analytics_sql(query_text: str) -> Dict[str, str]:
         cohort_sql = "SELECT COUNT(DISTINCT session_hash) AS cohort_size FROM anonymous_sessions"
     elif "medic" in query or "ssri" in query:
         result_sql = (
-            "SELECT ssri_medication, COUNT(*) AS sessoes, "
+            "SELECT ssri_medication, COUNT(DISTINCT session_hash) AS sessoes, "
             "AVG(ipm_score) AS ipm_medio, COUNT(ipm_score) AS n_ipm, "
             "AVG(vocal_tension) AS tensao_vocal_media, COUNT(vocal_tension) AS n_tensao_vocal "
             "FROM anonymous_sessions GROUP BY ssri_medication ORDER BY sessoes DESC"
@@ -1981,7 +2103,7 @@ def _fallback_analytics_sql(query_text: str) -> Dict[str, str]:
         cohort_sql = "SELECT COUNT(DISTINCT session_hash) AS cohort_size FROM anonymous_sessions"
     else:
         result_sql = (
-            "SELECT age_bucket, gender, COUNT(*) AS sessoes, "
+            "SELECT age_bucket, gender, COUNT(DISTINCT session_hash) AS sessoes, "
             "AVG(ipm_score) AS ipm_medio, COUNT(ipm_score) AS n_ipm, "
             "AVG(vocal_tension) AS tensao_vocal_media, COUNT(vocal_tension) AS n_tensao_vocal, "
             "AVG(session_duration) AS duracao_media "
@@ -2130,7 +2252,12 @@ async def _query_froid_analytics(payload: FroidExplicaQuery) -> FroidExplicaResp
         "aparecem como marcadores [NOME], [DATA], [LOCAL]; vazio com theme_deid_reason diz "
         "por que nao ha tema. dominant_zone e baseline_zone valem 1..12 ou NULL. "
         "Retorne somente JSON valido com result_sql e cohort_sql. "
-        "result_sql deve ser SELECT agregado, sem dados individuais. "
+        "result_sql deve ser SELECT agregado, sem dados individuais, e OBRIGATORIAMENTE "
+        "incluir no SELECT de nivel superior COUNT(DISTINCT session_hash) AS sessoes: cada "
+        "linha do resultado so e exibida quando esse numero atinge o piso de coorte, e sem "
+        "a coluna a consulta e recusada. Nao use SELECT *, UNION, nem as colunas "
+        "professional_summary_anon, cut_summary_anon, patient_summary_anon, summary_text_anon, "
+        "cut_context_json, biomarker_snapshot_json e subharmonic_snapshot_json. "
         "cohort_sql deve retornar COUNT(DISTINCT session_hash) AS cohort_size a partir da coorte consultada "
         "com os mesmos filtros de coorte usados no result_sql. Nao use markdown."
     )
@@ -2142,8 +2269,15 @@ async def _query_froid_analytics(payload: FroidExplicaQuery) -> FroidExplicaResp
         json_mode=True,
     )
     sql_payload = _parse_analytics_sql_payload(sql_text, payload.query_text)
-    result_sql = _validate_duckdb_select(sql_payload["result_sql"])
-    cohort_sql = _validate_duckdb_select(sql_payload["cohort_sql"])
+    try:
+        result_sql = _validate_duckdb_select(sql_payload["result_sql"], conn)
+        cohort_sql = _validate_duckdb_select(sql_payload["cohort_sql"], conn)
+    except HTTPException:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        raise
 
     try:
         cohort_row = conn.execute(cohort_sql).fetchone()
@@ -2177,6 +2311,9 @@ async def _query_froid_analytics(payload: FroidExplicaQuery) -> FroidExplicaResp
         result = conn.execute(result_sql)
         columns = [description[0] for description in result.description]
         rows = result.fetchmany(50)
+        indice_sessoes = _coluna_de_sessoes(conn, result_sql, columns)
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Erro ao executar SQL analitico: {exc}")
     finally:
@@ -2185,7 +2322,26 @@ async def _query_froid_analytics(payload: FroidExplicaQuery) -> FroidExplicaResp
         except Exception:
             pass
 
+    rows, suprimidas = _suprimir_abaixo_do_piso(rows, indice_sessoes, FROID_ANALYTICS_MIN_K)
+    if not rows:
+        return FroidExplicaResponse(
+            result_text=(
+                "Acesso bloqueado por governanca de dados e LGPD. "
+                f"Nenhuma linha do resultado reune {FROID_ANALYTICS_MIN_K} sessoes distintas "
+                f"({suprimidas} linha(s) suprimida(s)). Refine para uma coorte maior ou use "
+                "apenas a leitura qualitativa da sessão atual."
+            ),
+            engine_used=f"FROID Explica Analytics - {sql_engine}",
+            citations=["Data Mart Populacional Anonimizado"],
+            safety_check_passed=False,
+            intent="analytics",
+        )
     table_text = _format_query_table(columns, rows)
+    if suprimidas:
+        table_text += (
+            f"\n({suprimidas} linha(s) suprimida(s) por reunir menos de "
+            f"{FROID_ANALYTICS_MIN_K} sessoes distintas)"
+        )
     report_instruction = (
         "Voce e o estatistico medico do FROID. Analise somente dados agregados anonimizados. "
         "Explique padroes, limites e implicacoes clinicas sem diagnosticar individuos. "

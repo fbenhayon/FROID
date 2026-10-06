@@ -121,6 +121,67 @@ Motivos: `ok`, `vazio`, `longo_demais`, `referencial_demais`.
 - Linhas antigas do acervo não são reprocessadas: as transcrições antigas não
   têm linha do tempo.
 
+## Auditoria de 05/10/2026 (antes de subir)
+
+Pedido do dono: auditoria minuciosa do algoritmo antes de qualquer deploy.
+Lida contra o código commitado em `562e2945`. O que se achou e o que mudou:
+
+**Segurança da consulta (o mais grave, pré-existente, agravado pela Fase 1).**
+O caminho pergunta → LLM escreve SQL → DuckDB não exigia agregação, aceitava
+`SELECT *` e aplicava o piso de 7 numa SEGUNDA consulta, também escrita pelo
+LLM — `GROUP BY theme_predominant` com grupos de uma sessão passava inteiro.
+Agora o SQL é lido pelo próprio DuckDB (`json_serialize_sql`): `*`, UNION e
+coluna vedada (`professional_summary_anon`, `*_json`, `*_summary_anon`) são
+barrados em qualquer nível; o SELECT de topo tem de trazer
+`COUNT(DISTINCT session_hash)`, que vira **piso por linha** — linha com menos
+de 7 sessões distintas some inteira e a quantidade suprimida é declarada.
+`_validate_duckdb_select`, `_coluna_de_sessoes`, `_suprimir_abaixo_do_piso`.
+
+**Desidentificação do tema — duas frestas.** (1) Nome que a sessão só escreveu
+abrindo frase ("Marcos não ligou.") não entrava em `nomes`; (2) um único
+deslize do transcritor em minúscula ("joana") bastava para liberar o nome.
+Agora `vocabulario_da_sessao` CONTA cada palavra em três formas (maiúscula no
+meio, maiúscula abrindo período, minúscula) e a maioria decide: `nomes`,
+`iniciais`, `comuns`. Segunda leitura sobre o resultado (dígito, `@`, link
+sobrando → recusa). `VERSAO_DEID = deid-v2`.
+
+**Rótulos gravados errado.** `cut_trigger` dizia `automatico_10min` em corte
+manual (o navegador ignorava `summary.trigger`); o último corte gravava
+`*_after_intervention = 0` e `response_*_direction = estabilidade` porque se
+comparava consigo mesmo (`nextReference = nextCut || cut`); `dominant_theme`
+gravava `nao_classificado` em TODA linha (o nome da zona não passava na lista
+de palavras) — agora é o rótulo derivado de `PERCEPTION_ZONES`.
+
+**Tema = só o tema da IA.** `theme` recebia `cut.theme`, a bolsa das seis
+palavras mais frequentes da fala dos DOIS lados — forma degradada da fala do
+paciente. `theme` e `theme_predominant` passam a ser o mesmo valor (tema da IA
+desidentificado); sem resumo da IA, vazio com `theme_deid_reason =
+sem_resumo_da_ia`. O mesmo para `summary_theme`.
+
+**Era do acervo.** `schema_version` sobe para `anonymous_datamart_v5`
+(`VERSAO_DO_ACERVO`): as colunas por corte mudaram de significado. O prompt do
+Explica cita as eras pelas constantes e ensina a filtrar por v5 ou
+`transcript_scope = 'corte'`.
+
+**Precisão temporal.** A fala era carimbada na CHEGADA do texto (bloco de 7 s
++ latência ≈ 10 s depois); passa a ser carimbada no segundo em que o bloco de
+áudio começou a gravar (`startedAtSecond`). Vale para o Data-FROID e para o
+resumo da IA de cada corte.
+
+**Desempenho.** A ingestão corria dentro do laço de eventos (um worker só) e
+disparava ~280 `PRAGMA table_info` por sessão; agora lê o esquema uma vez por
+tabela e corre em `asyncio.to_thread` sob trava. `_sem_acento` com cache.
+Medido: vocabulário de 585 mil caracteres em 0,18 s.
+
+**Auditoria do acervo.** `tools/audit_data_froid_privacy.py` passa a reprovar
+dígito, `@` ou endereço nas colunas de tema.
+
+**Fica de fora (anotado, não mexido):** bloco de áudio descartado quando o
+gravador para fora de segmento (`recorder.onstop`, caminho de reinício);
+`ipmAvg || 0` no navegador; `patientResponse` do navegador ainda vence o do
+servidor (os dois têm a mesma regra hoje); `cut_label` sempre `cut`;
+relatórios antigos com trechos literais em claro.
+
 ## Como se prova
 - Recorte: relatório com três cortes e falas em segundos distintos → cada corte
   conta só as suas palavras; sem `transcriptLineSeconds` → `NULL` +
