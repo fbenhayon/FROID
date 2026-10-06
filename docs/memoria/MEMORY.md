@@ -33,3 +33,4 @@
 - [Apuracao entrecortada (incidente aberto)](froid-apuracao-entrecortada.md) — voz entrecortada com mic a 80%: nao e nivel do lado dele; resolver SO depois de 7.2/7.3/7.4/7.5; medir antes de mexer no detector
 - [Falar menos e resolver](froid-falar-menos-resolver.md) — ordem de 05/10 apos 2 dias no convite: so comandos quando ele pedir, sem placeholders para editar, sempre com cd no compose
 - [SSH direto a producao](froid-ssh-direto.md) — eu rodo as janelas por ssh froid; exec precisa de </dev/null no heredoc; provar build pelo codigo no conteiner
+- [Identidade sem senha](froid-identidade-sem-senha.md) — login Google nao grava credencial; o convite publico criava senha sobre conta Google (tomada de conta), corrigido em aba2cd4a
