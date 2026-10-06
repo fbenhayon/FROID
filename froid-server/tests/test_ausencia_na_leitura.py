@@ -83,9 +83,16 @@ class OModeloERAvisadoDoNull(unittest.TestCase):
         self.assertIn("coalesce(<coluna de medida>, 0)", self.fonte)
         self.assertIn("Nunca use", self.fonte)
 
-    def test_a_instrucao_separa_as_duas_eras_do_acervo(self):
-        self.assertIn("anonymous_datamart_v4", self.fonte)
+    def test_a_instrucao_separa_as_eras_do_acervo(self):
+        # Desde a v5 (05/10/2026) a instrucao cita as eras pelas CONSTANTES, e
+        # nao por literal copiado: a proxima era entra sem reescrever o prompt
+        # — e sem o prompt ficar para tras, que foi o risco que este teste
+        # travava quando o literal era "v4".
+        self.assertIn("VERSOES_SEM_ZERO_FALSO", self.fonte)
+        self.assertIn("VERSAO_DO_ACERVO", self.fonte)
         self.assertIn("anonymous_datamart_v3", self.fonte)
+        self.assertIn('VERSAO_DO_ACERVO = "anonymous_datamart_v5"', MAIN_SRC)
+        self.assertIn('VERSOES_SEM_ZERO_FALSO = ("anonymous_datamart_v4", VERSAO_DO_ACERVO)', MAIN_SRC)
 
     def test_o_narrador_e_avisado_de_que_celula_vazia_nao_e_zero(self):
         self.assertIn("nao as leia", self.fonte)
@@ -119,12 +126,16 @@ class ACelulaVaziaDizOQueE(unittest.TestCase):
 class OAcervoDeclaraAPropriaEra(unittest.TestCase):
     """Sem a versao, linhas com 0.0 e linhas com NULL convivem no mesmo AVG."""
 
-    def test_a_gravacao_usa_a_versao_v4(self):
-        self.assertIn('"anonymous_datamart_v4"', MAIN_SRC)
+    def test_a_gravacao_usa_a_versao_corrente(self):
+        """O INSERT grava a constante, nunca um literal que possa envelhecer."""
+        gravacoes = re.findall(r"^\s*VERSAO_DO_ACERVO,\s*$", MAIN_SRC, re.MULTILINE)
+        self.assertEqual(1, len(gravacoes), "o INSERT do acervo nao grava VERSAO_DO_ACERVO")
 
-    def test_a_versao_antiga_nao_e_mais_gravada(self):
-        gravacoes = re.findall(r'^\s*"anonymous_datamart_v3",\s*$', MAIN_SRC, re.MULTILINE)
-        self.assertEqual([], gravacoes, "v3 ainda sendo gravada como schema_version")
+    def test_nenhuma_versao_antiga_e_gravada_como_literal(self):
+        for antiga in ("anonymous_datamart_v3", "anonymous_datamart_v4"):
+            with self.subTest(versao=antiga):
+                gravacoes = re.findall(rf'^\s*"{antiga}",\s*$', MAIN_SRC, re.MULTILINE)
+                self.assertEqual([], gravacoes, f"{antiga} ainda sendo gravada como schema_version")
 
 
 if __name__ == "__main__":

@@ -11,8 +11,15 @@ abaixo trava uma:
   favoraveis sobreviviam;
 - D4/D5: o navegador mandava a categoria de intervencao antiga (que vencia a
   corrigida) e trechos literais do paciente fora da criptografia.
+
+A auditoria de 05/10/2026 acrescentou o que esta marcado como "auditoria":
+o vocabulario da sessao por MAIORIA (um deslize do transcritor nao libera um
+nome; um nome que so abre frase nao escapa), a segunda leitura do tema, o
+gatilho do corte lido do resumo, o nome da zona em `dominant_theme`, a era v5
+e o carimbo de tempo da fala no INICIO do bloco de audio.
 """
 
+import ast
 import importlib.util
 import re
 import sys
@@ -31,20 +38,31 @@ LIVE_SESSION = REPO / "froid-dashboard" / "src" / "pages" / "LiveSession.tsx"
 SESSION_REPORT = REPO / "froid-dashboard" / "src" / "lib" / "session-report.ts"
 
 from froid_deidentify import (  # noqa: E402
+    VERSAO_DEID,
     desidentificar_fala,
     desidentificar_tema,
-    minusculas_da_sessao,
-    nomes_da_sessao,
+    vocabulario_da_sessao,
 )
 
 DUCKDB_AVAILABLE = importlib.util.find_spec("duckdb") is not None
 
+# Uma sessao pequena com as situacoes que a limpeza do tema precisa resolver:
+# - "Joana": nome no MEIO de frase (2x), e um deslize do transcritor em
+#   minuscula (1x) — a maioria decide, e ela e nome;
+# - "Marcos": nome que SO abre frase (2x), nunca em minuscula;
+# - "trabalho": dito em minuscula (2x) e abrindo frase (1x) — palavra comum;
+# - "Clara": nome (1x no meio) e adjetivo "clara" (1x) — empate, e nome;
+# - "Consigo": verbo abrindo frase, nunca em minuscula — nao pode virar nome;
+# - "TCC": sigla.
 TRANSCRICAO = "\n".join(
     [
         "PC - Eu briguei com a Joana por causa do trabalho.",
         "DR. - Faz sentido voce sentir isso, compreendo o que aconteceu ali.",
-        "PC - Ela foi embora para Itajuba e eu fiquei sozinho.",
-        "PC - Tenho medo de dirigir na estrada e evito sair de casa.",
+        "PC - Ela foi embora para Itajuba e eu fiquei sozinho. Trabalho e tudo pra mim.",
+        "PC - Marcos nao ligou. Marcos nunca liga, e a joana tambem nao.",
+        "DR. - E como voce se sentiu com a Joana indo embora? A Clara disse algo?",
+        "PC - A conversa foi clara. Consigo dormir pouco por causa do trabalho.",
+        "PC - Tenho medo de dirigir na estrada e evito sair de casa. A TCC ajudou.",
         "DR. - O que voce acha que aconteceria se fosse ate a esquina?",
     ]
 )
@@ -55,15 +73,58 @@ def _normaliza(texto: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", sem.lower()).strip("_")
 
 
+def _fonte_da_funcao(nome: str) -> str:
+    src = (SERVER_DIR / "main.py").read_text(encoding="utf-8")
+    for no in ast.parse(src).body:
+        if isinstance(no, (ast.FunctionDef, ast.AsyncFunctionDef)) and no.name == nome:
+            return ast.get_source_segment(src, no) or ""
+    raise AssertionError(f"nao achei {nome}")
+
+
+class OVocabularioDaSessaoDecidePorMaioria(unittest.TestCase):
+    """auditoria — as duas frestas da primeira versao."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.vocab = vocabulario_da_sessao(TRANSCRICAO)
+
+    def test_nome_no_meio_de_frase_e_nome(self):
+        self.assertIn("joana", self.vocab.nomes)
+        self.assertIn("itajuba", self.vocab.nomes)
+        self.assertIn("clara", self.vocab.nomes)
+
+    def test_um_deslize_do_transcritor_nao_libera_o_nome(self):
+        """'joana' em minuscula uma vez, 'Joana' no meio duas: continua nome."""
+        self.assertIn("joana", self.vocab.nomes)
+        self.assertNotIn("joana", self.vocab.comuns)
+
+    def test_nome_que_so_abre_frase_entra_como_inicial(self):
+        self.assertIn("marcos", self.vocab.iniciais)
+        self.assertNotIn("marcos", self.vocab.nomes)
+
+    def test_palavra_comum_capitalizada_por_posicao_e_comum(self):
+        self.assertIn("trabalho", self.vocab.comuns)
+        self.assertNotIn("trabalho", self.vocab.iniciais)
+
+    def test_verbo_de_abertura_e_sigla_nao_viram_nome(self):
+        for chave in ("consigo", "tenho", "tcc", "faz", "e"):
+            with self.subTest(chave=chave):
+                self.assertNotIn(chave, self.vocab.nomes | self.vocab.iniciais)
+
+    def test_sem_transcricao_o_vocabulario_e_vazio(self):
+        vazio = vocabulario_da_sessao("")
+        self.assertEqual((frozenset(), frozenset(), frozenset()), (vazio.nomes, vazio.iniciais, vazio.comuns))
+
+
 class OTemaEDesidentificadoENaoApagado(unittest.TestCase):
     """D2. O tema e livre; o que sai dele e so o referencial."""
 
-    def setUp(self):
-        self.nomes = nomes_da_sessao(TRANSCRICAO)
-        self.comuns = minusculas_da_sessao(TRANSCRICAO)
+    @classmethod
+    def setUpClass(cls):
+        cls.vocab = vocabulario_da_sessao(TRANSCRICAO)
 
     def tema(self, texto):
-        return desidentificar_tema(texto, self.nomes, self.comuns)
+        return desidentificar_tema(texto, self.vocab)
 
     def test_tema_comum_passa_intacto(self):
         self.assertEqual(self.tema("Medo de dirigir na estrada"), ("Medo de dirigir na estrada", "ok"))
@@ -73,11 +134,19 @@ class OTemaEDesidentificadoENaoApagado(unittest.TestCase):
         self.assertEqual(self.tema("conflito com joana")[0], "conflito com [NOME]")
         self.assertEqual(self.tema("Mudanca para Itajuba")[0], "Mudanca para [NOME]")
 
+    def test_nome_que_so_abre_frase_tambem_sai(self):
+        """auditoria — 'Marcos' nunca apareceu no meio de frase na sessao."""
+        self.assertEqual(self.tema("Marcos e o silencio")[0], "[NOME] e o silencio")
+        self.assertEqual(self.tema("silencio de marcos")[0], "silencio de [NOME]")
+
     def test_palavra_que_a_sessao_disse_em_minuscula_e_comum(self):
         """'Ansiedade no Trabalho' e 'Conflito com Pedro' tem a mesma forma; a
-        sessao disse 'o trabalho', e nao disse 'pedro'."""
+        sessao disse 'trabalho' em minuscula, e nao disse 'pedro'."""
         self.assertEqual(self.tema("Ansiedade no Trabalho")[0], "Ansiedade no Trabalho")
         self.assertEqual(self.tema("Conflito com Pedro")[0], "Conflito com [NOME]")
+
+    def test_verbo_de_abertura_fica(self):
+        self.assertEqual(self.tema("Nao consigo dormir")[0], "Nao consigo dormir")
 
     def test_sigla_e_vocabulario(self):
         self.assertEqual(self.tema("TCC e ansiedade")[0], "TCC e ansiedade")
@@ -86,13 +155,20 @@ class OTemaEDesidentificadoENaoApagado(unittest.TestCase):
         self.assertEqual(self.tema("Luto desde marco")[0], "Luto desde [DATA]")
         self.assertEqual(self.tema("Ligacao 11 98765-4321")[0], "Ligacao [TELEFONE]")
 
+    def test_segunda_leitura_recusa_digito_que_escapou(self):
+        """auditoria — 'covid19' nao casa `\\b\\d+\\b`; sobrou digito, cai."""
+        self.assertEqual(self.tema("Sequelas da covid19"), ("", "referencial_demais"))
+
     def test_toda_recusa_tem_motivo_e_devolve_vazio(self):
         self.assertEqual(self.tema(""), ("", "vazio"))
-        self.assertEqual(self.tema("Joana Pedro"), ("", "referencial_demais"))
+        self.assertEqual(self.tema("Joana Marcos"), ("", "referencial_demais"))
         self.assertEqual(self.tema(" ".join(["palavra"] * 13)), ("", "longo_demais"))
 
-    def test_sem_transcricao_ainda_tira_maiuscula_fora_do_inicio(self):
+    def test_sem_vocabulario_ainda_tira_maiuscula_fora_do_inicio(self):
         self.assertEqual(desidentificar_tema("Conversa com Marina")[0], "Conversa com [NOME]")
+
+    def test_a_versao_da_limpeza_subiu_com_a_regra(self):
+        self.assertEqual("deid-v2", VERSAO_DEID)
 
 
 class OMarcadorNaoEReprocessadoComoNome(unittest.TestCase):
@@ -115,7 +191,7 @@ class OMarcadorNaoEReprocessadoComoNome(unittest.TestCase):
 
 
 class ORecorteEDoCorte(unittest.TestCase):
-    """D1. A fala de cada corte, e so a dele — ou a declaracao de que nao ha."""
+    """D1. A fala de cada corte, e so a dela — ou a declaracao de que nao ha."""
 
     @classmethod
     def setUpClass(cls):
@@ -127,21 +203,21 @@ class ORecorteEDoCorte(unittest.TestCase):
         return {"transcript": TRANSCRICAO, "transcriptLineSeconds": segundos}
 
     def test_cada_corte_recebe_so_as_suas_linhas(self):
-        rel = self.relatorio([10, 40, 120, 320, 350])
+        rel = self.relatorio([10, 40, 120, 200, 250, 320, 350, 400])
         primeiro = self.main._transcript_for_range(rel, 0, 300)
         segundo = self.main._transcript_for_range(rel, 300, 600)
-        self.assertEqual(len(primeiro.splitlines()), 3)
-        self.assertEqual(len(segundo.splitlines()), 2)
+        self.assertEqual(len(primeiro.splitlines()), 5)
+        self.assertEqual(len(segundo.splitlines()), 3)
         self.assertIn("estrada", segundo)
         self.assertNotIn("estrada", primeiro)
 
     def test_limite_e_o_mesmo_do_navegador(self):
         """`inicio <= segundo < fim`, como `collectTranscript`."""
-        rel = self.relatorio([0, 300, 300, 599, 600])
+        rel = self.relatorio([0, 300, 300, 599, 600, 700, 800, 900])
         self.assertEqual(len(self.main._transcript_for_range(rel, 300, 600).splitlines()), 3)
 
     def test_corte_sem_fala_e_string_vazia_e_nao_None(self):
-        rel = self.relatorio([10, 40, 120, 320, 350])
+        rel = self.relatorio([10, 40, 120, 200, 250, 320, 350, 400])
         self.assertEqual(self.main._transcript_for_range(rel, 600, 900), "")
 
     def test_sem_linha_do_tempo_nao_ha_recorte(self):
@@ -150,7 +226,7 @@ class ORecorteEDoCorte(unittest.TestCase):
     def test_linha_do_tempo_desalinhada_nao_ha_recorte(self):
         self.assertIsNone(self.main._transcript_for_range(self.relatorio([10, 40]), 0, 300))
         self.assertIsNone(
-            self.main._transcript_for_range(self.relatorio([10, 40, None, 320, 350]), 0, 300)
+            self.main._transcript_for_range(self.relatorio([10, 40, None, 200, 250, 320, 350, 400]), 0, 300)
         )
 
 
@@ -177,6 +253,7 @@ class OsRotulosDoSistemaSobrevivem(unittest.TestCase):
             ("início", "inicio"),
             ("redução", "reducao"),
             ("automatico_10min", "automatico_10min"),
+            ("manual", "manual"),
         ):
             with self.subTest(emitido=emitido):
                 self.assertEqual(self.main._anonymous_category(emitido, "x"), esperado)
@@ -195,9 +272,19 @@ class OsRotulosDoSistemaSobrevivem(unittest.TestCase):
     def test_texto_livre_continua_barrado_pelo_filtro(self):
         self.assertEqual(self.main._anonymous_category("joana foi embora", "x"), "x")
 
+    def test_o_nome_da_zona_vira_rotulo_e_nao_nao_classificado(self):
+        """auditoria — `dominant_theme` gravava `nao_classificado` em TODA linha."""
+        self.assertEqual("tristeza_vs_paz_interior", self.main._rotulo_da_zona(3))
+        self.assertIsNone(self.main._rotulo_da_zona(None))
+        self.assertIsNone(self.main._rotulo_da_zona(0))
+        self.assertIsNone(self.main._rotulo_da_zona(13))
+        rotulos = {self.main._rotulo_da_zona(z) for z in range(1, 13)}
+        self.assertEqual(12, len(rotulos))
+        self.assertTrue(all(r and re.fullmatch(r"[a-z0-9_]+", r) for r in rotulos), rotulos)
+
 
 class ONavegadorMandaALinhaDoTempoENaoOLiteral(unittest.TestCase):
-    """D4 e D5, no contrato do relatorio."""
+    """D4 e D5, no contrato do relatorio — e os acertos da auditoria."""
 
     @classmethod
     def setUpClass(cls):
@@ -223,6 +310,48 @@ class ONavegadorMandaALinhaDoTempoENaoOLiteral(unittest.TestCase):
         self.assertNotIn('cut_context.get("interventionCategory")', fonte)
         self.assertNotIn('cut_context.get("intervention_category")', fonte)
 
+    def test_a_fala_e_carimbada_no_inicio_do_bloco_de_audio(self):
+        """auditoria — carimbar na chegada do texto empurrava a fala ~10 s."""
+        self.assertIn("startedAtSecond ?? elapsedSecondsRef.current", self.live)
+        self.assertIn("segmentStartedAtSecond = Math.max(0, elapsedSecondsRef.current);", self.live)
+        self.assertRegex(self.live, r"segmentSpeaker,\s*segmentStartedAtSecond,\s*\)")
+        self.assertIn("appendTranscriptText(text, speaker, startedAtSecond);", self.live)
+
+    def test_o_ultimo_corte_nao_se_compara_com_ele_mesmo(self):
+        """auditoria — `nextReference = nextCut || cut` gravava delta 0 e
+        'estabilidade' sobre um depois que nao existe."""
+        self.assertNotIn("const nextReference", self.live)
+        self.assertNotIn("nextReference.", self.live)
+        for campo in ("ipmDeltaAfterIntervention", "idmDeltaAfterIntervention"):
+            with self.subTest(campo=campo):
+                self.assertRegex(self.live, campo + r": nextCut \? rounded\(")
+        self.assertRegex(self.live, r"responseIpmDirection: deltaDirection\(nextCut \? menos\(")
+
+    def test_o_gatilho_e_o_tema_vem_do_resumo_do_corte(self):
+        self.assertRegex(self.live, r"cutTrigger:\s*summary\?\.trigger \?\?")
+        self.assertIn('themePredominant: summary?.theme ? limitTheme(summary.theme, 6) : "",', self.live)
+        self.assertIn("conversationSummaries.find((item) => item.startSecond === cut.startSecond)", self.live)
+
+
+class AIngestaoNaoBloqueiaOServidor(unittest.TestCase):
+    """auditoria — um worker so; a gravacao corria dentro do laco de eventos."""
+
+    def test_a_gravacao_corre_fora_do_laco_de_eventos(self):
+        fonte = _fonte_da_funcao("save_session_report")
+        self.assertIn("await asyncio.to_thread(_append_anonymous_datamart_row, report)", fonte)
+        self.assertNotRegex(fonte, r"^\s*_append_anonymous_datamart_row\(report\)", )
+
+    def test_a_gravacao_e_serializada_por_uma_trava(self):
+        fonte = _fonte_da_funcao("_append_anonymous_datamart_row")
+        self.assertIn("with _TRAVA_DO_ACERVO:", fonte)
+
+    def test_o_esquema_e_lido_uma_vez_por_tabela(self):
+        fonte = _fonte_da_funcao("_ensure_duckdb_columns")
+        # Conta a CHAMADA, nao a mencao na docstring.
+        self.assertEqual(1, fonte.count('execute(f"PRAGMA table_info'))
+        src = (SERVER_DIR / "main.py").read_text(encoding="utf-8")
+        self.assertNotIn("def _ensure_duckdb_column(", src)
+
 
 @unittest.skipUnless(DUCKDB_AVAILABLE, "duckdb e instalado na imagem do backend")
 class AGravacaoDeVerdade(unittest.TestCase):
@@ -234,35 +363,37 @@ class AGravacaoDeVerdade(unittest.TestCase):
 
         cls.main = main
 
-    def _relatorio(self, *, com_linha_do_tempo=True):
+    def _relatorio(self, *, com_linha_do_tempo=True, com_tema_da_sessao=True):
         rel = {
             "sessionId": "sessao-fase1",
             "createdAt": "2026-10-02T10:00:00+00:00",
             "durationSeconds": 900,
             "transcript": TRANSCRICAO,
-            "sessionAverage": {},
+            "sessionAverage": {"theme": "joana trabalho embora marcos"},
             "baseline": {},
-            "sessionSummary": {"theme": "Conflito com Joana e medo"},
+            "sessionSummary": {"theme": "Conflito com Joana e medo"} if com_tema_da_sessao else {},
             "conversationSummaries": [
                 {"startSecond": 0, "endSecond": 300, "startMinute": 0, "endMinute": 5,
-                 "theme": "Conflito com Joana no trabalho"},
+                 "theme": "Conflito com Joana no trabalho", "trigger": "manual"},
                 {"startSecond": 300, "endSecond": 600, "startMinute": 5, "endMinute": 10,
-                 "theme": "Medo de dirigir na estrada"},
+                 "theme": "Medo de dirigir na estrada", "trigger": "automatico_10min"},
             ],
             "tenMinuteCuts": [
-                {"startSecond": 0, "endSecond": 300, "sampleCount": 30, "theme": "briguei joana trabalho"},
-                {"startSecond": 300, "endSecond": 600, "sampleCount": 30, "theme": "medo dirigir estrada"},
-                {"startSecond": 600, "endSecond": 900, "sampleCount": 30, "theme": ""},
+                {"startSecond": 0, "endSecond": 300, "sampleCount": 30, "theme": "briguei joana trabalho",
+                 "dominantZone": 3},
+                {"startSecond": 300, "endSecond": 600, "sampleCount": 30, "theme": "medo dirigir estrada",
+                 "dominantZone": 8},
+                {"startSecond": 600, "endSecond": 900, "sampleCount": 30, "theme": "marcos liga"},
             ],
             "anonymizedContext": {
                 "sessionModality": "remote",
                 "sessionKind": "primeira_sessao",
                 # O navegador antigo mandava isto; o servidor nao pode obedecer.
-                "cuts": [{"interventionCategory": "pergunta_aberta"}] * 3,
+                "cuts": [{"interventionCategory": "pergunta_aberta", "cutTrigger": "automatico_10min"}] * 3,
             },
         }
         if com_linha_do_tempo:
-            rel["transcriptLineSeconds"] = [10, 40, 120, 320, 350]
+            rel["transcriptLineSeconds"] = [10, 40, 120, 200, 250, 320, 350, 400]
         return rel
 
     def _gravar(self, relatorio):
@@ -285,7 +416,8 @@ class AGravacaoDeVerdade(unittest.TestCase):
         colunas = [
             "cut_index", "transcript_scope", "patient_word_count", "professional_word_count",
             "speech_density", "intervention_category", "theme_predominant", "theme_deid_reason",
-            "theme", "patient_summary_anon", "cut_context_json",
+            "theme", "patient_summary_anon", "cut_context_json", "cut_trigger", "dominant_theme",
+            "professional_deid_version",
         ]
         linhas = conn.execute(
             f"SELECT {', '.join(colunas)} FROM anonymous_session_cuts ORDER BY cut_index"
@@ -311,11 +443,25 @@ class AGravacaoDeVerdade(unittest.TestCase):
         self.assertEqual(primeiro["intervention_category"], "validacao_emocional")
         self.assertEqual(terceiro["intervention_category"], "sem_fala_profissional")
 
-        # O tema da IA, desidentificado, e a chave de consulta.
+        # O tema da IA, desidentificado, e a chave de consulta — e `theme` e a
+        # mesma coisa: a bolsa de palavras frequentes ("joana trabalho...")
+        # nao entra em coluna nenhuma.
         self.assertEqual(primeiro["theme_predominant"], "Conflito com [NOME] no trabalho")
         self.assertEqual(segundo["theme_predominant"], "Medo de dirigir na estrada")
+        self.assertEqual([c["theme"] for c in cortes], [c["theme_predominant"] for c in cortes])
         self.assertEqual(primeiro["theme_deid_reason"], "ok")
-        self.assertNotIn("joana", (primeiro["theme"] or "").lower())
+        self.assertEqual((terceiro["theme_predominant"], terceiro["theme_deid_reason"]), ("", "sem_resumo_da_ia"))
+        for corte in cortes:
+            for coluna in ("theme", "theme_predominant", "cut_context_json"):
+                self.assertNotIn("joana", (corte[coluna] or "").lower(), coluna)
+                self.assertNotIn("marcos", (corte[coluna] or "").lower(), coluna)
+
+        # auditoria: o gatilho e o do resumo; a zona tem nome; a era e a v5.
+        self.assertEqual([c["cut_trigger"] for c in cortes], ["manual", "automatico_10min", "automatico_10min"])
+        self.assertEqual(primeiro["dominant_theme"], "tristeza_vs_paz_interior")
+        self.assertEqual(segundo["dominant_theme"], "medo_e_sobrecarga_vs_responsabilizacao")
+        self.assertIsNone(terceiro["dominant_theme"])
+        self.assertEqual([c["professional_deid_version"] for c in cortes], [VERSAO_DEID] * 3)
 
         # A fala do paciente continua fora, em qualquer coluna.
         for corte in cortes:
@@ -323,14 +469,18 @@ class AGravacaoDeVerdade(unittest.TestCase):
             self.assertNotIn("briguei com a", corte["cut_context_json"].lower())
 
         sessao = conn.execute(
-            "SELECT session_modality, session_kind, summary_theme, summary_theme_deid_reason "
+            "SELECT session_modality, session_kind, summary_theme, summary_theme_deid_reason, schema_version "
             "FROM anonymous_sessions"
         ).fetchone()
-        self.assertEqual(sessao, ("remote", "primeira_sessao", "Conflito com [NOME] e medo", "ok"))
+        self.assertEqual(
+            sessao,
+            ("remote", "primeira_sessao", "Conflito com [NOME] e medo", "ok", self.main.VERSAO_DO_ACERVO),
+        )
+        self.assertEqual("anonymous_datamart_v5", self.main.VERSAO_DO_ACERVO)
         conn.close()
 
     def test_sem_linha_do_tempo_o_corte_declara_que_nao_recortou(self):
-        conn = self._gravar(self._relatorio(com_linha_do_tempo=False))
+        conn = self._gravar(self._relatorio(com_linha_do_tempo=False, com_tema_da_sessao=False))
         for corte in self._cortes(conn):
             with self.subTest(corte=corte["cut_index"]):
                 self.assertEqual(corte["transcript_scope"], "sem_linha_do_tempo")
@@ -338,6 +488,12 @@ class AGravacaoDeVerdade(unittest.TestCase):
                 self.assertIsNone(corte["professional_word_count"])
                 self.assertIsNone(corte["speech_density"])
                 self.assertEqual(corte["intervention_category"], "sem_recorte_temporal")
+        # Sem tema da IA na sessao, a bolsa de palavras de `sessionAverage`
+        # NAO entra no lugar: o campo declara a ausencia.
+        self.assertEqual(
+            ("", "sem_resumo_da_ia"),
+            conn.execute("SELECT summary_theme, summary_theme_deid_reason FROM anonymous_sessions").fetchone(),
+        )
         conn.close()
 
 

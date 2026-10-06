@@ -21,13 +21,12 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPExcept
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
-from froid_core import SessionState
+from froid_core import PERCEPTION_ZONES, SessionState
 from froid_deidentify import (
     VERSAO_DEID,
     desidentificar_fala,
     desidentificar_tema,
-    minusculas_da_sessao,
-    nomes_da_sessao,
+    vocabulario_da_sessao,
 )
 import froid_f0
 import froid_mailer
@@ -189,6 +188,33 @@ FROID_DATAMART_FALA_PROFISSIONAL = (
     os.getenv("FROID_DATAMART_FALA_PROFISSIONAL", "0").strip().lower()
     in ("1", "true", "on", "sim")
 )
+
+# A era de cada linha do acervo. Nao e cosmetico: e o que permite a uma consulta
+# separar linhas cujas colunas tem o MESMO NOME e significados diferentes.
+#
+#   <= v3  ausencia de medida gravada como 0.0
+#   v4     ausencia gravada como NULL (05/09/2026)
+#   v5     cada corte com a PROPRIA fala e o PROPRIO tema (05/10/2026):
+#          patient_word_count, professional_word_count, speech_density e
+#          intervention_category passam a ser do corte — ate a v4 eram da
+#          sessao inteira, repetidos em todo corte; theme e theme_predominant
+#          passam a ser o tema da IA desidentificado (ate a v4, lista fixa, quase
+#          sempre `nao_classificado`); cut_trigger passa a dizer "manual" quando
+#          o corte foi manual; dominant_theme passa a ser o nome da zona.
+#
+# Linhas < v5 continuam no acervo com os valores que tem. Quem consulta
+# contagem por corte, categoria de intervencao ou tema filtra por v5 — ou por
+# `transcript_scope = 'corte'`, que so existe a partir dela.
+VERSAO_DO_ACERVO = "anonymous_datamart_v5"
+#: As eras em que ausencia de medida e NULL (e nao 0.0). Consulta sobre medida
+#: acustica filtra por estas; o prompt do Explica as cita a partir daqui.
+VERSOES_SEM_ZERO_FALSO = ("anonymous_datamart_v4", VERSAO_DO_ACERVO)
+
+# Uma gravacao no acervo por vez. A ingestao saiu do laco de eventos (ver
+# `save_session_report`) e passou a correr numa thread; duas sessoes
+# encerrando ao mesmo tempo nao podem abrir o mesmo arquivo DuckDB para escrita
+# em paralelo.
+_TRAVA_DO_ACERVO = threading.Lock()
 FROID_ANALYTICS_MAX_SUPPRESSION_RATIO = min(
     0.10,
     max(0.0, float(os.getenv("FROID_ANALYTICS_MAX_SUPPRESSION_RATIO", "0.10") or "0.10")),
@@ -1927,7 +1953,7 @@ def _fallback_analytics_sql(query_text: str) -> Dict[str, str]:
     query = _normalize_search_text(query_text)
     if "corte" in query or "10 minuto" in query or "janela" in query:
         result_sql = (
-            "SELECT cut_label, COUNT(DISTINCT session_hash) AS sessoes, "
+            "SELECT cut_label, COUNT(*) AS sessoes, "
             "AVG(ipm_avg) AS ipm_medio, COUNT(ipm_avg) AS n_ipm, "
             "AVG(idm_avg) AS idm_medio, COUNT(idm_avg) AS n_idm, "
             "AVG(words_per_minute) AS palavras_por_minuto_media, "
@@ -2048,7 +2074,8 @@ async def _query_froid_analytics(payload: FroidExplicaQuery) -> FroidExplicaResp
         "delta_idm_vs_historical DOUBLE, longitudinal_trend VARCHAR, emotional_stability VARCHAR, "
         "recurring_themes VARCHAR, recurring_zones VARCHAR, recurring_risks VARCHAR, metrics_version VARCHAR, "
         "weights_version VARCHAR, privacy_tier VARCHAR, pii_excluded BOOLEAN, raw_audio_retained BOOLEAN, "
-        "literal_transcript_retained BOOLEAN, media_loss_events INTEGER. "
+        "literal_transcript_retained BOOLEAN, media_loss_events INTEGER, "
+        "summary_theme_deid_reason VARCHAR. "
         "anonymous_session_cuts contem: session_hash VARCHAR, cut_hash VARCHAR, cut_index INTEGER, cut_label VARCHAR, "
         "start_second INTEGER, end_second INTEGER, duration_seconds INTEGER, relative_position DOUBLE, "
         "sample_count INTEGER, speech_density DOUBLE, patient_professional_word_ratio DOUBLE, ipm_avg DOUBLE, "
@@ -2075,7 +2102,8 @@ async def _query_froid_analytics(payload: FroidExplicaQuery) -> FroidExplicaResp
         "semantic_coherence_shift VARCHAR, biomarker_snapshot_json VARCHAR, subharmonic_snapshot_json VARCHAR, "
         "cut_context_json VARCHAR, previous_cut_context VARCHAR, next_cut_context VARCHAR, "
         "response_ipm_direction VARCHAR, response_idm_direction VARCHAR, response_dissonance_direction VARCHAR, "
-        "metrics_version VARCHAR, weights_version VARCHAR, media_loss_events INTEGER. "
+        "metrics_version VARCHAR, weights_version VARCHAR, media_loss_events INTEGER, "
+        "theme_deid_reason VARCHAR, transcript_scope VARCHAR. "
         # SEM ESTE PARAGRAFO, O ACERVO HONESTO PRODUZ RESPOSTA DESONESTA.
         #
         # Ate a v3, ausencia de medida era gravada como 0.0 e entrava na media
@@ -2093,8 +2121,14 @@ async def _query_froid_analytics(payload: FroidExplicaQuery) -> FroidExplicaResp
         "coalesce(<coluna de medida>, 0) nem IFNULL: isso reintroduz o zero que a v4 "
         "eliminou. schema_version distingue as eras — linhas 'anonymous_datamart_v3' e "
         "anteriores gravavam 0.0 por ausencia; filtre por "
-        "schema_version = 'anonymous_datamart_v4' quando a pergunta depender de medida "
-        "acustica. dominant_zone e baseline_zone valem 1..12 ou NULL. "
+        f"schema_version IN {VERSOES_SEM_ZERO_FALSO!r} quando a pergunta depender de medida "
+        f"acustica. Em anonymous_session_cuts, patient_word_count, professional_word_count, "
+        "speech_density, intervention_category, theme e theme_predominant so sao DO CORTE a "
+        f"partir de '{VERSAO_DO_ACERVO}' (ou transcript_scope = 'corte'); antes disso eram da "
+        "sessao inteira repetidos em cada corte, ou uma categoria fixa. theme e "
+        "theme_predominant sao texto curto escrito pela IA e desidentificado: referencias "
+        "aparecem como marcadores [NOME], [DATA], [LOCAL]; vazio com theme_deid_reason diz "
+        "por que nao ha tema. dominant_zone e baseline_zone valem 1..12 ou NULL. "
         "Retorne somente JSON valido com result_sql e cohort_sql. "
         "result_sql deve ser SELECT agregado, sem dados individuais. "
         "cohort_sql deve retornar COUNT(DISTINCT session_hash) AS cohort_size a partir da coorte consultada "
@@ -3943,7 +3977,7 @@ ROTULOS_EMITIDOS_PELO_SISTEMA = frozenset(
         "nao_apurado", "nao_apurada", "estavel", "oscilante",
         "suficiente", "baixa_amostragem",
         # corte
-        "final", "automatico_10min",
+        "final", "automatico_10min", "manual", "automatico",
         "mudanca_zona", "sem_mudanca_zona",
         "mudanca_tom", "sem_mudanca_tom",
         "mudanca_coerencia", "sem_mudanca_coerencia",
@@ -3953,6 +3987,23 @@ ROTULOS_EMITIDOS_PELO_SISTEMA = frozenset(
         "sem_recorte_temporal", "sem_atribuicao_de_falante", "sem_fala_profissional",
     }
 )
+
+
+def _rotulo_da_zona(value) -> Optional[str]:
+    """O nome da zona de percepcao, em forma de rotulo, ou NULL.
+
+    `dominant_theme` recebia o nome da zona ("Tristeza vs. Paz Interior") e o
+    passava pela lista de palavras de `_anonymous_category` — que nao conhece
+    "vs", "paz" nem "interior". Toda linha do acervo gravava
+    `nao_classificado`: uma coluna inteira sem leitor possivel. Apurado em
+    05/10/2026. A fonte e a tabela do motor; o rotulo deriva dela, nao e copia.
+    """
+    zona = _zona(value)
+    if zona is None:
+        return None
+    nome = unicodedata.normalize("NFKD", PERCEPTION_ZONES.get(zona, "")).encode("ascii", "ignore").decode("ascii")
+    rotulo = re.sub(r"[^a-z0-9]+", "_", nome.lower()).strip("_")
+    return rotulo or None
 
 
 def _anonymous_category(value: Any, default: str = "nao_classificado") -> str:
@@ -4013,21 +4064,28 @@ def _anonymous_category_list(value: Any, limit: int = 20) -> list[str]:
     return categories
 
 
-def _ensure_duckdb_column(conn, table: str, column: str, definition: str) -> None:
+def _ensure_duckdb_columns(conn, table: str, columns: Dict[str, str]) -> None:
+    """Acrescenta as colunas que faltam. O esquema e lido UMA vez por tabela.
+
+    Antes, cada coluna disparava o seu proprio `PRAGMA table_info`: eram ~280
+    leituras de esquema por sessao gravada, dentro do laco de eventos de um
+    servidor de um worker so — tempo em que nenhum tique de sessao ao vivo era
+    atendido.
+    """
     try:
-        columns = {
+        existentes = {
             str(row[1]).lower()
             for row in conn.execute(f"PRAGMA table_info('{table}')").fetchall()
         }
-        if column.lower() not in columns:
-            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
     except Exception:
-        pass
-
-
-def _ensure_duckdb_columns(conn, table: str, columns: Dict[str, str]) -> None:
+        return
     for column, definition in columns.items():
-        _ensure_duckdb_column(conn, table, column, definition)
+        if column.lower() in existentes:
+            continue
+        try:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+        except Exception:
+            pass
 
 
 def _session_context(report: dict) -> dict:
@@ -4224,6 +4282,11 @@ def _cut_confidence(cut: dict) -> Optional[float]:
 
 
 def _append_anonymous_datamart_row(report: dict) -> None:
+    with _TRAVA_DO_ACERVO:
+        _gravar_no_acervo(report)
+
+
+def _gravar_no_acervo(report: dict) -> None:
     conn = None
     transaction_started = False
     session_hash = ""
@@ -4552,16 +4615,24 @@ def _append_anonymous_datamart_row(report: dict) -> None:
         # Passa pela desidentificacao, e nao mais pela lista fixa de palavras
         # que o reduzia a `nao_classificado` (froid_deidentify, "O TEMA DO
         # CORTE"). Os nomes ditos na sessao sao a referencia do que tirar.
-        transcricao_da_sessao = str(report.get("transcript") or "")
-        nomes_ditos = nomes_da_sessao(transcricao_da_sessao)
-        palavras_comuns = minusculas_da_sessao(transcricao_da_sessao)
+        vocabulario = vocabulario_da_sessao(str(report.get("transcript") or ""))
 
         def _tema(valor) -> tuple[str, str]:
-            return desidentificar_tema(str(valor or ""), nomes_ditos, palavras_comuns)
+            """O tema da IA, limpo — ou a declaracao de que nao houve tema da IA.
 
-        summary_theme, summary_theme_motivo = _tema(
-            session_summary.get("theme") or average.get("theme")
-        )
+            So o tema escrito pela IA entra. `sessionAverage.theme` e
+            `cut.theme` NAO sao temas: sao as seis palavras mais frequentes da
+            fala dos DOIS lados (`inferThemeFromTranscript`), inclusive do
+            paciente — uma forma degradada da fala dele, que o acervo nao
+            recebe em forma nenhuma. Sem resumo da IA o campo fica vazio e o
+            motivo diz por que.
+            """
+            texto = str(valor or "").strip()
+            if not texto:
+                return "", "sem_resumo_da_ia"
+            return desidentificar_tema(texto, vocabulario)
+
+        summary_theme, summary_theme_motivo = _tema(session_summary.get("theme"))
         # A PROCEDENCIA, lida uma vez e usada em todo o resto.
         #
         # `ipmAvg` e `idmAvg` chegam do navegador ja zerados: `LiveSession.tsx`
@@ -4687,7 +4758,10 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 # nao, sem nada distinguir. Com a versao, toda consulta consegue
                 # separar. As linhas <= v3 nao sao recuperaveis: o valor de
                 # origem nunca entrou no acervo.
-                "anonymous_datamart_v4",
+                #
+                # v5 (05/10/2026): as colunas por corte passaram a ser do corte.
+                # A lista do que mudou esta em VERSAO_DO_ACERVO.
+                VERSAO_DO_ACERVO,
                 _safe_str(report.get("createdAt") or datetime.now(timezone.utc).isoformat(), 80),
                 _anonymous_category(context.get("session_modality") or context.get("sessionModality") or "unknown", "unknown"),
                 normalize_session_locale(context.get("spoken_language") or context.get("spokenLanguage") or report.get("spokenLanguage")),
@@ -4895,10 +4969,20 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                 or cut_context.get("theme_predominant")
                 or cut_context.get("themePredominant")
             )
-            # `cut.theme` NAO e o tema da IA: sao as seis palavras mais
-            # frequentes da fala (`inferThemeFromTranscript`), em minuscula — e
-            # por isso podem trazer o nome de alguem. Passa pela mesma limpeza.
-            cut_theme, _ = _tema(cut.get("theme"))
+            # `theme` e `theme_predominant` passam a ser a MESMA coisa: o tema
+            # da IA, limpo. A coluna `theme` recebia `cut.theme`, a bolsa de
+            # palavras frequentes dos dois falantes; ver `_tema`.
+            cut_theme = theme_predominant
+            # O gatilho vem do resumo que fechou ESTE corte. O navegador
+            # carimbava "automatico_10min" em todo corte que nao fosse o
+            # final, inclusive nos manuais — o rotulo descrevia outra coisa.
+            cut_trigger = _anonymous_category(
+                summary.get("trigger")
+                or cut_context.get("cut_trigger")
+                or cut_context.get("cutTrigger")
+                or "automatico",
+                "automatico",
+            )
             patient_response = _anonymous_category(
                 cut_context.get("patient_response")
                 or cut_context.get("patientResponse")
@@ -4968,7 +5052,7 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                     cut_ipm,
                     cut_idm,
                     _zona(cut.get("dominantZone")),
-                    _anonymous_category(cut.get("dominantTheme") or ""),
+                    _rotulo_da_zona(cut.get("dominantZone")),
                     _anonymous_category(cut.get("coherenceStatus") or ""),
                     _anonymous_category(cut.get("emotionalTone") or ""),
                     _medida(cut.get("wordsPerMinute")),
@@ -4994,7 +5078,7 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                     _medida(cut.get("mfcc9Delta")),
                     _medida(cut.get("mfcc7DeltaDelta")),
                     _medida(cut.get("mfcc9DeltaDelta")),
-                    _anonymous_category(cut_context.get("cut_trigger") or cut_context.get("cutTrigger") or "automatico", "automatico"),
+                    cut_trigger,
                     "",  # cut_summary_anon: o tema ja carrega isso, categorizado.
                     "",  # patient_summary_anon: a fala do paciente NAO entra.
                     professional_summary_anon,
@@ -5070,7 +5154,7 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                     "end_second": end_second,
                     "duration_seconds": duration_seconds,
                     "relative_position": relative_position,
-                    "trigger": _anonymous_category(cut_context.get("cut_trigger") or cut_context.get("cutTrigger") or "automatico", "automatico"),
+                    "trigger": cut_trigger,
                 },
                 "semantic": {
                     "theme": cut_theme,
@@ -5093,7 +5177,7 @@ def _append_anonymous_datamart_row(report: dict) -> None:
                     "ipm_avg": cut.get("ipmAvg"),
                     "idm_avg": cut.get("idmAvg"),
                     "dominant_zone": cut.get("dominantZone"),
-                    "dominant_theme": _anonymous_category(cut.get("dominantTheme") or ""),
+                    "dominant_theme": _rotulo_da_zona(cut.get("dominantZone")),
                     "emotional_tone": _anonymous_category(cut.get("emotionalTone") or ""),
                     "words_per_minute": cut.get("wordsPerMinute"),
                     "dissonance_count": cut.get("dissonanceCount"),
@@ -16045,7 +16129,12 @@ async def save_session_report(request: Request):
         "session_report",
         session_id,
     )
-    _append_anonymous_datamart_row(report)
+    # Fora do laco de eventos. A gravacao abre o DuckDB, confere o esquema e
+    # grava dezenas de linhas — meio segundo em que, sincrona, nenhum tique de
+    # sessao AO VIVO de outro profissional era atendido (um worker so). A
+    # funcao engole toda excecao e registra quarentena; esperar por ela
+    # preserva a garantia de que a quarentena existe antes da resposta.
+    await asyncio.to_thread(_append_anonymous_datamart_row, report)
     return {
         "status": "ok",
         "session_id": session_id,

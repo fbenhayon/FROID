@@ -2605,22 +2605,34 @@ function buildAnonymizedContext(
       previousReports.map((report) => report.sessionAverage?.coherenceStatus || ""),
     ) as string[],
     cuts: cuts.map((cut, index) => {
-      const summary = conversationSummaries.find(
-        (item) =>
-          item.startMinute === Math.floor(cut.startSecond / 60) &&
-          item.endMinute === Math.max(item.startMinute + 1, Math.ceil(cut.endSecond / 60)),
-      );
+      // O corte NASCE do resumo (`buildReportCuts`: startSecond = floor do
+      // startSecond do resumo), entao o segundo de inicio e a chave exata.
+      // Casar por minuto, com `ceil` no fim, divergia do servidor e perdia o
+      // resumo em corte que nao terminava em minuto cheio.
+      const summary =
+        conversationSummaries.find((item) => item.startSecond === cut.startSecond) ??
+        conversationSummaries.find(
+          (item) =>
+            item.startSecond === undefined &&
+            item.startMinute === Math.floor(cut.startSecond / 60) &&
+            item.endMinute === Math.max(item.startMinute + 1, Math.ceil(cut.endSecond / 60)),
+        );
       const previousCut = cuts[index - 1] || null;
       const nextCut = cuts[index + 1] || null;
       const reference = previousCut || baseline;
-      const nextReference = nextCut || cut;
       return {
         cutIndex: index,
+        // O gatilho e o do resumo que fechou o corte. "automatico_10min" em
+        // todo corte que nao fosse o final carimbava os manuais de automaticos.
         cutTrigger:
-          cut.endSecond >= durationSeconds ? "final" : "automatico_10min",
+          summary?.trigger ??
+          (cut.endSecond >= durationSeconds ? "final" : "automatico_10min"),
         startSecond: cut.startSecond,
         endSecond: cut.endSecond,
-        themePredominant: limitTheme(summary?.theme || cut.theme, 6),
+        // So o tema da IA. `cut.theme` e a bolsa das seis palavras mais
+        // frequentes da fala dos DOIS lados — nao e tema, e carrega palavra do
+        // paciente. Sem resumo, vazio: o servidor grava o motivo.
+        themePredominant: summary?.theme ? limitTheme(summary.theme, 6) : "",
         // Aqui havia `patientSummaryAnon` e `professionalSummaryAnon`: ate 80
         // palavras LITERAIS de cada lado, por corte, com limpeza de e-mail,
         // CPF, telefone e numero e nada mais. Este objeto e gravado no
@@ -2641,9 +2653,15 @@ function buildAnonymizedContext(
         ipmDeltaPreviousCut: rounded(menos(cut.ipmAvg, reference.ipmAvg), 3),
         idmDeltaPreviousCut: rounded(menos(cut.idmAvg, reference.idmAvg), 3),
         dissonanceDeltaPreviousCut: rounded(menos(cut.dissonanceCount, reference.dissonanceCount), 3),
-        ipmDeltaAfterIntervention: rounded(menos(nextReference.ipmAvg, cut.ipmAvg), 3),
-        idmDeltaAfterIntervention: rounded(menos(nextReference.idmAvg, cut.idmAvg), 3),
-        dissonanceDeltaAfterIntervention: rounded(menos(nextReference.dissonanceCount, cut.dissonanceCount), 3),
+        // O "depois da intervencao" e o corte SEGUINTE. No ultimo corte nao
+        // ha seguinte: `nextReference = nextCut || cut` media o corte contra
+        // ele mesmo e gravava delta 0 e direcao "estabilidade" — a afirmacao
+        // de que nada mudou, sobre um depois que nao existe. Sem seguinte, nulo.
+        ipmDeltaAfterIntervention: nextCut ? rounded(menos(nextCut.ipmAvg, cut.ipmAvg), 3) : null,
+        idmDeltaAfterIntervention: nextCut ? rounded(menos(nextCut.idmAvg, cut.idmAvg), 3) : null,
+        dissonanceDeltaAfterIntervention: nextCut
+          ? rounded(menos(nextCut.dissonanceCount, cut.dissonanceCount), 3)
+          : null,
         dominantZoneShift:
           previousCut && previousCut.dominantZone !== cut.dominantZone ? "mudanca_zona" : "sem_mudanca_zona",
         // "sem_mudanca_tom" com os dois campos vazios seria AFIRMAR que o tom
@@ -2656,9 +2674,12 @@ function buildAnonymizedContext(
               ? "mudanca_tom"
               : "sem_mudanca_tom",
         cadenceShift: deltaDirection(menos(cut.wordsPerMinute, reference.wordsPerMinute), 5),
-        responseIpmDirection: deltaDirection(menos(nextReference.ipmAvg, cut.ipmAvg), 0.5),
-        responseIdmDirection: deltaDirection(menos(nextReference.idmAvg, cut.idmAvg), 0.05),
-        responseDissonanceDirection: deltaDirection(menos(nextReference.dissonanceCount, cut.dissonanceCount), 0.5),
+        responseIpmDirection: deltaDirection(nextCut ? menos(nextCut.ipmAvg, cut.ipmAvg) : null, 0.5),
+        responseIdmDirection: deltaDirection(nextCut ? menos(nextCut.idmAvg, cut.idmAvg) : null, 0.05),
+        responseDissonanceDirection: deltaDirection(
+          nextCut ? menos(nextCut.dissonanceCount, cut.dissonanceCount) : null,
+          0.5,
+        ),
         semanticCoherenceShift:
           previousCut && previousCut.coherenceStatus !== cut.coherenceStatus
             ? "mudanca_coerencia"
@@ -4412,7 +4433,11 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     [stopRawBioacousticPipeline],
   );
 
-  const appendTranscriptText = useCallback((rawText: string, speakerOverride?: SpeakerRole) => {
+  const appendTranscriptText = useCallback((
+    rawText: string,
+    speakerOverride?: SpeakerRole,
+    startedAtSecond?: number,
+  ) => {
     const text = rawText.replace(/\s+/g, " ").trim();
     if (!text) return;
 
@@ -4456,7 +4481,12 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     // Corrigir o lugar que se vê não corrige a regra. Eram dois lugares.
     const words = speaker === "DR" ? 0 : countSpokenUnits(text, spokenLanguage);
     const now = Date.now();
-    const elapsedSeconds = Math.max(0, elapsedSecondsRef.current);
+    // O segundo da fala e o do INICIO do bloco de audio, nao o da chegada do
+    // texto. Entre os dois ha o bloco inteiro (7 s) mais a latencia da
+    // transcricao: carimbar na chegada empurrava a fala ate ~10 s para a
+    // frente, e a ultima frase de um assunto caia no corte do assunto seguinte
+    // — no resumo da IA e no Data-FROID. Apurado em 05/10/2026.
+    const elapsedSeconds = Math.max(0, startedAtSecond ?? elapsedSecondsRef.current);
     transcriptSegmentsRef.current = [
       ...transcriptSegmentsRef.current,
       { elapsedSeconds, text: line },
@@ -4714,7 +4744,12 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   }, [closeSemanticCut]);
 
   const transcribeAudioBlob = useCallback(
-    async (audioBlob: Blob, mimeType: string, speaker: SpeakerRole) => {
+    async (
+      audioBlob: Blob,
+      mimeType: string,
+      speaker: SpeakerRole,
+      startedAtSecond?: number,
+    ) => {
       if (!audioBlob || audioBlob.size < MIN_STT_AUDIO_BYTES) {
         transcriptionStatsRef.current.undersizedSegments += 1;
         setLiveTranscription((prev) => ({
@@ -4812,7 +4847,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           return;
         }
 
-        appendTranscriptText(text, speaker);
+        appendTranscriptText(text, speaker, startedAtSecond);
         transcriptionStatsRef.current.successfulSegments += 1;
 
         setLiveTranscription((prev) => ({
@@ -4840,8 +4875,8 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   );
 
   const enqueueTranscriptionBlob = useCallback(
-    (audioBlob: Blob, mimeType: string, speaker: SpeakerRole) => {
-      const run = () => transcribeAudioBlob(audioBlob, mimeType, speaker);
+    (audioBlob: Blob, mimeType: string, speaker: SpeakerRole, startedAtSecond?: number) => {
+      const run = () => transcribeAudioBlob(audioBlob, mimeType, speaker, startedAtSecond);
       transcriptionQueueRef.current = transcriptionQueueRef.current.then(
         run,
         run,
@@ -4917,8 +4952,10 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       intentionalStopBox.current = false;
       segmentingStopBox.current = false;
       const recordedChunks: Blob[] = [];
+      let segmentStartedAtSecond = Math.max(0, elapsedSecondsRef.current);
 
       recorder.onstart = () => {
+        segmentStartedAtSecond = Math.max(0, elapsedSecondsRef.current);
         if (segmentTimerBox.current) {
           window.clearTimeout(segmentTimerBox.current);
         }
@@ -4993,6 +5030,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
               finishedBlob,
               finishedBlob.type || mimeType || "audio/webm",
               segmentSpeaker,
+              segmentStartedAtSecond,
             );
           }
           return;

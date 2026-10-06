@@ -58,8 +58,14 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from dataclasses import dataclass, field
+from functools import lru_cache
 
-VERSAO_DEID = "deid-v1"
+#: v2 em 05/10/2026: o marcador deixou de ser relido como nome (`[DATA]` virava
+#: `[[NOME]]` e derrubava o periodo que abria), e o tema do corte ganhou o
+#: vocabulario da sessao. A versao acompanha cada linha do acervo para que
+#: quem consulta saiba sob qual regra o texto foi limpo.
+VERSAO_DEID = "deid-v2"
 
 #: Teto do que se guarda por corte. Não é limite de privacidade — é de utilidade:
 #: além disso não é mais uma intervenção, é a transcrição do trecho.
@@ -132,7 +138,11 @@ _MARCADOR = re.compile(r"\[[A-Z]+\]")
 _FIM_DE_PERIODO = ".!?;:"
 
 
+@lru_cache(maxsize=65536)
 def _sem_acento(texto: str) -> str:
+    # Com cache: uma transcricao de uma hora tem dezenas de milhares de tokens e
+    # algumas centenas de palavras distintas; normalizar cada ocorrencia de novo
+    # era a parte mais cara de montar o vocabulario da sessao.
     return "".join(
         c for c in unicodedata.normalize("NFD", texto) if unicodedata.category(c) != "Mn"
     )
@@ -314,11 +324,20 @@ def desidentificar_fala(
 # A lista fixa protegia por EXCLUSAO — so passava o que ja se sabia inocente.
 # Aqui a protecao e por IDENTIFICACAO do que e referencial, e a fonte mais forte
 # para isso nao e uma regra de gramatica: e a propria sessao. Nome proprio dito
-# em voz alta aparece transcrito com maiuscula no meio da frase. Se essa palavra
-# reaparece no tema — em qualquer posicao, em qualquer caixa —, e o nome de
-# alguem daquela conversa. E isso que pega "conflito com joana" (o tema por
-# palavras frequentes vem todo em minuscula) e "Joana e o divorcio" (o nome na
-# primeira posicao, onde a maiuscula nao prova nada).
+# em voz alta aparece transcrito com maiuscula. Se essa palavra reaparece no
+# tema — em qualquer posicao, em qualquer caixa —, e o nome de alguem daquela
+# conversa. E isso que pega "conflito com joana" (o tema por palavras frequentes
+# vem todo em minuscula) e "Joana e o divorcio" (o nome na primeira posicao,
+# onde a maiuscula do tema nao prova nada).
+#
+# A primeira versao (02/10) olhava so o MEIO do periodo e tratava qualquer
+# ocorrencia em minuscula como prova de palavra comum. A auditoria de 05/10
+# achou as duas frestas: o nome que a sessao so escreveu abrindo frase ("Joana
+# disse que...") nao entrava em lugar nenhum, e um unico deslize do
+# transcritor ("joana" em minuscula) bastava para liberar o nome. Agora cada
+# palavra e CONTADA nas tres formas — maiuscula no meio, maiuscula abrindo
+# periodo, minuscula — e quem decide e a maioria, que e um criterio sobre o
+# dado da sessao e nao sobre uma ocorrencia.
 # ---------------------------------------------------------------------------
 
 #: Acima disto nao e tema, e frase: o tema da IA tem no maximo 6 palavras por
@@ -339,50 +358,89 @@ def _e_sigla(token: str) -> bool:
     return len(token) >= 2 and token.isupper()
 
 
-def nomes_da_sessao(transcricao: str) -> frozenset[str]:
-    """Palavras que a sessao escreveu com maiuscula NO MEIO de um periodo.
+@dataclass(frozen=True)
+class VocabularioDaSessao:
+    """O que a propria sessao ensina sobre as palavras do tema.
 
-    O primeiro token de cada periodo fica de fora: ali a maiuscula e de posicao.
-    Sigla fica de fora: e vocabulario. O que sobra e, na fala transcrita, nome
-    proprio — de pessoa, de lugar, de empresa.
+    `nomes`: palavras que a sessao escreveu com maiuscula no MEIO de um periodo
+    mais vezes do que em minuscula — nome proprio, de pessoa, lugar ou empresa.
+    `iniciais`: palavras que so apareceram com maiuscula ABRINDO periodo, mais
+    vezes do que em minuscula, e que nao sao gramaticais nem tem forma de
+    verbo — provavel nome que o paciente so usou como sujeito da frase.
+    `comuns`: palavras ditas em minuscula mais vezes do que com maiuscula —
+    palavra comum, mesmo que o tema a capitalize por estilo.
     """
-    nomes: set[str] = set()
+
+    nomes: frozenset[str] = field(default_factory=frozenset)
+    iniciais: frozenset[str] = field(default_factory=frozenset)
+    comuns: frozenset[str] = field(default_factory=frozenset)
+
+
+VOCABULARIO_VAZIO = VocabularioDaSessao()
+
+#: Verbos de primeira pessoa que abrem frase o tempo todo na fala clinica e nao
+#: tem terminacao verbal inequivoca ("Consigo", "Preciso", "Fico"). Sem esta
+#: lista, "Consigo dormir pouco." entrava em `iniciais` e o tema "Nao consigo
+#: dormir" saia "Nao [NOME] dormir". Nenhuma destas palavras e nome de gente.
+VERBOS_DE_ABERTURA = frozenset(
+    "consigo preciso fico gosto estou sou sei durmo choro percebo tenho tento "
+    "falo digo faco deixo paro comeco evito sofro tomo uso "
+    # Terceira pessoa que abre frase na fala do profissional: "Faz sentido",
+    # "Parece que", "Vale a pena", "Pode ser". Tambem nao sao nomes.
+    "faz parece vale pode deve existe acontece falta sobra basta importa "
+    "quer sente pensa acha diz fala".split()
+)
+
+
+def vocabulario_da_sessao(transcricao: str) -> VocabularioDaSessao:
+    """Um passe sobre a transcricao; tres contagens por palavra."""
+    meio: dict[str, int] = {}
+    inicio: dict[str, int] = {}
+    minuscula: dict[str, int] = {}
     for linha in str(transcricao or "").splitlines():
         fala = _PREFIXO_DE_FALANTE.sub("", linha)
         for periodo in _SEPARA_PERIODO.split(fala):
-            tokens = list(_TOKEN.finditer(periodo))
-            for achado in tokens[1:]:
+            for posicao, achado in enumerate(_TOKEN.finditer(periodo)):
                 token = achado.group(0)
-                if not token[:1].isupper() or _e_sigla(token):
+                if _e_sigla(token):
                     continue
-                if _e_comum(token) or _e_temporal(token):
-                    continue
-                nomes.add(_chave(token))
-    return frozenset(nomes)
+                chave = _chave(token)
+                if token[:1].islower():
+                    minuscula[chave] = minuscula.get(chave, 0) + 1
+                elif token[:1].isupper():
+                    alvo = inicio if posicao == 0 else meio
+                    alvo[chave] = alvo.get(chave, 0) + 1
+
+    nomes: set[str] = set()
+    iniciais: set[str] = set()
+    comuns: set[str] = set()
+    for chave in set(meio) | set(inicio) | set(minuscula):
+        if chave in COMUNS_CAPITALIZAVEIS or chave in TEMPORAIS or chave in VERBOS_DE_ABERTURA:
+            continue
+        n_meio, n_inicio, n_min = meio.get(chave, 0), inicio.get(chave, 0), minuscula.get(chave, 0)
+        if n_min > n_meio + n_inicio:
+            comuns.add(chave)
+        elif n_meio > 0:
+            nomes.add(chave)
+        elif n_inicio > n_min and not _tem_forma_de_verbo(chave):
+            iniciais.add(chave)
+    return VocabularioDaSessao(frozenset(nomes), frozenset(iniciais), frozenset(comuns))
 
 
-def minusculas_da_sessao(transcricao: str) -> frozenset[str]:
-    """Palavras que a sessao escreveu em minuscula — palavra comum, dita como tal.
+def _sobrou_identificador_no_tema(texto: str) -> bool:
+    """Segunda leitura, sobre o RESULTADO — a mesma postura de `desidentificar_fala`.
 
-    E o contrapeso de `nomes_da_sessao`. Sem ele, "Ansiedade no Trabalho" e
-    "Conflito com Pedro" tem a mesma forma e o tema perde "trabalho" para um
-    `[NOME]`. Se a conversa disse "o trabalho" em algum momento, a palavra e
-    comum ali; nome dito em voz alta nao aparece transcrito em minuscula.
+    Digito colado em letra ("covid19", "sala3b") escapa de `\\b\\d+\\b`; e-mail
+    sem espaco em volta pode escapar do padrao. Se sobrou, a limpeza nao
+    entendeu o tema, e tema e curto demais para valer o risco.
     """
-    vistas: set[str] = set()
-    for linha in str(transcricao or "").splitlines():
-        fala = _PREFIXO_DE_FALANTE.sub("", linha)
-        for achado in _TOKEN.finditer(fala):
-            token = achado.group(0)
-            if token[:1].islower():
-                vistas.add(_chave(token))
-    return frozenset(vistas)
+    sobra = _MARCADOR.sub(" ", texto)
+    return bool(re.search(r"\d|@|https?://|www\.", sobra, re.IGNORECASE))
 
 
 def desidentificar_tema(
     tema: str,
-    nomes: frozenset[str] = frozenset(),
-    minusculas: frozenset[str] = frozenset(),
+    vocabulario: VocabularioDaSessao = VOCABULARIO_VAZIO,
 ) -> tuple[str, str]:
     """Prepara o tema de um corte para o acervo.
 
@@ -402,37 +460,41 @@ def desidentificar_tema(
         limpo = padrao.sub(marcador, limpo)
 
     tokens = [m for m in _TOKEN.finditer(limpo) if not _dentro_de_marcador(limpo, m)]
-    # Tema em Title Case ("Ansiedade no Trabalho") capitaliza por ESTILO, e a
+    # Tema em Title Case ("Medo de Perder o Emprego") capitaliza por ESTILO, e a
     # regra "maiuscula fora da primeira posicao e nome" marcaria o tema inteiro.
-    # Nesse caso a maiuscula nao prova nada, e quem decide sao os nomes da sessao.
+    # Nesse caso a maiuscula nao prova nada, e quem decide e o vocabulario.
     plenas = [m.group(0) for m in tokens[1:] if len(m.group(0)) >= 4 and not _e_sigla(m.group(0))]
     title_case = len(plenas) >= 2 and all(p[:1].isupper() for p in plenas)
     primeiro = tokens[0].start() if tokens else -1
+    referenciais = vocabulario.nomes | vocabulario.iniciais
 
     def _troca(match: re.Match[str]) -> str:
         token = match.group(0)
         if _dentro_de_marcador(limpo, match):
             return token
-        if _chave(token) in nomes:
+        if _e_sigla(token):
+            return token
+        chave = _chave(token)
+        # O vocabulario da sessao vem antes de qualquer regra de posicao: vale
+        # em qualquer caixa e em qualquer lugar do tema.
+        if chave in referenciais:
             return "[NOME]"
         if _e_temporal(token):
             return "[DATA]"
-        if _e_sigla(token):
-            return token
-        # A ordem importa: `nomes` vem antes, entao uma palavra que a sessao usou
-        # das duas formas ("Clara" nome e "clara" adjetivo) cai como nome.
         if (
             match.start() != primeiro
             and not title_case
             and token[:1].isupper()
             and not _e_comum(token)
-            and _chave(token) not in minusculas
+            and chave not in vocabulario.comuns
         ):
             return "[NOME]"
         return token
 
     limpo = _TOKEN.sub(_troca, limpo)
 
+    if _sobrou_identificador_no_tema(limpo):
+        return "", "referencial_demais"
     palavras = len(limpo.split())
     marcadores = len(_MARCADOR.findall(limpo))
     sobra = _MARCADOR.sub(" ", limpo)

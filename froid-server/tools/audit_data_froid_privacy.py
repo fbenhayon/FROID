@@ -14,6 +14,16 @@ TEXT_COLUMNS = (
     "relevant_dissonances",
 )
 
+# O tema e texto curto escrito pela IA e desidentificado (desde 02/10/2026).
+# Texto limpo nao tem digito, arroba nem endereco: os marcadores sao [NOME],
+# [DATA], [LOCAL]... Se algum desses sinais sobrou, a limpeza falhou naquela
+# linha, e a auditoria reprova — e por isso que ela existe.
+THEME_COLUMNS = {
+    "anonymous_session_cuts": ("theme", "theme_predominant"),
+    "anonymous_sessions": ("summary_theme",),
+}
+THEME_IDENTIFIER_PATTERN = r"[0-9@]|https?://|www\\."
+
 
 def main() -> int:
     parser = argparse.ArgumentParser()
@@ -44,6 +54,27 @@ def main() -> int:
         ).fetchone()[0]
         checks["literal_text_rows"] = int(literal_rows)
         checks["literal_text_absent"] = int(literal_rows) == 0
+
+    theme_rows = 0
+    for table, columns in THEME_COLUMNS.items():
+        if table not in tables:
+            continue
+        existing = {
+            str(row[0]).lower()
+            for row in connection.execute(f"DESCRIBE {table}").fetchall()
+        }
+        present = [column for column in columns if column in existing]
+        if not present:
+            continue
+        predicates = " OR ".join(
+            f"regexp_matches(coalesce({column}, ''), '{THEME_IDENTIFIER_PATTERN}')"
+            for column in present
+        )
+        theme_rows += int(
+            connection.execute(f"SELECT count(*) FROM {table} WHERE {predicates}").fetchone()[0]
+        )
+    checks["theme_identifier_rows"] = theme_rows
+    checks["theme_identifier_absent"] = theme_rows == 0
 
     if "anonymous_sessions" in tables:
         unsafe_flags = connection.execute(
@@ -77,8 +108,8 @@ def main() -> int:
 
     connection.close()
     blocking = [
-        "required_tables", "literal_text_absent", "safe_session_flags",
-        "pseudonyms_well_formed", "suppression_target_met",
+        "required_tables", "literal_text_absent", "theme_identifier_absent",
+        "safe_session_flags", "pseudonyms_well_formed", "suppression_target_met",
     ]
     passed = all(checks.get(name) is True for name in blocking)
     checks["suppression_target_is_monitoring_only"] = True
