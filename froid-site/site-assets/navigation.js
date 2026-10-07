@@ -53,11 +53,12 @@ document.addEventListener('DOMContentLoaded', function () {
   skip.textContent = labels[2];
   first.tabIndex = -1;
   document.body.prepend(skip);
+  // Os links aparecem diretamente, sem o <details>/<summary> que escondia a
+  // lista atrás de um clique em "Nesta página" (removido a pedido do dono em
+  // 07/10/2026). labels[1] continua como aria-label da <nav>, para quem usa
+  // leitor de tela, mesmo sem texto visível equivalente na tela.
   var outline = document.createElement('aside');
   outline.className = 'page-outline';
-  var details = document.createElement('details');
-  var summary = document.createElement('summary');
-  summary.textContent = labels[1];
   var links = document.createElement('nav');
   links.setAttribute('aria-label', labels[1]);
   sections.forEach(function (section) {
@@ -66,7 +67,6 @@ document.addEventListener('DOMContentLoaded', function () {
     link.textContent = section.heading.textContent.trim();
     links.append(link);
   });
-  details.append(summary, links);
-  outline.append(details);
+  outline.append(links);
   (first.closest('section') || first).before(outline);
 });

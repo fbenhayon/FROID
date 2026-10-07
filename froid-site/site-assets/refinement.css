@@ -43,9 +43,7 @@ p.section-lead { line-height:1.8; margin-top:20px; }
 .home-intro .hero-actions { gap:12px; }
 .hero-neuro__scroll { display:none; }
 .page-outline { border-bottom:1px solid var(--border); background:#101620; }
-.page-outline details { max-width:var(--maxw); margin:auto; padding:18px 24px; }
-.page-outline summary { cursor:pointer; color:#f5cf8d; font-weight:600; }
-.page-outline nav { display:flex; flex-wrap:wrap; gap:10px; padding-top:18px; }
+.page-outline nav { max-width:var(--maxw); margin:auto; padding:18px 24px; display:flex; flex-wrap:wrap; justify-content:center; gap:10px; }
 .page-outline a { padding:8px 14px; border:1px solid #354052; border-radius:8px; color:#cbd5e1; font-size:.85rem; }
 .skip-content { position:fixed; left:16px; top:-100px; z-index:100; padding:12px 20px; background:#f5c778; color:#111827; }
 .skip-content:focus { top:12px; }

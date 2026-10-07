@@ -19,7 +19,7 @@
 <link rel="alternate" hreflang="es" href="https://www.froid.com.br/es/sobre-contato.html" />
 <link rel="alternate" hreflang="x-default" href="https://www.froid.com.br/sobre-contato.html" />
 <link rel="stylesheet" href="site-assets/style.css?v=16" />
-<link rel="stylesheet" href="site-assets/refinement.css?v=2" />
+<link rel="stylesheet" href="site-assets/refinement.css?v=3" />
 <link rel="stylesheet" href="site-assets/paginas.css?v=2" />
 </head>
 
@@ -204,8 +204,16 @@
 <article class="card" id="psique">
 <h3>Prática clínica e clínicas</h3>
 <p>Informe sua especialidade, se atende individualmente ou em equipe e o que gostaria de avaliar. Não inclua informações de pacientes.</p>
-<p class="card-acao"><a class="btn btn-solid" href="mailto:froid@froid.com.br?subject=FROID%20Psique%20-%20Apresentacao">Solicitar apresentação do Psique</a></p>
-<p><a href="precos.html">Entender o modelo V2</a></p>
+<form id="form-contato-psique" class="form-contato" method="post" action="/api/contato" data-origem="sobre-contato-psique" onsubmit="return enviarContato(event)">
+<div class="linha">
+<div><label for="psique-nome">Nome</label><input type="text" id="psique-nome" name="nome" required minlength="2" maxlength="120" autocomplete="name" /></div>
+<div><label for="psique-email">E-mail</label><input type="email" id="psique-email" name="email" required maxlength="180" autocomplete="email" /></div>
+</div>
+<label for="psique-mensagem">Especialidade e o que gostaria de avaliar</label>
+<textarea id="psique-mensagem" name="mensagem" required minlength="10" maxlength="4000" placeholder="Especialidade, se atende individualmente ou em equipe, e o que gostaria de avaliar."></textarea>
+<p style="margin:14px 0 0;"><button class="btn btn-solid" type="submit">Solicitar apresentação do Psique</button></p>
+<p class="form-status" role="status" aria-live="polite"></p>
+</form>
 </article>
 <article class="card" id="nr1">
 <h3>Empresas, RH e SST</h3>
@@ -231,7 +239,7 @@
 <section class="block" id="canal-de-contato">
   <div class="container">
 <h2 class="section-title">Canal de contato</h2>
-<div class="contato-grid"><div class="card contato-dados"><h3 style="margin-top:0;">Contato direto</h3><p><span class="rotulo">Telefone</span><a href="tel:+5511945856941">(11) 94585-6941</a></p><p><span class="rotulo">E-mail</span><a href="mailto:froid@froid.com.br">froid@froid.com.br</a></p><p style="font-size:0.9rem; color:var(--froid-cinza);">Os botões acima abrem seu aplicativo de e-mail com o assunto preenchido. Este canal não substitui atendimento clínico ou serviço de emergência.</p></div><div class="card"><h3 style="margin-top:0;">Deixe uma mensagem</h3><p style="font-size:0.92rem; color:var(--froid-cinza); margin-top:0;">O formulário envia a mensagem por e-mail ao endereço acima; ela não fica gravada em banco de dados. Respondemos no endereço que você informar.</p><form id="form-contato" class="form-contato" method="post" action="/api/contato" onsubmit="return enviarContato(event)"><div class="linha"><div><label for="contato-nome">Nome</label><input type="text" id="contato-nome" name="nome" required minlength="2" maxlength="120" autocomplete="name" /></div><div><label for="contato-email">E-mail</label><input type="email" id="contato-email" name="email" required maxlength="180" autocomplete="email" /></div></div><label for="contato-telefone">Telefone <span style="font-weight:400; color:var(--froid-cinza);">(opcional)</span></label><input type="tel" id="contato-telefone" name="telefone" maxlength="40" autocomplete="tel" /><label for="contato-mensagem">Mensagem</label><textarea id="contato-mensagem" name="mensagem" required minlength="10" maxlength="4000" placeholder="Conte no que podemos ajudar. Não inclua dados de pacientes ou de trabalhadores."></textarea><p style="margin:18px 0 0;"><button class="btn btn-solid" type="submit">Enviar mensagem</button></p><p class="form-status" id="contato-status" role="status" aria-live="polite"></p><p style="font-size:0.82rem; color:var(--froid-cinza); margin:12px 0 0;">Usamos o que você escrever apenas para responder. Não compartilhamos com terceiros — veja a <a href="privacidade.html">Política de Privacidade</a>.</p></form></div></div>
+<div class="contato-grid"><div class="card contato-dados"><h3 style="margin-top:0;">Contato direto</h3><p><span class="rotulo">Telefone</span><a href="tel:+5511945856941">(11) 94585-6941</a></p><p><span class="rotulo">E-mail</span><a href="mailto:froid@froid.com.br">froid@froid.com.br</a></p><p style="font-size:0.9rem; color:var(--froid-cinza);">Os botões acima abrem seu aplicativo de e-mail com o assunto preenchido. Este canal não substitui atendimento clínico ou serviço de emergência.</p></div><div class="card"><h3 style="margin-top:0;">Deixe uma mensagem</h3><p style="font-size:0.92rem; color:var(--froid-cinza); margin-top:0;">O formulário envia a mensagem por e-mail ao endereço acima; ela não fica gravada em banco de dados. Respondemos no endereço que você informar.</p><form id="form-contato" class="form-contato" method="post" action="/api/contato" data-origem="sobre-contato" onsubmit="return enviarContato(event)"><div class="linha"><div><label for="contato-nome">Nome</label><input type="text" id="contato-nome" name="nome" required minlength="2" maxlength="120" autocomplete="name" /></div><div><label for="contato-email">E-mail</label><input type="email" id="contato-email" name="email" required maxlength="180" autocomplete="email" /></div></div><label for="contato-telefone">Telefone <span style="font-weight:400; color:var(--froid-cinza);">(opcional)</span></label><input type="tel" id="contato-telefone" name="telefone" maxlength="40" autocomplete="tel" /><label for="contato-mensagem">Mensagem</label><textarea id="contato-mensagem" name="mensagem" required minlength="10" maxlength="4000" placeholder="Conte no que podemos ajudar. Não inclua dados de pacientes ou de trabalhadores."></textarea><p style="margin:18px 0 0;"><button class="btn btn-solid" type="submit">Enviar mensagem</button></p><p class="form-status" role="status" aria-live="polite"></p><p style="font-size:0.82rem; color:var(--froid-cinza); margin:12px 0 0;">Usamos o que você escrever apenas para responder. Não compartilhamos com terceiros — veja a <a href="privacidade.html">Política de Privacidade</a>.</p></form></div></div>
   </div>
 </section>
 
@@ -292,7 +300,7 @@
 </footer>
 
 <script src="site-assets/script.js?v=20"></script>
-<script src="site-assets/navigation.js?v=1"></script>
+<script src="site-assets/navigation.js?v=2"></script>
 
 <script>
 // A mensagem vira e-mail no servidor; nao fica gravada em lugar nenhum.
@@ -301,13 +309,16 @@
 // resposta a um e-mail que nunca saiu.
 function enviarContato(evento) {
   evento.preventDefault();
-  var form = document.getElementById('form-contato');
+  // O formulario vem do proprio evento, nao de um id fixo: a pagina tem
+  // mais de um (o do assunto Psique e o generico de "Canal de contato"), e
+  // uma funcao so serve os dois sem duplicar id nenhum.
+  var form = evento.target;
   var botao = form.querySelector('button[type=submit]');
-  var status = document.getElementById('contato-status');
+  var status = form.querySelector('.form-status');
   var rotulo = botao.textContent;
-  var dados = { origem: 'sobre-contato' };
+  var dados = { origem: form.getAttribute('data-origem') || 'sobre-contato' };
   ['nome', 'email', 'telefone', 'mensagem'].forEach(function (campo) {
-    var el = document.getElementById('contato-' + campo);
+    var el = form.querySelector('[name="' + campo + '"]');
     if (el) dados[campo] = el.value;
   });
 
