@@ -18,8 +18,12 @@ SITE = ROOT.parent / "froid-site"
 import psique_pricing
 from psique_billing import BillingError
 
-PAGINAS = [SITE / "precos-v2.html", SITE / "en/precos-v2.html",
-           SITE / "es/precos-v2.html", SITE / "fr/precos-v2.html"]
+# precos-v2.html foi apagada em 07/10/2026 (decisao do dono): era a copia de
+# homologacao da V2, sem header nem rodape, e ficou solta depois que
+# precos.html virou a pagina publica da V2 (30/09). As guardas abaixo valem
+# para a pagina publica, nos quatro idiomas.
+PAGINAS = [SITE / "precos.html", SITE / "en/precos.html",
+           SITE / "es/precos.html", SITE / "fr/precos.html"]
 
 
 # -- Espelho do Trial: a fonte executavel e a migration 037 -------------------

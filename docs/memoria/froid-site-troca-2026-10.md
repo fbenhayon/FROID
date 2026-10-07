@@ -1,6 +1,6 @@
 ---
 name: froid-site-troca-2026-10
-description: Em 06/10/2026 as 27 paginas pt-BR do froid-site foram trocadas pela versao nova (sem numeros espelhados); traducoes seguem a arquitetura anterior; o que mudou nos testes e o que ficou para o Fabio decidir
+description: Em 06/10/2026 as 27 paginas do froid-site foram trocadas pela versao nova e traduzidas; em 07/10 as secoes originais do NR-1 voltaram por cima (fonte: commit 5271ccd7) e os enderecos foram corrigidos; o que a revisao ensinou sobre 'substituir' um site
 metadata:
   node_type: memory
   type: project
@@ -71,3 +71,22 @@ en/es/fr com a arquitetura nova, e `NAV_SECOES_TRADUCOES` saiu do gerador.
 Moeda: mesmo valor em todos os idiomas, sem conversao, simbolo R$ (e a moeda
 cobrada). Fase 2 (traducoes + ferramentas + docs) ficou sem commit, aguardando
 o Fabio.
+
+**Revisao de 07/10/2026 (Fabio reenviou as 27 paginas: "fiz uma grande
+confusao na solicitacao inicial").** O pedido de "substituir" tinha apagado
+conteudo que ele queria: as secoes longas do NR-1. Decisao dele: paginas
+enviadas continuam a base; as secoes originais de `empresas`, `proposta-nr1`,
+`como-funciona-nr1`, `iso-45003` e `froid-explica-nr1` voltam por cima, nos 4
+idiomas, COPIADAS de `git show 5271ccd7:froid-site/...` (nunca redigitadas).
+As traducoes originais de `empresas` tinham 6 secoes proprias (pagina
+internacional mais curta), nao as 11 de pt — restaurar "o original" e por
+idioma, nao por copia do pt. Enderecos: `precos-v2.html` apagada (4 idiomas),
+"FROID" visivel + "Contato" no header, formulario nos 4 cartoes de contato,
+secao de prontidao devolvida com a frase ajustada. O CSS das paginas originais
+vive agora em `paginas.css` (v3). Fase 2 continua sem commit.
+
+**Licao:** quando o dono manda "substituir" paginas inteiras, listar ANTES o
+que sai (secao por secao) e perguntar — custou uma rodada inteira de revisao.
+E ao devolver secoes originais, conferir se a pagina nova ja conta a mesma
+historia com outros numeros: `como-funciona-nr1` ficou com 7 etapas novas e 9
+originais na mesma pagina; devolvi a escolha ao Fabio em vez de decidir.

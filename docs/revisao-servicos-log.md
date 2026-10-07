@@ -3,6 +3,43 @@
 Uma linha por rodada. A rodada encerra quando a lista de defeitos zera — não por
 autoavaliação. Ver `.claude/skills/revisar-servicos/SKILL.md`.
 
+## Rodada 12 — 07/10/2026 — revisão: seções originais do NR-1 de volta e endereços corrigidos
+
+**Escopo:** o Fábio reenviou as 27 páginas e pediu para rever o trabalho:
+endereços desajustados, merge com as páginas atuais, preservar tabelas e
+mecanismos. A análise está em `docs/revisao-site-2026-10-07.md`; a decisão
+dele foi manter as páginas enviadas como base e devolver as seções originais
+das cinco páginas do NR-1 (`empresas`, `proposta-nr1`, `como-funciona-nr1`,
+`iso-45003`, `froid-explica-nr1`), nos quatro idiomas, copiadas do commit
+5271ccd7 — em pt as 11 seções longas de `empresas`; em en/es/fr as 6 da página
+internacional original. A proposta saiu da folha clara para o template escuro
+e a janela de orientação (24/08/2026) passou ao pretérito nos quatro idiomas.
+
+**Endereços:** `precos-v2.html` apagada (4 idiomas; `test_psique_phase5`
+guarda `precos.html`); header com "FROID" visível (link para a inicial) e
+"Contato" como último link solto; formulário real nos quatro cartões de
+`sobre-contato` (cada um com `data-origem` próprio, JS das traduções lendo o
+formulário do evento); "Participação e privacidade são critérios distintos"
+devolvida a `diagnostico-nr1` com a frase ajustada à calculadora.
+
+**Não voltou, por decisão de 06/10:** tabelas "Implantação e ciclo" e "AEP
+com inventário" da proposta; captura de créditos; mapa de matrizes.
+
+### Verificação da rodada
+
+```
+verificar-site.py: 108 páginas, 0 falhas | gerar-header --conferir: ok
+178 testes do site | checar-telas: 81 medições pt + 39 traduções, 0 problemas
+```
+
+### Defeitos abertos
+
+`como-funciona-nr1` (pt) traz as sete etapas enviadas e as nove originais;
+`proposta-nr1` traz "Etapas que a proposta pode contemplar" e "Fases". Duas
+contagens para o mesmo percurso — devolvido ao Fábio para escolher.
+
+---
+
 ## Rodada 11 — 06/10/2026 — troca das 27 páginas pt-BR pela versão nova
 
 **Escopo:** as 27 páginas entregues pelo Fábio (22 substituições + 6 novas:

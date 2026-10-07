@@ -37,6 +37,11 @@ var NAV_SECOES = {
     ["organize-documentacao-e-acao", "5. Organize documentação e ação"],
     ["implemente-e-acompanhe", "6. Implemente e acompanhe"],
     ["reavalie-e-revise", "7. Reavalie e revise"],
+    ["as-sete-etapas", "As nove etapas"],
+    ["dossie-verificavel", "Comprovação de Gestão Disciplinar"],
+    ["o-que-e-igual-em-toda-empresa-e-o-que-muda", "O que é igual em toda empresa, e o que muda"],
+    ["quando-a-segunda-avaliacao-reprova", "E se a segunda avaliação reprovar?"],
+    ["a-sua-empresa-tem-tamanho-para-isso", "A sua empresa tem tamanho para isso?"],
     ["anonimato-das-respostas", "Por que ninguém consegue saber quem respondeu o quê"],
     ["os-perigos", "A listagem do Guia MTE 2025"],
     ["construa-o-percurso-adequado-a-organizacao", "Construa o percurso adequado à organização"]
@@ -63,6 +68,7 @@ var NAV_SECOES = {
     ["checklist-de-preparacao", "Checklist de preparação"],
     ["calculadora", "A sua empresa consegue resultado liberável?"],
     ["por-que-existe-um-piso", "Por que existe um piso"],
+    ["participacao-e-privacidade-sao-criterios-distintos", "Participação e privacidade são critérios distintos"],
     ["se-um-recorte-nao-puder-ser-divulgado", "Se um recorte não puder ser divulgado"],
     ["leve-um-escopo-claro-a-primeira-conversa", "Leve um escopo claro à primeira conversa"]
   ],
@@ -166,9 +172,16 @@ var NAV_SECOES = {
   ],
   "proposta-nr1.html": [
     ["o-que-definir-antes-do-valor", "O que definir antes do valor"],
+    ["o-que-esta-sendo-contratado", "O que está sendo contratado"],
+    ["fases", "Fases"],
     ["etapas-que-a-proposta-pode-contemplar", "Etapas que a proposta pode contemplar"],
     ["precos", "Condições comerciais"],
+    ["o-que-a-contratante-precisa-fornecer", "O que a contratante precisa fornecer"],
+    ["por-que-este-procedimento-e-nao-outro", "Por que este procedimento, e não outro"],
+    ["protecao-de-dados", "Proteção de dados"],
+    ["limites-do-servico", "Limites do serviço"],
     ["o-contrato-e-a-referencia", "O contrato é a referência"],
+    ["aceite", "Aceite"],
     ["comece-com-as-informacoes-essenciais", "Comece com as informações essenciais"]
   ],
   "seguranca-nr1.html": [

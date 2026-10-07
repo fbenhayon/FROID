@@ -66,7 +66,8 @@ IDIOMAS = {
             ("Ci\u00eancia", "ciencia.html"),
         ]),
         "soltos": [("\u00c9tica", "etica.html"), ("Seguran\u00e7a", "seguranca.html"),
-                   ("Pre\u00e7os", "precos.html"), ("Explorar", "menu.html")],
+                   ("Pre\u00e7os", "precos.html"), ("Explorar", "menu.html"),
+                   ("Contato", "sobre-contato.html")],
     },
     "en": {
         "familias": [
@@ -91,7 +92,7 @@ IDIOMAS = {
                 ('Facial maps', 'mapas-faciais.html'),
                 ('Science', 'ciencia.html'),
         ]),
-        "soltos": [('Ethics', 'etica.html'), ('Security', 'seguranca.html'), ('Pricing', 'precos.html'), ('Explore', 'menu.html')],
+        "soltos": [('Ethics', 'etica.html'), ('Security', 'seguranca.html'), ('Pricing', 'precos.html'), ('Explore', 'menu.html'), ('Contact', 'sobre-contato.html')],
     },
     "es": {
         "familias": [
@@ -116,7 +117,7 @@ IDIOMAS = {
                 ('Mapas del rostro', 'mapas-faciais.html'),
                 ('Ciencia', 'ciencia.html'),
         ]),
-        "soltos": [('Ética', 'etica.html'), ('Seguridad', 'seguranca.html'), ('Precios', 'precos.html'), ('Explorar', 'menu.html')],
+        "soltos": [('Ética', 'etica.html'), ('Seguridad', 'seguranca.html'), ('Precios', 'precos.html'), ('Explorar', 'menu.html'), ('Contacto', 'sobre-contato.html')],
     },
     "fr": {
         "familias": [
@@ -141,7 +142,7 @@ IDIOMAS = {
                 ('Cartes du visage', 'mapas-faciais.html'),
                 ('Science', 'ciencia.html'),
         ]),
-        "soltos": [('Éthique', 'etica.html'), ('Sécurité', 'seguranca.html'), ('Tarifs', 'precos.html'), ('Explorer', 'menu.html')],
+        "soltos": [('Éthique', 'etica.html'), ('Sécurité', 'seguranca.html'), ('Tarifs', 'precos.html'), ('Explorer', 'menu.html'), ('Contact', 'sobre-contato.html')],
     },
 }
 
