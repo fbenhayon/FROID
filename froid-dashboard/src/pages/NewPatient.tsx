@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { apiUrl, publicAppUrl } from "../lib/api";
 import { rememberSessionPatient } from "../lib/session-report";
+import { SESSAO_DE_TRABALHO_EXPIRADA } from "../lib/sessao-de-trabalho";
 import { LgpdNotice } from "../components/legal/LgpdNotice";
 import {
   loadSessionLanguagePreferences,
@@ -187,6 +188,13 @@ export const NewPatient: React.FC = () => {
       });
       const data = await response.json();
       if (!response.ok) {
+        // Esta rota tem UMA causa de 401: o token de login. O portao de
+        // acesso profissional recusa com 403, e o esgotamento de credito com
+        // 402 -- nenhum dos dois cai aqui. Logo a frase pode nomear a causa
+        // sem adivinhar (padrao 2.11), e o detalhe cru do servidor
+        // ("nao autenticado") deixa de ser o que o profissional le depois de
+        // preencher o formulario inteiro.
+        if (response.status === 401) throw new Error(SESSAO_DE_TRABALHO_EXPIRADA);
         throw new Error(data?.detail || "Não foi possível criar o convite.");
       }
       setInvite(data);

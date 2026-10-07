@@ -1,4 +1,5 @@
 import { apiUrl } from "./api";
+import { SESSAO_DE_TRABALHO_EXPIRADA } from "./sessao-de-trabalho";
 
 /**
  * Quem é o dono da sessão presencial — a pergunta que ninguém fazia.
@@ -40,9 +41,7 @@ export async function criarSessaoPresencial(
   const corpo = await resposta.json().catch(() => null);
   if (!resposta.ok) {
     if (resposta.status === 401) {
-      throw new Error(
-        "Sua sessão de trabalho no FROID expirou. Entre de novo nesta mesma conta para abrir o atendimento.",
-      );
+      throw new Error(SESSAO_DE_TRABALHO_EXPIRADA);
     }
     throw new Error(
       String(
