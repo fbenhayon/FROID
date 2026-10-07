@@ -836,9 +836,15 @@ export const SessionReport: React.FC<Props> = () => {
   const [sections, setSections] = useState(DEFAULT_SECTIONS);
   const [descriptiveReport, setDescriptiveReport] = useState("");
   // Texto que o sistema pré-compôs. Guardado para saber se o profissional
-  // chegou a escrever: enquanto o campo for idêntico ao gerado, o PDF fica
-  // travado. Um documento assinado com texto de máquina é pior do que documento
-  // nenhum — quem assina responde pelo que está escrito.
+  // chegou a escrever.
+  //
+  // Até 06/10/2026 esta comparação TRAVAVA o botão do PDF profissional: documento
+  // assinado com texto de máquina é pior do que documento nenhum, porque quem
+  // assina responde pelo que está escrito. O dono abriu o acesso imediato ao PDF
+  // naquele dia, e a garantia mudou de lugar em vez de desaparecer: o botão gera
+  // sempre, e o documento DECLARA, acima da assinatura, quando o texto ainda é o
+  // que o sistema compôs (`textoRedigidoPeloProfissional`, em report-pdf).
+  // Travar e calar eram duas coisas; só a primeira saiu.
   const [autoDescriptive, setAutoDescriptive] = useState("");
   const descriptiveEdited =
     descriptiveReport.trim().length > 0
@@ -967,6 +973,9 @@ export const SessionReport: React.FC<Props> = () => {
       // aqui, o "PDF paciente" saía do registro completo e marcar ou desmarcar
       // não mudava nada — que foi o defeito reportado em uso.
       audience === "patient" ? releaseItems : undefined,
+      // E a origem do texto descritivo: o gerador não tem como saber, daqui de
+      // fora, se o profissional reescreveu o que o sistema compôs.
+      descriptiveEdited,
     );
     if (!openPrintable(html)) {
       // Sem este aviso o profissional clica e nada acontece: o bloqueio de
@@ -1654,13 +1663,12 @@ export const SessionReport: React.FC<Props> = () => {
               <div className="flex items-center gap-1.5">
               <button
                 onClick={() => gerarPdf("professional")}
-                disabled={!descriptiveEdited}
                 title={
                   descriptiveEdited
                     ? "Gera o documento do profissional para impressão ou PDF."
-                    : "Escreva o relatório com as suas palavras antes de gerar o documento."
+                    : "Gera o documento agora. O texto ainda é o que o sistema compôs, e o documento sai declarando isso acima da assinatura."
                 }
-                className="rounded border border-cyan-700 bg-cyan-950 px-2 py-1 text-[10px] font-bold text-cyan-100 hover:bg-cyan-900 disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded border border-cyan-700 bg-cyan-950 px-2 py-1 text-[10px] font-bold text-cyan-100 hover:bg-cyan-900"
               >
                 PDF profissional
               </button>
@@ -1766,9 +1774,10 @@ export const SessionReport: React.FC<Props> = () => {
 
             {!descriptiveEdited && (
               <p className="mb-2 rounded border border-amber-800 bg-amber-950/50 px-2 py-1.5 text-[10px] leading-4 text-amber-100">
-                O texto abaixo foi composto pelo sistema. Reescreva-o com as suas
-                palavras para liberar o documento do profissional — quem assina
-                responde pelo que está escrito.
+                O texto abaixo foi composto pelo sistema. O documento do profissional
+                já pode ser gerado agora, e sai declarando essa origem acima da
+                assinatura. Reescreva-o com as suas palavras para que ele saia como
+                seu — quem assina responde pelo que está escrito.
               </p>
             )}
             {pdfAviso && (

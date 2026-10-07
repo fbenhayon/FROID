@@ -972,6 +972,12 @@ export function buildProfessionalReport(
   identity?: Partial<ReportIdentity>,
   descriptiveText = "",
   seed?: number,
+  /** O texto da seção 06 foi reescrito pelo profissional, ou é ainda o que o
+   *  sistema compôs? Não muda o que entra no documento — muda o que o
+   *  documento DECLARA sobre a origem do que está escrito acima da assinatura.
+   *  Nasce `true` para que chamador antigo nunca atribua à máquina um texto que
+   *  o profissional redigiu. */
+  textoRedigidoPeloProfissional = true,
 ): string {
   const id = identityOf(identity);
   const epig = pickEpigraph(seed);
@@ -1040,8 +1046,23 @@ export function buildProfessionalReport(
 
   // A assinatura NÃO se separa do texto que ela assina: os dois vão no mesmo
   // bloco, para que o paginador nunca os ponha em folhas diferentes.
+  // Procedência do texto, declarada no documento.
+  //
+  // Até 06/10/2026 o botão "PDF profissional" ficava TRAVADO enquanto o campo
+  // fosse idêntico ao texto que o sistema compôs. O dono abriu o acesso imediato
+  // ao PDF naquele dia; o que não cai com a trava é a distinção entre o que o
+  // profissional escreveu e o que a máquina compôs. Documento que não diz a
+  // origem do texto a deixa para quem lê adivinhar, e quem assina responde pelo
+  // que está escrito (regra 1.2: sem afirmação registrada, declare a ausência).
+  const procedencia = !descriptiveText.trim() || textoRedigidoPeloProfissional
+    ? ""
+    : `<div class="limite"><b>Procedência deste texto.</b> Composto pelo sistema a
+        partir das medidas desta sessão e ainda não reescrito pelo profissional
+        responsável.</div>`;
+
   const blocoDescritivo = [
     `<section><div class="cab"><span class="num">06</span><h2>Relatório descritivo</h2></div>
+      ${procedencia}
       <div class="redigido">${escapeHtml(descriptiveText) || "<i>Não redigido.</i>"}</div>
       <div class="assin">Assinatura do profissional responsável<br>
         <b style="color:#212529">${escapeHtml(id.professionalName || "--")}</b>
@@ -1453,6 +1474,9 @@ export function buildReport(
   /** Blocos escolhidos para o documento do PACIENTE. Ignorado no do profissional,
    *  que sai sempre completo. */
   itensDoPaciente?: string[],
+  /** Ver `buildProfessionalReport`. Só o documento do profissional declara a
+   *  procedência do texto: é o dele que vai a assinatura. */
+  textoRedigidoPeloProfissional = true,
 ): string {
   return audience === "patient"
     // O texto redigido entra nos DOIS documentos: no do profissional como a
@@ -1463,7 +1487,9 @@ export function buildReport(
       descriptiveText || String(report.patientNotes || ""),
       itensDoPaciente,
     )
-    : buildProfessionalReport(report, identity, descriptiveText, seed);
+    : buildProfessionalReport(
+      report, identity, descriptiveText, seed, textoRedigidoPeloProfissional,
+    );
 }
 
 /**
