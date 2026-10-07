@@ -325,11 +325,10 @@ a.lang-pill:hover { color: #fff; border-color: rgba(248,250,252,0.5); }
 .hero-actions { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
 
 /* ============================================================
-   HERO "NEURO" — hero de página inicial, alinhado ao modelo de
-   design de referência (fundo escuro, sinapses, wordmark glow).
-   Substitua o conteúdo de .hero-neuro__art por uma <img> real
-   exportada da ferramenta de design quando disponível — o SVG
-   abaixo é um placeholder ilustrativo gerado em CSS/SVG.
+   HERO "NEURO" — hero de página inicial, fundo escuro. A arte com o
+   logo (froid-hero.png) foi retirada a pedido do dono em 07/10/2026;
+   .hero-neuro__content permanece, invisível, só para leitor de tela
+   e SEO (ver comentário abaixo).
    ============================================================ */
 .hero-neuro {
   position: relative;
@@ -339,40 +338,13 @@ a.lang-pill:hover { color: #fff; border-color: rgba(248,250,252,0.5); }
   justify-content: flex-start;
   text-align: center;
   overflow: hidden;
-  /* Cor igual ao fundo da arte froid-hero.png (#000104) para a imagem fundir sem emenda */
   background: #000104;
   color: var(--froid-branco);
-  /* 1.5cm entre o header e a arte (imagem recortada, sem margem preta interna) */
   padding: 1.5cm 24px 120px;
 }
-.hero-neuro__art {
-  /* Em fluxo: a arte ocupa a sua própria faixa e o texto flui abaixo, sem sobreposição */
-  position: relative;
-  width: 100%;
-  z-index: 0;
-  opacity: 0.95;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-.hero-neuro__art svg { width: 100%; height: 100%; }
-.hero-neuro__img {
-  width: auto; height: auto; display: block;
-  max-width: min(1100px, 92%); max-height: 52vh;
-  object-fit: contain; margin: 0 auto;
-  /* Realça o wordmark FROID embutido na arte */
-  filter: brightness(1.22) contrast(1.06);
-}
-.hero-neuro__overlay {
-  position: absolute; inset: 0; z-index: 1;
-  /* Vinheta mais leve no centro para não apagar o wordmark da arte */
-  background: radial-gradient(ellipse at center, rgba(0,1,4,0) 0%, rgba(0,1,4,0.22) 60%, rgba(0,1,4,0.7) 100%);
-}
-/* 1.5cm entre a arte e o texto */
-.hero-neuro__content { position: relative; z-index: 2; max-width: 900px; margin-top: 1.5cm; }
-/* A arte froid-hero.png já traz o wordmark e a tagline — os equivalentes em HTML
-   ficam apenas para leitores de ecrã/SEO, sem ocupar espaço visual. */
+.hero-neuro__content { position: relative; z-index: 2; max-width: 900px; }
+/* A página precisa de um h1: ele e a tagline ficam aqui, invisíveis na tela
+   (só leitor de tela/SEO), sem reintroduzir o logo que foi retirado. */
 .hero-neuro__content .hero-neuro__wordmark,
 .hero-neuro__content .hero-neuro__tagline {
   position: absolute; width: 1px; height: 1px; overflow: hidden;

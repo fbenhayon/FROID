@@ -32,9 +32,6 @@ p.section-lead { line-height:1.8; margin-top:20px; }
 .card a { text-underline-offset:4px; }
 .site-img { border-radius:16px; }
 .hero-neuro { padding:60px 24px 76px; background:radial-gradient(ellipse at 50% 0,#59412230,transparent 55%),#080b12; }
-.hero-neuro__overlay { pointer-events:none; }
-.hero-neuro__img { max-height:340px; }
-.hero-neuro__content { margin-top:28px; }
 .hero-quote { max-width:820px; }
 .home-intro { position:relative; z-index:2; max-width:980px; margin:0 auto 36px; }
 .home-intro h2 { font-size:clamp(2.4rem,5.6vw,4.8rem); letter-spacing:-.055em; line-height:1.08; text-wrap:balance; margin:20px 0; font-weight:600; }
