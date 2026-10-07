@@ -1,10 +1,18 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>FROID NR-1/ISO-45003 — el instrumento que la ISO 45003 no trae</title>
-<meta name="description" content="La ISO 45003:2021 es la referencia global para la gestión de riesgos psicosociales — y es norma de directrices: no certifica y no mide. FROID NR-1/ISO-45003 es el instrumento que opera ese referencial, endurecido por la jurisdicción que convirtió la exigencia en documental." />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ISO 45003 y FROID NR-1 | Referencial y aplicación</title>
+<meta name="description" content="Entienda cómo distinguir el referencial de gestión, el método de evaluación y la documentación en un proyecto FROID NR-1 relacionado con riesgos psicosociales." />
+<link rel="canonical" href="https://www.froid.com.br/es/iso-45003.html" />
+<meta property="og:type" content="website" />
+<meta property="og:locale" content="es_ES" />
+<meta property="og:title" content="ISO 45003 y FROID NR-1" />
+<meta property="og:description" content="Referencia, instrumento y responsabilidad: tres papeles distintos." />
+<meta property="og:url" content="https://www.froid.com.br/es/iso-45003.html" />
+<meta name="twitter:card" content="summary" />
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"ISO 45003 y FROID NR-1","url":"https://www.froid.com.br/es/iso-45003.html","inLanguage":"es"}</script>
 <link rel="alternate" hreflang="pt-BR" href="https://www.froid.com.br/iso-45003.html" />
 <link rel="alternate" hreflang="en" href="https://www.froid.com.br/en/iso-45003.html" />
 <link rel="alternate" hreflang="fr" href="https://www.froid.com.br/fr/iso-45003.html" />
@@ -12,47 +20,9 @@
 <link rel="alternate" hreflang="x-default" href="https://www.froid.com.br/iso-45003.html" />
 <link rel="stylesheet" href="../site-assets/style.css?v=16" />
 <link rel="stylesheet" href="../site-assets/refinement.css?v=2" />
-<style>
-  .stat-row { display:grid; grid-template-columns:repeat(4,1fr); gap:20px; margin:36px auto 0; max-width:960px; }
-  @media (max-width:900px) { .stat-row { grid-template-columns:1fr 1fr; } }
-  @media (max-width:540px) { .stat-row { grid-template-columns:1fr; } }
-  .stat { border:1px solid var(--border); border-radius:var(--radius); background:rgba(15,23,42,0.6); padding:20px 18px; text-align:center; }
-  .stat .num { font-family:var(--font-serif); font-size:1.85rem; font-weight:700; color:#f8fafc; line-height:1.1; font-variant-numeric:tabular-nums; }
-  .stat .desc { font-size:0.85rem; color:var(--froid-cinza); margin-top:8px; }
-
-  .norm-quote { border-left:3px solid var(--froid-azul); padding:2px 0 2px 16px; margin:0 0 22px; color:var(--froid-cinza); font-size:0.9rem; }
-  .norm-quote strong { color:#e2e8f0; }
-  .norm-ref { display:block; font-size:0.78rem; color:#64748b; margin-top:6px; }
-
-  /* Cita literal de fuente oficial. Distinta del resto porque su valor está en
-     ser exactamente lo que el documento dice, y no nuestra lectura de él. */
-  .literal { border:1px solid #1e3a5f; border-left:4px solid var(--froid-amarelo);
-             border-radius:var(--radius); background:rgba(15,23,42,0.75);
-             padding:18px 22px; margin:0 0 16px; }
-  .literal p { margin:0 0 10px; font-size:0.94rem; line-height:1.65; color:#e2e8f0; font-style:italic; }
-  .literal p:last-of-type { margin-bottom:0; }
-  .literal .fonte { display:block; font-style:normal; font-size:0.78rem; color:#64748b; margin-top:12px; border-top:1px dashed #2a3a5c; padding-top:9px; }
-
-  /* Índice de la página. Duplicado de empresas.html a propósito: son siete
-     líneas de maquetación, sin ningún número de negocio dentro, y moverlo al
-     style.css compartido obligaría a cambiar el ?v= de las 65 páginas. */
-  .indice { padding:6px 22px; }
-  .indice-linha { display:flex; gap:16px; align-items:flex-start; padding:16px 0; border-bottom:1px solid #1e2a44; }
-  .indice-linha:last-child { border-bottom:none; }
-  .indice-num { flex:none; width:26px; height:26px; border-radius:50%; background:var(--froid-azul); color:#0b1220;
-                font-weight:800; font-size:0.82rem; display:flex; align-items:center; justify-content:center; margin-top:2px; }
-  .indice-linha strong { color:#f8fafc; }
-  .indice-linha > div { font-size:0.92rem; color:var(--froid-cinza); }
-  .indice-linha p { margin:6px 0 0; font-size:0.86rem; }
-
-  .crono { border-left:2px solid #1e2a44; margin:20px 0 0; padding:0 0 0 22px; list-style:none; }
-  .crono li { position:relative; padding:0 0 18px; }
-  .crono li::before { content:""; position:absolute; left:-28px; top:5px; width:10px; height:10px; border-radius:50%; background:var(--froid-azul); }
-  .crono li.marco::before { background:var(--froid-amarelo); box-shadow:0 0 10px var(--froid-amarelo); }
-  .crono .quando { font-weight:700; color:#f8fafc; font-size:0.9rem; }
-  .crono .oque { color:var(--froid-cinza); font-size:0.88rem; margin-top:3px; }
-</style>
+<link rel="stylesheet" href="../site-assets/paginas.css?v=2" />
 </head>
+
 <body>
 
 <header class="site-header">
@@ -61,370 +31,201 @@
     <nav class="nav-links">
       <span class="nav-familia">
         <span class="nav-menu">
-          <a class="nav-familia-rotulo" href="index.html">FROID Psique</a>
+          <a class="nav-familia-rotulo" href="profissionais.html">FROID Psique</a>
           <div class="nav-drop nav-drop-mega" role="menu">
           <div class="nav-drop-col">
-            <a class="nav-drop-pagina nav-drop-visao-geral" role="menuitem" href="index.html">Visión general</a>
-            <a class="nav-drop-secao" role="menuitem" href="index.html#paciente">Portal del Paciente: los datos son tuyos</a>
+            <a class="nav-drop-pagina nav-drop-visao-geral" role="menuitem" href="profissionais.html">Visión general</a>
+            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#antes-durante-e-depois">Antes, durante y después</a>
+            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#relatorio-da-sessao">El informe de la sesión</a>
+            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#instrumentos-que-informam-sem-decidir-por-voce">Instrumentos que informan, sin decidir por usted</a>
+            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#uma-pergunta-melhor-comeca-por-um-contexto-claro">Una mejor pregunta comienza por un contexto claro</a>
+            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#data-froid-da-informacao-registrada-a-investigacao">Data-Froid: de la información registrada a la investigación</a>
+            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#contratacao-adequada-a-sua-pratica">Contratación adecuada a su práctica</a>
+            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#comece-avaliando-o-encaixe-na-sua-rotina">Comience evaluando el encaje en su rutina</a>
           </div>
           <div class="nav-drop-col">
-            <a class="nav-drop-pagina" role="menuitem" href="profissionais.html">Profesionales</a>
-            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#sessao">Una sesión con FROID: antes, durante y después</a>
-            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#relatorios">Análisis de informes de pacientes</a>
-            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#equipe">Compartir entre profesionales</a>
+            <a class="nav-drop-pagina" role="menuitem" href="como-funciona-clinico.html">Cómo funciona</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-clinico.html#prepare-uma-captura-autorizada">1. Prepare una captura autorizada</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-clinico.html#acompanhe-canais-complementares">2. Siga canales complementarios</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-clinico.html#distingua-candidato-registro-e-historico">3. Distinga candidato, registro e historial</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-clinico.html#saiba-quando-nao-ha-medida">4. Sepa cuándo no hay medida</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-clinico.html#revise-e-contextualize">5. Revise y contextualice</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-clinico.html#veja-como-isso-se-apresenta">Vea cómo se presenta</a>
+          </div>
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina" role="menuitem" href="demonstracao.html">Demostración</a>
+            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#uma-linha-do-tempo-dois-canais">Una línea de tiempo, dos canales</a>
+            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#explore-tres-situacoes">Explore tres situaciones</a>
+            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#o-que-o-profissional-leva-para-a-revisao">Lo que el profesional lleva a la revisión</a>
+            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#cortes-e-calibracao">Calibración y cortes: los números de la sesión</a>
+            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#o-produto-na-tela">La aplicación, en pantalla</a>
+            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#quer-conhecer-a-interface-em-uma-apresentacao">Quiere conocer la interfaz en una presentación?</a>
           </div>
           <div class="nav-drop-col">
             <a class="nav-drop-pagina" role="menuitem" href="froid-explica.html">FROID Explica</a>
-            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#prompts">Preguntas para explorar FROID Explica</a>
-            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#personalizacao">Prompts personales en el navegador</a>
-            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#datamart">Data-Froid: consultas agregadas y límites explícitos</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#veja-em-acao">Véalo en acción</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#conhecimento-sessao-e-acervo-tres-escopos">Conocimiento, sesión y acervo: tres alcances</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#como-um-bibliotecario-nao-como-um-oraculo">Como un bibliotecario, no como un oráculo</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#prompts">Prompts nativos para empezar; propios para profundizar</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#mais-clareza-sem-transformar-resposta-em-conduta">Más claridad, sin convertir la respuesta en conducta</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#veja-o-assistente-no-contexto-da-sua-pratica">Vea el asistente en el contexto de su práctica</a>
+          </div>
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina" role="menuitem" href="data-froid.html">Data-Froid</a>
+            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#o-acervo-e-o-assistente-tem-papeis-diferentes">El acervo y el asistente tienen papeles diferentes</a>
+            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#tres-responsabilidades-na-arquitetura-proposta">Tres responsabilidades en la arquitectura propuesta</a>
+            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#o-que-pode-ser-investigado">Qué se puede investigar</a>
+            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#voz-e-rosto-continuam-separados">Voz y rostro siguen separados</a>
+            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#pesquisa">Un camino para investigar, no una validación automática</a>
+            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#privacidade-nao-e-um-rotulo">La privacidad no es una etiqueta</a>
+            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#perguntas-que-respeitam-os-dados-disponiveis">Preguntas que respetan los datos disponibles</a>
+            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#avalie-o-data-froid-com-a-equipe">Evalúe Data-Froid con el equipo</a>
           </div>
           </div>
         </span>
       </span>
       <span class="nav-familia">
         <span class="nav-menu">
-          <a class="nav-familia-rotulo ativo" href="iso-45003.html">FROID NR-1/ISO-45003</a>
+          <a class="nav-familia-rotulo ativo" href="empresas.html">FROID NR-1</a>
           <div class="nav-drop nav-drop-mega" role="menu">
           <div class="nav-drop-col">
-            <a class="nav-drop-pagina nav-drop-visao-geral ativo" role="menuitem" href="iso-45003.html">Visión general (ISO 45003)</a>
-            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#indice">Seis lecturas, en este orden</a>
-            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#o-que-e">Qué es la ISO 45003, con precisión</a>
-            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#lastro">Un regulador que se niega a nombrar una metodología escribe en su lugar la prueba para aceptar una herramienta</a>
-            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#documental">Brasil no fue la primera jurisdicción en exigir. Fue la que lo volvió documental.</a>
-            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#ja-tem-45001">No le pedimos que adopte un marco nuevo</a>
-            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#limites">Lo que no afirmamos</a>
-            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#proximo">Empiece por una unidad</a>
-          </div>
-          <div class="nav-drop-col">
-            <a class="nav-drop-pagina" role="menuitem" href="empresas.html">Para Empresas</a>
-            <a class="nav-drop-secao" role="menuitem" href="empresas.html#eficacia">Demostrar que la medida funcionó</a>
-            <a class="nav-drop-secao" role="menuitem" href="empresas.html#precos-nr1">Cuánto cuesta</a>
+            <a class="nav-drop-pagina nav-drop-visao-geral" role="menuitem" href="empresas.html">Visión general</a>
+            <a class="nav-drop-secao" role="menuitem" href="empresas.html#nao-basta-uma-fotografia-do-problema">No basta una fotografía del problema</a>
+            <a class="nav-drop-secao" role="menuitem" href="empresas.html#processo">Un proceso, responsabilidades claras</a>
+            <a class="nav-drop-secao" role="menuitem" href="empresas.html#privacidade">Condiciones de trabajo, no vigilancia clínica</a>
+            <a class="nav-drop-secao" role="menuitem" href="empresas.html#o-que-entra-no-escopo-da-conversa">Qué entra en el alcance de la conversación</a>
+            <a class="nav-drop-secao" role="menuitem" href="empresas.html#comece-com-um-escopo-bem-definido">Comience con un alcance bien definido</a>
           </div>
           <div class="nav-drop-col">
             <a class="nav-drop-pagina" role="menuitem" href="como-funciona-nr1.html">Cómo funciona</a>
-            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#as-sete-etapas">Las siete etapas</a>
-            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#os-perigos">El listado de peligros de la guía del regulador (2025)</a>
-            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#o-que-e-igual-em-toda-empresa-e-o-que-muda">Qué es igual en toda empresa, y qué cambia</a>
-            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#quando-a-segunda-avaliacao-reprova">Y si la segunda evaluación reprueba?</a>
-            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#a-sua-empresa-tem-tamanho-para-isso">Su empresa tiene tamaño para esto?</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#defina-unidades-e-responsabilidades">1. Defina unidades y responsabilidades</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#prepare-finalidade-comunicacao-e-apoio">2. Prepare finalidad, comunicación y apoyo</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#colete-e-reuna-evidencias">3. Recoja y reúna evidencias</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#examine-resultados-elegiveis">4. Examine los resultados elegibles</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#organize-documentacao-e-acao">5. Organice documentación y acción</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#implemente-e-acompanhe">6. Implemente y haga seguimiento</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#reavalie-e-revise">7. Reevalúe y revise</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#anonimato-das-respostas">Por qué nadie puede saber quién respondió qué</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#os-perigos">El listado de la Guía MTE 2025</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#construa-o-percurso-adequado-a-organizacao">Construya el recorrido adecuado a la organización</a>
+          </div>
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina" role="menuitem" href="diagnostico-nr1.html">Preparación</a>
+            <a class="nav-drop-secao" role="menuitem" href="diagnostico-nr1.html#checklist-de-preparacao">Checklist de preparación</a>
+            <a class="nav-drop-secao" role="menuitem" href="diagnostico-nr1.html#calculadora">Su empresa alcanza un resultado liberable?</a>
+            <a class="nav-drop-secao" role="menuitem" href="diagnostico-nr1.html#por-que-existe-um-piso">Por qué existe un piso</a>
+            <a class="nav-drop-secao" role="menuitem" href="diagnostico-nr1.html#se-um-recorte-nao-puder-ser-divulgado">Si un segmento no puede divulgarse</a>
+            <a class="nav-drop-secao" role="menuitem" href="diagnostico-nr1.html#leve-um-escopo-claro-a-primeira-conversa">Lleve un alcance claro a la primera conversación</a>
+          </div>
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina" role="menuitem" href="proposta-nr1.html">Propuesta</a>
+            <a class="nav-drop-secao" role="menuitem" href="proposta-nr1.html#o-que-definir-antes-do-valor">Qué definir antes del valor</a>
+            <a class="nav-drop-secao" role="menuitem" href="proposta-nr1.html#etapas-que-a-proposta-pode-contemplar">Etapas que la propuesta puede contemplar</a>
+            <a class="nav-drop-secao" role="menuitem" href="proposta-nr1.html#precos">Condiciones comerciales</a>
+            <a class="nav-drop-secao" role="menuitem" href="proposta-nr1.html#o-contrato-e-a-referencia">El contrato es la referencia</a>
+            <a class="nav-drop-secao" role="menuitem" href="proposta-nr1.html#comece-com-as-informacoes-essenciais">Comience con la información esencial</a>
           </div>
           <div class="nav-drop-col">
             <a class="nav-drop-pagina" role="menuitem" href="froid-explica-nr1.html">FROID Explica NR-1</a>
-            <a class="nav-drop-secao" role="menuitem" href="froid-explica-nr1.html#duas-camadas">Dos capas, porque fallan de maneras distintas</a>
-            <a class="nav-drop-secao" role="menuitem" href="froid-explica-nr1.html#temas">Ocho temas, y las preguntas como realmente aparecen</a>
-            <a class="nav-drop-secao" role="menuitem" href="froid-explica-nr1.html#trabalhador">RR. HH. no necesita improvisar la respuesta difícil</a>
-            <a class="nav-drop-secao" role="menuitem" href="froid-explica-nr1.html#acervo">Qué está indexado, y qué fue rechazado</a>
-            <a class="nav-drop-secao" role="menuitem" href="froid-explica-nr1.html#limites">Lo que FROID Explica no es</a>
-            <a class="nav-drop-secao" role="menuitem" href="froid-explica-nr1.html#proximo-passo">Está incluido. No es un módulo aparte.</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica-nr1.html#dois-caminhos-de-consulta">Dos caminos de consulta</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica-nr1.html#exemplos-de-perguntas-uteis">Ejemplos de preguntas útiles</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica-nr1.html#privacidade-tambem-na-pergunta">La privacidad también en la pregunta</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica-nr1.html#orientacao-com-limites-explicitos">Orientación con límites explícitos</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica-nr1.html#veja-a-aplicacao-no-seu-projeto">Vea la aplicación en su proyecto</a>
+          </div>
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina ativo" role="menuitem" href="iso-45003.html">ISO 45003</a>
+            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#referencia-nao-e-validacao-automatica-do-produto">Una referencia no es una validación automática del producto</a>
+            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#o-que-deve-ser-verificado-no-projeto">Qué debe verificarse en el proyecto</a>
+            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#como-o-froid-entra-nessa-organizacao">Cómo entra FROID en esa organización</a>
+            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#avalie-a-relacao-com-seu-sistema-de-gestao">Evalúe la relación con su sistema de gestión</a>
           </div>
           </div>
         </span>
       </span>
       <span class="nav-familia">
         <span class="nav-menu">
-          <a class="nav-familia-rotulo" href="ciencia.html">Ciencia y Tecnología</a>
+          <a class="nav-familia-rotulo" href="tecnologia.html">Ciencia y Tecnología</a>
           <div class="nav-drop nav-drop-mega" role="menu">
           <div class="nav-drop-col">
-            <a class="nav-drop-pagina nav-drop-visao-geral" role="menuitem" href="ciencia.html">Ciencia</a>
-            <a class="nav-drop-secao" role="menuitem" href="ciencia.html#evidencia">Depresión y retardo psicomotor</a>
-          </div>
-          <div class="nav-drop-col">
-            <a class="nav-drop-pagina" role="menuitem" href="tecnologia.html">Tecnología</a>
-            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#baseline">Calibración de la línea de base</a>
-            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#extracao-acustica">Extracción acústica continua</a>
-            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#facs">Dinámica facial</a>
-            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#zonas">Las 12 Zonas de Percepción</a>
-            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#ipm-idm">Los índices de síntesis: IPM e IDM</a>
-            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#estabilizacao">Estabilización Clínica de la Pantalla</a>
+            <a class="nav-drop-pagina nav-drop-visao-geral" role="menuitem" href="tecnologia.html">Tecnología</a>
+            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#voz">Voz: una referencia para la propia sesión</a>
+            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#ipm-idm">IPM e IDM: magnitud y dirección</a>
+            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#face">Rostro: del coeficiente al patrón</a>
+            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#registro">Consistencia que llega a la pantalla y al informe</a>
+            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#arquitetura-com-responsabilidades-distintas">Arquitectura con responsabilidades distintas</a>
+            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#na-tela">Las medidas, en pantalla</a>
+            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#leve-o-entendimento-para-a-pratica">Lleve la comprensión a la práctica</a>
           </div>
           <div class="nav-drop-col">
             <a class="nav-drop-pagina" role="menuitem" href="mapas-faciais.html">Mapas del rostro</a>
-            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#dois-mapas">Dos mapas, dos preguntas distintas</a>
-            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#vocabulario">Qué significa cada unidad de acción</a>
-            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#composicao">Cómo se combinan las unidades</a>
-            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#leitura">Del rostro a la lectura, sin etapa escondida</a>
-            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#limites">Lo que estos mapas no afirman</a>
+            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#um-dicionario-de-movimentos-nao-um-leitor-de-pensamentos">Un diccionario de movimientos, no un lector de pensamientos</a>
+            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#familias">Las siete familias</a>
+            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#o-detalhe-nao-desaparece-na-organizacao">El detalle no desaparece en la organización</a>
+            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#quadros-de-referencia">Los cuadros de referencia del FACS</a>
+            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#limites">Lo que no debe inferirse</a>
+            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#explore-antes-de-decidir">Explore antes de decidir</a>
+          </div>
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina" role="menuitem" href="ciencia.html">Ciencia</a>
+            <a class="nav-drop-secao" role="menuitem" href="ciencia.html#tres-camadas-de-leitura">Tres capas de lectura</a>
+            <a class="nav-drop-secao" role="menuitem" href="ciencia.html#o-que-o-produto-apresenta">Lo que presenta el producto</a>
+            <a class="nav-drop-secao" role="menuitem" href="ciencia.html#validacao">Cómo comunicar la evolución sin anticipar evidencia</a>
+            <a class="nav-drop-secao" role="menuitem" href="ciencia.html#do-entendimento-a-avaliacao-da-sua-pratica">De la comprensión a la evaluación de su práctica</a>
           </div>
           </div>
         </span>
         <a href="etica.html">Ética</a>
         <a href="seguranca.html">Seguridad</a>
         <a href="precos.html">Precios</a>
+        <a href="menu.html">Explorar</a>
       </span>
     </nav>
     <div class="nav-actions">
-      <a class="btn btn-ghost" href="https://www.froid.com.br/app/#/login">Iniciar sesión</a>
+      <a class="btn btn-ghost" href="https://www.froid.com.br/app/#/login">Entrar no FROID</a>
       <div class="lang-group" role="group" aria-label="Elegir idioma"><a class="lang-pill" href="../iso-45003.html">PT</a><a class="lang-pill" href="../en/iso-45003.html">EN</a><a class="lang-pill" href="../fr/iso-45003.html">FR</a><span class="lang-pill lang-current">ES</span></div>
     </div>
   </div>
 </header>
 
-<section class="hero" style="padding:64px 0 56px;">
-<div class="container">
-  <p class="section-kicker" style="color:#93c5fd;">FROID NR-1/ISO-45003 — anclado en la ISO 45003:2021</p>
-  <h1 style="font-size:2.1rem;">La norma internacional existe hace cinco años. El instrumento que la ejecuta, no.</h1>
-  <p class="lead">La ISO 45003:2021 es la primera norma internacional dedicada a la gestión de riesgos psicosociales, y opera dentro de un sistema basado en la ISO 45001 — que la mayoría de las compañías industriales ya tiene certificado y auditado. Lo que <em>no</em> hace es medir. Es norma de directrices: define qué gestionar y dentro de qué sistema, y se detiene exactamente donde empieza la operación. Ese vacío es el que ocupa FROID NR-1/ISO-45003.</p>
-  <div class="hero-actions">
-    <a class="btn btn-solid" href="sobre-contato.html">Conversar sobre un piloto</a>
-    <a class="btn btn-ghost" href="#lastro">El criterio que decide en una fiscalización</a>
-    <a class="btn btn-ghost" href="#documental">Deber de conducta vs. deber documental</a>
-    <a class="btn btn-ghost" href="#ja-tem-45001">Si su empresa ya tiene ISO 45001</a>
+<section class="hero">
+  <div class="container">
+    <p class="section-kicker">FROID NR-1 · ISO 45003</p>
+    <h1>Un referencial orienta. La aplicación debe demostrarse.</h1>
+    <p class="lead">Al discutir la ISO 45003 y los riesgos psicosociales, es importante separar el referencial de gestión, el instrumento elegido y la documentación producida por la organización.</p>
   </div>
+</section>
 
-  <div class="stat-row">
-    <div class="stat">
-      <div class="num">1986</div>
-      <div class="desc">el año en que la OIT y la OMS publicaron el informe que nombró los factores psicosociales en el trabajo. La preocupación tiene cuarenta años.</div>
-    </div>
-    <div class="stat">
-      <div class="num">2021</div>
-      <div class="desc">publicación de la ISO 45003, comité técnico ISO/TC 283. Primera norma internacional dedicada al tema.</div>
-    </div>
-    <div class="stat">
-      <div class="num">3×</div>
-      <div class="desc">cuántas veces la guía oficial del ministerio de Trabajo brasileño cita la ISO 45003 — dos en el cuerpo, una en la bibliografía. Los reguladores señalan la norma; no la sustituyen.</div>
-    </div>
-    <div class="stat">
-      <div class="num">0</div>
-      <div class="desc">metodologías que esa guía prescribe. La elección del instrumento es de la empresa — y tiene que justificarla.</div>
-    </div>
+<section class="block soft" id="referencia-nao-e-validacao-automatica-do-produto">
+  <div class="container prosa">
+<h2 class="section-title">Una referencia no es una validación automática del producto</h2>
+<p>La propuesta de FROID NR-1 considera la ISO 45003 como referencia para discutir la gestión de riesgos psicosociales. Eso no significa que FROID esté certificado, aprobado o respaldado por la ISO.</p>
+<blockquote class="analogia">Un mapa orienta el recorrido; no comprueba que el viaje se haya hecho. Del mismo modo, citar una norma no comprueba la ejecución de medidas ni la calidad de un instrumento.</blockquote>
   </div>
+</section>
+
+<section class="block" id="o-que-deve-ser-verificado-no-projeto">
+  <div class="container prosa">
+<h2 class="section-title">Qué debe verificarse en el proyecto</h2>
+<ul><li>Aplicabilidad del referencial al contexto de la organización.</li><li>Adecuación técnica del instrumento y de las fuentes de evidencia.</li><li>Participación de los trabajadores y protección de los datos.</li><li>Criterios documentados de evaluación y decisión.</li><li>Plan de acción, ejecución y seguimiento.</li></ul>
+<p>La evaluación de conformidad y la interpretación normativa corresponden a los responsables técnicos y jurídicos. El software organiza registros, pero no sustituye ese trabajo.</p>
+  </div>
+</section>
+
+<section class="block soft" id="como-o-froid-entra-nessa-organizacao">
+  <div class="container prosa">
+<h2 class="section-title">Cómo entra FROID en esa organización</h2>
+<p>El producto estructura el recorrido desde la campaña hasta los registros de seguimiento. El proyecto debe explicitar los documentos y las responsabilidades, en lugar de presentar una mención a la ISO como garantía universal.</p>
+<p class="links-rel"><a href="como-funciona-nr1.html">Conocer el ciclo de gestión</a> · <a href="proposta-nr1.html">Definir alcance y responsabilidades</a></p>
+  </div>
+</section>
+
+<section class="block" id="avalie-a-relacao-com-seu-sistema-de-gestao">
+  <div class="container prosa">
+<h2 class="section-title">Evalúe la relación con su sistema de gestión</h2>
+<div class="hero-actions">
+<a class="btn btn-solid" href="sobre-contato.html#nr1">Discutir el encuadre del proyecto</a>
 </div>
-</section>
-
-<section class="block" id="indice">
-  <div class="container">
-    <p class="section-kicker">Cómo está organizada esta página</p>
-    <h2 class="section-title">Seis lecturas, en este orden</h2>
-    <p class="section-lead">El argumento está encadenado: cada sección depende de la anterior. Pero si su tiempo es corto, la tercera es la que decide.</p>
-    <div class="card indice">
-      <div class="indice-linha">
-        <span class="indice-num">1</span>
-        <div>
-          <strong><a href="#o-que-e">Qué es la ISO 45003, con precisión</a></strong>
-          <p>La norma citada correctamente — directriz dentro de un sistema ISO 45001 — y las dos limitaciones que definen el espacio: no es certificable y no es instrumento de evaluación.</p>
-        </div>
-      </div>
-      <div class="indice-linha">
-        <span class="indice-num">2</span>
-        <div>
-          <strong><a href="#lastro">El criterio que decide en una fiscalización</a></strong>
-          <p>Donde un regulador se niega a nombrar una metodología, escribe en su lugar la prueba para aceptar una herramienta: fundamento científico, o respaldo de una institución nacional o internacional de SST. Citado literalmente.</p>
-        </div>
-      </div>
-      <div class="indice-linha">
-        <span class="indice-num">3</span>
-        <div>
-          <strong><a href="#documental">Deber de conducta vs. deber documental</a></strong>
-          <p>Por qué el método se endureció bajo un régimen concreto, y por qué eso importa en todos los demás. Con la cronología global desde 1986, cuando la OIT y la OMS nombraron el campo.</p>
-        </div>
-      </div>
-      <div class="indice-linha">
-        <span class="indice-num">4</span>
-        <div>
-          <strong><a href="#ja-tem-45001">Si su empresa ya tiene ISO 45001</a></strong>
-          <p>El costo de cambio es cero: por definición de la propia ISO, la 45003 es la capa psicosocial de un sistema que la compañía ya opera certificado.</p>
-        </div>
-      </div>
-      <div class="indice-linha">
-        <span class="indice-num">5</span>
-        <div>
-          <strong><a href="#limites">Lo que no afirmamos</a></strong>
-          <p>No estamos certificados por la ISO — y nadie lo está en esta norma. Un cuestionario aislado no comprueba gestión. Y los documentos generados siguen la estructura brasileña.</p>
-        </div>
-      </div>
-      <div class="indice-linha">
-        <span class="indice-num">6</span>
-        <div>
-          <strong><a href="#proximo">Empiece por una unidad</a></strong>
-          <p>Una sede, criterios documentados desde el primer día. Si el método se sostiene ahí, escala; si no, lo descubrió barato.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section class="block soft" id="o-que-e">
-  <div class="container">
-    <p class="section-kicker">El referencial</p>
-    <h2 class="section-title">Qué es la ISO 45003, con precisión</h2>
-    <p class="section-lead">La precisión importa aquí, porque casi todo el mercado describe esa norma mal — y describirla mal es lo primero que percibe un auditor de sistemas de gestión.</p>
-
-    <div class="literal">
-      <p>«This document gives guidelines for managing psychosocial risk within an occupational health and safety (OH&amp;S) management system based on ISO 45001.»</p>
-      <p>«This document is intended to be used together with ISO 45001, which contains requirements and guidance on planning, implementing, reviewing, evaluating and improving an OH&amp;S management system.»</p>
-      <span class="fonte">ISO 45003:2021 — <em>Occupational health and safety management — Psychological health and safety at work — Guidelines for managing psychosocial risks.</em> Comité ISO/TC 283, primera edición, junio de 2021. Se aplica a organizaciones de todos los tamaños y sectores. Extractos reproducidos en su idioma original, el inglés.</span>
-    </div>
-
-    <div class="grid-2" style="margin-top:24px;">
-      <div class="card">
-        <span class="badge badge-weak">Limitación 1</span>
-        <h3>No es certificable, y quien dice que sí está equivocado</h3>
-        <p>Siendo norma de <strong>directrices</strong> y no de requisitos, la ISO 45003 no constituye un sistema acreditado y por eso no integra un alcance de certificación acreditada. El proveedor que anuncia «certificación ISO 45003» vende algo que no existe en esos términos — y esa es una de las pocas afirmaciones que un profesional de sistemas de gestión desarma en segundos.</p>
-        <p style="margin-top:10px;"><strong>Nosotros tampoco certificamos.</strong> Decirlo es parte de estar anclado en ella con honestidad.</p>
-      </div>
-      <div class="card">
-        <span class="badge badge-weak">Limitación 2</span>
-        <h3>No es instrumento de evaluación</h3>
-        <p>La ISO 45003 no mide, no clasifica y no genera inventario de riesgos. Describe categorías de peligro psicosocial y cómo gestionarlas dentro del sistema — y necesita combinarse con una metodología de evaluación que ella misma no provee.</p>
-        <p style="margin-top:10px;">Existe por lo tanto una referencia global consolidada y un <strong>vacío de método debajo de ella</strong>. Es ese vacío, y no la norma, lo que FROID ocupa. No somos un marco competidor: somos el instrumento que opera el marco que ya es referencia.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section class="block" id="lastro">
-  <div class="container">
-    <p class="section-kicker">El argumento que decide</p>
-    <h2 class="section-title">Un regulador que se niega a nombrar una metodología escribe en su lugar la prueba para aceptar una herramienta</h2>
-    <p class="section-lead">Este es el pasaje más importante de la página, y es literal. La guía del ministerio de Trabajo brasileño se cita porque enuncia por escrito, con la mayor claridad, una prueba que las fiscalizaciones aplican en todas partes — y porque esa misma guía cita la ISO 45003 dos veces en el cuerpo y una en su bibliografía formal, junto a la ISO 45001:2018.</p>
-
-    <div class="literal">
-      <p>«En relación con las herramientas de evaluación/cuestionarios/encuestas, el MTE no define ni sugiere ninguna metodología específica. Esa es una cuestión que la organización, junto con sus profesionales de SST, necesita verificar y seleccionar.»</p>
-      <p>«Esa herramienta específica necesita ser adecuada al riesgo o circunstancia en evaluación.»</p>
-      <p>«Al utilizar una herramienta específica se debe verificar si está científicamente fundamentada, es decir, si existe un estudio científico o <strong>un órgano o institución de SST, nacional o internacional, que le dé fundamento y respaldo</strong>.»</p>
-      <p>«Si se utiliza algún tipo de cuestionario [...] es muy importante mantener el <strong>anonimato</strong>, dando esa garantía al trabajador.»</p>
-      <span class="fonte">Guía de Factores de Riesgos Psicosociales Relacionados con el Trabajo — Ministerio de Trabajo y Empleo, Brasil, 2025. Extractos literales traducidos del original en portugués; la redacción que tiene peso legal es la portuguesa, reproducida en la <a href="../iso-45003.html">edición portuguesa de esta página</a>.</span>
-    </div>
-
-    <p class="section-lead" style="margin:22px 0;">Lea la secuencia con atención. El regulador <strong>(1)</strong> se niega a indicar metodología, dejando la carga de la elección con la empresa; <strong>(2)</strong> exige que la herramienta sea adecuada al riesgo; y <strong>(3)</strong> exige respaldo de un órgano o institución de seguridad y salud en el trabajo, nacional o internacional.</p>
-
-    <div class="norm-quote">
-      <p style="margin:0 0 8px;"><strong>La ISO es literalmente ese órgano internacional, y la ISO 45003 es literalmente ese respaldo.</strong> Estar anclado en ella no es posicionamiento de marketing — es cumplir el criterio que el propio regulador escribió para aceptar un instrumento. Nada en esa prueba es específico de un país: un auditor, en cualquier lugar, hace la misma pregunta con otras palabras.</p>
-      <span class="norm-ref">Y el cuarto extracto cierra el círculo: la guía exige anonimato garantizado al trabajador, que es precisamente lo que entrega una frontera impuesta por la base de datos — y lo que no entrega una promesa de política interna.</span>
-    </div>
-
-    <div class="disclaimer-box">
-      <strong>La consecuencia práctica, dicha sin rodeos.</strong> En una fiscalización o en una pericia, la pregunta no será «¿usaron una herramienta?». Será <strong>«¿con base en qué eligieron esa herramienta?»</strong>. Quien no pueda nombrar la institución que da respaldo al instrumento tiene un documento sin fundamento — y donde el criterio está publicado, el inspector ya lo tiene en la mano.
-    </div>
-  </div>
-</section>
-
-<section class="block soft" id="documental">
-  <div class="container">
-    <p class="section-kicker">Por qué se endureció el método</p>
-    <h2 class="section-title">Brasil no fue la primera jurisdicción en exigir. Fue la que lo volvió documental.</h2>
-    <p class="section-lead">La distinción no es orgullo nacional — es la explicación técnica de por qué un instrumento construido allí llega a otras jurisdicciones con holgura.</p>
-
-    <p class="section-lead" style="margin-bottom:22px;">Varios países exigen evaluación de riesgo psicosocial desde hace más de una década, y por caminos distintos. El rasgo distintivo del régimen brasileño no es la fecha: es la <strong>naturaleza de la exigencia</strong>. Donde la mayoría de los regímenes impone un deber de conducta — actuar en la medida de lo razonablemente practicable —, la regla brasileña exige <strong>artefacto</strong>.</p>
-
-    <div class="grid-2">
-      <div class="card">
-        <span class="badge badge-moderate">Deber de conducta</span>
-        <h3>El modelo predominante</h3>
-        <p>La obligación es de medios: identificar, controlar y revisar los riesgos psicosociales en lo que sea razonablemente practicable. La defensa, cuando se exige, es demostrar que se actuó con razonabilidad. Lo que se examina es la conducta.</p>
-      </div>
-      <div class="card">
-        <span class="badge badge-strong">Deber documental</span>
-        <h3>El modelo brasileño</h3>
-        <p>La obligación es de resultado documentado: inventario de riesgos con nueve informaciones mínimas, plan de acción con cronograma, responsable, forma de seguimiento y forma de verificación por medida, documento con los criterios de gestión de riesgos — y una cláusula que obliga a considerar la eficacia de las medidas ya implementadas al graduar la probabilidad. Lo que se examina es el papel.</p>
-      </div>
-    </div>
-
-    <div class="norm-quote" style="margin-top:24px;">
-      <p style="margin:0 0 8px;"><strong>De ahí la asimetría que importa a quien opera fuera de Brasil.</strong> Un instrumento construido para sobrevivir a una pericia documental atiende sin esfuerzo un régimen de deber de conducta. Lo inverso no es verdad: quien solo necesitó actuar con razonabilidad no tiene, el día del reclamo, la memoria de cálculo, el criterio versionado y la comparación entre ciclos que la exigencia documental obliga a producir desde el primer día.</p>
-      <span class="norm-ref">No fuimos los primeros. Fuimos los más duros — y es la dureza, no la fecha, lo que viaja.</span>
-    </div>
-
-    <div class="nerds-wrapper">
-      <button class="nerds-toggle" data-target="nerds-cronologia" data-label-closed="Solo para expertos" data-label-open="Cerrar detalles técnicos" aria-expanded="false">Solo para expertos</button>
-      <div class="nerds-panel" id="nerds-cronologia">
-        <h4>Cuarenta años de preocupación, cinco de norma internacional</h4>
-        <p>El tema no nació con la regla brasileña ni con la ISO 45003. La línea de abajo sostiene la afirmación de que Brasil no inauguró nada — y de que lo que hizo de distinto fue otra cosa.</p>
-        <ul class="crono">
-          <li class="marco">
-            <div class="quando">1986 — OIT y OMS</div>
-            <div class="oque">Publicación de <em>Psychosocial factors at work: Recognition and control</em>, Occupational Safety and Health Series nº 56, a partir de la novena sesión del Comité Mixto OIT/OMS sobre Salud Ocupacional. Es el documento que nombra y organiza el campo.</div>
-          </li>
-          <li>
-            <div class="quando">1989 — Unión Europea</div>
-            <div class="oque">Directiva marco 89/391/CEE: deber general del empleador de evaluar <em>todos</em> los riesgos para la seguridad y la salud. Los factores psicosociales nunca estuvieron excluidos de ese deber — lo que faltaba era método, no obligación.</div>
-          </li>
-          <li>
-            <div class="quando">2004 — Interlocutores sociales europeos</div>
-            <div class="oque">Acuerdo Marco Europeo sobre Estrés Laboral, que lleva el tema del deber general a un instrumento dedicado.</div>
-          </li>
-          <li>
-            <div class="quando">2014 — Bélgica</div>
-            <div class="oque">Ley del 28 de febrero sobre prevención de riesgos psicosociales en el trabajo, con análisis de riesgo obligatorio.</div>
-          </li>
-          <li>
-            <div class="quando">2016 — Suecia</div>
-            <div class="oque">Entra en vigor la AFS 2015:4, sobre entorno laboral organizacional y social — carga de trabajo, jornada y acoso como materia regulada.</div>
-          </li>
-          <li class="marco">
-            <div class="quando">2021 — ISO</div>
-            <div class="oque">Publicación de la ISO 45003, comité ISO/TC 283. Primera norma internacional dedicada al tema, y directriz dentro de un sistema ISO 45001.</div>
-          </li>
-          <li>
-            <div class="quando">2021 a 2024 — Australia</div>
-            <div class="oque">Code of Practice de Nueva Gales del Sur (2021), enmiendas a las WHS Regulations con deberes explícitos de identificar, controlar y revisar el riesgo psicosocial (2022), Code de Queensland en vigor (abril de 2023) y Code de la Commonwealth (2024). Régimen de deber de conducta: <em>so far as is reasonably practicable</em>.</div>
-          </li>
-          <li class="marco">
-            <div class="quando">2024 a 2026 — Brasil</div>
-            <div class="oque">La Orden MTE nº 1.419/2024 incluye expresamente los factores psicosociales en el inventario de riesgos del programa de gestión de riesgos ocupacionales; la Orden nº 765/2025 prorroga la vigencia; la exigencia pasa a regir el 26 de mayo de 2026 y el período de doble visita orientativa se cierra el 24 de agosto de 2026. Régimen documental.</div>
-          </li>
-        </ul>
-        <div class="ref">Las fechas europeas y australianas se presentan como contexto histórico y deben confirmarse con asesoría local antes de usarse en un documento formal. Las fechas brasileñas constan en las órdenes citadas, que integran el acervo consultable de <a href="froid-explica-nr1.html">FROID Explica la regla brasileña</a>.</div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section class="block" id="ja-tem-45001">
-  <div class="container">
-    <p class="section-kicker">Para quien ya tiene sistema de gestión</p>
-    <h2 class="section-title">No le pedimos que adopte un marco nuevo</h2>
-    <p class="section-lead">Es la diferencia entre una propuesta que exige decisión estratégica y una que completa una estructura ya elegida.</p>
-
-    <div class="grid-3">
-      <div class="card">
-        <span class="badge badge-strong">Costo de cambio</span>
-        <h3>Cero</h3>
-        <p>Por definición de la propia ISO, la 45003 es la capa psicosocial de un sistema basado en la ISO 45001. Si su compañía ya opera la 45001 certificada y auditada, el referencial no es nuevo — es la parte de él que todavía no tenía instrumento.</p>
-      </div>
-      <div class="card">
-        <span class="badge badge-strong">Lo que se agrega</span>
-        <h3>El módulo que falta</h3>
-        <p>Instrumento anclado, pisos aplicados en la base de datos, gradación por severidad y probabilidad, y comparación de eficacia entre ciclos. Entra como componente de un sistema maduro, no como sustituto de él.</p>
-      </div>
-      <div class="card">
-        <span class="badge badge-weak">Lo que no cambia</span>
-        <h3>Su gobernanza de SST</h3>
-        <p>No emitimos pericia, no firmamos su programa de gestión de riesgos y no sustituimos al servicio especializado. La responsabilidad por la gestión de riesgos permanece íntegramente en la organización, y el instrumento existe para instruirla — no para asumirla.</p>
-      </div>
-    </div>
-
-    <div class="disclaimer-box" style="margin-top:24px;">
-      <strong>El argumento en una línea, para llevar a un directorio:</strong> la norma internacional ya existe y es directriz sin instrumento; la exigencia documental ya existe y es brasileña; quien resolvió el instrumento bajo la exigencia más dura tiene el método que sirve de los dos lados. Brasil deja de ser el mercado y pasa a ser el laboratorio donde el método se probó bajo la presión más alta.
-    </div>
-  </div>
-</section>
-
-<section class="block soft" id="limites">
-  <div class="container">
-    <p class="section-kicker">Límites</p>
-    <h2 class="section-title">Lo que no afirmamos</h2>
-    <div class="disclaimer-box" style="margin:0;">
-      <strong>No estamos certificados por la ISO, y nadie lo está en esta norma.</strong> La ISO 45003 es norma de directrices y no admite certificación acreditada. Estar anclado en ella significa que el instrumento se apoya en el referencial internacional que el propio regulador cita — no que exista sello, auditoría o acreditación nuestra ante la ISO.<br/><br/>
-      <strong>No somos la ISO ni la representamos.</strong> Las citas de esta página son extractos del alcance público de la norma y de la guía del ministerio de Trabajo brasileño, reproducidos para identificar la fuente del respaldo.<br/><br/>
-      <strong>Un cuestionario aislado no comprueba gestión de riesgo</strong>, y lo decimos antes de que lo pregunten. El instrumento caracteriza la exposición; la observación de la actividad y el diálogo con el trabajador los hacen personas, y un análisis ergonómico del trabajo sigue siendo el método exigido en las situaciones que la regulación local le reserva.<br/><br/>
-      <strong>Los documentos generados siguen la estructura de la regulación brasileña.</strong> Fuera de Brasil se transfieren el instrumento, los pisos, el motor de eficacia y la traza de evidencia; el mapeo de la salida al documento exigido localmente se define por proyecto. Preferimos decirlo ahora a descubrirlo juntos después.
-    </div>
-  </div>
-</section>
-
-<section class="block" id="proximo">
-  <div class="container">
-    <p class="section-kicker">Próximo paso</p>
-    <h2 class="section-title">Empiece por una unidad</h2>
-    <p class="section-lead">Una sede, criterios documentados desde el primer día, y la exposición caracterizada en una forma que su evaluación logre absorber. Si el método se sostiene ahí, escala. Si no se sostiene, lo descubrió barato.</p>
-    <div class="hero-actions" style="margin-top:22px;">
-      <a class="btn btn-solid" href="sobre-contato.html">Conversar sobre un piloto</a>
-      <a class="btn btn-ghost" href="empresas.html">Qué recibe la empresa, y cuánto cuesta</a>
-      <a class="btn btn-ghost" href="como-funciona-nr1.html">El ciclo, etapa por etapa</a>
-    </div>
   </div>
 </section>
 
@@ -433,50 +234,58 @@
     <div class="foot-grid">
       <div>
         <h5>FROID</h5>
-        <p style="max-width:340px; color:rgba(248,250,252,0.55);">Frequency Recognition of Internal Dynamics. Herramienta de apoyo a la escucha clínica — no sustituye evaluación, diagnóstico ni juicio profesional.</p>
+        <p style="max-width:340px; color:rgba(248,250,252,0.55);">Frequency Recognition of Internal Dynamics. Herramienta de apoyo a la escucha clínica: no sustituye la evaluación, el diagnóstico ni el juicio profesional.</p>
       </div>
       <div>
-        <h5>Navegación</h5>
+        <h5>FROID Psique</h5>
         <ul>
-          <li><a href="index.html">FROID Psique</a></li>
-          <li><a href="ciencia.html">Ciencia</a></li>
+          <li><a href="profissionais.html">Profesionales y clínicas</a></li>
+          <li><a href="como-funciona-clinico.html">Cómo funciona una sesión</a></li>
+          <li><a href="demonstracao.html">Demostración</a></li>
           <li><a href="tecnologia.html">Tecnología</a></li>
           <li><a href="mapas-faciais.html">Mapas del rostro</a></li>
+          <li><a href="ciencia.html">Ciencia y validación</a></li>
+          <li><a href="data-froid.html">Data-Froid</a></li>
           <li><a href="froid-explica.html">FROID Explica</a></li>
-          <li><a href="etica.html">Ética</a></li>
-          <li><a href="seguranca.html">Seguridad</a></li>
-          <li><a href="profissionais.html">Profesionales</a></li>
-          <li><a href="iso-45003.html">FROID NR-1/ISO-45003</a></li>
-          <li><a href="empresas.html">Para Empresas</a></li>
-          <li><a href="como-funciona-nr1.html">Cómo funciona</a></li>
           <li><a href="precos.html">Precios</a></li>
-        </ul>
-      </div>
-      <div>
-        <h5>Soporte</h5>
-        <ul>
-          <li><a href="faq.html">Preguntas Frecuentes</a></li>
+          <li><a href="faq.html">Preguntas frecuentes</a></li>
           <li><a href="glossario.html">Glosario</a></li>
-          <li><a href="demonstracao.html">Demostración</a></li>
-          <li><a href="sobre-contato.html">Acerca de &amp; Contacto</a></li>
-          <li><a href="termos.html">Términos de Uso</a></li>
-          <li><a href="privacidade.html">Política de Privacidad</a></li>
+          <li><a href="etica.html">Ética y límites</a></li>
+          <li><a href="seguranca.html">Seguridad</a></li>
         </ul>
       </div>
       <div>
-        <h5>Acceso</h5>
+        <h5>FROID NR-1</h5>
         <ul>
-          <li><a href="https://www.froid.com.br/app/#/login">Iniciar sesión en FROID</a></li>
-          <li><a href="https://www.froid.com.br/cadastro">Crear cuenta en FROID</a></li>
+          <li><a href="empresas.html">Para empresas</a></li>
+          <li><a href="como-funciona-nr1.html">Cómo funciona</a></li>
+          <li><a href="diagnostico-nr1.html">Preparación</a></li>
+          <li><a href="proposta-nr1.html">Propuesta</a></li>
+          <li><a href="froid-explica-nr1.html">FROID Explica NR-1</a></li>
+          <li><a href="iso-45003.html">ISO 45003</a></li>
+          <li><a href="seguranca-nr1.html">Privacidad y divulgación</a></li>
+          <li><a href="faq-nr1.html">Preguntas frecuentes</a></li>
+          <li><a href="glossario-nr1.html">Glosario NR-1</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Institucional y acceso</h5>
+        <ul>
+          <li><a href="menu.html">Mapa del sitio</a></li>
+          <li><a href="sobre-contato.html">Acerca de y contacto</a></li>
+          <li><a href="privacidade.html">Privacidad</a></li>
+          <li><a href="termos.html">Términos y contratos</a></li>
+          <li><a href="https://www.froid.com.br/app/#/login">Entrar en FROID</a></li>
+          <li><a href="https://www.froid.com.br/cadastro">Registrarse en FROID</a></li>
           <li><a href="https://www.froid.com.br/app/#/paciente">Portal del Paciente</a></li>
         </ul>
       </div>
     </div>
-    <div class="foot-bottom">© 2026 FROID Tecnologia e Sistemas Ltda. Todos os direitos reservados. FROID é marca de titularidade da FROID Tecnologia e Sistemas Ltda., com pedido de registro em trâmite perante o INPI. Conteúdos, códigos, modelos e identidade visual deste site são protegidos pela legislação aplicável.</div>
+    <div class="foot-bottom">© 2026 FROID Tecnologia e Sistemas Ltda. Todos los derechos reservados. FROID es una marca titularidad de FROID Tecnologia e Sistemas Ltda., con solicitud de registro en trámite ante el INPI. Los contenidos, códigos, modelos e identidad visual de este sitio están protegidos por la legislación aplicable.</div>
   </div>
 </footer>
 
-<script src="../site-assets/script.js?v=18"></script>
+<script src="../site-assets/script.js?v=20"></script>
 <script src="../site-assets/navigation.js?v=1"></script>
 </body>
 </html>

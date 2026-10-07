@@ -5,9 +5,10 @@ metadata:
   node_type: memory
   type: project
   originSessionId: 942a91a1-522e-4406-ac40-da424fed82cb
+  modified: 2026-10-06T19:51:03.899Z
 ---
 
-froid.com.br serve duas aplicações via Caddy: a raiz e páginas institucionais vêm do site estático `froid-site/` (14 páginas, tema escuro, assets em `site-assets/` para não colidir com `/assets/` do SPA); o painel (SPA React com HashRouter) vive em `/app` e nas rotas preservadas `/login`, `/cadastro`, `/paciente`, `/access/*`, `/convite/*`.
+froid.com.br serve duas aplicações via Caddy: a raiz e páginas institucionais vêm do site estático `froid-site/` (28 páginas pt-BR desde 06/10/2026, ver [[froid-site-troca-2026-10]], mais 22 em cada uma de en/, es/, fr/; tema escuro, assets em `site-assets/` para não colidir com `/assets/` do SPA; o header é gerado por `tools/gerar-header-do-site.py`, nunca escrito à mão); o painel (SPA React com HashRouter) vive em `/app` e nas rotas preservadas `/login`, `/cadastro`, `/paciente`, `/access/*`, `/convite/*`.
 
 URLs canónicas de acesso usadas nos links do site: profissional `https://www.froid.com.br/app/#/login`, paciente `https://www.froid.com.br/app/#/paciente`. O index estático tem um script que redireciona qualquer hash `#/...` para `/app/#/...` (refresh do painel). `/privacidade` e `/termos` são páginas estáticas com URL limpo (try_files {path}.html).
 

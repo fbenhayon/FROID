@@ -56,8 +56,17 @@ def verify():
         text=p.read_text(encoding='utf-8')
         for bad in ('Ã§','Ã£','â€','\ufffd'):
             if bad in text: errors.append(str(p.relative_to(SITE))+': encoding '+repr(bad))
-        for body in re.findall(r'<script\b[^>]*>(.*?)</script>',text,re.S):
+        for attrs,body in re.findall(r'<script\b([^>]*)>(.*?)</script>',text,re.S):
             if not body.strip(): continue
+            if 'application/ld+json' in attrs:
+                # Bloco de dados estruturados (schema.org), nao e JavaScript:
+                # o node o rejeitava como sintaxe e as 27 paginas pt-BR
+                # reescritas em 06/10/2026 apareciam como falha.
+                import json as _json
+                try: _json.loads(body)
+                except ValueError as e: errors.append(str(p.relative_to(SITE))+': ld+json invalido: '+str(e))
+                scripts+=1
+                continue
             with tempfile.TemporaryDirectory(prefix='froid-site-check-') as tmp:
                 js=Path(tmp)/'inline.js'; js.write_text(body,encoding='utf-8')
                 result=subprocess.run(['node','--check',str(js)],capture_output=True,text=True)

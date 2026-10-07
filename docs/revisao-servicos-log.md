@@ -3,6 +3,50 @@
 Uma linha por rodada. A rodada encerra quando a lista de defeitos zera — não por
 autoavaliação. Ver `.claude/skills/revisar-servicos/SKILL.md`.
 
+## Rodada 11 — 06/10/2026 — troca das 27 páginas pt-BR pela versão nova
+
+**Escopo:** as 27 páginas entregues pelo Fábio (22 substituições + 6 novas:
+`como-funciona-clinico`, `data-froid`, `menu`, `faq-nr1`, `glossario-nr1`,
+`seguranca-nr1`), montadas no template do site; `precos.html` recebeu o texto
+novo do modelo V2 e manteve os blocos de preço vivos do backend. Só pt-BR; as
+traduções seguem o conteúdo anterior e o gerador do header passou a carregar o
+mapa de seções anterior (`NAV_SECOES_TRADUCOES`) para não empobrecê-las.
+
+**Conferido contra o código antes de publicar** (regra da skill): sete famílias,
+16 campos de AU com AU23 vazia e AU25/AU27 não instrumentadas, AU17 por
+`mouthShrugLower`, confirmação em dois quadros distintos (`CONFIRM_MIN`),
+captura a 3 quadros/s, 60 s de calibração, 12 bandas, IPM/IDM vocais, MFCC7/9,
+sub-harmônicos 5–12 Hz, k ≥ 7, rotas `/app/#/...` dos termos e políticas.
+
+**Defeitos fechados nas páginas novas:** "infraestrutura AWS/Hetzner" (não há
+AWS; o país apurado é a Finlândia); "confira câmera, microfone e conexão" como
+etapa prévia (não existe tela de pré-checagem; o navegador pede a permissão ao
+abrir a sala); "nenhum formulário desta página envia dados" (o formulário
+`/api/contato` existe, testado, e voltou); ausência das garantias que os testes
+amarram ao código — anonimato das respostas, "não conduz avaliação em campo",
+"Campanhas ilimitadas.", "não grava a sessão", SHA-256, CNPJ do fornecedor.
+
+**Decisões da versão nova que os testes passaram a guardar** (docstring datada
+em cada um): sem calculadora de piso em `diagnostico-nr1`, sem tabela de faixas
+nem simulação de preço NR-1 em `empresas`/`proposta-nr1`, sem "a partir de 15
+trabalhadores", sem números do corte na demonstração (varredura por forma).
+
+Verificação: `python docs/verificar-site.py` → 94 páginas, 6.441 links locais,
+126 âncoras do menu, 55 scripts embutidos (JSON-LD agora validado como JSON),
+0 falhas. `gerar-header-do-site.py --conferir` em dia. Os 15 testes que leem o
+site: 177 passaram. `node tools/checar-telas-do-site.mjs` → 84 medições
+(28 páginas × celular 390 / desktop 1280 / 1366), 0 com rolagem horizontal,
+elemento fora da borda ou header em duas linhas. Sem commit ou deploy.
+
+### Defeitos abertos
+
+| # | Página | Defeito | Classe | Como confirmar |
+|---|---|---|---|---|
+| 1 | `en/`, `es/`, `fr/` | Traduções descrevem a versão anterior (preços NR-1, calculadora, mapas FACS, manifesto); o hreflang aponta pt novo para en antigo. | Divergência | Traduzir as 27 páginas e apagar `NAV_SECOES_TRADUCOES` do gerador |
+| 2 | `froid-dashboard/src/pages/institutional/` | Cópias institucionais dentro do `/app/` continuam com as afirmações antigas (fora do escopo desta rodada). | Divergência | Abrir `home.html` do painel e comparar com `froid-site/index.html` |
+
+---
+
 ## Rodada 10 — 07/09/2026 — percursos dos dois produtos
 
 **Fontes e escopo:** [revisão do site contra o código](revisao-site-produtos-2026-09-07.md).
