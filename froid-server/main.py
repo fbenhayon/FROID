@@ -7340,6 +7340,24 @@ def _build_whatsapp_message(invite: dict) -> str:
         if payment.get("pix_code"):
             lines.append(f"PIX copia e cola: {payment.get('pix_code')}")
     lines.append("Antes da sessao, confirme seu cadastro e aceite os termos LGPD no link.")
+    # Boas praticas, no texto que o paciente recebe. Determinacao do dono,
+    # 06/10/2026. As duas sao sobre o que o SISTEMA precisa para medir, e nao
+    # conselho generico:
+    #
+    #  - os 60 segundos sao a janela da baseline de voz do paciente, que o painel
+    #    mostra como "Coletando baseline do PC: Xs / 60s"; ela comeca quando o
+    #    audio dele chega, e paciente calado nesse trecho deixa a sessao sem
+    #    referencia propria para comparar o resto;
+    #  - fala sobreposta e o caso em que as duas vozes entram na mesma medida.
+    #
+    # Sem acento de proposito: a mensagem segue no mesmo estilo das linhas acima.
+    lines.append("")
+    lines.append("Boas Praticas para uma Sessao FROID:")
+    lines.append(
+        "1. Inicie sua sessao falando: nos primeiros 60 segundos o FROID estara"
+        " capturando a sua voz."
+    )
+    lines.append("2. Evite falas sobrepostas: fale um de cada vez.")
     return "\n".join(lines)
 
 

@@ -554,6 +554,29 @@ export const NewPatient: React.FC = () => {
               ? "No consultório, o paciente abre o link no celular, confirma consentimentos e entra na sala. O celular passa a ser a captura dedicada do paciente."
               : "O paciente recebe o link, confirma dados, aceita LGPD e entra na sala. O cadastro definitivo acontece no aceite do convite."}
           </p>
+          {/* Boas praticas, do lado de quem conduz. Determinacao do dono,
+              06/10/2026. O paciente recebe as dele no proprio texto do convite
+              (`_build_whatsapp_message`, no servidor); estas duas sao as que
+              dependem do profissional:
+
+               - os 60 segundos sao a janela da baseline de voz do paciente, que o
+                 painel da sessao mostra como "Coletando baseline do PC: Xs / 60s" e
+                 que comeca quando o audio dele chega;
+               - o corte e a unidade de medida do relatorio: dois temas dentro do
+                 mesmo corte viram uma media de duas conversas. */}
+          <div className="mt-3 rounded border border-cyan-800 bg-slate-950 p-2">
+            <p className="text-[11px] font-black text-cyan-200">
+              Boas Práticas para uma Sessão FROID:
+            </p>
+            <ol className="mt-1 list-decimal space-y-1 pl-4 text-[11px] leading-4 text-blue-100">
+              <li>
+                Nos primeiros 60 segundos o FROID estará captando a voz do paciente.
+              </li>
+              <li>
+                Realizar um corte sempre que o paciente mudar o tema da conversa.
+              </li>
+            </ol>
+          </div>
           {patientActivity && (
             <p className="mt-3 rounded border border-emerald-100 bg-emerald-950/40 p-2 font-bold text-emerald-800">
               {patientActivity}
