@@ -39,28 +39,34 @@ RAIZ = os.path.join(REPO, "froid-site")
 # o defeito 2.4 da skill-froid-master. Ao traduzir, acrescente a linha nos
 # outros tres idiomas e rode este script de novo.
 IDIOMAS = {
+    # pt-BR reescrito em 06/10/2026: a index virou institucional (dois produtos),
+    # profissionais.html e a visao geral do Psique e empresas.html a do NR-1.
+    # As traducoes seguem a arquitetura anterior ate serem traduzidas.
     "": {
         "familias": [
-            ("FROID Psique", "index.html", [
-                ("Vis\u00e3o geral", "index.html"),
+            ("FROID Psique", "profissionais.html", [
+                ("Vis\u00e3o geral", "profissionais.html"),
+                ("Como funciona", "como-funciona-clinico.html"),
                 ("Demonstra\u00e7\u00e3o", "demonstracao.html"),
-                ("Profissionais", "profissionais.html"),
                 ("FROID Explica", "froid-explica.html"),
+                ("Data-Froid", "data-froid.html"),
             ]),
-            ("FROID NR-1/ISO-45003", "iso-45003.html", [
-                ("Vis\u00e3o geral (ISO 45003)", "iso-45003.html"),
-                ("Para empresas", "empresas.html"),
+            ("FROID NR-1", "empresas.html", [
+                ("Vis\u00e3o geral", "empresas.html"),
                 ("Como funciona", "como-funciona-nr1.html"),
+                ("Prontid\u00e3o", "diagnostico-nr1.html"),
+                ("Proposta", "proposta-nr1.html"),
                 ("FROID Explica NR-1", "froid-explica-nr1.html"),
+                ("ISO 45003", "iso-45003.html"),
             ]),
         ],
-        "tecnico": ("Ci\u00eancia e Tecnologia", "ciencia.html", [
-            ("Ci\u00eancia", "ciencia.html"),
+        "tecnico": ("Ci\u00eancia e Tecnologia", "tecnologia.html", [
             ("Tecnologia", "tecnologia.html"),
             ("Mapas da face", "mapas-faciais.html"),
+            ("Ci\u00eancia", "ciencia.html"),
         ]),
         "soltos": [("\u00c9tica", "etica.html"), ("Seguran\u00e7a", "seguranca.html"),
-                   ("Pre\u00e7os", "precos.html")],
+                   ("Pre\u00e7os", "precos.html"), ("Explorar", "menu.html")],
     },
     "en": {
         "familias": [
@@ -144,6 +150,154 @@ def carregar_nav_secoes():
 
 
 NAV_SECOES = carregar_nav_secoes()
+# As traducoes (en/, es/, fr/) seguem a arquitetura ANTERIOR do site: em
+# 06/10/2026 so o pt-BR foi trocado pela versao nova, e o NAV_SECOES do
+# script.js passou a descrever as paginas novas. Este e o mapa que valia
+# ate entao, e e por ele que as ancoras das traducoes sao procuradas. Ao
+# traduzir as paginas novas, apague este mapa e deixe tudo usar o do script.
+NAV_SECOES_TRADUCOES = {
+    "index.html": [
+        ('visao-geral', 'Visão geral'),
+        ('data-froid', 'Data-Froid'),
+        ('para-quem-e', 'Para quem é'),
+        ('o-diferencial', 'O diferencial'),
+        ('paciente', 'Portal do Paciente'),
+        ('transparencia', 'Transparência'),
+        ('explore', 'Por onde seguir'),
+    ],
+    "ciencia.html": [
+        ('evidencia', 'Explorador de evidências'),
+        ('percepcao-do-paciente', 'A percepção do paciente sobre a própria expressão'),
+        ('data-froid-ciencia', 'O que o Data-Froid prova, e o que não'),
+        ('bibliografia', 'Metodologia de verificação'),
+    ],
+    "tecnologia.html": [
+        ('baseline', 'Calibração da linha de base'),
+        ('extracao-acustica', 'Extração acústica'),
+        ('facs', 'Dinâmica facial (FACS)'),
+        ('zonas', 'As 12 Zonas de Percepção'),
+        ('data-froid-engenharia', 'Por que o acervo não era possível'),
+        ('ipm-idm', 'Os índices IPM e IDM'),
+        ('estabilizacao', 'Estabilização clínica da tela'),
+    ],
+    "froid-explica.html": [
+        ('veja-em-acao', 'Veja em ação'),
+        ('como-funciona', 'Como funciona'),
+        ('inteligencia-da-carteira', 'Inteligência da carteira'),
+        ('prompts', 'Biblioteca de prompts'),
+        ('personalizacao', 'Personalização'),
+        ('datamart', 'A base que aprende com o mundo'),
+    ],
+    "etica.html": [
+        ('pilar-1-diretrizes-inegociaveis', 'Diretrizes inegociáveis'),
+        ('pilar-2-fairness-algoritmica', 'Fairness algorítmica'),
+        ('pilar-3-produto', 'Produto'),
+        ('pilar-4-conformidade-legal', 'Conformidade legal'),
+        ('pilar-5-soberania-de-dados', 'Soberania de dados'),
+        ('kit-de-conformidade', 'Kit de conformidade'),
+    ],
+    "seguranca.html": [
+        ('protecao', 'Proteção de dados'),
+        ('caminho', 'O caminho de uma sessão'),
+        ('conformidade', 'Conformidade'),
+    ],
+    "profissionais.html": [
+        ('sessao', 'Antes, durante e depois'),
+        ('financeiro', 'Controle financeiro'),
+        ('relatorios', 'Relatórios de pacientes'),
+        ('data-froid', 'Data-Froid'),
+        ('equipe', 'Compartilhamento entre profissionais'),
+        ('seguranca-e-responsabilidade', 'Segurança e responsabilidade'),
+        ('proximo-passo', 'Próximo passo'),
+    ],
+    "iso-45003.html": [
+        ('indice', 'Como a página se organiza'),
+        ('o-que-e', 'O que a ISO 45003 é'),
+        ('lastro', 'O critério que decide numa perícia'),
+        ('documental', 'Dever de conduta × dever documental'),
+        ('ja-tem-45001', 'Se você já tem ISO 45001'),
+        ('limites', 'O que não afirmamos'),
+        ('proximo', 'Próximo passo'),
+    ],
+    "froid-explica-nr1.html": [
+        ('duas-camadas', 'As duas camadas'),
+        ('temas', 'Os oito temas'),
+        ('trabalhador', 'O que o trabalhador pergunta'),
+        ('acervo', 'O acervo, e o que é recusado'),
+        ('limites', 'O que não é'),
+        ('proximo-passo', 'Próximo passo'),
+    ],
+    "empresas.html": [
+        ('indice', 'Como a página se organiza'),
+        ('o-retrato-legal', 'O que mudou na norma'),
+        ('o-que-a-fiscalizacao-pede', 'Os três documentos'),
+        ('o-custo-da-omissao', 'O custo da omissão'),
+        ('armadilhas', 'Seis erros que geram passivo'),
+        ('solucao', 'A AEP psicossocial'),
+        ('a-plataforma', 'A plataforma'),
+        ('eficacia', 'Provar que a medida funcionou'),
+        ('dado-insuficiente', 'Quando o dado não basta'),
+        ('comparacao', 'Gestão tradicional × FROID'),
+        ('perguntas-fornecedor', 'Cinco perguntas ao fornecedor'),
+        ('precos-nr1', 'Quanto custa'),
+        ('limites-e-responsabilidade', 'Limites e responsabilidade'),
+        ('proximo-passo', 'Comece por um estabelecimento'),
+    ],
+    "como-funciona-nr1.html": [
+        ('as-sete-etapas', 'As nove etapas'),
+        ('dossie-verificavel', 'Comprovação de Gestão Diciplinar'),
+        ('os-perigos', 'A listagem do Guia MTE'),
+        ('o-que-e-igual-em-toda-empresa-e-o-que-muda', 'O que muda em cada empresa'),
+        ('quando-a-segunda-avaliacao-reprova', 'E se a segunda avaliação reprovar?'),
+        ('a-sua-empresa-tem-tamanho-para-isso', 'A sua empresa tem tamanho?'),
+    ],
+    "precos.html": [
+        ('planos', 'Planos PRO, PLUS e MASTER'),
+        ('comparacao', 'Comparação de habilidades'),
+        ('creditos', 'Como funcionam os créditos'),
+        ('nr1', 'Precisa cumprir a NR-1?'),
+        ('antes-de-decidir', 'Antes de decidir'),
+    ],
+    "diagnostico-nr1.html": [
+        ('por-que-existe-um-piso', 'Por que existe um piso'),
+        ('se-a-sua-empresa-nao-atinge-o-piso', 'Se não atinge o piso'),
+    ],
+    "proposta-nr1.html": [
+        ('o-que-esta-sendo-contratado', 'O que está sendo contratado'),
+        ('fases', 'Fases'),
+        ('condicoes-comerciais', 'Condições comerciais'),
+        ('o-que-a-contratante-precisa-fornecer', 'O que a contratante fornece'),
+        ('por-que-este-procedimento-e-nao-outro', 'Por que este procedimento'),
+        ('protecao-de-dados', 'Proteção de dados'),
+        ('limites-do-servico', 'Limites do serviço'),
+        ('aceite', 'Aceite'),
+    ],
+    "sobre-contato.html": [
+        ('quem-faz-o-froid', 'Quem faz o FROID'),
+        ('fale-com-o-time', 'Contato'),
+    ],
+    "mapas-faciais.html": [
+        ('dois-mapas', 'Dois mapas, duas perguntas'),
+        ('vocabulario', 'O que cada AU significa'),
+        ('composicao', 'Como as AUs se combinam'),
+        ('leitura', 'Do rosto à leitura'),
+        ('limites', 'O que os mapas não afirmam'),
+    ],
+    "demonstracao.html": [
+        ('indice', 'Como a página se organiza'),
+        ('o-que-e', 'As três camadas'),
+        ('antes', 'Antes: conta, convite e sala'),
+        ('calibracao', 'Os 60 primeiros segundos'),
+        ('durante', 'Durante: o que a tela mostra'),
+        ('sem-apuracao', 'Quando não há o que medir'),
+        ('explica', 'Perguntar ao FROID Explica'),
+        ('depois', 'Depois: o relatório'),
+        ('liberacao', 'O documento do paciente'),
+        ('acervo', 'O que volta ao Data-Froid'),
+        ('limites', 'O que o FROID não afirma'),
+        ('proximo-passo', 'Próximo passo'),
+    ],
+}
 _cache = {}
 
 
@@ -156,7 +310,8 @@ def secoes_da_pagina(idioma, pagina):
     achadas = []
     if os.path.exists(caminho):
         html = io.open(caminho, encoding="utf-8").read()
-        for ancora, rotulo_curado in NAV_SECOES.get(pagina, []):
+        mapa = NAV_SECOES if not idioma else NAV_SECOES_TRADUCOES
+        for ancora, rotulo_curado in mapa.get(pagina, []):
             # Em pt-BR o rotulo curto ja existe no NAV_SECOES — ele foi escrito
             # para ser item de menu. Nas traducoes nao existe, e o titulo sai do
             # cabecalho da propria pagina, cortado no travessao ou nos dois
@@ -279,12 +434,22 @@ def caminho_relativo(de_idioma, para_idioma, pagina):
     return subir + (para_idioma + "/" if para_idioma else "") + pagina
 
 
+def existe(idioma, pagina):
+    return os.path.exists(os.path.join(RAIZ, idioma, pagina) if idioma else os.path.join(RAIZ, pagina))
+
+
 def bloco_idiomas(idioma, pagina):
+    # Pill e hreflang so para traducao que EXISTE. Desde 06/10/2026 ha paginas
+    # so em pt-BR (como-funciona-clinico, data-froid, menu, faq-nr1,
+    # glossario-nr1, seguranca-nr1); uma pill para en/ delas daria 404.
+    outros = [o for o in ORDEM if o != idioma and existe(o, pagina)]
+    if not outros:
+        return ""
     partes = ['<div class="lang-group" role="group" aria-label="%s">' % ARIA[idioma]]
     for outro in ORDEM:
         if outro == idioma:
             partes.append('<span class="lang-pill lang-current">%s</span>' % SIGLA[outro])
-        else:
+        elif outro in outros:
             partes.append('<a class="lang-pill" href="%s">%s</a>'
                           % (caminho_relativo(idioma, outro, pagina), SIGLA[outro]))
     partes.append("</div>")
@@ -302,6 +467,8 @@ def url_publica(idioma, pagina):
 def bloco_hreflang(pagina):
     linhas = []
     for outro in ["", "en", "fr", "es"]:
+        if not existe(outro, pagina):
+            continue
         sigla = "pt-BR" if not outro else outro
         linhas.append('<link rel="alternate" hreflang="%s" href="%s" />'
                       % (sigla, url_publica(outro, pagina)))
@@ -334,6 +501,7 @@ def aplicar_hreflang(texto, pagina):
 CONFERIR = "--conferir" in sys.argv
 
 trocadas = 0
+arquivos = 0
 divergentes = []
 for idioma in IDIOMAS:
     d = os.path.join(RAIZ, idioma) if idioma else RAIZ
@@ -343,6 +511,7 @@ for idioma in IDIOMAS:
         caminho = os.path.join(d, nome)
         if not os.path.isfile(caminho):
             continue
+        arquivos += 1
         texto = io.open(caminho, encoding="utf-8").read()
         novo = texto
         if NAV.search(novo):
@@ -366,7 +535,7 @@ if CONFERIR:
         print()
         print("Rode `python tools/gerar-header-do-site.py` para regerar.")
         sys.exit(1)
-    print("header em dia nos", 84, "arquivos")
+    print("header em dia nos", arquivos, "arquivos")
 else:
     print("headers reescritos:", trocadas)
 
@@ -384,7 +553,7 @@ for idioma in IDIOMAS:
             html = io.open(caminho, encoding="utf-8").read()
             ids = set(re.findall(r'\sid="([^"]+)"', html))
             no_menu = {a for a, _t in secoes_da_pagina(idioma, href)}
-            for a, _rot in NAV_SECOES.get(href, []):
+            for a, _rot in (NAV_SECOES if not idioma else NAV_SECOES_TRADUCOES).get(href, []):
                 if a in ids and a not in no_menu:
                     perdidas.append("%s/%s#%s" % (idioma or "pt", href, a))
 if perdidas:

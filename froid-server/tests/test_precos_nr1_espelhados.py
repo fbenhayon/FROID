@@ -177,7 +177,10 @@ class TodaCopiaDoPrecoConfereComAFonte(unittest.TestCase):
         """
         pagina = (REPO / "froid-site" / "empresas.html").read_text(encoding="utf-8")
         inicio = pagina.index('id="precos-nr1"')
-        fim = pagina.index('id="limites-e-responsabilidade"')
+        # Fim da secao: o proximo </section>. O marcador antigo, o id de
+        # `limites-e-responsabilidade`, nao existe na pagina nova de 06/10/2026,
+        # e a secao de precos termina onde o HTML diz que termina.
+        fim = pagina.index('</section>', inicio)
         secao = pagina[inicio:fim]
         self.assertIn("Base da plataforma, por estabelecimento", secao)
         self.assertNotIn("por unidade</td>", secao)

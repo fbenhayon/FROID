@@ -3,8 +3,16 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>FROID NR-1/ISO-45003 para a NR-1 — riscos psicossociais no PGR</title>
-<meta name="description" content="AEP psicossocial completa conforme a Portaria MTE nº 1.419/2024: identificação de perigos, gradação por severidade e probabilidade, inventário com os nove itens da NR-1 e prova medida da eficácia das medidas de prevenção." />
+<title>FROID NR-1 | Gestão de riscos psicossociais no trabalho</title>
+<meta name="description" content="Organize avaliação, documentação e acompanhamento de riscos psicossociais com o FROID NR-1. Conheça o percurso da campanha ao plano de ação." />
+<link rel="canonical" href="https://www.froid.com.br/empresas.html" />
+<meta property="og:type" content="website" />
+<meta property="og:locale" content="pt_BR" />
+<meta property="og:title" content="FROID NR-1 — Da avaliação ao acompanhamento" />
+<meta property="og:description" content="Um percurso organizado para condições de trabalho, evidências e ações." />
+<meta property="og:url" content="https://www.froid.com.br/empresas.html" />
+<meta name="twitter:card" content="summary" />
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"FROID NR-1","url":"https://www.froid.com.br/empresas.html","inLanguage":"pt-BR"}</script>
 <link rel="alternate" hreflang="pt-BR" href="https://www.froid.com.br/empresas.html" />
 <link rel="alternate" hreflang="en" href="https://www.froid.com.br/en/empresas.html" />
 <link rel="alternate" hreflang="fr" href="https://www.froid.com.br/fr/empresas.html" />
@@ -12,60 +20,9 @@
 <link rel="alternate" hreflang="x-default" href="https://www.froid.com.br/empresas.html" />
 <link rel="stylesheet" href="site-assets/style.css?v=16" />
 <link rel="stylesheet" href="site-assets/refinement.css?v=2" />
-<style>
-  .stat-row { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; margin:36px auto 0; max-width:900px; }
-  @media (max-width:860px) { .stat-row { grid-template-columns:1fr; } }
-  .stat { border:1px solid var(--border); border-radius:var(--radius); background:rgba(15,23,42,0.6); padding:20px 18px; text-align:center; }
-  .stat .num { font-family:var(--font-serif); font-size:2rem; font-weight:700; color:#f8fafc; line-height:1.1; font-variant-numeric:tabular-nums; }
-  .stat .desc { font-size:0.86rem; color:var(--froid-cinza); margin-top:8px; }
-  .stat .src { font-size:0.72rem; color:#64748b; margin-top:10px; }
-
-  .risk-list { list-style:none; margin:0; padding:0; }
-  .risk-list li { position:relative; padding:9px 0 9px 26px; border-bottom:1px solid #1e2a44; font-size:0.94rem; }
-  .risk-list li:last-child { border-bottom:none; }
-  .risk-list li::before { content:"▸"; position:absolute; left:4px; color:var(--froid-azul); font-weight:800; }
-
-  .legal-card { border:1px solid var(--border); border-left:3px solid var(--froid-vermelho); border-radius:var(--radius); background:rgba(15,23,42,0.6); padding:20px 22px; margin:0 0 18px; }
-  .legal-card:last-child { margin-bottom:0; }
-  .legal-card h3 { margin:10px 0 8px; font-size:1.05rem; }
-  .legal-card p { margin:0; font-size:0.94rem; }
-
-  .cmp-wrap, .haz-wrap { overflow-x:auto; }
-  .cmp-table, .haz-table { width:100%; border-collapse:collapse; font-size:0.9rem; min-width:640px; }
-  .cmp-table th, .cmp-table td, .haz-table th, .haz-table td { padding:11px 14px; border-bottom:1px solid #334155; text-align:left; vertical-align:top; }
-  .cmp-table th, .haz-table th { background:#1e293b; color:#f8fafc; font-size:0.82rem; text-transform:uppercase; letter-spacing:0.05em; }
-  .cmp-table th:last-child { color:#93c5fd; }
-  .cmp-table td:first-child { font-weight:700; color:#f8fafc; width:20%; }
-  .cmp-table td.trad { color:var(--froid-cinza); }
-  .cmp-table td.froid { color:#e2e8f0; background:rgba(59,130,246,0.06); }
-  .haz-table td:last-child { color:var(--froid-cinza); font-size:0.86rem; }
-  .haz-table .grp td { background:#0f172a; color:#93c5fd; font-weight:700; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em; }
-
-  .norm-quote { border-left:3px solid var(--froid-azul); padding:2px 0 2px 16px; margin:0 0 22px; color:var(--froid-cinza); font-size:0.9rem; }
-  .norm-quote strong { color:#e2e8f0; }
-  .norm-ref { display:block; font-size:0.78rem; color:#64748b; margin-top:6px; }
-
-  .timeline { border-left:2px solid #1e2a44; margin:28px 0 0; padding:0 0 0 22px; list-style:none; }
-  .timeline li { position:relative; padding:0 0 22px; }
-  .timeline li::before { content:""; position:absolute; left:-28px; top:5px; width:10px; height:10px; border-radius:50%; background:var(--froid-azul); }
-  .timeline li.now::before { background:var(--froid-amarelo); box-shadow:0 0 10px var(--froid-amarelo); }
-  .timeline .when { font-weight:700; color:#f8fafc; font-size:0.92rem; }
-  .timeline .what { color:var(--froid-cinza); font-size:0.9rem; margin-top:3px; }
-
-  .indice { padding:6px 22px; }
-  .indice-linha { display:flex; gap:16px; align-items:flex-start; padding:16px 0; border-bottom:1px solid #1e2a44; }
-  .indice-linha:last-child { border-bottom:none; }
-  .indice-num { flex:none; width:26px; height:26px; border-radius:50%; background:var(--froid-azul); color:#0b1220;
-                font-weight:800; font-size:0.82rem; display:flex; align-items:center; justify-content:center; margin-top:2px; }
-  .indice-linha strong { color:#f8fafc; }
-  .indice-linha > div { font-size:0.92rem; color:var(--froid-cinza); }
-  .indice-linha p { margin:6px 0 0; font-size:0.86rem; }
-
-  .trap { border:1px solid #7f1d1d; border-radius:var(--radius); background:rgba(69,10,10,0.35); padding:16px 18px; }
-  .trap h4 { margin:0 0 6px; font-size:0.95rem; color:#fecaca; }
-  .trap p { margin:0; font-size:0.88rem; color:rgba(248,250,252,0.75); }
-</style>
+<link rel="stylesheet" href="site-assets/paginas.css?v=2" />
 </head>
+
 <body>
 
 <header class="site-header">
@@ -74,141 +31,154 @@
     <nav class="nav-links">
       <span class="nav-familia">
         <span class="nav-menu">
-          <a class="nav-familia-rotulo" href="index.html">FROID Psique</a>
+          <a class="nav-familia-rotulo" href="profissionais.html">FROID Psique</a>
           <div class="nav-drop nav-drop-mega" role="menu">
           <div class="nav-drop-col">
-            <a class="nav-drop-pagina nav-drop-visao-geral" role="menuitem" href="index.html">Visão geral</a>
-            <a class="nav-drop-secao" role="menuitem" href="index.html#visao-geral">Visão geral</a>
-            <a class="nav-drop-secao" role="menuitem" href="index.html#data-froid">Data-Froid</a>
-            <a class="nav-drop-secao" role="menuitem" href="index.html#para-quem-e">Para quem é</a>
-            <a class="nav-drop-secao" role="menuitem" href="index.html#o-diferencial">O diferencial</a>
-            <a class="nav-drop-secao" role="menuitem" href="index.html#paciente">Portal do Paciente</a>
-            <a class="nav-drop-secao" role="menuitem" href="index.html#transparencia">Transparência</a>
-            <a class="nav-drop-secao" role="menuitem" href="index.html#explore">Por onde seguir</a>
+            <a class="nav-drop-pagina nav-drop-visao-geral" role="menuitem" href="profissionais.html">Visão geral</a>
+            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#antes-durante-e-depois">Antes, durante e depois</a>
+            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#relatorio-da-sessao">O relatório da sessão</a>
+            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#instrumentos-que-informam-sem-decidir-por-voce">Instrumentos que informam, sem decidir por você</a>
+            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#uma-pergunta-melhor-comeca-por-um-contexto-claro">Uma pergunta melhor começa por um contexto claro</a>
+            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#data-froid-da-informacao-registrada-a-investigacao">Data-Froid: da informação registrada à investigação</a>
+            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#contratacao-adequada-a-sua-pratica">Contratação adequada à sua prática</a>
+            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#comece-avaliando-o-encaixe-na-sua-rotina">Comece avaliando o encaixe na sua rotina</a>
+          </div>
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina" role="menuitem" href="como-funciona-clinico.html">Como funciona</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-clinico.html#prepare-uma-captura-autorizada">1. Prepare uma captura autorizada</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-clinico.html#acompanhe-canais-complementares">2. Acompanhe canais complementares</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-clinico.html#distingua-candidato-registro-e-historico">3. Distingua candidato, registro e histórico</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-clinico.html#saiba-quando-nao-ha-medida">4. Saiba quando não há medida</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-clinico.html#revise-e-contextualize">5. Revise e contextualize</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-clinico.html#veja-como-isso-se-apresenta">Veja como isso se apresenta</a>
           </div>
           <div class="nav-drop-col">
             <a class="nav-drop-pagina" role="menuitem" href="demonstracao.html">Demonstração</a>
-            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#indice">Como a página se organiza</a>
-            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#o-que-e">As três camadas</a>
-            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#antes">Antes: conta, convite e sala</a>
-            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#calibracao">Os 60 primeiros segundos</a>
-            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#durante">Durante: o que a tela mostra</a>
-            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#sem-apuracao">Quando não há o que medir</a>
-            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#explica">Perguntar ao FROID Explica</a>
-            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#depois">Depois: o relatório</a>
-            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#liberacao">O documento do paciente</a>
-            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#acervo">O que volta ao Data-Froid</a>
-            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#limites">O que o FROID não afirma</a>
-            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#proximo-passo">Próximo passo</a>
-          </div>
-          <div class="nav-drop-col">
-            <a class="nav-drop-pagina" role="menuitem" href="profissionais.html">Profissionais</a>
-            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#sessao">Antes, durante e depois</a>
-            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#financeiro">Controle financeiro</a>
-            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#relatorios">Relatórios de pacientes</a>
-            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#data-froid">Data-Froid</a>
-            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#equipe">Compartilhamento entre profissionais</a>
-            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#seguranca-e-responsabilidade">Segurança e responsabilidade</a>
-            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#proximo-passo">Próximo passo</a>
+            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#uma-linha-do-tempo-dois-canais">Uma linha do tempo, dois canais</a>
+            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#explore-tres-situacoes">Explore três situações</a>
+            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#o-que-o-profissional-leva-para-a-revisao">O que o profissional leva para a revisão</a>
+            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#cortes-e-calibracao">Calibração e cortes: os números da sessão</a>
+            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#o-produto-na-tela">O aplicativo, na tela</a>
+            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#quer-conhecer-a-interface-em-uma-apresentacao">Quer conhecer a interface em uma apresentação?</a>
           </div>
           <div class="nav-drop-col">
             <a class="nav-drop-pagina" role="menuitem" href="froid-explica.html">FROID Explica</a>
             <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#veja-em-acao">Veja em ação</a>
-            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#como-funciona">Como funciona</a>
-            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#inteligencia-da-carteira">Inteligência da carteira</a>
-            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#prompts">Biblioteca de prompts</a>
-            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#personalizacao">Personalização</a>
-            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#datamart">A base que aprende com o mundo</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#conhecimento-sessao-e-acervo-tres-escopos">Conhecimento, sessão e acervo: três escopos</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#como-um-bibliotecario-nao-como-um-oraculo">Como um bibliotecário, não como um oráculo</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#prompts">Prompts nativos para começar; próprios para aprofundar</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#mais-clareza-sem-transformar-resposta-em-conduta">Mais clareza, sem transformar resposta em conduta</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#veja-o-assistente-no-contexto-da-sua-pratica">Veja o assistente no contexto da sua prática</a>
+          </div>
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina" role="menuitem" href="data-froid.html">Data-Froid</a>
+            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#o-acervo-e-o-assistente-tem-papeis-diferentes">O acervo e o assistente têm papéis diferentes</a>
+            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#tres-responsabilidades-na-arquitetura-proposta">Três responsabilidades na arquitetura proposta</a>
+            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#o-que-pode-ser-investigado">O que pode ser investigado</a>
+            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#voz-e-rosto-continuam-separados">Voz e rosto continuam separados</a>
+            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#pesquisa">Um caminho para investigar, não uma validação automática</a>
+            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#privacidade-nao-e-um-rotulo">Privacidade não é um rótulo</a>
+            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#perguntas-que-respeitam-os-dados-disponiveis">Perguntas que respeitam os dados disponíveis</a>
+            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#avalie-o-data-froid-com-a-equipe">Avalie o Data-Froid com a equipe</a>
           </div>
           </div>
         </span>
       </span>
       <span class="nav-familia">
         <span class="nav-menu">
-          <a class="nav-familia-rotulo ativo" href="iso-45003.html">FROID NR-1/ISO-45003</a>
+          <a class="nav-familia-rotulo ativo" href="empresas.html">FROID NR-1</a>
           <div class="nav-drop nav-drop-mega" role="menu">
           <div class="nav-drop-col">
-            <a class="nav-drop-pagina nav-drop-visao-geral" role="menuitem" href="iso-45003.html">Visão geral (ISO 45003)</a>
-            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#indice">Como a página se organiza</a>
-            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#o-que-e">O que a ISO 45003 é</a>
-            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#lastro">O critério que decide numa perícia</a>
-            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#documental">Dever de conduta × dever documental</a>
-            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#ja-tem-45001">Se você já tem ISO 45001</a>
-            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#limites">O que não afirmamos</a>
-            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#proximo">Próximo passo</a>
-          </div>
-          <div class="nav-drop-col">
-            <a class="nav-drop-pagina ativo" role="menuitem" href="empresas.html">Para empresas</a>
-            <a class="nav-drop-secao" role="menuitem" href="empresas.html#indice">Como a página se organiza</a>
-            <a class="nav-drop-secao" role="menuitem" href="empresas.html#o-retrato-legal">O que mudou na norma</a>
-            <a class="nav-drop-secao" role="menuitem" href="empresas.html#o-que-a-fiscalizacao-pede">Os três documentos</a>
-            <a class="nav-drop-secao" role="menuitem" href="empresas.html#o-custo-da-omissao">O custo da omissão</a>
-            <a class="nav-drop-secao" role="menuitem" href="empresas.html#armadilhas">Seis erros que geram passivo</a>
-            <a class="nav-drop-secao" role="menuitem" href="empresas.html#solucao">A AEP psicossocial</a>
-            <a class="nav-drop-secao" role="menuitem" href="empresas.html#a-plataforma">A plataforma</a>
-            <a class="nav-drop-secao" role="menuitem" href="empresas.html#eficacia">Provar que a medida funcionou</a>
-            <a class="nav-drop-secao" role="menuitem" href="empresas.html#dado-insuficiente">Quando o dado não basta</a>
-            <a class="nav-drop-secao" role="menuitem" href="empresas.html#comparacao">Gestão tradicional × FROID</a>
-            <a class="nav-drop-secao" role="menuitem" href="empresas.html#perguntas-fornecedor">Cinco perguntas ao fornecedor</a>
-            <a class="nav-drop-secao" role="menuitem" href="empresas.html#precos-nr1">Quanto custa</a>
-            <a class="nav-drop-secao" role="menuitem" href="empresas.html#limites-e-responsabilidade">Limites e responsabilidade</a>
-            <a class="nav-drop-secao" role="menuitem" href="empresas.html#proximo-passo">Comece por um estabelecimento</a>
+            <a class="nav-drop-pagina nav-drop-visao-geral ativo" role="menuitem" href="empresas.html">Visão geral</a>
+            <a class="nav-drop-secao" role="menuitem" href="empresas.html#nao-basta-uma-fotografia-do-problema">Não basta uma fotografia do problema</a>
+            <a class="nav-drop-secao" role="menuitem" href="empresas.html#processo">Um processo, responsabilidades claras</a>
+            <a class="nav-drop-secao" role="menuitem" href="empresas.html#privacidade">Condições de trabalho, não vigilância clínica</a>
+            <a class="nav-drop-secao" role="menuitem" href="empresas.html#o-que-entra-no-escopo-da-conversa">O que entra no escopo da conversa</a>
+            <a class="nav-drop-secao" role="menuitem" href="empresas.html#comece-com-um-escopo-bem-definido">Comece com um escopo bem definido</a>
           </div>
           <div class="nav-drop-col">
             <a class="nav-drop-pagina" role="menuitem" href="como-funciona-nr1.html">Como funciona</a>
-            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#as-sete-etapas">As nove etapas</a>
-            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#dossie-verificavel">Comprovação de Gestão Diciplinar</a>
-            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#os-perigos">A listagem do Guia MTE</a>
-            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#o-que-e-igual-em-toda-empresa-e-o-que-muda">O que muda em cada empresa</a>
-            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#quando-a-segunda-avaliacao-reprova">E se a segunda avaliação reprovar?</a>
-            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#a-sua-empresa-tem-tamanho-para-isso">A sua empresa tem tamanho?</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#defina-unidades-e-responsabilidades">1. Defina unidades e responsabilidades</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#prepare-finalidade-comunicacao-e-apoio">2. Prepare finalidade, comunicação e apoio</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#colete-e-reuna-evidencias">3. Colete e reúna evidências</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#examine-resultados-elegiveis">4. Examine resultados elegíveis</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#organize-documentacao-e-acao">5. Organize documentação e ação</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#implemente-e-acompanhe">6. Implemente e acompanhe</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#reavalie-e-revise">7. Reavalie e revise</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#anonimato-das-respostas">Por que ninguém consegue saber quem respondeu o quê</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#os-perigos">A listagem do Guia MTE 2025</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#construa-o-percurso-adequado-a-organizacao">Construa o percurso adequado à organização</a>
+          </div>
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina" role="menuitem" href="diagnostico-nr1.html">Prontidão</a>
+            <a class="nav-drop-secao" role="menuitem" href="diagnostico-nr1.html#checklist-de-preparacao">Checklist de preparação</a>
+            <a class="nav-drop-secao" role="menuitem" href="diagnostico-nr1.html#calculadora">A sua empresa consegue resultado liberável?</a>
+            <a class="nav-drop-secao" role="menuitem" href="diagnostico-nr1.html#por-que-existe-um-piso">Por que existe um piso</a>
+            <a class="nav-drop-secao" role="menuitem" href="diagnostico-nr1.html#se-um-recorte-nao-puder-ser-divulgado">Se um recorte não puder ser divulgado</a>
+            <a class="nav-drop-secao" role="menuitem" href="diagnostico-nr1.html#leve-um-escopo-claro-a-primeira-conversa">Leve um escopo claro à primeira conversa</a>
+          </div>
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina" role="menuitem" href="proposta-nr1.html">Proposta</a>
+            <a class="nav-drop-secao" role="menuitem" href="proposta-nr1.html#o-que-definir-antes-do-valor">O que definir antes do valor</a>
+            <a class="nav-drop-secao" role="menuitem" href="proposta-nr1.html#etapas-que-a-proposta-pode-contemplar">Etapas que a proposta pode contemplar</a>
+            <a class="nav-drop-secao" role="menuitem" href="proposta-nr1.html#precos">Condições comerciais</a>
+            <a class="nav-drop-secao" role="menuitem" href="proposta-nr1.html#o-contrato-e-a-referencia">O contrato é a referência</a>
+            <a class="nav-drop-secao" role="menuitem" href="proposta-nr1.html#comece-com-as-informacoes-essenciais">Comece com as informações essenciais</a>
           </div>
           <div class="nav-drop-col">
             <a class="nav-drop-pagina" role="menuitem" href="froid-explica-nr1.html">FROID Explica NR-1</a>
-            <a class="nav-drop-secao" role="menuitem" href="froid-explica-nr1.html#duas-camadas">As duas camadas</a>
-            <a class="nav-drop-secao" role="menuitem" href="froid-explica-nr1.html#temas">Os oito temas</a>
-            <a class="nav-drop-secao" role="menuitem" href="froid-explica-nr1.html#trabalhador">O que o trabalhador pergunta</a>
-            <a class="nav-drop-secao" role="menuitem" href="froid-explica-nr1.html#acervo">O acervo, e o que é recusado</a>
-            <a class="nav-drop-secao" role="menuitem" href="froid-explica-nr1.html#limites">O que não é</a>
-            <a class="nav-drop-secao" role="menuitem" href="froid-explica-nr1.html#proximo-passo">Próximo passo</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica-nr1.html#dois-caminhos-de-consulta">Dois caminhos de consulta</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica-nr1.html#exemplos-de-perguntas-uteis">Exemplos de perguntas úteis</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica-nr1.html#privacidade-tambem-na-pergunta">Privacidade também na pergunta</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica-nr1.html#orientacao-com-limites-explicitos">Orientação com limites explícitos</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica-nr1.html#veja-a-aplicacao-no-seu-projeto">Veja a aplicação no seu projeto</a>
+          </div>
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina" role="menuitem" href="iso-45003.html">ISO 45003</a>
+            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#referencia-nao-e-validacao-automatica-do-produto">Referência não é validação automática do produto</a>
+            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#o-que-deve-ser-verificado-no-projeto">O que deve ser verificado no projeto</a>
+            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#como-o-froid-entra-nessa-organizacao">Como o FROID entra nessa organização</a>
+            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#avalie-a-relacao-com-seu-sistema-de-gestao">Avalie a relação com seu sistema de gestão</a>
           </div>
           </div>
         </span>
       </span>
       <span class="nav-familia">
         <span class="nav-menu">
-          <a class="nav-familia-rotulo" href="ciencia.html">Ciência e Tecnologia</a>
+          <a class="nav-familia-rotulo" href="tecnologia.html">Ciência e Tecnologia</a>
           <div class="nav-drop nav-drop-mega" role="menu">
           <div class="nav-drop-col">
-            <a class="nav-drop-pagina nav-drop-visao-geral" role="menuitem" href="ciencia.html">Ciência</a>
-            <a class="nav-drop-secao" role="menuitem" href="ciencia.html#evidencia">Explorador de evidências</a>
-            <a class="nav-drop-secao" role="menuitem" href="ciencia.html#percepcao-do-paciente">A percepção do paciente sobre a própria expressão</a>
-            <a class="nav-drop-secao" role="menuitem" href="ciencia.html#data-froid-ciencia">O que o Data-Froid prova, e o que não</a>
-            <a class="nav-drop-secao" role="menuitem" href="ciencia.html#bibliografia">Metodologia de verificação</a>
-          </div>
-          <div class="nav-drop-col">
-            <a class="nav-drop-pagina" role="menuitem" href="tecnologia.html">Tecnologia</a>
-            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#baseline">Calibração da linha de base</a>
-            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#extracao-acustica">Extração acústica</a>
-            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#facs">Dinâmica facial (FACS)</a>
-            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#zonas">As 12 Zonas de Percepção</a>
-            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#data-froid-engenharia">Por que o acervo não era possível</a>
-            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#ipm-idm">Os índices IPM e IDM</a>
-            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#estabilizacao">Estabilização clínica da tela</a>
+            <a class="nav-drop-pagina nav-drop-visao-geral" role="menuitem" href="tecnologia.html">Tecnologia</a>
+            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#voz">Voz: uma referência para a própria sessão</a>
+            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#ipm-idm">IPM e IDM: magnitude e direção</a>
+            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#face">Face: do coeficiente ao padrão</a>
+            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#registro">Consistência que chega à tela e ao relatório</a>
+            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#arquitetura-com-responsabilidades-distintas">Arquitetura com responsabilidades distintas</a>
+            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#na-tela">As medidas, na tela</a>
+            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#leve-o-entendimento-para-a-pratica">Leve o entendimento para a prática</a>
           </div>
           <div class="nav-drop-col">
             <a class="nav-drop-pagina" role="menuitem" href="mapas-faciais.html">Mapas da face</a>
-            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#dois-mapas">Dois mapas, duas perguntas</a>
-            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#vocabulario">O que cada AU significa</a>
-            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#composicao">Como as AUs se combinam</a>
-            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#leitura">Do rosto à leitura</a>
-            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#limites">O que os mapas não afirmam</a>
+            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#um-dicionario-de-movimentos-nao-um-leitor-de-pensamentos">Um dicionário de movimentos, não um leitor de pensamentos</a>
+            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#familias">As sete famílias</a>
+            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#o-detalhe-nao-desaparece-na-organizacao">O detalhe não desaparece na organização</a>
+            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#quadros-de-referencia">Os quadros de referência do FACS</a>
+            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#limites">O que não deve ser inferido</a>
+            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#explore-antes-de-decidir">Explore antes de decidir</a>
+          </div>
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina" role="menuitem" href="ciencia.html">Ciência</a>
+            <a class="nav-drop-secao" role="menuitem" href="ciencia.html#tres-camadas-de-leitura">Três camadas de leitura</a>
+            <a class="nav-drop-secao" role="menuitem" href="ciencia.html#o-que-o-produto-apresenta">O que o produto apresenta</a>
+            <a class="nav-drop-secao" role="menuitem" href="ciencia.html#validacao">Como comunicar evolução sem antecipar evidência</a>
+            <a class="nav-drop-secao" role="menuitem" href="ciencia.html#do-entendimento-a-avaliacao-da-sua-pratica">Do entendimento à avaliação da sua prática</a>
           </div>
           </div>
         </span>
         <a href="etica.html">Ética</a>
         <a href="seguranca.html">Segurança</a>
         <a href="precos.html">Preços</a>
+        <a href="menu.html">Explorar</a>
       </span>
     </nav>
     <div class="nav-actions">
@@ -218,581 +188,61 @@
   </div>
 </header>
 
-<section class="hero" style="padding:64px 0 56px;">
+
+<section class="hero">
   <div class="container">
-    <p class="section-kicker" style="color:#93c5fd;">FROID NR-1/ISO-45003 — para a NR-1 (Norma Regulamentadora nº 1)</p>
-    <h1 style="font-size:2.1rem;">A NR-1 exige provar que a medida funcionou. Quase ninguém consegue.</h1>
-    <p class="lead">Desde 26 de maio de 2026, ao graduar o risco psicossocial a empresa precisa considerar a eficácia das medidas de prevenção que já implementou. O FROID entrega a AEP (Avaliação Ergonômica Preliminar) psicossocial completa — e mede essa eficácia comparando cada setor contra a própria linha de base dele, antes e depois.</p>
-    <div class="hero-actions">
-      <a class="btn btn-solid" href="sobre-contato.html">Agendar uma avaliação piloto</a>
-      <a class="btn btn-ghost" href="#indice">Ver como a página se organiza</a>
-<a class="btn btn-ghost" href="#eficacia">Como a eficácia é medida</a>
-      <a class="btn btn-ghost" href="#dado-insuficiente">Quando o dado não basta</a>
-      <a class="btn btn-ghost" href="#precos-nr1">Quanto custa</a>
-    </div>
-
-    <div class="stat-row">
-      <div class="stat">
-        <div class="num">24/08/2026</div>
-        <div class="desc">fim dos 90 dias de dupla visita orientativa após a vigência plena. A partir dessa data o descumprimento comporta auto de infração (art. 201 da CLT, a Consolidação das Leis do Trabalho), com multa de R$ 2.396,35 a R$ 6.708,08.</div>
-        <div class="src">Resposta da CGNOR/DSST/SIT · NR-28 (Fiscalização e Penalidades)</div>
-      </div>
-      <div class="stat">
-        <div class="num">546 mil</div>
-        <div class="desc">afastamentos por transtornos mentais no Brasil em 2025 — recorde histórico, alta superior a 15% sobre 2024.</div>
-        <div class="src">MTE (Ministério do Trabalho e Emprego) / INSS (Instituto Nacional do Seguro Social)</div>
-      </div>
-      <div class="stat">
-        <div class="num">8,35%</div>
-        <div class="desc">dos adoecimentos ocupacionais de 2022 foram transtornos mentais somados (CID — Classificação Internacional de Doenças — F41, F32 e F43) — 2º lugar geral, atrás só da dorsalgia.</div>
-        <div class="src">Guia de Fatores de Riscos Psicossociais, MTE, 2025</div>
-      </div>
-      <div class="stat">
-        <div class="num">20 anos</div>
-        <div class="desc">é o prazo mínimo de guarda do histórico de atualizações do inventário de riscos.</div>
-        <div class="src">NR-1, subitem 1.5.7.3.3.1</div>
-      </div>
-    </div>
-
-    <div style="margin-top:36px; display:flex; flex-wrap:wrap; gap:14px; justify-content:center;">
-      <a class="btn btn-amber" href="diagnostico-nr1.html">A minha empresa tem porte para isso?</a>
-      <a class="btn btn-amber-ghost" href="como-funciona-nr1.html">Ver o processo completo, etapa por etapa</a>
-    </div>
-    <p style="margin:14px 0 0; text-align:center; font-size:13px; color:var(--text-dim);">
-      O roteiro inteiro está publicado, sem cadastro. O diagnóstico responde em dois
-      minutos se a sua unidade atinge o piso de respondentes — e diz não quando é não.
-    </p>
+    <p class="section-kicker">FROID NR-1 · Empresas, RH e SST</p>
+    <h1>Do levantamento de riscos ao acompanhamento das ações.</h1>
+    <p class="lead">Organize informações sobre condições de trabalho, evidências e responsabilidades. O FROID NR-1 apoia o percurso da avaliação à revisão das medidas — sem transformar a campanha em diagnóstico individual dos trabalhadores.</p>
+    <div class="hero-actions"><a class="btn btn-solid" href="sobre-contato.html#nr1">Conversar sobre um projeto</a><a class="btn btn-ghost" href="#processo">Entender o processo</a></div>
   </div>
 </section>
 
-<section class="block" id="indice">
-  <div class="container">
-    <p class="section-kicker">Como esta página está organizada</p>
-    <h2 class="section-title">Quatro blocos, nesta ordem</h2>
-    <p class="section-lead">Se você já sabe o que a norma exige, salte para o segundo bloco. E se a pergunta é por que este método e não outro, ela é respondida em <a href="iso-45003.html">FROID NR-1/ISO-45003</a>.</p>
-    <div class="card indice">
-      <div class="indice-linha">
-        <span class="indice-num">1</span>
-        <div>
-          <strong>A obrigação</strong> — o que mudou, o que a fiscalização pede, o que custa não fazer e onde as empresas erram.
-          <p><a href="#o-retrato-legal">O que mudou</a> · <a href="#o-que-a-fiscalizacao-pede">Os três documentos</a> · <a href="#o-custo-da-omissao">O custo da omissão, e as três perguntas do juiz</a> · <a href="#armadilhas">Seis erros que geram passivo</a></p>
-        </div>
-      </div>
-      <div class="indice-linha">
-        <span class="indice-num">2</span>
-        <div>
-          <strong>O que o FROID faz</strong> — o método, a plataforma, e as duas coisas que ninguém mais entrega.
-          <p><a href="#solucao">A AEP psicossocial</a> · <a href="#a-plataforma">A plataforma</a> · <a href="#eficacia">Prova de eficácia</a> · <a href="#dado-insuficiente">Quando o dado não basta</a></p>
-        </div>
-      </div>
-      <div class="indice-linha">
-        <span class="indice-num">3</span>
-        <div>
-          <strong>Como decidir</strong> — a comparação, as perguntas para fazer a qualquer fornecedor, e o preço.
-          <p><a href="#comparacao">Gestão tradicional × FROID</a> · <a href="#perguntas-fornecedor">Cinco perguntas</a> · <a href="#precos-nr1">Quanto custa</a></p>
-        </div>
-      </div>
-      <div class="indice-linha">
-        <span class="indice-num">4</span>
-        <div>
-          <strong>Os limites, e como começar</strong> — o que o FROID não é, e o piloto sem custo, por um estabelecimento.
-          <p><a href="#limites-e-responsabilidade">O que não é</a> · <a href="#proximo-passo">Comece por um estabelecimento</a> · <a href="como-funciona-nr1.html">O ciclo etapa por etapa</a></p>
-        </div>
-      </div>
-    </div>
+<section class="block soft" id="nao-basta-uma-fotografia-do-problema">
+  <div class="container prosa">
+<h2 class="section-title">Não basta uma fotografia do problema</h2>
+<blockquote class="analogia">Uma campanha é como uma fotografia das condições observadas. O acompanhamento exige um álbum organizado: datas, critérios, medidas adotadas e novas observações para examinar o que mudou.</blockquote>
+<p>O objetivo é reunir esse percurso em registros consultáveis, sem confundir planejamento com execução ou variação estatística com prova causal de eficácia.</p>
   </div>
 </section>
 
-<section class="block soft" id="o-retrato-legal">
+<section class="block" id="processo">
   <div class="container">
-    <p class="section-kicker">O retrato legal</p>
-    <h2 class="section-title">O que mudou, exatamente</h2>
-    <p class="section-lead">A Portaria MTE nº 1.419/2024 deu nova redação ao capítulo 1.5 da NR-1. A vigência, inicialmente prevista para 2025, foi prorrogada pela Portaria MTE nº 765/2025 para <strong>26 de maio de 2026</strong>. O período de dupla visita orientativa — noventa dias em que a fiscalização priorizou orientar — encerrou em <strong>24 de agosto de 2026</strong>; desde então o descumprimento comporta auto de infração. O Brasil não foi a primeira jurisdição a exigir avaliação psicossocial — foi a que a tornou <strong>documental</strong>, e <a href="iso-45003.html#documental">a cronologia completa está aqui</a>.</p>
-
-    <div class="norm-quote">
-      <p style="margin:0 0 8px;">“O gerenciamento de riscos ocupacionais deve abranger os riscos que decorrem dos agentes físicos, químicos, biológicos, riscos de acidentes e riscos relacionados aos fatores ergonômicos, <strong>incluindo os fatores de risco psicossociais relacionados ao trabalho</strong>.”</p>
-      <span class="norm-ref">NR-1, subitem 1.5.3.1.4, na redação da Portaria MTE nº 1.419/2024. Base normativa: art. 87, parágrafo único, II, da Constituição; art. 155 da CLT; art. 1º, VI, do Anexo I do Decreto nº 11.779/2023; Processo SEI/MTE nº 19966.111465/2023-18.</span>
-    </div>
-
-    <div class="grid-3">
-      <div class="card">
-        <span class="badge badge-proprietary">Mudança 1</span>
-        <h3>Inclusão expressa no GRO (Gerenciamento de Riscos Ocupacionais)</h3>
-        <p>Os fatores psicossociais passam a integrar o inventário de riscos com a mesma formalidade das demais categorias. Não é uma obrigação nova e isolada: é a ampliação do escopo de um processo que já existia.</p>
-      </div>
-      <div class="card">
-        <span class="badge badge-proprietary">Mudança 2</span>
-        <h3>Integração com a NR-17</h3>
-        <p>A avaliação deve considerar as condições de trabalho nos termos da NR-17 (Ergonomia), e os fatores psicossociais se ligam diretamente à <strong>organização do trabalho</strong> — a primeira das cinco áreas da norma de ergonomia (subitem 1.5.3.2.1).</p>
-      </div>
-      <div class="card">
-        <span class="badge badge-proprietary">Mudança 3</span>
-        <h3>Probabilidade pela exigência</h3>
-        <p>Para fatores ergonômicos e psicossociais, a probabilidade considera <strong>as exigências da atividade de trabalho e a eficácia das medidas de prevenção implementadas</strong> — não os sintomas do trabalhador (subitem 1.5.4.4.5.3).</p>
-      </div>
-    </div>
-
-    <div class="disclaimer-box" style="margin-top:28px;">
-      <strong>O ponto que mais gera erro.</strong> O objeto da avaliação é a condição de trabalho, não a pessoa. O Guia do MTE é explícito: “Não se trata de verificar sintomas individuais ou sensação do que está ocorrendo no trabalhador, ou de medir algum sinal biológico, mas de se verificar as condições de trabalho a que ele está submetido.” E também: fatores psicossociais da vida pessoal, fora do trabalho, <strong>não entram</strong> no GRO da empresa.
-    </div>
-  </div>
-</section>
-
-
-<section class="block" id="o-que-a-fiscalizacao-pede">
-  <div class="container">
-    <p class="section-kicker">O que a fiscalização pede</p>
-    <h2 class="section-title">Três documentos, e um deles quase sempre falta</h2>
-    <p class="section-lead">O PGR (Programa de Gerenciamento de Riscos) tem dois documentos mínimos no texto da norma — inventário e plano de ação — mas o Manual do GRO relaciona um terceiro, igualmente obrigatório: o documento de critérios. É o que a maioria das empresas descobre tarde.</p>
-
-    <div class="grid-3">
-      <div class="card">
-        <span class="badge badge-strong">Documento 1</span>
-        <h3>Inventário de riscos</h3>
-        <p>Nove informações mínimas (subitem 1.5.7.3.2): caracterização dos processos e ambientes; caracterização das atividades; descrição dos perigos com fontes e circunstâncias; possíveis lesões ou agravos; grupos de trabalhadores expostos; medidas de prevenção implementadas; caracterização da exposição; dados da avaliação de ergonomia da NR-17; e a avaliação dos riscos com a classificação.</p>
-      </div>
-      <div class="card">
-        <span class="badge badge-strong">Documento 2</span>
-        <h3>Plano de ação</h3>
-        <p>Medidas a introduzir, aprimorar ou manter, com <strong>cronograma, responsáveis, formas de acompanhamento e aferição de resultados</strong> (subitem 1.5.5.2.2). O número de trabalhadores possivelmente atingidos deve ser usado como critério para aumentar a prioridade da ação (1.5.5.2.1.1).</p>
-      </div>
-      <div class="card">
-        <span class="badge badge-moderate">Documento 3</span>
-        <h3>Critérios do GRO</h3>
-        <p>Detalhamento das gradações de severidade e de probabilidade, dos níveis de risco, dos critérios de classificação e de tomada de decisão (subitem 1.5.4.4.2.2). Sem ele, não há como demonstrar de onde saiu qualquer nota do inventário.</p>
-      </div>
-    </div>
-
-    <div class="card" style="margin-top:20px;">
-      <h3 style="margin-top:0;">A AEP é obrigatória para todas as empresas</h3>
-      <p style="margin:0;">A Avaliação Ergonômica Preliminar, prevista na NR-17, é o método pelo qual a identificação de perigos e a avaliação de riscos psicossociais efetivamente acontecem. Ela é exigida de todas as organizações — <strong>inclusive das microempresas e empresas de pequeno porte que atendam às condições de dispensa de elaboração do PGR</strong>. Estar dispensado do PGR não é estar dispensado do gerenciamento de riscos.</p>
-    </div>
-  </div>
-</section>
-
-<section class="block soft" id="o-custo-da-omissao">
-  <div class="container">
-    <p class="section-kicker">O custo da omissão</p>
-    <h2 class="section-title">O que está em jogo para quem não mapeia</h2>
-    <p class="section-lead">A exposição não é só a multa. São três frentes, e a mais cara raramente é a da fiscalização.</p>
-
-    <div class="legal-card">
-      <span class="badge badge-weak">Administrativo</span>
-      <h3>Autuação pela Inspeção do Trabalho</h3>
-      <p>A omissão na identificação, avaliação e controle dos riscos psicossociais caracteriza descumprimento da NR-1 e da NR-17, sujeitando a organização a autos de infração, notificações e exigência de adequação, nos termos do <strong>art. 201 da CLT</strong>. Conforme a NR-28, as multas se situam entre R$ 2.396,35 e R$ 6.708,08, e irregularidades graves podem levar a embargo ou interdição.</p>
-    </div>
-
-    <div class="legal-card">
-      <span class="badge badge-weak">Judicial</span>
-      <h3>Nexo concausal e o peso da ausência de prova</h3>
-      <p>O TST reconhece que o <strong>nexo concausal</strong> — quando o trabalho não é a única causa, mas contribui para o agravamento de uma condição psíquica preexistente — é suficiente para configurar o dever de indenizar. Há precedentes de responsabilização civil do empregador em casos de Síndrome de Burnout, sobretudo diante da ausência de medidas preventivas adequadas. Na prática forense, a ausência de documentação retira da empresa o meio de demonstrar diligência — e o art. 818, § 1º, da CLT permite ao juiz redistribuir o ônus da prova, por decisão fundamentada, quando uma das partes tem maior facilidade de produzi-la.</p>
-    </div>
-
-    <div class="legal-card">
-      <span class="badge badge-weak">Coletivo e regulatório</span>
-      <h3>MPT, CIPA e coerência com o eSocial</h3>
-      <p>Denúncias e surtos de absenteísmo por adoecimento mental acionam o Ministério Público do Trabalho, que pode instaurar Inquérito Civil, exigir TAC (Termo de Ajustamento de Conduta) ou ajuizar Ação Civil Pública. Além disso, o PGR deve estar integrado aos eventos de Segurança e Saúde no Trabalho (SST) do eSocial (S-2210, S-2220 e S-2240): <strong>a identificação de riscos psicossociais no inventário precisa ser coerente com o que a empresa envia ao governo, sob pena de autuação por inconsistência de dados</strong>.</p>
-    </div>
-
-    <h3 style="margin-top:32px; font-size:1.05rem;">As três perguntas que o juiz faz</h3>
-    <p class="section-lead" style="margin-bottom:18px;">Um resumo útil de como a documentação é lida em juízo, atribuído ao juiz Otávio Calvet (TRT-1/RJ) e reproduzido em material da FIEG. A terceira é a que decide — e é a única que um inventário responde.</p>
+<h2 class="section-title">Um processo, responsabilidades claras</h2>
 <div class="grid-3">
-      <div class="card">
-        <h3>1. A empresa sabia?</h3>
-        <p>Conhecia os fatores de risco psicossocial? A existência de GRO e AEP demonstra que monitorava.</p>
-      </div>
-      <div class="card">
-        <h3>2. Deveria saber?</h3>
-        <p>Havia sinais evidentes — afastamentos, rotatividade alta, queixas, histórico de ações — que foram ignorados?</p>
-      </div>
-      <div class="card">
-        <h3>3. O que fez a respeito?</h3>
-        <p>A mais importante. Quais medidas concretas foram tomadas, e há evidência de implementação real, não apenas de planejamento?</p>
-      </div>
-    </div>
-    <p style="margin-top:20px; font-size:0.86rem; color:var(--froid-cinza);">Os enquadramentos acima são apresentados para contextualização, com base no texto da NR-1, no Guia e no Manual do MTE e em doutrina publicada. Não constituem parecer jurídico — a análise do caso concreto cabe à assessoria jurídica da sua organização.</p>
+<article class="card">
+<h3>Preparar</h3>
+<p>Delimite unidades, setores, efetivo, canal de apoio e critérios. Defina responsáveis técnicos e condições de participação antes da coleta.</p>
+</article>
+<article class="card">
+<h3>Avaliar e documentar</h3>
+<p>Reúna questionário, observação da atividade, diálogo e outras evidências adequadas. Organize a documentação da avaliação e o plano de ação.</p>
+</article>
+<article class="card">
+<h3>Acompanhar e revisar</h3>
+<p>Registre implementação, prazos e resultados. Comparações entre campanhas exigem critérios consistentes e atenção às limitações dos dados.</p>
+</article>
+</div>
+<p>A campanha não substitui a avaliação técnica do trabalho real. A responsabilidade pelo gerenciamento permanece com a organização e os profissionais responsáveis.</p>
 
   </div>
 </section>
 
-
-<section class="block" id="armadilhas">
-  <div class="container">
-    <p class="section-kicker">Armadilhas</p>
-    <h2 class="section-title">Seis erros que geram passivo</h2>
-    <p class="section-lead">Todos documentados no FAQ do MTE e nos materiais de referência. Vale conferir contra o que sua empresa está prestes a fazer.</p>
-    <div class="grid-3">
-      <div class="trap">
-        <h4>Usar o exame médico no lugar da AEP</h4>
-        <p>O MTE respondeu que não: a avaliação médica periódica, mesmo sob sigilo, não substitui a identificação de perigos e avaliação de riscos. São instrumentos distintos.</p>
-      </div>
-      <div class="trap">
-        <h4>Pesquisa de clima do RH (Recursos Humanos) como único instrumento</h4>
-        <p>Pesquisa de clima ou satisfação não equivale à AEP. O resultado precisa ser tecnicamente analisado e integrado ao inventário.</p>
-      </div>
-      <div class="trap">
-        <h4>Só intervenção individual</h4>
-        <p>Mindfulness, resiliência e apoio psicológico como única medida não atendem à NR-1. A prioridade é modificar as <strong>condições</strong> e a organização do trabalho.</p>
-      </div>
-      <div class="trap">
-        <h4>Ignorar remotos e híbridos</h4>
-        <p>Teletrabalho também entra. A estratégia se adapta ao contexto; o trabalhador não sai da avaliação.</p>
-      </div>
-      <div class="trap">
-        <h4>Tratar os 90 dias como folga</h4>
-        <p>A dupla visita após 26/05/2026 é orientativa, não é isenção. Encerrado o período, a autuação é possível.</p>
-      </div>
-      <div class="trap">
-        <h4>PGR bonito que não reflete a realidade</h4>
-        <p>É pior do que não ter. O auditor vai ao local, observa as condições reais e entrevista os trabalhadores.</p>
-      </div>
-    </div>
+<section class="block soft" id="privacidade">
+  <div class="container prosa">
+<h2 class="section-title">Condições de trabalho, não vigilância clínica</h2>
+<p>O produto empresarial é distinto do FROID Psique. O empregador recebe resultados agregados, não prontuários nem respostas clínicas individuais. A divulgação depende dos critérios vigentes de participação e proteção dos grupos.</p>
+<p>São dois pisos e ambos valem sempre: o de anonimato e o de representatividade. Os valores vigentes e a conta completa estão em <a href="#precos-nr1">Quanto custa</a>; a liberação real é sempre decidida no banco de dados, com os dados verdadeiros.</p>
+<p class="links-rel"><a href="sobre-contato.html#nr1">Avaliar a prontidão da organização</a></p>
   </div>
 </section>
 
+<section class="block" id="o-que-entra-no-escopo-da-conversa">
+  <div class="container prosa">
+<h2 class="section-title">O que entra no escopo da conversa</h2>
+<ul><li>Estrutura de unidades e setores.</li><li>Fontes de evidência e documentação da avaliação.</li><li>Critérios, inventário e plano de ação.</li><li>Acompanhamento da execução e comparação entre ciclos.</li><li>Governança, privacidade e acesso aos registros.</li></ul>
+<p>Entregáveis e responsabilidades são definidos na proposta e no contrato vigentes. Software não garante conformidade legal automática.</p>
 
-<section class="block soft" id="solucao">
-  <div class="container">
-    <p class="section-kicker">A solução FROID</p>
-    <h2 class="section-title">A AEP psicossocial, inteira, num lugar só</h2>
-    <p class="section-lead">A Avaliação Ergonômica Preliminar é o método pelo qual a identificação de perigos e a avaliação de riscos psicossociais acontecem, e é o primeiro documento que a fiscalização pede. O FROID é onde ela é conduzida, sustentada por evidências e datada.</p>
-
-    <div class="disclaimer-box" style="margin-bottom:28px;">
-      <strong>Com uma condição que a norma impõe e que nós fazemos questão de reforçar:</strong> questionário sozinho não comprova gestão de risco. A observação da atividade real e a conversa com o trabalhador continuam sendo feitas por gente. O que muda é que o sistema <strong>exige</strong> que elas estejam lá: cada evidência entra com o seu método declarado, e uma AEP apoiada só em questionário aparece sinalizada como tal, em vez de passar despercebida até a fiscalização. Quem responde pelo GRO segue sendo a organização.
-    </div>
-
-    <div class="grid-2">
-      <div class="card">
-        <span class="badge badge-strong">Documento da AEP</span>
-        <h3>Trabalho real, não tarefa prescrita</h3>
-        <p>Um documento por unidade de avaliação — atividade, posto, função, setor ou grupo de exposição — com a descrição de como o trabalho é de fato executado, a caracterização da exposição em duração, frequência, intensidade e cofatores, os dados de preparação (afastamentos, PCMSO — Programa de Controle Médico de Saúde Ocupacional — e avaliações anteriores) e o responsável nomeado. Sem responsável nomeado, o sistema não deixa concluir.</p>
-      </div>
-      <div class="card">
-        <span class="badge badge-strong">Evidência com método</span>
-        <h3>Observação, diálogo, questionário, oficina</h3>
-        <p>Cada peça de evidência entra declarando de onde veio: observação da atividade, diálogo com o trabalhador, pesquisa padronizada, oficina, grupo focal, análise documental ou manifestação da CIPA (Comissão Interna de Prevenção de Acidentes e de Assédio). É exatamente o conjunto de caminhos que o Guia do MTE reconhece — e a prova de que a AEP não se apoiou numa fonte só.</p>
-      </div>
-      <div class="card">
-        <span class="badge badge-strong">Gradação conforme a norma</span>
-        <h3>Severidade e probabilidade pelos critérios certos</h3>
-        <p>A severidade vem da magnitude da possível lesão ou agravo, selecionando a consequência de maior magnitude quando há mais de uma (1.5.4.4.4.1). A probabilidade combina a exigência da atividade com a <strong>eficácia das medidas já implementadas</strong> (1.5.4.4.5.3). Medida ineficaz não reduz risco no papel: a norma manda corrigi-la.</p>
-      </div>
-      <div class="card">
-        <span class="badge badge-strong">Documento de critérios</span>
-        <h3>Gerado junto, não improvisado depois</h3>
-        <p>As gradações, a matriz e as regras de classificação e decisão ficam versionadas e imutáveis após publicadas, de modo que uma campanha sempre possa ser explicada pelos critérios vigentes quando foi aplicada. É o terceiro documento obrigatório, pronto.</p>
-      </div>
-      <div class="card">
-        <span class="badge badge-proprietary">LGPD</span>
-        <h3>Anonimato com piso técnico e coorte estável</h3>
-        <p>Uma campanha só libera resultado a partir de <strong>15 respostas concluídas</strong>, e cada recorte por unidade exige no mínimo <strong>10</strong>. Mais que isso: <strong>nenhum resultado sai enquanto a coleta está aberta</strong> — só depois de encerrada. Piso de coorte sozinho não protege quem responde por último, porque quem observa o painel a cada nova resposta deduz a resposta individual pela diferença. Durante a coleta a empresa acompanha só a adesão. Os pisos são aplicados dentro do banco, não na aplicação. Ver <a href="seguranca.html">Segurança</a> e <a href="etica.html">Ética</a>.</p>
-      </div>
-      <div class="card">
-        <span class="badge badge-moderate">Participação</span>
-        <h3>Registro de consulta e comunicação</h3>
-        <p>Atas da CIPA, listas de presença, consultas formais e a comunicação do inventário e do plano aos trabalhadores (subitem 1.5.3.3). A cartilha da Fecomércio-RS é direta: a ausência desses registros pode gerar presunção de omissão patronal.</p>
-      </div>
-      <div class="card">
-        <span class="badge badge-moderate">Ciclo</span>
-        <h3>Revisão e guarda no prazo</h3>
-        <p>Revisão a cada dois anos — até três para organizações com sistema de gestão de SST certificado — e também após implementação de medidas, mudanças, ineficácia, acidente ou doença, alteração legal ou solicitação justificada da CIPA. Histórico do inventário retido por 20 anos.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section class="block" id="a-plataforma">
-  <div class="container">
-    <p class="section-kicker">Não é método no papel</p>
-    <h2 class="section-title">O ciclo inteiro, operado pela contratante</h2>
-    <p class="section-lead">Da estrutura da empresa ao documento assinado, sem planilha paralela e sem depender de nós para cada passo.</p>
-
-    <div class="grid-3">
-      <div class="card">
-        <span class="badge badge-strong">Coleta</span>
-        <h3>Campanha e convites</h3>
-        <p>A empresa cria a campanha, abre a coleta, cola a lista de <strong>matrículas</strong> — nunca nomes — e recebe um link único por pessoa. Encerra quando decidir. Quem perdeu o link recebe outro; quem já respondeu, não.</p>
-      </div>
-      <div class="card">
-        <span class="badge badge-strong">Resultado</span>
-        <h3>Painel e inventário</h3>
-        <p>Gradação por severidade × probabilidade, recortes declarados insuficientes com o portão e o remédio, e o inventário pronto para imprimir em A4 — com período de referência, efetivo, respostas substantivas e sob qual régua o risco foi graduado.</p>
-      </div>
-      <div class="card">
-        <span class="badge badge-strong">Continuidade</span>
-        <h3>Plano de ação e eficácia</h3>
-        <p>Cada medida com cronograma, responsável, forma de acompanhamento e forma de aferição — os quatro que a norma exige, e sem os quais o sistema não deixa concluir. Implementada a medida, a revisão do risco residual é marcada sozinha.</p>
-      </div>
-      <div class="card">
-        <span class="badge badge-proprietary">Consulta</span>
-        <h3>FROID Explica NR-1</h3>
-        <p>No painel, o FROID Explica NR-1 reúne perguntas revisadas sobre norma, contratação e operação, além de consulta ao acervo. As respostas revisadas podem ser lidas após o carregamento sem nova chamada ao modelo; abrir a aplicação e consultar o acervo exige conexão. A quantidade atual de trechos indexados não está apurada nesta página.</p>
-        <p style="margin-top:10px;"><a href="froid-explica-nr1.html">Ver o que está respondido →</a></p>
-      </div>
-      <div class="card">
-        <span class="badge badge-proprietary">Prova</span>
-        <h3>Comprovante de aceite</h3>
-        <p>O contrato prova o texto; o comprovante prova a contratação daquele texto, por aquela pessoa, naquela data — com a impressão digital de cada documento. Se o texto vigente divergir do aceito, o comprovante diz isso em vez de imprimir o de hoje sob a data de ontem.</p>
-      </div>
-      <div class="card">
-        <span class="badge badge-weak">A fronteira</span>
-        <h3>Demonstrável em trinta segundos</h3>
-        <p>Entrando com a conta da empresa e tentando abrir o painel clínico, o sistema recusa. Não é filtro de tela: os papéis do lado do empregador não têm as permissões clínicas, e as tabelas de resposta individual não têm política de leitura.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section class="block soft" id="eficacia">
-  <div class="container">
-    <p class="section-kicker">O diferencial</p>
-    <h2 class="section-title">Provar que a medida funcionou</h2>
-    <p class="section-lead">Esta é a parte da norma que quase ninguém consegue cumprir de verdade — e é onde o FROID faz algo que nenhuma pesquisa de clima faz.</p>
-
-    <div class="norm-quote">
-      <p style="margin:0 0 8px;">“Para a probabilidade de ocorrência das lesões ou agravos à saúde decorrentes de fatores ergonômicos, incluindo os fatores de riscos psicossociais relacionados ao trabalho, a avaliação de risco deve considerar as exigências da atividade de trabalho <strong>e a eficácia das medidas de prevenção implementadas</strong>.”</p>
-      <span class="norm-ref">NR-1, subitem 1.5.4.4.5.3</span>
-    </div>
-
-    <p class="section-lead" style="margin-bottom:28px;">Ou seja: o risco não cai porque a empresa fez alguma coisa. Ele cai se aquilo que a empresa fez funcionou. E o subitem 1.5.5.3.2.1 vai além — medida que o acompanhamento mostrar ineficaz <strong>deve ser corrigida</strong>. Na prática, quase toda empresa vai afirmar que a medida funcionou, e quase nenhuma vai conseguir demonstrar.</p>
-
-    <div class="grid-3">
-      <div class="card">
-        <span class="badge badge-strong">Como</span>
-        <h3>Cada setor contra ele mesmo</h3>
-        <p>A comparação é sempre do setor contra a própria linha de base dele, no mesmo instrumento, antes e depois da medida. Nunca contra uma média de mercado ou uma população genérica — que é o que torna a comparação contestável.</p>
-      </div>
-      <div class="card">
-        <span class="badge badge-strong">Com que rigor</span>
-        <h3>Vale o intervalo, não o número bonito</h3>
-        <p>O sistema calcula a diferença entre os dois momentos <strong>e a margem de erro dela</strong>, que depende de quantas pessoas responderam. A classificação usa o limite conservador do intervalo: se ele alcança o zero, o veredito é <strong>sem mudança</strong>, mesmo que o número central sugira melhora. E o rigor vale nos dois sentidos — variação pequena também não vira piora.</p>
-      </div>
-      <div class="card">
-        <span class="badge badge-weak">O que ninguém quer ver</span>
-        <h3>E quando não funcionou</h3>
-        <p>A medida é marcada como ineficaz, o risco não é reduzido no papel, e ela entra na lista do que a norma obriga a corrigir. É desconfortável — e é justamente esse desconforto documentado que responde à terceira pergunta do juiz.</p>
-      </div>
-    </div>
-
-    <div class="card" style="margin-top:20px;">
-      <h3 style="margin-top:0;">O ciclo que a norma descreve, fechado</h3>
-      <p style="margin:0;">A eficácia medida num ciclo entra automaticamente no cálculo da probabilidade do ciclo seguinte. Não é campo de opinião preenchido por alguém: é número apurado, com o tamanho das duas coortes, o intervalo e a memória de cálculo guardados junto, de modo que qualquer auditor — ou perito — consiga reconstruir como se chegou àquele nível de risco.</p>
-    </div>
-
-    <div class="norm-quote" style="margin-top:22px;">
-      <p style="margin:0 0 8px;"><strong>Como isso aparece na prática.</strong> Numa validação do motor com duas campanhas e 86 respostas por rodada, 26 recortes foram liberados. Destes, apenas dois produziram afirmação: uma piora consistente e uma melhora consistente. Os outros 24 saíram como <em>sem mudança</em> — inclusive quatro que, olhando só o número central, pareceriam melhora.</p>
-      <span class="norm-ref">Um relatório que declara resultado em 26 de 26 recortes não está medindo. Está confirmando o que já queria dizer.</span>
-    </div>
-
-    <div class="card" style="margin-top:22px;">
-      <h3 style="margin-top:0;">As três linhas que resumem o método</h3>
-      <p style="font-size:0.9rem;">Saída real do motor, sobre dados de demonstração. As duas primeiras são afirmações; a terceira é a recusa de fazer uma.</p>
-      <div style="overflow-x:auto; margin-top:12px;">
-        <table class="nr1-faixas">
-          <tr><th>Dimensão e unidade</th><th>Antes → depois</th><th>Efeito</th><th>Veredito</th></tr>
-          <tr><td>Excesso de demandas · Atendimento</td><td>4,39 → 2,94</td><td>+3,05 ±0,51</td><td><strong>medida eficaz</strong></td></tr>
-          <tr><td>Assédio · Atendimento</td><td>1,85 → 3,17</td><td>−2,86 ±0,49</td><td><strong>piorou</strong></td></tr>
-          <tr><td>Assédio · Logística</td><td>2,50 → 2,14</td><td>+0,60 ±0,60</td><td><strong>sem mudança</strong></td></tr>
-        </table>
-      </div>
-    <div class="nerds-wrapper">
-      <button class="nerds-toggle" data-target="nerds-eficacia" data-label-closed="Só para Nerds" data-label-open="Fechar detalhes técnicos" aria-expanded="false">Só para Nerds</button>
-      <div class="nerds-panel" id="nerds-eficacia">
-        <h4>A conta, inteira</h4>
-        <p>O efeito é a diferença padronizada entre os dois momentos — d de Cohen — usando o desvio-padrão agrupado das duas coortes:</p>
-        <div class="formula">s = sqrt( ((n1-1)·s1² + (n2-1)·s2²) / (n1 + n2 - 2) )
-d = (média_antes - média_depois) / s</div>
-        <p>A margem é o erro-padrão aproximado do próprio d, a 95%:</p>
-        <div class="formula">margem = 1,96 · sqrt( (n1+n2)/(n1·n2) + d² / (2·(n1+n2)) )</div>
-        <h4>A regra de classificação</h4>
-        <p>Não se classifica pelo ponto. Classifica-se pelo <strong>limite conservador do intervalo</strong>, e ele precisa não só excluir o zero, mas superar o patamar de efeito trivial:</p>
-        <div class="formula">|d| - margem >= 0,20   ->  há afirmação
-|d| - margem <  0,20   ->  sem mudança</div>
-        <p>A terceira linha da tabela acima: <code>d = +0,60</code>, <code>margem = 0,60</code>, intervalo <code>[0,00; 1,20]</code>. O limite conservador é <code>0,00</code>, abaixo de <code>0,20</code> — <strong>sem mudança</strong>. A média caiu de 2,50 para 2,14 e o sistema não afirma nada.</p>
-        <h4>Um erro que esta página já conteve</h4>
-        <p>A versão anterior padronizava por uma diferença de posições normalizadas, que vive em [-1, 1] — e comparava esse número contra as mesmas bandas de 0,20, 0,50 e 0,80 do d de Cohen, que não vive. Pior: aplicava a ele o erro-padrão do d, que só vale para uma diferença padronizada. O veredito passava a depender de o desvio-padrão ter sido gravado — um acidente de disponibilidade de dado, e não uma propriedade da medida. Hoje, sem dispersão o sistema devolve <em>inconclusivo</em> em vez de um número.</p>
-        <div class="ref">Coorte abaixo de dois respondentes devolve margem infinita, e portanto nunca produz afirmação. Ver também <a href="#dado-insuficiente">Quando o dado não basta</a>.</div>
-      </div>
-    </div>
-
-      <p style="font-size:0.9rem; margin-top:12px;">A terceira é a que importa. A média caiu, o efeito é positivo — e o sistema <strong>se recusa a dizer que melhorou</strong>, porque com 22 respostas a margem de erro alcança o zero. É a diferença entre medir e afirmar.</p>
-    </div>
-  </div>
-</section>
-
-<section class="block" id="dado-insuficiente">
-  <div class="container">
-    <p class="section-kicker">O que ninguém mais entrega</p>
-    <h2 class="section-title">Quando o dado não basta, a empresa continua recebendo documento</h2>
-    <p class="section-lead">É o momento em que todo fornecedor some — e é o momento em que a fiscalização continua cobrando. Adesão que não fechou, setor pequeno demais, endereço com vinte pessoas: são situações comuns, e a resposta do mercado costuma ser uma folha em branco.</p>
-
-    <div class="norm-quote">
-      <p style="margin:0 0 8px;"><strong>Painel vazio não é neutro.</strong> Quem abre um relatório e não vê nada conclui que não há risco ali — e essa é exatamente a única conclusão que a ausência de dado nunca autoriza. Um documento que mostra três setores e cala sobre o quarto afirma, pelo silêncio, que o quarto está bem.</p>
-      <span class="norm-ref">Suprimir é ocultar. Declarar insuficiente é documentar.</span>
-    </div>
-
-    <p class="section-lead" style="margin-bottom:28px;">O recorte que não alcança o piso <strong>não some do relatório</strong>. Ele entra no mesmo inventário — nunca em anexo, nunca omitido — como linha declarada insuficiente, nomeando qual portão barrou e qual o caminho de remédio. O subitem 1.5.7.3.1 manda consolidar no inventário os dados da identificação de perigos e das avaliações, e não apenas os riscos que couberam numa classificação.</p>
-
-    <div class="grid-3">
-      <div class="card">
-        <span class="badge badge-strong">Portão 1</span>
-        <h3>Anonimato</h3>
-        <p>Quinze respostas na campanha, dez por recorte. São números absolutos, que protegem a pessoa: abaixo disso, saber a média do grupo já é quase saber o que cada um respondeu. <strong>Nenhuma adesão adicional resolve</strong> — o piso olha o tamanho do grupo, não a taxa de resposta. O caminho é a AEP.</p>
-      </div>
-      <div class="card">
-        <span class="badge badge-strong">Portão 2</span>
-        <h3>Representatividade</h3>
-        <p>A coorte precisa falar pelo efetivo declarado: amostra para proporção com correção de população finita, a 95% de confiança e margem de 5 pontos. Protege a afirmação — sem ele o relatório descreveria quem respondeu, não o trabalho da organização. <strong>Aqui, subir a adesão resolve</strong>, e o painel mostra quanto falta.</p>
-      </div>
-      <div class="card">
-        <span class="badge badge-weak">O que a linha diz</span>
-        <h3>Portão, remédio, e o que não significa</h3>
-        <p>Cada recorte declarado traz o portão que falhou e o caminho indicado — e termina afirmando o que a ausência de dado <strong>não</strong> significa: não é ausência de risco. A obrigação de gerenciá-lo permanece integral.</p>
-      </div>
-    </div>
-
-    <div class="card" style="margin-top:22px;">
-      <h3 style="margin-top:0;">Por que isso é uma trava do banco, e não uma escolha de redação</h3>
-      <p style="margin:0;">Uma linha do inventário ou tem os quatro números — coorte, média, severidade e probabilidade — e nenhum portão, ou tem portão e nota de escalonamento com os quatro números nulos. Não existe estado intermediário: o banco recusa. Linha pela metade é justamente a que um auditor lê como risco baixo, e é o erro que o desenho impede de acontecer.</p>
-    </div>
-
-    <div class="nerds-wrapper">
-      <button class="nerds-toggle" data-target="nerds-amostra" data-label-closed="Só para Nerds" data-label-open="Fechar detalhes técnicos" aria-expanded="false">Só para Nerds</button>
-      <div class="nerds-panel" id="nerds-amostra">
-        <h4>De onde sai o número de respostas exigido</h4>
-        <p>Amostra para proporção com correção de população finita. <code>z = 1,96</code> (95% de confiança), <code>E = 0,05</code> (margem de 5 pontos) e <code>p = 0,5</code>, que é a proporção de variância máxima — a escolha conservadora quando não se sabe o resultado de antemão:</p>
-        <div class="formula">n0 = z² · p(1-p) / E²          população infinita
-n  = n0 / (1 + (n0 - 1) / N)   correção de população finita
-n  = N,  quando n > 0,80 · N   transição para censo</div>
-        <p>Não é escolha nossa: é a fórmula padrão, e ela entra no documento de critérios como fundamentação verificável. Qualquer auditor refaz a conta.</p>
-        <h4>A curva achata — e é isso que decide a conversa comercial</h4>
-        <div class="formula">N =    98  ->  n =  79     (limite: abaixo disso, censo)
-N =   250  ->  n = 152
-N =   263  ->  n = 157
-N = 3.000  ->  n = 341</div>
-        <p>Dobrar a empresa não dobra a exigência. Empresa grande tem folga; a faixa de <strong>15 a 97 pessoas entra por censo</strong>, e uma única recusa suspende o recorte. Isso precisa ser dito antes do contrato, não depois da coleta.</p>
-        <h4>O detalhe que evita cobrar por declarar uma pessoa a mais</h4>
-        <p>A transição para censo é decidida sobre o valor contínuo, <strong>antes</strong> do arredondamento para cima. Comparando o inteiro já arredondado, a exigência oscilaria: 100 pessoas pedindo amostra de 80, 101 pedindo censo de 101, e 102 pedindo amostra de novo. Quem tivesse 101 no quadro pagaria por declarar uma pessoa a mais que o vizinho.</p>
-        <div class="ref">O piso de anonimato — 15 na campanha, 10 por recorte — é independente desta conta e vale sempre. Os dois portões são aplicados no banco, não na tela.</div>
-      </div>
-    </div>
-
-    <div class="disclaimer-box" style="margin-top:22px;">
-      <strong>O efeito prático para a contratante.</strong> A empresa que pagou o ciclo recebe um documento datado dizendo o que foi avaliado, o que não pôde ser, por qual motivo, qual o caminho — e que nada disso significa ausência de risco. É o que a fiscalização aceita ler. A alternativa oferecida pelo mercado é não ter o que mostrar.
-    </div>
-  </div>
-</section>
-
-<section class="block soft" id="comparacao">
-  <div class="container">
-    <p class="section-kicker">Comparação</p>
-    <h2 class="section-title">Gestão tradicional × Compliance FROID</h2>
-    <p class="section-lead">Oito aspectos de gestão, e o que muda em cada um. A coluna da direita é verificável — cada linha dela aparece em algum documento entregue.</p>
-
-    <div class="cmp-wrap">
-      <table class="cmp-table">
-        <thead>
-          <tr>
-            <th>Aspecto de gestão</th>
-            <th>Abordagem tradicional reativa</th>
-            <th>Compliance corporativo FROID</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>Identificação de perigos</td>
-            <td class="trad">Questionário aplicado uma vez, sem critérios documentados.</td>
-            <td class="froid">Caracterização contínua da exposição, com critérios versionados e memória de cálculo por risco.</td>
-          </tr>
-          <tr>
-            <td>Gradação do risco</td>
-            <td class="trad">Nota genérica de pesquisa de clima, sem severidade nem probabilidade separadas.</td>
-            <td class="froid">Severidade pela magnitude do agravo e probabilidade pela exigência da atividade discontada da eficácia das medidas, como manda o 1.5.4.4.5.3.</td>
-          </tr>
-          <tr>
-            <td>Documentação do PGR</td>
-            <td class="trad">Inventário sem os nove itens; documento de critérios inexistente.</td>
-            <td class="froid">Inventário estruturado nas alíneas “a” a “i” e documento de critérios gerado junto — prontos para integrar à AEP.</td>
-          </tr>
-          <tr>
-            <td>Segurança dos dados (LGPD)</td>
-            <td class="trad">Planilhas de RH vulneráveis a vazamento de informação sensível.</td>
-            <td class="froid">Segurança em nível de linha (Row-Level Security) estrita, processamento local e piso de coorte (15 por campanha, 10 por recorte) aplicado no banco.</td>
-          </tr>
-          <tr>
-            <td>Defesa judicial</td>
-            <td class="trad">Sem prova material de diligência, com a empresa frágil diante do nexo concausal.</td>
-            <td class="froid">Evidência datada das avaliações, dos critérios vigentes, das medidas implementadas e da sua eficácia aferida.</td>
-          </tr>
-          <tr>
-            <td>Prioridade de ação</td>
-            <td class="trad">Fila definida por percepção de urgência.</td>
-            <td class="froid">Ordenação por nível de risco e pelo número de trabalhadores possivelmente atingidos, conforme o 1.5.5.2.1.1.</td>
-          </tr>
-          <tr>
-            <td>Eficácia da medida</td>
-            <td class="trad">Afirmada no relatório. Sem linha de base, sem comparação e sem como provar.</td>
-            <td class="froid">Medida: cada setor contra a própria linha de base, com dispersão e diferença padronizada. Melhora dentro do ruído é reportada como sem mudança, e a medida entra para correção.</td>
-          </tr>
-          <tr>
-            <td>Documento da AEP</td>
-            <td class="trad">Ausente, ou substituído por pesquisa de clima e exame médico periódico.</td>
-            <td class="froid">Documento por unidade de avaliação, com trabalho real, evidência por método declarado e responsável nomeado — bloqueado para conclusão sem ele.</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</section>
-
-<section class="block" id="perguntas-fornecedor">
-  <div class="container">
-    <p class="section-kicker">Como comparar</p>
-    <h2 class="section-title">Cinco perguntas para fazer a qualquer fornecedor — inclusive a nós</h2>
-    <p class="section-lead">Não pedimos que acreditem na nossa palavra. Estas são as cinco perguntas cuja resposta separa um instrumento de medição de uma pesquisa de clima com outro nome. Faça-as a todo mundo que aparecer, e compare as respostas.</p>
-
-    <div class="cmp-wrap">
-      <table class="cmp-table">
-        <thead>
-          <tr>
-            <th>A pergunta</th>
-            <th>Por que ela separa fornecedores</th>
-            <th>O que respondemos</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>“O que vocês entregam para o setor que não alcançou o mínimo de respostas?”</td>
-            <td class="trad">É a situação mais comum do ciclo, e a que quase nenhum contrato prevê. A resposta usual — uma folha em branco — é lida pela fiscalização como omissão.</td>
-            <td class="froid">O recorte entra no mesmo inventário como linha declarada insuficiente, com o portão que barrou, o caminho de remédio e a afirmação expressa de que aquilo não significa ausência de risco. O banco recusa gravar linha pela metade.</td>
-          </tr>
-          <tr>
-            <td>“Como vocês provam que a medida que implementamos funcionou?”</td>
-            <td class="trad">O subitem 1.5.4.4.5.3 manda considerar a eficácia das medidas ao graduar a probabilidade. Sem linha de base do mesmo setor no mesmo instrumento não há como — e a resposta vira uma afirmação de relatório.</td>
-            <td class="froid">Cada setor contra a própria linha de base, com dispersão, intervalo de confiança e memória de cálculo guardados junto. A eficácia apurada num ciclo entra no cálculo da probabilidade do ciclo seguinte.</td>
-          </tr>
-          <tr>
-            <td>“Em que situação o relatório de vocês se recusa a afirmar uma melhora?”</td>
-            <td class="trad">Fornecedor que só reporta melhora não está medindo — está confirmando o que já queria dizer. E é exatamente aí que uma perícia adversária desmonta um laudo.</td>
-            <td class="froid">Quando o limite conservador do intervalo não supera o patamar de efeito trivial. Numa validação com 26 recortes liberados, 24 saíram como <em>sem mudança</em> — inclusive quatro que, pelo número central, pareceriam melhora.</td>
-          </tr>
-          <tr>
-            <td>“O administrador da minha empresa consegue ver a resposta de uma pessoa? Prove agora.”</td>
-            <td class="trad">Quase todos respondem “não, temos controle de acesso”. Controle de acesso é configuração, e configuração alguém afrouxa — em geral sem que ninguém perceba.</td>
-            <td class="froid">Entre com a conta da empresa e tente abrir o painel clínico: o sistema recusa, na sua frente. As tabelas de resposta individual não têm política de leitura, e não existe campo de nome de trabalhador no banco.</td>
-          </tr>
-          <tr>
-            <td>“Quantas respostas a minha empresa precisa — e o que acontece se não alcançar? Digam antes do contrato.”</td>
-            <td class="trad">A faixa de 15 a 97 pessoas entra por censo, e uma única recusa suspende o recorte. Vender campanha nessa faixa sem avisar produz cliente insatisfeito no fim do ciclo, com o dinheiro já pago.</td>
-            <td class="froid">A conta é pública, a fórmula entra no documento de critérios, e o <a href="diagnostico-nr1.html">diagnóstico de porte</a> responde antes de existir proposta. Onde a campanha não é viável, o caminho honesto é a AEP — obrigatória de todo modo, e sem piso de respondentes.</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="disclaimer-box" style="margin-top:26px;">
-      <strong>Por que publicá-las.</strong> As cinco têm resposta difícil, e a nossa está acima por escrito. Um fornecedor que responde bem às cinco é um bom fornecedor, sejamos nós ou não — e a empresa que faz as cinco perguntas não contrata errado.
-    </div>
   </div>
 </section>
 
@@ -956,97 +406,14 @@ N = 3.000  ->  n = 341</div>
   </div>
 </section>
 
-<section class="block" id="limites-e-responsabilidade">
-  <div class="container">
-    <p class="section-kicker">Limites e responsabilidade</p>
-    <h2 class="section-title">O que o FROID NR-1/ISO-45003 é e o que não é</h2>
-    <div class="disclaimer-box" style="margin:0;">
-      <strong>O FROID NR-1/ISO-45003 é</strong> um instrumento de caracterização e documentação da exposição a fatores de risco psicossociais, desenhado para produzir a evidência agregada que a AEP e o inventário de riscos exigem.<br/><br/>
-      <strong>O FROID NR-1/ISO-45003 não é</strong> ferramenta de vigilância de colaboradores, não emite diagnóstico de saúde mental de indivíduos, não produz nota, ranking ou avaliação de desempenho de pessoas, não substitui a AEP, o SESMT (Serviço Especializado em Engenharia de Segurança e em Medicina do Trabalho), a CIPA, o médico do trabalho nem a assessoria jurídica, e não dispensa a organização de conduzir o GRO com profissional ou equipe de conhecimento técnico adequado. A norma não exige profissional específico nem impõe metodologia — mas exige coerência técnica, e a escolha precisa ser justificada e documentada.<br/><br/>
-      <strong>O empregador não lê a sessão clínica do colaborador.</strong> Quando o funcionário é atendido por um profissional da empresa, o registro dessa sessão fica sob sigilo do profissional responsável: nenhum papel do lado do empregador — proprietário, administrador, RH ou compliance — tem permissão de leitura sobre ele. Para o empregador, só existe o agregado. Rastreamento clínico individual não é, e não pode ser, o instrumento principal de gestão desses riscos.<br/><br/>
-      <strong>A participação do colaborador</strong> pressupõe informação prévia e transparente sobre a finalidade da coleta, nos mesmos termos descritos em <a href="etica.html">Ética</a>.
-    </div>
-  </div>
-    <div class="nerds-wrapper">
-      <button class="nerds-toggle" data-target="nerds-fronteira" data-label-closed="Só para Nerds" data-label-open="Fechar detalhes técnicos" aria-expanded="false">Só para Nerds</button>
-      <div class="nerds-panel" id="nerds-fronteira">
-        <h4>Por que é estrutural, e não uma caixa desmarcada</h4>
-        <p>A pergunta certa não é “quem tem permissão de ler”. É “o que acontece se alguém escrever a consulta errada”. Controle de acesso por configuração falha silenciosamente: a consulta indevida <em>funciona</em>, e o vazamento só aparece depois.</p>
-        <div class="formula">tabela de resposta individual:  RLS ativo, ZERO policies de SELECT
-papel de execução do sistema:   sem GRANT sobre essas tabelas
-única saída do banco:           função de agregação que já aplica os pisos</div>
-        <p>Sem política de leitura, a Segurança em Nível de Linha (Row-Level Security) nega por padrão — não há o que afrouxar, porque não há regra permissiva para editar. A consulta indevida não devolve dado errado: ela não devolve nada, para ninguém, inclusive para nós.</p>
-        <h4>O nome do trabalhador não existe no banco</h4>
-        <p>Não é política de retenção: não há campo. A empresa fornece a matrícula; o sistema guarda um pseudônimo criptográfico dela e o resumo do link, <strong>nunca o par entre os dois</strong>. Quem sabe qual link foi para quem é o RH da contratante — e o sistema instrui a apagar esse arquivo depois da distribuição.</p>
-        <h4>Verificado em execução, não só no desenho</h4>
-        <p>Uma migração própria confere as concessões do papel de execução contra o que elas deveriam ser, e falha a subida se divergirem. Desenho correto que ninguém verifica é desenho que apodrece na primeira migração distraída.</p>
-        <div class="ref">Demonstrável ao vivo em trinta segundos: com a conta da empresa, tentar abrir o painel clínico produz recusa. Detalhes em <a href="seguranca.html">Segurança</a>.</div>
-      </div>
-    </div>
-
-</section>
-
-<section class="block soft" id="proximo-passo">
-  <div class="container">
-    <p class="section-kicker">Próximo passo</p>
-    <h2 class="section-title">Comece por um estabelecimento</h2>
-    <p class="section-lead">O próprio Guia do MTE sugere iniciar por um <strong>setor</strong> piloto — por exemplo, aquele com alto índice de afastamento por transtorno mental — desde que o processo alcance depois todas as atividades da empresa. O <strong>estabelecimento</strong> é a unidade de contratação; o setor é por onde se começa dentro dele.</p>
-
-    <div class="grid-3">
-      <div class="card">
-        <h3>Avaliação piloto, sem custo</h3>
-        <p>Feita <strong>antes de qualquer contratação</strong>: um estabelecimento, critérios documentados desde o início e caracterização da exposição pronta para integrar à sua AEP. Se você não seguir com o FROID, não há cobrança.</p>
-        <a class="btn btn-solid" href="sobre-contato.html" style="margin-top:8px;">Falar com o time</a>
-      </div>
-      <div class="card">
-        <h3>Revisão técnica e de privacidade</h3>
-        <p>Para Jurídico, Compliance e Segurança da Informação: arquitetura, isolamento de dados, pisos de coorte e trilhas de auditoria.</p>
-        <a class="btn btn-ghost" href="seguranca.html" style="margin-top:8px;">Ver arquitetura</a>
-      </div>
-      <div class="card">
-        <h3>Proposta corporativa</h3>
-        <p>Escopo por número de colaboradores, estabelecimentos e periodicidade de medição.</p>
-        <a class="btn btn-ghost" href="#precos-nr1" style="margin-top:8px;">Ver condições do Psicossocial</a>
-      </div>
-    </div>
-
-    <div class="card" style="margin-top:24px;">
-      <h3 style="margin-top:0;">Siglas usadas nesta página</h3>
-      <p style="margin:0; font-size:0.86rem; color:var(--froid-cinza); line-height:1.7;">
-        <strong>AEP</strong> Avaliação Ergonômica Preliminar ·
-        <strong>AET</strong> Análise Ergonômica do Trabalho ·
-        <strong>CAT</strong> Comunicação de Acidente de Trabalho ·
-        <strong>CID</strong> Classificação Internacional de Doenças ·
-        <strong>CIPA</strong> Comissão Interna de Prevenção de Acidentes e de Assédio ·
-        <strong>CLT</strong> Consolidação das Leis do Trabalho ·
-        <strong>CGNOR/DSST/SIT</strong> Coordenação-Geral de Normatização e Programas / Departamento de Segurança e Saúde no Trabalho / Secretaria de Inspeção do Trabalho ·
-        <strong>DOU</strong> Diário Oficial da União ·
-        <strong>eSocial</strong> Sistema de Escrituração Digital das Obrigações Fiscais, Previdenciárias e Trabalhistas ·
-        <strong>GRO</strong> Gerenciamento de Riscos Ocupacionais ·
-        <strong>INSS</strong> Instituto Nacional do Seguro Social ·
-        <strong>ISO</strong> Organização Internacional de Normalização ·
-        <strong>LGPD</strong> Lei Geral de Proteção de Dados Pessoais (Lei nº 13.709/2018) ·
-        <strong>MPT</strong> Ministério Público do Trabalho ·
-        <strong>MTE</strong> Ministério do Trabalho e Emprego ·
-        <strong>NR-1</strong> Norma Regulamentadora nº 1 — Disposições Gerais e Gerenciamento de Riscos Ocupacionais ·
-        <strong>NR-17</strong> Norma Regulamentadora nº 17 — Ergonomia ·
-        <strong>NR-28</strong> Norma Regulamentadora nº 28 — Fiscalização e Penalidades ·
-        <strong>OIT</strong> Organização Internacional do Trabalho ·
-        <strong>OMS</strong> Organização Mundial da Saúde ·
-        <strong>PCMSO</strong> Programa de Controle Médico de Saúde Ocupacional ·
-        <strong>PGR</strong> Programa de Gerenciamento de Riscos ·
-        <strong>RH</strong> Recursos Humanos ·
-        <strong>SESMT</strong> Serviço Especializado em Engenharia de Segurança e em Medicina do Trabalho ·
-        <strong>SST</strong> Segurança e Saúde no Trabalho ·
-        <strong>TAC</strong> Termo de Ajustamento de Conduta ·
-        <strong>TST</strong> Tribunal Superior do Trabalho
-      </p>
-    </div>
-
-    <div class="card" style="margin-top:24px;">
-      <h3 style="margin-top:0;">Fontes</h3>
-      <p style="margin:0; font-size:0.86rem; color:var(--froid-cinza);">Portaria MTE nº 1.419, de 27/08/2024 (DOU 28/08/2024), com a retificação de 30/07/2025 · Portaria MTE nº 765, de 15/05/2025 · NR-1, capítulo 1.5 e Anexo I · NR-17 · NR-28 · Guia de informações sobre os Fatores de Riscos Psicossociais Relacionados ao Trabalho (MTE, 2025) · Manual de interpretação e aplicação do capítulo 1.5 da NR-1 (MTE, 2026) · FAQ NR-1 (CGNOR/DSST/SIT) · Lei nº 14.457/2022 · Lei nº 14.831/2024 · Convenção nº 190 da OIT · ISO 45001:2018 e ISO 45003:2021 · OMS/OIT, <em>Mental health at work: policy brief</em>, 2022 · PINTO JR., A. R.; BOMFIM, V. Riscos psicossociais e saúde mental no trabalho. <em>Rev. TST</em>, v. 92, n. 1, 2026.</p>
-    </div>
+<section class="block" id="comece-com-um-escopo-bem-definido">
+  <div class="container prosa">
+<h2 class="section-title">Comece com um escopo bem definido</h2>
+<p>Descreva o porte e o contexto da organização, sem enviar dados de saúde individuais por e-mail.</p>
+<div class="hero-actions">
+<a class="btn btn-solid" href="sobre-contato.html#nr1">Solicitar proposta para NR-1</a>
+</div>
+<p class="links-rel"><a href="termos.html#nr1">Consultar documentos do produto</a> · <a href="privacidade.html#nr1">Privacidade NR-1</a></p>
   </div>
 </section>
 
@@ -1058,36 +425,44 @@ papel de execução do sistema:   sem GRANT sobre essas tabelas
         <p style="max-width:340px; color:rgba(248,250,252,0.55);">Frequency Recognition of Internal Dynamics. Ferramenta de apoio à escuta clínica — não substitui avaliação, diagnóstico ou julgamento profissional.</p>
       </div>
       <div>
-        <h5>Navegação</h5>
+        <h5>FROID Psique</h5>
         <ul>
-          <li><a href="index.html">FROID Psique</a></li>
-          <li><a href="ciencia.html">Ciência</a></li>
+          <li><a href="profissionais.html">Profissionais e clínicas</a></li>
+          <li><a href="como-funciona-clinico.html">Como funciona uma sessão</a></li>
+          <li><a href="demonstracao.html">Demonstração</a></li>
           <li><a href="tecnologia.html">Tecnologia</a></li>
           <li><a href="mapas-faciais.html">Mapas da face</a></li>
+          <li><a href="ciencia.html">Ciência e validação</a></li>
+          <li><a href="data-froid.html">Data-Froid</a></li>
           <li><a href="froid-explica.html">FROID Explica</a></li>
-          <li><a href="etica.html">Ética</a></li>
-          <li><a href="seguranca.html">Segurança</a></li>
-          <li><a href="profissionais.html">Profissionais</a></li>
-          <li><a href="iso-45003.html">FROID NR-1/ISO-45003</a>
-      <a href="empresas.html">Para empresas</a></li>
-          <li><a href="como-funciona-nr1.html">Como funciona</a></li>
           <li><a href="precos.html">Preços</a></li>
-        </ul>
-      </div>
-      <div>
-        <h5>Suporte</h5>
-        <ul>
-          <li><a href="faq.html">Perguntas Frequentes</a></li>
+          <li><a href="faq.html">Perguntas frequentes</a></li>
           <li><a href="glossario.html">Glossário</a></li>
-          <li><a href="demonstracao.html">Demonstração</a></li>
-          <li><a href="sobre-contato.html">Sobre &amp; Contato</a></li>
-          <li><a href="termos.html">Termos de Uso</a></li>
-          <li><a href="privacidade.html">Política de Privacidade</a></li>
+          <li><a href="etica.html">Ética e limites</a></li>
+          <li><a href="seguranca.html">Segurança</a></li>
         </ul>
       </div>
       <div>
-        <h5>Acesso</h5>
+        <h5>FROID NR-1</h5>
         <ul>
+          <li><a href="empresas.html">Para empresas</a></li>
+          <li><a href="como-funciona-nr1.html">Como funciona</a></li>
+          <li><a href="diagnostico-nr1.html">Prontidão</a></li>
+          <li><a href="proposta-nr1.html">Proposta</a></li>
+          <li><a href="froid-explica-nr1.html">FROID Explica NR-1</a></li>
+          <li><a href="iso-45003.html">ISO 45003</a></li>
+          <li><a href="seguranca-nr1.html">Privacidade e divulgação</a></li>
+          <li><a href="faq-nr1.html">Perguntas frequentes</a></li>
+          <li><a href="glossario-nr1.html">Glossário NR-1</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Institucional e acesso</h5>
+        <ul>
+          <li><a href="menu.html">Mapa do site</a></li>
+          <li><a href="sobre-contato.html">Sobre e contato</a></li>
+          <li><a href="privacidade.html">Privacidade</a></li>
+          <li><a href="termos.html">Termos e contratos</a></li>
           <li><a href="https://www.froid.com.br/app/#/login">Entrar no FROID</a></li>
           <li><a href="https://www.froid.com.br/cadastro">Cadastrar no FROID</a></li>
           <li><a href="https://www.froid.com.br/app/#/paciente">Portal do Paciente</a></li>
@@ -1098,7 +473,7 @@ papel de execução do sistema:   sem GRANT sobre essas tabelas
   </div>
 </footer>
 
-<script src="site-assets/script.js?v=18"></script>
+<script src="site-assets/script.js?v=20"></script>
 <script src="site-assets/navigation.js?v=1"></script>
 </body>
 </html>

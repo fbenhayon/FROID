@@ -1,0 +1,137 @@
+/* Componentes das páginas pt-BR reescritas em 06/10/2026.
+
+   Vive em arquivo próprio, e não em style.css ou refinement.css, porque as
+   traduções (en/, es/, fr/) seguem o template anterior e não usam nada daqui.
+   Tudo o que já existia no site — hero, blocos, cartões, botões, grades,
+   rodapé, caixa de aviso — continua vindo de style.css e refinement.css. */
+
+/* Texto corrido: coluna mais estreita que a dos cartões, para a linha não
+   passar de ~90 caracteres. */
+.container.prosa { max-width: 860px; }
+.container.prosa > p, .container.prosa > ul, .container.prosa > ol { font-size: 1.02rem; line-height: 1.8; color: #cbd5e1; }
+.container.prosa > ul, .container.prosa > ol { padding-left: 1.3em; }
+.container.prosa > ul li, .container.prosa > ol li { margin: 6px 0; }
+.container.prosa > h3 { margin: 28px 0 6px; color: #f8fafc; }
+.container.prosa > .hero-actions { margin-top: 26px; }
+.container > .grid-2, .container > .grid-3 { margin-top: 8px; }
+.container > .hero-actions { margin-top: 26px; }
+
+/* Trilha do hero com link (FROID Psique / Ciência). */
+.hero .section-kicker a { color: inherit; }
+
+/* Analogias: a mesma voz da citação legal de etica.html. */
+blockquote.analogia {
+  margin: 22px 0; padding: 18px 24px;
+  border-left: 4px solid #f5c778; background: var(--paper-soft);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  font-family: var(--font-serif); font-style: italic; font-size: 1.05rem; line-height: 1.7; color: #e2e8f0;
+}
+
+/* Links relacionados ao pé de um bloco. */
+.links-rel { text-align: center; margin: 18px 0 0; color: var(--froid-cinza); }
+.links-rel a { font-weight: 600; }
+.card .card-link, .card .card-acao { margin: 12px 0 0; }
+
+/* Perguntas frequentes e detalhes técnicos: acordeão. */
+details.pergunta {
+  border: 1px solid #303d50; border-radius: 12px; margin: 10px 0;
+  background: linear-gradient(145deg, #1a2433, #111822);
+}
+details.pergunta summary {
+  cursor: pointer; font-weight: 700; padding: 16px 48px 16px 20px;
+  list-style: none; position: relative; color: #f8fafc;
+}
+details.pergunta summary::-webkit-details-marker { display: none; }
+details.pergunta summary::after {
+  content: "+"; position: absolute; right: 18px; top: 11px;
+  font-size: 1.5rem; line-height: 1; color: #f5c778;
+}
+details.pergunta[open] summary::after { content: "\2212"; }
+details.pergunta > :not(summary) { padding: 0 20px 16px; margin: 0; color: #bcc8d8; line-height: 1.7; }
+
+/* Checklist de prontidão (diagnostico-nr1.html). Nada é enviado. */
+fieldset.checklist { border: 1px solid #303d50; border-radius: var(--radius); padding: 18px 22px; margin: 22px 0; }
+fieldset.checklist legend { padding: 0 8px; color: #f5cf8d; font-weight: 600; }
+fieldset.checklist label {
+  display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; margin: 8px 0;
+  background: var(--paper-soft); border-radius: 10px; cursor: pointer; line-height: 1.5;
+}
+fieldset.checklist input { width: 20px; height: 20px; margin: 3px 0 0; accent-color: #f5c778; flex: 0 0 auto; }
+
+/* Cartões de glossário: etiqueta numerada acima do termo. */
+.card .tag { display: block; color: #f5c778; font-size: .74rem; letter-spacing: .1em; text-transform: uppercase; font-weight: 700; margin-bottom: 6px; }
+.card h3 { margin-top: 0; }
+
+/* Lista com marcadores de confirmação (licença, na página de preços). */
+.plan-list { list-style: none; margin: 14px 0 18px; padding: 0; }
+.plan-list li { font-size: 0.9rem; padding: 3px 0 3px 22px; position: relative; }
+.plan-list li::before { content: "\2713"; position: absolute; left: 0; color: #22c55e; font-weight: 800; }
+
+code { font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; font-size: .92em; background: #0b1220; padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
+
+/* Contato: dados diretos ao lado do formulário (vinha do <style> da página). */
+.contato-grid { display: grid; grid-template-columns: 1fr 1.35fr; gap: 22px; align-items: start; margin-top: 8px; }
+@media (max-width: 860px) { .contato-grid { grid-template-columns: 1fr; } }
+.contato-dados p { margin: 0 0 14px; font-size: 1.02rem; }
+.contato-dados .rotulo { display: block; font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.16em; color: var(--froid-cinza); font-weight: 700; margin-bottom: 3px; }
+.form-contato label { display: block; font-size: 13px; font-weight: 700; margin: 14px 0 6px; }
+.form-contato input, .form-contato textarea {
+  width: 100%; padding: 10px 12px; border-radius: 7px; border: 1px solid var(--border);
+  background: #060d18; color: var(--ink); font-size: 15px; font-family: var(--font);
+}
+.form-contato textarea { min-height: 148px; resize: vertical; line-height: 1.6; }
+.form-contato .linha { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 640px) { .form-contato .linha { grid-template-columns: 1fr; } }
+.form-status { margin: 14px 0 0; font-size: 0.92rem; line-height: 1.6; }
+.form-status.erro { color: #fca5a5; }
+.form-status.ok { color: #86efac; }
+
+@media (max-width: 860px) {
+  blockquote.analogia { padding: 14px 18px; font-size: 1rem; }
+  .container.prosa > p, .container.prosa > ul, .container.prosa > ol { font-size: 1rem; }
+}
+
+/* ---- Componentes devolvidos em 06/10/2026 (modelo anterior) ---- */
+
+/* Calculadora de piso (diagnostico-nr1.html). */
+.calc { border: 1px solid var(--border); border-radius: 10px; padding: 22px; background: #0b1524; }
+.calc label { display: block; font-size: 13px; font-weight: 700; margin: 16px 0 6px; }
+.calc input, .calc select { width: 100%; padding: 10px 12px; border-radius: 7px; border: 1px solid var(--border); background: #060d18; color: var(--ink); font-size: 15px; font-family: var(--font); }
+.calc .linha { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 640px) { .calc .linha { grid-template-columns: 1fr; } }
+.veredito { border-radius: 9px; padding: 18px; margin-top: 22px; line-height: 1.7; display: none; }
+.v-ok { border: 1px solid #14532d; background: #08160e; }
+.v-atencao { border: 1px solid #78350f; background: #1a1006; }
+.v-nao { border: 1px solid #7f1d1d; background: #1a0a0a; }
+.veredito h3 { margin: 0 0 8px; font-size: 1.05rem; }
+.veredito ul { margin: 10px 0 0 18px; }
+.veredito li { margin: 5px 0; }
+.gate { border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-top: 26px; background: #0f1c2e; }
+.gate .linha { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 640px) { .gate .linha { grid-template-columns: 1fr; } }
+.gate label { display: block; font-size: 13px; font-weight: 700; margin: 14px 0 6px; }
+.gate input { width: 100%; padding: 10px 12px; border-radius: 7px; border: 1px solid var(--border); background: #060d18; color: var(--ink); font-size: 15px; font-family: var(--font); }
+.muted-sm { font-size: 12px; color: var(--froid-cinza); margin-top: 10px; line-height: 1.6; }
+p.nota { font-size: 0.86rem; color: var(--froid-cinza); margin-top: 14px; }
+
+/* Tabela de perigos do Guia MTE (como-funciona-nr1.html). */
+.haz-wrap { overflow-x: auto; }
+.haz-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; min-width: 600px; }
+.haz-table th, .haz-table td { padding: 11px 14px; border-bottom: 1px solid #334155; text-align: left; vertical-align: top; }
+.haz-table th { background: #1e293b; color: #f8fafc; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.haz-table td:last-child { color: var(--froid-cinza); font-size: 0.86rem; }
+.haz-table .grp td { background: #0f172a; color: #93c5fd; font-weight: 700; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; }
+
+/* Tabelas de preço do NR-1 dentro de blocos de prosa. */
+.container.prosa .nr1-faixas { min-width: 420px; }
+
+/* Imagens do produto. Todas usam .site-img, e o lightbox do script.js as
+   amplia ao clique; aqui só se controla o tamanho em repouso. */
+.fig-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 24px; align-items: start; }
+.fig-grid.fig-grid-pequena { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 280px)); justify-content: center; }
+figure.fig { margin: 0; }
+figure.fig-pequena { max-width: 280px; margin-inline: auto; }
+figure.fig-media { max-width: 560px; margin-inline: auto; }
+figure.fig figcaption { text-align: left; }
+.container.prosa figure.fig { margin: 22px auto; }
+.fig-grid figure.fig { width: 100%; }

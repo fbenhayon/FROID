@@ -15,146 +15,194 @@
 // encontrou na página de preços. Por isso o construtor abaixo confere a
 // existência do alvo antes de criar o item, quando está na própria página.
 var NAV_SECOES = {
-  "index.html": [
-    ["visao-geral", "Visão geral"],
-    ["data-froid", "Data-Froid"],
-    ["para-quem-e", "Para quem é"],
-    ["o-diferencial", "O diferencial"],
-    ["paciente", "Portal do Paciente"],
-    ["transparencia", "Transparência"],
-    ["explore", "Por onde seguir"]
-  ],
   "ciencia.html": [
-    ["evidencia", "Explorador de evidências"],
-    ["percepcao-do-paciente", "A percepção do paciente sobre a própria expressão"],
-    ["data-froid-ciencia", "O que o Data-Froid prova, e o que não"],
-    ["bibliografia", "Metodologia de verificação"]
+    ["tres-camadas-de-leitura", "Três camadas de leitura"],
+    ["o-que-o-produto-apresenta", "O que o produto apresenta"],
+    ["validacao", "Como comunicar evolução sem antecipar evidência"],
+    ["do-entendimento-a-avaliacao-da-sua-pratica", "Do entendimento à avaliação da sua prática"]
   ],
-  "tecnologia.html": [
-    ["baseline", "Calibração da linha de base"],
-    ["extracao-acustica", "Extração acústica"],
-    ["facs", "Dinâmica facial (FACS)"],
-    ["zonas", "As 12 Zonas de Percepção"],
-    ["data-froid-engenharia", "Por que o acervo não era possível"],
-    ["ipm-idm", "Os índices IPM e IDM"],
-    ["estabilizacao", "Estabilização clínica da tela"]
+  "como-funciona-clinico.html": [
+    ["prepare-uma-captura-autorizada", "1. Prepare uma captura autorizada"],
+    ["acompanhe-canais-complementares", "2. Acompanhe canais complementares"],
+    ["distingua-candidato-registro-e-historico", "3. Distingua candidato, registro e histórico"],
+    ["saiba-quando-nao-ha-medida", "4. Saiba quando não há medida"],
+    ["revise-e-contextualize", "5. Revise e contextualize"],
+    ["veja-como-isso-se-apresenta", "Veja como isso se apresenta"]
+  ],
+  "como-funciona-nr1.html": [
+    ["defina-unidades-e-responsabilidades", "1. Defina unidades e responsabilidades"],
+    ["prepare-finalidade-comunicacao-e-apoio", "2. Prepare finalidade, comunicação e apoio"],
+    ["colete-e-reuna-evidencias", "3. Colete e reúna evidências"],
+    ["examine-resultados-elegiveis", "4. Examine resultados elegíveis"],
+    ["organize-documentacao-e-acao", "5. Organize documentação e ação"],
+    ["implemente-e-acompanhe", "6. Implemente e acompanhe"],
+    ["reavalie-e-revise", "7. Reavalie e revise"],
+    ["anonimato-das-respostas", "Por que ninguém consegue saber quem respondeu o quê"],
+    ["os-perigos", "A listagem do Guia MTE 2025"],
+    ["construa-o-percurso-adequado-a-organizacao", "Construa o percurso adequado à organização"]
+  ],
+  "data-froid.html": [
+    ["o-acervo-e-o-assistente-tem-papeis-diferentes", "O acervo e o assistente têm papéis diferentes"],
+    ["tres-responsabilidades-na-arquitetura-proposta", "Três responsabilidades na arquitetura proposta"],
+    ["o-que-pode-ser-investigado", "O que pode ser investigado"],
+    ["voz-e-rosto-continuam-separados", "Voz e rosto continuam separados"],
+    ["pesquisa", "Um caminho para investigar, não uma validação automática"],
+    ["privacidade-nao-e-um-rotulo", "Privacidade não é um rótulo"],
+    ["perguntas-que-respeitam-os-dados-disponiveis", "Perguntas que respeitam os dados disponíveis"],
+    ["avalie-o-data-froid-com-a-equipe", "Avalie o Data-Froid com a equipe"]
+  ],
+  "demonstracao.html": [
+    ["uma-linha-do-tempo-dois-canais", "Uma linha do tempo, dois canais"],
+    ["explore-tres-situacoes", "Explore três situações"],
+    ["o-que-o-profissional-leva-para-a-revisao", "O que o profissional leva para a revisão"],
+    ["cortes-e-calibracao", "Calibração e cortes: os números da sessão"],
+    ["o-produto-na-tela", "O aplicativo, na tela"],
+    ["quer-conhecer-a-interface-em-uma-apresentacao", "Quer conhecer a interface em uma apresentação?"]
+  ],
+  "diagnostico-nr1.html": [
+    ["checklist-de-preparacao", "Checklist de preparação"],
+    ["calculadora", "A sua empresa consegue resultado liberável?"],
+    ["por-que-existe-um-piso", "Por que existe um piso"],
+    ["se-um-recorte-nao-puder-ser-divulgado", "Se um recorte não puder ser divulgado"],
+    ["leve-um-escopo-claro-a-primeira-conversa", "Leve um escopo claro à primeira conversa"]
+  ],
+  "empresas.html": [
+    ["nao-basta-uma-fotografia-do-problema", "Não basta uma fotografia do problema"],
+    ["processo", "Um processo, responsabilidades claras"],
+    ["privacidade", "Condições de trabalho, não vigilância clínica"],
+    ["o-que-entra-no-escopo-da-conversa", "O que entra no escopo da conversa"],
+    ["comece-com-um-escopo-bem-definido", "Comece com um escopo bem definido"]
+  ],
+  "etica.html": [
+    ["limites", "Informação, não um veredito sobre a pessoa"],
+    ["o-que-a-captura-permite-e-o-que-nao-permite", "O que a captura permite"],
+    ["autonomia-autorizacoes-e-conferencia", "Autonomia, autorizações e conferência"],
+    ["sem-promessas-de-resultado-automatico", "Sem promessas de resultado automático"],
+    ["avalie-com-os-limites-a-vista", "Avalie com os limites à vista"]
+  ],
+  "faq-nr1.html": [
+    ["escopo-e-responsabilidade", "Escopo e responsabilidade"],
+    ["participacao-e-divulgacao", "Participação e divulgação"],
+    ["depois-da-coleta", "Depois da coleta"],
+    ["sua-situacao-precisa-de-analise-especifica", "Sua situação precisa de análise específica?"]
+  ],
+  "faq.html": [
+    ["medidas-e-interpretacao", "Medidas e interpretação"],
+    ["uso-e-contratacao", "Uso e contratação"],
+    ["sua-duvida-depende-da-sua-rotina", "Sua dúvida depende da sua rotina?"]
+  ],
+  "froid-explica-nr1.html": [
+    ["dois-caminhos-de-consulta", "Dois caminhos de consulta"],
+    ["exemplos-de-perguntas-uteis", "Exemplos de perguntas úteis"],
+    ["privacidade-tambem-na-pergunta", "Privacidade também na pergunta"],
+    ["orientacao-com-limites-explicitos", "Orientação com limites explícitos"],
+    ["veja-a-aplicacao-no-seu-projeto", "Veja a aplicação no seu projeto"]
   ],
   "froid-explica.html": [
     ["veja-em-acao", "Veja em ação"],
-    ["como-funciona", "Como funciona"],
-    ["inteligencia-da-carteira", "Inteligência da carteira"],
-    ["prompts", "Biblioteca de prompts"],
-    ["personalizacao", "Personalização"],
-    ["datamart", "A base que aprende com o mundo"]
+    ["conhecimento-sessao-e-acervo-tres-escopos", "Conhecimento, sessão e acervo: três escopos"],
+    ["como-um-bibliotecario-nao-como-um-oraculo", "Como um bibliotecário, não como um oráculo"],
+    ["prompts", "Prompts nativos para começar; próprios para aprofundar"],
+    ["mais-clareza-sem-transformar-resposta-em-conduta", "Mais clareza, sem transformar resposta em conduta"],
+    ["veja-o-assistente-no-contexto-da-sua-pratica", "Veja o assistente no contexto da sua prática"]
   ],
-  "etica.html": [
-    ["pilar-1-diretrizes-inegociaveis", "Diretrizes inegociáveis"],
-    ["pilar-2-fairness-algoritmica", "Fairness algorítmica"],
-    ["pilar-3-produto", "Produto"],
-    ["pilar-4-conformidade-legal", "Conformidade legal"],
-    ["pilar-5-soberania-de-dados", "Soberania de dados"],
-    ["kit-de-conformidade", "Kit de conformidade"]
+  "glossario-nr1.html": [
+    ["os-termos-do-projeto", "Os termos do projeto"],
+    ["coloque-os-termos-em-sequencia", "Coloque os termos em sequência"]
   ],
-  "seguranca.html": [
-    ["protecao", "Proteção de dados"],
-    ["caminho", "O caminho de uma sessão"],
-    ["conformidade", "Conformidade"]
+  "glossario.html": [
+    ["os-dez-conceitos", "Os dez conceitos"],
+    ["veja-os-conceitos-no-contexto-de-uso", "Veja os conceitos no contexto de uso"]
   ],
-  "profissionais.html": [
-    ["sessao", "Antes, durante e depois"],
-    ["financeiro", "Controle financeiro"],
-    ["relatorios", "Relatórios de pacientes"],
-    ["data-froid", "Data-Froid"],
-    ["equipe", "Compartilhamento entre profissionais"],
-    ["seguranca-e-responsabilidade", "Segurança e responsabilidade"],
-    ["proximo-passo", "Próximo passo"]
+  "index.html": [
+    ["produtos", "Dois produtos. Cada um no seu contexto."],
+    ["um-painel-de-apoio-nao-um-piloto-automatico", "Um painel de apoio, não um piloto automático"],
+    ["o-diferencial-aparece-no-registro", "O diferencial aparece no registro"],
+    ["inteligencia-artificial-que-voce-pode-compreender", "Inteligência artificial que você pode compreender"],
+    ["confianca-exige-explicacao", "Confiança exige explicação"],
+    ["o-produto-na-tela", "O painel do FROID Psique"],
+    ["descubra-onde-o-froid-pode-ajudar", "Descubra onde o FROID pode ajudar"]
   ],
   "iso-45003.html": [
-    ["indice", "Como a página se organiza"],
-    ["o-que-e", "O que a ISO 45003 é"],
-    ["lastro", "O critério que decide numa perícia"],
-    ["documental", "Dever de conduta × dever documental"],
-    ["ja-tem-45001", "Se você já tem ISO 45001"],
-    ["limites", "O que não afirmamos"],
-    ["proximo", "Próximo passo"]
-  ],
-  "froid-explica-nr1.html": [
-    ["duas-camadas", "As duas camadas"],
-    ["temas", "Os oito temas"],
-    ["trabalhador", "O que o trabalhador pergunta"],
-    ["acervo", "O acervo, e o que é recusado"],
-    ["limites", "O que não é"],
-    ["proximo-passo", "Próximo passo"]
-  ],
-  "empresas.html": [
-    ["indice", "Como a página se organiza"],
-    ["o-retrato-legal", "O que mudou na norma"],
-    ["o-que-a-fiscalizacao-pede", "Os três documentos"],
-    ["o-custo-da-omissao", "O custo da omissão"],
-    ["armadilhas", "Seis erros que geram passivo"],
-    ["solucao", "A AEP psicossocial"],
-    ["a-plataforma", "A plataforma"],
-    ["eficacia", "Provar que a medida funcionou"],
-    ["dado-insuficiente", "Quando o dado não basta"],
-    ["comparacao", "Gestão tradicional × FROID"],
-    ["perguntas-fornecedor", "Cinco perguntas ao fornecedor"],
-    ["precos-nr1", "Quanto custa"],
-    ["limites-e-responsabilidade", "Limites e responsabilidade"],
-    ["proximo-passo", "Comece por um estabelecimento"]
-  ],
-  "como-funciona-nr1.html": [
-    ["as-sete-etapas", "As nove etapas"],
-    ["dossie-verificavel", "Comprovação de Gestão Diciplinar"],
-    ["os-perigos", "A listagem do Guia MTE"],
-    ["o-que-e-igual-em-toda-empresa-e-o-que-muda", "O que muda em cada empresa"],
-    ["quando-a-segunda-avaliacao-reprova", "E se a segunda avaliação reprovar?"],
-    ["a-sua-empresa-tem-tamanho-para-isso", "A sua empresa tem tamanho?"]
-  ],
-  "precos.html": [
-    ["planos", "Planos PRO, PLUS e MASTER"],
-    ["comparacao", "Comparação de habilidades"],
-    ["creditos", "Como funcionam os créditos"],
-    ["nr1", "Precisa cumprir a NR-1?"],
-    ["antes-de-decidir", "Antes de decidir"]
-  ],
-  "diagnostico-nr1.html": [
-    ["por-que-existe-um-piso", "Por que existe um piso"],
-    ["se-a-sua-empresa-nao-atinge-o-piso", "Se não atinge o piso"]
-  ],
-  "proposta-nr1.html": [
-    ["o-que-esta-sendo-contratado", "O que está sendo contratado"],
-    ["fases", "Fases"],
-    ["condicoes-comerciais", "Condições comerciais"],
-    ["o-que-a-contratante-precisa-fornecer", "O que a contratante fornece"],
-    ["por-que-este-procedimento-e-nao-outro", "Por que este procedimento"],
-    ["protecao-de-dados", "Proteção de dados"],
-    ["limites-do-servico", "Limites do serviço"],
-    ["aceite", "Aceite"]
-  ],
-  "sobre-contato.html": [
-    ["quem-faz-o-froid", "Quem faz o FROID"],
-    ["fale-com-o-time", "Contato"]
+    ["referencia-nao-e-validacao-automatica-do-produto", "Referência não é validação automática do produto"],
+    ["o-que-deve-ser-verificado-no-projeto", "O que deve ser verificado no projeto"],
+    ["como-o-froid-entra-nessa-organizacao", "Como o FROID entra nessa organização"],
+    ["avalie-a-relacao-com-seu-sistema-de-gestao", "Avalie a relação com seu sistema de gestão"]
   ],
   "mapas-faciais.html": [
-    ["dois-mapas", "Dois mapas, duas perguntas"],
-    ["vocabulario", "O que cada AU significa"],
-    ["composicao", "Como as AUs se combinam"],
-    ["leitura", "Do rosto à leitura"],
-    ["limites", "O que os mapas não afirmam"]
+    ["um-dicionario-de-movimentos-nao-um-leitor-de-pensamentos", "Um dicionário de movimentos, não um leitor de pensamentos"],
+    ["familias", "As sete famílias"],
+    ["o-detalhe-nao-desaparece-na-organizacao", "O detalhe não desaparece na organização"],
+    ["quadros-de-referencia", "Os quadros de referência do FACS"],
+    ["limites", "O que não deve ser inferido"],
+    ["explore-antes-de-decidir", "Explore antes de decidir"]
   ],
-  "demonstracao.html": [
-    ["indice", "Como a página se organiza"],
-    ["o-que-e", "As três camadas"],
-    ["antes", "Antes: conta, convite e sala"],
-    ["calibracao", "Os 60 primeiros segundos"],
-    ["durante", "Durante: o que a tela mostra"],
-    ["sem-apuracao", "Quando não há o que medir"],
-    ["explica", "Perguntar ao FROID Explica"],
-    ["depois", "Depois: o relatório"],
-    ["liberacao", "O documento do paciente"],
-    ["acervo", "O que volta ao Data-Froid"],
-    ["limites", "O que o FROID não afirma"],
-    ["proximo-passo", "Próximo passo"]
+  "menu.html": [
+    ["as-paginas-por-produto", "As páginas, por produto"]
+  ],
+  "precos.html": [
+    ["qual-e-o-seu-cenario", "Qual é o seu cenário?"],
+    ["trial", "Teste gratuito, sem cartão"],
+    ["como-funcionam-os-creditos", "Como funcionam os créditos"],
+    ["pacotes", "Pacotes de créditos de análise"],
+    ["o-que-a-licenca-organiza", "O que a licença organiza"],
+    ["licenca", "Licença mensal por profissional clínico"],
+    ["e-quando-o-saldo-termina", "E quando o saldo termina?"],
+    ["receba-uma-proposta-para-sua-pratica", "Receba uma proposta para sua prática"]
+  ],
+  "privacidade.html": [
+    ["psique", "FROID Psique"],
+    ["nr1", "FROID NR-1"],
+    ["duvidas-ou-solicitacoes-sobre-dados", "Dúvidas ou solicitações sobre dados"]
+  ],
+  "profissionais.html": [
+    ["antes-durante-e-depois", "Antes, durante e depois"],
+    ["relatorio-da-sessao", "O relatório da sessão"],
+    ["instrumentos-que-informam-sem-decidir-por-voce", "Instrumentos que informam, sem decidir por você"],
+    ["uma-pergunta-melhor-comeca-por-um-contexto-claro", "Uma pergunta melhor começa por um contexto claro"],
+    ["data-froid-da-informacao-registrada-a-investigacao", "Data-Froid: da informação registrada à investigação"],
+    ["contratacao-adequada-a-sua-pratica", "Contratação adequada à sua prática"],
+    ["comece-avaliando-o-encaixe-na-sua-rotina", "Comece avaliando o encaixe na sua rotina"]
+  ],
+  "proposta-nr1.html": [
+    ["o-que-definir-antes-do-valor", "O que definir antes do valor"],
+    ["etapas-que-a-proposta-pode-contemplar", "Etapas que a proposta pode contemplar"],
+    ["precos", "Condições comerciais"],
+    ["o-contrato-e-a-referencia", "O contrato é a referência"],
+    ["comece-com-as-informacoes-essenciais", "Comece com as informações essenciais"]
+  ],
+  "seguranca-nr1.html": [
+    ["resultado-agregado-nao-prontuario-individual", "Resultado agregado, não prontuário individual"],
+    ["criterios-antes-da-divulgacao", "Critérios antes da divulgação"],
+    ["comunicacao-ao-trabalhador", "Comunicação ao trabalhador"],
+    ["governanca-e-documentos", "Governança e documentos"],
+    ["revise-privacidade-antes-de-abrir-a-coleta", "Revise privacidade antes de abrir a coleta"]
+  ],
+  "seguranca.html": [
+    ["analise-facial-e-videochamada-sao-percursos-diferentes", "Análise facial e videochamada são percursos diferentes"],
+    ["audio-e-transcricao", "Áudio e transcrição"],
+    ["protecao-e-permissoes", "Proteção e permissões"],
+    ["analise-agregada", "Governança da análise agregada"],
+    ["direitos-contratos-e-transparencia", "Direitos, contratos e transparência"],
+    ["precisa-avaliar-a-arquitetura-antes-de-contratar", "Precisa avaliar a arquitetura antes de contratar?"]
+  ],
+  "sobre-contato.html": [
+    ["escolha-o-assunto", "Escolha o assunto"],
+    ["canal-de-contato", "Canal de contato"]
+  ],
+  "tecnologia.html": [
+    ["voz", "Voz: uma referência para a própria sessão"],
+    ["ipm-idm", "IPM e IDM: magnitude e direção"],
+    ["face", "Face: do coeficiente ao padrão"],
+    ["registro", "Consistência que chega à tela e ao relatório"],
+    ["arquitetura-com-responsabilidades-distintas", "Arquitetura com responsabilidades distintas"],
+    ["na-tela", "As medidas, na tela"],
+    ["leve-o-entendimento-para-a-pratica", "Leve o entendimento para a prática"]
+  ],
+  "termos.html": [
+    ["psique", "FROID Psique"],
+    ["nr1", "FROID NR-1"],
+    ["precisa-esclarecer-o-escopo-antes-de-contratar", "Precisa esclarecer o escopo antes de contratar?"]
   ]
 };
 

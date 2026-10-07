@@ -3,8 +3,16 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>FROID — Reconhecimento de Frequência das Dinâmicas Internas</title>
-<meta name="description" content="FROID é uma plataforma de apoio clínico que analisa voz e expressão facial em sessões terapêuticas, combinando engenharia de sinal validada com uma camada interpretativa proprietária." />
+<title>FROID | Tecnologia para saúde mental e riscos psicossociais</title>
+<meta name="description" content="Conheça o FROID Psique, apoio à observação clínica, e o FROID NR-1, para organizar a gestão de riscos psicossociais no trabalho." />
+<link rel="canonical" href="https://www.froid.com.br/" />
+<meta property="og:type" content="website" />
+<meta property="og:locale" content="pt_BR" />
+<meta property="og:title" content="FROID — Tecnologia a serviço do cuidado" />
+<meta property="og:description" content="Dois produtos, caminhos distintos: observação clínica e gestão de riscos psicossociais." />
+<meta property="og:url" content="https://www.froid.com.br/" />
+<meta name="twitter:card" content="summary" />
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"FROID","url":"https://www.froid.com.br/","inLanguage":"pt-BR","description":"FROID Psique e FROID NR-1: tecnologia para apoiar profissionais e organizações."}</script>
 <link rel="alternate" hreflang="pt-BR" href="https://www.froid.com.br/" />
 <link rel="alternate" hreflang="en" href="https://www.froid.com.br/en/" />
 <link rel="alternate" hreflang="fr" href="https://www.froid.com.br/fr/" />
@@ -12,40 +20,14 @@
 <link rel="alternate" hreflang="x-default" href="https://www.froid.com.br/" />
 <link rel="stylesheet" href="site-assets/style.css?v=16" />
 <link rel="stylesheet" href="site-assets/refinement.css?v=2" />
+<link rel="stylesheet" href="site-assets/paginas.css?v=2" />
 <script>
   // O painel FROID usa HashRouter (/#/dashboard). Num refresh, o servidor recebe "/"
   // e serve este site — este redirect devolve o utilizador ao painel em /app/.
   if (location.hash.indexOf("#/") === 0) { location.replace("/app/" + location.hash); }
 </script>
-<style>
-  /* A visao do Data-Froid: uma frase que precisa respirar, e a ressalva
-     imediatamente abaixo dela para que a ambicao nao seja lida como medida. */
-  .visao-froid {
-    border:1px solid var(--border); border-left:4px solid var(--froid-azul);
-    border-radius:var(--radius);
-    background:linear-gradient(180deg, rgba(59,130,246,0.10), rgba(15,23,42,0.55));
-    padding:34px 32px; margin:26px 0 0;
-  }
-  .visao-froid .frase {
-    font-family:var(--font-serif); font-size:clamp(1.22rem, 2.6vw, 1.7rem);
-    line-height:1.34; color:#f8fafc; margin:0; text-wrap:balance;
-  }
-  .visao-froid .frase em { color:#93c5fd; font-style:normal; }
-  .visao-froid .rodape { margin:16px 0 0; font-size:0.88rem; color:var(--froid-cinza); }
-
-  /* A frase que fecha a visao. Isolada do paragrafo de proposito: ela e a
-     conclusao, e lida em bloco corrido some no meio das outras. */
-  .hero-quote__lede { font-style:italic; color:#93c5fd; font-size:1.02rem; margin:0 0 14px; }
-  /* Caixa ambar da casa, a mesma do disclaimer-box, com a serifada do hero. */
-  /* A caixa abraca a frase em vez de a frase se ajustar a caixa: width
-     fit-content com teto, e sem quebra forcada. */
-  .hero-quote__fecho { font-family:var(--font-serif); font-weight:700;
-                       font-size:clamp(1.02rem,2vw,1.28rem); line-height:1.4;
-                       margin:20px auto 0; width:fit-content; max-width:100%;
-                       background:#451a03; border:1px solid #92400e; border-radius:var(--radius);
-                       color:#fde68a; padding:12px 22px; text-wrap:balance; }
-</style>
 </head>
+
 <body>
 
 <header class="site-header">
@@ -54,141 +36,154 @@
     <nav class="nav-links">
       <span class="nav-familia">
         <span class="nav-menu">
-          <a class="nav-familia-rotulo ativo" href="index.html">FROID Psique</a>
+          <a class="nav-familia-rotulo" href="profissionais.html">FROID Psique</a>
           <div class="nav-drop nav-drop-mega" role="menu">
           <div class="nav-drop-col">
-            <a class="nav-drop-pagina nav-drop-visao-geral ativo" role="menuitem" href="index.html">Visão geral</a>
-            <a class="nav-drop-secao" role="menuitem" href="index.html#visao-geral">Visão geral</a>
-            <a class="nav-drop-secao" role="menuitem" href="index.html#data-froid">Data-Froid</a>
-            <a class="nav-drop-secao" role="menuitem" href="index.html#para-quem-e">Para quem é</a>
-            <a class="nav-drop-secao" role="menuitem" href="index.html#o-diferencial">O diferencial</a>
-            <a class="nav-drop-secao" role="menuitem" href="index.html#paciente">Portal do Paciente</a>
-            <a class="nav-drop-secao" role="menuitem" href="index.html#transparencia">Transparência</a>
-            <a class="nav-drop-secao" role="menuitem" href="index.html#explore">Por onde seguir</a>
+            <a class="nav-drop-pagina nav-drop-visao-geral" role="menuitem" href="profissionais.html">Visão geral</a>
+            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#antes-durante-e-depois">Antes, durante e depois</a>
+            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#relatorio-da-sessao">O relatório da sessão</a>
+            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#instrumentos-que-informam-sem-decidir-por-voce">Instrumentos que informam, sem decidir por você</a>
+            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#uma-pergunta-melhor-comeca-por-um-contexto-claro">Uma pergunta melhor começa por um contexto claro</a>
+            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#data-froid-da-informacao-registrada-a-investigacao">Data-Froid: da informação registrada à investigação</a>
+            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#contratacao-adequada-a-sua-pratica">Contratação adequada à sua prática</a>
+            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#comece-avaliando-o-encaixe-na-sua-rotina">Comece avaliando o encaixe na sua rotina</a>
+          </div>
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina" role="menuitem" href="como-funciona-clinico.html">Como funciona</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-clinico.html#prepare-uma-captura-autorizada">1. Prepare uma captura autorizada</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-clinico.html#acompanhe-canais-complementares">2. Acompanhe canais complementares</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-clinico.html#distingua-candidato-registro-e-historico">3. Distingua candidato, registro e histórico</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-clinico.html#saiba-quando-nao-ha-medida">4. Saiba quando não há medida</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-clinico.html#revise-e-contextualize">5. Revise e contextualize</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-clinico.html#veja-como-isso-se-apresenta">Veja como isso se apresenta</a>
           </div>
           <div class="nav-drop-col">
             <a class="nav-drop-pagina" role="menuitem" href="demonstracao.html">Demonstração</a>
-            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#indice">Como a página se organiza</a>
-            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#o-que-e">As três camadas</a>
-            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#antes">Antes: conta, convite e sala</a>
-            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#calibracao">Os 60 primeiros segundos</a>
-            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#durante">Durante: o que a tela mostra</a>
-            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#sem-apuracao">Quando não há o que medir</a>
-            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#explica">Perguntar ao FROID Explica</a>
-            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#depois">Depois: o relatório</a>
-            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#liberacao">O documento do paciente</a>
-            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#acervo">O que volta ao Data-Froid</a>
-            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#limites">O que o FROID não afirma</a>
-            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#proximo-passo">Próximo passo</a>
-          </div>
-          <div class="nav-drop-col">
-            <a class="nav-drop-pagina" role="menuitem" href="profissionais.html">Profissionais</a>
-            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#sessao">Antes, durante e depois</a>
-            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#financeiro">Controle financeiro</a>
-            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#relatorios">Relatórios de pacientes</a>
-            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#data-froid">Data-Froid</a>
-            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#equipe">Compartilhamento entre profissionais</a>
-            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#seguranca-e-responsabilidade">Segurança e responsabilidade</a>
-            <a class="nav-drop-secao" role="menuitem" href="profissionais.html#proximo-passo">Próximo passo</a>
+            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#uma-linha-do-tempo-dois-canais">Uma linha do tempo, dois canais</a>
+            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#explore-tres-situacoes">Explore três situações</a>
+            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#o-que-o-profissional-leva-para-a-revisao">O que o profissional leva para a revisão</a>
+            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#cortes-e-calibracao">Calibração e cortes: os números da sessão</a>
+            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#o-produto-na-tela">O aplicativo, na tela</a>
+            <a class="nav-drop-secao" role="menuitem" href="demonstracao.html#quer-conhecer-a-interface-em-uma-apresentacao">Quer conhecer a interface em uma apresentação?</a>
           </div>
           <div class="nav-drop-col">
             <a class="nav-drop-pagina" role="menuitem" href="froid-explica.html">FROID Explica</a>
             <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#veja-em-acao">Veja em ação</a>
-            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#como-funciona">Como funciona</a>
-            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#inteligencia-da-carteira">Inteligência da carteira</a>
-            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#prompts">Biblioteca de prompts</a>
-            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#personalizacao">Personalização</a>
-            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#datamart">A base que aprende com o mundo</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#conhecimento-sessao-e-acervo-tres-escopos">Conhecimento, sessão e acervo: três escopos</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#como-um-bibliotecario-nao-como-um-oraculo">Como um bibliotecário, não como um oráculo</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#prompts">Prompts nativos para começar; próprios para aprofundar</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#mais-clareza-sem-transformar-resposta-em-conduta">Mais clareza, sem transformar resposta em conduta</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#veja-o-assistente-no-contexto-da-sua-pratica">Veja o assistente no contexto da sua prática</a>
+          </div>
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina" role="menuitem" href="data-froid.html">Data-Froid</a>
+            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#o-acervo-e-o-assistente-tem-papeis-diferentes">O acervo e o assistente têm papéis diferentes</a>
+            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#tres-responsabilidades-na-arquitetura-proposta">Três responsabilidades na arquitetura proposta</a>
+            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#o-que-pode-ser-investigado">O que pode ser investigado</a>
+            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#voz-e-rosto-continuam-separados">Voz e rosto continuam separados</a>
+            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#pesquisa">Um caminho para investigar, não uma validação automática</a>
+            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#privacidade-nao-e-um-rotulo">Privacidade não é um rótulo</a>
+            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#perguntas-que-respeitam-os-dados-disponiveis">Perguntas que respeitam os dados disponíveis</a>
+            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#avalie-o-data-froid-com-a-equipe">Avalie o Data-Froid com a equipe</a>
           </div>
           </div>
         </span>
       </span>
       <span class="nav-familia">
         <span class="nav-menu">
-          <a class="nav-familia-rotulo" href="iso-45003.html">FROID NR-1/ISO-45003</a>
+          <a class="nav-familia-rotulo" href="empresas.html">FROID NR-1</a>
           <div class="nav-drop nav-drop-mega" role="menu">
           <div class="nav-drop-col">
-            <a class="nav-drop-pagina nav-drop-visao-geral" role="menuitem" href="iso-45003.html">Visão geral (ISO 45003)</a>
-            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#indice">Como a página se organiza</a>
-            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#o-que-e">O que a ISO 45003 é</a>
-            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#lastro">O critério que decide numa perícia</a>
-            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#documental">Dever de conduta × dever documental</a>
-            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#ja-tem-45001">Se você já tem ISO 45001</a>
-            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#limites">O que não afirmamos</a>
-            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#proximo">Próximo passo</a>
-          </div>
-          <div class="nav-drop-col">
-            <a class="nav-drop-pagina" role="menuitem" href="empresas.html">Para empresas</a>
-            <a class="nav-drop-secao" role="menuitem" href="empresas.html#indice">Como a página se organiza</a>
-            <a class="nav-drop-secao" role="menuitem" href="empresas.html#o-retrato-legal">O que mudou na norma</a>
-            <a class="nav-drop-secao" role="menuitem" href="empresas.html#o-que-a-fiscalizacao-pede">Os três documentos</a>
-            <a class="nav-drop-secao" role="menuitem" href="empresas.html#o-custo-da-omissao">O custo da omissão</a>
-            <a class="nav-drop-secao" role="menuitem" href="empresas.html#armadilhas">Seis erros que geram passivo</a>
-            <a class="nav-drop-secao" role="menuitem" href="empresas.html#solucao">A AEP psicossocial</a>
-            <a class="nav-drop-secao" role="menuitem" href="empresas.html#a-plataforma">A plataforma</a>
-            <a class="nav-drop-secao" role="menuitem" href="empresas.html#eficacia">Provar que a medida funcionou</a>
-            <a class="nav-drop-secao" role="menuitem" href="empresas.html#dado-insuficiente">Quando o dado não basta</a>
-            <a class="nav-drop-secao" role="menuitem" href="empresas.html#comparacao">Gestão tradicional × FROID</a>
-            <a class="nav-drop-secao" role="menuitem" href="empresas.html#perguntas-fornecedor">Cinco perguntas ao fornecedor</a>
-            <a class="nav-drop-secao" role="menuitem" href="empresas.html#precos-nr1">Quanto custa</a>
-            <a class="nav-drop-secao" role="menuitem" href="empresas.html#limites-e-responsabilidade">Limites e responsabilidade</a>
-            <a class="nav-drop-secao" role="menuitem" href="empresas.html#proximo-passo">Comece por um estabelecimento</a>
+            <a class="nav-drop-pagina nav-drop-visao-geral" role="menuitem" href="empresas.html">Visão geral</a>
+            <a class="nav-drop-secao" role="menuitem" href="empresas.html#nao-basta-uma-fotografia-do-problema">Não basta uma fotografia do problema</a>
+            <a class="nav-drop-secao" role="menuitem" href="empresas.html#processo">Um processo, responsabilidades claras</a>
+            <a class="nav-drop-secao" role="menuitem" href="empresas.html#privacidade">Condições de trabalho, não vigilância clínica</a>
+            <a class="nav-drop-secao" role="menuitem" href="empresas.html#o-que-entra-no-escopo-da-conversa">O que entra no escopo da conversa</a>
+            <a class="nav-drop-secao" role="menuitem" href="empresas.html#comece-com-um-escopo-bem-definido">Comece com um escopo bem definido</a>
           </div>
           <div class="nav-drop-col">
             <a class="nav-drop-pagina" role="menuitem" href="como-funciona-nr1.html">Como funciona</a>
-            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#as-sete-etapas">As nove etapas</a>
-            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#dossie-verificavel">Comprovação de Gestão Diciplinar</a>
-            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#os-perigos">A listagem do Guia MTE</a>
-            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#o-que-e-igual-em-toda-empresa-e-o-que-muda">O que muda em cada empresa</a>
-            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#quando-a-segunda-avaliacao-reprova">E se a segunda avaliação reprovar?</a>
-            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#a-sua-empresa-tem-tamanho-para-isso">A sua empresa tem tamanho?</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#defina-unidades-e-responsabilidades">1. Defina unidades e responsabilidades</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#prepare-finalidade-comunicacao-e-apoio">2. Prepare finalidade, comunicação e apoio</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#colete-e-reuna-evidencias">3. Colete e reúna evidências</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#examine-resultados-elegiveis">4. Examine resultados elegíveis</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#organize-documentacao-e-acao">5. Organize documentação e ação</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#implemente-e-acompanhe">6. Implemente e acompanhe</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#reavalie-e-revise">7. Reavalie e revise</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#anonimato-das-respostas">Por que ninguém consegue saber quem respondeu o quê</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#os-perigos">A listagem do Guia MTE 2025</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-nr1.html#construa-o-percurso-adequado-a-organizacao">Construa o percurso adequado à organização</a>
+          </div>
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina" role="menuitem" href="diagnostico-nr1.html">Prontidão</a>
+            <a class="nav-drop-secao" role="menuitem" href="diagnostico-nr1.html#checklist-de-preparacao">Checklist de preparação</a>
+            <a class="nav-drop-secao" role="menuitem" href="diagnostico-nr1.html#calculadora">A sua empresa consegue resultado liberável?</a>
+            <a class="nav-drop-secao" role="menuitem" href="diagnostico-nr1.html#por-que-existe-um-piso">Por que existe um piso</a>
+            <a class="nav-drop-secao" role="menuitem" href="diagnostico-nr1.html#se-um-recorte-nao-puder-ser-divulgado">Se um recorte não puder ser divulgado</a>
+            <a class="nav-drop-secao" role="menuitem" href="diagnostico-nr1.html#leve-um-escopo-claro-a-primeira-conversa">Leve um escopo claro à primeira conversa</a>
+          </div>
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina" role="menuitem" href="proposta-nr1.html">Proposta</a>
+            <a class="nav-drop-secao" role="menuitem" href="proposta-nr1.html#o-que-definir-antes-do-valor">O que definir antes do valor</a>
+            <a class="nav-drop-secao" role="menuitem" href="proposta-nr1.html#etapas-que-a-proposta-pode-contemplar">Etapas que a proposta pode contemplar</a>
+            <a class="nav-drop-secao" role="menuitem" href="proposta-nr1.html#precos">Condições comerciais</a>
+            <a class="nav-drop-secao" role="menuitem" href="proposta-nr1.html#o-contrato-e-a-referencia">O contrato é a referência</a>
+            <a class="nav-drop-secao" role="menuitem" href="proposta-nr1.html#comece-com-as-informacoes-essenciais">Comece com as informações essenciais</a>
           </div>
           <div class="nav-drop-col">
             <a class="nav-drop-pagina" role="menuitem" href="froid-explica-nr1.html">FROID Explica NR-1</a>
-            <a class="nav-drop-secao" role="menuitem" href="froid-explica-nr1.html#duas-camadas">As duas camadas</a>
-            <a class="nav-drop-secao" role="menuitem" href="froid-explica-nr1.html#temas">Os oito temas</a>
-            <a class="nav-drop-secao" role="menuitem" href="froid-explica-nr1.html#trabalhador">O que o trabalhador pergunta</a>
-            <a class="nav-drop-secao" role="menuitem" href="froid-explica-nr1.html#acervo">O acervo, e o que é recusado</a>
-            <a class="nav-drop-secao" role="menuitem" href="froid-explica-nr1.html#limites">O que não é</a>
-            <a class="nav-drop-secao" role="menuitem" href="froid-explica-nr1.html#proximo-passo">Próximo passo</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica-nr1.html#dois-caminhos-de-consulta">Dois caminhos de consulta</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica-nr1.html#exemplos-de-perguntas-uteis">Exemplos de perguntas úteis</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica-nr1.html#privacidade-tambem-na-pergunta">Privacidade também na pergunta</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica-nr1.html#orientacao-com-limites-explicitos">Orientação com limites explícitos</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica-nr1.html#veja-a-aplicacao-no-seu-projeto">Veja a aplicação no seu projeto</a>
+          </div>
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina" role="menuitem" href="iso-45003.html">ISO 45003</a>
+            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#referencia-nao-e-validacao-automatica-do-produto">Referência não é validação automática do produto</a>
+            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#o-que-deve-ser-verificado-no-projeto">O que deve ser verificado no projeto</a>
+            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#como-o-froid-entra-nessa-organizacao">Como o FROID entra nessa organização</a>
+            <a class="nav-drop-secao" role="menuitem" href="iso-45003.html#avalie-a-relacao-com-seu-sistema-de-gestao">Avalie a relação com seu sistema de gestão</a>
           </div>
           </div>
         </span>
       </span>
       <span class="nav-familia">
         <span class="nav-menu">
-          <a class="nav-familia-rotulo" href="ciencia.html">Ciência e Tecnologia</a>
+          <a class="nav-familia-rotulo" href="tecnologia.html">Ciência e Tecnologia</a>
           <div class="nav-drop nav-drop-mega" role="menu">
           <div class="nav-drop-col">
-            <a class="nav-drop-pagina nav-drop-visao-geral" role="menuitem" href="ciencia.html">Ciência</a>
-            <a class="nav-drop-secao" role="menuitem" href="ciencia.html#evidencia">Explorador de evidências</a>
-            <a class="nav-drop-secao" role="menuitem" href="ciencia.html#percepcao-do-paciente">A percepção do paciente sobre a própria expressão</a>
-            <a class="nav-drop-secao" role="menuitem" href="ciencia.html#data-froid-ciencia">O que o Data-Froid prova, e o que não</a>
-            <a class="nav-drop-secao" role="menuitem" href="ciencia.html#bibliografia">Metodologia de verificação</a>
-          </div>
-          <div class="nav-drop-col">
-            <a class="nav-drop-pagina" role="menuitem" href="tecnologia.html">Tecnologia</a>
-            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#baseline">Calibração da linha de base</a>
-            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#extracao-acustica">Extração acústica</a>
-            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#facs">Dinâmica facial (FACS)</a>
-            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#zonas">As 12 Zonas de Percepção</a>
-            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#data-froid-engenharia">Por que o acervo não era possível</a>
-            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#ipm-idm">Os índices IPM e IDM</a>
-            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#estabilizacao">Estabilização clínica da tela</a>
+            <a class="nav-drop-pagina nav-drop-visao-geral" role="menuitem" href="tecnologia.html">Tecnologia</a>
+            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#voz">Voz: uma referência para a própria sessão</a>
+            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#ipm-idm">IPM e IDM: magnitude e direção</a>
+            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#face">Face: do coeficiente ao padrão</a>
+            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#registro">Consistência que chega à tela e ao relatório</a>
+            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#arquitetura-com-responsabilidades-distintas">Arquitetura com responsabilidades distintas</a>
+            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#na-tela">As medidas, na tela</a>
+            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#leve-o-entendimento-para-a-pratica">Leve o entendimento para a prática</a>
           </div>
           <div class="nav-drop-col">
             <a class="nav-drop-pagina" role="menuitem" href="mapas-faciais.html">Mapas da face</a>
-            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#dois-mapas">Dois mapas, duas perguntas</a>
-            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#vocabulario">O que cada AU significa</a>
-            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#composicao">Como as AUs se combinam</a>
-            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#leitura">Do rosto à leitura</a>
-            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#limites">O que os mapas não afirmam</a>
+            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#um-dicionario-de-movimentos-nao-um-leitor-de-pensamentos">Um dicionário de movimentos, não um leitor de pensamentos</a>
+            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#familias">As sete famílias</a>
+            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#o-detalhe-nao-desaparece-na-organizacao">O detalhe não desaparece na organização</a>
+            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#quadros-de-referencia">Os quadros de referência do FACS</a>
+            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#limites">O que não deve ser inferido</a>
+            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#explore-antes-de-decidir">Explore antes de decidir</a>
+          </div>
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina" role="menuitem" href="ciencia.html">Ciência</a>
+            <a class="nav-drop-secao" role="menuitem" href="ciencia.html#tres-camadas-de-leitura">Três camadas de leitura</a>
+            <a class="nav-drop-secao" role="menuitem" href="ciencia.html#o-que-o-produto-apresenta">O que o produto apresenta</a>
+            <a class="nav-drop-secao" role="menuitem" href="ciencia.html#validacao">Como comunicar evolução sem antecipar evidência</a>
+            <a class="nav-drop-secao" role="menuitem" href="ciencia.html#do-entendimento-a-avaliacao-da-sua-pratica">Do entendimento à avaliação da sua prática</a>
           </div>
           </div>
         </span>
         <a href="etica.html">Ética</a>
         <a href="seguranca.html">Segurança</a>
         <a href="precos.html">Preços</a>
+        <a href="menu.html">Explorar</a>
       </span>
     </nav>
     <div class="nav-actions">
@@ -198,15 +193,15 @@
   </div>
 </header>
 
+
 <section class="hero-neuro">
   <div class="home-intro">
-    <p class="section-kicker">FROID · Dois produtos, objetivos distintos</p>
-    <h2>Escuta clínica.<br><span>Condições de trabalho.</span></h2>
-    <p>O FROID Psique apoia profissionais no atendimento de pacientes. O FROID NR-1/ISO-45003 organiza a avaliação coletiva das condições de trabalho. Escolha o percurso adequado ao seu objetivo.</p>
+    <p class="section-kicker">Tecnologia a serviço do cuidado</p>
+    <h2>Mais contexto para cuidar.<br><span>Mais clareza para agir.</span></h2>
+    <p>Na clínica, informação organizada para apoiar a observação do profissional. Nas organizações, um caminho estruturado para acompanhar condições de trabalho. Conheça os dois produtos FROID e escolha o que atende à sua necessidade.</p>
     <div class="hero-actions">
-      <a class="btn btn-solid" href="profissionais.html">Conhecer o FROID Psique →</a>
-      <a class="btn btn-ghost" href="como-funciona-nr1.html">Conhecer o FROID NR-1/ISO-45003</a>
-      <a class="btn btn-ghost" href="#paciente">Sou paciente</a>
+      <a class="btn btn-solid" href="profissionais.html">Conhecer o FROID Psique</a>
+      <a class="btn btn-ghost" href="empresas.html">Conhecer o FROID NR-1</a>
     </div>
   </div>
 
@@ -219,257 +214,105 @@
   <div class="hero-neuro__content">
     <h1 class="hero-neuro__wordmark">FROID</h1>
     <p class="hero-neuro__tagline">Frequency Recognition of Internal Dynamics</p>
-    <blockquote class="hero-quote">
-      <p class="hero-quote__lede">Um recém-nascido a caminho de decifrar a coerência entre a alma humana e suas expressões.</p>
-      <p>Toda a inteligência que se propõe a ajudar o ser humano a se compreender nasce pequena diante da imensidão daquilo que busca. O FROID se dirige a quem procura compreender a metafísica que envolve a relação coerente entre a alma e suas expressões: aquilo que a voz, maior expressão da psique humana, revela, a intenção das palavras e o que a face confessa, e a verdade que emerge quando as três se encontram.</p>
-      <p class="hero-quote__fecho">Proporcionar condições de nos entendermos melhor é, no fim, cuidar de nossa própria existência.</p>
-      <footer>Esta é a visão que guia o FROID. Cada passo dessa jornada é dado com o rigor descrito em nossas páginas de <a href="ciencia.html">Ciência</a> e <a href="etica.html">Ética</a>.</footer>
-    </blockquote>
-  </div>
-
-  <div class="hero-neuro__scroll">role para explorar</div>
-</section>
-
-<section class="block" id="visao-geral">
-  <div class="container">
-    <p class="section-kicker">Visão geral</p>
-    <h2 class="section-title">FROID Psique: o que acompanha a sessão</h2>
-    <p class="section-lead">O Psique reúne sinais acústicos, movimentos faciais e interpretação de apoio. A calibração inicial estabelece a referência da sessão quando há sinal suficiente; ausência de apuração não é resultado zero.</p>
-
-    <div class="disclaimer-box" style="margin-bottom:28px;">
-      <strong>Posicionamento FROID:</strong> o FROID é uma ferramenta de <strong>Inteligência Clínica Aumentada</strong> — a categoria de sistemas que ampliam a percepção do profissional sem substituir seu julgamento. O posicionamento do FROID baseia-se na premissa de que não se realizam diagnósticos autônomos. A responsabilidade e a soberania do laudo clínico permanecem integralmente com o profissional. O FROID organiza sinais de voz e movimentos faciais para apoiar a observação. A interpretação desses sinais exige contexto e não comprova emoção, intenção ou veracidade da fala.
-    </div>
-
-    <div class="grid-3">
-      <div class="card">
-        <span class="badge badge-strong">Base científica sólida</span>
-        <h3>Acústica da voz</h3>
-        <p>Frequência fundamental (<abbr class="term" title="F0: a altura/pitch da voz. Menor variabilidade é marcador de retardo psicomotor. Ver Glossário.">F0</abbr>), coeficientes cepstrais (<abbr class="term" title="MFCC: representação matemática do timbre da voz, usada para estado afetivo e articulação. Ver Glossário.">MFCC</abbr>) e suas derivadas temporais, taxa de cruzamento por zero — extraídos continuamente e comparados à linha de base do próprio paciente.</p>
-      </div>
-      <div class="card">
-        <span class="badge badge-moderate">Infraestrutura validada</span>
-        <h3>Dinâmica facial</h3>
-        <p>Cinquenta e dois coeficientes de blendshape computados no navegador e convertidos em 16 Unidades de Ação (<abbr class="term" title="FACS: Facial Action Coding System, o padrão-ouro para descrever movimentos faciais em unidades objetivas. Ver Glossário.">FACS</abbr>), cruzadas em seis combinações de dissonância. Sem modelagem temporal. <a href="mapas-faciais.html">Ver os dois mapas da face →</a></p>
-      </div>
-      <div class="card">
-        <span class="badge badge-proprietary">Framework proprietário FROID</span>
-        <h3>Camada interpretativa</h3>
-        <p>As 12 Zonas de Percepção e dois índices de síntese — o <strong>Índice de Potência Multimodal (IPM)</strong>, o "velocímetro" da energia e da vitalidade psicomotora, e o <strong>Índice de Desvio Multimodal (IDM)</strong>, a "bússola" da coerência entre voz e face — reduzem os sinais acústico-faciais a uma leitura visual pensada para apoiar, não substituir, a escuta clínica.</p>
-      </div>
-    </div>
-
-    <div class="card" style="margin-top:26px; border-left:3px solid var(--froid-azul);">
-      <span class="badge badge-proprietary">Data-Froid</span>
-      <h3 style="margin-top:10px;">Data-Froid: uma base para investigar os índices</h3>
-      <p>O IPM e o IDM são hoje <strong>heurísticas de produto</strong>. Registros elegíveis, com autorização para pesquisa anônima e tratamento de privacidade, podem contribuir para investigar esses índices. Acumular registros não equivale a validá-los clinicamente. <a href="#data-froid">Conheça o Data-Froid e seus limites →</a></p>
-    </div>
-
-    <img class="site-img" style="margin-top:22px; max-width:760px; margin-left:auto; margin-right:auto; display:block;" src="site-assets/img/home-visao-geral.png" alt="Visão geral do painel do FROID: indicadores médios, últimas sessões e resultados por corte." />
-
-    <div class="nerds-wrapper">
-      <button class="nerds-toggle" data-target="nerds-medicao" aria-expanded="false">Só para Nerds</button>
-      <div class="nerds-panel" id="nerds-medicao">
-        <h4>Pipeline de captura</h4>
-        <p>A análise facial ocorre no navegador. A captura acústica envia áudio PCM ao processamento do servidor, e segmentos de áudio podem seguir para transcrição especializada. Os resultados dependem de sinal efetivamente recebido; uma medida sem apuração não é preenchida com valor padrão. Veja o <a href="seguranca.html">caminho dos dados</a>.</p>
-        <h4>Campos reais rastreados por sessão</h4>
-        <div class="formula">mfcc7, mfcc9, mfcc7_delta, mfcc9_delta, mfcc7_delta_delta, mfcc9_delta_delta,
-f0_mean, f0_var, zcr, jitter_proxy_index, shimmer_proxy_index,
-subharmonic_energy_5_12hz, energy_85_165hz, dna_facial_multiplier</div>
-        <p>Todos comparados contra o baseline travado nos primeiros 60 segundos da sessão (<code>baseline_mfcc7</code>, <code>baseline_mfcc9</code>, etc.).</p>
-        <div class="ref">Detalhamento completo de cada métrica em <a href="tecnologia.html">Tecnologia</a>.</div>
-      </div>
-    </div>
   </div>
 </section>
 
-<section class="block soft" id="data-froid">
+<section class="block soft" id="produtos">
   <div class="container">
-    <p class="section-kicker">Data-Froid</p>
-    <h2 class="section-title">Data-Froid: contexto para pesquisa e consulta</h2>
-    <p class="section-lead">O Data-Froid é a camada de consulta a dados agregados do Psique. Seu objetivo é apoiar a investigação de padrões e das heurísticas do produto. O resultado de cada consulta depende dos registros disponíveis, da apuração das medidas e das regras de privacidade.</p>
-
-    <div class="visao-froid">
-      <p class="frase">A proposta do Data-Froid é organizar indicadores e resumos tratados para pesquisa sobre o que acontece durante a sessão clínica.</p>
-      <p class="rodape">O prontuário identificado e a base de consulta agregada têm finalidades diferentes. A captura da sessão pode envolver processamento no navegador e no servidor; a transcrição pode usar um provedor especializado. Isso não transforma gravações nem prontuários em material de consulta pública. <a href="seguranca.html">Entenda o caminho dos dados</a>.</p>
-      <p class="rodape">A ambição é ampliar o repertório de pesquisa preservando a privacidade. O volume atual de registros e a abrangência geográfica não estão apurados nesta página. <a href="ciencia.html#data-froid-ciencia">O que a base pode e não pode provar</a>.</p>
-      <p class="rodape">As consultas podem oferecer associações observacionais e hipóteses para investigação. Não demonstram, por si, eficácia terapêutica ou causalidade e não produzem uma prescrição individual.</p>
-    </div>
-
-    <div class="grid-3" style="margin-top:26px;">
-      <div class="card">
-        <span class="badge badge-proprietary">Validação</span>
-        <h3>Os índices sendo testados</h3>
-        <p>IPM e IDM são hoje heurística de produto, e é contra esta base que vão sendo testados. O que uma base grande prova — e o que ela <em>não</em> prova, porque volume não substitui desenho experimental — está escrito em <a href="ciencia.html#data-froid-ciencia">Ciência</a>.</p>
-      </div>
-      <div class="card">
-        <span class="badge badge-strong">Anonimato</span>
-        <h3>Grande porque é anônima, não apesar disso</h3>
-        <p>Consultas analíticas exigem coortes acima do limite de privacidade configurado no servidor, aplicado no backend — sem superar esse limite a consulta é recusada. Uma base dessa escala só é defensável assim, e o piso não é caixa marcada numa tela: é regra de servidor.</p>
-      </div>
-      <div class="card">
-        <span class="badge badge-proprietary">O acervo</span>
-        <h3>O que um profissional aprende com todos os outros</h3>
-        <p>Consulte padrões de medidas em grupos de sessões elegíveis. A base não fornece prontuários individuais, escore de risco clínico ou previsão de resposta terapêutica. Uma comparação só é útil quando há dados apurados suficientes para a pergunta.</p>
-        <p style="margin-top:10px;">Nenhuma dessas consultas devolve um caso: devolve o padrão de um
-        grupo, e só acima do piso de coorte. O que atravessa consultórios é o aprendizado, nunca a
-        pessoa. <a href="profissionais.html#data-froid">O que isso muda no consultório</a>.</p>
-      </div>
-    </div>
-
-    <div class="disclaimer-box" style="margin-top:24px;">
-      <strong>O que a base não é.</strong> O Data-Froid não guarda identificação de paciente, não é vendido e não alimenta terceiros. Existe para dois fins: validar as métricas que o FROID publica, e devolver contexto a quem está em sessão. E como ele cresce com o uso, o compromisso de anonimato precisa valer desde o primeiro registro — não a partir do dia em que a base ficar grande.
-    </div>
+<h2 class="section-title">Dois produtos. Cada um no seu contexto.</h2>
+<div class="grid-2">
+<article class="card">
+<span class="tag">Profissionais de saúde e clínicas</span>
+<h3>FROID Psique</h3>
+<p>Medidas vocais, registros de movimentos faciais e transcrição apoiam a revisão da sessão. A observação é do sistema; o significado clínico é construído pelo profissional.</p>
+<p class="card-link"><a href="como-funciona-clinico.html">Veja a sessão, passo a passo</a></p>
+</article>
+<article class="card">
+<span class="tag">Empresas, RH e SST</span>
+<h3>FROID NR-1</h3>
+<p>Organize a avaliação de fatores psicossociais relacionados ao trabalho, a documentação e o acompanhamento de ações. Não é uma avaliação clínica dos trabalhadores.</p>
+<p class="card-link"><a href="empresas.html#processo">Conheça o processo empresarial</a></p>
+</article>
+</div>
   </div>
 </section>
 
-<section class="block" id="para-quem-e">
-  <div class="container">
-    <p class="section-kicker">Para quem é</p>
-    <h2 class="section-title">Pensado para a rotina clínica real</h2>
-    <div class="grid-2">
-      <img class="site-img" src="site-assets/img/home-sessao-ao-vivo.png" alt="Painel de sessão ao vivo do FROID, com tempo de sessão e corte semântico em andamento." />
-      <div>
-        <p class="section-lead" style="margin-bottom:20px;">Psiquiatras, psicólogos e terapeutas que querem uma camada adicional de leitura objetiva durante o atendimento — sem perder tempo com ferramentas que não se integram à sessão.</p>
-        <ul>
-          <li>Calibração automática de 60 segundos no início de cada sessão</li>
-          <li>Alertas em tempo real de dissonância entre fala e expressão facial</li>
-          <li>Transcrição e notas clínicas organizadas automaticamente</li>
-          <li>Painel financeiro e de relatórios para a prática profissional</li>
-        </ul>
-        <a class="btn btn-solid" href="profissionais.html">Ver recursos para profissionais</a>
-        <a class="btn btn-ghost" href="demonstracao.html" style="margin-left:8px;">Ver o percurso de uma sessão</a>
-      </div>
-    </div>
-
-    <div class="nerds-wrapper">
-      <button class="nerds-toggle" data-target="nerds-arquitetura" aria-expanded="false">Só para Nerds</button>
-      <div class="nerds-panel" id="nerds-arquitetura">
-        <h4>Arquitetura do sistema</h4>
-        <p>O painel organiza captura, indicadores e relatórios. O servidor processa medidas acústicas, controla o acesso e atende consultas de conhecimento e dados agregados. Transcrição e explicação podem depender de provedores configurados; a IA de linguagem não substitui a medição acústica.</p>
-        <h4>Segurança de acesso</h4>
-        <p>Controle de acesso profissional por sessão, com consumo de crédito por atendimento e vínculo de titularidade por relatório (<code>_can_access_report</code>, <code>_professional_access_status</code>).</p>
-        <div class="ref">Mais sobre segurança e conformidade em <a href="seguranca.html">Segurança</a>.</div>
-      </div>
-    </div>
-  </div>
-</section>
-<section class="block soft" id="o-diferencial">
-  <div class="container">
-    <p class="section-kicker">O diferencial</p>
-    <h2 class="section-title">FROID Explica: a inteligência que conversa com você</h2>
-    <p class="section-lead">O FROID Explica ajuda a interpretar o contexto enviado pela tela e permite perguntas ao Data-Froid agregado. A biblioteca de perguntas e os prompts próprios facilitam a consulta; a existência de uma pergunta não garante que haja dados suficientes para respondê-la.</p>
-    <div class="grid-3">
-      <div class="card">
-        <span class="badge badge-strong">Conhecimento</span>
-        <h3>Explica a leitura</h3>
-        <p>"O que significa esta dissonância?", "o que o IPM sugere?" — respostas fundamentadas sobre métricas já calculadas.</p>
-      </div>
-      <div class="card">
-        <span class="badge badge-proprietary">Data-Froid</span>
-        <h3>Consulta dados agregados</h3>
-        <p>Pergunte por padrões nas medidas disponíveis. Se a base estiver indisponível ou a coorte não superar o limite de privacidade, a consulta não entrega uma comparação populacional.</p>
-      </div>
-      <div class="card">
-        <span class="badge badge-moderate">Prompts próprios</span>
-        <h3>Do seu jeito</h3>
-        <p>Crie perguntas recorrentes em Configurações. Os prompts pessoais ficam no navegador utilizado, separados pelo e-mail do profissional.</p>
-      </div>
-    </div>
-    <div class="hero-actions" style="margin-top:24px;">
-      <a class="btn btn-solid" href="froid-explica.html">Conhecer o FROID Explica</a>
-    </div>
+<section class="block" id="um-painel-de-apoio-nao-um-piloto-automatico">
+  <div class="container prosa">
+<h2 class="section-title">Um painel de apoio, não um piloto automático</h2>
+<blockquote class="analogia">Assim como um painel reúne informações para quem conduz, o FROID Psique organiza registros para quem atende. O painel informa; não escolhe a conduta.</blockquote>
+<p>O produto clínico apresenta <strong>12 bandas acústicas e os índices vocais IPM e IDM</strong>, ao lado de <strong>sete famílias de padrões faciais</strong>. São canais separados: movimentos do rosto não multiplicam índices da voz nem demonstram conflito entre rosto e discurso.</p>
+<div class="hero-actions">
+<a class="btn btn-solid" href="demonstracao.html">Explorar um exemplo sintético</a>
+<a class="btn btn-ghost" href="tecnologia.html">Entender as medidas</a>
+</div>
   </div>
 </section>
 
-
-<section class="block" id="paciente">
+<section class="block soft" id="o-diferencial-aparece-no-registro">
   <div class="container">
-    <p class="section-kicker">Transparência · LGPD</p>
-    <h2 class="section-title">Portal do Paciente: os dados são seus</h2>
-    <p class="section-lead">O paciente tem um acesso próprio para consultar seus dados e autorizações. Os documentos de sessão aparecem após revisão e liberação pelo profissional, com os itens selecionados para essa finalidade.</p>
-
-    <div class="grid-3">
-      <div class="card">
-        <h3>👁️ Veja suas sessões</h3>
-        <p>Consulte os documentos liberados pelo profissional. Se uma sessão ainda não aparecer, confirme com ele se a revisão e a liberação já foram concluídas.</p>
-      </div>
-      <div class="card">
-        <h3>🗂️ Gerencie seus dados</h3>
-        <p>Dados cadastrais básicos sob seu controle, em linha com a LGPD (Lei 13.709/2018) — o direito de acesso e gestão das próprias informações em um só lugar.</p>
-      </div>
-      <div class="card">
-        <h3>⬇️ Leve com você</h3>
-        <p>Baixe os registros autorizados disponíveis no portal. A área do paciente não é uma cópia automática da área de trabalho clínica.</p>
-      </div>
-    </div>
-
-    <div class="card" style="margin-top:20px;">
-      <h3>🔒 Como protegemos suas informações</h3>
-      <p>Providências técnicas aplicadas na plataforma para manter seus dados confidenciais:</p>
-      <ul style="margin-top:10px; line-height:1.7;">
-        <li>Conexão criptografada (HTTPS/TLS) em toda a sessão — áudio, vídeo e dados trafegam protegidos.</li>
-        <li>Transcrições, relatórios e credenciais guardados de forma cifrada, com criptografia autenticada (AES + HMAC) e rotação de chaves.</li>
-        <li>Acesso condicionado aos vínculos e às permissões da organização clínica, com auditoria. O acesso empresarial do Psicossocial não dá acesso a prontuários.</li>
-        <li>Análise somente com o seu consentimento explícito (TCLE/LGPD), revogável a qualquer momento.</li>
-        <li>Estatísticas coletivas usam apenas dados anonimizados e agregados — nunca identificam você.</li>
-        <li>Senhas protegidas por hashing (PBKDF2-SHA256), nunca armazenadas em texto legível.</li>
-      </ul>
-    </div>
-
-    <div style="margin-top:24px;">
-      <a class="btn btn-solid" href="https://www.froid.com.br/app/#/paciente">Acessar o Portal do Paciente</a>
-      <a class="btn btn-ghost" href="demonstracao.html#liberacao" style="margin-left:10px;">Como o documento chega até aqui</a>
-      <a class="btn btn-ghost" href="seguranca.html" style="margin-left:10px;">Segurança &amp; LGPD</a>
-      <a class="btn btn-ghost" href="privacidade.html" style="margin-left:10px;">Política de Privacidade</a>
-    </div>
+<h2 class="section-title">O diferencial aparece no registro</h2>
+<div class="grid-3">
+<article class="card">
+<h3>Presente separado do histórico</h3>
+<p>Uma leitura vencida não continua representando o agora. Painel e relatório utilizam o mesmo motor de interpretação facial.</p>
+</article>
+<article class="card">
+<h3>Ausência informada</h3>
+<p>Quando não há condição de apuração, o sistema declara isso. Informação indisponível não é preenchida com zero.</p>
+</article>
+<article class="card">
+<h3>Contexto para investigar</h3>
+<p>O Data-Froid reúne a proposta de análise agregada, enquanto o FROID Explica ajuda a consultar conhecimento e medidas disponíveis.</p>
+<p class="card-link"><a href="data-froid.html">Conhecer o Data-Froid</a></p>
+</article>
+</div>
   </div>
 </section>
 
-<section class="block soft" id="transparencia">
-  <div class="container">
-    <p class="section-kicker">Transparência</p>
-    <h2 class="section-title">O que é ciência publicada e o que é metodologia própria</h2>
-    <p class="section-lead">Diferente da maioria das ferramentas do setor, o FROID separa explicitamente as duas camadas — e convida você a conferir cada uma.</p>
-    <div class="grid-2">
-      <div class="card">
-        <h3>Com base em literatura revisada por pares</h3>
-        <p>F0, MFCC, jitter/shimmer e dinâmica de Unidades de Ação como sinais associados a estados afetivos e retardo psicomotor têm décadas de pesquisa publicada por trás — <a href="ciencia.html">veja as referências</a>.</p>
-      </div>
-      <div class="card">
-        <h3>Framework interpretativo proprietário FROID</h3>
-        <p>As 12 Zonas de Percepção, o Multiplicador Facial de Dissonância e os índices IPM/IDM são a forma FROID de organizar esses sinais visualmente. Não são achados de estudos clínicos publicados — são heurística de produto, e tratamos isso como tal.</p>
-      </div>
-    </div>
-
-    <div class="nerds-wrapper">
-      <button class="nerds-toggle" data-target="nerds-home" data-label-closed="Só para Nerds" data-label-open="Fechar detalhes técnicos" aria-expanded="false">Só para Nerds</button>
-      <div class="nerds-panel" id="nerds-home">
-        <h4>Por que separamos "ciência" de "framework proprietário"?</h4>
-        <p>Porque misturar as duas coisas sem aviso é o tipo de coisa que engana clínicos e prejudica pacientes. Qualquer alegação de diagnóstico automatizado é falsa — o FROID é ferramenta de apoio, não instrumento diagnóstico validado.</p>
-        <h4>Origem das 12 Zonas</h4>
-        <p>A estrutura de 12 zonas mapeadas a notas da escala cromática é uma transposição inspirada em tecnologia comercial de biofeedback de voz, adaptada pela equipe FROID como interface de visualização — não é neurociência publicada.</p>
-        <div class="ref">Ver bibliografia completa em <a href="ciencia.html">Ciência</a>.</div>
-      </div>
-    </div>
+<section class="block" id="inteligencia-artificial-que-voce-pode-compreender">
+  <div class="container prosa">
+<h2 class="section-title">Inteligência artificial que você pode compreender</h2>
+<p>Uma rede neural aprende padrões a partir de exemplos. Pense em camadas que transformam uma entrada em representações úteis — não em uma mente capaz de conhecer sentimentos. O FROID Explica usa recuperação de informação para apoiar respostas, que continuam sujeitas à conferência profissional.</p>
+<div class="hero-actions">
+<a class="btn btn-ghost" href="glossario.html">Explorar o glossário visual</a>
+<a class="btn btn-ghost" href="froid-explica.html">Ver exemplos de perguntas</a>
+</div>
   </div>
 </section>
 
+<section class="block soft" id="confianca-exige-explicacao">
+  <div class="container prosa">
+<h2 class="section-title">Confiança exige explicação</h2>
+<p>Saiba o que é medido, o que é uma estimativa e o que ainda precisa de avaliação. Não prometemos diagnóstico automático ou identificação de emoções a partir de uma configuração facial.</p>
+<p class="links-rel"><a href="ciencia.html">Evidências e método</a> · <a href="seguranca.html">Tratamento de dados</a> · <a href="etica.html">Limites de uso</a></p>
+  </div>
+</section>
 
-<section class="block" id="explore">
+<section class="block" id="o-produto-na-tela">
   <div class="container">
-    <p class="section-kicker">Por onde seguir</p>
-    <h2 class="section-title">Escolha seu próximo passo</h2>
-    <p class="section-lead">Para atendimento clínico, explore o Psique e seu guia profissional. Para avaliação coletiva do trabalho, siga o percurso do Psicossocial. Pacientes usam o portal próprio; trabalhadores participam pelo convite da campanha.</p>
-    <div class="hero-actions" style="justify-content:center; margin-top:24px;">
-      <a class="btn btn-solid" href="demonstracao.html">Ver demonstração</a>
-      <a class="btn btn-ghost" href="tecnologia.html">Como funciona</a>
-      <a class="btn btn-ghost" href="ciencia.html">Ver a base científica</a>
-      <a class="btn btn-amber" href="#data-froid">O Data-Froid</a>
-    </div>
-    <div class="hero-actions" style="justify-content:center; margin-top:14px;">
-      <a class="btn btn-ghost" href="profissionais.html">Sou profissional de saúde</a>
-      <a class="btn btn-ghost" href="iso-45003.html">Represento uma empresa</a>
-    </div>
+<h2 class="section-title">O painel do FROID Psique</h2>
+<div class="fig-grid">
+<figure class="site-fig fig fig-media">
+<img class="site-img" loading="lazy" src="site-assets/img/home-visao-geral.png" alt="Visão geral do painel do FROID: indicadores médios, últimas sessões e resultados por corte." />
+<figcaption>Visão geral do painel: indicadores médios, últimas sessões e resultados por corte.</figcaption>
+</figure>
+<figure class="site-fig fig fig-media">
+<img class="site-img" loading="lazy" src="site-assets/img/home-sessao-ao-vivo.png" alt="Painel de sessão ao vivo do FROID, com tempo de sessão e corte semântico em andamento." />
+<figcaption>Sessão ao vivo, com o tempo decorrido e o corte em andamento.</figcaption>
+</figure>
+</div>
+  </div>
+</section>
+
+<section class="block soft" id="descubra-onde-o-froid-pode-ajudar">
+  <div class="container prosa">
+<h2 class="section-title">Descubra onde o FROID pode ajudar</h2>
+<p>Apresente sua rotina clínica ou o contexto de sua organização. A conversa começa pelo produto certo.</p>
+<div class="hero-actions">
+<a class="btn btn-solid" href="sobre-contato.html#psique">Conversar sobre a prática clínica</a>
+<a class="btn btn-ghost" href="sobre-contato.html#nr1">Conversar sobre riscos psicossociais</a>
+</div>
   </div>
 </section>
 
@@ -481,35 +324,44 @@ subharmonic_energy_5_12hz, energy_85_165hz, dna_facial_multiplier</div>
         <p style="max-width:340px; color:rgba(248,250,252,0.55);">Frequency Recognition of Internal Dynamics. Ferramenta de apoio à escuta clínica — não substitui avaliação, diagnóstico ou julgamento profissional.</p>
       </div>
       <div>
-        <h5>Navegação</h5>
+        <h5>FROID Psique</h5>
         <ul>
-          <li><a href="ciencia.html">Ciência</a></li>
+          <li><a href="profissionais.html">Profissionais e clínicas</a></li>
+          <li><a href="como-funciona-clinico.html">Como funciona uma sessão</a></li>
+          <li><a href="demonstracao.html">Demonstração</a></li>
           <li><a href="tecnologia.html">Tecnologia</a></li>
           <li><a href="mapas-faciais.html">Mapas da face</a></li>
+          <li><a href="ciencia.html">Ciência e validação</a></li>
+          <li><a href="data-froid.html">Data-Froid</a></li>
           <li><a href="froid-explica.html">FROID Explica</a></li>
-          <li><a href="etica.html">Ética</a></li>
-          <li><a href="seguranca.html">Segurança</a></li>
-          <li><a href="profissionais.html">Profissionais</a></li>
-          <li><a href="iso-45003.html">FROID NR-1/ISO-45003</a>
-      <a href="empresas.html">Para empresas</a></li>
-          <li><a href="como-funciona-nr1.html">Como funciona</a></li>
           <li><a href="precos.html">Preços</a></li>
-        </ul>
-      </div>
-      <div>
-        <h5>Suporte</h5>
-        <ul>
-          <li><a href="faq.html">Perguntas Frequentes</a></li>
+          <li><a href="faq.html">Perguntas frequentes</a></li>
           <li><a href="glossario.html">Glossário</a></li>
-          <li><a href="demonstracao.html">Demonstração</a></li>
-          <li><a href="sobre-contato.html">Sobre &amp; Contato</a></li>
-          <li><a href="termos.html">Termos de Uso</a></li>
-          <li><a href="privacidade.html">Política de Privacidade</a></li>
+          <li><a href="etica.html">Ética e limites</a></li>
+          <li><a href="seguranca.html">Segurança</a></li>
         </ul>
       </div>
       <div>
-        <h5>Acesso</h5>
+        <h5>FROID NR-1</h5>
         <ul>
+          <li><a href="empresas.html">Para empresas</a></li>
+          <li><a href="como-funciona-nr1.html">Como funciona</a></li>
+          <li><a href="diagnostico-nr1.html">Prontidão</a></li>
+          <li><a href="proposta-nr1.html">Proposta</a></li>
+          <li><a href="froid-explica-nr1.html">FROID Explica NR-1</a></li>
+          <li><a href="iso-45003.html">ISO 45003</a></li>
+          <li><a href="seguranca-nr1.html">Privacidade e divulgação</a></li>
+          <li><a href="faq-nr1.html">Perguntas frequentes</a></li>
+          <li><a href="glossario-nr1.html">Glossário NR-1</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Institucional e acesso</h5>
+        <ul>
+          <li><a href="menu.html">Mapa do site</a></li>
+          <li><a href="sobre-contato.html">Sobre e contato</a></li>
+          <li><a href="privacidade.html">Privacidade</a></li>
+          <li><a href="termos.html">Termos e contratos</a></li>
           <li><a href="https://www.froid.com.br/app/#/login">Entrar no FROID</a></li>
           <li><a href="https://www.froid.com.br/cadastro">Cadastrar no FROID</a></li>
           <li><a href="https://www.froid.com.br/app/#/paciente">Portal do Paciente</a></li>
@@ -520,7 +372,7 @@ subharmonic_energy_5_12hz, energy_85_165hz, dna_facial_multiplier</div>
   </div>
 </footer>
 
-<script src="site-assets/script.js?v=18"></script>
+<script src="site-assets/script.js?v=20"></script>
 <script src="site-assets/navigation.js?v=1"></script>
 </body>
 </html>

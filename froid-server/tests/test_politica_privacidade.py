@@ -428,11 +428,18 @@ class OSiteAponta_E_NaoCopia(unittest.TestCase):
         )
 
     def test_a_pagina_nao_voltou_a_copiar_o_documento(self):
-        """O sinal de que a copia voltou e o texto crescer de novo."""
+        """O sinal de que a copia voltou e o texto crescer de novo.
+
+        Sem o `>` fechando o literal: desde 06/10/2026 os blocos das paginas
+        pt-BR carregam `id` (`<section class="block" id="...">`), porque o
+        menu do header e montado a partir deles. A medida continua a mesma —
+        o primeiro bloco de conteudo, sem o aviso de que esta pagina e so um
+        ponteiro — e o teto tambem.
+        """
         for rel in self.PAGINAS:
             with self.subTest(pagina=rel):
                 corpo = self._texto(rel)
-                inicio = corpo.index('<section class="block">')
+                inicio = corpo.index('<section class="block"')
                 fim = corpo.index("</section>", inicio)
                 self.assertLess(
                     len(corpo[inicio:fim]), 4500,
