@@ -127,15 +127,30 @@ todos os idiomas); conversão cambial; mudança de preço em reais.
 - Regressão Psique (2B, 2C, 3, 6, 1, 4, 7, 7.4, convites, contratos, docs):
   verde; `verificar-site.py` 108 páginas, 0 falhas.
 
-### Ponto aberto para o dono
+### A moeda do painel (resolvido em 07/10/2026)
 
-O **painel é só pt-BR e não manda idioma**: a compra pelo painel continua em
-BRL, e a licença idem. A rota de checkout em USD/EUR existe, está testada e
-**não tem chamador** até o painel ter idioma. Enquanto isso, as páginas de
-preços en/es/fr prometem US$/€ e o painel cobra R$ (mesmo número) — o rótulo
-e a cobrança não batem na moeda. Três saídas, para ele escolher: (a) traduzir
-o painel (a moeda vira a do idioma do painel); (b) seletor explícito de moeda
-na tela de compra do painel; (c) manter R$ também nas páginas en/es/fr até (a).
+O painel é só pt-BR, então o idioma não serve para escolher a moeda ali. O que
+serve já existia: **o cadastro pergunta o mercado** (Brasil, Estados Unidos,
+Espanha, França) e grava `legal_jurisdiction` (BR/US/ES/FR), a mesma chave que
+decide os documentos jurídicos. A compra V2 passou a usar essa resposta:
+
+- `main.py` resolve a moeda da sessão pelo perfil (`_psique_moeda_do_profissional`:
+  BR real, US dólar, ES/FR euro; sem perfil, real) e entrega o resolvedor ao
+  router; o checkout e o preview da licença recebem a moeda **do servidor** e
+  o corpo continua sendo só `product_code` (moeda, idioma ou valor no corpo
+  seguem recusados com nome).
+- `GET /pricing` sem `language` e com sessão devolve o catálogo nessa moeda;
+  o painel passou a chamar a rota com a sessão e a formatar com a moeda que
+  a API declarou. Exibição e cobrança saem da mesma chave gravada.
+- As páginas públicas en/es/fr continuam pelo idioma; as duas regras caem nas
+  mesmas três moedas.
+
+**Achado lateral, pré-existente:** o cadastro lista também "Outros países da
+União Europeia" e "China", mas o backend normaliza qualquer coisa fora de
+US/ES/FR para **BR** — quem escolhe UE ou China é tratado como Brasil (em
+documentos e, agora, em moeda). Não mexi: o texto dessas duas opções promete
+euro e yuan que o backend nunca gravou; é decisão do dono se elas saem da
+lista ou ganham tratamento próprio.
 
 ### Roteiro da janela (ele cola, um comando por vez)
 

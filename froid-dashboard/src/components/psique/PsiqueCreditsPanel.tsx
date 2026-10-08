@@ -11,10 +11,16 @@ import type {
   PrecosPsiqueV2,
 } from "../../lib/psique-v2-api";
 
-function formatarBRL(cents: number): string {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
-    cents / 100,
-  );
+// Multimoeda (07/10/2026): a moeda é a que a API declarou para esta sessão
+// (mercado do cadastro: real, dólar ou euro), nunca um "BRL" fixo aqui.
+const LOCALE_DA_MOEDA: Record<string, string> = { brl: "pt-BR", usd: "en-US", eur: "fr-FR" };
+
+function formatarMoeda(cents: number, currency: string): string {
+  const moeda = String(currency || "").toLowerCase();
+  return new Intl.NumberFormat(LOCALE_DA_MOEDA[moeda] || "pt-BR", {
+    style: "currency",
+    currency: moeda.toUpperCase(),
+  }).format(cents / 100);
 }
 
 function Indisponivel({ contexto, motivo }: { contexto: string; motivo: string }) {
@@ -94,7 +100,9 @@ export function PsiqueCreditsPanel({
                 <strong>{oferta.credits}</strong> créditos — {oferta.name}
               </span>
               <span style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                <span data-campo="preco">{formatarBRL(oferta.total_cents)}</span>
+                <span data-campo="preco">
+                  {formatarMoeda(oferta.total_cents, precos.dados.currency)}
+                </span>
                 <button
                   type="button"
                   disabled={compraDesativada}

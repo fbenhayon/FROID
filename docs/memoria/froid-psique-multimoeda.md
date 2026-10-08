@@ -1,6 +1,6 @@
 ---
 name: froid-psique-multimoeda
-description: Multimoeda do Psique (07/10/2026) — mesmo numero em BRL/USD/EUR, moeda pelo idioma, uma tabela por moeda com versao sufixada, migration 051 gerada; codigo pronto e testado, janela pendente; o painel e so pt-BR e nao tem chamador para checkout em USD/EUR
+description: Multimoeda do Psique (07/10/2026) — mesmo numero em BRL/USD/EUR; site pelo idioma, painel pelo mercado do cadastro (legal_jurisdiction); uma tabela por moeda com versao sufixada, migration 051 gerada; codigo pronto e testado, janela pendente
 metadata:
   type: project
 ---
@@ -21,11 +21,14 @@ IDIOMA (`language`), nunca moeda; a confirmacao da licenca le a moeda DO
 PREVIEW no banco (`psique_v2_seat_preview_catalog`). Site: o JS formata com a
 moeda que a API declarou; ate o backend novo subir, en/es/fr mostram R$.
 
-**Ponto aberto que eu NAO decidi:** o painel e so pt-BR e nao manda idioma —
-compra pelo painel continua em BRL; a rota USD/EUR tem teste e NENHUM chamador
-(padrao [[froid-sinal-sem-leitor]]). Enquanto isso as paginas en/es/fr prometem
-US$/EUR e o painel cobra R$. Saidas oferecidas: traduzir o painel, seletor
-explicito de moeda na compra, ou R$ tambem nas paginas traduzidas.
+**Painel (resolvido em 07/10/2026, depois do Fabio dizer "ja esta tudo
+acertado"):** o painel e so pt-BR, mas o CADASTRO ja pergunta o mercado
+(BR/US/ES/FR em `legal_jurisdiction`, a chave dos documentos juridicos).
+`main.py._psique_moeda_do_profissional` resolve a moeda da sessao por ela e
+o router passa `currency=` ao checkout/preview; o corpo segue so
+`product_code`. `/pricing` com sessao devolve essa moeda; o painel chama com
+a sessao e formata pela moeda da API. Achado lateral: "Outros paises da UE"
+e "China" do cadastro viram BR no backend (pre-existente, com o dono).
 
 **Why:** a 2.7 (espelhos de numero) exige UMA fonte: o JSON BRL; as moedas
 sao derivadas, nunca digitadas. E a 2.4 (rotulo que promete o que nao

@@ -56,11 +56,22 @@ class PsiqueLicense:
         except psique_pricing.PricingError:
             raise BillingError("LANGUAGE_UNSUPPORTED") from None
 
+    def _catalog_in(self, currency: str) -> dict[str, Any]:
+        if currency not in self._catalogs:
+            raise BillingError("LICENSE_CURRENCY_UNSUPPORTED")
+        return self._catalogs[currency]
+
     # -- Pure quote ----------------------------------------------------------
     def quote(self, clinical_seat_count: int, language: str = "pt") -> dict[str, Any]:
+        """Cotacao publica (site): a pagina so sabe o proprio idioma."""
         if type(clinical_seat_count) is not int or clinical_seat_count < 0:
             raise BillingError("CLINICAL_SEAT_COUNT_INVALID")
         return psique_pricing.organization_quote(self._catalog_for(language), clinical_seat_count)
+
+    def _quote_in(self, clinical_seat_count: int, currency: str) -> dict[str, Any]:
+        if type(clinical_seat_count) is not int or clinical_seat_count < 0:
+            raise BillingError("CLINICAL_SEAT_COUNT_INVALID")
+        return psique_pricing.organization_quote(self._catalog_in(currency), clinical_seat_count)
 
     # -- Clinical status: operational, immediate ------------------------------
     def set_clinical(self, context: AccessContext, membership_id: str, *,
@@ -75,15 +86,18 @@ class PsiqueLicense:
                           context)
 
     # -- Billing: versioned preview/confirm ----------------------------------
-    def preview(self, context: AccessContext, language: str = "pt") -> dict[str, Any]:
-        catalog = self._catalog_for(language)  # idioma fora da lista: recusa antes do banco
-        # Um preview em outra moeda so faz sentido onde a 051 ja ensinou a
-        # confirmacao a gravar essa moeda; sem ela a recusa e nomeada.
+    def preview(self, context: AccessContext,
+                currency: str = psique_pricing.SOURCE_CURRENCY) -> dict[str, Any]:
+        # Multimoeda: a moeda vem do SERVIDOR (mercado do cadastro), nunca do
+        # navegador; fora da lista, recusa antes de ler o banco. Um preview em
+        # outra moeda so faz sentido onde a 051 ja ensinou a confirmacao a
+        # gravar essa moeda; sem ela a recusa e nomeada.
+        catalog = self._catalog_in(currency)
         schema = PHASE2C_SCHEMA | (
             MULTIMOEDA_SCHEMA if catalog["currency"] != psique_pricing.SOURCE_CURRENCY else set())
         for _ in range(3):
             active = self.state(context)["active_clinical_seat_count"]
-            quoted = self.quote(active, language)
+            quoted = self._quote_in(active, currency)
             if quoted["enterprise_required"]:
                 raise BillingError("ENTERPRISE_REQUIRED_NO_SELF_SERVICE")
             try:

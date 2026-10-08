@@ -260,22 +260,21 @@ class PsiqueBilling:
 
     # -- Checkout -----------------------------------------------------------
     def checkout(self, context: AccessContext, body: dict[str, Any], *,
-                 idempotency_key: str) -> dict[str, Any]:
-        if (not isinstance(body, dict)
-                or not {"product_code"} <= set(body) <= {"product_code", "language"}):
+                 idempotency_key: str,
+                 currency: str = psique_pricing.SOURCE_CURRENCY) -> dict[str, Any]:
+        if not isinstance(body, dict) or set(body) != {"product_code"}:
             # amount/credits/currency/price ids from the browser are refused,
-            # not ignored: a silent drop would hide a tampering attempt. The
-            # only other field is the page LANGUAGE (multimoeda, 07/10/2026):
-            # the server maps it to a currency through a closed list and picks
-            # that currency's table; the browser never names a currency.
+            # not ignored: a silent drop would hide a tampering attempt.
             raise BillingError("CHECKOUT_BODY_MUST_BE_PRODUCT_CODE_ONLY")
         product_code = body["product_code"]
         if not isinstance(product_code, str) or not product_code.strip():
             raise BillingError("PRODUCT_CODE_REQUIRED")
-        try:
-            currency = psique_pricing.currency_for_language(body.get("language", "pt"))
-        except psique_pricing.PricingError:
-            raise BillingError("CHECKOUT_LANGUAGE_UNSUPPORTED") from None
+        # Multimoeda (07/10/2026): a moeda e resolvida pelo SERVIDOR a partir
+        # do mercado escolhido no cadastro (main.py le legal_jurisdiction) e
+        # escolhe a tabela daquela moeda (versao sufixada). Sem resolvedor,
+        # BRL como sempre. O navegador nunca nomeia moeda, preco ou tabela.
+        if currency not in psique_pricing.CURRENCIES:
+            raise BillingError("CHECKOUT_CURRENCY_UNSUPPORTED")
         version = psique_pricing.version_for(self._pricing_version, currency)
         # A tabela de outra moeda so pode existir a partir da 051: sem ela a
         # recusa e nomeada (SchemaNotReady), nunca um CHECK estourando no INSERT.

@@ -33,7 +33,13 @@ TRIAL_DAYS = 14
 # NR-1 fica fora: o dono adiou a multimoeda do NR-1 em 07/10/2026.
 SOURCE_CURRENCY = "brl"
 CURRENCIES = ("brl", "usd", "eur")
+# Site publico: a pagina so sabe o proprio idioma.
 LANGUAGE_CURRENCY = {"pt": "brl", "en": "usd", "es": "eur", "fr": "eur"}
+# Painel: o profissional escolheu o mercado no cadastro (legal_jurisdiction,
+# normalizada em main.py para BR/US/ES/FR); a moeda da compra e a desse
+# mercado, nunca o idioma do navegador (um brasileiro com Windows em ingles
+# pagaria cinco vezes mais sem perceber).
+JURISDICTION_CURRENCY = {"BR": "brl", "US": "usd", "ES": "eur", "FR": "eur"}
 
 
 class PricingError(ValueError):
@@ -45,6 +51,13 @@ def currency_for_language(language: Any) -> str:
     if not isinstance(language, str) or language.strip().lower() not in LANGUAGE_CURRENCY:
         raise PricingError("unsupported_language")
     return LANGUAGE_CURRENCY[language.strip().lower()]
+
+
+def currency_for_jurisdiction(jurisdiction: Any) -> str:
+    """Lista fechada: mercado desconhecido e recusado com nome, nunca vira BRL."""
+    if not isinstance(jurisdiction, str) or jurisdiction.strip().upper() not in JURISDICTION_CURRENCY:
+        raise PricingError("unsupported_jurisdiction")
+    return JURISDICTION_CURRENCY[jurisdiction.strip().upper()]
 
 
 def version_for(base_version: str, currency: str) -> str:

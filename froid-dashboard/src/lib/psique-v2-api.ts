@@ -85,8 +85,11 @@ async function chamar<T>(
   return { estado: "indisponivel", motivo };
 }
 
+/** Vai com a sessão: logado, o servidor devolve o catálogo na moeda do
+ *  mercado escolhido no cadastro (BR real, US dólar, ES/FR euro), a mesma
+ *  em que o checkout cobra. O painel nunca informa moeda nem idioma. */
 export function obterPrecosPsiqueV2(): Promise<EstadoV2<PrecosPsiqueV2>> {
-  return chamar<PrecosPsiqueV2>("/api/psique/v2/pricing");
+  return chamar<PrecosPsiqueV2>("/api/psique/v2/pricing", { headers: cabecalhos() });
 }
 
 export function obterCarteiraPsiqueV2(): Promise<EstadoV2<CarteiraPsiqueV2>> {

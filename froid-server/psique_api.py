@@ -35,18 +35,25 @@ _DENIED_CODES = {
 _BAD_REQUEST_CODES = {
     "CHECKOUT_BODY_MUST_BE_PRODUCT_CODE_ONLY", "PRODUCT_CODE_REQUIRED",
     "PRODUCT_CODE_NOT_PURCHASABLE", "IDEMPOTENCY_MISMATCH",
-    "IDEMPOTENCY_KEY_REQUIRED", "RBAC_ROLE_UNKNOWN",
-    "CHECKOUT_LANGUAGE_UNSUPPORTED", "LANGUAGE_UNSUPPORTED",
+    "IDEMPOTENCY_KEY_REQUIRED", "RBAC_ROLE_UNKNOWN", "LANGUAGE_UNSUPPORTED",
 }
 
 
 def _idioma_valido(language: Any) -> str:
-    """Multimoeda: o idioma vem da pagina, numa lista fechada; fora dela e 422."""
+    """Multimoeda (site): o idioma vem da pagina, numa lista fechada; fora dela e 422."""
     try:
         psique_pricing.currency_for_language(language)
     except psique_pricing.PricingError:
         raise HTTPException(status_code=422, detail="LANGUAGE_UNSUPPORTED") from None
     return str(language).strip().lower()
+
+
+def _moeda_do_pedido(currency_resolver: Callable[[Request], str | None] | None,
+                     request: Request) -> str:
+    """Multimoeda (painel): a moeda e a do mercado escolhido no cadastro, lida
+    pelo servidor (main.py); sem resolvedor ou sem perfil, BRL como sempre."""
+    moeda = currency_resolver(request) if currency_resolver is not None else None
+    return moeda or psique_pricing.SOURCE_CURRENCY
 
 
 def _http_error(error: BillingError) -> HTTPException:
@@ -69,8 +76,9 @@ def build_psique_v2_billing_router(
     license_provider: Callable[[], PsiqueLicense] | None = None,
     rbac_provider: Callable[[], PsiqueRbac] | None = None,
     scheduling_provider: Callable[[], PsiqueScheduling] | None = None,
-    pricing_provider: Callable[[], dict[str, Any]] | None = None,
+    pricing_provider: Callable[[str], dict[str, Any]] | None = None,
     wallet_provider: Callable[[], PsiqueCredits] | None = None,
+    currency_resolver: Callable[[Request], str | None] | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/psique/v2", tags=["psique-v2-billing"])
 
@@ -86,7 +94,9 @@ def build_psique_v2_billing_router(
             # chave inventada aqui; o cliente e quem define a intencao.
             raise HTTPException(status_code=422, detail="IDEMPOTENCY_KEY_REQUIRED")
         try:
-            return billing_provider().checkout(context, body, idempotency_key=idempotency_key)
+            return billing_provider().checkout(
+                context, body, idempotency_key=idempotency_key,
+                currency=_moeda_do_pedido(currency_resolver, request))
         except BillingError as error:
             raise _http_error(error) from None
 
@@ -114,20 +124,11 @@ def build_psique_v2_billing_router(
 
         @router.post("/organization-license/preview")
         async def license_preview(request: Request, context: Any = Depends(context_dependency)):  # noqa: B008 -- padrao FastAPI de dependencia
-            # Corpo opcional: vazio (como sempre) ou {"language"}; a moeda da
-            # cotacao e do preview sai do idioma, nunca do navegador.
-            bruto = await request.body()
-            body: Any = {}
-            if bruto.strip():
-                try:
-                    body = await request.json()
-                except Exception:  # noqa: BLE001 -- fronteira HTTP: corpo ilegivel vira 422 nomeado
-                    raise HTTPException(status_code=422, detail="PREVIEW_BODY_INVALID")
-            if not isinstance(body, dict) or not set(body) <= {"language"}:
-                raise HTTPException(status_code=422, detail="PREVIEW_BODY_INVALID")
-            language = _idioma_valido(body.get("language", "pt"))
+            # A moeda do preview e a do mercado do cadastro, lida pelo
+            # servidor; o navegador nao a informa.
             try:
-                return license_provider().preview(context, language)
+                return license_provider().preview(
+                    context, currency=_moeda_do_pedido(currency_resolver, request))
             except BillingError as error:
                 raise _http_error(error) from None
 
@@ -355,13 +356,18 @@ def build_psique_v2_billing_router(
 
     if pricing_provider is not None:
         @router.get("/pricing")
-        async def public_pricing(language: str = "pt"):
+        async def public_pricing(request: Request, language: str | None = None):
             # Publico e sem fallback: se o catalogo nao carregar, a resposta e
             # uma indisponibilidade explicita, nunca preco antigo ou zero.
-            # Multimoeda: a pagina informa o idioma; o payload traz a moeda.
-            language = _idioma_valido(language)
+            # Multimoeda: a pagina publica informa o idioma; o painel, logado,
+            # nao informa nada e recebe a moeda do mercado do cadastro. O
+            # payload traz a moeda em que esses numeros serao cobrados.
+            if language is not None:
+                moeda = psique_pricing.currency_for_language(_idioma_valido(language))
+            else:
+                moeda = _moeda_do_pedido(currency_resolver, request)
             try:
-                return pricing_provider(language)
+                return pricing_provider(moeda)
             except Exception:  # noqa: BLE001 -- fronteira HTTP: catalogo indisponivel e 503 nomeado
                 return JSONResponse(status_code=503,
                                     content={"code": "PRICING_UNAVAILABLE"})

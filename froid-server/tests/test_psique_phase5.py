@@ -64,25 +64,36 @@ def test_pricing_route_serves_catalog_and_fails_closed():
     app.include_router(build_psique_v2_billing_router(
         lambda: (_ for _ in ()).throw(AssertionError("billing nao usado")),
         lambda: object(),
-        pricing_provider=lambda language="pt": psique_pricing.public_catalog(
-            psique_pricing.load_config(currency=psique_pricing.currency_for_language(language)))))
+        pricing_provider=lambda currency="brl": psique_pricing.public_catalog(
+            psique_pricing.load_config(currency=currency)),
+        # Resolvedor do painel: a moeda do mercado do cadastro, so quando ha
+        # sessao (aqui, simulada por um cabecalho sintetico).
+        currency_resolver=lambda request: (
+            "usd" if request.headers.get("x-mercado-sintetico") == "US" else None)))
     client = TestClient(app)
     corpo = client.get("/api/psique/v2/pricing")
     assert corpo.status_code == 200
     assert len(corpo.json()["offers"]) == 6
     assert corpo.json()["currency"] == "brl"
-    # Multimoeda (07/10/2026): a pagina diz o idioma; o payload traz a moeda,
-    # com os MESMOS numeros; idioma fora da lista fechada e 422 nomeado.
+    # Multimoeda (07/10/2026): a pagina publica diz o idioma; o painel logado
+    # nao diz nada e recebe a moeda do mercado do cadastro. O payload traz a
+    # moeda, com os MESMOS numeros; idioma fora da lista fechada e 422 nomeado.
     for idioma, moeda in psique_pricing.LANGUAGE_CURRENCY.items():
         em_idioma = client.get("/api/psique/v2/pricing", params={"language": idioma}).json()
         assert em_idioma["currency"] == moeda, idioma
         assert [o["total_cents"] for o in em_idioma["offers"]] == [o["total_cents"] for o in corpo.json()["offers"]]
     recusado = client.get("/api/psique/v2/pricing", params={"language": "de"})
     assert recusado.status_code == 422 and recusado.json()["detail"] == "LANGUAGE_UNSUPPORTED"
+    painel = client.get("/api/psique/v2/pricing", headers={"x-mercado-sintetico": "US"})
+    assert painel.json()["currency"] == "usd"
+    # O idioma explicito vence (pagina publica); o painel nunca manda idioma.
+    explicito = client.get("/api/psique/v2/pricing", params={"language": "pt"},
+                           headers={"x-mercado-sintetico": "US"})
+    assert explicito.json()["currency"] == "brl"
 
     quebrado = FastAPI()
 
-    def provider_quebrado(language="pt"):
+    def provider_quebrado(currency="brl"):
         raise RuntimeError("catalogo fora do ar")
 
     quebrado.include_router(build_psique_v2_billing_router(

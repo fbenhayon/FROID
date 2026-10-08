@@ -571,8 +571,9 @@ def test_router_requires_idempotency_header():
     captured = {}
 
     class StubBilling:
-        def checkout(self, context, body, *, idempotency_key):
+        def checkout(self, context, body, *, idempotency_key, currency="brl"):
             captured["key"] = idempotency_key
+            captured["currency"] = currency
             return {"purchase_id": "SYNTHETIC", "status": "CREATED", "checkout_url": "https://x"}
 
     app = FastAPI()
@@ -586,6 +587,7 @@ def test_router_requires_idempotency_header():
     ok = client.post("/api/psique/v2/checkout", json={"product_code": "FROID_PRO_10"},
                      headers={"X-Idempotency-Key": "cliente-define"})
     assert ok.status_code == 200 and captured["key"] == "cliente-define"
+    assert captured["currency"] == "brl"  # sem resolvedor de mercado, reais como sempre
 
 
 # -- Webhook: signature and payload boundary -----------------------------------

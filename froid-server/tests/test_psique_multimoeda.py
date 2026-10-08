@@ -8,11 +8,13 @@ pagina (pt brl, en usd, es/fr eur); NR-1 adiado. Tres frentes:
 (2) contra PostgreSQL real, a 051 aplica POR CIMA de um banco que ja tem a
     tabela BRL ativa, mapeamentos e compras — e reaplica como no-op; os tres
     CHECK de moeda passam a aceitar brl/usd/eur e nada mais;
-(3) a compra em ingles cobra em USD na tabela "2.1-usd" com o Price USD, o
-    webhook em reais para essa compra e recusado para revisao, sem idioma a
-    compra continua em reais, idioma fora da lista e recusado com nome; a
-    licenca cotada e pre-visualizada em ingles assina com o Price USD e grava
-    currency='usd', e o banco recusa um Price de outra tabela na confirmacao.
+(3) a compra de um profissional cujo mercado e os EUA cobra em USD na tabela
+    "2.1-usd" com o Price USD (a moeda e resolvida pelo SERVIDOR a partir do
+    cadastro; o navegador manda so o product_code), o webhook em reais para
+    essa compra e recusado para revisao, sem resolvedor a compra continua em
+    reais, moeda fora da lista e recusada com nome; a licenca cotada por
+    idioma (site) e pre-visualizada em USD (painel) assina com o Price USD e
+    grava currency='usd', e o banco recusa um Price de outra tabela.
 
 Fixtures sinteticas; nenhuma chamada de rede.
 """
@@ -185,11 +187,11 @@ def test_051_amplia_os_tres_check_e_nao_deixa_o_literal_brl(banco):
     assert ativas == [("2.1", "brl"), ("2.1-eur", "eur"), ("2.1-usd", "usd")]
 
 
-def test_compra_em_ingles_cobra_em_dolar_na_tabela_usd(banco):
+def test_compra_do_mercado_americano_cobra_em_dolar_na_tabela_usd(banco):
     h = HarnessCompra(banco)
     ctx = h.enrolled()
-    result = h.billing.checkout(ctx, {"product_code": "FROID_PRO_10", "language": "en"},
-                                idempotency_key=uuid.uuid4().hex)
+    result = h.billing.checkout(ctx, {"product_code": "FROID_PRO_10"},
+                                idempotency_key=uuid.uuid4().hex, currency="usd")
     assert result["status"] == "CHECKOUT_CREATED"
     product_id, price_id, _ = USD_OBJECTS["FROID_PRO_10"]
     assert h.stripe.created[-1]["price_id"] == price_id  # o Price USD, nao o BRL
@@ -207,8 +209,8 @@ def test_compra_em_ingles_cobra_em_dolar_na_tabela_usd(banco):
 def test_sessao_em_reais_para_compra_em_dolar_vai_para_revisao(banco):
     h = HarnessCompra(banco)
     ctx = h.enrolled()
-    result = h.billing.checkout(ctx, {"product_code": "FROID_PRO_10", "language": "en"},
-                                idempotency_key=uuid.uuid4().hex)
+    result = h.billing.checkout(ctx, {"product_code": "FROID_PRO_10"},
+                                idempotency_key=uuid.uuid4().hex, currency="usd")
     session_id = h.session_of(result)
     product_id, price_id, _ = USD_OBJECTS["FROID_PRO_10"]
     # Mesmo Price e valor, moeda errada: a verdade da sessao diverge da compra.
@@ -220,19 +222,20 @@ def test_sessao_em_reais_para_compra_em_dolar_vai_para_revisao(banco):
     assert h.billing.purchase_state(ctx, str(result["purchase_id"]))["status"] == "REVIEW_REQUIRED"
 
 
-def test_espanhol_e_frances_compram_em_euro(banco):
+def test_mercados_espanhol_e_frances_compram_em_euro(banco):
     h = HarnessCompra(banco)
-    for idioma in ("es", "fr"):
+    for mercado in ("ES", "FR"):
         ctx = h.enrolled()
-        result = h.billing.checkout(ctx, {"product_code": "FROID_PRO_25", "language": idioma},
-                                    idempotency_key=uuid.uuid4().hex)
+        moeda = psique_pricing.currency_for_jurisdiction(mercado)
+        result = h.billing.checkout(ctx, {"product_code": "FROID_PRO_25"},
+                                    idempotency_key=uuid.uuid4().hex, currency=moeda)
         assert h.stripe.created[-1]["price_id"] == EUR_OBJECTS["FROID_PRO_25"][1]
         row = h.sql("SELECT currency,pricing_version,total_cents FROM psique_purchases WHERE id=%s",
                     (result["purchase_id"],))[0]
-        assert row == ("eur", "2.1-eur", EXPECTED_TOTALS["FROID_PRO_25"]), idioma
+        assert row == ("eur", "2.1-eur", EXPECTED_TOTALS["FROID_PRO_25"]), mercado
 
 
-def test_sem_idioma_continua_em_reais_e_o_resto_e_recusado_com_nome(banco):
+def test_sem_resolvedor_continua_em_reais_e_o_resto_e_recusado_com_nome(banco):
     h = HarnessCompra(banco)
     ctx = h.enrolled()
     result = h.checkout(ctx, "FROID_PRO_10")
@@ -240,15 +243,14 @@ def test_sem_idioma_continua_em_reais_e_o_resto_e_recusado_com_nome(banco):
     row = h.sql("SELECT currency,pricing_version FROM psique_purchases WHERE id=%s",
                 (result["purchase_id"],))[0]
     assert row == ("brl", "2.1")
-    with pytest.raises(BillingError, match="CHECKOUT_LANGUAGE_UNSUPPORTED"):
-        h.billing.checkout(ctx, {"product_code": "FROID_PRO_10", "language": "de"},
-                           idempotency_key=uuid.uuid4().hex)
-    with pytest.raises(BillingError, match="CHECKOUT_LANGUAGE_UNSUPPORTED"):
-        h.billing.checkout(ctx, {"product_code": "FROID_PRO_10", "language": None},
-                           idempotency_key=uuid.uuid4().hex)
-    # Moeda, valor ou Price continuam vindo so do servidor: campo a mais e recusa.
+    for moeda in ("cny", "", None, "USD"):
+        with pytest.raises(BillingError, match="CHECKOUT_CURRENCY_UNSUPPORTED"):
+            h.billing.checkout(ctx, {"product_code": "FROID_PRO_10"},
+                               idempotency_key=uuid.uuid4().hex, currency=moeda)
+    # Moeda, idioma, valor ou Price nunca vem do navegador: campo a mais e recusa.
     for body in ({"product_code": "FROID_PRO_10", "currency": "usd"},
-                 {"product_code": "FROID_PRO_10", "language": "en", "amount": 1}):
+                 {"product_code": "FROID_PRO_10", "language": "en"},
+                 {"product_code": "FROID_PRO_10", "amount": 1}):
         with pytest.raises(BillingError, match="CHECKOUT_BODY_MUST_BE_PRODUCT_CODE_ONLY"):
             h.billing.checkout(ctx, body, idempotency_key=uuid.uuid4().hex)
     assert h.sql("SELECT count(*) FROM psique_purchases WHERE organization_id=%s",
@@ -256,13 +258,13 @@ def test_sem_idioma_continua_em_reais_e_o_resto_e_recusado_com_nome(banco):
 
 
 def test_pacote_sem_objeto_stripe_na_moeda_e_recusado_com_nome(banco):
-    # So FROID_PRO_10 tem Price USD neste banco: PRO_25 em ingles nao pode
+    # So FROID_PRO_10 tem Price USD neste banco: PRO_25 em dolar nao pode
     # cair no Price BRL em silencio.
     h = HarnessCompra(banco)
     ctx = h.enrolled()
     with pytest.raises(BillingError, match="STRIPE_TEST_MAPPING_REQUIRED"):
-        h.billing.checkout(ctx, {"product_code": "FROID_PRO_25", "language": "en"},
-                           idempotency_key=uuid.uuid4().hex)
+        h.billing.checkout(ctx, {"product_code": "FROID_PRO_25"},
+                           idempotency_key=uuid.uuid4().hex, currency="usd")
 
 
 def test_cotacao_da_licenca_por_idioma_mesmo_numero_outra_moeda(banco):
@@ -274,15 +276,15 @@ def test_cotacao_da_licenca_por_idioma_mesmo_numero_outra_moeda(banco):
     assert h.license.quote(10) == h.license.quote(10, "pt")
     with pytest.raises(BillingError, match="LANGUAGE_UNSUPPORTED"):
         h.license.quote(10, "de")
-    with pytest.raises(BillingError, match="LANGUAGE_UNSUPPORTED"):
-        h.license.preview(h.context(), "de")
+    with pytest.raises(BillingError, match="LICENSE_CURRENCY_UNSUPPORTED"):
+        h.license.preview(h.context(), currency="cny")
 
 
-def test_licenca_pre_visualizada_em_ingles_assina_com_o_price_usd(banco):
+def test_licenca_pre_visualizada_em_dolar_assina_com_o_price_usd(banco):
     h = HarnessLicenca(banco)
     ctx = h.context()
     h.clinicians(ctx, 3)
-    preview = h.license.preview(ctx, "en")
+    preview = h.license.preview(ctx, currency="usd")
     assert preview["quote"]["currency"] == "usd"
     assert preview["quote"]["pricing_version"] == "2.1-usd"
     result = h.license.confirm(ctx, preview_id=preview["preview_id"],
@@ -315,7 +317,7 @@ def test_banco_recusa_price_de_outra_tabela_na_confirmacao(banco):
     h = HarnessLicenca(banco)
     ctx = h.context()
     h.clinicians(ctx, 2)
-    preview = h.license.preview(ctx, "en")
+    preview = h.license.preview(ctx, currency="usd")
     args = {"preview_id": preview["preview_id"], "expected_version": preview["license_version"],
             "expected_livemode": False,
             "stripe": {"account_id": QA_ACCOUNT, "livemode": False,
@@ -327,3 +329,41 @@ def test_banco_recusa_price_de_outra_tabela_na_confirmacao(banco):
                          json.dumps(args)), ctx)
     assert h.sql("SELECT count(*) FROM psique_organization_licenses WHERE organization_id=%s",
                  (ctx.organization_id,))[0][0] == 0
+
+
+def test_moeda_do_painel_vem_do_mercado_do_cadastro_e_nunca_do_navegador():
+    """O resolvedor do painel (main.py) converte a legal_jurisdiction do
+    cadastro pela lista fechada; a rota de checkout passa SO essa moeda ao
+    servico, e o corpo continua sendo apenas o product_code."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from psique_api import build_psique_v2_billing_router
+
+    assert {m: psique_pricing.currency_for_jurisdiction(m) for m in ("BR", "US", "ES", "FR")} == \
+        {"BR": "brl", "US": "usd", "ES": "eur", "FR": "eur"}
+    assert psique_pricing.currency_for_jurisdiction(" us ") == "usd"
+    for ruim in ("EU", "CN", "", None, "pt"):  # main.py normaliza EU/CN para BR antes daqui
+        with pytest.raises(psique_pricing.PricingError, match="unsupported_jurisdiction"):
+            psique_pricing.currency_for_jurisdiction(ruim)
+
+    captured = {}
+
+    class StubBilling:
+        def checkout(self, context, body, *, idempotency_key, currency="brl"):
+            captured["body"] = body
+            captured["currency"] = currency
+            return {"purchase_id": "SINTETICA", "status": "CREATED", "checkout_url": None}
+
+    app = FastAPI()
+    app.include_router(build_psique_v2_billing_router(
+        lambda: StubBilling(), lambda: object(),
+        currency_resolver=lambda request: psique_pricing.currency_for_jurisdiction(
+            request.headers["x-mercado-sintetico"]) if "x-mercado-sintetico" in request.headers else None))
+    client = TestClient(app)
+    ok = client.post("/api/psique/v2/checkout", json={"product_code": "FROID_PRO_10"},
+                     headers={"X-Idempotency-Key": "k1", "x-mercado-sintetico": "FR"})
+    assert ok.status_code == 200 and captured == {"body": {"product_code": "FROID_PRO_10"}, "currency": "eur"}
+    sem_perfil = client.post("/api/psique/v2/checkout", json={"product_code": "FROID_PRO_10"},
+                             headers={"X-Idempotency-Key": "k2"})
+    assert sem_perfil.status_code == 200 and captured["currency"] == "brl"

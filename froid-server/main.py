@@ -16979,11 +16979,29 @@ if FROID_PSIQUE_V2_BILLING_ENABLED:
 
     _psique_wallet_instance: Optional["PsiqueCredits"] = None
 
-    def _psique_pricing_payload(language: str = "pt") -> dict:
-        # Multimoeda: a pagina diz o idioma, o servidor escolhe a moeda pela
-        # lista fechada (pt brl, en usd, es/fr eur) e deriva a tabela do JSON.
-        moeda = _psique_pricing.currency_for_language(language)
-        return _psique_pricing.public_catalog(_psique_pricing.load_config(currency=moeda))
+    def _psique_pricing_payload(currency: str = "brl") -> dict:
+        # Multimoeda: a moeda ja chega resolvida pela rota (idioma da pagina
+        # publica ou mercado do cadastro); a tabela e derivada do JSON BRL.
+        return _psique_pricing.public_catalog(_psique_pricing.load_config(currency=currency))
+
+    def _psique_moeda_do_profissional(request: Request) -> Optional[str]:
+        """Multimoeda (07/10/2026): a moeda do painel e a do MERCADO escolhido
+        no cadastro (legal_jurisdiction, normalizada para BR/US/ES/FR), a
+        mesma que decide os documentos juridicos — nunca o idioma do
+        navegador. Sem sessao ou sem perfil, None (a rota cai em BRL)."""
+        user = _current_user_from_request(request)
+        if not user:
+            return None
+        email = _normalize_email(user.get("email") or "")
+        profile = PROFESSIONAL_PROFILES.get(email) or {}
+        if not profile:
+            return None
+        jurisdiction = _normalize_legal_jurisdiction(
+            profile.get("legal_jurisdiction")
+            or (profile.get("profile_fields") or {}).get("country")
+            or "BR"
+        )
+        return _psique_pricing.currency_for_jurisdiction(jurisdiction)
 
     def _psique_wallet_provider() -> "PsiqueCredits":
         global _psique_wallet_instance
@@ -17042,5 +17060,6 @@ if FROID_PSIQUE_V2_BILLING_ENABLED:
             scheduling_provider=_psique_scheduling_provider,
             pricing_provider=_psique_pricing_payload,
             wallet_provider=_psique_wallet_provider,
+            currency_resolver=_psique_moeda_do_profissional,
         )
     )
