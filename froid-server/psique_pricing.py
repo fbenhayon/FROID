@@ -6,6 +6,7 @@ It is not a fallback when a database/catalog is unavailable.
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 from datetime import datetime
@@ -22,9 +23,47 @@ BILLING_TYPES = frozenset({"one_time", "usage", "monthly_graduated"})
 TRIAL_CREDITS = 10
 TRIAL_DAYS = 14
 
+# Multimoeda (decisao do dono, 06 e 07/10/2026): o MESMO numero em todas as
+# moedas, sem conversao — R$ 199 = US$ 199 = EUR 199 — e a moeda vem do idioma
+# da pagina (pt -> brl, en -> usd, es/fr -> eur). O JSON em config/ continua a
+# UNICA fonte de numeros, em BRL; as tabelas em USD e EUR sao DERIVADAS por
+# codigo (config_for_currency), nunca digitadas. Cada moeda e uma tabela
+# propria no banco (UNIQUE(code, version) na 035; uma ativa por moeda), e a
+# versao carrega o sufixo da moeda: "2.1" (brl), "2.1-usd", "2.1-eur".
+# NR-1 fica fora: o dono adiou a multimoeda do NR-1 em 07/10/2026.
+SOURCE_CURRENCY = "brl"
+CURRENCIES = ("brl", "usd", "eur")
+LANGUAGE_CURRENCY = {"pt": "brl", "en": "usd", "es": "eur", "fr": "eur"}
+
 
 class PricingError(ValueError):
     pass
+
+
+def currency_for_language(language: Any) -> str:
+    """Lista fechada: idioma desconhecido e recusado com nome, nunca vira BRL."""
+    if not isinstance(language, str) or language.strip().lower() not in LANGUAGE_CURRENCY:
+        raise PricingError("unsupported_language")
+    return LANGUAGE_CURRENCY[language.strip().lower()]
+
+
+def version_for(base_version: str, currency: str) -> str:
+    """Versao da tabela de uma moeda: a BRL e a de origem, as outras sufixam."""
+    if currency not in CURRENCIES:
+        raise PricingError("unsupported_currency")
+    return base_version if currency == SOURCE_CURRENCY else f"{base_version}-{currency}"
+
+
+def config_for_currency(config: dict[str, Any], currency: str) -> dict[str, Any]:
+    """Deriva a tabela de uma moeda a partir da BRL: mesmos numeros, outra moeda."""
+    validate(config)
+    if config["currency"] != SOURCE_CURRENCY:
+        raise PricingError("source_config_must_be_brl")
+    derived = copy.deepcopy(config)
+    derived["currency"] = currency
+    derived["version"] = version_for(config["version"], currency)
+    validate(derived)
+    return derived
 
 
 def integer(value: Any, name: str, minimum: int = 0) -> int:
@@ -48,10 +87,18 @@ def validate(config: dict[str, Any]) -> None:
     _no_float(config)
     if set(config) != {"code", "version", "currency", "offers", "organization_license"}:
         raise PricingError("invalid_config_fields")
-    if config["code"] != "FROID_PSIQUE_V2" or config["currency"] != "brl":
+    if config["code"] != "FROID_PSIQUE_V2" or config["currency"] not in CURRENCIES:
         raise PricingError("invalid_product_or_currency")
     if not isinstance(config["version"], str) or not config["version"].strip():
         raise PricingError("missing_pricing_version")
+    # A versao e a moeda andam juntas: "2.1" so em BRL, "2.1-usd" so em USD.
+    # Uma tabela USD rotulada "2.1" colidiria com a BRL no UNIQUE(code,version).
+    sufixo = config["version"].rsplit("-", 1)[-1] if "-" in config["version"] else ""
+    if config["currency"] == SOURCE_CURRENCY:
+        if sufixo in CURRENCIES:
+            raise PricingError("brl_version_must_not_carry_currency_suffix")
+    elif sufixo != config["currency"]:
+        raise PricingError("version_must_carry_currency_suffix")
     if not isinstance(config["offers"], list) or not config["offers"]:
         raise PricingError("missing_offers")
     codes: set[str] = set()
@@ -110,10 +157,14 @@ def pricing_hash(config: dict[str, Any]) -> str:
     return hashlib.sha256(canonical_json(config).encode("utf-8")).hexdigest()
 
 
-def load_config(path: Path = DEFAULT_CONFIG) -> dict[str, Any]:
+def load_config(path: Path = DEFAULT_CONFIG,
+                currency: str = SOURCE_CURRENCY) -> dict[str, Any]:
+    """Carrega o JSON (sempre BRL, a fonte unica) e deriva a moeda pedida."""
     config = json.loads(path.read_text(encoding="utf-8"))
     validate(config)
-    return config
+    if config["currency"] != SOURCE_CURRENCY:
+        raise PricingError("config_file_must_be_brl")
+    return config_for_currency(config, currency)
 
 
 def offer_for(config: dict[str, Any], product_code: str) -> dict[str, Any]:

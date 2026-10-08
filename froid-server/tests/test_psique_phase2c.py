@@ -102,7 +102,9 @@ def database():
         try:
             isolated = make_conninfo(dsn, dbname=name)
             with psycopg.connect(isolated, autocommit=True) as conn:
-                apply(conn, ROOT / "migrations", "046_psique_live_mode", name)
+                # A confirmacao da licenca le o catalogo do preview pela 051
+                # (multimoeda, 07/10/2026): o banco de teste vai ate ela.
+                apply(conn, ROOT / "migrations", "051_psique_multimoeda", name)
                 config = psique_pricing.load_config()
                 install_draft(conn, config, actor="phase2c-tests")
                 metadata = {"froid_product": "psique", "family": "psique_license",

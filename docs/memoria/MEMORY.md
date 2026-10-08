@@ -35,3 +35,4 @@
 - [SSH direto a producao](froid-ssh-direto.md) — eu rodo as janelas por ssh froid; exec precisa de </dev/null no heredoc; provar build pelo codigo no conteiner
 - [Identidade sem senha](froid-identidade-sem-senha.md) — login Google nao grava credencial; o convite publico criava senha sobre conta Google (tomada de conta), corrigido em aba2cd4a
 - [Troca do site pt-BR (06/10/2026)](froid-site-troca-2026-10.md) — 27 paginas novas sem numero espelhado; traducoes seguem a versao anterior; testes reescritos para a decisao nova; precos.html segue publica com blocos vivos
+- [Multimoeda do Psique](froid-psique-multimoeda.md) — tabela por moeda derivada da BRL, 051 gerada, codigo pronto; janela pendente e o painel pt-BR sem chamador para USD/EUR

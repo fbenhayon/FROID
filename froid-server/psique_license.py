@@ -16,7 +16,7 @@ from collections.abc import Callable
 from typing import Any
 
 import psique_pricing
-from psique_billing import PHASE2C_SCHEMA, BillingError, executar_comando_v2
+from psique_billing import MULTIMOEDA_SCHEMA, PHASE2C_SCHEMA, BillingError, executar_comando_v2
 from tenant_access import AccessContext
 
 # Mirrors of the migration 040 CHECK domains; drift is guarded by tests.
@@ -38,17 +38,29 @@ class PsiqueLicense:
         self._account_id = account_id
         self._billing_email_resolver = billing_email_resolver
         self._catalog = catalog or psique_pricing.load_config()
+        # Multimoeda: uma tabela por moeda, derivada da BRL (mesmos numeros).
+        # O idioma da pagina escolhe qual delas cota e pre-visualiza; a
+        # confirmacao le a moeda DO PREVIEW no banco, nunca de novo do cliente.
+        self._catalogs = {moeda: psique_pricing.config_for_currency(self._catalog, moeda)
+                          for moeda in psique_pricing.CURRENCIES}
         self._connect = connection_factory
 
-    def _call(self, sql: str, params: tuple, context: AccessContext | None = None) -> dict[str, Any]:
+    def _call(self, sql: str, params: tuple, context: AccessContext | None = None,
+              schema: set[str] | None = None) -> dict[str, Any]:
         return executar_comando_v2(self._connect, sql, params,
-                                   context=context, schema=PHASE2C_SCHEMA)
+                                   context=context, schema=schema or PHASE2C_SCHEMA)
+
+    def _catalog_for(self, language: str) -> dict[str, Any]:
+        try:
+            return self._catalogs[psique_pricing.currency_for_language(language)]
+        except psique_pricing.PricingError:
+            raise BillingError("LANGUAGE_UNSUPPORTED") from None
 
     # -- Pure quote ----------------------------------------------------------
-    def quote(self, clinical_seat_count: int) -> dict[str, Any]:
+    def quote(self, clinical_seat_count: int, language: str = "pt") -> dict[str, Any]:
         if type(clinical_seat_count) is not int or clinical_seat_count < 0:
             raise BillingError("CLINICAL_SEAT_COUNT_INVALID")
-        return psique_pricing.organization_quote(self._catalog, clinical_seat_count)
+        return psique_pricing.organization_quote(self._catalog_for(language), clinical_seat_count)
 
     # -- Clinical status: operational, immediate ------------------------------
     def set_clinical(self, context: AccessContext, membership_id: str, *,
@@ -63,10 +75,15 @@ class PsiqueLicense:
                           context)
 
     # -- Billing: versioned preview/confirm ----------------------------------
-    def preview(self, context: AccessContext) -> dict[str, Any]:
+    def preview(self, context: AccessContext, language: str = "pt") -> dict[str, Any]:
+        catalog = self._catalog_for(language)  # idioma fora da lista: recusa antes do banco
+        # Um preview em outra moeda so faz sentido onde a 051 ja ensinou a
+        # confirmacao a gravar essa moeda; sem ela a recusa e nomeada.
+        schema = PHASE2C_SCHEMA | (
+            MULTIMOEDA_SCHEMA if catalog["currency"] != psique_pricing.SOURCE_CURRENCY else set())
         for _ in range(3):
             active = self.state(context)["active_clinical_seat_count"]
-            quoted = self.quote(active)
+            quoted = self.quote(active, language)
             if quoted["enterprise_required"]:
                 raise BillingError("ENTERPRISE_REQUIRED_NO_SELF_SERVICE")
             try:
@@ -77,7 +94,7 @@ class PsiqueLicense:
                                  "quote_monthly_cents": quoted["monthly_cents"],
                                  "pricing_version": quoted["pricing_version"],
                                  "pricing_hash": quoted["pricing_hash"]},
-                                allow_nan=False)), context)
+                                allow_nan=False)), context, schema=schema)
             except BillingError as error:
                 if error.code == "SEAT_COUNT_CHANGED_RETRY":
                     continue
@@ -98,7 +115,15 @@ class PsiqueLicense:
             quoted = self.quote(active)
             if quoted["enterprise_required"]:
                 raise BillingError("ENTERPRISE_REQUIRED_NO_SELF_SERVICE")
-            price_id = self._license_price_id(context)
+            # A moeda da assinatura e a do preview gravado (tabela "2.1",
+            # "2.1-usd" ou "2.1-eur"); o Price e resolvido ANTES de tocar o
+            # Stripe, para nunca abrir assinatura na moeda errada e depois
+            # compensar. O banco confere de novo em psique_v2_seat_confirm.
+            preview_catalog = self._call(
+                "SELECT psique_v2_seat_preview_catalog(%s,%s,%s,%s)",
+                (context.organization_id, context.membership_id, context.user_id,
+                 preview_id), context, schema=PHASE2C_SCHEMA | MULTIMOEDA_SCHEMA)
+            price_id = self._license_price_id(context, preview_catalog["pricing_version"])
             if self._billing_email_resolver is None:
                 # No invented billing e-mail: creating the subscription fails
                 # closed until the activation phase wires the real source.
@@ -196,11 +221,11 @@ class PsiqueLicense:
             # the caller decides whether to escalate.
             return False
 
-    def _license_price_id(self, context: AccessContext) -> str:
+    def _license_price_id(self, context: AccessContext, catalog_version: str) -> str:
         row = self._call(
             "SELECT psique_v2_license_price_mapping(%s,%s,%s,%s,%s,%s)",
             (context.organization_id, context.membership_id, context.user_id,
-             self._catalog["version"], self._account_id, self._live), context)
+             catalog_version, self._account_id, self._live), context)
         return str(row["price_id"])
 
     @staticmethod

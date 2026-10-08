@@ -16979,8 +16979,11 @@ if FROID_PSIQUE_V2_BILLING_ENABLED:
 
     _psique_wallet_instance: Optional["PsiqueCredits"] = None
 
-    def _psique_pricing_payload() -> dict:
-        return _psique_pricing.public_catalog(_psique_pricing.load_config())
+    def _psique_pricing_payload(language: str = "pt") -> dict:
+        # Multimoeda: a pagina diz o idioma, o servidor escolhe a moeda pela
+        # lista fechada (pt brl, en usd, es/fr eur) e deriva a tabela do JSON.
+        moeda = _psique_pricing.currency_for_language(language)
+        return _psique_pricing.public_catalog(_psique_pricing.load_config(currency=moeda))
 
     def _psique_wallet_provider() -> "PsiqueCredits":
         global _psique_wallet_instance

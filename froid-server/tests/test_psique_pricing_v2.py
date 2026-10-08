@@ -115,3 +115,61 @@ class PsiquePricingTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PsiqueMultimoedaTests(unittest.TestCase):
+    """Multimoeda (decisao do dono, 06 e 07/10/2026): mesmo numero em BRL, USD
+    e EUR, sem conversao; moeda pelo idioma; tabelas USD/EUR derivadas da BRL
+    por codigo, com a versao sufixada. NR-1 fica fora (adiado)."""
+
+    def setUp(self):
+        self.base = load_config()
+
+    def test_tabelas_derivadas_tem_os_mesmos_numeros_e_outra_moeda(self):
+        from psique_pricing import (CURRENCIES, config_for_currency, public_catalog,
+                                    version_for)
+        numeros = [(o["product_code"], o["credits"], o["total_cents"]) for o in self.base["offers"]]
+        hashes = set()
+        for moeda in CURRENCIES:
+            with self.subTest(moeda=moeda):
+                derivada = load_config(currency=moeda)
+                self.assertEqual(derivada, config_for_currency(self.base, moeda))
+                self.assertEqual(derivada["currency"], moeda)
+                self.assertEqual(derivada["version"], version_for(self.base["version"], moeda))
+                self.assertEqual([(o["product_code"], o["credits"], o["total_cents"])
+                                  for o in derivada["offers"]], numeros)
+                self.assertEqual(derivada["organization_license"], self.base["organization_license"])
+                self.assertEqual(public_catalog(derivada)["currency"], moeda)
+                self.assertEqual(organization_quote(derivada, 10)["monthly_cents"],
+                                 organization_quote(self.base, 10)["monthly_cents"])
+                self.assertEqual(purchase_snapshot(derivada, "FROID_PRO_10")["currency"], moeda)
+                hashes.add(pricing_hash(derivada))
+        self.assertEqual(len(hashes), 3)  # moeda diferente, tabela diferente
+        self.assertEqual(load_config(currency="brl"), self.base)
+        self.assertEqual(version_for("2.1", "brl"), "2.1")
+        self.assertEqual(version_for("2.1", "eur"), "2.1-eur")
+
+    def test_idioma_e_lista_fechada(self):
+        from psique_pricing import LANGUAGE_CURRENCY, currency_for_language
+        self.assertEqual({idioma: currency_for_language(idioma) for idioma in ("pt", "en", "es", "fr")},
+                         {"pt": "brl", "en": "usd", "es": "eur", "fr": "eur"})
+        self.assertEqual(dict(LANGUAGE_CURRENCY), {"pt": "brl", "en": "usd", "es": "eur", "fr": "eur"})
+        self.assertEqual(currency_for_language(" EN "), "usd")
+        for ruim in ("de", "", None, 1, "pt-BR", "brl"):
+            with self.subTest(idioma=ruim), self.assertRaises(PricingError):
+                currency_for_language(ruim)
+
+    def test_versao_e_moeda_andam_juntas(self):
+        from psique_pricing import config_for_currency, version_for
+        with self.assertRaisesRegex(PricingError, "brl_version_must_not_carry_currency_suffix"):
+            validate({**self.base, "version": "2.1-usd"})
+        with self.assertRaisesRegex(PricingError, "version_must_carry_currency_suffix"):
+            validate({**self.base, "currency": "usd"})
+        with self.assertRaisesRegex(PricingError, "invalid_product_or_currency"):
+            validate({**self.base, "currency": "cny", "version": "2.1-cny"})
+        with self.assertRaisesRegex(PricingError, "source_config_must_be_brl"):
+            config_for_currency(load_config(currency="usd"), "eur")
+        with self.assertRaisesRegex(PricingError, "unsupported_currency"):
+            version_for("2.1", "cny")
+        with self.assertRaisesRegex(PricingError, "unsupported_currency"):
+            load_config(currency="cny")

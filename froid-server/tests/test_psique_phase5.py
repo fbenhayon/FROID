@@ -64,15 +64,25 @@ def test_pricing_route_serves_catalog_and_fails_closed():
     app.include_router(build_psique_v2_billing_router(
         lambda: (_ for _ in ()).throw(AssertionError("billing nao usado")),
         lambda: object(),
-        pricing_provider=lambda: psique_pricing.public_catalog(psique_pricing.load_config())))
+        pricing_provider=lambda language="pt": psique_pricing.public_catalog(
+            psique_pricing.load_config(currency=psique_pricing.currency_for_language(language)))))
     client = TestClient(app)
     corpo = client.get("/api/psique/v2/pricing")
     assert corpo.status_code == 200
     assert len(corpo.json()["offers"]) == 6
+    assert corpo.json()["currency"] == "brl"
+    # Multimoeda (07/10/2026): a pagina diz o idioma; o payload traz a moeda,
+    # com os MESMOS numeros; idioma fora da lista fechada e 422 nomeado.
+    for idioma, moeda in psique_pricing.LANGUAGE_CURRENCY.items():
+        em_idioma = client.get("/api/psique/v2/pricing", params={"language": idioma}).json()
+        assert em_idioma["currency"] == moeda, idioma
+        assert [o["total_cents"] for o in em_idioma["offers"]] == [o["total_cents"] for o in corpo.json()["offers"]]
+    recusado = client.get("/api/psique/v2/pricing", params={"language": "de"})
+    assert recusado.status_code == 422 and recusado.json()["detail"] == "LANGUAGE_UNSUPPORTED"
 
     quebrado = FastAPI()
 
-    def provider_quebrado():
+    def provider_quebrado(language="pt"):
         raise RuntimeError("catalogo fora do ar")
 
     quebrado.include_router(build_psique_v2_billing_router(
@@ -164,6 +174,20 @@ def test_switchover_happened_and_public_pages_have_zero_hardcoded_prices():
         assert 'id="pv2-ofertas"' in texto and 'id="pv2-calculadora"' in texto, pagina
         assert "<footer" in texto and "nav" in texto, pagina  # chrome preservado
         assert not proibidos.search(texto), f"preco embutido em {pagina}"
+
+
+def test_cada_pagina_de_precos_declara_o_proprio_idioma_e_nenhuma_moeda():
+    """Multimoeda (07/10/2026): a pagina diz SO o idioma ao script; a moeda e o
+    numero vem da API. Nenhuma pagina embute "BRL"/"USD"/"EUR" para formatar,
+    e o idioma declarado esta na lista fechada do servidor."""
+    for pagina in PAGINAS:
+        texto = pagina.read_text(encoding="utf-8")
+        idioma = pagina.parent.name if pagina.parent != SITE else "pt"
+        assert f'language: "{idioma}",' in texto, pagina
+        assert idioma in psique_pricing.LANGUAGE_CURRENCY, pagina
+        assert 'currency: "BRL"' not in texto and "psique-pricing-v2.js?v=2" in texto, pagina
+    script = (SITE / "site-assets/psique-pricing-v2.js").read_text(encoding="utf-8")
+    assert 'currency: "BRL"' not in script and "catalogo.currency" in script
 
 
 def test_pricing_error_is_a_billing_error_with_named_code():

@@ -28,15 +28,23 @@ LOOKUP_KEY = "froid_psique_org_license_v2_1"
 BOUNDARIES = (1, 2, 3, 5, 6, 10, 11, 20, 25, 26, 30, 50, 51, 100, 101, 200)
 
 
-def find_price(client):
+def lookup_key_for(currency: str) -> str:
+    """BRL mantem a chave historica; USD/EUR sufixam (multimoeda, 07/10/2026)."""
+    if currency not in psique_pricing.CURRENCIES:
+        raise ValueError("unsupported_currency")
+    return LOOKUP_KEY if currency == psique_pricing.SOURCE_CURRENCY else f"{LOOKUP_KEY}_{currency}"
+
+
+def find_price(client, lookup_key=LOOKUP_KEY):
     listing = client._request(
-        "GET", f"/v1/prices?lookup_keys[]={LOOKUP_KEY}&expand[]=data.tiers")
+        "GET", f"/v1/prices?lookup_keys[]={lookup_key}&expand[]=data.tiers")
     data = listing.get("data") or []
     return data[0] if data else None
 
 
 def create_objects(client, config):
-    price = find_price(client)
+    lookup_key = lookup_key_for(config["currency"])
+    price = find_price(client, lookup_key)
     metadata = {
         "froid_product": "psique", "family": "psique_license",
         "product_code": "FROID_ORG_LICENSE",
@@ -45,13 +53,18 @@ def create_objects(client, config):
     }
     if price is not None:
         return price, False
-    fields = [("name", "FROID Psique - Licenca Organizacional")]
+    nome = "FROID Psique - Licenca Organizacional"
+    if config["currency"] != psique_pricing.SOURCE_CURRENCY:
+        # Um Product por moeda: a metadata (pricing_version/hash) e da tabela
+        # daquela moeda, e o registro do mapping confere Product e Price.
+        nome += " (" + config["currency"].upper() + ")"
+    fields = [("name", nome)]
     fields += [(f"metadata[{k}]", v) for k, v in metadata.items()]
     product = client._request("POST", "/v1/products", fields)
     fields = [
         ("product", product["id"]), ("currency", config["currency"]),
         ("recurring[interval]", "month"), ("billing_scheme", "tiered"),
-        ("tiers_mode", "graduated"), ("lookup_key", LOOKUP_KEY),
+        ("tiers_mode", "graduated"), ("lookup_key", lookup_key),
         ("expand[]", "tiers"),
     ]
     fields += [(f"metadata[{k}]", v) for k, v in metadata.items()]
@@ -88,6 +101,7 @@ def main() -> int:
     parser.add_argument("--register", action="store_true")
     parser.add_argument("--confirm-database", default="")
     parser.add_argument("--actor", default="")
+    parser.add_argument("--moeda", choices=psique_pricing.CURRENCIES, default="brl")
     args = parser.parse_args()
     try:
         secret = os.environ.get("FROID_PSIQUE_STRIPE_TEST_SECRET_KEY", "")
@@ -95,8 +109,10 @@ def main() -> int:
             parser.error("FROID_PSIQUE_STRIPE_TEST_SECRET_KEY is required")
         client = StripeTestClient(secret)
         account = client.account()["id"]
-        config = psique_pricing.load_config()
-        result = {"account": account, "version": config["version"], "lookup_key": LOOKUP_KEY}
+        config = psique_pricing.load_config(currency=args.moeda)
+        lookup_key = lookup_key_for(args.moeda)
+        result = {"account": account, "version": config["version"],
+                  "currency": config["currency"], "lookup_key": lookup_key}
 
         price = None
         if args.create_objects:
@@ -104,7 +120,7 @@ def main() -> int:
             result["price_id"] = price["id"]
             result["price_created"] = created
         if price is None and (args.homolog or args.register):
-            price = find_price(client)
+            price = find_price(client, lookup_key)
             result["price_id"] = price["id"] if price else None
         if (args.homolog or args.register) and price is None:
             raise ValueError("license_price_not_found_run_create_objects")
@@ -135,7 +151,7 @@ def main() -> int:
                 result["mapping_id"] = register_license_test_mapping(
                     conn, version=config["version"], account_id=account,
                     product=product, price=price, actor=args.actor,
-                    lookup_key=LOOKUP_KEY)
+                    lookup_key=lookup_key)
         print(json.dumps(result))
         return 0
     except Exception as exc:  # noqa: BLE001 -- sanitize the CLI boundary; never print credentials

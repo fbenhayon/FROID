@@ -15,6 +15,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 
+import psique_pricing
 from psique_billing import BillingError, PsiqueBilling
 from psique_credits import CreditError, PsiqueCredits
 from psique_license import PsiqueLicense
@@ -35,7 +36,17 @@ _BAD_REQUEST_CODES = {
     "CHECKOUT_BODY_MUST_BE_PRODUCT_CODE_ONLY", "PRODUCT_CODE_REQUIRED",
     "PRODUCT_CODE_NOT_PURCHASABLE", "IDEMPOTENCY_MISMATCH",
     "IDEMPOTENCY_KEY_REQUIRED", "RBAC_ROLE_UNKNOWN",
+    "CHECKOUT_LANGUAGE_UNSUPPORTED", "LANGUAGE_UNSUPPORTED",
 }
+
+
+def _idioma_valido(language: Any) -> str:
+    """Multimoeda: o idioma vem da pagina, numa lista fechada; fora dela e 422."""
+    try:
+        psique_pricing.currency_for_language(language)
+    except psique_pricing.PricingError:
+        raise HTTPException(status_code=422, detail="LANGUAGE_UNSUPPORTED") from None
+    return str(language).strip().lower()
 
 
 def _http_error(error: BillingError) -> HTTPException:
@@ -88,9 +99,9 @@ def build_psique_v2_billing_router(
 
     if license_provider is not None:
         @router.get("/organization-license/quote")
-        async def license_quote(clinical_seat_count: int):
+        async def license_quote(clinical_seat_count: int, language: str = "pt"):
             try:
-                return license_provider().quote(clinical_seat_count)
+                return license_provider().quote(clinical_seat_count, _idioma_valido(language))
             except BillingError as error:
                 raise _http_error(error) from None
 
@@ -102,9 +113,21 @@ def build_psique_v2_billing_router(
                 raise _http_error(error) from None
 
         @router.post("/organization-license/preview")
-        async def license_preview(context: Any = Depends(context_dependency)):  # noqa: B008 -- padrao FastAPI de dependencia
+        async def license_preview(request: Request, context: Any = Depends(context_dependency)):  # noqa: B008 -- padrao FastAPI de dependencia
+            # Corpo opcional: vazio (como sempre) ou {"language"}; a moeda da
+            # cotacao e do preview sai do idioma, nunca do navegador.
+            bruto = await request.body()
+            body: Any = {}
+            if bruto.strip():
+                try:
+                    body = await request.json()
+                except Exception:  # noqa: BLE001 -- fronteira HTTP: corpo ilegivel vira 422 nomeado
+                    raise HTTPException(status_code=422, detail="PREVIEW_BODY_INVALID")
+            if not isinstance(body, dict) or not set(body) <= {"language"}:
+                raise HTTPException(status_code=422, detail="PREVIEW_BODY_INVALID")
+            language = _idioma_valido(body.get("language", "pt"))
             try:
-                return license_provider().preview(context)
+                return license_provider().preview(context, language)
             except BillingError as error:
                 raise _http_error(error) from None
 
@@ -116,6 +139,8 @@ def build_psique_v2_billing_router(
                 raise HTTPException(status_code=422, detail="CHANGE_BODY_INVALID")
             if not isinstance(body, dict) or set(body) != {"preview_id", "expected_version"}:
                 raise HTTPException(status_code=422, detail="CHANGE_BODY_INVALID")
+            # A moeda da confirmacao e a do preview gravado; o cliente nao a
+            # repete aqui (e nao poderia contradize-la).
             try:
                 result = license_provider().confirm(
                     context, preview_id=str(body["preview_id"]),
@@ -330,11 +355,13 @@ def build_psique_v2_billing_router(
 
     if pricing_provider is not None:
         @router.get("/pricing")
-        async def public_pricing():
+        async def public_pricing(language: str = "pt"):
             # Publico e sem fallback: se o catalogo nao carregar, a resposta e
             # uma indisponibilidade explicita, nunca preco antigo ou zero.
+            # Multimoeda: a pagina informa o idioma; o payload traz a moeda.
+            language = _idioma_valido(language)
             try:
-                return pricing_provider()
+                return pricing_provider(language)
             except Exception:  # noqa: BLE001 -- fronteira HTTP: catalogo indisponivel e 503 nomeado
                 return JSONResponse(status_code=503,
                                     content={"code": "PRICING_UNAVAILABLE"})

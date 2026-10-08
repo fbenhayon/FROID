@@ -26,6 +26,7 @@ PSIQUE_V2_VERSIONS = frozenset({
     "048_psique_v2_backfill",
     "049_psique_outbox_lease",
     "050_psique_session_charge_fix",
+    "051_psique_multimoeda",
 })
 
 

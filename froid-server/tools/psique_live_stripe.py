@@ -28,17 +28,21 @@ if str(SERVER_DIR) not in sys.path:
 import psique_pricing
 from psique_billing import BillingError, StripeTestClient
 from psique_catalog_store import register_license_test_mapping, register_test_mapping
-from tools.psique_license_stripe import LOOKUP_KEY as LICENSE_LOOKUP_KEY
 from tools.psique_license_stripe import create_objects as create_license_objects
 from tools.psique_license_stripe import find_price as find_license_price
 from tools.psique_license_stripe import homolog as homolog_license
+from tools.psique_license_stripe import lookup_key_for as license_lookup_key_for
 
 CUPOM_DEMO = "FROID-DEMO-100"
 
 
-def lookup_key_de(product_code: str) -> str:
-    # FROID_PRO_10 -> froid_psique_pro_10_v2_1 (mesma regra dos objetos TEST)
-    return "froid_psique_" + product_code.removeprefix("FROID_").lower() + "_v2_1"
+def lookup_key_de(product_code: str, currency: str = psique_pricing.SOURCE_CURRENCY) -> str:
+    # FROID_PRO_10 -> froid_psique_pro_10_v2_1 (mesma regra dos objetos TEST);
+    # USD/EUR sufixam a chave: froid_psique_pro_10_v2_1_usd (multimoeda, 07/10/2026).
+    if currency not in psique_pricing.CURRENCIES:
+        raise ValueError("unsupported_currency")
+    base = "froid_psique_" + product_code.removeprefix("FROID_").lower() + "_v2_1"
+    return base if currency == psique_pricing.SOURCE_CURRENCY else f"{base}_{currency}"
 
 
 def achar_por_lookup(client, lookup_key):
@@ -55,7 +59,7 @@ def criar_creditos(client, config):
         if offer.get("billing_type") != "one_time":
             continue
         code = offer["product_code"]
-        lookup_key = lookup_key_de(code)
+        lookup_key = lookup_key_de(code, config["currency"])
         price = achar_por_lookup(client, lookup_key)
         if price is not None:
             criados[code] = (price, False)
@@ -64,7 +68,12 @@ def criar_creditos(client, config):
                     "product_code": code, "credits": str(offer["credits"]),
                     "pricing_version": config["version"],
                     "pricing_hash": psique_pricing.pricing_hash(config)}
-        fields = [("name", "FROID Psique - " + offer["name"])]
+        nome = "FROID Psique - " + offer["name"]
+        if config["currency"] != psique_pricing.SOURCE_CURRENCY:
+            # Um Product por moeda: a metadata carrega a versao/hash da tabela
+            # daquela moeda, e o registro do mapping confere Product e Price.
+            nome += " (" + config["currency"].upper() + ")"
+        fields = [("name", nome)]
         fields += [(f"metadata[{k}]", v) for k, v in metadata.items()]
         product = client._request("POST", "/v1/products", fields)
         fields = [("product", product["id"]), ("currency", config["currency"]),
@@ -96,6 +105,8 @@ def main() -> int:
     parser.add_argument("--coupon-demo", action="store_true")
     parser.add_argument("--confirm-database", default="")
     parser.add_argument("--actor", default="")
+    parser.add_argument("--moeda", choices=psique_pricing.CURRENCIES, default="brl",
+                        help="objetos da tabela derivada (mesmos numeros): usd -> versao 2.1-usd")
     args = parser.parse_args()
     try:
         secret = os.environ.get("FROID_PSIQUE_STRIPE_LIVE_SECRET_KEY", "")
@@ -103,8 +114,10 @@ def main() -> int:
             parser.error("FROID_PSIQUE_STRIPE_LIVE_SECRET_KEY is required")
         client = StripeTestClient(secret, live=True)
         account = client.account()["id"]
-        config = psique_pricing.load_config()
-        result = {"account": account, "live": True, "version": config["version"]}
+        config = psique_pricing.load_config(currency=args.moeda)
+        license_lookup_key = license_lookup_key_for(args.moeda)
+        result = {"account": account, "live": True, "version": config["version"],
+                  "currency": config["currency"]}
 
         creditos = {}
         license_price = None
@@ -117,7 +130,7 @@ def main() -> int:
             result["license_price_created"] = created
 
         if license_price is None and (args.homolog or args.register):
-            license_price = find_license_price(client)
+            license_price = find_license_price(client, license_lookup_key)
         if (args.homolog or args.register) and license_price is None:
             raise ValueError("license_price_not_found_run_create_objects")
 
@@ -160,7 +173,7 @@ def main() -> int:
                     if offer.get("billing_type") != "one_time":
                         continue
                     code = offer["product_code"]
-                    lookup_key = lookup_key_de(code)
+                    lookup_key = lookup_key_de(code, config["currency"])
                     price = (creditos.get(code) or (achar_por_lookup(client, lookup_key),))[0]
                     if price is None:
                         raise ValueError(f"credit_price_not_found:{code}")
@@ -179,7 +192,7 @@ def main() -> int:
                 result["license_mapping_id"] = register_license_test_mapping(
                     conn, version=config["version"], account_id=account,
                     product=product, price=detalhado, actor=args.actor,
-                    lookup_key=LICENSE_LOOKUP_KEY, live=True)
+                    lookup_key=license_lookup_key, live=True)
         print(json.dumps(result))
         return 0
     except Exception as exc:  # noqa: BLE001 -- fronteira de CLI sanitizada; nunca imprimir credencial

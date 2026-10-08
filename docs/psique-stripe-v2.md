@@ -33,6 +33,16 @@ A ativação pública segue desligada: `FROID_PSIQUE_V2_BILLING_ENABLED=false` p
 
 Product e Price da licença criados no mesmo Sandbox pelo operador (`tools/psique_license_stripe.py`, idempotente por `lookup_key`): `price_1UL8dPAg9NSIrvBV0cTTE8Ul`, mensal BRL `tiered/graduated`, `lookup_key froid_psique_org_license_v2_1`. Os 16 previews reais das fronteiras do checklist reproduziram a fórmula do backend ao centavo, e o smoke real comprovou aumento com prorrata acumulada na fatura seguinte e cancelamento no fim do período. Regras, estados e evidências no [relatório da Fase 2C](psique-v2-fase2c-relatorio.md) e em [billing V2](psique-billing-v2.md). O webhook V2 sincroniza `customer.subscription.*` com a licença local; faturas são auditadas e nunca movem créditos.
 
+## Multimoeda (07/10/2026 — código pronto, janela pendente)
+
+Decisão do dono: o **mesmo número** em BRL, USD e EUR, sem conversão (R$ 199 = US$ 199 = € 199); a moeda vem do **idioma da página** (pt → brl, en → usd, es/fr → eur); conta live; NR-1 adiado. Desenho, execução e roteiro da janela em [multimoeda-psique-nr1-desenho.md](multimoeda-psique-nr1-desenho.md).
+
+- **Uma tabela de preços por moeda**, derivada da BRL por código (`psique_pricing.config_for_currency`, nunca digitada): versões `2.1` (brl), `2.1-usd`, `2.1-eur`; uma ativa por moeda (índice da 035). Migration `051_psique_multimoeda` (gerada por `tools/psique_multimoeda_sync.py` a partir da 046, com teste de espelho) amplia os três `CHECK (currency='brl')` para brl/usd/eur e faz a licença gravar a moeda da tabela do preview.
+- **Objetos Stripe por moeda**, um Product por Price: `lookup_key` com sufixo — `froid_psique_pro_10_v2_1_usd`, `froid_psique_org_license_v2_1_eur` etc.; metadata com a `pricing_version`/`pricing_hash` da tabela daquela moeda. `tools/psique_live_stripe.py --moeda usd` cria, homologa (16 fronteiras) e registra; `tools/psique_pricing_catalog.py --install-draft --producao --moeda usd` instala a tabela.
+- **Rotas**: `GET /pricing?language=en` e `GET /organization-license/quote?...&language=fr` devolvem o catálogo/cotação com `currency`; `POST /checkout` aceita `{"product_code","language"}` (idioma fora da lista = 422 `CHECKOUT_LANGUAGE_UNSUPPORTED`; `currency` no corpo continua recusado); `POST /organization-license/preview` aceita `{"language"}` e a confirmação lê a moeda **do preview** (`psique_v2_seat_preview_catalog`), nunca de novo do cliente. O webhook já recusava moeda divergente (`WRONG_CURRENCY`).
+- **Site**: `psique-pricing-v2.js` v2 manda só o idioma e formata com a moeda que a API declarou; cada `precos.html` declara `language`.
+- **Painel**: é só pt-BR e não manda idioma — compra pelo painel continua em BRL. A moeda de checkout em USD/EUR tem rota e teste, mas **nenhum chamador** até o painel ter idioma (ponto aberto com o dono).
+
 ## O que ainda não foi executado
 
 - Pagamentos reais com os cartões de teste na página hospedada (4242…, recusa, fundos insuficientes, 3DS) e entrega real de webhook (Stripe CLI `stripe listen` local ou endpoint TEST em staging HTTPS). A matriz correspondente foi coberta com eventos sintéticos assinados pelo mesmo verificador; a homologação com cartão é o passo manual seguinte.

@@ -21,6 +21,7 @@ import urllib.request
 from collections.abc import Callable
 from typing import Any
 
+import psique_pricing
 from froid_schema import verify_schema
 from tenant_access import AccessContext
 
@@ -30,6 +31,10 @@ PHASE2B_SCHEMA = {
     "039_psique_stripe_test_checkout", "046_psique_live_mode",
 }
 PHASE2C_SCHEMA = PHASE2B_SCHEMA | {"040_psique_org_license_test"}
+# Multimoeda (051): amplia os CHECK de moeda e ensina a licenca a gravar a
+# moeda do preview. A compra em BRL nao depende dela; a compra em outra moeda
+# e a confirmacao da licenca (que le o catalogo do preview pela 051) dependem.
+MULTIMOEDA_SCHEMA = {"051_psique_multimoeda"}
 
 # Mirrors the CHECK constraints of migration 039; test_enum_drift compares.
 PURCHASE_STATUSES = (
@@ -256,18 +261,31 @@ class PsiqueBilling:
     # -- Checkout -----------------------------------------------------------
     def checkout(self, context: AccessContext, body: dict[str, Any], *,
                  idempotency_key: str) -> dict[str, Any]:
-        if not isinstance(body, dict) or set(body) != {"product_code"}:
+        if (not isinstance(body, dict)
+                or not {"product_code"} <= set(body) <= {"product_code", "language"}):
             # amount/credits/currency/price ids from the browser are refused,
-            # not ignored: a silent drop would hide a tampering attempt.
+            # not ignored: a silent drop would hide a tampering attempt. The
+            # only other field is the page LANGUAGE (multimoeda, 07/10/2026):
+            # the server maps it to a currency through a closed list and picks
+            # that currency's table; the browser never names a currency.
             raise BillingError("CHECKOUT_BODY_MUST_BE_PRODUCT_CODE_ONLY")
         product_code = body["product_code"]
         if not isinstance(product_code, str) or not product_code.strip():
             raise BillingError("PRODUCT_CODE_REQUIRED")
+        try:
+            currency = psique_pricing.currency_for_language(body.get("language", "pt"))
+        except psique_pricing.PricingError:
+            raise BillingError("CHECKOUT_LANGUAGE_UNSUPPORTED") from None
+        version = psique_pricing.version_for(self._pricing_version, currency)
+        # A tabela de outra moeda so pode existir a partir da 051: sem ela a
+        # recusa e nomeada (SchemaNotReady), nunca um CHECK estourando no INSERT.
+        schema = PHASE2B_SCHEMA | (
+            MULTIMOEDA_SCHEMA if currency != psique_pricing.SOURCE_CURRENCY else set())
         prepared = self._call(
             "SELECT psique_v2_checkout_prepare(%s,%s,%s,%s,%s,%s,%s,%s)",
             (context.organization_id, context.membership_id, context.user_id,
-             product_code.strip(), self._pricing_version, self._account_id,
-             idempotency_key, self._live), context)
+             product_code.strip(), version, self._account_id,
+             idempotency_key, self._live), context, schema=schema)
         if prepared["status"] in ("EXPIRED", "FAILED", "CANCELED", "canceled", "REVIEW_REQUIRED"):
             # A mesma chave aponta para uma compra encerrada: devolver a URL
             # da sessao morta enganaria o pagador. Nova intencao, nova chave.

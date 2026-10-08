@@ -10,6 +10,11 @@
 
   var i18n = window.PSIQUE_PRECOS_V2_I18N || {};
   var locale = i18n.locale || "pt-BR";
+  // Multimoeda (decisão do dono, 07/10/2026): a página informa só o IDIOMA;
+  // a moeda e o número vêm do servidor (pt BRL, en USD, es/fr EUR, mesmo
+  // número). Nada aqui formata uma moeda que a API não tenha declarado.
+  var idioma = i18n.language || "pt";
+  var moedaDoCatalogo = null;
   var raiz = document.getElementById("psique-v2-precos");
   if (!raiz) return;
 
@@ -17,9 +22,9 @@
     return Object.prototype.hasOwnProperty.call(i18n, chave) ? i18n[chave] : padrao;
   }
 
-  function brl(cents) {
-    return new Intl.NumberFormat(locale, { style: "currency", currency: "BRL" })
-      .format(cents / 100);
+  function dinheiro(valor, moeda) {
+    return new Intl.NumberFormat(locale, { style: "currency", currency: String(moeda).toUpperCase() })
+      .format(valor);
   }
 
   function declararIndisponivel(no, motivo) {
@@ -44,12 +49,11 @@
     creditos.textContent = oferta.credits + " " + texto("creditos", "créditos de análise");
     var valor = document.createElement("p");
     valor.className = "pv2-valor";
-    valor.textContent = brl(oferta.total_cents);
+    valor.textContent = dinheiro(oferta.total_cents / 100, moedaDoCatalogo);
     var unitario = document.createElement("p");
     unitario.className = "pv2-unitario";
     unitario.textContent = texto("unitario", "valor unitário de referência:") +
-      " " + new Intl.NumberFormat(locale, { style: "currency", currency: "BRL" })
-        .format(Number(oferta.unit_price_display));
+      " " + dinheiro(Number(oferta.unit_price_display), moedaDoCatalogo);
     card.appendChild(nome);
     card.appendChild(creditos);
     card.appendChild(valor);
@@ -83,7 +87,8 @@
       }
       saida.setAttribute("data-estado", "carregando");
       saida.textContent = texto("calc_carregando", "Consultando…");
-      fetch("/api/psique/v2/organization-license/quote?clinical_seat_count=" + quantos)
+      fetch("/api/psique/v2/organization-license/quote?clinical_seat_count=" + quantos +
+            "&language=" + encodeURIComponent(idioma))
         .then(function (resposta) {
           if (!resposta.ok) throw new Error("HTTP " + resposta.status);
           return resposta.json();
@@ -98,7 +103,7 @@
           }
           saida.setAttribute("data-estado", "ok");
           saida.textContent = texto("calc_resultado", "Licença mensal: {valor}")
-            .replace("{valor}", brl(cotacao.monthly_cents));
+            .replace("{valor}", dinheiro(cotacao.monthly_cents / 100, cotacao.currency));
         })
         .catch(function () {
           saida.setAttribute("data-estado", "indisponivel");
@@ -113,12 +118,15 @@
     });
   }
 
-  fetch("/api/psique/v2/pricing")
+  fetch("/api/psique/v2/pricing?language=" + encodeURIComponent(idioma))
     .then(function (resposta) {
       if (!resposta.ok) throw new Error("HTTP " + resposta.status);
       return resposta.json();
     })
     .then(function (catalogo) {
+      if (!catalogo.currency) throw new Error("catalogo sem moeda");
+      moedaDoCatalogo = catalogo.currency;
+      raiz.setAttribute("data-currency", catalogo.currency);
       var grade = document.getElementById("pv2-ofertas");
       grade.innerHTML = "";
       grade.setAttribute("data-estado", "ok");
