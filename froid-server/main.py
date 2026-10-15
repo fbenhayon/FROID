@@ -1169,10 +1169,24 @@ async def _generate_froid_explain_text(
                 return str(getattr(response, "text", "") or "").strip()
 
             text = await asyncio.to_thread(_run_gemini)
+        except Exception as exc:
+            # Registrado, nao engolido. Ate 15/10/2026 a queda do Gemini para a
+            # OpenAI era invisivel — zero linhas de log em 72 horas — e o painel
+            # apaga a assinatura do motor: ninguem sabia qual modelo tinha
+            # respondido cada pergunta clinica (padrao 2.2).
+            LOGGER.warning(
+                "FROID Explica: motor Gemini (%s) falhou com %s: %s; tentando o proximo motor",
+                FROID_EXPLICA_MODEL,
+                type(exc).__name__,
+                str(exc)[:200],
+            )
+        else:
             if text:
                 return _clean_llm_text(text), f"Gemini ({FROID_EXPLICA_MODEL})"
-        except Exception:
-            pass
+            LOGGER.warning(
+                "FROID Explica: motor Gemini (%s) devolveu texto vazio; tentando o proximo motor",
+                FROID_EXPLICA_MODEL,
+            )
 
     if OPENAI_API_KEY:
         try:
@@ -1206,9 +1220,18 @@ async def _generate_froid_explain_text(
             )
             if text:
                 return _clean_llm_text(text), f"OpenAI ({OPENAI_MODEL})"
-        except Exception:
-            pass
+            LOGGER.warning(
+                "FROID Explica: motor OpenAI (%s) devolveu texto vazio", OPENAI_MODEL
+            )
+        except Exception as exc:
+            LOGGER.warning(
+                "FROID Explica: motor OpenAI (%s) falhou com %s: %s",
+                OPENAI_MODEL,
+                type(exc).__name__,
+                str(exc)[:200],
+            )
 
+    LOGGER.warning("FROID Explica: nenhum motor respondeu; resposta local de contingencia")
     return "", "local-fallback"
 
 
@@ -16312,6 +16335,14 @@ async def froid_explica_query(payload: FroidExplicaQuery, request: Request):
         result = await _query_froid_knowledge(payload)
     result.result_text = _sanitize_reference_sections(result.result_text)
     result.citations = _scientific_citations(result.citations)
+    # Qual motor respondeu, por pergunta. O painel apaga a assinatura do motor
+    # antes de mostrar a resposta, entao este e o unico registro que sobra.
+    LOGGER.info(
+        "FROID Explica: intent=%s motor=%s sessao=%s",
+        result.intent,
+        result.engine_used,
+        payload.session_id or "(sem sessao)",
+    )
     return result
 
 
