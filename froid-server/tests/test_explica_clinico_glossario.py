@@ -364,9 +364,15 @@ class AsRestricoesProibemODefeitoObservado(unittest.TestCase):
         self.assertIn("detalhe da formula que muda a leitura", instrucao)
 
     def test_a_instrucao_limita_o_tamanho_da_resposta(self):
-        """A reclamacao literal: "ninguem vai ler mais de duas consultas"."""
+        """A reclamacao literal: "ninguem vai ler mais de duas consultas".
+
+        Era 150. Em 15/10/2026 o dono subiu para 200: com os cortes no prompt,
+        oito cortes com valor e desvio ocupam uns 80 palavras, e em 150 isso
+        comia justamente os movimentos 3 e 4. O limite continua existindo — o
+        que mudou foi o numero, e o teto de tokens acompanhou na proporcao.
+        """
         instrucao = _sem_quebra(explica_clinico.instrucao())
-        self.assertIn("No maximo 150 palavras", instrucao)
+        self.assertIn("No maximo 200 palavras", instrucao)
         self.assertIn("sem titulo de secao", instrucao)
 
     def test_a_instrucao_proibe_reproduzir_os_campos_da_ficha(self):

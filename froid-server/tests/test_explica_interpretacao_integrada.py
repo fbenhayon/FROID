@@ -213,8 +213,9 @@ class OContratoDaRespostaAcomodaOsQuatroTests(unittest.TestCase):
 
     def test_o_limite_de_palavras_continua_existindo(self):
         # Quem le esta com um paciente na frente. A diretriz pede profundidade,
-        # nao volume.
-        self.assertIn("150 palavras", CONTRATO)
+        # nao volume. 150 ate 15/10/2026; 200 desde que os cortes entraram no
+        # prompt (decisao do dono, motivo em test_explica_clinico_glossario).
+        self.assertIn("200 palavras", CONTRATO)
 
 
 if __name__ == "__main__":

@@ -1516,10 +1516,12 @@ Quem decide e o profissional. Ele decide melhor com as hipoteses, o numero e o
 discriminador na mao do que com uma medida "legivel" e um convite a refletir."""
 
 
-_CONTRATO = """CONTRATO DA RESPOSTA. CURTA. No maximo 150 palavras, em ate
+_CONTRATO = """CONTRATO DA RESPOSTA. CURTA. No maximo 200 palavras, em ate
 tres paragrafos, sem titulo de secao, sem lista numerada e sem rotulo em
 negrito abrindo paragrafo. Quem le esta com um paciente na frente: se cada
-consulta ocupar quatro telas, ele nao faz a terceira.
+consulta ocupar quatro telas, ele nao faz a terceira. Quando a pergunta pedir
+valores por corte ou por sessao, o orcamento vai primeiro para a enumeracao —
+cada corte com o valor e o desvio — e a sintese cabe numa frase.
 
 A ficha do glossario e MATERIA-PRIMA, nao roteiro. NAO reproduza os nomes dos
 campos dela ("o que entra na conta", "como se le", "o que abre", "onde para")
@@ -1541,7 +1543,7 @@ bloco de INTERPRETACAO INTEGRADA, e nao uma segunda lista com outro nome:
   painel que confirma ou derruba, o trecho da transcricao que vale reler, a
   pergunta que resolve o empate (movimento 4).
 
-QUANDO AS 150 PALAVRAS APERTAREM, o que encolhe e a descricao da medida — nunca
+QUANDO AS 200 PALAVRAS APERTAREM, o que encolhe e a descricao da medida — nunca
 o movimento 3 nem o 4. Uma resposta que gasta o orcamento explicando a formula e
 termina sem conclusao e sem direcionamento e exatamente o relatorio neutro que
 este produto existe para nao produzir. Comprima o "o que e" a uma oracao

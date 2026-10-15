@@ -142,7 +142,11 @@ FROID_EXPLICA_MODEL = os.getenv("FROID_EXPLICA_MODEL", "gemini-1.5-pro")
 # reclamou, com razao, que ninguem faz duas consultas se cada uma ocupa quatro
 # telas. Quem encurta e o contrato; o teto e so o freio do pior caso, com
 # folga de sobra para nao truncar frase no meio.
-FROID_EXPLICA_MAX_TOKENS = int(os.getenv("FROID_EXPLICA_MAX_TOKENS", "600"))
+#
+# Em 15/10/2026 o contrato subiu para 200 palavras (decisao do dono: com os
+# cortes no prompt, oito cortes com valor e desvio nao cabiam em 150 sem comer
+# os movimentos 3 e 4), e o teto acompanhou na mesma proporcao: 600 x 200/150.
+FROID_EXPLICA_MAX_TOKENS = int(os.getenv("FROID_EXPLICA_MAX_TOKENS", "800"))
 FROID_CHROMA_PATH = os.getenv("FROID_CHROMA_PATH", "/data/chroma_db")
 FROID_CHROMA_COLLECTION = os.getenv(
     "FROID_CHROMA_COLLECTION",
