@@ -17,7 +17,7 @@
  */
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { apiUrl } from "../lib/api";
 
 type DetalhesConvite = {
@@ -67,6 +67,42 @@ const PAPEL_PT: Record<string, string> = {
   owner: "proprietário",
 };
 
+/** Uma página por papel: /entrar-clinica/profissional | supervisor | administrador.
+ *  O convite diz qual é o papel; a rota só mostra a ficha desse papel. */
+export type PapelDaPagina = "profissional" | "supervisor" | "administrador";
+
+const PAPEL_DA_ROTA: Record<string, PapelDaPagina> = {
+  professional: "profissional",
+  supervisor: "supervisor",
+  administrator: "administrador",
+  owner: "administrador",
+};
+
+const PRIORIDADE_DE_PAPEL = ["owner", "administrator", "supervisor", "professional"];
+
+/** Papel que decide a página do convite (o de maior alcance), puro. */
+export function papelDaPagina(roles: string[]): PapelDaPagina {
+  const tem = new Set((roles || []).map((r) => String(r).toLowerCase()));
+  const achado = PRIORIDADE_DE_PAPEL.find((r) => tem.has(r));
+  return achado ? PAPEL_DA_ROTA[achado] : "profissional";
+}
+
+const FICHA_DO_PAPEL: Record<PapelDaPagina, { titulo: string; cadastro: string }> = {
+  profissional: {
+    titulo: "Cadastro de profissional",
+    cadastro: "Crie sua senha de acesso e você entra na clínica na hora.",
+  },
+  supervisor: {
+    titulo: "Cadastro de supervisor",
+    cadastro: "Crie sua senha de acesso e você entra na clínica como supervisor na hora.",
+  },
+  administrador: {
+    titulo: "Cadastro de administrador",
+    cadastro:
+      "O administrador responde pela clínica. Entre com a sua conta (Google ou a sessão deste e-mail) para aceitar.",
+  },
+};
+
 /** Como o convite nomeia os papéis, em português; puro, testável sem efeito. */
 export function papeisEmTexto(roles: string[]): string {
   const nomes = (roles || []).map((r) => PAPEL_PT[r] || r);
@@ -100,7 +136,7 @@ function Moldura({ children }: { children: React.ReactNode }) {
 const CAMPO =
   "w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200 outline-none focus:border-cyan-500";
 
-export function EntrarNaClinicaPage() {
+export function EntrarNaClinicaPage({ papel }: { papel?: PapelDaPagina } = {}) {
   const [params, setParams] = useSearchParams();
   const [codigo, setCodigo] = useState("");
   const usarCodigo = (e: React.FormEvent) => {
@@ -366,6 +402,52 @@ export function EntrarNaClinicaPage() {
 
   const convite = detalhes as DetalhesConvite;
 
+  // Cada papel tem a sua página: convite de outro papel (ou o endereço antigo,
+  // sem papel) segue para a página certa, com o mesmo código.
+  const papelDoConvite = papelDaPagina(convite.roles);
+  if (papel !== papelDoConvite) {
+    return (
+      <Navigate
+        to={`/entrar-clinica/${papelDoConvite}?token=${encodeURIComponent(token)}`}
+        replace
+      />
+    );
+  }
+  const ficha = FICHA_DO_PAPEL[papelDoConvite];
+
+  // Gestão não entra por link encaminhável: aceita com a sessão deste e-mail.
+  const aceitarComASessaoAtual = async () => {
+    let sessaoToken = "";
+    try {
+      sessaoToken = localStorage.getItem("froid_token") || "";
+    } catch {
+      /* sem storage, cai na mensagem abaixo */
+    }
+    if (!sessaoToken) {
+      setErro("Entre no painel com o e-mail deste convite e volte a este link, ou use o Google.");
+      return;
+    }
+    setOcupado(true);
+    setErro("");
+    try {
+      const r = await fetch(apiUrl("/api/organization-invitations/accept"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessaoToken}` },
+        body: JSON.stringify({ invitation_token: token }),
+      });
+      if (r.ok) {
+        setAceito(true);
+        return;
+      }
+      const c = await r.json().catch(() => null);
+      setErro(mensagemDoErro(r.status, c?.detail || ""));
+    } catch {
+      setErro("Falha de conexão ao entrar na clínica. Verifique a internet e tente de novo.");
+    } finally {
+      setOcupado(false);
+    }
+  };
+
   if (aceito) {
     return (
       <Moldura>
@@ -376,8 +458,10 @@ export function EntrarNaClinicaPage() {
           <h1 className="mt-3 text-2xl font-black">Você entrou na clínica</h1>
           <p className="mt-3 text-sm leading-6 text-slate-300">
             Seu acesso já inclui a equipe de{" "}
-            <span className="font-black">{convite.clinic_name || "a clínica"}</span>. Ao atender
-            no contexto dela, os créditos consomem do saldo da clínica, não do seu.
+            <span className="font-black">{convite.clinic_name || "a clínica"}</span>
+            {papelDoConvite === "profissional"
+              ? ". Ao atender no contexto dela, os créditos consomem do saldo da clínica, não do seu."
+              : ` como ${papelDoConvite}.`}
           </p>
           <button
             type="button"
@@ -394,16 +478,15 @@ export function EntrarNaClinicaPage() {
   // Recusas que o servidor ja anuncia no GET: a tela nem oferece o formulario.
   const recusa = convite.blocked
     ? "Seu acesso ao FROID está desativado pela plataforma. Fale com froid@froid.com.br."
-    : convite.requires_session
-      ? "Convite de gestão da clínica: entre com a sua conta (Google ou e-mail e senha) e aceite pelo painel."
-      : "";
+    : "";
   const indisponivel = Boolean(erroConvite || recusa);
+  const exigeSessao = Boolean(convite.requires_session);
   const jaTemSenha = Boolean(convite.has_password);
   const soGoogle = Boolean(convite.google_only);
 
   return (
     <Moldura>
-      <h1 className="mt-2 text-2xl font-black">Entrar numa clínica</h1>
+      <h1 className="mt-2 text-2xl font-black">{ficha.titulo}</h1>
       <div
         data-campo="convite"
         className="mt-4 rounded-lg border border-blue-800 bg-blue-950 p-4 text-sm leading-6 text-slate-100"
@@ -431,12 +514,33 @@ export function EntrarNaClinicaPage() {
               para entrar na clínica.
             </p>
           )}
-          {!soGoogle && (
+          {exigeSessao && (
+            <div className="space-y-3">
+              <p className="text-sm leading-6 text-slate-300">{ficha.cadastro}</p>
+              <button
+                type="button"
+                disabled={ocupado}
+                onClick={() => void aceitarComASessaoAtual()}
+                className="w-full rounded-lg bg-cyan-700 px-4 py-3 text-sm font-black text-white hover:bg-cyan-600 disabled:cursor-wait disabled:opacity-60"
+              >
+                {ocupado ? "Entrando..." : "Aceitar com a sessão atual"}
+              </button>
+              {erro && (
+                <p
+                  data-campo="erro"
+                  className="rounded-lg border border-amber-700 bg-amber-950/60 p-3 text-xs font-bold leading-5 text-amber-100"
+                >
+                  {erro}
+                </p>
+              )}
+            </div>
+          )}
+          {!soGoogle && !exigeSessao && (
           <form onSubmit={entrar} className="space-y-3">
             <p className="text-sm leading-6 text-slate-300">
               {jaTemSenha
                 ? "Este e-mail já tem acesso FROID. Informe sua senha para entrar na clínica."
-                : "Crie sua senha de acesso e você entra na clínica na hora."}
+                : ficha.cadastro}
             </p>
             {!jaTemSenha && (
               <input
@@ -517,3 +621,7 @@ export function EntrarNaClinicaPage() {
     </Moldura>
   );
 }
+
+export const EntrarComoProfissionalPage = () => <EntrarNaClinicaPage papel="profissional" />;
+export const EntrarComoSupervisorPage = () => <EntrarNaClinicaPage papel="supervisor" />;
+export const EntrarComoAdministradorPage = () => <EntrarNaClinicaPage papel="administrador" />;

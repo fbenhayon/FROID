@@ -7,7 +7,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
 import { expect, it } from "vitest";
 
-import { EntrarNaClinicaPage, mensagemDoErro, papeisEmTexto } from "./EntrarNaClinica";
+import { EntrarNaClinicaPage, mensagemDoErro, papeisEmTexto, papelDaPagina } from "./EntrarNaClinica";
 
 it("cada codigo de erro vira a orientacao certa, distinta uma da outra", () => {
   const senhaErrada = mensagemDoErro(401, "Senha incorreta para este e-mail");
@@ -48,4 +48,13 @@ it("a pagina abre buscando o convite (estado de carregamento), sem quebrar", () 
   );
   expect(html).toContain("Equipe FROID");
   expect(html).toContain("Carregando o convite...");
+});
+
+it("cada papel do convite leva a sua propria pagina, e gestao vence", () => {
+  expect(papelDaPagina(["professional"])).toBe("profissional");
+  expect(papelDaPagina(["supervisor"])).toBe("supervisor");
+  expect(papelDaPagina(["administrator"])).toBe("administrador");
+  expect(papelDaPagina(["owner"])).toBe("administrador");
+  expect(papelDaPagina(["professional", "supervisor"])).toBe("supervisor");
+  expect(papelDaPagina([])).toBe("profissional");
 });

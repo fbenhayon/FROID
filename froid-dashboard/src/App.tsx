@@ -29,6 +29,9 @@ const PsiqueCompraConfirmacaoPage = lazy(() => import("./pages/PsiqueCompraConfi
 const PsiqueCompraCanceladaPage = lazy(() => import("./pages/PsiqueCompraConfirmacao").then((module) => ({ default: module.PsiqueCompraCanceladaPage })));
 const ClinicManagement = lazy(() => import("./pages/ClinicManagement").then((module) => ({ default: module.ClinicManagement })));
 const EntrarNaClinicaPage = lazy(() => import("./pages/EntrarNaClinica").then((module) => ({ default: module.EntrarNaClinicaPage })));
+const EntrarComoProfissionalPage = lazy(() => import("./pages/EntrarNaClinica").then((module) => ({ default: module.EntrarComoProfissionalPage })));
+const EntrarComoSupervisorPage = lazy(() => import("./pages/EntrarNaClinica").then((module) => ({ default: module.EntrarComoSupervisorPage })));
+const EntrarComoAdministradorPage = lazy(() => import("./pages/EntrarNaClinica").then((module) => ({ default: module.EntrarComoAdministradorPage })));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard").then((module) => ({ default: module.AdminDashboard })));
 const AdminProfessionalDetail = lazy(() => import("./pages/AdminProfessionalDetail").then((module) => ({ default: module.AdminProfessionalDetail })));
 const AdminPatientDetail = lazy(() => import("./pages/AdminPatientDetail").then((module) => ({ default: module.AdminPatientDetail })));
@@ -515,6 +518,9 @@ function App() {
             integrar a equipe. A guarda de acesso clinico (e-mail do convite) vive
             no backend; o cadastro proprio exige confirmar o e-mail antes de entrar. */}
         <Route path="/entrar-clinica" element={<EntrarNaClinicaPage />} />
+        <Route path="/entrar-clinica/profissional" element={<EntrarComoProfissionalPage />} />
+        <Route path="/entrar-clinica/supervisor" element={<EntrarComoSupervisorPage />} />
+        <Route path="/entrar-clinica/administrador" element={<EntrarComoAdministradorPage />} />
         <Route
           path="/session/:sessionId"
           element={clinicalElement(<LiveSession user={user} />)}

@@ -46,13 +46,29 @@ export const ClinicManagement: React.FC<Props> = ({ user }) => {
   const [inviting, setInviting] = useState(false);
   // O servidor devolve o token uma unica vez; guardamos em memoria apenas para
   // o gestor copiar e enviar por canal seguro. Nunca persistimos.
+  // Mesmo formato do convite de paciente (NewPatient): o servidor monta o link
+  // do papel e a mensagem; aqui só se copia e se envia.
   const [invitation, setInvitation] = useState<{
     email: string;
     phone: string;
     token: string;
     hours: number;
+    displayId: string;
+    role: string;
+    inviteUrl: string;
+    message: string;
   } | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [copiedKey, setCopiedKey] = useState("");
+
+  const handleCopy = async (key: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedKey(key);
+      window.setTimeout(() => setCopiedKey(""), 2200);
+    } catch {
+      setCopiedKey("");
+    }
+  };
 
   const activeOrganization = useMemo(() => {
     const organizations = user?.organizations || [];
@@ -75,23 +91,9 @@ export const ClinicManagement: React.FC<Props> = ({ user }) => {
   // seguro na tela continua valendo.
   const whatsappUrl = useMemo(() => {
     if (!invitation) return "";
-    const clinicName = activeOrganization?.organization_name || "nossa clínica";
-    // Link direto para a tela de resgate, com o código já no endereço. Quem
-    // clica entra (ou cria a conta) com o e-mail convidado e cai na tela com
-    // o campo preenchido — sem copiar e colar codigo nenhum. O codigo em
-    // texto continua logo abaixo como alternativa para quem prefere digitar.
-    const linkResgate = `${window.location.origin}/app/#/entrar-clinica?token=${encodeURIComponent(invitation.token)}`;
-    const message =
-      `Olá! Você foi convidado(a) para integrar a equipe de ${clinicName} no FROID.\n\n` +
-      `Como aceitar:\n` +
-      `1) Clique no link abaixo:\n${linkResgate}\n` +
-      `2) Crie sua senha de acesso (ou informe a que já tem) — o e-mail ${invitation.email} já está no convite.\n` +
-      `3) Pronto: você entra na clínica na hora.\n\n` +
-      `Se o link não abrir, acesse ${window.location.origin}/app/#/entrar-clinica e informe este código:\n${invitation.token}\n\n` +
-      `O código vale por ${invitation.hours} horas e é de uso único. Não o repasse a terceiros.`;
     const digits = invitation.phone.replace(/\D/g, "");
-    return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
-  }, [invitation, activeOrganization]);
+    return `https://wa.me/${digits}?text=${encodeURIComponent(invitation.message)}`;
+  }, [invitation]);
 
   const loadReport = useCallback(async () => {
     if (!organizationId) {
@@ -183,14 +185,20 @@ export const ClinicManagement: React.FC<Props> = ({ user }) => {
     setInviting(true);
     setMessage("");
     setInvitation(null);
-    setCopied(false);
+    setCopiedKey("");
     try {
       const response = await fetch(
         apiUrl(`/api/organizations/${encodeURIComponent(organizationId)}/members/invitations`),
         {
           method: "POST",
           headers: { "Content-Type": "application/json", ...authHeaders() },
-          body: JSON.stringify({ email, roles: [inviteRole], expires_hours: 72 }),
+          body: JSON.stringify({
+            email,
+            roles: [inviteRole],
+            expires_hours: 72,
+            base_url: window.location.origin,
+            clinic_name: activeOrganization?.organization_name || "",
+          }),
         },
       );
       const payload = await response.json().catch(() => null);
@@ -202,6 +210,10 @@ export const ClinicManagement: React.FC<Props> = ({ user }) => {
         phone: invitePhone.trim(),
         token: String(payload?.invitation_token || ""),
         hours: Number(payload?.expires_in_hours || 72),
+        displayId: String(payload?.display_id || ""),
+        role: String(payload?.role || ""),
+        inviteUrl: String(payload?.invite_url || ""),
+        message: String(payload?.whatsapp_message || ""),
       });
       setInviteEmail("");
       setInvitePhone("");
@@ -367,46 +379,45 @@ export const ClinicManagement: React.FC<Props> = ({ user }) => {
                 {invitation && (
                   <div className="mt-3 rounded-lg border border-amber-700 bg-amber-950/40 p-3">
                     <p className="text-[11px] font-black text-amber-100">
-                      Convite gerado para {invitation.email} · válido por{" "}
-                      {invitation.hours}h
+                      Convite criado: {invitation.displayId} | {invitation.role}
                     </p>
                     <p className="mt-1 text-[10px] leading-relaxed text-amber-200/90">
-                      Este código aparece <strong>uma única vez</strong> e não
-                      poderá ser recuperado. Envie-o ao profissional por um canal
-                      seguro — quem tiver o código entra na sua clínica.
-                    </p>
-                    <p className="mt-1 text-[10px] leading-relaxed text-amber-200/90">
-                      O link abre a página do convite em{" "}
-                      <code className="rounded bg-slate-950 px-1 text-amber-100">
-                        /app/#/entrar-clinica
-                      </code>
-                      ; ali o profissional cria a senha e entra. O botão do
-                      WhatsApp já monta a mensagem com o link direto.
+                      Para {invitation.email} · válido por {invitation.hours}h. O
+                      link aparece <strong>uma única vez</strong> e não poderá ser
+                      recuperado. Envie-o por um canal seguro — quem tiver o
+                      link entra na sua clínica.
                     </p>
                     <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <code className="min-w-0 flex-1 break-all rounded border border-amber-800 bg-slate-950 px-2 py-1.5 font-mono text-[10px] text-amber-100">
-                        {invitation.token}
-                      </code>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          void navigator.clipboard
-                            ?.writeText(invitation.token)
-                            .then(() => setCopied(true))
-                            .catch(() => setCopied(false));
-                        }}
-                        className="shrink-0 rounded border border-amber-600 bg-amber-900/60 px-3 py-1.5 text-[10px] font-black text-amber-100 hover:bg-amber-900"
-                      >
-                        {copied ? "Copiado" : "Copiar código"}
-                      </button>
-                      <a
-                        href={whatsappUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="shrink-0 rounded border border-emerald-600 bg-emerald-900/60 px-3 py-1.5 text-[10px] font-black text-emerald-100 hover:bg-emerald-900"
-                      >
-                        Enviar por WhatsApp
-                      </a>
+                      {(
+                        [
+                          ["message", "Copiar mensagem", invitation.message],
+                          ["link", "Copiar link", invitation.inviteUrl],
+                          ["code", "Copiar código", invitation.token],
+                        ] as Array<[string, string, string]>
+                      ).map(([key, label, text]) => (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => void handleCopy(key, text)}
+                          className={`shrink-0 rounded border px-3 py-1.5 text-[10px] font-black transition-colors ${
+                            copiedKey === key
+                              ? "border-emerald-500 bg-emerald-900 text-emerald-100"
+                              : "border-amber-600 bg-amber-900/60 text-amber-100 hover:bg-amber-900"
+                          }`}
+                        >
+                          {copiedKey === key ? "✓ Copiado!" : label}
+                        </button>
+                      ))}
+                      {invitation.phone && (
+                        <a
+                          href={whatsappUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="shrink-0 rounded border border-emerald-600 bg-emerald-900/60 px-3 py-1.5 text-[10px] font-black text-emerald-100 hover:bg-emerald-900"
+                        >
+                          Enviar por WhatsApp
+                        </a>
+                      )}
                       <button
                         type="button"
                         onClick={() => setInvitation(null)}
@@ -415,6 +426,11 @@ export const ClinicManagement: React.FC<Props> = ({ user }) => {
                         Já enviei
                       </button>
                     </div>
+                    <textarea
+                      readOnly
+                      value={invitation.message}
+                      className="mt-2 h-36 w-full rounded border border-amber-800 bg-slate-950 p-2 text-[11px] text-slate-300"
+                    />
                   </div>
                 )}
               </section>

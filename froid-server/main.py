@@ -7361,6 +7361,57 @@ def _build_whatsapp_message(invite: dict) -> str:
     return "\n".join(lines)
 
 
+_TEAM_ROLE_PRIORITY = (
+    ("owner", "administrador", "administrador"),
+    ("administrator", "administrador", "administrador"),
+    ("supervisor", "supervisor", "supervisor"),
+    ("professional", "profissional", "profissional"),
+)
+
+
+def _team_invite_role(roles) -> tuple:
+    """Papel que nomeia o convite de equipe: (trecho do link, rotulo).
+
+    Cada papel tem a sua pagina (/entrar-clinica/profissional|supervisor|
+    administrador). Convite com mais de um papel segue o de maior alcance, e
+    o proprietario cai em administrador (a tela de gestao e a mesma)."""
+    wanted = {str(role).strip().lower() for role in (roles or [])}
+    for role, slug, label in _TEAM_ROLE_PRIORITY:
+        if role in wanted:
+            return slug, label
+    return "profissional", "profissional"
+
+
+def _public_team_invite_url(base_url: str, token: str, role_slug: str) -> str:
+    base = str(base_url or "").strip().rstrip("/")
+    if not base:
+        base = os.getenv("FROID_PUBLIC_URL", "http://localhost:5173").rstrip("/")
+    if not base.endswith("/app"):
+        base = f"{base}/app"
+    return f"{base}/#/entrar-clinica/{role_slug}?token={token}"
+
+
+def _build_team_invite_message(invite: dict) -> str:
+    """Mensagem do convite de equipe, no mesmo formato do convite de paciente
+    (_build_whatsapp_message): saudacao, identificador, link, orientacao.
+    Sem acento de proposito, no mesmo estilo das linhas do paciente."""
+    role = invite.get("role") or "profissional"
+    clinic = invite.get("clinic_name") or "nossa clinica"
+    lines = [
+        f"Ola. Voce recebeu um convite para integrar a equipe de {clinic} no FROID, como {role}.",
+        f"Convite: {invite.get('display_id')}",
+        "Use o link abaixo para concluir seu cadastro e entrar na clinica:",
+        str(invite.get("invite_url") or ""),
+    ]
+    if invite.get("invited_email"):
+        lines.append(f"O e-mail {invite.get('invited_email')} ja esta no convite.")
+    lines.append(
+        f"O link vale por {invite.get('expires_in_hours') or 72} horas e e de uso unico."
+        " Nao o repasse a terceiros."
+    )
+    return "\n".join(lines)
+
+
 def _effective_professional_access_status(user: dict) -> dict:
     """Combine legacy onboarding evidence with authoritative tenant billing."""
     legacy = _professional_access_status(user.get("email") or "")
@@ -10597,7 +10648,10 @@ async def _send_verification_email(credential: dict, continue_to: str = "") -> s
     )
     link = _public_app_link("/verificar-email?token=" + quote(token, safe=""))
     # So o formato exato do link de convite viaja (revisao 06/10/2026).
-    if re.fullmatch(r"/entrar-clinica\?token=[A-Za-z0-9_-]{8,200}", continue_to or ""):
+    if re.fullmatch(
+        r"/entrar-clinica(/(profissional|supervisor|administrador))?\?token=[A-Za-z0-9_-]{8,200}",
+        continue_to or "",
+    ):
         link = link + "&seguir=" + quote(continue_to, safe="")
     horas = max(1, FROID_EMAIL_VERIFICATION_TTL_SECONDS // 3600)
     assunto = "Confirme seu e-mail no FROID"
@@ -11036,12 +11090,22 @@ async def invite_organization_member(organization_id: str, request: Request):
         resource_id=invitation_id,
         metadata={"roles": sorted(roles), "expires_hours": expires_hours},
     )
-    return {
+    role_slug, role_label = _team_invite_role(roles)
+    team_invite = {
         "invitation_id": invitation_id,
+        "display_id": "froid-" + invitation_id.replace("-", "")[:12],
         "invitation_token": invitation_token,
         "expires_in_hours": expires_hours,
+        "role": role_label,
+        "invite_url": _public_team_invite_url(
+            str(body.get("base_url") or ""), invitation_token, role_slug
+        ),
+        "invited_email": invited_email,
+        "clinic_name": " ".join(str(body.get("clinic_name") or "").split())[:120],
         "note": "o token é exibido uma única vez e deve ser enviado ao destinatário por canal seguro",
     }
+    team_invite["whatsapp_message"] = _build_team_invite_message(team_invite)
+    return team_invite
 
 
 @app.get("/api/organization-invitations/{token}")
