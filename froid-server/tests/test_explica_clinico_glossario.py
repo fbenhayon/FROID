@@ -350,9 +350,16 @@ class AsRestricoesProibemODefeitoObservado(unittest.TestCase):
         mudou a frase — entao o teste continua, citando agora o passo concreto
         em si. Ele esta escrito duas vezes no prompt, no movimento 4 e no
         contrato: se o movimento cair, as duas caem com ele e este caso reprova.
+
+        Em 15/10/2026 o passo concreto trocou de verbo: era "o trecho que vale
+        reouvir", e o FROID nao grava audio — o profissional leu "reouca os
+        trechos correspondentes" seis vezes numa conversa sobre o relatorio da
+        sessao froid-mv85lqul447x e nao tinha o que reouvir. O que existe e a
+        transcricao, com o instante de cada linha. O passo concreto agora e
+        reler, e o verbo antigo e proibido em `test_explica_cortes_no_prompt`.
         """
         instrucao = _sem_quebra(explica_clinico.instrucao())
-        self.assertIn("o trecho que vale reouvir", instrucao)
+        self.assertIn("o trecho da transcricao que vale reler", instrucao)
         self.assertIn("confirma ou derruba", instrucao)
         self.assertIn("detalhe da formula que muda a leitura", instrucao)
 

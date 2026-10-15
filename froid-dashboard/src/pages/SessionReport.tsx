@@ -16,7 +16,16 @@ import {
 } from "../lib/session-report";
 import { dashboardText, loadSessionLanguagePreferences, normalizeSessionLocale, type SessionLocale } from "../lib/localization";
 import { tooltipText } from "../lib/tooltip-i18n";
-import { contextoDaTabela } from "../lib/painel-para-o-explica";
+import {
+  contextoDaTabela,
+  contextoDosCortes,
+  transcricaoParaOExplica,
+} from "../lib/painel-para-o-explica";
+import {
+  findCutForSummary,
+  findSummaryForCut,
+  type ResumoDoCorte,
+} from "../lib/resumo-do-corte";
 import { InstrumentScorePrompt } from "../components/validation/InstrumentScorePrompt";
 import { FacialAnalysisPanel } from "../components/FacialAnalysisPanel";
 import { activeOrganizationId } from "../lib/validation";
@@ -391,68 +400,10 @@ function metricRows(snapshot: MetricSnapshot) {
   ];
 }
 
-type ConversationCutSummary = SessionReportRecord["conversationSummaries"][number];
-
-function secondsForSummary(summary: ConversationCutSummary) {
-  return {
-    start: Math.max(0, Math.floor(summary.startSecond ?? summary.startMinute * 60)),
-    end: Math.max(
-      Math.floor(summary.startSecond ?? summary.startMinute * 60) + 1,
-      Math.ceil(summary.endSecond ?? summary.endMinute * 60),
-    ),
-  };
-}
-
-function overlapSeconds(
-  leftStart: number,
-  leftEnd: number,
-  rightStart: number,
-  rightEnd: number,
-) {
-  return Math.max(0, Math.min(leftEnd, rightEnd) - Math.max(leftStart, rightStart));
-}
-
-function findCutForSummary(
-  summary: ConversationCutSummary,
-  cuts: MetricSnapshot[],
-) {
-  const interval = secondsForSummary(summary);
-  const best = [...cuts]
-    .map((cut) => ({
-      cut,
-      overlap: overlapSeconds(
-        interval.start,
-        interval.end,
-        cut.startSecond,
-        cut.endSecond,
-      ),
-    }))
-    .sort((a, b) => b.overlap - a.overlap)[0];
-  return best?.overlap ? best.cut : undefined;
-}
-
-function findSummaryForCut(
-  cut: MetricSnapshot,
-  summaries: ConversationCutSummary[],
-) {
-  const best = [...summaries]
-    .map((summary) => {
-      const interval = secondsForSummary(summary);
-      return {
-        summary,
-        overlap: overlapSeconds(
-          cut.startSecond,
-          cut.endSecond,
-          interval.start,
-          interval.end,
-        ),
-      };
-    })
-    .sort((a, b) => b.overlap - a.overlap)[0];
-  return best?.overlap ? best.summary : undefined;
-}
-
-function cutTimeLabel(cut: MetricSnapshot, summary?: ConversationCutSummary) {
+// O casamento corte <-> resumo mora em `lib/resumo-do-corte.ts` desde
+// 15/10/2026: a ficha do paciente e o produtor do FROID Explica precisam da
+// mesma regra, e uma copia dela aqui divergiria em silencio.
+function cutTimeLabel(cut: MetricSnapshot, summary?: ResumoDoCorte) {
   if (summary) {
     return `${summary.startMinute}-${summary.endMinute}min`;
   }
@@ -1066,13 +1017,8 @@ export const SessionReport: React.FC<Props> = () => {
     const patientLines = transcriptLines.filter((line) => /^(PC|PAC)\b/i.test(line));
     const professionalLines = transcriptLines.filter((line) => /^DR\b/i.test(line));
     return {
-      report_baseline: report.baseline,
-      report_session_average: report.sessionAverage,
-      report_ten_minute_cuts: report.tenMinuteCuts,
       report_session_summary: summary,
-      report_metrics_analysis: metricsAnalysis,
       report_notes_count: report.clinicalNotes.length,
-      report_summaries: report.conversationSummaries,
       // A TABELA DE METRICAS, no vocabulario que o servidor conhece.
       //
       // Ate 07/09/2026 esta tela mandava ao FROID Explica o relatorio inteiro
@@ -1080,16 +1026,35 @@ export const SessionReport: React.FC<Props> = () => {
       // com "o valor nao foi enviado pelo painel" — sobre um numero impresso
       // tres centimetros acima da caixa de pergunta.
       ...contextoDaTabela(report.sessionAverage, "media da sessao inteira"),
-      // Transcrição arquivada, no mesmo formato que o backend consome, para o
-      // FROID Explica responder sobre falas e recomendações após a sessão.
+      // A LINHA DE BASE E OS CORTES, uma linha por corte, com tema e resumo.
+      //
+      // Ate 15/10/2026 esta tela mandava `report_baseline`,
+      // `report_session_average`, `report_ten_minute_cuts`,
+      // `report_metrics_analysis` e `report_summaries` inteiros: 105 mil
+      // caracteres de JSON, dos quais o servidor guardava os primeiros 5 mil.
+      // Os cortes comecavam no caractere 11.631 e nunca chegaram ao modelo,
+      // que respondia "nao ha dados de cortes especificos" sobre oito cortes
+      // impressos na mesma tela (sessao froid-mv85lqul447x). A analise de
+      // metricas (minimo, maximo, z por metrica) ficou de fora de proposito:
+      // esta em nomes internos que o glossario nao conhece, e entra quando
+      // tiver um produtor proprio.
+      ...contextoDosCortes(
+        report.baseline,
+        report.tenMinuteCuts,
+        report.conversationSummaries,
+        "cortes desta sessao",
+      ),
       patient_id: report.patient?.id || (report as Record<string, any>).patientId || "",
       transcript_available: transcriptLines.length > 0,
       transcript_speaker_legend: "DR = profissional/terapeuta; PC ou PAC = paciente.",
-      session_transcript: transcript.slice(-8000),
+      // A transcricao inteira, com [mm:ss] por linha. O servidor declara se
+      // precisar truncar. Antes esta tela mandava so os ultimos 8.000
+      // caracteres, em silencio, e "releia o trecho inicial" era impossivel.
+      ...transcricaoParaOExplica(transcript, report.transcriptLineSeconds),
       patient_speech: patientLines.slice(-120).join("\n").slice(-4000),
       professional_speech: professionalLines.slice(-120).join("\n").slice(-4000),
     };
-  }, [metricsAnalysis, report]);
+  }, [report]);
 
   useEffect(() => {
     if (!report || descriptiveReport.trim()) return;

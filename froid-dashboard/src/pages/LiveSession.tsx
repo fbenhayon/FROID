@@ -18,6 +18,7 @@ import {
   palavrasPorMinutoDoPaciente,
   pesoDeAusencia,
 } from "../lib/medidas-do-corte";
+import { transcricaoParaOExplica } from "../lib/painel-para-o-explica";
 import {
   STATUS_CAPTURA_TEXTO,
   type StatusCaptura,
@@ -3220,10 +3221,20 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const getFroidExplicaContext = useCallback((): Record<string, unknown> => {
     const segments = transcriptSegmentsRef.current || [];
     const transcriptLines = segments.map((segment) => segment.text);
-    // Limita ao final da transcrição para não estourar o contexto do modelo.
-    let transcript = transcriptLines.join("\n");
+    // A transcricao com [mm:ss] por linha, limitada ao trecho FINAL para nao
+    // estourar o contexto — e dizendo quanto ficou de fora. Ate 15/10/2026 o
+    // recorte era silencioso, e o modelo lia o trecho final como se fosse a
+    // sessao inteira.
+    const comTempo = transcricaoParaOExplica(
+      transcriptLines.join("\n"),
+      segments.map((segment) => segment.elapsedSeconds),
+    );
+    let transcript = comTempo.session_transcript;
     if (transcript.length > FROID_EXPLICA_TRANSCRIPT_CHAR_LIMIT) {
-      transcript = transcript.slice(-FROID_EXPLICA_TRANSCRIPT_CHAR_LIMIT);
+      const omitidos = transcript.length - FROID_EXPLICA_TRANSCRIPT_CHAR_LIMIT;
+      transcript =
+        `[TRANSCRICAO ANTERIOR OMITIDA: ${omitidos} caracteres; aqui esta so o trecho final]\n` +
+        transcript.slice(-FROID_EXPLICA_TRANSCRIPT_CHAR_LIMIT);
     }
     const patientLines = transcriptLines.filter((line) =>
       /^(PC|PAC)\b/i.test(line),
@@ -3263,6 +3274,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       transcript_speaker_legend:
         "DR = profissional/terapeuta; PC ou PAC = paciente.",
       session_transcript: transcript,
+      transcript_timestamps: comTempo.transcript_timestamps,
       patient_speech: patientLines.slice(-80).join("\n"),
       professional_speech: professionalLines.slice(-80).join("\n"),
       transcript_line_count: transcriptLines.length,

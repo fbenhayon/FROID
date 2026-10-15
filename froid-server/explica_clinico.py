@@ -386,7 +386,7 @@ CATALOGO: Tuple[Indice, ...] = (
         abre=(
             "Descreve instabilidade de timbre ou de formante — que e o que a "
             "medida sustenta, e ja e util: instabilidade sustentada durante um "
-            "tema e um recorte temporal para reouvir."
+            "tema e um recorte temporal para reler na transcricao."
         ),
         limite=(
             "A descricao 'contracao espastica involuntaria das cordas vocais' "
@@ -1214,6 +1214,148 @@ def glossario_do_painel(pergunta: str, contexto: Optional[Mapping[str, Any]]) ->
 
 
 # ---------------------------------------------------------------------------
+# Os cortes
+# ---------------------------------------------------------------------------
+
+# Teto de cortes escritos no prompt. Uma sessao de duas horas com cortes manuais
+# frequentes passa de vinte; acima do teto os excedentes sao DECLARADOS, nunca
+# descartados em silencio (regra 1.3).
+MAX_CORTES_NO_PROMPT = 40
+MAX_RESUMO_DO_CORTE = 700
+
+# Indices em que o desvio contra a linha de base sai em pontos, nao em
+# percentual: o IPM e uma escala 0-100 centrada em 50 e o IDM e um desvio com
+# sinal — "+336%" sobre um IDM de -0,03 nao descreve nada.
+_DESVIO_EM_PONTOS = {"IPM", "IDM"}
+
+
+def _como_numero(texto: Any) -> Optional[float]:
+    """O numero por tras do texto da tela; None para "--", vazio ou nao numerico."""
+    bruto = str(texto if texto is not None else "").strip()
+    if not bruto or bruto == "--":
+        return None
+    try:
+        return float(bruto)
+    except ValueError:
+        return None
+
+
+def _desvio(rotulo: str, valor: Any, base: Any) -> str:
+    """Desvio do corte contra a linha de base, calculado AQUI e nao pelo modelo.
+
+    A regra 3 proibe o modelo de calcular de cabeca, e esta certa: um
+    percentual errado com cara de certo e pior que nenhum. Entao o servidor
+    calcula, sobre os mesmos numeros que a tela mostra, e o modelo cita.
+    Sem uma das duas pontas nao ha desvio — e nao ha texto nenhum.
+    """
+    atual = _como_numero(valor)
+    referencia = _como_numero(base)
+    if atual is None or referencia is None:
+        return ""
+    diferenca = atual - referencia
+    if rotulo in _DESVIO_EM_PONTOS or referencia == 0:
+        return f" ({diferenca:+.2f} vs base)"
+    return f" ({diferenca / abs(referencia) * 100:+.0f}% vs base)"
+
+
+def _linha_de_metricas(
+    metricas: Mapping[str, Any], base: Optional[Mapping[str, Any]] = None
+) -> str:
+    """Os rotulos do catalogo, na ordem do catalogo, com o valor da tela."""
+    partes = []
+    for indice in CATALOGO:
+        if indice.rotulo not in metricas:
+            continue
+        valor = metricas.get(indice.rotulo)
+        bruto = str(valor if valor is not None else "").strip() or "--"
+        desvio = _desvio(indice.rotulo, bruto, base.get(indice.rotulo)) if base else ""
+        partes.append(f"{indice.rotulo}={bruto}{desvio}")
+    return "; ".join(partes)
+
+
+def bloco_dos_cortes(contexto: Optional[Mapping[str, Any]]) -> str:
+    """A linha de base e os cortes, um por linha, nos rotulos do glossario.
+
+    POR QUE E UMA SECAO PROPRIA, E NAO O JSON. Em 15/10/2026, na sessao
+    froid-mv85lqul447x, o profissional pediu "o valor das palavras por minuto
+    por corte e os percentuais de variacao". A pagina de relatorio mandava os
+    oito cortes inteiros, com doze zonas cada um, num JSON de 105 mil
+    caracteres; o servidor guardava os primeiros cinco mil, e o corte caia
+    dentro da linha de base. Os cortes comecavam no caractere 11.631 e nunca
+    chegaram ao modelo, que respondeu "nao ha dados de cortes especificos" —
+    sobre oito cortes impressos na mesma tela, com IPM, IDM, P/MIN e F0 cada.
+
+    Aqui cada corte e uma linha curta no vocabulario que o glossario ja
+    ensina, com o desvio contra a linha de base calculado pelo servidor, e o
+    bloco entra no prompt antes do JSON truncavel. Oito cortes com os 33
+    rotulos cabem em quatro mil caracteres.
+    """
+    contexto = contexto if isinstance(contexto, Mapping) else {}
+    base = contexto.get("panel_baseline")
+    base = base if isinstance(base, Mapping) else None
+    brutos = contexto.get("panel_cuts")
+    cortes = (
+        [corte for corte in brutos if isinstance(corte, Mapping)]
+        if isinstance(brutos, Sequence) and not isinstance(brutos, (str, bytes))
+        else []
+    )
+    if base is None and not cortes:
+        return ""
+    janela = str(contexto.get("panel_cuts_window") or "cortes").strip()
+    metricas_base = base.get("metricas") if base is not None else None
+    metricas_base = metricas_base if isinstance(metricas_base, Mapping) else None
+    linhas = [
+        f"CORTES DA SESSAO ({janela}) — uma linha por corte, nos rotulos do glossario.",
+        "Como ler: cada corte e a MEDIA das amostras da sua janela. Compare cada corte "
+        "com a LINHA DE BASE e com o corte anterior; pese pela duracao e pelo numero de "
+        "amostras — um corte de segundos nao se compara a um de dez minutos, e qualquer "
+        "media entre cortes e ponderada pela duracao. \"--\" e ausencia de apuracao "
+        "naquele corte, nunca zero. Os desvios entre parenteses foram calculados pelo "
+        "servidor contra a linha de base: cite-os, nao recalcule. As metricas sao "
+        "MEDIDAS; tema e resumo sao CONTEUDO, inferidos do que foi dito. Quando a "
+        "pergunta pedir valores por corte, cite cada corte com o valor e o desvio da "
+        "metrica pedida — 'os cortes variam' nao e resposta.",
+    ]
+    if base is not None:
+        amostras_base = base.get("amostras")
+        linhas.append(
+            f"LINHA DE BASE ({base.get('janela') or 'janela nao declarada'}; amostras "
+            f"{amostras_base if amostras_base is not None else '--'}): "
+            + (_linha_de_metricas(metricas_base) if metricas_base else "sem metricas enviadas")
+        )
+    for numero, corte in enumerate(cortes[:MAX_CORTES_NO_PROMPT], 1):
+        amostras = corte.get("amostras")
+        tema = str(corte.get("tema") or "").strip() or "sem tema registrado"
+        linhas.append(
+            f"{numero}. {corte.get('corte') or 'corte sem rotulo'} | "
+            f"{corte.get('inicio_s')}-{corte.get('fim_s')} s (duracao {corte.get('duracao_s')} s) | "
+            f"amostras {amostras if amostras is not None else '--'} | tema: {tema}"
+        )
+        metricas = corte.get("metricas")
+        linhas.append(
+            "   "
+            + (
+                _linha_de_metricas(metricas, metricas_base)
+                if isinstance(metricas, Mapping)
+                else "sem metricas enviadas"
+            )
+        )
+        resumo = str(corte.get("resumo") or "").strip()
+        if resumo:
+            faltam = len(resumo) - MAX_RESUMO_DO_CORTE
+            if faltam > 0:
+                resumo = resumo[:MAX_RESUMO_DO_CORTE] + f" [resumo truncado: faltam {faltam} caracteres]"
+            linhas.append(f"   resumo do corte: {resumo}")
+    if len(cortes) > MAX_CORTES_NO_PROMPT:
+        linhas.append(
+            f"[{len(cortes) - MAX_CORTES_NO_PROMPT} corte(s) omitido(s) por limite de "
+            f"contexto, a partir do corte {MAX_CORTES_NO_PROMPT + 1}. Se a pergunta "
+            "depender deles, diga que nao vieram.]"
+        )
+    return "\n".join(linhas)
+
+
+# ---------------------------------------------------------------------------
 # As restricoes
 # ---------------------------------------------------------------------------
 
@@ -1314,8 +1456,9 @@ etapas numeradas ou lista:
 4. AS LEITURAS CANDIDATAS, E O QUE AS SEPARA. Nomeie as interpretacoes clinicas
    com que o padrao e compativel, diga o que CADA uma exigiria para se
    confirmar, e diga qual delas o dado desta sessao favorece. Feche com o
-   movimento concreto: o trecho que vale reouvir, o campo do painel que confirma
-   ou derruba a leitura, a pergunta que resolve o empate.
+   movimento concreto: o trecho da transcricao que vale reler (com o instante
+   mm:ss), o campo do painel que confirma ou derruba a leitura, a pergunta que
+   resolve o empate.
 
 Resposta que para no movimento 1 ou 2 esta incompleta. Relatorio neutro, que
 descreve sem permitir decidir nada, e falha de produto.
@@ -1355,8 +1498,8 @@ A segunda e o trabalho, e e ela que se exige aqui. Isto e resposta certa:
   "A fala acelerou 38% sobre a regua dele, com F0 subindo e IDM em pico no mesmo
    trecho. O padrao e compativel com hiperativacao ansiosa ou com esforco de
    contencao; o que separa os dois e se a face acompanha a voz ou fica para
-   tras — e aqui ela fica para tras, o que favorece a segunda. Reouca 12:30 e
-   confira AU4 e AU7 no mesmo minuto."
+   tras — e aqui ela fica para tras, o que favorece a segunda. Releia a
+   transcricao de 12:30 a 13:30 e confira AU4 e AU7 no mesmo minuto."
 
 Numero contra a regua dele, conclusao afirmada, hipoteses nomeadas,
 discriminador explicito e o passo seguinte. Nada ali e diagnostico, e nada ali e
@@ -1395,8 +1538,8 @@ bloco de INTERPRETACAO INTEGRADA, e nao uma segunda lista com outro nome:
 - o padrao que isso desenha, dito como conclusao e nao como ressalva, com o
   quanto (movimento 3);
 - as leituras candidatas e o que as separa, mais o passo concreto: o campo do
-  painel que confirma ou derruba, o trecho que vale reouvir, a pergunta que
-  resolve o empate (movimento 4).
+  painel que confirma ou derruba, o trecho da transcricao que vale reler, a
+  pergunta que resolve o empate (movimento 4).
 
 QUANDO AS 150 PALAVRAS APERTAREM, o que encolhe e a descricao da medida — nunca
 o movimento 3 nem o 4. Uma resposta que gasta o orcamento explicando a formula e
@@ -1428,7 +1571,13 @@ perguntarem sobre o que foi dito, sobre recomendacoes dadas ou sobre falas de
 um dos dois, responda com base nela e cite o trecho pertinente. So diga que nao
 tem acesso se a secao TRANSCRICAO indicar que nenhuma fala foi capturada.
 Avalie metricas e falas do paciente e do profissional separadamente quando a
-pergunta pedir."""
+pergunta pedir.
+
+O FROID NAO GRAVA AUDIO. Nao existe gravacao para escutar de novo: nunca mande
+o profissional ouvir um trecho, porque ele nao tem como. Aponte trechos pela
+TRANSCRICAO, para reler, com o instante [mm:ss] que abre cada linha quando o
+relatorio o registrou (a secao diz se registrou). Quando houver secao CORTES DA
+SESSAO, cruze o trecho com o corte em que ele cai."""
 
 
 def instrucao(frase_de_idioma: str = "Responda em português do Brasil") -> str:
@@ -1472,12 +1621,20 @@ def montar_prompt(
     permite ao modelo reconhecer o rotulo digitado, e um trecho recuperado por
     similaridade nao substitui um de-para.
     """
-    blocos = [
-        glossario_do_painel(pergunta, contexto),
-        f"CONTEXTO CIENTIFICO FROID:\n{contexto_cientifico or 'Base cientifica nao carregada.'}",
-        f"CONTEXTO DA SESSAO ATUAL (metricas e biomarcadores):\n{contexto_da_sessao}",
-        f"TRANSCRICAO DA SESSAO ATUAL:\n{transcricao}",
-    ]
+    blocos = [glossario_do_painel(pergunta, contexto)]
+    # Os cortes vem logo depois do glossario e ANTES do JSON de contexto: sao a
+    # unica parte do contexto que uma pergunta comparativa precisa inteira, e
+    # dentro do JSON eles eram o primeiro bloco a cair no truncamento.
+    cortes = bloco_dos_cortes(contexto)
+    if cortes:
+        blocos.append(cortes)
+    blocos.extend(
+        [
+            f"CONTEXTO CIENTIFICO FROID:\n{contexto_cientifico or 'Base cientifica nao carregada.'}",
+            f"CONTEXTO DA SESSAO ATUAL (metricas e biomarcadores):\n{contexto_da_sessao}",
+            f"TRANSCRICAO DA SESSAO ATUAL:\n{transcricao}",
+        ]
+    )
     if carteira:
         blocos.append(carteira)
     blocos.append(f"HISTORICO RECENTE DO FROID EXPLICA:\n{historico}")

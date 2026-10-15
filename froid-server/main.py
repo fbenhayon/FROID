@@ -1331,6 +1331,20 @@ _SESSION_TEXT_FIELDS = {
 }
 
 
+# Teto do bloco JSON de contexto. Era 5.000 e cortava em silencio: em
+# 15/10/2026 a pagina de relatorio mandava 105 mil caracteres e o modelo
+# recebia a linha de base pela metade — os oito cortes, a media e a evolucao
+# por janela nunca chegaram, e o FROID Explica respondeu "nao ha dados de
+# cortes" sobre cortes impressos na tela (sessao froid-mv85lqul447x). O que
+# mudou de verdade foi o PRODUTOR: linha de base e cortes agora vem compactos
+# e entram numa secao propria do prompt (`explica_clinico.bloco_dos_cortes`),
+# fora deste JSON. O teto fica como guarda, e quando atuar ele se DECLARA,
+# chave a chave, para que o modelo diga o que nao veio em vez de supor.
+LIMITE_DO_CONTEXTO_DA_SESSAO = 30_000
+# Campos que ja entram no prompt por secao propria e nao se repetem no JSON.
+_CAMPOS_COM_SECAO_PROPRIA = {"panel_baseline", "panel_cuts", "panel_cuts_window"}
+
+
 def _format_session_context(context: Dict[str, Any]) -> str:
     if not context:
         return "Sem contexto de sessao enviado pelo painel."
@@ -1339,8 +1353,32 @@ def _format_session_context(context: Dict[str, Any]) -> str:
         for key, value in context.items()
         if key not in {"patient_name", "email", "phone", "document"}
         and key not in _SESSION_TEXT_FIELDS
+        and key not in _CAMPOS_COM_SECAO_PROPRIA
     }
-    return json.dumps(safe_context, ensure_ascii=False, indent=2)[:5000]
+    partes: List[str] = []
+    omitidas: List[str] = []
+    usado = 0
+    for chave, valor in safe_context.items():
+        trecho = json.dumps({chave: valor}, ensure_ascii=False, indent=2)
+        if usado + len(trecho) > LIMITE_DO_CONTEXTO_DA_SESSAO:
+            omitidas.append(f"{chave} ({len(trecho)} caracteres)")
+            continue
+        partes.append(trecho)
+        usado += len(trecho)
+    texto = "\n".join(partes) if partes else "{}"
+    if omitidas:
+        texto += (
+            f"\n[CONTEXTO TRUNCADO pelo servidor no limite de "
+            f"{LIMITE_DO_CONTEXTO_DA_SESSAO} caracteres. Ficaram de fora: "
+            f"{', '.join(omitidas)}. Se a pergunta depender de alguma delas, "
+            "diga que ela nao veio nesta pergunta.]"
+        )
+    return texto
+
+
+# Teto da transcricao no prompt. Uma sessao de 57 minutos tem uns 40 mil
+# caracteres; o que passar disto e declarado, nunca cortado em silencio.
+LIMITE_DA_TRANSCRICAO_NO_PROMPT = 60_000
 
 
 def _format_session_transcript(context: Dict[str, Any]) -> str:
@@ -1360,15 +1398,33 @@ def _format_session_transcript(context: Dict[str, Any]) -> str:
     transcript = str(context.get("session_transcript") or "").strip()
     patient_speech = str(context.get("patient_speech") or "").strip()
     professional_speech = str(context.get("professional_speech") or "").strip()
+    marcacao = str(context.get("transcript_timestamps") or "").strip()
     parts = [f"Legenda de locutores: {legend}"]
+    if marcacao:
+        parts.append(f"Instantes: {marcacao}.")
     if transcript:
-        parts.append(f"TRANSCRICAO CRONOLOGICA DA SESSAO:\n{transcript[:8000]}")
+        # Era `[:8000]`, em silencio, sobre uma transcricao que o painel ja
+        # tinha reduzido aos ultimos 8.000 caracteres — tambem em silencio. O
+        # modelo lia o fim da sessao como se fosse a sessao, e "releia o trecho
+        # inicial" apontava para texto que ele nunca viu. O teto subiu e, quando
+        # atua, diz o que ficou de fora.
+        faltam = len(transcript) - LIMITE_DA_TRANSCRICAO_NO_PROMPT
+        if faltam > 0:
+            transcript = transcript[:LIMITE_DA_TRANSCRICAO_NO_PROMPT] + (
+                f"\n[TRANSCRICAO TRUNCADA pelo servidor: faltam os ultimos {faltam} "
+                "caracteres. Se a pergunta for sobre o fim da sessao, diga que esse "
+                "trecho nao veio.]"
+            )
+        parts.append(f"TRANSCRICAO CRONOLOGICA DA SESSAO:\n{transcript}")
     if patient_speech:
-        parts.append(f"APENAS FALA DO PACIENTE:\n{patient_speech[:4000]}")
+        parts.append(
+            "APENAS FALA DO PACIENTE (trecho final, ate 4000 caracteres):\n"
+            f"{patient_speech[:4000]}"
+        )
     if professional_speech:
         parts.append(
-            f"APENAS FALA DO PROFISSIONAL (recomendacoes, intervencoes):\n"
-            f"{professional_speech[:4000]}"
+            "APENAS FALA DO PROFISSIONAL (recomendacoes, intervencoes; trecho final, "
+            f"ate 4000 caracteres):\n{professional_speech[:4000]}"
         )
     return "\n\n".join(parts)
 
@@ -1401,25 +1457,60 @@ def _is_comparative_question(query_text: str) -> bool:
     return any(marker in normalized for marker in _COMPARATIVE_QUERY_MARKERS)
 
 
+def _valor_medido(valor: Any) -> Optional[float]:
+    """Numero quando houve medida; None quando nao houve. Nunca zero por ausencia."""
+    if valor is None or valor == "":
+        return None
+    try:
+        numero = float(valor)
+    except (TypeError, ValueError):
+        return None
+    return numero if math.isfinite(numero) else None
+
+
 def _compact_report_summary(report: dict) -> dict:
     """Resumo minimo e seguro de uma sessao para comparacao: sem transcricao
-    bruta de outras sessoes, apenas metricas agregadas e identificadores."""
-    metrics = report.get("metricsAnalysis") if isinstance(report, dict) else None
-    average = report.get("sessionAverage") if isinstance(report, dict) else None
-    summary_source = metrics if isinstance(metrics, dict) else {}
-    average_source = average if isinstance(average, dict) else {}
+    bruta de outras sessoes, apenas metricas agregadas e identificadores.
+
+    OS NOMES SAO OS DO ARQUIVO. Ate 15/10/2026 esta funcao lia `ipm`,
+    `coherence` e `dominant_zone` de um snapshot que grava `ipmAvg`,
+    `coherenceStatus` e `dominantZone` (e `sessionSummary` como objeto, nao
+    texto). Nos 20 relatorios mais recentes de producao, 20 de 20 saiam nulos:
+    a carteira que o modelo recebia era uma lista de datas sem numero nenhum,
+    e ninguem reclamou porque a resposta parecia uma comparacao. Espelho de
+    nome (padrao 2.9), entre o painel que grava e o servidor que le.
+    """
+    if not isinstance(report, dict):
+        report = {}
+    average = report.get("sessionAverage")
+    baseline = report.get("baseline")
+    average = average if isinstance(average, dict) else {}
+    baseline = baseline if isinstance(baseline, dict) else {}
+    resumo = report.get("sessionSummary")
+    if isinstance(resumo, dict):
+        tema = str(resumo.get("theme") or "").strip()
+        texto = str(resumo.get("summary") or "").strip()
+    else:
+        tema, texto = "", str(resumo or "").strip()
+    cortes = report.get("tenMinuteCuts")
+    zona = average.get("dominantZone")
     return {
         "session_id": str(report.get("sessionId") or report.get("session_id") or ""),
         "date": str(report.get("createdAt") or report.get("created_at") or "")[:10],
         "patient_id": str(report.get("patientId") or ""),
-        "ipm_average": average_source.get("ipm")
-        or summary_source.get("ipm_average")
-        or summary_source.get("average_ipm"),
-        "dominant_zone": summary_source.get("dominant_zone")
-        or summary_source.get("dominantZone"),
-        "coherence": average_source.get("coherence")
-        or summary_source.get("coherence_status"),
-        "session_summary": str(report.get("sessionSummary") or "")[:400],
+        "duration_seconds": _valor_medido(report.get("durationSeconds")),
+        "cuts_count": len(cortes) if isinstance(cortes, list) else None,
+        "ipm_average": _valor_medido(average.get("ipmAvg")),
+        "ipm_baseline": _valor_medido(baseline.get("ipmAvg")),
+        "idm_average": _valor_medido(average.get("idmAvg")),
+        "words_per_minute_average": _valor_medido(average.get("wordsPerMinute")),
+        "words_per_minute_baseline": _valor_medido(baseline.get("wordsPerMinute")),
+        "f0_mean_average": _valor_medido(average.get("f0Mean")),
+        "f0_mean_baseline": _valor_medido(baseline.get("f0Mean")),
+        "dominant_zone": zona if zona not in (None, "") else None,
+        "coherence": str(average.get("coherenceStatus") or "").strip() or None,
+        "theme": tema[:120],
+        "session_summary": texto[:300],
     }
 
 
@@ -1448,18 +1539,73 @@ def _build_portfolio_summary(
         summaries = same_patient[:12] + others[:8]
     else:
         summaries = summaries[:15]
+    for item in summaries:
+        item["current_patient"] = bool(patient_id) and item.get("patient_id") == patient_id
     return summaries
+
+
+# Teto da carteira no prompt. Vinte sessoes em JSON ocupavam 12 mil caracteres
+# e o `[:4000]` antigo cortava a lista no meio de um registro, em silencio.
+# Agora cada sessao e uma linha, e o que nao cabe e declarado em numero.
+LIMITE_DA_CARTEIRA_NO_PROMPT = 8_000
+
+
+def _fmt_carteira(valor: Any, casas: int) -> str:
+    return "--" if valor is None else f"{float(valor):.{casas}f}"
+
+
+def _linha_da_carteira(item: Dict[str, Any]) -> str:
+    duracao = item.get("duration_seconds")
+    minutos = f"{duracao / 60:.0f} min" if duracao is not None else "duracao --"
+    cortes = item.get("cuts_count")
+    zona = item.get("dominant_zone")
+    marca = " (ESTE PACIENTE)" if item.get("current_patient") else ""
+    linha = (
+        f"- {item.get('date') or 'data --'} | sessao {item.get('session_id') or '--'} | "
+        f"paciente {item.get('patient_id') or '--'}{marca} | {minutos} | "
+        f"{cortes if cortes is not None else '--'} cortes | "
+        f"IPM {_fmt_carteira(item.get('ipm_average'), 1)} "
+        f"(base {_fmt_carteira(item.get('ipm_baseline'), 1)}) | "
+        f"IDM {_fmt_carteira(item.get('idm_average'), 2)} | "
+        f"P/MIN {_fmt_carteira(item.get('words_per_minute_average'), 1)} "
+        f"(base {_fmt_carteira(item.get('words_per_minute_baseline'), 1)}) | "
+        f"F0 MED. {_fmt_carteira(item.get('f0_mean_average'), 1)} "
+        f"(base {_fmt_carteira(item.get('f0_mean_baseline'), 1)}) | "
+        f"zona {zona if zona is not None else '--'} | "
+        f"coerencia {item.get('coherence') or '--'} | tema: {item.get('theme') or '--'}"
+    )
+    resumo = str(item.get("session_summary") or "").strip()
+    if resumo:
+        linha += f"\n  resumo: {resumo}"
+    return linha
 
 
 def _format_portfolio_summary(context: Dict[str, Any]) -> str:
     summaries = context.get("portfolio_summary") if isinstance(context, dict) else None
     if not summaries:
         return ""
-    return (
-        "SESSOES DA CARTEIRA DO PROFISSIONAL (resumo agregado, sem transcricao "
-        "das outras sessoes; use para comparar evolucao e casos):\n"
-        + json.dumps(summaries, ensure_ascii=False, indent=2)[:4000]
+    itens = [item for item in summaries if isinstance(item, dict)]
+    cabecalho = (
+        f"SESSOES DA CARTEIRA DO PROFISSIONAL ({len(itens)} sessoes; uma linha por "
+        "sessao, sem transcricao das outras sessoes; '--' e sem apuracao, nunca zero; "
+        "use para comparar evolucao e casos):"
     )
+    linhas: List[str] = []
+    usado = 0
+    omitidas = 0
+    for item in itens:
+        linha = _linha_da_carteira(item)
+        if usado + len(linha) > LIMITE_DA_CARTEIRA_NO_PROMPT:
+            omitidas += 1
+            continue
+        linhas.append(linha)
+        usado += len(linha)
+    if omitidas:
+        linhas.append(
+            f"[{omitidas} sessao(oes) omitida(s) por limite de contexto. Se a pergunta "
+            "depender delas, diga que nao vieram.]"
+        )
+    return cabecalho + "\n" + "\n".join(linhas)
 
 
 def _format_conversation_history(history: List[Dict[str, str]]) -> str:

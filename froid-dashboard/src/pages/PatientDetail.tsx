@@ -32,7 +32,7 @@ import { dashboardText, loadSessionLanguagePreferences, normalizeSessionLocale }
 import { ResearchConsentCard } from "../components/validation/ResearchConsentCard";
 import { PatientResultsAccessCard } from "../components/patient/PatientResultsAccessCard";
 import { activeOrganizationId } from "../lib/validation";
-import { contextoDaTabela } from "../lib/painel-para-o-explica";
+import { contextoDaTabela, contextoDosCortes } from "../lib/painel-para-o-explica";
 
 type PatientFollowStatus = "active" | "inactive";
 
@@ -230,13 +230,20 @@ export const PatientDetail: React.FC = () => {
       dissonance_events: group.dissonanceCount,
       clinical_note: group.clinicalNote,
     },
-    latest_report_baseline: latest.baseline,
-    latest_report_average: latest.sessionAverage,
-    latest_report_cuts: latest.tenMinuteCuts,
     // A tabela da ultima sessao, no vocabulario que o servidor conhece. Sem
     // ela o FROID Explica respondia "o valor nao foi enviado pelo painel"
     // sobre numeros impressos na mesma tela.
     ...contextoDaTabela(latest.sessionAverage, "media da ultima sessao deste paciente"),
+    // A linha de base e os cortes da ultima sessao, uma linha por corte. Ate
+    // 15/10/2026 iam os snapshots inteiros (`latest_report_baseline`,
+    // `latest_report_average`, `latest_report_cuts`), que estouravam o limite
+    // do servidor antes de o primeiro corte aparecer.
+    ...contextoDosCortes(
+      latest.baseline,
+      latest.tenMinuteCuts,
+      latest.conversationSummaries,
+      "cortes da ultima sessao deste paciente",
+    ),
   };
   const signal = patientAdvancedSignal(group);
   const sessionTableColSpan = patientMetricRows(latest.sessionAverage).length + 4;
