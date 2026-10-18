@@ -33,6 +33,7 @@ import { ResearchConsentCard } from "../components/validation/ResearchConsentCar
 import { PatientResultsAccessCard } from "../components/patient/PatientResultsAccessCard";
 import { activeOrganizationId } from "../lib/validation";
 import { contextoDaTabela, contextoDosCortes } from "../lib/painel-para-o-explica";
+import { carimbosDosRelatorios, usuarioArmazenado } from "../lib/contexto-organizacao";
 
 type PatientFollowStatus = "active" | "inactive";
 
@@ -268,6 +269,16 @@ export const PatientDetail: React.FC = () => {
               ID: {group.patient.document || tr("Não informado")} | Última sessão{" "}
               {formatDateTime(reportEndDate(latest))}
             </p>
+            <div className="mt-1 flex flex-wrap gap-1">
+              {carimbosDosRelatorios(usuarioArmazenado(), group.reports).map((carimbo) => (
+                <span
+                  key={carimbo}
+                  className="rounded border border-slate-600 bg-slate-800 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-200"
+                >
+                  {carimbo}
+                </span>
+              ))}
+            </div>
           </div>
           <div className="flex flex-wrap justify-end gap-2">
             <span

@@ -31,6 +31,7 @@ import {
   SessionReportRecord,
 } from "../lib/session-report";
 import {
+  carimbosDosRelatorios,
   irParaContexto,
   organizacoesNr1,
 } from "../lib/contexto-organizacao";
@@ -953,6 +954,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                 <p className="mt-1 text-xs text-slate-400">
                   ID: {group.patient.document || tr("Não informado")} - {group.totalSessions} {tr("Sessões").toLowerCase()}
                 </p>
+                {/* De que organizacao e este paciente: Solo, a clinica, ou a
+                    ausencia declarada. Decisao do dono, 18/10/2026. */}
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {carimbosDosRelatorios(user, group.reports).map((carimbo) => (
+                    <span
+                      key={carimbo}
+                      className="rounded border border-slate-600 bg-slate-800 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-200"
+                    >
+                      {carimbo}
+                    </span>
+                  ))}
+                </div>
               </div>
               <div className="min-w-[320px] flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-[11px] text-slate-300">
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1">

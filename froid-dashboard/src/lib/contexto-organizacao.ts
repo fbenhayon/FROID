@@ -43,6 +43,67 @@ function lista(user: ComOrganizacoes): OrganizacaoDoUsuario[] {
     }));
 }
 
+/** O usuário logado como o App o guarda, com a lista de organizações.
+ *
+ *  Páginas que não recebem `user` por propriedade (a ficha do paciente) leem
+ *  daqui. Leitura defensiva: sem armazenamento, sem usuário, sem organizações
+ *  — nada é inferido, a lista vem vazia e o carimbo declara isso. */
+export function usuarioArmazenado(): ComOrganizacoes {
+  try {
+    const bruto = localStorage.getItem("froid_user");
+    if (!bruto) return null;
+    const lido = JSON.parse(bruto);
+    return lido && typeof lido === "object" ? (lido as ComOrganizacoes) : null;
+  } catch {
+    return null;
+  }
+}
+
+export const CARIMBO_SOLO = "Solo";
+export const CARIMBO_SEM_VINCULO = "Organização sem vínculo";
+export const CARIMBO_ANTIGO = "Sem carimbo (sessão anterior ao registro)";
+
+/** De que organização é um relatório: "Solo", o nome da clínica, ou a ausência.
+ *
+ *  Decisão do dono (18/10/2026): o profissional que atende por conta própria E
+ *  por clínicas precisa ver, paciente a paciente, de onde cada um é. O carimbo
+ *  vem do `organizationId` que o servidor grava no relatório ao arquivar — a
+ *  organização ATIVA naquele momento. Relatório sem o campo é anterior a esse
+ *  registro, e o carimbo diz isso em vez de chutar "Solo". Clínica sem nome
+ *  recebe um número, na ordem em que a conta a lista. */
+export function carimboDaOrganizacao(
+  user: ComOrganizacoes,
+  organizationId: string | null | undefined,
+): string {
+  const alvo = String(organizationId || "").trim();
+  if (!alvo) return CARIMBO_ANTIGO;
+  const todas = lista(user);
+  const organizacao = todas.find((item) => item.organization_id === alvo);
+  if (!organizacao) return CARIMBO_SEM_VINCULO;
+  if (organizacao.organization_type === "solo") return CARIMBO_SOLO;
+  if (organizacao.organization_name) return organizacao.organization_name;
+  const doMesmoTipo = todas.filter(
+    (item) => item.organization_type === organizacao.organization_type,
+  );
+  const posicao = doMesmoTipo.findIndex((item) => item.organization_id === alvo) + 1;
+  return organizacao.organization_type === "enterprise"
+    ? `Empresa ${posicao}`
+    : `Clínica ${posicao}`;
+}
+
+/** Os carimbos de um paciente: um por organização em que ele teve sessão. */
+export function carimbosDosRelatorios(
+  user: ComOrganizacoes,
+  relatorios: Array<{ organizationId?: string | null }>,
+): string[] {
+  const vistos: string[] = [];
+  for (const relatorio of relatorios) {
+    const carimbo = carimboDaOrganizacao(user, relatorio?.organizationId);
+    if (!vistos.includes(carimbo)) vistos.push(carimbo);
+  }
+  return vistos;
+}
+
 /** As empresas contratantes do NR-1 desta conta.
  *
  *  'enterprise' é o único organization_type que o módulo NR-1 aceita —

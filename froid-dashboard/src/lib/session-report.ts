@@ -92,6 +92,10 @@ export interface SessionReportRecord {
     name?: string;
   };
   createdAt: string;
+  /** A organizacao ATIVA quando o relatorio foi arquivado; o servidor grava.
+   *  Ausente em relatorios anteriores a esse registro — e a ausencia se
+   *  declara no carimbo, nunca vira "Solo". */
+  organizationId?: string;
   durationSeconds: number;
   baseline: MetricSnapshot;
   sessionAverage: MetricSnapshot;
