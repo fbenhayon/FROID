@@ -1753,6 +1753,42 @@ class TenantStore:
                 ).fetchone()
         return {"balance": int(row[0]), "activated": bool(row[1])}
 
+    def member_quota(self, *, organization_id: str, membership_id: str) -> Optional[dict]:
+        """A cota de sessoes deste membro nesta organizacao, ou None sem cota.
+
+        Lida pelo papel de runtime, sob a RLS da tabela (010). Falha de leitura
+        devolve None, e None significa "sem limite atribuido" — o portao de
+        inicio de sessao (main) trata a falha como liberacao, porque e portao
+        de cota, nao de seguranca: defeito de infraestrutura nao pode impedir
+        atendimento. A falha fica no log de quem chama.
+        """
+        if not self.enabled or not self.runtime_database_url:
+            return None
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                connection.execute(
+                    "SELECT set_config('app.organization_id', %s, true)",
+                    (organization_id,),
+                )
+                connection.execute(
+                    "SELECT set_config('app.membership_id', %s, true)",
+                    (membership_id,),
+                )
+                row = connection.execute(
+                    """SELECT quota_sessions, consumed_sessions
+                       FROM organization_member_quotas
+                       WHERE organization_id=%s AND membership_id=%s""",
+                    (organization_id, membership_id),
+                ).fetchone()
+        if not row:
+            return None
+        quota, consumed = int(row[0]), int(row[1] or 0)
+        return {
+            "quota_sessions": quota,
+            "consumed_sessions": consumed,
+            "remaining": max(0, quota - consumed),
+        }
+
     def report_visibility(self, *, organization_id: str, membership_id: str) -> str:
         """Politica vigente de visibilidade de relatorios da organizacao.
 

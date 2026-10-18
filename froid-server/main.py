@@ -3215,6 +3215,48 @@ def _conta_no_psique_v2(email: str, profile: Optional[dict]) -> bool:
     return _organization_uses_psique_v2(organizacao)
 
 
+MEMBER_QUOTA_BLOCK_DETAIL = (
+    "O limite de sessões atribuído a você nesta clínica foi atingido. "
+    "Peça ao responsável pela clínica para ampliar a sua cota."
+)
+
+
+def _member_quota_block_detail(context: Optional[AccessContext]) -> str:
+    """Portao de cota por membro no inicio da sessao. Devolve o aviso, ou "".
+
+    Regra do dono (18/10/2026): a sessao so e recusada pelo limite que o
+    responsavel atribuiu ao profissional ou pelo esgotamento do pool. A
+    cobranca acontece so ao arquivar o relatorio e, por politica, nunca recusa
+    o atendimento (migration 052 conta e protege ali); entao o unico lugar em
+    que o limite BARRA e aqui, antes de a sessao existir. Sem cota atribuida,
+    nada muda. Falha de leitura libera e fica no log: e portao de cota, nao
+    de seguranca.
+    """
+    if context is None or not TENANT_STORE.enabled:
+        return ""
+    try:
+        cota = TENANT_STORE.member_quota(
+            organization_id=context.organization_id, membership_id=context.membership_id
+        )
+    except Exception:
+        LOGGER.exception(
+            "Portao de cota nao conseguiu ler a cota do membro %s em %s; liberando.",
+            context.membership_id,
+            context.organization_id,
+        )
+        return ""
+    if cota and cota["remaining"] <= 0:
+        LOGGER.info(
+            "Portao de cota: membro %s em %s atingiu %s/%s sessoes",
+            context.membership_id,
+            context.organization_id,
+            cota["consumed_sessions"],
+            cota["quota_sessions"],
+        )
+        return MEMBER_QUOTA_BLOCK_DETAIL
+    return ""
+
+
 def _psique_v2_start_block_detail(context: Optional[AccessContext]) -> str:
     """Portao V2 de inicio de sessao (D2a). Devolve o aviso, ou "" se pode iniciar.
 
@@ -8990,6 +9032,11 @@ def create_session(request: Request):
     bloqueio_v2 = _psique_v2_start_block_detail(context) if org_v2 else ""
     if bloqueio_v2:
         raise HTTPException(status_code=402, detail=bloqueio_v2)
+    # Cota por membro: vale para V1 e V2, e e o unico ponto em que o limite
+    # atribuido pelo responsavel barra uma sessao (a cobranca nunca recusa).
+    bloqueio_de_cota = _member_quota_block_detail(context)
+    if bloqueio_de_cota:
+        raise HTTPException(status_code=402, detail=bloqueio_de_cota)
     session_id = str(uuid.uuid4())
     SESSION_OWNERS[session_id] = _normalize_email(user.get("email") or "")
     if context:
