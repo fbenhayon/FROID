@@ -153,6 +153,13 @@ FROID_EXPLICA_CLAUDE_EFFORT = os.getenv("FROID_EXPLICA_CLAUDE_EFFORT", "high")
 # (45), porque o raciocinio em "high" e mais longo. O log de uso diz quanto
 # cada resposta levou; ajustar por medida, nao por impressao.
 FROID_EXPLICA_CLAUDE_TIMEOUT = float(os.getenv("FROID_EXPLICA_CLAUDE_TIMEOUT", "90"))
+# Teto de saida do caminho Claude. NAO e o mesmo teto dos outros motores:
+# nesta familia o raciocinio conta dentro de `max_tokens`, e a prova real de
+# 18/10/2026 mostrou o efeito — com 800 a resposta veio VAZIA (o raciocinio
+# consumiu o teto antes do texto); com 16.000, a mesma pergunta gastou 2.648
+# tokens de saida para 209 palavras. O contrato e que limita o texto visivel;
+# o teto so precisa caber raciocinio mais texto, e cobra-se o que foi usado.
+FROID_EXPLICA_CLAUDE_MAX_TOKENS = int(os.getenv("FROID_EXPLICA_CLAUDE_MAX_TOKENS", "16000"))
 # Teto de saida do FROID Explica clinico.
 #
 # Subiu para 1800 quando o contrato de resposta pedia seis blocos, e voltou
@@ -1211,11 +1218,14 @@ def _claude_responde(
     ]
     messages = [{"role": "user", "content": prompt}]
     output_config: Dict[str, Any] = {"effort": FROID_EXPLICA_CLAUDE_EFFORT}
+    # O teto pedido pelo chamador foi dimensionado para motores sem raciocinio
+    # contado; aqui ele e so o piso.
+    teto = max(int(max_tokens), FROID_EXPLICA_CLAUDE_MAX_TOKENS)
     if json_schema:
         output_config["format"] = {"type": "json_schema", "schema": json_schema}
         response = client.messages.create(
             model=FROID_EXPLICA_CLAUDE_MODEL,
-            max_tokens=max_tokens,
+            max_tokens=teto,
             system=system,
             messages=messages,
             output_config=output_config,
@@ -1226,7 +1236,7 @@ def _claude_responde(
         # diz qual serviu.
         response = client.beta.messages.create(
             model=FROID_EXPLICA_CLAUDE_MODEL,
-            max_tokens=max_tokens,
+            max_tokens=teto,
             system=system,
             messages=messages,
             output_config=output_config,
@@ -1259,8 +1269,14 @@ def _claude_responde(
         for bloco in (getattr(response, "content", None) or [])
         if getattr(bloco, "type", "") == "text"
     ).strip()
+    if not texto and parada == "max_tokens":
+        LOGGER.warning(
+            "FROID Explica: o raciocinio do Claude consumiu o teto de %s tokens antes de "
+            "qualquer texto; suba FROID_EXPLICA_CLAUDE_MAX_TOKENS",
+            teto,
+        )
     if texto and parada == "max_tokens":
-        LOGGER.warning("FROID Explica: Claude parou no teto de %s tokens", max_tokens)
+        LOGGER.warning("FROID Explica: Claude parou no teto de %s tokens", teto)
         if json_schema:
             # JSON pela metade nao e JSON: nao ha o que aproveitar.
             return "", motor

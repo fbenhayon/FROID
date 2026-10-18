@@ -125,7 +125,9 @@ class OCaminhoClaude(unittest.TestCase):
         chamada = _ClienteFalso.registro["chamadas"][0]
         self.assertTrue(chamada["beta"])
         self.assertEqual(chamada["model"], "claude-opus-5-5")
-        self.assertEqual(chamada["max_tokens"], 800)
+        # O teto dos outros motores (800) e so o piso aqui: o raciocinio conta
+        # dentro de max_tokens, e com 800 a prova real de 18/10/2026 voltou vazia.
+        self.assertEqual(chamada["max_tokens"], 16000)
         self.assertEqual(chamada["system"][0]["text"], "INSTRUCAO")
         self.assertEqual(chamada["system"][0]["cache_control"], {"type": "ephemeral"})
         self.assertEqual(chamada["messages"], [{"role": "user", "content": "PROMPT"}])
@@ -179,6 +181,18 @@ class OCaminhoClaude(unittest.TestCase):
         self.assertTrue(texto.startswith("comeco da leitura"))
         self.assertIn("[resposta interrompida no teto de tokens", texto)
 
+    def test_um_teto_maior_que_o_padrao_e_respeitado(self):
+        _perguntar(max_tokens=20000)
+        self.assertEqual(_ClienteFalso.registro["chamadas"][0]["max_tokens"], 20000)
+
+    def test_raciocinio_que_consome_o_teto_sem_texto_fica_no_log(self):
+        _ClienteFalso.registro["efeito"] = _resposta("", parada="max_tokens")
+        with patch.multiple(main, GEMINI_API_KEY="", OPENAI_API_KEY=""):
+            with self.assertLogs("froid.persistence", level="WARNING") as log:
+                texto, _motor = _perguntar(max_tokens=800)
+        self.assertEqual(texto, "")
+        self.assertTrue(any("consumiu o teto de 16000 tokens" in linha for linha in log.output))
+
     def test_json_cortado_no_teto_nao_e_aproveitado(self):
         _ClienteFalso.registro["efeito"] = _resposta('{"result_sql": "SELE', parada="max_tokens")
         with patch.multiple(main, GEMINI_API_KEY="", OPENAI_API_KEY=""):
@@ -227,7 +241,7 @@ class AsVariaveisChegamAoConteiner(unittest.TestCase):
         return achado.group(1)
 
     def _padrao_do_codigo(self, nome):
-        achado = re.search(rf'{nome} = (?:float\()?os\.getenv\("{nome}", "([^"]*)"\)', self.codigo)
+        achado = re.search(rf'{nome} = (?:float\(|int\()?os\.getenv\("{nome}", "([^"]*)"\)', self.codigo)
         self.assertIsNotNone(achado, f"{nome} nao esta em main.py")
         return achado.group(1)
 
@@ -239,6 +253,7 @@ class AsVariaveisChegamAoConteiner(unittest.TestCase):
             "FROID_EXPLICA_CLAUDE_MODEL",
             "FROID_EXPLICA_CLAUDE_EFFORT",
             "FROID_EXPLICA_CLAUDE_TIMEOUT",
+            "FROID_EXPLICA_CLAUDE_MAX_TOKENS",
         ):
             self.assertEqual(self._padrao_do_compose(nome), self._padrao_do_codigo(nome), nome)
 
