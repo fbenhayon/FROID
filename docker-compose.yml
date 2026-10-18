@@ -58,6 +58,14 @@ services:
       - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
       - OPENAI_TRANSCRIBE_MODEL=${OPENAI_TRANSCRIBE_MODEL:-gpt-4o-transcribe}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      # Caminho Claude do FROID Explica (fase 2, 18/10/2026). Com a chave no
+      # .env o Claude responde primeiro; sem ela, Gemini e OpenAI seguem como
+      # estao. Os padroes abaixo TEM DE SER OS MESMOS de main.py:
+      # `test_explica_motor_claude` compara os dois.
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - FROID_EXPLICA_CLAUDE_MODEL=${FROID_EXPLICA_CLAUDE_MODEL:-claude-opus-5-5}
+      - FROID_EXPLICA_CLAUDE_EFFORT=${FROID_EXPLICA_CLAUDE_EFFORT:-high}
+      - FROID_EXPLICA_CLAUDE_TIMEOUT=${FROID_EXPLICA_CLAUDE_TIMEOUT:-90}
       - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
       - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
       - STRIPE_PRICE_PRO_10=${STRIPE_PRICE_PRO_10:-}

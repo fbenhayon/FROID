@@ -135,6 +135,24 @@ OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
 OPENAI_TRANSCRIBE_MODEL = os.getenv("OPENAI_TRANSCRIBE_MODEL", "gpt-4o-transcribe")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 FROID_EXPLICA_MODEL = os.getenv("FROID_EXPLICA_MODEL", "gemini-1.5-pro")
+# Caminho Claude do FROID Explica (fase 2, decisao do dono em 15/10/2026).
+#
+# Com ANTHROPIC_API_KEY presente, o Claude responde PRIMEIRO; Gemini e OpenAI
+# ficam como contingencia, e cada troca de motor fica no log. O guia do
+# projeto ja dizia: raciocinio pesado e com Claude. Sem a chave o caminho fica
+# dormente e nada muda — mecanismo agora, ativacao quando a chave entrar no
+# .env de producao. Cada variavel daqui tem a sua linha no docker-compose.yml;
+# sem ela, a chave pareceria ligada e nada aconteceria.
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+FROID_EXPLICA_CLAUDE_MODEL = os.getenv("FROID_EXPLICA_CLAUDE_MODEL", "claude-opus-5-5")
+# Esforco de raciocinio: low | medium | high | xhigh | max. O padrao do modelo
+# e "medium"; a leitura clinica integrada (quatro movimentos sobre oito
+# cortes) nao e classificacao, e sai em "high".
+FROID_EXPLICA_CLAUDE_EFFORT = os.getenv("FROID_EXPLICA_CLAUDE_EFFORT", "high")
+# Teto de tempo por chamada, em segundos: o dobro do teto da chamada OpenAI
+# (45), porque o raciocinio em "high" e mais longo. O log de uso diz quanto
+# cada resposta levou; ajustar por medida, nao por impressao.
+FROID_EXPLICA_CLAUDE_TIMEOUT = float(os.getenv("FROID_EXPLICA_CLAUDE_TIMEOUT", "90"))
 # Teto de saida do FROID Explica clinico.
 #
 # Subiu para 1800 quando o contrato de resposta pedia seis blocos, e voltou
@@ -1146,6 +1164,112 @@ def _normalize_search_text(text: str) -> str:
     return re.sub(r"\s+", " ", str(text or "").lower()).strip()
 
 
+# O JSON que o passo de SQL do Data-FROID exige. Com o Claude, a forma e
+# garantida pela API (saida estruturada), e nao apenas pedida no texto da
+# instrucao — o caminho Gemini ignorava o pedido de JSON ate 18/10/2026.
+_ESQUEMA_SQL_DO_DATA_FROID: Dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "result_sql": {"type": "string"},
+        "cohort_sql": {"type": "string"},
+    },
+    "required": ["result_sql", "cohort_sql"],
+    "additionalProperties": False,
+}
+
+
+def _claude_responde(
+    system_instruction: str,
+    prompt: str,
+    *,
+    max_tokens: int,
+    json_schema: Optional[Dict[str, Any]] = None,
+) -> Tuple[str, str]:
+    """Uma pergunta ao Claude, sincrona (roda em thread). Devolve (texto, motor).
+
+    Texto vazio significa "este motor nao respondeu": recusa, ou resposta sem
+    bloco de texto. O chamador cai para o proximo motor, e o motivo ja esta
+    no log. Temperatura nao existe nesta familia de modelos (a API devolve
+    400); o que regula a profundidade e `output_config.effort`.
+    """
+    import anthropic
+
+    client = anthropic.Anthropic(
+        api_key=ANTHROPIC_API_KEY,
+        timeout=FROID_EXPLICA_CLAUDE_TIMEOUT,
+        max_retries=2,
+    )
+    # A instrucao e estavel entre perguntas e e a parte cara do prompt: fica
+    # em cache no servidor da API. O prompt (glossario, cortes, transcricao,
+    # pergunta) muda a cada chamada e entra como mensagem.
+    system = [
+        {
+            "type": "text",
+            "text": system_instruction,
+            "cache_control": {"type": "ephemeral"},
+        }
+    ]
+    messages = [{"role": "user", "content": prompt}]
+    output_config: Dict[str, Any] = {"effort": FROID_EXPLICA_CLAUDE_EFFORT}
+    if json_schema:
+        output_config["format"] = {"type": "json_schema", "schema": json_schema}
+        response = client.messages.create(
+            model=FROID_EXPLICA_CLAUDE_MODEL,
+            max_tokens=max_tokens,
+            system=system,
+            messages=messages,
+            output_config=output_config,
+        )
+    else:
+        # Recusa por classificador de seguranca re-executa no modelo de
+        # contingencia da propria API, dentro da mesma chamada; `response.model`
+        # diz qual serviu.
+        response = client.beta.messages.create(
+            model=FROID_EXPLICA_CLAUDE_MODEL,
+            max_tokens=max_tokens,
+            system=system,
+            messages=messages,
+            output_config=output_config,
+            betas=["server-side-fallback-2026-07-01"],
+            fallbacks="default",
+        )
+    motor = f"Claude ({getattr(response, 'model', None) or FROID_EXPLICA_CLAUDE_MODEL})"
+    parada = getattr(response, "stop_reason", None)
+    uso = getattr(response, "usage", None)
+    LOGGER.info(
+        "FROID Explica: Claude respondeu motor=%s parada=%s entrada=%s saida=%s "
+        "cache_lido=%s cache_gravado=%s",
+        motor,
+        parada,
+        getattr(uso, "input_tokens", None),
+        getattr(uso, "output_tokens", None),
+        getattr(uso, "cache_read_input_tokens", None),
+        getattr(uso, "cache_creation_input_tokens", None),
+    )
+    if parada == "refusal":
+        detalhes = getattr(response, "stop_details", None)
+        LOGGER.warning(
+            "FROID Explica: Claude recusou (categoria=%s): %s",
+            getattr(detalhes, "category", None),
+            str(getattr(detalhes, "explanation", "") or "")[:200],
+        )
+        return "", motor
+    texto = "".join(
+        str(getattr(bloco, "text", "") or "")
+        for bloco in (getattr(response, "content", None) or [])
+        if getattr(bloco, "type", "") == "text"
+    ).strip()
+    if texto and parada == "max_tokens":
+        LOGGER.warning("FROID Explica: Claude parou no teto de %s tokens", max_tokens)
+        if json_schema:
+            # JSON pela metade nao e JSON: nao ha o que aproveitar.
+            return "", motor
+        # Meia frase e pior que frase nenhuma, e pior ainda e meia frase que
+        # parece inteira. O corte se declara.
+        texto += "\n[resposta interrompida no teto de tokens; o fim nao veio]"
+    return texto, motor
+
+
 async def _generate_froid_explain_text(
     system_instruction: str,
     prompt: str,
@@ -1153,7 +1277,36 @@ async def _generate_froid_explain_text(
     temperature: float = 0.1,
     max_tokens: int = 900,
     json_mode: bool = False,
+    json_schema: Optional[Dict[str, Any]] = None,
 ) -> Tuple[str, str]:
+    if ANTHROPIC_API_KEY:
+        try:
+            text, motor = await asyncio.to_thread(
+                _claude_responde,
+                system_instruction,
+                prompt,
+                max_tokens=max_tokens,
+                json_schema=json_schema if json_mode else None,
+            )
+        except Exception as exc:
+            # O nome da classe diz se foi chave, limite, servidor ou rede
+            # (AuthenticationError, RateLimitError, APIStatusError,
+            # APIConnectionError); o SDK ja tentou de novo 429 e 5xx.
+            LOGGER.warning(
+                "FROID Explica: motor Claude (%s) falhou com %s: %s; tentando o proximo motor",
+                FROID_EXPLICA_CLAUDE_MODEL,
+                type(exc).__name__,
+                str(exc)[:200],
+            )
+        else:
+            if text:
+                return _clean_llm_text(text), motor
+            LOGGER.warning(
+                "FROID Explica: motor Claude (%s) nao respondeu (recusa ou texto vazio); "
+                "tentando o proximo motor",
+                FROID_EXPLICA_CLAUDE_MODEL,
+            )
+
     if GEMINI_API_KEY:
         try:
             from google import genai
@@ -1161,14 +1314,19 @@ async def _generate_froid_explain_text(
 
             def _run_gemini() -> str:
                 client = genai.Client(api_key=GEMINI_API_KEY)
+                config_kwargs: Dict[str, Any] = {
+                    "system_instruction": system_instruction,
+                    "temperature": temperature,
+                    "max_output_tokens": max_tokens,
+                }
+                if json_mode:
+                    # Ate 18/10/2026 o pedido de JSON nao chegava ao Gemini:
+                    # `json_mode` so era lido pelo caminho OpenAI.
+                    config_kwargs["response_mime_type"] = "application/json"
                 response = client.models.generate_content(
                     model=FROID_EXPLICA_MODEL,
                     contents=prompt,
-                    config=types.GenerateContentConfig(
-                        system_instruction=system_instruction,
-                        temperature=temperature,
-                        max_output_tokens=max_tokens,
-                    ),
+                    config=types.GenerateContentConfig(**config_kwargs),
                 )
                 return str(getattr(response, "text", "") or "").strip()
 
@@ -2440,6 +2598,7 @@ async def _query_froid_analytics(payload: FroidExplicaQuery) -> FroidExplicaResp
         temperature=0.0,
         max_tokens=500,
         json_mode=True,
+        json_schema=_ESQUEMA_SQL_DO_DATA_FROID,
     )
     sql_payload = _parse_analytics_sql_payload(sql_text, payload.query_text)
     try:
