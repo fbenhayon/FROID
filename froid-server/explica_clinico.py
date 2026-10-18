@@ -1635,9 +1635,20 @@ relatorio o registrou (a secao diz se registrou). Quando houver secao CORTES DA
 SESSAO, cruze o trecho com o corte em que ele cai."""
 
 
+_FERRAMENTAS = """FERRAMENTAS. Alem do que esta no prompt, voce pode consultar o
+servidor: cortes de outra sessao, as sessoes de um paciente, os pacientes de
+quem pergunta, o agregado da clinica e um trecho da transcricao por instante.
+Cada ferramenta le SOMENTE o que a pessoa que pergunta ja pode ver no painel.
+Use-as quando a pergunta pedir comparacao entre sessoes, pacientes ou
+profissionais, ou um trecho que nao esta no prompt; nao as use para o que o
+prompt ja traz. O que a ferramenta devolver e dado medido; o que ela declarar
+como ausente ou truncado, repita como ausente ou truncado."""
+
+
 def instrucao(
     frase_de_idioma: str = "Responda em português do Brasil",
     modo: str = MODO_AO_VIVO,
+    com_ferramentas: bool = False,
 ) -> str:
     """A instrucao de sistema do FROID Explica clinico, no contrato do modo.
 
@@ -1647,6 +1658,9 @@ def instrucao(
     (e o que permite o cache no caminho Claude).
     """
     contrato = _CONTRATO_DE_ANALISE if modo == MODO_DE_ANALISE else _CONTRATO
+    blocos_finais = [_TRANSCRICAO, _FONTES]
+    if com_ferramentas:
+        blocos_finais.insert(0, _FERRAMENTAS)
     return "\n\n".join(
         [
             "Voce e o FROID Explica, a inteligencia clinica de apoio ao "
@@ -1664,8 +1678,7 @@ def instrucao(
             _REGRAS,
             _INTEGRACAO,
             contrato,
-            _TRANSCRICAO,
-            _FONTES,
+            *blocos_finais,
         ]
     )
 

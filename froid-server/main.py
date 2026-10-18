@@ -47,6 +47,7 @@ from tenant_store import (
 )
 import explica_clinico
 import explica_embeddings
+import explica_ferramentas
 import nr1_explica
 import froid_validation
 import lgpd_registry
@@ -160,6 +161,9 @@ FROID_EXPLICA_CLAUDE_TIMEOUT = float(os.getenv("FROID_EXPLICA_CLAUDE_TIMEOUT", "
 # tokens de saida para 209 palavras. O contrato e que limita o texto visivel;
 # o teto so precisa caber raciocinio mais texto, e cobra-se o que foi usado.
 FROID_EXPLICA_CLAUDE_MAX_TOKENS = int(os.getenv("FROID_EXPLICA_CLAUDE_MAX_TOKENS", "16000"))
+# Teto de turnos de ferramenta por pergunta (fase 4). Uma pergunta comparativa
+# pede duas ou tres consultas; seis e folga. Ao bater, o laco para e o log diz.
+MAX_TURNOS_DE_FERRAMENTA = 6
 # Teto de saida do FROID Explica clinico.
 #
 # Subiu para 1800 quando o contrato de resposta pedia seis blocos, e voltou
@@ -1204,6 +1208,7 @@ def _claude_responde(
     *,
     max_tokens: int,
     json_schema: Optional[Dict[str, Any]] = None,
+    acervo: Optional[explica_ferramentas.Acervo] = None,
 ) -> Tuple[str, str]:
     """Uma pergunta ao Claude, sincrona (roda em thread). Devolve (texto, motor).
 
@@ -1247,15 +1252,56 @@ def _claude_responde(
         # Recusa por classificador de seguranca re-executa no modelo de
         # contingencia da propria API, dentro da mesma chamada; `response.model`
         # diz qual serviu.
-        response = client.beta.messages.create(
-            model=FROID_EXPLICA_CLAUDE_MODEL,
-            max_tokens=teto,
-            system=system,
-            messages=messages,
-            output_config=output_config,
-            betas=["server-side-fallback-2026-07-01"],
-            fallbacks="default",
-        )
+        chamada: Dict[str, Any] = {
+            "model": FROID_EXPLICA_CLAUDE_MODEL,
+            "max_tokens": teto,
+            "system": system,
+            "output_config": output_config,
+            "betas": ["server-side-fallback-2026-07-01"],
+            "fallbacks": "default",
+        }
+        if acervo is not None:
+            # As ferramentas da fase 4: o modelo pede ao servidor o que a
+            # pergunta precisa, e cada ferramenta le so o que o solicitante
+            # ja pode ver. Sem `tool_choice` forcado — a API devolve 400.
+            chamada["tools"] = explica_ferramentas.definicoes()
+        turnos = 0
+        while True:
+            response = client.beta.messages.create(messages=messages, **chamada)
+            if acervo is None or getattr(response, "stop_reason", None) != "tool_use":
+                break
+            turnos += 1
+            if turnos > MAX_TURNOS_DE_FERRAMENTA:
+                LOGGER.warning(
+                    "FROID Explica: teto de %s turnos de ferramenta atingido; "
+                    "respondendo com o que ha",
+                    MAX_TURNOS_DE_FERRAMENTA,
+                )
+                break
+            pedidos = [
+                bloco
+                for bloco in (getattr(response, "content", None) or [])
+                if getattr(bloco, "type", "") == "tool_use"
+            ]
+            # A resposta inteira volta como veio (inclusive os blocos de
+            # raciocinio): o modelo precisa dela para continuar.
+            messages.append({"role": "assistant", "content": response.content})
+            resultados: List[Dict[str, Any]] = []
+            for pedido in pedidos:
+                conteudo, e_erro = explica_ferramentas.executar(
+                    acervo, str(getattr(pedido, "name", "")), getattr(pedido, "input", None)
+                )
+                item: Dict[str, Any] = {
+                    "type": "tool_result",
+                    "tool_use_id": getattr(pedido, "id", ""),
+                    "content": conteudo,
+                }
+                if e_erro:
+                    item["is_error"] = True
+                resultados.append(item)
+            # Todos os resultados do turno numa so mensagem: dividi-los
+            # ensinaria o modelo a parar de pedir em paralelo.
+            messages.append({"role": "user", "content": resultados})
     motor = f"Claude ({getattr(response, 'model', None) or FROID_EXPLICA_CLAUDE_MODEL})"
     parada = getattr(response, "stop_reason", None)
     uso = getattr(response, "usage", None)
@@ -1307,6 +1353,7 @@ async def _generate_froid_explain_text(
     max_tokens: int = 900,
     json_mode: bool = False,
     json_schema: Optional[Dict[str, Any]] = None,
+    acervo: Optional[explica_ferramentas.Acervo] = None,
 ) -> Tuple[str, str]:
     if ANTHROPIC_API_KEY:
         try:
@@ -1316,6 +1363,7 @@ async def _generate_froid_explain_text(
                 prompt,
                 max_tokens=max_tokens,
                 json_schema=json_schema if json_mode else None,
+                acervo=acervo,
             )
         except Exception as exc:
             # O nome da classe diz se foi chave, limite, servidor ou rede
@@ -1671,61 +1719,13 @@ def _is_comparative_question(query_text: str) -> bool:
     return any(marker in normalized for marker in _COMPARATIVE_QUERY_MARKERS)
 
 
-def _valor_medido(valor: Any) -> Optional[float]:
-    """Numero quando houve medida; None quando nao houve. Nunca zero por ausencia."""
-    if valor is None or valor == "":
-        return None
-    try:
-        numero = float(valor)
-    except (TypeError, ValueError):
-        return None
-    return numero if math.isfinite(numero) else None
-
-
-def _compact_report_summary(report: dict) -> dict:
-    """Resumo minimo e seguro de uma sessao para comparacao: sem transcricao
-    bruta de outras sessoes, apenas metricas agregadas e identificadores.
-
-    OS NOMES SAO OS DO ARQUIVO. Ate 15/10/2026 esta funcao lia `ipm`,
-    `coherence` e `dominant_zone` de um snapshot que grava `ipmAvg`,
-    `coherenceStatus` e `dominantZone` (e `sessionSummary` como objeto, nao
-    texto). Nos 20 relatorios mais recentes de producao, 20 de 20 saiam nulos:
-    a carteira que o modelo recebia era uma lista de datas sem numero nenhum,
-    e ninguem reclamou porque a resposta parecia uma comparacao. Espelho de
-    nome (padrao 2.9), entre o painel que grava e o servidor que le.
-    """
-    if not isinstance(report, dict):
-        report = {}
-    average = report.get("sessionAverage")
-    baseline = report.get("baseline")
-    average = average if isinstance(average, dict) else {}
-    baseline = baseline if isinstance(baseline, dict) else {}
-    resumo = report.get("sessionSummary")
-    if isinstance(resumo, dict):
-        tema = str(resumo.get("theme") or "").strip()
-        texto = str(resumo.get("summary") or "").strip()
-    else:
-        tema, texto = "", str(resumo or "").strip()
-    cortes = report.get("tenMinuteCuts")
-    zona = average.get("dominantZone")
-    return {
-        "session_id": str(report.get("sessionId") or report.get("session_id") or ""),
-        "date": str(report.get("createdAt") or report.get("created_at") or "")[:10],
-        "patient_id": str(report.get("patientId") or ""),
-        "duration_seconds": _valor_medido(report.get("durationSeconds")),
-        "cuts_count": len(cortes) if isinstance(cortes, list) else None,
-        "ipm_average": _valor_medido(average.get("ipmAvg")),
-        "ipm_baseline": _valor_medido(baseline.get("ipmAvg")),
-        "idm_average": _valor_medido(average.get("idmAvg")),
-        "words_per_minute_average": _valor_medido(average.get("wordsPerMinute")),
-        "words_per_minute_baseline": _valor_medido(baseline.get("wordsPerMinute")),
-        "f0_mean_average": _valor_medido(average.get("f0Mean")),
-        "f0_mean_baseline": _valor_medido(baseline.get("f0Mean")),
-        "dominant_zone": zona if zona not in (None, "") else None,
-        "coherence": str(average.get("coherenceStatus") or "").strip() or None,
-        "theme": tema[:120],
-        "session_summary": texto[:300],
-    }
+# O resumo por sessao e a linha da carteira moraram aqui ate 18/10/2026. Com a
+# fase 4 as ferramentas do Explica precisam deles, e um modulo que main importa
+# nao pode importar main. Vivem em `explica_ferramentas`; os nomes ficam.
+_valor_medido = explica_ferramentas._numero
+_compact_report_summary = explica_ferramentas.resumo_da_sessao
+_fmt_carteira = explica_ferramentas._fmt
+_linha_da_carteira = explica_ferramentas.linha_da_carteira
 
 
 def _build_portfolio_summary(
@@ -1762,36 +1762,6 @@ def _build_portfolio_summary(
 # e o `[:4000]` antigo cortava a lista no meio de um registro, em silencio.
 # Agora cada sessao e uma linha, e o que nao cabe e declarado em numero.
 LIMITE_DA_CARTEIRA_NO_PROMPT = 8_000
-
-
-def _fmt_carteira(valor: Any, casas: int) -> str:
-    return "--" if valor is None else f"{float(valor):.{casas}f}"
-
-
-def _linha_da_carteira(item: Dict[str, Any]) -> str:
-    duracao = item.get("duration_seconds")
-    minutos = f"{duracao / 60:.0f} min" if duracao is not None else "duracao --"
-    cortes = item.get("cuts_count")
-    zona = item.get("dominant_zone")
-    marca = " (ESTE PACIENTE)" if item.get("current_patient") else ""
-    linha = (
-        f"- {item.get('date') or 'data --'} | sessao {item.get('session_id') or '--'} | "
-        f"paciente {item.get('patient_id') or '--'}{marca} | {minutos} | "
-        f"{cortes if cortes is not None else '--'} cortes | "
-        f"IPM {_fmt_carteira(item.get('ipm_average'), 1)} "
-        f"(base {_fmt_carteira(item.get('ipm_baseline'), 1)}) | "
-        f"IDM {_fmt_carteira(item.get('idm_average'), 2)} | "
-        f"P/MIN {_fmt_carteira(item.get('words_per_minute_average'), 1)} "
-        f"(base {_fmt_carteira(item.get('words_per_minute_baseline'), 1)}) | "
-        f"F0 MED. {_fmt_carteira(item.get('f0_mean_average'), 1)} "
-        f"(base {_fmt_carteira(item.get('f0_mean_baseline'), 1)}) | "
-        f"zona {zona if zona is not None else '--'} | "
-        f"coerencia {item.get('coherence') or '--'} | tema: {item.get('theme') or '--'}"
-    )
-    resumo = str(item.get("session_summary") or "").strip()
-    if resumo:
-        linha += f"\n  resumo: {resumo}"
-    return linha
 
 
 def _format_portfolio_summary(context: Dict[str, Any]) -> str:
@@ -2150,7 +2120,53 @@ def _fallback_froid_explica_result(query_text: str, context: Dict[str, Any]) -> 
     )
 
 
-async def _query_froid_knowledge(payload: FroidExplicaQuery) -> FroidExplicaResponse:
+def _acervo_do_explica(
+    request: Request, payload: FroidExplicaQuery
+) -> Optional[explica_ferramentas.Acervo]:
+    """O que as ferramentas do Explica podem ler: exatamente o que o painel lista.
+
+    Sai de `_accessible_session_reports`, a mesma decisao de posse, atribuicao
+    e visibilidade de clinica da tela. A transcricao de uma sessao so e
+    decifrada quando uma ferramenta a pede, e pela mesma funcao — nenhuma
+    ferramenta tem um caminho proprio de acesso.
+    """
+    try:
+        acessiveis, _contexto = _accessible_session_reports(request, reveal_transcripts=False)
+    except HTTPException as erro:
+        LOGGER.warning("FROID Explica: sem acervo para as ferramentas (%s)", erro.detail)
+        return None
+    relatorios = [
+        _enrich_report_patient(dict(relatorio))
+        for relatorio in acessiveis
+        if isinstance(relatorio, dict)
+    ]
+    ids = {str(r.get("sessionId") or r.get("session_id") or "") for r in relatorios}
+
+    def transcricao_de(session_id: str) -> Optional[Dict[str, Any]]:
+        if session_id not in ids:
+            return None
+        try:
+            com_texto, _ = _accessible_session_reports(request, reveal_transcripts=True)
+        except HTTPException:
+            return None
+        for relatorio in com_texto:
+            if str(relatorio.get("sessionId") or relatorio.get("session_id") or "") == session_id:
+                return relatorio
+        return None
+
+    return explica_ferramentas.Acervo(
+        relatorios=relatorios,
+        sessao_atual=str(payload.session_id or ""),
+        paciente_atual=str(
+            payload.patient_id or (payload.context or {}).get("patient_id") or ""
+        ),
+        transcricao_de=transcricao_de,
+    )
+
+
+async def _query_froid_knowledge(
+    payload: FroidExplicaQuery, request: Optional[Request] = None
+) -> FroidExplicaResponse:
     response_locale = normalize_session_locale(payload.response_locale)
     # A METRICA GANHA DO PORTAO ADMINISTRATIVO, e a ordem aqui e a decisao.
     #
@@ -2228,8 +2244,17 @@ async def _query_froid_knowledge(payload: FroidExplicaQuery) -> FroidExplicaResp
     # tabela por corte e nao tem teto fixo de palavras. O painel declara o
     # modo; o teto de saida acompanha.
     modo, teto_de_saida = _modo_e_teto(payload.context)
+    # Ferramentas so no caminho Claude (fase 4): os outros motores nao entram
+    # no laco e seguem com o contexto que o navegador manda.
+    acervo = (
+        _acervo_do_explica(request, payload)
+        if request is not None and ANTHROPIC_API_KEY
+        else None
+    )
     system_instruction = explica_clinico.instrucao(
-        session_language(response_locale).summary_instruction, modo=modo
+        session_language(response_locale).summary_instruction,
+        modo=modo,
+        com_ferramentas=acervo is not None,
     )
     prompt = explica_clinico.montar_prompt(
         pergunta=payload.query_text,
@@ -2250,7 +2275,14 @@ async def _query_froid_knowledge(payload: FroidExplicaQuery) -> FroidExplicaResp
         # entram em 900 tokens sem que o modelo corte justamente a parte que
         # o profissional veio buscar.
         max_tokens=teto_de_saida,
+        acervo=acervo,
     )
+    if acervo is not None and acervo.chamadas:
+        LOGGER.info(
+            "FROID Explica: %d chamada(s) de ferramenta nesta pergunta: %s",
+            len(acervo.chamadas),
+            ", ".join(nome for nome, _entrada in acervo.chamadas),
+        )
     if not text:
         text = _fallback_froid_explica_result(payload.query_text, payload.context)
     return FroidExplicaResponse(
@@ -16529,7 +16561,7 @@ async def froid_explica_query(payload: FroidExplicaQuery, request: Request):
     if intent == "analytics":
         result = await _query_froid_analytics(payload)
     else:
-        result = await _query_froid_knowledge(payload)
+        result = await _query_froid_knowledge(payload, request)
     result.result_text = _sanitize_reference_sections(result.result_text)
     result.citations = _scientific_citations(result.citations)
     # Qual motor respondeu, por pergunta. O painel apaga a assinatura do motor
