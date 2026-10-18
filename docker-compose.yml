@@ -147,6 +147,9 @@ services:
       # nada. Se os dois divergirem, quem manda e este arquivo — e o valor do
       # codigo vira decoracao. `test_explica_clinico_glossario` compara os dois.
       - FROID_EXPLICA_MAX_TOKENS=${FROID_EXPLICA_MAX_TOKENS:-800}
+      # Teto do modo de analise (tabela por corte + sintese); mesmo padrao de
+      # main.py, comparado por `test_explica_modo_de_analise`.
+      - FROID_EXPLICA_MAX_TOKENS_ANALISE=${FROID_EXPLICA_MAX_TOKENS_ANALISE:-4000}
       - FROID_CHROMA_PATH=${FROID_CHROMA_PATH:-/data/chroma_db}
       - FROID_DUCKDB_PATH=${FROID_DUCKDB_PATH:-/data/datamart_anonymous_v3.duckdb}
       - FROID_ANALYTICS_MIN_K=${FROID_ANALYTICS_MIN_K:-7}

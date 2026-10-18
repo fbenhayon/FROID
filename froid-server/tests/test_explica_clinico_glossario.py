@@ -483,8 +483,14 @@ class OGlossarioEConsumido(unittest.TestCase):
         # Escopado a rota clinica: a rota de analytics tem outro prompt e outro
         # teto, e travar o arquivo inteiro faria este teste defender o teto
         # alheio.
+        # Desde 18/10/2026 (fase 3) o teto vem do modo: `_modo_e_teto` devolve
+        # FROID_EXPLICA_MAX_TOKENS ao vivo e FROID_EXPLICA_MAX_TOKENS_ANALISE
+        # na analise. O que se afirma e que a rota nao fixa numero nenhum e
+        # passa o teto do modo — a tabela de valores esta em
+        # test_explica_modo_de_analise.
         corpo = _corpo_python(MAIN, "_query_froid_knowledge")
-        self.assertIn("max_tokens=FROID_EXPLICA_MAX_TOKENS", corpo)
+        self.assertIn("_modo_e_teto(payload.context)", corpo)
+        self.assertIn("max_tokens=teto_de_saida", corpo)
         self.assertNotIn("max_tokens=900", corpo)
 
 

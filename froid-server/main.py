@@ -172,6 +172,19 @@ FROID_EXPLICA_CLAUDE_MAX_TOKENS = int(os.getenv("FROID_EXPLICA_CLAUDE_MAX_TOKENS
 # cortes no prompt, oito cortes com valor e desvio nao cabiam em 150 sem comer
 # os movimentos 3 e 4), e o teto acompanhou na mesma proporcao: 600 x 200/150.
 FROID_EXPLICA_MAX_TOKENS = int(os.getenv("FROID_EXPLICA_MAX_TOKENS", "800"))
+# Teto do MODO DE ANALISE (fase 3, 18/10/2026): tabela por corte mais ate tres
+# paragrafos. Derivado: 20 cortes x ~25 tokens por linha + ~1.200 palavras de
+# sintese cabem em ~3.000; o resto e folga. Vale para os motores sem
+# raciocinio contado; o caminho Claude tem o seu proprio teto.
+FROID_EXPLICA_MAX_TOKENS_ANALISE = int(os.getenv("FROID_EXPLICA_MAX_TOKENS_ANALISE", "4000"))
+
+
+def _modo_e_teto(contexto: Dict[str, Any]) -> Tuple[str, int]:
+    """O modo desta pergunta e o teto de saida que vai com ele."""
+    modo = explica_clinico.modo_do_contexto(contexto)
+    if modo == explica_clinico.MODO_DE_ANALISE:
+        return modo, FROID_EXPLICA_MAX_TOKENS_ANALISE
+    return modo, FROID_EXPLICA_MAX_TOKENS
 FROID_CHROMA_PATH = os.getenv("FROID_CHROMA_PATH", "/data/chroma_db")
 FROID_CHROMA_COLLECTION = os.getenv(
     "FROID_CHROMA_COLLECTION",
@@ -2211,8 +2224,12 @@ async def _query_froid_knowledge(payload: FroidExplicaQuery) -> FroidExplicaResp
     # o caminho clinico. O resultado, medido em sessao real, foi "essa metrica
     # nao esta mencionada nas informacoes disponiveis" sobre uma metrica que
     # estava no proprio payload.
+    # Um contrato por modo (fase 3): ao vivo e curto; analise abre com a
+    # tabela por corte e nao tem teto fixo de palavras. O painel declara o
+    # modo; o teto de saida acompanha.
+    modo, teto_de_saida = _modo_e_teto(payload.context)
     system_instruction = explica_clinico.instrucao(
-        session_language(response_locale).summary_instruction
+        session_language(response_locale).summary_instruction, modo=modo
     )
     prompt = explica_clinico.montar_prompt(
         pergunta=payload.query_text,
@@ -2223,6 +2240,7 @@ async def _query_froid_knowledge(payload: FroidExplicaQuery) -> FroidExplicaResp
         carteira=portfolio_summary,
         historico=conversation_history,
     )
+    LOGGER.info("FROID Explica: modo=%s teto=%s", modo, teto_de_saida)
     text, engine = await _generate_froid_explain_text(
         system_instruction,
         prompt,
@@ -2231,7 +2249,7 @@ async def _query_froid_knowledge(payload: FroidExplicaQuery) -> FroidExplicaResp
         # valor, formula, regua, o que abre, o que derruba e o limite nao
         # entram em 900 tokens sem que o modelo corte justamente a parte que
         # o profissional veio buscar.
-        max_tokens=FROID_EXPLICA_MAX_TOKENS,
+        max_tokens=teto_de_saida,
     )
     if not text:
         text = _fallback_froid_explica_result(payload.query_text, payload.context)

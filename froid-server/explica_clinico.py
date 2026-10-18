@@ -1559,6 +1559,59 @@ pergunta assim mesmo e registre a falta em meia frase NO FIM. Abrir com a
 ausencia faz toda resposta comecar igual e enterra o que foi perguntado."""
 
 
+_CONTRATO_DE_ANALISE = """CONTRATO DA RESPOSTA — MODO DE ANALISE. Quem le esta com
+o relatorio aberto, sem paciente na frente, e perguntou para comparar: cortes
+de uma sessao, sessoes de um paciente, pacientes de uma carteira. A regra do
+dono: os dados vem primeiro, o tamanho vem depois.
+
+1. ENUMERACAO ANTES DA SINTESE. Quando a pergunta pedir valores por corte ou
+   por sessao, abra com uma TABELA em markdown (linhas comecando por "|"),
+   uma linha por corte ou sessao, com as colunas que a pergunta pede e o
+   desvio contra a linha de base que o servidor calculou — cite-o, nao
+   recalcule. Corte sem apuracao entra com "--". Corte de segundos entra com
+   a duracao ao lado e nao se compara aos de dez minutos. Nunca resuma a
+   tabela em "os cortes variam".
+
+2. DEPOIS, OS QUATRO MOVIMENTOS em prosa, sobre a tabela: a regua deste
+   paciente, o cruzamento com F0, IDM e IPM no mesmo trecho, o padrao dito
+   com o quanto, as leituras candidatas e o passo concreto — o trecho da
+   transcricao que vale reler, com o instante. Para cada corte que a pergunta
+   nomeou, uma frase sobre o que ele teve de diferente, com o tema do corte
+   quando houver.
+
+3. SEM TETO FIXO DE PALAVRAS, e sem repeticao: o tamanho e o que a enumeracao
+   exige, e nada alem. Nao repita a tabela em prosa, nao repita a pergunta,
+   nao encerre com "considere o contexto clinico". Ate tres paragrafos de
+   sintese depois da tabela, sem titulo de secao e sem rotulo em negrito
+   abrindo paragrafo.
+
+4. O que a medida e entra numa oracao subordinada, so se mudar a leitura.
+   Valor ausente nao abre a resposta: registra-se no fim, em meia frase."""
+
+# Os dois modos em que o FROID Explica responde. O painel declara o modo em
+# `explica_mode`; sem declaracao, cortes no contexto significam analise.
+MODO_AO_VIVO = "ao_vivo"
+MODO_DE_ANALISE = "analise"
+MODOS = (MODO_AO_VIVO, MODO_DE_ANALISE)
+
+
+def modo_do_contexto(contexto: Optional[Mapping[str, Any]]) -> str:
+    """Qual contrato vale para esta pergunta.
+
+    Declarado pelo painel vence. Sem declaracao, a presenca de cortes compactos
+    diz que a pessoa esta lendo um relatorio; o resto e sessao ao vivo, que e
+    o modo curto — errar para o lado curto custa uma pergunta a mais, errar
+    para o lado longo custa quatro telas com paciente na frente.
+    """
+    contexto = contexto if isinstance(contexto, Mapping) else {}
+    declarado = str(contexto.get("explica_mode") or "").strip().lower()
+    if declarado in MODOS:
+        return declarado
+    if contexto.get("panel_cuts"):
+        return MODO_DE_ANALISE
+    return MODO_AO_VIVO
+
+
 _FONTES = """REFERENCIAS. Ao final, sob "Referencias utilizadas", liste SOMENTE
 referencias cientificas ou documentos cientificos diretamente relacionados ao
 tema. Nao liste base operacional, campos anonimizados, proximas acoes, familia,
@@ -1582,8 +1635,18 @@ relatorio o registrou (a secao diz se registrou). Quando houver secao CORTES DA
 SESSAO, cruze o trecho com o corte em que ele cai."""
 
 
-def instrucao(frase_de_idioma: str = "Responda em português do Brasil") -> str:
-    """A instrucao de sistema do FROID Explica clinico."""
+def instrucao(
+    frase_de_idioma: str = "Responda em português do Brasil",
+    modo: str = MODO_AO_VIVO,
+) -> str:
+    """A instrucao de sistema do FROID Explica clinico, no contrato do modo.
+
+    Ao vivo: 200 palavras, prosa. Analise: tabela primeiro, sem teto fixo. O
+    resto da instrucao e o mesmo nos dois — o que muda e so a forma da
+    entrega, e a instrucao continua identica entre perguntas do mesmo modo
+    (e o que permite o cache no caminho Claude).
+    """
+    contrato = _CONTRATO_DE_ANALISE if modo == MODO_DE_ANALISE else _CONTRATO
     return "\n\n".join(
         [
             "Voce e o FROID Explica, a inteligencia clinica de apoio ao "
@@ -1600,7 +1663,7 @@ def instrucao(frase_de_idioma: str = "Responda em português do Brasil") -> str:
             f"{frase_de_idioma}.",
             _REGRAS,
             _INTEGRACAO,
-            _CONTRATO,
+            contrato,
             _TRANSCRICAO,
             _FONTES,
         ]

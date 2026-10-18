@@ -18,7 +18,7 @@ import {
   palavrasPorMinutoDoPaciente,
   pesoDeAusencia,
 } from "../lib/medidas-do-corte";
-import { transcricaoParaOExplica } from "../lib/painel-para-o-explica";
+import { contextoDosCortes, transcricaoParaOExplica } from "../lib/painel-para-o-explica";
 import {
   STATUS_CAPTURA_TEXTO,
   type StatusCaptura,
@@ -3275,6 +3275,23 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         "DR = profissional/terapeuta; PC ou PAC = paciente.",
       session_transcript: transcript,
       transcript_timestamps: comTempo.transcript_timestamps,
+      // Sessao ao vivo: contrato curto. E os cortes JA FECHADOS, compactos,
+      // pelo mesmo produtor do relatorio — so quando existe corte fechado;
+      // sem nenhum, nao se inventa janela de dez minutos.
+      explica_mode: "ao_vivo",
+      ...(conversationSummariesRef.current.length
+        ? contextoDosCortes(
+            baselineSnapshotRef.current,
+            buildReportCuts(
+              sessionSamplesRef.current,
+              transcriptSegmentsRef.current,
+              Math.max(1, elapsedSecondsRef.current),
+              conversationSummariesRef.current,
+            ),
+            conversationSummariesRef.current,
+            "cortes ja fechados nesta sessao ao vivo",
+          )
+        : {}),
       patient_speech: patientLines.slice(-80).join("\n"),
       professional_speech: professionalLines.slice(-80).join("\n"),
       transcript_line_count: transcriptLines.length,

@@ -7,6 +7,49 @@ import {
   type ProfessionalPrompt,
 } from "../../lib/professional-prompts";
 import { normalizeSessionLocale, type SessionLocale } from "../../lib/localization";
+import { blocosDaResposta } from "../../lib/resposta-do-explica";
+
+/** A resposta do assistente, com a tabela do modo de analise desenhada. */
+function RespostaDoExplica({ texto }: { texto: string }) {
+  return (
+    <>
+      {blocosDaResposta(texto).map((bloco, indice) =>
+        bloco.tipo === "texto" ? (
+          <span key={indice}>{bloco.texto}</span>
+        ) : (
+          <table
+            key={indice}
+            className="my-2 w-full border-collapse text-[11px] leading-snug"
+          >
+            <thead>
+              <tr>
+                {bloco.cabecalho.map((celula, i) => (
+                  <th
+                    key={i}
+                    className="border-b border-slate-600 px-1 py-0.5 text-left font-semibold text-slate-200"
+                  >
+                    {celula}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {bloco.linhas.map((linha, i) => (
+                <tr key={i}>
+                  {linha.map((celula, j) => (
+                    <td key={j} className="border-b border-slate-800 px-1 py-0.5 align-top">
+                      {celula}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ),
+      )}
+    </>
+  );
+}
 
 /**
  * Os atalhos são a primeira pergunta que o profissional faz, e três deles
@@ -413,7 +456,11 @@ export const AIInsights: React.FC<Props> = ({
               <p className="mb-0.5 text-[9px] font-semibold opacity-80">
                 {message.role === "user" ? ui.you : "FROID Explica"}
               </p>
-              {message.content}
+              {message.role === "assistant" ? (
+                <RespostaDoExplica texto={message.content} />
+              ) : (
+                message.content
+              )}
               {message.role === "assistant" && message.safety === false && (
                 <div className="mt-2 text-[9px] font-bold text-red-500">
                   {ui.blocked}

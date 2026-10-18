@@ -217,6 +217,8 @@ export const PatientDetail: React.FC = () => {
     }
   };
   const context = {
+    // Ficha do paciente: leitura depois da sessao, contrato de analise.
+    explica_mode: "analise",
     patient: group.patient,
     patient_summary: {
       total_sessions: group.totalSessions,

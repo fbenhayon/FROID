@@ -1017,6 +1017,9 @@ export const SessionReport: React.FC<Props> = () => {
     const patientLines = transcriptLines.filter((line) => /^(PC|PAC)\b/i.test(line));
     const professionalLines = transcriptLines.filter((line) => /^DR\b/i.test(line));
     return {
+      // Quem pergunta aqui esta analisando depois, sem paciente na frente:
+      // vale o contrato de analise (tabela por corte, sem teto fixo).
+      explica_mode: "analise",
       report_session_summary: summary,
       report_notes_count: report.clinicalNotes.length,
       // A TABELA DE METRICAS, no vocabulario que o servidor conhece.
