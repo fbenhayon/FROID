@@ -155,6 +155,159 @@ export function portaoDeAcessoV2(carteira: EstadoV2<CarteiraPsiqueV2>): {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Agenda interna (Psique V2, fase 5 do painel — 19/10/2026)
+// ---------------------------------------------------------------------------
+
+export interface DisponibilidadeV2 {
+  weekday: number;
+  start_minute: number;
+  end_minute: number;
+  timezone: string;
+  active: boolean;
+}
+
+export interface ClinicoV2 {
+  membership_id: string;
+  email: string;
+  availability: DisponibilidadeV2[];
+}
+
+export interface PacienteV2 {
+  patient_id: string;
+  /** Nome para secretária, administrador e clínico; identificador curto
+   *  para o supervisor. O servidor decide; `with_names` diz qual veio. */
+  label: string;
+}
+
+export interface AgendamentoV2 {
+  appointment_id: string;
+  patient_id: string;
+  patient_name: string | null;
+  clinician_membership_id: string;
+  start_at: string;
+  end_at: string;
+  timezone: string;
+  appointment_status: string;
+  unit_id: string | null;
+  version: number;
+}
+
+export interface MembroComPapeisV2 {
+  membership_id: string;
+  email: string;
+  v2_roles: string[];
+}
+
+function comJson(init: RequestInit = {}): RequestInit {
+  return {
+    ...init,
+    headers: { ...cabecalhos(), "Content-Type": "application/json", ...(init.headers || {}) },
+  };
+}
+
+export function listarClinicosV2(): Promise<EstadoV2<{ clinicians: ClinicoV2[] }>> {
+  return chamar("/api/psique/v2/scheduling/clinicians", { headers: cabecalhos() });
+}
+
+export function listarPacientesV2(): Promise<
+  EstadoV2<{ patients: PacienteV2[]; with_names: boolean }>
+> {
+  return chamar("/api/psique/v2/scheduling/patients", { headers: cabecalhos() });
+}
+
+export function listarAgendaV2(
+  fromIso: string,
+  toIso: string,
+): Promise<EstadoV2<{ appointments: AgendamentoV2[] }>> {
+  const busca = new URLSearchParams({ from_at: fromIso, to_at: toIso });
+  return chamar(`/api/psique/v2/scheduling/appointments?${busca.toString()}`, {
+    headers: cabecalhos(),
+  });
+}
+
+export function criarAgendamentoV2(
+  corpo: {
+    patient_id: string;
+    clinician_membership_id: string;
+    start_at: string;
+    end_at: string;
+    timezone: string;
+  },
+  chaveDeIdempotencia: string,
+): Promise<EstadoV2<{ appointment_id: string; created: boolean; version: number }>> {
+  return chamar(
+    "/api/psique/v2/scheduling/appointments",
+    comJson({
+      method: "POST",
+      headers: { "X-Idempotency-Key": chaveDeIdempotencia },
+      body: JSON.stringify(corpo),
+    }),
+  );
+}
+
+export function alterarAgendamentoV2(
+  appointmentId: string,
+  corpo: { expected_version: number; start_at?: string; end_at?: string; appointment_status?: string },
+): Promise<EstadoV2<{ applied: boolean; version?: number; code?: string }>> {
+  return chamar(
+    `/api/psique/v2/scheduling/appointments/${encodeURIComponent(appointmentId)}`,
+    comJson({ method: "PATCH", body: JSON.stringify(corpo) }),
+  );
+}
+
+export function cancelarAgendamentoV2(
+  appointmentId: string,
+  corpo: { expected_version: number; reason?: string },
+): Promise<EstadoV2<{ applied: boolean; version?: number; code?: string }>> {
+  return chamar(
+    `/api/psique/v2/scheduling/appointments/${encodeURIComponent(appointmentId)}/cancel`,
+    comJson({ method: "POST", body: JSON.stringify(corpo) }),
+  );
+}
+
+export function definirDisponibilidadeV2(corpo: {
+  clinician_membership_id: string;
+  weekday: number;
+  start_minute: number;
+  end_minute: number;
+  timezone: string;
+  active?: boolean;
+}): Promise<EstadoV2<Record<string, unknown>>> {
+  return chamar(
+    "/api/psique/v2/scheduling/availability",
+    comJson({ method: "PUT", body: JSON.stringify(corpo) }),
+  );
+}
+
+export function ativarRbacV2(): Promise<EstadoV2<{ enabled: boolean }>> {
+  return chamar("/api/psique/v2/rbac/enable", comJson({ method: "POST" }));
+}
+
+export function listarPapeisV2(): Promise<EstadoV2<{ members: MembroComPapeisV2[] }>> {
+  return chamar("/api/psique/v2/rbac/role-grants", { headers: cabecalhos() });
+}
+
+export function concederPapelV2(
+  membershipId: string,
+  role: string,
+): Promise<EstadoV2<{ granted: boolean }>> {
+  return chamar(
+    "/api/psique/v2/rbac/role-grants",
+    comJson({ method: "POST", body: JSON.stringify({ membership_id: membershipId, role }) }),
+  );
+}
+
+export function revogarPapelV2(
+  membershipId: string,
+  role: string,
+): Promise<EstadoV2<{ revoked: boolean }>> {
+  return chamar(
+    "/api/psique/v2/rbac/role-revocations",
+    comJson({ method: "POST", body: JSON.stringify({ membership_id: membershipId, role }) }),
+  );
+}
+
 /** Menus por capacidade: a tela apresenta, o servidor decide. */
 export const MENUS_POR_CAPACIDADE: Record<string, keyof CapacidadesPsiqueV2["capabilities"]> = {
   "nova-analise": "clinical_analysis",

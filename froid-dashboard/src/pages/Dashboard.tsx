@@ -700,6 +700,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                 {tr("Gestão da clínica")}
               </button>
             )}
+            {isClinicManager && (
+              <button
+                onClick={() => nav("/agenda")}
+                title={tr("Agenda interna da clínica: marcar, reagendar e cancelar atendimentos dos profissionais.")}
+                className="rounded-lg border border-emerald-800 bg-emerald-950 px-3 py-2 text-xs font-bold text-emerald-100 hover:bg-emerald-900"
+              >
+                {tr("Agenda da clínica")}
+              </button>
+            )}
             {isEmpresaNr1 && (
               <button
                 onClick={() => void abrirNr1()}

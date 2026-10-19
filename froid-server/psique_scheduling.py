@@ -21,6 +21,9 @@ from tenant_access import AccessContext
 
 PHASE4_SCHEMA = PHASE3_SCHEMA | {"044_psique_org_scheduling",
                                  "045_psique_scheduling_serialization"}
+# 053: supervisor clinico na agenda, nome do paciente na listagem e as duas
+# listagens que o painel usa para montar a agenda (clinicos e pacientes).
+PHASE5_SCHEMA = PHASE4_SCHEMA | {"053_psique_scheduling_supervisor"}
 
 # Mirrors of the migration 044 CHECK domains; drift is guarded by tests.
 APPOINTMENT_STATUSES = ("SCHEDULED", "CONFIRMED", "IN_PROGRESS",
@@ -99,6 +102,21 @@ class PsiqueScheduling:
         return self._call("SELECT psique_v2_appointments_list(%s,%s,%s,%s,%s)",
                           (context.organization_id, context.membership_id, context.user_id,
                            _iso(from_at), _iso(to_at)), context)
+
+    def list_clinicians(self, context: AccessContext) -> dict[str, Any]:
+        """Os clinicos da organizacao com a disponibilidade semanal de cada um."""
+        return executar_comando_v2(
+            self._connect, "SELECT psique_v2_scheduling_clinicians(%s,%s,%s)",
+            (context.organization_id, context.membership_id, context.user_id),
+            context=context, schema=PHASE5_SCHEMA)
+
+    def list_patients(self, context: AccessContext) -> dict[str, Any]:
+        """Os pacientes ativos da organizacao: nome para secretaria, administrador
+        e clinico; identificador curto para o supervisor (decisao do dono)."""
+        return executar_comando_v2(
+            self._connect, "SELECT psique_v2_scheduling_patients(%s,%s,%s)",
+            (context.organization_id, context.membership_id, context.user_id),
+            context=context, schema=PHASE5_SCHEMA)
 
     def appointment_history(self, context: AccessContext, appointment_id: str) -> dict[str, Any]:
         return self._call("SELECT psique_v2_appointment_history(%s,%s,%s,%s)",

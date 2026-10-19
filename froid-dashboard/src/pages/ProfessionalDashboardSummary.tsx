@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { FroidUser } from "../App";
 import { AgendaDoProfissional } from "../components/panels/AgendaDoProfissional";
+import { AgendaInterna } from "../components/psique/AgendaInterna";
 import { AIInsights } from "../components/panels/AIInsights";
 import { WaitingPatientSessions } from "../components/WaitingPatientSessions";
 import { apiUrl } from "../lib/api";
@@ -315,6 +316,10 @@ export const ProfessionalDashboardSummary: React.FC<Props> = ({ user, onLogout }
           </section>
           </div>
 
+          {/* A agenda interna (fonte) vem antes do Google (espelho). */}
+          <div className="mb-4">
+            <AgendaInterna modo="propria" />
+          </div>
           <AgendaDoProfissional tr={tr} />
         </div>
       </main>

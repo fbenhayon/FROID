@@ -56,6 +56,13 @@ class PsiqueRbac:
                           (context.organization_id, context.membership_id, context.user_id,
                            supervisor_membership_id, supervised_membership_id, active), context)
 
+    def list_role_grants(self, context: AccessContext) -> dict[str, Any]:
+        """Os membros ativos com os papeis V2 de cada um; so para ORG_ADMIN (053)."""
+        return executar_comando_v2(
+            self._connect, "SELECT psique_v2_role_grants_list(%s,%s,%s)",
+            (context.organization_id, context.membership_id, context.user_id),
+            context=context, schema=PHASE3_SCHEMA | {"053_psique_scheduling_supervisor"})
+
     def capabilities(self, context: AccessContext) -> dict[str, Any]:
         return self._call("SELECT psique_v2_capabilities(%s,%s,%s)",
                           (context.organization_id, context.membership_id, context.user_id),

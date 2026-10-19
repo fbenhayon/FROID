@@ -28,6 +28,7 @@ const Settings = lazy(() => import("./pages/Settings").then((module) => ({ defau
 const PsiqueCompraConfirmacaoPage = lazy(() => import("./pages/PsiqueCompraConfirmacao").then((module) => ({ default: module.PsiqueCompraConfirmacaoPage })));
 const PsiqueCompraCanceladaPage = lazy(() => import("./pages/PsiqueCompraConfirmacao").then((module) => ({ default: module.PsiqueCompraCanceladaPage })));
 const ClinicManagement = lazy(() => import("./pages/ClinicManagement").then((module) => ({ default: module.ClinicManagement })));
+const AgendaDaClinica = lazy(() => import("./pages/AgendaDaClinica").then((module) => ({ default: module.AgendaDaClinica })));
 const EntrarNaClinicaPage = lazy(() => import("./pages/EntrarNaClinica").then((module) => ({ default: module.EntrarNaClinicaPage })));
 const EntrarComoProfissionalPage = lazy(() => import("./pages/EntrarNaClinica").then((module) => ({ default: module.EntrarComoProfissionalPage })));
 const EntrarComoSupervisorPage = lazy(() => import("./pages/EntrarNaClinica").then((module) => ({ default: module.EntrarComoSupervisorPage })));
@@ -512,6 +513,9 @@ function App() {
           path="/clinica"
           element={clinicalElement(<ClinicManagement user={user} />)}
         />
+        {/* Agenda interna da clinica (Psique V2). A tela declara quando a
+            clinica ainda nao ativou os papeis V2 ou o papel nao inclui agenda. */}
+        <Route path="/agenda" element={clinicalElement(<AgendaDaClinica />)} />
         {/* Resgate de convite de equipe. Rota PUBLICA (espelha /convite/:token do
             paciente): o convidado chega pelo link do WhatsApp sem conta, se
             cadastra/entra na propria tela com o e-mail convidado e passa a

@@ -191,6 +191,13 @@ def build_psique_v2_billing_router(
                 raise HTTPException(status_code=422, detail="RBAC_BODY_INVALID")
             return str(body["membership_id"]), str(body["role"])
 
+        @router.get("/rbac/role-grants")
+        async def rbac_grants_list(context: Any = Depends(context_dependency)):  # noqa: B008 -- padrao FastAPI de dependencia
+            try:
+                return rbac_provider().list_role_grants(context)
+            except BillingError as error:
+                raise _http_error(error) from None
+
         @router.post("/rbac/role-grants")
         async def rbac_grant(request: Request, context: Any = Depends(context_dependency)):  # noqa: B008 -- padrao FastAPI de dependencia
             membership_id, role = await _rbac_role_body(request)
@@ -265,6 +272,20 @@ def build_psique_v2_billing_router(
                     weekday=int(body["weekday"]), start_minute=int(body["start_minute"]),
                     end_minute=int(body["end_minute"]), timezone_name=str(body["timezone"]),
                     active=bool(body.get("active", True)))
+            except BillingError as error:
+                raise _http_error(error) from None
+
+        @router.get("/scheduling/clinicians")
+        async def scheduling_clinicians(context: Any = Depends(context_dependency)):  # noqa: B008 -- padrao FastAPI de dependencia
+            try:
+                return scheduling_provider().list_clinicians(context)
+            except BillingError as error:
+                raise _http_error(error) from None
+
+        @router.get("/scheduling/patients")
+        async def scheduling_patients(context: Any = Depends(context_dependency)):  # noqa: B008 -- padrao FastAPI de dependencia
+            try:
+                return scheduling_provider().list_patients(context)
             except BillingError as error:
                 raise _http_error(error) from None
 
