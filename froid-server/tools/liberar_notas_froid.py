@@ -33,6 +33,13 @@ from pathlib import Path
 # que o clinico precisa para INTERPRETAR a leitura; fica fora como o sistema
 # CALCULA a leitura.
 LIBERADAS: dict[str, str] = {
+    # 19/10/2026: os procedimentos da clinica e o que o proprio assistente
+    # consulta. Pedido do dono: "esses procedimentos serao consultados pelos
+    # usuarios e o FROID Explica deve estar apto a descrever nos detalhes".
+    "FROID_Clinica_Papeis_Agenda_Cotas_Visibilidade.md":
+        "Como a clinica opera no painel: papeis, agenda, cotas, visibilidade, carimbo. Procedimento, sem numero de preco.",
+    "FROID_Explica_O_Que_Consulta_E_Como_Responde.md":
+        "O que o assistente recebe, os dois modos de resposta e as consultas que faz sob o acesso de quem pergunta.",
     "FROID_Ficha_Tecnica_IPM.md":
         "O que o IPM mede e o que nao afirma. Sem pesos, sem composicao.",
     "FROID_Ficha_Tecnica_IDM_e_Zonas.md":

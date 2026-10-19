@@ -51,6 +51,12 @@ CASOS: list[tuple[str, str]] = [
     ("qual a diferenca entre o froid da clinica e o da empresa", "Dois_Produtos"),
     ("como funciona a janela clinica de cinco minutos", "Estabilizacao"),
     ("por que a tela nao atualiza a cada segundo", "Estabilizacao"),
+    # 19/10/2026: os procedimentos da clinica e o que o proprio assistente
+    # consulta. Pedido do dono: o Explica tem de descrever isto nos detalhes.
+    ("como ativar a agenda da clinica e quem concede os papeis", "Clinica_Papeis"),
+    ("o supervisor ve o nome do paciente na agenda", "Clinica_Papeis"),
+    ("o que acontece quando a cota de sessoes do profissional acaba", "Clinica_Papeis"),
+    ("o froid explica consegue comparar as sessoes do paciente", "Explica_O_Que_Consulta"),
 ]
 
 
