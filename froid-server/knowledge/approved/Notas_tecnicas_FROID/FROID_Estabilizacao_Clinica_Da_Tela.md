@@ -8,7 +8,7 @@ Uso no FROID Explica: documento proprietario citavel para perguntas sobre cadenc
 
 A Estabilizacao Clinica da Tela e uma camada proprietaria do FROID que separa o processamento tecnico bruto da apresentacao visual ao profissional.
 
-O processamento bruto permanece em alta frequencia para preservar acuracia temporal, capturar picos, manter baseline e registrar eventos transitorios. A tela do profissional, entretanto, pode operar em uma janela clinica estabilizada para reduzir ruido visual e permitir interpretacao, consulta ao FROID Explica e tomada de decisao durante a sessao.
+O processamento bruto permanece em alta frequencia para preservar acuracia temporal, capturar picos, manter baseline e registrar eventos transitorios. A tela do profissional, entretanto, pode operar em uma janela clinica estabilizada para reduzir ruido visual e permitir interpretacao, consulta ao FROID Explica e tomada de decisao durante a sessao. A janela padrao e a janela clinica de cinco minutos (5 minutos); e dela que se trata quando o profissional pergunta como funciona a janela clinica de cinco minutos ou por que a tela nao atualiza a cada segundo.
 
 ## Modos de apresentacao
 
