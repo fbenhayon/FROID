@@ -22,6 +22,7 @@ import math
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
+import data_froid_referencia
 import explica_clinico
 
 LOGGER = logging.getLogger("froid.persistence")
@@ -291,6 +292,11 @@ class Acervo:
     sessao_atual: str = ""
     paciente_atual: str = ""
     transcricao_de: Optional[Callable[[str], Optional[Dict[str, Any]]]] = None
+    # Fase 5: a referencia populacional do Data-FROID anonimo. Quem a injeta
+    # (main) e quem conhece o acervo, o piso de coorte e as versoes sem zero
+    # falso; esta camada so repassa a entrada e devolve o texto ou o erro.
+    # None = Data-FROID indisponivel neste servidor, e a ferramenta diz isso.
+    referencia_populacional: Optional[Callable[[Mapping[str, Any]], str]] = None
     chamadas: List[Tuple[str, Dict[str, Any]]] = field(default_factory=list)
 
     def relatorio(self, session_id: str) -> Optional[Dict[str, Any]]:
@@ -468,6 +474,12 @@ def _trecho_da_transcricao(acervo: Acervo, entrada: Mapping[str, Any]) -> str:
     return cabecalho + "\n" + corpo
 
 
+def _referencia_populacional(acervo: Acervo, entrada: Mapping[str, Any]) -> str:
+    if acervo.referencia_populacional is None:
+        raise ErroDeFerramenta("a referencia populacional do Data-FROID nao esta disponivel neste servidor")
+    return acervo.referencia_populacional(entrada)
+
+
 FERRAMENTAS: Tuple[Dict[str, Any], ...] = (
     {
         "name": "cortes_da_sessao",
@@ -540,6 +552,30 @@ FERRAMENTAS: Tuple[Dict[str, Any], ...] = (
             "additionalProperties": False,
         },
     },
+    {
+        "name": "referencia_populacional",
+        "description": (
+            "A distribuicao de UMA medida no acervo anonimo do Data-FROID (sessoes do FROID, "
+            "nao uma norma clinica): sessoes distintas, registros apurados, media, mediana e "
+            "quartis, com piso de coorte; abaixo do piso nada e devolvido. Com valor_do_paciente, "
+            "o servidor calcula em que ponto da distribuicao esse valor cai. Use quando a "
+            "pergunta situar o paciente ou a sessao frente ao conjunto de sessoes do FROID "
+            "('e alto?', 'e comum?', 'como se compara'). Filtros opcionais de coorte: "
+            "age_bucket, gender, session_modality; vazio = sem filtro."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "medida": {"type": "string", "enum": list(data_froid_referencia.NOMES_DAS_MEDIDAS)},
+                "valor_do_paciente": {"type": "string", "description": "valor numerico como texto; vazio = sem valor"},
+                "age_bucket": {"type": "string", "description": "faixa etaria do acervo, ex. 30-39; vazio = sem filtro"},
+                "gender": {"type": "string", "description": "vazio = sem filtro"},
+                "session_modality": {"type": "string", "description": "vazio = sem filtro"},
+            },
+            "required": ["medida", "valor_do_paciente", "age_bucket", "gender", "session_modality"],
+            "additionalProperties": False,
+        },
+    },
 )
 
 _EXECUTORES: Dict[str, Callable[[Acervo, Mapping[str, Any]], str]] = {
@@ -548,6 +584,7 @@ _EXECUTORES: Dict[str, Callable[[Acervo, Mapping[str, Any]], str]] = {
     "pacientes_do_profissional": _pacientes_do_profissional,
     "agregado_da_clinica": _agregado_da_clinica,
     "trecho_da_transcricao": _trecho_da_transcricao,
+    "referencia_populacional": _referencia_populacional,
 }
 
 

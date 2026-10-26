@@ -57,6 +57,8 @@ CASOS: list[tuple[str, str]] = [
     ("o supervisor ve o nome do paciente na agenda", "Clinica_Papeis"),
     ("o que acontece quando a cota de sessoes do profissional acaba", "Clinica_Papeis"),
     ("o froid explica consegue comparar as sessoes do paciente", "Explica_O_Que_Consulta"),
+    # 26/10/2026, fase 5: a referencia populacional do Data-FROID.
+    ("o ipm deste paciente e alto para o que o froid costuma ver", "Explica_O_Que_Consulta"),
 ]
 
 

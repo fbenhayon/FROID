@@ -99,8 +99,15 @@ class AsNotasExistemEEstaoLiberadas(unittest.TestCase):
         self.assertEqual(
             nomes,
             {"cortes_da_sessao", "sessoes_do_paciente", "pacientes_do_profissional",
-             "agregado_da_clinica", "trecho_da_transcricao"},
+             "agregado_da_clinica", "trecho_da_transcricao", "referencia_populacional"},
         )
+        # Fase 5: a referencia populacional e lista fechada de medidas, piso de
+        # coorte e sem SQL do modelo.
+        import data_froid_referencia
+        self.assertIn("piso de coorte", explica_clinico.instrucao(com_ferramentas=True))
+        self.assertIn("NAO uma norma", explica_clinico.instrucao(com_ferramentas=True))
+        self.assertGreater(len(data_froid_referencia.MEDIDAS), 20)
+        self.assertIn("CoorteInsuficiente", _ler(SERVIDOR / "data_froid_referencia.py"))
         self.assertIn("No maximo 200 palavras", explica_clinico._CONTRATO)
         self.assertIn("TABELA em markdown", explica_clinico._CONTRATO_DE_ANALISE)
         self.assertIn("NAO GRAVA AUDIO", explica_clinico.instrucao())

@@ -389,6 +389,72 @@ class OAcervoELidoUmaVezPorPergunta(unittest.TestCase):
         self.assertEqual(acervo.relatorio("froid-a")["transcript"], "CIFRADO")
 
 
+class AReferenciaPopulacional(unittest.TestCase):
+    """Fase 5: a ferramenta existe no esquema, repassa a entrada ao que main
+    injeta, e declara a ausencia do Data-FROID em vez de inventar numero."""
+
+    def test_a_ferramenta_esta_no_esquema_com_a_lista_fechada_de_medidas(self):
+        import data_froid_referencia
+        definicao = next(d for d in f.definicoes() if d["name"] == "referencia_populacional")
+        self.assertTrue(definicao["strict"])
+        self.assertEqual(tuple(definicao["input_schema"]["properties"]["medida"]["enum"]), data_froid_referencia.NOMES_DAS_MEDIDAS)
+        self.assertEqual(set(definicao["input_schema"]["required"]), set(definicao["input_schema"]["properties"]))
+
+    def test_sem_data_froid_a_ferramenta_declara(self):
+        texto, erro = f.executar(_acervo(), "referencia_populacional", {"medida": "ipm_sessao", "valor_do_paciente": "", "age_bucket": "", "gender": "", "session_modality": ""})
+        self.assertTrue(erro)
+        self.assertIn("nao esta disponivel neste servidor", texto)
+
+    def test_com_data_froid_a_entrada_vai_inteira_e_o_texto_volta(self):
+        recebido = {}
+
+        def consulta(entrada):
+            recebido.update(entrada)
+            return "REFERENCIA POPULACIONAL (teste)"
+
+        acervo = _acervo(referencia_populacional=consulta)
+        entrada = {"medida": "f0_corte", "valor_do_paciente": "101.5", "age_bucket": "30-39", "gender": "", "session_modality": ""}
+        texto, erro = f.executar(acervo, "referencia_populacional", entrada)
+        self.assertFalse(erro)
+        self.assertEqual(texto, "REFERENCIA POPULACIONAL (teste)")
+        self.assertEqual(recebido, entrada)
+        self.assertEqual(acervo.chamadas[-1][0], "referencia_populacional")
+
+    def test_a_injecao_de_main_le_o_acervo_pelo_piso_e_pelas_versoes_do_servidor(self):
+        try:
+            import duckdb
+        except ImportError:
+            self.skipTest("duckdb ausente")
+        import tempfile, os
+        pasta = tempfile.mkdtemp()
+        caminho = os.path.join(pasta, "acervo.duckdb")
+        conn = duckdb.connect(caminho)
+        conn.execute("CREATE TABLE anonymous_sessions(session_hash VARCHAR, schema_version VARCHAR, ipm_score DOUBLE, age_bucket VARCHAR, gender VARCHAR, session_modality VARCHAR)")
+        conn.execute("CREATE TABLE anonymous_session_cuts(session_hash VARCHAR, ipm_avg DOUBLE)")
+        for i in range(8):
+            conn.execute("INSERT INTO anonymous_sessions VALUES (?, 'anonymous_datamart_v5', ?, '30-39', 'F', 'remota')", [f"s{i}", 40.0 + i])
+        conn.close()
+        entrada = {"medida": "ipm_sessao", "valor_do_paciente": "44", "age_bucket": "", "gender": "", "session_modality": ""}
+        with patch.object(main, "FROID_DUCKDB_PATH", caminho), patch.object(main, "FROID_ANALYTICS_MIN_K", 7):
+            texto = main._referencia_populacional_do_data_froid(entrada)
+            self.assertIn("sessoes distintas: 8 (piso de coorte 7)", texto)
+            self.assertIn("fica acima de 50%", texto)
+            with patch.object(main, "FROID_ANALYTICS_MIN_K", 9):
+                with self.assertRaises(f.ErroDeFerramenta) as erro:
+                    main._referencia_populacional_do_data_froid(entrada)
+                self.assertIn("menos de 9 sessoes", str(erro.exception))
+                self.assertNotIn("8", str(erro.exception))
+            with self.assertRaises(f.ErroDeFerramenta):
+                main._referencia_populacional_do_data_froid({**entrada, "valor_do_paciente": "alto"})
+            with self.assertRaises(f.ErroDeFerramenta):
+                main._referencia_populacional_do_data_froid({**entrada, "medida": "summary_text_anon"})
+        # Sem o arquivo do acervo, main nao injeta a referencia.
+        with patch.object(main, "FROID_DUCKDB_PATH", os.path.join(pasta, "nao-existe.duckdb")):
+            with patch.object(main, "_relatorios_acessiveis_da_requisicao", lambda request: []):
+                acervo = main._acervo_do_explica(SimpleNamespace(state=SimpleNamespace()), SimpleNamespace(session_id="", patient_id="", context={}))
+        self.assertIsNone(acervo.referencia_populacional)
+
+
 class OTrechoCortaEmLinhasInteiras(unittest.TestCase):
     """Revisao 20/10/2026, item 16: o corte por caractere deixava a ultima
     linha pela metade; agora e por linha inteira e declara as omitidas."""

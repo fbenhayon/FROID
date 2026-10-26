@@ -43,7 +43,19 @@ profissional precise colar nada:
   datas e medias;
 - o agregado da clinica, por profissional ou para a clinica inteira:
   pacientes, sessoes, periodo e medias com o numero de sessoes apuradas;
-- um trecho da transcricao de uma sessao acessivel, entre dois instantes.
+- um trecho da transcricao de uma sessao acessivel, entre dois instantes;
+- a referencia populacional do Data-FROID (desde 26/10/2026): a distribuicao
+  de uma medida no acervo anonimo de sessoes do FROID — quantas sessoes
+  distintas, quantos registros apurados, media, mediana e quartis — e, quando
+  o profissional informa o valor do paciente, em que ponto dessa distribuicao
+  ele cai, calculado pelo servidor. A medida vem de uma lista fechada (IPM,
+  IDM, P/MIN, dissonancias, F0, jitter, shimmer, ZCR, MFCC, bandas
+  espectrais, sub-harmonicos, por sessao ou por corte); o assistente nunca
+  escreve consulta. Vale o piso de coorte do acervo: abaixo dele nenhum
+  numero e devolvido, nem o parcial. As versoes antigas do acervo, que
+  gravavam zero por ausencia, ficam fora das medidas acusticas, e a resposta
+  diz quais versoes entraram. E uma distribuicao de sessoes do FROID, nao uma
+  norma clinica nem um limiar diagnostico.
 
 Regra que nao se negocia: o assistente nao ve mais que a tela. Cada consulta
 le somente o que a pessoa que pergunta ja pode ver no painel, pela mesma
@@ -61,8 +73,10 @@ ausente ou truncado.
   que cada uma exigiria e qual o dado favorece.
 - Nao amplia acesso: uma pergunta nao da a ver prontuario de outro
   profissional que a politica da clinica nao da.
-- Nao consulta a base anonima do Data-FROID por estas ferramentas; a consulta
-  agregada e um caminho separado, com piso de coorte.
+- Nao escreve consulta sobre a base anonima do Data-FROID: a referencia
+  populacional e de lista fechada e parametrizada. A pergunta agregada livre
+  ("media de IPM por faixa etaria") continua no caminho de analytics, por
+  palavra, com a mesma protecao de piso.
 
 ## Perguntas que ele agora responde bem, e como pedir
 
@@ -75,3 +89,7 @@ ausente ou truncado.
 - "Quantas sessoes cada profissional da clinica fez": agregado por
   profissional, se a politica da clinica der a quem pergunta essa visao.
 - "O que foi dito entre 12:30 e 14:00": trecho da transcricao por instante.
+- "O IPM de 62 deste paciente e alto para o que o FROID costuma ver": a
+  referencia populacional, com o numero de sessoes do acervo e a posicao do
+  valor calculada pelo servidor — e a ressalva de que e o acervo do FROID,
+  nao uma norma.

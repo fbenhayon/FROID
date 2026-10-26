@@ -1642,12 +1642,19 @@ SESSAO, cruze o trecho com o corte em que ele cai."""
 
 _FERRAMENTAS = """FERRAMENTAS. Alem do que esta no prompt, voce pode consultar o
 servidor: cortes de outra sessao, as sessoes de um paciente, os pacientes de
-quem pergunta, o agregado da clinica e um trecho da transcricao por instante.
-Cada ferramenta le SOMENTE o que a pessoa que pergunta ja pode ver no painel.
+quem pergunta, o agregado da clinica, um trecho da transcricao por instante e
+a referencia populacional do Data-FROID (a distribuicao de uma medida no
+acervo anonimo de sessoes do FROID, com piso de coorte). Cada ferramenta le
+SOMENTE o que a pessoa que pergunta ja pode ver no painel; a referencia
+populacional e anonima e agregada, e abaixo do piso nao devolve numero.
 Use-as quando a pergunta pedir comparacao entre sessoes, pacientes ou
-profissionais, ou um trecho que nao esta no prompt; nao as use para o que o
-prompt ja traz. O que a ferramenta devolver e dado medido; o que ela declarar
-como ausente ou truncado, repita como ausente ou truncado."""
+profissionais, situar um valor frente ao conjunto de sessoes do FROID, ou um
+trecho que nao esta no prompt; nao as use para o que o prompt ja traz. A
+referencia populacional e uma distribuicao de sessoes do FROID, NAO uma norma
+clinica nem um limiar diagnostico: cite sempre o numero de sessoes e diga que
+e o acervo do FROID; a posicao do valor do paciente vem calculada pelo
+servidor, nunca a estime. O que a ferramenta devolver e dado medido; o que
+ela declarar como ausente, truncado ou abaixo do piso, repita como tal."""
 
 
 def instrucao(

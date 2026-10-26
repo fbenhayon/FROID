@@ -15,7 +15,7 @@ import threading
 import time
 import unicodedata
 import uuid
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Mapping
 from urllib.parse import quote, unquote, urlencode
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -47,6 +47,7 @@ from tenant_store import (
 )
 import explica_clinico
 import explica_embeddings
+import data_froid_referencia
 import explica_ferramentas
 import nr1_explica
 import froid_validation
@@ -2257,7 +2258,52 @@ def _acervo_do_explica(
             payload.patient_id or (payload.context or {}).get("patient_id") or ""
         ),
         transcricao_de=transcricao_de,
+        referencia_populacional=(
+            _referencia_populacional_do_data_froid if os.path.exists(FROID_DUCKDB_PATH) else None
+        ),
     )
+
+
+def _referencia_populacional_do_data_froid(entrada: Mapping[str, Any]) -> str:
+    """Fase 5 do Explica: a distribuicao de uma medida no acervo anonimo, pelo
+    mesmo piso de coorte e a mesma regra de versoes da rota de analytics —
+    sem SQL escrito pelo modelo (lista fechada de medidas, parametros)."""
+    conn = _duckdb_connection()
+    if conn is None:
+        raise explica_ferramentas.ErroDeFerramenta(
+            "o acervo anonimo do Data-FROID nao pode ser aberto neste momento"
+        )
+    valor_bruto = str(entrada.get("valor_do_paciente") or "").strip().replace(",", ".")
+    valor: Optional[float] = None
+    if valor_bruto:
+        try:
+            valor = float(valor_bruto)
+        except ValueError:
+            raise explica_ferramentas.ErroDeFerramenta(
+                f"valor_do_paciente '{valor_bruto}' nao e um numero"
+            ) from None
+    filtros = {chave: str(entrada.get(chave) or "") for chave in data_froid_referencia.FILTROS}
+    try:
+        resultado = data_froid_referencia.consultar(
+            conn,
+            str(entrada.get("medida") or ""),
+            piso=FROID_ANALYTICS_MIN_K,
+            versoes_sem_zero_falso=VERSOES_SEM_ZERO_FALSO,
+            valor=valor,
+            filtros=filtros,
+        )
+    except data_froid_referencia.MedidaDesconhecida as erro:
+        raise explica_ferramentas.ErroDeFerramenta(
+            f"medida '{erro}' nao esta na lista; use uma das medidas do esquema"
+        ) from None
+    except data_froid_referencia.CoorteInsuficiente as erro:
+        raise explica_ferramentas.ErroDeFerramenta(str(erro)) from None
+    finally:
+        try:
+            conn.close()
+        except Exception:  # noqa: BLE001 -- fechar e cortesia; o read_only nao segura nada
+            pass
+    return data_froid_referencia.formatar(resultado)
 
 
 async def _query_froid_knowledge(
