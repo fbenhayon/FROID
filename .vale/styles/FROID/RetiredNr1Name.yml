@@ -1,0 +1,6 @@
+extends: existence
+message: "'FROID NR-1' é um nome de produto aposentado; confirme o contexto e use a nomenclatura vigente quando aplicável."
+level: warning
+ignorecase: true
+tokens:
+  - '\bFROID\s+NR-1\b'

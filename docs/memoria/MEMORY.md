@@ -35,4 +35,6 @@
 - [SSH direto a producao](froid-ssh-direto.md) — eu rodo as janelas por ssh froid; exec precisa de </dev/null no heredoc; provar build pelo codigo no conteiner
 - [Identidade sem senha](froid-identidade-sem-senha.md) — login Google nao grava credencial; o convite publico criava senha sobre conta Google (tomada de conta), corrigido em aba2cd4a
 - [Troca do site pt-BR (06/10/2026)](froid-site-troca-2026-10.md) — 27 paginas novas sem numero espelhado; traducoes seguem a versao anterior; testes reescritos para a decisao nova; precos.html segue publica com blocos vivos
-- [Multimoeda do Psique](froid-psique-multimoeda.md) — tabela por moeda derivada da BRL, 051 gerada, site pelo idioma, painel pelo mercado do cadastro; codigo pronto, janela pendente
+- [Multimoeda do Psique](froid-psique-multimoeda.md) — tabela por moeda derivada da BRL, 051 gerada, site pelo idioma, painel pelo mercado do cadastro; janela executada em 15/10/2026, ativo em producao
+- [Explica: contexto cortado em 5 KB](froid-explica-contexto-cortado.md) — relatorio manda 105 KB, servidor guarda 5; cortes e carteira nunca chegam ao modelo; fases 1-4 publicadas (ultima janela 19/10/2026 17:17 UTC, HEAD 44e1487); fase 5 Data-FROID por decidir
+- [Fluxo de visibilidade da clinica](froid-visibilidade-clinica-fluxo.md) — papeis, atribuicoes, chave clinic_wide, cotas, solo x clinica; carimbo feito, agenda e cota V2 desenhados (18/10/2026)

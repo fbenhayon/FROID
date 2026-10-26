@@ -40,7 +40,7 @@ const billingMarkets = [
   { code: "ES", label: "Espanha", currency: "eur", note: "Clientes com cartão apto para EUR." },
   { code: "FR", label: "França", currency: "eur", note: "Clientes com cartão apto para EUR." },
   { code: "EU", label: "Outros países da Europa", currency: "eur", note: "Clientes com cartão apto para EUR." },
-  { code: "CN", label: "China", currency: "cny", note: "Pacotes comerciais cobrados em yuan renminbi." },
+  { code: "CN", label: "China", currency: "brl", note: "Pacotes comerciais cobrados em reais." },
 ];
 
 function formatMoneyFromCents(cents: number, currency = "brl") {

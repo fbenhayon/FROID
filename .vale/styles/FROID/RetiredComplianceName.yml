@@ -1,0 +1,6 @@
+extends: existence
+message: "'FROID Compliance' é um nome de produto aposentado; confirme o contexto e use a nomenclatura vigente quando aplicável."
+level: warning
+ignorecase: true
+tokens:
+  - '\bFROID\s+Compliance\b'

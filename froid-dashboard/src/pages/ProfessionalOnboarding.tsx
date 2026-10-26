@@ -37,7 +37,7 @@ const billingMarkets = [
   { code: "ES", label: "Espanha", currency: "eur", note: "Pacotes comerciais cobrados em euros." },
   { code: "FR", label: "França", currency: "eur", note: "Pacotes comerciais cobrados em euros." },
   { code: "EU", label: "Outros países da União Europeia", currency: "eur", note: "Pacotes comerciais cobrados em euros." },
-  { code: "CN", label: "China", currency: "cny", note: "Pacotes comerciais cobrados em yuan renminbi." },
+  { code: "CN", label: "China", currency: "brl", note: "Pacotes comerciais cobrados em reais." },
 ];
 
 type ProfessionalLine = {

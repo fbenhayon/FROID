@@ -1,6 +1,6 @@
 ---
 name: froid-psique-multimoeda
-description: Multimoeda do Psique (07/10/2026) — mesmo numero em BRL/USD/EUR; site pelo idioma, painel pelo mercado do cadastro (legal_jurisdiction); uma tabela por moeda com versao sufixada, migration 051 gerada; codigo pronto e testado, janela pendente
+description: Multimoeda do Psique (07/10/2026) — mesmo numero em BRL/USD/EUR; site pelo idioma, painel pelo mercado do cadastro (legal_jurisdiction); uma tabela por moeda com versao sufixada, migration 051 gerada; janela EXECUTADA em 15/10/2026
 metadata:
   type: project
 ---
@@ -44,3 +44,6 @@ backup, build, `migrate_schema.py --through 051_psique_multimoeda`,
 `psique_live_stripe.py --create-objects --homolog --moeda usd|eur` e
 `--register --moeda ...`, `up -d`, sondas `/pricing?language=en`. Ver
 [[froid-psique-v2-estado-execucao]], [[froid-espelhos-de-numero]].
+
+
+**Janela executada em 15/10/2026:** backup pre-multimoeda-20261015-1455.dump; migrations 049, 050 e 051 aplicadas (--through traz as pendentes); tabelas 2.1-usd e 2.1-eur em draft; objetos Stripe live USD e EUR criados (homolog 16/16, 0 falhas) e registrados (6 + licenca cada) pelo Fabio no console, porque o classificador barra criar preco live e ler a chave por SSH. Sondas: pt brl, en usd, es/fr eur, de 422, quote fr 135100 eur. Backend subiu antes da migration, no deploy do convite de equipe (o pull levou junto o que estava commitado).
