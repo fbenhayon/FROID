@@ -161,6 +161,11 @@ FROID_EXPLICA_CLAUDE_TIMEOUT = float(os.getenv("FROID_EXPLICA_CLAUDE_TIMEOUT", "
 # tokens de saida para 209 palavras. O contrato e que limita o texto visivel;
 # o teto so precisa caber raciocinio mais texto, e cobra-se o que foi usado.
 FROID_EXPLICA_CLAUDE_MAX_TOKENS = int(os.getenv("FROID_EXPLICA_CLAUDE_MAX_TOKENS", "16000"))
+# Orcamento de tempo de UMA pergunta no laco de ferramentas (revisao
+# 20/10/2026, item 19). Antes: 90 s x 3 tentativas x ate 7 chamadas, meia hora
+# no pior caso com a rota esperando. Esgotado o orcamento, a chamada seguinte
+# pede a resposta final (tool_choice none) em vez de abrir mais um turno.
+FROID_EXPLICA_ORCAMENTO_S = float(os.getenv("FROID_EXPLICA_ORCAMENTO_S", "240"))
 # Teto de turnos de ferramenta por pergunta (fase 4). Uma pergunta comparativa
 # pede duas ou tres consultas; seis e folga. Ao bater, o laco para e o log diz.
 MAX_TURNOS_DE_FERRAMENTA = 6
@@ -1202,6 +1207,30 @@ _ESQUEMA_SQL_DO_DATA_FROID: Dict[str, Any] = {
 }
 
 
+_CLIENTE_CLAUDE: Dict[str, Any] = {}
+
+
+def _cliente_claude(anthropic_module: Any) -> Any:
+    """Um cliente por processo (revisao 20/10/2026, item 17): o SDK mantem o
+    pool de conexoes, e um cliente por chamada o descartava a cada pergunta.
+    Recriado se a chave, o tempo limite ou o proprio modulo mudarem (os
+    testes trocam o modulo por um duble)."""
+    chave = (ANTHROPIC_API_KEY, FROID_EXPLICA_CLAUDE_TIMEOUT)
+    # O modulo fica guardado por referencia, nao por id(): um id() de modulo
+    # descartado pode ser reusado pelo seguinte, e o cliente velho responderia.
+    if _CLIENTE_CLAUDE.get("modulo") is not anthropic_module or _CLIENTE_CLAUDE.get("chave") != chave:
+        _CLIENTE_CLAUDE["modulo"] = anthropic_module
+        _CLIENTE_CLAUDE["chave"] = chave
+        # Uma nova tentativa, nao duas: dentro do laco cada tentativa e um
+        # turno inteiro de novo (item 19). 429 e 5xx continuam cobertos.
+        _CLIENTE_CLAUDE["cliente"] = anthropic_module.Anthropic(
+            api_key=ANTHROPIC_API_KEY,
+            timeout=FROID_EXPLICA_CLAUDE_TIMEOUT,
+            max_retries=1,
+        )
+    return _CLIENTE_CLAUDE["cliente"]
+
+
 def _claude_responde(
     system_instruction: str,
     prompt: str,
@@ -1209,24 +1238,29 @@ def _claude_responde(
     max_tokens: int,
     json_schema: Optional[Dict[str, Any]] = None,
     acervo: Optional[explica_ferramentas.Acervo] = None,
+    esforco: Optional[str] = None,
+    piso_de_tokens: Optional[int] = None,
 ) -> Tuple[str, str]:
     """Uma pergunta ao Claude, sincrona (roda em thread). Devolve (texto, motor).
 
     Texto vazio significa "este motor nao respondeu": recusa, ou resposta sem
     bloco de texto. O chamador cai para o proximo motor, e o motivo ja esta
     no log. Temperatura nao existe nesta familia de modelos (a API devolve
-    400); o que regula a profundidade e `output_config.effort`.
+    400); o que regula a profundidade e `output_config.effort` — por chamada
+    (item 20): o passo de SQL do Data-FROID nao precisa do esforco do caminho
+    clinico, e `piso_de_tokens` e o minimo que o raciocinio contado exige em
+    cada caminho.
     """
     import anthropic
 
-    client = anthropic.Anthropic(
-        api_key=ANTHROPIC_API_KEY,
-        timeout=FROID_EXPLICA_CLAUDE_TIMEOUT,
-        max_retries=2,
-    )
+    client = _cliente_claude(anthropic)
     # A instrucao e estavel entre perguntas e e a parte cara do prompt: fica
     # em cache no servidor da API. O prompt (glossario, cortes, transcricao,
-    # pergunta) muda a cada chamada e entra como mensagem.
+    # pergunta) tambem entra como bloco com cache: dentro de uma pergunta ele
+    # e reenviado a cada turno de ferramenta (ate sete vezes), e a leitura de
+    # cache custa um decimo da escrita. Entre perguntas da mesma sessao o
+    # prefixo so coincide ate o glossario, que depende da pergunta — mudar
+    # isso seria reordenar o prompt, decisao de produto e nao de custo.
     system = [
         {
             "type": "text",
@@ -1234,11 +1268,19 @@ def _claude_responde(
             "cache_control": {"type": "ephemeral"},
         }
     ]
-    messages = [{"role": "user", "content": prompt}]
-    output_config: Dict[str, Any] = {"effort": FROID_EXPLICA_CLAUDE_EFFORT}
+    messages: List[Dict[str, Any]] = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": prompt, "cache_control": {"type": "ephemeral"}}
+            ],
+        }
+    ]
+    output_config: Dict[str, Any] = {"effort": esforco or FROID_EXPLICA_CLAUDE_EFFORT}
     # O teto pedido pelo chamador foi dimensionado para motores sem raciocinio
     # contado; aqui ele e so o piso.
-    teto = max(int(max_tokens), FROID_EXPLICA_CLAUDE_MAX_TOKENS)
+    piso = FROID_EXPLICA_CLAUDE_MAX_TOKENS if piso_de_tokens is None else int(piso_de_tokens)
+    teto = max(int(max_tokens), piso)
     if json_schema:
         output_config["format"] = {"type": "json_schema", "schema": json_schema}
         response = client.messages.create(
@@ -1266,18 +1308,35 @@ def _claude_responde(
             # ja pode ver. Sem `tool_choice` forcado — a API devolve 400.
             chamada["tools"] = explica_ferramentas.definicoes()
         turnos = 0
+        inicio = time.monotonic()
         while True:
             response = client.beta.messages.create(messages=messages, **chamada)
             if acervo is None or getattr(response, "stop_reason", None) != "tool_use":
                 break
             turnos += 1
-            if turnos > MAX_TURNOS_DE_FERRAMENTA:
+            sem_tempo = time.monotonic() - inicio > FROID_EXPLICA_ORCAMENTO_S
+            if turnos > MAX_TURNOS_DE_FERRAMENTA or sem_tempo:
+                if chamada.get("tool_choice"):
+                    # Ja pedimos a resposta final e o modelo pediu ferramenta
+                    # de novo: nao ha mais o que fazer com este motor.
+                    LOGGER.warning(
+                        "FROID Explica: o modelo pediu ferramenta depois do pedido "
+                        "de resposta final; este motor nao respondeu"
+                    )
+                    break
+                # Ate 20/10/2026 o teto descartava os turnos ja pagos: a
+                # resposta saia vazia e a pergunta caia para o proximo motor,
+                # sem ferramenta nenhuma. Agora os pedidos deste turno ainda
+                # sao atendidos e a chamada seguinte vai com `tool_choice`
+                # none: o modelo responde com o que tem. `none` e o unico
+                # valor compativel com raciocinio estendido alem de `auto`.
                 LOGGER.warning(
-                    "FROID Explica: teto de %s turnos de ferramenta atingido; "
-                    "respondendo com o que ha",
-                    MAX_TURNOS_DE_FERRAMENTA,
+                    "FROID Explica: %s; pedindo a resposta final com o que ha",
+                    f"orcamento de {FROID_EXPLICA_ORCAMENTO_S:.0f} s esgotado apos {turnos} turnos"
+                    if sem_tempo and turnos <= MAX_TURNOS_DE_FERRAMENTA
+                    else f"teto de {MAX_TURNOS_DE_FERRAMENTA} turnos de ferramenta atingido",
                 )
-                break
+                chamada["tool_choice"] = {"type": "none"}
             pedidos = [
                 bloco
                 for bloco in (getattr(response, "content", None) or [])
@@ -1354,7 +1413,16 @@ async def _generate_froid_explain_text(
     json_mode: bool = False,
     json_schema: Optional[Dict[str, Any]] = None,
     acervo: Optional[explica_ferramentas.Acervo] = None,
+    instrucao_sem_ferramentas: Optional[str] = None,
+    esforco: Optional[str] = None,
+    piso_de_tokens: Optional[int] = None,
 ) -> Tuple[str, str]:
+    """A cascata de motores. `system_instruction` e a do Claude (com o bloco
+    FERRAMENTAS quando ha acervo); Gemini e OpenAI nao entram no laco e
+    recebem `instrucao_sem_ferramentas` — ate 20/10/2026 recebiam a mesma
+    instrucao e podiam "consultar o servidor" em texto, sem ferramenta
+    nenhuma (padrao 2.4: rotulo que promete o que nao entrega)."""
+    instrucao_dos_outros = instrucao_sem_ferramentas or system_instruction
     if ANTHROPIC_API_KEY:
         try:
             text, motor = await asyncio.to_thread(
@@ -1364,6 +1432,8 @@ async def _generate_froid_explain_text(
                 max_tokens=max_tokens,
                 json_schema=json_schema if json_mode else None,
                 acervo=acervo,
+                esforco=esforco,
+                piso_de_tokens=piso_de_tokens,
             )
         except Exception as exc:
             # O nome da classe diz se foi chave, limite, servidor ou rede
@@ -1392,7 +1462,7 @@ async def _generate_froid_explain_text(
             def _run_gemini() -> str:
                 client = genai.Client(api_key=GEMINI_API_KEY)
                 config_kwargs: Dict[str, Any] = {
-                    "system_instruction": system_instruction,
+                    "system_instruction": instrucao_dos_outros,
                     "temperature": temperature,
                     "max_output_tokens": max_tokens,
                 }
@@ -1432,7 +1502,7 @@ async def _generate_froid_explain_text(
             payload: Dict[str, Any] = {
                 "model": OPENAI_MODEL,
                 "messages": [
-                    {"role": "system", "content": system_instruction},
+                    {"role": "system", "content": instrucao_dos_outros},
                     {"role": "user", "content": prompt},
                 ],
                 "temperature": temperature,
@@ -1728,6 +1798,46 @@ _fmt_carteira = explica_ferramentas._fmt
 _linha_da_carteira = explica_ferramentas.linha_da_carteira
 
 
+def _convites_por_sessao() -> Dict[str, dict]:
+    """Indice sessao -> convite, montado uma vez por listagem. O primeiro
+    convite de cada sessao vence, como na varredura que ele substitui."""
+    indice: Dict[str, dict] = {}
+    for invite in SESSION_INVITES.values():
+        sid = str(invite.get("session_id") or "")
+        if sid and sid not in indice:
+            indice[sid] = invite
+    return indice
+
+
+def _relatorios_acessiveis_da_requisicao(request: Request) -> List[dict]:
+    """Os relatorios que o solicitante pode ver, lidos do disco UMA vez por
+    requisicao (revisao 20/10/2026, item 18) e ja com o paciente do convite.
+
+    Ate entao o Explica lia o acervo inteiro para o resumo da carteira, de
+    novo para as ferramentas, e varria os convites linearmente por relatorio.
+    A decisao de acesso continua sendo a de `_accessible_session_reports`;
+    aqui so se evita repeti-la dentro da mesma pergunta. Levanta a mesma
+    HTTPException que ela levanta.
+    """
+    estado = getattr(request, "state", None)
+    cache = getattr(estado, "relatorios_acessiveis_do_explica", None) if estado is not None else None
+    if cache is not None:
+        return cache
+    acessiveis, _contexto = _accessible_session_reports(request, reveal_transcripts=False)
+    convites = _convites_por_sessao()
+    cache = [
+        _enrich_report_patient(dict(relatorio), convites)
+        for relatorio in acessiveis
+        if isinstance(relatorio, dict)
+    ]
+    if estado is not None:
+        try:
+            estado.relatorios_acessiveis_do_explica = cache
+        except Exception:  # noqa: BLE001 -- duble de request sem estado gravavel
+            pass
+    return cache
+
+
 def _build_portfolio_summary(
     request: Request, current_patient_id: str
 ) -> list[dict]:
@@ -1735,16 +1845,10 @@ def _build_portfolio_summary(
     priorizando o mesmo paciente. Nunca inclui transcricao bruta de outras
     sessoes; respeita os acessos definidos pelo admin em planos multiprofissionais."""
     try:
-        accessible, _context = _accessible_session_reports(
-            request, reveal_transcripts=False
-        )
+        accessible = _relatorios_acessiveis_da_requisicao(request)
     except HTTPException:
         return []
-    summaries = [
-        _compact_report_summary(_enrich_report_patient(report))
-        for report in accessible
-        if isinstance(report, dict)
-    ]
+    summaries = [_compact_report_summary(report) for report in accessible]
     summaries.sort(key=lambda item: str(item.get("date") or ""), reverse=True)
     patient_id = str(current_patient_id or "").strip()
     if patient_id:
@@ -2126,33 +2230,25 @@ def _acervo_do_explica(
     """O que as ferramentas do Explica podem ler: exatamente o que o painel lista.
 
     Sai de `_accessible_session_reports`, a mesma decisao de posse, atribuicao
-    e visibilidade de clinica da tela. A transcricao de uma sessao so e
-    decifrada quando uma ferramenta a pede, e pela mesma funcao — nenhuma
-    ferramenta tem um caminho proprio de acesso.
+    e visibilidade de clinica da tela, lida uma vez por pergunta. A transcricao
+    de uma sessao so e decifrada quando uma ferramenta a pede, SO ela (ate
+    20/10/2026 cada pedido decifrava o acervo inteiro) e pela mesma regra do
+    acervo — nenhuma ferramenta tem um caminho proprio de acesso.
     """
     try:
-        acessiveis, _contexto = _accessible_session_reports(request, reveal_transcripts=False)
+        relatorios = _relatorios_acessiveis_da_requisicao(request)
     except HTTPException as erro:
         LOGGER.warning("FROID Explica: sem acervo para as ferramentas (%s)", erro.detail)
         return None
-    relatorios = [
-        _enrich_report_patient(dict(relatorio))
-        for relatorio in acessiveis
-        if isinstance(relatorio, dict)
-    ]
-    ids = {str(r.get("sessionId") or r.get("session_id") or "") for r in relatorios}
+    por_id = {
+        str(r.get("sessionId") or r.get("session_id") or ""): r for r in relatorios
+    }
 
     def transcricao_de(session_id: str) -> Optional[Dict[str, Any]]:
-        if session_id not in ids:
+        relatorio = por_id.get(session_id)
+        if relatorio is None:
             return None
-        try:
-            com_texto, _ = _accessible_session_reports(request, reveal_transcripts=True)
-        except HTTPException:
-            return None
-        for relatorio in com_texto:
-            if str(relatorio.get("sessionId") or relatorio.get("session_id") or "") == session_id:
-                return relatorio
-        return None
+        return _revelar_transcricao(dict(relatorio))
 
     return explica_ferramentas.Acervo(
         relatorios=relatorios,
@@ -2247,14 +2343,19 @@ async def _query_froid_knowledge(
     # Ferramentas so no caminho Claude (fase 4): os outros motores nao entram
     # no laco e seguem com o contexto que o navegador manda.
     acervo = (
-        _acervo_do_explica(request, payload)
+        await asyncio.to_thread(_acervo_do_explica, request, payload)
         if request is not None and ANTHROPIC_API_KEY
         else None
     )
+    frase_de_idioma = session_language(response_locale).summary_instruction
     system_instruction = explica_clinico.instrucao(
-        session_language(response_locale).summary_instruction,
-        modo=modo,
-        com_ferramentas=acervo is not None,
+        frase_de_idioma, modo=modo, com_ferramentas=acervo is not None
+    )
+    # Os motores sem laco de ferramentas nao podem ouvir falar delas.
+    instrucao_sem_ferramentas = (
+        explica_clinico.instrucao(frase_de_idioma, modo=modo, com_ferramentas=False)
+        if acervo is not None
+        else system_instruction
     )
     prompt = explica_clinico.montar_prompt(
         pergunta=payload.query_text,
@@ -2276,6 +2377,7 @@ async def _query_froid_knowledge(
         # o profissional veio buscar.
         max_tokens=teto_de_saida,
         acervo=acervo,
+        instrucao_sem_ferramentas=instrucao_sem_ferramentas,
     )
     if acervo is not None and acervo.chamadas:
         LOGGER.info(
@@ -2665,6 +2767,10 @@ async def _query_froid_analytics(payload: FroidExplicaQuery) -> FroidExplicaResp
         max_tokens=500,
         json_mode=True,
         json_schema=_ESQUEMA_SQL_DO_DATA_FROID,
+        # Duas consultas SQL curtas sobre um esquema descrito na instrucao:
+        # nao e o caminho clinico (item 20).
+        esforco="low",
+        piso_de_tokens=2_000,
     )
     sql_payload = _parse_analytics_sql_payload(sql_text, payload.query_text)
     try:
@@ -2759,6 +2865,8 @@ async def _query_froid_analytics(payload: FroidExplicaQuery) -> FroidExplicaResp
         report_prompt,
         temperature=0.25,
         max_tokens=900,
+        esforco="medium",
+        piso_de_tokens=4_000,
     )
     if not report_text:
         report_text = (
@@ -2810,37 +2918,10 @@ def _load_session_reports(
         for session_id, report in data.items():
             if not isinstance(report, dict):
                 continue
-            if report.get("transcript_encrypted"):
-                if not reveal_transcripts:
-                    reports[session_id] = dict(report)
-                    continue
-                if not CLINICAL_TEXT_CIPHER:
-                    locked = dict(report)
-                    locked["transcript"] = ""
-                    locked["transcript_storage_locked"] = True
-                    reports[session_id] = locked
-                    continue
-                try:
-                    report = CLINICAL_TEXT_CIPHER.reveal(
-                        report, "transcript", "transcript_encrypted"
-                    )
-                    report.pop("transcript_storage_locked", None)
-                    report.pop("transcript_storage_error", None)
-                except Exception:
-                    # Larga o suficiente de proposito. Antes so
-                    # TokenEncryptionError era contida aqui, e qualquer outra
-                    # falha de decifragem — chave rotacionada, campo com
-                    # formato inesperado — subia ate o except da funcao e
-                    # transformava o acervo INTEIRO em {}. Um registro ruim
-                    # apagava a lista de todo mundo.
-                    LOGGER.exception("Unable to decrypt clinical transcript")
-                    locked = dict(report)
-                    locked["transcript"] = ""
-                    locked["transcript_storage_locked"] = True
-                    locked["transcript_storage_error"] = True
-                    reports[session_id] = locked
-                    continue
-            reports[session_id] = report
+            if report.get("transcript_encrypted") and not reveal_transcripts:
+                reports[session_id] = dict(report)
+                continue
+            reports[session_id] = _revelar_transcricao(report)
         return reports
     except SessionReportStoreUnavailable:
         LOGGER.exception("Unable to load persisted session reports")
@@ -2852,6 +2933,37 @@ def _load_session_reports(
         if strict:
             raise SessionReportStoreUnavailable(str(erro)) from erro
         return {}
+
+
+def _revelar_transcricao(report: dict) -> dict:
+    """Decifra a transcricao de UM relatorio; sem cifra ou com falha, o
+    registro sai trancado e DECLARADO (transcript_storage_locked), nunca
+    descartado. Regra unica para o carregador e para as ferramentas do
+    Explica (revisao 20/10/2026, item 18)."""
+    if not report.get("transcript_encrypted"):
+        return report
+    if not CLINICAL_TEXT_CIPHER:
+        locked = dict(report)
+        locked["transcript"] = ""
+        locked["transcript_storage_locked"] = True
+        return locked
+    try:
+        revelado = CLINICAL_TEXT_CIPHER.reveal(report, "transcript", "transcript_encrypted")
+        revelado.pop("transcript_storage_locked", None)
+        revelado.pop("transcript_storage_error", None)
+        return revelado
+    except Exception:
+        # Larga o suficiente de proposito. Antes so TokenEncryptionError era
+        # contida aqui, e qualquer outra falha de decifragem — chave
+        # rotacionada, campo com formato inesperado — subia ate o except do
+        # carregador e transformava o acervo INTEIRO em {}. Um registro ruim
+        # apagava a lista de todo mundo.
+        LOGGER.exception("Unable to decrypt clinical transcript")
+        locked = dict(report)
+        locked["transcript"] = ""
+        locked["transcript_storage_locked"] = True
+        locked["transcript_storage_error"] = True
+        return locked
 
 
 def _save_session_reports(reports: Dict[str, dict]) -> None:
@@ -3892,9 +4004,13 @@ def _report_within_context(
     return _can_access_report(report, owner_email)
 
 
-def _find_invite_by_session(session_id: str) -> Optional[dict]:
+def _find_invite_by_session(
+    session_id: str, convites: Optional[Dict[str, dict]] = None
+) -> Optional[dict]:
     if not session_id:
         return None
+    if convites is not None:
+        return convites.get(str(session_id))
     for invite in SESSION_INVITES.values():
         if str(invite.get("session_id") or "") == str(session_id):
             return invite
@@ -4017,12 +4133,14 @@ def _patient_payload_from_invite(invite: Optional[dict]) -> dict:
     }
 
 
-def _enrich_report_patient(report: dict) -> dict:
+def _enrich_report_patient(report: dict, convites: Optional[Dict[str, dict]] = None) -> dict:
+    """`convites` e o indice de `_convites_por_sessao()`, para listagens: sem
+    ele, cada relatorio varre todos os convites."""
     if not isinstance(report, dict):
         return report
     session_id = str(report.get("sessionId") or report.get("session_id") or "")
     existing = report.get("patient") if isinstance(report.get("patient"), dict) else {}
-    invite_patient = _patient_payload_from_invite(_find_invite_by_session(session_id))
+    invite_patient = _patient_payload_from_invite(_find_invite_by_session(session_id, convites))
     patient = {
         **invite_patient,
         **existing,
@@ -13245,7 +13363,7 @@ async def nr1_explica_query(organization_id: str, request: Request):
         }
 
     texto, motor = await _generate_froid_explain_text(
-        nr1_explica.INSTRUCAO, prompt, temperature=0.1, max_tokens=800
+        nr1_explica.INSTRUCAO, prompt, temperature=0.1, max_tokens=800, piso_de_tokens=4_000
     )
     if not texto:
         return {
@@ -16601,7 +16719,7 @@ async def froid_explica_query(payload: FroidExplicaQuery, request: Request):
             or (payload.context or {}).get("patient_id")
             or ""
         )
-        portfolio = _build_portfolio_summary(request, current_patient_id)
+        portfolio = await asyncio.to_thread(_build_portfolio_summary, request, current_patient_id)
         if portfolio:
             payload.context = {**(payload.context or {}), "portfolio_summary": portfolio}
     intent = _classify_froid_explica_intent(payload.query_text)

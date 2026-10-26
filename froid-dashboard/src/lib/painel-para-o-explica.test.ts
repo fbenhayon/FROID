@@ -12,6 +12,7 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  recorteFinalDaTranscricao,
   contextoDosCortes,
   corteParaOExplica,
   metricasParaOExplica,
@@ -115,6 +116,25 @@ describe("contextoDosCortes", () => {
   it("sem cortes não cria chave nenhuma: ausência não vira lista vazia", () => {
     expect(contextoDosCortes(null, [], [], "x")).toEqual({});
     expect(contextoDosCortes(undefined, null, null, "x")).toEqual({});
+  });
+});
+
+describe("recorteFinalDaTranscricao", () => {
+  it("corta em linhas inteiras e diz quantas ficaram de fora", () => {
+    const linhas = ["[00:01] DR: um", "[00:05] PC: dois dois", "[00:09] DR: tres", "[00:12] PC: quatro"];
+    const texto = linhas.join("\n");
+    const r = recorteFinalDaTranscricao(texto, 36); // 16 + 1 + 18 = 35 cabe; a linha anterior nao
+    expect(r.texto).toBe("[00:09] DR: tres\n[00:12] PC: quatro");
+    expect(r.linhasOmitidas).toBe(2);
+    // Toda linha mantida conserva o carimbo: nenhuma começa no meio.
+    for (const linha of r.texto.split("\n")) expect(linha).toMatch(/^\[\d\d:\d\d\] /);
+  });
+
+  it("dentro do limite nada muda; uma linha maior que o limite fica inteira", () => {
+    expect(recorteFinalDaTranscricao("[00:01] DR: um", 100)).toEqual({ texto: "[00:01] DR: um", linhasOmitidas: 0 });
+    const r = recorteFinalDaTranscricao("[00:01] DR: curta\n[00:02] PC: " + "x".repeat(50), 20);
+    expect(r.texto).toBe("[00:02] PC: " + "x".repeat(50));
+    expect(r.linhasOmitidas).toBe(1);
   });
 });
 

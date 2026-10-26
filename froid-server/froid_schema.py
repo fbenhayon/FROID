@@ -29,6 +29,7 @@ PSIQUE_V2_VERSIONS = frozenset({
     "051_psique_multimoeda",
     "052_psique_member_quota_v2",
     "053_psique_scheduling_supervisor",
+    "054_cota_conta_e_paciente_do_clinico",
 })
 
 

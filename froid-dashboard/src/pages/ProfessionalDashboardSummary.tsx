@@ -19,6 +19,7 @@ import { loadSessionReports, SessionReportRecord } from "../lib/session-report";
 import { dashboardText, loadSessionLanguagePreferences } from "../lib/localization";
 import { ValidationProgressLine } from "../components/validation/ValidationProgressLine";
 import { activeOrganizationId } from "../lib/validation";
+import { organizacaoAtiva } from "../lib/contexto-organizacao";
 
 type Props = { user?: FroidUser | null; onLogout?: () => void };
 type FinancialSummary = {
@@ -316,10 +317,15 @@ export const ProfessionalDashboardSummary: React.FC<Props> = ({ user, onLogout }
           </section>
           </div>
 
-          {/* A agenda interna (fonte) vem antes do Google (espelho). */}
-          <div className="mb-4">
-            <AgendaInterna modo="propria" />
-          </div>
+          {/* A agenda interna (fonte) vem antes do Google (espelho). Ela e da
+              CLINICA: o profissional solo nao a tem, e ate 20/10/2026 lia
+              "esta clinica ainda nao ativou os papeis V2" e era mandado a uma
+              tela que nao existe para ele. */}
+          {organizacaoAtiva(user)?.organization_type === "clinic" ? (
+            <div className="mb-4">
+              <AgendaInterna modo="propria" />
+            </div>
+          ) : null}
           <AgendaDoProfissional tr={tr} />
         </div>
       </main>

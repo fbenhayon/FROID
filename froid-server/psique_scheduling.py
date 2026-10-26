@@ -23,7 +23,8 @@ PHASE4_SCHEMA = PHASE3_SCHEMA | {"044_psique_org_scheduling",
                                  "045_psique_scheduling_serialization"}
 # 053: supervisor clinico na agenda, nome do paciente na listagem e as duas
 # listagens que o painel usa para montar a agenda (clinicos e pacientes).
-PHASE5_SCHEMA = PHASE4_SCHEMA | {"053_psique_scheduling_supervisor"}
+PHASE5_SCHEMA = PHASE4_SCHEMA | {"053_psique_scheduling_supervisor",
+                                 "054_cota_conta_e_paciente_do_clinico"}
 
 # Mirrors of the migration 044 CHECK domains; drift is guarded by tests.
 APPOINTMENT_STATUSES = ("SCHEDULED", "CONFIRMED", "IN_PROGRESS",
@@ -111,8 +112,9 @@ class PsiqueScheduling:
             context=context, schema=PHASE5_SCHEMA)
 
     def list_patients(self, context: AccessContext) -> dict[str, Any]:
-        """Os pacientes ativos da organizacao: nome para secretaria, administrador
-        e clinico; identificador curto para o supervisor (decisao do dono)."""
+        """Os pacientes ativos da organizacao: nome para secretaria e administrador;
+        para o clinico, so dos pacientes atribuidos a ele ou com atendimento dele
+        (054); identificador curto para os demais e para o supervisor."""
         return executar_comando_v2(
             self._connect, "SELECT psique_v2_scheduling_patients(%s,%s,%s)",
             (context.organization_id, context.membership_id, context.user_id),

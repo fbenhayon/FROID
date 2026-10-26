@@ -1326,9 +1326,14 @@ def bloco_dos_cortes(contexto: Optional[Mapping[str, Any]]) -> str:
     for numero, corte in enumerate(cortes[:MAX_CORTES_NO_PROMPT], 1):
         amostras = corte.get("amostras")
         tema = str(corte.get("tema") or "").strip() or "sem tema registrado"
+        inicio_s, fim_s, duracao_s = corte.get("inicio_s"), corte.get("fim_s"), corte.get("duracao_s")
+        janela = (
+            f"{inicio_s}-{fim_s} s (duracao {duracao_s} s)"
+            if inicio_s is not None and fim_s is not None and duracao_s is not None
+            else "instante nao registrado"
+        )
         linhas.append(
-            f"{numero}. {corte.get('corte') or 'corte sem rotulo'} | "
-            f"{corte.get('inicio_s')}-{corte.get('fim_s')} s (duracao {corte.get('duracao_s')} s) | "
+            f"{numero}. {corte.get('corte') or 'corte sem rotulo'} | {janela} | "
             f"amostras {amostras if amostras is not None else '--'} | tema: {tema}"
         )
         metricas = corte.get("metricas")

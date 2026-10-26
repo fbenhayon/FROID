@@ -81,6 +81,17 @@ export function instanteDe(dia: string, hora: string, fuso: string): string | nu
   return estimado.toISOString();
 }
 
+/** A janela [inicio, fim) da semana `dias` como instantes no fuso dado:
+ *  meia-noite do primeiro dia e meia-noite do dia seguinte ao ultimo. */
+export function limitesDaSemana(dias: Date[], fuso: string): { inicio: string; fim: string } {
+  const ultimo = dias[dias.length - 1];
+  const seguinte = new Date(ultimo.getFullYear(), ultimo.getMonth(), ultimo.getDate() + 1);
+  const inicio = instanteDe(diaIso(dias[0]), "00:00", fuso);
+  const fim = instanteDe(diaIso(seguinte), "00:00", fuso);
+  if (!inicio || !fim) throw new Error("semana sem dias validos");
+  return { inicio, fim };
+}
+
 /** "HH:MM" de um instante ISO, no fuso dado. */
 export function horaNoFuso(iso: string, fuso: string): string {
   const data = new Date(iso);
@@ -121,8 +132,11 @@ export type PapelNaAgenda = {
   geral: boolean;
   /** É clínico: tem agenda própria. */
   clinico: boolean;
-  /** Recebe o nome dos pacientes (o supervisor não). */
+  /** Recebe o nome dos pacientes (o supervisor não; o clínico, só dos seus). */
   veNomes: boolean;
+  /** O vínculo desta pessoa na organização, como o servidor o devolve; é por
+   *  ele que a agenda própria reconhece o clínico (não por e-mail). */
+  membershipId: string | null;
 };
 
 /** O que esta pessoa pode na agenda, a partir das capacidades do servidor. */
@@ -135,18 +149,27 @@ export function papelNaAgenda(capacidades: EstadoV2<CapacidadesPsiqueV2>): Papel
     geral: staff || supervisor,
     clinico: papeis.has("CLINICIAN"),
     veNomes: staff || papeis.has("CLINICIAN"),
+    membershipId: String(capacidades.dados.membership_id || "") || null,
   };
 }
 
-/** A frase que a tela mostra quando a agenda não está disponível. */
+/** O servidor sem a rota V2 responde 404: é o único motivo que significa
+ *  "não ligada". Qualquer outro é uma leitura que falhou, e a frase diz qual. */
+export const MOTIVO_DE_ROTA_AUSENTE = "HTTP_404";
+
+/** A frase que a tela mostra quando a agenda não está disponível.
+ *
+ *  Até 20/10/2026 todo `indisponivel` virava "não está ligada neste servidor"
+ *  (um 500 ou a rede caída liam-se como configuração), e `negado` descartava
+ *  o motivo. Cada causa pede uma ação diferente de quem lê. */
 export function motivoDaAgendaIndisponivel(capacidades: EstadoV2<CapacidadesPsiqueV2>): string {
   if (capacidades.estado === "negado") {
-    return "Sem permissão para a agenda nesta organização.";
+    return `Sem permissão para a agenda nesta organização: ${traduzirMotivo(capacidades.motivo)}.`;
   }
   if (capacidades.estado === "indisponivel") {
-    return capacidades.motivo === "CARREGANDO"
-      ? "Carregando a agenda..."
-      : "A agenda interna não está ligada neste servidor.";
+    if (capacidades.motivo === "CARREGANDO") return "Carregando a agenda...";
+    if (capacidades.motivo === MOTIVO_DE_ROTA_AUSENTE) return "A agenda interna não está ligada neste servidor.";
+    return `A agenda não pôde ser lida: ${traduzirMotivo(capacidades.motivo)}.`;
   }
   if (capacidades.dados.rbac_version !== 2) {
     return "Esta clínica ainda não ativou os papéis V2. O responsável ativa em Gestão da clínica, em Papéis e agenda.";
@@ -156,4 +179,50 @@ export function motivoDaAgendaIndisponivel(capacidades: EstadoV2<CapacidadesPsiq
     return "Seu papel nesta clínica não inclui agenda. Peça ao responsável um papel de clínico, secretaria ou supervisão.";
   }
   return "";
+}
+
+/** Os status do atendimento (domínio da migration 044) na língua da tela. */
+const ROTULO_DO_STATUS: Record<string, string> = {
+  SCHEDULED: "marcado",
+  CONFIRMED: "confirmado",
+  IN_PROGRESS: "em atendimento",
+  COMPLETED: "realizado",
+  CANCELLED: "cancelado",
+  NO_SHOW: "não compareceu",
+};
+
+/** O status como a tela o escreve; um status desconhecido sai como veio,
+ *  para não esconder um valor novo do servidor. */
+export function rotuloDoStatus(status: string): string {
+  return ROTULO_DO_STATUS[status] || status;
+}
+
+/** Só o que ainda vai acontecer se reagenda ou cancela. Até 20/10/2026 os
+ *  botões apareciam também em realizado e não compareceu. */
+export function podeOperarOAtendimento(status: string): boolean {
+  return status === "SCHEDULED" || status === "CONFIRMED";
+}
+
+/** Os códigos do servidor que a tela sabe explicar; o resto sai como veio. */
+export function traduzirMotivo(codigo: string): string {
+  const frases: Record<string, string> = {
+    APPOINTMENT_CONFLICT: "o clínico já tem atendimento nesse horário",
+    OUTSIDE_AVAILABILITY: "fora da disponibilidade cadastrada do clínico",
+    OWN_AGENDA_ONLY: "você só pode operar a sua própria agenda",
+    OWN_AVAILABILITY_ONLY: "você só pode definir a sua própria disponibilidade",
+    APPOINTMENT_PATIENT_REQUIRED: "o paciente não está ativo nesta clínica",
+    APPOINTMENT_CLINICIAN_REQUIRED: "a pessoa escolhida não tem papel de clínico",
+    APPOINTMENT_VERSION_MISMATCH: "o atendimento mudou desde que a tela o leu; ela foi recarregada",
+    APPOINTMENT_NOT_FOUND: "o atendimento não existe mais",
+    RBAC_V2_NOT_ENABLED: "a clínica ainda não ativou os papéis V2",
+    PSIQUE_SCHEDULING_ROLE_DENIED: "seu papel não inclui agenda",
+    SEM_CONEXAO: "sem conexão com o servidor",
+    RESPOSTA_ILEGIVEL: "o servidor respondeu algo que a tela não entendeu",
+    HTTP_401: "sua sessão de trabalho expirou; entre de novo",
+    HTTP_403: "sem permissão nesta organização",
+    HTTP_500: "o servidor falhou ao responder",
+    HTTP_502: "o servidor não respondeu",
+    HTTP_503: "o servidor está indisponível no momento",
+  };
+  return frases[codigo] || codigo;
 }

@@ -186,6 +186,33 @@ export function contextoDosCortes(
   return saida;
 }
 
+/**
+ * O trecho FINAL de uma transcrição que cabe em `limite` caracteres, cortado
+ * em linhas inteiras, e quantas linhas ficaram de fora.
+ *
+ * Até 20/10/2026 o corte era por caractere depois do carimbo: a primeira linha
+ * do trecho saía sem [mm:ss] enquanto o contexto afirmava que todas têm
+ * (padrão 2.4). Uma linha maior que o limite sozinha fica inteira: cortar
+ * dentro dela recriaria o defeito.
+ */
+export function recorteFinalDaTranscricao(
+  texto: string,
+  limite: number,
+): { texto: string; linhasOmitidas: number } {
+  const linhas = String(texto || "").split("\n");
+  if (linhas.length > 1 && linhas[linhas.length - 1] === "") linhas.pop();
+  if (texto.length <= limite) return { texto, linhasOmitidas: 0 };
+  const mantidas: string[] = [];
+  let tamanho = 0;
+  for (let i = linhas.length - 1; i >= 0; i -= 1) {
+    const custo = linhas[i].length + (mantidas.length ? 1 : 0);
+    if (mantidas.length > 0 && tamanho + custo > limite) break;
+    mantidas.unshift(linhas[i]);
+    tamanho += custo;
+  }
+  return { texto: mantidas.join("\n"), linhasOmitidas: linhas.length - mantidas.length };
+}
+
 /** mm:ss de um instante em segundos. */
 function mmss(segundos: number): string {
   const total = Math.max(0, Math.floor(segundos));

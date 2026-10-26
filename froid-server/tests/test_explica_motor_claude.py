@@ -130,7 +130,10 @@ class OCaminhoClaude(unittest.TestCase):
         self.assertEqual(chamada["max_tokens"], 16000)
         self.assertEqual(chamada["system"][0]["text"], "INSTRUCAO")
         self.assertEqual(chamada["system"][0]["cache_control"], {"type": "ephemeral"})
-        self.assertEqual(chamada["messages"], [{"role": "user", "content": "PROMPT"}])
+        # Revisao 20/10/2026, item 17: o prompt vai como bloco em cache, porque e
+        # reenviado a cada turno de ferramenta.
+        self.assertEqual(chamada["messages"], [{"role": "user", "content": [
+            {"type": "text", "text": "PROMPT", "cache_control": {"type": "ephemeral"}}]}])
         self.assertEqual(chamada["output_config"], {"effort": "high"})
         self.assertEqual(chamada["fallbacks"], "default")
         self.assertEqual(chamada["betas"], ["server-side-fallback-2026-07-01"])
@@ -142,7 +145,9 @@ class OCaminhoClaude(unittest.TestCase):
         cliente = _ClienteFalso.registro["clientes"][0]
         self.assertEqual(cliente["api_key"], "chave")
         self.assertEqual(cliente["timeout"], 90.0)
-        self.assertEqual(cliente["max_retries"], 2)
+        # Item 19: uma nova tentativa, nao duas — dentro do laco cada tentativa
+        # repete um turno inteiro.
+        self.assertEqual(cliente["max_retries"], 1)
 
     def test_o_passo_de_sql_pede_saida_estruturada_sem_contingencia(self):
         _ClienteFalso.registro["efeito"] = _resposta('{"result_sql": "SELECT 1", "cohort_sql": "SELECT 1"}')

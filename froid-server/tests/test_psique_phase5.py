@@ -134,6 +134,30 @@ def test_wallet_route_passes_context_and_maps_denials():
     assert sem_carteira.get("/api/psique/v2/wallet").status_code == 409
 
 
+def test_capabilities_route_acrescenta_o_vinculo_de_quem_pergunta():
+    """Revisao 20/10/2026, item 14: a agenda propria reconhece o clinico pelo
+    membership_id das capacidades, nao por e-mail. A rota acrescenta o do
+    contexto; a funcao SQL nao muda."""
+    from types import SimpleNamespace
+
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from psique_api import build_psique_v2_billing_router
+
+    class StubRbac:
+        def capabilities(self, context):
+            return {"rbac_version": 2, "v2_roles": ["CLINICIAN"], "capabilities": {"clinical_analysis": True}}
+
+    contexto = SimpleNamespace(organization_id="org-1", membership_id="m-77", user_id="u-1")
+    app = FastAPI()
+    app.include_router(build_psique_v2_billing_router(
+        lambda: None, lambda: contexto, rbac_provider=lambda: StubRbac()))
+    corpo = TestClient(app).get("/api/psique/v2/capabilities").json()
+    assert corpo["membership_id"] == "m-77"
+    assert corpo["v2_roles"] == ["CLINICIAN"] and corpo["rbac_version"] == 2
+
+
 # -- Guardas do site (quatro idiomas) -------------------------------------------
 
 def test_pricing_pages_exist_in_four_languages_and_load_the_shared_script():

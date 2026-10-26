@@ -9,6 +9,14 @@ usuario ao que so custa dinheiro ou tempo.
 
 ## Grupo 1 — corrigir antes de qualquer coisa (regra da casa ou acesso)
 
+Feito em 20/10/2026 (itens 1 a 9, mais o 15 que caiu junto): migration 054
+(cobranca conta sem recusar; nome so dos pacientes do clinico, `names_scope`),
+`tenant_store.member_quota` levanta sem DSN, cortes sem instante declaram a
+ausencia, instrucao sem FERRAMENTAS para Gemini/OpenAI e `tool_choice: none`
+no teto de turnos, agenda em `FUSO_PADRAO` com `limitesDaSemana`, reagendar
+so sai da edicao com `applied`, botao Agenda por `papelNaAgenda`, agenda
+interna so em organizacao `clinic`. Provado em PostgreSQL (Windows e Linux).
+
 | # | Onde | O que falha | Correcao |
 |---|---|---|---|
 | 1 | `migrations/052` (RAISE na cobranca) + `main.py` portao | A cobranca ao arquivar RECUSA quando a cota ja passou (corrida de duas sessoes com 1 restante, ou cota reduzida depois). O relatorio fica `credit_charge=falhou` e a nova tentativa falha para sempre: nao debita, nao vira pendencia, nao conta. O docstring do portao promete o contrario. | Migration 054: copia da 052 sem o RAISE — a sessao que aconteceu sempre conta e debita; quem barra e so o portao de inicio. Reescrever o teste que hoje afirma o RAISE como garantia. |
@@ -23,6 +31,15 @@ usuario ao que so custa dinheiro ou tempo.
 
 ## Grupo 2 — estado, erro e uso real no painel
 
+Feito em 20/10/2026 (itens 10 a 14 e 16): listas de clinicos e pacientes com
+estado proprio (carregando, lida, falhou com motivo); so o 404 vira "agenda nao
+ligada", o resto diz o que falhou; `PapeisV2` segura o botao ate recarregar,
+limpa o aviso por acao e mostra o motivo das falhas; cancelamento inline com
+motivo e sem clique duplo, status em portugues, botoes so em marcado e
+confirmado; o clinico e reconhecido pelo `membership_id` que a rota de
+capacidades passou a devolver; transcricao ao vivo e trecho da ferramenta
+cortados em linhas inteiras, declarando as linhas omitidas.
+
 | # | Onde | O que falha | Correcao |
 |---|---|---|---|
 | 10 | `AgendaInterna.tsx` listas | Falha de API ao listar clinicos/pacientes vira "Nenhum clinico" (indistinguivel de clinica vazia). | Estado "nao lido" com o motivo, separado de lista vazia. |
@@ -34,6 +51,18 @@ usuario ao que so custa dinheiro ou tempo.
 | 16 | `LiveSession.tsx` transcricao ao vivo | Corte por caracteres depois do carimbo: a primeira linha sai sem [mm:ss] enquanto o contexto afirma que todas tem. | Truncar por linhas inteiras e declarar linhas omitidas. Idem `explica_ferramentas.LIMITE_DO_TRECHO`. |
 
 ## Grupo 3 — custo e tempo
+
+Feito em 20/10/2026 (itens 17 a 21): prompt como bloco com `cache_control`
+(reenviado ate sete vezes por pergunta) e um cliente Anthropic por processo;
+acervo lido uma vez por requisicao (`_relatorios_acessiveis_da_requisicao`),
+transcricao decifrada so da sessao pedida (`_revelar_transcricao`, regra
+unica com o carregador), convites indexados por sessao, leituras de disco
+em `to_thread`; orcamento de tempo por pergunta (`FROID_EXPLICA_ORCAMENTO_S`,
+240 s) e uma tentativa a menos no SDK; `effort` e piso de tokens por chamada
+(SQL low/2k, narracao medium/4k, NR-1 4k, clinico inalterado); cortes do
+Explica ao vivo em cache por estado dos cortes fechados. O cache do prompt
+entre perguntas da mesma sessao exigiria mover o glossario (que depende da
+pergunta) para depois da transcricao: decisao de produto, nao feita.
 
 | # | Onde | O que custa | Correcao |
 |---|---|---|---|

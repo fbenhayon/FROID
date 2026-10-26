@@ -103,27 +103,40 @@ def metricas_do_snapshot(snapshot: Mapping[str, Any]) -> Dict[str, str]:
     return saida
 
 
-def _segundos_do_resumo(resumo: Mapping[str, Any]) -> Tuple[int, int]:
+def _segundos_do_resumo(resumo: Mapping[str, Any]) -> Optional[Tuple[int, int]]:
+    """A janela do resumo em segundos, ou None quando ele nao tem instante.
+
+    Ate 20/10/2026 um resumo sem instante virava a janela 0-1 s (`or 0`), e
+    podia casar com o primeiro corte por engano. Ausencia nao vira zero.
+    """
     inicio = resumo.get("startSecond")
-    if inicio is None:
-        inicio = float(resumo.get("startMinute") or 0) * 60
+    if inicio is None and resumo.get("startMinute") is not None:
+        inicio = float(resumo["startMinute"]) * 60
     fim = resumo.get("endSecond")
-    if fim is None:
-        fim = float(resumo.get("endMinute") or 0) * 60
+    if fim is None and resumo.get("endMinute") is not None:
+        fim = float(resumo["endMinute"]) * 60
+    if _numero(inicio) is None or _numero(fim) is None:
+        return None
     inicio_s = max(0, int(math.floor(float(inicio))))
     fim_s = max(inicio_s + 1, int(math.ceil(float(fim))))
     return inicio_s, fim_s
 
 
 def _resumo_do_corte(corte: Mapping[str, Any], resumos: Sequence[Mapping[str, Any]]) -> Optional[Mapping[str, Any]]:
-    """O resumo que mais se sobrepoe ao corte — a mesma regra de resumo-do-corte.ts."""
+    """O resumo que mais se sobrepoe ao corte — a mesma regra de resumo-do-corte.ts.
+    Corte ou resumo sem instante nao casa com nada."""
+    inicio = _numero(corte.get("startSecond"))
+    fim = _numero(corte.get("endSecond"))
+    if inicio is None or fim is None:
+        return None
     melhor, maior = None, 0
-    inicio = float(corte.get("startSecond") or 0)
-    fim = float(corte.get("endSecond") or 0)
     for resumo in resumos:
         if not isinstance(resumo, Mapping):
             continue
-        r_inicio, r_fim = _segundos_do_resumo(resumo)
+        janela = _segundos_do_resumo(resumo)
+        if janela is None:
+            continue
+        r_inicio, r_fim = janela
         sobreposicao = max(0.0, min(fim, r_fim) - max(inicio, r_inicio))
         if sobreposicao > maior:
             melhor, maior = resumo, sobreposicao
@@ -133,16 +146,21 @@ def _resumo_do_corte(corte: Mapping[str, Any], resumos: Sequence[Mapping[str, An
 def corte_compacto(corte: Mapping[str, Any], resumo: Optional[Mapping[str, Any]]) -> Dict[str, Any]:
     inicio = _numero(corte.get("startSecond"))
     fim = _numero(corte.get("endSecond"))
-    inicio_s = int(inicio) if inicio is not None else 0
-    fim_s = int(fim) if fim is not None else inicio_s
+    # Instante ausente fica ausente (None); a linha do corte declara. Ate
+    # 20/10/2026 virava "0-0 s (duracao 0 s)", um numero com cara de medida.
+    inicio_s = int(inicio) if inicio is not None else None
+    fim_s = int(fim) if fim is not None else None
     amostras = _numero(corte.get("sampleCount"))
     tema = str((resumo or {}).get("theme") or "").strip()
     texto = str((resumo or {}).get("summary") or "").strip()
+    rotulo = str(corte.get("label") or "").strip()
+    if not rotulo:
+        rotulo = f"{inicio_s // 60}-{-(-fim_s // 60)}min" if inicio_s is not None and fim_s is not None else "corte sem instante"
     return {
-        "corte": str(corte.get("label") or f"{inicio_s // 60}-{-(-fim_s // 60)}min"),
+        "corte": rotulo,
         "inicio_s": inicio_s,
         "fim_s": fim_s,
-        "duracao_s": max(0, fim_s - inicio_s),
+        "duracao_s": max(0, fim_s - inicio_s) if inicio_s is not None and fim_s is not None else None,
         "amostras": int(amostras) if amostras is not None else None,
         "tema": tema or None,
         "resumo": texto or None,
@@ -431,11 +449,22 @@ def _trecho_da_transcricao(acervo: Acervo, entrada: Mapping[str, Any]) -> str:
     ]
     if not selecionadas:
         return f"Nenhuma linha transcrita entre {_mmss(inicio)} e {_mmss(fim)} na sessao {session_id}."
-    corpo = "\n".join(selecionadas)
     cabecalho = f"TRANSCRICAO DA SESSAO {session_id} DE {_mmss(inicio)} A {_mmss(fim)} ({len(selecionadas)} linhas):"
-    if len(corpo) > LIMITE_DO_TRECHO:
-        faltam = len(corpo) - LIMITE_DO_TRECHO
-        corpo = corpo[:LIMITE_DO_TRECHO] + f"\n[trecho truncado: faltam {faltam} caracteres; peca uma janela menor]"
+    # Em linhas inteiras, do inicio da janela: cada linha entregue conserva o
+    # seu [mm:ss]. Ate 20/10/2026 o corte era por caractere e a ultima linha
+    # saia pela metade, com cara de fala interrompida.
+    mantidas, tamanho = [], 0
+    for linha in selecionadas:
+        custo = len(linha) + (1 if mantidas else 0)
+        if mantidas and tamanho + custo > LIMITE_DO_TRECHO:
+            break
+        mantidas.append(linha)
+        tamanho += custo
+    corpo = "\n".join(mantidas)
+    omitidas = len(selecionadas) - len(mantidas)
+    if omitidas:
+        ultima = mantidas[-1][1:6]
+        corpo += f"\n[trecho truncado: {omitidas} linhas omitidas depois de {ultima}; peca uma janela menor]"
     return cabecalho + "\n" + corpo
 
 

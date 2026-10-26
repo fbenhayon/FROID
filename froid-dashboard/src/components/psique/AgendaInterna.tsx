@@ -18,15 +18,24 @@ import {
   DIAS_DA_SEMANA,
   FUSO_PADRAO,
   diaIso,
+  diaNoFuso,
   gradeDaSemana,
   horaNoFuso,
+  horaParaMinutos,
   instanteDe,
+  limitesDaSemana,
   minutosParaHora,
   motivoDaAgendaIndisponivel,
   papelNaAgenda,
+  podeOperarOAtendimento,
+  rotuloDoStatus,
   semanaDe,
+  traduzirMotivo,
 } from "../../lib/agenda-interna";
-import { usuarioArmazenado } from "../../lib/contexto-organizacao";
+
+/** Uma lista pedida ao servidor: ainda não lida, lida, ou falhou com motivo.
+ *  Falha de leitura NUNCA vira lista vazia (regra do acervo de relatórios). */
+type Lista<T> = { estado: "carregando" } | { estado: "ok"; itens: T[] } | { estado: "falhou"; motivo: string };
 
 /**
  * A agenda interna da clínica (Psique V2, fase 5 do painel — 19/10/2026).
@@ -39,58 +48,72 @@ import { usuarioArmazenado } from "../../lib/contexto-organizacao";
  * Decisões do dono (18/10/2026): a agenda interna vira a fonte e o Google só
  * espelha; o supervisor vê a agenda geral e marca para os profissionais; o
  * nome do paciente aparece para secretária, administrador e o próprio
- * profissional — o supervisor recebe identificadores.
+ * profissional — o supervisor recebe identificadores. Em 20/10/2026 (revisão
+ * pré-fase 5): o clínico vê o nome só dos SEUS pacientes.
  */
 export function AgendaInterna({ modo }: { modo: "clinica" | "propria" }) {
   const [capacidades, setCapacidades] = useState<EstadoV2<CapacidadesPsiqueV2>>({
     estado: "indisponivel",
     motivo: "CARREGANDO",
   });
-  const [clinicos, setClinicos] = useState<ClinicoV2[]>([]);
-  const [pacientes, setPacientes] = useState<PacienteV2[]>([]);
-  const [comNomes, setComNomes] = useState(true);
+  const [clinicos, setClinicos] = useState<Lista<ClinicoV2>>({ estado: "carregando" });
+  const [pacientes, setPacientes] = useState<Lista<PacienteV2>>({ estado: "carregando" });
+  const [recorteDeNomes, setRecorteDeNomes] = useState<"all" | "own" | "none">("all");
   const [agendamentos, setAgendamentos] = useState<AgendamentoV2[]>([]);
   const [referencia, setReferencia] = useState(() => new Date());
   const [aviso, setAviso] = useState("");
   const [erro, setErro] = useState("");
   const [salvando, setSalvando] = useState(false);
   const [editando, setEditando] = useState<AgendamentoV2 | null>(null);
+  const [cancelando, setCancelando] = useState<AgendamentoV2 | null>(null);
+  const [motivoDoCancelamento, setMotivoDoCancelamento] = useState("");
   const [form, setForm] = useState({ clinico: "", paciente: "", dia: diaIso(new Date()), hora: "09:00", duracao: "50" });
   const [disponibilidade, setDisponibilidade] = useState({ clinico: "", weekday: "1", inicio: "08:00", fim: "18:00" });
 
   const dias = useMemo(() => semanaDe(referencia), [referencia]);
   const papel = useMemo(() => papelNaAgenda(capacidades), [capacidades]);
-  const emailProprio = String((usuarioArmazenado() as { email?: string } | null)?.email || "").toLowerCase();
+  const listaDeClinicos = clinicos.estado === "ok" ? clinicos.itens : [];
+  const listaDePacientes = pacientes.estado === "ok" ? pacientes.itens : [];
+  // O clínico é reconhecido pelo vínculo (membership_id) que o servidor
+  // devolve nas capacidades. Até 20/10/2026 era por igualdade de e-mail, e
+  // um alias ou e-mail ausente deixava o clínico sem agenda e sem causa.
   const clinicoProprio = useMemo(
-    () => clinicos.find((c) => c.email.toLowerCase() === emailProprio) || null,
-    [clinicos, emailProprio],
+    () => (papel?.membershipId ? listaDeClinicos.find((c) => c.membership_id === papel.membershipId) || null : null),
+    [listaDeClinicos, papel],
   );
   const clinicosVisiveis = useMemo(
-    () => (modo === "propria" ? (clinicoProprio ? [clinicoProprio] : []) : clinicos),
-    [modo, clinicos, clinicoProprio],
+    () => (modo === "propria" ? (clinicoProprio ? [clinicoProprio] : []) : listaDeClinicos),
+    [modo, listaDeClinicos, clinicoProprio],
   );
   const podeOperarTodos = Boolean(papel?.geral) && modo === "clinica";
   const grade = useMemo(() => gradeDaSemana(agendamentos, dias, FUSO_PADRAO), [agendamentos, dias]);
   const rotuloDoPaciente = useCallback(
     (item: AgendamentoV2) =>
       item.patient_name ||
-      pacientes.find((p) => p.patient_id === item.patient_id)?.label ||
+      listaDePacientes.find((p) => p.patient_id === item.patient_id)?.label ||
       `Paciente ${item.patient_id.slice(-4)}`,
-    [pacientes],
+    [listaDePacientes],
   );
 
   const carregarAgenda = useCallback(async () => {
-    const inicio = dias[0];
-    const fim = new Date(dias[6].getFullYear(), dias[6].getMonth(), dias[6].getDate() + 1);
-    const resposta = await listarAgendaV2(inicio.toISOString(), fim.toISOString());
+    // Os limites da semana no fuso da agenda, nao no do navegador: ate
+    // 20/10/2026 eram meia-noite local, e um navegador fora de Sao Paulo
+    // pedia uma janela deslocada enquanto a grade era montada em Sao Paulo.
+    const { inicio, fim } = limitesDaSemana(dias, FUSO_PADRAO);
+    const resposta = await listarAgendaV2(inicio, fim);
     if (resposta.estado === "ok") {
       setAgendamentos(resposta.dados.appointments);
       setErro("");
     } else {
       setAgendamentos([]);
-      setErro(`A agenda não pôde ser lida: ${resposta.motivo}.`);
+      setErro(`A agenda não pôde ser lida: ${traduzirMotivo(resposta.motivo)}.`);
     }
   }, [dias]);
+
+  const carregarClinicos = useCallback(async () => {
+    const r = await listarClinicosV2();
+    setClinicos(r.estado === "ok" ? { estado: "ok", itens: r.dados.clinicians } : { estado: "falhou", motivo: r.motivo });
+  }, []);
 
   useEffect(() => {
     let ativo = true;
@@ -105,13 +128,15 @@ export function AgendaInterna({ modo }: { modo: "clinica" | "propria" }) {
     let ativo = true;
     void listarClinicosV2().then((r) => {
       if (!ativo) return;
-      if (r.estado === "ok") setClinicos(r.dados.clinicians);
+      setClinicos(r.estado === "ok" ? { estado: "ok", itens: r.dados.clinicians } : { estado: "falhou", motivo: r.motivo });
     });
     void listarPacientesV2().then((r) => {
       if (!ativo) return;
       if (r.estado === "ok") {
-        setPacientes(r.dados.patients);
-        setComNomes(r.dados.with_names);
+        setPacientes({ estado: "ok", itens: r.dados.patients });
+        setRecorteDeNomes(r.dados.names_scope || (r.dados.with_names ? "all" : "none"));
+      } else {
+        setPacientes({ estado: "falhou", motivo: r.motivo });
       }
     });
     return () => {
@@ -129,11 +154,19 @@ export function AgendaInterna({ modo }: { modo: "clinica" | "propria" }) {
     if (modo === "propria" && clinicoProprio) {
       setForm((f) => ({ ...f, clinico: clinicoProprio.membership_id }));
       setDisponibilidade((d) => ({ ...d, clinico: clinicoProprio.membership_id }));
-    } else if (!form.clinico && clinicos[0]) {
-      setForm((f) => ({ ...f, clinico: clinicos[0].membership_id }));
-      setDisponibilidade((d) => ({ ...d, clinico: clinicos[0].membership_id }));
+    } else if (!form.clinico && listaDeClinicos[0]) {
+      setForm((f) => ({ ...f, clinico: listaDeClinicos[0].membership_id }));
+      setDisponibilidade((d) => ({ ...d, clinico: listaDeClinicos[0].membership_id }));
     }
-  }, [modo, clinicoProprio, clinicos, form.clinico]);
+  }, [modo, clinicoProprio, listaDeClinicos, form.clinico]);
+
+  useEffect(() => {
+    // A agenda recarregada traz a versao nova: o item em edicao acompanha,
+    // para o proximo "Confirmar" nao partir de uma versao vencida.
+    if (!editando) return;
+    const atual = agendamentos.find((a) => a.appointment_id === editando.appointment_id);
+    if (atual && atual.version !== editando.version) setEditando(atual);
+  }, [agendamentos, editando]);
 
   const motivo = motivoDaAgendaIndisponivel(capacidades);
   if (motivo) {
@@ -174,9 +207,15 @@ export function AgendaInterna({ modo }: { modo: "clinica" | "propria" }) {
           start_at: inicio,
           end_at: fim,
         });
-        if (r.estado === "ok" && r.dados.applied) setAviso("Atendimento reagendado.");
-        else setErro(`Não reagendado: ${r.estado === "ok" ? r.dados.code || "recusado" : r.motivo}.`);
-        setEditando(null);
+        if (r.estado === "ok" && r.dados.applied) {
+          setAviso("Atendimento reagendado.");
+          setEditando(null);
+        } else {
+          // Recusado (versao vencida, conflito): continua em edicao. Ate
+          // 20/10/2026 saia do modo edicao com o formulario cheio, e o clique
+          // seguinte CRIAVA um segundo atendimento.
+          setErro(`Não reagendado: ${traduzirMotivo(r.estado === "ok" ? r.dados.code || "recusado" : r.motivo)}. O atendimento original continua marcado.`);
+        }
       } else {
         if (!form.paciente || !form.clinico) {
           setErro("Escolha o clínico e o paciente.");
@@ -195,21 +234,50 @@ export function AgendaInterna({ modo }: { modo: "clinica" | "propria" }) {
     }
   };
 
-  const cancelar = async (item: AgendamentoV2) => {
-    if (!window.confirm(`Cancelar o atendimento de ${horaNoFuso(item.start_at, FUSO_PADRAO)}?`)) return;
-    const r = await cancelarAgendamentoV2(item.appointment_id, { expected_version: item.version, reason: "painel" });
-    if (r.estado === "ok" && r.dados.applied) setAviso("Atendimento cancelado.");
-    else setErro(`Não cancelado: ${r.estado === "ok" ? r.dados.code || "recusado" : r.motivo}.`);
-    await carregarAgenda();
+  const prepararCancelamento = (item: AgendamentoV2) => {
+    setAviso("");
+    setErro("");
+    setEditando(null);
+    setCancelando(item);
+    setMotivoDoCancelamento("");
+  };
+
+  const confirmarCancelamento = async () => {
+    // Sem `window.confirm` (bloqueante e sem motivo) e sem clique duplo: o
+    // botao fica desativado enquanto a chamada pende.
+    if (!cancelando || salvando) return;
+    const motivoInformado = motivoDoCancelamento.trim();
+    if (!motivoInformado) {
+      setErro("Informe o motivo do cancelamento.");
+      return;
+    }
+    setSalvando(true);
+    setErro("");
+    try {
+      const r = await cancelarAgendamentoV2(cancelando.appointment_id, {
+        expected_version: cancelando.version,
+        reason: motivoInformado,
+      });
+      if (r.estado === "ok" && r.dados.applied) {
+        setAviso("Atendimento cancelado.");
+        setCancelando(null);
+      } else {
+        setErro(`Não cancelado: ${traduzirMotivo(r.estado === "ok" ? r.dados.code || "recusado" : r.motivo)}.`);
+      }
+      await carregarAgenda();
+    } finally {
+      setSalvando(false);
+    }
   };
 
   const prepararReagendamento = (item: AgendamentoV2) => {
+    setCancelando(null);
     setEditando(item);
     setForm((f) => ({
       ...f,
       clinico: item.clinician_membership_id,
       paciente: item.patient_id,
-      dia: diaIso(new Date(item.start_at)),
+      dia: diaNoFuso(item.start_at, FUSO_PADRAO),
       hora: horaNoFuso(item.start_at, FUSO_PADRAO),
       duracao: String(Math.round((new Date(item.end_at).getTime() - new Date(item.start_at).getTime()) / 60000)),
     }));
@@ -220,8 +288,8 @@ export function AgendaInterna({ modo }: { modo: "clinica" | "propria" }) {
     evento.preventDefault();
     setAviso("");
     setErro("");
-    const inicio = minutosDe(disponibilidade.inicio);
-    const fim = minutosDe(disponibilidade.fim);
+    const inicio = horaParaMinutos(disponibilidade.inicio);
+    const fim = horaParaMinutos(disponibilidade.fim);
     if (inicio === null || fim === null || fim <= inicio || !disponibilidade.clinico) {
       setErro("Informe o clínico e uma janela com fim depois do início.");
       return;
@@ -235,8 +303,7 @@ export function AgendaInterna({ modo }: { modo: "clinica" | "propria" }) {
     });
     if (r.estado === "ok") {
       setAviso("Disponibilidade salva.");
-      const lista = await listarClinicosV2();
-      if (lista.estado === "ok") setClinicos(lista.dados.clinicians);
+      await carregarClinicos();
     } else {
       setErro(`Disponibilidade não salva: ${traduzirMotivo(r.motivo)}.`);
     }
@@ -244,6 +311,18 @@ export function AgendaInterna({ modo }: { modo: "clinica" | "propria" }) {
 
   const mover = (semanas: number) =>
     setReferencia((r) => new Date(r.getFullYear(), r.getMonth(), r.getDate() + 7 * semanas));
+
+  const linhaVazia = (() => {
+    if (clinicos.estado === "carregando") return "Lendo os clínicos da clínica...";
+    if (clinicos.estado === "falhou") return `Os clínicos não puderam ser lidos: ${traduzirMotivo(clinicos.motivo)}.`;
+    if (modo === "propria" && !clinicoProprio) {
+      return papel?.membershipId
+        ? "Seu vínculo tem papel de clínico, mas não está na lista de clínicos desta clínica. Peça à administração para conferir."
+        : "O servidor não informou o seu vínculo nesta clínica; a agenda própria não pôde ser montada.";
+    }
+    if (clinicosVisiveis.length === 0) return "Nenhum clínico com papel V2 nesta clínica ainda.";
+    return "";
+  })();
 
   return (
     <section data-secao="agenda-interna" className="rounded-lg border border-slate-800 bg-slate-900 p-4">
@@ -268,11 +347,17 @@ export function AgendaInterna({ modo }: { modo: "clinica" | "propria" }) {
       </div>
       <p className="mt-1 text-[11px] text-slate-500">
         Horários em {FUSO_PADRAO}. A agenda interna é a fonte; o Google Calendar passa a espelhá-la.
-        {!comNomes ? " Você vê identificadores, não nomes de pacientes." : ""}
+        {recorteDeNomes === "none" ? " Você vê identificadores, não nomes de pacientes." : ""}
+        {recorteDeNomes === "own" ? " Você vê o nome dos seus pacientes; os demais, por identificador." : ""}
       </p>
 
       {aviso ? <p data-campo="aviso" className="mt-2 text-xs text-cyan-200">{aviso}</p> : null}
-      {erro ? <p data-campo="erro" className="mt-2 text-xs text-red-300">{erro}</p> : null}
+      {erro ? <p data-campo="erro" role="alert" className="mt-2 text-xs text-red-300">{erro}</p> : null}
+      {pacientes.estado === "falhou" ? (
+        <p data-campo="pacientes-nao-lidos" role="alert" className="mt-2 text-xs text-amber-200">
+          Os pacientes não puderam ser lidos: {traduzirMotivo(pacientes.motivo)}. Sem a lista não dá para marcar.
+        </p>
+      ) : null}
 
       <div className="mt-3 overflow-x-auto">
         <table className="min-w-max table-fixed text-left text-[11px]">
@@ -287,10 +372,10 @@ export function AgendaInterna({ modo }: { modo: "clinica" | "propria" }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800">
-            {clinicosVisiveis.length === 0 ? (
+            {linhaVazia ? (
               <tr>
-                <td colSpan={8} className="px-2 py-3 text-slate-500">
-                  Nenhum clínico com papel V2 nesta clínica ainda.
+                <td colSpan={8} data-campo="sem-clinicos" className="px-2 py-3 text-slate-500">
+                  {linhaVazia}
                 </td>
               </tr>
             ) : null}
@@ -311,34 +396,57 @@ export function AgendaInterna({ modo }: { modo: "clinica" | "propria" }) {
                   const itens = grade.get(clinico.membership_id)?.get(diaIso(dia)) || [];
                   return (
                     <td key={diaIso(dia)} className="px-2 py-2">
-                      {itens.map((item) => (
-                        <div
-                          key={item.appointment_id}
-                          data-agendamento={item.appointment_id}
-                          className={`mb-1 rounded border px-1.5 py-1 ${
-                            item.appointment_status === "CANCELLED"
-                              ? "border-slate-800 text-slate-500 line-through"
-                              : "border-cyan-800 bg-cyan-950/40 text-slate-100"
-                          }`}
-                        >
-                          <p className="font-mono">
-                            {horaNoFuso(item.start_at, FUSO_PADRAO)}–{horaNoFuso(item.end_at, FUSO_PADRAO)}
-                          </p>
-                          <p className="truncate">{rotuloDoPaciente(item)}</p>
-                          <p className="text-[9px] uppercase text-slate-400">{item.appointment_status}</p>
-                          {item.appointment_status !== "CANCELLED" &&
-                          (podeOperarTodos || item.clinician_membership_id === clinicoProprio?.membership_id) ? (
-                            <div className="mt-1 flex gap-1">
-                              <button type="button" onClick={() => prepararReagendamento(item)} className="rounded border border-slate-700 px-1 text-[9px] hover:bg-slate-800">
-                                reagendar
-                              </button>
-                              <button type="button" onClick={() => void cancelar(item)} className="rounded border border-red-900 px-1 text-[9px] text-red-300 hover:bg-red-950">
-                                cancelar
-                              </button>
-                            </div>
-                          ) : null}
-                        </div>
-                      ))}
+                      {itens.map((item) => {
+                        const operavel = podeOperarOAtendimento(item.appointment_status);
+                        const seu = podeOperarTodos || item.clinician_membership_id === clinicoProprio?.membership_id;
+                        const emCancelamento = cancelando?.appointment_id === item.appointment_id;
+                        return (
+                          <div
+                            key={item.appointment_id}
+                            data-agendamento={item.appointment_id}
+                            className={`mb-1 rounded border px-1.5 py-1 ${
+                              item.appointment_status === "CANCELLED"
+                                ? "border-slate-800 text-slate-500 line-through"
+                                : "border-cyan-800 bg-cyan-950/40 text-slate-100"
+                            }`}
+                          >
+                            <p className="font-mono">
+                              {horaNoFuso(item.start_at, FUSO_PADRAO)}–{horaNoFuso(item.end_at, FUSO_PADRAO)}
+                            </p>
+                            <p className="truncate">{rotuloDoPaciente(item)}</p>
+                            <p className="text-[9px] uppercase text-slate-400">{rotuloDoStatus(item.appointment_status)}</p>
+                            {operavel && seu && !emCancelamento ? (
+                              <div className="mt-1 flex gap-1">
+                                <button type="button" disabled={salvando} onClick={() => prepararReagendamento(item)} className="rounded border border-slate-700 px-1 text-[9px] hover:bg-slate-800 disabled:opacity-60">
+                                  reagendar
+                                </button>
+                                <button type="button" disabled={salvando} onClick={() => prepararCancelamento(item)} className="rounded border border-red-900 px-1 text-[9px] text-red-300 hover:bg-red-950 disabled:opacity-60">
+                                  cancelar
+                                </button>
+                              </div>
+                            ) : null}
+                            {emCancelamento ? (
+                              <div data-campo="confirmar-cancelamento" className="mt-1 flex flex-col gap-1">
+                                <input
+                                  type="text"
+                                  value={motivoDoCancelamento}
+                                  onChange={(e) => setMotivoDoCancelamento(e.target.value)}
+                                  placeholder="motivo do cancelamento"
+                                  className="rounded border border-slate-700 bg-slate-900 px-1 py-0.5 text-[10px]"
+                                />
+                                <div className="flex gap-1">
+                                  <button type="button" disabled={salvando} onClick={() => void confirmarCancelamento()} className="rounded bg-red-800 px-1 text-[9px] font-bold text-white hover:bg-red-900 disabled:opacity-60">
+                                    {salvando ? "cancelando..." : "confirmar cancelamento"}
+                                  </button>
+                                  <button type="button" disabled={salvando} onClick={() => setCancelando(null)} className="rounded border border-slate-700 px-1 text-[9px] hover:bg-slate-800 disabled:opacity-60">
+                                    desistir
+                                  </button>
+                                </div>
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })}
                     </td>
                   );
                 })}
@@ -369,12 +477,14 @@ export function AgendaInterna({ modo }: { modo: "clinica" | "propria" }) {
           Paciente
           <select
             value={form.paciente}
-            disabled={Boolean(editando)}
+            disabled={Boolean(editando) || pacientes.estado !== "ok"}
             onChange={(e) => setForm((f) => ({ ...f, paciente: e.target.value }))}
             className="rounded border border-slate-700 bg-slate-900 px-2 py-1"
           >
-            <option value="">escolha</option>
-            {pacientes.map((p) => (
+            <option value="">
+              {pacientes.estado === "carregando" ? "lendo..." : pacientes.estado === "falhou" ? "lista não lida" : "escolha"}
+            </option>
+            {listaDePacientes.map((p) => (
               <option key={p.patient_id} value={p.patient_id}>{p.label}</option>
             ))}
           </select>
@@ -446,25 +556,4 @@ export function AgendaInterna({ modo }: { modo: "clinica" | "propria" }) {
       ) : null}
     </section>
   );
-}
-
-function minutosDe(hora: string): number | null {
-  const partes = /^(\d{1,2}):(\d{2})$/.exec(hora);
-  if (!partes) return null;
-  return Number(partes[1]) * 60 + Number(partes[2]);
-}
-
-/** Os códigos do servidor que a tela sabe explicar; o resto sai como veio. */
-function traduzirMotivo(codigo: string): string {
-  const frases: Record<string, string> = {
-    APPOINTMENT_CONFLICT: "o clínico já tem atendimento nesse horário",
-    OUTSIDE_AVAILABILITY: "fora da disponibilidade cadastrada do clínico",
-    OWN_AGENDA_ONLY: "você só pode operar a sua própria agenda",
-    OWN_AVAILABILITY_ONLY: "você só pode definir a sua própria disponibilidade",
-    APPOINTMENT_PATIENT_REQUIRED: "o paciente não está ativo nesta clínica",
-    APPOINTMENT_CLINICIAN_REQUIRED: "a pessoa escolhida não tem papel de clínico",
-    RBAC_V2_NOT_ENABLED: "a clínica ainda não ativou os papéis V2",
-    PSIQUE_SCHEDULING_ROLE_DENIED: "seu papel não inclui agenda",
-  };
-  return frases[codigo] || codigo;
 }

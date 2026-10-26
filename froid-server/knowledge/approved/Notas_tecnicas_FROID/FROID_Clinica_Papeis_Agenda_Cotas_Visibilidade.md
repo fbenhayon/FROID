@@ -64,7 +64,10 @@ regra, decidida pelo dono em 18/10/2026:
   limite de sessoes atribuido a voce nesta clinica foi atingido. Peca ao
   responsavel pela clinica para ampliar a sua cota." A cobranca, que acontece
   ao arquivar o relatorio, conta a sessao na cota e nunca recusa um
-  atendimento ja realizado.
+  atendimento ja realizado: se duas sessoes comecaram com uma vaga so, ou
+  se o limite foi reduzido depois, a sessao que aconteceu conta e debita
+  mesmo acima da cota (decisao do dono, 20/10/2026), e o portao de inicio
+  barra a seguinte.
 - Uma sessao realizada sem saldo na clinica fica pendente e e liquidada quando
   entram creditos; ela conta na cota do profissional, porque aconteceu.
 
@@ -75,7 +78,7 @@ paralelo aos papeis da versao 1 e governam a agenda:
 
 | Papel V2 | O que pode na agenda |
 |---|---|
-| Clinico (CLINICIAN) | tem agenda propria; marca, reagenda e cancela os proprios atendimentos; define a propria disponibilidade; ve o nome dos seus pacientes |
+| Clinico (CLINICIAN) | tem agenda propria; marca, reagenda e cancela os proprios atendimentos; define a propria disponibilidade; ve o nome dos SEUS pacientes (atribuidos a ele ou com atendimento dele) e os demais por identificador curto |
 | Secretaria (SECRETARY) | marca, reagenda e cancela para qualquer clinico; ve o nome dos pacientes |
 | Supervisor clinico (CLINICAL_SUPERVISOR) | ve a agenda inteira e marca, reagenda e cancela para os profissionais; NAO ve o nome dos pacientes, so um identificador curto |
 | Administracao (ORG_ADMIN) | tudo da agenda; concede e revoga papeis; ve nomes |

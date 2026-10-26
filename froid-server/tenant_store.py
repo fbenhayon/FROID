@@ -1756,14 +1756,16 @@ class TenantStore:
     def member_quota(self, *, organization_id: str, membership_id: str) -> Optional[dict]:
         """A cota de sessoes deste membro nesta organizacao, ou None sem cota.
 
-        Lida pelo papel de runtime, sob a RLS da tabela (010). Falha de leitura
-        devolve None, e None significa "sem limite atribuido" — o portao de
-        inicio de sessao (main) trata a falha como liberacao, porque e portao
-        de cota, nao de seguranca: defeito de infraestrutura nao pode impedir
-        atendimento. A falha fica no log de quem chama.
+        Lida pelo papel de runtime, sob a RLS da tabela (010). None significa
+        UMA coisa: nao ha limite atribuido. Quando nao da para ler (sem DSN de
+        runtime), levanta — o portao de inicio de sessao (main) e quem decide
+        liberar, e registra o motivo real. Ate 20/10/2026 as duas causas
+        devolviam None e a segunda liberava sem uma linha de log (padrao 2.11).
         """
-        if not self.enabled or not self.runtime_database_url:
+        if not self.enabled:
             return None
+        if not self.runtime_database_url:
+            raise RuntimeError("member_quota_sem_dsn_de_runtime")
         with self._connect(runtime=True) as connection:
             with connection.transaction():
                 connection.execute(

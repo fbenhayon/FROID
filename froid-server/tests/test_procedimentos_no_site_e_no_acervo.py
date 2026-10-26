@@ -64,7 +64,10 @@ class AsNotasExistemEEstaoLiberadas(unittest.TestCase):
     def test_cada_afirmacao_da_nota_da_clinica_tem_lastro_no_codigo(self):
         papeis = _ler(PAINEL / "components" / "psique" / "PapeisV2.tsx")
         agenda = _ler(PAINEL / "components" / "psique" / "AgendaInterna.tsx")
+        # As frases dos motivos vivem no modulo puro desde 20/10/2026 (item 13).
+        motivos = _ler(PAINEL / "lib" / "agenda-interna.ts")
         carimbo = _ler(PAINEL / "lib" / "contexto-organizacao.ts")
+        migracao_054 = _ler(SERVIDOR / "migrations" / "054_cota_conta_e_paciente_do_clinico.sql")
         servidor = _ler(SERVIDOR / "main.py")
         acesso = _ler(SERVIDOR / "tenant_access.py")
         migracao = _ler(SERVIDOR / "migrations" / "053_psique_scheduling_supervisor.sql")
@@ -72,8 +75,9 @@ class AsNotasExistemEEstaoLiberadas(unittest.TestCase):
         self.assertIn('"CLINICAL_SUPERVISOR"', papeis)
         self.assertIn("Agenda da clínica", agenda)
         self.assertIn("Minha agenda", agenda)
-        self.assertIn("fora da disponibilidade cadastrada do clínico", agenda)
-        self.assertIn("o clínico já tem atendimento nesse horário", agenda)
+        self.assertIn("fora da disponibilidade cadastrada do clínico", motivos)
+        self.assertIn("o clínico já tem atendimento nesse horário", motivos)
+        self.assertIn("Você vê o nome dos seus pacientes; os demais, por identificador.", agenda)
         self.assertIn('CARIMBO_SOLO = "Solo"', carimbo)
         self.assertIn("Sem carimbo (sessão anterior ao registro)", carimbo)
         self.assertIn("O limite de sessões atribuído a você nesta clínica foi atingido.", servidor)
@@ -83,6 +87,9 @@ class AsNotasExistemEEstaoLiberadas(unittest.TestCase):
         # administracao e clinico do atendimento.
         self.assertIn("ARRAY['SECRETARY','ORG_ADMIN','CLINICAL_SUPERVISOR','CLINICIAN']", migracao)
         self.assertIn("'patient_name',CASE WHEN psique_v2_role_check(ARRAY['SECRETARY','ORG_ADMIN'])", migracao)
+        # 054: na lista de pacientes o clinico recebe o nome so dos seus.
+        self.assertIn("pa.membership_id=member AND pa.status='active'", migracao_054)
+        self.assertIn("'names_scope',escopo", migracao_054)
 
     def test_cada_afirmacao_da_nota_do_explica_tem_lastro_no_codigo(self):
         import explica_clinico

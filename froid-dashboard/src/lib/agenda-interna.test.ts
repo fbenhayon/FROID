@@ -5,19 +5,49 @@ import {
   horaNoFuso,
   horaParaMinutos,
   instanteDe,
+  limitesDaSemana,
   minutosParaHora,
   motivoDaAgendaIndisponivel,
   papelNaAgenda,
+  podeOperarOAtendimento,
+  rotuloDoStatus,
   semanaDe,
+  traduzirMotivo,
 } from "./agenda-interna";
 
-const caps = (rbac: number, papeis: string[]) => ({
+const caps = (rbac: number, papeis: string[], membershipId?: string) => ({
   estado: "ok" as const,
   dados: {
     rbac_version: rbac,
     v2_roles: papeis,
+    membership_id: membershipId,
     capabilities: { clinical_analysis: true, purchase_credits: false, manage_roles: false, read_audit: false, supervise: false },
   },
+});
+
+describe("motivos, status e vínculo (revisão 20/10/2026, itens 11, 13 e 14)", () => {
+  it("só o 404 significa agenda não ligada; o resto diz o que falhou", () => {
+    expect(motivoDaAgendaIndisponivel({ estado: "indisponivel", motivo: "HTTP_404" })).toContain("não está ligada");
+    expect(motivoDaAgendaIndisponivel({ estado: "indisponivel", motivo: "HTTP_500" })).toContain("não pôde ser lida");
+    expect(motivoDaAgendaIndisponivel({ estado: "indisponivel", motivo: "SEM_CONEXAO" })).toContain("sem conexão");
+    expect(motivoDaAgendaIndisponivel({ estado: "indisponivel", motivo: "CARREGANDO" })).toContain("Carregando");
+    expect(motivoDaAgendaIndisponivel({ estado: "negado", motivo: "HTTP_401" })).toContain("expirou");
+  });
+
+  it("o status sai na língua da tela e só marcado/confirmado se opera", () => {
+    expect(rotuloDoStatus("NO_SHOW")).toBe("não compareceu");
+    expect(rotuloDoStatus("INEDITO")).toBe("INEDITO");
+    expect(podeOperarOAtendimento("SCHEDULED")).toBe(true);
+    expect(podeOperarOAtendimento("CONFIRMED")).toBe(true);
+    for (const s of ["IN_PROGRESS", "COMPLETED", "CANCELLED", "NO_SHOW"]) expect(podeOperarOAtendimento(s)).toBe(false);
+  });
+
+  it("o vínculo vem das capacidades; sem ele, null, nunca e-mail", () => {
+    expect(papelNaAgenda(caps(2, ["CLINICIAN"], "m-1"))?.membershipId).toBe("m-1");
+    expect(papelNaAgenda(caps(2, ["CLINICIAN"]))?.membershipId).toBeNull();
+    expect(traduzirMotivo("APPOINTMENT_CONFLICT")).toContain("já tem atendimento");
+    expect(traduzirMotivo("X_DESCONHECIDO")).toBe("X_DESCONHECIDO");
+  });
 });
 
 describe("semana e horas", () => {
@@ -39,6 +69,16 @@ describe("semana e horas", () => {
     const iso = instanteDe("2027-03-10", "14:00", "America/Sao_Paulo");
     expect(iso).toBe("2027-03-10T17:00:00.000Z");
     expect(horaNoFuso(iso as string, "America/Sao_Paulo")).toBe("14:00");
+  });
+
+  it("os limites da semana sao meia-noite no fuso da agenda, nao no do navegador", () => {
+    // Revisao 20/10/2026, item 4: a janela pedida ao servidor era meia-noite
+    // LOCAL; fora de Sao Paulo o dia mudava em silencio.
+    const dias = semanaDe(new Date(2027, 2, 10));
+    const { inicio, fim } = limitesDaSemana(dias, "America/Sao_Paulo");
+    expect(inicio).toBe("2027-03-08T03:00:00.000Z");
+    expect(fim).toBe("2027-03-15T03:00:00.000Z");
+    expect(limitesDaSemana(dias, "UTC")).toEqual({ inicio: "2027-03-08T00:00:00.000Z", fim: "2027-03-15T00:00:00.000Z" });
   });
 
   it("dia ou hora invalidos nao viram instante", () => {
@@ -73,13 +113,13 @@ describe("gradeDaSemana", () => {
 
 describe("papelNaAgenda", () => {
   it("secretaria e administrador operam tudo e veem nomes", () => {
-    expect(papelNaAgenda(caps(2, ["SECRETARY"]))).toEqual({ geral: true, clinico: false, veNomes: true });
-    expect(papelNaAgenda(caps(2, ["ORG_ADMIN", "CLINICIAN"]))).toEqual({ geral: true, clinico: true, veNomes: true });
+    expect(papelNaAgenda(caps(2, ["SECRETARY"]))).toEqual({ geral: true, clinico: false, veNomes: true, membershipId: null });
+    expect(papelNaAgenda(caps(2, ["ORG_ADMIN", "CLINICIAN"]))).toEqual({ geral: true, clinico: true, veNomes: true, membershipId: null });
   });
 
   it("supervisor opera tudo sem nomes; clinico so a propria, com nomes", () => {
-    expect(papelNaAgenda(caps(2, ["CLINICAL_SUPERVISOR"]))).toEqual({ geral: true, clinico: false, veNomes: false });
-    expect(papelNaAgenda(caps(2, ["CLINICIAN"]))).toEqual({ geral: false, clinico: true, veNomes: true });
+    expect(papelNaAgenda(caps(2, ["CLINICAL_SUPERVISOR"]))).toEqual({ geral: true, clinico: false, veNomes: false, membershipId: null });
+    expect(papelNaAgenda(caps(2, ["CLINICIAN"]))).toEqual({ geral: false, clinico: true, veNomes: true, membershipId: null });
   });
 
   it("sem rbac v2 nao ha papel, e a frase diz quem ativa", () => {

@@ -16,6 +16,11 @@ Producao em 18/10/2026: 9 carteiras em V2, 3 em V1; `organization_member_quotas`
 vazia (nenhum limite atribuido ate hoje). A regra do dono e exatamente a do
 V1; o V2 cumpre so a metade do pool, e nem essa bloqueia — enfileira.
 
+> Revisao de 20/10/2026 (docs/revisao-pre-fase5.md, item 1): a migration 054
+> retira o RAISE da cobranca. A sessao que aconteceu conta e debita mesmo
+> acima da cota; quem barra e so o portao de inicio. O texto abaixo e o
+> desenho original da 052 e fica como registro.
+
 ## O que entra (migration 052)
 
 1. `psique_v2_session_charge` ganha a checagem do limite por membro, copiando

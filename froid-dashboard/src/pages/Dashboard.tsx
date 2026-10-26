@@ -5,7 +5,8 @@ import { AIInsights } from "../components/panels/AIInsights";
 import { FroidTooltip } from "../components/ui/FroidTooltip";
 import { tooltipText } from "../lib/tooltip-i18n";
 import { apiUrl } from "../lib/api";
-import { obterCarteiraPsiqueV2 } from "../lib/psique-v2-api";
+import { obterCapacidadesPsiqueV2, obterCarteiraPsiqueV2, type CapacidadesPsiqueV2, type EstadoV2 } from "../lib/psique-v2-api";
+import { papelNaAgenda } from "../lib/agenda-interna";
 import { caminhoDoConviteDeSessao } from "../lib/convite-de-sessao";
 import { criarSessaoPresencial } from "../lib/sessao-presencial";
 import {
@@ -267,6 +268,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
       vivo = false;
     };
   }, []);
+  // O botao da agenda geral e de quem o servidor diz que opera a agenda de
+  // todos (SECRETARY, ORG_ADMIN, CLINICAL_SUPERVISOR em V2). Ate 20/10/2026
+  // ia pelos papeis V1 de gestao: a secretaria com papel V2 nao tinha porta
+  // para a tela que o papel dela libera (padrao 2.1: concessao sem leitor).
+  const [capacidadesV2, setCapacidadesV2] = useState<EstadoV2<CapacidadesPsiqueV2>>({
+    estado: "indisponivel",
+    motivo: "CARREGANDO",
+  });
+  useEffect(() => {
+    let vivo = true;
+    void obterCapacidadesPsiqueV2().then((r) => {
+      if (vivo) setCapacidadesV2(r);
+    });
+    return () => {
+      vivo = false;
+    };
+  }, [user?.active_organization_id]);
+  const operaAgendaGeral = useMemo(() => Boolean(papelNaAgenda(capacidadesV2)?.geral), [capacidadesV2]);
   const [defaultSessionLocale, setDefaultSessionLocale] = useState<SessionLocale>(
     () => loadSessionLanguagePreferences().spokenLanguage,
   );
@@ -700,7 +719,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                 {tr("Gestão da clínica")}
               </button>
             )}
-            {isClinicManager && (
+            {operaAgendaGeral && (
               <button
                 onClick={() => nav("/agenda")}
                 title={tr("Agenda interna da clínica: marcar, reagendar e cancelar atendimentos dos profissionais.")}

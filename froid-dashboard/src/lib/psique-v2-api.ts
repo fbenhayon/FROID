@@ -41,6 +41,9 @@ export interface CarteiraPsiqueV2 {
 export interface CapacidadesPsiqueV2 {
   rbac_version: number;
   v2_roles: string[];
+  /** O vínculo de quem pergunta (a rota acrescenta; ausente em servidores
+   *  anteriores a 20/10/2026). */
+  membership_id?: string;
   capabilities: {
     clinical_analysis: boolean;
     purchase_credits: boolean;
@@ -175,8 +178,9 @@ export interface ClinicoV2 {
 
 export interface PacienteV2 {
   patient_id: string;
-  /** Nome para secretária, administrador e clínico; identificador curto
-   *  para o supervisor. O servidor decide; `with_names` diz qual veio. */
+  /** Nome para secretária e administrador; para o clínico, só dos pacientes
+   *  dele (atribuídos ou com atendimento); identificador curto para os demais
+   *  e para o supervisor. O servidor decide; `names_scope` diz o recorte. */
   label: string;
 }
 
@@ -211,7 +215,7 @@ export function listarClinicosV2(): Promise<EstadoV2<{ clinicians: ClinicoV2[] }
 }
 
 export function listarPacientesV2(): Promise<
-  EstadoV2<{ patients: PacienteV2[]; with_names: boolean }>
+  EstadoV2<{ patients: PacienteV2[]; with_names: boolean; names_scope?: "all" | "own" | "none" }>
 > {
   return chamar("/api/psique/v2/scheduling/patients", { headers: cabecalhos() });
 }

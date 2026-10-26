@@ -5,6 +5,11 @@ listagens do painel. Prova contra PostgreSQL real e descartavel.
 Decisoes do dono (18/10/2026): o supervisor ve a agenda inteira e marca,
 reagenda e cancela atendimentos dos profissionais; o nome do paciente aparece
 para secretaria, administrador e o proprio clinico — nao para o supervisor.
+
+Decisao do dono (20/10/2026, revisao pre-fase 5, item 2): na listagem de
+pacientes o clinico recebe o nome so dos pacientes atribuidos a ele ou com
+atendimento dele; os demais saem por identificador curto (a 053 dava a
+qualquer clinico o nome de todos, mais que o papel V1 professional le).
 """
 
 from __future__ import annotations
@@ -32,6 +37,9 @@ from tools.migrate_schema import apply  # noqa: E402
 
 MIGRACAO = "053_psique_scheduling_supervisor"
 ANTERIOR = "052_psique_member_quota_v2"
+# A 054 regrava psique_v2_scheduling_patients (nome so dos pacientes do
+# clinico); o banco de prova aplica ate ela, e o espelho da 053 segue aqui.
+CORRENTE = "054_cota_conta_e_paciente_do_clinico"
 SP = ZoneInfo("America/Sao_Paulo")
 BASE_START = datetime(2027, 3, 10, 14, 0, tzinfo=SP)
 BASE_DOW = (BASE_START.weekday() + 1) % 7
@@ -69,7 +77,7 @@ def _banco(dsn, through):
 
 @pytest.fixture(scope="module")
 def database():
-    yield from _banco(_dsn(), MIGRACAO)
+    yield from _banco(_dsn(), CORRENTE)
 
 
 class Harness:
@@ -219,7 +227,45 @@ def test_listagens_do_painel(harness):
     assert sem_nome["with_names"] is False
     assert sem_nome["patients"][0]["label"].startswith("Paciente ")
     assert "ANA" not in sem_nome["patients"][0]["label"]
-    assert h.scheduling.list_patients(clinician)["with_names"] is True
+    # 054: o clinico sem paciente atribuido nem atendimento ve so identificadores.
+    do_clinico = h.scheduling.list_patients(clinician)
+    assert do_clinico["with_names"] is True and do_clinico["names_scope"] == "own"
+    assert do_clinico["patients"][0]["label"].startswith("Paciente ")
+    assert com_nome["names_scope"] == "all" and sem_nome["names_scope"] == "none"
+
+
+def test_o_clinico_ve_o_nome_so_dos_pacientes_dele(harness):
+    """Teste negativo da 054: dois clinicos, um paciente atribuido a cada um e
+    um terceiro sem vinculo. Cada clinico le o nome do seu — por atribuicao
+    (patient_assignments) ou por atendimento marcado — e identificador dos
+    outros. Secretaria e administrador seguem lendo todos."""
+    h = harness
+    owner, secretary, supervisor, clinician = h.clinica()
+    outro = h.clinico(owner)
+    org = owner.organization_id
+    atribuido = h.paciente(org, "SYNTHETIC ATRIBUIDO")
+    atendido = h.paciente(org, "SYNTHETIC ATENDIDO")
+    alheio = h.paciente(org, "SYNTHETIC ALHEIO")
+    h.sql("INSERT INTO patient_assignments(id,organization_id,patient_id,membership_id) "
+          "VALUES(%s,%s,%s,%s)", (str(uuid.uuid4()), org, atribuido, clinician.membership_id))
+    h.marcar(secretary, outro, atendido)
+
+    def rotulos(actor):
+        return {p["patient_id"]: p["label"] for p in h.scheduling.list_patients(actor)["patients"]}
+
+    do_clinico = rotulos(clinician)
+    assert do_clinico[atribuido] == "SYNTHETIC ATRIBUIDO"
+    assert do_clinico[atendido].startswith("Paciente ") and "ATENDIDO" not in do_clinico[atendido]
+    assert do_clinico[alheio].startswith("Paciente ") and "ALHEIO" not in do_clinico[alheio]
+    do_outro = rotulos(outro)
+    assert do_outro[atendido] == "SYNTHETIC ATENDIDO"
+    assert "ATRIBUIDO" not in do_outro[atribuido] and "ALHEIO" not in do_outro[alheio]
+    # Atribuicao revogada deixa de dar o nome.
+    h.sql("UPDATE patient_assignments SET status='revoked', revoked_at=now() WHERE patient_id=%s", (atribuido,))
+    assert "ATRIBUIDO" not in rotulos(clinician)[atribuido]
+    assert set(rotulos(secretary).values()) == {"SYNTHETIC ATRIBUIDO", "SYNTHETIC ATENDIDO", "SYNTHETIC ALHEIO"}
+    assert set(rotulos(owner).values()) == set(rotulos(secretary).values())
+    assert all(r.startswith("Paciente ") for r in rotulos(supervisor).values())
 
 
 def test_quem_gere_papeis_ve_os_papeis_de_todos(harness):
@@ -263,6 +309,22 @@ def test_a_053_copia_as_funcoes_correntes_e_so_acrescenta_o_supervisor():
     listagem = _funcao(sql053, "psique_v2_appointments_list")
     assert "'patient_name',CASE WHEN psique_v2_role_check(ARRAY['SECRETARY','ORG_ADMIN'])" in listagem
     assert "LEFT JOIN patients p" in listagem
+
+
+def test_a_054_copia_a_listagem_de_pacientes_da_053_e_so_restringe_o_clinico():
+    sql053 = (ROOT / "migrations" / f"{MIGRACAO}.sql").read_text(encoding="utf-8")
+    sql054 = (ROOT / "migrations" / f"{CORRENTE}.sql").read_text(encoding="utf-8")
+    antiga = _funcao(sql053, "psique_v2_scheduling_patients")
+    nova = _funcao(sql054, "psique_v2_scheduling_patients")
+    assert nova != antiga
+    assert "psique_v2_role_check(ARRAY['SECRETARY','ORG_ADMIN'])" in nova
+    assert "psique_v2_role_check(ARRAY['SECRETARY','ORG_ADMIN','CLINICIAN'])" not in nova
+    assert "pa.membership_id=member AND pa.status='active'" in nova
+    assert "ap.clinician_membership_id=member" in nova
+    assert "'names_scope',escopo" in nova
+    # Fora do trecho do nome, a funcao e a mesma: o ORDER BY e o filtro de ativos.
+    assert "WHERE p.organization_id=org AND p.status='active'" in nova
+    assert "ORDER BY CASE WHEN com_nome THEN p.full_name ELSE p.id::text END" in nova
 
 
 def test_aplica_incremental_sobre_a_052_e_reaplicar_e_no_op():

@@ -18,7 +18,7 @@ import {
   palavrasPorMinutoDoPaciente,
   pesoDeAusencia,
 } from "../lib/medidas-do-corte";
-import { contextoDosCortes, transcricaoParaOExplica } from "../lib/painel-para-o-explica";
+import { contextoDosCortes, recorteFinalDaTranscricao, transcricaoParaOExplica } from "../lib/painel-para-o-explica";
 import {
   STATUS_CAPTURA_TEXTO,
   type StatusCaptura,
@@ -2478,6 +2478,12 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   // encerramento não entrava no relatório: a atualização de estado só chega no
   // render seguinte, que nunca acontece porque a sessão acabou.
   const conversationSummariesRef = useRef<ConversationSummary[]>([]);
+  // Os cortes fechados que vao ao Explica, montados uma vez por estado da
+  // sessao (revisao 20/10/2026, item 21): `buildReportCuts` percorria todas as
+  // amostras a cada pergunta. Um corte fechado so depende do que esta dentro
+  // da janela dele; amostras e falas de depois do ultimo resumo nao mudam
+  // nenhum corte, entao a chave ignora a cauda aberta.
+  const cortesParaOExplicaRef = useRef<{ chave: string; cortes: MetricSnapshot[] } | null>(null);
   const [sessionLayout, setSessionLayout] = useState<
     "detailed" | "simplified" | "indices"
   >(() =>
@@ -3218,6 +3224,29 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   // Contexto vivo entregue ao FROID Explica no ato da pergunta (lê refs, para
   // não recriar a transcrição a cada render). Transcrição já vem com o locutor
   // embutido: "DR. -" é o profissional, "PC -"/"PAC -" é o paciente.
+  const cortesFechadosParaOExplica = useCallback((): MetricSnapshot[] => {
+    const resumos = conversationSummariesRef.current;
+    const amostras = sessionSamplesRef.current;
+    const falas = transcriptSegmentsRef.current;
+    const duracao = Math.max(1, elapsedSecondsRef.current);
+    const fimDoUltimo = resumos.reduce(
+      (maior, r) => Math.max(maior, Math.ceil(r.endSecond ?? r.endMinute * 60)),
+      0,
+    );
+    // Quantas amostras e falas estao DENTRO dos cortes fechados: as listas
+    // crescem em ordem de tempo, entao a contagem vem do fim para tras.
+    let amostrasDentro = amostras.length;
+    while (amostrasDentro > 0 && amostras[amostrasDentro - 1].elapsedSeconds >= fimDoUltimo) amostrasDentro -= 1;
+    let falasDentro = falas.length;
+    while (falasDentro > 0 && falas[falasDentro - 1].elapsedSeconds >= fimDoUltimo) falasDentro -= 1;
+    const chave = [resumos.length, fimDoUltimo, amostrasDentro, falasDentro, Math.min(duracao, fimDoUltimo)].join(":");
+    const cache = cortesParaOExplicaRef.current;
+    if (cache && cache.chave === chave) return cache.cortes;
+    const cortes = buildReportCuts(amostras, falas, duracao, resumos);
+    cortesParaOExplicaRef.current = { chave, cortes };
+    return cortes;
+  }, []);
+
   const getFroidExplicaContext = useCallback((): Record<string, unknown> => {
     const segments = transcriptSegmentsRef.current || [];
     const transcriptLines = segments.map((segment) => segment.text);
@@ -3229,12 +3258,13 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       transcriptLines.join("\n"),
       segments.map((segment) => segment.elapsedSeconds),
     );
-    let transcript = comTempo.session_transcript;
-    if (transcript.length > FROID_EXPLICA_TRANSCRIPT_CHAR_LIMIT) {
-      const omitidos = transcript.length - FROID_EXPLICA_TRANSCRIPT_CHAR_LIMIT;
+    // Em linhas inteiras: cada linha mantida conserva o seu [mm:ss].
+    const recorte = recorteFinalDaTranscricao(comTempo.session_transcript, FROID_EXPLICA_TRANSCRIPT_CHAR_LIMIT);
+    let transcript = recorte.texto;
+    if (recorte.linhasOmitidas > 0) {
       transcript =
-        `[TRANSCRICAO ANTERIOR OMITIDA: ${omitidos} caracteres; aqui esta so o trecho final]\n` +
-        transcript.slice(-FROID_EXPLICA_TRANSCRIPT_CHAR_LIMIT);
+        `[TRANSCRICAO ANTERIOR OMITIDA: ${recorte.linhasOmitidas} linhas; aqui esta so o trecho final]\n` +
+        transcript;
     }
     const patientLines = transcriptLines.filter((line) =>
       /^(PC|PAC)\b/i.test(line),
@@ -3282,12 +3312,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       ...(conversationSummariesRef.current.length
         ? contextoDosCortes(
             baselineSnapshotRef.current,
-            buildReportCuts(
-              sessionSamplesRef.current,
-              transcriptSegmentsRef.current,
-              Math.max(1, elapsedSecondsRef.current),
-              conversationSummariesRef.current,
-            ),
+            cortesFechadosParaOExplica(),
             conversationSummariesRef.current,
             "cortes ja fechados nesta sessao ao vivo",
           )

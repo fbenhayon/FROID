@@ -171,9 +171,16 @@ def build_psique_v2_billing_router(
         @router.get("/capabilities")
         async def rbac_capabilities(context: Any = Depends(context_dependency)):  # noqa: B008 -- padrao FastAPI de dependencia
             try:
-                return rbac_provider().capabilities(context)
+                capacidades = rbac_provider().capabilities(context)
             except BillingError as error:
                 raise _http_error(error) from None
+            # O vinculo de quem pergunta: a agenda propria do painel reconhece
+            # o clinico por ele (ate 20/10/2026 casava por e-mail, e um alias
+            # deixava o clinico sem agenda e sem causa). E do contexto, nao
+            # da funcao SQL: nenhuma migration para isso.
+            if isinstance(capacidades, dict):
+                capacidades = {**capacidades, "membership_id": str(context.membership_id)}
+            return capacidades
 
         @router.post("/rbac/enable")
         async def rbac_enable(context: Any = Depends(context_dependency)):  # noqa: B008 -- padrao FastAPI de dependencia

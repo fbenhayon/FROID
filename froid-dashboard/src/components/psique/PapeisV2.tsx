@@ -9,6 +9,7 @@ import {
   type EstadoV2,
   type MembroComPapeisV2,
 } from "../../lib/psique-v2-api";
+import { MOTIVO_DE_ROTA_AUSENTE, traduzirMotivo } from "../../lib/agenda-interna";
 
 /** Os papéis V2 que a agenda e a clínica usam, com a frase que o gestor lê. */
 export const PAPEIS_V2: Array<{ papel: string; rotulo: string; explica: string }> = [
@@ -38,7 +39,7 @@ export function PapeisV2({ isManager }: { isManager: boolean }) {
     if (caps.estado === "ok" && caps.dados.rbac_version === 2 && caps.dados.capabilities.manage_roles) {
       const lista = await listarPapeisV2();
       if (lista.estado === "ok") setMembros(lista.dados.members);
-      else setErro(`Não foi possível listar os papéis: ${lista.motivo}.`);
+      else setErro(`Não foi possível listar os papéis: ${traduzirMotivo(lista.motivo)}.`);
     }
   }, []);
 
@@ -46,43 +47,60 @@ export function PapeisV2({ isManager }: { isManager: boolean }) {
     void carregar();
   }, [carregar]);
 
-  if (capacidades.estado === "indisponivel" && capacidades.motivo !== "CARREGANDO") {
-    // Flag desligado no servidor: a seção não existe.
+  if (capacidades.estado === "indisponivel" && capacidades.motivo === MOTIVO_DE_ROTA_AUSENTE) {
+    // Rota V2 ausente no servidor (flag desligado): a seção não existe.
+    // Qualquer outra falha aparece abaixo com o motivo — até 20/10/2026 a
+    // rede caída fazia a seção sumir, indistinguível de flag desligado.
     return null;
   }
 
+  // `ocupado` só volta a false DEPOIS de recarregar: até 20/10/2026 o botão
+  // liberava antes da releitura, e o clique duplo invertia a concessão
+  // recém-feita. O aviso é limpo a cada ação, para não sobrar o da anterior.
   const ativar = async () => {
     if (!window.confirm("Ativar os papéis V2 nesta clínica? A ativação não se desfaz.")) return;
     setOcupado(true);
     setErro("");
-    const r = await ativarRbacV2();
-    if (r.estado === "ok") setAviso("Papéis V2 ativados. Clínicos e administração já receberam os papéis iniciais.");
-    else setErro(`Ativação recusada: ${r.motivo}.`);
-    setOcupado(false);
-    await carregar();
+    setAviso("");
+    try {
+      const r = await ativarRbacV2();
+      if (r.estado === "ok") setAviso("Papéis V2 ativados. Clínicos e administração já receberam os papéis iniciais.");
+      else setErro(`Ativação recusada: ${traduzirMotivo(r.motivo)}.`);
+      await carregar();
+    } finally {
+      setOcupado(false);
+    }
   };
 
   const alternar = async (membro: MembroComPapeisV2, papel: string) => {
+    if (ocupado) return;
     setOcupado(true);
     setErro("");
-    const tem = membro.v2_roles.includes(papel);
-    const r = tem ? await revogarPapelV2(membro.membership_id, papel) : await concederPapelV2(membro.membership_id, papel);
-    if (r.estado !== "ok") setErro(`${tem ? "Revogação" : "Concessão"} recusada: ${r.motivo}.`);
-    else setAviso(`${tem ? "Revogado" : "Concedido"} ${papel} para ${membro.email}.`);
-    setOcupado(false);
-    await carregar();
+    setAviso("");
+    try {
+      const tem = membro.v2_roles.includes(papel);
+      const r = tem ? await revogarPapelV2(membro.membership_id, papel) : await concederPapelV2(membro.membership_id, papel);
+      if (r.estado !== "ok") setErro(`${tem ? "Revogação" : "Concessão"} recusada: ${traduzirMotivo(r.motivo)}.`);
+      else setAviso(`${tem ? "Revogado" : "Concedido"} ${papel} para ${membro.email}.`);
+      await carregar();
+    } finally {
+      setOcupado(false);
+    }
   };
 
   const v2 = capacidades.estado === "ok" && capacidades.dados.rbac_version === 2;
   const podeGerir = capacidades.estado === "ok" && capacidades.dados.capabilities.manage_roles;
+  const estadoDaLeitura = (() => {
+    if (capacidades.estado === "ok") return `papéis versão ${capacidades.dados.rbac_version}`;
+    if (capacidades.estado === "negado") return `sem permissão: ${traduzirMotivo(capacidades.motivo)}`;
+    return capacidades.motivo === "CARREGANDO" ? "confirmando..." : `não lido: ${traduzirMotivo(capacidades.motivo)}`;
+  })();
 
   return (
     <section data-secao="papeis-v2" className="rounded-lg border border-slate-800 bg-slate-900 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-black text-slate-100">Papéis e agenda (V2)</h2>
-        <span className="text-[10px] text-slate-500">
-          {capacidades.estado === "ok" ? `papéis versão ${capacidades.dados.rbac_version}` : "confirmando..."}
-        </span>
+        <span data-campo="estado-dos-papeis" className="text-[10px] text-slate-500">{estadoDaLeitura}</span>
       </div>
       <p className="mt-1 text-[11px] text-slate-400">
         A agenda interna da clínica funciona sobre os papéis V2: quem é clínico tem agenda própria;
