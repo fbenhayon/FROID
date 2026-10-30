@@ -3,6 +3,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import {
+  CARIMBO_ANTIGO,
+  CARIMBO_SEM_VINCULO,
+  carimboDaOrganizacao,
   nomeDaOrganizacao,
   organizacaoClinica,
   organizacoesNr1,
@@ -43,6 +46,22 @@ const autonomo = {
   organization_type: "solo",
   roles: ["owner"],
 };
+
+describe("carimboDaOrganizacao sem organization_type", () => {
+  it("trata o vínculo sem tipo como clínica, que é o padrão do servidor, e não estoura", () => {
+    // Revisao 20/10/2026, item 27: contexto antigo pode vir sem organization_type.
+    const user = {
+      organizations: [
+        { organization_id: "o-1" },
+        { organization_id: "o-2", organization_name: "Clínica Sul" },
+      ],
+    };
+    expect(carimboDaOrganizacao(user, "o-1")).toBe("Clínica 1");
+    expect(carimboDaOrganizacao(user, "o-2")).toBe("Clínica Sul");
+    expect(carimboDaOrganizacao(user, "o-9")).toBe(CARIMBO_SEM_VINCULO);
+    expect(carimboDaOrganizacao(user, "")).toBe(CARIMBO_ANTIGO);
+  });
+});
 
 describe("quais organizações abrem o painel NR-1", () => {
   it("só as do tipo enterprise", () => {

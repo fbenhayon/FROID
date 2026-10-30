@@ -35,7 +35,11 @@ class ORegistroDasNotas(unittest.TestCase):
         self.assertIn("FROID_Dois_Produtos_Clinico_e_NR1.md", novas)
         for nome, entrada in novas.items():
             self.assertTrue(entrada["indexar"], nome)
-            self.assertTrue(Path(entrada["caminho"]).exists(), nome)
+            # Relativo a knowledge/approved, em barras normais: o manifesto vive
+            # no servidor (revisao 20/10/2026, item 26).
+            self.assertFalse(Path(entrada["caminho"]).is_absolute(), nome)
+            self.assertNotIn("\\", entrada["caminho"], nome)
+            self.assertTrue((APPROVED / entrada["caminho"]).exists(), nome)
             self.assertEqual(entrada["motivo"], LIBERADAS[nome])
 
     def test_toda_nota_liberada_existe_em_disco(self):

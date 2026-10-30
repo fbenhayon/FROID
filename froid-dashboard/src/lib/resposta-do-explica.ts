@@ -16,7 +16,9 @@ export type BlocoDaResposta =
 
 function celulas(linha: string): string[] {
   const miolo = linha.trim().replace(/^\|/, "").replace(/\|$/, "");
-  return miolo.split("|").map((celula) => celula.trim());
+  // Os asteriscos de negrito saem tambem das celulas: ate 27/10/2026 so o
+  // texto corrido era limpo, e "**IPM**" chegava a tela como cabecalho.
+  return miolo.split("|").map((celula) => celula.replace(/\*\*/g, "").trim());
 }
 
 function ehSeparador(linha: string): boolean {

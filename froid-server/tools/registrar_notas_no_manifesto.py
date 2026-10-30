@@ -44,7 +44,10 @@ def faltantes(manifesto: dict, approved: Path = APPROVED) -> dict[str, dict]:
         if not caminhos:
             continue
         novas[nome] = {
-            "caminho": str(caminhos[0]),
+            # Relativo a pasta approved: o manifesto vive no servidor, e um
+            # caminho absoluto da maquina de quem rodou nao diz nada la
+            # (revisao 20/10/2026, item 26). A ingestao casa pelo nome.
+            "caminho": caminhos[0].relative_to(approved).as_posix(),
             "categorias": ["nota_froid_liberada"],
             "indexar": True,
             "motivo": motivo,

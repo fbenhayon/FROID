@@ -74,6 +74,21 @@ pergunta) para depois da transcricao: decisao de produto, nao feita.
 
 ## Grupo 4 — simplificacao, limpeza e testes
 
+Feito em 27/10/2026 (itens 22 a 27): sem carteira no prompt quando o Claude
+esta ativo (as ferramentas a entregam) e aliases apagados; o laco de
+ferramentas extraido para `_laco_de_ferramentas`; `tests/psique_harness.py`
+compartilhado pelos tres modulos do Psique (banco descartavel, contexto de
+runtime, fabricantes, prova incremental comum); o espelho da 053 deriva a
+definicao corrente da ultima migration anterior que define cada funcao
+(`definicao_corrente`); o registrador do manifesto grava caminho relativo a
+`knowledge/approved` e `pacientes_do_profissional` declara as sessoes sem id
+fora da contagem; testes novos: fronteira de acesso do acervo com dois
+usuarios, garantias da AgendaInterna e da PapeisV2 lidas do arquivo,
+`instanteDe` com horario de verao (America/New_York), `blocosDaResposta` com
+negrito em celula (achou e corrigiu: o `**` nao saia das celulas),
+`carimboDaOrganizacao` sem organization_type. Traducoes en/es/fr da FAQ
+(quatro perguntas) e da pagina do Explica feitas junto.
+
 | # | Onde | O que | Correcao |
 |---|---|---|---|
 | 22 | `main.py` carteira | Com Claude ativo, a carteira ainda entra no prompt por palavra-gatilho enquanto as ferramentas entregam o mesmo. `_valor_medido` e `_fmt_carteira` sem uso. | Sem carteira no prompt quando ha acervo; apagar aliases. |

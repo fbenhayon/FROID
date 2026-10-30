@@ -26,6 +26,17 @@ describe("blocosDaResposta", () => {
     ]);
   });
 
+  it("asteriscos de negrito dentro de celula nao quebram a tabela nem sobram", () => {
+    // Revisao 20/10/2026, item 27: o contrato proibe negrito, mas o modelo
+    // as vezes poe; a celula tem de sair limpa e com o mesmo numero de colunas.
+    const blocos = blocosDaResposta("| corte | **IPM** | P/MIN |\n|---|---|---|\n| 0-10min | **49.9** | 83.4 |");
+    expect(blocos).toHaveLength(1);
+    const tabela = blocos[0];
+    if (tabela.tipo !== "tabela") throw new Error("esperava tabela");
+    expect(tabela.cabecalho).toEqual(["corte", "IPM", "P/MIN"]);
+    expect(tabela.linhas).toEqual([["0-10min", "49.9", "83.4"]]);
+  });
+
   it("resposta vazia nao produz bloco", () => {
     expect(blocosDaResposta("")).toEqual([]);
     expect(blocosDaResposta("   \n ")).toEqual([]);

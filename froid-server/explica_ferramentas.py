@@ -16,7 +16,6 @@ consegue abrir caminho novo de acesso.
 
 from __future__ import annotations
 
-import json
 import logging
 import math
 from dataclasses import dataclass, field
@@ -365,15 +364,23 @@ def _sessoes_do_paciente(acervo: Acervo, entrada: Mapping[str, Any]) -> str:
 
 def _pacientes_do_profissional(acervo: Acervo, entrada: Mapping[str, Any]) -> str:
     por_paciente: Dict[str, List[Mapping[str, Any]]] = {}
+    sem_id = 0
     for relatorio in acervo.relatorios:
-        chave = str(relatorio.get("patientId") or "") or "(sem id de paciente)"
+        chave = str(relatorio.get("patientId") or "")
+        if not chave:
+            # Sessao sem paciente registrado nao e um paciente: ate 20/10/2026
+            # entrava na contagem como "(sem id de paciente)" (item 26).
+            sem_id += 1
+            continue
         por_paciente.setdefault(chave, []).append(relatorio)
-    if not por_paciente:
+    if not por_paciente and not sem_id:
         return "Nenhuma sessao acessivel: a carteira que voce pode ver esta vazia."
     linhas = [
         f"PACIENTES COM SESSAO ACESSIVEL: {len(por_paciente)} (identificados por id; "
         "medias sao medias das medias de sessao, sobre n sessoes com apuracao):"
     ]
+    if sem_id:
+        linhas.append(f"- {sem_id} sessao(oes) sem id de paciente, fora da contagem de pacientes")
     for paciente, relatorios in sorted(por_paciente.items(), key=lambda par: -len(par[1])):
         ordenados = _ordenados_por_data(relatorios)
         resumos = [resumo_da_sessao(r) for r in ordenados]

@@ -22,7 +22,6 @@ como "s", nunca como verde.
 from __future__ import annotations
 
 import re
-import secrets
 import sys
 import uuid
 from pathlib import Path
@@ -33,79 +32,27 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from psique_credits import PsiqueCredits  # noqa: E402
-from psique_identity import TrialKeyring  # noqa: E402
-from tenant_access import AccessContext  # noqa: E402
-from tools.migrate_schema import apply  # noqa: E402
+from psique_harness import (  # noqa: E402
+    HarnessBase,
+    aplica_incremental_e_reaplicar_e_no_op,
+    fixture_de_banco,
+    funcao_sql,
+)
 
 MIGRACAO = "054_cota_conta_e_paciente_do_clinico"
 ANTERIOR = "053_psique_scheduling_supervisor"
 COM_RAISE = "052_psique_member_quota_v2"
 
 
-def _dsn():
-    import os
-
-    dsn = os.environ.get("FROID_PSIQUE_TEST_DATABASE_URL", "")
-    if not dsn:
-        pytest.skip("explicit disposable Psique database required")
-    import psycopg
-    from psycopg.conninfo import conninfo_to_dict
-
-    params = conninfo_to_dict(dsn)
-    assert params.get("host") in {"127.0.0.1", "localhost"}
-    assert params.get("dbname", "").startswith("psique_v2_test_")
-    return dsn
+database = fixture_de_banco(MIGRACAO)
 
 
-def _banco_descartavel(dsn, through):
-    import psycopg
-    from psycopg.conninfo import make_conninfo
-
-    name = "psique_v2_test_" + uuid.uuid4().hex
-    with psycopg.connect(dsn, autocommit=True) as admin:
-        assert admin.execute("SELECT 1 FROM pg_roles WHERE rolname='froid_runtime'").fetchone()
-        admin.execute(psycopg.sql.SQL("CREATE DATABASE {}").format(psycopg.sql.Identifier(name)))
-        try:
-            isolated = make_conninfo(dsn, dbname=name)
-            with psycopg.connect(isolated, autocommit=True) as conn:
-                apply(conn, ROOT / "migrations", through, name)
-            yield isolated, name
-        finally:
-            admin.execute(psycopg.sql.SQL("DROP DATABASE {} WITH (FORCE)").format(psycopg.sql.Identifier(name)))
-
-
-@pytest.fixture(scope="module")
-def database():
-    yield from _banco_descartavel(_dsn(), MIGRACAO)
-
-
-class Harness:
-    def __init__(self, dsn):
-        import psycopg
-
-        self.pg = psycopg
-        self.dsn = dsn
-        factory = lambda: psycopg.connect(dsn, autocommit=True, options="-c role=froid_runtime")
-        self.credits = PsiqueCredits(
-            factory, identity_loader=lambda user: None, material_loader=lambda user, ref: None,
-            keyring=TrialKeyring({"test": secrets.token_bytes(32)}, "test"))
-
-    def sql(self, query, params=()):
-        with self.pg.connect(self.dsn, autocommit=True) as conn:
-            cursor = conn.execute(query, params)
-            return cursor.fetchall() if cursor.description else []
+class Harness(HarnessBase):
+    """O que so a cota precisa: a clinica com saldo, o profissional e a cota."""
 
     def clinica(self, credits):
-        org, user, member = str(uuid.uuid4()), str(uuid.uuid4()), str(uuid.uuid4())
-        self.sql("INSERT INTO organizations(id,organization_type,legal_name,display_name) "
-                 "VALUES(%s,'clinic','SYNTHETIC test','SYNTHETIC test')", (org,))
-        self.sql("INSERT INTO users(id,email) VALUES(%s,%s)", (user, user + "@example.invalid"))
-        self.sql("INSERT INTO organization_memberships(id,organization_id,user_id) VALUES(%s,%s,%s)",
-                 (member, org, user))
-        self.sql("INSERT INTO membership_roles(membership_id,role) VALUES(%s,'owner')", (member,))
-        dono = AccessContext.create(organization_id=org, membership_id=member, user_id=user,
-                                    roles=["owner"], organization_type="clinic")
+        org = self.organizacao("clinic", "SYNTHETIC test")
+        dono = self.member(org, v1_role="owner")
         self.credits.enroll_empty_wallet(dono)
         if credits:
             self.credits.manual_adjustment(dono, credits, reason="seed cortesia",
@@ -113,13 +60,7 @@ class Harness:
         return dono
 
     def profissional(self, dono):
-        user, member = str(uuid.uuid4()), str(uuid.uuid4())
-        self.sql("INSERT INTO users(id,email) VALUES(%s,%s)", (user, user + "@example.invalid"))
-        self.sql("INSERT INTO organization_memberships(id,organization_id,user_id) VALUES(%s,%s,%s)",
-                 (member, dono.organization_id, user))
-        self.sql("INSERT INTO membership_roles(membership_id,role) VALUES(%s,'professional')", (member,))
-        return AccessContext.create(organization_id=dono.organization_id, membership_id=member,
-                                    user_id=user, roles=["professional"], organization_type="clinic")
+        return self.member(dono.organization_id)
 
     def cota(self, ctx, quota):
         self.sql("INSERT INTO organization_member_quotas(organization_id,membership_id,quota_sessions) "
@@ -262,8 +203,7 @@ def test_sem_dsn_de_runtime_a_leitura_levanta_em_vez_de_fingir_sem_cota(harness)
 # -- A migration ----------------------------------------------------------------
 
 def _funcao(texto, nome="psique_v2_session_charge"):
-    inicio = texto.index(f"CREATE OR REPLACE FUNCTION {nome}(")
-    return texto[inicio: texto.index("END $$;", inicio) + len("END $$;")].replace("\r\n", "\n")
+    return funcao_sql(texto, nome)
 
 
 def _sql(nome):
@@ -297,20 +237,4 @@ def test_a_054_e_a_052_byte_a_byte_sem_o_raise():
 
 
 def test_aplica_incremental_sobre_a_053_e_reaplicar_e_no_op():
-    import psycopg
-
-    dsn = _dsn()
-    gerador = _banco_descartavel(dsn, ANTERIOR)
-    isolated, name = next(gerador)
-    try:
-        with psycopg.connect(isolated, autocommit=True) as conn:
-            assert apply(conn, ROOT / "migrations", MIGRACAO, name) == [MIGRACAO]
-            assert apply(conn, ROOT / "migrations", MIGRACAO, name) == []
-            assert conn.execute(
-                "SELECT count(*) FROM schema_migrations WHERE version=%s", (MIGRACAO,)
-            ).fetchone()[0] == 1
-    finally:
-        try:
-            next(gerador)
-        except StopIteration:
-            pass
+    aplica_incremental_e_reaplicar_e_no_op(ANTERIOR, MIGRACAO)

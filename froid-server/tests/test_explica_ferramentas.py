@@ -455,6 +455,38 @@ class AReferenciaPopulacional(unittest.TestCase):
         self.assertIsNone(acervo.referencia_populacional)
 
 
+class AFronteiraDeAcessoDoAcervo(unittest.TestCase):
+    """Revisao 20/10/2026, item 27: dois usuarios, cada um com o seu acervo;
+    a transcricao de um nao sai pelo acervo do outro, nem por id adivinhado."""
+
+    def test_um_usuario_nao_decifra_a_sessao_do_outro(self):
+        por_usuario = {
+            "ana@x.br": [{"sessionId": "froid-ana", "transcript": "DR: so da Ana", "patient": {"id": "p1"}}],
+            "bia@x.br": [{"sessionId": "froid-bia", "transcript": "DR: so da Bia", "patient": {"id": "p2"}}],
+        }
+
+        def acessiveis(request, *, reveal_transcripts=False):
+            return [dict(r) for r in por_usuario[request.state.usuario]], None
+
+        def pedido(usuario):
+            return SimpleNamespace(state=SimpleNamespace(usuario=usuario))
+
+        carga = SimpleNamespace(session_id="", patient_id="", context={})
+        with patch.object(main, "_accessible_session_reports", acessiveis),                 patch.object(main, "SESSION_INVITES", {}), patch.object(main, "CLINICAL_TEXT_CIPHER", None):
+            ana = main._acervo_do_explica(pedido("ana@x.br"), carga)
+            bia = main._acervo_do_explica(pedido("bia@x.br"), carga)
+            self.assertEqual(ana.transcricao_de("froid-ana")["transcript"], "DR: so da Ana")
+            self.assertIsNone(ana.transcricao_de("froid-bia"))
+            self.assertIsNone(bia.transcricao_de("froid-ana"))
+            self.assertIsNone(ana.relatorio("froid-bia"))
+            # Pela ferramenta, o id alheio e recusado como "nao esta entre as sessoes que voce pode ver".
+            texto, erro = f.executar(ana, "trecho_da_transcricao", {"session_id": "froid-bia", "inicio_s": 0, "fim_s": 10})
+            self.assertTrue(erro)
+            self.assertIn("nao esta entre as sessoes que voce pode ver", texto)
+            texto, erro = f.executar(ana, "cortes_da_sessao", {"session_id": "froid-bia"})
+            self.assertTrue(erro)
+
+
 class OTrechoCortaEmLinhasInteiras(unittest.TestCase):
     """Revisao 20/10/2026, item 16: o corte por caractere deixava a ultima
     linha pela metade; agora e por linha inteira e declara as omitidas."""

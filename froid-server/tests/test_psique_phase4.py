@@ -7,14 +7,12 @@ probe runs through the SECURITY DEFINER boundary as froid_runtime.
 """
 
 import re
-import secrets
 import sys
 import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -22,22 +20,15 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from psique_billing import BillingError
-from psique_credits import PsiqueCredits
-from psique_identity import AuthorizedMaterial, TrialKeyring
-from psique_rbac import PsiqueRbac
+from psique_identity import AuthorizedMaterial
 from psique_scheduling import (
     APPOINTMENT_EVENT_KINDS,
     APPOINTMENT_STATUSES,
     OUTBOX_OPERATIONS,
     OUTBOX_STATUSES,
-    PsiqueScheduling,
 )
-from tenant_access import AccessContext
-from tools.migrate_schema import apply
 
-SP = ZoneInfo("America/Sao_Paulo")
-BASE_START = datetime(2027, 3, 10, 14, 0, tzinfo=SP)  # quarta-feira, 14h em SP
-BASE_DOW = (BASE_START.weekday() + 1) % 7  # DOW do PostgreSQL: domingo=0
+from psique_harness import BASE_DOW, BASE_START, HarnessBase, fixture_de_banco  # noqa: E402
 
 
 def test_migration_044_domains_mirror_module_constants():
@@ -51,89 +42,25 @@ def test_migration_044_domains_mirror_module_constants():
     assert domain("operation") == set(OUTBOX_OPERATIONS)
 
 
-@pytest.fixture(scope="module")
-def database():
-    import os
-
-    dsn = os.environ.get("FROID_PSIQUE_TEST_DATABASE_URL", "")
-    if not dsn:
-        pytest.skip("explicit disposable Psique database required")
-    import psycopg
-    from psycopg.conninfo import conninfo_to_dict, make_conninfo
-
-    params = conninfo_to_dict(dsn)
-    assert params.get("host") in {"127.0.0.1", "localhost"}
-    assert params.get("dbname", "").startswith("psique_v2_test_")
-    name = "psique_v2_test_" + uuid.uuid4().hex
-    with psycopg.connect(dsn, autocommit=True) as admin:
-        assert admin.execute("SELECT 1 FROM pg_roles WHERE rolname='froid_runtime'").fetchone()
-        admin.execute(psycopg.sql.SQL("CREATE DATABASE {}").format(psycopg.sql.Identifier(name)))
-        try:
-            isolated = make_conninfo(dsn, dbname=name)
-            with psycopg.connect(isolated, autocommit=True) as conn:
-                apply(conn, ROOT / "migrations", "049_psique_outbox_lease", name)
-            yield isolated
-        finally:
-            admin.execute(psycopg.sql.SQL("DROP DATABASE {} WITH (FORCE)").format(psycopg.sql.Identifier(name)))
+database = fixture_de_banco("049_psique_outbox_lease")
 
 
-class Harness:
-    def __init__(self, dsn):
-        import psycopg
-
-        self.pg = psycopg
-        self.dsn = dsn
-        self.materials = {}
-        factory = lambda: psycopg.connect(dsn, autocommit=True, options="-c role=froid_runtime")
-        self.rbac = PsiqueRbac(factory)
-        self.scheduling = PsiqueScheduling(factory)
-        self.credits = PsiqueCredits(
-            factory, identity_loader=lambda u: None,
-            material_loader=lambda user, ref: self.materials[ref],
-            keyring=TrialKeyring({"t": secrets.token_bytes(32)}, "t"))
-
-    def sql(self, query, params=()):
-        with self.pg.connect(self.dsn, autocommit=True) as conn:
-            cursor = conn.execute(query, params)
-            return cursor.fetchall() if cursor.description else []
-
-    def member(self, org, *, v1_role="professional"):
-        user, membership = str(uuid.uuid4()), str(uuid.uuid4())
-        self.sql("INSERT INTO users(id,email) VALUES(%s,%s)", (user, user + "@example.invalid"))
-        self.sql("INSERT INTO organization_memberships(id,organization_id,user_id) VALUES(%s,%s,%s)",
-                 (membership, org, user))
-        self.sql("INSERT INTO membership_roles(membership_id,role) VALUES(%s,%s)", (membership, v1_role))
-        return AccessContext.create(organization_id=org, membership_id=membership, user_id=user,
-                                    roles=[v1_role], organization_type="clinic")
+class Harness(HarnessBase):
+    """O que so a fase 4 precisa: a clinica com secretaria, o agendamento com
+    chave propria e a fila do espelho."""
 
     def clinic(self):
         """V2 org with owner(ORG_ADMIN), secretary, and one available clinician."""
-        org = str(uuid.uuid4())
-        self.sql("INSERT INTO organizations(id,organization_type,legal_name,display_name) "
-                 "VALUES(%s,'clinic','SYNTHETIC agenda','SYNTHETIC agenda')", (org,))
+        org = self.organizacao("clinic", "SYNTHETIC agenda")
         owner = self.member(org, v1_role="owner")
         assert self.rbac.enable(owner)["enabled"] is True
         secretary = self.member(org)
         self.rbac.grant_role(owner, secretary.membership_id, "SECRETARY")
-        clinician = self.member(org)
-        self.rbac.grant_role(owner, clinician.membership_id, "CLINICIAN")
-        self.scheduling.set_availability(
-            owner, clinician_membership_id=clinician.membership_id, weekday=BASE_DOW,
-            start_minute=8 * 60, end_minute=18 * 60, timezone_name="America/Sao_Paulo")
+        clinician = self.clinico_disponivel(owner)
         return owner, secretary, clinician
 
-    def patient(self, org):
-        patient = str(uuid.uuid4())
-        self.sql("INSERT INTO patients(id,organization_id,full_name,legacy_payload) "
-                 "VALUES(%s,%s,'SYNTHETIC PACIENTE','{\"clinico\":\"SYNTHETIC\"}')", (patient, org))
-        return patient
-
     def book(self, actor, clinician, patient, *, offset_minutes=0, minutes=50, idem=None):
-        start = BASE_START + timedelta(minutes=offset_minutes)
-        return self.scheduling.create_appointment(
-            actor, patient_id=patient, clinician_membership_id=clinician.membership_id,
-            start_at=start, end_at=start + timedelta(minutes=minutes),
-            timezone_name="America/Sao_Paulo", idempotency_key=idem or uuid.uuid4().hex)
+        return self.marcar(actor, clinician, patient, offset_minutes=offset_minutes, minutes=minutes, idem=idem)
 
     def outbox_rows(self, org):
         return self.sql("SELECT operation,outbox_status,payload FROM psique_calendar_outbox "
@@ -142,7 +69,7 @@ class Harness:
 
 @pytest.fixture
 def harness(database):
-    return Harness(database)
+    return Harness(database[0])
 
 
 def race(*functions):

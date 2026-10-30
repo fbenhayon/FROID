@@ -1232,6 +1232,77 @@ def _cliente_claude(anthropic_module: Any) -> Any:
     return _CLIENTE_CLAUDE["cliente"]
 
 
+def _laco_de_ferramentas(
+    client: Any,
+    chamada: Dict[str, Any],
+    messages: List[Dict[str, Any]],
+    acervo: Optional[explica_ferramentas.Acervo],
+) -> Any:
+    """Chama o modelo ate ele parar de pedir ferramenta; devolve a resposta final.
+
+    Sem acervo e uma chamada so. Com acervo, cada turno executa os pedidos e
+    devolve todos os resultados numa so mensagem. Teto de turnos
+    (MAX_TURNOS_DE_FERRAMENTA) e orcamento de tempo (FROID_EXPLICA_ORCAMENTO_S):
+    atingido um deles, a chamada seguinte vai com `tool_choice` none e o
+    modelo responde com o que tem. Extraido de `_claude_responde` na revisao
+    de 20/10/2026 (item 23).
+    """
+    turnos = 0
+    inicio = time.monotonic()
+    while True:
+        response = client.beta.messages.create(messages=messages, **chamada)
+        if acervo is None or getattr(response, "stop_reason", None) != "tool_use":
+            return response
+        turnos += 1
+        sem_tempo = time.monotonic() - inicio > FROID_EXPLICA_ORCAMENTO_S
+        if turnos > MAX_TURNOS_DE_FERRAMENTA or sem_tempo:
+            if chamada.get("tool_choice"):
+                # Ja pedimos a resposta final e o modelo pediu ferramenta
+                # de novo: nao ha mais o que fazer com este motor.
+                LOGGER.warning(
+                    "FROID Explica: o modelo pediu ferramenta depois do pedido "
+                    "de resposta final; este motor nao respondeu"
+                )
+                return response
+            # Ate 20/10/2026 o teto descartava os turnos ja pagos: a
+            # resposta saia vazia e a pergunta caia para o proximo motor,
+            # sem ferramenta nenhuma. Agora os pedidos deste turno ainda
+            # sao atendidos e a chamada seguinte vai com `tool_choice`
+            # none: o modelo responde com o que tem. `none` e o unico
+            # valor compativel com raciocinio estendido alem de `auto`.
+            LOGGER.warning(
+                "FROID Explica: %s; pedindo a resposta final com o que ha",
+                f"orcamento de {FROID_EXPLICA_ORCAMENTO_S:.0f} s esgotado apos {turnos} turnos"
+                if sem_tempo and turnos <= MAX_TURNOS_DE_FERRAMENTA
+                else f"teto de {MAX_TURNOS_DE_FERRAMENTA} turnos de ferramenta atingido",
+            )
+            chamada["tool_choice"] = {"type": "none"}
+        pedidos = [
+            bloco
+            for bloco in (getattr(response, "content", None) or [])
+            if getattr(bloco, "type", "") == "tool_use"
+        ]
+        # A resposta inteira volta como veio (inclusive os blocos de
+        # raciocinio): o modelo precisa dela para continuar.
+        messages.append({"role": "assistant", "content": response.content})
+        resultados: List[Dict[str, Any]] = []
+        for pedido in pedidos:
+            conteudo, e_erro = explica_ferramentas.executar(
+                acervo, str(getattr(pedido, "name", "")), getattr(pedido, "input", None)
+            )
+            item: Dict[str, Any] = {
+                "type": "tool_result",
+                "tool_use_id": getattr(pedido, "id", ""),
+                "content": conteudo,
+            }
+            if e_erro:
+                item["is_error"] = True
+            resultados.append(item)
+        # Todos os resultados do turno numa so mensagem: dividi-los
+        # ensinaria o modelo a parar de pedir em paralelo.
+        messages.append({"role": "user", "content": resultados})
+
+
 def _claude_responde(
     system_instruction: str,
     prompt: str,
@@ -1308,60 +1379,7 @@ def _claude_responde(
             # pergunta precisa, e cada ferramenta le so o que o solicitante
             # ja pode ver. Sem `tool_choice` forcado — a API devolve 400.
             chamada["tools"] = explica_ferramentas.definicoes()
-        turnos = 0
-        inicio = time.monotonic()
-        while True:
-            response = client.beta.messages.create(messages=messages, **chamada)
-            if acervo is None or getattr(response, "stop_reason", None) != "tool_use":
-                break
-            turnos += 1
-            sem_tempo = time.monotonic() - inicio > FROID_EXPLICA_ORCAMENTO_S
-            if turnos > MAX_TURNOS_DE_FERRAMENTA or sem_tempo:
-                if chamada.get("tool_choice"):
-                    # Ja pedimos a resposta final e o modelo pediu ferramenta
-                    # de novo: nao ha mais o que fazer com este motor.
-                    LOGGER.warning(
-                        "FROID Explica: o modelo pediu ferramenta depois do pedido "
-                        "de resposta final; este motor nao respondeu"
-                    )
-                    break
-                # Ate 20/10/2026 o teto descartava os turnos ja pagos: a
-                # resposta saia vazia e a pergunta caia para o proximo motor,
-                # sem ferramenta nenhuma. Agora os pedidos deste turno ainda
-                # sao atendidos e a chamada seguinte vai com `tool_choice`
-                # none: o modelo responde com o que tem. `none` e o unico
-                # valor compativel com raciocinio estendido alem de `auto`.
-                LOGGER.warning(
-                    "FROID Explica: %s; pedindo a resposta final com o que ha",
-                    f"orcamento de {FROID_EXPLICA_ORCAMENTO_S:.0f} s esgotado apos {turnos} turnos"
-                    if sem_tempo and turnos <= MAX_TURNOS_DE_FERRAMENTA
-                    else f"teto de {MAX_TURNOS_DE_FERRAMENTA} turnos de ferramenta atingido",
-                )
-                chamada["tool_choice"] = {"type": "none"}
-            pedidos = [
-                bloco
-                for bloco in (getattr(response, "content", None) or [])
-                if getattr(bloco, "type", "") == "tool_use"
-            ]
-            # A resposta inteira volta como veio (inclusive os blocos de
-            # raciocinio): o modelo precisa dela para continuar.
-            messages.append({"role": "assistant", "content": response.content})
-            resultados: List[Dict[str, Any]] = []
-            for pedido in pedidos:
-                conteudo, e_erro = explica_ferramentas.executar(
-                    acervo, str(getattr(pedido, "name", "")), getattr(pedido, "input", None)
-                )
-                item: Dict[str, Any] = {
-                    "type": "tool_result",
-                    "tool_use_id": getattr(pedido, "id", ""),
-                    "content": conteudo,
-                }
-                if e_erro:
-                    item["is_error"] = True
-                resultados.append(item)
-            # Todos os resultados do turno numa so mensagem: dividi-los
-            # ensinaria o modelo a parar de pedir em paralelo.
-            messages.append({"role": "user", "content": resultados})
+        response = _laco_de_ferramentas(client, chamada, messages, acervo)
     motor = f"Claude ({getattr(response, 'model', None) or FROID_EXPLICA_CLAUDE_MODEL})"
     parada = getattr(response, "stop_reason", None)
     uso = getattr(response, "usage", None)
@@ -1793,9 +1811,7 @@ def _is_comparative_question(query_text: str) -> bool:
 # O resumo por sessao e a linha da carteira moraram aqui ate 18/10/2026. Com a
 # fase 4 as ferramentas do Explica precisam deles, e um modulo que main importa
 # nao pode importar main. Vivem em `explica_ferramentas`; os nomes ficam.
-_valor_medido = explica_ferramentas._numero
 _compact_report_summary = explica_ferramentas.resumo_da_sessao
-_fmt_carteira = explica_ferramentas._fmt
 _linha_da_carteira = explica_ferramentas.linha_da_carteira
 
 
@@ -16758,8 +16774,12 @@ async def confirm_billing_checkout(request: Request):
 async def froid_explica_query(payload: FroidExplicaQuery, request: Request):
     _require_professional_feature_access(request)
     # Comparacao com a carteira: injeta resumos autorizados (RLS aplicado) so
-    # quando a pergunta e comparativa, minimizando exposicao de dados.
-    if _is_comparative_question(payload.query_text):
+    # quando a pergunta e comparativa, minimizando exposicao de dados — e so
+    # para os motores sem ferramentas. Com o Claude ativo, as ferramentas da
+    # fase 4 entregam a carteira sob demanda, e o resumo fixo so repetia o
+    # mesmo conteudo no prompt (revisao 20/10/2026, item 22). O custo: se o
+    # Claude cair e a pergunta for ao Gemini/OpenAI, ela vai sem carteira.
+    if not ANTHROPIC_API_KEY and _is_comparative_question(payload.query_text):
         current_patient_id = str(
             payload.patient_id
             or (payload.context or {}).get("patient_id")

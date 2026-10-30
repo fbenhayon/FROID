@@ -14,12 +14,10 @@ qualquer clinico o nome de todos, mais que o papel V1 professional le).
 
 from __future__ import annotations
 
-import secrets
 import sys
 import uuid
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -28,118 +26,44 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from psique_billing import BillingError  # noqa: E402
-from psique_credits import PsiqueCredits  # noqa: E402
-from psique_identity import TrialKeyring  # noqa: E402
-from psique_rbac import PsiqueRbac  # noqa: E402
-from psique_scheduling import PsiqueScheduling  # noqa: E402
-from tenant_access import AccessContext  # noqa: E402
-from tools.migrate_schema import apply  # noqa: E402
+from psique_harness import (  # noqa: E402
+    BASE_START,
+    HarnessBase,
+    aplica_incremental_e_reaplicar_e_no_op,
+    definicao_corrente,
+    fixture_de_banco,
+    funcao_sql,
+)
 
 MIGRACAO = "053_psique_scheduling_supervisor"
 ANTERIOR = "052_psique_member_quota_v2"
 # A 054 regrava psique_v2_scheduling_patients (nome so dos pacientes do
 # clinico); o banco de prova aplica ate ela, e o espelho da 053 segue aqui.
 CORRENTE = "054_cota_conta_e_paciente_do_clinico"
-SP = ZoneInfo("America/Sao_Paulo")
-BASE_START = datetime(2027, 3, 10, 14, 0, tzinfo=SP)
-BASE_DOW = (BASE_START.weekday() + 1) % 7
 
 
-def _dsn():
-    import os
-
-    dsn = os.environ.get("FROID_PSIQUE_TEST_DATABASE_URL", "")
-    if not dsn:
-        pytest.skip("explicit disposable Psique database required")
-    from psycopg.conninfo import conninfo_to_dict
-
-    params = conninfo_to_dict(dsn)
-    assert params.get("host") in {"127.0.0.1", "localhost"}
-    assert params.get("dbname", "").startswith("psique_v2_test_")
-    return dsn
+database = fixture_de_banco(CORRENTE)
 
 
-def _banco(dsn, through):
-    import psycopg
-    from psycopg.conninfo import make_conninfo
-
-    name = "psique_v2_test_" + uuid.uuid4().hex
-    with psycopg.connect(dsn, autocommit=True) as admin:
-        admin.execute(psycopg.sql.SQL("CREATE DATABASE {}").format(psycopg.sql.Identifier(name)))
-        try:
-            isolated = make_conninfo(dsn, dbname=name)
-            with psycopg.connect(isolated, autocommit=True) as conn:
-                apply(conn, ROOT / "migrations", through, name)
-            yield isolated, name
-        finally:
-            admin.execute(psycopg.sql.SQL("DROP DATABASE {} WITH (FORCE)").format(psycopg.sql.Identifier(name)))
-
-
-@pytest.fixture(scope="module")
-def database():
-    yield from _banco(_dsn(), CORRENTE)
-
-
-class Harness:
-    def __init__(self, dsn):
-        import psycopg
-
-        self.pg = psycopg
-        self.dsn = dsn
-        factory = lambda: psycopg.connect(dsn, autocommit=True, options="-c role=froid_runtime")
-        self.rbac = PsiqueRbac(factory)
-        self.scheduling = PsiqueScheduling(factory)
-        self.credits = PsiqueCredits(factory, identity_loader=lambda u: None,
-                                     material_loader=lambda user, ref: None,
-                                     keyring=TrialKeyring({"t": secrets.token_bytes(32)}, "t"))
-
-    def sql(self, query, params=()):
-        with self.pg.connect(self.dsn, autocommit=True) as conn:
-            cursor = conn.execute(query, params)
-            return cursor.fetchall() if cursor.description else []
-
-    def member(self, org, *, v1_role="professional"):
-        user, membership = str(uuid.uuid4()), str(uuid.uuid4())
-        self.sql("INSERT INTO users(id,email) VALUES(%s,%s)", (user, user + "@example.invalid"))
-        self.sql("INSERT INTO organization_memberships(id,organization_id,user_id) VALUES(%s,%s,%s)",
-                 (membership, org, user))
-        self.sql("INSERT INTO membership_roles(membership_id,role) VALUES(%s,%s)", (membership, v1_role))
-        return AccessContext.create(organization_id=org, membership_id=membership, user_id=user,
-                                    roles=[v1_role], organization_type="clinic")
+class Harness(HarnessBase):
+    """O que so este modulo precisa: a clinica com os quatro papeis."""
 
     def clinica(self):
-        org = str(uuid.uuid4())
-        self.sql("INSERT INTO organizations(id,organization_type,legal_name,display_name) "
-                 "VALUES(%s,'clinic','SYNTHETIC agenda','SYNTHETIC agenda')", (org,))
+        org = self.organizacao("clinic", "SYNTHETIC agenda")
         owner = self.member(org, v1_role="owner")
         assert self.rbac.enable(owner)["enabled"] is True
         secretary = self.member(org)
         self.rbac.grant_role(owner, secretary.membership_id, "SECRETARY")
         supervisor = self.member(org, v1_role="supervisor")
         self.rbac.grant_role(owner, supervisor.membership_id, "CLINICAL_SUPERVISOR")
-        clinician = self.clinico(owner)
+        clinician = self.clinico_disponivel(owner)
         return owner, secretary, supervisor, clinician
 
     def clinico(self, owner):
-        clinician = self.member(owner.organization_id)
-        self.rbac.grant_role(owner, clinician.membership_id, "CLINICIAN")
-        self.scheduling.set_availability(
-            owner, clinician_membership_id=clinician.membership_id, weekday=BASE_DOW,
-            start_minute=8 * 60, end_minute=18 * 60, timezone_name="America/Sao_Paulo")
-        return clinician
+        return self.clinico_disponivel(owner)
 
     def paciente(self, org, nome="SYNTHETIC PACIENTE"):
-        patient = str(uuid.uuid4())
-        self.sql("INSERT INTO patients(id,organization_id,full_name,legacy_payload) "
-                 "VALUES(%s,%s,%s,'{}')", (patient, org, nome))
-        return patient
-
-    def marcar(self, actor, clinician, patient, *, offset_minutes=0, minutes=50):
-        start = BASE_START + timedelta(minutes=offset_minutes)
-        return self.scheduling.create_appointment(
-            actor, patient_id=patient, clinician_membership_id=clinician.membership_id,
-            start_at=start, end_at=start + timedelta(minutes=minutes),
-            timezone_name="America/Sao_Paulo", idempotency_key=uuid.uuid4().hex)
+        return self.patient(org, nome)
 
     def agenda(self, actor):
         return self.scheduling.list_appointments(
@@ -282,31 +206,21 @@ def test_quem_gere_papeis_ve_os_papeis_de_todos(harness):
 
 # -- A migration ---------------------------------------------------------------------
 
-def _funcao(texto, nome):
-    inicio = texto.index(f"FUNCTION {nome}(")
-    inicio = texto.rindex("CREATE", 0, inicio)
-    fim = texto.index("END $$;", inicio) + len("END $$;")
-    return texto[inicio:fim].replace("CREATE FUNCTION", "CREATE OR REPLACE FUNCTION", 1).replace("\r\n", "\n")
-
-
 def test_a_053_copia_as_funcoes_correntes_e_so_acrescenta_o_supervisor():
-    sql053 = (ROOT / "migrations" / f"{MIGRACAO}.sql").read_text(encoding="utf-8").replace("\r\n", "\n")
-    sql045 = (ROOT / "migrations" / "045_psique_scheduling_serialization.sql").read_text(encoding="utf-8")
-    sql044 = (ROOT / "migrations" / "044_psique_org_scheduling.sql").read_text(encoding="utf-8")
-    fontes = {
-        "psique_v2_appointment_create": sql045,
-        "psique_v2_appointment_change": sql045,
-        "psique_v2_appointment_cancel": sql044,
-        "psique_v2_appointment_history": sql044,
-    }
-    for nome, fonte in fontes.items():
-        esperado = (_funcao(fonte, nome)
+    """A fonte de cada funcao e a ULTIMA migration anterior a 053 que a define
+    (item 25): uma migration intermediaria que a regravasse apareceria aqui."""
+    sql053 = (ROOT / "migrations" / f"{MIGRACAO}.sql").read_text(encoding="utf-8")
+    for nome in ("psique_v2_appointment_create", "psique_v2_appointment_change",
+                 "psique_v2_appointment_cancel", "psique_v2_appointment_history"):
+        origem, corrente = definicao_corrente(nome, antes_de=MIGRACAO)
+        assert origem in ("044_psique_org_scheduling", "045_psique_scheduling_serialization"), (nome, origem)
+        esperado = (corrente
                     .replace("ARRAY['SECRETARY','ORG_ADMIN','CLINICIAN']",
                              "ARRAY['SECRETARY','ORG_ADMIN','CLINICAL_SUPERVISOR','CLINICIAN']")
                     .replace("psique_v2_role_check(ARRAY['SECRETARY','ORG_ADMIN'])",
                              "psique_v2_role_check(ARRAY['SECRETARY','ORG_ADMIN','CLINICAL_SUPERVISOR'])"))
-        assert _funcao(sql053, nome) == esperado, nome
-    listagem = _funcao(sql053, "psique_v2_appointments_list")
+        assert funcao_sql(sql053, nome) == esperado, nome
+    listagem = funcao_sql(sql053, "psique_v2_appointments_list")
     assert "'patient_name',CASE WHEN psique_v2_role_check(ARRAY['SECRETARY','ORG_ADMIN'])" in listagem
     assert "LEFT JOIN patients p" in listagem
 
@@ -314,8 +228,8 @@ def test_a_053_copia_as_funcoes_correntes_e_so_acrescenta_o_supervisor():
 def test_a_054_copia_a_listagem_de_pacientes_da_053_e_so_restringe_o_clinico():
     sql053 = (ROOT / "migrations" / f"{MIGRACAO}.sql").read_text(encoding="utf-8")
     sql054 = (ROOT / "migrations" / f"{CORRENTE}.sql").read_text(encoding="utf-8")
-    antiga = _funcao(sql053, "psique_v2_scheduling_patients")
-    nova = _funcao(sql054, "psique_v2_scheduling_patients")
+    antiga = funcao_sql(sql053, "psique_v2_scheduling_patients")
+    nova = funcao_sql(sql054, "psique_v2_scheduling_patients")
     assert nova != antiga
     assert "psique_v2_role_check(ARRAY['SECRETARY','ORG_ADMIN'])" in nova
     assert "psique_v2_role_check(ARRAY['SECRETARY','ORG_ADMIN','CLINICIAN'])" not in nova
@@ -328,19 +242,7 @@ def test_a_054_copia_a_listagem_de_pacientes_da_053_e_so_restringe_o_clinico():
 
 
 def test_aplica_incremental_sobre_a_052_e_reaplicar_e_no_op():
-    import psycopg
-
-    gerador = _banco(_dsn(), ANTERIOR)
-    isolated, name = next(gerador)
-    try:
-        with psycopg.connect(isolated, autocommit=True) as conn:
-            assert apply(conn, ROOT / "migrations", MIGRACAO, name) == [MIGRACAO]
-            assert apply(conn, ROOT / "migrations", MIGRACAO, name) == []
-    finally:
-        try:
-            next(gerador)
-        except StopIteration:
-            pass
+    aplica_incremental_e_reaplicar_e_no_op(ANTERIOR, MIGRACAO)
 
 
 def test_053_e_opt_in():

@@ -81,6 +81,18 @@ describe("semana e horas", () => {
     expect(limitesDaSemana(dias, "UTC")).toEqual({ inicio: "2027-03-08T00:00:00.000Z", fim: "2027-03-15T00:00:00.000Z" });
   });
 
+  it("num fuso com horario de verao, o deslocamento muda com a data", () => {
+    // Revisao 20/10/2026, item 27: ate aqui so Sao Paulo (sem horario de verao
+    // desde 2019) era provado; a segunda passagem de instanteDe so se exercita
+    // onde o deslocamento muda.
+    expect(instanteDe("2027-07-01", "14:00", "America/New_York")).toBe("2027-07-01T18:00:00.000Z"); // EDT, -4
+    expect(instanteDe("2027-01-15", "14:00", "America/New_York")).toBe("2027-01-15T19:00:00.000Z"); // EST, -5
+    // No dia da virada (14/03/2027), 01:30 ainda e EST e 03:30 ja e EDT.
+    expect(instanteDe("2027-03-14", "01:30", "America/New_York")).toBe("2027-03-14T06:30:00.000Z");
+    expect(instanteDe("2027-03-14", "03:30", "America/New_York")).toBe("2027-03-14T07:30:00.000Z");
+    expect(horaNoFuso("2027-07-01T18:00:00.000Z", "America/New_York")).toBe("14:00");
+  });
+
   it("dia ou hora invalidos nao viram instante", () => {
     expect(instanteDe("2027-13-01", "14:00", "America/Sao_Paulo")).toBeNull();
     expect(instanteDe("2027-03-10", "", "America/Sao_Paulo")).toBeNull();
