@@ -19,8 +19,9 @@ import { IPMLineChart } from "../components/indicators/IPMLineChart";
  *
  * `estado-da-captura.ts` ja tinha corrigido o mesmo defeito no alarme, com a
  * mesma regra — silencio clinico e dado, nao ausencia de sinal. Estes testes
- * prendem a regra tambem na apresentacao, nos dois lados: ela RETEM dentro do
- * horizonte e volta a declarar ausencia depois dele.
+ * prendem a regra tambem na apresentacao: ela RETEM a ultima medida enquanto o
+ * canal de analise segue vivo, e a rotula como leitura retida quando o instante
+ * atual esta sem apuracao.
  *
  * Selecao por AST/nome, nunca por numero de linha.
  */
@@ -140,22 +141,22 @@ describe("silêncio do paciente não apaga a última apuração", () => {
     expect(r.displayIpm).toBe(57);
   });
 
-  it("passado o horizonte, a tela volta a declarar ausência", () => {
-    const r = portao({ idade: 21 });
-    expect(r.semApuracaoNaJanela).toBe(true);
-    expect(r.displayZones).toEqual([]);
-    expect(r.displayIpm).toBeNull();
+  it("mesmo depois da pausa, a tela conserva a última leitura válida", () => {
+    const r = portao({ idade: 180 });
+    expect(r.semApuracaoNaJanela).toBe(false);
+    expect(r.displayZones).toEqual([zonaMedida]);
+    expect(r.displayIpm).toBe(57);
   });
 
-  it("a janela clínica de 1min retém pelos 60s que ela promete", () => {
+  it("a janela clínica não expira a última leitura por silêncio do paciente", () => {
     expect(portao({ idade: 45, clinico: true, minutos: 1 }).semApuracaoNaJanela).toBe(false);
-    expect(portao({ idade: 61, clinico: true, minutos: 1 }).semApuracaoNaJanela).toBe(true);
+    expect(portao({ idade: 61, clinico: true, minutos: 1 }).semApuracaoNaJanela).toBe(false);
   });
 
-  it("o horizonte acompanha a janela escolhida, não um valor fixo", () => {
-    expect(portao({ idade: 45, clinico: false }).horizonteDeRetencaoSegundos).toBe(20);
-    expect(portao({ idade: 45, clinico: true, minutos: 1 }).horizonteDeRetencaoSegundos).toBe(60);
-    expect(portao({ idade: 45, clinico: true, minutos: 5 }).horizonteDeRetencaoSegundos).toBe(300);
+  it("o horizonte de tempo foi removido: quem encerra a retenção é a perda do canal", () => {
+    expect(portao({ idade: 45, clinico: false }).horizonteDeRetencaoSegundos).toBe(Number.POSITIVE_INFINITY);
+    expect(portao({ idade: 45, clinico: true, minutos: 1 }).horizonteDeRetencaoSegundos).toBe(Number.POSITIVE_INFINITY);
+    expect(portao({ idade: 45, clinico: true, minutos: 5 }).horizonteDeRetencaoSegundos).toBe(Number.POSITIVE_INFINITY);
   });
 
   it("socket caído não retém nada: não é silêncio do paciente", () => {
@@ -184,8 +185,8 @@ describe("silêncio do paciente não apaga a última apuração", () => {
     );
   });
 
-  it("sem apuração na janela, a coerência é vazia — nunca NEUTRO", () => {
-    expect(portao({ idade: 21 }).displayCoherence).toBe("");
+  it("sem nenhuma leitura retida, a coerência é vazia — nunca NEUTRO", () => {
+    expect(portao({ idade: null }).displayCoherence).toBe("");
   });
 
   it("no modo clínico o agregado da janela continua tendo precedência", () => {
@@ -273,6 +274,6 @@ describe("um ponto medido sozinho continua visível", () => {
       <IPMLineChart data={[]} current={null} elapsedSeconds={10} samples={[{ second: 3, value: null }]} />,
     );
     expect(html).not.toContain("<circle");
-    expect(html).toContain("Aguardando serie temporal");
+    expect(html).toContain("sem amostras na janela");
   });
 });

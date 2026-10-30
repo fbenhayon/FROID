@@ -242,18 +242,18 @@ class ATelaCONSOMEaDeclaracaoDeAusencia(unittest.TestCase):
         self.assertIn("const semApuracaoNaJanela = !apuracaoRetida", SESSAO)
         self.assertIn("lastMeasured", SESSAO)
 
-    def test_a_retencao_TEM_horizonte(self):
-        """Reter sem limite e o defeito oposto: afirmar o presente com passado.
+    def test_a_retencao_continua_rotulada_como_ultima_leitura(self):
+        """Decisao de 30/10/2026: o painel preserva a ultima leitura medida.
 
-        Sem a comparacao contra o horizonte, a ultima medida ficaria na tela
-        pelo resto da consulta, e o profissional leria como atual um numero de
-        meia hora atras. O horizonte acompanha a janela escolhida; fora dele a
-        tela volta a declarar ausencia.
+        O risco de afirmar passado como presente fica contido pelo rotulo
+        visivel de "Ultima leitura valida". Quem derruba a retencao nao e mais
+        o tempo em silencio, e sim a perda do canal/trilha de analise.
         """
         i = SESSAO.index("const apuracaoRetida")
         trecho = SESSAO[i : i + 400]
-        self.assertIn("idadeDaApuracao <= horizonteDeRetencaoSegundos", trecho)
         self.assertIn("state.connected", trecho)
+        self.assertIn("Number.POSITIVE_INFINITY", SESSAO)
+        self.assertIn("Última leitura válida", SESSAO)
         # Socket caido nao e silencio do paciente: nao ha o que reter.
         i = SESSAO.index('case "SEM_LEITURA"')
         self.assertIn("lastMeasured: null", SESSAO[i : i + 200])

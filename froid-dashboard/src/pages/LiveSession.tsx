@@ -5447,21 +5447,18 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   // graficos piscavam e sumiam. Em `1min` o efeito era pior, porque o instante
   // derrubava justamente o agregado que a janela clinica existe para segurar.
   //
-  // `PATIENT_AUDIO_GRACE_MS` ja e a regra desta casa para o mesmo fato — "o
-  // silencio clinico e dado, nao ausencia de sinal" — e valia so no portao das
-  // metricas. Aqui ela passa a valer tambem na apresentacao.
-  //
-  // O horizonte e o que separa reter de mentir: passado ele, a medida nao
-  // descreve mais o presente e a tela volta a declarar ausencia.
+  // Decisao do dono, 30/10/2026: a ultima leitura medida permanece visivel para
+  // dar tempo clinico de leitura ao profissional. A fronteira agora nao e tempo:
+  // e procedencia. Enquanto o canal segue vivo, o valor fica na tela como
+  // "ultima leitura valida", nunca como leitura atual; quando o canal cai ou a
+  // trilha fica invalida, `lastMeasured` e limpo no reducer.
   const clinicalWindowMinutes = clinicalModeToMinutes(clinicalUpdateMode);
-  const horizonteDeRetencaoSegundos = clinicalPresentationActive
-    ? clinicalWindowMinutes * CLINICAL_MICRO_WINDOW_SECONDS
-    : PATIENT_AUDIO_GRACE_MS / 1000;
+  const horizonteDeRetencaoSegundos = Number.POSITIVE_INFINITY;
   const idadeDaApuracao =
     state.lastMeasured === null
       ? null
       : Math.max(0, state.elapsedSeconds - state.lastMeasured.atSecond);
-  // Retida = medida de verdade, dentro do horizonte. Fora dele, nada.
+  // Retida = medida de verdade, preservada enquanto o canal segue valido.
   const apuracaoRetida =
     state.connected &&
     state.lastMeasured !== null &&
@@ -5533,19 +5530,14 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       : { ...realTranscriptAudio, ...liveTranscription }
     : realTranscriptAudio;
   // Detalhe diagnóstico (bandas, sub-harmônicos, biomarcadores e timeline do
-  // IPM) é sempre AO VIVO: a estabilização clínica se aplica ao painel de
-  // risco/zonas, não a estes gráficos, que devem acompanhar o sinal real.
-  //
-  // "Ao vivo" e a janela de tolerancia, nao o tique. Estes graficos NAO seguem
-  // a janela clinica escolhida — seguem `PATIENT_AUDIO_GRACE_MS`, os mesmos 20s
-  // que o portao das metricas ja usa. Apagar a ultima medida real porque o
-  // paciente parou de falar por um segundo nao e acompanhar o sinal: e afirmar
-  // uma ausencia que nao houve.
+  // IPM) tambem preserva a ultima leitura medida. A serie historica continua
+  // com lacunas onde nao houve medida; o quadro atual permanece como referencia
+  // visivel, rotulada no badge de "ultima leitura valida".
   const apuracaoRetidaAoVivo =
     state.connected &&
     state.lastMeasured !== null &&
     idadeDaApuracao !== null &&
-    idadeDaApuracao <= PATIENT_AUDIO_GRACE_MS / 1000
+    idadeDaApuracao <= horizonteDeRetencaoSegundos
       ? state.lastMeasured.payload
       : null;
   const liveAudioMeta = apuracaoRetidaAoVivo?.audio_meta || {};
@@ -5556,6 +5548,14 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const liveIpm = semApuracaoAgora
     ? null
     : raw?.ipm_score ?? null;
+  const leituraRetida =
+    Boolean(apuracaoRetida) && semApuracaoAgora && idadeDaApuracao !== null;
+  const leituraRetidaBadge = leituraRetida ? (
+    <div className="rounded-lg border border-cyan-800 bg-cyan-950/70 px-2 py-1 text-[9px] font-semibold leading-4 text-cyan-100">
+      <strong className="uppercase tracking-wide">Última leitura válida</strong>{" "}
+      há {formatCutClock(idadeDaApuracao || 0)}. Aguardando nova voz do paciente.
+    </div>
+  ) : null;
   const clinicalNextUpdateSeconds =
     clinicalPresentationActive
       ? Math.max(0, clinicalSnapshot.nextUpdateSecond - state.elapsedSeconds)
@@ -6167,6 +6167,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             </span>
             <div className="w-[220px] shrink-0">{layoutSelector}</div>
             {clinicalStabilizationControl}
+            {leituraRetidaBadge}
             <button
               type="button"
               onClick={endSession}
@@ -6355,6 +6356,8 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           {layoutSelector}
 
           <SessionTimer startTime={state.sessionStart} onEndSession={endSession} />
+
+          {leituraRetidaBadge}
 
           {/* Grade de indices: TODAS as metricas do layout Simplificado, com a
               situacao de cada uma contra os limites que o servidor calcula.
@@ -6645,6 +6648,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
 
         <div className="flex flex-wrap items-center gap-2">
           {clinicalStabilizationControl}
+          {leituraRetidaBadge}
         </div>
 
         {layoutSelector}
