@@ -47,6 +47,20 @@ class PatientMobileWebRtcTests(unittest.TestCase):
         self.assertIn("track.onended = markCaptureUnavailable", self.patient_session)
         self.assertIn("track.onmute = () =>", self.patient_session)
 
+    def test_patient_acoustic_diagnostic_does_not_cover_video(self):
+        marker = "DIAGNOSTICO ACUSTICO FORA DO VIDEO"
+        self.assertIn(marker, self.patient_session)
+        self.assertGreater(
+            self.patient_session.index("Áudio enviado para análise."),
+            self.patient_session.index(marker),
+        )
+        video_block = self.patient_session[
+            self.patient_session.index('className="relative aspect-video') :
+            self.patient_session.index(marker)
+        ]
+        self.assertNotIn("Áudio enviado para análise.", video_block)
+        self.assertIn("Toque na tela para iniciar a análise da sua voz.", video_block)
+
     def test_signaling_is_serialized_on_both_peers(self):
         self.assertIn("let signalQueue: Promise<void> = Promise.resolve()", self.patient_session)
         self.assertIn("signalQueue = signalQueue", self.patient_session)

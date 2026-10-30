@@ -1044,40 +1044,42 @@ export const PatientSessionPage: React.FC = () => {
                 Toque para ouvir o profissional
               </button>
             )}
-            {!audioBloqueado
-              && statusAcustico !== ""
-              && (statusAcustico !== "enviando" || avisoFonteAcustica) && (
+            {!audioBloqueado && statusAcustico === "aguardando-gesto" && (
               <div
-                onClick={
-                  statusAcustico === "aguardando-gesto"
-                    ? () => void destravarAudio()
-                    : undefined
-                }
-                className={`absolute bottom-3 left-3 right-3 z-20 rounded-lg border px-3 py-2 text-[11px] font-semibold leading-4 backdrop-blur-sm ${
-                  statusAcustico === "aguardando-gesto"
-                    ? "cursor-pointer border-blue-300/70 bg-blue-900/85 text-blue-50"
-                    : "border-amber-300/60 bg-slate-950/85 text-amber-100"
-                }`}
+                onClick={() => void destravarAudio()}
+                className="absolute bottom-3 left-3 right-3 z-20 cursor-pointer rounded-lg border border-blue-300/70 bg-blue-900/85 px-3 py-2 text-[11px] font-semibold leading-4 text-blue-50 backdrop-blur-sm"
               >
-                {statusAcustico === "aguardando-gesto"
-                  ? "Toque na tela para iniciar a análise da sua voz."
-                  : statusAcustico === "enviando"
-                    ? "Áudio enviado para análise."
-                    : `Análise da voz indisponível: ${STATUS_CAPTURA_TEXTO[statusAcustico]}`}
-                {detalheAcustico && statusAcustico !== "aguardando-gesto" ? (
-                  <span className="mt-1 block font-normal opacity-80">
-                    {detalheAcustico}
-                  </span>
-                ) : null}
-                {(statusAcustico === "erro" || statusAcustico === "sem-audio") && (
-                  <button type="button" className="mt-2 rounded border border-amber-200/50 px-2 py-1 font-bold"
-                    onClick={() => { if (streamRef.current) void iniciarCapturaAcustica(streamRef.current); }}>
-                    Reativar análise da voz
-                  </button>
-                )}
+                Toque na tela para iniciar a análise da sua voz.
               </div>
             )}
           </div>
+
+          {/* DIAGNOSTICO ACUSTICO FORA DO VIDEO.
+              O aviso "audio enviado para analise" pode ser longo no celular.
+              Dentro do quadro ele cobria o profissional, embora a chamada por
+              voz estivesse boa; aqui ele continua visivel sem bloquear a
+              comunicacao visual. */}
+          {!audioBloqueado
+            && statusAcustico !== ""
+            && statusAcustico !== "aguardando-gesto"
+            && (statusAcustico !== "enviando" || avisoFonteAcustica) && (
+            <div className="mt-3 rounded-lg border border-amber-300/50 bg-slate-950/70 px-3 py-2 text-[11px] font-semibold leading-4 text-amber-100">
+              {statusAcustico === "enviando"
+                ? "Áudio enviado para análise."
+                : `Análise da voz indisponível: ${STATUS_CAPTURA_TEXTO[statusAcustico]}`}
+              {detalheAcustico ? (
+                <span className="mt-1 block font-normal opacity-80">
+                  {detalheAcustico}
+                </span>
+              ) : null}
+              {(statusAcustico === "erro" || statusAcustico === "sem-audio") && (
+                <button type="button" className="mt-2 rounded border border-amber-200/50 px-2 py-1 font-bold"
+                  onClick={() => { if (streamRef.current) void iniciarCapturaAcustica(streamRef.current); }}>
+                  Reativar análise da voz
+                </button>
+              )}
+            </div>
+          )}
 
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <div>
