@@ -319,6 +319,12 @@ describe("a falha de captura chega a quem pode agir", () => {
   it("o bloqueio de reproducao e detectado, e nao engolido", () => {
     expect(PAC).toContain("conferirReproducao");
     expect(PAC).toContain("audio.paused");
+    expect(PAC).toContain("if (inbound.audioFlowing) conferirReproducao();");
+  });
+
+  it("video do profissional sem audio nao vira status generico", () => {
+    expect(PAC).toContain("Vídeo do profissional chegando; áudio dele sem pacotes");
+    expect(PAC).toContain("Peça ao profissional para verificar o microfone");
   });
 
   it("o motivo atravessa a sinalizacao ate o painel", () => {

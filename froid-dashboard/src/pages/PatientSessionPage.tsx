@@ -406,6 +406,7 @@ export const PatientSessionPage: React.FC = () => {
       // O que o paciente vê do profissional só fica "ativo" com fluxo real.
       setRemoteProfessionalOn(inbound.audioFlowing);
       setRemoteProfessionalVideoOn(inbound.videoFlowing);
+      if (inbound.audioFlowing) conferirReproducao();
       const route = current.candidateType
         ? ` · rota ${current.candidateType}`
         : "";
@@ -446,7 +447,11 @@ export const PatientSessionPage: React.FC = () => {
             ? `Transmitindo áudio e vídeo para o profissional${route}.`
             : inbound.audioFlowing && inbound.videoFlowing
               ? `Áudio e vídeo fluindo nos dois sentidos${route}.`
-              : `Transmitindo ao profissional; aguardando a mídia dele (${stalledInboundChecks}/3)${route}.`,
+              : inbound.audioFlowing
+                ? `Áudio do profissional chegando; vídeo dele sem quadros${route}.`
+                : inbound.videoFlowing
+                  ? `Vídeo do profissional chegando; áudio dele sem pacotes${route}. Peça ao profissional para verificar o microfone.`
+                  : `Transmitindo ao profissional; aguardando a mídia dele (${stalledInboundChecks}/3)${route}.`,
         );
         return;
       }
