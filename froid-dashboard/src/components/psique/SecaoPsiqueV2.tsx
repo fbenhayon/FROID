@@ -24,6 +24,66 @@ import { PsiqueCreditsPanel } from "./PsiqueCreditsPanel";
 
 export const CHAVE_COMPRA_PENDENTE = "froid_psique_v2_compra_pendente";
 
+function escreverPaginaAguardoStripe(aba: Window) {
+  aba.document.title = "FROID - Checkout";
+  aba.document.body.innerHTML = `
+    <main style="
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      margin: 0;
+      background: #020617;
+      color: #e2e8f0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    ">
+      <section style="
+        width: min(420px, calc(100vw - 32px));
+        border: 1px solid #155e75;
+        border-radius: 16px;
+        padding: 28px;
+        background: rgba(8, 47, 73, 0.56);
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+      ">
+        <p style="
+          margin: 0 0 10px;
+          color: #67e8f9;
+          font-size: 11px;
+          font-weight: 900;
+          letter-spacing: 0.22em;
+          text-transform: uppercase;
+        ">FROID</p>
+        <h1 style="
+          margin: 0;
+          color: #f8fafc;
+          font-size: 22px;
+          line-height: 1.25;
+        ">Abrindo checkout seguro</h1>
+        <p style="
+          margin: 12px 0 0;
+          color: #cbd5e1;
+          font-size: 14px;
+          line-height: 1.55;
+        ">Estamos preparando sua compra de créditos. A próxima tela será aberta pela Stripe para finalizar o pagamento.</p>
+        <div aria-hidden="true" style="
+          width: 100%;
+          height: 6px;
+          margin-top: 22px;
+          overflow: hidden;
+          border-radius: 999px;
+          background: #0f172a;
+        ">
+          <div style="
+            width: 44%;
+            height: 100%;
+            border-radius: 999px;
+            background: #0891b2;
+          "></div>
+        </div>
+      </section>
+    </main>
+  `;
+}
+
 /** A carteira desta organização já está no V2? null = ainda consultando.
  *  O servidor recusa o checkout V2 de carteira V1 (PSIQUE_WALLET_REQUIRED),
  *  então a tela mostra uma compra só: a do sistema em que a carteira está. */
@@ -149,8 +209,7 @@ export function SecaoPsiqueV2({
       abaCheckout = window.open("", "_blank");
       if (abaCheckout) {
         abaCheckout.opener = null;
-        abaCheckout.document.title = "Checkout Stripe";
-        abaCheckout.document.body.textContent = "Abrindo o checkout seguro do Stripe...";
+        escreverPaginaAguardoStripe(abaCheckout);
       }
     } catch {
       abaCheckout = null;

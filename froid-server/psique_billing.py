@@ -49,6 +49,12 @@ REVIEW_EVENTS = (
     "refund.created", "refund.updated", "refund.failed",
 )
 _SECRET_PATTERN = re.compile(r"(?:[sr]k_(?:test|live)|whsec)_[A-Za-z0-9]+")
+FROID_CHECKOUT_BRANDING_FIELDS = [
+    ("branding_settings[display_name]", "FROID"),
+    ("branding_settings[background_color]", "#020617"),
+    ("branding_settings[button_color]", "#0891b2"),
+    ("branding_settings[border_style]", "rounded"),
+]
 
 
 def _sanitize(text: str) -> str:
@@ -135,7 +141,7 @@ class StripeTestClient:
             ("client_reference_id", purchase_id),
             ("metadata[purchase_id]", purchase_id),
             ("metadata[froid_product]", "psique"),
-        ])
+        ] + FROID_CHECKOUT_BRANDING_FIELDS)
 
     def get_checkout_session(self, session_id: str) -> dict[str, Any]:
         query = urllib.parse.urlencode([("expand[]", "line_items")])

@@ -62,6 +62,33 @@ def test_authorized_objects_mirror_the_operator_tool():
     assert AUTHORIZED_OBJECTS == AUTHORIZED
 
 
+def test_stripe_checkout_receives_froid_branding(monkeypatch):
+    sent = {}
+    client = StripeTestClient("sk_test_SYNTHETIC")
+
+    def fake_request(method, path, fields=None):
+        sent["method"] = method
+        sent["path"] = path
+        sent["fields"] = fields or []
+        return {"id": "cs_test_SYNTHETIC", "livemode": False, "url": "https://checkout.stripe.com/c/test"}
+
+    monkeypatch.setattr(client, "_request", fake_request)
+    client.create_checkout_session(
+        price_id="price_SYNTHETIC",
+        purchase_id="purchase_SYNTHETIC",
+        success_url="https://example.invalid/ok",
+        cancel_url="https://example.invalid/no",
+    )
+
+    fields = dict(sent["fields"])
+    assert sent["method"] == "POST"
+    assert sent["path"] == "/v1/checkout/sessions"
+    assert fields["branding_settings[display_name]"] == "FROID"
+    assert fields["branding_settings[background_color]"] == "#020617"
+    assert fields["branding_settings[button_color]"] == "#0891b2"
+    assert fields["branding_settings[border_style]"] == "rounded"
+
+
 
 
 def test_purchase_status_check_mirrors_module_constant():
