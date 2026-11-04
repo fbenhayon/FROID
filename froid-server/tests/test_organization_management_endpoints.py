@@ -46,6 +46,12 @@ class EndpointAuthorizationTests(unittest.TestCase):
         block = MAIN_SOURCE[anchor : anchor + 700]
         self.assertIn('"reports.read_all"', block)
 
+    def test_usage_report_carries_patient_roster(self):
+        source = (SERVER_DIR / "tenant_store.py").read_text(encoding="utf-8")
+        self.assertIn('"patient_roster"', source)
+        self.assertIn('"responsible"', source)
+        self.assertIn('"shared_with"', source)
+
     def test_quota_endpoint_requires_credits_manage(self):
         self.assertIn(
             '@app.put("/api/organizations/{organization_id}/members/{target_membership_id}/quota")',

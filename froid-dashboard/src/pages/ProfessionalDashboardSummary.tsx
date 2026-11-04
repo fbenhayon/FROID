@@ -192,26 +192,6 @@ export const ProfessionalDashboardSummary: React.FC<Props> = ({ user, onLogout }
           </div>
         </section>
 
-        <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <h2 className="text-sm font-black">FROID Explica</h2>
-            <button onClick={() => nav("/settings")} className="rounded border border-cyan-800 bg-cyan-950 px-3 py-1.5 text-[11px] font-bold text-cyan-100">{tr("Meus prompts")}</button>
-          </div>
-          {selected ? (
-            <AIInsights
-              zones={selected.latestReport.sessionAverage.zones || []}
-              ipmScore={selected.latestReport.sessionAverage.ipmAvg}
-              coherenceStatus={selected.latestReport.sessionAverage.coherenceStatus}
-              baselineEstablished
-              sessionId={selected.latestReport.sessionId}
-              responseLocale={locale}
-              extraContext={{ patient: selected.patient, reports: selected.reports.slice(0, 20) }}
-              controlsSticky
-              messagesClassName="min-h-72 max-h-[520px]"
-            />
-          ) : <p className="text-xs text-slate-400">{tr("Nenhum paciente com relatório disponível.")}</p>}
-        </section>
-
           <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-sm font-black">{tr("Pacientes e indicadores médios")}</h2>
@@ -317,16 +297,36 @@ export const ProfessionalDashboardSummary: React.FC<Props> = ({ user, onLogout }
           </section>
           </div>
 
-          {/* A agenda interna (fonte) vem antes do Google (espelho). Ela e da
-              CLINICA: o profissional solo nao a tem, e ate 20/10/2026 lia
-              "esta clinica ainda nao ativou os papeis V2" e era mandado a uma
-              tela que nao existe para ele. */}
-          {organizacaoAtiva(user)?.organization_type === "clinic" ? (
-            <div className="mb-4">
+          <div className="space-y-4">
+            {/* A agenda interna (fonte) vem antes do Google (espelho). Ela e da
+                CLINICA: o profissional solo nao a tem, e ate 20/10/2026 lia
+                "esta clinica ainda nao ativou os papeis V2" e era mandado a uma
+                tela que nao existe para ele. */}
+            {organizacaoAtiva(user)?.organization_type === "clinic" ? (
               <AgendaInterna modo="propria" />
-            </div>
-          ) : null}
-          <AgendaDoProfissional tr={tr} />
+            ) : null}
+            <AgendaDoProfissional tr={tr} />
+
+            <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <h2 className="text-sm font-black">FROID Explica</h2>
+                <button onClick={() => nav("/settings")} className="rounded border border-cyan-800 bg-cyan-950 px-3 py-1.5 text-[11px] font-bold text-cyan-100">{tr("Meus prompts")}</button>
+              </div>
+              {selected ? (
+                <AIInsights
+                  zones={selected.latestReport.sessionAverage.zones || []}
+                  ipmScore={selected.latestReport.sessionAverage.ipmAvg}
+                  coherenceStatus={selected.latestReport.sessionAverage.coherenceStatus}
+                  baselineEstablished
+                  sessionId={selected.latestReport.sessionId}
+                  responseLocale={locale}
+                  extraContext={{ patient: selected.patient, reports: selected.reports.slice(0, 20) }}
+                  controlsSticky
+                  messagesClassName="min-h-72 max-h-[520px]"
+                />
+              ) : <p className="text-xs text-slate-400">{tr("Nenhum paciente com relatório disponível.")}</p>}
+            </section>
+          </div>
         </div>
       </main>
     </div>

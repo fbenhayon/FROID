@@ -4,6 +4,7 @@ import type { FroidUser } from "../App";
 import { apiUrl } from "../lib/api";
 import { normalizeSearchText } from "../lib/patient-dashboard";
 import { ControleDeAcesso } from "../components/admin/ControleDeAcesso";
+import { AIInsights } from "../components/panels/AIInsights";
 import {
   clearProductChoice,
   defaultAuthenticatedPath,
@@ -224,6 +225,28 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
         return patientSearchTokens.every((token) => haystack.includes(token));
       })
     : patients;
+  const adminExplicaContext = {
+    context_kind: "admin_dashboard",
+    clinical_data_scope: "administrative_aggregate_only",
+    summary: {
+      professionals: summary.professionals ?? null,
+      patients: summary.patients ?? null,
+      session_reports: summary.session_reports ?? null,
+      invites: summary.invites ?? null,
+      pending_professional_approvals:
+        summary.pending_professional_approvals ?? null,
+      total_due_brl: summary.total_due_brl ?? null,
+      total_received_brl: summary.total_received_brl ?? null,
+      total_pending_brl: summary.total_pending_brl ?? null,
+    },
+    counts: {
+      professionals_listed: professionals.length,
+      patients_listed: patients.length,
+      visible_patients: visiblePatients.length,
+      nr1_clients_linked: clientesNr1.length,
+    },
+    patient_search_active: Boolean(normalizedPatientSearch),
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 p-6 text-slate-100">
@@ -321,6 +344,8 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
           </p>
         )}
 
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_24rem]">
+          <div className="min-w-0 space-y-5">
         {/* Clientes NR-1: a porta de entrada de cada empresa contratante.
             O seletor de organização do painel clínico foi retirado — lá ele
             não abria nada do NR-1, só estreitava as permissões e fazia os
@@ -600,6 +625,23 @@ export const AdminDashboard: React.FC<Props> = ({ user }) => {
             </table>
           </div>
         </section>
+          </div>
+
+          <aside className="space-y-5 xl:sticky xl:top-6 xl:self-start">
+            <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+              <AIInsights
+                zones={[]}
+                ipmScore={null}
+                coherenceStatus=""
+                baselineEstablished={false}
+                responseLocale="pt-BR"
+                extraContext={adminExplicaContext}
+                controlsSticky
+                messagesClassName="min-h-72 max-h-[520px]"
+              />
+            </section>
+          </aside>
+        </div>
       </main>
     </div>
   );

@@ -1967,6 +1967,7 @@ class TenantStore:
                     SELECT
                         membership.id,
                         user_account.email,
+                        user_account.display_name,
                         coalesce(
                             string_agg(DISTINCT membership_role.role, ',' ORDER BY membership_role.role),
                             ''
@@ -1991,8 +1992,39 @@ class TenantStore:
                     WHERE membership.organization_id = %s
                       AND membership.status = 'active'
                     GROUP BY membership.id, membership.organization_id, membership.user_id,
-                             user_account.email, quota.quota_sessions, quota.consumed_sessions
+                             user_account.email, user_account.display_name,
+                             quota.quota_sessions, quota.consumed_sessions
                     ORDER BY user_account.email
+                    """,
+                    (organization_id,),
+                ).fetchall()
+                roster_rows = connection.execute(
+                    """
+                    SELECT
+                        patient.id,
+                        patient.full_name,
+                        patient.email,
+                        patient.phone,
+                        assignment.id,
+                        assignment.membership_id,
+                        assignment.assignment_type,
+                        user_account.email,
+                        user_account.display_name
+                    FROM patients patient
+                    LEFT JOIN patient_assignments assignment
+                           ON assignment.organization_id = patient.organization_id
+                          AND assignment.patient_id = patient.id
+                          AND assignment.status = 'active'
+                    LEFT JOIN organization_memberships membership
+                           ON membership.id = assignment.membership_id
+                          AND membership.organization_id = assignment.organization_id
+                          AND membership.status = 'active'
+                    LEFT JOIN users user_account
+                           ON user_account.id = membership.user_id
+                    WHERE patient.organization_id = %s
+                      AND patient.status NOT IN ('deleted', 'restricted')
+                    ORDER BY patient.full_name, patient.id, assignment.assignment_type,
+                             user_account.email
                     """,
                     (organization_id,),
                 ).fetchall()
@@ -2007,17 +2039,47 @@ class TenantStore:
             {
                 "membership_id": str(row[0]),
                 "email": row[1],
-                "roles": [role for role in str(row[2] or "").split(",") if role],
-                "sessions_used": int(row[3] or 0),
-                "patients": int(row[4] or 0),
-                "quota_sessions": None if row[5] is None else int(row[5]),
-                "quota_consumed": None if row[6] is None else int(row[6]),
+                "name": row[2],
+                "roles": [role for role in str(row[3] or "").split(",") if role],
+                "sessions_used": int(row[4] or 0),
+                "patients": int(row[5] or 0),
+                "quota_sessions": None if row[6] is None else int(row[6]),
+                "quota_consumed": None if row[7] is None else int(row[7]),
                 "quota_remaining": (
-                    None if row[5] is None else max(0, int(row[5]) - int(row[6] or 0))
+                    None if row[6] is None else max(0, int(row[6]) - int(row[7] or 0))
                 ),
             }
             for row in members
         ]
+        patient_roster_by_id: dict[str, dict] = {}
+        for row in roster_rows:
+            patient_id = str(row[0])
+            patient = patient_roster_by_id.setdefault(
+                patient_id,
+                {
+                    "patient_id": patient_id,
+                    "name": row[1],
+                    "email": row[2],
+                    "phone": row[3],
+                    "responsible": None,
+                    "shared_with": [],
+                    "assignments": [],
+                },
+            )
+            if not row[4]:
+                continue
+            assignment = {
+                "assignment_id": str(row[4]),
+                "membership_id": str(row[5]),
+                "assignment_type": row[6],
+                "professional_email": row[7],
+                "professional_name": row[8],
+            }
+            patient["assignments"].append(assignment)
+            if row[6] == "primary":
+                patient["responsible"] = assignment
+            else:
+                patient["shared_with"].append(assignment)
         return {
             "organization_id": organization_id,
             "pool_balance": int(wallet[0]),
@@ -2030,6 +2092,7 @@ class TenantStore:
             ),
             "sessions_used_total": int(consumed_total[0] if consumed_total else 0),
             "professionals": professionals,
+            "patient_roster": list(patient_roster_by_id.values()),
         }
 
     def subscription_status(

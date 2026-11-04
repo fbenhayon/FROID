@@ -200,6 +200,20 @@ class OrganizationUsageReportTests(unittest.TestCase):
         self.assertEqual(rows[BRUNO["email"]]["patients"], 1)
         self.assertEqual(rows[GESTOR["email"]]["patients"], 0)
 
+    def test_reports_patient_roster_with_responsible_professional(self):
+        report = self.report()
+        roster = {row["name"]: row for row in report["patient_roster"]}
+        self.assertEqual(len(roster), 4)
+        self.assertEqual(
+            roster["Paciente 0"]["responsible"]["professional_email"],
+            ANA["email"],
+        )
+        self.assertEqual(
+            roster["Paciente 3"]["responsible"]["professional_email"],
+            BRUNO["email"],
+        )
+        self.assertEqual(roster["Paciente 0"]["shared_with"], [])
+
     def test_reports_quota_only_for_whoever_has_one(self):
         rows = self.by_email()
         self.assertEqual(rows[ANA["email"]]["quota_sessions"], 20)

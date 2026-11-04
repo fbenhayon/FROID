@@ -101,3 +101,18 @@ describe("a tela nunca fica só com o Sair", () => {
     expect(PAGINA_CORRIDA).toMatch(/uma n[aã]o depende da outra/i);
   });
 });
+
+describe("layout administrativo", () => {
+  it("mantém o FROID Explica na segunda coluna", () => {
+    expect(PAGINA).toContain("xl:grid-cols-[minmax(0,1fr)_24rem]");
+    expect(PAGINA).toContain("<AIInsights");
+    expect(PAGINA).toContain("adminExplicaContext");
+  });
+
+  it("envia contexto administrativo agregado ao FROID Explica", () => {
+    expect(PAGINA).toContain('context_kind: "admin_dashboard"');
+    expect(PAGINA).toContain('clinical_data_scope: "administrative_aggregate_only"');
+    expect(PAGINA).not.toContain("extraContext={{ patients");
+    expect(PAGINA).not.toContain("extraContext={{ professionals");
+  });
+});

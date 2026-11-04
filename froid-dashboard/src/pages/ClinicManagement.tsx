@@ -9,12 +9,31 @@ type Props = { user?: FroidUser | null };
 type ProfessionalUsage = {
   membership_id: string;
   email: string;
+  name?: string | null;
   roles: string[];
   sessions_used: number;
   patients: number;
   quota_sessions: number | null;
   quota_consumed: number | null;
   quota_remaining: number | null;
+};
+
+type PatientRosterAssignment = {
+  assignment_id: string;
+  membership_id: string;
+  assignment_type: "primary" | "care_team" | "supervisor" | "read_only";
+  professional_email: string;
+  professional_name?: string | null;
+};
+
+type PatientRosterRow = {
+  patient_id: string;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  responsible: PatientRosterAssignment | null;
+  shared_with: PatientRosterAssignment[];
+  assignments: PatientRosterAssignment[];
 };
 
 type UsageReport = {
@@ -24,6 +43,7 @@ type UsageReport = {
   report_visibility: "restricted" | "clinic_wide";
   sessions_used_total: number;
   professionals: ProfessionalUsage[];
+  patient_roster: PatientRosterRow[];
 };
 
 const MANAGER_ROLES = new Set(["owner", "administrator"]);
@@ -41,6 +61,7 @@ export const ClinicManagement: React.FC<Props> = ({ user }) => {
   const [unavailable, setUnavailable] = useState("");
   const [savingId, setSavingId] = useState("");
   const [quotaDrafts, setQuotaDrafts] = useState<Record<string, string>>({});
+  const [shareDrafts, setShareDrafts] = useState<Record<string, string>>({});
   const [inviteEmail, setInviteEmail] = useState("");
   const [invitePhone, setInvitePhone] = useState("");
   const [inviteRole, setInviteRole] = useState("professional");
@@ -172,6 +193,60 @@ export const ClinicManagement: React.FC<Props> = ({ user }) => {
       await loadReport();
     } catch (error: any) {
       setMessage(error?.message || "Falha ao salvar a cota.");
+    } finally {
+      setSavingId("");
+    }
+  };
+
+  const sharePatient = async (patientId: string, membershipId: string) => {
+    if (!membershipId) {
+      setMessage("Escolha o profissional que receberá acesso a este paciente.");
+      return;
+    }
+    setSavingId(`share:${patientId}:${membershipId}`);
+    setMessage("");
+    try {
+      const response = await fetch(
+        apiUrl(
+          `/api/organizations/${encodeURIComponent(organizationId)}/patients/${encodeURIComponent(patientId)}/assignments`,
+        ),
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeaders() },
+          body: JSON.stringify({
+            membership_id: membershipId,
+            assignment_type: "read_only",
+          }),
+        },
+      );
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(payload?.detail || "Não foi possível compartilhar o paciente.");
+      setMessage("Paciente compartilhado com o profissional selecionado.");
+      setShareDrafts((current) => ({ ...current, [patientId]: "" }));
+      await loadReport();
+    } catch (error: any) {
+      setMessage(error?.message || "Falha ao compartilhar o paciente.");
+    } finally {
+      setSavingId("");
+    }
+  };
+
+  const revokePatientShare = async (patientId: string, assignmentId: string) => {
+    setSavingId(`revoke:${assignmentId}`);
+    setMessage("");
+    try {
+      const response = await fetch(
+        apiUrl(
+          `/api/organizations/${encodeURIComponent(organizationId)}/patients/${encodeURIComponent(patientId)}/assignments/${encodeURIComponent(assignmentId)}`,
+        ),
+        { method: "DELETE", headers: authHeaders() },
+      );
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(payload?.detail || "Não foi possível remover o compartilhamento.");
+      setMessage("Compartilhamento removido.");
+      await loadReport();
+    } catch (error: any) {
+      setMessage(error?.message || "Falha ao remover o compartilhamento.");
     } finally {
       setSavingId("");
     }
@@ -499,6 +574,153 @@ export const ClinicManagement: React.FC<Props> = ({ user }) => {
             </section>
 
             <PapeisV2 isManager={isManager} />
+
+            <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-sm font-black text-slate-100">
+                  Profissionais e pacientes
+                </h2>
+                <span className="text-[10px] text-slate-500">
+                  Responsável primário e compartilhamentos ativos
+                </span>
+              </div>
+              <div className="mt-3 overflow-x-auto">
+                <table className="min-w-max table-auto text-left text-[11px]">
+                  <thead className="text-[9px] uppercase tracking-wide text-slate-500">
+                    <tr>
+                      {[
+                        "Paciente",
+                        "Profissional responsável",
+                        "Compartilhado com",
+                        "Compartilhar paciente",
+                      ].map((head) => (
+                        <th key={head} className="whitespace-nowrap px-2 py-2">
+                          {head}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800">
+                    {(report.patient_roster || []).map((patient) => {
+                      const assignedMemberships = new Set(
+                        patient.assignments.map((assignment) => assignment.membership_id),
+                      );
+                      const availableProfessionals = report.professionals.filter(
+                        (professional) =>
+                          professional.roles.some((role) =>
+                            ["professional", "supervisor"].includes(role),
+                          ) && !assignedMemberships.has(professional.membership_id),
+                      );
+                      const draft = shareDrafts[patient.patient_id] || "";
+                      return (
+                        <tr key={patient.patient_id} className="align-top">
+                          <td className="whitespace-nowrap px-2 py-2">
+                            <p className="font-bold text-slate-100">{patient.name}</p>
+                            <p className="text-[10px] text-slate-500">
+                              {patient.email || patient.phone || patient.patient_id}
+                            </p>
+                          </td>
+                          <td className="whitespace-nowrap px-2 py-2 text-slate-300">
+                            {patient.responsible ? (
+                              <span>
+                                {patient.responsible.professional_name ||
+                                  patient.responsible.professional_email}
+                              </span>
+                            ) : (
+                              <span className="text-amber-200">Sem responsável primário</span>
+                            )}
+                          </td>
+                          <td className="px-2 py-2">
+                            {patient.shared_with.length === 0 ? (
+                              <span className="text-slate-500">Não compartilhado</span>
+                            ) : (
+                              <div className="flex max-w-md flex-wrap gap-1">
+                                {patient.shared_with.map((assignment) => (
+                                  <span
+                                    key={assignment.assignment_id}
+                                    className="inline-flex items-center gap-1 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-[10px] text-slate-200"
+                                  >
+                                    {assignment.professional_name ||
+                                      assignment.professional_email}
+                                    {isManager && (
+                                      <button
+                                        type="button"
+                                        disabled={savingId === `revoke:${assignment.assignment_id}`}
+                                        onClick={() =>
+                                          void revokePatientShare(
+                                            patient.patient_id,
+                                            assignment.assignment_id,
+                                          )
+                                        }
+                                        className="ml-1 rounded bg-red-950 px-1 font-black text-red-200 hover:bg-red-900 disabled:opacity-40"
+                                        title="Remover compartilhamento"
+                                      >
+                                        ×
+                                      </button>
+                                    )}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </td>
+                          <td className="whitespace-nowrap px-2 py-2">
+                            {isManager ? (
+                              <div className="flex items-center gap-2">
+                                <select
+                                  value={draft}
+                                  disabled={availableProfessionals.length === 0}
+                                  onChange={(event) =>
+                                    setShareDrafts((current) => ({
+                                      ...current,
+                                      [patient.patient_id]: event.target.value,
+                                    }))
+                                  }
+                                  className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-[11px] text-slate-100 disabled:opacity-50"
+                                >
+                                  <option value="">
+                                    {availableProfessionals.length
+                                      ? "Escolher profissional"
+                                      : "Todos já têm acesso"}
+                                  </option>
+                                  {availableProfessionals.map((professional) => (
+                                    <option
+                                      key={professional.membership_id}
+                                      value={professional.membership_id}
+                                    >
+                                      {professional.name || professional.email}
+                                    </option>
+                                  ))}
+                                </select>
+                                <button
+                                  type="button"
+                                  disabled={
+                                    !draft ||
+                                    savingId === `share:${patient.patient_id}:${draft}`
+                                  }
+                                  onClick={() => void sharePatient(patient.patient_id, draft)}
+                                  className="rounded border border-cyan-800 bg-cyan-950 px-2 py-1 text-[10px] font-black text-cyan-100 hover:bg-cyan-900 disabled:opacity-40"
+                                >
+                                  Compartilhar
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-slate-500">Somente gestor</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {(report.patient_roster || []).length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="px-2 py-6 text-center text-slate-500">
+                          Nenhum paciente vinculado à clínica.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
 
             <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">

@@ -33,7 +33,6 @@ import {
 } from "../lib/session-report";
 import {
   carimbosDosRelatorios,
-  irParaContexto,
   organizacoesNr1,
 } from "../lib/contexto-organizacao";
 import {
@@ -317,35 +316,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
       ["owner", "administrator", "supervisor"].includes(String(role).toLowerCase()),
     );
   }, [user]);
-  // A empresa contratante do NR-1 cai aqui depois do cadastro e nao tinha como
-  // chegar ao proprio produto: nenhuma tela do painel apontava para /nr1, e a
-  // rota so era alcancavel digitando a URL. O painel clinico e a casa errada
-  // para ela, mas redirecionar seria pior — o painel NR-1 nao tem sair nem
-  // administrativo, e ela ficaria sem saida.
-  //
-  // A condicao lia `account_type === "nr1_company"`, o cadastro PRIMARIO. Desde
-  // 09/09/2026 a mesma conta pode ter os dois produtos, e a clinica que
-  // contratou o NR-1 tem o primario clinico: a porta sumia justamente para quem
-  // acabara de contratar. A pergunta certa nao e sobre o rotulo do cadastro e
-  // sim sobre a organizacao — de qual empresa 'enterprise' esta conta e membro.
   const empresasNr1 = useMemo(() => organizacoesNr1(user), [user]);
   const isEmpresaNr1 = empresasNr1.length > 0;
-  const [erroContexto, setErroContexto] = useState("");
-
-  // Abre o painel NR-1 LEVANDO a organizacao junto.
-  //
-  // `nav("/nr1")` mudava so a URL: a organizacao ativa da sessao continuava
-  // sendo a clinica, e `_require_enterprise_context` devolve 409 para ela.
-  // Numa conta de um produto so isso nunca apareceu, porque a unica
-  // organizacao ja era a certa — e e o tipo de defeito que so nasce quando a
-  // segunda existe.
-  const abrirNr1 = async () => {
-    const empresa = empresasNr1[0];
-    if (!empresa) return;
-    setErroContexto("");
-    const erro = await irParaContexto(empresa.organization_id, "/nr1");
-    if (erro) setErroContexto(erro);
-  };
   const tr = (text: string) => dashboardText(defaultSessionLocale, text);
 
   const updateDefaultSessionLocale = (locale: SessionLocale) => {
@@ -728,19 +700,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                 {tr("Agenda da clínica")}
               </button>
             )}
-            {isEmpresaNr1 && (
-              <button
-                onClick={() => void abrirNr1()}
-                title="Painel de conformidade NR-1: campanhas, inventario de risco, AEP e eficacia das medidas."
-                className="rounded-lg border border-amber-700 bg-amber-950 px-3 py-2 text-xs font-bold text-amber-100 hover:bg-amber-900"
-              >
-                Conformidade NR-1
-              </button>
-            )}
-            {/* Mesmo defeito que o de cima, um passo antes: a empresa chegava
-                ao painel NR-1 e nao tinha como voltar a cadastrar unidade. A
-                rota /access/empresa nunca deixou de existir; o que faltava era
-                alguem apontar para ela depois do cadastro concluido. */}
             {/* A porta de contratar o segundo produto.
                 Sem ela o mecanismo inteiro ficaria construído e inalcançável:
                 /access/produto é a única tela que oferece o cadastro da
@@ -794,15 +753,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
             {reportsError}
           </div>
         ) : null}
-
-      {/* A troca de contexto pode falhar (403 sobre organizacao sem vinculo,
-          rede fora). Navegar assim mesmo levaria a pessoa a um painel NR-1
-          vazio, indistinguivel de "esta empresa nao tem nada". */}
-      {erroContexto && (
-        <p className="rounded-lg border border-amber-700 bg-amber-950 px-3 py-2 text-xs font-bold text-amber-100">
-          {erroContexto}
-        </p>
-      )}
 
       <WaitingPatientSessions />
 

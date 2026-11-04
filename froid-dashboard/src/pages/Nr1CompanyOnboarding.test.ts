@@ -252,26 +252,23 @@ describe("o passo final não assume campanha", () => {
   });
 });
 
-describe("a empresa consegue chegar ao próprio produto", () => {
+describe("a entrada do NR-1 fica fora do painel Psique", () => {
   /**
-   * A rota /nr1 existia desde sempre e NENHUMA tela apontava para ela. A
-   * empresa terminava o cadastro, clicava em "ir para o painel", caía no painel
-   * clínico — que pede sessões, pacientes e créditos — e o produto que ela
-   * contratou só era alcançável digitando a URL na barra.
+   * A porta de conformidade saiu do painel Psique: ali ela misturava o produto
+   * clinico com o produto empresarial. A entrada operacional do NR-1 vive em
+   * /admin, que troca a organizacao antes de abrir /nr1.
    */
 
   const PAINEL = readFileSync(join(__dirname, "Dashboard.tsx"), "utf-8");
 
-  it("o painel principal oferece entrada para o NR-1 a quem é empresa", () => {
-    expect(PAINEL).toContain("isEmpresaNr1");
-    expect(PAINEL).toContain('=== "nr1_company"');
-    expect(PAINEL).toContain('nav("/nr1")');
+  it("o painel Psique não oferece o botão de conformidade NR-1", () => {
+    expect(PAINEL).not.toContain("Conformidade NR-1");
+    expect(PAINEL).not.toContain("Painel de conformidade NR-1");
   });
 
-  it("a entrada é condicional, e não aparece para profissional clínico", () => {
-    // Um autônomo vendo "Conformidade NR-1" no cabeçalho concluiria que
-    // contratou algo que não contratou.
-    expect(PAINEL).toMatch(/\{isEmpresaNr1 && \(/);
+  it("a contratação e a estrutura da empresa continuam alcançáveis", () => {
+    expect(PAINEL).toContain("Contratar NR-1");
+    expect(PAINEL).toContain("Estrutura da empresa");
   });
 
   it("o passo final leva ao produto, não ao painel clínico", () => {

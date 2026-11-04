@@ -64,6 +64,19 @@ describe("a coluna da agenda entra sem quebrar a tabela de pacientes", () => {
     expect(RESUMIDO).toContain("<AgendaDoProfissional tr={tr} />");
   });
 
+  it("mantém o FROID Explica abaixo das agendas na coluna lateral", () => {
+    const colunaLateral = RESUMIDO.indexOf('<div className="space-y-4">');
+    const agenda = RESUMIDO.indexOf("<AgendaDoProfissional tr={tr} />");
+    const explica = RESUMIDO.indexOf('<h2 className="text-sm font-black">FROID Explica</h2>');
+    const pacientes = RESUMIDO.indexOf("Pacientes e indicadores");
+
+    expect(colunaLateral).toBeGreaterThan(-1);
+    expect(pacientes).toBeGreaterThan(-1);
+    expect(agenda).toBeGreaterThan(colunaLateral);
+    expect(explica).toBeGreaterThan(agenda);
+    expect(explica).toBeGreaterThan(pacientes);
+  });
+
   it("a coluna de conteúdo tem min-w-0", () => {
     // Sem isto a tabela de pacientes, que rola na horizontal, estoura a largura
     // da grade e empurra a agenda para fora da tela.
