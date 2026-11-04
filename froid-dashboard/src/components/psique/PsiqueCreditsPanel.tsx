@@ -87,31 +87,44 @@ export function PsiqueCreditsPanel({
               key={oferta.product_code}
               data-produto={oferta.product_code}
               style={{
-                display: "flex",
-                justifyContent: "space-between",
-                gap: 12,
-                padding: "10px 12px",
-                border: "1px solid #e2e8f0",
-                borderRadius: 10,
                 marginBottom: 8,
               }}
             >
-              <span>
-                <strong>{oferta.credits}</strong> créditos — {oferta.name}
-              </span>
-              <span style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                <span data-campo="preco">
-                  {formatarMoeda(oferta.total_cents, precos.dados.currency)}
+              <button
+                type="button"
+                disabled={compraDesativada}
+                aria-disabled={compraDesativada}
+                aria-label={`Comprar ${oferta.credits} créditos - ${oferta.name}`}
+                onClick={() => aoComprar(oferta.product_code)}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: 12,
+                  width: "100%",
+                  padding: "10px 12px",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: 10,
+                  background: "transparent",
+                  color: "inherit",
+                  cursor: compraDesativada ? "not-allowed" : "pointer",
+                  opacity: compraDesativada ? 0.55 : 1,
+                  textAlign: "left",
+                }}
+              >
+                <span style={{ flex: "1 1 220px" }}>
+                  <strong>{oferta.credits}</strong> créditos — {oferta.name}
                 </span>
-                <button
-                  type="button"
-                  disabled={compraDesativada}
-                  aria-disabled={compraDesativada}
-                  onClick={() => aoComprar(oferta.product_code)}
-                >
+                <span style={{ display: "flex", gap: 12, alignItems: "center", marginLeft: "auto" }}>
+                  <span data-campo="preco">
+                    {formatarMoeda(oferta.total_cents, precos.dados.currency)}
+                  </span>
+                  <span style={{ color: "#f59e0b", fontWeight: 800 }}>
                   Comprar
-                </button>
-              </span>
+                  </span>
+                </span>
+              </button>
             </li>
           ))}
         </ul>

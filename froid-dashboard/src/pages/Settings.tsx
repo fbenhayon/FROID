@@ -1216,13 +1216,13 @@ export const Settings: React.FC<SettingsProps> = ({ user }) => {
           </div>
           )}
           <div className="rounded-lg border border-slate-700 p-3">
-            <p className="text-sm font-semibold">Auditoria e Ledger</p>
+            <p className="text-sm font-semibold">Privacidade e solicitações LGPD</p>
             <p className="mt-1 text-xs text-slate-400">
-              Hash chain local para consentimentos, exclusao e acesso as sessões.
+              Consulte as solicitações sobre dados pessoais da sua organização e acompanhe os prazos.
+              Para utilizar, clique em “Abrir fila de direitos LGPD”, selecione uma solicitação,
+              atualize o status e preencha a resposta ao titular dos dados. Depois, clique em
+              “Registrar andamento” para salvar. O acesso depende das permissões da sua conta.
             </p>
-            <div className="mt-3 text-xs text-slate-300">
-              SHA256 - 90 dias de purga - DPO-admin
-            </div>
             <button
               type="button"
               onClick={() => nav("/privacy-requests")}

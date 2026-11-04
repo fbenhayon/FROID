@@ -144,11 +144,23 @@ export function SecaoPsiqueV2({
   async function comprar(productCode: string) {
     setErroCompra("");
     setComprando(productCode);
+    let abaCheckout: Window | null = null;
+    try {
+      abaCheckout = window.open("", "_blank");
+      if (abaCheckout) {
+        abaCheckout.opener = null;
+        abaCheckout.document.title = "Checkout Stripe";
+        abaCheckout.document.body.textContent = "Abrindo o checkout seguro do Stripe...";
+      }
+    } catch {
+      abaCheckout = null;
+    }
     // Uma chave por INTENÇÃO de compra: gerada aqui, guardada antes do
     // redirect, e reutilizada pela página de confirmação para consultar.
     const chave = `compra-${productCode}-${crypto.randomUUID()}`;
     const resultado = await criarCheckoutPsiqueV2(productCode, chave);
     if (resultado.estado !== "ok" || !resultado.dados.checkout_url) {
+      abaCheckout?.close();
       setComprando(null);
       setErroCompra(
         resultado.estado === "ok" ? "checkout sem URL" : resultado.motivo,
@@ -168,7 +180,18 @@ export function SecaoPsiqueV2({
       // Sem storage a confirmação pede o retorno manual; a compra em si
       // não depende disto — o webhook concede de qualquer forma.
     }
-    window.location.assign(resultado.dados.checkout_url);
+    if (abaCheckout && !abaCheckout.closed) {
+      abaCheckout.location.href = resultado.dados.checkout_url;
+      setComprando(null);
+      return;
+    }
+    const novaAba = window.open(resultado.dados.checkout_url, "_blank", "noopener,noreferrer");
+    if (!novaAba) {
+      setComprando(null);
+      setErroCompra("o navegador bloqueou a nova aba do Stripe");
+      return;
+    }
+    setComprando(null);
   }
 
   return (
