@@ -111,6 +111,15 @@ const PRIORITY_STYLES: Record<string, string> = {
   "DADOS INSUFICIENTES": "border-slate-700 bg-slate-900 text-slate-300",
 };
 
+function professionalResponsibleFor(report: SessionReportRecord) {
+  return (
+    report.professional?.name?.trim()
+    || report.professional?.email?.trim()
+    || report.professionalEmail?.trim()
+    || ""
+  );
+}
+
 const SIGNAL_TOOLTIPS: Record<string, string> = {
   Atenção:
     "Prioridade atual do paciente na carteira. Sobe quando há maior ativação, risco, baixa estabilidade ou necessidade de revisão.",
@@ -931,6 +940,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                 </h3>
                 <p className="mt-1 text-xs text-slate-400">
                   ID: {group.patient.document || tr("Não informado")} - {group.totalSessions} {tr("Sessões").toLowerCase()}
+                </p>
+                <p className="mt-1 text-xs text-slate-400">
+                  {tr("Profissional responsável")}:{" "}
+                  <span className="font-semibold text-slate-200">
+                    {professionalResponsibleFor(group.latestReport) || tr("Não informado")}
+                  </span>
                 </p>
                 {/* De que organizacao e este paciente: Solo, a clinica, ou a
                     ausencia declarada. Decisao do dono, 18/10/2026. */}
