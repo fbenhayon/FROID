@@ -31,13 +31,13 @@ import pricing_nr1  # noqa: E402
 # Colhido do motor em TypeScript. (trabalhadores, estabelecimentos) ->
 # (total mensal em centavos, por trabalhador/mes em centavos)
 ORACULO_TYPESCRIPT = {
-    (263, 11): (573_750, 2_182),
-    (100, 1): (170_000, 1_700),
-    (300, 1): (420_000, 1_400),
-    (1_000, 1): (1_071_000, 1_071),
-    (3_000, 1): (2_381_000, 794),
-    (1, 1): (21_500, 21_500),
-    (5_000, 37): (4_411_000, 882),
+    (263, 11): (793_697, 3_018),
+    (100, 1): (235_170, 2_352),
+    (300, 1): (580_970, 1_937),
+    (1_000, 1): (1_621_870, 1_622),
+    (3_000, 1): (3_607_870, 1_203),
+    (1, 1): (29_745, 29_745),
+    (5_000, 37): (6_589_990, 1_318),
     # OS EMPATES. Colhidos do mesmo motor em 11/09/2026, durante auditoria.
     #
     # Nenhum dos sete casos acima cai exatamente em meio centavo, e por isso a
@@ -48,14 +48,14 @@ ORACULO_TYPESCRIPT = {
     #
     # Um teste que so exercita o caso facil nao afirma a garantia: afirma que o
     # caso facil funciona.
-    (64, 1): (116_000, 1_813),
-    (144, 1): (225_000, 1_563),
-    (400, 1): (513_000, 1_283),
-    (208, 2): (325_000, 1_563),
-    (1_920, 3): (1_713_600, 893),
+    (64, 1): (160_470, 2_507),
+    (144, 1): (311_246, 2_161),
+    (400, 1): (729_670, 1_824),
+    (208, 2): (449_572, 2_161),
+    (1_920, 3): (2_590_770, 1_349),
 }
 
-HASH_TYPESCRIPT = "043dcbeecb79c313e8c1fe5fe0373b70107efca6b1232a8b2f3bfe744c097fea"
+HASH_TYPESCRIPT = "36164a02ad5d2ece58053efd746c17de755afb4a41402dc85048941cbd0acc19"
 
 
 class OPortConcordaComOMotorOriginal(unittest.TestCase):
@@ -221,10 +221,10 @@ class ASimulacaoCarregaADigitalDaTabela(unittest.TestCase):
 
     def test_a_simulacao_declara_codigo_versao_e_hash(self):
         r = pricing_nr1.simular(263, 11)
-        self.assertEqual(r["pricingTable"]["code"], "FROID-PRICING-2026-V01")
-        self.assertEqual(r["pricingTable"]["version"], "1.0")
+        self.assertEqual(r["pricingTable"]["code"], "FROID-PRICING-2026-V02")
+        self.assertEqual(r["pricingTable"]["version"], "1.1")
         self.assertEqual(r["pricingTable"]["sha256"], HASH_TYPESCRIPT)
-        self.assertEqual(r["monthlyTotalCents"], 573_750)
+        self.assertEqual(r["monthlyTotalCents"], 793_697)
 
     def test_o_nome_da_tabela_nao_entra_no_hash(self):
         """Renomear nao muda a conta.
@@ -256,7 +256,7 @@ class OBancoEOModuloNaoPodemDivergir(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.sql = (
-            SERVER_DIR / "migrations" / "032_nr1_pricing_tables.sql"
+            SERVER_DIR / "migrations" / "055_nr1_pricing_2026_v02.sql"
         ).read_text(encoding="utf-8")
 
     def test_a_base_semeada_e_a_do_modulo(self):
@@ -282,7 +282,7 @@ class OBancoEOModuloNaoPodemDivergir(unittest.TestCase):
 
     def test_as_faixas_semeadas_sao_as_do_modulo(self):
         linhas = re.findall(
-            r"\('FROID-PRICING-2026-V01', (\d+), (\d+), (\d+|NULL), (\d+)\)", self.sql
+            r"\('FROID-PRICING-2026-V02', (\d+), (\d+), (\d+|NULL), (\d+)\)", self.sql
         )
         self.assertEqual(len(linhas), len(pricing_nr1.TABELA_VIGENTE["tiers"]))
         for (ordem, inferior, superior, preco), faixa in zip(
@@ -303,8 +303,11 @@ class OBancoEOModuloNaoPodemDivergir(unittest.TestCase):
     def test_so_existe_uma_tabela_ativa_por_vez(self):
         """Duas ativas produziriam duas propostas com precos diferentes no mesmo
         dia, e nada indicaria qual valia."""
-        self.assertIn("nr1_pricing_uma_ativa_por_vez", self.sql)
-        self.assertIn("WHERE status = 'active'", self.sql)
+        base = (SERVER_DIR / "migrations" / "032_nr1_pricing_tables.sql").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("nr1_pricing_uma_ativa_por_vez", base)
+        self.assertIn("WHERE status = 'active'", base)
 
     def test_nao_existe_tabela_de_simulacao_paralela(self):
         """O preco aceito mora no `commercial_snapshot` do livro de aceites.
@@ -317,9 +320,12 @@ class OBancoEOModuloNaoPodemDivergir(unittest.TestCase):
         A mencao no comentario da migration e lapide, e fica: ela existe para
         ninguem recriar a tabela por ignorancia.
         """
-        self.assertNotIn("CREATE TABLE IF NOT EXISTS nr1_pricing_simulations", self.sql)
-        self.assertNotIn("INSERT INTO nr1_pricing_simulations", self.sql)
-        self.assertIn("commercial_snapshot", self.sql)
+        base = (SERVER_DIR / "migrations" / "032_nr1_pricing_tables.sql").read_text(
+            encoding="utf-8"
+        )
+        self.assertNotIn("CREATE TABLE IF NOT EXISTS nr1_pricing_simulations", base)
+        self.assertNotIn("INSERT INTO nr1_pricing_simulations", base)
+        self.assertIn("commercial_snapshot", base)
 
 
 class ARotaPublicaNaoDependeDeAlguemTerLogado(unittest.TestCase):

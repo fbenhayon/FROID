@@ -142,10 +142,13 @@ class TodaCopiaDoPrecoConfereComAFonte(unittest.TestCase):
     def test_o_simulador_usa_a_mesma_tabela(self):
         """O `.xlsx` que vai ao cliente e gerado por este script."""
         origem = (SERVER_DIR / "tools" / "simulador_nr1.py").read_text(encoding="utf-8")
-        self.assertIn("_entrada(ws, 11, 2, %d, MOEDA)" % int(BASE_POR_UNIDADE), origem)
+        def literal(valor):
+            return repr(round(valor, 2)).rstrip("0").rstrip(".")
+
+        self.assertIn("_entrada(ws, 11, 2, %s, MOEDA)" % literal(BASE_POR_UNIDADE), origem)
         for linha, faixa in zip((12, 13, 14, 15), FAIXAS):
             self.assertIn(
-                "_entrada(ws, %d, 2, %s, MOEDA)" % (linha, repr(round(faixa, 2)).rstrip("0").rstrip(".") if faixa != int(faixa) else "%.1f" % faixa),
+                "_entrada(ws, %d, 2, %s, MOEDA)" % (linha, literal(faixa)),
                 origem,
                 "faixa %s ausente ou divergente no simulador" % faixa,
             )
@@ -235,8 +238,8 @@ class OsTotaisDERIVADOSTambemConferem(unittest.TestCase):
                 mensal = self._mensal(trabalhadores)
                 anual = mensal * 12
                 esperado = (
-                    f"<td>{self._moeda(mensal, idioma, 0)}</td>"
-                    f"<td>{self._moeda(anual, idioma, 0)}</td>"
+                    f"<td>{self._moeda(mensal, idioma, 2)}</td>"
+                    f"<td>{self._moeda(anual, idioma, 2)}</td>"
                     f"<td>{self._moeda(round(anual / trabalhadores), idioma, 2)}</td>"
                 )
                 with self.subTest(idioma=idioma or "pt", trabalhadores=trabalhadores):

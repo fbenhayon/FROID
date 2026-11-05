@@ -81,8 +81,8 @@ clínico. Guardar em `site-assets/img/` com prefixo `nr1-`.
   conferir mojibake e balanceamento depois.
 - **Siglas.** Expansão na primeira aparição mais glossário ao pé, em todo texto
   novo.
-- **Preço.** A base é de R$ 200/mês por unidade desde 11/09/2026, quando
-  deixou de ser R$ 500. As faixas seguem R$ 15,00 / 12,50 / 9,30 / 6,55, e a
+- **Preço.** A base é de R$ 276,70/mês por estabelecimento desde 05/11/2026.
+  As faixas seguem R$ 20,75 / 17,29 / 14,87 / 9,93, e a
   fonte passou a ser `froid-server/pricing_nr1.py` — toda cópia publicada é
   conferida contra ela por teste. **O aviso antigo continua valendo:** houve
   uma versão intermediária com faixas de R$ 9 / 7 / 5 / 3, alterada e

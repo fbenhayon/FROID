@@ -47,22 +47,22 @@ from typing import Any, Optional
 # uma versao nova, com `valid_from` proprio. Sobrescrever uma tabela historica
 # apaga a explicacao de uma proposta que ja foi assinada.
 TABELA_VIGENTE: dict[str, Any] = {
-    "code": "FROID-PRICING-2026-V01",
+    "code": "FROID-PRICING-2026-V02",
     "name": "Tabela Comercial FROID NR-1",
-    "version": "1.0",
-    "validFrom": "2026-01-01",
+    "version": "1.1",
+    "validFrom": "2026-11-05",
     "validTo": None,
     "status": "active",
-    # R$ 200,00 por estabelecimento/mes. Decisao do dono em 11/09/2026, que
-    # substituiu os R$ 500 publicados ate entao. A proposta enviada a TATICCA em
-    # 28/08/2026 carrega R$ 1.200 e NAO se reescreve: preco novo vale para
-    # proposta nova, e documento comercial ja enviado e registro, nao rascunho.
-    "baseEstablishmentCents": 20_000,
+    # R$ 276,70 por estabelecimento/mes. Tabela atualizada em 05/11/2026.
+    # A proposta enviada a TATICCA em 28/08/2026 carrega R$ 1.200 e NAO se
+    # reescreve: preco novo vale para proposta nova, e documento comercial ja
+    # enviado e registro, nao rascunho.
+    "baseEstablishmentCents": 27_670,
     "tiers": [
-        {"order": 1, "lowerBound": 1, "upperBound": 100, "workerPriceCents": 1_500},
-        {"order": 2, "lowerBound": 101, "upperBound": 300, "workerPriceCents": 1_250},
-        {"order": 3, "lowerBound": 301, "upperBound": 1_000, "workerPriceCents": 930},
-        {"order": 4, "lowerBound": 1_001, "upperBound": None, "workerPriceCents": 655},
+        {"order": 1, "lowerBound": 1, "upperBound": 100, "workerPriceCents": 2_075},
+        {"order": 2, "lowerBound": 101, "upperBound": 300, "workerPriceCents": 1_729},
+        {"order": 3, "lowerBound": 301, "upperBound": 1_000, "workerPriceCents": 1_487},
+        {"order": 4, "lowerBound": 1_001, "upperBound": None, "workerPriceCents": 993},
     ],
 }
 

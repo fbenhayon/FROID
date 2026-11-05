@@ -54,10 +54,9 @@ IDIOMAS = {
             ("FROID NR-1", "empresas.html", [
                 ("Vis\u00e3o geral", "empresas.html"),
                 ("Como funciona", "como-funciona-nr1.html"),
-                ("Prontid\u00e3o", "diagnostico-nr1.html"),
                 ("Proposta", "proposta-nr1.html"),
                 ("FROID Explica NR-1", "froid-explica-nr1.html"),
-                ("ISO 45003", "iso-45003.html"),
+                ("FROID ISO 45001", "iso-45001.html"),
             ]),
         ],
         "tecnico": ("Ci\u00eancia e Tecnologia", "tecnologia.html", [
@@ -81,10 +80,9 @@ IDIOMAS = {
             ('FROID NR-1', "empresas.html", [
                 ('Overview', 'empresas.html'),
                 ('How it works', 'como-funciona-nr1.html'),
-                ('Readiness', 'diagnostico-nr1.html'),
                 ('Proposal', 'proposta-nr1.html'),
                 ('FROID Explains NR-1', 'froid-explica-nr1.html'),
-                ('ISO 45003', 'iso-45003.html'),
+                ('FROID ISO 45001', 'iso-45001.html'),
             ]),
         ],
         "tecnico": ('Science &amp; Technology', "tecnologia.html", [
@@ -106,10 +104,9 @@ IDIOMAS = {
             ('FROID NR-1', "empresas.html", [
                 ('Visión general', 'empresas.html'),
                 ('Cómo funciona', 'como-funciona-nr1.html'),
-                ('Preparación', 'diagnostico-nr1.html'),
                 ('Propuesta', 'proposta-nr1.html'),
                 ('FROID Explica NR-1', 'froid-explica-nr1.html'),
-                ('ISO 45003', 'iso-45003.html'),
+                ('FROID ISO 45001', 'iso-45001.html'),
             ]),
         ],
         "tecnico": ('Ciencia y Tecnología', "tecnologia.html", [
@@ -131,10 +128,9 @@ IDIOMAS = {
             ('FROID NR-1', "empresas.html", [
                 ("Vue d'ensemble", 'empresas.html'),
                 ('Comment ça marche', 'como-funciona-nr1.html'),
-                ('Préparation', 'diagnostico-nr1.html'),
                 ('Proposition', 'proposta-nr1.html'),
                 ('FROID Explique NR-1', 'froid-explica-nr1.html'),
-                ('ISO 45003', 'iso-45003.html'),
+                ('FROID ISO 45001', 'iso-45001.html'),
             ]),
         ],
         "tecnico": ('Science et Technologie', "tecnologia.html", [
@@ -301,8 +297,8 @@ def existe(idioma, pagina):
 
 def bloco_idiomas(idioma, pagina):
     # Pill e hreflang so para traducao que EXISTE. Desde 06/10/2026 ha paginas
-    # so em pt-BR (como-funciona-clinico, data-froid, menu, faq-nr1,
-    # glossario-nr1, seguranca-nr1); uma pill para en/ delas daria 404.
+    # so em pt-BR (como-funciona-clinico, data-froid, menu); uma pill para en/
+    # delas daria 404.
     outros = [o for o in ORDEM if o != idioma and existe(o, pagina)]
     if not outros:
         return ""

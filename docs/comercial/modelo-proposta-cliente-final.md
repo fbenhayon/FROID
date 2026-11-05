@@ -207,11 +207,11 @@ conclusão que a ausência de dado nunca autoriza.
 
 | Componente | Valor |
 |---|---:|
-| Base da plataforma, por estabelecimento | R$ 200,00 / mês |
-| Faixa 1 — de 1 a 100 trabalhadores | R$ 15,00 / trabalhador / mês |
-| Faixa 2 — de 101 a 300 | R$ 12,50 / trabalhador / mês |
-| Faixa 3 — de 301 a 1.000 | R$ 9,30 / trabalhador / mês |
-| Faixa 4 — acima de 1.000 | R$ 6,55 / trabalhador / mês |
+| Base da plataforma, por estabelecimento | R$ 276,70 / mês |
+| Faixa 1 — de 1 a 100 trabalhadores | R$ 20,75 / trabalhador / mês |
+| Faixa 2 — de 101 a 300 | R$ 17,29 / trabalhador / mês |
+| Faixa 3 — de 301 a 1.000 | R$ 14,87 / trabalhador / mês |
+| Faixa 4 — acima de 1.000 | R$ 9,93 / trabalhador / mês |
 
 As faixas são cumulativas e incidem sobre o efetivo total. A base é por unidade —
 estabelecimento, não departamento: cinco setores no mesmo endereço são uma base,
@@ -258,20 +258,20 @@ comunicação interna, apoio da liderança e tempo concedido dentro do expedient
 ## 8. Anexo — consulta rápida por porte
 
 > **Uso interno da TATICCA.** Base de um estabelecimento. Para mais de um, somar
-> R$ 200,00/mês por endereço adicional. Não enviar este anexo ao cliente.
+> R$ 276,70/mês por endereço adicional. Não enviar este anexo ao cliente.
 
 | Efetivo | Mensal | Anual | Respostas exigidas | Caminho |
 |---:|---:|---:|---:|---|
-| 10 | R$ 350,00 | R$ 4.200,00 | — | só AEP |
-| 20 | R$ 500,00 | R$ 6.000,00 | 20 | campanha em censo |
-| 50 | R$ 950,00 | R$ 11.400,00 | 50 | campanha em censo |
-| 97 | R$ 1.655,00 | R$ 19.860,00 | 97 | campanha em censo |
-| 98 | R$ 1.670,00 | R$ 20.040,00 | 79 | campanha por amostra |
-| 150 | R$ 2.325,00 | R$ 27.900,00 | 109 | campanha por amostra |
-| 300 | R$ 4.200,00 | R$ 50.400,00 | 169 | campanha por amostra |
-| 500 | R$ 6.060,00 | R$ 72.720,00 | 218 | campanha por amostra |
-| 1.000 | R$ 10.710,00 | R$ 128.520,00 | 278 | campanha por amostra |
-| 3.000 | R$ 23.810,00 | R$ 285.720,00 | 341 | campanha por amostra |
+| 10 | R$ 484,20 | R$ 5.810,40 | — | só AEP |
+| 20 | R$ 691,70 | R$ 8.300,40 | 20 | campanha em censo |
+| 50 | R$ 1.314,20 | R$ 15.770,40 | 50 | campanha em censo |
+| 97 | R$ 2.289,45 | R$ 27.473,40 | 97 | campanha em censo |
+| 98 | R$ 2.310,20 | R$ 27.722,40 | 79 | campanha por amostra |
+| 150 | R$ 3.216,20 | R$ 38.594,40 | 109 | campanha por amostra |
+| 300 | R$ 5.809,70 | R$ 69.716,40 | 169 | campanha por amostra |
+| 500 | R$ 8.783,70 | R$ 105.404,40 | 218 | campanha por amostra |
+| 1.000 | R$ 16.218,70 | R$ 194.624,40 | 278 | campanha por amostra |
+| 3.000 | R$ 36.078,70 | R$ 432.944,40 | 341 | campanha por amostra |
 
 **A curva achata.** Dobrar a empresa não dobra a exigência de respostas: 300
 pessoas precisam de 169, e 3.000 precisam de 341. Empresa grande tem folga;

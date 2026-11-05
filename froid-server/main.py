@@ -9034,7 +9034,7 @@ def _nr1_pricing_tabela_publica() -> dict:
         "validFrom": tabela["validFrom"],
         "baseEstablishmentCents": tabela["baseEstablishmentCents"],
         "baseEstablishmentLabel": pricing_nr1.formatar_brl(
-            tabela["baseEstablishmentCents"], casas=0
+            tabela["baseEstablishmentCents"]
         ),
         "tiers": [
             {

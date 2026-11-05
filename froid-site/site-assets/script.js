@@ -30,20 +30,8 @@ var NAV_SECOES = {
     ["veja-como-isso-se-apresenta", "Veja como isso se apresenta"]
   ],
   "como-funciona-nr1.html": [
-    ["defina-unidades-e-responsabilidades", "1. Defina unidades e responsabilidades"],
-    ["prepare-finalidade-comunicacao-e-apoio", "2. Prepare finalidade, comunicação e apoio"],
-    ["colete-e-reuna-evidencias", "3. Colete e reúna evidências"],
-    ["examine-resultados-elegiveis", "4. Examine resultados elegíveis"],
-    ["organize-documentacao-e-acao", "5. Organize documentação e ação"],
-    ["implemente-e-acompanhe", "6. Implemente e acompanhe"],
-    ["reavalie-e-revise", "7. Reavalie e revise"],
-    ["dossie-verificavel", "Comprovação de Gestão Disciplinar"],
-    ["o-que-e-igual-em-toda-empresa-e-o-que-muda", "O que é igual em toda empresa, e o que muda"],
     ["quando-a-segunda-avaliacao-reprova", "E se a segunda avaliação reprovar?"],
-    ["a-sua-empresa-tem-tamanho-para-isso", "A sua empresa tem tamanho para isso?"],
-    ["anonimato-das-respostas", "Por que ninguém consegue saber quem respondeu o quê"],
-    ["os-perigos", "A listagem do Guia MTE 2025"],
-    ["construa-o-percurso-adequado-a-organizacao", "Construa o percurso adequado à organização"]
+    ["a-sua-empresa-tem-tamanho-para-isso", "A sua empresa tem tamanho para isso?"]
   ],
   "data-froid.html": [
     ["o-acervo-e-o-assistente-tem-papeis-diferentes", "O acervo e o assistente têm papéis diferentes"],
@@ -63,20 +51,14 @@ var NAV_SECOES = {
     ["o-produto-na-tela", "O aplicativo, na tela"],
     ["quer-conhecer-a-interface-em-uma-apresentacao", "Quer conhecer a interface em uma apresentação?"]
   ],
-  "diagnostico-nr1.html": [
-    ["checklist-de-preparacao", "Checklist de preparação"],
-    ["calculadora", "A sua empresa consegue resultado liberável?"],
-    ["por-que-existe-um-piso", "Por que existe um piso"],
-    ["participacao-e-privacidade-sao-criterios-distintos", "Participação e privacidade são critérios distintos"],
-    ["se-um-recorte-nao-puder-ser-divulgado", "Se um recorte não puder ser divulgado"],
-    ["leve-um-escopo-claro-a-primeira-conversa", "Leve um escopo claro à primeira conversa"]
-  ],
   "empresas.html": [
-    ["nao-basta-uma-fotografia-do-problema", "Não basta uma fotografia do problema"],
-    ["processo", "Um processo, responsabilidades claras"],
-    ["privacidade", "Condições de trabalho, não vigilância clínica"],
-    ["o-que-entra-no-escopo-da-conversa", "O que entra no escopo da conversa"],
-    ["comece-com-um-escopo-bem-definido", "Comece com um escopo bem definido"]
+    ["custo-da-omissao", "O custo da omissão"],
+    ["armadilhas", "Armadilhas"],
+    ["tres-linhas-metodo", "As 3 linhas que resumem o método"],
+    ["como-comparar", "Como comparar"],
+    ["precos-nr1", "Preços"],
+    ["simulador-nr1", "Simulação"],
+    ["limites-e-responsabilidade", "Limites e responsabilidade"]
   ],
   "etica.html": [
     ["limites", "Informação, não um veredito sobre a pessoa"],
@@ -85,23 +67,14 @@ var NAV_SECOES = {
     ["sem-promessas-de-resultado-automatico", "Sem promessas de resultado automático"],
     ["avalie-com-os-limites-a-vista", "Avalie com os limites à vista"]
   ],
-  "faq-nr1.html": [
-    ["escopo-e-responsabilidade", "Escopo e responsabilidade"],
-    ["participacao-e-divulgacao", "Participação e divulgação"],
-    ["depois-da-coleta", "Depois da coleta"],
-    ["sua-situacao-precisa-de-analise-especifica", "Sua situação precisa de análise específica?"]
-  ],
   "faq.html": [
     ["medidas-e-interpretacao", "Medidas e interpretação"],
     ["uso-e-contratacao", "Uso e contratação"],
     ["sua-duvida-depende-da-sua-rotina", "Sua dúvida depende da sua rotina?"]
   ],
   "froid-explica-nr1.html": [
-    ["dois-caminhos-de-consulta", "Dois caminhos de consulta"],
     ["exemplos-de-perguntas-uteis", "Exemplos de perguntas úteis"],
-    ["privacidade-tambem-na-pergunta", "Privacidade também na pergunta"],
-    ["orientacao-com-limites-explicitos", "Orientação com limites explícitos"],
-    ["veja-a-aplicacao-no-seu-projeto", "Veja a aplicação no seu projeto"]
+    ["limites", "Limites"]
   ],
   "froid-explica.html": [
     ["veja-em-acao", "Veja em ação"],
@@ -110,10 +83,6 @@ var NAV_SECOES = {
     ["prompts", "Prompts nativos para começar; próprios para aprofundar"],
     ["mais-clareza-sem-transformar-resposta-em-conduta", "Mais clareza, sem transformar resposta em conduta"],
     ["veja-o-assistente-no-contexto-da-sua-pratica", "Veja o assistente no contexto da sua prática"]
-  ],
-  "glossario-nr1.html": [
-    ["os-termos-do-projeto", "Os termos do projeto"],
-    ["coloque-os-termos-em-sequencia", "Coloque os termos em sequência"]
   ],
   "glossario.html": [
     ["os-dez-conceitos", "Os dez conceitos"],
@@ -128,11 +97,13 @@ var NAV_SECOES = {
     ["o-produto-na-tela", "O painel do FROID Psique"],
     ["descubra-onde-o-froid-pode-ajudar", "Descubra onde o FROID pode ajudar"]
   ],
-  "iso-45003.html": [
-    ["referencia-nao-e-validacao-automatica-do-produto", "Referência não é validação automática do produto"],
-    ["o-que-deve-ser-verificado-no-projeto", "O que deve ser verificado no projeto"],
-    ["como-o-froid-entra-nessa-organizacao", "Como o FROID entra nessa organização"],
-    ["avalie-a-relacao-com-seu-sistema-de-gestao", "Avalie a relação com seu sistema de gestão"]
+  "iso-45001.html": [
+    ["obrigacao-legal-e-diretriz", "Obrigação legal e diretriz"],
+    ["como-se-conectam", "Como se conectam"],
+    ["taxonomia-psicossocial", "Taxonomia psicossocial"],
+    ["governanca-e-prazos", "Governança e prazos"],
+    ["o-que-o-froid-entrega", "O que o FROID entrega"],
+    ["limites", "Limites"]
   ],
   "mapas-faciais.html": [
     ["um-dicionario-de-movimentos-nao-um-leitor-de-pensamentos", "Um dicionário de movimentos, não um leitor de pensamentos"],
@@ -170,24 +141,13 @@ var NAV_SECOES = {
     ["comece-avaliando-o-encaixe-na-sua-rotina", "Comece avaliando o encaixe na sua rotina"]
   ],
   "proposta-nr1.html": [
-    ["o-que-definir-antes-do-valor", "O que definir antes do valor"],
-    ["o-que-esta-sendo-contratado", "O que está sendo contratado"],
-    ["fases", "Fases"],
     ["precos", "Condições comerciais"],
+    ["lista-de-preparacao", "Lista de preparação"],
+    ["resultados-liberaveis", "Resultados liberáveis"],
     ["o-que-a-contratante-precisa-fornecer", "O que a contratante precisa fornecer"],
     ["por-que-este-procedimento-e-nao-outro", "Por que este procedimento, e não outro"],
     ["protecao-de-dados", "Proteção de dados"],
-    ["limites-do-servico", "Limites do serviço"],
-    ["o-contrato-e-a-referencia", "O contrato é a referência"],
-    ["aceite", "Aceite"],
-    ["comece-com-as-informacoes-essenciais", "Comece com as informações essenciais"]
-  ],
-  "seguranca-nr1.html": [
-    ["resultado-agregado-nao-prontuario-individual", "Resultado agregado, não prontuário individual"],
-    ["criterios-antes-da-divulgacao", "Critérios antes da divulgação"],
-    ["comunicacao-ao-trabalhador", "Comunicação ao trabalhador"],
-    ["governanca-e-documentos", "Governança e documentos"],
-    ["revise-privacidade-antes-de-abrir-a-coleta", "Revise privacidade antes de abrir a coleta"]
+    ["limites-do-servico", "Limites do serviço"]
   ],
   "seguranca.html": [
     ["analise-facial-e-videochamada-sao-percursos-diferentes", "Análise facial e videochamada são percursos diferentes"],
