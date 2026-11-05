@@ -99,11 +99,20 @@ var NAV_SECOES = {
   ],
   "iso-45001.html": [
     ["obrigacao-legal-e-diretriz", "Obrigação legal e diretriz"],
+    ["siglas-e-publicacoes", "Siglas e publicações"],
     ["como-se-conectam", "Como se conectam"],
     ["taxonomia-psicossocial", "Taxonomia psicossocial"],
     ["governanca-e-prazos", "Governança e prazos"],
     ["o-que-o-froid-entrega", "O que o FROID entrega"],
     ["limites", "Limites"]
+  ],
+  "apresentacao-nr1.html": [
+    ["documento-integral", "Documento integral"],
+    ["pagina-1", "Página 1"],
+    ["pagina-2", "Página 2"],
+    ["pagina-3", "Página 3"],
+    ["pagina-4", "Página 4"],
+    ["pagina-5", "Página 5"]
   ],
   "mapas-faciais.html": [
     ["um-dicionario-de-movimentos-nao-um-leitor-de-pensamentos", "Um dicionário de movimentos, não um leitor de pensamentos"],

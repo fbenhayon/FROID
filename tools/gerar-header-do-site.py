@@ -57,6 +57,7 @@ IDIOMAS = {
                 ("Proposta", "proposta-nr1.html"),
                 ("FROID Explica NR-1", "froid-explica-nr1.html"),
                 ("FROID ISO 45001", "iso-45001.html"),
+                ("Apresenta\u00e7\u00e3o NR-1", "apresentacao-nr1.html"),
             ]),
         ],
         "tecnico": ("Ci\u00eancia e Tecnologia", "tecnologia.html", [
