@@ -37,7 +37,7 @@ function escreverPaginaAguardoStripe(aba: Window) {
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     ">
       <section style="
-        width: min(420px, calc(100vw - 32px));
+        width: min(560px, calc(100vw - 32px));
         border: 1px solid #155e75;
         border-radius: 16px;
         padding: 28px;
@@ -63,7 +63,26 @@ function escreverPaginaAguardoStripe(aba: Window) {
           color: #cbd5e1;
           font-size: 14px;
           line-height: 1.55;
-        ">Estamos preparando sua compra de créditos. A próxima tela será aberta pela Stripe para finalizar o pagamento.</p>
+        ">Agradecemos sua confiança.</p>
+        <p style="
+          margin: 12px 0 0;
+          color: #cbd5e1;
+          font-size: 14px;
+          line-height: 1.55;
+        ">Sua decisão pelo FROID significa muito para nós. É um estímulo e reconhecimento ao trabalho que nossa equipe realiza todos os dias, oferecendo aos profissionais as mais modernas e inteligentes soluções em saúde mental.</p>
+        <p style="
+          margin: 12px 0 0;
+          color: #cbd5e1;
+          font-size: 14px;
+          line-height: 1.55;
+        ">Estamos preparando seu ambiente seguro de pagamento. Em instantes, você será direcionado ao Stripe para concluir sua compra.</p>
+        <p style="
+          margin: 14px 0 0;
+          color: #f8fafc;
+          font-size: 14px;
+          font-weight: 800;
+          line-height: 1.55;
+        ">Bem-vindo.</p>
         <div aria-hidden="true" style="
           width: 100%;
           height: 6px;
