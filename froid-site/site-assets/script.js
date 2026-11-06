@@ -52,13 +52,6 @@ var NAV_SECOES = {
     ["simulador-nr1", "Simulação"],
     ["limites-e-responsabilidade", "Limites e responsabilidade"]
   ],
-  "etica.html": [
-    ["limites", "Informação, não um veredito sobre a pessoa"],
-    ["o-que-a-captura-permite-e-o-que-nao-permite", "O que a captura permite"],
-    ["autonomia-autorizacoes-e-conferencia", "Autonomia, autorizações e conferência"],
-    ["sem-promessas-de-resultado-automatico", "Sem promessas de resultado automático"],
-    ["avalie-com-os-limites-a-vista", "Avalie com os limites à vista"]
-  ],
   "faq.html": [
     ["medidas-e-interpretacao", "Medidas e interpretação"],
     ["uso-e-contratacao", "Uso e contratação"],
@@ -114,8 +107,10 @@ var NAV_SECOES = {
     ["as-paginas-por-produto", "As páginas, por produto"]
   ],
   "precos.html": [
+    ["precos-por-produto", "Preços por produto"]
+  ],
+  "precos-psique.html": [
     ["qual-e-o-seu-cenario", "Qual é o seu cenário?"],
-    ["condicoes-comerciais-nr1", "Condições comerciais NR-1"],
     ["trial", "Teste gratuito, sem cartão"],
     ["como-funcionam-os-creditos", "Como funcionam os créditos"],
     ["pacotes", "Pacotes de créditos de análise"],
@@ -123,6 +118,11 @@ var NAV_SECOES = {
     ["licenca", "Licença mensal por profissional clínico"],
     ["e-quando-o-saldo-termina", "E quando o saldo termina?"],
     ["receba-uma-proposta-para-sua-pratica", "Receba uma proposta para sua prática"]
+  ],
+  "precos-nr1.html": [
+    ["condicoes-comerciais", "Condições comerciais"],
+    ["simulador-nr1", "Simulação"],
+    ["exemplos", "Exemplos"]
   ],
   "privacidade.html": [
     ["psique", "FROID Psique"],
@@ -148,16 +148,7 @@ var NAV_SECOES = {
     ["protecao-de-dados", "Proteção de dados"],
     ["limites-do-servico", "Limites do serviço"]
   ],
-  "seguranca.html": [
-    ["analise-facial-e-videochamada-sao-percursos-diferentes", "Análise facial e videochamada são percursos diferentes"],
-    ["audio-e-transcricao", "Áudio e transcrição"],
-    ["protecao-e-permissoes", "Proteção e permissões"],
-    ["analise-agregada", "Governança da análise agregada"],
-    ["direitos-contratos-e-transparencia", "Direitos, contratos e transparência"],
-    ["precisa-avaliar-a-arquitetura-antes-de-contratar", "Precisa avaliar a arquitetura antes de contratar?"]
-  ],
   "sobre-contato.html": [
-    ["escolha-o-assunto", "Escolha o assunto"],
     ["canal-de-contato", "Canal de contato"]
   ],
   "tecnologia.html": [
@@ -167,11 +158,6 @@ var NAV_SECOES = {
     ["arquitetura-com-responsabilidades-distintas", "Arquitetura com responsabilidades distintas"],
     ["na-tela", "As medidas, na tela"],
     ["leve-o-entendimento-para-a-pratica", "Leve o entendimento para a prática"]
-  ],
-  "termos.html": [
-    ["psique", "FROID Psique"],
-    ["nr1", "FROID NR-1"],
-    ["precisa-esclarecer-o-escopo-antes-de-contratar", "Precisa esclarecer o escopo antes de contratar?"]
   ]
 };
 

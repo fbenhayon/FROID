@@ -75,10 +75,11 @@ code { font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; font-si
 .contato-dados p { margin: 0 0 14px; font-size: 1.02rem; }
 .contato-dados .rotulo { display: block; font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.16em; color: var(--froid-cinza); font-weight: 700; margin-bottom: 3px; }
 .form-contato label { display: block; font-size: 13px; font-weight: 700; margin: 14px 0 6px; }
-.form-contato input, .form-contato textarea {
+.form-contato input, .form-contato select, .form-contato textarea {
   width: 100%; padding: 10px 12px; border-radius: 7px; border: 1px solid var(--border);
   background: #060d18; color: var(--ink); font-size: 15px; font-family: var(--font);
 }
+.form-contato select { appearance: auto; }
 .form-contato textarea { min-height: 148px; resize: vertical; line-height: 1.6; }
 .form-contato .linha { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media (max-width: 640px) { .form-contato .linha { grid-template-columns: 1fr; } }
