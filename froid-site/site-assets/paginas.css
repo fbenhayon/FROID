@@ -636,3 +636,36 @@ table.comp th { background: #0f1c2e; }
   margin: 22px 0 0;
   padding: 18px 22px;
 }
+
+/* Alinhamento editorial global do site. */
+.hero h1,
+.hero h2,
+.hero h3,
+section.block h1,
+section.block h2,
+section.block h3,
+section.block h4,
+section.block h5,
+section.block h6,
+.card h3,
+footer.site-footer h5,
+.relatorio-nr1 .section-title {
+  text-align: center;
+}
+
+.hero p.lead,
+.home-intro > p:not(.section-kicker):not(.page-title-amber),
+section.block p:not(.section-kicker):not(.page-title-amber):not(.links-rel):not(.card-link):not(.form-status),
+footer.site-footer p {
+  text-align: justify;
+  text-justify: inter-word;
+}
+
+p.section-kicker,
+p.page-title-amber,
+p.links-rel,
+p.card-link,
+p.form-status,
+.hero-neuro__tagline {
+  text-align: center;
+}
