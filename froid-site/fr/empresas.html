@@ -444,7 +444,58 @@
       return depois ? corpo + ' R$' : 'R$ ' + corpo;
     }
 
-    function froidSimularNr1(evento) {
+    function froidNr1PricingEndpoint(trabalhadores, estabelecimentos) {
+  var consulta = '/api/nr1/pricing/simulate?trabalhadores=' + encodeURIComponent(trabalhadores) +
+    '&estabelecimentos=' + encodeURIComponent(estabelecimentos);
+  if (window.location.protocol !== 'file:') return { local: false, url: consulta };
+  return { local: true, corpo: froidSimularNr1Local(trabalhadores, estabelecimentos) };
+}
+function froidSimularNr1Local(trabalhadores, estabelecimentos) {
+  var workers = parseInt(trabalhadores, 10);
+  var sites = parseInt(estabelecimentos, 10);
+  if (!isFinite(workers) || !isFinite(sites) || workers <= 0 || sites <= 0) {
+    throw new Error('Informe trabalhadores e estabelecimentos maiores que zero.');
+  }
+  var tiers = [
+    { order: 1, lowerBound: 1, upperBound: 100, workerPriceCents: 2075 },
+    { order: 2, lowerBound: 101, upperBound: 300, workerPriceCents: 1729 },
+    { order: 3, lowerBound: 301, upperBound: 1000, workerPriceCents: 1487 },
+    { order: 4, lowerBound: 1001, upperBound: null, workerPriceCents: 993 }
+  ];
+  var baseSubtotal = sites * 27670;
+  var workersSubtotal = 0;
+  var memoria = tiers.map(function (tier) {
+    var superior = tier.upperBound === null ? workers : tier.upperBound;
+    var naFaixa = Math.max(0, Math.min(workers, superior) - tier.lowerBound + 1);
+    var subtotal = naFaixa * tier.workerPriceCents;
+    workersSubtotal += subtotal;
+    return {
+      order: tier.order,
+      workersInTier: naFaixa,
+      workerPriceCents: tier.workerPriceCents,
+      subtotalCents: subtotal
+    };
+  });
+  var total = baseSubtotal + workersSubtotal;
+  return {
+    workers: workers,
+    establishments: sites,
+    baseSubtotalCents: baseSubtotal,
+    workersSubtotalCents: workersSubtotal,
+    monthlyTotalCents: total,
+    perWorkerMonthCents: Math.floor((2 * total + workers) / (2 * workers)),
+    tierBreakdown: memoria,
+    pricingTable: {
+      code: 'FROID-PRICING-2026-V02',
+      version: '1.1',
+      validFrom: '2026-11-05',
+      sha256: '36164a02ad5d2ece58053efd746c17de755afb4a41402dc85048941cbd0acc19',
+      baseEstablishmentCents: 27670,
+      source: 'local-preview'
+    }
+  };
+}
+function froidSimularNr1(evento) {
       evento.preventDefault();
       var caixa = document.getElementById('simulador-nr1');
       var botao = document.getElementById('sim-botao');
@@ -459,13 +510,17 @@
       var rotulo = botao.textContent;
       botao.textContent = 'Calcul en cours...';
 
-      fetch('/api/nr1/pricing/simulate?trabalhadores=' + encodeURIComponent(trabalhadores) +
-            '&estabelecimentos=' + encodeURIComponent(estabelecimentos))
+      Promise.resolve()
+    .then(function () {
+      var consulta = froidNr1PricingEndpoint(trabalhadores, estabelecimentos);
+      if (consulta.local) return { ok: true, corpo: consulta.corpo };
+      return fetch(consulta.url)
         .then(function (resposta) {
           return resposta.json().then(function (corpo) {
             return { ok: resposta.ok, corpo: corpo };
           });
-        })
+        });
+    })
         .then(function (r) {
           if (!r.ok) throw new Error((r.corpo && r.corpo.detail) || 'Impossible de simuler pour le moment. Le montant n’est pas calculé sur cette page, et afficher un chiffre approximatif serait pire que de n’en afficher aucun.');
           document.getElementById('sim-mensal').textContent =
