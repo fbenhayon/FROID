@@ -125,6 +125,110 @@ p.nota { font-size: 0.86rem; color: var(--froid-cinza); margin-top: 14px; }
 /* Tabelas de preço do NR-1 dentro de blocos de prosa. */
 .container.prosa .nr1-faixas { min-width: 420px; }
 
+.prompt-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 24px;
+}
+
+.prompt-card {
+  background: linear-gradient(145deg, rgba(15, 23, 42, 0.86), rgba(8, 13, 24, 0.94));
+  border: 1px solid rgba(125, 211, 252, 0.18);
+  border-radius: 8px;
+  padding: 22px 24px;
+}
+
+.prompt-card h3 {
+  color: #f8fafc;
+  margin: 0 0 14px;
+}
+
+.prompt-card ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.prompt-card li {
+  border-top: 1px solid rgba(148, 163, 184, 0.18);
+  color: #d8e1ed;
+  font-size: 0.94rem;
+  line-height: 1.55;
+  padding: 12px 0 12px 24px;
+  position: relative;
+}
+
+.prompt-card li:first-child {
+  border-top: 0;
+}
+
+.prompt-card li::before {
+  content: "";
+  border: 1px solid rgba(245, 199, 120, 0.55);
+  border-radius: 50%;
+  height: 8px;
+  left: 2px;
+  position: absolute;
+  top: 20px;
+  width: 8px;
+}
+
+.prompt-note {
+  color: var(--froid-cinza);
+  font-size: 0.96rem;
+  line-height: 1.7;
+  margin: 18px auto 0;
+  max-width: 860px;
+  text-align: center;
+}
+
+.assistente-limites {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 24px;
+}
+
+.assistente-limites article {
+  background: rgba(2, 6, 23, 0.42);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 18px;
+}
+
+.assistente-limites strong,
+.assistente-limites span {
+  display: block;
+}
+
+.assistente-limites strong {
+  color: #f8fafc;
+  margin-bottom: 8px;
+}
+
+.assistente-limites span {
+  color: #cbd5e1;
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.cta-assistente {
+  background:
+    linear-gradient(135deg, rgba(14, 165, 233, 0.14), rgba(245, 199, 120, 0.10));
+  border: 1px solid rgba(125, 211, 252, 0.28);
+  border-radius: 8px;
+  padding: 30px;
+  text-align: center;
+}
+
+.cta-assistente p {
+  color: #cbd5e1;
+  line-height: 1.7;
+  margin-inline: auto;
+  max-width: 720px;
+}
+
 /* Imagens do produto. Todas usam .site-img, e o lightbox do script.js as
    amplia ao clique; aqui só se controla o tamanho em repouso. */
 .fig-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 24px; align-items: start; }
@@ -235,6 +339,50 @@ table.comp th { background: #0f1c2e; }
 .tabela-doc { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 0.92rem; }
 .tabela-doc th, .tabela-doc td { border: 1px solid #334155; padding: 9px 11px; text-align: left; vertical-align: top; }
 .tabela-doc th { background: #1e293b; color: #f8fafc; font-weight: 700; }
+
+.nr1-info-list {
+  counter-reset: nr1-info;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  list-style: none;
+  margin: 24px 0 0;
+  padding: 0;
+}
+
+.nr1-info-list li {
+  background: rgba(15, 23, 42, 0.62);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: #cbd5e1;
+  line-height: 1.55;
+  min-height: 128px;
+  padding: 18px 18px 18px 72px;
+  position: relative;
+}
+
+.nr1-info-list span {
+  align-items: center;
+  background: rgba(14, 165, 233, 0.14);
+  border: 1px solid rgba(14, 165, 233, 0.36);
+  border-radius: 50%;
+  color: #7dd3fc;
+  display: flex;
+  font-size: 0.78rem;
+  font-weight: 900;
+  height: 38px;
+  justify-content: center;
+  left: 18px;
+  position: absolute;
+  top: 18px;
+  width: 38px;
+}
+
+.nr1-info-list strong {
+  color: #f8fafc;
+  display: block;
+  margin-bottom: 5px;
+}
 
 .hero-apresentacao-nr1 .doc-meta {
   color: rgba(248, 250, 252, 0.58);
@@ -369,6 +517,12 @@ table.comp th { background: #0f1c2e; }
 }
 
 @media (max-width: 760px) {
+  .prompt-grid,
+  .assistente-limites,
+  .nr1-info-list {
+    grid-template-columns: 1fr;
+  }
+
   .nr1-check-grid {
     grid-template-columns: 1fr;
   }

@@ -72,13 +72,8 @@ var NAV_SECOES = {
     ["uso-e-contratacao", "Uso e contratação"],
     ["sua-duvida-depende-da-sua-rotina", "Sua dúvida depende da sua rotina?"]
   ],
-  "froid-explica-nr1.html": [
-    ["exemplos-de-perguntas-uteis", "Exemplos de perguntas úteis"],
-    ["limites", "Limites"]
-  ],
   "froid-explica.html": [
     ["veja-em-acao", "Veja em ação"],
-    ["conhecimento-sessao-e-acervo-tres-escopos", "Conhecimento, sessão e acervo: três escopos"],
     ["como-um-bibliotecario-nao-como-um-oraculo", "Como um bibliotecário, não como um oráculo"],
     ["prompts", "Prompts nativos para começar; próprios para aprofundar"],
     ["mais-clareza-sem-transformar-resposta-em-conduta", "Mais clareza, sem transformar resposta em conduta"],
@@ -107,12 +102,12 @@ var NAV_SECOES = {
     ["limites", "Limites"]
   ],
   "apresentacao-nr1.html": [
-    ["documento-integral", "Documento integral"],
-    ["pagina-1", "Página 1"],
-    ["pagina-2", "Página 2"],
-    ["pagina-3", "Página 3"],
-    ["pagina-4", "Página 4"],
-    ["pagina-5", "Página 5"]
+    ["documento-integral", "Gestão dos riscos psicossociais"],
+    ["pagina-1", "O que a empresa precisa demonstrar"],
+    ["pagina-2", "O que o FROID entrega"],
+    ["pagina-3", "O FROID não substitui prestadores"],
+    ["pagina-4", "Proteção e evidência"],
+    ["pagina-5", "Minha proposta: experimentem"]
   ],
   "mapas-faciais.html": [
     ["um-dicionario-de-movimentos-nao-um-leitor-de-pensamentos", "Um dicionário de movimentos, não um leitor de pensamentos"],
@@ -127,6 +122,7 @@ var NAV_SECOES = {
   ],
   "precos.html": [
     ["qual-e-o-seu-cenario", "Qual é o seu cenário?"],
+    ["condicoes-comerciais-nr1", "Condições comerciais NR-1"],
     ["trial", "Teste gratuito, sem cartão"],
     ["como-funcionam-os-creditos", "Como funcionam os créditos"],
     ["pacotes", "Pacotes de créditos de análise"],
@@ -151,7 +147,7 @@ var NAV_SECOES = {
   ],
   "proposta-nr1.html": [
     ["precos", "Condições comerciais"],
-    ["lista-de-preparacao", "Lista de preparação"],
+    ["lista-de-preparacao", "Lista de informações"],
     ["resultados-liberaveis", "Resultados liberáveis"],
     ["o-que-a-contratante-precisa-fornecer", "O que a contratante precisa fornecer"],
     ["por-que-este-procedimento-e-nao-outro", "Por que este procedimento, e não outro"],
