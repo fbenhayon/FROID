@@ -44,6 +44,7 @@ export const PatientSessionPage: React.FC = () => {
   const { sessionId = "" } = useParams<{ sessionId: string }>();
   const [searchParams] = useSearchParams();
   const inviteToken = searchParams.get("invite") || "";
+  const videoShellRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -115,10 +116,37 @@ export const PatientSessionPage: React.FC = () => {
   const [detalheAcustico, setDetalheAcustico] = useState("");
   const [avisoFonteAcustica, setAvisoFonteAcustica] = useState("");
   const [audioBloqueado, setAudioBloqueado] = useState(false);
+  const [modoFocoPaciente, setModoFocoPaciente] = useState(false);
   const [uiLocale, setUiLocale] = useState<SessionLocale>(() =>
     normalizeSessionLocale(typeof navigator === "undefined" ? "" : navigator.language),
   );
   const copy = patientCopy(uiLocale);
+
+  const alternarModoFocoPaciente = async () => {
+    const proximoModo = !modoFocoPaciente;
+    setModoFocoPaciente(proximoModo);
+    const shell = videoShellRef.current;
+    if (!shell || !document.fullscreenEnabled) return;
+    try {
+      if (proximoModo && document.fullscreenElement !== shell) {
+        await shell.requestFullscreen();
+      } else if (!proximoModo && document.fullscreenElement) {
+        await document.exitFullscreen();
+      }
+    } catch {
+      // O modo visual continua mesmo quando o navegador recusa fullscreen.
+    }
+  };
+
+  useEffect(() => {
+    const syncFullscreen = () => {
+      if (document.fullscreenElement !== videoShellRef.current) {
+        setModoFocoPaciente(false);
+      }
+    };
+    document.addEventListener("fullscreenchange", syncFullscreen);
+    return () => document.removeEventListener("fullscreenchange", syncFullscreen);
+  }, []);
 
   const cleanupRtc = () => {
     rtcClosingRef.current = true;
@@ -997,7 +1025,14 @@ export const PatientSessionPage: React.FC = () => {
         </div>
 
         <section className="rounded-xl border border-slate-800 bg-slate-900 p-5 shadow-sm">
-          <div className="relative aspect-video overflow-hidden rounded-lg border border-slate-800 bg-slate-950">
+          <div
+            ref={videoShellRef}
+            className={`relative overflow-hidden bg-slate-950 ${
+              modoFocoPaciente
+                ? "fixed inset-0 z-50 h-[100dvh] w-screen rounded-none border-0"
+                : "aspect-video rounded-lg border border-slate-800"
+            }`}
+          >
             <video
               ref={remoteVideoRef}
               autoPlay
@@ -1014,25 +1049,42 @@ export const PatientSessionPage: React.FC = () => {
               playsInline
               muted
               className={`absolute scale-x-[-1] object-cover transition-all duration-500 ${
-                remoteProfessionalVideoOn
+                modoFocoPaciente
+                  ? "pointer-events-none bottom-4 right-4 z-20 hidden h-0 w-0"
+                  : remoteProfessionalVideoOn
                   ? "bottom-3 right-3 z-20 h-24 w-36 rounded-lg border border-white/40 shadow-lg"
                   : "inset-0 h-full w-full"
-              } ${mediaState === "active" ? "opacity-100" : "opacity-0"}`}
+              } ${mediaState === "active" && !modoFocoPaciente ? "opacity-100" : "opacity-0"}`}
             />
             {mediaState !== "active" && (
               <div className="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-slate-400">
                 {copy.mediaPermission}
               </div>
             )}
-            <div
-              className={`absolute left-3 top-3 z-20 rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wide backdrop-blur ${
-                remoteProfessionalOn || remoteProfessionalVideoOn
-                  ? "bg-emerald-500/90 text-white"
-                  : "bg-slate-950/70 text-slate-200"
-              }`}
-            >
-              {callStatus}
-            </div>
+            {!modoFocoPaciente && (
+              <div
+                className={`absolute left-3 top-3 z-20 rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wide backdrop-blur ${
+                  remoteProfessionalOn || remoteProfessionalVideoOn
+                    ? "bg-emerald-500/90 text-white"
+                    : "bg-slate-950/70 text-slate-200"
+                }`}
+              >
+                {callStatus}
+              </div>
+            )}
+            {mediaState === "active" && remoteProfessionalVideoOn && (
+              <button
+                type="button"
+                onClick={() => void alternarModoFocoPaciente()}
+                title={modoFocoPaciente ? "Sair da tela cheia" : "Ver o profissional em tela cheia"}
+                aria-label={modoFocoPaciente ? "Sair da tela cheia" : "Ver o profissional em tela cheia"}
+                className={`absolute right-3 top-3 z-40 rounded-full border border-white/50 bg-slate-950/70 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-white shadow backdrop-blur hover:bg-slate-900 ${
+                  modoFocoPaciente ? "opacity-70 hover:opacity-100" : ""
+                }`}
+              >
+                {modoFocoPaciente ? "Sair" : "Foco"}
+              </button>
+            )}
 
             {/* O QUE ESTA FALTANDO, PARA QUEM PODE RESOLVER.
                 A analise acustica e a reproducao do audio falhavam em
@@ -1049,7 +1101,7 @@ export const PatientSessionPage: React.FC = () => {
                 Toque para ouvir o profissional
               </button>
             )}
-            {!audioBloqueado && statusAcustico === "aguardando-gesto" && (
+            {!modoFocoPaciente && !audioBloqueado && statusAcustico === "aguardando-gesto" && (
               <div
                 onClick={() => void destravarAudio()}
                 className="absolute bottom-3 left-3 right-3 z-20 cursor-pointer rounded-lg border border-blue-300/70 bg-blue-900/85 px-3 py-2 text-[11px] font-semibold leading-4 text-blue-50 backdrop-blur-sm"
@@ -1064,7 +1116,8 @@ export const PatientSessionPage: React.FC = () => {
               Dentro do quadro ele cobria o profissional, embora a chamada por
               voz estivesse boa; aqui ele continua visivel sem bloquear a
               comunicacao visual. */}
-          {!audioBloqueado
+          {!modoFocoPaciente
+            && !audioBloqueado
             && statusAcustico !== ""
             && statusAcustico !== "aguardando-gesto"
             && (statusAcustico !== "enviando" || avisoFonteAcustica) && (

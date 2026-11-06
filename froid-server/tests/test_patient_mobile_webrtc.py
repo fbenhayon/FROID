@@ -55,11 +55,22 @@ class PatientMobileWebRtcTests(unittest.TestCase):
             self.patient_session.index(marker),
         )
         video_block = self.patient_session[
-            self.patient_session.index('className="relative aspect-video') :
+            self.patient_session.index('className={`relative overflow-hidden') :
             self.patient_session.index(marker)
         ]
         self.assertNotIn("Áudio enviado para análise.", video_block)
         self.assertIn("Toque na tela para iniciar a análise da sua voz.", video_block)
+
+    def test_patient_phone_focus_mode_hides_self_view_and_long_status(self):
+        self.assertIn("videoShellRef", self.patient_session)
+        self.assertIn("requestFullscreen", self.patient_session)
+        self.assertIn("document.exitFullscreen", self.patient_session)
+        self.assertIn("fixed inset-0 z-50 h-[100dvh] w-screen", self.patient_session)
+        self.assertIn("hidden h-0 w-0", self.patient_session)
+        self.assertIn('title={modoFocoPaciente ? "Sair da tela cheia" : "Ver o profissional em tela cheia"}', self.patient_session)
+        self.assertIn("!modoFocoPaciente && !audioBloqueado && statusAcustico", self.patient_session)
+        self.assertIn("{!modoFocoPaciente\n            && !audioBloqueado", self.patient_session)
+        self.assertIn("O modo visual continua mesmo quando o navegador recusa fullscreen.", self.patient_session)
 
     def test_signaling_is_serialized_on_both_peers(self):
         self.assertIn("let signalQueue: Promise<void> = Promise.resolve()", self.patient_session)
