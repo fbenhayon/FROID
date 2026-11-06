@@ -30,9 +30,6 @@ var NAV_SECOES = {
     ["revise-e-contextualize", "5. Revise e contextualize"],
     ["veja-como-isso-se-apresenta", "Veja como isso se apresenta"]
   ],
-  "como-funciona-nr1.html": [
-    ["a-sua-empresa-tem-tamanho-para-isso", "A sua empresa tem tamanho para isso?"]
-  ],
   "data-froid.html": [
     ["o-acervo-e-o-assistente-tem-papeis-diferentes", "O acervo e o assistente têm papéis diferentes"],
     ["tres-responsabilidades-na-arquitetura-proposta", "Três responsabilidades na arquitetura proposta"],

@@ -52,7 +52,6 @@ IDIOMAS = {
             ]),
             ("FROID NR-1", "empresas.html", [
                 ("Vis\u00e3o geral", "empresas.html"),
-                ("Como funciona", "como-funciona-nr1.html"),
                 ("Proposta", "proposta-nr1.html"),
                 ("FROID ISO 45001", "iso-45001.html"),
                 ("Apresenta\u00e7\u00e3o NR-1", "apresentacao-nr1.html"),
@@ -76,7 +75,6 @@ IDIOMAS = {
             ]),
             ('FROID NR-1', "empresas.html", [
                 ('Overview', 'empresas.html'),
-                ('How it works', 'como-funciona-nr1.html'),
                 ('Proposal', 'proposta-nr1.html'),
                 ('FROID ISO 45001', 'iso-45001.html'),
             ]),
@@ -98,7 +96,6 @@ IDIOMAS = {
             ]),
             ('FROID NR-1', "empresas.html", [
                 ('Visión general', 'empresas.html'),
-                ('Cómo funciona', 'como-funciona-nr1.html'),
                 ('Propuesta', 'proposta-nr1.html'),
                 ('FROID ISO 45001', 'iso-45001.html'),
             ]),
@@ -120,7 +117,6 @@ IDIOMAS = {
             ]),
             ('FROID NR-1', "empresas.html", [
                 ("Vue d'ensemble", 'empresas.html'),
-                ('Comment ça marche', 'como-funciona-nr1.html'),
                 ('Proposition', 'proposta-nr1.html'),
                 ('FROID ISO 45001', 'iso-45001.html'),
             ]),
