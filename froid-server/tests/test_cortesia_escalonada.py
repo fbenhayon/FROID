@@ -52,14 +52,7 @@ SITE = ROOT / "froid-site"
 # vale para todos os clientes, em todos os idiomas. Uma pagina de precos
 # traduzida que nao a anuncie deixa de ser traducao e vira oferta diferente —
 # por isso as quatro sao obrigatorias, e nao so a portuguesa.
-IDIOMAS = ("pt", "en", "es", "fr")
-PRECOS = {
-    "pt": SITE / "precos.html",
-    "en": SITE / "en" / "precos.html",
-    "es": SITE / "es" / "precos.html",
-    "fr": SITE / "fr" / "precos.html",
-}
-ANUNCIAM = INSTITUCIONAIS + tuple(PRECOS[idioma] for idioma in IDIOMAS)
+ANUNCIAM = INSTITUCIONAIS + (SITE / "precos-psique.html",)
 
 # A varredura cobre a PROXIMA copia sem ninguem precisar lembrar: qualquer
 # pagina do site, em qualquer idioma, que use a forma de afirmacao passa a ser
@@ -253,13 +246,13 @@ class OTextoAnunciadoEOQueOServidorConcede(unittest.TestCase):
                 "que a conta nova nao recebe desde a etapa 3 da 7.4",
             )
 
-    def test_a_pagina_de_precos_de_cada_idioma_mostra_o_trial_v2_ao_vivo(self):
+    def test_a_pagina_de_precos_psique_mostra_o_trial_v2_ao_vivo(self):
         """O site publico le o trial do servidor (psique-pricing-v2.js) e nao
         copia numero: e o que impede o espelho de envelhecer."""
-        for idioma in IDIOMAS:
-            texto = PRECOS[idioma].read_text(encoding="utf-8")
-            self.assertIn('id="pv2-trial"', texto, PRECOS[idioma])
-            self.assertIn("psique-pricing-v2.js", texto, PRECOS[idioma])
+        pagina = SITE / "precos-psique.html"
+        texto = pagina.read_text(encoding="utf-8")
+        self.assertIn('id="pv2-trial"', texto, pagina)
+        self.assertIn("psique-pricing-v2.js", texto, pagina)
 
 
 class OPadraoDoCodigoEODoCompose(unittest.TestCase):

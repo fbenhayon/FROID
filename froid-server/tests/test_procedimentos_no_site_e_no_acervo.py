@@ -161,8 +161,8 @@ class OSiteDescreveOsMesmosProcedimentos(unittest.TestCase):
             self.assertIn(pergunta, faq)
         self.assertIn('id="uso-e-contratacao"', faq)
 
-    def test_precos_nao_diz_mais_que_nao_ha_cota_por_profissional(self):
-        precos = _ler(SITE / "precos.html")
+    def test_precos_psique_nao_diz_mais_que_nao_ha_cota_por_profissional(self):
+        precos = _ler(SITE / "precos-psique.html")
         self.assertNotIn("sem cota por profissional", precos)
         self.assertIn("limite de sessões", precos)
 
@@ -178,7 +178,7 @@ class OSiteDescreveOsMesmosProcedimentos(unittest.TestCase):
         self.assertIn('carimbo "Solo"', pagina)
 
     def test_nenhuma_pagina_editada_ganhou_mojibake(self):
-        for nome in ("faq", "froid-explica", "como-funciona-clinico", "precos"):
+        for nome in ("faq", "froid-explica", "como-funciona-clinico", "precos-psique"):
             texto = _ler(SITE / f"{nome}.html")
             self.assertNotRegex(texto, r"Ã.|â€", nome)
 

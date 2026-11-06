@@ -1,7 +1,7 @@
 """Sessoes de cortesia: concessao, bloqueio e o que NAO pode ser alcancado.
 
 O risco deste item nunca foi conceder credito — foi bloquear demais. A garantia
-publicada em precos.html e que uma sessao ja realizada nunca e recusada nem
+publicada em precos-psique.html e que uma sessao ja realizada nunca e recusada nem
 descartada. Metade dos testes aqui existe para provar que o bloqueio novo nao
 encosta nesse caminho.
 """

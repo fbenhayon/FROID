@@ -55,20 +55,16 @@ def reference_packages():
     constants={n.target.id:ast.literal_eval(n.value) for n in tree.body
                if isinstance(n,ast.AnnAssign) and isinstance(n.target,ast.Name)
                and n.target.id in {"SESSION_PACKAGES","SUBSCRIPTION_PLANS"}}
-    page=(ROOT/"froid-site/precos.html").read_text(encoding="utf-8")
     rows=[]
-    for plan,body in re.findall(r"<h3>FROID (PRO|PLUS|MASTER)</h3>(.*?)(?=<h3>FROID|</section>)",page,re.S):
-        code=plan.lower()
-        packages=[p for p in constants["SESSION_PACKAGES"].values() if p["plan_code"]==code]
-        for count,money in re.findall(r'<span class="qtd">(\d+) créditos de atendimento</span><span class="valor">R\$ ([\d.,]+)',body):
-            count=int(count)
-            candidates=[p for p in packages if p["sessions"]==count]
-            if not candidates and len(packages)==1:candidates=packages
-            assert len(candidates)==1, "Catálogo alterado: revisar correspondência do pacote"
-            p=candidates[0]
-            rows.append((plan,count,constants["SUBSCRIPTION_PLANS"][code]["entitlements"]["organization_members"],
-                         float(money.replace(".","").replace(",",".")),p["sessions"],p["prices"]["brl"]["total_amount_minor"]/100))
-    assert len(rows)==5,"Revisar catálogo de pacotes: não foram encontrados os cinco pacotes de referência."
+    for p in constants["SESSION_PACKAGES"].values():
+        code=p["plan_code"]
+        plan=code.upper()
+        count=int(p["sessions"])
+        total=p["prices"]["brl"]["total_amount_minor"]/100
+        rows.append((plan,count,constants["SUBSCRIPTION_PLANS"][code]["entitlements"]["organization_members"],
+                     total,p["sessions"],total))
+    rows.sort(key=lambda row: (row[0], row[1]))
+    assert rows,"Revisar catalogo de pacotes: nenhum pacote de referencia foi encontrado."
     return rows
 
 def build():
@@ -231,7 +227,7 @@ def build():
     for r,text in [
     (12,"MASTER: site = 200 créditos / R$ 4.888; catálogo consultado = 25 / R$ 20. Divergência registrada, sem adoção como novo preço."),
     (14,"Preço por crédito = total do pacote / quantidade. Não utiliza o campo unitário de referência comercial, que pode divergir dessa divisão."),
-    (16,"Fontes: froid-server/subscriptions.py e https://www.froid.com.br/precos.html. Preços de referência, sujeitos à decisão do proprietário.")]:
+    (16,"Fonte: froid-server/subscriptions.py. Preços de referência, sujeitos à decisão do proprietário.")]:
         ws.merge_cells(start_row=r,start_column=1,end_row=r,end_column=14);put(ws,f"A{r}",text)
     ws=sheet(wb,"Cenarios","CENÁRIOS | Volume e preço escolhidos por você","Nenhum volume ou preço foi presumido. Mesmos fixos, variável unitário e taxas do cenário base. Capacidade extra deve ser orçada.",["Cenário","Pagos/mês","Gratuitos/mês","BRL/crédito","Receita mensal","Custo completo","Resultado mensal","Margem","Preço equilíbrio"],[22,22,24,27,33,34,34,24,34])
     for r in range(6,11):

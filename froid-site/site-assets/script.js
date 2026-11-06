@@ -115,9 +115,6 @@ var NAV_SECOES = {
   "menu.html": [
     ["as-paginas-por-produto", "As páginas, por produto"]
   ],
-  "precos.html": [
-    ["precos-por-produto", "Preços por produto"]
-  ],
   "precos-psique.html": [
     ["qual-e-o-seu-cenario", "Qual é o seu cenário?"],
     ["trial", "Teste gratuito, sem cartão"],

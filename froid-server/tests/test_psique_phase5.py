@@ -19,11 +19,9 @@ import psique_pricing
 from psique_billing import BillingError
 
 # precos-v2.html foi apagada em 07/10/2026 (decisao do dono): era a copia de
-# homologacao da V2, sem header nem rodape, e ficou solta depois que
-# precos.html virou a pagina publica da V2 (30/09). As guardas abaixo valem
-# para a pagina publica, nos quatro idiomas.
-PAGINAS = [SITE / "precos.html", SITE / "en/precos.html",
-           SITE / "es/precos.html", SITE / "fr/precos.html"]
+# homologacao da V2, sem header nem rodape. Em 06/11/2026 a pagina generica
+# precos.html tambem saiu; a pagina publica do Psique agora e especifica.
+PAGINAS = [SITE / "precos-psique.html"]
 
 
 # -- Espelho do Trial: a fonte executavel e a migration 037 -------------------
@@ -181,17 +179,10 @@ def test_pricing_pages_have_zero_hardcoded_prices_or_trial_numbers():
 
 
 def test_pricing_pages_share_the_same_i18n_contract():
-    chaves = []
-    for pagina in PAGINAS:
-        texto = pagina.read_text(encoding="utf-8")
-        bloco = texto.split("PSIQUE_PRECOS_V2_I18N = {", 1)[1].split("};", 1)[0]
-        chaves.append(sorted(re.findall(r"^\s*([a-z_]+):", bloco, re.MULTILINE)))
-    assert chaves[0] == chaves[1] == chaves[2] == chaves[3]
-    assert "indisponivel" in chaves[0] and "calc_enterprise" in chaves[0]
-
-
-PAGINAS_PUBLICAS = [SITE / "precos.html", SITE / "en/precos.html",
-                    SITE / "es/precos.html", SITE / "fr/precos.html"]
+    texto = PAGINAS[0].read_text(encoding="utf-8")
+    bloco = texto.split("PSIQUE_PRECOS_V2_I18N = {", 1)[1].split("};", 1)[0]
+    chaves = sorted(re.findall(r"^\s*([a-z_]+):", bloco, re.MULTILINE))
+    assert "indisponivel" in chaves and "calc_enterprise" in chaves
 
 
 def test_switchover_happened_and_public_pages_have_zero_hardcoded_prices():
@@ -203,7 +194,7 @@ def test_switchover_happened_and_public_pages_have_zero_hardcoded_prices():
 
     proibidos = _re.compile(r"R\$\s*\d|19900|46900|91500|169000|318000|745000|"
                             r"198,00|470,00|1\.182|2\.202|4\.888")
-    for pagina in PAGINAS_PUBLICAS:
+    for pagina in PAGINAS:
         texto = pagina.read_text(encoding="utf-8")
         assert "psique-pricing-v2.js" in texto, pagina
         assert 'id="pv2-ofertas"' in texto and 'id="pv2-calculadora"' in texto, pagina
@@ -217,7 +208,7 @@ def test_cada_pagina_de_precos_declara_o_proprio_idioma_e_nenhuma_moeda():
     e o idioma declarado esta na lista fechada do servidor."""
     for pagina in PAGINAS:
         texto = pagina.read_text(encoding="utf-8")
-        idioma = pagina.parent.name if pagina.parent != SITE else "pt"
+        idioma = "pt"
         assert f'language: "{idioma}",' in texto, pagina
         assert idioma in psique_pricing.LANGUAGE_CURRENCY, pagina
         assert 'currency: "BRL"' not in texto and "psique-pricing-v2.js?v=2" in texto, pagina

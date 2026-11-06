@@ -8,9 +8,9 @@ guarda o outro: FROID Psique, pacotes de sessao vendidos ao profissional.
 
 Os dois nunca compartilham numero, e a separacao nao e por convencao — e por
 construcao. A varredura do NR-1 so olha valores seguidos de "por trabalhador";
-esta so olha pacotes de sessao. `precos.html` aponta para a pagina do NR-1 com
-um link, sem copiar valor nenhum, que e o unico jeito de duas tabelas de preco
-coexistirem sem divergir.
+esta so olha pacotes de sessao. A pagina generica `precos.html` foi removida:
+Psique e NR-1 agora vivem em paginas especificas, que podem se apontar por
+link sem copiar valores uma da outra.
 
 A FONTE AQUI E O SERVIDOR, NAO UMA TABELA DECLARADA
 ---------------------------------------------------
@@ -89,7 +89,7 @@ def _centavos(texto: str) -> int:
 
 
 def _pacotes_publicados():
-    pagina = (REPO / "froid-site" / "precos.html").read_text(encoding="utf-8")
+    pagina = (REPO / "froid-site" / "precos-psique.html").read_text(encoding="utf-8")
     return [(int(s), _centavos(v)) for s, v in PACOTE.findall(pagina)]
 
 
@@ -104,7 +104,7 @@ class OSitePublicaOQueOServidorCobra(unittest.TestCase):
         preco de pacote embutido na pagina.
         """
         self.assertEqual([], _pacotes_publicados(),
-                         "precos.html voltou a ter preco de pacote embutido")
+                         "precos-psique.html voltou a ter preco de pacote embutido")
 
     def test_todo_pacote_publicado_existe_no_servidor_com_o_mesmo_preco(self):
         do_servidor = {
@@ -166,15 +166,18 @@ class OSitePublicaOQueOServidorCobra(unittest.TestCase):
             )
 
     def test_os_dois_produtos_nao_compartilham_tabela(self):
-        """`precos.html` aponta para o NR-1 por LINK, sem copiar valor.
+        """Psique e NR-1 apontam um para o outro por LINK, sem copiar valor.
 
         Copiar seria criar o quinto espelho de um preco que ja tem quatro, e
         entre produtos diferentes — a divergencia mais dificil de perceber.
         """
-        pagina = (REPO / "froid-site" / "precos.html").read_text(encoding="utf-8")
-        self.assertIn("empresas.html", pagina, "a pagina nao aponta para o produto NR-1")
-        self.assertNotIn("por trabalhador", pagina)
-        self.assertNotIn("Faixa 1", pagina)
+        psique = (REPO / "froid-site" / "precos-psique.html").read_text(encoding="utf-8")
+        nr1 = (REPO / "froid-site" / "precos-nr1.html").read_text(encoding="utf-8")
+        self.assertIn("precos-nr1.html", psique, "Psique nao aponta para precos NR-1")
+        self.assertIn("precos-psique.html", nr1, "NR-1 nao aponta para precos Psique")
+        self.assertNotIn("por trabalhador", psique)
+        self.assertNotIn("Faixa 1", psique)
+        self.assertNotIn('id="pv2-ofertas"', nr1)
 
 
 if __name__ == "__main__":
