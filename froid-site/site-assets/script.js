@@ -23,6 +23,7 @@ var NAV_SECOES = {
   ],
   "como-funciona-clinico.html": [
     ["prepare-uma-captura-autorizada", "1. Prepare uma captura autorizada"],
+    ["cortes-e-calibracao", "Calibração e cortes: os números da sessão"],
     ["acompanhe-canais-complementares", "2. Acompanhe canais complementares"],
     ["distingua-candidato-registro-e-historico", "3. Distingua candidato, registro e histórico"],
     ["saiba-quando-nao-ha-medida", "4. Saiba quando não há medida"],
@@ -30,7 +31,6 @@ var NAV_SECOES = {
     ["veja-como-isso-se-apresenta", "Veja como isso se apresenta"]
   ],
   "como-funciona-nr1.html": [
-    ["quando-a-segunda-avaliacao-reprova", "E se a segunda avaliação reprovar?"],
     ["a-sua-empresa-tem-tamanho-para-isso", "A sua empresa tem tamanho para isso?"]
   ],
   "data-froid.html": [
@@ -42,14 +42,6 @@ var NAV_SECOES = {
     ["privacidade-nao-e-um-rotulo", "Privacidade não é um rótulo"],
     ["perguntas-que-respeitam-os-dados-disponiveis", "Perguntas que respeitam os dados disponíveis"],
     ["avalie-o-data-froid-com-a-equipe", "Avalie o Data-Froid com a equipe"]
-  ],
-  "demonstracao.html": [
-    ["uma-linha-do-tempo-dois-canais", "Uma linha do tempo, dois canais"],
-    ["explore-tres-situacoes", "Explore três situações"],
-    ["o-que-o-profissional-leva-para-a-revisao", "O que o profissional leva para a revisão"],
-    ["cortes-e-calibracao", "Calibração e cortes: os números da sessão"],
-    ["o-produto-na-tela", "O aplicativo, na tela"],
-    ["quer-conhecer-a-interface-em-uma-apresentacao", "Quer conhecer a interface em uma apresentação?"]
   ],
   "empresas.html": [
     ["custo-da-omissao", "O custo da omissão"],
@@ -107,6 +99,7 @@ var NAV_SECOES = {
     ["pagina-2", "O que o FROID entrega"],
     ["pagina-3", "O FROID não substitui prestadores"],
     ["pagina-4", "Proteção e evidência"],
+    ["quando-a-segunda-avaliacao-reprova", "E se a segunda avaliação reprovar?"],
     ["pagina-5", "Minha proposta: experimentem"]
   ],
   "mapas-faciais.html": [
@@ -140,6 +133,7 @@ var NAV_SECOES = {
     ["antes-durante-e-depois", "Antes, durante e depois"],
     ["relatorio-da-sessao", "O relatório da sessão"],
     ["instrumentos-que-informam-sem-decidir-por-voce", "Instrumentos que informam, sem decidir por você"],
+    ["ipm-idm", "IPM e IDM: magnitude e direção"],
     ["uma-pergunta-melhor-comeca-por-um-contexto-claro", "Uma pergunta melhor começa por um contexto claro"],
     ["data-froid-da-informacao-registrada-a-investigacao", "Data-Froid: da informação registrada à investigação"],
     ["contratacao-adequada-a-sua-pratica", "Contratação adequada à sua prática"],
@@ -168,7 +162,6 @@ var NAV_SECOES = {
   ],
   "tecnologia.html": [
     ["voz", "Voz: uma referência para a própria sessão"],
-    ["ipm-idm", "IPM e IDM: magnitude e direção"],
     ["face", "Face: do coeficiente ao padrão"],
     ["registro", "Consistência que chega à tela e ao relatório"],
     ["arquitetura-com-responsabilidades-distintas", "Arquitetura com responsabilidades distintas"],

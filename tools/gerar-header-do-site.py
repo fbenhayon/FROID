@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
-"""Gera o <nav> do header das 84 paginas do froid-site.
+﻿# -*- coding: utf-8 -*-
+"""Gera o <nav> do header das paginas do froid-site.
 
 RODE ESTE SCRIPT depois de mexer no NAV_SECOES do script.js, nos titulos das
 secoes das paginas, ou na composicao dos menus aqui embaixo:
@@ -47,7 +47,6 @@ IDIOMAS = {
             ("FROID Psique", "profissionais.html", [
                 ("Vis\u00e3o geral", "profissionais.html"),
                 ("Como funciona", "como-funciona-clinico.html"),
-                ("Demonstra\u00e7\u00e3o", "demonstracao.html"),
                 ("FROID Explica", "froid-explica.html"),
                 ("Data-Froid", "data-froid.html"),
             ]),
@@ -73,7 +72,6 @@ IDIOMAS = {
             ('FROID Psique', "profissionais.html", [
                 ('Overview', 'profissionais.html'),
                 ('How it works', 'como-funciona-clinico.html'),
-                ('Demonstration', 'demonstracao.html'),
                 ('FROID Explains', 'froid-explica.html'),
                 ('Data-Froid', 'data-froid.html'),
             ]),
@@ -96,7 +94,6 @@ IDIOMAS = {
             ('FROID Psique', "profissionais.html", [
                 ('Visión general', 'profissionais.html'),
                 ('Cómo funciona', 'como-funciona-clinico.html'),
-                ('Demostración', 'demonstracao.html'),
                 ('FROID Explica', 'froid-explica.html'),
                 ('Data-Froid', 'data-froid.html'),
             ]),
@@ -119,7 +116,6 @@ IDIOMAS = {
             ('FROID Psique', "profissionais.html", [
                 ("Vue d'ensemble", 'profissionais.html'),
                 ('Comment ça marche', 'como-funciona-clinico.html'),
-                ('Démonstration', 'demonstracao.html'),
                 ('FROID Explique', 'froid-explica.html'),
                 ('Data-Froid', 'data-froid.html'),
             ]),
