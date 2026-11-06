@@ -24,6 +24,7 @@ section.block { padding:88px 0; }
 section.block.soft { background:linear-gradient(120deg,#111824,#0c111b); }
 h2.section-title { font-family:var(--font); font-size:clamp(1.8rem,3.2vw,2.8rem); line-height:1.2; letter-spacing:-.035em; text-wrap:balance; max-width:960px; margin-inline:auto; }
 p.section-kicker { color:#f5c778; letter-spacing:.18em; margin-bottom:18px; }
+p.page-title-amber { color:#f5c778; font-size:clamp(1.05rem,2.2vw,1.7rem); font-weight:800; letter-spacing:0; line-height:1.2; margin:0 0 22px; text-align:center; text-wrap:balance; }
 p.section-lead { line-height:1.8; margin-top:20px; }
 .grid-2,.grid-3 { gap:24px; }
 .card { background:linear-gradient(145deg,#1a2433,#111822); border-color:#303d50; padding:30px; box-shadow:0 12px 40px #00000015; }
