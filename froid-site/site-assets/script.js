@@ -49,6 +49,18 @@ var NAV_SECOES = {
     ["simulador-nr1", "Simulação"],
     ["limites-e-responsabilidade", "Limites e responsabilidade"]
   ],
+  "contratacao-nr1.html": [
+    ["sumario-executivo", "Sumário executivo"],
+    ["norma", "A NR-1 em vigor"],
+    ["cadeia", "A oportunidade oculta"],
+    ["linha-de-raciocinio", "Linha de raciocínio"],
+    ["padroes", "Padrões"],
+    ["indicadores", "Indicadores"],
+    ["campanhas-segmentadas", "Campanhas segmentadas"],
+    ["anonimato", "Anonimato"],
+    ["pgr-e-psique", "PGR e Psique"],
+    ["recomendacoes", "Recomendações"]
+  ],
   "faq.html": [
     ["medidas-e-interpretacao", "Medidas e interpretação"],
     ["uso-e-contratacao", "Uso e contratação"],

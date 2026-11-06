@@ -52,6 +52,7 @@ IDIOMAS = {
             ]),
             ("FROID NR-1", "empresas.html", [
                 ("Vis\u00e3o geral", "empresas.html"),
+                ("Cadeia de Comando", "contratacao-nr1.html"),
                 ("Proposta", "proposta-nr1.html"),
                 ("FROID ISO 45001", "iso-45001.html"),
                 ("Apresenta\u00e7\u00e3o NR-1", "apresentacao-nr1.html"),
