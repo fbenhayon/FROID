@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """Gera o <nav> do header das paginas do froid-site.
 
 RODE ESTE SCRIPT depois de mexer no NAV_SECOES do script.js, nos titulos das
@@ -53,7 +53,6 @@ IDIOMAS = {
             ("FROID NR-1", "empresas.html", [
                 ("Vis\u00e3o geral", "empresas.html"),
                 ("Cadeia de Comando", "contratacao-nr1.html"),
-                ("Proposta", "proposta-nr1.html"),
                 ("FROID ISO 45001", "iso-45001.html"),
                 ("Apresenta\u00e7\u00e3o NR-1", "apresentacao-nr1.html"),
             ]),
@@ -324,7 +323,7 @@ def bloco_hreflang(pagina):
 
 def aplicar_hreflang(texto, pagina):
     """Substitui o bloco existente; se não houver, insere antes do stylesheet."""
-    if 'name="robots" content="noindex"' in texto:
+    if re.search(r'name="robots"\s+content="[^"]*\bnoindex\b', texto):
         return texto                      # página fora do índice não declara alternativas
     novo = bloco_hreflang(pagina)
     if HREFLANG.search(texto):

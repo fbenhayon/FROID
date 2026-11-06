@@ -44,6 +44,7 @@ var NAV_SECOES = {
     ["custo-da-omissao", "O custo da omissão"],
     ["armadilhas", "Armadilhas"],
     ["tres-linhas-metodo", "As 3 linhas que resumem o método"],
+    ["lista-de-preparacao", "Lista de informações"],
     ["como-comparar", "Como comparar"],
     ["precos-nr1", "Preços"],
     ["simulador-nr1", "Simulação"],
