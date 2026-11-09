@@ -21,7 +21,7 @@ from psique_billing import BillingError
 # precos-v2.html foi apagada em 07/10/2026 (decisao do dono): era a copia de
 # homologacao da V2, sem header nem rodape. Em 06/11/2026 a pagina generica
 # precos.html tambem saiu; a pagina publica do Psique agora e especifica.
-PAGINAS = [SITE / "precos-psique.html"]
+PAGINAS = [SITE / "psique" / "precos-psique.html"]
 
 
 # -- Espelho do Trial: a fonte executavel e a migration 037 -------------------

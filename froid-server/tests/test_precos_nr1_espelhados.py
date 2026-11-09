@@ -160,7 +160,7 @@ class TodaCopiaDoPrecoConfereComAFonte(unittest.TestCase):
         # O literal acima e proposital: ele afirma que os limites nao mudaram
         # em silencio. Se o motor mudar, este teste cai e obriga a atualizar os
         # textos das quatro faixas junto — que e o ponto.
-        pagina = (REPO / "froid-site" / "empresas.html").read_text(encoding="utf-8")
+        pagina = (REPO / "froid-site" / "nr1" / "index.html").read_text(encoding="utf-8")
         self.assertIn("Faixa 1 — de 1 a 100 trabalhadores", pagina)
         self.assertIn("Faixa 2 — de 101 a 300", pagina)
         self.assertIn("Faixa 3 — de 301 a 1.000", pagina)
@@ -178,7 +178,7 @@ class TodaCopiaDoPrecoConfereComAFonte(unittest.TestCase):
         O sentido de "unidade de avaliacao" continua valido e nao e varrido
         aqui: o que este teste proibe e a tabela de PRECO voltar a usa-lo.
         """
-        pagina = (REPO / "froid-site" / "empresas.html").read_text(encoding="utf-8")
+        pagina = (REPO / "froid-site" / "nr1" / "index.html").read_text(encoding="utf-8")
         inicio = pagina.index('id="precos-nr1"')
         # Fim da secao: o proximo </section>. O marcador antigo, o id de
         # `limites-e-responsabilidade`, nao existe na pagina nova de 06/10/2026,
@@ -232,7 +232,7 @@ class OsTotaisDERIVADOSTambemConferem(unittest.TestCase):
 
     def test_a_simulacao_do_site_bate_com_o_motor_nos_quatro_idiomas(self):
         for prefixo, idioma in self.IDIOMAS.items():
-            caminho = REPO / "froid-site" / prefixo / "proposta-nr1.html"
+            caminho = REPO / "froid-site" / prefixo / "nr1" / "proposta-nr1.html"
             texto = caminho.read_text(encoding="utf-8")
             for trabalhadores in self.PORTES_DO_SITE:
                 mensal = self._mensal(trabalhadores)
@@ -283,7 +283,7 @@ class OsTotaisDERIVADOSTambemConferem(unittest.TestCase):
         """Varredura que nao acha nada e indistinguivel de varredura limpa."""
         achados = 0
         for prefixo in self.IDIOMAS:
-            texto = (REPO / "froid-site" / prefixo / "proposta-nr1.html").read_text(
+            texto = (REPO / "froid-site" / prefixo / "nr1" / "proposta-nr1.html").read_text(
                 encoding="utf-8"
             )
             achados += texto.count("<tr><td>")
@@ -320,7 +320,7 @@ class AConducaoEmCampoEDaContratante(unittest.TestCase):
         "es/": "Campañas ilimitadas.",
         "fr/": "Campagnes illimitées.",
     }
-    PAGINAS = ("empresas.html", "proposta-nr1.html")
+    PAGINAS = ("nr1/index.html", "nr1/proposta-nr1.html")
 
     def test_o_servico_que_nao_prestamos_saiu_do_material(self):
         """Os tres precos nao podem voltar a lugar nenhum da varredura."""
@@ -344,14 +344,14 @@ class AConducaoEmCampoEDaContratante(unittest.TestCase):
         for prefixo, frase in self.NEGACAO.items():
             for pagina in self.PAGINAS:
                 caminho = REPO / "froid-site" / prefixo / pagina
-                with self.subTest(pagina=caminho.name, idioma=prefixo or "pt"):
+                with self.subTest(pagina=pagina, idioma=prefixo or "pt"):
                     self.assertIn(frase, caminho.read_text(encoding="utf-8"))
 
     def test_as_campanhas_ilimitadas_estao_declaradas(self):
         for prefixo, frase in self.ILIMITADAS.items():
             for pagina in self.PAGINAS:
                 caminho = REPO / "froid-site" / prefixo / pagina
-                with self.subTest(pagina=caminho.name, idioma=prefixo or "pt"):
+                with self.subTest(pagina=pagina, idioma=prefixo or "pt"):
                     self.assertIn(frase, caminho.read_text(encoding="utf-8"))
 
     def test_o_produto_CUMPRE_a_promessa_de_campanha_ilimitada(self):

@@ -151,7 +151,7 @@ class OExplicaEncontraAsNotasPorPalavra(unittest.TestCase):
 
 class OSiteDescreveOsMesmosProcedimentos(unittest.TestCase):
     def test_o_faq_tem_as_quatro_perguntas_novas(self):
-        faq = _ler(SITE / "faq.html")
+        faq = _ler(SITE / "psique" / "faq.html")
         for pergunta in (
             "Como os pacientes ficam separados?",
             "Como funcionam os papéis, as cotas e a visibilidade numa clínica?",
@@ -162,24 +162,24 @@ class OSiteDescreveOsMesmosProcedimentos(unittest.TestCase):
         self.assertIn('id="uso-e-contratacao"', faq)
 
     def test_precos_psique_nao_diz_mais_que_nao_ha_cota_por_profissional(self):
-        precos = _ler(SITE / "precos-psique.html")
+        precos = _ler(SITE / "psique" / "precos-psique.html")
         self.assertNotIn("sem cota por profissional", precos)
         self.assertIn("limite de sessões", precos)
 
     def test_a_pagina_do_explica_descreve_cortes_e_consultas(self):
-        pagina = _ler(SITE / "froid-explica.html")
+        pagina = _ler(SITE / "psique" / "froid-explica.html")
         self.assertIn("todos os cortes da sessão", pagina)
         self.assertIn("tabela por corte", pagina)
         self.assertIn("sob o mesmo acesso que a pessoa já tem no painel", pagina)
 
     def test_como_funciona_aponta_para_o_faq_da_clinica(self):
-        pagina = _ler(SITE / "como-funciona-clinico.html")
+        pagina = _ler(SITE / "psique" / "como-funciona-clinico.html")
         self.assertIn('href="faq.html#uso-e-contratacao"', pagina)
         self.assertIn('carimbo "Solo"', pagina)
 
     def test_nenhuma_pagina_editada_ganhou_mojibake(self):
         for nome in ("faq", "froid-explica", "como-funciona-clinico", "precos-psique"):
-            texto = _ler(SITE / f"{nome}.html")
+            texto = _ler(SITE / "psique" / f"{nome}.html")
             self.assertNotRegex(texto, r"Ã.|â€", nome)
 
 
