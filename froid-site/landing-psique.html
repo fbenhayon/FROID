@@ -1639,7 +1639,7 @@
               <span class="hero-stat-label">Linha de base individualizada</span>
             </div>
             <div class="hero-stat-item">
-              <span class="hero-stat-val">500ms</span>
+              <span class="hero-stat-val">Tempo real</span>
               <span class="hero-stat-label">Atualização de IPM e IDM</span>
             </div>
             <div class="hero-stat-item">
@@ -1647,8 +1647,8 @@
               <span class="hero-stat-label">Zonas bioacústicas cromáticas</span>
             </div>
             <div class="hero-stat-item">
-              <span class="hero-stat-val">0 Disco</span>
-              <span class="hero-stat-label">Processamento volátil em RAM</span>
+              <span class="hero-stat-val">0 Gravação</span>
+              <span class="hero-stat-label">Áudio e vídeo sem gravação pelo FROID</span>
             </div>
           </div>
         </div>
@@ -1660,7 +1660,7 @@
               <span class="telemetry-status-dot"></span>
               SESSÃO AO VIVO · BIOMETRIA ATIVA
             </span>
-            <span style="font-family: var(--font-mono); font-size: 0.75rem; color: #38bdf8;">JANELA: 500ms</span>
+            <span style="font-family: var(--font-mono); font-size: 0.75rem; color: #38bdf8;">MODO: TEMPO REAL</span>
           </div>
 
           <div class="telemetry-stream">
@@ -1808,7 +1808,7 @@
           <ul class="channel-specs">
             <li><i data-lucide="chevron-right" style="width: 14px; height: 14px; color: var(--primary);"></i> Rastreamento da cadência de elocução (10 a 260+ ppm)</li>
             <li><i data-lucide="chevron-right" style="width: 14px; height: 14px; color: var(--primary);"></i> Hesitações sintáticas e custo de processamento mental</li>
-            <li><i data-lucide="chevron-right" style="width: 14px; height: 14px; color: var(--primary);"></i> Transcrição volátil higienizada sem arquivamento de áudio</li>
+            <li><i data-lucide="chevron-right" style="width: 14px; height: 14px; color: var(--primary);"></i> Transcrição guardada cifrada, sem gravação do áudio</li>
           </ul>
         </div>
       </div>
@@ -1955,7 +1955,7 @@
         <span class="section-eyebrow">Instrumentação de Cabine Clínica</span>
         <h2 class="section-title-amber">IDM e IPM: magnitude e direção da energia psíquica</h2>
         <p class="section-lead">
-          Dois índices complementares atualizados a cada 500 milissegundos sintetizam a complexidade biométrica do paciente em mostradores instantâneos.
+          Dois índices complementares, atualizados em tempo real ou em janelas de 1 a 7 minutos à escolha do profissional, sintetizam a complexidade biométrica do paciente em mostradores instantâneos.
         </p>
       </div>
 
@@ -2615,8 +2615,8 @@
           <ul class="layer-list">
             <li>Acesso exclusivo e intransferível à dupla profissional-paciente.</li>
             <li>Criptografia autenticada (Fernet: AES + HMAC).</li>
-            <li>Isolamento multitenant no banco com Row-Level Security (RLS).</li>
-            <li>O áudio e o vídeo brutos <strong>jamais são gravados em disco</strong>: são processados exclusivamente em memória RAM volátil em janelas rolantes de 3 segundos e descartados.</li>
+            <li>Isolamento por organização no controle de acesso da aplicação.</li>
+            <li>O áudio e o vídeo brutos <strong>não são gravados pelo FROID</strong>: existem durante a chamada. A imagem da face não é enviada ao servidor; o navegador extrai apenas coeficientes numéricos. A transcrição usa fornecedor nos Estados Unidos.</li>
           </ul>
         </div>
 
@@ -2627,7 +2627,7 @@
             <li>Banco colunar (DuckDB) desidentificado nos termos do Art. 12 da LGPD.</li>
             <li><strong>O que NUNCA entra:</strong> Imagem facial, áudio bruto, dados de identificação pessoal (PII) e transcrição literal da fala do paciente.</li>
             <li><strong>O que entra:</strong> Vetores puramente numéricos (IPM, IDM, MFCC, AUs) e marcadores tipificados de fala do profissional sanitizados.</li>
-            <li>Piso de coorte: consultas bloqueadas abaixo de 7 sessões (k ≥ 7) e privacidade diferencial (ε = 0.5) com risk_score ≤ 0.45.</li>
+            <li>Piso de coorte: consultas bloqueadas abaixo de 7 sessões (k ≥ 7).</li>
           </ul>
         </div>
 
@@ -2833,7 +2833,7 @@
           <li><a href="#privacidade-lgpd">Diretrizes CFP (01/09 e 09/24)</a></li>
           <li><a href="#privacidade-lgpd">LGPD &amp; Anonimização k ≥ 7</a></li>
           <li><a href="#privacidade-lgpd">Termos de Uso e Consentimento</a></li>
-          <li><a href="#privacidade-lgpd">Segurança e RAM Volátil</a></li>
+          <li><a href="#privacidade-lgpd">Segurança e Criptografia</a></li>
         </ul>
       </div>
 
