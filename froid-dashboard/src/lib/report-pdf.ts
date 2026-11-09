@@ -1133,7 +1133,6 @@ export function buildPatientReport(
   // A procedência decide se um número existe ou se a sua ausência é que existe.
   const proc = report.procedenciaDosDados;
   const vozApurada: boolean | null = proc ? proc.amostrasComVozReal > 0 : null;
-  const faceApurada: boolean | null = proc ? proc.amostrasComFaceReal > 0 : null;
   const semVoz = vozApurada === false;
 
   // Numeração corrida, atribuída na ordem em que as seções realmente entram.
@@ -1281,10 +1280,14 @@ export function buildPatientReport(
     // "não medido" quando não.
     const linhas: string[][] = [
       ["Energia da fala", medida(media.ipmAvg, 1, vozApurada), medida(base.ipmAvg, 1, vozApurada)],
+      // IDM é o desvio com sinal das 12 zonas VOCAIS (explica_clinico): não
+      // compara fala com rosto e não depende da câmera. O rótulo antigo,
+      // "Variação entre fala e rosto", descrevia ao paciente uma medida que
+      // o FROID não faz.
       [
-        "Variação entre fala e rosto",
-        medida(media.idmAvg, 2, vozApurada === false || faceApurada === false ? false : vozApurada),
-        medida(base.idmAvg, 2, vozApurada === false || faceApurada === false ? false : vozApurada),
+        "Direção da energia da voz",
+        medida(media.idmAvg, 2, vozApurada),
+        medida(base.idmAvg, 2, vozApurada),
       ],
       ["Ritmo da fala", medida(media.wordsPerMinute, 1, true), medida(base.wordsPerMinute, 1, true)],
     ];

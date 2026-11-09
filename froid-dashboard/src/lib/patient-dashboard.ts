@@ -551,10 +551,14 @@ function buildMeasurementNote(
     recurrentEmotion && recurrentEmotion !== "--"
       ? `, tom recorrente ${recurrentEmotion.toLowerCase()}`
       : "";
+  // "Nenhum evento confirmado" afirmava que se procurou e não se achou. A
+  // dissonância facial-vocal NÃO é apurada (falta relação validada entre
+  // canais), e os eventos contados aqui vêm do motor de marcadores, não da
+  // comparação entre rosto e voz. Ausência se declara como ausência.
   const dissonanceText =
     dissonanceCount > 0
-      ? `${dissonanceCount} evento(s) de dissonância facial-vocal confirmado(s)`
-      : "nenhum evento de dissonância facial-vocal confirmado";
+      ? `${dissonanceCount} evento(s) de dissonância registrado(s) pelo motor de marcadores; dissonância facial-vocal não apurada`
+      : "dissonância facial-vocal não apurada";
   return `${patientName}: ${sessionCount} sessão(ões) analisada(s), ${zoneText}${emotionText}. ${dissonanceText}. Compare a linha de base, a média da sessão e os cortes de 10 minutos para acompanhar a evolução.`;
 }
 
@@ -613,8 +617,8 @@ export function buildPatientGroups(reports: SessionReportRecord[]): PatientDashb
         dissonanceCount,
         facsSummary:
           dissonanceCount > 0
-            ? `${dissonanceCount} dissonância(s) facial-vocal registrada(s)`
-            : "Sem dissonância facial-vocal registrada",
+            ? `${dissonanceCount} evento(s) de dissonância do motor de marcadores; facial-vocal não apurada`
+            : "Dissonância facial-vocal não apurada",
         clinicalNote: buildMeasurementNote(
           patientName,
           dominantZone,
