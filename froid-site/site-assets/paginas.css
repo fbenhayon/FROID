@@ -352,35 +352,28 @@ table.comp th { background: #0f1c2e; }
 }
 
 .nr1-info-list li {
-  background: rgba(15, 23, 42, 0.62);
-  border: 1px solid var(--border);
+  background: rgba(69, 26, 3, 0.38);
+  border: 1px solid #92400e;
+  border-left: 4px solid #fcd34d;
   border-radius: 8px;
-  color: #cbd5e1;
+  color: #e2e8f0;
   line-height: 1.55;
-  min-height: 128px;
-  padding: 18px 18px 18px 72px;
+  padding: 18px 18px 18px 44px;
   position: relative;
 }
 
 .nr1-info-list span {
-  align-items: center;
-  background: rgba(14, 165, 233, 0.14);
-  border: 1px solid rgba(14, 165, 233, 0.36);
+  background: #fcd34d;
   border-radius: 50%;
-  color: #7dd3fc;
-  display: flex;
-  font-size: 0.78rem;
-  font-weight: 900;
-  height: 38px;
-  justify-content: center;
+  height: 12px;
   left: 18px;
   position: absolute;
-  top: 18px;
-  width: 38px;
+  top: 25px;
+  width: 12px;
 }
 
 .nr1-info-list strong {
-  color: #f8fafc;
+  color: #fcd34d;
   display: block;
   margin-bottom: 5px;
 }
