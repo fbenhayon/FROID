@@ -61,7 +61,7 @@ LIMITATIONS = [
     "AUs são proxies não validados contra codificação FACS; limiares 0,30/0,25 são legados.",
     "AU23 sem mapeamento; AU25/AU27 não instrumentadas; AU17 usa mouthShrugLower como proxy.",
     "Sem confiança clínica, escala FACS A–E ou detecção certificada de ápice/microexpressão.",
-    "Sem baseline neutra individual nem controle validado de pose, oclusão, iluminação e movimentos de fala.",
+    "Referência facial individual (60 s iniciais) em modo de medição: ainda não filtra nem classifica padrões; sem controle validado de pose, oclusão, iluminação e movimentos de fala.",
     "Dissonância facial-vocal não apurada: falta relação validada entre canais.",
 ]
 PATIENT_FACIAL_TITLE = "Movimento facial observado"
@@ -182,6 +182,130 @@ def process_facial_frame(blendshapes: Dict[str, float]) -> Dict[str, Any]:
     }
 
 
+# REFERÊNCIA FACIAL INDIVIDUAL — MODO DE MEDIÇÃO (decisão do dono, 08/11/2026).
+#
+# Os limiares absolutos 0,30/0,25 tratam todo rosto igual: um paciente com
+# AU4 em 0,37 em repouso (sobrancelha baixa, óculos, luz) fica sempre "ativo",
+# e movimentos sutis de outro nunca chegam a 0,30. A régua certa é a do próprio
+# paciente, com a mesma disciplina da voz (`_update_activation_reference` em
+# froid_core.py): mediana e MAD dos 60 s iniciais, imunes a um evento isolado.
+#
+# Esta fase NÃO filtra nem reclassifica nada. Ela só mede quanto cada AU se
+# afasta da referência, para que o limiar seja escolhido a partir de sessões
+# reais, e não chutado (skill mestre, §1.1). Quando o limiar existir, ele vira
+# uma constante com a origem documentada, e só então o relatório passa a omitir
+# o que ficar abaixo dele.
+FACE_BASELINE_WINDOW_S = 60.0  # a mesma janela de calibração da voz
+# Mínimo OPERACIONAL, não clínico: 10 s de rosto medido à cadência de 3 Hz.
+# Abaixo disso a mediana é de poucos quadros e a referência se declara
+# insuficiente. O número de quadros sai publicado, para que a análise do
+# limiar possa descartar calibrações curtas com o critério que os dados pedirem.
+FACE_BASELINE_MIN_FRAMES = 30
+# Histograma do afastamento (valor - mediana), que vai de -1 a +1 porque os
+# coeficientes vivem em [0, 1]. Passo de 0,01: memória constante numa sessão
+# longa e percentis com resolução de um centésimo.
+_HIST_STEP = 0.01
+_HIST_BINS = 201
+_PERCENTILES = (50, 90, 95, 99)
+
+
+class FacialBaseline:
+    def __init__(self):
+        self.started_at: Optional[float] = None
+        self.samples: Dict[str, List[float]] = {au: [] for au in AU_BLENDSHAPES}
+        self.frames = 0
+        self.status = "waiting"  # waiting | calibrating | ready | insufficient
+        self.reference: Dict[str, Optional[dict]] = {}
+        self.histograms: Dict[str, List[int]] = {}
+        self.max_delta: Dict[str, Optional[float]] = {}
+        self.measured_frames = 0
+
+    def _close(self) -> None:
+        if self.frames < FACE_BASELINE_MIN_FRAMES:
+            self.status = "insufficient"
+        else:
+            self.status = "ready"
+            for au, values in self.samples.items():
+                if not values:
+                    self.reference[au] = None
+                    continue
+                arr = sorted(values)
+                n = len(arr)
+                median = (arr[n // 2] if n % 2 else (arr[n // 2 - 1] + arr[n // 2]) / 2)
+                deviations = sorted(abs(v - median) for v in arr)
+                mad = (deviations[n // 2] if n % 2 else (deviations[n // 2 - 1] + deviations[n // 2]) / 2)
+                self.reference[au] = {"median": round(median, 4), "scale": round(mad * 1.4826, 4), "frames": n}
+                self.histograms[au] = [0] * _HIST_BINS
+                self.max_delta[au] = None
+        self.samples = {au: [] for au in AU_BLENDSHAPES}
+
+    def observe(self, aus: dict, now: float) -> Dict[str, Optional[float]]:
+        """Recebe um quadro MEDIDO. Devolve o afastamento de cada AU em relação
+        à referência (None enquanto ela não existe ou quando a AU não foi
+        medida — nunca zero por ausência)."""
+        if self.started_at is None:
+            self.started_at = now
+            self.status = "calibrating"
+        if self.status == "calibrating":
+            if now - self.started_at <= FACE_BASELINE_WINDOW_S:
+                self.frames += 1
+                for au, value in aus.items():
+                    if value is not None and au in self.samples:
+                        self.samples[au].append(float(value))
+                return {au: None for au in aus}
+            self._close()
+        if self.status != "ready":
+            return {au: None for au in aus}
+        self.measured_frames += 1
+        deltas: Dict[str, Optional[float]] = {}
+        for au, value in aus.items():
+            ref = self.reference.get(au)
+            if value is None or ref is None:
+                deltas[au] = None
+                continue
+            delta = float(value) - ref["median"]
+            deltas[au] = round(delta, 4)
+            index = min(_HIST_BINS - 1, max(0, int(round((delta + 1.0) / _HIST_STEP))))
+            self.histograms[au][index] += 1
+            prev = self.max_delta[au]
+            self.max_delta[au] = delta if prev is None else max(prev, delta)
+        return deltas
+
+    def summary(self) -> dict:
+        # Todas as 16 AUs constam: a que não tem referência aparece como None,
+        # declarada, em vez de sumir do resumo.
+        deviation = {}
+        for au in AU_BLENDSHAPES:
+            hist = self.histograms.get(au)
+            total = sum(hist) if hist else 0
+            if not total:
+                deviation[au] = None
+                continue
+            out = {"frames": total}
+            for p in _PERCENTILES:
+                target, acc = total * p / 100.0, 0
+                for i, count in enumerate(hist):
+                    acc += count
+                    if acc >= target:
+                        out[f"p{p}"] = round(i * _HIST_STEP - 1.0, 2)
+                        break
+            out["max"] = round(self.max_delta[au], 4) if self.max_delta[au] is not None else None
+            deviation[au] = out
+        return {
+            "schema_version": "facial_baseline_v1",
+            "mode": "measurement_only",
+            "status": self.status,
+            "window_s": FACE_BASELINE_WINDOW_S,
+            "min_frames": FACE_BASELINE_MIN_FRAMES,
+            "calibration_frames": self.frames,
+            "frames_after_calibration": self.measured_frames,
+            "reference": self.reference if self.status == "ready" else None,
+            "deviation": deviation if self.status == "ready" else None,
+            "threshold": None,
+            "threshold_reason": "Limiar ainda não definido: em medição para ser escolhido a partir de sessões reais.",
+        }
+
+
 class FacialTracker:
     """Repetição por quadros distintos, nunca por tick/releitura de cache.
 
@@ -199,6 +323,7 @@ class FacialTracker:
         self.updated_at = None
         self.active = {}
         self.events = {}
+        self.baseline = FacialBaseline()
 
     def _end(self, reason: str) -> None:
         for event in self.active.values():
@@ -260,6 +385,8 @@ class FacialTracker:
             self.unavailable(now, result["reason"])
             self.current = result
             return True
+        deltas = self.baseline.observe(result["action_units"], now)
+        result["baseline_delta"] = deltas
         if not identified:
             self._end("frame_identity_unavailable")
             result["limitations"].append("Quadro sem identidade temporal: padrões não podem ser confirmados.")
@@ -273,6 +400,21 @@ class FacialTracker:
                 strength = min(result["action_units"][au] for au in variant["aus"])
                 if variant["side"] in ("left", "right"):
                     strength = result["lateral"][variant["aus"][0]][variant["side"]]
+                # Afastamento da referência individual. Variante unilateral
+                # mede um lado só, e a referência é da média dos dois lados:
+                # comparar os dois seria inventar uma régua, então fica None.
+                variant_deltas = {au: deltas.get(au) for au in variant["aus"]}
+                if variant["side"] in ("left", "right") or any(v is None for v in variant_deltas.values()):
+                    delta_strength = None
+                else:
+                    delta_strength = min(variant_deltas.values())
+                previous_peak = previous.get("peak_baseline_delta") if previous else None
+                if delta_strength is None:
+                    peak_delta = previous_peak
+                elif previous_peak is None:
+                    peak_delta = delta_strength
+                else:
+                    peak_delta = max(previous_peak, delta_strength)
                 event = {
                     "id": previous["id"] if previous else f"{self.stream_id}:{self.last_identity[0] if identified else 'unidentified'}:{family['id']}:{variant['id']}",
                     "schema_version": FACIAL_SCHEMA, "family": family["id"], "title": family["title"],
@@ -285,6 +427,9 @@ class FacialTracker:
                     "observations": count, "confirmed": identified and count >= self.minimum_observations,
                     "ambiguous": result["ambiguous"], "strength": strength,
                     "peak_strength": max(previous["peak_strength"], strength) if previous else strength,
+                    "baseline_delta": variant_deltas, "baseline_delta_strength": delta_strength,
+                    "peak_baseline_delta": peak_delta,
+                    "baseline_status": self.baseline.status,
                     "action_units": result["action_units"], "lateral": result["lateral"],
                     "raw_blendshapes": result["raw_blendshapes"],
                     "legacy_estimates": result["legacy_estimates"],
@@ -308,7 +453,7 @@ class FacialTracker:
 
     def snapshot(self, now: float) -> dict:
         self.expire(now)
-        return self.current
+        return {**self.current, "facial_baseline": self.baseline.summary()}
 
     def archive(self) -> list:
         return list(self.events.values())

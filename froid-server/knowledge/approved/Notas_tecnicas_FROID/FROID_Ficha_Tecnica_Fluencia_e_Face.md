@@ -37,9 +37,13 @@ audio e turno do terapeuta falando.
 Action Coding System (FACS), que descreve movimentos de grupos musculares
 especificos da face, com codificacao padronizada e literatura extensa.
 
-**O que o FROID reporta.** Presenca e intensidade das Unidades de Acao
-medidas, e sua divergencia em relacao ao canal vocal na mesma janela — o que
-alimenta a [[froid-ficha-tecnica-dissonancia]].
+**O que o FROID reporta.** Estimativas aproximadas de Unidades de Acao,
+organizadas em sete familias descritivas de padroes faciais, e os eventos em
+que um padrao se repetiu em quadros distintos. O FROID **nao** mede divergencia
+entre rosto e voz: a dissonancia facial-vocal esta sem capacidade de apuracao,
+e a face nao alimenta nenhum indice vocal. Como o relatorio apresenta esses
+eventos, por corte, e como funciona a referencia facial individual esta em
+[[froid-leitura-facial-relatorio-por-corte]].
 
 **O que nao afirma.** O FACS e um sistema **descritivo de movimento**, nao um
 sistema de leitura de emocao. O proprio arcabouco original separa a

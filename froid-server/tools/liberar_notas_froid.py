@@ -52,6 +52,10 @@ LIBERADAS: dict[str, str] = {
         "MFCC e bandas de modulacao, com a ressalva de que nao sao EEG.",
     "FROID_Ficha_Tecnica_Fluencia_e_Face.md":
         "Fluencia verbal e FACS, com os limites de captacao.",
+    # 08/11/2026: pedido do dono — o Explica deve ter na base o procedimento
+    # novo da leitura facial para explicar aos usuarios.
+    "FROID_Leitura_Facial_Relatorio_Por_Corte.md":
+        "Captura facial, referencia individual em medicao e relatorio por corte. Sem limiar, sem pesos.",
     "FROID_Dois_Produtos_Clinico_e_NR1.md":
         "Desambigua produto clinico e modulo NR-1. A ausencia dela fez o "
         "Explica descrever o FROID inteiro pela metade corporativa.",
