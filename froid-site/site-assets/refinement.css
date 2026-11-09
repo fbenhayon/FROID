@@ -73,6 +73,34 @@ footer.site-footer li a { display:inline-block; padding-block:5px; }
   .home-intro .hero-actions { display:flex; flex-wrap:wrap; justify-content:center; }
   .btn { white-space:normal; text-align:center; }
 }
+/* Troca de produto e chamada para acao do header (geradas por
+   tools/gerar-header-do-site.py). A troca e um link pequeno, com icone; a
+   chamada e um botao, que no celular usa o rotulo curto para nao estourar a
+   margem de 16px. */
+.nav-troca-produto { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border:1px solid #354052; border-radius:999px; font-size:.74rem; font-weight:700; color:#cbd5e1; white-space:nowrap; text-decoration:none; }
+.nav-troca-produto:hover { color:#fff; border-color:#5b6b82; text-decoration:none; }
+.nav-troca-psique .nav-troca-icone { color:#60a5fa; }
+.nav-troca-nr1 .nav-troca-icone { color:#c4b5fd; }
+.nav-troca-icone { flex:none; }
+.nav-troca-compacta .nav-troca-marca { display:none; }
+.nav-cta-curto { display:none; }
+.nav-cta-compacto .nav-cta-longo { display:none; }
+.nav-cta-compacto .nav-cta-curto { display:inline; }
+@media(max-width:1440px) {
+  .nav-actions:has(.nav-troca-compacta) { gap:6px; }
+  .nav-actions:has(.nav-troca-compacta) .btn { padding:8px 11px; }
+  .nav-troca-compacta { padding:5px 8px; }
+}
+@media(max-width:1180px) {
+  .nav-actions { flex-wrap:wrap; justify-content:center; max-width:100%; }
+}
+@media(max-width:860px) {
+  .nav-actions { min-width:0; max-width:100%; }
+  .nav-actions .btn { max-width:100%; }
+  .nav-cta-longo { display:none; }
+  .nav-cta-curto { display:inline; }
+  .nav-troca-produto { padding:6px 8px; font-size:.7rem; }
+}
 @media(prefers-reduced-motion:reduce) {
   html { scroll-behavior:auto; }
   *,*::before,*::after { animation:none!important; transition:none!important; }

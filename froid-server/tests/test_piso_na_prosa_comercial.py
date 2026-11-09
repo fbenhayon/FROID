@@ -194,7 +194,7 @@ class APromessaDePorteNaoPodeFecharPorta(unittest.TestCase):
         # (...) a campanha nao produz resultado liberavel". Falso desde a
         # migration 027: de 15 a 210 a campanha publica, em censo ou com
         # adesao proporcionalmente maior. A frase custava a faixa inteira.
-        texto = (SITE / "proposta-nr1.html").read_text(encoding="utf-8")
+        texto = (SITE / "nr1" / "proposta-nr1.html").read_text(encoding="utf-8")
         self.assertNotRegex(
             texto,
             r"Abaixo de aproximadamente 210 trabalhadores[^<]*n[aã]o produz resultado",
@@ -205,7 +205,7 @@ class APromessaDePorteNaoPodeFecharPorta(unittest.TestCase):
         # preco dito: nessa faixa uma unica recusa suspende o inventario.
         # Vender "agora atende empresa pequena" sem isso gera cliente
         # insatisfeito no fim da coleta.
-        texto = (SITE / "proposta-nr1.html").read_text(encoding="utf-8")
+        texto = (SITE / "nr1" / "proposta-nr1.html").read_text(encoding="utf-8")
         self.assertRegex(texto, r"a partir de 15 trabalhadores")
         self.assertRegex(texto, r"uma [uú]nica recusa suspende o invent[aá]rio")
 

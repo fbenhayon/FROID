@@ -89,7 +89,7 @@ def _centavos(texto: str) -> int:
 
 
 def _pacotes_publicados():
-    pagina = (REPO / "froid-site" / "precos-psique.html").read_text(encoding="utf-8")
+    pagina = (REPO / "froid-site" / "psique" / "precos-psique.html").read_text(encoding="utf-8")
     return [(int(s), _centavos(v)) for s, v in PACOTE.findall(pagina)]
 
 
@@ -171,8 +171,8 @@ class OSitePublicaOQueOServidorCobra(unittest.TestCase):
         Copiar seria criar o quinto espelho de um preco que ja tem quatro, e
         entre produtos diferentes — a divergencia mais dificil de perceber.
         """
-        psique = (REPO / "froid-site" / "precos-psique.html").read_text(encoding="utf-8")
-        nr1 = (REPO / "froid-site" / "precos-nr1.html").read_text(encoding="utf-8")
+        psique = (REPO / "froid-site" / "psique" / "precos-psique.html").read_text(encoding="utf-8")
+        nr1 = (REPO / "froid-site" / "nr1" / "precos-nr1.html").read_text(encoding="utf-8")
         self.assertIn("precos-nr1.html", psique, "Psique nao aponta para precos NR-1")
         self.assertIn("precos-psique.html", nr1, "NR-1 nao aponta para precos Psique")
         self.assertNotIn("por trabalhador", psique)

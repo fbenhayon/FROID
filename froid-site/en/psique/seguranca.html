@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex, nofollow" />
+<title>FROID Psique Security | Data flows and privacy</title>
+<meta name="description" content="Understand the flows of facial analysis, audio, clinical records and aggregated queries in the FROID Psique architecture." />
+<link rel="canonical" href="https://www.froid.com.br/en/psique/seguranca.html" />
+<meta property="og:type" content="website" />
+<meta property="og:locale" content="en_US" />
+<meta property="og:title" content="FROID Security — Understand the path of the data" />
+<meta property="og:description" content="Processing, access and aggregated analysis explained by purpose." />
+<meta property="og:url" content="https://www.froid.com.br/en/psique/seguranca.html" />
+<meta name="twitter:card" content="summary" />
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"FROID Psique Security","url":"https://www.froid.com.br/en/psique/seguranca.html","inLanguage":"en"}</script>
+<link rel="alternate" hreflang="pt-BR" href="https://www.froid.com.br/psique/seguranca.html" />
+<link rel="alternate" hreflang="en" href="https://www.froid.com.br/en/psique/seguranca.html" />
+<link rel="alternate" hreflang="fr" href="https://www.froid.com.br/fr/psique/seguranca.html" />
+<link rel="alternate" hreflang="es" href="https://www.froid.com.br/es/psique/seguranca.html" />
+<link rel="alternate" hreflang="x-default" href="https://www.froid.com.br/psique/seguranca.html" />
+<link rel="stylesheet" href="../../site-assets/style.css?v=17" />
+<link rel="stylesheet" href="../../site-assets/refinement.css?v=6" />
+<link rel="stylesheet" href="../../site-assets/paginas.css?v=3" />
+</head>
+
+<body>
+
+<header class="site-header">
+  <div class="nav-row">
+    <a class="brand" href="../index.html"><img class="brand-logo" src="../../site-assets/img/froid-logo.png" alt="" /><span>FROID</span></a>
+    <nav class="nav-links">
+      <span class="nav-familia">
+        <span class="nav-menu">
+          <a class="nav-familia-rotulo" href="index.html">FROID Psique</a>
+          <div class="nav-drop nav-drop-mega" role="menu">
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina nav-drop-visao-geral" role="menuitem" href="index.html">Overview</a>
+            <a class="nav-drop-secao" role="menuitem" href="index.html#antes-durante-e-depois">Before, during and after</a>
+            <a class="nav-drop-secao" role="menuitem" href="index.html#relatorio-da-sessao">The session report</a>
+            <a class="nav-drop-secao" role="menuitem" href="index.html#instrumentos-que-informam-sem-decidir-por-voce">Instruments that inform, without deciding for you</a>
+            <a class="nav-drop-secao" role="menuitem" href="index.html#uma-pergunta-melhor-comeca-por-um-contexto-claro">A better question starts with a clear context</a>
+            <a class="nav-drop-secao" role="menuitem" href="index.html#data-froid-da-informacao-registrada-a-investigacao">Data-Froid: from recorded information to investigation</a>
+            <a class="nav-drop-secao" role="menuitem" href="index.html#contratacao-adequada-a-sua-pratica">A purchase that fits your practice</a>
+            <a class="nav-drop-secao" role="menuitem" href="index.html#comece-avaliando-o-encaixe-na-sua-rotina">Start by assessing the fit with your routine</a>
+          </div>
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina" role="menuitem" href="como-funciona-clinico.html">How it works</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-clinico.html#prepare-uma-captura-autorizada">1. Prepare an authorized capture</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-clinico.html#acompanhe-canais-complementares">2. Follow complementary channels</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-clinico.html#distingua-candidato-registro-e-historico">3. Tell candidate, record and history apart</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-clinico.html#saiba-quando-nao-ha-medida">4. Know when there is no measure</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-clinico.html#revise-e-contextualize">5. Review and contextualize</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-clinico.html#veja-como-isso-se-apresenta">See how this is presented</a>
+          </div>
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina" role="menuitem" href="froid-explica.html">FROID Explains</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#veja-em-acao">See it in action</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#como-um-bibliotecario-nao-como-um-oraculo">Like a librarian, not like an oracle</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#prompts">Native prompts to get started; your own to go deeper</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#mais-clareza-sem-transformar-resposta-em-conduta">More clarity, without turning an answer into clinical conduct</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#veja-o-assistente-no-contexto-da-sua-pratica">See the assistant in the context of your practice</a>
+          </div>
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina" role="menuitem" href="data-froid.html">Data-Froid</a>
+            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#o-acervo-e-o-assistente-tem-papeis-diferentes">The archive and the assistant have different roles</a>
+            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#tres-responsabilidades-na-arquitetura-proposta">Three responsibilities in the proposed architecture</a>
+            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#o-que-pode-ser-investigado">What can be investigated</a>
+            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#voz-e-rosto-continuam-separados">Voice and face remain separate</a>
+            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#pesquisa">A path to investigate, not an automatic validation</a>
+            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#privacidade-nao-e-um-rotulo">Privacy is not a label</a>
+            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#perguntas-que-respeitam-os-dados-disponiveis">Questions that respect the available data</a>
+            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#avalie-o-data-froid-com-a-equipe">Evaluate Data-Froid with the team</a>
+          </div>
+          </div>
+        </span>
+      </span>
+      <span class="nav-familia">
+        <span class="nav-menu">
+          <a class="nav-familia-rotulo" href="tecnologia.html">Science &amp; Technology</a>
+          <div class="nav-drop nav-drop-mega" role="menu">
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina nav-drop-visao-geral" role="menuitem" href="tecnologia.html">Technology</a>
+            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#voz">Voice: a reference for the session itself</a>
+            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#face">Face: from coefficient to pattern</a>
+            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#registro">Consistency that reaches the screen and the report</a>
+            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#arquitetura-com-responsabilidades-distintas">Architecture with distinct responsibilities</a>
+            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#na-tela">The measures, on screen</a>
+            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#leve-o-entendimento-para-a-pratica">Take the understanding into practice</a>
+          </div>
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina" role="menuitem" href="mapas-faciais.html">Facial maps</a>
+            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#um-dicionario-de-movimentos-nao-um-leitor-de-pensamentos">A dictionary of movements, not a mind reader</a>
+            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#familias">The seven families</a>
+            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#o-detalhe-nao-desaparece-na-organizacao">The detail does not disappear in the organization</a>
+            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#quadros-de-referencia">The FACS reference charts</a>
+            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#limites">What should not be inferred</a>
+            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#explore-antes-de-decidir">Explore before deciding</a>
+          </div>
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina" role="menuitem" href="ciencia.html">Science</a>
+            <a class="nav-drop-secao" role="menuitem" href="ciencia.html#tres-camadas-de-leitura">Three layers of reading</a>
+            <a class="nav-drop-secao" role="menuitem" href="ciencia.html#o-que-o-produto-apresenta">What the product presents</a>
+            <a class="nav-drop-secao" role="menuitem" href="ciencia.html#validacao">How to communicate progress without anticipating evidence</a>
+            <a class="nav-drop-secao" role="menuitem" href="ciencia.html#do-entendimento-a-avaliacao-da-sua-pratica">From understanding to evaluating your practice</a>
+          </div>
+          </div>
+        </span>
+        <a href="../menu.html">Explore</a>
+        <a href="../sobre-contato.html">Contact</a>
+      </span>
+    </nav>
+    <div class="nav-actions">
+      <!-- produto e chamada: gerado por tools/gerar-header-do-site.py -->
+      <a class="nav-troca-produto nav-troca-nr1" href="../nr1/index.html" aria-label="Go to FROID NR-1"><svg class="nav-troca-icone" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M2 5.5h10.5L9.5 2.5M14 10.5H3.5l3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span><span class="nav-troca-marca">FROID </span>NR-1</span></a>
+      <a class="btn btn-solid nav-cta nav-cta-psique" href="https://www.froid.com.br/cadastro" aria-label="Sign up and start your free trial"><span class="nav-cta-longo">Sign up and start your free trial</span><span class="nav-cta-curto" aria-hidden="true">Free trial</span></a>
+      <!-- /produto e chamada -->
+      <a class="btn btn-ghost" href="https://www.froid.com.br/app/#/login">Entrar no FROID</a>
+      <div class="lang-group" role="group" aria-label="Choose language"><a class="lang-pill" href="../../psique/seguranca.html">PT</a><span class="lang-pill lang-current">EN</span><a class="lang-pill" href="../../fr/psique/seguranca.html">FR</a><a class="lang-pill" href="../../es/psique/seguranca.html">ES</a></div>
+    </div>
+  </div>
+</header>
+
+
+<section class="hero">
+  <div class="container">
+    <p class="page-title-amber">FROID Psique Security</p>
+    <p class="section-kicker">FROID Psique · Security</p>
+    <h1>Understand the path of the data.</h1>
+    <p class="lead">Privacy starts by distinguishing purpose, processing and storage. This page describes the architecture of the new version; the current policy and contractual documents detail suppliers, regions, retention and responsibilities.</p>
+  </div>
+</section>
+
+<section class="block soft" id="analise-facial-e-videochamada-sao-percursos-diferentes">
+  <div class="container prosa">
+<h2 class="section-title">Facial analysis and video calls are different paths</h2>
+<p>For facial analysis, the browser extracts numerical coefficients and sends them to the engine on the server. This does not mean that all the video of a teleconsultation stays on the device: communication between participants may use the call's own transmission and relay.</p>
+<p>Pattern calculation uses coefficients, not a library of facial recordings. The absence of a measure is declared, without fabricating values.</p>
+  </div>
+</section>
+
+<section class="block" id="audio-e-transcricao">
+  <div class="container prosa">
+<h2 class="section-title">Audio and transcription</h2>
+<p>The processing architecture described by FROID provides for infrastructure contracted by FROID, hosted in Finland, and transient audio, with no session file for later playback. Transcription may involve a specialized supplier. Each supplier's retention conditions must be stated in the current policy.</p>
+<p>Transcripts, summaries, measures and notes are data distinct from the raw media and may remain stored for the authorized purposes.</p>
+  </div>
+</section>
+
+<section class="block soft" id="protecao-e-permissoes">
+  <div class="container prosa">
+<h2 class="section-title">Protection and permissions</h2>
+<p>Protected transmission, encryption at rest, organizational separation and access control are part of the protection architecture. Access to clinical content must respect authorized roles and relationships, not merely the fact that someone administers a clinic.</p>
+<p>We do not equate protection in transit with a guarantee that the server never accesses content: authorized processing steps need to handle the data. No architecture allows promising absolute security.</p>
+  </div>
+</section>
+
+<section class="block" id="analise-agregada">
+  <div class="container prosa">
+<h2 class="section-title">Governance of aggregated analysis</h2>
+<p>Data-Froid is separated from the private clinical record by purpose and eligibility criteria. Removing direct identifiers is only part of the process. Textual syntheses, combinations of attributes and small groups also need risk assessment.</p>
+<p>Anonymization parameters, query floors and re-identification tests require technical documentation. In this presentation we do not publish numerical guarantees of anonymity, nor do we convert an internal score into a probability of identification.</p>
+<p class="links-rel"><a href="data-froid.html">Learn about the analytical proposal</a></p>
+  </div>
+</section>
+
+<section class="block soft" id="direitos-contratos-e-transparencia">
+  <div class="container prosa">
+<h2 class="section-title">Rights, contracts and transparency</h2>
+<p>The professional's contract and the patient's authorizations delimit the applicable uses. Requests about data must be handled in accordance with the policy, the legal bases and retention obligations, without promising automatic deletion of every record in every situation.</p>
+<p class="links-rel"><a href="../privacidade.html">Access policies by product</a> · <a href="../termos.html">Contractual documents</a></p>
+  </div>
+</section>
+
+<section class="block" id="precisa-avaliar-a-arquitetura-antes-de-contratar">
+  <div class="container prosa">
+<h2 class="section-title">Need to assess the architecture before engaging?</h2>
+<div class="hero-actions">
+<a class="btn btn-solid" href="../sobre-contato.html#dados">Request a security and privacy review</a>
+</div>
+<p class="links-rel"><a href="../nr1/proposta-nr1.html#protecao-de-dados">NR-1 product security</a></p>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="foot-grid">
+      <div>
+        <h5>FROID</h5>
+        <p style="max-width:340px; color:rgba(248,250,252,0.55);">Frequency Recognition of Internal Dynamics. A tool to support clinical listening — it does not replace professional assessment, diagnosis, or judgment.</p>
+      </div>
+      <div>
+        <h5>FROID Psique</h5>
+        <ul>
+          <li><a href="index.html">Professionals and clinics</a></li>
+          <li><a href="como-funciona-clinico.html">How a session works</a></li>
+          <li><a href="tecnologia.html">Technology</a></li>
+          <li><a href="mapas-faciais.html">Facial maps</a></li>
+          <li><a href="ciencia.html">Science and validation</a></li>
+          <li><a href="data-froid.html">Data-Froid</a></li>
+          <li><a href="froid-explica.html">FROID Explains</a></li>
+
+          <li><a href="faq.html">FAQ</a></li>
+          <li><a href="glossario.html">Glossary</a></li>
+
+
+        </ul>
+      </div>
+      <div>
+        <h5>FROID NR-1</h5>
+        <ul>
+          <li><a href="../nr1/index.html">Para empresas</a></li>
+
+          <li><a href="../nr1/proposta-nr1.html">Proposta</a></li>
+
+          <li><a href="../nr1/iso-45001.html">FROID ISO 45001</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Company and access</h5>
+        <ul>
+          <li><a href="../menu.html">Site map</a></li>
+          <li><a href="../sobre-contato.html">About and contact</a></li>
+          <li><a href="../privacidade.html">Privacy</a></li>
+
+          <li><a href="https://www.froid.com.br/app/#/login">Sign in to FROID</a></li>
+          <li><a href="https://www.froid.com.br/cadastro">Sign up for FROID</a></li>
+          <li><a href="https://www.froid.com.br/app/#/paciente">Patient Portal</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">© 2026 FROID Tecnologia e Sistemas Ltda. All rights reserved. FROID is a trademark owned by FROID Tecnologia e Sistemas Ltda., with a registration application pending before the INPI. The contents, code, models and visual identity of this site are protected by applicable law.</div>
+  </div>
+</footer>
+
+<script src="../../site-assets/script.js?v=23"></script>
+<script src="../../site-assets/navigation.js?v=2"></script>
+</body>
+</html>

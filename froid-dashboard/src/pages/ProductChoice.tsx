@@ -264,7 +264,7 @@ export const ProductChoice: React.FC<Props> = ({
               </button>
               <a
                 className="rounded-lg border border-slate-600 px-4 py-2 text-sm font-black text-slate-200"
-                href="https://www.froid.com.br/como-funciona-nr1.html"
+                href="https://www.froid.com.br/nr1/"
                 target="_blank"
                 rel="noreferrer"
               >

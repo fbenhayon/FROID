@@ -115,7 +115,7 @@ type Props = {
   className?: string;
 };
 
-const SITE_SECURITY_URL = "/seguranca.html";
+const SITE_SECURITY_URL = "/psique/seguranca.html";
 
 export const SecurityAssurance: React.FC<Props> = ({
   audience = "patient",

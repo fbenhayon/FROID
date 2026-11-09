@@ -190,7 +190,7 @@ class AEstoniaNaoVolta(unittest.TestCase):
             ("es/", "en Finlandia"),
             ("fr/", "en Finlande"),
         ):
-            for pagina in ("privacidade.html", "seguranca.html"):
+            for pagina in ("privacidade.html", "psique/seguranca.html"):
                 caminho = ROOT / "froid-site" / prefixo / pagina
                 with self.subTest(idioma=prefixo or "pt", pagina=pagina):
                     self.assertIn(frase, caminho.read_text(encoding="utf-8"))

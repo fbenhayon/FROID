@@ -191,7 +191,7 @@ class OsNumerosDoPercursoTemUmaFonte(unittest.TestCase):
         )
         # A pagina de Tecnologia e dona do assunto e tem a sua propria copia.
         # As duas divergirem e o defeito 2.7 na sua forma mais barata de achar.
-        tecnologia = _ler(SITE / "tecnologia.html")
+        tecnologia = _ler(SITE / "psique" / "tecnologia.html")
         self.assertIn("%d segundos de calibra" % segundos, tecnologia)
 
 
