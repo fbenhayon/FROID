@@ -241,16 +241,15 @@ export const ProductChoice: React.FC<Props> = ({
                 fala pelo efetivo declarado).
                 Abaixo de 98 trabalhadores a unidade exige censo — todos
                 respondendo. Com adesão realista de 65%, o porte que produz
-                resultado liberável começa perto de 210 pessoas. O diagnóstico
-                responde isso em dois minutos — e diz não quando é não.
+                resultado liberável começa perto de 210 pessoas.
               </p>
               <a
                 className="mt-3 inline-block rounded-lg bg-amber-500 px-4 py-2 text-sm font-black text-amber-950 hover:bg-amber-400"
-                href="https://www.froid.com.br/nr1/#simulador-nr1"
+                href="https://www.froid.com.br/nr1/contratacao-nr1.html"
                 target="_blank"
                 rel="noreferrer"
               >
-                Simular para o porte da minha empresa
+                Ver a Cadeia de Comando NR-1
               </a>
             </div>
 
