@@ -837,8 +837,15 @@ CATALOGO: Tuple[Indice, ...] = (
     Indice(
         rotulo="DNA FLOOD", chave="dna_autonomic_flooding", marcador="dna_flooding",
         unidade="indice composto 0 a 1",
-        medida="(0,55 x DNA INFRA + 0,45 x DNA VOCAL) / 2,5. Escala numerica legada, sem amplificacao facial.",
-        leitura="O fator facial fica em 1,0 independentemente da configuracao do rosto.",
+        medida=(
+            "0,55 x DNA INFRA + 0,45 x DNA VOCAL, de 0 a 1, sem amplificacao "
+            "facial. O marcador 'Ativacao difusa multimodal' dispara acima de 0,60."
+        ),
+        leitura=(
+            "Escala cheia desde 09/11/2026. Antes era dividido por 2,5 e nunca "
+            "passava de 0,40: sessoes anteriores a essa data estao na escala "
+            "antiga e nao se comparam 1:1 com as novas."
+        ),
         abre="Decompor nas duas medidas espectrais e conferir a procedencia vocal.",
         limite="Nao mede inundacao autonomica; e um composto acustico interno.",
         sinonimos=("inundacao autonomica", "flooding"),

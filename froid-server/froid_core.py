@@ -1153,7 +1153,19 @@ class SessionState:
         # como pergunta aberta: o pretendido era queda de ZCR ou estabilidade
         # de jitter?
         estabilidade_de_jitter = float(np.clip(1.0 - (jitter / 2.0), 0.0, 1.0))
-        dna_flooding = float(np.clip((dna_infrasound * 0.55 + dna_basal * 0.45) * (facial_multiplier / 2.5), 0.0, 1.0))
+        # ESCALA CHEIA, decisao do dono em 09/11/2026.
+        #
+        # Era `* (facial_multiplier / 2.5)`: a divisao por 2,5 foi feita para um
+        # multiplicador facial que subiria ate 2,5 e completaria a escala. Com o
+        # multiplicador travado em 1,0, o indice nunca passava de 0,40 — e o
+        # marcador "Ativacao difusa multimodal" (froid_dissonance, limiar 0,60)
+        # nunca disparava, sem que ninguem tivesse decidido desliga-lo.
+        #
+        # Agora o indice vai de 0 a 1, como a tela e o Explica descrevem, e as
+        # maiores alteracoes aparecem para o profissional observar e validar.
+        # CUSTO ACEITO: sessoes gravadas antes desta data estao na escala
+        # antiga (teto 0,40) e nao sao comparaveis 1:1 com as novas.
+        dna_flooding = float(np.clip(dna_infrasound * 0.55 + dna_basal * 0.45, 0.0, 1.0))
         dna_shutdown = float(
             np.clip(
                 dna_infrasound * (1.0 - (ipm_score / 100.0)) * estabilidade_de_jitter,
