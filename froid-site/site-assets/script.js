@@ -418,3 +418,59 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   })();
 });
+
+// ---------- Diamante no topo da pagina (celular) ----------
+// Opcao (c) aprovada pelo dono em 09/11/2026. O CSS (refinement.css)
+// centraliza o texto e alarga as linhas de cima para baixo ate o titulo; aqui
+// a frase de abertura volta a estreitar ate o fim, fechando o losango. Duas
+// bordas invisiveis em triangulo (shape-outside) empurram o texto; a altura
+// delas vem do proprio paragrafo, entao e medida — e remedida quando a tela
+// muda. Fora do celular as bordas sao removidas.
+(function () {
+  var celular = window.matchMedia ? window.matchMedia("(max-width: 860px)") : null;
+
+  function limpar(p) {
+    Array.prototype.slice.call(p.querySelectorAll(".diamante-borda")).forEach(function (e) {
+      e.parentNode.removeChild(e);
+    });
+  }
+
+  function aplicar() {
+    var p = document.querySelector(".hero .lead, .hero-neuro__content .lead");
+    if (!p) return;
+    limpar(p);
+    if (!celular || !celular.matches) return;
+    var largura = p.clientWidth;
+    if (!largura) return;
+    var borda = Math.round(largura * 0.3);
+    var esq = document.createElement("span");
+    var dir = document.createElement("span");
+    esq.className = "diamante-borda esq";
+    dir.className = "diamante-borda dir";
+    esq.setAttribute("aria-hidden", "true");
+    dir.setAttribute("aria-hidden", "true");
+    esq.style.width = dir.style.width = borda + "px";
+    esq.style.shapeOutside = "polygon(0 0, 0 100%, 100% 100%)";
+    dir.style.shapeOutside = "polygon(100% 0, 0 100%, 100% 100%)";
+    p.insertBefore(dir, p.firstChild);
+    p.insertBefore(esq, p.firstChild);
+    var altura = p.offsetHeight;
+    for (var i = 0; i < 4; i++) {
+      esq.style.height = dir.style.height = altura + "px";
+      var nova = p.offsetHeight;
+      if (Math.abs(nova - altura) < 2) break;
+      altura = nova;
+    }
+  }
+
+  var espera = null;
+  function agendar() {
+    if (espera) clearTimeout(espera);
+    espera = setTimeout(aplicar, 120);
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", aplicar);
+  else aplicar();
+  window.addEventListener("load", aplicar);
+  window.addEventListener("resize", agendar);
+})();

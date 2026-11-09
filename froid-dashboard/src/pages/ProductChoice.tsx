@@ -246,11 +246,11 @@ export const ProductChoice: React.FC<Props> = ({
               </p>
               <a
                 className="mt-3 inline-block rounded-lg bg-amber-500 px-4 py-2 text-sm font-black text-amber-950 hover:bg-amber-400"
-                href="https://www.froid.com.br/diagnostico-nr1.html"
+                href="https://www.froid.com.br/nr1/#simulador-nr1"
                 target="_blank"
                 rel="noreferrer"
               >
-                Checar o enquadramento da minha empresa
+                Simular para o porte da minha empresa
               </a>
             </div>
 

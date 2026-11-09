@@ -101,6 +101,42 @@ footer.site-footer li a { display:inline-block; padding-block:5px; }
   .nav-cta-curto { display:inline; }
   .nav-troca-produto { padding:6px 8px; font-size:.7rem; }
 }
+/* Versao compacta (pedido do dono, 09/11/2026): troca de produto e chamada
+   menores e mais discretas, para o header caber numa linha. So CSS: o HTML
+   continua sendo o que o gerador emite. */
+.nav-actions .nav-troca-produto { gap:5px; padding:4px 10px 4px 8px; font-size:.68rem; letter-spacing:.02em;
+  background:rgba(148,163,184,.08); border-color:rgba(148,163,184,.24); }
+.nav-actions .nav-troca-produto:hover { background:rgba(148,163,184,.16); }
+.nav-actions .nav-troca-marca { display:none; }
+.nav-actions .nav-cta { padding:6px 14px; font-size:.76rem; line-height:1.2; border-radius:999px; border:0;
+  background:linear-gradient(135deg,#fcd34d,#f59e0b); color:#1c1406; box-shadow:0 2px 10px rgba(245,158,11,.22); }
+.nav-actions .nav-cta:hover { filter:brightness(1.06); text-decoration:none; }
+.nav-actions .nav-cta-longo { display:none; }
+.nav-actions .nav-cta-curto { display:inline; }
+.nav-actions .btn-ghost { padding:6px 12px; font-size:.76rem; border-radius:999px; }
+@media(min-width:1700px) {
+  .nav-actions .nav-cta:not(.nav-cta-compacto) .nav-cta-longo { display:inline; }
+  .nav-actions .nav-cta:not(.nav-cta-compacto) .nav-cta-curto { display:none; }
+}
+
+/* Celular, opcao (c) aprovada pelo dono em 09/11/2026: todo o texto
+   centralizado, e o topo de cada pagina em forma de diamante — titulo curto,
+   linhas que alargam ate o meio do texto de abertura e voltam a estreitar.
+   O estreitamento final da frase de abertura e feito em script.js
+   (diamanteNoTopo), que mede o paragrafo. */
+@media(max-width:860px) {
+  main, section, article, .container, .prosa, .card, footer.site-footer { text-align:center; }
+  p, li, h1, h2, h3, h4, h5, blockquote, figcaption, .lead, .section-lead, .section-kicker, .nota { text-align:center !important; }
+  ul, ol { padding-left:0; list-style-position:inside; }
+  .hero .container > *, .hero-neuro__content > * { margin-left:auto; margin-right:auto; }
+  .hero .page-title-amber { max-width:62%; }
+  .hero .section-kicker { max-width:80%; }
+  .hero h1 { max-width:100%; text-wrap:balance; }
+  .diamante-borda { height:0; }
+  .diamante-borda.esq { float:left; }
+  .diamante-borda.dir { float:right; }
+}
+
 @media(prefers-reduced-motion:reduce) {
   html { scroll-behavior:auto; }
   *,*::before,*::after { animation:none!important; transition:none!important; }

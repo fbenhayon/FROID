@@ -76,9 +76,13 @@ froid.com.br, www.froid.com.br {
     handle {
         root * /srv/froid-site
         @html {
-            # /empresas não tem prefixo de idioma: a página NR-1 existe só em
-            # pt-BR, e /*/*.html já cobriria uma tradução futura.
-            path / /*.html /*/*.html /ciencia /tecnologia /froid-explica /etica /seguranca /profissionais /empresas /precos /demonstracao /faq /glossario /privacidade /termos /sobre-contato /*/ /*/ciencia /*/tecnologia /*/froid-explica /*/etica /*/seguranca /*/profissionais /*/precos /*/demonstracao /*/faq /*/glossario /*/privacidade /*/termos /*/sobre-contato
+            # Qualquer pagina, em qualquer profundidade: caminho terminado em
+            # .html, em / (pasta, servida pelo index.html) ou sem extensao
+            # (servido por try_files {path}.html). A lista anterior, caminho a
+            # caminho, parava em dois niveis e deixou de fora /en/psique/*.html
+            # quando o site foi separado em psique/ e nr1/ (09/11/2026).
+            # Arquivos de /site-assets/ tem extensao e nao entram.
+            path_regexp ^(/[^.]*|.*\.html)$
         }
         header @html Cache-Control "no-store, no-cache, must-revalidate"
         header /site-assets/* Cache-Control "public, max-age=604800"
