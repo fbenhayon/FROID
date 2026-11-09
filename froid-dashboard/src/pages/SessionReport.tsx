@@ -16,6 +16,7 @@ import {
 } from "../lib/session-report";
 import { dashboardText, loadSessionLanguagePreferences, normalizeSessionLocale, type SessionLocale } from "../lib/localization";
 import { tooltipText } from "../lib/tooltip-i18n";
+import { RESSALVA_CADENCIA, formatarCadencia, lerCadencia } from "../lib/cadencia";
 import {
   contextoDaTabela,
   contextoDosCortes,
@@ -699,6 +700,22 @@ const ProcedenciaDoRelatorio: React.FC<{
   );
 };
 
+// Cadência da fala da sessão contra a referência do próprio paciente
+// (lib/cadencia). Sem média ou sem referência, declara a ausência.
+const CadenciaDaSessao: React.FC<{ analysis: MetricsAnalysis }> = ({ analysis }) => {
+  const resumo = analysis.summary?.words_per_minute;
+  const texto = formatarCadencia(lerCadencia(resumo?.session_mean, resumo?.baseline));
+  return (
+    <div className="mt-3 rounded-lg border border-slate-700 bg-slate-950 p-3 text-xs">
+      <p className="font-bold uppercase text-slate-400">Cadência da fala</p>
+      <p className="mt-1 text-sm font-semibold text-slate-100">
+        {texto ?? "Sem apuração: falta a média da sessão ou a referência do paciente."}
+      </p>
+      <p className="mt-1 italic text-slate-500">{RESSALVA_CADENCIA}</p>
+    </div>
+  );
+};
+
 const EvolutionChart: React.FC<{ analysis: MetricsAnalysis }> = ({ analysis }) => {
   const rows = analysis.evolution || [];
 
@@ -1320,6 +1337,7 @@ export const SessionReport: React.FC<Props> = () => {
                 </div>
               </div>
               <EvolutionChart analysis={activeMetricsAnalysis} />
+              <CadenciaDaSessao analysis={activeMetricsAnalysis} />
             </section>
           )}
 

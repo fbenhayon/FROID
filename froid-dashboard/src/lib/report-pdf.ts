@@ -2,6 +2,7 @@ import type { SessionReportRecord } from "./session-report";
 import { patientViewFor } from "./dissonance-patient-view";
 import { pickEpigraph } from "./report-epigraph";
 import { pickIntro } from "./report-intro";
+import { RESSALVA_CADENCIA, formatarCadencia, lerCadencia } from "./cadencia";
 // Faixa da marca. Vira data URI na build por assetsInlineLimit, em
 // vite.config.mjs — o porque esta comentado la.
 import FAIXA from "../assets/relatorio-logo.jpeg";
@@ -874,6 +875,10 @@ function secaoSintese(report: SessionReportRecord): string {
     houveMedida(base.wordsPerMinute) ? `${num(base.wordsPerMinute, 1)} palavras/min` : "",
   ].filter(Boolean).join(" · ");
 
+  // Cadência da sessão contra a referência dos primeiros 60 s (lib/cadencia).
+  // Sem uma das duas medidas a linha não sai: ausência não vira "na referência".
+  const cadencia = formatarCadencia(lerCadencia(media.wordsPerMinute, base.wordsPerMinute));
+
   return `<section><div class="cab"><span class="num">01</span><h2>Síntese da sessão</h2></div>
     <h3>Zona predominante</h3>
     <p>${zona === undefined || zona === null || zona === "" ? "Zona predominante não registrada." : `Zona ${escapeHtml(zona)}.`}${
@@ -882,6 +887,7 @@ function secaoSintese(report: SessionReportRecord): string {
     <h3>Progressão</h3>
     <p>${progressao}</p>
     ${linhaIndices ? `<p>${escapeHtml(linhaIndices)}.</p>` : ""}
+    ${cadencia ? `<p><b>Cadência da fala:</b> ${escapeHtml(cadencia)}. <i>${escapeHtml(RESSALVA_CADENCIA)}</i></p>` : ""}
     <div class="nota"><b>Linha de base:</b> estabelecida nos primeiros 60 segundos${
       notaBase ? ` (${escapeHtml(notaBase)})` : ""
     }. Todos os índices deste relatório são lidos contra essa referência da própria
@@ -945,14 +951,17 @@ function secaoIndicesPorCorte(report: SessionReportRecord): string {
       <p>Nenhum corte registrado nesta sessão.</p></section>`;
   }
 
+  const base = (report.baseline || {}) as unknown as Record<string, unknown>;
   const linhas = cortes.map((c, i) => {
     const r = c as unknown as Record<string, unknown>;
+    const cadencia = formatarCadencia(lerCadencia(r.wordsPerMinute, base.wordsPerMinute));
     return `<tr><td>${i + 1}</td><td>${escapeHtml(cutRange(c))}</td>
       <td class="n">${num(r.ipmAvg, 1)}</td>
       <td class="n">${num(r.idmAvg, 2)}</td>
       <td>${r.dominantZone === null || r.dominantZone === undefined ? "—" : `Zona ${escapeHtml(r.dominantZone)}`}</td>
       <td>${escapeHtml(r.emotionalTone || "—")}</td>
       <td class="n">${num(r.wordsPerMinute, 1)}</td>
+      <td>${escapeHtml(cadencia ?? "—")}</td>
       <td class="n">${num(r.dissonanceCount, 0)}</td></tr>`;
   }).join("");
 
@@ -960,7 +969,7 @@ function secaoIndicesPorCorte(report: SessionReportRecord): string {
     <table>
       <thead><tr>
         <th>Corte</th><th>Intervalo</th><th class="n">IPM</th><th class="n">IDM</th>
-        <th>Zona</th><th>Tom</th><th class="n">Pal./min</th><th class="n">Disson.</th>
+        <th>Zona</th><th>Tom</th><th class="n">Pal./min</th><th>Cadência</th><th class="n">Disson.</th>
       </tr></thead>
       <tbody>${linhas}</tbody>
     </table>
