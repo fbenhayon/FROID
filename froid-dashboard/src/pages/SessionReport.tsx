@@ -28,6 +28,7 @@ import {
 } from "../lib/resumo-do-corte";
 import { InstrumentScorePrompt } from "../components/validation/InstrumentScorePrompt";
 import { FacialAnalysisPanel } from "../components/FacialAnalysisPanel";
+import { contextoFacialParaOExplica } from "../lib/facial-analysis";
 import { activeOrganizationId } from "../lib/validation";
 import {
   buildReport,
@@ -1054,6 +1055,14 @@ export const SessionReport: React.FC<Props> = () => {
       // precisar truncar. Antes esta tela mandava so os ultimos 8.000
       // caracteres, em silencio, e "releia o trecho inicial" era impossivel.
       ...transcricaoParaOExplica(transcript, report.transcriptLineSeconds),
+      // O rosto, por corte, como a tela mostra. Antes de 08/11/2026 nenhum
+      // evento facial chegava ao Explica a partir do relatorio.
+      ...contextoFacialParaOExplica({
+        events: report.facialEvents || [],
+        cuts: report.tenMinuteCuts,
+        analysis: report.facialAnalysis,
+        procedencia: report.procedenciaDosDados,
+      }),
       patient_speech: patientLines.slice(-120).join("\n").slice(-4000),
       professional_speech: professionalLines.slice(-120).join("\n").slice(-4000),
     };
@@ -1563,7 +1572,15 @@ export const SessionReport: React.FC<Props> = () => {
                 {Array.isArray(report.facialEvents) ? "Registros faciais" : "Sinais legados da sessão"}
               </h2>
               <div className="space-y-2">
-                <FacialAnalysisPanel historical analysis={report.facialAnalysis} events={report.facialEvents || []} />
+                <FacialAnalysisPanel
+                  historical
+                  analysis={report.facialAnalysis}
+                  events={report.facialEvents || []}
+                  cuts={report.tenMinuteCuts}
+                  transcript={report.transcript}
+                  transcriptLineSeconds={report.transcriptLineSeconds}
+                  procedencia={report.procedenciaDosDados}
+                />
                 {report.dissonances.length === 0 && !(report.facialEvents || []).length && (
                   <p className="text-xs italic text-slate-500">
                     Nenhum padrão arquivado. Isso não comprova ausência de emoção ou de dissonância.
