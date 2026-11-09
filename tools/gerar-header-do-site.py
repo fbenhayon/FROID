@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-"""Gera o <nav> do header das paginas do froid-site.
+"""Gera o header das paginas do froid-site: menu, marca, troca de produto,
+chamada para acao, seletor de idioma e tags hreflang.
 
 RODE ESTE SCRIPT depois de mexer no NAV_SECOES do script.js, nos titulos das
 secoes das paginas, ou na composicao dos menus aqui embaixo:
@@ -11,6 +12,18 @@ Por que ele existe: o menu do header mostra as SECOES de cada pagina, e esses
 rotulos passam a viver tambem no HTML. Isso e uma copia, e copia diverge em
 silencio (secao 2.7 da skill-froid-master). O script e a fonte: o HTML e
 resultado, nunca escrito a mao.
+
+Estrutura do site desde 09/11/2026 (aprovada pelo dono: "opcao b, com uma
+pagina de entrada unica"), igual em cada idioma (pt na raiz, en/, fr/, es/):
+
+    index.html          a entrada, com os dois neuronios (sem header)
+    psique/...          FROID Psique   -> menu do Psique (+ Ciencia e Tecnologia)
+    nr1/...             FROID NR-1     -> menu do NR-1
+    *.html na raiz      paginas comuns -> os dois menus
+
+Toda pagina e identificada pelo caminho RELATIVO a raiz do idioma
+("psique/ciencia.html", "nr1/index.html", "menu.html"), e todo href emitido e
+recalculado a partir da pasta da propria pagina. Ninguem escreve "../" a mao.
 
 De onde sai cada texto:
 
@@ -26,118 +39,158 @@ link morto que a revisao de links ja encontrou uma vez.
 """
 import io
 import os
+import posixpath
 import re
 import sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RAIZ = os.path.join(REPO, "froid-site")
+PASTAS_DE_PRODUTO = ("psique", "nr1")
+MARCA_STUB = "<!-- redirecionamento: pagina movida em 09/11/2026 -->"
 
-# "Demonstracao" so entra no menu em pt-BR. A pagina existe nos quatro idiomas
-# e o rodape ja a lista em todos, mas en/fr/es ainda tem o texto curto antigo,
-# de quatro secoes; o percurso completo do Psique so foi escrito em pt-BR.
-# Por em destaque no header uma pagina que nao entrega o que o rotulo promete e
-# o defeito 2.4 da skill-froid-master. Ao traduzir, acrescente a linha nos
-# outros tres idiomas e rode este script de novo.
 IDIOMAS = {
-    # pt-BR reescrito em 06/10/2026: a index virou institucional (dois produtos),
-    # profissionais.html e a visao geral do Psique e empresas.html a do NR-1.
-    # As traducoes seguem a arquitetura anterior ate serem traduzidas.
     "": {
-        "familias": [
-            ("FROID Psique", "profissionais.html", [
-                ("Vis\u00e3o geral", "profissionais.html"),
-                ("Como funciona", "como-funciona-clinico.html"),
-                ("FROID Explica", "froid-explica.html"),
-                ("Data-Froid", "data-froid.html"),
-            ]),
-            ("FROID NR-1", "empresas.html", [
-                ("Vis\u00e3o geral", "empresas.html"),
-                ("Cadeia de Comando", "contratacao-nr1.html"),
-                ("FROID ISO 45001", "iso-45001.html"),
-                ("Apresenta\u00e7\u00e3o NR-1", "apresentacao-nr1.html"),
-            ]),
-        ],
-        "tecnico": ("Ci\u00eancia e Tecnologia", "tecnologia.html", [
-            ("Tecnologia", "tecnologia.html"),
-            ("Mapas da face", "mapas-faciais.html"),
-            ("Ci\u00eancia", "ciencia.html"),
+        "psique": ("FROID Psique", "psique/index.html", [
+            ("Visão geral", "psique/index.html"),
+            ("Como funciona", "psique/como-funciona-clinico.html"),
+            ("FROID Explica", "psique/froid-explica.html"),
+            ("Data-Froid", "psique/data-froid.html"),
+        ]),
+        "nr1": ("FROID NR-1", "nr1/index.html", [
+            ("Visão geral", "nr1/index.html"),
+            ("Cadeia de Comando", "nr1/contratacao-nr1.html"),
+            ("FROID ISO 45001", "nr1/iso-45001.html"),
+            ("Apresentação NR-1", "nr1/apresentacao-nr1.html"),
+        ]),
+        "tecnico": ("Ciência e Tecnologia", "psique/tecnologia.html", [
+            ("Tecnologia", "psique/tecnologia.html"),
+            ("Mapas da face", "psique/mapas-faciais.html"),
+            ("Ciência", "psique/ciencia.html"),
         ]),
         "soltos": [("Explorar", "menu.html"), ("Contato", "sobre-contato.html")],
     },
     "en": {
-        "familias": [
-            ('FROID Psique', "profissionais.html", [
-                ('Overview', 'profissionais.html'),
-                ('How it works', 'como-funciona-clinico.html'),
-                ('FROID Explains', 'froid-explica.html'),
-                ('Data-Froid', 'data-froid.html'),
-            ]),
-            ('FROID NR-1', "empresas.html", [
-                ('Overview', 'empresas.html'),
-                ('Proposal', 'proposta-nr1.html'),
-                ('FROID ISO 45001', 'iso-45001.html'),
-            ]),
-        ],
-        "tecnico": ('Science &amp; Technology', "tecnologia.html", [
-                ('Technology', 'tecnologia.html'),
-                ('Facial maps', 'mapas-faciais.html'),
-                ('Science', 'ciencia.html'),
+        "psique": ('FROID Psique', "psique/index.html", [
+            ('Overview', 'psique/index.html'),
+            ('How it works', 'psique/como-funciona-clinico.html'),
+            ('FROID Explains', 'psique/froid-explica.html'),
+            ('Data-Froid', 'psique/data-froid.html'),
+        ]),
+        "nr1": ('FROID NR-1', "nr1/index.html", [
+            ('Overview', 'nr1/index.html'),
+            ('Proposal', 'nr1/proposta-nr1.html'),
+            ('FROID ISO 45001', 'nr1/iso-45001.html'),
+        ]),
+        "tecnico": ('Science &amp; Technology', "psique/tecnologia.html", [
+            ('Technology', 'psique/tecnologia.html'),
+            ('Facial maps', 'psique/mapas-faciais.html'),
+            ('Science', 'psique/ciencia.html'),
         ]),
         "soltos": [('Explore', 'menu.html'), ('Contact', 'sobre-contato.html')],
     },
     "es": {
-        "familias": [
-            ('FROID Psique', "profissionais.html", [
-                ('Visión general', 'profissionais.html'),
-                ('Cómo funciona', 'como-funciona-clinico.html'),
-                ('FROID Explica', 'froid-explica.html'),
-                ('Data-Froid', 'data-froid.html'),
-            ]),
-            ('FROID NR-1', "empresas.html", [
-                ('Visión general', 'empresas.html'),
-                ('Propuesta', 'proposta-nr1.html'),
-                ('FROID ISO 45001', 'iso-45001.html'),
-            ]),
-        ],
-        "tecnico": ('Ciencia y Tecnología', "tecnologia.html", [
-                ('Tecnología', 'tecnologia.html'),
-                ('Mapas del rostro', 'mapas-faciais.html'),
-                ('Ciencia', 'ciencia.html'),
+        "psique": ('FROID Psique', "psique/index.html", [
+            ('Visión general', 'psique/index.html'),
+            ('Cómo funciona', 'psique/como-funciona-clinico.html'),
+            ('FROID Explica', 'psique/froid-explica.html'),
+            ('Data-Froid', 'psique/data-froid.html'),
+        ]),
+        "nr1": ('FROID NR-1', "nr1/index.html", [
+            ('Visión general', 'nr1/index.html'),
+            ('Propuesta', 'nr1/proposta-nr1.html'),
+            ('FROID ISO 45001', 'nr1/iso-45001.html'),
+        ]),
+        "tecnico": ('Ciencia y Tecnología', "psique/tecnologia.html", [
+            ('Tecnología', 'psique/tecnologia.html'),
+            ('Mapas del rostro', 'psique/mapas-faciais.html'),
+            ('Ciencia', 'psique/ciencia.html'),
         ]),
         "soltos": [('Explorar', 'menu.html'), ('Contacto', 'sobre-contato.html')],
     },
     "fr": {
-        "familias": [
-            ('FROID Psique', "profissionais.html", [
-                ("Vue d'ensemble", 'profissionais.html'),
-                ('Comment ça marche', 'como-funciona-clinico.html'),
-                ('FROID Explique', 'froid-explica.html'),
-                ('Data-Froid', 'data-froid.html'),
-            ]),
-            ('FROID NR-1', "empresas.html", [
-                ("Vue d'ensemble", 'empresas.html'),
-                ('Proposition', 'proposta-nr1.html'),
-                ('FROID ISO 45001', 'iso-45001.html'),
-            ]),
-        ],
-        "tecnico": ('Science et Technologie', "tecnologia.html", [
-                ('Technologie', 'tecnologia.html'),
-                ('Cartes du visage', 'mapas-faciais.html'),
-                ('Science', 'ciencia.html'),
+        "psique": ('FROID Psique', "psique/index.html", [
+            ("Vue d'ensemble", 'psique/index.html'),
+            ('Comment ça marche', 'psique/como-funciona-clinico.html'),
+            ('FROID Explique', 'psique/froid-explica.html'),
+            ('Data-Froid', 'psique/data-froid.html'),
+        ]),
+        "nr1": ('FROID NR-1', "nr1/index.html", [
+            ("Vue d'ensemble", 'nr1/index.html'),
+            ('Proposition', 'nr1/proposta-nr1.html'),
+            ('FROID ISO 45001', 'nr1/iso-45001.html'),
+        ]),
+        "tecnico": ('Science et Technologie', "psique/tecnologia.html", [
+            ('Technologie', 'psique/tecnologia.html'),
+            ('Cartes du visage', 'psique/mapas-faciais.html'),
+            ('Science', 'psique/ciencia.html'),
         ]),
         "soltos": [('Explorer', 'menu.html'), ('Contact', 'sobre-contato.html')],
     },
 }
 
+# Troca de produto e chamada para acao, no nav-actions de toda pagina com
+# header. Pagina do Psique leva ao NR-1 e oferece o cadastro; pagina do NR-1
+# leva ao Psique e oferece o contato; pagina comum mostra os dois.
+# O texto da chamada NAO traz quantidade de sessoes nem de dias: numero
+# comercial vive na pagina de precos, que tem fonte (secao 2.7 da skill).
+ACOES = {
+    "": {
+        "ir_para": "Ir para o %s",
+        "psique": ("Cadastre-se e comece o teste grátis", "Teste grátis"),
+        "nr1": ("Entre em contato", "Contato"),
+    },
+    "en": {
+        "ir_para": "Go to %s",
+        "psique": ("Sign up and start your free trial", "Free trial"),
+        "nr1": ("Contact us", "Contact"),
+    },
+    "fr": {
+        "ir_para": "Aller à %s",
+        "psique": ("Inscrivez-vous et commencez l'essai gratuit", "Essai gratuit"),
+        "nr1": ("Contactez-nous", "Contact"),
+    },
+    "es": {
+        "ir_para": "Ir a %s",
+        "psique": ("Regístrese y empiece la prueba gratuita", "Prueba gratuita"),
+        "nr1": ("Contáctenos", "Contacto"),
+    },
+}
+CADASTRO = "https://www.froid.com.br/cadastro"
+NOME_PRODUTO = {"psique": "FROID Psique", "nr1": "FROID NR-1"}
+ICONE_TROCA = ('<svg class="nav-troca-icone" viewBox="0 0 16 16" width="14" height="14" '
+               'aria-hidden="true" focusable="false"><path d="M2 5.5h10.5L9.5 2.5M14 10.5H3.5l3 3" '
+               'fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" '
+               'stroke-linejoin="round"/></svg>')
+
 NAV = re.compile(r'<nav class="nav-links">.*?</nav>', re.S)
+BRAND = re.compile(r'(<a class="brand" href=")[^"]*(")')
+ACOES_GERADAS = re.compile(
+    r'[ \t]*<!-- produto e chamada: gerado por tools/gerar-header-do-site\.py -->\n'
+    r'.*?<!-- /produto e chamada -->\n', re.S)
+NAV_ACTIONS = re.compile(r'<div class="nav-actions">\n')
 TAG = re.compile(r"<[^>]+>")
+
+
+def rel(pagina, alvo):
+    """Href de `alvo` a partir de `pagina` (os dois relativos a raiz do idioma)."""
+    return posixpath.relpath(alvo, posixpath.dirname(pagina) or ".")
+
+
+def produto_de(pagina):
+    pasta = pagina.split("/", 1)[0] if "/" in pagina else ""
+    return pasta if pasta in PASTAS_DE_PRODUTO else None
+
+
+def caminho_local(idioma, pagina):
+    return os.path.join(RAIZ, idioma, *pagina.split("/")) if idioma \
+        else os.path.join(RAIZ, *pagina.split("/"))
 
 
 def carregar_nav_secoes():
     js = io.open(os.path.join(RAIZ, "site-assets", "script.js"), encoding="utf-8").read()
     bloco = js.split("var NAV_SECOES = {", 1)[1].split("\n};", 1)[0]
     mapa = {}
-    for m in re.finditer(r'"([a-z0-9.-]+\.html)":\s*\[(.*?)\]\s*,?\s*(?=\n  "|\Z)', bloco, re.S):
+    for m in re.finditer(r'"([a-z0-9./-]+\.html)":\s*\[(.*?)\]\s*,?\s*(?=\n  "|\Z)', bloco, re.S):
         mapa[m.group(1)] = re.findall(r'\["([^"]+)",\s*"([^"]+)"\]', m.group(2))
     return mapa
 
@@ -151,7 +204,7 @@ def secoes_da_pagina(idioma, pagina):
     chave = (idioma, pagina)
     if chave in _cache:
         return _cache[chave]
-    caminho = os.path.join(RAIZ, idioma, pagina) if idioma else os.path.join(RAIZ, pagina)
+    caminho = caminho_local(idioma, pagina)
     achadas = []
     if os.path.exists(caminho):
         html = io.open(caminho, encoding="utf-8").read()
@@ -183,7 +236,7 @@ def secoes_da_pagina(idioma, pagina):
             titulo = re.sub(r"\s+", " ", titulo).strip()
             titulo = re.split(r"\s+[—–:]\s+", titulo)[0].strip()
             # Emoji decorativo no comeco de alguns titulos nao ajuda num menu.
-            titulo = re.sub(r"^[^\w\u00c0-\u017f(]+", "", titulo).strip()
+            titulo = re.sub(r"^[^\wÀ-ſ(]+", "", titulo).strip()
             if titulo:
                 achadas.append((ancora, titulo))
     _cache[chave] = achadas
@@ -194,54 +247,111 @@ def escapar(t):
     return t.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-def coluna(rot_pagina, href, idioma, pagina_ativa, primeira_e_visao_geral):
+def coluna(rot_pagina, alvo, idioma, pagina_ativa, primeira_e_visao_geral):
+    href = rel(pagina_ativa, alvo)
     linhas = ['        <div class="nav-drop-col">']
     cls = ["nav-drop-pagina"]
     if primeira_e_visao_geral:
         cls.append("nav-drop-visao-geral")
-    if href == pagina_ativa:
+    if alvo == pagina_ativa:
         cls.append("ativo")
     linhas.append('          <a class="%s" role="menuitem" href="%s">%s</a>'
                   % (" ".join(cls), href, rot_pagina))
-    for ancora, titulo in secoes_da_pagina(idioma, href):
+    for ancora, titulo in secoes_da_pagina(idioma, alvo):
         linhas.append('          <a class="nav-drop-secao" role="menuitem" href="%s#%s">%s</a>'
                       % (href, ancora, escapar(titulo)))
     linhas.append("        </div>")
     return linhas
 
 
-def bloco_menu(rotulo, href_rotulo, filhos, idioma, pagina_ativa):
-    no_grupo = pagina_ativa == href_rotulo or any(h == pagina_ativa for _, h in filhos)
+def bloco_menu(rotulo, alvo_rotulo, filhos, idioma, pagina_ativa):
+    no_grupo = pagina_ativa == alvo_rotulo or any(h == pagina_ativa for _, h in filhos)
     cls_drop = "nav-drop nav-drop-mega"
     linhas = [
         '        <span class="nav-menu">',
         '          <a class="nav-familia-rotulo%s" href="%s">%s</a>'
-        % (" ativo" if no_grupo else "", href_rotulo, rotulo),
+        % (" ativo" if no_grupo else "", rel(pagina_ativa, alvo_rotulo), rotulo),
         '          <div class="%s" role="menu">' % cls_drop,
     ]
-    for i, (rot, href) in enumerate(filhos):
+    for i, (rot, alvo) in enumerate(filhos):
         linhas += ["  " + l for l in coluna(
-            rot, href, idioma, pagina_ativa, i == 0 and href == href_rotulo)]
+            rot, alvo, idioma, pagina_ativa, i == 0 and alvo == alvo_rotulo)]
     linhas += ["          </div>", "        </span>"]
     return "\n".join(linhas)
 
 
+def familias_da_pagina(cfg, pagina):
+    """Cada produto mostra o proprio menu; pagina comum mostra os dois."""
+    produto = produto_de(pagina)
+    if produto == "psique":
+        return [cfg["psique"]], True
+    if produto == "nr1":
+        return [cfg["nr1"]], False
+    return [cfg["psique"], cfg["nr1"]], True
+
+
 def montar(idioma, pagina):
     cfg = IDIOMAS[idioma]
+    familias, com_tecnico = familias_da_pagina(cfg, pagina)
     out = ['<nav class="nav-links">']
-    for rotulo, href, filhos in cfg["familias"]:
+    for rotulo, alvo, filhos in familias:
         out.append('      <span class="nav-familia">')
-        out.append(bloco_menu(rotulo, href, filhos, idioma, pagina))
+        out.append(bloco_menu(rotulo, alvo, filhos, idioma, pagina))
         out.append("      </span>")
     out.append('      <span class="nav-familia">')
-    rot, href, filhos = cfg["tecnico"]
-    out.append(bloco_menu(rot, href, filhos, idioma, pagina))
-    for rotulo, h in cfg["soltos"]:
-        cls = ' class="ativo"' if h == pagina else ""
-        out.append('        <a%s href="%s">%s</a>' % (cls, h, rotulo))
+    if com_tecnico:
+        rot, alvo, filhos = cfg["tecnico"]
+        out.append(bloco_menu(rot, alvo, filhos, idioma, pagina))
+    for rotulo, alvo in cfg["soltos"]:
+        cls = ' class="ativo"' if alvo == pagina else ""
+        out.append('        <a%s href="%s">%s</a>' % (cls, rel(pagina, alvo), rotulo))
     out.append("      </span>")
     out.append("    </nav>")
     return "\n".join(out)
+
+
+def bloco_acoes(idioma, pagina):
+    """Troca de produto + chamada para acao, antes do botao Entrar."""
+    txt = ACOES[idioma]
+    produto = produto_de(pagina)
+    trocas = {"psique": ["nr1"], "nr1": ["psique"]}.get(produto, ["psique", "nr1"])
+    chamadas = [produto] if produto else ["psique", "nr1"]
+    linhas = ["      <!-- produto e chamada: gerado por tools/gerar-header-do-site.py -->"]
+    for destino in trocas:
+        nome = NOME_PRODUTO[destino]
+        # Com as duas trocas (pagina comum) o "FROID " some na tela, para o
+        # header caber numa linha; o aria-label continua com o nome inteiro.
+        compacta = " nav-troca-compacta" if len(trocas) > 1 else ""
+        linhas.append(
+            '      <a class="nav-troca-produto nav-troca-%s%s" href="%s" aria-label="%s">%s'
+            '<span><span class="nav-troca-marca">FROID </span>%s</span></a>'
+            % (destino, compacta, rel(pagina, destino + "/index.html"),
+               escapar(txt["ir_para"] % nome), ICONE_TROCA, nome.replace("FROID ", "", 1)))
+    for chamada in chamadas:
+        longo, curto = txt[chamada]
+        href = CADASTRO if chamada == "psique" else rel(pagina, "sobre-contato.html") + "#nr1"
+        classe = "btn-solid" if len(chamadas) == 1 or chamada == "psique" else "btn-ghost"
+        # Pagina comum leva as duas chamadas e as duas trocas: com o rotulo
+        # longo o header passava da largura em 1280px (medido com
+        # tools/checar-telas-do-site.mjs). Ali vale o rotulo curto.
+        if len(chamadas) > 1:
+            classe += " nav-cta-compacto"
+        linhas.append(
+            '      <a class="btn %s nav-cta nav-cta-%s" href="%s" aria-label="%s">'
+            '<span class="nav-cta-longo">%s</span><span class="nav-cta-curto" aria-hidden="true">%s</span></a>'
+            % (classe, chamada, href, escapar(longo), escapar(longo), escapar(curto)))
+    linhas.append("      <!-- /produto e chamada -->")
+    return "\n".join(linhas) + "\n"
+
+
+def aplicar_acoes(texto, idioma, pagina):
+    bloco = bloco_acoes(idioma, pagina)
+    if ACOES_GERADAS.search(texto):
+        return ACOES_GERADAS.sub(lambda _m: bloco, texto, count=1)
+    m = NAV_ACTIONS.search(texto)
+    if not m:
+        return texto
+    return texto[:m.end()] + bloco + texto[m.end():]
 
 
 # --------------------------------------------------------------------------
@@ -272,14 +382,17 @@ STYLESHEET = re.compile(r'[ \t]*<link rel="stylesheet"')
 
 def caminho_relativo(de_idioma, para_idioma, pagina):
     """Href de uma pasta de idioma para a mesma página em outra."""
-    if de_idioma == para_idioma:
-        return pagina
-    subir = "../" if de_idioma else ""
-    return subir + (para_idioma + "/" if para_idioma else "") + pagina
+    origem = posixpath.join(de_idioma, pagina) if de_idioma else pagina
+    alvo = posixpath.join(para_idioma, pagina) if para_idioma else pagina
+    return posixpath.relpath(alvo, posixpath.dirname(origem) or ".")
 
 
 def existe(idioma, pagina):
-    return os.path.exists(os.path.join(RAIZ, idioma, pagina) if idioma else os.path.join(RAIZ, pagina))
+    caminho = caminho_local(idioma, pagina)
+    if not os.path.exists(caminho):
+        return False
+    # O redirecionamento no endereco antigo nao e a pagina.
+    return MARCA_STUB not in io.open(caminho, encoding="utf-8").read(400)
 
 
 def bloco_idiomas(idioma, pagina):
@@ -303,9 +416,12 @@ def bloco_idiomas(idioma, pagina):
 def url_publica(idioma, pagina):
     # index.html é servida pela URL do diretório; é a forma canônica e é a que
     # o site já declarava. Manter, para não trocar URL canônica por descuido.
+    base = SITE + (idioma + "/" if idioma else "")
     if pagina == "index.html":
-        return SITE + (idioma + "/" if idioma else "")
-    return SITE + (idioma + "/" if idioma else "") + pagina
+        return base
+    if pagina.endswith("/index.html"):
+        return base + pagina[: -len("index.html")]
+    return base + pagina
 
 
 def bloco_hreflang(pagina):
@@ -342,78 +458,112 @@ def aplicar_hreflang(texto, pagina):
     return texto[:m.start()] + novo + texto[m.start():]
 
 
-CONFERIR = "--conferir" in sys.argv
-
-trocadas = 0
-arquivos = 0
-divergentes = []
-for idioma in IDIOMAS:
-    d = os.path.join(RAIZ, idioma) if idioma else RAIZ
-    for nome in sorted(os.listdir(d)):
-        if not nome.endswith(".html"):
+def paginas_do_idioma(idioma):
+    """Caminhos relativos a raiz do idioma: raiz + pastas de produto."""
+    base = os.path.join(RAIZ, idioma) if idioma else RAIZ
+    for sub in ("",) + PASTAS_DE_PRODUTO:
+        d = os.path.join(base, sub) if sub else base
+        if not os.path.isdir(d):
             continue
-        caminho = os.path.join(d, nome)
-        if not os.path.isfile(caminho):
-            continue
-        arquivos += 1
-        texto = io.open(caminho, encoding="utf-8").read()
-        novo = texto
-        if NAV.search(novo):
-            novo = NAV.sub(lambda _m: montar(idioma, nome), novo, count=1)
-        if LANG_GROUP.search(novo):
-            novo = LANG_GROUP.sub(lambda _m: bloco_idiomas(idioma, nome), novo, count=1)
-        novo = aplicar_hreflang(novo, nome)
-        if novo == texto:
-            continue
-        if CONFERIR:
-            divergentes.append(os.path.join(idioma, nome))
-        else:
-            io.open(caminho, "w", encoding="utf-8", newline="").write(novo)
-            trocadas += 1
+        for nome in sorted(os.listdir(d)):
+            if nome.endswith(".html") and os.path.isfile(os.path.join(d, nome)):
+                yield (sub + "/" + nome) if sub else nome
 
-if CONFERIR:
-    if divergentes:
-        print("HEADER FORA DE SINCRONIA em %d arquivo(s):" % len(divergentes))
-        for p in divergentes:
-            print("   ", p)
-        print()
-        print("Rode `python tools/gerar-header-do-site.py` para regerar.")
-        sys.exit(1)
-    print("header em dia nos", arquivos, "arquivos")
-else:
-    print("headers reescritos:", trocadas)
 
-# Ancora curada que existe no arquivo mas nao virou item de menu: some sem erro
-# nenhum se ninguem contar. Aqui ela e listada.
-print()
-perdidas = []
-for idioma in IDIOMAS:
-    cfg = IDIOMAS[idioma]
-    for _rot, _h, filhos in cfg["familias"] + [cfg["tecnico"]]:
-        for _r, href in filhos:
-            caminho = os.path.join(RAIZ, idioma, href) if idioma else os.path.join(RAIZ, href)
-            if not os.path.exists(caminho):
+def processar(texto, idioma, pagina):
+    if MARCA_STUB in texto:
+        return texto
+    novo = texto
+    tem_header = bool(NAV.search(novo))
+    if tem_header:
+        novo = NAV.sub(lambda _m: montar(idioma, pagina), novo, count=1)
+        novo = BRAND.sub(lambda m: m.group(1) + rel(pagina, "index.html") + m.group(2), novo, count=1)
+        novo = aplicar_acoes(novo, idioma, pagina)
+    if LANG_GROUP.search(novo):
+        novo = LANG_GROUP.sub(lambda _m: bloco_idiomas(idioma, pagina), novo, count=1)
+    return aplicar_hreflang(novo, pagina)
+
+
+def main():
+    conferir = "--conferir" in sys.argv
+    trocadas = 0
+    arquivos = 0
+    divergentes = []
+    for idioma in IDIOMAS:
+        for pagina in paginas_do_idioma(idioma):
+            caminho = caminho_local(idioma, pagina)
+            arquivos += 1
+            texto = io.open(caminho, encoding="utf-8").read()
+            novo = processar(texto, idioma, pagina)
+            if novo == texto:
                 continue
-            html = io.open(caminho, encoding="utf-8").read()
-            ids = set(re.findall(r'\sid="([^"]+)"', html))
-            no_menu = {a for a, _t in secoes_da_pagina(idioma, href)}
-            for a, _rot in NAV_SECOES.get(href, []):
-                if a in ids and a not in no_menu:
-                    perdidas.append("%s/%s#%s" % (idioma or "pt", href, a))
-if perdidas:
-    print("ANCORAS QUE EXISTEM E NAO ENTRARAM NO MENU (sem titulo extraivel):")
-    for p in perdidas:
-        print("   ", p)
-else:
-    print("nenhuma ancora existente ficou de fora do menu")
+            if conferir:
+                divergentes.append(posixpath.join(idioma, pagina) if idioma else pagina)
+            else:
+                io.open(caminho, "w", encoding="utf-8", newline="").write(novo)
+                trocadas += 1
 
-print()
-print("secoes por coluna, por idioma:")
-for idioma in IDIOMAS:
-    cfg = IDIOMAS[idioma]
-    grupos = cfg["familias"] + [cfg["tecnico"]]
-    for rotulo, _h, filhos in grupos:
-        alturas = [1 + len(secoes_da_pagina(idioma, h)) for _r, h in filhos]
-        print("  %-3s %-22s colunas=%d  altura maxima=%2d linhas  %s"
-              % (idioma or "pt", TAG.sub("", rotulo)[:22], len(filhos),
-                 max(alturas), alturas))
+    if conferir:
+        if divergentes:
+            print("HEADER FORA DE SINCRONIA em %d arquivo(s):" % len(divergentes))
+            for p in divergentes:
+                print("   ", p)
+            print()
+            print("Rode `python tools/gerar-header-do-site.py` para regerar.")
+            sys.exit(1)
+        print("header em dia nos", arquivos, "arquivos")
+    else:
+        print("headers reescritos:", trocadas)
+
+    # Ancora curada que existe no arquivo mas nao virou item de menu: some sem
+    # erro nenhum se ninguem contar. Aqui ela e listada.
+    print()
+    perdidas = []
+    for idioma in IDIOMAS:
+        cfg = IDIOMAS[idioma]
+        for _rot, _h, filhos in (cfg["psique"], cfg["nr1"], cfg["tecnico"]):
+            for _r, alvo in filhos:
+                caminho = caminho_local(idioma, alvo)
+                if not os.path.exists(caminho):
+                    continue
+                html = io.open(caminho, encoding="utf-8").read()
+                ids = set(re.findall(r'\sid="([^"]+)"', html))
+                no_menu = {a for a, _t in secoes_da_pagina(idioma, alvo)}
+                for a, _rot in NAV_SECOES.get(alvo, []):
+                    if a in ids and a not in no_menu:
+                        perdidas.append("%s/%s#%s" % (idioma or "pt", alvo, a))
+    if perdidas:
+        print("ANCORAS QUE EXISTEM E NAO ENTRARAM NO MENU (sem titulo extraivel):")
+        for p in perdidas:
+            print("   ", p)
+    else:
+        print("nenhuma ancora existente ficou de fora do menu")
+
+    # Item de menu para pagina que nao existe naquele idioma: link morto.
+    ausentes = []
+    for idioma in IDIOMAS:
+        cfg = IDIOMAS[idioma]
+        for _rot, h, filhos in (cfg["psique"], cfg["nr1"], cfg["tecnico"]):
+            for alvo in [h] + [a for _r, a in filhos] + [a for _r, a in cfg["soltos"]]:
+                if not existe(idioma, alvo):
+                    ausentes.append("%s/%s" % (idioma or "pt", alvo))
+    if ausentes:
+        print("MENU APONTA PARA PAGINA INEXISTENTE:")
+        for p in sorted(set(ausentes)):
+            print("   ", p)
+        if conferir:
+            sys.exit(1)
+
+    print()
+    print("secoes por coluna, por idioma:")
+    for idioma in IDIOMAS:
+        cfg = IDIOMAS[idioma]
+        for rotulo, _h, filhos in (cfg["psique"], cfg["nr1"], cfg["tecnico"]):
+            alturas = [1 + len(secoes_da_pagina(idioma, h)) for _r, h in filhos]
+            print("  %-3s %-22s colunas=%d  altura maxima=%2d linhas  %s"
+                  % (idioma or "pt", TAG.sub("", rotulo)[:22], len(filhos),
+                     max(alturas), alturas))
+
+
+if __name__ == "__main__":
+    main()

@@ -216,7 +216,8 @@ def conferir_site(base: str, r: Resultado) -> None:
     paginas = [
         ("/", SITE / "index.html"),
         ("/sobre-contato", SITE / "sobre-contato.html"),
-        ("/empresas", SITE / "empresas.html"),
+        ("/psique/", SITE / "psique" / "index.html"),
+        ("/nr1/", SITE / "nr1" / "index.html"),
     ]
     for rota, arquivo in paginas:
         if not arquivo.exists():

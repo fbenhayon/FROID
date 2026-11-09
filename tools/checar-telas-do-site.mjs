@@ -13,7 +13,7 @@
 // .codex-tmp/telas/. Chrome em C:/Program Files/Google/Chrome; outro caminho
 // vai em FROID_CHROME. Sai com codigo 1 se alguma medicao acusar problema.
 import { spawn } from "node:child_process";
-import { mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -23,7 +23,15 @@ const CHROME = process.env.FROID_CHROME || "C:/Program Files/Google/Chrome/Appli
 const [shotsArg, ...so] = process.argv.slice(2);
 const shots = resolve(shotsArg || join(REPO, ".codex-tmp", "telas"));
 mkdirSync(shots, { recursive: true });
-const paginas = (so.length ? so : readdirSync(SITE).filter(f => f.endsWith(".html"))).sort();
+// Desde 09/11/2026 as paginas vivem na raiz e em psique/ e nr1/. Os
+// redirecionamentos deixados nos enderecos antigos nao sao paginas: ficam fora.
+const STUB = "<!-- redirecionamento: pagina movida em 09/11/2026 -->";
+const todas = ["", "psique/", "nr1/"].flatMap(sub =>
+  existsSync(join(SITE, sub))
+    ? readdirSync(join(SITE, sub)).filter(f => f.endsWith(".html")).map(f => sub + f)
+    : []
+).filter(p => !readFileSync(join(SITE, p), "utf8").includes(STUB));
+const paginas = (so.length ? so : todas).sort();
 const PORT = 9333;
 
 const chrome = spawn(CHROME, [
@@ -114,7 +122,7 @@ for (const pagina of paginas) {
     if (v.nome === "celular") {
       const shot = (await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: true,
         clip: { x: 0, y: 0, width: v.w, height: Math.min(med.altura, 6000), scale: 1 } }, sessionId)).result;
-      writeFileSync(join(shots, pagina.replace(".html", "") + "-celular.png"), Buffer.from(shot.data, "base64"));
+      writeFileSync(join(shots, pagina.replace(".html", "").replace(/\//g, "-") + "-celular.png"), Buffer.from(shot.data, "base64"));
     }
   }
 }

@@ -6,7 +6,9 @@ Uso:
     python tools/gerar-titulos-ambar-site.py --conferir
 
 O rotulo vem do <title>, cortado antes do primeiro "|". A pagina tecnica
-contratacao-nr1.html preserva o nome publico "Cadeia de Comando".
+nr1/contratacao-nr1.html preserva o nome publico "Cadeia de Comando".
+Os redirecionamentos deixados nos enderecos antigos (09/11/2026) nao tem hero
+e sao ignorados.
 """
 import html as html_lib
 import os
@@ -15,12 +17,13 @@ import sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RAIZ = os.path.join(REPO, "froid-site")
+MARCA_STUB = "<!-- redirecionamento: pagina movida em 09/11/2026 -->"
 
 TITLE = re.compile(r"<title>(.*?)</title>", re.S | re.I)
 BADGE = re.compile(r"\n[ \t]*<p class=\"page-title-amber\">.*?</p>\n", re.S)
 
 ROTULOS_ESPECIAIS = {
-    "contratacao-nr1.html": "Cadeia de Comando",
+    "nr1/contratacao-nr1.html": "Cadeia de Comando",
 }
 
 
@@ -80,6 +83,8 @@ def main():
     for caminho in sorted(arquivos_html()):
         with open(caminho, encoding="utf-8", newline="") as f:
             atual = f.read()
+        if MARCA_STUB in atual:
+            continue
         rotulo = titulo_curto(caminho, atual)
         if not rotulo:
             sem_hero.append(relpath(caminho))

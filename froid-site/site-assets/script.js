@@ -14,14 +14,18 @@
 // um link que não leva a lugar nenhum — o mesmo defeito que a revisão de links
 // encontrou na página de preços. Por isso o construtor abaixo confere a
 // existência do alvo antes de criar o item, quando está na própria página.
+//
+// Desde 09/11/2026 o site tem pastas por produto (psique/, nr1/), e a chave é
+// o caminho a partir da raiz do site ("psique/ciencia.html"), não só o nome do
+// arquivo: "index.html" sozinho já não diz de qual produto é a página.
 var NAV_SECOES = {
-  "ciencia.html": [
+  "psique/ciencia.html": [
     ["tres-camadas-de-leitura", "Três camadas de leitura"],
     ["o-que-o-produto-apresenta", "O que o produto apresenta"],
     ["validacao", "Como comunicar evolução sem antecipar evidência"],
     ["do-entendimento-a-avaliacao-da-sua-pratica", "Do entendimento à avaliação da sua prática"]
   ],
-  "como-funciona-clinico.html": [
+  "psique/como-funciona-clinico.html": [
     ["prepare-uma-captura-autorizada", "1. Prepare uma captura autorizada"],
     ["cortes-e-calibracao", "Calibração e cortes: os números da sessão"],
     ["acompanhe-canais-complementares", "2. Acompanhe canais complementares"],
@@ -30,7 +34,7 @@ var NAV_SECOES = {
     ["revise-e-contextualize", "5. Revise e contextualize"],
     ["veja-como-isso-se-apresenta", "Veja como isso se apresenta"]
   ],
-  "data-froid.html": [
+  "psique/data-froid.html": [
     ["o-acervo-e-o-assistente-tem-papeis-diferentes", "O acervo e o assistente têm papéis diferentes"],
     ["tres-responsabilidades-na-arquitetura-proposta", "Três responsabilidades na arquitetura proposta"],
     ["o-que-pode-ser-investigado", "O que pode ser investigado"],
@@ -40,7 +44,7 @@ var NAV_SECOES = {
     ["perguntas-que-respeitam-os-dados-disponiveis", "Perguntas que respeitam os dados disponíveis"],
     ["avalie-o-data-froid-com-a-equipe", "Avalie o Data-Froid com a equipe"]
   ],
-  "empresas.html": [
+  "nr1/index.html": [
     ["custo-da-omissao", "O custo da omissão"],
     ["armadilhas", "Armadilhas"],
     ["tres-linhas-metodo", "As 3 linhas que resumem o método"],
@@ -50,7 +54,7 @@ var NAV_SECOES = {
     ["simulador-nr1", "Simulação"],
     ["limites-e-responsabilidade", "Limites e responsabilidade"]
   ],
-  "contratacao-nr1.html": [
+  "nr1/contratacao-nr1.html": [
     ["sumario-executivo", "Sumário executivo"],
     ["norma", "A NR-1 em vigor"],
     ["cadeia", "A oportunidade oculta"],
@@ -62,32 +66,23 @@ var NAV_SECOES = {
     ["pgr-e-psique", "PGR e Psique"],
     ["recomendacoes", "Recomendações"]
   ],
-  "faq.html": [
+  "psique/faq.html": [
     ["medidas-e-interpretacao", "Medidas e interpretação"],
     ["uso-e-contratacao", "Uso e contratação"],
     ["sua-duvida-depende-da-sua-rotina", "Sua dúvida depende da sua rotina?"]
   ],
-  "froid-explica.html": [
+  "psique/froid-explica.html": [
     ["veja-em-acao", "Veja em ação"],
     ["como-um-bibliotecario-nao-como-um-oraculo", "Como um bibliotecário, não como um oráculo"],
     ["prompts", "Prompts nativos para começar; próprios para aprofundar"],
     ["mais-clareza-sem-transformar-resposta-em-conduta", "Mais clareza, sem transformar resposta em conduta"],
     ["veja-o-assistente-no-contexto-da-sua-pratica", "Veja o assistente no contexto da sua prática"]
   ],
-  "glossario.html": [
+  "psique/glossario.html": [
     ["os-dez-conceitos", "Os dez conceitos"],
     ["veja-os-conceitos-no-contexto-de-uso", "Veja os conceitos no contexto de uso"]
   ],
-  "index.html": [
-    ["produtos", "Dois produtos. Cada um no seu contexto."],
-    ["um-painel-de-apoio-nao-um-piloto-automatico", "Um painel de apoio, não um piloto automático"],
-    ["o-diferencial-aparece-no-registro", "O diferencial aparece no registro"],
-    ["inteligencia-artificial-que-voce-pode-compreender", "Inteligência artificial que você pode compreender"],
-    ["confianca-exige-explicacao", "Confiança exige explicação"],
-    ["o-produto-na-tela", "O painel do FROID Psique"],
-    ["descubra-onde-o-froid-pode-ajudar", "Descubra onde o FROID pode ajudar"]
-  ],
-  "iso-45001.html": [
+  "nr1/iso-45001.html": [
     ["obrigacao-legal-e-diretriz", "Obrigação legal e diretriz"],
     ["siglas-e-publicacoes", "Siglas e publicações"],
     ["como-se-conectam", "Como se conectam"],
@@ -96,7 +91,7 @@ var NAV_SECOES = {
     ["o-que-o-froid-entrega", "O que o FROID entrega"],
     ["limites", "Limites"]
   ],
-  "apresentacao-nr1.html": [
+  "nr1/apresentacao-nr1.html": [
     ["documento-integral", "Gestão dos riscos psicossociais"],
     ["pagina-1", "O que a empresa precisa demonstrar"],
     ["pagina-2", "O que o FROID entrega"],
@@ -105,7 +100,7 @@ var NAV_SECOES = {
     ["quando-a-segunda-avaliacao-reprova", "E se a segunda avaliação reprovar?"],
     ["pagina-5", "Minha proposta: experimentem"]
   ],
-  "mapas-faciais.html": [
+  "psique/mapas-faciais.html": [
     ["um-dicionario-de-movimentos-nao-um-leitor-de-pensamentos", "Um dicionário de movimentos, não um leitor de pensamentos"],
     ["familias", "As sete famílias"],
     ["o-detalhe-nao-desaparece-na-organizacao", "O detalhe não desaparece na organização"],
@@ -116,7 +111,7 @@ var NAV_SECOES = {
   "menu.html": [
     ["as-paginas-por-produto", "As páginas, por produto"]
   ],
-  "precos-psique.html": [
+  "psique/precos-psique.html": [
     ["qual-e-o-seu-cenario", "Qual é o seu cenário?"],
     ["trial", "Teste gratuito, sem cartão"],
     ["como-funcionam-os-creditos", "Como funcionam os créditos"],
@@ -126,7 +121,7 @@ var NAV_SECOES = {
     ["e-quando-o-saldo-termina", "E quando o saldo termina?"],
     ["receba-uma-proposta-para-sua-pratica", "Receba uma proposta para sua prática"]
   ],
-  "precos-nr1.html": [
+  "nr1/precos-nr1.html": [
     ["condicoes-comerciais", "Condições comerciais"],
     ["simulador-nr1", "Simulação"],
     ["exemplos", "Exemplos"]
@@ -136,7 +131,7 @@ var NAV_SECOES = {
     ["nr1", "FROID NR-1"],
     ["duvidas-ou-solicitacoes-sobre-dados", "Dúvidas ou solicitações sobre dados"]
   ],
-  "profissionais.html": [
+  "psique/index.html": [
     ["antes-durante-e-depois", "Antes, durante e depois"],
     ["relatorio-da-sessao", "O relatório da sessão"],
     ["instrumentos-que-informam-sem-decidir-por-voce", "Instrumentos que informam, sem decidir por você"],
@@ -146,7 +141,7 @@ var NAV_SECOES = {
     ["contratacao-adequada-a-sua-pratica", "Contratação adequada à sua prática"],
     ["comece-avaliando-o-encaixe-na-sua-rotina", "Comece avaliando o encaixe na sua rotina"]
   ],
-  "proposta-nr1.html": [
+  "nr1/proposta-nr1.html": [
     ["precos", "Condições comerciais"],
     ["lista-de-preparacao", "Lista de informações"],
     ["resultados-liberaveis", "Resultados liberáveis"],
@@ -158,7 +153,7 @@ var NAV_SECOES = {
   "sobre-contato.html": [
     ["canal-de-contato", "Canal de contato"]
   ],
-  "tecnologia.html": [
+  "psique/tecnologia.html": [
     ["voz", "Voz: uma referência para a própria sessão"],
     ["face", "Face: do coeficiente ao padrão"],
     ["registro", "Consistência que chega à tela e ao relatório"],
@@ -167,6 +162,25 @@ var NAV_SECOES = {
     ["leve-o-entendimento-para-a-pratica", "Leve o entendimento para a prática"]
   ]
 };
+
+// Raiz do site = a pasta acima de site-assets/, tirada do próprio src deste
+// script. Funciona igual em froid.com.br, no Live Server e em file://, e em
+// qualquer profundidade de pasta.
+var RAIZ_DO_SITE = (function () {
+  var s = document.currentScript ||
+    document.querySelector('script[src*="site-assets/script.js"]');
+  return s ? new URL("../", s.src).href : new URL("./", location.href).href;
+})();
+
+// "psique/ciencia.html" para qualquer URL do site; null se for de fora.
+function chaveDaPagina(url) {
+  var u = new URL(url, location.href);
+  var p = u.href.split("#")[0].split("?")[0];
+  if (p.indexOf(RAIZ_DO_SITE) !== 0) return null;
+  p = p.slice(RAIZ_DO_SITE.length);
+  if (p === "" || p.charAt(p.length - 1) === "/") p += "index.html";
+  return decodeURIComponent(p).toLowerCase();
+}
 
 /* Teclado dos menus do header, um só para os dois tipos (o submenu de seções,
    montado aqui, e os menus de família, escritos no HTML). O ponteiro e o foco
@@ -205,10 +219,13 @@ function ligarTeclado(item, link, menu) {
 
 document.addEventListener("DOMContentLoaded", function () {
   // Destaca no header o link da página atual (itálico + sublinhado via CSS .ativo)
-  var pagina = (location.pathname.split("/").pop() || "index.html").toLowerCase();
+  // A comparação é pelo caminho resolvido, não pelo texto do href: o mesmo
+  // destino se escreve "index.html" numa pasta e "../psique/index.html" noutra.
+  var pagina = chaveDaPagina(location.href);
   document.querySelectorAll(".nav-links a").forEach(function (a) {
-    var href = (a.getAttribute("href") || "").toLowerCase();
-    if (href === pagina) a.classList.add("ativo");
+    var href = a.getAttribute("href") || "";
+    if (href.indexOf("#") !== -1) return;
+    if (pagina && chaveDaPagina(a.href) === pagina) a.classList.add("ativo");
   });
 
   // ---------- Menu suspenso com as seções de cada página ----------
@@ -252,8 +269,10 @@ document.addEventListener("DOMContentLoaded", function () {
       // com os links soltos da fileira — Ética, Segurança e Preços.
       if (link.closest && link.closest(".nav-menu")) return;
 
-      var alvoPagina = (link.getAttribute("href") || "").toLowerCase().split("#")[0];
-      var secoes = NAV_SECOES[alvoPagina];
+      var hrefLink = (link.getAttribute("href") || "").split("#")[0];
+      if (!hrefLink) return;
+      var alvoPagina = chaveDaPagina(link.href);
+      var secoes = alvoPagina && NAV_SECOES[alvoPagina];
       if (!secoes || !secoes.length) return;
 
       var naPagina = alvoPagina === pagina;
@@ -274,7 +293,7 @@ document.addEventListener("DOMContentLoaded", function () {
         // aqui assim que alguém abrir a página correspondente.
         if (naPagina && !document.getElementById(par[0])) return;
         var a = document.createElement("a");
-        a.setAttribute("href", (naPagina ? "" : alvoPagina) + "#" + par[0]);
+        a.setAttribute("href", (naPagina ? "" : hrefLink) + "#" + par[0]);
         a.setAttribute("role", "menuitem");
         a.textContent = par[1];
         menu.appendChild(a);
