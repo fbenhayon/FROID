@@ -16,8 +16,10 @@ import {
 import {
   menos,
   palavrasPorMinutoDoPaciente,
+  palavrasPorMinutoNaFalaDoPaciente,
   pesoDeAusencia,
 } from "../lib/medidas-do-corte";
+import { formatarCadencia, formatarPpmNaFala, lerCadencia } from "../lib/cadencia";
 import { contextoDosCortes, recorteFinalDaTranscricao, transcricaoParaOExplica } from "../lib/painel-para-o-explica";
 import {
   STATUS_CAPTURA_TEXTO,
@@ -97,6 +99,10 @@ const SIMPLIFIED_METRIC_TOOLTIPS: Record<string, string> = {
     "Tom emocional predominante inferido pela composição entre fala transcrita, marcadores acústicos e contexto do corte.",
   "P/MIN":
     "Palavras por minuto no corte atual. Ajuda a identificar aceleração, lentificação, bloqueios ou mudanças de cadência.",
+  CADÊNCIA:
+    "Variação das palavras por minuto do corte em relação à referência dos primeiros 60 segundos deste paciente. Faixas: na referência (menos de 15%), acelerada ou lentificada (15% a 30%), muito acelerada ou muito lentificada (30% ou mais).",
+  "P/MIN FALA":
+    "Palavras por minuto contadas só no tempo em que o paciente fala (blocos de 7 s da trilha dele), a unidade usada na literatura. Ao lado, a faixa descrita na literatura: abaixo de 100, lentificação descrita em retardo psicomotor depressivo e alogia; 190 ou mais, aceleração descrita em pressão de fala e mania. Referência de grupo, não diagnóstico; a leitura é do profissional.",
   "DISSO.":
     "Dissonância facial-vocal não apurada: falta relação validada entre canais. Não é a contagem das sete famílias faciais.",
   MFCC7:
@@ -5619,6 +5625,24 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     ["ZONAS", simplifiedSnapshot.dominantZone ? `Zona ${simplifiedSnapshot.dominantZone}` : "--"],
     ["TOM", simplifiedSnapshot.emotionalTone || "--"],
     ["P/MIN", formatMetricValue(simplifiedSnapshot.wordsPerMinute, 1)],
+    // Contra a referência dos primeiros 60 s DESTE paciente (lib/cadencia).
+    [
+      "CADÊNCIA",
+      formatarCadencia(
+        lerCadencia(simplifiedSnapshot.wordsPerMinute, baselineSnapshotRef.current?.wordsPerMinute),
+      ) ?? "--",
+    ],
+    // Na fala do paciente, a unidade da literatura, com a faixa descrita nela.
+    [
+      "P/MIN FALA",
+      formatarPpmNaFala(
+        palavrasPorMinutoNaFalaDoPaciente(
+          transcriptSegmentsRef.current,
+          semanticCutStartSecond,
+          Math.max(semanticCutStartSecond + 1, state.elapsedSeconds),
+        ),
+      ) ?? "--",
+    ],
     // `|| 0` imprimia "0" — "nenhuma dissonancia" — sobre janela sem
     // apuracao. Sao coisas diferentes: uma e achado, a outra e ausencia.
     ["DISSO.", formatMetricValue(simplifiedSnapshot.dissonanceCount, 0)],

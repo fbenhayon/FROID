@@ -1,5 +1,55 @@
 import { describe, expect, it } from "vitest";
-import { CORTES_CADENCIA, RESSALVA_CADENCIA, formatarCadencia, lerCadencia } from "./cadencia";
+import {
+  CORTES_CADENCIA,
+  CORTES_LITERATURA,
+  RESSALVA_CADENCIA,
+  formatarCadencia,
+  formatarPpmNaFala,
+  lerCadencia,
+  zonaDaLiteratura,
+} from "./cadencia";
+import { palavrasPorMinutoNaFalaDoPaciente } from "./medidas-do-corte";
+
+describe("palavras por minuto na fala do paciente (unidade da literatura)", () => {
+  const seg = (s: number, t: string) => ({ elapsedSeconds: s, text: t });
+
+  it("divide pelo tempo dos blocos do paciente, não pela janela", () => {
+    // 2 blocos do paciente (14 s) com 21 palavras = 90 PPM, mesmo numa janela
+    // de 60 s em que o profissional falou o resto do tempo.
+    const linhas = [
+      seg(0, "DR. - " + "fala ".repeat(40)),
+      seg(10, "PC - " + "um ".repeat(10)),
+      seg(20, "PC - " + "dois ".repeat(11)),
+    ];
+    expect(palavrasPorMinutoNaFalaDoPaciente(linhas, 0, 60)).toBe(90);
+  });
+
+  it("é nula sem fala do paciente", () => {
+    expect(palavrasPorMinutoNaFalaDoPaciente([seg(0, "DR. - oi tudo bem")], 0, 60)).toBeNull();
+    expect(palavrasPorMinutoNaFalaDoPaciente([], 0, 60)).toBeNull();
+  });
+});
+
+describe("faixas da literatura", () => {
+  it("usa os cortes da tabela do dono", () => {
+    expect(CORTES_LITERATURA).toEqual({ afasia: 50, lentificacao: 100, aceleracao: 190 });
+    expect(zonaDaLiteratura(30)).toBe("afasia_nao_fluente");
+    expect(zonaDaLiteratura(96)).toBe("lentificacao");
+    expect(zonaDaLiteratura(135)).toBe("referencia");
+    expect(zonaDaLiteratura(190)).toBe("aceleracao");
+  });
+
+  it("declara ausência", () => {
+    expect(zonaDaLiteratura(null)).toBeNull();
+    expect(formatarPpmNaFala(undefined)).toBeNull();
+  });
+
+  it("formata como referência da literatura, não como diagnóstico", () => {
+    const texto = formatarPpmNaFala(92) || "";
+    expect(texto).toBe("92 · < 100 · lentificação descrita em retardo psicomotor depressivo e alogia");
+    expect(texto.toLowerCase()).not.toContain("diagnóstico");
+  });
+});
 
 describe("cadência relativa à referência do paciente", () => {
   it("mede a variação com sinal contra a referência", () => {

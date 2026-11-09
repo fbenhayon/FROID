@@ -10,9 +10,11 @@
  * pessoa, e a própria calibração do FROID existe para não usar régua
  * universal.
  *
- * O que este indicador NÃO faz, por decisão do dono em 09/11/2026: não
- * classifica pânico, mania nem depressão. As faixas descrevem a velocidade
- * em relação à referência, nada mais. A leitura clínica é do profissional.
+ * As cinco faixas de CADÊNCIA descrevem só a velocidade em relação à
+ * referência do próprio paciente. A indicação da situação descrita na
+ * literatura vive à parte, em `zonaDaLiteratura`, sobre a medida na fala do
+ * paciente (determinação do dono, 09/11/2026). A leitura clínica é do
+ * profissional.
  *
  * Os cortes de 15% e 30% são escolha de produto, não valores validados — a
  * literatura consultada não traz corte por pessoa. Ficam aqui, num lugar só,
@@ -76,6 +78,55 @@ export function lerCadencia(atual: unknown, referencia: unknown): LeituraCadenci
   else if (variacao > 0) faixa = intensidade >= CORTES_CADENCIA.acentuado ? "muito_acelerada" : "acelerada";
   else faixa = intensidade >= CORTES_CADENCIA.acentuado ? "muito_lentificada" : "lentificada";
   return { variacao, faixa, rotulo: ROTULO_FAIXA[faixa] };
+}
+
+/**
+ * Faixas de referência da LITERATURA para palavras por minuto NA FALA do
+ * paciente (medidas-do-corte: palavrasPorMinutoNaFalaDoPaciente).
+ *
+ * Determinação do dono, 09/11/2026: o profissional vê, durante a sessão, a
+ * indicação da situação descrita na literatura para a faixa em que a fala
+ * está. É referência de grupo citada, não diagnóstico do paciente — o
+ * contrato assinado diz que o FROID não diagnostica, e a leitura é do
+ * profissional.
+ *
+ * Fontes (tabela enviada pelo dono em 09/11/2026):
+ *  - Yamamoto et al., PLOS ONE 2020: depressão maior fala mais devagar que
+ *    controles; r = −0,378 com HAMD-17 (VERIFICADO no artigo).
+ *  - Cohen et al., Schizophrenia Research 2014 (meta-análise) e Frontiers in
+ *    Psychiatry 2024: alogia/afeto plano ~97,8 PPM; pressão de fala > 190 PPM.
+ *  - Estudos de fluência em afasia (NIH/PMC 2024): não fluente < 50 PPM.
+ *  - Yuan, Liberman e Cieri: conversação adulta 150–190 PPM.
+ *  O par "~96,0 vs. ~134,9 PPM" do TDM veio na tabela do dono atribuído a
+ *  JMIR Mental Health 2024, mas NÃO foi localizado no artigo (Wadle et al.)
+ *  nem em Yamamoto 2020; por isso o corte de 100 PPM é apresentado como da
+ *  compilação, sem citar esse par.
+ */
+export type ZonaLiteratura = "afasia_nao_fluente" | "lentificacao" | "referencia" | "aceleracao";
+
+export const CORTES_LITERATURA = { afasia: 50, lentificacao: 100, aceleracao: 190 } as const;
+
+export const ROTULO_ZONA_LITERATURA: Record<ZonaLiteratura, string> = {
+  afasia_nao_fluente: "< 50 · faixa descrita na afasia não fluente",
+  lentificacao: "< 100 · lentificação descrita em retardo psicomotor depressivo e alogia",
+  referencia: "100–189 · faixa conversacional",
+  aceleracao: "≥ 190 · aceleração descrita em pressão de fala e mania",
+};
+
+export function zonaDaLiteratura(ppmNaFala: unknown): ZonaLiteratura | null {
+  const n = numero(ppmNaFala);
+  if (n === null || n <= 0) return null;
+  if (n < CORTES_LITERATURA.afasia) return "afasia_nao_fluente";
+  if (n < CORTES_LITERATURA.lentificacao) return "lentificacao";
+  if (n < CORTES_LITERATURA.aceleracao) return "referencia";
+  return "aceleracao";
+}
+
+/** "92 · < 100 · lentificação descrita em …", ou null sem apuração. */
+export function formatarPpmNaFala(ppmNaFala: unknown): string | null {
+  const zona = zonaDaLiteratura(ppmNaFala);
+  if (!zona) return null;
+  return `${Math.round(Number(ppmNaFala))} · ${ROTULO_ZONA_LITERATURA[zona]}`;
 }
 
 /** "−32% vs. referência · lentificada", ou null sem apuração. */

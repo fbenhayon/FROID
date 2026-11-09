@@ -75,6 +75,46 @@ export function palavrasPorMinutoDoPaciente(
   return Math.round((palavras / minutos) * 10) / 10;
 }
 
+/** Duração do bloco de áudio que vira UMA linha de transcrição (STT_CHUNK_MS). */
+export const SEGUNDOS_POR_BLOCO_DE_FALA = 7;
+
+/** Palavras por minuto NA FALA do paciente — a unidade da literatura.
+ *
+ *  `palavrasPorMinutoDoPaciente` divide pelas palavras do paciente pela
+ *  duração da JANELA inteira, que inclui o tempo em que o profissional fala e
+ *  os silêncios. É uma boa régua para comparar o paciente com ele mesmo, mas
+ *  não com estudos: Yamamoto et al. (PLOS ONE, 2020) dividem pelo tempo de
+ *  fala do próprio participante. Numa sessão em que o profissional fala metade
+ *  do tempo, a conta da janela sai pela metade e cairia em "lentificação"
+ *  qualquer que fosse o paciente.
+ *
+ *  Aqui o denominador é o tempo dos blocos de áudio em que o paciente falou:
+ *  cada linha `PC -` vem de um bloco de 7 s da trilha dele. É APROXIMAÇÃO —
+ *  silêncio dentro de um bloco conta como fala —, e por isso tende a
+ *  SUBESTIMAR a taxa, nunca a inflar. Nula sem fala do paciente. */
+export function palavrasPorMinutoNaFalaDoPaciente(
+  segmentos: SegmentoTranscrito[],
+  segundoInicial: number,
+  segundoFinal: number,
+  segundosPorBloco: number = SEGUNDOS_POR_BLOCO_DE_FALA,
+): number | null {
+  const linhas = (Array.isArray(segmentos) ? segmentos : []).filter(
+    (segmento) =>
+      segmento &&
+      segmento.elapsedSeconds >= segundoInicial &&
+      segmento.elapsedSeconds < segundoFinal &&
+      PREFIXO_DO_PACIENTE.test(String(segmento.text || "")),
+  );
+  const palavras = linhas
+    .map((segmento) => String(segmento.text || "").replace(PREFIXO_DO_PACIENTE, ""))
+    .join(" ")
+    .split(/\s+/)
+    .filter(Boolean).length;
+  if (!linhas.length || !palavras || segundosPorBloco <= 0) return null;
+  const minutosDeFala = (linhas.length * segundosPorBloco) / 60;
+  return Math.round((palavras / minutosDeFala) * 10) / 10;
+}
+
 /** A contribuição de uma medida AUSENTE para um escore composto: zero.
  *
  *  Não é o `|| 0` proibido, e a diferença é de destino. Um índice que vai à
