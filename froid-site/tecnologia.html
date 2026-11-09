@@ -194,6 +194,8 @@
 <p>O navegador extrai coeficientes numéricos do vídeo autorizado do paciente. Um único motor no servidor produz estimativas de Unidades de Ação e interpreta combinações, preservando a lateralidade e as ambiguidades.</p>
 <details class="pergunta"><summary>Detalhes técnicos das estimativas de AU</summary><p>O contrato mantém 16 campos. Quinze possuem mapeamentos aproximados, dependentes dos coeficientes recebidos. AU23 permanece não apurada. AU17 utiliza <code>mouthShrugLower</code> como proxy; AU23 não é derivada de rolamento labial. AU25 e AU27 não estão instrumentadas. Coeficientes brutos e estimativas legadas são preservados sem converter ausência em valor fictício.</p></details>
 <p>Essas estimativas não equivalem a codificação FACS certificada. As combinações são organizadas em sete famílias de padrões compatíveis.</p>
+<p>Nos mesmos 60 segundos da calibração vocal, o FROID registra uma referência facial do próprio paciente: o valor típico de cada movimento em repouso e o quanto ele oscila naturalmente. Nesta fase ela está em medição: registra quanto cada movimento se afastou do repouso, mas ainda não filtra nem reclassifica padrões. O limiar será definido a partir de sessões reais.</p>
+<p>No relatório, os movimentos faciais aparecem por corte, com o minuto da sessão, a fala daquele momento e a proporção da sessão em que o rosto foi de fato medido.</p>
 <p class="links-rel"><a href="mapas-faciais.html">Explorar cada família</a></p>
   </div>
 </section>
