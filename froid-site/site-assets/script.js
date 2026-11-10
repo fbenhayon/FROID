@@ -27,12 +27,15 @@ var NAV_SECOES = {
   ],
   "psique/como-funciona-clinico.html": [
     ["prepare-uma-captura-autorizada", "1. Prepare uma captura autorizada"],
-    ["cortes-e-calibracao", "Calibração e cortes: os números da sessão"],
-    ["acompanhe-canais-complementares", "2. Acompanhe canais complementares"],
+    ["faca-um-convite-ao-seu-paciente", "1. Faça um convite ao seu paciente"],
+    ["cortes-e-calibracao", "2. Calibração e cortes"],
+    ["acompanhe-canais-complementares", "3. Acompanhe canais complementares"],
     ["distingua-candidato-registro-e-historico", "3. Distingua candidato, registro e histórico"],
     ["saiba-quando-nao-ha-medida", "4. Saiba quando não há medida"],
     ["revise-e-contextualize", "5. Revise e contextualize"],
-    ["veja-como-isso-se-apresenta", "Veja como isso se apresenta"]
+    ["revise-a-sessao", "4. Revise a sessão"],
+    ["veja-como-isso-se-apresenta", "Veja como isso se apresenta"],
+    ["comece-pelo-convite", "Comece pelo convite"]
   ],
   "psique/data-froid.html": [
     ["o-acervo-e-o-assistente-tem-papeis-diferentes", "O acervo e o assistente têm papéis diferentes"],
@@ -139,7 +142,17 @@ var NAV_SECOES = {
     ["uma-pergunta-melhor-comeca-por-um-contexto-claro", "Uma pergunta melhor começa por um contexto claro"],
     ["data-froid-da-informacao-registrada-a-investigacao", "Data-Froid: da informação registrada à investigação"],
     ["contratacao-adequada-a-sua-pratica", "Contratação adequada à sua prática"],
-    ["comece-avaliando-o-encaixe-na-sua-rotina", "Comece avaliando o encaixe na sua rotina"]
+    ["comece-avaliando-o-encaixe-na-sua-rotina", "Comece avaliando o encaixe na sua rotina"],
+    ["bonificacao-destaque", "Bonificação de lançamento"],
+    ["multimodal", "Processamento multimodal"],
+    ["calibracao-60s", "Calibração de 60 segundos"],
+    ["bussola-velocimetro", "IDM e IPM"],
+    ["12-zonas", "As 12 zonas de percepção vocal"],
+    ["ritmo-fala", "Taxa de elocução"],
+    ["cortes-tematicos", "Cortes temáticos e FROID Explica"],
+    ["privacidade-lgpd", "Data-Froid e privacidade"],
+    ["planos", "Planos"],
+    ["resgate-bonificacao", "Resgatar a bonificação"]
   ],
   "nr1/proposta-nr1.html": [
     ["precos", "Condições comerciais"],

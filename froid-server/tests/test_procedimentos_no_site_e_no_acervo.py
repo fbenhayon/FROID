@@ -172,10 +172,18 @@ class OSiteDescreveOsMesmosProcedimentos(unittest.TestCase):
         self.assertIn("tabela por corte", pagina)
         self.assertIn("sob o mesmo acesso que a pessoa já tem no painel", pagina)
 
-    def test_como_funciona_aponta_para_o_faq_da_clinica(self):
+    def test_a_gestao_da_clinica_fica_no_faq_e_nao_no_como_funciona(self):
+        """Ate 09/11/2026 o Como funciona misturava papeis, cotas e agenda da
+        clinica com a revisao da sessao, e linkava o FAQ. O dono mandou tirar:
+        a pagina descreve o procedimento da sessao (convite, calibracao e
+        cortes, canais, revisao) e nao leva link para outras paginas no corpo.
+        O procedimento da clinica continua documentado no FAQ."""
+        faq = _ler(SITE / "psique" / "faq.html")
+        self.assertIn('id="uso-e-contratacao"', faq)
+        self.assertIn('carimbo "Solo"', faq)
         pagina = _ler(SITE / "psique" / "como-funciona-clinico.html")
-        self.assertIn('href="faq.html#uso-e-contratacao"', pagina)
-        self.assertIn('carimbo "Solo"', pagina)
+        self.assertNotIn('carimbo "Solo"', pagina)
+        self.assertNotIn('href="faq.html', pagina.split("<footer", 1)[0])
 
     def test_nenhuma_pagina_editada_ganhou_mojibake(self):
         for nome in ("faq", "froid-explica", "como-funciona-clinico", "precos-psique"):

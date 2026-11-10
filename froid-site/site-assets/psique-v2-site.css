@@ -1,0 +1,148 @@
+/* Site 2 do FROID Psique (PT), 09/11/2026. Camada que se soma a psique-v2.css
+   (o CSS da landing, copiado inteiro): header gerado por
+   tools/gerar-header-do-site.py no visual da landing, rodape, prosa, destaque
+   pastel no lugar da barra ambar, duas colunas, e leitura centralizada em
+   toda pagina (determinacao do dono). Carregar DEPOIS de psique-v2.css. */
+@import url('fonts/fontes.css');
+
+html { scroll-behavior: smooth; scroll-padding-top: 24px; }
+body { text-align: center; }
+img { max-width: 100%; }
+
+/* ---------- Header gerado (classes do gerador, visual da landing) ---------- */
+.site-header { background: var(--surface-navy); border-bottom: 1px solid var(--surface-navy-border); color: var(--on-dark-surface); }
+.nav-row { max-width: 1240px; margin: 0 auto; padding: 14px 24px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: #fff; font-family: var(--font-display); font-weight: 700; font-size: 1.15rem; letter-spacing: .05em; }
+.brand-logo { width: 34px; height: 34px; border-radius: 8px; }
+.nav-links { display: flex; align-items: center; justify-content: center; gap: 2px; flex: 1; flex-wrap: wrap; }
+.nav-familia { display: inline-flex; align-items: center; gap: 2px; }
+.nav-links .nav-menu { display: inline-block; position: relative; }
+.nav-links a { display: inline-block; color: var(--on-dark-variant); text-decoration: none; font-family: var(--font-label); font-size: var(--label-size); font-weight: 600; letter-spacing: .02em; padding: 6px 10px; border-radius: var(--rounded-sm); }
+.nav-links a:hover, .nav-links a:focus-visible, .nav-links a.ativo { color: #fff; background: rgba(255, 255, 255, .08); outline: none; }
+.nav-drop { display: none; position: absolute; left: 0; top: 100%; z-index: 1000; min-width: 260px; padding: 14px; text-align: left;
+  background: var(--surface-navy-card); border: 1px solid var(--surface-navy-border); border-radius: var(--rounded-lg); box-shadow: 0 16px 40px rgba(7, 11, 20, .45); }
+.nav-drop-mega { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; min-width: min(720px, 90vw); }
+.nav-menu:hover > .nav-drop, .nav-menu:focus-within > .nav-drop { display: grid; }
+.nav-drop-col { display: flex; flex-direction: column; }
+.nav-links .nav-drop a { display: block; padding: 5px 8px; font-weight: 500; }
+.nav-links .nav-drop a.nav-drop-pagina { color: #fcd34d; font-weight: 700; }
+.nav-links .nav-drop a.nav-drop-secao { color: var(--on-dark-variant); font-size: .8rem; }
+.nav-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
+.nav-troca-produto { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px 4px 8px; white-space: nowrap; text-decoration: none;
+  border: 1px solid rgba(148, 163, 184, .3); border-radius: var(--rounded-full); background: rgba(148, 163, 184, .08);
+  font-family: var(--font-label); font-size: .7rem; font-weight: 700; color: #cbd5e1; }
+.nav-troca-produto:hover { color: #fff; background: rgba(148, 163, 184, .16); }
+.nav-troca-icone { color: #c4b5fd; flex: none; }
+.nav-troca-marca { display: none; }
+.nav-actions .btn { padding: .5rem 1rem; border-radius: var(--rounded-full); }
+.nav-actions .nav-cta { background: var(--amber-bright); color: #fff; border-color: var(--amber-bright); box-shadow: 0 3px 12px rgba(217, 119, 6, .28); }
+.nav-actions .nav-cta:hover { background: #b45309; border-color: #b45309; }
+.nav-cta-longo { display: none; }
+.nav-cta-curto { display: inline; }
+@media (min-width: 1500px) { .nav-cta-longo { display: inline; } .nav-cta-curto { display: none; } }
+.nav-actions .btn-ghost { background: transparent; color: var(--on-dark-surface); border-color: var(--outline-dark); }
+.nav-actions .btn-ghost:hover { border-color: #94a3b8; background: rgba(255, 255, 255, .06); }
+.site-menu-toggle { display: none; }
+
+/* Atalho e sumario de secoes injetados por navigation.js */
+.skip-content { position: fixed; left: 16px; top: -100px; z-index: 1100; padding: 10px 16px; background: var(--amber-bright); color: #fff; border-radius: var(--rounded); }
+.skip-content:focus { top: 12px; }
+.page-outline { background: var(--surface-container-low); border: 1px solid var(--outline-variant); border-radius: var(--rounded-lg); margin: 0 auto var(--space-2xl); max-width: 1240px; }
+.page-outline nav { max-width: 1240px; margin: 0 auto; padding: 12px 24px; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.page-outline a { font-family: var(--font-label); font-size: .78rem; font-weight: 600; color: var(--primary-dark); text-decoration: none; padding: 6px 12px; border: 1px solid var(--outline-variant); border-radius: var(--rounded-full); background: #fff; }
+.page-outline a:hover { border-color: var(--primary); }
+
+/* ---------- Topo das paginas internas: o banner da landing, numa coluna ---------- */
+.hero-pagina { text-align: center; }
+.hero-pagina .hero-title { margin-left: auto; margin-right: auto; max-width: 20ch; }
+.hero-pagina .hero-lead { margin-left: auto; margin-right: auto; }
+.hero-pagina .hero-actions { justify-content: center; }
+.hero-pagina .hero-stats-row { max-width: 860px; margin: 0 auto; }
+.hero-pagina .hero-stat-item { align-items: center; }
+.hero-pagina .hero-badge-wrap a { color: inherit; text-decoration: none; }
+
+/* ---------- Secoes ---------- */
+.section-header { margin-left: auto; margin-right: auto; text-align: center; }
+.prosa { max-width: 860px; margin: 0 auto; }
+.prosa p, .prosa li { color: var(--on-surface-variant); font-size: 1.05rem; }
+.prosa p { margin: 0 0 var(--space-md); }
+.prosa ul, .prosa ol { list-style-position: inside; padding: 0; margin: 0 0 var(--space-md); }
+.prosa li { margin-bottom: .45rem; }
+.prosa strong { color: var(--on-surface); }
+.prosa h3, .section-block h3 { font-family: var(--font-headline); font-size: 1.25rem; font-weight: 700; color: var(--primary-dark); margin: var(--space-lg) 0 var(--space-sm); }
+
+/* O que era barra ambar na lateral vira caixa pastel (dono, 09/11/2026). */
+.destaque-pastel { max-width: 860px; margin: var(--space-lg) auto; padding: var(--space-lg) var(--space-xl); text-align: center;
+  background: var(--surface-amber-low); border: 1px solid var(--surface-amber-border); border-radius: var(--rounded-lg);
+  color: var(--on-amber-surface); font-size: 1.08rem; line-height: 1.7; }
+.destaque-pastel.teal { background: var(--surface-container); border-color: var(--outline-variant); color: var(--on-primary-container); }
+blockquote.destaque-pastel { font-style: italic; }
+.destaque-pastel p:last-child { margin-bottom: 0; }
+
+/* Duas colunas: texto e imagem. */
+.duas-colunas { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-xl); align-items: center; margin-top: var(--space-lg); }
+.duas-colunas .prosa { max-width: none; }
+.figura { margin: 0; }
+.figura img { width: 100%; height: auto; border-radius: var(--rounded-lg); border: 1px solid var(--outline-variant); box-shadow: var(--card-lift); background: #fff; }
+.figura figcaption { font-size: .85rem; color: var(--on-surface-muted); margin-top: var(--space-sm); }
+.figura.pendente .figura-vazia { aspect-ratio: 4 / 3; display: flex; align-items: center; justify-content: center; padding: var(--space-lg);
+  background: var(--surface-container); border: 1px dashed var(--outline); border-radius: var(--rounded-lg);
+  color: var(--on-surface-muted); font-family: var(--font-mono); font-size: .8rem; }
+
+/* Cartoes em grade (classes da landing) */
+.grade-cartoes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--space-lg); margin-top: var(--space-xl); }
+.pillar-card p, .layer-card p, .status-card p { margin: 0; color: var(--on-surface-variant); font-size: .97rem; }
+.pillar-card h4, .layer-card h3, .status-card h3 { text-align: center; }
+.status-card h3 { font-family: var(--font-headline); font-size: 1.12rem; font-weight: 700; color: var(--primary-dark); margin: 0 0 var(--space-xs); }
+.layer-list li { padding-left: 0; }
+.layer-list li::before { position: static; margin-right: 6px; }
+.passo-numero { display: inline-flex; width: 40px; height: 40px; align-items: center; justify-content: center; border-radius: 50%;
+  background: var(--amber-badge-bg); color: var(--amber-badge-text); font-family: var(--font-display); font-weight: 700; margin-bottom: var(--space-sm); }
+
+/* Passos (lista numerada do procedimento) */
+.passos { counter-reset: passo; list-style: none; padding: 0; margin: 0; text-align: left; }
+.passos li { counter-increment: passo; position: relative; padding: 0 0 0 52px; margin-bottom: var(--space-md); color: var(--on-surface-variant); font-size: 1.02rem; }
+.passos li::before { content: counter(passo); position: absolute; left: 0; top: 0; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%;
+  background: var(--amber-badge-bg); color: var(--amber-badge-text); font-family: var(--font-display); font-weight: 700; }
+.passos strong { color: var(--on-surface); }
+
+/* Bloco escuro */
+.bloco-navy { background: var(--surface-navy); color: var(--on-dark-surface); border-radius: var(--rounded-xl); padding: var(--space-2xl) var(--space-xl); border: 1px solid var(--surface-navy-border); }
+.bloco-navy .section-title-amber { color: #fbbf24; }
+.bloco-navy p, .bloco-navy li { color: var(--on-dark-variant); }
+.bloco-navy .section-eyebrow { color: #38bdf8; }
+
+/* Chamada final */
+.chamada-final { text-align: center; }
+.chamada-final .hero-actions { justify-content: center; margin-bottom: var(--space-md); }
+.nota-limite { font-size: .9rem; color: var(--on-surface-muted); max-width: 720px; margin: 0 auto; }
+
+/* Tabelas da landing, centralizadas */
+.table-container { margin: var(--space-lg) auto; }
+.elocution-table th, .elocution-table td { text-align: center; }
+
+/* ---------- Rodape ---------- */
+.site-footer { text-align: center; }
+.footer-col p { margin-left: auto; margin-right: auto; }
+
+/* ---------- Celular ---------- */
+@media (max-width: 860px) {
+  .nav-row { gap: 10px; padding: 12px 16px; }
+  .site-menu-toggle { display: inline-block; order: 0; border: 1px solid var(--outline-dark); background: transparent; color: #fff; border-radius: var(--rounded); padding: 8px 12px; font: 600 .8rem var(--font-label); cursor: pointer; }
+  .brand { order: 1; }
+  .nav-actions { order: 2; margin-left: auto; }
+  .nav-links { order: 3; width: 100%; display: none; flex-direction: column; align-items: stretch; text-align: left; }
+  .site-header.menu-open .nav-links { display: flex; }
+  .nav-familia { flex-direction: column; align-items: stretch; border-top: 1px solid var(--surface-navy-border); padding: 8px 0; }
+  .nav-links .nav-menu { display: block; }
+  .nav-links .nav-drop, .nav-links .nav-drop-mega { display: grid; position: static; min-width: 0; grid-template-columns: 1fr; box-shadow: none; border: 0; padding: 0 0 0 12px; background: transparent; }
+  .nav-troca-produto > span { display: none; }
+  .nav-troca-produto { padding: 6px; }
+  .nav-actions .btn { padding: .45rem .8rem; font-size: .72rem; }
+  .duas-colunas { grid-template-columns: 1fr; }
+  .hero-pagina .hero-title, .section-title-amber { text-wrap: balance; }
+  .passos { text-align: center; }
+  .passos li { padding: 48px 0 0; }
+  .passos li::before { left: 50%; transform: translateX(-50%); }
+  .destaque-pastel { padding: var(--space-md) var(--space-lg); }
+}
