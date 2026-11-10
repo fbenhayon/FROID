@@ -107,3 +107,17 @@ describe("o login não perde o link profundo ao mudar a casa do clínico", () =>
     expect(LOGIN).not.toContain('afterLoginPath = "/dashboard"');
   });
 });
+
+describe("o formulário de login não pré-preenche credenciais do navegador", () => {
+  it("desativa o preenchimento automático de e-mail e senha", () => {
+    const inicioLogin = LOGIN.indexOf("<form onSubmit={entrar}");
+    const fimLogin = LOGIN.indexOf("</form>", inicioLogin);
+    const formularioLogin = LOGIN.slice(inicioLogin, fimLogin);
+
+    expect(inicioLogin).toBeGreaterThan(-1);
+    expect(formularioLogin).toContain('autoComplete="off"');
+    expect(formularioLogin).not.toContain('autoComplete="email"');
+    expect(formularioLogin).not.toContain('autoComplete="current-password"');
+    expect(formularioLogin).toContain('autoComplete="new-password"');
+  });
+});

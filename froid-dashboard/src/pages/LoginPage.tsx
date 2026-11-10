@@ -377,13 +377,13 @@ export const LoginPage: React.FC<Props> = ({
             </button>
           </form>
         ) : (
-          <form onSubmit={entrar} className="space-y-3">
+          <form onSubmit={entrar} className="space-y-3" autoComplete="off">
             <input
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               type="email"
               required
-              autoComplete="email"
+              autoComplete="off"
               placeholder="seu@email.com"
               className={campoClasse}
             />
@@ -392,7 +392,7 @@ export const LoginPage: React.FC<Props> = ({
               onChange={(e) => setPassword(e.target.value)}
               type="password"
               required
-              autoComplete="current-password"
+              autoComplete="new-password"
               placeholder="senha"
               className={campoClasse}
             />
