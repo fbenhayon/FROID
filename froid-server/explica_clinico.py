@@ -325,12 +325,42 @@ CATALOGO: Tuple[Indice, ...] = (
             "intimos), entao variacao pequena pode nao significar nada."
         ),
         limite=(
-            "Depende da transcricao e da atribuicao do falante. A referencia "
-            "historica do paciente (mediana das sessoes anteriores) ainda nao "
-            "existe: e a proxima etapa."
+            "Depende da transcricao e da atribuicao do falante. Para o estado em "
+            "que o paciente chegou, a regua e outra: HISTÓRICO."
         ),
         sinonimos=("cadencia", "cadencia da fala", "variacao de cadencia"),
         referencias=("Yamamoto et al. (2020), PLOS ONE, fala e gravidade da depressao",),
+    ),
+    Indice(
+        rotulo="HISTÓRICO",
+        # Sem campo proprio: chega pela tabela de metricas, pelo rotulo.
+        chave="",
+        unidade="variacao percentual com sinal e faixa, com o n de sessoes e o periodo",
+        medida=(
+            "Palavras por minuto NA FALA DO PACIENTE nesta sessao contra a MEDIANA "
+            "das sessoes anteriores dele (desde 11/11/2026, decisao do dono). E uma "
+            "indicacao que se apura e se refina a cada sessao realizada: o numero "
+            "de sessoes e o periodo vem sempre junto. Faixas iguais as da "
+            "CADÊNCIA (15% e 30%, escolha de produto)."
+        ),
+        leitura=(
+            "E a regua do ESTADO: compara o paciente com ele mesmo ao longo do "
+            "tempo, o que a referencia dos 60 s iniciais nao faz (se ele entrou "
+            "nervoso ou deprimido, aquela ja nasce alterada). Com uma ou duas "
+            "sessoes, a mediana e fragil: diga quantas sessoes a formaram. "
+            "'Sem historico ainda' e a primeira sessao com fala apurada."
+        ),
+        abre=(
+            "E o cruzamento com a CADÊNCIA que informa: na referencia da sessao mas "
+            "muito abaixo do historico sugere que ele ja chegou diferente; "
+            "variacao na sessao com historico estavel aponta para o tema."
+        ),
+        limite=(
+            "Depende da transcricao das sessoes anteriores com o instante de cada "
+            "linha (relatorios a partir de 02/10/2026). Sessoes sem fala do "
+            "paciente apurada nao entram."
+        ),
+        sinonimos=("historico", "historico do paciente", "referencia historica", "mediana das sessoes"),
     ),
     Indice(
         rotulo="P/MIN FALA",

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 
 interface LiveSessionProps {
   user?: any;
@@ -19,6 +19,9 @@ import {
   pesoDeAusencia,
 } from "../lib/medidas-do-corte";
 import { cadenciaNaFalaDoPaciente, formatarCadencia, formatarFalaDoPaciente } from "../lib/cadencia";
+import { formatarHistorico, referenciaDoHistorico } from "../lib/cadencia-historico";
+import { mergeReports } from "../lib/patient-dashboard";
+import { palavrasPorMinutoNaFalaDoPaciente } from "../lib/medidas-do-corte";
 import { contextoDosCortes, recorteFinalDaTranscricao, transcricaoParaOExplica } from "../lib/painel-para-o-explica";
 import {
   STATUS_CAPTURA_TEXTO,
@@ -100,6 +103,8 @@ const SIMPLIFIED_METRIC_TOOLTIPS: Record<string, string> = {
     "Palavras por minuto no corte atual. Ajuda a identificar aceleração, lentificação, bloqueios ou mudanças de cadência.",
   CADÊNCIA:
     "Variação das palavras por minuto do paciente — só a fala dele — no corte em relação aos 60 segundos iniciais desta sessão. Mostra reação dentro da sessão, não o estado em que o paciente chegou: se ele entrou nervoso ou deprimido, a referência já nasce alterada. Faixas: na referência (menos de 15%), acelerada ou lentificada (15% a 30%), muito acelerada ou muito lentificada (30% ou mais) — limites escolhidos pelo produto, não validados na literatura.",
+  "HISTÓRICO":
+    "Palavras por minuto na fala do paciente nesta sessão contra a mediana das sessões anteriores dele. É uma indicação que se apura e se refina a cada sessão realizada; o número de sessões e o período ficam à vista. Diferente da CADÊNCIA, mostra o estado em relação ao histórico, não a reação dentro da sessão.",
   "P/MIN FALA":
     "Palavras por minuto contadas só no tempo em que o paciente fala (blocos de 7 s da trilha dele; silêncio dentro do bloco conta, então tende a subestimar). Entre parênteses, a referência dos 60 segundos iniciais e de quantas palavras ela saiu. Não há faixa absoluta: os números dos estudos vêm de outras línguas, tarefas e formas de contar, e descrevem grupos, não um indivíduo. A leitura é do profissional.",
   "DISSO.":
@@ -2411,6 +2416,31 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const navigate = useNavigate();
   const [sessionPatient, setSessionPatient] = useState(() =>
     loadSessionPatient(sessionId || ""),
+  );
+  // Relatórios do profissional para a referência pelo HISTÓRICO do paciente
+  // (lib/cadencia-historico, decisão do dono de 11/11/2026): os deste
+  // navegador na hora, os do servidor quando chegarem.
+  const [relatoriosDoHistorico, setRelatoriosDoHistorico] = useState<SessionReportRecord[]>(() =>
+    loadSessionReports(),
+  );
+  useEffect(() => {
+    let ativo = true;
+    const token = localStorage.getItem("froid_token") || "";
+    fetch(apiUrl("/api/session-reports"), { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!ativo) return;
+        const remotos: SessionReportRecord[] = Array.isArray(data?.reports) ? data.reports : Array.isArray(data) ? data : [];
+        setRelatoriosDoHistorico((atuais) => mergeReports(atuais, remotos));
+      })
+      .catch(() => undefined);
+    return () => {
+      ativo = false;
+    };
+  }, []);
+  const historicoDoPaciente = useMemo(
+    () => referenciaDoHistorico(relatoriosDoHistorico, sessionPatient, { excluirSessao: sessionId || "" }),
+    [relatoriosDoHistorico, sessionPatient, sessionId],
   );
   const spokenLanguage = normalizeSessionLocale(sessionPatient?.spokenLanguage);
   const analysisLanguage = normalizeSessionLocale(
@@ -5637,6 +5667,14 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       formatarCadencia(cadenciaDoCorte.leitura) ?? "--",
     ],
     ["P/MIN FALA", formatarFalaDoPaciente(cadenciaDoCorte) ?? "--"],
+    // Estado contra o histórico do paciente (mediana das sessões anteriores).
+    [
+      "HISTÓRICO",
+      formatarHistorico(
+        palavrasPorMinutoNaFalaDoPaciente(transcriptSegmentsRef.current, 0, Math.max(1, state.elapsedSeconds)),
+        historicoDoPaciente,
+      ),
+    ],
     // `|| 0` imprimia "0" — "nenhuma dissonancia" — sobre janela sem
     // apuracao. Sao coisas diferentes: uma e achado, a outra e ausencia.
     ["DISSO.", formatMetricValue(simplifiedSnapshot.dissonanceCount, 0)],

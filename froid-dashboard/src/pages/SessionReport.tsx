@@ -9,11 +9,14 @@ import {
 } from "../components/indicators/PainelEvolucao";
 import {
   formatDuration,
+  getReportPatient,
   loadSessionReport,
+  loadSessionReports,
   MetricsAnalysis,
   MetricSnapshot,
   SessionReportRecord,
 } from "../lib/session-report";
+import { mergeReports } from "../lib/patient-dashboard";
 import { dashboardText, loadSessionLanguagePreferences, normalizeSessionLocale, type SessionLocale } from "../lib/localization";
 import { tooltipText } from "../lib/tooltip-i18n";
 import {
@@ -24,6 +27,7 @@ import {
   formatarFalaDoPaciente,
   segmentosDoRelatorio,
 } from "../lib/cadencia";
+import { RESSALVA_HISTORICO, falaDaSessao, formatarHistorico, referenciaDoHistorico } from "../lib/cadencia-historico";
 import {
   contextoDaTabela,
   contextoDosCortes,
@@ -710,10 +714,34 @@ const ProcedenciaDoRelatorio: React.FC<{
 // Cadência da fala da sessão, só na fala do paciente: o restante da sessão
 // contra os 60 s iniciais (lib/cadencia, decisão do dono de 11/11/2026). Vem
 // da transcrição com o segundo de cada linha; sem ela, declara a ausência.
-const CadenciaDaSessao: React.FC<{ transcript: string; transcriptLineSeconds?: number[] }> = ({
-  transcript,
-  transcriptLineSeconds,
-}) => {
+const CadenciaDaSessao: React.FC<{ report: SessionReportRecord }> = ({ report }) => {
+  const { transcript, transcriptLineSeconds } = report;
+  // Referência pelo histórico: as sessões do mesmo paciente ANTERIORES a esta
+  // (lib/cadencia-historico, decisão do dono de 11/11/2026).
+  const [relatorios, setRelatorios] = React.useState<SessionReportRecord[]>(() => loadSessionReports());
+  React.useEffect(() => {
+    let ativo = true;
+    const token = localStorage.getItem("froid_token") || "";
+    fetch(apiUrl("/api/session-reports"), { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!ativo) return;
+        const remotos: SessionReportRecord[] = Array.isArray(data?.reports) ? data.reports : Array.isArray(data) ? data : [];
+        setRelatorios((atuais) => mergeReports(atuais, remotos));
+      })
+      .catch(() => undefined);
+    return () => {
+      ativo = false;
+    };
+  }, []);
+  const historico = React.useMemo(
+    () =>
+      referenciaDoHistorico(relatorios, getReportPatient(report), {
+        antesDe: report.createdAt,
+        excluirSessao: report.sessionId,
+      }),
+    [relatorios, report],
+  );
   const segmentos = segmentosDoRelatorio(transcript, transcriptLineSeconds);
   const c = segmentos
     ? cadenciaNaFalaDoPaciente(segmentos, SEGUNDOS_DA_REFERENCIA, Number.MAX_SAFE_INTEGER)
@@ -731,6 +759,11 @@ const CadenciaDaSessao: React.FC<{ transcript: string; transcriptLineSeconds?: n
       </p>
       {fala && <p className="mt-1 text-slate-300">{fala}</p>}
       <p className="mt-1 italic text-slate-500">{RESSALVA_CADENCIA}</p>
+      <p className="mt-3 font-bold uppercase text-slate-400">Contra o histórico do paciente</p>
+      <p className="mt-1 text-sm font-semibold text-slate-100">
+        {formatarHistorico(falaDaSessao(report), historico)}
+      </p>
+      <p className="mt-1 italic text-slate-500">{RESSALVA_HISTORICO}</p>
     </div>
   );
 };
@@ -1356,10 +1389,7 @@ export const SessionReport: React.FC<Props> = () => {
                 </div>
               </div>
               <EvolutionChart analysis={activeMetricsAnalysis} />
-              <CadenciaDaSessao
-                transcript={report.transcript}
-                transcriptLineSeconds={report.transcriptLineSeconds}
-              />
+              <CadenciaDaSessao report={report} />
             </section>
           )}
 
