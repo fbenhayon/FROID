@@ -3,8 +3,9 @@
 #
 #   dev        site de desenvolvedores, www.froid.com.br/dev/  (11/11/2026)
 #              variavel FROID_DEV_SENHA_HASH
-#   percepcao  pagina das 10 habilidades no site publico     (10/11/2026)
-#              variavel FROID_PERCEPCAO_SENHA_HASH
+#
+# (A opcao "percepcao", senha propria da pagina das 10 habilidades, saiu em
+# 11/11/2026 junto com a pagina, fundida na Visao geral do Site II.)
 #
 # RODA NO CONSOLE DO SERVIDOR (depois de `ssh froid`, prompt root@...):
 #     bash /root/froid-project/ops/definir-senha.sh dev
@@ -22,9 +23,8 @@ set -euo pipefail
 PROJETO=/root/froid-project
 BASE=https://www.froid.com.br
 case "${1:-}" in
-  dev)       VAR=FROID_DEV_SENHA_HASH;       ALVO=$BASE/dev/;                          NOME="site de desenvolvedores (/dev/)" ;;
-  percepcao) VAR=FROID_PERCEPCAO_SENHA_HASH; ALVO=$BASE/psique/percepcao-clinica.html; NOME="pagina das 10 habilidades" ;;
-  *) echo "Uso: bash $0 dev|percepcao" >&2; exit 2 ;;
+  dev) VAR=FROID_DEV_SENHA_HASH; ALVO=$BASE/dev/; NOME="site de desenvolvedores (/dev/)" ;;
+  *) echo "Uso: bash $0 dev" >&2; exit 2 ;;
 esac
 cd "$PROJETO"
 

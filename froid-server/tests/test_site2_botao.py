@@ -163,8 +163,10 @@ class OSiteIISoAbreComSenha(unittest.TestCase):
         # O bloco de /dev/ vem antes do `handle {` sem matcher, que serve o
         # site publico inteiro e pegaria qualquer caminho que sobrasse.
         self.assertLess(caddy.index("handle_path /dev/*"), caddy.index("\n    handle {\n"))
-        # A regra da pagina das 10 habilidades nao alcanca /dev/.
-        self.assertIn("not path /dev /dev/*", caddy)
+        # A senha propria da pagina das 10 habilidades saiu em 11/11/2026 com
+        # a pagina; nenhum outro basic_auth sobra fora do de /dev/.
+        self.assertEqual(caddy.count("basic_auth"), 1)
+        self.assertNotIn("FROID_PERCEPCAO_SENHA_HASH", caddy)
 
     def test_o_psique_publico_nao_e_mais_servido(self):
         """11/11/2026: "exclua o acesso ao Site 1". Todo caminho do Psique
