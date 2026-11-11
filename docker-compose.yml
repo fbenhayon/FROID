@@ -9,6 +9,12 @@ services:
       - ./froid-site:/srv/froid-site:ro
       - caddy_data:/data
       - caddy_config:/config
+    # Senha da página das 10 habilidades (ver o Caddyfile). Repassada SEM
+    # valor padrão de propósito: ausente do .env, a variável não chega ao
+    # contêiner e o Caddy usa o hash aleatório (página fechada). Com
+    # `${VAR:-}` ela chegaria vazia, e vazia o Caddy não sobe.
+    environment:
+      - FROID_PERCEPCAO_SENHA_HASH
     depends_on:
       - froid-frontend
       - froid-backend

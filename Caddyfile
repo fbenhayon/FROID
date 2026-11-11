@@ -72,6 +72,36 @@ froid.com.br, www.froid.com.br {
         reverse_proxy froid-frontend:80
     }
 
+    # As 10 habilidades do FROID Psique (psique/percepcao-clinica.html): só com
+    # a senha que o Fábio fornece. Pedido do dono em 10/11/2026.
+    #
+    # A senha é conferida AQUI, no servidor. Conferida em JavaScript ela
+    # estaria escrita na própria página, ao alcance de "ver código-fonte".
+    # O casamento é por expressão regular, sem distinguir maiúscula: pega
+    # /psique/percepcao-clinica.html, /psique/percepcao-clinica (o try_files
+    # serve sem extensão), /Psique/Percepcao-Clinica e o redirecionamento
+    # deixado na raiz.
+    #
+    # O hash (bcrypt, em base64) vem da variável FROID_PERCEPCAO_SENHA_HASH,
+    # gravada no .env por ops/definir-senha-percepcao.sh. FALHA FECHADA: sem a
+    # variável, vale o padrão abaixo, hash de um segredo aleatório que ninguém
+    # guardou, e a página não abre para ninguém. Variável DEFINIDA porém
+    # VAZIA é outra coisa: o Caddy recusa a configuração e não sobe, e o site
+    # inteiro cai (medido em 10/11/2026 num contêiner descartável). Por isso o
+    # docker-compose.yml repassa a variável sem valor padrão, e o script valida
+    # a configuração antes de reiniciar o froid-edge.
+    @percepcao path_regexp percepcao (?i)percepcao-clinica
+    handle @percepcao {
+        basic_auth bcrypt "FROID - acesso restrito" {
+            {$FROID_PERCEPCAO_USUARIO:froid} {$FROID_PERCEPCAO_SENHA_HASH:JDJhJDE0JGV4WnBDdnEzLlpGUE1ybjBTbVNNRmVXNjguWEE2OTVEV0VrdE0wTzkwcTdzS0paOVY1dXFX}
+        }
+        header Cache-Control "no-store, no-cache, must-revalidate"
+        header X-Robots-Tag "noindex, nofollow"
+        root * /srv/froid-site
+        try_files {path} {path}.html
+        file_server
+    }
+
     # Site institucional estático (froid-site) — raiz e demais páginas
     handle {
         root * /srv/froid-site
