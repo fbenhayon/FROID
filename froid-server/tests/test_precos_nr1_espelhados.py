@@ -290,6 +290,59 @@ class OsTotaisDERIVADOSTambemConferem(unittest.TestCase):
         self.assertGreaterEqual(achados, 16, "as tabelas de simulacao sumiram do site")
 
 
+class APreviaLocalDaCalculadoraConfereComOMotor(unittest.TestCase):
+    """`site-assets/simulador-nr1.js` calcula sozinho quando nao ha API (pagina
+    aberta do disco ou em localhost). Ate 10/11/2026 essa tabela vivia inline
+    em `nr1/precos-nr1.html` e nada a conferia: era um espelho de numero sem
+    teste (skill, 2.7). Agora ela e uma so, usada tambem em `psique/index.html`,
+    e este teste a amarra ao motor e a procedencia que ela declara.
+    """
+
+    JS = REPO / "froid-site" / "site-assets" / "simulador-nr1.js"
+
+    def _tabela(self):
+        texto = self.JS.read_text(encoding="utf-8")
+        bloco = texto.split("var FROID_NR1_TABELA_PREVIA = {", 1)[1].split("\n};", 1)[0]
+        campo = lambda nome: re.search(nome + r"\s*:\s*'?([^',\n]+)'?", bloco).group(1)
+        faixas = [
+            tuple(None if v == "null" else int(v) for v in m)
+            for m in re.findall(
+                r"order:\s*(\d+),\s*lowerBound:\s*(\d+),\s*upperBound:\s*(\d+|null),"
+                r"\s*workerPriceCents:\s*(\d+)", bloco)
+        ]
+        return campo, faixas
+
+    def test_a_tabela_da_previa_e_a_do_motor(self):
+        campo, faixas = self._tabela()
+        fonte = pricing_nr1.TABELA_VIGENTE
+        self.assertEqual(fonte["code"], campo("code"))
+        self.assertEqual(fonte["version"], campo("version"))
+        self.assertEqual(fonte["validFrom"], campo("validFrom"))
+        self.assertEqual(str(fonte["baseEstablishmentCents"]), campo("baseEstablishmentCents"))
+        self.assertEqual(
+            [(f["order"], f["lowerBound"], f["upperBound"], f["workerPriceCents"]) for f in fonte["tiers"]],
+            faixas,
+        )
+
+    def test_a_impressao_digital_e_a_do_motor(self):
+        campo, _ = self._tabela()
+        self.assertEqual(pricing_nr1.simular(1, 1)["pricingTable"]["sha256"], campo("sha256"))
+
+    def test_toda_pagina_com_a_calculadora_usa_a_copia_unica(self):
+        """Nenhuma pagina volta a carregar a tabela inline."""
+        usam = []
+        for caminho in sorted((REPO / "froid-site").rglob("*.html")):
+            texto = caminho.read_text(encoding="utf-8")
+            if "froidSimularNr1(event)" not in texto:
+                continue
+            if "function froidSimularNr1Local" in texto:
+                continue  # copia propria, conferida (ou nao) noutro lugar
+            self.assertIn("simulador-nr1.js", texto, caminho)
+            usam.append(caminho.relative_to(REPO / "froid-site").as_posix())
+        self.assertIn("psique/index.html", usam)
+        self.assertIn("nr1/precos-nr1.html", usam)
+
+
 class AConducaoEmCampoEDaContratante(unittest.TestCase):
     """O FROID nao conduz avaliacao em campo, e o material dizia o contrario.
 
