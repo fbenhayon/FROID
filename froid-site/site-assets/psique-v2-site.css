@@ -11,6 +11,13 @@ img { max-width: 100%; }
 
 /* ---------- Header gerado (classes do gerador, visual da landing) ---------- */
 .site-header { background: var(--surface-navy); border-bottom: 1px solid var(--surface-navy-border); color: var(--on-dark-surface); }
+/* psique-v2.css (a landing copiada) traz `header { position: static !important }`:
+   sem posicao, o z-index 990 do header nao vale e o hero (position: relative),
+   que vem depois no documento, pinta POR CIMA do menu suspenso - o menu abria
+   cortado na borda do hero em toda pagina do Psique (medido em 10/11/2026 com
+   elementFromPoint). Relative, e nao sticky: o header continua rolando com a
+   pagina, como a landing decidiu; so passa a empilhar acima dela. */
+body > header.site-header { position: relative !important; z-index: 990; }
 .nav-row { max-width: 1240px; margin: 0 auto; padding: 14px 24px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
 .brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: #fff; font-family: var(--font-display); font-weight: 700; font-size: 1.15rem; letter-spacing: .05em; }
 .brand-logo { width: 34px; height: 34px; border-radius: 8px; }
@@ -33,6 +40,12 @@ img { max-width: 100%; }
   font-family: var(--font-label); font-size: .7rem; font-weight: 700; color: #cbd5e1; }
 .nav-troca-produto:hover { color: #fff; background: rgba(148, 163, 184, .16); }
 .nav-troca-icone { color: #c4b5fd; flex: none; }
+/* Acesso restrito as 10 habilidades (senha conferida pelo Caddy). */
+.nav-restrito { display: inline-flex; align-items: center; gap: 5px; padding: 4px 11px 4px 9px; white-space: nowrap; text-decoration: none;
+  border: 1px solid rgba(252, 211, 77, .55); border-radius: var(--rounded-full); background: rgba(252, 211, 77, .1);
+  font-family: var(--font-label); font-size: .7rem; font-weight: 700; color: #fcd34d; }
+.nav-restrito:hover, .nav-restrito:focus-visible { color: #fff; background: rgba(252, 211, 77, .22); outline: none; }
+.nav-restrito-icone { flex: none; }
 .nav-troca-marca { display: none; }
 .nav-actions .btn { padding: .5rem 1rem; border-radius: var(--rounded-full); }
 .nav-actions .nav-cta { background: var(--amber-bright); color: #fff; border-color: var(--amber-bright); box-shadow: 0 3px 12px rgba(217, 119, 6, .28); }
@@ -113,8 +126,6 @@ blockquote.destaque-pastel { font-style: italic; }
 .bloco-navy .section-eyebrow { color: #38bdf8; }
 
 /* Chamada final */
-.chamada-final { text-align: center; }
-.chamada-final .hero-actions { justify-content: center; margin-bottom: var(--space-md); }
 .nota-limite { font-size: .9rem; color: var(--on-surface-muted); max-width: 720px; margin: 0 auto; }
 
 /* Tabelas da landing, centralizadas */
@@ -138,6 +149,8 @@ blockquote.destaque-pastel { font-style: italic; }
   .nav-links .nav-drop, .nav-links .nav-drop-mega { display: grid; position: static; min-width: 0; grid-template-columns: 1fr; box-shadow: none; border: 0; padding: 0 0 0 12px; background: transparent; }
   .nav-troca-produto > span { display: none; }
   .nav-troca-produto { padding: 6px; }
+  .nav-restrito > span { display: none; }
+  .nav-restrito { padding: 6px; }
   .nav-actions .btn { padding: .45rem .8rem; font-size: .72rem; }
   .duas-colunas { grid-template-columns: 1fr; }
   .hero-pagina .hero-title, .section-title-amber { text-wrap: balance; }

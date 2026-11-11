@@ -16,7 +16,7 @@
 <link rel="alternate" hreflang="pt-BR" href="https://www.froid.com.br/psique/percepcao-clinica.html" />
 <link rel="alternate" hreflang="x-default" href="https://www.froid.com.br/psique/percepcao-clinica.html" />
 <link rel="stylesheet" href="../site-assets/psique-v2.css?v=1" />
-<link rel="stylesheet" href="../site-assets/psique-v2-site.css?v=1" />
+<link rel="stylesheet" href="../site-assets/psique-v2-site.css?v=2" />
 <style>
 /* As 10 habilidades: grade de duas colunas com cartões da landing; o limite de
    cada medida (antes barra âmbar lateral) vira caixa pastel menor dentro do cartão. */
@@ -32,6 +32,69 @@
 .prosa .plan-list li { position: relative; padding-left: 1.6rem; margin-bottom: .45rem; }
 .prosa .plan-list li::before { content: "\2713"; position: absolute; left: 0; color: var(--tertiary); font-weight: 800; }
 @media (max-width: 860px) { .hab-grade { grid-template-columns: 1fr; } }
+
+/* Header, menu e rodape na cor da pagina (branco), so nesta pagina. Pedido do
+   dono em 10/11/2026: os neuronios da entrada do site, duplicados em fundo
+   branco e tracos pretos (img/neurons-header-claro.png, gerada da
+   neurons-header.png), com um pulso brilhante indo de um neuronio ao outro.
+   A imagem e desenhada a 100% da largura e alinhada a 57,5% da altura: assim
+   o axonio fica a 57,5% da altura da caixa e os dois corpos a 23% e 77% da
+   largura, em qualquer tela - e o pulso anda exatamente sobre o axonio. */
+body > header.site-header,
+body > footer.site-footer {
+  position: relative; overflow: hidden; isolation: isolate;
+  background: #fff url('../site-assets/img/neurons-header-claro.png') center 57.5% / 100% auto no-repeat;
+  color: #0f172a; border-color: #e2e8f0;
+}
+body > header.site-header { position: relative !important; overflow: visible; }
+body > header.site-header::before,
+body > footer.site-footer::before {
+  /* veu branco: o desenho fica visivel e o texto continua legivel */
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(90deg, rgba(255,255,255,.35), rgba(255,255,255,.7) 30%, rgba(255,255,255,.7) 70%, rgba(255,255,255,.35));
+}
+body > footer.site-footer::before { background: rgba(255,255,255,.45); }
+body > header.site-header::after,
+body > footer.site-footer::after {
+  content: ""; position: absolute; top: 57.5%; left: 23%; z-index: -1; pointer-events: none;
+  width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%;
+  background: radial-gradient(circle, #fff 0%, #fde68a 30%, #f59e0b 60%, rgba(245,158,11,0) 72%);
+  box-shadow: 0 0 10px 3px rgba(245,158,11,.55), 0 0 26px 8px rgba(251,191,36,.35);
+  animation: pulso-axonio 3.6s cubic-bezier(.65,0,.35,1) infinite alternate;
+}
+@keyframes pulso-axonio { from { left: 23%; } to { left: 77%; } }
+@media (prefers-reduced-motion: reduce) {
+  body > header.site-header::after, body > footer.site-footer::after { animation: none; left: 50%; }
+}
+/* header */
+body > header.site-header .brand { color: #0f172a; }
+body > header.site-header .nav-links a { color: #334155; }
+body > header.site-header .nav-links a:hover,
+body > header.site-header .nav-links a:focus-visible,
+body > header.site-header .nav-links a.ativo { color: #0f172a; background: rgba(15,23,42,.06); }
+body > header.site-header .nav-troca-produto { color: #334155; border-color: #cbd5e1; background: rgba(255,255,255,.85); }
+body > header.site-header .nav-troca-produto:hover { color: #0f172a; background: #f1f5f9; }
+body > header.site-header .nav-troca-icone { color: #7c3aed; }
+body > header.site-header .nav-restrito { color: #b45309; border-color: #f59e0b; background: #fffbeb; }
+body > header.site-header .nav-restrito:hover { color: #92400e; background: #fef3c7; }
+body > header.site-header .btn-ghost { color: #0f172a; border-color: #94a3b8; background: rgba(255,255,255,.85); }
+body > header.site-header .btn-ghost:hover { border-color: #0f172a; }
+body > header.site-header .site-menu-toggle { color: #0f172a; border-color: #94a3b8; background: #fff; }
+/* menu suspenso */
+body > header.site-header .nav-drop { background: #fff; border-color: #e2e8f0; box-shadow: 0 16px 40px rgba(15,23,42,.14); }
+body > header.site-header .nav-links .nav-drop a.nav-drop-pagina { color: #b45309; }
+body > header.site-header .nav-links .nav-drop a.nav-drop-secao { color: #475569; }
+body > header.site-header .nav-links .nav-drop a:hover { color: #0f172a; background: #fef3c7; }
+@media (max-width: 860px) {
+  body > header.site-header .nav-familia { border-top-color: #e2e8f0; }
+  body > header.site-header .nav-links .nav-drop { background: transparent; }
+}
+/* rodape */
+body > footer.site-footer .footer-col h5 { color: #0f172a; }
+body > footer.site-footer .footer-col p { color: #475569 !important; }
+body > footer.site-footer .footer-col a { color: #334155; }
+body > footer.site-footer .footer-col a:hover { color: #b45309; }
+body > footer.site-footer .footer-bottom { color: #64748b; border-top-color: #e2e8f0; }
 </style>
 </head>
 
@@ -55,7 +118,7 @@
             <a class="nav-drop-secao" role="menuitem" href="index.html#ritmo-fala">Taxa de elocução</a>
             <a class="nav-drop-secao" role="menuitem" href="index.html#cortes-tematicos">Cortes temáticos e FROID Explica</a>
             <a class="nav-drop-secao" role="menuitem" href="index.html#privacidade-lgpd">Data-Froid e privacidade</a>
-            <a class="nav-drop-secao" role="menuitem" href="index.html#planos">Planos</a>
+            <a class="nav-drop-secao" role="menuitem" href="index.html#simulador-nr1">Calculadora do NR-1</a>
             <a class="nav-drop-secao" role="menuitem" href="index.html#resgate-bonificacao">Resgatar a bonificação</a>
           </div>
           <div class="nav-drop-col">
@@ -64,7 +127,6 @@
             <a class="nav-drop-secao" role="menuitem" href="como-funciona-clinico.html#cortes-e-calibracao">2. Calibração e cortes</a>
             <a class="nav-drop-secao" role="menuitem" href="como-funciona-clinico.html#acompanhe-canais-complementares">3. Acompanhe canais complementares</a>
             <a class="nav-drop-secao" role="menuitem" href="como-funciona-clinico.html#revise-a-sessao">4. Revise a sessão</a>
-            <a class="nav-drop-secao" role="menuitem" href="como-funciona-clinico.html#comece-pelo-convite">Comece pelo convite</a>
           </div>
           <div class="nav-drop-col">
             <a class="nav-drop-pagina" role="menuitem" href="froid-explica.html">FROID Explica</a>
@@ -72,7 +134,6 @@
             <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#como-um-bibliotecario-nao-como-um-oraculo">Como um bibliotecário, não como um oráculo</a>
             <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#prompts">Prompts nativos para começar; próprios para aprofundar</a>
             <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#mais-clareza-sem-transformar-resposta-em-conduta">Mais clareza, sem transformar resposta em conduta</a>
-            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#veja-o-assistente-no-contexto-da-sua-pratica">Veja o assistente no contexto da sua prática</a>
           </div>
           <div class="nav-drop-col">
             <a class="nav-drop-pagina" role="menuitem" href="data-froid.html">Data-Froid</a>
@@ -83,7 +144,6 @@
             <a class="nav-drop-secao" role="menuitem" href="data-froid.html#pesquisa">Um caminho para investigar, não uma validação automática</a>
             <a class="nav-drop-secao" role="menuitem" href="data-froid.html#privacidade-nao-e-um-rotulo">Privacidade não é um rótulo</a>
             <a class="nav-drop-secao" role="menuitem" href="data-froid.html#perguntas-que-respeitam-os-dados-disponiveis">Perguntas que respeitam os dados disponíveis</a>
-            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#avalie-o-data-froid-com-a-equipe">Avalie o Data-Froid com a equipe</a>
           </div>
           </div>
         </span>
@@ -99,7 +159,6 @@
             <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#registro">Consistência que chega à tela e ao relatório</a>
             <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#arquitetura-com-responsabilidades-distintas">Arquitetura com responsabilidades distintas</a>
             <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#na-tela">As medidas, na tela</a>
-            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#leve-o-entendimento-para-a-pratica">Leve o entendimento para a prática</a>
           </div>
           <div class="nav-drop-col">
             <a class="nav-drop-pagina" role="menuitem" href="mapas-faciais.html">Mapas da face</a>
@@ -108,14 +167,12 @@
             <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#o-detalhe-nao-desaparece-na-organizacao">O detalhe não desaparece na organização</a>
             <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#quadros-de-referencia">Os quadros de referência do FACS</a>
             <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#limites">O que não deve ser inferido</a>
-            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#explore-antes-de-decidir">Explore antes de decidir</a>
           </div>
           <div class="nav-drop-col">
             <a class="nav-drop-pagina" role="menuitem" href="ciencia.html">Ciência</a>
             <a class="nav-drop-secao" role="menuitem" href="ciencia.html#tres-camadas-de-leitura">Três camadas de leitura</a>
             <a class="nav-drop-secao" role="menuitem" href="ciencia.html#o-que-o-produto-apresenta">O que o produto apresenta</a>
             <a class="nav-drop-secao" role="menuitem" href="ciencia.html#validacao">Como comunicar evolução sem antecipar evidência</a>
-            <a class="nav-drop-secao" role="menuitem" href="ciencia.html#do-entendimento-a-avaliacao-da-sua-pratica">Do entendimento à avaliação da sua prática</a>
           </div>
           </div>
         </span>
@@ -125,6 +182,7 @@
     </nav>
     <div class="nav-actions">
       <!-- produto e chamada: gerado por tools/gerar-header-do-site.py -->
+      <a class="nav-restrito" href="percepcao-clinica.html" aria-label="As 10 habilidades do FROID Psique, acesso com senha"><svg class="nav-restrito-icone" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" focusable="false"><rect x="3" y="7" width="10" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span>10 habilidades</span></a>
       <a class="nav-troca-produto nav-troca-nr1" href="../nr1/index.html" aria-label="Ir para o FROID NR-1"><svg class="nav-troca-icone" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M2 5.5h10.5L9.5 2.5M14 10.5H3.5l3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span><span class="nav-troca-marca">FROID </span>NR-1</span></a>
       <a class="btn btn-solid nav-cta nav-cta-psique" href="https://www.froid.com.br/cadastro" aria-label="Cadastre-se e comece o teste grátis"><span class="nav-cta-longo">Cadastre-se e comece o teste grátis</span><span class="nav-cta-curto" aria-hidden="true">Teste grátis</span></a>
       <!-- /produto e chamada -->
@@ -279,27 +337,21 @@
     </div>
   </section>
 
-  <section class="section-block chamada-final" id="experimente">
-    <div class="section-header">
-      <h2 class="section-title-amber">Experimente com os seus próprios pacientes</h2>
+<!-- inscricao gratuita: gerado por tools/gerar-inscricao-psique.py -->
+<section class="section-block" id="resgate-bonificacao">
+  <div class="claim-form-box" style="text-align: center;">
+    <span class="badge-amber-pill">Inscrição Profissional Gratuita</span>
+    <h2 class="section-title-amber" style="margin-top: 0.5rem; font-size: 1.85rem;">Ative suas <span class="teste-qtd">10</span> sessões clínicas gratuitas</h2>
+    <p style="color: var(--on-surface-variant); font-size: 1rem; max-width: 580px; margin: 0 auto var(--space-md);">Todo profissional cadastrado recebe <strong class="teste-condicoes">10 sessões gratuitas, válidas por 14 dias</strong>, sem cartão de crédito e sem compromisso. No cadastro você informa seus dados profissionais e o registro no conselho (CRP ou CRM).</p>
+    <div style="display: flex; justify-content: center; gap: var(--space-sm); flex-wrap: wrap; margin-top: var(--space-lg);">
+      <a class="btn btn-amber" href="https://www.froid.com.br/cadastro" style="font-size: 1rem; padding: 0.9rem 1.4rem;">Cadastrar e ativar minhas sessões gratuitas</a>
+      <a class="btn btn-secondary" href="https://www.froid.com.br/app/#/login">Já tenho conta: entrar</a>
     </div>
-    <div class="prosa">
-      <p>A melhor forma de avaliar o FROID é na sua rotina. Por isso, todo profissional cadastrado recebe <strong class="teste-condicoes">10 sessões gratuitas, válidas por 14 dias</strong>, sem cartão de crédito e sem compromisso.</p>
-      <ul class="plan-list">
-        <li>Cadastro e verificação do e-mail</li>
-        <li>Primeira sessão com o consentimento do paciente</li>
-        <li>Relatório completo ao final de cada sessão</li>
-        <li>Ao fim do teste, você decide se continua</li>
-      </ul>
-    </div>
-    <div class="hero-actions">
-      <a href="https://www.froid.com.br/cadastro" class="btn btn-amber">
-        <i data-lucide="award" style="width: 18px; height: 18px;"></i>
-        Criar minha conta gratuita
-      </a>
-    </div>
-    <p class="nota-limite">O teste vale uma vez por conta. Ferramenta de apoio à escuta clínica: não substitui avaliação, diagnóstico ou julgamento profissional.</p>
-  </section>
+    <p style="font-size: 0.82rem; color: var(--on-surface-variant); margin: var(--space-lg) auto 0; max-width: 580px;">O teste vale uma vez por conta. Ferramenta de apoio à escuta clínica: não substitui avaliação, diagnóstico ou julgamento profissional.</p>
+  </div>
+</section>
+<script src="../site-assets/inscricao-psique.js?v=1"></script>
+<!-- /inscricao gratuita -->
 
 </main>
 
@@ -354,19 +406,5 @@
 <script>if (window.lucide) { lucide.createIcons(); }</script>
 <script src="../site-assets/script.js?v=25"></script>
 <script src="../site-assets/navigation.js?v=2"></script>
-<script>
-(function () {
-  var alvos = document.querySelectorAll(".teste-condicoes");
-  fetch("/api/psique/v2/pricing?language=pt")
-    .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
-    .then(function (c) {
-      if (c.trial && c.trial.credits && c.trial.days) {
-        var t = c.trial.credits + " sessões gratuitas, válidas por " + c.trial.days + " dias";
-        for (var i = 0; i < alvos.length; i++) alvos[i].textContent = t;
-      }
-    })
-    .catch(function () {});
-})();
-</script>
 </body>
 </html>

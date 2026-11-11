@@ -156,6 +156,19 @@ ACOES = {
     },
 }
 CADASTRO = "https://www.froid.com.br/cadastro"
+
+# Botao de acesso restrito as 10 habilidades (psique/percepcao-clinica.html).
+# Pedido do dono, 10/11/2026: a pagina so abre com a senha que ele fornece.
+# A senha e conferida pelo Caddy (basic_auth no Caddyfile), nao no navegador:
+# senha conferida em JavaScript estaria escrita na propria pagina. So existe
+# em pt-BR, e so aparece nas paginas do Psique.
+RESTRITO = {
+    "": ("As 10 habilidades do FROID Psique, acesso com senha", "10 habilidades"),
+}
+ICONE_CADEADO = ('<svg class="nav-restrito-icone" viewBox="0 0 16 16" width="13" height="13" '
+                 'aria-hidden="true" focusable="false"><rect x="3" y="7" width="10" height="7" rx="1.5" '
+                 'fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" '
+                 'fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>')
 NOME_PRODUTO = {"psique": "FROID Psique", "nr1": "FROID NR-1"}
 ICONE_TROCA = ('<svg class="nav-troca-icone" viewBox="0 0 16 16" width="14" height="14" '
                'aria-hidden="true" focusable="false"><path d="M2 5.5h10.5L9.5 2.5M14 10.5H3.5l3 3" '
@@ -317,6 +330,12 @@ def bloco_acoes(idioma, pagina):
     trocas = {"psique": ["nr1"], "nr1": ["psique"]}.get(produto, ["psique", "nr1"])
     chamadas = [produto] if produto else ["psique", "nr1"]
     linhas = ["      <!-- produto e chamada: gerado por tools/gerar-header-do-site.py -->"]
+    if produto == "psique" and idioma in RESTRITO:
+        aria, rotulo = RESTRITO[idioma]
+        linhas.append(
+            '      <a class="nav-restrito" href="%s" aria-label="%s">%s<span>%s</span></a>'
+            % (rel(pagina, "psique/percepcao-clinica.html"), escapar(aria), ICONE_CADEADO,
+               escapar(rotulo)))
     for destino in trocas:
         nome = NOME_PRODUTO[destino]
         # Com as duas trocas (pagina comum) o "FROID " some na tela, para o

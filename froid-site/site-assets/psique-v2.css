@@ -1441,30 +1441,6 @@
     color: var(--on-surface-muted);
   }
 
-  .claim-voucher-result {
-    display: none;
-    background: var(--surface-amber-low);
-    border: 1px solid var(--surface-amber-border);
-    border-radius: var(--rounded-lg);
-    padding: var(--space-xl);
-    text-align: center;
-    margin-top: var(--space-lg);
-  }
-
-  .voucher-code-display {
-    font-family: var(--font-mono);
-    font-size: 1.8rem;
-    font-weight: 700;
-    color: var(--amber-title);
-    letter-spacing: 0.1em;
-    background: #ffffff;
-    padding: var(--space-sm) var(--space-md);
-    border: 2px dashed var(--amber-bright);
-    border-radius: var(--rounded);
-    display: inline-block;
-    margin: var(--space-md) 0;
-  }
-
   /* Rodapé Institucional */
   .site-footer {
     background:
