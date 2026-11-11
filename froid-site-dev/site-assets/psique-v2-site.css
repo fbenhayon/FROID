@@ -284,3 +284,83 @@ main .section-block:nth-of-type(4n+4) { --faixa: #111827; }
 #pv2-calculadora [data-estado="ok"] { color: var(--tertiary); }
 #pv2-calculadora [data-estado="enterprise"] { color: var(--primary-dark); }
 #pv2-calculadora [data-estado="invalido"] { color: var(--error); }
+
+/* ---------- Formato do NR-1 nas paginas do Psique (Site II) ----------
+   Pedido do dono, 11/11/2026: "alterar a formatacao e o render do Site 2
+   FROID Psique, que deve seguir o formato do NR-1". As pecas do Psique
+   (componentes da landing) recebem as medidas e cores das pecas do NR-1, lidas
+   de froid-site/site-assets (style.css, refinement.css, paginas.css):
+     abertura (.hero-banner)       -> .hero do NR-1: sem cartao, de ponta a
+                                      ponta, imagem froid-barra.png sob veu escuro
+     titulo da abertura            -> .hero h1: Inter, clamp(2.1rem,4.5vw,4rem)
+     etiqueta (.section-eyebrow)   -> p.section-kicker: ambar #f5c778, caixa alta
+     titulo de secao               -> h2.section-title: branco, clamp(1.8rem,3.2vw,2.8rem)
+     texto de abertura de secao    -> p.section-lead: #94a3b8, 1.05rem, linha 1.8
+     cartoes                       -> .card: gradiente #1a2433 -> #111822, borda #303d50
+     botoes                        -> .btn-solid ambar / .btn-ghost
+   So formatacao: nenhum texto, ordem ou estrutura muda. As faixas de cor por
+   secao continuam (pedido de 11/11/2026). */
+:root {
+  --body-size: 1rem;
+  --label-size: .82rem;
+  --font-display: "Inter", "Segoe UI", Arial, sans-serif;
+  --display-size: clamp(2.1rem, 4.5vw, 4rem);
+  --headline-size: clamp(1.8rem, 3.2vw, 2.8rem);
+}
+body { line-height: 1.65; }
+main.page-wrapper { max-width: 1120px; }
+
+/* abertura */
+main .hero-banner {
+  border-radius: 0; border: 0; box-shadow: none;
+  background:
+    linear-gradient(180deg, rgba(2, 6, 23, .72) 0%, rgba(2, 6, 23, .88) 100%),
+    #0b1120 url('img/froid-barra.png') center / cover no-repeat;
+  box-shadow: 0 0 0 100vmax #0b1120; clip-path: inset(0 -100vmax);
+  padding-top: 96px; padding-bottom: 80px;
+}
+main .hero-title { font-family: var(--font-display); letter-spacing: -.045em; font-weight: 700; text-wrap: balance; }
+main .hero-title .highlight-amber, main .hero-title span { color: #f5c778; }
+main .hero-lead { font-size: 1.15rem; color: rgba(248, 250, 252, .78); }
+main .hero-badge-wrap { background: transparent; border: 0; color: #f5c778; font-family: var(--font-body); letter-spacing: .18em; text-transform: uppercase; font-size: .78rem; }
+
+/* etiquetas, titulos e textos de secao */
+main .section-eyebrow { font-family: var(--font-body); color: #f5c778; letter-spacing: .18em; font-size: .78rem; margin-bottom: 18px; }
+main .section-title-amber, main .hero-title-amber {
+  font-family: var(--font-display); color: #f8fafc; font-size: var(--headline-size);
+  line-height: 1.2; letter-spacing: -.035em; text-wrap: balance; font-weight: 700;
+}
+main h3.section-title-amber { font-size: 1.35rem; letter-spacing: -.02em; }
+main .section-lead { color: #94a3b8; font-size: 1.05rem; line-height: 1.8; }
+main .badge-amber-pill { background: transparent; border: 0; color: #f5c778; letter-spacing: .18em; text-transform: uppercase; font-size: .78rem; }
+
+/* cartoes */
+main .status-card, main .layer-card, main .plan-card, main .claim-form-box, main .pv2-card,
+main #pv2-calculadora, main .zone-item, main .channel-card, main .card {
+  background: linear-gradient(145deg, #1a2433, #111822);
+  border: 1px solid #303d50; border-radius: 14px;
+  box-shadow: 0 12px 40px #00000015;
+}
+main .status-card:hover { transform: none; box-shadow: 0 12px 40px #00000015; }
+main .claim-form-box { border-top: 1px solid #303d50; }
+main .destaque-pastel, main .bonus-box { background: #120f05; border: 1px solid #5c4410; border-radius: 14px; }
+
+/* botoes */
+main .btn-amber, main .btn-primary { background: #f5c778; color: #151921; border-color: #f5c778; box-shadow: 0 6px 26px #f5c77818; border-radius: 999px; }
+main .btn-amber:hover, main .btn-primary:hover { background: #e9b85f; border-color: #e9b85f; color: #151921; }
+main .btn-secondary, main .btn-outline-dark { background: #ffffff04; border-color: #435064; color: #e5edf8; border-radius: 999px; }
+/* blocos escuros e titulos de componente seguem o mesmo padrao */
+main .bloco-navy { background: linear-gradient(145deg, #1a2433, #111822); border: 1px solid #303d50; border-radius: 14px; }
+main .bloco-navy .section-title-amber, main .bonus-title { color: #f8fafc; }
+main .bloco-navy .section-eyebrow { color: #f5c778; }
+@media (max-width: 860px) {
+  main .hero-banner { padding: 64px 20px 56px; }
+  /* A coluna da abertura crescia ate o conteudo mais largo (349px numa area
+     de 318) e o texto passava da tela: preso a largura disponivel. */
+  main .hero-grid { grid-template-columns: minmax(0, 1fr); }
+  main .hero-grid > * { min-width: 0; }
+  main .hero-actions .btn { white-space: normal; max-width: 100%; text-align: center; }
+  /* botoes do simulador de calibracao: passavam da tela (problema antigo) */
+  main .calibration-top > div { flex-wrap: wrap; min-width: 0; }
+  main .calibration-top .btn { white-space: normal; }
+}
