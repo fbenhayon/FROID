@@ -250,7 +250,7 @@ export const PatientDetail: React.FC = () => {
   };
   const signal = patientAdvancedSignal(group);
   const sessionTableColSpan = patientMetricRows(latest.sessionAverage).length + 4;
-  const resultTextColSpan = Math.max(1, sessionTableColSpan - 2);
+  const resultTextColSpan = Math.max(1, sessionTableColSpan - 3);
   const latestResultLines = splitSessionResult(latest);
   const latestCutCount = latest.tenMinuteCuts.filter((cut) => cut.sampleCount > 0).length;
 
@@ -456,29 +456,31 @@ export const PatientDetail: React.FC = () => {
             </p>
           </section>
 
-          <section className="rounded-lg border border-slate-800 bg-slate-900 p-3">
+          <section className="rounded-xl border border-slate-700 bg-slate-900 p-4">
             <h2 className="text-sm font-bold text-slate-100">Sessões realizadas</h2>
-            <div className="mt-3 overflow-x-auto">
-              <table className="min-w-max table-auto text-left text-[10px] leading-tight">
-                <thead className="text-[9px] uppercase tracking-normal text-slate-400">
+            <div className="mt-3 overflow-x-auto rounded-lg border border-slate-700">
+              <table className="min-w-max table-auto text-left text-xs leading-normal">
+                <thead className="bg-slate-800 text-[10px] uppercase tracking-wide text-slate-300">
                   <tr>
-                    <th className="whitespace-nowrap py-1 pr-2">Data</th>
-                    <th className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-bold">
+                    <th className="whitespace-nowrap border-b border-slate-700 px-3 py-2 font-semibold">
+                      Data
+                    </th>
+                    <th className="whitespace-nowrap border-b border-slate-700 px-3 py-2 font-semibold">
+                      Ver
+                    </th>
+                    <th className="whitespace-nowrap border-b border-slate-700 px-3 py-2 font-semibold">
                       Sessão
                     </th>
                     {patientMetricRows(latest.sessionAverage).map(([label]) => (
                       <th
                         key={label}
-                        className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-bold"
+                        className="whitespace-nowrap border-b border-slate-700 px-3 py-2 font-semibold"
                       >
                         {label}
                       </th>
                     ))}
-                    <th className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-bold">
+                    <th className="whitespace-nowrap border-b border-slate-700 px-3 py-2 font-semibold">
                       Pagamento
-                    </th>
-                    <th className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-bold">
-                      Detalhe
                     </th>
                   </tr>
                 </thead>
@@ -487,55 +489,55 @@ export const PatientDetail: React.FC = () => {
                     const resultLines = splitSessionResult(report);
                     return (
                       <React.Fragment key={report.sessionId}>
-                        <tr className="align-top">
-                          <td className="whitespace-nowrap py-1 pr-2 font-bold text-slate-300">
+                        <tr className="align-top transition-colors odd:bg-slate-950/40 even:bg-slate-900 hover:bg-slate-800/70">
+                          <td className="whitespace-nowrap px-3 py-2 font-semibold text-slate-200">
                             {formatDateTime(reportEndDate(report))}
                           </td>
-                          <td className="whitespace-nowrap border-l border-slate-700 px-2 py-1 text-slate-300">
+                          <td className="px-3 py-2">
+                            <button
+                              onClick={() =>
+                                navigate(`/session/${report.sessionId}/report`)
+                              }
+                              className="rounded-md border border-blue-500/50 bg-blue-500/10 px-3 py-1 font-bold text-blue-200 transition hover:border-blue-400 hover:bg-blue-500/20"
+                            >
+                              Ver
+                            </button>
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-2 font-mono text-slate-300">
                             {shortId(report.sessionId)}
                           </td>
                           {patientMetricRows(report.sessionAverage).map(([label, value]) => (
                             <td
                               key={`${report.sessionId}-${label}`}
-                              className="whitespace-nowrap border-l border-slate-700 px-2 py-1 text-slate-300"
+                              className="whitespace-nowrap px-3 py-2 text-slate-300"
                               title={value}
                             >
                               {value}
                             </td>
                           ))}
-                          <td className="whitespace-nowrap border-l border-slate-700 px-2 py-1 font-bold text-slate-300">
+                          <td className="whitespace-nowrap px-3 py-2 font-semibold text-slate-200">
                             {paymentStatusForReport(report)}
                           </td>
-                          <td className="whitespace-nowrap border-l border-slate-700 px-2 py-1">
-                            <button
-                              onClick={() =>
-                                navigate(`/session/${report.sessionId}/report`)
-                              }
-                              className="rounded border border-slate-700 bg-slate-950 px-2 py-1 font-bold text-slate-300 hover:bg-slate-800"
-                            >
-                              Ver
-                            </button>
-                          </td>
                         </tr>
-                        <tr className="bg-blue-950/70 align-top">
-                          <td className="border-r border-blue-800 px-2 py-2 text-[10px] font-black uppercase text-blue-200">
+                        <tr className="bg-blue-950/50 align-top">
+                          <td colSpan={2} className="border-r border-blue-800 px-3 py-2 text-[10px] font-black uppercase text-blue-200">
                             Resultado
                           </td>
-                          <td className="border-r border-blue-800 px-2 py-2 text-[10px] font-bold text-blue-200">
+                          <td className="border-r border-blue-800 px-3 py-2 font-mono font-bold text-blue-200">
                             {shortId(report.sessionId)}
                           </td>
-                          <td colSpan={resultTextColSpan} className="px-2 py-2 text-xs leading-relaxed text-blue-100">
+                          <td colSpan={resultTextColSpan} className="px-3 py-2 text-xs leading-relaxed text-blue-100">
                             {resultLines[0]}
                           </td>
                         </tr>
-                        <tr className="border-b border-slate-700 bg-slate-950 align-top">
-                          <td className="border-r border-slate-700 px-2 py-2 text-[10px] font-black uppercase text-slate-400">
+                        <tr className="border-b border-slate-700 bg-slate-800/60 align-top">
+                          <td colSpan={2} className="border-r border-slate-700 px-3 py-2 text-[10px] font-black uppercase text-slate-300">
                             Complemento
                           </td>
-                          <td className="border-r border-slate-700 px-2 py-2 text-[10px] font-bold text-slate-400">
+                          <td className="border-r border-slate-700 px-3 py-2 font-semibold text-slate-300">
                             Análise
                           </td>
-                          <td colSpan={resultTextColSpan} className="px-2 py-2 text-xs leading-relaxed text-slate-300">
+                          <td colSpan={resultTextColSpan} className="px-3 py-2 text-xs leading-relaxed text-slate-200">
                             {resultLines[1] || "Complemento ainda não consolidado."}
                           </td>
                         </tr>
@@ -1042,4 +1044,3 @@ const PatientEvolutionChart: React.FC<{ reports: SessionReportRecord[] }> = ({
     </div>
   );
 };
-
