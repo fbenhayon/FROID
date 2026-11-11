@@ -22,17 +22,16 @@ var NAV_SECOES = {
   "psique/ciencia.html": [
     ["tres-camadas-de-leitura", "Três camadas de leitura"],
     ["o-que-o-produto-apresenta", "O que o produto apresenta"],
-    ["validacao", "Como comunicar evolução sem antecipar evidência"]
+    ["validacao", "Como comunicar evolução sem antecipar evidência"],
+    ["do-entendimento-a-avaliacao-da-sua-pratica", "Do entendimento à avaliação da sua prática"]
   ],
   "psique/como-funciona-clinico.html": [
     ["prepare-uma-captura-autorizada", "1. Prepare uma captura autorizada"],
-    ["faca-um-convite-ao-seu-paciente", "1. Faça um convite ao seu paciente"],
-    ["cortes-e-calibracao", "2. Calibração e cortes"],
-    ["acompanhe-canais-complementares", "3. Acompanhe canais complementares"],
+    ["cortes-e-calibracao", "Calibração e cortes: os números da sessão"],
+    ["acompanhe-canais-complementares", "2. Acompanhe canais complementares"],
     ["distingua-candidato-registro-e-historico", "3. Distingua candidato, registro e histórico"],
     ["saiba-quando-nao-ha-medida", "4. Saiba quando não há medida"],
     ["revise-e-contextualize", "5. Revise e contextualize"],
-    ["revise-a-sessao", "4. Revise a sessão"],
     ["veja-como-isso-se-apresenta", "Veja como isso se apresenta"]
   ],
   "psique/data-froid.html": [
@@ -42,7 +41,8 @@ var NAV_SECOES = {
     ["voz-e-rosto-continuam-separados", "Voz e rosto continuam separados"],
     ["pesquisa", "Um caminho para investigar, não uma validação automática"],
     ["privacidade-nao-e-um-rotulo", "Privacidade não é um rótulo"],
-    ["perguntas-que-respeitam-os-dados-disponiveis", "Perguntas que respeitam os dados disponíveis"]
+    ["perguntas-que-respeitam-os-dados-disponiveis", "Perguntas que respeitam os dados disponíveis"],
+    ["avalie-o-data-froid-com-a-equipe", "Avalie o Data-Froid com a equipe"]
   ],
   "nr1/index.html": [
     ["custo-da-omissao", "O custo da omissão"],
@@ -68,16 +68,19 @@ var NAV_SECOES = {
   ],
   "psique/faq.html": [
     ["medidas-e-interpretacao", "Medidas e interpretação"],
-    ["uso-e-contratacao", "Uso e contratação"]
+    ["uso-e-contratacao", "Uso e contratação"],
+    ["sua-duvida-depende-da-sua-rotina", "Sua dúvida depende da sua rotina?"]
   ],
   "psique/froid-explica.html": [
     ["veja-em-acao", "Veja em ação"],
     ["como-um-bibliotecario-nao-como-um-oraculo", "Como um bibliotecário, não como um oráculo"],
     ["prompts", "Prompts nativos para começar; próprios para aprofundar"],
-    ["mais-clareza-sem-transformar-resposta-em-conduta", "Mais clareza, sem transformar resposta em conduta"]
+    ["mais-clareza-sem-transformar-resposta-em-conduta", "Mais clareza, sem transformar resposta em conduta"],
+    ["veja-o-assistente-no-contexto-da-sua-pratica", "Veja o assistente no contexto da sua prática"]
   ],
   "psique/glossario.html": [
-    ["os-dez-conceitos", "Os dez conceitos"]
+    ["os-dez-conceitos", "Os dez conceitos"],
+    ["veja-os-conceitos-no-contexto-de-uso", "Veja os conceitos no contexto de uso"]
   ],
   "nr1/iso-45001.html": [
     ["obrigacao-legal-e-diretriz", "Obrigação legal e diretriz"],
@@ -102,7 +105,8 @@ var NAV_SECOES = {
     ["familias", "As sete famílias"],
     ["o-detalhe-nao-desaparece-na-organizacao", "O detalhe não desaparece na organização"],
     ["quadros-de-referencia", "Os quadros de referência do FACS"],
-    ["limites", "O que não deve ser inferido"]
+    ["limites", "O que não deve ser inferido"],
+    ["explore-antes-de-decidir", "Explore antes de decidir"]
   ],
   "menu.html": [
     ["as-paginas-por-produto", "As páginas, por produto"]
@@ -114,7 +118,8 @@ var NAV_SECOES = {
     ["pacotes", "Pacotes de créditos de análise"],
     ["o-que-a-licenca-organiza", "O que a licença organiza"],
     ["licenca", "Licença mensal por profissional clínico"],
-    ["e-quando-o-saldo-termina", "E quando o saldo termina?"]
+    ["e-quando-o-saldo-termina", "E quando o saldo termina?"],
+    ["receba-uma-proposta-para-sua-pratica", "Receba uma proposta para sua prática"]
   ],
   "nr1/precos-nr1.html": [
     ["condicoes-comerciais", "Condições comerciais"],
@@ -134,17 +139,7 @@ var NAV_SECOES = {
     ["uma-pergunta-melhor-comeca-por-um-contexto-claro", "Uma pergunta melhor começa por um contexto claro"],
     ["data-froid-da-informacao-registrada-a-investigacao", "Data-Froid: da informação registrada à investigação"],
     ["contratacao-adequada-a-sua-pratica", "Contratação adequada à sua prática"],
-    ["comece-avaliando-o-encaixe-na-sua-rotina", "Comece avaliando o encaixe na sua rotina"],
-    ["bonificacao-destaque", "Bonificação de lançamento"],
-    ["multimodal", "Processamento multimodal"],
-    ["calibracao-60s", "Calibração de 60 segundos"],
-    ["bussola-velocimetro", "IDM e IPM"],
-    ["12-zonas", "As 12 zonas de percepção vocal"],
-    ["ritmo-fala", "Taxa de elocução"],
-    ["cortes-tematicos", "Cortes temáticos e FROID Explica"],
-    ["privacidade-lgpd", "Data-Froid e privacidade"],
-    ["simulador-nr1", "Calculadora do NR-1"],
-    ["resgate-bonificacao", "Resgatar a bonificação"]
+    ["comece-avaliando-o-encaixe-na-sua-rotina", "Comece avaliando o encaixe na sua rotina"]
   ],
   "nr1/proposta-nr1.html": [
     ["precos", "Condições comerciais"],
@@ -163,7 +158,8 @@ var NAV_SECOES = {
     ["face", "Face: do coeficiente ao padrão"],
     ["registro", "Consistência que chega à tela e ao relatório"],
     ["arquitetura-com-responsabilidades-distintas", "Arquitetura com responsabilidades distintas"],
-    ["na-tela", "As medidas, na tela"]
+    ["na-tela", "As medidas, na tela"],
+    ["leve-o-entendimento-para-a-pratica", "Leve o entendimento para a prática"]
   ]
 };
 

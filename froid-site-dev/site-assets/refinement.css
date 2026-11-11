@@ -1,0 +1,144 @@
+@import url('neural-backgrounds.css?v=1');
+
+/* Visual institucional: a paleta dos indicadores clínicos permanece no estilo base. */
+:root { --paper:#080b12; --paper-soft:#101621; --border:#273140; --radius:20px; --maxw:1240px; }
+html { scroll-behavior:smooth; scroll-padding-top:110px; }
+body { background:radial-gradient(ellipse at 90% 0, #182337 0, transparent 35rem),var(--paper); }
+::selection { background:#f5c778; color:#111827; }
+a:focus-visible, button:focus-visible, .nav-links a:focus-visible { outline:2px solid #f5c778; outline-offset:5px; }
+header.site-header { background:rgba(8,11,18,.94); backdrop-filter:blur(18px); }
+.nav-row { max-width:1440px; gap:20px; padding:20px 28px; }
+.nav-links { gap:12px; }
+.nav-familia { gap:12px; }
+.nav-familia + .nav-familia { padding-left:12px; }
+.nav-drop.nav-drop-mega { width:100%; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); padding:24px; gap:20px; max-height:75vh; overflow:auto; background:#101621; border:1px solid #354052; margin-top:0; }
+.nav-drop a.nav-drop-secao { color:#b4c0d1; padding-block:7px; }
+.nav-drop a.nav-drop-pagina { color:#f5cf8d; font-size:.9rem; padding-bottom:12px; }
+.btn { padding:13px 22px; border-radius:12px; transition:background .2s,box-shadow .2s; }
+.btn-solid { background:#f5c778; color:#151921; border-color:#f5c778; box-shadow:0 6px 26px #f5c77818; }
+.btn-solid:hover { background:#ffda9b; color:#151921; box-shadow:0 8px 32px #f5c77830; }
+.btn-ghost { background:#ffffff04; border-color:#435064; color:#e5edf8; }
+.hero { padding:96px 0 72px; background:radial-gradient(ellipse at 50% 0,#26304480,transparent 70%); }
+.hero h1 { font-family:var(--font); font-size:clamp(2.1rem,4.5vw,4rem); letter-spacing:-.045em; max-width:1000px; text-wrap:balance; }
+section.block { padding:88px 0; }
+section.block.soft { background:linear-gradient(120deg,#111824,#0c111b); }
+h2.section-title { font-family:var(--font); font-size:clamp(1.8rem,3.2vw,2.8rem); line-height:1.2; letter-spacing:-.035em; text-wrap:balance; max-width:960px; margin-inline:auto; }
+p.section-kicker { color:#f5c778; letter-spacing:.18em; margin-bottom:18px; }
+p.page-title-amber { color:#f5c778; font-size:clamp(1.05rem,2.2vw,1.7rem); font-weight:800; letter-spacing:0; line-height:1.2; margin:0 0 22px; text-align:center; text-wrap:balance; }
+p.section-lead { line-height:1.8; margin-top:20px; }
+.grid-2,.grid-3 { gap:24px; }
+.card { background:linear-gradient(145deg,#1a2433,#111822); border-color:#303d50; padding:30px; box-shadow:0 12px 40px #00000015; }
+.card h3 { line-height:1.35; letter-spacing:-.02em; }
+.card p { color:#bcc8d8; }
+.card a { text-underline-offset:4px; }
+.site-img { border-radius:16px; }
+.hero-neuro { padding:60px 24px 76px; background:radial-gradient(ellipse at 50% 0,#59412230,transparent 55%),#080b12; }
+.hero-quote { max-width:820px; }
+.home-intro { position:relative; z-index:2; max-width:980px; margin:0 auto 36px; }
+.home-intro h2 { font-size:clamp(2.4rem,5.6vw,4.8rem); letter-spacing:-.055em; line-height:1.08; text-wrap:balance; margin:20px 0; font-weight:600; }
+.home-intro h2 span { color:#f5c778; }
+.home-intro > p:not(.section-kicker) { color:#b9c5d6; max-width:650px; margin:0 auto 26px; }
+.home-intro .hero-actions { gap:12px; }
+.hero-neuro__scroll { display:none; }
+.page-outline { border-bottom:1px solid var(--border); background:#101620; }
+.page-outline nav { max-width:var(--maxw); margin:auto; padding:18px 24px; display:flex; flex-wrap:wrap; justify-content:center; gap:10px; }
+.page-outline a { padding:8px 14px; border:1px solid #354052; border-radius:8px; color:#cbd5e1; font-size:.85rem; }
+.skip-content { position:fixed; left:16px; top:-100px; z-index:100; padding:12px 20px; background:#f5c778; color:#111827; }
+.skip-content:focus { top:12px; }
+.site-menu-toggle { display:none; border:1px solid #435064; border-radius:10px; background:#151e2c; color:#f8fafc; padding:10px 16px; font:inherit; cursor:pointer; }
+footer.site-footer { background:#070a10; border-top:1px solid #344053; padding-top:64px; }
+footer.site-footer .foot-grid { gap:36px; }
+footer.site-footer li a { display:inline-block; padding-block:5px; }
+@media(max-width:1180px) {
+  .nav-row { flex-wrap:wrap; justify-content:center; }
+  .nav-links { justify-content:center; }
+}
+@media(max-width:860px) {
+  html { scroll-padding-top:24px; }
+  .nav-row { flex-direction:row; justify-content:space-between; padding:14px 18px; gap:12px; }
+  .site-menu-toggle { display:block; }
+  .nav-row > .brand:empty { display:none; }
+  .nav-actions { margin-left:auto; flex-wrap:wrap; justify-content:flex-end; }
+  .nav-actions .btn { font-size:.75rem; padding:10px; }
+  .lang-group { width:auto; margin:0; }
+  .nav-links { width:100%; order:3; align-items:stretch; }
+  .site-header.menu-enhanced .nav-links { display:none; }
+  .site-header.menu-enhanced.menu-open .nav-links { display:flex; flex-direction:column; }
+  .nav-familia,.nav-familia + .nav-familia { border:0; border-top:1px solid #303d50; margin:0; padding:14px 0; justify-content:flex-start; }
+  .nav-drop.nav-drop-mega { display:contents; }
+  .nav-drop a.nav-drop-pagina { padding:10px; font-size:.84rem; }
+  .hero,.hero-neuro { padding-top:48px; }
+  section.block { padding:56px 0; }
+  .card { padding:24px; }
+  .home-intro .hero-actions { display:flex; flex-wrap:wrap; justify-content:center; }
+  .btn { white-space:normal; text-align:center; }
+}
+/* Troca de produto e chamada para acao do header (geradas por
+   tools/gerar-header-do-site.py). A troca e um link pequeno, com icone; a
+   chamada e um botao, que no celular usa o rotulo curto para nao estourar a
+   margem de 16px. */
+.nav-troca-produto { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border:1px solid #354052; border-radius:999px; font-size:.74rem; font-weight:700; color:#cbd5e1; white-space:nowrap; text-decoration:none; }
+.nav-troca-produto:hover { color:#fff; border-color:#5b6b82; text-decoration:none; }
+.nav-troca-psique .nav-troca-icone { color:#60a5fa; }
+.nav-troca-nr1 .nav-troca-icone { color:#c4b5fd; }
+.nav-troca-icone { flex:none; }
+.nav-troca-compacta .nav-troca-marca { display:none; }
+.nav-cta-curto { display:none; }
+.nav-cta-compacto .nav-cta-longo { display:none; }
+.nav-cta-compacto .nav-cta-curto { display:inline; }
+@media(max-width:1440px) {
+  .nav-actions:has(.nav-troca-compacta) { gap:6px; }
+  .nav-actions:has(.nav-troca-compacta) .btn { padding:8px 11px; }
+  .nav-troca-compacta { padding:5px 8px; }
+}
+@media(max-width:1180px) {
+  .nav-actions { flex-wrap:wrap; justify-content:center; max-width:100%; }
+}
+@media(max-width:860px) {
+  .nav-actions { min-width:0; max-width:100%; }
+  .nav-actions .btn { max-width:100%; }
+  .nav-cta-longo { display:none; }
+  .nav-cta-curto { display:inline; }
+  .nav-troca-produto { padding:6px 8px; font-size:.7rem; }
+}
+/* Versao compacta (pedido do dono, 09/11/2026): troca de produto e chamada
+   menores e mais discretas, para o header caber numa linha. So CSS: o HTML
+   continua sendo o que o gerador emite. */
+.nav-actions .nav-troca-produto { gap:5px; padding:4px 10px 4px 8px; font-size:.68rem; letter-spacing:.02em;
+  background:rgba(148,163,184,.08); border-color:rgba(148,163,184,.24); }
+.nav-actions .nav-troca-produto:hover { background:rgba(148,163,184,.16); }
+.nav-actions .nav-troca-marca { display:none; }
+.nav-actions .nav-cta { padding:6px 14px; font-size:.76rem; line-height:1.2; border-radius:999px; border:0;
+  background:linear-gradient(135deg,#fcd34d,#f59e0b); color:#1c1406; box-shadow:0 2px 10px rgba(245,158,11,.22); }
+.nav-actions .nav-cta:hover { filter:brightness(1.06); text-decoration:none; }
+.nav-actions .nav-cta-longo { display:none; }
+.nav-actions .nav-cta-curto { display:inline; }
+.nav-actions .btn-ghost { padding:6px 12px; font-size:.76rem; border-radius:999px; }
+@media(min-width:1700px) {
+  .nav-actions .nav-cta:not(.nav-cta-compacto) .nav-cta-longo { display:inline; }
+  .nav-actions .nav-cta:not(.nav-cta-compacto) .nav-cta-curto { display:none; }
+}
+
+/* Celular, opcao (c) aprovada pelo dono em 09/11/2026: todo o texto
+   centralizado, e o topo de cada pagina em forma de diamante — titulo curto,
+   linhas que alargam ate o meio do texto de abertura e voltam a estreitar.
+   O estreitamento final da frase de abertura e feito em script.js
+   (diamanteNoTopo), que mede o paragrafo. */
+@media(max-width:860px) {
+  main, section, article, .container, .prosa, .card, footer.site-footer { text-align:center; }
+  p, li, h1, h2, h3, h4, h5, blockquote, figcaption, .lead, .section-lead, .section-kicker, .nota { text-align:center !important; }
+  ul, ol { padding-left:0; list-style-position:inside; }
+  .hero .container > *, .hero-neuro__content > * { margin-left:auto; margin-right:auto; }
+  .hero .page-title-amber { max-width:62%; }
+  .hero .section-kicker { max-width:80%; }
+  .hero h1 { max-width:100%; text-wrap:balance; }
+  .diamante-borda { height:0; }
+  .diamante-borda.esq { float:left; }
+  .diamante-borda.dir { float:right; }
+}
+
+@media(prefers-reduced-motion:reduce) {
+  html { scroll-behavior:auto; }
+  *,*::before,*::after { animation:none!important; transition:none!important; }
+}
+@media print { .page-outline,.site-menu-toggle,.skip-content { display:none; } }

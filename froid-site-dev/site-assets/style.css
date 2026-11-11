@@ -1,0 +1,641 @@
+/* ============================================================
+   FROID — Design System (paleta reaproveitada de froid-engine.ts HEX_PALETTE)
+   BRANCO #f8fafc / AZUL #3b82f6 / VERDE #22c55e / AMARELO #eab308
+   VERMELHO #ef4444 / PRETO #0f172a / CINZA #6b7280
+   ============================================================ */
+
+:root {
+  --froid-branco: #f8fafc;
+  --froid-azul: #3b82f6;
+  --froid-verde: #22c55e;
+  --froid-amarelo: #eab308;
+  --froid-vermelho: #ef4444;
+  --froid-preto: #0f172a;
+  --froid-cinza: #94a3b8;
+  --ink: #e2e8f0;
+  --paper: #020617;
+  --paper-soft: #0f172a;
+  --border: #1e2a44;
+  --radius: 14px;
+  --maxw: 1120px;
+  --font: "Inter", "Segoe UI", Arial, sans-serif;
+  --font-serif: "Source Serif 4", Georgia, serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  color: var(--ink);
+  background: var(--paper);
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: #93c5fd; text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+img { max-width: 100%; display: block; }
+
+.container { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+
+/* ---------- Header / Nav ---------- */
+header.site-header {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(2, 6, 23, 0.97);
+  color: var(--froid-branco);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  backdrop-filter: blur(6px);
+}
+.nav-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 24px; max-width: var(--maxw); margin: 0 auto;
+  /* Bloco de contenção dos menus de família: eles são largos demais para ficar
+     presos ao rótulo sem passar da borda da tela. Ver .nav-drop-mega. */
+  position: relative;
+}
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.25rem; letter-spacing: 0.02em; color: var(--froid-branco); }
+.brand-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--froid-azul); box-shadow: 0 0 12px var(--froid-azul); }
+/* Logo removido do header a pedido — para repor, troque display:none por display:block */
+.brand-logo { height: 28px; width: auto; display: none; }
+.nav-links { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
+.nav-links a { color: rgba(248,250,252,0.85); font-weight: 500; font-size: 0.84rem; white-space: nowrap; }
+.nav-links a:hover { color: var(--froid-branco); text-decoration: none; }
+/* Sem caixa de foco em volta dos links; a página atual é destacada por itálico + sublinhado */
+.nav-links a:focus, .nav-links a:focus-visible { outline: none; }
+
+/* Os dois produtos deixaram de dividir uma fileira unica de onze links.
+
+   O defeito apareceu numa apresentacao a cinco profissionais em 04/09/2026:
+   quem estudava o fluxo Psicossocial clicava em "FROID Explica" — rotulo
+   generico, sem produto — e caia no Explica do Psique. Misturar caminhos
+   embaraca quem estuda um assunto especifico.
+
+   Agora cada familia e um grupo com cabeca propria, separado por uma linha.
+   O rotulo do grupo E o link para a visao geral daquele produto, entao nenhum
+   destino se perdeu e nenhum rotulo mudou. */
+.nav-familia { display: flex; align-items: center; gap: 14px; }
+.nav-familia + .nav-familia {
+  margin-left: 4px; padding-left: 18px;
+  border-left: 1px solid rgba(248,250,252,0.22);
+}
+
+/* Os filhos de cada família passaram a viver DENTRO do rótulo dela.
+
+   Motivo medido em 04/09/2026: com treze links a fileira somava 1473px em
+   português e 1614px em francês, contra 1072px úteis (container 1120 menos os
+   recuos de 24px). Quebrava em duas linhas em todos os idiomas — e já quebrava
+   antes de "Mapas da face" entrar. Em francês o menu sozinho não cabia.
+   Agora são seis itens na linha, e ela fecha com folga em pt/en/es/fr.
+
+   O rótulo continua sendo um LINK real para a visão geral daquele grupo, e a
+   visão geral é repetida como primeiro item do menu: quem toca no rótulo
+   navega, quem passa o ponteiro escolhe. Nenhum destino se perdeu. */
+/* `static` de propósito: o bloco de contenção do painel tem de ser a .nav-row,
+   não o rótulo. Com `relative` aqui, `max-width:100%` do painel virava a
+   largura do rótulo — medido: 100px de largura e 687px de altura, uma coluna
+   só e altíssima. */
+.nav-menu { position: static; display: inline-flex; align-items: center; }
+.nav-menu > .nav-familia-rotulo::after {
+  content: "\25BE"; font-size: 0.72em; margin-left: 5px; opacity: 0.7;
+}
+@media (min-width: 861px) {
+  /* :focus-within abre pelo teclado; o script.js cuida de seta e Escape. */
+  .nav-menu:hover > .nav-drop,
+  .nav-menu:focus-within > .nav-drop,
+  .nav-menu.aberto > .nav-drop {
+    opacity: 1; visibility: visible; transform: translateY(0);
+  }
+}
+
+/* Cada item do menu traz as SEÇÕES daquela página, uma coluna por página.
+
+   Os títulos das seções não são escritos aqui nem no script: são lidos do
+   cabeçalho de cada página, no idioma dela, quando o header é gerado. Assim o
+   menu não vira uma segunda cópia de texto para divergir em silêncio, e a
+   tradução não precisa de mapa próprio — ela mostra as seções que de fato
+   existem no arquivo dela, e só essas. Link para âncora inexistente é o
+   defeito que a revisão de links já encontrou uma vez. */
+/* O painel é ancorado à FAIXA do header, não ao rótulo.
+
+   Ancorado ao rótulo ele não cabia: medido a 1069px de viewport, o painel do
+   Psicossocial ia de x=182 a x=1102 e passava 33px da borda. Alinhar à direita
+   não resolvia — com o rótulo no meio da fileira, um painel de 920px estoura
+   de um lado ou do outro. Preso à faixa, ele começa na margem do container e
+   nunca ultrapassa a largura dela.
+
+   As regras levam `.nav-drop` junto no seletor de propósito: `.nav-drop` está
+   declarado depois neste arquivo, e sem o peso extra o `left: -12px` dele
+   vencia — foi exatamente o que aconteceu na primeira tentativa. */
+.nav-drop.nav-drop-mega {
+  left: 0; right: auto; width: max-content; max-width: 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(178px, max-content));
+  gap: 2px 14px; padding: 12px; min-width: 0;
+  /* Faixa transparente que cobre o recuo inferior da fileira: sem ela o
+     ponteiro perde o :hover no caminho do rótulo até o painel. */
+  border-top: 22px solid transparent; margin-top: -22px;
+}
+.nav-drop-col { display: flex; flex-direction: column; min-width: 0; }
+.nav-drop a.nav-drop-pagina {
+  font-weight: 700; color: var(--froid-branco);
+  padding: 7px 10px 5px; margin-bottom: 2px;
+  border-bottom: 1px solid rgba(248,250,252,0.10);
+}
+.nav-drop a.nav-drop-secao {
+  font-size: 0.76rem; font-weight: 400; line-height: 1.35;
+  padding: 4px 10px 4px 16px; color: rgba(248,250,252,0.58);
+}
+.nav-drop a.nav-drop-secao:hover { color: #fcd34d; }
+.nav-links a.nav-familia-rotulo { font-weight: 700; color: var(--froid-branco); }
+.nav-links a.ativo {
+  font-style: italic; font-weight: 600; color: var(--froid-branco);
+  text-decoration: underline; text-underline-offset: 5px;
+  /* Ambar da paleta: mesmo destaque das chamadas e do bloco de aviso. */
+  text-decoration-color: #fcd34d; color: #fcd34d;
+}
+/* Menu suspenso com as seções da página, montado pelo script.js.
+   O <span class="nav-item"> é criado em volta do link; sem JS o link continua
+   funcionando exatamente como antes. */
+.nav-item { position: relative; display: inline-flex; }
+.nav-drop {
+  position: absolute; top: 100%; left: -12px; z-index: 60;
+  min-width: 232px; padding: 6px;
+  /* Faixa transparente no topo para o ponteiro atravessar do link até o menu
+     sem passar por um vão — sem ela o menu pisca e fecha no meio do caminho. */
+  margin-top: 0; border-top: 10px solid transparent; background-clip: padding-box;
+  background: rgba(2, 6, 23, 0.98);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  box-shadow: 0 14px 34px rgba(0,0,0,0.5);
+  opacity: 0; visibility: hidden; transform: translateY(-4px);
+  transition: opacity .14s ease, transform .14s ease, visibility .14s;
+}
+.nav-item:hover .nav-drop, .nav-item.aberto .nav-drop {
+  opacity: 1; visibility: visible; transform: translateY(0);
+}
+.nav-drop a {
+  display: block; padding: 7px 11px; border-radius: 7px;
+  font-size: 0.82rem; font-weight: 500; white-space: normal;
+  color: rgba(248,250,252,0.82); line-height: 1.35;
+}
+.nav-drop a:hover, .nav-drop a:focus-visible {
+  background: rgba(148,163,184,0.14); color: #fcd34d; text-decoration: none;
+}
+/* Uma seção alvo não pode ficar embaixo do header fixo ao chegar pela âncora.
+
+   O valor nasceu do pior caso de quando os treze links quebravam em duas
+   linhas e o header chegava a 88px. Depois da reorganização em menus de
+   família a fileira fecha em uma linha só (~56px medidos), e os 108px viraram
+   folga. Ficam como estão de propósito: sobrar espaço em branco não atrapalha,
+   ficar encoberto sim — e a altura volta a crescer se alguém acrescentar um
+   item à fileira. */
+[id] { scroll-margin-top: 108px; }
+
+/* Tabela de faixas do FROID NR-1. Vive aqui, e não no <style> de uma página,
+   porque as faixas aparecem na página do produto e na proposta — dois lugares
+   que precisam mostrar exatamente o mesmo número. */
+.nr1-faixas { width: 100%; border-collapse: collapse; font-size: 0.9rem; min-width: 420px; }
+.nr1-faixas th, .nr1-faixas td { padding: 9px 12px; border-bottom: 1px solid #334155; text-align: left; }
+.nr1-faixas td:last-child, .nr1-faixas th:last-child { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.nr1-faixas th { background: #1e293b; color: #f8fafc; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.05em; }
+
+/* Tabelas dos mapas da face (mapas-faciais.html e as três traduções). Vivem
+   aqui, e não num <style> por página, porque as quatro precisam mostrar
+   exatamente a mesma lista de Unidades de Ação e as mesmas regras — quatro
+   cópias de CSS divergiriam em silêncio, como já divergiram os pisos de coorte. */
+.mapa-tabela-wrap { overflow-x: auto; margin: 20px 0 10px; }
+.mapa-tabela { width: 100%; border-collapse: collapse; font-size: 0.86rem; min-width: 660px; }
+.mapa-tabela th, .mapa-tabela td { padding: 9px 12px; border-bottom: 1px solid #334155; text-align: left; vertical-align: top; }
+.mapa-tabela th { background: #1e293b; color: #f8fafc; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.mapa-tabela td:first-child { font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--froid-branco); }
+.mapa-tabela .bs { font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; font-size: 0.78rem; color: var(--froid-cinza); }
+.mapa-tabela-nota { font-size: 0.8rem; color: var(--froid-cinza); margin: 0 0 8px; }
+
+/* Legenda sob cada mapa: diz o que a figura é antes de o leitor supor. */
+figure.mapa-fig { margin: 0 0 8px; }
+figure.mapa-fig figcaption { margin-top: 10px; font-size: 0.84rem; color: var(--froid-cinza); }
+
+.nav-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.nav-actions .btn { padding: 8px 14px; font-size: 0.82rem; }
+/* Seletor de idioma no header — grupo de pills PT/EN/FR/... antes dos botões de acesso */
+.lang-group { display: flex; align-items: center; gap: 4px; margin-left: 2px; }
+.lang-group::before { content: "🌐"; font-size: 0.78rem; margin-right: 2px; opacity: 0.85; }
+.lang-pill {
+  padding: 5px 9px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.02em;
+  border-radius: 999px; color: rgba(248,250,252,0.7); border: 1px solid rgba(248,250,252,0.25);
+  text-decoration: none;
+}
+a.lang-pill:hover { color: #fff; border-color: rgba(248,250,252,0.5); }
+.lang-pill.lang-current {
+  color: #fff; background: rgba(248,250,252,0.14); border-color: rgba(248,250,252,0.4); cursor: default;
+}
+@media (max-width: 860px) {
+  .lang-group { margin: 6px 0 0; justify-content: center; width: 100%; }
+}
+.btn { display: inline-block; padding: 9px 18px; border-radius: 999px; font-weight: 600; font-size: 0.9rem; border: 1px solid transparent; cursor: pointer; white-space: nowrap; }
+/* Header no celular: empilha em blocos centrados, links em linhas fluidas, botões lado a lado */
+@media (max-width: 860px) {
+  header.site-header { position: static; }
+  .nav-row {
+    flex-direction: column; align-items: center; gap: 12px;
+    padding: 12px 14px;
+  }
+  .nav-links { justify-content: center; row-gap: 8px; column-gap: 14px; }
+  .nav-familia { flex-wrap: wrap; justify-content: center; gap: 10px; }
+  .nav-familia + .nav-familia { margin-left: 0; padding-left: 12px; }
+  .nav-links a { font-size: 0.82rem; }
+  /* No celular NÃO há menu suspenso: a lista da família entra na linha, e o
+     header volta a mostrar todos os destinos como antes. Esconder filho de
+     produto atrás de :hover num aparelho de toque deixaria Profissionais,
+     Para empresas e Como funciona sem caminho nenhum a partir do topo — o
+     header já empilha aqui, então o aperto que motivou o menu não existe.
+     Vale só para os menus de família (.nav-menu); o submenu de seções montado
+     pelo script.js continua com o comportamento de sempre. */
+  /* `display: contents` dissolve as duas caixas: o rótulo e os filhos passam a
+     ser irmãos diretos do .nav-familia e voltam a fluir numa fileira única que
+     quebra sozinha, como antes. A primeira tentativa mantinha as caixas e só
+     as tornava estáticas — aí o .nav-menu virava um item de flex indivisível,
+     largo demais para 400px: "Segurança" saía da tela e a página ganhava barra
+     de rolagem horizontal. Medido em 400px de largura. */
+  .nav-menu, .nav-menu > .nav-drop, .nav-drop-col { display: contents; }
+  /* As seções de cada página NÃO entram no header do celular: seriam mais de
+     trinta links a mais numa fileira que já ocupa cinco linhas. Aqui o menu
+     volta a ser o que era — o caminho para as páginas. */
+  .nav-drop a.nav-drop-secao { display: none; }
+  .nav-drop a.nav-drop-pagina { border-bottom: 0; margin-bottom: 0; }
+  /* visibility é herdada: sem isto os filhos continuariam escondidos. */
+  .nav-menu > .nav-drop { visibility: visible; opacity: 1; transform: none; }
+  .nav-menu > .nav-familia-rotulo::after { content: none; }
+  .nav-menu > .nav-drop > a {
+    visibility: visible;
+    padding: 0; border-radius: 0; font-size: 0.82rem; white-space: nowrap;
+    color: rgba(248,250,252,0.85);
+  }
+  .nav-menu > .nav-drop > a:hover { background: none; color: var(--froid-branco); }
+  /* "Visão geral" repete o destino do rótulo. No suspenso ela é necessária
+     (quem abre o menu com o ponteiro não clica no rótulo); aqui, com tudo na
+     linha, seria um link duplicado ao lado do outro. */
+  /* Sem `>` de propósito: desde que cada página virou uma coluna, o link da
+     visão geral deixou de ser filho direto do painel. Com o seletor antigo a
+     regra passou a não casar com nada e "Visão geral" reapareceu no celular
+     ao lado do rótulo que leva ao mesmo lugar. */
+  .nav-menu .nav-drop-visao-geral { display: none; }
+  /* O submenu de SEÇÕES (montado pelo script.js dentro de .nav-item) é uma
+     caixa absoluta de 232px de largura mínima. Escondido por `visibility` ele
+     continua ocupando layout e transbordando para a direita: era a origem da
+     barra de rolagem horizontal no celular — medida em 400px de largura, a
+     página rolava até 614px, e o defeito é anterior a esta sessão. `display:
+     none` tira do layout. Nada se perde: no toque esse menu nunca chegou a
+     abrir, e cada seção continua alcançável rolando a página de destino. */
+  .nav-item > .nav-drop { display: none; }
+  .nav-actions { width: 100%; justify-content: center; }
+  .nav-actions .btn { flex: 1 1 0; max-width: 190px; text-align: center; padding: 9px 8px; font-size: 0.8rem; }
+}
+.btn-ghost { color: var(--froid-branco); border-color: rgba(248,250,252,0.35); }
+.btn-ghost:hover { background: rgba(248,250,252,0.08); text-decoration: none; }
+.btn-solid { background: var(--froid-azul); color: #fff; }
+.btn-solid:hover { background: #2f6fe0; text-decoration: none; }
+/* Marrom e ambar do bloco de aviso (.disclaimer-box), reaproveitados para a
+   acao que o visitante deve tomar primeiro. Mesma familia de cor do aviso de
+   dados sensiveis, porque e a mesma voz: parar e ler antes de seguir. */
+.btn-amber { background: #451a03; color: #fcd34d; border-color: #92400e; }
+.btn-amber:hover { background: #5a2206; color: #fde68a; text-decoration: none; }
+.btn-amber-ghost { color: #fcd34d; border-color: #92400e; }
+.btn-amber-ghost:hover { background: rgba(69,26,3,0.55); color: #fde68a; text-decoration: none; }
+
+/* ---------- Hero ---------- */
+.hero {
+  position: relative;
+  background: #0b1120 url('img/froid-barra.png') center/cover no-repeat;
+  color: var(--froid-branco);
+  padding: 96px 0 80px;
+  overflow: hidden;
+}
+.hero::before {
+  content: "";
+  position: absolute; inset: 0; z-index: 0;
+  background: linear-gradient(180deg, rgba(2,6,23,0.72) 0%, rgba(2,6,23,0.88) 100%);
+}
+.hero > .container { position: relative; z-index: 1; }
+/* Heros das subpáginas centralizados, acompanhando títulos e leads de seção */
+.hero h1 { font-family: var(--font-serif); font-size: 2.6rem; line-height: 1.2; max-width: 780px; margin: 0 auto 20px; text-align: center; }
+.hero p.lead { font-size: 1.15rem; color: rgba(248,250,252,0.78); max-width: 620px; margin: 0 auto 32px; text-align: center; }
+.hero-actions { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+
+/* ============================================================
+   HERO "NEURO" — hero de página inicial, fundo escuro. A arte com o
+   logo (froid-hero.png) foi retirada a pedido do dono em 07/10/2026;
+   .hero-neuro__content permanece, invisível, só para leitor de tela
+   e SEO (ver comentário abaixo).
+   ============================================================ */
+.hero-neuro {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  text-align: center;
+  overflow: hidden;
+  background: #000104;
+  color: var(--froid-branco);
+  padding: 1.5cm 24px 120px;
+}
+.hero-neuro__content { position: relative; z-index: 2; max-width: 900px; }
+/* A página precisa de um h1: ele e a tagline ficam aqui, invisíveis na tela
+   (só leitor de tela/SEO), sem reintroduzir o logo que foi retirado. */
+.hero-neuro__content .hero-neuro__wordmark,
+.hero-neuro__content .hero-neuro__tagline {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap; margin: 0;
+}
+.hero-neuro__kicker {
+  text-transform: uppercase; letter-spacing: 0.35em; font-size: 0.8rem;
+  color: #7dd3fc; font-weight: 700; margin: 0 0 16px;
+  position: relative; z-index: 2;
+}
+.hero-neuro__wordmark {
+  font-family: var(--font); font-weight: 800; letter-spacing: 0.05em;
+  font-size: clamp(3.2rem, 10vw, 7rem); margin: 0;
+  background: linear-gradient(180deg, #ffffff 0%, #cfe6ff 60%, #7dd3fc 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  text-shadow: 0 0 60px rgba(125, 211, 252, 0.35);
+  line-height: 1;
+}
+.hero-neuro__tagline {
+  text-transform: uppercase; letter-spacing: 0.25em; font-size: 0.9rem;
+  color: rgba(248,250,252,0.75); margin: 18px 0 28px; font-weight: 500;
+}
+.hero-neuro__divider { width: 120px; height: 1px; margin: 0 auto 46px; background: linear-gradient(90deg, transparent, #7dd3fc, transparent); }
+.hero-quote { max-width: 760px; margin: 0 auto 32px; padding: 0; }
+.hero-quote p {
+  font-family: var(--font-serif); font-style: italic;
+  font-size: 1.04rem; line-height: 1.75;
+  color: rgba(248,250,252,0.88); margin: 0 0 16px;
+}
+.hero-quote footer {
+  font-size: 0.92rem; color: rgba(248,250,252,0.6);
+}
+.hero-quote footer a { color: #93c5fd; font-weight: 600; }
+.hero-neuro__scroll {
+  position: absolute; bottom: 36px; left: 50%; transform: translateX(-50%);
+  z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 10px;
+  color: rgba(248,250,252,0.55); text-transform: uppercase; letter-spacing: 0.2em; font-size: 0.72rem;
+}
+.hero-neuro__scroll::after {
+  content: ""; width: 1px; height: 34px;
+  background: linear-gradient(180deg, rgba(125,211,252,0.9), transparent);
+  animation: froid-scroll-pulse 1.8s ease-in-out infinite;
+}
+@keyframes froid-scroll-pulse { 0%,100% { opacity: 0.3; } 50% { opacity: 1; } }
+
+/* ---------- Sections ---------- */
+section.block { padding: 72px 0; border-bottom: 1px solid var(--border); }
+section.block.soft { background: var(--paper-soft); }
+/* Títulos de seção centralizados em todas as páginas (kicker acompanha para manter o bloco coeso) */
+h2.section-title { font-family: var(--font-serif); font-size: 2rem; margin: 0 0 12px; color: #f8fafc; text-align: center; }
+p.section-kicker { text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.78rem; color: var(--froid-azul); font-weight: 700; margin: 0 0 10px; text-align: center; }
+/* Texto de apoio das seções também centralizado (bloco limitado a 720px, centrado na página) */
+p.section-lead { color: var(--froid-cinza); max-width: 720px; font-size: 1.05rem; margin: 0 auto 40px; text-align: center; }
+
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+@media (max-width: 860px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+
+.card {
+  background: #1e293b; border: 1px solid #334155; border-radius: var(--radius);
+  padding: 26px; box-shadow: 0 1px 2px rgba(0,0,0,0.35);
+}
+
+/* ---------- Image placeholders (toda seção normal, exceto Só para Nerds) ---------- */
+.img-placeholder {
+  position: relative;
+  width: 100%;
+  min-height: 260px;
+  border-radius: var(--radius);
+  border: 2px dashed #475569;
+  background: repeating-linear-gradient(45deg, #0f172a, #0f172a 10px, #14213d 10px, #14213d 20px);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--froid-cinza); font-size: 0.85rem; font-weight: 600; text-align: center; padding: 20px;
+}
+.img-placeholder::before { content: "\1F5BC  ESPAÇO RESERVADO — INSIRA IMAGEM AQUI"; }
+
+/* ---------- Evidence badges ---------- */
+.badge { display: inline-block; padding: 3px 11px; border-radius: 999px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; }
+.badge-strong { background: #dcf5e3; color: #15803d; }
+.badge-moderate { background: #fef3c7; color: #92400e; }
+.badge-weak { background: #fde2d5; color: #b1440e; }
+.badge-none { background: #e5e7eb; color: #374151; }
+.badge-proprietary { background: #e0e7ff; color: #3730a3; }
+
+.citation { font-size: 0.85rem; color: var(--froid-cinza); border-left: 3px solid var(--froid-azul); padding-left: 12px; margin: 10px 0; }
+.citation a { font-weight: 600; }
+
+/* ============================================================
+   "SÓ PARA NERDS" — painel técnico avançado
+   Requisito do cliente: campo com scroll interno e position: absolute
+   dentro de um wrapper relative, para permitir reposicionamento manual
+   posterior (ajuste de top/left diretamente neste CSS ou inline).
+   ============================================================ */
+.nerds-wrapper {
+  position: relative;
+  min-height: 120px;
+  margin: 48px 0 12px;
+}
+.nerds-toggle {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: #334155; color: var(--froid-branco);
+  border: none; border-radius: 999px; padding: 10px 20px;
+  font-weight: 700; font-size: 0.85rem; cursor: pointer;
+  letter-spacing: 0.02em;
+}
+.nerds-toggle::before { content: "\1F913"; }
+.nerds-toggle:hover { background: #475569; }
+
+.nerds-panel {
+  /* Posicionamento absoluto solicitado — ajuste top/left/width conforme necessário */
+  position: absolute;
+  top: 54px;
+  left: 0;
+  width: 100%;
+  max-width: 760px;
+  z-index: 20;
+  display: none;
+  background: var(--froid-preto);
+  color: #dbe4ff;
+  border-radius: var(--radius);
+  border: 1px solid #2a3a5c;
+  box-shadow: 0 18px 40px rgba(15,23,42,0.35);
+  max-height: 420px;
+  overflow-y: scroll;
+  padding: 26px 28px;
+  font-family: "JetBrains Mono", "Courier New", monospace;
+  font-size: 0.86rem;
+  line-height: 1.7;
+}
+.nerds-panel.open { display: block; }
+.nerds-panel h4 { color: #93c5fd; font-family: var(--font); font-size: 0.95rem; margin: 18px 0 6px; }
+.nerds-panel h4:first-child { margin-top: 0; }
+.nerds-panel code, .nerds-panel .formula { display: block; background: #0a1226; border-radius: 8px; padding: 10px 12px; margin: 8px 0; color: #a5f3c8; overflow-x: auto; }
+.nerds-panel .ref { color: #9fb0d1; font-family: var(--font); font-size: 0.78rem; border-top: 1px dashed #2a3a5c; margin-top: 14px; padding-top: 10px; }
+.nerds-panel .ref a { color: #93c5fd; }
+.nerds-panel::-webkit-scrollbar { width: 8px; }
+.nerds-panel::-webkit-scrollbar-thumb { background: #2a3a5c; border-radius: 4px; }
+
+/* ---------- Footer ---------- */
+/* Arte de neurônios como fundo do próprio footer (froid-footer.png, borda #01030d),
+   com véu escuro por cima para manter os links legíveis */
+footer.site-footer {
+  background: linear-gradient(rgba(1,3,13,0.55), rgba(1,3,13,0.8)),
+              url('img/froid-footer.png') center / cover no-repeat,
+              #01030d;
+  color: rgba(248,250,252,0.7); padding: 48px 0 28px; font-size: 0.88rem;
+}
+footer.site-footer a { color: rgba(248,250,252,0.85); }
+footer.site-footer .foot-grid { display: grid; grid-template-columns: 1.6fr 1fr 1fr 1fr; gap: 28px; margin-bottom: 32px; }
+@media (max-width: 780px) { footer.site-footer .foot-grid { grid-template-columns: 1fr 1fr; } }
+footer.site-footer h5 { color: var(--froid-branco); font-size: 0.9rem; margin: 0 0 12px; }
+footer.site-footer ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.foot-bottom { border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px; color: rgba(248,250,252,0.45); font-size: 0.8rem; }
+
+.disclaimer-box {
+  background: #451a03; border: 1px solid #92400e; border-radius: var(--radius);
+  padding: 20px 24px; font-size: 0.92rem; color: #fcd34d; margin: 32px auto;
+  text-align: center;
+}
+.disclaimer-box strong { color: #fde68a; }
+
+/* ---------- Termos com tooltip (glossário) ---------- */
+.term {
+  border-bottom: 1px dotted var(--froid-azul);
+  cursor: help;
+  text-decoration: none;
+  color: inherit;
+}
+.term:hover { border-bottom-style: solid; text-decoration: none; }
+
+/* ---------- Imagens inseridas (substituem os .img-placeholder) ---------- */
+.site-img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: var(--radius);
+  border: 1px solid #334155;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+  object-fit: cover;
+}
+figure.site-fig { margin: 0; }
+figure.site-fig figcaption {
+  margin-top: 8px;
+  font-size: 0.82rem;
+  color: var(--froid-cinza);
+  text-align: center;
+}
+
+/* ---------- Lightbox: ampliação das fotos ao clicar ---------- */
+.zoomable { cursor: zoom-in; }
+.zoomable:focus-visible {
+  outline: 2px solid var(--froid-azul, #3b82f6);
+  outline-offset: 3px;
+}
+.site-img.zoomable {
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.site-img.zoomable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.55);
+}
+body.lightbox-lock { overflow: hidden; }
+
+.lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  background: rgba(2, 6, 23, 0.92);
+  cursor: zoom-out;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.lightbox-overlay.open {
+  display: flex;
+  opacity: 1;
+}
+.lightbox-figure {
+  margin: 0;
+  max-width: 96vw;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.lightbox-img {
+  max-width: 96vw;
+  max-height: 82vh;
+  width: auto;
+  height: auto;
+  border-radius: var(--radius);
+  border: 1px solid #334155;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.7);
+  object-fit: contain;
+}
+.lightbox-caption {
+  max-width: 720px;
+  font-size: 0.86rem;
+  color: #e2e8f0;
+  text-align: center;
+  line-height: 1.4;
+}
+.lightbox-close {
+  position: fixed;
+  top: 18px;
+  right: 22px;
+  width: 44px;
+  height: 44px;
+  font-size: 2rem;
+  line-height: 1;
+  color: #e2e8f0;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid #334155;
+  border-radius: 999px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.lightbox-close:hover { background: rgba(30, 41, 59, 0.95); transform: scale(1.05); }
+.lightbox-close:focus-visible {
+  outline: 2px solid var(--froid-azul, #3b82f6);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .site-img.zoomable,
+  .lightbox-overlay,
+  .lightbox-close { transition: none; }
+  .site-img.zoomable:hover { transform: none; }
+}
+
+
+/* ---------- Tabelas largas no celular ---------- */
+/* Sombra de borda + aviso, para que "cortado" vire "deslize para ver". */
+.zonas-wrap, .haz-wrap, .cmp-wrap, .hab-wrap {
+  position: relative;
+}
+@media (max-width: 760px) {
+  .zonas-wrap::after, .haz-wrap::after, .cmp-wrap::after, .hab-wrap::after {
+    content: ""; position: absolute; top: 0; right: 0; bottom: 0; width: 34px;
+    pointer-events: none; border-radius: 0 var(--radius) var(--radius) 0;
+    background: linear-gradient(to right, rgba(2,6,23,0), rgba(2,6,23,0.92));
+  }
+  .zonas-wrap::before, .haz-wrap::before, .cmp-wrap::before, .hab-wrap::before {
+    content: "Deslize para ver a tabela completa →";
+    display: block; font-size: 0.74rem; color: var(--froid-cinza);
+    margin-bottom: 6px; letter-spacing: 0.02em;
+  }
+}

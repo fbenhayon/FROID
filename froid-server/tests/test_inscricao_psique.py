@@ -7,7 +7,7 @@ outras, para o profissional se cadastrar a qualquer momento.
 
 O que estes testes guardam, e o caso que justifica cada um:
 
-- a secao existe em TODA pagina de froid-site/psique/ que nao e
+- a secao existe em TODA pagina de froid-site-dev/psique/ que nao e
   redirecionamento, e e a do gerador (tools/gerar-inscricao-psique.py). Uma
   pagina nova entra na varredura sozinha;
 - o numero escrito no HTML (o que aparece se a consulta ao servidor falhar)
@@ -24,7 +24,9 @@ from pathlib import Path
 
 SERVER_DIR = Path(__file__).resolve().parents[1]
 REPO = SERVER_DIR.parent
-SITE = REPO / "froid-site"
+# A inscricao existe no site em desenvolvimento (froid-site-dev, em /dev/,
+# com senha). O publico, froid-site/, voltou a versao anterior em 11/11/2026.
+SITE = REPO / "froid-site-dev"
 PSIQUE = SITE / "psique"
 if str(SERVER_DIR) not in sys.path:
     sys.path.insert(0, str(SERVER_DIR))

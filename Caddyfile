@@ -83,14 +83,17 @@ froid.com.br, www.froid.com.br {
     # deixado na raiz.
     #
     # O hash (bcrypt, em base64) vem da variável FROID_PERCEPCAO_SENHA_HASH,
-    # gravada no .env por ops/definir-senha-percepcao.sh. FALHA FECHADA: sem a
+    # gravada no .env por `ops/definir-senha.sh percepcao`. FALHA FECHADA: sem a
     # variável, vale o padrão abaixo, hash de um segredo aleatório que ninguém
     # guardou, e a página não abre para ninguém. Variável DEFINIDA porém
     # VAZIA é outra coisa: o Caddy recusa a configuração e não sobe, e o site
     # inteiro cai (medido em 10/11/2026 num contêiner descartável). Por isso o
     # docker-compose.yml repassa a variável sem valor padrão, e o script valida
     # a configuração antes de reiniciar o froid-edge.
-    @percepcao path_regexp percepcao (?i)percepcao-clinica
+    @percepcao {
+        path_regexp percepcao (?i)percepcao-clinica
+        not path /dev /dev/*
+    }
     handle @percepcao {
         basic_auth bcrypt "FROID - acesso restrito" {
             {$FROID_PERCEPCAO_USUARIO:froid} {$FROID_PERCEPCAO_SENHA_HASH:JDJhJDE0JGV4WnBDdnEzLlpGUE1ybjBTbVNNRmVXNjguWEE2OTVEV0VrdE0wTzkwcTdzS0paOVY1dXFX}
@@ -99,6 +102,29 @@ froid.com.br, www.froid.com.br {
         header X-Robots-Tag "noindex, nofollow"
         root * /srv/froid-site
         try_files {path} {path}.html
+        file_server
+    }
+
+    # Site de desenvolvedores (froid-site-dev), em /dev/, só com senha.
+    # Determinação do dono em 11/11/2026: o site da versão atual (Site 2 do
+    # Psique, inscrição gratuita, calculadora NR-1, 10 habilidades) contém
+    # informação de desenvolvedores e não é para o público; o público volta a
+    # ver froid-site, a versão que estava no ar antes (commit 485a734).
+    #
+    # Mesma disciplina da senha das 10 habilidades: hash bcrypt em base64 na
+    # variável FROID_DEV_SENHA_HASH (`ops/definir-senha.sh dev`); sem ela, vale
+    # o hash de um segredo aleatório e /dev/ não abre para ninguém. Vazia, o
+    # Caddy não sobe. `handle_path` tira o /dev do caminho, então os links
+    # relativos das páginas continuam dentro de /dev/.
+    redir /dev /dev/ 308
+    handle_path /dev/* {
+        basic_auth bcrypt "FROID - desenvolvedores" {
+            {$FROID_DEV_USUARIO:froid} {$FROID_DEV_SENHA_HASH:JDJhJDE0JDdzL2Y5djRhQVl3RjUxVnRuNWhYSmUuOU1IZWFtWjZuaU1VYXdJTnFUa2JuU05XM09Ic2Y2}
+        }
+        header Cache-Control "no-store, no-cache, must-revalidate"
+        header X-Robots-Tag "noindex, nofollow"
+        root * /srv/froid-site-dev
+        try_files {path} {path}.html {path}/index.html
         file_server
     }
 

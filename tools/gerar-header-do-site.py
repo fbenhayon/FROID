@@ -44,7 +44,12 @@ import re
 import sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-RAIZ = os.path.join(REPO, "froid-site")
+# Desde 11/11/2026 o site em desenvolvimento e froid-site-dev/ (servido em
+# /dev/, com senha); froid-site/ e o publico, congelado na versao 485a734.
+# Este gerador escreve no de desenvolvimento: rodado sobre o publico, poria
+# nele o menu e o botao das 10 habilidades do site novo. FROID_SITE_RAIZ
+# muda a pasta, para quando o site novo for promovido.
+RAIZ = os.environ.get("FROID_SITE_RAIZ") or os.path.join(REPO, "froid-site-dev")
 PASTAS_DE_PRODUTO = ("psique", "nr1")
 MARCA_STUB = "<!-- redirecionamento: pagina movida em 09/11/2026 -->"
 

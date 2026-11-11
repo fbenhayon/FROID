@@ -77,8 +77,10 @@ def _valor(texto: str) -> float:
 
 
 def _arquivos():
-    for caminho in sorted((REPO / "froid-site").rglob("*.html")):
-        yield caminho
+    # Os dois sites publicam preco: o publico e o de desenvolvedores (/dev/).
+    for site in ("froid-site", "froid-site-dev"):
+        for caminho in sorted((REPO / site).rglob("*.html")):
+            yield caminho
     for caminho in sorted((REPO / "docs" / "comercial").glob("*.md")):
         if caminho.name not in FORA_DA_VARREDURA:
             yield caminho
@@ -298,7 +300,8 @@ class APreviaLocalDaCalculadoraConfereComOMotor(unittest.TestCase):
     e este teste a amarra ao motor e a procedencia que ela declara.
     """
 
-    JS = REPO / "froid-site" / "site-assets" / "simulador-nr1.js"
+    # So existe no site em desenvolvimento (froid-site-dev), desde 11/11/2026.
+    JS = REPO / "froid-site-dev" / "site-assets" / "simulador-nr1.js"
 
     def _tabela(self):
         texto = self.JS.read_text(encoding="utf-8")
@@ -331,14 +334,14 @@ class APreviaLocalDaCalculadoraConfereComOMotor(unittest.TestCase):
     def test_toda_pagina_com_a_calculadora_usa_a_copia_unica(self):
         """Nenhuma pagina volta a carregar a tabela inline."""
         usam = []
-        for caminho in sorted((REPO / "froid-site").rglob("*.html")):
+        for caminho in sorted((REPO / "froid-site-dev").rglob("*.html")):
             texto = caminho.read_text(encoding="utf-8")
             if "froidSimularNr1(event)" not in texto:
                 continue
             if "function froidSimularNr1Local" in texto:
                 continue  # copia propria, conferida (ou nao) noutro lugar
             self.assertIn("simulador-nr1.js", texto, caminho)
-            usam.append(caminho.relative_to(REPO / "froid-site").as_posix())
+            usam.append(caminho.relative_to(REPO / "froid-site-dev").as_posix())
         self.assertIn("psique/index.html", usam)
         self.assertIn("nr1/precos-nr1.html", usam)
 

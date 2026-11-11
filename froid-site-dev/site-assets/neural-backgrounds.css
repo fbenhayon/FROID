@@ -1,0 +1,65 @@
+/* Imagens institucionais fornecidas pelo FROID.
+   Restritas ao header e ao footer para preservar as áreas de leitura. */
+body > header.site-header {
+  isolation:isolate;
+  background:#080b12;
+  border-bottom-color:#243b66;
+}
+
+body > header.site-header::before {
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:-1;
+  pointer-events:none;
+  background:
+    linear-gradient(90deg,#080b12eb 0%,#080b1299 38%,#080b1299 62%,#080b12eb 100%),
+    linear-gradient(180deg,#080b1247,#080b12e6),
+    url('img/neurons-header.png') center / cover no-repeat;
+  opacity:.76;
+}
+
+body > header.site-header .nav-row {
+  position:relative;
+  z-index:1;
+}
+
+body > footer.site-footer {
+  position:relative;
+  isolation:isolate;
+  overflow:hidden;
+  background:#070a10;
+}
+
+body > footer.site-footer::before {
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:-1;
+  pointer-events:none;
+  background:
+    linear-gradient(180deg,#070a1070 0%,#070a10c7 44%,#070a10fa 100%),
+    linear-gradient(90deg,#070a1052,#070a10d1 58%,#070a10b8),
+    url('img/neurons-closing.jpg') left 42% / cover no-repeat;
+}
+
+body > footer.site-footer .foot-grid,
+body > footer.site-footer .foot-bottom {
+  position:relative;
+  z-index:1;
+}
+
+@media(max-width:860px) {
+  body > header.site-header::before {
+    background-position:center,center,62% center;
+    opacity:.66;
+  }
+  body > footer.site-footer::before {
+    background-position:center,center,28% top;
+  }
+}
+
+@media print {
+  body > header.site-header::before,
+  body > footer.site-footer::before { display:none; }
+}

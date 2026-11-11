@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>As 10 habilidades do FROID Psique | Percepção clínica com registro</title>
+<meta name="description" content="Ritmo da fala, energia vocal, movimentos faciais e contexto, lado a lado, sessão após sessão. 10 sessões gratuitas para profissionais de saúde mental." />
+<link rel="canonical" href="https://www.froid.com.br/psique/percepcao-clinica.html" />
+<meta property="og:type" content="website" />
+<meta property="og:locale" content="pt_BR" />
+<meta property="og:title" content="As 10 habilidades do FROID Psique | Percepção clínica com registro" />
+<meta property="og:description" content="Ritmo da fala, energia vocal, movimentos faciais e contexto, lado a lado, sessão após sessão. 10 sessões gratuitas para profissionais de saúde mental." />
+<meta property="og:url" content="https://www.froid.com.br/psique/percepcao-clinica.html" />
+<meta name="twitter:card" content="summary" />
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"As 10 habilidades do FROID Psique | Percepção clínica com registro","url":"https://www.froid.com.br/psique/percepcao-clinica.html","inLanguage":"pt-BR"}</script>
+<link rel="alternate" hreflang="pt-BR" href="https://www.froid.com.br/psique/percepcao-clinica.html" />
+<link rel="alternate" hreflang="x-default" href="https://www.froid.com.br/psique/percepcao-clinica.html" />
+<link rel="stylesheet" href="../site-assets/psique-v2.css?v=1" />
+<link rel="stylesheet" href="../site-assets/psique-v2-site.css?v=2" />
+<style>
+/* As 10 habilidades: grade de duas colunas com cartões da landing; o limite de
+   cada medida (antes barra âmbar lateral) vira caixa pastel menor dentro do cartão. */
+.hero-pagina .hero-nota { margin: calc(-1 * var(--space-md)) 0 0; color: var(--on-dark-variant); font-size: .9rem; }
+.hab-grade { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.hab.layer-card { display: flex; flex-direction: column; }
+.hab .layer-tag { text-align: center; }
+.hab p { margin: 0 0 var(--space-sm); }
+.hab .hab-limite { margin: auto 0 0; padding: var(--space-sm) var(--space-md); font-size: .9rem; line-height: 1.55; }
+.hab .hab-limite:not(:last-child) { margin-bottom: var(--space-sm); }
+.hab-destaque { grid-column: 1 / -1; border-color: var(--outline-amber-light); }
+.prosa .plan-list { list-style: none; display: inline-block; text-align: left; padding: 0; margin: 0 auto var(--space-md); }
+.prosa .plan-list li { position: relative; padding-left: 1.6rem; margin-bottom: .45rem; }
+.prosa .plan-list li::before { content: "\2713"; position: absolute; left: 0; color: var(--tertiary); font-weight: 800; }
+@media (max-width: 860px) { .hab-grade { grid-template-columns: 1fr; } }
+
+/* Header, menu e rodape na cor da pagina (branco), so nesta pagina. Pedido do
+   dono em 10/11/2026: os neuronios da entrada do site, duplicados em fundo
+   branco e tracos pretos (img/neurons-header-claro.png, gerada da
+   neurons-header.png), com um pulso brilhante indo de um neuronio ao outro.
+   A imagem e desenhada a 100% da largura e alinhada a 57,5% da altura: assim
+   o axonio fica a 57,5% da altura da caixa e os dois corpos a 23% e 77% da
+   largura, em qualquer tela - e o pulso anda exatamente sobre o axonio. */
+body > header.site-header,
+body > footer.site-footer {
+  position: relative; overflow: hidden; isolation: isolate;
+  background: #fff url('../site-assets/img/neurons-header-claro.png') center 57.5% / 100% auto no-repeat;
+  color: #0f172a; border-color: #e2e8f0;
+}
+body > header.site-header { position: relative !important; overflow: visible; }
+body > header.site-header::before,
+body > footer.site-footer::before {
+  /* veu branco: o desenho fica visivel e o texto continua legivel */
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(90deg, rgba(255,255,255,.35), rgba(255,255,255,.7) 30%, rgba(255,255,255,.7) 70%, rgba(255,255,255,.35));
+}
+body > footer.site-footer::before { background: rgba(255,255,255,.45); }
+body > header.site-header::after,
+body > footer.site-footer::after {
+  content: ""; position: absolute; top: 57.5%; left: 23%; z-index: -1; pointer-events: none;
+  width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%;
+  background: radial-gradient(circle, #fff 0%, #fde68a 30%, #f59e0b 60%, rgba(245,158,11,0) 72%);
+  box-shadow: 0 0 10px 3px rgba(245,158,11,.55), 0 0 26px 8px rgba(251,191,36,.35);
+  animation: pulso-axonio 3.6s cubic-bezier(.65,0,.35,1) infinite alternate;
+}
+@keyframes pulso-axonio { from { left: 23%; } to { left: 77%; } }
+@media (prefers-reduced-motion: reduce) {
+  body > header.site-header::after, body > footer.site-footer::after { animation: none; left: 50%; }
+}
+/* header */
+body > header.site-header .brand { color: #0f172a; }
+body > header.site-header .nav-links a { color: #334155; }
+body > header.site-header .nav-links a:hover,
+body > header.site-header .nav-links a:focus-visible,
+body > header.site-header .nav-links a.ativo { color: #0f172a; background: rgba(15,23,42,.06); }
+body > header.site-header .nav-troca-produto { color: #334155; border-color: #cbd5e1; background: rgba(255,255,255,.85); }
+body > header.site-header .nav-troca-produto:hover { color: #0f172a; background: #f1f5f9; }
+body > header.site-header .nav-troca-icone { color: #7c3aed; }
+body > header.site-header .nav-restrito { color: #b45309; border-color: #f59e0b; background: #fffbeb; }
+body > header.site-header .nav-restrito:hover { color: #92400e; background: #fef3c7; }
+body > header.site-header .btn-ghost { color: #0f172a; border-color: #94a3b8; background: rgba(255,255,255,.85); }
+body > header.site-header .btn-ghost:hover { border-color: #0f172a; }
+body > header.site-header .site-menu-toggle { color: #0f172a; border-color: #94a3b8; background: #fff; }
+/* menu suspenso */
+body > header.site-header .nav-drop { background: #fff; border-color: #e2e8f0; box-shadow: 0 16px 40px rgba(15,23,42,.14); }
+body > header.site-header .nav-links .nav-drop a.nav-drop-pagina { color: #b45309; }
+body > header.site-header .nav-links .nav-drop a.nav-drop-secao { color: #475569; }
+body > header.site-header .nav-links .nav-drop a:hover { color: #0f172a; background: #fef3c7; }
+@media (max-width: 860px) {
+  body > header.site-header .nav-familia { border-top-color: #e2e8f0; }
+  body > header.site-header .nav-links .nav-drop { background: transparent; }
+}
+/* rodape */
+body > footer.site-footer .footer-col h5 { color: #0f172a; }
+body > footer.site-footer .footer-col p { color: #475569 !important; }
+body > footer.site-footer .footer-col a { color: #334155; }
+body > footer.site-footer .footer-col a:hover { color: #b45309; }
+body > footer.site-footer .footer-bottom { color: #64748b; border-top-color: #e2e8f0; }
+</style>
+</head>
+
+<body>
+
+<header class="site-header">
+  <div class="nav-row">
+    <a class="brand" href="../index.html"><img class="brand-logo" src="../site-assets/img/froid-logo.png" alt="" /><span>FROID</span></a>
+    <nav class="nav-links">
+      <span class="nav-familia">
+        <span class="nav-menu">
+          <a class="nav-familia-rotulo" href="index.html">FROID Psique</a>
+          <div class="nav-drop nav-drop-mega" role="menu">
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina nav-drop-visao-geral" role="menuitem" href="index.html">Visão geral</a>
+            <a class="nav-drop-secao" role="menuitem" href="index.html#bonificacao-destaque">Bonificação de lançamento</a>
+            <a class="nav-drop-secao" role="menuitem" href="index.html#multimodal">Processamento multimodal</a>
+            <a class="nav-drop-secao" role="menuitem" href="index.html#calibracao-60s">Calibração de 60 segundos</a>
+            <a class="nav-drop-secao" role="menuitem" href="index.html#bussola-velocimetro">IDM e IPM</a>
+            <a class="nav-drop-secao" role="menuitem" href="index.html#12-zonas">As 12 zonas de percepção vocal</a>
+            <a class="nav-drop-secao" role="menuitem" href="index.html#ritmo-fala">Taxa de elocução</a>
+            <a class="nav-drop-secao" role="menuitem" href="index.html#cortes-tematicos">Cortes temáticos e FROID Explica</a>
+            <a class="nav-drop-secao" role="menuitem" href="index.html#privacidade-lgpd">Data-Froid e privacidade</a>
+            <a class="nav-drop-secao" role="menuitem" href="index.html#simulador-nr1">Calculadora do NR-1</a>
+            <a class="nav-drop-secao" role="menuitem" href="index.html#resgate-bonificacao">Resgatar a bonificação</a>
+          </div>
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina" role="menuitem" href="como-funciona-clinico.html">Como funciona</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-clinico.html#faca-um-convite-ao-seu-paciente">1. Faça um convite ao seu paciente</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-clinico.html#cortes-e-calibracao">2. Calibração e cortes</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-clinico.html#acompanhe-canais-complementares">3. Acompanhe canais complementares</a>
+            <a class="nav-drop-secao" role="menuitem" href="como-funciona-clinico.html#revise-a-sessao">4. Revise a sessão</a>
+          </div>
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina" role="menuitem" href="froid-explica.html">FROID Explica</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#veja-em-acao">Veja em ação</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#como-um-bibliotecario-nao-como-um-oraculo">Como um bibliotecário, não como um oráculo</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#prompts">Prompts nativos para começar; próprios para aprofundar</a>
+            <a class="nav-drop-secao" role="menuitem" href="froid-explica.html#mais-clareza-sem-transformar-resposta-em-conduta">Mais clareza, sem transformar resposta em conduta</a>
+          </div>
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina" role="menuitem" href="data-froid.html">Data-Froid</a>
+            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#o-acervo-e-o-assistente-tem-papeis-diferentes">O acervo e o assistente têm papéis diferentes</a>
+            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#tres-responsabilidades-na-arquitetura-proposta">Três responsabilidades na arquitetura proposta</a>
+            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#o-que-pode-ser-investigado">O que pode ser investigado</a>
+            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#voz-e-rosto-continuam-separados">Voz e rosto continuam separados</a>
+            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#pesquisa">Um caminho para investigar, não uma validação automática</a>
+            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#privacidade-nao-e-um-rotulo">Privacidade não é um rótulo</a>
+            <a class="nav-drop-secao" role="menuitem" href="data-froid.html#perguntas-que-respeitam-os-dados-disponiveis">Perguntas que respeitam os dados disponíveis</a>
+          </div>
+          </div>
+        </span>
+      </span>
+      <span class="nav-familia">
+        <span class="nav-menu">
+          <a class="nav-familia-rotulo" href="tecnologia.html">Ciência e Tecnologia</a>
+          <div class="nav-drop nav-drop-mega" role="menu">
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina nav-drop-visao-geral" role="menuitem" href="tecnologia.html">Tecnologia</a>
+            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#voz">Voz: uma referência para a própria sessão</a>
+            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#face">Face: do coeficiente ao padrão</a>
+            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#registro">Consistência que chega à tela e ao relatório</a>
+            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#arquitetura-com-responsabilidades-distintas">Arquitetura com responsabilidades distintas</a>
+            <a class="nav-drop-secao" role="menuitem" href="tecnologia.html#na-tela">As medidas, na tela</a>
+          </div>
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina" role="menuitem" href="mapas-faciais.html">Mapas da face</a>
+            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#um-dicionario-de-movimentos-nao-um-leitor-de-pensamentos">Um dicionário de movimentos, não um leitor de pensamentos</a>
+            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#familias">As sete famílias</a>
+            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#o-detalhe-nao-desaparece-na-organizacao">O detalhe não desaparece na organização</a>
+            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#quadros-de-referencia">Os quadros de referência do FACS</a>
+            <a class="nav-drop-secao" role="menuitem" href="mapas-faciais.html#limites">O que não deve ser inferido</a>
+          </div>
+          <div class="nav-drop-col">
+            <a class="nav-drop-pagina" role="menuitem" href="ciencia.html">Ciência</a>
+            <a class="nav-drop-secao" role="menuitem" href="ciencia.html#tres-camadas-de-leitura">Três camadas de leitura</a>
+            <a class="nav-drop-secao" role="menuitem" href="ciencia.html#o-que-o-produto-apresenta">O que o produto apresenta</a>
+            <a class="nav-drop-secao" role="menuitem" href="ciencia.html#validacao">Como comunicar evolução sem antecipar evidência</a>
+          </div>
+          </div>
+        </span>
+        <a href="../menu.html">Explorar</a>
+        <a href="../sobre-contato.html">Contato</a>
+      </span>
+    </nav>
+    <div class="nav-actions">
+      <!-- produto e chamada: gerado por tools/gerar-header-do-site.py -->
+      <a class="nav-restrito" href="percepcao-clinica.html" aria-label="As 10 habilidades do FROID Psique, acesso com senha"><svg class="nav-restrito-icone" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" focusable="false"><rect x="3" y="7" width="10" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span>10 habilidades</span></a>
+      <a class="nav-troca-produto nav-troca-nr1" href="../nr1/index.html" aria-label="Ir para o FROID NR-1"><svg class="nav-troca-icone" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M2 5.5h10.5L9.5 2.5M14 10.5H3.5l3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span><span class="nav-troca-marca">FROID </span>NR-1</span></a>
+      <a class="btn btn-solid nav-cta nav-cta-psique" href="https://www.froid.com.br/cadastro" aria-label="Cadastre-se e comece o teste grátis"><span class="nav-cta-longo">Cadastre-se e comece o teste grátis</span><span class="nav-cta-curto" aria-hidden="true">Teste grátis</span></a>
+      <!-- /produto e chamada -->
+      <a class="btn btn-ghost" href="https://www.froid.com.br/app/#/login">Entrar no FROID</a>
+    </div>
+  </div>
+</header>
+
+<main class="page-wrapper" id="inicio">
+
+  <section class="hero-banner hero-pagina">
+    <div class="hero-badge-wrap">
+      <i data-lucide="eye" style="width: 15px; height: 15px;"></i>
+      FROID Psique · As 10 habilidades
+    </div>
+    <h1 class="hero-title">O que a sua escuta percebe, <span class="highlight-amber">agora com registro</span>.</h1>
+    <p class="hero-lead">Ritmo da fala, energia da voz, movimentos do rosto e o assunto em discussão, lado a lado, sessão após sessão. A interpretação continua sendo sua.</p>
+    <div class="hero-actions">
+      <a href="https://www.froid.com.br/cadastro" class="btn btn-amber">
+        <i data-lucide="award" style="width: 18px; height: 18px;"></i>
+        Cadastre-se e inicie os testes
+      </a>
+      <a href="#habilidades" class="btn btn-outline-dark">Conhecer as 10 habilidades</a>
+    </div>
+    <p class="hero-nota"><span class="teste-condicoes">10 sessões gratuitas, válidas por 14 dias</span> · sem cartão de crédito</p>
+  </section>
+
+  <section class="section-block" id="pratica-clinica">
+    <div class="prosa">
+      <p>Um paciente que acelera a fala ao mencionar o trabalho. Uma voz que perde energia sempre que um nome aparece. Um rosto que se contrai enquanto o relato diz que está tudo bem. O profissional experiente percebe esses momentos, mas eles passam, e na sessão seguinte resta a lembrança.</p>
+      <p>O FROID Psique registra esses sinais durante o atendimento, compara cada paciente com ele mesmo e organiza tudo num relatório que você pode revisitar. <strong>Ele não diagnostica nem interpreta pelo profissional.</strong> Ele mostra onde olhar.</p>
+    </div>
+  </section>
+
+  <section class="section-block" id="habilidades">
+    <div class="section-header">
+      <h2 class="section-title-amber">As 10 habilidades do FROID Psique</h2>
+      <p class="section-lead">Cada habilidade descreve o que o sistema registra e o que ela pode revelar ao profissional, além do limite de cada medida. Dizer o que uma medida não prova faz parte do que a torna confiável.</p>
+    </div>
+
+    <div class="grade-cartoes hab-grade">
+
+      <article class="layer-card hab" id="h1-calibracao">
+        <span class="layer-tag">01 · Referência</span>
+        <h3>Calibração individual</h3>
+        <p>Os primeiros 60 segundos estabelecem a linha de base vocal <strong>daquele paciente, naquela sessão</strong>. Depois disso, cada corte de 10 minutos é comparado com essa referência, nunca com uma média populacional.</p>
+        <p class="destaque-pastel hab-limite">Uma pessoa que naturalmente fala alto ou rápido não é marcada como fora do padrão. O que conta é a mudança em relação a ela mesma.</p>
+      </article>
+
+      <article class="layer-card hab" id="h2-ritmo">
+        <span class="layer-tag">02 · Fluência</span>
+        <h3>Ritmo da fala: palavras por minuto</h3>
+        <p>O FROID acompanha quantas palavras por minuto o paciente fala, a partir da transcrição, e mostra quando o ritmo acelera ou desacelera ao longo da sessão.</p>
+        <p>A aceleração pode acompanhar agitação ou ansiedade; a lentificação pode acompanhar cansaço, tristeza, medicação ou um tema difícil. <strong>Só o profissional, conhecendo a história, distingue uma coisa da outra</strong>, e é por isso que o dado chega para você, e não como conclusão.</p>
+        <p class="destaque-pastel hab-limite">O ritmo também muda com idioma, sotaque, tema e qualidade do áudio. Ele mostra uma variação, não identifica um estado emocional.</p>
+      </article>
+
+      <article class="layer-card hab" id="h3-bandas">
+        <span class="layer-tag">03 · Voz</span>
+        <h3>Energia vocal em 12 bandas</h3>
+        <p>A energia da voz é distribuída em 12 faixas de frequência, como os canais de um equalizador. O painel mostra quais faixas se afastaram da linha de base, para mais ou para menos, a cada corte.</p>
+        <p class="destaque-pastel hab-limite">Doze bandas não são doze emoções. Nenhuma faixa tem associação validada com um sentimento específico.</p>
+      </article>
+
+      <article class="layer-card hab" id="h4-ipm-idm">
+        <span class="layer-tag">04 · Índices</span>
+        <h3>IPM e IDM: quanto e para onde a voz mudou</h3>
+        <p>O IPM resume a <strong>magnitude</strong> dos desvios acústicos em relação à referência. O IDM preserva a <strong>direção</strong>: se a energia aumentou ou diminuiu. Juntos, mostram num relance quais momentos da sessão merecem ser revisitados.</p>
+        <p class="destaque-pastel hab-limite">São leituras de variação vocal, não notas de saúde mental.</p>
+      </article>
+
+      <article class="layer-card hab" id="h5-subharmonicos">
+        <span class="layer-tag">05 · Exploração</span>
+        <h3>Sub-harmônicos da fala</h3>
+        <p>Componentes de muito baixa frequência da voz, nas faixas de 5–12 Hz, 12–20 Hz e 20–40 Hz, registrados como indicadores exploratórios ao lado das demais medidas.</p>
+        <p class="destaque-pastel hab-limite">São indicadores de pesquisa. Não devem ser apresentados como biomarcador clínico validado nem como diagnóstico.</p>
+      </article>
+
+      <article class="layer-card hab" id="h6-face">
+        <span class="layer-tag">06 · Face</span>
+        <h3>Movimentos faciais em sete famílias</h3>
+        <p>O navegador extrai, do vídeo autorizado, os movimentos do rosto. O servidor os descreve em Unidades de Ação, o vocabulário do sistema FACS, e os organiza em <strong>sete famílias de padrões faciais</strong>, preservando o lado do rosto e as ambiguidades. Nos 60 segundos iniciais, o FROID registra também uma referência facial do próprio paciente, por enquanto apenas medida.</p>
+        <p class="destaque-pastel hab-limite">É uma estimativa aproximada, não uma codificação FACS certificada, nem detecção certificada de microexpressões: a captura opera perto de três quadros por segundo. Um padrão facial não é um sentimento comprovado.</p>
+      </article>
+
+      <article class="layer-card hab" id="h7-contexto">
+        <span class="layer-tag">07 · Contexto</span>
+        <h3>Transcrição e o assunto em discussão</h3>
+        <p>A fala é transcrita com a identificação de quem falou, profissional ou paciente, a partir do canal de áudio. Assim, cada variação de voz, ritmo ou rosto pode ser lida <strong>junto do que estava sendo dito naquele momento</strong>.</p>
+        <p class="destaque-pastel hab-limite">Uma medida sem contexto não diz nada. O assunto é o que permite ao profissional dar sentido a ela.</p>
+      </article>
+
+      <article class="layer-card hab hab-destaque" id="h8-coerencia">
+        <span class="layer-tag">08 · Leitura cruzada</span>
+        <h3>Coerência e dissonância, à vista do profissional</h3>
+        <p>Voz, ritmo, rosto e conteúdo aparecem <strong>lado a lado, no mesmo corte</strong>. Quando o relato diz "estou bem" e a voz perde energia, ou quando o tema muda e o ritmo dispara, o profissional vê os canais ao mesmo tempo e decide se há coerência ou dissonância, e se vale levar isso ao paciente.</p>
+        <p class="destaque-pastel hab-limite">O FROID não calcula um índice de dissonância entre rosto e voz. Ele mostra os canais; quem percebe a relação entre eles, e decide o que fazer com ela, é o profissional.</p>
+      </article>
+
+      <article class="layer-card hab" id="h9-relatorio">
+        <span class="layer-tag">09 · Registro</span>
+        <h3>Relatório da sessão e evolução</h3>
+        <p>Ao final, o relatório reúne cada corte com a linha de base como referência: média, último corte, variação e alertas. Os movimentos faciais aparecem no corte em que ocorreram, com o minuto e a fala daquele momento. A sessão de hoje pode ser comparada com as anteriores do mesmo paciente.</p>
+        <p class="destaque-pastel hab-limite">Onde não houve medida, o relatório declara "Sem Capacidade de Apuração". Nenhum campo é preenchido com zero ou estimativa.</p>
+      </article>
+
+      <article class="layer-card hab" id="h10-explica">
+        <span class="layer-tag">10 · Consulta</span>
+        <h3>FROID Explica e Data-Froid</h3>
+        <p>Um assistente que conversa com você sobre os registros da sessão e consulta o Data-Froid, o acervo analítico do FROID, para trazer padrões agregados de casos semelhantes. Funciona como um bibliotecário: encontra, organiza e cita, e a decisão continua sendo sua.</p>
+        <p class="destaque-pastel hab-limite">Encontrar casos parecidos não transforma uma hipótese em prova, e o percurso de um paciente não determina o tratamento de outro.</p>
+      </article>
+
+    </div>
+  </section>
+
+  <section class="section-block" id="data-froid">
+    <div class="section-header">
+      <h2 class="section-title-amber">Data-Froid: a experiência clínica, organizada para ser consultada</h2>
+    </div>
+    <div class="prosa">
+      <p>Todo profissional acumula, ao longo da carreira, uma memória de casos. O Data-Froid propõe fazer isso em escala: reunir medidas e sínteses <strong>desidentificadas</strong> de sessões elegíveis, de profissionais diferentes, em contextos e culturas diferentes, num acervo que pode ser consultado.</p>
+      <p>Diante de um paciente, o profissional pergunta, pelo FROID Explica, por exemplo: <em>"Em registros com este perfil de variação vocal, o que mudou depois de determinada intervenção?"</em>. A resposta vem de padrões agregados, nunca do prontuário de outra pessoa.</p>
+    </div>
+    <div class="grade-cartoes">
+      <article class="status-card" data-status="ok"><h3>Privado continua privado</h3><p>Transcrição literal, áudio e vídeo do paciente não entram no acervo global. O prontuário segue sob as permissões da relação clínica.</p></article>
+      <article class="status-card" data-status="amber"><h3>Grupo mínimo de 7</h3><p>Uma consulta agregada só é respondida quando reúne pelo menos 7 registros. Abaixo disso, ela é recusada.</p></article>
+      <article class="status-card"><h3>Caminho, não veredito</h3><p>O acervo aponta padrões para investigar. Acumular sessões não substitui a validação clínica nem o julgamento profissional.</p></article>
+    </div>
+    <div class="prosa" style="margin-top: var(--space-xl);">
+      <p>O acervo cresce a cada sessão elegível. Quem participa desde o início ajuda a construir a base que vai orientar os profissionais que vierem depois.</p>
+    </div>
+  </section>
+
+  <section class="section-block" id="soberania-clinica">
+    <div class="section-header">
+      <h2 class="section-title-amber">O que não muda: a decisão é do profissional</h2>
+    </div>
+    <div class="grade-cartoes">
+      <article class="status-card">
+        <h3>Três canais, em tempo real</h3>
+        <p>Conteúdo da fala, movimentos faciais e energia vocal são processados durante a sessão, com a voz sempre comparada à calibração individual.</p>
+      </article>
+      <article class="status-card">
+        <h3>Dados com caminho conhecido</h3>
+        <p>A extração facial roda no navegador, a interpretação facial no servidor e o processamento vocal em infraestrutura dedicada. Conhecer os fluxos de dados.</p>
+      </article>
+      <article class="status-card">
+        <h3>Soberania clínica</h3>
+        <p>O FROID oferece contexto. Avaliação, diagnóstico e conduta terapêutica permanecem exclusivamente com o profissional. Ética e limites.</p>
+      </article>
+    </div>
+  </section>
+
+<!-- inscricao gratuita: gerado por tools/gerar-inscricao-psique.py -->
+<section class="section-block" id="resgate-bonificacao">
+  <div class="claim-form-box" style="text-align: center;">
+    <span class="badge-amber-pill">Inscrição Profissional Gratuita</span>
+    <h2 class="section-title-amber" style="margin-top: 0.5rem; font-size: 1.85rem;">Ative suas <span class="teste-qtd">10</span> sessões clínicas gratuitas</h2>
+    <p style="color: var(--on-surface-variant); font-size: 1rem; max-width: 580px; margin: 0 auto var(--space-md);">Todo profissional cadastrado recebe <strong class="teste-condicoes">10 sessões gratuitas, válidas por 14 dias</strong>, sem cartão de crédito e sem compromisso. No cadastro você informa seus dados profissionais e o registro no conselho (CRP ou CRM).</p>
+    <div style="display: flex; justify-content: center; gap: var(--space-sm); flex-wrap: wrap; margin-top: var(--space-lg);">
+      <a class="btn btn-amber" href="https://www.froid.com.br/cadastro" style="font-size: 1rem; padding: 0.9rem 1.4rem;">Cadastrar e ativar minhas sessões gratuitas</a>
+      <a class="btn btn-secondary" href="https://www.froid.com.br/app/#/login">Já tenho conta: entrar</a>
+    </div>
+    <p style="font-size: 0.82rem; color: var(--on-surface-variant); margin: var(--space-lg) auto 0; max-width: 580px;">O teste vale uma vez por conta. Ferramenta de apoio à escuta clínica: não substitui avaliação, diagnóstico ou julgamento profissional.</p>
+  </div>
+</section>
+<script src="../site-assets/inscricao-psique.js?v=1"></script>
+<!-- /inscricao gratuita -->
+
+</main>
+
+<footer class="site-footer">
+  <div class="footer-container">
+    <div class="footer-col">
+      <h5>FROID</h5>
+      <p style="max-width:300px; color:#94a3b8; font-size:0.88rem; line-height:1.6;">Frequency Recognition of Internal Dynamics. Ferramenta de apoio à escuta clínica — não substitui avaliação, diagnóstico ou julgamento profissional.</p>
+    </div>
+    <div class="footer-col">
+      <h5>FROID Psique</h5>
+      <ul>
+        <li><a href="index.html">Início</a></li>
+        <li><a href="como-funciona-clinico.html">Como funciona uma sessão</a></li>
+        <li><a href="tecnologia.html">Tecnologia</a></li>
+        <li><a href="mapas-faciais.html">Mapas da face</a></li>
+        <li><a href="ciencia.html">Ciência e validação</a></li>
+        <li><a href="data-froid.html">Data-Froid</a></li>
+        <li><a href="froid-explica.html">FROID Explica</a></li>
+        <li><a href="precos-psique.html">Preços</a></li>
+        <li><a href="faq.html">Perguntas frequentes</a></li>
+        <li><a href="glossario.html">Glossário</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h5>FROID NR-1 e institucional</h5>
+      <ul>
+        <li><a href="../nr1/index.html">FROID NR-1</a></li>
+        <li><a href="../nr1/contratacao-nr1.html">Cadeia de Comando NR-1</a></li>
+        <li><a href="../menu.html">Mapa do site</a></li>
+        <li><a href="../sobre-contato.html">Sobre e contato</a></li>
+        <li><a href="../etica.html">Ética e limites</a></li>
+        <li><a href="../privacidade.html">Privacidade</a></li>
+        <li><a href="../termos.html">Termos</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h5>Acesso</h5>
+      <ul>
+        <li><a href="https://www.froid.com.br/cadastro">Cadastrar no FROID</a></li>
+        <li><a href="https://www.froid.com.br/app/#/login">Entrar no FROID</a></li>
+        <li><a href="https://www.froid.com.br/app/#/paciente">Portal do Paciente</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p>© 2026 FROID Tecnologia e Sistemas Ltda. Todos os direitos reservados. FROID é marca de titularidade da FROID Tecnologia e Sistemas Ltda., com pedido de registro em trâmite perante o INPI. Conteúdos, códigos, modelos e identidade visual deste site são protegidos pela legislação aplicável.</p>
+  </div>
+</footer>
+
+<script src="../site-assets/vendor/lucide.min.js"></script>
+<script>if (window.lucide) { lucide.createIcons(); }</script>
+<script src="../site-assets/script.js?v=25"></script>
+<script src="../site-assets/navigation.js?v=2"></script>
+</body>
+</html>

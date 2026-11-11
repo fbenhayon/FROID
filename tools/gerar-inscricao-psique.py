@@ -33,7 +33,9 @@ import re
 import sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PSIQUE = os.path.join(REPO, "froid-site", "psique")
+# O site em desenvolvimento (froid-site-dev, servido em /dev/ com senha).
+# O publico, froid-site/, esta congelado na versao anterior desde 11/11/2026.
+PSIQUE = os.path.join(os.environ.get("FROID_SITE_RAIZ") or os.path.join(REPO, "froid-site-dev"), "psique")
 STUB = "<!-- redirecionamento: pagina movida em 09/11/2026 -->"
 INICIO = "<!-- inscricao gratuita: gerado por tools/gerar-inscricao-psique.py -->"
 FIM = "<!-- /inscricao gratuita -->"

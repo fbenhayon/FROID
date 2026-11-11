@@ -32,7 +32,9 @@ NOTAS = SERVIDOR / "knowledge" / "approved" / "Notas_tecnicas_FROID"
 NOTA_CLINICA = NOTAS / "FROID_Clinica_Papeis_Agenda_Cotas_Visibilidade.md"
 NOTA_EXPLICA = NOTAS / "FROID_Explica_O_Que_Consulta_E_Como_Responde.md"
 PAINEL = RAIZ / "froid-dashboard" / "src"
-SITE = RAIZ / "froid-site"
+# Os procedimentos descritos aqui sao os do Site 2, que desde 11/11/2026 vive
+# em froid-site-dev (/dev/, com senha); o publico voltou a versao anterior.
+SITE = RAIZ / "froid-site-dev"
 
 
 def _ler(caminho: Path) -> str:
