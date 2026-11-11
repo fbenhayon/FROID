@@ -59,9 +59,17 @@ BLOCO = INICIO + """
 """ + FIM + "\n"
 
 
+# Paginas em que a inscricao NAO entra, com o motivo.
+FORA = {
+    "index.html": "11/11/2026, pedido do dono: na Visao geral a ultima secao e a "
+                  "Campanha Especial de Integracao Clinica (#resgate-bonificacao), "
+                  "no lugar da Inscricao Profissional Gratuita.",
+}
+
+
 def paginas():
     for nome in sorted(os.listdir(PSIQUE)):
-        if not nome.endswith(".html"):
+        if not nome.endswith(".html") or nome in FORA:
             continue
         caminho = os.path.join(PSIQUE, nome)
         texto = io.open(caminho, encoding="utf-8", newline="").read()

@@ -391,3 +391,7 @@ main .hero-actions, main .hero-badge-wrap, main .hero-stats-row { justify-conten
 .hab .hab-limite:not(:last-child) { margin-bottom: var(--space-sm); }
 .hab-destaque { grid-column: 1 / -1; border-color: var(--outline-amber-light); }
 @media (max-width: 860px) { .hab-grade { grid-template-columns: 1fr; } }
+/* A campanha (ultima secao da Visao geral desde 11/11/2026): cabecalho
+   centralizado, botao abaixo do titulo, como o resto do texto da pagina. */
+main .bonus-box-header { flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+main .bonus-features-grid { justify-items: center; }

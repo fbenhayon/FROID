@@ -135,7 +135,6 @@ var NAV_SECOES = {
     ["data-froid-da-informacao-registrada-a-investigacao", "Data-Froid: da informação registrada à investigação"],
     ["contratacao-adequada-a-sua-pratica", "Contratação adequada à sua prática"],
     ["comece-avaliando-o-encaixe-na-sua-rotina", "Comece avaliando o encaixe na sua rotina"],
-    ["bonificacao-destaque", "Bonificação de lançamento"],
     ["multimodal", "Processamento multimodal"],
     ["habilidades", "As 10 habilidades"],
     ["calibracao-60s", "Calibração de 60 segundos"],
@@ -145,7 +144,7 @@ var NAV_SECOES = {
     ["cortes-tematicos", "Cortes temáticos e FROID Explica"],
     ["privacidade-lgpd", "Data-Froid e privacidade"],
     ["calculadora-psique", "Calculadora para profissionais e clínicas"],
-    ["resgate-bonificacao", "Resgatar a bonificação"]
+    ["resgate-bonificacao", "Bonificação de lançamento"]
   ],
   "nr1/proposta-nr1.html": [
     ["precos", "Condições comerciais"],

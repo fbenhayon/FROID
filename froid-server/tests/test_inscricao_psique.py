@@ -38,6 +38,12 @@ INICIO = "<!-- inscricao gratuita: gerado por tools/gerar-inscricao-psique.py --
 CADASTRO = 'href="https://www.froid.com.br/cadastro"'
 
 
+# 11/11/2026, pedido do dono: na Visao geral a ultima secao e a Campanha
+# Especial de Integracao Clinica, no lugar da inscricao (tools/
+# gerar-inscricao-psique.py, FORA).
+CAMPANHA_NO_LUGAR = {"index.html"}
+
+
 def _paginas_do_psique():
     for caminho in sorted(PSIQUE.glob("*.html")):
         texto = caminho.read_text(encoding="utf-8")
@@ -56,6 +62,8 @@ class AInscricaoEstaEmTodaPaginaDoPsique(unittest.TestCase):
 
     def test_toda_pagina_tem_a_secao_uma_vez_dentro_do_main(self):
         for caminho, texto in _paginas_do_psique():
+            if caminho.name in CAMPANHA_NO_LUGAR:
+                continue
             with self.subTest(pagina=caminho.name):
                 self.assertEqual(texto.count(INICIO), 1)
                 self.assertEqual(texto.count('id="resgate-bonificacao"'), 1)
@@ -118,6 +126,8 @@ class SoUmaChamadaDeCadastroPorPagina(unittest.TestCase):
             for atributos, conteudo in re.findall(r"<section([^>]*)>(.*?)</section>", corpo, re.S):
                 if "hero-banner" in atributos:
                     continue
+                if caminho.name in CAMPANHA_NO_LUGAR and 'id="resgate-bonificacao"' in atributos:
+                    continue  # a campanha, no lugar da inscricao
                 with self.subTest(pagina=caminho.name, secao=atributos.strip()):
                     self.assertNotIn("froid.com.br/cadastro", conteudo)
 
@@ -161,3 +171,17 @@ class OFormularioPublicoEntregaOsDados(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ACampanhaEAUltimaSecaoDaVisaoGeral(unittest.TestCase):
+    def test_a_campanha_fecha_a_pagina_e_leva_ao_cadastro(self):
+        texto = (PSIQUE / "index.html").read_text(encoding="utf-8")
+        corpo = texto[texto.index("<main"):texto.index("</main>")]
+        self.assertNotIn(INICIO, corpo)
+        secoes = re.findall(r"<section([^>]*)>(.*?)</section>", corpo, re.S)
+        atributos, conteudo = secoes[-1]
+        self.assertIn('id="resgate-bonificacao"', atributos)
+        self.assertIn("Campanha Especial de Integração Clínica", conteudo)
+        self.assertIn(CADASTRO, conteudo)
+        self.assertEqual(texto.count('id="resgate-bonificacao"'), 1)
+        self.assertNotIn('id="bonificacao-destaque"', texto)
