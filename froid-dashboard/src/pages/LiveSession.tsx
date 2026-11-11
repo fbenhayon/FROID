@@ -16,10 +16,9 @@ import {
 import {
   menos,
   palavrasPorMinutoDoPaciente,
-  palavrasPorMinutoNaFalaDoPaciente,
   pesoDeAusencia,
 } from "../lib/medidas-do-corte";
-import { formatarCadencia, formatarPpmNaFala, lerCadencia } from "../lib/cadencia";
+import { cadenciaNaFalaDoPaciente, formatarCadencia, formatarFalaDoPaciente } from "../lib/cadencia";
 import { contextoDosCortes, recorteFinalDaTranscricao, transcricaoParaOExplica } from "../lib/painel-para-o-explica";
 import {
   STATUS_CAPTURA_TEXTO,
@@ -100,9 +99,9 @@ const SIMPLIFIED_METRIC_TOOLTIPS: Record<string, string> = {
   "P/MIN":
     "Palavras por minuto no corte atual. Ajuda a identificar aceleração, lentificação, bloqueios ou mudanças de cadência.",
   CADÊNCIA:
-    "Variação das palavras por minuto do corte em relação à referência dos primeiros 60 segundos deste paciente. Faixas: na referência (menos de 15%), acelerada ou lentificada (15% a 30%), muito acelerada ou muito lentificada (30% ou mais).",
+    "Variação das palavras por minuto do paciente — só a fala dele — no corte em relação aos 60 segundos iniciais desta sessão. Mostra reação dentro da sessão, não o estado em que o paciente chegou: se ele entrou nervoso ou deprimido, a referência já nasce alterada. Faixas: na referência (menos de 15%), acelerada ou lentificada (15% a 30%), muito acelerada ou muito lentificada (30% ou mais) — limites escolhidos pelo produto, não validados na literatura.",
   "P/MIN FALA":
-    "Palavras por minuto contadas só no tempo em que o paciente fala (blocos de 7 s da trilha dele), a unidade usada na literatura. Ao lado, a faixa descrita na literatura: abaixo de 100, lentificação descrita em retardo psicomotor depressivo e alogia; 190 ou mais, aceleração descrita em pressão de fala e mania. Referência de grupo, não diagnóstico; a leitura é do profissional.",
+    "Palavras por minuto contadas só no tempo em que o paciente fala (blocos de 7 s da trilha dele; silêncio dentro do bloco conta, então tende a subestimar). Entre parênteses, a referência dos 60 segundos iniciais e de quantas palavras ela saiu. Não há faixa absoluta: os números dos estudos vêm de outras línguas, tarefas e formas de contar, e descrevem grupos, não um indivíduo. A leitura é do profissional.",
   "DISSO.":
     "Dissonância facial-vocal não apurada: falta relação validada entre canais. Não é a contagem das sete famílias faciais.",
   MFCC7:
@@ -5612,6 +5611,11 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           Math.max(semanticCutStartSecond + 1, state.elapsedSeconds),
           transcriptSegmentsRef.current,
         );
+  const cadenciaDoCorte = cadenciaNaFalaDoPaciente(
+    transcriptSegmentsRef.current,
+    semanticCutStartSecond,
+    Math.max(semanticCutStartSecond + 1, state.elapsedSeconds),
+  );
   const simplifiedMetricEntries: Array<[string, string]> = [
     [
       "CORTE",
@@ -5625,24 +5629,14 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     ["ZONAS", simplifiedSnapshot.dominantZone ? `Zona ${simplifiedSnapshot.dominantZone}` : "--"],
     ["TOM", simplifiedSnapshot.emotionalTone || "--"],
     ["P/MIN", formatMetricValue(simplifiedSnapshot.wordsPerMinute, 1)],
-    // Contra a referência dos primeiros 60 s DESTE paciente (lib/cadencia).
+    // Só a fala do paciente, no corte e nos 60 s iniciais desta sessão
+    // (lib/cadencia, decisão do dono de 11/11/2026). Sem faixa absoluta da
+    // literatura: os números dos estudos não são comparáveis aos do FROID.
     [
       "CADÊNCIA",
-      formatarCadencia(
-        lerCadencia(simplifiedSnapshot.wordsPerMinute, baselineSnapshotRef.current?.wordsPerMinute),
-      ) ?? "--",
+      formatarCadencia(cadenciaDoCorte.leitura) ?? "--",
     ],
-    // Na fala do paciente, a unidade da literatura, com a faixa descrita nela.
-    [
-      "P/MIN FALA",
-      formatarPpmNaFala(
-        palavrasPorMinutoNaFalaDoPaciente(
-          transcriptSegmentsRef.current,
-          semanticCutStartSecond,
-          Math.max(semanticCutStartSecond + 1, state.elapsedSeconds),
-        ),
-      ) ?? "--",
-    ],
+    ["P/MIN FALA", formatarFalaDoPaciente(cadenciaDoCorte) ?? "--"],
     // `|| 0` imprimia "0" — "nenhuma dissonancia" — sobre janela sem
     // apuracao. Sao coisas diferentes: uma e achado, a outra e ausencia.
     ["DISSO.", formatMetricValue(simplifiedSnapshot.dissonanceCount, 0)],

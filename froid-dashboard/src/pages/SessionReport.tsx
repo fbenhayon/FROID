@@ -16,7 +16,14 @@ import {
 } from "../lib/session-report";
 import { dashboardText, loadSessionLanguagePreferences, normalizeSessionLocale, type SessionLocale } from "../lib/localization";
 import { tooltipText } from "../lib/tooltip-i18n";
-import { RESSALVA_CADENCIA, formatarCadencia, lerCadencia } from "../lib/cadencia";
+import {
+  RESSALVA_CADENCIA,
+  SEGUNDOS_DA_REFERENCIA,
+  cadenciaNaFalaDoPaciente,
+  formatarCadencia,
+  formatarFalaDoPaciente,
+  segmentosDoRelatorio,
+} from "../lib/cadencia";
 import {
   contextoDaTabela,
   contextoDosCortes,
@@ -700,17 +707,29 @@ const ProcedenciaDoRelatorio: React.FC<{
   );
 };
 
-// Cadência da fala da sessão contra a referência do próprio paciente
-// (lib/cadencia). Sem média ou sem referência, declara a ausência.
-const CadenciaDaSessao: React.FC<{ analysis: MetricsAnalysis }> = ({ analysis }) => {
-  const resumo = analysis.summary?.words_per_minute;
-  const texto = formatarCadencia(lerCadencia(resumo?.session_mean, resumo?.baseline));
+// Cadência da fala da sessão, só na fala do paciente: o restante da sessão
+// contra os 60 s iniciais (lib/cadencia, decisão do dono de 11/11/2026). Vem
+// da transcrição com o segundo de cada linha; sem ela, declara a ausência.
+const CadenciaDaSessao: React.FC<{ transcript: string; transcriptLineSeconds?: number[] }> = ({
+  transcript,
+  transcriptLineSeconds,
+}) => {
+  const segmentos = segmentosDoRelatorio(transcript, transcriptLineSeconds);
+  const c = segmentos
+    ? cadenciaNaFalaDoPaciente(segmentos, SEGUNDOS_DA_REFERENCIA, Number.MAX_SAFE_INTEGER)
+    : null;
+  const texto = c ? formatarCadencia(c.leitura) : null;
+  const fala = c ? formatarFalaDoPaciente(c) : null;
   return (
     <div className="mt-3 rounded-lg border border-slate-700 bg-slate-950 p-3 text-xs">
-      <p className="font-bold uppercase text-slate-400">Cadência da fala</p>
+      <p className="font-bold uppercase text-slate-400">Cadência da fala do paciente</p>
       <p className="mt-1 text-sm font-semibold text-slate-100">
-        {texto ?? "Sem apuração: falta a média da sessão ou a referência do paciente."}
+        {texto ??
+          (segmentos
+            ? "Sem apuração: o paciente não tem fala transcrita nos 60 s iniciais ou depois deles."
+            : "Sem apuração: este relatório não registrou o instante de cada linha da transcrição.")}
       </p>
+      {fala && <p className="mt-1 text-slate-300">{fala}</p>}
       <p className="mt-1 italic text-slate-500">{RESSALVA_CADENCIA}</p>
     </div>
   );
@@ -1337,7 +1356,10 @@ export const SessionReport: React.FC<Props> = () => {
                 </div>
               </div>
               <EvolutionChart analysis={activeMetricsAnalysis} />
-              <CadenciaDaSessao analysis={activeMetricsAnalysis} />
+              <CadenciaDaSessao
+                transcript={report.transcript}
+                transcriptLineSeconds={report.transcriptLineSeconds}
+              />
             </section>
           )}
 

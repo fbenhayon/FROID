@@ -1,18 +1,21 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import * as cadencia from "./cadencia";
 import {
   CORTES_CADENCIA,
-  CORTES_LITERATURA,
   RESSALVA_CADENCIA,
+  cadenciaNaFalaDoPaciente,
   formatarCadencia,
-  formatarPpmNaFala,
+  formatarFalaDoPaciente,
   lerCadencia,
-  zonaDaLiteratura,
+  segmentosDoRelatorio,
 } from "./cadencia";
 import { palavrasPorMinutoNaFalaDoPaciente } from "./medidas-do-corte";
 
-describe("palavras por minuto na fala do paciente (unidade da literatura)", () => {
-  const seg = (s: number, t: string) => ({ elapsedSeconds: s, text: t });
+const seg = (s: number, t: string) => ({ elapsedSeconds: s, text: t });
 
+describe("palavras por minuto na fala do paciente (unidade da literatura)", () => {
   it("divide pelo tempo dos blocos do paciente, não pela janela", () => {
     // 2 blocos do paciente (14 s) com 21 palavras = 90 PPM, mesmo numa janela
     // de 60 s em que o profissional falou o resto do tempo.
@@ -30,24 +33,60 @@ describe("palavras por minuto na fala do paciente (unidade da literatura)", () =
   });
 });
 
-describe("faixas da literatura", () => {
-  it("usa os cortes da tabela do dono", () => {
-    expect(CORTES_LITERATURA).toEqual({ afasia: 50, lentificacao: 100, aceleracao: 190 });
-    expect(zonaDaLiteratura(30)).toBe("afasia_nao_fluente");
-    expect(zonaDaLiteratura(96)).toBe("lentificacao");
-    expect(zonaDaLiteratura(135)).toBe("referencia");
-    expect(zonaDaLiteratura(190)).toBe("aceleracao");
+describe("sem faixas absolutas da literatura (decisão do dono, 11/11/2026)", () => {
+  it("o módulo não exporta mais régua absoluta de palavras por minuto", () => {
+    // A verificação das fontes mostrou: o 190 não tem fonte, o 100 é média de
+    // grupo tratada como corte, o 50 é citação de segunda mão — e os números
+    // dos estudos não são comparáveis aos do FROID.
+    for (const nome of ["zonaDaLiteratura", "CORTES_LITERATURA", "ROTULO_ZONA_LITERATURA", "formatarPpmNaFala"]) {
+      expect(nome in cadencia).toBe(false);
+    }
   });
 
-  it("declara ausência", () => {
-    expect(zonaDaLiteratura(null)).toBeNull();
-    expect(formatarPpmNaFala(undefined)).toBeNull();
+  it("nenhuma tela nem o PDF voltam a mostrar a faixa absoluta", () => {
+    for (const arquivo of ["../pages/LiveSession.tsx", "../pages/SessionReport.tsx", "./report-pdf.ts"]) {
+      const fonte = readFileSync(resolve(__dirname, arquivo), "utf8");
+      expect(fonte).not.toMatch(/zonaDaLiteratura|formatarPpmNaFala|faixa descrita na afasia|pressão de fala e mania/);
+    }
+  });
+});
+
+describe("cadência só na fala do paciente", () => {
+  it("a fala do profissional não mexe na cadência", () => {
+    const base = [seg(5, "PC - " + "a ".repeat(14)), seg(70, "PC - " + "b ".repeat(14))];
+    const comProfissional = [
+      ...base,
+      seg(12, "DR. - " + "x ".repeat(60)),
+      seg(80, "DR. - " + "y ".repeat(5)),
+    ];
+    const sem = cadenciaNaFalaDoPaciente(base, 60, 120);
+    const com = cadenciaNaFalaDoPaciente(comProfissional, 60, 120);
+    expect(com.atual).toBe(sem.atual);
+    expect(com.referencia).toBe(sem.referencia);
+    expect(com.leitura?.variacao).toBeCloseTo(0);
   });
 
-  it("formata como referência da literatura, não como diagnóstico", () => {
-    const texto = formatarPpmNaFala(92) || "";
-    expect(texto).toBe("92 · < 100 · lentificação descrita em retardo psicomotor depressivo e alogia");
-    expect(texto.toLowerCase()).not.toContain("diagnóstico");
+  it("a referência é dos 60 s iniciais e mostra de quantas palavras saiu", () => {
+    const linhas = [seg(5, "PC - " + "a ".repeat(14)), seg(70, "PC - " + "b ".repeat(7))];
+    const c = cadenciaNaFalaDoPaciente(linhas, 60, 120);
+    expect(c.referencia).toBe(120);
+    expect(c.palavrasNaReferencia).toBe(14);
+    expect(c.atual).toBe(60);
+    expect(formatarCadencia(c.leitura)).toBe("−50% vs. 60 s iniciais desta sessão · muito lentificada");
+    expect(formatarFalaDoPaciente(c)).toBe("60 p/min (referência: 120 p/min em 14 palavras)");
+  });
+
+  it("sem fala do paciente nos 60 s iniciais, declara a falta de referência", () => {
+    const c = cadenciaNaFalaDoPaciente([seg(70, "PC - " + "b ".repeat(7))], 60, 120);
+    expect(c.referencia).toBeNull();
+    expect(c.leitura).toBeNull();
+    expect(formatarFalaDoPaciente(c)).toContain("sem referência");
+  });
+
+  it("o relatório só monta segmentos com o instante de cada linha", () => {
+    expect(segmentosDoRelatorio("PC - oi\nDR. - ola", [3, 9])).toEqual([seg(3, "PC - oi"), seg(9, "DR. - ola")]);
+    expect(segmentosDoRelatorio("PC - oi\nDR. - ola", [3])).toBeNull();
+    expect(segmentosDoRelatorio("PC - oi", undefined)).toBeNull();
   });
 });
 
@@ -79,10 +118,17 @@ describe("cadência relativa à referência do paciente", () => {
     expect(lerCadencia(0, 100)?.faixa).toBe("muito_lentificada");
   });
 
-  it("formata para leitura", () => {
-    expect(formatarCadencia(lerCadencia(68, 100))).toBe("−32% vs. referência · muito lentificada");
-    expect(formatarCadencia(lerCadencia(120, 100))).toBe("+20% vs. referência · acelerada");
-    expect(formatarCadencia(lerCadencia(100, 100))).toBe("0% vs. referência · na referência");
+  it("formata para leitura, dizendo de que referência se trata", () => {
+    expect(formatarCadencia(lerCadencia(68, 100))).toBe("−32% vs. 60 s iniciais desta sessão · muito lentificada");
+    expect(formatarCadencia(lerCadencia(120, 100))).toBe("+20% vs. 60 s iniciais desta sessão · acelerada");
+    expect(formatarCadencia(lerCadencia(100, 100))).toBe("0% vs. 60 s iniciais desta sessão · na referência");
+  });
+
+  it("a ressalva diz o que a medida mostra e o que não mostra", () => {
+    expect(RESSALVA_CADENCIA).toContain("só a fala dele");
+    expect(RESSALVA_CADENCIA).toContain("não o estado em que o paciente chegou");
+    expect(RESSALVA_CADENCIA).toContain("escolha do produto");
+    expect(RESSALVA_CADENCIA).toContain("não cortes para um indivíduo");
   });
 
   it("não classifica pânico, mania nem depressão", () => {
