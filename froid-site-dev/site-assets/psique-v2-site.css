@@ -236,15 +236,17 @@ main .section-block {
   margin-bottom: 0;
   padding-top: var(--space-2xl);
   padding-bottom: var(--space-2xl);
-  --faixa: #0b1324;
+  --faixa: #060b17;
   background: var(--faixa);
   box-shadow: 0 0 0 100vmax var(--faixa);
   clip-path: inset(0 -100vmax);
   border-top: 1px solid #1e2a44;
 }
-main .section-block:nth-of-type(4n+2) { --faixa: #0a1a1e; }
-main .section-block:nth-of-type(4n+3) { --faixa: #15122b; }
-main .section-block:nth-of-type(4n+4) { --faixa: #111827; }
+/* 11/11/2026, segundo pedido: "percebo uma variacao grande entre as cores da
+   secao, vamos padronizar". Os quatro tons (azul, petroleo, violeta,
+   ardosia) dao lugar a alternancia discreta do NR-1 (section.block e
+   section.block.soft em refinement.css): fundo da pagina e o tom suave. */
+main .section-block:nth-of-type(even) { --faixa: #0e141f; }
 
 /* A faixa colorida acima do header (enfeite da landing) nao existe no Site 1;
    com o header do Site 1 adotado (11/11/2026), ela sai. So formatacao. */
@@ -364,3 +366,22 @@ main .bloco-navy .section-eyebrow { color: #f5c778; }
   main .calibration-top > div { flex-wrap: wrap; min-width: 0; }
   main .calibration-top .btn { white-space: normal; }
 }
+
+/* ---------- Primeira secao com um neuronio; texto centralizado ----------
+   Pedido do dono, 11/11/2026: a secao 1 de cada pagina traz a foto de UM
+   neuronio (img/neuronio-unico.jpg, recortado do neuronio esquerdo de
+   neurons-header.png, bordas esmaecidas), sem passar da area da secao: a
+   imagem e "contain" dentro da propria secao; so a cor de fundo vai de ponta a
+   ponta. E todo o texto das paginas centralizado. */
+main .hero-banner {
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, .18) 0%, rgba(0, 0, 0, .38) 100%),
+    url('img/neuronio-unico.jpg') center / contain no-repeat,
+    #000;
+  box-shadow: 0 0 0 100vmax #000;
+}
+main, main * { text-align: center !important; }
+main ul, main ol { list-style-position: inside; padding-left: 0; }
+main .hero-grid > :first-child { margin-inline: auto; }
+main .hero-lead, main .section-header, main .section-lead { margin-left: auto; margin-right: auto; }
+main .hero-actions, main .hero-badge-wrap, main .hero-stats-row { justify-content: center; }
