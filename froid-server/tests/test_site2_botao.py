@@ -56,6 +56,21 @@ class OBotaoEstaEmTodaPaginaPublica(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
 
+class AEntradaLevaOPsiqueAoSiteII(unittest.TestCase):
+    """Pedido do dono, 11/11/2026: na pagina de entrada publica (os dois
+    neuronios), clicar no FROID Psique leva ao Site II, que trata so do
+    Psique; o NR-1 nao muda."""
+
+    def test_o_psique_vai_ao_site_ii_e_o_nr1_fica(self):
+        texto = (PUBLICO / "index.html").read_text(encoding="utf-8")
+        psique = re.findall(r'<a class="(?:metade|escolha) psique" href="([^"]+)"', texto)
+        nr1 = re.findall(r'<a class="(?:metade|escolha) nr1" href="([^"]+)"', texto)
+        self.assertEqual(psique, ["/dev/psique/index.html"] * 2)
+        self.assertEqual(len(nr1), 2)
+        for href in nr1:
+            self.assertFalse(href.startswith("/dev"), href)
+
+
 class OSiteIISoAbreComSenha(unittest.TestCase):
     def test_o_caddy_serve_dev_atras_de_basic_auth_com_falha_fechada(self):
         caddy = (REPO / "Caddyfile").read_text(encoding="utf-8")
@@ -69,6 +84,21 @@ class OSiteIISoAbreComSenha(unittest.TestCase):
         self.assertLess(caddy.index("handle_path /dev/*"), caddy.index("\n    handle {\n"))
         # A regra da pagina das 10 habilidades nao alcanca /dev/.
         self.assertIn("not path /dev /dev/*", caddy)
+
+    def test_o_psique_publico_nao_e_mais_servido(self):
+        """11/11/2026: "exclua o acesso ao Site 1". Todo caminho do Psique
+        publico, em qualquer idioma, vai a mesma pagina no Site II."""
+        caddy = (REPO / "Caddyfile").read_text(encoding="utf-8")
+        regra = re.search(r"@psique_publico path_regexp psique_publico (\S+)", caddy)
+        self.assertIsNotNone(regra)
+        padrao = re.compile(regra.group(1).replace("(?i)", ""), re.I)
+        for caminho in ("/psique/index.html", "/psique/", "/psique", "/en/psique/faq.html",
+                        "/fr/psique/", "/es/psique/index.html"):
+            self.assertRegex(caminho, padrao)
+        for caminho in ("/nr1/index.html", "/termos.html", "/", "/dev/psique/index.html",
+                        "/psiquex.html", "/en/nr1/index.html"):
+            self.assertNotRegex(caminho, padrao)
+        self.assertIn("redir @psique_publico /dev{uri} 302", caddy)
 
     def test_o_compose_monta_a_pasta_e_repassa_a_senha_sem_padrao(self):
         compose = (REPO / "docker-compose.yml").read_text(encoding="utf-8")

@@ -117,6 +117,19 @@ froid.com.br, www.froid.com.br {
     # Caddy não sobe. `handle_path` tira o /dev do caminho, então os links
     # relativos das páginas continuam dentro de /dev/.
     redir /dev /dev/ 308
+
+    # O Psique público (Site 1) não é mais acessível. Determinação do dono,
+    # 11/11/2026: "quem chegar pela página de entrada veja apenas o conteúdo
+    # do Site II; exclua o acesso ao Site 1". Todo caminho do Psique público,
+    # em qualquer idioma, vai à MESMA página no Site II (que pede a senha),
+    # inclusive para quem chega por buscador ou link antigo. O NR-1 e as
+    # páginas comuns (contato, privacidade, termos) continuam públicos.
+    # 302, e não 308: se a decisão mudar, nenhum navegador terá guardado o
+    # redirecionamento como permanente. Os arquivos de froid-site/psique/
+    # continuam no repositório; só deixam de ser servidos.
+    @psique_publico path_regexp psique_publico (?i)^/((en|fr|es)/)?psique(/.*)?$
+    redir @psique_publico /dev{uri} 302
+
     handle_path /dev/* {
         basic_auth bcrypt "FROID - desenvolvedores" {
             {$FROID_DEV_USUARIO:froid} {$FROID_DEV_SENHA_HASH:JDJhJDE0JDdzL2Y5djRhQVl3RjUxVnRuNWhYSmUuOU1IZWFtWjZuaU1VYXdJTnFUa2JuU05XM09Ic2Y2}
