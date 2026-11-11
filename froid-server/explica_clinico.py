@@ -299,28 +299,35 @@ CATALOGO: Tuple[Indice, ...] = (
         chave="",
         unidade="variacao percentual com sinal e faixa",
         medida=(
-            "Variacao do P/MIN do corte contra o P/MIN da referencia travada nos "
-            "primeiros 60 segundos DESTE paciente. Faixas: na referencia (menos "
-            "de 15%), acelerada ou lentificada (15% a 30%), muito acelerada ou "
-            "muito lentificada (30% ou mais). Os cortes de 15% e 30% sao escolha "
-            "de produto, nao valores validados."
+            "Variacao das palavras por minuto NA FALA DO PACIENTE no corte contra "
+            "as dos 60 segundos iniciais DESTA sessao — so a fala dele, nas duas "
+            "medidas (desde 11/11/2026; antes usava a janela inteira e a fala do "
+            "profissional entrava na conta). Faixas: na referencia (menos de "
+            "15%), acelerada ou lentificada (15% a 30%), muito acelerada ou muito "
+            "lentificada (30% ou mais). Os cortes de 15% e 30% sao escolha de "
+            "produto, nao valores validados: a literatura verificada nao traz "
+            "corte de variacao para um individuo."
         ),
         leitura=(
-            "E a regua do proprio paciente: o que a literatura valida e a "
-            "VARIACAO dentro da mesma pessoa (Yamamoto et al., PLOS ONE 2020: a "
-            "fala desacelera quando a depressao piora e acelera na melhora). "
-            "'--' e ausencia de apuracao: falta o P/MIN do corte ou da referencia."
+            "E a regua do proprio paciente NESTA sessao. Mostra REACAO dentro da "
+            "sessao (a fala muda ao entrar num assunto), nao o ESTADO em que ele "
+            "chegou: se entrou nervoso ou deprimido, a referencia ja nasce "
+            "alterada, e a sessao inteira pode parecer 'na referencia'. Diga isso "
+            "quando a pergunta for sobre o estado do paciente. "
+            "'--' e ausencia de apuracao: falta fala do paciente no corte ou nos "
+            "60 s iniciais."
         ),
         abre=(
-            "Lentificacao acentuada contra a propria referencia e o achado mais "
-            "proximo do que os estudos acompanham em retardo psicomotor; "
-            "aceleracao acentuada, do que acompanham em pressao de fala. Cruze "
-            "com P/MIN FALA, F0 e o tema do corte."
+            "Cruze a variacao com o tema do corte, com F0 e com o que estava sendo "
+            "dito: o util e o que mudou quando o assunto mudou. Mudar de "
+            "interlocutor ja move a fala cerca de 10% em pessoas saudaveis (Yuan, "
+            "Liberman e Cieri 2006: 193 com estranhos x 214 palavras/min com "
+            "intimos), entao variacao pequena pode nao significar nada."
         ),
         limite=(
-            "Herda o P/MIN da janela, que inclui o tempo de fala do profissional: "
-            "um corte em que o profissional fala mais baixa a cadencia sem o "
-            "paciente desacelerar."
+            "Depende da transcricao e da atribuicao do falante. A referencia "
+            "historica do paciente (mediana das sessoes anteriores) ainda nao "
+            "existe: e a proxima etapa."
         ),
         sinonimos=("cadencia", "cadencia da fala", "variacao de cadencia"),
         referencias=("Yamamoto et al. (2020), PLOS ONE, fala e gravidade da depressao",),
@@ -329,29 +336,28 @@ CATALOGO: Tuple[Indice, ...] = (
         rotulo="P/MIN FALA",
         # Sem campo proprio: chega pela tabela de metricas, pelo rotulo.
         chave="",
-        unidade="palavras por minuto de fala do paciente, com a faixa da literatura",
+        unidade="palavras por minuto de fala do paciente, com a referencia dos 60 s iniciais",
         medida=(
             "Palavras do paciente divididas pelo tempo dos blocos de audio de 7 s "
             "em que ELE falou — a unidade dos estudos (palavras pelo tempo de "
             "fala do participante). Aproximacao: silencio dentro de um bloco "
-            "conta como fala, entao tende a subestimar a taxa, nunca a inflar. "
-            "Ao lado do numero, a faixa da TABELA DE CADENCIA DA LITERATURA."
+            "conta como fala, entao tende a subestimar a taxa, nunca a inflar."
         ),
         leitura=(
-            "A faixa e referencia de GRUPO citada, nao diagnostico do paciente. "
-            "'--' e ausencia de fala do paciente transcrita no corte."
+            "Entre parenteses, a referencia dos 60 s iniciais desta sessao e de "
+            "quantas palavras ela saiu: poucas palavras, referencia fragil. "
+            "'--' e ausencia de fala do paciente transcrita no corte. Desde "
+            "11/11/2026 NAO ha faixa absoluta ao lado do numero (decisao do dono)."
         ),
         abre=(
-            "E o numero que pode ser posto ao lado da literatura. Abaixo de 100, "
-            "a literatura descreve lentificacao em retardo psicomotor depressivo "
-            "e em alogia; 190 ou mais, aceleracao em pressao de fala e mania. "
-            "Diga a faixa, a fonte, a variacao contra a referencia dele (CADÊNCIA) "
-            "e a hipotese que o profissional deve testar."
+            "O que pesa e a variacao contra a referencia dele (CADÊNCIA), nao o "
+            "numero absoluto. Se citar estudos, cite como contexto, com lingua e "
+            "tarefa, nunca dizendo que o paciente 'esta na faixa' de um quadro."
         ),
         limite=(
-            "Depende da transcricao e da atribuicao do falante. Estudos usam "
-            "entrevista estruturada e populacoes especificas (Yamamoto 2020 "
-            "estudou falantes japoneses); a faixa orienta, nao classifica."
+            "Depende da transcricao e da atribuicao do falante. O numero do FROID "
+            "NAO e comparavel ao dos estudos: outra lingua, outra tarefa, outra "
+            "forma de contar palavras e tempo de fala."
         ),
         sinonimos=("ppm na fala", "palavras por minuto de fala", "taxa de elocucao"),
         referencias=("Yamamoto et al. (2020), PLOS ONE, fala e gravidade da depressao",),
@@ -1514,8 +1520,9 @@ etapas numeradas ou lista:
 1. CONTRA A REGUA DESTE PACIENTE. O valor de agora confrontado com a linha de
    base travada nos primeiros 60 segundos dele e com a F0 dele. Nunca contra
    norma populacional: o FROID nao tem nenhuma, e inventar uma e o pior erro
-   possivel aqui. A UNICA referencia externa admitida e a TABELA DE CADENCIA
-   DA LITERATURA, abaixo, aplicada ao P/MIN FALA e sempre com a fonte.
+   possivel aqui. A literatura sobre ritmo de fala entra SO como CONTEXTO
+   citado (CADENCIA: CONTEXTO DA LITERATURA, abaixo), nunca como faixa ou
+   limite em que encaixar o paciente.
 
 2. CRUZADO COM OS INDICES DE SINTESE. O que F0, IDM (distribuicao de energia
    vocal entre bandas) e IPM (oscilacao da energia) fazem no MESMO
@@ -1689,45 +1696,62 @@ def modo_do_contexto(contexto: Optional[Mapping[str, Any]]) -> str:
     return MODO_AO_VIVO
 
 
-# Determinacao do dono, 09/11/2026: a indicacao da situacao descrita na
-# literatura para a faixa de palavras por minuto entra na resposta, de forma
-# conclusiva, como HIPOTESE entregue ao profissional — o contrato assinado diz
-# que o FROID nao diagnostica, e a regra 7 continua valendo. Os numeros e as
-# fontes vem da tabela enviada pelo dono. O par 96,0 vs. 134,9 PPM e as pausas
-# 0,44 s vs. 0,25 s NAO foram localizados nos artigos citados (Wadle et al.,
-# JMIR Mental Health 2024; Yamamoto et al., PLOS ONE 2020) e por isso nao
-# entram; o r = -0,378 de Yamamoto foi conferido no artigo.
-_CADENCIA_LITERATURA = """TABELA DE CADENCIA DA LITERATURA. Referencia de GRUPO,
-aplicada SOMENTE ao P/MIN FALA (palavras pelo tempo de fala do paciente, a
-unidade dos estudos). Nunca ao P/MIN da janela, que inclui a fala do
-profissional e sai menor.
+# Historia desta secao. 09/11/2026: o dono enviou uma tabela de cadencia da
+# literatura e pediu a indicacao "conclusiva, como hipotese" da faixa em que a
+# fala caisse. 11/11/2026: verificacao das fontes no texto dos artigos mostrou
+# numeros atribuidos a artigos que nao os contem (97,8 PPM a Cohen 2014; ">190"
+# a um estudo de esquizofrenia que nao traz media; "150-190" a Yuan, que
+# relata 196) e o par 96,0 x 134,9 localizado em Wiseman et al. 2025, nao nos
+# artigos onde tinha sido procurado. O dono decidiu: literatura como CONTEXTO
+# citado, com lingua e tarefa, nunca como faixa ou limite; e o paciente
+# comparado consigo mesmo. Os numeros abaixo foram conferidos no texto de cada
+# artigo (relatorio de verificacao de 11/11/2026).
+_CADENCIA_LITERATURA = """CADENCIA: CONTEXTO DA LITERATURA. NAO e regua para
+o paciente. Os numeros dos estudos vem de outras linguas, outras tarefas e
+outras formas de contar palavras e tempo de fala; o P/MIN FALA do FROID nao e
+comparavel a eles, e nenhum estudo verificado traz um corte para classificar um
+individuo. Use so como contexto, sempre dizendo lingua, tarefa e que e media de
+grupo.
 
-- Conversacao adulta espontanea: 150 a 190 palavras por minuto (Yuan, Liberman
-  e Cieri, Switchboard). Leitura oral: cerca de 183 (Brysbaert, 2019).
-- Abaixo de 100: lentificacao descrita no retardo psicomotor do transtorno
-  depressivo maior, com pausas mais longas e resposta mais lenta; a velocidade
-  acompanha a gravidade, r = -0,378 com a HAMD-17, e volta com a melhora
-  (Yamamoto et al., PLOS ONE 2020). Tambem descrita na alogia e no afeto plano
-  da esquizofrenia de predominio negativo, cerca de 97,8 (Cohen et al.,
-  Schizophrenia Research 2014; Frontiers in Psychiatry 2024).
-- 190 ou mais: aceleracao descrita na pressao de fala, em estados maniacos e na
-  esquizofrenia de predominio positivo (Frontiers in Psychiatry 2024).
-- Abaixo de 50: faixa descrita na afasia nao fluente, frequentemente abaixo de
-  25 (estudos de fluencia em afasia, PMC 2024). Afasia fluente mantem 50 a 130
-  ou mais, com parafasias e anomia.
-- Esclerose lateral amiotrofica: perda de inteligibilidade acentuada abaixo de
-  120, a partir de 160 a 200 na fase inicial. Doenca de Parkinson: lentificacao
-  com episodios de aceleracao involuntaria (taquifemia) em 6 a 13% dos casos.
+- Conversa telefonica espontanea, ingles (Switchboard): media de 196 palavras
+  por minuto, de 111 a 291 entre falantes; 236 sem contar as pausas. Com
+  estranhos 193, com intimos 214 (Yuan, Liberman e Cieri, Interspeech 2006).
+- Leitura em voz alta, adultos: 183 palavras por minuto (Brysbaert, Journal of
+  Memory and Language 2019, meta-analise de 77 estudos).
+- Portugues brasileiro, fala espontanea (7 falantes): 5,27 silabas por segundo
+  de taxa de elocucao (Goncalves, Letras de Hoje 2017). Unidade diferente: nao
+  converter em palavras.
+- Transtorno depressivo maior, ingles, fala espontanea ("conte como esta se
+  sentindo"): 96,0 (DP 44,8) x 134,9 (DP 40,2) palavras por minuto nos
+  controles, cerca de 29% mais lenta; pausas de 1 a 2 s ocupando 44% x 25% do
+  tempo de gravacao (Wiseman et al., Translational Psychiatry 2025).
+- Gravidade da depressao, entrevista de 10 min (estudo japones): quanto mais
+  grave, mais lenta, r = -0,378 com a HAMD-17 (Yamamoto et al., PLOS ONE 2020).
+- Depressao, pacientes internados, fala livre curta: 1,77 palavras por segundo
+  em media; taxa menor e pausas maiores acompanham piora momentanea (Wadle et
+  al., JMIR Mental Health 2024).
+- Esquizofrenia, entrevistas PANSS: sintomas positivos com fala mais rapida,
+  negativos com fala mais lenta (Worthington et al., Frontiers in Psychiatry
+  2025; o artigo nao traz media nem faixa de PPM). Na alogia, producao de fala
+  reduzida com efeito grande, d = -0,80 (Cohen, Mitchell e Elvevag,
+  Schizophrenia Research 2014; meta-analise de tamanhos de efeito, sem PPM).
+- Esclerose lateral amiotrofica: a inteligibilidade cai de forma acelerada
+  quando a fala desce a cerca de 120 palavras por minuto (Eshghi et al.,
+  Scientific Reports 2022).
+- Emocao no portugues brasileiro: atores lendo uma frase, o nojo produziu a
+  fala mais alongada e a alegria a mais acelerada (Aguiar et al., CoDAS 2025;
+  medida de duracao, nao PPM); em fala espontanea de radio, a raiva foi MAIS
+  LENTA que a neutra (Almeida, Oliveira Jr. e Almeida, Diadorim 2015).
 
-COMO USAR. Quando o P/MIN FALA cair numa faixa, diga com todas as letras a
-faixa, o numero, a fonte e a variacao contra a referencia do proprio paciente
-(CADÊNCIA), e entregue ao profissional a hipotese da literatura que ele deve
-testar, com a pergunta investigativa. Exemplo de forma: "92 palavras por
-minuto na fala, 30% abaixo da referencia dele, abaixo do corte de 100 em que a
-literatura descreve lentificacao no retardo psicomotor depressivo (Yamamoto
-2020); vale explorar se o tema ativou inibicao ou se ha piora executiva."
-Nomeie a condicao como o que a literatura descreve, nunca como diagnostico
-deste paciente: o FROID nao diagnostica, e a decisao e do profissional."""
+COMO USAR. Responda pela regua do proprio paciente: a variacao (CADÊNCIA)
+contra os 60 s iniciais desta sessao, cruzada com o tema e com o que estava
+sendo dito. Lembre que essa referencia e da sessao: se ele entrou nervoso ou
+deprimido, ela ja nasce alterada. Se a pergunta pedir literatura, cite o estudo
+como contexto ("em ingles, na fala espontanea, o grupo com depressao maior
+falou em media 29% mais devagar que o controle — Wiseman 2025"), NUNCA como "o
+paciente esta na faixa de". Nomeie a condicao como o que a literatura
+descreve, nunca como diagnostico deste paciente: o FROID nao diagnostica, e a
+decisao e do profissional."""
 
 _FONTES = """REFERENCIAS. Ao final, sob "Referencias utilizadas", liste SOMENTE
 referencias cientificas ou documentos cientificos diretamente relacionados ao
