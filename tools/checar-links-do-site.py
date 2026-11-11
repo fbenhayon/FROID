@@ -54,6 +54,13 @@ def destino_do_dominio(path):
     path = unquote(path or "/")
     if any(path == p or path.startswith(p + "/") or path.startswith(p + "?") for p in FORA_DO_SITE):
         return None
+    # /dev/ e o Site II (froid-site-dev, com senha no Caddy), desde 11/11/2026:
+    # o botao do site publico aponta para la, e o link vale se a pagina existe
+    # naquela pasta.
+    if path == "/dev" or path.startswith("/dev/"):
+        rel = path[len("/dev"):].lstrip("/")
+        dev = os.path.join(REPO, "froid-site-dev")
+        return os.path.join(dev, *rel.split("/")) if rel else dev
     rel = path.lstrip("/")
     alvo = os.path.join(RAIZ, *rel.split("/")) if rel else RAIZ
     return alvo
