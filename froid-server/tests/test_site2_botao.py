@@ -194,5 +194,24 @@ class OSiteIISemSenha(unittest.TestCase):
         self.assertNotIn("FROID_DEV_SENHA_HASH:-", compose)
 
 
+class OGoogleIndexaOSiteII(unittest.TestCase):
+    """11/11/2026: "fazer o Google indexar as paginas". /dev/ deixa de mandar
+    noindex, e o site ganha sitemap.xml e robots.txt gerados."""
+
+    def test_o_caddy_nao_manda_noindex_no_site_ii(self):
+        caddy = (REPO / "Caddyfile").read_text(encoding="utf-8")
+        ativas = [l for l in caddy.splitlines() if not l.strip().startswith("#")]
+        self.assertFalse([l for l in ativas if "X-Robots-Tag" in l])
+
+    def test_o_mapa_e_o_robots_estao_em_dia(self):
+        r = subprocess.run([sys.executable, str(REPO / "tools" / "gerar-sitemap.py"), "--conferir"],
+                           capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        mapa = (PUBLICO / "sitemap.xml").read_text(encoding="utf-8")
+        self.assertIn("https://www.froid.com.br/dev/psique/</loc>", mapa)
+        self.assertNotIn("https://www.froid.com.br/psique/", mapa)
+        self.assertIn("Sitemap: https://www.froid.com.br/sitemap.xml", (PUBLICO / "robots.txt").read_text(encoding="utf-8"))
+
+
 if __name__ == "__main__":
     unittest.main()

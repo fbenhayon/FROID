@@ -114,7 +114,9 @@ froid.com.br, www.froid.com.br {
     # no lugar.
     handle_path /dev/* {
         header Cache-Control "no-store, no-cache, must-revalidate"
-        header X-Robots-Tag "noindex, nofollow"
+        # Indexável desde 11/11/2026 (tarde), determinação do dono: "fazer o
+        # Google indexar as páginas". O X-Robots-Tag "noindex, nofollow" que
+        # ficava aqui era do tempo em que /dev/ era site de desenvolvedores.
         root * /srv/froid-site-dev
         try_files {path} {path}.html {path}/index.html
         file_server
