@@ -395,3 +395,33 @@ main .hero-actions, main .hero-badge-wrap, main .hero-stats-row { justify-conten
    centralizado, botao abaixo do titulo, como o resto do texto da pagina. */
 main .bonus-box-header { flex-direction: column; align-items: center; justify-content: center; text-align: center; }
 main .bonus-features-grid { justify-items: center; }
+
+/* ---------- Ajustes de 11/11/2026 (pedidos do dono) ----------
+   - abertura da Visao geral: outra imagem de neuronio (img/neuronio-abertura.jpg,
+     recortada de neurons-closing.jpg), contida na secao; e o texto em forma de
+     diamante (o mesmo recurso do Site 1, em script.js: diamanteNoTopo), aqui em
+     todas as larguras: etiqueta curta, titulo medio, a frase de abertura larga
+     no corpo e estreitando ate o fim, botoes curtos;
+   - 10 habilidades: o limite de cada medida em ambar (antes, marrom), e o
+     cartao 08 deixa de ocupar a linha inteira, o que deixava um buraco depois
+     do 07 (Contexto);
+   - campanha (ultima secao): mesmo espaco acima e abaixo; antes comecava
+     colada na secao anterior e sobrava espaco embaixo. */
+main .hero-banner:not(.hero-pagina) {
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, .25) 0%, rgba(0, 0, 0, .45) 100%),
+    url('img/neuronio-abertura.jpg') center / cover no-repeat,
+    #000;
+}
+main .hero-banner .hero-badge-wrap { max-width: 27em; text-wrap: balance; margin-left: auto; margin-right: auto; }
+main .hero-banner .hero-title { max-width: 15ch; margin-left: auto; margin-right: auto; }
+main .hero-banner .hero-actions { max-width: 32ch; margin-left: auto; margin-right: auto; flex-direction: column; align-items: center; }
+.diamante-borda { height: 0; }
+.diamante-borda.esq { float: left; }
+.diamante-borda.dir { float: right; }
+main .hab .hab-limite, main .hab .destaque-pastel {
+  background: #f5c778; color: #151921; border: 1px solid #f5c778;
+}
+main .hab .hab-limite strong { color: #151921; }
+main .hab-destaque { grid-column: auto; }
+main #resgate-bonificacao { margin-top: 96px; margin-bottom: 56px; }

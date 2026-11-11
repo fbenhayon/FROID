@@ -440,10 +440,13 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function aplicar() {
-    var p = document.querySelector(".hero .lead, .hero-neuro__content .lead");
+    // Site II (11/11/2026, pedido do dono): a abertura do Psique em diamante
+    // em qualquer largura. Site 1: so no celular, como aprovado em 09/11/2026.
+    var sempre = document.querySelector(".hero-banner .hero-lead");
+    var p = sempre || document.querySelector(".hero .lead, .hero-neuro__content .lead");
     if (!p) return;
     limpar(p);
-    if (!celular || !celular.matches) return;
+    if (!sempre && (!celular || !celular.matches)) return;
     var largura = p.clientWidth;
     if (!largura) return;
     var borda = Math.round(largura * 0.3);
