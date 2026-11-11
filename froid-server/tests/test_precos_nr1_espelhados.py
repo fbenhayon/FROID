@@ -342,8 +342,12 @@ class APreviaLocalDaCalculadoraConfereComOMotor(unittest.TestCase):
                 continue  # copia propria, conferida (ou nao) noutro lugar
             self.assertIn("simulador-nr1.js", texto, caminho)
             usam.append(caminho.relative_to(REPO / "froid-site-dev").as_posix())
-        self.assertIn("psique/index.html", usam)
         self.assertIn("nr1/precos-nr1.html", usam)
+        # 10/11/2026 o dono pediu a calculadora do NR-1 na pagina inicial do
+        # Psique; em 11/11/2026, que ela saisse dali ("tem uma mistura") e
+        # desse lugar a calculadora de profissionais e clinicas. Ver
+        # test_site2_botao.ACalculadoraDoPsiqueENaoADoNr1.
+        self.assertNotIn("psique/index.html", usam)
 
 
 class AConducaoEmCampoEDaContratante(unittest.TestCase):

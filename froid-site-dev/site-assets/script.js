@@ -143,7 +143,7 @@ var NAV_SECOES = {
     ["ritmo-fala", "Taxa de elocução"],
     ["cortes-tematicos", "Cortes temáticos e FROID Explica"],
     ["privacidade-lgpd", "Data-Froid e privacidade"],
-    ["simulador-nr1", "Calculadora do NR-1"],
+    ["calculadora-psique", "Calculadora para profissionais e clínicas"],
     ["resgate-bonificacao", "Resgatar a bonificação"]
   ],
   "nr1/proposta-nr1.html": [

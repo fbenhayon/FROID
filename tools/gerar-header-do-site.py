@@ -72,7 +72,9 @@ IDIOMAS = {
             ("Mapas da face", "psique/mapas-faciais.html"),
             ("Ciência", "psique/ciencia.html"),
         ]),
-        "soltos": [("Explorar", "menu.html"), ("Contato", "sobre-contato.html")],
+        # "Explorar" (menu.html) saiu do header em 11/11/2026, pedido do dono: "desabilite
+        # o botao explorar", nos dois sites. A pagina continua no rodape ("Mapa do site").
+        "soltos": [("Contato", "sobre-contato.html")],
     },
     "en": {
         "psique": ('FROID Psique', "psique/index.html", [
@@ -91,7 +93,7 @@ IDIOMAS = {
             ('Facial maps', 'psique/mapas-faciais.html'),
             ('Science', 'psique/ciencia.html'),
         ]),
-        "soltos": [('Explore', 'menu.html'), ('Contact', 'sobre-contato.html')],
+        "soltos": [('Contact', 'sobre-contato.html')],
     },
     "es": {
         "psique": ('FROID Psique', "psique/index.html", [
@@ -110,7 +112,7 @@ IDIOMAS = {
             ('Mapas del rostro', 'psique/mapas-faciais.html'),
             ('Ciencia', 'psique/ciencia.html'),
         ]),
-        "soltos": [('Explorar', 'menu.html'), ('Contacto', 'sobre-contato.html')],
+        "soltos": [('Contacto', 'sobre-contato.html')],
     },
     "fr": {
         "psique": ('FROID Psique', "psique/index.html", [
@@ -129,7 +131,7 @@ IDIOMAS = {
             ('Cartes du visage', 'psique/mapas-faciais.html'),
             ('Science', 'psique/ciencia.html'),
         ]),
-        "soltos": [('Explorer', 'menu.html'), ('Contact', 'sobre-contato.html')],
+        "soltos": [('Contact', 'sobre-contato.html')],
     },
 }
 
@@ -187,6 +189,7 @@ ACOES_GERADAS = re.compile(
     r'.*?<!-- /produto e chamada -->\n', re.S)
 NAV_ACTIONS = re.compile(r'<div class="nav-actions">\n')
 TAG = re.compile(r"<[^>]+>")
+ENTRAR = re.compile(r'<a class="btn btn-ghost" href="https://www\.froid\.com\.br/app/#/login"[^>]*>[^<]*</a\s*>\r?\n')
 
 
 def rel(pagina, alvo):
@@ -388,7 +391,12 @@ def aplicar_acoes(texto, idioma, pagina):
 # inglês ("Choose language") enquanto es e fr tinham o seu.
 # --------------------------------------------------------------------------
 
-SITE = "https://www.froid.com.br/"
+# O Site II e servido em /dev/ (Caddy). Escrevendo nele, as URLs declaradas
+# (hreflang) sao as de /dev/: desde 11/11/2026 nenhum endereco do Psique 1
+# (/psique/, que agora so redireciona) pode aparecer como link.
+SITE = ("https://www.froid.com.br/dev/"
+        if os.path.basename(os.path.normpath(RAIZ)) == "froid-site-dev"
+        else "https://www.froid.com.br/")
 ORDEM = ["", "en", "fr", "es"]            # ordem das pills: PT EN FR ES
 SIGLA = {"": "PT", "en": "EN", "fr": "FR", "es": "ES"}
 ARIA = {
@@ -503,6 +511,14 @@ def processar(texto, idioma, pagina):
         novo = NAV.sub(lambda _m: montar(idioma, pagina), novo, count=1)
         novo = BRAND.sub(lambda m: m.group(1) + rel(pagina, "index.html") + m.group(2), novo, count=1)
         novo = aplicar_acoes(novo, idioma, pagina)
+        if not LANG_GROUP.search(novo) and bloco_idiomas(idioma, pagina):
+            # 11/11/2026: o Site II adota o header do Site 1, com o seletor de
+            # idiomas; as paginas do Psique do Site II o tinham perdido. Entra
+            # logo depois de "Entrar no FROID", onde o Site 1 o tem.
+            m = ENTRAR.search(novo)
+            if m:
+                fim = "\r\n" if novo[m.end() - 2:m.end()] == "\r\n" else "\n"
+                novo = novo[:m.end()] + '      <div class="lang-group"></div>' + fim + novo[m.end():]
     if LANG_GROUP.search(novo):
         novo = LANG_GROUP.sub(lambda _m: bloco_idiomas(idioma, pagina), novo, count=1)
     return aplicar_hreflang(novo, pagina)

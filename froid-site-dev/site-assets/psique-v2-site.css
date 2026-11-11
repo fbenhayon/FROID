@@ -222,3 +222,65 @@ body > header.site-header { background: rgba(8, 11, 18, .94); border-bottom-colo
 .tag-speed-high { background: rgba(239, 68, 68, .15); color: #fca5a5; }
 .tag-speed-slow { background: rgba(251, 191, 36, .15); color: #fde68a; }
 .tag-speed-crit { background: rgba(167, 139, 250, .15); color: #ddd6fe; }
+
+/* ---------- Faixas de cor por secao (Site II) ----------
+   Pedido do dono, 11/11/2026: "manter as cores e dividir por sessao o site II,
+   diferenciando as cores entre cada sessao". Cada .section-block vira uma
+   faixa de ponta a ponta da tela, alternando quatro tons escuros da paleta do
+   FROID (azul-marinho, verde-petroleo, violeta, ardosia), com uma linha fina
+   entre elas. A faixa sai do conteiner pelo box-shadow e o clip-path corta o
+   que passaria da tela: nao cria rolagem lateral. So cor: nenhum conteudo
+   muda de lugar. */
+main .section-block {
+  position: relative;
+  margin-bottom: 0;
+  padding-top: var(--space-2xl);
+  padding-bottom: var(--space-2xl);
+  --faixa: #0b1324;
+  background: var(--faixa);
+  box-shadow: 0 0 0 100vmax var(--faixa);
+  clip-path: inset(0 -100vmax);
+  border-top: 1px solid #1e2a44;
+}
+main .section-block:nth-of-type(4n+2) { --faixa: #0a1a1e; }
+main .section-block:nth-of-type(4n+3) { --faixa: #15122b; }
+main .section-block:nth-of-type(4n+4) { --faixa: #111827; }
+
+/* A faixa colorida acima do header (enfeite da landing) nao existe no Site 1;
+   com o header do Site 1 adotado (11/11/2026), ela sai. So formatacao. */
+.vitals-top-stripe { display: none; }
+
+/* ---------- Componente de precos do Psique (psique-pricing-v2.js) ----------
+   Movido em 11/11/2026 do <style> de psique/precos-psique.html para ca: a
+   pagina inicial do Site II passou a ter a mesma calculadora (pacotes de
+   creditos e licenca por profissional clinico), no lugar da do NR-1. */
+/* Preços V2: cartões preenchidos por psique-pricing-v2.js e calculadora da licença,
+   no visual da landing (fundo claro, cartões brancos). Nenhum valor é escrito aqui. */
+.pv2-grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: var(--space-lg); margin: var(--space-xl) auto; max-width: 1100px; }
+.pv2-card { background: var(--background); border: var(--card-border); border-radius: var(--rounded-lg); padding: var(--space-xl) var(--space-lg); box-shadow: var(--card-lift); display: flex; flex-direction: column; align-items: center; gap: var(--space-xs); }
+.pv2-card h3 { font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; color: var(--on-surface); margin: 0; }
+.pv2-creditos { font-family: var(--font-label); font-weight: 700; color: var(--primary); margin: 0 0 var(--space-sm); font-size: .92rem; }
+.pv2-valor { font-family: var(--font-display); font-size: 1.9rem; font-weight: 700; color: var(--amber-title); margin: 0; font-variant-numeric: tabular-nums; }
+.pv2-unitario { font-size: .82rem; color: var(--on-surface-muted); margin: var(--space-xs) 0 0; }
+.pv2-carregando { color: var(--on-surface-muted); font-size: .95rem; grid-column: 1 / -1; margin: 0; }
+.pv2-indisponivel,
+#pv2-trial[data-estado="indisponivel"],
+#pv2-calculadora [data-estado="indisponivel"] { display: inline-block; border: 1px dashed var(--outline-amber); border-radius: var(--rounded); padding: var(--space-sm) var(--space-md); color: var(--on-amber-surface); background: var(--surface-amber-low); font-size: .95rem; }
+.pv2-indisponivel { grid-column: 1 / -1; justify-self: center; }
+#pv2-trial { font-weight: 700; color: var(--on-surface); }
+#pv2-trial[data-estado="carregando"] { color: var(--on-surface-muted); font-weight: 500; }
+.pv2-aviso-lancamento { margin-bottom: var(--space-lg); font-style: normal; }
+.pv2-nota { font-size: .9rem; color: var(--on-surface-muted); max-width: 760px; margin: var(--space-md) auto 0; }
+.plans-grid { max-width: 1100px; margin-left: auto; margin-right: auto; }
+.plan-card .plan-name { text-align: center; }
+.plan-features-list li { text-align: left; }
+.plan-card .plan-features-list { margin-bottom: 0; }
+#pv2-calculadora { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: var(--space-md); max-width: 860px; margin: var(--space-xl) auto 0; padding: var(--space-lg); background: var(--background); border: var(--card-border); border-radius: var(--rounded-lg); box-shadow: var(--card-lift); }
+#pv2-calculadora label { font-family: var(--font-label); font-weight: 700; color: var(--on-surface); }
+#pv2-calculadora input { width: 110px; padding: .6rem .75rem; border-radius: var(--rounded-sm); border: 1px solid var(--outline); background: var(--background); color: var(--on-surface); font: inherit; font-size: 1rem; text-align: center; }
+#pv2-calculadora input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+#pv2-calculadora [data-papel="resultado"] { flex-basis: 100%; font-weight: 700; min-height: 1.4em; color: var(--on-surface-variant); }
+#pv2-calculadora [data-papel="resultado"][data-estado="vazio"] { min-height: 0; }
+#pv2-calculadora [data-estado="ok"] { color: var(--tertiary); }
+#pv2-calculadora [data-estado="enterprise"] { color: var(--primary-dark); }
+#pv2-calculadora [data-estado="invalido"] { color: var(--error); }
