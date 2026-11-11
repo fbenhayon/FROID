@@ -129,5 +129,33 @@ class OFormularioQueDescartavaNaoVolta(unittest.TestCase):
                 self.assertNotIn(proibido, texto, caminho)
 
 
+class OFormularioPublicoEntregaOsDados(unittest.TestCase):
+    """O site PUBLICO (froid-site, versao anterior) ainda tem o formulario de
+    resgate, na landing do Psique. Ate 11/11/2026 ele lia os dados e os
+    descartava (so redirecionava ao /cadastro) e guardava um painel de
+    "voucher" que dizia "Parabens! Suas 10 Sessoes Foram Liberadas" e ter
+    enviado e-mail e WhatsApp. Determinacao do dono: o formulario nao pode
+    descartar dados. Toda pagina, em qualquer dos dois sites, que tenha o
+    formulario precisa envia-lo ao /api/contato e nao pode simular nada.
+    """
+
+    def test_todo_formulario_de_resgate_envia_ao_contato(self):
+        achados = 0
+        for site in ("froid-site", "froid-site-dev"):
+            for caminho in sorted((REPO / site).rglob("*.html")):
+                texto = caminho.read_text(encoding="utf-8")
+                if 'id="voucher-form"' not in texto:
+                    continue
+                achados += 1
+                with self.subTest(pagina=str(caminho.relative_to(REPO))):
+                    self.assertIn("fetch('/api/contato'", texto)
+                    self.assertNotIn("window.location.href = 'https://www.froid.com.br/cadastro'", texto)
+                    for proibido in ("FROID-PSI-", "Foram Liberadas", "claimedVoucher",
+                                     "Termo de Consentimento para Demonstração Clínica"):
+                        self.assertNotIn(proibido, texto)
+        # A landing publica tem o formulario; se ele sumir, o teste avisa.
+        self.assertGreaterEqual(achados, 1)
+
+
 if __name__ == "__main__":
     unittest.main()

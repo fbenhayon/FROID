@@ -1469,20 +1469,6 @@
       margin-top: var(--space-lg);
     }
 
-    .voucher-code-display {
-      font-family: var(--font-mono);
-      font-size: 1.8rem;
-      font-weight: 700;
-      color: var(--amber-title);
-      letter-spacing: 0.1em;
-      background: #ffffff;
-      padding: var(--space-sm) var(--space-md);
-      border: 2px dashed var(--amber-bright);
-      border-radius: var(--rounded);
-      display: inline-block;
-      margin: var(--space-md) 0;
-    }
-
     /* Rodapé Institucional */
     .site-footer {
       background:
@@ -2709,6 +2695,10 @@
           <p style="color: var(--on-surface-variant); font-size: 1rem; max-width: 580px; margin: 0 auto;">
             Preencha os dados profissionais abaixo e conclua seu cadastro na plataforma para ativar o pacote de boas-vindas. Sem cobranças, sem taxas ocultas e sem compromisso.
           </p>
+          <p style="margin: var(--space-md) auto 0;">
+            <a href="https://www.froid.com.br/cadastro" class="btn btn-amber">Usar agora minhas 10 sessões promocionais de lançamento</a>
+          </p>
+          <p style="font-size: 0.85rem; color: var(--on-surface-variant); margin: var(--space-sm) auto 0;">Ou deixe seus dados abaixo, e a equipe do FROID acompanha a sua ativação.</p>
         </div>
 
         <form id="voucher-form" onsubmit="handleClaimVoucher(event)">
@@ -2759,39 +2749,31 @@
           </div>
 
           <div style="margin: var(--space-md) 0 var(--space-lg) 0; font-size: 0.82rem; color: var(--on-surface-variant); line-height: 1.5;">
-            Ao clicar no botão abaixo, você concorda com o Termo de Consentimento para Demonstração Clínica e confirma estar ciente de que o FROID Psique atua como tecnologia de suporte à escuta, sob estrita soberania do profissional de saúde mental.
+            Ao enviar, seus dados seguem por e-mail para a equipe do FROID, para acompanhar a ativação das suas sessões (<a href="../privacidade.html">Política de Privacidade</a>). Você também confirma estar ciente de que o FROID Psique atua como tecnologia de suporte à escuta, sob estrita soberania do profissional de saúde mental.
           </div>
 
-          <button type="submit" class="btn btn-amber" style="width: 100%; font-size: 1rem; padding: 0.9rem;">
+          <button type="submit" id="voucher-enviar" class="btn btn-amber" style="width: 100%; font-size: 1rem; padding: 0.9rem;">
             <i data-lucide="check-circle" style="width: 20px; height: 20px;"></i>
-            Ativar Minhas 10 Sessões Clínicas Gratuitas Agora
+            Enviar meus dados e ativar minhas 10 sessões
           </button>
+          <p id="voucher-erro" role="alert" hidden style="margin: var(--space-md) 0 0; color: #b91c1c; font-weight: 600;"></p>
         </form>
 
-        <!-- Resultado do Voucher Gerado -->
+        <!-- Depois do envio: o que de fato aconteceu, e a chamada ao cadastro. -->
         <div id="voucher-result-panel" class="claim-voucher-result">
-          <i data-lucide="party-popper" style="color: var(--amber-bright); width: 42px; height: 42px; margin-bottom: var(--space-xs);"></i>
+          <i data-lucide="mail-check" style="color: var(--amber-bright); width: 42px; height: 42px; margin-bottom: var(--space-xs);"></i>
           <h3 style="color: var(--amber-title); font-family: var(--font-display); font-size: 1.5rem; margin: 0;">
-            Parabéns! Suas 10 Sessões Foram Liberadas
+            Recebemos os seus dados
           </h3>
           <p style="color: var(--on-amber-surface); font-size: 0.98rem; max-width: 520px; margin: var(--space-sm) auto;">
-            Seu voucher de boas-vindas do FROID Psique foi gerado com sucesso. Guarde o código de homologação abaixo:
+            A equipe do FROID recebeu o seu pedido e vai acompanhar a sua ativação. As 10 sessões promocionais de lançamento entram na sua conta quando você conclui o cadastro na plataforma.
           </p>
-
-          <div class="voucher-code-display" id="display-voucher-code">
-            FROID-PSI-9482-BONUS
-          </div>
-
-          <p style="font-size: 0.88rem; color: var(--on-amber-surface); margin: 0 0 var(--space-md) 0;">
-            Uma mensagem de confirmação com seu link exclusivo de acesso seguro ao portal clínico foi enviada para o seu e-mail e WhatsApp cadastrados.
-          </p>
-
-          <div style="display: flex; justify-content: center; gap: var(--space-sm); flex-wrap: wrap;">
-            <button class="btn btn-primary" onclick="alert('Seu ambiente clínico de teste com 10 créditos foi ativado! Verifique sua caixa de entrada para o primeiro login.')">
-              Acessar Plataforma FROID Psique
-            </button>
-            <button class="btn btn-secondary" onclick="resetVoucherForm()">
-              Cadastrar Outro Profissional
+          <div style="display: flex; justify-content: center; gap: var(--space-sm); flex-wrap: wrap; margin-top: var(--space-md);">
+            <a class="btn btn-amber" href="https://www.froid.com.br/cadastro">
+              Criar minha conta e usar as 10 sessões
+            </a>
+            <button type="button" class="btn btn-secondary" onclick="resetVoucherForm()">
+              Enviar outro cadastro
             </button>
           </div>
         </div>
@@ -2868,7 +2850,6 @@
     const APP_STATE_KEY = 'froid_psique_state';
     let currentSavedState = {
       calibrated: false,
-      claimedVoucher: null,
       activePreset: 'mask',
       expandedZones: []
     };
@@ -2891,17 +2872,6 @@
     }
 
     function applyRestoredState() {
-      if (currentSavedState.claimedVoucher) {
-        const form = document.getElementById('voucher-form');
-        const resultPanel = document.getElementById('voucher-result-panel');
-        const codeDisplay = document.getElementById('display-voucher-code');
-        if (form && resultPanel && codeDisplay) {
-          form.style.display = 'none';
-          resultPanel.style.display = 'block';
-          codeDisplay.textContent = currentSavedState.claimedVoucher;
-        }
-      }
-
       if (currentSavedState.activePreset) {
         loadSimPreset(currentSavedState.activePreset);
       }
@@ -3175,40 +3145,55 @@
       }
     }
 
-    // 5. Formulário de Resgate da Bonificação com Voucher
+    // 5. Formulário de resgate da bonificação.
+    // Até 11/11/2026 os dados eram lidos e DESCARTADOS: o envio só levava ao
+    // /cadastro, onde a pessoa digitava tudo de novo. Agora vão ao endpoint de
+    // contato do site (/api/contato, froid-server/main.py), que os entrega por
+    // e-mail à equipe. Falha de envio aparece na tela, com os dados ainda no
+    // formulário; nunca uma confirmação de algo que não aconteceu.
     function handleClaimVoucher(e) {
       e.preventDefault();
-      const nome = document.getElementById('prof-nome').value.trim();
-      const reg = document.getElementById('prof-registro').value.trim();
-
-      if (!nome || !reg) {
-        alert('Por favor, informe seu nome e registro profissional (CRP/CRM).');
-        return;
-      }
-
-      // Sem voucher simulado: o pacote de boas-vindas é ativado no cadastro real da plataforma.
-      window.location.href = 'https://www.froid.com.br/cadastro';
-      return;
-
-      // Geração de Código Único de Voucher
-      const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-      const voucherCode = 'FROID-PSI-' + randomSuffix + '-BONUS';
-
-      const form = document.getElementById('voucher-form');
-      const resultPanel = document.getElementById('voucher-result-panel');
-      const codeDisplay = document.getElementById('display-voucher-code');
-
-      if (form) form.style.display = 'none';
-      if (resultPanel) resultPanel.style.display = 'block';
-      if (codeDisplay) codeDisplay.textContent = voucherCode;
-
-      // Salva estado persistido
-      currentSavedState.claimedVoucher = voucherCode;
-      saveCurrentState();
-
-      if (typeof lucide !== 'undefined') {
-        lucide.createIcons();
-      }
+      const campo = (id) => document.getElementById(id);
+      const valor = (id) => (campo(id) ? campo(id).value.trim() : '');
+      const rotulo = (id) => {
+        const s = campo(id);
+        return s && s.selectedIndex >= 0 ? s.options[s.selectedIndex].text : '';
+      };
+      const erro = campo('voucher-erro');
+      const botao = campo('voucher-enviar');
+      erro.hidden = true;
+      const linhas = [
+        'Pedido de ativação das 10 sessões promocionais de lançamento (landing do FROID Psique).',
+        'Registro profissional: ' + valor('prof-registro'),
+        'Abordagem / especialidade: ' + rotulo('prof-abordagem'),
+        'Modalidade de atendimento: ' + rotulo('prof-modalidade')
+      ];
+      const dados = {
+        nome: valor('prof-nome'),
+        email: valor('prof-email'),
+        telefone: valor('prof-tel'),
+        origem: 'psique-bonificacao',
+        mensagem: linhas.join(String.fromCharCode(10))
+      };
+      botao.disabled = true;
+      fetch('/api/contato', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dados)
+      })
+        .then((r) => r.json().catch(() => ({})).then((corpo) => ({ ok: r.ok, corpo })))
+        .then(({ ok, corpo }) => {
+          if (!ok) throw new Error((corpo && corpo.detail) || 'envio indisponível no momento');
+          campo('voucher-form').style.display = 'none';
+          campo('voucher-result-panel').style.display = 'block';
+          if (typeof lucide !== 'undefined') lucide.createIcons();
+        })
+        .catch((falha) => {
+          erro.textContent = 'Seus dados não foram enviados (' + (falha.message || falha) + '). ' +
+            'Tente de novo em instantes, ou crie sua conta direto em www.froid.com.br/cadastro.';
+          erro.hidden = false;
+        })
+        .finally(() => { botao.disabled = false; });
     }
 
     function resetVoucherForm() {
@@ -3221,8 +3206,6 @@
       if (resultPanel) {
         resultPanel.style.display = 'none';
       }
-      currentSavedState.claimedVoucher = null;
-      saveCurrentState();
     }
 
     // Execução Inicial
