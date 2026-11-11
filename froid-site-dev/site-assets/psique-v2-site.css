@@ -159,3 +159,66 @@ blockquote.destaque-pastel { font-style: italic; }
   .passos li::before { left: 50%; transform: translateX(-50%); }
   .destaque-pastel { padding: var(--space-md) var(--space-lg); }
 }
+
+/* ---------- Tema FROID (escuro), so formatacao ----------
+   Pedido do dono, 11/11/2026: "adote para o Site II a formatacao FROID ...
+   somente a formatacao". O Site II (Psique) usava o miolo claro da landing;
+   aqui ele recebe a paleta do site publico (froid-site/site-assets/style.css
+   e refinement.css): fundo #020617 com o brilho azulado no canto, texto
+   #e2e8f0, bordas #1e2a44/#354052, azul nos links e ambar nos destaques,
+   fonte Inter/Segoe UI. Nenhum texto ou estrutura muda: so as variaveis de
+   cor de psique-v2.css e os poucos fundos brancos escritos direto. */
+:root {
+  color-scheme: dark;
+  --background: #0b1220;
+  --surface-container-low: #0f172a;
+  --surface-container: #111a2e;
+  --surface-container-high: #16213a;
+  --surface-amber-low: rgba(245, 199, 120, .07);
+  --surface-amber-mid: rgba(245, 199, 120, .14);
+  --surface-amber-border: rgba(245, 199, 120, .32);
+  --on-surface: #e2e8f0;
+  --on-surface-variant: #cbd5e1;
+  --on-surface-muted: #94a3b8;
+  --on-amber-surface: #fde68a;
+  --outline: #5b6b82;
+  --outline-variant: #1e2a44;
+  --outline-amber-light: rgba(252, 211, 77, .45);
+  --primary: #3b82f6;
+  --primary-dark: #93c5fd;
+  --primary-container: #0f1e3a;
+  --on-primary-container: #bfdbfe;
+  --secondary: #22c55e;
+  --tertiary: #22c55e;
+  --amber-title: #fcd34d;
+  --amber-badge-bg: rgba(252, 211, 77, .12);
+  --amber-badge-text: #fcd34d;
+  --amber-bright: #f59e0b;
+  --error: #f87171;
+  --error-container: rgba(239, 68, 68, .12);
+  --on-error-container: #fca5a5;
+  --warning: #fbbf24;
+  --warning-container: rgba(251, 191, 36, .1);
+  --positive: #4ade80;
+  --positive-container: rgba(34, 197, 94, .1);
+  --data-1: #60a5fa;
+  --data-2: #4ade80;
+  --data-3: #fbbf24;
+  --data-4: #a78bfa;
+  --data-context: #475569;
+  --focus: #f5c778;
+  --card-lift: 0 1px 3px rgba(0, 0, 0, .35), 0 8px 24px rgba(0, 0, 0, .3);
+  --font-body: "Inter", "Segoe UI", Arial, sans-serif;
+  --font-headline: "Inter", "Segoe UI", Arial, sans-serif;
+  --font-label: "Inter", "Segoe UI", Arial, sans-serif;
+}
+html, body { background: radial-gradient(ellipse at 90% 0, #182337 0, transparent 35rem), #020617; color: #e2e8f0; }
+::selection { background: #f5c778; color: #111827; }
+body > header.site-header { background: rgba(8, 11, 18, .94); border-bottom-color: #1e2a44; }
+.nav-drop { background: #101621; border-color: #354052; }
+.zone-guideline-box, .cadence-result-card { background: var(--surface-container-low); }
+.page-outline a { background: var(--surface-container-low); color: var(--on-surface-variant); }
+.figura img { background: #0f172a; }
+.tag-speed-high { background: rgba(239, 68, 68, .15); color: #fca5a5; }
+.tag-speed-slow { background: rgba(251, 191, 36, .15); color: #fde68a; }
+.tag-speed-crit { background: rgba(167, 139, 250, .15); color: #ddd6fe; }
