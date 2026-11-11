@@ -49,7 +49,9 @@ class AInscricaoEstaEmTodaPaginaDoPsique(unittest.TestCase):
     def test_a_varredura_encontra_as_paginas(self):
         nomes = [c.name for c, _ in _paginas_do_psique()]
         self.assertIn("index.html", nomes)
-        self.assertIn("percepcao-clinica.html", nomes)
+        # percepcao-clinica.html (as 10 habilidades) foi desativada em
+        # 11/11/2026 e fundida em index.html#habilidades: e redirecionamento.
+        self.assertNotIn("percepcao-clinica.html", nomes)
         self.assertGreaterEqual(len(nomes), 10)
 
     def test_toda_pagina_tem_a_secao_uma_vez_dentro_do_main(self):

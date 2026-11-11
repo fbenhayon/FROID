@@ -40,12 +40,6 @@ body > header.site-header { position: relative !important; z-index: 990; }
   font-family: var(--font-label); font-size: .7rem; font-weight: 700; color: #cbd5e1; }
 .nav-troca-produto:hover { color: #fff; background: rgba(148, 163, 184, .16); }
 .nav-troca-icone { color: #c4b5fd; flex: none; }
-/* Acesso restrito as 10 habilidades (senha conferida pelo Caddy). */
-.nav-restrito { display: inline-flex; align-items: center; gap: 5px; padding: 4px 11px 4px 9px; white-space: nowrap; text-decoration: none;
-  border: 1px solid rgba(252, 211, 77, .55); border-radius: var(--rounded-full); background: rgba(252, 211, 77, .1);
-  font-family: var(--font-label); font-size: .7rem; font-weight: 700; color: #fcd34d; }
-.nav-restrito:hover, .nav-restrito:focus-visible { color: #fff; background: rgba(252, 211, 77, .22); outline: none; }
-.nav-restrito-icone { flex: none; }
 .nav-troca-marca { display: none; }
 .nav-actions .btn { padding: .5rem 1rem; border-radius: var(--rounded-full); }
 .nav-actions .nav-cta { background: var(--amber-bright); color: #fff; border-color: var(--amber-bright); box-shadow: 0 3px 12px rgba(217, 119, 6, .28); }
@@ -149,9 +143,7 @@ blockquote.destaque-pastel { font-style: italic; }
   .nav-links .nav-drop, .nav-links .nav-drop-mega { display: grid; position: static; min-width: 0; grid-template-columns: 1fr; box-shadow: none; border: 0; padding: 0 0 0 12px; background: transparent; }
   .nav-troca-produto > span { display: none; }
   .nav-troca-produto { padding: 6px; }
-  .nav-restrito > span { display: none; }
-  .nav-restrito { padding: 6px; }
-  .nav-actions .btn { padding: .45rem .8rem; font-size: .72rem; }
+    .nav-actions .btn { padding: .45rem .8rem; font-size: .72rem; }
   .duas-colunas { grid-template-columns: 1fr; }
   .hero-pagina .hero-title, .section-title-amber { text-wrap: balance; }
   .passos { text-align: center; }
@@ -385,3 +377,17 @@ main ul, main ol { list-style-position: inside; padding-left: 0; }
 main .hero-grid > :first-child { margin-inline: auto; }
 main .hero-lead, main .section-header, main .section-lead { margin-left: auto; margin-right: auto; }
 main .hero-actions, main .hero-badge-wrap, main .hero-stats-row { justify-content: center; }
+
+/* ---------- As 10 habilidades (secao #habilidades da Visao geral) ----------
+   Movido em 11/11/2026 do <style> de psique/percepcao-clinica.html, que foi
+   desativada e fundida na Visao geral. */
+/* As 10 habilidades: grade de duas colunas com cartões da landing; o limite de
+   cada medida (antes barra âmbar lateral) vira caixa pastel menor dentro do cartão. */
+.hab-grade { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.hab.layer-card { display: flex; flex-direction: column; }
+.hab .layer-tag { text-align: center; }
+.hab p { margin: 0 0 var(--space-sm); }
+.hab .hab-limite { margin: auto 0 0; padding: var(--space-sm) var(--space-md); font-size: .9rem; line-height: 1.55; }
+.hab .hab-limite:not(:last-child) { margin-bottom: var(--space-sm); }
+.hab-destaque { grid-column: 1 / -1; border-color: var(--outline-amber-light); }
+@media (max-width: 860px) { .hab-grade { grid-template-columns: 1fr; } }

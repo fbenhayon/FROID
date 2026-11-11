@@ -137,6 +137,7 @@ var NAV_SECOES = {
     ["comece-avaliando-o-encaixe-na-sua-rotina", "Comece avaliando o encaixe na sua rotina"],
     ["bonificacao-destaque", "Bonificação de lançamento"],
     ["multimodal", "Processamento multimodal"],
+    ["habilidades", "As 10 habilidades"],
     ["calibracao-60s", "Calibração de 60 segundos"],
     ["bussola-velocimetro", "IDM e IPM"],
     ["12-zonas", "As 12 zonas de percepção vocal"],

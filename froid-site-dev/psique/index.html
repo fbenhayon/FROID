@@ -19,7 +19,7 @@
 <link rel="alternate" hreflang="es" href="https://www.froid.com.br/dev/es/psique/" />
 <link rel="alternate" hreflang="x-default" href="https://www.froid.com.br/dev/psique/" />
 <link rel="stylesheet" href="../site-assets/psique-v2.css?v=1" />
-<link rel="stylesheet" href="../site-assets/psique-v2-site.css?v=13" />
+<link rel="stylesheet" href="../site-assets/psique-v2-site.css?v=14" />
 <link rel="stylesheet" href="../site-assets/header-site1.css?v=2" />
 </head>
 <body>
@@ -40,6 +40,7 @@
             <a class="nav-drop-pagina nav-drop-visao-geral ativo" role="menuitem" href="index.html">Visão geral</a>
             <a class="nav-drop-secao" role="menuitem" href="index.html#bonificacao-destaque">Bonificação de lançamento</a>
             <a class="nav-drop-secao" role="menuitem" href="index.html#multimodal">Processamento multimodal</a>
+            <a class="nav-drop-secao" role="menuitem" href="index.html#habilidades">As 10 habilidades</a>
             <a class="nav-drop-secao" role="menuitem" href="index.html#calibracao-60s">Calibração de 60 segundos</a>
             <a class="nav-drop-secao" role="menuitem" href="index.html#bussola-velocimetro">IDM e IPM</a>
             <a class="nav-drop-secao" role="menuitem" href="index.html#12-zonas">As 12 zonas de percepção vocal</a>
@@ -109,7 +110,6 @@
     </nav>
     <div class="nav-actions">
       <!-- produto e chamada: gerado por tools/gerar-header-do-site.py -->
-      <a class="nav-restrito" href="percepcao-clinica.html" aria-label="As 10 habilidades do FROID Psique, acesso com senha"><svg class="nav-restrito-icone" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" focusable="false"><rect x="3" y="7" width="10" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span>10 habilidades</span></a>
       <a class="nav-troca-produto nav-troca-nr1" href="../nr1/index.html" aria-label="Ir para o FROID NR-1"><svg class="nav-troca-icone" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M2 5.5h10.5L9.5 2.5M14 10.5H3.5l3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span><span class="nav-troca-marca">FROID </span>NR-1</span></a>
       <a class="btn btn-solid nav-cta nav-cta-psique" href="https://www.froid.com.br/cadastro" aria-label="Cadastre-se e comece o teste grátis"><span class="nav-cta-longo">Cadastre-se e comece o teste grátis</span><span class="nav-cta-curto" aria-hidden="true">Teste grátis</span></a>
       <!-- /produto e chamada -->
@@ -339,6 +339,95 @@
         </p>
       </div>
     </section>
+
+    <!-- As 10 habilidades: fundidas aqui em 11/11/2026 (pedido do dono) a partir
+         de psique/percepcao-clinica.html, que foi desativada. Inclui a introducao
+         da pratica clinica, que tambem so existia la. -->
+    <section class="section-block" id="habilidades">
+    <div class="section-header">
+      <h2 class="section-title-amber">As 10 habilidades do FROID Psique</h2>
+      <p class="section-lead">Cada habilidade descreve o que o sistema registra e o que ela pode revelar ao profissional, além do limite de cada medida. Dizer o que uma medida não prova faz parte do que a torna confiável.</p>
+    </div>
+    <div class="prosa">
+      <p>Um paciente que acelera a fala ao mencionar o trabalho. Uma voz que perde energia sempre que um nome aparece. Um rosto que se contrai enquanto o relato diz que está tudo bem. O profissional experiente percebe esses momentos, mas eles passam, e na sessão seguinte resta a lembrança.</p>
+      <p>O FROID Psique registra esses sinais durante o atendimento, compara cada paciente com ele mesmo e organiza tudo num relatório que você pode revisitar. <strong>Ele não diagnostica nem interpreta pelo profissional.</strong> Ele mostra onde olhar.</p>
+    </div>
+
+    <div class="grade-cartoes hab-grade">
+
+      <article class="layer-card hab" id="h1-calibracao">
+        <span class="layer-tag">01 · Referência</span>
+        <h3>Calibração individual</h3>
+        <p>Os primeiros 60 segundos estabelecem a linha de base vocal <strong>daquele paciente, naquela sessão</strong>. Depois disso, cada corte de 10 minutos é comparado com essa referência, nunca com uma média populacional.</p>
+        <p class="destaque-pastel hab-limite">Uma pessoa que naturalmente fala alto ou rápido não é marcada como fora do padrão. O que conta é a mudança em relação a ela mesma.</p>
+      </article>
+
+      <article class="layer-card hab" id="h2-ritmo">
+        <span class="layer-tag">02 · Fluência</span>
+        <h3>Ritmo da fala: palavras por minuto</h3>
+        <p>O FROID acompanha quantas palavras por minuto o paciente fala, a partir da transcrição, e mostra quando o ritmo acelera ou desacelera ao longo da sessão.</p>
+        <p>A aceleração pode acompanhar agitação ou ansiedade; a lentificação pode acompanhar cansaço, tristeza, medicação ou um tema difícil. <strong>Só o profissional, conhecendo a história, distingue uma coisa da outra</strong>, e é por isso que o dado chega para você, e não como conclusão.</p>
+        <p class="destaque-pastel hab-limite">O ritmo também muda com idioma, sotaque, tema e qualidade do áudio. Ele mostra uma variação, não identifica um estado emocional.</p>
+      </article>
+
+      <article class="layer-card hab" id="h3-bandas">
+        <span class="layer-tag">03 · Voz</span>
+        <h3>Energia vocal em 12 bandas</h3>
+        <p>A energia da voz é distribuída em 12 faixas de frequência, como os canais de um equalizador. O painel mostra quais faixas se afastaram da linha de base, para mais ou para menos, a cada corte.</p>
+        <p class="destaque-pastel hab-limite">Doze bandas não são doze emoções. Nenhuma faixa tem associação validada com um sentimento específico.</p>
+      </article>
+
+      <article class="layer-card hab" id="h4-ipm-idm">
+        <span class="layer-tag">04 · Índices</span>
+        <h3>IPM e IDM: quanto e para onde a voz mudou</h3>
+        <p>O IPM resume a <strong>magnitude</strong> dos desvios acústicos em relação à referência. O IDM preserva a <strong>direção</strong>: se a energia aumentou ou diminuiu. Juntos, mostram num relance quais momentos da sessão merecem ser revisitados.</p>
+        <p class="destaque-pastel hab-limite">São leituras de variação vocal, não notas de saúde mental.</p>
+      </article>
+
+      <article class="layer-card hab" id="h5-subharmonicos">
+        <span class="layer-tag">05 · Exploração</span>
+        <h3>Sub-harmônicos da fala</h3>
+        <p>Componentes de muito baixa frequência da voz, nas faixas de 5–12 Hz, 12–20 Hz e 20–40 Hz, registrados como indicadores exploratórios ao lado das demais medidas.</p>
+        <p class="destaque-pastel hab-limite">São indicadores de pesquisa. Não devem ser apresentados como biomarcador clínico validado nem como diagnóstico.</p>
+      </article>
+
+      <article class="layer-card hab" id="h6-face">
+        <span class="layer-tag">06 · Face</span>
+        <h3>Movimentos faciais em sete famílias</h3>
+        <p>O navegador extrai, do vídeo autorizado, os movimentos do rosto. O servidor os descreve em Unidades de Ação, o vocabulário do sistema FACS, e os organiza em <strong>sete famílias de padrões faciais</strong>, preservando o lado do rosto e as ambiguidades. Nos 60 segundos iniciais, o FROID registra também uma referência facial do próprio paciente, por enquanto apenas medida.</p>
+        <p class="destaque-pastel hab-limite">É uma estimativa aproximada, não uma codificação FACS certificada, nem detecção certificada de microexpressões: a captura opera perto de três quadros por segundo. Um padrão facial não é um sentimento comprovado.</p>
+      </article>
+
+      <article class="layer-card hab" id="h7-contexto">
+        <span class="layer-tag">07 · Contexto</span>
+        <h3>Transcrição e o assunto em discussão</h3>
+        <p>A fala é transcrita com a identificação de quem falou, profissional ou paciente, a partir do canal de áudio. Assim, cada variação de voz, ritmo ou rosto pode ser lida <strong>junto do que estava sendo dito naquele momento</strong>.</p>
+        <p class="destaque-pastel hab-limite">Uma medida sem contexto não diz nada. O assunto é o que permite ao profissional dar sentido a ela.</p>
+      </article>
+
+      <article class="layer-card hab hab-destaque" id="h8-coerencia">
+        <span class="layer-tag">08 · Leitura cruzada</span>
+        <h3>Coerência e dissonância, à vista do profissional</h3>
+        <p>Voz, ritmo, rosto e conteúdo aparecem <strong>lado a lado, no mesmo corte</strong>. Quando o relato diz "estou bem" e a voz perde energia, ou quando o tema muda e o ritmo dispara, o profissional vê os canais ao mesmo tempo e decide se há coerência ou dissonância, e se vale levar isso ao paciente.</p>
+        <p class="destaque-pastel hab-limite">O FROID não calcula um índice de dissonância entre rosto e voz. Ele mostra os canais; quem percebe a relação entre eles, e decide o que fazer com ela, é o profissional.</p>
+      </article>
+
+      <article class="layer-card hab" id="h9-relatorio">
+        <span class="layer-tag">09 · Registro</span>
+        <h3>Relatório da sessão e evolução</h3>
+        <p>Ao final, o relatório reúne cada corte com a linha de base como referência: média, último corte, variação e alertas. Os movimentos faciais aparecem no corte em que ocorreram, com o minuto e a fala daquele momento. A sessão de hoje pode ser comparada com as anteriores do mesmo paciente.</p>
+        <p class="destaque-pastel hab-limite">Onde não houve medida, o relatório declara "Sem Capacidade de Apuração". Nenhum campo é preenchido com zero ou estimativa.</p>
+      </article>
+
+      <article class="layer-card hab" id="h10-explica">
+        <span class="layer-tag">10 · Consulta</span>
+        <h3>FROID Explica e Data-Froid</h3>
+        <p>Um assistente que conversa com você sobre os registros da sessão e consulta o Data-Froid, o acervo analítico do FROID, para trazer padrões agregados de casos semelhantes. Funciona como um bibliotecário: encontra, organiza e cita, e a decisão continua sendo sua.</p>
+        <p class="destaque-pastel hab-limite">Encontrar casos parecidos não transforma uma hipótese em prova, e o percurso de um paciente não determina o tratamento de outro.</p>
+      </article>
+
+    </div>
+  </section>
 
     <!-- SEÇÃO 2: CALIBRAÇÃO INICIAL DE 60 SEGUNDOS -->
     <section class="section-block" id="calibracao-60s">
@@ -1122,6 +1211,16 @@
         <p class="section-lead">
           Construído sob os mais rígidos preceitos da LGPD (Art. 11 e 12), Resoluções do CFP (nº 01/2009, 06/2019, 13/2022 e 09/2024), HIPAA e GDPR.
         </p>
+      </div>
+
+      <!-- Fundido em 11/11/2026 de psique/percepcao-clinica.html: como o
+           acervo e consultado. O que nunca entra nele e o piso de 7 registros
+           ja estao nas camadas abaixo e nao se repetem. -->
+      <div class="prosa">
+        <p>Todo profissional acumula, ao longo da carreira, uma memória de casos. O Data-Froid propõe fazer isso em escala: reunir medidas e sínteses <strong>desidentificadas</strong> de sessões elegíveis, de profissionais diferentes, em contextos e culturas diferentes, num acervo que pode ser consultado.</p>
+        <p>Diante de um paciente, o profissional pergunta, pelo FROID Explica, por exemplo: <em>"Em registros com este perfil de variação vocal, o que mudou depois de determinada intervenção?"</em>. A resposta vem de padrões agregados, nunca do prontuário de outra pessoa.</p>
+        <p><strong>Caminho, não veredito.</strong> O acervo aponta padrões para investigar. Acumular sessões não substitui a validação clínica nem o julgamento profissional.</p>
+        <p>O acervo cresce a cada sessão elegível. Quem participa desde o início ajuda a construir a base que vai orientar os profissionais que vierem depois.</p>
       </div>
 
       <div class="privacy-layers-grid">
