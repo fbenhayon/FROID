@@ -915,157 +915,112 @@
       </div>
     </section>
 
-    <!-- SEÇÃO 5: RITMO DE FALA E PALAVRAS POR MINUTO -->
+    <!-- SEÇÃO 5: RITMO DE FALA E PALAVRAS POR MINUTO. Reescrita em 11/11/2026 por
+         decisao do dono, depois da verificacao das fontes no texto dos artigos:
+         sairam as faixas emocionais sem fonte (pânico ~260, desdém ~222, neutro
+         ~214, 10 a 30 = depressão maior), o simulador e os blocos que as
+         explicavam. Ficou o que o FROID mede de fato e o que os estudos de fato
+         dizem, como contexto. -->
     <section class="section-block" id="ritmo-fala">
       <div class="section-header">
         <span class="section-eyebrow">Prosódia Clínica e Coordenação Neuromuscular</span>
         <h2 class="section-title-amber">Quadro de indicação de palavras por 1 minuto</h2>
         <p class="section-lead">
-          Para traduzir a dinâmica interna da psique humana em dados objetivos, o FROID mede a taxa de elocução de cada paciente contra a própria referência. O quadro abaixo resume associações descritas na literatura, em nível de grupo; não é uma classificação do paciente.
+          O FROID compara o paciente com ele mesmo. A literatura descreve diferenças entre grupos de pessoas, não cortes para um indivíduo. Aqui está como medimos, o que a medida mostra, o que ela não mostra e o que os estudos de fato dizem.
         </p>
       </div>
 
-      <!-- TABELA ESTRUTURADA DE ELOCUÇÃO -->
+      <h3 class="section-title-amber" style="font-size: 1.35rem;">Como o FROID mede</h3>
+      <div class="channels-grid">
+        <div class="status-card">
+          <h3>Só a fala do paciente</h3>
+          <p>As palavras do paciente são divididas pelo tempo em que <strong>ele</strong> falou, nos blocos de 7 segundos da trilha de áudio dele. A fala do profissional fica fora da conta. Um silêncio curto dentro do bloco conta como fala, então a medida tende a sair um pouco abaixo do real, nunca acima.</p>
+        </div>
+        <div class="status-card">
+          <h3>A referência desta sessão</h3>
+          <p>Os 60 segundos iniciais de cada sessão formam a referência. A cada corte, o painel mostra a <strong>cadência</strong>: a variação percentual das palavras por minuto em relação a ela, e de quantas palavras a referência saiu. Poucas palavras, referência frágil, e o número fica à vista para você julgar.</p>
+        </div>
+        <div class="status-card" data-status="amber">
+          <h3>Faixas que são escolha do produto</h3>
+          <p>A cadência é lida em faixas: na referência (menos de 15%), acelerada ou lentificada (15% a 30%), muito acelerada ou muito lentificada (30% ou mais). Esses limites <strong>são escolha do FROID, não valores validados</strong>: a literatura verificada não traz um corte de variação para uma pessoa. Eles ficam até o Data-FROID ter sessões suficientes, medidas do mesmo jeito e em português, para medir quanto a fala varia normalmente de uma sessão para outra. Aí os limites passam a sair de medida.</p>
+        </div>
+      </div>
+
+      <h3 class="section-title-amber" style="font-size: 1.35rem; margin-top: var(--space-2xl);">O que a medida mostra e o que ela não mostra</h3>
+      <div class="channels-grid">
+        <div class="status-card" data-status="ok">
+          <h3>Mostra: reação dentro da sessão</h3>
+          <p>A fala que acelera ou desacelera quando o assunto muda, ao lado da transcrição daquele momento. É o paciente comparado com o começo da própria sessão.</p>
+        </div>
+        <div class="status-card" data-status="alert">
+          <h3>Não mostra: o estado em que o paciente chegou</h3>
+          <p>A referência dos 60 segundos é da sessão, não o "normal" da pessoa. Se o paciente entra nervoso ou deprimido, a referência já nasce alterada, e a sessão inteira pode parecer "na referência". Para enxergar o estado, a referência certa é o histórico do próprio paciente: a mediana das palavras por minuto nas sessões anteriores, com o número de sessões à vista. <strong>Essa referência está em desenvolvimento e ainda não aparece no painel.</strong></p>
+        </div>
+        <div class="status-card">
+          <h3>Variação pequena pode não significar nada</h3>
+          <p>Em pessoas saudáveis, só mudar de interlocutor já move a fala cerca de 10%: a mesma conversa telefônica saiu a 193 palavras por minuto entre estranhos e a 214 entre íntimos (Yuan, Liberman e Cieri, 2006).</p>
+        </div>
+      </div>
+
+      <h3 class="section-title-amber" style="font-size: 1.35rem; margin-top: var(--space-2xl);">O que os estudos dizem: contexto, não régua</h3>
       <div class="table-container">
         <table class="elocution-table">
           <thead>
             <tr>
-              <th>Velocidade da Fala</th>
-              <th>Tempo / Palavra</th>
-              <th>Estado Psíquico / Emocional</th>
-              <th>Dinâmica Fisiológica (associação descrita na literatura)</th>
+              <th>Estudo</th>
+              <th>Língua e tarefa</th>
+              <th>O que foi encontrado</th>
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td><span class="tag-speed tag-speed-high">&gt; 260 ppm</span></td>
-              <td>&lt; 0,23 s</td>
-              <td><strong>Ativação Maníaca / Hipomania</strong></td>
-              <td>
-                Hiperativação severa do sistema motor e perda de inibição cortical. Aceleração extrema no planejamento cognitivo, frequentemente acompanhada de picos de F₀ (pitch) e energia vocal descontrolada.
-              </td>
-            </tr>
-            <tr>
-              <td><span class="tag-speed tag-speed-high">~ 260 ppm</span></td>
-              <td>0,23 s</td>
-              <td><strong>Ansiedade Aguda / Pânico</strong></td>
-              <td>
-                É a emoção básica mais acelerada. Representa um estado de alerta máximo do sistema nervoso simpático, com fuga de ideias e tensão neuromuscular na laringe tentando verbalizar a ameaça sob alto estresse.
-              </td>
-            </tr>
-            <tr>
-              <td><span class="tag-speed tag-speed-norm">~ 230 ppm</span></td>
-              <td>0,26 s</td>
-              <td><strong>Raiva, Hostilidade ou Exuberância</strong></td>
-              <td>
-                Alta excitação e assertividade (emoções de alta ativação). No português brasileiro, a alegria genuína também se manifesta nesta banda de alta velocidade, apresentando fala acelerada e intensidade.
-              </td>
-            </tr>
-            <tr>
-              <td><span class="tag-speed tag-speed-norm">~ 222 ppm</span></td>
-              <td>0,27 s</td>
-              <td><strong>Desdém / Superioridade</strong></td>
-              <td>
-                Ativação cognitiva moderada-alta, frequentemente rastreada junto a ativações faciais assimétricas (AU 14 unilateral), refletindo distanciamento afetivo consciente acompanhado de firmeza mental.
-              </td>
-            </tr>
-            <tr>
-              <td><span class="tag-speed tag-speed-norm">~ 214 ppm</span></td>
-              <td>0,28 s</td>
-              <td><strong>Neutro (Linha de Base Padrão)</strong></td>
-              <td>
-                Estado basal de homeostase laringorrespiratória do paciente, sem interferência de reatividade emocional intensa. Ponto de ancoragem para cálculo de desvio relativo.
-              </td>
-            </tr>
-            <tr>
-              <td><span class="tag-speed tag-speed-calm">187 a 193 ppm</span></td>
-              <td>0,31 a 0,32 s</td>
-              <td><strong>Relaxamento e Docilidade</strong></td>
-              <td>
-                Estado parassimpático ativado, refletindo sensação de segurança, ausência de ameaças perceptíveis e redução significativa da carga cognitiva de processamento interno.
-              </td>
-            </tr>
-            <tr>
-              <td><span class="tag-speed tag-speed-slow">≤ 120 ppm</span></td>
-              <td>0,50 a 1,0 s</td>
-              <td><strong>Tédio, Tristeza ou Nojo</strong></td>
-              <td>
-                O estado não-patológico mais lento. Marca uma retração emocional. No português brasileiro, o nojo apresenta a menor taxa de elocução, com forte alongamento temporal vocálico, assim como a tristeza exibe letargia.
-              </td>
-            </tr>
-            <tr>
-              <td><span class="tag-speed tag-speed-crit">10 a 30 ppm</span></td>
-              <td>2,0 a 6,0+ s</td>
-              <td><strong>Retardo Psicomotor (PMR) / Depressão Maior</strong></td>
-              <td>
-                Patologia severa. O paciente sofre de lentificação neurológica profunda originada nos gânglios da base, resultando em colapso do planejamento da fala, hesitações severas, alteração grave de ZCR e esgotamento da energia articulatória.
-              </td>
-            </tr>
+            <tr><td>Yuan, Liberman e Cieri, 2006</td><td>Inglês · conversa telefônica espontânea</td><td>Média de 196 palavras por minuto, de 111 a 291 entre falantes; 236 sem contar as pausas</td></tr>
+            <tr><td>Brysbaert, 2019</td><td>Leitura em voz alta · meta-análise de 77 estudos</td><td>183 palavras por minuto em adultos</td></tr>
+            <tr><td>Gonçalves, 2017</td><td>Português brasileiro · fala espontânea, 7 falantes</td><td>5,27 sílabas por segundo (unidade diferente: sílabas, não palavras)</td></tr>
+            <tr><td>Wiseman et al., 2025</td><td>Inglês · fala espontânea ("conte como está se sentindo")</td><td>Depressão maior: 96 palavras por minuto contra 135 nos controles, cerca de 29% mais lenta; pausas de 1 a 2 s ocupando 44% do tempo contra 25%</td></tr>
+            <tr><td>Yamamoto et al., 2020</td><td>Estudo japonês (o artigo não declara a língua) · entrevista de 10 minutos</td><td>Quanto mais grave a depressão, mais lenta a fala (correlação de −0,38 com a escala HAMD-17)</td></tr>
+            <tr><td>Wadle et al., 2024</td><td>Fala livre curta · pacientes internados</td><td>Fala mais lenta e pausas maiores acompanham piora momentânea da depressão</td></tr>
+            <tr><td>Worthington et al., 2025; Cohen, Mitchell e Elvevåg, 2014</td><td>Inglês · entrevistas clínicas (PANSS); meta-análise</td><td>Esquizofrenia: sintomas positivos com fala mais rápida, negativos com fala mais lenta; produção de fala reduzida na alogia. Sem média de palavras por minuto</td></tr>
+            <tr><td>Eshghi et al., 2022</td><td>Inglês · teste de inteligibilidade de frases</td><td>Esclerose lateral amiotrófica: a inteligibilidade cai de forma acelerada quando a fala desce a cerca de 120 palavras por minuto</td></tr>
+            <tr><td>Aguiar et al., 2025; Almeida, Oliveira Jr. e Almeida, 2015</td><td>Português brasileiro · atores lendo uma frase; fala espontânea de rádio</td><td>Nojo foi a emoção de fala mais alongada e alegria a mais acelerada (medida de duração, não palavras por minuto); a raiva foi mais lenta que a fala neutra</td></tr>
           </tbody>
         </table>
       </div>
 
-      <!-- SIMULADOR DE METRÔNOMO E VELOCIDADE DE ELOCUÇÃO -->
-      <div class="cadence-calculator">
-        <div class="cadence-calc-grid">
-          <div class="cadence-slider-wrap">
-            <div class="cadence-slider-label">
-              <span>Simular Cadência de Fala:</span>
-              <span id="slider-ppm-label" style="font-family: var(--font-mono); color: var(--primary); font-size: 1.1rem;">214 ppm</span>
-            </div>
-            <input 
-              type="range" 
-              min="10" 
-              max="300" 
-              value="214" 
-              step="2" 
-              class="range-input" 
-              id="cadence-slider" 
-              oninput="updateCadenceDisplay(this.value)"
-            >
-            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--on-surface-muted); font-family: var(--font-mono);">
-              <span>10 ppm (Depressão Grave)</span>
-              <span>214 ppm (Basal)</span>
-              <span>300 ppm (Pânico/Mania)</span>
-            </div>
-          </div>
-
-          <div class="cadence-result-card" id="cadence-card-result">
-            <div style="font-size: 0.8rem; font-family: var(--font-mono); text-transform: uppercase; color: var(--primary);" id="cadence-result-status">
-              PADRÃO BASAL ESTIMADO
-            </div>
-            <h4 style="font-family: var(--font-headline); font-size: 1.25rem; margin: 0.2rem 0; color: var(--on-surface);" id="cadence-result-title">
-              Neutro (Homeostase Laringorrespiratória)
-            </h4>
-            <p style="font-size: 0.9rem; color: var(--on-surface-variant); margin: 0;" id="cadence-result-text">
-              Tempo médio de 0,28s por palavra. Ritmo equilibrado sem sobrecarga simpática e sem lentificação psicomotora aparente.
-            </p>
-          </div>
+      <h3 class="section-title-amber" style="font-size: 1.35rem; margin-top: var(--space-2xl);">Por que os números dos estudos não viram limite no FROID</h3>
+      <div class="channels-grid">
+        <div class="status-card">
+          <h3>Outra língua, outra tarefa</h3>
+          <p>Os estudos com palavras por minuto não são em português, e cada um usa uma tarefa específica: "conte como está se sentindo", leitura, entrevista estruturada. Uma sessão de terapia em português é outra situação.</p>
+        </div>
+        <div class="status-card">
+          <h3>Outra forma de contar</h3>
+          <p>Cada estudo conta palavras e tempo de fala do seu jeito. Um "96" do estudo e um "96" do FROID não são o mesmo número.</p>
+        </div>
+        <div class="status-card">
+          <h3>Grupos, não indivíduos</h3>
+          <p>São médias de grupos, com grande dispersão: na depressão maior, 96 mais ou menos 45 palavras por minuto. Nenhum estudo verificado traz um corte para classificar uma pessoa.</p>
         </div>
       </div>
+      <div class="destaque-pastel" style="margin-top: var(--space-xl);">
+        <strong>O caminho para uma referência válida é o próprio acervo.</strong> O Data-FROID reúne sessões medidas do mesmo jeito, em português, com no mínimo 7 registros por consulta. Quando houver volume, ele mostrará quanto a fala varia normalmente de uma sessão para outra, e esse número poderá servir de régua, porque terá a mesma origem da medida. Até lá, a cadência do FROID é lida contra o próprio paciente, os limites de 15% e 30% são declarados como escolha do produto, e a leitura clínica é sempre do profissional.
+      </div>
 
-      <!-- A ENGENHARIA DIAGNÓSTICA POR TRÁS DOS NÚMEROS -->
-      <div class="diagnostic-pillars-grid">
-        <div class="pillar-card">
-          <h4>1. O Esgotamento Neuromotor (10 a 30 ppm)</h4>
-          <p style="font-size: 0.92rem; color: var(--on-surface-variant); margin: 0;">
-            Quando a fala cai para 10 a 30 palavras por minuto, o FROID identifica um cenário de disfunção estrutural severa. O sistema rastreia um alongamento anormal das pausas de silêncio (speech-to-pause ratio), denunciando esforço neurológico colossal para encadear palavras — atestando Retardo Psicomotor típico de episódios de Depressão Maior.
-          </p>
-        </div>
-
-        <div class="pillar-card">
-          <h4>2. A Hiperativação e a Ansiedade (&gt; 260 ppm)</h4>
-          <p style="font-size: 0.92rem; color: var(--on-surface-variant); margin: 0;">
-            No espectro oposto, a fala acelerada é analisada em conjunto com os marcadores de tensão autonômica (infrassom de 5-12 Hz e derivadas de MFCC9). Uma aceleração acentuada em relação à referência do próprio paciente é sinalizada ao profissional, sem classificação automática de ansiedade ou mania.
-          </p>
-        </div>
-
-        <div class="pillar-card">
-          <h4>3. O Custo Cognitivo (A Bússola do Estresse)</h4>
-          <p style="font-size: 0.92rem; color: var(--on-surface-variant); margin: 0;">
-            Indivíduos sob altíssimo esforço mental tendem a hesitar e desacelerar a fala porque a carga de processamento interno bloqueia a via motora da fluência. O FROID detecta que o fluxo de pensamento não é natural através de microperturbações na laringe (Jitter e Shimmer), comprovando o estresse cognitivo durante as pausas.
-          </p>
-        </div>
+      <h3 class="section-title-amber" style="font-size: 1.1rem; margin-top: var(--space-2xl);">Referências</h3>
+      <div class="prosa" style="font-size: 0.86rem;">
+        <p>Cada número desta seção foi conferido no texto do artigo em 11/11/2026. Trabalhos que só vimos citados por outros autores ficaram de fora.</p>
+        <ul>
+          <li>AGUIAR, A. C. et al. Medidas acústico-prosódicas discriminam as emoções de falantes do português brasileiro. <em>CoDAS</em>, v. 37, n. 4, 2025. DOI: 10.1590/2317-1782/e20240116pt.</li>
+          <li>ALMEIDA, A. N. S. de; OLIVEIRA JR., M.; ALMEIDA, R. A. S. de. A velocidade de fala como pista acústica da emoção básica de raiva. <em>Diadorim</em>, v. 17, n. 2, p. 198-211, 2015. DOI: 10.35520/diadorim.2015.v17n2a4076.</li>
+          <li>BRYSBAERT, M. How many words do we read per minute? A review and meta-analysis of reading rate. <em>Journal of Memory and Language</em>, v. 109, 104047, 2019. DOI: 10.1016/j.jml.2019.104047.</li>
+          <li>COHEN, A. S.; MITCHELL, K. R.; ELVEVÅG, B. What do we really know about blunted vocal affect and alogia? A meta-analysis of objective assessments. <em>Schizophrenia Research</em>, v. 159, n. 2-3, p. 533-538, 2014. DOI: 10.1016/j.schres.2014.09.013.</li>
+          <li>ESHGHI, M. et al. Rate of speech decline in individuals with amyotrophic lateral sclerosis. <em>Scientific Reports</em>, v. 12, 15713, 2022. DOI: 10.1038/s41598-022-19651-1.</li>
+          <li>GONÇALVES, C. S. Taxa de elocução e taxa de articulação em corpus utilizado na perícia de Comparação de Locutores. <em>Letras de Hoje</em>, v. 52, n. 1, p. 15-25, 2017. DOI: 10.15448/1984-7726.2017.1.25540.</li>
+          <li>WADLE, L.-M. et al. Speech features as predictors of momentary depression severity in patients with depressive disorder undergoing sleep deprivation therapy: ambulatory assessment pilot study. <em>JMIR Mental Health</em>, v. 11, e49222, 2024. DOI: 10.2196/49222.</li>
+          <li>WISEMAN, M. et al. Objective speech measures capture depressive symptoms and associated cognitive difficulties. <em>Translational Psychiatry</em>, v. 15, 525, 2025. DOI: 10.1038/s41398-025-03728-2.</li>
+          <li>WORTHINGTON, M. et al. Measurement of schizophrenia symptoms through speech analysis from PANSS interview recordings. <em>Frontiers in Psychiatry</em>, v. 16, 1571647, 2025. DOI: 10.3389/fpsyt.2025.1571647.</li>
+          <li>YAMAMOTO, M. et al. Using speech recognition technology to investigate the association between timing-related speech features and depression severity. <em>PLoS ONE</em>, v. 15, n. 9, e0238726, 2020. DOI: 10.1371/journal.pone.0238726.</li>
+          <li>YUAN, J.; LIBERMAN, M.; CIERI, C. Towards an integrated understanding of speaking rate in conversation. In: INTERSPEECH 2006 – ICSLP, Pittsburgh. ISCA, 2006. DOI: 10.21437/Interspeech.2006-204.</li>
+        </ul>
       </div>
     </section>
 
@@ -1626,49 +1581,6 @@ window.PSIQUE_PRECOS_V2_I18N = {
       });
     }
 
-    // 4. Metrônomo / Slider Interativo de Cadência e Elocução
-    function updateCadenceDisplay(val) {
-      const ppm = parseInt(val, 10);
-      const label = document.getElementById('slider-ppm-label');
-      const card = document.getElementById('cadence-card-result');
-      const status = document.getElementById('cadence-result-status');
-      const title = document.getElementById('cadence-result-title');
-      const text = document.getElementById('cadence-result-text');
-
-      if (label) label.textContent = ppm + ' ppm';
-
-      if (ppm > 260) {
-        if (status) status.textContent = 'ALERTA: HIPERATIVAÇÃO CORTICAL';
-        if (title) title.textContent = 'Ativação Maníaca / Ansiedade Severa';
-        if (text) text.textContent = 'Tempo médio < 0,23s por palavra. Aceleração extrema do sistema motor da fala com alta tensão laríngea e perda de inibição cortical.';
-        if (card) card.style.borderLeftColor = 'var(--error)';
-      } else if (ppm >= 225) {
-        if (status) status.textContent = 'ALTA ATIVAÇÃO SIMPÁTICA';
-        if (title) title.textContent = 'Raiva, Hostilidade ou Exuberância';
-        if (text) text.textContent = 'Tempo médio de ~0,26s por palavra. No português brasileiro, alegria expansiva ou assertividade defensiva operam nesta banda.';
-        if (card) card.style.borderLeftColor = 'var(--amber-bright)';
-      } else if (ppm >= 200) {
-        if (status) status.textContent = 'PADRÃO BASAL EQUILIBRADO';
-        if (title) title.textContent = 'Neutro (Homeostase Laringorrespiratória)';
-        if (text) text.textContent = 'Tempo médio de 0,28s por palavra. Ritmo equilibrado sem sobrecarga simpática e sem lentificação psicomotora aparente.';
-        if (card) card.style.borderLeftColor = 'var(--primary)';
-      } else if (ppm >= 150) {
-        if (status) status.textContent = 'ESTADO PARASSIMPÁTICO';
-        if (title) title.textContent = 'Relaxamento e Docilidade';
-        if (text) text.textContent = 'Tempo médio de 0,31s a 0,35s por palavra. Ritmo sereno com baixa carga cognitiva e ausência de defesas agudas.';
-        if (card) card.style.borderLeftColor = 'var(--tertiary)';
-      } else if (ppm >= 45) {
-        if (status) status.textContent = 'RETRAÇÃO AFETIVA';
-        if (title) title.textContent = 'Tristeza, Tédio ou Inibição';
-        if (text) text.textContent = 'Tempo médio de 0,5s a 1,5s por palavra. Alongamento de vogais, perda de intensidade vocal e hesitação reflexiva.';
-        if (card) card.style.borderLeftColor = 'var(--amber-bright)';
-      } else {
-        if (status) status.textContent = 'CRÍTICO: DISFUNÇÃO ESTRUTURAL';
-        if (title) title.textContent = 'Retardo Psicomotor (PMR) / Depressão Maior';
-        if (text) text.textContent = 'Tempo médio de 2,0s a 6,0+s por palavra. Colapso do planejamento neurológico da fala, letargia dos gânglios da base e fadiga profunda.';
-        if (card) card.style.borderLeftColor = 'var(--error)';
-      }
-    }
 
     // Execução Inicial
     document.addEventListener('DOMContentLoaded', () => {
