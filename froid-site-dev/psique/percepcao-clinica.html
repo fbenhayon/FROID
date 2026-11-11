@@ -33,68 +33,49 @@
 .prosa .plan-list li::before { content: "\2713"; position: absolute; left: 0; color: var(--tertiary); font-weight: 800; }
 @media (max-width: 860px) { .hab-grade { grid-template-columns: 1fr; } }
 
-/* Header, menu e rodape na cor da pagina (branco), so nesta pagina. Pedido do
-   dono em 10/11/2026: os neuronios da entrada do site, duplicados em fundo
-   branco e tracos pretos (img/neurons-header-claro.png, gerada da
-   neurons-header.png), com um pulso brilhante indo de um neuronio ao outro.
-   A imagem e desenhada a 100% da largura e alinhada a 57,5% da altura: assim
-   o axonio fica a 57,5% da altura da caixa e os dois corpos a 23% e 77% da
-   largura, em qualquer tela - e o pulso anda exatamente sobre o axonio. */
+/* Header e rodape com os neuronios da pagina de entrada do site, so nesta
+   pagina. Pedido do dono: em 10/11/2026 a versao em fundo branco (a pagina era
+   branca); em 11/11/2026, com o Site II no tema escuro do FROID, a versao
+   escura "igual a pagina de entrada": img/neurons-header.png e o mesmo pulso
+   azul-branco que corre pelo axonio, com o rastro (index.html, .pulso e
+   .rastro). A imagem e desenhada a 100% da largura e alinhada a 57,5% da
+   altura: o axonio fica a 57,5% da altura da caixa e os dois corpos a 23% e
+   77% da largura, em qualquer tela - e o pulso anda exatamente sobre ele. */
 body > header.site-header,
 body > footer.site-footer {
   position: relative; overflow: hidden; isolation: isolate;
-  background: #fff url('../site-assets/img/neurons-header-claro.png') center 57.5% / 100% auto no-repeat;
-  color: #0f172a; border-color: #e2e8f0;
+  background: #000 url('../site-assets/img/neurons-header.png') center 57.5% / 100% auto no-repeat;
 }
 body > header.site-header { position: relative !important; overflow: visible; }
 body > header.site-header::before,
 body > footer.site-footer::before {
-  /* veu branco: o desenho fica visivel e o texto continua legivel */
+  /* veu escuro com o rastro: o desenho aparece e o texto continua legivel */
   content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
-  background: linear-gradient(90deg, rgba(255,255,255,.35), rgba(255,255,255,.7) 30%, rgba(255,255,255,.7) 70%, rgba(255,255,255,.35));
+  background:
+    linear-gradient(90deg, transparent, rgba(147, 197, 253, .9), transparent) -40% 57.5% / 30% 2px no-repeat,
+    linear-gradient(90deg, rgba(2, 6, 23, .35), rgba(2, 6, 23, .62) 30%, rgba(2, 6, 23, .62) 70%, rgba(2, 6, 23, .35));
+  animation: rastro-axonio 3.6s cubic-bezier(.65, 0, .35, 1) infinite alternate;
 }
-body > footer.site-footer::before { background: rgba(255,255,255,.45); }
+body > footer.site-footer::before {
+  background:
+    linear-gradient(90deg, transparent, rgba(147, 197, 253, .9), transparent) -40% 57.5% / 30% 2px no-repeat,
+    rgba(2, 6, 23, .6);
+}
 body > header.site-header::after,
 body > footer.site-footer::after {
   content: ""; position: absolute; top: 57.5%; left: 23%; z-index: -1; pointer-events: none;
-  width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%;
-  background: radial-gradient(circle, #fff 0%, #fde68a 30%, #f59e0b 60%, rgba(245,158,11,0) 72%);
-  box-shadow: 0 0 10px 3px rgba(245,158,11,.55), 0 0 26px 8px rgba(251,191,36,.35);
-  animation: pulso-axonio 3.6s cubic-bezier(.65,0,.35,1) infinite alternate;
+  width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%;
+  background: radial-gradient(circle, #ffffff 0%, #bfdbfe 22%, rgba(96, 165, 250, .55) 45%, transparent 70%);
+  filter: blur(.4px);
+  animation: pulso-axonio 3.6s cubic-bezier(.65, 0, .35, 1) infinite alternate;
 }
 @keyframes pulso-axonio { from { left: 23%; } to { left: 77%; } }
+@keyframes rastro-axonio { from { background-position: 0% 57.5%, 0 0; } to { background-position: 100% 57.5%, 0 0; } }
 @media (prefers-reduced-motion: reduce) {
-  body > header.site-header::after, body > footer.site-footer::after { animation: none; left: 50%; }
+  body > header.site-header::before, body > footer.site-footer::before,
+  body > header.site-header::after, body > footer.site-footer::after { animation: none; }
+  body > header.site-header::after, body > footer.site-footer::after { left: 50%; }
 }
-/* header */
-body > header.site-header .brand { color: #0f172a; }
-body > header.site-header .nav-links a { color: #334155; }
-body > header.site-header .nav-links a:hover,
-body > header.site-header .nav-links a:focus-visible,
-body > header.site-header .nav-links a.ativo { color: #0f172a; background: rgba(15,23,42,.06); }
-body > header.site-header .nav-troca-produto { color: #334155; border-color: #cbd5e1; background: rgba(255,255,255,.85); }
-body > header.site-header .nav-troca-produto:hover { color: #0f172a; background: #f1f5f9; }
-body > header.site-header .nav-troca-icone { color: #7c3aed; }
-body > header.site-header .nav-restrito { color: #b45309; border-color: #f59e0b; background: #fffbeb; }
-body > header.site-header .nav-restrito:hover { color: #92400e; background: #fef3c7; }
-body > header.site-header .btn-ghost { color: #0f172a; border-color: #94a3b8; background: rgba(255,255,255,.85); }
-body > header.site-header .btn-ghost:hover { border-color: #0f172a; }
-body > header.site-header .site-menu-toggle { color: #0f172a; border-color: #94a3b8; background: #fff; }
-/* menu suspenso */
-body > header.site-header .nav-drop { background: #fff; border-color: #e2e8f0; box-shadow: 0 16px 40px rgba(15,23,42,.14); }
-body > header.site-header .nav-links .nav-drop a.nav-drop-pagina { color: #b45309; }
-body > header.site-header .nav-links .nav-drop a.nav-drop-secao { color: #475569; }
-body > header.site-header .nav-links .nav-drop a:hover { color: #0f172a; background: #fef3c7; }
-@media (max-width: 860px) {
-  body > header.site-header .nav-familia { border-top-color: #e2e8f0; }
-  body > header.site-header .nav-links .nav-drop { background: transparent; }
-}
-/* rodape */
-body > footer.site-footer .footer-col h5 { color: #0f172a; }
-body > footer.site-footer .footer-col p { color: #475569 !important; }
-body > footer.site-footer .footer-col a { color: #334155; }
-body > footer.site-footer .footer-col a:hover { color: #b45309; }
-body > footer.site-footer .footer-bottom { color: #64748b; border-top-color: #e2e8f0; }
 </style>
 </head>
 
