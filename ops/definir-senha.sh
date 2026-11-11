@@ -59,7 +59,9 @@ fi
 echo ".env atualizado (copia anterior: $PROJETO/$COPIA)."
 
 echo "Recriando o froid-edge (o site fica fora por alguns segundos)..."
-docker compose up -d froid-edge
+# --no-deps: so o froid-edge. Sem ele, o compose pode recriar o backend junto
+# (aconteceu em 11/11/2026 com --force-recreate) e derrubar sessoes clinicas.
+docker compose up -d --no-deps froid-edge
 for _ in $(seq 1 30); do
   codigo=$(curl -s -o /dev/null -w '%{http_code}' "$ALVO" || true)
   [ "$codigo" = 401 ] && break
@@ -76,6 +78,6 @@ echo "Sem senha: $sem (esperado 401) | com a senha nova: $com (esperado 200) | p
 if [ "$sem" = 401 ] && [ "$com" = 200 ] && [ "$inicio" = 200 ]; then
   echo "Pronto. Usuario: froid. Senha: a que voce acabou de digitar."
 else
-  echo "ALGO NAO CONFERE. Para voltar: cp -p $COPIA .env && docker compose up -d froid-edge" >&2
+  echo "ALGO NAO CONFERE. Para voltar: cp -p $COPIA .env && docker compose up -d --no-deps froid-edge" >&2
   exit 1
 fi
