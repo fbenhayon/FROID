@@ -39,13 +39,15 @@ VISUAL = ("display:inline-flex;align-items:center;gap:6px;padding:6px 10px;borde
           "white-space:nowrap")
 RODAPE = re.compile(r'(<footer class="rodape">\r?\n)')
 
-ROTULO = {"": "Acesso restrito ao Site II", "en": "Restricted access to Site II",
-          "fr": "Accès restreint au Site II", "es": "Acceso restringido al Sitio II"}
+# Desde 11/11/2026 (tarde) o Site II nao tem senha: o rotulo deixou de dizer
+# "acesso restrito" e o cadeado virou uma seta. Rotulo que promete uma
+# restricao que nao existe engana quem le (skill-froid-master, 2.4).
+ROTULO = {"": "Ir para o Site II", "en": "Go to Site II",
+          "fr": "Aller au Site II", "es": "Ir al Sitio II"}
 CURTO = {"": "Site II", "en": "Site II", "fr": "Site II", "es": "Sitio II"}
 CADEADO = ('<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" focusable="false">'
-           '<rect x="3" y="7" width="10" height="7" rx="1.5" fill="none" stroke="currentColor" '
-           'stroke-width="1.6"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" fill="none" '
-           'stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>')
+           '<path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5" fill="none" stroke="currentColor" '
+           'stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>')
 
 
 def destino(rel):

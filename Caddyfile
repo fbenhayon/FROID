@@ -77,7 +77,7 @@ froid.com.br, www.froid.com.br {
     # fundida na Visão geral e virou redirecionamento; a regra saiu. O caminho
     # público dela cai no redirecionamento do Psique público, logo abaixo.
 
-    # Site de desenvolvedores (froid-site-dev), em /dev/, só com senha.
+    # Site II (froid-site-dev), em /dev/. Teve senha de 11/11/2026 até a tarde do mesmo dia (ver abaixo).
     # Determinação do dono em 11/11/2026: o site da versão atual (Site 2 do
     # Psique, inscrição gratuita, calculadora NR-1, 10 habilidades) contém
     # informação de desenvolvedores e não é para o público; o público volta a
@@ -97,7 +97,7 @@ froid.com.br, www.froid.com.br {
     # O Psique público (Site 1) não é mais acessível. Determinação do dono,
     # 11/11/2026: "quem chegar pela página de entrada veja apenas o conteúdo
     # do Site II; exclua o acesso ao Site 1". Todo caminho do Psique público,
-    # em qualquer idioma, vai à MESMA página no Site II (que pede a senha),
+    # em qualquer idioma, vai à MESMA página no Site II,
     # inclusive para quem chega por buscador ou link antigo. O NR-1 e as
     # páginas comuns (contato, privacidade, termos) continuam públicos.
     # 302, e não 308: se a decisão mudar, nenhum navegador terá guardado o
@@ -106,10 +106,13 @@ froid.com.br, www.froid.com.br {
     @psique_publico path_regexp psique_publico (?i)^/((en|fr|es)/)?psique(/.*)?$
     redir @psique_publico /dev{uri} 302
 
+    # SEM SENHA desde 11/11/2026, determinação do dono: "quando você clica no
+    # FROID Psique na primeira página ele solicita a senha; tem que desabilitar
+    # agora essa restrição". O basic_auth que ficava aqui (usuário froid, hash
+    # em FROID_DEV_SENHA_HASH, falha fechada) saiu; para religar, reverter o
+    # commit que tirou este bloco — a variável e ops/definir-senha.sh seguem
+    # no lugar.
     handle_path /dev/* {
-        basic_auth bcrypt "FROID - desenvolvedores" {
-            {$FROID_DEV_USUARIO:froid} {$FROID_DEV_SENHA_HASH:JDJhJDE0JDdzL2Y5djRhQVl3RjUxVnRuNWhYSmUuOU1IZWFtWjZuaU1VYXdJTnFUa2JuU05XM09Ic2Y2}
-        }
         header Cache-Control "no-store, no-cache, must-revalidate"
         header X-Robots-Tag "noindex, nofollow"
         root * /srv/froid-site-dev

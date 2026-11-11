@@ -152,20 +152,22 @@ class OHeaderDoSiteIIEOVisualDoSite1(unittest.TestCase):
                 self.assertLess(texto.index("psique-v2-site.css"), texto.index("header-site1.css"))
 
 
-class OSiteIISoAbreComSenha(unittest.TestCase):
-    def test_o_caddy_serve_dev_atras_de_basic_auth_com_falha_fechada(self):
+class OSiteIISemSenha(unittest.TestCase):
+    """11/11/2026, a tarde: o dono mandou tirar a senha do Site II ("quando
+    voce clica no FROID Psique na primeira pagina ele solicita a senha; tem
+    que desabilitar agora essa restricao"). Antes, este teste exigia o
+    basic_auth em /dev/; agora exige que nao haja nenhuma linha ATIVA de senha
+    no Caddyfile (comentarios contando a historia podem citar a palavra)."""
+
+    def test_o_caddy_serve_dev_sem_senha(self):
         caddy = (REPO / "Caddyfile").read_text(encoding="utf-8")
+        ativas = [l for l in caddy.splitlines() if not l.strip().startswith("#")]
+        self.assertFalse([l for l in ativas if "basic_auth" in l])
         bloco = caddy.split("handle_path /dev/* {", 1)[1].split("\n    }\n", 1)[0]
-        self.assertIn("basic_auth bcrypt", bloco)
-        # Sem a variavel, vale um hash padrao (segredo que ninguem guardou).
-        self.assertRegex(bloco, r"\{\$FROID_DEV_SENHA_HASH:[A-Za-z0-9+/=]{40,}\}")
         self.assertIn("root * /srv/froid-site-dev", bloco)
         # O bloco de /dev/ vem antes do `handle {` sem matcher, que serve o
         # site publico inteiro e pegaria qualquer caminho que sobrasse.
         self.assertLess(caddy.index("handle_path /dev/*"), caddy.index("\n    handle {\n"))
-        # A senha propria da pagina das 10 habilidades saiu em 11/11/2026 com
-        # a pagina; nenhum outro basic_auth sobra fora do de /dev/.
-        self.assertEqual(caddy.count("basic_auth"), 1)
         self.assertNotIn("FROID_PERCEPCAO_SENHA_HASH", caddy)
 
     def test_o_psique_publico_nao_e_mais_servido(self):
