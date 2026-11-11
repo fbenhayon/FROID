@@ -202,16 +202,6 @@
               </span>
             </div>
 
-            <div class="metric-gauge-card">
-              <div class="metric-gauge-top">
-                <span>Taxa de Elocução Atual</span>
-                <strong style="color: #34d399;">218 ppm (Basal Neutro)</strong>
-              </div>
-              <div class="metric-gauge-bar">
-                <div class="metric-gauge-fill fill-green" style="width: 55%;"></div>
-              </div>
-            </div>
-
             <div style="background: rgba(14, 165, 233, 0.08); border-left: 3px solid #0ea5e9; padding: var(--space-sm); border-radius: 0 var(--rounded-xs) var(--rounded-xs) 0; font-size: 0.78rem; color: #cbd5e1;">
               <strong>Insight FROID:</strong> Desvio vocal abaixo da linha de base no relato sobre relacionamento familiar, com energia de modulação na faixa de 5 a 12 Hz. O rosto aparece em canal próprio; a comparação entre os canais é do profissional.
             </div>
@@ -585,14 +575,8 @@
           <button class="sim-btn-preset active" onclick="loadSimPreset('mask')">
             Cenário 1: Sorriso com Voz Retraída
           </button>
-          <button class="sim-btn-preset" onclick="loadSimPreset('panic')">
-            Cenário 2: Crise de Pânico &amp; Ansiedade Aguda
-          </button>
-          <button class="sim-btn-preset" onclick="loadSimPreset('depression')">
-            Cenário 3: Retardo Psicomotor Severo
-          </button>
           <button class="sim-btn-preset" onclick="loadSimPreset('catharsis')">
-            Cenário 4: Elaboração Autêntica / Alinhamento
+            Cenário 2: Elaboração Autêntica / Alinhamento
           </button>
         </div>
 
@@ -954,7 +938,11 @@
         </div>
         <div class="status-card" data-status="alert">
           <h3>Não mostra: o estado em que o paciente chegou</h3>
-          <p>A referência dos 60 segundos é da sessão, não o "normal" da pessoa. Se o paciente entra nervoso ou deprimido, a referência já nasce alterada, e a sessão inteira pode parecer "na referência". Para enxergar o estado, a referência certa é o histórico do próprio paciente: a mediana das palavras por minuto nas sessões anteriores, com o número de sessões à vista. <strong>Essa referência está em desenvolvimento e ainda não aparece no painel.</strong></p>
+          <p>A referência dos 60 segundos é da sessão, não o "normal" da pessoa. Se o paciente entra nervoso ou deprimido, a referência já nasce alterada, e a sessão inteira pode parecer "na referência". Para enxergar o estado, o FROID usa uma segunda referência: <strong>o histórico do próprio paciente</strong>, na linha "HISTÓRICO" do painel e do relatório.</p>
+        </div>
+        <div class="status-card" data-status="ok">
+          <h3>O histórico: uma indicação que se refina a cada sessão</h3>
+          <p>A referência pelo histórico é a mediana das palavras por minuto na fala do paciente nas sessões anteriores dele. É uma <strong>indicação</strong>, e a apuração dela é uma referência do tempo e do número de sessões realizadas: o painel mostra de quantas sessões e de que período ela saiu, e ela se apura e refina a sua indicação a cada nova sessão realizada. Com poucas sessões ainda é frágil; na primeira sessão, o painel declara que ainda não há histórico. A mediana impede que uma sessão atípica arraste a referência.</p>
         </div>
         <div class="status-card">
           <h3>Variação pequena pode não significar nada</h3>
@@ -1463,28 +1451,6 @@ window.PSIQUE_PRECOS_V2_I18N = {
         ipmBadge: 'Consumo Elevado de Combustível',
         ipmDesc: 'Esforço mental dispendioso para sustentar uma narrativa aparentemente controlada sob alta tensão laringorrespiratória.',
         suggest: 'Assinalar com delicadeza o contraste entre o sorriso forçado e o cansaço do relato ("Noto que você sorri ao me contar isso, mas sinto um peso considerável em suas palavras").'
-      },
-      panic: {
-        idm: 6.2,
-        idmClass: 'zone-amber',
-        idmBadge: 'Hiperativação Simpática Aguda',
-        idmDesc: 'Cadência de 268 ppm com picos desordenados de F₀ e presença de sub-harmônicos de infrassom vocal em 8.5 Hz.',
-        ipm: 94,
-        ipmClass: 'zone-red',
-        ipmBadge: 'Sobrecarga Energética Crítica',
-        ipmDesc: 'O sistema autonômico do paciente opera em iminência de transbordamento (Flooding), exigindo ancoragem imediata.',
-        suggest: 'Interromper a narrativa temática e guiar exercício de descompressão respiratória parassimpática (técnica 4-7-8 ou aterramento sensorial).'
-      },
-      depression: {
-        idm: -4.8,
-        idmClass: 'zone-amber',
-        idmBadge: 'Desconexão e Lentificação',
-        idmDesc: 'Queda drástica de MFCC7 e achatamento da variabilidade de tom. Fala operando a apenas 22 ppm com longos silêncios.',
-        ipm: 14,
-        ipmClass: 'zone-red',
-        ipmBadge: 'Esgotamento Neuromotor Severo',
-        ipmDesc: 'Baixo dispêndio energético motor compatível com lentificação psicomotora.',
-        suggest: 'Respeitar as pausas prolongadas sem pressionar por fluência; investigar risco e ideação de forma direta e estruturada.'
       },
       catharsis: {
         idm: 1.2,
