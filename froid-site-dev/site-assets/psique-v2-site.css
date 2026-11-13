@@ -518,3 +518,10 @@ main .hero-actions .link-texto:hover, main .hero-actions .link-texto:focus-visib
   #ritmo-fala .elocution-table td:nth-child(2)::before { content: "Língua e tarefa"; }
   #ritmo-fala .elocution-table td:nth-child(3)::before { content: "O que foi encontrado"; }
 }
+
+/* Quadro de exemplo dos cortes (13/11/2026): no celular, horario e IDM
+   empilhados e centrados; lado a lado espremiam as duas colunas. */
+@media (max-width: 860px) {
+  main .cut-meta { flex-direction: column; align-items: center; gap: 2px; }
+  main .cut-badges-row { justify-content: center; flex-wrap: wrap; }
+}

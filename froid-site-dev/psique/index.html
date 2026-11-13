@@ -19,7 +19,7 @@
 <link rel="alternate" hreflang="es" href="https://www.froid.com.br/dev/es/psique/" />
 <link rel="alternate" hreflang="x-default" href="https://www.froid.com.br/dev/psique/" />
 <link rel="stylesheet" href="../site-assets/psique-v2.css?v=1" />
-<link rel="stylesheet" href="../site-assets/psique-v2-site.css?v=21" />
+<link rel="stylesheet" href="../site-assets/psique-v2-site.css?v=22" />
 <link rel="stylesheet" href="../site-assets/header-site1.css?v=2" />
 </head>
 <body>
@@ -1011,45 +1011,40 @@
       <div class="section-header">
         <span class="section-eyebrow">Segmentação Inteligente da Sessão</span>
         <h2 class="section-title-amber">Estratégias de corte temático e o módulo FROID Explica</h2>
-        <p class="section-lead">
-          Como delimitar os assuntos cruciais de cada consulta e transformar picos de tensão emocional em pontos de alinhamento terapêutico duradouro.
-        </p>
       </div>
 
       <div class="cuts-grid">
         <div>
+          <!-- Texto do dono, 13/11/2026. Ajustado ao codigo em tres pontos (ver
+               o commit): "botao" (o corte manual e BotaoDeCorte em LiveSession.tsx),
+               consulta "desidentificada" por "profissionais" (_query_froid_analytics,
+               acervo anonimo com piso de coorte) e o Data-FROID "concebido para
+               reunir" milhares de sessoes (em 15/10/2026 eram 51). A frase dos
+               "100 bilhoes de parametros" ficou de fora ate haver fonte. -->
           <p style="color: var(--on-surface); font-size: 1.05rem;">
-            Durante uma sessão terapêutica de 50 minutos, o paciente transita por múltiplos tópicos. O motor do FROID opera uma <strong>estratégia de corte automático</strong> a cada novo assunto que emerge no diálogo. O corte não é apenas cronológico: ele é acionado por rupturas semânticas combinadas a variações bruscas na bioacústica e na morfodinâmica facial.
+            Os cortes são automáticos, a cada 10 minutos. Entretanto, podem ser acionados pelo profissional num botão na tela, onde o propósito é captar cada alteração de assunto tratado, proporcionando a avaliação da sequência de pensamentos do paciente e determinando situações específicas, integradas no Data-FROID de forma desidentificada e consultadas por todos os profissionais do sistema.
           </p>
-          <p style="color: var(--on-surface-variant); font-size: 0.98rem;">
-            Essa inteligência permite ao psicólogo e ao psiquiatra:
+          <p style="color: var(--on-surface); font-size: 1.05rem;">
+            Através do Data-FROID, gerenciado pelo FROID Explica, um LLM com RAG, os profissionais têm uma oportunidade única de compartilhar experiências.
           </p>
-          <ul class="layer-list" style="margin-bottom: var(--space-lg);">
-            <li><strong>Mapear a Topografia da Sessão:</strong> Identificar com precisão milimétrica quais temas provocaram os maiores desvios (IDM) ou retração de energia (IPM).</li>
-            <li><strong>Rastrear a Série Histórica Longitudinal:</strong> Comparar como o mesmo tópico (ex: a relação com a mãe, a demissão ou a fobia social) evolui entre sessões sucessivas — comprovando visualmente quando o paciente ressignifica o trauma.</li>
-            <li><strong>Localizar o Ponto de Virada (Therapeutic Shift):</strong> Rastrear a intervenção exata do terapeuta que gerou a descompressão autonômica e restaurou a congruência emocional do indivíduo.</li>
-          </ul>
-
-          <div style="background: var(--surface-amber-low); border: 1px solid var(--surface-amber-border); border-left: 4px solid var(--amber-bright); padding: var(--space-md); border-radius: var(--rounded-sm);">
-            <strong style="color: var(--amber-title); font-size: 0.95rem; display: block; margin-bottom: 4px;">
-              O Módulo "FROID Explica": A Síntese Colaborativa
-            </strong>
-            <span style="font-size: 0.92rem; color: var(--on-amber-surface);">
-              Ao final do atendimento, o profissional pode gerar um resumo interpretativo em linguagem acolhedora e desprovida de jargões estigmatizantes. O FROID Explica serve como um espelho de elaboração mútua, permitindo que terapeuta e paciente revisitem juntos os núcleos afetivos trabalhados na consulta.
-            </span>
+          <p style="color: var(--on-surface); font-size: 1.05rem;">
+            Esse conceito é proporcionado pela fusão dessas inteligências com o Data-FROID, um contêiner concebido para reunir milhares e milhares de sessões.
+          </p>
+          <div class="destaque-pastel">
+            <strong>É muito importante que os profissionais compreendam que essa tecnologia é disruptiva.</strong>
           </div>
         </div>
 
         <!-- Demonstração Visual dos Cortes Temáticos -->
         <div class="cuts-visual-mock">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-md); border-bottom: 1px solid var(--surface-navy-border); padding-bottom: 0.5rem;">
-            <span style="font-family: var(--font-mono); font-size: 0.78rem; color: #38bdf8;">CORTES DETECTADOS NA SESSÃO #04</span>
-            <span style="font-family: var(--font-mono); font-size: 0.75rem; color: #94a3b8;">45:12 DURAÇÃO</span>
+            <span style="font-family: var(--font-mono); font-size: 0.78rem; color: #38bdf8;">CORTES DA SESSÃO #04 · EXEMPLO</span>
+            <span style="font-family: var(--font-mono); font-size: 0.75rem; color: #94a3b8;">33:30 DURAÇÃO</span>
           </div>
 
           <div class="cut-block-item">
             <div class="cut-meta">
-              <span>00:00 — 08:35 · TÓPICO 1</span>
+              <span>00:00 — 07:40 · TÓPICO 1 · CORTE MANUAL</span>
               <span style="color: #34d399;">IDM: +1.8 (Próximo da Base)</span>
             </div>
             <div class="cut-topic-title">Acolhimento e rotina semanal</div>
@@ -1061,7 +1056,7 @@
 
           <div class="cut-block-item active-cut">
             <div class="cut-meta">
-              <span>08:36 — 26:14 · TÓPICO 2 (CRÍTICO)</span>
+              <span>07:40 — 17:40 · TÓPICO 2 · AUTOMÁTICO 10 MIN (CRÍTICO)</span>
               <span style="color: #f87171; font-weight: bold;">IDM: −8.2 (Desvio Forte)</span>
             </div>
             <div class="cut-topic-title">Conflito com a chefia e medo de demissão</div>
@@ -1076,7 +1071,7 @@
 
           <div class="cut-block-item">
             <div class="cut-meta">
-              <span>26:15 — 39:50 · TÓPICO 3</span>
+              <span>17:40 — 24:05 · TÓPICO 3 · CORTE MANUAL</span>
               <span style="color: #fbbf24;">IDM: −4.1 (Desvio Moderado)</span>
             </div>
             <div class="cut-topic-title">Lembrança da infância e sensação de insuficiência</div>
@@ -1088,7 +1083,7 @@
 
           <div class="cut-block-item">
             <div class="cut-meta">
-              <span>39:51 — 45:12 · TÓPICO 4 (FECHAMENTO)</span>
+              <span>24:05 — 33:30 · TÓPICO 4 · CORTE FINAL</span>
               <span style="color: #34d399;">IDM: +2.1 (Próximo da Base)</span>
             </div>
             <div class="cut-topic-title">Encerramento e consolidação de insight</div>
