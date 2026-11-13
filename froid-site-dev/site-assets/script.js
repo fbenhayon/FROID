@@ -36,6 +36,7 @@ var NAV_SECOES = {
     ["veja-como-isso-se-apresenta", "Veja como isso se apresenta"]
   ],
   "psique/data-froid.html": [
+    ["tecnologia-disruptiva", "Uma tecnologia disruptiva"],
     ["o-acervo-e-o-assistente-tem-papeis-diferentes", "O acervo e o assistente têm papéis diferentes"],
     ["tres-responsabilidades-na-arquitetura-proposta", "Três responsabilidades na arquitetura proposta"],
     ["o-que-pode-ser-investigado", "O que pode ser investigado"],
@@ -71,6 +72,7 @@ var NAV_SECOES = {
     ["uso-e-contratacao", "Uso e contratação"]
   ],
   "psique/froid-explica.html": [
+    ["tecnologia-disruptiva", "Uma tecnologia disruptiva"],
     ["veja-em-acao", "Veja em ação"],
     ["como-um-bibliotecario-nao-como-um-oraculo", "Como um bibliotecário, não como um oráculo"],
     ["prompts", "Prompts nativos para começar; próprios para aprofundar"],
