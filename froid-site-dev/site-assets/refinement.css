@@ -142,3 +142,12 @@ footer.site-footer li a { display:inline-block; padding-block:5px; }
   *,*::before,*::after { animation:none!important; transition:none!important; }
 }
 @media print { .page-outline,.site-menu-toggle,.skip-content { display:none; } }
+
+/* "Menu" em cima, a esquerda e a direita, de cada secao, voltando ao sumario
+   (#secoes, criado por navigation.js). Pedido do dono, 13/11/2026: o mesmo das
+   paginas do Psique, para todas as paginas. */
+.secao-menu { display:flex; justify-content:space-between; max-width:var(--maxw); margin:0 auto 16px; padding:0 24px; }
+.container .secao-menu { padding:0; }
+.secao-menu a { font-size:.74rem; font-weight:700; letter-spacing:.04em; color:#f5c778; text-decoration:none; padding:4px 12px; border:1px solid #f5c778; border-radius:999px; }
+.secao-menu a:hover, .secao-menu a:focus-visible { color:#151921; background:#f5c778; text-decoration:none; }
+@media print { .secao-menu { display:none; } }

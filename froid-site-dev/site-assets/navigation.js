@@ -69,14 +69,16 @@ document.addEventListener('DOMContentLoaded', function () {
   });
   outline.append(links);
   (first.closest('section') || first).before(outline);
-  // Site II do Psique (13/11/2026, pedido do dono): em cada secao, um "Menu"
-  // em cima a esquerda e outro a direita, que voltam ao sumario acima, onde
-  // estao os links de todas as secoes da pagina. So nas paginas que carregam
-  // psique-v2-site.css; as demais paginas do site ficam como estavam.
-  if (!document.querySelector('link[href*="psique-v2-site.css"]')) return;
+  // Em cada secao, um "Menu" em cima a esquerda e outro a direita, que voltam
+  // ao sumario acima, onde estao os links de todas as secoes da pagina.
+  // Pedido do dono: 13/11/2026 no Psique; no mesmo dia, para todas as paginas.
   outline.id = 'secoes';
+  var feitas = new Set();
   sections.forEach(function (section) {
-    var box = section.target.closest('section') || section.target;
+    var box = section.target.closest('section');
+    // dois titulos na mesma secao: um Menu so
+    if (box && feitas.has(box)) return;
+    if (box) feitas.add(box);
     var bar = document.createElement('div');
     bar.className = 'secao-menu';
     ['', 'dir'].forEach(function (lado) {
@@ -87,6 +89,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (lado) { a.setAttribute('aria-hidden', 'true'); a.tabIndex = -1; }
       bar.append(a);
     });
-    box.prepend(bar);
+    // titulo fora de <section>: o Menu vai logo antes dele, nunca dentro
+    if (box) box.prepend(bar); else section.heading.before(bar);
   });
 });
