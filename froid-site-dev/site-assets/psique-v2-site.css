@@ -425,3 +425,96 @@ main .hab .hab-limite, main .hab .destaque-pastel {
 main .hab .hab-limite strong { color: #151921; }
 main .hab-destaque { grid-column: auto; }
 main #resgate-bonificacao { margin-top: 96px; margin-bottom: 56px; }
+
+/* ---------- Celular: tudo centralizado (pedido do dono, 12/11/2026) ----------
+   "Primeira providencia geral: colocar todas as paginas centralizadas." O
+   texto ja era centrado (main * text-align); aqui centram-se os BLOCOS que
+   ficavam presos a esquerda ou empurrados por um icone lateral: header (Menu e
+   FROID nas pontas), titulo de cartao com icone ao lado, listas com seta,
+   relogio e botoes da calibracao, filtros do simulador e das 12 zonas, e as
+   perguntas com "+" a direita (o texto centrava so no espaco que sobrava).
+   header-site1.css e gerado e carrega depois: por isso o `html` a mais nos
+   seletores do header, para vencer em especificidade sem editar o gerado. */
+@media (max-width: 860px) {
+  html body > header.site-header .nav-row { justify-content: center; }
+  html body > header.site-header .nav-actions { margin-left: 0; width: 100%; justify-content: center; }
+
+  main .channel-header, main .sovereignty-title { flex-direction: column; justify-content: center; align-items: center; }
+  /* seta junto ao texto, e nao presa na borda esquerda da linha */
+  main .channel-specs li { display: block; }
+  main .channel-specs li > svg { display: inline-block; vertical-align: -2px; margin-right: 4px; }
+
+  main .calibration-top, main .calib-timer-wrap { flex-direction: column; justify-content: center; align-items: center; }
+  main .calibration-top > div { justify-content: center; }
+
+  main .simulator-presets, main .zones-controls { justify-content: center; }
+  main .zones-header-bar { justify-content: center; }
+  main .zones-search-input { min-width: 0; width: 100%; }
+  main .zone-trigger { flex-direction: column; justify-content: center; gap: var(--space-xs); }
+  main .zone-title-group { justify-content: center; align-items: center; }
+
+  /* grades com coluna minima fixa (320px nas 6 escalas) passavam da caixa no
+     celular e ficavam encostadas a direita: a coluna nunca excede a area */
+  main .scales-grid { grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); }
+  main .diagnostic-pillars-grid { grid-template-columns: repeat(auto-fit, minmax(min(290px, 100%), 1fr)); }
+  main .privacy-layers-grid { grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); }
+  main .bonus-features-grid { grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); }
+  main .grade-cartoes:not(.hab-grade) { grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); }
+
+  /* "+" a direita: mesma folga dos dois lados para o texto ficar no meio */
+  main details.pergunta summary { padding-left: 40px; padding-right: 40px; }
+}
+
+/* ---------- Ajustes de 13/11/2026 (pedidos do dono) ----------
+   - abertura da Visao geral: a imagem cobre a secao de ponta a ponta da tela
+     (antes ficava contida na largura do conteudo, com faixas pretas dos dois
+     lados). A imagem vai num ::before da largura da tela; o clip-path da
+     abertura ja corta em cima e embaixo, e o body tem overflow-x: clip;
+   - o painel "Sessao ao vivo" saiu da abertura (foi para IDM e IPM): a
+     abertura fica numa coluna so;
+   - os dois chamados da abertura viram texto pleno, so negrito;
+   - os links de secao (sumario abaixo da abertura) com contorno ambar, e o
+     "Menu" em cima, a esquerda e a direita, de cada secao (navigation.js). */
+main .hero-banner:not(.hero-pagina) {
+  overflow: visible; isolation: isolate;
+  background: #000; box-shadow: 0 0 0 100vmax #000;
+}
+main .hero-banner:not(.hero-pagina)::before {
+  content: ""; position: absolute; top: 0; bottom: 0; left: 50%; width: 100vw; transform: translateX(-50%); z-index: -1;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, .25) 0%, rgba(0, 0, 0, .45) 100%),
+    url('img/neuronio-abertura.jpg') center / cover no-repeat,
+    #000;
+}
+main .hero-banner:not(.hero-pagina) .hero-grid { grid-template-columns: minmax(0, 1fr); }
+main .hero-actions .link-texto { font-weight: 700; color: inherit; text-decoration: none; }
+main .hero-actions .link-texto:hover, main .hero-actions .link-texto:focus-visible { color: #f5c778; }
+
+#bussola-velocimetro > .telemetry-card { max-width: 640px; margin: 0 auto var(--space-2xl); }
+@media (max-width: 860px) {
+  main .telemetry-header { flex-direction: column; justify-content: center; gap: 4px; }
+}
+
+.page-outline a { border-color: #f5c778; }
+.page-outline a:hover, .page-outline a:focus-visible { border-color: #fcd34d; color: #f8fafc; }
+.secao-menu { display: flex; justify-content: space-between; margin: 0 0 var(--space-md); }
+.secao-menu a { font-family: var(--font-label); font-size: .74rem; font-weight: 700; letter-spacing: .04em; color: #f5c778; text-decoration: none; padding: 4px 12px; border: 1px solid #f5c778; border-radius: var(--rounded-full); }
+.secao-menu a:hover, .secao-menu a:focus-visible { color: #151921; background: #f5c778; }
+
+/* Celular (13/11/2026, pedido do dono): a tabela "O que os estudos dizem" nao
+   cabia e a terceira coluna so aparecia arrastando para o lado. Abaixo de
+   860px cada estudo vira um cartao empilhado e centralizado; o nome de cada
+   coluna aparece como etiqueta acima do valor (o cabecalho da tabela some). */
+@media (max-width: 860px) {
+  #ritmo-fala .table-container { overflow: visible; background: transparent; border: 0; box-shadow: none; }
+  #ritmo-fala .elocution-table, #ritmo-fala .elocution-table tbody,
+  #ritmo-fala .elocution-table tr, #ritmo-fala .elocution-table td { display: block; width: 100%; }
+  #ritmo-fala .elocution-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  #ritmo-fala .elocution-table tr { margin: 0 0 var(--space-md); padding: var(--space-md); background: linear-gradient(145deg, #1a2433, #111822); border: 1px solid #303d50; border-radius: 14px; }
+  #ritmo-fala .elocution-table tr:hover { background: linear-gradient(145deg, #1a2433, #111822); }
+  #ritmo-fala .elocution-table td { padding: 6px 0; border: 0; }
+  #ritmo-fala .elocution-table td::before { display: block; margin-bottom: 2px; font-family: var(--font-label); font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #f5c778; }
+  #ritmo-fala .elocution-table td:nth-child(1)::before { content: "Estudo"; }
+  #ritmo-fala .elocution-table td:nth-child(2)::before { content: "Língua e tarefa"; }
+  #ritmo-fala .elocution-table td:nth-child(3)::before { content: "O que foi encontrado"; }
+}

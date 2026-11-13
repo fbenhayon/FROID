@@ -19,7 +19,7 @@
 <link rel="alternate" hreflang="es" href="https://www.froid.com.br/dev/es/psique/" />
 <link rel="alternate" hreflang="x-default" href="https://www.froid.com.br/dev/psique/" />
 <link rel="stylesheet" href="../site-assets/psique-v2.css?v=1" />
-<link rel="stylesheet" href="../site-assets/psique-v2-site.css?v=18" />
+<link rel="stylesheet" href="../site-assets/psique-v2-site.css?v=21" />
 <link rel="stylesheet" href="../site-assets/header-site1.css?v=2" />
 </head>
 <body>
@@ -43,7 +43,7 @@
             <a class="nav-drop-secao" role="menuitem" href="index.html#calibracao-60s">Calibração de 60 segundos</a>
             <a class="nav-drop-secao" role="menuitem" href="index.html#bussola-velocimetro">IDM e IPM</a>
             <a class="nav-drop-secao" role="menuitem" href="index.html#12-zonas">As 12 zonas de percepção vocal</a>
-            <a class="nav-drop-secao" role="menuitem" href="index.html#ritmo-fala">Taxa de elocução</a>
+            <a class="nav-drop-secao" role="menuitem" href="index.html#ritmo-fala">Número de palavras por minuto</a>
             <a class="nav-drop-secao" role="menuitem" href="index.html#cortes-tematicos">Cortes temáticos e FROID Explica</a>
             <a class="nav-drop-secao" role="menuitem" href="index.html#privacidade-lgpd">Data-Froid e privacidade</a>
             <a class="nav-drop-secao" role="menuitem" href="index.html#calculadora-psique">Calculadora para profissionais e clínicas</a>
@@ -138,14 +138,8 @@
           </p>
 
           <div class="hero-actions">
-            <a href="#resgate-bonificacao" class="btn btn-amber">
-              <i data-lucide="award" style="width: 18px; height: 18px;"></i>
-              Resgatar 10 Sessões Gratuitas de Boas-Vindas
-            </a>
-            <a href="#simulador-console" class="btn btn-outline-dark">
-              <i data-lucide="activity" style="width: 18px; height: 18px;"></i>
-              Testar Console Interativo
-            </a>
+            <a href="#resgate-bonificacao" class="link-texto">Resgatar 10 Sessões Gratuitas de Boas-Vindas</a>
+            <a href="#simulador-console" class="link-texto">Testar Console Interativo</a>
           </div>
 
           <div class="hero-stats-row">
@@ -168,45 +162,6 @@
           </div>
         </div>
 
-        <!-- Telemetria Clínica em Tempo Real no Hero -->
-        <div class="telemetry-card">
-          <div class="telemetry-header">
-            <span class="telemetry-title">
-              <span class="telemetry-status-dot"></span>
-              SESSÃO AO VIVO · BIOMETRIA ATIVA
-            </span>
-            <span style="font-family: var(--font-mono); font-size: 0.75rem; color: #38bdf8;">MODO: TEMPO REAL</span>
-          </div>
-
-          <div class="telemetry-stream">
-            <div class="metric-gauge-card">
-              <div class="metric-gauge-top">
-                <span>IPM — Potência Energética (Velocímetro)</span>
-                <strong style="color: #38bdf8;">68% (Ativação Alta)</strong>
-              </div>
-              <div class="metric-gauge-bar">
-                <div class="metric-gauge-fill fill-teal" style="width: 68%;"></div>
-              </div>
-            </div>
-
-            <div class="metric-gauge-card">
-              <div class="metric-gauge-top">
-                <span>IDM — Desvio Multimodal (Bússola)</span>
-                <strong style="color: #fbbf24;">−4.8 (Abaixo da Base)</strong>
-              </div>
-              <div class="metric-gauge-bar">
-                <div class="metric-gauge-fill fill-amber" style="width: 48%;"></div>
-              </div>
-              <span style="font-size: 0.72rem; color: #94a3b8; display: block; margin-top: 4px;">
-                Voz: energia abaixo da linha de base | Rosto: registrado em canal próprio
-              </span>
-            </div>
-
-            <div style="background: rgba(14, 165, 233, 0.08); border-left: 3px solid #0ea5e9; padding: var(--space-sm); border-radius: 0 var(--rounded-xs) var(--rounded-xs) 0; font-size: 0.78rem; color: #cbd5e1;">
-              <strong>Insight FROID:</strong> Desvio vocal abaixo da linha de base no relato sobre relacionamento familiar, com energia de modulação na faixa de 5 a 12 Hz. O rosto aparece em canal próprio; a comparação entre os canais é do profissional.
-            </div>
-          </div>
-        </div>
       </div>
     </section>
 
@@ -513,6 +468,46 @@
         <p class="section-lead">
           Dois índices complementares, atualizados em tempo real ou em janelas de 1 a 7 minutos à escolha do profissional, sintetizam a complexidade biométrica do paciente em mostradores instantâneos.
         </p>
+      </div>
+
+      <!-- Telemetria (exemplo de sessao ao vivo): estava na abertura, ao lado do texto; movida para ca em 13/11/2026 a pedido do dono -->
+      <div class="telemetry-card">
+        <div class="telemetry-header">
+          <span class="telemetry-title">
+            <span class="telemetry-status-dot"></span>
+            SESSÃO AO VIVO · BIOMETRIA ATIVA
+          </span>
+          <span style="font-family: var(--font-mono); font-size: 0.75rem; color: #38bdf8;">MODO: TEMPO REAL</span>
+        </div>
+
+        <div class="telemetry-stream">
+          <div class="metric-gauge-card">
+            <div class="metric-gauge-top">
+              <span>IPM — Potência Energética (Velocímetro)</span>
+              <strong style="color: #38bdf8;">68% (Ativação Alta)</strong>
+            </div>
+            <div class="metric-gauge-bar">
+              <div class="metric-gauge-fill fill-teal" style="width: 68%;"></div>
+            </div>
+          </div>
+
+          <div class="metric-gauge-card">
+            <div class="metric-gauge-top">
+              <span>IDM — Desvio Multimodal (Bússola)</span>
+              <strong style="color: #fbbf24;">−4.8 (Abaixo da Base)</strong>
+            </div>
+            <div class="metric-gauge-bar">
+              <div class="metric-gauge-fill fill-amber" style="width: 48%;"></div>
+            </div>
+            <span style="font-size: 0.72rem; color: #94a3b8; display: block; margin-top: 4px;">
+              Voz: energia abaixo da linha de base | Rosto: registrado em canal próprio
+            </span>
+          </div>
+
+          <div style="background: rgba(14, 165, 233, 0.08); border-left: 3px solid #0ea5e9; padding: var(--space-sm); border-radius: 0 var(--rounded-xs) var(--rounded-xs) 0; font-size: 0.78rem; color: #cbd5e1;">
+            <strong>Insight FROID:</strong> Desvio vocal abaixo da linha de base no relato sobre relacionamento familiar, com energia de modulação na faixa de 5 a 12 Hz. O rosto aparece em canal próprio; a comparação entre os canais é do profissional.
+          </div>
+        </div>
       </div>
 
       <div class="instruments-container">
@@ -907,8 +902,7 @@
          dizem, como contexto. -->
     <section class="section-block" id="ritmo-fala">
       <div class="section-header">
-        <span class="section-eyebrow">Prosódia Clínica e Coordenação Neuromuscular</span>
-        <h2 class="section-title-amber">Quadro de indicação de palavras por 1 minuto</h2>
+        <h2 class="section-title-amber">Número de palavras por minuto</h2>
         <p class="section-lead">
           O FROID compara o paciente com ele mesmo. A literatura descreve diferenças entre grupos de pessoas, não cortes para um indivíduo. Aqui está como medimos, o que a medida mostra, o que ela não mostra e o que os estudos de fato dizem.
         </p>
@@ -946,7 +940,7 @@
         </div>
         <div class="status-card">
           <h3>Variação pequena pode não significar nada</h3>
-          <p>Em pessoas saudáveis, só mudar de interlocutor já move a fala cerca de 10%: a mesma conversa telefônica saiu a 193 palavras por minuto entre estranhos e a 214 entre íntimos (Yuan, Liberman e Cieri, 2006).</p>
+          <p>Em pessoas saudáveis, só mudar de interlocutor já move a fala cerca de 10%: a mesma conversa telefônica saiu a 193 palavras por minuto entre estranhos e a 214 entre íntimos (<a href="https://doi.org/10.21437/Interspeech.2006-204" target="_blank" rel="noopener">Yuan, Liberman e Cieri, 2006</a>).</p>
         </div>
       </div>
 
@@ -961,15 +955,15 @@
             </tr>
           </thead>
           <tbody>
-            <tr><td>Yuan, Liberman e Cieri, 2006</td><td>Inglês · conversa telefônica espontânea</td><td>Média de 196 palavras por minuto, de 111 a 291 entre falantes; 236 sem contar as pausas</td></tr>
-            <tr><td>Brysbaert, 2019</td><td>Leitura em voz alta · meta-análise de 77 estudos</td><td>183 palavras por minuto em adultos</td></tr>
-            <tr><td>Gonçalves, 2017</td><td>Português brasileiro · fala espontânea, 7 falantes</td><td>5,27 sílabas por segundo (unidade diferente: sílabas, não palavras)</td></tr>
-            <tr><td>Wiseman et al., 2025</td><td>Inglês · fala espontânea ("conte como está se sentindo")</td><td>Depressão maior: 96 palavras por minuto contra 135 nos controles, cerca de 29% mais lenta; pausas de 1 a 2 s ocupando 44% do tempo contra 25%</td></tr>
-            <tr><td>Yamamoto et al., 2020</td><td>Estudo japonês (o artigo não declara a língua) · entrevista de 10 minutos</td><td>Quanto mais grave a depressão, mais lenta a fala (correlação de −0,38 com a escala HAMD-17)</td></tr>
-            <tr><td>Wadle et al., 2024</td><td>Fala livre curta · pacientes internados</td><td>Fala mais lenta e pausas maiores acompanham piora momentânea da depressão</td></tr>
-            <tr><td>Worthington et al., 2025; Cohen, Mitchell e Elvevåg, 2014</td><td>Inglês · entrevistas clínicas (PANSS); meta-análise</td><td>Esquizofrenia: sintomas positivos com fala mais rápida, negativos com fala mais lenta; produção de fala reduzida na alogia. Sem média de palavras por minuto</td></tr>
-            <tr><td>Eshghi et al., 2022</td><td>Inglês · teste de inteligibilidade de frases</td><td>Esclerose lateral amiotrófica: a inteligibilidade cai de forma acelerada quando a fala desce a cerca de 120 palavras por minuto</td></tr>
-            <tr><td>Aguiar et al., 2025; Almeida, Oliveira Jr. e Almeida, 2015</td><td>Português brasileiro · atores lendo uma frase; fala espontânea de rádio</td><td>Nojo foi a emoção de fala mais alongada e alegria a mais acelerada (medida de duração, não palavras por minuto); a raiva foi mais lenta que a fala neutra</td></tr>
+            <tr><td><a href="https://doi.org/10.21437/Interspeech.2006-204" target="_blank" rel="noopener">Yuan, Liberman e Cieri, 2006</a></td><td>Inglês · conversa telefônica espontânea</td><td>Média de 196 palavras por minuto, de 111 a 291 entre falantes; 236 sem contar as pausas</td></tr>
+            <tr><td><a href="https://doi.org/10.1016/j.jml.2019.104047" target="_blank" rel="noopener">Brysbaert, 2019</a></td><td>Leitura em voz alta · meta-análise de 77 estudos</td><td>183 palavras por minuto em adultos</td></tr>
+            <tr><td><a href="https://doi.org/10.15448/1984-7726.2017.1.25540" target="_blank" rel="noopener">Gonçalves, 2017</a></td><td>Português brasileiro · fala espontânea, 7 falantes</td><td>5,27 sílabas por segundo (unidade diferente: sílabas, não palavras)</td></tr>
+            <tr><td><a href="https://doi.org/10.1038/s41398-025-03728-2" target="_blank" rel="noopener">Wiseman et al., 2025</a></td><td>Inglês · fala espontânea ("conte como está se sentindo")</td><td>Depressão maior: 96 palavras por minuto contra 135 nos controles, cerca de 29% mais lenta; pausas de 1 a 2 s ocupando 44% do tempo contra 25%</td></tr>
+            <tr><td><a href="https://doi.org/10.1371/journal.pone.0238726" target="_blank" rel="noopener">Yamamoto et al., 2020</a></td><td>Estudo japonês (o artigo não declara a língua) · entrevista de 10 minutos</td><td>Quanto mais grave a depressão, mais lenta a fala (correlação de −0,38 com a escala HAMD-17)</td></tr>
+            <tr><td><a href="https://doi.org/10.2196/49222" target="_blank" rel="noopener">Wadle et al., 2024</a></td><td>Fala livre curta · pacientes internados</td><td>Fala mais lenta e pausas maiores acompanham piora momentânea da depressão</td></tr>
+            <tr><td><a href="https://doi.org/10.3389/fpsyt.2025.1571647" target="_blank" rel="noopener">Worthington et al., 2025</a>; <a href="https://doi.org/10.1016/j.schres.2014.09.013" target="_blank" rel="noopener">Cohen, Mitchell e Elvevåg, 2014</a></td><td>Inglês · entrevistas clínicas (PANSS); meta-análise</td><td>Esquizofrenia: sintomas positivos com fala mais rápida, negativos com fala mais lenta; produção de fala reduzida na alogia. Sem média de palavras por minuto</td></tr>
+            <tr><td><a href="https://doi.org/10.1038/s41598-022-19651-1" target="_blank" rel="noopener">Eshghi et al., 2022</a></td><td>Inglês · teste de inteligibilidade de frases</td><td>Esclerose lateral amiotrófica: a inteligibilidade cai de forma acelerada quando a fala desce a cerca de 120 palavras por minuto</td></tr>
+            <tr><td><a href="https://doi.org/10.1590/2317-1782/e20240116pt" target="_blank" rel="noopener">Aguiar et al., 2025</a>; <a href="https://doi.org/10.35520/diadorim.2015.v17n2a4076" target="_blank" rel="noopener">Almeida, Oliveira Jr. e Almeida, 2015</a></td><td>Português brasileiro · atores lendo uma frase; fala espontânea de rádio</td><td>Nojo foi a emoção de fala mais alongada e alegria a mais acelerada (medida de duração, não palavras por minuto); a raiva foi mais lenta que a fala neutra</td></tr>
           </tbody>
         </table>
       </div>
@@ -997,17 +991,17 @@
       <div class="prosa" style="font-size: 0.86rem;">
         <p>Cada número desta seção foi conferido no texto do artigo em 11/11/2026. Trabalhos que só vimos citados por outros autores ficaram de fora.</p>
         <ul>
-          <li>AGUIAR, A. C. et al. Medidas acústico-prosódicas discriminam as emoções de falantes do português brasileiro. <em>CoDAS</em>, v. 37, n. 4, 2025. DOI: 10.1590/2317-1782/e20240116pt.</li>
-          <li>ALMEIDA, A. N. S. de; OLIVEIRA JR., M.; ALMEIDA, R. A. S. de. A velocidade de fala como pista acústica da emoção básica de raiva. <em>Diadorim</em>, v. 17, n. 2, p. 198-211, 2015. DOI: 10.35520/diadorim.2015.v17n2a4076.</li>
-          <li>BRYSBAERT, M. How many words do we read per minute? A review and meta-analysis of reading rate. <em>Journal of Memory and Language</em>, v. 109, 104047, 2019. DOI: 10.1016/j.jml.2019.104047.</li>
-          <li>COHEN, A. S.; MITCHELL, K. R.; ELVEVÅG, B. What do we really know about blunted vocal affect and alogia? A meta-analysis of objective assessments. <em>Schizophrenia Research</em>, v. 159, n. 2-3, p. 533-538, 2014. DOI: 10.1016/j.schres.2014.09.013.</li>
-          <li>ESHGHI, M. et al. Rate of speech decline in individuals with amyotrophic lateral sclerosis. <em>Scientific Reports</em>, v. 12, 15713, 2022. DOI: 10.1038/s41598-022-19651-1.</li>
-          <li>GONÇALVES, C. S. Taxa de elocução e taxa de articulação em corpus utilizado na perícia de Comparação de Locutores. <em>Letras de Hoje</em>, v. 52, n. 1, p. 15-25, 2017. DOI: 10.15448/1984-7726.2017.1.25540.</li>
-          <li>WADLE, L.-M. et al. Speech features as predictors of momentary depression severity in patients with depressive disorder undergoing sleep deprivation therapy: ambulatory assessment pilot study. <em>JMIR Mental Health</em>, v. 11, e49222, 2024. DOI: 10.2196/49222.</li>
-          <li>WISEMAN, M. et al. Objective speech measures capture depressive symptoms and associated cognitive difficulties. <em>Translational Psychiatry</em>, v. 15, 525, 2025. DOI: 10.1038/s41398-025-03728-2.</li>
-          <li>WORTHINGTON, M. et al. Measurement of schizophrenia symptoms through speech analysis from PANSS interview recordings. <em>Frontiers in Psychiatry</em>, v. 16, 1571647, 2025. DOI: 10.3389/fpsyt.2025.1571647.</li>
-          <li>YAMAMOTO, M. et al. Using speech recognition technology to investigate the association between timing-related speech features and depression severity. <em>PLoS ONE</em>, v. 15, n. 9, e0238726, 2020. DOI: 10.1371/journal.pone.0238726.</li>
-          <li>YUAN, J.; LIBERMAN, M.; CIERI, C. Towards an integrated understanding of speaking rate in conversation. In: INTERSPEECH 2006 – ICSLP, Pittsburgh. ISCA, 2006. DOI: 10.21437/Interspeech.2006-204.</li>
+          <li>AGUIAR, A. C. et al. Medidas acústico-prosódicas discriminam as emoções de falantes do português brasileiro. <em>CoDAS</em>, v. 37, n. 4, 2025. DOI: <a href="https://doi.org/10.1590/2317-1782/e20240116pt" target="_blank" rel="noopener">10.1590/2317-1782/e20240116pt</a>.</li>
+          <li>ALMEIDA, A. N. S. de; OLIVEIRA JR., M.; ALMEIDA, R. A. S. de. A velocidade de fala como pista acústica da emoção básica de raiva. <em>Diadorim</em>, v. 17, n. 2, p. 198-211, 2015. DOI: <a href="https://doi.org/10.35520/diadorim.2015.v17n2a4076" target="_blank" rel="noopener">10.35520/diadorim.2015.v17n2a4076</a>.</li>
+          <li>BRYSBAERT, M. How many words do we read per minute? A review and meta-analysis of reading rate. <em>Journal of Memory and Language</em>, v. 109, 104047, 2019. DOI: <a href="https://doi.org/10.1016/j.jml.2019.104047" target="_blank" rel="noopener">10.1016/j.jml.2019.104047</a>.</li>
+          <li>COHEN, A. S.; MITCHELL, K. R.; ELVEVÅG, B. What do we really know about blunted vocal affect and alogia? A meta-analysis of objective assessments. <em>Schizophrenia Research</em>, v. 159, n. 2-3, p. 533-538, 2014. DOI: <a href="https://doi.org/10.1016/j.schres.2014.09.013" target="_blank" rel="noopener">10.1016/j.schres.2014.09.013</a>.</li>
+          <li>ESHGHI, M. et al. Rate of speech decline in individuals with amyotrophic lateral sclerosis. <em>Scientific Reports</em>, v. 12, 15713, 2022. DOI: <a href="https://doi.org/10.1038/s41598-022-19651-1" target="_blank" rel="noopener">10.1038/s41598-022-19651-1</a>.</li>
+          <li>GONÇALVES, C. S. Taxa de elocução e taxa de articulação em corpus utilizado na perícia de Comparação de Locutores. <em>Letras de Hoje</em>, v. 52, n. 1, p. 15-25, 2017. DOI: <a href="https://doi.org/10.15448/1984-7726.2017.1.25540" target="_blank" rel="noopener">10.15448/1984-7726.2017.1.25540</a>.</li>
+          <li>WADLE, L.-M. et al. Speech features as predictors of momentary depression severity in patients with depressive disorder undergoing sleep deprivation therapy: ambulatory assessment pilot study. <em>JMIR Mental Health</em>, v. 11, e49222, 2024. DOI: <a href="https://doi.org/10.2196/49222" target="_blank" rel="noopener">10.2196/49222</a>.</li>
+          <li>WISEMAN, M. et al. Objective speech measures capture depressive symptoms and associated cognitive difficulties. <em>Translational Psychiatry</em>, v. 15, 525, 2025. DOI: <a href="https://doi.org/10.1038/s41398-025-03728-2" target="_blank" rel="noopener">10.1038/s41398-025-03728-2</a>.</li>
+          <li>WORTHINGTON, M. et al. Measurement of schizophrenia symptoms through speech analysis from PANSS interview recordings. <em>Frontiers in Psychiatry</em>, v. 16, 1571647, 2025. DOI: <a href="https://doi.org/10.3389/fpsyt.2025.1571647" target="_blank" rel="noopener">10.3389/fpsyt.2025.1571647</a>.</li>
+          <li>YAMAMOTO, M. et al. Using speech recognition technology to investigate the association between timing-related speech features and depression severity. <em>PLoS ONE</em>, v. 15, n. 9, e0238726, 2020. DOI: <a href="https://doi.org/10.1371/journal.pone.0238726" target="_blank" rel="noopener">10.1371/journal.pone.0238726</a>.</li>
+          <li>YUAN, J.; LIBERMAN, M.; CIERI, C. Towards an integrated understanding of speaking rate in conversation. In: INTERSPEECH 2006 – ICSLP, Pittsburgh. ISCA, 2006. DOI: <a href="https://doi.org/10.21437/Interspeech.2006-204" target="_blank" rel="noopener">10.21437/Interspeech.2006-204</a>.</li>
         </ul>
       </div>
     </section>
@@ -1292,7 +1286,7 @@
 <script src="../site-assets/vendor/lucide.min.js"></script>
 <script>if (window.lucide) { lucide.createIcons(); }</script>
 <script src="../site-assets/script.js?v=26"></script>
-<script src="../site-assets/navigation.js?v=2"></script>
+<script src="../site-assets/navigation.js?v=3"></script>
 <script>
 window.PSIQUE_PRECOS_V2_I18N = {
   locale: "pt-BR",

@@ -140,7 +140,7 @@ var NAV_SECOES = {
     ["calibracao-60s", "Calibração de 60 segundos"],
     ["bussola-velocimetro", "IDM e IPM"],
     ["12-zonas", "As 12 zonas de percepção vocal"],
-    ["ritmo-fala", "Taxa de elocução"],
+    ["ritmo-fala", "Número de palavras por minuto"],
     ["cortes-tematicos", "Cortes temáticos e FROID Explica"],
     ["privacidade-lgpd", "Data-Froid e privacidade"],
     ["calculadora-psique", "Calculadora para profissionais e clínicas"],

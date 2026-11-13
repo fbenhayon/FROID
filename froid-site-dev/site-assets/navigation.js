@@ -69,4 +69,24 @@ document.addEventListener('DOMContentLoaded', function () {
   });
   outline.append(links);
   (first.closest('section') || first).before(outline);
+  // Site II do Psique (13/11/2026, pedido do dono): em cada secao, um "Menu"
+  // em cima a esquerda e outro a direita, que voltam ao sumario acima, onde
+  // estao os links de todas as secoes da pagina. So nas paginas que carregam
+  // psique-v2-site.css; as demais paginas do site ficam como estavam.
+  if (!document.querySelector('link[href*="psique-v2-site.css"]')) return;
+  outline.id = 'secoes';
+  sections.forEach(function (section) {
+    var box = section.target.closest('section') || section.target;
+    var bar = document.createElement('div');
+    bar.className = 'secao-menu';
+    ['', 'dir'].forEach(function (lado) {
+      var a = document.createElement('a');
+      a.href = '#secoes';
+      a.textContent = labels[0];
+      // o da direita repete o da esquerda: fora do leitor de tela e do Tab
+      if (lado) { a.setAttribute('aria-hidden', 'true'); a.tabIndex = -1; }
+      bar.append(a);
+    });
+    box.prepend(bar);
+  });
 });
