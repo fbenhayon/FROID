@@ -1,4 +1,4 @@
-/* Calculadora do valor mensal do FROID NR-1.
+/* Calculadora do valor mensal do FROID NR-1/ISO 45003.
  *
  * Uma copia so, usada por nr1/precos-nr1.html e psique/index.html. Ate
  * 10/11/2026 este codigo vivia inline em precos-nr1.html; pedir a calculadora

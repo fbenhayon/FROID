@@ -525,3 +525,5 @@ main .hero-actions .link-texto:hover, main .hero-actions .link-texto:focus-visib
   main .cut-meta { flex-direction: column; align-items: center; gap: 2px; }
   main .cut-badges-row { justify-content: center; flex-wrap: wrap; }
 }
+/* 15/11/2026: texto de abertura da Visao geral em ambar */
+main .hero-banner:not(.hero-pagina) .hero-lead { color: #f5c778; }

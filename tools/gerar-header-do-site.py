@@ -18,7 +18,7 @@ pagina de entrada unica"), igual em cada idioma (pt na raiz, en/, fr/, es/):
 
     index.html          a entrada, com os dois neuronios (sem header)
     psique/...          FROID Psique   -> menu do Psique (+ Ciencia e Tecnologia)
-    nr1/...             FROID NR-1     -> menu do NR-1
+    nr1/...             FROID NR-1/ISO 45003     -> menu do NR-1
     *.html na raiz      paginas comuns -> os dois menus
 
 Toda pagina e identificada pelo caminho RELATIVO a raiz do idioma
@@ -61,7 +61,7 @@ IDIOMAS = {
             ("FROID Explica", "psique/froid-explica.html"),
             ("Data-Froid", "psique/data-froid.html"),
         ]),
-        "nr1": ("FROID NR-1", "nr1/index.html", [
+        "nr1": ("FROID NR-1/ISO 45003", "nr1/index.html", [
             ("Visão geral", "nr1/index.html"),
             ("Cadeia de Comando", "nr1/contratacao-nr1.html"),
             ("FROID ISO 45001", "nr1/iso-45001.html"),
@@ -83,7 +83,7 @@ IDIOMAS = {
             ('FROID Explains', 'psique/froid-explica.html'),
             ('Data-Froid', 'psique/data-froid.html'),
         ]),
-        "nr1": ('FROID NR-1', "nr1/index.html", [
+        "nr1": ('FROID NR-1/ISO 45003', "nr1/index.html", [
             ('Overview', 'nr1/index.html'),
             ('Proposal', 'nr1/proposta-nr1.html'),
             ('FROID ISO 45001', 'nr1/iso-45001.html'),
@@ -102,7 +102,7 @@ IDIOMAS = {
             ('FROID Explica', 'psique/froid-explica.html'),
             ('Data-Froid', 'psique/data-froid.html'),
         ]),
-        "nr1": ('FROID NR-1', "nr1/index.html", [
+        "nr1": ('FROID NR-1/ISO 45003', "nr1/index.html", [
             ('Visión general', 'nr1/index.html'),
             ('Propuesta', 'nr1/proposta-nr1.html'),
             ('FROID ISO 45001', 'nr1/iso-45001.html'),
@@ -121,7 +121,7 @@ IDIOMAS = {
             ('FROID Explique', 'psique/froid-explica.html'),
             ('Data-Froid', 'psique/data-froid.html'),
         ]),
-        "nr1": ('FROID NR-1', "nr1/index.html", [
+        "nr1": ('FROID NR-1/ISO 45003', "nr1/index.html", [
             ("Vue d'ensemble", 'nr1/index.html'),
             ('Proposition', 'nr1/proposta-nr1.html'),
             ('FROID ISO 45001', 'nr1/iso-45001.html'),
@@ -168,7 +168,7 @@ CADASTRO = "https://www.froid.com.br/cadastro"
 # 10/11/2026, saiu em 11/11/2026: o dono o achou duplicado com a Visao geral,
 # pediu a fusao do que so a pagina tinha em index.html#habilidades e a
 # desativacao do botao e da pagina (que virou redirecionamento).
-NOME_PRODUTO = {"psique": "FROID Psique", "nr1": "FROID NR-1"}
+NOME_PRODUTO = {"psique": "FROID Psique", "nr1": "FROID NR-1/ISO 45003"}
 ICONE_TROCA = ('<svg class="nav-troca-icone" viewBox="0 0 16 16" width="14" height="14" '
                'aria-hidden="true" focusable="false"><path d="M2 5.5h10.5L9.5 2.5M14 10.5H3.5l3 3" '
                'fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" '

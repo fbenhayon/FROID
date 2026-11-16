@@ -193,7 +193,7 @@ header.site-header {
    item à fileira. */
 [id] { scroll-margin-top: 108px; }
 
-/* Tabela de faixas do FROID NR-1. Vive aqui, e não no <style> de uma página,
+/* Tabela de faixas do FROID NR-1/ISO 45003. Vive aqui, e não no <style> de uma página,
    porque as faixas aparecem na página do produto e na proposta — dois lugares
    que precisam mostrar exatamente o mesmo número. */
 .nr1-faixas { width: 100%; border-collapse: collapse; font-size: 0.9rem; min-width: 420px; }

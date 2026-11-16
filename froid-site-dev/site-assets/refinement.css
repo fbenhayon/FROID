@@ -151,3 +151,9 @@ footer.site-footer li a { display:inline-block; padding-block:5px; }
 .secao-menu a { font-size:.74rem; font-weight:700; letter-spacing:.04em; color:#f5c778; text-decoration:none; padding:4px 12px; border:1px solid #f5c778; border-radius:999px; }
 .secao-menu a:hover, .secao-menu a:focus-visible { color:#151921; background:#f5c778; text-decoration:none; }
 @media print { .secao-menu { display:none; } }
+/* 15/11/2026: links do menu de secoes em ambar, como nas paginas do Psique */
+.page-outline a { border-color:#f5c778; }
+.page-outline a:hover, .page-outline a:focus-visible { border-color:#fcd34d; color:#f8fafc; }
+/* 16/11/2026: com o nome "NR-1/ISO 45003" o topo do celular apertava e
+   "Entrar no FROID" quebrava em tres linhas; o botao passa para a linha de baixo. */
+@media (max-width:860px) { html body > header.site-header .nav-actions .btn { white-space:nowrap; } }

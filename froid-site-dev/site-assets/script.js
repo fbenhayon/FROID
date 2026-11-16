@@ -125,7 +125,7 @@ var NAV_SECOES = {
   ],
   "privacidade.html": [
     ["psique", "FROID Psique"],
-    ["nr1", "FROID NR-1"],
+    ["nr1", "FROID NR-1/ISO 45003"],
     ["duvidas-ou-solicitacoes-sobre-dados", "Dúvidas ou solicitações sobre dados"]
   ],
   "psique/index.html": [
