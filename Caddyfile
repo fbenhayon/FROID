@@ -63,6 +63,16 @@ froid.com.br, www.froid.com.br {
         reverse_proxy froid-backend:8000
     }
 
+    # Estatisticas do site (Umami), 17/11/2026. So o script de contagem e o
+    # envio das visitas passam por aqui, no mesmo dominio (o CSP so aceita
+    # script de 'self'). O painel e o login do Umami NAO ficam expostos neste
+    # dominio; abrem em estatisticas.froid.com.br.
+    @umami_coleta path /umami/script.js /umami/api/send
+    handle @umami_coleta {
+        uri strip_prefix /umami
+        reverse_proxy umami:3000
+    }
+
     # Painel FROID (SPA React) — rotas de acesso preservadas + bundles Vite
     @app {
         path /app /app/* /login /login/* /entrar /cadastro /cadastro/* /paciente /paciente/* /avaliacao /access/* /convite/* /assets/* /vite.svg /favicon.ico

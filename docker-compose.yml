@@ -247,6 +247,55 @@ services:
       options:
         max-size: "20m"
         max-file: "10"
+  # Estatisticas do site (Umami), 17/11/2026, pedido do dono: ver acessos e
+  # cadastros. Sem cookies e sem dado pessoal; os dados ficam neste servidor,
+  # num banco proprio (umami-db), separado do banco do FROID. Segredos no .env
+  # do servidor (UMAMI_DB_SENHA, UMAMI_APP_SECRET). Se faltarem, o Postgres do
+  # Umami recusa iniciar sem senha e so as estatisticas ficam fora; o resto
+  # do compose nao depende deles.
+  # O Caddy so repassa ao Umami o script de contagem e o envio de visitas
+  # (/umami/script.js e /umami/api/send); o painel abre em
+  # estatisticas.froid.com.br. Porta so no loopback, para administracao.
+  umami:
+    image: ghcr.io/umami-software/umami:3.4.1
+    environment:
+      - DATABASE_URL=postgresql://umami:${UMAMI_DB_SENHA:-}@umami-db:5432/umami
+      - APP_SECRET=${UMAMI_APP_SECRET:-}
+      - DISABLE_TELEMETRY=1
+    ports:
+      - "127.0.0.1:3005:3000"
+    depends_on:
+      umami-db:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    logging:
+      driver: local
+      options:
+        max-size: "20m"
+        max-file: "5"
+  umami-db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_DB=umami
+      - POSTGRES_USER=umami
+      - POSTGRES_PASSWORD=${UMAMI_DB_SENHA:-}
+    volumes:
+      - umami_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U umami -d umami"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    logging:
+      driver: local
+      options:
+        max-size: "20m"
+        max-file: "5"
   froid-turn:
     image: coturn/coturn:4.14.0-r0
     profiles: ["webrtc"]
@@ -266,6 +315,7 @@ volumes:
   caddy_data:
   caddy_config:
   froid_postgres_data:
+  umami_db_data:
 
 networks:
   froid-data:
