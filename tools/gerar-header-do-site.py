@@ -377,12 +377,9 @@ def aplicar_acoes(texto, idioma, pagina):
 # inglês ("Choose language") enquanto es e fr tinham o seu.
 # --------------------------------------------------------------------------
 
-# O Site II e servido em /dev/ (Caddy). Escrevendo nele, as URLs declaradas
-# (hreflang) sao as de /dev/: desde 11/11/2026 nenhum endereco do Psique 1
-# (/psique/, que agora so redireciona) pode aparecer como link.
-SITE = ("https://www.froid.com.br/dev/"
-        if os.path.basename(os.path.normpath(RAIZ)) == "froid-site-dev"
-        else "https://www.froid.com.br/")
+# Desde 18/11/2026 o Site II e servido na RAIZ do dominio (Caddy), e nao mais
+# em /dev/: as URLs declaradas (hreflang) sao as da raiz, para os dois sites.
+SITE = "https://www.froid.com.br/"
 ORDEM = ["", "en", "fr", "es"]            # ordem das pills: PT EN FR ES
 SIGLA = {"": "PT", "en": "EN", "fr": "FR", "es": "ES"}
 ARIA = {

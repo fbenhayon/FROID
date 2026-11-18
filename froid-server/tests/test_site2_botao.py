@@ -72,41 +72,36 @@ class AEntradaLevaOPsiqueAoSiteII(unittest.TestCase):
 
 
 def _servidas():
-    """Paginas que o servidor entrega: o Site II inteiro e o publico menos o
-    Psique 1 (froid-site/[lang/]psique/, so redirecionado desde 11/11/2026)."""
+    """Paginas que o servidor entrega. Desde 18/11/2026 o Site II e servido na
+    raiz: ele inteiro, e do publico so o que nao existe no Site II."""
     for caminho in sorted(DEV.rglob("*.html")):
         yield caminho
     for caminho in sorted(PUBLICO.rglob("*.html")):
-        rel = caminho.relative_to(PUBLICO).as_posix()
-        if not re.match(r"^((en|fr|es)/)?psique/", rel):
+        if not (DEV / caminho.relative_to(PUBLICO)).exists():
             yield caminho
 
 
 class NenhumLinkAoPsique1(unittest.TestCase):
-    """11/11/2026: "nao deve haver nenhum link ao site FROID Psique 1". Nem
-    relativo (psique/... a partir do site publico), nem absoluto."""
+    """11/11/2026: "nao deve haver nenhum link ao site FROID Psique 1".
+    18/11/2026: com o Site II na raiz, /psique/ e o Psique do Site II; a
+    garantia passa a ser que NENHUMA pagina de froid-site/[lang/]psique/ e
+    servida, porque toda ela tem a mesma pagina no Site II, que o Caddy
+    entrega antes do froid-site."""
 
-    ABSOLUTO = re.compile(r"https://www\.froid\.com\.br/((en|fr|es)/)?psique\b")
-    ATRIB = re.compile(r'(?:href|src)="([^"#?]*)')
+    def test_todo_caminho_do_psique_1_e_coberto_pelo_site_ii(self):
+        psique1 = [c for c in PUBLICO.rglob("*.html")
+                   if re.match(r"^((en|fr|es)/)?psique/", c.relative_to(PUBLICO).as_posix())]
+        self.assertTrue(psique1)
+        for caminho in psique1:
+            rel = caminho.relative_to(PUBLICO)
+            with self.subTest(pagina=rel.as_posix()):
+                self.assertTrue((DEV / rel).exists(), rel)
 
-    def test_nenhuma_pagina_servida_aponta_para_o_psique_1(self):
+    def test_nenhum_link_absoluto_leva_ao_antigo_dev(self):
         for caminho in _servidas():
             texto = caminho.read_text(encoding="utf-8")
             with self.subTest(pagina=str(caminho.relative_to(REPO))):
-                self.assertNotRegex(texto, self.ABSOLUTO)
-                if PUBLICO in caminho.parents:
-                    base = caminho.parent.relative_to(PUBLICO).as_posix()
-                    for url in self.ATRIB.findall(texto):
-                        if not url or url.startswith(("http", "/", "mailto:", "data:", "tel:")):
-                            continue
-                        alvo = (Path(base) / url).as_posix()
-                        partes = []
-                        for p in alvo.split("/"):
-                            if p == "..":
-                                partes and partes.pop()
-                            elif p not in ("", "."):
-                                partes.append(p)
-                        self.assertNotRegex("/".join(partes), r"^((en|fr|es)/)?psique(/|$)", url)
+                self.assertNotRegex(texto, r"""(froid\.com\.br|["'(=])/dev/""")
 
 
 class OExplorarSaiuDosDoisSites(unittest.TestCase):
@@ -159,31 +154,23 @@ class OSiteIISemSenha(unittest.TestCase):
     basic_auth em /dev/; agora exige que nao haja nenhuma linha ATIVA de senha
     no Caddyfile (comentarios contando a historia podem citar a palavra)."""
 
-    def test_o_caddy_serve_dev_sem_senha(self):
+    def test_o_caddy_serve_o_site_ii_na_raiz_sem_senha(self):
         caddy = (REPO / "Caddyfile").read_text(encoding="utf-8")
         ativas = [l for l in caddy.splitlines() if not l.strip().startswith("#")]
         self.assertFalse([l for l in ativas if "basic_auth" in l])
-        bloco = caddy.split("handle_path /dev/* {", 1)[1].split("\n    }\n", 1)[0]
+        bloco = caddy.split("handle @site2 {", 1)[1].split("\n    }\n", 1)[0]
         self.assertIn("root * /srv/froid-site-dev", bloco)
-        # O bloco de /dev/ vem antes do `handle {` sem matcher, que serve o
-        # site publico inteiro e pegaria qualquer caminho que sobrasse.
-        self.assertLess(caddy.index("handle_path /dev/*"), caddy.index("\n    handle {\n"))
+        # O bloco do Site II vem antes do `handle {` sem matcher, que serve o
+        # froid-site e pegaria qualquer caminho que sobrasse.
+        self.assertLess(caddy.index("handle @site2 {"), caddy.index("\n    handle {\n"))
         self.assertNotIn("FROID_PERCEPCAO_SENHA_HASH", caddy)
 
-    def test_o_psique_publico_nao_e_mais_servido(self):
-        """11/11/2026: "exclua o acesso ao Site 1". Todo caminho do Psique
-        publico, em qualquer idioma, vai a mesma pagina no Site II."""
+    def test_links_antigos_com_dev_viram_301_para_a_raiz(self):
         caddy = (REPO / "Caddyfile").read_text(encoding="utf-8")
-        regra = re.search(r"@psique_publico path_regexp psique_publico (\S+)", caddy)
-        self.assertIsNotNone(regra)
-        padrao = re.compile(regra.group(1).replace("(?i)", ""), re.I)
-        for caminho in ("/psique/index.html", "/psique/", "/psique", "/en/psique/faq.html",
-                        "/fr/psique/", "/es/psique/index.html"):
-            self.assertRegex(caminho, padrao)
-        for caminho in ("/nr1/index.html", "/termos.html", "/", "/dev/psique/index.html",
-                        "/psiquex.html", "/en/nr1/index.html"):
-            self.assertNotRegex(caminho, padrao)
-        self.assertIn("redir @psique_publico /dev{uri} 302", caddy)
+        self.assertIn("redir /dev / 301", caddy)
+        self.assertIn("redir @dev_antigo {re.dev_antigo.1} 301", caddy)
+        self.assertIn("redir @dev_antigo_q {re.dev_antigo_q.1}?{query} 301", caddy)
+        self.assertNotIn("handle_path /dev/*", caddy)
 
     def test_o_compose_monta_a_pasta_e_repassa_a_senha_sem_padrao(self):
         compose = (REPO / "docker-compose.yml").read_text(encoding="utf-8")
@@ -208,8 +195,8 @@ class OGoogleIndexaOSiteII(unittest.TestCase):
                            capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         mapa = (PUBLICO / "sitemap.xml").read_text(encoding="utf-8")
-        self.assertIn("https://www.froid.com.br/dev/psique/</loc>", mapa)
-        self.assertNotIn("https://www.froid.com.br/psique/", mapa)
+        self.assertIn("https://www.froid.com.br/psique/</loc>", mapa)
+        self.assertNotIn("/dev/", mapa)
         self.assertIn("Sitemap: https://www.froid.com.br/sitemap.xml", (PUBLICO / "robots.txt").read_text(encoding="utf-8"))
 
 

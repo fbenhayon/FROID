@@ -52,8 +52,8 @@ CADEADO = ('<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" f
 
 def destino(rel):
     if os.path.exists(os.path.join(DEV, *rel.split("/"))):
-        return "/dev/" + ("" if rel == "index.html" else rel)
-    return "/dev/"
+        return "/" + ("" if rel == "index.html" else rel)
+    return "/"
 
 
 def idioma(rel):

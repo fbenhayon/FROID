@@ -55,6 +55,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 SITE = REPO / "froid-site"
+SITE2 = REPO / "froid-site-dev"
 PAINEL_DIST = REPO / "froid-dashboard" / "dist"
 MAIN = REPO / "froid-server" / "main.py"
 
@@ -129,7 +130,7 @@ def _rotas_que_o_site_chama() -> dict:
     chamadas: dict = {}
     if not SITE.exists():
         return chamadas
-    for caminho in SITE.rglob("*"):
+    for caminho in list(SITE.rglob("*")) + list(SITE2.rglob("*")):
         if not caminho.is_file() or caminho.suffix not in {".html", ".js"}:
             continue
         texto = caminho.read_text(encoding="utf-8", errors="ignore")
@@ -213,11 +214,13 @@ def _sem_cr(dados: bytes) -> bytes:
 
 def conferir_site(base: str, r: Resultado) -> None:
     print(f"\n{CINZA}SITE{FIM}")
+    # Desde 18/11/2026 o Site II (froid-site-dev) e servido na raiz; estas
+    # paginas existem nele, e e dele que o servidor as entrega.
     paginas = [
-        ("/", SITE / "index.html"),
-        ("/sobre-contato", SITE / "sobre-contato.html"),
-        ("/psique/", SITE / "psique" / "index.html"),
-        ("/nr1/", SITE / "nr1" / "index.html"),
+        ("/", SITE2 / "index.html"),
+        ("/sobre-contato", SITE2 / "sobre-contato.html"),
+        ("/psique/", SITE2 / "psique" / "index.html"),
+        ("/nr1/", SITE2 / "nr1" / "index.html"),
     ]
     for rota, arquivo in paginas:
         if not arquivo.exists():

@@ -62,6 +62,12 @@ def destino_do_dominio(path):
         dev = os.path.join(REPO, "froid-site-dev")
         return os.path.join(dev, *rel.split("/")) if rel else dev
     rel = path.lstrip("/")
+    # Desde 18/11/2026 o Site II e servido na raiz: o Caddy procura primeiro
+    # em froid-site-dev e so depois no froid-site.
+    dev = os.path.join(REPO, "froid-site-dev")
+    alvo_dev = os.path.join(dev, *rel.split("/")) if rel else dev
+    if os.path.exists(resolver_arquivo(alvo_dev)):
+        return alvo_dev
     alvo = os.path.join(RAIZ, *rel.split("/")) if rel else RAIZ
     return alvo
 

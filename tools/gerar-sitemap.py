@@ -5,11 +5,9 @@ Pedido do dono, 11/11/2026: "fazer o Google indexar as paginas". O site nao
 tinha mapa nem robots.txt. O mapa lista so o que o servidor entrega como
 pagina propria e indexavel:
 
-- do site publico (froid-site): toda pagina, MENOS o Psique 1
-  ([lang/]psique/, que o Caddy redireciona para /dev/);
-- do Site II (froid-site-dev): so as paginas do Psique ([lang/]psique/),
-  servidas em /dev/. As demais paginas do Site II repetem as do publico e
-  declaram como canonica a URL publica: nao entram, para nao listar copia.
+- desde 18/11/2026, o Site II (froid-site-dev), servido na raiz do dominio:
+  toda pagina indexavel;
+- do froid-site, so o que nao existe no Site II (e nunca o Psique 1).
 
 Fica de fora toda pagina com <meta name="robots" content="noindex"> (os
 redirecionamentos e as paginas que o dono decidiu nao indexar, como etica,
@@ -54,8 +52,11 @@ def paginas(raiz, prefixo, quer):
 
 
 def gerar():
-    urls = set(paginas(PUBLICO, "", lambda rel: not PSIQUE.match(rel)))
-    urls |= set(paginas(DEV, "dev/", lambda rel: bool(PSIQUE.match(rel))))
+    # Desde 18/11/2026 o Site II (froid-site-dev) e servido na raiz; o
+    # froid-site so responde pelo que nao existe no Site II.
+    urls = set(paginas(DEV, "", lambda rel: True))
+    urls |= set(paginas(PUBLICO, "", lambda rel: not PSIQUE.match(rel)
+                        and not os.path.exists(os.path.join(DEV, rel))))
     linhas = ['<?xml version="1.0" encoding="UTF-8"?>',
               '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
     linhas += ["  <url><loc>%s</loc></url>" % u for u in sorted(urls)]

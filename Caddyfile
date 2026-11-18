@@ -87,51 +87,47 @@ froid.com.br, www.froid.com.br {
     # fundida na Visão geral e virou redirecionamento; a regra saiu. O caminho
     # público dela cai no redirecionamento do Psique público, logo abaixo.
 
-    # Site II (froid-site-dev), em /dev/. Teve senha de 11/11/2026 até a tarde do mesmo dia (ver abaixo).
-    # Determinação do dono em 11/11/2026: o site da versão atual (Site 2 do
-    # Psique, inscrição gratuita, calculadora NR-1, 10 habilidades) contém
-    # informação de desenvolvedores e não é para o público; o público volta a
-    # ver froid-site, a versão que estava no ar antes (commit 485a734).
+    # 18/11/2026, determinação do dono: o Site II (froid-site-dev) passa a ser
+    # servido na RAIZ do domínio, e não mais em /dev/. Até aqui a página de
+    # entrada era um redirecionamento para /dev/, e o endereço que o visitante
+    # via (e que o Google e o Umami registravam) era /dev/, que parecia área de
+    # desenvolvedor. Historia anterior: /dev/ teve senha de 11/11/2026 até a
+    # tarde do mesmo dia (ops/definir-senha.sh e FROID_DEV_SENHA_HASH seguem
+    # no lugar) e é indexável desde então.
     #
-    # A senha é conferida AQUI, no servidor; conferida em JavaScript ela
-    # estaria escrita na própria página. Hash bcrypt em base64 na variável
-    # FROID_DEV_SENHA_HASH (`ops/definir-senha.sh`). FALHA FECHADA: sem a
-    # variável, vale o hash de um segredo aleatório que ninguém guardou, e
-    # /dev/ não abre para ninguém. Variável DEFINIDA porém VAZIA é outra coisa:
-    # o Caddy recusa a configuração e não sobe, e o site inteiro cai (medido em
-    # 10/11/2026 num contêiner descartável). Por isso o docker-compose.yml
-    # repassa a variável sem valor padrão, e o script valida antes de reiniciar. `handle_path` tira o /dev do caminho, então os links
-    # relativos das páginas continuam dentro de /dev/.
-    redir /dev /dev/ 308
+    # Links antigos com /dev/ — favoritos, buscador, redes sociais — continuam
+    # funcionando: 301 para o mesmo caminho sem o prefixo, preservando a query.
+    redir /dev / 301
+    @dev_antigo_q {
+        path_regexp dev_antigo_q ^/dev(/.*)$
+        expression {query} != ""
+    }
+    redir @dev_antigo_q {re.dev_antigo_q.1}?{query} 301
+    @dev_antigo path_regexp dev_antigo ^/dev(/.*)$
+    redir @dev_antigo {re.dev_antigo.1} 301
 
-    # O Psique público (Site 1) não é mais acessível. Determinação do dono,
-    # 11/11/2026: "quem chegar pela página de entrada veja apenas o conteúdo
-    # do Site II; exclua o acesso ao Site 1". Todo caminho do Psique público,
-    # em qualquer idioma, vai à MESMA página no Site II,
-    # inclusive para quem chega por buscador ou link antigo. O NR-1 e as
-    # páginas comuns (contato, privacidade, termos) continuam públicos.
-    # 302, e não 308: se a decisão mudar, nenhum navegador terá guardado o
-    # redirecionamento como permanente. Os arquivos de froid-site/psique/
-    # continuam no repositório; só deixam de ser servidos.
-    @psique_publico path_regexp psique_publico (?i)^/((en|fr|es)/)?psique(/.*)?$
-    redir @psique_publico /dev{uri} 302
+    # O Psique público (Site 1) continua fora do ar (determinação de
+    # 11/11/2026, "exclua o acesso ao Site 1"). Antes isso era um redir de
+    # [lang/]psique/ para /dev/; agora o MESMO caminho na raiz já é a página
+    # do Site II, servida pelo bloco abaixo. Os arquivos de froid-site/psique/
+    # continuam no repositório e não são mais alcançados.
 
-    # SEM SENHA desde 11/11/2026, determinação do dono: "quando você clica no
-    # FROID Psique na primeira página ele solicita a senha; tem que desabilitar
-    # agora essa restrição". O basic_auth que ficava aqui (usuário froid, hash
-    # em FROID_DEV_SENHA_HASH, falha fechada) saiu; para religar, reverter o
-    # commit que tirou este bloco — a variável e ops/definir-senha.sh seguem
-    # no lugar.
-    handle_path /dev/* {
-        header Cache-Control "no-store, no-cache, must-revalidate"
-        # Indexável desde 11/11/2026 (tarde), determinação do dono: "fazer o
-        # Google indexar as páginas". O X-Robots-Tag "noindex, nofollow" que
-        # ficava aqui era do tempo em que /dev/ era site de desenvolvedores.
+    # Site II na raiz: todo caminho que existe em froid-site-dev sai de lá.
+    @site2 file {
+        root /srv/froid-site-dev
+        try_files {path} {path}.html {path}/index.html
+    }
+    handle @site2 {
         root * /srv/froid-site-dev
+        @html2 path_regexp ^(/[^.]*|.*\.html)$
+        header @html2 Cache-Control "no-store, no-cache, must-revalidate"
+        header /site-assets/* Cache-Control "public, max-age=604800"
         try_files {path} {path}.html {path}/index.html
         file_server
     }
 
+    # O que não existe no Site II cai no froid-site: robots.txt, sitemap.xml e
+    # as páginas antigas que só existem lá (todas viraram redirecionamento).
     # Site institucional estático (froid-site) — raiz e demais páginas
     handle {
         root * /srv/froid-site
