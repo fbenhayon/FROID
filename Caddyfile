@@ -150,3 +150,17 @@ froid.com.br, www.froid.com.br {
         file_server
     }
 }
+
+# Painel de estatisticas do site (Umami), 18/11/2026. Login: /root/.umami-admin
+# no servidor. Dominio separado para o login nao ficar exposto em www.
+estatisticas.froid.com.br {
+    encode gzip
+    header {
+        Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
+    reverse_proxy umami:3000
+}
