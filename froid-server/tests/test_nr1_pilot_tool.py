@@ -574,3 +574,38 @@ class DocumentoCompletoDoPiloto(unittest.TestCase):
         ]
         self.assertIn("lower(email) = ANY(%s)", fonte)
         self.assertIn("dado do piloto foi criado", fonte)
+
+
+class CriteriosPublicadosSaoOsUsados(unittest.TestCase):
+    """O piloto classifica pelos mesmos critérios que publica.
+
+    Até 23/11/2026 o piloto publicava os critérios como versão 1 e classificava
+    com o DEFAULT_CRITERIA (versão 0): cada risco do inventário dizia "v0"
+    abaixo do documento que dizia "versão 1". O teste enumera TODAS as chamadas
+    de `grade_all` do roteiro (regra 2.8): uma chamada nova sem o critério
+    publicado quebra aqui.
+    """
+
+    def test_toda_gradacao_usa_os_criterios_publicados(self):
+        import ast
+
+        chamadas = [
+            no for no in ast.walk(ast.parse(SOURCE))
+            if isinstance(no, ast.Call)
+            and isinstance(no.func, ast.Attribute)
+            and no.func.attr == "grade_all"
+        ]
+        self.assertGreaterEqual(len(chamadas), 3)
+        for chamada in chamadas:
+            argumentos = [ast.unparse(a) for a in chamada.args[1:]]
+            argumentos += [ast.unparse(k.value) for k in chamada.keywords]
+            self.assertIn("PILOT_CRITERIA", argumentos, ast.unparse(chamada))
+
+    def test_documento_publicado_e_o_criterio_usado_tem_a_mesma_versao(self):
+        sys.path.insert(0, str(SERVER_DIR / "tools"))
+        import nr1_pilot_dryrun
+
+        self.assertEqual(nr1_pilot_dryrun.PILOT_CRITERIA.version, 1)
+        self.assertIn("PILOT_CRITERIA.as_document()", SOURCE)
+        # A única leitura do padrão é a que monta PILOT_CRITERIA.
+        self.assertEqual(SOURCE.count("DEFAULT_CRITERIA.as_document()"), 1)

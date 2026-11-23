@@ -73,6 +73,18 @@ CAMPAIGN_BASE = str(uuid.uuid5(PILOT_NAMESPACE, "campaign/baseline"))
 CAMPAIGN_FOLLOW = str(uuid.uuid5(PILOT_NAMESPACE, "campaign/followup"))
 
 
+# Os critérios que o piloto PUBLICA (gro_risk_criteria, versão 1) e os que ele
+# USA para classificar têm de ser o mesmo objeto. Até 23/11/2026 a gradação
+# chamava `grade_all` sem critério — caía no DEFAULT_CRITERIA, versão 0 — e
+# cada risco do inventário dizia "Criterios v0 (froid-default)" logo abaixo dos
+# critérios publicados como versão 1. Os números eram idênticos; o rótulo
+# contradizia o documento, e isso ia impresso no kit de demonstração do site.
+# O servidor real já classifica pelo documento publicado (from_document).
+PILOT_CRITERIA = nr1_compliance.GradationCriteria.from_document(
+    {**nr1_compliance.DEFAULT_CRITERIA.as_document(), "version": 1}
+)
+
+
 def pilot_id(name: str) -> str:
     """Identificador estável para que completar o piloto seja idempotente."""
     return str(uuid.uuid5(PILOT_NAMESPACE, name))
@@ -265,7 +277,7 @@ def create(connection) -> None:
             (unit_id, ORG_ID, nome, headcount),
         )
 
-    criteria = nr1_compliance.DEFAULT_CRITERIA.as_document()
+    criteria = PILOT_CRITERIA.as_document()
     connection.execute(
         """
         INSERT INTO gro_risk_criteria
@@ -1126,7 +1138,11 @@ def _action_plan_text(seed: dict, title: str, *, implemented: bool) -> dict:
                 "registrar terceiros envolvidos e conduzir análise pós-incidente."
             ),
             "environment_modality": (
-                f"{action} condições de {title.lower()} por meio de fila única integrada ao WMS, "
+                # "Condições de comunicação" já traz o "condições de": sem esta
+                # guarda o plano impresso dizia "condições de condições de".
+                f"{action} "
+                f"{title.lower() if title.lower().startswith('condições de') else 'condições de ' + title.lower()}"
+                " por meio de fila única integrada ao WMS, "
                 "passagem estruturada entre turnos e confirmação formal de toda repriorização que "
                 "afete separação, conferência, doca ou transporte."
             ),
@@ -1304,7 +1320,7 @@ def complete_cycle(connection, dimensions) -> None:
     base_scores = _scores(connection, CAMPAIGN_BASE)
     follow_scores = _scores(connection, CAMPAIGN_FOLLOW)
     dimension_titles = {str(item["id"]): item["title"] for item in dimensions}
-    base_graded = nr1_compliance.grade_all(base_scores)
+    base_graded = nr1_compliance.grade_all(base_scores, PILOT_CRITERIA)
     _store_inventory(connection, CAMPAIGN_BASE, base_graded, base_aep)
     _store_action_plan(
         connection, CAMPAIGN_BASE, base_graded, implemented=True,
@@ -1314,7 +1330,7 @@ def complete_cycle(connection, dimensions) -> None:
     verdicts = nr1_effectiveness.compare_campaigns(base_scores, follow_scores)
     _store_effectiveness(connection, verdicts)
     # A revisão gravada passa a compor a probabilidade do ciclo seguinte.
-    follow_graded = nr1_compliance.grade_all(_scores(connection, CAMPAIGN_FOLLOW))
+    follow_graded = nr1_compliance.grade_all(_scores(connection, CAMPAIGN_FOLLOW), PILOT_CRITERIA)
     _store_inventory(connection, CAMPAIGN_FOLLOW, follow_graded, follow_aep)
     # A reavaliação fecha a apuração e abre, corretamente, as correções do
     # próximo giro. Declará-las concluídas sem uma terceira medição seria
@@ -1447,7 +1463,7 @@ def report(connection) -> None:
 
     print()
     print(paint("GRADAÇÃO — REAVALIAÇÃO", BOLD))
-    graded = nr1_compliance.grade_all(follow)
+    graded = nr1_compliance.grade_all(follow, PILOT_CRITERIA)
     for risk in graded[:8]:
         nome = titulos.get(uuid.UUID(risk.dimension_id), risk.dimension_id)
         unidade = unidades.get(uuid.UUID(risk.unit_id), "—") if risk.unit_id else "—"
