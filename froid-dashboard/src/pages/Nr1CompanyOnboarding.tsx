@@ -57,6 +57,8 @@ function avisoDeRecorte(efetivo: number): string | null {
 
 const CONTATO = "froid@froid.com.br";
 
+const ETAPAS = ["A empresa", "Estabelecimentos", "Setores", "Valor", "Conferência"];
+
 type Unidade = {
   unit_id: string;
   parent_unit_id: string | null;
@@ -143,12 +145,30 @@ type SimulacaoNr1 = {
   pricingTable: { code: string; version: string; sha256: string };
 };
 
-const Passo: React.FC<{ numero: number; atual: number; titulo: string }> = ({
-  numero,
-  atual,
-  titulo,
-}) => (
-  <div className="flex items-center gap-2">
+// Cada etapa e um link para ela. Etapa cujo pre-requisito ainda nao existe
+// (empresa nao salva, nenhum estabelecimento, valor nao registrado) fica
+// travada e diz por que, em vez de abrir uma tela que quebraria.
+const Passo: React.FC<{
+  numero: number;
+  atual: number;
+  titulo: string;
+  onIr: (numero: number) => void;
+  bloqueio?: string;
+}> = ({ numero, atual, titulo, onIr, bloqueio }) => (
+  <button
+    type="button"
+    onClick={() => onIr(numero)}
+    disabled={Boolean(bloqueio) || atual === numero}
+    aria-current={atual === numero ? "step" : undefined}
+    title={bloqueio || (atual === numero ? `Você está em: ${titulo}` : `Ir para a etapa ${numero}: ${titulo}`)}
+    className={`flex items-center gap-2 rounded-full py-1 pl-1 pr-3 transition ${
+      bloqueio
+        ? "cursor-not-allowed opacity-60"
+        : atual === numero
+          ? "cursor-default bg-amber-500/10"
+          : "hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-400"
+    }`}
+  >
     <span
       className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-black ${
         atual > numero
@@ -162,12 +182,16 @@ const Passo: React.FC<{ numero: number; atual: number; titulo: string }> = ({
     </span>
     <span
       className={`text-xs font-bold ${
-        atual === numero ? "text-amber-300" : "text-slate-400"
+        atual === numero
+          ? "text-amber-300"
+          : bloqueio
+            ? "text-slate-500"
+            : "text-slate-300 underline decoration-slate-600 underline-offset-4"
       }`}
     >
       {titulo}
     </span>
-  </div>
+  </button>
 );
 
 const Campo: React.FC<{
@@ -309,20 +333,30 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
     };
   }, [organizationId]);
 
+  const [unidadesLidas, setUnidadesLidas] = useState(false);
+  const [falhaAoLerUnidades, setFalhaAoLerUnidades] = useState(false);
   const carregarUnidades = useCallback(async () => {
     if (!organizationId) return;
     try {
       const dados = await chamar(`/api/organizations/${organizationId}/nr1/units`);
       setUnidades(dados.units || []);
+      setUnidadesLidas(true);
+      setFalhaAoLerUnidades(false);
     } catch (e) {
+      setFalhaAoLerUnidades(true);
       const falha = e as Error & { acessoCortado?: boolean };
       if (falha.acessoCortado) setAcessoCortado(true);
       setErro(String(falha.message));
     }
   }, [organizationId]);
 
+  // Carrega assim que a organizacao existe, e nao so a partir do passo 2: os
+  // links das etapas decidem o que travar pela lista de estabelecimentos, e a
+  // empresa ja cadastrada reabre a tela no passo 1. Com a lista ainda vazia por
+  // nao ter sido lida, a trava diria "cadastre um estabelecimento" a quem ja
+  // tem — afirmando uma ausencia que ninguem apurou.
   useEffect(() => {
-    if (passo >= 2) void carregarUnidades();
+    void carregarUnidades();
   }, [passo, carregarUnidades]);
 
 
@@ -330,6 +364,35 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
     () => unidades.filter((u) => u.unit_type === "site"),
     [unidades],
   );
+
+  // A etapa mais adiantada ja alcancada nesta visita. A Conferencia so abre
+  // depois que o valor foi registrado (confirmarValor leva ao passo 5);
+  // pular para ela pelo link seria contornar o aceite do valor.
+  const [maisLonge, setMaisLonge] = useState(1);
+  useEffect(() => {
+    setMaisLonge((atual) => Math.max(atual, passo));
+  }, [passo]);
+
+  const bloqueioDaEtapa = (numero: number): string | undefined => {
+    if (numero === 1) return undefined;
+    if (!organizationId) return "Salve os dados da empresa primeiro.";
+    if (numero >= 3 && !unidadesLidas)
+      return falhaAoLerUnidades
+        ? "Não foi possível ler os estabelecimentos cadastrados; veja o aviso na tela."
+        : "Lendo os estabelecimentos cadastrados…";
+    if (numero >= 3 && !estabelecimentos.length)
+      return "Cadastre ao menos um estabelecimento primeiro.";
+    if (numero === 5 && maisLonge < 5)
+      return "Confirme o valor na etapa 4 para chegar à conferência.";
+    return undefined;
+  };
+
+  const irParaEtapa = (numero: number) => {
+    if (bloqueioDaEtapa(numero)) return;
+    setErro("");
+    setPasso(numero);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
   const setores = useMemo(
     () => unidades.filter((u) => u.unit_type === "sector"),
     [unidades],
@@ -621,13 +684,18 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
             {nomeFantasia.trim() || razaoSocial.trim()}
           </p>
         )}
-        <div className="flex flex-wrap gap-4">
-          <Passo numero={1} atual={passo} titulo="A empresa" />
-          <Passo numero={2} atual={passo} titulo="Estabelecimentos" />
-          <Passo numero={3} atual={passo} titulo="Setores" />
-          <Passo numero={4} atual={passo} titulo="Valor" />
-          <Passo numero={5} atual={passo} titulo="Conferência" />
-        </div>
+        <nav aria-label="Etapas do cadastro" className="flex flex-wrap gap-2">
+          {ETAPAS.map((titulo, i) => (
+            <Passo
+              key={titulo}
+              numero={i + 1}
+              atual={passo}
+              titulo={titulo}
+              onIr={irParaEtapa}
+              bloqueio={bloqueioDaEtapa(i + 1)}
+            />
+          ))}
+        </nav>
 
         {acessoCortado ? (
           <section className="mt-5 rounded-lg border border-amber-700 bg-amber-950/40 p-5">

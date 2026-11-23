@@ -99,7 +99,7 @@ describe("o nome do cliente aparece em TODA tela do empregador", () => {
   it("o cadastro da empresa também se identifica, ao lado dos passos", () => {
     // Ali o nome vem do formulário: no passo 1 a organização ainda não existe.
     const fonte = ler("Nr1CompanyOnboarding.tsx");
-    const inicio = fonte.indexOf("<Passo numero={1}");
+    const inicio = fonte.indexOf("<Passo");
     expect(inicio).toBeGreaterThan(-1);
     const antes = fonte.slice(Math.max(0, inicio - 600), inicio);
     expect(antes).toContain("nomeFantasia.trim() || razaoSocial.trim()");
