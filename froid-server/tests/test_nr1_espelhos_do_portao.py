@@ -25,12 +25,12 @@ if str(SERVER_DIR) not in sys.path:
     sys.path.insert(0, str(SERVER_DIR))
 
 REPO = SERVER_DIR.parent
-DIAGNOSTICO = REPO / "froid-site" / "diagnostico-nr1.html"
+DIAGNOSTICO = REPO / "froid-site-dev" / "diagnostico-nr1.html"
 ESPELHO_TS = REPO / "froid-dashboard" / "src" / "lib" / "nr1-representatividade.ts"
 # Os espelhos traduzidos. Cada edicao carrega a propria copia dos cinco numeros,
 # entao cada idioma e mais uma chance de o piso divergir em silencio. O glob e
 # deliberado: idioma novo entra coberto, sem ninguem precisar lembrar.
-TRADUCOES = sorted((REPO / "froid-site").glob("*/diagnostico-nr1.html"))
+TRADUCOES = sorted((REPO / "froid-site-dev").glob("*/diagnostico-nr1.html"))
 
 from nr1_compliance import (  # noqa: E402
     CENSUS_THRESHOLD,
@@ -219,7 +219,7 @@ class NenhumEspelhoFicouDeFora(unittest.TestCase):
 
         suspeitos = set()
         for raiz, padrao in (
-            (REPO / "froid-site", "*.html"),
+            (REPO / "froid-site-dev", "*.html"),
             (REPO / "froid-dashboard" / "src", "*.ts"),
             (SERVER_DIR / "tools", "*.py"),
         ):

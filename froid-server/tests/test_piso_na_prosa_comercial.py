@@ -39,7 +39,7 @@ if str(SERVER_DIR) not in sys.path:
     sys.path.insert(0, str(SERVER_DIR))
 
 REPO = SERVER_DIR.parent
-SITE = REPO / "froid-site"
+SITE = REPO / "froid-site-dev"
 # O painel tambem faz prosa comercial, e a varredura nao chegava ate ele.
 #
 # `ProductChoice.tsx` — a tela que a empresa ve ANTES de se cadastrar — afirmou

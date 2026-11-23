@@ -13,7 +13,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-SITE = ROOT.parent / "froid-site"
+SITE = ROOT.parent / "froid-site-dev"
 
 import psique_pricing
 from psique_billing import BillingError

@@ -89,7 +89,7 @@ class PisoDoDataFroidTest(unittest.TestCase):
     def test_toda_afirmacao_publica_do_piso_e_o_numero_da_fonte(self):
         piso = _piso_da_fonte()
         alvos = [
-            *(REPO / "froid-site").rglob("*.html"),
+            *(REPO / "froid-site-dev").rglob("*.html"),
             *(REPO / "froid-dashboard" / "src").rglob("*.ts*"),
             *(REPO / "froid-dashboard" / "src").rglob("*.html"),
         ]
@@ -109,7 +109,7 @@ class PisoDoDataFroidTest(unittest.TestCase):
         """O codigo recusa CONSULTA a grupo pequeno; nao torna cada registro
         indistinguivel de outros N-1, nem torna a reidentificacao impossivel."""
         proibidas = ("outros 49", "49 others", "otros 49", "49 autres")
-        for caminho in (REPO / "froid-site").rglob("glossario.html"):
+        for caminho in (REPO / "froid-site-dev").rglob("glossario.html"):
             texto = caminho.read_text(encoding="utf-8")
             for frase in proibidas:
                 self.assertNotIn(frase, texto, caminho.as_posix())

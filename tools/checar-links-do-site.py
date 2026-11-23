@@ -2,7 +2,7 @@
 """Confere todo link interno do froid-site.
 
 Uso:
-    python tools/checar-links-do-site.py            # raiz padrao: froid-site/
+    python tools/checar-links-do-site.py            # raiz padrao: froid-site-dev/
     python tools/checar-links-do-site.py <pasta>    # outra arvore (ex.: copia antiga)
 
 Para cada froid-site/**/*.html, resolve todo href/src relativo, a url de
@@ -25,7 +25,9 @@ import sys
 from urllib.parse import unquote, urlsplit
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-RAIZ = os.path.abspath(sys.argv[1]) if len(sys.argv) > 1 else os.path.join(REPO, "froid-site")
+# Desde 23/11/2026 o froid-site so guarda redirecionamentos antigos, robots e
+# sitemap; o site servido e o froid-site-dev, que passa a ser a raiz padrao.
+RAIZ = os.path.abspath(sys.argv[1]) if len(sys.argv) > 1 else os.path.join(REPO, "froid-site-dev")
 
 DOMINIO = re.compile(r"^https?://(www\.)?froid\.com\.br(?P<path>/[^\s]*)?$", re.I)
 FORA_DO_SITE = ("/app", "/cadastro", "/api", "/login", "/entrar", "/paciente",

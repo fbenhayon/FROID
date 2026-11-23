@@ -11,7 +11,7 @@ import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-SITE = ROOT / 'froid-site'
+SITE = ROOT / 'froid-site-dev'  # o site servido desde 18/11/2026
 VOID = set('area base br col embed hr img input link meta param source track wbr'.split())
 
 class Page(HTMLParser):

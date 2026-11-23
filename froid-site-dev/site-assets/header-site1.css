@@ -1,7 +1,8 @@
-/* GERADO por tools/gerar-header-site1-css.py - nao editar a mao.
-   O visual do header do Site 1 (froid-site: style.css, refinement.css),
+/* O visual do header do Site 1 (froid-site: style.css, refinement.css),
    restrito ao header, para as paginas do Psique do Site II.
-   Pedido do dono, 11/11/2026. */
+   Pedido do dono, 11/11/2026. Foi gerado por tools/gerar-header-site1-css.py
+   ate 23/11/2026, quando o froid-site perdeu as paginas e o CSS que o Site II
+   ja cobre (pedido do dono). Desde entao este arquivo e a fonte, editado a mao. */
 body > header.site-header { --froid-branco: #f8fafc; --froid-azul: #3b82f6; --froid-verde: #22c55e; --froid-amarelo: #eab308; --froid-vermelho: #ef4444; --froid-preto: #0f172a; --froid-cinza: #94a3b8; --ink: #e2e8f0; --paper: #020617; --paper-soft: #0f172a; --border: #1e2a44; --radius: 14px; --maxw: 1120px; --font: "Inter", "Segoe UI", Arial, sans-serif; --font-serif: "Source Serif 4", Georgia, serif; }
 body > header.site-header { font-size: 16px; font-family: var(--font); line-height: 1.65; }
 body > header.site-header .nav-links a { background: transparent; }

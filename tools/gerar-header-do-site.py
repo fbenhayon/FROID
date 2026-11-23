@@ -61,11 +61,13 @@ IDIOMAS = {
             ("FROID Explica", "psique/froid-explica.html"),
             ("Data-Froid", "psique/data-froid.html"),
         ]),
-        "nr1": ("FROID NR-1/ISO 45003", "nr1/index.html", [
-            ("Visão geral", "nr1/index.html"),
+        # 23/11/2026, pedido do dono: a Visao geral do NR-1 saiu (virou
+        # redirecionamento) e a Apresentacao passou a ser a primeira pagina,
+        # nos quatro idiomas (en/fr/es ganharam Apresentacao e Cadeia de Comando).
+        "nr1": ("FROID NR-1/ISO 45003", "nr1/apresentacao-nr1.html", [
+            ("Apresentação NR-1", "nr1/apresentacao-nr1.html"),
             ("Cadeia de Comando", "nr1/contratacao-nr1.html"),
             ("FROID ISO 45001", "nr1/iso-45001.html"),
-            ("Apresentação NR-1", "nr1/apresentacao-nr1.html"),
         ]),
         "tecnico": ("Ciência e Tecnologia", "psique/tecnologia.html", [
             ("Tecnologia", "psique/tecnologia.html"),
@@ -83,9 +85,9 @@ IDIOMAS = {
             ('FROID Explains', 'psique/froid-explica.html'),
             ('Data-Froid', 'psique/data-froid.html'),
         ]),
-        "nr1": ('FROID NR-1/ISO 45003', "nr1/index.html", [
-            ('Overview', 'nr1/index.html'),
-            ('Proposal', 'nr1/proposta-nr1.html'),
+        "nr1": ('FROID NR-1/ISO 45003', "nr1/apresentacao-nr1.html", [
+            ('NR-1 Presentation', 'nr1/apresentacao-nr1.html'),
+            ('Chain of Command', 'nr1/contratacao-nr1.html'),
             ('FROID ISO 45001', 'nr1/iso-45001.html'),
         ]),
         "tecnico": ('Science &amp; Technology', "psique/tecnologia.html", [
@@ -102,9 +104,9 @@ IDIOMAS = {
             ('FROID Explica', 'psique/froid-explica.html'),
             ('Data-Froid', 'psique/data-froid.html'),
         ]),
-        "nr1": ('FROID NR-1/ISO 45003', "nr1/index.html", [
-            ('Visión general', 'nr1/index.html'),
-            ('Propuesta', 'nr1/proposta-nr1.html'),
+        "nr1": ('FROID NR-1/ISO 45003', "nr1/apresentacao-nr1.html", [
+            ('Presentación NR-1', 'nr1/apresentacao-nr1.html'),
+            ('Cadena de mando', 'nr1/contratacao-nr1.html'),
             ('FROID ISO 45001', 'nr1/iso-45001.html'),
         ]),
         "tecnico": ('Ciencia y Tecnología', "psique/tecnologia.html", [
@@ -121,9 +123,9 @@ IDIOMAS = {
             ('FROID Explique', 'psique/froid-explica.html'),
             ('Data-Froid', 'psique/data-froid.html'),
         ]),
-        "nr1": ('FROID NR-1/ISO 45003', "nr1/index.html", [
-            ("Vue d'ensemble", 'nr1/index.html'),
-            ('Proposition', 'nr1/proposta-nr1.html'),
+        "nr1": ('FROID NR-1/ISO 45003', "nr1/apresentacao-nr1.html", [
+            ('Présentation NR-1', 'nr1/apresentacao-nr1.html'),
+            ('Chaîne de commandement', 'nr1/contratacao-nr1.html'),
             ('FROID ISO 45001', 'nr1/iso-45001.html'),
         ]),
         "tecnico": ('Science et Technologie', "psique/tecnologia.html", [
@@ -326,6 +328,7 @@ def montar(idioma, pagina):
 def bloco_acoes(idioma, pagina):
     """Troca de produto + chamada para acao, antes do botao Entrar."""
     txt = ACOES[idioma]
+    cfg = IDIOMAS[idioma]
     produto = produto_de(pagina)
     trocas = {"psique": ["nr1"], "nr1": ["psique"]}.get(produto, ["psique", "nr1"])
     chamadas = [produto] if produto else ["psique", "nr1"]
@@ -338,7 +341,7 @@ def bloco_acoes(idioma, pagina):
         linhas.append(
             '      <a class="nav-troca-produto nav-troca-%s%s" href="%s" aria-label="%s">%s'
             '<span><span class="nav-troca-marca">FROID </span>%s</span></a>'
-            % (destino, compacta, rel(pagina, destino + "/index.html"),
+            % (destino, compacta, rel(pagina, cfg[destino][1]),
                escapar(txt["ir_para"] % nome), ICONE_TROCA, nome.replace("FROID ", "", 1)))
     for chamada in chamadas:
         longo, curto = txt[chamada]

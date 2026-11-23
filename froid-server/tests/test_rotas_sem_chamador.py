@@ -106,7 +106,7 @@ def _rotas_expostas() -> set:
 
 def _fonte_do_frontend() -> str:
     partes = []
-    for raiz in (REPO / "froid-dashboard" / "src", REPO / "froid-site"):
+    for raiz in (REPO / "froid-dashboard" / "src", REPO / "froid-site-dev"):
         if not raiz.exists():
             continue
         for caminho in raiz.rglob("*"):

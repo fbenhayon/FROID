@@ -153,7 +153,7 @@ class OFormularioPublicoEntregaOsDados(unittest.TestCase):
 
     def test_todo_formulario_de_resgate_envia_ao_contato(self):
         achados = 0
-        for site in ("froid-site", "froid-site-dev"):
+        for site in ("froid-site-dev",):
             for caminho in sorted((REPO / site).rglob("*.html")):
                 texto = caminho.read_text(encoding="utf-8")
                 if 'id="voucher-form"' not in texto:

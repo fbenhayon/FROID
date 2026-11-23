@@ -41,7 +41,7 @@ if str(SERVER_DIR) not in sys.path:
 RAZAO_SOCIAL = "Froid Digital Ltda"
 CNPJ = "05.215.763/0001-73"
 
-SITE = REPO / "froid-site"
+SITE = REPO / "froid-site-dev"
 CNPJ_QUALQUER = re.compile(r"\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}")
 
 

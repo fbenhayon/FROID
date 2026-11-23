@@ -279,7 +279,7 @@ class OSiteExplicaOProcedimentoNosQuatroIdiomas(unittest.TestCase):
 
     def _texto(self, prefixo):
         return (
-            ROOT / "froid-site" / prefixo / "como-funciona-nr1.html"
+            ROOT / "froid-site-dev" / prefixo / "como-funciona-nr1.html"
         ).read_text(encoding="utf-8")
 
     def test_a_secao_existe_nos_quatro_idiomas(self):

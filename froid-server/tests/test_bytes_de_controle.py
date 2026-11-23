@@ -40,7 +40,7 @@ PERMITIDOS = {0x09, 0x0A, 0x0D}
 RAIZES = (
     (REPO / "froid-server", ("*.py", "*.sql")),
     (REPO / "froid-dashboard" / "src", ("*.ts", "*.tsx", "*.css")),
-    (REPO / "froid-site", ("*.html",)),
+    (REPO / "froid-site-dev", ("*.html",)),
 )
 
 IGNORADOS = ("node_modules", "venv", ".venv", "__pycache__", "dist", "build")

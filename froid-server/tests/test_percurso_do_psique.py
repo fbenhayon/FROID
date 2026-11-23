@@ -44,7 +44,7 @@ from pathlib import Path
 
 SERVER_DIR = Path(__file__).resolve().parents[1]
 REPO = SERVER_DIR.parent
-SITE = REPO / "froid-site"
+SITE = REPO / "froid-site-dev"
 PERCURSO = SITE / "demonstracao.html"
 SCRIPT_JS = SITE / "site-assets" / "script.js"
 LIVE_SESSION = REPO / "froid-dashboard" / "src" / "pages" / "LiveSession.tsx"

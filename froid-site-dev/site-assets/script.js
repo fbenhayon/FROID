@@ -45,16 +45,6 @@ var NAV_SECOES = {
     ["privacidade-nao-e-um-rotulo", "Privacidade não é um rótulo"],
     ["perguntas-que-respeitam-os-dados-disponiveis", "Perguntas que respeitam os dados disponíveis"]
   ],
-  "nr1/index.html": [
-    ["custo-da-omissao", "O custo da omissão"],
-    ["armadilhas", "Armadilhas"],
-    ["tres-linhas-metodo", "As 3 linhas que resumem o método"],
-    ["lista-de-preparacao", "Lista de informações"],
-    ["como-comparar", "Como comparar"],
-    ["precos-nr1", "Preços"],
-    ["simulador-nr1", "Simulação"],
-    ["limites-e-responsabilidade", "Limites e responsabilidade"]
-  ],
   "nr1/contratacao-nr1.html": [
     ["sumario-executivo", "Sumário executivo"],
     ["norma", "A NR-1 em vigor"],
@@ -65,7 +55,10 @@ var NAV_SECOES = {
     ["campanhas-segmentadas", "Campanhas segmentadas"],
     ["anonimato", "Anonimato"],
     ["pgr-e-psique", "PGR e Psique"],
-    ["recomendacoes", "Recomendações"]
+    ["recomendacoes", "Recomendações"],
+    ["lista-de-preparacao", "Lista de informações"],
+    ["como-comparar", "Como comparar"],
+    ["precos-nr1", "Preços"]
   ],
   "psique/faq.html": [
     ["medidas-e-interpretacao", "Medidas e interpretação"],
@@ -88,7 +81,8 @@ var NAV_SECOES = {
     ["taxonomia-psicossocial", "Taxonomia psicossocial"],
     ["governanca-e-prazos", "Governança e prazos"],
     ["o-que-o-froid-entrega", "O que o FROID entrega"],
-    ["limites", "Limites"]
+    ["limites", "Limites"],
+    ["precos-nr1", "Preços"]
   ],
   "nr1/apresentacao-nr1.html": [
     ["documento-integral", "Gestão dos riscos psicossociais"],
@@ -97,7 +91,11 @@ var NAV_SECOES = {
     ["pagina-3", "O FROID não substitui prestadores"],
     ["pagina-4", "Proteção e evidência"],
     ["quando-a-segunda-avaliacao-reprova", "E se a segunda avaliação reprovar?"],
-    ["pagina-5", "Minha proposta: experimentem"]
+    ["pagina-5", "Minha proposta: experimentem"],
+    ["custo-da-omissao", "O custo da omissão"],
+    ["armadilhas", "Armadilhas"],
+    ["precos-nr1", "Preços"],
+    ["limites-e-responsabilidade", "Limites e responsabilidade"]
   ],
   "psique/mapas-faciais.html": [
     ["um-dicionario-de-movimentos-nao-um-leitor-de-pensamentos", "Um dicionário de movimentos, não um leitor de pensamentos"],

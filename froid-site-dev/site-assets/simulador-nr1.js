@@ -19,7 +19,49 @@
  *   #sim-resultado, #sim-mensal, #sim-por-trabalhador,
  *   #sim-procedencia, #sim-erro
  * e chamar froidSimularNr1(event) no submit do formulario.
+ * Os atributos data-sep-* podem estar no proprio #simulador-nr1 ou num
+ * elemento dentro dele.
+ *
+ * Desde 23/11/2026 a calculadora tambem entra nas paginas en/fr/es do NR-1, e
+ * as mensagens saem no idioma de <html lang>. Os textos sao os que ja estavam
+ * no script inline de en|fr|es/nr1/index.html.
  */
+var FROID_NR1_TEXTOS = {
+  pt: {
+    calculando: 'Calculando...',
+    falha: 'Não foi possível simular agora.',
+    tabela: 'Tabela',
+    previa: ' · prévia local, sem consultar o servidor',
+    invalido: 'Informe trabalhadores e estabelecimentos maiores que zero.'
+  },
+  en: {
+    calculando: 'Calculating...',
+    falha: 'Unable to simulate right now. The value is not calculated on this page, and showing an approximate number would be worse than showing none.',
+    tabela: 'Table',
+    previa: ' · local preview, server not consulted',
+    invalido: 'Enter workers and establishments greater than zero.'
+  },
+  fr: {
+    calculando: 'Calcul en cours...',
+    falha: 'Impossible de simuler pour le moment. Le montant n’est pas calculé sur cette page, et afficher un chiffre approximatif serait pire que de n’en afficher aucun.',
+    tabela: 'Barème',
+    previa: ' · aperçu local, sans consulter le serveur',
+    invalido: 'Indiquez un nombre de travailleurs et d’établissements supérieur à zéro.'
+  },
+  es: {
+    calculando: 'Calculando...',
+    falha: 'No fue posible simular ahora. El valor no se calcula en esta página, y mostrar un número aproximado sería peor que no mostrar ninguno.',
+    tabela: 'Tabla',
+    previa: ' · vista previa local, sin consultar el servidor',
+    invalido: 'Indique trabajadores y establecimientos mayores que cero.'
+  }
+};
+
+function froidNr1Texto(chave) {
+  var lang = (document.documentElement.getAttribute('lang') || 'pt').slice(0, 2).toLowerCase();
+  return (FROID_NR1_TEXTOS[lang] || FROID_NR1_TEXTOS.pt)[chave];
+}
+
 var FROID_NR1_TABELA_PREVIA = {
   code: 'FROID-PRICING-2026-V02',
   version: '1.1',
@@ -65,7 +107,7 @@ function froidSimularNr1Local(trabalhadores, estabelecimentos) {
   var workers = parseInt(trabalhadores, 10);
   var sites = parseInt(estabelecimentos, 10);
   if (!isFinite(workers) || !isFinite(sites) || workers <= 0 || sites <= 0) {
-    throw new Error('Informe trabalhadores e estabelecimentos maiores que zero.');
+    throw new Error(froidNr1Texto('invalido'));
   }
   var t = FROID_NR1_TABELA_PREVIA;
   var baseSubtotal = sites * t.baseEstablishmentCents;
@@ -104,7 +146,7 @@ function froidSimularNr1Local(trabalhadores, estabelecimentos) {
 
 function froidSimularNr1(evento) {
   evento.preventDefault();
-  var caixa = document.querySelector('#simulador-nr1 [data-sep-mil]');
+  var caixa = document.querySelector('#simulador-nr1[data-sep-mil], #simulador-nr1 [data-sep-mil]');
   var botao = document.getElementById('sim-botao');
   var resultado = document.getElementById('sim-resultado');
   var procedencia = document.getElementById('sim-procedencia');
@@ -114,7 +156,7 @@ function froidSimularNr1(evento) {
   erro.hidden = true;
   botao.disabled = true;
   var rotulo = botao.textContent;
-  botao.textContent = 'Calculando...';
+  botao.textContent = froidNr1Texto('calculando');
   Promise.resolve()
     .then(function () {
       var consulta = froidNr1PricingEndpoint(trabalhadores, estabelecimentos);
@@ -127,16 +169,16 @@ function froidSimularNr1(evento) {
         });
     })
     .then(function (r) {
-      if (!r.ok) throw new Error((r.corpo && r.corpo.detail) || 'Não foi possível simular agora.');
+      if (!r.ok) throw new Error((r.corpo && r.corpo.detail) || froidNr1Texto('falha'));
       document.getElementById('sim-mensal').textContent =
         froidFormatarBRL(r.corpo.monthlyTotalCents, caixa, true);
       document.getElementById('sim-por-trabalhador').textContent =
         froidFormatarBRL(r.corpo.perWorkerMonthCents, caixa, true);
       var tabela = r.corpo.pricingTable;
-      procedencia.textContent = 'Tabela ' + tabela.code + ' v' + tabela.version +
+      procedencia.textContent = froidNr1Texto('tabela') + ' ' + tabela.code + ' v' + tabela.version +
         ' · SHA-256 ' + tabela.sha256.slice(0, 16) + '...' +
         (tabela.source === 'local-preview'
-          ? ' · prévia local, sem consultar o servidor'
+          ? froidNr1Texto('previa')
           : '');
       procedencia.hidden = false;
       resultado.hidden = false;
@@ -144,7 +186,7 @@ function froidSimularNr1(evento) {
     .catch(function (e) {
       resultado.hidden = true;
       procedencia.hidden = true;
-      erro.textContent = String(e.message || e) || 'Não foi possível simular agora.';
+      erro.textContent = String(e.message || e) || froidNr1Texto('falha');
       erro.hidden = false;
     })
     .finally(function () {

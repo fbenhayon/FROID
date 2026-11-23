@@ -134,7 +134,7 @@ class NenhumDocumentoAfirmaQueOFroidGrava(unittest.TestCase):
             ("es/", "no graba la sesión en audio ni en video"),
             ("fr/", "n'enregistre pas la séance en audio ni en vidéo"),
         ):
-            caminho = ROOT / "froid-site" / prefixo / "termos.html"
+            caminho = ROOT / "froid-site-dev" / prefixo / "termos.html"
             with self.subTest(idioma=prefixo or "pt"):
                 self.assertIn(frase, caminho.read_text(encoding="utf-8"))
 
@@ -149,7 +149,7 @@ class AEstoniaNaoVolta(unittest.TestCase):
     def test_o_pais_desmentido_sumiu_do_catalogo_e_do_site(self):
         achados = []
         alvos = [SERVER_DIR / "legal_documents.py"]
-        alvos += sorted((ROOT / "froid-site").rglob("*.html"))
+        alvos += sorted((ROOT / "froid-site-dev").rglob("*.html"))
         for caminho in alvos:
             texto = caminho.read_text(encoding="utf-8", errors="ignore")
             for grafia in ("Estônia", "Estonia", "Estonie"):
@@ -191,7 +191,7 @@ class AEstoniaNaoVolta(unittest.TestCase):
             ("fr/", "en Finlande"),
         ):
             for pagina in ("privacidade.html", "psique/seguranca.html"):
-                caminho = ROOT / "froid-site" / prefixo / pagina
+                caminho = ROOT / "froid-site-dev" / prefixo / pagina
                 with self.subTest(idioma=prefixo or "pt", pagina=pagina):
                     self.assertIn(frase, caminho.read_text(encoding="utf-8"))
 
@@ -211,7 +211,7 @@ class AEstoniaNaoVolta(unittest.TestCase):
             "hébergement en Allemagne",
         )
         alvos = [SERVER_DIR / "legal_documents.py"]
-        alvos += sorted((ROOT / "froid-site").rglob("*.html"))
+        alvos += sorted((ROOT / "froid-site-dev").rglob("*.html"))
         achados = []
         for caminho in alvos:
             texto = caminho.read_text(encoding="utf-8", errors="ignore")
@@ -370,7 +370,7 @@ class OSiteAponta_E_NaoCopia(unittest.TestCase):
     ]
 
     def _texto(self, rel: str) -> str:
-        return (ROOT / "froid-site" / rel).read_text(encoding="utf-8")
+        return (ROOT / "froid-site-dev" / rel).read_text(encoding="utf-8")
 
     def test_nenhuma_pagina_carimba_codigo_de_versao(self):
         """Versao copiada para HTML estatico envelhece sem ninguem notar.
@@ -381,7 +381,7 @@ class OSiteAponta_E_NaoCopia(unittest.TestCase):
         import re
 
         achados = []
-        for caminho in sorted((ROOT / "froid-site").rglob("*.html")):
+        for caminho in sorted((ROOT / "froid-site-dev").rglob("*.html")):
             for carimbo in re.findall(r"2026-\d{2}-\d{2}\.br-p[fj]-v\d+", caminho.read_text(encoding="utf-8")):
                 achados.append(f"{caminho.relative_to(ROOT).as_posix()}: {carimbo}")
         self.assertEqual(

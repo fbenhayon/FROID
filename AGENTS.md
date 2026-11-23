@@ -47,10 +47,10 @@ Quando há trabalho em paralelo, cada frente fica numa área e não entra na out
 |---|---|
 | Motor e API | `froid-server/` |
 | Painel e relatório | `froid-dashboard/` |
-| Site institucional | `froid-site/` |
+| Site institucional | `froid-site-dev/` (o `froid-site/` só guarda redirecionamentos antigos, robots e sitemap) |
 | Documentação e normas | `docs/` |
 
-`froid-site` entra em produção com `git pull`, sem build. `froid-dashboard` e
+`froid-site-dev` e `froid-site` entram em produção com `git pull`, sem build. `froid-dashboard` e
 `froid-server` são imagens e exigem `docker compose build`. Rebuild do backend
 derruba sessão clínica em andamento.
 

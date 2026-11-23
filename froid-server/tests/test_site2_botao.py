@@ -1,15 +1,19 @@
-"""O site publico leva ao Site II, e o Site II so abre com senha.
+"""O Site II (froid-site-dev) e o site servido; o froid-site so guarda o resto.
 
-Pedido do dono, 11/11/2026: um botao no site publico (froid-site) para o
-acesso ao Site II (froid-site-dev, servido em /dev/), protegido pela senha
-que ele definiu. A senha e conferida pelo Caddy; a pagina so leva ate la.
+Historia: em 11/11/2026 o site publico (froid-site) ganhou um botao para o
+Site II, entao em /dev/; em 18/11/2026 o Site II passou a ser servido na raiz;
+em 23/11/2026, pedido do dono ("eliminar quaisquer dependencias externas e
+deixar somente as paginas hoje no ar"), o froid-site perdeu tudo o que o Site
+II ja cobre. Sobraram so redirecionamentos de enderecos antigos, robots.txt e
+sitemap.xml. O botao e o gerador dele (tools/gerar-botao-site2.py) sairam
+junto: nao ha mais pagina publica onde colocar o botao.
 
 O que estes testes guardam:
-- toda pagina publica que nao e redirecionamento tem o botao, uma vez, e ele
-  e o do gerador (tools/gerar-botao-site2.py);
-- todo botao aponta para /dev/ e para uma pagina que existe no Site II;
-- o Caddyfile serve /dev/ so atras de basic_auth, com hash padrao (falha
-  fechada), e o compose monta a pasta e repassa a variavel da senha.
+- o froid-site nao tem nenhum arquivo que o Site II sombreie (seria arquivo
+  morto, que nunca chega ao visitante);
+- toda pagina que restou no froid-site e redirecionamento, e leva a uma pagina
+  que existe no Site II;
+- o Caddyfile serve o Site II na raiz, sem senha, e /dev/ antigo vira 301.
 """
 
 import re
@@ -27,48 +31,32 @@ INICIO = "<!-- site II: gerado por tools/gerar-botao-site2.py -->"
 BLOCO = re.compile(re.escape(INICIO) + r"(.*?)<!-- /site II -->", re.S)
 
 
-def _paginas_publicas():
-    for caminho in sorted(PUBLICO.rglob("*.html")):
-        texto = caminho.read_text(encoding="utf-8")
-        if STUB not in texto:
-            yield caminho, texto
+REFRESH = re.compile(r'<meta http-equiv="refresh" content="0; url=([^"#]+)')
 
 
-class OBotaoEstaEmTodaPaginaPublica(unittest.TestCase):
-    def test_a_varredura_encontra_as_paginas(self):
-        self.assertGreaterEqual(len(list(_paginas_publicas())), 60)
+class OPublicoSoGuardaOQueOSiteIINaoTem(unittest.TestCase):
+    def test_nenhum_arquivo_do_publico_e_sombreado_pelo_site_ii(self):
+        sombreados = [c.relative_to(PUBLICO).as_posix() for c in PUBLICO.rglob("*")
+                      if c.is_file() and (DEV / c.relative_to(PUBLICO)).exists()]
+        self.assertEqual([], sombreados)
 
-    def test_toda_pagina_tem_um_botao_que_leva_ao_site_ii(self):
-        for caminho, texto in _paginas_publicas():
-            with self.subTest(pagina=str(caminho.relative_to(PUBLICO))):
-                blocos = BLOCO.findall(texto)
-                self.assertEqual(len(blocos), 1)
-                href = re.search(r'href="([^"]+)"', blocos[0]).group(1)
-                self.assertTrue(href.startswith("/dev/"), href)
-                alvo = href[len("/dev/"):] or "index.html"
-                self.assertTrue((DEV / alvo).exists(), href)
+    def test_toda_pagina_publica_e_redirecionamento_para_o_site_ii(self):
+        paginas = sorted(PUBLICO.rglob("*.html"))
+        self.assertTrue(paginas)
+        for caminho in paginas:
+            texto = caminho.read_text(encoding="utf-8")
+            with self.subTest(pagina=caminho.relative_to(PUBLICO).as_posix()):
+                m = REFRESH.search(texto)
+                self.assertTrue(m, "sem redirecionamento")
+                alvo = m.group(1).lstrip("/")
+                if not alvo or alvo.endswith("/"):
+                    alvo += "index.html"
+                self.assertTrue((DEV / alvo).exists(), m.group(1))
 
-    def test_o_html_e_o_que_o_gerador_produz(self):
-        r = subprocess.run(
-            [sys.executable, str(REPO / "tools" / "gerar-botao-site2.py"), "--conferir"],
-            capture_output=True, text=True,
-        )
-        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-
-
-class AEntradaLevaOPsiqueAoSiteII(unittest.TestCase):
-    """Pedido do dono, 11/11/2026: na pagina de entrada publica (os dois
-    neuronios), clicar no FROID Psique leva ao Site II, que trata so do
-    Psique; o NR-1 nao muda."""
-
-    def test_o_psique_vai_ao_site_ii_e_o_nr1_fica(self):
-        texto = (PUBLICO / "index.html").read_text(encoding="utf-8")
-        psique = re.findall(r'<a class="(?:metade|escolha) psique" href="([^"]+)"', texto)
-        nr1 = re.findall(r'<a class="(?:metade|escolha) nr1" href="([^"]+)"', texto)
-        self.assertEqual(psique, ["/dev/psique/index.html"] * 2)
-        self.assertEqual(len(nr1), 2)
-        for href in nr1:
-            self.assertFalse(href.startswith("/dev"), href)
+    def test_fora_das_paginas_so_robots_e_sitemap(self):
+        outros = sorted(c.relative_to(PUBLICO).as_posix() for c in PUBLICO.rglob("*")
+                        if c.is_file() and c.suffix != ".html")
+        self.assertEqual(["robots.txt", "sitemap.xml"], outros)
 
 
 def _servidas():
@@ -86,16 +74,13 @@ class NenhumLinkAoPsique1(unittest.TestCase):
     18/11/2026: com o Site II na raiz, /psique/ e o Psique do Site II; a
     garantia passa a ser que NENHUMA pagina de froid-site/[lang/]psique/ e
     servida, porque toda ela tem a mesma pagina no Site II, que o Caddy
-    entrega antes do froid-site."""
+    entrega antes do froid-site. 23/11/2026: os arquivos do Psique 1 sairam
+    do repositorio; a garantia passa a ser que nao exista nenhum."""
 
-    def test_todo_caminho_do_psique_1_e_coberto_pelo_site_ii(self):
-        psique1 = [c for c in PUBLICO.rglob("*.html")
-                   if re.match(r"^((en|fr|es)/)?psique/", c.relative_to(PUBLICO).as_posix())]
-        self.assertTrue(psique1)
-        for caminho in psique1:
-            rel = caminho.relative_to(PUBLICO)
-            with self.subTest(pagina=rel.as_posix()):
-                self.assertTrue((DEV / rel).exists(), rel)
+    def test_nao_resta_nenhum_arquivo_do_psique_1(self):
+        psique1 = [c.relative_to(PUBLICO).as_posix() for c in PUBLICO.rglob("*")
+                   if re.match(r"^((en|fr|es)/)?psique(/|$)", c.relative_to(PUBLICO).as_posix())]
+        self.assertEqual([], psique1)
 
     def test_nenhum_link_absoluto_leva_ao_antigo_dev(self):
         for caminho in _servidas():
@@ -132,12 +117,10 @@ class ACalculadoraDoPsiqueENaoADoNr1(unittest.TestCase):
 
 
 class OHeaderDoSiteIIEOVisualDoSite1(unittest.TestCase):
-    def test_o_css_gerado_esta_em_dia_e_e_carregado(self):
-        r = subprocess.run(
-            [sys.executable, str(REPO / "tools" / "gerar-header-site1-css.py"), "--conferir"],
-            capture_output=True, text=True,
-        )
-        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+    # Ate 23/11/2026 header-site1.css era gerado a partir do CSS do froid-site;
+    # esse CSS saiu do repositorio e o arquivo passou a ser a fonte.
+    def test_o_css_do_header_existe_e_e_carregado(self):
+        self.assertTrue((DEV / "site-assets" / "header-site1.css").exists())
         for caminho in sorted((DEV / "psique").glob("*.html")):
             texto = caminho.read_text(encoding="utf-8")
             if STUB in texto:

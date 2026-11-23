@@ -46,7 +46,7 @@ INSTITUCIONAIS = (
 # 09/09/2026: ela so aparecia nas paginas servidas dentro do /app/, isto e,
 # para quem ja tinha entrado. Quem estava decidindo se entrava — exatamente o
 # publico da promocao — nao tinha como saber que ela existia.
-SITE = ROOT / "froid-site"
+SITE = ROOT / "froid-site-dev"
 
 # Decisao do dono em 09/09/2026, no dia em que a operacao comecou: a promocao
 # vale para todos os clientes, em todos os idiomas. Uma pagina de precos

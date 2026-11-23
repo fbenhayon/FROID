@@ -17,7 +17,7 @@ import unittest
 from pathlib import Path
 
 SERVER_DIR = Path(__file__).resolve().parents[1]
-SITE_DIR = SERVER_DIR.parent / "froid-site"
+SITE_DIR = SERVER_DIR.parent / "froid-site-dev"
 if str(SERVER_DIR) not in sys.path:
     sys.path.insert(0, str(SERVER_DIR))
 

@@ -22,7 +22,7 @@ SERVER_DIR = Path(__file__).resolve().parents[1]
 REPO = SERVER_DIR.parent
 MAIN = (SERVER_DIR / "main.py").read_text(encoding="utf-8")
 PAINEL = REPO / "froid-dashboard" / "src"
-SITE = REPO / "froid-site"
+SITE = REPO / "froid-site-dev"
 
 
 def _rotas_do_backend() -> set:
