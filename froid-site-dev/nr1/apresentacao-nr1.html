@@ -163,6 +163,24 @@
   </div>
 </section>
 
+<section class="block soft" id="kit-demonstracao">
+  <div class="container">
+    <h2 class="section-title">Veja como ficam esses documentos</h2>
+    <p class="section-lead">Preencha o cadastro e receba o kit de demonstração em PDF: os critérios do GRO, a AEP, a classificação dos fatores, o inventário de riscos e o plano de ação, gerados pelo FROID para uma empresa fictícia — uma rede de farmácias com três grupos de exposição e dois ciclos de avaliação. É o material que a organização apresenta numa fiscalização, com dados simulados e sem validade documental.</p>
+    <div class="card">
+      <form id="form-kit-nr1" class="form-contato" method="post" action="/api/leads/nr1">
+        <div class="linha"><div><label for="kit-nome">Nome</label><input type="text" id="kit-nome" name="nome" required minlength="2" maxlength="120" autocomplete="name" /></div><div><label for="kit-email">E-mail corporativo</label><input type="email" id="kit-email" name="email" required maxlength="180" autocomplete="email" /></div></div>
+        <div class="linha"><div><label for="kit-empresa">Empresa</label><input type="text" id="kit-empresa" name="empresa" required maxlength="180" autocomplete="organization" /></div><div><label for="kit-cargo">Cargo</label><input type="text" id="kit-cargo" name="cargo" maxlength="120" autocomplete="organization-title" /></div></div>
+        <div class="linha"><div><label for="kit-telefone">Telefone</label><input type="tel" id="kit-telefone" name="telefone" maxlength="40" autocomplete="tel" /></div><div><label for="kit-trabalhadores">Número de trabalhadores <span style="font-weight:400; color:var(--froid-cinza);">(opcional)</span></label><input type="text" id="kit-trabalhadores" name="trabalhadores" maxlength="40" inputmode="numeric" /></div></div>
+        <p style="margin:18px 0 0;"><button class="btn btn-solid" type="submit">Receber o kit de demonstração</button></p>
+        <p class="form-status" role="status" aria-live="polite"></p>
+        <p style="font-size:0.82rem; color:var(--froid-cinza); margin:12px 0 0;">Guardamos estes dados para que nossa equipe entre em contato sobre o FROID NR-1/ISO 45003. Você pode pedir a exclusão a qualquer momento por <a href="mailto:froid@froid.com.br">froid@froid.com.br</a>. Veja a <a href="../privacidade.html">Política de Privacidade</a>.</p>
+      </form>
+      <div id="kit-nr1-pronto" role="status" aria-live="polite" style="text-align:center;" hidden></div>
+    </div>
+  </div>
+</section>
+
 <section class="block soft">
   <div class="container prosa">
     <h2 class="section-title">A diferença está no que acontece depois da primeira avaliação</h2>
@@ -432,5 +450,6 @@
 <script src="../site-assets/script.js?v=27"></script>
 <script src="../site-assets/navigation.js?v=3"></script>
 <script src="../site-assets/simulador-nr1.js?v=2"></script>
+<script src="../site-assets/kit-nr1.js?v=1"></script>
 </body>
 </html>
