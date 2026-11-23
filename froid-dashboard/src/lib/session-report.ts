@@ -179,6 +179,11 @@ export interface SessionReportRecord {
   analysisLanguage?: SessionLocale;
   reportLocale?: SessionLocale;
   transcriptRetention?: "disabled_summary_only" | "enabled";
+  /** Sessão arquivada sem nenhuma fala transcrita, por confirmação do
+   *  profissional, com o motivo apurado (23/11/2026). Ausência declarada:
+   *  o relatório não deve tratar a transcrição vazia como "sem fala". */
+  transcriptUnavailable?: boolean;
+  transcriptUnavailableReason?: string;
   /** Texto redigido pelo profissional, gravado no ato da liberação ao paciente.
    *  Sem isto a cópia que o paciente baixa no portal sairia com a seção
    *  "Anotações do seu profissional" vazia: o texto vive no estado da tela do

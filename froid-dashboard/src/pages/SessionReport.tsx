@@ -1502,6 +1502,16 @@ export const SessionReport: React.FC<Props> = () => {
             />
           )}
 
+          {/* Ausência declarada no encerramento (23/11/2026): sem isto, uma
+              sessão sem transcrição pareceria uma sessão sem fala. */}
+          {report.transcriptUnavailable && (
+            <p role="note" className="rounded-lg border border-red-700 bg-red-950/60 p-3 text-xs font-bold text-red-100">
+              Sessão arquivada sem transcrição, por confirmação do profissional.
+              {report.transcriptUnavailableReason ? ` ${report.transcriptUnavailableReason}` : ""}{" "}
+              Palavras por minuto, cadência e resumos de fala não foram apurados; as medidas de voz e
+              rosto estão preservadas.
+            </p>
+          )}
           <TranscricaoDaSessao transcript={report.transcript} />
 
           {sections.summaries && (

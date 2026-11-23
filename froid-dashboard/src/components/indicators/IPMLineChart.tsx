@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { FroidTooltip } from "../ui/FroidTooltip";
 import { tooltipText } from "../../lib/tooltip-i18n";
 import type { SessionLocale } from "../../lib/localization";
@@ -66,8 +66,29 @@ const polarBands = [
 ];
 
 export const IPMLineChart: React.FC<Props> = ({ data, samples, elapsedSeconds, current, baseline, locale = "pt-BR" }) => {
-  const viewW = 620;
-  const viewH = 230;
+  // O desenho usa o tamanho REAL da caixa (pedido do dono, 23/11/2026).
+  // Com viewBox fixo de 620x230, o SVG era encaixado no centro e sobravam
+  // faixas vazias dos lados sempre que a caixa tinha outra proporcao. Medindo
+  // a caixa, 1 unidade do desenho vale 1 px e o texto nao encolhe nem estica.
+  const caixaRef = useRef<HTMLDivElement | null>(null);
+  const [caixa, setCaixa] = useState({ w: 620, h: 230 });
+  useLayoutEffect(() => {
+    const el = caixaRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const medir = () => {
+      const w = Math.round(el.clientWidth);
+      const h = Math.round(el.clientHeight);
+      if (w > 40 && h > 40) {
+        setCaixa((atual) => (atual.w === w && atual.h === h ? atual : { w, h }));
+      }
+    };
+    medir();
+    const observador = new ResizeObserver(medir);
+    observador.observe(el);
+    return () => observador.disconnect();
+  }, []);
+  const viewW = caixa.w;
+  const viewH = caixa.h;
   const padLeft = 12;
   const padRight = 12;
   const padTop = 10;
@@ -221,6 +242,10 @@ export const IPMLineChart: React.FC<Props> = ({ data, samples, elapsedSeconds, c
           </span>
         </div>
         <div className="flex items-center gap-2">
+          <span className="flex items-center gap-2 text-[9px] text-slate-400">
+            <span title="Traço cheio: segundos medidos"><span className="mr-1 inline-block w-4 border-t-2 border-emerald-300 align-middle" />medido</span>
+            {ponteD && <span title="Tracejado: sem apuração no intervalo"><span className="mr-1 inline-block w-4 border-t-2 border-dashed border-emerald-300 align-middle" />sem apuração</span>}
+          </span>
           <span className="font-mono text-[10px] text-slate-400">
             baseline {baselineLabel}
           </span>
@@ -230,12 +255,8 @@ export const IPMLineChart: React.FC<Props> = ({ data, samples, elapsedSeconds, c
         </div>
       </div>
 
-      <div className="mb-1 flex shrink-0 flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-300">
-        <span><span className="mr-1 inline-block w-5 border-t-2 border-emerald-300 align-middle" />Traço cheio: segundos medidos</span>
-        {ponteD && <span><span className="mr-1 inline-block w-5 border-t-2 border-dashed border-emerald-300 align-middle" />Tracejado: sem apuração no intervalo</span>}
-      </div>
       <div className="min-h-0 flex-1">
-        <div className="relative h-full min-h-0 rounded-lg border border-slate-700 bg-slate-900 p-1.5">
+        <div ref={caixaRef} className="relative h-full min-h-0 overflow-hidden rounded-lg bg-slate-900">
           {/* Zoom que nao se declara e grafico que mente: a faixa visivel fica
               escrita, para ninguem confundir amplitude de tela com amplitude
               de IPM. */}
@@ -258,7 +279,7 @@ export const IPMLineChart: React.FC<Props> = ({ data, samples, elapsedSeconds, c
             </span>
           </FroidTooltip>
 
-          <svg viewBox={`0 0 ${viewW} ${viewH}`} className="h-full w-full">
+          <svg viewBox={`0 0 ${viewW} ${viewH}`} className="absolute inset-0 h-full w-full">
             <defs>
               <linearGradient id="ipmAreaCompact" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#ffffff" stopOpacity="0.22" />
@@ -425,7 +446,7 @@ export const IPMLineChart: React.FC<Props> = ({ data, samples, elapsedSeconds, c
         </div>
       </div>
 
-      <div className="mt-1 grid shrink-0 grid-cols-5 overflow-hidden rounded-md border border-slate-700 bg-slate-900 text-[9px]">
+      <div className="mt-1 grid shrink-0 grid-cols-5 overflow-hidden rounded-md bg-slate-900 text-[8px]">
         {[
           ["Med. IPM", values.length ? average.toFixed(1) : "--", "text-white"],
           ["P. Max", values.length ? peak.toFixed(1) : "--", "text-orange-300"],
@@ -435,19 +456,19 @@ export const IPMLineChart: React.FC<Props> = ({ data, samples, elapsedSeconds, c
         ].map(([label, value, color]) => (
           <div
             key={label}
-            className="flex min-w-0 items-center justify-center gap-1 border-r border-slate-700 px-1.5 py-1 last:border-r-0"
+            className="flex min-w-0 items-center justify-center gap-1 border-r border-slate-800 px-1 py-0.5 last:border-r-0"
           >
             <span className="truncate font-black uppercase text-slate-400">
               {label}:
             </span>
-            <strong className={`truncate font-mono text-[11px] font-black ${color}`}>
+            <strong className={`truncate font-mono text-[10px] font-black ${color}`}>
               {value}
             </strong>
           </div>
         ))}
       </div>
 
-      <div className="mt-1 flex shrink-0 overflow-hidden rounded-md border border-slate-700 bg-slate-900 text-[8px] font-black uppercase text-white">
+      <div className="mt-1 flex shrink-0 overflow-hidden rounded-md bg-slate-900 text-[7px] font-black uppercase text-white">
         {/* Sem amostra, a barra anunciava "Fluxo saudavel — 100%" enquanto o
             grafico ao lado dizia "Aguardando serie temporal". Duas afirmacoes
             opostas na mesma tela, e a verde e a que o olho acredita. */}
@@ -458,10 +479,10 @@ export const IPMLineChart: React.FC<Props> = ({ data, samples, elapsedSeconds, c
           (segment) => (
             <div
               key={segment.label}
-              className="min-w-0 px-2 py-1"
+              className="min-w-0 px-1.5 py-0.5"
               style={{
                 width: `${Math.max(14, segment.pct)}%`,
-                borderTop: `4px solid ${segment.color}`,
+                borderTop: `3px solid ${segment.color}`,
               }}
               title={`${segment.label}: ${segment.pct}%`}
             >

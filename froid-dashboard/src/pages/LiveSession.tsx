@@ -55,9 +55,11 @@ import { currentFacialAnalysis, mergeFacialEvents, type FacialEvent } from "../l
 import {
   STATUS_CLASSES,
   countOutOfBounds,
+  retainHighlights,
   statusLabel,
   withBounds,
 } from "../lib/metric-bounds";
+import type { BoundedMetric } from "../lib/metric-bounds";
 import { apiUrl, wsUrl } from "../lib/api";
 import {
   criarFreioDeRenegociacao,
@@ -2575,6 +2577,9 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   const [patientAudioVersion, setPatientAudioVersion] = useState(0);
   const frameBuffer = useRef<FroidPayload[]>([]);
   const sessionSamplesRef = useRef<SessionSample[]>([]);
+  // Última avaliação de cada índice, para manter o destaque aceso até a
+  // próxima (lib/metric-bounds, retainHighlights).
+  const destaqueRetidoRef = useRef<Map<string, BoundedMetric>>(new Map());
   const firstPatientMetricSecondRef = useRef<number | null>(null);
   const baselineSnapshotRef = useRef<MetricSnapshot | null>(null);
   const elapsedSecondsRef = useRef(0);
@@ -4600,6 +4605,21 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           ].slice(-500);
         }
         const text = String(data?.text || "").trim();
+        // O servidor responde 200 com `status: "error"` quando o provedor de
+        // transcrição recusa (cota, chave, rede). Antes isso caía no ramo de
+        // "bloco sem fala" e a tela dizia "Captura ativa" enquanto nada era
+        // transcrito. É falha, e conta como falha.
+        if (response.ok && data?.status === "error" && !text) {
+          transcriptionStatsRef.current.failedSegments += 1;
+          setLiveTranscription((prev) => ({
+            ...(prev || {}),
+            provider: data?.provider || "local-fallback",
+            transcription_status: "error",
+            transcription_error:
+              data?.error || "O serviço de transcrição não respondeu neste bloco.",
+          }));
+          return;
+        }
         if (!response.ok) {
           transcriptionStatsRef.current.failedSegments += 1;
           setLiveTranscription((prev) => ({
@@ -5720,7 +5740,12 @@ function LiveSessionInner({ user }: LiveSessionProps) {
   // As metricas da tabela cruzadas com os limites do servidor. Deriva da
   // MESMA lista do layout Simplificado de proposito: dois catalogos
   // divergiriam na primeira metrica nova.
-  const metricasComLimite = withBounds(simplifiedMetricEntries, allMarkerReadings);
+  // O destaque (vermelho acima, azul abaixo) fica aceso até a próxima
+  // avaliação do servidor, em vez de apagar na leitura seguinte.
+  const metricasComLimite = retainHighlights(
+    withBounds(simplifiedMetricEntries, allMarkerReadings),
+    destaqueRetidoRef.current,
+  );
   const metricasForaDaFaixa = countOutOfBounds(metricasComLimite);
 
 
@@ -5907,6 +5932,40 @@ function LiveSessionInner({ user }: LiveSessionProps) {
     }
 
     const report = createSessionReport();
+    // Sem nenhuma fala transcrita, o servidor recusa o arquivamento — e o
+    // "tente encerrar novamente" virava um laço sem saída (23/11/2026). Aqui
+    // o profissional vê a causa apurada e decide: encerrar declarando a
+    // ausência, ou manter a sessão aberta.
+    if (!String(report.transcript || "").trim()) {
+      const q = report.transcriptionQuality;
+      const ultimoErro = String(
+        (liveTranscription as Record<string, unknown> | null)?.transcription_error || "",
+      ).trim();
+      const motivo =
+        q && q.failedSegments > 0
+          ? `O serviço de transcrição falhou em ${q.failedSegments} bloco(s) de áudio` +
+            (q.silentSegments ? `; ${q.silentSegments} bloco(s) sem fala detectável` : "") +
+            (ultimoErro ? `. Último erro: ${ultimoErro}` : "") +
+            "."
+          : q && q.silentSegments > 0
+            ? `Nenhuma fala detectável nos ${q.silentSegments} bloco(s) de áudio captados.`
+            : "Nenhum trecho de áudio chegou a ser transcrito nesta sessão.";
+      const confirmar = window.confirm(
+        [
+          "Esta sessão não tem transcrição.",
+          motivo,
+          "Encerrar e arquivar sem transcrição? O relatório registrará a ausência; " +
+            "as medidas de voz e rosto ficam preservadas.",
+          "Cancelar mantém a sessão aberta.",
+        ].join("\n\n"),
+      );
+      if (!confirmar) {
+        reportSavedRef.current = false;
+        return;
+      }
+      report.transcriptUnavailable = true;
+      report.transcriptUnavailableReason = motivo;
+    }
     try {
       await archiveSessionReport(report);
     } catch (error) {
@@ -5923,7 +5982,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
       } catch {}
     dispatch({ type: "END_SESSION" });
     navigate(`/session/${report.sessionId}/report`, { replace: true });
-  }, [archiveSessionReport, closeSemanticCut, createSessionReport, navigate]);
+  }, [archiveSessionReport, closeSemanticCut, createSessionReport, liveTranscription, navigate]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -6358,6 +6417,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           <div className="flex min-h-0 flex-col gap-2 lg:overflow-y-auto">
             <section className="shrink-0 overflow-hidden rounded-xl border border-cyan-800 bg-slate-950 p-2 shadow-sm">
               <AudioTranscription
+                semMoldura
                 audioMeta={displayAudio}
                 conversationSummaries={conversationSummaries}
                 section="summary"
@@ -6445,8 +6505,12 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                 acima do limite
               </span>
               <span className="flex items-center gap-1">
-                <span className="inline-block h-1.5 w-1.5 rounded-sm border border-amber-600 bg-amber-950" />
+                <span className="inline-block h-1.5 w-1.5 rounded-sm border border-blue-500 bg-blue-950" />
                 abaixo do limite
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-slate-300" />
+                retido até nova avaliação
               </span>
               <span className="flex items-center gap-1">
                 <span className="inline-block h-1.5 w-1.5 rounded-sm border border-slate-800 bg-slate-900" />
@@ -6469,6 +6533,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                       <p>{tooltipText(reportLocale, SIMPLIFIED_METRIC_TOOLTIPS[m.label] || "Descrição indisponível para este índice.")}</p>
                       <p className="text-slate-300">
                         {statusLabel(m.status)}
+                        {m.retida ? " · retido da última avaliação; nesta leitura o índice não foi avaliado" : ""}
                         {m.band ? ` · faixa ${m.band[0] ?? "—"} a ${m.band[1] ?? "—"}` : ""}
                         {m.interpretation ? ` · ${m.interpretation}` : ""}
                       </p>
@@ -6479,8 +6544,9 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                     tabIndex={0}
                     className={`block cursor-help rounded border px-1.5 py-1 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400 ${cor.box}`}
                   >
-                    <span className={`block truncate text-[8px] font-bold uppercase tracking-wide ${cor.label}`}>
+                    <span className={`flex items-center gap-1 truncate text-[8px] font-bold uppercase tracking-wide ${cor.label}`}>
                       {m.label}
+                      {m.retida && <span aria-label="retido até nova avaliação" className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-slate-300" />}
                     </span>
                     <span className={`block truncate font-mono text-[10px] font-black ${cor.value}`}>
                       {m.value}
@@ -6591,6 +6657,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
           </div>
           <section className="shrink-0 overflow-hidden rounded-xl border border-cyan-800 bg-slate-950 p-2 shadow-sm">
             <AudioTranscription
+              semMoldura
               audioMeta={displayAudio}
               conversationSummaries={conversationSummaries}
               section="summary"
@@ -6660,7 +6727,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
                 />
               </div>
               <div className="min-h-0 overflow-y-auto rounded-xl border border-slate-700 bg-slate-950 p-3">
-                <FacialAnalysisPanel analysis={recusaDaAnalise ? undefined : facialPacket?.facial_analysis} events={facialEventLog} />
+                <FacialAnalysisPanel analysis={recusaDaAnalise ? undefined : facialPacket?.facial_analysis} events={facialEventLog} falas={transcriptSegmentsRef.current} />
               </div>
             </>
           ) : (
@@ -6910,6 +6977,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
         </div>
         <section className="shrink-0 overflow-hidden rounded-xl border border-cyan-800 bg-slate-950 p-2 shadow-sm">
           <AudioTranscription
+            semMoldura
             audioMeta={displayAudio}
             conversationSummaries={conversationSummaries}
             section="summary"
@@ -6970,7 +7038,7 @@ function LiveSessionInner({ user }: LiveSessionProps) {
             </div>
 
             <div className="min-h-0 overflow-y-auto rounded-xl border border-slate-700 bg-slate-950 p-3 text-slate-100 shadow-sm">
-              <FacialAnalysisPanel analysis={recusaDaAnalise ? undefined : facialPacket?.facial_analysis} events={facialEventLog} />
+              <FacialAnalysisPanel analysis={recusaDaAnalise ? undefined : facialPacket?.facial_analysis} events={facialEventLog} falas={transcriptSegmentsRef.current} />
 
               {renderEvidentDissonancePanel()}
 

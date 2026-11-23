@@ -30,6 +30,11 @@ interface Props {
   cutProgress?: number;
   onCloseCut?: () => void;
   closeCutDisabled?: boolean;
+  // Quando a página já envolve o painel num cartão com borda, ele não
+  // desenha a sua: quatro molduras aninhadas (cartão da página, raiz, bloco
+  // e linha do corte) gastavam espaço da tela de sessão sem dizer nada.
+  // Pedido do dono, 23/11/2026: uma linha só por item.
+  semMoldura?: boolean;
 }
 
 const biomarkerTooltips: Record<string, string> = {
@@ -133,6 +138,7 @@ export const AudioTranscription: React.FC<Props> = ({
   cutProgress,
   onCloseCut,
   closeCutDisabled,
+  semMoldura = false,
 }) => {
   const showCutControl = Boolean(onCloseCut && cutElapsedLabel && cutRemainingLabel);
   const ui = {
@@ -160,6 +166,12 @@ export const AudioTranscription: React.FC<Props> = ({
   const shimmer = numeroOuNulo(audioMeta.shimmer);
   const provider = String(audioMeta.provider || "");
   const transcriptionStatus = String(audioMeta.transcription_status || "");
+  // A falha do serviço de transcrição ficava invisível: o painel seguia
+  // dizendo "Captura ativa" enquanto nenhuma palavra era transcrita, e
+  // palavras por minuto e cadência ficavam em "--" sem explicação
+  // (sessão de 23/11/2026). Agora a falha aparece, com o motivo.
+  const transcriptionFailed = transcriptionStatus === "error";
+  const transcriptionError = String(audioMeta.transcription_error || "").trim();
   const bioacousticStatus = String(audioMeta.bioacoustic_status || "");
   const bioacousticTrack = String(audioMeta.bioacoustic_track || "");
   const bioacousticLabel =
@@ -191,7 +203,9 @@ export const AudioTranscription: React.FC<Props> = ({
         ? "bg-red-50 text-red-700"
         : "bg-slate-100 text-slate-500";
 
-  const sttLabel = provider.includes("openai")
+  const sttLabel = transcriptionFailed
+    ? "Transcrição falhou"
+    : provider.includes("openai")
     ? "STT por cortes"
     : provider.includes("browser-live")
       ? "STT local"
@@ -204,7 +218,9 @@ export const AudioTranscription: React.FC<Props> = ({
           : transcriptionStatus === "error"
             ? "Captura off"
             : "Captura local";
-  const sttClass = provider.includes("openai")
+  const sttClass = transcriptionFailed
+    ? "bg-red-600 text-white"
+    : provider.includes("openai")
     ? "bg-green-50 text-green-700"
     : provider.includes("browser-live")
       ? "bg-cyan-50 text-cyan-700"
@@ -236,9 +252,9 @@ export const AudioTranscription: React.FC<Props> = ({
   );
 
   return (
-    <div className="w-full space-y-2 rounded-xl border border-slate-700 bg-slate-950 p-2 text-slate-100 shadow-sm">
+    <div className={`w-full space-y-2 text-slate-100 ${semMoldura ? "" : "rounded-xl border border-slate-700 bg-slate-950 p-2 shadow-sm"}`}>
       {section !== "biomarkers" && (
-      <div className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-2">
+      <div className="px-1 py-1">
         {showCutControl && (
           <div className="mb-1.5">
             <div className="flex items-center justify-between font-mono text-[9px] text-cyan-300">
@@ -269,12 +285,21 @@ export const AudioTranscription: React.FC<Props> = ({
             )}
           </div>
           <div className="flex items-center gap-1">
-            <span className={`rounded px-1.5 py-0.5 text-[8px] ${sttClass}`}>
+            <span
+              className={`rounded px-1.5 py-0.5 text-[8px] ${sttClass}`}
+              title={transcriptionFailed && transcriptionError ? transcriptionError : undefined}
+            >
               {sttLabel}
             </span>
             <span>{orderedSummaries.length}</span>
           </div>
         </div>
+        {transcriptionFailed && (
+          <p role="alert" className="mt-1 rounded bg-red-950 px-2 py-1 text-[10px] font-bold normal-case leading-snug text-red-100">
+            A transcrição da fala está falhando{transcriptionError ? `: ${transcriptionError}` : "."} Sem
+            transcrição não há palavras por minuto, cadência nem resumo do corte; voz e rosto continuam medidos.
+          </p>
+        )}
         <div className="mt-1 max-h-44 space-y-1 overflow-y-auto">
           {orderedSummaries.length === 0 && (
             <p className="text-[10px] italic leading-snug text-slate-400">
@@ -284,7 +309,7 @@ export const AudioTranscription: React.FC<Props> = ({
           {orderedSummaries.map((item) => (
             <div
               key={item.id}
-              className="rounded border border-slate-700 bg-slate-950 px-2 py-1.5"
+              className="rounded bg-slate-900 px-2 py-1.5"
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-1">
@@ -330,7 +355,7 @@ export const AudioTranscription: React.FC<Props> = ({
       )}
 
       {section !== "summary" && (
-      <div className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-2">
+      <div className="px-1 py-1">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h3 className="text-[13px] font-black text-slate-100">{ui.biomarkers}</h3>
@@ -343,7 +368,7 @@ export const AudioTranscription: React.FC<Props> = ({
           </span>
         </div>
         <div className="mt-2 space-y-2 text-[10px]">
-          <div className="rounded-xl border border-slate-700 bg-slate-950 p-2.5">
+          <div className="rounded-xl bg-slate-950 p-2.5">
             <p className="text-[11px] font-black text-slate-100">
               {ui.chart}
             </p>

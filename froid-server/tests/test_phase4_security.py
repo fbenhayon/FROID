@@ -314,6 +314,18 @@ class Phase4SecurityTests(unittest.TestCase):
         self.assertIn("transcrição integral obrigatória", self.main_source)
         self.assertIn('report.pop("transcript_encrypted", None)', self.main_source)
 
+    def test_archive_without_transcript_only_as_declared_absence(self):
+        """23/11/2026: a unica saida para sessao sem fala transcrita e a
+        ausencia declarada pelo profissional, com motivo. Marca solta, motivo
+        vazio ou marca que nao seja exatamente True continuam em 422."""
+        self.assertIn(
+            'if report.get("transcriptUnavailable") is not True or not motivo:',
+            self.main_source,
+        )
+        self.assertIn('report["transcriptUnavailableReason"] = motivo[:500]', self.main_source)
+        # Com transcricao presente, a marca de ausencia e descartada.
+        self.assertIn('report.pop("transcriptUnavailable", None)', self.main_source)
+
     def test_insights_model_and_context_limits_are_server_owned(self):
         self.assertIn('"model": OPENAI_MODEL', self.main_source)
         self.assertNotIn('body.get("model", OPENAI_MODEL)', self.main_source)

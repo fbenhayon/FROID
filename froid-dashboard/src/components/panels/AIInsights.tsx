@@ -406,7 +406,9 @@ export const AIInsights: React.FC<Props> = ({
   );
 
   return (
-    <div className={`flex h-full min-h-0 flex-col overflow-hidden border-t border-slate-700 pt-3 text-slate-100 ${rootClassName}`}>
+    <div className={`flex h-full min-h-0 flex-col overflow-hidden pt-1 text-slate-100 ${rootClassName}`}>
+      {/* Sem borda própria: todo uso fica dentro de um cartão que já tem a sua
+          (pedido do dono, 23/11/2026: uma linha só por item). */}
       <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="rounded bg-cyan-700 px-1.5 py-0.5 text-[9px] font-bold text-white">
@@ -423,7 +425,7 @@ export const AIInsights: React.FC<Props> = ({
         )}
       </div>
 
-      <div className={`mb-2 min-h-0 flex-1 overflow-y-scroll overscroll-contain [scrollbar-gutter:stable] rounded-lg border border-slate-700 bg-slate-950 p-2 space-y-3 ${messagesClassName}`}>
+      <div className={`mb-2 min-h-0 flex-1 overflow-y-scroll overscroll-contain [scrollbar-gutter:stable] rounded-lg bg-slate-900/60 p-2 space-y-3 ${messagesClassName}`}>
         {messages.length === 0 && (
           <div className="py-4 text-center">
             <p className="text-[11px] text-slate-500">{ui.ready}</p>

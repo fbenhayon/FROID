@@ -3,6 +3,7 @@ import type { EvidentMarker } from "./froid-engine";
 import {
   countOutOfBounds,
   normalizeKey,
+  retainHighlights,
   statusLabel,
   STATUS_CLASSES,
   withBounds,
@@ -145,5 +146,47 @@ describe("contador e rótulos", () => {
   it("o rótulo de ruptura diz o que fazer", () => {
     expect(statusLabel("acima")).toContain("reavaliar");
     expect(statusLabel("abaixo")).toContain("reavaliar");
+  });
+});
+
+describe("retainHighlights — o destaque fica aceso até a próxima avaliação", () => {
+  const jitter = (status: "acima" | "abaixo" | "dentro" | "sem-limite", value: string) => ({
+    label: "JITTER",
+    value,
+    status,
+  });
+
+  it("sem avaliação nesta leitura, mantém o último acima e marca como retido", () => {
+    const memoria = new Map();
+    retainHighlights([jitter("acima", "0.040")], memoria);
+    const [m] = retainHighlights([jitter("sem-limite", "--")], memoria);
+    expect(m.status).toBe("acima");
+    expect(m.value).toBe("0.040");
+    expect(m.retida).toBe(true);
+  });
+
+  it("vale também para abaixo", () => {
+    const memoria = new Map();
+    retainHighlights([jitter("abaixo", "0.001")], memoria);
+    const [m] = retainHighlights([jitter("sem-limite", "0.002")], memoria);
+    expect(m.status).toBe("abaixo");
+    expect(m.retida).toBe(true);
+  });
+
+  it("avaliação nova dentro da faixa apaga o destaque", () => {
+    const memoria = new Map();
+    retainHighlights([jitter("acima", "0.040")], memoria);
+    const [m] = retainHighlights([jitter("dentro", "0.010")], memoria);
+    expect(m.status).toBe("dentro");
+    expect(m.retida).toBeUndefined();
+    const [depois] = retainHighlights([jitter("sem-limite", "--")], memoria);
+    expect(depois.status).toBe("sem-limite");
+  });
+
+  it("nunca inventa destaque para métrica que nunca saiu da faixa", () => {
+    const memoria = new Map();
+    const [m] = retainHighlights([jitter("sem-limite", "--")], memoria);
+    expect(m.status).toBe("sem-limite");
+    expect(m.retida).toBeUndefined();
   });
 });

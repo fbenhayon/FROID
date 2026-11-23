@@ -116,13 +116,56 @@ function HistoricalByCut({ events, cuts, transcript, transcriptLineSeconds, proc
   </section>;
 }
 
+// Sessão ao vivo, desde 23/11/2026 (pedido do dono: "as sete famílias estão
+// sem utilidade para o profissional"). Sete cartões fixos, quase sempre
+// dizendo "padrão não detectado", com códigos de AU, não respondiam à
+// pergunta de relance: o que apareceu, quando, quantas vezes e no meio de
+// qual fala. A tela agora mostra (1) só as famílias presentes NESTA leitura,
+// (2) a contagem por família na sessão e (3) os últimos registros com o
+// instante, a duração e a fala daquele momento — o mesmo desenho do relatório
+// por corte, que o profissional já usa. Nada novo é inferido: são os mesmos
+// eventos do motor, apenas em outra ordem.
+const ULTIMOS_REGISTROS = 6;
+
+function LiveEventRow({ event, falas }: {
+  event: FacialEvent; falas?: Array<{ elapsedSeconds: number; text: string }>;
+}) {
+  const t = event.recorded_elapsed_seconds;
+  const hasTime = typeof t === "number" && Number.isFinite(t);
+  const end = event.ended_at_ms ?? event.last_observed_at_ms;
+  const duration = Number.isFinite(end) && end >= event.started_at_ms ? (end - event.started_at_ms) / 1000 : null;
+  const speech = hasTime && falas?.length
+    ? speechAtSecond(
+        falas.map(f => f.text.replace(/\n/g, " ")).join("\n"),
+        falas.map(f => f.elapsedSeconds),
+        t as number,
+      )
+    : null;
+  return <div className="rounded bg-slate-900 px-2 py-1">
+    <p>
+      <span className="font-mono text-cyan-100">{hasTime ? mmss(t as number)
+        : new Date(event.started_at_ms).toLocaleTimeString("pt-BR")}</span>{" "}
+      <span className="font-bold">{event.title}</span>
+      <span className="text-slate-400">
+        {duration !== null ? ` · ${duration.toFixed(1)} s` : ""}
+        {event.side && event.side !== "bilateral" ? ` · lado ${event.side === "left" ? "esquerdo" : "direito"}` : ""}
+        {event.ambiguous ? " · coocorrência de famílias" : ""}
+      </span>
+    </p>
+    {event.report && <p className="text-slate-400">{event.report}</p>}
+    {speech && <p className="text-slate-300">Fala no momento: “{speech}”</p>}
+  </div>;
+}
+
 export function FacialAnalysisPanel({
-  analysis, events, historical = false, cuts, transcript, transcriptLineSeconds, procedencia,
+  analysis, events, historical = false, cuts, transcript, transcriptLineSeconds, procedencia, falas,
 }: {
   analysis?: FacialAnalysis; events: FacialEvent[]; historical?: boolean;
   cuts?: Array<{ startSecond: number; endSecond: number }>;
   transcript?: string; transcriptLineSeconds?: number[];
   procedencia?: Procedencia;
+  /** Sessão ao vivo: falas com o segundo da sessão, para "fala no momento". */
+  falas?: Array<{ elapsedSeconds: number; text: string }>;
 }) {
   if (historical) {
     return <HistoricalByCut events={events} cuts={cuts || []} transcript={transcript}
@@ -130,34 +173,39 @@ export function FacialAnalysisPanel({
   }
   const stale = analysis?.expires_at_ms !== undefined && Date.now() > analysis.expires_at_ms;
   const available = analysis?.status === "measured" && !stale;
-  return <section className="space-y-3 text-[11px]">
-    <h3 className="font-bold uppercase text-cyan-200">Interpretação facial · sete famílias</h3>
-    <p className="text-slate-400">Padrões observados, não diagnóstico ou prova de dissonância.</p>
-    {!available && <p role="status" className="text-amber-200">
-      {stale ? "Leitura facial vencida: aguardando um quadro novo." : analysis?.reason || "Sem capacidade de apuração facial nesta janela."}
-    </p>}
-    {available && analysis?.ambiguous && <p className="text-amber-200">Mais de uma família compatível; interpretação ambígua.</p>}
-    <div className="grid grid-cols-1 gap-2">
-      {analysis?.families.map(family => <div key={family.id} className="rounded border border-slate-700 p-2">
-        <p className="font-bold">{family.title}</p>
-        <p className="text-slate-400">{!available ? "Sem medidas atuais" : family.status === "observed" ? "Padrão repetido em quadros distintos"
-          : family.status === "candidate" ? "Candidato — aguardando outro quadro"
-          : family.status === "unavailable" ? "Sem medidas suficientes" : "Padrão não detectado nesta leitura"}</p>
-        {available && family.variants.map(variant => <p key={variant.id} className="font-mono text-cyan-100">
-          {variant.id} · {variant.aus.join(" + ")}{variant.side ? ` · ${variant.side}` : ""}
-        </p>)}
-      </div>)}
+  const presentes = available
+    ? (analysis?.families || []).filter(f => f.status === "observed" || f.status === "candidate")
+    : [];
+  const recentes = [...events].reverse().slice(0, ULTIMOS_REGISTROS);
+  return <section className="space-y-2 text-[11px]">
+    <h3 className="font-bold uppercase text-cyan-200">Movimentos faciais</h3>
+    <div>
+      <span className="font-bold text-slate-300">Agora: </span>
+      {!available
+        ? <span role="status" className="text-amber-200">
+            {stale ? "Leitura facial vencida: aguardando um quadro novo." : analysis?.reason || "Sem capacidade de apuração facial nesta janela."}
+          </span>
+        : presentes.length === 0
+          ? <span className="text-slate-400">nenhum padrão facial nesta leitura.</span>
+          : <span className="inline-flex flex-wrap gap-1 align-middle">
+              {presentes.map(f => <span key={f.id}
+                title={f.status === "observed" ? "Padrão repetido em quadros distintos" : "Candidato: aguardando outro quadro"}
+                className={f.status === "observed"
+                  ? "rounded bg-cyan-800 px-1.5 py-0.5 font-bold text-cyan-50"
+                  : "rounded bg-slate-800 px-1.5 py-0.5 text-slate-300"}>
+                {f.title}{f.status === "candidate" ? " ?" : ""}
+              </span>)}
+              {analysis?.ambiguous && <span className="text-amber-200">· mais de uma família compatível; interpretação ambígua</span>}
+            </span>}
     </div>
+    <p className="text-slate-400">
+      <span className="font-bold text-slate-300">Na sessão: </span>
+      {events.length ? familyCounts(events) : "nenhum padrão registrado até agora."}
+    </p>
+    {recentes.length > 0 && <div className="space-y-1">
+      <p className="font-bold text-slate-300">Últimos registros</p>
+      {recentes.map(e => <LiveEventRow key={e.id} event={e} falas={falas} />)}
+    </div>}
     <FacialFooter analysis={analysis} />
-    <details><summary>Registro facial · {events.length} padrões</summary>
-      <div className="max-h-48 space-y-2 overflow-y-auto">
-        {[...events].reverse().map(event => <div key={event.id} className="rounded border border-slate-700 p-2">
-          <p className="font-bold">{event.title}</p>
-          <p>{new Date(event.started_at_ms).toLocaleTimeString("pt-BR")} · {event.observations} quadros · {event.variant}</p>
-          {event.ambiguous && <p>Coocorrência de famílias; não resolve emoção por ordem de regra.</p>}
-          <p>{event.report}</p>
-        </div>)}
-      </div>
-    </details>
   </section>;
 }

@@ -28,6 +28,9 @@ export type BoundedMetric = {
   band?: [number | null, number | null];
   /** Leitura do motor, quando existe. */
   interpretation?: string;
+  /** Destaque mantido de uma avaliação anterior: nesta leitura o servidor não
+   *  avaliou a métrica, e a cor continua acesa até chegar avaliação nova. */
+  retida?: boolean;
 };
 
 /**
@@ -121,10 +124,12 @@ export const STATUS_CLASSES: Record<MetricStatus, { box: string; label: string; 
     label: "text-red-200",
     value: "text-red-100",
   },
+  // Azul, e não âmbar, desde 23/11/2026 (pedido do dono): vermelho para
+  // acima, azul para abaixo — as duas leituras opostas em cores opostas.
   abaixo: {
-    box: "border-amber-600 bg-amber-950/50",
-    label: "text-amber-200",
-    value: "text-amber-100",
+    box: "border-blue-500 bg-blue-950/60",
+    label: "text-blue-200",
+    value: "text-blue-100",
   },
   dentro: {
     box: "border-slate-800 bg-slate-900",
@@ -151,4 +156,37 @@ export function statusLabel(status: MetricStatus): string {
  *  profissional saber que há o que olhar sem varrer a grade inteira. */
 export function countOutOfBounds(metrics: BoundedMetric[]): number {
   return metrics.filter((m) => m.status === "acima" || m.status === "abaixo").length;
+}
+
+/**
+ * Mantém aceso o destaque de quem saiu da faixa até chegar avaliação nova.
+ *
+ * Pedido do dono, 23/11/2026: na sessão detalhada o vermelho (acima) e o azul
+ * (abaixo) apagavam na leitura seguinte sempre que o servidor deixava de
+ * avaliar a métrica naquele instante, e o profissional não tinha tempo de ver.
+ *
+ * A regra é estreita de propósito:
+ * - avaliação nova (acima, abaixo ou dentro) SEMPRE substitui a anterior —
+ *   uma medida dentro da faixa apaga o destaque, como deve;
+ * - sem avaliação nesta leitura ("sem-limite"), o último acima/abaixo
+ *   continua aceso, com valor e faixa daquela avaliação, marcado `retida`
+ *   para não se passar por leitura atual.
+ *
+ * `memoria` é mutada: guarda a última avaliação de cada rótulo.
+ */
+export function retainHighlights(
+  metrics: BoundedMetric[],
+  memoria: Map<string, BoundedMetric>,
+): BoundedMetric[] {
+  return metrics.map((m) => {
+    if (m.status !== "sem-limite") {
+      memoria.set(m.label, m);
+      return m;
+    }
+    const anterior = memoria.get(m.label);
+    if (anterior && (anterior.status === "acima" || anterior.status === "abaixo")) {
+      return { ...anterior, retida: true };
+    }
+    return m;
+  });
 }

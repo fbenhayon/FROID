@@ -16936,10 +16936,32 @@ async def save_session_report(request: Request):
         raise HTTPException(status_code=400, detail="sessionId obrigatório")
     transcript = str(report.get("transcript") or "")
     if not transcript.strip():
-        raise HTTPException(
-            status_code=422,
-            detail="transcrição integral obrigatória para arquivar a sessão",
+        # Sessão sem nenhuma fala transcrita. A regra continua: sem
+        # transcrição não se arquiva EM SILÊNCIO. Mas a recusa pura deixava o
+        # profissional num laço sem saída no fim do atendimento (23/11/2026:
+        # o serviço de transcrição falhou a sessão inteira, e cada "Encerrar"
+        # devolvia o mesmo 422). A saída é declarar a ausência: o painel só
+        # manda `transcriptUnavailable` depois de o profissional confirmar, com
+        # o motivo apurado na sessão, e o relatório fica marcado — nunca uma
+        # transcrição vazia que se passe por sessão sem fala.
+        motivo = str(report.get("transcriptUnavailableReason") or "").strip()
+        if report.get("transcriptUnavailable") is not True or not motivo:
+            raise HTTPException(
+                status_code=422,
+                detail="transcrição integral obrigatória para arquivar a sessão",
+            )
+        report["transcript"] = ""
+        report["transcriptUnavailable"] = True
+        report["transcriptUnavailableReason"] = motivo[:500]
+        LOGGER.warning(
+            "Sessao %s arquivada sem transcricao, por confirmacao do profissional: %s",
+            session_id,
+            motivo[:200],
         )
+    else:
+        # Com transcrição, a marca de ausência não pode viajar junto.
+        report.pop("transcriptUnavailable", None)
+        report.pop("transcriptUnavailableReason", None)
     if len(transcript) > 2_000_000:
         raise HTTPException(status_code=413, detail="transcrição excede o limite seguro")
     context = _authorize_tenant_request(
