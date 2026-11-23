@@ -5258,6 +5258,7 @@ class TenantStore:
     def register_marketing_lead(
         self, *, nome: str, email: str, empresa: str,
         cargo: str = "", contexto: str = "", origem: str = "diagnostico-nr1",
+        telefone: str = "",
     ) -> None:
         """Grava o contato do diagnóstico de prontidão.
 
@@ -5279,14 +5280,42 @@ class TenantStore:
             with connection.transaction():
                 connection.execute(
                     "INSERT INTO marketing_leads "
-                    "(nome, email, empresa, cargo, contexto, origem) "
-                    "VALUES (%s, %s, %s, %s, %s, %s) "
+                    "(nome, email, empresa, cargo, contexto, origem, telefone) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s) "
                     "ON CONFLICT (lower(btrim(email))) DO UPDATE SET "
                     " nome=EXCLUDED.nome, empresa=EXCLUDED.empresa, "
-                    " cargo=EXCLUDED.cargo, contexto=EXCLUDED.contexto, "
-                    " origem=EXCLUDED.origem, created_at=now(), opt_out_at=NULL",
-                    (nome, email, empresa, cargo, contexto, origem),
+                    " origem=EXCLUDED.origem, created_at=now(), opt_out_at=NULL, "
+                    # Os campos opcionais só são trocados por valor novo: quem
+                    # volta ao site sem informar o telefone (ou o cargo, ou o
+                    # contexto) não apaga o que deixou da primeira vez.
+                    " cargo=COALESCE(NULLIF(EXCLUDED.cargo, ''), marketing_leads.cargo), "
+                    " contexto=COALESCE(NULLIF(EXCLUDED.contexto, ''), marketing_leads.contexto), "
+                    " telefone=COALESCE(NULLIF(EXCLUDED.telefone, ''), marketing_leads.telefone)",
+                    (nome, email, empresa, cargo, contexto, origem, telefone),
                 )
+
+    def list_marketing_leads(self) -> list[dict]:
+        """Todos os contatos deixados no site, do mais recente ao mais antigo.
+
+        Existe porque a tabela gravava e nada a lia (padrão 2.1): é a leitura
+        do comercial, usada por tools/exportar_leads.py. Quem pediu oposição
+        (opt_out_at) sai marcado, não escondido — o comercial precisa saber
+        que NÃO deve ligar.
+        """
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        self.ensure_schema()
+        with self._connect(runtime=True) as connection:
+            rows = connection.execute(
+                "SELECT created_at, nome, email, telefone, empresa, cargo, "
+                "origem, contexto, opt_out_at "
+                "FROM marketing_leads ORDER BY created_at DESC"
+            ).fetchall()
+        campos = (
+            "created_at", "nome", "email", "telefone", "empresa", "cargo",
+            "origem", "contexto", "opt_out_at",
+        )
+        return [dict(zip(campos, row)) for row in rows]
 
     # ------------------------------------------------------------------
     # Validade convergente.

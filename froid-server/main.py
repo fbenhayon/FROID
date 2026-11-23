@@ -12260,22 +12260,93 @@ async def register_nr1_lead(request: Request):
         # Sem persistência dual não há onde gravar. Devolver 200 fingindo que
         # gravou perderia o lead em silêncio, que é pior que a falha visível.
         raise HTTPException(status_code=503, detail="cadastro indisponível no momento")
+    origem = _texto("origem", 60) or "diagnostico-nr1"
+    lead = {
+        "nome": nome, "email": email, "empresa": empresa,
+        "cargo": _texto("cargo", 120), "telefone": _texto("telefone", 40),
+        "contexto": _texto("contexto", 300), "origem": origem,
+    }
     try:
-        TENANT_STORE.register_marketing_lead(
-            nome=nome,
-            email=email,
-            empresa=empresa,
-            cargo=_texto("cargo", 120),
-            contexto=_texto("contexto", 300),
-            origem=_texto("origem", 60) or "diagnostico-nr1",
-        )
+        TENANT_STORE.register_marketing_lead(**lead)
     except Exception:
         LOGGER.exception("Falha ao registrar lead do diagnóstico NR-1")
         raise HTTPException(status_code=503, detail="cadastro indisponível no momento")
+    if origem != ORIGEM_KIT_NR1:
+        # Até 23/11/2026 esta frase prometia "o material chega no seu e-mail"
+        # sem que nada fosse enviado. Agora diz só o que de fato aconteceu.
+        return {"status": "ok", "mensagem": "Recebemos seu contato."}
+    enviado_ao_visitante = await _entregar_kit_nr1(lead)
     return {
         "status": "ok",
-        "mensagem": "Recebemos seu contato. O material chega no seu e-mail.",
+        "kit_url": KIT_NR1_CAMINHO,
+        "email_enviado": enviado_ao_visitante,
+        "mensagem": (
+            "Pronto. O link do kit também foi enviado para o seu e-mail."
+            if enviado_ao_visitante
+            else "Pronto. Baixe o kit pelo link abaixo."
+        ),
     }
+
+
+# O kit de demonstração NR-1 (PDF gerado por tools/gerar-kit-demonstracao-nr1.py
+# a partir do piloto simulado) e a origem que o formulário do site envia. O
+# caminho tem UMA fonte — esta —: o site recebe o link na resposta do POST, e
+# test_kit_demonstracao_nr1.py confere que o arquivo existe em froid-site-dev.
+ORIGEM_KIT_NR1 = "kit-demonstracao-nr1"
+KIT_NR1_CAMINHO = "/site-assets/docs/froid-kit-demonstracao-nr1.pdf"
+
+
+async def _entregar_kit_nr1(lead: dict) -> bool:
+    """Avisa a equipe do novo contato e manda o link ao visitante.
+
+    O lead já está gravado quando isto roda; falha de SMTP não o perde, e por
+    isso não vira 503. Mas não fica muda (regra 2.2): cada envio que falha
+    grava o próprio motivo no log, sem o e-mail nem o nome de quem pediu.
+    Devolve se o visitante recebeu o e-mail, para a tela dizer a verdade.
+    """
+    if not froid_mailer.mailer_enabled():
+        LOGGER.warning(json.dumps({"event": "froid.kit_nr1_mailer_disabled"}))
+        return False
+    link = _public_app_base_url() + KIT_NR1_CAMINHO
+    equipe = (
+        "Novo pedido do kit de demonstração NR-1 pelo site.\n\n"
+        f"Nome: {lead['nome']}\n"
+        f"E-mail: {lead['email']}\n"
+        f"Telefone: {lead['telefone'] or 'não informado'}\n"
+        f"Empresa: {lead['empresa']}\n"
+        f"Cargo: {lead['cargo'] or 'não informado'}\n"
+        f"Contexto: {lead['contexto'] or 'não informado'}\n\n"
+        "O contato fica gravado na base de leads "
+        "(python tools/exportar_leads.py dentro do contêiner do backend).\n"
+    )
+    visitante = (
+        f"Olá, {lead['nome']}.\n\n"
+        "Obrigado pelo interesse no FROID NR-1/ISO 45003. Este é o link do kit "
+        "de demonstração com os documentos que estruturamos para o GRO/PGR — "
+        "critérios, AEP, classificação dos fatores, inventário de riscos e "
+        "plano de ação:\n\n"
+        f"{link}\n\n"
+        "Os documentos usam uma empresa fictícia, com dados simulados e sem "
+        "validade documental. Nossa equipe pode entrar em contato para mostrar "
+        "o processo com a estrutura da sua empresa; se preferir não receber "
+        f"contato, responda a este e-mail pedindo a exclusão.\n\nFROID\n{CONTATO_DESTINO}\n"
+    )
+    entregue = True
+    for destino, assunto, corpo, responder_para, evento in (
+        (CONTATO_DESTINO, f"[Site FROID] Kit NR-1 pedido por {lead['empresa']}",
+         equipe, lead["email"], "froid.kit_nr1_team_notice_failed"),
+        (lead["email"], "FROID — Kit de demonstração NR-1",
+         visitante, CONTATO_DESTINO, "froid.kit_nr1_visitor_send_failed"),
+    ):
+        try:
+            await asyncio.to_thread(
+                froid_mailer.send_email, destino, assunto, corpo, "", responder_para
+            )
+        except froid_mailer.MailerError:
+            LOGGER.warning(json.dumps({"event": evento}))
+            if destino == lead["email"]:
+                entregue = False
+    return entregue
 
 
 # Para onde vai a mensagem escrita no formulário de Sobre & Contato. O padrão
