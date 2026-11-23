@@ -59,6 +59,12 @@ const CONTATO = "froid@froid.com.br";
 
 const ETAPAS = ["A empresa", "Estabelecimentos", "Setores", "Valor", "Conferência"];
 
+// Um so formato para os tres botoes do cabecalho.
+const BOTAO_NAV =
+  "flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-cyan-700 bg-cyan-950 px-3 py-2 text-center text-xs font-black leading-tight text-cyan-100 shadow-sm shadow-black/30 transition hover:border-cyan-500 hover:bg-cyan-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400 active:translate-y-px sm:min-w-[9rem]";
+const ICONE_NAV =
+  "h-4 w-4 shrink-0 fill-none stroke-current stroke-2 [stroke-linecap:round] [stroke-linejoin:round]";
+
 type Unidade = {
   unit_id: string;
   parent_unit_id: string | null;
@@ -643,34 +649,53 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100">
       <header className="border-b border-slate-700 bg-slate-900">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-5 py-4">
-          <Link to="/" className="text-sm font-black tracking-[0.35em] text-amber-500">
-            FROID NR-1
+        {/* Os tres itens sao a navegacao da tela: mesma forma, mesmo tamanho,
+            icone + rotulo, para que se leiam como botoes e nao como titulo
+            solto. No celular dividem a largura em colunas iguais. */}
+        <nav
+          aria-label="Navegação"
+          className={`mx-auto grid max-w-4xl gap-2 px-4 py-3 sm:flex sm:justify-end sm:gap-3 sm:px-5 ${
+            onLogout ? "grid-cols-3" : "grid-cols-2"
+          }`}
+        >
+          <Link to="/" title="Voltar ao início." className={`${BOTAO_NAV} sm:mr-auto`}>
+            <svg aria-hidden="true" viewBox="0 0 24 24" className={ICONE_NAV}>
+              <path d="M3 10.5 12 3l9 7.5" />
+              <path d="M5 9.5V21h14V9.5" />
+            </svg>
+            <span className="text-amber-400">FROID NR-1</span>
           </Link>
-          <div className="flex items-center gap-3">
-            {/* Estrutura da empresa e onde nasce a duvida sobre setor pequeno
-                demais para publicar recorte proprio. O verbete responde antes
-                de a pessoa cadastrar errado e descobrir no fim do ciclo. */}
-            <div className="flex items-center border-l border-slate-800 pl-3">
-              <Link
-                to="/nr1/explica?verbete=setor-pequeno"
-                title="Perguntas sobre a norma, sobre a metodologia e sobre como ler o resultado — com a fonte normativa."
-                className="rounded border border-cyan-700 bg-cyan-950 px-4 py-2 text-xs font-black text-cyan-100 hover:bg-cyan-900"
-              >
-                FROID Explica NR-1
-              </Link>
-            </div>
-            {onLogout && (
-              <button
-                type="button"
-                onClick={onLogout}
-                className="rounded-md bg-slate-950 px-3 py-2 text-xs font-black text-white"
-              >
-                Sair
-              </button>
-            )}
-          </div>
-        </div>
+          {/* Estrutura da empresa e onde nasce a duvida sobre setor pequeno
+              demais para publicar recorte proprio. O verbete responde antes
+              de a pessoa cadastrar errado e descobrir no fim do ciclo. */}
+          <Link
+            to="/nr1/explica?verbete=setor-pequeno"
+            title="Perguntas sobre a norma, sobre a metodologia e sobre como ler o resultado — com a fonte normativa."
+            className={BOTAO_NAV}
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24" className={ICONE_NAV}>
+              <circle cx="12" cy="12" r="9" />
+              <path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14" />
+              <path d="M12 17.5h.01" />
+            </svg>
+            <span>FROID Explica NR-1</span>
+          </Link>
+          {onLogout && (
+            <button
+              type="button"
+              onClick={onLogout}
+              title="Encerrar a sessão e voltar à tela de entrada."
+              className={BOTAO_NAV}
+            >
+              <svg aria-hidden="true" viewBox="0 0 24 24" className={ICONE_NAV}>
+                <path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3" />
+                <path d="M10 8l-4 4 4 4" />
+                <path d="M6 12h10" />
+              </svg>
+              <span>Sair</span>
+            </button>
+          )}
+        </nav>
       </header>
 
       <div className="mx-auto grid w-full max-w-[104rem] items-start gap-4 px-3 xl:grid-cols-[minmax(0,1fr)_400px]">
