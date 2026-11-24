@@ -21,6 +21,7 @@
 <link rel="stylesheet" href="../../site-assets/style.css?v=17" />
 <link rel="stylesheet" href="../../site-assets/refinement.css?v=10" />
 <link rel="stylesheet" href="../../site-assets/paginas.css?v=7" />
+<link rel="stylesheet" href="../../site-assets/kit-nr1.css?v=1" />
 <meta property="og:image" content="https://www.froid.com.br/site-assets/img/froid-compartilhar.jpg" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="1200" />
@@ -422,9 +423,30 @@
   </div>
 </footer>
 
+<!-- Kit de demonstração + proposta NR-1 (24/11/2026, pedido do dono): o
+     formulário abre por um botão que site-assets/kit-nr1.js põe no fim de cada
+     seção. O texto do botão e as mensagens ficam nos atributos data-* abaixo. -->
+<dialog id="dialogo-kit-nr1" class="kit-dialogo" aria-labelledby="kit-titulo" data-idioma="fr" data-rotulo-botao="Recevez le dossier GRO, l&#x27;AEP, la classification des facteurs, l&#x27;inventaire des risques et le plan d&#x27;action que l&#x27;organisation présente lors d&#x27;une inspection, avec des données simulées et sans valeur documentaire" data-msg-enviando="Envoi..." data-msg-muitos="Trop d&#x27;envois depuis cet appareil. Réessayez plus tard." data-msg-campos="Vérifiez les champs obligatoires : le CNPJ doit être valide et les nombres doivent être des entiers à partir de 1." data-msg-falha="Nous n&#x27;avons pas pu traiter votre demande pour le moment." data-msg-contato="Vous pouvez aussi écrire à froid@froid.com.br." data-msg-ok="Nous avons envoyé à {email} les liens du kit et de la proposition. Ils sont valables 24 heures. Si rien n&#x27;arrive d&#x27;ici quelques minutes, vérifiez vos courriers indésirables." data-msg-sem-proposta="Nous avons envoyé à {email} le lien du kit, valable 24 heures. Nous n&#x27;avons pas pu chiffrer la proposition pour le moment ; notre équipe a été prévenue et vous l&#x27;enverra." data-msg-equipe="Nous avons reçu votre demande, mais n&#x27;avons pas pu envoyer l&#x27;e-mail pour le moment. Notre équipe a été prévenue et enverra le kit et la proposition à {email}.">
+  <button type="button" class="kit-fechar" aria-label="Fermer">&times;</button>
+  <p id="kit-titulo" class="kit-dialogo-titulo">Kit de démonstration et proposition</p>
+  <p class="kit-lead">Renseignez les informations de votre entreprise et recevez par e-mail deux documents : le kit de démonstration (les critères du GRO, l&#x27;AEP, la classification des facteurs, l&#x27;inventaire des risques et le plan d&#x27;action, produits par FROID pour une entreprise fictive, avec des données simulées et sans valeur documentaire) et la proposition d&#x27;évaluation des risques psychosociaux déjà chiffrée pour votre entreprise. Les liens sont personnels et valables 24 heures. Les deux documents sont en portugais.</p>
+  <p class="kit-gratis">Sans frais jusqu&#x27;à la remise du premier rapport d&#x27;évaluation des risques psychosociaux.</p>
+  <form id="form-kit-nr1" class="form-contato" method="post" action="/api/leads/nr1">
+    <div class="linha"><div><label for="kit-nome">Nom du responsable <span class="obrig" aria-hidden="true">*</span></label><input type="text" id="kit-nome" name="nome" required minlength="2" maxlength="120" autocomplete="name"/></div><div><label for="kit-cargo">Fonction</label><input type="text" id="kit-cargo" name="cargo" maxlength="120" autocomplete="organization-title"/></div></div>
+    <div class="linha"><div><label for="kit-email">E-mail professionnel <span class="obrig" aria-hidden="true">*</span></label><input type="email" id="kit-email" name="email" required maxlength="180" autocomplete="email"/></div><div><label for="kit-telefone">Téléphone</label><input type="tel" id="kit-telefone" name="telefone" maxlength="40" autocomplete="tel"/></div></div>
+    <div class="linha"><div><label for="kit-empresa">Raison sociale <span class="obrig" aria-hidden="true">*</span></label><input type="text" id="kit-empresa" name="empresa" required maxlength="180" autocomplete="organization"/></div><div><label for="kit-cnpj">CNPJ (numéro d&#x27;entreprise brésilien) <span class="obrig" aria-hidden="true">*</span></label><input type="text" id="kit-cnpj" name="cnpj" required maxlength="20" autocomplete="off"/></div></div>
+    <div class="linha"><div><label for="kit-estabelecimentos">Nombre d&#x27;établissements <span class="obrig" aria-hidden="true">*</span></label><input type="number" id="kit-estabelecimentos" name="estabelecimentos" required min="1" max="5000" step="1" inputmode="numeric"/></div><div><label for="kit-trabalhadores">Nombre de travailleurs <span class="obrig" aria-hidden="true">*</span></label><input type="number" id="kit-trabalhadores" name="trabalhadores" required min="1" max="200000" step="1" inputmode="numeric"/></div></div>
+    <p class="kit-enviar"><button type="submit">Recevoir le kit et la proposition</button></p>
+    <p class="form-status" role="status" aria-live="polite"></p>
+    <p class="kit-privacidade">Nous conservons ces données pour envoyer le kit et la proposition et pour que notre équipe vous contacte au sujet de FROID NR-1/ISO 45003. Vous pouvez demander leur suppression à tout moment à <a href="mailto:froid@froid.com.br">froid@froid.com.br</a>. Voir la <a href="../privacidade.html">Politique de confidentialité</a>.</p>
+  </form>
+  <div data-papel="pronto" role="status" aria-live="polite" hidden></div>
+</dialog>
+
 <script src="../../site-assets/script.js?v=27"></script>
 <script src="../../site-assets/navigation.js?v=3"></script>
 <script src="../../site-assets/simulador-nr1.js?v=2"></script>
+<script src="../../site-assets/kit-nr1.js?v=3"></script>
 </body>
 </html>
 

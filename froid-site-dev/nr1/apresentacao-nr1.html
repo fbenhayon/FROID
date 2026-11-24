@@ -21,6 +21,7 @@
 <link rel="stylesheet" href="../site-assets/style.css?v=17" />
 <link rel="stylesheet" href="../site-assets/refinement.css?v=10" />
 <link rel="stylesheet" href="../site-assets/paginas.css?v=7" />
+<link rel="stylesheet" href="../site-assets/kit-nr1.css?v=1" />
 <meta property="og:image" content="https://www.froid.com.br/site-assets/img/froid-compartilhar.jpg" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="1200" />
@@ -159,24 +160,6 @@
       <div class="card"><h3>Plano de Ação</h3><p>com as medidas a introduzir, aprimorar ou manter, seus responsáveis, cronogramas, formas de acompanhamento e aferição de resultados.</p></div>
       <div class="card"><h3>Documento de Critérios</h3><p>com as gradações de severidade e probabilidade, matriz utilizada, níveis de risco e critérios de classificação e tomada de decisão.</p></div>
       <div class="card"><h3>Histórico de acompanhamento e eficácia</h3><p>preservando a sequência entre o que foi identificado, a ação realizada e o resultado posteriormente verificado.</p></div>
-    </div>
-  </div>
-</section>
-
-<section class="block soft" id="kit-demonstracao">
-  <div class="container">
-    <h2 class="section-title">Veja como ficam esses documentos</h2>
-    <p class="section-lead">Preencha o cadastro e receba no seu e-mail o link do kit de demonstração em PDF, válido por 7 dias: os critérios do GRO, a AEP, a classificação dos fatores, o inventário de riscos e o plano de ação, gerados pelo FROID para uma empresa fictícia — uma rede de farmácias com três grupos de exposição e dois ciclos de avaliação. É o material que a organização apresenta numa fiscalização, com dados simulados e sem validade documental.</p>
-    <div class="card">
-      <form id="form-kit-nr1" class="form-contato" method="post" action="/api/leads/nr1">
-        <div class="linha"><div><label for="kit-nome">Nome</label><input type="text" id="kit-nome" name="nome" required minlength="2" maxlength="120" autocomplete="name" /></div><div><label for="kit-email">E-mail corporativo</label><input type="email" id="kit-email" name="email" required maxlength="180" autocomplete="email" /></div></div>
-        <div class="linha"><div><label for="kit-empresa">Empresa</label><input type="text" id="kit-empresa" name="empresa" required maxlength="180" autocomplete="organization" /></div><div><label for="kit-cargo">Cargo</label><input type="text" id="kit-cargo" name="cargo" maxlength="120" autocomplete="organization-title" /></div></div>
-        <div class="linha"><div><label for="kit-telefone">Telefone</label><input type="tel" id="kit-telefone" name="telefone" maxlength="40" autocomplete="tel" /></div><div><label for="kit-trabalhadores">Número de trabalhadores <span style="font-weight:400; color:var(--froid-cinza);">(opcional)</span></label><input type="text" id="kit-trabalhadores" name="trabalhadores" maxlength="40" inputmode="numeric" /></div></div>
-        <p style="margin:18px 0 0;"><button class="btn btn-solid" type="submit">Receber o kit de demonstração</button></p>
-        <p class="form-status" role="status" aria-live="polite"></p>
-        <p style="font-size:0.82rem; color:var(--froid-cinza); margin:12px 0 0;">Guardamos estes dados para que nossa equipe entre em contato sobre o FROID NR-1/ISO 45003. Você pode pedir a exclusão a qualquer momento por <a href="mailto:froid@froid.com.br">froid@froid.com.br</a>. Veja a <a href="../privacidade.html">Política de Privacidade</a>.</p>
-      </form>
-      <div id="kit-nr1-pronto" role="status" aria-live="polite" style="text-align:center;" hidden></div>
     </div>
   </div>
 </section>
@@ -447,9 +430,29 @@
   </div>
 </footer>
 
+<!-- Kit de demonstração + proposta NR-1 (24/11/2026, pedido do dono): o
+     formulário abre por um botão que site-assets/kit-nr1.js põe no fim de cada
+     seção. O texto do botão e as mensagens ficam nos atributos data-* abaixo. -->
+<dialog id="dialogo-kit-nr1" class="kit-dialogo" aria-labelledby="kit-titulo" data-idioma="pt" data-rotulo-botao="Receba o material GRO, a AEP, a classificação dos fatores, o inventário de riscos e o plano de ação que a organização apresenta numa fiscalização, com dados simulados e sem validade documental" data-msg-enviando="Enviando..." data-msg-muitos="Muitos envios feitos deste dispositivo. Tente novamente mais tarde." data-msg-campos="Confira os campos obrigatórios." data-msg-falha="Não foi possível concluir o pedido agora." data-msg-contato="Se preferir, peça por froid@froid.com.br ou pelo telefone (11) 94585-6941." data-msg-ok="" data-msg-sem-proposta="" data-msg-equipe="">
+  <button type="button" class="kit-fechar" aria-label="Fechar">&times;</button>
+  <p id="kit-titulo" class="kit-dialogo-titulo">Kit de demonstração e proposta</p>
+  <p class="kit-lead">Preencha os dados da sua empresa e receba por e-mail dois documentos: o kit de demonstração (os critérios do GRO, a AEP, a classificação dos fatores, o inventário de riscos e o plano de ação, gerados pelo FROID para uma empresa fictícia, com dados simulados e sem validade documental) e a proposta de avaliação dos riscos psicossociais já calculada para a sua empresa. Os links são pessoais e valem por 24 horas.</p>
+  <p class="kit-gratis">Sem custo até a entrega do primeiro relatório de avaliação dos riscos psicossociais.</p>
+  <form id="form-kit-nr1" class="form-contato" method="post" action="/api/leads/nr1">
+    <div class="linha"><div><label for="kit-nome">Nome do responsável <span class="obrig" aria-hidden="true">*</span></label><input type="text" id="kit-nome" name="nome" required minlength="2" maxlength="120" autocomplete="name"/></div><div><label for="kit-cargo">Cargo</label><input type="text" id="kit-cargo" name="cargo" maxlength="120" autocomplete="organization-title"/></div></div>
+    <div class="linha"><div><label for="kit-email">E-mail corporativo <span class="obrig" aria-hidden="true">*</span></label><input type="email" id="kit-email" name="email" required maxlength="180" autocomplete="email"/></div><div><label for="kit-telefone">Telefone</label><input type="tel" id="kit-telefone" name="telefone" maxlength="40" autocomplete="tel"/></div></div>
+    <div class="linha"><div><label for="kit-empresa">Razão social <span class="obrig" aria-hidden="true">*</span></label><input type="text" id="kit-empresa" name="empresa" required maxlength="180" autocomplete="organization"/></div><div><label for="kit-cnpj">CNPJ <span class="obrig" aria-hidden="true">*</span></label><input type="text" id="kit-cnpj" name="cnpj" required maxlength="20" autocomplete="off"/></div></div>
+    <div class="linha"><div><label for="kit-estabelecimentos">Número de estabelecimentos <span class="obrig" aria-hidden="true">*</span></label><input type="number" id="kit-estabelecimentos" name="estabelecimentos" required min="1" max="5000" step="1" inputmode="numeric"/></div><div><label for="kit-trabalhadores">Número de trabalhadores <span class="obrig" aria-hidden="true">*</span></label><input type="number" id="kit-trabalhadores" name="trabalhadores" required min="1" max="200000" step="1" inputmode="numeric"/></div></div>
+    <p class="kit-enviar"><button type="submit">Receber o kit e a proposta</button></p>
+    <p class="form-status" role="status" aria-live="polite"></p>
+    <p class="kit-privacidade">Guardamos estes dados para enviar o kit e a proposta e para que nossa equipe entre em contato sobre o FROID NR-1/ISO 45003. Você pode pedir a exclusão a qualquer momento por <a href="mailto:froid@froid.com.br">froid@froid.com.br</a>. Veja a <a href="../privacidade.html">Política de Privacidade</a>.</p>
+  </form>
+  <div data-papel="pronto" role="status" aria-live="polite" hidden></div>
+</dialog>
+
 <script src="../site-assets/script.js?v=27"></script>
 <script src="../site-assets/navigation.js?v=3"></script>
 <script src="../site-assets/simulador-nr1.js?v=2"></script>
-<script src="../site-assets/kit-nr1.js?v=2"></script>
+<script src="../site-assets/kit-nr1.js?v=3"></script>
 </body>
 </html>

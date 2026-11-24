@@ -1,0 +1,37 @@
+/* Kit de demonstração + proposta NR-1 (nr1/apresentacao-nr1.html, 4 idiomas).
+ * 24/11/2026, pedido do dono: a seção "Veja como ficam esses documentos" virou
+ * um botão centralizado abaixo de cada seção, que abre o formulário numa janela. */
+
+.kit-gatilho { text-align: center; margin: 34px auto 0; max-width: 760px; }
+.kit-gatilho button {
+  display: inline-block; cursor: pointer; font: inherit; font-size: 0.95rem; font-weight: 600;
+  line-height: 1.5; color: #151921; background: #f5c778; border: 1px solid #f5c778;
+  border-radius: 12px; padding: 13px 22px; box-shadow: 0 6px 26px #f5c77818;
+  transition: background .2s, box-shadow .2s;
+}
+.kit-gatilho button:hover, .kit-gatilho button:focus-visible { background: #f8d595; box-shadow: 0 8px 30px #f5c77833; }
+
+dialog.kit-dialogo {
+  width: min(680px, calc(100vw - 24px)); max-height: calc(100vh - 24px); overflow: auto;
+  padding: 28px 30px 26px; border: 1px solid #1e2a44; border-radius: 16px;
+  background: #0b1220; color: var(--froid-branco, #f8fafc);
+}
+dialog.kit-dialogo::backdrop { background: rgba(2, 6, 23, .78); }
+/* Nao e <h2> de proposito: navigation.js transforma todo h2 da pagina em secao do sumario. */
+.kit-dialogo-titulo { margin: 0 34px 8px 0; font-size: 1.35rem; line-height: 1.3; font-weight: 800; color: #fff; }
+.kit-dialogo .kit-lead { margin: 0 0 6px; color: var(--froid-cinza, #94a3b8); font-size: 0.93rem; line-height: 1.6; }
+.kit-dialogo .kit-gratis { margin: 12px 0 4px; padding: 10px 14px; border-radius: 10px;
+  border: 1px solid #10b98155; background: #10b98114; color: #a7f3d0; font-size: 0.9rem; }
+.kit-dialogo .kit-fechar {
+  position: absolute; top: 14px; right: 16px; width: 34px; height: 34px; border-radius: 50%;
+  border: 1px solid #1e2a44; background: transparent; color: var(--froid-cinza, #94a3b8);
+  font-size: 1.3rem; line-height: 1; cursor: pointer;
+}
+.kit-dialogo .kit-fechar:hover { color: #fff; border-color: #334155; }
+.kit-dialogo .kit-enviar { text-align: center; margin: 20px 0 0; }
+.kit-dialogo .kit-enviar button { font: inherit; font-weight: 700; cursor: pointer; color: #151921;
+  background: #f5c778; border: 0; border-radius: 12px; padding: 12px 22px; }
+.kit-dialogo .kit-enviar button[disabled] { opacity: .6; cursor: progress; }
+.kit-dialogo .kit-privacidade { font-size: 0.8rem; color: var(--froid-cinza, #94a3b8); margin: 14px 0 0; line-height: 1.55; }
+.kit-dialogo .obrig { color: #f5c778; }
+.kit-dialogo [data-papel="pronto"] { text-align: center; padding: 18px 0 6px; }
