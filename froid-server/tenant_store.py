@@ -5294,6 +5294,55 @@ class TenantStore:
                     (nome, email, empresa, cargo, contexto, origem, telefone),
                 )
 
+    def registrar_link_do_kit(
+        self, *, email: str, token_sha256: str, validade_dias: int,
+    ) -> bool:
+        """Grava o hash do link individual do kit NR-1 no lead deste e-mail.
+
+        Um pedido novo do mesmo e-mail troca o token: o link anterior deixa de
+        abrir. A validade é contada pelo relógio do banco, o mesmo que
+        `abrir_link_do_kit` consulta. Devolve se havia lead para receber o link.
+        """
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        self.ensure_schema()
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                linha = connection.execute(
+                    "UPDATE marketing_leads SET kit_token_sha256=%s, "
+                    " kit_expira_em=now() + make_interval(days => %s) "
+                    "WHERE lower(btrim(email)) = lower(btrim(%s)) RETURNING id",
+                    (token_sha256, int(validade_dias), email),
+                ).fetchone()
+        return linha is not None
+
+    def abrir_link_do_kit(self, *, token_sha256: str) -> str:
+        """'valido', 'expirado' ou 'inexistente' — e conta o acesso válido.
+
+        As três respostas são distintas porque pedem ações distintas de quem
+        clicou (regra 2.11): o link vencido manda pedir de novo, o inexistente
+        diz que aquele endereço não é um link do kit.
+        """
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        self.ensure_schema()
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                aberto = connection.execute(
+                    "UPDATE marketing_leads SET kit_acessos = kit_acessos + 1, "
+                    " kit_ultimo_acesso_em = now() "
+                    "WHERE kit_token_sha256 = %s AND kit_expira_em > now() "
+                    "RETURNING id",
+                    (token_sha256,),
+                ).fetchone()
+                if aberto is not None:
+                    return "valido"
+                existe = connection.execute(
+                    "SELECT 1 FROM marketing_leads WHERE kit_token_sha256 = %s",
+                    (token_sha256,),
+                ).fetchone()
+        return "expirado" if existe is not None else "inexistente"
+
     def list_marketing_leads(self) -> list[dict]:
         """Todos os contatos deixados no site, do mais recente ao mais antigo.
 
@@ -5308,12 +5357,14 @@ class TenantStore:
         with self._connect(runtime=True) as connection:
             rows = connection.execute(
                 "SELECT created_at, nome, email, telefone, empresa, cargo, "
-                "origem, contexto, opt_out_at "
+                "origem, contexto, opt_out_at, kit_expira_em, kit_acessos, "
+                "kit_ultimo_acesso_em "
                 "FROM marketing_leads ORDER BY created_at DESC"
             ).fetchall()
         campos = (
             "created_at", "nome", "email", "telefone", "empresa", "cargo",
-            "origem", "contexto", "opt_out_at",
+            "origem", "contexto", "opt_out_at", "kit_expira_em", "kit_acessos",
+            "kit_ultimo_acesso_em",
         )
         return [dict(zip(campos, row)) for row in rows]
 

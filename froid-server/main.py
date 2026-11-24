@@ -15,11 +15,12 @@ import threading
 import time
 import unicodedata
 import uuid
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Mapping
 from urllib.parse import quote, unquote, urlencode
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel, Field
 from froid_core import PERCEPTION_ZONES, SessionState
 from froid_deidentify import (
@@ -12275,41 +12276,118 @@ async def register_nr1_lead(request: Request):
         # Até 23/11/2026 esta frase prometia "o material chega no seu e-mail"
         # sem que nada fosse enviado. Agora diz só o que de fato aconteceu.
         return {"status": "ok", "mensagem": "Recebemos seu contato."}
-    enviado_ao_visitante = await _entregar_kit_nr1(lead)
+    # 23/11/2026, determinação do dono: o kit sai SÓ por e-mail, num link
+    # individual que expira. A resposta não traz link nenhum — até aqui trazia
+    # o endereço público do PDF, e um e-mail inventado liberava o kit na tela.
+    enviado_ao_visitante, equipe_avisada = await _entregar_kit_nr1(lead)
+    if enviado_ao_visitante:
+        mensagem = (
+            f"Enviamos o link do kit para {email}. Ele vale por "
+            f"{KIT_NR1_VALIDADE_DIAS} dias. Se não chegar em alguns minutos, "
+            "confira a caixa de spam."
+        )
+    elif equipe_avisada:
+        mensagem = (
+            "Recebemos seu cadastro, mas não conseguimos enviar o e-mail com o "
+            f"kit agora. Nossa equipe já foi avisada e vai enviá-lo para {email}."
+        )
+    else:
+        mensagem = (
+            "Recebemos seu cadastro, mas não conseguimos enviar o e-mail com o "
+            "kit agora. Tente de novo mais tarde ou peça o kit por "
+            f"{CONTATO_DESTINO}."
+        )
     return {
         "status": "ok",
-        "kit_url": KIT_NR1_CAMINHO,
         "email_enviado": enviado_ao_visitante,
-        "mensagem": (
-            "Pronto. O link do kit também foi enviado para o seu e-mail."
-            if enviado_ao_visitante
-            else "Pronto. Baixe o kit pelo link abaixo."
-        ),
+        "mensagem": mensagem,
     }
 
 
 # O kit de demonstração NR-1 (PDF gerado por tools/gerar-kit-demonstracao-nr1.py
-# a partir do piloto simulado) e a origem que o formulário do site envia. O
-# caminho tem UMA fonte — esta —: o site recebe o link na resposta do POST, e
-# test_kit_demonstracao_nr1.py confere que o arquivo existe em froid-site-dev.
+# a partir do piloto simulado) e a origem que o formulário do site envia.
+#
+# O PDF mora DENTRO do backend, fora da pasta pública do site: até 23/11/2026
+# ficava em froid-site-dev/site-assets/docs/, e qualquer um com o endereço o
+# baixava sem cadastro. Agora só sai por GET /api/kit-nr1/<token>, com o token
+# individual que vai no e-mail. A validade é decisão do dono (link que expira
+# "em alguns dias"), não medida: 7 dias, aqui e só aqui.
 ORIGEM_KIT_NR1 = "kit-demonstracao-nr1"
-KIT_NR1_CAMINHO = "/site-assets/docs/froid-kit-demonstracao-nr1.pdf"
+KIT_NR1_ARQUIVO = Path(__file__).resolve().parent / "assets" / "froid-kit-demonstracao-nr1.pdf"
+KIT_NR1_ROTA = "/api/kit-nr1/"
+KIT_NR1_VALIDADE_DIAS = 7
+KIT_NR1_PAGINA_DO_FORMULARIO = "/nr1/apresentacao-nr1.html#kit-demonstracao"
 
 
-async def _entregar_kit_nr1(lead: dict) -> bool:
-    """Avisa a equipe do novo contato e manda o link ao visitante.
+def _hash_do_token_do_kit(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+async def _entregar_kit_nr1(lead: dict) -> tuple[bool, bool]:
+    """Gera o link individual, manda ao visitante e avisa a equipe.
 
     O lead já está gravado quando isto roda; falha de SMTP não o perde, e por
-    isso não vira 503. Mas não fica muda (regra 2.2): cada envio que falha
-    grava o próprio motivo no log, sem o e-mail nem o nome de quem pediu.
-    Devolve se o visitante recebeu o e-mail, para a tela dizer a verdade.
+    isso não vira 503. Mas não fica muda (regra 2.2): cada falha grava o
+    próprio motivo no log, sem o e-mail nem o nome de quem pediu.
+
+    O visitante recebe primeiro, para o aviso à equipe dizer se o kit chegou
+    a ele — sem isso a equipe não saberia que precisa mandar à mão.
+    Devolve (visitante recebeu, equipe foi avisada), para a tela dizer a verdade.
     """
     if not froid_mailer.mailer_enabled():
         LOGGER.warning(json.dumps({"event": "froid.kit_nr1_mailer_disabled"}))
-        return False
-    link = _public_app_base_url() + KIT_NR1_CAMINHO
+        return False, False
+    token = secrets.token_urlsafe(32)
+    try:
+        link_gravado = await asyncio.to_thread(
+            TENANT_STORE.registrar_link_do_kit,
+            email=lead["email"],
+            token_sha256=_hash_do_token_do_kit(token),
+            validade_dias=KIT_NR1_VALIDADE_DIAS,
+        )
+    except Exception:
+        LOGGER.exception(json.dumps({"event": "froid.kit_nr1_link_store_failed"}))
+        link_gravado = False
+    else:
+        if not link_gravado:
+            LOGGER.warning(json.dumps({"event": "froid.kit_nr1_link_without_lead"}))
+
+    entregue = False
+    if link_gravado:
+        link = _public_app_base_url() + KIT_NR1_ROTA + token
+        visitante = (
+            f"Olá, {lead['nome']}.\n\n"
+            "Obrigado pelo interesse no FROID NR-1/ISO 45003. Este é o link do kit "
+            "de demonstração com os documentos que estruturamos para o GRO/PGR — "
+            "critérios, AEP, classificação dos fatores, inventário de riscos e "
+            "plano de ação:\n\n"
+            f"{link}\n\n"
+            f"O link é pessoal e vale por {KIT_NR1_VALIDADE_DIAS} dias. Depois "
+            "disso, basta pedir o kit de novo no site.\n\n"
+            "Os documentos usam uma empresa fictícia, com dados simulados e sem "
+            "validade documental. Nossa equipe pode entrar em contato para mostrar "
+            "o processo com a estrutura da sua empresa; se preferir não receber "
+            f"contato, responda a este e-mail pedindo a exclusão.\n\nFROID\n{CONTATO_DESTINO}\n"
+        )
+        try:
+            await asyncio.to_thread(
+                froid_mailer.send_email, lead["email"],
+                "FROID — Kit de demonstração NR-1", visitante, "", CONTATO_DESTINO,
+            )
+            entregue = True
+        except froid_mailer.MailerError:
+            LOGGER.warning(json.dumps({"event": "froid.kit_nr1_visitor_send_failed"}))
+
+    situacao = (
+        "Kit enviado ao visitante por e-mail (link individual, "
+        f"válido por {KIT_NR1_VALIDADE_DIAS} dias)."
+        if entregue
+        else "ATENÇÃO: o kit NÃO chegou ao visitante. Envie o PDF manualmente "
+        "respondendo a este e-mail."
+    )
     equipe = (
         "Novo pedido do kit de demonstração NR-1 pelo site.\n\n"
+        f"{situacao}\n\n"
         f"Nome: {lead['nome']}\n"
         f"E-mail: {lead['email']}\n"
         f"Telefone: {lead['telefone'] or 'não informado'}\n"
@@ -12319,34 +12397,100 @@ async def _entregar_kit_nr1(lead: dict) -> bool:
         "O contato fica gravado na base de leads "
         "(python tools/exportar_leads.py dentro do contêiner do backend).\n"
     )
-    visitante = (
-        f"Olá, {lead['nome']}.\n\n"
-        "Obrigado pelo interesse no FROID NR-1/ISO 45003. Este é o link do kit "
-        "de demonstração com os documentos que estruturamos para o GRO/PGR — "
-        "critérios, AEP, classificação dos fatores, inventário de riscos e "
-        "plano de ação:\n\n"
-        f"{link}\n\n"
-        "Os documentos usam uma empresa fictícia, com dados simulados e sem "
-        "validade documental. Nossa equipe pode entrar em contato para mostrar "
-        "o processo com a estrutura da sua empresa; se preferir não receber "
-        f"contato, responda a este e-mail pedindo a exclusão.\n\nFROID\n{CONTATO_DESTINO}\n"
+    equipe_avisada = False
+    try:
+        await asyncio.to_thread(
+            froid_mailer.send_email, CONTATO_DESTINO,
+            f"[Site FROID] Kit NR-1 pedido por {lead['empresa']}",
+            equipe, "", lead["email"],
+        )
+        equipe_avisada = True
+    except froid_mailer.MailerError:
+        LOGGER.warning(json.dumps({"event": "froid.kit_nr1_team_notice_failed"}))
+    return entregue, equipe_avisada
+
+
+def _pagina_do_kit_indisponivel(titulo: str, texto: str) -> str:
+    """Página curta para link vencido ou desconhecido, com o caminho de volta."""
+    return (
+        "<!doctype html><html lang=\"pt-BR\"><head><meta charset=\"utf-8\">"
+        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+        "<meta name=\"robots\" content=\"noindex\">"
+        f"<title>{titulo} — FROID</title></head>"
+        "<body style=\"font-family:system-ui,sans-serif;max-width:36rem;margin:4rem auto;"
+        "padding:0 1.25rem;line-height:1.5;color:#1e293b\">"
+        f"<h1 style=\"font-size:1.4rem\">{titulo}</h1><p>{texto}</p>"
+        f"<p><a href=\"{KIT_NR1_PAGINA_DO_FORMULARIO}\">Pedir o kit de demonstração no site</a></p>"
+        f"<p style=\"color:#64748b;font-size:.9rem\">Dúvidas: {CONTATO_DESTINO}</p>"
+        "</body></html>"
     )
-    entregue = True
-    for destino, assunto, corpo, responder_para, evento in (
-        (CONTATO_DESTINO, f"[Site FROID] Kit NR-1 pedido por {lead['empresa']}",
-         equipe, lead["email"], "froid.kit_nr1_team_notice_failed"),
-        (lead["email"], "FROID — Kit de demonstração NR-1",
-         visitante, CONTATO_DESTINO, "froid.kit_nr1_visitor_send_failed"),
-    ):
+
+
+@app.get(KIT_NR1_ROTA + "{token}")
+async def baixar_kit_nr1(token: str, request: Request):
+    """Entrega o PDF do kit a quem tem um link individual válido.
+
+    Três respostas distintas (regra 2.11): link válido entrega o PDF; link
+    vencido diz que venceu e manda pedir de novo; link desconhecido diz que não
+    é um link do kit. O limite por IP impede varrer tokens no braço.
+    """
+    _rate_limit_guard(
+        "kit-nr1", _client_ip(request), 30, 3600.0,
+        "Muitas tentativas deste endereço. Tente novamente mais tarde.",
+    )
+    if not TENANT_STORE.enabled or len(token) > 100:
+        situacao = "inexistente" if TENANT_STORE.enabled else "indisponivel"
+    else:
         try:
-            await asyncio.to_thread(
-                froid_mailer.send_email, destino, assunto, corpo, "", responder_para
+            situacao = await asyncio.to_thread(
+                TENANT_STORE.abrir_link_do_kit,
+                token_sha256=_hash_do_token_do_kit(token),
             )
-        except froid_mailer.MailerError:
-            LOGGER.warning(json.dumps({"event": evento}))
-            if destino == lead["email"]:
-                entregue = False
-    return entregue
+        except Exception:
+            LOGGER.exception(json.dumps({"event": "froid.kit_nr1_link_lookup_failed"}))
+            situacao = "indisponivel"
+    if situacao == "valido":
+        try:
+            conteudo = await asyncio.to_thread(KIT_NR1_ARQUIVO.read_bytes)
+        except OSError:
+            LOGGER.exception(json.dumps({"event": "froid.kit_nr1_file_missing"}))
+            situacao = "indisponivel"
+        else:
+            return Response(
+                content=conteudo,
+                media_type="application/pdf",
+                headers={
+                    "Content-Disposition": 'inline; filename="froid-kit-demonstracao-nr1.pdf"',
+                    "Cache-Control": "private, no-store",
+                    "X-Robots-Tag": "noindex",
+                },
+            )
+    if situacao == "expirado":
+        return HTMLResponse(
+            _pagina_do_kit_indisponivel(
+                "Este link do kit expirou",
+                f"O link do kit de demonstração vale por {KIT_NR1_VALIDADE_DIAS} "
+                "dias. Peça de novo no site e enviaremos um link novo para o seu e-mail.",
+            ),
+            status_code=410,
+        )
+    if situacao == "inexistente":
+        return HTMLResponse(
+            _pagina_do_kit_indisponivel(
+                "Link do kit não encontrado",
+                "Este endereço não corresponde a um link do kit de demonstração. "
+                "Se você pediu o kit mais de uma vez, vale só o link do e-mail mais "
+                "recente.",
+            ),
+            status_code=404,
+        )
+    return HTMLResponse(
+        _pagina_do_kit_indisponivel(
+            "Kit indisponível no momento",
+            "Não conseguimos abrir o kit agora. Tente de novo em alguns minutos.",
+        ),
+        status_code=503,
+    )
 
 
 # Para onde vai a mensagem escrita no formulário de Sobre & Contato. O padrão

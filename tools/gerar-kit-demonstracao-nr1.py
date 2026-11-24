@@ -29,6 +29,10 @@ Uso:
 
     python tools/gerar-kit-demonstracao-nr1.py DOSSIE.json SAIDA.pdf \
         [--responsavel "Nome exibido do responsável pelo plano"]
+
+O kit publicado fica em froid-server/assets/froid-kit-demonstracao-nr1.pdf
+(dentro do backend, fora do site público: só sai pelo link individual que vai
+por e-mail). Para atualizá-lo, gere direto nesse caminho e reconstrua o backend.
 """
 
 from __future__ import annotations

@@ -1,9 +1,9 @@
 /* Formulário do kit de demonstração NR-1 (nr1/apresentacao-nr1.html).
  *
- * Envia o contato a /api/leads/nr1 com origem "kit-demonstracao-nr1". O link
- * do PDF NÃO está escrito aqui: vem na resposta do servidor (kit_url), que é
- * a única fonte do caminho. Se o servidor não devolver o link, a tela diz que
- * falhou em vez de mostrar um link adivinhado.
+ * Envia o contato a /api/leads/nr1 com origem "kit-demonstracao-nr1". O kit
+ * sai SÓ por e-mail, num link individual que expira (determinação do dono,
+ * 23/11/2026): esta tela não mostra link nenhum, só a mensagem do servidor
+ * dizendo o que de fato aconteceu com o envio.
  */
 (function () {
   var form = document.getElementById('form-kit-nr1');
@@ -58,25 +58,17 @@
       return resposta.json();
     }).then(function (corpo) {
       if (!corpo) return;
-      if (!corpo.kit_url) { falhou(0); return; }
-      var link = document.createElement('a');
-      link.href = corpo.kit_url;
-      link.className = 'btn btn-solid';
-      link.target = '_blank';
-      link.rel = 'noopener';
-      link.textContent = 'Abrir o kit de demonstração (PDF)';
-      link.setAttribute('data-umami-event', 'kit-nr1-download');
+      if (!corpo.mensagem) { falhou(0); return; }
       var aviso = document.createElement('p');
-      aviso.className = 'form-status ok';
-      aviso.textContent = corpo.mensagem || 'Pronto.';
+      aviso.className = corpo.email_enviado ? 'form-status ok' : 'form-status erro';
+      aviso.textContent = corpo.mensagem;
       var saida = document.getElementById('kit-nr1-pronto');
       saida.innerHTML = '';
       saida.appendChild(aviso);
-      saida.appendChild(link);
       saida.hidden = false;
       form.hidden = true;
       if (window.umami && typeof window.umami.track === 'function') {
-        window.umami.track('kit-nr1-cadastro');
+        window.umami.track(corpo.email_enviado ? 'kit-nr1-cadastro' : 'kit-nr1-cadastro-sem-email');
       }
     }).catch(function () { falhou(0); });
   });

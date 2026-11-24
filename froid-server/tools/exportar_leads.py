@@ -26,6 +26,10 @@ from tenant_store import TenantStore  # noqa: E402
 COLUNAS = (
     "created_at", "nome", "email", "telefone", "empresa", "cargo",
     "origem", "contexto", "opt_out_at",
+    # Link individual do kit (migration 057): até quando vale, quantas vezes
+    # foi aberto e quando. kit_acessos 0 com kit_expira_em preenchido é
+    # "recebeu o link e não abriu"; kit_expira_em vazio é "não pediu o kit".
+    "kit_expira_em", "kit_acessos", "kit_ultimo_acesso_em",
 )
 
 
