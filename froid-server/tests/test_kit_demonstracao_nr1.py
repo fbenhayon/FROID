@@ -68,7 +68,12 @@ class OKitSoSaiPorCadastroEPorEmail(unittest.TestCase):
     def test_a_tela_nao_monta_link_nenhum(self):
         self.assertNotIn(".pdf", JS)
         self.assertNotIn("kit_url", JS)
-        self.assertNotIn("createElement('a')", JS)
+        self.assertNotIn("/api/kit-nr1", JS)
+        self.assertNotIn("/api/proposta-nr1", JS)
+        # O único link que a tela monta é a frase do sumário, que leva à
+        # janela do formulário (24/11/2026), nunca ao kit.
+        self.assertEqual(JS.count("createElement('a')"), 1)
+        self.assertEqual(re.findall(r"\.href = '([^']*)'", JS), ["apresentacao-nr1.html#pedir-kit"])
         self.assertIn("aviso.textContent = corpo.mensagem", JS)
 
     def test_o_link_e_individual_e_so_o_hash_fica_no_banco(self):
@@ -142,7 +147,6 @@ class OFormularioChegaAoEndpointCerto(unittest.TestCase):
             pagina = (SITE / pasta / "nr1" / "apresentacao-nr1.html").read_text(encoding="utf-8")
             with self.subTest(idioma=idioma):
                 self.assertIn(f'data-idioma="{idioma}"', pagina)
-                self.assertIn('data-rotulo-botao="', pagina)
                 self.assertIn("site-assets/kit-nr1.js", pagina)
                 self.assertIn("site-assets/kit-nr1.css", pagina)
                 self.assertNotIn('id="kit-demonstracao"', pagina)
@@ -152,6 +156,28 @@ class OFormularioChegaAoEndpointCerto(unittest.TestCase):
                 # janela não pode ter um, senão vira "seção".
                 janela = pagina[pagina.index('id="dialogo-kit-nr1"'):pagina.index("</dialog>")]
                 self.assertNotIn("<h2", janela)
+
+    def test_a_frase_do_kit_esta_no_sumario_de_todas_as_paginas_nr1(self):
+        # 24/11/2026, pedido do dono: sem botão no fim de cada seção; uma frase
+        # âmbar, sem contorno, no sumário de links do topo, em toda página NR-1.
+        self.assertNotIn("kit-gatilho", JS)
+        self.assertIn("document.querySelector('.page-outline')", JS)
+        self.assertIn("'apresentacao-nr1.html#pedir-kit'", JS)
+        for idioma in ("pt", "en", "fr", "es"):
+            self.assertRegex(JS, rf"\n    {idioma}: '[^']+'", idioma)
+        self.assertIn("Receba o material GRO, a AEP, a classificação dos fatores, o inventário de riscos "
+                      "e o plano de ação que a organização apresenta numa fiscalização, com dados simulados "
+                      "e sem validade documental", JS)
+        paginas = [p for p in SITE.glob("**/nr1/*.html")
+                   if 'http-equiv="refresh"' not in p.read_text(encoding="utf-8")]
+        self.assertEqual(len(paginas), 16)
+        for p in paginas:
+            texto = p.read_text(encoding="utf-8")
+            with self.subTest(pagina=str(p.relative_to(SITE))):
+                self.assertIn("site-assets/kit-nr1.js", texto)
+                self.assertIn("site-assets/kit-nr1.css", texto)
+                # depois de navigation.js, que monta o sumário
+                self.assertLess(texto.index('site-assets/navigation.js?v='), texto.index('site-assets/kit-nr1.js?v='))
 
     def test_resposta_sem_mensagem_e_falha_visivel(self):
         self.assertIn("if (!corpo.mensagem) { falhou(0); return; }", JS)

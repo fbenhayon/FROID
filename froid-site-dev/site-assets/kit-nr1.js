@@ -5,15 +5,42 @@
  * (determinação do dono, 23 e 24/11/2026): esta tela não mostra link nenhum,
  * só o que de fato aconteceu com o envio.
  *
- * 24/11/2026: o formulário mora numa janela (<dialog id="dialogo-kit-nr1">), e
- * este script põe, centralizado no fim de cada seção da página, o botão que a
- * abre. O texto do botão e as mensagens vêm do próprio <dialog> (data-*), um
+ * 24/11/2026: o formulário mora numa janela (<dialog id="dialogo-kit-nr1">),
+ * só na apresentação NR-1. As mensagens vêm do próprio <dialog> (data-*), uma
  * por idioma; em pt-BR a mensagem de resultado é a do servidor.
+ *
+ * 24/11/2026, segundo pedido do dono: sai o botão do fim de cada seção. Fica
+ * uma frase só, âmbar e sem contorno, no sumário de links do topo (o
+ * .page-outline que navigation.js monta), em todas as páginas NR-1. Na
+ * apresentação ela abre a janela; nas outras leva à apresentação com
+ * #pedir-kit, que abre a janela ao chegar.
  */
-(function () {
+document.addEventListener('DOMContentLoaded', function () {
+  // Roda depois de navigation.js (incluído antes): o sumário já existe.
+  var FRASE = {
+    pt: 'Receba o material GRO, a AEP, a classificação dos fatores, o inventário de riscos e o plano de ação que a organização apresenta numa fiscalização, com dados simulados e sem validade documental',
+    en: 'Get the GRO material, the AEP, the factor classification, the risk inventory and the action plan that an organization presents in a labor inspection, with simulated data and no documentary validity',
+    fr: 'Recevez le dossier GRO, l’AEP, la classification des facteurs, l’inventaire des risques et le plan d’action que l’organisation présente lors d’une inspection, avec des données simulées et sans valeur documentaire',
+    es: 'Reciba el material GRO, la AEP, la clasificación de los factores, el inventario de riesgos y el plan de acción que la organización presenta en una fiscalización, con datos simulados y sin validez documental'
+  };
+  var lang = document.documentElement.lang.slice(0, 2);
   var dialogo = document.getElementById('dialogo-kit-nr1');
   var form = document.getElementById('form-kit-nr1');
-  if (!dialogo || !form) return;
+  var temJanela = !!(dialogo && form);
+
+  var sumario = document.querySelector('.page-outline');
+  if (sumario) {
+    var frase = document.createElement('a');
+    frase.className = 'kit-frase';
+    frase.href = 'apresentacao-nr1.html#pedir-kit';
+    frase.textContent = FRASE[lang] || FRASE.pt;
+    if (temJanela) {
+      frase.addEventListener('click', function (evento) { evento.preventDefault(); abrir(); });
+    }
+    sumario.appendChild(frase);
+  }
+
+  if (!temJanela) return;
 
   var d = dialogo.dataset;
   var usaMensagemDoServidor = d.idioma === 'pt';
@@ -25,20 +52,6 @@
     if (primeiro && !form.hidden) primeiro.focus();
     if (window.umami && typeof window.umami.track === 'function') window.umami.track('kit-nr1-abrir');
   }
-
-  // Um botão no fim de cada seção de conteúdo (o topo da página fica de fora).
-  var secoes = document.querySelectorAll('section.block');
-  Array.prototype.forEach.call(secoes, function (secao) {
-    var alvo = secao.querySelector(':scope > .container') || secao;
-    var p = document.createElement('p');
-    p.className = 'kit-gatilho';
-    var botao = document.createElement('button');
-    botao.type = 'button';
-    botao.textContent = d.rotuloBotao;
-    botao.addEventListener('click', abrir);
-    p.appendChild(botao);
-    alvo.appendChild(p);
-  });
 
   dialogo.querySelector('.kit-fechar').addEventListener('click', function () { dialogo.close(); });
 
@@ -115,4 +128,4 @@
       }
     }).catch(function () { falhou(0); });
   });
-})();
+});

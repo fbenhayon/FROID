@@ -1,15 +1,16 @@
-/* Kit de demonstração + proposta NR-1 (nr1/apresentacao-nr1.html, 4 idiomas).
- * 24/11/2026, pedido do dono: a seção "Veja como ficam esses documentos" virou
- * um botão centralizado abaixo de cada seção, que abre o formulário numa janela. */
+/* Kit de demonstração + proposta NR-1 (todas as páginas NR-1, 4 idiomas).
+ * 24/11/2026, pedido do dono: uma frase só, âmbar e sem contorno, no sumário
+ * de links do topo (.page-outline); ela abre o formulário numa janela.
+ * O seletor repete .page-outline para vencer o contorno que refinement.css dá
+ * a todo link do sumário. */
 
-.kit-gatilho { text-align: center; margin: 34px auto 0; max-width: 760px; }
-.kit-gatilho button {
-  display: inline-block; cursor: pointer; font: inherit; font-size: 0.95rem; font-weight: 600;
-  line-height: 1.5; color: #151921; background: #f5c778; border: 1px solid #f5c778;
-  border-radius: 12px; padding: 13px 22px; box-shadow: 0 6px 26px #f5c77818;
-  transition: background .2s, box-shadow .2s;
+.page-outline a.kit-frase {
+  display: block; max-width: 860px; margin: 0 auto; padding: 0 24px 18px;
+  border: 0; border-radius: 0; background: none; box-shadow: none;
+  text-align: center; color: #f5c778; font-size: 0.95rem; font-weight: 600; line-height: 1.55;
+  text-decoration: none;
 }
-.kit-gatilho button:hover, .kit-gatilho button:focus-visible { background: #f8d595; box-shadow: 0 8px 30px #f5c77833; }
+.page-outline a.kit-frase:hover, .page-outline a.kit-frase:focus-visible { color: #fcd34d; text-decoration: underline; }
 
 dialog.kit-dialogo {
   width: min(680px, calc(100vw - 24px)); max-height: calc(100vh - 24px); overflow: auto;
