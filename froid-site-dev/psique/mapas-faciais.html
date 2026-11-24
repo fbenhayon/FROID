@@ -237,6 +237,39 @@
     </div>
   </section>
 
+<!-- FROID Psique · Profissionais e clínicas: a mesma seção da página
+         inicial do Psique (psique/index.html#calculadora-psique), em todas as
+         páginas do Psique a pedido do dono (24/11/2026). Os valores vêm do
+         catálogo do servidor por site-assets/psique-pricing-v2.js; nenhum valor
+         é escrito aqui. -->
+    <div id="psique-v2-precos">
+    <section class="section-block" id="calculadora-psique">
+      <div class="section-header">
+        <span class="section-eyebrow">FROID Psique · Profissionais e clínicas</span>
+        <h2 class="section-title-amber">Calcule o valor para o seu consultório ou a sua clínica</h2>
+        <p class="section-lead">
+          Profissional autônomo usa pacotes de créditos de análise. Clínica com equipe soma, aos créditos, a licença mensal por profissional clínico. Os valores vêm do catálogo vigente do FROID.
+        </p>
+      </div>
+
+      <h3 class="section-title-amber" style="font-size: 1.3rem;">Pacotes de créditos de análise</h3>
+      <div id="pv2-ofertas" class="pv2-grade" data-estado="carregando">
+        <p class="pv2-carregando">Consultando os preços vigentes…</p>
+      </div>
+      <p class="pv2-nota">Uma nova sessão de atendimento consome um crédito de análise. O valor do pacote é o valor efetivamente cobrado, confirmado pelo Stripe antes de qualquer concessão. Créditos comprados não expiram.</p>
+
+      <h3 class="section-title-amber" style="font-size: 1.3rem; margin-top: var(--space-2xl);">Licença mensal por profissional clínico</h3>
+      <div id="pv2-calculadora">
+        <label for="pv2-clinicos">Profissionais clínicos:</label>
+        <input id="pv2-clinicos" type="number" min="1" step="1" value="2" inputmode="numeric" />
+        <button class="btn btn-primary" type="button">Calcular</button>
+        <span data-papel="resultado" data-estado="vazio"></span>
+      </div>
+      <p class="pv2-nota">Apenas profissionais clínicos ativos contam na licença; secretaria, financeiro e auditoria não. A licença não concede créditos de análise. <a href="precos-psique.html#licenca">Ver todas as condições</a>.</p>
+    </section>
+    </div>
+
+
 <!-- inscricao gratuita: gerado por tools/gerar-inscricao-psique.py -->
 <section class="section-block" id="resgate-bonificacao">
   <div class="claim-form-box" style="text-align: center;">
@@ -306,5 +339,20 @@
 <script>if (window.lucide) { lucide.createIcons(); }</script>
 <script src="../site-assets/script.js?v=27"></script>
 <script src="../site-assets/navigation.js?v=3"></script>
+<script>
+window.PSIQUE_PRECOS_V2_I18N = {
+  locale: "pt-BR",
+  language: "pt",
+  indisponivel: "Preços temporariamente indisponíveis. Tente novamente em instantes.",
+  creditos: "créditos de análise",
+  unitario: "valor unitário de referência:",
+  trial_modelo: "{creditos} análises gratuitas ou {dias} dias — o que ocorrer primeiro. Sem cartão.",
+  calc_invalido: "Informe quantos profissionais clínicos.",
+  calc_carregando: "Consultando…",
+  calc_resultado: "Licença mensal: {valor}",
+  calc_enterprise: "Acima de {max} clínicos: proposta Enterprise com a equipe FROID."
+};
+</script>
+<script src="../site-assets/psique-pricing-v2.js?v=2"></script>
 </body>
 </html>
