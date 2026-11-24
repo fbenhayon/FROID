@@ -53,6 +53,10 @@ import nr1_compliance  # noqa: E402
 
 FONTES = REPO / "froid-site-dev" / "site-assets" / "fonts" / "fontes.css"
 LOGO = REPO / "froid-site-dev" / "site-assets" / "img" / "froid-logo.png"
+# Onde o leitor do kit pede a proposta: a janela do formulário na Apresentação
+# NR-1. O caminho é o mesmo de main.KIT_NR1_PAGINA_DO_FORMULARIO, e
+# test_kit_demonstracao_nr1 confere os dois.
+URL_DO_PEDIDO = "https://www.froid.com.br/nr1/apresentacao-nr1.html#pedir-kit"
 
 NAVEGADORES = (
     Path(r"C:\Program Files\Google\Chrome\Application\chrome.exe"),
@@ -155,10 +159,17 @@ def capa(d: dict, p: dict) -> str:
     unidades = "".join(
         f"<li><b>{e(u['name'])}</b> — {e(u['headcount'])} participantes</li>" for u in r["units"]
     )
+    # 24/11/2026, pedido do dono: o logo era um retângulo escuro colado na
+    # página branca. Agora a capa abre com uma faixa no mesmo azul-noite do
+    # logo, de ponta a ponta, e traz o caminho para pedir a proposta já
+    # calculada e a condição de gratuidade.
     return f"""
 <section class="capa">
-  <img class="logo" src="{LOGO.as_uri()}" alt="FROID">
-  <p class="sobretitulo">Kit de demonstração · NR-1, capítulo 1.5</p>
+  <header class="capa-topo">
+    <img class="logo" src="{LOGO.as_uri()}" alt="FROID — Frequency Recognition of Internal Dynamics">
+    <p class="capa-selo">Kit de demonstração<br><b>NR-1 · capítulo 1.5</b></p>
+  </header>
+  <div class="capa-corpo">
   <h1>Gerenciamento de riscos psicossociais no GRO/PGR</h1>
   <p class="subtitulo">Como o FROID estrutura os documentos que a organização apresenta
   à Inspeção do Trabalho: critérios do GRO, AEP, classificação dos fatores,
@@ -175,8 +186,16 @@ def capa(d: dict, p: dict) -> str:
     <ul>{unidades}</ul>
     <p>Dois ciclos completos: linha de base e reavaliação após as medidas.</p>
   </div>
+  <div class="capa-proposta">
+    <p><b>Quer a proposta para a sua empresa?</b> Informe razão social, CNPJ, número de
+    estabelecimentos e de trabalhadores e receba por e-mail a proposta de avaliação dos riscos
+    psicossociais com o valor mensal já calculado:</p>
+    <p class="capa-link"><a href="{URL_DO_PEDIDO}">{e(URL_DO_PEDIDO.replace("https://", ""))}</a></p>
+    <p class="capa-gratis">Sem custo até a entrega do primeiro relatório de avaliação dos riscos psicossociais.</p>
+  </div>
   <p class="carimbo">Dossiê selado versão {e(d['version'])} · {dia(d['sealed_at'])}<br>
   SHA-256 <code>{e(d['sha'])}</code></p>
+  </div>
 </section>"""
 
 
@@ -549,7 +568,7 @@ CSS = """
 @page { size: A4; margin: 16mm 14mm 18mm 14mm;
   @bottom-left { content: "DADOS SIMULADOS — documento demonstrativo, sem validade documental"; font: 7.5pt Figtree, sans-serif; color: #b45309; }
   @bottom-right { content: "FROID · " counter(page) " / " counter(pages); font: 7.5pt Figtree, sans-serif; color: #64748b; } }
-@page :first { @bottom-left { content: none; } @bottom-right { content: none; } }
+@page :first { margin: 0; @bottom-left { content: none; } @bottom-right { content: none; } }
 * { box-sizing: border-box; }
 body { font-family: 'Figtree', sans-serif; font-size: 9.5pt; color: #0f172a; line-height: 1.42; margin: 0; }
 h1, h2, h3, h4 { font-family: 'Figtree', sans-serif; color: #0b1f44; margin: 0; }
@@ -565,8 +584,28 @@ code { font-family: 'JetBrains Mono', monospace; font-size: 7.5pt; word-break: b
 .nota { background: #f8fafc; border: 1px solid #e2e8f0; padding: 3mm 4mm; font-size: 8.5pt; margin-top: 4mm; border-radius: 2mm; }
 .watermark { position: fixed; top: 45%; left: 0; right: 0; text-align: center; transform: rotate(-28deg);
   font-family: 'Figtree'; font-weight: 800; font-size: 64pt; color: rgba(180, 83, 9, .06); z-index: -1; letter-spacing: .05em; }
-.capa { height: 255mm; display: flex; flex-direction: column; justify-content: center; }
-.capa .logo { width: 46mm; margin-bottom: 10mm; }
+.capa { height: 297mm; display: flex; flex-direction: column; }
+.capa-topo { background: #04060f; display: flex; align-items: center; justify-content: space-between;
+  padding: 9mm 14mm 8mm; border-bottom: 1.2mm solid #2563eb;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.capa .logo { width: 78mm; display: block;
+  /* Esfuma só a borda de fora da imagem, para o fundo dela se fundir à faixa
+     sem apagar as pontas de "Frequency ... Dynamics". */
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 4%, #000 96%, transparent 100%),
+                      linear-gradient(to bottom, transparent 0, #000 12%, #000 88%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(to right, transparent 0, #000 4%, #000 96%, transparent 100%),
+              linear-gradient(to bottom, transparent 0, #000 12%, #000 88%, transparent 100%);
+  mask-composite: intersect; }
+.capa-selo { margin: 0; text-align: right; color: #cbd5e1; font-family: 'Space Grotesk', sans-serif;
+  text-transform: uppercase; letter-spacing: .14em; font-size: 8.5pt; line-height: 1.6; }
+.capa-selo b { color: #fff; }
+.capa-corpo { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 8mm 18mm 12mm; }
+.capa-proposta { margin-top: 6mm; border: 1.5px solid #2563eb; background: #eff6ff; border-radius: 2mm;
+  padding: 4mm 5mm; color: #0b1f44; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.capa-proposta p { margin: 0 0 2mm; }
+.capa-link a { color: #1d4ed8; font-weight: 700; font-size: 11pt; text-decoration: none; }
+.capa-gratis { margin: 3mm 0 0 !important; font-weight: 700; color: #047857; }
 .sobretitulo { font-family: 'Space Grotesk'; text-transform: uppercase; letter-spacing: .14em; color: #2563eb; font-weight: 700; }
 .capa h1 { font-size: 30pt; font-weight: 800; line-height: 1.08; margin: 2mm 0 4mm; }
 .subtitulo { font-size: 12pt; color: #334155; max-width: 160mm; }
