@@ -11,9 +11,17 @@ if str(SERVER_DIR) not in sys.path:
 
 class EndpointPublicoTests(unittest.TestCase):
     def setUp(self):
+        # Recorte pelo parser, pela função inteira. Até 24/11/2026 eram 2600
+        # caracteres a partir da assinatura, e a validação dos campos da
+        # proposta empurrou o LOGGER.exception para fora da janela: o teste
+        # falhava sem a garantia ter mudado (skill-froid-master, seção 3).
+        import ast
         self.fonte = (SERVER_DIR / "main.py").read_text(encoding="utf-8")
-        i = self.fonte.index("async def register_nr1_lead")
-        self.trecho = self.fonte[i:i + 2600]
+        no = next(
+            n for n in ast.walk(ast.parse(self.fonte))
+            if isinstance(n, ast.AsyncFunctionDef) and n.name == "register_nr1_lead"
+        )
+        self.trecho = ast.get_source_segment(self.fonte, no)
 
     def test_tem_limite_de_taxa_por_ip(self):
         self.assertIn("_rate_limit_guard", self.trecho)

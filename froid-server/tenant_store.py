@@ -5258,8 +5258,9 @@ class TenantStore:
     def register_marketing_lead(
         self, *, nome: str, email: str, empresa: str,
         cargo: str = "", contexto: str = "", origem: str = "diagnostico-nr1",
-        telefone: str = "",
-    ) -> None:
+        telefone: str = "", cnpj: str = "", estabelecimentos: Optional[int] = None,
+        trabalhadores: Optional[int] = None,
+    ) -> Optional[str]:
         """Grava o contato do diagnóstico de prontidão.
 
         Sem sessão de tenant: o formulário é público e o lead ainda não
@@ -5267,6 +5268,9 @@ class TenantStore:
         por isso mesmo não pode receber dado sensível — o comentário na
         migration 021 é a única barreira contra alguém decidir guardar
         resposta de questionário aqui um dia.
+
+        Devolve o id do lead (o mesmo de antes, quando o e-mail volta): é dele
+        que sai o número da proposta.
         """
         if not self.enabled or not self.runtime_database_url:
             raise RuntimeError("dual persistence and runtime role are required")
@@ -5278,10 +5282,11 @@ class TenantStore:
         self.ensure_schema()
         with self._connect(runtime=True) as connection:
             with connection.transaction():
-                connection.execute(
+                linha = connection.execute(
                     "INSERT INTO marketing_leads "
-                    "(nome, email, empresa, cargo, contexto, origem, telefone) "
-                    "VALUES (%s, %s, %s, %s, %s, %s, %s) "
+                    "(nome, email, empresa, cargo, contexto, origem, telefone, "
+                    " cnpj, estabelecimentos, trabalhadores) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
                     "ON CONFLICT (lower(btrim(email))) DO UPDATE SET "
                     " nome=EXCLUDED.nome, empresa=EXCLUDED.empresa, "
                     " origem=EXCLUDED.origem, created_at=now(), opt_out_at=NULL, "
@@ -5290,18 +5295,28 @@ class TenantStore:
                     # contexto) não apaga o que deixou da primeira vez.
                     " cargo=COALESCE(NULLIF(EXCLUDED.cargo, ''), marketing_leads.cargo), "
                     " contexto=COALESCE(NULLIF(EXCLUDED.contexto, ''), marketing_leads.contexto), "
-                    " telefone=COALESCE(NULLIF(EXCLUDED.telefone, ''), marketing_leads.telefone)",
-                    (nome, email, empresa, cargo, contexto, origem, telefone),
-                )
+                    " telefone=COALESCE(NULLIF(EXCLUDED.telefone, ''), marketing_leads.telefone), "
+                    " cnpj=COALESCE(NULLIF(EXCLUDED.cnpj, ''), marketing_leads.cnpj), "
+                    " estabelecimentos=COALESCE(EXCLUDED.estabelecimentos, marketing_leads.estabelecimentos), "
+                    " trabalhadores=COALESCE(EXCLUDED.trabalhadores, marketing_leads.trabalhadores) "
+                    "RETURNING id",
+                    (nome, email, empresa, cargo, contexto, origem, telefone,
+                     cnpj, estabelecimentos, trabalhadores),
+                ).fetchone()
+        return str(linha[0]) if linha else None
 
     def registrar_link_do_kit(
-        self, *, email: str, token_sha256: str, validade_dias: int,
+        self, *, email: str, token_sha256: str, validade_horas: int,
+        proposta: Optional[dict] = None,
     ) -> bool:
         """Grava o hash do link individual do kit NR-1 no lead deste e-mail.
 
         Um pedido novo do mesmo e-mail troca o token: o link anterior deixa de
         abrir. A validade é contada pelo relógio do banco, o mesmo que
         `abrir_link_do_kit` consulta. Devolve se havia lead para receber o link.
+
+        `proposta` é o retrato calculado no pedido (proposta_nr1.montar_retrato);
+        None apaga o anterior, para o link novo nunca abrir proposta velha.
         """
         if not self.enabled or not self.runtime_database_url:
             raise RuntimeError("dual persistence and runtime role are required")
@@ -5310,11 +5325,48 @@ class TenantStore:
             with connection.transaction():
                 linha = connection.execute(
                     "UPDATE marketing_leads SET kit_token_sha256=%s, "
-                    " kit_expira_em=now() + make_interval(days => %s) "
+                    " kit_expira_em=now() + make_interval(hours => %s), "
+                    " proposta=%s::jsonb "
                     "WHERE lower(btrim(email)) = lower(btrim(%s)) RETURNING id",
-                    (token_sha256, int(validade_dias), email),
+                    (token_sha256, int(validade_horas),
+                     json.dumps(proposta) if proposta is not None else None, email),
                 ).fetchone()
         return linha is not None
+
+    def abrir_proposta(self, *, token_sha256: str) -> tuple[str, Optional[dict]]:
+        """('valido', retrato), ('expirado', None) ou ('inexistente', None).
+
+        Mesmo token e mesma validade do kit; o acesso é contado à parte. Link
+        válido de um pedido em que a proposta não pôde ser calculada responde
+        'sem_proposta' — distinto de inexistente, porque a ação de quem clicou
+        é outra (a equipe foi avisada e envia).
+        """
+        if not self.enabled or not self.runtime_database_url:
+            raise RuntimeError("dual persistence and runtime role are required")
+        self.ensure_schema()
+        with self._connect(runtime=True) as connection:
+            with connection.transaction():
+                aberto = connection.execute(
+                    "UPDATE marketing_leads SET proposta_acessos = proposta_acessos + 1, "
+                    " proposta_ultimo_acesso_em = now() "
+                    "WHERE kit_token_sha256 = %s AND kit_expira_em > now() "
+                    " AND proposta IS NOT NULL "
+                    "RETURNING proposta",
+                    (token_sha256,),
+                ).fetchone()
+                if aberto is not None:
+                    retrato = aberto[0]
+                    if isinstance(retrato, str):
+                        retrato = json.loads(retrato)
+                    return "valido", retrato
+                linha = connection.execute(
+                    "SELECT kit_expira_em > now() FROM marketing_leads "
+                    "WHERE kit_token_sha256 = %s",
+                    (token_sha256,),
+                ).fetchone()
+        if linha is None:
+            return "inexistente", None
+        return ("sem_proposta" if linha[0] else "expirado"), None
 
     def abrir_link_do_kit(self, *, token_sha256: str) -> str:
         """'valido', 'expirado' ou 'inexistente' — e conta o acesso válido.
@@ -5358,13 +5410,17 @@ class TenantStore:
             rows = connection.execute(
                 "SELECT created_at, nome, email, telefone, empresa, cargo, "
                 "origem, contexto, opt_out_at, kit_expira_em, kit_acessos, "
-                "kit_ultimo_acesso_em "
+                "kit_ultimo_acesso_em, cnpj, estabelecimentos, trabalhadores, "
+                "proposta->>'numero', proposta->>'mensal', proposta_acessos, "
+                "proposta_ultimo_acesso_em "
                 "FROM marketing_leads ORDER BY created_at DESC"
             ).fetchall()
         campos = (
             "created_at", "nome", "email", "telefone", "empresa", "cargo",
             "origem", "contexto", "opt_out_at", "kit_expira_em", "kit_acessos",
-            "kit_ultimo_acesso_em",
+            "kit_ultimo_acesso_em", "cnpj", "estabelecimentos", "trabalhadores",
+            "proposta_numero", "proposta_mensal", "proposta_acessos",
+            "proposta_ultimo_acesso_em",
         )
         return [dict(zip(campos, row)) for row in rows]
 

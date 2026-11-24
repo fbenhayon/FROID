@@ -30,6 +30,10 @@ COLUNAS = (
     # foi aberto e quando. kit_acessos 0 com kit_expira_em preenchido é
     # "recebeu o link e não abriu"; kit_expira_em vazio é "não pediu o kit".
     "kit_expira_em", "kit_acessos", "kit_ultimo_acesso_em",
+    # Proposta personalizada (migration 058): dados da empresa informados no
+    # pedido, número e valor mensal da proposta, e se ela foi aberta.
+    "cnpj", "estabelecimentos", "trabalhadores",
+    "proposta_numero", "proposta_mensal", "proposta_acessos", "proposta_ultimo_acesso_em",
 )
 
 

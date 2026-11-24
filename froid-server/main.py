@@ -84,6 +84,7 @@ from legal_documents import (
     required_document_keys,
 )
 import pricing_nr1
+import proposta_nr1
 import httpx
 
 app = FastAPI(title="FROID Fusion Server", version="3.0.0")
@@ -12266,9 +12267,30 @@ async def register_nr1_lead(request: Request):
         "nome": nome, "email": email, "empresa": empresa,
         "cargo": _texto("cargo", 120), "telefone": _texto("telefone", 40),
         "contexto": _texto("contexto", 300), "origem": origem,
+        "cnpj": "", "estabelecimentos": None, "trabalhadores": None,
     }
+    if origem == ORIGEM_KIT_NR1:
+        # 24/11/2026, pedido do dono: o kit vem com a proposta já calculada, e
+        # para calculá-la estes três campos são obrigatórios. Cada recusa diz
+        # QUAL campo falhou (regra 2.11).
+        cnpj = proposta_nr1.normalizar_cnpj(_texto("cnpj", 40))
+        if not cnpj:
+            raise HTTPException(status_code=400, detail="CNPJ inválido: confira os 14 caracteres.")
+        estabelecimentos = proposta_nr1.inteiro_positivo(
+            body.get("estabelecimentos"), proposta_nr1.MAX_ESTABELECIMENTOS)
+        if estabelecimentos is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Informe o número de estabelecimentos (um número inteiro a partir de 1).")
+        trabalhadores = proposta_nr1.inteiro_positivo(
+            body.get("trabalhadores"), proposta_nr1.MAX_TRABALHADORES)
+        if trabalhadores is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Informe o número de trabalhadores (um número inteiro a partir de 1).")
+        lead.update(cnpj=cnpj, estabelecimentos=estabelecimentos, trabalhadores=trabalhadores)
     try:
-        TENANT_STORE.register_marketing_lead(**lead)
+        lead_id = TENANT_STORE.register_marketing_lead(**lead)
     except Exception:
         LOGGER.exception("Falha ao registrar lead do diagnóstico NR-1")
         raise HTTPException(status_code=503, detail="cadastro indisponível no momento")
@@ -12279,27 +12301,37 @@ async def register_nr1_lead(request: Request):
     # 23/11/2026, determinação do dono: o kit sai SÓ por e-mail, num link
     # individual que expira. A resposta não traz link nenhum — até aqui trazia
     # o endereço público do PDF, e um e-mail inventado liberava o kit na tela.
-    enviado_ao_visitante, equipe_avisada = await _entregar_kit_nr1(lead)
-    if enviado_ao_visitante:
+    retrato = _retrato_da_proposta_nr1(lead, lead_id)
+    enviado_ao_visitante, equipe_avisada = await _entregar_kit_nr1(lead, retrato)
+    validade = f"{KIT_NR1_VALIDADE_HORAS} horas"
+    if enviado_ao_visitante and retrato:
         mensagem = (
-            f"Enviamos o link do kit para {email}. Ele vale por "
-            f"{KIT_NR1_VALIDADE_DIAS} dias. Se não chegar em alguns minutos, "
-            "confira a caixa de spam."
+            f"Enviamos para {email} os links do kit e da proposta. Eles valem por "
+            f"{validade}. Se não chegar em alguns minutos, confira a caixa de spam."
+        )
+    elif enviado_ao_visitante:
+        mensagem = (
+            f"Enviamos para {email} o link do kit, válido por {validade}. Não "
+            "conseguimos calcular a proposta agora; nossa equipe foi avisada e "
+            "vai enviá-la."
         )
     elif equipe_avisada:
         mensagem = (
-            "Recebemos seu cadastro, mas não conseguimos enviar o e-mail com o "
-            f"kit agora. Nossa equipe já foi avisada e vai enviá-lo para {email}."
+            "Recebemos seu cadastro, mas não conseguimos enviar o e-mail agora. "
+            f"Nossa equipe já foi avisada e vai enviar o kit e a proposta para {email}."
         )
     else:
         mensagem = (
-            "Recebemos seu cadastro, mas não conseguimos enviar o e-mail com o "
-            "kit agora. Tente de novo mais tarde ou peça o kit por "
-            f"{CONTATO_DESTINO}."
+            "Recebemos seu cadastro, mas não conseguimos enviar o e-mail agora. "
+            f"Tente de novo mais tarde ou peça o kit e a proposta por {CONTATO_DESTINO}."
         )
+    # As duas marcas a mais deixam as páginas em en/fr/es dizerem o mesmo que
+    # `mensagem` no idioma delas, sem traduzir texto no servidor.
     return {
         "status": "ok",
         "email_enviado": enviado_ao_visitante,
+        "proposta_calculada": retrato is not None,
+        "equipe_avisada": equipe_avisada,
         "mensagem": mensagem,
     }
 
@@ -12310,20 +12342,53 @@ async def register_nr1_lead(request: Request):
 # O PDF mora DENTRO do backend, fora da pasta pública do site: até 23/11/2026
 # ficava em froid-site-dev/site-assets/docs/, e qualquer um com o endereço o
 # baixava sem cadastro. Agora só sai por GET /api/kit-nr1/<token>, com o token
-# individual que vai no e-mail. A validade é decisão do dono (link que expira
-# "em alguns dias"), não medida: 7 dias, aqui e só aqui.
+# individual que vai no e-mail. A validade é decisão do dono, não medida: era
+# 7 dias; desde 24/11/2026 é 24 horas, aqui e só aqui. O mesmo token abre a
+# proposta personalizada em GET /api/proposta-nr1/<token>.
 ORIGEM_KIT_NR1 = "kit-demonstracao-nr1"
 KIT_NR1_ARQUIVO = Path(__file__).resolve().parent / "assets" / "froid-kit-demonstracao-nr1.pdf"
 KIT_NR1_ROTA = "/api/kit-nr1/"
-KIT_NR1_VALIDADE_DIAS = 7
-KIT_NR1_PAGINA_DO_FORMULARIO = "/nr1/apresentacao-nr1.html#kit-demonstracao"
+PROPOSTA_NR1_ROTA = "/api/proposta-nr1/"
+KIT_NR1_VALIDADE_HORAS = 24
+KIT_NR1_PAGINA_DO_FORMULARIO = "/nr1/apresentacao-nr1.html#pedir-kit"
 
 
 def _hash_do_token_do_kit(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
-async def _entregar_kit_nr1(lead: dict) -> tuple[bool, bool]:
+def _milhar(numero: int) -> str:
+    """1.200, e não 1200 nem 1,200: o e-mail é lido em pt-BR."""
+    return f"{int(numero):,}".replace(",", ".")
+
+
+def _retrato_da_proposta_nr1(lead: dict, lead_id: Optional[str]) -> Optional[dict]:
+    """A proposta calculada agora, pela tabela vigente — ou None, com o motivo no log.
+
+    None não perde o pedido: o kit segue, a tela diz que a proposta não foi
+    calculada e a equipe recebe o aviso para enviá-la à mão (regra 2.2).
+    """
+    if not lead_id:
+        LOGGER.warning(json.dumps({"event": "froid.proposta_nr1_without_lead_id"}))
+        return None
+    try:
+        tabela, procedencia = _nr1_pricing_tabela_vigente()
+        return proposta_nr1.montar_retrato(
+            lead=lead, lead_id=lead_id, tabela=tabela, procedencia=procedencia,
+            emitida_em=datetime.now(timezone.utc),
+        )
+    except HTTPException as erro:
+        LOGGER.warning(json.dumps({"event": "froid.proposta_nr1_pricing_unavailable",
+                                   "detail": str(erro.detail)[:200]}))
+    except pricing_nr1.TabelaInvalida as erro:
+        LOGGER.warning(json.dumps({"event": "froid.proposta_nr1_pricing_refused",
+                                   "detail": str(erro)[:200]}))
+    except Exception:
+        LOGGER.exception(json.dumps({"event": "froid.proposta_nr1_build_failed"}))
+    return None
+
+
+async def _entregar_kit_nr1(lead: dict, retrato: Optional[dict] = None) -> tuple[bool, bool]:
     """Gera o link individual, manda ao visitante e avisa a equipe.
 
     O lead já está gravado quando isto roda; falha de SMTP não o perde, e por
@@ -12343,7 +12408,8 @@ async def _entregar_kit_nr1(lead: dict) -> tuple[bool, bool]:
             TENANT_STORE.registrar_link_do_kit,
             email=lead["email"],
             token_sha256=_hash_do_token_do_kit(token),
-            validade_dias=KIT_NR1_VALIDADE_DIAS,
+            validade_horas=KIT_NR1_VALIDADE_HORAS,
+            proposta=retrato,
         )
     except Exception:
         LOGGER.exception(json.dumps({"event": "froid.kit_nr1_link_store_failed"}))
@@ -12353,8 +12419,23 @@ async def _entregar_kit_nr1(lead: dict) -> tuple[bool, bool]:
             LOGGER.warning(json.dumps({"event": "froid.kit_nr1_link_without_lead"}))
 
     entregue = False
+    validade = f"{KIT_NR1_VALIDADE_HORAS} horas"
     if link_gravado:
         link = _public_app_base_url() + KIT_NR1_ROTA + token
+        if retrato:
+            proposta = (
+                f"E esta é a proposta nº {retrato['numero']} para a {lead['empresa']}, "
+                f"já calculada para {_milhar(retrato['estabelecimentos'])} estabelecimento(s) e "
+                f"{_milhar(retrato['trabalhadores'])} trabalhadores ({retrato['mensal']} por mês, "
+                "sem custo até a entrega do primeiro relatório de avaliação):\n\n"
+                f"{_public_app_base_url() + PROPOSTA_NR1_ROTA + token}\n\n"
+                "Na página da proposta há um botão para salvá-la em PDF.\n\n"
+            )
+        else:
+            proposta = (
+                "A proposta com os dados da sua empresa não pôde ser calculada agora; "
+                "nossa equipe foi avisada e vai enviá-la.\n\n"
+            )
         visitante = (
             f"Olá, {lead['nome']}.\n\n"
             "Obrigado pelo interesse no FROID NR-1/ISO 45003. Este é o link do kit "
@@ -12362,9 +12443,10 @@ async def _entregar_kit_nr1(lead: dict) -> tuple[bool, bool]:
             "critérios, AEP, classificação dos fatores, inventário de riscos e "
             "plano de ação:\n\n"
             f"{link}\n\n"
-            f"O link é pessoal e vale por {KIT_NR1_VALIDADE_DIAS} dias. Depois "
-            "disso, basta pedir o kit de novo no site.\n\n"
-            "Os documentos usam uma empresa fictícia, com dados simulados e sem "
+            f"{proposta}"
+            f"Os links são pessoais e valem por {validade}. Depois "
+            "disso, basta pedir de novo no site.\n\n"
+            "Os documentos do kit usam uma empresa fictícia, com dados simulados e sem "
             "validade documental. Nossa equipe pode entrar em contato para mostrar "
             "o processo com a estrutura da sua empresa; se preferir não receber "
             f"contato, responda a este e-mail pedindo a exclusão.\n\nFROID\n{CONTATO_DESTINO}\n"
@@ -12372,7 +12454,7 @@ async def _entregar_kit_nr1(lead: dict) -> tuple[bool, bool]:
         try:
             await asyncio.to_thread(
                 froid_mailer.send_email, lead["email"],
-                "FROID — Kit de demonstração NR-1", visitante, "", CONTATO_DESTINO,
+                "FROID — Kit de demonstração e proposta NR-1", visitante, "", CONTATO_DESTINO,
             )
             entregue = True
         except froid_mailer.MailerError:
@@ -12380,18 +12462,32 @@ async def _entregar_kit_nr1(lead: dict) -> tuple[bool, bool]:
 
     situacao = (
         "Kit enviado ao visitante por e-mail (link individual, "
-        f"válido por {KIT_NR1_VALIDADE_DIAS} dias)."
+        f"válido por {validade})."
         if entregue
         else "ATENÇÃO: o kit NÃO chegou ao visitante. Envie o PDF manualmente "
         "respondendo a este e-mail."
     )
+    if retrato:
+        situacao_proposta = (
+            f"Proposta nº {retrato['numero']}: {retrato['mensal']} por mês "
+            f"(tabela {retrato['tabela']['codigo']})"
+            + (", enviada no mesmo e-mail." if entregue else ", NÃO enviada.")
+        )
+    else:
+        situacao_proposta = (
+            "ATENÇÃO: a proposta NÃO foi calculada (tabela comercial indisponível; "
+            "o motivo está no log do backend). Envie-a manualmente."
+        )
     equipe = (
         "Novo pedido do kit de demonstração NR-1 pelo site.\n\n"
-        f"{situacao}\n\n"
+        f"{situacao}\n{situacao_proposta}\n\n"
         f"Nome: {lead['nome']}\n"
         f"E-mail: {lead['email']}\n"
         f"Telefone: {lead['telefone'] or 'não informado'}\n"
         f"Empresa: {lead['empresa']}\n"
+        f"CNPJ: {proposta_nr1.formatar_cnpj(lead.get('cnpj') or '') or 'não informado'}\n"
+        f"Estabelecimentos: {lead.get('estabelecimentos') or 'não informado'}\n"
+        f"Trabalhadores: {lead.get('trabalhadores') or 'não informado'}\n"
         f"Cargo: {lead['cargo'] or 'não informado'}\n"
         f"Contexto: {lead['contexto'] or 'não informado'}\n\n"
         "O contato fica gravado na base de leads "
@@ -12469,8 +12565,8 @@ async def baixar_kit_nr1(token: str, request: Request):
         return HTMLResponse(
             _pagina_do_kit_indisponivel(
                 "Este link do kit expirou",
-                f"O link do kit de demonstração vale por {KIT_NR1_VALIDADE_DIAS} "
-                "dias. Peça de novo no site e enviaremos um link novo para o seu e-mail.",
+                f"O link do kit de demonstração vale por {KIT_NR1_VALIDADE_HORAS} "
+                "horas. Peça de novo no site e enviaremos um link novo para o seu e-mail.",
             ),
             status_code=410,
         )
@@ -12488,6 +12584,78 @@ async def baixar_kit_nr1(token: str, request: Request):
         _pagina_do_kit_indisponivel(
             "Kit indisponível no momento",
             "Não conseguimos abrir o kit agora. Tente de novo em alguns minutos.",
+        ),
+        status_code=503,
+    )
+
+
+@app.get(PROPOSTA_NR1_ROTA + "{token}")
+async def abrir_proposta_nr1(token: str, request: Request):
+    """A proposta personalizada, pelo mesmo link individual do kit.
+
+    Mostra só o retrato gravado no pedido (proposta_nr1.montar_retrato): o
+    valor é o que foi calculado então, com a tabela que o produziu. Quatro
+    respostas distintas (regra 2.11): válida, vencida, link desconhecido, e
+    link válido de um pedido em que a proposta não pôde ser calculada.
+    """
+    _rate_limit_guard(
+        "kit-nr1", _client_ip(request), 30, 3600.0,
+        "Muitas tentativas deste endereço. Tente novamente mais tarde.",
+    )
+    retrato = None
+    if not TENANT_STORE.enabled or len(token) > 100:
+        situacao = "inexistente" if TENANT_STORE.enabled else "indisponivel"
+    else:
+        try:
+            situacao, retrato = await asyncio.to_thread(
+                TENANT_STORE.abrir_proposta,
+                token_sha256=_hash_do_token_do_kit(token),
+            )
+        except Exception:
+            LOGGER.exception(json.dumps({"event": "froid.proposta_nr1_lookup_failed"}))
+            situacao = "indisponivel"
+    if situacao == "valido" and retrato:
+        try:
+            pagina = proposta_nr1.renderizar(retrato)
+        except Exception:
+            LOGGER.exception(json.dumps({"event": "froid.proposta_nr1_render_failed"}))
+            situacao = "indisponivel"
+        else:
+            return HTMLResponse(
+                pagina,
+                headers={"Cache-Control": "private, no-store", "X-Robots-Tag": "noindex"},
+            )
+    if situacao == "expirado":
+        return HTMLResponse(
+            _pagina_do_kit_indisponivel(
+                "Este link da proposta expirou",
+                f"O link da proposta vale por {KIT_NR1_VALIDADE_HORAS} horas. Peça de "
+                "novo no site e enviaremos um link novo, com a proposta recalculada.",
+            ),
+            status_code=410,
+        )
+    if situacao == "inexistente":
+        return HTMLResponse(
+            _pagina_do_kit_indisponivel(
+                "Link da proposta não encontrado",
+                "Este endereço não corresponde a uma proposta. Se você pediu mais de "
+                "uma vez, vale só o link do e-mail mais recente.",
+            ),
+            status_code=404,
+        )
+    if situacao == "sem_proposta":
+        return HTMLResponse(
+            _pagina_do_kit_indisponivel(
+                "Proposta ainda não calculada",
+                "Não conseguimos calcular a proposta no momento do seu pedido. Nossa "
+                f"equipe foi avisada e vai enviá-la por e-mail. Dúvidas: {CONTATO_DESTINO}.",
+            ),
+            status_code=404,
+        )
+    return HTMLResponse(
+        _pagina_do_kit_indisponivel(
+            "Proposta indisponível no momento",
+            "Não conseguimos abrir a proposta agora. Tente de novo em alguns minutos.",
         ),
         status_code=503,
     )
