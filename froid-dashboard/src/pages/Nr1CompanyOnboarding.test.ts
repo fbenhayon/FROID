@@ -346,3 +346,40 @@ describe("contratar sem prova de aceite não pode acontecer", () => {
     expect(PAGINA_CORRIDA).toMatch(/não foi concluído de propósito/);
   });
 });
+
+describe("efetivo zero não trava a etapa de valor", () => {
+  /**
+   * Cliente real, 25/11/2026: 1 estabelecimento com efetivo 0 chegou à etapa
+   * Valor e ficou em "Calculando…" para sempre. `carregarValor` saía em
+   * silêncio sem preencher valor nem erro, e a tela confundia "falta dado"
+   * com "ainda calculando".
+   */
+  it("a etapa de valor diz o que falta, em vez de calcular para sempre", () => {
+    expect(PAGINA).toContain("faltaParaCalcular");
+    expect(PAGINA_CORRIDA).toContain("{!faltaParaCalcular && !valor && !erroDoValor && (");
+    expect(PAGINA_CORRIDA).toMatch(/O efetivo total está em 0/);
+  });
+
+  it("estabelecimento não é criado sem efetivo", () => {
+    expect(PAGINA_CORRIDA).toContain('tipo === "site" && !(Number(efetivo) > 0)');
+  });
+
+  it("o efetivo pode ser corrigido sem arquivar", () => {
+    expect(PAGINA_CORRIDA).toContain("body: JSON.stringify({ headcount: Number(efetivo) })");
+    expect(PAGINA).toContain("Salvar efetivo");
+  });
+
+  it("nenhuma porta leva à etapa de valor com efetivo 0", () => {
+    expect(PAGINA_CORRIDA).toContain("disabled={!estabelecimentos.length || !efetivoTotal}");
+    expect(PAGINA_CORRIDA).toContain("if (numero >= 4 && !efetivoTotal)");
+  });
+
+  it("o Explica abre na resposta desse caso", () => {
+    expect(PAGINA).toContain('"valor-nao-calcula"');
+    const explica = readFileSync(
+      join(__dirname, "..", "lib", "nr1-explica-conteudo.ts"),
+      "utf-8",
+    );
+    expect(explica).toContain('id: "valor-nao-calcula"');
+  });
+});

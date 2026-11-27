@@ -260,6 +260,8 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
   const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [novoSite, setNovoSite] = useState({ name: "", headcount: "", code: "" });
   const [novoSetor, setNovoSetor] = useState({ name: "", headcount: "", parent: "" });
+  /** Efetivo sendo digitado na correcao de um estabelecimento, por unit_id. */
+  const [efetivoEditado, setEfetivoEditado] = useState<Record<string, string>>({});
 
   // A organização nasce no passo 1, e o usuário recém-criado não tem
   // active_organization_id em lugar nenhum. O id chega na resposta do próprio
@@ -388,6 +390,8 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
         : "Lendo os estabelecimentos cadastrados…";
     if (numero >= 3 && !estabelecimentos.length)
       return "Cadastre ao menos um estabelecimento primeiro.";
+    if (numero >= 4 && !efetivoTotal)
+      return "Informe o efetivo dos estabelecimentos: o valor é calculado sobre ele.";
     if (numero === 5 && maisLonge < 5)
       return "Confirme o valor na etapa 4 para chegar à conferência.";
     return undefined;
@@ -420,8 +424,30 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
    *  11/09/2026 havia doze, com tres bases diferentes circulando ao mesmo
    *  tempo. A tela pergunta e mostra; se a resposta nao vier, ela diz isso e
    *  nao deixa confirmar. */
+  /** Por que o valor NAO pode ser calculado, dito ao cliente.
+   *
+   *  Antes, `carregarValor` saia em silencio quando faltava efetivo: nem valor
+   *  nem erro eram preenchidos, e a tela ficava em "Calculando…" para sempre,
+   *  com o botao de confirmar apagado e nenhuma explicacao. Um cliente real
+   *  parou ai em 25/11/2026 com 1 estabelecimento de efetivo 0. Falta de dado
+   *  do cliente nao e "calculando": e uma pendencia com endereco. */
+  const faltaParaCalcular = !organizationId
+    ? "A empresa ainda não foi registrada nesta sessão. Volte ao passo 1 e salve o cadastro."
+    : !estabelecimentos.length
+      ? "Nenhum estabelecimento cadastrado. O valor tem base por estabelecimento."
+      : !efetivoTotal
+        ? "O efetivo total está em 0: nenhum estabelecimento tem o número de trabalhadores informado. O valor mensal é calculado sobre esse número."
+        : "";
+
   const carregarValor = useCallback(async () => {
-    if (!organizationId || !efetivoTotal || !estabelecimentos.length) return;
+    if (!organizationId || !efetivoTotal || !estabelecimentos.length) {
+      // Sem dado nao ha calculo — e sem valor velho na tela, que descreveria
+      // uma estrutura que ja nao e a cadastrada.
+      setValor(null);
+      setTabelaDePreco(null);
+      setErroDoValor("");
+      return;
+    }
     setErroDoValor("");
     try {
       const [simulacao, tabela] = await Promise.all([
@@ -607,6 +633,15 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
       setErro("Informe o nome.");
       return;
     }
+    // Estabelecimento sem efetivo era aceito como 0 (`Number("") || 0`), e o
+    // cliente so descobria duas etapas depois, numa tela de valor que nao
+    // calculava. O efetivo do estabelecimento e a base do preco e do porte.
+    if (tipo === "site" && !(Number(efetivo) > 0)) {
+      setErro(
+        "Informe o efetivo do estabelecimento — quantos trabalhadores ele tem. É sobre esse número que o valor mensal é calculado.",
+      );
+      return;
+    }
     setSalvando(true);
     try {
       await chamar(`/api/organizations/${organizationId}/nr1/units`, {
@@ -622,6 +657,38 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
       await carregarUnidades();
       if (tipo === "site") setNovoSite({ name: "", headcount: "", code: "" });
       else setNovoSetor({ name: "", headcount: "", parent: pai || "" });
+    } catch (e) {
+      const falha = e as Error & { acessoCortado?: boolean };
+      if (falha.acessoCortado) setAcessoCortado(true);
+      setErro(String(falha.message));
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  /** Corrige o efetivo de um estabelecimento ja cadastrado.
+   *
+   *  O servidor sempre aceitou `headcount` no PATCH, mas a tela so oferecia
+   *  "Arquivar" — e arquivar e recusado enquanto houver setor ativo. Quem
+   *  errava o efetivo nao tinha como corrigi-lo daqui. */
+  const corrigirEfetivo = async (unitId: string, efetivo: string) => {
+    setErro("");
+    if (!(Number(efetivo) > 0)) {
+      setErro("Informe um efetivo maior que zero.");
+      return;
+    }
+    setSalvando(true);
+    try {
+      await chamar(`/api/organizations/${organizationId}/nr1/units/${unitId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ headcount: Number(efetivo) }),
+      });
+      await carregarUnidades();
+      setEfetivoEditado((atual) => {
+        const proximo = { ...atual };
+        delete proximo[unitId];
+        return proximo;
+      });
     } catch (e) {
       const falha = e as Error & { acessoCortado?: boolean };
       if (falha.acessoCortado) setAcessoCortado(true);
@@ -949,7 +1016,50 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
                       Arquivar
                     </button>
                   </div>
-                  {avisoDeRecorte(site.headcount) && (
+                  {/* Correcao do efetivo sem arquivar. Fica sempre visivel:
+                      o numero digitado no cadastro e a base do valor mensal,
+                      e errar nele nao pode exigir refazer a estrutura. */}
+                  <div className="mt-2 flex flex-wrap items-end gap-2">
+                    <label className="block">
+                      <span className="text-[11px] font-black text-slate-400">
+                        Corrigir efetivo
+                      </span>
+                      <input
+                        type="number"
+                        min={1}
+                        inputMode="numeric"
+                        value={efetivoEditado[site.unit_id] ?? ""}
+                        placeholder={String(site.headcount)}
+                        onChange={(e) =>
+                          setEfetivoEditado({ ...efetivoEditado, [site.unit_id]: e.target.value })
+                        }
+                        className="mt-1 block w-28 rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-sm text-slate-100"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      disabled={salvando || !efetivoEditado[site.unit_id]}
+                      onClick={() => corrigirEfetivo(site.unit_id, efetivoEditado[site.unit_id] ?? "")}
+                      className="rounded-md border border-amber-600 px-3 py-1 text-xs font-black text-amber-200 disabled:opacity-50"
+                    >
+                      Salvar efetivo
+                    </button>
+                  </div>
+                  {site.headcount <= 0 && (() => {
+                    const somaSetores = setores
+                      .filter((s) => s.parent_unit_id === site.unit_id)
+                      .reduce((t, s) => t + s.headcount, 0);
+                    return (
+                      <p className="mt-2 text-xs leading-5 text-red-200">
+                        <strong>Efetivo não informado.</strong> Sem o número de
+                        trabalhadores deste estabelecimento o valor mensal não pode
+                        ser calculado.
+                        {somaSetores > 0 &&
+                          ` Os setores dele somam ${somaSetores} pessoa(s): o efetivo do estabelecimento é pelo menos isso.`}
+                      </p>
+                    );
+                  })()}
+                  {site.headcount > 0 && avisoDeRecorte(site.headcount) && (
                     <p className="mt-2 text-xs leading-5 text-amber-200">
                       {avisoDeRecorte(site.headcount)}
                       {site.headcount < PISO_CAMPANHA && (
@@ -983,13 +1093,18 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
               </button>
               <button
                 type="button"
-                disabled={!estabelecimentos.length}
+                disabled={!estabelecimentos.length || !efetivoTotal}
                 onClick={() => setPasso(3)}
                 className="rounded-lg bg-amber-500 px-5 py-2 text-sm font-black text-amber-950 disabled:opacity-50"
               >
                 Continuar
               </button>
             </div>
+            {estabelecimentos.length > 0 && !efetivoTotal && (
+              <p className="mt-2 text-xs text-red-200">
+                Para continuar, informe o efetivo de pelo menos um estabelecimento.
+              </p>
+            )}
           </section>
         )}
 
@@ -1157,10 +1272,28 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
               <button type="button" onClick={() => setPasso(2)} className="rounded-lg border border-slate-600 px-4 py-2 text-sm font-black">
                 Voltar
               </button>
-              <button type="button" onClick={() => setPasso(4)} className="rounded-lg bg-amber-500 px-5 py-2 text-sm font-black text-amber-950">
+              <button
+                type="button"
+                disabled={!efetivoTotal}
+                onClick={() => setPasso(4)}
+                className="rounded-lg bg-amber-500 px-5 py-2 text-sm font-black text-amber-950 disabled:opacity-50"
+              >
                 Continuar
               </button>
             </div>
+            {/* O passo 3 tambem e alcancavel pelos indicadores do topo (que
+                so exigem um estabelecimento), entao a trava do passo 2 nao
+                basta sozinha. */}
+            {!efetivoTotal && (
+              <p className="mt-2 text-xs text-red-200">
+                O efetivo total está em 0. Volte em{" "}
+                <button type="button" className="font-black underline" onClick={() => setPasso(2)}>
+                  Estabelecimentos
+                </button>{" "}
+                e informe quantos trabalhadores cada um tem — o efetivo dos setores
+                não entra no cálculo do valor.
+              </p>
+            )}
           </section>
         )}
 
@@ -1191,7 +1324,21 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
               </div>
             )}
 
-            {!valor && !erroDoValor && (
+            {faltaParaCalcular && (
+              <div className="rounded-lg border border-amber-800 bg-amber-950/50 p-4 text-sm text-amber-100">
+                <p className="font-black">Ainda não dá para calcular o valor.</p>
+                <p className="mt-1">{faltaParaCalcular}</p>
+                <button
+                  type="button"
+                  onClick={() => setPasso(organizationId ? 2 : 1)}
+                  className="mt-3 rounded-lg bg-amber-500 px-4 py-2 text-xs font-black text-amber-950"
+                >
+                  {organizationId ? "Informar o efetivo nos estabelecimentos" : "Voltar ao cadastro"}
+                </button>
+              </div>
+            )}
+
+            {!faltaParaCalcular && !valor && !erroDoValor && (
               <p className="text-sm text-slate-400">Calculando…</p>
             )}
 
@@ -1506,7 +1653,7 @@ export const Nr1CompanyOnboarding: React.FC<Props> = ({ user, onUserChange, onLo
       </main>
       <Nr1ExplicaPainel
         organizationId={organizationId}
-        verbeteSugerido="setor-pequeno"
+        verbeteSugerido={passo === 4 || !efetivoTotal ? "valor-nao-calcula" : "setor-pequeno"}
         contexto="Estrutura da empresa"
       />
       </div>
