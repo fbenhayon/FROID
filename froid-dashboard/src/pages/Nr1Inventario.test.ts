@@ -166,8 +166,12 @@ describe("a tela do inventário se basta", () => {
   it("recarrega o documento depois de gerar", () => {
     // Gerar e continuar mostrando a versão anterior faria o operador concluir
     // que a geração não funcionou.
+    // Desde 26/11/2026 a recarga leva junto o estabelecimento aberto: gerar
+    // com uma loja selecionada continua mostrando o inventário dessa loja.
     const trecho = PAGINA.slice(PAGINA.indexOf("const gerar = async"));
-    expect(trecho.slice(0, 1800)).toContain("carregarDocumento(selecionada)");
+    expect(trecho.slice(0, 1800)).toContain(
+      "carregarDocumento(selecionada, estabelecimento)",
+    );
   });
 });
 

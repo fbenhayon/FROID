@@ -49,7 +49,9 @@ class DossierIntegrityTests(unittest.TestCase):
         preview = preview[:preview.index("def nr1_seal_compliance_dossier")]
         self.assertNotIn('"generated_at"', payload)
         self.assertIn('"preview_generated_at"', preview)
-        self.assertIn('"schema_version": "1.1"', payload)
+        # 1.2 desde 26/11/2026: records.coverage (migration 059).
+        self.assertIn('"schema_version": "1.2"', payload)
+        self.assertIn('"coverage": coverage,', payload)
 
     def test_official_mte_references_use_the_published_paths(self):
         payload = STORE[STORE.index("def _nr1_dossier_payload"):]

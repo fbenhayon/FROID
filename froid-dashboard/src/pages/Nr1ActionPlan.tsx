@@ -5,6 +5,7 @@ import { EtapaNr1 } from "../components/nr1/EtapaNr1";
 import { apiUrl } from "../lib/api";
 import { GlossarioDeSiglas } from "../lib/siglas";
 import { Nr1ExplicaPainel } from "../components/nr1/Nr1ExplicaPainel";
+import { ondeDaLinha, type EstabelecimentoDaLinha } from "../lib/nr1-onde";
 
 /**
  * Plano de ação — o segundo documento obrigatório do PGR (NR-1, 1.5.7.1 "b").
@@ -49,6 +50,8 @@ type PlanItem = {
   unit_id: string | null;
   unit_name: string | null;
   site_name?: string | null;
+  unit_type?: string | null;
+  establishments?: EstabelecimentoDaLinha[] | null;
   dimension_id: string;
   dimension_title: string;
   nr1_factor: string;
@@ -504,13 +507,7 @@ export const Nr1ActionPlan: React.FC<{ user: FroidUser | null }> = ({ user }) =>
                   </span>
                   <span className="text-xs text-slate-400">
                     {FACTOR_LABEL[item.nr1_factor] || item.nr1_factor}
-                    {item.unit_name
-                      ? ` · ${
-                          item.site_name
-                            ? `${item.site_name} / ${item.unit_name}`
-                            : item.unit_name
-                        }`
-                      : " · organização inteira"}
+                    {ondeDaLinha(item) ? ` · ${ondeDaLinha(item)}` : " · organização inteira"}
                     {` · ${item.exposed_workers} trabalhador(es) possivelmente atingido(s)`}
                   </span>
                 </div>

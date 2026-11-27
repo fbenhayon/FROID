@@ -93,6 +93,74 @@ def _ou_nulo(valor, conversor):
     return None if valor is None else conversor(valor)
 
 
+# Os estabelecimentos em que a linha do inventário vale (NR-1 1.5.3.1.1.1).
+#
+# Setor: o estabelecimento pai, com o efetivo do setor. Grupo por função
+# (exposure_group): os estabelecimentos da cobertura (migration 059), cada um
+# com o efetivo da função naquele endereço. Grupo por função SEM cobertura
+# devolve lista vazia, e a tela precisa dizer isso — é exatamente a linha sem
+# "onde" que a cobertura existe para impedir.
+#
+# Exige no FROM os aliases `inventory`, `unit` e `estabelecimento`.
+_NR1_ESTABELECIMENTOS_SQL = """
+    CASE
+      WHEN unit.unit_type = 'exposure_group' THEN coalesce((
+        SELECT json_agg(json_build_object(
+                 'id', endereco.id, 'name', endereco.name,
+                 'headcount', cobertura.headcount)
+               ORDER BY endereco.name)
+          FROM organization_unit_coverage cobertura
+          JOIN organization_units endereco
+            ON endereco.id = cobertura.establishment_unit_id
+         WHERE cobertura.unit_id = inventory.unit_id
+           AND cobertura.organization_id = inventory.organization_id
+      ), '[]'::json)
+      WHEN estabelecimento.id IS NOT NULL THEN json_build_array(
+        json_build_object('id', estabelecimento.id, 'name', estabelecimento.name,
+                          'headcount', unit.headcount))
+      ELSE '[]'::json
+    END
+"""
+
+
+def _estabelecimentos(valor) -> list[dict]:
+    """A coluna json de _NR1_ESTABELECIMENTOS_SQL como lista de dicionários.
+
+    O psycopg devolve json já decodificado; o texto cru só aparece com um
+    adaptador diferente, e é tratado em vez de estourar na tela.
+    """
+    if valor is None:
+        return []
+    if isinstance(valor, (str, bytes)):
+        valor = json.loads(valor)
+    return [
+        {
+            "id": str(item["id"]),
+            "name": item["name"],
+            "headcount": _ou_nulo(item.get("headcount"), int),
+        }
+        for item in valor
+    ]
+
+
+def _projetar_no_estabelecimento(linha: dict, establishment_id: str) -> dict:
+    """A linha do inventário vista do inventário de UM estabelecimento.
+
+    O nível de risco é o do grupo, copiado e não recalculado por loja: uma
+    média por endereço de um grupo por função seria a resposta de uma pessoa.
+    O que muda é o "onde" e o efetivo exposto naquele endereço.
+    """
+    for endereco in linha["establishments"]:
+        if endereco["id"] == establishment_id:
+            return {
+                **linha,
+                "site_name": endereco["name"],
+                "establishment_id": endereco["id"],
+                "establishment_headcount": endereco["headcount"],
+            }
+    return linha
+
+
 def profile_views(profile: dict) -> list[dict]:
     """As organizacoes que este cadastro produz, primaria primeiro.
 
@@ -3835,10 +3903,20 @@ class TenantStore:
         return len(graded_rows)
 
     def nr1_list_inventory(
-        self, *, organization_id: str, membership_id: str, campaign_id: str
+        self, *, organization_id: str, membership_id: str, campaign_id: str,
+        establishment_id: str | None = None,
     ) -> list[dict]:
+        """O inventário da campanha, ou o de UM estabelecimento.
+
+        Com `establishment_id`, devolve o que vale naquele endereço: os setores
+        dele e os grupos por função que o cobrem (migration 059). É o documento
+        por estabelecimento que 1.5.3.1.1.1 pede, com o resultado de cada função
+        lançado com o mesmo texto em todos os endereços onde ela existe.
+        """
         if not self.enabled or not self.runtime_database_url:
             raise RuntimeError("dual persistence and runtime role are required")
+        if establishment_id is not None:
+            establishment_id = str(uuid.UUID(str(establishment_id)))
         with self._connect(runtime=True) as connection:
             with connection.transaction():
                 self._nr1_session(connection, organization_id, membership_id)
@@ -3858,7 +3936,9 @@ class TenantStore:
                            -- do setor em cada filial. O documento que a
                            -- fiscalizacao le precisa dizer ONDE, senao a medida
                            -- corretiva nao tem destino.
-                           estabelecimento.name
+                           estabelecimento.name,
+                           unit.unit_type,
+                           """ + _NR1_ESTABELECIMENTOS_SQL + """
                     FROM psychosocial_risk_inventory inventory
                     JOIN assessment_dimensions dimension
                       ON dimension.id = inventory.dimension_id
@@ -3867,6 +3947,12 @@ class TenantStore:
                       ON estabelecimento.id = unit.parent_unit_id
                     WHERE inventory.organization_id = %s
                       AND inventory.campaign_id = %s
+                      AND (%s::uuid IS NULL
+                           OR unit.parent_unit_id = %s::uuid
+                           OR EXISTS (
+                               SELECT 1 FROM organization_unit_coverage cobertura
+                                WHERE cobertura.unit_id = inventory.unit_id
+                                  AND cobertura.establishment_unit_id = %s::uuid))
                     -- NULLS LAST porque a linha declarada insuficiente tem
                     -- severidade e probabilidade nulas, e em DESC o Postgres
                     -- poe NULL primeiro: sem isto os recortes que NAO foram
@@ -3875,10 +3961,22 @@ class TenantStore:
                              NULLS LAST,
                              inventory.nr1_factor
                     """,
-                    (organization_id, campaign_id),
+                    (
+                        organization_id, campaign_id,
+                        establishment_id, establishment_id, establishment_id,
+                    ),
                 ).fetchall()
-        return [
-            {
+        linhas = [self._nr1_inventory_row(row) for row in rows]
+        if establishment_id is not None:
+            linhas = [
+                _projetar_no_estabelecimento(linha, establishment_id)
+                for linha in linhas
+            ]
+        return linhas
+
+    @staticmethod
+    def _nr1_inventory_row(row) -> dict:
+        return {
                 "inventory_id": str(row[0]),
                 "unit_id": str(row[1]) if row[1] else None,
                 "unit_name": row[2],
@@ -3896,9 +3994,9 @@ class TenantStore:
                 "suppression_gate": row[13],
                 "escalation_note": row[14] or "",
                 "site_name": row[15],
+                "unit_type": row[16],
+                "establishments": _estabelecimentos(row[17]),
             }
-            for row in rows
-        ]
 
     # -- Plano de ação (1.5.7.1 "b") ------------------------------------------
     #
@@ -4054,7 +4152,9 @@ class TenantStore:
                            -- O estabelecimento do setor. Sem ele a medida
                            -- corretiva nao tem destino numa empresa com varios
                            -- enderecos que repetem o nome do setor.
-                           estabelecimento.name
+                           estabelecimento.name,
+                           unit.unit_type,
+                           """ + _NR1_ESTABELECIMENTOS_SQL + """
                     FROM psychosocial_action_plan plano
                     JOIN psychosocial_risk_inventory inventory
                       ON inventory.id = plano.inventory_id
@@ -4103,6 +4203,8 @@ class TenantStore:
                 "review_due_at": row[26],
                 "review_trigger": row[27],
                 "site_name": row[28],
+                "unit_type": row[29],
+                "establishments": _estabelecimentos(row[30]),
             }
             for row in rows
         ]
@@ -4182,6 +4284,25 @@ class TenantStore:
             LEFT JOIN organization_units parent ON parent.id=unit.parent_unit_id
             WHERE unit.organization_id=%s
             ORDER BY unit.unit_type, parent.name NULLS FIRST, unit.name
+            """,
+            (organization_id,),
+        )
+        # Onde cada grupo por função existe (migration 059). Sem isto o dossiê
+        # apresentaria "Gerentes de loja" sem dizer em quais estabelecimentos
+        # o resultado vale — e o PGR é por estabelecimento (1.5.3.1.1.1).
+        coverage = rows(
+            """
+            SELECT coverage.unit_id, unit.name AS unit_name,
+                   coverage.establishment_unit_id,
+                   establishment.name AS establishment_name,
+                   establishment.external_code AS establishment_code,
+                   coverage.headcount
+            FROM organization_unit_coverage coverage
+            JOIN organization_units unit ON unit.id=coverage.unit_id
+            JOIN organization_units establishment
+              ON establishment.id=coverage.establishment_unit_id
+            WHERE coverage.organization_id=%s
+            ORDER BY unit.name, establishment.name
             """,
             (organization_id,),
         )
@@ -4365,6 +4486,23 @@ class TenantStore:
             gaps.append("Inventário de riscos psicossociais ainda não gerado.")
         elif any(not item["aep_id"] for item in inventory):
             gaps.append("Existem riscos do inventário sem vínculo com a AEP.")
+        # A linha sem "onde": risco de um recorte que não é setor de um
+        # estabelecimento nem grupo por função com cobertura. É a falha que a
+        # fiscalização aponta primeiro, e o dossiê a declara em vez de deixá-la
+        # parecer completa.
+        unit_by_id = {str(item["id"]): item for item in units}
+        covered_units = {str(item["unit_id"]) for item in coverage}
+        if any(
+            item["unit_id"]
+            and not unit_by_id.get(str(item["unit_id"]), {}).get("parent_unit_id")
+            and unit_by_id.get(str(item["unit_id"]), {}).get("unit_type") != "site"
+            and str(item["unit_id"]) not in covered_units
+            for item in inventory
+        ):
+            gaps.append(
+                "Existem riscos do inventário sem estabelecimento vinculado "
+                "(NR-1 1.5.3.1.1.1): cadastre onde cada grupo por função existe."
+            )
         if not actions:
             gaps.append("Plano de ação ainda não registrado.")
         if any(
@@ -4384,7 +4522,9 @@ class TenantStore:
         payload = {
             "document": {
                 "title": "Dossiê de evidências do processo FROID NR-1",
-                "schema_version": "1.1",
+                # 1.2 (26/11/2026): records.coverage, onde cada grupo por
+                # funcao existe (migration 059).
+                "schema_version": "1.2",
                 "scope": (
                     "Registros organizacionais e resultados agregados do GRO/PGR. "
                     "Não contém resposta individual de trabalhador."
@@ -4456,6 +4596,7 @@ class TenantStore:
             },
             "records": {
                 "units": units,
+                "coverage": coverage,
                 "criteria": criteria,
                 "campaigns": campaigns,
                 "aep": aeps,

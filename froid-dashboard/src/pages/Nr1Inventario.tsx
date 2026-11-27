@@ -6,6 +6,7 @@ import { EtapaNr1 } from "../components/nr1/EtapaNr1";
 import { apiUrl } from "../lib/api";
 import { GlossarioDeSiglas, Sigla } from "../lib/siglas";
 import { Nr1ExplicaPainel } from "../components/nr1/Nr1ExplicaPainel";
+import { ondeDaLinha, type EstabelecimentoDaLinha } from "../lib/nr1-onde";
 
 /**
  * O inventário de riscos, na tela e no papel.
@@ -33,6 +34,11 @@ type LinhaInventario = {
   unit_id: string | null;
   unit_name: string | null;
   site_name?: string | null;
+  unit_type?: string | null;
+  establishments?: EstabelecimentoDaLinha[] | null;
+  // Presentes só no inventário de UM estabelecimento (?establishment_id=).
+  establishment_id?: string | null;
+  establishment_headcount?: number | null;
   dimension_id: string;
   dimension_title: string;
   nr1_factor: string;
@@ -151,6 +157,12 @@ export const Nr1Inventario: React.FC<Props> = ({ user }) => {
   const [aviso, setAviso] = useState("");
   const [carregando, setCarregando] = useState(false);
   const [gerando, setGerando] = useState(false);
+  // O inventário de UM estabelecimento (NR-1 1.5.3.1.1.1): os setores dele e
+  // os grupos por função que o cobrem. A lista de endereços vem do documento
+  // da campanha inteira e fica guardada enquanto um deles está aberto, porque
+  // o documento filtrado só conhece o próprio endereço.
+  const [estabelecimento, setEstabelecimento] = useState("");
+  const [enderecos, setEnderecos] = useState<{ id: string; name: string }[]>([]);
 
   const cabecalhos = useMemo(
     () => ({
@@ -185,20 +197,37 @@ export const Nr1Inventario: React.FC<Props> = ({ user }) => {
   }, [cabecalhos, organizationId, selecionada]);
 
   const carregarDocumento = useCallback(
-    async (campaignId: string) => {
+    async (campaignId: string, estabelecimentoId = "") => {
       if (!organizationId || !campaignId) return;
       setCarregando(true);
       setErro("");
       try {
+        const filtro = estabelecimentoId
+          ? `?establishment_id=${encodeURIComponent(estabelecimentoId)}`
+          : "";
         const resposta = await fetch(
           apiUrl(
-            `/api/organizations/${organizationId}/nr1/campaigns/${campaignId}/inventory`,
+            `/api/organizations/${organizationId}/nr1/campaigns/${campaignId}/inventory${filtro}`,
           ),
           { headers: cabecalhos },
         );
         const corpo = await resposta.json();
         if (!resposta.ok) throw new Error(corpo?.detail || "falha ao ler o inventário");
-        setDocumento(corpo as Documento);
+        const lido = corpo as Documento;
+        setDocumento(lido);
+        if (!estabelecimentoId) {
+          const vistos = new Map<string, string>();
+          for (const linha of lido.inventory || []) {
+            for (const endereco of linha.establishments || []) {
+              vistos.set(endereco.id, endereco.name);
+            }
+          }
+          setEnderecos(
+            [...vistos.entries()]
+              .map(([id, name]) => ({ id, name }))
+              .sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
+          );
+        }
       } catch (e) {
         setErro(String((e as Error).message));
         setDocumento(null);
@@ -242,7 +271,7 @@ export const Nr1Inventario: React.FC<Props> = ({ user }) => {
           : "Documento gerado. Nenhum recorte pôde ser classificado, e a " +
               "insuficiência está declarada abaixo.",
       );
-      await carregarDocumento(selecionada);
+      await carregarDocumento(selecionada, estabelecimento);
     } catch (e) {
       setErro(String((e as Error).message));
     } finally {
@@ -257,11 +286,14 @@ export const Nr1Inventario: React.FC<Props> = ({ user }) => {
   useEffect(() => {
     if (selecionada) {
       setParametros({ campanha: selecionada }, { replace: true });
-      void carregarDocumento(selecionada);
+      void carregarDocumento(selecionada, estabelecimento);
     }
     // setParametros muda a cada render e não pode entrar aqui.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selecionada, carregarDocumento]);
+  }, [selecionada, estabelecimento, carregarDocumento]);
+
+  const nomeDoEstabelecimento =
+    enderecos.find((endereco) => endereco.id === estabelecimento)?.name || "";
 
   const linhas = documento?.inventory || [];
   const classificadas = linhas.filter((linha) => !linha.suppression_gate);
@@ -322,7 +354,12 @@ export const Nr1Inventario: React.FC<Props> = ({ user }) => {
             <span className="text-xs font-black text-slate-300">Campanha</span>
             <select
               value={selecionada}
-              onChange={(e) => setSelecionada(e.target.value)}
+              onChange={(e) => {
+                // Outra campanha, outros endereços: o filtro não atravessa.
+                setEstabelecimento("");
+                setEnderecos([]);
+                setSelecionada(e.target.value);
+              }}
               className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100"
             >
               <option value="">Selecione</option>
@@ -334,6 +371,25 @@ export const Nr1Inventario: React.FC<Props> = ({ user }) => {
               ))}
             </select>
           </label>
+          {enderecos.length > 0 && (
+            <label className="mt-3 block">
+              <span className="text-xs font-black text-slate-300">
+                Estabelecimento
+              </span>
+              <select
+                value={estabelecimento}
+                onChange={(e) => setEstabelecimento(e.target.value)}
+                className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100"
+              >
+                <option value="">Todos os estabelecimentos</option>
+                {enderecos.map((endereco) => (
+                  <option key={endereco.id} value={endereco.id}>
+                    {endereco.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           {erro && (
             <p className="mt-3 rounded border border-red-900 bg-red-950 p-3 text-xs font-bold text-red-200">
               {erro}
@@ -358,6 +414,9 @@ export const Nr1Inventario: React.FC<Props> = ({ user }) => {
               <p className="mt-1 text-xs text-slate-400">
                 {documento.campaign.title || "Campanha"} ·{" "}
                 {documento.campaign.unit_name || "Organização inteira"}
+                {nomeDoEstabelecimento
+                  ? ` · Estabelecimento: ${nomeDoEstabelecimento}`
+                  : ""}
               </p>
               <dl className="mt-3 grid gap-x-6 gap-y-1 text-[11px] leading-5 text-slate-300 sm:grid-cols-2">
                 <div>
@@ -425,17 +484,14 @@ export const Nr1Inventario: React.FC<Props> = ({ user }) => {
                       </div>
                       <p className="mt-1 text-[11px] opacity-80">
                         {FATOR[linha.nr1_factor] || linha.nr1_factor}
-                        {linha.unit_name
-                          ? ` · ${
-                              linha.site_name
-                                ? `${linha.site_name} / ${linha.unit_name}`
-                                : linha.unit_name
-                            }`
-                          : ""}
+                        {ondeDaLinha(linha) ? ` · ${ondeDaLinha(linha)}` : ""}
                         {linha.severity && linha.probability
                           ? ` · severidade ${linha.severity} × probabilidade ${linha.probability}`
                           : ""}
                         {linha.cohort_size ? ` · coorte de ${linha.cohort_size}` : ""}
+                        {linha.establishment_headcount
+                          ? ` · ${linha.establishment_headcount} exposto(s) neste estabelecimento`
+                          : ""}
                       </p>
                       {linha.rationale && (
                         <p className="mt-2 text-[11px] leading-5 opacity-90">
@@ -468,13 +524,7 @@ export const Nr1Inventario: React.FC<Props> = ({ user }) => {
                       <div className="flex flex-wrap items-baseline justify-between gap-2">
                         <span className="text-sm font-black text-amber-100">
                           {linha.dimension_title}
-                          {linha.unit_name
-                            ? ` · ${
-                                linha.site_name
-                                  ? `${linha.site_name} / ${linha.unit_name}`
-                                  : linha.unit_name
-                              }`
-                            : ""}
+                          {ondeDaLinha(linha) ? ` · ${ondeDaLinha(linha)}` : ""}
                         </span>
                         <span className="text-[11px] font-bold text-amber-300">
                           {PORTAO[linha.suppression_gate || ""] ||

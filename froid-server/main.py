@@ -14597,15 +14597,27 @@ async def generate_nr1_inventory(
 
 
 @app.get("/api/organizations/{organization_id}/nr1/campaigns/{campaign_id}/inventory")
-async def list_nr1_inventory(organization_id: str, campaign_id: str, request: Request):
+async def list_nr1_inventory(
+    organization_id: str, campaign_id: str, request: Request,
+    establishment_id: Optional[str] = None,
+):
     context = _require_enterprise_context(
         request, organization_id, "nr1.aggregate.read"
     )
+    # O inventário de UM estabelecimento (1.5.3.1.1.1): os setores dele e os
+    # grupos por função que o cobrem. Identificador malformado é erro de quem
+    # chamou, e não "campanha não encontrada".
+    if establishment_id is not None:
+        try:
+            establishment_id = str(uuid.UUID(establishment_id))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="estabelecimento inválido")
     try:
         inventory = TENANT_STORE.nr1_list_inventory(
             organization_id=organization_id,
             membership_id=context.membership_id,
             campaign_id=campaign_id,
+            establishment_id=establishment_id,
         )
         progress = TENANT_STORE.nr1_campaign_progress(
             organization_id=organization_id,
