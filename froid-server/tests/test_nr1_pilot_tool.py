@@ -423,9 +423,11 @@ class DocumentoCompletoDoPiloto(unittest.TestCase):
         self.assertTrue(any("WMS" in texto for texto in textos))
         self.assertTrue(any("ranking nominal" in texto for texto in textos))
 
-    def test_rede_farmaceutica_tem_tres_setores_e_escala_nacional(self):
-        self.assertEqual(len(self.tool.POPULATION), 3)
-        self.assertEqual(sum(self.tool.POPULATION.values()), 450)
+    def test_rede_farmaceutica_tem_cinco_grupos_e_escala_nacional(self):
+        # Três setores originais e, desde 26/11/2026, a gerência e a
+        # subgerência das lojas lidas por função (Leitura de Governança).
+        self.assertEqual(len(self.tool.POPULATION), 5)
+        self.assertEqual(sum(self.tool.POPULATION.values()), 530)
         loja = self.tool._aep_text(self.tool.UNIT_ATENDIMENTO, "baseline")
         self.assertIn("1.084 farmácias", loja["real_work_description"])
         self.assertIn("sete estados", loja["real_work_description"])
@@ -609,3 +611,163 @@ class CriteriosPublicadosSaoOsUsados(unittest.TestCase):
         self.assertIn("PILOT_CRITERIA.as_document()", SOURCE)
         # A única leitura do padrão é a que monta PILOT_CRITERIA.
         self.assertEqual(SOURCE.count("DEFAULT_CRITERIA.as_document()"), 1)
+
+
+class LeituraDeGovernancaNoPiloto(unittest.TestCase):
+    """A liderança das lojas lida por função, e cada linha com o seu endereço.
+
+    26/11/2026. O piloto avaliava três grupos de exposição sem endereço nenhum:
+    todas as linhas do inventário saíam sem dizer onde está o risco, que é o
+    que o PGR por estabelecimento (NR-1 1.5.3.1.1.1) exige. Agora há 45
+    estabelecimentos, a cobertura de cada grupo e duas funções novas.
+    """
+
+    def setUp(self):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("nr1_pilot_governanca", TOOL)
+        self.tool = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.tool)
+
+    def test_os_grupos_originais_vem_primeiro_e_mantem_as_respostas(self):
+        # Um único gerador por campanha percorre as unidades em ordem. Grupo
+        # novo antes dos antigos mudaria todas as respostas já publicadas.
+        self.assertEqual(
+            list(self.tool.POPULATION)[:3],
+            [self.tool.UNIT_ATENDIMENTO, self.tool.UNIT_LOGISTICA, self.tool.UNIT_DIGITAL],
+        )
+
+    def test_estrutura_de_quarenta_lojas_quatro_centros_e_a_central(self):
+        self.assertEqual(len(self.tool.LOJAS), 40)
+        self.assertEqual(len(self.tool.CENTROS_DE_DISTRIBUICAO), 4)
+        self.assertEqual(len(self.tool.ESTABELECIMENTOS), 45)
+        ids = [site[0] for site in self.tool.ESTABELECIMENTOS]
+        self.assertEqual(len(ids), len(set(ids)))
+        self.assertFalse(set(ids) & set(self.tool.POPULATION))
+        nomes = [site[1] for site in self.tool.ESTABELECIMENTOS]
+        self.assertEqual(len(nomes), len(set(nomes)))
+
+    def test_toda_pessoa_de_cada_grupo_tem_endereco(self):
+        self.assertEqual(set(self.tool.COBERTURA), set(self.tool.POPULATION))
+        for unidade, total in self.tool.POPULATION.items():
+            cobertura = self.tool.COBERTURA[unidade]
+            self.assertTrue(cobertura, f"{unidade} sem estabelecimento")
+            self.assertEqual(sum(pessoas for _, pessoas in cobertura), total)
+            enderecos = [site for site, _ in cobertura]
+            self.assertEqual(len(enderecos), len(set(enderecos)))
+
+    def test_cada_loja_tem_gerente_subgerente_e_equipe(self):
+        for site_id, nome, _ in self.tool.LOJAS:
+            for unidade in (
+                self.tool.UNIT_GERENTES, self.tool.UNIT_SUBGERENTES,
+                self.tool.UNIT_ATENDIMENTO,
+            ):
+                self.assertIn(
+                    site_id, {site for site, _ in self.tool.COBERTURA[unidade]},
+                    f"{nome} sem {self.tool.UNIT_NAMES[unidade]}",
+                )
+            self.assertEqual(self.tool.efetivo_do_estabelecimento(site_id), 8)
+
+    def test_nenhum_estabelecimento_fica_vazio(self):
+        for site_id, nome, _ in self.tool.ESTABELECIMENTOS:
+            self.assertGreater(self.tool.efetivo_do_estabelecimento(site_id), 0, nome)
+
+    def test_a_loja_nao_publica_sozinha_e_a_funcao_sim(self):
+        """É o motivo da leitura por função."""
+        from nr1_compliance import MIN_COHORT_CUT
+
+        self.assertLess(
+            self.tool.efetivo_do_estabelecimento(self.tool.LOJAS[0][0]), MIN_COHORT_CUT
+        )
+        for unidade in (self.tool.UNIT_GERENTES, self.tool.UNIT_SUBGERENTES):
+            self.assertGreaterEqual(self.tool.POPULATION[unidade], 40)
+
+    def test_criacao_grava_enderecos_e_cobertura(self):
+        criar = SOURCE[SOURCE.index("def create("):SOURCE.index("def _aep_text(")]
+        self.assertIn("VALUES (%s,%s,'site',%s,%s,%s,'active')", criar)
+        self.assertIn("INSERT INTO organization_unit_coverage", criar)
+        self.assertIn("ON CONFLICT (unit_id, establishment_unit_id) DO UPDATE", criar)
+
+    def test_remocao_apaga_a_cobertura_antes_das_unidades(self):
+        destroy = SOURCE[SOURCE.index("def destroy("):SOURCE.index("def main(")]
+        self.assertLess(
+            destroy.index("DELETE FROM organization_unit_coverage"),
+            destroy.index("DELETE FROM organization_units"),
+        )
+
+    def test_relatorio_reprova_linha_sem_endereco(self):
+        relatorio = SOURCE[SOURCE.index("def report("):SOURCE.index("def destroy(")]
+        self.assertIn("or inventario_sem_endereco != 0", relatorio)
+        self.assertIn("or cobertura_divergente != 0", relatorio)
+
+    def test_a_gerencia_absorve_a_pressao_que_saiu_da_equipe(self):
+        """O padrão que só a leitura por função mostra.
+
+        O excesso de demandas das equipes das lojas melhora; o dos gerentes das
+        MESMAS lojas não muda. A clareza de papel da subgerência melhora depois
+        da matriz de alçadas que a inclui.
+        """
+        import random
+        import statistics
+
+        dimensions = (
+            ("mudanca_organizacional", "risk"), ("clareza_papel", "protective"),
+            ("reconhecimento", "protective"), ("suporte_social", "protective"),
+            ("autonomia", "protective"), ("justica_organizacional", "protective"),
+            ("sobrecarga", "risk"), ("subcarga", "risk"), ("assedio", "risk"),
+            ("violencia", "risk"), ("relacoes", "risk"), ("isolamento", "risk"),
+            ("comunicacao", "risk"),
+        )
+        alvos = {
+            (self.tool.UNIT_ATENDIMENTO, "sobrecarga"): "workload_demand",
+            (self.tool.UNIT_GERENTES, "sobrecarga"): "workload_demand",
+            (self.tool.UNIT_GERENTES, "reconhecimento"): "work_organization",
+            (self.tool.UNIT_SUBGERENTES, "clareza_papel"): "work_organization",
+        }
+
+        def scores(campaign, wave):
+            rng = random.Random(f"{campaign}|{wave}")
+            result = []
+            for unit_id, total in self.tool.POPULATION.items():
+                collected = {code: [] for code, _ in dimensions}
+                for _ in range(total):
+                    for code, polarity in dimensions:
+                        values = [
+                            self.tool.answer_for(
+                                rng, {"code": code, "polarity": polarity}, unit_id, wave
+                            )
+                            for _ in range(3)
+                        ]
+                        collected[code].append(sum(values) / len(values))
+                for code, polarity in dimensions:
+                    if (unit_id, code) not in alvos:
+                        continue
+                    values = collected[code]
+                    critical = 2.0 if polarity == "protective" else 4.0
+                    favorable = 4.0 if polarity == "protective" else 2.0
+                    result.append(self.tool.nr1_compliance.DimensionScore(
+                        unit_id=unit_id, dimension_id=code,
+                        nr1_factor=alvos[(unit_id, code)], polarity=polarity,
+                        cut_favorable=favorable, cut_critical=critical,
+                        cohort_size=total, mean_score=sum(values) / total,
+                        critical_ratio=sum(
+                            value <= critical if polarity == "protective" else value >= critical
+                            for value in values
+                        ) / total,
+                        score_stddev=statistics.stdev(values),
+                        consequences=("transtorno_mental",), measure_efficacy="none",
+                        exposed_workers=total,
+                    ))
+            return result
+
+        verdicts = {
+            (item.unit_id, item.dimension_id): item.verdict
+            for item in self.tool.nr1_effectiveness.compare_campaigns(
+                scores(self.tool.CAMPAIGN_BASE, "baseline"),
+                scores(self.tool.CAMPAIGN_FOLLOW, "followup"),
+            )
+        }
+        self.assertEqual(verdicts[(self.tool.UNIT_ATENDIMENTO, "sobrecarga")], "effective")
+        self.assertEqual(verdicts[(self.tool.UNIT_GERENTES, "sobrecarga")], "no_change")
+        self.assertEqual(verdicts[(self.tool.UNIT_GERENTES, "reconhecimento")], "no_change")
+        self.assertEqual(verdicts[(self.tool.UNIT_SUBGERENTES, "clareza_papel")], "effective")

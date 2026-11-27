@@ -68,6 +68,11 @@ MEMBERSHIP_ID = str(uuid.uuid5(PILOT_NAMESPACE, "membership"))
 UNIT_ATENDIMENTO = str(uuid.uuid5(PILOT_NAMESPACE, "unit/atendimento"))
 UNIT_LOGISTICA = str(uuid.uuid5(PILOT_NAMESPACE, "unit/logistica"))
 UNIT_DIGITAL = str(uuid.uuid5(PILOT_NAMESPACE, "unit/digital"))
+# Leitura de Governança (26/11/2026): a liderança das lojas lida por FUNÇÃO,
+# atravessando os endereços. Numa loja de oito pessoas o gerente fica abaixo do
+# piso de anonimato e some; os 40 gerentes juntos publicam.
+UNIT_GERENTES = str(uuid.uuid5(PILOT_NAMESPACE, "unit/gerentes-de-loja"))
+UNIT_SUBGERENTES = str(uuid.uuid5(PILOT_NAMESPACE, "unit/subgerentes-de-loja"))
 CRITERIA_ID = str(uuid.uuid5(PILOT_NAMESPACE, "criteria"))
 CAMPAIGN_BASE = str(uuid.uuid5(PILOT_NAMESPACE, "campaign/baseline"))
 CAMPAIGN_FOLLOW = str(uuid.uuid5(PILOT_NAMESPACE, "campaign/followup"))
@@ -95,17 +100,100 @@ INSTRUMENT_VERSION = "1.0"
 # Amostra do estudo demonstrativo de uma rede com 1.084 farmácias em sete
 # estados. Os números representam participantes, não perguntas nem o efetivo
 # total da empresa. Todos os recortes ficam acima dos pisos de coorte.
+#
+# A ORDEM importa: as respostas saem de um único gerador por campanha, unidade
+# após unidade. Os grupos novos entram no FIM, para que as três unidades
+# originais continuem recebendo exatamente as mesmas respostas de antes.
 POPULATION = {
     UNIT_ATENDIMENTO: 240,
     UNIT_LOGISTICA: 120,
     UNIT_DIGITAL: 90,
+    UNIT_GERENTES: 40,
+    UNIT_SUBGERENTES: 40,
 }
 
 UNIT_NAMES = {
     UNIT_ATENDIMENTO: "Lojas — dispensação, atendimento e caixa",
     UNIT_LOGISTICA: "Centros de distribuição e abastecimento",
     UNIT_DIGITAL: "Comércio digital e televendas",
+    UNIT_GERENTES: "Gerentes de loja",
+    UNIT_SUBGERENTES: "Subgerentes de loja",
 }
+
+# Os ENDEREÇOS da amostra (unit_type 'site'). O PGR é por estabelecimento
+# (NR-1 1.5.3.1.1.1): sem eles, todo grupo do piloto saía no inventário sem
+# dizer onde está o risco. Quarenta lojas nos sete estados da rede, os quatro
+# centros de distribuição e a central do comércio digital.
+_CIDADES_DAS_LOJAS = (
+    ("São Paulo", "SP", 10),
+    ("Rio de Janeiro", "RJ", 6),
+    ("Belo Horizonte", "MG", 6),
+    ("Curitiba", "PR", 5),
+    ("Florianópolis", "SC", 4),
+    ("Goiânia", "GO", 4),
+    ("Salvador", "BA", 5),
+)
+EQUIPE_POR_LOJA = 6
+PESSOAS_POR_CENTRO = 30
+
+
+def _lojas() -> tuple:
+    lojas = []
+    for cidade, uf, quantidade in _CIDADES_DAS_LOJAS:
+        for _ in range(quantidade):
+            numero = len(lojas) + 1
+            lojas.append((
+                str(uuid.uuid5(PILOT_NAMESPACE, f"site/loja/{numero:02d}")),
+                f"Loja {numero:02d} — {cidade} ({uf})",
+                f"LJ{numero:03d}",
+            ))
+    return tuple(lojas)
+
+
+LOJAS = _lojas()
+CENTROS_DE_DISTRIBUICAO = tuple(
+    (
+        str(uuid.uuid5(PILOT_NAMESPACE, f"site/cd/{indice}")),
+        f"Centro de distribuição — {cidade} ({uf})",
+        f"CD{indice:02d}",
+    )
+    for indice, (cidade, uf) in enumerate(
+        (
+            ("Cajamar", "SP"), ("Contagem", "MG"),
+            ("São José dos Pinhais", "PR"), ("Simões Filho", "BA"),
+        ),
+        start=1,
+    )
+)
+CENTRAL_DIGITAL = (
+    str(uuid.uuid5(PILOT_NAMESPACE, "site/central-digital")),
+    "Central de atendimento digital — São Paulo (SP)",
+    "CAD01",
+)
+ESTABELECIMENTOS = LOJAS + CENTROS_DE_DISTRIBUICAO + (CENTRAL_DIGITAL,)
+
+# Em quais endereços cada grupo existe, e com quantas pessoas (migration 059).
+# É o que lança o resultado de cada grupo no inventário de cada endereço. A
+# soma por grupo fecha com POPULATION: conferido nos testes e no --report.
+COBERTURA = {
+    UNIT_ATENDIMENTO: tuple((loja[0], EQUIPE_POR_LOJA) for loja in LOJAS),
+    UNIT_LOGISTICA: tuple(
+        (centro[0], PESSOAS_POR_CENTRO) for centro in CENTROS_DE_DISTRIBUICAO
+    ),
+    UNIT_DIGITAL: ((CENTRAL_DIGITAL[0], POPULATION[UNIT_DIGITAL]),),
+    UNIT_GERENTES: tuple((loja[0], 1) for loja in LOJAS),
+    UNIT_SUBGERENTES: tuple((loja[0], 1) for loja in LOJAS),
+}
+
+
+def efetivo_do_estabelecimento(site_id: str) -> int:
+    """Pessoas do endereço: a soma do que cada grupo tem nele."""
+    return sum(
+        pessoas
+        for cobertura in COBERTURA.values()
+        for endereco, pessoas in cobertura
+        if endereco == site_id
+    )
 
 RESET = "\033[0m"
 BOLD = "\033[1m"
@@ -210,6 +298,17 @@ def answer_for(rng, dimension, unit_id, wave):
         centro = 1.7 if wave == "baseline" else 3.2
     elif unit_id == UNIT_DIGITAL and code == "autonomia":
         centro = 2.0 if wave == "baseline" else 3.25
+    # Leitura de Governança. A gerência absorve a pressão que saiu da equipe:
+    # o excesso de demandas das lojas melhora e o dos gerentes não muda. É o
+    # padrão que um corte só por loja nunca mostra.
+    elif unit_id == UNIT_GERENTES and code == "sobrecarga":
+        centro = 4.3 if wave == "baseline" else 4.25
+    elif unit_id == UNIT_GERENTES and code == "reconhecimento":
+        centro = 2.3 if wave == "baseline" else 2.35
+    # A subgerência recebe ordens de três chefias; a matriz de alçadas que a
+    # inclui resolve a clareza de papel.
+    elif unit_id == UNIT_SUBGERENTES and code == "clareza_papel":
+        centro = 2.2 if wave == "baseline" else 3.5
     elif protective:
         centro = 3.6 if wave == "baseline" else 3.7
     else:
@@ -277,6 +376,39 @@ def create(connection) -> None:
             (unit_id, ORG_ID, nome, headcount),
         )
 
+    for site_id, nome, codigo in ESTABELECIMENTOS:
+        connection.execute(
+            """
+            INSERT INTO organization_units
+                (id, organization_id, unit_type, name, external_code,
+                 headcount, status)
+            VALUES (%s,%s,'site',%s,%s,%s,'active')
+            ON CONFLICT (id) DO UPDATE SET
+                unit_type='site',
+                name=EXCLUDED.name,
+                external_code=EXCLUDED.external_code,
+                headcount=EXCLUDED.headcount,
+                status='active'
+            """,
+            (site_id, ORG_ID, nome, codigo, efetivo_do_estabelecimento(site_id)),
+        )
+    for unit_id, cobertura in COBERTURA.items():
+        for site_id, pessoas in cobertura:
+            connection.execute(
+                """
+                INSERT INTO organization_unit_coverage
+                    (organization_id, unit_id, establishment_unit_id, headcount)
+                VALUES (%s,%s,%s,%s)
+                ON CONFLICT (unit_id, establishment_unit_id) DO UPDATE SET
+                    headcount=EXCLUDED.headcount
+                """,
+                (ORG_ID, unit_id, site_id, pessoas),
+            )
+    print(
+        f"Estrutura: {len(ESTABELECIMENTOS)} estabelecimentos, "
+        f"{len(COBERTURA)} grupos com cobertura."
+    )
+
     criteria = PILOT_CRITERIA.as_document()
     connection.execute(
         """
@@ -329,7 +461,9 @@ def create(connection) -> None:
                 CRITERIA_ID, sum(POPULATION.values()),
                 "Mapear fatores de risco psicossociais relacionados ao trabalho em uma rede "
                 "de 1.084 farmácias distribuídas por sete estados, comparar lojas, centros "
-                "de distribuição e comércio digital e acompanhar a eficácia das medidas adotadas.",
+                "de distribuição e comércio digital, ler a gerência e a subgerência das lojas "
+                "como funções que atravessam os endereços e acompanhar a eficácia das medidas "
+                "adotadas.",
                 "Canal de acolhimento e orientação",
                 "Atendimento confidencial pela equipe corporativa de Saúde e Segurança "
                 "do Trabalho, com encaminhamento conforme a natureza da demanda.",
@@ -668,6 +802,187 @@ def _aep_text(unit_id: str, wave: str) -> dict:
                 "de supervisão."
             ),
         },
+        (UNIT_GERENTES, "baseline"): {
+            "reference_period": "Linha de base — gerência de loja",
+            "real_work_description": (
+                "Os 40 gerentes de loja da amostra respondem pelo resultado comercial, pela escala, pelo "
+                "estoque, pela segurança patrimonial e pela equipe de seis pessoas de cada unidade. Recebem "
+                "metas da diretoria regional, consolidam indicadores diários, conduzem abertura e fechamento "
+                "e substituem qualquer posto que fique descoberto, inclusive balcão e caixa."
+            ),
+            "exposure_duration": (
+                "A exigência começa antes da abertura e se estende ao fechamento financeiro. Em lojas com "
+                "vaga aberta, o gerente cobre o posto vago e desloca o trabalho administrativo para depois "
+                "do expediente."
+            ),
+            "exposure_frequency": (
+                "Cobranças de resultado chegam diariamente pelos canais regionais. As reuniões de desempenho "
+                "são semanais e se intensificam no fechamento de mês e nas campanhas promocionais."
+            ),
+            "exposure_intensity": (
+                "A pressão é mais alta quando a meta da matriz é revista no meio do ciclo, quando a cobertura "
+                "regional não chega e quando o gerente precisa escolher entre proteger a pausa da equipe e "
+                "cumprir o indicador do dia."
+            ),
+            "exposure_cofactors": (
+                "Contribuem a alçada reduzida para decidir sobre escala e remanejamento, pedidos duplicados "
+                "de áreas diferentes da matriz e a ausência de substituto treinado para folgas e férias do "
+                "gerente."
+            ),
+            "health_indicators": (
+                "Os registros coletivos de SST mostram procura por apoio concentrada em gerentes recém-"
+                "promovidos e em lojas de maior movimento, sempre analisada de forma agregada e sem acesso a "
+                "resposta individual."
+            ),
+            "absenteeism_notes": (
+                "As ausências da gerência são raras e curtas, o que não indica baixa exposição: a série "
+                "registra folgas adiadas e férias fracionadas, sinal de que o gerente permanece no posto "
+                "apesar do desgaste."
+            ),
+            "previous_assessments": (
+                "Não havia leitura própria da gerência. Cada gerente era contado dentro da equipe da sua loja, "
+                "onde, numa unidade de oito pessoas, ficava abaixo do piso de anonimato e nunca aparecia no "
+                "resultado."
+            ),
+            "responsible_name": "Juliana Costa",
+            "responsible_qualification": "Engenharia de Segurança do Trabalho — coordenação corporativa de SST",
+            "aet_required": True,
+            "aet_justification": (
+                "Aprofundar a distribuição de alçadas entre matriz, regional e loja, a origem das metas e o "
+                "tempo que o gerente dedica a cobrir postos vagos, para separar a causa corporativa da "
+                "condição local."
+            ),
+        },
+        (UNIT_GERENTES, "followup"): {
+            "reference_period": "Reavaliação — gerência de loja",
+            "real_work_description": (
+                "Com a cobertura regional e a fila digital separada, as equipes das lojas passaram a ter "
+                "pausas mais previsíveis. Parte do ganho veio do gerente, que assumiu as coberturas "
+                "emergenciais e o registro das pausas adiadas sem redução das demais atribuições."
+            ),
+            "exposure_duration": (
+                "A jornada da gerência não encurtou. O tempo antes da abertura e depois do fechamento "
+                "permaneceu, agora somado ao acionamento da cobertura regional e ao registro das pausas."
+            ),
+            "exposure_frequency": (
+                "As cobranças diárias continuam, e as reuniões semanais passaram a incluir os novos "
+                "indicadores de pausa e cobertura, o que aumentou o número de pontos cobrados por semana."
+            ),
+            "exposure_intensity": (
+                "A intensidade segue elevada nos fechamentos de mês e nas lojas com vaga aberta, onde o "
+                "gerente concentra a decisão de remanejar e a responsabilidade pelo resultado."
+            ),
+            "exposure_cofactors": (
+                "A alçada para escala e remanejamento continua na regional: a matriz de alçadas publicada "
+                "para as equipes não alcançou as decisões que cabem ao gerente."
+            ),
+            "health_indicators": (
+                "A devolutiva coletiva da gerência descreve cansaço acumulado e a percepção de que a melhora "
+                "das equipes foi obtida à custa do próprio gerente, padrão que a leitura por função tornou "
+                "visível."
+            ),
+            "absenteeism_notes": (
+                "Folgas adiadas e férias fracionadas da gerência seguem acompanhadas por região, e o "
+                "indicador não mostrou melhora no período."
+            ),
+            "previous_assessments": (
+                "A comparação usa a linha de base da própria função, com o mesmo instrumento e as mesmas "
+                "regras de anonimato. A leitura das equipes no mesmo período serve de contraste, não de soma."
+            ),
+            "responsible_name": "Juliana Costa",
+            "responsible_qualification": "Engenharia de Segurança do Trabalho — coordenação corporativa de SST",
+            "aet_required": True,
+            "aet_justification": (
+                "Redesenhar as alçadas da gerência e o dimensionamento da liderança nas lojas com vaga "
+                "aberta, e verificar se a medida corporativa alcança a função que absorveu a pressão."
+            ),
+        },
+        (UNIT_SUBGERENTES, "baseline"): {
+            "reference_period": "Linha de base — subgerência de loja",
+            "real_work_description": (
+                "Os 40 subgerentes da amostra conduzem o turno em que o gerente não está, respondem pela "
+                "conferência de caixa, pelo recebimento de mercadorias e pela abertura ou pelo fechamento, e "
+                "recebem orientações do gerente da loja, da supervisão regional e das áreas da matriz."
+            ),
+            "exposure_duration": (
+                "A exposição se concentra nos turnos em que o subgerente responde sozinho pela loja, em geral "
+                "noites, fins de semana e folgas do gerente."
+            ),
+            "exposure_frequency": (
+                "Orientações divergentes chegam várias vezes por semana, sobretudo em campanhas comerciais, "
+                "inventários e mudanças de procedimento de estoque."
+            ),
+            "exposure_intensity": (
+                "A pressão cresce quando duas chefias dão ordens incompatíveis para o mesmo turno e o "
+                "subgerente precisa escolher qual cumprir sem ter a quem recorrer naquele momento."
+            ),
+            "exposure_cofactors": (
+                "Faltam descrição de cargo atualizada, critério de substituição do gerente e canal definido "
+                "para resolver conflito de ordens fora do horário comercial."
+            ),
+            "health_indicators": (
+                "Os relatos coletivos apontam insegurança sobre o próprio papel e receio de ser "
+                "responsabilizado por decisões tomadas sem alçada, analisados apenas de forma agregada."
+            ),
+            "absenteeism_notes": (
+                "A rotatividade da função é maior que a das demais lideranças da loja. A informação orienta "
+                "a investigação e não estabelece nexo individual."
+            ),
+            "previous_assessments": (
+                "A função nunca havia sido avaliada separadamente: somada à equipe da loja, desaparecia abaixo "
+                "do piso de anonimato, e somada à gerência, confundia-se com ela."
+            ),
+            "responsible_name": "Juliana Costa",
+            "responsible_qualification": "Engenharia de Segurança do Trabalho — coordenação corporativa de SST",
+            "aet_required": True,
+            "aet_justification": (
+                "Delimitar o papel do subgerente frente à gerência e à supervisão regional, definir alçadas "
+                "para o turno sem gerente e estabelecer quem decide quando as ordens conflitam."
+            ),
+        },
+        (UNIT_SUBGERENTES, "followup"): {
+            "reference_period": "Reavaliação — subgerência de loja",
+            "real_work_description": (
+                "A matriz de alçadas passou a incluir a subgerência, com descrição de cargo revisada, regra de "
+                "substituição do gerente e canal único da supervisão regional para resolver ordens "
+                "conflitantes durante o turno."
+            ),
+            "exposure_duration": (
+                "Os turnos sob responsabilidade do subgerente continuam, mas passaram a ter roteiro de decisão "
+                "e contato de retaguarda definidos antes do início."
+            ),
+            "exposure_frequency": (
+                "As orientações divergentes ficaram menos frequentes depois que as áreas da matriz passaram a "
+                "comunicar mudanças de procedimento por um único canal."
+            ),
+            "exposure_intensity": (
+                "Conflitos de ordem ainda ocorrem em inventários e campanhas, mas o subgerente passou a ter a "
+                "quem recorrer e a quem atribuir a decisão."
+            ),
+            "exposure_cofactors": (
+                "Persistem diferenças entre regiões na aplicação da nova regra de substituição e na "
+                "disponibilidade da retaguarda nos fins de semana."
+            ),
+            "health_indicators": (
+                "A devolutiva coletiva registra mais segurança sobre o papel e menos receio de "
+                "responsabilização por decisões fora da alçada."
+            ),
+            "absenteeism_notes": (
+                "A rotatividade da função passou a ser acompanhada por região e por modelo de loja; o período "
+                "ainda é curto para atribuir a variação às medidas."
+            ),
+            "previous_assessments": (
+                "A comparação usa a linha de base da própria subgerência, com o mesmo instrumento, as mesmas "
+                "regras de anonimato e a mesma cobertura de lojas."
+            ),
+            "responsible_name": "Juliana Costa",
+            "responsible_qualification": "Engenharia de Segurança do Trabalho — coordenação corporativa de SST",
+            "aet_required": True,
+            "aet_justification": (
+                "Acompanhar a adoção da regra de substituição nas regiões com retaguarda irregular e verificar "
+                "se a descrição de cargo revisada entrou na integração de novos subgerentes."
+            ),
+        },
     }
     return scenarios[(unit_id, wave)]
 
@@ -802,6 +1117,82 @@ def _evidence_summaries(unit_id: str, wave: str) -> dict:
                 "gestão foram relacionados cronologicamente às duas mudanças organizacionais."
             ),
         },
+        (UNIT_GERENTES, "baseline"): {
+            "questionnaire": (
+                "Questionário respondido pelos 40 gerentes de loja, lidos juntos como uma função que "
+                "atravessa os endereços. Excesso de demandas e reconhecimento por quem lidera aparecem como "
+                "prioridades, sem relação com o porte da loja."
+            ),
+            "activity_observation": (
+                "Acompanhamento de jornadas de gerentes em lojas de rua, shopping e 24 horas registrou "
+                "cobertura de postos vagos, conferência de indicadores entre atendimentos e fechamento "
+                "administrativo depois do expediente."
+            ),
+            "worker_dialogue": (
+                "Rodas de conversa só com gerentes, sem a presença da regional, ligaram o desgaste à revisão "
+                "de metas no meio do ciclo e à falta de alçada para decidir sobre escala."
+            ),
+            "document_analysis": (
+                "Foram confrontados o calendário de metas da matriz, as pautas das reuniões regionais, a matriz "
+                "de alçadas vigente e o registro de folgas e férias da gerência."
+            ),
+        },
+        (UNIT_GERENTES, "followup"): {
+            "questionnaire": (
+                "Na reavaliação, os 40 gerentes mantiveram o excesso de demandas no mesmo patamar enquanto as "
+                "equipes das mesmas lojas melhoraram: a pressão deixou a equipe e ficou na gerência."
+            ),
+            "activity_observation": (
+                "A nova rotina mostrou o gerente acionando a cobertura regional, registrando pausas adiadas e "
+                "ainda cobrindo o posto vago até a chegada do apoio."
+            ),
+            "worker_dialogue": (
+                "Os gerentes relataram que os indicadores de pausa e cobertura entraram na reunião semanal "
+                "como cobrança adicional, sem a retirada de outra meta."
+            ),
+            "document_analysis": (
+                "Atas das reuniões regionais, painel de cobertura e registro de pausas adiadas foram "
+                "relacionados ao calendário de metas para localizar a origem corporativa da sobrecarga."
+            ),
+        },
+        (UNIT_SUBGERENTES, "baseline"): {
+            "questionnaire": (
+                "Questionário respondido pelos 40 subgerentes, lidos como função própria e separados da "
+                "gerência. Clareza de papel e ordens contraditórias entre chefias concentram o resultado "
+                "desfavorável."
+            ),
+            "activity_observation": (
+                "Observação de turnos noturnos e de fim de semana registrou o subgerente decidindo sozinho "
+                "sobre recebimento, caixa e atendimento, com orientações de fontes diferentes para a mesma "
+                "tarefa."
+            ),
+            "worker_dialogue": (
+                "Encontros com subgerentes de várias regiões descreveram a mesma dúvida sobre até onde vai a "
+                "própria decisão quando o gerente não está."
+            ),
+            "document_analysis": (
+                "Descrições de cargo, comunicados das áreas da matriz e registros de ocorrência de turno foram "
+                "comparados para mapear as ordens que se contradizem."
+            ),
+        },
+        (UNIT_SUBGERENTES, "followup"): {
+            "questionnaire": (
+                "Na reavaliação, a clareza de papel dos subgerentes melhorou de forma consistente, depois da "
+                "revisão das alçadas e do canal único da supervisão regional."
+            ),
+            "activity_observation": (
+                "Nos turnos observados, o subgerente consultou o roteiro de decisão e acionou a retaguarda "
+                "definida, sem precisar escolher entre ordens incompatíveis."
+            ),
+            "worker_dialogue": (
+                "Os subgerentes apontaram a regra de substituição do gerente como a mudança mais útil e "
+                "pediram que ela chegue igual a todas as regiões."
+            ),
+            "document_analysis": (
+                "A descrição de cargo revisada, a matriz de alçadas ampliada e o registro do canal único foram "
+                "conferidos contra as ocorrências de turno do período."
+            ),
+        },
     }
     result = evidence[(unit_id, wave)]
     participation = {
@@ -816,6 +1207,14 @@ def _evidence_summaries(unit_id: str, wave: str) -> dict:
         UNIT_DIGITAL: (
             "Oficina com atendimento por telefone, chat e aplicativos reconstruiu transferências, alçadas, alternância entre sistemas, metas concorrentes, monitoramento e situações de exposição nominal em reuniões e canais digitais.",
             "A representação dos trabalhadores avaliou autonomia, critérios de desempenho, prevenção de assédio e canais de mediação, registrando a retirada do ranking nominal como prioridade quando identificada na reavaliação.",
+        ),
+        UNIT_GERENTES: (
+            "Oficina só com gerentes de loja de várias regiões reconstruiu um dia de trabalho da função, da abertura ao fechamento, localizando de onde vêm as metas, as coberturas e as decisões que não cabem ao gerente.",
+            "A representação dos trabalhadores examinou a carga da gerência, a alçada para escala e o risco de o resultado da função virar avaliação individual de gerente, registrando a proibição desse uso.",
+        ),
+        UNIT_SUBGERENTES: (
+            "Oficina com subgerentes mapeou os turnos sem gerente, as ordens que chegam de cada chefia e as decisões tomadas sem alçada, e propôs um roteiro único para o turno.",
+            "A representação dos trabalhadores revisou a descrição de cargo, a regra de substituição e o canal para conflito de ordens, com registro das pendências levadas ao plano de ação.",
         ),
     }
     workshop, cipa = participation[unit_id]
@@ -1169,6 +1568,44 @@ def _action_plan_text(seed: dict, title: str, *, implemented: bool) -> dict:
                 "sincronizada de campanhas, estoque e regras de atendimento."
             ),
         },
+        UNIT_GERENTES: {
+            "work_organization": (
+                f"{action} matriz de alçadas da gerência para {title.lower()}, transferindo à loja as "
+                "decisões de escala e remanejamento do dia e fixando prazo mínimo para a matriz revisar metas."
+            ),
+            "workload_demand": (
+                f"{action} dimensionamento da liderança para reduzir {title.lower()} na gerência, com "
+                "substituto treinado para folgas e férias, limite de postos que o gerente cobre e retirada "
+                "de indicadores redundantes das reuniões semanais."
+            ),
+            "harassment_violence": (
+                f"{action} protocolo para {title.lower()} dirigido à gerência, com canal fora da linha "
+                "regional, apuração independente e proteção contra represália a quem relata cobrança abusiva."
+            ),
+            "environment_modality": (
+                f"{action} rotina de comunicação sobre {title.lower()} entre regional e gerência, com pauta "
+                "fixa, prazo de resposta e registro das decisões que a matriz devolve à loja."
+            ),
+        },
+        UNIT_SUBGERENTES: {
+            "work_organization": (
+                f"{action} descrição de cargo e regra de substituição para {title.lower()} na subgerência, "
+                "delimitando o que o subgerente decide no turno sem gerente e quem arbitra ordens conflitantes."
+            ),
+            "workload_demand": (
+                f"{action} distribuição de tarefas do turno para reduzir {title.lower()} na subgerência, "
+                "separando recebimento, caixa e atendimento quando o subgerente responde sozinho pela loja."
+            ),
+            "harassment_violence": (
+                f"{action} protocolo para {title.lower()} nos turnos noturnos e de fim de semana, com "
+                "retaguarda regional definida, interrupção segura e registro da ocorrência sem exposição de "
+                "quem relata."
+            ),
+            "environment_modality": (
+                f"{action} canal único da supervisão regional para {title.lower()} no turno, com contato de "
+                "retaguarda definido antes do início e confirmação por escrito das mudanças de procedimento."
+            ),
+        },
     }
     monitoring = {
         UNIT_ATENDIMENTO: {
@@ -1189,6 +1626,18 @@ def _action_plan_text(seed: dict, title: str, *, implemented: bool) -> dict:
             "harassment_violence": "Acompanhamento mensal de relatos agregados, medidas de proteção, prazo de apuração e reincidência por área de gestão.",
             "environment_modality": "Teste mensal dos canais de suporte, estabilidade das integrações e contato regular de equipes remotas com a liderança.",
         },
+        UNIT_GERENTES: {
+            "work_organization": "Revisão mensal, por região, das decisões devolvidas da regional para a loja e do prazo de revisão de metas.",
+            "workload_demand": "Painel mensal de postos cobertos pelo gerente, folgas adiadas, férias fracionadas e substitutos disponíveis por região.",
+            "harassment_violence": "Acompanhamento trimestral de relatos agregados da gerência, prazo de apuração e medidas de proteção adotadas.",
+            "environment_modality": "Conferência mensal das pautas regionais, dos prazos de resposta e das decisões registradas para a gerência.",
+        },
+        UNIT_SUBGERENTES: {
+            "work_organization": "Revisão mensal das ocorrências de turno sem gerente e das ordens conflitantes arbitradas pela supervisão.",
+            "workload_demand": "Painel mensal de tarefas acumuladas no turno do subgerente e de acionamentos da retaguarda.",
+            "harassment_violence": "Revisão mensal de ocorrências agregadas em turnos noturnos e de fim de semana e do tempo de resposta da retaguarda.",
+            "environment_modality": "Teste mensal do canal único da supervisão e auditoria das mudanças de procedimento comunicadas por escrito.",
+        },
     }
     completed_evidence = {
         UNIT_ATENDIMENTO: {
@@ -1208,6 +1657,18 @@ def _action_plan_text(seed: dict, title: str, *, implemented: bool) -> dict:
             "workload_demand": "Limites de simultaneidade configurados e célula de resolução passou a absorver pedidos críticos.",
             "harassment_violence": "Canal independente divulgado e procedimento de preservação de mensagens e proteção contra retaliação formalizado.",
             "environment_modality": "Plantão técnico, canal único e rotina de alinhamento com equipes remotas incorporados à operação.",
+        },
+        UNIT_GERENTES: {
+            "work_organization": "Matriz de alçadas da gerência publicada e calendário de revisão de metas aprovado pela diretoria.",
+            "workload_demand": "Substitutos de gerência treinados por região e limite de cobertura de postos incorporado à escala.",
+            "harassment_violence": "Canal fora da linha regional divulgado à gerência e procedimento de apuração independente formalizado.",
+            "environment_modality": "Pauta fixa das reuniões regionais publicada, com prazo de resposta e registro das decisões devolvidas à loja.",
+        },
+        UNIT_SUBGERENTES: {
+            "work_organization": "Descrição de cargo revisada e regra de substituição do gerente publicadas para todas as regiões.",
+            "workload_demand": "Roteiro de tarefas do turno sem gerente distribuído e retaguarda regional escalada nos fins de semana.",
+            "harassment_violence": "Protocolo dos turnos noturnos distribuído e exercícios de acionamento da retaguarda concluídos.",
+            "environment_modality": "Canal único da supervisão implantado, com confirmação escrita das mudanças de procedimento.",
         },
     }
     planned_evidence = {
@@ -1486,6 +1947,48 @@ def report(connection) -> None:
     print(f"\n  Medidas que exigem correção: {len(falhas)}")
 
     print()
+    print(paint("LEITURA DE GOVERNANÇA — ONDE CADA GRUPO VALE", BOLD))
+    cobertura_gravada = {
+        str(row[0]): (int(row[1]), int(row[2]))
+        for row in connection.execute(
+            """
+            SELECT unit_id, count(*), sum(headcount)
+              FROM organization_unit_coverage
+             WHERE organization_id=%s
+             GROUP BY unit_id
+            """,
+            (ORG_ID,),
+        ).fetchall()
+    }
+    cobertura_divergente = 0
+    for unit_id, total in POPULATION.items():
+        enderecos, pessoas = cobertura_gravada.get(unit_id, (0, 0))
+        esperado = len(COBERTURA[unit_id])
+        certo = enderecos == esperado and pessoas == total
+        cobertura_divergente += 0 if certo else 1
+        nome = unidades.get(uuid.UUID(unit_id), unit_id)
+        print(f"  {'OK ' if certo else 'ERRO'} {nome}: {enderecos} estabelecimento(s), "
+              f"{pessoas} de {total} pessoas")
+    # A linha sem "onde" é a falha que a cobertura existe para impedir: um
+    # grupo sem estabelecimento pai e sem cobertura sai do inventário sem
+    # endereço (NR-1 1.5.3.1.1.1).
+    inventario_sem_endereco = connection.execute(
+        """
+        SELECT count(*)
+          FROM psychosocial_risk_inventory inventory
+          JOIN organization_units unit ON unit.id = inventory.unit_id
+         WHERE inventory.organization_id=%s
+           AND unit.parent_unit_id IS NULL
+           AND NOT EXISTS (
+               SELECT 1 FROM organization_unit_coverage cobertura
+                WHERE cobertura.unit_id = inventory.unit_id)
+        """,
+        (ORG_ID,),
+    ).fetchone()[0]
+    print(f"  {'OK ' if inventario_sem_endereco == 0 else 'ERRO'} linhas do "
+          f"inventário sem estabelecimento: {inventario_sem_endereco}")
+
+    print()
     print(paint("ROAD MAP DOCUMENTAL DO PILOTO", BOLD))
     counts = {
         "campanhas encerradas": connection.execute(
@@ -1537,6 +2040,8 @@ def report(connection) -> None:
         or counts["medidas no plano de ação"] == 0
         or counts["revisões de eficácia"] != expected_reviews
         or inventory_without_aep != 0
+        or cobertura_divergente != 0
+        or inventario_sem_endereco != 0
     )
     print(f"  OK  vínculos inventário → AEP: {inventory_without_aep} pendente(s)")
     if incomplete:
@@ -1595,6 +2100,11 @@ def destroy(connection) -> None:
         connection.execute(f"DELETE FROM {tabela} WHERE {condicao}", (ORG_ID,))
     connection.execute("DELETE FROM assessment_campaigns WHERE organization_id=%s", (ORG_ID,))
     connection.execute("DELETE FROM gro_risk_criteria WHERE organization_id=%s", (ORG_ID,))
+    # A cobertura sairia em cascata com as unidades; a remoção explícita deixa
+    # a lista do que o piloto apaga igual à lista do que ele cria.
+    connection.execute(
+        "DELETE FROM organization_unit_coverage WHERE organization_id=%s", (ORG_ID,)
+    )
     connection.execute("DELETE FROM organization_units WHERE organization_id=%s", (ORG_ID,))
     # Associacoes concedidas por --grant a contas reais. A conta em si nunca
     # e tocada: ela existia antes do piloto e continua existindo depois.

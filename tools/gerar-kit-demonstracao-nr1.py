@@ -49,7 +49,9 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "froid-server"))
 
+import leitura_governanca  # noqa: E402
 import nr1_compliance  # noqa: E402
+import pricing_nr1  # noqa: E402
 
 FONTES = REPO / "froid-site-dev" / "site-assets" / "fonts" / "fontes.css"
 LOGO = REPO / "froid-site-dev" / "site-assets" / "img" / "froid-logo.png"
@@ -151,13 +153,40 @@ def ciclo_de(campanhas: dict, campaign_id: str) -> str:
     return "Reavaliação" if "reavalia" in titulo.lower() else "Linha de base"
 
 
+def cobertura_por_grupo(r: dict) -> dict:
+    """Onde cada grupo por função existe (records.coverage, dossiê 1.2)."""
+    grupos = defaultdict(list)
+    for item in r.get("coverage") or []:
+        grupos[str(item["unit_id"])].append(item)
+    return grupos
+
+
+def unidade_e_onde(i: dict, cobertura: dict) -> str:
+    """A unidade da linha e o estabelecimento em que ela vale (NR-1 1.5.3.1.1.1).
+
+    Grupo em vários endereços é contado, não listado: quarenta lojas numa
+    célula esconderiam o risco atrás do endereço.
+    """
+    enderecos = cobertura.get(str(i.get("unit_id")), [])
+    if len(enderecos) > 1:
+        return (f"{e(i['unit_name'])}<br><span class=\"mini\">lançado em "
+                f"{len(enderecos)} estabelecimentos</span>")
+    if len(enderecos) == 1:
+        return f"{e(enderecos[0]['establishment_name'])} / {e(i['unit_name'])}"
+    return e(i["unit_name"])
+
+
 # --- Seções ------------------------------------------------------------------
 
 def capa(d: dict, p: dict) -> str:
     r = p["records"]
-    total = sum(u["headcount"] or 0 for u in r["units"])
+    # Desde 26/11/2026 o piloto tem estabelecimentos (unit_type 'site'). Eles
+    # não respondem: somá-los contaria as mesmas pessoas duas vezes.
+    grupos = [u for u in r["units"] if u["unit_type"] != "site"]
+    enderecos = [u for u in r["units"] if u["unit_type"] == "site"]
+    total = sum(u["headcount"] or 0 for u in grupos)
     unidades = "".join(
-        f"<li><b>{e(u['name'])}</b> — {e(u['headcount'])} participantes</li>" for u in r["units"]
+        f"<li><b>{e(u['name'])}</b> — {e(u['headcount'])} participantes</li>" for u in grupos
     )
     # 24/11/2026, pedido do dono: o logo era um retângulo escuro colado na
     # página branca. Agora a capa abre com uma faixa no mesmo azul-noite do
@@ -182,7 +211,8 @@ def capa(d: dict, p: dict) -> str:
   </div>
   <div class="cenario">
     <h3>O cenário do piloto</h3>
-    <p>Rede de farmácias com três grupos de exposição e {total} participantes:</p>
+    <p>Rede de farmácias com {len(grupos)} grupos de exposição, {total} participantes
+    e {len(enderecos)} estabelecimentos:</p>
     <ul>{unidades}</ul>
     <p>Dois ciclos completos: linha de base e reavaliação após as medidas.</p>
   </div>
@@ -220,6 +250,8 @@ def sumario(p: dict) -> str:
     severidade, probabilidade, nível e a fundamentação de cada classificação.</li>
     <li><b>Documento 5 — Plano de ação.</b> {c['action_plan_items']} medidas com tipo,
     prazo, acompanhamento, forma de aferição e o resultado medido da eficácia.</li>
+    <li><b>Adicional — {e(leitura_governanca.NOME)}.</b> A liderança lida por função,
+    atravessando os estabelecimentos, com o resultado lançado no inventário de cada um.</li>
     <li><b>Encerramento — Dossiê de evidências.</b> Versão selada, base normativa e
     roteiro de resposta a uma fiscalização.</li>
   </ol>
@@ -424,6 +456,7 @@ def documento_classificacao(p: dict) -> str:
 def documento_inventario(p: dict) -> str:
     r = p["records"]
     campanhas = {c["id"]: c for c in r["campaigns"]}
+    cobertura = cobertura_por_grupo(r)
     blocos = []
     for ciclo in ("Linha de base", "Reavaliação"):
         itens = sorted(
@@ -435,7 +468,7 @@ def documento_inventario(p: dict) -> str:
         linhas = "".join(
             f"""<tr><td>{selo(i['risk_level'])}</td>
 <td><b>{e(i['dimension_title'])}</b><br><span class="mini">{rotulo(FATOR, i['nr1_factor'])}</span></td>
-<td>{e(i['unit_name'])}</td><td class="c">{e(i['exposed_workers'])}</td>
+<td>{unidade_e_onde(i, cobertura)}</td><td class="c">{e(i['exposed_workers'])}</td>
 <td class="c">{num(i['mean_score'])}</td><td class="c">{e(i['severity'])}</td><td class="c">{e(i['probability'])}</td>
 <td>{', '.join(rotulo(AGRAVO, a) for a in (i.get('possible_harms') or [])) or '—'}</td>
 <td class="fund">{e(i['rationale'])}</td></tr>"""
@@ -443,7 +476,7 @@ def documento_inventario(p: dict) -> str:
         )
         compactas = "".join(
             f"""<tr><td>{selo(i['risk_level'])}</td><td>{e(i['dimension_title'])}</td><td>{rotulo(FATOR, i['nr1_factor'])}</td>
-<td>{e(i['unit_name'])}</td><td class="c">{e(i['exposed_workers'])}</td><td class="c">{num(i['mean_score'])}</td>
+<td>{unidade_e_onde(i, cobertura)}</td><td class="c">{e(i['exposed_workers'])}</td><td class="c">{num(i['mean_score'])}</td>
 <td class="c">{e(i['severity'])}</td><td class="c">{e(i['probability'])}</td></tr>"""
             for i in demais
         )
@@ -534,6 +567,122 @@ def documento_plano(p: dict, responsavel: str) -> str:
   correção no próximo ciclo e aparecem primeiro.</p>
   <table class="t ef"><tr><th>Unidade</th><th>Dimensão</th><th>Média base</th><th>Média reav.</th>
   <th>Efeito (d)</th><th>Veredito</th><th>Exige correção</th></tr>{linhas}</table>
+</section>"""
+
+
+def documento_governanca(p: dict) -> str:
+    """Adicional — Leitura de Governança, com o resultado do próprio piloto.
+
+    Nada aqui é escrito à mão: grupos, endereços, níveis e respostas saem do
+    dossiê; os limites, de leitura_governanca; o percentual, de pricing_nr1.
+    Dossiê sem grupo que atravesse endereços não tem esta página.
+    """
+    r = p["records"]
+    cobertura = cobertura_por_grupo(r)
+    campanhas = {c["id"]: c for c in r["campaigns"]}
+    funcoes = [u for u in r["units"] if len(cobertura.get(str(u["id"]), [])) > 1]
+    if not funcoes:
+        return ""
+    enderecos_de = {
+        uid: frozenset(str(c["establishment_unit_id"]) for c in itens)
+        for uid, itens in cobertura.items()
+    }
+    nivel = {}
+    linha = {}
+    for i in r["inventory"]:
+        chave = (str(i["unit_id"]), i["dimension_title"], ciclo_de(campanhas, i["campaign_id"]))
+        nivel[chave] = i["risk_level"]
+        linha[chave] = i
+    nomes = {str(u["id"]): u["name"] for u in r["units"]}
+
+    tabela_cobertura = "".join(
+        f"<tr><td><b>{e(u['name'])}</b></td><td class=\"c\">{len(cobertura[str(u['id'])])}</td>"
+        f"<td class=\"c\">{sum(int(c['headcount'] or 0) for c in cobertura[str(u['id'])])}</td></tr>"
+        for u in funcoes
+    )
+
+    # Para cada grupo que divide os mesmos endereços com outro (equipe,
+    # gerência e subgerência das mesmas lojas), as dimensões em que ele ficou
+    # alto ou crítico, ao lado do nível dos outros grupos desses endereços.
+    comparacoes = []
+    for u in funcoes:
+        uid = str(u["id"])
+        vizinhos = [
+            outro for outro in enderecos_de
+            if outro != uid and enderecos_de[outro] == enderecos_de[uid]
+        ]
+        # Sem outro grupo nos mesmos endereços não há com quem comparar: a
+        # leitura da cadeia é sempre uma camada ao lado da outra.
+        if not vizinhos:
+            continue
+        dimensoes = sorted({
+            d for (g, d, _c), lv in nivel.items()
+            if g == uid and lv in ("critical", "high")
+        })
+        for d in dimensoes:
+            vizinhanca = "; ".join(
+                f"{e(nomes.get(v, v))}: {selo(nivel.get((v, d, 'Linha de base'), ''))} → "
+                f"{selo(nivel.get((v, d, 'Reavaliação'), ''))}"
+                for v in vizinhos
+                if (v, d, "Linha de base") in nivel
+            ) or "—"
+            comparacoes.append(
+                f"<tr><td>{e(u['name'])}</td><td>{e(d)}</td>"
+                f"<td class=\"c\">{selo(nivel.get((uid, d, 'Linha de base'), ''))}</td>"
+                f"<td class=\"c\">{selo(nivel.get((uid, d, 'Reavaliação'), ''))}</td>"
+                f"<td>{vizinhanca}</td></tr>"
+            )
+
+    # Uma linha real do inventário, vista do inventário de um estabelecimento.
+    exemplo = ""
+    candidatas = sorted(
+        (i for (g, _d, c), i in linha.items()
+         if g in {str(u["id"]) for u in funcoes} and c == "Reavaliação"),
+        key=lambda i: (ORDEM_RISCO.get(i["risk_level"], 9), i["dimension_title"]),
+    )
+    if candidatas:
+        i = candidatas[0]
+        enderecos = sorted(cobertura[str(i["unit_id"])], key=lambda c: c["establishment_name"])
+        exemplo = (
+            f"<div class=\"nota\"><b>{e(enderecos[0]['establishment_name'])} — {e(i['unit_name'])} — "
+            f"{e(i['dimension_title'])}: {rotulo(RISCO, i['risk_level'])}.</b> Unidade de avaliação: "
+            f"função “{e(i['unit_name'])}” ({e(i['cohort_size'])} respostas, "
+            f"{len(enderecos)} estabelecimentos). A mesma linha, com o mesmo texto, consta do "
+            f"inventário de cada um dos {len(enderecos)} estabelecimentos: ela não revela nada "
+            f"sobre a pessoa de um endereço.</div>"
+        )
+
+    return f"""
+<section class="pagina">
+  <p class="doc-num">Adicional</p>
+  <h2 class="sec">{e(leitura_governanca.NOME)} — a liderança lida por função</h2>
+  <p class="base">NR-1 1.5.3.1.1.1: o PGR é por estabelecimento, podendo ser organizado por
+  atividade. O MTE cita como unidades de avaliação “a função” e “o grupo de exposição similar”.
+  O resultado de cada função é lançado no inventário de cada estabelecimento onde ela existe.</p>
+  <p>Numa loja de oito pessoas, o gerente fica abaixo do mínimo de anonimato e some do resultado.
+  Lidos juntos, os gerentes de todas as lojas formam um grupo que publica sem expor ninguém, e o
+  inventário passa a mostrar se o risco nasce na política da empresa, na camada de liderança ou
+  no local.</p>
+  <h3>Grupos por função no piloto</h3>
+  <table class="t"><thead><tr><th>Grupo</th><th>Estabelecimentos</th><th>Pessoas</th></tr></thead>
+  <tbody>{tabela_cobertura}</tbody></table>
+  <h3>Riscos altos e críticos de cada grupo, ao lado dos outros grupos dos mesmos estabelecimentos</h3>
+  <table class="t"><thead><tr><th>Função</th><th>Dimensão</th><th>Linha de base</th>
+  <th>Reavaliação</th><th>Outros grupos nos mesmos estabelecimentos (base → reavaliação)</th></tr></thead>
+  <tbody>{''.join(comparacoes)}</tbody></table>
+  <p class="mini">Quando a equipe melhora e a liderança das mesmas lojas não, a pressão não sumiu:
+  mudou de camada. É o que um corte só por endereço não consegue mostrar.</p>
+  {exemplo}
+  <h3>Quem pode contratar e quanto custa</h3>
+  <ul>
+    <li>Empresas a partir de {leitura_governanca.ESTABELECIMENTOS_MINIMOS} estabelecimentos e com
+    ao menos {leitura_governanca.PESSOAS_NA_FUNCAO_MINIMAS} pessoas numa mesma função de liderança,
+    condição confirmada com o cadastro antes de abrir a campanha.</li>
+    <li>Adicional de {pricing_nr1.ADICIONAL_LEITURA_GOVERNANCA_PERCENTUAL}% sobre a mensalidade,
+    só para quem optar pela avaliação horizontal, cobrado a partir dessa confirmação.</li>
+    <li>Não é necessário para cumprir a NR-1: a avaliação por estabelecimento e setor atende à
+    norma sozinha.</li>
+  </ul>
 </section>"""
 
 
@@ -670,7 +819,7 @@ def montar_html(d: dict, responsavel: str) -> str:
     corpo = "".join((
         capa(d, p), sumario(p), documento_gro(p), documento_aep(p),
         documento_classificacao(p), documento_inventario(p), documento_plano(p, responsavel),
-        encerramento(d, p),
+        documento_governanca(p), encerramento(d, p),
     ))
     return f"""<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
 <title>FROID — Kit de demonstração NR-1 (dados simulados)</title>
