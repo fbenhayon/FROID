@@ -28,6 +28,7 @@ import re
 from datetime import date, datetime, timedelta
 from typing import Any, Optional
 
+import leitura_governanca
 import nr1_compliance
 import pricing_nr1
 
@@ -129,6 +130,10 @@ def montar_retrato(
         "mensal": pricing_nr1.formatar_brl(total),
         "anual": pricing_nr1.formatar_brl(total * 12),
         "por_trabalhador": pricing_nr1.formatar_brl(calculo["perWorkerMonthCents"]),
+        # Decidido no pedido e gravado, com o percentual e os valores: a
+        # proposta já enviada não ganha, não perde e não reprecifica o bloco
+        # do adicional depois. Retrato antigo não tem a chave e não o mostra.
+        "leitura_governanca": _adicional_governanca(lead["estabelecimentos"], total),
         "tabela": {
             "codigo": calculo["pricingTable"]["code"],
             "versao": calculo["pricingTable"]["version"],
@@ -136,6 +141,18 @@ def montar_retrato(
             "sha256": calculo["pricingTable"]["sha256"],
             "procedencia": procedencia,
         },
+    }
+
+
+def _adicional_governanca(estabelecimentos: int, mensal_centavos: int) -> Optional[dict]:
+    """O adicional da Leitura de Governança, se a empresa pode contratá-lo."""
+    if not leitura_governanca.pode_oferecer(estabelecimentos):
+        return None
+    adicional = pricing_nr1.adicional_leitura_governanca(mensal_centavos)
+    return {
+        "percentual": pricing_nr1.ADICIONAL_LEITURA_GOVERNANCA_PERCENTUAL,
+        "mensal": pricing_nr1.formatar_brl(adicional),
+        "total_com_adicional": pricing_nr1.formatar_brl(mensal_centavos + adicional),
     }
 
 
@@ -188,6 +205,39 @@ def renderizar(r: dict) -> str:
         )
 
     tabela = r["tabela"]
+    governanca = ""
+    adicional = r.get("leitura_governanca")
+    if isinstance(adicional, dict):
+        # O adicional é oferecido, nunca apresentado como necessário: o
+        # escopo acima atende à NR-1 sozinho. Percentual e valores vêm do
+        # retrato, calculados por pricing_nr1 no pedido.
+        governanca = f"""<div class="adicional">
+<h3>Adicional opcional — {e(leitura_governanca.NOME)}</h3>
+<p>Com {estab}, a {e(r['empresa'])} pode contratar a leitura da liderança por função: gerentes,
+subgerentes ou supervisores lidos como um grupo que atravessa os endereços, com o resultado
+lançado no inventário de cada estabelecimento onde a função existe. Mostra onde nasce o risco
+— na política da empresa, na camada de liderança ou no local — e o nível de decisão de cada
+medida do plano de ação.</p>
+<ul>
+  <li>Condição: ao menos {leitura_governanca.PESSOAS_NA_FUNCAO_MINIMAS} pessoas numa mesma função
+  de liderança, confirmada pela simulação com o cadastro antes de abrir a campanha. A cobrança do
+  adicional só começa depois dessa confirmação.</li>
+  <li>O anonimato não muda: cada pessoa responde em um único grupo, e os mínimos da seção 7
+  continuam valendo.</li>
+  <li>O resultado de cada função descreve condições de trabalho e não pode ser usado como
+  avaliação de desempenho ou de conduta de quem a ocupa (cláusula 2.3 do Contrato).</li>
+  <li>Para contratar, a planilha da seção 4 ganha uma aba “Funções”: função, estabelecimento e
+  número de pessoas.</li>
+</ul>
+<table>
+<tr><th>Adicional</th><th class="n">Cálculo</th><th class="n">Valor mensal</th></tr>
+<tr><td>{e(leitura_governanca.NOME)}</td><td class="n">{e(adicional['percentual'])}% sobre {e(r['mensal'])}</td><td class="n">{e(adicional['mensal'])}</td></tr>
+<tr class="total"><td>Total mensal com o adicional</td><td class="n"></td><td class="n">{e(adicional['total_com_adicional'])}</td></tr>
+</table>
+<p class="mini">Não é necessário para cumprir a NR-1: o escopo desta proposta atende à norma
+sozinho. O adicional não está incluído no total da tabela anterior e só é cobrado por quem o
+contratar, a partir da confirmação da condição acima.</p>
+</div>"""
     return f"""<!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -217,6 +267,7 @@ tr.total td {{ font-weight:700; border-top:2px solid var(--tinta); }}
 .gratis {{ border:1.5px solid #059669; background:#ecfdf5; color:#064e3b; border-radius:8px; padding:12px 16px; margin:14px 0; }}
 .alerta {{ border-left:3px solid #d97706; background:#fffbeb; padding:8px 12px; }}
 .nao {{ color:var(--cinza); }}
+.adicional {{ border:1.5px solid var(--azul); background:#eff6ff; border-radius:8px; padding:4px 16px 10px; margin:16px 0; }}
 ul, ol {{ padding-left:22px; }} li {{ margin-bottom:4px; }}
 code {{ font-size:12px; word-break:break-all; }}
 .mini {{ font-size:12px; color:var(--cinza); }}
@@ -372,6 +423,7 @@ ser cobrada a partir do mês seguinte a essa entrega.</div>
   <li>Vigência: {VIGENCIA_MESES} meses a partir do aceite.</li>
   <li>Faturamento mensal. Data de vencimento e índice de reajuste são definidos no contrato.</li>
 </ul>
+{governanca}
 <p class="mini">Valores calculados em {_data(r['emitida_em'])} pela tabela {e(tabela['codigo'])},
 versão {e(tabela['versao'])}, vigente desde {_data(tabela['vigente_desde'])}
 (digital <code>{e(tabela['sha256'])}</code>).</p>

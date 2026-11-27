@@ -238,6 +238,31 @@ A razão é técnica, e não comercial. Quem conhece a atividade, a organizaçã
 
 > **Campanhas ilimitadas.** Cada estabelecimento abre quantas campanhas de avaliação precisar, em qualquer setor, sem cobrança por campanha nem por setor. O valor mensal é o da tabela acima, e medir de novo nunca custa mais — o oposto do incentivo de quem cobra por levantamento.
 
+### 6.3 Adicional opcional — Leitura de Governança
+
+> **Só para redes.** Incluir esta seção apenas quando o cliente tiver 20 ou mais
+> estabelecimentos; nos demais casos, apagá-la antes de enviar.
+
+A liderança — gerentes, subgerentes, supervisores — lida por **função**, como um
+grupo que atravessa os estabelecimentos, com o resultado lançado no inventário de
+cada estabelecimento onde a função existe. Mostra se o risco nasce na política da
+empresa, na camada de liderança ou no local.
+
+| | |
+|---|---:|
+| Adicional sobre a mensalidade | **30%** |
+| Mensal de tabela com o adicional | R$ `[_____]` |
+
+- **Condição:** a partir de 20 estabelecimentos e com ao menos 40 pessoas numa
+  mesma função de liderança, confirmada com o cadastro antes de abrir a campanha.
+  A cobrança do adicional só começa depois dessa confirmação.
+- **Anonimato:** cada pessoa responde em um único grupo, e os mínimos de anonimato
+  continuam valendo.
+- **Uso do resultado:** o resultado de uma função descreve condições de trabalho e
+  não pode ser usado como avaliação de desempenho ou de conduta de quem a ocupa.
+- **Não é necessário para cumprir a NR-1:** a avaliação por estabelecimento e setor
+  atende à norma sozinha.
+
 ---
 
 ## 7. Prazos

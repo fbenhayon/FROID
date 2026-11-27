@@ -229,6 +229,31 @@ def formatar_brl(centavos: int, casas: int = 2) -> str:
     return f"R$ {corpo}" + (f",{resto:02d}" if casas else "")
 
 
+# ------------------------------------------- adicional: Leitura de Governança ---
+# Decisão do dono, 27/11/2026: "acrescentar o adicional de 30% dos serviços
+# para aqueles clientes que optarem pela avaliação horizontal". Incide sobre a
+# mensalidade calculada acima, e só para quem contrata a Leitura de Governança
+# (avaliação por função atravessando os estabelecimentos; leitura_governanca.py
+# diz quem pode contratar).
+#
+# Fica FORA de TABELA_VIGENTE de propósito: a tabela é cópia do motor em
+# TypeScript e tem digital própria, e mudar o seu conteúdo invalidaria a
+# digital de toda proposta já emitida sob ela. A proposta que oferece o
+# adicional grava o percentual no próprio retrato, então continua dizendo o
+# que foi proposto mesmo que este número mude.
+ADICIONAL_LEITURA_GOVERNANCA_PERCENTUAL = 30
+
+
+def adicional_leitura_governanca(mensal_centavos: int) -> int:
+    """O adicional mensal em centavos, arredondado metade para cima.
+
+    Aritmética inteira, pelo mesmo motivo de `perWorkerMonthCents`: `round()`
+    do Python arredonda empate para o par, e a fatura não pode depender disso.
+    """
+    base = int(mensal_centavos) * ADICIONAL_LEITURA_GOVERNANCA_PERCENTUAL
+    return (2 * base + 100) // 200
+
+
 def simular(
     workers: int, establishments: int, table: Optional[dict[str, Any]] = None
 ) -> dict[str, Any]:
